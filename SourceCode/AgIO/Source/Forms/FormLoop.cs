@@ -1,4 +1,5 @@
 ﻿using AgIO.Properties;
+using AgIO.Classes;
 using AgLibrary.Logging;
 using Microsoft.Win32;
 using System;
@@ -70,7 +71,8 @@ namespace AgIO
         public bool isAppInFocus = true, isLostFocus;
 
         public int focusSkipCounter = 310;
-
+        private MqttBroker mqttBroker;
+        private MqttServerManager mqttServer;
         public FormLoop()
         {
             InitializeComponent();
@@ -83,6 +85,8 @@ namespace AgIO
             {
                 LoadUDPNetwork();
                 Log.EventWriter("UDP Network Is On");
+                
+                StartMqttServer();
             }
             else
             {
@@ -278,7 +282,7 @@ namespace AgIO
                 this.Text = "AgIO  v" + Program.Version + " Profile: "
                     + RegistrySettings.profileName;
             }
-
+           
             if (Properties.Settings.Default.setDisplay_isAutoRunGPS_Out)
             {
                 StartGPS_Out();
@@ -766,6 +770,12 @@ namespace AgIO
                 }
             }
         }
+        private async void StartMqttServer()
+        {
+            mqttServer = new MqttServerManager();
+            await mqttServer.StartAsync();
+        }
+
 
     }
 }
