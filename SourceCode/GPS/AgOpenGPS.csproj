@@ -48,6 +48,8 @@
   <ItemGroup>
     <PackageReference Include="Control.Draggable" Version="1.0.5049.269" />
     <PackageReference Include="Dev4Agriculture.ISO11783.ISOXML" Version="0.23.1.1" />
+    <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
+    <PackageReference Include="NetTopologySuite.IO.ShapeFile" Version="2.1.0" />
     <PackageReference Include="OpenTK.GLControl" Version="3.3.3" />
     <PackageReference Include="System.Resources.Extensions" Version="9.0.0" />
     <PackageReference Include="System.ValueTuple" Version="4.6.1" />

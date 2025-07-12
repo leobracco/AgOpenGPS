@@ -2,7 +2,9 @@
 
 using AgLibrary.Logging;
 using AgOpenGPS.Core.Models;
+using Newtonsoft.Json;
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -1304,6 +1306,7 @@ namespace AgOpenGPS
                     tankPos.heading = fixHeading;
                     tankPos.easting = hitchPos.easting;
                     tankPos.northing = hitchPos.northing;
+
                 }
 
                 //Torriem rules!!!!! Oh yes, this is all his. Thank-you
@@ -1382,7 +1385,7 @@ namespace AgOpenGPS
             //precalc the sin and cos of heading * -1
             sinSectionHeading = Math.Sin(-toolPivotPos.heading);
             cosSectionHeading = Math.Cos(-toolPivotPos.heading);
-        }
+            }
 
         //calculate the extreme tool left, right velocities, each section lookahead, and whether or not its going backwards
         public void CalculateSectionLookAhead(double northing, double easting, double cosHeading, double sinHeading)
@@ -1480,7 +1483,12 @@ namespace AgOpenGPS
                 }
                 else sped = rightSpeed;
                 section[j].speedPixels = section[j].speedPixels * 0.7 + sped * 0.3;
+              
+
+
             }
+           
+
         }
 
         //perimeter and boundary point generation

@@ -27,6 +27,7 @@ using System.Resources;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 
 namespace AgOpenGPS
 {
@@ -34,7 +35,7 @@ namespace AgOpenGPS
     public partial class FormGPS : Form
     {
         public ApplicationCore AppCore { get; }
-
+        private MqttPublisher mqttPublisher;
         public ApplicationModel AppModel => AppCore.AppModel;
         public ApplicationViewModel AppViewModel => AppCore.AppViewModel;
 
@@ -57,6 +58,64 @@ namespace AgOpenGPS
                 AppViewModel.IsDay = value;
             }
         }
+        //Enviar datos a mqtt
+        private async Task IniciarLoopMQTTAsync()
+        {
+            while (true)
+            {
+                if (mqttPublisher != null)
+                {
+                    double tractorLat = AppModel.CurrentLatLon.Latitude;
+                    double tractorLon = AppModel.CurrentLatLon.Longitude;
+
+                    var secciones = new List<object>();
+
+                    for (int j = 0; j < tool.numOfSections; j++)
+                    {
+                        var izq = ConvertLocalToLatLon(tractorLat, tractorLon, section[j].leftPoint.easting, section[j].leftPoint.northing);
+                        var der = ConvertLocalToLatLon(tractorLat, tractorLon, section[j].rightPoint.easting, section[j].rightPoint.northing);
+
+                        var seccion = new
+                        {
+                            seccion = j + 1,
+                            estado = section[j].isSectionOn ? "ON" : "OFF",
+                            velocidad_kmh = Math.Round(section[j].speedPixels * 3.6, 2),
+                            izquierda = new { lat = Math.Round(izq.lat, 8), lon = Math.Round(izq.lon, 8) },
+                            derecha = new { lat = Math.Round(der.lat, 8), lon = Math.Round(der.lon, 8) }
+                        };
+
+                        secciones.Add(seccion);
+                    }
+
+                    var payload = new
+                    {
+                        timestamp = DateTime.UtcNow.ToString("o"),
+                        tractor_lat = Math.Round(tractorLat, 8),
+                        tractor_lon = Math.Round(tractorLon, 8),
+                        secciones = secciones
+                    };
+
+                    string mensajeJson = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
+                    mqttPublisher.Publish(mensajeJson);
+                }
+
+                await Task.Delay(500);
+            }
+        }
+
+        // Calcular LatLong de cada seccion
+        private static (double lat, double lon) ConvertLocalToLatLon(double originLat, double originLon, double easting, double northing)
+        {
+            double earthRadius = 6378137;
+            double dLat = northing / earthRadius;
+            double dLon = easting / (earthRadius * Math.Cos(Math.PI * originLat / 180.0));
+
+            double lat = originLat + (dLat * 180.0 / Math.PI);
+            double lon = originLon + (dLon * 180.0 / Math.PI);
+
+            return (lat, lon);
+        }
+
 
         // Deprecated. Only here to avoid numerous changes to existing code that not has been refactored.
         // Please use AppViewModel.Fields directly
@@ -384,7 +443,11 @@ namespace AgOpenGPS
             //brightness object class
             displayBrightness = new CWindowsSettingsBrightnessController(Properties.Settings.Default.setDisplay_isBrightnessOn);
         }
-
+        public async Task InicializarMQTT()
+        {
+            await mqttPublisher.ConnectAsync();
+            _ = Task.Run(IniciarLoopMQTTAsync);
+        }
         private void FormGPS_Load(object sender, EventArgs e)
         {
             Log.EventWriter("Program Started: "
@@ -414,7 +477,8 @@ namespace AgOpenGPS
 
             //start udp server is required
             StartLoopbackServer();
-
+            mqttPublisher = new MqttPublisher("127.0.0.1", 1883, "agopen/section");
+            Task.Run(async () => await InicializarMQTT()); ;
             //boundaryToolStripBtn.Enabled = false;
             FieldMenuButtonEnableDisable(false);
 

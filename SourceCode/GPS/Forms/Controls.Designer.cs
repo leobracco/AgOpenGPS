@@ -580,7 +580,11 @@ namespace AgOpenGPS
                     using (var form2 = new FormFieldKML(this))
                     { form2.ShowDialog(this); }
                 }
-
+                else if (result == DialogResult.Ignore) // por ejemplo, si DialogResult.Ignore = cargar SHP
+                {
+                    using (var form2 = new FormFieldSHP(this))
+                    { form2.ShowDialog(this); }
+                }
                 //load from Existing
                 else if (result == DialogResult.Retry)
                 {
