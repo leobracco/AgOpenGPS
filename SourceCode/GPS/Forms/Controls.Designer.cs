@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
+using System.Runtime.InteropServices;
 using AgLibrary.Logging;
 using AgOpenGPS.Core.Models;
 using AgOpenGPS.Core.Translations;
@@ -2178,8 +2179,19 @@ namespace AgOpenGPS
                 //save new copy of kml with selected flag and view in GoogleEarth
                 FileSaveSingleFlagKML(flagNumberPicked);
 
-                //Process.Start(@"C:\Program Files (x86)\Google\Google Earth\client\googleearth", workingDirectory + currentFieldDirectory + "\\Flags.KML");
-                Process.Start(Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory, "Flag.KML"));
+                var kmlPath = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory, "Flag.KML");
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    Process.Start(new ProcessStartInfo(kmlPath) { UseShellExecute = true });
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    Process.Start("xdg-open", kmlPath);
+                }
+                else
+                {
+                    Process.Start(kmlPath);
+                }
             }
         }
 
