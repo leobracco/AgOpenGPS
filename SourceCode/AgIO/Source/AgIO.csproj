@@ -1,13 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net6.0-windows</TargetFramework>
     <OutputType>WinExe</OutputType>
     <OutputPath>..\..\..\AgOpenGPS\</OutputPath>
     <ApplicationIcon>AgIO_ico.ico</ApplicationIcon>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <UseWindowsForms>true</UseWindowsForms>
-    <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EmbeddedResourceUseDependentUponConvention>true</EmbeddedResourceUseDependentUponConvention>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
@@ -22,7 +21,6 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\References\RepeatButtonControl.dll</HintPath>
     </Reference>
-    <Reference Include="System.Configuration" />
     <Reference Include="WindowsBase" />
   </ItemGroup>
 
@@ -31,9 +29,10 @@
     <ProjectReference Include="..\..\Keypad\Keypad.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.Resources.Extensions" Version="9.0.0" />
-  </ItemGroup>
+    <ItemGroup>
+      <PackageReference Include="System.Resources.Extensions" Version="9.0.0" />
+      <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
+    </ItemGroup>
 
   <ItemGroup>
     <Compile Update="Forms\Controls.Designer.cs">
