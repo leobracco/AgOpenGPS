@@ -28,6 +28,7 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using AgOpenGPS.Shape;
 
 namespace AgOpenGPS
 {
@@ -38,6 +39,12 @@ namespace AgOpenGPS
         private MqttPublisher mqttPublisher;
         public ApplicationModel AppModel => AppCore.AppModel;
         public ApplicationViewModel AppViewModel => AppCore.AppViewModel;
+
+        private readonly ShapeService shapeService = new ShapeService();
+        private ShapeDataset loadedShape;
+        private ShapeAttributePublisher shapeAttributePublisher;
+        private readonly ToolStripStatusLabel shapeStatusLabel = new ToolStripStatusLabel();
+        private bool shapeOverlayEnabled;
 
         // Deprecated. Only here to avoid numerous changes to existing code that not has been refactored.
         // Please use AppViewModel.IsMetric directly
@@ -97,6 +104,20 @@ namespace AgOpenGPS
 
                     string mensajeJson = Newtonsoft.Json.JsonConvert.SerializeObject(payload);
                     mqttPublisher.Publish(mensajeJson);
+
+                    if (loadedShape != null)
+                    {
+                        var hit = shapeService.QueryAtLatLon(tractorLat, tractorLon, 10);
+                        if (hit != null)
+                        {
+                            shapeStatusLabel.Text = string.Join(", ", hit.Feature.Attributes.Select(kv => kv.Key + ":" + kv.Value));
+                            shapeAttributePublisher?.Publish(hit, tractorLat, tractorLon);
+                        }
+                        else
+                        {
+                            shapeStatusLabel.Text = string.Empty;
+                        }
+                    }
                 }
 
                 await Task.Delay(500);
@@ -114,6 +135,30 @@ namespace AgOpenGPS
             double lon = originLon + (dLon * 180.0 / Math.PI);
 
             return (lat, lon);
+        }
+
+        private void AddShapeMenu()
+        {
+            var menu = new ToolStripMenuItem("Shapefile");
+            var load = new ToolStripMenuItem("Cargar Shapefile...");
+            load.Click += LoadShapefile_Click;
+            var toggle = new ToolStripMenuItem("Ver Shapefile") { CheckOnClick = true };
+            toggle.CheckedChanged += (s, e) => { shapeOverlayEnabled = toggle.Checked; oglMain.Invalidate(); };
+            menu.DropDownItems.Add(load);
+            menu.DropDownItems.Add(toggle);
+            menuStrip1.Items.Add(menu);
+        }
+
+        private void LoadShapefile_Click(object sender, EventArgs e)
+        {
+            using (var ofd = new OpenFileDialog())
+            {
+                ofd.Filter = "Shapefile (*.shp)|*.shp";
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    loadedShape = shapeService.LoadShapefile(ofd.FileName);
+                }
+            }
         }
 
 
@@ -453,6 +498,10 @@ namespace AgOpenGPS
             Log.EventWriter("Program Started: "
                 + DateTime.Now.ToString("f", CultureInfo.InvariantCulture));
             Log.EventWriter("AOG Version: " + Application.ProductVersion.ToString(CultureInfo.InvariantCulture));
+
+            shapeAttributePublisher = new ShapeAttributePublisher("localhost", 1883, "agpvr/shape/current");
+            statusStrip1.Items.Add(shapeStatusLabel);
+            AddShapeMenu();
 
             if (!Properties.Settings.Default.setDisplay_isTermsAccepted)
             {

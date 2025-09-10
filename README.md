@@ -18,6 +18,28 @@ Also ouputs Pure pursuit steer angles from reference line for AB line, AB Curve 
 Auto Headland called UTurn on Curve and AB Line with loops for narrow equipment. 
 Mapping as a background can also be added.
 
+## Shapefile overlay and MQTT publishing
+
+The WinForms client can load ESRI Shapefiles and publish attributes of the
+feature under the tractor via MQTT. At runtime use **Shapefile → Cargar
+Shapefile...** to select a `.shp` file and toggle **Ver Shapefile** to enable
+the overlay. Each position update queries the loaded dataset and publishes a
+JSON payload to `agpvr/shape/current`:
+
+```json
+{
+  "lat": -34.5678,
+  "lon": -59.1234,
+  "featureId": 123,
+  "distance_m": 4.2,
+  "attributes": { "ZONA": "A1", "KG_HA": 170 }
+}
+```
+
+This feature uses [NetTopologySuite](https://github.com/NetTopologySuite) for
+geometry handling and [MQTTnet](https://github.com/dotnet/MQTTnet) for MQTT
+communication.
+
 Included in this repository is an application, and source folders. 
 
 See the PCB repo for PCB layouts, firmware for steering and rate control, machine control, GPS and simulator. 
