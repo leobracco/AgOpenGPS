@@ -37,7 +37,7 @@ namespace AgLibrary.Tests.Settings
         public void LoadXMLFile_ShouldReturnMissingFile()
         {
             // Arrange
-            var filePath = @"C:\Path\To\Nonexisting\Settings.xml";
+            var filePath = Path.Combine(Path.GetTempPath(), "Nonexisting", "Settings.xml");
 
             // Act
             var loadResult = XmlSettingsHandler.LoadXMLFile(filePath, null);
