@@ -9,6 +9,7 @@ using AgOpenGPS.Core.Drawing;
 using AgOpenGPS.Core.DrawLib;
 using AgOpenGPS.Core.Models;
 using AgOpenGPS.Properties;
+using AgOpenGPS.Shape;
 
 namespace AgOpenGPS
 {
@@ -117,6 +118,7 @@ namespace AgOpenGPS
                     if (isDrawPolygons) GL.PolygonMode(MaterialFace.Front, PolygonMode.Line);
 
                     GL.Enable(EnableCap.Blend);
+                    DrawShapeOverlay();
                     //draw patches of sections
 
                     //direction marker width
@@ -677,6 +679,12 @@ namespace AgOpenGPS
                 lblHz.Text = " ???? \r\n Not Connected";
 
             }
+        }
+
+        private void DrawShapeOverlay()
+        {
+            if (!shapeOverlayEnabled || loadedShape == null) return;
+            // Placeholder for future OpenGL drawing of shape features.
         }
 
         private int bbCounter = 0;
