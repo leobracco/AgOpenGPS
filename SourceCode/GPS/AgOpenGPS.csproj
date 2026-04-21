@@ -10,6 +10,13 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EmbeddedResourceUseDependentUponConvention>true</EmbeddedResourceUseDependentUponConvention>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <!-- Desactivar analyzers de Roslyn en este proyecto: Directory.Build.props
+         los habilita globalmente, y FormGPS.cs es tan grande que Roslyn crashea
+         con OutOfMemoryException al intentar analizar sus BoundBlockOperation.
+         El resto de los proyectos siguen con analyzers habilitados. -->
+    <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
