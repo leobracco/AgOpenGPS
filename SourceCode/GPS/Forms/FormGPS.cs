@@ -97,6 +97,7 @@ namespace AgOpenGPS
         private SeedMonitor vistaXMonitor;
         private VistaXNativePanel vistaXPanel;
         public VistaXConfig vistaXConfig;
+        private FormVistaXPopup vistaXPopupForm;
         // VISTAX_MOD_END
 
         // SHAPEFILE_MOD_START
@@ -1614,6 +1615,15 @@ namespace AgOpenGPS
         {
             try
             {
+                // VistaX ahora es nativo. Ruteo al popup GDI+ singleton en vez
+                // del popup CefSharp (que cargaba el server Node en localhost:3001
+                // y abria una ventana nueva por cada click).
+                if (string.Equals(module.Name, "VistaX", StringComparison.OrdinalIgnoreCase))
+                {
+                    OpenVistaXNativePopup();
+                    return;
+                }
+
                 var popup = new ModulePopupForm(module);
                 popup.Show(this);
             }
@@ -1623,6 +1633,23 @@ namespace AgOpenGPS
                     + " error: " + ex.Message);
                 TimedMessageBox(2500, "AgroParallel", module.Name + ": " + ex.Message);
             }
+        }
+
+        private void OpenVistaXNativePopup()
+        {
+            if (vistaXPopupForm != null && !vistaXPopupForm.IsDisposed)
+            {
+                if (vistaXPopupForm.WindowState == FormWindowState.Minimized)
+                    vistaXPopupForm.WindowState = FormWindowState.Normal;
+                vistaXPopupForm.BringToFront();
+                vistaXPopupForm.Activate();
+                return;
+            }
+
+            var cfg = vistaXConfig ?? VistaXConfig.Load();
+            vistaXPopupForm = new FormVistaXPopup(cfg, vistaXMonitor);
+            vistaXPopupForm.FormClosed += (s, e) => vistaXPopupForm = null;
+            vistaXPopupForm.Show(this);
         }
         // AGROPARALLEL_MOD_END
 

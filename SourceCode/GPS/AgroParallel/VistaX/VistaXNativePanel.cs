@@ -20,16 +20,20 @@ namespace AgroParallel.VistaX
 {
     public class VistaXNativePanel : UserControl
     {
-        private static readonly Color CBgDark = Color.FromArgb(10, 10, 10);
-        private static readonly Color CBgHeader = Color.FromArgb(18, 18, 22);
-        private static readonly Color CText = Color.FromArgb(235, 235, 235);
-        private static readonly Color CTextDim = Color.FromArgb(140, 140, 140);
-        private static readonly Color CAccent = Color.FromArgb(0, 230, 118);
-        private static readonly Color CRed = Color.FromArgb(255, 23, 68);
-        private static readonly Color CYellow = Color.FromArgb(255, 210, 30);
-        private static readonly Color CBlue = Color.FromArgb(64, 164, 255);
-        private static readonly Color CPink = Color.FromArgb(255, 96, 180);
-        private static readonly Color CBorder = Color.FromArgb(40, 40, 48);
+        // Paleta tomada de VistaX-Core / public/css/vistax.css
+        private static readonly Color CBgDark = Color.FromArgb(0, 0, 0);          // #000000
+        private static readonly Color CBgHeader = Color.FromArgb(20, 20, 20);     // #141414
+        private static readonly Color CBgCard = Color.FromArgb(30, 30, 30);       // #1e1e1e
+        private static readonly Color CText = Color.FromArgb(255, 255, 255);      // #ffffff
+        private static readonly Color CTextDim = Color.FromArgb(102, 102, 102);   // #666666
+        private static readonly Color CAccent = Color.FromArgb(0, 230, 118);      // #00e676
+        private static readonly Color CAccentDark = Color.FromArgb(0, 160, 64);   // #00a040
+        private static readonly Color CRed = Color.FromArgb(255, 23, 68);         // #ff1744
+        private static readonly Color CRedDark = Color.FromArgb(183, 28, 28);     // #b71c1c
+        private static readonly Color CYellow = Color.FromArgb(255, 234, 0);      // #ffea00
+        private static readonly Color CBlocked = Color.FromArgb(8, 8, 8);         // #080808
+        private static readonly Color CBlockedBorder = Color.FromArgb(17, 17, 17); // #111111
+        private static readonly Color CBorder = Color.FromArgb(40, 40, 40);
 
         private const int HeaderHeight = 40;
         private const int FooterHeight = 20;
@@ -312,17 +316,26 @@ namespace AgroParallel.VistaX
             switch (s.State)
             {
                 case RowState.Failure:
-                    using (var b = new SolidBrush(Color.FromArgb(200, 32, 40)))
-                        g.FillRectangle(b, rect);
-                    break;
-                case RowState.NoData:
-                    using (var b = new SolidBrush(Color.FromArgb(45, 45, 55)))
-                        g.FillRectangle(b, rect);
-                    break;
-                default:
-                    // Gradiente azul (tope) -> rosa (base) modulado por SPM.
+                    // Rojo brillante -> rojo oscuro (matches VistaX-Core .alert).
                     using (var brush = new LinearGradientBrush(
-                        new Point(x, y), new Point(x, y + h), CBlue, CPink))
+                        new Point(x, y), new Point(x, y + h), CRed, CRedDark))
+                    {
+                        g.FillRectangle(brush, rect);
+                    }
+                    using (var border = new Pen(CRed))
+                        g.DrawRectangle(border, rect);
+                    return;
+                case RowState.NoData:
+                    // Bajada bloqueada: fondo casi negro plano, borde muy tenue.
+                    using (var b = new SolidBrush(CBlocked))
+                        g.FillRectangle(b, rect);
+                    using (var border = new Pen(CBlockedBorder))
+                        g.DrawRectangle(border, rect);
+                    return;
+                default:
+                    // Verde brillante (tope) -> verde oscuro (base) — .ok de VistaX.
+                    using (var brush = new LinearGradientBrush(
+                        new Point(x, y), new Point(x, y + h), CAccent, CAccentDark))
                     {
                         g.FillRectangle(brush, rect);
                     }
