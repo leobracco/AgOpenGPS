@@ -212,6 +212,11 @@ namespace AgroParallel.VistaX
         [JsonPropertyName("offsetXPx")]
         public int OffsetXPx { get; set; }
 
+        // Objetivo de siembra (semillas/m) para este tren. Puede venir de
+        // ImplementoSetup.ObjetivosTren["1"/"2"] o caer a DensidadObjetivo.
+        [JsonPropertyName("objetivo")]
+        public double Objetivo { get; set; }
+
         [JsonPropertyName("surcos")]
         public SurcoState[] Surcos { get; set; }
 
@@ -241,6 +246,11 @@ namespace AgroParallel.VistaX
         public string NombreImplemento { get; set; }
         public bool MonitoreoActivo { get; set; }
         public MetodoInicioMonitoreo MetodoInicio { get; set; }
+
+        // Tolerancia de desvio (en %) respecto al objetivo para decidir si un
+        // surco esta "ok" o "con desvio" aunque no haya alerta critica.
+        // Viene de ImplementoSetup.ToleranciaDesvio.
+        public double ToleranciaDesvio { get; set; }
 
         public SeedMonitorSnapshot()
         {

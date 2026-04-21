@@ -191,9 +191,24 @@ namespace AgroParallel.VistaX
                     ? totalOnline + "/" + totalConfig
                     : totalOnline.ToString(CultureInfo.InvariantCulture);
 
+                // Objetivo: tomar el del primer tren con objetivo > 0 (si los
+                // trenes tienen distintos objetivos podemos mostrar ambos en un
+                // paso posterior — por ahora 1 valor).
+                double objetivo = 0;
+                if (snap.Trenes != null)
+                {
+                    foreach (var tl in snap.Trenes)
+                    {
+                        if (tl != null && tl.Objetivo > 0) { objetivo = tl.Objetivo; break; }
+                    }
+                }
+                string objStr = objetivo > 0
+                    ? objetivo.ToString("F1", CultureInfo.InvariantCulture) : "—";
+
                 var kpis = new[]
                 {
                     Tuple.Create("VEL", snap.Velocidad.ToString("F1", CultureInfo.InvariantCulture), false),
+                    Tuple.Create("OBJ", objStr, false),
                     Tuple.Create("S/M", snap.SpmPromedio.ToString("F1", CultureInfo.InvariantCulture), false),
                     Tuple.Create("FALLAS", snap.FallasActivas.ToString(CultureInfo.InvariantCulture),
                         snap.FallasActivas > 0),
@@ -247,7 +262,6 @@ namespace AgroParallel.VistaX
             int bodyH = bodyBottom - bodyTop;
             if (bodyH <= 0) return;
 
-            // Dos trenes arriba/abajo. Si hay solo uno usa el body completo.
             int n = snap.Trenes.Length;
             int perTrainH = n > 0 ? bodyH / n : bodyH;
 
@@ -257,11 +271,11 @@ namespace AgroParallel.VistaX
                 if (tren == null) continue;
                 int y0 = bodyTop + i * perTrainH;
                 int y1 = y0 + perTrainH;
-                DrawTrain(g, tren, y0, y1);
+                DrawTrain(g, tren, y0, y1, snap.ToleranciaDesvio);
             }
         }
 
-        private void DrawTrain(Graphics g, TrenLayout tren, int y0, int y1)
+        private void DrawTrain(Graphics g, TrenLayout tren, int y0, int y1, double tolerancia)
         {
             using (var fLbl = new Font("Segoe UI", 8f, FontStyle.Bold))
             using (var lblBrush = new SolidBrush(CTextDim))
@@ -299,51 +313,107 @@ namespace AgroParallel.VistaX
             int offsetX = drawAreaLeft + (drawAreaW - total) / 2;
 
             int tubeTop = y0 + 8;
+            int tubeAreaH = tubeH;
+            double objetivo = tren.Objetivo > 0 ? tren.Objetivo : 0;
 
             for (int i = 0; i < tren.Surcos.Length; i++)
             {
                 var s = tren.Surcos[i];
                 int x = offsetX + i * (sensorW + spacing);
-                DrawTube(g, x, tubeTop, sensorW, tubeH, s);
-                DrawLed(g, x + sensorW / 2, tubeTop - ledR - 2, ledR, s.State);
+                // Clasificar al estilo VistaX-Core: alerta > cortado > desvio > ok > tapado.
+                PillStatus status;
+                double pctHeight; // % del tubeAreaH que ocupa el tubo (bottom-aligned).
+                if (s.SeccionCortada)
+                {
+                    status = PillStatus.Tapado;
+                    pctHeight = 3;
+                }
+                else if (s.Alerta)
+                {
+                    status = PillStatus.Alerta;
+                    pctHeight = 15;
+                }
+                else if (s.Spm <= 0)
+                {
+                    status = PillStatus.Tapado;
+                    pctHeight = 6;
+                }
+                else if (objetivo > 0)
+                {
+                    double pctDesvio = Math.Abs((s.Spm - objetivo) / objetivo) * 100.0;
+                    // (spm / objetivo) * 75 con clamp 10..95.
+                    pctHeight = Math.Max(10, Math.Min(95, (s.Spm / objetivo) * 75.0));
+                    status = (tolerancia > 0 && pctDesvio > tolerancia)
+                        ? PillStatus.Desvio : PillStatus.Ok;
+                }
+                else
+                {
+                    // Sin objetivo definido: altura fija media, color Ok.
+                    status = PillStatus.Ok;
+                    pctHeight = 50;
+                }
+
+                int actualH = Math.Max(2, (int)Math.Round(tubeAreaH * pctHeight / 100.0));
+                int tubeY = tubeTop + (tubeAreaH - actualH);
+
+                DrawTube(g, x, tubeY, sensorW, actualH, tubeAreaH, tubeTop, status);
+                DrawLed(g, x + sensorW / 2, tubeTop - ledR - 2, ledR,
+                    status == PillStatus.Alerta ? RowState.Failure :
+                    status == PillStatus.Desvio ? RowState.LowRate :
+                    status == PillStatus.Ok ? RowState.Ok : RowState.NoData);
             }
         }
 
-        private void DrawTube(Graphics g, int x, int y, int w, int h, SurcoState s)
-        {
-            var rect = new Rectangle(x, y, w, h);
+        private enum PillStatus { Ok, Desvio, Alerta, Tapado }
 
-            switch (s.State)
+        private void DrawTube(Graphics g, int x, int y, int w, int h,
+            int fullH, int fullTop, PillStatus status)
+        {
+            // Canasta de referencia (full height tube outline — sutil).
+            var canister = new Rectangle(x, fullTop, w, fullH);
+            using (var cb = new SolidBrush(Color.FromArgb(15, 15, 15)))
+                g.FillRectangle(cb, canister);
+            using (var cp = new Pen(CBorder))
+                g.DrawRectangle(cp, canister);
+
+            // Nivel dinamico (el "liquido" del tubo).
+            var rect = new Rectangle(x, y, w, h);
+            switch (status)
             {
-                case RowState.Failure:
-                    // Rojo brillante -> rojo oscuro (matches VistaX-Core .alert).
+                case PillStatus.Alerta:
                     using (var brush = new LinearGradientBrush(
-                        new Point(x, y), new Point(x, y + h), CRed, CRedDark))
+                        new Point(x, y), new Point(x, y + Math.Max(1, h)), CRed, CRedDark))
                     {
                         g.FillRectangle(brush, rect);
                     }
                     using (var border = new Pen(CRed))
                         g.DrawRectangle(border, rect);
                     return;
-                case RowState.NoData:
-                    // Bajada bloqueada: fondo casi negro plano, borde muy tenue.
+                case PillStatus.Tapado:
                     using (var b = new SolidBrush(CBlocked))
                         g.FillRectangle(b, rect);
                     using (var border = new Pen(CBlockedBorder))
                         g.DrawRectangle(border, rect);
                     return;
-                default:
-                    // Verde brillante (tope) -> verde oscuro (base) — .ok de VistaX.
+                case PillStatus.Desvio:
                     using (var brush = new LinearGradientBrush(
-                        new Point(x, y), new Point(x, y + h), CAccent, CAccentDark))
+                        new Point(x, y), new Point(x, y + Math.Max(1, h)), CYellow, Color.FromArgb(180, 130, 0)))
                     {
                         g.FillRectangle(brush, rect);
                     }
-                    break;
+                    using (var border = new Pen(CYellow))
+                        g.DrawRectangle(border, rect);
+                    return;
+                default:
+                    using (var brush = new LinearGradientBrush(
+                        new Point(x, y), new Point(x, y + Math.Max(1, h)), CAccent, CAccentDark))
+                    {
+                        g.FillRectangle(brush, rect);
+                    }
+                    using (var border = new Pen(CBorder))
+                        g.DrawRectangle(border, rect);
+                    return;
             }
-
-            using (var border = new Pen(CBorder))
-                g.DrawRectangle(border, rect);
         }
 
         private void DrawLed(Graphics g, int cx, int cy, int r, RowState state)

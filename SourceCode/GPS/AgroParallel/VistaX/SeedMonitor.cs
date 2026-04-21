@@ -504,6 +504,7 @@ namespace AgroParallel.VistaX
                         SpacingPx = effectiveSpacing,
                         TotalWidthPx = totalWidth,
                         OffsetXPx = offsetX,
+                        Objetivo = GetObjetivoTren(grupo.Key),
                         Surcos = surcosTren
                     });
                 }
@@ -523,6 +524,8 @@ namespace AgroParallel.VistaX
                 snapshot.NombreImplemento = _implemento.Nombre ?? "";
                 snapshot.MonitoreoActivo = _monitoreoActivo;
                 snapshot.MetodoInicio = _metodoInicio;
+                snapshot.ToleranciaDesvio = _implemento != null && _implemento.Setup != null
+                    ? _implemento.Setup.ToleranciaDesvio : 0;
                 return snapshot;
             }
         }
