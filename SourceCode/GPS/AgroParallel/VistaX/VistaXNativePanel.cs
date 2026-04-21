@@ -11,6 +11,7 @@
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
@@ -34,6 +35,11 @@ namespace AgroParallel.VistaX
         private static readonly Color CBlocked = Color.FromArgb(8, 8, 8);         // #080808
         private static readonly Color CBlockedBorder = Color.FromArgb(17, 17, 17); // #111111
         private static readonly Color CBorder = Color.FromArgb(40, 40, 40);
+        // Sensores auxiliares (VistaX-Core --ferti-l / --ferti-c + naranja
+        // para bajada de herramienta).
+        private static readonly Color CFertiLinea = Color.FromArgb(0, 229, 255);  // #00e5ff
+        private static readonly Color CFertiCostado = Color.FromArgb(255, 234, 0); // #ffea00
+        private static readonly Color CHerramienta = Color.FromArgb(255, 160, 0);
 
         private const int HeaderHeight = 40;
         private const int FooterHeight = 20;
@@ -380,6 +386,23 @@ namespace AgroParallel.VistaX
 
             if (tren.Surcos == null || tren.Surcos.Length == 0) return;
 
+            // Agrupar por Bajada — cada grupo tiene 1 semilla (tubo principal)
+            // y opcionalmente ferti_linea / ferti_costado / bajada_herramienta.
+            var bajadas = new SortedDictionary<int, List<SurcoState>>();
+            foreach (var s in tren.Surcos)
+            {
+                if (s == null) continue;
+                List<SurcoState> list;
+                if (!bajadas.TryGetValue(s.Bajada, out list))
+                {
+                    list = new List<SurcoState>();
+                    bajadas[s.Bajada] = list;
+                }
+                list.Add(s);
+            }
+            int slotCount = bajadas.Count;
+            if (slotCount == 0) return;
+
             int drawAreaLeft = TrainLabelWidth;
             int drawAreaRight = Width - 8;
             int drawAreaW = drawAreaRight - drawAreaLeft;
@@ -389,18 +412,15 @@ namespace AgroParallel.VistaX
             if (tubeH < 8) return;
             int ledR = 3;
 
-            // Reajustar SensorWidthPx / SpacingPx si el layout calculado no
-            // cabe en el area real disponible (el snapshot asumia ContainerWidthPx=1200).
             int sensorW = tren.SensorWidthPx > 0 ? tren.SensorWidthPx : 20;
             int spacing = tren.SpacingPx;
-            int total = tren.Surcos.Length * sensorW
-                + Math.Max(0, tren.Surcos.Length - 1) * spacing;
+            int total = slotCount * sensorW + Math.Max(0, slotCount - 1) * spacing;
             if (total > drawAreaW)
             {
-                int available = drawAreaW - Math.Max(0, tren.Surcos.Length - 1) * 2;
-                sensorW = Math.Max(6, available / Math.Max(1, tren.Surcos.Length));
+                int available = drawAreaW - Math.Max(0, slotCount - 1) * 2;
+                sensorW = Math.Max(6, available / Math.Max(1, slotCount));
                 spacing = 2;
-                total = tren.Surcos.Length * sensorW + (tren.Surcos.Length - 1) * spacing;
+                total = slotCount * sensorW + (slotCount - 1) * spacing;
             }
             int offsetX = drawAreaLeft + (drawAreaW - total) / 2;
 
@@ -408,10 +428,13 @@ namespace AgroParallel.VistaX
             int tubeAreaH = tubeH;
             double objetivo = tren.Objetivo > 0 ? tren.Objetivo : 0;
 
-            for (int i = 0; i < tren.Surcos.Length; i++)
+            int i = 0;
+            foreach (var kv in bajadas)
             {
-                var s = tren.Surcos[i];
+                var group = kv.Value;
+                var s = FindByTipo(group, "semilla") ?? group[0];
                 int x = offsetX + i * (sensorW + spacing);
+                i++;
                 // Clasificar al estilo VistaX-Core: alerta > cortado > desvio > ok > tapado.
                 PillStatus status;
                 double pctHeight; // % del tubeAreaH que ocupa el tubo (bottom-aligned).
@@ -453,6 +476,46 @@ namespace AgroParallel.VistaX
                     status == PillStatus.Alerta ? RowState.Failure :
                     status == PillStatus.Desvio ? RowState.LowRate :
                     status == PillStatus.Ok ? RowState.Ok : RowState.NoData);
+
+                // LEDs de tipos auxiliares: ferti_linea (cyan), ferti_costado
+                // (amarillo), bajada_herramienta (naranja). Se dibujan abajo
+                // del canister del tubo como puntitos.
+                DrawAuxLeds(g, group, x, tubeTop + tubeAreaH + 2, sensorW);
+            }
+        }
+
+        private static SurcoState FindByTipo(List<SurcoState> list, string tipo)
+        {
+            if (list == null) return null;
+            foreach (var s in list)
+                if (s != null && string.Equals(s.Tipo, tipo, StringComparison.OrdinalIgnoreCase))
+                    return s;
+            return null;
+        }
+
+        private void DrawAuxLeds(Graphics g, List<SurcoState> group, int x, int y, int w)
+        {
+            // Hasta 3 LEDs alineados horizontalmente bajo el tubo.
+            int dotR = 2;
+            var types = new[] {
+                Tuple.Create("ferti_linea", CFertiLinea),
+                Tuple.Create("ferti_costado", CFertiCostado),
+                Tuple.Create("bajada_herramienta", CHerramienta)
+            };
+
+            int drawn = 0;
+            foreach (var t in types)
+            {
+                var s = FindByTipo(group, t.Item1);
+                if (s == null) continue;
+                int cx = x + 3 + drawn * (dotR * 2 + 3);
+                if (cx + dotR * 2 > x + w) break; // no cabe mas.
+                bool active = s.Valor > 0 && !s.SeccionCortada;
+                Color c = active ? t.Item2
+                    : Color.FromArgb(60, t.Item2.R, t.Item2.G, t.Item2.B);
+                using (var b = new SolidBrush(c))
+                    g.FillEllipse(b, cx, y, dotR * 2, dotR * 2);
+                drawn++;
             }
         }
 
