@@ -48,6 +48,15 @@ namespace AgroParallel.VistaX
         private volatile SeedMonitorSnapshot _snap;
         private int _lastInvalidateTick;
 
+        // Controles de edicion sobre el header (sobrepuestos al OnPaint).
+        private NumericUpDown _numObjetivo;
+        private Button _btnConfig;
+        private bool _suppressObjetivoEvent;
+
+        // Eventos que FormGPS / FormVistaXPopup manejan para propagar al monitor.
+        public event Action<double> ObjetivoChanged;
+        public event Action ConfigRequested;
+
         public VistaXNativePanel(VistaXConfig config)
         {
             _config = config ?? throw new ArgumentNullException("config");
@@ -61,6 +70,46 @@ namespace AgroParallel.VistaX
                 | ControlStyles.AllPaintingInWmPaint
                 | ControlStyles.UserPaint
                 | ControlStyles.ResizeRedraw, true);
+
+            BuildHeaderControls();
+        }
+
+        private void BuildHeaderControls()
+        {
+            _numObjetivo = new NumericUpDown();
+            _numObjetivo.Minimum = 0;
+            _numObjetivo.Maximum = 1000;
+            _numObjetivo.DecimalPlaces = 1;
+            _numObjetivo.Increment = 0.5m;
+            _numObjetivo.Value = 0;
+            _numObjetivo.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            _numObjetivo.BackColor = Color.FromArgb(15, 15, 15);
+            _numObjetivo.ForeColor = CAccent;
+            _numObjetivo.BorderStyle = BorderStyle.FixedSingle;
+            _numObjetivo.Width = 70;
+            _numObjetivo.ValueChanged += (s, e) =>
+            {
+                if (_suppressObjetivoEvent) return;
+                var h = ObjetivoChanged;
+                if (h != null) h((double)_numObjetivo.Value);
+            };
+            Controls.Add(_numObjetivo);
+
+            _btnConfig = new Button();
+            _btnConfig.Text = "⚙";
+            _btnConfig.FlatStyle = FlatStyle.Flat;
+            _btnConfig.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            _btnConfig.BackColor = Color.FromArgb(20, 20, 20);
+            _btnConfig.ForeColor = CAccent;
+            _btnConfig.Size = new Size(28, 24);
+            _btnConfig.Cursor = Cursors.Hand;
+            _btnConfig.FlatAppearance.BorderColor = CBorder;
+            _btnConfig.Click += (s, e) =>
+            {
+                var h = ConfigRequested;
+                if (h != null) h();
+            };
+            Controls.Add(_btnConfig);
         }
 
         // Llamado por SeedMonitor.SnapshotUpdated. El evento viene desde un Timer
@@ -106,8 +155,36 @@ namespace AgroParallel.VistaX
             BringToFront();
         }
 
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            LayoutHeaderControls();
+        }
+
+        private void LayoutHeaderControls()
+        {
+            if (_btnConfig != null)
+                _btnConfig.Location = new Point(Width - 30 - _btnConfig.Width, 8);
+            if (_numObjetivo != null)
+                _numObjetivo.Location = new Point(110, 8);
+        }
+
+        // Actualiza el valor del NumericUpDown desde el snapshot sin disparar
+        // el evento ValueChanged (asi no pensamos que el usuario edito).
+        private void SyncObjetivoFromSnapshot(double objetivo)
+        {
+            if (_numObjetivo == null) return;
+            if (_numObjetivo.Focused) return; // respetar edicion en curso.
+            decimal v = (decimal)Math.Max(0, Math.Min((double)_numObjetivo.Maximum, objetivo));
+            if (v == _numObjetivo.Value) return;
+            _suppressObjetivoEvent = true;
+            try { _numObjetivo.Value = v; }
+            finally { _suppressObjetivoEvent = false; }
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
+            LayoutHeaderControls();
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
@@ -125,12 +202,35 @@ namespace AgroParallel.VistaX
 
             DrawHeader(g, snap);
 
-            int bodyTop = HeaderHeight + (snap.HasAlarm ? AlarmBannerHeight : 0);
+            // Ticker siempre visible debajo del header. Rojo si hay fallas,
+            // gris/verde si OK. Replica lo de VistaX-Core: un "estado del
+            // sistema" permanente.
+            int bodyTop = HeaderHeight + AlarmBannerHeight;
             int bodyBottom = Height - FooterHeight;
-            if (snap.HasAlarm) DrawAlarmBanner(g, snap);
+            DrawStatusTicker(g, snap);
 
             DrawTrains(g, snap, bodyTop, bodyBottom);
             DrawFooter(g, snap);
+        }
+
+        private void DrawStatusTicker(Graphics g, SeedMonitorSnapshot snap)
+        {
+            bool hasAlarm = snap.HasAlarm;
+            Color bg = hasAlarm ? Color.FromArgb(60, 0, 0) : Color.FromArgb(16, 20, 16);
+            Color fg = hasAlarm ? CRed : CAccent;
+
+            using (var b = new SolidBrush(bg))
+                g.FillRectangle(b, 0, HeaderHeight, Width, AlarmBannerHeight);
+
+            string text = hasAlarm
+                ? (snap.AlarmMessage ?? "FALLA EN EL SISTEMA")
+                : "SISTEMA OPERATIVO";
+
+            using (var f = new Font("Segoe UI", 8f, FontStyle.Bold))
+            using (var br = new SolidBrush(fg))
+            {
+                g.DrawString(text, f, br, 10, HeaderHeight + 1);
+            }
         }
 
         private void DrawWaitingState(Graphics g, SeedMonitorSnapshot snap)
@@ -178,7 +278,9 @@ namespace AgroParallel.VistaX
             }
 
             // KPIs alineados a la derecha, antes del LED de conexion.
-            int kpiRight = Width - 30;
+            // Reservar espacio para el boton de config + LED de conexion a
+            // la derecha del header antes de dibujar los KPIs.
+            int kpiRight = Width - 30 - (_btnConfig != null ? _btnConfig.Width + 8 : 0);
             using (var fLbl = new Font("Segoe UI", 7.5f))
             using (var fVal = new Font("Segoe UI", 11f, FontStyle.Bold))
             using (var lblBrush = new SolidBrush(CTextDim))
@@ -191,9 +293,8 @@ namespace AgroParallel.VistaX
                     ? totalOnline + "/" + totalConfig
                     : totalOnline.ToString(CultureInfo.InvariantCulture);
 
-                // Objetivo: tomar el del primer tren con objetivo > 0 (si los
-                // trenes tienen distintos objetivos podemos mostrar ambos en un
-                // paso posterior — por ahora 1 valor).
+                // Objetivo: tomar el del primer tren con objetivo > 0. El valor
+                // se muestra/edita via el NumericUpDown del header, no como KPI.
                 double objetivo = 0;
                 if (snap.Trenes != null)
                 {
@@ -202,13 +303,16 @@ namespace AgroParallel.VistaX
                         if (tl != null && tl.Objetivo > 0) { objetivo = tl.Objetivo; break; }
                     }
                 }
-                string objStr = objetivo > 0
-                    ? objetivo.ToString("F1", CultureInfo.InvariantCulture) : "—";
+                SyncObjetivoFromSnapshot(objetivo);
+
+                // Label "OBJ" pequeño arriba del NumericUpDown para aclarar que
+                // ese input es el objetivo (el control lo dibuja WinForms).
+                using (var fLbl2 = new Font("Segoe UI", 7.5f))
+                    g.DrawString("OBJ", fLbl2, lblBrush, 113, 0);
 
                 var kpis = new[]
                 {
                     Tuple.Create("VEL", snap.Velocidad.ToString("F1", CultureInfo.InvariantCulture), false),
-                    Tuple.Create("OBJ", objStr, false),
                     Tuple.Create("S/M", snap.SpmPromedio.ToString("F1", CultureInfo.InvariantCulture), false),
                     Tuple.Create("FALLAS", snap.FallasActivas.ToString(CultureInfo.InvariantCulture),
                         snap.FallasActivas > 0),
@@ -243,18 +347,6 @@ namespace AgroParallel.VistaX
                 g.FillEllipse(ledBrush, cx - r, cy - r, r * 2, r * 2);
             using (var rim = new Pen(Color.FromArgb(30, 30, 36)))
                 g.DrawEllipse(rim, cx - r, cy - r, r * 2, r * 2);
-        }
-
-        private void DrawAlarmBanner(Graphics g, SeedMonitorSnapshot snap)
-        {
-            using (var bg = new SolidBrush(Color.FromArgb(90, 0, 0)))
-                g.FillRectangle(bg, 0, HeaderHeight, Width, AlarmBannerHeight);
-            using (var fAlarm = new Font("Segoe UI", 8f, FontStyle.Bold))
-            using (var textBrush = new SolidBrush(CRed))
-            {
-                string msg = snap.AlarmMessage ?? "ALARMA";
-                g.DrawString(msg, fAlarm, textBrush, 10, HeaderHeight + 1);
-            }
         }
 
         private void DrawTrains(Graphics g, SeedMonitorSnapshot snap, int bodyTop, int bodyBottom)

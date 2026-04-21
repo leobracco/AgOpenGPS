@@ -1579,6 +1579,12 @@ namespace AgOpenGPS
                 vistaXMonitor.AlarmTriggered += msg =>
                     System.Diagnostics.Debug.WriteLine("[VistaX] Alarma: " + msg);
 
+                // Edicion del objetivo desde el header del panel + acceso
+                // rapido a la ventana de config.
+                var monitorCapture = vistaXMonitor;
+                vistaXPanel.ObjetivoChanged += v => monitorCapture.SetObjetivo(v, 0);
+                vistaXPanel.ConfigRequested += OpenVistaXConfigDialog;
+
                 // Fire-and-forget: StartAsync maneja sus propios errores de MQTT.
                 _ = vistaXMonitor.StartAsync();
 
@@ -1713,7 +1719,7 @@ namespace AgOpenGPS
             }
         }
 
-        private void OpenVistaXConfigDialog()
+        public void OpenVistaXConfigDialog()
         {
             try
             {

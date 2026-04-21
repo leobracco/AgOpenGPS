@@ -41,13 +41,24 @@ namespace AgroParallel.VistaX
             {
                 _attachedMonitor = existingMonitor;
                 existingMonitor.SnapshotUpdated += _panel.SetSnapshot;
+                _panel.ObjetivoChanged += v => existingMonitor.SetObjetivo(v, 0);
             }
             else
             {
                 _ownMonitor = new SeedMonitor(null, cfg);
                 _ownMonitor.SnapshotUpdated += _panel.SetSnapshot;
+                _panel.ObjetivoChanged += v => _ownMonitor.SetObjetivo(v, 0);
                 _ = _ownMonitor.StartAsync();
             }
+
+            // Boton de config en el header del panel: cierra el popup y delega
+            // al FormGPS owner para abrir el dialogo de config.
+            _panel.ConfigRequested += () =>
+            {
+                var owner = Owner as AgOpenGPS.FormGPS;
+                Close();
+                owner?.BeginInvoke(new Action(() => owner.OpenVistaXConfigDialog()));
+            };
 
             KeyDown += (s, e) =>
             {

@@ -407,6 +407,33 @@ namespace AgroParallel.VistaX
             IniciarMonitoreo("manual (botón UI)");
         }
 
+        // Actualiza el objetivo de siembra (semillas/m) in-memory. Si tren > 0
+        // actualiza solo ese tren (via ObjetivosTren); si tren == 0 actualiza
+        // DensidadObjetivo (global) y limpia overrides por tren. Thread-safe.
+        public void SetObjetivo(double value, int tren)
+        {
+            if (value < 0) value = 0;
+            if (_implemento == null) return;
+            if (_implemento.Setup == null) _implemento.Setup = new ImplementoSetup();
+
+            lock (_lock)
+            {
+                if (tren > 0)
+                {
+                    if (_implemento.Setup.ObjetivosTren == null)
+                        _implemento.Setup.ObjetivosTren = new Dictionary<string, double>();
+                    _implemento.Setup.ObjetivosTren[tren.ToString()] = value;
+                }
+                else
+                {
+                    _implemento.Setup.DensidadObjetivo = value;
+                }
+            }
+
+            System.Diagnostics.Debug.WriteLine("[VistaX] Objetivo actualizado: tren="
+                + tren + " valor=" + value);
+        }
+
         // =====================================================================
         // Helpers
         // =====================================================================
