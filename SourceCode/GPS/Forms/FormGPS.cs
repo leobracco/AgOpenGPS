@@ -638,6 +638,27 @@ namespace AgOpenGPS
                 }
             }
 
+            // AGROPARALLEL_MOD_START
+            // Cerrar explicitamente las ventanas popup de AgroParallel antes del
+            // check de OwnedForms para que el cierre no quede cancelado.
+            if (vistaXPopupForm != null && !vistaXPopupForm.IsDisposed)
+            {
+                try { vistaXPopupForm.Close(); } catch { }
+                vistaXPopupForm = null;
+            }
+            // Como fallback: cerrar cualquier otro OwnedForm nuestro (forms de
+            // config / estilo / export shapefile etc.). Evita que un modal
+            // abierto por error bloquee el shutdown.
+            var ownedCopy = this.OwnedForms.ToArray();
+            foreach (var of in ownedCopy)
+            {
+                if (of != null && !of.IsDisposed)
+                {
+                    try { of.Close(); } catch { }
+                }
+            }
+            // AGROPARALLEL_MOD_END
+
             // Cancel shutdown if owned forms are still open
             if (this.OwnedForms.Any())
             {
@@ -871,10 +892,30 @@ namespace AgOpenGPS
                 try
                 {
                     Process[] agio = Process.GetProcessesByName("AgIO");
-                    if (agio.Length > 0) agio[0].CloseMainWindow();
+                    if (agio.Length > 0)
+                    {
+                        agio[0].CloseMainWindow();
+                        // Si no responde en 2s, matar — evita que el DLL quede
+                        // bloqueado y el proximo build falle con MSB3027.
+                        if (!agio[0].WaitForExit(2000))
+                        {
+                            try { agio[0].Kill(); } catch { }
+                        }
+                    }
                 }
                 catch { }
             }
+
+            // VISTAX_MOD_START
+            // Shutdown de CefSharp. Sin esto los subprocesos de Chromium pueden
+            // quedar vivos y colgar la salida del proceso principal.
+            try
+            {
+                if (CefSharp.Cef.IsInitialized == true)
+                    CefSharp.Cef.Shutdown();
+            }
+            catch { }
+            // VISTAX_MOD_END
 
             // Close the main application form
             try { Close(); }
