@@ -46,9 +46,19 @@ namespace AgroParallel.VistaX
             var factory = new MqttFactory();
             _client = factory.CreateMqttClient();
 
+            // ClientId con sufijo unico por instancia. Si dos clientes MQTT
+            // llegan al broker con el mismo ClientId, el broker (por spec) echa
+            // al mas viejo cuando entra el nuevo — loop infinito de reconexion.
+            // Paso: el panel embebido + el popup viven en el mismo proceso y
+            // comparten la misma VistaXConfig, por eso habia collision. Tambien
+            // evita chocar con el server Node.js de VistaX-Core si esta corriendo.
+            string clientIdBase = string.IsNullOrWhiteSpace(_config.ClientId)
+                ? "VistaX_Client" : _config.ClientId.Trim();
+            string uniqueClientId = clientIdBase + "_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
             var builder = new MqttClientOptionsBuilder()
                 .WithTcpServer(_config.BrokerAddress, _config.BrokerPort)
-                .WithClientId(_config.ClientId)
+                .WithClientId(uniqueClientId)
                 .WithCleanSession(true)
                 .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
                 .WithTimeout(TimeSpan.FromSeconds(10));
