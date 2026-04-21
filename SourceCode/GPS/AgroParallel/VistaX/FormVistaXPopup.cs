@@ -64,10 +64,22 @@ namespace AgroParallel.VistaX
             }
             catch { }
 
+            // Dispose del monitor en background con timeout — MQTTnet puede
+            // bloquear el Stop si esta en un backoff de reconexion, y si eso
+            // corre en el hilo UI el Close() del Form nunca vuelve.
             if (_ownMonitor != null)
             {
-                try { _ownMonitor.StopAsync().GetAwaiter().GetResult(); } catch { }
-                try { _ownMonitor.Dispose(); } catch { }
+                var m = _ownMonitor;
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        var stop = m.StopAsync();
+                        stop.Wait(2000);
+                    }
+                    catch { }
+                    try { m.Dispose(); } catch { }
+                });
             }
 
             base.OnFormClosed(e);

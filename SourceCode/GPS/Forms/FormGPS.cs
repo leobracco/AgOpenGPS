@@ -1561,13 +1561,16 @@ namespace AgOpenGPS
             }
             if (vistaXMonitor != null)
             {
-                try
-                {
-                    vistaXMonitor.StopAsync().GetAwaiter().GetResult();
-                    vistaXMonitor.Dispose();
-                }
-                catch { }
+                // Stop+Dispose en background con timeout: si MQTT esta en un
+                // backoff de reconexion, StopAsync puede bloquear el hilo UI
+                // y congelar el Close/Toggle/Config.
+                var m = vistaXMonitor;
                 vistaXMonitor = null;
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try { m.StopAsync().Wait(2000); } catch { }
+                    try { m.Dispose(); } catch { }
+                });
             }
         }
         // VISTAX_MOD_END
