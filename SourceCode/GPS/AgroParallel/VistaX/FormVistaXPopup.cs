@@ -20,10 +20,12 @@ namespace AgroParallel.VistaX
         private readonly VistaXNativePanel _panel;
         private readonly SeedMonitor _attachedMonitor;
         private readonly SeedMonitor _ownMonitor;
+        private readonly VistaXConfig _config;
 
         public FormVistaXPopup(VistaXConfig cfg, SeedMonitor existingMonitor)
         {
             if (cfg == null) throw new ArgumentNullException("cfg");
+            _config = cfg;
 
             Text = "VistaX";
             Size = new Size(900, 400);
@@ -35,6 +37,7 @@ namespace AgroParallel.VistaX
 
             _panel = new VistaXNativePanel(cfg);
             _panel.Dock = DockStyle.Fill;
+            _panel.AlarmMuted = cfg.AlarmMuted;
             Controls.Add(_panel);
 
             if (existingMonitor != null && existingMonitor.IsRunning)
@@ -68,6 +71,18 @@ namespace AgroParallel.VistaX
 
         protected override void OnFormClosed(FormClosedEventArgs e)
         {
+            // Persistir estado del mute si cambio durante la sesion del popup.
+            try
+            {
+                if (_config != null && _panel != null
+                    && _panel.AlarmMuted != _config.AlarmMuted)
+                {
+                    _config.AlarmMuted = _panel.AlarmMuted;
+                    _config.Save();
+                }
+            }
+            catch { }
+
             try
             {
                 if (_attachedMonitor != null)

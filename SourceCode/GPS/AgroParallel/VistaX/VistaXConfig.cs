@@ -48,6 +48,10 @@ namespace AgroParallel.VistaX
         public int PopupDefaultWidth { get; set; }
         public int PopupDefaultHeight { get; set; }
 
+        // Silencia la alarma sonora (beep cuando HasAlarm=true). El usuario
+        // lo toggelea desde el boton del header del panel.
+        public bool AlarmMuted { get; set; }
+
         private static readonly string ConfigFileName = "vistaX.json";
 
         public VistaXConfig()

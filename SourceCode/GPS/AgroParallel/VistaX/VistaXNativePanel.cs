@@ -57,11 +57,30 @@ namespace AgroParallel.VistaX
         // Controles de edicion sobre el header (sobrepuestos al OnPaint).
         private NumericUpDown _numObjetivo;
         private Button _btnConfig;
+        private Button _btnMute;
         private bool _suppressObjetivoEvent;
+
+        // Estado de la alarma sonora.
+        private bool _alarmMuted;
+        private int _lastBeepTick;
+        private const int BeepIntervalMs = 1000;
 
         // Eventos que FormGPS / FormVistaXPopup manejan para propagar al monitor.
         public event Action<double> ObjetivoChanged;
         public event Action ConfigRequested;
+
+        // Persistencia opcional: el owner puede leer/escribir esto via JSON.
+        public bool AlarmMuted
+        {
+            get { return _alarmMuted; }
+            set
+            {
+                if (_alarmMuted == value) return;
+                _alarmMuted = value;
+                UpdateMuteButtonIcon();
+                Invalidate();
+            }
+        }
 
         public VistaXNativePanel(VistaXConfig config)
         {
@@ -116,6 +135,25 @@ namespace AgroParallel.VistaX
                 if (h != null) h();
             };
             Controls.Add(_btnConfig);
+
+            _btnMute = new Button();
+            _btnMute.FlatStyle = FlatStyle.Flat;
+            _btnMute.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
+            _btnMute.BackColor = Color.FromArgb(20, 20, 20);
+            _btnMute.ForeColor = CAccent;
+            _btnMute.Size = new Size(28, 24);
+            _btnMute.Cursor = Cursors.Hand;
+            _btnMute.FlatAppearance.BorderColor = CBorder;
+            _btnMute.Click += (s, e) => AlarmMuted = !_alarmMuted;
+            Controls.Add(_btnMute);
+            UpdateMuteButtonIcon();
+        }
+
+        private void UpdateMuteButtonIcon()
+        {
+            if (_btnMute == null) return;
+            _btnMute.Text = _alarmMuted ? "\U0001F507" : "\U0001F50A";
+            _btnMute.ForeColor = _alarmMuted ? CTextDim : CAccent;
         }
 
         // Llamado por SeedMonitor.SnapshotUpdated. El evento viene desde un Timer
@@ -131,9 +169,21 @@ namespace AgroParallel.VistaX
 
             _snap = snap;
 
+            // Alarma sonora: beep repetitivo mientras HasAlarm y no mute.
+            // Limitado a un beep cada BeepIntervalMs para no saturar.
+            int now = Environment.TickCount;
+            if (snap != null && snap.HasAlarm && !_alarmMuted
+                && now - _lastBeepTick >= BeepIntervalMs)
+            {
+                _lastBeepTick = now;
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try { Console.Beep(1200, 180); } catch { }
+                });
+            }
+
             // Throttle a ~60fps. El monitor reporta a 500ms asi que en la
             // practica no se activa, pero protege si alguien sube la frecuencia.
-            int now = Environment.TickCount;
             if (now - _lastInvalidateTick < 16) return;
             _lastInvalidateTick = now;
             Invalidate();
@@ -171,6 +221,8 @@ namespace AgroParallel.VistaX
         {
             if (_btnConfig != null)
                 _btnConfig.Location = new Point(Width - 30 - _btnConfig.Width, 8);
+            if (_btnMute != null && _btnConfig != null)
+                _btnMute.Location = new Point(_btnConfig.Left - _btnMute.Width - 4, 8);
             if (_numObjetivo != null)
                 _numObjetivo.Location = new Point(110, 8);
         }

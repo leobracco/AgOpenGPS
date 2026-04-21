@@ -1570,6 +1570,7 @@ namespace AgOpenGPS
                 // Panel nativo (GDI+) — sin CefSharp, sin servidor Node.
                 vistaXPanel = new VistaXNativePanel(cfg);
                 vistaXPanel.Visible = true;
+                vistaXPanel.AlarmMuted = cfg.AlarmMuted;
                 this.Controls.Add(vistaXPanel);
                 vistaXPanel.Reposition();
 
@@ -1603,6 +1604,16 @@ namespace AgOpenGPS
         {
             if (vistaXPanel != null)
             {
+                // Persistir el estado del mute antes de disponer.
+                try
+                {
+                    if (vistaXConfig != null && vistaXConfig.AlarmMuted != vistaXPanel.AlarmMuted)
+                    {
+                        vistaXConfig.AlarmMuted = vistaXPanel.AlarmMuted;
+                        vistaXConfig.Save();
+                    }
+                }
+                catch { }
                 try { vistaXPanel.Dispose(); } catch { }
                 vistaXPanel = null;
             }
