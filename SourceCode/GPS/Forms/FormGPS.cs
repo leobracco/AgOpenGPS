@@ -1665,6 +1665,13 @@ namespace AgOpenGPS
                 itemVistaXConfig.Click += (s, e) => OpenVistaXConfigDialog();
                 toolStripAgroParallel.DropDownItems.Add(itemVistaXConfig);
 
+                var itemVistaXPerfiles = new ToolStripMenuItem();
+                itemVistaXPerfiles.Text = "\U0001F4DA Perfiles de implemento";
+                itemVistaXPerfiles.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+                itemVistaXPerfiles.ForeColor = Color.FromArgb(0, 180, 80);
+                itemVistaXPerfiles.Click += (s, e) => OpenVistaXPerfilesDialog();
+                toolStripAgroParallel.DropDownItems.Add(itemVistaXPerfiles);
+
                 toolStripAgroParallel.DropDownItems.Add(new ToolStripSeparator());
 
                 // Modulos dinamicos declarados en agroParallelModules.json. Se saltea
@@ -1727,6 +1734,43 @@ namespace AgOpenGPS
                 System.Diagnostics.Debug.WriteLine("[AgroParallel] Popup " + module.Name
                     + " error: " + ex.Message);
                 TimedMessageBox(2500, "AgroParallel", module.Name + ": " + ex.Message);
+            }
+        }
+
+        public void OpenVistaXPerfilesDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+
+                string newPath = null;
+                using (var dlg = new FormVistaXPerfiles(vistaXConfig))
+                {
+                    if (dlg.ShowDialog(this) == DialogResult.OK
+                        && !string.IsNullOrEmpty(dlg.ActivatedPath))
+                    {
+                        newPath = dlg.ActivatedPath;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(newPath))
+                {
+                    vistaXConfig.ImplementoJsonPath = newPath;
+                    vistaXConfig.Save();
+
+                    if (vistaXPopupForm != null && !vistaXPopupForm.IsDisposed)
+                    {
+                        try { vistaXPopupForm.Close(); } catch { }
+                        vistaXPopupForm = null;
+                    }
+                    CleanupVistaX();
+                    vistaXConfig = VistaXConfig.Load();
+                    InitVistaX();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenPerfilesDialog: " + ex.Message);
             }
         }
 
