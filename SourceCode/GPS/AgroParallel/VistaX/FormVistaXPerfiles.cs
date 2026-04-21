@@ -56,34 +56,120 @@ namespace AgroParallel.VistaX
         {
             _cfg = cfg ?? throw new ArgumentNullException("cfg");
             BuildUI();
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            // Diferir hasta que el FlowLayoutPanel tenga su ClientSize real;
+            // sino los cards se crean con ancho default.
             ReloadList();
         }
+
+        private bool _dragging;
+        private Point _dragStart;
 
         private void BuildUI()
         {
             Text = "VistaX — Perfiles de Implemento";
-            Size = new Size(780, 560);
-            MinimumSize = new Size(600, 420);
+            Size = new Size(980, 640);
+            MinimumSize = new Size(760, 460);
             StartPosition = FormStartPosition.CenterParent;
             BackColor = CBgDark;
             ForeColor = CText;
             Font = new Font("Segoe UI", 10f);
             ShowInTaskbar = false;
+            // Sin chrome de Windows — VistaX-Core no lo tiene tampoco.
+            FormBorderStyle = FormBorderStyle.None;
             KeyPreview = true;
             KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) Close(); };
+            // Borde sutil alrededor del form (reemplaza el chrome nativo).
+            Paint += (s, e) =>
+            {
+                using (var pen = new Pen(CBorder))
+                    e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+            };
+
+            // Ojo con el orden en WinForms: al agregar Dock=Top, el ULTIMO
+            // agregado queda arriba. Por eso agregamos primero lo que va abajo
+            // (subHeader) y despues lo que va arriba (topBar).
+
+            // Sub-header de la pagina: icono + titulo + subtitulo.
+            var subHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 76,
+                BackColor = CBgDark
+            };
+            var lblIcon = new Label
+            {
+                Text = "\U0001F4DA",
+                Font = new Font("Segoe UI Emoji", 20f, FontStyle.Bold),
+                ForeColor = CAccent,
+                Location = new Point(22, 20),
+                Size = new Size(40, 40),
+                BackColor = Color.Transparent,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            subHeader.Controls.Add(lblIcon);
+
+            var lblTitle = new Label
+            {
+                Text = "PERFILES DE IMPLEMENTO",
+                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                ForeColor = CText,
+                Location = new Point(74, 18),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            subHeader.Controls.Add(lblTitle);
+
+            var lblSub = new Label
+            {
+                Text = "Configuraciones predefinidas para cada sembradora del cliente",
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = CTextDim,
+                Location = new Point(74, 46),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            subHeader.Controls.Add(lblSub);
+
+            Controls.Add(subHeader);
 
             // Top bar de branding "VistaX CONFIGURACION  |  Perfil activo: NAME".
             var topBar = new Panel
             {
                 Dock = DockStyle.Top,
                 Height = 56,
-                BackColor = CBgPanel
+                BackColor = CBgPanel,
+                Cursor = Cursors.SizeAll
             };
             topBar.Paint += (s, e) =>
             {
                 using (var pen = new Pen(CBorder))
                     e.Graphics.DrawLine(pen, 0, topBar.Height - 1, topBar.Width, topBar.Height - 1);
             };
+            // Drag handle (el top bar se usa para mover la ventana).
+            topBar.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    _dragging = true;
+                    _dragStart = e.Location;
+                }
+            };
+            topBar.MouseMove += (s, e) =>
+            {
+                if (_dragging)
+                {
+                    Location = new Point(
+                        Location.X + e.X - _dragStart.X,
+                        Location.Y + e.Y - _dragStart.Y);
+                }
+            };
+            topBar.MouseUp += (s, e) => _dragging = false;
+
             var lblBrand = new Label
             {
                 Text = "VistaX",
@@ -105,75 +191,58 @@ namespace AgroParallel.VistaX
             };
             topBar.Controls.Add(lblBrandSub);
 
+            // "Perfil activo: NAME" — posicionado post-layout para no clippear.
             var lblActivoLabel = new Label
             {
+                Name = "lblActivoLabel",
                 Text = "Perfil activo:",
                 Font = new Font("Segoe UI", 9f),
                 ForeColor = CTextDim,
                 BackColor = Color.Transparent,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 AutoSize = true
             };
-            lblActivoLabel.Location = new Point(topBar.Width - 260, 22);
             topBar.Controls.Add(lblActivoLabel);
 
             string activoName = TryGetActiveProfileName();
             var lblActivo = new Label
             {
+                Name = "lblActivo",
                 Text = (activoName ?? "—").ToUpperInvariant(),
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
                 ForeColor = CAccent,
                 BackColor = Color.Transparent,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 AutoSize = true
             };
-            lblActivo.Location = new Point(topBar.Width - 140, 20);
             topBar.Controls.Add(lblActivo);
 
-            Controls.Add(topBar);
-
-            // Sub-header de la pagina: icono + titulo + subtitulo (estilo de
-            // VistaX-Core: icono grande verde, titulo UPPERCASE).
-            var subHeader = new Panel
+            // Boton X de cerrar (reemplaza el chrome nativo).
+            var btnX = new Button
             {
-                Dock = DockStyle.Top,
-                Height = 76,
-                BackColor = CBgDark
-            };
-            var lblIcon = new Label
-            {
-                Text = "\U0001F4DA",
-                Font = new Font("Segoe UI Emoji", 20f, FontStyle.Bold),
-                ForeColor = CAccent,
-                Location = new Point(20, 20),
-                AutoSize = true,
-                BackColor = Color.Transparent
-            };
-            subHeader.Controls.Add(lblIcon);
-
-            var lblTitle = new Label
-            {
-                Text = "PERFILES DE IMPLEMENTO",
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
-                ForeColor = CText,
-                Location = new Point(62, 16),
-                AutoSize = true,
-                BackColor = Color.Transparent
-            };
-            subHeader.Controls.Add(lblTitle);
-
-            var lblSub = new Label
-            {
-                Text = "Configuraciones predefinidas para cada sembradora del cliente",
-                Font = new Font("Segoe UI", 9f),
+                Text = "✕",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = CBgPanel,
                 ForeColor = CTextDim,
-                Location = new Point(62, 44),
-                AutoSize = true,
-                BackColor = Color.Transparent
+                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+                Size = new Size(40, 32),
+                Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
-            subHeader.Controls.Add(lblSub);
+            btnX.FlatAppearance.BorderSize = 0;
+            btnX.FlatAppearance.MouseOverBackColor = Color.FromArgb(200, 40, 40);
+            btnX.Click += (s, e) => Close();
+            topBar.Controls.Add(btnX);
 
-            Controls.Add(subHeader);
+            // Posicionamiento dinamico de los controles alineados a la derecha.
+            topBar.Resize += (s, e) =>
+            {
+                btnX.Location = new Point(topBar.Width - btnX.Width - 4, 12);
+                lblActivo.Location = new Point(
+                    btnX.Left - lblActivo.Width - 14, 20);
+                lblActivoLabel.Location = new Point(
+                    lblActivo.Left - lblActivoLabel.Width - 8, 22);
+            };
+
+            Controls.Add(topBar);
 
             _list = new FlowLayoutPanel
             {
@@ -182,7 +251,16 @@ namespace AgroParallel.VistaX
                 WrapContents = false,
                 AutoScroll = true,
                 BackColor = CBgDark,
-                Padding = new Padding(12)
+                Padding = new Padding(20, 14, 20, 14)
+            };
+            // Al redimensionar la ventana, estirar cada card al ancho del list.
+            _list.Resize += (s, e) =>
+            {
+                int w = _list.ClientSize.Width - _list.Padding.Left - _list.Padding.Right;
+                foreach (Control c in _list.Controls)
+                {
+                    if (c.Width != w) c.Width = w;
+                }
             };
             Controls.Add(_list);
             _list.BringToFront();

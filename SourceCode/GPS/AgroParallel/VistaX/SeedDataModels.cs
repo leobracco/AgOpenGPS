@@ -118,6 +118,23 @@ namespace AgroParallel.VistaX
         }
     }
 
+    // Definicion explicita de un tren dentro del implemento. Replica la
+    // estructura del editor "Trenes de siembra" de VistaX-Core: cada tren
+    // tiene un ID + un nombre amigable + una cantidad de surcos.
+    public class TrenConfig
+    {
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+
+        [JsonPropertyName("nombre")]
+        public string Nombre { get; set; }
+
+        [JsonPropertyName("surcos")]
+        public int Surcos { get; set; }
+
+        public TrenConfig() { Nombre = ""; }
+    }
+
     public class ImplementoConfig
     {
         [JsonPropertyName("id")]
@@ -129,12 +146,18 @@ namespace AgroParallel.VistaX
         [JsonPropertyName("setup")]
         public ImplementoSetup Setup { get; set; }
 
+        // Lista ordenada de trenes (editable desde FormVistaXTrenes). Si el
+        // JSON legacy no la tiene, se deriva de MapeoSensores al cargar.
+        [JsonPropertyName("trenes")]
+        public List<TrenConfig> Trenes { get; set; }
+
         [JsonPropertyName("mapeo_sensores")]
         public List<SensorConfig> MapeoSensores { get; set; }
 
         public ImplementoConfig()
         {
             Setup = new ImplementoSetup();
+            Trenes = new List<TrenConfig>();
             MapeoSensores = new List<SensorConfig>();
         }
     }
