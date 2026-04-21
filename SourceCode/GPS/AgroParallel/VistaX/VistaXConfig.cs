@@ -73,10 +73,11 @@ namespace AgroParallel.VistaX
             UmbralSensoresActivos = 3;
             TiempoConfirmacionMs = 500;
 
-            // Defaults de layout del panel embebido
-            PanelHeight = 120;
+            // Defaults de layout del panel embebido (pegado al footer por
+            // defecto; el user puede ajustar desde FormVistaXConfig).
+            PanelHeight = 150;
             PanelWidthPercent = 70;
-            PanelBottomMargin = 60;
+            PanelBottomMargin = 20;
 
             // Defaults de popups sin bordes
             PopupConfigWidth = 900;

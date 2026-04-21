@@ -1465,7 +1465,10 @@ namespace AgOpenGPS
         // AGROPARALLEL_MOD_START
         private void toolStripAgroParallel_Click(object sender, EventArgs e)
         {
-            ToggleVistaX();
+            // toolStripAgroParallel ahora es un parent de submenu — al tener
+            // DropDownItems, WinForms abre el submenu al clickear. El toggle del
+            // panel embebido se movio a un sub-item dentro del submenu.
+            // (No-op aqui para no disparar doble accion.)
         }
 
         private void ToggleVistaX()
@@ -1577,31 +1580,62 @@ namespace AgOpenGPS
         {
             try
             {
+                // Sub-items nativos de VistaX (primeros, agrupados arriba).
+                var itemVistaXPanel = new ToolStripMenuItem();
+                itemVistaXPanel.Text = "\U0001F441 Panel VistaX";
+                itemVistaXPanel.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+                itemVistaXPanel.ForeColor = Color.FromArgb(0, 180, 80);
+                itemVistaXPanel.CheckOnClick = true;
+                itemVistaXPanel.Checked = vistaXPanel != null;
+                itemVistaXPanel.Click += (s, e) => ToggleVistaX();
+                toolStripAgroParallel.DropDownItems.Add(itemVistaXPanel);
+
+                var itemVistaXPopup = new ToolStripMenuItem();
+                itemVistaXPopup.Text = "\U0001F33F Abrir VistaX";
+                itemVistaXPopup.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+                itemVistaXPopup.ForeColor = Color.FromArgb(0, 180, 80);
+                itemVistaXPopup.Click += (s, e) => OpenVistaXNativePopup();
+                toolStripAgroParallel.DropDownItems.Add(itemVistaXPopup);
+
+                var itemVistaXConfig = new ToolStripMenuItem();
+                itemVistaXConfig.Text = "⚙ Configurar VistaX";
+                itemVistaXConfig.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+                itemVistaXConfig.ForeColor = Color.FromArgb(0, 180, 80);
+                itemVistaXConfig.Click += (s, e) => OpenVistaXConfigDialog();
+                toolStripAgroParallel.DropDownItems.Add(itemVistaXConfig);
+
+                toolStripAgroParallel.DropDownItems.Add(new ToolStripSeparator());
+
+                // Modulos dinamicos declarados en agroParallelModules.json. Se saltea
+                // VistaX porque ya tenemos items nativos dedicados arriba.
                 var cfg = AgroParallelModulesConfig.Load();
-                if (cfg == null || cfg.Modules == null) return;
-
-                foreach (var m in cfg.Modules)
+                if (cfg != null && cfg.Modules != null)
                 {
-                    if (m == null || !m.Enabled) continue;
-                    if (string.IsNullOrWhiteSpace(m.Name)) continue;
-
-                    var item = new ToolStripMenuItem();
-                    string prefix = string.IsNullOrEmpty(m.Emoji) ? "" : m.Emoji + " ";
-                    item.Text = prefix + m.Name;
-                    item.Font = new Font("Tahoma", 18F, FontStyle.Bold);
-                    item.ForeColor = AgroParallelModulesConfig.ResolveAccentColor(m);
-
-                    string iconFull = AgroParallelModulesConfig.ResolveIconFullPath(m.IconPath);
-                    if (iconFull != null && File.Exists(iconFull))
+                    foreach (var m in cfg.Modules)
                     {
-                        try { item.Image = Image.FromFile(iconFull); }
-                        catch { /* icono invalido: seguimos con solo texto+emoji */ }
+                        if (m == null || !m.Enabled) continue;
+                        if (string.IsNullOrWhiteSpace(m.Name)) continue;
+                        if (string.Equals(m.Name, "VistaX", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        var item = new ToolStripMenuItem();
+                        string prefix = string.IsNullOrEmpty(m.Emoji) ? "" : m.Emoji + " ";
+                        item.Text = prefix + m.Name;
+                        item.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+                        item.ForeColor = AgroParallelModulesConfig.ResolveAccentColor(m);
+
+                        string iconFull = AgroParallelModulesConfig.ResolveIconFullPath(m.IconPath);
+                        if (iconFull != null && File.Exists(iconFull))
+                        {
+                            try { item.Image = Image.FromFile(iconFull); }
+                            catch { /* icono invalido: seguimos con solo texto+emoji */ }
+                        }
+
+                        var capture = m;
+                        item.Click += (s, e) => OpenAgroParallelModulePopup(capture);
+
+                        toolStripAgroParallel.DropDownItems.Add(item);
                     }
-
-                    var capture = m;
-                    item.Click += (s, e) => OpenAgroParallelModulePopup(capture);
-
-                    toolStripDropDownButton1.DropDownItems.Add(item);
                 }
             }
             catch (Exception ex)
@@ -1635,6 +1669,34 @@ namespace AgOpenGPS
             }
         }
 
+        private void OpenVistaXConfigDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+
+                using (var dlg = new FormVistaXConfig(vistaXConfig))
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                }
+
+                // Reinicia con la config nueva: cierra popup si esta abierto,
+                // para y dispone el monitor/panel, y vuelve a inicializar.
+                if (vistaXPopupForm != null && !vistaXPopupForm.IsDisposed)
+                {
+                    try { vistaXPopupForm.Close(); } catch { }
+                    vistaXPopupForm = null;
+                }
+                CleanupVistaX();
+                vistaXConfig = VistaXConfig.Load();
+                InitVistaX();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenConfigDialog: " + ex.Message);
+            }
+        }
+
         private void OpenVistaXNativePopup()
         {
             if (vistaXPopupForm != null && !vistaXPopupForm.IsDisposed)
@@ -1661,24 +1723,26 @@ namespace AgOpenGPS
         {
             try
             {
+                toolStripAgroParallel.DropDownItems.Add(new ToolStripSeparator());
+
                 var itemLoad = new ToolStripMenuItem();
                 itemLoad.Text = "\U0001F5FA Cargar Shapefile";
-                itemLoad.Font = new Font("Tahoma", 18F, FontStyle.Bold);
+                itemLoad.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
                 itemLoad.ForeColor = Color.FromArgb(0, 140, 200);
                 itemLoad.Click += (s, e) => OpenShapefileLoadDialog();
-                toolStripDropDownButton1.DropDownItems.Add(itemLoad);
+                toolStripAgroParallel.DropDownItems.Add(itemLoad);
 
                 shapefileStyleItem = new ToolStripMenuItem();
                 shapefileStyleItem.Text = "\U0001F3A8 Estilo Shapefile";
-                shapefileStyleItem.Font = new Font("Tahoma", 18F, FontStyle.Bold);
+                shapefileStyleItem.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
                 shapefileStyleItem.ForeColor = Color.FromArgb(0, 140, 200);
                 shapefileStyleItem.Enabled = false;
                 shapefileStyleItem.Click += (s, e) => OpenShapefileStyleDialog();
-                toolStripDropDownButton1.DropDownItems.Add(shapefileStyleItem);
+                toolStripAgroParallel.DropDownItems.Add(shapefileStyleItem);
 
                 shapefileToggleItem = new ToolStripMenuItem();
                 shapefileToggleItem.Text = "\U0001F441 Mostrar Shapefile";
-                shapefileToggleItem.Font = new Font("Tahoma", 18F, FontStyle.Bold);
+                shapefileToggleItem.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
                 shapefileToggleItem.ForeColor = Color.FromArgb(0, 140, 200);
                 shapefileToggleItem.CheckOnClick = true;
                 shapefileToggleItem.Checked = true;
@@ -1690,11 +1754,11 @@ namespace AgOpenGPS
                     UpdateShapefileLegendVisibility();
                     SaveShapefileState();
                 };
-                toolStripDropDownButton1.DropDownItems.Add(shapefileToggleItem);
+                toolStripAgroParallel.DropDownItems.Add(shapefileToggleItem);
 
                 shapefileInspectItem = new ToolStripMenuItem();
                 shapefileInspectItem.Text = "\U0001F50D Modo inspeccion";
-                shapefileInspectItem.Font = new Font("Tahoma", 18F, FontStyle.Bold);
+                shapefileInspectItem.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
                 shapefileInspectItem.ForeColor = Color.FromArgb(0, 140, 200);
                 shapefileInspectItem.CheckOnClick = true;
                 shapefileInspectItem.CheckedChanged += (s, e) =>
@@ -1702,22 +1766,23 @@ namespace AgOpenGPS
                     shapefileInspectMode = shapefileInspectItem.Checked;
                     oglMain.Cursor = shapefileInspectMode ? Cursors.Cross : Cursors.Default;
                 };
-                toolStripDropDownButton1.DropDownItems.Add(shapefileInspectItem);
+                toolStripAgroParallel.DropDownItems.Add(shapefileInspectItem);
 
                 var itemExport = new ToolStripMenuItem();
                 itemExport.Text = "\U0001F4BE Exportar Shapefile...";
-                itemExport.Font = new Font("Tahoma", 18F, FontStyle.Bold);
+                itemExport.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
                 itemExport.ForeColor = Color.FromArgb(0, 140, 200);
                 itemExport.Click += (s, e) => OpenShapefileExportDialog();
-                toolStripDropDownButton1.DropDownItems.Add(itemExport);
+                toolStripAgroParallel.DropDownItems.Add(itemExport);
 
                 // QUANTIX_MOD_START
+                toolStripAgroParallel.DropDownItems.Add(new ToolStripSeparator());
                 var itemQuantiX = new ToolStripMenuItem();
                 itemQuantiX.Text = "⚙ QuantiX (UDP)";
-                itemQuantiX.Font = new Font("Tahoma", 18F, FontStyle.Bold);
+                itemQuantiX.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
                 itemQuantiX.ForeColor = Color.FromArgb(230, 150, 30);
                 itemQuantiX.Click += (s, e) => OpenQuantiXConfigDialog();
-                toolStripDropDownButton1.DropDownItems.Add(itemQuantiX);
+                toolStripAgroParallel.DropDownItems.Add(itemQuantiX);
                 // QUANTIX_MOD_END
 
                 InitShapefileLegend();
