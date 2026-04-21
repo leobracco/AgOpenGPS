@@ -23,12 +23,16 @@ namespace AgroParallel.VistaX
 {
     public class FormVistaXPerfiles : Form
     {
-        private static readonly Color CBgDark = Color.FromArgb(0, 0, 0);
-        private static readonly Color CBgCard = Color.FromArgb(30, 30, 30);
-        private static readonly Color CBgCardActive = Color.FromArgb(0, 60, 28);
-        private static readonly Color CAccent = Color.FromArgb(0, 230, 118);
+        // Paleta tomada de VistaX-Core (public/css/vistax.css).
+        private static readonly Color CBgDark = Color.FromArgb(0, 0, 0);       // #000000
+        private static readonly Color CBgPanel = Color.FromArgb(20, 20, 20);   // #141414
+        private static readonly Color CBgCard = Color.FromArgb(30, 30, 30);    // #1e1e1e
+        private static readonly Color CBgCardActive = Color.FromArgb(12, 40, 20);
+        private static readonly Color CAccent = Color.FromArgb(0, 230, 118);   // #00e676
+        private static readonly Color CAccentDim = Color.FromArgb(0, 140, 70);
         private static readonly Color CText = Color.FromArgb(235, 235, 235);
         private static readonly Color CTextDim = Color.FromArgb(120, 120, 120);
+        private static readonly Color CTextFaint = Color.FromArgb(85, 85, 90);
         private static readonly Color CBorder = Color.FromArgb(40, 40, 40);
 
         private class Item
@@ -68,33 +72,108 @@ namespace AgroParallel.VistaX
             KeyPreview = true;
             KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) Close(); };
 
-            var header = new Panel
+            // Top bar de branding "VistaX CONFIGURACION  |  Perfil activo: NAME".
+            var topBar = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 60,
-                BackColor = Color.FromArgb(20, 20, 20)
+                Height = 56,
+                BackColor = CBgPanel
             };
-            var lblTitle = new Label
+            topBar.Paint += (s, e) =>
             {
-                Text = "\U0001F4DA PERFILES DE IMPLEMENTO",
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
-                ForeColor = CAccent,
-                Location = new Point(16, 10),
+                using (var pen = new Pen(CBorder))
+                    e.Graphics.DrawLine(pen, 0, topBar.Height - 1, topBar.Width, topBar.Height - 1);
+            };
+            var lblBrand = new Label
+            {
+                Text = "VistaX",
+                Font = new Font("Segoe UI", 18f, FontStyle.Bold),
+                ForeColor = CText,
+                Location = new Point(24, 14),
                 AutoSize = true,
                 BackColor = Color.Transparent
             };
+            topBar.Controls.Add(lblBrand);
+            var lblBrandSub = new Label
+            {
+                Text = "CONFIGURACION",
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = CTextDim,
+                Location = new Point(116, 20),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            topBar.Controls.Add(lblBrandSub);
+
+            var lblActivoLabel = new Label
+            {
+                Text = "Perfil activo:",
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = CTextDim,
+                BackColor = Color.Transparent,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                AutoSize = true
+            };
+            lblActivoLabel.Location = new Point(topBar.Width - 260, 22);
+            topBar.Controls.Add(lblActivoLabel);
+
+            string activoName = TryGetActiveProfileName();
+            var lblActivo = new Label
+            {
+                Text = (activoName ?? "—").ToUpperInvariant(),
+                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                ForeColor = CAccent,
+                BackColor = Color.Transparent,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                AutoSize = true
+            };
+            lblActivo.Location = new Point(topBar.Width - 140, 20);
+            topBar.Controls.Add(lblActivo);
+
+            Controls.Add(topBar);
+
+            // Sub-header de la pagina: icono + titulo + subtitulo (estilo de
+            // VistaX-Core: icono grande verde, titulo UPPERCASE).
+            var subHeader = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 76,
+                BackColor = CBgDark
+            };
+            var lblIcon = new Label
+            {
+                Text = "\U0001F4DA",
+                Font = new Font("Segoe UI Emoji", 20f, FontStyle.Bold),
+                ForeColor = CAccent,
+                Location = new Point(20, 20),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            subHeader.Controls.Add(lblIcon);
+
+            var lblTitle = new Label
+            {
+                Text = "PERFILES DE IMPLEMENTO",
+                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                ForeColor = CText,
+                Location = new Point(62, 16),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            subHeader.Controls.Add(lblTitle);
+
             var lblSub = new Label
             {
                 Text = "Configuraciones predefinidas para cada sembradora del cliente",
-                Font = new Font("Segoe UI", 8.5f),
+                Font = new Font("Segoe UI", 9f),
                 ForeColor = CTextDim,
-                Location = new Point(18, 36),
+                Location = new Point(62, 44),
                 AutoSize = true,
                 BackColor = Color.Transparent
             };
-            header.Controls.Add(lblTitle);
-            header.Controls.Add(lblSub);
-            Controls.Add(header);
+            subHeader.Controls.Add(lblSub);
+
+            Controls.Add(subHeader);
 
             _list = new FlowLayoutPanel
             {
@@ -111,20 +190,48 @@ namespace AgroParallel.VistaX
             var footer = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 48,
-                BackColor = Color.FromArgb(20, 20, 20)
+                Height = 44,
+                BackColor = CBgPanel
             };
-            var btnReload = MkButton("↻  Recargar", Color.FromArgb(40, 40, 45), CText);
-            btnReload.Size = new Size(120, 32);
-            btnReload.Location = new Point(14, 8);
+            footer.Paint += (s, e) =>
+            {
+                using (var pen = new Pen(CBorder))
+                    e.Graphics.DrawLine(pen, 0, 0, footer.Width, 0);
+            };
+
+            var lblVer = new Label
+            {
+                Text = "VistaX nativo · Perfiles",
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = CTextFaint,
+                Location = new Point(18, 14),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            footer.Controls.Add(lblVer);
+
+            var btnReload = MkPillButton("↻  Recargar",
+                Color.FromArgb(40, 40, 45), CText);
+            btnReload.Size = new Size(110, 30);
+            btnReload.Location = new Point(150, 7);
             btnReload.Click += (s, e) => ReloadList();
             footer.Controls.Add(btnReload);
 
-            var btnClose = MkButton("Cerrar", Color.FromArgb(60, 60, 65), CText);
-            btnClose.Size = new Size(100, 32);
-            btnClose.Anchor = AnchorStyles.Right | AnchorStyles.Top;
-            btnClose.Location = new Point(Width - btnClose.Width - 20, 8);
-            btnClose.DialogResult = DialogResult.Cancel;
+            var btnClose = new Button
+            {
+                Text = "✕ CERRAR",
+                FlatStyle = FlatStyle.Flat,
+                BackColor = CBgPanel,
+                ForeColor = CTextDim,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Size = new Size(110, 30),
+                Anchor = AnchorStyles.Right | AnchorStyles.Top,
+                DialogResult = DialogResult.Cancel
+            };
+            btnClose.FlatAppearance.BorderSize = 0;
+            btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(60, 30, 30);
+            btnClose.Location = new Point(Width - btnClose.Width - 18, 7);
             footer.Controls.Add(btnClose);
 
             Controls.Add(footer);
@@ -207,86 +314,170 @@ namespace AgroParallel.VistaX
 
             var card = new Panel
             {
-                Size = new Size(_list.ClientSize.Width - 36, 100),
-                Margin = new Padding(0, 0, 0, 10),
+                Size = new Size(_list.ClientSize.Width - 36, 110),
+                Margin = new Padding(0, 0, 0, 12),
                 BackColor = isActive ? CBgCardActive : CBgCard,
                 Cursor = Cursors.Default
             };
+            // Borde externo + barra de acento de 4px a la izquierda (como el
+            // ModuleCard de FormAgroParallel y el card de VistaX-Core).
             card.Paint += (s, e) =>
             {
+                using (var acc = new SolidBrush(isActive ? CAccent : Color.FromArgb(50, 50, 55)))
+                    e.Graphics.FillRectangle(acc, 0, 0, 4, card.Height);
                 using (var pen = new Pen(isActive ? CAccent : CBorder, 1))
                     e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
             };
 
+            // Icono del implemento (chip redondeado con tractor).
+            var iconChip = new Panel
+            {
+                Size = new Size(52, 52),
+                Location = new Point(22, 28),
+                BackColor = Color.FromArgb(45, 45, 50)
+            };
+            iconChip.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var b = new SolidBrush(isActive ? CAccent : Color.FromArgb(55, 55, 62)))
+                    e.Graphics.FillEllipse(b, 0, 0, iconChip.Width - 1, iconChip.Height - 1);
+                using (var f = new Font("Segoe UI Emoji", 16f))
+                using (var br = new SolidBrush(isActive ? CBgDark : CTextDim))
+                {
+                    var txt = "\U0001F69C"; // tractor
+                    var sz = e.Graphics.MeasureString(txt, f);
+                    e.Graphics.DrawString(txt, f, br,
+                        (iconChip.Width - sz.Width) / 2f,
+                        (iconChip.Height - sz.Height) / 2f);
+                }
+            };
+            card.Controls.Add(iconChip);
+
+            // Nombre.
             var lblName = new Label
             {
                 Text = string.IsNullOrEmpty(it.Config.Nombre)
                     ? Path.GetFileNameWithoutExtension(it.Path) : it.Config.Nombre,
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
                 ForeColor = CText,
-                Location = new Point(16, 10),
+                Location = new Point(92, 18),
                 AutoSize = true,
                 BackColor = Color.Transparent
             };
             card.Controls.Add(lblName);
 
+            // Badge ACTIVO (verde) inline al lado del nombre.
             if (isActive)
             {
                 var badge = new Label
                 {
                     Text = " ACTIVO ",
-                    Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                    Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
                     ForeColor = CBgDark,
                     BackColor = CAccent,
-                    Location = new Point(lblName.Right + 10, 14),
-                    AutoSize = true
+                    Location = new Point(lblName.Right + 8, 23),
+                    AutoSize = true,
+                    Padding = new Padding(4, 1, 4, 1)
                 };
                 card.Controls.Add(badge);
             }
 
-            var lblStats = new Label
-            {
-                Text = string.Format(CultureInfo.InvariantCulture,
-                    "{0} SURCOS    {1} TRENES    {2} SENSORES",
-                    it.CountSurcos, it.CountTrenes, it.CountSensores),
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                ForeColor = CTextDim,
-                Location = new Point(18, 40),
-                AutoSize = true,
-                BackColor = Color.Transparent
-            };
-            card.Controls.Add(lblStats);
+            // Stats: NUMERO grande blanco + LABEL chico gris, columnas alineadas.
+            AddStatTriplet(card, 92, 50, it.CountSurcos, "SURCOS");
+            AddStatTriplet(card, 180, 50, it.CountTrenes, "TRENES");
+            AddStatTriplet(card, 272, 50, it.CountSensores, "SENSORES");
 
             var lblDate = new Label
             {
-                Text = "\U0001F551 " + it.LastWrite.ToString("yyyy-MM-dd HH:mm",
+                Text = "\U0001F551  " + it.LastWrite.ToString("yyyy-MM-dd HH:mm",
                     CultureInfo.InvariantCulture),
                 Font = new Font("Segoe UI", 8.5f),
-                ForeColor = CTextDim,
-                Location = new Point(18, 64),
+                ForeColor = CTextFaint,
+                Location = new Point(92, 84),
                 AutoSize = true,
                 BackColor = Color.Transparent
             };
             card.Controls.Add(lblDate);
 
-            var btnDuplicate = MkButton("Duplicar", Color.FromArgb(50, 50, 55), CText);
-            btnDuplicate.Size = new Size(110, 32);
-            btnDuplicate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnDuplicate.Location = new Point(card.Width - 240, 34);
-            btnDuplicate.Click += (s, e) => DuplicateItem(it);
-            card.Controls.Add(btnDuplicate);
+            // Botones de accion a la derecha (compactos, estilo pill).
+            int btnTop = (card.Height - 36) / 2;
+            int btnRight = card.Width - 20;
 
-            var btnActivate = MkButton(isActive ? "Activo" : "Activar",
+            var btnActivate = MkPillButton(isActive ? "Activo" : "Activar",
                 isActive ? Color.FromArgb(30, 30, 30) : CAccent,
                 isActive ? CTextDim : CBgDark);
-            btnActivate.Size = new Size(110, 32);
+            btnActivate.Size = new Size(110, 36);
             btnActivate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnActivate.Location = new Point(card.Width - 122, 34);
+            btnActivate.Location = new Point(btnRight - btnActivate.Width, btnTop);
             btnActivate.Enabled = !isActive;
             btnActivate.Click += (s, e) => ActivateItem(it);
             card.Controls.Add(btnActivate);
 
+            var btnDuplicate = MkPillButton("\U0001F4CB  Duplicar",
+                Color.FromArgb(50, 50, 55), CText);
+            btnDuplicate.Size = new Size(115, 36);
+            btnDuplicate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnDuplicate.Location = new Point(btnActivate.Left - btnDuplicate.Width - 8, btnTop);
+            btnDuplicate.Click += (s, e) => DuplicateItem(it);
+            card.Controls.Add(btnDuplicate);
+
             return card;
+        }
+
+        private void AddStatTriplet(Control parent, int x, int y, int number, string label)
+        {
+            var lblN = new Label
+            {
+                Text = number.ToString(CultureInfo.InvariantCulture),
+                Font = new Font("Segoe UI", 15f, FontStyle.Bold),
+                ForeColor = CText,
+                Location = new Point(x, y),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            parent.Controls.Add(lblN);
+            var lblL = new Label
+            {
+                Text = label,
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                ForeColor = CTextFaint,
+                Location = new Point(x, y + 24),
+                AutoSize = true,
+                BackColor = Color.Transparent
+            };
+            parent.Controls.Add(lblL);
+        }
+
+        private string TryGetActiveProfileName()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_cfg.ImplementoJsonPath)) return null;
+                if (!File.Exists(_cfg.ImplementoJsonPath)) return null;
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var json = File.ReadAllText(_cfg.ImplementoJsonPath);
+                var c = JsonSerializer.Deserialize<ImplementoConfig>(json, opts);
+                return c != null && !string.IsNullOrEmpty(c.Nombre)
+                    ? c.Nombre
+                    : Path.GetFileNameWithoutExtension(_cfg.ImplementoJsonPath);
+            }
+            catch { return null; }
+        }
+
+        private static Button MkPillButton(string text, Color bg, Color fg)
+        {
+            var b = new Button
+            {
+                Text = text,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = bg,
+                ForeColor = fg,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            b.FlatAppearance.BorderSize = 0;
+            return b;
         }
 
         private Panel MkEmptyState(string msg)
@@ -344,19 +535,5 @@ namespace AgroParallel.VistaX
                 "data", "implementos");
         }
 
-        private static Button MkButton(string text, Color bg, Color fg)
-        {
-            var b = new Button
-            {
-                Text = text,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = bg,
-                ForeColor = fg,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            b.FlatAppearance.BorderColor = CBorder;
-            return b;
-        }
     }
 }
