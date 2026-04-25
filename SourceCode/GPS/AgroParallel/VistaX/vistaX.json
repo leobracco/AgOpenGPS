@@ -1,5 +1,5 @@
 {
-  "Enabled": true,
+  "Enabled": false,
   "BrokerAddress": "127.0.0.1",
   "BrokerPort": 1883,
   "ClientId": "AgOpenGPS_VistaX",

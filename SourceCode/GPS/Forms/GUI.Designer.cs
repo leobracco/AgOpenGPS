@@ -139,6 +139,13 @@ namespace AgOpenGPS
                 //reset the counter
                 fourSecondCounter = 0;
 
+                // ORBITX_MOD — Escribir gps_status.json para el agente OrbitX-Sync
+                try
+                {
+                    WriteGpsStatusJson();
+                }
+                catch { }
+
                 if (isJobStarted)
                 {
                     switch (currentFieldTextCounter)

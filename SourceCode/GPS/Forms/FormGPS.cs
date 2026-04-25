@@ -28,6 +28,12 @@ using AgroParallel.Common;
 // VISTAX_MOD_START
 using AgroParallel.VistaX;
 // VISTAX_MOD_END
+// ORBITX_MOD_START
+using AgroParallel.OrbitX;
+// ORBITX_MOD_END
+// SECTIONX_MOD_START
+using AgroParallel.SectionX;
+// SECTIONX_MOD_END
 // QUANTIX_MOD_START
 using AgroParallel.QuantiX;
 // QUANTIX_MOD_END
@@ -98,6 +104,7 @@ namespace AgOpenGPS
         private VistaXNativePanel vistaXPanel;
         public VistaXConfig vistaXConfig;
         private FormVistaXPopup vistaXPopupForm;
+        private VistaXFieldLogger vistaXLogger;
         // VISTAX_MOD_END
 
         // SHAPEFILE_MOD_START
@@ -119,9 +126,16 @@ namespace AgOpenGPS
         private bool _glMatricesValid;
         // SHAPEFILE_MOD_END
 
+        // ORBITX_MOD_START
+        private OrbitXSync orbitXSync;
+        // ORBITX_MOD_END
+        // SECTIONX_MOD_START
+        private SectionXBridge sectionXBridge;
+        // SECTIONX_MOD_END
         // QUANTIX_MOD_START
         private QuantiXConfig quantiXConfig;
         private QuantiXSender quantiXSender;
+        private QuantiXMotorBridge quantiXBridge;
         // QUANTIX_MOD_END
 
         // COREX_FIELD_MOD_START
@@ -604,6 +618,52 @@ namespace AgOpenGPS
             // VISTAX_MOD_START
             InitVistaX();
             // VISTAX_MOD_END
+
+            // ORBITX_MOD_START — Sync cloud al inicio.
+            try
+            {
+                var oxCfg = OrbitXConfig.Load();
+                if (oxCfg.Enabled && !string.IsNullOrEmpty(oxCfg.DeviceToken))
+                {
+                    orbitXSync = new OrbitXSync(this, oxCfg);
+                    orbitXSync.Start();
+                }
+            }
+            catch { }
+            // ORBITX_MOD_END
+
+            // SECTIONX_MOD_START — Bridge de secciones al inicio.
+            try
+            {
+                var sxCfg = SectionXConfig.Load();
+                if (sxCfg.Enabled && sxCfg.Nodos.Count > 0)
+                {
+                    sectionXBridge = new SectionXBridge(this, sxCfg);
+                    _ = sectionXBridge.StartAsync();
+                }
+            }
+            catch { }
+            // SECTIONX_MOD_END
+
+            // QUANTIX_MOD_START — Bridge de motores al inicio (no espera campo abierto).
+            try
+            {
+                if (quantiXBridge == null)
+                {
+                    var motCfg = MotoresConfig.Load();
+                    if (motCfg.Nodos.Count > 0)
+                    {
+                        Console.WriteLine("[QuantiX] " + motCfg.Nodos.Count + " nodo(s) configurados, iniciando bridge...");
+                        quantiXBridge = new QuantiXMotorBridge(this);
+                        _ = quantiXBridge.StartAsync();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[QuantiX] Error iniciando bridge: " + ex.Message);
+            }
+            // QUANTIX_MOD_END
 
             // AGROPARALLEL_MOD_START
             InitAgroParallelModulesMenu();
@@ -1586,6 +1646,27 @@ namespace AgOpenGPS
                 vistaXPanel.ObjetivoChanged += v => monitorCapture.SetObjetivo(v, 0);
                 vistaXPanel.ConfigRequested += OpenVistaXConfigDialog;
 
+                // Logger NDJSON — graba snapshots a disco y exporta SHP al detener.
+                if (cfg.LogToFieldRecord)
+                {
+                    vistaXLogger = new VistaXFieldLogger(this, cfg);
+                    vistaXLogger.Start(); // Arrancar inmediatamente.
+                    System.Diagnostics.Debug.WriteLine("[VistaX-Log] Logger creado, IsLogging=" + vistaXLogger.IsLogging
+                        + ", Path=" + (vistaXLogger.CurrentLogPath ?? "null"));
+
+                    vistaXMonitor.SnapshotUpdated += snap =>
+                    {
+                        if (snap == null) return;
+                        var logger = vistaXLogger;
+                        if (logger == null) return;
+
+                        // Si no está logueando (falló el Start), reintentar.
+                        if (!logger.IsLogging) logger.Start();
+
+                        logger.WriteSnapshot(snap);
+                    };
+                }
+
                 // Fire-and-forget: StartAsync maneja sus propios errores de MQTT.
                 _ = vistaXMonitor.StartAsync();
 
@@ -1617,6 +1698,11 @@ namespace AgOpenGPS
                 try { vistaXPanel.Dispose(); } catch { }
                 vistaXPanel = null;
             }
+            if (vistaXLogger != null)
+            {
+                try { vistaXLogger.Dispose(); } catch { }
+                vistaXLogger = null;
+            }
             if (vistaXMonitor != null)
             {
                 // Stop+Dispose en background con timeout: si MQTT esta en un
@@ -1641,38 +1727,13 @@ namespace AgOpenGPS
         {
             try
             {
-                // Sub-items nativos de VistaX (primeros, agrupados arriba).
-                var itemVistaXPanel = new ToolStripMenuItem();
-                itemVistaXPanel.Text = "\U0001F441 Panel VistaX";
-                itemVistaXPanel.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                itemVistaXPanel.ForeColor = Color.FromArgb(0, 180, 80);
-                itemVistaXPanel.CheckOnClick = true;
-                itemVistaXPanel.Checked = vistaXPanel != null;
-                itemVistaXPanel.Click += (s, e) => ToggleVistaX();
-                toolStripAgroParallel.DropDownItems.Add(itemVistaXPanel);
-
-                var itemVistaXPopup = new ToolStripMenuItem();
-                itemVistaXPopup.Text = "\U0001F33F Abrir VistaX";
-                itemVistaXPopup.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                itemVistaXPopup.ForeColor = Color.FromArgb(0, 180, 80);
-                itemVistaXPopup.Click += (s, e) => OpenVistaXNativePopup();
-                toolStripAgroParallel.DropDownItems.Add(itemVistaXPopup);
-
-                var itemVistaXConfig = new ToolStripMenuItem();
-                itemVistaXConfig.Text = "⚙ Configurar VistaX";
-                itemVistaXConfig.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                itemVistaXConfig.ForeColor = Color.FromArgb(0, 180, 80);
-                itemVistaXConfig.Click += (s, e) => OpenVistaXConfigDialog();
-                toolStripAgroParallel.DropDownItems.Add(itemVistaXConfig);
-
-                var itemVistaXPerfiles = new ToolStripMenuItem();
-                itemVistaXPerfiles.Text = "\U0001F4DA Perfiles de implemento";
-                itemVistaXPerfiles.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                itemVistaXPerfiles.ForeColor = Color.FromArgb(0, 180, 80);
-                itemVistaXPerfiles.Click += (s, e) => OpenVistaXPerfilesDialog();
-                toolStripAgroParallel.DropDownItems.Add(itemVistaXPerfiles);
-
-                toolStripAgroParallel.DropDownItems.Add(new ToolStripSeparator());
+                // Hub unificado — único item del menú AP.
+                var itemHub = new ToolStripMenuItem();
+                itemHub.Text = "\U0001F33F Agro Parallel Hub";
+                itemHub.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+                itemHub.ForeColor = Color.FromArgb(0, 230, 118);
+                itemHub.Click += (s, e) => OpenAgroParallelHub();
+                toolStripAgroParallel.DropDownItems.Add(itemHub);
 
                 // Modulos dinamicos declarados en agroParallelModules.json. Se saltea
                 // VistaX porque ya tenemos items nativos dedicados arriba.
@@ -1774,6 +1835,169 @@ namespace AgOpenGPS
             }
         }
 
+        public void OpenVistaXNodosDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+
+                using (var dlg = new FormVistaXNodos(vistaXConfig, vistaXMonitor))
+                {
+                    dlg.ShowDialog(this);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenNodosDialog: " + ex.Message);
+            }
+        }
+
+        public void OpenVistaXTrenesDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+
+                bool changed = false;
+                using (var dlg = new FormVistaXTrenes(vistaXConfig))
+                {
+                    if (dlg.ShowDialog(this) == DialogResult.OK && dlg.Changed)
+                        changed = true;
+                }
+
+                if (changed)
+                {
+                    if (vistaXPopupForm != null && !vistaXPopupForm.IsDisposed)
+                    {
+                        try { vistaXPopupForm.Close(); } catch { }
+                        vistaXPopupForm = null;
+                    }
+                    CleanupVistaX();
+                    vistaXConfig = VistaXConfig.Load();
+                    InitVistaX();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenTrenesDialog: " + ex.Message);
+            }
+        }
+
+        public void OpenVistaXSensoresDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+
+                bool changed = false;
+                using (var dlg = new FormVistaXSensores(vistaXConfig))
+                {
+                    if (dlg.ShowDialog(this) == DialogResult.OK && dlg.Changed)
+                        changed = true;
+                }
+
+                if (changed)
+                {
+                    if (vistaXPopupForm != null && !vistaXPopupForm.IsDisposed)
+                    {
+                        try { vistaXPopupForm.Close(); } catch { }
+                        vistaXPopupForm = null;
+                    }
+                    CleanupVistaX();
+                    vistaXConfig = VistaXConfig.Load();
+                    InitVistaX();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenSensoresDialog: " + ex.Message);
+            }
+        }
+
+        public void OpenVistaXMapeoDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+                using (var dlg = new FormVistaXMapeo(vistaXConfig))
+                {
+                    dlg.ShowDialog(this);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenMapeoDialog: " + ex.Message);
+            }
+        }
+
+        public void OpenVistaXSonidosDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+                using (var dlg = new FormVistaXSonidos(vistaXConfig))
+                {
+                    if (dlg.ShowDialog(this) == DialogResult.OK)
+                    {
+                        vistaXConfig = VistaXConfig.Load();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenSonidosDialog: " + ex.Message);
+            }
+        }
+
+        public void OpenVistaXPruebaDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+                var dlg = new FormVistaXPrueba(vistaXConfig);
+                dlg.Show();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenPruebaDialog: " + ex.Message);
+            }
+        }
+
+        public void OpenVistaXSimulatorDialog()
+        {
+            try
+            {
+                if (vistaXConfig == null) vistaXConfig = VistaXConfig.Load();
+                var dlg = new FormVistaXSimulator(vistaXConfig);
+                dlg.Show();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] OpenSimulatorDialog: " + ex.Message);
+            }
+        }
+
+        private FormAgroParallelHub _hubForm;
+
+        public void OpenAgroParallelHub()
+        {
+            try
+            {
+                if (_hubForm != null && !_hubForm.IsDisposed)
+                {
+                    _hubForm.BringToFront();
+                    return;
+                }
+                _hubForm = new FormAgroParallelHub(this);
+                _hubForm.FormClosed += (s, e) => _hubForm = null;
+                _hubForm.Show(this);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[AgroParallel] OpenHub: " + ex.Message);
+            }
+        }
+
         public void OpenVistaXConfigDialog()
         {
             try
@@ -1828,68 +2052,8 @@ namespace AgOpenGPS
         {
             try
             {
-                toolStripAgroParallel.DropDownItems.Add(new ToolStripSeparator());
-
-                var itemLoad = new ToolStripMenuItem();
-                itemLoad.Text = "\U0001F5FA Cargar Shapefile";
-                itemLoad.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                itemLoad.ForeColor = Color.FromArgb(0, 140, 200);
-                itemLoad.Click += (s, e) => OpenShapefileLoadDialog();
-                toolStripAgroParallel.DropDownItems.Add(itemLoad);
-
-                shapefileStyleItem = new ToolStripMenuItem();
-                shapefileStyleItem.Text = "\U0001F3A8 Estilo Shapefile";
-                shapefileStyleItem.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                shapefileStyleItem.ForeColor = Color.FromArgb(0, 140, 200);
-                shapefileStyleItem.Enabled = false;
-                shapefileStyleItem.Click += (s, e) => OpenShapefileStyleDialog();
-                toolStripAgroParallel.DropDownItems.Add(shapefileStyleItem);
-
-                shapefileToggleItem = new ToolStripMenuItem();
-                shapefileToggleItem.Text = "\U0001F441 Mostrar Shapefile";
-                shapefileToggleItem.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                shapefileToggleItem.ForeColor = Color.FromArgb(0, 140, 200);
-                shapefileToggleItem.CheckOnClick = true;
-                shapefileToggleItem.Checked = true;
-                shapefileToggleItem.Enabled = false;
-                shapefileToggleItem.CheckedChanged += (s, e) =>
-                {
-                    if (shapefileLayer != null)
-                        shapefileLayer.IsVisible = shapefileToggleItem.Checked;
-                    UpdateShapefileLegendVisibility();
-                    SaveShapefileState();
-                };
-                toolStripAgroParallel.DropDownItems.Add(shapefileToggleItem);
-
-                shapefileInspectItem = new ToolStripMenuItem();
-                shapefileInspectItem.Text = "\U0001F50D Modo inspeccion";
-                shapefileInspectItem.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                shapefileInspectItem.ForeColor = Color.FromArgb(0, 140, 200);
-                shapefileInspectItem.CheckOnClick = true;
-                shapefileInspectItem.CheckedChanged += (s, e) =>
-                {
-                    shapefileInspectMode = shapefileInspectItem.Checked;
-                    oglMain.Cursor = shapefileInspectMode ? Cursors.Cross : Cursors.Default;
-                };
-                toolStripAgroParallel.DropDownItems.Add(shapefileInspectItem);
-
-                var itemExport = new ToolStripMenuItem();
-                itemExport.Text = "\U0001F4BE Exportar Shapefile...";
-                itemExport.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                itemExport.ForeColor = Color.FromArgb(0, 140, 200);
-                itemExport.Click += (s, e) => OpenShapefileExportDialog();
-                toolStripAgroParallel.DropDownItems.Add(itemExport);
-
-                // QUANTIX_MOD_START
-                toolStripAgroParallel.DropDownItems.Add(new ToolStripSeparator());
-                var itemQuantiX = new ToolStripMenuItem();
-                itemQuantiX.Text = "⚙ QuantiX (UDP)";
-                itemQuantiX.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                itemQuantiX.ForeColor = Color.FromArgb(230, 150, 30);
-                itemQuantiX.Click += (s, e) => OpenQuantiXConfigDialog();
-                toolStripAgroParallel.DropDownItems.Add(itemQuantiX);
-                // QUANTIX_MOD_END
-
+                // Shapefile + QuantiX — movidos al Hub.
+                // Solo inicializar la leyenda embebida en el mapa.
                 InitShapefileLegend();
             }
             catch (Exception ex)
@@ -1899,7 +2063,7 @@ namespace AgOpenGPS
             }
         }
 
-        private void OpenShapefileLoadDialog()
+        public void OpenShapefileLoadDialog()
         {
             using (var ofd = new OpenFileDialog())
             {
@@ -1996,7 +2160,7 @@ namespace AgOpenGPS
             return true;
         }
 
-        private void OpenShapefileStyleDialog()
+        public void OpenShapefileStyleDialog()
         {
             if (shapefileLayer == null || shapefileLayer.PolygonCount == 0) return;
 
@@ -2282,10 +2446,29 @@ namespace AgOpenGPS
             shapefileLegend = new ShapefileLegendControl();
             shapefileLegend.Visible = false;
             shapefileLegend.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
-            // Sobre oglMain (oglMain.Left=75); margen izquierdo + encima del footer.
             shapefileLegend.Location = new Point(85, this.ClientSize.Height - shapefileLegend.Height - 90);
             this.Controls.Add(shapefileLegend);
             shapefileLegend.BringToFront();
+
+            // Manual por motor: (motorIdx, manual, dosis).
+            shapefileLegend.MotorManualChanged += (motorIdx, manual, dosis) =>
+            {
+                try
+                {
+                    var motCfg = MotoresConfig.Load();
+                    foreach (var nodo in motCfg.Nodos)
+                    {
+                        if (!nodo.Habilitado) continue;
+                        if (motorIdx < nodo.Motores.Length)
+                        {
+                            nodo.Motores[motorIdx].DosisFija = manual ? dosis : 0;
+                        }
+                        break;
+                    }
+                    motCfg.Save();
+                }
+                catch { }
+            };
         }
 
         private void RefreshShapefileLegend()
@@ -2315,17 +2498,61 @@ namespace AgOpenGPS
                 shapefileLayer.CurrentDose,
                 shapefileLayer.HasCurrentDose);
 
-            // QUANTIX_MOD_START
-            if (quantiXSender != null)
+            // QUANTIX_MOD_START — alimentar vúmetros de motores.
+            shapefileLegend.SetConnected(quantiXBridge != null && quantiXBridge.IsRunning);
+
+            if (quantiXBridge != null && quantiXBridge.IsRunning)
             {
-                shapefileLegend.SetUdpStatus(
-                    quantiXSender.IsRunning,
-                    quantiXSender.PacketsSent,
-                    quantiXSender.LastSendUtc);
-            }
-            else
-            {
-                shapefileLegend.SetUdpStatus(false, 0, null);
+                try
+                {
+                    var motCfg = MotoresConfig.Load();
+                    foreach (var nodo in motCfg.Nodos)
+                    {
+                        if (!nodo.Habilitado) continue;
+                        for (int mi = 0; mi < nodo.Motores.Length && mi < 2; mi++)
+                        {
+                            var motor = nodo.Motores[mi];
+                            double vel = avgSpeed;
+                            double velMs = vel / 3.6;
+                            double ancho = tool != null && tool.width > 0 ? tool.width : 1;
+
+                            // Dosis objetivo.
+                            double dosisObj = 0;
+                            if (motor.DosisFija > 0)
+                                dosisObj = motor.DosisFija;
+                            else if (!string.IsNullOrEmpty(motor.CampoDosis) && shapefileLayer != null)
+                            {
+                                // Leer el campo específico del shapefile.
+                                int polyIdx = shapefileLayer.CurrentPolygonIndex;
+                                if (polyIdx >= 0)
+                                {
+                                    double fieldVal;
+                                    if (shapefileLayer.TryGetPolygonNumeric(polyIdx, motor.CampoDosis, out fieldVal))
+                                        dosisObj = fieldVal;
+                                }
+                                if (dosisObj <= 0)
+                                    dosisObj = shapefileLayer.CurrentDose;
+                            }
+
+                            // Dosis real: inversa desde PPS real del ESP32.
+                            // pps = (dosis * ancho * velMs) / 10000 * meterCal
+                            // dosis = pps * 10000 / (ancho * velMs * meterCal)
+                            double ppsReal = quantiXBridge.GetPpsReal(nodo.Uid, mi);
+                            double dosisReal = 0;
+                            if (velMs > 0.1 && motor.MeterCal > 0)
+                                dosisReal = ppsReal * 10000.0 / (ancho * velMs * motor.MeterCal);
+
+                            string nombre = motor.Nombre ?? ("M" + mi);
+                            if (!string.IsNullOrEmpty(motor.CampoDosis))
+                                nombre = motor.CampoDosis;
+
+                            bool activo = ppsReal > 0 || dosisObj > 0;
+                            shapefileLegend.SetMotorDosis(mi, nombre, dosisObj, dosisReal, activo);
+                        }
+                        break;
+                    }
+                }
+                catch { }
             }
             // QUANTIX_MOD_END
         }
@@ -2340,9 +2567,17 @@ namespace AgOpenGPS
                 if (quantiXConfig == null)
                     quantiXConfig = QuantiXConfig.Load();
 
+                // Bridge de motores: SIEMPRE arranca si hay nodos configurados.
+                // No depende de Enabled del sender UDP.
+                if (quantiXBridge == null)
+                {
+                    quantiXBridge = new QuantiXMotorBridge(this);
+                    _ = quantiXBridge.StartAsync();
+                }
+
                 if (!quantiXConfig.Enabled)
                 {
-                    System.Diagnostics.Debug.WriteLine("[QuantiX] deshabilitado en quantiX.json");
+                    Console.WriteLine("[QuantiX] Sender UDP deshabilitado, bridge de motores activo");
                     return;
                 }
 
@@ -2359,6 +2594,11 @@ namespace AgOpenGPS
         {
             try
             {
+                if (quantiXBridge != null)
+                {
+                    quantiXBridge.Dispose();
+                    quantiXBridge = null;
+                }
                 if (quantiXSender == null) return;
                 quantiXSender.Dispose();
                 quantiXSender = null;
@@ -2640,6 +2880,42 @@ namespace AgOpenGPS
             catch { }
         }
         // COREX_FIELD_MOD_END
+
+        // ORBITX_GPS_STATUS_START — Escribe gps_status.json para que OrbitX-Sync envíe tracking.
+        private void WriteGpsStatusJson()
+        {
+            try
+            {
+                double lat = 0, lon = 0, heading = 0, speed = 0;
+
+                if (AppModel?.CurrentLatLon != null)
+                {
+                    lat = AppModel.CurrentLatLon.Latitude;
+                    lon = AppModel.CurrentLatLon.Longitude;
+                }
+                speed = avgSpeed;
+                heading = pivotAxlePos.heading * (180.0 / Math.PI);
+                string field = currentFieldDirectory ?? "";
+
+                // No escribir si no hay GPS
+                if (Math.Abs(lat) < 0.001 && Math.Abs(lon) < 0.001) return;
+
+                var sb = new System.Text.StringBuilder();
+                sb.Append("{");
+                sb.AppendFormat(CultureInfo.InvariantCulture,
+                    "\"lat\":{0:F7},\"lon\":{1:F7},\"heading\":{2:F1},\"speed\":{3:F2},",
+                    lat, lon, heading, speed);
+                sb.AppendFormat("\"field\":\"{0}\",", (field ?? "").Replace("\\", "\\\\").Replace("\"", "\\\""));
+                sb.AppendFormat("\"ts\":{0}", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                sb.Append("}");
+
+                string dir = AppDomain.CurrentDomain.BaseDirectory;
+                File.WriteAllText(Path.Combine(dir, "gps_status.json"), sb.ToString(),
+                    System.Text.Encoding.UTF8);
+            }
+            catch { }
+        }
+        // ORBITX_GPS_STATUS_END
     }//class FormGPS
 }//namespace AgOpenGPS
 
