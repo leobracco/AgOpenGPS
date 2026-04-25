@@ -163,8 +163,13 @@ namespace AgroParallel.QuantiX
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(this, "Error: " + ex.Message, "Error",
-                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        string msg = ex.InnerException?.Message ?? ex.Message;
+                        MessageBox.Show(this,
+                            "Error cargando prescripci\u00F3n:\n\n" + msg
+                            + "\n\nSi descargaste un Shapefile, verific\u00E1 que los 3 archivos "
+                            + "(.shp, .dbf, .shx) est\u00E9n en la misma carpeta.\n"
+                            + "Tambi\u00E9n pod\u00E9s usar formato GeoJSON (.geojson) directamente.",
+                            "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     _canvas.Invalidate();
                 }

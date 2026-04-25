@@ -74,9 +74,21 @@ namespace AgroParallel.Common
         public static ShapefileReadResult ReadShapes(string shpPath)
         {
             if (string.IsNullOrWhiteSpace(shpPath))
-                throw new ArgumentException("shpPath vacio", "shpPath");
+                throw new ArgumentException("shpPath vacío", "shpPath");
             if (!File.Exists(shpPath))
                 throw new FileNotFoundException("No existe el .shp", shpPath);
+
+            // Verificar archivos compañeros necesarios
+            string dbfPath = Path.ChangeExtension(shpPath, ".dbf");
+            string shxPath = Path.ChangeExtension(shpPath, ".shx");
+            if (!File.Exists(dbfPath))
+                throw new FileNotFoundException(
+                    "Falta el archivo .dbf (debe estar en la misma carpeta con el mismo nombre que el .shp).\n"
+                    + "Esperado: " + dbfPath);
+            if (!File.Exists(shxPath))
+                throw new FileNotFoundException(
+                    "Falta el archivo .shx (debe estar en la misma carpeta con el mismo nombre que el .shp).\n"
+                    + "Esperado: " + shxPath);
 
             var result = new ShapefileReadResult();
 
