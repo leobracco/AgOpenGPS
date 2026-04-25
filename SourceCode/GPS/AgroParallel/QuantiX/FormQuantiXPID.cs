@@ -82,7 +82,7 @@ namespace AgroParallel.QuantiX
         {
             Theme.ApplyToForm(this);
             FormBorderStyle = FormBorderStyle.None;
-            Size = new Size(580, 560);
+            Size = new Size(580, 590);
 
             var body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.BgBlack };
             Controls.Add(body);
@@ -122,6 +122,23 @@ namespace AgroParallel.QuantiX
             btnAgresivo.Click += (s, ev) => ApplyPreset(50, 8.0, 0, 150, 50, 2);
             body.Controls.Add(btnAgresivo);
             y += 28;
+
+            // Dientes del engranaje.
+            body.Controls.Add(MkLabel("Dientes engranaje:", lx + 330, y));
+            var numDientes = new NumericUpDown
+            {
+                Minimum = 1, Maximum = 500, Value = 20, Increment = 1,
+                Font = Theme.FontBody, ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
+                Location = new Point(lx + 460, y - 2), Size = new Size(60, 22)
+            };
+            numDientes.Name = "numDientes";
+            numDientes.ValueChanged += (s, ev) =>
+            {
+                var m = GetSelectedMotor();
+                if (m != null) m.DientesEngranaje = (int)numDientes.Value;
+            };
+            body.Controls.Add(numDientes);
+            y += 26;
 
             // Guía.
             body.Controls.Add(new Label
@@ -281,6 +298,10 @@ namespace AgroParallel.QuantiX
             _lblMinPwm.Text = m.PwmMin.ToString(); _lblSlew.Text = m.SlewRate.ToString();
             _lblDeadband.Text = m.Deadband.ToString();
 
+            var numD = Controls.Find("numDientes", true);
+            if (numD.Length > 0 && numD[0] is NumericUpDown nd)
+                nd.Value = Math.Max(nd.Minimum, Math.Min(nd.Maximum, m.DientesEngranaje > 0 ? m.DientesEngranaje : 20));
+
             _histTarget.Clear(); _histReal.Clear();
         }
 
@@ -358,13 +379,18 @@ namespace AgroParallel.QuantiX
                             _liveTarget, _liveReal, _livePwm, _liveRpm,
                             _liveTarget > 0 ? ((_liveReal - _liveTarget) / _liveTarget * 100) : 0);
 
+                    // RPM: usar el del firmware, o calcular desde PPS / dientes
+                    var motor = GetSelectedMotor();
+                    int dientes = motor != null && motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 20;
+                    int rpmDisplay = _liveRpm > 0 ? _liveRpm : (dientes > 0 ? (int)(_liveReal * 60.0 / dientes) : 0);
+
                     var lblRpm = Controls.Find("lblRpmBig", true);
                     if (lblRpm.Length > 0)
-                        lblRpm[0].Text = _liveRpm.ToString() + " RPM";
+                        lblRpm[0].Text = rpmDisplay.ToString() + " RPM";
 
                     var lblPulsos = Controls.Find("lblPulsos", true);
                     if (lblPulsos.Length > 0)
-                        lblPulsos[0].Text = _livePulsos.ToString("N0") + " pulsos";
+                        lblPulsos[0].Text = _livePulsos.ToString("N0") + " pulsos · " + dientes + " dientes";
 
                     // Log cada 200ms (cada 2 ticks).
                     if (_pidLogPath != null && _histTarget.Count % 2 == 0)
@@ -374,7 +400,7 @@ namespace AgroParallel.QuantiX
                             double elapsed = (DateTime.Now - _pidLogStart).TotalSeconds;
                             double errPct = _liveTarget > 0
                                 ? ((_liveReal - _liveTarget) / _liveTarget * 100) : 0;
-                            var motor = GetSelectedMotor();
+                            var logMotor = GetSelectedMotor();
                             System.IO.File.AppendAllText(_pidLogPath,
                                 elapsed.ToString("F1", CultureInfo.InvariantCulture) + ","
                                 + _liveTarget.ToString("F2", CultureInfo.InvariantCulture) + ","
@@ -382,12 +408,12 @@ namespace AgroParallel.QuantiX
                                 + _livePwm + ","
                                 + (_liveTarget - _liveReal).ToString("F2", CultureInfo.InvariantCulture) + ","
                                 + errPct.ToString("F1", CultureInfo.InvariantCulture) + ","
-                                + (motor != null ? motor.Kp.ToString("F4", CultureInfo.InvariantCulture) : "") + ","
-                                + (motor != null ? motor.Ki.ToString("F5", CultureInfo.InvariantCulture) : "") + ","
-                                + (motor != null ? motor.Kd.ToString("F5", CultureInfo.InvariantCulture) : "") + ","
-                                + (motor != null ? motor.PwmMin.ToString() : "") + ","
-                                + (motor != null ? motor.SlewRate.ToString() : "") + ","
-                                + (motor != null ? motor.Deadband.ToString() : "") + "\n");
+                                + (logMotor != null ? logMotor.Kp.ToString("F4", CultureInfo.InvariantCulture) : "") + ","
+                                + (logMotor != null ? logMotor.Ki.ToString("F5", CultureInfo.InvariantCulture) : "") + ","
+                                + (logMotor != null ? logMotor.Kd.ToString("F5", CultureInfo.InvariantCulture) : "") + ","
+                                + (logMotor != null ? logMotor.PwmMin.ToString() : "") + ","
+                                + (logMotor != null ? logMotor.SlewRate.ToString() : "") + ","
+                                + (logMotor != null ? logMotor.Deadband.ToString() : "") + "\n");
                         }
                         catch { }
                     }
