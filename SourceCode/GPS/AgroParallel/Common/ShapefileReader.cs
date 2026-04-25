@@ -18,7 +18,9 @@ using NetTopologySuite.Geometries;
 using NetTopologySuite.IO.Esri;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Text.Json;
 
 namespace AgroParallel.Common
 {
@@ -249,6 +251,181 @@ namespace AgroParallel.Common
                 if (lon > result.MaxLon) result.MaxLon = lon;
             }
             return list;
+        }
+
+        // ── Lector de GeoJSON (FeatureCollection con Polygon) ──────────────
+        public static ShapefileReadResult ReadGeoJson(string geojsonPath)
+        {
+            if (string.IsNullOrWhiteSpace(geojsonPath))
+                throw new ArgumentException("geojsonPath vacío", "geojsonPath");
+            if (!File.Exists(geojsonPath))
+                throw new FileNotFoundException("No existe el archivo", geojsonPath);
+
+            var result = new ShapefileReadResult();
+            string json = File.ReadAllText(geojsonPath);
+
+            using (var doc = JsonDocument.Parse(json))
+            {
+                var root = doc.RootElement;
+
+                // Soporte para FeatureCollection y formato prescripcion_dosis_variable
+                JsonElement features;
+                if (root.TryGetProperty("features", out features)
+                    && features.ValueKind == JsonValueKind.Array)
+                {
+                    // Estándar GeoJSON FeatureCollection
+                    foreach (var feat in features.EnumerateArray())
+                        ParseGeoJsonFeature(result, feat);
+                }
+                else if (root.TryGetProperty("zonas", out var zonas)
+                    && zonas.ValueKind == JsonValueKind.Array)
+                {
+                    // Formato OrbitX prescripcion_dosis_variable
+                    foreach (var zona in zonas.EnumerateArray())
+                        ParseOrbitXZona(result, zona);
+                }
+                else
+                {
+                    throw new InvalidOperationException(
+                        "El archivo no es un GeoJSON FeatureCollection ni una prescripción OrbitX válida.");
+                }
+            }
+
+            if (result.Polygons.Count == 0 && result.Points.Count == 0 && result.Lines.Count == 0)
+                result.Warnings.Add("No se encontraron geometrías en el GeoJSON.");
+
+            return result;
+        }
+
+        private static void ParseGeoJsonFeature(ShapefileReadResult result, JsonElement feat)
+        {
+            JsonElement geomEl;
+            if (!feat.TryGetProperty("geometry", out geomEl)) return;
+
+            // Extraer properties
+            var attrs = new Dictionary<string, object>();
+            bool fieldsCaptured = result.DbfFieldNames.Count > 0;
+            JsonElement propsEl;
+            if (feat.TryGetProperty("properties", out propsEl)
+                && propsEl.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var prop in propsEl.EnumerateObject())
+                {
+                    object val = JsonValueToObject(prop.Value);
+                    attrs[prop.Name] = val;
+                    if (!fieldsCaptured)
+                        result.DbfFieldNames.Add(prop.Name);
+                }
+                if (!fieldsCaptured) fieldsCaptured = true;
+            }
+
+            ParseGeoJsonGeometry(result, geomEl, attrs);
+        }
+
+        private static void ParseOrbitXZona(ShapefileReadResult result, JsonElement zona)
+        {
+            var attrs = new Dictionary<string, object>();
+            bool fieldsCaptured = result.DbfFieldNames.Count > 0;
+
+            // Leer atributos de la zona
+            if (zona.TryGetProperty("nombre", out var n))
+                attrs["Name"] = n.GetString();
+            if (zona.TryGetProperty("semilla", out var sem))
+                attrs["Sem"] = sem.GetDouble();
+            if (zona.TryGetProperty("ferti_linea", out var fl))
+                attrs["FertL"] = fl.GetDouble();
+            if (zona.TryGetProperty("ferti_costado", out var fc))
+                attrs["FertC"] = fc.GetDouble();
+
+            if (!fieldsCaptured)
+            {
+                foreach (var k in attrs.Keys)
+                    result.DbfFieldNames.Add(k);
+            }
+
+            // Geometría
+            JsonElement geomEl;
+            if (zona.TryGetProperty("geometry", out geomEl))
+                ParseGeoJsonGeometry(result, geomEl, attrs);
+        }
+
+        private static void ParseGeoJsonGeometry(ShapefileReadResult result,
+            JsonElement geomEl, Dictionary<string, object> attrs)
+        {
+            string type = "";
+            if (geomEl.TryGetProperty("type", out var t)) type = t.GetString() ?? "";
+
+            if (type == "Polygon")
+            {
+                JsonElement coords;
+                if (geomEl.TryGetProperty("coordinates", out coords))
+                {
+                    var poly = new ShapePolygon();
+                    foreach (var ring in coords.EnumerateArray())
+                        poly.Rings.Add(ParseCoordRing(ring, result));
+                    foreach (var kv in attrs) poly.Attributes[kv.Key] = kv.Value;
+                    result.Polygons.Add(poly);
+                }
+            }
+            else if (type == "MultiPolygon")
+            {
+                JsonElement coords;
+                if (geomEl.TryGetProperty("coordinates", out coords))
+                {
+                    foreach (var polygonCoords in coords.EnumerateArray())
+                    {
+                        var poly = new ShapePolygon();
+                        foreach (var ring in polygonCoords.EnumerateArray())
+                            poly.Rings.Add(ParseCoordRing(ring, result));
+                        foreach (var kv in attrs) poly.Attributes[kv.Key] = kv.Value;
+                        result.Polygons.Add(poly);
+                    }
+                }
+            }
+            else if (type == "Point")
+            {
+                JsonElement coords;
+                if (geomEl.TryGetProperty("coordinates", out coords)
+                    && coords.GetArrayLength() >= 2)
+                {
+                    double lon = coords[0].GetDouble();
+                    double lat = coords[1].GetDouble();
+                    var sp = new ShapePoint();
+                    sp.Location = new ShapeLatLon { Lat = lat, Lon = lon };
+                    foreach (var kv in attrs) sp.Attributes[kv.Key] = kv.Value;
+                    UpdateExtent(result, lat, lon);
+                    result.Points.Add(sp);
+                }
+            }
+        }
+
+        private static List<ShapeLatLon> ParseCoordRing(JsonElement ring, ShapefileReadResult result)
+        {
+            var list = new List<ShapeLatLon>();
+            foreach (var coord in ring.EnumerateArray())
+            {
+                if (coord.GetArrayLength() < 2) continue;
+                double lon = coord[0].GetDouble();
+                double lat = coord[1].GetDouble();
+                list.Add(new ShapeLatLon { Lat = lat, Lon = lon });
+                UpdateExtent(result, lat, lon);
+            }
+            return list;
+        }
+
+        private static object JsonValueToObject(JsonElement el)
+        {
+            switch (el.ValueKind)
+            {
+                case JsonValueKind.Number:
+                    if (el.TryGetInt64(out long l)) return (double)l;
+                    return el.GetDouble();
+                case JsonValueKind.String:
+                    return el.GetString();
+                case JsonValueKind.True: return true;
+                case JsonValueKind.False: return false;
+                default: return el.ToString();
+            }
         }
 
         private static bool LooksLikeWgs84(string prj)

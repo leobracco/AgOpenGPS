@@ -2067,8 +2067,8 @@ namespace AgOpenGPS
         {
             using (var ofd = new OpenFileDialog())
             {
-                ofd.Title = "Cargar Shapefile";
-                ofd.Filter = "Shapefile (*.shp)|*.shp|Todos (*.*)|*.*";
+                ofd.Title = "Cargar Shapefile / GeoJSON";
+                ofd.Filter = "Shapefile (*.shp)|*.shp|GeoJSON (*.geojson;*.json)|*.geojson;*.json|Todos (*.*)|*.*";
 
                 string initial = RegistrySettings.fieldsDirectory;
                 if (!string.IsNullOrEmpty(initial) && Directory.Exists(initial))
@@ -2092,7 +2092,11 @@ namespace AgOpenGPS
             Cursor.Current = Cursors.WaitCursor;
             try
             {
-                result = ShapefileReader.ReadPolygons(shpPath);
+                string ext = Path.GetExtension(shpPath).ToLowerInvariant();
+                if (ext == ".geojson" || ext == ".json")
+                    result = ShapefileReader.ReadGeoJson(shpPath);
+                else
+                    result = ShapefileReader.ReadPolygons(shpPath);
             }
             catch (Exception ex)
             {
