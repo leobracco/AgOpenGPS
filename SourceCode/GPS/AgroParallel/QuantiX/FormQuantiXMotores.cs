@@ -74,19 +74,45 @@ namespace AgroParallel.QuantiX
         [JsonPropertyName("dientes_engranaje")]
         public int DientesEngranaje { get; set; }
 
+        // Tipo de motor: 0=Eléctrico, 1=Hidráulico
+        [JsonPropertyName("motor_type")]
+        public int MotorType { get; set; }
+
+        // Feedforward: Hz medidos a PWM máximo
+        [JsonPropertyName("max_hz")]
+        public double MaxHz { get; set; }
+
+        // Ganancia feedforward (default 1.0)
+        [JsonPropertyName("ff_gain")]
+        public double FFGain { get; set; }
+
+        // Coeficiente filtro exponencial sensor (0.4 eléctrico, 0.2 hidráulico)
+        [JsonPropertyName("alpha")]
+        public double Alpha { get; set; }
+
+        // Rampa PWM/segundo (independiente de PIDtime)
+        [JsonPropertyName("slew_rate_per_sec")]
+        public double SlewRatePerSec { get; set; }
+
+        // Intervalo PID en ms (50 eléctrico, 200 hidráulico)
+        [JsonPropertyName("pid_time")]
+        public int PIDTime { get; set; }
+
         // Cortes (secciones AOG) que controla este motor (1-based).
-        // Ej: [1,2,3,4,5,6,7] = primeras 7 secciones.
         [JsonPropertyName("cortes")]
         public List<int> Cortes { get; set; }
 
         public QxMotorConfig()
         {
             Nombre = "Motor";
-            Kp = 2.5; Ki = 1.5;
-            PwmMin = 150; PwmMax = 4095;
+            MotorType = 0;
+            Kp = 80; Ki = 30; Kd = 0;
+            PwmMin = 600; PwmMax = 4095;
             MeterCal = 50;
-            MaxIntegral = 4095;
+            MaxIntegral = 1200;
             Deadband = 2; SlewRate = 40;
+            MaxHz = 40; FFGain = 1.0; Alpha = 0.4;
+            SlewRatePerSec = 5000; PIDTime = 50;
             DientesEngranaje = 20;
             Cortes = new List<int>();
         }

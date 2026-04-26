@@ -1,12 +1,5 @@
 // ============================================================================
-// FormQuantiXPID.cs - Tuning PID en vivo con gráfico de respuesta
-// ============================================================================
-//
-// Widget para ajuste fino del PID de cada motor. Muestra:
-// - Sliders de Kp, Ki, MinPWM, SlewRate, Deadband
-// - Gráfico en vivo: Target vs Real (últimos 10 segundos)
-// - Envío en caliente por MQTT al ESP32 (sin reiniciar)
-// - Presets para arrancar rápido (Suave, Normal, Agresivo)
+// FormQuantiXPID.cs - Tuning PID v2 con feedforward, tipo motor, RPM
 // ============================================================================
 
 using System;
@@ -14,7 +7,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
-using System.Text;
 using System.Windows.Forms;
 using AgroParallel.VistaX;
 using MQTTnet;
@@ -28,19 +20,20 @@ namespace AgroParallel.QuantiX
         private MotoresConfig _motores;
         private MqttClientWrapper _mqtt;
 
-        // Controles.
-        private ComboBox _cboNodo, _cboMotor;
-        private TrackBar _trkKp, _trkKi, _trkKd, _trkMinPwm, _trkSlew, _trkDeadband;
-        private Label _lblKp, _lblKi, _lblKd, _lblMinPwm, _lblSlew, _lblDeadband;
+        // Controles PID.
+        private ComboBox _cboNodo, _cboMotor, _cboMotorType;
+        private TrackBar _trkKp, _trkKi, _trkKd, _trkMinPwm, _trkDeadband;
+        private Label _lblKp, _lblKi, _lblKd, _lblMinPwm, _lblDeadband;
+        private NumericUpDown _numMaxHz, _numFFGain, _numAlpha, _numSlewPerSec, _numPIDTime, _numDientes;
         private Panel _graphPanel;
         private Timer _refreshTimer;
 
-        // Historial para el gráfico (últimos 100 puntos = 10 seg a 10Hz).
+        // Historial gráfico.
         private readonly List<double> _histTarget = new List<double>();
         private readonly List<double> _histReal = new List<double>();
         private const int MaxHistory = 100;
 
-        // PPS live del status MQTT.
+        // Live status MQTT.
         private double _liveTarget, _liveReal;
         private int _livePwm, _liveRpm;
         private long _livePulsos;
@@ -82,14 +75,14 @@ namespace AgroParallel.QuantiX
         {
             Theme.ApplyToForm(this);
             FormBorderStyle = FormBorderStyle.None;
-            Size = new Size(580, 590);
+            Size = new Size(580, 700);
 
             var body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.BgBlack };
             Controls.Add(body);
 
-            int lx = 16, y = 12;
+            int lx = 16, y = 10;
 
-            // Selector nodo + motor.
+            // ── Nodo + Motor ──
             body.Controls.Add(MkLabel("Nodo:", lx, y));
             _cboNodo = MkCombo(lx + 40, y, 200);
             foreach (var n in _motores.Nodos) _cboNodo.Items.Add(n.Nombre + " (" + n.Uid + ")");
@@ -103,130 +96,126 @@ namespace AgroParallel.QuantiX
             _cboMotor.SelectedIndex = 0;
             _cboMotor.SelectedIndexChanged += (s, ev) => LoadMotorValues();
             body.Controls.Add(_cboMotor);
-            y += 30;
-
-            // Presets.
-            body.Controls.Add(MkLabel("Presets:", lx, y));
-            var btnElectrico = Theme.MkButton("El\u00E9ctrico", Color.FromArgb(30, 50, 30), Theme.Accent, 80, 22);
-            btnElectrico.Location = new Point(lx + 60, y - 2);
-            btnElectrico.Click += (s, ev) => ApplyPreset(30, 5.0, 0, 180, 30, 3);
-            body.Controls.Add(btnElectrico);
-
-            var btnHidraulico = Theme.MkButton("Hidr\u00E1ulico", Color.FromArgb(40, 40, 20), Theme.Warning, 80, 22);
-            btnHidraulico.Location = new Point(lx + 146, y - 2);
-            btnHidraulico.Click += (s, ev) => ApplyPreset(20, 3.0, 0, 320, 20, 3);
-            body.Controls.Add(btnHidraulico);
-
-            var btnAgresivo = Theme.MkButton("Agresivo", Color.FromArgb(50, 25, 25), Theme.Error, 80, 22);
-            btnAgresivo.Location = new Point(lx + 232, y - 2);
-            btnAgresivo.Click += (s, ev) => ApplyPreset(50, 8.0, 0, 150, 50, 2);
-            body.Controls.Add(btnAgresivo);
             y += 28;
 
-            // Dientes del engranaje.
-            body.Controls.Add(MkLabel("Dientes engranaje:", lx + 330, y));
-            var numDientes = new NumericUpDown
-            {
-                Minimum = 1, Maximum = 500, Value = 20, Increment = 1,
-                Font = Theme.FontBody, ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
-                Location = new Point(lx + 460, y - 2), Size = new Size(60, 22)
-            };
-            numDientes.Name = "numDientes";
-            numDientes.ValueChanged += (s, ev) =>
+            // ── Tipo motor ──
+            body.Controls.Add(MkLabel("Tipo:", lx, y));
+            _cboMotorType = MkCombo(lx + 40, y, 140);
+            _cboMotorType.Items.AddRange(new object[] { "El\u00E9ctrico DC", "Hidr\u00E1ulico" });
+            _cboMotorType.SelectedIndex = 0;
+            _cboMotorType.SelectedIndexChanged += (s, ev) =>
             {
                 var m = GetSelectedMotor();
-                if (m != null) m.DientesEngranaje = (int)numDientes.Value;
+                if (m != null) m.MotorType = _cboMotorType.SelectedIndex;
+                SendConfig();
             };
-            body.Controls.Add(numDientes);
+            body.Controls.Add(_cboMotorType);
+
+            // Dientes engranaje
+            body.Controls.Add(MkLabel("PPR:", lx + 200, y));
+            _numDientes = MkNumeric(lx + 232, y, 70, 1, 2000, 600);
+            _numDientes.ValueChanged += (s, ev) => { var m = GetSelectedMotor(); if (m != null) m.DientesEngranaje = (int)_numDientes.Value; };
+            body.Controls.Add(_numDientes);
+
+            // PIDtime
+            body.Controls.Add(MkLabel("PID ms:", lx + 320, y));
+            _numPIDTime = MkNumeric(lx + 370, y, 60, 10, 500, 50);
+            _numPIDTime.ValueChanged += (s, ev) => { var m = GetSelectedMotor(); if (m != null) m.PIDTime = (int)_numPIDTime.Value; SendConfig(); };
+            body.Controls.Add(_numPIDTime);
             y += 26;
 
-            // Guía.
+            // ── Presets ──
+            body.Controls.Add(MkLabel("Presets:", lx, y));
+            var btnElec = Theme.MkButton("El\u00E9ctrico", Color.FromArgb(30, 50, 30), Theme.Accent, 80, 22);
+            btnElec.Location = new Point(lx + 60, y - 2);
+            btnElec.Click += (s, ev) => ApplyPreset(0, 80, 30, 8, 600, 40, 2, 1.0, 0.4, 5000, 50);
+            body.Controls.Add(btnElec);
+
+            var btnHyd = Theme.MkButton("Hidr\u00E1ulico", Color.FromArgb(40, 40, 20), Theme.Warning, 80, 22);
+            btnHyd.Location = new Point(lx + 146, y - 2);
+            btnHyd.Click += (s, ev) => ApplyPreset(1, 35, 20, 30, 1200, 30, 5, 1.0, 0.2, 1000, 200);
+            body.Controls.Add(btnHyd);
+
+            var btnAgg = Theme.MkButton("Agresivo", Color.FromArgb(50, 25, 25), Theme.Error, 80, 22);
+            btnAgg.Location = new Point(lx + 232, y - 2);
+            btnAgg.Click += (s, ev) => ApplyPreset(0, 120, 50, 10, 500, 40, 1, 1.0, 0.5, 8000, 30);
+            body.Controls.Add(btnAgg);
+            y += 26;
+
+            // ── Guía ──
             body.Controls.Add(new Label
             {
-                Text = "Kp = fuerza de reacci\u00F3n | Ki = corrige error acumulado | Kd = freno/suavizado",
+                Text = "Kp=reacci\u00F3n | Ki=error acumulado | Kd=freno(sobre medici\u00F3n) | FF=arranque directo",
                 Font = new Font("Segoe UI", 7f), ForeColor = Theme.TextFaint,
                 BackColor = Color.Transparent, Location = new Point(lx, y), AutoSize = true
             });
             y += 14;
 
-            // Sliders.
-            // Kp: 0-200 directo. Ki: 0-50 directo. Kd: 0-50 directo.
-            // Sin escala — estos valores van directo al ESP32.
-            y = AddSlider(body, "Kp", lx, y, 0, 200, 30, out _trkKp, out _lblKp,
-                v => { SetMotorVal("Kp", v); _lblKp.Text = v.ToString(); SendConfig(); });
-            y = AddSlider(body, "Ki", lx, y, 0, 50, 5, out _trkKi, out _lblKi,
-                v => { SetMotorVal("Ki", v); _lblKi.Text = v.ToString(); SendConfig(); });
-            y = AddSlider(body, "Kd", lx, y, 0, 50, 0, out _trkKd, out _lblKd,
-                v => { SetMotorVal("Kd", v); _lblKd.Text = v.ToString(); SendConfig(); });
-            y = AddSlider(body, "PWM min", lx, y, 0, 4095, 180, out _trkMinPwm, out _lblMinPwm,
-                v => { SetMotorVal("PwmMin", v); _lblMinPwm.Text = v.ToString(); SendConfig(); });
-            y = AddSlider(body, "Rampa", lx, y, 5, 200, 60, out _trkSlew, out _lblSlew,
-                v => { SetMotorVal("SlewRate", v); _lblSlew.Text = v.ToString(); SendConfig(); });
+            // ── Sliders PID ──
+            y = AddSlider(body, "Kp", lx, y, 0, 200, 80, out _trkKp, out _lblKp,
+                v => { SetVal("Kp", v); _lblKp.Text = v.ToString(); SendConfig(); });
+            y = AddSlider(body, "Ki", lx, y, 0, 100, 30, out _trkKi, out _lblKi,
+                v => { SetVal("Ki", v); _lblKi.Text = v.ToString(); SendConfig(); });
+            y = AddSlider(body, "Kd", lx, y, 0, 100, 0, out _trkKd, out _lblKd,
+                v => { SetVal("Kd", v); _lblKd.Text = v.ToString(); SendConfig(); });
+            y = AddSlider(body, "PWM min", lx, y, 0, 4095, 600, out _trkMinPwm, out _lblMinPwm,
+                v => { SetVal("PwmMin", v); _lblMinPwm.Text = v.ToString(); SendConfig(); });
             y = AddSlider(body, "Deadband %", lx, y, 0, 20, 2, out _trkDeadband, out _lblDeadband,
-                v => { SetMotorVal("Deadband", v); _lblDeadband.Text = v.ToString(); SendConfig(); });
+                v => { SetVal("Deadband", v); _lblDeadband.Text = v.ToString(); SendConfig(); });
 
-            // Botón guardar.
+            // ── Feedforward params ──
+            int col2 = lx + 280;
+            body.Controls.Add(MkLabel("MaxHz:", lx, y + 2));
+            _numMaxHz = MkNumeric(lx + 50, y, 60, 1, 500, 40);
+            _numMaxHz.DecimalPlaces = 1; _numMaxHz.Increment = 1;
+            _numMaxHz.ValueChanged += (s, ev) => { SetVal("MaxHz", (double)_numMaxHz.Value); SendConfig(); };
+            body.Controls.Add(_numMaxHz);
+
+            body.Controls.Add(MkLabel("FF Gain:", lx + 120, y + 2));
+            _numFFGain = MkNumeric(lx + 175, y, 55, 0, 3, 1);
+            _numFFGain.DecimalPlaces = 2; _numFFGain.Increment = (decimal)0.05;
+            _numFFGain.ValueChanged += (s, ev) => { SetVal("FFGain", (double)_numFFGain.Value); SendConfig(); };
+            body.Controls.Add(_numFFGain);
+
+            body.Controls.Add(MkLabel("Alpha:", lx + 240, y + 2));
+            _numAlpha = MkNumeric(lx + 280, y, 55, 0, 1, 0.4m);
+            _numAlpha.DecimalPlaces = 2; _numAlpha.Increment = (decimal)0.05;
+            _numAlpha.ValueChanged += (s, ev) => { SetVal("Alpha", (double)_numAlpha.Value); SendConfig(); };
+            body.Controls.Add(_numAlpha);
+
+            body.Controls.Add(MkLabel("Slew/s:", lx + 345, y + 2));
+            _numSlewPerSec = MkNumeric(lx + 395, y, 70, 100, 20000, 5000);
+            _numSlewPerSec.ValueChanged += (s, ev) => { SetVal("SlewRatePerSec", (double)_numSlewPerSec.Value); SendConfig(); };
+            body.Controls.Add(_numSlewPerSec);
+            y += 28;
+
+            // ── Guardar ──
             var btnSave = Theme.MkAccentButton("\u2713 GUARDAR", 120, 28);
             btnSave.Location = new Point(lx, y);
             btnSave.Click += (s, ev) => { _motores.Save(); SendConfig(); };
             body.Controls.Add(btnSave);
 
-            // Live KPIs.
             var lblLive = MkLabel("", lx + 140, y + 4);
-            lblLive.Name = "lblLive";
-            lblLive.Size = new Size(400, 16);
+            lblLive.Name = "lblLive"; lblLive.Size = new Size(420, 16);
             body.Controls.Add(lblLive);
-            y += 36;
+            y += 34;
 
-            // RPM display grande.
+            // ── RPM display ──
             var rpmPanel = new Panel
             {
-                Location = new Point(lx, y),
-                Size = new Size(540, 42),
+                Location = new Point(lx, y), Size = new Size(540, 42),
                 BackColor = Color.FromArgb(15, 20, 10)
             };
-            rpmPanel.Paint += (s, ev) =>
-            {
-                using (var pen = new Pen(Theme.Border))
-                    ev.Graphics.DrawRectangle(pen, 0, 0, rpmPanel.Width - 1, rpmPanel.Height - 1);
-            };
+            rpmPanel.Paint += (s, ev) => { using (var pen = new Pen(Theme.Border)) ev.Graphics.DrawRectangle(pen, 0, 0, rpmPanel.Width - 1, rpmPanel.Height - 1); };
             body.Controls.Add(rpmPanel);
 
-            var lblRpmBig = new Label
-            {
-                Name = "lblRpmBig", Text = "0 RPM",
-                Font = new Font(Theme.FontFamily, 18f, FontStyle.Bold),
-                ForeColor = Theme.Accent, BackColor = Color.Transparent,
-                Location = new Point(12, 6), AutoSize = true
-            };
-            rpmPanel.Controls.Add(lblRpmBig);
-
-            var lblRpmLabel = new Label
-            {
-                Text = "Velocidad del motor",
-                Font = new Font("Segoe UI", 8f), ForeColor = Theme.TextFaint,
-                BackColor = Color.Transparent,
-                Location = new Point(200, 14), AutoSize = true
-            };
-            rpmPanel.Controls.Add(lblRpmLabel);
-
-            var lblPulsos = new Label
-            {
-                Name = "lblPulsos", Text = "",
-                Font = new Font(Theme.FontFamily, 9f), ForeColor = Theme.TextSecondary,
-                BackColor = Color.Transparent,
-                Location = new Point(380, 14), AutoSize = true
-            };
-            rpmPanel.Controls.Add(lblPulsos);
+            rpmPanel.Controls.Add(new Label { Name = "lblRpmBig", Text = "0 RPM", Font = new Font(Theme.FontFamily, 18f, FontStyle.Bold), ForeColor = Theme.Accent, BackColor = Color.Transparent, Location = new Point(12, 6), AutoSize = true });
+            rpmPanel.Controls.Add(new Label { Text = "Velocidad del motor", Font = new Font("Segoe UI", 8f), ForeColor = Theme.TextFaint, BackColor = Color.Transparent, Location = new Point(200, 14), AutoSize = true });
+            rpmPanel.Controls.Add(new Label { Name = "lblPulsos", Text = "", Font = new Font(Theme.FontFamily, 9f), ForeColor = Theme.TextSecondary, BackColor = Color.Transparent, Location = new Point(380, 14), AutoSize = true });
             y += 48;
 
-            // Gráfico.
-            _graphPanel = new Panel
-            {
-                Location = new Point(lx, y),
-                Size = new Size(540, 160),
-                BackColor = Color.FromArgb(12, 12, 14)
-            };
+            // ── Gráfico ──
+            _graphPanel = new Panel { Location = new Point(lx, y), Size = new Size(540, 150), BackColor = Color.FromArgb(12, 12, 14) };
             _graphPanel.Paint += PaintGraph;
             body.Controls.Add(_graphPanel);
         }
@@ -236,37 +225,16 @@ namespace AgroParallel.QuantiX
         // =====================================================================
 
         private int AddSlider(Control parent, string label, int x, int y,
-            int min, int max, int initial, out TrackBar trk, out Label lbl,
-            Action<int> onChange)
+            int min, int max, int initial, out TrackBar trk, out Label lbl, Action<int> onChange)
         {
             parent.Controls.Add(MkLabel(label + ":", x, y + 2));
-
-            lbl = new Label
-            {
-                Text = initial.ToString(), Font = new Font(Theme.FontFamily, 9f, FontStyle.Bold),
-                ForeColor = Theme.Accent, BackColor = Color.Transparent,
-                Location = new Point(x + 80, y + 2), Size = new Size(50, 16)
-            };
+            lbl = new Label { Text = initial.ToString(), Font = new Font(Theme.FontFamily, 9f, FontStyle.Bold), ForeColor = Theme.Accent, BackColor = Color.Transparent, Location = new Point(x + 80, y + 2), Size = new Size(50, 16) };
             parent.Controls.Add(lbl);
-
-            trk = new TrackBar
-            {
-                Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, initial)),
-                TickFrequency = Math.Max(1, (max - min) / 20),
-                LargeChange = Math.Max(1, (max - min) / 10),
-                Location = new Point(x + 130, y), Size = new Size(400, 28),
-                BackColor = Theme.BgBlack
-            };
-            var capturedLbl = lbl;
-            var capturedTrk = trk;
-            capturedTrk.ValueChanged += (s, ev) =>
-            {
-                // El label se actualiza desde LoadMotorValues con el valor real.
-                onChange(capturedTrk.Value);
-            };
-            parent.Controls.Add(capturedTrk);
-
-            return y + 32;
+            trk = new TrackBar { Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, initial)), TickFrequency = Math.Max(1, (max - min) / 20), LargeChange = Math.Max(1, (max - min) / 10), Location = new Point(x + 130, y), Size = new Size(400, 28), BackColor = Theme.BgBlack };
+            var cl = lbl; var ct = trk;
+            ct.ValueChanged += (s, ev) => onChange(ct.Value);
+            parent.Controls.Add(ct);
+            return y + 30;
         }
 
         // =====================================================================
@@ -287,25 +255,30 @@ namespace AgroParallel.QuantiX
         {
             var m = GetSelectedMotor();
             if (m == null) return;
+
             _trkKp.Value = Clamp(_trkKp, (int)m.Kp);
             _trkKi.Value = Clamp(_trkKi, (int)m.Ki);
             _trkKd.Value = Clamp(_trkKd, (int)m.Kd);
             _trkMinPwm.Value = Clamp(_trkMinPwm, m.PwmMin);
-            _trkSlew.Value = Clamp(_trkSlew, m.SlewRate);
             _trkDeadband.Value = Clamp(_trkDeadband, m.Deadband);
-            _lblKp.Text = ((int)m.Kp).ToString(); _lblKi.Text = ((int)m.Ki).ToString();
+            _lblKp.Text = ((int)m.Kp).ToString();
+            _lblKi.Text = ((int)m.Ki).ToString();
             _lblKd.Text = ((int)m.Kd).ToString();
-            _lblMinPwm.Text = m.PwmMin.ToString(); _lblSlew.Text = m.SlewRate.ToString();
+            _lblMinPwm.Text = m.PwmMin.ToString();
             _lblDeadband.Text = m.Deadband.ToString();
 
-            var numD = Controls.Find("numDientes", true);
-            if (numD.Length > 0 && numD[0] is NumericUpDown nd)
-                nd.Value = Math.Max(nd.Minimum, Math.Min(nd.Maximum, m.DientesEngranaje > 0 ? m.DientesEngranaje : 20));
+            _cboMotorType.SelectedIndex = Math.Max(0, Math.Min(1, m.MotorType));
+            _numDientes.Value = Math.Max(_numDientes.Minimum, Math.Min(_numDientes.Maximum, m.DientesEngranaje > 0 ? m.DientesEngranaje : 600));
+            _numMaxHz.Value = Math.Max(_numMaxHz.Minimum, Math.Min(_numMaxHz.Maximum, (decimal)(m.MaxHz > 0 ? m.MaxHz : 40)));
+            _numFFGain.Value = Math.Max(_numFFGain.Minimum, Math.Min(_numFFGain.Maximum, (decimal)(m.FFGain > 0 ? m.FFGain : 1.0)));
+            _numAlpha.Value = Math.Max(_numAlpha.Minimum, Math.Min(_numAlpha.Maximum, (decimal)(m.Alpha > 0 ? m.Alpha : 0.4)));
+            _numSlewPerSec.Value = Math.Max(_numSlewPerSec.Minimum, Math.Min(_numSlewPerSec.Maximum, (decimal)(m.SlewRatePerSec > 0 ? m.SlewRatePerSec : 5000)));
+            _numPIDTime.Value = Math.Max(_numPIDTime.Minimum, Math.Min(_numPIDTime.Maximum, m.PIDTime > 0 ? m.PIDTime : 50));
 
             _histTarget.Clear(); _histReal.Clear();
         }
 
-        private void SetMotorVal(string field, double val)
+        private void SetVal(string field, double val)
         {
             var m = GetSelectedMotor();
             if (m == null) return;
@@ -315,8 +288,11 @@ namespace AgroParallel.QuantiX
                 case "Ki": m.Ki = val; break;
                 case "Kd": m.Kd = val; break;
                 case "PwmMin": m.PwmMin = (int)val; break;
-                case "SlewRate": m.SlewRate = (int)val; break;
                 case "Deadband": m.Deadband = (int)val; break;
+                case "MaxHz": m.MaxHz = val; break;
+                case "FFGain": m.FFGain = val; break;
+                case "Alpha": m.Alpha = val; break;
+                case "SlewRatePerSec": m.SlewRatePerSec = val; break;
             }
         }
 
@@ -325,18 +301,24 @@ namespace AgroParallel.QuantiX
             return Math.Max(trk.Minimum, Math.Min(trk.Maximum, val));
         }
 
-        private void ApplyPreset(double kp, double ki, double kd, int minPwm, int slew, int deadband)
+        private void ApplyPreset(int motorType, int kp, int ki, int kd, int minPwm, int maxHz, int deadband,
+            double ffGain, double alpha, int slewPerSec, int pidTime)
         {
-            _trkKp.Value = Clamp(_trkKp, (int)kp);
-            _trkKi.Value = Clamp(_trkKi, (int)ki);
-            _trkKd.Value = Clamp(_trkKd, (int)kd);
+            _cboMotorType.SelectedIndex = motorType;
+            _trkKp.Value = Clamp(_trkKp, kp);
+            _trkKi.Value = Clamp(_trkKi, ki);
+            _trkKd.Value = Clamp(_trkKd, kd);
             _trkMinPwm.Value = Clamp(_trkMinPwm, minPwm);
-            _trkSlew.Value = Clamp(_trkSlew, slew);
             _trkDeadband.Value = Clamp(_trkDeadband, deadband);
+            _numMaxHz.Value = maxHz;
+            _numFFGain.Value = (decimal)ffGain;
+            _numAlpha.Value = (decimal)alpha;
+            _numSlewPerSec.Value = slewPerSec;
+            _numPIDTime.Value = pidTime;
         }
 
         // =====================================================================
-        // MQTT — enviar config en caliente + recibir status
+        // MQTT
         // =====================================================================
 
         private void StartMqtt()
@@ -354,73 +336,61 @@ namespace AgroParallel.QuantiX
                 _mqtt.MessageReceived += OnStatus;
                 _ = _mqtt.ConnectAsync();
 
-                // Log CSV.
-                string logPath = System.IO.Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory, "qx_pid.csv");
-                // Header si no existe.
+                string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "qx_pid.csv");
                 if (!System.IO.File.Exists(logPath))
-                    System.IO.File.WriteAllText(logPath,
-                        "time,target,real,pwm,error,error_pct,kp,ki,kd,minpwm,slew,deadband\n");
+                    System.IO.File.WriteAllText(logPath, "time,target,real,pwm,rpm,error_pct,kp,ki,kd,minpwm,maxhz,ff_gain,alpha,slew_per_sec,pid_time\n");
                 _pidLogPath = logPath;
                 _pidLogStart = DateTime.Now;
 
                 _refreshTimer = new Timer { Interval = 100 };
-                _refreshTimer.Tick += (s, ev) =>
-                {
-                    _histTarget.Add(_liveTarget);
-                    _histReal.Add(_liveReal);
-                    while (_histTarget.Count > MaxHistory) { _histTarget.RemoveAt(0); _histReal.RemoveAt(0); }
-
-                    _graphPanel.Invalidate();
-
-                    var lbl = Controls.Find("lblLive", true);
-                    if (lbl.Length > 0)
-                        lbl[0].Text = string.Format("TGT:{0:F1}  ACT:{1:F1}  PWM:{2}  RPM:{3}  ERR:{4:F1}%",
-                            _liveTarget, _liveReal, _livePwm, _liveRpm,
-                            _liveTarget > 0 ? ((_liveReal - _liveTarget) / _liveTarget * 100) : 0);
-
-                    // RPM: usar el del firmware, o calcular desde PPS / dientes
-                    var motor = GetSelectedMotor();
-                    int dientes = motor != null && motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 20;
-                    int rpmDisplay = _liveRpm > 0 ? _liveRpm : (dientes > 0 ? (int)(_liveReal * 60.0 / dientes) : 0);
-
-                    var lblRpm = Controls.Find("lblRpmBig", true);
-                    if (lblRpm.Length > 0)
-                        lblRpm[0].Text = rpmDisplay.ToString() + " RPM";
-
-                    var lblPulsos = Controls.Find("lblPulsos", true);
-                    if (lblPulsos.Length > 0)
-                        lblPulsos[0].Text = _livePulsos.ToString("N0") + " pulsos · " + dientes + " dientes";
-
-                    // Log cada 200ms (cada 2 ticks).
-                    if (_pidLogPath != null && _histTarget.Count % 2 == 0)
-                    {
-                        try
-                        {
-                            double elapsed = (DateTime.Now - _pidLogStart).TotalSeconds;
-                            double errPct = _liveTarget > 0
-                                ? ((_liveReal - _liveTarget) / _liveTarget * 100) : 0;
-                            var logMotor = GetSelectedMotor();
-                            System.IO.File.AppendAllText(_pidLogPath,
-                                elapsed.ToString("F1", CultureInfo.InvariantCulture) + ","
-                                + _liveTarget.ToString("F2", CultureInfo.InvariantCulture) + ","
-                                + _liveReal.ToString("F2", CultureInfo.InvariantCulture) + ","
-                                + _livePwm + ","
-                                + (_liveTarget - _liveReal).ToString("F2", CultureInfo.InvariantCulture) + ","
-                                + errPct.ToString("F1", CultureInfo.InvariantCulture) + ","
-                                + (logMotor != null ? logMotor.Kp.ToString("F4", CultureInfo.InvariantCulture) : "") + ","
-                                + (logMotor != null ? logMotor.Ki.ToString("F5", CultureInfo.InvariantCulture) : "") + ","
-                                + (logMotor != null ? logMotor.Kd.ToString("F5", CultureInfo.InvariantCulture) : "") + ","
-                                + (logMotor != null ? logMotor.PwmMin.ToString() : "") + ","
-                                + (logMotor != null ? logMotor.SlewRate.ToString() : "") + ","
-                                + (logMotor != null ? logMotor.Deadband.ToString() : "") + "\n");
-                        }
-                        catch { }
-                    }
-                };
+                _refreshTimer.Tick += OnRefreshTick;
                 _refreshTimer.Start();
             }
             catch { }
+        }
+
+        private void OnRefreshTick(object sender, EventArgs e)
+        {
+            _histTarget.Add(_liveTarget);
+            _histReal.Add(_liveReal);
+            while (_histTarget.Count > MaxHistory) { _histTarget.RemoveAt(0); _histReal.RemoveAt(0); }
+            _graphPanel.Invalidate();
+
+            var lbl = Controls.Find("lblLive", true);
+            if (lbl.Length > 0)
+                lbl[0].Text = string.Format("TGT:{0:F1}  ACT:{1:F1}  PWM:{2}  RPM:{3}  ERR:{4:F1}%",
+                    _liveTarget, _liveReal, _livePwm, _liveRpm,
+                    _liveTarget > 0 ? ((_liveReal - _liveTarget) / _liveTarget * 100) : 0);
+
+            var motor = GetSelectedMotor();
+            int dientes = motor != null && motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 600;
+            int rpmDisplay = _liveRpm > 0 ? _liveRpm : (dientes > 0 ? (int)(_liveReal * 60.0 / dientes) : 0);
+
+            var lblRpm = Controls.Find("lblRpmBig", true);
+            if (lblRpm.Length > 0) lblRpm[0].Text = rpmDisplay.ToString() + " RPM";
+
+            var lblPulsos = Controls.Find("lblPulsos", true);
+            if (lblPulsos.Length > 0) lblPulsos[0].Text = _livePulsos.ToString("N0") + " pulsos";
+
+            // CSV log cada 200ms
+            if (_pidLogPath != null && _histTarget.Count % 2 == 0)
+            {
+                try
+                {
+                    double elapsed = (DateTime.Now - _pidLogStart).TotalSeconds;
+                    double errPct = _liveTarget > 0 ? ((_liveReal - _liveTarget) / _liveTarget * 100) : 0;
+                    var lm = GetSelectedMotor();
+                    if (lm != null)
+                    {
+                        System.IO.File.AppendAllText(_pidLogPath, string.Format(CultureInfo.InvariantCulture,
+                            "{0:F1},{1:F2},{2:F2},{3},{4},{5:F1},{6},{7},{8},{9},{10:F1},{11:F2},{12:F2},{13:F0},{14}\n",
+                            elapsed, _liveTarget, _liveReal, _livePwm, _liveRpm, errPct,
+                            (int)lm.Kp, (int)lm.Ki, (int)lm.Kd, lm.PwmMin,
+                            lm.MaxHz, lm.FFGain, lm.Alpha, lm.SlewRatePerSec, lm.PIDTime));
+                    }
+                }
+                catch { }
+            }
         }
 
         private void OnStatus(string topic, string payload)
@@ -430,7 +400,6 @@ namespace AgroParallel.QuantiX
             {
                 int id = (int)ExtractNum(payload, "\"id\":");
                 if (id != _cboMotor.SelectedIndex) return;
-
                 _liveTarget = ExtractNum(payload, "\"pps_target\":");
                 _liveReal = ExtractNum(payload, "\"pps_real\":");
                 _livePwm = (int)ExtractNum(payload, "\"pwm\":");
@@ -442,33 +411,43 @@ namespace AgroParallel.QuantiX
 
         private async void SendConfig()
         {
-            if (_mqtt == null || _cboNodo.SelectedIndex < 0) return;
+            if (_mqtt == null || _cboNodo == null || _cboNodo.SelectedIndex < 0) return;
             var nodo = _motores.Nodos[_cboNodo.SelectedIndex];
             if (string.IsNullOrEmpty(nodo.Uid)) return;
             var m = GetSelectedMotor();
             if (m == null) return;
 
             int mi = _cboMotor.SelectedIndex;
-            string json = "{\"configs\":[{\"idx\":" + mi
-                + ",\"config_pid\":{\"kp\":" + m.Kp.ToString(CultureInfo.InvariantCulture)
-                + ",\"ki\":" + m.Ki.ToString(CultureInfo.InvariantCulture)
-                + ",\"kd\":" + m.Kd.ToString(CultureInfo.InvariantCulture) + "}"
-                + ",\"calibracion\":{\"pwm_min\":" + m.PwmMin + ",\"pwm_max\":" + m.PwmMax + "}"
-                + ",\"meter_cal\":" + m.MeterCal.ToString(CultureInfo.InvariantCulture)
-                + "}]}";
+            var sb = new System.Text.StringBuilder();
+            sb.Append("{\"configs\":[{\"idx\":").Append(mi);
+            sb.Append(",\"config_pid\":{\"kp\":").Append(m.Kp.ToString(CultureInfo.InvariantCulture));
+            sb.Append(",\"ki\":").Append(m.Ki.ToString(CultureInfo.InvariantCulture));
+            sb.Append(",\"kd\":").Append(m.Kd.ToString(CultureInfo.InvariantCulture)).Append("}");
+            sb.Append(",\"calibracion\":{\"pwm_min\":").Append(m.PwmMin).Append(",\"pwm_max\":").Append(m.PwmMax).Append("}");
+            sb.Append(",\"meter_cal\":").Append(m.MeterCal.ToString(CultureInfo.InvariantCulture));
+            sb.Append(",\"motor_type\":").Append(m.MotorType);
+            sb.Append(",\"max_hz\":").Append(m.MaxHz.ToString(CultureInfo.InvariantCulture));
+            sb.Append(",\"ff_gain\":").Append(m.FFGain.ToString(CultureInfo.InvariantCulture));
+            sb.Append(",\"alpha\":").Append(m.Alpha.ToString(CultureInfo.InvariantCulture));
+            sb.Append(",\"slew_rate_per_sec\":").Append(m.SlewRatePerSec.ToString(CultureInfo.InvariantCulture));
+            sb.Append(",\"pid_time\":").Append(m.PIDTime);
+            sb.Append(",\"deadband\":").Append(m.Deadband);
+            sb.Append(",\"max_integral\":").Append(m.MaxIntegral.ToString(CultureInfo.InvariantCulture));
+            sb.Append(",\"pulses_per_rev\":").Append(m.DientesEngranaje);
+            sb.Append("}]}");
 
             try
             {
                 var msg = new MqttApplicationMessageBuilder()
                     .WithTopic("agp/quantix/" + nodo.Uid + "/config")
-                    .WithPayload(json).WithRetainFlag(true).Build();
+                    .WithPayload(sb.ToString()).WithRetainFlag(true).Build();
                 await _mqtt.PublishAsync(msg);
             }
             catch { }
         }
 
         // =====================================================================
-        // Gráfico Target vs Real
+        // Gráfico
         // =====================================================================
 
         private void PaintGraph(object sender, PaintEventArgs e)
@@ -476,40 +455,29 @@ namespace AgroParallel.QuantiX
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(Color.FromArgb(12, 12, 14));
-
-            int w = _graphPanel.Width, h = _graphPanel.Height;
-            int pad = 4;
-
-            // Borde.
-            using (var p = new Pen(Theme.Border))
-                g.DrawRectangle(p, 0, 0, w - 1, h - 1);
-
+            int w = _graphPanel.Width, h = _graphPanel.Height, pad = 4;
+            using (var p = new Pen(Theme.Border)) g.DrawRectangle(p, 0, 0, w - 1, h - 1);
             if (_histTarget.Count < 2) return;
 
-            // Escala.
             double maxVal = 1;
             foreach (var v in _histTarget) if (v > maxVal) maxVal = v;
             foreach (var v in _histReal) if (v > maxVal) maxVal = v;
             maxVal *= 1.2;
-
             int n = _histTarget.Count;
             float dx = (float)(w - pad * 2) / Math.Max(1, MaxHistory - 1);
 
-            // Target (línea verde punteada).
             using (var pen = new Pen(Color.FromArgb(100, Theme.Accent.R, Theme.Accent.G, Theme.Accent.B), 1f))
             {
                 pen.DashStyle = DashStyle.Dash;
                 for (int i = 1; i < n; i++)
                 {
-                    float x0 = pad + (MaxHistory - n + i - 1) * dx;
-                    float x1 = pad + (MaxHistory - n + i) * dx;
+                    float x0 = pad + (MaxHistory - n + i - 1) * dx, x1 = pad + (MaxHistory - n + i) * dx;
                     float y0 = h - pad - (float)(_histTarget[i - 1] / maxVal * (h - pad * 2));
                     float y1 = h - pad - (float)(_histTarget[i] / maxVal * (h - pad * 2));
                     g.DrawLine(pen, x0, y0, x1, y1);
                 }
             }
 
-            // Real (línea sólida brillante).
             Color realColor = Theme.Accent;
             if (_liveTarget > 0)
             {
@@ -517,28 +485,22 @@ namespace AgroParallel.QuantiX
                 if (err > 0.2) realColor = Color.FromArgb(220, 40, 0);
                 else if (err > 0.1) realColor = Color.FromArgb(255, 220, 0);
             }
-
             using (var pen = new Pen(realColor, 2f))
             {
                 for (int i = 1; i < n; i++)
                 {
-                    float x0 = pad + (MaxHistory - n + i - 1) * dx;
-                    float x1 = pad + (MaxHistory - n + i) * dx;
+                    float x0 = pad + (MaxHistory - n + i - 1) * dx, x1 = pad + (MaxHistory - n + i) * dx;
                     float y0 = h - pad - (float)(_histReal[i - 1] / maxVal * (h - pad * 2));
                     float y1 = h - pad - (float)(_histReal[i] / maxVal * (h - pad * 2));
                     g.DrawLine(pen, x0, y0, x1, y1);
                 }
             }
 
-            // Leyenda.
             using (var f = new Font("Segoe UI", 7f))
             {
-                using (var b = new SolidBrush(Color.FromArgb(100, Theme.Accent.R, Theme.Accent.G, Theme.Accent.B)))
-                    g.DrawString("--- Target", f, b, 4, 2);
-                using (var b = new SolidBrush(realColor))
-                    g.DrawString("\u2501 Real", f, b, 80, 2);
-                using (var b = new SolidBrush(Theme.TextFaint))
-                    g.DrawString(maxVal.ToString("F1"), f, b, w - 40, 2);
+                using (var b = new SolidBrush(Color.FromArgb(100, Theme.Accent))) g.DrawString("--- Target", f, b, 4, 2);
+                using (var b = new SolidBrush(realColor)) g.DrawString("\u2501 Real", f, b, 80, 2);
+                using (var b = new SolidBrush(Theme.TextFaint)) g.DrawString(maxVal.ToString("F1"), f, b, w - 40, 2);
             }
         }
 
@@ -548,21 +510,17 @@ namespace AgroParallel.QuantiX
 
         private Label MkLabel(string text, int x, int y)
         {
-            return new Label
-            {
-                Text = text, Font = Theme.FontSmall, ForeColor = Theme.TextSecondary,
-                BackColor = Color.Transparent, Location = new Point(x, y), AutoSize = true
-            };
+            return new Label { Text = text, Font = Theme.FontSmall, ForeColor = Theme.TextSecondary, BackColor = Color.Transparent, Location = new Point(x, y), AutoSize = true };
         }
 
         private ComboBox MkCombo(int x, int y, int w)
         {
-            return new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = Theme.FontBody, ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
-                Location = new Point(x, y), Size = new Size(w, 22)
-            };
+            return new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = Theme.FontBody, ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput, Location = new Point(x, y), Size = new Size(w, 22) };
+        }
+
+        private NumericUpDown MkNumeric(int x, int y, int w, decimal min, decimal max, decimal val)
+        {
+            return new NumericUpDown { Minimum = min, Maximum = max, Value = val, Font = Theme.FontBody, ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput, Location = new Point(x, y - 2), Size = new Size(w, 22) };
         }
 
         private static double ExtractNum(string json, string key)
@@ -571,12 +529,10 @@ namespace AgroParallel.QuantiX
             if (idx < 0) return 0;
             idx += key.Length;
             int end = idx;
-            while (end < json.Length && (char.IsDigit(json[end]) || json[end] == '.' || json[end] == '-'))
-                end++;
+            while (end < json.Length && (char.IsDigit(json[end]) || json[end] == '.' || json[end] == '-')) end++;
             if (end == idx) return 0;
             double val;
-            double.TryParse(json.Substring(idx, end - idx),
-                NumberStyles.Any, CultureInfo.InvariantCulture, out val);
+            double.TryParse(json.Substring(idx, end - idx), NumberStyles.Any, CultureInfo.InvariantCulture, out val);
             return val;
         }
     }
