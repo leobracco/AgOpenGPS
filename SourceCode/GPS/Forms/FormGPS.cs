@@ -2538,13 +2538,13 @@ namespace AgOpenGPS
                                     dosisObj = shapefileLayer.CurrentDose;
                             }
 
-                            // Dosis real: inversa desde PPS real del ESP32.
-                            // pps = (dosis * ancho * velMs) / 10000 * meterCal
-                            // dosis = pps * 10000 / (ancho * velMs * meterCal)
+                            // Dosis real (kg/ha) inversa desde PPS real del ESP32.
+                            // Bridge: pps = (dosis_kg × 1000 × ancho × velMs) / 10000 / MeterCal_g_pulso
+                            // Inversa: dosis_kg = pps × MeterCal × 10 / (ancho × velMs)
                             double ppsReal = quantiXBridge.GetPpsReal(nodo.Uid, mi);
                             double dosisReal = 0;
                             if (velMs > 0.1 && motor.MeterCal > 0)
-                                dosisReal = ppsReal * 10000.0 / (ancho * velMs * motor.MeterCal);
+                                dosisReal = ppsReal * motor.MeterCal * 10.0 / (ancho * velMs);
 
                             string nombre = motor.Nombre ?? ("M" + mi);
                             if (!string.IsNullOrEmpty(motor.CampoDosis))

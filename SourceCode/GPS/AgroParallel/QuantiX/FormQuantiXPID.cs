@@ -37,6 +37,7 @@ namespace AgroParallel.QuantiX
         private double _liveTarget, _liveReal;
         private int _livePwm, _liveRpm;
         private long _livePulsos;
+        private double _liveMeterCal;
 
         // CSV log.
         private string _pidLogPath;
@@ -75,7 +76,8 @@ namespace AgroParallel.QuantiX
         {
             Theme.ApplyToForm(this);
             FormBorderStyle = FormBorderStyle.None;
-            Size = new Size(580, 700);
+            MinimumSize = new Size(480, 400);
+            Size = new Size(580, 730);
 
             var body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.BgBlack };
             Controls.Add(body);
@@ -142,10 +144,35 @@ namespace AgroParallel.QuantiX
             body.Controls.Add(btnAgg);
             y += 26;
 
+            // ── Feedforward params (ANTES de sliders para que no queden tapados) ──
+            body.Controls.Add(MkLabel("Max Hz:", lx, y + 2));
+            _numMaxHz = MkNumeric(lx + 55, y, 65, 1, 500, 40);
+            _numMaxHz.DecimalPlaces = 1; _numMaxHz.Increment = 1;
+            _numMaxHz.ValueChanged += (s, ev) => { SetVal("MaxHz", (double)_numMaxHz.Value); SendConfig(); };
+            body.Controls.Add(_numMaxHz);
+
+            body.Controls.Add(MkLabel("FF Gain:", lx + 140, y + 2));
+            _numFFGain = MkNumeric(lx + 200, y, 65, 0, 3, 1);
+            _numFFGain.DecimalPlaces = 2; _numFFGain.Increment = (decimal)0.05;
+            _numFFGain.ValueChanged += (s, ev) => { SetVal("FFGain", (double)_numFFGain.Value); SendConfig(); };
+            body.Controls.Add(_numFFGain);
+
+            body.Controls.Add(MkLabel("Filtro:", lx + 285, y + 2));
+            _numAlpha = MkNumeric(lx + 330, y, 60, 0, 1, 0.4m);
+            _numAlpha.DecimalPlaces = 2; _numAlpha.Increment = (decimal)0.05;
+            _numAlpha.ValueChanged += (s, ev) => { SetVal("Alpha", (double)_numAlpha.Value); SendConfig(); };
+            body.Controls.Add(_numAlpha);
+
+            body.Controls.Add(MkLabel("Rampa:", lx + 400, y + 2));
+            _numSlewPerSec = MkNumeric(lx + 445, y, 75, 100, 20000, 5000);
+            _numSlewPerSec.ValueChanged += (s, ev) => { SetVal("SlewRatePerSec", (double)_numSlewPerSec.Value); SendConfig(); };
+            body.Controls.Add(_numSlewPerSec);
+            y += 26;
+
             // ── Guía ──
             body.Controls.Add(new Label
             {
-                Text = "Kp=reacci\u00F3n | Ki=error acumulado | Kd=freno(sobre medici\u00F3n) | FF=arranque directo",
+                Text = "Kp=reacci\u00F3n | Ki=error acumulado | Kd=freno | FF=arranque directo",
                 Font = new Font("Segoe UI", 7f), ForeColor = Theme.TextFaint,
                 BackColor = Color.Transparent, Location = new Point(lx, y), AutoSize = true
             });
@@ -162,32 +189,6 @@ namespace AgroParallel.QuantiX
                 v => { SetVal("PwmMin", v); _lblMinPwm.Text = v.ToString(); SendConfig(); });
             y = AddSlider(body, "Deadband %", lx, y, 0, 20, 2, out _trkDeadband, out _lblDeadband,
                 v => { SetVal("Deadband", v); _lblDeadband.Text = v.ToString(); SendConfig(); });
-
-            // ── Feedforward params ──
-            int col2 = lx + 280;
-            body.Controls.Add(MkLabel("MaxHz:", lx, y + 2));
-            _numMaxHz = MkNumeric(lx + 50, y, 60, 1, 500, 40);
-            _numMaxHz.DecimalPlaces = 1; _numMaxHz.Increment = 1;
-            _numMaxHz.ValueChanged += (s, ev) => { SetVal("MaxHz", (double)_numMaxHz.Value); SendConfig(); };
-            body.Controls.Add(_numMaxHz);
-
-            body.Controls.Add(MkLabel("FF Gain:", lx + 120, y + 2));
-            _numFFGain = MkNumeric(lx + 175, y, 55, 0, 3, 1);
-            _numFFGain.DecimalPlaces = 2; _numFFGain.Increment = (decimal)0.05;
-            _numFFGain.ValueChanged += (s, ev) => { SetVal("FFGain", (double)_numFFGain.Value); SendConfig(); };
-            body.Controls.Add(_numFFGain);
-
-            body.Controls.Add(MkLabel("Alpha:", lx + 240, y + 2));
-            _numAlpha = MkNumeric(lx + 280, y, 55, 0, 1, 0.4m);
-            _numAlpha.DecimalPlaces = 2; _numAlpha.Increment = (decimal)0.05;
-            _numAlpha.ValueChanged += (s, ev) => { SetVal("Alpha", (double)_numAlpha.Value); SendConfig(); };
-            body.Controls.Add(_numAlpha);
-
-            body.Controls.Add(MkLabel("Slew/s:", lx + 345, y + 2));
-            _numSlewPerSec = MkNumeric(lx + 395, y, 70, 100, 20000, 5000);
-            _numSlewPerSec.ValueChanged += (s, ev) => { SetVal("SlewRatePerSec", (double)_numSlewPerSec.Value); SendConfig(); };
-            body.Controls.Add(_numSlewPerSec);
-            y += 28;
 
             // ── Guardar ──
             var btnSave = Theme.MkAccentButton("\u2713 GUARDAR", 120, 28);
@@ -356,21 +357,38 @@ namespace AgroParallel.QuantiX
             while (_histTarget.Count > MaxHistory) { _histTarget.RemoveAt(0); _histReal.RemoveAt(0); }
             _graphPanel.Invalidate();
 
+            var motor = GetSelectedMotor();
+            int ppr = motor != null && motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 24;
+            double meterCal = motor != null && motor.MeterCal > 0 ? motor.MeterCal : 14.6;
+
+            // Convertir Hz → RPM
+            int rpmTarget = ppr > 0 ? (int)(_liveTarget * 60.0 / ppr) : 0;
+            int rpmReal = _liveRpm > 0 ? _liveRpm : (ppr > 0 ? (int)(_liveReal * 60.0 / ppr) : 0);
+
+            // Calcular kg/ha real (inversa del bridge)
+            // g/s = Hz × MeterCal(g/pulso) → kg/ha = g/s × 10 / (ancho × vel_m/s)
+            // Usamos los datos del último log si están disponibles
+            double kgHaReal = 0;
+            double kgHaTarget = 0;
+            // Estimación: si conocemos ancho y velocidad desde el bridge
+            // Por ahora calculamos desde los Hz y MeterCal
+            // g/s_real = _liveReal * meterCal
+            double gsPorSegReal = _liveReal * meterCal;
+            double gsPorSegTarget = _liveTarget * meterCal;
+
             var lbl = Controls.Find("lblLive", true);
             if (lbl.Length > 0)
-                lbl[0].Text = string.Format("TGT:{0:F1}  ACT:{1:F1}  PWM:{2}  RPM:{3}  ERR:{4:F1}%",
-                    _liveTarget, _liveReal, _livePwm, _liveRpm,
-                    _liveTarget > 0 ? ((_liveReal - _liveTarget) / _liveTarget * 100) : 0);
-
-            var motor = GetSelectedMotor();
-            int dientes = motor != null && motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 600;
-            int rpmDisplay = _liveRpm > 0 ? _liveRpm : (dientes > 0 ? (int)(_liveReal * 60.0 / dientes) : 0);
+                lbl[0].Text = string.Format("OBJ:{0} RPM  REAL:{1} RPM  PWM:{2}  ERR:{3:F1}%  |  {4:F1} g/pulso",
+                    rpmTarget, rpmReal, _livePwm,
+                    _liveTarget > 0 ? ((_liveReal - _liveTarget) / _liveTarget * 100) : 0,
+                    meterCal);
 
             var lblRpm = Controls.Find("lblRpmBig", true);
-            if (lblRpm.Length > 0) lblRpm[0].Text = rpmDisplay.ToString() + " RPM";
+            if (lblRpm.Length > 0) lblRpm[0].Text = rpmReal.ToString() + " RPM";
 
             var lblPulsos = Controls.Find("lblPulsos", true);
-            if (lblPulsos.Length > 0) lblPulsos[0].Text = _livePulsos.ToString("N0") + " pulsos";
+            if (lblPulsos.Length > 0)
+                lblPulsos[0].Text = string.Format("{0:F0} g/s · {1:N0} pulsos", gsPorSegReal, _livePulsos);
 
             // CSV log cada 200ms
             if (_pidLogPath != null && _histTarget.Count % 2 == 0)
@@ -498,7 +516,7 @@ namespace AgroParallel.QuantiX
 
             using (var f = new Font("Segoe UI", 7f))
             {
-                using (var b = new SolidBrush(Color.FromArgb(100, Theme.Accent))) g.DrawString("--- Target", f, b, 4, 2);
+                using (var b = new SolidBrush(Color.FromArgb(100, Theme.Accent))) g.DrawString("--- Objetivo", f, b, 4, 2);
                 using (var b = new SolidBrush(realColor)) g.DrawString("\u2501 Real", f, b, 80, 2);
                 using (var b = new SolidBrush(Theme.TextFaint)) g.DrawString(maxVal.ToString("F1"), f, b, w - 40, 2);
             }
@@ -520,7 +538,17 @@ namespace AgroParallel.QuantiX
 
         private NumericUpDown MkNumeric(int x, int y, int w, decimal min, decimal max, decimal val)
         {
-            return new NumericUpDown { Minimum = min, Maximum = max, Value = val, Font = Theme.FontBody, ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput, Location = new Point(x, y - 2), Size = new Size(w, 22) };
+            var n = new NumericUpDown
+            {
+                Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, val)),
+                Font = Theme.FontBody,
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(30, 30, 34),
+                BorderStyle = BorderStyle.FixedSingle,
+                Location = new Point(x, y - 2),
+                Size = new Size(w, 22)
+            };
+            return n;
         }
 
         private static double ExtractNum(string json, string key)

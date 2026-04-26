@@ -43,6 +43,7 @@ namespace AgroParallel.QuantiX
         private Label _lblLog;
         private Label _lblResultado;
         private Panel _surcoPanel;
+        private NumericUpDown _numSurcosTotales;
         private List<NumericUpDown> _surcoInputs = new List<NumericUpDown>();
 
         // Estado.
@@ -78,7 +79,7 @@ namespace AgroParallel.QuantiX
             // ════════════════════════════════════════════════════════════
             // PARÁMETROS
             // ════════════════════════════════════════════════════════════
-            var cardParams = MkCard(body, lx, y, cardW, 240, "PAR\u00C1METROS");
+            var cardParams = MkCard(body, lx, y, cardW, 296, "PAR\u00C1METROS");
             int cy = 30;
 
             // Nodo selector.
@@ -128,9 +129,14 @@ namespace AgroParallel.QuantiX
             AddLabel(cardParams, "PWM (0\u20134095)", 16, cy);
             _numPWM = MkNum(cardParams, 16, cy + 16, 0, 4095, 2000);
 
-            AddLabel(cardParams, "CANTIDAD DE SURCOS", 300, cy);
+            AddLabel(cardParams, "SURCOS A MEDIR", 300, cy);
             _numSurcos = MkNum(cardParams, 300, cy + 16, 1, 20, 6);
             _numSurcos.ValueChanged += (s, ev) => RebuildSurcoInputs();
+            cy += 54;
+
+            // Total surcos de la máquina (para calcular producción total).
+            AddLabel(cardParams, "SURCOS TOTALES M\u00C1QUINA", 16, cy);
+            _numSurcosTotales = MkNum(cardParams, 16, cy + 16, 1, 200, 96);
             cy += 54;
 
             // Botones INICIAR + RESET.
@@ -145,7 +151,7 @@ namespace AgroParallel.QuantiX
             btnReset.Click += (s, ev) => ResetCalibracion();
             cardParams.Controls.Add(btnReset);
 
-            y += 254;
+            y += 310;
 
             // ════════════════════════════════════════════════════════════
             // ESTADO EN VIVO
@@ -308,7 +314,7 @@ namespace AgroParallel.QuantiX
             // ════════════════════════════════════════════════════════════
             // RESULTADO POR SURCO
             // ════════════════════════════════════════════════════════════
-            _surcoPanel = MkCard(body, lx, y, cardW, 300, "RESULTADO \u2014 Ingrese granos o gramos por surco (recomendar promediar varios)");
+            _surcoPanel = MkCard(body, lx, y, cardW, 300, "RESULTADO \u2014 Ingrese gramos o granos recolectados de cada surco");
             RebuildSurcoInputs();
 
             // Spacer.
@@ -364,7 +370,7 @@ namespace AgroParallel.QuantiX
 
                 var num = new NumericUpDown
                 {
-                    Minimum = 0, Maximum = 100000, DecimalPlaces = 1,
+                    Minimum = 0, Maximum = 100000, DecimalPlaces = 2,
                     Value = 0, Font = new Font(Theme.FontFamily, 14f, FontStyle.Bold),
                     ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
                     BorderStyle = BorderStyle.FixedSingle,
@@ -574,26 +580,30 @@ namespace AgroParallel.QuantiX
 
             int ppr = (int)_numPulsosPorVuelta.Value;
             double vueltasReales = ppr > 0 ? (double)pulsosTotales / ppr : 0;
-            double unidadesPorPulso = promedio / pulsosTotales;
+            int totalSurcos = (int)_numSurcosTotales.Value;
 
-            // MeterCal = pulsos / unidades → pulsos por unidad de producto
-            // El bridge usa: pps = productoPorSegundo × MeterCal
-            double meterCal = (double)pulsosTotales / promedio;
+            // El usuario pesó POR SURCO. El motor mueve TODOS los surcos a la vez.
+            // Producción total = promedio_por_surco × cantidad_total_surcos
+            double produccionTotalGramos = promedio * totalSurcos;
+
+            // MeterCal = gramos por pulso
+            // El bridge usa: pps = productoGramosPorSegundo / MeterCal
+            double meterCal = produccionTotalGramos / pulsosTotales;
 
             string resumen =
                 "Pulsos totales: " + pulsosTotales + "\n"
                 + "Vueltas reales: " + vueltasReales.ToString("F2", CultureInfo.InvariantCulture)
-                + " (" + ppr + " PPR)\n"
-                + "Surcos contados: " + count + " de " + _surcoInputs.Count + "\n"
-                + "Promedio por surco: " + promedio.ToString("F1", CultureInfo.InvariantCulture) + " unidades\n\n"
-                + "Cada pulso = " + unidadesPorPulso.ToString("F4", CultureInfo.InvariantCulture) + " unidades\n"
-                + "MeterCal = " + meterCal.ToString("F4", CultureInfo.InvariantCulture) + " pulsos/unidad\n\n"
+                + " (" + ppr + " PPR)\n\n"
+                + "Surcos medidos: " + count + " de " + _surcoInputs.Count + "\n"
+                + "Promedio por surco: " + promedio.ToString("F1", CultureInfo.InvariantCulture) + " g\n"
+                + "Total surcos m\u00E1quina: " + totalSurcos + "\n"
+                + "Producci\u00F3n total: " + produccionTotalGramos.ToString("F0", CultureInfo.InvariantCulture) + " g\n\n"
+                + "MeterCal = " + meterCal.ToString("F2", CultureInfo.InvariantCulture) + " g/pulso\n\n"
                 + "Tip: Tom\u00E1 la mayor cantidad de surcos posible\n"
                 + "y promedi\u00E1 para mayor precisi\u00F3n.\n\n"
                 + "\u00BFAplicar al motor seleccionado?";
 
-            _lblResultado.Text = "MeterCal = " + meterCal.ToString("F4", CultureInfo.InvariantCulture)
-                + " (" + unidadesPorPulso.ToString("F4", CultureInfo.InvariantCulture) + " u/pulso)";
+            _lblResultado.Text = "MeterCal = " + meterCal.ToString("F2", CultureInfo.InvariantCulture) + " g/pulso";
             _lblResultado.ForeColor = Theme.Accent;
 
             var r = MessageBox.Show(this, resumen, "Resultado de Calibraci\u00F3n",

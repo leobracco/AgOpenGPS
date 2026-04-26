@@ -1,15 +1,5 @@
 // ============================================================================
-// ShapefileLegendControl.cs - Leyenda visual del gradiente verde→amarillo→rojo
-// Ubicación: SourceCode/GPS/AgroParallel/Common/ShapefileLegendControl.cs
-// Target: net48 (C# 7.3)
-//
-// Control WinForms que se superpone sobre el area del mapa (oglMain) y muestra:
-//   - Titulo con el nombre del campo DBF activo
-//   - Barra vertical de gradiente (mismos colores que ShapefileLayer)
-//   - Etiquetas con min/max
-//
-// Se actualiza desde FormGPS llamando SetLegend(...) / Clear(). La visibilidad
-// del control se controla desde afuera (Visible = true/false).
+// ShapefileLegendControl.cs - Panel de dosis en vivo + control manual
 // ============================================================================
 
 using System;
@@ -23,198 +13,292 @@ namespace AgroParallel.Common
     public class ShapefileLegendControl : UserControl
     {
         private string _fieldName;
-        private double _min;
-        private double _max;
-        private double _current;
+        private double _min, _max, _current;
         private bool _hasCurrent;
 
-        // Estado UDP (paso 11).
-        private bool _udpActive;
-        private int _udpPackets;
-        private DateTime? _udpLastSend;
+        public struct MotorDosis
+        {
+            public string Nombre;
+            public double Objetivo;
+            public double Real;
+            public bool Activo;
+            public bool Manual;
+            public double ManualDosis;
+        }
+        public MotorDosis[] Motores = new MotorDosis[2];
+        private bool _hasMotores;
+        private bool _connected;
+        private bool _buttonsCreated;
 
-        // Mismos colores que ShapefileLayer.ApplyColorByField (sin alpha:
-        // el alpha del layer pinta el mapa; en la leyenda usamos opaco).
-        private static readonly Color CLow = Color.FromArgb(0, 200, 0);
-        private static readonly Color CMid = Color.FromArgb(255, 220, 0);
-        private static readonly Color CHigh = Color.FromArgb(220, 40, 0);
-        private static readonly Color CBg = Color.FromArgb(220, 20, 20, 20);
-        private static readonly Color CBorder = Color.FromArgb(80, 80, 80);
+        // Evento: (motorIdx, manual, dosis).
+        public event Action<int, bool, double> MotorManualChanged;
+
+        private Button[] _btnMan = new Button[2];
+        private Button[] _btnUp = new Button[2];
+        private Button[] _btnDn = new Button[2];
+        private Label[] _lblVal = new Label[2];
+
+        private static readonly Color CBg = Color.FromArgb(230, 8, 8, 10);
+        private static readonly Color CBorder = Color.FromArgb(40, 40, 44);
         private static readonly Color CText = Color.FromArgb(235, 235, 235);
-        private static readonly Color CTextDim = Color.FromArgb(170, 170, 170);
+        private static readonly Color CTextDim = Color.FromArgb(130, 135, 145);
+        private static readonly Color CAccent = Color.FromArgb(122, 201, 67);
+        private static readonly Color CWarn = Color.FromArgb(255, 220, 0);
+        private static readonly Color CError = Color.FromArgb(220, 40, 0);
 
         public ShapefileLegendControl()
         {
             DoubleBuffered = true;
-            Size = new Size(130, 240);
+            Size = new Size(150, 200);
             BackColor = Color.Black;
             SetStyle(ControlStyles.OptimizedDoubleBuffer
                 | ControlStyles.AllPaintingInWmPaint
                 | ControlStyles.UserPaint, true);
         }
 
-        public void SetLegend(string fieldName, double min, double max)
+        public void SetLegend(string f, double min, double max) { _fieldName = f; _min = min; _max = max; Invalidate(); }
+        public void Clear() { _fieldName = null; _hasCurrent = false; _hasMotores = false; Invalidate(); }
+        public void SetCurrent(double v, bool i) { _current = v; _hasCurrent = i; Invalidate(); }
+        public void SetConnected(bool c) { _connected = c; Invalidate(); }
+        public void SetUdpStatus(bool a, int p, DateTime? l) { _connected = a; Invalidate(); }
+        public bool HasData { get { return !string.IsNullOrEmpty(_fieldName) || _hasMotores; } }
+
+        public void SetMotorDosis(int idx, string nombre, double objetivo, double real, bool activo)
         {
-            _fieldName = fieldName;
-            _min = min;
-            _max = max;
+            if (idx < 0 || idx >= 2) return;
+            Motores[idx].Nombre = nombre;
+            Motores[idx].Objetivo = objetivo;
+            Motores[idx].Real = real;
+            Motores[idx].Activo = activo;
+            _hasMotores = true;
             Invalidate();
         }
 
-        public void Clear()
+        private void CreateButtons()
         {
-            _fieldName = null;
-            _hasCurrent = false;
-            Invalidate();
+            if (_buttonsCreated) return;
+            _buttonsCreated = true;
+
+            for (int mi = 0; mi < 2; mi++)
+            {
+                int capturedMi = mi;
+                var font = new Font("Segoe UI", 7f, FontStyle.Bold);
+
+                _btnMan[mi] = new Button
+                {
+                    Text = "MAN", FlatStyle = FlatStyle.Flat, Font = font,
+                    Size = new Size(34, 18), BackColor = Color.FromArgb(30, 30, 34),
+                    ForeColor = CTextDim, Cursor = Cursors.Hand, Visible = false
+                };
+                _btnMan[mi].FlatAppearance.BorderSize = 0;
+                _btnMan[mi].Click += (s, e) => ToggleManual(capturedMi);
+                Controls.Add(_btnMan[mi]);
+
+                _btnDn[mi] = new Button
+                {
+                    Text = "\u25BC", FlatStyle = FlatStyle.Flat, Font = font,
+                    Size = new Size(22, 18), BackColor = Color.FromArgb(30, 30, 34),
+                    ForeColor = CText, Cursor = Cursors.Hand, Visible = false
+                };
+                _btnDn[mi].FlatAppearance.BorderSize = 0;
+                _btnDn[mi].Click += (s, e) => AdjustManual(capturedMi, -5);
+                Controls.Add(_btnDn[mi]);
+
+                _lblVal[mi] = new Label
+                {
+                    Text = "--", Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                    ForeColor = CWarn, BackColor = Color.Transparent,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Size = new Size(36, 18), Visible = false
+                };
+                Controls.Add(_lblVal[mi]);
+
+                _btnUp[mi] = new Button
+                {
+                    Text = "\u25B2", FlatStyle = FlatStyle.Flat, Font = font,
+                    Size = new Size(22, 18), BackColor = Color.FromArgb(30, 30, 34),
+                    ForeColor = CText, Cursor = Cursors.Hand, Visible = false
+                };
+                _btnUp[mi].FlatAppearance.BorderSize = 0;
+                _btnUp[mi].Click += (s, e) => AdjustManual(capturedMi, 5);
+                Controls.Add(_btnUp[mi]);
+            }
         }
 
-        public void SetCurrent(double value, bool inside)
+        private void ToggleManual(int mi)
         {
-            if (_hasCurrent == inside && _hasCurrent && _current == value) return;
-            _current = value;
-            _hasCurrent = inside;
-            Invalidate();
+            Motores[mi].Manual = !Motores[mi].Manual;
+            if (Motores[mi].Manual && Motores[mi].ManualDosis <= 0)
+                Motores[mi].ManualDosis = Motores[mi].Objetivo > 0 ? Motores[mi].Objetivo : 100;
+
+            _btnMan[mi].Text = Motores[mi].Manual ? "AUTO" : "MAN";
+            _btnMan[mi].ForeColor = Motores[mi].Manual ? CWarn : CTextDim;
+            UpdateManualUI(mi);
+
+            var h = MotorManualChanged;
+            if (h != null) h(mi, Motores[mi].Manual, Motores[mi].ManualDosis);
         }
 
-        public void SetUdpStatus(bool active, int packets, DateTime? lastSendUtc)
+        private void AdjustManual(int mi, double delta)
         {
-            if (_udpActive == active && _udpPackets == packets && _udpLastSend == lastSendUtc)
-                return;
-            _udpActive = active;
-            _udpPackets = packets;
-            _udpLastSend = lastSendUtc;
-            Invalidate();
+            if (!Motores[mi].Manual) return;
+            Motores[mi].ManualDosis = Math.Max(0, Motores[mi].ManualDosis + delta);
+            UpdateManualUI(mi);
+
+            var h = MotorManualChanged;
+            if (h != null) h(mi, true, Motores[mi].ManualDosis);
         }
 
-        public bool HasData { get { return !string.IsNullOrEmpty(_fieldName); } }
+        private void UpdateManualUI(int mi)
+        {
+            if (_lblVal[mi] == null) return;
+            bool m = Motores[mi].Manual;
+            _lblVal[mi].Text = m ? Motores[mi].ManualDosis.ToString("F0") : "--";
+            _lblVal[mi].Visible = m;
+            _btnUp[mi].Visible = m;
+            _btnDn[mi].Visible = m;
+        }
+
+        // Posiciones de botones por motor (se calculan en OnPaint).
+        private int[] _motorBtnY = new int[2];
 
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(CBg);
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            using (var borderPen = new Pen(CBorder))
-                g.DrawRectangle(borderPen, 0, 0, Width - 1, Height - 1);
-
-            if (!HasData)
+            using (var path = RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), 8))
             {
-                using (var brush = new SolidBrush(CTextDim))
-                using (var f = new Font("Segoe UI", 8f))
-                    g.DrawString("Sin estilo", f, brush, 8, 8);
-                return;
+                using (var b = new SolidBrush(CBg)) g.FillPath(b, path);
+                using (var p = new Pen(CBorder)) g.DrawPath(p, path);
             }
 
-            // Titulo (nombre del campo).
-            using (var titleBrush = new SolidBrush(CText))
-            using (var fTitle = new Font("Segoe UI", 9f, FontStyle.Bold))
+            int y = 8;
+
+            using (var b = new SolidBrush(_connected ? CAccent : Color.FromArgb(60, 60, 65)))
+                g.FillEllipse(b, Width - 16, y, 8, 8);
+
+            if (_hasMotores)
             {
-                string name = _fieldName.Length > 14 ? _fieldName.Substring(0, 13) + "…" : _fieldName;
-                g.DrawString(name, fTitle, titleBrush, 8, 6);
+                for (int mi = 0; mi < 2; mi++)
+                {
+                    var m = Motores[mi];
+                    if (string.IsNullOrEmpty(m.Nombre) && m.Objetivo <= 0 && !m.Activo) continue;
+
+                    Color mColor = mi == 0 ? CAccent : Color.FromArgb(230, 160, 30);
+
+                    using (var f = new Font("Segoe UI", 8f, FontStyle.Bold))
+                    using (var b = new SolidBrush(mColor))
+                        g.DrawString(m.Nombre ?? ("M" + mi), f, b, 8, y);
+
+                    if (m.Manual)
+                    {
+                        using (var f = new Font("Segoe UI", 6.5f, FontStyle.Bold))
+                        using (var b = new SolidBrush(CWarn))
+                            g.DrawString("MANUAL", f, b, Width - 52, y + 2);
+                    }
+                    y += 14;
+
+                    using (var f = new Font("Segoe UI", 6.5f))
+                    using (var b = new SolidBrush(CTextDim))
+                        g.DrawString("OBJ", f, b, 8, y);
+                    using (var f = new Font("Segoe UI", 11f, FontStyle.Bold))
+                    using (var b = new SolidBrush(CText))
+                        g.DrawString(m.Objetivo.ToString("F1", CultureInfo.InvariantCulture), f, b, 32, y - 3);
+                    y += 18;
+
+                    int vuW = Width - 18, vuH = 8;
+                    var vuRect = new Rectangle(8, y, vuW, vuH);
+                    using (var b = new SolidBrush(Color.FromArgb(22, 22, 26)))
+                        g.FillRectangle(b, vuRect);
+
+                    double pct = m.Objetivo > 0 ? Math.Min(1.5, m.Real / m.Objetivo) : 0;
+                    int fillW = (int)(vuW * Math.Min(1.0, pct));
+
+                    Color fillColor;
+                    if (!m.Activo || pct < 0.1) fillColor = Color.FromArgb(50, 50, 55);
+                    else if (pct > 1.15) fillColor = CError;
+                    else if (pct > 0.85) fillColor = CAccent;
+                    else fillColor = CWarn;
+
+                    using (var b = new SolidBrush(fillColor))
+                        g.FillRectangle(b, vuRect.X, vuRect.Y, fillW, vuH);
+                    using (var p = new Pen(Color.FromArgb(80, 255, 255, 255)))
+                        g.DrawLine(p, vuRect.Right, vuRect.Top, vuRect.Right, vuRect.Bottom);
+                    using (var p = new Pen(CBorder))
+                        g.DrawRectangle(p, vuRect);
+                    y += vuH + 2;
+
+                    using (var f = new Font("Segoe UI", 10f, FontStyle.Bold))
+                    using (var b = new SolidBrush(fillColor))
+                        g.DrawString(m.Real.ToString("F1", CultureInfo.InvariantCulture), f, b, 8, y);
+                    string pctStr = m.Objetivo > 0 ? ((int)(pct * 100)) + "%" : "--";
+                    using (var f = new Font("Segoe UI", 8f))
+                    using (var b = new SolidBrush(CTextDim))
+                    {
+                        var sz = g.MeasureString(pctStr, f);
+                        g.DrawString(pctStr, f, b, Width - sz.Width - 8, y + 2);
+                    }
+                    y += 18;
+
+                    // Posición para botones MAN de este motor.
+                    _motorBtnY[mi] = y;
+                    y += 22;
+                }
+            }
+            else if (HasData)
+            {
+                using (var f = new Font("Segoe UI", 8f, FontStyle.Bold))
+                using (var b = new SolidBrush(CText))
+                    g.DrawString(_fieldName ?? "", f, b, 8, y);
+                y += 18;
+                using (var f = new Font("Segoe UI", 14f, FontStyle.Bold))
+                using (var b = new SolidBrush(CText))
+                    g.DrawString(_hasCurrent ? _current.ToString("F1", CultureInfo.InvariantCulture) : "--", f, b, 8, y);
+                y += 24;
             }
 
-            // Barra de gradiente vertical (max arriba, min abajo).
-            var barRect = new Rectangle(12, 32, 22, 150);
-            using (var brush = new LinearGradientBrush(
-                new Point(0, barRect.Top),
-                new Point(0, barRect.Bottom),
-                CHigh, CLow))
-            {
-                var blend = new ColorBlend(3);
-                blend.Colors = new[] { CHigh, CMid, CLow };
-                blend.Positions = new[] { 0f, 0.5f, 1f };
-                brush.InterpolationColors = blend;
-                g.FillRectangle(brush, barRect);
-            }
-            using (var barPen = new Pen(CBorder))
-                g.DrawRectangle(barPen, barRect);
+            int newH = y + 4;
+            if (Height != newH && newH > 50) Size = new Size(Width, newH);
 
-            // Etiquetas min/max.
-            using (var valBrush = new SolidBrush(CText))
-            using (var fVal = new Font("Segoe UI", 8.5f, FontStyle.Bold))
-            {
-                string maxStr = _max.ToString("G4", CultureInfo.InvariantCulture);
-                string minStr = _min.ToString("G4", CultureInfo.InvariantCulture);
-                g.DrawString(maxStr, fVal, valBrush, 40, barRect.Top - 2);
-                g.DrawString(minStr, fVal, valBrush, 40, barRect.Bottom - 14);
-            }
-
-            // Etiqueta media (50%).
-            using (var midBrush = new SolidBrush(CTextDim))
-            using (var fMid = new Font("Segoe UI", 7.5f))
-            {
-                double mid = (_min + _max) / 2.0;
-                string midStr = mid.ToString("G4", CultureInfo.InvariantCulture);
-                g.DrawString(midStr, fMid, midBrush, 40, barRect.Top + (barRect.Height / 2) - 7);
-            }
-
-            // Marcador del valor actual (triangulo a la izquierda de la barra).
-            if (_hasCurrent && _max > _min)
-            {
-                double t = (_current - _min) / (_max - _min);
-                if (t < 0) t = 0;
-                else if (t > 1) t = 1;
-                int y = barRect.Bottom - (int)(t * barRect.Height);
-                var tri = new[] {
-                    new Point(barRect.Left - 2, y),
-                    new Point(barRect.Left - 10, y - 5),
-                    new Point(barRect.Left - 10, y + 5)
-                };
-                using (var mkBrush = new SolidBrush(Color.White))
-                    g.FillPolygon(mkBrush, tri);
-            }
-
-            // Readout actual al pie.
-            using (var fLbl = new Font("Segoe UI", 8f))
-            using (var fVal = new Font("Segoe UI", 11f, FontStyle.Bold))
-            using (var dimBrush = new SolidBrush(CTextDim))
-            using (var textBrush = new SolidBrush(CText))
-            {
-                g.DrawString("Dosis actual", fLbl, dimBrush, 8, Height - 42);
-                string val = _hasCurrent
-                    ? _current.ToString("G5", CultureInfo.InvariantCulture)
-                    : "fuera";
-                g.DrawString(val, fVal, textBrush, 8, Height - 26);
-            }
-
-            // UDP: LED + contador de paquetes (paso 11).
-            DrawUdpStatus(g);
+            if (_hasMotores && !_buttonsCreated) CreateButtons();
+            if (_buttonsCreated) LayoutMotorButtons();
         }
 
-        private void DrawUdpStatus(Graphics g)
+        private void LayoutMotorButtons()
         {
-            // LED en la esquina superior derecha (6px + halo).
-            var ledCenter = new Point(Width - 16, 12);
-            Color ledColor;
-            if (!_udpActive)
+            for (int mi = 0; mi < 2; mi++)
             {
-                ledColor = Color.FromArgb(80, 80, 80); // apagado
-            }
-            else if (_udpLastSend.HasValue
-                && (DateTime.UtcNow - _udpLastSend.Value).TotalMilliseconds < 500)
-            {
-                ledColor = Color.FromArgb(0, 220, 80);  // activo y enviando
-            }
-            else
-            {
-                ledColor = Color.FromArgb(180, 180, 60); // activo pero ultimo send > 500ms
-            }
+                if (_btnMan[mi] == null) continue;
+                var m = Motores[mi];
+                bool show = !string.IsNullOrEmpty(m.Nombre) || m.Objetivo > 0 || m.Activo;
+                _btnMan[mi].Visible = show;
+                if (!show) { _btnDn[mi].Visible = false; _lblVal[mi].Visible = false; _btnUp[mi].Visible = false; continue; }
 
-            using (var ledBrush = new SolidBrush(ledColor))
-                g.FillEllipse(ledBrush, ledCenter.X - 5, ledCenter.Y - 5, 10, 10);
-            using (var rim = new Pen(Color.FromArgb(50, 50, 50)))
-                g.DrawEllipse(rim, ledCenter.X - 5, ledCenter.Y - 5, 10, 10);
+                int by = _motorBtnY[mi];
+                int x = 4;
+                _btnMan[mi].Location = new Point(x, by); x += 36;
+                _btnDn[mi].Location = new Point(x, by); x += 24;
+                _lblVal[mi].Location = new Point(x, by); x += 38;
+                _btnUp[mi].Location = new Point(x, by);
 
-            // Contador debajo del LED.
-            using (var fCnt = new Font("Segoe UI", 7.5f))
-            using (var dim = new SolidBrush(CTextDim))
-            {
-                string txt = _udpActive
-                    ? "UDP " + _udpPackets
-                    : "UDP off";
-                var sz = g.MeasureString(txt, fCnt);
-                g.DrawString(txt, fCnt, dim, Width - sz.Width - 6, 22);
+                _btnDn[mi].Visible = m.Manual;
+                _lblVal[mi].Visible = m.Manual;
+                _btnUp[mi].Visible = m.Manual;
             }
+        }
+
+        private static GraphicsPath RoundedRect(Rectangle r, int radius)
+        {
+            var p = new GraphicsPath();
+            int d = radius * 2;
+            p.AddArc(r.X, r.Y, d, d, 180, 90);
+            p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+            p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+            p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+            p.CloseFigure();
+            return p;
         }
     }
 }
