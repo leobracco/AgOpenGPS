@@ -101,7 +101,7 @@ namespace AgroParallel.Common
                     ForeColor = CText, Cursor = Cursors.Hand, Visible = false
                 };
                 _btnDn[mi].FlatAppearance.BorderSize = 0;
-                _btnDn[mi].Click += (s, e) => AdjustManual(capturedMi, -5);
+                _btnDn[mi].Click += (s, e) => AdjustManual(capturedMi, -0.1);
                 Controls.Add(_btnDn[mi]);
 
                 _lblVal[mi] = new Label
@@ -120,7 +120,7 @@ namespace AgroParallel.Common
                     ForeColor = CText, Cursor = Cursors.Hand, Visible = false
                 };
                 _btnUp[mi].FlatAppearance.BorderSize = 0;
-                _btnUp[mi].Click += (s, e) => AdjustManual(capturedMi, 5);
+                _btnUp[mi].Click += (s, e) => AdjustManual(capturedMi, 0.1);
                 Controls.Add(_btnUp[mi]);
             }
         }
@@ -153,7 +153,7 @@ namespace AgroParallel.Common
         {
             if (_lblVal[mi] == null) return;
             bool m = Motores[mi].Manual;
-            _lblVal[mi].Text = m ? Motores[mi].ManualDosis.ToString("F0") : "--";
+            _lblVal[mi].Text = m ? Motores[mi].ManualDosis.ToString("F1") : "--";
             _lblVal[mi].Visible = m;
             _btnUp[mi].Visible = m;
             _btnDn[mi].Visible = m;
