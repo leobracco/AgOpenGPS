@@ -38,6 +38,7 @@ namespace AgroParallel.QuantiX
             public bool Enabled;
             public bool Manual;
             public int ManualPwm;
+            public double ManualDosis; // Dosis manual en unidades del usuario
             public double DosisObjetivo;
             public double DosisReal;
             public string Unidad;
@@ -368,6 +369,9 @@ namespace AgroParallel.QuantiX
             if (!_buttonsCreated && _canvas != null) CreateButtons();
         }
 
+        private NumericUpDown _numDosis;
+        private Label _lblDosisUnit;
+
         private void CreateButtons()
         {
             _buttonsCreated = true;
@@ -380,20 +384,34 @@ namespace AgroParallel.QuantiX
             btnManual.Click += (s, ev) => ToggleManual();
             _canvas.Controls.Add(btnManual);
 
-            var btnMinus = Theme.MkButton("\u25BC", Color.FromArgb(40, 40, 45), Theme.TextPrimary, 50, 34);
-            btnMinus.Location = new Point(bx + 110, by);
-            btnMinus.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            btnMinus.Click += (s, ev) => AdjustManual(-50);
-            _canvas.Controls.Add(btnMinus);
+            // Dosis manual con incremento fino.
+            _numDosis = new NumericUpDown
+            {
+                Minimum = 0, Maximum = 9999, DecimalPlaces = 1, Increment = 0.1m,
+                Value = 0,
+                Font = new Font(Theme.FontFamily, 11f, FontStyle.Bold),
+                ForeColor = Theme.Accent, BackColor = Theme.BgInput,
+                BorderStyle = BorderStyle.FixedSingle,
+                Location = new Point(bx + 110, by + 2),
+                Size = new Size(90, 30),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
+            };
+            _numDosis.ValueChanged += (s, ev) => OnDosisChanged();
+            _canvas.Controls.Add(_numDosis);
 
-            var btnPlus = Theme.MkButton("\u25B2", Color.FromArgb(40, 40, 45), Theme.TextPrimary, 50, 34);
-            btnPlus.Location = new Point(bx + 166, by);
-            btnPlus.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-            btnPlus.Click += (s, ev) => AdjustManual(50);
-            _canvas.Controls.Add(btnPlus);
+            _lblDosisUnit = new Label
+            {
+                Text = "",
+                Font = Theme.FontSmall, ForeColor = Theme.TextFaint,
+                BackColor = Color.Transparent,
+                Location = new Point(bx + 205, by + 10),
+                AutoSize = true,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
+            };
+            _canvas.Controls.Add(_lblDosisUnit);
 
             var btnAuto = Theme.MkButton("\u25B6 AUTO", Theme.AccentDim, Theme.TextPrimary, 80, 34);
-            btnAuto.Location = new Point(bx + 222, by);
+            btnAuto.Location = new Point(bx + 280, by);
             btnAuto.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnAuto.Click += (s, ev) => SetAuto();
             _canvas.Controls.Add(btnAuto);
@@ -405,30 +423,49 @@ namespace AgroParallel.QuantiX
 
         private void ToggleManual()
         {
-            // Poner el primer nodo/primer motor en manual.
             foreach (var kv in _live)
             {
                 for (int mi = 0; mi < kv.Value.Length; mi++)
                 {
-                    kv.Value[mi].Manual = !kv.Value[mi].Manual;
-                    if (kv.Value[mi].Manual)
-                        SendTest(kv.Key, mi, kv.Value[mi].ManualPwm);
+                    var m = kv.Value[mi];
+                    m.Manual = !m.Manual;
+                    if (m.Manual)
+                    {
+                        // Inicializar con la dosis actual.
+                        m.ManualDosis = m.DosisObjetivo > 0 ? m.DosisObjetivo : m.DosisReal;
+                        if (_numDosis != null)
+                        {
+                            _numDosis.Value = (decimal)Math.Max(0, Math.Min(9999, m.ManualDosis));
+                            // Ajustar increment según unidad.
+                            bool isKg = m.Unidad != null &&
+                                (m.Unidad.Contains("kg") || m.Unidad.Contains("l"));
+                            _numDosis.Increment = isKg ? 1m : 0.1m;
+                            _numDosis.DecimalPlaces = isKg ? 0 : 1;
+                            if (_lblDosisUnit != null)
+                                _lblDosisUnit.Text = m.Unidad ?? "";
+                        }
+                        SendManualTarget(kv.Key, mi, m.ManualDosis);
+                    }
                     else
+                    {
                         SendStop(kv.Key, mi);
+                    }
                 }
-                break; // Solo primer nodo.
+                break;
             }
         }
 
-        private void AdjustManual(int delta)
+        private void OnDosisChanged()
         {
+            if (_numDosis == null) return;
+            double dosis = (double)_numDosis.Value;
             foreach (var kv in _live)
             {
                 for (int mi = 0; mi < kv.Value.Length; mi++)
                 {
                     if (!kv.Value[mi].Manual) continue;
-                    kv.Value[mi].ManualPwm = Math.Max(0, Math.Min(4095, kv.Value[mi].ManualPwm + delta));
-                    SendTest(kv.Key, mi, kv.Value[mi].ManualPwm);
+                    kv.Value[mi].ManualDosis = dosis;
+                    SendManualTarget(kv.Key, mi, dosis);
                 }
                 break;
             }
@@ -445,6 +482,47 @@ namespace AgroParallel.QuantiX
                 }
                 break;
             }
+        }
+
+        private void SendManualTarget(string uid, int motorId, double dosis)
+        {
+            // Convertir dosis a PPS usando MeterCal del motor.
+            double pps = 0;
+            if (_motores != null)
+            {
+                foreach (var n in _motores.Nodos)
+                {
+                    if (!string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase)) continue;
+                    var motors = n.Motores;
+                    if (motorId < motors.Length)
+                    {
+                        double meterCal = motors[motorId].MeterCal;
+                        if (meterCal > 0)
+                            pps = dosis / meterCal; // dosis en unidad/ha → pps
+                    }
+                    break;
+                }
+            }
+            // Si no hay MeterCal, usar dosis como PPS directo.
+            if (pps <= 0) pps = dosis;
+
+            SendTarget(uid, motorId, pps);
+        }
+
+        private void SendTarget(string uid, int motorId, double pps)
+        {
+            if (_mqtt == null) return;
+            string topic = "agp/quantix/" + uid + "/target";
+            string payload = "{\"id\":" + motorId
+                + ",\"pps\":" + Math.Round(pps, 2).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                + ",\"seccion_on\":true}";
+            try
+            {
+                var msg = new MqttApplicationMessageBuilder()
+                    .WithTopic(topic).WithPayload(payload).Build();
+                _ = _mqtt.PublishAsync(msg);
+            }
+            catch { }
         }
 
         private void SendTest(string uid, int motorId, int pwm)
