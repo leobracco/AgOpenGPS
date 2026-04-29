@@ -22,8 +22,9 @@ namespace AgroParallel.QuantiX
 
         // Controles PID.
         private ComboBox _cboNodo, _cboMotor, _cboMotorType;
-        private TrackBar _trkKp, _trkKi, _trkKd, _trkMinPwm, _trkDeadband;
-        private Label _lblKp, _lblKi, _lblKd, _lblMinPwm, _lblDeadband;
+        private NumericUpDown _numKp, _numKi, _numKd;
+        private TrackBar _trkMinPwm, _trkDeadband;
+        private Label _lblMinPwm, _lblDeadband;
         private NumericUpDown _numMaxHz, _numFFGain, _numAlpha, _numSlewPerSec, _numPIDTime, _numDientes;
         private Panel _graphPanel;
         private Timer _refreshTimer;
@@ -185,15 +186,15 @@ namespace AgroParallel.QuantiX
             y += 18;
 
             // ── Sliders PID ──
-            y = AddSlider(body, "Kp", lx, y, 0, 200, 80, out _trkKp, out _lblKp,
-                v => { SetVal("Kp", v); _lblKp.Text = v.ToString(); SendConfig(); });
-            y = AddSlider(body, "Ki", lx, y, 0, 100, 30, out _trkKi, out _lblKi,
-                v => { SetVal("Ki", v); _lblKi.Text = v.ToString(); SendConfig(); });
-            y = AddSlider(body, "Kd", lx, y, 0, 100, 0, out _trkKd, out _lblKd,
-                v => { SetVal("Kd", v); _lblKd.Text = v.ToString(); SendConfig(); });
-            y = AddSlider(body, "PWM min", lx, y, 0, 4095, 600, out _trkMinPwm, out _lblMinPwm,
+            y = AddPidParam(body, "Kp", lx, y, 0, 500, 0, 1, 0.1m,
+                v => { SetVal("Kp", v); SendConfig(); });
+            y = AddPidParam(body, "Ki", lx, y, 0, 200, 0, 1, 0.1m,
+                v => { SetVal("Ki", v); SendConfig(); });
+            y = AddPidParam(body, "Kd", lx, y, 0, 100, 0, 1, 0.1m,
+                v => { SetVal("Kd", v); SendConfig(); });
+            y = AddSlider(body, "PWM min", lx, y, 0, 4095, 0, out _trkMinPwm, out _lblMinPwm,
                 v => { SetVal("PwmMin", v); _lblMinPwm.Text = v.ToString(); SendConfig(); });
-            y = AddSlider(body, "Deadband %", lx, y, 0, 20, 2, out _trkDeadband, out _lblDeadband,
+            y = AddSlider(body, "Deadband %", lx, y, 0, 20, 0, out _trkDeadband, out _lblDeadband,
                 v => { SetVal("Deadband", v); _lblDeadband.Text = v.ToString(); SendConfig(); });
 
             // ── Guardar ──
@@ -266,6 +267,24 @@ namespace AgroParallel.QuantiX
         // Slider helper
         // =====================================================================
 
+        private int AddPidParam(Control parent, string label, int x, int y,
+            decimal min, decimal max, decimal initial, int decimals, decimal increment,
+            Action<double> onChange)
+        {
+            parent.Controls.Add(MkLabel(label + ":", x, y + 4));
+            var num = Theme.MkNumeric(min, max, initial, decimals, increment, 100);
+            num.Location = new Point(x + 90, y);
+            num.ValueChanged += (s, ev) => onChange((double)num.Value);
+            parent.Controls.Add(num);
+
+            // Guardar referencia para LoadMotorValues.
+            if (label == "Kp") _numKp = num;
+            else if (label == "Ki") _numKi = num;
+            else if (label == "Kd") _numKd = num;
+
+            return y + 34;
+        }
+
         private int AddSlider(Control parent, string label, int x, int y,
             int min, int max, int initial, out TrackBar trk, out Label lbl, Action<int> onChange)
         {
@@ -318,14 +337,11 @@ namespace AgroParallel.QuantiX
             var m = GetSelectedMotor();
             if (m == null) return;
 
-            _trkKp.Value = Clamp(_trkKp, (int)m.Kp);
-            _trkKi.Value = Clamp(_trkKi, (int)m.Ki);
-            _trkKd.Value = Clamp(_trkKd, (int)m.Kd);
+            if (_numKp != null) _numKp.Value = ClampDec(_numKp, (decimal)m.Kp);
+            if (_numKi != null) _numKi.Value = ClampDec(_numKi, (decimal)m.Ki);
+            if (_numKd != null) _numKd.Value = ClampDec(_numKd, (decimal)m.Kd);
             _trkMinPwm.Value = Clamp(_trkMinPwm, m.PwmMin);
             _trkDeadband.Value = Clamp(_trkDeadband, m.Deadband);
-            _lblKp.Text = ((int)m.Kp).ToString();
-            _lblKi.Text = ((int)m.Ki).ToString();
-            _lblKd.Text = ((int)m.Kd).ToString();
             _lblMinPwm.Text = m.PwmMin.ToString();
             _lblDeadband.Text = m.Deadband.ToString();
 
@@ -363,13 +379,18 @@ namespace AgroParallel.QuantiX
             return Math.Max(trk.Minimum, Math.Min(trk.Maximum, val));
         }
 
+        private static decimal ClampDec(NumericUpDown num, decimal val)
+        {
+            return Math.Max(num.Minimum, Math.Min(num.Maximum, val));
+        }
+
         private void ApplyPreset(int motorType, int kp, int ki, int kd, int minPwm, int maxHz, int deadband,
             double ffGain, double alpha, int slewPerSec, int pidTime)
         {
             _cboMotorType.SelectedIndex = motorType;
-            _trkKp.Value = Clamp(_trkKp, kp);
-            _trkKi.Value = Clamp(_trkKi, ki);
-            _trkKd.Value = Clamp(_trkKd, kd);
+            if (_numKp != null) _numKp.Value = ClampDec(_numKp, kp);
+            if (_numKi != null) _numKi.Value = ClampDec(_numKi, ki);
+            if (_numKd != null) _numKd.Value = ClampDec(_numKd, kd);
             _trkMinPwm.Value = Clamp(_trkMinPwm, minPwm);
             _trkDeadband.Value = Clamp(_trkDeadband, deadband);
             _numMaxHz.Value = maxHz;
