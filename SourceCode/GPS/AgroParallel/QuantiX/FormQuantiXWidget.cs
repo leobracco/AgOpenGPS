@@ -486,8 +486,25 @@ namespace AgroParallel.QuantiX
 
         private void SendManualTarget(string uid, int motorId, double dosis)
         {
-            // Convertir dosis a PPS usando MeterCal del motor.
+            // Misma fórmula que QuantiXMotorBridge:
+            //   productoGramosPorSeg = (dosis_kg_ha × 1000 × ancho_m × vel_m/s) / 10000
+            //   pps = productoGramosPorSeg / meterCal
             double pps = 0;
+            double velocidadKmh = 0;
+            double anchoM = 1;
+
+            if (_parent != null)
+            {
+                try
+                {
+                    velocidadKmh = _parent.avgSpeed;
+                    if (_parent.tool != null && _parent.tool.width > 0)
+                        anchoM = _parent.tool.width;
+                }
+                catch { }
+            }
+            if (velocidadKmh < 0.5) velocidadKmh = 8; // Default 8 km/h si está parado.
+
             if (_motores != null)
             {
                 foreach (var n in _motores.Nodos)
@@ -498,12 +515,15 @@ namespace AgroParallel.QuantiX
                     {
                         double meterCal = motors[motorId].MeterCal;
                         if (meterCal > 0)
-                            pps = dosis / meterCal; // dosis en unidad/ha → pps
+                        {
+                            double velocidadMs = velocidadKmh / 3.6;
+                            double gPorSeg = (dosis * 1000.0 * anchoM * velocidadMs) / 10000.0;
+                            pps = gPorSeg / meterCal;
+                        }
                     }
                     break;
                 }
             }
-            // Si no hay MeterCal, usar dosis como PPS directo.
             if (pps <= 0) pps = dosis;
 
             SendTarget(uid, motorId, pps);
