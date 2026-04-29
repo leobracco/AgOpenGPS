@@ -190,7 +190,7 @@ namespace AgroParallel.QuantiX
             {
                 using (var br = new SolidBrush(Theme.TextFaint))
                     g.DrawString(label, f, br, x, y);
-                using (var br = new SolidBrush(Theme.TextPrimary))
+                using (var br = new SolidBrush(Theme.TextSecondary))
                     g.DrawString(value, f, br, x + 160, y);
             }
         }

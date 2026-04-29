@@ -286,7 +286,7 @@ namespace AgroParallel.QuantiX
 
                     // Objetivo.
                     using (var f = Theme.FontSmall)
-                    using (var br = new SolidBrush(Theme.TextFaint))
+                    using (var br = new SolidBrush(Theme.TextSecondary))
                         g.DrawString("OBJETIVO", f, br, 16, cardY + 24);
                     using (var f = new Font(Theme.FontFamily, 16f, FontStyle.Bold))
                     using (var br = new SolidBrush(Theme.TextPrimary))
@@ -294,7 +294,7 @@ namespace AgroParallel.QuantiX
 
                     // Real.
                     using (var f = Theme.FontSmall)
-                    using (var br = new SolidBrush(Theme.TextFaint))
+                    using (var br = new SolidBrush(Theme.TextSecondary))
                         g.DrawString("REAL", f, br, 120, cardY + 24);
 
                     Color realColor = Theme.Accent;
@@ -310,7 +310,7 @@ namespace AgroParallel.QuantiX
 
                     // Unidad.
                     using (var f = Theme.FontSmall)
-                    using (var br = new SolidBrush(Theme.TextFaint))
+                    using (var br = new SolidBrush(Theme.TextSecondary))
                         g.DrawString(m.Unidad, f, br, 210, cardY + 46);
 
                     // PPS + PWM info.
@@ -326,14 +326,14 @@ namespace AgroParallel.QuantiX
 
                     // Barra de progreso objetivo vs real.
                     int barX = 280, barW = w - barX - 24, barY2 = cardY + 28, barH = 36;
-                    using (var b = new SolidBrush(Color.FromArgb(20, 20, 24)))
+                    using (var b = new SolidBrush(Theme.BgCard2))
                         g.FillRectangle(b, barX, barY2, barW, barH);
 
                     if (m.DosisObjetivo > 0)
                     {
                         double pct = Math.Min(1.0, m.DosisReal / m.DosisObjetivo);
                         int fillW = (int)(barW * pct);
-                        using (var b = new SolidBrush(Color.FromArgb(60, realColor.R, realColor.G, realColor.B)))
+                        using (var b = new SolidBrush(Color.FromArgb(60, Theme.Accent.R, Theme.Accent.G, Theme.Accent.B)))
                             g.FillRectangle(b, barX, barY2, fillW, barH);
                     }
 
@@ -384,18 +384,10 @@ namespace AgroParallel.QuantiX
             btnManual.Click += (s, ev) => ToggleManual();
             _canvas.Controls.Add(btnManual);
 
-            // Dosis manual con incremento fino.
-            _numDosis = new NumericUpDown
-            {
-                Minimum = 0, Maximum = 9999, DecimalPlaces = 1, Increment = 0.1m,
-                Value = 0,
-                Font = new Font(Theme.FontFamily, 11f, FontStyle.Bold),
-                ForeColor = Theme.Accent, BackColor = Theme.BgInput,
-                BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(bx + 110, by + 2),
-                Size = new Size(90, 30),
-                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
-            };
+            // Dosis manual con incremento fino — themed NumericUpDown.
+            _numDosis = Theme.MkNumeric(0, 9999, 0, 1, 0.1m, 90);
+            _numDosis.Location = new Point(bx + 110, by + 2);
+            _numDosis.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             _numDosis.ValueChanged += (s, ev) => OnDosisChanged();
             _canvas.Controls.Add(_numDosis);
 
@@ -410,7 +402,7 @@ namespace AgroParallel.QuantiX
             };
             _canvas.Controls.Add(_lblDosisUnit);
 
-            var btnAuto = Theme.MkButton("\u25B6 AUTO", Theme.AccentDim, Theme.TextPrimary, 80, 34);
+            var btnAuto = Theme.MkAccentButton("\u25B6 AUTO", 80, 34);
             btnAuto.Location = new Point(bx + 280, by);
             btnAuto.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             btnAuto.Click += (s, ev) => SetAuto();

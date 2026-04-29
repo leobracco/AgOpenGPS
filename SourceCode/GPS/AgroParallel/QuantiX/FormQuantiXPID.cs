@@ -77,32 +77,35 @@ namespace AgroParallel.QuantiX
             Theme.ApplyToForm(this);
             FormBorderStyle = FormBorderStyle.None;
             MinimumSize = new Size(480, 400);
-            Size = new Size(580, 730);
+            Size = new Size(580, 760);
 
             var body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.BgBlack };
             Controls.Add(body);
 
-            int lx = 16, y = 10;
+            int lx = 16, y = 12;
 
             // ── Nodo + Motor ──
             body.Controls.Add(MkLabel("Nodo:", lx, y));
-            _cboNodo = MkCombo(lx + 40, y, 200);
+            _cboNodo = Theme.MkCombo(200);
+            _cboNodo.Location = new Point(lx + 40, y);
             foreach (var n in _motores.Nodos) _cboNodo.Items.Add(n.Nombre + " (" + n.Uid + ")");
             if (_cboNodo.Items.Count > 0) _cboNodo.SelectedIndex = 0;
             _cboNodo.SelectedIndexChanged += (s, ev) => LoadMotorValues();
             body.Controls.Add(_cboNodo);
 
             body.Controls.Add(MkLabel("Motor:", lx + 260, y));
-            _cboMotor = MkCombo(lx + 310, y, 120);
+            _cboMotor = Theme.MkCombo(120);
+            _cboMotor.Location = new Point(lx + 310, y);
             _cboMotor.Items.AddRange(new object[] { "M0", "M1" });
             _cboMotor.SelectedIndex = 0;
             _cboMotor.SelectedIndexChanged += (s, ev) => LoadMotorValues();
             body.Controls.Add(_cboMotor);
-            y += 28;
+            y += 32;
 
             // ── Tipo motor ──
             body.Controls.Add(MkLabel("Tipo:", lx, y));
-            _cboMotorType = MkCombo(lx + 40, y, 140);
+            _cboMotorType = Theme.MkCombo(140);
+            _cboMotorType.Location = new Point(lx + 40, y);
             _cboMotorType.Items.AddRange(new object[] { "El\u00E9ctrico DC", "Hidr\u00E1ulico" });
             _cboMotorType.SelectedIndex = 0;
             _cboMotorType.SelectedIndexChanged += (s, ev) =>
@@ -115,59 +118,62 @@ namespace AgroParallel.QuantiX
 
             // Dientes engranaje
             body.Controls.Add(MkLabel("PPR:", lx + 200, y));
-            _numDientes = MkNumeric(lx + 232, y, 70, 1, 2000, 600);
+            _numDientes = Theme.MkNumeric(1, 2000, 600, 0, 1, 70);
+            _numDientes.Location = new Point(lx + 232, y - 2);
             _numDientes.ValueChanged += (s, ev) => { var m = GetSelectedMotor(); if (m != null) m.DientesEngranaje = (int)_numDientes.Value; };
             body.Controls.Add(_numDientes);
 
             // PIDtime
             body.Controls.Add(MkLabel("PID ms:", lx + 320, y));
-            _numPIDTime = MkNumeric(lx + 370, y, 60, 10, 500, 50);
+            _numPIDTime = Theme.MkNumeric(10, 500, 50, 0, 1, 60);
+            _numPIDTime.Location = new Point(lx + 370, y - 2);
             _numPIDTime.ValueChanged += (s, ev) => { var m = GetSelectedMotor(); if (m != null) m.PIDTime = (int)_numPIDTime.Value; SendConfig(); };
             body.Controls.Add(_numPIDTime);
-            y += 26;
+            y += 30;
 
             // ── Presets ──
             body.Controls.Add(MkLabel("Presets:", lx, y));
-            var btnElec = Theme.MkButton("El\u00E9ctrico", Color.FromArgb(30, 50, 30), Theme.Accent, 80, 22);
+            var btnElec = Theme.MkAccentButton("El\u00E9ctrico", 80, 24);
             btnElec.Location = new Point(lx + 60, y - 2);
             btnElec.Click += (s, ev) => ApplyPreset(0, 80, 30, 8, 600, 40, 2, 1.0, 0.4, 5000, 50);
             body.Controls.Add(btnElec);
 
-            var btnHyd = Theme.MkButton("Hidr\u00E1ulico", Color.FromArgb(40, 40, 20), Theme.Warning, 80, 22);
-            btnHyd.Location = new Point(lx + 146, y - 2);
+            var btnHyd = Theme.MkButton("Hidr\u00E1ulico", Theme.Info, Theme.TextPrimary, 80, 24);
+            btnHyd.Location = new Point(lx + 150, y - 2);
             btnHyd.Click += (s, ev) => ApplyPreset(1, 35, 20, 30, 1200, 30, 5, 1.0, 0.2, 1000, 200);
             body.Controls.Add(btnHyd);
 
-            var btnAgg = Theme.MkButton("Agresivo", Color.FromArgb(50, 25, 25), Theme.Error, 80, 22);
-            btnAgg.Location = new Point(lx + 232, y - 2);
+            var btnAgg = Theme.MkDangerButton("Agresivo", 80, 24);
+            btnAgg.Location = new Point(lx + 240, y - 2);
             btnAgg.Click += (s, ev) => ApplyPreset(0, 120, 50, 10, 500, 40, 1, 1.0, 0.5, 8000, 30);
             body.Controls.Add(btnAgg);
-            y += 26;
+            y += 30;
 
             // ── Feedforward params (ANTES de sliders para que no queden tapados) ──
             body.Controls.Add(MkLabel("Max Hz:", lx, y + 2));
-            _numMaxHz = MkNumeric(lx + 55, y, 65, 1, 500, 40);
-            _numMaxHz.DecimalPlaces = 1; _numMaxHz.Increment = 1;
+            _numMaxHz = Theme.MkNumeric(1, 500, 40, 1, 1, 65);
+            _numMaxHz.Location = new Point(lx + 55, y - 2);
             _numMaxHz.ValueChanged += (s, ev) => { SetVal("MaxHz", (double)_numMaxHz.Value); SendConfig(); };
             body.Controls.Add(_numMaxHz);
 
             body.Controls.Add(MkLabel("FF Gain:", lx + 140, y + 2));
-            _numFFGain = MkNumeric(lx + 200, y, 65, 0, 3, 1);
-            _numFFGain.DecimalPlaces = 2; _numFFGain.Increment = (decimal)0.05;
+            _numFFGain = Theme.MkNumeric(0, 3, 1, 2, 0.05m, 65);
+            _numFFGain.Location = new Point(lx + 200, y - 2);
             _numFFGain.ValueChanged += (s, ev) => { SetVal("FFGain", (double)_numFFGain.Value); SendConfig(); };
             body.Controls.Add(_numFFGain);
 
             body.Controls.Add(MkLabel("Filtro:", lx + 285, y + 2));
-            _numAlpha = MkNumeric(lx + 330, y, 60, 0, 1, 0.4m);
-            _numAlpha.DecimalPlaces = 2; _numAlpha.Increment = (decimal)0.05;
+            _numAlpha = Theme.MkNumeric(0, 1, 0.4m, 2, 0.05m, 60);
+            _numAlpha.Location = new Point(lx + 330, y - 2);
             _numAlpha.ValueChanged += (s, ev) => { SetVal("Alpha", (double)_numAlpha.Value); SendConfig(); };
             body.Controls.Add(_numAlpha);
 
             body.Controls.Add(MkLabel("Rampa:", lx + 400, y + 2));
-            _numSlewPerSec = MkNumeric(lx + 445, y, 75, 100, 20000, 5000);
+            _numSlewPerSec = Theme.MkNumeric(100, 20000, 5000, 0, 1, 75);
+            _numSlewPerSec.Location = new Point(lx + 445, y - 2);
             _numSlewPerSec.ValueChanged += (s, ev) => { SetVal("SlewRatePerSec", (double)_numSlewPerSec.Value); SendConfig(); };
             body.Controls.Add(_numSlewPerSec);
-            y += 26;
+            y += 30;
 
             // ── Guía ──
             body.Controls.Add(new Label
@@ -176,7 +182,7 @@ namespace AgroParallel.QuantiX
                 Font = new Font("Segoe UI", 7f), ForeColor = Theme.TextFaint,
                 BackColor = Color.Transparent, Location = new Point(lx, y), AutoSize = true
             });
-            y += 14;
+            y += 18;
 
             // ── Sliders PID ──
             y = AddSlider(body, "Kp", lx, y, 0, 200, 80, out _trkKp, out _lblKp,
@@ -191,32 +197,37 @@ namespace AgroParallel.QuantiX
                 v => { SetVal("Deadband", v); _lblDeadband.Text = v.ToString(); SendConfig(); });
 
             // ── Guardar ──
-            var btnSave = Theme.MkAccentButton("\u2713 GUARDAR", 120, 28);
+            y += 4;
+            var btnSave = Theme.MkAccentButton("\u2713 GUARDAR", 120, 30);
             btnSave.Location = new Point(lx, y);
             btnSave.Click += (s, ev) => { _motores.Save(); SendConfig(); };
             body.Controls.Add(btnSave);
 
-            var lblLive = MkLabel("", lx + 140, y + 4);
-            lblLive.Name = "lblLive"; lblLive.Size = new Size(420, 16);
+            var lblLive = new Label
+            {
+                Name = "lblLive", Text = "", Font = Theme.FontSmall,
+                ForeColor = Theme.Accent, BackColor = Color.Transparent,
+                Location = new Point(lx + 140, y + 6), Size = new Size(420, 16)
+            };
             body.Controls.Add(lblLive);
-            y += 34;
+            y += 38;
 
             // ── RPM display ──
             var rpmPanel = new Panel
             {
                 Location = new Point(lx, y), Size = new Size(540, 42),
-                BackColor = Color.FromArgb(15, 20, 10)
+                BackColor = Theme.BgCard
             };
-            rpmPanel.Paint += (s, ev) => { using (var pen = new Pen(Theme.Border)) ev.Graphics.DrawRectangle(pen, 0, 0, rpmPanel.Width - 1, rpmPanel.Height - 1); };
+            rpmPanel.Paint += (s, ev) => { Theme.DrawRoundedBorder(ev.Graphics, new Rectangle(0, 0, rpmPanel.Width - 1, rpmPanel.Height - 1), Theme.Border, Theme.BorderRadius); };
             body.Controls.Add(rpmPanel);
 
             rpmPanel.Controls.Add(new Label { Name = "lblRpmBig", Text = "0 RPM", Font = new Font(Theme.FontFamily, 18f, FontStyle.Bold), ForeColor = Theme.Accent, BackColor = Color.Transparent, Location = new Point(12, 6), AutoSize = true });
             rpmPanel.Controls.Add(new Label { Text = "Velocidad del motor", Font = new Font("Segoe UI", 8f), ForeColor = Theme.TextFaint, BackColor = Color.Transparent, Location = new Point(200, 14), AutoSize = true });
             rpmPanel.Controls.Add(new Label { Name = "lblPulsos", Text = "", Font = new Font(Theme.FontFamily, 9f), ForeColor = Theme.TextSecondary, BackColor = Color.Transparent, Location = new Point(380, 14), AutoSize = true });
-            y += 48;
+            y += 52;
 
             // ── Gráfico ──
-            _graphPanel = new Panel { Location = new Point(lx, y), Size = new Size(540, 150), BackColor = Color.FromArgb(12, 12, 14) };
+            _graphPanel = new Panel { Location = new Point(lx, y), Size = new Size(540, 150), BackColor = Theme.BgCard };
             _graphPanel.Paint += PaintGraph;
             body.Controls.Add(_graphPanel);
         }
@@ -231,11 +242,11 @@ namespace AgroParallel.QuantiX
             parent.Controls.Add(MkLabel(label + ":", x, y + 2));
             lbl = new Label { Text = initial.ToString(), Font = new Font(Theme.FontFamily, 9f, FontStyle.Bold), ForeColor = Theme.Accent, BackColor = Color.Transparent, Location = new Point(x + 80, y + 2), Size = new Size(50, 16) };
             parent.Controls.Add(lbl);
-            trk = new TrackBar { Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, initial)), TickFrequency = Math.Max(1, (max - min) / 20), LargeChange = Math.Max(1, (max - min) / 10), Location = new Point(x + 130, y), Size = new Size(400, 28), BackColor = Theme.BgBlack };
+            trk = new TrackBar { Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, initial)), TickFrequency = Math.Max(1, (max - min) / 20), LargeChange = Math.Max(1, (max - min) / 10), Location = new Point(x + 130, y), Size = new Size(400, 28), BackColor = Theme.BgInput };
             var cl = lbl; var ct = trk;
             ct.ValueChanged += (s, ev) => onChange(ct.Value);
             parent.Controls.Add(ct);
-            return y + 30;
+            return y + 34;
         }
 
         // =====================================================================
@@ -472,9 +483,9 @@ namespace AgroParallel.QuantiX
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(Color.FromArgb(12, 12, 14));
+            g.Clear(Theme.BgCard);
             int w = _graphPanel.Width, h = _graphPanel.Height, pad = 4;
-            using (var p = new Pen(Theme.Border)) g.DrawRectangle(p, 0, 0, w - 1, h - 1);
+            Theme.DrawRoundedBorder(g, new Rectangle(0, 0, w - 1, h - 1), Theme.Border, Theme.BorderRadius);
             if (_histTarget.Count < 2) return;
 
             double maxVal = 1;
@@ -529,26 +540,6 @@ namespace AgroParallel.QuantiX
         private Label MkLabel(string text, int x, int y)
         {
             return new Label { Text = text, Font = Theme.FontSmall, ForeColor = Theme.TextSecondary, BackColor = Color.Transparent, Location = new Point(x, y), AutoSize = true };
-        }
-
-        private ComboBox MkCombo(int x, int y, int w)
-        {
-            return new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = Theme.FontBody, ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput, Location = new Point(x, y), Size = new Size(w, 22) };
-        }
-
-        private NumericUpDown MkNumeric(int x, int y, int w, decimal min, decimal max, decimal val)
-        {
-            var n = new NumericUpDown
-            {
-                Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, val)),
-                Font = Theme.FontBody,
-                ForeColor = Color.White,
-                BackColor = Color.FromArgb(30, 30, 34),
-                BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(x, y - 2),
-                Size = new Size(w, 22)
-            };
-            return n;
         }
 
         private static double ExtractNum(string json, string key)

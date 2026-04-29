@@ -351,7 +351,7 @@ namespace AgroParallel.QuantiX
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false, AutoScroll = true,
                 BackColor = Theme.BgBlack,
-                Padding = new Padding(20, 14, 20, 14)
+                Padding = new Padding(20, 18, 20, 18)
             };
             _list.Resize += (s, ev) =>
             {
@@ -378,14 +378,12 @@ namespace AgroParallel.QuantiX
             btnSave.Click += (s, ev) => { _motores.Save(); };
             footer.Controls.Add(btnSave);
 
-            var btnSendAll = Theme.MkButton("\U0001F4E1  ENVIAR TODO", Color.FromArgb(40, 40, 45),
-                Theme.TextPrimary, 160, 34);
+            var btnSendAll = Theme.MkSecondaryButton("\U0001F4E1  ENVIAR TODO", 160, 34);
             btnSendAll.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnSendAll.Click += (s, ev) => SendAllConfigs();
             footer.Controls.Add(btnSendAll);
 
-            var btnUdpCfg = Theme.MkButton("\u2699  CONFIG UDP", Color.FromArgb(40, 40, 45),
-                Theme.TextPrimary, 140, 34);
+            var btnUdpCfg = Theme.MkSecondaryButton("\u2699  CONFIG UDP", 140, 34);
             btnUdpCfg.Location = new Point(190, 8);
             btnUdpCfg.Click += (s, ev) =>
             {
@@ -445,6 +443,7 @@ namespace AgroParallel.QuantiX
             {
                 Size = new Size(cardW, 480),
                 Margin = new Padding(0, 0, 0, 10),
+                Padding = new Padding(Theme.CardPadding),
                 BackColor = Theme.BgCard
             };
             Color accent = nodo.Habilitado ? Theme.Accent : Theme.TextFaint;
@@ -460,16 +459,13 @@ namespace AgroParallel.QuantiX
                     g.FillRectangle(b, 0, Theme.BorderRadius, 3, card.Height - Theme.BorderRadius * 2);
             };
 
-            int y = 10;
+            int y = 12;
 
             // ── Header: Nombre + UID + Habilitado ───────────────────────
-            var txtNombre = new TextBox
-            {
-                Text = nodo.Nombre ?? "", Font = new Font(Theme.FontFamily, 12f, FontStyle.Bold),
-                ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
-                BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(16, y), Size = new Size(200, 26)
-            };
+            var txtNombre = Theme.MkTextBox(200);
+            txtNombre.Text = nodo.Nombre ?? "";
+            txtNombre.Font = new Font(Theme.FontFamily, 12f, FontStyle.Bold);
+            txtNombre.Location = new Point(18, y);
             txtNombre.TextChanged += (s, ev) => nodo.Nombre = txtNombre.Text;
             card.Controls.Add(txtNombre);
 
@@ -479,23 +475,16 @@ namespace AgroParallel.QuantiX
                 BackColor = Color.Transparent,
                 Location = new Point(230, y + 2), AutoSize = true
             });
-            var txtUid = new TextBox
-            {
-                Text = nodo.Uid ?? "", Font = Theme.FontMono,
-                ForeColor = Theme.Accent, BackColor = Theme.BgInput,
-                BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(260, y), Size = new Size(160, 26)
-            };
+            var txtUid = Theme.MkTextBox(160);
+            txtUid.Text = nodo.Uid ?? "";
+            txtUid.Font = Theme.FontMono;
+            txtUid.ForeColor = Theme.Accent;
+            txtUid.Location = new Point(260, y);
             txtUid.TextChanged += (s, ev) => nodo.Uid = txtUid.Text.Trim();
             card.Controls.Add(txtUid);
 
-            var chk = new CheckBox
-            {
-                Text = "Hab.", Checked = nodo.Habilitado,
-                Font = Theme.FontSmall, ForeColor = Theme.TextSecondary,
-                BackColor = Color.Transparent,
-                Location = new Point(440, y + 2), AutoSize = true
-            };
+            var chk = Theme.MkCheck("Hab.", nodo.Habilitado);
+            chk.Location = new Point(440, y + 2);
             chk.CheckedChanged += (s, ev) => { nodo.Habilitado = chk.Checked; card.Invalidate(); };
             card.Controls.Add(chk);
 
@@ -504,17 +493,17 @@ namespace AgroParallel.QuantiX
             {
                 Text = "MQTT: agp/quantix/" + (string.IsNullOrEmpty(nodo.Uid) ? "???" : nodo.Uid) + "/...",
                 Font = Theme.FontSmall, ForeColor = Theme.TextFaint, BackColor = Color.Transparent,
-                Location = new Point(16, y + 28), AutoSize = true
+                Location = new Point(18, y + 28), AutoSize = true
             });
 
-            y += 50;
+            y += 52;
 
             // ── Motor 0 y Motor 1 ───────────────────────────────────────
             for (int mi = 0; mi < 2; mi++)
             {
                 if (mi >= nodo.Motores.Length) break;
                 var motor = nodo.Motores[mi];
-                int mx = 16;
+                int mx = 18;
 
                 // Separador + label.
                 Color mColor = mi == 0 ? Theme.Accent : Color.FromArgb(230, 160, 30);
@@ -526,26 +515,21 @@ namespace AgroParallel.QuantiX
                     Location = new Point(mx, y), AutoSize = true
                 });
 
-                var txtMNombre = new TextBox
-                {
-                    Text = motor.Nombre ?? "", Font = Theme.FontBody,
-                    ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
-                    BorderStyle = BorderStyle.FixedSingle,
-                    Location = new Point(200, y - 2), Size = new Size(140, 22)
-                };
+                var txtMNombre = Theme.MkTextBox(140);
+                txtMNombre.Text = motor.Nombre ?? "";
+                txtMNombre.Font = Theme.FontBody;
+                txtMNombre.Location = new Point(200, y - 2);
                 txtMNombre.TextChanged += (s, ev) => motor.Nombre = txtMNombre.Text;
                 card.Controls.Add(txtMNombre);
                 y += 26;
 
                 // Campo dosis del shapefile (combo con campos disponibles).
                 AddLabel(card, "Insumo (campo shapefile):", mx, y);
-                var cboCampo = new ComboBox
-                {
-                    DropDownStyle = ComboBoxStyle.DropDown,
-                    Font = Theme.FontMono, ForeColor = Theme.Accent,
-                    BackColor = Theme.BgInput,
-                    Location = new Point(mx, y + 14), Size = new Size(160, 22)
-                };
+                var cboCampo = Theme.MkCombo(160);
+                cboCampo.DropDownStyle = ComboBoxStyle.DropDown;
+                cboCampo.Font = Theme.FontMono;
+                cboCampo.ForeColor = Theme.Accent;
+                cboCampo.Location = new Point(mx, y + 14);
                 // Cargar campos disponibles del shapefile.
                 var campos = GetShapefileFields();
                 cboCampo.Items.Add("(global)");
@@ -596,13 +580,11 @@ namespace AgroParallel.QuantiX
                 string cortesStr = motor.Cortes != null
                     ? string.Join(",", motor.Cortes) : "";
                 int capturedMi = mi;
-                var txtCortes = new TextBox
-                {
-                    Text = cortesStr, Font = Theme.FontMono,
-                    ForeColor = mColor, BackColor = Theme.BgInput,
-                    BorderStyle = BorderStyle.FixedSingle,
-                    Location = new Point(mx + 170, y - 2), Size = new Size(200, 22)
-                };
+                var txtCortes = Theme.MkTextBox(200);
+                txtCortes.Text = cortesStr;
+                txtCortes.Font = Theme.FontMono;
+                txtCortes.ForeColor = mColor;
+                txtCortes.Location = new Point(mx + 170, y - 2);
                 txtCortes.Leave += (s, ev) =>
                 {
                     motor.Cortes = new List<int>();
@@ -626,20 +608,17 @@ namespace AgroParallel.QuantiX
 
             // ── Buttons ─────────────────────────────────────────────────
             y += 4;
-            var btnSend = Theme.MkButton("\U0001F4E1  ENVIAR CONFIG", Color.FromArgb(40, 40, 45),
-                Theme.TextPrimary, 170, 28);
-            btnSend.Location = new Point(16, y);
+            var btnSend = Theme.MkSecondaryButton("\U0001F4E1  ENVIAR CONFIG", 170, 28);
+            btnSend.Location = new Point(18, y);
             btnSend.Click += (s, ev) => SendNodoConfig(nodo);
             card.Controls.Add(btnSend);
 
-            var btnDebug = Theme.MkButton("\U0001F50D DEBUG", Color.FromArgb(30, 30, 50),
-                Theme.Info, 100, 28);
+            var btnDebug = Theme.MkSecondaryButton("\U0001F50D DEBUG", 100, 28);
             btnDebug.Location = new Point(200, y);
             btnDebug.Click += (s, ev) => ToggleDebug(nodo);
             card.Controls.Add(btnDebug);
 
-            var btnDel = Theme.MkButton("\U0001F5D1", Color.FromArgb(50, 20, 20),
-                Theme.Error, 40, 28);
+            var btnDel = Theme.MkDangerButton("\U0001F5D1", 40, 28);
             btnDel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnDel.Location = new Point(cardW - 60, y);
             btnDel.Click += (s, ev) =>
@@ -709,17 +688,11 @@ namespace AgroParallel.QuantiX
                 Text = label, Font = Theme.FontSmall, ForeColor = Theme.TextFaint,
                 BackColor = Color.Transparent, Location = new Point(x, y), AutoSize = true
             });
-            var num = new NumericUpDown
-            {
-                Minimum = (decimal)min, Maximum = (decimal)max,
-                DecimalPlaces = decimals,
-                Value = (decimal)Math.Max(min, Math.Min(max, value)),
-                Increment = decimals > 0 ? (decimal)Math.Pow(10, -decimals) : 1,
-                Font = new Font(Theme.FontFamily, 8.5f, FontStyle.Bold),
-                ForeColor = Theme.Accent, BackColor = Theme.BgInput,
-                BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(x, y + 14), Size = new Size(86, 20)
-            };
+            decimal inc = decimals > 0 ? (decimal)Math.Pow(10, -decimals) : 1;
+            var num = Theme.MkNumeric((decimal)min, (decimal)max,
+                (decimal)Math.Max(min, Math.Min(max, value)), decimals, inc, 86);
+            num.Font = new Font(Theme.FontFamily, 8.5f, FontStyle.Bold);
+            num.Location = new Point(x, y + 14);
             num.ValueChanged += (s, ev) => onChange((double)num.Value);
             parent.Controls.Add(num);
         }

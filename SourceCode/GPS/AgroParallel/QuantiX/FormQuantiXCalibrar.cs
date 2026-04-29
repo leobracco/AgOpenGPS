@@ -73,24 +73,19 @@ namespace AgroParallel.QuantiX
             };
             Controls.Add(body);
 
-            int lx = 24, y = 16;
+            int lx = 24, y = 18;
             int cardW = 580;
 
             // ════════════════════════════════════════════════════════════
             // PARÁMETROS
             // ════════════════════════════════════════════════════════════
-            var cardParams = MkCard(body, lx, y, cardW, 296, "PAR\u00C1METROS");
-            int cy = 30;
+            var cardParams = MkCard(body, lx, y, cardW, 310, "PAR\u00C1METROS");
+            int cy = 32;
 
             // Nodo selector.
-            AddLabel(cardParams, "NODO", 16, cy);
-            _cboNodo = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font(Theme.FontFamily, 11f, FontStyle.Bold),
-                ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
-                Location = new Point(16, cy + 16), Size = new Size(260, 28)
-            };
+            AddLabel(cardParams, "NODO", 18, cy);
+            _cboNodo = Theme.MkCombo(260);
+            _cboNodo.Location = new Point(18, cy + 18);
             _nodoEntries.Clear();
             foreach (var n in _motores.Nodos)
             {
@@ -103,79 +98,83 @@ namespace AgroParallel.QuantiX
 
             // Motor selector (M0 / M1).
             AddLabel(cardParams, "MOTOR", 300, cy);
-            _cboMotor = new ComboBox
-            {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font(Theme.FontFamily, 11f, FontStyle.Bold),
-                ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
-                Location = new Point(300, cy + 16), Size = new Size(240, 28)
-            };
-            _cboMotor.Items.AddRange(new object[] { "M0 — Producto 1", "M1 — Producto 2" });
+            _cboMotor = Theme.MkCombo(240);
+            _cboMotor.Location = new Point(300, cy + 18);
+            _cboMotor.Items.AddRange(new object[] { "M0 \u2014 Producto 1", "M1 \u2014 Producto 2" });
             _cboMotor.SelectedIndex = 0;
             _cboMotor.SelectedIndexChanged += (s, ev) => LoadMotorPPR();
             _cboNodo.SelectedIndexChanged += (s, ev) => LoadMotorPPR();
             cardParams.Controls.Add(_cboMotor);
-            cy += 54;
+            cy += 58;
 
             // Vueltas + Pulsos por vuelta.
-            AddLabel(cardParams, "VUELTAS A GIRAR", 16, cy);
-            _numVueltas = MkNum(cardParams, 16, cy + 16, 1, 100, 10);
+            AddLabel(cardParams, "VUELTAS A GIRAR", 18, cy);
+            _numVueltas = Theme.MkNumeric(1, 100, 10, 0, 1, 200);
+            _numVueltas.Location = new Point(18, cy + 18);
+            cardParams.Controls.Add(_numVueltas);
 
             AddLabel(cardParams, "PULSOS POR VUELTA", 300, cy);
-            _numPulsosPorVuelta = MkNum(cardParams, 300, cy + 16, 1, 2000, 600);
-            cy += 54;
+            _numPulsosPorVuelta = Theme.MkNumeric(1, 2000, 600, 0, 1, 200);
+            _numPulsosPorVuelta.Location = new Point(300, cy + 18);
+            cardParams.Controls.Add(_numPulsosPorVuelta);
+            cy += 58;
 
             // PWM + Surcos.
-            AddLabel(cardParams, "PWM (0\u20134095)", 16, cy);
-            _numPWM = MkNum(cardParams, 16, cy + 16, 0, 4095, 2000);
+            AddLabel(cardParams, "PWM (0\u20134095)", 18, cy);
+            _numPWM = Theme.MkNumeric(0, 4095, 2000, 0, 1, 200);
+            _numPWM.Location = new Point(18, cy + 18);
+            cardParams.Controls.Add(_numPWM);
 
             AddLabel(cardParams, "SURCOS A MEDIR", 300, cy);
-            _numSurcos = MkNum(cardParams, 300, cy + 16, 1, 20, 6);
+            _numSurcos = Theme.MkNumeric(1, 20, 6, 0, 1, 200);
+            _numSurcos.Location = new Point(300, cy + 18);
             _numSurcos.ValueChanged += (s, ev) => RebuildSurcoInputs();
-            cy += 54;
+            cardParams.Controls.Add(_numSurcos);
+            cy += 58;
 
             // Total surcos de la máquina (para calcular producción total).
-            AddLabel(cardParams, "SURCOS TOTALES M\u00C1QUINA", 16, cy);
-            _numSurcosTotales = MkNum(cardParams, 16, cy + 16, 1, 200, 96);
-            cy += 54;
+            AddLabel(cardParams, "SURCOS TOTALES M\u00C1QUINA", 18, cy);
+            _numSurcosTotales = Theme.MkNumeric(1, 200, 96, 0, 1, 200);
+            _numSurcosTotales.Location = new Point(18, cy + 18);
+            cardParams.Controls.Add(_numSurcosTotales);
+            cy += 58;
 
             // Botones INICIAR + RESET.
             var btnIniciar = Theme.MkAccentButton("\u25B6  INICIAR", 140, 36);
-            btnIniciar.Location = new Point(16, cy);
+            btnIniciar.Location = new Point(18, cy);
             btnIniciar.Click += (s, ev) => IniciarCalibracion();
             cardParams.Controls.Add(btnIniciar);
 
-            var btnReset = Theme.MkButton("\u21BB  RESET", Color.FromArgb(40, 40, 45),
-                Theme.TextPrimary, 110, 36);
+            var btnReset = Theme.MkSecondaryButton("\u21BB  RESET", 110, 36);
             btnReset.Location = new Point(170, cy);
             btnReset.Click += (s, ev) => ResetCalibracion();
             cardParams.Controls.Add(btnReset);
 
-            y += 310;
+            y += 330;
 
             // ════════════════════════════════════════════════════════════
             // ESTADO EN VIVO
             // ════════════════════════════════════════════════════════════
             var cardEstado = MkCard(body, lx, y, cardW, 110, "ESTADO EN VIVO");
 
-            _lblPulsos = MkKpiLabel(cardEstado, 16, 34, "0", "PULSOS");
-            _lblVueltas = MkKpiLabel(cardEstado, 200, 34, "0.0", "VUELTAS");
-            _lblPWMActual = MkKpiLabel(cardEstado, 400, 34, "0", "PWM ACTUAL");
+            _lblPulsos = MkKpiLabel(cardEstado, 18, 36, "0", "PULSOS");
+            _lblVueltas = MkKpiLabel(cardEstado, 200, 36, "0.0", "VUELTAS");
+            _lblPWMActual = MkKpiLabel(cardEstado, 400, 36, "0", "PWM ACTUAL");
 
-            y += 124;
+            y += 130;
 
             // ════════════════════════════════════════════════════════════
             // TEST PWM MÍNIMO
             // ════════════════════════════════════════════════════════════
-            var cardPwmTest = MkCard(body, lx, y, cardW, 120, "TEST PWM M\u00CDNIMO \u2014 Encontrar el punto donde el motor empieza a girar");
-            int pty = 28;
+            var cardPwmTest = MkCard(body, lx, y, cardW, 126, "TEST PWM M\u00CDNIMO \u2014 Encontrar el punto donde el motor empieza a girar");
+            int pty = 30;
 
             var lblPwmSlider = new Label
             {
                 Text = "PWM: 0",
                 Font = new Font(Theme.FontFamily, 14f, FontStyle.Bold),
                 ForeColor = Theme.Accent, BackColor = Color.Transparent,
-                Location = new Point(16, pty), AutoSize = true
+                Location = new Point(18, pty), AutoSize = true
             };
             cardPwmTest.Controls.Add(lblPwmSlider);
 
@@ -187,23 +186,23 @@ namespace AgroParallel.QuantiX
                 Location = new Point(200, pty + 4), AutoSize = true
             };
             cardPwmTest.Controls.Add(lblRpmTest);
-            pty += 30;
+            pty += 32;
 
             var sliderPwm = new TrackBar
             {
                 Minimum = 0, Maximum = 4095, Value = 0,
                 TickFrequency = 200, LargeChange = 100, SmallChange = 10,
-                Location = new Point(16, pty), Size = new Size(cardW - 100, 30),
-                BackColor = Theme.BgCard
+                Location = new Point(18, pty), Size = new Size(cardW - 100, 30),
+                BackColor = Theme.BgInput
             };
             cardPwmTest.Controls.Add(sliderPwm);
 
-            var btnPwmStop = Theme.MkButton("\u25A0 STOP", Color.FromArgb(50, 20, 20), Theme.Error, 60, 28);
+            var btnPwmStop = Theme.MkDangerButton("\u25A0 STOP", 60, 28);
             btnPwmStop.Location = new Point(cardW - 80, pty);
             cardPwmTest.Controls.Add(btnPwmStop);
 
             var btnApplyMinPwm = Theme.MkAccentButton("\u2713 USAR COMO MIN PWM", 200, 28);
-            btnApplyMinPwm.Location = new Point(16, pty + 36);
+            btnApplyMinPwm.Location = new Point(18, pty + 38);
             cardPwmTest.Controls.Add(btnApplyMinPwm);
 
             // Timer para enviar PWM en vivo y leer RPM.
@@ -295,21 +294,21 @@ namespace AgroParallel.QuantiX
                 }
             };
 
-            y += 134;
+            y += 146;
 
             // ════════════════════════════════════════════════════════════
             // LOG
             // ════════════════════════════════════════════════════════════
-            var cardLog = MkCard(body, lx, y, cardW, 50, "LOG");
+            var cardLog = MkCard(body, lx, y, cardW, 54, "LOG");
             _lblLog = new Label
             {
                 Text = "Esperando inicio de calibraci\u00F3n...",
                 Font = Theme.FontMono, ForeColor = Theme.TextSecondary,
                 BackColor = Color.Transparent,
-                Location = new Point(16, 28), Size = new Size(cardW - 32, 18)
+                Location = new Point(18, 30), Size = new Size(cardW - 36, 18)
             };
             cardLog.Controls.Add(_lblLog);
-            y += 64;
+            y += 74;
 
             // ════════════════════════════════════════════════════════════
             // RESULTADO POR SURCO
@@ -354,7 +353,7 @@ namespace AgroParallel.QuantiX
             _surcoInputs.Clear();
 
             int count = (int)_numSurcos.Value;
-            int sy = 30;
+            int sy = 32;
 
             for (int i = 0; i < count; i++)
             {
@@ -363,21 +362,17 @@ namespace AgroParallel.QuantiX
                     Text = "Surco " + (i + 1),
                     Font = new Font(Theme.FontFamily, 10f, FontStyle.Bold),
                     ForeColor = Theme.Accent, BackColor = Color.Transparent,
-                    Location = new Point(16, sy + 4), AutoSize = true,
+                    Location = new Point(18, sy + 4), AutoSize = true,
                     Tag = "surco"
                 };
                 _surcoPanel.Controls.Add(lbl);
 
-                var num = new NumericUpDown
-                {
-                    Minimum = 0, Maximum = 100000, DecimalPlaces = 2,
-                    Value = 0, Font = new Font(Theme.FontFamily, 14f, FontStyle.Bold),
-                    ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
-                    BorderStyle = BorderStyle.FixedSingle,
-                    Location = new Point(100, sy), Size = new Size(300, 30),
-                    TextAlign = HorizontalAlignment.Center,
-                    Tag = "surco"
-                };
+                var num = Theme.MkNumeric(0, 100000, 0, 2, 1, 300);
+                num.Font = new Font(Theme.FontFamily, 14f, FontStyle.Bold);
+                num.Location = new Point(100, sy);
+                num.Height = 30;
+                num.TextAlign = HorizontalAlignment.Center;
+                num.Tag = "surco";
                 _surcoPanel.Controls.Add(num);
                 _surcoInputs.Add(num);
 
@@ -391,12 +386,12 @@ namespace AgroParallel.QuantiX
                 };
                 _surcoPanel.Controls.Add(lblUnit);
 
-                sy += 42;
+                sy += 44;
             }
 
             // Botón CALCULAR.
             var btnCalc = Theme.MkAccentButton("\u2713  CALCULAR", 160, 36);
-            btnCalc.Location = new Point(16, sy + 4);
+            btnCalc.Location = new Point(18, sy + 6);
             btnCalc.Tag = "surco";
             btnCalc.Click += (s, ev) => CalcularResultado();
             _surcoPanel.Controls.Add(btnCalc);
@@ -408,12 +403,12 @@ namespace AgroParallel.QuantiX
             {
                 Text = "", Font = new Font(Theme.FontFamily, 13f, FontStyle.Bold),
                 ForeColor = Theme.Accent, BackColor = Color.Transparent,
-                Location = new Point(200, sy + 10), AutoSize = true,
+                Location = new Point(200, sy + 12), AutoSize = true,
                 Tag = "surco"
             };
             _surcoPanel.Controls.Add(_lblResultado);
 
-            _surcoPanel.Size = new Size(_surcoPanel.Width, sy + 50);
+            _surcoPanel.Size = new Size(_surcoPanel.Width, sy + 54);
         }
 
         // =====================================================================
@@ -648,7 +643,7 @@ namespace AgroParallel.QuantiX
                 Text = "\u25CF  " + title,
                 Font = new Font(Theme.FontFamily, 9f, FontStyle.Bold),
                 ForeColor = Theme.Accent, BackColor = Color.Transparent,
-                Location = new Point(12, 6), AutoSize = true
+                Location = new Point(14, 8), AutoSize = true
             });
             parent.Controls.Add(card);
             return card;
@@ -659,24 +654,9 @@ namespace AgroParallel.QuantiX
             parent.Controls.Add(new Label
             {
                 Text = text, Font = Theme.FontSmall,
-                ForeColor = Theme.TextFaint, BackColor = Color.Transparent,
+                ForeColor = Theme.TextSecondary, BackColor = Color.Transparent,
                 Location = new Point(x, y), AutoSize = true
             });
-        }
-
-        private NumericUpDown MkNum(Control parent, int x, int y, int min, int max, int val)
-        {
-            var num = new NumericUpDown
-            {
-                Minimum = min, Maximum = max, Value = Math.Max(min, Math.Min(max, val)),
-                Font = new Font(Theme.FontFamily, 14f, FontStyle.Bold),
-                ForeColor = Theme.TextPrimary, BackColor = Theme.BgInput,
-                BorderStyle = BorderStyle.FixedSingle,
-                Location = new Point(x, y), Size = new Size(200, 30),
-                TextAlign = HorizontalAlignment.Center
-            };
-            parent.Controls.Add(num);
-            return num;
         }
 
         private Label MkKpiLabel(Control parent, int x, int y, string val, string label)
