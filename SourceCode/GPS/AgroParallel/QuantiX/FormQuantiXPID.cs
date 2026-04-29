@@ -617,11 +617,6 @@ namespace AgroParallel.QuantiX
             }
 
             // Resetear botón auto-tune.
-            foreach (Control c in Controls.Find("", false))
-            {
-                // Buscar recursivamente.
-            }
-            // Buscar el botón por texto actual.
             Action<Control> resetBtn = null;
             resetBtn = (parent) =>
             {
