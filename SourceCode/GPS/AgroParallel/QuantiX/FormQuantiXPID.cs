@@ -204,33 +204,105 @@ namespace AgroParallel.QuantiX
             btnSave.Click += (s, ev) => { _motores.Save(); SendConfig(); };
             body.Controls.Add(btnSave);
 
+            // ── Medir Max Hz ──
+            var btnMeasure = Theme.MkSecondaryButton("\u23F1 MEDIR MAX Hz", 150, 30);
+            btnMeasure.Location = new Point(lx + 130, y);
+            bool _measuring = false;
+            float _measuredMaxHz = 0;
+            Timer _measureTimer = null;
+            btnMeasure.Click += (s, ev) =>
+            {
+                if (_measuring) return;
+                string uid = GetSelectedNodoUid();
+                int mi = _cboMotor != null ? _cboMotor.SelectedIndex : 0;
+                if (string.IsNullOrEmpty(uid)) return;
+
+                _measuring = true;
+                _measuredMaxHz = 0;
+                btnMeasure.Text = "\u23F3 MIDIENDO...";
+                btnMeasure.BackColor = Theme.Warning;
+                btnMeasure.ForeColor = Color.Black;
+
+                // Motor a PWM máximo (via topic /test).
+                SendTest(uid, mi, 4095);
+
+                // Leer Hz pico durante 4 segundos.
+                int ticks = 0;
+                _measureTimer = new Timer { Interval = 200 };
+                _measureTimer.Tick += (s2, e2) =>
+                {
+                    ticks++;
+                    if (_liveReal > _measuredMaxHz) _measuredMaxHz = (float)_liveReal;
+
+                    if (ticks >= 20) // 4 segundos
+                    {
+                        _measureTimer.Stop();
+                        _measureTimer.Dispose();
+                        _measureTimer = null;
+
+                        // Parar motor (via topic /test).
+                        SendTest(uid, mi, 0);
+
+                        _measuring = false;
+                        btnMeasure.Text = "\u23F1 MEDIR MAX Hz";
+                        btnMeasure.BackColor = Theme.BgCard2;
+                        btnMeasure.ForeColor = Theme.TextPrimary;
+
+                        if (_measuredMaxHz > 1)
+                        {
+                            var motor = GetSelectedMotor();
+                            if (motor != null)
+                            {
+                                motor.MaxHz = Math.Round(_measuredMaxHz, 1);
+                                _numMaxHz.Value = (decimal)motor.MaxHz;
+                                _motores.Save();
+                                SendConfig();
+                            }
+                            MessageBox.Show(this,
+                                "Max Hz medido: " + _measuredMaxHz.ToString("F1") + " Hz\n\nValor aplicado y guardado.",
+                                "Medir Max Hz", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show(this,
+                                "No se detectaron pulsos.\nVerific\u00E1 que el sensor est\u00E9 conectado.",
+                                "Medir Max Hz", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        }
+                    }
+                };
+                _measureTimer.Start();
+            };
+            body.Controls.Add(btnMeasure);
+
             // ── Auto-Tune PID ──
-            var btnAutoTune = Theme.MkSecondaryButton("\U0001F3AF AUTO-TUNE PID", 170, 30);
-            btnAutoTune.Location = new Point(lx + 130, y);
-            bool _autoTuning = false;
+            var btnAutoTune = Theme.MkSecondaryButton("\U0001F3AF AUTO-TUNE", 130, 30);
+            btnAutoTune.Location = new Point(lx + 290, y);
             btnAutoTune.Click += (s, ev) =>
             {
-                _autoTuning = !_autoTuning;
-                if (_autoTuning)
+                string nodoUid = GetSelectedNodoUid();
+                int motorId = _cboMotor != null ? _cboMotor.SelectedIndex : 0;
+                if (string.IsNullOrEmpty(nodoUid)) return;
+
+                // Siempre enviar start — el firmware ignora si ya está corriendo.
+                SendCommand(nodoUid, "{\"cmd\":\"autotune_start\",\"id\":" + motorId + "}");
+                btnAutoTune.Text = "\u23F3 TUNING...";
+                btnAutoTune.BackColor = Theme.Warning;
+                btnAutoTune.ForeColor = Color.Black;
+
+                // Timer para resetear el botón si no llega resultado en 50s.
+                var resetTimer = new Timer { Interval = 50000 };
+                resetTimer.Tick += (s2, e2) =>
                 {
-                    string nodoUid = GetSelectedNodoUid();
-                    int motorId = _cboMotor != null ? _cboMotor.SelectedIndex : 0;
-                    if (string.IsNullOrEmpty(nodoUid)) return;
-                    SendCommand(nodoUid, "{\"cmd\":\"autotune_start\",\"id\":" + motorId + "}");
-                    btnAutoTune.Text = "\u23F9 DETENER TUNE";
-                    btnAutoTune.BackColor = Theme.Warning;
-                    btnAutoTune.ForeColor = Color.Black;
-                }
-                else
-                {
-                    string nodoUid = GetSelectedNodoUid();
-                    int motorId = _cboMotor != null ? _cboMotor.SelectedIndex : 0;
-                    if (!string.IsNullOrEmpty(nodoUid))
-                        SendCommand(nodoUid, "{\"cmd\":\"autotune_stop\",\"id\":" + motorId + "}");
-                    btnAutoTune.Text = "\U0001F3AF AUTO-TUNE PID";
+                    resetTimer.Stop();
+                    resetTimer.Dispose();
+                    btnAutoTune.Text = "\U0001F3AF AUTO-TUNE";
                     btnAutoTune.BackColor = Theme.BgCard2;
                     btnAutoTune.ForeColor = Theme.TextPrimary;
-                }
+                };
+                resetTimer.Start();
+
+                // Guardar ref para resetear desde OnAutoTuneResult.
+                btnAutoTune.Tag = resetTimer;
             };
             body.Controls.Add(btnAutoTune);
 
@@ -238,7 +310,7 @@ namespace AgroParallel.QuantiX
             {
                 Name = "lblLive", Text = "", Font = Theme.FontSmall,
                 ForeColor = Theme.Accent, BackColor = Color.Transparent,
-                Location = new Point(lx + 310, y + 6), Size = new Size(260, 16)
+                Location = new Point(lx + 430, y + 6), Size = new Size(200, 16)
             };
             body.Controls.Add(lblLive);
             y += 38;
@@ -307,6 +379,21 @@ namespace AgroParallel.QuantiX
             if (_cboNodo == null || _cboNodo.SelectedIndex < 0) return null;
             if (_cboNodo.SelectedIndex >= _motores.Nodos.Count) return null;
             return _motores.Nodos[_cboNodo.SelectedIndex].Uid;
+        }
+
+        private async void SendTest(string uid, int motorId, int pwm)
+        {
+            if (_mqtt == null || string.IsNullOrEmpty(uid)) return;
+            string cmd = pwm > 0 ? "start" : "stop";
+            string payload = "{\"cmd\":\"" + cmd + "\",\"id\":" + motorId + ",\"pwm\":" + pwm + "}";
+            try
+            {
+                var msg = new MqttApplicationMessageBuilder()
+                    .WithTopic("agp/quantix/" + uid + "/test")
+                    .WithPayload(payload).Build();
+                await _mqtt.PublishAsync(msg);
+            }
+            catch { }
         }
 
         private async void SendCommand(string uid, string payload)
@@ -528,6 +615,29 @@ namespace AgroParallel.QuantiX
                 BeginInvoke(new Action(() => OnAutoTuneResult(payload)));
                 return;
             }
+
+            // Resetear botón auto-tune.
+            foreach (Control c in Controls.Find("", false))
+            {
+                // Buscar recursivamente.
+            }
+            // Buscar el botón por texto actual.
+            Action<Control> resetBtn = null;
+            resetBtn = (parent) =>
+            {
+                foreach (Control c in parent.Controls)
+                {
+                    if (c is Button b && (b.Text.Contains("TUNING") || b.Text.Contains("AUTO-TUNE")))
+                    {
+                        b.Text = "\U0001F3AF AUTO-TUNE";
+                        b.BackColor = Theme.BgCard2;
+                        b.ForeColor = Theme.TextPrimary;
+                        if (b.Tag is Timer t) { t.Stop(); t.Dispose(); b.Tag = null; }
+                    }
+                    if (c.HasChildren) resetBtn(c);
+                }
+            };
+            resetBtn(this);
 
             if (ok)
             {
