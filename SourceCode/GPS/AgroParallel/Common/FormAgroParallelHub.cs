@@ -53,6 +53,12 @@ namespace AgroParallel.Common
         {
             _modules.Add(new ModuleDef
             {
+                Name = "Nodos", Icon = "\U0001F4E1",
+                Accent = Color.FromArgb(180, 180, 190), Available = true,
+                Tabs = new[] { "Dispositivos" }
+            });
+            _modules.Add(new ModuleDef
+            {
                 Name = "VistaX", Icon = "\U0001F33F",
                 Accent = Theme.Accent, Available = true,
                 Tabs = new[] { "Monitor", "Config", "Perfiles", "Nodes", "Trenes", "Sensores", "Mapeo", "Sonidos", "Prueba", "Simulador" }
@@ -345,7 +351,9 @@ namespace AgroParallel.Common
             var mod = _modules[_selectedModule];
             Form child = null;
 
-            if (mod.Name == "VistaX")
+            if (mod.Name == "Nodos")
+                child = new FormNodos();
+            else if (mod.Name == "VistaX")
                 child = CreateVistaXContent(_selectedTab);
             else if (mod.Name == "QuantiX")
                 child = CreateQuantiXContent(_selectedTab);
