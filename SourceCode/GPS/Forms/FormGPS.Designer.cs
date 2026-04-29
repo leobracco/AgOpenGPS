@@ -1684,7 +1684,6 @@ namespace AgOpenGPS
             this.toolStripGPSData,
             this.toolStripColors,
             this.toolStripSectionColors,
-            this.toolStripHotkeys,
             // AGROPARALLEL_MOD_START
             this.toolStripSeparatorAgroParallel,
             this.toolStripAgroParallel
@@ -1774,10 +1773,10 @@ namespace AgOpenGPS
             // toolStripAgroParallel
             // 
             this.toolStripAgroParallel.Name = "toolStripAgroParallel";
-            this.toolStripAgroParallel.Size = new System.Drawing.Size(419, 44);
-            this.toolStripAgroParallel.Text = "🌿 AgroParallel";
-            this.toolStripAgroParallel.Font = new System.Drawing.Font("Tahoma", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.toolStripAgroParallel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(180)))), ((int)(((byte)(80)))));
+            this.toolStripAgroParallel.Size = new System.Drawing.Size(100, 44);
+            this.toolStripAgroParallel.Text = "\u2B22 AP";
+            this.toolStripAgroParallel.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripAgroParallel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(230)))), ((int)(((byte)(118)))));
             this.toolStripAgroParallel.Click += new System.EventHandler(this.toolStripAgroParallel_Click);
             // 
             // AGROPARALLEL_MOD_END

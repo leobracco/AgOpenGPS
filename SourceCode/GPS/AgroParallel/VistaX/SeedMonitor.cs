@@ -23,6 +23,7 @@ namespace AgroParallel.VistaX
     public class SeedMonitor : IDisposable
     {
         private readonly VistaXConfig _config;
+        private readonly FormGPS _parent;
         private ImplementoConfig _implemento;
         private MqttClientWrapper _mqtt;
         private Timer _uiTimer;
@@ -38,6 +39,7 @@ namespace AgroParallel.VistaX
         private bool _monitoreoActivo;
         private MetodoInicioMonitoreo _metodoInicio;
         private DateTime _confirmacionInicio = DateTime.MinValue;
+        private DateTime _paradaDesde = DateTime.MinValue;
 
         public event Action<SeedMonitorSnapshot> SnapshotUpdated;
         public event Action<string> AlarmTriggered;
@@ -48,7 +50,21 @@ namespace AgroParallel.VistaX
 
         public SeedMonitor(FormGPS parent, VistaXConfig config)
         {
+            _parent = parent;
             _config = config ?? VistaXConfig.Load();
+        }
+
+        // Inyección directa de velocidad desde PGN de AgOpenGPS (km/h).
+        // Llamado por el timer de snapshot, lee avgSpeed sin pasar por MQTT.
+        private void SyncSpeedFromAOG()
+        {
+            if (_parent == null) return;
+            try
+            {
+                double speed = _parent.avgSpeed;
+                lock (_lock) { _velocidad = speed; }
+            }
+            catch { }
         }
 
         public async Task StartAsync()
@@ -75,23 +91,71 @@ namespace AgroParallel.VistaX
             }
             System.Diagnostics.Debug.WriteLine("[VistaX] Método inicio: " + _metodoInicio);
 
-            // Inicializar surcos — KEY INCLUYE TREN
+            // Inicializar surcos — KEY INCLUYE TREN.
+            // Soporta 1:1 (43 sensores / 43 surcos) y 1:N (8 sensores / 96 surcos).
             lock (_lock)
             {
                 foreach (var sensor in _implemento.MapeoSensores)
                 {
                     if (!sensor.IsActive) continue;
                     int tren = sensor.Tren > 0 ? sensor.Tren : 0;
-                    string key = tren + "-" + sensor.Bajada + "-" + sensor.Tipo;
-                    if (!_surcos.ContainsKey(key))
+
+                    if (sensor.SurcoDesde > 0 && sensor.SurcoHasta > 0)
                     {
-                        _surcos[key] = new SurcoState
+                        // 1:N — este sensor cubre un rango de surcos.
+                        for (int b = sensor.SurcoDesde; b <= sensor.SurcoHasta; b++)
                         {
-                            Bajada = sensor.Bajada,
-                            Tipo = sensor.Tipo,
-                            Tren = tren,
-                            LastUpdate = DateTime.MinValue
-                        };
+                            string key = tren + "-" + b + "-" + sensor.Tipo;
+                            if (!_surcos.ContainsKey(key))
+                            {
+                                _surcos[key] = new SurcoState
+                                {
+                                    Bajada = b,
+                                    Tipo = sensor.Tipo,
+                                    Tren = tren,
+                                    LastUpdate = DateTime.MinValue
+                                };
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 1:1 — sensor cubre un solo surco.
+                        string key = tren + "-" + sensor.Bajada + "-" + sensor.Tipo;
+                        if (!_surcos.ContainsKey(key))
+                        {
+                            _surcos[key] = new SurcoState
+                            {
+                                Bajada = sensor.Bajada,
+                                Tipo = sensor.Tipo,
+                                Tren = tren,
+                                LastUpdate = DateTime.MinValue
+                            };
+                        }
+                    }
+                }
+
+                // También crear surcos para el total configurado aunque no
+                // tengan sensor directo (se llenarán por sección AOG).
+                if (_implemento.Setup != null && _implemento.Setup.TotalSurcos > 0
+                    && _implemento.Trenes != null)
+                {
+                    foreach (var trenCfg in _implemento.Trenes)
+                    {
+                        for (int b = 1; b <= trenCfg.Surcos; b++)
+                        {
+                            string key = trenCfg.Id + "-" + b + "-semilla";
+                            if (!_surcos.ContainsKey(key))
+                            {
+                                _surcos[key] = new SurcoState
+                                {
+                                    Bajada = b,
+                                    Tipo = "semilla",
+                                    Tren = trenCfg.Id,
+                                    LastUpdate = DateTime.MinValue
+                                };
+                            }
+                        }
                     }
                 }
             }
@@ -107,6 +171,10 @@ namespace AgroParallel.VistaX
             };
 
             await _mqtt.ConnectAsync();
+
+            // Publicar configuración de sensores especiales a los nodos.
+            // Los nodos retienen el mensaje y lo aplican al reconectar.
+            PublishAllSensorConfigs();
 
             // Clamp: mínimo 200ms entre snapshots para evitar presión de memoria en CefSharp
             int intervalMs = Math.Max(200, _config.UiUpdateIntervalMs);
@@ -219,95 +287,120 @@ namespace AgroParallel.VistaX
                 if (cfg == null) continue;
                 if (!cfg.IsActive) continue;
 
-                double valorFlujo = sensorRaw.Valor;
+                double valorFlujoTotal = sensorRaw.Valor;  // Flujo COMBINADO del sensor.
                 int rawPulsos = sensorRaw.Raw;
                 int numTren = cfg.Tren > 0 ? cfg.Tren : 0;
-                bool isSemilla = cfg.Tipo == "semilla";
-                bool isFerti = cfg.Tipo != null && cfg.Tipo.Contains("ferti");
+                bool generaAlarma = TipoSensor.GeneraAlarmaFlujo(cfg.Tipo);
 
-                // Calcular SPM
-                double spm = 0;
+                // Cantidad de surcos que cubre este sensor.
+                int surcosCubiertos = cfg.SurcosCubiertos; // 1 si es 1:1, N si es rango.
+
+                // Flujo POR SURCO: dividir el total entre la cantidad de surcos.
+                // Ej: sensor ve 48 sem/s combinadas de 12 surcos → 4 sem/s por surco.
+                double valorPorSurco = surcosCubiertos > 1
+                    ? valorFlujoTotal / surcosCubiertos
+                    : valorFlujoTotal;
+
+                // Calcular SPM por surco.
+                double spmPorSurco = 0;
                 lock (_lock)
                 {
                     if (_velocidad > 0.5)
                     {
                         double velMs = _velocidad / 3.6;
-                        spm = valorFlujo / velMs;
+                        spmPorSurco = valorPorSurco / velMs;
                     }
                 }
 
-                // Evaluar alarma
+                // Evaluar alarma (basada en el valor POR SURCO, no el total).
                 bool alerta = false;
                 bool seccionCortada = false;
 
-                if (isSemilla || isFerti)
+                if (generaAlarma)
                 {
                     lock (_lock)
                     {
                         List<int> seccionesTren = numTren == 1 ? _seccionesT1 : _seccionesT2;
                         if (seccionesTren.Count > 0)
                         {
-                            var surcosTren = _implemento.MapeoSensores
-                                .Where(s2 => s2.IsActive && (s2.Tren > 0 ? s2.Tren : 0) == numTren && s2.Tipo == "semilla")
-                                .OrderBy(s2 => s2.Bajada)
-                                .ToList();
+                            int secIdx = -1;
 
-                            int idx = -1;
-                            for (int i = 0; i < surcosTren.Count; i++)
+                            if (cfg.SeccionAOG > 0)
                             {
-                                if (surcosTren[i].Bajada == cfg.Bajada)
+                                secIdx = cfg.SeccionAOG - 1;
+                            }
+                            else
+                            {
+                                int totalSurcosTren = 0;
+                                if (_implemento.Trenes != null)
                                 {
-                                    idx = i;
-                                    break;
+                                    foreach (var tr in _implemento.Trenes)
+                                        if (tr.Id == numTren) { totalSurcosTren = tr.Surcos; break; }
+                                }
+                                if (totalSurcosTren <= 0) totalSurcosTren = seccionesTren.Count;
+
+                                int numSecciones = seccionesTren.Count;
+                                if (totalSurcosTren > 0 && numSecciones > 0)
+                                {
+                                    int surcosPorSeccion = Math.Max(1, totalSurcosTren / numSecciones);
+                                    secIdx = Math.Min((cfg.Bajada - 1) / surcosPorSeccion, numSecciones - 1);
                                 }
                             }
 
-                            if (idx >= 0 && idx < seccionesTren.Count)
-                            {
-                                seccionCortada = seccionesTren[idx] == 0;
-                            }
+                            if (secIdx >= 0 && secIdx < seccionesTren.Count)
+                                seccionCortada = seccionesTren[secIdx] == 0;
                         }
 
                         if (!seccionCortada && _velocidad > 1.5)
                         {
-                            if (valorFlujo == 0)
+                            // Evaluar contra el flujo total si es rango (el sensor
+                            // no puede distinguir surcos individuales, pero sí
+                            // detectar si el flujo total cayó a 0 o es muy bajo).
+                            double objetivoPorSurco = GetObjetivoTren(numTren);
+                            double objetivoTotal = objetivoPorSurco * surcosCubiertos;
+
+                            if (valorFlujoTotal == 0)
                             {
                                 alerta = true;
                             }
-                            else
+                            else if (objetivoTotal > 0 && valorFlujoTotal < objetivoTotal * 0.5)
                             {
-                                double objetivo = GetObjetivoTren(numTren);
-                                if (objetivo > 0 && valorFlujo < objetivo * 0.5)
-                                {
-                                    alerta = true;
-                                }
+                                alerta = true;
                             }
                         }
                     }
                 }
 
-                // FIX CRITICO: key incluye tren
-                string key = numTren + "-" + cfg.Bajada + "-" + cfg.Tipo;
+                // Propagar dato a todos los surcos que cubre este sensor.
+                int bDesde = cfg.SurcoDesde > 0 && cfg.SurcoHasta > 0 ? cfg.SurcoDesde : cfg.Bajada;
+                int bHasta = cfg.SurcoDesde > 0 && cfg.SurcoHasta > 0 ? cfg.SurcoHasta : cfg.Bajada;
+
                 lock (_lock)
                 {
-                    SurcoState state;
-                    if (!_surcos.TryGetValue(key, out state))
+                    for (int b = bDesde; b <= bHasta; b++)
                     {
-                        state = new SurcoState
+                        string key = numTren + "-" + b + "-" + cfg.Tipo;
+                        SurcoState state;
+                        if (!_surcos.TryGetValue(key, out state))
                         {
-                            Bajada = cfg.Bajada,
-                            Tipo = cfg.Tipo,
-                            Tren = numTren
-                        };
-                        _surcos[key] = state;
-                    }
+                            state = new SurcoState
+                            {
+                                Bajada = b,
+                                Tipo = cfg.Tipo,
+                                Tren = numTren
+                            };
+                            _surcos[key] = state;
+                        }
 
-                    state.Valor = valorFlujo;
-                    state.Spm = Math.Round(spm, 1);
-                    state.NuevasSemillas = rawPulsos;
-                    state.Alerta = alerta;
-                    state.SeccionCortada = seccionCortada;
-                    state.LastUpdate = DateTime.UtcNow;
+                        // Cada surco recibe el valor DIVIDIDO (por surco).
+                        state.Valor = Math.Round(valorPorSurco, 2);
+                        state.Spm = Math.Round(spmPorSurco, 1);
+                        state.NuevasSemillas = surcosCubiertos > 1
+                            ? rawPulsos / surcosCubiertos : rawPulsos;
+                        state.Alerta = alerta;
+                        state.SeccionCortada = seccionCortada;
+                        state.LastUpdate = DateTime.UtcNow;
+                    }
                     _lastDataTime = DateTime.UtcNow;
                 }
 
@@ -316,8 +409,8 @@ namespace AgroParallel.VistaX
                     var handler = AlarmTriggered;
                     if (handler != null)
                     {
-                        handler(string.Format("FALLA surco {0} (tren {1}): flujo={2:F1}",
-                            cfg.Bajada, numTren, valorFlujo));
+                        handler(string.Format("FALLA surco {0} (tren {1}): flujo={2:F1} (total={3:F1}, x{4} surcos)",
+                            cfg.Bajada, numTren, valorPorSurco, valorFlujoTotal, surcosCubiertos));
                     }
                 }
             }
@@ -329,7 +422,25 @@ namespace AgroParallel.VistaX
 
         private void EvaluarInicio()
         {
-            if (_monitoreoActivo) return;
+            // Auto-detener si la velocidad cae a 0 por más de 10s (parada).
+            if (_monitoreoActivo)
+            {
+                lock (_lock)
+                {
+                    if (_velocidad < 0.3)
+                    {
+                        if (_paradaDesde == DateTime.MinValue)
+                            _paradaDesde = DateTime.UtcNow;
+                        else if ((DateTime.UtcNow - _paradaDesde).TotalSeconds > 10)
+                            DetenerMonitoreo();
+                    }
+                    else
+                    {
+                        _paradaDesde = DateTime.MinValue;
+                    }
+                }
+                return;
+            }
 
             switch (_metodoInicio)
             {
@@ -341,7 +452,8 @@ namespace AgroParallel.VistaX
                         {
                             if (s.Tipo == "semilla" && s.Valor > 0) activos++;
                         }
-                        if (activos >= _config.UmbralSensoresActivos)
+                        int umbral = Math.Max(1, _config.UmbralSensoresActivos);
+                        if (activos >= umbral && _velocidad > 1.0)
                         {
                             if (_confirmacionInicio == DateTime.MinValue)
                             {
@@ -349,7 +461,7 @@ namespace AgroParallel.VistaX
                             }
                             else if ((DateTime.UtcNow - _confirmacionInicio).TotalMilliseconds >= _config.TiempoConfirmacionMs)
                             {
-                                IniciarMonitoreo("sensores (" + activos + " activos)");
+                                IniciarMonitoreo("sensores (" + activos + " activos, vel=" + _velocidad.ToString("F1") + ")");
                             }
                         }
                         else
@@ -360,7 +472,6 @@ namespace AgroParallel.VistaX
                     break;
 
                 case MetodoInicioMonitoreo.Herramienta:
-                    // Se evalúa desde ProcessSections cuando llegan datos de secciones
                     lock (_lock)
                     {
                         bool bajada = _seccionesT1.Count > 0 || _seccionesT2.Count > 0;
@@ -395,10 +506,69 @@ namespace AgroParallel.VistaX
             System.Diagnostics.Debug.WriteLine("[VistaX] MONITOREO INICIADO — " + motivo);
         }
 
+        // Notifica al nodo por MQTT la configuración de un canal.
+        // Se usa cuando se asigna un sensor de tipo especial (bajada_herramienta,
+        // tolva, turbina) para que el nodo sepa qué modo usar en ese pin.
+        // Topic: vistax/nodos/{uid}/config
+        // Payload: {"cable":N,"tipo":"bajada_herramienta","modo":"digital"}
+        public void PublishSensorConfig(string uid, int cable, string tipo)
+        {
+            if (_mqtt == null || !_mqtt.IsConnected) return;
+            if (string.IsNullOrEmpty(uid)) return;
+
+            string modo = TipoSensor.EsGlobal(tipo) ? "digital" : "pulsos";
+            string topic = "vistax/nodos/" + uid + "/config";
+            string payload = "{\"cable\":" + cable
+                + ",\"tipo\":\"" + (tipo ?? "semilla") + "\""
+                + ",\"modo\":\"" + modo + "\"}";
+
+            try
+            {
+                var msg = new MQTTnet.MqttApplicationMessageBuilder()
+                    .WithTopic(topic)
+                    .WithPayload(payload)
+                    .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
+                    .WithRetainFlag(true) // Retained para que el nodo lo reciba al reconectar.
+                    .Build();
+
+                _mqtt.PublishAsync(msg);
+                System.Diagnostics.Debug.WriteLine("[VistaX] Config enviada a " + uid
+                    + " c" + cable + " tipo=" + tipo + " modo=" + modo);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[VistaX] Error enviando config: " + ex.Message);
+            }
+        }
+
+        // Publica la configuración de TODOS los sensores especiales a los nodos.
+        // Se llama al iniciar el monitor y cuando cambia la config.
+        private void PublishAllSensorConfigs()
+        {
+            if (_implemento == null || _implemento.MapeoSensores == null) return;
+            if (_mqtt == null || !_mqtt.IsConnected) return;
+
+            foreach (var sensor in _implemento.MapeoSensores)
+            {
+                if (sensor == null || !sensor.IsActive) continue;
+                if (string.IsNullOrEmpty(sensor.Uid) || sensor.Uid == "UNASSIGNED") continue;
+                if (sensor.Cable <= 0) continue;
+
+                // Solo notificar tipos que necesitan modo especial en el nodo.
+                if (sensor.Tipo == TipoSensor.BajadaHerramienta
+                    || sensor.Tipo == TipoSensor.Tolva
+                    || sensor.Tipo == TipoSensor.Turbina)
+                {
+                    PublishSensorConfig(sensor.Uid, sensor.Cable, sensor.Tipo);
+                }
+            }
+        }
+
         public void DetenerMonitoreo()
         {
             _monitoreoActivo = false;
             _confirmacionInicio = DateTime.MinValue;
+            _paradaDesde = DateTime.MinValue;
             System.Diagnostics.Debug.WriteLine("[VistaX] MONITOREO DETENIDO");
         }
 
@@ -458,10 +628,48 @@ namespace AgroParallel.VistaX
         private void EmitSnapshot()
         {
             if (_disposed) return;
+
+            // Siempre sincronizar velocidad desde PGN de AOG (no depende de MQTT).
+            SyncSpeedFromAOG();
+
             EvaluarInicio();
+
+            // Evaluar alarmas para surcos sin datos recientes (timeout).
+            EvaluarAlarmasPorTimeout();
+
             var snap = CreateSnapshot();
             var handler = SnapshotUpdated;
             if (handler != null) handler(snap);
+        }
+
+        // Marca como alerta los surcos de semilla que no recibieron telemetría
+        // dentro del timeout, siempre que haya velocidad y monitoreo activo.
+        private void EvaluarAlarmasPorTimeout()
+        {
+            lock (_lock)
+            {
+                if (!_monitoreoActivo) return;
+                if (_velocidad < 1.5) return;
+
+                var timeout = TimeSpan.FromMilliseconds(
+                    _config.SensorTimeoutMs > 0 ? _config.SensorTimeoutMs : 3000);
+                var now = DateTime.UtcNow;
+
+                foreach (var kv in _surcos)
+                {
+                    var s = kv.Value;
+                    if (s.SeccionCortada) continue;
+                    if (!string.Equals(s.Tipo, "semilla", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    bool timedOut = s.LastUpdate == DateTime.MinValue
+                        || (now - s.LastUpdate) > timeout;
+
+                    if (timedOut)
+                    {
+                        s.Alerta = true;
+                    }
+                }
+            }
         }
 
         // Ancho de cada sensor (tubo) y spacing en píxeles — constantes de layout
@@ -553,6 +761,60 @@ namespace AgroParallel.VistaX
                 snapshot.MetodoInicio = _metodoInicio;
                 snapshot.ToleranciaDesvio = _implemento != null && _implemento.Setup != null
                     ? _implemento.Setup.ToleranciaDesvio : 0;
+
+                // Capturar posición GPS y geometría del implemento para logging.
+                try
+                {
+                    if (_parent != null && _parent.AppModel != null)
+                    {
+                        snapshot.Latitude = _parent.AppModel.CurrentLatLon.Latitude;
+                        snapshot.Longitude = _parent.AppModel.CurrentLatLon.Longitude;
+                    }
+
+                    if (_parent != null)
+                    {
+                        // Posición y heading del implemento (tool pivot).
+                        snapshot.ToolEasting = _parent.toolPos.easting;
+                        snapshot.ToolNorthing = _parent.toolPos.northing;
+                        snapshot.ToolHeading = _parent.toolPos.heading;
+
+                        // Calcular offset lateral de cada surco basado en la
+                        // geometría del implemento. Distribuimos los surcos de
+                        // cada tren uniformemente dentro del ancho de la herramienta.
+                        if (_implemento != null && surcosList.Length > 0)
+                        {
+                            double toolWidth = _parent.tool != null ? _parent.tool.width : 0;
+                            double toolOffset = _parent.tool != null ? _parent.tool.offset : 0;
+
+                            if (toolWidth > 0)
+                            {
+                                var offsets = new double[surcosList.Length];
+                                // Agrupar por tren para distribuir.
+                                int idx = 0;
+                                foreach (var grupo in trenesGroup)
+                                {
+                                    var surcosTren = grupo.OrderBy(s2 => s2.Bajada).ToArray();
+                                    int cnt = surcosTren.Length;
+                                    if (cnt == 0) continue;
+
+                                    // Rango dentro del ancho total (dividido por trenes).
+                                    double spacing = toolWidth / cnt;
+                                    double startOffset = -(toolWidth / 2.0) + (spacing / 2.0) + toolOffset;
+
+                                    for (int si = 0; si < cnt; si++)
+                                    {
+                                        if (idx < offsets.Length)
+                                            offsets[idx] = startOffset + si * spacing;
+                                        idx++;
+                                    }
+                                }
+                                snapshot.SurcoLateralOffsets = offsets;
+                            }
+                        }
+                    }
+                }
+                catch { }
+
                 return snapshot;
             }
         }

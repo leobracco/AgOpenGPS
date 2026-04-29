@@ -11,6 +11,76 @@ using System.Text.Json.Serialization;
 namespace AgroParallel.VistaX
 {
     // =========================================================================
+    // Tipos de sensor — definición central usada por todo el módulo VistaX.
+    // =========================================================================
+
+    public static class TipoSensor
+    {
+        public const string Semilla = "semilla";
+        public const string FertiLinea = "ferti_linea";
+        public const string FertiCostado = "ferti_costado";
+        public const string BajadaHerramienta = "bajada_herramienta";
+        public const string Turbina = "turbina";
+        public const string Tolva = "tolva";
+
+        // Todos los tipos disponibles (orden = prioridad en UI).
+        public static readonly string[] Todos = new[]
+        {
+            Semilla, FertiLinea, FertiCostado, BajadaHerramienta, Turbina, Tolva
+        };
+
+        // Nombres amigables para UI.
+        public static string NombreAmigable(string tipo)
+        {
+            if (tipo == null) return "?";
+            switch (tipo)
+            {
+                case Semilla: return "Semilla";
+                case FertiLinea: return "Fertilizante en l\u00EDnea";
+                case FertiCostado: return "Fertilizante al costado";
+                case BajadaHerramienta: return "Bajada de herramienta";
+                case Turbina: return "Turbina";
+                case Tolva: return "Tolva";
+                default: return tipo;
+            }
+        }
+
+        // Color asociado a cada tipo para UI.
+        public static System.Drawing.Color GetColor(string tipo)
+        {
+            if (tipo == null) return System.Drawing.Color.FromArgb(120, 120, 120);
+            switch (tipo)
+            {
+                case Semilla: return System.Drawing.Color.FromArgb(0, 230, 118);
+                case FertiLinea: return System.Drawing.Color.FromArgb(0, 229, 255);
+                case FertiCostado: return System.Drawing.Color.FromArgb(255, 234, 0);
+                case BajadaHerramienta: return System.Drawing.Color.FromArgb(255, 160, 0);
+                case Turbina: return System.Drawing.Color.FromArgb(156, 39, 176);
+                case Tolva: return System.Drawing.Color.FromArgb(121, 85, 72);
+                default: return System.Drawing.Color.FromArgb(120, 120, 120);
+            }
+        }
+
+        // ¿Genera alarma de flujo cuando vale 0?
+        public static bool GeneraAlarmaFlujo(string tipo)
+        {
+            return tipo == Semilla || tipo == FertiLinea || tipo == FertiCostado;
+        }
+
+        // ¿Es sensor por surco (se muestra en la barra principal)?
+        public static bool EsPorSurco(string tipo)
+        {
+            return tipo == Semilla || tipo == FertiLinea || tipo == FertiCostado;
+        }
+
+        // ¿Es sensor global (no por surco, se muestra como indicador)?
+        public static bool EsGlobal(string tipo)
+        {
+            return tipo == Turbina || tipo == Tolva || tipo == BajadaHerramienta;
+        }
+    }
+
+    // =========================================================================
     // Payload crudo del ESP32: vistax/nodos/telemetria
     // { "uid": "VX-S3-A1", "sensores": [{ "cable": 1, "valor": 14.2, "raw": 5 }] }
     // =========================================================================
@@ -65,8 +135,17 @@ namespace AgroParallel.VistaX
         [JsonPropertyName("pin")]
         public int Pin { get; set; }
 
+        // Surco principal que monitorea este sensor.
         [JsonPropertyName("bajada")]
         public int Bajada { get; set; }
+
+        // Rango de surcos cubiertos (para caso 96 surcos / 8 sensores).
+        // Si ambos son 0, el sensor cubre solo Bajada (1:1).
+        [JsonPropertyName("surco_desde")]
+        public int SurcoDesde { get; set; }
+
+        [JsonPropertyName("surco_hasta")]
+        public int SurcoHasta { get; set; }
 
         [JsonPropertyName("tipo")]
         public string Tipo { get; set; }
@@ -80,11 +159,34 @@ namespace AgroParallel.VistaX
         [JsonPropertyName("is_active")]
         public bool IsActive { get; set; }
 
+        // Sección AOG a la que pertenece (0 = auto-calcular por posición).
+        [JsonPropertyName("seccion_aog")]
+        public int SeccionAOG { get; set; }
+
         public SensorConfig()
         {
             Tren = 1;
             IsActive = true;
             Tipo = "semilla";
+        }
+
+        // Retorna true si este sensor cubre el surco dado.
+        public bool CobreSurco(int surco)
+        {
+            if (SurcoDesde > 0 && SurcoHasta > 0)
+                return surco >= SurcoDesde && surco <= SurcoHasta;
+            return surco == Bajada;
+        }
+
+        // Cantidad de surcos que cubre este sensor.
+        public int SurcosCubiertos
+        {
+            get
+            {
+                if (SurcoDesde > 0 && SurcoHasta > 0)
+                    return SurcoHasta - SurcoDesde + 1;
+                return 1;
+            }
         }
     }
 
@@ -109,12 +211,43 @@ namespace AgroParallel.VistaX
         [JsonPropertyName("objetivos_tren")]
         public Dictionary<string, double> ObjetivosTren { get; set; }
 
+        // Total de surcos físicos del implemento (puede ser != cantidad de sensores).
+        // Ej: 96 surcos con 8 sensores, o 43 surcos con 43 sensores.
+        [JsonPropertyName("total_surcos")]
+        public int TotalSurcos { get; set; }
+
+        // Cantidad de secciones AOG configuradas para este implemento.
+        // Puede ser diferente de surcos y de sensores.
+        // Ej: 43 surcos, 43 sensores, 2 secciones AOG.
+        [JsonPropertyName("secciones_aog")]
+        public int SeccionesAOG { get; set; }
+
+        // Ancho total del implemento en metros (leído de AOG o manual).
+        [JsonPropertyName("ancho_implemento")]
+        public double AnchoImplemento { get; set; }
+
         public ImplementoSetup()
         {
             DensidadObjetivo = 16;
             ToleranciaDesvio = 20;
             DistanciaEntreSurcos = 0.191;
             FactorK = 0.15;
+        }
+
+        // Calcula qué surcos cubre la sección AOG dada (1-based).
+        // Distribución uniforme: sección 1 = surcos 1..N/S, etc.
+        public void GetSurcosPorSeccion(int seccion, int totalSurcos, int totalSecciones,
+            out int desde, out int hasta)
+        {
+            if (totalSecciones <= 0 || totalSurcos <= 0 || seccion <= 0)
+            {
+                desde = 0; hasta = 0; return;
+            }
+            int porSeccion = totalSurcos / totalSecciones;
+            int resto = totalSurcos % totalSecciones;
+            desde = (seccion - 1) * porSeccion + Math.Min(seccion - 1, resto) + 1;
+            int extra = seccion <= resto ? 1 : 0;
+            hasta = desde + porSeccion + extra - 1;
         }
     }
 
@@ -274,6 +407,20 @@ namespace AgroParallel.VistaX
         // surco esta "ok" o "con desvio" aunque no haya alerta critica.
         // Viene de ImplementoSetup.ToleranciaDesvio.
         public double ToleranciaDesvio { get; set; }
+
+        // Posición GPS del tractor (WGS84).
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+
+        // Heading del implemento (radianes) y geometría para calcular
+        // posición de cada surco en el logger.
+        public double ToolHeading { get; set; }
+        public double ToolEasting { get; set; }
+        public double ToolNorthing { get; set; }
+
+        // Posición lateral de cada surco (metros desde centro del implemento).
+        // Index = surco global (orden en Surcos[]).
+        public double[] SurcoLateralOffsets { get; set; }
 
         public SeedMonitorSnapshot()
         {

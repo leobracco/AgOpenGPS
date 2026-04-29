@@ -246,10 +246,11 @@ namespace AgroParallel.VistaX
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
-            g.Clear(CBgDark);
+            g.Clear(Theme.BgBlack);
 
-            using (var borderPen = new Pen(CBorder))
-                g.DrawRectangle(borderPen, 0, 0, Width - 1, Height - 1);
+            // Borde exterior redondeado.
+            Theme.DrawRoundedBorder(g, new Rectangle(0, 0, Width - 1, Height - 1),
+                Theme.Border, Theme.BorderRadius);
 
             var snap = _snap;
             if (snap == null || snap.Trenes == null || snap.Trenes.Length == 0)
@@ -258,62 +259,143 @@ namespace AgroParallel.VistaX
                 return;
             }
 
-            DrawHeader(g, snap);
+            // Header estilo mockup.
+            Theme.PaintHeader(g, Width, "MONITOR DE SIEMBRA");
 
-            // Ticker siempre visible debajo del header. Rojo si hay fallas,
-            // gris/verde si OK. Replica lo de VistaX-Core: un "estado del
-            // sistema" permanente.
-            int bodyTop = HeaderHeight + AlarmBannerHeight;
+            // KPIs en fila debajo del header.
+            int kpiY = Theme.HeaderHeight + 4;
+            DrawKpiRow(g, snap, kpiY);
+
+            // Status ticker.
+            int tickerY = kpiY + 38;
+            DrawStatusTicker(g, snap, tickerY);
+
+            // Barras de surcos.
+            int bodyTop = tickerY + AlarmBannerHeight + 2;
             int bodyBottom = Height - FooterHeight;
-            DrawStatusTicker(g, snap);
-
             DrawTrains(g, snap, bodyTop, bodyBottom);
+
+            // Footer.
             DrawFooter(g, snap);
         }
 
-        private void DrawStatusTicker(Graphics g, SeedMonitorSnapshot snap)
+        private void DrawKpiRow(Graphics g, SeedMonitorSnapshot snap, int y)
+        {
+            // Fondo card para la fila de KPIs.
+            var kpiRect = new Rectangle(4, y, Width - 8, 34);
+            Theme.FillRoundedRect(g, kpiRect, Theme.BgCard, 6);
+
+            // KPIs distribuidos uniformemente.
+            int count = 4;
+            int kpiW = (Width - 16) / count;
+            int x = 8;
+
+            // VEL.
+            DrawMiniKpi(g, x, y + 2, kpiW,
+                snap.Velocidad.ToString("F1", CultureInfo.InvariantCulture), "km/h", "VEL");
+            x += kpiW;
+
+            // S/M.
+            DrawMiniKpi(g, x, y + 2, kpiW,
+                snap.SpmPromedio.ToString("F1", CultureInfo.InvariantCulture), "s/m", "DENSIDAD");
+            x += kpiW;
+
+            // FALLAS.
+            Color fallasColor = snap.FallasActivas > 0 ? Theme.Error : Theme.TextPrimary;
+            DrawMiniKpi(g, x, y + 2, kpiW,
+                snap.FallasActivas.ToString(CultureInfo.InvariantCulture), "", "FALLAS", fallasColor);
+            x += kpiW;
+
+            // ONLINE.
+            int totalConfig = snap.Surcos != null ? snap.Surcos.Length : 0;
+            string online = snap.SurcosActivos + "/" + totalConfig;
+            DrawMiniKpi(g, x, y + 2, kpiW, online, "", "SURCOS");
+        }
+
+        private void DrawMiniKpi(Graphics g, int x, int y, int w,
+            string value, string unit, string label, Color? valueColor = null)
+        {
+            Color vc = valueColor ?? Theme.TextPrimary;
+
+            using (var fVal = new Font(Theme.FontFamily, 13f, FontStyle.Bold))
+            using (var br = new SolidBrush(vc))
+                g.DrawString(value, fVal, br, x + 4, y);
+
+            if (!string.IsNullOrEmpty(unit))
+            {
+                using (var fVal = new Font(Theme.FontFamily, 13f, FontStyle.Bold))
+                {
+                    var sz = g.MeasureString(value, fVal);
+                    using (var fUnit = new Font(Theme.FontFamily, 7.5f))
+                    using (var br = new SolidBrush(Theme.TextSecondary))
+                        g.DrawString(unit, fUnit, br, x + 4 + sz.Width, y + 6);
+                }
+            }
+
+            using (var fLbl = new Font(Theme.FontFamily, 7f, FontStyle.Bold))
+            using (var br = new SolidBrush(Theme.TextFaint))
+                g.DrawString(label, fLbl, br, x + 4, y + 18);
+        }
+
+        private void DrawStatusTicker(Graphics g, SeedMonitorSnapshot snap, int y)
         {
             bool hasAlarm = snap.HasAlarm;
-            Color bg = hasAlarm ? Color.FromArgb(60, 0, 0) : Color.FromArgb(16, 20, 16);
-            Color fg = hasAlarm ? CRed : CAccent;
+            Color bg = hasAlarm ? Color.FromArgb(40, 8, 8) : Color.FromArgb(8, 20, 8);
+            Color fg = hasAlarm ? Theme.Error : Theme.Accent;
 
             using (var b = new SolidBrush(bg))
-                g.FillRectangle(b, 0, HeaderHeight, Width, AlarmBannerHeight);
+                g.FillRectangle(b, 4, y, Width - 8, AlarmBannerHeight);
 
             string text = hasAlarm
                 ? (snap.AlarmMessage ?? "FALLA EN EL SISTEMA")
-                : "SISTEMA OPERATIVO";
+                : (snap.MonitoreoActivo ? "SEMBRANDO" : "EN ESPERA");
 
-            using (var f = new Font("Segoe UI", 8f, FontStyle.Bold))
+            using (var f = new Font(Theme.FontFamily, 7.5f, FontStyle.Bold))
             using (var br = new SolidBrush(fg))
+                g.DrawString(text, f, br, 10, y + 1);
+
+            // Implemento name on the right.
+            if (!string.IsNullOrEmpty(snap.NombreImplemento))
             {
-                g.DrawString(text, f, br, 10, HeaderHeight + 1);
+                using (var f = new Font(Theme.FontFamily, 7.5f))
+                using (var br = new SolidBrush(Theme.TextFaint))
+                {
+                    var sz = g.MeasureString(snap.NombreImplemento, f);
+                    g.DrawString(snap.NombreImplemento, f, br, Width - sz.Width - 12, y + 1);
+                }
             }
         }
 
         private void DrawWaitingState(Graphics g, SeedMonitorSnapshot snap)
         {
-            // Header minimalista para ver si al menos hay conexion.
-            using (var hbg = new SolidBrush(CBgHeader))
-                g.FillRectangle(hbg, 0, 0, Width, HeaderHeight);
-
-            using (var fTitle = new Font("Segoe UI", 12f, FontStyle.Bold))
-            using (var titleBrush = new SolidBrush(CAccent))
-                g.DrawString("VistaX", fTitle, titleBrush, 12, 10);
+            Theme.PaintHeader(g, Width, "MONITOR DE SIEMBRA");
 
             bool connected = snap != null && snap.IsConnected;
             DrawConnectionLed(g, connected);
 
-            using (var f = new Font("Segoe UI", 10f))
-            using (var dim = new SolidBrush(CTextDim))
+            // Velocidad.
+            if (snap != null)
+            {
+                using (var fVal = new Font(Theme.FontFamily, 14f, FontStyle.Bold))
+                using (var br = new SolidBrush(Theme.TextPrimary))
+                {
+                    string vel = snap.Velocidad.ToString("F1", CultureInfo.InvariantCulture) + " km/h";
+                    var sz = g.MeasureString(vel, fVal);
+                    g.DrawString(vel, fVal, br, (Width - sz.Width) / 2f, Theme.HeaderHeight + 20);
+                }
+            }
+
+            using (var f = new Font(Theme.FontFamily, 10f))
+            using (var br = new SolidBrush(Theme.TextSecondary))
             {
                 string msg = connected
-                    ? "Conectado — esperando telemetria de sensores..."
-                    : "Esperando conexion con broker MQTT...";
+                    ? "Conectado \u2014 esperando telemetr\u00EDa..."
+                    : "Esperando conexi\u00F3n MQTT...";
+
                 var sz = g.MeasureString(msg, f);
-                g.DrawString(msg, f, dim,
+                g.DrawString(msg, f, br,
                     (Width - sz.Width) / 2f,
-                    HeaderHeight + (Height - HeaderHeight - FooterHeight - sz.Height) / 2f);
+                    Theme.HeaderHeight + 50);
             }
         }
 
@@ -398,13 +480,11 @@ namespace AgroParallel.VistaX
 
         private void DrawConnectionLed(Graphics g, bool connected)
         {
-            int r = 6;
-            int cx = Width - 14;
-            int cy = 14;
-            using (var ledBrush = new SolidBrush(connected ? CAccent : CRed))
+            int r = 5;
+            int cx = Width - 16;
+            int cy = 22;
+            using (var ledBrush = new SolidBrush(connected ? Theme.Accent : Theme.Error))
                 g.FillEllipse(ledBrush, cx - r, cy - r, r * 2, r * 2);
-            using (var rim = new Pen(Color.FromArgb(30, 30, 36)))
-                g.DrawEllipse(rim, cx - r, cy - r, r * 2, r * 2);
         }
 
         private void DrawTrains(Graphics g, SeedMonitorSnapshot snap, int bodyTop, int bodyBottom)
@@ -427,13 +507,12 @@ namespace AgroParallel.VistaX
 
         private void DrawTrain(Graphics g, TrenLayout tren, int y0, int y1, double tolerancia)
         {
-            using (var fLbl = new Font("Segoe UI", 8f, FontStyle.Bold))
-            using (var lblBrush = new SolidBrush(CTextDim))
+            using (var fLbl = new Font(Theme.FontFamily, 7.5f, FontStyle.Bold))
+            using (var lblBrush = new SolidBrush(Theme.TextFaint))
             {
                 string name = tren.Tren == 1 ? "DELANTERO" : tren.Tren == 2 ? "TRASERO"
                     : "TREN " + tren.Tren.ToString(CultureInfo.InvariantCulture);
-                g.DrawString(name, fLbl, lblBrush, 8, y0 + 4);
-                g.DrawString("(" + tren.Count + ")", fLbl, lblBrush, 8, y0 + 18);
+                g.DrawString(name, fLbl, lblBrush, 6, y0 + 2);
             }
 
             if (tren.Surcos == null || tren.Surcos.Length == 0) return;
@@ -487,7 +566,7 @@ namespace AgroParallel.VistaX
                 var s = FindByTipo(group, "semilla") ?? group[0];
                 int x = offsetX + i * (sensorW + spacing);
                 i++;
-                // Clasificar al estilo VistaX-Core: alerta > cortado > desvio > ok > tapado.
+                // Clasificar: alerta > cortado > sinSenal > desvio > ok.
                 PillStatus status;
                 double pctHeight; // % del tubeAreaH que ocupa el tubo (bottom-aligned).
                 if (s.SeccionCortada)
@@ -497,12 +576,20 @@ namespace AgroParallel.VistaX
                 }
                 else if (s.Alerta)
                 {
+                    // Falla confirmada (tubo tapado o flujo muy bajo).
                     status = PillStatus.Alerta;
                     pctHeight = 15;
                 }
+                else if (s.Spm <= 0 && s.LastUpdate == DateTime.MinValue)
+                {
+                    // Nunca recibió datos — gris medio, distinguible de tapado.
+                    status = PillStatus.SinSenal;
+                    pctHeight = 10;
+                }
                 else if (s.Spm <= 0)
                 {
-                    status = PillStatus.Tapado;
+                    // Recibió datos antes pero ahora está en 0.
+                    status = PillStatus.SinSenal;
                     pctHeight = 6;
                 }
                 else if (objetivo > 0)
@@ -550,9 +637,11 @@ namespace AgroParallel.VistaX
             // Hasta 3 LEDs alineados horizontalmente bajo el tubo.
             int dotR = 2;
             var types = new[] {
-                Tuple.Create("ferti_linea", CFertiLinea),
-                Tuple.Create("ferti_costado", CFertiCostado),
-                Tuple.Create("bajada_herramienta", CHerramienta)
+                Tuple.Create(TipoSensor.FertiLinea, CFertiLinea),
+                Tuple.Create(TipoSensor.FertiCostado, CFertiCostado),
+                Tuple.Create(TipoSensor.BajadaHerramienta, CHerramienta),
+                Tuple.Create(TipoSensor.Turbina, Color.FromArgb(156, 39, 176)),
+                Tuple.Create(TipoSensor.Tolva, Color.FromArgb(121, 85, 72))
             };
 
             int drawn = 0;
@@ -571,55 +660,49 @@ namespace AgroParallel.VistaX
             }
         }
 
-        private enum PillStatus { Ok, Desvio, Alerta, Tapado }
+        private enum PillStatus { Ok, Desvio, Alerta, Tapado, SinSenal }
 
         private void DrawTube(Graphics g, int x, int y, int w, int h,
             int fullH, int fullTop, PillStatus status)
         {
-            // Canasta de referencia (full height tube outline — sutil).
+            // Canasta de referencia (borde redondeado sutil).
             var canister = new Rectangle(x, fullTop, w, fullH);
-            using (var cb = new SolidBrush(Color.FromArgb(15, 15, 15)))
-                g.FillRectangle(cb, canister);
-            using (var cp = new Pen(CBorder))
-                g.DrawRectangle(cp, canister);
+            Theme.FillRoundedRect(g, canister, Color.FromArgb(14, 14, 16), 4);
+            Theme.DrawRoundedBorder(g, canister, Theme.Border, 4, 0.5f);
 
             // Nivel dinamico (el "liquido" del tubo).
-            var rect = new Rectangle(x, y, w, h);
+            var rect = new Rectangle(x + 1, y, w - 2, h);
+            Color topColor, botColor;
+
             switch (status)
             {
                 case PillStatus.Alerta:
-                    using (var brush = new LinearGradientBrush(
-                        new Point(x, y), new Point(x, y + Math.Max(1, h)), CRed, CRedDark))
-                    {
-                        g.FillRectangle(brush, rect);
-                    }
-                    using (var border = new Pen(CRed))
-                        g.DrawRectangle(border, rect);
-                    return;
+                    topColor = Theme.Error;
+                    botColor = Color.FromArgb(140, 30, 30);
+                    break;
                 case PillStatus.Tapado:
-                    using (var b = new SolidBrush(CBlocked))
+                    using (var b = new SolidBrush(Color.FromArgb(8, 8, 10)))
                         g.FillRectangle(b, rect);
-                    using (var border = new Pen(CBlockedBorder))
-                        g.DrawRectangle(border, rect);
+                    return;
+                case PillStatus.SinSenal:
+                    using (var b = new SolidBrush(Color.FromArgb(40, 42, 48)))
+                        g.FillRectangle(b, rect);
                     return;
                 case PillStatus.Desvio:
-                    using (var brush = new LinearGradientBrush(
-                        new Point(x, y), new Point(x, y + Math.Max(1, h)), CYellow, Color.FromArgb(180, 130, 0)))
-                    {
-                        g.FillRectangle(brush, rect);
-                    }
-                    using (var border = new Pen(CYellow))
-                        g.DrawRectangle(border, rect);
-                    return;
-                default:
-                    using (var brush = new LinearGradientBrush(
-                        new Point(x, y), new Point(x, y + Math.Max(1, h)), CAccent, CAccentDark))
-                    {
-                        g.FillRectangle(brush, rect);
-                    }
-                    using (var border = new Pen(CBorder))
-                        g.DrawRectangle(border, rect);
-                    return;
+                    topColor = Theme.Warning;
+                    botColor = Color.FromArgb(160, 110, 10);
+                    break;
+                default: // Ok
+                    topColor = Theme.Accent;
+                    botColor = Theme.AccentDim;
+                    break;
+            }
+
+            if (h > 1)
+            {
+                using (var brush = new LinearGradientBrush(
+                    new Point(x, y), new Point(x, y + Math.Max(1, h)), topColor, botColor))
+                    g.FillRectangle(brush, rect);
             }
         }
 
@@ -628,11 +711,11 @@ namespace AgroParallel.VistaX
             Color c;
             switch (state)
             {
-                case RowState.Ok: c = CAccent; break;
-                case RowState.Failure: c = CRed; break;
-                case RowState.LowRate: c = CYellow; break;
-                case RowState.HighRate: c = CYellow; break;
-                default: c = Color.FromArgb(80, 80, 80); break;
+                case RowState.Ok: c = Theme.Accent; break;
+                case RowState.Failure: c = Theme.Error; break;
+                case RowState.LowRate: c = Theme.Warning; break;
+                case RowState.HighRate: c = Theme.Warning; break;
+                default: c = Color.FromArgb(50, 52, 58); break;
             }
             using (var b = new SolidBrush(c))
                 g.FillEllipse(b, cx - r, cy - r, r * 2, r * 2);
@@ -640,20 +723,24 @@ namespace AgroParallel.VistaX
 
         private void DrawFooter(Graphics g, SeedMonitorSnapshot snap)
         {
-            using (var fg = new SolidBrush(CBgHeader))
-                g.FillRectangle(fg, 0, Height - FooterHeight, Width, FooterHeight);
+            int fy = Height - FooterHeight;
+
+            using (var bg = new SolidBrush(Theme.BgToolbar))
+                g.FillRectangle(bg, 0, fy, Width, FooterHeight);
+            using (var pen = new Pen(Theme.Border))
+                g.DrawLine(pen, 0, fy, Width, fy);
 
             string msg = snap.MonitoreoActivo
-                ? "SISTEMA VISTAX OPERATIVO"
-                : "EN ESPERA DE INICIO (" + snap.MetodoInicio + ")";
+                ? "\u25CF  SEMBRANDO"
+                : "\u25CB  EN ESPERA (" + snap.MetodoInicio + ")";
 
-            using (var f = new Font("Segoe UI", 8f, FontStyle.Bold))
-            using (var brush = new SolidBrush(snap.MonitoreoActivo ? CAccent : CTextDim))
+            using (var f = new Font(Theme.FontFamily, 8.5f, FontStyle.Bold))
+            using (var brush = new SolidBrush(snap.MonitoreoActivo ? Theme.Accent : Theme.TextSecondary))
             {
                 var sz = g.MeasureString(msg, f);
                 g.DrawString(msg, f, brush,
                     (Width - sz.Width) / 2f,
-                    Height - FooterHeight + (FooterHeight - sz.Height) / 2f);
+                    fy + (FooterHeight - sz.Height) / 2f);
             }
         }
     }

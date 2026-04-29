@@ -295,6 +295,8 @@ namespace AgIO
                 Log.EventWriter("Run GPS_Out");
             }
 
+            // MQTT Broker — arranca automáticamente.
+            StartMqttBroker();
         }
 
         private void FormLoop_FormClosing(object sender, FormClosingEventArgs e)
@@ -332,6 +334,9 @@ namespace AgIO
             {
                 processName[0].CloseMainWindow();
             }
+
+            // MQTT Broker shutdown.
+            StopMqttBroker();
 
             Log.EventWriter("Program Exit: " +
                 DateTime.Now.ToString("f", CultureInfo.InvariantCulture) + "\n\r");
@@ -456,6 +461,9 @@ namespace AgIO
 
             //send a hello to modules
             SendUDPMessage(helloFromAgIO, epModule);
+
+            // MQTT broker status update.
+            DoMqttStatus();
 
 
             //if (isLogNMEA)

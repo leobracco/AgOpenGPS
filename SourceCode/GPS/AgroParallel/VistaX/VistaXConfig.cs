@@ -52,6 +52,11 @@ namespace AgroParallel.VistaX
         // lo toggelea desde el boton del header del panel.
         public bool AlarmMuted { get; set; }
 
+        // Path alternativo para guardar logs NDJSON y SHP (ej: "D:\\" o
+        // "E:\\VistaX"). Si está vacío guarda en el campo actual de AOG.
+        // Útil para no llenar el disco del equipo.
+        public string LogOutputDrive { get; set; }
+
         private static readonly string ConfigFileName = "vistaX.json";
 
         public VistaXConfig()

@@ -130,7 +130,7 @@ namespace AgOpenGPS
         private OrbitXSync orbitXSync;
         // ORBITX_MOD_END
         // SECTIONX_MOD_START
-        private SectionXBridge sectionXBridge;
+        public SectionXBridge sectionXBridge;
         // SECTIONX_MOD_END
         // QUANTIX_MOD_START
         private QuantiXConfig quantiXConfig;
@@ -1566,10 +1566,7 @@ namespace AgOpenGPS
         // AGROPARALLEL_MOD_START
         private void toolStripAgroParallel_Click(object sender, EventArgs e)
         {
-            // toolStripAgroParallel ahora es un parent de submenu — al tener
-            // DropDownItems, WinForms abre el submenu al clickear. El toggle del
-            // panel embebido se movio a un sub-item dentro del submenu.
-            // (No-op aqui para no disparar doble accion.)
+            OpenAgroParallelHub();
         }
 
         private void ToggleVistaX()
@@ -1725,52 +1722,13 @@ namespace AgOpenGPS
         // ventana popup (ModulePopupForm) que embebe CefSharp apuntando a su Url.
         private void InitAgroParallelModulesMenu()
         {
-            try
+            // Asignar logo al botón del menú.
+            var logo = AgroParallel.VistaX.Theme.Logo;
+            if (logo != null)
             {
-                // Hub unificado — único item del menú AP.
-                var itemHub = new ToolStripMenuItem();
-                itemHub.Text = "\U0001F33F Agro Parallel Hub";
-                itemHub.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                itemHub.ForeColor = Color.FromArgb(0, 230, 118);
-                itemHub.Click += (s, e) => OpenAgroParallelHub();
-                toolStripAgroParallel.DropDownItems.Add(itemHub);
-
-                // Modulos dinamicos declarados en agroParallelModules.json. Se saltea
-                // VistaX porque ya tenemos items nativos dedicados arriba.
-                var cfg = AgroParallelModulesConfig.Load();
-                if (cfg != null && cfg.Modules != null)
-                {
-                    foreach (var m in cfg.Modules)
-                    {
-                        if (m == null || !m.Enabled) continue;
-                        if (string.IsNullOrWhiteSpace(m.Name)) continue;
-                        if (string.Equals(m.Name, "VistaX", StringComparison.OrdinalIgnoreCase))
-                            continue;
-
-                        var item = new ToolStripMenuItem();
-                        string prefix = string.IsNullOrEmpty(m.Emoji) ? "" : m.Emoji + " ";
-                        item.Text = prefix + m.Name;
-                        item.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                        item.ForeColor = AgroParallelModulesConfig.ResolveAccentColor(m);
-
-                        string iconFull = AgroParallelModulesConfig.ResolveIconFullPath(m.IconPath);
-                        if (iconFull != null && File.Exists(iconFull))
-                        {
-                            try { item.Image = Image.FromFile(iconFull); }
-                            catch { /* icono invalido: seguimos con solo texto+emoji */ }
-                        }
-
-                        var capture = m;
-                        item.Click += (s, e) => OpenAgroParallelModulePopup(capture);
-
-                        toolStripAgroParallel.DropDownItems.Add(item);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("[AgroParallel] InitAgroParallelModulesMenu: "
-                    + ex.Message);
+                toolStripAgroParallel.Image = new System.Drawing.Bitmap(logo, 28, 28);
+                toolStripAgroParallel.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
+                toolStripAgroParallel.Text = "AP";
             }
         }
 
@@ -2042,6 +2000,24 @@ namespace AgOpenGPS
             vistaXPopupForm.FormClosed += (s, e) => vistaXPopupForm = null;
             vistaXPopupForm.Show(this);
         }
+        public void ReloadSectionXBridge()
+        {
+            try
+            {
+                if (sectionXBridge != null) { sectionXBridge.Dispose(); sectionXBridge = null; }
+                var cfg = SectionXConfig.Load();
+                if (cfg.Enabled && cfg.Nodos.Count > 0)
+                {
+                    sectionXBridge = new SectionXBridge(this, cfg);
+                    _ = sectionXBridge.StartAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[SectionX] ReloadBridge: " + ex.Message);
+            }
+        }
+
         // AGROPARALLEL_MOD_END
 
         // SHAPEFILE_MOD_START

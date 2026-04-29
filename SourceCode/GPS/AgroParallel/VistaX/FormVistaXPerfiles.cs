@@ -23,17 +23,17 @@ namespace AgroParallel.VistaX
 {
     public class FormVistaXPerfiles : Form
     {
-        // Paleta tomada de VistaX-Core (public/css/vistax.css).
-        private static readonly Color CBgDark = Color.FromArgb(0, 0, 0);       // #000000
-        private static readonly Color CBgPanel = Color.FromArgb(20, 20, 20);   // #141414
-        private static readonly Color CBgCard = Color.FromArgb(30, 30, 30);    // #1e1e1e
-        private static readonly Color CBgCardActive = Color.FromArgb(12, 40, 20);
-        private static readonly Color CAccent = Color.FromArgb(0, 230, 118);   // #00e676
-        private static readonly Color CAccentDim = Color.FromArgb(0, 140, 70);
-        private static readonly Color CText = Color.FromArgb(235, 235, 235);
-        private static readonly Color CTextDim = Color.FromArgb(120, 120, 120);
-        private static readonly Color CTextFaint = Color.FromArgb(85, 85, 90);
-        private static readonly Color CBorder = Color.FromArgb(40, 40, 40);
+        // Aliases al tema centralizado.
+        private static Color CBgDark { get { return Theme.BgBlack; } }
+        private static Color CBgPanel { get { return Theme.BgHeader; } }
+        private static Color CBgCard { get { return Theme.BgCard; } }
+        private static Color CBgCardActive { get { return Theme.AccentDark; } }
+        private static Color CAccent { get { return Theme.Accent; } }
+        private static Color CAccentDim { get { return Theme.AccentDim; } }
+        private static Color CText { get { return Theme.TextPrimary; } }
+        private static Color CTextDim { get { return Theme.TextSecondary; } }
+        private static Color CTextFaint { get { return Theme.TextFaint; } }
+        private static Color CBorder { get { return Theme.Border; } }
 
         private class Item
         {
@@ -43,6 +43,13 @@ namespace AgroParallel.VistaX
             public int CountTrenes;
             public int CountSensores;
             public DateTime LastWrite;
+            public bool IsLocked;
+        }
+
+        // Lock file convention: same name + ".lock" = locked.
+        private static bool IsProfileLocked(string path)
+        {
+            return File.Exists(path + ".lock");
         }
 
         private readonly VistaXConfig _cfg;
@@ -288,10 +295,16 @@ namespace AgroParallel.VistaX
             };
             footer.Controls.Add(lblVer);
 
-            var btnReload = MkPillButton("↻  Recargar",
+            var btnNew = MkPillButton("+  CREAR NUEVO", CAccent, CBgDark);
+            btnNew.Size = new Size(130, 30);
+            btnNew.Location = new Point(150, 7);
+            btnNew.Click += (s, e) => CreateNewProfile();
+            footer.Controls.Add(btnNew);
+
+            var btnReload = MkPillButton("\u21BB  Recargar",
                 Color.FromArgb(40, 40, 45), CText);
-            btnReload.Size = new Size(110, 30);
-            btnReload.Location = new Point(150, 7);
+            btnReload.Size = new Size(100, 30);
+            btnReload.Location = new Point(290, 7);
             btnReload.Click += (s, e) => ReloadList();
             footer.Controls.Add(btnReload);
 
@@ -369,7 +382,8 @@ namespace AgroParallel.VistaX
                         CountSurcos = surcos,
                         CountTrenes = trenes.Count,
                         CountSensores = sensores,
-                        LastWrite = File.GetLastWriteTime(f)
+                        LastWrite = File.GetLastWriteTime(f),
+                        IsLocked = IsProfileLocked(f)
                     });
                 }
                 catch (Exception ex)
@@ -392,7 +406,7 @@ namespace AgroParallel.VistaX
 
             var card = new Panel
             {
-                Size = new Size(_list.ClientSize.Width - 36, 110),
+                Size = new Size(_list.ClientSize.Width - 36, 130),
                 Margin = new Padding(0, 0, 0, 12),
                 BackColor = isActive ? CBgCardActive : CBgCard,
                 Cursor = Cursors.Default
@@ -493,11 +507,55 @@ namespace AgroParallel.VistaX
 
             var btnDuplicate = MkPillButton("\U0001F4CB  Duplicar",
                 Color.FromArgb(50, 50, 55), CText);
-            btnDuplicate.Size = new Size(115, 36);
+            btnDuplicate.Size = new Size(100, 32);
             btnDuplicate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnDuplicate.Location = new Point(btnActivate.Left - btnDuplicate.Width - 8, btnTop);
+            btnDuplicate.Location = new Point(btnActivate.Left - btnDuplicate.Width - 6, btnTop);
             btnDuplicate.Click += (s, e) => DuplicateItem(it);
             card.Controls.Add(btnDuplicate);
+
+            // Segunda fila de botones: Bloquear, Exportar, Borrar.
+            int btn2Top = btnTop + 40;
+
+            var btnLock = MkPillButton(
+                it.IsLocked ? "\U0001F512 Desbloq." : "\U0001F513 Bloquear",
+                Color.FromArgb(40, 40, 45), it.IsLocked ? CAccent : CTextDim);
+            btnLock.Size = new Size(100, 28);
+            btnLock.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnLock.Location = new Point(btnRight - btnLock.Width, btn2Top);
+            btnLock.Click += (s, e) => ToggleLock(it);
+            card.Controls.Add(btnLock);
+
+            var btnExport = MkPillButton("\U0001F4BE Exportar", Color.FromArgb(40, 40, 45), CText);
+            btnExport.Size = new Size(90, 28);
+            btnExport.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnExport.Location = new Point(btnLock.Left - btnExport.Width - 4, btn2Top);
+            btnExport.Click += (s, e) => ExportItem(it);
+            card.Controls.Add(btnExport);
+
+            if (!isActive && !it.IsLocked)
+            {
+                var btnDelete = MkPillButton("\U0001F5D1 Borrar", Color.FromArgb(50, 20, 20),
+                    Color.FromArgb(255, 23, 68));
+                btnDelete.Size = new Size(80, 28);
+                btnDelete.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                btnDelete.Location = new Point(btnExport.Left - btnDelete.Width - 4, btn2Top);
+                btnDelete.Click += (s, e) => DeleteItem(it);
+                card.Controls.Add(btnDelete);
+            }
+
+            if (it.IsLocked)
+            {
+                var lblLocked = new Label
+                {
+                    Text = "\U0001F512 BLOQUEADO",
+                    Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(255, 234, 0),
+                    BackColor = Color.Transparent,
+                    Location = new Point(lblName.Right + 8, 23),
+                    AutoSize = true, Padding = new Padding(4, 1, 4, 1)
+                };
+                card.Controls.Add(lblLocked);
+            }
 
             return card;
         }
@@ -607,9 +665,205 @@ namespace AgroParallel.VistaX
             }
         }
 
+        private void DeleteItem(Item it)
+        {
+            if (it.IsLocked)
+            {
+                MessageBox.Show(this, "Este perfil est\u00E1 bloqueado. Desbloquealo primero.",
+                    "Perfiles", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            var r = MessageBox.Show(this,
+                "Eliminar \"" + (it.Config.Nombre ?? System.IO.Path.GetFileNameWithoutExtension(it.Path)) + "\"?\n\nEsta acci\u00F3n no se puede deshacer.",
+                "Eliminar Perfil", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (r != DialogResult.Yes) return;
+
+            try
+            {
+                File.Delete(it.Path);
+                // Delete lock file if exists.
+                if (File.Exists(it.Path + ".lock"))
+                    File.Delete(it.Path + ".lock");
+                ReloadList();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "No se pudo eliminar: " + ex.Message,
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ToggleLock(Item it)
+        {
+            string lockFile = it.Path + ".lock";
+
+            if (it.IsLocked)
+            {
+                // Pedir password para desbloquear.
+                string pass = PromptPassword("Ingres\u00E1 la contrase\u00F1a para desbloquear:");
+                if (pass == null) return;
+
+                try
+                {
+                    string stored = File.ReadAllText(lockFile).Trim();
+                    if (stored != pass)
+                    {
+                        MessageBox.Show(this, "Contrase\u00F1a incorrecta.",
+                            "Perfiles", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    File.Delete(lockFile);
+                    ReloadList();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Error: " + ex.Message,
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            else
+            {
+                // Pedir password para bloquear.
+                string pass = PromptPassword("Defin\u00ED una contrase\u00F1a para bloquear este perfil:");
+                if (string.IsNullOrEmpty(pass)) return;
+
+                try
+                {
+                    File.WriteAllText(lockFile, pass);
+                    ReloadList();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Error: " + ex.Message,
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private string PromptPassword(string message)
+        {
+            using (var dlg = new Form())
+            {
+                dlg.Text = "Contrase\u00F1a";
+                dlg.Size = new Size(360, 160);
+                dlg.StartPosition = FormStartPosition.CenterParent;
+                dlg.FormBorderStyle = FormBorderStyle.None;
+                dlg.BackColor = CBgDark;
+                dlg.ForeColor = CText;
+                dlg.Font = new Font("Segoe UI", 10f);
+                dlg.Paint += (s, e) =>
+                {
+                    using (var pen = new Pen(CBorder))
+                        e.Graphics.DrawRectangle(pen, 0, 0, dlg.Width - 1, dlg.Height - 1);
+                };
+
+                dlg.Controls.Add(new Label
+                {
+                    Text = message, Font = new Font("Segoe UI", 10f),
+                    ForeColor = CText, Location = new Point(20, 16),
+                    AutoSize = true, BackColor = Color.Transparent
+                });
+
+                var txt = new TextBox
+                {
+                    UseSystemPasswordChar = true,
+                    Font = new Font("Segoe UI", 12f),
+                    BackColor = Color.FromArgb(15, 15, 15),
+                    ForeColor = CAccent, BorderStyle = BorderStyle.FixedSingle,
+                    Location = new Point(20, 50), Size = new Size(dlg.Width - 40, 28)
+                };
+                dlg.Controls.Add(txt);
+
+                string result = null;
+                var btnOk = MkPillButton("\u2713  OK", CAccent, CBgDark);
+                btnOk.Size = new Size(80, 30);
+                btnOk.Location = new Point(dlg.Width - 104, 100);
+                btnOk.Click += (s, e) => { result = txt.Text; dlg.Close(); };
+                dlg.Controls.Add(btnOk);
+
+                var btnCancel = MkPillButton("Cancelar", Color.FromArgb(40, 40, 45), CTextDim);
+                btnCancel.Size = new Size(80, 30);
+                btnCancel.Location = new Point(btnOk.Left - 88, 100);
+                btnCancel.Click += (s, e) => dlg.Close();
+                dlg.Controls.Add(btnCancel);
+
+                dlg.AcceptButton = btnOk;
+                dlg.ShowDialog(this);
+                return result;
+            }
+        }
+
+        private void ExportItem(Item it)
+        {
+            using (var fbd = new FolderBrowserDialog())
+            {
+                fbd.Description = "Seleccion\u00E1 la unidad USB o carpeta de destino";
+                if (fbd.ShowDialog(this) != DialogResult.OK) return;
+
+                try
+                {
+                    string destName = System.IO.Path.GetFileName(it.Path);
+                    string destPath = System.IO.Path.Combine(fbd.SelectedPath, destName);
+                    File.Copy(it.Path, destPath, true);
+                    MessageBox.Show(this,
+                        "Perfil exportado a:\n" + destPath,
+                        "Exportar", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Error exportando: " + ex.Message,
+                        "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void CreateNewProfile()
+        {
+            string dir = ResolveImplementosDir();
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            string baseName = "nuevo_implemento";
+            string candidate = System.IO.Path.Combine(dir, baseName + ".json");
+            int n = 2;
+            while (File.Exists(candidate))
+            {
+                candidate = System.IO.Path.Combine(dir, baseName + "_" + n + ".json");
+                n++;
+            }
+
+            var impl = new ImplementoConfig
+            {
+                Id = Guid.NewGuid().ToString("N").Substring(0, 12),
+                Nombre = "Nuevo Implemento",
+                Setup = new ImplementoSetup(),
+                Trenes = new List<TrenConfig>
+                {
+                    new TrenConfig { Id = 1, Nombre = "Delantero", Surcos = 0 }
+                },
+                MapeoSensores = new List<SensorConfig>()
+            };
+
+            try
+            {
+                var opts = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+                File.WriteAllText(candidate, JsonSerializer.Serialize(impl, opts));
+                ReloadList();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Error creando perfil: " + ex.Message,
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private static string ResolveImplementosDir()
         {
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+            return System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
                 "data", "implementos");
         }
 

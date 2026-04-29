@@ -172,6 +172,14 @@ namespace AgroParallel.VistaX
             return Task.CompletedTask;
         }
 
+        public async Task PublishAsync(MqttApplicationMessage msg)
+        {
+            if (_client != null && _client.IsConnected && msg != null)
+            {
+                await _client.PublishAsync(msg, _cts.Token);
+            }
+        }
+
         public async Task DisconnectAsync()
         {
             if (_client != null && _client.IsConnected)
