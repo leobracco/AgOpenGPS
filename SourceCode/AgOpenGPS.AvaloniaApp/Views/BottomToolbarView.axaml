@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.BottomToolbarView"
+             x:DataType="vm:BottomToolbarViewModel">
+    <Border Classes="surface" Padding="12,8">
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+            <ToggleButton Classes="toolbar" Content="SECCIONES AUTO" IsChecked="{Binding IsSectionMasterAuto}" Command="{Binding ToggleMasterAutoCommand}"/>
+            <Button Classes="toolbar" Content="| AB |" Command="{Binding PreviousLineCommand}"/>
+            <ToggleButton Classes="toolbar" Content="▶ PLAY" IsChecked="{Binding IsPlaying}" Command="{Binding TogglePlayCommand}"/>
+            <Button Classes="toolbar" Content="| AB ▶" Command="{Binding NextLineCommand}"/>
+            <ToggleButton Classes="toolbar" Content="AUTOSTEER" IsChecked="{Binding IsAutoSteerOn}" Command="{Binding ToggleAutoSteerCommand}"/>
+        </StackPanel>
+    </Border>
+</UserControl>

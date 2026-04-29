@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 940" width="1672" height="940" font-family="Inter, 'Segoe UI', Roboto, sans-serif">
+  <!-- ============================================================
+       Visual mockup of the AgOpenGPS.AvaloniaApp Dashboard layout.
+       Mirrors DashboardView.axaml: outer margin 12, Grid rows
+       (80 | * | 52 | 80) and columns (240 | * | 320).
+       Palette comes from Themes/Colors.axaml. Branding "CentriX"
+       is the default in Config/branding.json.
+       ============================================================ -->
+  <defs>
+    <linearGradient id="viewportSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a1f0d"/>
+      <stop offset="1" stop-color="#050b07"/>
+    </linearGradient>
+    <linearGradient id="fieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a1108"/>
+      <stop offset="1" stop-color="#1c0804"/>
+    </linearGradient>
+    <linearGradient id="coverageGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#404045"/>
+      <stop offset="1" stop-color="#1f1f22"/>
+    </linearGradient>
+  </defs>
+
+  <!-- BackgroundColor #0E0E0E -->
+  <rect width="1672" height="940" fill="#0E0E0E"/>
+
+  <!-- =================== HEADER BAR (Row 0) =================== -->
+  <!-- x=12..1660 y=12..92, surface card -->
+  <rect x="12" y="12" width="1648" height="80" rx="8" fill="#1A1A1A"/>
+
+  <!-- Brand: PilotName (CentriX) + Tagline -->
+  <text x="32" y="46" fill="#FFFFFF" font-size="22" font-weight="600">CentriX</text>
+  <text x="32" y="68" fill="#4CD964" font-size="10" letter-spacing="2">PRECISION SEEDING CO-PILOT</text>
+
+  <!-- 4 KPI tiles centered in header -->
+  <!-- tile width 160, spacing 14, total 4*160 + 3*14 = 682. Centered around x=836 → starts x=495 -->
+  <!-- TILE 1: VELOCIDAD -->
+  <rect x="495" y="22" width="160" height="60" rx="10" fill="#1A1A1A" stroke="#222222" stroke-width="1"/>
+  <text x="509" y="40" fill="#9A9A9A" font-size="11" letter-spacing="1">VELOCIDAD</text>
+  <text x="509" y="68" fill="#FFFFFF" font-size="26" font-weight="700">7.8</text>
+  <text x="565" y="68" fill="#9A9A9A" font-size="12">km/h</text>
+
+  <!-- TILE 2: RPM -->
+  <rect x="669" y="22" width="160" height="60" rx="10" fill="#1A1A1A" stroke="#222222" stroke-width="1"/>
+  <text x="683" y="40" fill="#9A9A9A" font-size="11" letter-spacing="1">RPM</text>
+  <text x="683" y="68" fill="#FFFFFF" font-size="26" font-weight="700">1550</text>
+  <text x="755" y="68" fill="#9A9A9A" font-size="12">rpm</text>
+
+  <!-- TILE 3: GPS -->
+  <rect x="843" y="22" width="160" height="60" rx="10" fill="#1A1A1A" stroke="#222222" stroke-width="1"/>
+  <text x="857" y="40" fill="#9A9A9A" font-size="11" letter-spacing="1">GPS</text>
+  <text x="975" y="40" fill="#4CD964" font-size="11" letter-spacing="1">FIX</text>
+  <text x="857" y="68" fill="#FFFFFF" font-size="26" font-weight="700">RTK</text>
+
+  <!-- TILE 4: HECTAREAS -->
+  <rect x="1017" y="22" width="160" height="60" rx="10" fill="#1A1A1A" stroke="#222222" stroke-width="1"/>
+  <text x="1031" y="40" fill="#9A9A9A" font-size="11" letter-spacing="1">HECTAREAS</text>
+  <text x="1031" y="68" fill="#FFFFFF" font-size="26" font-weight="700">23.6</text>
+  <text x="1099" y="68" fill="#9A9A9A" font-size="12">ha</text>
+
+  <!-- =================== LEFT: POR SURCO (Row 1, Col 0) =================== -->
+  <!-- Cell x=12..252 (w=240), Margin 0,12,12,0 → x=12..240, y=104..796 -->
+  <rect x="12" y="104" width="228" height="692" rx="8" fill="#1A1A1A"/>
+  <text x="26" y="130" fill="#9A9A9A" font-size="11" font-weight="600" letter-spacing="2">POR SURCO</text>
+
+  <!-- Column headers -->
+  <text x="26" y="158" fill="#9A9A9A" font-size="11" letter-spacing="1">SURCO</text>
+  <text x="100" y="158" fill="#9A9A9A" font-size="11" letter-spacing="1">SEM/M</text>
+  <text x="200" y="158" fill="#9A9A9A" font-size="11" letter-spacing="1" text-anchor="end">ESTADO</text>
+
+  <!-- 24 row entries. Mostly green, a couple warning, one critical. -->
+  <!-- Each row ~22 px high. -->
+  <g font-size="13" fill="#FFFFFF">
+    <!-- 1 -->
+    <text x="36" y="184">1</text>   <text x="100" y="184">5.2</text>  <circle cx="208" cy="180" r="5" fill="#4CD964"/>
+    <text x="36" y="206">2</text>   <text x="100" y="206">5.1</text>  <circle cx="208" cy="202" r="5" fill="#4CD964"/>
+    <text x="36" y="228">3</text>   <text x="100" y="228">5.3</text>  <circle cx="208" cy="224" r="5" fill="#4CD964"/>
+    <text x="36" y="250">4</text>   <text x="100" y="250">5.2</text>  <circle cx="208" cy="246" r="5" fill="#4CD964"/>
+    <text x="36" y="272">5</text>   <text x="100" y="272">5.0</text>  <circle cx="208" cy="268" r="5" fill="#4CD964"/>
+    <text x="36" y="294">6</text>   <text x="100" y="294">4.8</text>  <circle cx="208" cy="290" r="5" fill="#FF9500"/>
+    <text x="36" y="316" fill="#FF3B30">7</text>   <text x="100" y="316" fill="#FF3B30">0.0</text>  <circle cx="208" cy="312" r="5" fill="#FF3B30"/>
+    <text x="36" y="338">8</text>   <text x="100" y="338">5.4</text>  <circle cx="208" cy="334" r="5" fill="#4CD964"/>
+    <text x="36" y="360">9</text>   <text x="100" y="360">5.1</text>  <circle cx="208" cy="356" r="5" fill="#4CD964"/>
+    <text x="36" y="382">10</text>  <text x="100" y="382">5.2</text>  <circle cx="208" cy="378" r="5" fill="#4CD964"/>
+    <text x="36" y="404">11</text>  <text x="100" y="404">5.3</text>  <circle cx="208" cy="400" r="5" fill="#4CD964"/>
+    <text x="36" y="426">12</text>  <text x="100" y="426">5.1</text>  <circle cx="208" cy="422" r="5" fill="#4CD964"/>
+    <text x="36" y="448">13</text>  <text x="100" y="448">5.0</text>  <circle cx="208" cy="444" r="5" fill="#4CD964"/>
+    <text x="36" y="470">14</text>  <text x="100" y="470">5.2</text>  <circle cx="208" cy="466" r="5" fill="#4CD964"/>
+    <text x="36" y="492">15</text>  <text x="100" y="492">5.3</text>  <circle cx="208" cy="488" r="5" fill="#4CD964"/>
+    <text x="36" y="514">16</text>  <text x="100" y="514">4.9</text>  <circle cx="208" cy="510" r="5" fill="#FF9500"/>
+    <text x="36" y="536">17</text>  <text x="100" y="536">5.2</text>  <circle cx="208" cy="532" r="5" fill="#4CD964"/>
+    <text x="36" y="558">18</text>  <text x="100" y="558">5.1</text>  <circle cx="208" cy="554" r="5" fill="#4CD964"/>
+    <text x="36" y="580">19</text>  <text x="100" y="580">5.3</text>  <circle cx="208" cy="576" r="5" fill="#4CD964"/>
+    <text x="36" y="602">20</text>  <text x="100" y="602">5.2</text>  <circle cx="208" cy="598" r="5" fill="#4CD964"/>
+    <text x="36" y="624">21</text>  <text x="100" y="624">5.1</text>  <circle cx="208" cy="620" r="5" fill="#4CD964"/>
+    <text x="36" y="646">22</text>  <text x="100" y="646">5.2</text>  <circle cx="208" cy="642" r="5" fill="#4CD964"/>
+    <text x="36" y="668">23</text>  <text x="100" y="668">5.3</text>  <circle cx="208" cy="664" r="5" fill="#4CD964"/>
+    <text x="36" y="690">24</text>  <text x="100" y="690">5.1</text>  <circle cx="208" cy="686" r="5" fill="#4CD964"/>
+  </g>
+
+  <!-- Footer of left panel: Dosis actual -->
+  <line x1="26" y1="710" x2="216" y2="710" stroke="#2A2A2A" stroke-width="1"/>
+  <text x="26" y="734" fill="#9A9A9A" font-size="11" letter-spacing="1">DOSIS ACTUAL</text>
+  <text x="26" y="770" fill="#FFFFFF" font-size="26" font-weight="700">5.2</text>
+  <text x="80" y="770" fill="#9A9A9A" font-size="12">sem/m</text>
+
+  <!-- =================== CENTER VIEWPORT (Row 1, Col 1) =================== -->
+  <!-- Cell x=252..1340 (w=1088). Margin 0,12,0,0 → x=252..1340, y=104..796 (h=692) -->
+  <rect x="252" y="104" width="1088" height="692" rx="8" fill="url(#viewportSky)"/>
+
+  <!-- Field perspective: tractor lane converging to vanishing point -->
+  <g transform="translate(252,104)">
+    <!-- Worked field area (red/brown) -->
+    <polygon points="0,692 1088,692 700,140 388,140" fill="url(#fieldGrad)" opacity="0.85"/>
+    <!-- Coverage swath already done (gray) -->
+    <polygon points="0,692 388,692 388,140 280,140" fill="url(#coverageGrad)" opacity="0.55"/>
+    <!-- Guidance lines -->
+    <g stroke="#1f7a2a" stroke-width="1" opacity="0.7">
+      <line x1="120" y1="692" x2="430" y2="140"/>
+      <line x1="240" y1="692" x2="478" y2="140"/>
+      <line x1="360" y1="692" x2="525" y2="140"/>
+      <line x1="480" y1="692" x2="572" y2="140"/>
+      <line x1="600" y1="692" x2="619" y2="140"/>
+      <line x1="720" y1="692" x2="666" y2="140"/>
+      <line x1="840" y1="692" x2="713" y2="140"/>
+      <line x1="960" y1="692" x2="760" y2="140"/>
+    </g>
+    <!-- Active centerline -->
+    <line x1="544" y1="692" x2="544" y2="140" stroke="#bcbcc0" stroke-width="2"/>
+    <!-- Headland marker top -->
+    <line x1="370" y1="140" x2="720" y2="140" stroke="#3aa6f5" stroke-width="2" opacity="0.7"/>
+    <!-- Tractor + implement -->
+    <g transform="translate(544, 540)">
+      <rect x="-60" y="-6" width="120" height="12" fill="#FF3B30"/>
+      <circle cx="-60" cy="0" r="4" fill="#4CD964"/>
+      <circle cx="-30" cy="0" r="4" fill="#4CD964"/>
+      <circle cx="0"   cy="0" r="4" fill="#4CD964"/>
+      <circle cx="30"  cy="0" r="4" fill="#4CD964"/>
+      <circle cx="60"  cy="0" r="4" fill="#4CD964"/>
+      <rect x="-12" y="6" width="24" height="36" fill="#0a0a0a" stroke="#FF3B30" stroke-width="1"/>
+      <text x="0" y="-14" fill="#FFFFFF" font-size="14" text-anchor="middle">↑ 1L</text>
+    </g>
+    <!-- Distance indicator -->
+    <text x="820" y="220" fill="#FFFFFF" font-size="13">242 m →</text>
+    <!-- Top HUD numbers -->
+    <text x="544" y="36" fill="#FFFFFF" font-size="22" font-weight="700" text-anchor="middle">▶ 0 ◀</text>
+    <text x="20"  y="36" fill="#FFFFFF" font-size="12">8.3 cm</text>
+    <text x="1068" y="36" fill="#FFFFFF" font-size="12" text-anchor="end">13.8</text>
+  </g>
+
+  <!-- =================== RIGHT: CONTROL (Row 1, Col 2) =================== -->
+  <!-- Cell x=1340..1660 (w=320). Margin 12,12,0,0 → x=1352..1660 (w=308), y=104..796 -->
+  <rect x="1352" y="104" width="308" height="692" rx="8" fill="#1A1A1A"/>
+  <text x="1370" y="130" fill="#9A9A9A" font-size="11" font-weight="600" letter-spacing="2">CONTROL</text>
+
+  <!-- Densidad objetivo -->
+  <text x="1370" y="166" fill="#9A9A9A" font-size="11" letter-spacing="1">DENSIDAD OBJETIVO</text>
+  <text x="1370" y="200" fill="#FFFFFF" font-size="26" font-weight="700">5.2</text>
+  <text x="1424" y="200" fill="#9A9A9A" font-size="12">sem/m</text>
+
+  <!-- Variacion -->
+  <text x="1370" y="240" fill="#9A9A9A" font-size="11" letter-spacing="1">VARIACION</text>
+  <text x="1370" y="266" fill="#4CD964" font-size="20" font-weight="600">+1.8 %</text>
+
+  <!-- Corte por seccion -->
+  <text x="1370" y="304" fill="#9A9A9A" font-size="11" letter-spacing="1">CORTE POR SECCION</text>
+  <g transform="translate(1370,318)">
+    <rect x="0"   y="0" width="22" height="22" rx="4" fill="#4CD964"/>
+    <rect x="26"  y="0" width="22" height="22" rx="4" fill="#4CD964"/>
+    <rect x="52"  y="0" width="22" height="22" rx="4" fill="#4CD964"/>
+    <rect x="78"  y="0" width="22" height="22" rx="4" fill="#4CD964"/>
+    <rect x="104" y="0" width="22" height="22" rx="4" fill="#3a3a3a"/>
+    <rect x="130" y="0" width="22" height="22" rx="4" fill="#3a3a3a"/>
+    <rect x="156" y="0" width="22" height="22" rx="4" fill="#3a3a3a"/>
+    <rect x="182" y="0" width="22" height="22" rx="4" fill="#3a3a3a"/>
+  </g>
+
+  <!-- Estado dosificador -->
+  <text x="1370" y="386" fill="#9A9A9A" font-size="11" letter-spacing="1">ESTADO DOSIFICADOR</text>
+  <text x="1370" y="412" fill="#4CD964" font-size="16" font-weight="600">OK ✓</text>
+
+  <!-- Linea actual -->
+  <text x="1370" y="450" fill="#9A9A9A" font-size="11" letter-spacing="1">LINEA ACTUAL</text>
+  <text x="1370" y="476" fill="#FFFFFF" font-size="16" font-weight="600">1 L</text>
+  <rect x="1560" y="458" width="80" height="26" rx="6" fill="#222222" stroke="#2A2A2A"/>
+  <text x="1600" y="476" fill="#FFFFFF" font-size="11" text-anchor="middle">Cambiar línea</text>
+
+  <!-- Superposicion -->
+  <text x="1370" y="514" fill="#9A9A9A" font-size="11" letter-spacing="1">SUPERPOSICION</text>
+  <text x="1370" y="544" fill="#FFFFFF" font-size="26" font-weight="700">2.3</text>
+  <text x="1424" y="544" fill="#9A9A9A" font-size="12">cm</text>
+  <!-- mini histogram -->
+  <g transform="translate(1370,560)" fill="#4CD964">
+    <rect x="0"   y="14" width="6" height="16"/>
+    <rect x="9"   y="10" width="6" height="20"/>
+    <rect x="18"  y="6"  width="6" height="24"/>
+    <rect x="27"  y="2"  width="6" height="28"/>
+    <rect x="36"  y="8"  width="6" height="22"/>
+    <rect x="45"  y="12" width="6" height="18"/>
+    <rect x="54"  y="6"  width="6" height="24"/>
+    <rect x="63"  y="3"  width="6" height="27"/>
+    <rect x="72"  y="0"  width="6" height="30"/>
+    <rect x="81"  y="4"  width="6" height="26"/>
+    <rect x="90"  y="9"  width="6" height="21"/>
+    <rect x="99"  y="14" width="6" height="16"/>
+    <rect x="108" y="11" width="6" height="19"/>
+    <rect x="117" y="6"  width="6" height="24"/>
+    <rect x="126" y="9"  width="6" height="21"/>
+    <rect x="135" y="14" width="6" height="16"/>
+    <rect x="144" y="18" width="6" height="12"/>
+  </g>
+
+  <!-- =================== ROW 2: BOTTOM ALERTS =================== -->
+  <!-- Cell y=796..848 (h=52), Margin 0,12,0,0 → y=808..848 (h=40), x=12..1660 -->
+  <rect x="12" y="808" width="1648" height="40" rx="8" fill="#1A1A1A"/>
+  <text x="32" y="833" fill="#9A9A9A" font-size="11" font-weight="600" letter-spacing="2">ALERTAS</text>
+
+  <!-- Alert cards -->
+  <g transform="translate(110,816)">
+    <!-- critical -->
+    <rect x="0" y="0" width="220" height="24" rx="6" fill="#3A1414"/>
+    <circle cx="14" cy="12" r="6" fill="#FF3B30"/>
+    <text x="28" y="16" fill="#FFFFFF" font-size="12" font-weight="700">Surco 7</text>
+    <text x="78" y="16" fill="#9A9A9A" font-size="11">FALLA EN SURCO</text>
+
+    <!-- warning -->
+    <rect x="232" y="0" width="220" height="24" rx="6" fill="#3A2A0F"/>
+    <circle cx="246" cy="12" r="6" fill="#FF9500"/>
+    <text x="260" y="16" fill="#FFFFFF" font-size="12" font-weight="700">Surco 6</text>
+    <text x="310" y="16" fill="#9A9A9A" font-size="11">BAJA DENSIDAD</text>
+
+    <!-- warning -->
+    <rect x="464" y="0" width="240" height="24" rx="6" fill="#3A2A0F"/>
+    <circle cx="478" cy="12" r="6" fill="#FF9500"/>
+    <text x="492" y="16" fill="#FFFFFF" font-size="12" font-weight="700">Semilla doble</text>
+    <text x="572" y="16" fill="#9A9A9A" font-size="11">DETECTADA</text>
+
+    <!-- warning -->
+    <rect x="716" y="0" width="220" height="24" rx="6" fill="#3A2A0F"/>
+    <circle cx="730" cy="12" r="6" fill="#FF9500"/>
+    <text x="744" y="16" fill="#FFFFFF" font-size="12" font-weight="700">Velocidad</text>
+    <text x="810" y="16" fill="#9A9A9A" font-size="11">FUERA DE RANGO</text>
+  </g>
+
+  <text x="1640" y="833" fill="#9A9A9A" font-size="11" text-anchor="end">VER HISTORIAL ›</text>
+
+  <!-- =================== ROW 3: BOTTOM TOOLBAR =================== -->
+  <!-- Cell y=848..928 (h=80), Margin 0,12,0,0 → y=860..928 (h=68), x=12..1660 -->
+  <rect x="12" y="860" width="1648" height="68" rx="8" fill="#1A1A1A"/>
+
+  <!-- Centered cluster of toolbar buttons -->
+  <g font-size="12" font-weight="600" fill="#FFFFFF">
+    <!-- SECCIONES AUTO (toggle, on → accent) -->
+    <rect x="540" y="876" width="160" height="36" rx="10" fill="#4CD964"/>
+    <text x="620" y="899" text-anchor="middle" fill="#0E0E0E">SECCIONES AUTO</text>
+
+    <!-- previous AB -->
+    <rect x="710" y="876" width="60" height="36" rx="10" fill="#222222"/>
+    <text x="740" y="899" text-anchor="middle">| AB</text>
+
+    <!-- PLAY (toggle, off) -->
+    <rect x="780" y="876" width="100" height="36" rx="10" fill="#222222"/>
+    <text x="830" y="899" text-anchor="middle">▶ PLAY</text>
+
+    <!-- next AB -->
+    <rect x="890" y="876" width="60" height="36" rx="10" fill="#222222"/>
+    <text x="920" y="899" text-anchor="middle">AB ▶</text>
+
+    <!-- AUTOSTEER (toggle, off) -->
+    <rect x="960" y="876" width="140" height="36" rx="10" fill="#222222"/>
+    <text x="1030" y="899" text-anchor="middle">AUTOSTEER</text>
+  </g>
+
+</svg>

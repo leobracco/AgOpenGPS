@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels.Items"
+             xmlns:cv="clr-namespace:AgOpenGPS.AvaloniaApp.Converters"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.Items.RowStatusItemView"
+             x:DataType="vm:RowStatusItemViewModel">
+    <Grid ColumnDefinitions="*,*,*" Height="22">
+        <TextBlock Grid.Column="0" Text="{Binding RowNumber}" VerticalAlignment="Center" Foreground="{DynamicResource ForegroundColorBrush}"/>
+        <TextBlock Grid.Column="1" Text="{Binding SeedsPerMeter, StringFormat={}{0:F1}}" VerticalAlignment="Center" Foreground="{DynamicResource ForegroundColorBrush}"/>
+        <Ellipse Grid.Column="2"
+                 Classes="statusLed"
+                 HorizontalAlignment="Right"
+                 VerticalAlignment="Center"
+                 Fill="{Binding Severity, Converter={x:Static cv:RowStatusToBrushConverter.Instance}}"/>
+    </Grid>
+</UserControl>

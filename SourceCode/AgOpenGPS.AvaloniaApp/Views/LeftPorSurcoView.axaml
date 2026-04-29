@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.LeftPorSurcoView"
+             x:DataType="vm:LeftPorSurcoViewModel">
+    <Border Classes="surface" Padding="14,12">
+        <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Classes="sectionTitle" Text="{Binding Title}" Margin="0,0,0,10"/>
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*,*" Margin="0,0,0,6">
+                <TextBlock Grid.Column="0" Classes="kpiLabel" Text="SURCO"/>
+                <TextBlock Grid.Column="1" Classes="kpiLabel" Text="SEM/M"/>
+                <TextBlock Grid.Column="2" Classes="kpiLabel" Text="ESTADO" HorizontalAlignment="Right"/>
+            </Grid>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="2"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</UserControl>

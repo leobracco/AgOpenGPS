@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "pilotName": "CentriX",
+  "tagline": "Precision Seeding Co-Pilot",
+  "accentColorHex": "#4CD964",
+  "warningColorHex": "#FF9500",
+  "errorColorHex": "#FF3B30",
+  "backgroundColorHex": "#0E0E0E",
+  "surfaceColorHex": "#1A1A1A",
+  "foregroundColorHex": "#FFFFFF",
+  "fontFamily": "Inter",
+  "showVersionInHeader": true
+}

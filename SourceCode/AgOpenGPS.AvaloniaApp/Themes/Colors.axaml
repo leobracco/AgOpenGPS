@@ -1,0 +1,23 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Defaults; BrandingService overrides these at runtime via App.Resources["AccentColor"] = ... -->
+    <Color x:Key="BackgroundColor">#0E0E0E</Color>
+    <Color x:Key="SurfaceColor">#1A1A1A</Color>
+    <Color x:Key="SurfaceElevatedColor">#222222</Color>
+    <Color x:Key="ForegroundColor">#FFFFFF</Color>
+    <Color x:Key="ForegroundMutedColor">#9A9A9A</Color>
+    <Color x:Key="AccentColor">#4CD964</Color>
+    <Color x:Key="WarningColor">#FF9500</Color>
+    <Color x:Key="ErrorColor">#FF3B30</Color>
+    <Color x:Key="DividerColor">#2A2A2A</Color>
+
+    <SolidColorBrush x:Key="BackgroundColorBrush" Color="{DynamicResource BackgroundColor}"/>
+    <SolidColorBrush x:Key="SurfaceColorBrush" Color="{DynamicResource SurfaceColor}"/>
+    <SolidColorBrush x:Key="SurfaceElevatedColorBrush" Color="{DynamicResource SurfaceElevatedColor}"/>
+    <SolidColorBrush x:Key="ForegroundColorBrush" Color="{DynamicResource ForegroundColor}"/>
+    <SolidColorBrush x:Key="ForegroundMutedColorBrush" Color="{DynamicResource ForegroundMutedColor}"/>
+    <SolidColorBrush x:Key="AccentColorBrush" Color="{DynamicResource AccentColor}"/>
+    <SolidColorBrush x:Key="WarningColorBrush" Color="{DynamicResource WarningColor}"/>
+    <SolidColorBrush x:Key="ErrorColorBrush" Color="{DynamicResource ErrorColor}"/>
+    <SolidColorBrush x:Key="DividerColorBrush" Color="{DynamicResource DividerColor}"/>
+</ResourceDictionary>

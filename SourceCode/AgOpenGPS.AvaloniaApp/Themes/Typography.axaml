@@ -1,0 +1,11 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+    <FontFamily x:Key="PrimaryFont">fonts:Inter#Inter, $Default</FontFamily>
+    <sys:Double x:Key="FontSizeKpi">26</sys:Double>
+    <sys:Double x:Key="FontSizeKpiUnit">12</sys:Double>
+    <sys:Double x:Key="FontSizeKpiLabel">11</sys:Double>
+    <sys:Double x:Key="FontSizeSection">12</sys:Double>
+    <sys:Double x:Key="FontSizeBody">13</sys:Double>
+    <sys:Double x:Key="FontSizeBrand">22</sys:Double>
+</ResourceDictionary>

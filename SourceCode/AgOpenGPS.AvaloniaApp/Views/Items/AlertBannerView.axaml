@@ -1,0 +1,12 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels.Items"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.Items.AlertBannerView"
+             x:DataType="vm:AlertBannerViewModel">
+    <Border Name="Root" Classes="alertCard">
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="{DynamicResource ForegroundColorBrush}"/>
+            <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource ForegroundMutedColorBrush}"/>
+        </StackPanel>
+    </Border>
+</UserControl>
