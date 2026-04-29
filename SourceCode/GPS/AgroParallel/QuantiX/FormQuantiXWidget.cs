@@ -431,8 +431,20 @@ namespace AgroParallel.QuantiX
                     m.Manual = !m.Manual;
                     if (m.Manual)
                     {
-                        // Inicializar con la dosis actual.
-                        m.ManualDosis = m.DosisObjetivo > 0 ? m.DosisObjetivo : m.DosisReal;
+                        // Inicializar con la dosis configurada.
+                        m.ManualDosis = m.DosisObjetivo;
+                        // Si no hay objetivo, buscar la dosis fija de la config del motor.
+                        if (m.ManualDosis <= 0 && _motores != null)
+                        {
+                            foreach (var n in _motores.Nodos)
+                            {
+                                if (!string.Equals(n.Uid, kv.Key, StringComparison.OrdinalIgnoreCase)) continue;
+                                if (mi < n.Motores.Length)
+                                    m.ManualDosis = n.Motores[mi].DosisFija;
+                                break;
+                            }
+                        }
+                        if (m.ManualDosis <= 0) m.ManualDosis = m.DosisReal;
                         if (_numDosis != null)
                         {
                             _numDosis.Value = (decimal)Math.Max(0, Math.Min(9999, m.ManualDosis));
