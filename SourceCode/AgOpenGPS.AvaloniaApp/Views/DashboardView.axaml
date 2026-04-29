@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.DashboardView"
+             x:DataType="vm:DashboardViewModel">
+    <Grid RowDefinitions="80,*,52,80" ColumnDefinitions="240,*,320" Margin="12">
+        <ContentControl Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Content="{Binding Header}"/>
+
+        <ContentControl Grid.Row="1" Grid.Column="0" Margin="0,12,12,0" Content="{Binding LeftPorSurco}"/>
+        <ContentControl Grid.Row="1" Grid.Column="1" Margin="0,12,0,0" Content="{Binding CenterViewport}"/>
+        <ContentControl Grid.Row="1" Grid.Column="2" Margin="12,12,0,0" Content="{Binding RightControl}"/>
+
+        <ContentControl Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,12,0,0" Content="{Binding BottomAlerts}"/>
+        <ContentControl Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,12,0,0" Content="{Binding BottomToolbar}"/>
+    </Grid>
+</UserControl>

@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.BottomAlertsView"
+             x:DataType="vm:BottomAlertsViewModel">
+    <Border Classes="surface" Padding="12,8">
+        <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Classes="sectionTitle" Text="ALERTAS" VerticalAlignment="Center" Margin="0,0,18,0"/>
+            <ItemsControl ItemsSource="{Binding Alerts}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="10"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </DockPanel>
+    </Border>
+</UserControl>

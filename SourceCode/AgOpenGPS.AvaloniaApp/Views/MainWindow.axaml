@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels"
+        xmlns:v="clr-namespace:AgOpenGPS.AvaloniaApp.Views"
+        x:Class="AgOpenGPS.AvaloniaApp.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="AgOpenGPS"
+        Width="1672"
+        Height="940"
+        MinWidth="1280"
+        MinHeight="780"
+        Classes="dashboard"
+        Background="{DynamicResource BackgroundColorBrush}">
+    <ContentControl Content="{Binding Dashboard}"/>
+</Window>

@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels.Items"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.Items.KpiTileView"
+             x:DataType="vm:KpiTileViewModel">
+    <Border Classes="kpi">
+        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Row="0" Grid.Column="0" Classes="kpiLabel" Text="{Binding Label}"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Classes="kpiLabel" Text="{Binding Badge}" Foreground="{DynamicResource AccentColorBrush}"/>
+            <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="0">
+                <TextBlock Classes="kpiValue" Text="{Binding Value}"/>
+                <TextBlock Classes="kpiUnit" Text="{Binding Unit}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

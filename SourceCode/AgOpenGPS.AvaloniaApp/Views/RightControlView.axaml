@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.RightControlView"
+             x:DataType="vm:RightControlViewModel">
+    <Border Classes="surface" Padding="16,14">
+        <StackPanel Spacing="14">
+            <TextBlock Classes="sectionTitle" Text="{Binding Title}"/>
+
+            <StackPanel Spacing="2">
+                <TextBlock Classes="kpiLabel" Text="DENSIDAD OBJETIVO"/>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Classes="kpiValue" Text="{Binding TargetSeedsPerMeter, StringFormat={}{0:F1}}"/>
+                    <TextBlock Classes="kpiUnit" Text="sem/m"/>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="2">
+                <TextBlock Classes="kpiLabel" Text="VARIACION"/>
+                <TextBlock FontSize="20"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource AccentColorBrush}"
+                           Text="{Binding VariationPercent, StringFormat={}{0:+0.0;-0.0;0.0} %}"/>
+            </StackPanel>
+
+            <StackPanel Spacing="2">
+                <TextBlock Classes="kpiLabel" Text="ESTADO DOSIFICADOR"/>
+                <TextBlock FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource AccentColorBrush}"
+                           Text="{Binding DoserStatus}"/>
+            </StackPanel>
+
+            <StackPanel Spacing="2">
+                <TextBlock Classes="kpiLabel" Text="LINEA ACTUAL"/>
+                <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource ForegroundColorBrush}" Text="{Binding CurrentLine}"/>
+            </StackPanel>
+
+            <StackPanel Spacing="2">
+                <TextBlock Classes="kpiLabel" Text="SUPERPOSICION"/>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Classes="kpiValue" Text="{Binding OverlapCm, StringFormat={}{0:F1}}"/>
+                    <TextBlock Classes="kpiUnit" Text="cm"/>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

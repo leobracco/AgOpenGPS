@@ -1,0 +1,102 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style Selector="Window.dashboard">
+        <Setter Property="Background" Value="{DynamicResource BackgroundColorBrush}"/>
+        <Setter Property="FontFamily" Value="{DynamicResource PrimaryFont}"/>
+    </Style>
+
+    <Style Selector="Border.surface">
+        <Setter Property="Background" Value="{DynamicResource SurfaceColorBrush}"/>
+        <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+
+    <Style Selector="Border.kpi">
+        <Setter Property="Background" Value="{DynamicResource SurfaceColorBrush}"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="MinHeight" Value="56"/>
+    </Style>
+
+    <Style Selector="TextBlock.brand">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeBrand}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource ForegroundColorBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="TextBlock.brandSubtitle">
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentColorBrush}"/>
+        <Setter Property="LetterSpacing" Value="2"/>
+    </Style>
+
+    <Style Selector="TextBlock.kpiLabel">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeKpiLabel}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ForegroundMutedColorBrush}"/>
+        <Setter Property="LetterSpacing" Value="1"/>
+    </Style>
+
+    <Style Selector="TextBlock.kpiValue">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeKpi}"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="{DynamicResource ForegroundColorBrush}"/>
+    </Style>
+
+    <Style Selector="TextBlock.kpiUnit">
+        <Setter Property="FontSize" Value="{DynamicResource FontSizeKpiUnit}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ForegroundMutedColorBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Bottom"/>
+        <Setter Property="Margin" Value="4,0,0,4"/>
+    </Style>
+
+    <Style Selector="TextBlock.sectionTitle">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="LetterSpacing" Value="2"/>
+        <Setter Property="Foreground" Value="{DynamicResource ForegroundMutedColorBrush}"/>
+    </Style>
+
+    <Style Selector="Ellipse.statusLed">
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="Height" Value="10"/>
+    </Style>
+
+    <Style Selector="Border.alertCard">
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="Background" Value="#1F2A1F"/>
+    </Style>
+
+    <Style Selector="Border.alertCard.warning">
+        <Setter Property="Background" Value="#3A2A0F"/>
+    </Style>
+
+    <Style Selector="Border.alertCard.critical">
+        <Setter Property="Background" Value="#3A1414"/>
+    </Style>
+
+    <Style Selector="Button.toolbar">
+        <Setter Property="Background" Value="{DynamicResource SurfaceColorBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ForegroundColorBrush}"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="MinHeight" Value="48"/>
+        <Setter Property="MinWidth" Value="48"/>
+    </Style>
+
+    <Style Selector="Button.toolbar:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource SurfaceElevatedColorBrush}"/>
+    </Style>
+
+    <Style Selector="ToggleButton.toolbar">
+        <Setter Property="Background" Value="{DynamicResource SurfaceColorBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ForegroundColorBrush}"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="14,8"/>
+        <Setter Property="MinHeight" Value="48"/>
+    </Style>
+
+    <Style Selector="ToggleButton.toolbar:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentColorBrush}"/>
+    </Style>
+</Styles>

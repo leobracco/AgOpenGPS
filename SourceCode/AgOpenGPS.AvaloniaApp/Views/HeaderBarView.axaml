@@ -1,0 +1,25 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:AgOpenGPS.AvaloniaApp.ViewModels"
+             x:Class="AgOpenGPS.AvaloniaApp.Views.HeaderBarView"
+             x:DataType="vm:HeaderBarViewModel">
+    <Border Classes="surface" Padding="16,10">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock Classes="brand" Text="{Binding PilotName}"/>
+                <TextBlock Classes="brandSubtitle" Text="{Binding Tagline}"/>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="14"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <ContentControl Content="{Binding SpeedTile}" MinWidth="160"/>
+                <ContentControl Content="{Binding RpmTile}" MinWidth="160"/>
+                <ContentControl Content="{Binding GpsTile}" MinWidth="160"/>
+                <ContentControl Content="{Binding HectaresTile}" MinWidth="160"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>
