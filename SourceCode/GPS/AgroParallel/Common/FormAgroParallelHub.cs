@@ -418,18 +418,9 @@ namespace AgroParallel.Common
         private Form CreateOrbitXContent(int tab)
         {
             var cfg = OrbitXConfig.Load();
-            // Buscar el sync en FormGPS.
-            OrbitXSync sync = null;
-            try
-            {
-                var field = _parent.GetType().GetField("orbitXSync",
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (field != null) sync = field.GetValue(_parent) as OrbitXSync;
-            }
-            catch { }
             switch (tab)
             {
-                case 0: return new FormOrbitXConfig(cfg, sync);
+                case 0: return new FormOrbitXConfig(cfg, _parent.orbitXSync);
                 default: return null;
             }
         }

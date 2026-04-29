@@ -127,7 +127,7 @@ namespace AgOpenGPS
         // SHAPEFILE_MOD_END
 
         // ORBITX_MOD_START
-        private OrbitXSync orbitXSync;
+        public OrbitXSync orbitXSync;
         // ORBITX_MOD_END
         // SECTIONX_MOD_START
         public SectionXBridge sectionXBridge;
@@ -1973,6 +1973,24 @@ namespace AgOpenGPS
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[SectionX] ReloadBridge: " + ex.Message);
+            }
+        }
+
+        public void ReloadOrbitXSync()
+        {
+            try
+            {
+                if (orbitXSync != null) { orbitXSync.Stop(); orbitXSync = null; }
+                var cfg = OrbitXConfig.Load();
+                if (cfg.Enabled && !string.IsNullOrEmpty(cfg.DeviceToken))
+                {
+                    orbitXSync = new OrbitXSync(this, cfg);
+                    orbitXSync.Start();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[OrbitX] ReloadSync: " + ex.Message);
             }
         }
 

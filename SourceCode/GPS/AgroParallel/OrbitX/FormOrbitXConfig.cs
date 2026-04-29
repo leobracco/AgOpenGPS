@@ -133,15 +133,27 @@ namespace AgroParallel.OrbitX
             _statusTimer = new Timer { Interval = 1000 };
             _statusTimer.Tick += (s, ev) =>
             {
-                if (_sync == null) { lblStatus.Text = "Sync no iniciado"; return; }
-                string status = _sync.IsRunning ? "\u25CF Activo" : "\u25CB Detenido";
-                status += " \u2014 " + _sync.FilesSynced + " archivos sincronizados";
-                if (_sync.LastSyncTime.HasValue)
-                    status += "\n\u00DAltimo sync: " + _sync.LastSyncTime.Value.ToString("HH:mm:ss");
-                if (!string.IsNullOrEmpty(_sync.LastError))
-                    status += "\n\u26A0 " + _sync.LastError;
+                // Buscar sync vivo en FormGPS.
+                OrbitXSync liveSync = _sync;
+                if (liveSync == null)
+                {
+                    try
+                    {
+                        foreach (Form f in Application.OpenForms)
+                            if (f is AgOpenGPS.FormGPS gps && gps.orbitXSync != null)
+                            { liveSync = gps.orbitXSync; break; }
+                    }
+                    catch { }
+                }
+                if (liveSync == null) { lblStatus.Text = "Sync no iniciado. Guard\u00E1 la config para activar."; return; }
+                string status = liveSync.IsRunning ? "\u25CF Activo" : "\u25CB Detenido";
+                status += " \u2014 " + liveSync.FilesSynced + " archivos sincronizados";
+                if (liveSync.LastSyncTime.HasValue)
+                    status += "\n\u00DAltimo sync: " + liveSync.LastSyncTime.Value.ToString("HH:mm:ss");
+                if (!string.IsNullOrEmpty(liveSync.LastError))
+                    status += "\n\u26A0 " + liveSync.LastError;
                 lblStatus.Text = status;
-                lblStatus.ForeColor = _sync.IsRunning ? Theme.Accent : Theme.TextSecondary;
+                lblStatus.ForeColor = liveSync.IsRunning ? Theme.Accent : Theme.TextSecondary;
             };
             _statusTimer.Start();
 
@@ -155,7 +167,18 @@ namespace AgroParallel.OrbitX
 
             var btnSave = Theme.MkAccentButton("\u2713  GUARDAR", 120, 34);
             btnSave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnSave.Click += (s, ev) => { _cfg.Save(); };
+            btnSave.Click += (s, ev) =>
+            {
+                _cfg.Save();
+                // Recargar el sync en caliente.
+                try
+                {
+                    foreach (Form f in Application.OpenForms)
+                        if (f is AgOpenGPS.FormGPS gps)
+                        { gps.ReloadOrbitXSync(); break; }
+                }
+                catch { }
+            };
             footer.Controls.Add(btnSave);
 
             var btnSync = Theme.MkButton("\U0001F504  SYNC AHORA", Color.FromArgb(40, 40, 45),
@@ -163,9 +186,19 @@ namespace AgroParallel.OrbitX
             btnSync.Location = new Point(20, 8);
             btnSync.Click += (s, ev) =>
             {
-                if (_sync != null && _sync.IsRunning) return;
                 _cfg.Save();
-                if (_sync != null) _sync.Start();
+                // Asegurar que el sync esté corriendo.
+                try
+                {
+                    foreach (Form f in Application.OpenForms)
+                        if (f is AgOpenGPS.FormGPS gps)
+                        {
+                            if (gps.orbitXSync == null || !gps.orbitXSync.IsRunning)
+                                gps.ReloadOrbitXSync();
+                            break;
+                        }
+                }
+                catch { }
             };
             footer.Controls.Add(btnSync);
 
