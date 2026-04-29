@@ -365,16 +365,6 @@ namespace AgOpenGPS
 
         public FormGPS()
         {
-            if (CefSharp.Cef.IsInitialized == false)
-            {
-                var settings = new CefSharp.WinForms.CefSettings();
-
-                // Opcional: Desactiva aceleración por hardware si el panel se ve negro
-                settings.CefCommandLineArgs.Add("disable-gpu", "1");
-
-                CefSharp.Cef.Initialize(settings);
-            }
-
             //winform initialization
             InitializeComponent();
 
@@ -966,15 +956,6 @@ namespace AgOpenGPS
                 catch { }
             }
 
-            // VISTAX_MOD_START
-            // Shutdown de CefSharp. Sin esto los subprocesos de Chromium pueden
-            // quedar vivos y colgar la salida del proceso principal.
-            try
-            {
-                if (CefSharp.Cef.IsInitialized == true)
-                    CefSharp.Cef.Shutdown();
-            }
-            catch { }
             // VISTAX_MOD_END
 
             // Close the main application form
@@ -1732,29 +1713,6 @@ namespace AgOpenGPS
             }
         }
 
-        private void OpenAgroParallelModulePopup(AgroParallelModuleEntry module)
-        {
-            try
-            {
-                // VistaX ahora es nativo. Ruteo al popup GDI+ singleton en vez
-                // del popup CefSharp (que cargaba el server Node en localhost:3001
-                // y abria una ventana nueva por cada click).
-                if (string.Equals(module.Name, "VistaX", StringComparison.OrdinalIgnoreCase))
-                {
-                    OpenVistaXNativePopup();
-                    return;
-                }
-
-                var popup = new ModulePopupForm(module);
-                popup.Show(this);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("[AgroParallel] Popup " + module.Name
-                    + " error: " + ex.Message);
-                TimedMessageBox(2500, "AgroParallel", module.Name + ": " + ex.Message);
-            }
-        }
 
         public void OpenVistaXPerfilesDialog()
         {
