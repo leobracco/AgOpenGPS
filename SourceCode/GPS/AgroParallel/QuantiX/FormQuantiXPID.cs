@@ -203,11 +203,41 @@ namespace AgroParallel.QuantiX
             btnSave.Click += (s, ev) => { _motores.Save(); SendConfig(); };
             body.Controls.Add(btnSave);
 
+            // ── Auto-Tune PID ──
+            var btnAutoTune = Theme.MkSecondaryButton("\U0001F3AF AUTO-TUNE PID", 170, 30);
+            btnAutoTune.Location = new Point(lx + 130, y);
+            bool _autoTuning = false;
+            btnAutoTune.Click += (s, ev) =>
+            {
+                _autoTuning = !_autoTuning;
+                if (_autoTuning)
+                {
+                    string nodoUid = GetSelectedNodoUid();
+                    int motorId = _cboMotor != null ? _cboMotor.SelectedIndex : 0;
+                    if (string.IsNullOrEmpty(nodoUid)) return;
+                    SendCommand(nodoUid, "{\"cmd\":\"autotune_start\",\"id\":" + motorId + "}");
+                    btnAutoTune.Text = "\u23F9 DETENER TUNE";
+                    btnAutoTune.BackColor = Theme.Warning;
+                    btnAutoTune.ForeColor = Color.Black;
+                }
+                else
+                {
+                    string nodoUid = GetSelectedNodoUid();
+                    int motorId = _cboMotor != null ? _cboMotor.SelectedIndex : 0;
+                    if (!string.IsNullOrEmpty(nodoUid))
+                        SendCommand(nodoUid, "{\"cmd\":\"autotune_stop\",\"id\":" + motorId + "}");
+                    btnAutoTune.Text = "\U0001F3AF AUTO-TUNE PID";
+                    btnAutoTune.BackColor = Theme.BgCard2;
+                    btnAutoTune.ForeColor = Theme.TextPrimary;
+                }
+            };
+            body.Controls.Add(btnAutoTune);
+
             var lblLive = new Label
             {
                 Name = "lblLive", Text = "", Font = Theme.FontSmall,
                 ForeColor = Theme.Accent, BackColor = Color.Transparent,
-                Location = new Point(lx + 140, y + 6), Size = new Size(420, 16)
+                Location = new Point(lx + 310, y + 6), Size = new Size(260, 16)
             };
             body.Controls.Add(lblLive);
             y += 38;
@@ -252,6 +282,26 @@ namespace AgroParallel.QuantiX
         // =====================================================================
         // Motor values
         // =====================================================================
+
+        private string GetSelectedNodoUid()
+        {
+            if (_cboNodo == null || _cboNodo.SelectedIndex < 0) return null;
+            if (_cboNodo.SelectedIndex >= _motores.Nodos.Count) return null;
+            return _motores.Nodos[_cboNodo.SelectedIndex].Uid;
+        }
+
+        private async void SendCommand(string uid, string payload)
+        {
+            if (_mqtt == null || string.IsNullOrEmpty(uid)) return;
+            try
+            {
+                var msg = new MqttApplicationMessageBuilder()
+                    .WithTopic("agp/quantix/" + uid + "/cmd")
+                    .WithPayload(payload).Build();
+                await _mqtt.PublishAsync(msg);
+            }
+            catch { }
+        }
 
         private QxMotorConfig GetSelectedMotor()
         {
@@ -342,7 +392,7 @@ namespace AgroParallel.QuantiX
                 {
                     Enabled = true, BrokerAddress = v.BrokerAddress, BrokerPort = v.BrokerPort,
                     ClientId = "QX_PID", TelemetriaTopic = "agp/quantix/+/status_live",
-                    SectionsTopic = "", SpeedTopic = ""
+                    SectionsTopic = "agp/quantix/+/autotune_result", SpeedTopic = ""
                 };
                 _mqtt = new MqttClientWrapper(c);
                 _mqtt.MessageReceived += OnStatus;
@@ -424,6 +474,13 @@ namespace AgroParallel.QuantiX
 
         private void OnStatus(string topic, string payload)
         {
+            // Auto-tune result.
+            if (topic.Contains("autotune_result"))
+            {
+                try { OnAutoTuneResult(payload); } catch { }
+                return;
+            }
+
             if (!topic.Contains("status_live")) return;
             try
             {
@@ -436,6 +493,44 @@ namespace AgroParallel.QuantiX
                 _livePulsos = (long)ExtractNum(payload, "\"pulsos\":");
             }
             catch { }
+        }
+
+        private void OnAutoTuneResult(string payload)
+        {
+            bool ok = payload.Contains("\"ok\":true");
+            double kp = ExtractNum(payload, "\"kp\":");
+            double ki = ExtractNum(payload, "\"ki\":");
+            double kd = ExtractNum(payload, "\"kd\":");
+
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action(() => OnAutoTuneResult(payload)));
+                return;
+            }
+
+            if (ok)
+            {
+                string msg = string.Format("Auto-Tune completado:\n\nKp = {0:F1}\nKi = {1:F1}\nKd = {2:F1}\n\n\u00BFAplicar estos valores?",
+                    kp, ki, kd);
+                if (MessageBox.Show(this, msg, "Auto-Tune PID", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    var m = GetSelectedMotor();
+                    if (m != null)
+                    {
+                        m.Kp = kp;
+                        m.Ki = ki;
+                        m.Kd = kd;
+                        _motores.Save();
+                        LoadMotorValues();
+                        SendConfig();
+                    }
+                }
+            }
+            else
+            {
+                MessageBox.Show(this, "Auto-Tune fall\u00F3: no se detectaron oscilaciones suficientes.\n\nVerific\u00E1 que el motor est\u00E9 conectado y el sensor funcione.",
+                    "Auto-Tune PID", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private async void SendConfig()
