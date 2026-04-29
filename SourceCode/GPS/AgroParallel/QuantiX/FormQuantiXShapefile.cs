@@ -89,7 +89,7 @@ namespace AgroParallel.QuantiX
             int y = 20;
             using (var f = Theme.FontTitle)
             using (var br = new SolidBrush(Theme.Accent))
-                g.DrawString("\U0001F5FA  SHAPEFILE / MAPA DE PRESCRIPCI\u00D3N", f, br, 24, y);
+                g.DrawString("\U0001F5FA  MAPAS DE PRESCRIPCI\u00D3N", f, br, 24, y);
             y += 36;
 
             // Check shapefile state via reflection.

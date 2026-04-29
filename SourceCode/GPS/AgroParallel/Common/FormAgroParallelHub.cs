@@ -61,7 +61,7 @@ namespace AgroParallel.Common
             {
                 Name = "QuantiX", Icon = "\U0001F4CA",
                 Accent = Color.FromArgb(230, 160, 30), Available = true,
-                Tabs = new[] { "Monitor", "Config", "Motores", "Calibrar", "PID", "Widget", "Shapefile", "Mapas" }
+                Tabs = new[] { "Monitor", "Motores", "Config Avanzada", "Calibraci\u00F3n", "Mapas" }
             });
             _modules.Add(new ModuleDef
             {
@@ -441,14 +441,11 @@ namespace AgroParallel.Common
             var cfg = QuantiXConfig.Load();
             switch (tab)
             {
-                case 0: return new FormQuantiXMonitor(cfg, _parent);
-                case 1: return new FormQuantiXConfig(cfg);
-                case 2: return new FormQuantiXMotores(cfg);
-                case 3: return new FormQuantiXCalibrar(cfg);
-                case 4: return new FormQuantiXPID(cfg);
-                case 5: return new FormQuantiXWidget(cfg, _parent);
-                case 6: return new FormQuantiXShapefile(_parent);
-                case 7: return new FormQuantiXMapas(cfg, _parent);
+                case 0: return new FormQuantiXMonitor(cfg, _parent);   // Monitor
+                case 1: return new FormQuantiXMotores(cfg);            // Motores (nodos + config UDP)
+                case 2: return new FormQuantiXPID(cfg);                // Config Avanzada (PID, PPR, PWM, FF)
+                case 3: return new FormQuantiXCalibrar(cfg);           // Calibración
+                case 4: return new FormQuantiXShapefile(_parent);      // Mapas (shapefile unificado)
                 default: return null;
             }
         }

@@ -43,6 +43,29 @@ namespace AgroParallel.QuantiX
             _canvas.Paint += PaintMonitor;
             Controls.Add(_canvas);
 
+            // Footer con botón Widget flotante.
+            var footer = new Panel
+            {
+                Dock = DockStyle.Bottom, Height = 50,
+                BackColor = Theme.BgToolbar
+            };
+            footer.Paint += (s, ev) =>
+            {
+                using (var pen = new Pen(Theme.Border))
+                    ev.Graphics.DrawLine(pen, 0, 0, footer.Width, 0);
+            };
+
+            var btnWidget = Theme.MkAccentButton("\U0001F4CA  WIDGET FLOTANTE", 200, 34);
+            btnWidget.Location = new Point(20, 8);
+            btnWidget.Click += (s, ev) =>
+            {
+                var w2 = new FormQuantiXWidget(_cfg, _parent);
+                w2.Show();
+            };
+            footer.Controls.Add(btnWidget);
+            Controls.Add(footer);
+            _canvas.BringToFront();
+
             _refreshTimer = new Timer { Interval = 200 };
             _refreshTimer.Tick += (s, e) => _canvas.Invalidate();
             _refreshTimer.Start();

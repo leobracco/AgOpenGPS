@@ -384,12 +384,22 @@ namespace AgroParallel.QuantiX
             btnSendAll.Click += (s, ev) => SendAllConfigs();
             footer.Controls.Add(btnSendAll);
 
+            var btnUdpCfg = Theme.MkButton("\u2699  CONFIG UDP", Color.FromArgb(40, 40, 45),
+                Theme.TextPrimary, 140, 34);
+            btnUdpCfg.Location = new Point(190, 8);
+            btnUdpCfg.Click += (s, ev) =>
+            {
+                using (var frm = new FormQuantiXConfig(QuantiXConfig.Load()))
+                    frm.ShowDialog(this);
+            };
+            footer.Controls.Add(btnUdpCfg);
+
             _lblDiscovery = new Label
             {
                 Text = "\U0001F4E1 Buscando nodos...",
                 Font = Theme.FontSmall, ForeColor = Theme.TextFaint,
                 BackColor = Color.Transparent,
-                Location = new Point(200, 18), AutoSize = true
+                Location = new Point(340, 18), AutoSize = true
             };
             footer.Controls.Add(_lblDiscovery);
 
