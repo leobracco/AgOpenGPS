@@ -4,8 +4,8 @@
 // Target: net48 (C# 7.3)
 //
 // Fuente unica de verdad para colores, fuentes, radios y helpers de
-// rendering. Basado en los mockups de CentriX-Spark (fondo negro puro,
-// verde acento #7ac943, tipografia limpia tipo tablet agricola).
+// rendering. Estilo Agro Parallel 2026: fondo azulado oscuro, verde marca
+// #A4BA3E, tarjetas limpias, inputs oscuros, botones flat.
 // ============================================================================
 
 using System;
@@ -19,37 +19,40 @@ namespace AgroParallel.VistaX
     public static class Theme
     {
         // =================================================================
-        // COLORES
+        // COLORES — Paleta Agro Parallel 2026
         // =================================================================
 
-        // Fondos.
-        public static readonly Color BgBlack = Color.FromArgb(0, 0, 0);          // Fondo principal
-        public static readonly Color BgCard = Color.FromArgb(18, 18, 20);        // Cards/paneles
-        public static readonly Color BgCardHover = Color.FromArgb(24, 24, 28);   // Card hover
-        public static readonly Color BgInput = Color.FromArgb(12, 12, 14);       // Inputs/fields
-        public static readonly Color BgHeader = Color.FromArgb(10, 10, 12);      // Header bar
-        public static readonly Color BgToolbar = Color.FromArgb(14, 14, 16);     // Toolbar/footer
+        // Fondos (negro azulado, no negro puro).
+        public static readonly Color BgBlack = Color.FromArgb(9, 11, 15);        // #090B0F
+        public static readonly Color BgCard = Color.FromArgb(20, 23, 31);        // #14171F
+        public static readonly Color BgCard2 = Color.FromArgb(25, 29, 39);       // #191D27
+        public static readonly Color BgCardHover = Color.FromArgb(30, 34, 44);   // Hover
+        public static readonly Color BgInput = Color.FromArgb(11, 14, 19);       // #0B0E13
+        public static readonly Color BgHeader = Color.FromArgb(12, 15, 21);      // #0C0F15
+        public static readonly Color BgToolbar = Color.FromArgb(14, 17, 23);     // #0E1117
 
         // Bordes.
-        public static readonly Color Border = Color.FromArgb(32, 32, 36);        // Borde sutil
-        public static readonly Color BorderLight = Color.FromArgb(44, 44, 48);   // Borde visible
+        public static readonly Color Border = Color.FromArgb(42, 48, 60);        // #2A303C
+        public static readonly Color BorderSoft = Color.FromArgb(30, 35, 45);    // #1E232D
+        public static readonly Color BorderLight = Color.FromArgb(55, 62, 75);   // Borde visible
 
-        // Acento (verde Agro Parallel — del logo).
-        public static readonly Color Accent = Color.FromArgb(122, 201, 67);      // #7ac943
-        public static readonly Color AccentDim = Color.FromArgb(80, 140, 40);    // Verde apagado
-        public static readonly Color AccentDark = Color.FromArgb(40, 80, 20);    // Verde muy oscuro (bg activo)
+        // Acento (verde marca Agro Parallel).
+        public static readonly Color Accent = Color.FromArgb(164, 186, 62);      // #A4BA3E
+        public static readonly Color AccentDim = Color.FromArgb(88, 115, 34);    // #587322
+        public static readonly Color AccentDark = Color.FromArgb(40, 55, 15);    // Fondo activo
+        public static readonly Color AccentHover = Color.FromArgb(178, 205, 70); // Hover
 
         // Texto.
-        public static readonly Color TextPrimary = Color.FromArgb(240, 242, 245);  // Blanco suave
-        public static readonly Color TextSecondary = Color.FromArgb(140, 145, 155); // Gris medio
-        public static readonly Color TextFaint = Color.FromArgb(75, 78, 85);       // Gris oscuro (labels)
-        public static readonly Color TextDisabled = Color.FromArgb(50, 52, 58);    // Deshabilitado
+        public static readonly Color TextPrimary = Color.FromArgb(240, 243, 238);  // #F0F3EE
+        public static readonly Color TextSecondary = Color.FromArgb(139, 148, 167); // #8B94A7
+        public static readonly Color TextFaint = Color.FromArgb(88, 98, 115);      // #586273
+        public static readonly Color TextDisabled = Color.FromArgb(50, 55, 65);    // Deshabilitado
 
         // Estados.
-        public static readonly Color Ok = Color.FromArgb(122, 201, 67);          // Verde OK
-        public static readonly Color Warning = Color.FromArgb(245, 166, 35);     // Amarillo advertencia
-        public static readonly Color Error = Color.FromArgb(231, 76, 76);        // Rojo alarma
-        public static readonly Color Info = Color.FromArgb(0, 176, 255);         // Azul info
+        public static readonly Color Ok = Color.FromArgb(164, 186, 62);          // Verde marca
+        public static readonly Color Warning = Color.FromArgb(245, 172, 0);      // #F5AC00
+        public static readonly Color Error = Color.FromArgb(235, 75, 75);        // #EB4B4B
+        public static readonly Color Info = Color.FromArgb(70, 155, 255);        // #469BFF
 
         // Sensores especiales.
         public static readonly Color FertiLinea = Color.FromArgb(0, 200, 230);
@@ -80,8 +83,8 @@ namespace AgroParallel.VistaX
         // GEOMETRIA
         // =================================================================
 
-        public const int BorderRadius = 8;
-        public const int CardPadding = 14;
+        public const int BorderRadius = 10;
+        public const int CardPadding = 18;
         public const int HeaderHeight = 44;
         public const int FooterHeight = 52;
         public const int ToolbarIconSize = 28;
@@ -102,7 +105,6 @@ namespace AgroParallel.VistaX
                     _logoLoaded = true;
                     try
                     {
-                        // Sube desde SourceCode/GPS/ → repo root → AgroParallel raíz.
                         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                         string[] candidates = new[]
                         {
@@ -120,7 +122,7 @@ namespace AgroParallel.VistaX
                             }
                         }
                     }
-                    catch { /* sin logo: fallback a texto */ }
+                    catch { }
                 }
                 return _logo;
             }
@@ -130,7 +132,6 @@ namespace AgroParallel.VistaX
         // HELPERS DE RENDERING
         // =================================================================
 
-        /// Dibuja un rectangulo con bordes redondeados.
         public static GraphicsPath RoundedRect(Rectangle bounds, int radius)
         {
             var path = new GraphicsPath();
@@ -148,7 +149,6 @@ namespace AgroParallel.VistaX
             return path;
         }
 
-        /// Rellena un rectangulo redondeado.
         public static void FillRoundedRect(Graphics g, Rectangle rect, Color color, int radius)
         {
             using (var path = RoundedRect(rect, radius))
@@ -159,7 +159,6 @@ namespace AgroParallel.VistaX
             }
         }
 
-        /// Dibuja borde redondeado.
         public static void DrawRoundedBorder(Graphics g, Rectangle rect, Color color, int radius, float width = 1f)
         {
             using (var path = RoundedRect(rect, radius))
@@ -170,7 +169,72 @@ namespace AgroParallel.VistaX
             }
         }
 
-        /// Crea un boton estilo toolbar (icono + texto, fondo transparente).
+        // =================================================================
+        // CONTROLES — Helpers de creación con estilo unificado
+        // =================================================================
+
+        public static void StyleInput(Control c)
+        {
+            c.BackColor = BgInput;
+            c.ForeColor = TextPrimary;
+            c.Font = new Font(FontFamily, 9f);
+        }
+
+        public static TextBox MkTextBox(int w = 160)
+        {
+            return new TextBox
+            {
+                Width = w, Height = 26,
+                BackColor = BgInput, ForeColor = TextPrimary,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font(FontFamily, 9f)
+            };
+        }
+
+        public static NumericUpDown MkNumeric(decimal min, decimal max, decimal value,
+            int decimals = 0, decimal increment = 1m, int w = 90)
+        {
+            return new NumericUpDown
+            {
+                Minimum = min, Maximum = max,
+                Value = Math.Max(min, Math.Min(max, value)),
+                DecimalPlaces = decimals, Increment = increment,
+                Width = w, Height = 26,
+                BackColor = BgInput, ForeColor = Accent,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font(FontFamily, 9f, FontStyle.Bold)
+            };
+        }
+
+        public static ComboBox MkCombo(int w = 180)
+        {
+            return new ComboBox
+            {
+                Width = w, Height = 28,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = BgInput, ForeColor = TextPrimary,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font(FontFamily, 9f)
+            };
+        }
+
+        public static CheckBox MkCheck(string text, bool initial = false)
+        {
+            return new CheckBox
+            {
+                Text = "  " + text,
+                Checked = initial,
+                AutoSize = true,
+                ForeColor = TextPrimary,
+                BackColor = Color.Transparent,
+                Font = FontBody
+            };
+        }
+
+        // =================================================================
+        // BOTONES
+        // =================================================================
+
         public static Button MkToolbarButton(string text, int size = 40)
         {
             var b = new Button
@@ -189,7 +253,6 @@ namespace AgroParallel.VistaX
             return b;
         }
 
-        /// Crea un boton pill (texto, fondo, foreground).
         public static Button MkButton(string text, Color bg, Color fg, int w = 120, int h = 34)
         {
             var b = new Button
@@ -205,33 +268,72 @@ namespace AgroParallel.VistaX
             };
             b.FlatAppearance.BorderSize = 0;
             b.FlatAppearance.MouseOverBackColor = Color.FromArgb(
-                Math.Min(255, bg.R + 20),
-                Math.Min(255, bg.G + 20),
-                Math.Min(255, bg.B + 20));
+                Math.Min(255, bg.R + 18),
+                Math.Min(255, bg.G + 18),
+                Math.Min(255, bg.B + 18));
             return b;
         }
 
-        /// Crea un boton de acento verde.
         public static Button MkAccentButton(string text, int w = 120, int h = 34)
         {
-            return MkButton(text, Accent, BgBlack, w, h);
+            var b = new Button
+            {
+                Text = text,
+                Width = w, Height = h,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Accent,
+                ForeColor = Color.FromArgb(5, 7, 9),
+                Font = new Font(FontFamily, 9f, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            b.FlatAppearance.BorderSize = 0;
+            b.FlatAppearance.MouseOverBackColor = AccentHover;
+            b.FlatAppearance.MouseDownBackColor = AccentDim;
+            return b;
         }
 
-        /// Dibuja un header estilo mockup: "🌿 Agro Parallel  RTK |||  16:20  ≡"
+        public static Button MkSecondaryButton(string text, int w = 120, int h = 34)
+        {
+            var b = new Button
+            {
+                Text = text,
+                Width = w, Height = h,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = BgCard2,
+                ForeColor = TextPrimary,
+                Font = new Font(FontFamily, 9f, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            b.FlatAppearance.BorderColor = Border;
+            b.FlatAppearance.BorderSize = 1;
+            b.FlatAppearance.MouseOverBackColor = BgCardHover;
+            return b;
+        }
+
+        public static Button MkDangerButton(string text, int w = 120, int h = 34)
+        {
+            var b = MkSecondaryButton(text, w, h);
+            b.BackColor = Color.FromArgb(45, 15, 16);
+            b.ForeColor = Error;
+            b.FlatAppearance.BorderColor = Color.FromArgb(90, 28, 30);
+            return b;
+        }
+
+        // =================================================================
+        // HEADER
+        // =================================================================
+
         public static void PaintHeader(Graphics g, int width, string sectionName, bool showRtk = false)
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-            // Fondo header.
             using (var b = new SolidBrush(BgHeader))
                 g.FillRectangle(b, 0, 0, width, HeaderHeight);
 
-            // Linea inferior.
             using (var pen = new Pen(Border))
                 g.DrawLine(pen, 0, HeaderHeight - 1, width, HeaderHeight - 1);
 
-            // Logo "Agro Parallel".
             int logoSize = HeaderHeight - 12;
             float textX = 12;
             if (Logo != null)
@@ -245,7 +347,6 @@ namespace AgroParallel.VistaX
             using (var br = new SolidBrush(TextPrimary))
                 g.DrawString("Agro Parallel", f, br, textX, 13);
 
-            // Section name.
             if (!string.IsNullOrEmpty(sectionName))
             {
                 using (var f = new Font(FontFamily, 9f, FontStyle.Bold))
@@ -256,7 +357,6 @@ namespace AgroParallel.VistaX
                 }
             }
 
-            // Hora.
             string time = DateTime.Now.ToString("HH:mm");
             using (var f = new Font(FontFamily, 10f, FontStyle.Bold))
             using (var br = new SolidBrush(TextSecondary))
@@ -266,16 +366,17 @@ namespace AgroParallel.VistaX
             }
         }
 
-        /// Dibuja un KPI grande (numero + label) como en el mockup del Monitor.
+        // =================================================================
+        // KPI
+        // =================================================================
+
         public static void PaintKpi(Graphics g, int x, int y, int w,
             string value, string unit, string label)
         {
-            // Value (grande).
             using (var fVal = new Font(FontFamily, 20f, FontStyle.Bold))
             using (var br = new SolidBrush(TextPrimary))
             {
                 g.DrawString(value, fVal, br, x, y);
-                // Unit (chico, al lado).
                 if (!string.IsNullOrEmpty(unit))
                 {
                     var szVal = g.MeasureString(value, fVal);
@@ -285,13 +386,15 @@ namespace AgroParallel.VistaX
                 }
             }
 
-            // Label (abajo).
             using (var fLbl = new Font(FontFamily, 8f))
             using (var br = new SolidBrush(TextFaint))
                 g.DrawString(label, fLbl, br, x, y + 28);
         }
 
-        /// Aplica tema oscuro a un Form.
+        // =================================================================
+        // FORM & CARD
+        // =================================================================
+
         public static void ApplyToForm(Form form)
         {
             form.BackColor = BgBlack;
@@ -299,7 +402,6 @@ namespace AgroParallel.VistaX
             form.Font = FontBody;
         }
 
-        /// Crea una card con bordes redondeados y accent bar izquierda.
         public static Panel MkCard(int width, int height, Color accentColor)
         {
             var card = new Panel
@@ -315,12 +417,8 @@ namespace AgroParallel.VistaX
                 var rect = new Rectangle(0, 0, card.Width - 1, card.Height - 1);
                 FillRoundedRect(g, rect, BgCard, BorderRadius);
                 DrawRoundedBorder(g, rect, Border, BorderRadius);
-                // Accent bar izquierda.
                 using (var b = new SolidBrush(capturedAccent))
-                {
-                    var accentRect = new Rectangle(0, BorderRadius, 3, card.Height - BorderRadius * 2);
-                    g.FillRectangle(b, accentRect);
-                }
+                    g.FillRectangle(b, 0, BorderRadius, 3, card.Height - BorderRadius * 2);
             };
             return card;
         }
