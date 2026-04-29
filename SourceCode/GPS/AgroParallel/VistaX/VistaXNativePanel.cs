@@ -103,9 +103,9 @@ namespace AgroParallel.VistaX
         {
             _numObjetivo = new NumericUpDown();
             _numObjetivo.Minimum = 0;
-            _numObjetivo.Maximum = 1000;
+            _numObjetivo.Maximum = 9999;
             _numObjetivo.DecimalPlaces = 1;
-            _numObjetivo.Increment = 0.5m;
+            _numObjetivo.Increment = 0.1m;
             _numObjetivo.Value = 0;
             _numObjetivo.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
             _numObjetivo.BackColor = Color.FromArgb(15, 15, 15);
