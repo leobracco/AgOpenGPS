@@ -29,8 +29,6 @@
         private void InitializeComponent()
         {
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
-            this.btnAgShareBulkUpload = new System.Windows.Forms.Button();
-            this.btnJobAgShare = new System.Windows.Forms.Button();
             this.label4 = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
@@ -58,8 +56,6 @@
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 23F));
             this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.tableLayoutPanel1.Controls.Add(this.btnAgShareBulkUpload, 2, 4);
-            this.tableLayoutPanel1.Controls.Add(this.btnJobAgShare, 0, 4);
             this.tableLayoutPanel1.Controls.Add(this.label4, 1, 3);
             this.tableLayoutPanel1.Controls.Add(this.label3, 1, 2);
             this.tableLayoutPanel1.Controls.Add(this.label2, 1, 1);
@@ -74,61 +70,14 @@
             this.tableLayoutPanel1.Controls.Add(this.btnJobNew, 0, 3);
             this.tableLayoutPanel1.Location = new System.Drawing.Point(9, 7);
             this.tableLayoutPanel1.Name = "tableLayoutPanel1";
-            this.tableLayoutPanel1.RowCount = 5;
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.tableLayoutPanel1.RowCount = 4;
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.tableLayoutPanel1.Size = new System.Drawing.Size(605, 469);
             this.tableLayoutPanel1.TabIndex = 106;
-            // 
-            // btnAgShareBulkUpload
-            // 
-            this.btnAgShareBulkUpload.BackColor = System.Drawing.Color.Transparent;
-            this.btnAgShareBulkUpload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAgShareBulkUpload.FlatAppearance.BorderColor = System.Drawing.Color.Black;
-            this.btnAgShareBulkUpload.FlatAppearance.BorderSize = 0;
-            this.btnAgShareBulkUpload.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAgShareBulkUpload.Font = new System.Drawing.Font("Tahoma", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnAgShareBulkUpload.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
-            this.btnAgShareBulkUpload.Image = global::AgOpenGPS.Properties.Resources.AgShare;
-            this.btnAgShareBulkUpload.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.btnAgShareBulkUpload.Location = new System.Drawing.Point(319, 376);
-            this.btnAgShareBulkUpload.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
-            this.btnAgShareBulkUpload.Name = "btnAgShareBulkUpload";
-            this.btnAgShareBulkUpload.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.btnAgShareBulkUpload.Size = new System.Drawing.Size(281, 89);
-            this.btnAgShareBulkUpload.TabIndex = 114;
-            this.btnAgShareBulkUpload.Text = "AgShare Upload";
-            this.btnAgShareBulkUpload.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.btnAgShareBulkUpload.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
-            this.btnAgShareBulkUpload.UseVisualStyleBackColor = false;
-            this.btnAgShareBulkUpload.Click += new System.EventHandler(this.btnAgShareBulkUpload_Click);
-            // 
-            // btnJobAgShare
-            // 
-            this.btnJobAgShare.BackColor = System.Drawing.Color.Transparent;
-            this.btnJobAgShare.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnJobAgShare.FlatAppearance.BorderColor = System.Drawing.Color.Black;
-            this.btnJobAgShare.FlatAppearance.BorderSize = 0;
-            this.btnJobAgShare.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnJobAgShare.Font = new System.Drawing.Font("Tahoma", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnJobAgShare.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
-            this.btnJobAgShare.Image = global::AgOpenGPS.Properties.Resources.AgShare;
-            this.btnJobAgShare.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.btnJobAgShare.Location = new System.Drawing.Point(5, 376);
-            this.btnJobAgShare.Margin = new System.Windows.Forms.Padding(5, 4, 5, 4);
-            this.btnJobAgShare.Name = "btnJobAgShare";
-            this.btnJobAgShare.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.btnJobAgShare.Size = new System.Drawing.Size(281, 89);
-            this.btnJobAgShare.TabIndex = 112;
-            this.btnJobAgShare.Text = "AgShare Download";
-            this.btnJobAgShare.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.btnJobAgShare.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
-            this.btnJobAgShare.UseVisualStyleBackColor = false;
-            this.btnJobAgShare.Click += new System.EventHandler(this.btnJobAgShare_Click);
-            // 
+            //
             // label4
             // 
             this.label4.AutoSize = true;
@@ -432,7 +381,5 @@
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.Button btnJobAgShare;
-        private System.Windows.Forms.Button btnAgShareBulkUpload;
     }
 }

@@ -559,17 +559,11 @@ namespace AgOpenGPS
 
             string directoryName = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location);
 
-            simulatorOnToolStripMenuItem.Checked = Settings.Default.setMenu_isSimulatorOn;
-            if (simulatorOnToolStripMenuItem.Checked)
-            {
-                panelSim.Visible = true;
-                timerSim.Enabled = true;
-            }
-            else
-            {
-                panelSim.Visible = false;
-                timerSim.Enabled = false;
-            }
+            // Simulator removed from UI: force off regardless of saved setting
+            Settings.Default.setMenu_isSimulatorOn = false;
+            simulatorOnToolStripMenuItem.Checked = false;
+            panelSim.Visible = false;
+            timerSim.Enabled = false;
 
             if (timerSim.Enabled) gpsHz = 10;
 

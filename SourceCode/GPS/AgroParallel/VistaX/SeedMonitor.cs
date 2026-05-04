@@ -531,7 +531,7 @@ namespace AgroParallel.VistaX
                     .WithRetainFlag(true) // Retained para que el nodo lo reciba al reconectar.
                     .Build();
 
-                _mqtt.PublishAsync(msg);
+                _ = _mqtt.PublishAsync(msg);
                 System.Diagnostics.Debug.WriteLine("[VistaX] Config enviada a " + uid
                     + " c" + cable + " tipo=" + tipo + " modo=" + modo);
             }

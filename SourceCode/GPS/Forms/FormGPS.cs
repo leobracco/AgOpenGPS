@@ -14,7 +14,6 @@ using AgLibrary.Logging;
 using AgOpenGPS.Classes;
 using AgOpenGPS.Controls;
 using AgOpenGPS.Core;
-using AgOpenGPS.Core.AgShare;
 using AgOpenGPS.Core.Models;
 using AgOpenGPS.Core.Translations;
 using AgOpenGPS.Core.ViewModels;
@@ -97,8 +96,6 @@ namespace AgOpenGPS
         [System.Runtime.InteropServices.DllImport("User32.dll")]
         private static extern bool ShowWindow(IntPtr hWind, int nCmdShow);
 
-        private Task agShareUploadTask = null;
-
         // VISTAX_MOD_START
         private SeedMonitor vistaXMonitor;
         private VistaXNativePanel vistaXPanel;
@@ -109,14 +106,18 @@ namespace AgOpenGPS
 
         // SHAPEFILE_MOD_START
         private ShapefileLayer shapefileLayer;
+#pragma warning disable CS0169, CS0649 // wire-up de menus shapefile pendiente
         private ToolStripMenuItem shapefileToggleItem;
         private ToolStripMenuItem shapefileStyleItem;
         private ToolStripMenuItem shapefileInspectItem;
+#pragma warning restore CS0169, CS0649
         private ShapefileLegendControl shapefileLegend;
 
         // Modo inspeccion (paso 12): al hacer click en el mapa se abre un
         // popup con los atributos DBF del poligono bajo el cursor.
+#pragma warning disable CS0649 // se asignara cuando se conecte el handler
         private bool shapefileInspectMode;
+#pragma warning restore CS0649
 
         // Snapshots de matrices GL tomadas en cada frame — usadas por la
         // unprojection para convertir mouse (screen) -> mundo (easting/northing).
@@ -314,12 +315,6 @@ namespace AgOpenGPS
         /// The new brightness code
         /// </summary>
         public CWindowsSettingsBrightnessController displayBrightness;
-
-        /// <summary>
-        /// AgShare client for uploading fields
-        /// </summary>
-        public AgShareClient agShareClient;
-
 
         /// <summary>
         /// The ISOBUS communication class
@@ -602,9 +597,6 @@ namespace AgOpenGPS
                     form.ShowDialog(this);
                 }
             }
-            //Init AgShareClient
-            agShareClient = new AgShareClient(Settings.Default.AgShareServer, Settings.Default.AgShareApiKey);
-
             // VISTAX_MOD_START
             InitVistaX();
             // VISTAX_MOD_END
@@ -766,13 +758,8 @@ namespace AgOpenGPS
 
                 if (isJobStarted)
                 {
-                    // Check if AgShare is enabled (step will be added regardless of whether upload already started)
-                    bool isAgShareEnabled = Settings.Default.AgShareEnabled &&
-                                           Settings.Default.AgShareUploadActive;
-
                     // Setup progress steps
                     savingForm.AddStep("Field", gStr.gsSaveField);
-                    if (isAgShareEnabled) savingForm.AddStep("AgShare", gStr.gsSaveUploadToAgshare);
                     savingForm.AddStep("Settings", gStr.gsSaveSettings);
                     savingForm.AddStep("Finalize", gStr.gsSaveFinalizeShutdown);
 
@@ -780,34 +767,10 @@ namespace AgOpenGPS
                     await Task.Delay(300); // Let UI settle
 
                     // STEP 1: Save Field (Boundary, Tracks, Sections, Contour, etc.)
-                    // NOTE: This also starts AND waits for AgShare upload if enabled
                     try
                     {
                         await FileSaveEverythingBeforeClosingField();
                         savingForm.UpdateStep("Field", gStr.gsSaveFieldSavedLocal, SavingStepState.Done);
-
-                        // STEP 2: Update AgShare status (upload was completed in FileSaveEverythingBeforeClosingField)
-                        if (isAgShareEnabled && isAgShareUploadStarted)
-                        {
-                            // The upload was already awaited in FileSaveEverythingBeforeClosingField
-                            // Check if the task completed successfully
-                            if (agShareUploadTask != null)
-                            {
-                                if (agShareUploadTask.Status == TaskStatus.RanToCompletion)
-                                {
-                                    savingForm.UpdateStep("AgShare", gStr.gsSaveUploadCompleted, SavingStepState.Done);
-                                }
-                                else if (agShareUploadTask.Status == TaskStatus.Faulted)
-                                {
-                                    savingForm.UpdateStep("AgShare", gStr.gsSaveUploadFailed, SavingStepState.Failed);
-                                }
-                                else
-                                {
-                                    // Still running or cancelled? This shouldn't happen as FileSaveEverythingBeforeClosingField awaits it
-                                    savingForm.UpdateStep("AgShare", "Upload status unknown", SavingStepState.Failed);
-                                }
-                            }
-                        }
                     }
                     catch (Exception ex)
                     {
@@ -1372,14 +1335,6 @@ namespace AgOpenGPS
             PanelUpdateRightAndBottom();
 
             btnSection1Man.Text = "1";
-
-            // Reset AgShare upload state and clear snapshot after field is closed
-            // NOTE: Don't reset during shutdown - the shutdown flow needs to check this flag
-            if (!isShuttingDown)
-            {
-                isAgShareUploadStarted = false;
-                snapshot = null;
-            }
         }
 
         public void FieldMenuButtonEnableDisable(bool isOn)

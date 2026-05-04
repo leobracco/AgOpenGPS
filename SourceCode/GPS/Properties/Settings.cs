@@ -36,7 +36,7 @@ namespace AgOpenGPS.Properties
         public bool setMenu_isSideGuideLines = false;
         public byte setAS_countsPerDegree = 110;
         public bool setMenu_isPureOn = true;
-        public bool setMenu_isSimulatorOn = true;
+        public bool setMenu_isSimulatorOn = false;
         public int setDisplay_lightbarCmPerPixel = 5;
         public string setGPS_headingFromWhichSource = "Fix";
         public double setGPS_SimLatitude = 53.4360564;
@@ -247,11 +247,7 @@ namespace AgOpenGPS.Properties
         public Size setWindow_tramLineSize = new Size(921, 676);
         public bool setAutoSwitchDualFixOn = false;
         public double setAutoSwitchDualFixSpeed = 2.0;
-        public string AgShareServer = "https://agshare.agopengps.com";
-        public string AgShareApiKey = "";
         public bool PublicField = false;
-        public bool AgShareEnabled = false;
-        public bool AgShareUploadActive = false;
         public bool isHeadlandDistanceOn = false;
         public int bndToolSpacing = 1;
         public int bndToolSmooth = 1;

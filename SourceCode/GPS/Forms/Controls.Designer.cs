@@ -619,25 +619,6 @@ namespace AgOpenGPS
                 if (triStrip[j].isDrawing) triStrip[j].TurnMappingOff();
             }
 
-            // Start AgShare upload (if enabled)
-            agShareUploadTask = Task.CompletedTask;
-            if (!isAgShareUploadStarted &&
-                Settings.Default.AgShareEnabled &&
-                Settings.Default.AgShareUploadActive)
-            {
-                try
-                {
-                    isAgShareUploadStarted = true;
-                    var uploader = new AgShareUploader(agShareClient);
-                    agShareUploadTask = uploader.UploadAsync(snapshot, this);
-                }
-                catch (Exception ex)
-                {
-                    Log.EventWriter("AgShare upload start error: " + ex.Message);
-                    TimedMessageBox(4000, "AgShare upload failed", "An error occurred while starting upload to AgShare.");
-                }
-            }
-
             // Save field data with individual exception handling for each operation
             await Task.Run(() =>
             {
@@ -662,19 +643,6 @@ namespace AgOpenGPS
                 catch (Exception ex) { Log.EventWriter($"WARNING: ISOXML export failed: {ex}"); }
             });
 
-            if (Settings.Default.AgShareEnabled && Settings.Default.AgShareUploadActive)
-            {
-                try
-                {
-                    await agShareUploadTask;
-                }
-                catch (Exception ex)
-                {
-                    Log.EventWriter("AgShare upload error: " + ex.Message);
-                    TimedMessageBox(4000, "AgShare upload failed", "An error occurred during upload to AgShare.");
-                }
-            }
-
             Log.EventWriter("** Field closed **   " + currentFieldDirectory + "   " +
                 DateTime.Now.ToString("f", CultureInfo.InvariantCulture));
 
@@ -687,33 +655,6 @@ namespace AgOpenGPS
             }));
         }
 
-        #region AgShare Snapshot
-
-        private bool isAgShareUploadStarted = false;
-        private FieldSnapshot snapshot;
-
-        //this method is called to create a snapshot of the field for AgShare so we can close the field to speed up close and re-open
-        public void AgShareSnapshot()
-        {
-            if (!isJobStarted) return;
-
-            snapshot = AgShareUploader.CreateSnapshot(this);
-        }
-
-
-
-        public void AgShareUpload()
-        {
-            //check if we're already uploading by closing a field or are we shutting down
-            if (!isJobStarted || snapshot == null || isAgShareUploadStarted || isShuttingDown)
-                return;
-
-            //set bool to true so we don't start another upload by double clicking or something.
-            isAgShareUploadStarted = true;
-            var uploader = new AgShareUploader(agShareClient);
-            agShareUploadTask = uploader.UploadAsync(snapshot, this);
-        }
-        #endregion
         private void tramLinesMenuField_Click(object sender, EventArgs e)
         {
             if (ct.isContourBtnOn) btnContour.PerformClick();
@@ -1412,13 +1353,6 @@ namespace AgOpenGPS
                 form.ShowDialog(this);
             }
         }
-
-        private void AgShareApiMenuItem_Click(object sender, EventArgs e)
-        {
-            var form = new FormAgShareSettings(agShareClient);
-            form.ShowDialog(this);
-        }
-
 
         private void hotKeysToolStripMenuItem_Click(object sender, EventArgs e)
         {

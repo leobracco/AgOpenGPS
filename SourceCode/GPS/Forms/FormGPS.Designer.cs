@@ -46,7 +46,6 @@ namespace AgOpenGPS
             this.kioskModeToolStrip = new System.Windows.Forms.ToolStripMenuItem();
             this.resetALLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.resetEverythingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.AgShareApiMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tmrWatchdog = new System.Windows.Forms.Timer(this.components);
             this.contextMenuStripFlag = new System.Windows.Forms.ContextMenuStrip(this.components);
@@ -269,7 +268,6 @@ namespace AgOpenGPS
             this.toolStripSeparator4,
             this.kioskModeToolStrip,
             this.resetALLToolStripMenuItem,
-            this.AgShareApiMenuItem,
             this.helpMenuItem});
             this.fileToolStripMenuItem.Font = new System.Drawing.Font("Tahoma", 27.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.fileToolStripMenuItem.Image = global::AgOpenGPS.Properties.Resources.fileMenu;
@@ -309,23 +307,26 @@ namespace AgOpenGPS
             this.menustripLanguage.Text = "Language";
             // 
             // toolStripSeparator11
-            // 
+            //
             this.toolStripSeparator11.Name = "toolStripSeparator11";
             this.toolStripSeparator11.Size = new System.Drawing.Size(379, 6);
+            this.toolStripSeparator11.Visible = false;
             // 
             // simulatorOnToolStripMenuItem
-            // 
+            //
             this.simulatorOnToolStripMenuItem.CheckOnClick = true;
             this.simulatorOnToolStripMenuItem.Name = "simulatorOnToolStripMenuItem";
             this.simulatorOnToolStripMenuItem.Size = new System.Drawing.Size(382, 50);
             this.simulatorOnToolStripMenuItem.Text = "Simulator On";
+            this.simulatorOnToolStripMenuItem.Visible = false;
             this.simulatorOnToolStripMenuItem.Click += new System.EventHandler(this.simulatorOnToolStripMenuItem_Click);
-            // 
+            //
             // enterSimCoordsToolStripMenuItem
-            // 
+            //
             this.enterSimCoordsToolStripMenuItem.Name = "enterSimCoordsToolStripMenuItem";
             this.enterSimCoordsToolStripMenuItem.Size = new System.Drawing.Size(382, 50);
             this.enterSimCoordsToolStripMenuItem.Text = "Enter Sim Coords";
+            this.enterSimCoordsToolStripMenuItem.Visible = false;
             this.enterSimCoordsToolStripMenuItem.Click += new System.EventHandler(this.enterSimCoordsToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
@@ -354,14 +355,7 @@ namespace AgOpenGPS
             this.resetEverythingToolStripMenuItem.Size = new System.Drawing.Size(372, 50);
             this.resetEverythingToolStripMenuItem.Text = "Reset To Default";
             this.resetEverythingToolStripMenuItem.Click += new System.EventHandler(this.resetALLToolStripMenuItem_Click);
-            // 
-            // AgShareApiMenuItem
-            // 
-            this.AgShareApiMenuItem.Name = "AgShareApiMenuItem";
-            this.AgShareApiMenuItem.Size = new System.Drawing.Size(382, 50);
-            this.AgShareApiMenuItem.Text = "AgShare API";
-            this.AgShareApiMenuItem.Click += new System.EventHandler(this.AgShareApiMenuItem_Click);
-            // 
+            //
             // helpMenuItem
             // 
             this.helpMenuItem.Name = "helpMenuItem";
@@ -3149,7 +3143,6 @@ namespace AgOpenGPS
         private System.Windows.Forms.Label lblHardwareMessage;
         private System.Windows.Forms.ToolStripMenuItem eventViewerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tramsMultiMenuField;
-        private System.Windows.Forms.ToolStripMenuItem AgShareApiMenuItem;
         private System.Windows.Forms.ToolStripMenuItem profileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem newProfileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem loadProfileToolStripMenuItem;

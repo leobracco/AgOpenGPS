@@ -5,7 +5,7 @@
 //
 // Fuente unica de verdad para colores, fuentes, radios y helpers de
 // rendering. Estilo Agro Parallel 2026: fondo azulado oscuro, verde marca
-// #A4BA3E, tarjetas limpias, inputs oscuros, botones flat.
+// #71B528 (logo oficial), tarjetas limpias, inputs oscuros, botones flat.
 // ============================================================================
 
 using System;
@@ -36,11 +36,11 @@ namespace AgroParallel.VistaX
         public static readonly Color BorderSoft = Color.FromArgb(30, 35, 45);    // #1E232D
         public static readonly Color BorderLight = Color.FromArgb(55, 62, 75);   // Borde visible
 
-        // Acento (verde marca Agro Parallel).
-        public static readonly Color Accent = Color.FromArgb(164, 186, 62);      // #A4BA3E
-        public static readonly Color AccentDim = Color.FromArgb(88, 115, 34);    // #587322
-        public static readonly Color AccentDark = Color.FromArgb(40, 55, 15);    // Fondo activo
-        public static readonly Color AccentHover = Color.FromArgb(178, 205, 70); // Hover
+        // Acento (verde marca Agro Parallel - sampleado del logo oficial).
+        public static readonly Color Accent = Color.FromArgb(113, 181, 40);      // #71B528
+        public static readonly Color AccentDim = Color.FromArgb(75, 120, 27);    // #4B781B
+        public static readonly Color AccentDark = Color.FromArgb(28, 50, 12);    // Fondo activo
+        public static readonly Color AccentHover = Color.FromArgb(135, 205, 60); // Hover
 
         // Texto.
         public static readonly Color TextPrimary = Color.FromArgb(240, 243, 238);  // #F0F3EE
@@ -49,7 +49,7 @@ namespace AgroParallel.VistaX
         public static readonly Color TextDisabled = Color.FromArgb(50, 55, 65);    // Deshabilitado
 
         // Estados.
-        public static readonly Color Ok = Color.FromArgb(164, 186, 62);          // Verde marca
+        public static readonly Color Ok = Color.FromArgb(113, 181, 40);          // Verde marca
         public static readonly Color Warning = Color.FromArgb(245, 172, 0);      // #F5AC00
         public static readonly Color Error = Color.FromArgb(235, 75, 75);        // #EB4B4B
         public static readonly Color Info = Color.FromArgb(70, 155, 255);        // #469BFF
@@ -108,6 +108,13 @@ namespace AgroParallel.VistaX
                         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                         string[] candidates = new[]
                         {
+                            // Bundled junto al exe (preferido)
+                            Path.Combine(baseDir, "Branding", "favicon.png"),
+                            Path.Combine(baseDir, "favicon.png"),
+                            // Marketing/Identidad (logo oficial 2026)
+                            Path.Combine(baseDir, @"..\..\..\..\..\..\..\..\Marketing\Identidad\favicon.png"),
+                            @"G:\AgroParallel\Marketing\Identidad\favicon.png",
+                            // Fallback ruta vieja
                             Path.Combine(baseDir, @"..\..\..\..\..\..\..\..\Marketing\favicon.png"),
                             @"G:\AgroParallel\Marketing\favicon.png"
                         };

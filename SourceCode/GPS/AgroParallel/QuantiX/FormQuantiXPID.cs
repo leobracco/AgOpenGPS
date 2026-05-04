@@ -38,7 +38,9 @@ namespace AgroParallel.QuantiX
         private double _liveTarget, _liveReal;
         private int _livePwm, _liveRpm;
         private long _livePulsos;
+#pragma warning disable CS0169 // wire-up pendiente
         private double _liveMeterCal;
+#pragma warning restore CS0169
 
         // CSV log.
         private string _pidLogPath;
@@ -536,9 +538,6 @@ namespace AgroParallel.QuantiX
 
             // Calcular kg/ha real (inversa del bridge)
             // g/s = Hz × MeterCal(g/pulso) → kg/ha = g/s × 10 / (ancho × vel_m/s)
-            // Usamos los datos del último log si están disponibles
-            double kgHaReal = 0;
-            double kgHaTarget = 0;
             // Estimación: si conocemos ancho y velocidad desde el bridge
             // Por ahora calculamos desde los Hz y MeterCal
             // g/s_real = _liveReal * meterCal
