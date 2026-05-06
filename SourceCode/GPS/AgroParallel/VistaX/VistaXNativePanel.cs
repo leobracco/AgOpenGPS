@@ -16,6 +16,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Windows.Forms;
+using AgroParallel.Common;
 
 namespace AgroParallel.VistaX
 {

@@ -11,6 +11,7 @@ using System.Drawing.Drawing2D;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using AgroParallel.VistaX;
+// Theme is in same namespace AgroParallel.Common — no using needed
 
 namespace AgroParallel.Common
 {

@@ -1,11 +1,13 @@
 // ============================================================================
-// VistaXTheme.cs - Paleta y constantes visuales del sistema Agro Parallel
-// Ubicación: SourceCode/GPS/AgroParallel/VistaX/VistaXTheme.cs
+// AgroParallelTheme.cs - Paleta y constantes visuales del ecosistema Agro Parallel
+// Ubicación: SourceCode/GPS/AgroParallel/Common/AgroParallelTheme.cs
 // Target: net48 (C# 7.3)
 //
 // Fuente unica de verdad para colores, fuentes, radios y helpers de
 // rendering. Estilo Agro Parallel 2026: fondo azulado oscuro, verde marca
 // #71B528 (logo oficial), tarjetas limpias, inputs oscuros, botones flat.
+//
+// Usado por todos los modulos: VistaX, QuantiX, OrbitX, SectionX, Common.
 // ============================================================================
 
 using System;
@@ -14,7 +16,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Windows.Forms;
 
-namespace AgroParallel.VistaX
+namespace AgroParallel.Common
 {
     public static class Theme
     {

@@ -19,6 +19,7 @@ using System.Threading;
 using System.Windows.Forms;
 using MQTTnet;
 using MQTTnet.Client;
+using AgroParallel.Common;
 
 namespace AgroParallel.VistaX
 {

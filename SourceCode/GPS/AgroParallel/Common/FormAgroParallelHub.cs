@@ -15,6 +15,7 @@ using AgroParallel.OrbitX;
 using AgroParallel.QuantiX;
 using AgroParallel.SectionX;
 using AgroParallel.VistaX;
+// Theme is in same namespace AgroParallel.Common — no using needed
 
 namespace AgroParallel.Common
 {
@@ -97,7 +98,7 @@ namespace AgroParallel.Common
             {
                 Name = "OrbitX", Icon = "\u2601",
                 Accent = Color.FromArgb(100, 180, 255), Available = true,
-                Tabs = new[] { "Config" }
+                Tabs = new[] { "Config", "Firmware" }
             });
         }
 
@@ -421,6 +422,7 @@ namespace AgroParallel.Common
             switch (tab)
             {
                 case 0: return new FormOrbitXConfig(cfg, _parent.orbitXSync);
+                case 1: return new AgroParallel.OrbitX.FormFirmwareOTA(cfg, _parent.orbitXSync);
                 default: return null;
             }
         }

@@ -24,6 +24,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Windows.Forms;
+using AgroParallel.Common;
 using AgroParallel.VistaX;
 
 namespace AgroParallel.QuantiX

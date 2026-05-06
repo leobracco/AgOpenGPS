@@ -46,6 +46,23 @@ namespace AgroParallel.OrbitX
         [JsonPropertyName("sync_sectionx")]
         public bool SyncSectionX { get; set; }
 
+        // ── Firmware OTA mirror (LAN) ────────────────────────────────────
+        // Espejo local de firmwares descargados de OrbitX cloud + servidor
+        // HTTP para distribuirlos a los nodos ESP32 (QuantiX, VistaX, etc.)
+        // que están detrás del PC con AOG en LAN.
+
+        [JsonPropertyName("firmware_mirror_enabled")]
+        public bool FirmwareMirrorEnabled { get; set; }
+
+        [JsonPropertyName("firmware_cache_dir")]
+        public string FirmwareCacheDir { get; set; }
+
+        [JsonPropertyName("firmware_http_port")]
+        public int FirmwareHttpPort { get; set; }
+
+        [JsonPropertyName("firmware_sync_interval_min")]
+        public int FirmwareSyncIntervalMin { get; set; }
+
         // Estado.
         [JsonPropertyName("last_sync")]
         public string LastSync { get; set; }
@@ -65,6 +82,10 @@ namespace AgroParallel.OrbitX
             SyncVistaX = true;
             SyncQuantiX = true;
             SyncSectionX = true;
+            FirmwareMirrorEnabled = true;
+            FirmwareCacheDir = "";  // vacío → <AOG>/firmware-cache
+            FirmwareHttpPort = 8088;
+            FirmwareSyncIntervalMin = 10;
             LastSync = "";
             FilesSynced = 0;
         }

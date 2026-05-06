@@ -22,6 +22,9 @@ namespace AgroParallel.OrbitX
         private readonly AgOpenGPS.FormGPS _parent;
         private readonly HttpClient _http;
         private System.Windows.Forms.Timer _timer;
+        private System.Windows.Forms.Timer _firmwareTimer;
+        private FirmwareLanServer _firmwareServer;
+        private bool _firmwareSyncInFlight;
         private bool _disposed;
         private readonly Queue<SyncItem> _queue = new Queue<SyncItem>();
 
@@ -29,6 +32,9 @@ namespace AgroParallel.OrbitX
         public int FilesSynced { get; private set; }
         public DateTime? LastSyncTime { get; private set; }
         public string LastError { get; private set; }
+        public DateTime? LastFirmwareSync { get; private set; }
+        public string LastFirmwareError { get; private set; }
+        public string FirmwareServerPrefix => _firmwareServer?.BoundPrefix;
 
         private class SyncItem
         {
@@ -67,6 +73,64 @@ namespace AgroParallel.OrbitX
 
             // Heartbeat inicial.
             _ = SendHeartbeat();
+
+            // Firmware mirror + LAN HTTP server (OTA para nodos ESP32).
+            StartFirmwareMirror();
+        }
+
+        private void StartFirmwareMirror()
+        {
+            if (!_cfg.FirmwareMirrorEnabled) return;
+
+            _firmwareServer = new FirmwareLanServer(_cfg, msg => Trace(msg));
+            _firmwareServer.Start();
+
+            int minutes = _cfg.FirmwareSyncIntervalMin > 0 ? _cfg.FirmwareSyncIntervalMin : 10;
+            _firmwareTimer = new System.Windows.Forms.Timer();
+            _firmwareTimer.Interval = minutes * 60 * 1000;
+            _firmwareTimer.Tick += async (s, e) => await FirmwareSyncTick();
+            _firmwareTimer.Start();
+
+            // Primer sync diferido 5s (después de que arranque heartbeat).
+            var first = new System.Windows.Forms.Timer { Interval = 5000 };
+            first.Tick += async (s, e) =>
+            {
+                first.Stop(); first.Dispose();
+                await FirmwareSyncTick();
+            };
+            first.Start();
+        }
+
+        private async Task FirmwareSyncTick()
+        {
+            if (_disposed || !_cfg.FirmwareMirrorEnabled) return;
+            if (_firmwareSyncInFlight) return;
+            if (string.IsNullOrEmpty(_cfg.DeviceToken)) return;
+
+            _firmwareSyncInFlight = true;
+            try
+            {
+                var r = await FirmwareMirror.SyncAsync(_http, _cfg, msg => Trace(msg));
+                LastFirmwareSync = DateTime.Now;
+                LastFirmwareError = null;
+                if (r.Descargados > 0 || r.Errores > 0)
+                    Trace($"FW mirror: {r.CatalogCount} en catálogo, {r.Descargados} bajados, {r.Errores} errores");
+            }
+            catch (Exception ex)
+            {
+                LastFirmwareError = ex.Message;
+                Trace($"FW mirror falló: {ex.Message}");
+            }
+            finally
+            {
+                _firmwareSyncInFlight = false;
+            }
+        }
+
+        // Hook simple de log; reemplazable por logging real cuando exista.
+        private static void Trace(string msg)
+        {
+            try { System.Diagnostics.Debug.WriteLine("[OrbitX] " + msg); } catch { }
         }
 
         public void Stop()
@@ -74,6 +138,8 @@ namespace AgroParallel.OrbitX
             if (!IsRunning) return;
             IsRunning = false;
             if (_timer != null) { _timer.Stop(); _timer.Dispose(); _timer = null; }
+            if (_firmwareTimer != null) { _firmwareTimer.Stop(); _firmwareTimer.Dispose(); _firmwareTimer = null; }
+            if (_firmwareServer != null) { _firmwareServer.Stop(); _firmwareServer = null; }
         }
 
         // =====================================================================

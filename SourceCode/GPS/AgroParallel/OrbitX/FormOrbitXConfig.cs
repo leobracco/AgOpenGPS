@@ -5,6 +5,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using AgroParallel.Common;
 using AgroParallel.VistaX;
 
 namespace AgroParallel.OrbitX

@@ -1659,7 +1659,7 @@ namespace AgOpenGPS
         private void InitAgroParallelModulesMenu()
         {
             // Asignar logo al botón del menú.
-            var logo = AgroParallel.VistaX.Theme.Logo;
+            var logo = AgroParallel.Common.Theme.Logo;
             if (logo != null)
             {
                 toolStripAgroParallel.Image = new System.Drawing.Bitmap(logo, 28, 28);

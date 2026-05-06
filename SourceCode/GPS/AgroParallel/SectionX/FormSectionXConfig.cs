@@ -9,6 +9,7 @@ using System.Drawing;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
+using AgroParallel.Common;
 using AgroParallel.VistaX;
 
 namespace AgroParallel.SectionX
