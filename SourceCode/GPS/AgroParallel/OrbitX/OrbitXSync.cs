@@ -152,6 +152,11 @@ namespace AgroParallel.OrbitX
 
             try
             {
+                // Heartbeat periódico — el panel marca el device offline si
+                // pasaron > 2 min sin ver el ultimo_visto. Antes se enviaba
+                // sólo una vez al arranque, por eso siempre figuraba offline.
+                await SendHeartbeat();
+
                 // Encolar archivos de módulos.
                 if (_cfg.SyncVistaX) EnqueueVistaXFiles();
                 if (_cfg.SyncQuantiX) EnqueueQuantiXFiles();
@@ -177,7 +182,8 @@ namespace AgroParallel.OrbitX
 
                 _cfg.LastSync = LastSyncTime.Value.ToString("o", CultureInfo.InvariantCulture);
                 _cfg.FilesSynced = FilesSynced;
-                _cfg.Save();
+                // Merge en disco: no pisar cambios externos (CamarasStreamingEnabled, etc.).
+                OrbitXConfig.SaveRuntimeFields(_cfg.LastSync, _cfg.FilesSynced, null);
             }
             catch (Exception ex)
             {
@@ -364,7 +370,8 @@ namespace AgroParallel.OrbitX
                             if (end > idx)
                             {
                                 _cfg.EstabSlug = body.Substring(idx, end - idx);
-                                _cfg.Save();
+                                // Merge: solo updatea EstabSlug, preserva resto.
+                                OrbitXConfig.SaveRuntimeFields(null, FilesSynced, _cfg.EstabSlug);
                             }
                         }
                     }

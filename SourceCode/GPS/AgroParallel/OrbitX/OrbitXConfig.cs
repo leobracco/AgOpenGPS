@@ -139,6 +139,24 @@ namespace AgroParallel.OrbitX
             File.WriteAllText(path, JsonSerializer.Serialize(this, opts));
         }
 
+        // Persiste sólo campos que actualiza OrbitXSync (LastSync, FilesSynced,
+        // EstabSlug) sin pisar cambios que el usuario haya hecho desde otras
+        // pantallas (ej. CamarasStreamingEnabled en FormCamarasConfig).
+        // Solución al bug: el sync corría cada 30s y reescribía el JSON entero
+        // con su instancia cacheada, revirtiendo flags recién guardados.
+        public static void SaveRuntimeFields(string lastSync, int filesSynced, string estabSlug)
+        {
+            try
+            {
+                var disk = Load();
+                if (lastSync != null) disk.LastSync = lastSync;
+                disk.FilesSynced = filesSynced;
+                if (!string.IsNullOrEmpty(estabSlug)) disk.EstabSlug = estabSlug;
+                disk.Save();
+            }
+            catch { }
+        }
+
         /// Genera un Device ID único basado en el MAC address (compatible con OrbitX-Sync).
         private static string GenerateDeviceId()
         {
