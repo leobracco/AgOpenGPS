@@ -6,7 +6,7 @@
 #   2) AutoAdminLogon OFF (limpia DefaultUserName/Password)
 #   3) Servicios: vuelven al StartType original
 #   4) Plan de energía: vuelve al original (best effort)
-#   5) Fast Startup, Lockscreen, Cortana, Consumer features → defaults
+#   5) Fast Startup, Lockscreen, Cortana, Consumer features -> defaults
 #   6) Watchdog Task eliminada
 #   7) Hibernación on (si la querés)
 #   8) Policies WindowsUpdate / OneDrive borradas
@@ -117,7 +117,7 @@ if ($backup -and $backup.services) {
                 default     { "Manual" }
             }
             Set-Service -Name $name -StartupType $startType -ErrorAction SilentlyContinue
-            Log "Servicio $name → $startType (original)"
+            Log "Servicio $name -> $startType (original)"
         } catch { Log "svc revert $name : $($_.Exception.Message)" "WARN" }
     }
 } else {
@@ -132,7 +132,7 @@ if ($backup -and $backup.services) {
             $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
             if ($svc) {
                 Set-Service -Name $name -StartupType Manual -ErrorAction SilentlyContinue
-                Log "Servicio $name → Manual (sin backup, default conservador)"
+                Log "Servicio $name -> Manual (sin backup, default conservador)"
             }
         } catch {}
     }
@@ -143,7 +143,7 @@ try {
     # Vuelve a Balanced (default Windows) si no hay backup específico
     $balancedGuid = "381b4222-f694-41f0-9685-ff5bb260df2e"
     powercfg /setactive $balancedGuid | Out-Null
-    Log "Plan de energía → Balanced"
+    Log "Plan de energía -> Balanced"
 
     # Restaurar timeouts default razonables (30 min monitor, 60 min disk, sleep)
     powercfg /change monitor-timeout-ac 15
@@ -179,7 +179,7 @@ foreach ($pol in $policiesToClear) {
         foreach ($n in $pol.Names) {
             Remove-ItemProperty -Path $pol.Path -Name $n -ErrorAction SilentlyContinue
         }
-        Log "Policy limpiada: $($pol.Path) → $($pol.Names -join ',')"
+        Log "Policy limpiada: $($pol.Path) -> $($pol.Names -join ',')"
     }
 }
 

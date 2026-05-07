@@ -148,9 +148,9 @@ if ($Json) {
 }
 
 Write-Host ""
-Write-Host "════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "====================================================================" -ForegroundColor Cyan
 Write-Host " PilotX Embed Mode Status" -ForegroundColor Cyan
-Write-Host "════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "====================================================================" -ForegroundColor Cyan
 Write-Host (" Host             : {0}" -f $state.host)
 Write-Host (" Usuario actual   : {0}" -f $state.user)
 Write-Host (" Timestamp        : {0}" -f $state.timestamp)
@@ -188,5 +188,5 @@ Write-Host ""
 Write-Host " Comandos utiles:" -ForegroundColor Gray
 Write-Host "   embed-enable.ps1   - activar modo kiosko"
 Write-Host "   embed-disable.ps1  - revertir a desktop normal"
-Write-Host "════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "====================================================================" -ForegroundColor Cyan
 Write-Host ""

@@ -47,10 +47,10 @@ try {
     $ZipFile = Join-Path $TmpDir "ffmpeg.zip"
     $ShaFile = Join-Path $TmpDir "ffmpeg.zip.sha256"
 
-    Write-Host "→ Bajando $ZipUrl ..."
+    Write-Host "[*] Bajando $ZipUrl ..."
     Invoke-WebRequest -Uri $ZipUrl -OutFile $ZipFile -UseBasicParsing
 
-    Write-Host "→ Bajando SHA256 sidecar ..."
+    Write-Host "[*] Bajando SHA256 sidecar ..."
     Invoke-WebRequest -Uri $ShaUrl -OutFile $ShaFile -UseBasicParsing
 
     $expected = (Get-Content $ShaFile -Raw).Trim().Split()[0].ToLower()
@@ -59,9 +59,9 @@ try {
     if ($expected -ne $actual) {
         throw "SHA256 mismatch! expected=$expected actual=$actual"
     }
-    Write-Host "✓ SHA256 OK ($expected)" -ForegroundColor Green
+    Write-Host "[OK] SHA256 verificado ($expected)" -ForegroundColor Green
 
-    Write-Host "→ Extrayendo ffmpeg.exe ..."
+    Write-Host "[*] Extrayendo ffmpeg.exe ..."
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [System.IO.Compression.ZipFile]::OpenRead($ZipFile)
     try {
@@ -74,7 +74,7 @@ try {
     }
 
     $finalSize = (Get-Item $OutFile).Length / 1MB
-    Write-Host ("✓ ffmpeg.exe extraido en $OutFile ({0:N1} MB)" -f $finalSize) -ForegroundColor Green
+    Write-Host ("[OK] ffmpeg.exe extraido en $OutFile ({0:N1} MB)" -f $finalSize) -ForegroundColor Green
     & $OutFile -version 2>&1 | Select-Object -First 1
 }
 finally {

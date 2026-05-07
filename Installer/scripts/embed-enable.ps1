@@ -111,7 +111,7 @@ if (-not $SkipUser) {
         # NO lo metemos en Administrators — el usuario kiosko es estándar.
 
         # Permitir login con password en blanco (Windows lo bloquea por default).
-        # LimitBlankPasswordUse=0 → permite login local sin password.
+        # LimitBlankPasswordUse=0 -> permite login local sin password.
         Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" `
                          -Name "LimitBlankPasswordUse" -Value 0 -Type DWord -Force
         Log "LimitBlankPasswordUse=0 (permite login con password vacía)"
@@ -207,7 +207,7 @@ if (-not $SkipServices) {
             $backup.services[$name] = $svc.StartType.ToString()
             if ($svc.Status -eq "Running") { Stop-Service -Name $name -Force -ErrorAction SilentlyContinue }
             Set-Service -Name $name -StartupType Disabled -ErrorAction SilentlyContinue
-            Log "Servicio $name → Disabled"
+            Log "Servicio $name -> Disabled"
         } catch { Log "svc $name: $($_.Exception.Message)" "WARN" }
     }
 } else {
@@ -319,7 +319,7 @@ try {
     if ($anyDesk) {
         Set-Service -Name "AnyDesk" -StartupType Automatic
         if ($anyDesk.Status -ne "Running") { Start-Service -Name "AnyDesk" -ErrorAction SilentlyContinue }
-        Log "AnyDesk → Automatic + corriendo"
+        Log "AnyDesk -> Automatic + corriendo"
     } else {
         Log "AnyDesk no está instalado — instalalo manualmente desde anydesk.com" "WARN"
     }
@@ -343,7 +343,7 @@ Log "=== embed-enable.ps1 finalizado OK ==="
 Log ""
 Log "PROXIMOS PASOS:"
 Log "  1. Reiniciar (shutdown /r /t 0)"
-Log "  2. Boot → autologon a '$KioskUser' → arranca PilotX como shell"
+Log "  2. Boot -> autologon a '$KioskUser' -> arranca PilotX como shell"
 Log "  3. Si algo falla, el watchdog restaura explorer.exe a +60s"
 Log "  4. Para revertir: embed-disable.ps1"
 Write-Output "OK"
