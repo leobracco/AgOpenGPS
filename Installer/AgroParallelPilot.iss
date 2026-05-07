@@ -81,6 +81,7 @@ Name: "agioicon";      Description: "Crear acceso directo a AgIO en el escritori
 Name: "autostart";     Description: "Iniciar AgOpenGPS automaticamente al arrancar Windows"; GroupDescription: "Inicio automatico:"; Flags: checkedonce
 Name: "cleaninstall";  Description: "Reinstalar / Limpiar instalacion previa (registry + settings stale)"; GroupDescription: "Mantenimiento:"; Flags: checkedonce
 Name: "wipesettings";  Description: "Eliminar TAMBIEN aog_settings.json y configs de modulos (no toca lotes)"; GroupDescription: "Mantenimiento:"; Flags: unchecked
+Name: "embedmode";     Description: "Activar modo EMBED (kiosko anti-tanques: AutoLogon, sin desktop, watchdog, servicios off)"; GroupDescription: "Modo de uso:"; Flags: unchecked
 
 [Files]
 ; Todo el contenido de Build/ va a {app} (incluye AOG.exe, AgIO.exe, DLLs, runtimes, idiomas)
@@ -95,6 +96,18 @@ Source: "{#BuildDir}\*"; DestDir: "{app}"; \
 Source: "aog_settings_default.json"; DestDir: "{app}"; DestName: "aog_settings.json"; \
   Flags: onlyifdoesntexist
 
+; ffmpeg.exe — necesario para el modulo de Camaras (push RTSP a MediaMTX cloud).
+; Bajalo con: powershell -File scripts\download-ffmpeg.ps1   (no se commitea)
+Source: "assets\ffmpeg.exe"; DestDir: "{app}"; Flags: ignoreversion
+
+; Scripts de modo embed (kiosko) + wrappers .cmd que se auto-elevan via UAC
+Source: "scripts\embed-enable.ps1";  DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\embed-disable.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\embed-status.ps1";  DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\embed-enable.cmd";  DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\embed-disable.cmd"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "scripts\embed-status.cmd";  DestDir: "{app}\scripts"; Flags: ignoreversion
+
 [Dirs]
 ; Carpetas de datos del usuario - se crean en %USERPROFILE%\Documents\AgOpenGPS
 ; Esto previene el DirectoryNotFoundException al primer arranque.
@@ -108,6 +121,14 @@ Name: "{userdocs}\AgOpenGPS\Tools";    Permissions: users-modify
 Name: "{group}\PilotX";     Filename: "{app}\{#AppExeAOG}";  WorkingDir: "{app}"; IconFilename: "{app}\AOG.ico"
 Name: "{group}\AgIO";       Filename: "{app}\{#AppExeAgIO}"; WorkingDir: "{app}"
 Name: "{group}\Desinstalar PilotX"; Filename: "{uninstallexe}"
+; Atajos diagnostico modo embed (utiles desde "Iniciar > AgroParallel" para soporte).
+; Estos los lanzamos como wrappers .cmd que se auto-elevan via UAC (ver scripts\*.cmd)
+Name: "{group}\Diagnostico\Estado modo EMBED";    Filename: "{app}\scripts\embed-status.cmd"; \
+  WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 23
+Name: "{group}\Diagnostico\Activar modo EMBED";   Filename: "{app}\scripts\embed-enable.cmd"; \
+  WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 77
+Name: "{group}\Diagnostico\Desactivar modo EMBED"; Filename: "{app}\scripts\embed-disable.cmd"; \
+  WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 132
 
 Name: "{autodesktop}\PilotX"; Filename: "{app}\{#AppExeAOG}"; WorkingDir: "{app}"; IconFilename: "{app}\AOG.ico"; Tasks: desktopicon
 Name: "{autodesktop}\AgIO";   Filename: "{app}\{#AppExeAgIO}"; WorkingDir: "{app}"; Tasks: agioicon
@@ -142,7 +163,25 @@ Filename: "powershell.exe"; \
   StatusMsg: "Configurando exclusion en Microsoft Defender..."; \
   Flags: runhidden waituntilterminated
 
-Filename: "{app}\{#AppExeAOG}"; Description: "Iniciar AgOpenGPS"; Flags: nowait postinstall skipifsilent
+; ── MODO EMBED (kiosko anti-tanques) ──────────────────────────────────────
+; Solo si el usuario marco la task "embedmode". Corre embed-enable.ps1 al final
+; del install. El script:
+;   - crea usuario "pilotx" con AutoLogon
+;   - reemplaza Shell por AgOpenGPS.exe
+;   - registra watchdog scheduled task
+;   - desactiva ~30 servicios (Spooler, DiagTrack, WSearch, SysMain, etc.)
+;   - plan de energia HighPerformance
+;   - bloquea Cortana / Lockscreen / Consumer features / OneDrive
+;   - Windows Update sin reboot automatico
+; Backup completo en C:\ProgramData\PilotX\embed-backup.json
+; Para revertir: powershell -File "{app}\scripts\embed-disable.ps1"
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\embed-enable.ps1"" -InstallDir ""{app}"""; \
+  StatusMsg: "Activando modo EMBED (kiosko anti-tanques)... esto puede tardar 1-2 min"; \
+  Flags: runhidden waituntilterminated; \
+  Tasks: embedmode
+
+Filename: "{app}\{#AppExeAOG}"; Description: "Iniciar AgOpenGPS"; Flags: nowait postinstall skipifsilent; Check: not WizardIsTaskSelected('embedmode')
 
 [InstallDelete]
 ; Si el user pide "Reinstalar / Limpiar", borramos archivos de config conocidos

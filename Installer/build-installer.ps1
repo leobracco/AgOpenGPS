@@ -88,6 +88,17 @@ foreach ($exe in @("AgOpenGPS.exe", "AgIO.exe")) {
     }
 }
 
+# 3.5) Asegurar ffmpeg.exe en assets\ (lo bundleamos para Camaras remotas)
+$ffmpeg = Join-Path $PSScriptRoot "assets\ffmpeg.exe"
+if (-not (Test-Path $ffmpeg)) {
+    Write-Host "`n=== ffmpeg.exe no encontrado, descargando ===" -ForegroundColor Cyan
+    & (Join-Path $PSScriptRoot "scripts\download-ffmpeg.ps1")
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $ffmpeg)) {
+        Write-Host "ERROR: no pude bajar ffmpeg.exe" -ForegroundColor Red
+        exit 1
+    }
+}
+
 # 4) Compilar el instalador
 Write-Host "`n=== Empaquetando instalador (v$Version) ===" -ForegroundColor Cyan
 & $iscc "/DAppVersion=$Version" $iss
