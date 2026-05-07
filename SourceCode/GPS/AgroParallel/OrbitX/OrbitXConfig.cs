@@ -63,6 +63,22 @@ namespace AgroParallel.OrbitX
         [JsonPropertyName("firmware_sync_interval_min")]
         public int FirmwareSyncIntervalMin { get; set; }
 
+        // ── Cámaras: streaming remoto (push RTSP a MediaMTX en el server) ───
+        [JsonPropertyName("camaras_streaming_enabled")]
+        public bool CamarasStreamingEnabled { get; set; }
+
+        // Host del MediaMTX (default: derivado de ServerUrl). Útil si MediaMTX
+        // está en otro droplet o detrás de otro DNS (ej cam.agroparallel.com).
+        [JsonPropertyName("camaras_rtsp_host")]
+        public string CamarasRtspHost { get; set; }
+
+        [JsonPropertyName("camaras_rtsp_port")]
+        public int CamarasRtspPort { get; set; }
+
+        // Path al ffmpeg.exe — vacío = busca ffmpeg en PATH o en App folder.
+        [JsonPropertyName("camaras_ffmpeg_path")]
+        public string CamarasFfmpegPath { get; set; }
+
         // Estado.
         [JsonPropertyName("last_sync")]
         public string LastSync { get; set; }
@@ -86,6 +102,10 @@ namespace AgroParallel.OrbitX
             FirmwareCacheDir = "";  // vacío → <AOG>/firmware-cache
             FirmwareHttpPort = 8088;
             FirmwareSyncIntervalMin = 10;
+            CamarasStreamingEnabled = false;
+            CamarasRtspHost = "";
+            CamarasRtspPort = 8554;
+            CamarasFfmpegPath = "";
             LastSync = "";
             FilesSynced = 0;
         }

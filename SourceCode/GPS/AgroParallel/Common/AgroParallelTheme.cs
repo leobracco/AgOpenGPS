@@ -3,11 +3,17 @@
 // Ubicación: SourceCode/GPS/AgroParallel/Common/AgroParallelTheme.cs
 // Target: net48 (C# 7.3)
 //
-// Fuente unica de verdad para colores, fuentes, radios y helpers de
-// rendering. Estilo Agro Parallel 2026: fondo azulado oscuro, verde marca
-// #71B528 (logo oficial), tarjetas limpias, inputs oscuros, botones flat.
+// Theme operativo para cabina de tractor: 3 modos seleccionables
+//   - Day:           claro gris-verdoso, alto contraste sin blanco puro
+//   - Night:         dark grafito/verde para uso nocturno
+//   - HighContrast:  sol fuerte, contraste máximo
 //
-// Usado por todos los modulos: VistaX, QuantiX, OrbitX, SectionX, Common.
+// Verde marca: #71B528 (sampleado del logo oficial Agro Parallel 2026).
+// Filosofia: 70% gris/fondo, 20% blanco-negro, 10% verde marca como
+// SEÑAL (acción / activo / OK), no como decoración.
+//
+// Default = Night. Cambiar via Theme.Current = Theme.Mode.Day; (suscribirse
+// a Theme.ModeChanged para repintar forms en vivo).
 // ============================================================================
 
 using System;
@@ -21,42 +27,274 @@ namespace AgroParallel.Common
     public static class Theme
     {
         // =================================================================
-        // COLORES — Paleta Agro Parallel 2026
+        // MODO ACTIVO
         // =================================================================
 
-        // Fondos (negro azulado, no negro puro).
-        public static readonly Color BgBlack = Color.FromArgb(9, 11, 15);        // #090B0F
-        public static readonly Color BgCard = Color.FromArgb(20, 23, 31);        // #14171F
-        public static readonly Color BgCard2 = Color.FromArgb(25, 29, 39);       // #191D27
-        public static readonly Color BgCardHover = Color.FromArgb(30, 34, 44);   // Hover
-        public static readonly Color BgInput = Color.FromArgb(11, 14, 19);       // #0B0E13
-        public static readonly Color BgHeader = Color.FromArgb(12, 15, 21);      // #0C0F15
-        public static readonly Color BgToolbar = Color.FromArgb(14, 17, 23);     // #0E1117
+        public enum Mode { Day, Night, HighContrast }
 
-        // Bordes.
-        public static readonly Color Border = Color.FromArgb(42, 48, 60);        // #2A303C
-        public static readonly Color BorderSoft = Color.FromArgb(30, 35, 45);    // #1E232D
-        public static readonly Color BorderLight = Color.FromArgb(55, 62, 75);   // Borde visible
+        private static Mode _current = Mode.Night;
 
-        // Acento (verde marca Agro Parallel - sampleado del logo oficial).
-        public static readonly Color Accent = Color.FromArgb(113, 181, 40);      // #71B528
-        public static readonly Color AccentDim = Color.FromArgb(75, 120, 27);    // #4B781B
-        public static readonly Color AccentDark = Color.FromArgb(28, 50, 12);    // Fondo activo
-        public static readonly Color AccentHover = Color.FromArgb(135, 205, 60); // Hover
+        public static Mode Current
+        {
+            get { return _current; }
+            set
+            {
+                if (_current == value) return;
+                _current = value;
+                var h = ModeChanged;
+                if (h != null) h(null, EventArgs.Empty);
+            }
+        }
 
-        // Texto.
-        public static readonly Color TextPrimary = Color.FromArgb(240, 243, 238);  // #F0F3EE
-        public static readonly Color TextSecondary = Color.FromArgb(139, 148, 167); // #8B94A7
-        public static readonly Color TextFaint = Color.FromArgb(88, 98, 115);      // #586273
-        public static readonly Color TextDisabled = Color.FromArgb(50, 55, 65);    // Deshabilitado
+        /// <summary>Forms se suscriben para repintar al cambiar el modo.</summary>
+        public static event EventHandler ModeChanged;
 
-        // Estados.
-        public static readonly Color Ok = Color.FromArgb(113, 181, 40);          // Verde marca
-        public static readonly Color Warning = Color.FromArgb(245, 172, 0);      // #F5AC00
-        public static readonly Color Error = Color.FromArgb(235, 75, 75);        // #EB4B4B
-        public static readonly Color Info = Color.FromArgb(70, 155, 255);        // #469BFF
+        /// <summary>Helper interno: elige color segun modo activo.</summary>
+        private static Color Pick(Color day, Color night, Color hc)
+        {
+            switch (_current)
+            {
+                case Mode.Day: return day;
+                case Mode.HighContrast: return hc;
+                default: return night;
+            }
+        }
 
-        // Sensores especiales.
+        // =================================================================
+        // FONDOS
+        // =================================================================
+
+        // Fondo del form (ex BgBlack — nombre conservado para back-compat).
+        public static Color BgBlack
+        {
+            get { return Pick(
+                Color.FromArgb(0xE9, 0xEC, 0xE8),   // Day
+                Color.FromArgb(0x05, 0x08, 0x06),   // Night
+                Color.FromArgb(0xD8, 0xDE, 0xD6));  // HC
+            }
+        }
+
+        // Tarjetas / cards principales.
+        public static Color BgCard
+        {
+            get { return Pick(
+                Color.FromArgb(0xFF, 0xFF, 0xFF),
+                Color.FromArgb(0x17, 0x22, 0x18),
+                Color.FromArgb(0xFF, 0xFF, 0xFF));
+            }
+        }
+
+        // Tarjeta secundaria (sub-paneles).
+        public static Color BgCard2
+        {
+            get { return Pick(
+                Color.FromArgb(0xF7, 0xF9, 0xF6),
+                Color.FromArgb(0x11, 0x1A, 0x14),
+                Color.FromArgb(0xF0, 0xF4, 0xF0));
+            }
+        }
+
+        // Hover sobre card.
+        public static Color BgCardHover
+        {
+            get { return Pick(
+                Color.FromArgb(0xEE, 0xF2, 0xEE),
+                Color.FromArgb(0x1E, 0x28, 0x20),
+                Color.FromArgb(0xE0, 0xE6, 0xE0));
+            }
+        }
+
+        // Fondo de input (TextBox/ComboBox/NumericUpDown).
+        public static Color BgInput
+        {
+            get { return Pick(
+                Color.FromArgb(0xFF, 0xFF, 0xFF),
+                Color.FromArgb(0x0B, 0x12, 0x0E),
+                Color.FromArgb(0xFF, 0xFF, 0xFF));
+            }
+        }
+
+        // Header / sub-header de form.
+        public static Color BgHeader
+        {
+            get { return Pick(
+                Color.FromArgb(0xF7, 0xF9, 0xF6),
+                Color.FromArgb(0x0B, 0x12, 0x0E),
+                Color.FromArgb(0xFF, 0xFF, 0xFF));
+            }
+        }
+
+        // Toolbar.
+        public static Color BgToolbar
+        {
+            get { return Pick(
+                Color.FromArgb(0xEE, 0xF2, 0xEE),
+                Color.FromArgb(0x0E, 0x11, 0x17),
+                Color.FromArgb(0xF0, 0xF4, 0xF0));
+            }
+        }
+
+        // =================================================================
+        // BORDES
+        // =================================================================
+
+        public static Color Border
+        {
+            get { return Pick(
+                Color.FromArgb(0xCB, 0xD5, 0xCC),
+                Color.FromArgb(0x26, 0x32, 0x29),
+                Color.FromArgb(0x8D, 0x9A, 0x8E));
+            }
+        }
+
+        public static Color BorderSoft
+        {
+            get { return Pick(
+                Color.FromArgb(0xE0, 0xE6, 0xE0),
+                Color.FromArgb(0x1A, 0x22, 0x1C),
+                Color.FromArgb(0xB0, 0xB8, 0xB0));
+            }
+        }
+
+        public static Color BorderLight
+        {
+            get { return Pick(
+                Color.FromArgb(0xB7, 0xC4, 0xB5),
+                Color.FromArgb(0x36, 0x45, 0x39),
+                Color.FromArgb(0x6B, 0x75, 0x6E));
+            }
+        }
+
+        // =================================================================
+        // ACENTO — verde marca (#71B528, sampleado del logo oficial)
+        // =================================================================
+        // En Day y Night el verde marca es el mismo. En HighContrast bajamos
+        // luminancia para mantener legibilidad sobre fondo claro.
+
+        public static Color Accent
+        {
+            get { return Pick(
+                Color.FromArgb(113, 181, 40),   // #71B528 Day
+                Color.FromArgb(113, 181, 40),   // #71B528 Night
+                Color.FromArgb(20, 140, 28));   // #148C1C HC (más oscuro)
+            }
+        }
+
+        public static Color AccentDim
+        {
+            get { return Pick(
+                Color.FromArgb(75, 120, 27),
+                Color.FromArgb(75, 120, 27),
+                Color.FromArgb(13, 96, 16));
+            }
+        }
+
+        // Fondo selección activa.
+        public static Color AccentDark
+        {
+            get { return Pick(
+                Color.FromArgb(0xDF, 0xF4, 0xDC),  // verde claro relleno (día)
+                Color.FromArgb(28, 50, 12),        // verde profundo (noche)
+                Color.FromArgb(0xC5, 0xE5, 0xC2));
+            }
+        }
+
+        public static Color AccentHover
+        {
+            get { return Pick(
+                Color.FromArgb(135, 205, 60),
+                Color.FromArgb(135, 205, 60),
+                Color.FromArgb(47, 174, 52));
+            }
+        }
+
+        // Verde brillante para señales criticas (linea AB activa, RTK fijo).
+        public static Color AccentBright
+        {
+            get { return Pick(
+                Color.FromArgb(47, 174, 52),       // un poco más oscuro de día
+                Color.FromArgb(124, 255, 91),      // #7CFF5B (noche)
+                Color.FromArgb(0, 160, 0));
+            }
+        }
+
+        // =================================================================
+        // TEXTO
+        // =================================================================
+
+        public static Color TextPrimary
+        {
+            get { return Pick(
+                Color.FromArgb(0x10, 0x14, 0x10),
+                Color.FromArgb(0xEA, 0xF2, 0xE8),
+                Color.FromArgb(0x00, 0x00, 0x00));
+            }
+        }
+
+        public static Color TextSecondary
+        {
+            get { return Pick(
+                Color.FromArgb(0x4E, 0x5A, 0x50),
+                Color.FromArgb(0xA8, 0xB6, 0xAA),
+                Color.FromArgb(0x22, 0x28, 0x22));
+            }
+        }
+
+        public static Color TextFaint
+        {
+            get { return Pick(
+                Color.FromArgb(0x8A, 0x94, 0x8B),
+                Color.FromArgb(0x6E, 0x7B, 0x72),
+                Color.FromArgb(0x4E, 0x5A, 0x50));
+            }
+        }
+
+        public static Color TextDisabled
+        {
+            get { return Pick(
+                Color.FromArgb(0xB0, 0xB8, 0xB0),
+                Color.FromArgb(0x5E, 0x6A, 0x61),
+                Color.FromArgb(0x8D, 0x9A, 0x8E));
+            }
+        }
+
+        // =================================================================
+        // ESTADOS
+        // =================================================================
+
+        public static Color Ok { get { return Accent; } }
+
+        public static Color Warning
+        {
+            get { return Pick(
+                Color.FromArgb(0xF5, 0xB4, 0x00),  // #F5B400
+                Color.FromArgb(0xFF, 0xB0, 0x00),  // #FFB000
+                Color.FromArgb(0xD6, 0x8A, 0x00));
+            }
+        }
+
+        public static Color Error
+        {
+            get { return Pick(
+                Color.FromArgb(0xD9, 0x3A, 0x32),  // #D93A32
+                Color.FromArgb(0xFF, 0x4D, 0x3D),  // #FF4D3D
+                Color.FromArgb(0xC4, 0x00, 0x00));
+            }
+        }
+
+        public static Color Info
+        {
+            get { return Pick(
+                Color.FromArgb(0x19, 0x76, 0xD2),
+                Color.FromArgb(0x4C, 0xA3, 0xFF),
+                Color.FromArgb(0x0A, 0x4F, 0xA0));
+            }
+        }
+
+        // =================================================================
+        // SENSORES — colores de identificación (constantes a través de modos)
+        // =================================================================
+
         public static readonly Color FertiLinea = Color.FromArgb(0, 200, 230);
         public static readonly Color FertiCostado = Color.FromArgb(245, 200, 35);
         public static readonly Color Herramienta = Color.FromArgb(255, 160, 0);
@@ -69,8 +307,8 @@ namespace AgroParallel.Common
 
         public static readonly string FontFamily = "Segoe UI";
 
-        // Tamaños predefinidos.
         public static Font FontKpiValue { get { return new Font(FontFamily, 22f, FontStyle.Bold); } }
+        public static Font FontKpiHuge { get { return new Font(FontFamily, 42f, FontStyle.Bold); } }   // datos críticos cabina
         public static Font FontKpiLabel { get { return new Font(FontFamily, 8f, FontStyle.Regular); } }
         public static Font FontTitle { get { return new Font(FontFamily, 14f, FontStyle.Bold); } }
         public static Font FontSubtitle { get { return new Font(FontFamily, 10f, FontStyle.Bold); } }
@@ -110,13 +348,10 @@ namespace AgroParallel.Common
                         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                         string[] candidates = new[]
                         {
-                            // Bundled junto al exe (preferido)
                             Path.Combine(baseDir, "Branding", "favicon.png"),
                             Path.Combine(baseDir, "favicon.png"),
-                            // Marketing/Identidad (logo oficial 2026)
                             Path.Combine(baseDir, @"..\..\..\..\..\..\..\..\Marketing\Identidad\favicon.png"),
                             @"G:\AgroParallel\Marketing\Identidad\favicon.png",
-                            // Fallback ruta vieja
                             Path.Combine(baseDir, @"..\..\..\..\..\..\..\..\Marketing\favicon.png"),
                             @"G:\AgroParallel\Marketing\favicon.png"
                         };
@@ -291,7 +526,7 @@ namespace AgroParallel.Common
                 Width = w, Height = h,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Accent,
-                ForeColor = Color.FromArgb(5, 7, 9),
+                ForeColor = Color.White,
                 Font = new Font(FontFamily, 9f, FontStyle.Bold),
                 Cursor = Cursors.Hand
             };
@@ -322,9 +557,16 @@ namespace AgroParallel.Common
         public static Button MkDangerButton(string text, int w = 120, int h = 34)
         {
             var b = MkSecondaryButton(text, w, h);
-            b.BackColor = Color.FromArgb(45, 15, 16);
+            // Fondo de peligro adaptado al modo (rojo más translucido en día).
+            b.BackColor = Pick(
+                Color.FromArgb(0xFC, 0xE6, 0xE5),
+                Color.FromArgb(45, 15, 16),
+                Color.FromArgb(0xFC, 0xD4, 0xD2));
             b.ForeColor = Error;
-            b.FlatAppearance.BorderColor = Color.FromArgb(90, 28, 30);
+            b.FlatAppearance.BorderColor = Pick(
+                Color.FromArgb(0xE6, 0xB6, 0xB3),
+                Color.FromArgb(90, 28, 30),
+                Color.FromArgb(0xC4, 0x00, 0x00));
             return b;
         }
 
@@ -430,6 +672,22 @@ namespace AgroParallel.Common
                     g.FillRectangle(b, 0, BorderRadius, 3, card.Height - BorderRadius * 2);
             };
             return card;
+        }
+
+        // =================================================================
+        // AUTO-MODE por horario
+        // =================================================================
+
+        /// <summary>
+        /// Setea Mode segun horario local. 06:30–19:30 = Day, resto = Night.
+        /// HighContrast solo se activa explicitamente por el usuario.
+        /// </summary>
+        public static void ApplyAutoMode()
+        {
+            var now = DateTime.Now.TimeOfDay;
+            var dayStart = new TimeSpan(6, 30, 0);
+            var dayEnd = new TimeSpan(19, 30, 0);
+            Current = (now >= dayStart && now < dayEnd) ? Mode.Day : Mode.Night;
         }
     }
 }

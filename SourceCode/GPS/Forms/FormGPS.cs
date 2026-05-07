@@ -1666,6 +1666,61 @@ namespace AgOpenGPS
                 toolStripAgroParallel.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
                 toolStripAgroParallel.Text = "AP";
             }
+
+            // Botón flotante "Cámaras" sobre el mapa, esquina sup-derecha.
+            try
+            {
+                var btn = new System.Windows.Forms.Button
+                {
+                    Name = "btnCamarasFloat",
+                    Text = "\U0001F4F9",
+                    Font = new System.Drawing.Font("Segoe UI Emoji", 16f, System.Drawing.FontStyle.Bold),
+                    Width = 56,
+                    Height = 56,
+                    BackColor = System.Drawing.Color.FromArgb(255, 180, 60),
+                    ForeColor = System.Drawing.Color.Black,
+                    FlatStyle = System.Windows.Forms.FlatStyle.Flat,
+                    UseVisualStyleBackColor = false,
+                    TabStop = false,
+                    Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right,
+                    Location = new System.Drawing.Point(this.ClientSize.Width - 80, 80)
+                };
+                btn.FlatAppearance.BorderSize = 0;
+                var tip = new System.Windows.Forms.ToolTip();
+                tip.SetToolTip(btn, "Cámaras (atajo)");
+                btn.Click += (s, e) => OpenCamarasFloat();
+                this.Controls.Add(btn);
+                btn.BringToFront();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[Cameras] InitFloatBtn: " + ex.Message);
+            }
+        }
+
+        // Singleton de la ventana flotante de cámaras.
+        private AgroParallel.Camaras.FormCamarasFloat _camarasFloat;
+
+        public void OpenCamarasFloat()
+        {
+            try
+            {
+                if (_camarasFloat != null && !_camarasFloat.IsDisposed)
+                {
+                    if (_camarasFloat.WindowState == FormWindowState.Minimized)
+                        _camarasFloat.WindowState = FormWindowState.Normal;
+                    _camarasFloat.Activate();
+                    _camarasFloat.BringToFront();
+                    return;
+                }
+                _camarasFloat = new AgroParallel.Camaras.FormCamarasFloat();
+                _camarasFloat.FormClosed += (s, e) => _camarasFloat = null;
+                _camarasFloat.Show(this);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[Cameras] OpenFloat: " + ex.Message);
+            }
         }
 
 

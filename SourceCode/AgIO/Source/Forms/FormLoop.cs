@@ -313,20 +313,18 @@ namespace AgIO
 
             if (loopBackSocket != null)
             {
-                try
-                {
-                    loopBackSocket.Shutdown(SocketShutdown.Both);
-                }
-                finally { loopBackSocket.Close(); }
+                try { loopBackSocket.Shutdown(SocketShutdown.Both); }
+                catch (ObjectDisposedException) { /* socket ya cerrado */ }
+                catch (SocketException) { /* no estaba conectado */ }
+                finally { try { loopBackSocket.Close(); } catch { } }
             }
 
             if (UDPSocket != null)
             {
-                try
-                {
-                    UDPSocket.Shutdown(SocketShutdown.Both);
-                }
-                finally { UDPSocket.Close(); }
+                try { UDPSocket.Shutdown(SocketShutdown.Both); }
+                catch (ObjectDisposedException) { /* socket ya cerrado */ }
+                catch (SocketException) { /* no estaba conectado */ }
+                finally { try { UDPSocket.Close(); } catch { } }
             }
 
             Process[] processName = Process.GetProcessesByName("GPS_Out");

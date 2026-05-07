@@ -15,6 +15,8 @@ using AgroParallel.OrbitX;
 using AgroParallel.QuantiX;
 using AgroParallel.SectionX;
 using AgroParallel.VistaX;
+using AgroParallel.Sistema;
+using AgroParallel.Camaras;
 // Theme is in same namespace AgroParallel.Common — no using needed
 
 namespace AgroParallel.Common
@@ -100,6 +102,18 @@ namespace AgroParallel.Common
                 Accent = Color.FromArgb(100, 180, 255), Available = true,
                 Tabs = new[] { "Config", "Firmware" }
             });
+            _modules.Add(new ModuleDef
+            {
+                Name = "C\u00E1maras", Icon = "\U0001F4F9",
+                Accent = Color.FromArgb(255, 180, 60), Available = true,
+                Tabs = new[] { "Vivo", "Config" }
+            });
+            _modules.Add(new ModuleDef
+            {
+                Name = "Sistema", Icon = "\u2699",
+                Accent = Color.FromArgb(160, 200, 230), Available = true,
+                Tabs = new[] { "WiFi", "Red", "AnyDesk", "Brillo", "Apagar" }
+            });
         }
 
         // =====================================================================
@@ -112,8 +126,8 @@ namespace AgroParallel.Common
         private void BuildUI()
         {
             Text = "Agro Parallel";
-            Size = new Size(1240, 800);
-            MinimumSize = new Size(1000, 600);
+            Size = new Size(980, 680);
+            MinimumSize = new Size(800, 540);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
@@ -145,7 +159,22 @@ namespace AgroParallel.Common
             btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(180, 30, 30);
             btnClose.Click += (s, ev) => Close();
             header.Controls.Add(btnClose);
-            header.Resize += (s, ev) => btnClose.Location = new Point(header.Width - 40, 6);
+
+            // Toggle de tema (Day → Night → HighContrast → Day)
+            var btnTheme = Theme.MkToolbarButton(ThemeIcon(), 36);
+            btnTheme.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnTheme.Click += (s, ev) =>
+            {
+                Theme.Current = (Theme.Mode)(((int)Theme.Current + 1) % 3);
+                btnTheme.Text = ThemeIcon();
+                ReapplyTheme();
+            };
+            header.Controls.Add(btnTheme);
+            header.Resize += (s, ev) =>
+            {
+                btnClose.Location = new Point(header.Width - 40, 6);
+                btnTheme.Location = new Point(header.Width - 80, 6);
+            };
             Controls.Add(header);
 
             // ── Sidebar ─────────────────────────────────────────────────
@@ -362,6 +391,10 @@ namespace AgroParallel.Common
                 child = CreateSectionXContent(_selectedTab);
             else if (mod.Name == "OrbitX")
                 child = CreateOrbitXContent(_selectedTab);
+            else if (mod.Name == "C\u00E1maras")
+                child = CreateCamarasContent(_selectedTab);
+            else if (mod.Name == "Sistema")
+                child = CreateSistemaContent(_selectedTab);
 
             if (child == null)
             {
@@ -433,6 +466,31 @@ namespace AgroParallel.Common
             switch (tab)
             {
                 case 0: return new FormSectionXConfig(cfg);
+                default: return null;
+            }
+        }
+
+        private CamarasConfig _camarasCfg;
+        private Form CreateCamarasContent(int tab)
+        {
+            if (_camarasCfg == null) _camarasCfg = CamarasConfig.Load();
+            switch (tab)
+            {
+                case 0: return new FormCamarasMonitor(_camarasCfg);
+                case 1: return new FormCamarasConfig(_camarasCfg);
+                default: return null;
+            }
+        }
+
+        private Form CreateSistemaContent(int tab)
+        {
+            switch (tab)
+            {
+                case 0: return new FormSistemaWifi();
+                case 1: return new FormSistemaRed();
+                case 2: return new FormSistemaAnyDesk();
+                case 3: return new FormSistemaBrillo();
+                case 4: return new FormSistemaApagar();
                 default: return null;
             }
         }
@@ -512,6 +570,51 @@ namespace AgroParallel.Common
                 try { _currentChild.Close(); } catch { }
                 try { _currentChild.Dispose(); } catch { }
                 _currentChild = null;
+            }
+        }
+
+        // =====================================================================
+        // Theme toggle helpers
+        // =====================================================================
+
+        private string ThemeIcon()
+        {
+            switch (Theme.Current)
+            {
+                case Theme.Mode.Day: return "\u2600";          // ☀ sol
+                case Theme.Mode.HighContrast: return "\u26A0"; // ⚠ contraste alto
+                default: return "\u263D";                       // ☽ luna
+            }
+        }
+
+        /// <summary>Re-aplica BackColor/ForeColor a todo el árbol de controles
+        /// cuando cambia el modo de Theme. Suficiente para repintar el Hub —
+        /// los child forms se repintan al reabrirse.</summary>
+        private void ReapplyTheme()
+        {
+            BackColor = Theme.BgBlack;
+            ForeColor = Theme.TextPrimary;
+            ApplyThemeRecursive(this);
+            Invalidate(true);
+            // Reconstruir child para que se repinte con el nuevo modo.
+            LoadContent();
+        }
+
+        private static void ApplyThemeRecursive(Control parent)
+        {
+            foreach (Control c in parent.Controls)
+            {
+                // Re-mapear los colores comunes del theme.
+                if (c is Panel p)
+                {
+                    // Solo si la BackColor actual es uno de los tokens del theme.
+                    p.Invalidate();
+                }
+                if (c is Label || c is Button)
+                {
+                    c.Invalidate();
+                }
+                if (c.HasChildren) ApplyThemeRecursive(c);
             }
         }
     }
