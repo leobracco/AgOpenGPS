@@ -7,18 +7,22 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using AgroParallel.Common;
+using AgroParallel.OrbitX;
 
 namespace AgroParallel.Camaras
 {
     public class FormCamarasConfig : Form
     {
         private readonly CamarasConfig _cfg;
+        private OrbitXConfig _ox;
         private DataGridView _grid;
         private NumericUpDown _refrescoMs;
+        private CheckBox _chkStreaming;
 
         public FormCamarasConfig(CamarasConfig cfg)
         {
             _cfg = cfg ?? CamarasConfig.Load();
+            _ox  = OrbitXConfig.Load();
             Text = "Cámaras - Config";
             FormBorderStyle = FormBorderStyle.None;
             BackColor = Theme.BgBlack;
@@ -38,7 +42,7 @@ namespace AgroParallel.Camaras
                 BackColor = Theme.BgBlack,
                 Padding = new Padding(12)
             };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
 
@@ -78,6 +82,23 @@ namespace AgroParallel.Camaras
                 BackColor = Color.Transparent
             };
             top.Controls.Add(lblHint);
+
+            // Checkbox: Streaming remoto al cloud (push RTSP a OrbitX/MediaMTX)
+            // Va en una segunda fila para que sea visible aún cuando el panel del
+            // hub sea angosto.
+            _chkStreaming = new CheckBox
+            {
+                Text = "Streaming remoto (publicar al cloud)",
+                Checked = _ox.CamarasStreamingEnabled,
+                Font = new Font(Theme.FontFamily, 10f, FontStyle.Bold),
+                ForeColor = Theme.Accent,
+                BackColor = Color.Transparent,
+                Location = new Point(12, 52),
+                AutoSize = true,
+                FlatStyle = FlatStyle.Standard,
+                Cursor = Cursors.Hand
+            };
+            top.Controls.Add(_chkStreaming);
             root.Controls.Add(top, 0, 0);
 
             // Grid
@@ -226,6 +247,22 @@ namespace AgroParallel.Camaras
             _cfg.camaras = list;
             _cfg.refrescoMs = (int)_refrescoMs.Value;
             _cfg.Save();
+
+            // Persistir flag de streaming remoto en OrbitXConfig
+            _ox.CamarasStreamingEnabled = _chkStreaming.Checked;
+            _ox.Save();
+
+            // Reiniciar el relay para que la nueva lista se reporte al cloud
+            // (panel) y se ajusten los workers de streaming.
+            try
+            {
+                foreach (Form f in Application.OpenForms)
+                {
+                    if (f is AgOpenGPS.FormGPS gps) { gps.ReloadCamarasRelay(); break; }
+                }
+            }
+            catch { }
+
             MessageBox.Show("Configuración guardada (" + list.Count + " cámaras). La pestaña Vivo aplica al reabrir.",
                 "Cámaras", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }

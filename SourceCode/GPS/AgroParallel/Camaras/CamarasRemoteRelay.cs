@@ -56,9 +56,9 @@ namespace AgroParallel.Camaras
         public void Start()
         {
             if (IsRunning) return;
-            if (!_cfg.Enabled || !_cfg.CamarasStreamingEnabled)
+            if (!_cfg.Enabled)
             {
-                LastError = "deshabilitado en OrbitXConfig";
+                LastError = "OrbitX deshabilitado";
                 return;
             }
             if (string.IsNullOrEmpty(_cfg.DeviceId) || string.IsNullOrEmpty(_cfg.DeviceToken))
@@ -67,29 +67,35 @@ namespace AgroParallel.Camaras
                 return;
             }
 
-            string ff = ResolveFfmpeg();
-            if (ff == null)
-            {
-                LastError = "ffmpeg.exe no encontrado (configurar CamarasFfmpegPath o agregarlo al PATH)";
-                return;
-            }
-
             _cts = new CancellationTokenSource();
             IsRunning = true;
             LastError = null;
 
-            // Worker por cada cámara activa
-            for (int i = 0; i < _cams.camaras.Count; i++)
+            // Solo arrancamos ffmpeg si el streaming está habilitado. Sin streaming
+            // igual reportamos al cloud para que el panel sepa que el tractor tiene
+            // cámaras configuradas (aparecerán como offline).
+            if (_cfg.CamarasStreamingEnabled)
             {
-                var c = _cams.camaras[i];
-                if (!c.activa) continue;
-                int idx = i + 1;
-                var w = new CamWorker(idx, c, _cams, _cfg, ff, _cts.Token);
-                _workers[idx] = w;
-                w.Start();
+                string ff = ResolveFfmpeg();
+                if (ff == null)
+                {
+                    LastError = "ffmpeg.exe no encontrado (configurar CamarasFfmpegPath o agregarlo al PATH)";
+                }
+                else
+                {
+                    for (int i = 0; i < _cams.camaras.Count; i++)
+                    {
+                        var c = _cams.camaras[i];
+                        if (!c.activa) continue;
+                        int idx = i + 1;
+                        var w = new CamWorker(idx, c, _cams, _cfg, ff, _cts.Token);
+                        _workers[idx] = w;
+                        w.Start();
+                    }
+                }
             }
 
-            // Loop que reporta estado al cloud cada 30s
+            // Loop que reporta estado al cloud cada 30s — corre siempre.
             _registerLoop = Task.Run(() => RegisterLoop(_cts.Token));
         }
 

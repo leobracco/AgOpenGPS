@@ -36,6 +36,9 @@ using AgroParallel.SectionX;
 // QUANTIX_MOD_START
 using AgroParallel.QuantiX;
 // QUANTIX_MOD_END
+// CAMARAS_MOD_START
+using AgroParallel.Camaras;
+// CAMARAS_MOD_END
 namespace AgOpenGPS
 {
     //the main form object
@@ -133,6 +136,9 @@ namespace AgOpenGPS
         // SECTIONX_MOD_START
         public SectionXBridge sectionXBridge;
         // SECTIONX_MOD_END
+        // CAMARAS_MOD_START
+        public CamarasRemoteRelay camarasRelay;
+        // CAMARAS_MOD_END
         // QUANTIX_MOD_START
         private QuantiXConfig quantiXConfig;
         private QuantiXSender quantiXSender;
@@ -610,6 +616,16 @@ namespace AgOpenGPS
                     orbitXSync = new OrbitXSync(this, oxCfg);
                     orbitXSync.Start();
                 }
+
+                // CAMARAS_MOD_START — Relay de cámaras: siempre registra al cloud
+                // para que el panel sepa que el tractor tiene cámaras; los workers
+                // de RTSP solo arrancan si CamarasStreamingEnabled = true.
+                if (oxCfg.Enabled && !string.IsNullOrEmpty(oxCfg.DeviceToken))
+                {
+                    camarasRelay = new CamarasRemoteRelay(oxCfg);
+                    camarasRelay.Start();
+                }
+                // CAMARAS_MOD_END
             }
             catch { }
             // ORBITX_MOD_END
@@ -2003,6 +2019,26 @@ namespace AgOpenGPS
                 System.Diagnostics.Debug.WriteLine("[OrbitX] ReloadSync: " + ex.Message);
             }
         }
+
+        // CAMARAS_MOD_START
+        public void ReloadCamarasRelay()
+        {
+            try
+            {
+                if (camarasRelay != null) { camarasRelay.Dispose(); camarasRelay = null; }
+                var cfg = OrbitXConfig.Load();
+                if (cfg.Enabled && !string.IsNullOrEmpty(cfg.DeviceToken))
+                {
+                    camarasRelay = new CamarasRemoteRelay(cfg);
+                    camarasRelay.Start();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[Camaras] ReloadRelay: " + ex.Message);
+            }
+        }
+        // CAMARAS_MOD_END
 
         // AGROPARALLEL_MOD_END
 
