@@ -119,21 +119,29 @@ namespace AgroParallel.SectionX
 
                 RecordPosition(secAOG);
 
-                // Secciones con desfase para tren trasero.
-                bool[] secTrasero = null;
+                // Cache de secciones del tren trasero por distancia (cada nodo
+                // puede tener su propio DistanciaEntreTrenes — calculamos solo
+                // la primera vez que aparece esa distancia en este tick).
+                Dictionary<double, bool[]> secTraseroCache = null;
 
                 foreach (var nodo in _config.Nodos)
                 {
                     if (!nodo.Habilitado || string.IsNullOrEmpty(nodo.Uid)) continue;
 
-                    // Precalcular secciones del tren trasero si hay distancia.
-                    if (nodo.DistanciaEntreTrenes > 0.05 && secTrasero == null)
+                    bool[] secTrasero = secAOG;
+                    if (nodo.DistanciaEntreTrenes > 0.05)
                     {
-                        secTrasero = GetSectionsAtDistance(nodo.DistanciaEntreTrenes);
-                        if (secTrasero == null) secTrasero = secAOG;
+                        if (secTraseroCache == null) secTraseroCache = new Dictionary<double, bool[]>();
+                        bool[] cached;
+                        if (!secTraseroCache.TryGetValue(nodo.DistanciaEntreTrenes, out cached))
+                        {
+                            cached = GetSectionsAtDistance(nodo.DistanciaEntreTrenes) ?? secAOG;
+                            secTraseroCache[nodo.DistanciaEntreTrenes] = cached;
+                        }
+                        secTrasero = cached;
                     }
 
-                    // Armar los 16 bits de relay según el mapeo cable→sección.
+                    // Armar los 16 bits de relay según el mapeo cable->seccion.
                     var bits = new bool[16];
                     foreach (var cable in nodo.Cables)
                     {
@@ -141,7 +149,7 @@ namespace AgroParallel.SectionX
                         if (cable.SeccionAOG < 1) continue;
 
                         int secIdx = cable.SeccionAOG - 1;
-                        bool[] fuente = (cable.Tren == 0) ? secAOG : (secTrasero ?? secAOG);
+                        bool[] fuente = (cable.Tren == 0) ? secAOG : secTrasero;
 
                         bits[cable.Cable - 1] = secIdx < fuente.Length && fuente[secIdx];
                     }
@@ -178,7 +186,15 @@ namespace AgroParallel.SectionX
                                 .Build();
                             await _mqtt.PublishAsync(msg);
                             MessagesSent++;
-                            if (changed) Log("→ " + nodo.Uid + " " + sb.ToString());
+                            if (changed)
+                            {
+                                if (nodo.DistanciaEntreTrenes > 0.05)
+                                    Log(string.Format(
+                                        "-> {0} {1}  v={2:F1}m/s  desfase={3:F2}m  histN={4}",
+                                        nodo.Uid, sb.ToString(), vel, nodo.DistanciaEntreTrenes, _posHistory.Count));
+                                else
+                                    Log("-> " + nodo.Uid + " " + sb.ToString());
+                            }
                         }
                         catch { }
                     }
@@ -187,13 +203,28 @@ namespace AgroParallel.SectionX
             catch { }
         }
 
+        // Maximo movimiento aceptable entre ticks (100ms). 5m = 180km/h: arriba
+        // de eso es glitch GPS / freeze del sistema y NO acumulamos distancia
+        // (rompe el historial del tren trasero generando cortes fantasma).
+        private const double MaxStepMeters = 5.0;
+        private int _glitchCount;
+
         private void RecordPosition(bool[] sections)
         {
             double ex = _parent.pivotAxlePos.easting, ny = _parent.pivotAxlePos.northing;
             if (_hasLast)
             {
                 double dx = ex - _lastE, dy = ny - _lastN;
-                _totalDist += Math.Sqrt(dx * dx + dy * dy);
+                double step = Math.Sqrt(dx * dx + dy * dy);
+                if (step <= MaxStepMeters)
+                {
+                    _totalDist += step;
+                }
+                else
+                {
+                    _glitchCount++;
+                    Log(string.Format("GPS glitch ignorado: salto={0:F1}m (count={1})", step, _glitchCount));
+                }
             }
             _lastE = ex; _lastN = ny; _hasLast = true;
 
