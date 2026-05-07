@@ -326,10 +326,130 @@ function Make-MQTT-Small {
     Save-Bitmap $ctx (Join-Path $OutDir "B_MQTT_small.png")
 }
 
+# ============================================================================
+# ICONO GPS (94x64) — antena con ondas + texto "GPS"
+# ============================================================================
+function Make-GPS {
+    $ctx = New-Bitmap 94 64
+    Draw-RoundedBg $ctx
+    $g = $ctx.G
+
+    # Mástil de la antena (rectángulo vertical en el centro-izq)
+    $cx = 26; $baseY = 50
+    $brushW = New-Object System.Drawing.SolidBrush $White
+    $g.FillRectangle($brushW, ($cx - 1.5), 28, 3, 22)
+    # Triángulo de receptor en la punta
+    $tri = @(
+        (New-Object System.Drawing.PointF $cx, 14),
+        (New-Object System.Drawing.PointF ($cx - 8), 30),
+        (New-Object System.Drawing.PointF ($cx + 8), 30)
+    )
+    $brushA = New-Object System.Drawing.SolidBrush $Accent
+    $g.FillPolygon($brushA, $tri)
+    $brushA.Dispose()
+    # Base
+    $g.FillRectangle($brushW, ($cx - 8), 50, 16, 3)
+    $brushW.Dispose()
+
+    # Ondas concéntricas a la derecha (señal RTK)
+    $wavePen = New-Object System.Drawing.Pen $Accent, 1.6
+    foreach ($r in @(8, 14, 20)) {
+        $g.DrawArc($wavePen, ($cx - $r), (18 - $r), $r*2, $r*2, -60, 60)
+    }
+    $wavePen.Dispose()
+
+    # Texto "GPS"
+    $font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+    $sf   = New-Object System.Drawing.StringFormat
+    $sf.Alignment     = [System.Drawing.StringAlignment]::Center
+    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $sf.FormatFlags   = [System.Drawing.StringFormatFlags]::NoWrap
+    $rect = New-Object System.Drawing.RectangleF 50, 14, 44, 24
+    $br   = New-Object System.Drawing.SolidBrush $White
+    $g.DrawString("GPS", $font, $br, $rect, $sf)
+    $br.Dispose(); $font.Dispose()
+
+    # Subtitulo
+    $f2 = New-Object System.Drawing.Font("Segoe UI", 6, [System.Drawing.FontStyle]::Regular)
+    $r2 = New-Object System.Drawing.RectangleF 50, 38, 44, 14
+    $b2 = New-Object System.Drawing.SolidBrush $Accent
+    $g.DrawString("RTK", $f2, $b2, $r2, $sf)
+    $b2.Dispose(); $f2.Dispose()
+
+    Save-Bitmap $ctx (Join-Path $OutDir "B_GPS.png")
+}
+
+# ============================================================================
+# ICONO UDP / RED (94x64) — nube + flechas bidi + texto "UDP"
+# ============================================================================
+function Make-UDP {
+    $ctx = New-Bitmap 94 64
+    Draw-RoundedBg $ctx
+    $g = $ctx.G
+
+    # Nube (3 círculos + base) en gris claro
+    $cx = 26; $cy = 26
+    $brushCloud = New-Object System.Drawing.SolidBrush $WhiteDim
+    $g.FillEllipse($brushCloud, ($cx - 14), ($cy - 4), 14, 14)   # izq
+    $g.FillEllipse($brushCloud, ($cx - 4),  ($cy - 12), 16, 16)  # arriba
+    $g.FillEllipse($brushCloud, ($cx + 4),  ($cy - 4), 12, 12)   # der
+    $g.FillRectangle($brushCloud, ($cx - 14), ($cy + 2), 30, 8)  # base
+    $brushCloud.Dispose()
+
+    # Flechas bidireccionales abajo (download verde / upload blanca)
+    $arrowPen = New-Object System.Drawing.Pen $Accent, 2.2
+    # Flecha down (verde) - cae desde la nube
+    $g.DrawLine($arrowPen, ($cx - 4), 42, ($cx - 4), 54)
+    $arrowDown = @(
+        (New-Object System.Drawing.PointF ($cx - 4),  56),
+        (New-Object System.Drawing.PointF ($cx - 8),  51),
+        (New-Object System.Drawing.PointF ($cx),      51)
+    )
+    $brushDn = New-Object System.Drawing.SolidBrush $Accent
+    $g.FillPolygon($brushDn, $arrowDown)
+    $brushDn.Dispose()
+    $arrowPen.Dispose()
+
+    $upPen = New-Object System.Drawing.Pen $White, 2.2
+    # Flecha up (blanca) - sube hacia la nube
+    $g.DrawLine($upPen, ($cx + 6), 54, ($cx + 6), 42)
+    $arrowUp = @(
+        (New-Object System.Drawing.PointF ($cx + 6),  40),
+        (New-Object System.Drawing.PointF ($cx + 2),  45),
+        (New-Object System.Drawing.PointF ($cx + 10), 45)
+    )
+    $brushUp = New-Object System.Drawing.SolidBrush $White
+    $g.FillPolygon($brushUp, $arrowUp)
+    $brushUp.Dispose()
+    $upPen.Dispose()
+
+    # Texto "UDP"
+    $font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+    $sf   = New-Object System.Drawing.StringFormat
+    $sf.Alignment     = [System.Drawing.StringAlignment]::Center
+    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $sf.FormatFlags   = [System.Drawing.StringFormatFlags]::NoWrap
+    $rect = New-Object System.Drawing.RectangleF 50, 14, 44, 24
+    $br   = New-Object System.Drawing.SolidBrush $White
+    $g.DrawString("UDP", $font, $br, $rect, $sf)
+    $br.Dispose(); $font.Dispose()
+
+    # Subtitulo
+    $f2 = New-Object System.Drawing.Font("Segoe UI", 6, [System.Drawing.FontStyle]::Regular)
+    $r2 = New-Object System.Drawing.RectangleF 50, 38, 44, 14
+    $b2 = New-Object System.Drawing.SolidBrush $Accent
+    $g.DrawString("NETWORK", $f2, $b2, $r2, $sf)
+    $b2.Dispose(); $f2.Dispose()
+
+    Save-Bitmap $ctx (Join-Path $OutDir "B_UDP.png")
+}
+
 Write-Host "`nGenerando iconos Agro Parallel..." -ForegroundColor Cyan
 Make-AgIO
 Make-IMU
 Make-Machine
 Make-MQTT
 Make-MQTT-Small
+Make-GPS
+Make-UDP
 Write-Host "`n[OK] Iconos generados en $OutDir" -ForegroundColor Green
