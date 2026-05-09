@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agro Parallel ViewX</title>
+  <link rel="stylesheet" href="styles/agp-theme.css" />
+</head>
+<body>
+  <main class="viewx-shell" id="app">
+    <header class="topbar">
+      <div class="brand"><span>AGRO</span><span>PARALLEL</span></div>
+      <div class="screen-title">ViewX · Guiado</div>
+      <div class="status-pill ok" data-bind="gps.fixQuality">RTK FIJO</div>
+      <div class="status-pill ok" data-bind="guidance.auto">AUTO</div>
+      <div class="status-pill dark"><span data-bind="machine.speedKph">7.2</span> km/h</div>
+      <button class="danger-button" data-command="ToggleAutoSteer">STOP</button>
+    </header>
+
+    <section class="work-layout">
+      <nav class="side-nav">
+        <button class="nav-button active" title="Guiado">⌖</button>
+        <button class="nav-button" title="Capas">▦</button>
+        <button class="nav-button" title="Campo">◇</button>
+        <button class="nav-button" title="OrbitX">☁</button>
+        <button class="nav-button" title="Configuración">⚙</button>
+      </nav>
+
+      <section class="map-panel">
+        <div class="map-field"></div>
+        <div class="map-coverage"></div>
+        <div class="map-lines"></div>
+        <div class="map-tractor"></div>
+
+        <div class="kpi-stack">
+          <article class="kpi-card">
+            <small>DESVÍO</small>
+            <strong><span data-bind="guidance.crossTrackErrorCm">2.5</span><em>cm</em></strong>
+          </article>
+          <article class="kpi-card">
+            <small>RUMBO</small>
+            <strong><span data-bind="machine.headingDegrees">74</span><em>°</em></strong>
+          </article>
+          <article class="kpi-card">
+            <small>LÍNEA</small>
+            <strong data-bind="guidance.currentLineName">A12</strong>
+          </article>
+        </div>
+
+        <aside class="precision-card">
+          <small>PRECISIÓN</small>
+          <strong>2 cm</strong>
+          <span>RTK CENTIMÉTRICO</span>
+        </aside>
+      </section>
+
+      <aside class="right-panel">
+        <h2>Trabajo</h2>
+        <article class="metric-card"><small>Campo</small><strong data-bind="field.fieldName">Lote Norte</strong></article>
+        <article class="metric-card"><small>Área trabajada</small><strong><span data-bind="field.workedHa">9.14</span> ha</strong></article>
+        <article class="metric-card"><small>Cobertura</small><strong><span data-bind="field.coveragePercent">68</span>%</strong><div class="progress"><i data-progress="field.coveragePercent"></i></div></article>
+        <button class="action-button" data-command="StartHeadlandTurn"><span>↩</span>Giro cabecera</button>
+        <button class="action-button" data-command="ToggleSectionMaster"><span>▦</span>Corte sección</button>
+        <button class="action-button" data-command="OpenSettings"><span>⚙</span>Config.</button>
+      </aside>
+
+      <footer class="bottom-bar">
+        <button data-command="OpenSettings">CONFIG.</button>
+        <button class="active" data-command="ToggleAutoSteer">AUTO</button>
+        <button data-command="CenterMap">CENTRAR</button>
+        <button data-command="CycleLinePrevious">PAS. -</button>
+        <button data-command="CycleLineNext">PAS. +</button>
+        <button data-command="OpenJobMenu">CAMPO</button>
+      </footer>
+    </section>
+  </main>
+
+  <script src="scripts/mock-state.js"></script>
+  <script src="scripts/agp-client.js"></script>
+  <script src="scripts/app.js"></script>
+</body>
+</html>
