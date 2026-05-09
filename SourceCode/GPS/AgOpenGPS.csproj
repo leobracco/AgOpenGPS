@@ -32,6 +32,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
     <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+    <ProjectReference Include="..\AgOpenGPS.AgroParallel.Core\AgOpenGPS.AgroParallel.Core.csproj" />
     <ProjectReference Include="..\Keypad\Keypad.csproj" />
   </ItemGroup>
 
