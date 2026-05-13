@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AgroParallel.Services — interfaces + implementaciones de servicios
+    (QuantiX, SectionX, OrbitX, VistaX, MQTT, etc.).
+    No conoce FormGPS: depende de IAogStateProvider/IAogCommandSink.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>AgroParallel.Services</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgroParallel.Models\AgroParallel.Models.csproj" />
+  </ItemGroup>
+
+</Project>
