@@ -43,7 +43,8 @@
     numSections: 0, sectionOnRequest: [],
     toolWidth: 0,
     shapeCurrentDose: 0, shapeIsInside: false,
-    vehicleType: 'Tractor', vehicleBrand: 'AGOpenGPS'
+    vehicleType: 'Tractor', vehicleBrand: 'AGOpenGPS',
+    boundaries: [], headlands: [], activeTrack: null
   };
 
   // Path histórico del tractor (en mundo) — últimos N puntos para dejar rastro.
@@ -193,6 +194,97 @@
     for (var x2 = ox; x2 < rect.width; x2 += bigStep) { ctx.moveTo(x2, 0); ctx.lineTo(x2, rect.height); }
     for (var y2 = oy; y2 < rect.height; y2 += bigStep) { ctx.moveTo(0, y2); ctx.lineTo(rect.width, y2); }
     ctx.stroke();
+  }
+
+  function pickPt(p) { return { e: (p.e != null ? p.e : p.E) || 0, n: (p.n != null ? p.n : p.N) || 0 }; }
+
+  function drawPolyline(pts, closed, stroke, lineWidth, fill, dash) {
+    if (!pts || pts.length < 2) return;
+    ctx.save();
+    if (dash) ctx.setLineDash(dash);
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = stroke;
+    if (fill) ctx.fillStyle = fill;
+    ctx.beginPath();
+    var p0 = pickPt(pts[0]);
+    var s0 = worldToScreen(p0.e, p0.n);
+    ctx.moveTo(s0.x, s0.y);
+    for (var i = 1; i < pts.length; i++) {
+      var p = pickPt(pts[i]);
+      var s = worldToScreen(p.e, p.n);
+      ctx.lineTo(s.x, s.y);
+    }
+    if (closed) ctx.closePath();
+    if (fill) ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBoundaries() {
+    var bnds = snap.boundaries || [];
+    var hdls = snap.headlands || [];
+    // Fondo del lote: relleno suave del contorno externo (índice 0).
+    if (bnds.length > 0 && bnds[0] && bnds[0].length > 2) {
+      drawPolyline(bnds[0], true, '#535E54', 2, 'rgba(74,186,62,0.06)');
+    }
+    // Islas (drive-thru): relleno gris distinto, contorno punteado.
+    for (var i = 1; i < bnds.length; i++) {
+      drawPolyline(bnds[i], true, '#535E54', 1.5, 'rgba(255,255,255,0.9)', [6, 4]);
+    }
+    // Headlands punteado
+    for (var j = 0; j < hdls.length; j++) {
+      drawPolyline(hdls[j], true, 'rgba(83,94,84,0.7)', 1, null, [4, 4]);
+    }
+  }
+
+  function drawActiveTrack() {
+    var t = snap.activeTrack;
+    if (!t) return;
+    var mode = (t.mode || '').toLowerCase();
+    var stroke = '#E27A0F'; // naranja Agro Parallel
+
+    if (mode.indexOf('curve') >= 0 || mode.indexOf('pivot') >= 0) {
+      var pts = t.curvePts || t.CurvePts || [];
+      drawPolyline(pts, false, stroke, 2);
+      return;
+    }
+
+    // AB line: extender desde el heading de A en ambos sentidos ~1km.
+    var A = t.A || t.a;
+    var B = t.B || t.b;
+    if (!A || !B) return;
+    var ax = (A.e != null ? A.e : A.E);
+    var ay = (A.n != null ? A.n : A.N);
+    var bx = (B.e != null ? B.e : B.E);
+    var by = (B.n != null ? B.n : B.N);
+    var dx = bx - ax, dy = by - ay;
+    var len = Math.hypot(dx, dy);
+    if (len < 0.1) return;
+    var ux = dx/len, uy = dy/len;
+    var EXT = 2000; // 2 km a cada lado
+    var p1 = worldToScreen(ax - ux*EXT, ay - uy*EXT);
+    var p2 = worldToScreen(bx + ux*EXT, by + uy*EXT);
+
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = stroke;
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
+
+    // marcadores A y B
+    var sA = worldToScreen(ax, ay);
+    var sB = worldToScreen(bx, by);
+    ctx.fillStyle = stroke;
+    ctx.beginPath(); ctx.arc(sA.x, sA.y, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sB.x, sB.y, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#101612';
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('A', sA.x + 6, sA.y);
+    ctx.fillText('B', sB.x + 6, sB.y);
+    ctx.restore();
   }
 
   function drawTrail() {
@@ -393,6 +485,8 @@
     }
 
     drawGrid();
+    drawBoundaries();
+    drawActiveTrack();
     drawTrail();
     drawSectionBar();
     drawTractor();
@@ -410,9 +504,56 @@
     if (b === 'AGOpenGPS' || b === 'AgOpenGPS' || b === '') return word;
     return word + ' · ' + b;
   }
+  function computeXteCm() {
+    var t = snap.activeTrack;
+    if (!t) return null;
+    var A = t.A || t.a, B = t.B || t.b;
+    if (A && B) {
+      var ax = A.e != null ? A.e : A.E;
+      var ay = A.n != null ? A.n : A.N;
+      var bx = B.e != null ? B.e : B.E;
+      var by = B.n != null ? B.n : B.N;
+      var dx = bx - ax, dy = by - ay;
+      var L2 = dx*dx + dy*dy;
+      if (L2 < 1e-6) return null;
+      // distancia con signo del pivote a la recta AB
+      var pe = snap.pivotEasting, pn = snap.pivotNorthing;
+      var cross = (pe - ax) * dy - (pn - ay) * dx;
+      return (cross / Math.sqrt(L2)) * 100; // cm
+    }
+    var pts = t.curvePts || t.CurvePts;
+    if (pts && pts.length >= 2) {
+      // distancia al segmento más cercano
+      var best = Infinity, sign = 1;
+      var pe = snap.pivotEasting, pn = snap.pivotNorthing;
+      for (var i = 1; i < pts.length; i++) {
+        var p1 = pickPt(pts[i-1]), p2 = pickPt(pts[i]);
+        var dx2 = p2.e - p1.e, dy2 = p2.n - p1.n;
+        var L22 = dx2*dx2 + dy2*dy2;
+        if (L22 < 1e-6) continue;
+        var ux = (pe - p1.e), uy = (pn - p1.n);
+        var tt = (ux*dx2 + uy*dy2) / L22;
+        tt = Math.max(0, Math.min(1, tt));
+        var qx = p1.e + tt*dx2, qy = p1.n + tt*dy2;
+        var dd = Math.hypot(pe - qx, pn - qy);
+        if (dd < best) {
+          best = dd;
+          sign = ((pe - p1.e) * dy2 - (pn - p1.n) * dx2) >= 0 ? 1 : -1;
+        }
+      }
+      if (best === Infinity) return null;
+      return sign * best * 100;
+    }
+    return null;
+  }
   function updateHud() {
     if (hudSpeed) hudSpeed.textContent = (snap.avgSpeed || 0).toFixed(1);
     if (hudHead)  hudHead.textContent  = ((snap.heading || 0) * 180 / Math.PI).toFixed(0);
+    var xteEl = document.getElementById('hudXte');
+    if (xteEl) {
+      var xte = computeXteCm();
+      xteEl.textContent = xte == null ? '—' : ((xte >= 0 ? '+' : '') + xte.toFixed(0) + ' cm');
+    }
     if (hudLatLon) {
       hudLatLon.textContent = (snap.latitude||0).toFixed(6) + ', ' + (snap.longitude||0).toFixed(6);
     }
@@ -455,6 +596,9 @@
       snap.shapeIsInside    = !!pick(s, 'shapeIsInside', 'ShapeIsInside');
       snap.vehicleType      = pick(s, 'vehicleType', 'VehicleType') || 'Tractor';
       snap.vehicleBrand     = pick(s, 'vehicleBrand', 'VehicleBrand') || 'AGOpenGPS';
+      snap.boundaries       = pick(s, 'boundaries', 'Boundaries') || [];
+      snap.headlands        = pick(s, 'headlands', 'Headlands') || [];
+      snap.activeTrack      = pick(s, 'activeTrack', 'ActiveTrack') || null;
 
       // Trail (solo si hay job y movimiento real)
       if (snap.isJobStarted) {

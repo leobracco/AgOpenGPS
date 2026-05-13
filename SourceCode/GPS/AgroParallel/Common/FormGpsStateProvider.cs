@@ -13,6 +13,7 @@
 // migrar a netstandard2.0 (AgroParallel.Services) sin perder funcionalidad.
 // ============================================================================
 
+using System.Collections.Generic;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 
@@ -77,6 +78,44 @@ namespace AgroParallel.Adapters
                     snap.ShapeIsInside = layer.CurrentInside;
                 }
 
+                // Geometría del lote: boundary + headland + track activo.
+                // Se decimar a fpStep metros para que el JSON sea liviano.
+                try
+                {
+                    if (_form.bnd != null && _form.bnd.bndList != null)
+                    {
+                        var bnds = new List<List<FieldPoint>>();
+                        var hdls = new List<List<FieldPoint>>();
+                        foreach (var b in _form.bnd.bndList)
+                        {
+                            if (b == null) continue;
+                            bnds.Add(DecimateVec3(b.fenceLine, 0.5));
+                            hdls.Add(DecimateVec3(b.hdLine, 0.5));
+                        }
+                        snap.Boundaries = bnds;
+                        snap.Headlands = hdls;
+                    }
+
+                    if (_form.trk != null && _form.trk.gArr != null && _form.trk.idx >= 0 && _form.trk.idx < _form.trk.gArr.Count)
+                    {
+                        var t = _form.trk.gArr[_form.trk.idx];
+                        if (t != null)
+                        {
+                            var ti = new TrackInfo
+                            {
+                                Name = t.name,
+                                Mode = t.mode.ToString(),
+                                Heading = t.heading,
+                                A = new FieldPoint(t.ptA.easting, t.ptA.northing),
+                                B = new FieldPoint(t.ptB.easting, t.ptB.northing),
+                                CurvePts = DecimateVec3(t.curvePts, 1.0)
+                            };
+                            snap.ActiveTrack = ti;
+                        }
+                    }
+                }
+                catch { /* no romper snapshot por geometría */ }
+
                 // Vehículo seleccionado en Settings (tipo + marca) — para que
                 // el mapa del Piloto (WebView2) renderice el sprite correcto.
                 try
@@ -98,6 +137,28 @@ namespace AgroParallel.Adapters
             }
 
             return snap;
+        }
+
+        // Reduce densidad de polylines: descarta puntos a < minStepM metros del anterior.
+        private static List<FieldPoint> DecimateVec3(System.Collections.Generic.List<vec3> src, double minStepM)
+        {
+            var dst = new List<FieldPoint>();
+            if (src == null || src.Count == 0) return dst;
+            var last = src[0];
+            dst.Add(new FieldPoint(last.easting, last.northing));
+            double step2 = minStepM * minStepM;
+            for (int i = 1; i < src.Count; i++)
+            {
+                var p = src[i];
+                double dx = p.easting - last.easting;
+                double dy = p.northing - last.northing;
+                if (dx * dx + dy * dy >= step2)
+                {
+                    dst.Add(new FieldPoint(p.easting, p.northing));
+                    last = p;
+                }
+            }
+            return dst;
         }
 
         public double GetShapeFieldDose(string fieldName)
