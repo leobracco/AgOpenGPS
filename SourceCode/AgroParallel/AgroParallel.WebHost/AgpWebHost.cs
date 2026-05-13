@@ -67,6 +67,7 @@ namespace AgroParallel.WebHost
                     .WithController(() => new AogStateController(_state))
                     .WithController(() => new SistemaController(_sistema))
                     .WithController(() => new NodosController(_nodos))
+                    .WithController(() => new QuantiXController(_nodos))
                     .WithController(() => new OrbitXController(_orbitxCfg))
                     .WithController(() => new SectionXController(_sectionxCfg)));
 

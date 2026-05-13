@@ -108,6 +108,24 @@ namespace AgroParallel.Services
                 copy = new List<NodoStatus>(_nodos.Count);
                 foreach (var n in _nodos.Values)
                 {
+                    List<MotorLive> motorsCopy = null;
+                    if (n.MotorsLive != null && n.MotorsLive.Count > 0)
+                    {
+                        motorsCopy = new List<MotorLive>(n.MotorsLive.Count);
+                        foreach (var m in n.MotorsLive)
+                        {
+                            motorsCopy.Add(new MotorLive
+                            {
+                                Id = m.Id,
+                                PpsTarget = m.PpsTarget,
+                                PpsReal = m.PpsReal,
+                                Pwm = m.Pwm,
+                                Rpm = m.Rpm,
+                                Pulsos = m.Pulsos,
+                                LastSeenUtc = m.LastSeenUtc
+                            });
+                        }
+                    }
                     copy.Add(new NodoStatus
                     {
                         Uid = n.Uid,
@@ -117,7 +135,8 @@ namespace AgroParallel.Services
                         Motors = n.Motors,
                         Uptime = n.Uptime,
                         LastSeenUtc = n.LastSeenUtc,
-                        Online = n.Online
+                        Online = n.Online,
+                        MotorsLive = motorsCopy
                     });
                 }
             }
@@ -191,6 +210,33 @@ namespace AgroParallel.Services
                     if (motors > 0 && n.Motors != motors) { n.Motors = motors; changed = true; }
                     if (uptime > 0 && n.Uptime != uptime) { n.Uptime = uptime; changed = true; }
                 }
+
+                // QuantiX live motor telemetry sobre /status_live.
+                // Payload: {"id":0,"pps_target":..,"pps_real":..,"pwm":..,"rpm":..,"pulsos":..}
+                if (!isAnnouncement
+                    && string.Equals(verb, "status_live", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(payload)
+                    && type != null && type.IndexOf("quantix", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    int motorId = ExtractJsonInt(payload, "id");
+                    if (n.MotorsLive == null) n.MotorsLive = new List<MotorLive>();
+                    MotorLive m = null;
+                    for (int i = 0; i < n.MotorsLive.Count; i++)
+                        if (n.MotorsLive[i].Id == motorId) { m = n.MotorsLive[i]; break; }
+                    if (m == null)
+                    {
+                        m = new MotorLive { Id = motorId };
+                        n.MotorsLive.Add(m);
+                        changed = true;
+                    }
+                    m.PpsTarget = ExtractJsonDouble(payload, "pps_target");
+                    m.PpsReal = ExtractJsonDouble(payload, "pps_real");
+                    m.Pwm = ExtractJsonInt(payload, "pwm");
+                    m.Rpm = ExtractJsonInt(payload, "rpm");
+                    m.Pulsos = ExtractJsonLong(payload, "pulsos");
+                    m.LastSeenUtc = DateTime.UtcNow;
+                    changed = true;
+                }
             }
 
             if (changed) RaiseChanged();
@@ -260,6 +306,14 @@ namespace AgroParallel.Services
         {
             long v;
             return long.TryParse(ExtractJson(json, key), out v) ? v : 0L;
+        }
+
+        private static double ExtractJsonDouble(string json, string key)
+        {
+            double v;
+            return double.TryParse(ExtractJson(json, key),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out v) ? v : 0d;
         }
     }
 }

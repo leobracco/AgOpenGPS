@@ -2,6 +2,7 @@
 // Producido por INodoRegistryService.
 
 using System;
+using System.Collections.Generic;
 
 namespace AgroParallel.Models
 {
@@ -34,5 +35,9 @@ namespace AgroParallel.Models
 
         /// <summary>true si se vio tráfico en los últimos N segundos (default 30).</summary>
         public bool Online { get; set; }
+
+        /// <summary>Telemetría en vivo de los motores (sólo QuantiX). Indexado por Id.
+        /// Vacío si no es un nodo QuantiX o si todavía no llegó status_live.</summary>
+        public List<MotorLive> MotorsLive { get; set; }
     }
 }
