@@ -29,8 +29,11 @@ namespace AgroParallel.Services
         private IMqttClient _client;
         private Timer _staleTimer;
         private bool _running;
+        private readonly HashSet<string> _extraSubs =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public event EventHandler Changed;
+        public event EventHandler<MqttMessageReceivedEventArgs> MessageReceived;
 
         public void Start(string brokerAddress, int brokerPort)
         {
@@ -62,6 +65,8 @@ namespace AgroParallel.Services
                                 e.ApplicationMessage.PayloadSegment.Count)
                             : "";
                         HandleMessage(topic, payload);
+                        try { MessageReceived?.Invoke(this, new MqttMessageReceivedEventArgs(topic, payload)); }
+                        catch { }
                     }
                     catch { }
                     return Task.CompletedTask;
@@ -83,6 +88,26 @@ namespace AgroParallel.Services
             {
                 // si falla la conexión, lo silenciamos — Stop limpia y reintento manual desde UI
             }
+        }
+
+        public async Task<bool> SubscribeAsync(string topicFilter)
+        {
+            if (string.IsNullOrEmpty(topicFilter)) return false;
+            lock (_extraSubs)
+            {
+                if (!_extraSubs.Add(topicFilter))
+                {
+                    // ya estaba; aún así intentamos suscribir por si reconectamos
+                }
+            }
+            var c = _client;
+            if (c == null || !c.IsConnected) return false;
+            try
+            {
+                await c.SubscribeAsync(topicFilter).ConfigureAwait(false);
+                return true;
+            }
+            catch { return false; }
         }
 
         public async Task<bool> PublishAsync(string topic, string payload, bool retain)

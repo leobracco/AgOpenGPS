@@ -27,6 +27,8 @@ namespace AgroParallel.WebHost
         private readonly ISectionXConfigService _sectionxCfg;
         private readonly ICamarasConfigService _camarasCfg;
         private readonly IQuantiXConfigService _quantixCfg;
+        private readonly IVistaXConfigService _vistaxCfg;
+        private readonly IVistaXLiveService _vistaxLive;
         private readonly IDebugLogService _debug;
         private readonly string _wwwroot;
         private readonly int _port;
@@ -45,6 +47,8 @@ namespace AgroParallel.WebHost
                           ISectionXConfigService sectionxCfg,
                           ICamarasConfigService camarasCfg,
                           IQuantiXConfigService quantixCfg,
+                          IVistaXConfigService vistaxCfg,
+                          IVistaXLiveService vistaxLive,
                           IDebugLogService debug,
                           string wwwroot,
                           int port = 5180)
@@ -56,6 +60,8 @@ namespace AgroParallel.WebHost
             _sectionxCfg = sectionxCfg; // nullable
             _camarasCfg = camarasCfg;   // nullable
             _quantixCfg = quantixCfg;   // nullable
+            _vistaxCfg = vistaxCfg;     // nullable
+            _vistaxLive = vistaxLive;   // nullable
             _debug = debug;             // nullable
             _wwwroot = wwwroot;
             _port = port;
@@ -86,6 +92,8 @@ namespace AgroParallel.WebHost
                  .WithController(() => new OrbitXController(_orbitxCfg))
                  .WithController(() => new SectionXController(_sectionxCfg))
                  .WithController(() => new CamarasController(_camarasCfg));
+                if (_vistaxCfg != null || _vistaxLive != null)
+                    m.WithController(() => new VistaXController(_vistaxCfg, _vistaxLive));
                 if (_debug != null) m.WithController(() => new DebugController(_debug));
             });
 
@@ -101,6 +109,7 @@ namespace AgroParallel.WebHost
             _ = _server.RunAsync(_cts.Token);
             _telemetry.Start();
             _debugHub?.Start();
+            _vistaxLive?.Start();
             IsRunning = true;
         }
 
@@ -108,6 +117,7 @@ namespace AgroParallel.WebHost
         {
             if (!IsRunning) return;
             IsRunning = false;
+            try { _vistaxLive?.Stop(); } catch { }
             try { _debugHub?.Stop(); } catch { }
             try { _telemetry?.Stop(); } catch { }
             try { _cts?.Cancel(); } catch { }

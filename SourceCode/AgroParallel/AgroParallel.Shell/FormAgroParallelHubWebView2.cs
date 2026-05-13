@@ -53,6 +53,8 @@ namespace AgroParallel.Shell
                 if (!string.IsNullOrEmpty(broker))
                     _nodos.Start(broker, brokerPort);
 
+                var vistaxCfg = new VistaXConfigService();
+                var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg);
                 _webHost = new AgpWebHost(
                     _state,
                     new SistemaService(),
@@ -61,6 +63,8 @@ namespace AgroParallel.Shell
                     new SectionXConfigService(),
                     new CamarasConfigService(),
                     new QuantiXConfigService(_nodos),
+                    vistaxCfg,
+                    vistaxLive,
                     new DebugLogService(),
                     _wwwroot,
                     _port);
