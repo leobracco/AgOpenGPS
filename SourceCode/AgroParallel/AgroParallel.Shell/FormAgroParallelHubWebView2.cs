@@ -40,8 +40,40 @@ namespace AgroParallel.Shell
             _webView = new WebView2 { Dock = DockStyle.Fill };
             Controls.Add(_webView);
 
+            KeyPreview = true;
+            KeyDown += OnKeyDown;
             Load += OnLoad;
             FormClosing += OnClosing;
+        }
+
+        // F5  → reload (cache habitual)
+        // Ctrl+F5 / Ctrl+R → reload IGNORANDO cache (útil tras editar CSS/JS en wwwroot)
+        // F12 → DevTools de WebView2
+        private void OnKeyDown(object sender, KeyEventArgs e)
+        {
+            try
+            {
+                var core = _webView?.CoreWebView2;
+                if (core == null) return;
+
+                if (e.KeyCode == Keys.F12)
+                {
+                    core.OpenDevToolsWindow();
+                    e.Handled = true;
+                }
+                else if ((e.KeyCode == Keys.F5 && e.Control) ||
+                         (e.KeyCode == Keys.R && e.Control))
+                {
+                    core.ExecuteScriptAsync("location.reload(true)");
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.F5)
+                {
+                    core.Reload();
+                    e.Handled = true;
+                }
+            }
+            catch { }
         }
 
         private async void OnLoad(object sender, EventArgs e)

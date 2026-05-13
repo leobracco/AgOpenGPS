@@ -99,9 +99,12 @@ namespace AgroParallel.WebHost
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
             {
-                _server = _server.WithStaticFolder("/", _wwwroot, true, m =>
+                // isImmutable: false → no manda Cache-Control: max-age=... immutable,
+                // así WebView2 revalida cada request y los cambios en wwwroot se ven
+                // sin recompilar / sin borrar el WebView2Data.
+                _server = _server.WithStaticFolder("/", _wwwroot, false, m =>
                 {
-                    m.WithContentCaching(false); // dev-friendly
+                    m.WithContentCaching(false); // dev-friendly: tampoco cache en memoria
                 });
             }
 
