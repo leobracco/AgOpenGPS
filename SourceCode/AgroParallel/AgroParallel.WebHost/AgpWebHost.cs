@@ -26,6 +26,7 @@ namespace AgroParallel.WebHost
         private readonly IOrbitXConfigService _orbitxCfg;
         private readonly ISectionXConfigService _sectionxCfg;
         private readonly ICamarasConfigService _camarasCfg;
+        private readonly IQuantiXConfigService _quantixCfg;
         private readonly string _wwwroot;
         private readonly int _port;
         private WebServer _server;
@@ -41,6 +42,7 @@ namespace AgroParallel.WebHost
                           IOrbitXConfigService orbitxCfg,
                           ISectionXConfigService sectionxCfg,
                           ICamarasConfigService camarasCfg,
+                          IQuantiXConfigService quantixCfg,
                           string wwwroot,
                           int port = 5180)
         {
@@ -50,6 +52,7 @@ namespace AgroParallel.WebHost
             _orbitxCfg = orbitxCfg;     // nullable
             _sectionxCfg = sectionxCfg; // nullable
             _camarasCfg = camarasCfg;   // nullable
+            _quantixCfg = quantixCfg;   // nullable
             _wwwroot = wwwroot;
             _port = port;
             Url = "http://127.0.0.1:" + port + "/";
@@ -70,7 +73,7 @@ namespace AgroParallel.WebHost
                     .WithController(() => new AogStateController(_state))
                     .WithController(() => new SistemaController(_sistema))
                     .WithController(() => new NodosController(_nodos))
-                    .WithController(() => new QuantiXController(_nodos))
+                    .WithController(() => new QuantiXController(_nodos, _quantixCfg))
                     .WithController(() => new OrbitXController(_orbitxCfg))
                     .WithController(() => new SectionXController(_sectionxCfg))
                     .WithController(() => new CamarasController(_camarasCfg)));

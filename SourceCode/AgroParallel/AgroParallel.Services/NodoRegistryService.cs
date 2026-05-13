@@ -85,6 +85,25 @@ namespace AgroParallel.Services
             }
         }
 
+        public async Task<bool> PublishAsync(string topic, string payload, bool retain)
+        {
+            var c = _client;
+            if (c == null || !c.IsConnected) return false;
+            if (string.IsNullOrEmpty(topic)) return false;
+            try
+            {
+                var msg = new MqttApplicationMessageBuilder()
+                    .WithTopic(topic)
+                    .WithPayload(payload ?? "")
+                    .WithRetainFlag(retain)
+                    .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
+                    .Build();
+                await c.PublishAsync(msg, CancellationToken.None).ConfigureAwait(false);
+                return true;
+            }
+            catch { return false; }
+        }
+
         public void Stop()
         {
             _running = false;

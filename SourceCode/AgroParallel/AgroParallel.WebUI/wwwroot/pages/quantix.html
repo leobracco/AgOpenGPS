@@ -24,50 +24,151 @@
       border-radius: 4px; margin-top: var(--agp-sp-3); overflow: hidden;
     }
     .pid-bar .fill { position:absolute; left:0; top:0; bottom:0; background: var(--agp-accent); }
-    .pid-bar .mark { position:absolute; top:-3px; bottom:-3px; width:2px; background: var(--agp-text); }
 
     .kv { display:grid; grid-template-columns: 1fr 1fr; gap: var(--agp-sp-2) var(--agp-sp-3); margin-top: var(--agp-sp-3); }
     .kv .k { color: var(--agp-text-muted); font-size: var(--agp-fs-xs); text-transform: uppercase; letter-spacing: 0.5px; }
     .kv .v { font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold); }
 
-    .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); }
+    .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); flex-wrap: wrap; }
     .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); }
     .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
 
     .node-head {
       display:flex; justify-content:space-between; align-items:center;
-      margin-bottom: var(--agp-sp-3);
+      margin-bottom: var(--agp-sp-3); gap: var(--agp-sp-3); flex-wrap: wrap;
     }
     .node-head .uid { font-family: var(--agp-font-mono); color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+
+    .motor-cfg {
+      background: var(--agp-bg-soft); border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3); margin-top: var(--agp-sp-3);
+      border-left: 4px solid var(--agp-accent);
+    }
+    .motor-cfg.m1 { border-left-color: #E27A0F; }
+    .motor-cfg h4 { margin: 0 0 var(--agp-sp-2) 0; }
+
+    .fld-grid {
+      display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--agp-sp-2) var(--agp-sp-3);
+    }
+    .fld-grid .field { margin: 0; }
+    .fld-grid .field label { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+
+    .cortes-row { display:flex; gap:var(--agp-sp-2); align-items:center; margin-top: var(--agp-sp-2); }
+    .cortes-row input { flex: 1; }
+
+    .uid-row { display:flex; gap: var(--agp-sp-2); flex-wrap: wrap; align-items: center; }
+    .uid-row input { flex: 1; min-width: 140px; }
+
+    .btn-row { display:flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-3); flex-wrap: wrap; }
+    .send-msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-left: auto; }
+    .send-msg.ok  { color: var(--agp-accent); }
+    .send-msg.err { color: #C92D2D; }
+
+    .live-tune-grid {
+      display:grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--agp-sp-3);
+    }
+    @media (max-width: 900px) { .live-tune-grid { grid-template-columns: 1fr; } }
+
+    .slider { width:100%; }
   </style>
 </head>
 <body>
   <aside class="sidebar" data-active="quantix"></aside>
   <main class="page">
     <div class="page-head">
-      <div><h1>QuantiX</h1><div class="subtitle">Control PID · monitor en vivo</div></div>
+      <div><h1>QuantiX</h1><div class="subtitle">Control PID · 2 motores por nodo</div></div>
       <span class="pill" id="qxStatus"><span class="dot"></span> Cargando…</span>
     </div>
 
     <div class="tabs">
-      <div class="tab active">Monitor</div>
-      <div class="tab" style="opacity:.5; cursor:not-allowed" title="Próximamente">Motores</div>
-      <div class="tab" style="opacity:.5; cursor:not-allowed" title="Próximamente">PID</div>
-      <div class="tab" style="opacity:.5; cursor:not-allowed" title="Próximamente">Calibración</div>
-      <div class="tab" style="opacity:.5; cursor:not-allowed" title="Próximamente">Shapefile</div>
-      <div class="tab" style="opacity:.5; cursor:not-allowed" title="Próximamente">Config</div>
+      <div class="tab active" data-tab="monitor">Monitor</div>
+      <div class="tab" data-tab="motores">Motores</div>
+      <div class="tab" data-tab="pid">PID live</div>
+      <div class="tab" data-tab="calibrar">Calibración</div>
+      <div class="tab" data-tab="udp">Config UDP</div>
     </div>
 
-    <div id="qxList"></div>
-    <div id="qxEmpty" class="card" style="display:none">
-      <div class="subtitle">No se ven nodos QuantiX en la LAN.</div>
-      <p style="margin-top: var(--agp-sp-2); color: var(--agp-text-muted)">
-        Verificá que el broker MQTT esté corriendo en AgIO y que los nodos QuantiX
-        estén encendidos y conectados al WiFi del tractor. Los anuncios viajan en
-        <code>agp/quantix/+/announcement</code> y la telemetría en
-        <code>agp/quantix/+/status_live</code>.
-      </p>
+    <!-- ===== MONITOR ===== -->
+    <div id="tabMonitor">
+      <div id="qxList"></div>
+      <div id="qxEmpty" class="card" style="display:none">
+        <div class="subtitle">No se ven nodos QuantiX en la LAN.</div>
+        <p style="margin-top: var(--agp-sp-2); color: var(--agp-text-muted)">
+          Verificá que el broker MQTT esté corriendo en AgIO y que los nodos QuantiX
+          estén encendidos y conectados al WiFi del tractor. Los anuncios viajan en
+          <code>agp/quantix/+/announcement</code> y la telemetría en
+          <code>agp/quantix/+/status_live</code>.
+        </p>
+      </div>
     </div>
+
+    <!-- ===== MOTORES (CRUD config) ===== -->
+    <div id="tabMotores" style="display:none">
+      <div id="mtList"></div>
+      <div class="btn-row" style="margin-top: var(--agp-sp-4)">
+        <button class="btn" id="btnAddNodo">+ Agregar nodo</button>
+        <span style="flex:1"></span>
+        <button class="btn primary" id="btnSaveMotores">Guardar todo</button>
+        <button class="btn" id="btnSendAll">Enviar todos por MQTT</button>
+      </div>
+      <div id="mtMsg" style="margin-top: var(--agp-sp-3); color: var(--agp-text-muted); font-size: var(--agp-fs-sm)"></div>
+    </div>
+
+    <!-- ===== PID live-tune ===== -->
+    <div id="tabPid" style="display:none">
+      <div id="pidList"></div>
+      <div id="pidEmpty" class="card" style="display:none">
+        <div class="subtitle">Cargá primero los nodos en la pestaña <strong>Motores</strong>.</div>
+      </div>
+    </div>
+
+    <!-- ===== CALIBRACIÓN ===== -->
+    <div id="tabCalibrar" style="display:none">
+      <div id="calList"></div>
+      <div id="calEmpty" class="card" style="display:none">
+        <div class="subtitle">Sin nodos para calibrar. Configurá primero en <strong>Motores</strong>.</div>
+      </div>
+    </div>
+
+    <!-- ===== CONFIG UDP (quantiX.json global) ===== -->
+    <div id="tabUdp" style="display:none">
+      <div class="card" style="max-width: 720px">
+        <h3 style="margin-top:0">Salida UDP de dosis</h3>
+        <p style="color: var(--agp-text-muted); margin-top: 0">
+          AOG muestrea la dosis del shapefile bajo el tractor y la emite por UDP
+          al host/puerto configurado (formato JSON con <code>dose</code>,
+          <code>inside</code>, <code>field</code>, posición opcional).
+        </p>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--agp-sp-3)">
+          <div class="field"><label>Habilitado</label>
+            <label style="display:flex; gap:8px; align-items:center; padding-top:8px">
+              <input type="checkbox" id="udpEnabled"> <span>Encendido</span></label>
+          </div>
+          <div class="field"><label>Frecuencia (Hz)</label>
+            <input type="number" id="udpRate" min="0.2" max="20" step="0.5" value="5"></div>
+          <div class="field"><label>Host (IP)</label>
+            <input type="text" id="udpHost" value="127.0.0.1"></div>
+          <div class="field"><label>Puerto</label>
+            <input type="number" id="udpPort" min="1" max="65535" value="17770"></div>
+          <div class="field"><label>Valor fuera del área</label>
+            <input type="number" id="udpOutside" step="0.1" value="0"></div>
+          <div class="field"><label>Unidad (etiqueta)</label>
+            <input type="text" id="udpUnit" placeholder="kg/ha"></div>
+          <div class="field" style="grid-column: span 2">
+            <label style="display:flex; gap:8px; align-items:center">
+              <input type="checkbox" id="udpOnlyChange"> <span>Enviar solo al cambiar de valor</span></label>
+            <label style="display:flex; gap:8px; align-items:center">
+              <input type="checkbox" id="udpIncludePos"> <span>Incluir posición (lat/lon/heading)</span></label>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn primary" id="btnSaveUdp">Guardar</button>
+          <span class="send-msg" id="udpMsg"></span>
+        </div>
+      </div>
+    </div>
+
   </main>
   <script src="../js/sidebar.js"></script>
   <script src="../js/quantix.js"></script>

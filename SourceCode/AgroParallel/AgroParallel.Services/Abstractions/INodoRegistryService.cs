@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using AgroParallel.Models;
 
 namespace AgroParallel.Services.Abstractions
@@ -20,5 +21,11 @@ namespace AgroParallel.Services.Abstractions
 
         /// <summary>Dispara cuando el registro cambia (alta, baja, transición online/offline).</summary>
         event EventHandler Changed;
+
+        /// <summary>
+        /// Publica un mensaje MQTT al broker reutilizando la conexión del registry.
+        /// Retorna false si el cliente no está conectado.
+        /// </summary>
+        Task<bool> PublishAsync(string topic, string payload, bool retain);
     }
 }
