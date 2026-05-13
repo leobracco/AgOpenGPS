@@ -14,7 +14,8 @@
     { id: 'orbitx',   ico: '☁',  label: 'OrbitX',   href: 'orbitx.html' },
     { id: 'camaras',  ico: '⌘',  label: 'Cámaras',  href: 'camaras.html' },
     { id: 'sistema',  ico: '⚙',  label: 'Sistema',  href: 'sistema.html' },
-    { id: 'nodos',    ico: '📡', label: 'Nodos',    href: 'nodos.html' }
+    { id: 'nodos',    ico: '📡', label: 'Nodos',    href: 'nodos.html' },
+    { id: 'debug',    ico: '🐞', label: 'Debug',    href: 'debug.html' }
   ];
 
   function render(aside) {

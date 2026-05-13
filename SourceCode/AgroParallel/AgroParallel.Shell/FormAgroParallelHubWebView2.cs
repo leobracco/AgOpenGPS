@@ -61,6 +61,7 @@ namespace AgroParallel.Shell
                     new SectionXConfigService(),
                     new CamarasConfigService(),
                     new QuantiXConfigService(_nodos),
+                    new DebugLogService(),
                     _wwwroot,
                     _port);
                 _webHost.Start();

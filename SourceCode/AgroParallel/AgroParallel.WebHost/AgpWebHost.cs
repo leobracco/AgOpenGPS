@@ -27,11 +27,13 @@ namespace AgroParallel.WebHost
         private readonly ISectionXConfigService _sectionxCfg;
         private readonly ICamarasConfigService _camarasCfg;
         private readonly IQuantiXConfigService _quantixCfg;
+        private readonly IDebugLogService _debug;
         private readonly string _wwwroot;
         private readonly int _port;
         private WebServer _server;
         private CancellationTokenSource _cts;
         private TelemetryHub _telemetry;
+        private DebugHub _debugHub;
 
         public string Url { get; }
         public bool IsRunning { get; private set; }
@@ -43,6 +45,7 @@ namespace AgroParallel.WebHost
                           ISectionXConfigService sectionxCfg,
                           ICamarasConfigService camarasCfg,
                           IQuantiXConfigService quantixCfg,
+                          IDebugLogService debug,
                           string wwwroot,
                           int port = 5180)
         {
@@ -53,6 +56,7 @@ namespace AgroParallel.WebHost
             _sectionxCfg = sectionxCfg; // nullable
             _camarasCfg = camarasCfg;   // nullable
             _quantixCfg = quantixCfg;   // nullable
+            _debug = debug;             // nullable
             _wwwroot = wwwroot;
             _port = port;
             Url = "http://127.0.0.1:" + port + "/";
@@ -63,20 +67,27 @@ namespace AgroParallel.WebHost
             if (IsRunning) return;
 
             _telemetry = new TelemetryHub(_state);
+            _debugHub = _debug != null ? new DebugHub(_debug) : null;
 
             _server = new WebServer(o => o
                     .WithUrlPrefix(Url)
                     .WithMode(HttpListenerMode.EmbedIO))
                 .WithLocalSessionManager()
-                .WithModule(_telemetry)
-                .WithWebApi("/api", m => m
-                    .WithController(() => new AogStateController(_state))
-                    .WithController(() => new SistemaController(_sistema))
-                    .WithController(() => new NodosController(_nodos))
-                    .WithController(() => new QuantiXController(_nodos, _quantixCfg))
-                    .WithController(() => new OrbitXController(_orbitxCfg))
-                    .WithController(() => new SectionXController(_sectionxCfg))
-                    .WithController(() => new CamarasController(_camarasCfg)));
+                .WithModule(_telemetry);
+
+            if (_debugHub != null) _server = _server.WithModule(_debugHub);
+
+            _server = _server.WithWebApi("/api", m =>
+            {
+                m.WithController(() => new AogStateController(_state))
+                 .WithController(() => new SistemaController(_sistema))
+                 .WithController(() => new NodosController(_nodos))
+                 .WithController(() => new QuantiXController(_nodos, _quantixCfg))
+                 .WithController(() => new OrbitXController(_orbitxCfg))
+                 .WithController(() => new SectionXController(_sectionxCfg))
+                 .WithController(() => new CamarasController(_camarasCfg));
+                if (_debug != null) m.WithController(() => new DebugController(_debug));
+            });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
             {
@@ -89,6 +100,7 @@ namespace AgroParallel.WebHost
             _cts = new CancellationTokenSource();
             _ = _server.RunAsync(_cts.Token);
             _telemetry.Start();
+            _debugHub?.Start();
             IsRunning = true;
         }
 
@@ -96,6 +108,7 @@ namespace AgroParallel.WebHost
         {
             if (!IsRunning) return;
             IsRunning = false;
+            try { _debugHub?.Stop(); } catch { }
             try { _telemetry?.Stop(); } catch { }
             try { _cts?.Cancel(); } catch { }
             try { _server?.Dispose(); } catch { }
