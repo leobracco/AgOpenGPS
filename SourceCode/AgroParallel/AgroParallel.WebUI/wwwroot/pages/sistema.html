@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280, initial-scale=1" />
+  <title>Sistema · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    .brillo-row {
+      display: grid; grid-template-columns: 1fr auto; align-items: center;
+      gap: var(--agp-sp-5);
+    }
+    .brillo-value {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-display);
+      font-weight: var(--agp-fw-bold); color: var(--agp-accent); line-height: 1;
+      min-width: 140px; text-align: right;
+    }
+    .quick-btns { display: flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-4); flex-wrap: wrap; }
+
+    .status {
+      margin-top: var(--agp-sp-4);
+      font-size: var(--agp-fs-sm); color: var(--agp-text-muted); min-height: 1.4em;
+    }
+
+    .power-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--agp-sp-4); margin-top: var(--agp-sp-3);
+    }
+    .power-card {
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-left: 4px solid var(--agp-accent);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4);
+      cursor: pointer;
+      transition: background var(--agp-dur-fast) var(--agp-ease);
+    }
+    .power-card:hover { background: var(--agp-bg-soft); }
+    .power-card.shutdown { border-left-color: #C84141; }
+    .power-card.restart  { border-left-color: #DC8C1E; }
+    .power-card.exit     { border-left-color: #707070; }
+    .power-card.suspend  { border-left-color: #3D87C6; }
+    .power-card .pc-title { font-weight: var(--agp-fw-semi); font-size: var(--agp-fs-md); }
+    .power-card .pc-desc { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="sistema"></aside>
+
+  <main class="page">
+    <h1>Sistema</h1>
+    <div class="subtitle" style="margin-bottom:var(--agp-sp-6)">Configuración del equipo · brillo y energía</div>
+
+    <h2 style="margin-top:0">Brillo de pantalla</h2>
+    <div class="card" style="max-width:720px">
+      <div class="brillo-row">
+        <input id="brilloSlider" type="range" min="0" max="100" value="50" />
+        <div class="brillo-value"><span id="brilloValue">--</span>%</div>
+      </div>
+      <div class="quick-btns">
+        <button class="btn compact" data-brillo="0">0%</button>
+        <button class="btn compact" data-brillo="25">25%</button>
+        <button class="btn compact" data-brillo="50">50%</button>
+        <button class="btn compact" data-brillo="75">75%</button>
+        <button class="btn compact" data-brillo="100">100%</button>
+      </div>
+      <div id="brilloStatus" class="status">Cargando…</div>
+    </div>
+
+    <h2>Energía</h2>
+    <div class="power-grid">
+      <div class="power-card shutdown" data-action="shutdown" data-confirm="¿Apagar la PC?">
+        <div class="pc-title">⏻  Apagar la PC</div>
+        <div class="pc-desc">Detiene PilotX y apaga el sistema.</div>
+      </div>
+      <div class="power-card restart" data-action="restart" data-confirm="¿Reiniciar la PC?">
+        <div class="pc-title">⟳  Reiniciar la PC</div>
+        <div class="pc-desc">Detiene PilotX y reinicia el sistema.</div>
+      </div>
+      <div class="power-card suspend" data-action="suspend" data-confirm="¿Suspender la PC?">
+        <div class="pc-title">⏸  Suspender</div>
+        <div class="pc-desc">Pone la PC en suspensión (S3).</div>
+      </div>
+      <div class="power-card exit" data-action="exitApp" data-confirm="¿Cerrar PilotX?">
+        <div class="pc-title">✕  Cerrar PilotX</div>
+        <div class="pc-desc">Cierra solo la aplicación.</div>
+      </div>
+    </div>
+    <div id="powerStatus" class="status"></div>
+  </main>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/sistema.js"></script>
+</body>
+</html>

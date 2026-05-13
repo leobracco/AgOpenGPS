@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280, initial-scale=1" />
+  <title>Hub · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Hub</h1>
+        <div class="subtitle">Estado en tiempo real del sistema</div>
+      </div>
+      <div style="display:flex; gap:var(--agp-sp-3); flex-wrap:wrap">
+        <span class="pill ok"><span class="dot"></span> RTK FIJO</span>
+        <span class="pill ok"><span class="dot"></span> Broker MQTT</span>
+        <span class="pill ok"><span class="dot"></span> 2 nodos</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Velocidad</h3>
+        <div class="metric">12.4<span class="unit">km/h</span></div>
+        <div class="row"><span>Rumbo</span><strong style="color:var(--agp-text)">N 87°</strong></div>
+      </div>
+      <div class="card">
+        <h3>Dosis actual</h3>
+        <div class="metric">85<span class="unit">kg/ha</span></div>
+        <div class="row"><span>Producto · Urea</span><span class="pill ok"><span class="dot"></span> dentro de zona</span></div>
+      </div>
+      <div class="card">
+        <h3>Secciones</h3>
+        <div style="display:flex; gap:4px; margin-top:8px">
+          <span style="flex:1; height:32px; background:var(--agp-accent); border-radius:4px"></span>
+          <span style="flex:1; height:32px; background:var(--agp-accent); border-radius:4px"></span>
+          <span style="flex:1; height:32px; background:var(--agp-accent); border-radius:4px"></span>
+          <span style="flex:1; height:32px; background:var(--agp-bg-soft); border-radius:4px; border:1px solid var(--agp-border)"></span>
+          <span style="flex:1; height:32px; background:var(--agp-accent); border-radius:4px"></span>
+          <span style="flex:1; height:32px; background:var(--agp-accent); border-radius:4px"></span>
+          <span style="flex:1; height:32px; background:var(--agp-accent); border-radius:4px"></span>
+        </div>
+        <div class="row"><span>6 de 7 abiertas</span><strong style="color:var(--agp-text)">8.4 m</strong></div>
+      </div>
+      <div class="card">
+        <h3>Sincronización</h3>
+        <div class="metric" style="font-size:var(--agp-fs-xl)">Último: <span style="color:var(--agp-state-ok)">12 s</span></div>
+        <div class="row"><span>OrbitX heartbeat</span><span class="pill ok"><span class="dot"></span> 200 OK</span></div>
+      </div>
+    </div>
+
+    <h2>Nodos detectados</h2>
+    <div class="node-list">
+      <div class="node">
+        <span class="led"></span>
+        <div><div class="name">QuantiX · Motor 1</div><div class="uid">QX-A1B2C3D4</div></div>
+        <div class="ip">192.168.5.21</div>
+        <span class="pill ok"><span class="dot"></span> v1.4.2 · online</span>
+      </div>
+      <div class="node">
+        <span class="led"></span>
+        <div><div class="name">QuantiX · Motor 2</div><div class="uid">QX-E5F6A7B8</div></div>
+        <div class="ip">192.168.5.22</div>
+        <span class="pill ok"><span class="dot"></span> v1.4.2 · online</span>
+      </div>
+      <div class="node offline">
+        <span class="led"></span>
+        <div><div class="name">SectionX</div><div class="uid">SX-1F2E3D4C</div></div>
+        <div class="ip">192.168.5.30</div>
+        <span class="pill idle"><span class="dot"></span> 14 s atrás</span>
+      </div>
+    </div>
+
+    <h2>Acciones rápidas</h2>
+    <div style="display:flex; gap:var(--agp-sp-3); flex-wrap:wrap">
+      <button class="btn primary">Iniciar trabajo</button>
+      <button class="btn">Pausar</button>
+      <button class="btn">Configuración</button>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+</body>
+</html>

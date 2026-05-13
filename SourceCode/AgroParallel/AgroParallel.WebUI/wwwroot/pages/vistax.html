@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280, initial-scale=1" />
+  <title>VistaX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); flex-wrap:wrap; }
+    .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); }
+    .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
+    .sensors { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--agp-sp-3); }
+    .sensor {
+      background: var(--agp-surface); border-radius: var(--agp-radius-md);
+      border: var(--agp-border-w) solid var(--agp-border);
+      padding: var(--agp-sp-3); text-align: center;
+    }
+    .sensor .id { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .sensor .pps { font-family: var(--agp-font-mono); font-size: 28px; font-weight: var(--agp-fw-bold); color: var(--agp-accent); }
+    .sensor.alert .pps { color: var(--agp-state-bad); }
+    .sensor.warn  .pps { color: var(--agp-state-warn); }
+    .sensor .row2 { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="vistax"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>VistaX</h1><div class="subtitle">Monitoreo de siembra · 24 sensores</div></div>
+      <div style="display:flex; gap:var(--agp-sp-2)">
+        <span class="pill ok"><span class="dot"></span> 22 OK</span>
+        <span class="pill warn"><span class="dot"></span> 1 marginal</span>
+        <span class="pill bad"><span class="dot"></span> 1 sin señal</span>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">Sensores</div>
+      <div class="tab">Nodos</div>
+      <div class="tab">Trenes</div>
+      <div class="tab">Perfiles</div>
+      <div class="tab">Mapeo</div>
+      <div class="tab">Sonidos</div>
+      <div class="tab">Prueba</div>
+      <div class="tab">Simulador</div>
+      <div class="tab">Config</div>
+    </div>
+
+    <h2 style="margin-top:0">Tren 1 — frontal</h2>
+    <div class="sensors">
+      <div class="sensor"><div class="id">S01</div><div class="pps">14.2</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S02</div><div class="pps">13.8</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S03</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S04</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor warn"><div class="id">S05</div><div class="pps">11.2</div><div class="row2">marginal</div></div>
+      <div class="sensor"><div class="id">S06</div><div class="pps">14.3</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S07</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S08</div><div class="pps">13.9</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S09</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S10</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S11</div><div class="pps">14.2</div><div class="row2">sem/s</div></div>
+      <div class="sensor alert"><div class="id">S12</div><div class="pps">0.0</div><div class="row2">sin señal</div></div>
+    </div>
+
+    <h2>Tren 2 — trasero</h2>
+    <div class="sensors">
+      <div class="sensor"><div class="id">S13</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S14</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S15</div><div class="pps">13.9</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S16</div><div class="pps">14.2</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S17</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S18</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S19</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S20</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S21</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S22</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S23</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
+      <div class="sensor"><div class="id">S24</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
+    </div>
+
+    <h2>Resumen</h2>
+    <div class="grid">
+      <div class="card"><h3>Densidad media</h3><div class="metric">13.8<span class="unit">sem/s</span></div><div class="row"><span>Variación entre líneas</span><strong style="color:var(--agp-text)">±0.4</strong></div></div>
+      <div class="card"><h3>Velocidad</h3><div class="metric">12.4<span class="unit">km/h</span></div><div class="row"><span>Recomendado: < 14</span><span class="pill ok"><span class="dot"></span> OK</span></div></div>
+      <div class="card"><h3>Población actual</h3><div class="metric" style="font-size:var(--agp-fs-2xl)">68.500<span class="unit">/ha</span></div><div class="row"><span>Setpoint 70.000</span><span class="pill warn"><span class="dot"></span> -2%</span></div></div>
+    </div>
+  </main>
+  <script src="../js/sidebar.js"></script>
+</body>
+</html>

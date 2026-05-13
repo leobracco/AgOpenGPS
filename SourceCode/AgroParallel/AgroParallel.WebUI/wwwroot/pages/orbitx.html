@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280, initial-scale=1" />
+  <title>OrbitX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); }
+    .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); }
+    .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
+
+    .ota-row {
+      display:grid; grid-template-columns: 1fr 110px 110px 160px;
+      gap: var(--agp-sp-3); align-items:center;
+      padding: var(--agp-sp-3); border-bottom: var(--agp-border-w) solid var(--agp-border);
+    }
+    .ota-row:last-child { border-bottom: none; }
+    .ota-row .head { font-weight: var(--agp-fw-semi); }
+    .ota-row .uid { font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm); color: var(--agp-text-muted); }
+    .progress { height: 8px; background: var(--agp-bg-soft); border-radius: 4px; overflow: hidden; }
+    .progress > div { height: 100%; background: var(--agp-accent); transition: width var(--agp-dur-fast) var(--agp-ease); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="orbitx"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>OrbitX</h1><div class="subtitle">Sincronización cloud · OTA · prescripciones</div></div>
+      <div style="display:flex; gap:var(--agp-sp-2)">
+        <span class="pill ok"><span class="dot"></span> Cloud conectado</span>
+        <span class="pill ok"><span class="dot"></span> 200 OK</span>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">Estado</div>
+      <div class="tab">Config</div>
+      <div class="tab">OTA</div>
+      <div class="tab">Prescripciones</div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><h3>Heartbeat</h3><div class="metric" style="font-size:var(--agp-fs-xl)">12<span class="unit">s</span></div><div class="row"><span>Último envío exitoso</span><span class="pill ok"><span class="dot"></span> OK</span></div></div>
+      <div class="card"><h3>AOG sync</h3><div class="metric">147<span class="unit">arch</span></div><div class="row"><span>Cola: 2 pendientes</span><strong style="color:var(--agp-text)">subiendo</strong></div></div>
+      <div class="card"><h3>Tracking GPS</h3><div class="metric" style="font-size:var(--agp-fs-xl)">10 Hz</div><div class="row"><span>Lat/Lon/Heading</span><span class="pill ok"><span class="dot"></span> activo</span></div></div>
+      <div class="card"><h3>Establecimiento</h3><div class="metric" style="font-size:var(--agp-fs-xl)">demo</div><div class="row"><span>Org/slug</span><strong style="color:var(--agp-text)">DEMO-001</strong></div></div>
+    </div>
+
+    <h2>Configuración</h2>
+    <div class="card" style="max-width:720px">
+      <div class="field"><label>Server URL</label><input type="text" value="https://orbitx.agroparallel.com"></div>
+      <div class="field"><label>Establecimiento slug</label><input type="text" value="demo"></div>
+      <div class="field"><label>Device ID</label><input type="text" value="device-tractor-001" readonly></div>
+      <div class="field"><label>Device Token</label><input type="text" value="••••••••••••••••" readonly></div>
+      <div style="display:flex; gap:var(--agp-sp-4); margin-top: var(--agp-sp-3)">
+        <label class="switch"><input type="checkbox" checked><span class="track"></span> Sync VistaX</label>
+        <label class="switch"><input type="checkbox" checked><span class="track"></span> Sync QuantiX</label>
+        <label class="switch"><input type="checkbox" checked><span class="track"></span> Sync SectionX</label>
+      </div>
+      <div style="margin-top: var(--agp-sp-4); display:flex; gap:var(--agp-sp-3)">
+        <button class="btn primary">Guardar</button>
+        <button class="btn">Probar conexión</button>
+      </div>
+    </div>
+
+    <h2>OTA · firmware</h2>
+    <div class="card">
+      <div class="ota-row">
+        <div>
+          <div class="head">QuantiX · Motor 1</div>
+          <div class="uid">QX-A1B2C3D4 · 192.168.5.21</div>
+        </div>
+        <div>v1.4.2</div>
+        <div>v1.5.0 ↑</div>
+        <button class="btn compact primary">Actualizar</button>
+      </div>
+      <div class="ota-row">
+        <div>
+          <div class="head">QuantiX · Motor 2</div>
+          <div class="uid">QX-E5F6A7B8 · 192.168.5.22</div>
+        </div>
+        <div>v1.5.0</div>
+        <div>—</div>
+        <span class="pill ok"><span class="dot"></span> al día</span>
+      </div>
+      <div class="ota-row">
+        <div>
+          <div class="head">SectionX</div>
+          <div class="uid">SX-1F2E3D4C · 192.168.5.30</div>
+        </div>
+        <div>v0.9.1</div>
+        <div>v1.0.0 ↑</div>
+        <div class="progress" style="margin-right:var(--agp-sp-2)"><div style="width:62%"></div></div>
+      </div>
+      <div class="ota-row">
+        <div>
+          <div class="head">VistaX · Hub principal</div>
+          <div class="uid">VX-9C8B7A65 · 192.168.5.40</div>
+        </div>
+        <div>v2.1.0</div>
+        <div>v2.2.1 ↑</div>
+        <button class="btn compact primary">Actualizar</button>
+      </div>
+    </div>
+  </main>
+  <script src="../js/sidebar.js"></script>
+</body>
+</html>

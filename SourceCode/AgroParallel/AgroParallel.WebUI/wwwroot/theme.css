@@ -1,0 +1,149 @@
+/* ============================================================================
+   AgroParallel · PilotX Design System — theme.css
+   Paleta oficial + tokens semánticos. Importar antes de base.css / components.css.
+   Espíritu: simple, suave, gris, funcional. Verde acento solo para acciones clave
+   y estados positivos (RTK FIJO, sección activa, OK).
+   ============================================================================ */
+
+:root {
+  /* --------------------------------------------------------------------------
+     Paleta oficial — 6 colores base
+     -------------------------------------------------------------------------- */
+  --agp-accent:        #4ABA3E;  /* Verde Agro Parallel — acento, acciones, OK    */
+  --agp-bg:            #F5F7F4;  /* Fondo principal — gris muy claro              */
+  --agp-bg-soft:       #E2E7E2;  /* Fondo de tarjetas / hover suave               */
+  --agp-border:        #C5CFC5;  /* Bordes, separadores, controles deshabilitados */
+  --agp-text:          #101612;  /* Texto principal — casi negro verdoso          */
+  --agp-text-muted:    #535E54;  /* Texto secundario, labels, hints               */
+
+  /* --------------------------------------------------------------------------
+     Estados — semáforo funcional (señal GPS, conexión nodos, etc.)
+     -------------------------------------------------------------------------- */
+  --agp-state-ok:      #4ABA3E;  /* RTK FIJO · óptimo · conectado                 */
+  --agp-state-warn:    #D8B23E;  /* RTK FLOAT · aceptable · degradado             */
+  --agp-state-bad:     #B23E3E;  /* SIN SEÑAL · error · desconectado              */
+  --agp-state-idle:    #C5CFC5;  /* Idle · sin datos · stand-by                   */
+
+  /* --------------------------------------------------------------------------
+     Acento — variantes (hover/pressed/disabled)
+     -------------------------------------------------------------------------- */
+  --agp-accent-hover:  #3FA535;  /* Verde levemente oscurecido                    */
+  --agp-accent-press:  #348C2C;  /* Verde más oscuro al click                     */
+  --agp-accent-soft:   #DCEFDA;  /* Tinte verde claro para fondos sutiles         */
+
+  /* --------------------------------------------------------------------------
+     Superficies (capas elevadas, modales, overlays)
+     -------------------------------------------------------------------------- */
+  --agp-surface:       #FFFFFF;  /* Tarjeta sobre fondo                           */
+  --agp-surface-2:     #FAFBFA;  /* Tarjeta sobre tarjeta (modal sobre página)    */
+  --agp-overlay:       rgba(16, 22, 18, 0.45);  /* Backdrop modal                 */
+
+  /* --------------------------------------------------------------------------
+     Tipografía
+     -------------------------------------------------------------------------- */
+  --agp-font-sans: "Segoe UI", "Inter", "Roboto", system-ui, -apple-system, sans-serif;
+  --agp-font-mono: "Cascadia Mono", "Consolas", "JetBrains Mono", monospace;
+
+  --agp-fs-xs:   12px;
+  --agp-fs-sm:   14px;
+  --agp-fs-md:   16px;   /* Base */
+  --agp-fs-lg:   20px;
+  --agp-fs-xl:   24px;
+  --agp-fs-2xl:  32px;
+  --agp-fs-display: 48px;  /* Telemetría grande (velocidad, dosis) */
+
+  --agp-fw-regular: 400;
+  --agp-fw-medium:  500;
+  --agp-fw-semi:    600;
+  --agp-fw-bold:    700;
+
+  --agp-lh-tight:  1.2;
+  --agp-lh-normal: 1.4;
+  --agp-lh-loose:  1.6;
+
+  /* --------------------------------------------------------------------------
+     Espaciado (escala 4px)
+     -------------------------------------------------------------------------- */
+  --agp-sp-1:   4px;
+  --agp-sp-2:   8px;
+  --agp-sp-3:  12px;
+  --agp-sp-4:  16px;
+  --agp-sp-5:  20px;
+  --agp-sp-6:  24px;
+  --agp-sp-8:  32px;
+  --agp-sp-10: 40px;
+  --agp-sp-12: 48px;
+  --agp-sp-16: 64px;
+
+  /* --------------------------------------------------------------------------
+     Radios / bordes
+     -------------------------------------------------------------------------- */
+  --agp-radius-sm:  4px;
+  --agp-radius-md:  8px;
+  --agp-radius-lg:  12px;
+  --agp-radius-xl:  16px;
+  --agp-radius-pill: 999px;
+
+  --agp-border-w:   1px;
+  --agp-border-w-2: 2px;
+
+  /* --------------------------------------------------------------------------
+     Sombras (sutiles, nada agresivo)
+     -------------------------------------------------------------------------- */
+  --agp-shadow-sm: 0 1px 2px rgba(16, 22, 18, 0.06);
+  --agp-shadow-md: 0 2px 8px rgba(16, 22, 18, 0.08);
+  --agp-shadow-lg: 0 8px 24px rgba(16, 22, 18, 0.12);
+
+  /* --------------------------------------------------------------------------
+     Touch targets (tablet 11" en tractor — dedos con guantes)
+     -------------------------------------------------------------------------- */
+  --agp-touch-min: 48px;   /* Mínimo área clicable                                */
+  --agp-touch-rec: 56px;   /* Recomendado para botones principales                */
+  --agp-touch-big: 72px;   /* Botones primarios del panel piloto                  */
+
+  /* --------------------------------------------------------------------------
+     Animación (sutil — no distrae en campo)
+     -------------------------------------------------------------------------- */
+  --agp-ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --agp-dur-fast:    120ms;
+  --agp-dur-normal:  200ms;
+  --agp-dur-slow:    320ms;
+
+  /* --------------------------------------------------------------------------
+     Z-index
+     -------------------------------------------------------------------------- */
+  --agp-z-base:    0;
+  --agp-z-raised:  10;
+  --agp-z-sticky:  100;
+  --agp-z-modal:   1000;
+  --agp-z-toast:   2000;
+}
+
+/* ============================================================================
+   Reset mínimo + baseline
+   ============================================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--agp-bg);
+  color: var(--agp-text);
+  font-family: var(--agp-font-sans);
+  font-size: var(--agp-fs-md);
+  line-height: var(--agp-lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Selección — verde acento muy tenue */
+::selection {
+  background: var(--agp-accent-soft);
+  color: var(--agp-text);
+}
+
+/* Focus ring uniforme — accesibilidad sin contaminar el look */
+:focus-visible {
+  outline: 2px solid var(--agp-accent);
+  outline-offset: 2px;
+  border-radius: var(--agp-radius-sm);
+}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1280, initial-scale=1" />
+  <title>QuantiX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    .motor-card { position: relative; }
+    .motor-card .pps {
+      font-family: var(--agp-font-mono); font-size: 64px;
+      font-weight: var(--agp-fw-bold); color: var(--agp-accent); line-height: 1;
+    }
+    .motor-card .target {
+      font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: 8px;
+    }
+    .bars { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-top: var(--agp-sp-3); }
+    .bars span { height: 12px; background: var(--agp-bg-soft); border-radius: 2px; }
+    .bars span.on { background: var(--agp-accent); }
+    .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); }
+    .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); }
+    .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="quantix"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>QuantiX</h1><div class="subtitle">Control PID · 2 motores de siembra</div></div>
+      <span class="pill ok"><span class="dot"></span> 2 nodos online</span>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active">Monitor</div>
+      <div class="tab">Motores</div>
+      <div class="tab">PID</div>
+      <div class="tab">Calibración</div>
+      <div class="tab">Shapefile</div>
+      <div class="tab">Config</div>
+    </div>
+
+    <div class="grid">
+      <div class="card motor-card">
+        <h3>Motor 1 · QX-A1B2C3D4</h3>
+        <div class="pps">8,250</div>
+        <div class="target">PPS · objetivo 8,200 (Δ +0.6%)</div>
+        <div class="bars">
+          <span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span>
+          <span class="on"></span><span class="on"></span><span class="on"></span><span></span>
+        </div>
+        <div class="row"><span>Dosis 85 kg/ha · v 12.4 km/h</span><span class="pill ok"><span class="dot"></span> en setpoint</span></div>
+      </div>
+      <div class="card motor-card">
+        <h3>Motor 2 · QX-E5F6A7B8</h3>
+        <div class="pps">8,180</div>
+        <div class="target">PPS · objetivo 8,200 (Δ -0.2%)</div>
+        <div class="bars">
+          <span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span>
+          <span class="on"></span><span class="on"></span><span></span><span></span>
+        </div>
+        <div class="row"><span>Dosis 85 kg/ha · v 12.4 km/h</span><span class="pill ok"><span class="dot"></span> en setpoint</span></div>
+      </div>
+    </div>
+
+    <h2>Configuración PID (motor 1)</h2>
+    <div class="card" style="max-width:720px">
+      <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:var(--agp-sp-4)">
+        <div class="field"><label>Kp</label><input type="number" value="1.20" step="0.01"></div>
+        <div class="field"><label>Ki</label><input type="number" value="0.45" step="0.01"></div>
+        <div class="field"><label>Kd</label><input type="number" value="0.10" step="0.01"></div>
+      </div>
+      <div class="field"><label>Encoder PPR</label><input type="number" value="200"></div>
+      <div style="display:flex; gap:var(--agp-sp-3); margin-top: var(--agp-sp-3)">
+        <button class="btn primary">Guardar</button>
+        <button class="btn">Auto-tune</button>
+        <button class="btn ghost">Medir MaxHz</button>
+      </div>
+    </div>
+
+    <h2>Dosis manual</h2>
+    <div class="card" style="max-width:720px">
+      <div style="display:flex; align-items:center; gap:var(--agp-sp-4)">
+        <button class="btn compact">-0.1</button>
+        <div style="font-family:var(--agp-font-mono); font-size:48px; font-weight:var(--agp-fw-bold); min-width:140px; text-align:center">85.0</div>
+        <button class="btn compact">+0.1</button>
+        <div style="color:var(--agp-text-muted)">kg/ha</div>
+      </div>
+    </div>
+  </main>
+  <script src="../js/sidebar.js"></script>
+</body>
+</html>
