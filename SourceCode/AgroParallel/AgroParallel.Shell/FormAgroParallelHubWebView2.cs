@@ -58,6 +58,7 @@ namespace AgroParallel.Shell
                     new SistemaService(),
                     _nodos,
                     new OrbitXConfigService(),
+                    new SectionXConfigService(),
                     _wwwroot,
                     _port);
                 _webHost.Start();

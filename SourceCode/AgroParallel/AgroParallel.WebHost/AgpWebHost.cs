@@ -24,6 +24,7 @@ namespace AgroParallel.WebHost
         private readonly ISistemaService _sistema;
         private readonly INodoRegistryService _nodos;
         private readonly IOrbitXConfigService _orbitxCfg;
+        private readonly ISectionXConfigService _sectionxCfg;
         private readonly string _wwwroot;
         private readonly int _port;
         private WebServer _server;
@@ -37,13 +38,15 @@ namespace AgroParallel.WebHost
                           ISistemaService sistema,
                           INodoRegistryService nodos,
                           IOrbitXConfigService orbitxCfg,
+                          ISectionXConfigService sectionxCfg,
                           string wwwroot,
                           int port = 5180)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
-            _sistema = sistema;     // nullable
-            _nodos = nodos;         // nullable
-            _orbitxCfg = orbitxCfg; // nullable
+            _sistema = sistema;         // nullable
+            _nodos = nodos;             // nullable
+            _orbitxCfg = orbitxCfg;     // nullable
+            _sectionxCfg = sectionxCfg; // nullable
             _wwwroot = wwwroot;
             _port = port;
             Url = "http://127.0.0.1:" + port + "/";
@@ -64,7 +67,8 @@ namespace AgroParallel.WebHost
                     .WithController(() => new AogStateController(_state))
                     .WithController(() => new SistemaController(_sistema))
                     .WithController(() => new NodosController(_nodos))
-                    .WithController(() => new OrbitXController(_orbitxCfg)));
+                    .WithController(() => new OrbitXController(_orbitxCfg))
+                    .WithController(() => new SectionXController(_sectionxCfg)));
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
             {

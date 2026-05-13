@@ -7,24 +7,34 @@
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../layout.css" />
   <style>
-    .seg-row { display:grid; grid-template-columns: 80px 1fr 80px; gap: var(--agp-sp-3); align-items:center; margin-bottom: var(--agp-sp-2); }
+    .seg-row { display:grid; grid-template-columns: 80px 1fr; gap: var(--agp-sp-3); align-items:center; margin-bottom: var(--agp-sp-2); }
     .seg-row .name { font-weight: var(--agp-fw-medium); }
     .seg-row .state {
-      height: 38px; border-radius: var(--agp-radius-md);
+      height: 36px; border-radius: var(--agp-radius-md);
       background: var(--agp-bg-soft); display:flex; align-items:center; justify-content:center;
       font-weight: var(--agp-fw-bold); color: var(--agp-text-muted);
     }
     .seg-row.on .state { background: var(--agp-accent); color: white; }
+
     .cable-grid {
-      display:grid; grid-template-columns: repeat(8, 1fr); gap: var(--agp-sp-2); margin: var(--agp-sp-3) 0;
+      display:grid; grid-template-columns: repeat(8, 1fr); gap: var(--agp-sp-2); margin-bottom: var(--agp-sp-2);
     }
-    .cable {
-      aspect-ratio: 1; border-radius: var(--agp-radius-md);
-      background: var(--agp-bg-soft); display:grid; place-items:center;
+    .cable-cell {
+      background: var(--agp-bg-soft); border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md); padding: var(--agp-sp-2);
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+    }
+    .cable-cell.on { border-color: var(--agp-accent); background: rgba(74,186,62,0.08); }
+    .cable-cell .cable-num {
       font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
-      color: var(--agp-text-muted); border: var(--agp-border-w) solid var(--agp-border);
+      color: var(--agp-text-muted); font-size: var(--agp-fs-sm);
     }
-    .cable.on { background: var(--agp-accent); color: white; border-color: var(--agp-accent); }
+    .cable-cell.on .cable-num { color: var(--agp-accent); }
+    .cable-cell input[type=number] {
+      width: 100%; text-align:center; padding: 4px;
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-md); font-weight: var(--agp-fw-bold);
+    }
+    .cable-cell select { width:100%; font-size: var(--agp-fs-xs); padding: 2px; }
   </style>
 </head>
 <body>
@@ -32,66 +42,35 @@
   <main class="page">
     <div class="page-head">
       <div><h1>SectionX</h1><div class="subtitle">Control automático de secciones</div></div>
-      <span class="pill ok"><span class="dot"></span> Nodo SX-1F2E3D online</span>
+      <div style="display:flex; gap:var(--agp-sp-3); align-items:center">
+        <label class="switch"><input type="checkbox" id="enabledChk"><span class="track"></span> Habilitado</label>
+        <select id="nodoSel" style="min-width:240px"></select>
+      </div>
     </div>
 
     <h2 style="margin-top:0">Estado en vivo (vista AOG)</h2>
-    <div class="card">
-      <div class="seg-row on"><div class="name">Sec 1</div><div class="state">ABIERTA</div><div style="text-align:right">→ Cable 3</div></div>
-      <div class="seg-row on"><div class="name">Sec 2</div><div class="state">ABIERTA</div><div style="text-align:right">→ Cable 4</div></div>
-      <div class="seg-row on"><div class="name">Sec 3</div><div class="state">ABIERTA</div><div style="text-align:right">→ Cable 5</div></div>
-      <div class="seg-row"><div class="name">Sec 4</div><div class="state">CERRADA</div><div style="text-align:right">→ Cable 6</div></div>
-      <div class="seg-row on"><div class="name">Sec 5</div><div class="state">ABIERTA</div><div style="text-align:right">→ Cable 7</div></div>
-      <div class="seg-row on"><div class="name">Sec 6</div><div class="state">ABIERTA</div><div style="text-align:right">→ Cable 8</div></div>
-      <div class="seg-row on"><div class="name">Sec 7</div><div class="state">ABIERTA</div><div style="text-align:right">→ Cable 9</div></div>
+    <div class="card" id="liveSections">
+      <div class="subtitle">Cargando…</div>
     </div>
 
-    <h2>PCA9685 · Cables del ESP32</h2>
+    <h2>Mapeo cables → secciones AOG</h2>
     <div class="card">
-      <div class="cable-grid">
-        <div class="cable">1</div>
-        <div class="cable">2</div>
-        <div class="cable on">3</div>
-        <div class="cable on">4</div>
-        <div class="cable on">5</div>
-        <div class="cable">6</div>
-        <div class="cable on">7</div>
-        <div class="cable on">8</div>
-      </div>
-      <div class="cable-grid">
-        <div class="cable on">9</div>
-        <div class="cable">10</div>
-        <div class="cable">11</div>
-        <div class="cable">12</div>
-        <div class="cable">13</div>
-        <div class="cable">14</div>
-        <div class="cable">15</div>
-        <div class="cable">16</div>
-      </div>
-      <div class="subtitle">7 secciones de AOG mapeadas a cables 3–9. Desfase tren trasero: 2.40 m.</div>
+      <div id="nodoForm"></div>
+      <div id="cablesGrid" style="margin-top: var(--agp-sp-3)"></div>
+      <div class="subtitle" style="margin-top:var(--agp-sp-2)">Cada celda = un cable del SectionX controller. Ingresá el nº de sección AOG (1..16). 0 = no asignado. Tren = cuál línea de siembra está conectada.</div>
     </div>
 
-    <h2>Configuración del mapeo</h2>
-    <div class="card" style="max-width:820px">
-      <div class="field"><label>UID del nodo</label><input type="text" value="SX-1F2E3D4C" readonly></div>
-      <div class="field"><label>Distancia entre trenes (m)</label><input type="number" value="2.40" step="0.05"></div>
-      <div class="field"><label>Mapeo cable → sección (JSON)</label>
-        <textarea>[
-  {"cable":3,"seccionAOG":1,"tren":0},
-  {"cable":4,"seccionAOG":2,"tren":0},
-  {"cable":5,"seccionAOG":3,"tren":0},
-  {"cable":6,"seccionAOG":4,"tren":0},
-  {"cable":7,"seccionAOG":5,"tren":0},
-  {"cable":8,"seccionAOG":6,"tren":1},
-  {"cable":9,"seccionAOG":7,"tren":1}
-]</textarea>
-      </div>
-      <div style="display:flex; gap:var(--agp-sp-3)">
-        <button class="btn primary">Guardar mapeo</button>
-        <button class="btn">Probar 1s todos</button>
+    <h2>JSON (debug)</h2>
+    <div class="card">
+      <textarea id="jsonOut" readonly style="min-height:160px; font-family:var(--agp-font-mono); font-size:var(--agp-fs-sm)"></textarea>
+      <div style="display:flex; gap:var(--agp-sp-3); margin-top: var(--agp-sp-3); align-items:center">
+        <button class="btn primary" id="btnSave">Guardar mapeo</button>
+        <button class="btn" id="btnTest">Probar 1s todos</button>
+        <span id="hint" style="color: var(--agp-text-muted); font-size: var(--agp-fs-sm)"></span>
       </div>
     </div>
   </main>
   <script src="../js/sidebar.js"></script>
+  <script src="../js/sectionx.js"></script>
 </body>
 </html>
