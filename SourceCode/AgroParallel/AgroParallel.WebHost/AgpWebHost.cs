@@ -23,6 +23,7 @@ namespace AgroParallel.WebHost
         private readonly IAogStateProvider _state;
         private readonly ISistemaService _sistema;
         private readonly INodoRegistryService _nodos;
+        private readonly IOrbitXConfigService _orbitxCfg;
         private readonly string _wwwroot;
         private readonly int _port;
         private WebServer _server;
@@ -32,11 +33,17 @@ namespace AgroParallel.WebHost
         public string Url { get; }
         public bool IsRunning { get; private set; }
 
-        public AgpWebHost(IAogStateProvider state, ISistemaService sistema, INodoRegistryService nodos, string wwwroot, int port = 5180)
+        public AgpWebHost(IAogStateProvider state,
+                          ISistemaService sistema,
+                          INodoRegistryService nodos,
+                          IOrbitXConfigService orbitxCfg,
+                          string wwwroot,
+                          int port = 5180)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
-            _sistema = sistema; // nullable: controller responde 503 si no se inyectó
-            _nodos = nodos;     // nullable: controller responde con lista vacía
+            _sistema = sistema;     // nullable
+            _nodos = nodos;         // nullable
+            _orbitxCfg = orbitxCfg; // nullable
             _wwwroot = wwwroot;
             _port = port;
             Url = "http://127.0.0.1:" + port + "/";
@@ -56,7 +63,8 @@ namespace AgroParallel.WebHost
                 .WithWebApi("/api", m => m
                     .WithController(() => new AogStateController(_state))
                     .WithController(() => new SistemaController(_sistema))
-                    .WithController(() => new NodosController(_nodos)));
+                    .WithController(() => new NodosController(_nodos))
+                    .WithController(() => new OrbitXController(_orbitxCfg)));
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
             {

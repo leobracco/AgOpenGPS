@@ -53,7 +53,13 @@ namespace AgroParallel.Shell
                 if (!string.IsNullOrEmpty(broker))
                     _nodos.Start(broker, brokerPort);
 
-                _webHost = new AgpWebHost(_state, new SistemaService(), _nodos, _wwwroot, _port);
+                _webHost = new AgpWebHost(
+                    _state,
+                    new SistemaService(),
+                    _nodos,
+                    new OrbitXConfigService(),
+                    _wwwroot,
+                    _port);
                 _webHost.Start();
 
                 string userData = Path.Combine(

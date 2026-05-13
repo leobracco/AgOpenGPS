@@ -10,6 +10,8 @@
     .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); }
     .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); }
     .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
+    .pane { display:none; }
+    .pane.active { display:block; }
 
     .ota-row {
       display:grid; grid-template-columns: 1fr 110px 110px 160px;
@@ -29,82 +31,100 @@
     <div class="page-head">
       <div><h1>OrbitX</h1><div class="subtitle">Sincronización cloud · OTA · prescripciones</div></div>
       <div style="display:flex; gap:var(--agp-sp-2)">
-        <span class="pill ok"><span class="dot"></span> Cloud conectado</span>
-        <span class="pill ok"><span class="dot"></span> 200 OK</span>
+        <span id="connectedPill" class="pill idle"><span class="dot"></span> Sin verificar</span>
       </div>
     </div>
 
-    <div class="tabs">
-      <div class="tab active">Estado</div>
-      <div class="tab">Config</div>
-      <div class="tab">OTA</div>
-      <div class="tab">Prescripciones</div>
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-pane="estado">Estado</div>
+      <div class="tab"        data-pane="config">Config</div>
+      <div class="tab"        data-pane="ota">OTA</div>
+      <div class="tab"        data-pane="presc">Prescripciones</div>
     </div>
 
-    <div class="grid">
-      <div class="card"><h3>Heartbeat</h3><div class="metric" style="font-size:var(--agp-fs-xl)">12<span class="unit">s</span></div><div class="row"><span>Último envío exitoso</span><span class="pill ok"><span class="dot"></span> OK</span></div></div>
-      <div class="card"><h3>AOG sync</h3><div class="metric">147<span class="unit">arch</span></div><div class="row"><span>Cola: 2 pendientes</span><strong style="color:var(--agp-text)">subiendo</strong></div></div>
-      <div class="card"><h3>Tracking GPS</h3><div class="metric" style="font-size:var(--agp-fs-xl)">10 Hz</div><div class="row"><span>Lat/Lon/Heading</span><span class="pill ok"><span class="dot"></span> activo</span></div></div>
-      <div class="card"><h3>Establecimiento</h3><div class="metric" style="font-size:var(--agp-fs-xl)">demo</div><div class="row"><span>Org/slug</span><strong style="color:var(--agp-text)">DEMO-001</strong></div></div>
+    <!-- ESTADO -->
+    <div class="pane active" data-pane="estado">
+      <div class="grid" id="orbitxStatus"></div>
     </div>
 
-    <h2>Configuración</h2>
-    <div class="card" style="max-width:720px">
-      <div class="field"><label>Server URL</label><input type="text" value="https://orbitx.agroparallel.com"></div>
-      <div class="field"><label>Establecimiento slug</label><input type="text" value="demo"></div>
-      <div class="field"><label>Device ID</label><input type="text" value="device-tractor-001" readonly></div>
-      <div class="field"><label>Device Token</label><input type="text" value="••••••••••••••••" readonly></div>
-      <div style="display:flex; gap:var(--agp-sp-4); margin-top: var(--agp-sp-3)">
-        <label class="switch"><input type="checkbox" checked><span class="track"></span> Sync VistaX</label>
-        <label class="switch"><input type="checkbox" checked><span class="track"></span> Sync QuantiX</label>
-        <label class="switch"><input type="checkbox" checked><span class="track"></span> Sync SectionX</label>
-      </div>
-      <div style="margin-top: var(--agp-sp-4); display:flex; gap:var(--agp-sp-3)">
-        <button class="btn primary">Guardar</button>
-        <button class="btn">Probar conexión</button>
+    <!-- CONFIG -->
+    <div class="pane" data-pane="config">
+      <div class="card" style="max-width:820px">
+        <div id="orbitxForm"></div>
+        <div style="margin-top: var(--agp-sp-4); display:flex; gap:var(--agp-sp-3); align-items:center">
+          <button class="btn primary" id="btnSave">Guardar</button>
+          <button class="btn" id="btnTest">Probar conexión</button>
+          <span id="formHint" style="color: var(--agp-text-muted); font-size: var(--agp-fs-sm)"></span>
+        </div>
       </div>
     </div>
 
-    <h2>OTA · firmware</h2>
-    <div class="card">
-      <div class="ota-row">
-        <div>
-          <div class="head">QuantiX · Motor 1</div>
-          <div class="uid">QX-A1B2C3D4 · 192.168.5.21</div>
+    <!-- OTA (mock visual, todavía gestionado por el shell WinForms) -->
+    <div class="pane" data-pane="ota">
+      <div class="card">
+        <div class="ota-row">
+          <div>
+            <div class="head">QuantiX node · Motor 1</div>
+            <div class="uid">QX-A1B2C3D4 · 192.168.5.21</div>
+          </div>
+          <div>v1.4.2</div>
+          <div>v1.5.0 ↑</div>
+          <button class="btn compact primary">Actualizar</button>
         </div>
-        <div>v1.4.2</div>
-        <div>v1.5.0 ↑</div>
-        <button class="btn compact primary">Actualizar</button>
+        <div class="ota-row">
+          <div>
+            <div class="head">QuantiX node · Motor 2</div>
+            <div class="uid">QX-E5F6A7B8 · 192.168.5.22</div>
+          </div>
+          <div>v1.5.0</div>
+          <div>—</div>
+          <span class="pill ok"><span class="dot"></span> al día</span>
+        </div>
+        <div class="ota-row">
+          <div>
+            <div class="head">SectionX controller</div>
+            <div class="uid">SX-1F2E3D4C · 192.168.5.30</div>
+          </div>
+          <div>v0.9.1</div>
+          <div>v1.0.0 ↑</div>
+          <div class="progress" style="margin-right:var(--agp-sp-2)"><div style="width:62%"></div></div>
+        </div>
+        <div class="ota-row">
+          <div>
+            <div class="head">VistaX hub</div>
+            <div class="uid">VX-9C8B7A65 · 192.168.5.40</div>
+          </div>
+          <div>v2.1.0</div>
+          <div>v2.2.1 ↑</div>
+          <button class="btn compact primary">Actualizar</button>
+        </div>
       </div>
-      <div class="ota-row">
-        <div>
-          <div class="head">QuantiX · Motor 2</div>
-          <div class="uid">QX-E5F6A7B8 · 192.168.5.22</div>
-        </div>
-        <div>v1.5.0</div>
-        <div>—</div>
-        <span class="pill ok"><span class="dot"></span> al día</span>
-      </div>
-      <div class="ota-row">
-        <div>
-          <div class="head">SectionX</div>
-          <div class="uid">SX-1F2E3D4C · 192.168.5.30</div>
-        </div>
-        <div>v0.9.1</div>
-        <div>v1.0.0 ↑</div>
-        <div class="progress" style="margin-right:var(--agp-sp-2)"><div style="width:62%"></div></div>
-      </div>
-      <div class="ota-row">
-        <div>
-          <div class="head">VistaX · Hub principal</div>
-          <div class="uid">VX-9C8B7A65 · 192.168.5.40</div>
-        </div>
-        <div>v2.1.0</div>
-        <div>v2.2.1 ↑</div>
-        <button class="btn compact primary">Actualizar</button>
+      <p class="subtitle" style="margin-top:var(--agp-sp-3)">La gestión OTA todavía corre desde el shell legacy. Estamos migrando a la API.</p>
+    </div>
+
+    <!-- PRESCRIPCIONES (placeholder) -->
+    <div class="pane" data-pane="presc">
+      <div class="card" style="text-align:center; color:var(--agp-text-muted)">
+        Próximamente — descarga y aplicación de prescripciones GeoJSON desde OrbitX cloud.
       </div>
     </div>
   </main>
+
   <script src="../js/sidebar.js"></script>
+  <script src="../js/orbitx.js"></script>
+  <script>
+    // tabs vanilla
+    (function () {
+      var tabs = document.getElementById('tabs');
+      var panes = document.querySelectorAll('.pane');
+      tabs.addEventListener('click', function (ev) {
+        var t = ev.target.closest('.tab');
+        if (!t) return;
+        tabs.querySelectorAll('.tab').forEach(function (x) { x.classList.toggle('active', x === t); });
+        var key = t.getAttribute('data-pane');
+        panes.forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-pane') === key); });
+      });
+    })();
+  </script>
 </body>
 </html>
