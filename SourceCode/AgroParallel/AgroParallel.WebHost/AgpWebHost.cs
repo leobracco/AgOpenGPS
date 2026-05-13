@@ -25,6 +25,7 @@ namespace AgroParallel.WebHost
         private readonly INodoRegistryService _nodos;
         private readonly IOrbitXConfigService _orbitxCfg;
         private readonly ISectionXConfigService _sectionxCfg;
+        private readonly ICamarasConfigService _camarasCfg;
         private readonly string _wwwroot;
         private readonly int _port;
         private WebServer _server;
@@ -39,6 +40,7 @@ namespace AgroParallel.WebHost
                           INodoRegistryService nodos,
                           IOrbitXConfigService orbitxCfg,
                           ISectionXConfigService sectionxCfg,
+                          ICamarasConfigService camarasCfg,
                           string wwwroot,
                           int port = 5180)
         {
@@ -47,6 +49,7 @@ namespace AgroParallel.WebHost
             _nodos = nodos;             // nullable
             _orbitxCfg = orbitxCfg;     // nullable
             _sectionxCfg = sectionxCfg; // nullable
+            _camarasCfg = camarasCfg;   // nullable
             _wwwroot = wwwroot;
             _port = port;
             Url = "http://127.0.0.1:" + port + "/";
@@ -69,7 +72,8 @@ namespace AgroParallel.WebHost
                     .WithController(() => new NodosController(_nodos))
                     .WithController(() => new QuantiXController(_nodos))
                     .WithController(() => new OrbitXController(_orbitxCfg))
-                    .WithController(() => new SectionXController(_sectionxCfg)));
+                    .WithController(() => new SectionXController(_sectionxCfg))
+                    .WithController(() => new CamarasController(_camarasCfg)));
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
             {

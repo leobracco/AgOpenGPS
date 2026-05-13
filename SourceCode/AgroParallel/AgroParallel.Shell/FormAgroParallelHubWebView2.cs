@@ -59,6 +59,7 @@ namespace AgroParallel.Shell
                     _nodos,
                     new OrbitXConfigService(),
                     new SectionXConfigService(),
+                    new CamarasConfigService(),
                     _wwwroot,
                     _port);
                 _webHost.Start();
