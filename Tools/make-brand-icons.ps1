@@ -444,6 +444,67 @@ function Make-UDP {
     Save-Bitmap $ctx (Join-Path $OutDir "B_UDP.png")
 }
 
+# ============================================================================
+# ICONO Autosteer (94x64) - volante con marcas + flecha de direccion
+# ============================================================================
+function Make-Autosteer {
+    $ctx = New-Bitmap 94 64
+    Draw-RoundedBg $ctx
+    $g = $ctx.G
+
+    # Centro del volante
+    $cx = 30; $cy = 32; $rOut = 22; $rIn = 7
+
+    # Aro exterior (verde marca, grueso)
+    $ringPen = New-Object System.Drawing.Pen $Accent, 3.5
+    $g.DrawEllipse($ringPen, ($cx - $rOut), ($cy - $rOut), ($rOut * 2), ($rOut * 2))
+    $ringPen.Dispose()
+
+    # Aro interior (sombra) para dar profundidad
+    $shadowPen = New-Object System.Drawing.Pen $AccentDim, 1.2
+    $g.DrawEllipse($shadowPen, ($cx - $rOut + 3), ($cy - $rOut + 3), (($rOut - 3) * 2), (($rOut - 3) * 2))
+    $shadowPen.Dispose()
+
+    # Cubo central (relleno blanco)
+    $hubBrush = New-Object System.Drawing.SolidBrush $White
+    $g.FillEllipse($hubBrush, ($cx - $rIn), ($cy - $rIn), ($rIn * 2), ($rIn * 2))
+    $hubBrush.Dispose()
+
+    # 3 rayos del volante (12, 4 y 8 — disposición Y invertida típica de volantes)
+    $spokePen = New-Object System.Drawing.Pen $White, 2.8
+    # Rayo superior (vertical hacia arriba)
+    $g.DrawLine($spokePen, $cx, ($cy - $rIn), $cx, ($cy - $rOut + 1))
+    # Rayo inferior-izquierdo (~225°)
+    $a1 = 225 * [Math]::PI / 180
+    $g.DrawLine($spokePen,
+        ($cx + [Math]::Cos($a1) * $rIn), ($cy + [Math]::Sin($a1) * $rIn),
+        ($cx + [Math]::Cos($a1) * ($rOut - 1)), ($cy + [Math]::Sin($a1) * ($rOut - 1)))
+    # Rayo inferior-derecho (~315°)
+    $a2 = 315 * [Math]::PI / 180
+    $g.DrawLine($spokePen,
+        ($cx + [Math]::Cos($a2) * $rIn), ($cy + [Math]::Sin($a2) * $rIn),
+        ($cx + [Math]::Cos($a2) * ($rOut - 1)), ($cy + [Math]::Sin($a2) * ($rOut - 1)))
+    $spokePen.Dispose()
+
+    # Flecha de "auto-steering" a la derecha del volante
+    $arrowPen = New-Object System.Drawing.Pen $Accent, 2.8
+    $arrowPen.EndCap = [System.Drawing.Drawing2D.LineCap]::ArrowAnchor
+    $g.DrawLine($arrowPen, 60, 32, 84, 32)
+    $arrowPen.Dispose()
+
+    # Texto "AUTO" pequeño debajo de la flecha
+    $f2 = New-Object System.Drawing.Font("Segoe UI", 6, [System.Drawing.FontStyle]::Bold)
+    $sf = New-Object System.Drawing.StringFormat
+    $sf.Alignment = [System.Drawing.StringAlignment]::Center
+    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $r2 = New-Object System.Drawing.RectangleF 56, 42, 32, 14
+    $b2 = New-Object System.Drawing.SolidBrush $Accent
+    $g.DrawString("AUTO", $f2, $b2, $r2, $sf)
+    $b2.Dispose(); $f2.Dispose()
+
+    Save-Bitmap $ctx (Join-Path $OutDir "B_Autosteer.png")
+}
+
 Write-Host "`nGenerando iconos Agro Parallel..." -ForegroundColor Cyan
 Make-AgIO
 Make-IMU
@@ -452,4 +513,5 @@ Make-MQTT
 Make-MQTT-Small
 Make-GPS
 Make-UDP
+Make-Autosteer
 Write-Host "`n[OK] Iconos generados en $OutDir" -ForegroundColor Green

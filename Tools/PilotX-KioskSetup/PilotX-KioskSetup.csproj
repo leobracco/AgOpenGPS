@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>AgroParallel.PilotX.KioskSetup</RootNamespace>
+    <AssemblyName>PilotX-KioskSetup</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>AnyCPU</Platforms>
+    <UseWindowsForms>false</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <AssemblyTitle>PilotX Kiosk Setup</AssemblyTitle>
+    <Company>Agro Parallel</Company>
+    <Product>PilotX</Product>
+    <Description>Configura modo kiosko (AutoLogon + Shell = AOG) para PC tractor</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+</Project>

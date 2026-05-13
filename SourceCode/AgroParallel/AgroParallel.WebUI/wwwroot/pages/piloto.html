@@ -7,74 +7,90 @@
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../layout.css" />
   <style>
-    .pilot-hero {
-      display:grid; grid-template-columns: 1fr 1fr; gap: var(--agp-sp-5);
-    }
-    .pilot-main {
-      background: var(--agp-surface); border-radius: var(--agp-radius-lg);
+    .map-wrap {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 180px);
+      min-height: 480px;
+      background: var(--agp-bg);
+      border-radius: var(--agp-radius-lg);
       border: var(--agp-border-w) solid var(--agp-border);
-      padding: var(--agp-sp-6); text-align:center;
+      overflow: hidden;
     }
-    .pilot-main .big {
-      font-family: var(--agp-font-mono); font-size: 96px; font-weight: var(--agp-fw-bold);
-      color: var(--agp-accent); line-height: 1;
+    #map { width: 100%; height: 100%; display:block; cursor: grab; }
+    #map:active { cursor: grabbing; }
+
+    .hud {
+      position: absolute; top: 12px; left: 12px;
+      display:flex; gap: var(--agp-sp-2); flex-wrap: wrap; align-items:flex-start;
+      pointer-events: none;
     }
-    .pilot-main .label { color: var(--agp-text-muted); text-transform: uppercase; letter-spacing: 1px; font-size: var(--agp-fs-sm); margin-top: var(--agp-sp-3); }
-    .compass {
-      width: 180px; height: 180px; margin: 0 auto;
-      border-radius: 50%; border: 4px solid var(--agp-border);
-      position: relative; background: var(--agp-bg);
+    .hud .chip {
+      background: rgba(255,255,255,0.92);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: 6px 10px;
+      font-size: var(--agp-fs-sm);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      pointer-events: auto;
     }
-    .compass .needle {
-      position: absolute; left: 50%; top: 8px; width: 4px; height: 80px;
-      background: var(--agp-accent); transform-origin: bottom center;
-      transform: translateX(-50%) rotate(15deg);
+    .hud .chip strong { font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold); color: var(--agp-text); }
+    .hud .chip .lbl   { color: var(--agp-text-muted); margin-right: 4px; text-transform: uppercase; font-size: var(--agp-fs-xs); letter-spacing: 0.5px; }
+
+    .map-controls {
+      position: absolute; top: 12px; right: 12px;
+      display:flex; gap: 6px;
     }
-    .compass .n { position: absolute; left: 50%; top: -22px; transform: translateX(-50%); font-weight: var(--agp-fw-bold); }
-    .toggles { display:flex; flex-wrap:wrap; gap: var(--agp-sp-3); }
+    .map-controls button {
+      width: 36px; height: 36px; padding: 0;
+      border-radius: var(--agp-radius-md); border: var(--agp-border-w) solid var(--agp-border);
+      background: rgba(255,255,255,0.92); font-size: 16px; cursor: pointer;
+    }
+    .map-controls button.primary { background: var(--agp-accent); color: white; border-color: var(--agp-accent); }
+
+    .map-footer {
+      position: absolute; left: 12px; bottom: 12px;
+      display:flex; gap: var(--agp-sp-2); pointer-events: none;
+    }
+    .map-footer .chip { pointer-events: auto; }
   </style>
 </head>
 <body>
   <aside class="sidebar" data-active="piloto"></aside>
   <main class="page">
     <div class="page-head">
-      <div><h1>Piloto</h1><div class="subtitle">Autoguiado · seguimiento de línea AB</div></div>
-      <span class="pill ok"><span class="dot"></span> AUTO ON</span>
+      <div><h1>Piloto</h1><div class="subtitle">Mapa en vivo · vehículo y herramienta</div></div>
+      <span class="pill warn" id="mapStatus"><span class="dot"></span> Cargando…</span>
     </div>
 
-    <div class="pilot-hero">
-      <div class="pilot-main">
-        <div class="big">0.8</div>
-        <div class="label">Error lateral · cm</div>
-        <div style="margin-top:var(--agp-sp-5)">
-          <button class="btn primary" style="min-width:200px">⏸  Desactivar Auto</button>
-        </div>
+    <div class="map-wrap">
+      <canvas id="map"></canvas>
+
+      <div class="hud">
+        <div class="chip"><span class="lbl">Vehículo</span><strong id="hudVehicle">—</strong></div>
+        <div class="chip"><span class="lbl">Implemento</span><strong id="hudImpl">—</strong></div>
+        <div class="chip"><span class="lbl">Vel</span><strong id="hudSpeed">0.0</strong> km/h</div>
+        <div class="chip"><span class="lbl">Rumbo</span><strong id="hudHeading">0</strong>°</div>
+        <div class="chip"><span class="lbl">Dosis</span><strong id="hudDose">—</strong></div>
+        <div class="chip"><span class="lbl">Lat,Lon</span><strong id="hudLatLon">—</strong></div>
       </div>
-      <div class="pilot-main">
-        <div class="compass">
-          <div class="n">N</div>
-          <div class="needle"></div>
-        </div>
-        <div class="big" style="font-size:48px; margin-top:var(--agp-sp-4)">87°</div>
-        <div class="label">Rumbo</div>
+
+      <div class="map-controls">
+        <button id="btnFollow" class="primary" title="Seguir tractor">◎</button>
+        <button id="btnZoomIn"  title="Acercar">＋</button>
+        <button id="btnZoomOut" title="Alejar">−</button>
       </div>
     </div>
 
-    <h2>Asistencias</h2>
-    <div class="toggles">
+    <h2 style="margin-top: var(--agp-sp-5)">Asistencias</h2>
+    <div class="toggles" style="display:flex; flex-wrap:wrap; gap: var(--agp-sp-3)">
       <label class="switch"><input type="checkbox" checked><span class="track"></span> Auto-secciones</label>
       <label class="switch"><input type="checkbox" checked><span class="track"></span> Tasa variable</label>
       <label class="switch"><input type="checkbox"><span class="track"></span> Recordatorio fin línea</label>
       <label class="switch"><input type="checkbox" checked><span class="track"></span> Cámaras visibles</label>
     </div>
-
-    <h2>Trabajo en curso</h2>
-    <div class="grid">
-      <div class="card"><h3>Hectáreas</h3><div class="metric">12.4<span class="unit">ha</span></div><div class="row"><span>De 32.0 totales</span><strong style="color:var(--agp-text)">38%</strong></div></div>
-      <div class="card"><h3>Pasada</h3><div class="metric">7<span class="unit">de 18</span></div><div class="row"><span>Línea AB · Norte</span><span class="pill ok"><span class="dot"></span> centrada</span></div></div>
-      <div class="card"><h3>Solapamiento</h3><div class="metric" style="font-size:var(--agp-fs-2xl)">2.1<span class="unit">%</span></div><div class="row"><span>Dentro del óptimo</span><span class="pill ok"><span class="dot"></span> OK</span></div></div>
-    </div>
   </main>
   <script src="../js/sidebar.js"></script>
+  <script src="../js/piloto.js"></script>
 </body>
 </html>
