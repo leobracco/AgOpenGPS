@@ -9,8 +9,11 @@
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
     .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); flex-wrap:wrap; }
-    .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); }
+    .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); user-select:none; }
     .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+
     .sensors { display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--agp-sp-3); }
     .sensor {
       background: var(--agp-surface); border-radius: var(--agp-radius-md);
@@ -19,75 +22,197 @@
     }
     .sensor .id { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); text-transform: uppercase; letter-spacing: 1px; }
     .sensor .pps { font-family: var(--agp-font-mono); font-size: 28px; font-weight: var(--agp-fw-bold); color: var(--agp-accent); }
-    .sensor.alert .pps { color: var(--agp-state-bad); }
-    .sensor.warn  .pps { color: var(--agp-state-warn); }
+    .sensor.bad .pps { color: var(--agp-state-bad); }
+    .sensor.warn .pps { color: var(--agp-state-warn); }
+    .sensor.no-data .pps { color: var(--agp-text-muted); }
     .sensor .row2 { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+
+    .form-grid { display:grid; grid-template-columns: 220px 1fr; gap: var(--agp-sp-3) var(--agp-sp-4); align-items:center; max-width: 720px; }
+    .form-grid label { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+    .form-grid input[type=text], .form-grid input[type=number], .form-grid input[type=password], .form-grid select {
+      width: 100%; padding: var(--agp-sp-2) var(--agp-sp-3);
+      background: var(--agp-surface); color: var(--agp-text);
+      border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      font-size: var(--agp-fs-sm);
+    }
+
+    table.editor { width:100%; border-collapse: collapse; font-size: var(--agp-fs-sm); }
+    table.editor th, table.editor td { padding: var(--agp-sp-2) var(--agp-sp-2); border-bottom: 1px solid var(--agp-border); text-align:left; }
+    table.editor th { color: var(--agp-text-muted); font-weight: var(--agp-fw-medium); font-size: var(--agp-fs-xs); text-transform: uppercase; letter-spacing: 0.5px; }
+    table.editor input[type=text], table.editor input[type=number] {
+      width: 100%; box-sizing: border-box;
+      padding: 4px 6px; background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      font-size: var(--agp-fs-xs);
+    }
+    table.editor .colnum { width: 80px; }
+    table.editor .colsm { width: 100px; }
+    table.editor .actions { width: 40px; text-align:center; }
+    .row-add { margin-top: var(--agp-sp-3); }
+    table.editor .btn.small { min-height: 28px; min-width: 28px; padding: 0 8px; font-size: var(--agp-fs-xs); }
+
+    .nodos-list { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--agp-sp-3); }
+    .nodo-card { background: var(--agp-surface); border:var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-md); padding: var(--agp-sp-3); }
+    .nodo-card .uid { font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold); }
+    .nodo-card .last { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+
+    .btn-row { display:flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-4); }
+    .empty-hint { color: var(--agp-text-muted); font-style: italic; padding: var(--agp-sp-4) 0; }
   </style>
 </head>
 <body>
   <aside class="sidebar" data-active="vistax"></aside>
   <main class="page">
     <div class="page-head">
-      <div><h1>VistaX</h1><div class="subtitle">Monitoreo de siembra · 24 sensores</div></div>
-      <div style="display:flex; gap:var(--agp-sp-2)">
-        <span class="pill ok"><span class="dot"></span> 22 OK</span>
-        <span class="pill warn"><span class="dot"></span> 1 marginal</span>
-        <span class="pill bad"><span class="dot"></span> 1 sin señal</span>
+      <div>
+        <h1>VistaX</h1>
+        <div class="subtitle" id="vxSubtitle">Monitoreo de siembra</div>
       </div>
+      <div style="display:flex; gap:var(--agp-sp-2)" id="vxBadges"></div>
     </div>
 
     <div class="tabs">
-      <div class="tab active">Sensores</div>
-      <div class="tab">Nodos</div>
-      <div class="tab">Trenes</div>
-      <div class="tab">Perfiles</div>
-      <div class="tab">Mapeo</div>
-      <div class="tab">Sonidos</div>
-      <div class="tab">Prueba</div>
-      <div class="tab">Simulador</div>
-      <div class="tab">Config</div>
+      <div class="tab active" data-tab="monitor">Monitor</div>
+      <div class="tab" data-tab="implemento">Implemento</div>
+      <div class="tab" data-tab="nodos">Nodos</div>
+      <div class="tab" data-tab="config">Config</div>
     </div>
 
-    <h2 style="margin-top:0">Tren 1 — frontal</h2>
-    <div class="sensors">
-      <div class="sensor"><div class="id">S01</div><div class="pps">14.2</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S02</div><div class="pps">13.8</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S03</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S04</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor warn"><div class="id">S05</div><div class="pps">11.2</div><div class="row2">marginal</div></div>
-      <div class="sensor"><div class="id">S06</div><div class="pps">14.3</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S07</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S08</div><div class="pps">13.9</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S09</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S10</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S11</div><div class="pps">14.2</div><div class="row2">sem/s</div></div>
-      <div class="sensor alert"><div class="id">S12</div><div class="pps">0.0</div><div class="row2">sin señal</div></div>
-    </div>
+    <!-- ============ MONITOR ============ -->
+    <section id="paneMonitor" class="tab-pane active">
+      <div id="vxTrenes"></div>
 
-    <h2>Tren 2 — trasero</h2>
-    <div class="sensors">
-      <div class="sensor"><div class="id">S13</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S14</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S15</div><div class="pps">13.9</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S16</div><div class="pps">14.2</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S17</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S18</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S19</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S20</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S21</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S22</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S23</div><div class="pps">14.0</div><div class="row2">sem/s</div></div>
-      <div class="sensor"><div class="id">S24</div><div class="pps">14.1</div><div class="row2">sem/s</div></div>
-    </div>
+      <h2>Resumen</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>SPM promedio</h3>
+          <div class="metric"><span id="vxSpm">–</span><span class="unit">sem/min</span></div>
+          <div class="row"><span>Objetivo</span><strong id="vxObj">–</strong></div>
+        </div>
+        <div class="card">
+          <h3>Surcos activos</h3>
+          <div class="metric"><span id="vxActivos">0</span></div>
+          <div class="row"><span>Implemento</span><strong id="vxImp">–</strong></div>
+        </div>
+        <div class="card">
+          <h3>Fallas</h3>
+          <div class="metric"><span id="vxFallas">0</span></div>
+          <div class="row"><span id="vxAlarm" class="pill ok"><span class="dot"></span> sin alarma</span></div>
+        </div>
+      </div>
+    </section>
 
-    <h2>Resumen</h2>
-    <div class="grid">
-      <div class="card"><h3>Densidad media</h3><div class="metric">13.8<span class="unit">sem/s</span></div><div class="row"><span>Variación entre líneas</span><strong style="color:var(--agp-text)">±0.4</strong></div></div>
-      <div class="card"><h3>Velocidad</h3><div class="metric">12.4<span class="unit">km/h</span></div><div class="row"><span>Recomendado: < 14</span><span class="pill ok"><span class="dot"></span> OK</span></div></div>
-      <div class="card"><h3>Población actual</h3><div class="metric" style="font-size:var(--agp-fs-2xl)">68.500<span class="unit">/ha</span></div><div class="row"><span>Setpoint 70.000</span><span class="pill warn"><span class="dot"></span> -2%</span></div></div>
-    </div>
+    <!-- ============ IMPLEMENTO ============ -->
+    <section id="paneImplemento" class="tab-pane">
+      <h2 style="margin-top:0">Setup general</h2>
+      <div class="form-grid">
+        <label>Nombre</label><input id="impNombre" type="text" />
+        <label>Id</label><input id="impId" type="text" />
+        <label>Densidad objetivo (sem/min)</label><input id="impDensidad" type="number" step="0.1" />
+        <label>Tolerancia desvío (%)</label><input id="impTol" type="number" step="1" />
+        <label>Distancia entre surcos (m)</label><input id="impDistSurcos" type="number" step="0.01" />
+        <label>Factor K (default)</label><input id="impFactorK" type="number" step="0.01" />
+        <label>Total surcos</label><input id="impTotalSurcos" type="number" />
+        <label>Secciones AOG</label><input id="impSeccAOG" type="number" />
+        <label>Ancho implemento (m)</label><input id="impAncho" type="number" step="0.01" />
+      </div>
+
+      <h2>Trenes</h2>
+      <table class="editor" id="tblTrenes">
+        <thead>
+          <tr>
+            <th class="colsm">Id</th>
+            <th>Nombre</th>
+            <th class="colsm">Surcos</th>
+            <th>Objetivo</th>
+            <th class="actions"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="row-add"><button class="btn" id="btnAddTren">+ Agregar tren</button></div>
+
+      <h2>Mapeo de sensores</h2>
+      <table class="editor" id="tblSensores">
+        <thead>
+          <tr>
+            <th>UID</th>
+            <th class="colsm">Cable</th>
+            <th class="colsm">Pin</th>
+            <th class="colsm">Bajada</th>
+            <th class="colsm">Tren</th>
+            <th>Tipo</th>
+            <th>Nombre</th>
+            <th class="colsm">Activo</th>
+            <th class="actions"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="row-add"><button class="btn" id="btnAddSensor">+ Agregar sensor</button></div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="btnSaveImplemento">Guardar implemento</button>
+        <button class="btn" id="btnReloadImplemento">Recargar</button>
+        <span id="impStatus" class="subtitle"></span>
+      </div>
+    </section>
+
+    <!-- ============ NODOS ============ -->
+    <section id="paneNodos" class="tab-pane">
+      <p class="subtitle">Nodos VistaX vistos en el tópico MQTT de telemetría.</p>
+      <div class="nodos-list" id="vxNodos"></div>
+    </section>
+
+    <!-- ============ CONFIG ============ -->
+    <section id="paneConfig" class="tab-pane">
+      <h2 style="margin-top:0">Conexión MQTT</h2>
+      <div class="form-grid">
+        <label>Enabled</label><input id="cfgEnabled" type="checkbox" />
+        <label>Broker</label><input id="cfgBroker" type="text" />
+        <label>Puerto</label><input id="cfgPort" type="number" />
+        <label>Client ID</label><input id="cfgClient" type="text" />
+        <label>Usuario</label><input id="cfgUser" type="text" />
+        <label>Password</label><input id="cfgPass" type="password" />
+        <label>TLS</label><input id="cfgTls" type="checkbox" />
+      </div>
+
+      <h2>Topics</h2>
+      <div class="form-grid">
+        <label>Telemetría</label><input id="cfgTopicTel" type="text" />
+        <label>Velocidad</label><input id="cfgTopicSpeed" type="text" />
+        <label>Secciones</label><input id="cfgTopicSec" type="text" />
+        <label>Implemento JSON</label><input id="cfgImpPath" type="text" />
+      </div>
+
+      <h2>Comportamiento</h2>
+      <div class="form-grid">
+        <label>UI update (ms)</label><input id="cfgUiMs" type="number" />
+        <label>Timeout sensor (ms)</label><input id="cfgTimeoutMs" type="number" />
+        <label>Log a Field Record</label><input id="cfgLogField" type="checkbox" />
+        <label>Método inicio</label>
+        <select id="cfgMetodo">
+          <option value="sensores">sensores</option>
+          <option value="manual">manual</option>
+          <option value="velocidad">velocidad</option>
+        </select>
+        <label>Umbral sensores activos</label><input id="cfgUmbral" type="number" />
+        <label>Tiempo confirmación (ms)</label><input id="cfgTConf" type="number" />
+        <label>Alarmas silenciadas</label><input id="cfgMuted" type="checkbox" />
+        <label>Drive de logs</label><input id="cfgLogDrive" type="text" />
+      </div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="btnSaveConfig">Guardar config</button>
+        <button class="btn" id="btnReloadConfig">Recargar</button>
+        <span id="cfgStatus" class="subtitle"></span>
+      </div>
+    </section>
   </main>
+
+  <script src="../js/api.js"></script>
   <script src="../js/keyboard.js"></script>
   <script src="../js/sidebar.js"></script>
+  <script src="../js/vistax.js"></script>
 </body>
 </html>
