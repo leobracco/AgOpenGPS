@@ -51,7 +51,30 @@ Hecho de forma confiable en este commit:
   en KiCad. Editar netlist/ruteo a mano corrompería la placa.
 - El esquemático **no** fue re-cableado: se entrega el diseño y los pasos,
   no la modificación de netlist aplicada.
-- Los gerbers/CPL de la RC15 **no** se incluyen: deben regenerarse desde el
-  PCB ya modificado (los originales serían incorrectos para VistaX).
+- Los gerbers/CPL **de VistaX** deben regenerarse desde el PCB ya
+  modificado. En `reference/` se incluyen los gerbers **base de la RC15**
+  (`GERBER-RC15-base.zip`) y renders, sólo como punto de partida/referencia.
 
 Ver `DESIGN.md` para el diseño completo y la guía paso a paso.
+
+## Importar en EasyEDA (leer si da error de formato)
+
+El importador KiCad de **EasyEDA Pro** sólo acepta proyectos **KiCad ~5.x
+(zipeados)**. Estos archivos son **KiCad 7** (`.kicad_sch` v20230121,
+`.kicad_pcb` v20221018) → la importación directa falla con *"The imported
+file format incorrect or doesn't match current type"*. Cambiar el número de
+versión a mano **no** convierte la estructura (no funciona).
+
+Caminos válidos:
+
+1. **PCB en EasyEDA por Gerber** (sin KiCad): EasyEDA Pro →
+   `Importar → Gerber` → `reference/GERBER-RC15-base.zip`. Da la placa base
+   como lienzo/referencia (geometría de cobre/serigrafía, sin netlist).
+2. **Rehacer el rediseño nativo en EasyEDA Pro** (lo más fiable): el
+   circuito nuevo es chico (PC817 ×N + 2 expansores + eFuse/PTC + conexiones
+   ESP32). EasyEDA Pro tiene integración LCSC/JLCPCB y `BOM-VistaX.md` ya
+   trae los códigos LCSC. Usar `reference/RC15-Schematic.pdf` y los renders
+   para los bloques que se conservan, y `DESIGN.md` para el front-end nuevo.
+3. **Quedarse en KiCad**: `VistaX.kicad_pro` abre en KiCad 7+ y la guía
+   (`DESIGN.md`) está escrita para KiCad. KiCad no exporta a 5.x, así que
+   no hay puente directo a EasyEDA para el esquemático.
