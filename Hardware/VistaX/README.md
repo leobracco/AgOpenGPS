@@ -27,6 +27,7 @@ sensor por **optoacoplador PC817** que ya trae para Flow1/Flow2) pero
 | `kicad/VistaX.kicad_pcb` | PCB de la RC15 **renombrada** (ruteo intacto, ver límites) |
 | `reference/` | PDFs de pinout/instalación/esquemático, foto y BOM **originales de la RC15** (sólo consulta) |
 | `DESIGN.md` | Diseño del front-end de entradas por optoacoplador + guía de implementación en KiCad |
+| `BOM-VistaX.md` | Listado de componentes consolidado (conservar / quitar / agregar) |
 
 ## Estado / alcance (importante, leer)
 
