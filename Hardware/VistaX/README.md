@@ -37,6 +37,9 @@ Hecho de forma confiable en este commit:
   del esquemático y del PCB, y serigrafía de la placa (`VistaX`).
 - Documentación de ingeniería del rediseño (`DESIGN.md`): topología por
   canal, BOM delta, mapeo de conector y pines, y pasos en KiCad.
+- Capa de protección/diagnóstico (`DESIGN.md` §6): fusible reseteable
+  (eFuse con flag + PTC de respaldo, por grupo) y detección de
+  abierto/corto por canal (bias + clasificación en firmware).
 - PDFs/BOM originales de la RC15 conservados como referencia.
 
 **NO** hecho (requiere KiCad y una persona — ver `DESIGN.md`):

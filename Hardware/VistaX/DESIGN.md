@@ -147,7 +147,81 @@ Mantener la asignación de bits documentada para el firmware propio.
 8. Regenerar **gerbers/CPL/BOM** para VistaX (no reutilizar los de la RC15).
 9. Actualizar serigrafía de revisión y exportar el nuevo pinout PDF.
 
-## 6. Límites (honestidad de ingeniería)
+## 6. Protección y diagnóstico (fusible reseteable + detección de corto)
+
+Esquema elegido: **dos capas complementarias**. La capa de grupo (eFuse +
+PTC) protege el hardware y detecta el corto "duro" de alimentación; la capa
+por canal (bias + firmware) dice **qué fila** está abierta o en corto. Son
+complementarias por una restricción física: el Ampseal tiene un único pin
+12 V / 5 V / GND → la protección de potencia es **por grupo**, no por fila.
+
+### 6.1 Capa de grupo — eFuse con flag (primario) + PTC (respaldo)
+
+- **eFuse / smart high-side switch** en la salida de 12 V hacia los sensores:
+  límite de corriente ajustable + salida de diagnóstico (FAULT/SENSE) +
+  autorrecuperable. Requisitos: `V_op ≥ 16 V` (12 V + margen), límite
+  ajustable, flag digital. Candidatos: TI `TPS2H160-Q1` / `TPS1HB08-Q1`
+  (4–40 V, current-limit + diagnóstico) o Infineon Profet `BTS500x/BTS3xxx`.
+  Para la rama de 5 V (si hay sensores de 5 V): `TPS2553` / `TPS25200`.
+- **PTC polyfuse de respaldo** en el mismo riel (defensa en profundidad,
+  por si el eFuse falla): serie 1812, `V_max ≥ 30 V`, `I_hold ≥ Σ` corriente
+  de régimen de los sensores, `I_trip` por debajo del límite del eFuse y del
+  fusible de entrada `F1` existente.
+- **FAULT** (open-drain, activo-bajo) → pull-up a `+3V3` → a un **bit libre
+  del expansor I2C** (o GPIO de reserva del ESP32). 1 bit por grupo de
+  alimentación (~2 bits: rama 12 V y rama 5 V). Latcheado/auto-retry según
+  el componente; el firmware lo expone en la UI.
+
+### 6.2 Capa por canal — bias + clasificación en firmware
+
+Una resistencia de bias por canal (10 k–22 k) referida a la `V+` de sensor
+(post-eFuse) fija el estado de reposo, de modo que abierto y corto den
+firmas distintas y el firmware clasifique cada fila:
+
+| Estado de la línea | ¿Pulsos? | FAULT eFuse | Interpretación |
+|---|---|---|---|
+| Conmuta alto↔bajo | sí | no | Sensor **OK** |
+| Fijo en `V+` | no | no | **Abierto**: cable cortado / sensor desconectado |
+| Fijo en `0 V` | no | no | **Corto a GND** (lado señal) o sensor saturado |
+| Cualquiera | — | **sí** | **Corto/sobrecorriente** en la alimentación del grupo |
+
+Ambigüedad residual (honesto): "fijo en bajo sin FAULT" no separa de forma
+100 % fiable un corto de señal de un sensor pegado en conducción; mitigar
+evaluando sólo durante siembra activa y apoyándose en el FAULT del eFuse
+para el corto de alimentación. La polaridad de la tabla depende del tipo de
+sensor (NPN/PNP) y debe coincidir con la celda PC817; se ajusta en firmware.
+
+### 6.3 Impacto en el presupuesto de bits del expansor
+
+20 canales (S1..S14 + M1/M2 + Flow1/2) + ~2 bits de FAULT → un solo
+`PCF8575` (16 bits) **no alcanza**. Opciones: **2× PCF8575** (32 bits, deja
+reserva), o `PCF8575` + `MCP23017`, o llevar los canales de alta tasa a
+GPIO nativos del ESP32 con **PCNT** y dejar el resto + FAULT en el expansor.
+
+### 6.4 BOM delta adicional (sobre la sección 3)
+
+| Componente | Cant. | Nota |
+|---|---|---|
+| eFuse/smart high-side (12 V, c/ FAULT) | 1 (rama 12 V) | + 1 para rama 5 V si aplica |
+| PTC polyfuse 1812, Vmax ≥ 30 V | 1–2 | respaldo por riel |
+| R bias 10 k–22 k | 1 por canal | clasificación abierto/corto |
+| R pull-up FAULT 10 k a +3V3 | 1 por flag | a bit de expansor |
+| 2.º expansor I2C (o MCP23017) | 1 | por presupuesto de bits (6.3) |
+
+### 6.5 Pasos KiCad adicionales
+
+1. En la hoja de potencia/entrada: insertar el eFuse entre la `V+` de
+   sensor del conector y la distribución a los PC817; ajustar `R_ILIM`
+   según corriente total; añadir el PTC en serie como respaldo.
+2. Llevar `FAULT` (con pull-up a `+3V3`) a un bit libre del 2.º expansor.
+3. En `Inputs.kicad_sch`: agregar la R de bias por canal a `V+` post-eFuse.
+4. Instanciar el 2.º expansor I2C en `SDA`/`SCL` (vía `PCA9306`); decoupling
+   0.1 µF; dirección I2C distinta del primero.
+5. Revisar caída de tensión total (eFuse R_on + PTC) sobre la `V+` de
+   sensor, sobre todo para sensores de 5 V.
+6. ERC/DRC y regenerar producción (igual que sección 5, pasos 6–9).
+
+## 7. Límites (honestidad de ingeniería)
 
 - El `.kicad_pcb` entregado es la RC15 **renombrada**, ruteo intacto: no se
   modificó eléctricamente. El cambio de netlist y el re-ruteo deben hacerse
@@ -157,3 +231,7 @@ Mantener la asignación de bits documentada para el firmware propio.
   recalcular `R_LED`/protección antes de fabricar.
 - Validar carga del bus I2C y velocidad máxima de pulso vs. método de
   lectura (expansor por interrupción vs. PCNT nativo).
+- La detección de corto por canal (6.2) es **inferencia por firmware** con
+  ambigüedad residual; sólo el FAULT del eFuse (6.1) detecta el corto de
+  alimentación de forma inequívoca, y a nivel de **grupo**, no de fila
+  (limitación del conector Ampseal de pin de potencia compartido).
