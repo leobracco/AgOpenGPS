@@ -71,8 +71,8 @@ Write-Host "ISCC: $iscc" -ForegroundColor DarkGray
 
 # 2) Compilar binarios (a menos que se pida saltearlos)
 if (-not $SkipBuild) {
-    Write-Host "`n=== Compilando AOG + AgIO ===" -ForegroundColor Cyan
-    & (Join-Path $root "build.ps1")
+    Write-Host "`n=== Compilando AOG + AgIO (v$Version) ===" -ForegroundColor Cyan
+    & (Join-Path $root "build.ps1") -Version $Version
     if ($LASTEXITCODE -ne 0) {
         Write-Host "build.ps1 fallo" -ForegroundColor Red
         exit 1
