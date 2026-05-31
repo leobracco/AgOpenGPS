@@ -486,3 +486,9 @@ $RECYCLE.BIN/
 
 .claude/settings.local.json
 Build/
+
+# Artefactos de release PilotX (los empaqueta build.ps1 en root).
+# Nunca van al repo: se suben al panel OrbitX /firmwares o se copian a USB.
+PilotX-*.zip
+PilotX-*.zip.sha256
+
