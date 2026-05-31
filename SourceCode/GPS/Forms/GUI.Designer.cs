@@ -13,6 +13,7 @@ using System.IO;
 using System.Windows.Forms;
 using AgOpenGPS.Core.Models;
 using AgOpenGPS.Core.Drawing;
+using AgroParallel.Common;
 
 namespace AgOpenGPS
 {
@@ -517,6 +518,17 @@ namespace AgOpenGPS
             //load up colors
             textColorDay = Settings.Default.setDisplay_colorTextDay.CheckColorFor255();
             textColorNight = Settings.Default.setDisplay_colorTextNight.CheckColorFor255();
+
+            // PilotX UI: cabina clara, técnica y legible. El verde queda como
+            // señal operativa; el marco no debe volverse un bloque negro.
+            Theme.Current = Theme.Mode.Day;
+            frameDayColor = Theme.BgBlack;
+            frameNightColor = Color.FromArgb(0x16, 0x1D, 0x18);
+            textColorDay = Theme.TextPrimary;
+            textColorNight = Color.FromArgb(0xEA, 0xF2, 0xE8);
+            sectionColorDay = Theme.Accent;
+            fieldColorDay = Color.FromArgb(0xD8, 0xDE, 0xD6);
+            fieldColorNight = Color.FromArgb(0x21, 0x2A, 0x24);
 
             //load the string of custom colors
             string[] words = Properties.Settings.Default.setDisplay_customColors.Split(',');

@@ -426,6 +426,13 @@ namespace AgOpenGPS
                             pivotAxlePos.easting, pivotAxlePos.northing);
                         UpdateShapefileCurrentDose();
                     }
+                    else if (quantiXBridge != null && quantiXBridge.IsRunning)
+                    {
+                        // Sin mapa pero con QuantiX activo: actualizar el
+                        // legend para que muestre los vúmetros y permita
+                        // dosis manual.
+                        UpdateShapefileCurrentDose();
+                    }
                     // SHAPEFILE_MOD_END
 
                     #region Guidance Lines

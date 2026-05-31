@@ -151,20 +151,22 @@ namespace AgOpenGPS
 
         private void SetColors(Button button, btnStates state)
         {
+            // Dark cockpit palette — funcional, no retinable. Matchea theme.css:
+            //   bad #E08A8A, ok #5BC94F, warn #E6C771.
             switch (state)
             {
                 case btnStates.Off:
-                    button.BackColor = isDay ? Color.Red : Color.Crimson;
+                    button.BackColor = isDay ? Color.FromArgb(178, 62, 62) : Color.FromArgb(224, 138, 138);
                     break;
                 case btnStates.Auto:
-                    button.BackColor = isDay ? Color.Lime : Color.ForestGreen;
+                    button.BackColor = isDay ? Color.FromArgb(74, 186, 62) : Color.FromArgb(91, 201, 79);
                     break;
 
                 case btnStates.On:
-                    button.BackColor = isDay ? Color.Yellow : Color.DarkGoldenrod;
+                    button.BackColor = isDay ? Color.FromArgb(196, 154, 46) : Color.FromArgb(230, 199, 113);
                     break;
             }
-            button.ForeColor = isDay ? Color.Black : Color.White;
+            button.ForeColor = Color.FromArgb(20, 24, 27); // dark text para legibilidad sobre fondos claros
         }
 
         private void IndividualSectionAndButonToState(btnStates state, int sectNumber, Button btn)
@@ -884,6 +886,52 @@ namespace AgOpenGPS
         private void PerformSectionClick(int Btn)
         {
             (this.Controls.Find("btnSection" + (Btn + 1).ToString() + "Man", true).First() as Button).PerformClick();
+        }
+
+        // =====================================================================
+        // QuantiX calibration helpers
+        // Usados por FormQuantiXCalibrar: durante la calibración el motor solo
+        // dosifica si las secciones AOG están abiertas (SectionXBridge propaga
+        // el estado al PCA9685/embrague). Forzamos manual=ON mientras dura la
+        // ventana de calibración y restauramos el estado previo al cerrar.
+        // =====================================================================
+        private btnStates _calSavedManualState;
+        private btnStates _calSavedAutoState;
+        private bool _calSectionsForced;
+
+        public void ForceAllSectionsOnForCalibration()
+        {
+            if (_calSectionsForced) return;
+            _calSavedManualState = manualBtnState;
+            _calSavedAutoState = autoBtnState;
+            _calSectionsForced = true;
+
+            // Apagar auto primero si está prendido (un click lo apaga).
+            if (autoBtnState != btnStates.Off)
+                btnSectionMasterAuto.PerformClick();
+
+            // Encender manual si todavía no lo está.
+            if (manualBtnState != btnStates.On)
+                btnSectionMasterManual.PerformClick();
+        }
+
+        public void RestoreSectionStateAfterCalibration()
+        {
+            if (!_calSectionsForced) return;
+            _calSectionsForced = false;
+
+            // Estado actual: manual=On, auto=Off (lo dejamos así arriba).
+            // Llevar todo a Off para arrancar limpio.
+            if (manualBtnState == btnStates.On)
+                btnSectionMasterManual.PerformClick(); // On -> Off
+            if (autoBtnState != btnStates.Off)
+                btnSectionMasterAuto.PerformClick();   // Auto -> Off
+
+            // Re-aplicar el estado guardado.
+            if (_calSavedAutoState == btnStates.Auto)
+                btnSectionMasterAuto.PerformClick();
+            else if (_calSavedManualState == btnStates.On)
+                btnSectionMasterManual.PerformClick();
         }
     }
 }

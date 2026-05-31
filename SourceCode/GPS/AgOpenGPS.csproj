@@ -46,12 +46,37 @@
     <Content Include="Branding\logo-fondo-blanco.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Iconos del menú superior cargados en runtime por FormGPS.Load:
+         (a) "HUB" para toolStripAgroParallel, (b) cámara para toolStripCamaras.
+         Se leen como archivo desde Application.StartupPath\btnImages\ para
+         que el rebrand del Hub no requiera regenerar Resources.resx. -->
+    <Content Include="btnImages\AgroParallelHub.png">
+      <Link>btnImages\AgroParallelHub.png</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="btnImages\Camera2D64.png">
+      <Link>btnImages\Camera2D64.png</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
     <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
     <ProjectReference Include="..\Keypad\Keypad.csproj" />
+    <!-- AgroParallel Core (Fase A: extracción de POCOs y servicios) -->
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Models\AgroParallel.Models.csproj" />
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+    <!-- AgroParallel Fase B: Hub HTML detrás del flag UseWebUI -->
+    <ProjectReference Include="..\AgroParallel\Web\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
+    <ProjectReference Include="..\AgroParallel\Web\AgroParallel.Shell\AgroParallel.Shell.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AgroParallel Fase B: copiar wwwroot al output como AgroParallel\wwwroot\ -->
+    <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\**\*.*" LinkBase="AgroParallel\wwwroot">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

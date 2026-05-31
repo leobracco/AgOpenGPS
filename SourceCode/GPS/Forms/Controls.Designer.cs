@@ -27,6 +27,14 @@ namespace AgOpenGPS
         public bool isABCyled = false;
         private void btnContour_Click(object sender, EventArgs e)
         {
+            // Cherry-pick upstream 08bf5665 (6.8.3): si había un track activo,
+            // resetearlo antes de tocar contour evita el crash al volver de
+            // Contour a Tracks con un trk.idx que ya no es válido.
+            if (trk.idx != -1)
+            {
+                trk.idx = -1;
+            }
+
             trk.isAutoTrack = false;
             btnAutoTrack.Image = Resources.AutoTrackOff;
 
@@ -39,6 +47,11 @@ namespace AgOpenGPS
                 guidanceLookAheadTime = 0.5;
                 btnContourLock.Image = Resources.ColorUnlocked;
                 ct.isLocked = false;
+
+                // Ocultar btnTrack mientras Contour está activo — si lo dejamos
+                // visible el operario puede tocarlo y entra en estado inválido.
+                btnTrack.Enabled = false;
+                btnTrack.Visible = false;
             }
 
             else
@@ -55,6 +68,8 @@ namespace AgOpenGPS
                     TimedMessageBox(2000, gStr.gsGuidanceStopped, gStr.gsContourOn);
                 }
 
+                btnTrack.Enabled = true;
+                btnTrack.Visible = true;
             }
 
             PanelUpdateRightAndBottom();
@@ -237,6 +252,10 @@ namespace AgOpenGPS
                 //yt.Set_Alternate_skips();
 
                 btnAutoYouTurn.Image = Properties.Resources.YouTurnNo;
+
+                // If a turn was already triggered, restore the original path before resetting
+                yt.RestorePreTriggerState();
+
                 yt.ResetYouTurn();
 
                 //new direction so reset where to put turn diagnostic
@@ -651,7 +670,7 @@ namespace AgOpenGPS
                 panelRight.Enabled = false;
                 FieldMenuButtonEnableDisable(false);
                 JobClose();
-                Text = "AgOpenGPS";
+                Text = "PilotX · Agro Parallel";
             }));
         }
 
@@ -1163,73 +1182,30 @@ namespace AgOpenGPS
         #region Top Panel
         private void btnFieldStats_Click(object sender, EventArgs e)
         {
-            Form f = Application.OpenForms["FormGPSData"];
-
-            if (f != null)
-            {
-                f.Focus();
-                f.Close();
-            }
-
-            f = null;
-            f = Application.OpenForms["FormFieldData"];
-
-            if (f != null)
-            {
-                f.Focus();
-                f.Close();
-                return;
-            }
-
+            // AgroParallel: el popup táctil reemplaza a FormFieldData. Se abre
+            // como WIDGET Avalonia (ventana chica draggable encima de AOG, X
+            // nativa, estilo FlowX), no como página dentro del Hub. Así el
+            // operario sigue viendo el mapa y el widget queda flotando al lado.
+            // Si el exe Avalonia no está presente, fallback al Hub WebView2.
             if (!isJobStarted) return;
 
-            Form form = new FormFieldData(this);
-            form.Show(this);
-
-            form.Top = this.Top + this.Height / 2 - GPSDataWindowTopOffset;
-            if (isPanelBottomHidden)
-                form.Left = this.Left + 5;
-            else
-                form.Left = this.Left + GPSDataWindowLeft + 5;
-
-
-            Form ff = Application.OpenForms["FormGPS"];
-            ff.Focus();
-
-            btnAutoSteerConfig.Focus();
+            if (!LaunchAvaloniaWidget("pages/datos-lote.html", "float",
+                                      "Datos del lote", 720, 760))
+            {
+                OpenAgroParallelHub("pages/datos-lote.html");
+            }
         }
 
         private void btnGPSData_Click(object sender, EventArgs e)
         {
-            Form f = Application.OpenForms["FormGPSData"];
-
-            if (f != null)
+            // AgroParallel: el popup táctil reemplaza a FormGPSData. Idem
+            // btnFieldStats: widget Avalonia draggable. Si no hay exe Avalonia,
+            // fallback al Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/datos-gps.html", "float",
+                                      "Antena GPS", 680, 720))
             {
-                f.Focus();
-                f.Close();
-                return;
+                OpenAgroParallelHub("pages/datos-gps.html");
             }
-
-            f = null;
-            f = Application.OpenForms["FormFieldData"];
-
-            if (f != null)
-            {
-                f.Focus();
-                f.Close();
-            }
-
-            Form form = new FormGPSData(this);
-            form.Show(this);
-
-            form.Top = this.Top + this.Height / 2 - GPSDataWindowTopOffset;
-            if (isPanelBottomHidden)
-                form.Left = this.Left + 5;
-            else
-                form.Left = this.Left + GPSDataWindowLeft + 5;
-
-            Form ff = Application.OpenForms["FormGPS"];
-            ff.Focus();
         }
         private void btnShutdown_Click(object sender, EventArgs e)
         {

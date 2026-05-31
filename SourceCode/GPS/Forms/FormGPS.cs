@@ -39,6 +39,9 @@ using AgroParallel.QuantiX;
 // CAMARAS_MOD_START
 using AgroParallel.Camaras;
 // CAMARAS_MOD_END
+// FLOWX_MOD_START
+using AgroParallel.FlowX;
+// FLOWX_MOD_END
 namespace AgOpenGPS
 {
     //the main form object
@@ -101,7 +104,21 @@ namespace AgOpenGPS
 
         // VISTAX_MOD_START
         private SeedMonitor vistaXMonitor;
+        // Watcher sobre implemento.json — recarga el monitor cuando el operario
+        // guarda cambios desde la web (PUT /api/vistax/implemento). Sin esto,
+        // el widget del overlay PilotX seguía con el mapeo viejo hasta reiniciar.
+        private System.IO.FileSystemWatcher vistaXImplWatcher;
+        private System.Windows.Forms.Timer vistaXImplDebounce;
         private VistaXNativePanel vistaXPanel;
+        // Overlays HTML de VistaX (WebView2) — reemplazan al panel nativo cuando
+        // _useHtmlVxOverlay=true. Son dos ventanas independientes:
+        //   · vistaXStripHtml  → franja inferior ancha (vistax-live.html).
+        //   · vistaXStatsHtml  → ventana superior con KPIs y aux (vistax-stats.html).
+        // Si _useHtmlVxOverlay=false se crean el legacy native panel y estos quedan null.
+        private AgroParallel.Common.VistaXWebOverlayPanel vistaXStripHtml;
+        private AgroParallel.Common.VistaXWebOverlayPanel vistaXStatsHtml;
+        // Default: nuevo overlay HTML. Para volver al legacy WinForms cambiar a false.
+        private bool _useHtmlVxOverlay = true;
         public VistaXConfig vistaXConfig;
         private FormVistaXPopup vistaXPopupForm;
         private VistaXFieldLogger vistaXLogger;
@@ -109,12 +126,37 @@ namespace AgOpenGPS
 
         // SHAPEFILE_MOD_START
         private ShapefileLayer shapefileLayer;
+
+        // Acceso interno para FormGpsStateProvider (Fase A — desacople via
+        // IAogStateProvider). Mantiene el campo privado para el resto del
+        // codebase; solo el adaptador del mismo assembly puede usarlo.
+        internal ShapefileLayer ShapefileLayerForAdapters => shapefileLayer;
 #pragma warning disable CS0169, CS0649 // wire-up de menus shapefile pendiente
         private ToolStripMenuItem shapefileToggleItem;
         private ToolStripMenuItem shapefileStyleItem;
         private ToolStripMenuItem shapefileInspectItem;
 #pragma warning restore CS0169, CS0649
         private ShapefileLegendControl shapefileLegend;
+        // Widget QuantiX HTML (WebView2) que reemplaza al ShapefileLegendControl
+        // en pantalla principal. Cuando _useHtmlQxWidget=true se crea éste y el
+        // legacy queda en null (todos los Refresh/Update son no-op porque
+        // chequean shapefileLegend != null).
+        // El widget HTML se autoalimenta vía /api/widget-quantix/state — no hay
+        // SetMotorDosis ni MotorManualChanged en este camino: la POST a
+        // /api/widget-quantix/manual escribe manual_mode/manual_dosis directo
+        // en quantiX_motores.json, sin pisar dosis_fija (fuera de mapa default).
+        // static readonly (no const) para que el branch del legacy
+        // ShapefileLegendControl no se elimine como dead-code: lo dejamos
+        // disponible si en algún momento conviene volver atrás.
+        private static readonly bool _useHtmlQxWidget = true;
+        private AgroParallel.Common.QuantiXWidgetWebView2Control quantixWidgetHtml;
+        // Banner full-width arriba de la cabina: aparece SOLO cuando hay nodos
+        // del implemento activo offline. UI HTML (cabina-alarmas.html) hosteada
+        // en WebView2 para facilitar la futura migración a Avalonia.
+        private AgroParallel.Common.AlertaNodosWebOverlayControl alertaNodosOverlay;
+        // FlowX overlay: telemetría read-only (caudal real/target/PWM/PID) por
+        // nodo configurado. Se posiciona apilado sobre el shapefileLegend.
+        private AgroParallel.FlowX.FlowXLegendControl flowXLegend;
 
         // Modo inspeccion (paso 12): al hacer click en el mapa se abre un
         // popup con los atributos DBF del poligono bajo el cursor.
@@ -135,10 +177,14 @@ namespace AgOpenGPS
         // ORBITX_MOD_END
         // SECTIONX_MOD_START
         public SectionXBridge sectionXBridge;
+        public SectionsSpeedPublisher sectionsSpeedPublisher;
         // SECTIONX_MOD_END
         // CAMARAS_MOD_START
         public CamarasRemoteRelay camarasRelay;
         // CAMARAS_MOD_END
+        // FLOWX_MOD_START
+        public FlowXBridge flowXBridge;
+        // FLOWX_MOD_END
         // QUANTIX_MOD_START
         private QuantiXConfig quantiXConfig;
         private QuantiXSender quantiXSender;
@@ -605,7 +651,16 @@ namespace AgOpenGPS
             }
             // VISTAX_MOD_START
             InitVistaX();
+            // Botón VX en panelControlBox removido 2026-05-26 — pisaba la card
+            // de GPS y ya no se usa: el overlay VistaX se prende/apaga desde el
+            // Hub (/widgets.html) y se auto-abre al activar un perfil de
+            // implemento con nodos VistaX (ver OverlayAutoOpener).
             // VISTAX_MOD_END
+
+            // Watcher de overlayPrefs.json (controlado desde el Hub):
+            // levanta un timer 250ms que detecta cambios y dispara redraw
+            // de cada overlay (QX/VX/FX) sin reiniciar.
+            StartOverlayPrefsWatcher();
 
             // ORBITX_MOD_START — Sync cloud al inicio.
             try
@@ -613,7 +668,7 @@ namespace AgOpenGPS
                 var oxCfg = OrbitXConfig.Load();
                 if (oxCfg.Enabled && !string.IsNullOrEmpty(oxCfg.DeviceToken))
                 {
-                    orbitXSync = new OrbitXSync(this, oxCfg);
+                    orbitXSync = new OrbitXSync(new AgroParallel.Adapters.FormGpsStateProvider(this), oxCfg);
                     orbitXSync.Start();
                 }
 
@@ -636,9 +691,15 @@ namespace AgOpenGPS
                 var sxCfg = SectionXConfig.Load();
                 if (sxCfg.Enabled && sxCfg.Nodos.Count > 0)
                 {
-                    sectionXBridge = new SectionXBridge(this, sxCfg);
+                    sectionXBridge = new SectionXBridge(new AgroParallel.Adapters.FormGpsStateProvider(this), sxCfg);
                     _ = sectionXBridge.StartAsync();
                 }
+
+                // Publisher de velocidad por sección — independiente de SectionXConfig.Nodos
+                // porque la velocidad la consumen también QuantiX/FlowX/VistaX (no solo relays).
+                // Se publica en agp/aog/sections_speed a 5 Hz. Solo emite con lote abierto.
+                sectionsSpeedPublisher = new SectionsSpeedPublisher(new AgroParallel.Adapters.FormGpsStateProvider(this));
+                _ = sectionsSpeedPublisher.StartAsync();
             }
             catch { }
             // SECTIONX_MOD_END
@@ -652,16 +713,39 @@ namespace AgOpenGPS
                     if (motCfg.Nodos.Count > 0)
                     {
                         Console.WriteLine("[QuantiX] " + motCfg.Nodos.Count + " nodo(s) configurados, iniciando bridge...");
-                        quantiXBridge = new QuantiXMotorBridge(this);
+                        quantiXBridge = new QuantiXMotorBridge(new AgroParallel.Adapters.FormGpsStateProvider(this), new AgroParallel.Services.PrescripcionService());
                         _ = quantiXBridge.StartAsync();
                     }
                 }
+                // Visibilidad de la leyenda QX se fuerza al final de
+                // InitShapefileLegend (que se llama después de este bloque).
             }
             catch (Exception ex)
             {
                 Console.WriteLine("[QuantiX] Error iniciando bridge: " + ex.Message);
             }
             // QUANTIX_MOD_END
+
+            // FLOWX_MOD_START — Bridge de bomba pulverizadora al inicio.
+            // Solo arranca si flowX.json tiene Enabled=true y al menos un nodo.
+            // El bridge tickea a 200ms, publica target L/min escalado por secciones
+            // abiertas al topic agp/flow/{uid}/target. Si el firmware todavía está
+            // buggy (ver project_flowx_stormx_scaffold.md), el publish no daña nada.
+            try
+            {
+                var fxCfg = FlowXConfig.Load();
+                if (fxCfg.Enabled && fxCfg.Nodos != null && fxCfg.Nodos.Count > 0)
+                {
+                    flowXBridge = new FlowXBridge(
+                        new AgroParallel.Adapters.FormGpsStateProvider(this), fxCfg);
+                    _ = flowXBridge.StartAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[FlowX] Bridge start error: " + ex.Message);
+            }
+            // FLOWX_MOD_END
 
             // AGROPARALLEL_MOD_START
             InitAgroParallelModulesMenu();
@@ -670,6 +754,133 @@ namespace AgOpenGPS
             // SHAPEFILE_MOD_START
             InitShapefileMenu();
             // SHAPEFILE_MOD_END
+
+            // AGROPARALLEL_WEB_UI_START
+            // Mientras AOG siga siendo la pantalla principal de cabina, el Hub
+            // HTML NO se abre automáticamente — solo manualmente por el botón
+            // AgroParallel (OpenAgroParallelHub en btnAgroParallel_Click).
+            //
+            // Pre-warm de WebView2: CoreWebView2Environment.CreateAsync demora
+            // ~500ms-1s la primera vez. Lo disparamos acá en background así,
+            // cuando el operario toca "⬢ AP" o "📷 Cámaras" más tarde, la
+            // apertura del Hub es ~instantánea. Idempotente; si falla,
+            // OnLoad del Hub vuelve a intentar sin diferencia visible.
+            try
+            {
+                _ = global::AgroParallel.Shell.FormAgroParallelHubWebView2.Prewarm();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[AgroParallel] Prewarm: " + ex.Message);
+            }
+
+            // Íconos del menú superior: cargar PNG desde btnImages/ en runtime
+            // (más simple que pasarlos por Resources.resx, que es autogenerado).
+            // Si los archivos no existen, dejamos el texto fallback que ya pintó el Designer.
+            try
+            {
+                string imgDir = System.IO.Path.Combine(Application.StartupPath, "btnImages");
+                string hubPng = System.IO.Path.Combine(imgDir, "AgroParallelHub.png");
+                if (System.IO.File.Exists(hubPng))
+                {
+                    // HUB es un item dentro del dropdown del engranaje — sí o sí
+                    // tiene que respetar el layout de los HERMANOS (Configuration,
+                    // Auto Steer, etc. = 419x44 cada uno). Antes lo forzábamos a
+                    // Size(100, 44) "estilo botón de toolbar", lo que hacía que
+                    // al abrir el menú se viera todo descalzado: la fila era
+                    // gigante (419 px) pero el item HUB ocupaba 100, dejando un
+                    // hueco enorme a la derecha. Ahora dejamos AutoSize=true y
+                    // que el ToolStrip dimensione cada item parejo.
+                    toolStripAgroParallel.Image = System.Drawing.Image.FromFile(hubPng);
+                    toolStripAgroParallel.Text = "HUB";
+                    toolStripAgroParallel.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+                    toolStripAgroParallel.ImageScaling = ToolStripItemImageScaling.SizeToFit;
+                    toolStripAgroParallel.TextImageRelation = TextImageRelation.ImageBeforeText;
+                    toolStripAgroParallel.ToolTipText = "Abrir Hub Agro Parallel";
+                }
+                string camPng = System.IO.Path.Combine(imgDir, "Camera2D64.png");
+                if (System.IO.File.Exists(camPng))
+                {
+                    // Idem HUB: que el item se dimensione solo dentro del dropdown.
+                    // Texto "Cámaras" en vez de string vacío — sin texto el item
+                    // queda como un icono colgado en medio de una lista de labels,
+                    // que es justo el efecto "abre todo mal" que reportó el operario.
+                    toolStripCamaras.Image = System.Drawing.Image.FromFile(camPng);
+                    toolStripCamaras.Text = "Cámaras";
+                    toolStripCamaras.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+                    toolStripCamaras.ImageScaling = ToolStripItemImageScaling.SizeToFit;
+                    toolStripCamaras.TextImageRelation = TextImageRelation.ImageBeforeText;
+                    toolStripCamaras.ToolTipText = "Cámaras";
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[AgroParallel] Iconos: " + ex.Message);
+            }
+
+            // Levantar AgpWebHost:5180 ya mismo (no esperar al click del Hub).
+            // Esto habilita que widgets Avalonia standalone (AgroParallel.Shell.Avalonia.exe
+            // --page=pages/camaras.html) puedan conectar sin abrir el Hub completo.
+            // Idempotente: si el Hub se abre despues, reusa este mismo host.
+            try
+            {
+                string wwwroot = System.IO.Path.Combine(
+                    System.AppDomain.CurrentDomain.BaseDirectory, "AgroParallel", "wwwroot");
+                var state = new global::AgroParallel.Adapters.FormGpsStateProvider(this);
+                var lotes = new global::AgroParallel.Adapters.FormGpsLotesService(this);
+                var vehicleTool = new global::AgroParallel.Adapters.FormGpsVehicleToolService(this);
+                var shapefile = new global::AgroParallel.Adapters.FormGpsShapefileService(this);
+                var coverage = new global::AgroParallel.Adapters.FormGpsCoverageService(this);
+                var sectionsCore = new global::AgroParallel.Adapters.FormGpsSectionControlService(this);
+                var quantixRuntime = new global::AgroParallel.Adapters.FormGpsQuantiXRuntimeService(this, state);
+                var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
+                var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
+                global::AgroParallel.Shell.AgpWebHostBootstrap.EnsureStarted(
+                    state, lotes, vehicleTool, shapefile,
+                    coverage, sectionsCore, quantixRuntime, guidance, pilotxUpdate,
+                    wwwroot);
+
+                // El widget QX HTML necesita la Url del host para navegar; cuando
+                // InitShapefileMenu() corrió antes (línea 739), Url todavía no
+                // estaba. Reintentamos la creación / visibilidad ahora que sí está.
+                try { UpdateShapefileLegendVisibility(); } catch { }
+
+                // Banner top de alarmas (HTML overlay). Se queda Visible=false
+                // hasta que la página emita postMessage('show') al detectar nodos
+                // del implemento activo offline.
+                try { InitAlertaNodosOverlay(); } catch (Exception exA) { System.Diagnostics.Debug.WriteLine("[AlertaNodos] init: " + exA.Message); }
+
+                // Cuando el operario guarda sectionX.json desde la UI Hub,
+                // relanzar el SectionXBridge — si no lo hacemos, el bridge se
+                // queda con la config vieja (típicamente null si arrancó con
+                // nodos:[]) y /sections nunca se publica al broker → los relays
+                // de los nodos QuantiX nunca se activan. Bug observado 2026-05-19.
+                try
+                {
+                    var sxSvc = global::AgroParallel.Shell.AgpWebHostBootstrap.SectionXConfigSvc;
+                    if (sxSvc != null)
+                    {
+                        sxSvc.ConfigSaved += () =>
+                        {
+                            try
+                            {
+                                if (IsDisposed || !IsHandleCreated) return;
+                                BeginInvoke(new Action(() => ReloadSectionXBridge()));
+                            }
+                            catch { /* swallow — no romper el save por un handler */ }
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("[AgroParallel] SectionX subscribe: " + ex.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[AgroParallel] WebHost autostart: " + ex.Message);
+            }
+            // AGROPARALLEL_WEB_UI_END
         }
 
         #region Shutdown Handling
@@ -733,6 +944,20 @@ namespace AgOpenGPS
                 isShuttingDown = false;
                 return;
             }
+
+            // AGROPARALLEL_MOD_START — apagar servicios background una vez
+            // confirmado el shutdown, antes del save. Crítico: camarasRelay
+            // spawnea ffmpeg.exe (procesos externos al runtime .NET) — si no
+            // los matamos explícitamente, quedan vivos en background al
+            // cerrar AOG (bug observado: 3 ffmpeg zombies por cierre).
+            // orbitXSync se para acá para no escribir orbitX.json mientras
+            // FileSaveEverythingBeforeClosingField está corriendo.
+            try { camarasRelay?.Dispose(); camarasRelay = null; } catch { }
+            try { orbitXSync?.Stop(); orbitXSync = null; } catch { }
+            try { sectionsSpeedPublisher?.Dispose(); sectionsSpeedPublisher = null; } catch { }
+            try { sectionXBridge?.Dispose(); sectionXBridge = null; } catch { }
+            try { flowXBridge?.Dispose(); flowXBridge = null; } catch { }
+            // AGROPARALLEL_MOD_END
 
             // Turn off auto sections if active
             if (isJobStarted && autoBtnState == btnStates.Auto)
@@ -1518,19 +1743,100 @@ namespace AgOpenGPS
         // AGROPARALLEL_MOD_START
         private void toolStripAgroParallel_Click(object sender, EventArgs e)
         {
-            OpenAgroParallelHub();
+            // Hub como widget Avalonia en modo float: ventana mediana
+            // (1100x720) sobre AOG, con marco y X nativa. Permite seguir
+            // viendo el piloto al lado. Si el exe Avalonia no esta presente,
+            // cae al Hub WinForms clasico.
+            if (!LaunchAvaloniaWidget(null, "float", "AgroParallel · Hub", 1100, 720))
+                OpenAgroParallelHub();
         }
 
+        // Atajo desde el menú "All" para abrir Cámaras como widget independiente.
+        // Apunta a pages/camaras-widget.html (vista limpia: solo cámaras activas,
+        // doble click = fullscreen una sola; sin sidebar/tabs/config).
+        // Modo float = ventana chica encima del piloto, redimensionable, con X.
+        // La config de cámaras se sigue editando dentro del Hub (camaras.html).
+        private void toolStripCamaras_Click(object sender, EventArgs e)
+        {
+            if (!LaunchAvaloniaWidget("pages/camaras-widget.html", "float", "Cámaras", 640, 400))
+                OpenAgroParallelHub("pages/camaras.html");
+        }
+
+        // Lanza AgroParallel.Shell.Avalonia.exe como proceso aparte. AOG sigue
+        // siendo el motor (FormGPS) y el host AgpWebHost ya esta corriendo en
+        // :5180 desde FormGPS_Load. El widget solo es un WebView2 + ventana.
+        private bool LaunchAvaloniaWidget(string page, string mode = "full", string title = null,
+                                          int width = 0, int height = 0)
+        {
+            try
+            {
+                string exe = ResolveAvaloniaWidgetExe();
+                if (string.IsNullOrEmpty(exe) || !System.IO.File.Exists(exe)) return false;
+                var sb = new System.Text.StringBuilder();
+                if (!string.IsNullOrEmpty(page)) sb.Append("--page=").Append(page).Append(' ');
+                if (!string.IsNullOrEmpty(mode)) sb.Append("--mode=").Append(mode).Append(' ');
+                if (!string.IsNullOrEmpty(title)) sb.Append("--title=\"").Append(title).Append("\" ");
+                if (width > 0) sb.Append("--width=").Append(width).Append(' ');
+                if (height > 0) sb.Append("--height=").Append(height).Append(' ');
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exe,
+                    UseShellExecute = false,
+                    Arguments = sb.ToString().TrimEnd(),
+                };
+                System.Diagnostics.Process.Start(psi);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[AvaloniaWidget] Launch: " + ex.Message);
+                return false;
+            }
+        }
+
+        private static string ResolveAvaloniaWidgetExe()
+        {
+            string baseDir = System.AppDomain.CurrentDomain.BaseDirectory;
+            // 1) Path de produccion: junto al exe de AOG en /AvaloniaWidget/
+            string prod = System.IO.Path.Combine(baseDir, "AvaloniaWidget", "AgroParallel.Shell.Avalonia.exe");
+            if (System.IO.File.Exists(prod)) return prod;
+            // 2) Path de dev: buscar bin del spike subiendo desde baseDir
+            //    (AOG corre desde SourceCode/GPS/bin/Release/win-x64/ -> spike en
+            //     SourceCode/AgroParallel/Spikes/AgroParallel.Shell.Avalonia/bin/<Cfg>/net9.0-windows/)
+            try
+            {
+                var dir = new System.IO.DirectoryInfo(baseDir);
+                for (int i = 0; i < 8 && dir != null; i++)
+                {
+                    string candidate = System.IO.Path.Combine(
+                        dir.FullName,
+                        "SourceCode", "AgroParallel", "Spikes", "AgroParallel.Shell.Avalonia",
+                        "bin", "Debug", "net9.0-windows", "AgroParallel.Shell.Avalonia.exe");
+                    if (System.IO.File.Exists(candidate)) return candidate;
+                    candidate = candidate.Replace(@"\Debug\", @"\Release\");
+                    if (System.IO.File.Exists(candidate)) return candidate;
+                    dir = dir.Parent;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        // Botón VX removido 2026-05-26 — vivía en panelControlBox y se solapaba
+        // con la card de GPS. El toggle del overlay VistaX se hace desde el Hub
+        // (/widgets.html) y además se auto-abre al activar un perfil de implemento
+        // con nodos VistaX asignados (ver OverlayAutoOpener). ToggleVistaX() se
+        // mantiene porque lo siguen llamando los CloseRequested de los overlays
+        // HTML y el watcher de overlayPrefs.json.
         private void ToggleVistaX()
         {
             var cfg = VistaXConfig.Load();
+            bool isOn = vistaXPanel != null || vistaXStripHtml != null || vistaXStatsHtml != null;
 
-            if (vistaXPanel != null)
+            if (isOn)
             {
-                // VistaX está activo → desactivar
-                this.Controls.Remove(vistaXPanel);
-                vistaXPanel.Dispose();
-                vistaXPanel = null;
+                // VistaX está activo → desactivar (cualquiera de los dos modos).
+                CleanupVistaX();
 
                 cfg.Enabled = false;
                 cfg.Save();
@@ -1545,9 +1851,10 @@ namespace AgOpenGPS
 
                 InitVistaX();
 
-                if (vistaXPanel == null)
+                bool reactivado = vistaXPanel != null || vistaXStripHtml != null;
+                if (!reactivado)
                 {
-                    // Falló la inicialización (server Node no corre, etc.)
+                    // Falló la inicialización.
                     cfg.Enabled = false;
                     cfg.Save();
                 }
@@ -1559,13 +1866,84 @@ namespace AgOpenGPS
         }
         // AGROPARALLEL_MOD_END
 
+        // ---- Overlay Prefs (controladas desde el Hub) -------------------------
+        // El operario activa/desactiva los widgets de overlay (QuantiX shapefile-
+        // Legend, VistaX, FlowX legend) desde el Hub (página hub.html). El
+        // estado se persiste en overlayPrefs.json. Acá levantamos un timer chico
+        // que relee el archivo cada 250 ms y, cuando detecta un cambio respecto
+        // del último snapshot, dispara el redraw del widget correspondiente.
+        // VistaX se reconcilia llamando ToggleVistaX() cuando el flag no
+        // coincide con el estado real del panel.
+        private bool _userWantsQXOverlay = true;
+        private bool _userWantsFXOverlay = true;
+        private bool _userWantsVXOverlay = true;
+        private System.Windows.Forms.Timer _overlayPrefsTimer;
+
+        public bool UserWantsQXOverlay => _userWantsQXOverlay;
+        public bool UserWantsFXOverlay => _userWantsFXOverlay;
+        public bool UserWantsVXOverlay => _userWantsVXOverlay;
+
+        private void StartOverlayPrefsWatcher()
+        {
+            // Idempotente: si ya está, no duplicamos.
+            if (_overlayPrefsTimer != null) return;
+            // Snapshot inicial sin disparar redraws (los controles ya están en
+            // su estado default; cuando el operario cambie en el Hub, recién
+            // ahí reaccionamos).
+            try
+            {
+                var p0 = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                _userWantsQXOverlay = p0.QXOverlay;
+                _userWantsFXOverlay = p0.FXOverlay;
+                _userWantsVXOverlay = p0.VxOverlay;
+            }
+            catch { }
+
+            _overlayPrefsTimer = new System.Windows.Forms.Timer { Interval = 250 };
+            _overlayPrefsTimer.Tick += (s, e) =>
+            {
+                try
+                {
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    if (p.QXOverlay != _userWantsQXOverlay)
+                    {
+                        _userWantsQXOverlay = p.QXOverlay;
+                        try { UpdateShapefileLegendVisibility(); } catch { }
+                    }
+                    if (p.FXOverlay != _userWantsFXOverlay)
+                    {
+                        _userWantsFXOverlay = p.FXOverlay;
+                        try { UpdateFlowXLegend(); } catch { }
+                    }
+                    if (p.VxOverlay != _userWantsVXOverlay)
+                    {
+                        _userWantsVXOverlay = p.VxOverlay;
+                    }
+                    // Reconciliación VistaX: el flag manda. Si el Hub quiere ON
+                    // y el panel no está, lo prendemos; si quiere OFF y está,
+                    // lo apagamos. Idempotente — solo togglea ante mismatch.
+                    bool vxOn = vistaXPanel != null || vistaXStripHtml != null;
+                    if (_userWantsVXOverlay && !vxOn)
+                    {
+                        try { ToggleVistaX(); } catch { }
+                    }
+                    else if (!_userWantsVXOverlay && vxOn)
+                    {
+                        try { ToggleVistaX(); } catch { }
+                    }
+                }
+                catch { /* defaults: todo ON */ }
+            };
+            _overlayPrefsTimer.Start();
+        }
+
         // VISTAX_MOD_START
         private void InitVistaX()
         {
             try
             {
-                // Guard: no crear doble instancia
-                if (vistaXPanel != null) return;
+                // Guard: no crear doble instancia (cualquiera de los dos caminos)
+                if (vistaXPanel != null || vistaXStripHtml != null) return;
 
                 var cfg = VistaXConfig.Load();
                 System.Diagnostics.Debug.WriteLine("[VistaX] Config: Enabled=" + cfg.Enabled);
@@ -1576,29 +1954,68 @@ namespace AgOpenGPS
                     return;
                 }
 
-                // Panel nativo (GDI+) — sin CefSharp, sin servidor Node.
-                vistaXPanel = new VistaXNativePanel(cfg);
-                vistaXPanel.Visible = true;
-                vistaXPanel.AlarmMuted = cfg.AlarmMuted;
-                this.Controls.Add(vistaXPanel);
-                vistaXPanel.Reposition();
-
-                // Monitor MQTT nativo — alimenta el panel via SnapshotUpdated.
-                vistaXMonitor = new SeedMonitor(this, cfg);
-                vistaXMonitor.SnapshotUpdated += vistaXPanel.SetSnapshot;
+                // Monitor MQTT nativo — siempre se crea: alimenta panel/strip y al logger.
+                vistaXMonitor = new SeedMonitor(new AgroParallel.Adapters.FormGpsStateProvider(this), cfg);
                 vistaXMonitor.AlarmTriggered += msg =>
                     System.Diagnostics.Debug.WriteLine("[VistaX] Alarma: " + msg);
 
-                // Edicion del objetivo desde el header del panel + acceso
-                // rapido a la ventana de config.
-                var monitorCapture = vistaXMonitor;
-                vistaXPanel.ObjetivoChanged += v => monitorCapture.SetObjetivo(v, 0);
-                vistaXPanel.ConfigRequested += OpenVistaXConfigDialog;
+                if (_useHtmlVxOverlay)
+                {
+                    // ---- Camino HTML (dos overlays WebView2) -----------------
+                    InitVistaXHtmlOverlays(cfg);
+                }
+                else
+                {
+                    // ---- Legacy: panel nativo GDI+ ---------------------------
+                    vistaXPanel = new VistaXNativePanel(cfg);
+                    vistaXPanel.Visible = true;
+                    vistaXPanel.AlarmMuted = cfg.AlarmMuted;
+                    this.Controls.Add(vistaXPanel);
+                    vistaXPanel.Reposition();
+
+                    try
+                    {
+                        var prefs = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                        if (prefs.VxX >= 0 && prefs.VxY >= 0)
+                        {
+                            vistaXPanel.HasCustomPosition = true;
+                            vistaXPanel.Location = new System.Drawing.Point(prefs.VxX, prefs.VxY);
+                        }
+                    }
+                    catch { }
+
+                    AgroParallel.Common.OverlayDragger.Attach(vistaXPanel, pt =>
+                    {
+                        try
+                        {
+                            vistaXPanel.HasCustomPosition = true;
+                            var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                            p.VxX = pt.X; p.VxY = pt.Y;
+                            AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                        }
+                        catch { }
+                    });
+
+                    // Hook del snapshot al panel nativo.
+                    vistaXMonitor.SnapshotUpdated += vistaXPanel.SetSnapshot;
+
+                    // Edición de objetivo + config + mute desde el header nativo.
+                    var monitorCapture = vistaXMonitor;
+                    vistaXPanel.ObjetivoChanged += v => monitorCapture.SetObjetivo(v, 0);
+                    vistaXPanel.ConfigRequested += OpenVistaXConfigDialog;
+                    var cfgCapture = cfg;
+                    vistaXPanel.SensorMuteToggleRequested += (uid, cable, muted) =>
+                    {
+                        int hits = monitorCapture.SetSensorMuted(uid, cable, muted);
+                        if (hits > 0 && monitorCapture.Implemento != null)
+                            cfgCapture.SaveImplemento(monitorCapture.Implemento);
+                    };
+                }
 
                 // Logger NDJSON — graba snapshots a disco y exporta SHP al detener.
                 if (cfg.LogToFieldRecord)
                 {
-                    vistaXLogger = new VistaXFieldLogger(this, cfg);
+                    vistaXLogger = new VistaXFieldLogger(new AgroParallel.Adapters.FormGpsStateProvider(this), cfg);
                     vistaXLogger.Start(); // Arrancar inmediatamente.
                     System.Diagnostics.Debug.WriteLine("[VistaX-Log] Logger creado, IsLogging=" + vistaXLogger.IsLogging
                         + ", Path=" + (vistaXLogger.CurrentLogPath ?? "null"));
@@ -1619,10 +2036,68 @@ namespace AgOpenGPS
                 // Fire-and-forget: StartAsync maneja sus propios errores de MQTT.
                 _ = vistaXMonitor.StartAsync();
 
-                // Reposicionar al redimensionar
-                this.Resize += (s, e) => { if (vistaXPanel != null) vistaXPanel.Reposition(); };
+                // FileSystemWatcher sobre el JSON del implemento — si la UI
+                // web (PUT /api/vistax/implemento) reescribe el archivo,
+                // recargamos el mapeo de sensores en caliente. El evento llega
+                // en un thread de IO, lo debouncamos y marshall-eamos al UI
+                // thread para evitar reentrancia sobre _surcos.
+                try
+                {
+                    string implPath = cfg.ImplementoJsonPath;
+                    if (!string.IsNullOrEmpty(implPath) && System.IO.File.Exists(implPath))
+                    {
+                        string dir = System.IO.Path.GetDirectoryName(implPath);
+                        string file = System.IO.Path.GetFileName(implPath);
+                        if (!string.IsNullOrEmpty(dir) && !string.IsNullOrEmpty(file))
+                        {
+                            vistaXImplDebounce = new System.Windows.Forms.Timer { Interval = 250 };
+                            vistaXImplDebounce.Tick += (s, e) =>
+                            {
+                                vistaXImplDebounce.Stop();
+                                try { vistaXMonitor?.ReloadImplemento(); } catch { }
+                            };
 
-                System.Diagnostics.Debug.WriteLine("[VistaX] Panel nativo iniciado OK");
+                            vistaXImplWatcher = new System.IO.FileSystemWatcher(dir, file)
+                            {
+                                NotifyFilter = System.IO.NotifyFilters.LastWrite
+                                             | System.IO.NotifyFilters.Size
+                                             | System.IO.NotifyFilters.CreationTime,
+                                EnableRaisingEvents = true
+                            };
+                            System.IO.FileSystemEventHandler bounce = (s, ev) =>
+                            {
+                                try
+                                {
+                                    if (this.IsHandleCreated && !this.IsDisposed)
+                                    {
+                                        this.BeginInvoke((Action)(() =>
+                                        {
+                                            vistaXImplDebounce.Stop();
+                                            vistaXImplDebounce.Start();
+                                        }));
+                                    }
+                                }
+                                catch { }
+                            };
+                            vistaXImplWatcher.Changed += bounce;
+                            vistaXImplWatcher.Created += bounce;
+                        }
+                    }
+                }
+                catch (Exception wex)
+                {
+                    System.Diagnostics.Debug.WriteLine("[VistaX] Watcher implemento.json no instalado: " + wex.Message);
+                }
+
+                // Reposicionar al redimensionar — native panel y/o HTML overlays.
+                this.Resize += (s, e) =>
+                {
+                    if (vistaXPanel != null) vistaXPanel.Reposition();
+                    RepositionVistaXHtmlOverlays();
+                };
+
+                System.Diagnostics.Debug.WriteLine("[VistaX] Iniciado OK (modo "
+                    + (_useHtmlVxOverlay ? "HTML" : "nativo") + ")");
             }
             catch (Exception ex)
             {
@@ -1647,10 +2122,41 @@ namespace AgOpenGPS
                 try { vistaXPanel.Dispose(); } catch { }
                 vistaXPanel = null;
             }
+            if (_vxHtmlWaitTimer != null)
+            {
+                try { _vxHtmlWaitTimer.Stop(); } catch { }
+                try { _vxHtmlWaitTimer.Dispose(); } catch { }
+                _vxHtmlWaitTimer = null;
+                _vxHtmlPendingCfg = null;
+            }
+            if (vistaXStripHtml != null)
+            {
+                try { this.Controls.Remove(vistaXStripHtml); } catch { }
+                try { vistaXStripHtml.Dispose(); } catch { }
+                vistaXStripHtml = null;
+            }
+            if (vistaXStatsHtml != null)
+            {
+                try { this.Controls.Remove(vistaXStatsHtml); } catch { }
+                try { vistaXStatsHtml.Dispose(); } catch { }
+                vistaXStatsHtml = null;
+            }
             if (vistaXLogger != null)
             {
                 try { vistaXLogger.Dispose(); } catch { }
                 vistaXLogger = null;
+            }
+            if (vistaXImplWatcher != null)
+            {
+                try { vistaXImplWatcher.EnableRaisingEvents = false; } catch { }
+                try { vistaXImplWatcher.Dispose(); } catch { }
+                vistaXImplWatcher = null;
+            }
+            if (vistaXImplDebounce != null)
+            {
+                try { vistaXImplDebounce.Stop(); } catch { }
+                try { vistaXImplDebounce.Dispose(); } catch { }
+                vistaXImplDebounce = null;
             }
             if (vistaXMonitor != null)
             {
@@ -1664,6 +2170,245 @@ namespace AgOpenGPS
                     try { m.StopAsync().Wait(2000); } catch { }
                     try { m.Dispose(); } catch { }
                 });
+            }
+        }
+
+        // -------------------------------------------------------------------------
+        // Overlays HTML de VistaX — strip inferior + ventana stats superior.
+        // Reposiciona y persiste posiciones por separado en OverlayPrefsService.
+        // Datos vienen del WebHost (/api/vistax/live) — los overlays son
+        // 100% read-only; no necesitan callbacks al monitor para funcionar.
+        // -------------------------------------------------------------------------
+        private System.Windows.Forms.Timer _vxHtmlWaitTimer;
+        private VistaXConfig _vxHtmlPendingCfg;
+
+        private void InitVistaXHtmlOverlays(VistaXConfig cfg)
+        {
+            string baseUrl = AgroParallel.Shell.AgpWebHostBootstrap.Url;
+            if (string.IsNullOrEmpty(baseUrl))
+            {
+                // AgpWebHost aún no levantado (InitVistaX corre antes que
+                // EnsureStarted en FormGPS_Load). Reintentamos a 500 ms hasta
+                // que la URL esté lista — máximo 30 s. Idempotente.
+                _vxHtmlPendingCfg = cfg;
+                if (_vxHtmlWaitTimer == null)
+                {
+                    int ticks = 0;
+                    _vxHtmlWaitTimer = new System.Windows.Forms.Timer { Interval = 500 };
+                    _vxHtmlWaitTimer.Tick += (s, e) =>
+                    {
+                        ticks++;
+                        var url = AgroParallel.Shell.AgpWebHostBootstrap.Url;
+                        if (!string.IsNullOrEmpty(url))
+                        {
+                            _vxHtmlWaitTimer.Stop();
+                            _vxHtmlWaitTimer.Dispose();
+                            _vxHtmlWaitTimer = null;
+                            // Reintentar solo si todavía no hay overlays (no se
+                            // hizo Toggle off en el medio) y monitor sigue vivo.
+                            var pendingCfg = _vxHtmlPendingCfg;
+                            _vxHtmlPendingCfg = null;
+                            if (pendingCfg != null && vistaXMonitor != null
+                                && vistaXStripHtml == null && vistaXStatsHtml == null)
+                            {
+                                InitVistaXHtmlOverlays(pendingCfg);
+                            }
+                        }
+                        else if (ticks > 60)
+                        {
+                            _vxHtmlWaitTimer.Stop();
+                            _vxHtmlWaitTimer.Dispose();
+                            _vxHtmlWaitTimer = null;
+                            System.Diagnostics.Debug.WriteLine("[VistaX-HTML] timeout esperando WebHost");
+                        }
+                    };
+                    _vxHtmlWaitTimer.Start();
+                }
+                System.Diagnostics.Debug.WriteLine("[VistaX-HTML] WebHost no levantado, reintentando…");
+                return;
+            }
+
+            var prefs = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+
+            // Cantidad de sensores primarios (semilla / fertilizante) en el
+            // implemento — define el ancho natural del strip.
+            int primaryCount = CountPrimaryVxSensors(cfg);
+
+            // ---- Tamaños default dinámicos en base a ClientSize + sensores ----
+            // Strip: ancho = barra status (80) + chips (count * 44) + KPIs (210),
+            //        clamp [380..ClientSize.Width-32]. Altura ~ 64 px (incluye drag bar).
+            // Stats: ancho ~18% del mapa (clamp 240..320), alto ~38% (clamp 260..440).
+            int stripContentW = 80 + Math.Max(1, primaryCount) * 44 + 210;
+            int defaultStripW = Clamp(stripContentW, 380, Math.Max(380, this.ClientSize.Width - 32));
+            int defaultStripH = Clamp((int)(this.ClientSize.Height * 0.07), 60, 96);
+            int defaultStatsW = Clamp((int)(this.ClientSize.Width * 0.18), 240, 320);
+            int defaultStatsH = Clamp((int)(this.ClientSize.Height * 0.38), 260, 440);
+
+            int stripW = prefs.VxStripW > 0 ? prefs.VxStripW : defaultStripW;
+            int stripH = prefs.VxStripH > 0 ? prefs.VxStripH : defaultStripH;
+
+            // ---- Strip (vistax-live.html) ----
+            vistaXStripHtml = new AgroParallel.Common.VistaXWebOverlayPanel(
+                baseUrl, "pages/vistax-live.html",
+                new System.Drawing.Size(stripW, stripH),
+                new System.Drawing.Size(360, 50),
+                "VistaX · monitor");
+            bool stripCustom = prefs.VxStripX >= 0 && prefs.VxStripY >= 0;
+            // Sin stretch: anclamos a Bottom|Left para que NO ocupe todo el ancho.
+            vistaXStripHtml.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            this.Controls.Add(vistaXStripHtml);
+            vistaXStripHtml.BringToFront();
+
+            // ---- Stats (vistax-stats.html) ----
+            int statsW = prefs.VxStatsW > 0 ? prefs.VxStatsW : defaultStatsW;
+            int statsH = prefs.VxStatsH > 0 ? prefs.VxStatsH : defaultStatsH;
+            vistaXStatsHtml = new AgroParallel.Common.VistaXWebOverlayPanel(
+                baseUrl, "pages/vistax-stats.html",
+                new System.Drawing.Size(statsW, statsH),
+                new System.Drawing.Size(220, 200),
+                "VistaX · stats");
+            bool statsCustom = prefs.VxStatsX >= 0 && prefs.VxStatsY >= 0;
+            vistaXStatsHtml.Anchor = statsCustom
+                ? (AnchorStyles.Top | AnchorStyles.Left)
+                : (AnchorStyles.Top | AnchorStyles.Right);
+            this.Controls.Add(vistaXStatsHtml);
+            vistaXStatsHtml.BringToFront();
+
+            // Posicionamiento inicial (default o restaurado).
+            RepositionVistaXHtmlOverlays();
+            if (stripCustom)
+                vistaXStripHtml.Location = new System.Drawing.Point(prefs.VxStripX, prefs.VxStripY);
+            if (statsCustom)
+                vistaXStatsHtml.Location = new System.Drawing.Point(prefs.VxStatsX, prefs.VxStatsY);
+
+            // Drag bar — el WebView2 se come los mouse events, por eso atachamos
+            // OverlayDragger SOLO al DragHandle (barra superior 22 px).
+            AgroParallel.Common.OverlayDragger.Attach(vistaXStripHtml.DragHandle, pt =>
+            {
+                try
+                {
+                    if (vistaXStripHtml == null) return;
+                    // DragHandle se mueve dentro del UserControl; mapeamos al padre.
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    p.VxStripX = vistaXStripHtml.Left;
+                    p.VxStripY = vistaXStripHtml.Top;
+                    p.VxStripW = vistaXStripHtml.Width;
+                    p.VxStripH = vistaXStripHtml.Height;
+                    AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                }
+                catch { }
+            }, vistaXStripHtml);
+            AgroParallel.Common.OverlayDragger.Attach(vistaXStatsHtml.DragHandle, pt =>
+            {
+                try
+                {
+                    if (vistaXStatsHtml == null) return;
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    p.VxStatsX = vistaXStatsHtml.Left;
+                    p.VxStatsY = vistaXStatsHtml.Top;
+                    p.VxStatsW = vistaXStatsHtml.Width;
+                    p.VxStatsH = vistaXStatsHtml.Height;
+                    AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                }
+                catch { }
+            }, vistaXStatsHtml);
+
+            // Close: oculta y persiste el toggle.
+            vistaXStripHtml.CloseRequested += () => ToggleVistaX();
+            vistaXStatsHtml.CloseRequested  += () => ToggleVistaX();
+
+            // Resize grip → persist W/H (X/Y se mantienen).
+            vistaXStripHtml.ResizedByUser += sz =>
+            {
+                try
+                {
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    p.VxStripW = sz.Width;
+                    p.VxStripH = sz.Height;
+                    // Si no estaba marcado como custom (posición default),
+                    // ahora congelamos la posición actual también — al
+                    // resizear el bottom-stretch dejaría de tener sentido.
+                    if (p.VxStripX < 0 || p.VxStripY < 0)
+                    {
+                        p.VxStripX = vistaXStripHtml.Left;
+                        p.VxStripY = vistaXStripHtml.Top;
+                    }
+                    AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                }
+                catch { }
+            };
+            vistaXStatsHtml.ResizedByUser += sz =>
+            {
+                try
+                {
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    p.VxStatsW = sz.Width;
+                    p.VxStatsH = sz.Height;
+                    if (p.VxStatsX < 0 || p.VxStatsY < 0)
+                    {
+                        p.VxStatsX = vistaXStatsHtml.Left;
+                        p.VxStatsY = vistaXStatsHtml.Top;
+                    }
+                    AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                }
+                catch { }
+            };
+        }
+
+        private static int Clamp(int v, int min, int max)
+            => v < min ? min : (v > max ? max : v);
+
+        // Cuenta sensores de tipo "semilla" + "fertilizante" en el implemento
+        // configurado — son los que el strip de monitoreo dibuja como chips.
+        // Si no hay implemento todavía, devuelve 8 (fallback razonable).
+        private static int CountPrimaryVxSensors(AgroParallel.VistaX.VistaXConfig cfg)
+        {
+            try
+            {
+                var imp = cfg?.LoadImplemento();
+                if (imp?.MapeoSensores == null) return 8;
+                int n = 0;
+                foreach (var s in imp.MapeoSensores)
+                {
+                    var t = (s?.Tipo ?? string.Empty).ToLowerInvariant();
+                    if (t == "semilla" || t == "fertilizante") n++;
+                }
+                return n > 0 ? n : 8;
+            }
+            catch { return 8; }
+        }
+
+        private void RepositionVistaXHtmlOverlays()
+        {
+            var prefs = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+
+            // Strip: si el usuario no fijó posición custom, lo ubicamos centrado
+            // en el borde inferior del mapa con su ancho natural (no stretch).
+            if (vistaXStripHtml != null && (prefs.VxStripX < 0 || prefs.VxStripY < 0))
+            {
+                int w = vistaXStripHtml.Width;
+                int h = vistaXStripHtml.Height;
+                int x = Math.Max(8, (this.ClientSize.Width - w) / 2);
+                int y = Math.Max(8, this.ClientSize.Height - h - 36);
+                vistaXStripHtml.Location = new System.Drawing.Point(x, y);
+            }
+
+            // Stats: si no hay posición custom, top-right con anchor.
+            if (vistaXStatsHtml != null
+                && (vistaXStatsHtml.Anchor & AnchorStyles.Right) == AnchorStyles.Right
+                && (vistaXStatsHtml.Anchor & AnchorStyles.Left) != AnchorStyles.Left)
+            {
+                int w = prefs.VxStatsW > 0
+                    ? prefs.VxStatsW
+                    : Clamp((int)(this.ClientSize.Width * 0.18), 240, 320);
+                int hh = prefs.VxStatsH > 0
+                    ? prefs.VxStatsH
+                    : Clamp((int)(this.ClientSize.Height * 0.38), 260, 440);
+                vistaXStatsHtml.Width = w;
+                vistaXStatsHtml.Height = hh;
+                int x = this.ClientSize.Width - w - 8;
+                int y = 80;
+                vistaXStatsHtml.Location = new System.Drawing.Point(Math.Max(0, x), y);
             }
         }
         // VISTAX_MOD_END
@@ -1680,65 +2425,12 @@ namespace AgOpenGPS
             {
                 toolStripAgroParallel.Image = new System.Drawing.Bitmap(logo, 28, 28);
                 toolStripAgroParallel.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-                toolStripAgroParallel.Text = "AP";
+                toolStripAgroParallel.Text = "PilotX";
+                toolStripAgroParallel.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.ImageAndText;
+                toolStripAgroParallel.ToolTipText = "PilotX · Agro Parallel";
             }
 
-            // Botón flotante "Cámaras" sobre el mapa, esquina sup-derecha.
-            try
-            {
-                var btn = new System.Windows.Forms.Button
-                {
-                    Name = "btnCamarasFloat",
-                    Text = "\U0001F4F9",
-                    Font = new System.Drawing.Font("Segoe UI Emoji", 16f, System.Drawing.FontStyle.Bold),
-                    Width = 56,
-                    Height = 56,
-                    BackColor = System.Drawing.Color.FromArgb(255, 180, 60),
-                    ForeColor = System.Drawing.Color.Black,
-                    FlatStyle = System.Windows.Forms.FlatStyle.Flat,
-                    UseVisualStyleBackColor = false,
-                    TabStop = false,
-                    Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right,
-                    Location = new System.Drawing.Point(this.ClientSize.Width - 80, 80)
-                };
-                btn.FlatAppearance.BorderSize = 0;
-                var tip = new System.Windows.Forms.ToolTip();
-                tip.SetToolTip(btn, "Cámaras (atajo)");
-                btn.Click += (s, e) => OpenCamarasFloat();
-                this.Controls.Add(btn);
-                btn.BringToFront();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("[Cameras] InitFloatBtn: " + ex.Message);
-            }
         }
-
-        // Singleton de la ventana flotante de cámaras.
-        private AgroParallel.Camaras.FormCamarasFloat _camarasFloat;
-
-        public void OpenCamarasFloat()
-        {
-            try
-            {
-                if (_camarasFloat != null && !_camarasFloat.IsDisposed)
-                {
-                    if (_camarasFloat.WindowState == FormWindowState.Minimized)
-                        _camarasFloat.WindowState = FormWindowState.Normal;
-                    _camarasFloat.Activate();
-                    _camarasFloat.BringToFront();
-                    return;
-                }
-                _camarasFloat = new AgroParallel.Camaras.FormCamarasFloat();
-                _camarasFloat.FormClosed += (s, e) => _camarasFloat = null;
-                _camarasFloat.Show(this);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("[Cameras] OpenFloat: " + ex.Message);
-            }
-        }
-
 
         public void OpenVistaXPerfilesDialog()
         {
@@ -1919,20 +2611,75 @@ namespace AgOpenGPS
             }
         }
 
-        private FormAgroParallelHub _hubForm;
+        private System.Windows.Forms.Form _hubFormWeb;
 
-        public void OpenAgroParallelHub()
+        public void OpenAgroParallelHub() { OpenAgroParallelHub(null); }
+
+        public void OpenAgroParallelHub(string initialPage)
         {
             try
             {
-                if (_hubForm != null && !_hubForm.IsDisposed)
+                if (_hubFormWeb != null && !_hubFormWeb.IsDisposed)
                 {
-                    _hubForm.BringToFront();
+                    // Si la ventana ya está abierta y nos piden una página
+                    // específica, navegamos vía el WebView2 (no relanzamos el host).
+                    if (!string.IsNullOrEmpty(initialPage)
+                        && _hubFormWeb is global::AgroParallel.Shell.FormAgroParallelHubWebView2 existing)
+                    {
+                        try
+                        {
+                            existing.InitialPage = initialPage; // por las dudas si recarga
+                            // Re-navegar el WebView2 al target.
+                            var fld = existing.GetType().GetField("_webView",
+                                System.Reflection.BindingFlags.Instance |
+                                System.Reflection.BindingFlags.NonPublic);
+                            var hostFld = existing.GetType().GetField("_webHost",
+                                System.Reflection.BindingFlags.Instance |
+                                System.Reflection.BindingFlags.NonPublic);
+                            if (fld != null && hostFld != null)
+                            {
+                                var wv = fld.GetValue(existing) as Microsoft.Web.WebView2.WinForms.WebView2;
+                                var host = hostFld.GetValue(existing) as global::AgroParallel.WebHost.AgpWebHost;
+                                if (wv?.CoreWebView2 != null && host != null)
+                                {
+                                    string url = host.Url.TrimEnd('/') + "/" + initialPage.TrimStart('/');
+                                    wv.CoreWebView2.Navigate(url);
+                                }
+                            }
+                        }
+                        catch { /* fallback: solo traer al frente */ }
+                    }
+                    _hubFormWeb.BringToFront();
                     return;
                 }
-                _hubForm = new FormAgroParallelHub(this);
-                _hubForm.FormClosed += (s, e) => _hubForm = null;
-                _hubForm.Show(this);
+
+                string wwwroot = System.IO.Path.Combine(
+                    System.AppDomain.CurrentDomain.BaseDirectory,
+                    "AgroParallel", "wwwroot");
+
+                var state = new global::AgroParallel.Adapters.FormGpsStateProvider(this);
+                var lotes = new global::AgroParallel.Adapters.FormGpsLotesService(this);
+                var vehicleTool = new global::AgroParallel.Adapters.FormGpsVehicleToolService(this);
+                var shapefile = new global::AgroParallel.Adapters.FormGpsShapefileService(this);
+                // Core/view split (adapter scaffolding): AOG sigue siendo el motor;
+                // los HTML leen estos servicios via REST en lugar de FormGPS directo.
+                var coverage = new global::AgroParallel.Adapters.FormGpsCoverageService(this);
+                var sectionsCore = new global::AgroParallel.Adapters.FormGpsSectionControlService(this);
+                var quantixRuntime = new global::AgroParallel.Adapters.FormGpsQuantiXRuntimeService(this, state);
+                var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
+                var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
+                var hub = new global::AgroParallel.Shell.FormAgroParallelHubWebView2(
+                    state, lotes, vehicleTool, shapefile,
+                    coverage, sectionsCore, quantixRuntime, guidance,
+                    pilotxUpdate,
+                    wwwroot);
+                hub.InitialPage = initialPage; // null = welcome
+                // El Hub se overlay sobre el GLControl del mapa (oglMain) en lugar
+                // de ir fullscreen. Sigue al control si AOG se redimensiona o mueve.
+                hub.AnchorControl = this.oglMain;
+                _hubFormWeb = hub;
+                _hubFormWeb.FormClosed += (s, e) => { _hubFormWeb = null; };
+                _hubFormWeb.Show(this);
             }
             catch (Exception ex)
             {
@@ -1992,7 +2739,7 @@ namespace AgOpenGPS
                 var cfg = SectionXConfig.Load();
                 if (cfg.Enabled && cfg.Nodos.Count > 0)
                 {
-                    sectionXBridge = new SectionXBridge(this, cfg);
+                    sectionXBridge = new SectionXBridge(new AgroParallel.Adapters.FormGpsStateProvider(this), cfg);
                     _ = sectionXBridge.StartAsync();
                 }
             }
@@ -2010,7 +2757,7 @@ namespace AgOpenGPS
                 var cfg = OrbitXConfig.Load();
                 if (cfg.Enabled && !string.IsNullOrEmpty(cfg.DeviceToken))
                 {
-                    orbitXSync = new OrbitXSync(this, cfg);
+                    orbitXSync = new OrbitXSync(new AgroParallel.Adapters.FormGpsStateProvider(this), cfg);
                     orbitXSync.Start();
                 }
             }
@@ -2053,6 +2800,7 @@ namespace AgOpenGPS
                 // Shapefile + QuantiX — movidos al Hub.
                 // Solo inicializar la leyenda embebida en el mapa.
                 InitShapefileLegend();
+                InitFlowXLegend();
             }
             catch (Exception ex)
             {
@@ -2164,12 +2912,9 @@ namespace AgOpenGPS
 
         public void OpenShapefileStyleDialog()
         {
+            // Estilo de shapefile ahora se configura desde la UI HTML (Piloto).
+            // El diálogo WinForms legacy fue eliminado en la migración a WebView2.
             if (shapefileLayer == null || shapefileLayer.PolygonCount == 0) return;
-
-            using (var dlg = new FormShapefileStyle(shapefileLayer))
-            {
-                dlg.ShowDialog(this);
-            }
             RefreshShapefileLegend();
             SaveShapefileState();
         }
@@ -2239,6 +2984,55 @@ namespace AgOpenGPS
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[Shapefile] TryAutoLoad: " + ex.Message);
+            }
+        }
+
+        // Punto de entrada para servicios externos (HUB web HTML) que ya
+        // colocaron .shp+.shx+.dbf+.prj en disco y necesitan disparar la carga
+        // sin abrir el OpenFileDialog. No muestra MessageBox; el resultado se
+        // devuelve por bool y los detalles quedan en ShapefileLayerForAdapters.
+        public bool LoadShapefileFromExternal(string shpPath)
+        {
+            string _;
+            return LoadShapefileFromExternal(shpPath, out _);
+        }
+
+        // Overload con diagnóstico: cuando el upload viene del Hub no hay
+        // MessageBox para el operario, así que devolvemos por out la razón
+        // concreta del fallo. Si no, el JS sólo veía "(revisar consola)" y
+        // el operario tenía que ir al PC con DevTools — inviable en tractor.
+        public bool LoadShapefileFromExternal(string shpPath, out string error)
+        {
+            error = null;
+            if (string.IsNullOrEmpty(shpPath)) { error = "Path vacío."; return false; }
+            if (!System.IO.File.Exists(shpPath)) { error = "No existe el .shp en disco: " + shpPath; return false; }
+            // Pre-check: sin job abierto, LoadShapefileFromPath retorna false
+            // silenciosamente. Acá lo decimos con palabras.
+            if (!isJobStarted)
+            {
+                error = "Abrí un lote en PilotX antes de cargar el shapefile (no hay job activo).";
+                return false;
+            }
+            try
+            {
+                bool ok = LoadShapefileFromPath(shpPath, showSummary: false, promptStyle: false);
+                if (!ok)
+                {
+                    error = "El lector aceptó el archivo pero no quedó nada cargado (¿0 polígonos? ¿formato no WGS84?).";
+                    return false;
+                }
+                if (shapefileLayer == null || shapefileLayer.IsEmpty)
+                {
+                    error = "Capa cargada vacía — el .shp no contiene polígonos legibles.";
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[Shapefile] External load failed: " + ex);
+                error = ex.Message;
+                return false;
             }
         }
 
@@ -2341,12 +3135,9 @@ namespace AgOpenGPS
                     curVal = v;
             }
 
-            using (var dlg = new FormShapefileAttributes(
-                idx, shapefileLayer.FieldNames, attrs,
-                shapefileLayer.StyleField, curVal))
-            {
-                dlg.ShowDialog(this);
-            }
+            // Inspección de atributos de shapefile: ahora se hace desde la UI
+            // HTML (Piloto). El diálogo WinForms legacy fue eliminado.
+            _ = attrs; _ = curVal;
             return true;
         }
 
@@ -2441,8 +3232,75 @@ namespace AgOpenGPS
             return true;
         }
 
+        // Camino HTML: hostea WebView2 con /pages/widget-quantix.html en lugar
+        // del ShapefileLegendControl. Misma posición/tamaño/drag persistido que
+        // el legacy — el widget HTML se autoalimenta por REST.
+        private void InitQuantiXWidgetHtml()
+        {
+            if (quantixWidgetHtml != null) return;
+            string baseUrl = AgroParallel.Shell.AgpWebHostBootstrap.Url;
+            if (string.IsNullOrEmpty(baseUrl)) return; // host aún no levantado
+
+            quantixWidgetHtml = new AgroParallel.Common.QuantiXWidgetWebView2Control(baseUrl);
+            quantixWidgetHtml.Visible = false;
+            quantixWidgetHtml.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
+            quantixWidgetHtml.Location = new Point(85, this.ClientSize.Height - quantixWidgetHtml.Height - 90);
+            this.Controls.Add(quantixWidgetHtml);
+            quantixWidgetHtml.BringToFront();
+
+            // Posición custom persistida (drag previo) → restaurar.
+            try
+            {
+                var prefs = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                if (prefs.QxX >= 0 && prefs.QxY >= 0)
+                {
+                    quantixWidgetHtml.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+                    quantixWidgetHtml.Location = new Point(prefs.QxX, prefs.QxY);
+                }
+            }
+            catch { }
+
+            // Drag & persist — reusa el mismo OverlayPrefsService que el legacy.
+            AgroParallel.Common.OverlayDragger.Attach(quantixWidgetHtml, pt =>
+            {
+                try
+                {
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    p.QxX = pt.X; p.QxY = pt.Y;
+                    AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                }
+                catch { }
+            });
+
+            UpdateShapefileLegendVisibility();
+        }
+
+        // Banner top full-width — visible SOLO cuando el HTML (cabina-alarmas.html)
+        // detecta nodos offline del implemento activo y emite postMessage('show').
+        // Lazy: si el host aún no levantó, sale temprano y reintenta en próximas
+        // pasadas (idéntico patrón que InitQuantiXWidgetHtml).
+        private void InitAlertaNodosOverlay()
+        {
+            if (alertaNodosOverlay != null) return;
+            string baseUrl = AgroParallel.Shell.AgpWebHostBootstrap.Url;
+            if (string.IsNullOrEmpty(baseUrl)) return;
+
+            alertaNodosOverlay = new AgroParallel.Common.AlertaNodosWebOverlayControl(baseUrl);
+            alertaNodosOverlay.Visible = false; // el control HTML decide cuándo mostrar
+            alertaNodosOverlay.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            alertaNodosOverlay.Location = new Point(0, 0);
+            alertaNodosOverlay.Width = this.ClientSize.Width;
+            this.Controls.Add(alertaNodosOverlay);
+            alertaNodosOverlay.BringToFront();
+        }
+
         private void InitShapefileLegend()
         {
+            if (_useHtmlQxWidget)
+            {
+                InitQuantiXWidgetHtml();
+                return;
+            }
             if (shapefileLegend != null) return;
 
             shapefileLegend = new ShapefileLegendControl();
@@ -2452,25 +3310,64 @@ namespace AgOpenGPS
             this.Controls.Add(shapefileLegend);
             shapefileLegend.BringToFront();
 
+            // Posición custom persistida (drag previo) → restaurar.
+            try
+            {
+                var prefs = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                if (prefs.QxX >= 0 && prefs.QxY >= 0)
+                {
+                    shapefileLegend.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+                    shapefileLegend.Location = new Point(prefs.QxX, prefs.QxY);
+                }
+            }
+            catch { }
+
+            // Drag & persist.
+            AgroParallel.Common.OverlayDragger.Attach(shapefileLegend, pt =>
+            {
+                try
+                {
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    p.QxX = pt.X; p.QxY = pt.Y;
+                    AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                }
+                catch { }
+            });
+
             // Manual por motor: (motorIdx, manual, dosis).
+            // Persistimos en motor.DosisFija — el bridge lo lee y publica el
+            // target PPS al ESP32. Si manual=false, DosisFija=0 y el bridge
+            // vuelve al cálculo desde shapefile/CampoDosis.
             shapefileLegend.MotorManualChanged += (motorIdx, manual, dosis) =>
             {
                 try
                 {
                     var motCfg = MotoresConfig.Load();
-                    foreach (var nodo in motCfg.Nodos)
+                    // Target: el nodo seleccionado en el widget. Cada nodo
+                    // dosifica en manual de forma independiente.
+                    string selUid = shapefileLegend.SelectedNodoUid;
+                    QxNodoConfig target = null;
+                    if (!string.IsNullOrEmpty(selUid))
                     {
-                        if (!nodo.Habilitado) continue;
-                        if (motorIdx < nodo.Motores.Length)
-                        {
-                            nodo.Motores[motorIdx].DosisFija = manual ? dosis : 0;
-                        }
-                        break;
+                        foreach (var n in motCfg.Nodos)
+                            if (n.Habilitado && n.Uid == selUid) { target = n; break; }
                     }
-                    motCfg.Save();
+                    if (target == null)
+                    {
+                        foreach (var n in motCfg.Nodos)
+                            if (n.Habilitado) { target = n; break; }
+                    }
+                    if (target != null && motorIdx < target.Motores.Length)
+                    {
+                        target.Motores[motorIdx].DosisFija = manual ? dosis : 0;
+                        motCfg.Save();
+                    }
                 }
                 catch { }
             };
+
+            // Aparece en modo manual (sin shape) si hay nodos QX configurados.
+            UpdateShapefileLegendVisibility();
         }
 
         private void RefreshShapefileLegend()
@@ -2485,32 +3382,120 @@ namespace AgOpenGPS
 
         private void UpdateShapefileLegendVisibility()
         {
+            // Camino HTML: visibilidad gobernada por _userWantsQXOverlay y
+            // por la existencia de nodos QX. El widget HTML se autoadapta a
+            // shape vs. sin-shape; no necesitamos HasData del control.
+            if (_useHtmlQxWidget)
+            {
+                // Init perezoso: InitShapefileMenu() corre antes de
+                // AgpWebHostBootstrap.EnsureStarted() en FormGPS_Load, por lo que
+                // la primera pasada de InitQuantiXWidgetHtml() devolvió temprano
+                // con Url vacío. Reintentamos acá hasta que el host esté arriba.
+                if (quantixWidgetHtml == null)
+                {
+                    try { InitQuantiXWidgetHtml(); }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[QxWidget] lazy init: " + ex.Message);
+                    }
+                    if (quantixWidgetHtml == null) return;
+                }
+                bool hasQxNodosHtml = false;
+                try { hasQxNodosHtml = MotoresConfig.Load().Nodos.Count > 0; } catch { }
+                bool showHtml = hasQxNodosHtml && _userWantsQXOverlay;
+                quantixWidgetHtml.Visible = showHtml;
+                if (showHtml) quantixWidgetHtml.BringToFront();
+                return;
+            }
+
             if (shapefileLegend == null) return;
-            bool show = shapefileLegend.HasData
+            // Visible si:
+            //  · Hay shapefile cargado y visible (caso original), O
+            //  · Hay nodos QuantiX configurados (para dosificar manualmente sin mapa).
+            // Y siempre respetando el toggle del usuario (pill QX).
+            bool hasShape = shapefileLegend.HasData
                 && shapefileLayer != null
                 && shapefileLayer.IsVisible;
+            bool hasQxNodos = false;
+            try { hasQxNodos = MotoresConfig.Load().Nodos.Count > 0; } catch { }
+            bool show = (hasShape || hasQxNodos) && _userWantsQXOverlay;
             shapefileLegend.Visible = show;
             if (show) shapefileLegend.BringToFront();
         }
 
         public void UpdateShapefileCurrentDose()
         {
-            if (shapefileLegend == null || shapefileLayer == null) return;
-            shapefileLegend.SetCurrent(
-                shapefileLayer.CurrentDose,
-                shapefileLayer.HasCurrentDose);
+            if (shapefileLegend == null) return;
+            // shapefileLayer puede ser null cuando no hay mapa cargado pero
+            // sí hay nodos QuantiX configurados (modo manual sin mapa).
+            if (shapefileLayer != null)
+            {
+                shapefileLegend.SetCurrent(
+                    shapefileLayer.CurrentDose,
+                    shapefileLayer.HasCurrentDose);
+            }
+            else
+            {
+                shapefileLegend.SetCurrent(0, false);
+            }
 
             // QUANTIX_MOD_START — alimentar vúmetros de motores.
             shapefileLegend.SetConnected(quantiXBridge != null && quantiXBridge.IsRunning);
+
+            // Si el bridge todavía no levantó pero el operario ya configuró
+            // nodos, mostramos placeholders en el widget (nombres + 0/0) en
+            // vez de dejarlo negro/vacío. Apenas el bridge produzca PPS reales
+            // el bloque de abajo los sobrescribe.
+            if (quantiXBridge == null || !quantiXBridge.IsRunning)
+            {
+                try
+                {
+                    var motCfg = MotoresConfig.Load();
+                    var nodoInfos = new System.Collections.Generic.List<ShapefileLegendControl.NodoInfo>();
+                    foreach (var n in motCfg.Nodos)
+                        if (n.Habilitado)
+                            nodoInfos.Add(new ShapefileLegendControl.NodoInfo { Uid = n.Uid, Nombre = string.IsNullOrEmpty(n.Nombre) ? n.Uid : n.Nombre });
+                    shapefileLegend.SetNodos(nodoInfos);
+
+                    string selUid = shapefileLegend.SelectedNodoUid;
+                    foreach (var nodo in motCfg.Nodos)
+                    {
+                        if (!nodo.Habilitado) continue;
+                        if (!string.IsNullOrEmpty(selUid) && nodo.Uid != selUid) continue;
+                        for (int mi = 0; mi < nodo.Motores.Length && mi < 2; mi++)
+                        {
+                            var motor = nodo.Motores[mi];
+                            string nombre = string.IsNullOrEmpty(motor.Nombre) ? ("M" + mi) : motor.Nombre;
+                            shapefileLegend.SetMotorDosis(mi, nombre, 0, 0, false);
+                            shapefileLegend.SetMotorManualState(mi, motor.DosisFija > 0, motor.DosisFija);
+                        }
+                        break;
+                    }
+                }
+                catch { }
+            }
 
             if (quantiXBridge != null && quantiXBridge.IsRunning)
             {
                 try
                 {
                     var motCfg = MotoresConfig.Load();
+
+                    // Alimentar el selector de nodos del widget.
+                    var nodoInfos = new System.Collections.Generic.List<ShapefileLegendControl.NodoInfo>();
+                    foreach (var n in motCfg.Nodos)
+                        if (n.Habilitado)
+                            nodoInfos.Add(new ShapefileLegendControl.NodoInfo { Uid = n.Uid, Nombre = string.IsNullOrEmpty(n.Nombre) ? n.Uid : n.Nombre });
+                    shapefileLegend.SetNodos(nodoInfos);
+
+                    // Renderizar SOLO el nodo seleccionado. Cada nodo tiene su
+                    // propio M0/M1; el widget muestra/edita uno por vez.
+                    string selUid = shapefileLegend.SelectedNodoUid;
+
                     foreach (var nodo in motCfg.Nodos)
                     {
                         if (!nodo.Habilitado) continue;
+                        if (!string.IsNullOrEmpty(selUid) && nodo.Uid != selUid) continue;
                         for (int mi = 0; mi < nodo.Motores.Length && mi < 2; mi++)
                         {
                             var motor = nodo.Motores[mi];
@@ -2535,6 +3520,15 @@ namespace AgOpenGPS
                                 if (dosisObj <= 0)
                                     dosisObj = shapefileLayer.CurrentDose;
                             }
+                            else if (shapefileLayer != null && shapefileLayer.HasCurrentDose)
+                            {
+                                // Fallback: motor sin CampoDosis propio → usa el
+                                // StyleField global del shape (= lo mismo que el
+                                // bridge en QuantiXMotorBridge.OnTick rama "campo
+                                // global"). Esto mantiene el panel en sync con
+                                // lo que efectivamente está dosificando.
+                                dosisObj = shapefileLayer.CurrentDose;
+                            }
 
                             // Dosis real (kg/ha) inversa desde PPS real del ESP32.
                             // Bridge: pps = (dosis_kg × 1000 × ancho × velMs) / 10000 / MeterCal_g_pulso
@@ -2547,9 +3541,13 @@ namespace AgOpenGPS
                             string nombre = motor.Nombre ?? ("M" + mi);
                             if (!string.IsNullOrEmpty(motor.CampoDosis))
                                 nombre = motor.CampoDosis;
+                            else if (shapefileLayer != null && !string.IsNullOrEmpty(shapefileLayer.StyleField))
+                                nombre = shapefileLayer.StyleField;
 
                             bool activo = ppsReal > 0 || dosisObj > 0;
                             shapefileLegend.SetMotorDosis(mi, nombre, dosisObj, dosisReal, activo);
+                            // Sync MAN/AUTO + manual dose desde la config del nodo seleccionado.
+                            shapefileLegend.SetMotorManualState(mi, motor.DosisFija > 0, motor.DosisFija);
                         }
                         break;
                     }
@@ -2557,7 +3555,138 @@ namespace AgOpenGPS
                 catch { }
             }
             // QUANTIX_MOD_END
+
+            // FLOWX_LEGEND_MOD_START — refresh del overlay FlowX en el mismo tick.
+            UpdateFlowXLegend();
+            // FLOWX_LEGEND_MOD_END
         }
+
+        // FLOWX_LEGEND_MOD_START
+        // Overlay de telemetría FlowX en el mapa. Apilado encima del
+        // shapefileLegend (QuantiX) cuando ambos están activos.
+        private void InitFlowXLegend()
+        {
+            if (flowXLegend != null) return;
+            flowXLegend = new AgroParallel.FlowX.FlowXLegendControl();
+            flowXLegend.Visible = false;
+            flowXLegend.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
+            // Lo posicionamos arriba del widget QuantiX (legacy o HTML) si existe;
+            // sino, en su lugar.
+            Control qxAnchor = (Control)shapefileLegend ?? quantixWidgetHtml;
+            int baseY = (qxAnchor != null)
+                ? qxAnchor.Top - flowXLegend.Height - 8
+                : this.ClientSize.Height - flowXLegend.Height - 90;
+            flowXLegend.Location = new Point(85, baseY);
+            this.Controls.Add(flowXLegend);
+            flowXLegend.BringToFront();
+
+            // Posición custom persistida → restaurar.
+            try
+            {
+                var prefs = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                if (prefs.FxX >= 0 && prefs.FxY >= 0)
+                {
+                    flowXLegend.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+                    flowXLegend.Location = new Point(prefs.FxX, prefs.FxY);
+                }
+            }
+            catch { }
+
+            // Drag & persist.
+            AgroParallel.Common.OverlayDragger.Attach(flowXLegend, pt =>
+            {
+                try
+                {
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    p.FxX = pt.X; p.FxY = pt.Y;
+                    AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                }
+                catch { }
+            });
+        }
+
+        private void UpdateFlowXLegend()
+        {
+            if (flowXLegend == null) return;
+            try
+            {
+                var live = AgroParallel.Shell.AgpWebHostBootstrap.FlowXLive;
+                var cfg = FlowXConfig.Load();
+                int cfgCount = (cfg != null && cfg.Nodos != null) ? cfg.Nodos.Count : 0;
+                // Respetamos el toggle del usuario (pill FX): aunque la config
+                // tenga nodos y esté enabled, si el operario apagó el overlay
+                // no lo mostramos.
+                bool show = (cfg != null && cfg.Enabled) && cfgCount > 0 && _userWantsFXOverlay;
+                if (!show)
+                {
+                    if (flowXLegend.Visible) flowXLegend.Visible = false;
+                    return;
+                }
+
+                var rows = new System.Collections.Generic.List<AgroParallel.FlowX.FlowXLegendControl.NodoLive>();
+                if (live != null)
+                {
+                    var snap = live.GetSnapshot();
+                    if (snap != null && snap.Nodos != null)
+                    {
+                        foreach (var n in snap.Nodos)
+                        {
+                            rows.Add(new AgroParallel.FlowX.FlowXLegendControl.NodoLive
+                            {
+                                Uid = n.Uid,
+                                Nombre = string.IsNullOrEmpty(n.Nombre) ? n.Uid : n.Nombre,
+                                Online = n.Online,
+                                CaudalLmin = n.CaudalLmin,
+                                TargetLmin = n.TargetLmin,
+                                Pwm = n.Pwm,
+                                PidEstado = n.PidEstado
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    // Live service todavía no levantó — mostramos placeholders
+                    // a partir de la config para no dejarlo vacío.
+                    foreach (var n in cfg.Nodos)
+                    {
+                        if (string.IsNullOrEmpty(n.Uid)) continue;
+                        rows.Add(new AgroParallel.FlowX.FlowXLegendControl.NodoLive
+                        {
+                            Uid = n.Uid,
+                            Nombre = string.IsNullOrEmpty(n.Nombre) ? n.Uid : n.Nombre,
+                            Online = false,
+                            CaudalLmin = 0,
+                            TargetLmin = 0,
+                            Pwm = 0,
+                            PidEstado = "off"
+                        });
+                    }
+                }
+
+                flowXLegend.SetNodos(rows);
+                bool anyOnline = false;
+                foreach (var r in rows) if (r.Online) { anyOnline = true; break; }
+                flowXLegend.SetConnected(anyOnline);
+
+                // Re-anclar arriba del widget QuantiX cada vez (legacy o HTML).
+                Control qxAnchor2 = (Control)shapefileLegend ?? quantixWidgetHtml;
+                if (qxAnchor2 != null && qxAnchor2.Visible)
+                {
+                    int newY = qxAnchor2.Top - flowXLegend.Height - 8;
+                    if (flowXLegend.Top != newY)
+                        flowXLegend.Location = new Point(flowXLegend.Left, newY);
+                }
+
+                if (!flowXLegend.Visible) flowXLegend.Visible = true;
+                flowXLegend.BringToFront();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[FlowX] UpdateFlowXLegend: " + ex.Message);
+            }
+        }
+        // FLOWX_LEGEND_MOD_END
 
         // QUANTIX_MOD_START
         private void StartQuantiXSender()
@@ -2573,7 +3702,7 @@ namespace AgOpenGPS
                 // No depende de Enabled del sender UDP.
                 if (quantiXBridge == null)
                 {
-                    quantiXBridge = new QuantiXMotorBridge(this);
+                    quantiXBridge = new QuantiXMotorBridge(new AgroParallel.Adapters.FormGpsStateProvider(this), new AgroParallel.Services.PrescripcionService());
                     _ = quantiXBridge.StartAsync();
                 }
 
@@ -2608,31 +3737,6 @@ namespace AgOpenGPS
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[QuantiX] StopSender: " + ex.Message);
-            }
-        }
-
-        private void OpenQuantiXConfigDialog()
-        {
-            try
-            {
-                if (quantiXConfig == null)
-                    quantiXConfig = QuantiXConfig.Load();
-
-                using (var dlg = new FormQuantiXConfig(quantiXConfig))
-                {
-                    if (dlg.ShowDialog(this) != DialogResult.OK) return;
-                }
-
-                // Reiniciar el sender con la nueva config. Si ahora esta
-                // deshabilitado o cambio host/puerto/rate, Stop+Start aplica.
-                StopQuantiXSender();
-                if (isJobStarted && quantiXConfig.Enabled)
-                    StartQuantiXSender();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("[QuantiX] OpenConfigDialog: "
-                    + ex.Message);
             }
         }
 

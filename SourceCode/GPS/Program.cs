@@ -1,5 +1,4 @@
 using AgOpenGPS.Forms;
-using AgroParallel.Sistema;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -23,37 +22,20 @@ namespace AgOpenGPS
         [STAThread]
         private static void Main(string[] args)
         {
-            bool shellMode = args != null && args.Length > 0 &&
-                (args[0] == "--shell" || args[0] == "-shell" || args[0] == "/shell");
-
-            // Mutex distinto para cada modo, así no se pisa con el otro proceso.
-            string mutexName = shellMode
-                ? "{516-0AC5-B9A1-55fd-A8CE-72F04E6BDE8F}-shell"
-                : "{516-0AC5-B9A1-55fd-A8CE-72F04E6BDE8F}";
-            using (var mtx = new Mutex(true, mutexName, out bool createdNew))
+            // Mutex de instancia única.
+            using (var mtx = new Mutex(true, "{516-0AC5-B9A1-55fd-A8CE-72F04E6BDE8F}", out bool createdNew))
             {
                 if (!createdNew)
                 {
-                    if (!shellMode) FormDialog.Show("Warning", "AgOpenGPS is Already Running", DialogSeverity.Warning);
+                    FormDialog.Show("Warning", "AgOpenGPS is Already Running", DialogSeverity.Warning);
                     return;
                 }
 
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 
-                if (shellMode)
-                {
-                    // Modo shell de fallback (relanzado desde AOG al cerrarse).
-                    using (var shell = new FormPilotXShell())
-                    {
-                        Application.Run(shell);
-                        if (shell.Result == FormPilotXShell.ShellAction.Reabrir)
-                        {
-                            try { Process.Start(Application.ExecutablePath); } catch { }
-                        }
-                    }
-                    return;
-                }
+                // El teclado virtual ahora es HTML (keyboard.js dentro del hub
+                // WebView2). Ya no hookeamos osk/tabtip nativo.
 
                 // Modo AOG normal.
                 RegistrySettings.Load();
@@ -65,22 +47,36 @@ namespace AgOpenGPS
                 {
                     Application.Run(new FormGPS());
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
                     aogExitCode = 1;
+                    // Escribir el crash a un archivo junto al .exe + mostrarlo
+                    // en pantalla, así no se pierde y el usuario sabe qué pasó
+                    // antes de caer al shell PilotX.
+                    try
+                    {
+                        string exeDir = System.IO.Path.GetDirectoryName(Application.ExecutablePath);
+                        string logPath = System.IO.Path.Combine(exeDir, "AOG-crash.log");
+                        string entry = "=== " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ===\r\n"
+                            + ex.GetType().FullName + ": " + ex.Message + "\r\n"
+                            + ex.StackTrace + "\r\n";
+                        if (ex.InnerException != null)
+                            entry += "INNER: " + ex.InnerException + "\r\n";
+                        entry += "\r\n";
+                        System.IO.File.AppendAllText(logPath, entry);
+                    }
+                    catch { }
+                    try
+                    {
+                        MessageBox.Show(
+                            ex.GetType().Name + ": " + ex.Message
+                            + "\r\n\r\nVer AOG-crash.log para más detalle.",
+                            "AOG crasheó al iniciar",
+                            MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    catch { }
                 }
 
-                // Al cerrarse AOG (X, Alt+F4, Application.Exit, crash), relanzamos
-                // el mismo .exe en modo --shell. Lo hacemos ANTES de salir y en
-                // un proceso nuevo para esquivar el flag de "exiting" del Application.
-                try
-                {
-                    Process.Start(new ProcessStartInfo(Application.ExecutablePath, "--shell")
-                    {
-                        UseShellExecute = false
-                    });
-                }
-                catch { }
                 Environment.Exit(aogExitCode);
             }
         }
