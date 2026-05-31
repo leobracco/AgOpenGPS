@@ -19,7 +19,7 @@
             BorderBrush="{StaticResource PilotXBorderHigh}"
             BorderThickness="1"
             CornerRadius="0">
-        <Grid RowDefinitions="Auto,*,Auto">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
 
             <!-- =================== HEADER (modo float) =================== -->
             <Border Name="HeaderBar"
@@ -78,12 +78,151 @@
                 </Grid>
             </Border>
 
+            <!-- =================== HUD COCKPIT (modo full) =================== -->
+            <!--
+                Barra horizontal con datos vivos del estado de PilotX
+                (speed/heading/GPS) leidos del AgpWebHost via HTTP polling.
+                Solo aparece en modo full (en widgets float seria ruido).
+                Mientras no haya render de mapa nativo en Avalonia, este HUD
+                da "feeling PilotX" desde el cold-start.
+            -->
+            <Border Name="HudBar"
+                    Grid.Row="1"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,0,0,1"
+                    Height="44"
+                    IsVisible="False">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto"
+                      VerticalAlignment="Center"
+                      Margin="14,0,14,0">
+
+                    <!-- Marca PX (lado izquierdo, fija) -->
+                    <Border Grid.Column="0"
+                            Width="28" Height="28"
+                            CornerRadius="6"
+                            Background="{StaticResource PilotXAccent}"
+                            Margin="0,0,10,0">
+                        <TextBlock Text="PX"
+                                   Foreground="{StaticResource PilotXBgDeep}"
+                                   FontWeight="Bold"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Chip GPS / Job: pinta verde si IsJobStarted, ambar si no -->
+                    <Border Grid.Column="1"
+                            Name="HudStatusChip"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="12,4,12,4"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Name="HudStatusDot"
+                                     Width="10" Height="10"
+                                     Fill="{StaticResource PilotXTextDim}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="HudStatusText"
+                                       Text="Sin conexion"
+                                       Foreground="{StaticResource PilotXTextMid}"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Chip Heading -->
+                    <Border Grid.Column="2"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,4,10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="HDG"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="HudHeading"
+                                       Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="°"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Centro flexible (vacio por ahora — placeholder para track / lote) -->
+                    <TextBlock Grid.Column="3"
+                               Name="HudTrack"
+                               Text=""
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+
+                    <!-- Chip Speed (lado derecho, mas grande — dato ancla del operario) -->
+                    <Border Grid.Column="4"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="12,4,12,4"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Name="HudSpeed"
+                                       Text="0.0"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="km/h"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,3"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Chip Area trabajada -->
+                    <Border Grid.Column="5"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,4,10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="AREA"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="HudArea"
+                                       Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="ha"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
             <!-- =================== WEBVIEW (Hub) =================== -->
-            <wv:WebView x:Name="WebViewHost" Grid.Row="1"/>
+            <wv:WebView x:Name="WebViewHost" Grid.Row="2"/>
 
             <!-- FAB X (modo full, ya que sin header no hay otra forma de cerrar) -->
             <Button x:Name="CloseButton"
-                    Grid.Row="1"
+                    Grid.Row="2"
                     Content="X"
                     Width="48" Height="48"
                     FontSize="20"
@@ -109,7 +248,7 @@
                 botones uno por uno (project_pilotx_toolbar_icons).
             -->
             <Border Name="BottomToolbar"
-                    Grid.Row="2"
+                    Grid.Row="3"
                     Background="{StaticResource PilotXBgMid}"
                     BorderBrush="{StaticResource PilotXBorder}"
                     BorderThickness="0,1,0,0"

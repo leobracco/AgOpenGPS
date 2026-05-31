@@ -65,6 +65,25 @@ dotnet run --project SourceCode/PilotX.Desktop -- --mode=float --page=pages/cama
 
 Esc cierra; F12 abre DevTools del WebView2 subyacente.
 
+## HUD cockpit
+
+Modo full incluye una barra horizontal arriba del WebView con datos
+vivos del estado de PilotX (lee `GET /api/aog/state` a 4 Hz):
+
+```
+[PX]  ● Trabajo activo   HDG 187°   ...   24.3 km/h   AREA 12.4 ha
+```
+
+- Chip estado: verde (trabajo + GPS fix), ámbar (sin trabajo), rojo
+  (trabajo sin fix), gris (host caído).
+- Speed en km/h (1 decimal).
+- Heading en grados, normalizado 0..360.
+- Área neta cubierta (sin solapamiento) en hectáreas.
+
+Implementado en `Services/HudPoller.cs` (HttpClient + JSON, case-
+insensitive para tolerar PascalCase/camelCase de EmbedIO/Swan).
+En modo float el HUD no se muestra y el poller no arranca.
+
 ## Pendiente (no esta cubierto en este esqueleto)
 
 - Migrar el render OpenGL del mapa de `FormGPS` a Avalonia (`Silk.NET`
@@ -77,8 +96,6 @@ Esc cierra; F12 abre DevTools del WebView2 subyacente.
 - Mover los servicios del shell WinForms (`AogStateProvider`, `lotes`,
   `vehicleTool`, etc.) detras de interfaces que ambos shells puedan
   hostear sin tocar el codigo del Hub HTML.
-- Branding visible: HUD speed/heading/GPS-status en el chrome cuando no
-  hay todavia mapa, para que se sienta "PilotX" desde el arranque.
 
 ## Cold-start
 
@@ -98,7 +115,9 @@ SourceCode/PilotX.Desktop/
   PilotX.Desktop.csproj      net9.0-windows + Avalonia 11.2.3 + WebView.Avalonia
   Program.cs                 entrypoint + parser de args
   App.axaml(.cs)             Application + ResourceDictionary cockpit
-  MainWindow.axaml(.cs)      ventana borderless + WebView + toolbar
+  MainWindow.axaml(.cs)      ventana borderless + HUD + WebView + toolbar
+  Services/
+    HudPoller.cs             HTTP polling de /api/aog/state -> HUD live
   Theme/
     PilotXTheme.axaml        paleta cockpit (verde marca + grises cabina)
   app.manifest               DPI per-monitor + supportedOS Win10/11
