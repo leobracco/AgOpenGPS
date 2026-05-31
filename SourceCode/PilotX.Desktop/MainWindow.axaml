@@ -258,6 +258,11 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Spacing="16">
+                    <!--
+                        Engranaje: ajustes (vehiculo/implemento/sistema). Se
+                        desactiva si no hay GPS fix — coherente con
+                        project_pilotx_toolbar_icons.
+                    -->
                     <Button Name="BtnSettings"
                             Width="56" Height="48"
                             Content="(:)"
@@ -266,8 +271,12 @@
                             BorderBrush="{StaticResource PilotXBorderHigh}"
                             BorderThickness="1"
                             CornerRadius="6"
-                            Click="OnPlaceholderClick"
-                            ToolTip.Tip="Ajustes (placeholder)"/>
+                            Click="OnSettingsClick"
+                            ToolTip.Tip="Ajustes - Sistema/Vehiculo/Implemento (requiere GPS)"/>
+                    <!--
+                        FieldTools: datos del lote activo. Se desactiva si no
+                        hay job iniciado (IsJobStarted=false).
+                    -->
                     <Button Name="BtnFieldTools"
                             Width="56" Height="48"
                             Content="[F]"
@@ -276,8 +285,13 @@
                             BorderBrush="{StaticResource PilotXBorderHigh}"
                             BorderThickness="1"
                             CornerRadius="6"
-                            Click="OnPlaceholderClick"
-                            ToolTip.Tip="Herramientas de lote (placeholder)"/>
+                            Click="OnFieldToolsClick"
+                            ToolTip.Tip="Herramientas de lote - datos del lote activo (requiere lote)"/>
+                    <!--
+                        Tools (SpecialFunctions): SIEMPRE activo. Abre un
+                        menu con los productos X-* + Hub. Cada item navega
+                        el WebView a su pagina del wwwroot.
+                    -->
                     <Button Name="BtnTools"
                             Width="56" Height="48"
                             Content="[T]"
@@ -286,8 +300,26 @@
                             BorderBrush="{StaticResource PilotXBorderHigh}"
                             BorderThickness="1"
                             CornerRadius="6"
-                            Click="OnPlaceholderClick"
-                            ToolTip.Tip="Special Functions / productos X-* / Hub (placeholder)"/>
+                            ToolTip.Tip="Special Functions - productos X-* / Hub">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="Top">
+                                <MenuItem Header="Hub"        Click="OnNavHub"/>
+                                <MenuItem Header="-"/>
+                                <MenuItem Header="Camaras"    Click="OnNavCamaras"/>
+                                <MenuItem Header="VistaX"     Click="OnNavVistaX"/>
+                                <MenuItem Header="QuantiX"    Click="OnNavQuantiX"/>
+                                <MenuItem Header="SectionX"   Click="OnNavSectionX"/>
+                                <MenuItem Header="FlowX"      Click="OnNavFlowX"/>
+                                <MenuItem Header="StormX"     Click="OnNavStormX"/>
+                                <MenuItem Header="CoreX ECU"  Click="OnNavCoreX"/>
+                                <MenuItem Header="-"/>
+                                <MenuItem Header="Nodos"      Click="OnNavNodos"/>
+                                <MenuItem Header="Firmwares"  Click="OnNavFirmwares"/>
+                                <MenuItem Header="OrbitX"     Click="OnNavOrbitX"/>
+                                <MenuItem Header="Debug"      Click="OnNavDebug"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
                 </StackPanel>
             </Border>
         </Grid>

@@ -34,6 +34,11 @@ public partial class MainWindow : Window
     // Para que un host caido no pinte "Reconectando..." en cada tick (parpadeo).
     private bool _hudWasConnected;
 
+    // Toolbar inferior (state-aware). Engranaje OFF sin GPS, FieldTools OFF
+    // sin lote, Tools SIEMPRE ON.
+    private Button? _btnSettings;
+    private Button? _btnFieldTools;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -54,6 +59,13 @@ public partial class MainWindow : Window
         _hudStatusText   = this.FindControl<TextBlock>("HudStatusText");
         _hudStatusDot    = this.FindControl<Ellipse>("HudStatusDot");
         _hudStatusChip   = this.FindControl<Border>("HudStatusChip");
+
+        _btnSettings     = this.FindControl<Button>("BtnSettings");
+        _btnFieldTools   = this.FindControl<Button>("BtnFieldTools");
+        // Arrancan deshabilitados; el primer snapshot del HUD los habilita
+        // segun el estado (GPS fix / job activo). Tools queda siempre on.
+        if (_btnSettings   != null) _btnSettings.IsEnabled   = false;
+        if (_btnFieldTools != null) _btnFieldTools.IsEnabled = false;
 
         if (App.WindowMode == "float")
         {
@@ -204,7 +216,15 @@ public partial class MainWindow : Window
                 _hudArea.Text = ha >= 100 ? ha.ToString("0") : ha.ToString("0.0");
             }
 
-            UpdateStatusChip(connected: true, jobActive: s.IsJobStarted, hasGpsFix: s.Latitude != 0 || s.Longitude != 0);
+            bool hasGpsFix = s.Latitude != 0 || s.Longitude != 0;
+            UpdateStatusChip(connected: true, jobActive: s.IsJobStarted, hasGpsFix: hasGpsFix);
+            // Estado toolbar inferior coherente con project_pilotx_toolbar_icons:
+            //   Engranaje  -> requiere GPS fix (ajustes de vehiculo/implemento
+            //                 sin posicion no tienen valor operativo)
+            //   FieldTools -> requiere job iniciado (sin lote no hay datos)
+            //   Tools      -> queda siempre habilitado (no se toca aca)
+            if (_btnSettings   != null) _btnSettings.IsEnabled   = hasGpsFix;
+            if (_btnFieldTools != null) _btnFieldTools.IsEnabled = s.IsJobStarted;
             _hudWasConnected = true;
         });
     }
@@ -217,6 +237,12 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(() =>
         {
             UpdateStatusChip(connected: false, jobActive: false, hasGpsFix: false);
+            // Host caido = sin info confiable. Desactivo Settings/FieldTools
+            // para evitar que el operario navegue a paginas que no van a
+            // responder. Tools sigue activo (productos X-* / Hub funcionan
+            // contra otros endpoints, no contra /api/aog/state).
+            if (_btnSettings   != null) _btnSettings.IsEnabled   = false;
+            if (_btnFieldTools != null) _btnFieldTools.IsEnabled = false;
             _hudWasConnected = false;
         });
     }
@@ -264,14 +290,63 @@ public partial class MainWindow : Window
         catch { return "http://127.0.0.1:5180/"; }
     }
 
-    // Placeholder: los 3 botones de la toolbar inferior aun no estan
-    // implementados. Cuando se enganchen a sus paneles reales, este handler
-    // desaparece y cada boton agarra su propio Command. Por ahora solo
-    // queremos que el chrome compile y renderice.
-    private void OnPlaceholderClick(object? sender, RoutedEventArgs e)
+    // ---------- Toolbar inferior: navegacion ------------------------------
+    //
+    // Los 3 botones (Engranaje/FieldTools/Tools) ahora navegan el WebView
+    // a paginas concretas del wwwroot. Tools usa un MenuFlyout en el XAML
+    // que dispara los handlers OnNav* de abajo. Engranaje y FieldTools
+    // navegan directo. Quedan deshabilitados via OnHudSnapshot segun el
+    // estado del PilotX (sin GPS / sin job).
+
+    private void OnSettingsClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button b)
-            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] toolbar click: " + b.Name);
+        // "sistema.html" es el shell de ajustes del Hub (atajos a vehiculo/
+        // implemento/sistema). Si en el futuro se decide enganchar la UI
+        // nativa Avalonia de Settings, se cambia aca por un cambio de View.
+        NavigateTo("pages/sistema.html");
+    }
+
+    private void OnFieldToolsClick(object? sender, RoutedEventArgs e)
+    {
+        // btnFieldStats del FormGPS abre datos-lote.html en el Hub
+        // (project_aog_popups_html). Mantengo el mismo destino para que la
+        // experiencia entre shells WinForms y Avalonia sea identica.
+        NavigateTo("pages/datos-lote.html");
+    }
+
+    // Flyout Tools - productos X-* + utilidades. Cada handler navega a
+    // su pagina; no abrimos ventanas nuevas (eso vendria con widgets float
+    // si en el futuro se quieren overlays encima del mapa).
+    private void OnNavHub      (object? s, RoutedEventArgs e) => NavigateTo("");
+    private void OnNavCamaras  (object? s, RoutedEventArgs e) => NavigateTo("pages/camaras.html");
+    private void OnNavVistaX   (object? s, RoutedEventArgs e) => NavigateTo("pages/vistax.html");
+    private void OnNavQuantiX  (object? s, RoutedEventArgs e) => NavigateTo("pages/quantix.html");
+    private void OnNavSectionX (object? s, RoutedEventArgs e) => NavigateTo("pages/sectionx.html");
+    private void OnNavFlowX    (object? s, RoutedEventArgs e) => NavigateTo("pages/flowx.html");
+    private void OnNavStormX   (object? s, RoutedEventArgs e) => NavigateTo("pages/stormx.html");
+    private void OnNavCoreX    (object? s, RoutedEventArgs e) => NavigateTo("pages/corex-ecu.html");
+    private void OnNavNodos    (object? s, RoutedEventArgs e) => NavigateTo("pages/nodos.html");
+    private void OnNavFirmwares(object? s, RoutedEventArgs e) => NavigateTo("pages/firmwares.html");
+    private void OnNavOrbitX   (object? s, RoutedEventArgs e) => NavigateTo("pages/orbitx.html");
+    private void OnNavDebug    (object? s, RoutedEventArgs e) => NavigateTo("pages/debug.html");
+
+    // Construye URL absoluta a partir del origen del WebView actual + path
+    // relativo. Asi si el usuario arranco con --url=http://otra-pc:5180/
+    // los botones siguen apuntando al mismo host (no a 127.0.0.1 hardcoded).
+    private void NavigateTo(string relativePath)
+    {
+        if (_webView == null) return;
+        try
+        {
+            var origin = DeriveOrigin(App.TargetUrl);
+            var full   = origin + (relativePath ?? string.Empty).TrimStart('/');
+            _webView.Url = new Uri(full);
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] navigate -> " + full);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] navigate error: " + ex.Message);
+        }
     }
 
     // El subtitulo del header es informativo: muestra que pagina esta

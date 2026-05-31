@@ -84,15 +84,32 @@ Implementado en `Services/HudPoller.cs` (HttpClient + JSON, case-
 insensitive para tolerar PascalCase/camelCase de EmbedIO/Swan).
 En modo float el HUD no se muestra y el poller no arranca.
 
+## Toolbar inferior
+
+Los 3 botones de abajo navegan el WebView al wwwroot embebido y reflejan
+el estado del PilotX (project_pilotx_toolbar_icons):
+
+| Boton      | Habilitado si           | Navega a                |
+|------------|-------------------------|-------------------------|
+| Engranaje  | hay GPS fix             | `pages/sistema.html`    |
+| FieldTools | hay job iniciado        | `pages/datos-lote.html` |
+| Tools      | siempre                 | MenuFlyout con productos X-* + Hub |
+
+El estado lo maneja `OnHudSnapshot` en `MainWindow.axaml.cs`: cada snapshot
+del `/api/aog/state` actualiza `IsEnabled` de Engranaje (mira `Latitude`/
+`Longitude` != 0) y FieldTools (`IsJobStarted`). Si el host cae, ambos se
+deshabilitan; Tools sigue activo.
+
+El menu de Tools incluye: Hub, Camaras, VistaX, QuantiX, SectionX, FlowX,
+StormX, CoreX ECU, Nodos, Firmwares, OrbitX, Debug. Cada item navega a su
+pagina del wwwroot manteniendo el origen del WebView actual (no hardcodea
+127.0.0.1, asi si arrancaste con `--url=http://otra-pc:5180/` los botones
+siguen apuntando al host correcto).
+
 ## Pendiente (no esta cubierto en este esqueleto)
 
 - Migrar el render OpenGL del mapa de `FormGPS` a Avalonia (`Silk.NET`
   o equivalente). Lo mas caro.
-- Wire-up real de los 3 botones de la toolbar inferior (hoy placeholders).
-  Ver `project_pilotx_toolbar_icons`:
-    - Engranaje (off sin GPS)
-    - FieldTools (off sin lote)
-    - Tools / SpecialFunctions (siempre activo)
 - Mover los servicios del shell WinForms (`AogStateProvider`, `lotes`,
   `vehicleTool`, etc.) detras de interfaces que ambos shells puedan
   hostear sin tocar el codigo del Hub HTML.
