@@ -74,11 +74,33 @@ namespace AgIO
         public FormLoop()
         {
             InitializeComponent();
+
+            // ── Theming Agro Parallel ────────────────────────────────────────
+            // Sienta precedente: cualquier Form que quiera el look AP llama
+            // a CTheme.Apply(this) en su constructor / Load. Idempotente.
+            try { CTheme.Apply(this); } catch { /* nunca romper la UI por theming */ }
+
+            // Borde "tool window" se ve raro con tema oscuro — pasamos a Sizable.
+            this.FormBorderStyle = FormBorderStyle.Sizable;
+            this.Text = "CoreX · Agro Parallel";
+
+            // Cargar el icono de marca desde el propio .exe (definido en csproj
+            // <ApplicationIcon>AgIO_ico.ico). Así el embed en FormLoop.resx queda
+            // ignorado y la titlebar/taskbar muestra el icono Agro Parallel.
+            try
+            {
+                var ico = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+                if (ico != null) this.Icon = ico;
+            }
+            catch { }
         }
 
         //First run
         private void FormLoop_Load(object sender, EventArgs e)
         {
+            // Re-aplicar por si algún control fue creado en runtime.
+            try { CTheme.Apply(this); } catch { }
+
             if (Settings.Default.setDisplay_StartMinimized)
             {
                 this.WindowState = FormWindowState.Minimized;
@@ -266,14 +288,16 @@ namespace AgIO
                 }
             }
 
-            this.Text =
-            "AgIO  v" + Program.Version + " Profile: " + RegistrySettings.profileName;
+            this.Text = "CoreX · v" + Program.Version + " · " +
+                (string.IsNullOrEmpty(RegistrySettings.profileName)
+                    ? "(sin perfil)"
+                    : RegistrySettings.profileName);
 
             if (RegistrySettings.profileName == "")
             {
                 Log.EventWriter("Using Default Profile At Start Warning");
 
-                YesMessageBox("AgIO - No Profile Open \r\n\r\n Create or Open a Profile");
+                YesMessageBox("CoreX - No Profile Open \r\n\r\n Create or Open a Profile");
 
                 using (var form = new FormProfiles(this))
                 {
@@ -285,8 +309,10 @@ namespace AgIO
                         Program.Restart();
                     }
                 }
-                this.Text = "AgIO  v" + Program.Version + " Profile: "
-                    + RegistrySettings.profileName;
+                this.Text = "CoreX · v" + Program.Version + " · " +
+                    (string.IsNullOrEmpty(RegistrySettings.profileName)
+                        ? "(sin perfil)"
+                        : RegistrySettings.profileName);
             }
 
             if (Settings.Default.setDisplay_isAutoRunGPS_Out)
@@ -297,6 +323,9 @@ namespace AgIO
 
             // MQTT Broker — arranca automáticamente.
             StartMqttBroker();
+
+            // NodePanel — HTTP+SSE en :8080 con la PWA para ver nodos LAN.
+            StartNodePanel();
         }
 
         private void FormLoop_FormClosing(object sender, FormClosingEventArgs e)
@@ -332,6 +361,10 @@ namespace AgIO
             {
                 processName[0].CloseMainWindow();
             }
+
+            // NodePanel shutdown (antes que el broker para que SSE clients
+            // dejen de recibir y se cierren limpio).
+            StopNodePanel();
 
             // MQTT Broker shutdown.
             StopMqttBroker();

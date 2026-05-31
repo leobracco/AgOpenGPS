@@ -334,7 +334,7 @@ namespace AgIO
 
             Properties.Settings.Default.Save();
 
-            mf.YesMessageBox("AgIO will Restart to Disable UDP Networking Features");
+            mf.YesMessageBox("CoreX will Restart to Disable UDP Networking Features");
             Log.EventWriter("Program Reset: Turning UDP OFF");
 
             Program.Restart();

@@ -319,7 +319,7 @@ namespace AgIO
         {
             if (RegistrySettings.profileName == "")
             {
-                TimedMessageBox(3000, "AgIO Default Profile Used", "Create or Choose a Profile");
+                TimedMessageBox(3000, "CoreX Default Profile Used", "Create or Choose a Profile");
             }
 
             using (var form = new FormProfiles(this))
@@ -332,8 +332,10 @@ namespace AgIO
                     Program.Restart();
                 }
             }
-            this.Text = "AgIO  v" + Program.Version + "   Using Profile: "
-                + RegistrySettings.profileName;
+            this.Text = "CoreX · v" + Program.Version + " · " +
+                (string.IsNullOrEmpty(RegistrySettings.profileName)
+                    ? "(sin perfil)"
+                    : RegistrySettings.profileName);
         }
 
         private void modSimToolStrip_Click(object sender, EventArgs e)

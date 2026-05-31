@@ -224,7 +224,7 @@
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
             this.Name = "FormProfiles";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            this.Text = "AgIO: Manage Profiles";
+            this.Text = "CoreX · Perfiles";
             this.Load += new System.EventHandler(this.FormCommSaver_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
