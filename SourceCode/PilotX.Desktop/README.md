@@ -1,0 +1,106 @@
+# PilotX.Desktop
+
+Shell **Avalonia** oficial de PilotX. Reemplazo gradual del shell WinForms
+actual (FormGPS + `AgroParallel.Shell` WebView2). Mientras dura la migracion,
+ambos coexisten apuntando al mismo `AgpWebHost` en `127.0.0.1:5180`.
+
+## Estrategia (strangler fig)
+
+```
++-------------------+    +-------------------+
+| FormGPS (WinForms)|    | PilotX.Desktop    |
+| + AgroParallel    |    | (Avalonia 11.2.3) |
+|   .Shell WebView2 |    |                   |
++--------+----------+    +----------+--------+
+         |                          |
+         |   127.0.0.1:5180         |
+         v                          v
+   +-----+--------------------------+-----+
+   |        AgroParallel.WebHost          |
+   |   (EmbedIO + wwwroot HTML/JS/CSS)    |
+   +--------------------------------------+
+```
+
+- **WinForms** sigue siendo el productivo en el tractor (incluye el render
+  OpenGL del mapa, que es lo mas caro de migrar y queda fuera del scope
+  inicial).
+- **PilotX.Desktop** arranca como ventana borderless cockpit con el Hub
+  embebido, mas una toolbar inferior placeholder. Crece hasta paridad.
+
+## Build / Run
+
+```powershell
+# Build aislado
+dotnet build SourceCode/PilotX.Desktop/PilotX.Desktop.csproj -c Debug
+
+# Run (requiere AgpWebHost corriendo en :5180; lo levanta el shell WinForms
+# automaticamente, o se puede arrancar standalone via AgroParallel.Shell).
+dotnet run --project SourceCode/PilotX.Desktop --no-build
+```
+
+Si el WebView muestra "No se puede acceder a este sitio web" -> el AgpWebHost
+no esta corriendo en :5180. Es esperable cuando el shell WinForms no esta
+levantado. Arrancalo y refresca (F5 dentro del WebView).
+
+## Args CLI
+
+| Arg | Default | Que hace |
+|-----|---------|----------|
+| `--page=pages/camaras.html` | `/` (Hub home) | Pagina del wwwroot a abrir |
+| `--url=http://otro/algo` | `http://127.0.0.1:5180/` | URL completa custom |
+| `--mode=full` (default) | full | Maximizado borderless (Hub) |
+| `--mode=float` | full | Ventana chica con header arrastrable |
+| `--title="Camaras"` | "PilotX" | Titulo (solo modo float) |
+| `--width=800 --height=480` | 640x400 | Tamano inicial en modo float |
+
+Ejemplos:
+
+```powershell
+# Hub completo (default)
+dotnet run --project SourceCode/PilotX.Desktop
+
+# Widget Camaras flotante encima del Hub
+dotnet run --project SourceCode/PilotX.Desktop -- --mode=float --page=pages/camaras.html --title=Camaras --width=720 --height=480
+```
+
+Esc cierra; F12 abre DevTools del WebView2 subyacente.
+
+## Pendiente (no esta cubierto en este esqueleto)
+
+- Migrar el render OpenGL del mapa de `FormGPS` a Avalonia (`Silk.NET`
+  o equivalente). Lo mas caro.
+- Wire-up real de los 3 botones de la toolbar inferior (hoy placeholders).
+  Ver `project_pilotx_toolbar_icons`:
+    - Engranaje (off sin GPS)
+    - FieldTools (off sin lote)
+    - Tools / SpecialFunctions (siempre activo)
+- Mover los servicios del shell WinForms (`AogStateProvider`, `lotes`,
+  `vehicleTool`, etc.) detras de interfaces que ambos shells puedan
+  hostear sin tocar el codigo del Hub HTML.
+- Branding visible: HUD speed/heading/GPS-status en el chrome cuando no
+  hay todavia mapa, para que se sienta "PilotX" desde el arranque.
+
+## Cold-start
+
+Al arrancar, el shell mide el tiempo desde `Main()` hasta el primer
+`NavigationCompleted` del WebView y lo imprime a stdout:
+
+```
+[PilotX.Desktop] Cold-start (Main -> NavigationCompleted): 412 ms  url=http://127.0.0.1:5180/
+```
+
+Objetivo: <500 ms al primer paint, comparable al shell WinForms+WebView2.
+
+## Layout en disco
+
+```
+SourceCode/PilotX.Desktop/
+  PilotX.Desktop.csproj      net9.0-windows + Avalonia 11.2.3 + WebView.Avalonia
+  Program.cs                 entrypoint + parser de args
+  App.axaml(.cs)             Application + ResourceDictionary cockpit
+  MainWindow.axaml(.cs)      ventana borderless + WebView + toolbar
+  Theme/
+    PilotXTheme.axaml        paleta cockpit (verde marca + grises cabina)
+  app.manifest               DPI per-monitor + supportedOS Win10/11
+  README.md                  este archivo
+```

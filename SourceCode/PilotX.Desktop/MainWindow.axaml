@@ -1,0 +1,156 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv="clr-namespace:AvaloniaWebView;assembly=Avalonia.WebView"
+        x:Class="PilotX.Desktop.MainWindow"
+        Width="1280" Height="800"
+        Background="{StaticResource PilotXBgDeep}"
+        TransparencyLevelHint="Transparent"
+        Title="PilotX">
+    <!--
+        Chrome cockpit:
+         · En modo "full" (default): borderless maximizado, sin header,
+           solo FAB X arriba a la derecha. Es el Hub principal de cabina.
+         · En modo "float": ventana chica con header arrastrable, marca
+           PilotX + titulo, esquinas redondeadas. Usado por widgets que
+           tienen que dejar ver el mapa detras (camaras, monitores, etc.).
+    -->
+    <Border Name="RootBorder"
+            Background="{StaticResource PilotXBgDeep}"
+            BorderBrush="{StaticResource PilotXBorderHigh}"
+            BorderThickness="1"
+            CornerRadius="0">
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- =================== HEADER (modo float) =================== -->
+            <Border Name="HeaderBar"
+                    Grid.Row="0"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,0,0,1"
+                    Height="44"
+                    IsVisible="False"
+                    PointerPressed="OnHeaderPressed">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Center">
+
+                    <!-- Marca PX -->
+                    <Border Grid.Column="0"
+                            Width="28" Height="28"
+                            CornerRadius="6"
+                            Background="{StaticResource PilotXAccent}"
+                            Margin="10,0,8,0">
+                        <TextBlock Text="PX"
+                                   Foreground="{StaticResource PilotXBgDeep}"
+                                   FontWeight="Bold"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Titulo -->
+                    <TextBlock Grid.Column="1"
+                               Name="HeaderTitle"
+                               Text="PilotX"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="0,0,12,0"/>
+
+                    <!-- Subtitulo (espacio flexible) -->
+                    <TextBlock Grid.Column="2"
+                               Name="HeaderSubtitle"
+                               Text=""
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="11"
+                               VerticalAlignment="Center"/>
+
+                    <!-- Boton cerrar (rojo translucido) -->
+                    <Button Grid.Column="3"
+                            Name="HeaderCloseButton"
+                            Content="X"
+                            Width="44" Height="44"
+                            FontSize="16"
+                            Foreground="{StaticResource PilotXErr}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnCloseClick"
+                            ToolTip.Tip="Cerrar"/>
+                </Grid>
+            </Border>
+
+            <!-- =================== WEBVIEW (Hub) =================== -->
+            <wv:WebView x:Name="WebViewHost" Grid.Row="1"/>
+
+            <!-- FAB X (modo full, ya que sin header no hay otra forma de cerrar) -->
+            <Button x:Name="CloseButton"
+                    Grid.Row="1"
+                    Content="X"
+                    Width="48" Height="48"
+                    FontSize="20"
+                    Foreground="#FFFFFF"
+                    Background="{StaticResource PilotXErrStrong}"
+                    BorderBrush="#FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="24"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,12,12,0"
+                    IsVisible="False"
+                    Click="OnCloseClick"/>
+
+            <!-- =================== TOOLBAR INFERIOR (placeholder) =================== -->
+            <!--
+                Tres botones placeholder, alineados al toolbar real de FormGPS:
+                · Engranaje  (Settings / vehiculo+implemento)
+                · FieldTools (lote / boundary / job)
+                · Tools      (SpecialFunctions / productos X-* / Hub)
+                Bound a comandos vacios por ahora. La paridad real con FormGPS
+                viene en una iteracion posterior, cuando empecemos a portar
+                botones uno por uno (project_pilotx_toolbar_icons).
+            -->
+            <Border Name="BottomToolbar"
+                    Grid.Row="2"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,1,0,0"
+                    Height="64"
+                    IsVisible="False">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="16">
+                    <Button Name="BtnSettings"
+                            Width="56" Height="48"
+                            Content="(:)"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Click="OnPlaceholderClick"
+                            ToolTip.Tip="Ajustes (placeholder)"/>
+                    <Button Name="BtnFieldTools"
+                            Width="56" Height="48"
+                            Content="[F]"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Click="OnPlaceholderClick"
+                            ToolTip.Tip="Herramientas de lote (placeholder)"/>
+                    <Button Name="BtnTools"
+                            Width="56" Height="48"
+                            Content="[T]"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Click="OnPlaceholderClick"
+                            ToolTip.Tip="Special Functions / productos X-* / Hub (placeholder)"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

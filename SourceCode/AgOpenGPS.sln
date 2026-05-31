@@ -49,6 +49,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{CD8E7933
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgroParallel.Updater", "AgroParallel\Tools\AgroParallel.Updater\AgroParallel.Updater.csproj", "{34FCBDC9-10C3-489D-9F1C-8F122ECAA5D7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PilotX.Desktop", "PilotX.Desktop\PilotX.Desktop.csproj", "{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -275,6 +277,18 @@ Global
 		{34FCBDC9-10C3-489D-9F1C-8F122ECAA5D7}.Release|x64.Build.0 = Release|Any CPU
 		{34FCBDC9-10C3-489D-9F1C-8F122ECAA5D7}.Release|x86.ActiveCfg = Release|Any CPU
 		{34FCBDC9-10C3-489D-9F1C-8F122ECAA5D7}.Release|x86.Build.0 = Release|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Debug|x64.Build.0 = Debug|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Debug|x86.Build.0 = Debug|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Release|x64.ActiveCfg = Release|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Release|x64.Build.0 = Release|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Release|x86.ActiveCfg = Release|Any CPU
+		{8A1D1A73-E4F0-48BC-835E-108FF5251E1D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
