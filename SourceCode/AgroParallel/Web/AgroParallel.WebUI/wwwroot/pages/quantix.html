@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuantiX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .motor-card { position: relative; padding: var(--agp-sp-4); }
+    .motor-card .mc-head { display:flex; justify-content:space-between; align-items:center;
+      margin-bottom: var(--agp-sp-3); gap: var(--agp-sp-2); }
+    .motor-card .mc-head h3 { margin:0; font-size: var(--agp-fs-md); }
+    .motor-card .mc-readouts { display:grid; grid-template-columns: 1fr 1fr; gap: var(--agp-sp-3); align-items:end; }
+    .motor-card .mc-readouts .lbl { font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .motor-card .mc-readouts .big { font-family: var(--agp-font-mono); font-size: 44px; font-weight: var(--agp-fw-bold); line-height:1; }
+    .motor-card .mc-readouts .big.real { color: var(--agp-accent); }
+    .motor-card .mc-readouts .big.tgt  { color: var(--agp-text); text-align:right; }
+    .motor-card .delta-ok   { color: var(--agp-accent); }
+    .motor-card .delta-warn { color: #E27A0F; }
+    .motor-card .delta-err  { color: #C92D2D; }
+
+    /* Gauge: barra horizontal donde el "fill" verde = real/target ratio. Marker = target (100%). */
+    .gauge {
+      position: relative; height: 14px; background: var(--agp-bg-soft);
+      border-radius: 7px; margin: var(--agp-sp-3) 0 4px; overflow: hidden;
+    }
+    .gauge .fill { position:absolute; left:0; top:0; bottom:0; background: var(--agp-accent);
+      transition: width 0.25s ease; }
+    .gauge .fill.warn { background: #E27A0F; }
+    .gauge .fill.err  { background: #C92D2D; }
+    .gauge .marker {
+      position:absolute; top:-3px; bottom:-3px; width:3px; background:#fff;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.45);
+    }
+    .gauge-legend { display:flex; justify-content:space-between;
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+
+    /* PWM slider-look: track + thumb circular sobre la barra */
+    .pwm-slider {
+      position: relative; height: 18px; margin: var(--agp-sp-3) 0 4px;
+    }
+    .pwm-slider .track {
+      position:absolute; left:0; right:0; top:50%; transform: translateY(-50%);
+      height: 6px; background: var(--agp-bg-soft); border-radius: 3px;
+    }
+    .pwm-slider .fill {
+      position:absolute; left:0; top:50%; transform: translateY(-50%);
+      height: 6px; background: var(--agp-accent); border-radius: 3px;
+    }
+    .pwm-slider .thumb {
+      position:absolute; top:50%; transform: translate(-50%, -50%);
+      width:18px; height:18px; border-radius:50%; background:#fff;
+      border: 2px solid var(--agp-accent);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    }
+
+    .kv { display:grid; grid-template-columns: auto 1fr auto 1fr;
+      column-gap: var(--agp-sp-3); row-gap: var(--agp-sp-2);
+      margin-top: var(--agp-sp-3); align-items: baseline; }
+    .kv .k { color: var(--agp-text-muted); font-size: var(--agp-fs-xs); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+    .kv .v { font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold); text-align:right; }
+
+    .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); flex-wrap: wrap; }
+    .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); }
+    .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
+
+    .node-head {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom: var(--agp-sp-3); gap: var(--agp-sp-3); flex-wrap: wrap;
+    }
+    .node-head .uid { font-family: var(--agp-font-mono); color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+
+    .motor-cfg {
+      background: var(--agp-bg-soft); border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3); margin-top: var(--agp-sp-3);
+      border-left: 4px solid var(--agp-accent);
+    }
+    .motor-cfg.m1 { border-left-color: #E27A0F; }
+    .motor-cfg h4 { margin: 0 0 var(--agp-sp-2) 0; }
+
+    .fld-grid {
+      display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--agp-sp-2) var(--agp-sp-3);
+    }
+    .fld-grid .field { margin: 0; }
+    .fld-grid .field label {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      display:flex; justify-content:space-between; align-items:baseline; gap: var(--agp-sp-2);
+    }
+    .fld-grid .field label .range-out {
+      font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+      color: var(--agp-text); font-size: var(--agp-fs-sm);
+    }
+    .fld-grid .field select {
+      width: 100%; min-height: var(--agp-touch-min);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: 0 var(--agp-sp-3);
+      color: var(--agp-text);
+      font-family: var(--agp-font); font-size: var(--agp-fs-md);
+      cursor: pointer;
+    }
+    .fld-grid .field select:focus-visible {
+      outline: 2px solid var(--agp-accent); outline-offset: 2px;
+    }
+    /* Stepper táctil [−] valor [+] — reemplaza al slider porque el thumb del
+       slider es muy difícil de mover con el dedo en la pantalla del tractor.
+       Los dos botones miden 56×48 (≥ touch-min) y el readout está alineado al
+       medio para que el operario vea el valor mientras toca. */
+    .agp-stepper {
+      display: flex; align-items: stretch; justify-content: stretch;
+      gap: 0; width: 100%; height: 48px;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      overflow: hidden;
+    }
+    .agp-stepper .agp-step-btn {
+      flex: 0 0 56px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--agp-bg);
+      color: var(--agp-text);
+      border: 0;
+      font: var(--agp-fw-bold) 22px / 1 var(--agp-font);
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;  /* sin zoom en doble-tap */
+    }
+    .agp-stepper .agp-step-btn:active {
+      background: var(--agp-accent);
+      color: #fff;
+    }
+    .agp-stepper .agp-step-btn:focus-visible {
+      outline: 2px solid var(--agp-accent); outline-offset: -2px;
+    }
+    .agp-stepper .agp-step-val {
+      flex: 1 1 auto;
+      display: flex; align-items: center; justify-content: center;
+      font: var(--agp-fw-medium) var(--agp-fs-md) / 1 var(--agp-font);
+      color: var(--agp-text);
+      border-left: var(--agp-border-w) solid var(--agp-border);
+      border-right: var(--agp-border-w) solid var(--agp-border);
+      padding: 0 var(--agp-sp-2);
+      min-width: 0;
+    }
+
+    .cortes-row { display:flex; gap:var(--agp-sp-2); align-items:center; margin-top: var(--agp-sp-2); }
+    .cortes-row input { flex: 1; }
+
+    /* Secciones como chips de checkbox: toma NumSections del piloto y muestra
+       una grilla táctil. Cada chip ≥40px alto para dedo grueso. */
+    .sec-row { margin-top: var(--agp-sp-3); }
+    .sec-row-label {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: var(--agp-sp-2);
+    }
+    .sec-grid {
+      display:flex; flex-wrap: wrap; gap: var(--agp-sp-2);
+    }
+    .sec-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; min-height: 40px;
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      font-family: var(--agp-font-mono);
+      font-size: var(--agp-fs-sm);
+      cursor: pointer; user-select: none;
+      transition: background 0.1s ease, border-color 0.1s ease;
+    }
+    .sec-chip:hover { background: var(--agp-bg); }
+    .sec-chip input[type="checkbox"] {
+      width: 18px; height: 18px; margin: 0; cursor: pointer;
+    }
+    .sec-chip input[type="checkbox"]:checked + * { color: var(--agp-accent); }
+    .sec-chip:has(input:checked) {
+      background: var(--agp-accent-soft, rgba(74,186,62,0.12));
+      border-color: var(--agp-accent);
+      color: var(--agp-accent);
+      font-weight: var(--agp-fw-semi);
+    }
+
+    .uid-row { display:flex; gap: var(--agp-sp-2); flex-wrap: wrap; align-items: center; }
+    .uid-row input { flex: 1; min-width: 140px; }
+
+    /* Barra de trenes (header de la tab Motores) */
+    .trenes-bar h3 { font-size: var(--agp-fs-lg); }
+    .trenes-list { display:flex; flex-direction: column; gap: var(--agp-sp-2); }
+    .tren-row {
+      display:flex; align-items:center; gap: var(--agp-sp-3);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      background: var(--agp-bg-soft);
+      border-radius: var(--agp-radius-md);
+      min-height: var(--agp-touch-min);
+      flex-wrap: wrap;
+    }
+    .tren-row .tren-id {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm);
+      color: var(--agp-text-muted); min-width: 36px;
+    }
+    .tren-row input[type="text"] { flex: 1; min-width: 140px; }
+    .tren-row label {
+      display:flex; align-items:baseline; gap: 6px;
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+    }
+    .tren-row label .range-out {
+      font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+      color: var(--agp-text); font-size: var(--agp-fs-sm);
+    }
+    .tren-row button[data-tren-act="del"] {
+      min-width: 40px; font-size: var(--agp-fs-lg); padding: 4px 10px;
+    }
+
+    .btn-row { display:flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-3); flex-wrap: wrap; }
+    .send-msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-left: auto; }
+    .send-msg.ok  { color: var(--agp-accent); }
+    .send-msg.err { color: #C92D2D; }
+
+    .live-tune-grid {
+      display:grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--agp-sp-3);
+    }
+    @media (max-width: 900px) { .live-tune-grid { grid-template-columns: 1fr; } }
+
+    .slider { width:100%; }
+
+    /* ===== Shape upload ===== */
+    .shape-drop {
+      position: relative;
+      border: 2px dashed var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      padding: var(--agp-sp-5);
+      text-align: center;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      cursor: pointer;
+      margin: var(--agp-sp-3) 0;
+    }
+    .shape-drop.over {
+      border-color: var(--agp-accent);
+      background: rgba(74,186,62,0.08);
+    }
+    .shape-drop-inner { pointer-events:none; }
+    .shape-icon {
+      font-size: 40px; color: var(--agp-accent); line-height: 1;
+      margin-bottom: var(--agp-sp-2);
+    }
+    .shape-drop-msg strong { display:block; font-size: var(--agp-fs-md); }
+    .shape-drop-msg span { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+    .shape-file-list { display:flex; flex-direction: column; gap: var(--agp-sp-2);
+      margin: var(--agp-sp-3) 0; }
+    .shape-file-list:empty { display:none; }
+    .shape-file-row {
+      display:flex; align-items:center; gap: var(--agp-sp-3);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      background: var(--agp-bg-soft); border-radius: var(--agp-radius-md);
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm);
+    }
+    .shape-file-row .ext {
+      min-width: 48px; text-align:center;
+      padding: 2px 6px; border-radius: 4px;
+      background: var(--agp-accent); color: #fff;
+      font-weight: var(--agp-fw-bold);
+    }
+    .shape-file-row .ext.opt { background: var(--agp-text-muted); }
+    .shape-file-row .ext.missing { background: #C92D2D; }
+    .shape-file-row .nm { flex: 1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .shape-file-row .sz { color: var(--agp-text-muted); }
+    .shape-required-grid { display:flex; gap: var(--agp-sp-2); flex-wrap: wrap; margin-top: var(--agp-sp-2); }
+    .shape-required-grid .chip {
+      padding: 4px 10px; border-radius: 12px; font-size: var(--agp-fs-xs);
+      background: var(--agp-bg-soft); color: var(--agp-text-muted);
+    }
+    .shape-required-grid .chip.ok {
+      background: var(--agp-accent); color: #fff;
+    }
+    .shape-required-grid .chip.missing {
+      background: rgba(201,45,45,0.15); color: #C92D2D;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="quantix"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>QuantiX</h1><div class="subtitle">Control PID · 2 motores por nodo</div></div>
+      <span class="pill" id="qxStatus"><span class="dot"></span> Cargando…</span>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="monitor">Monitor</div>
+      <div class="tab" data-tab="motores">Motores</div>
+      <div class="tab" data-tab="shape">Shape (dosis)</div>
+      <div class="tab" data-tab="pid">PID live</div>
+      <div class="tab" data-tab="calibrar">Calibración</div>
+      <div class="tab" data-tab="prueba">Prueba</div>
+    </div>
+
+    <!-- ===== MONITOR ===== -->
+    <div id="tabMonitor">
+      <div id="qxList"></div>
+      <div id="qxEmpty" class="card" style="display:none">
+        <div class="subtitle">No se ven nodos QuantiX en la LAN.</div>
+        <p style="margin-top: var(--agp-sp-2); color: var(--agp-text-muted)">
+          Verificá que el broker MQTT esté corriendo en CoreX y que los nodos QuantiX
+          estén encendidos y conectados al WiFi del tractor. Los anuncios viajan en
+          <code>agp/quantix/+/announcement</code> y la telemetría en
+          <code>agp/quantix/+/status_live</code>.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== MOTORES (CRUD config) ===== -->
+    <div id="tabMotores" style="display:none">
+      <div id="mtList"></div>
+      <div class="btn-row" style="margin-top: var(--agp-sp-4)">
+        <button class="btn primary" id="btnImportDiscovered">⇩ Importar nodos descubiertos</button>
+        <!-- "+ Agregar manual" eliminado: los nodos solo se incorporan por
+             auto-descubrimiento MQTT (`agp/quantix/+/announcement`). Pedirle
+             el UID al operario a mano introducía typos que rompían el match
+             con el firmware (UID es case-sensitive, 12 hex). -->
+        <span style="flex:1"></span>
+        <button class="btn primary" id="btnSaveMotores">Guardar todo</button>
+        <button class="btn" id="btnSendAll">Enviar todos por MQTT</button>
+      </div>
+      <div id="mtMsg" style="margin-top: var(--agp-sp-3); color: var(--agp-text-muted); font-size: var(--agp-fs-sm)"></div>
+    </div>
+
+    <!-- ===== SHAPE (upload de shapefile para dosis variable) ===== -->
+    <div id="tabShape" style="display:none">
+      <div class="card">
+        <h3 style="margin-top:0">Subir shapefile de prescripción</h3>
+        <p style="color: var(--agp-text-muted); margin-top: 0">
+          Subí <strong>.shp + .shx + .dbf</strong> juntos (el .prj y .cpg son opcionales pero recomendados).
+          El piloto de PilotX carga la capa al lote actual y los motores QuantiX leen la
+          dosis por la columna DBF que elijas en <strong>Motores → CampoDosis</strong>.
+        </p>
+
+        <div id="shapeDrop" class="shape-drop">
+          <div class="shape-drop-inner">
+            <div class="shape-icon">⤴</div>
+            <div class="shape-drop-msg">
+              <strong>Arrastrá los archivos acá</strong>
+              <span>o tocá para elegirlos del explorador</span>
+            </div>
+            <input id="shapeFiles" type="file" accept=".shp,.shx,.dbf,.prj,.cpg" multiple
+                   style="position:absolute;inset:0;opacity:0;cursor:pointer" />
+          </div>
+        </div>
+
+        <div id="shapeFileList" class="shape-file-list"></div>
+
+        <div class="btn-row">
+          <button class="btn primary" id="btnShapeUpload" disabled>Subir y cargar en PilotX</button>
+          <button class="btn" id="btnShapeRemove">Quitar capa actual</button>
+          <span class="send-msg" id="shapeMsg"></span>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: var(--agp-sp-4)">
+        <h3 style="margin-top:0">Capa activa</h3>
+        <div id="shapeActive">
+          <div class="subtitle">Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PID live-tune ===== -->
+    <div id="tabPid" style="display:none">
+      <div id="pidList"></div>
+      <div id="pidEmpty" class="card" style="display:none">
+        <div class="subtitle">Cargá primero los nodos en la pestaña <strong>Motores</strong>.</div>
+      </div>
+    </div>
+
+    <!-- ===== CALIBRACIÓN ===== -->
+    <div id="tabCalibrar" style="display:none">
+      <div id="calList"></div>
+      <div id="calEmpty" class="card" style="display:none">
+        <div class="subtitle">Sin nodos para calibrar. Configurá primero en <strong>Motores</strong>.</div>
+      </div>
+    </div>
+
+    <!-- ===== PRUEBA — herramientas de diagnóstico ===== -->
+    <div id="tabPrueba" style="display:none">
+      <div id="prList"></div>
+      <div id="prEmpty" class="card" style="display:none">
+        <div class="subtitle">Sin nodos. Configurá primero en <strong>Motores</strong>.</div>
+      </div>
+    </div>
+
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/steps.js"></script>
+  <script src="../js/quantix.js"></script>
+</body>
+</html>

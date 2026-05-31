@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SectionX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .seg-row { display:grid; grid-template-columns: 80px 1fr; gap: var(--agp-sp-3); align-items:center; margin-bottom: var(--agp-sp-2); }
+    .seg-row .name { font-weight: var(--agp-fw-medium); }
+    .seg-row .state {
+      height: 36px; border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft); display:flex; align-items:center; justify-content:center;
+      font-weight: var(--agp-fw-bold); color: var(--agp-text-muted);
+    }
+    .seg-row.on .state { background: var(--agp-accent); color: white; }
+
+    .cable-grid {
+      display:grid; grid-template-columns: repeat(7, 1fr); gap: var(--agp-sp-2); margin-bottom: var(--agp-sp-2);
+    }
+    .cable-cell {
+      background: var(--agp-bg-soft); border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md); padding: var(--agp-sp-2);
+      display:flex; flex-direction:column; align-items:center; gap:4px;
+    }
+    .cable-cell.on { border-color: var(--agp-accent); background: rgba(74,186,62,0.08); }
+    .cable-cell .cable-num {
+      font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+      color: var(--agp-text-muted); font-size: var(--agp-fs-sm);
+    }
+    .cable-cell.on .cable-num { color: var(--agp-accent); }
+    .cable-cell input[type=number] {
+      width: 100%; text-align:center; padding: 4px;
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-md); font-weight: var(--agp-fw-bold);
+    }
+    .cable-cell select { width:100%; font-size: var(--agp-fs-xs); padding: 2px; }
+
+    /* Toast no-bloqueante — feedback rápido tras guardar/test. */
+    #sxToast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--agp-text); color: white;
+      padding: 12px 20px; border-radius: var(--agp-radius-md);
+      font-size: var(--agp-fs-md); font-weight: var(--agp-fw-medium);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+      z-index: 9999; max-width: 480px; text-align: center;
+    }
+    #sxToast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    #sxToast.ok   { background: var(--agp-accent); }
+    #sxToast.bad  { background: #b3261e; }
+    #sxToast.warn { background: #b07900; }
+
+    /* Chip de estado del SectionXBridge — semáforo visible en el header. */
+    .sx-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 999px;
+      background: var(--agp-bg-soft); border: 1px solid var(--agp-border);
+      font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-medium);
+      color: var(--agp-text-muted); cursor: default;
+    }
+    .sx-status .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--agp-text-muted);
+    }
+    .sx-status.green  .dot { background: var(--agp-accent); }
+    .sx-status.green  { color: var(--agp-accent); border-color: var(--agp-accent); }
+    .sx-status.yellow .dot { background: #d4a017; }
+    .sx-status.yellow { color: #8a6900; border-color: #d4a017; }
+    .sx-status.red    .dot { background: #b3261e; }
+    .sx-status.red    { color: #b3261e; border-color: #b3261e; }
+    .sx-status.gray   .dot { background: #8a8a8a; }
+
+    /* Panel debug colapsable */
+    .sx-debug-panel summary {
+      cursor: pointer; font-weight: var(--agp-fw-medium);
+      padding: var(--agp-sp-2) 0; user-select: none;
+    }
+    .sx-debug-panel .debug-grid {
+      display: grid; gap: var(--agp-sp-2); margin-top: var(--agp-sp-2);
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm);
+    }
+    .sx-debug-panel .debug-row {
+      background: var(--agp-bg-soft); padding: var(--agp-sp-2);
+      border-radius: var(--agp-radius-sm);
+    }
+    .sx-debug-panel .debug-log {
+      max-height: 200px; overflow-y: auto;
+      background: #1a1a1a; color: #d8d8d8;
+      padding: var(--agp-sp-2); border-radius: var(--agp-radius-sm);
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-xs);
+      white-space: pre-wrap; line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="sectionx"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>SectionX</h1><div class="subtitle">Control automático de secciones</div></div>
+      <div style="display:flex; gap:var(--agp-sp-3); align-items:center">
+        <!-- Chip de estado del SectionXBridge — semáforo de "¿está publicando?" -->
+        <span id="sxStatusChip" class="sx-status gray" title="Cargando estado…">
+          <span class="dot"></span><span class="lbl">…</span>
+        </span>
+        <label class="switch"><input type="checkbox" id="enabledChk"><span class="track"></span> Habilitado</label>
+        <select id="nodoSel" style="min-width:240px"></select>
+      </div>
+    </div>
+
+    <!-- Banner: trenes/surcos centralizados -->
+    <div class="card" style="margin-bottom: var(--agp-sp-3); border-left: 3px solid var(--agp-accent);">
+      <div class="page-head" style="margin:0">
+        <div>
+          <h3 style="margin:0">Implemento (read-only)</h3>
+          <div class="subtitle" id="sxImplSummary">Trenes: – · Surcos: – · Secciones PilotX: –</div>
+        </div>
+        <a class="btn" href="herramienta.html">Editar en Herramienta</a>
+      </div>
+    </div>
+
+    <h2 style="margin-top:0">Estado en vivo (vista del piloto)</h2>
+    <div class="card" id="liveSections">
+      <div class="subtitle">Cargando…</div>
+    </div>
+
+    <h2>Mapeo surcos → secciones</h2>
+    <div class="card">
+      <div id="nodoForm"></div>
+      <div id="cablesGrid" style="margin-top: var(--agp-sp-3)"></div>
+      <div class="subtitle" style="margin-top:var(--agp-sp-2)">Cada celda = un surco del nodo QuantiX seleccionado (hasta 7 por nodo). Ingresá el nº de sección PilotX (1..16). 0 = no asignado. Tren = a qué línea de siembra del implemento pertenece.</div>
+    </div>
+
+    <h2>JSON (debug)</h2>
+    <div class="card">
+      <textarea id="jsonOut" readonly style="min-height:160px; font-family:var(--agp-font-mono); font-size:var(--agp-fs-sm)"></textarea>
+      <div style="display:flex; gap:var(--agp-sp-3); margin-top: var(--agp-sp-3); align-items:center; flex-wrap:wrap">
+        <button class="btn primary" id="btnSave">Guardar mapeo</button>
+        <button class="btn" id="btnTestRelays" title="Activa los cables de este nodo en secuencia (1s c/u). Bridge en pausa durante el test.">🔧 Probar relés</button>
+        <span id="hint" style="color: var(--agp-text-muted); font-size: var(--agp-fs-sm)"></span>
+      </div>
+    </div>
+
+    <!-- Panel debug colapsable: lo que el bridge está realmente publicando ahora -->
+    <details class="card sx-debug-panel" id="sxDebugPanel" style="margin-top: var(--agp-sp-3)">
+      <summary>🔬 Debug MQTT — ver qué está publicando el bridge</summary>
+      <div class="subtitle" style="margin-top: var(--agp-sp-2)">
+        Polling 2 Hz cuando este panel está abierto. Cerralo para no cargar el WebHost.
+      </div>
+      <h3 style="margin: var(--agp-sp-3) 0 var(--agp-sp-2)">Último publish por nodo</h3>
+      <div id="sxDebugPublish" class="debug-grid">
+        <div class="subtitle">Esperando datos del bridge…</div>
+      </div>
+      <h3 style="margin: var(--agp-sp-3) 0 var(--agp-sp-2)">Tail sx_bridge.log</h3>
+      <div id="sxDebugLog" class="debug-log">(sin datos)</div>
+    </details>
+
+    <!-- Toast no-bloqueante — feedback de guardado/test/error -->
+    <div id="sxToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/sectionx.js"></script>
+</body>
+</html>

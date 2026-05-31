@@ -1,0 +1,200 @@
+/* ============================================================================
+   AgroParallel Field PWA — m.css
+   Diseno para celular tactil 360-414 px, fondo oscuro paleta PilotX.
+   Sin hovers, sin tooltips, sin double-tap zoom: botones grandes >=56 px,
+   contraste alto para sol directo abajo del tractor.
+   ============================================================================ */
+
+:root {
+  --bg:        #16181A;
+  --surface:   #202326;
+  --surface-2: #272A2E;
+  --border:    #2F3338;
+  --text:      #DDE0E3;
+  --muted:     #8A8F95;
+  --accent:    #4BA63F;
+  --accent-hi: #58B94B;
+  --accent-lo: #3F8E36;
+  --warn:      #D9B85C;
+  --bad:       #C97777;
+  --ok:        #58B94B;
+  --idle:      #4A5055;
+  --r:         12px;
+  --touch:     56px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; padding: 0;
+  background: var(--bg); color: var(--text);
+  font-family: "Segoe UI", "Inter", "Roboto", system-ui, -apple-system, sans-serif;
+  font-size: 16px; line-height: 1.4;
+  overscroll-behavior-y: contain;
+  -webkit-user-select: none; user-select: none;
+}
+
+a { color: var(--accent); text-decoration: none; }
+
+/* ---------- Header ---------- */
+.hdr {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.hdr .back {
+  background: transparent; border: 0; color: var(--text);
+  font-size: 28px; line-height: 1; padding: 4px 8px;
+  min-width: 40px; min-height: 40px; cursor: pointer;
+}
+.hdr h1 { font-size: 18px; margin: 0; flex: 1; font-weight: 600; }
+.hdr .status {
+  font-size: 12px; color: var(--muted);
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.hdr .status.ok  { color: var(--ok);   border-color: var(--ok); }
+.hdr .status.bad { color: var(--bad);  border-color: var(--bad); }
+
+/* ---------- Container ---------- */
+.wrap { padding: 16px; max-width: 640px; margin: 0 auto; }
+.wrap > * + * { margin-top: 16px; }
+
+/* ---------- Tiles (home grid) ---------- */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px 12px;
+  text-align: center;
+  cursor: pointer;
+  min-height: 110px;
+  display: flex; flex-direction: column; justify-content: center; gap: 6px;
+}
+.tile:active { background: var(--surface-2); }
+.tile .icn { font-size: 32px; }
+.tile .lbl { font-size: 15px; font-weight: 600; }
+.tile .sub { font-size: 11px; color: var(--muted); }
+
+/* ---------- Card ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px;
+}
+.card h2 { font-size: 16px; margin: 0 0 8px; font-weight: 600; }
+.card .sub { color: var(--muted); font-size: 13px; }
+
+/* Row label / value */
+.row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.row:last-child { border-bottom: 0; }
+.row strong { font-variant-numeric: tabular-nums; font-size: 16px; }
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--touch); padding: 0 18px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r);
+  font-size: 16px; font-weight: 600; cursor: pointer;
+  width: 100%;
+}
+.btn:active { transform: scale(0.98); background: var(--surface); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #0E1F0A; }
+.btn.primary:active { background: var(--accent-lo); }
+.btn.danger { background: var(--bad); border-color: var(--bad); color: #1a0a0a; }
+.btn[disabled] { opacity: 0.4; pointer-events: none; }
+.btn-row { display: flex; gap: 10px; }
+.btn-row .btn { flex: 1; }
+
+/* ---------- Input ---------- */
+.input {
+  width: 100%; min-height: var(--touch);
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 0 14px;
+  font-size: 18px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+label.lbl { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+
+/* ---------- Pill / chip ---------- */
+.pill {
+  display: inline-block; padding: 3px 10px;
+  border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+}
+.pill.ok  { color: var(--ok);   border-color: var(--ok); }
+.pill.bad { color: var(--bad);  border-color: var(--bad); }
+.pill.warn{ color: var(--warn); border-color: var(--warn); }
+
+/* ---------- Toggle button (sections) ---------- */
+.tog {
+  width: 100%; min-height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface); color: var(--text);
+  border: 2px solid var(--border); border-radius: var(--r);
+  font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.tog .id { font-size: 22px; font-variant-numeric: tabular-nums; }
+.tog .st { font-size: 12px; color: var(--muted); }
+.tog.on  { border-color: var(--ok);  background: rgba(75,166,63,0.14); }
+.tog.off { border-color: var(--idle); background: var(--surface); color: var(--muted); }
+
+/* ---------- Metric big ---------- */
+.metric {
+  font-size: 42px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.metric .u { font-size: 18px; color: var(--muted); margin-left: 6px; font-weight: 500; }
+
+/* ---------- PIN keypad ---------- */
+.keypad { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.keypad button {
+  min-height: 64px; font-size: 24px; font-weight: 700;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r);
+}
+.keypad button:active { background: var(--surface); }
+.pin-display {
+  text-align: center; letter-spacing: 18px;
+  font-size: 36px; font-weight: 700; margin: 16px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Toast ---------- */
+#toast {
+  position: fixed; bottom: 24px; left: 16px; right: 16px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: 12px 16px; font-size: 14px;
+  opacity: 0; transition: opacity 200ms; pointer-events: none;
+  z-index: 100;
+}
+#toast.show { opacity: 1; }
+#toast.ok  { border-color: var(--ok); }
+#toast.bad { border-color: var(--bad); }
+
+.spin {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid var(--muted); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 700ms linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty {
+  text-align: center; color: var(--muted); padding: 32px 16px;
+  font-size: 14px;
+}

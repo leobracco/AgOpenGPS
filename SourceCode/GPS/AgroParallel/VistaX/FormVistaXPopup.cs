@@ -48,7 +48,7 @@ namespace AgroParallel.VistaX
             }
             else
             {
-                _ownMonitor = new SeedMonitor(null, cfg);
+                _ownMonitor = new SeedMonitor((AgroParallel.Services.Abstractions.IAogStateProvider)null, cfg);
                 _ownMonitor.SnapshotUpdated += _panel.SetSnapshot;
                 _panel.ObjetivoChanged += v => _ownMonitor.SetObjetivo(v, 0);
                 _ = _ownMonitor.StartAsync();

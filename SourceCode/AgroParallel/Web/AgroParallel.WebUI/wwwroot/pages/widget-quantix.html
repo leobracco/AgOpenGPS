@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuantiX · widget</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* El widget es un overlay sobre el OpenGL de PilotX — sin chrome de página.
+       Body transparente para que el form WinForms pueda darle bordes/arrastre. */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: transparent;
+      color: var(--agp-text);
+      font-family: var(--agp-font, system-ui, sans-serif);
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .widget {
+      width: 100%; height: 100%; box-sizing: border-box;
+      background: rgba(22, 24, 26, 0.92);
+      border: 1px solid var(--agp-border-strong);
+      border-radius: 10px;
+      padding: 8px 10px;
+      display: flex; flex-direction: column; gap: 6px;
+      backdrop-filter: blur(4px);
+    }
+
+    .hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 6px; font-size: 13px; font-weight: 600;
+    }
+    .hdr .title { color: var(--agp-text); }
+    .hdr .pager { display: flex; gap: 4px; align-items: center; }
+    .hdr .pager button {
+      width: 22px; height: 22px; border-radius: 4px;
+      background: var(--agp-surface-2); border: 1px solid var(--agp-border);
+      color: var(--agp-text); cursor: pointer; font-size: 13px; line-height: 1;
+      padding: 0;
+    }
+    .hdr .pager button:disabled { opacity: 0.35; cursor: default; }
+    .hdr .pager .idx { color: var(--agp-text-muted); font-size: 12px; min-width: 32px; text-align: center; }
+
+    .online-dot {
+      width: 8px; height: 8px; border-radius: 999px;
+      background: var(--agp-state-idle);
+      display: inline-block; margin-right: 4px;
+    }
+    .online-dot.on { background: var(--agp-state-ok); }
+
+    .motor {
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-radius: 6px;
+      padding: 6px 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .motor.activo { border-color: var(--agp-accent); }
+
+    .motor .row1 {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 6px;
+    }
+    .motor .nombre {
+      font-size: 12px; color: var(--agp-text); font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 110px;
+    }
+    .motor .obj {
+      font-size: 11px; color: var(--agp-text-muted);
+      font-family: var(--agp-font-mono, monospace);
+    }
+    .motor .obj b { color: var(--agp-text); font-weight: 600; }
+
+    .motor .row2 {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .btn-man {
+      padding: 3px 8px; border-radius: 4px; cursor: pointer;
+      font-size: 11px; font-weight: 600;
+      background: var(--agp-surface-2); border: 1px solid var(--agp-border);
+      color: var(--agp-text-muted);
+      min-width: 44px; text-align: center;
+    }
+    .btn-man.manual {
+      background: var(--agp-accent); border-color: var(--agp-accent);
+      color: #0e1612;
+    }
+    .dose-wrap {
+      flex: 1; display: flex; align-items: center; gap: 2px;
+    }
+    .dose-input {
+      flex: 1; min-width: 0; box-sizing: border-box;
+      padding: 3px 6px; border-radius: 4px;
+      background: var(--agp-surface-2);
+      border: 1px solid var(--agp-border);
+      color: var(--agp-text);
+      font-family: var(--agp-font-mono, monospace);
+      font-size: 13px; text-align: right;
+    }
+    .dose-input:disabled {
+      opacity: 0.5; cursor: not-allowed;
+    }
+    .dose-step {
+      width: 22px; height: 24px; padding: 0;
+      background: var(--agp-surface-2); border: 1px solid var(--agp-border);
+      color: var(--agp-text); border-radius: 4px;
+      font-size: 12px; cursor: pointer;
+    }
+    .dose-step:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Modal de confirmación */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 50;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border-strong);
+      border-radius: 8px;
+      padding: 16px;
+      max-width: 240px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .modal h2 { font-size: 14px; margin: 0 0 6px 0; color: var(--agp-text); }
+    .modal p { font-size: 12px; margin: 0 0 12px 0; color: var(--agp-text-muted); }
+    .modal .actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .modal .btn {
+      padding: 6px 12px; border-radius: 4px; cursor: pointer;
+      font-size: 12px; font-weight: 600; border: 1px solid var(--agp-border);
+      background: var(--agp-surface-2); color: var(--agp-text);
+    }
+    .modal .btn.primary {
+      background: var(--agp-accent); border-color: var(--agp-accent); color: #0e1612;
+    }
+
+    .empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: var(--agp-text-muted); font-size: 12px; text-align: center;
+      padding: 10px;
+    }
+
+    /* Keypad in-widget: el WebView2 mide 220x240, así que el teclado global
+       no entra. Hacemos un keypad propio que ocupa toda la card del widget. */
+    .keypad-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(8, 10, 12, 0.96);
+      display: none; flex-direction: column;
+      z-index: 100;
+      padding: 6px;
+      box-sizing: border-box;
+    }
+    .keypad-backdrop.show { display: flex; }
+    .keypad-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 4px; margin-bottom: 4px;
+    }
+    .keypad-title {
+      font-size: 11px; color: var(--agp-text-muted);
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+    .keypad-display {
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border-strong);
+      border-radius: 4px;
+      padding: 6px 8px;
+      margin-bottom: 4px;
+      font-family: var(--agp-font-mono, monospace);
+      font-size: 22px;
+      color: var(--agp-text); text-align: right;
+      min-height: 30px; line-height: 1;
+    }
+    .keypad-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: 1fr;
+      gap: 3px;
+    }
+    .keypad-grid .kp {
+      background: var(--agp-surface-2);
+      border: 1px solid var(--agp-border);
+      color: var(--agp-text);
+      border-radius: 4px;
+      font-size: 18px; font-weight: 600;
+      cursor: pointer; padding: 0;
+      touch-action: manipulation;
+    }
+    .keypad-grid .kp:active { background: var(--agp-surface-3, #2b2f33); }
+    .keypad-grid .kp.del { color: #E15A5A; }
+    .keypad-actions {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 3px;
+    }
+    .keypad-actions .kp {
+      background: var(--agp-surface-2);
+      border: 1px solid var(--agp-border);
+      color: var(--agp-text);
+      border-radius: 4px;
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; padding: 8px 0;
+      touch-action: manipulation;
+    }
+    .keypad-actions .kp.ok {
+      background: var(--agp-accent);
+      border-color: var(--agp-accent);
+      color: #0e1612;
+    }
+
+    /* La "dosis" ya no es un <input>: es un botón-display read-only para
+       que keyboard.js no se autoabra. */
+    .dose-display {
+      flex: 1; min-width: 0; box-sizing: border-box;
+      padding: 3px 6px; border-radius: 4px;
+      background: var(--agp-surface-2);
+      border: 1px solid var(--agp-border);
+      color: var(--agp-text);
+      font-family: var(--agp-font-mono, monospace);
+      font-size: 13px; text-align: right;
+      cursor: pointer;
+      line-height: 18px; min-height: 18px;
+    }
+    .dose-display.disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="widget" id="widget">
+    <div class="hdr">
+      <div class="title">
+        <span class="online-dot" id="onlineDot"></span>
+        <span id="nodoNombre">QuantiX</span>
+      </div>
+      <div class="pager">
+        <button id="btnPrev" type="button">‹</button>
+        <span class="idx" id="pagerIdx">—</span>
+        <button id="btnNext" type="button">›</button>
+      </div>
+    </div>
+    <div id="motoresWrap"></div>
+    <div class="empty" id="emptyMsg" hidden>Sin nodos QuantiX configurados.</div>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <h2 id="modalTitle">Cambiar modo</h2>
+      <p id="modalMsg">¿Pasar a MANUAL?</p>
+      <div class="actions">
+        <button class="btn" id="modalCancel" type="button">Cancelar</button>
+        <button class="btn primary" id="modalOk" type="button">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="keypad-backdrop" id="keypadBackdrop">
+    <div class="keypad-head">
+      <span class="keypad-title" id="keypadTitle">Dosis</span>
+    </div>
+    <div class="keypad-display" id="keypadDisplay">0</div>
+    <div class="keypad-grid" id="keypadGrid">
+      <button class="kp" type="button" data-k="7">7</button>
+      <button class="kp" type="button" data-k="8">8</button>
+      <button class="kp" type="button" data-k="9">9</button>
+      <button class="kp" type="button" data-k="4">4</button>
+      <button class="kp" type="button" data-k="5">5</button>
+      <button class="kp" type="button" data-k="6">6</button>
+      <button class="kp" type="button" data-k="1">1</button>
+      <button class="kp" type="button" data-k="2">2</button>
+      <button class="kp" type="button" data-k="3">3</button>
+      <button class="kp" type="button" data-k=".">.</button>
+      <button class="kp" type="button" data-k="0">0</button>
+      <button class="kp del" type="button" data-k="back">⌫</button>
+    </div>
+    <div class="keypad-actions">
+      <button class="kp" type="button" data-k="cancel">Cancelar</button>
+      <button class="kp ok" type="button" data-k="ok">OK</button>
+    </div>
+  </div>
+
+  <!-- Sin keyboard.js — el widget tiene su propio keypad para no ser tapado. -->
+  <script src="../js/widget-quantix.js"></script>
+</body>
+</html>

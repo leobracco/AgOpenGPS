@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conectar celular · AgroParallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    .qr-wrap {
+      display: grid; grid-template-columns: minmax(300px, 1fr) 1fr;
+      gap: var(--agp-sp-6);
+      align-items: start;
+    }
+    .qr-card {
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-lg);
+      padding: var(--agp-sp-5);
+      text-align: center;
+    }
+    .qr-card img {
+      width: 100%; max-width: 360px; height: auto;
+      background: #fff; padding: 12px; border-radius: var(--agp-radius-md);
+      image-rendering: pixelated;
+    }
+    .url-box {
+      background: var(--agp-bg);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+      font-family: var(--agp-font-mono);
+      font-size: var(--agp-fs-lg);
+      word-break: break-all;
+      margin-top: var(--agp-sp-3);
+      color: var(--agp-accent);
+    }
+    .steps li {
+      margin-bottom: var(--agp-sp-3);
+      font-size: var(--agp-fs-md);
+      line-height: 1.5;
+    }
+    .ip-list {
+      display: flex; flex-wrap: wrap; gap: var(--agp-sp-2);
+      margin-top: var(--agp-sp-2);
+    }
+    .ip-list .pill { font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm); }
+    @media (max-width: 900px) { .qr-wrap { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Conectar celular</h1>
+        <div class="subtitle">AgroParallel Field PWA — calibracion, pruebas y configuracion desde el implemento</div>
+      </div>
+    </div>
+
+    <div class="qr-wrap">
+      <div class="qr-card">
+        <div class="subtitle" style="margin-bottom:var(--agp-sp-3);">Escanea con la camara del celular</div>
+        <img id="qr" alt="QR de la PWA" />
+        <div class="url-box" id="urlPrimary">Cargando...</div>
+        <div class="subtitle" style="margin-top:var(--agp-sp-2);">
+          Tambien podes tipear: <span id="urlMdns" style="font-family:var(--agp-font-mono);"></span>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h3>Pasos</h3>
+          <ol class="steps">
+            <li><strong>Conecta el celular</strong> al WiFi del tractor (la misma red que esta PC).</li>
+            <li><strong>Abri la camara</strong> y apunta al QR de la izquierda. Toca la notificacion para abrir.</li>
+            <li>Vas a ver una pantalla pidiendo <strong>PIN</strong>. La primera vez, defini uno de 4 digitos.</li>
+            <li>En el menu del navegador toca <strong>Instalar app</strong> (Chrome) o <strong>Agregar al inicio</strong> (Safari). El icono queda en el celular.</li>
+            <li>Listo. Cada vez que abras la app, te lleva directo sin pedir URL.</li>
+          </ol>
+        </div>
+
+        <div class="card" style="margin-top:var(--agp-sp-4);">
+          <h3>Estado</h3>
+          <div class="row"><span>IPs LAN detectadas</span><strong id="ipCount">--</strong></div>
+          <div class="ip-list" id="ipList"></div>
+          <div class="row" style="margin-top:var(--agp-sp-3);"><span>mDNS</span><strong id="mdnsState">--</strong></div>
+        </div>
+
+        <div class="card" style="margin-top:var(--agp-sp-4);">
+          <h3>Que puede hacer el operario desde el celular</h3>
+          <ul class="steps">
+            <li>QuantiX: girar motor con PWM, calibrar pulsos/L, ver caudal</li>
+            <li>VistaX: calibracion 5 s (objetivo/saturado), silenciar sensores</li>
+            <li>FlowX: setpoint manual, caudal vivo, estado de bomba</li>
+            <li>Secciones: estado vivo de cada surco (override en proxima version)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+  <script>
+    async function load() {
+      try {
+        var r = await fetch('/api/sistema/pwa-info', { cache: 'no-store' });
+        var j = await r.json();
+        if (j.qrPngBase64) document.getElementById('qr').src = j.qrPngBase64;
+        document.getElementById('urlPrimary').textContent = j.url || j.mdnsUrl || '(sin red detectada)';
+        document.getElementById('urlMdns').textContent = j.mdnsUrl || '';
+        var ips = j.ips || [];
+        document.getElementById('ipCount').textContent = ips.length;
+        var box = document.getElementById('ipList');
+        box.innerHTML = '';
+        ips.forEach(function (ip) {
+          var s = document.createElement('span');
+          s.className = 'pill';
+          s.textContent = ip;
+          box.appendChild(s);
+        });
+        document.getElementById('mdnsState').textContent =
+          'Publicando agroparallel.local';
+      } catch (e) {
+        document.getElementById('urlPrimary').textContent = 'Error al leer info de la red';
+      }
+    }
+    load();
+    setInterval(load, 10000);
+  </script>
+</body>
+</html>

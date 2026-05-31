@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#4BA63F" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/m/manifest.webmanifest" />
+  <link rel="stylesheet" href="/m/m.css" />
+  <title>AgroParallel Field</title>
+</head>
+<body>
+  <header class="hdr">
+    <h1>AgroParallel Field</h1>
+    <span class="status">--</span>
+  </header>
+
+  <main class="wrap">
+    <div class="card">
+      <h2>Pruebas, calibracion y configuracion</h2>
+      <div class="sub">Trabaja desde abajo del implemento. Conectado al tractor por WiFi.</div>
+    </div>
+
+    <div class="tiles">
+      <a class="tile" href="/m/quantix.html">
+        <div class="icn">QX</div>
+        <div class="lbl">QuantiX</div>
+        <div class="sub">Probar, calibrar, PID</div>
+      </a>
+      <a class="tile" href="/m/secciones.html">
+        <div class="icn">SX</div>
+        <div class="lbl">Secciones</div>
+        <div class="sub">Estado por surco</div>
+      </a>
+      <a class="tile" href="/m/flowx.html">
+        <div class="icn">FX</div>
+        <div class="lbl">FlowX</div>
+        <div class="sub">Caudal vivo</div>
+      </a>
+      <a class="tile" href="/m/vistax.html">
+        <div class="icn">VX</div>
+        <div class="lbl">VistaX</div>
+        <div class="sub">Calibrar densidad</div>
+      </a>
+    </div>
+
+    <div class="card">
+      <div class="sub" id="lanInfo">Cargando estado del tractor...</div>
+      <div style="margin-top:10px;">
+        <button class="btn" id="btnLogout">Cambiar PIN / salir</button>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast"></div>
+  <script src="/m/m.js"></script>
+  <script>
+    APF.startHeartbeat(5000);
+    APF.getJSON('/api/aog/state', 3000).then(function (s) {
+      var v  = s && (s.speedKmh != null ? s.speedKmh.toFixed(1) : '--');
+      var fx = s && (s.fix || s.gpsFix || '--');
+      document.getElementById('lanInfo').textContent = 'Tractor en linea  ·  ' + v + ' km/h  ·  fix ' + fx;
+    }).catch(function () {
+      var here = location.host;
+      var sug = 'agroparallel.local:' + (location.port || '5180');
+      var html = 'No se pudo contactar al tractor en <b>' + here + '</b>.';
+      if (here.indexOf('agroparallel.local') < 0) {
+        html += '<br><br>Probá: <a href="http://' + sug + '/m/">http://' + sug + '/m/</a>';
+      }
+      document.getElementById('lanInfo').innerHTML = html;
+    });
+    document.getElementById('btnLogout').addEventListener('click', function () {
+      if (confirm('Cerrar sesion y borrar el PIN guardado?')) { APF.clearPin(); location.replace('/m/login.html'); }
+    });
+  </script>
+</body>
+</html>

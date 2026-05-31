@@ -311,6 +311,49 @@ namespace AgroParallel.Common
             return _polyFillColors[polygonIndex];
         }
 
+        // Polígonos proyectados a coords locales, ya listos para emitir al
+        // cliente HTML (Piloto). Devuelve null si el shape todavía no fue
+        // proyectado (Draw nunca ejecutó); en ese caso el cliente no tiene
+        // nada que pintar todavía. Color por polígono: si hay style por DBF
+        // usa _polyFillColors[i]; si no, usa FillColor uniforme.
+        public List<AgroParallel.Models.ShapePolygon> ExportPolygonsLocal()
+        {
+            if (_ringsLocal.Count == 0) return null;
+            var list = new List<AgroParallel.Models.ShapePolygon>(_ringsLocal.Count);
+            bool hasStyle = _polyFillColors != null;
+            for (int p = 0; p < _ringsLocal.Count; p++)
+            {
+                var poly = _ringsLocal[p];
+                if (poly == null || poly.Count == 0) continue;
+
+                var c = (hasStyle && p < _polyFillColors.Length)
+                    ? _polyFillColors[p]
+                    : FillColor;
+
+                var rings = new List<double[]>(poly.Count);
+                for (int r = 0; r < poly.Count; r++)
+                {
+                    var ring = poly[r];
+                    if (ring == null || ring.Length < 3) continue;
+                    var arr = new double[ring.Length * 2];
+                    for (int i = 0; i < ring.Length; i++)
+                    {
+                        arr[i * 2]     = ring[i].X;
+                        arr[i * 2 + 1] = ring[i].Y;
+                    }
+                    rings.Add(arr);
+                }
+                if (rings.Count == 0) continue;
+
+                list.Add(new AgroParallel.Models.ShapePolygon
+                {
+                    R = c.R, G = c.G, B = c.B, A = c.A,
+                    Rings = rings
+                });
+            }
+            return list;
+        }
+
         // Lee el valor numerico del atributo DBF del poligono dado.
         // Retorna false si no existe, es nulo, o no es convertible a double.
         public bool TryGetPolygonNumeric(int polygonIndex, string fieldName, out double value)

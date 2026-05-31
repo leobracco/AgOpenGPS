@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VistaX monitor</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <style>
+    /* ============================================================================
+       Widget MONITOR VistaX — franja inferior sobre PilotX.
+       Diseño: full-width, alto mínimo (~80–100 px). Una sola fila con chips
+       por surco primario (semilla/fertilizante). Sin números, sólo color.
+       El operario lo ve mientras siembra para detectar surcos tapados al toque.
+       ============================================================================ */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--agp-bg); color: var(--agp-text);
+    }
+    body {
+      font-family: var(--agp-font-sans);
+      display: flex;
+      align-items: stretch;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* ----- Pill de estado (izquierda) ----- */
+    .vx-status {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 5px 9px;
+      background: var(--agp-surface);
+      border-right: 1px solid var(--agp-border);
+      min-width: 76px;
+      flex-shrink: 0;
+    }
+    .vx-status .title {
+      font-size: 9px; font-weight: var(--agp-fw-bold);
+      letter-spacing: 1px; text-transform: uppercase;
+      color: var(--agp-text-muted);
+    }
+    .vx-status .pill {
+      margin-top: 3px;
+      padding: 2px 8px; border-radius: var(--agp-radius-pill);
+      font-size: 9px; font-weight: var(--agp-fw-bold);
+      background: var(--vx-ok); color: #0A1A06;
+      line-height: 1.2;
+    }
+    .vx-status .pill.warn { background: var(--vx-exceso); color: #fff; }
+    .vx-status .pill.bad  { background: rgba(201,45,45,0.85); color: #fff; }
+
+    /* ----- Strip central ----- */
+    /* Se adapta a la cantidad de sensores: con pocos, chips anchos en una
+       fila; con muchos, wrappea a 2-3 filas. Si aún así no entran, scroll
+       vertical (el horizontal se evita para que el operario no tenga que
+       hacer scroll lateral en la cabina). */
+    .vx-strip {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: stretch;
+      padding: 4px;
+      gap: 3px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-width: 0;
+    }
+    .vx-strip::-webkit-scrollbar { width: 4px; }
+    .vx-strip::-webkit-scrollbar-thumb {
+      background: var(--agp-border); border-radius: 2px;
+    }
+
+    .vx-chip {
+      flex: 1 1 22px;
+      min-width: 18px;
+      max-width: 60px;
+      min-height: 28px;
+      position: relative;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      border-radius: var(--agp-radius-sm);
+      background: var(--vx-no-data);
+      border: 1px solid var(--agp-border);
+      cursor: pointer; user-select: none;
+      font-family: var(--agp-font-mono);
+    }
+    .vx-chip .num {
+      font-size: 9px; opacity: 0.7; line-height: 1;
+    }
+    .vx-chip .tipo {
+      position: absolute; bottom: 2px; right: 3px;
+      font-size: 7px; font-weight: var(--agp-fw-bold);
+      opacity: 0.55;
+    }
+    .vx-chip.s-ok      { background: var(--vx-ok);      color: #0A1A06; border-color: var(--vx-ok); }
+    .vx-chip.s-bajo    { background: #4A2A2A;           color: #fff;    border-color: #6A3A3A; }
+    .vx-chip.s-tapado  { background: var(--vx-tapado);  color: #fff;    border-color: var(--vx-tapado-border); }
+    .vx-chip.s-exceso  { background: var(--vx-exceso);  color: #fff;    border-color: var(--vx-exceso-dark); }
+    .vx-chip.s-no-data { background: var(--vx-no-data); color: var(--agp-text-muted); }
+    .vx-chip.s-muted   { background: var(--vx-muted);   color: var(--agp-text-muted); border-style: dashed; }
+
+    /* Sección de tipo (semilla / fertilizante) — separador visual. */
+    .vx-strip .sep {
+      width: 1px; background: var(--agp-border);
+      margin: 4px 4px;
+      flex-shrink: 0;
+    }
+
+    /* ----- KPIs derecha ----- */
+    .vx-side {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 11px;
+      background: var(--agp-surface);
+      border-left: 1px solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .vx-side .k {
+      display: flex; flex-direction: column;
+      align-items: center; line-height: 1.05;
+      min-width: 42px;
+    }
+    .vx-side .k .lbl {
+      font-size: 8px; color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .vx-side .k .val {
+      font-family: var(--agp-font-mono);
+      font-size: 14px; font-weight: var(--agp-fw-bold);
+    }
+    .vx-side .k.fallas.bad .val { color: #E25555; }
+
+    .vx-empty {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--agp-text-muted); font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="vx-status">
+    <span class="title">VistaX</span>
+    <span id="vxPill" class="pill"><span id="vxPillTxt">…</span></span>
+  </div>
+
+  <div class="vx-strip" id="vxStrip"></div>
+
+  <div class="vx-side">
+    <div class="k"><div class="lbl">sem/min</div><div class="val" id="vxSpm">—</div></div>
+    <div class="k fallas" id="vxFallasBox"><div class="lbl">fallas</div><div class="val" id="vxFallas">0</div></div>
+    <div class="k"><div class="lbl">km/h</div><div class="val" id="vxVel">—</div></div>
+  </div>
+
+  <script src="../js/vistax-live.js"></script>
+</body>
+</html>

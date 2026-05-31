@@ -3,6 +3,7 @@
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Globalization;
@@ -30,13 +31,28 @@ namespace AgroParallel.Common
         private bool _connected;
         private bool _buttonsCreated;
 
-        // Evento: (motorIdx, manual, dosis).
+        // Selector de nodo (◀ nombre ▶). Cada nodo tiene su propio M0/M1 con
+        // dosis independiente; el widget muestra/edita uno por vez.
+        public struct NodoInfo { public string Uid; public string Nombre; }
+        private List<NodoInfo> _nodos = new List<NodoInfo>();
+        private int _nodoIdx = 0;
+        public string SelectedNodoUid
+        {
+            get { return (_nodoIdx >= 0 && _nodoIdx < _nodos.Count) ? _nodos[_nodoIdx].Uid : null; }
+        }
+        public event Action SelectedNodoChanged;
+
+        // Evento: (motorIdx, manual, dosis). El listener resuelve el nodo
+        // activo via SelectedNodoUid.
         public event Action<int, bool, double> MotorManualChanged;
 
+        private Button _btnNodoPrev;
+        private Button _btnNodoNext;
+        private int _nodoBarY;
         private Button[] _btnMan = new Button[2];
         private Button[] _btnUp = new Button[2];
         private Button[] _btnDn = new Button[2];
-        private Label[] _lblVal = new Label[2];
+        private TextBox[] _txtVal = new TextBox[2];
 
         private static readonly Color CBg = Color.FromArgb(230, 8, 8, 10);
         private static readonly Color CBorder = Color.FromArgb(40, 40, 44);
@@ -49,7 +65,7 @@ namespace AgroParallel.Common
         public ShapefileLegendControl()
         {
             DoubleBuffered = true;
-            Size = new Size(150, 200);
+            Size = new Size(220, 240);
             BackColor = Color.Black;
             SetStyle(ControlStyles.OptimizedDoubleBuffer
                 | ControlStyles.AllPaintingInWmPaint
@@ -63,6 +79,43 @@ namespace AgroParallel.Common
         public void SetUdpStatus(bool a, int p, DateTime? l) { _connected = a; Invalidate(); }
         public bool HasData { get { return !string.IsNullOrEmpty(_fieldName) || _hasMotores; } }
 
+        // El caller alimenta la lista de nodos cada tick. Si cambia el set
+        // mantengo el UID seleccionado; si desaparece, caigo al primero.
+        public void SetNodos(IList<NodoInfo> nodos)
+        {
+            string prevUid = SelectedNodoUid;
+            _nodos.Clear();
+            if (nodos != null) _nodos.AddRange(nodos);
+            int newIdx = 0;
+            if (!string.IsNullOrEmpty(prevUid))
+            {
+                for (int i = 0; i < _nodos.Count; i++)
+                    if (_nodos[i].Uid == prevUid) { newIdx = i; break; }
+            }
+            if (newIdx != _nodoIdx)
+            {
+                _nodoIdx = newIdx;
+                Invalidate();
+            }
+        }
+
+        private void CycleNodo(int delta)
+        {
+            if (_nodos.Count <= 1) return;
+            _nodoIdx = (_nodoIdx + delta + _nodos.Count) % _nodos.Count;
+            // Reset visual de motores — el siguiente tick los llenará con los
+            // valores del nodo nuevo (sin esto se ve un flash con datos viejos).
+            for (int i = 0; i < Motores.Length; i++)
+            {
+                Motores[i].Activo = false;
+                Motores[i].Objetivo = 0;
+                Motores[i].Real = 0;
+            }
+            Invalidate();
+            var h = SelectedNodoChanged;
+            if (h != null) h();
+        }
+
         public void SetMotorDosis(int idx, string nombre, double objetivo, double real, bool activo)
         {
             if (idx < 0 || idx >= 2) return;
@@ -74,20 +127,63 @@ namespace AgroParallel.Common
             Invalidate();
         }
 
+        // Sincroniza el estado MAN/AUTO + dosis manual desde la config del nodo
+        // seleccionado. Se llama cada tick; evita pisar al usuario si está
+        // editando el textbox.
+        public void SetMotorManualState(int idx, bool manual, double manualDosis)
+        {
+            if (idx < 0 || idx >= 2) return;
+            bool changed = Motores[idx].Manual != manual
+                || Math.Abs(Motores[idx].ManualDosis - manualDosis) > 0.001;
+            Motores[idx].Manual = manual;
+            Motores[idx].ManualDosis = manualDosis;
+            if (!changed) return;
+            if (_btnMan[idx] != null)
+            {
+                _btnMan[idx].Text = manual ? "AUTO" : "MAN";
+                _btnMan[idx].ForeColor = manual ? CWarn : CTextDim;
+            }
+            UpdateManualUI(idx);
+        }
+
         private void CreateButtons()
         {
             if (_buttonsCreated) return;
             _buttonsCreated = true;
 
+            var arrowFont = new Font("Segoe UI", 12f, FontStyle.Bold);
+            var manFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+            var txtFont = new Font("Segoe UI", 11f, FontStyle.Bold);
+
+            // Barra de selección de nodo: [◀] [Nombre] [▶].
+            _btnNodoPrev = new Button
+            {
+                Text = "\u25C0", FlatStyle = FlatStyle.Flat, Font = arrowFont,
+                Size = new Size(36, 28), BackColor = Color.FromArgb(30, 30, 34),
+                ForeColor = CText, Cursor = Cursors.Hand, Visible = false
+            };
+            _btnNodoPrev.FlatAppearance.BorderSize = 0;
+            _btnNodoPrev.Click += (s, e) => CycleNodo(-1);
+            Controls.Add(_btnNodoPrev);
+
+            _btnNodoNext = new Button
+            {
+                Text = "\u25B6", FlatStyle = FlatStyle.Flat, Font = arrowFont,
+                Size = new Size(36, 28), BackColor = Color.FromArgb(30, 30, 34),
+                ForeColor = CText, Cursor = Cursors.Hand, Visible = false
+            };
+            _btnNodoNext.FlatAppearance.BorderSize = 0;
+            _btnNodoNext.Click += (s, e) => CycleNodo(+1);
+            Controls.Add(_btnNodoNext);
+
             for (int mi = 0; mi < 2; mi++)
             {
                 int capturedMi = mi;
-                var font = new Font("Segoe UI", 7f, FontStyle.Bold);
 
                 _btnMan[mi] = new Button
                 {
-                    Text = "MAN", FlatStyle = FlatStyle.Flat, Font = font,
-                    Size = new Size(34, 18), BackColor = Color.FromArgb(30, 30, 34),
+                    Text = "MAN", FlatStyle = FlatStyle.Flat, Font = manFont,
+                    Size = new Size(54, 36), BackColor = Color.FromArgb(30, 30, 34),
                     ForeColor = CTextDim, Cursor = Cursors.Hand, Visible = false
                 };
                 _btnMan[mi].FlatAppearance.BorderSize = 0;
@@ -96,31 +192,41 @@ namespace AgroParallel.Common
 
                 _btnDn[mi] = new Button
                 {
-                    Text = "\u25BC", FlatStyle = FlatStyle.Flat, Font = font,
-                    Size = new Size(22, 18), BackColor = Color.FromArgb(30, 30, 34),
+                    Text = "\u2212", FlatStyle = FlatStyle.Flat, Font = arrowFont,
+                    Size = new Size(40, 36), BackColor = Color.FromArgb(30, 30, 34),
                     ForeColor = CText, Cursor = Cursors.Hand, Visible = false
                 };
                 _btnDn[mi].FlatAppearance.BorderSize = 0;
-                _btnDn[mi].Click += (s, e) => AdjustManual(capturedMi, -0.1);
+                _btnDn[mi].Click += (s, e) => AdjustManual(capturedMi, -1);
                 Controls.Add(_btnDn[mi]);
 
-                _lblVal[mi] = new Label
+                _txtVal[mi] = new TextBox
                 {
-                    Text = "--", Font = new Font("Segoe UI", 8f, FontStyle.Bold),
-                    ForeColor = CWarn, BackColor = Color.Transparent,
-                    TextAlign = ContentAlignment.MiddleCenter,
-                    Size = new Size(36, 18), Visible = false
+                    Text = "0", Font = txtFont,
+                    ForeColor = CWarn, BackColor = Color.FromArgb(20, 20, 24),
+                    BorderStyle = BorderStyle.FixedSingle,
+                    TextAlign = HorizontalAlignment.Center,
+                    Size = new Size(56, 32), Visible = false
                 };
-                Controls.Add(_lblVal[mi]);
+                _txtVal[mi].KeyDown += (s, e) =>
+                {
+                    if (e.KeyCode == Keys.Enter)
+                    {
+                        CommitTypedDose(capturedMi);
+                        e.SuppressKeyPress = true;
+                    }
+                };
+                _txtVal[mi].LostFocus += (s, e) => CommitTypedDose(capturedMi);
+                Controls.Add(_txtVal[mi]);
 
                 _btnUp[mi] = new Button
                 {
-                    Text = "\u25B2", FlatStyle = FlatStyle.Flat, Font = font,
-                    Size = new Size(22, 18), BackColor = Color.FromArgb(30, 30, 34),
+                    Text = "+", FlatStyle = FlatStyle.Flat, Font = arrowFont,
+                    Size = new Size(40, 36), BackColor = Color.FromArgb(30, 30, 34),
                     ForeColor = CText, Cursor = Cursors.Hand, Visible = false
                 };
                 _btnUp[mi].FlatAppearance.BorderSize = 0;
-                _btnUp[mi].Click += (s, e) => AdjustManual(capturedMi, 0.1);
+                _btnUp[mi].Click += (s, e) => AdjustManual(capturedMi, +1);
                 Controls.Add(_btnUp[mi]);
             }
         }
@@ -139,10 +245,14 @@ namespace AgroParallel.Common
             if (h != null) h(mi, Motores[mi].Manual, Motores[mi].ManualDosis);
         }
 
-        private void AdjustManual(int mi, double delta)
+        // direction: -1 (bajar) o +1 (subir). El paso se elige segun el valor
+        // actual via AdaptiveStep — 100 g cuando estamos en 5 kg/ha, 1 kg
+        // cuando estamos en 200 kg/ha. Asi no es ni demasiado brusco en
+        // dosis bajas ni demasiado lento en dosis altas.
+        private void AdjustManual(int mi, int direction)
         {
             if (!Motores[mi].Manual) return;
-            Motores[mi].ManualDosis = Math.Max(0, Motores[mi].ManualDosis + delta);
+            Motores[mi].ManualDosis = AdaptiveStep.BumpDose(Motores[mi].ManualDosis, direction);
             UpdateManualUI(mi);
 
             var h = MotorManualChanged;
@@ -151,12 +261,42 @@ namespace AgroParallel.Common
 
         private void UpdateManualUI(int mi)
         {
-            if (_lblVal[mi] == null) return;
+            if (_txtVal[mi] == null) return;
             bool m = Motores[mi].Manual;
-            _lblVal[mi].Text = m ? Motores[mi].ManualDosis.ToString("F1") : "--";
-            _lblVal[mi].Visible = m;
+            // Solo refrescar texto si el campo NO está siendo editado por el
+            // usuario (sino le pisamos lo que está tipeando).
+            if (m && !_txtVal[mi].Focused)
+            {
+                // Decimales acordes al paso adaptativo: 5 kg/ha → "5.0",
+                // 25 kg/ha → "25.25", 150 kg/ha → "150".
+                int dec = AdaptiveStep.DecimalsFor(AdaptiveStep.GetDoseStep(Motores[mi].ManualDosis));
+                _txtVal[mi].Text = Motores[mi].ManualDosis.ToString("F" + dec, CultureInfo.InvariantCulture);
+            }
+            else if (!m)
+                _txtVal[mi].Text = "0";
+            _txtVal[mi].Visible = m;
             _btnUp[mi].Visible = m;
             _btnDn[mi].Visible = m;
+        }
+
+        private void CommitTypedDose(int mi)
+        {
+            if (_txtVal[mi] == null) return;
+            if (!Motores[mi].Manual) return;
+            string s = (_txtVal[mi].Text ?? "").Trim().Replace(',', '.');
+            double v;
+            if (!double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out v) || v < 0)
+            {
+                // Texto inválido — restaurar valor previo.
+                int decPrev = AdaptiveStep.DecimalsFor(AdaptiveStep.GetDoseStep(Motores[mi].ManualDosis));
+                _txtVal[mi].Text = Motores[mi].ManualDosis.ToString("F" + decPrev, CultureInfo.InvariantCulture);
+                return;
+            }
+            Motores[mi].ManualDosis = v;
+            int dec = AdaptiveStep.DecimalsFor(AdaptiveStep.GetDoseStep(v));
+            _txtVal[mi].Text = v.ToString("F" + dec, CultureInfo.InvariantCulture);
+            var h = MotorManualChanged;
+            if (h != null) h(mi, true, v);
         }
 
         // Posiciones de botones por motor (se calculan en OnPaint).
@@ -178,6 +318,29 @@ namespace AgroParallel.Common
 
             using (var b = new SolidBrush(_connected ? CAccent : Color.FromArgb(60, 60, 65)))
                 g.FillEllipse(b, Width - 16, y, 8, 8);
+
+            // Barra de selección de nodo (visible si hay 1+ nodos).
+            if (_hasMotores && _nodos.Count > 0)
+            {
+                _nodoBarY = y;
+                string nodoNombre = (_nodoIdx >= 0 && _nodoIdx < _nodos.Count)
+                    ? (_nodos[_nodoIdx].Nombre ?? "Nodo")
+                    : "Nodo";
+                string label = _nodos.Count > 1
+                    ? nodoNombre + "  (" + (_nodoIdx + 1) + "/" + _nodos.Count + ")"
+                    : nodoNombre;
+                using (var f = new Font("Segoe UI", 9f, FontStyle.Bold))
+                using (var b = new SolidBrush(CText))
+                {
+                    var sz = g.MeasureString(label, f);
+                    float lx = (Width - sz.Width) / 2f;
+                    g.DrawString(label, f, b, lx, y + 6);
+                }
+                y += 32;
+                using (var p = new Pen(CBorder))
+                    g.DrawLine(p, 8, y, Width - 8, y);
+                y += 4;
+            }
 
             if (_hasMotores)
             {
@@ -242,9 +405,9 @@ namespace AgroParallel.Common
                     }
                     y += 18;
 
-                    // Posición para botones MAN de este motor.
+                    // Posición para botones MAN de este motor (botones de 36px).
                     _motorBtnY[mi] = y;
-                    y += 22;
+                    y += 42;
                 }
             }
             else if (HasData)
@@ -268,23 +431,37 @@ namespace AgroParallel.Common
 
         private void LayoutMotorButtons()
         {
+            // Selector de nodo (◀ ▶) — uno en cada extremo de la barra.
+            if (_btnNodoPrev != null && _btnNodoNext != null)
+            {
+                bool nodoBarShow = _hasMotores && _nodos.Count > 1;
+                _btnNodoPrev.Visible = nodoBarShow;
+                _btnNodoNext.Visible = nodoBarShow;
+                if (nodoBarShow)
+                {
+                    _btnNodoPrev.Location = new Point(6, _nodoBarY);
+                    _btnNodoNext.Location = new Point(Width - 6 - _btnNodoNext.Width, _nodoBarY);
+                }
+            }
+
+            // Botones por motor. Layout: [MAN 54] [- 40] [txt 56] [+ 40], gap 4.
             for (int mi = 0; mi < 2; mi++)
             {
                 if (_btnMan[mi] == null) continue;
                 var m = Motores[mi];
                 bool show = !string.IsNullOrEmpty(m.Nombre) || m.Objetivo > 0 || m.Activo;
                 _btnMan[mi].Visible = show;
-                if (!show) { _btnDn[mi].Visible = false; _lblVal[mi].Visible = false; _btnUp[mi].Visible = false; continue; }
+                if (!show) { _btnDn[mi].Visible = false; _txtVal[mi].Visible = false; _btnUp[mi].Visible = false; continue; }
 
                 int by = _motorBtnY[mi];
                 int x = 4;
-                _btnMan[mi].Location = new Point(x, by); x += 36;
-                _btnDn[mi].Location = new Point(x, by); x += 24;
-                _lblVal[mi].Location = new Point(x, by); x += 38;
-                _btnUp[mi].Location = new Point(x, by);
+                _btnMan[mi].Location = new Point(x, by); x += _btnMan[mi].Width + 4;
+                _btnDn[mi].Location  = new Point(x, by); x += _btnDn[mi].Width + 4;
+                _txtVal[mi].Location = new Point(x, by + 2); x += _txtVal[mi].Width + 4;
+                _btnUp[mi].Location  = new Point(x, by);
 
                 _btnDn[mi].Visible = m.Manual;
-                _lblVal[mi].Visible = m.Manual;
+                _txtVal[mi].Visible = m.Manual;
                 _btnUp[mi].Visible = m.Manual;
             }
         }

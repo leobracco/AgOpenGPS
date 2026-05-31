@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#4BA63F" />
+  <link rel="manifest" href="/m/manifest.webmanifest" />
+  <link rel="stylesheet" href="/m/m.css" />
+  <title>PIN · AgroParallel Field</title>
+</head>
+<body>
+  <header class="hdr">
+    <h1 id="ttl">PIN de acceso</h1>
+  </header>
+  <main class="wrap">
+    <div class="card">
+      <div class="sub" id="hint">Ingresa el PIN para acceder. Si es la primera vez, definilo aca.</div>
+      <div class="pin-display" id="pinDisp">----</div>
+      <div class="keypad">
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="clr">C</button>
+        <button data-k="0">0</button>
+        <button data-k="ok" class="primary" style="background:var(--accent); color:#0E1F0A; border:1px solid var(--accent);">OK</button>
+      </div>
+    </div>
+  </main>
+  <div id="toast"></div>
+  <script src="/m/m.js"></script>
+  <script>
+    var pin = '';
+    var setup = !APF.pinSet();
+    if (setup) document.getElementById('hint').textContent = 'Defini un PIN de 4 digitos. Lo vas a usar para entrar desde el celular.';
+    function render() {
+      var s = ''; for (var i = 0; i < 4; i++) s += (i < pin.length ? '*' : '-');
+      document.getElementById('pinDisp').textContent = s;
+    }
+    render();
+    document.querySelectorAll('.keypad button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.dataset.k;
+        if (k === 'clr') { pin = ''; render(); return; }
+        if (k === 'ok') {
+          if (pin.length < 4) { APF.toast('PIN muy corto', 'bad'); return; }
+          if (setup) { APF.setPin(pin); APF.toast('PIN definido', 'ok'); setTimeout(function(){location.replace('/m/');}, 400); }
+          else if (APF.checkPin(pin)) { location.replace('/m/'); }
+          else { pin = ''; render(); APF.toast('PIN incorrecto', 'bad'); }
+          return;
+        }
+        if (pin.length < 4) { pin += k; render(); }
+      });
+    });
+  </script>
+</body>
+</html>

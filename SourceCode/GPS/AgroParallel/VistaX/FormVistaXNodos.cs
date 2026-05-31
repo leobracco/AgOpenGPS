@@ -121,7 +121,7 @@ namespace AgroParallel.VistaX
             ForeColor = CText;
             Font = new Font("Segoe UI", 10f);
             ShowInTaskbar = false;
-            FormBorderStyle = FormBorderStyle.None;
+            FormBorderStyle = FormBorderStyle.Sizable;
             KeyPreview = true;
             KeyDown += (s, ev) => { if (ev.KeyCode == Keys.Escape) Close(); };
             Paint += (s, ev) =>
@@ -240,26 +240,7 @@ namespace AgroParallel.VistaX
             };
             topBar.Controls.Add(lblBrandSub);
 
-            var btnX = new Button
-            {
-                Text = "\u2715",
-                FlatStyle = FlatStyle.Flat,
-                BackColor = CBgPanel,
-                ForeColor = CTextDim,
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                Size = new Size(40, 32),
-                Cursor = Cursors.Hand,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
-            };
-            btnX.FlatAppearance.BorderSize = 0;
-            btnX.FlatAppearance.MouseOverBackColor = Color.FromArgb(200, 40, 40);
-            btnX.Click += (s, ev) => Close();
-            topBar.Controls.Add(btnX);
-            topBar.Resize += (s, ev) =>
-            {
-                btnX.Location = new Point(topBar.Width - btnX.Width - 4, 12);
-            };
-
+            // Cerrar: usar el chrome nativo del Form (FormBorderStyle.Sizable).
             Controls.Add(topBar);
 
             // ── Card list ───────────────────────────────────────────────

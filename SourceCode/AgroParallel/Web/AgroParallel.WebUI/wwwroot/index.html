@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Agro Parallel · Piloto</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--agp-bg);
+      color: var(--agp-text);
+      font-family: var(--agp-font-sans);
+      -webkit-user-select: none;
+              user-select: none;
+    }
+
+    /* ===== Fondo: viñeta suave + grain sutil para que no quede chato ===== */
+    .agp-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      background:
+        radial-gradient(circle at 50% 38%, rgba(75, 166, 63, 0.10) 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(75, 166, 63, 0.05) 0%, transparent 60%),
+        var(--agp-bg);
+    }
+
+    /* Líneas horizontales tipo HUD muy tenues */
+    .agp-splash::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(transparent 0, transparent calc(100% - 1px), rgba(255, 255, 255, 0.02) 100%);
+      background-size: 100% 4px;
+      opacity: 0.6;
+    }
+
+    /* ===== Marca ===== */
+    .agp-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      animation: agp-fade-in 0.9s ease-out both;
+    }
+
+    .agp-wordmark {
+      display: flex;
+      align-items: baseline;
+      gap: 0;
+      letter-spacing: 0.18em;
+      font-weight: var(--agp-fw-bold);
+      font-size: clamp(40px, 7vw, 84px);
+      line-height: 1;
+    }
+    .agp-wordmark .w-agro    { color: var(--agp-text); }
+    .agp-wordmark .w-parallel{ color: var(--agp-text); margin-left: 0.3em; }
+    .agp-wordmark .w-x       { color: var(--agp-accent); }
+
+    .agp-tagline {
+      font-size: clamp(14px, 1.6vw, 18px);
+      letter-spacing: 0.42em;
+      text-transform: uppercase;
+      color: var(--agp-text-muted);
+      margin-top: 6px;
+    }
+    .agp-tagline .dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--agp-accent);
+      margin: 0 14px;
+      vertical-align: middle;
+      box-shadow: 0 0 12px rgba(75, 166, 63, 0.7);
+    }
+
+    /* ===== Glyph: cuatro líneas paralelas + cursor verde ===== */
+    .agp-glyph {
+      width: clamp(96px, 12vw, 144px);
+      height: clamp(96px, 12vw, 144px);
+      animation: agp-fade-in 0.9s 0.15s ease-out both;
+    }
+    .agp-glyph .line { stroke: var(--agp-border-strong); }
+    .agp-glyph .line-active { stroke: var(--agp-accent); }
+    .agp-glyph .cursor { fill: var(--agp-accent); }
+
+    /* ===== Estado / progreso ===== */
+    .agp-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      animation: agp-fade-in 0.9s 0.45s ease-out both;
+    }
+
+    .agp-progress {
+      width: clamp(220px, 28vw, 360px);
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+      position: relative;
+    }
+    .agp-progress::after {
+      content: "";
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 40%;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        var(--agp-accent) 50%,
+        transparent 100%);
+      animation: agp-progress-sweep 1.6s linear infinite;
+    }
+
+    .agp-status-text {
+      font-size: var(--agp-fs-sm);
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--agp-text-dim);
+    }
+
+    /* ===== Botón "Entrar" (fallback táctil) ===== */
+    .agp-enter {
+      margin-top: 8px;
+      min-height: 64px;
+      padding: 0 40px;
+      border: none;
+      border-radius: 12px;
+      background: var(--agp-accent);
+      color: #0E1411;
+      font-family: inherit;
+      font-size: var(--agp-fs-lg);
+      font-weight: var(--agp-fw-semi);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease;
+      box-shadow: 0 8px 32px rgba(75, 166, 63, 0.25);
+      opacity: 0;
+      animation: agp-fade-in 0.6s 1.6s ease-out forwards;
+    }
+    .agp-enter:hover  { background: var(--agp-accent-hover); }
+    .agp-enter:active { background: var(--agp-accent-press); transform: scale(0.98); }
+
+    /* ===== Pie ===== */
+    .agp-foot {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 18px;
+      text-align: center;
+      font-size: var(--agp-fs-xs);
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: var(--agp-text-dim);
+      animation: agp-fade-in 0.9s 0.9s ease-out both;
+    }
+    .agp-foot .sep { color: var(--agp-border-strong); margin: 0 10px; }
+
+    /* ===== Animaciones ===== */
+    @keyframes agp-fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes agp-progress-sweep {
+      from { transform: translateX(-60%); }
+      to   { transform: translateX(260%); }
+    }
+    @keyframes agp-cursor-pulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.35; }
+    }
+    .agp-glyph .cursor { animation: agp-cursor-pulse 1.4s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+  <div class="agp-splash" role="presentation">
+
+    <!-- Glyph: surcos paralelos con el cursor del tractor avanzando -->
+    <svg class="agp-glyph" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g fill="none" stroke-width="6" stroke-linecap="round">
+        <line class="line"        x1="18"  y1="30"  x2="102" y2="30"  />
+        <line class="line-active" x1="18"  y1="54"  x2="102" y2="54"  />
+        <line class="line"        x1="18"  y1="78"  x2="102" y2="78"  />
+        <line class="line"        x1="18"  y1="102" x2="102" y2="102" />
+      </g>
+      <!-- Cursor del tractor sobre la línea activa -->
+      <rect class="cursor" x="74" y="46" width="16" height="16" rx="3" />
+    </svg>
+
+    <!-- Wordmark -->
+    <div class="agp-brand">
+      <div class="agp-wordmark" aria-label="Agro Parallel">
+        <span class="w-agro">AGRO</span><span class="w-x">/</span><span class="w-parallel">PARALLEL</span>
+      </div>
+      <div class="agp-tagline">
+        <span>Piloto</span><span class="dot"></span><span>Cabina</span>
+      </div>
+    </div>
+
+    <!-- Progreso + botón táctil -->
+    <div class="agp-status">
+      <div class="agp-progress" role="progressbar" aria-label="Iniciando"></div>
+      <div class="agp-status-text" id="agp-status-text">Iniciando piloto…</div>
+      <button class="agp-enter" id="agp-enter" type="button">Entrar</button>
+    </div>
+
+    <div class="agp-foot">
+      <span>Sistema de guiado y autopiloto</span>
+      <span class="sep">/</span>
+      <span>v1.0</span>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+      // Marcas para medir cold-start del Hub en DevTools (Performance tab).
+      // Comparar contra "navigationStart" con: performance.measure('hub-cold-start',
+      //   'navigationStart', 'hub-welcome-ready'). Target operativo: < 500 ms.
+      try {
+        performance.mark('hub-welcome-script');
+        // Cuando el DOM ya está pintado, marcamos "ready" en el próximo frame.
+        requestAnimationFrame(function () {
+          try { performance.mark('hub-welcome-ready'); } catch (_) {}
+        });
+      } catch (_) {}
+
+      // El welcome AgroParallel cae al Hub (dashboard de KPIs + estado), no al
+      // "piloto.html" del WebView: la pantalla del piloto vive nativa en
+      // Agro Parallel / AgValoniaGPS y se ve al cerrar el Hub.
+      var target = "pages/hub.html";
+      var autoMs = 1600;
+      var goneTo = false;
+
+      function go() {
+        if (goneTo) return;
+        goneTo = true;
+        try { performance.mark('hub-welcome-leave'); } catch (_) {}
+        window.location.replace(target);
+      }
+
+      // Auto-advance — pero permitimos que el operario toque "Entrar"
+      var timer = setTimeout(go, autoMs);
+
+      var btn = document.getElementById("agp-enter");
+      if (btn) {
+        btn.addEventListener("click", function () {
+          clearTimeout(timer);
+          go();
+        });
+      }
+
+      // Cualquier toque/clic en el splash también avanza (es la primera pantalla
+      // que ve el operario; preferimos respuesta inmediata al toque).
+      document.addEventListener("pointerdown", function (e) {
+        // Evita el doble go cuando ya tocó el botón
+        if (e.target && e.target.id === "agp-enter") return;
+        clearTimeout(timer);
+        go();
+      }, { once: true });
+    })();
+  </script>
+</body>
+</html>

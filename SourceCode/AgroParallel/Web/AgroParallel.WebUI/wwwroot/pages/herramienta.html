@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Implemento · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ---- tabstrip ---- */
+    .tabs {
+      display: flex; gap: var(--agp-sp-1);
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+      margin: 0 0 var(--agp-sp-3) 0;
+      flex-wrap: wrap;
+    }
+    .tabs .tab {
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      min-height: var(--agp-touch-min);
+      background: transparent; border: 0;
+      color: var(--agp-text-muted);
+      font: inherit; cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    .tabs .tab.on {
+      color: var(--agp-accent);
+      border-bottom-color: var(--agp-accent);
+      font-weight: var(--agp-fw-semi);
+    }
+    .panel { display: none; }
+    .panel.on { display: block; }
+
+    /* ---- diagrama de secciones ---- */
+    .diagram {
+      background: var(--agp-bg-soft);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+      text-align: center;
+    }
+    .diagram svg { width: 100%; max-width: 460px; height: auto; }
+    .diagram .legend {
+      margin-top: var(--agp-sp-2);
+      font-size: var(--agp-fs-xs);
+      color: var(--agp-text-muted);
+      text-align: left;
+    }
+    .diagram .legend b { color: var(--agp-text); }
+    .lbl-num { fill: var(--agp-accent); font-weight: 700; font-size: 13px; }
+    .lbl-txt { fill: var(--agp-text); font-size: 11px; }
+
+    .h-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--agp-sp-3);
+    }
+    .h-grid .field { display: flex; flex-direction: column; gap: 4px; }
+    .h-grid .field input { min-height: var(--agp-touch-min); width: 100%; }
+    .field .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px;
+      border-radius: 11px;
+      background: var(--agp-accent); color: #fff;
+      font-size: var(--agp-fs-xs); font-weight: 700;
+      margin-right: 6px;
+    }
+    .field label { display: flex; align-items: center; }
+
+    .msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-3); min-height: 18px; }
+    .msg.ok  { color: var(--agp-state-ok); }
+    .msg.err { color: var(--agp-state-bad); }
+    .help { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+
+    /* ---- vista de sembradora (sembradora-visual.js) ---- */
+    .semb-vis { display:flex; flex-direction:column; align-items:center; gap:0; }
+    .semb-empty { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); padding: var(--agp-sp-3); text-align:center; }
+    .semb-tractor { display:flex; justify-content:center; }
+    .semb-tractor-body {
+      width: 64px; padding: 6px 4px;
+      background: linear-gradient(180deg,#B8960A,#9A7E08);
+      border:1px solid #7A6306; border-radius:6px 6px 3px 3px;
+      text-align:center;
+    }
+    .semb-tractor-cab { background:#2a2a3a; border-radius:3px; height:14px; margin-bottom:3px; }
+    .semb-tractor-lbl { font-size:9px; color:rgba(0,0,0,.65); font-weight:700; letter-spacing:1px; }
+    .semb-hitch { width:2px; height:14px; background: var(--agp-border); margin:0 auto; }
+    .semb-frame {
+      width: 100%;
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-2);
+    }
+    .semb-frame-head {
+      display:flex; justify-content:space-between; align-items:baseline;
+      font-size: var(--agp-fs-sm); color: var(--agp-text); font-weight: var(--agp-fw-semi);
+      padding: 2px 4px var(--agp-sp-2);
+      border-bottom: 1px solid var(--agp-border);
+    }
+    .semb-frame-meta { color: var(--agp-text-muted); font-weight: var(--agp-fw-medium); font-size: var(--agp-fs-xs); }
+    .semb-fila { margin-top: var(--agp-sp-2); }
+    .semb-fila-head {
+      display:flex; justify-content:space-between; align-items:center;
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing:1px; font-weight:700;
+      padding: 0 4px 4px;
+    }
+    .semb-fila-name { color: var(--agp-text); }
+    .semb-row {
+      display:flex; gap:1px; justify-content:center; flex-wrap:nowrap;
+      overflow-x:auto; padding-bottom:2px;
+    }
+    .semb-surco {
+      flex: 0 0 auto;
+      min-width: 14px; width: 18px; height: 22px;
+      border-radius: 2px;
+      display:flex; align-items:center; justify-content:center;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 9px; font-weight: 700; color:#101612;
+      box-sizing: border-box;
+    }
+    .semb-surco[data-sec] { outline: 1px dashed rgba(16,22,18,.6); outline-offset:-2px; }
+    .semb-torres {
+      display:flex; gap:2px; justify-content:center; margin-top:3px;
+      padding: 0 4px;
+    }
+    .semb-torre {
+      display:flex; flex-direction:column; align-items:center;
+      border: 1px solid; border-radius:3px;
+      padding: 2px 2px 1px; min-width: 0;
+    }
+    .semb-torre-bar { width:100%; height:3px; border-radius:1px; }
+    .semb-torre-lbl {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 9px; font-weight: 700; margin-top: 1px;
+      white-space: nowrap;
+    }
+    .semb-stats {
+      display:flex; flex-wrap:wrap; gap: var(--agp-sp-2);
+      justify-content:center;
+      margin-top: var(--agp-sp-2);
+      padding-top: var(--agp-sp-2);
+      border-top: 1px solid var(--agp-border);
+    }
+    .semb-stat { text-align:center; min-width:90px; }
+    .semb-stat-v {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: var(--agp-fs-md); font-weight: 700;
+      color: var(--agp-accent);
+    }
+    .semb-stat-l {
+      font-size: 10px; color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: .5px; margin-top: 1px;
+    }
+    /* En pantallas chicas (1025×780 del tractor): surcos más pequeños */
+    @media (max-width: 1100px) {
+      .semb-surco { min-width: 10px; width: 14px; height: 18px; font-size: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="herramienta"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Implemento</h1><div class="subtitle">Geometría física del implemento. No toca la config del piloto AOG.</div></div>
+      <span class="pill" id="hStatus"><span class="dot"></span> Cargando…</span>
+    </div>
+
+    <!-- ====================== CATÁLOGO DE MODELOS ====================== -->
+    <div class="card" style="margin-bottom: var(--agp-sp-3);">
+      <h3 style="margin-top:0">Modelo de sembradora</h3>
+      <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+        Seleccioná marca y modelo, después tocá "Aplicar plantilla". Se pre-cargan
+        tipo de siembra, dosificador, surcos, distancia, torres y fertilización.
+        Si no encontrás tu modelo, usá un Genérico y ajustá a mano.
+      </p>
+      <div style="display:flex; gap: var(--agp-sp-2); align-items:flex-end; flex-wrap: wrap;">
+        <div class="field" style="min-width: 220px">
+          <label>Marca</label>
+          <select id="catMarca" style="min-height: var(--agp-touch-min)"></select>
+        </div>
+        <div class="field" style="min-width: 260px">
+          <label>Modelo</label>
+          <select id="catModelo" style="min-height: var(--agp-touch-min)"></select>
+        </div>
+        <button class="btn primary" id="btnAplicarPlantilla" type="button"
+                style="min-height: var(--agp-touch-min)">Aplicar plantilla</button>
+      </div>
+      <div id="catChips" style="margin-top: var(--agp-sp-2); display:flex; flex-wrap: wrap; gap: 6px;"></div>
+      <div id="catDesc" class="help" style="margin-top: var(--agp-sp-1)"></div>
+    </div>
+
+    <!-- ====================== BARRA DE IMPLEMENTOS (CRUD) ====================== -->
+    <div class="card" style="margin-bottom: var(--agp-sp-3);">
+      <div class="page-head" style="margin:0; gap: var(--agp-sp-2); flex-wrap: wrap;">
+        <div style="display:flex; gap: var(--agp-sp-2); align-items:center; flex-wrap:wrap;">
+          <label for="implActivoSel" style="font-weight: var(--agp-fw-medium)">Implemento:</label>
+          <select id="implActivoSel" style="min-width: 260px; min-height: var(--agp-touch-min)"></select>
+          <input type="text" id="implNombreInp" placeholder="Nombre del implemento"
+                 style="min-width: 220px; min-height: var(--agp-touch-min)">
+        </div>
+        <div style="display:flex; gap: var(--agp-sp-2); flex-wrap: wrap;">
+          <button class="btn" id="btnImplNuevo" type="button">+ Nuevo</button>
+          <button class="btn" id="btnImplCopiar" type="button">Guardar como…</button>
+          <button class="btn" id="btnImplEliminar" type="button" style="color:#E15A5A">Eliminar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================== VISTA DE LA SEMBRADORA ====================== -->
+    <div class="card" style="margin-bottom: var(--agp-sp-3);">
+      <h3 style="margin-top:0">Vista de la sembradora</h3>
+      <p class="help" style="margin: 0 0 var(--agp-sp-2) 0">
+        Se redibuja automáticamente con los surcos, trenes, torres y secciones configurados.
+      </p>
+      <div id="sembVis"></div>
+    </div>
+
+    <!-- tabstrip -->
+    <!-- Tipo / Geometría / Look-ahead viven en PilotX (AOG/AgValoniaGPS), no acá. -->
+    <div class="tabs">
+      <button class="tab on" data-panel="secciones">Secciones</button>
+      <button class="tab"    data-panel="trenes">Trenes</button>
+      <button class="tab"    data-panel="surcos">Surcos</button>
+      <button class="tab"    data-panel="seccionesx">Secciones PilotX</button>
+    </div>
+
+    <!-- ====================== SECCIONES ====================== -->
+    <section class="panel on" id="panel-secciones">
+      <div class="card">
+        <h3 style="margin-top:0">Cómo se reparten las secciones</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          El ancho total, la geometría y el look-ahead se configuran en PilotX. Acá solo
+          definís cuántas secciones tiene el implemento (a efectos del Hub).
+        </p>
+        <div class="diagram">
+          <!-- Visual del implemento con N secciones idénticas -->
+          <svg viewBox="0 0 460 160" id="secVis" aria-hidden="true">
+            <!-- enganche -->
+            <line x1="20" y1="80" x2="60" y2="80" stroke="var(--agp-text-muted)" stroke-width="2"/>
+            <!-- ruedas tractor -->
+            <rect x="0"  y="64" width="14" height="32" rx="2" fill="var(--agp-text)" opacity="0.85"/>
+            <text x="7" y="50" text-anchor="middle" class="lbl-txt">tractor</text>
+            <!-- barra completa -->
+            <g id="secBar">
+              <!-- relleno dinámico desde JS -->
+            </g>
+          </svg>
+          <div class="legend" id="secLegend">
+            <div>Cada sección abre/cierra individualmente con el control de secciones.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== TRENES ====================== -->
+    <section class="panel" id="panel-trenes">
+      <div class="card">
+        <h3 style="margin-top:0">Trenes físicos de siembra</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Si la sembradora tiene un solo tren, dejá el default (Tren 0). Si tiene dos cuerpos
+          (delantero/trasero), agregá un segundo tren e indicá la distancia entre ellos.
+        </p>
+        <table id="tblTrenes" style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr style="text-align:left; border-bottom: var(--agp-border-w) solid var(--agp-border);">
+              <th style="padding:6px">Id</th>
+              <th style="padding:6px">Nombre</th>
+              <th style="padding:6px">Distancia (m)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top: var(--agp-sp-2)">
+          <button class="btn" id="btnAddTren">+ Agregar tren</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== SURCOS ====================== -->
+    <section class="panel" id="panel-surcos">
+      <div class="card">
+        <h3 style="margin-top:0">Mapeo de surcos</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Cada surco (hilera) pertenece a un tren y queda cubierto por una sección PilotX.
+          La cantidad de surcos sale de "Número de surcos" abajo (refleja el implemento físico).
+        </p>
+        <div class="h-grid" style="grid-template-columns: 1fr 1fr; max-width: 480px; margin-bottom: var(--agp-sp-3)">
+          <div class="field">
+            <label>Número de surcos</label>
+            <input type="number" id="implNumSurcos" min="1" max="200" step="1">
+            <div class="help">Sembradoras grandes (8 torres × 12 hileras = 96 surcos) son válidas.</div>
+          </div>
+          <div class="field">
+            <label>Distancia entre surcos (m)</label>
+            <input type="number" id="implDistSurcos" min="0.1" max="2" step="0.005">
+            <div class="help">Default 0.525 (21")</div>
+          </div>
+        </div>
+        <div style="max-height: 380px; overflow:auto; border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-md);">
+          <table id="tblSurcos" style="width:100%; border-collapse: collapse;">
+            <thead>
+              <tr style="text-align:left; background: var(--agp-bg-soft);">
+                <th style="padding:6px">Surco</th>
+                <th style="padding:6px">Tren</th>
+                <th style="padding:6px">Sección PilotX</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====================== SECCIONES PILOTX ====================== -->
+    <section class="panel" id="panel-seccionesx">
+      <div class="card">
+        <h3 style="margin-top:0">Secciones del implemento</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Definí cuántas secciones tiene el implemento y nombralas. El look-ahead (anticipación
+          ON/OFF) global y la geometría se configuran en PilotX; lo de acá es un override
+          por sección (dejá en 0 para usar el valor global de PilotX).
+        </p>
+        <div style="display:flex; gap: var(--agp-sp-2); align-items:flex-end; flex-wrap:wrap; margin-bottom: var(--agp-sp-3)">
+          <div class="field" style="max-width: 220px">
+            <label>Cantidad de secciones</label>
+            <input type="number" id="numSections" min="1" max="200" step="1">
+            <div class="help">Hasta 200 (por sembradoras con corte surco-a-surco tipo LineX).</div>
+          </div>
+        </div>
+        <table id="tblSeccionesX" style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr style="text-align:left; border-bottom: var(--agp-border-w) solid var(--agp-border);">
+              <th style="padding:6px">Sección</th>
+              <th style="padding:6px">Nombre</th>
+              <th style="padding:6px">Look-ahead ON (s)</th>
+              <th style="padding:6px">Look-ahead OFF (s)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div style="margin-top: var(--agp-sp-4); display:flex; gap: var(--agp-sp-2); align-items: center;">
+      <button class="btn primary" id="btnSaveTool" style="min-height: var(--agp-touch-min)">Guardar y aplicar</button>
+      <button class="btn" id="btnReloadTool">Descartar cambios</button>
+      <span class="msg" id="msgTool"></span>
+    </div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/sembradora-visual.js"></script>
+  <script src="../js/herramienta.js"></script>
+</body>
+</html>

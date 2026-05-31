@@ -87,7 +87,7 @@ namespace AgroParallel.VistaX
             ForeColor = CText;
             Font = new Font("Segoe UI", 10f);
             ShowInTaskbar = false;
-            FormBorderStyle = FormBorderStyle.None;
+            FormBorderStyle = FormBorderStyle.Sizable;
             KeyPreview = true;
             KeyDown += (s, ev) => { if (ev.KeyCode == Keys.Escape) Close(); };
             Paint += (s, ev) =>
@@ -132,18 +132,7 @@ namespace AgroParallel.VistaX
                 AutoSize = true, BackColor = Color.Transparent
             });
 
-            var btnX = new Button
-            {
-                Text = "\u2715", FlatStyle = FlatStyle.Flat, BackColor = CBgPanel,
-                ForeColor = CTextDim, Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                Size = new Size(40, 32), Cursor = Cursors.Hand,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
-            };
-            btnX.FlatAppearance.BorderSize = 0;
-            btnX.FlatAppearance.MouseOverBackColor = Color.FromArgb(200, 40, 40);
-            btnX.Click += (s, ev) => Close();
-            topBar.Controls.Add(btnX);
-            topBar.Resize += (s, ev) => btnX.Location = new Point(topBar.Width - btnX.Width - 4, 12);
+            // Cerrar: usar el chrome nativo del Form (FormBorderStyle.Sizable).
             Controls.Add(topBar);
 
             // ── Scrollable body ─────────────────────────────────────────
@@ -217,12 +206,12 @@ namespace AgroParallel.VistaX
             };
             _implSummaryPanel.Controls.Add(_lblImplSensores);
 
-            // Editable: surcos / secciones AOG / ancho.
+            // Editable: surcos / secciones PilotX / ancho.
             int editY = 78;
             AddImplNumeric(_implSummaryPanel, "SURCOS", 16, editY, 1, 200,
                 () => LoadImplSetupInt("total_surcos"),
                 v => SaveImplSetupInt("total_surcos", v));
-            AddImplNumeric(_implSummaryPanel, "SECCIONES AOG", 130, editY, 1, 64,
+            AddImplNumeric(_implSummaryPanel, "SECCIONES PilotX", 130, editY, 1, 64,
                 () => LoadImplSetupInt("secciones_aog"),
                 v => SaveImplSetupInt("secciones_aog", v));
             // Ancho con decimales.
@@ -266,9 +255,9 @@ namespace AgroParallel.VistaX
             // Store reference for UpdateDistLabel.
             _implSummaryPanel.Tag = _lblDist;
 
-            // Botón para leer geometría desde AOG automáticamente.
+            // Botón para leer geometría desde PilotX automáticamente.
             int btnY = 108;
-            var btnAutoAOG = MkPillButton("\u21BB  LEER DE AOG", CAccentDim, CText);
+            var btnAutoAOG = MkPillButton("\u21BB  LEER DE PilotX", CAccentDim, CText);
             btnAutoAOG.Size = new Size(140, 26);
             btnAutoAOG.Location = new Point(16, btnY);
             btnAutoAOG.Click += (s, ev) => ReadGeometryFromAOG();
@@ -753,7 +742,7 @@ namespace AgroParallel.VistaX
 
                 _lblImplSensores.Text = surcosFinal
                     + " surcos \u00B7 " + semilla + " sensores" + ratio
-                    + " \u00B7 " + (seccionesAOG > 0 ? seccionesAOG.ToString() : "?") + " secciones AOG"
+                    + " \u00B7 " + (seccionesAOG > 0 ? seccionesAOG.ToString() : "?") + " secciones PilotX"
                     + " \u00B7 " + nodos.Count + " nodo(s)";
             }
             catch
@@ -906,7 +895,7 @@ namespace AgroParallel.VistaX
                 if (parent == null) parent = FindFormGPS();
                 if (parent == null)
                 {
-                    MessageBox.Show(this, "No se pudo acceder a AgOpenGPS.\nAbr\u00ED este panel desde el men\u00FA principal.",
+                    MessageBox.Show(this, "No se pudo acceder a Agro Parallel.\nAbr\u00ED este panel desde el men\u00FA principal.",
                         "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
@@ -920,7 +909,7 @@ namespace AgroParallel.VistaX
                 }
                 if (impl.Setup == null) impl.Setup = new ImplementoSetup();
 
-                // Leer geometría desde AOG.
+                // Leer geometría desde PilotX.
                 if (parent.tool != null)
                 {
                     impl.Setup.AnchoImplemento = Math.Round(parent.tool.width, 2);
@@ -960,12 +949,12 @@ namespace AgroParallel.VistaX
 
                 double distCm = impl.Setup.DistanciaEntreSurcos * 100;
                 MessageBox.Show(this,
-                    "Geometr\u00EDa le\u00EDda de AOG:\n\n"
+                    "Geometr\u00EDa le\u00EDda de PilotX:\n\n"
                     + "Ancho: " + impl.Setup.AnchoImplemento.ToString("F2", CultureInfo.InvariantCulture) + " m\n"
                     + "Secciones: " + impl.Setup.SeccionesAOG + "\n"
                     + "Dist. entre surcos: " + distCm.ToString("F1", CultureInfo.InvariantCulture) + " cm\n"
                     + "(" + impl.Setup.DistanciaEntreSurcos.ToString("F4", CultureInfo.InvariantCulture) + " m)",
-                    "Geometr\u00EDa AOG", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    "Geometr\u00EDa PilotX", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

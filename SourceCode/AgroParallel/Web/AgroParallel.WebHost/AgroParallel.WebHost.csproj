@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AgroParallel.WebHost — servidor HTTP + WebSocket embebido (EmbedIO).
+    Hospeda los endpoints REST + el TelemetryHub WS que consume la UI HTML.
+    Lee estado runtime a través de IAogStateProvider; no conoce FormGPS.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>AgroParallel.WebHost</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="EmbedIO" Version="3.5.2" />
+    <PackageReference Include="System.Text.Json" Version="6.0.10" />
+    <!-- QR code generator para la pagina /m/qr.html del Hub (operario escanea desde el celular). -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+    <!-- mDNS / Bonjour responder para publicar "agroparallel.local" en la LAN del tractor. -->
+    <PackageReference Include="Makaretu.Dns.Multicast" Version="0.27.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\AgroParallel.Models\AgroParallel.Models.csproj" />
+    <ProjectReference Include="..\..\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+  </ItemGroup>
+
+</Project>

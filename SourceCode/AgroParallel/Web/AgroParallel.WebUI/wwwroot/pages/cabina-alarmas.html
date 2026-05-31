@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Alarmas · Cabina</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <style>
+    /*
+      Overlay de cabina — full-bleed, sin sidebar/chrome.
+      Solo se ve cuando hay nodos del implemento activo offline.
+      El control WinForms/Avalonia que lo hostea lo mantiene Visible=false
+      hasta que esta página envía postMessage({type:'show'}); y vuelve a
+      ocultarlo con {type:'hide'} cuando no hay alarmas.
+
+      Diseño:
+        · Alto contraste (sol directo en cabina).
+        · Tipografía grande — se lee a 1.5 m de distancia.
+        · NO requiere interacción para silenciar — el beep ya es one-shot
+          por UID nuevo. Hay un botón táctil grande "Silenciar 10 min"
+          para que el operario no se distraiga.
+    */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: transparent;
+      color: #fff;
+      font-family: var(--agp-font, system-ui, sans-serif);
+      overflow: hidden;
+    }
+    body.hidden { display: none; }
+    .alert {
+      box-sizing: border-box;
+      width: 100%; min-height: 64px;
+      padding: 14px 18px;
+      background: linear-gradient(180deg, #C92D2D 0%, #8B1B1B 100%);
+      border-bottom: 2px solid #5B0F0F;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+      display: flex; align-items: center; gap: 14px;
+      font-size: 20px; font-weight: 600;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 4px 14px rgba(201,45,45,0.45); }
+      50%     { box-shadow: 0 4px 26px rgba(201,45,45,0.85); }
+    }
+    .icon { font-size: 28px; line-height: 1; }
+    .body { flex: 1; min-width: 0; }
+    .titulo { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
+    .lista {
+      margin-top: 4px; font-size: 16px; font-weight: 500;
+      opacity: 0.95; line-height: 1.3;
+    }
+    .lista .nodo { display: inline-block; margin-right: 12px; }
+    .lista .nodo .tipo { opacity: 0.7; font-size: 13px; margin-left: 4px; }
+    .actions { display: flex; gap: 10px; }
+    .btn-silenciar {
+      min-height: 44px; padding: 8px 18px;
+      background: rgba(255,255,255,0.12);
+      border: 1.5px solid rgba(255,255,255,0.55);
+      color: #fff; font-weight: 600; font-size: 15px;
+      border-radius: 8px; cursor: pointer;
+    }
+    .btn-silenciar:active { background: rgba(255,255,255,0.22); }
+  </style>
+</head>
+<body class="hidden">
+  <div class="alert" id="alert">
+    <div class="icon">⚠</div>
+    <div class="body">
+      <div class="titulo" id="titulo">Nodos del implemento offline</div>
+      <div class="lista" id="lista"></div>
+    </div>
+    <div class="actions">
+      <button class="btn-silenciar" id="btnSilenciar" type="button">Silenciar 10 min</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var elBody     = document.body;
+    var elTitulo   = document.getElementById('titulo');
+    var elLista    = document.getElementById('lista');
+    var elSilenc   = document.getElementById('btnSilenciar');
+
+    var alertedUids   = Object.create(null); // beep one-shot por UID que entra en alarma
+    var silencedUntil = 0;
+    var lastImplSlug  = '';
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function lkeys(v) {
+      if (v == null) return v;
+      if (Array.isArray(v)) return v.map(lkeys);
+      if (typeof v !== 'object') return v;
+      var out = {};
+      for (var k in v) {
+        if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
+        var nk = k.length > 0 ? k.charAt(0).toLowerCase() + k.substring(1) : k;
+        out[nk] = lkeys(v[k]);
+      }
+      return out;
+    }
+
+    // Notifica al host WinForms/Avalonia para mostrar/ocultar el control.
+    // Si el host no es WebView2 (ej. abierto en navegador para tests), el
+    // postMessage falla silencioso — no hay nada que romper.
+    function notifyHost(type, extras) {
+      try {
+        if (window.chrome && window.chrome.webview && window.chrome.webview.postMessage) {
+          var msg = { type: type };
+          if (extras) for (var k in extras) msg[k] = extras[k];
+          window.chrome.webview.postMessage(msg);
+        }
+      } catch (e) { /* silent */ }
+    }
+
+    function beep() {
+      try {
+        var ctx = beep._ctx || (beep._ctx = new (window.AudioContext || window.webkitAudioContext)());
+        // En algunos hosts WebView2 el contexto arranca suspendido hasta que
+        // hay interacción. resume() es no-op si ya está corriendo.
+        if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+        var o = ctx.createOscillator();
+        var g = ctx.createGain();
+        o.type = 'square'; o.frequency.value = 880;
+        g.gain.value = 0.0001;
+        o.connect(g); g.connect(ctx.destination);
+        var t = ctx.currentTime;
+        g.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        o.start(t); o.stop(t + 0.6);
+      } catch (e) { /* silent */ }
+    }
+
+    async function tick() {
+      try {
+        var r = await fetch('/api/nodos/unified', { cache: 'no-store' });
+        var d = lkeys(await r.json());
+        if (!d || !d.ok) return;
+        lastImplSlug = d.implementoSlug || '';
+
+        var offlines = (d.nodos || []).filter(function (n) {
+          return n.del_implemento_activo && !n.online;
+        });
+
+        if (offlines.length === 0) {
+          // Reset y oculto.
+          alertedUids = Object.create(null);
+          elBody.classList.add('hidden');
+          notifyHost('hide');
+          return;
+        }
+
+        // Render lista.
+        elTitulo.textContent = 'Nodos del implemento offline' +
+          (lastImplSlug ? ' — ' + lastImplSlug : '');
+        elLista.innerHTML = offlines.map(function (n) {
+          var label = n.alias ? n.alias : n.uid;
+          var tipo = n.tipo ? ' <span class="tipo">' + escapeHtml(n.tipo) + '</span>' : '';
+          return '<span class="nodo">• ' + escapeHtml(label) + tipo + '</span>';
+        }).join('');
+
+        // Mostrar y notificar al host (que recién ahora hace Visible=true).
+        elBody.classList.remove('hidden');
+        notifyHost('show', { count: offlines.length });
+
+        // Beep one-shot por UID nuevo, respetando silenciado manual.
+        var now = Date.now();
+        var hayNuevos = false;
+        var vivos = Object.create(null);
+        offlines.forEach(function (n) {
+          vivos[n.uid] = true;
+          if (!alertedUids[n.uid]) hayNuevos = true;
+        });
+        Object.keys(alertedUids).forEach(function (k) { if (!vivos[k]) delete alertedUids[k]; });
+        Object.keys(vivos).forEach(function (k) { alertedUids[k] = true; });
+        if (hayNuevos && now >= silencedUntil) beep();
+
+      } catch (e) { /* tolerante: si el WebHost no está, esperamos al próximo tick */ }
+    }
+
+    elSilenc.addEventListener('click', function () {
+      silencedUntil = Date.now() + 10 * 60 * 1000;
+      // El banner sigue visible (es información importante), pero no beepea más
+      // hasta que ENTRE un nuevo UID en alarma después del silenciado.
+      notifyHost('silenced', { until: silencedUntil });
+    });
+
+    // Primera vuelta + polling cada 2s. Lo suficientemente rápido para detectar
+    // caídas + razonable para el broker MQTT y para no spamear la PC.
+    tick();
+    setInterval(tick, 2000);
+  })();
+  </script>
+</body>
+</html>

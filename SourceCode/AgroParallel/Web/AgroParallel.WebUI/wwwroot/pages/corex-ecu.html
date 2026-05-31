@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CoreX-ECU · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .tabs { display:flex; gap:8px; margin: var(--agp-sp-3) 0; flex-wrap:wrap; }
+    .tab-btn {
+      min-height: 44px; padding: 10px 18px;
+      border: 1px solid var(--agp-border);
+      background: var(--agp-surface);
+      color: var(--agp-text);
+      border-radius: var(--agp-radius-md);
+      cursor: pointer;
+      font-weight: var(--agp-fw-medium);
+    }
+    .tab-btn.active {
+      background: rgba(74,186,62,0.18);
+      border-color: var(--agp-state-ok);
+      color: var(--agp-text);
+    }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+    .check-row {
+      display:flex; align-items:center; gap:12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--agp-border);
+    }
+    .check-row:last-child { border-bottom: none; }
+    .check-state {
+      flex-shrink: 0;
+      width: 24px; height: 24px;
+      display:flex; align-items:center; justify-content:center;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .check-state.ok { background: rgba(74,186,62,0.20); color: var(--agp-state-ok); }
+    .check-state.warn { background: rgba(255,170,0,0.20); color: #f0a000; }
+    .check-state.fail { background: rgba(201,45,45,0.18); color: #E15A5A; }
+    .check-state.unknown { background: rgba(150,150,150,0.20); color: var(--agp-text-muted); }
+    .check-label { flex: 1; font-weight: var(--agp-fw-medium); }
+    .check-detail { color: var(--agp-text-muted); font-size: 0.9em; }
+    .err-banner {
+      background: rgba(201,45,45,0.10);
+      border: 1px solid rgba(201,45,45,0.35);
+      border-radius: var(--agp-radius-md);
+      padding: 12px;
+      margin-bottom: var(--agp-sp-3);
+      display: none;
+    }
+    .err-banner.visible { display:block; }
+    .err-code {
+      display: inline-block;
+      background: rgba(201,45,45,0.20);
+      color: #E15A5A;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.85em;
+      margin-right: 8px;
+    }
+    .params-grid {
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--agp-sp-2);
+    }
+    .params-grid .field {
+      display:flex; flex-direction:column; gap: 4px;
+      padding: 8px 10px;
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-bg);
+    }
+    .params-grid .field label {
+      font-size: 0.85em; color: var(--agp-text-muted);
+    }
+    .params-grid .field input {
+      background: transparent; border:none; color: var(--agp-text);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.95em; padding: 2px 0;
+    }
+    .params-grid .field input:focus { outline: 1px solid var(--agp-state-ok); }
+    .params-section { margin-top: var(--agp-sp-3); }
+    .params-section h3 {
+      margin: 0 0 var(--agp-sp-2) 0;
+      font-size: 1.0em; color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .updated-pill {
+      display:inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 0.75em; margin-left: 6px;
+      background: rgba(150,150,150,0.20); color: var(--agp-text-muted);
+    }
+    .updated-pill.ok { background: rgba(74,186,62,0.20); color: var(--agp-state-ok); }
+
+    /* ---------- Tab Calibración ---------- */
+    .joystick {
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: var(--agp-sp-2);
+      margin-top: var(--agp-sp-2);
+    }
+    .joystick .jbtn {
+      min-height: 64px; padding: 0 6px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 1.0em; font-weight: var(--agp-fw-bold);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-surface);
+      color: var(--agp-text);
+      cursor: pointer; user-select: none;
+      touch-action: none;
+    }
+    .joystick .jbtn:active,
+    .joystick .jbtn.holding {
+      background: rgba(74,186,62,0.20);
+      border-color: var(--agp-state-ok);
+      transform: scale(0.97);
+    }
+    .joystick .jbtn.stop {
+      background: rgba(201,45,45,0.12);
+      border-color: rgba(201,45,45,0.35);
+      color: #E15A5A;
+    }
+    .joystick .jbtn:disabled {
+      opacity: 0.4; cursor: not-allowed; transform: none;
+    }
+    .motor-status {
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      color: var(--agp-text-muted);
+      margin-top: var(--agp-sp-2);
+      font-size: 0.9em;
+    }
+    .motor-status .active {
+      color: var(--agp-state-ok); font-weight: var(--agp-fw-bold);
+    }
+    .lock-warn {
+      background: rgba(255,170,0,0.10);
+      border: 1px solid rgba(255,170,0,0.35);
+      border-radius: var(--agp-radius-sm);
+      padding: 8px 12px;
+      margin-bottom: var(--agp-sp-2);
+      color: #f0a000;
+      font-size: 0.9em;
+      display: none;
+    }
+    .lock-warn.visible { display:block; }
+    .sweep-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--agp-sp-2);
+      margin-top: var(--agp-sp-2);
+    }
+    .sweep-progress {
+      background: rgba(74,186,62,0.10);
+      border: 1px solid rgba(74,186,62,0.30);
+      border-radius: var(--agp-radius-sm);
+      padding: 8px 12px;
+      margin-top: var(--agp-sp-2);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+    }
+    table.sweep-results {
+      width: 100%; border-collapse: collapse; margin-top: var(--agp-sp-2);
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.85em;
+    }
+    table.sweep-results th, table.sweep-results td {
+      padding: 4px 8px; text-align: right;
+      border-bottom: 1px solid var(--agp-border);
+    }
+    table.sweep-results th {
+      color: var(--agp-text-muted); font-size: 0.75em;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      font-weight: var(--agp-fw-medium); text-align: right;
+    }
+    table.sweep-results th:first-child,
+    table.sweep-results td:first-child { text-align: left; }
+    table.sweep-results tr.pending td { opacity: 0.4; }
+    table.sweep-results tr.current td { background: rgba(74,186,62,0.10); }
+
+    /* Toggle "Habilitado" — reemplazo del .switch/.track por un botón
+       grande con texto ON/OFF, que sí se ve claro en el tema dark. */
+    .toggle-btn {
+      min-height: 44px;
+      min-width: 110px;
+      padding: 8px 20px;
+      border-radius: var(--agp-radius-md);
+      border: 1px solid #5a626b;
+      background: #3a4047;
+      color: var(--agp-text);
+      font-weight: var(--agp-fw-bold);
+      font-size: 0.95em;
+      cursor: pointer;
+      user-select: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .toggle-btn::before {
+      content: '';
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #888; box-shadow: inset 0 0 2px rgba(0,0,0,0.5);
+    }
+    .toggle-btn.on {
+      background: rgba(74,186,62,0.20);
+      border-color: var(--agp-state-ok);
+      color: var(--agp-text);
+    }
+    .toggle-btn.on::before {
+      background: var(--agp-state-ok);
+      box-shadow: 0 0 8px rgba(74,186,62,0.6);
+    }
+    /* Segmented control para fuente WAS — tres botones grandes, uno activo. */
+    .was-src-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--agp-sp-2);
+    }
+    .was-src-btn {
+      padding: 14px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--agp-border);
+      background: var(--agp-surface);
+      color: var(--agp-text);
+      cursor: pointer;
+      font-size: 1.0em;
+      font-weight: 500;
+      text-align: center;
+      transition: background 120ms, border-color 120ms;
+      user-select: none;
+    }
+    .was-src-btn:hover { background: rgba(74,186,62,0.08); }
+    .was-src-btn.on {
+      background: rgba(74,186,62,0.20);
+      border-color: var(--agp-state-ok);
+      color: var(--agp-text);
+      box-shadow: 0 0 0 1px var(--agp-state-ok) inset;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="corex-ecu"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>CoreX-ECU</h1>
+        <div class="subtitle">Autosteer · Teensy 4.1 · firmware <span id="hdrFw">—</span></div>
+      </div>
+      <span class="pill idle" id="okPill"><span class="dot"></span> Sin conexión</span>
+    </div>
+
+    <div id="errBanner" class="err-banner">
+      <span class="err-code" id="errCode">AGP-NET-002</span>
+      <span id="errMsg">El CoreX-ECU no responde.</span>
+      <details style="margin-top:8px">
+        <summary style="cursor:pointer; color: var(--agp-text-muted)">Detalle técnico</summary>
+        <pre id="errTech" style="margin: 6px 0 0 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; white-space: pre-wrap;"></pre>
+      </details>
+    </div>
+
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-tab="live">Live</button>
+      <button type="button" class="tab-btn" data-tab="diag">Estado</button>
+      <button type="button" class="tab-btn" data-tab="calib">Calibración</button>
+      <button type="button" class="tab-btn" data-tab="config">Conexión</button>
+    </div>
+
+    <!-- ============ TAB LIVE ============ -->
+    <section class="tab-pane active" data-tab="live">
+      <div class="grid">
+        <div class="card">
+          <h3>IMU</h3>
+          <div class="row"><span>Modo</span><strong id="imuMode" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Yaw</span><strong id="imuYaw" style="color:var(--agp-text)">— °</strong></div>
+          <div class="row"><span>Roll</span><strong id="imuRoll" style="color:var(--agp-text)">— °</strong></div>
+          <div class="row"><span>Pitch</span><strong id="imuPitch" style="color:var(--agp-text)">— °</strong></div>
+          <div class="row"><span>Yaw rate</span><strong id="imuYawRate" style="color:var(--agp-text)">— °/s</strong></div>
+        </div>
+        <div class="card">
+          <h3>WAS (Wheel Angle Sensor)</h3>
+          <div class="row"><span>Fuente</span><strong id="wasSrc" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Ángulo</span><strong id="wasAngle" style="color:var(--agp-text)">— °</strong></div>
+          <div class="row"><span>Auto-zero</span><strong id="wasZero" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Encoder raw</span><strong id="wasRaw" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Centro (ticks)</span><strong id="wasCenter" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Ticks por grado</span><strong id="wasTpd" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>ADS1115 presente</span><strong id="wasAdsPresent" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>ADS raw</span><strong id="wasAdsRaw" style="color:var(--agp-text)">—</strong></div>
+        </div>
+        <div class="card">
+          <h3>GPS</h3>
+          <div class="row"><span>Velocidad</span><strong id="gpsSpd" style="color:var(--agp-text)">— km/h</strong></div>
+          <div class="row"><span>Knots</span><strong id="gpsKnots" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Heading</span><strong id="gpsHdg" style="color:var(--agp-text)">— °</strong></div>
+          <div class="row"><span>GGA visto</span><strong id="gpsGga" style="color:var(--agp-text)">—</strong></div>
+        </div>
+        <div class="card">
+          <h3>CAN Keya</h3>
+          <div class="row"><span>Steer enable</span><strong id="canEn" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Corriente</span><strong id="canCurr" style="color:var(--agp-text)">— A</strong></div>
+        </div>
+        <div class="card">
+          <h3>Autosteer</h3>
+          <div class="row"><span>Loop</span><strong id="asRun" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Guidance</span><strong id="asGuide" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Watchdog</span><strong id="asWd" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>PWM</span><strong id="asPwm" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Setpoint</span><strong id="asSp" style="color:var(--agp-text)">— °</strong></div>
+        </div>
+        <div class="card">
+          <h3>Sistema</h3>
+          <div class="row"><span>IP del Teensy</span><strong id="ip" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Ethernet</span><strong id="eth" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Firmware</span><strong id="fwVer" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Uptime</span><strong id="upTime" style="color:var(--agp-text)">—</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TAB ESTADO ============ -->
+    <section class="tab-pane" data-tab="diag">
+      <h2>Checklist runtime</h2>
+      <div class="card" id="checklist">
+        <div class="subtitle">Esperando primer snapshot…</div>
+      </div>
+    </section>
+
+    <!-- ============ TAB CALIBRACIÓN ============ -->
+    <section class="tab-pane" data-tab="calib">
+      <div class="card">
+        <h2 style="margin-top:0">Motor manual</h2>
+        <div class="subtitle" style="margin-bottom: var(--agp-sp-2)">
+          Movimiento directo del motor Keya con dead-man timer.
+          Mantené apretado un botón: si soltás o el Hub se desconecta, el motor frena solo.
+          Se bloquea si la guidance externa está activa.
+        </div>
+
+        <div id="motorLockWarn" class="lock-warn">
+          <strong>Bloqueado:</strong> hay guidance externa activa. Pausá la dirección automática para usar el motor manual.
+        </div>
+
+        <div class="joystick">
+          <button type="button" class="jbtn" data-pwm="-60">◀◀ −60</button>
+          <button type="button" class="jbtn" data-pwm="-20">◀ −20</button>
+          <button type="button" class="jbtn stop" id="btnMotorStop">■ STOP</button>
+          <button type="button" class="jbtn" data-pwm="20">+20 ▶</button>
+          <button type="button" class="jbtn" data-pwm="60">+60 ▶▶</button>
+        </div>
+
+        <div class="motor-status" id="motorStatus">
+          Motor inactivo · sin comando manual.
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: var(--agp-sp-3)">
+        <h2 style="margin-top:0">Barrido PWM (caracterización Keya)</h2>
+        <div class="subtitle" style="margin-bottom: var(--agp-sp-2)">
+          Pulsea el motor en 16 pasos (±5..±60 PWM) midiendo °/s contra <code>ticksPerDeg</code>.
+          Sirve para validar que la respuesta del motor es lineal y simétrica.
+          Tiempo estimado: ~30 s. Se aborta solo si entra guidance externa.
+        </div>
+
+        <div class="sweep-grid">
+          <div class="field" style="display:flex; flex-direction:column; gap:4px;">
+            <label class="subtitle">Duración por paso (ms)</label>
+            <input type="number" id="swStep" min="500" max="3000" step="100" value="1500" class="input" />
+          </div>
+          <div class="field" style="display:flex; flex-direction:column; gap:4px;">
+            <label class="subtitle">Settle entre pasos (ms)</label>
+            <input type="number" id="swSettle" min="100" max="2000" step="50" value="400" class="input" />
+          </div>
+          <div class="field" style="display:flex; align-items:flex-end; gap:8px;">
+            <button type="button" class="btn" id="btnSweepStart" style="background:rgba(74,186,62,0.18); border-color: var(--agp-state-ok); color: var(--agp-text);">▶ Iniciar barrido</button>
+            <button type="button" class="btn" id="btnSweepCancel" disabled style="background:rgba(201,45,45,0.12); border-color:rgba(201,45,45,0.35); color:#E15A5A;">■ Cancelar</button>
+          </div>
+        </div>
+
+        <div id="sweepProgress" class="sweep-progress" style="display:none">
+          <span id="sweepProgText">—</span>
+        </div>
+
+        <div id="sweepMsg" class="subtitle" style="margin-top:8px"></div>
+
+        <table class="sweep-results" id="sweepTable" style="display:none">
+          <thead>
+            <tr>
+              <th>PWM</th>
+              <th>Δ ticks</th>
+              <th>ms</th>
+              <th>°/s</th>
+              <th>°/s por PWM</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ TAB CONEXIÓN ============ -->
+    <section class="tab-pane" data-tab="config">
+      <h2>Conexión con el Teensy</h2>
+      <div class="card">
+        <div class="row" style="align-items:center;">
+          <span>Habilitado</span>
+          <button type="button" class="toggle-btn" id="cfgEnabled" aria-pressed="false">
+            <span class="toggle-label">OFF</span>
+          </button>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--agp-sp-3); margin-top: var(--agp-sp-3);">
+          <div>
+            <label class="subtitle">IP del Teensy</label>
+            <input type="text" id="cfgIp" class="input" placeholder="192.168.5.126" />
+          </div>
+          <div>
+            <label class="subtitle">Puerto</label>
+            <input type="number" id="cfgPort" class="input" min="1" max="65535" />
+          </div>
+          <div>
+            <label class="subtitle">Timeout (ms)</label>
+            <input type="number" id="cfgTimeout" class="input" min="100" max="10000" />
+          </div>
+        </div>
+
+        <div style="margin-top: var(--agp-sp-3); padding-top: var(--agp-sp-3); border-top: 1px solid var(--agp-border);">
+          <h3 style="margin: 0 0 var(--agp-sp-2) 0; font-size: 1.0em; color: var(--agp-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Sensor de ángulo (WAS)</h3>
+          <div class="subtitle" style="margin-bottom: var(--agp-sp-2)">
+            Elegí qué referencia usa el autosteer para conocer el ángulo de la rueda directriz.
+            La fuente efectiva la reporta el firmware en la pestaña Live (campo &quot;Fuente&quot;).
+          </div>
+          <label class="subtitle">Fuente preferida</label>
+          <div id="cfgWasSourceGroup" class="was-src-group" role="radiogroup" aria-label="Fuente WAS">
+            <button type="button" class="was-src-btn" data-src="keya" role="radio" aria-checked="false">Encoder motor</button>
+            <button type="button" class="was-src-btn" data-src="ads_se" role="radio" aria-checked="false">WAS</button>
+            <button type="button" class="was-src-btn" data-src="bno_was" role="radio" aria-checked="false">YAW</button>
+          </div>
+          <input type="hidden" id="cfgWasSource" value="keya" />
+          <div class="subtitle" style="margin-top: var(--agp-sp-2)">
+            <strong style="color:var(--agp-text)">Encoder motor:</strong> usa los ticks del propio motor (Keya por CAN) — no necesita
+            hardware extra, pero pierde precisión si hay juego mecánico entre el motor y la rueda.<br/>
+            <strong style="color:var(--agp-text)">WAS:</strong> sensor de ángulo de rueda analógico (potenciómetro / Hall) por ADS1115.
+            Más fiel al ángulo real; calibración con <code>wasOffset</code> y <code>steerSensorCounts</code> de PilotX.<br/>
+            <strong style="color:var(--agp-text)">YAW:</strong> usa una IMU secundaria BNO085 en modo RVC sobre Serial3 como referencia
+            angular (firmware v1.14+). Útil cuando no hay sensor mecánico de rueda; el firmware reporta
+            <code>was.bno_was_present</code> en <code>/api/status</code> para verificar el enlace serial.
+          </div>
+        </div>
+
+        <div style="margin-top: var(--agp-sp-3);">
+          <button type="button" class="btn" id="btnSaveCfg">Guardar configuración</button>
+          <span class="subtitle" id="cfgMsg" style="margin-left:12px"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/corex-ecu.js"></script>
+</body>
+</html>

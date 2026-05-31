@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VistaX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); flex-wrap:wrap; }
+    .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); user-select:none; }
+    .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+
+    .sensors { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--agp-sp-3); }
+    .sensor {
+      position: relative;
+      background: var(--agp-surface); border-radius: var(--agp-radius-md);
+      border: var(--agp-border-w) solid var(--agp-border);
+      padding: var(--agp-sp-3); text-align: center;
+      cursor: pointer; user-select: none;
+      transition: transform var(--agp-dur-fast) var(--agp-ease);
+    }
+    .sensor:active { transform: scale(0.97); }
+    .sensor .id { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .sensor .pps { font-family: var(--agp-font-mono); font-size: 28px; font-weight: var(--agp-fw-bold); color: var(--agp-text); }
+    .sensor .obj { font-family: var(--agp-font-mono); font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .sensor .obj .sep { opacity: 0.5; margin: 0 4px; }
+    .sensor .row2 { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 4px; }
+
+    /* Tubo vertical que llena la celda con color según estado. */
+    .sensor .tube {
+      position: absolute; inset: 6px;
+      border-radius: var(--agp-radius-sm);
+      pointer-events: none;
+      z-index: 0;
+      transition: background var(--agp-dur-normal) var(--agp-ease);
+    }
+    .sensor > .id, .sensor > .pps, .sensor > .obj, .sensor > .row2, .sensor > .badge { position: relative; z-index: 1; }
+
+    /* Estados — se pintan vía inline-style (gradient dinámico para "bajo"); */
+    /* estas clases sirven sólo como fallback semántico.                      */
+    .sensor.s-ok      .tube { background: var(--vx-ok); }
+    .sensor.s-tapado  .tube { background: var(--vx-tapado); border:1px solid var(--vx-tapado-border); }
+    .sensor.s-exceso  .tube { background: linear-gradient(180deg, var(--vx-exceso), var(--vx-exceso-dark)); }
+    .sensor.s-no-data .tube { background: var(--vx-no-data); border:1px solid var(--vx-no-data-border); }
+    .sensor.s-muted   .tube { background: var(--vx-muted); border:1px solid var(--vx-muted-border); }
+    .sensor.s-muted   .pps  { color: var(--agp-text-muted); }
+    .sensor.s-tapado  .pps,
+    .sensor.s-bajo    .pps  { color: #FFFFFF; }
+    .sensor.s-exceso  .pps  { color: #FFFFFF; }
+    .sensor.s-ok      .pps  { color: #0A1A06; }
+
+    .sensor .badge {
+      position: absolute; top: 4px; right: 6px;
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
+      padding: 2px 6px; border-radius: var(--agp-radius-pill);
+      background: rgba(0,0,0,0.55); color: #FFFFFF; font-weight: var(--agp-fw-bold);
+    }
+    .sensor .badge.muted { background: rgba(0,0,0,0.7); color: var(--agp-text-muted); }
+
+    /* ---------- Widget "barras" para sensores no semilla/ferti --------- */
+    /* Cada barra es horizontal: el ratio real/objetivo llena el ancho.   */
+    /* Se renderizan en una grilla aparte ("sensors-bars") debajo de la   */
+    /* grilla de tubitos. Ambas pueden coexistir dentro del mismo tren.   */
+    .sensors-bars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--agp-sp-3);
+      margin-top: var(--agp-sp-3);
+    }
+    .bar-sensor {
+      position: relative;
+      background: var(--agp-surface);
+      border-radius: var(--agp-radius-md);
+      border: var(--agp-border-w) solid var(--agp-border);
+      padding: var(--agp-sp-3);
+      cursor: pointer; user-select: none;
+      display: flex; flex-direction: column; gap: var(--agp-sp-2);
+    }
+    .bar-sensor .bs-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: var(--agp-sp-2);
+    }
+    .bar-sensor .bs-title {
+      font-size: var(--agp-fs-sm); color: var(--agp-text);
+      font-weight: var(--agp-fw-medium);
+    }
+    .bar-sensor .bs-title .tipo {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 1px; margin-left: 6px;
+    }
+    .bar-sensor .bs-value {
+      font-family: var(--agp-font-mono); font-size: 22px;
+      font-weight: var(--agp-fw-bold); color: var(--agp-text);
+    }
+    .bar-sensor .bar-track {
+      position: relative; height: 22px;
+      background: var(--agp-bg-soft);
+      border-radius: var(--agp-radius-sm);
+      overflow: hidden;
+      border: 1px solid var(--agp-border);
+    }
+    .bar-sensor .bar-fill {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      width: 0%;
+      transition: width var(--agp-dur-normal) var(--agp-ease),
+                  background var(--agp-dur-normal) var(--agp-ease);
+      border-radius: var(--agp-radius-sm) 0 0 var(--agp-radius-sm);
+    }
+    .bar-sensor.s-ok      .bar-fill { background: var(--vx-ok); }
+    .bar-sensor.s-tapado  .bar-fill { background: var(--vx-tapado); }
+    .bar-sensor.s-exceso  .bar-fill { background: var(--vx-exceso); }
+    .bar-sensor.s-no-data .bar-fill { background: var(--vx-no-data); }
+    .bar-sensor.s-muted   .bar-fill { background: var(--vx-muted); }
+    .bar-sensor.s-bajo    .bar-fill { background: linear-gradient(90deg, #0A0A0A, var(--vx-ok)); }
+    .bar-sensor .bs-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: var(--agp-sp-2);
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+    }
+    .bar-sensor .bs-foot .estado { text-transform: uppercase; letter-spacing: 1px; }
+    .bar-sensor .obj-edit {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .bar-sensor .obj-edit input {
+      width: 70px; padding: 2px 6px; box-sizing: border-box;
+      background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      font-size: var(--agp-fs-xs); font-family: var(--agp-font-mono);
+      text-align: right;
+    }
+    .bar-sensor .obj-edit .unit { color: var(--agp-text-muted); }
+    .bar-sensor .obj-edit .ok-flash { color: var(--vx-ok); font-weight: var(--agp-fw-bold); }
+
+    /* Subtítulo separador dentro de cada tren */
+    .tren-sub {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin: var(--agp-sp-3) 0 var(--agp-sp-2) 0;
+    }
+
+    /* Menú contextual de mute (overlay simple). */
+    .vx-menu {
+      position: fixed; z-index: var(--agp-z-modal);
+      background: var(--agp-surface-2);
+      border: var(--agp-border-w) solid var(--agp-border-strong);
+      border-radius: var(--agp-radius-md);
+      box-shadow: var(--agp-shadow-lg);
+      min-width: 180px; overflow: hidden;
+    }
+    .vx-menu .item {
+      padding: 10px 14px; cursor: pointer; font-size: var(--agp-fs-sm);
+      display:flex; align-items:center; gap: 8px;
+    }
+    .vx-menu .item:hover { background: var(--agp-bg-soft); }
+    .vx-menu .item.danger { color: var(--agp-state-bad); }
+    .vx-menu .head {
+      padding: 8px 14px; font-size: var(--agp-fs-xs);
+      color: var(--agp-text-muted); border-bottom: 1px solid var(--agp-border);
+      background: var(--agp-bg-soft);
+    }
+
+    .form-grid { display:grid; grid-template-columns: 220px 1fr; gap: var(--agp-sp-3) var(--agp-sp-4); align-items:center; max-width: 720px; }
+    .form-grid label { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+    .form-grid input[type=text], .form-grid input[type=number], .form-grid input[type=password], .form-grid select {
+      width: 100%; padding: var(--agp-sp-2) var(--agp-sp-3);
+      background: var(--agp-surface); color: var(--agp-text);
+      border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      font-size: var(--agp-fs-sm);
+    }
+
+    table.editor { width:100%; border-collapse: collapse; font-size: var(--agp-fs-sm); }
+    table.editor th, table.editor td { padding: var(--agp-sp-2) var(--agp-sp-2); border-bottom: 1px solid var(--agp-border); text-align:left; }
+    table.editor th { color: var(--agp-text-muted); font-weight: var(--agp-fw-medium); font-size: var(--agp-fs-xs); text-transform: uppercase; letter-spacing: 0.5px; }
+    table.editor input[type=text], table.editor input[type=number] {
+      width: 100%; box-sizing: border-box;
+      padding: 4px 6px; background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      font-size: var(--agp-fs-xs);
+    }
+    table.editor .colnum { width: 80px; }
+    table.editor .colsm { width: 100px; }
+    table.editor .actions { width: 40px; text-align:center; }
+    .row-add { margin-top: var(--agp-sp-3); }
+    table.editor .btn.small { min-height: 28px; min-width: 28px; padding: 0 8px; font-size: var(--agp-fs-xs); }
+
+    .nodos-list { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--agp-sp-3); }
+    .nodo-card { background: var(--agp-surface); border:var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-md); padding: var(--agp-sp-3); }
+    .nodo-card .uid { font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold); }
+    .nodo-card .last { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+
+    .btn-row { display:flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-4); }
+    .empty-hint { color: var(--agp-text-muted); font-style: italic; padding: var(--agp-sp-4) 0; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="vistax"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>VistaX</h1>
+        <div class="subtitle" id="vxSubtitle">Monitoreo de siembra</div>
+      </div>
+      <div style="display:flex; gap:var(--agp-sp-2)" id="vxBadges"></div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="monitor">Monitor</div>
+      <div class="tab" data-tab="insumo">Insumo &amp; calibración</div>
+      <div class="tab" data-tab="implemento">Implemento</div>
+      <div class="tab" data-tab="nodos">Nodos</div>
+      <div class="tab" data-tab="config">Config</div>
+    </div>
+
+    <!-- ============ MONITOR ============ -->
+    <section id="paneMonitor" class="tab-pane active">
+      <div id="vxTrenes"></div>
+
+      <h2>Resumen</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>SPM promedio</h3>
+          <div class="metric"><span id="vxSpm">–</span><span class="unit">sem/min</span></div>
+          <div class="row"><span>Objetivo</span><strong id="vxObj">–</strong></div>
+        </div>
+        <div class="card">
+          <h3>Surcos activos</h3>
+          <div class="metric"><span id="vxActivos">0</span></div>
+          <div class="row"><span>Implemento</span><strong id="vxImp">–</strong></div>
+        </div>
+        <div class="card">
+          <h3>Fallas</h3>
+          <div class="metric"><span id="vxFallas">0</span></div>
+          <div class="row"><span id="vxAlarm" class="pill ok"><span class="dot"></span> sin alarma</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ INSUMO & CALIBRACIÓN ============ -->
+    <section id="paneInsumo" class="tab-pane">
+      <div class="grid" style="grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr); gap: var(--agp-sp-3); align-items:start;">
+        <div class="card">
+          <h3 style="margin-top:0">Insumo activo</h3>
+          <div class="subtitle" style="margin-bottom: var(--agp-sp-3)">
+            VistaX usa el insumo activo del catálogo para conocer la
+            <strong>densidad objetivo</strong> y la <strong>densidad asumida al saturar</strong>
+            (modo flujo). Editá el catálogo desde la página <a href="insumos.html">Insumos</a>.
+          </div>
+          <label style="display:block; font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-bottom:4px">Insumo</label>
+          <select id="vxInsumoSel" style="width:100%; min-height:44px; padding:8px 10px;
+              background: var(--agp-surface); color: var(--agp-text);
+              border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+              font-size: var(--agp-fs-md);">
+            <option value="">— Sin insumo activo —</option>
+          </select>
+          <div id="vxInsumoMeta" class="subtitle" style="margin-top: var(--agp-sp-3)"></div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0">Detectar densidad de siembra</h3>
+          <div class="subtitle" style="margin-bottom: var(--agp-sp-3)">
+            Con la sembradora trabajando, tocá el botón. Durante <strong>5 s</strong>
+            VistaX promedia los sem/m de los surcos. Si supera el límite del sensor
+            (<span id="vxMaxSensorLabel">20</span> sem/m) sugerimos guardar como
+            <strong>modo flujo</strong>.
+          </div>
+
+          <div style="display:flex; gap: var(--agp-sp-2); flex-wrap:wrap; margin-bottom: var(--agp-sp-3)">
+            <button id="vxBtnCalibObjetivo" class="btn primary" style="min-height:48px; flex:1; min-width:200px">
+              ◉ Detectar densidad — 5 s
+            </button>
+            <button id="vxBtnCalibSaturado" class="btn" style="min-height:48px; flex:1; min-width:200px">
+              ⟁ Configurar modo flujo — 5 s
+            </button>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--agp-sp-3); align-items:end;">
+            <label style="display:block">
+              <span style="display:block; font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-bottom:4px">
+                Límite del sensor (sem/m)
+              </span>
+              <input id="vxMaxSensor" type="number" step="0.5" min="1" max="200"
+                style="width:100%; min-height:44px; padding:8px 10px;
+                background: var(--agp-surface); color: var(--agp-text);
+                border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);" />
+            </label>
+            <button id="vxSaveMaxSensor" class="btn" style="min-height:44px">Guardar límite</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal de captura -->
+      <div id="vxCalibModal" style="display:none; position:fixed; inset:0; z-index:9000;
+           background: rgba(0,0,0,0.55); align-items:center; justify-content:center;">
+        <div style="background: var(--agp-surface); border:1px solid var(--agp-border);
+             border-radius: var(--agp-radius-lg); padding: var(--agp-sp-4);
+             min-width: 360px; max-width: 520px; box-shadow: var(--agp-shadow-lg);">
+          <h2 style="margin-top:0" id="vxCalibTitle">Detectando densidad…</h2>
+          <div class="subtitle" id="vxCalibInsumoLabel" style="margin-bottom: var(--agp-sp-3)">Insumo activo</div>
+
+          <div style="text-align:center; padding: var(--agp-sp-4) 0;">
+            <div style="font-family: var(--agp-font-mono); font-size: 56px; font-weight: var(--agp-fw-bold); color: var(--agp-text); line-height:1;">
+              <span id="vxCalibLive">—</span><span style="font-size: 20px; color: var(--agp-text-muted); margin-left:8px;">sem/m</span>
+            </div>
+            <div class="subtitle" style="margin-top: var(--agp-sp-2)">
+              <span id="vxCalibTimer">5.0</span> s restantes ·
+              <span id="vxCalibSamples">0</span> muestras ·
+              <span id="vxCalibSurcos">0</span> surcos
+            </div>
+            <div id="vxCalibSatPill" class="pill" style="margin-top: var(--agp-sp-3); display:none">
+              <span class="dot"></span> Sensor saturado — modo flujo
+            </div>
+          </div>
+
+          <div id="vxCalibResult" style="display:none; margin-top: var(--agp-sp-3); padding: var(--agp-sp-3); background: var(--agp-bg-soft); border-radius: var(--agp-radius-md);">
+            <div class="subtitle" id="vxCalibResultLabel">Resultado</div>
+            <div style="display:flex; gap: var(--agp-sp-2); align-items:center; margin-top: var(--agp-sp-2);">
+              <input id="vxCalibOverride" type="number" step="0.1" min="0"
+                style="flex:1; min-height:44px; padding:8px 10px;
+                background: var(--agp-surface); color: var(--agp-text);
+                border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);" />
+              <span class="subtitle">sem/m</span>
+            </div>
+            <div class="subtitle" style="margin-top:4px">Editá el valor si querés forzar un número distinto al promedio.</div>
+          </div>
+
+          <div style="display:flex; gap: var(--agp-sp-2); justify-content: flex-end; margin-top: var(--agp-sp-4);">
+            <button id="vxCalibCancel" class="btn" style="min-height:44px">Cancelar</button>
+            <button id="vxCalibApply" class="btn primary" style="min-height:44px; display:none">Guardar al insumo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ IMPLEMENTO ============ -->
+    <section id="paneImplemento" class="tab-pane">
+      <!-- Banner: la geometría/trenes se gestionan en Herramienta (fuente única) -->
+      <div class="card" style="margin-bottom: var(--agp-sp-3); border-left: 3px solid var(--agp-accent);">
+        <h3 style="margin-top:0">Geometría centralizada</h3>
+        <p class="subtitle" style="margin: 0 0 var(--agp-sp-3) 0">
+          Ancho, número de surcos, trenes y secciones se editan una sola vez en la página
+          <a href="herramienta.html"><strong>Herramienta</strong></a>. VistaX, QuantiX y
+          SectionX leen de ahí. Acá solo aparecen como referencia.
+        </p>
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--agp-sp-3);">
+          <div class="card" style="margin:0">
+            <div class="subtitle">Ancho total</div>
+            <div class="metric"><span id="vxImplAncho">–</span><span class="unit">m</span></div>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="subtitle">Número de surcos</div>
+            <div class="metric"><span id="vxImplNumSurcos">–</span></div>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="subtitle">Distancia entre surcos</div>
+            <div class="metric"><span id="vxImplDistSurcos">–</span><span class="unit">m</span></div>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="subtitle">Trenes</div>
+            <div class="metric"><span id="vxImplNumTrenes">–</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:0">Parámetros VistaX</h2>
+      <div class="form-grid">
+        <label>Tolerancia desvío (%)</label><input id="impTol" type="number" step="1" />
+        <label>N° de torres</label><input id="impTorres" type="number" step="1" min="0" placeholder="0 = sin agrupar" />
+        <label>Surcos por torre</label><input id="impSurcosTorre" type="number" step="1" min="0" placeholder="0 = auto (total/torres)" />
+        <label>Vista por defecto</label>
+        <select id="impVistaModo">
+          <option value="surcos">Surcos (uno por bajada)</option>
+          <option value="torres">Torres (agrupado)</option>
+        </select>
+      </div>
+      <p class="subtitle" style="margin-top: var(--agp-sp-2)">
+        Las <strong>torres</strong> agrupan surcos físicamente próximos que comparten un
+        dosificador. En siembra extensiva (ej. 96 surcos / 8 torres = 12 surcos por torre),
+        la vista <em>torres</em> muestra 8 celdas — una por torre, promediando el estado
+        de sus surcos — para una lectura rápida sin perder el detalle individual.
+      </p>
+      <p class="subtitle" style="margin-top: var(--agp-sp-2)">
+        La densidad objetivo, el factor K y el límite del sensor se configuran desde
+        <a href="insumos.html">Insumos</a> y desde la pestaña <em>Insumo &amp; calibración</em>.
+      </p>
+
+      <h2>Mapeo de sensores</h2>
+      <table class="editor" id="tblSensores">
+        <thead>
+          <tr>
+            <th>UID (nodo)</th>
+            <th class="colsm">Cable</th>
+            <th class="colsm">Bajada</th>
+            <th class="colsm">Tren</th>
+            <th>Tipo</th>
+            <th class="colsm">Activo</th>
+            <th class="actions"></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="row-add"><button class="btn" id="btnAddSensor">+ Agregar sensor</button></div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="btnSaveImplemento">Guardar implemento</button>
+        <button class="btn" id="btnReloadImplemento">Recargar</button>
+        <span id="impStatus" class="subtitle"></span>
+      </div>
+    </section>
+
+    <!-- ============ NODOS ============ -->
+    <section id="paneNodos" class="tab-pane">
+      <p class="subtitle">Nodos VistaX vistos en el tópico MQTT de telemetría.</p>
+      <div class="nodos-list" id="vxNodos"></div>
+    </section>
+
+    <!-- ============ CONFIG ============ -->
+    <section id="paneConfig" class="tab-pane">
+      <p class="subtitle" style="margin-top:0">
+        La conexión MQTT con los nodos VistaX la gestiona CoreX (broker embebido)
+        y no se configura desde acá.
+      </p>
+
+      <h2>Archivos</h2>
+      <div class="form-grid">
+        <label>Implemento JSON</label><input id="cfgImpPath" type="text" />
+      </div>
+
+      <h2>Comportamiento</h2>
+      <div class="form-grid">
+        <label>UI update (ms)</label><input id="cfgUiMs" type="number" />
+        <label>Timeout sensor (ms)</label><input id="cfgTimeoutMs" type="number" />
+        <label>Log a Field Record</label><input id="cfgLogField" type="checkbox" />
+        <label>Método inicio</label>
+        <select id="cfgMetodo">
+          <option value="sensores">sensores</option>
+          <option value="manual">manual</option>
+          <option value="velocidad">velocidad</option>
+        </select>
+        <label>Umbral sensores activos</label><input id="cfgUmbral" type="number" />
+        <label>Tiempo confirmación (ms)</label><input id="cfgTConf" type="number" />
+        <label>Alarmas silenciadas</label><input id="cfgMuted" type="checkbox" />
+        <label>Drive de logs</label><input id="cfgLogDrive" type="text" />
+      </div>
+
+      <div class="btn-row">
+        <button class="btn primary" id="btnSaveConfig">Guardar config</button>
+        <button class="btn" id="btnReloadConfig">Recargar</button>
+        <span id="cfgStatus" class="subtitle"></span>
+      </div>
+    </section>
+  </main>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/vistax.js"></script>
+  <script src="../js/vistax-insumo.js"></script>
+</body>
+</html>

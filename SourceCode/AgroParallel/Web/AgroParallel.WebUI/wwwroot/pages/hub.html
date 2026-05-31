@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hub · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    #sectionsRow { display:flex; gap:4px; margin-top:8px; min-height:32px; }
+    #sectionsRow > span {
+      flex: 1; height: 32px; border-radius: 4px;
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      transition: background var(--agp-dur-fast) var(--agp-ease);
+    }
+    #sectionsRow > span.on {
+      background: var(--agp-accent);
+      border-color: var(--agp-accent);
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Hub</h1>
+        <div class="subtitle">Estado en tiempo real del sistema</div>
+      </div>
+      <div style="display:flex; gap:var(--agp-sp-3); flex-wrap:wrap" id="hubPills">
+        <span class="pill idle" id="pillJob"><span class="dot"></span> Sin trabajo</span>
+        <span class="pill idle" id="pillBroker"><span class="dot"></span> Broker MQTT</span>
+        <span class="pill idle" id="pillNodos"><span class="dot"></span> 0 nodos</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Velocidad</h3>
+        <div class="metric"><span id="kpiSpeed">0.0</span><span class="unit">km/h</span></div>
+        <div class="row"><span>Rumbo</span><strong id="kpiHeading" style="color:var(--agp-text)">— °</strong></div>
+      </div>
+      <div class="card">
+        <h3>Dosis actual</h3>
+        <div class="metric"><span id="kpiDose">—</span><span class="unit">kg/ha</span></div>
+        <div class="row"><span>Shapefile</span><span id="kpiShape" class="pill idle"><span class="dot"></span> sin shape</span></div>
+      </div>
+      <div class="card">
+        <h3>Secciones</h3>
+        <div id="sectionsRow"></div>
+        <div class="row"><span id="kpiSecCount">0 de 0 abiertas</span><strong id="kpiToolWidth" style="color:var(--agp-text)">— m</strong></div>
+      </div>
+      <div class="card">
+        <h3>Posición</h3>
+        <div class="metric" style="font-size:var(--agp-fs-xl)" id="kpiLatLon">—</div>
+        <div class="row"><span>Lote activo</span><strong id="kpiField" style="color:var(--agp-text)">—</strong></div>
+      </div>
+    </div>
+
+    <h2>Widgets sobre el mapa</h2>
+    <div class="card" style="display:flex; flex-wrap:wrap; gap:var(--agp-sp-3); align-items:center">
+      <div style="flex:1 1 220px; min-width:220px">
+        <div style="font-weight:var(--agp-fw-medium); color:var(--agp-text)">Overlays de PilotX</div>
+        <div style="color:var(--agp-text-muted); font-size:var(--agp-fs-sm); margin-top:2px">
+          Activá o desactivá en caliente cada widget que se ve sobre el mapa principal.
+        </div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:var(--agp-sp-2)">
+        <button id="ovQX" class="btn" type="button" data-key="qx_overlay" aria-pressed="true">⟁ QuantiX</button>
+        <button id="ovVX" class="btn" type="button" data-key="vx_overlay" aria-pressed="true">◉ VistaX</button>
+        <button id="ovFX" class="btn" type="button" data-key="fx_overlay" aria-pressed="true">◊ FlowX</button>
+      </div>
+    </div>
+
+    <h2>Nodos detectados</h2>
+    <div class="node-list" id="hubNodeList">
+      <div class="card" style="text-align:center; color:var(--agp-text-muted)">Buscando nodos…</div>
+    </div>
+
+    <h2>Acciones rápidas</h2>
+    <div style="display:flex; gap:var(--agp-sp-3); flex-wrap:wrap">
+      <a class="btn primary" href="quantix.html">Abrir QuantiX</a>
+      <a class="btn" href="vistax.html">Abrir VistaX</a>
+      <a class="btn" href="nodos.html">Ver nodos</a>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/hub.js"></script>
+  <script>
+    // ====================================================================
+    // Widgets on/off del mapa de PilotX. GET/POST /api/overlays.
+    // FormGPS relee overlayPrefs.json cada 250 ms y aplica sin reiniciar.
+    // ====================================================================
+    (function () {
+      'use strict';
+      var btns = [
+        { el: document.getElementById('ovQX'), key: 'qx_overlay' },
+        { el: document.getElementById('ovVX'), key: 'vx_overlay' },
+        { el: document.getElementById('ovFX'), key: 'fx_overlay' }
+      ];
+      var state = { qx_overlay: true, vx_overlay: true, fx_overlay: true };
+
+      function paint() {
+        for (var i = 0; i < btns.length; i++) {
+          var b = btns[i]; if (!b.el) continue;
+          var on = !!state[b.key];
+          b.el.setAttribute('aria-pressed', on ? 'true' : 'false');
+          b.el.classList.toggle('primary', on);
+          b.el.style.opacity = on ? '1' : '0.55';
+        }
+      }
+
+      function load() {
+        fetch('/api/overlays', { cache: 'no-store' })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j && typeof j === 'object') {
+              if (typeof j.qx_overlay === 'boolean') state.qx_overlay = j.qx_overlay;
+              if (typeof j.vx_overlay === 'boolean') state.vx_overlay = j.vx_overlay;
+              if (typeof j.fx_overlay === 'boolean') state.fx_overlay = j.fx_overlay;
+            }
+            paint();
+          })
+          .catch(function () { paint(); });
+      }
+
+      function save() {
+        return fetch('/api/overlays', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state)
+        }).catch(function (e) { console.warn('[overlays] save fail', e); });
+      }
+
+      btns.forEach(function (b) {
+        if (!b.el) return;
+        b.el.addEventListener('click', function () {
+          state[b.key] = !state[b.key];
+          paint();
+          save();
+        });
+      });
+
+      load();
+    })();
+  </script>
+  <script>
+    // Marca de cold-start total: desde el navigationStart del welcome hasta
+    // que el dashboard del Hub está pintado y listo. Combina con la marca
+    // 'hub-welcome-ready' de index.html para medir end-to-end.
+    try {
+      requestAnimationFrame(function () {
+        try {
+          performance.mark('hub-dashboard-ready');
+          // Si pueden ambas marcas, generamos la medición compuesta.
+          var entries = performance.getEntriesByName('hub-welcome-ready');
+          if (entries && entries.length) {
+            performance.measure('hub-cold-start', 'hub-welcome-ready', 'hub-dashboard-ready');
+          }
+        } catch (_) {}
+      });
+    } catch (_) {}
+  </script>
+</body>
+</html>

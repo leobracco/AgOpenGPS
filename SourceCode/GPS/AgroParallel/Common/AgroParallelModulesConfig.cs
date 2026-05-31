@@ -6,7 +6,7 @@
 // Lee/escribe agroParallelModules.json en el directorio base de la app.
 // Cada módulo declara Name, Enabled, Url, Emoji, IconPath, color, y tamaño
 // del popup. Los modulos habilitados se listan en el menu de configuracion
-// de AgOpenGPS y abren una ventana popup (ModulePopupForm).
+// de Agro Parallel y abren una ventana popup (ModulePopupForm).
 // ============================================================================
 
 using System;
@@ -33,6 +33,10 @@ namespace AgroParallel.Common
     public class AgroParallelModulesConfig
     {
         public List<AgroParallelModuleEntry> Modules { get; set; }
+
+        // Fase B: cuando true, el botón AgroParallel abre el nuevo Hub HTML
+        // (FormAgroParallelHubWebView2). Default false durante la convivencia.
+        public bool UseWebUI { get; set; }
 
         private static readonly string ConfigFileName = "agroParallelModules.json";
         private static readonly Color DefaultAccent = Color.FromArgb(0, 180, 80);

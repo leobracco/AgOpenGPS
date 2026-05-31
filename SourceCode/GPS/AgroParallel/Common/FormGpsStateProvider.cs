@@ -3,10 +3,10 @@
 // Ubicación: SourceCode/GPS/AgroParallel/Common/FormGpsStateProvider.cs
 // Target: net48
 //
-// Implementación de IAogStateProvider que vive del lado AOG (único proyecto
+// Implementación de IAogStateProvider que vive del lado PilotX (único proyecto
 // que puede 'using AgOpenGPS'). Toma una referencia a FormGPS por constructor
 // y expone una ventana read-only via AogStateSnapshot — los servicios
-// AgroParallel (QuantiX/SectionX/OrbitX) leen el estado de AOG por este
+// AgroParallel (QuantiX/SectionX/OrbitX) leen el estado de PilotX por este
 // adaptador en lugar de aferrarse a FormGPS directamente.
 //
 // Fase A · linchpin del decoupling. Después de esta clase, los bridges pueden
@@ -43,6 +43,7 @@ namespace AgroParallel.Adapters
             {
                 snap.IsJobStarted = _form.isJobStarted;
                 snap.CurrentFieldDirectory = _form.currentFieldDirectory;
+                snap.FieldsDirectory = RegistrySettings.fieldsDirectory;
                 snap.AvgSpeed = _form.avgSpeed;
                 snap.Heading = _form.pivotAxlePos.heading;
                 snap.PivotEasting = _form.pivotAxlePos.easting;
@@ -54,21 +55,45 @@ namespace AgroParallel.Adapters
                     snap.Longitude = _form.AppModel.CurrentLatLon.Longitude;
                 }
 
+                snap.ToolEasting = _form.toolPos.easting;
+                snap.ToolNorthing = _form.toolPos.northing;
+                snap.ToolHeading = _form.toolPos.heading;
+
+                if (_form.fd != null)
+                {
+                    snap.WorkedAreaTotalM2 = _form.fd.workedAreaTotal;
+                    snap.ActualAreaCoveredM2 = _form.fd.actualAreaCovered;
+                }
+
                 if (_form.tool != null)
                 {
                     int n = _form.tool.numOfSections;
                     snap.NumSections = n;
                     snap.ToolWidth = _form.tool.width;
+                    snap.ToolOffset = _form.tool.offset;
                     if (n > 0 && _form.section != null)
                     {
                         var arr = new bool[n];
+                        var pos = new List<SectionExtent>(n);
+                        var speeds = new double[n];
                         for (int i = 0; i < n && i < _form.section.Length; i++)
                         {
                             var sec = _form.section[i];
                             arr[i] = sec != null && sec.sectionOnRequest;
+                            if (sec != null)
+                            {
+                                pos.Add(new SectionExtent(i, sec.positionLeft, sec.positionRight));
+                                // speedPixels = m/s * 10 (10 px = 1 m). *0.36 → km/h, signo preservado.
+                                speeds[i] = sec.speedPixels * 0.36;
+                            }
                         }
                         snap.SectionOnRequest = arr;
+                        snap.SectionPositions = pos;
+                        snap.SectionSpeedsKmh = speeds;
                     }
+                    // Endpoints del implemento (ya en m/s, filtrados en PilotX).
+                    snap.ToolFarLeftSpeedKmh = _form.tool.farLeftSpeed * 3.6;
+                    snap.ToolFarRightSpeedKmh = _form.tool.farRightSpeed * 3.6;
                 }
 
                 var layer = _form.ShapefileLayerForAdapters;
@@ -161,6 +186,33 @@ namespace AgroParallel.Adapters
             return dst;
         }
 
+        public ShapeSnapshot GetShape()
+        {
+            if (_form == null) return null;
+            try
+            {
+                var layer = _form.ShapefileLayerForAdapters;
+                if (layer == null || layer.IsEmpty) return null;
+
+                var polys = layer.ExportPolygonsLocal();
+                if (polys == null) return null; // todavía no proyectado
+
+                return new ShapeSnapshot
+                {
+                    SourceToken = layer.Source ?? string.Empty,
+                    Count = polys.Count,
+                    StyleField = layer.StyleField,
+                    StyleMin = layer.StyleMin,
+                    StyleMax = layer.StyleMax,
+                    Polygons = polys
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public double GetShapeFieldDose(string fieldName)
         {
             if (_form == null || string.IsNullOrEmpty(fieldName)) return 0;
@@ -176,6 +228,36 @@ namespace AgroParallel.Adapters
             }
             catch { }
             return 0;
+        }
+
+        public ShapeFieldsSnapshot GetShapeFields()
+        {
+            var snap = new ShapeFieldsSnapshot();
+            if (_form == null) return snap;
+            try
+            {
+                var layer = _form.ShapefileLayerForAdapters;
+                if (layer == null || layer.IsEmpty) return snap;
+                snap.SourceToken = layer.Source ?? string.Empty;
+                var names = layer.FieldNames;
+                if (names == null) return snap;
+                for (int i = 0; i < names.Count; i++)
+                {
+                    var name = names[i];
+                    var fi = new ShapeFieldInfo { Name = name };
+                    double min, max; int count;
+                    if (layer.TryGetFieldStats(name, out min, out max, out count))
+                    {
+                        fi.Numeric = true;
+                        fi.Min = min;
+                        fi.Max = max;
+                        fi.Count = count;
+                    }
+                    snap.Fields.Add(fi);
+                }
+            }
+            catch { }
+            return snap;
         }
     }
 }

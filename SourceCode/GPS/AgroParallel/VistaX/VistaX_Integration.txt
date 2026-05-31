@@ -3,7 +3,7 @@
 // *** ESTE ARCHIVO ES UNA GUÍA — NO SE COMPILA ***
 // Renombralo a .txt o no lo incluyas en el proyecto.
 //
-// Contiene los fragmentos exactos para integrar VistaX en AgOpenGPS.
+// Contiene los fragmentos exactos para integrar VistaX en Agro Parallel.
 // El formulario principal es FormGPS.cs (no Form1.cs).
 // ============================================================================
 
@@ -171,7 +171,7 @@ private void btnVistaXToggle_Click(object sender, EventArgs e)
 // ║ PASO 3: REGISTRO DE CAMPO (opcional pero recomendado)                   ║
 // ╚═══════════════════════════════════════════════════════════════════════════╝
 //
-// Buscar el punto donde AgOpenGPS graba datos por posición GPS en el
+// Buscar el punto donde Agro Parallel graba datos por posición GPS en el
 // archivo de campo (CField.cs, CGuidance.cs, o similar).
 // Agregar:
 //

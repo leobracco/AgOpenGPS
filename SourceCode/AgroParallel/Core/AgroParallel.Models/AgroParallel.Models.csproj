@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AgroParallel.Models — POCOs y DTOs compartidos.
+    Sin dependencias de UI ni WinForms. netstandard2.0 para interop con
+    net48 (AgOpenGPS.csproj) y futuro net8+.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>AgroParallel.Models</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- No fallar build por reglas de estilo (IDE0055 etc.) heredadas del editorconfig.
+         Las DTOs usan alineación con espacios para legibilidad (const string slugs
+         compartidos con UI). Mismo flag que AgroParallel.Services. -->
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="6.0.10" />
+  </ItemGroup>
+
+</Project>

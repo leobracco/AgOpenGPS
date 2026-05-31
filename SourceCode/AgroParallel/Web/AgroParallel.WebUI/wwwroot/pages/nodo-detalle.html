@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Detalle de nodo · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .header-row { display:flex; gap: var(--agp-sp-3); align-items:flex-start; flex-wrap:wrap; }
+    .header-row .meta { display:grid; grid-template-columns: auto 1fr; gap: 3px 12px;
+                        font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm); }
+    .header-row .meta .k { color: var(--agp-text-muted); }
+    .uid-mono { font-family: var(--agp-font-mono); color: var(--agp-text-muted); }
+
+    .pill-row { display:flex; gap: var(--agp-sp-2); flex-wrap: wrap; }
+    .pill {
+      display:inline-flex; align-items:center; gap: 6px;
+      padding: 4px 12px; border-radius: 999px;
+      font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-medium);
+      background: var(--agp-bg-soft); border: 1px solid var(--agp-border);
+    }
+    .pill .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--agp-text-muted); }
+    .pill.ok   { background: rgba(74,186,62,0.12);  border-color: rgba(74,186,62,0.45);  color: var(--agp-state-ok); }
+    .pill.ok   .dot { background: var(--agp-state-ok); }
+    .pill.warn { background: rgba(212,160,23,0.12); border-color: rgba(212,160,23,0.45); color: #B98700; }
+    .pill.warn .dot { background: #D4A017; }
+    .pill.err  { background: rgba(201,45,45,0.10);  border-color: rgba(201,45,45,0.45);  color: #B0382E; }
+    .pill.err  .dot { background: #C92D2D; }
+    .pill.muted .dot { background: var(--agp-text-muted); }
+
+    /* Matriz */
+    table.matrix { width: 100%; border-collapse: collapse; }
+    table.matrix th, table.matrix td {
+      padding: 10px 8px; border-bottom: 1px solid var(--agp-border);
+      vertical-align: top; text-align: left; font-size: var(--agp-fs-sm);
+    }
+    table.matrix th { color: var(--agp-text-muted); font-weight: var(--agp-fw-medium); background: var(--agp-bg-soft); }
+    table.matrix tr.active {
+      background: rgba(74,186,62,0.10);
+      box-shadow: inset 4px 0 0 var(--agp-accent);
+    }
+    table.matrix tr.active td { font-weight: var(--agp-fw-semi); }
+    table.matrix td .glyph {
+      display: inline-block; width: 18px; text-align: center; font-weight: var(--agp-fw-bold);
+    }
+    .glyph.ok { color: var(--agp-state-ok); }
+    .glyph.no { color: #C92D2D; }
+    .glyph.na { color: var(--agp-text-muted); }
+
+    /* OTA progress */
+    .progress {
+      height: 12px; width: 100%;
+      background: var(--agp-bg-soft); border-radius: 999px;
+      border: 1px solid var(--agp-border); overflow:hidden;
+    }
+    .progress > .bar {
+      height: 100%; background: var(--agp-accent);
+      width: 0%; transition: width 0.4s ease;
+    }
+    .progress.err > .bar { background: #C92D2D; }
+
+    .firmware-grid {
+      display: grid; gap: var(--agp-sp-2);
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 720px) {
+      .firmware-grid { grid-template-columns: 2fr 1fr 1fr auto; align-items:center; }
+    }
+    .changelog {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      white-space: pre-wrap; max-height: 80px; overflow-y:auto;
+      background: var(--agp-bg-soft); padding: 6px 8px; border-radius: 4px;
+      border: 1px solid var(--agp-border);
+    }
+    .ver-actual {
+      display:inline-block; margin-left: 6px;
+      padding: 1px 8px; border-radius: 999px;
+      background: rgba(74,186,62,0.12); color: var(--agp-state-ok);
+      font-size: 0.75em; font-weight: var(--agp-fw-medium);
+    }
+
+    .cmd-row { display:flex; gap: var(--agp-sp-2); flex-wrap: wrap; }
+    .cmd-row .btn { min-width: 140px; }
+
+    /* Badge boot_reason (resets anormales) + pin del implemento — mismo estilo que /nodos.html */
+    .badge-boot {
+      display: inline-block; margin-left: 8px; padding: 2px 9px;
+      background: #C92D2D; color: #fff; border-radius: 999px;
+      font-size: 0.72em; font-weight: var(--agp-fw-bold);
+      letter-spacing: 0.3px; vertical-align: middle;
+    }
+    .badge-boot.warn { background: #DC8C1E; }
+    .pin-imp {
+      display: inline-flex; align-items:center; gap:6px;
+      padding: 4px 12px; border-radius: 999px;
+      border: 1px solid var(--agp-border);
+      background: var(--agp-bg-soft); color: var(--agp-text-muted);
+      font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-medium);
+      cursor: pointer;
+    }
+    .pin-imp.on {
+      background: var(--agp-accent-soft);
+      border-color: var(--agp-accent);
+      color: var(--agp-text);
+    }
+
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      padding: 10px 16px; border-radius: var(--agp-radius-md);
+      background: var(--agp-bg); border: 1px solid var(--agp-border);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      font-size: var(--agp-fs-sm); max-width: 360px;
+      z-index: 100; opacity: 0; transform: translateY(10px);
+      transition: opacity 0.18s, transform 0.18s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.ok   { border-color: rgba(74,186,62,0.6); }
+    .toast.err  { border-color: rgba(201,45,45,0.6); color:#B0382E; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="nodos"></aside>
+  <main class="page">
+
+    <div class="page-head">
+      <div>
+        <a href="nodos.html" class="subtitle" style="text-decoration:none">← Volver a Nodos</a>
+        <h1 id="hdrTitle">Cargando… <span id="hdrBootBadge"></span></h1>
+        <div class="subtitle" id="hdrSub">—</div>
+      </div>
+      <div style="display:flex; gap:var(--agp-sp-2); align-items:center; flex-wrap:wrap">
+        <button id="btnPinImplemento" class="pin-imp" type="button" hidden></button>
+        <div class="pill-row" id="hdrPills"></div>
+      </div>
+    </div>
+
+    <!-- Identidad -->
+    <div class="card">
+      <div class="header-row">
+        <div class="meta" style="flex:1">
+          <div class="k">UID</div>          <div class="uid-mono" id="metaUid">—</div>
+          <div class="k">Tipo</div>         <div id="metaTipo">—</div>
+          <div class="k">Alias</div>        <div id="metaAlias">—</div>
+          <div class="k">Estado curado</div><div id="metaEstado">—</div>
+          <div class="k">IP en LAN</div>    <div class="uid-mono" id="metaIp">—</div>
+          <div class="k">Firmware actual</div><div id="metaFw">—</div>
+          <div class="k">Última señal</div> <div id="metaLastSeen">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Matriz de estado -->
+    <h2>Estado en este momento</h2>
+    <p class="subtitle" style="max-width: 900px">
+      La fila resaltada es donde está parado el nodo ahora mismo. Cada columna es una capa
+      que tiene que estar arriba para que la siguiente funcione. Si el broker MQTT está
+      caído del lado de la PC, todos los nodos se ven igual aunque estén vivos en LAN.
+    </p>
+    <div class="card" style="overflow-x:auto">
+      <table class="matrix" id="tblMatrix">
+        <thead>
+          <tr>
+            <th>WiFi</th>
+            <th>MQTT</th>
+            <th>Target llega al nodo</th>
+            <th>Status llega a PC</th>
+            <th>Estado real</th>
+            <th>Cómo se ve / qué hacer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr data-row="broker-down">
+            <td><span class="glyph na">—</span></td>
+            <td><span class="glyph no">✗</span> broker off</td>
+            <td><span class="glyph na">—</span></td>
+            <td><span class="glyph na">—</span></td>
+            <td><strong>Broker MQTT caído en la PC</strong></td>
+            <td>Verificar AgIO/CoreX en la PC. Reconectar desde Nodos → Diagnóstico MQTT.</td>
+          </tr>
+          <tr data-row="wifi-off">
+            <td><span class="glyph no">✗</span> off</td>
+            <td><span class="glyph na">—</span></td>
+            <td><span class="glyph na">—</span></td>
+            <td><span class="glyph na">—</span></td>
+            <td><strong>Apagado / fuera de LAN</strong></td>
+            <td>El nodo no responde. Anuncio retenido viejo. Chequear alimentación, antena, o si quedó en AP fallback (SSID propio visible desde celu).</td>
+          </tr>
+          <tr data-row="wifi-ok-mqtt-down">
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph no">✗</span></td>
+            <td><span class="glyph na">—</span></td>
+            <td><span class="glyph na">—</span></td>
+            <td><strong>WiFi sí, broker no</strong></td>
+            <td>Verificar IP del broker en el nodo (portal web del nodo → broker). Si está bien, reiniciar nodo.</td>
+          </tr>
+          <tr data-row="rx-ok-target-no">
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph no">✗</span></td>
+            <td><span class="glyph ok">✓</span></td>
+            <td><strong>Nodo vivo, bridge dormido</strong></td>
+            <td>El nodo está sano. PilotX no está mandando target (motor desactivado, sección sin asignar, o bridge sin Start). Revisar la página del producto.</td>
+          </tr>
+          <tr data-row="rx-no-target-ok">
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph no">✗</span></td>
+            <td><strong>Recibe, no responde</strong></td>
+            <td>Status > 3 s atrás. Watchdog HW, colisión de ClientID, o nodo trabado. Reiniciar el nodo.</td>
+          </tr>
+          <tr data-row="ok-pleno">
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph ok">✓</span></td>
+            <td><span class="glyph ok">✓</span></td>
+            <td><strong>OK pleno</strong></td>
+            <td>El nodo está respondiendo y recibiendo órdenes. Telemetría se actualiza ~10 Hz.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- OTA -->
+    <h2>Actualizar firmware</h2>
+    <div class="card" id="otaCard">
+      <div id="otaStatusWrap" style="margin-bottom: var(--agp-sp-3)">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+          <div><strong>Estado OTA:</strong> <span id="otaStatus">sin actualización en curso</span></div>
+          <div class="uid-mono" id="otaPct">—</div>
+        </div>
+        <div class="progress" id="otaProgress"><div class="bar" id="otaBar"></div></div>
+        <div class="subtitle" id="otaDetalle" style="margin-top:6px"></div>
+      </div>
+
+      <div style="font-weight: var(--agp-fw-semi); margin-bottom: var(--agp-sp-2)">
+        Versiones disponibles en cache local
+      </div>
+      <div id="firmwaresList">
+        <div class="subtitle">Cargando…</div>
+      </div>
+      <div class="subtitle" id="firmwaresMeta" style="margin-top: var(--agp-sp-2)"></div>
+    </div>
+
+    <!-- Acciones -->
+    <h2>Acciones rápidas</h2>
+    <div class="card">
+      <div class="cmd-row" id="cmdRow"></div>
+      <div class="subtitle" style="margin-top: var(--agp-sp-2)">
+        Los comandos se publican a <code>agp/&lt;tipo&gt;/&lt;UID&gt;/cmd</code>. El firmware
+        acepta los que entienda y descarta el resto.
+      </div>
+    </div>
+
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/nodo-detalle.js"></script>
+</body>
+</html>

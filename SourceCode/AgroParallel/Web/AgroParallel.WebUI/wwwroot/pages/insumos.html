@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Insumos · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .insumo-row {
+      display:grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: var(--agp-sp-3);
+      align-items: center;
+      padding: var(--agp-sp-3);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      margin-bottom: var(--agp-sp-2);
+      cursor: pointer;
+      background: var(--agp-surface);
+      transition: background 120ms;
+    }
+    .insumo-row:hover { background: var(--agp-surface-hover, rgba(74,186,62,0.06)); }
+    .insumo-row.is-active { border-color: var(--agp-accent); background: rgba(74,186,62,0.08); }
+    .insumo-row .radio-dot {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid var(--agp-border);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .insumo-row.is-active .radio-dot { border-color: var(--agp-accent); }
+    .insumo-row.is-active .radio-dot::after {
+      content:''; width:12px; height:12px; border-radius:50%;
+      background: var(--agp-accent);
+    }
+    .insumo-row .nombre { font-weight: var(--agp-fw-medium); color: var(--agp-text); }
+    .insumo-row .meta { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top:2px; }
+    .insumo-row .actions { display:flex; gap: var(--agp-sp-2); }
+    .insumo-row .actions button { min-height: 40px; }
+
+    .form-grid {
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--agp-sp-3);
+    }
+    .form-grid label { display:block; }
+    .form-grid label > .lbl {
+      display:block;
+      font-size: var(--agp-fs-sm);
+      color: var(--agp-text-muted);
+      margin-bottom: 4px;
+    }
+    .form-grid input, .form-grid select, .form-grid textarea {
+      width:100%;
+      min-height: 44px;
+      padding: 8px 10px;
+      box-sizing: border-box;
+      background: var(--agp-input-bg, var(--agp-bg));
+      color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      font-size: var(--agp-fs-md);
+    }
+    .form-grid textarea { min-height: 80px; resize: vertical; }
+    .form-grid .full { grid-column: 1 / -1; }
+    .tipo-group { display:flex; gap: var(--agp-sp-2); flex-wrap: wrap; }
+    .tipo-group button {
+      min-height: 44px; padding: 8px 14px;
+      background: var(--agp-bg); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer;
+    }
+    .tipo-group button.on {
+      background: var(--agp-accent); color: #fff; border-color: var(--agp-accent);
+    }
+    .hidden-by-tipo { display:none; }
+
+    .toolbar {
+      display:flex; gap: var(--agp-sp-2); align-items:center;
+      margin-bottom: var(--agp-sp-3);
+    }
+    .toolbar .grow { flex:1; }
+    .btn-primary {
+      min-height: 48px; padding: 10px 18px;
+      background: var(--agp-accent); color: #fff;
+      border: 1px solid var(--agp-accent);
+      border-radius: var(--agp-radius-md);
+      cursor: pointer; font-weight: var(--agp-fw-medium);
+    }
+    .btn-ghost {
+      min-height: 44px; padding: 8px 14px;
+      background: transparent; color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      cursor: pointer;
+    }
+    .btn-danger {
+      background: rgba(201,45,45,0.12); color: #E15A5A;
+      border: 1px solid rgba(201,45,45,0.35);
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="insumos"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Insumos</h1>
+        <div class="subtitle">Catálogo compartido (VistaX · QuantiX · FlowX)</div>
+      </div>
+      <span class="pill idle" id="activoPill"><span class="dot"></span> Sin insumo activo</span>
+    </div>
+
+    <div class="card">
+      <div class="subtitle" style="margin-bottom: var(--agp-sp-3)">
+        Cargá una vez tu semilla, fertilizante o fitosanitario con su densidad
+        objetivo, dosis y precio, y todos los productos (VistaX, QuantiX, FlowX,
+        datos del lote) lo van a usar como default. Marcá el activo con el círculo
+        de la izquierda.
+      </div>
+
+      <div class="toolbar">
+        <div class="grow"></div>
+        <button id="btnNuevo" type="button" class="btn-primary">+ Nuevo insumo</button>
+      </div>
+
+      <div id="lista"></div>
+    </div>
+
+    <div class="card" id="editorCard" style="display:none">
+      <h3 id="editorTitle">Editar insumo</h3>
+      <div class="subtitle" style="margin-bottom: var(--agp-sp-3)">
+        <span id="editorIdHint">El ID se genera automáticamente del nombre.</span>
+      </div>
+
+      <div class="form-grid">
+        <label class="full">
+          <span class="lbl">Nombre visible</span>
+          <input id="fNombre" type="text" placeholder="Ej: Soja Don Mario 46i17" />
+        </label>
+
+        <label class="full">
+          <span class="lbl">Tipo</span>
+          <div class="tipo-group">
+            <button type="button" data-tipo="semilla">Semilla</button>
+            <button type="button" data-tipo="fertilizante">Fertilizante</button>
+            <button type="button" data-tipo="fitosanitario">Fitosanitario</button>
+          </div>
+        </label>
+
+        <label class="row-semilla">
+          <span class="lbl">Cultivo</span>
+          <input id="fCultivo" type="text" placeholder="soja / maiz / trigo" />
+        </label>
+
+        <!-- VistaX (solo semilla) -->
+        <label class="row-semilla">
+          <span class="lbl">Densidad objetivo (sem/m) — VistaX</span>
+          <input id="fDensObj" type="number" step="0.1" min="0" placeholder="14" />
+        </label>
+        <label class="row-semilla">
+          <span class="lbl">Densidad asumida al saturar (sem/m)</span>
+          <input id="fDensSat" type="number" step="1" min="0" placeholder="90" />
+        </label>
+        <label class="row-semilla">
+          <span class="lbl">Singulación objetivo (%)</span>
+          <input id="fSingul" type="number" step="0.1" min="0" max="100" placeholder="97" />
+        </label>
+        <!-- Bounds VistaX por insumo. 0 = derivar de Densidad objetivo ± tolerancia. -->
+        <label class="row-semilla">
+          <span class="lbl">Mín. aceptable (sem/m) — VistaX</span>
+          <input id="fDropMin" type="number" step="0.1" min="0" placeholder="0 = auto" />
+        </label>
+        <label class="row-semilla">
+          <span class="lbl">Máx. aceptable (sem/m) — VistaX</span>
+          <input id="fDropMax" type="number" step="0.1" min="0" placeholder="0 = auto" />
+        </label>
+
+        <!-- QuantiX (semilla o fertilizante sólido) -->
+        <label class="row-solido">
+          <span class="lbl">Dosis (kg/ha) — QuantiX</span>
+          <input id="fDosisKg" type="number" data-adaptive="dose" min="0" placeholder="65" />
+        </label>
+        <label class="row-solido">
+          <span class="lbl">Precio (USD/kg)</span>
+          <input id="fPrecioKg" type="number" step="0.01" min="0" placeholder="1.20" />
+        </label>
+
+        <!-- FlowX (líquido) -->
+        <label class="row-liquido">
+          <span class="lbl">Dosis (L/ha) — FlowX</span>
+          <input id="fDosisL" type="number" data-adaptive="dose" min="0" placeholder="100" />
+        </label>
+        <label class="row-liquido">
+          <span class="lbl">Precio (USD/L)</span>
+          <input id="fPrecioL" type="number" step="0.01" min="0" placeholder="6.50" />
+        </label>
+
+        <label class="full">
+          <span class="lbl">Notas</span>
+          <textarea id="fNotas" placeholder="Memo libre (variedad, lote de bolsa, observaciones)"></textarea>
+        </label>
+      </div>
+
+      <div class="toolbar" style="margin-top: var(--agp-sp-4)">
+        <button id="btnEliminar" type="button" class="btn-ghost btn-danger">Eliminar</button>
+        <div class="grow"></div>
+        <button id="btnCancelar" type="button" class="btn-ghost">Cancelar</button>
+        <button id="btnGuardar" type="button" class="btn-primary">Guardar</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/steps.js"></script>
+  <script src="../js/insumos.js"></script>
+</body>
+</html>

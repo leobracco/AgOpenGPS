@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mapas · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <!-- Leaflet vendorizado en /vendor/leaflet/ (sin CDN). Si la carpeta no
+       existe, ver vendor/leaflet/README.txt para instrucciones. -->
+  <link rel="stylesheet" href="../vendor/leaflet/leaflet.css" />
+  <style>
+    .map-shell { display:flex; flex-direction:row; gap: var(--agp-sp-3); flex:1; min-height:0; }
+    .map-side {
+      width: 280px; flex-shrink:0;
+      display:flex; flex-direction:column; gap: var(--agp-sp-3);
+      overflow:auto;
+    }
+    .map-side .card { padding: var(--agp-sp-3); }
+    .map-side h3 {
+      margin: 0 0 var(--agp-sp-2);
+      font-size: var(--agp-fs-sm);
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--agp-text-muted);
+    }
+    .map-side select, .map-side button {
+      width:100%; min-height:42px;
+    }
+    .layer-row {
+      display:flex; align-items:center; gap: var(--agp-sp-2);
+      padding: var(--agp-sp-2) 0;
+    }
+    .layer-row input[type=checkbox] { width:20px; height:20px; flex-shrink:0; }
+    .layer-row .swatch {
+      width: 16px; height: 16px; border-radius: 3px;
+      border: 1px solid rgba(255,255,255,0.2);
+      flex-shrink:0;
+    }
+    .layer-row label { flex:1; cursor:pointer; user-select:none; }
+    .meta-line { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top:2px; }
+
+    .map-area { flex:1; position:relative; min-height:0; }
+    /* Fondo plano del color del PilotX — sin tiles online por default. */
+    #mapaLeaflet {
+      width:100%; height:100%;
+      background: #16181A;
+      border-radius: var(--agp-radius-md);
+      border: 1px solid var(--agp-border);
+    }
+    .legend {
+      position:absolute; bottom:12px; right:12px;
+      background: rgba(16,22,18,0.85);
+      border:1px solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      font-size: var(--agp-fs-xs);
+      color: var(--agp-text);
+      pointer-events:none;
+      backdrop-filter: blur(4px);
+    }
+    .legend .row { display:flex; align-items:center; gap:6px; margin: 2px 0; }
+    .legend .sw { width:12px; height:12px; border-radius:2px; }
+
+    .empty {
+      text-align:center; padding: 40px 20px; color: var(--agp-text-muted);
+    }
+  </style>
+</head>
+<body class="hub">
+  <aside class="sidebar" data-active="mapas"></aside>
+  <main class="page" style="display:flex; flex-direction:column;">
+    <div class="page-head">
+      <div>
+        <h1>Mapas</h1>
+        <div class="subtitle" id="mpLote">Lote · –</div>
+      </div>
+    </div>
+
+    <div class="map-shell">
+      <div class="map-side">
+        <div class="card">
+          <h3>Sesión VistaX</h3>
+          <select id="mpSesion"></select>
+          <div class="meta-line" id="mpSesionMeta">–</div>
+        </div>
+
+        <div class="card">
+          <h3>Capas</h3>
+          <div class="layer-row">
+            <input type="checkbox" id="layHeatmap" checked />
+            <span class="swatch" style="background:linear-gradient(90deg,#2ecc40,#ffdc00,#ff851b,#ff4136)"></span>
+            <label for="layHeatmap">Mapa de calor</label>
+          </div>
+          <div class="layer-row">
+            <input type="checkbox" id="layPuntos" />
+            <span class="swatch" style="background:#4BA63F"></span>
+            <label for="layPuntos">Puntos por surco</label>
+          </div>
+          <div class="layer-row">
+            <input type="checkbox" id="layBoundary" checked />
+            <span class="swatch" style="background:#ffffff"></span>
+            <label for="layBoundary">Boundary lote</label>
+          </div>
+          <div class="layer-row">
+            <input type="checkbox" id="layHeadland" />
+            <span class="swatch" style="background:#7d8b80"></span>
+            <label for="layHeadland">Cabecera</label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Vista</h3>
+          <button type="button" id="mpFit">Encajar al lote</button>
+          <div style="height: var(--agp-sp-2)"></div>
+          <button type="button" id="mpFitSesion">Encajar a la sesión</button>
+        </div>
+      </div>
+
+      <div class="map-area">
+        <div id="mapaLeaflet"></div>
+        <div class="legend">
+          <div style="font-weight:var(--agp-fw-bold);margin-bottom:4px">Heatmap · clase</div>
+          <div class="row"><span class="sw" style="background:#2ecc40"></span>1 — bueno</div>
+          <div class="row"><span class="sw" style="background:#ffdc00"></span>2 — medio</div>
+          <div class="row"><span class="sw" style="background:#ff851b"></span>3 — bajo</div>
+          <div class="row"><span class="sw" style="background:#ff4136"></span>4 — falla</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+  <script src="../vendor/leaflet/leaflet.js"></script>
+  <script src="../js/mapas.js"></script>
+</body>
+</html>

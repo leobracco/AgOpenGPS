@@ -88,7 +88,7 @@ namespace AgroParallel.VistaX
             Font = new Font("Segoe UI", 10f);
             ShowInTaskbar = false;
             // Sin chrome de Windows — VistaX-Core no lo tiene tampoco.
-            FormBorderStyle = FormBorderStyle.None;
+            FormBorderStyle = FormBorderStyle.Sizable;
             KeyPreview = true;
             KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) Close(); };
             // Borde sutil alrededor del form (reemplaza el chrome nativo).
@@ -223,29 +223,14 @@ namespace AgroParallel.VistaX
             };
             topBar.Controls.Add(lblActivo);
 
-            // Boton X de cerrar (reemplaza el chrome nativo).
-            var btnX = new Button
-            {
-                Text = "✕",
-                FlatStyle = FlatStyle.Flat,
-                BackColor = CBgPanel,
-                ForeColor = CTextDim,
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                Size = new Size(40, 32),
-                Cursor = Cursors.Hand,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
-            };
-            btnX.FlatAppearance.BorderSize = 0;
-            btnX.FlatAppearance.MouseOverBackColor = Color.FromArgb(200, 40, 40);
-            btnX.Click += (s, e) => Close();
-            topBar.Controls.Add(btnX);
+            // Cerrar: chrome nativo del Form.
 
             // Posicionamiento dinamico de los controles alineados a la derecha.
+            // (El botón X fue removido — usamos el chrome nativo del Form.)
             topBar.Resize += (s, e) =>
             {
-                btnX.Location = new Point(topBar.Width - btnX.Width - 4, 12);
                 lblActivo.Location = new Point(
-                    btnX.Left - lblActivo.Width - 14, 20);
+                    topBar.Width - lblActivo.Width - 14, 20);
                 lblActivoLabel.Location = new Point(
                     lblActivo.Left - lblActivoLabel.Width - 8, 22);
             };

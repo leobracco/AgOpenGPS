@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FlowX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+</head>
+<body>
+  <aside class="sidebar" data-active="flowx"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>FlowX</h1>
+        <div class="subtitle">Control de corte y dosis para pulverizadoras</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> Preview</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Caudal real</h3>
+        <div class="metric"><span id="kpiFlow">—</span><span class="unit">L/min</span></div>
+        <div class="row"><span>Objetivo</span><strong id="kpiTarget" style="color:var(--agp-text)">— L/min</strong></div>
+      </div>
+      <div class="card">
+        <h3>Dosis</h3>
+        <div class="metric"><span id="kpiDose">—</span><span class="unit">L/ha</span></div>
+        <div class="row"><span>Velocidad</span><strong id="kpiSpeed" style="color:var(--agp-text)">— km/h</strong></div>
+      </div>
+      <div class="card">
+        <h3>PWM bomba</h3>
+        <div class="metric"><span id="kpiPwm">—</span><span class="unit">%</span></div>
+        <div class="row"><span>Estado PID</span><strong id="kpiPid" style="color:var(--agp-text)">—</strong></div>
+      </div>
+      <div class="card">
+        <h3>Secciones activas</h3>
+        <div class="metric"><span id="kpiSecActive">0</span><span class="unit">de <span id="kpiSecTotal">0</span></span></div>
+        <div class="row"><span>Ancho barra</span><strong id="kpiAncho" style="color:var(--agp-text)">— m</strong></div>
+      </div>
+    </div>
+
+    <h2>Insumo ahorrado por corte automático</h2>
+    <div class="card">
+      <div class="subtitle" style="margin-bottom: var(--agp-sp-3);">
+        Calculado como <code>(área repintada) × dosis</code>, donde el área repintada
+        es la diferencia entre el área total trabajada (que cuenta el solapamiento
+        si el corte no estuviera) y el área neta cubierta. Es lo que el corte de
+        secciones de FlowX te ahorra contra una bomba que tira siempre todo.
+      </div>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+        <div>
+          <div class="subtitle">Área neta cubierta</div>
+          <div class="metric" style="font-size: var(--agp-fs-lg)"><span id="kpiAreaNeta">—</span><span class="unit">ha</span></div>
+        </div>
+        <div>
+          <div class="subtitle">Área repintada (overlap)</div>
+          <div class="metric" style="font-size: var(--agp-fs-lg)"><span id="kpiAreaOverlap">—</span><span class="unit">ha</span></div>
+        </div>
+        <div>
+          <div class="subtitle">% solapamiento</div>
+          <div class="metric" style="font-size: var(--agp-fs-lg)"><span id="kpiOverlapPct">—</span><span class="unit">%</span></div>
+        </div>
+        <div>
+          <div class="subtitle">Insumo ahorrado</div>
+          <div class="metric" style="font-size: var(--agp-fs-lg); color: var(--agp-state-ok)"><span id="kpiSavedLitros">—</span><span class="unit">L</span></div>
+        </div>
+      </div>
+    </div>
+
+    <h2>Nodos FlowX</h2>
+    <div class="card" id="nodosList">
+      <div class="subtitle">
+        Buscando nodos en LAN... Los controladores FlowX se descubren automáticamente
+        al publicar <code>agp/flow/announcement</code> en el broker MQTT del PC.
+      </div>
+    </div>
+
+    <h2>Configuración</h2>
+    <div class="card">
+      <div class="row" style="align-items:center; gap: var(--agp-sp-3);">
+        <label><input type="checkbox" id="cfgEnabled" /> FlowX habilitado</label>
+      </div>
+
+      <div class="row" style="margin-top: var(--agp-sp-3); align-items:center; gap: var(--agp-sp-2); flex-wrap: wrap;">
+        <label for="nodoSelect" style="color: var(--agp-text-muted)">Nodo:</label>
+        <select id="nodoSelect" style="min-width: 220px;"></select>
+        <select id="lanSelect" style="min-width: 200px;"></select>
+        <button id="btnImportNodo" type="button" class="btn">+ Importar desde LAN</button>
+        <!-- "+ Manual" eliminado: los nodos solo entran por auto-descubrimiento
+             MQTT (announcement). Pedir UID a mano provoca typos en producción. -->
+        <button id="btnDeleteNodo" type="button" class="btn" style="color: var(--agp-state-bad)">Eliminar nodo</button>
+      </div>
+
+      <div id="nodoEditor" hidden>
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); margin-top: var(--agp-sp-4);">
+          <div>
+            <div class="subtitle">UID</div>
+            <input id="nodoUid" type="text" readonly style="width:100%" />
+          </div>
+          <div>
+            <div class="subtitle">Nombre</div>
+            <input id="nodoNombre" type="text" style="width:100%" />
+          </div>
+          <div>
+            <div class="subtitle">Ancho barra (m)</div>
+            <input id="nodoAncho" type="number" step="0.1" min="0" style="width:100%" />
+          </div>
+          <div>
+            <div class="subtitle">Flags</div>
+            <label style="display:block"><input id="nodoHab" type="checkbox" /> Habilitado</label>
+            <label style="display:block"><input id="nodo3wire" type="checkbox" /> Caudalímetro 3 hilos (HALL)</label>
+            <label style="display:block"><input id="nodoInv" type="checkbox" /> Invertir relés (NC)</label>
+          </div>
+        </div>
+
+        <h3 style="margin-top: var(--agp-sp-4);">Productos</h3>
+        <div class="subtitle" style="margin-bottom: var(--agp-sp-2);">
+          Cada producto = una salida de caudal (caudalímetro + bomba). PID por producto.
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="tblProductos" style="width:100%; border-collapse: collapse;">
+            <thead><tr style="text-align:left; color: var(--agp-text-muted);">
+              <th>Id</th><th>Nombre</th><th>Cal (pulsos/L)</th><th>Dosis (L/ha)</th>
+              <th>PWM min</th><th>Kp</th><th>Ki</th><th>Kd</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="row" style="gap: var(--agp-sp-2); margin-top: var(--agp-sp-2);">
+          <button id="btnAddProducto" type="button" class="btn">+ Producto</button>
+        </div>
+
+        <h3 style="margin-top: var(--agp-sp-4);">Cables → Sección PilotX</h3>
+        <div class="subtitle" style="margin-bottom: var(--agp-sp-2);">
+          Cada cable del PCA9685 abre una sección PilotX (1-based; 0 = no asignado).
+        </div>
+        <div style="overflow-x:auto;">
+          <table id="tblCables" style="width:100%; border-collapse: collapse;">
+            <thead><tr style="text-align:left; color: var(--agp-text-muted);">
+              <th>Cable PCA9685</th><th>Sección PilotX</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="row" style="gap: var(--agp-sp-2); margin-top: var(--agp-sp-2);">
+          <button id="btnAddCable" type="button" class="btn">+ Cable</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top: var(--agp-sp-4); align-items:center; gap: var(--agp-sp-2); justify-content: flex-end;">
+        <span id="saveStatus" class="subtitle"></span>
+        <button id="btnReload" type="button" class="btn">Recargar</button>
+        <button id="btnSaveCfg" type="button" class="btn">Guardar configuración</button>
+      </div>
+    </div>
+
+    <h2>Próximamente</h2>
+    <div class="card">
+      <ul style="margin:0; padding-left: 1.2em; color: var(--agp-text-muted);">
+        <li>Telemetría de caudal real vs objetivo en gráfico live</li>
+        <li>Sincronización de prescripciones de tasa variable con OrbitX</li>
+      </ul>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/steps.js"></script>
+  <script src="../js/flowx.js"></script>
+</body>
+</html>
