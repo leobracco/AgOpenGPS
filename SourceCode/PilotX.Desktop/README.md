@@ -106,10 +106,36 @@ pagina del wwwroot manteniendo el origen del WebView actual (no hardcodea
 127.0.0.1, asi si arrancaste con `--url=http://otra-pc:5180/` los botones
 siguen apuntando al host correcto).
 
+## Mini-mapa cockpit
+
+En modo full hay un overlay 240x180 en la esquina inferior izquierda
+con render nativo Avalonia (no OpenGL todavia):
+
+- Outline del primer boundary (lote activo) + drive-thru islands grises.
+- Sprite tractor (triangulo verde) en `(PivotEasting, PivotNorthing)`
+  rotado segun `Heading` (rad, convencion compass: 0 = norte, +CW).
+- Sin lote: cruz de referencia + hint "Sin lote activo".
+- Sin datos: hint "Esperando datos...".
+
+Datos consumidos del mismo `/api/aog/state` que el HUD (a 4 Hz). El
+control cachea el bbox del boundary (key = primer punto + count) asi
+que en cada tick solo recalcula la proyeccion, no el bbox.
+
+Controles:
+- `x` chiquito esquina sup. der. del mapa -> oculta el mini-mapa.
+- Pin `[M]` aparece en su lugar para reabrirlo.
+- El estado no persiste entre sesiones (arranca siempre visible).
+
+Implementado en `Controls/MiniMapView.cs` (`override Render(DrawingContext)`).
+Es la base para el render del mapa completo: cuando se migre el OpenGL
+de `FormGPS` se reemplaza este Control por uno Silk.NET / Avalonia.OpenGL
+manteniendo la misma API `OnSnapshot(HudSnapshot)`.
+
 ## Pendiente (no esta cubierto en este esqueleto)
 
-- Migrar el render OpenGL del mapa de `FormGPS` a Avalonia (`Silk.NET`
-  o equivalente). Lo mas caro.
+- Migrar el render OpenGL del mapa principal (a pantalla completa) de
+  `FormGPS` a Avalonia (`Silk.NET` o `Avalonia.OpenGL`). Lo mas caro.
+  El mini-mapa actual es 2D-only y no escala a la vista principal.
 - Mover los servicios del shell WinForms (`AogStateProvider`, `lotes`,
   `vehicleTool`, etc.) detras de interfaces que ambos shells puedan
   hostear sin tocar el codigo del Hub HTML.

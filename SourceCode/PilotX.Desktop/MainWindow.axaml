@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:wv="clr-namespace:AvaloniaWebView;assembly=Avalonia.WebView"
+        xmlns:ctl="clr-namespace:PilotX.Desktop.Controls"
         x:Class="PilotX.Desktop.MainWindow"
         Width="1280" Height="800"
         Background="{StaticResource PilotXBgDeep}"
@@ -219,6 +220,76 @@
 
             <!-- =================== WEBVIEW (Hub) =================== -->
             <wv:WebView x:Name="WebViewHost" Grid.Row="2"/>
+
+            <!-- ============ MINI-MAPA (modo full, esquina inf. izq.) ============ -->
+            <!--
+                Primer paso de render nativo Avalonia: el outline del lote
+                activo + sprite del tractor, dibujados con DrawingContext.
+                Mientras no migremos el OpenGL completo, este thumbnail da
+                feedback espacial encima del WebView (que muestra el Hub).
+            -->
+            <Border Name="MiniMapWrap"
+                    Grid.Row="2"
+                    Width="240" Height="180"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Margin="14,0,0,14"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    IsVisible="False"
+                    BoxShadow="0 4 12 0 #80000000">
+                <Grid>
+                    <ctl:MiniMapView Name="MiniMap"/>
+                    <!-- Label esquina sup. izq. del mini-mapa -->
+                    <Border Background="{StaticResource PilotXBgDeep}"
+                            CornerRadius="4"
+                            Padding="6,2"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="6">
+                        <TextBlock Text="MAPA"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"/>
+                    </Border>
+                    <!-- Boton X chiquito para ocultar el mini-mapa -->
+                    <Button Name="MiniMapHide"
+                            Content="x"
+                            Width="22" Height="22"
+                            FontSize="11"
+                            Padding="0"
+                            Background="{StaticResource PilotXBgDeep}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorder}"
+                            BorderThickness="1"
+                            CornerRadius="11"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,6,6,0"
+                            Click="OnMiniMapHide"
+                            ToolTip.Tip="Ocultar mini-mapa"/>
+                </Grid>
+            </Border>
+
+            <!-- Pin para reabrir el mini-mapa cuando esta oculto -->
+            <Button Name="MiniMapShow"
+                    Grid.Row="2"
+                    Content="[M]"
+                    Width="44" Height="44"
+                    FontSize="12"
+                    Background="{StaticResource PilotXBgMid}"
+                    Foreground="{StaticResource PilotXTextMid}"
+                    BorderBrush="{StaticResource PilotXBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="22"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Margin="14,0,0,14"
+                    IsVisible="False"
+                    Click="OnMiniMapShow"
+                    ToolTip.Tip="Mostrar mini-mapa"/>
 
             <!-- FAB X (modo full, ya que sin header no hay otra forma de cerrar) -->
             <Button x:Name="CloseButton"

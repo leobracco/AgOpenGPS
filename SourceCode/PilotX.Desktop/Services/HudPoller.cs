@@ -13,6 +13,7 @@
 // ambos formatos sin tener que conocer cual esta activo.
 
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -34,6 +35,23 @@ public sealed class HudSnapshot
     [JsonPropertyName("longitude")]    public double Longitude { get; set; }
     [JsonPropertyName("workedAreaTotalM2")]  public double WorkedAreaTotalM2 { get; set; }
     [JsonPropertyName("actualAreaCoveredM2")] public double ActualAreaCoveredM2 { get; set; }
+
+    // ---- Campos para el mini-mapa cockpit -------------------------------
+    // En metros locales, mismo frame de coordenadas que las boundaries.
+    [JsonPropertyName("pivotEasting")]  public double PivotEasting { get; set; }
+    [JsonPropertyName("pivotNorthing")] public double PivotNorthing { get; set; }
+    [JsonPropertyName("toolWidth")]     public double ToolWidth { get; set; }
+
+    // Primer ring = contorno exterior; rings siguientes = islas/drive-thru.
+    // List<List<FieldPoint>> en JSON: [ [ {E,N}, {E,N} ], [ ... ] ].
+    [JsonPropertyName("boundaries")]    public List<List<FieldPoint>>? Boundaries { get; set; }
+}
+
+/// <summary>Punto 2D en metros locales (Easting/Northing). Mirrors AgroParallel.Models.FieldPoint.</summary>
+public sealed class FieldPoint
+{
+    [JsonPropertyName("e")] public double E { get; set; }
+    [JsonPropertyName("n")] public double N { get; set; }
 }
 
 public sealed class HudPoller : IDisposable

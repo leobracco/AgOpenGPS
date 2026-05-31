@@ -8,6 +8,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaWebView;
+using PilotX.Desktop.Controls;
 using PilotX.Desktop.Services;
 using WebViewCore.Events;
 
@@ -39,6 +40,11 @@ public partial class MainWindow : Window
     private Button? _btnSettings;
     private Button? _btnFieldTools;
 
+    // Mini-mapa cockpit (overlay esquina inf. izq.) + pin para reabrirlo.
+    private MiniMapView? _miniMap;
+    private Border?      _miniMapWrap;
+    private Button?      _miniMapShow;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -62,6 +68,10 @@ public partial class MainWindow : Window
 
         _btnSettings     = this.FindControl<Button>("BtnSettings");
         _btnFieldTools   = this.FindControl<Button>("BtnFieldTools");
+
+        _miniMap         = this.FindControl<MiniMapView>("MiniMap");
+        _miniMapWrap     = this.FindControl<Border>("MiniMapWrap");
+        _miniMapShow     = this.FindControl<Button>("MiniMapShow");
         // Arrancan deshabilitados; el primer snapshot del HUD los habilita
         // segun el estado (GPS fix / job activo). Tools queda siempre on.
         if (_btnSettings   != null) _btnSettings.IsEnabled   = false;
@@ -120,6 +130,10 @@ public partial class MainWindow : Window
             // FAB X para cerrar (no hay header en modo full).
             var closeBtn = this.FindControl<Button>("CloseButton");
             if (closeBtn != null) closeBtn.IsVisible = true;
+            // Mini-mapa visible por defecto en modo full. El pin queda oculto
+            // hasta que el operario lo cierre con la X chiquita.
+            if (_miniMapWrap != null) _miniMapWrap.IsVisible = true;
+            if (_miniMapShow != null) _miniMapShow.IsVisible = false;
         }
 
         // Arranca el poller del HUD apuntando al host del WebView (mismo origen).
@@ -225,6 +239,11 @@ public partial class MainWindow : Window
             //   Tools      -> queda siempre habilitado (no se toca aca)
             if (_btnSettings   != null) _btnSettings.IsEnabled   = hasGpsFix;
             if (_btnFieldTools != null) _btnFieldTools.IsEnabled = s.IsJobStarted;
+
+            // Empuja el snapshot al mini-mapa (redibuja si esta visible).
+            // OnSnapshot ya cachea el bbox del boundary internamente.
+            _miniMap?.OnSnapshot(s);
+
             _hudWasConnected = true;
         });
     }
@@ -333,6 +352,25 @@ public partial class MainWindow : Window
     // Construye URL absoluta a partir del origen del WebView actual + path
     // relativo. Asi si el usuario arranco con --url=http://otra-pc:5180/
     // los botones siguen apuntando al mismo host (no a 127.0.0.1 hardcoded).
+    // ---------- Mini-mapa show/hide ---------------------------------------
+    //
+    // El mini-mapa arranca visible. Si el operario quiere todo el ancho del
+    // WebView para una pagina del Hub, lo oculta con la X chiquita y el pin
+    // "[M]" aparece en el mismo lugar para reabrirlo despues. No persistimos
+    // el estado entre sesiones por ahora — siempre arranca visible.
+
+    private void OnMiniMapHide(object? sender, RoutedEventArgs e)
+    {
+        if (_miniMapWrap != null) _miniMapWrap.IsVisible = false;
+        if (_miniMapShow != null) _miniMapShow.IsVisible = true;
+    }
+
+    private void OnMiniMapShow(object? sender, RoutedEventArgs e)
+    {
+        if (_miniMapWrap != null) _miniMapWrap.IsVisible = true;
+        if (_miniMapShow != null) _miniMapShow.IsVisible = false;
+    }
+
     private void NavigateTo(string relativePath)
     {
         if (_webView == null) return;
