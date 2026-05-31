@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:wv="clr-namespace:AvaloniaWebView;assembly=Avalonia.WebView"
         xmlns:ctl="clr-namespace:PilotX.Desktop.Controls"
+        xmlns:vw="clr-namespace:PilotX.Desktop.Views"
         x:Class="PilotX.Desktop.MainWindow"
         Width="1280" Height="800"
         Background="{StaticResource PilotXBgDeep}"
@@ -218,8 +218,44 @@
                 </Grid>
             </Border>
 
-            <!-- =================== WEBVIEW (Hub) =================== -->
-            <wv:WebView x:Name="WebViewHost" Grid.Row="2"/>
+            <!-- =================== MAPA NATIVO (default) =================== -->
+            <!--
+                Vista principal del guiado, render nativo Avalonia 2D
+                (placeholder para el upgrade futuro a OpenGlControlBase).
+                Es lo que el operario ve durante el trabajo en cabina.
+                NO HAY WebView residente — es zero-cost Chromium en el
+                hot path de operacion de campo.
+            -->
+            <vw:MapPanel x:Name="MapHost" Grid.Row="2"/>
+
+            <!-- =================== WEBVIEW SLOT (lazy on-demand) =================== -->
+            <!--
+                Contenedor vacio donde se instancia el WebView SOLO cuando
+                el operario abre una pantalla todavia no portada a nativo.
+                Al cerrar la pantalla (boton Atras / Esc), el WebView se
+                hace Dispose y este Panel queda vacio otra vez. Cada
+                pantalla portada a nativo = un WebView menos.
+            -->
+            <Panel x:Name="WebViewSlot" Grid.Row="2" IsVisible="False"/>
+
+            <!-- Boton "Atras" para volver al mapa nativo desde una pantalla web -->
+            <Button x:Name="WebViewBack"
+                    Grid.Row="2"
+                    Content="&lt;-"
+                    Width="48" Height="48"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    Foreground="{StaticResource PilotXTextHi}"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="24"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="14,12,0,0"
+                    IsVisible="False"
+                    Click="OnWebViewBack"
+                    ToolTip.Tip="Volver al mapa (cierra y libera el WebView)"/>
 
             <!-- ============ MINI-MAPA (modo full, esquina inf. izq.) ============ -->
             <!--
