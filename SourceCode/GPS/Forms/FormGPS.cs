@@ -834,11 +834,15 @@ namespace AgOpenGPS
                 var sectionsCore = new global::AgroParallel.Adapters.FormGpsSectionControlService(this);
                 var quantixRuntime = new global::AgroParallel.Adapters.FormGpsQuantiXRuntimeService(this, state);
                 var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
+                var toolGeometry = new global::AgroParallel.Adapters.FormGpsToolGeometryCalculator(this);
+                var tram = new global::AgroParallel.Adapters.FormGpsTramCalculator(this);
                 var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
                 global::AgroParallel.Shell.AgpWebHostBootstrap.EnsureStarted(
                     state, lotes, vehicleTool, shapefile,
                     coverage, sectionsCore, quantixRuntime, guidance, pilotxUpdate,
-                    wwwroot);
+                    wwwroot,
+                    toolGeometry: toolGeometry,
+                    tram: tram);
 
                 // El widget QX HTML necesita la Url del host para navegar; cuando
                 // InitShapefileMenu() corrió antes (línea 739), Url todavía no

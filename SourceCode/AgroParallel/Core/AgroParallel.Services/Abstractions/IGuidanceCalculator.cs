@@ -12,5 +12,11 @@ namespace AgroParallel.Services.Abstractions
     public interface IGuidanceCalculator
     {
         GuidanceSnapshot GetSnapshot();
+
+        /// <summary>Geometria de la linea/curva activa (Stage 3 mapa GL).
+        /// Devuelve un snapshot con polyline en coords mundo o Mode="Off"
+        /// cuando no hay guidance set. Cadencia baja (1 Hz) — los puntos
+        /// solo cambian al redefinir la linea. Defensive: nunca tira.</summary>
+        GuidanceGeometrySnapshot GetGeometry();
     }
 }

@@ -40,6 +40,8 @@ namespace AgroParallel.WebHost
         private readonly ISectionControlService _sectionsCore;
         private readonly IQuantiXRuntimeService _quantixRuntime;
         private readonly IGuidanceCalculator _guidance;
+        private readonly IToolGeometryCalculator _toolGeometry;
+        private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
         private readonly IFlowXConfigService _flowxCfg;
         private readonly IFlowXLiveService _flowxLive;
@@ -104,7 +106,9 @@ namespace AgroParallel.WebHost
                           IStormXLiveService stormxLive,
                           string wwwroot,
                           int port = 5180,
-                          IInsumoCatalogService insumos = null)
+                          IInsumoCatalogService insumos = null,
+                          IToolGeometryCalculator toolGeometry = null,
+                          ITramCalculator tram = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -123,6 +127,8 @@ namespace AgroParallel.WebHost
             _sectionsCore = sectionsCore;     // nullable
             _quantixRuntime = quantixRuntime; // nullable
             _guidance = guidance;             // nullable
+            _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
+            _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
             _flowxCfg = flowxCfg;             // nullable
             _flowxLive = flowxLive;           // nullable
@@ -220,6 +226,8 @@ namespace AgroParallel.WebHost
                 if (_quantixRuntime != null)
                     m.WithController(() => new WidgetQuantiXController(_quantixRuntime, _nodos, _state));
                 if (_guidance != null) m.WithController(() => new GuidanceController(_guidance));
+                if (_toolGeometry != null) m.WithController(() => new ToolGeometryController(_toolGeometry));
+                if (_tram != null) m.WithController(() => new TramController(_tram));
                 if (_pilotxUpdate != null) m.WithController(() => new PilotXUpdateController(_pilotxUpdate));
                 if (_flowxCfg != null) m.WithController(() => new FlowXController(_flowxCfg, _nodos, _flowxLive));
                 if (_stormxCfg != null) m.WithController(() => new StormXController(_stormxCfg, _nodos, _stormxLive));

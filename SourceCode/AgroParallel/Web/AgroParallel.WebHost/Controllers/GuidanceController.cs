@@ -36,5 +36,20 @@ namespace AgroParallel.WebHost.Controllers
             });
             await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
         }
+
+        // Geometria de la linea/curva activa. Endpoint separado de /aog/guidance
+        // porque cambia de cadencia: el control state se polea ~4 Hz, pero la
+        // geometria solo cambia al redefinir la linea (1 Hz alcanza). El cliente
+        // usa snapshot.revision para saltar re-uploads de VBO.
+        [Route(HttpVerbs.Get, "/aog/guidance/geometry")]
+        public async Task GetGuidanceGeometry()
+        {
+            var snap = _guidance != null ? _guidance.GetGeometry() : null;
+            string json = SysJson.Serialize(new { ok = true, snapshot = snap }, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+            });
+            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
+        }
     }
 }

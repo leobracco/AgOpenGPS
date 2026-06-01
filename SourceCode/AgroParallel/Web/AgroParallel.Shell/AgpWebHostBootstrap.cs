@@ -60,7 +60,9 @@ namespace AgroParallel.Shell
             string wwwroot,
             int port = 5180,
             string brokerHost = "127.0.0.1",
-            int brokerPort = 1883)
+            int brokerPort = 1883,
+            IToolGeometryCalculator toolGeometry = null,
+            ITramCalculator tram = null)
         {
             lock (s_lock)
             {
@@ -105,7 +107,10 @@ namespace AgroParallel.Shell
                     stormxCfg,
                     stormxLive,
                     wwwroot,
-                    port);
+                    port,
+                    insumos: null,
+                    toolGeometry: toolGeometry,
+                    tram: tram);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;
