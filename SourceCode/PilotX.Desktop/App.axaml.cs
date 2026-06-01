@@ -29,6 +29,13 @@ public partial class App : Application
     public static int WindowWidth { get; set; } = 0;
     public static int WindowHeight { get; set; } = 0;
 
+    // Toggle del Stage 1 de migracion OpenGL del mapa de guiado. Cuando
+    // es true, MapPanel hostea internamente MapGlSurface (Avalonia
+    // OpenGlControlBase + Silk.NET.OpenGL). Cuando es false, sigue
+    // usando MapSkiaSurface (placeholder Skia 2D). Default OFF mientras
+    // estabilizamos GL en cabina; el operario lo activa con --gl=on.
+    public static bool UseGl { get; set; } = false;
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()

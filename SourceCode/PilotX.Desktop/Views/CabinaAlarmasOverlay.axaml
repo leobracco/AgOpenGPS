@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.CabinaAlarmasOverlay"
+             IsHitTestVisible="True"
+             Background="Transparent">
+    <!--
+        Banner de cabina - overlay top-bleed (no oculta el mapa).
+        Reemplazo nativo de pages/cabina-alarmas.html. Polling 2s contra
+        /api/nodos/unified, filtra `del_implemento_activo && !online` y
+        muestra banner rojo pulsante con la lista. Beep one-shot por UID
+        nuevo (Console.Beep async, respetando silenciado de 10 min).
+
+        ZIndex alto + VerticalAlignment=Top: el overlay se acopla arriba
+        del area de contenido (Grid.Row=2) y se ve por encima del mapa /
+        FieldData / Sistema / etc. Solo cubre la franja superior.
+    -->
+    <Border Name="AlertRoot"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Stretch"
+            IsVisible="False"
+            BorderThickness="0,0,0,2"
+            BorderBrush="#5B0F0F"
+            BoxShadow="0 4 14 0 #66000000"
+            MinHeight="64"
+            Padding="18,14,18,14">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Offset="0" Color="#C92D2D"/>
+                <GradientStop Offset="1" Color="#8B1B1B"/>
+            </LinearGradientBrush>
+        </Border.Background>
+
+        <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+
+            <!-- Icono warning -->
+            <TextBlock Grid.Column="0"
+                       Text="⚠"
+                       FontSize="28"
+                       Foreground="White"
+                       VerticalAlignment="Center"
+                       Margin="0,0,14,0"/>
+
+            <!-- Cuerpo: titulo + lista de nodos -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                <TextBlock Name="TituloText"
+                           Text="Nodos del implemento offline"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="White"/>
+                <TextBlock Name="ListaText"
+                           Text=""
+                           FontSize="16"
+                           FontWeight="Medium"
+                           Foreground="White"
+                           Opacity="0.95"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <!-- Boton silenciar 10 min - tactil 44x44 minimo -->
+            <Button Grid.Column="2"
+                    Name="BtnSilenciar"
+                    Content="Silenciar 10 min"
+                    Click="OnSilenciarClick"
+                    MinHeight="44"
+                    Padding="18,8,18,8"
+                    Margin="14,0,0,0"
+                    FontSize="15"
+                    FontWeight="SemiBold"
+                    Foreground="White"
+                    Background="#33FFFFFF"
+                    BorderBrush="#8CFFFFFF"
+                    BorderThickness="1.5"
+                    CornerRadius="8"
+                    VerticalAlignment="Center"/>
+        </Grid>
+    </Border>
+</UserControl>

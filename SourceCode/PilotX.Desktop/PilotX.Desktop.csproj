@@ -31,6 +31,11 @@
     <AssemblyName>PilotX.Desktop</AssemblyName>
     <NoWarn>$(NoWarn);CS8618;CS8600;CS8601;CS8602;IDE0055</NoWarn>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- AllowUnsafeBlocks: necesario para los pointer ops de Silk.NET.OpenGL
+         en Views/MapGlSurface (BufferData/BufferSubData/UniformMatrix4 toman
+         void*). El uso de unsafe esta acotado a ese archivo y a operaciones
+         de upload de buffers GL — nada que cruce confianza. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
     <!-- ==========================================================
          Tuning de runtime para tractor (objetivo bajo consumo)
@@ -82,6 +87,14 @@
          portadas a nativo, se borra esta referencia + EmbedIO/AgpWebHost. -->
     <PackageReference Include="WebView.Avalonia" Version="11.0.0.1" />
     <PackageReference Include="WebView.Avalonia.Desktop" Version="11.0.0.1" />
+
+    <!-- Silk.NET.OpenGL: bindings .NET (~3MB) al loader GL nativo.
+         Lo usa Views/MapGlSurface para implementar el render OpenGL del
+         mapa (Stage 1 migracion FormGPS -> Avalonia GL ES). Se conecta
+         al GlInterface que Avalonia expone via OpenGlControlBase
+         (sin GLFW ni SDL aparte). Stages siguientes (sections, guidance,
+         tool, youturn) reutilizan la misma binding. -->
+    <PackageReference Include="Silk.NET.OpenGL" Version="2.21.0" />
   </ItemGroup>
 
 </Project>

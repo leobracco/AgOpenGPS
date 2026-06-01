@@ -45,6 +45,15 @@ public sealed class HudSnapshot
     // Primer ring = contorno exterior; rings siguientes = islas/drive-thru.
     // List<List<FieldPoint>> en JSON: [ [ {E,N}, {E,N} ], [ ... ] ].
     [JsonPropertyName("boundaries")]    public List<List<FieldPoint>>? Boundaries { get; set; }
+
+    // ---- Datos del lote (consumidos por FieldDataPanel nativo) ----------
+    [JsonPropertyName("currentFieldDirectory")] public string? CurrentFieldDirectory { get; set; }
+    [JsonPropertyName("numSections")]           public int NumSections { get; set; }
+    [JsonPropertyName("sectionOnRequest")]      public bool[]? SectionOnRequest { get; set; }
+    [JsonPropertyName("vehicleType")]           public string? VehicleType { get; set; }
+    [JsonPropertyName("vehicleBrand")]          public string? VehicleBrand { get; set; }
+    [JsonPropertyName("shapeCurrentDose")]      public double ShapeCurrentDose { get; set; }
+    [JsonPropertyName("shapeIsInside")]         public bool ShapeIsInside { get; set; }
 }
 
 /// <summary>Punto 2D en metros locales (Easting/Northing). Mirrors AgroParallel.Models.FieldPoint.</summary>

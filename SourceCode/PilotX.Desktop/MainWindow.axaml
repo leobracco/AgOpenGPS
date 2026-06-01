@@ -228,6 +228,137 @@
             -->
             <vw:MapPanel x:Name="MapHost" Grid.Row="2"/>
 
+            <!-- =================== FIELD DATA (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/datos-lote.html. Se muestra cuando
+                el operario tocá FieldTools en la toolbar. SIN WebView.
+            -->
+            <vw:FieldDataPanel x:Name="FieldDataHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== SISTEMA (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/sistema.html (brillo + power).
+                Hace HTTP a /api/sistema/* pero NO instancia WebView.
+            -->
+            <vw:SistemaPanel x:Name="SistemaHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== DATOS GPS (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/datos-gps.html: lat/lon/easting/
+                northing + rumbo + cardinal + velocidad. Sin WebView, sin
+                red propia: consume el HudSnapshot del HudPoller.
+            -->
+            <vw:GpsDataPanel x:Name="GpsDataHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== STORMX (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/stormx.html: meteo + veredicto de
+                pulverizacion. Polling propio a /api/stormx/live (1Hz) que
+                arranca al abrir el panel y se detiene al cerrarlo.
+            -->
+            <vw:StormXPanel x:Name="StormXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== FLOWX (overlay nativo, live-only) =================== -->
+            <!--
+                Reemplazo nativo PARCIAL de pages/flowx.html: KPIs cabin-
+                critical (caudal real, target, PWM, PID, secciones, savings).
+                El editor de config (productos/cables/PID) NO esta portado:
+                el boton "Configurar" abre el WebView lazy sobre flowx.html.
+            -->
+            <vw:FlowXPanel x:Name="FlowXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                Reemplazo nativo PARCIAL de pages/sectionx.html: KPIs cabin-
+                critical (estado del bridge + grilla de secciones abiertas).
+                El editor de mapeo surcos->secciones, test de reles y debug
+                MQTT NO estan portados: el boton "Configurar" abre el
+                WebView lazy sobre sectionx.html.
+            -->
+            <vw:SectionXPanel x:Name="SectionXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                Reemplazo nativo PARCIAL (Monitor tab) de pages/quantix.html:
+                ver dosis real/objetivo + PWM + estado PID por motor. Otras
+                tabs (Motores CRUD, Shape, PID live-tune, Calibracion, Prueba)
+                siguen en HTML via boton "Configurar".
+            -->
+            <vw:QuantiXPanel x:Name="QuantiXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                VistaXPanel — overlay nativo (8vo port).
+                Reemplazo nativo PARCIAL (Monitor tab) de pages/vistax.html:
+                ver SPM por surco, badges por estado, trenes con sensores
+                semilla/ferti (tubitos) y otros sensores (barras). Otras tabs
+                (Insumo & calibracion, Implemento, Nodos, Config) siguen en
+                HTML via boton "Configurar".
+            -->
+            <vw:VistaXPanel x:Name="VistaXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                CoreXEcuPanel — overlay nativo (9no port).
+                Reemplazo nativo PARCIAL (Live tab) de pages/corex-ecu.html:
+                telemetria del autosteer Teensy (IMU, WAS, GPS, CAN Keya,
+                Autosteer, Sistema). Las otras tabs (Estado/checklist,
+                Calibracion / motor manual + barrido PWM, Conexion con Teensy)
+                siguen en HTML via boton "Configurar". NO se toca firmware.
+            -->
+            <vw:CoreXEcuPanel x:Name="CoreXEcuHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== HUB (home nativo, 11vo port) =================== -->
+            <!--
+                HubPanel - reemplazo nativo de pages/hub.html. KPIs del
+                tractor llegan via HudSnapshot @4Hz, lista de nodos via
+                /api/nodos/unified @3s, toggles QX/VX/FX via /api/overlays
+                (FormGPS relee overlayPrefs.json cada 250ms). NO se hace
+                polling redundante del estado AOG: se consume el HUD que
+                ya viene.
+            -->
+            <vw:HubPanel x:Name="HubHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== NODOS (overlay nativo, 12vo port) =================== -->
+            <!--
+                NodosPanel - reemplazo nativo (parcial) de pages/nodos.html.
+                Live monitor: tabs + tabla + banner alarma offline-del-implemento.
+                Polling 3s a /api/nodos/unified. Las acciones de curado
+                (aceptar/ignorar/renombrar/restaurar) y el diagnostico MQTT
+                (wildcard + msg log) siguen en HTML via boton "Configurar".
+                Por la doctrina "nodos solo se agregan automaticamente" no hay
+                un boton "Agregar" - cualquier alta sale del MQTT announcement.
+            -->
+            <vw:NodosPanel x:Name="NodosHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== ACTUALIZAR (overlay nativo, 13vo port) =================== -->
+            <!--
+                ActualizarPanel - reemplazo nativo de pages/actualizar.html.
+                Self-update del propio PilotX via OrbitX OTA. Polling 1s a
+                /api/pilotx/update/status; acciones POST a check/download/apply.
+                Cuando Aplicar dispara Updater.exe, PilotX se cierra solo.
+            -->
+            <vw:ActualizarPanel x:Name="ActualizarHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== CAMARAS (overlay nativo, 14vo port) =================== -->
+            <!--
+                CamarasPanel - reemplazo nativo (parcial) de pages/camaras.html.
+                Tab Monitor only: layouts 1x1/2x1/2x2 con snapshot JPEG polling
+                a /api/camaras/{idx}/snapshot. Doble click -> toggle foco 1x1.
+                El tab Config (forms IP/usuario/clave por camara) sigue HTML
+                via boton "Configurar".
+            -->
+            <vw:CamarasPanel x:Name="CamarasHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== CABINA-ALARMAS (overlay top, 10mo port) =================== -->
+            <!--
+                Banner cabin-critical: nodos del implemento ACTIVO offline.
+                NO oculta el mapa ni otros overlays - se acopla arriba con
+                ZIndex alto + VerticalAlignment=Top. Polling 2s independiente,
+                arranca con la app y se autogestiona (mostrar/ocultar).
+                Reemplazo nativo de pages/cabina-alarmas.html.
+            -->
+            <vw:CabinaAlarmasOverlay x:Name="CabinaAlarmasHost"
+                                     Grid.Row="2"
+                                     ZIndex="100"
+                                     VerticalAlignment="Top"/>
+
             <!-- =================== WEBVIEW SLOT (lazy on-demand) =================== -->
             <!--
                 Contenedor vacio donde se instancia el WebView SOLO cuando
@@ -254,8 +385,8 @@
                     VerticalAlignment="Top"
                     Margin="14,12,0,0"
                     IsVisible="False"
-                    Click="OnWebViewBack"
-                    ToolTip.Tip="Volver al mapa (cierra y libera el WebView)"/>
+                    Click="OnBackClick"
+                    ToolTip.Tip="Volver al mapa"/>
 
             <!-- ============ MINI-MAPA (modo full, esquina inf. izq.) ============ -->
             <!--
@@ -411,6 +542,7 @@
                         <Button.Flyout>
                             <MenuFlyout Placement="Top">
                                 <MenuItem Header="Hub"        Click="OnNavHub"/>
+                                <MenuItem Header="Datos GPS"  Click="OnNavDatosGps"/>
                                 <MenuItem Header="-"/>
                                 <MenuItem Header="Camaras"    Click="OnNavCamaras"/>
                                 <MenuItem Header="VistaX"     Click="OnNavVistaX"/>
@@ -423,6 +555,7 @@
                                 <MenuItem Header="Nodos"      Click="OnNavNodos"/>
                                 <MenuItem Header="Firmwares"  Click="OnNavFirmwares"/>
                                 <MenuItem Header="OrbitX"     Click="OnNavOrbitX"/>
+                                <MenuItem Header="Actualizar PilotX" Click="OnNavActualizar"/>
                                 <MenuItem Header="Debug"      Click="OnNavDebug"/>
                             </MenuFlyout>
                         </Button.Flyout>

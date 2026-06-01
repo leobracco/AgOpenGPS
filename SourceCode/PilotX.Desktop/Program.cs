@@ -12,6 +12,9 @@
 //   --mode=full                     -> maximizada borderless (default, Hub principal)
 //   --title="Camaras"               -> titulo de la ventana (solo modo float)
 //   --width=800 --height=480        -> tamano inicial en modo float
+//   --gl=on|off                     -> usa render OpenGL del mapa (Stage 1
+//                                      de la migracion FormGPS -> Avalonia).
+//                                      Default off mientras estabilizamos.
 
 using System;
 using System.Diagnostics;
@@ -67,6 +70,11 @@ internal static class Program
             else if (a.StartsWith("--height=", StringComparison.OrdinalIgnoreCase))
             {
                 if (int.TryParse(a.Substring("--height=".Length), out var h)) App.WindowHeight = h;
+            }
+            else if (a.StartsWith("--gl=", StringComparison.OrdinalIgnoreCase))
+            {
+                var v = a.Substring("--gl=".Length).Trim().ToLowerInvariant();
+                App.UseGl = v == "on" || v == "1" || v == "true" || v == "yes";
             }
         }
         if (string.IsNullOrEmpty(page)) App.TargetUrl = baseUrl;

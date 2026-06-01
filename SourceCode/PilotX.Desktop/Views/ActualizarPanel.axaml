@@ -1,0 +1,215 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.ActualizarPanel"
+             Background="{StaticResource PilotXBgDeep}">
+    <!--
+        ActualizarPanel — reemplazo nativo de pages/actualizar.html.
+
+        Self-update de PilotX vía OrbitX OTA. Polling 1s al endpoint
+        /api/pilotx/update/status mientras esta visible. 3 acciones cabin-
+        critical: Buscar / Descargar / Aplicar y reiniciar.
+
+        El backend hace el trabajo pesado (descarga + verify SHA + lanzar
+        Updater.exe). El panel solo muestra estado y dispara comandos.
+    -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,20,24,24" Spacing="14">
+
+            <!-- ============ Header ============ -->
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="Actualizar PilotX"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="22"
+                               FontWeight="SemiBold"/>
+                    <TextBlock Text="Canal de actualizaciones: agroparallel.com/update/pilotx"
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"/>
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        Name="PhasePill"
+                        Background="{StaticResource PilotXBgHigh}"
+                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="999"
+                        Padding="14,6,14,6"
+                        VerticalAlignment="Center">
+                    <TextBlock Name="PhaseText"
+                               Text="Idle"
+                               Foreground="{StaticResource PilotXTextMid}"
+                               FontSize="13"
+                               VerticalAlignment="Center"/>
+                </Border>
+            </Grid>
+
+            <!-- ============ Card update ============ -->
+            <Border Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="22,18,22,20"
+                    MaxWidth="760"
+                    HorizontalAlignment="Left">
+                <StackPanel Spacing="0">
+
+                    <!-- Filas estado -->
+                    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Version instalada"
+                                   Foreground="{StaticResource PilotXTextDim}" FontSize="13"
+                                   Padding="0,10,16,10"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Name="VCurrent" Text="--"
+                                   Foreground="{StaticResource PilotXTextHi}" FontSize="13"
+                                   FontWeight="SemiBold" Padding="0,10,0,10"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   HorizontalAlignment="Right"/>
+
+                        <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                BorderBrush="{StaticResource PilotXBorder}"
+                                BorderThickness="0,0,0,1"
+                                IsHitTestVisible="False"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Version disponible"
+                                   Foreground="{StaticResource PilotXTextDim}" FontSize="13"
+                                   Padding="0,10,16,10"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Name="VAvail" Text="--"
+                                   Foreground="{StaticResource PilotXTextHi}" FontSize="13"
+                                   FontWeight="SemiBold" Padding="0,10,0,10"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   HorizontalAlignment="Right"/>
+                        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                BorderBrush="{StaticResource PilotXBorder}"
+                                BorderThickness="0,0,0,1"
+                                IsHitTestVisible="False"/>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Tamano"
+                                   Foreground="{StaticResource PilotXTextDim}" FontSize="13"
+                                   Padding="0,10,16,10"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Name="VSize" Text="--"
+                                   Foreground="{StaticResource PilotXTextHi}" FontSize="13"
+                                   FontWeight="SemiBold" Padding="0,10,0,10"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   HorizontalAlignment="Right"/>
+                        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                BorderBrush="{StaticResource PilotXBorder}"
+                                BorderThickness="0,0,0,1"
+                                IsHitTestVisible="False"/>
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="SHA-256"
+                                   Foreground="{StaticResource PilotXTextDim}" FontSize="13"
+                                   Padding="0,10,16,10"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Name="VHash" Text="--"
+                                   Foreground="{StaticResource PilotXTextMid}" FontSize="11"
+                                   Padding="0,10,0,10"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   HorizontalAlignment="Right"/>
+                        <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                BorderBrush="{StaticResource PilotXBorder}"
+                                BorderThickness="0,0,0,1"
+                                IsHitTestVisible="False"/>
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Ultima consulta"
+                                   Foreground="{StaticResource PilotXTextDim}" FontSize="13"
+                                   Padding="0,10,16,10"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Name="VChecked" Text="--"
+                                   Foreground="{StaticResource PilotXTextHi}" FontSize="13"
+                                   FontWeight="SemiBold" Padding="0,10,0,10"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   HorizontalAlignment="Right"/>
+                    </Grid>
+
+                    <!-- Progress bar -->
+                    <Border Margin="0,12,0,0"
+                            Background="{StaticResource PilotXBgDeep}"
+                            CornerRadius="7"
+                            Height="14"
+                            HorizontalAlignment="Stretch">
+                        <Border Name="ProgBar"
+                                Background="{StaticResource PilotXAccent}"
+                                Width="0"
+                                HorizontalAlignment="Left"
+                                CornerRadius="7"/>
+                    </Border>
+
+                    <!-- Error line -->
+                    <TextBlock Name="ErrLine"
+                               Text=""
+                               IsVisible="False"
+                               Margin="0,10,0,0"
+                               Foreground="#E15A5A"
+                               FontSize="13"
+                               TextWrapping="Wrap"/>
+
+                    <!-- Changelog -->
+                    <Border Name="ChangelogBox"
+                            IsVisible="False"
+                            Margin="0,12,0,0"
+                            Background="{StaticResource PilotXBgDeep}"
+                            BorderBrush="{StaticResource PilotXBorder}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="12,10,12,10"
+                            MaxHeight="200">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <TextBlock Name="ChangelogText"
+                                       Text=""
+                                       Foreground="{StaticResource PilotXTextMid}"
+                                       FontSize="12"
+                                       FontFamily="Consolas, Courier New, monospace"
+                                       TextWrapping="Wrap"/>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Acciones -->
+                    <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,18,0,0">
+                        <Button Name="BtnCheck"
+                                Content="Buscar actualizacion"
+                                MinHeight="52"
+                                Padding="22,0,22,0"
+                                Background="{StaticResource PilotXBgHigh}"
+                                Foreground="{StaticResource PilotXTextHi}"
+                                BorderBrush="{StaticResource PilotXBorderHigh}"
+                                BorderThickness="1"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Click="OnCheckClick"/>
+
+                        <Button Name="BtnDownload"
+                                Content="Descargar"
+                                MinHeight="52"
+                                Padding="22,0,22,0"
+                                Background="{StaticResource PilotXBgHigh}"
+                                Foreground="{StaticResource PilotXTextHi}"
+                                BorderBrush="{StaticResource PilotXBorderHigh}"
+                                BorderThickness="1"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                IsEnabled="False"
+                                Click="OnDownloadClick"/>
+
+                        <Button Name="BtnApply"
+                                Content="Aplicar y reiniciar"
+                                MinHeight="52"
+                                Padding="22,0,22,0"
+                                Background="{StaticResource PilotXAccent}"
+                                Foreground="{StaticResource PilotXBgDeep}"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                IsEnabled="False"
+                                Click="OnApplyClick"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Tip: el Updater externo se encarga de reemplazar binarios mientras PilotX no esta corriendo. Despues del Aplicar, la app se cierra y vuelve a abrir automaticamente con la nueva version."
+                       Foreground="{StaticResource PilotXTextDim}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       MaxWidth="760"
+                       HorizontalAlignment="Left"
+                       Margin="2,0,0,0"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
