@@ -128,6 +128,9 @@
 
     $('hdrFw').textContent = s.firmware ? (s.firmware + (s.version ? (' ' + s.version) : '')) : '—';
 
+    var fwc = $('fwCurrent');
+    if (fwc) fwc.textContent = s.version || '—';
+
     var imu = s.imu || {};
     $('imuMode').textContent = imu.mode || '—';
     $('imuYaw').textContent = fmt(imu.yawDeg) + ' °';
@@ -574,11 +577,24 @@
     var locked = !!a.guidanceActive;
     var warn = $('motorLockWarn');
     if (warn) warn.classList.toggle('visible', locked);
+    var fwWarn = $('fwLockWarn');
+    if (fwWarn) fwWarn.style.display = locked ? '' : 'none';
     if (locked !== motorLocked) {
       motorLocked = locked;
       document.querySelectorAll('.joystick .jbtn').forEach(function (b) {
         b.disabled = locked && b.id !== 'btnMotorStop';
       });
+      // El PWM manual libre comparte el bloqueo por guidance externa.
+      var customBtn = $('btnMotorHoldCustom');
+      if (customBtn) customBtn.disabled = locked;
+      var customInput = $('motorPwmCustom');
+      if (customInput) customInput.disabled = locked;
+      // El botón de actualizar firmware comparte el lock por guiado activo.
+      var flashBtn = $('btnFlashFw');
+      if (flashBtn) {
+        if (locked) flashBtn.disabled = true;
+        else flashBtn.disabled = flashing || ($('fwVersionSelect') && $('fwVersionSelect').options.length === 0);
+      }
       if (locked) stopHolding();
     }
     // Reflejar telemetría test en el subtitle.
@@ -644,7 +660,8 @@
       // dead-man corta solo, pero acortamos la latencia con un stop explícito.
       motorStopExplicit();
     }
-    document.querySelectorAll('.joystick .jbtn.holding').forEach(function (b) {
+    // Cubre tanto el joystick como el botón "Mantener para mover" custom.
+    document.querySelectorAll('.jbtn.holding').forEach(function (b) {
       b.classList.remove('holding');
     });
   }
@@ -687,6 +704,46 @@
     });
     window.addEventListener('blur', stopHolding);
     window.addEventListener('pagehide', stopHolding);
+  }
+
+  // -------- Motor manual con PWM libre ------------------------------------
+  // Igual que el joystick pero el PWM lo tipea el operario (−200..200, lo
+  // clampeamos acá; el backend además re-clampea en CoreXEcuService). Reusa
+  // startHolding/stopHolding → mismo dead-man, anti-overlap y bloqueo por
+  // guidance externa.
+  function readCustomPwm() {
+    var el = $('motorPwmCustom');
+    var v = parseInt(el && el.value, 10);
+    if (isNaN(v)) return 0;
+    if (v < -200) v = -200; else if (v > 200) v = 200;
+    return v;
+  }
+
+  function initCustomMotor() {
+    var btn = $('btnMotorHoldCustom');
+    if (!btn) return;
+    var down = function (e) {
+      e.preventDefault();
+      if (motorLocked) return;
+      var pwm = readCustomPwm();
+      if (pwm === 0) {
+        $('motorStatus').textContent = 'Poné un PWM distinto de 0 para mover.';
+        return;
+      }
+      btn.classList.add('holding');
+      startHolding(pwm);
+    };
+    var up = function () {
+      btn.classList.remove('holding');
+      stopHolding();
+    };
+    btn.addEventListener('pointerdown', down);
+    btn.addEventListener('pointerup', up);
+    btn.addEventListener('pointerleave', up);
+    btn.addEventListener('pointercancel', up);
+    btn.addEventListener('touchstart', down, { passive: false });
+    btn.addEventListener('touchend', up);
+    btn.addEventListener('touchcancel', up);
   }
 
   // -------- Sweep PWM (v1.10+) --------------------------------------------
@@ -810,6 +867,120 @@
     }
   }
 
+  // -------- Actualizar firmware -------------------------------------------
+  var flashing = false;
+
+  function loadFirmwareVersions() {
+    fetch('/api/firmwares', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var sel = $('fwVersionSelect');
+        var hint = $('fwEmptyHint');
+        var btn = $('btnFlashFw');
+        if (!sel || !btn) return;
+        sel.innerHTML = '';
+        var prod = null;
+        if (j && j.productos) {
+          prod = j.productos.filter(function (p) {
+            return (p.producto || '').toLowerCase() === 'corex-ecu';
+          })[0];
+        }
+        var vers = (prod && prod.versiones) || [];
+        if (!vers.length) {
+          if (hint) hint.style.display = '';
+          btn.disabled = true;
+          return;
+        }
+        if (hint) hint.style.display = 'none';
+        vers.forEach(function (v) {
+          var o = document.createElement('option');
+          o.value = v.version;
+          o.textContent = v.version + (v.local ? '' : ' (no descargado)');
+          o.disabled = !v.local;   // sólo se puede flashear lo que está en disco
+          sel.appendChild(o);
+        });
+        // Habilitar salvo que el guiado esté bloqueando o un flash en curso.
+        btn.disabled = motorLocked || flashing;
+      })
+      .catch(function () {
+        var hint = $('fwEmptyHint');
+        if (hint) hint.style.display = '';
+        var btn = $('btnFlashFw');
+        if (btn) btn.disabled = true;
+      });
+  }
+
+  function flashFirmware() {
+    if (flashing) return;
+    var sel = $('fwVersionSelect');
+    var version = sel && sel.value;
+    if (!version) return;
+    if (motorLocked) {
+      $('fwFlashMsg').textContent = 'No se puede actualizar con el guiado activo.';
+      return;
+    }
+    if (!window.confirm('¿Actualizar el CoreX-ECU a la versión ' + version +
+        '?\n\nLa unidad se va a reiniciar. No la apagues durante el proceso.')) {
+      return;
+    }
+    flashing = true;
+    $('btnFlashFw').disabled = true;
+    sel.disabled = true;
+    $('fwFlashMsg').textContent = 'Enviando firmware… no apagues la unidad (puede tardar ~30 s).';
+
+    fetch('/api/corex-ecu/firmware/flash', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ version: version })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.ok) {
+          $('fwFlashMsg').textContent = 'Firmware enviado. La unidad se está reiniciando…';
+          pollUntilRebooted(version);
+        } else {
+          flashing = false;
+          $('btnFlashFw').disabled = false;
+          sel.disabled = false;
+          var code = (j && (j.errorCode || j.error_code)) || 'AGP-NET-201';
+          $('fwFlashMsg').textContent = code + ' · ' + ((j && j.error) || 'No se pudo actualizar.');
+        }
+      })
+      .catch(function (e) {
+        flashing = false;
+        $('btnFlashFw').disabled = false;
+        sel.disabled = false;
+        $('fwFlashMsg').textContent = 'Error: ' + e;
+      });
+  }
+
+  // Tras el 200 del flash, la unidad rebootea (~3-5 s inalcanzable). El poll
+  // normal de /status (cada 500 ms) actualiza lastSnapshot; acá esperamos a ver
+  // la versión nueva o cortamos por timeout.
+  function pollUntilRebooted(target) {
+    var started = Date.now();
+    var TIMEOUT_MS = 60000;
+    var t = setInterval(function () {
+      var s = lastSnapshot;
+      var done = s && s.ok && s.version === target;
+      if (done) {
+        clearInterval(t);
+        flashing = false;
+        $('fwVersionSelect').disabled = false;
+        $('fwFlashMsg').textContent = '✓ Actualizado a la versión ' + target + '.';
+        loadFirmwareVersions();
+        return;
+      }
+      if (Date.now() - started > TIMEOUT_MS) {
+        clearInterval(t);
+        flashing = false;
+        $('btnFlashFw').disabled = motorLocked;
+        $('fwVersionSelect').disabled = false;
+        $('fwFlashMsg').textContent = 'No pude confirmar la versión nueva. Revisá el estado de la unidad manualmente.';
+      }
+    }, 2000);
+  }
+
   // -------- Wiring --------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     initTabs();
@@ -820,6 +991,10 @@
     });
 
     initJoystick();
+    initCustomMotor();
+    var flashBtn = $('btnFlashFw');
+    if (flashBtn) flashBtn.addEventListener('click', flashFirmware);
+    loadFirmwareVersions();
     $('btnSweepStart').addEventListener('click', startSweep);
     $('btnSweepCancel').addEventListener('click', cancelSweep);
 
