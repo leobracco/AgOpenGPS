@@ -27,9 +27,30 @@ namespace AgroParallel.FlowX
         [JsonPropertyName("dosis_lha")] public double DosisLha { get; set; }
 
         [JsonPropertyName("pwm_min")] public int PwmMin { get; set; }
+        // Techo del PID (0..4095). 0 ó ≤ PwmMin = sin techo extra (firmware usa 4095).
+        [JsonPropertyName("pwm_max")] public int PwmMax { get; set; }
         [JsonPropertyName("kp")] public double Kp { get; set; }
         [JsonPropertyName("ki")] public double Ki { get; set; }
         [JsonPropertyName("kd")] public double Kd { get; set; }
+
+        // Modo manual: target L/min fijo (ManualLmin) independiente de la
+        // velocidad. En automático (false) se calcula con dosis_lha·vel·ancho/600.
+        [JsonPropertyName("modo_manual")] public bool ModoManual { get; set; }
+        [JsonPropertyName("manual_lmin")] public double ManualLmin { get; set; }
+
+        // Pasos de ajuste de los botones −/+ del widget (por modo).
+        [JsonPropertyName("paso_lha")] public double PasoLha { get; set; }
+        [JsonPropertyName("paso_lmin")] public double PasoLmin { get; set; }
+
+        // Tipo de reguladora: "valvula" (electroválvula motorizada) o "motor".
+        // Fase 1: persiste pero el firmware aún no lo honra (Fase 2).
+        [JsonPropertyName("tipo")] public string Tipo { get; set; }
+        // Cuál de los 2 caudalímetros del nodo lee esta reguladora (0 ó 1).
+        // Fase 1: persiste; el bridge sólo actúa producto 0 (Fase 2 = dual).
+        [JsonPropertyName("flow_index")] public int FlowIndex { get; set; }
+        // Invertir sentido de esta reguladora (por-producto). El nodo conserva
+        // su invert_motor para compat del producto 0.
+        [JsonPropertyName("invert_motor")] public bool InvertMotor { get; set; }
 
         public FxProducto()
         {
@@ -38,7 +59,15 @@ namespace AgroParallel.FlowX
             MeterCal = 100.0;
             DosisLha = 100.0;
             PwmMin = 40;
+            PwmMax = 4095;
             Kp = 1.0; Ki = 0.1; Kd = 0.0;
+            ModoManual = false;
+            ManualLmin = 0.0;
+            PasoLha = 5.0;
+            PasoLmin = 1.0;
+            Tipo = "valvula";
+            FlowIndex = 0;
+            InvertMotor = false;
         }
     }
 
@@ -62,6 +91,11 @@ namespace AgroParallel.FlowX
         [JsonPropertyName("ancho_barra_m")] public double AnchoBarraM { get; set; }
         [JsonPropertyName("is_3wire")] public bool Is3Wire { get; set; }
         [JsonPropertyName("invert_relay")] public bool InvertRelay { get; set; }
+        [JsonPropertyName("invert_motor")] public bool InvertMotor { get; set; }
+        // Master: -1 = salida dedicada (firmware MasterPin), 0 = sin master,
+        // 1..N = ese corte hace de master (el bridge le pone el bit = OR de
+        // todas las secciones abiertas del nodo).
+        [JsonPropertyName("master_cable")] public int MasterCable { get; set; }
         [JsonPropertyName("productos")] public List<FxProducto> Productos { get; set; }
         [JsonPropertyName("cables")] public List<FxCableMap> Cables { get; set; }
 
@@ -73,6 +107,8 @@ namespace AgroParallel.FlowX
             AnchoBarraM = 0;
             Is3Wire = false;
             InvertRelay = false;
+            InvertMotor = false;
+            MasterCable = -1; // default: salida dedicada (firmware)
             Productos = new List<FxProducto>();
             Cables = new List<FxCableMap>();
         }

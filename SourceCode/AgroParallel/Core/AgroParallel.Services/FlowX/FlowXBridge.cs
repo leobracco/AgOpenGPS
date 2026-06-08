@@ -49,15 +49,39 @@ namespace AgroParallel.FlowX
     public class FlowXBridge : IDisposable
     {
         private readonly IAogStateProvider _state;
-        private readonly FlowXConfig _config;
+        // No readonly: el _reloadTimer lo reasigna cada ReloadMs para capturar
+        // cambios de config guardados desde la UI (pwm_min/pwm_max/PID/dosis/
+        // cortes). Antes era readonly y quedaba clavado con la config del
+        // arranque → el operario cambiaba pwm_min a 706, el bridge seguía
+        // publicando el 40 default en el target y el firmware nunca lo veía.
+        private FlowXConfig _config;
         private IMqttClient _mqtt;
         private System.Timers.Timer _timer;
+        private System.Timers.Timer _reloadTimer;
         private bool _disposed, _connected;
 
         // Última payload publicada por nodo - evita spamear MQTT si nada cambió.
         // Key: uid. Value: hash simple del payload (target redondeado + bits sec).
         private readonly Dictionary<string, string> _lastPayload =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Timestamp (UTC) del último publish POR NODO. Habilita un heartbeat
+        // temporizado: aunque el payload no cambie, republicamos cada
+        // HeartbeatMs para que el firmware no dispare su timeout de seguridad.
+        // El firmware (Relays.cpp::CheckRelays) cierra TODAS las secciones a los
+        // 4s sin recibir target → corta válvulas y resetea el lazo PID.
+        private readonly Dictionary<string, DateTime> _lastPublishUtc =
+            new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+
+        // Republicar al menos cada 1s aunque nada cambie. Bien por debajo de los
+        // 4000ms del timeout de seguridad del firmware, con margen para jitter de
+        // red y pausas de GC.
+        private const int HeartbeatMs = 1000;
+
+        // Recargar la config de disco cada 2s para capturar cambios guardados
+        // desde la UI (mismo criterio que QuantiXMotorBridge). El cambio se
+        // refleja en el target dentro de ≤2s sin reiniciar el bridge.
+        private const int ReloadMs = 2000;
 
         public bool IsRunning { get; private set; }
         public int MessagesSent { get; private set; }
@@ -109,6 +133,13 @@ namespace AgroParallel.FlowX
             _timer = new System.Timers.Timer { Interval = 200, AutoReset = true };
             _timer.Elapsed += OnTick;
             _timer.Start();
+
+            // Recargar config cada ReloadMs para capturar cambios manuales
+            // (pwm_min/pwm_max/PID/dosis/cortes) sin reiniciar el bridge.
+            _reloadTimer = new System.Timers.Timer { Interval = ReloadMs, AutoReset = true };
+            _reloadTimer.Elapsed += (s2, ev2) => { try { _config = FlowXConfig.Load(); } catch { } };
+            _reloadTimer.Start();
+
             IsRunning = true;
             Log("Iniciado con " + _config.Nodos.Count + " nodo(s)");
         }
@@ -118,6 +149,7 @@ namespace AgroParallel.FlowX
             if (!IsRunning) return;
             IsRunning = false;
             if (_timer != null) { _timer.Stop(); _timer.Dispose(); _timer = null; }
+            if (_reloadTimer != null) { _reloadTimer.Stop(); _reloadTimer.Dispose(); _reloadTimer = null; }
             SendAllOff();
             if (_mqtt != null)
             {
@@ -154,40 +186,42 @@ namespace AgroParallel.FlowX
 
                 var prod = nodo.Productos[0];
 
-                // --- 1. Bits de cable (relay por pico/grupo) ---
-                int cableCount = 0;
-                int cablesOpen = 0;
-                var bits = new List<bool>();
+                // --- 1. Bits de cable (relay por corte) ---
+                // El usuario configura "N cortes"; cada corte = 1 cable físico del PCA9685.
+                // Varias secciones AOG pueden apuntar al mismo cable (corte agrupa secciones),
+                // por eso usamos OR sobre bits[cable-1] y contamos cables únicos abiertos.
                 int maxCable = 0;
                 foreach (var c in nodo.Cables)
                 {
                     if (c.Cable > maxCable) maxCable = c.Cable;
                 }
-                // Inicializar al menos hasta maxCable o 8.
                 int bitLen = Math.Max(maxCable, 8);
+                var bits = new List<bool>();
                 for (int i = 0; i < bitLen; i++) bits.Add(false);
 
                 // ancho_activo proporcional: si tenemos SectionPositions usamos el
                 // ancho real de las secciones abiertas que este nodo controla.
                 // Si no, fallback a (cables_abiertos / cables_totales) * anchoBarra.
-                double anchoActivoReal = 0; // usado si hay SectionPositions
+                double anchoActivoReal = 0;
                 bool hasPositions = snap.SectionPositions != null && snap.SectionPositions.Count > 0;
+                var cablesUsed = new HashSet<int>();      // cables únicos asignados
+                var cablesOpenSet = new HashSet<int>();   // cables únicos con ≥1 sección abierta
+                var secsAdded = new HashSet<int>();       // anti-doble-conteo de ancho
 
                 foreach (var cable in nodo.Cables)
                 {
                     if (cable.Cable < 1 || cable.Cable > bits.Count) continue;
                     if (cable.SeccionAOG < 1) continue;
-                    cableCount++;
+                    cablesUsed.Add(cable.Cable);
 
                     int secIdx = cable.SeccionAOG - 1;
                     bool open = secIdx >= 0 && secIdx < secAOG.Length && secAOG[secIdx];
-                    bits[cable.Cable - 1] = open;
                     if (open)
                     {
-                        cablesOpen++;
-                        if (hasPositions)
+                        bits[cable.Cable - 1] = true; // OR: cualquier sección del grupo abre el corte
+                        cablesOpenSet.Add(cable.Cable);
+                        if (hasPositions && !secsAdded.Contains(secIdx))
                         {
-                            // Buscar el extent por Index = secIdx.
                             for (int k = 0; k < snap.SectionPositions.Count; k++)
                             {
                                 var ext = snap.SectionPositions[k];
@@ -196,11 +230,26 @@ namespace AgroParallel.FlowX
                                     double w = ext.Right - ext.Left;
                                     if (w < 0) w = -w;
                                     anchoActivoReal += w;
+                                    secsAdded.Add(secIdx);
                                     break;
                                 }
                             }
                         }
                     }
+                }
+                int cableCount = cablesUsed.Count;
+                int cablesOpen = cablesOpenSet.Count;
+
+                // --- 1b. Master como corte ---
+                // master_cable: -1 = salida dedicada (firmware MasterPin, no
+                // tocamos nada acá), 0 = sin master, 1..N = ese corte hace de
+                // master → su bit = OR de todas las secciones abiertas del nodo
+                // (lógica any-open: master abierto si hay cualquier corte abierto,
+                // cerrado cuando todos cierran). El firmware lo trata como canal
+                // normal. Pura lógica PC, sin flashear.
+                if (nodo.MasterCable >= 1 && nodo.MasterCable <= bits.Count)
+                {
+                    bits[nodo.MasterCable - 1] = cablesOpen > 0;
                 }
 
                 // --- 2. ancho activo final ---
@@ -222,7 +271,16 @@ namespace AgroParallel.FlowX
                 // --- 3. target L/min ---
                 double dosisLha = prod.DosisLha;
                 double targetLmin = 0;
-                if (dosisLha > 0 && velKmh > 0 && anchoActivo > 0)
+                if (prod.ModoManual)
+                {
+                    // Manual: caudal L/min FIJO, independiente de la velocidad.
+                    // Las secciones siguen mandando: si no hay ningún corte
+                    // abierto, cerramos (target 0). El firmware regula el lazo
+                    // para sostener este L/min aunque cambie la velocidad.
+                    if (cablesOpen > 0 && prod.ManualLmin > 0)
+                        targetLmin = prod.ManualLmin;
+                }
+                else if (dosisLha > 0 && velKmh > 0 && anchoActivo > 0)
                 {
                     targetLmin = dosisLha * velKmh * anchoActivo / 600.0;
                 }
@@ -238,6 +296,7 @@ namespace AgroParallel.FlowX
                 }
                 sb.Append(']');
                 sb.Append(",\"pwm_min\":").Append(prod.PwmMin);
+                sb.Append(",\"pwm_max\":").Append(prod.PwmMax);
                 sb.Append(",\"pid\":{");
                 sb.Append("\"kp\":").Append(prod.Kp.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
                 sb.Append(",\"ki\":").Append(prod.Ki.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
@@ -245,15 +304,27 @@ namespace AgroParallel.FlowX
                 sb.Append("}}");
                 string payload = sb.ToString();
 
-                // Dedup grueso: si el payload exacto coincide con el anterior y no
-                // pasaron muchos ticks, no republicamos. Aun así enviamos heartbeat
-                // cada 10 mensajes para que el nodo sepa que el bridge está vivo.
+                // Dedup grueso: si el payload exacto coincide con el anterior NO
+                // republicamos... salvo que ya haya pasado HeartbeatMs desde el
+                // último envío a ESTE nodo (heartbeat temporizado por-nodo).
+                //
+                // Antes el heartbeat era (MessagesSent % 10) == 0: con un solo nodo
+                // y payload estático, MessagesSent quedaba clavado en 1 y la
+                // condición NUNCA volvía a cumplirse → el bridge enmudecía. El
+                // firmware entonces no recibía target, su CheckRelays (4s) cerraba
+                // las secciones (seccionesBits=0) y "Detectar PWM" / caracterización
+                // abortaba con "sections_closed". Por-nodo + por-tiempo lo evita.
                 string last;
                 bool changed = !_lastPayload.TryGetValue(nodo.Uid, out last) || last != payload;
-                bool heartbeat = (MessagesSent % 10) == 0;
 
-                if (!changed && !heartbeat) continue;
+                DateTime lastPub;
+                bool heartbeatDue =
+                    !_lastPublishUtc.TryGetValue(nodo.Uid, out lastPub) ||
+                    (DateTime.UtcNow - lastPub).TotalMilliseconds >= HeartbeatMs;
+
+                if (!changed && !heartbeatDue) continue;
                 _lastPayload[nodo.Uid] = payload;
+                _lastPublishUtc[nodo.Uid] = DateTime.UtcNow;
 
                 string topic = "agp/flow/" + nodo.Uid + "/target";
                 try

@@ -7,6 +7,61 @@
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../layout.css" />
   <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Diagnóstico de nodos */
+    .nodo-row { display:flex; align-items:center; gap:var(--agp-sp-2); padding: var(--agp-sp-2) 0;
+                border-top: 1px solid var(--agp-border); flex-wrap: wrap; }
+    .nodo-row:first-child { border-top: none; }
+    .nodo-uid { font-weight:600; color: var(--agp-text); font-family: monospace; }
+    .nodo-meta { color: var(--agp-text-muted); font-size: 12px; }
+    .nodo-actions { margin-left:auto; display:flex; gap:var(--agp-sp-2); }
+    .badge { display:inline-block; padding:2px 6px; border-radius:4px; font-size:11px;
+             font-weight:600; border:1px solid var(--agp-border); }
+    .badge.ok { color: var(--agp-state-ok); border-color: var(--agp-state-ok); }
+    .badge.warn { color: #d59f00; border-color: #d59f00; }
+    .badge.bad { color: var(--agp-state-bad); border-color: var(--agp-state-bad); }
+    .safe-mode-banner {
+      background: rgba(180,30,30,0.12); border:1px solid var(--agp-state-bad);
+      color: var(--agp-state-bad); padding: var(--agp-sp-2) var(--agp-sp-3);
+      border-radius: 6px; margin-top: var(--agp-sp-2);
+      display:flex; align-items:center; gap: var(--agp-sp-2); flex-wrap: wrap;
+    }
+    .pid-pill { padding:2px 6px; border-radius:4px; font-weight:600; font-size:12px;
+                border:1px solid var(--agp-border); }
+    .pid-pill.ok { color: var(--agp-state-ok); border-color: var(--agp-state-ok); }
+    .pid-pill.saturado { color: #d59f00; border-color: #d59f00; }
+    .pid-pill.sin_pulsos { color: var(--agp-state-bad); border-color: var(--agp-state-bad); }
+    .pid-pill.off { color: var(--agp-text-muted); }
+
+    /* Tabla sectionIs3Wire */
+    .sec3w-grid { display:grid; grid-template-columns: repeat(10, 1fr); gap: var(--agp-sp-1);
+                  margin-top: var(--agp-sp-2); }
+    .sec3w-cell { display:flex; flex-direction:column; align-items:center; gap:2px; }
+    .sec3w-cell label { color: var(--agp-text-muted); font-size: 11px; }
+    .sec3w-cell select { width: 100%; }
+
+    /* Modal (mismo patrón que widget-quantix) */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 50;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background: var(--agp-surface); border: 1px solid var(--agp-border-strong);
+      border-radius: 8px; padding: 18px; min-width: 320px; max-width: 480px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .modal h2 { font-size: 15px; margin: 0 0 8px 0; color: var(--agp-text); }
+    .modal .msg { font-size: 13px; margin: 0 0 12px 0; color: var(--agp-text-muted);
+                  white-space: pre-line; }
+    .modal input[type=text], .modal input[type=number] {
+      width: 100%; padding: 6px 8px; box-sizing: border-box;
+      background: var(--agp-surface-2); color: var(--agp-text);
+      border: 1px solid var(--agp-border); border-radius: 4px; font-size: 13px;
+    }
+    .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    .modal .btn.primary { background: var(--agp-accent); border-color: var(--agp-accent); color: #0e1612; }
+  </style>
 </head>
 <body>
   <aside class="sidebar" data-active="flowx"></aside>
@@ -22,8 +77,8 @@
     <div class="grid">
       <div class="card">
         <h3>Caudal real</h3>
-        <div class="metric"><span id="kpiFlow">—</span><span class="unit">L/min</span></div>
-        <div class="row"><span>Objetivo</span><strong id="kpiTarget" style="color:var(--agp-text)">— L/min</strong></div>
+        <div class="metric"><span id="kpiFlow">—</span><span class="unit" id="kpiFlowUnit">L/ha</span></div>
+        <div class="row"><span id="kpiTargetLbl">Objetivo</span><strong id="kpiTarget" style="color:var(--agp-text)">— L/ha</strong></div>
       </div>
       <div class="card">
         <h3>Dosis</h3>
@@ -33,7 +88,7 @@
       <div class="card">
         <h3>PWM bomba</h3>
         <div class="metric"><span id="kpiPwm">—</span><span class="unit">%</span></div>
-        <div class="row"><span>Estado PID</span><strong id="kpiPid" style="color:var(--agp-text)">—</strong></div>
+        <div class="row"><span>Estado PID</span><span id="kpiPid" class="pid-pill off">—</span></div>
       </div>
       <div class="card">
         <h3>Secciones activas</h3>
@@ -74,7 +129,7 @@
     <div class="card" id="nodosList">
       <div class="subtitle">
         Buscando nodos en LAN... Los controladores FlowX se descubren automáticamente
-        al publicar <code>agp/flow/announcement</code> en el broker MQTT del PC.
+        al publicar <code>agp/flow/&lt;uid&gt;/announcement</code> en el broker MQTT del PC.
       </div>
     </div>
 
@@ -106,25 +161,41 @@
           </div>
           <div>
             <div class="subtitle">Ancho barra (m)</div>
-            <input id="nodoAncho" type="number" step="0.1" min="0" style="width:100%" />
+            <div class="row" style="gap: var(--agp-sp-1); align-items:center;">
+              <input id="nodoAncho" type="number" step="0.1" min="0" style="flex:1;" />
+              <button id="btnAnchoFromAog" type="button" class="btn" title="Tomar el ancho del implemento configurado en PilotX">Desde PilotX</button>
+            </div>
+            <div id="anchoHint" class="subtitle" style="font-size:11px; margin-top:2px;"></div>
           </div>
           <div>
             <div class="subtitle">Flags</div>
             <label style="display:block"><input id="nodoHab" type="checkbox" /> Habilitado</label>
-            <label style="display:block"><input id="nodo3wire" type="checkbox" /> Caudalímetro 3 hilos (HALL)</label>
-            <label style="display:block"><input id="nodoInv" type="checkbox" /> Invertir relés (NC)</label>
+            <label style="display:block"><input id="nodo3wire" type="checkbox" /> Electroválvulas 3 hilos por defecto (destildar = 2 hilos)</label>
+            <label style="display:block"><input id="nodoInv" type="checkbox" /> Invertir electroválvulas (NA/NC)</label>
+            <label style="display:block"><input id="nodoInvMotor" type="checkbox" /> Invertir motor válvula reg. 1 (si abre/cierra al revés)</label>
           </div>
         </div>
 
         <h3 style="margin-top: var(--agp-sp-4);">Productos</h3>
         <div class="subtitle" style="margin-bottom: var(--agp-sp-2);">
-          Cada producto = una salida de caudal (caudalímetro + bomba). PID por producto.
+          Cada producto = una reguladora (caudalímetro + válvula/motor). PID por producto.
+          El firmware FlowX soporta <strong>2 reguladoras</strong> (reg. 1 = canal 0;
+          reg. 2 = canal 1). En esta versión se <strong>actúa solo la reg. 1</strong>;
+          la reg. 2 se guarda pero se activa en una próxima fase (requiere firmware).
         </div>
         <div style="overflow-x:auto;">
           <table id="tblProductos" style="width:100%; border-collapse: collapse;">
             <thead><tr style="text-align:left; color: var(--agp-text-muted);">
-              <th>Id</th><th>Nombre</th><th>Cal (pulsos/L)</th><th>Dosis (L/ha)</th>
-              <th>PWM min</th><th>Kp</th><th>Ki</th><th>Kd</th><th></th>
+              <th>Id</th><th>Nombre</th>
+              <th title="Tipo de reguladora">Tipo</th>
+              <th title="Cuál de los 2 caudalímetros del nodo lee esta reguladora">Caudal.</th>
+              <th>Cal (pulsos/L)</th><th>Dosis (L/ha)</th>
+              <th title="Manual = caudal fijo L/min, no regula por velocidad">Manual</th>
+              <th title="Caudal fijo L/min cuando está en manual">L/min</th>
+              <th title="Paso del botón ± en modo automático (L/ha)">Paso L/ha</th>
+              <th title="Paso del botón ± en modo manual (L/min)">Paso L/min</th>
+              <th>PWM min</th><th>PWM max</th><th>Kp</th><th>Ki</th><th>Kd</th>
+              <th title="Invertir sentido de esta reguladora">Inv</th><th></th>
             </tr></thead>
             <tbody></tbody>
           </table>
@@ -133,20 +204,84 @@
           <button id="btnAddProducto" type="button" class="btn">+ Producto</button>
         </div>
 
-        <h3 style="margin-top: var(--agp-sp-4);">Cables → Sección PilotX</h3>
+        <h3 style="margin-top: var(--agp-sp-4);">Cortes</h3>
         <div class="subtitle" style="margin-bottom: var(--agp-sp-2);">
-          Cada cable del PCA9685 abre una sección PilotX (1-based; 0 = no asignado).
+          Un <strong>corte</strong> = una válvula física de la barra (una salida del PCA9685).
+          Decí cuántos tenés y PilotX los asigna automáticamente a sus secciones
+          repartiéndolas en grupos iguales. Si hay más secciones que cortes, varias
+          secciones comparten un corte.
         </div>
-        <div style="overflow-x:auto;">
-          <table id="tblCables" style="width:100%; border-collapse: collapse;">
-            <thead><tr style="text-align:left; color: var(--agp-text-muted);">
-              <th>Cable PCA9685</th><th>Sección PilotX</th><th></th>
-            </tr></thead>
-            <tbody></tbody>
-          </table>
+        <div class="row" style="gap: var(--agp-sp-3); align-items:center; flex-wrap: wrap;">
+          <div>
+            <div class="subtitle">Cantidad de cortes</div>
+            <input id="nodoNumCortes" type="number" min="1" max="16" step="1" style="width:90px" />
+          </div>
+          <div>
+            <div class="subtitle">Secciones PilotX</div>
+            <div id="aogNumSec" style="font-weight:600; padding:6px 0;">—</div>
+          </div>
+          <div style="align-self:flex-end;">
+            <button id="btnAutoAssign" type="button" class="btn primary">Asignar automáticamente</button>
+          </div>
         </div>
-        <div class="row" style="gap: var(--agp-sp-2); margin-top: var(--agp-sp-2);">
-          <button id="btnAddCable" type="button" class="btn">+ Cable</button>
+        <div id="cortesMap" class="subtitle" style="margin-top: var(--agp-sp-3); font-size:12px;"></div>
+
+        <div class="row" style="gap: var(--agp-sp-3); align-items:center; flex-wrap: wrap; margin-top: var(--agp-sp-3);">
+          <div>
+            <div class="subtitle">Válvula master</div>
+            <select id="nodoMaster" style="min-width: 220px;"></select>
+          </div>
+          <div class="subtitle" style="font-size:11px; max-width: 380px;">
+            Master automática: abre cuando hay cualquier corte abierto y cierra
+            cuando se cierran todos. <strong>Salida dedicada</strong> = el firmware
+            maneja su propia salida master. <strong>Corte N</strong> = ese corte
+            hace de master (PilotX le pone el bit). <strong>Sin master</strong> = ninguno.
+          </div>
+        </div>
+
+        <h3 style="margin-top: var(--agp-sp-4);">Override 2/3 cables por sección</h3>
+        <div class="subtitle" style="margin-bottom: var(--agp-sp-2);">
+          Hasta 10 secciones con tipo de electroválvula distinto al global.
+          <strong>Global</strong> = usa el flag "Caudalímetro 3 hilos" de arriba.
+          <strong>2 cables</strong> = motorizada/latching H-bridge.
+          <strong>3 cables</strong> = HIGH/LOW directo (apagado-en-LOW si "Invertir relés").
+        </div>
+        <div class="sec3w-grid" id="sec3wGrid"></div>
+
+        <h3 style="margin-top: var(--agp-sp-4);">Push al firmware</h3>
+        <div class="subtitle" style="margin-bottom: var(--agp-sp-2);">
+          Envía la configuración persistente (<code>meterCal</code>, <code>is3Wire</code>,
+          <code>invertRelay</code>, <code>sectionIs3Wire</code>) al nodo vía
+          <code>agp/flow/{uid}/config</code>. Se guarda en LittleFS del ESP32.
+        </div>
+        <div class="row" style="gap: var(--agp-sp-2);">
+          <button id="btnPushConfig" type="button" class="btn primary">Sincronizar config al firmware</button>
+          <button id="btnPing" type="button" class="btn">Ping</button>
+          <span id="pushStatus" class="subtitle"></span>
+        </div>
+
+        <h3 style="margin-top: var(--agp-sp-4);">OTA — actualizar firmware</h3>
+        <div class="subtitle" style="margin-bottom: var(--agp-sp-2);">
+          Manda al nodo a descargar y flashear un <code>.bin</code> servido por
+          la PC. El firmware verifica SHA-256 si se provee. Aborta calibración /
+          auto-tune si están activos.
+        </div>
+        <div class="grid" style="grid-template-columns: 2fr 1fr 2fr auto;">
+          <div>
+            <div class="subtitle">URL del .bin</div>
+            <input id="otaUrl" type="text" placeholder="http://192.168.5.10:8080/firmware/FlowX/1.3.1/firmware.bin" style="width:100%" />
+          </div>
+          <div>
+            <div class="subtitle">Versión</div>
+            <input id="otaVersion" type="text" placeholder="1.3.1" style="width:100%" />
+          </div>
+          <div>
+            <div class="subtitle">SHA-256 (64 hex, opcional)</div>
+            <input id="otaSha" type="text" placeholder="abc123…" style="width:100%" />
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button id="btnOta" type="button" class="btn" style="color: var(--agp-state-bad)">Push OTA</button>
+          </div>
         </div>
       </div>
 
@@ -165,6 +300,19 @@
       </ul>
     </div>
   </main>
+
+  <!-- Modales (HTML — reemplazan window.prompt/confirm porque WebView2 los desactiva) -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2 id="modalTitle">Título</h2>
+      <p class="msg" id="modalMsg">Mensaje</p>
+      <input id="modalInput" type="text" hidden />
+      <div class="actions">
+        <button id="modalCancel" type="button" class="btn">Cancelar</button>
+        <button id="modalOk" type="button" class="btn primary">Aceptar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="../js/keyboard.js"></script>
   <script src="../js/sidebar.js"></script>
