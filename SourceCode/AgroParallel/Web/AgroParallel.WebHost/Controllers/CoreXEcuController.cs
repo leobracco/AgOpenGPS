@@ -12,6 +12,7 @@
 //   POST   /api/corex-ecu/reboot                  → { ok }
 //   POST   /api/corex-ecu/motor/test              (body { pwm, duration_ms }) → CoreXEcuMotorTestResultDto  (v1.09+)
 //   POST   /api/corex-ecu/motor/stop              → CoreXEcuOkResultDto                                    (v1.09+)
+//   POST   /api/corex-ecu/firmware/flash          (body { version }) → CoreXEcuFlashResultDto
 //   POST   /api/corex-ecu/calibration/pwm-sweep   (body { step_duration_ms, settle_ms }) → start result    (v1.10+)
 //   GET    /api/corex-ecu/calibration/pwm-sweep   → CoreXEcuSweepStatusDto                                 (v1.10+)
 //   DELETE /api/corex-ecu/calibration/pwm-sweep   → CoreXEcuOkResultDto                                    (v1.10+)
@@ -365,6 +366,36 @@ namespace AgroParallel.WebHost.Controllers
         {
             if (_svc == null) { await WriteServiceUnavailable().ConfigureAwait(false); return; }
             var dto = await _svc.MotorStopAsync().ConfigureAwait(false);
+            await WriteJson(dto).ConfigureAwait(false);
+        }
+
+        // ====================== Firmware OTA (Teensy) =======================
+
+        [Route(HttpVerbs.Post, "/corex-ecu/firmware/flash")]
+        public async Task FlashFirmware()
+        {
+            if (_svc == null) { await WriteServiceUnavailable().ConfigureAwait(false); return; }
+
+            string body;
+            using (var sr = new StreamReader(HttpContext.Request.InputStream))
+                body = await sr.ReadToEndAsync().ConfigureAwait(false);
+
+            CoreXEcuFlashRequestDto req = null;
+            try
+            {
+                req = string.IsNullOrWhiteSpace(body)
+                    ? null
+                    : JsonSerializer.Deserialize<CoreXEcuFlashRequestDto>(body, ReadOpts);
+            }
+            catch { /* req queda null */ }
+
+            if (req == null || string.IsNullOrWhiteSpace(req.Version))
+            {
+                await WriteJson(new { ok = false, errorCode = "AGP-NET-103", error = "Body inválido. Esperaba { version }." }).ConfigureAwait(false);
+                return;
+            }
+
+            var dto = await _svc.FlashFirmwareAsync(req.Version).ConfigureAwait(false);
             await WriteJson(dto).ConfigureAwait(false);
         }
 
