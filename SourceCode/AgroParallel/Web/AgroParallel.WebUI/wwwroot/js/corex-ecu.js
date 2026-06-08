@@ -17,6 +17,7 @@
 
   var POLL_MS = 500;
   var pollTimer = null;
+  var rebootPollTimer = null;
   var lastSnapshot = null;
 
   // -------- Helpers --------------------------------------------------------
@@ -589,13 +590,17 @@
       if (customBtn) customBtn.disabled = locked;
       var customInput = $('motorPwmCustom');
       if (customInput) customInput.disabled = locked;
-      // El botón de actualizar firmware comparte el lock por guiado activo.
-      var flashBtn = $('btnFlashFw');
-      if (flashBtn) {
-        if (locked) flashBtn.disabled = true;
-        else flashBtn.disabled = flashing || ($('fwVersionSelect') && $('fwVersionSelect').options.length === 0);
-      }
       if (locked) stopHolding();
+    }
+    // El botón de actualizar firmware comparte el lock por guiado activo, pero
+    // su estado se re-deriva SIEMPRE (fuera del guard de transición): depende
+    // también de `flashing`, que puede cambiar sin que cambie `motorLocked`
+    // (p.ej. al terminar/timeoutear un flash). Si lo dejáramos adentro del
+    // guard, el botón podría quedar trabado deshabilitado tras un flash.
+    var flashBtn = $('btnFlashFw');
+    if (flashBtn) {
+      if (locked) flashBtn.disabled = true;
+      else flashBtn.disabled = flashing || ($('fwVersionSelect') && $('fwVersionSelect').options.length === 0);
     }
     // Reflejar telemetría test en el subtitle.
     var ms = $('motorStatus');
@@ -960,23 +965,38 @@
   function pollUntilRebooted(target) {
     var started = Date.now();
     var TIMEOUT_MS = 60000;
-    var t = setInterval(function () {
+    // Si el operario re-flashea la MISMA versión que ya corre, el snapshot ya
+    // cumple version === target ANTES de que la unidad rebootee, lo que daría un
+    // falso "✓ Actualizado" instantáneo. Para evitarlo, exigimos haber visto
+    // primero la unidad caída/offline (durante el corte de ~3-5 s del reboot el
+    // Hub no la alcanza y el snapshot llega con ok=false, o queda null). Recién
+    // cuando vuelve online con la versión objetivo confirmamos.
+    var rebootSeen = false;
+    if (rebootPollTimer) { clearInterval(rebootPollTimer); rebootPollTimer = null; }
+    rebootPollTimer = setInterval(function () {
       var s = lastSnapshot;
-      var done = s && s.ok && s.version === target;
+      // Unidad inalcanzable/rebooteando → marcamos que vimos el corte real.
+      if (!s || !s.ok) rebootSeen = true;
+      var done = rebootSeen && s && s.ok && s.version === target;
       if (done) {
-        clearInterval(t);
+        clearInterval(rebootPollTimer); rebootPollTimer = null;
         flashing = false;
         $('fwVersionSelect').disabled = false;
         $('fwFlashMsg').textContent = '✓ Actualizado a la versión ' + target + '.';
         loadFirmwareVersions();
+        // Recalcular el estado del botón/lock desde el snapshot actual: si el
+        // guiado dejó de estar activo, updateMotorLock vuelve a habilitar.
+        updateMotorLock(lastSnapshot);
         return;
       }
       if (Date.now() - started > TIMEOUT_MS) {
-        clearInterval(t);
+        clearInterval(rebootPollTimer); rebootPollTimer = null;
         flashing = false;
-        $('btnFlashFw').disabled = motorLocked;
         $('fwVersionSelect').disabled = false;
         $('fwFlashMsg').textContent = 'No pude confirmar la versión nueva. Revisá el estado de la unidad manualmente.';
+        // Dejamos que updateMotorLock sea dueño del estado del botón (evita que
+        // quede trabado deshabilitado si el guiado se desactiva más tarde).
+        updateMotorLock(lastSnapshot);
       }
     }, 2000);
   }
@@ -1005,6 +1025,7 @@
 
   window.addEventListener('beforeunload', function () {
     if (pollTimer) clearInterval(pollTimer);
+    if (rebootPollTimer) { clearInterval(rebootPollTimer); rebootPollTimer = null; }
     stopHolding();
     stopSweepPolling();
   });
