@@ -316,7 +316,7 @@
             <label class="file-drop" id="fwDrop" for="fwFile">
               <span class="drop-icon" aria-hidden="true">⇪</span>
               <span class="drop-text" id="fwDropText">Tocá para elegir un archivo</span>
-              <span class="drop-hint">.bin (ESP32) · .hex (Teensy/CoreX-ECU) · .zip (PilotX) · máx. 8 MB</span>
+              <span class="drop-hint">.bin · .hex · .zip · máx. 8 MB</span>
             </label>
             <input type="file" id="fwFile" accept=".bin,.hex,.zip,application/octet-stream" />
             <div id="fileMeta" class="upl-meta" style="margin-top:8px"></div>
@@ -326,7 +326,7 @@
             <label for="fwProducto">Producto</label>
             <select id="fwProducto">
               <option value="">— Elegir producto —</option>
-              <optgroup label="Nodos ESP32 (.bin)">
+              <optgroup label="Nodos (.bin)">
                 <option value="quantix">QuantiX</option>
                 <option value="vistax">VistaX</option>
                 <option value="sectionx">SectionX</option>
@@ -338,7 +338,7 @@
                 <option value="linex">LineX</option>
               </optgroup>
               <optgroup label="Pilotaje (.hex)">
-                <option value="corex-ecu">CoreX-ECU (Teensy)</option>
+                <option value="corex-ecu">CoreX-ECU</option>
               </optgroup>
             </select>
           </div>
