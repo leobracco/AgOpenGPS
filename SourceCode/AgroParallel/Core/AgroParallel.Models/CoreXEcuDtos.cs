@@ -390,6 +390,25 @@ namespace AgroParallel.Models
         }
     }
 
+    // ====================== /api/firmware (OTA Teensy) ======================
+    // Request de la UI al Hub para flashear una versión cacheada a la unidad.
+    public sealed class CoreXEcuFlashRequestDto
+    {
+        [JsonPropertyName("version")] public string Version { get; set; }
+    }
+
+    // Resultado del flasheo. El firmware responde 200 antes del flash_move()+reboot;
+    // la verificación de que arrancó la versión nueva la hace la UI releyendo /status.
+    public sealed class CoreXEcuFlashResultDto
+    {
+        [JsonPropertyName("ok")]         public bool Ok { get; set; }
+        [JsonPropertyName("version")]    public string Version { get; set; }
+        [JsonPropertyName("bytes_sent")] public long BytesSent { get; set; }
+        [JsonPropertyName("error_code")] public string ErrorCode { get; set; }
+        [JsonPropertyName("error")]      public string Error { get; set; }
+        [JsonPropertyName("detail")]     public string Detail { get; set; }
+    }
+
     // ====================== /api/calibration/pwm-sweep (v1.10+) ============
 
     /// <summary>Body del POST que arranca el sweep. Ambos opcionales:
