@@ -407,6 +407,14 @@ namespace AgroParallel.Models
         [JsonPropertyName("error_code")] public string ErrorCode { get; set; }
         [JsonPropertyName("error")]      public string Error { get; set; }
         [JsonPropertyName("detail")]     public string Detail { get; set; }
+
+        public CoreXEcuFlashResultDto()
+        {
+            Version = "";
+            ErrorCode = "";
+            Error = "";
+            Detail = "";
+        }
     }
 
     // ====================== /api/calibration/pwm-sweep (v1.10+) ============

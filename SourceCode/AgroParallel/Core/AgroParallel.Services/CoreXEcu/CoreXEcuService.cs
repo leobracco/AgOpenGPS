@@ -524,6 +524,9 @@ namespace AgroParallel.Services
                 return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-100", Error = "Comunicación CoreX-ECU deshabilitada." };
             if (string.IsNullOrWhiteSpace(version))
                 return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-103", Error = "Falta la versión a flashear." };
+            // Sanitizar: rechazar separadores de path / `..` antes de armar la ruta.
+            if (version.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0 || version.Contains(".."))
+                return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-103", Error = "Versión inválida." };
 
             // Resolver el .hex en el MISMO cache que sirve el Firmware Manager.
             OrbitXConfig ocfg;
@@ -531,7 +534,7 @@ namespace AgroParallel.Services
             string cacheDir = FirmwareMirror.ResolveCacheDir(ocfg);
             string hexPath = FirmwareMirror.PathBin(cacheDir, "corex-ecu", version);
             if (!File.Exists(hexPath))
-                return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-SYS-009", Error = "No encontré ese firmware en el cache. Subilo o sincronizalo primero.", Detail = hexPath };
+                return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-SYS-009", Error = "No encontré ese firmware en el cache. Subilo o sincronizalo primero.", Detail = "corex-ecu/" + version };
 
             string url = BaseUrl(cfg) + "/api/firmware";
             long size = new FileInfo(hexPath).Length;
