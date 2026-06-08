@@ -248,7 +248,7 @@
     <div class="page-head">
       <div>
         <h1>CoreX-ECU</h1>
-        <div class="subtitle">Autosteer · Teensy 4.1 · firmware <span id="hdrFw">—</span></div>
+        <div class="subtitle">Autosteer · CoreX-ECU · firmware <span id="hdrFw">—</span></div>
       </div>
       <span class="pill idle" id="okPill"><span class="dot"></span> Sin conexión</span>
     </div>
@@ -313,7 +313,7 @@
         </div>
         <div class="card">
           <h3>Sistema</h3>
-          <div class="row"><span>IP del Teensy</span><strong id="ip" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>IP de la unidad</span><strong id="ip" style="color:var(--agp-text)">—</strong></div>
           <div class="row"><span>Ethernet</span><strong id="eth" style="color:var(--agp-text)">—</strong></div>
           <div class="row"><span>Firmware</span><strong id="fwVer" style="color:var(--agp-text)">—</strong></div>
           <div class="row"><span>Uptime</span><strong id="upTime" style="color:var(--agp-text)">—</strong></div>
@@ -349,6 +349,17 @@
           <button type="button" class="jbtn stop" id="btnMotorStop">■ STOP</button>
           <button type="button" class="jbtn" data-pwm="20">+20 ▶</button>
           <button type="button" class="jbtn" data-pwm="60">+60 ▶▶</button>
+        </div>
+
+        <!-- PWM manual libre: el operario tipea el valor (−200..200) y mantiene
+             apretado "Mantener para mover" para pulsar el motor con ese PWM.
+             Mismo dead-man que el joystick (suelta o pierde foco → frena). -->
+        <div class="motor-custom" style="display:flex; align-items:flex-end; gap:12px; margin-top: var(--agp-sp-2);">
+          <div class="field" style="display:flex; flex-direction:column; gap:4px;">
+            <label class="subtitle">PWM manual (−200 a 200)</label>
+            <input type="number" id="motorPwmCustom" class="input" min="-200" max="200" step="5" value="40" style="width:120px;" />
+          </div>
+          <button type="button" class="jbtn" id="btnMotorHoldCustom" style="min-height:64px; flex:1;">Mantener para mover ▶</button>
         </div>
 
         <div class="motor-status" id="motorStatus">
@@ -402,7 +413,7 @@
 
     <!-- ============ TAB CONEXIÓN ============ -->
     <section class="tab-pane" data-tab="config">
-      <h2>Conexión con el Teensy</h2>
+      <h2>Conexión con el CoreX-ECU</h2>
       <div class="card">
         <div class="row" style="align-items:center;">
           <span>Habilitado</span>
@@ -412,7 +423,7 @@
         </div>
         <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--agp-sp-3); margin-top: var(--agp-sp-3);">
           <div>
-            <label class="subtitle">IP del Teensy</label>
+            <label class="subtitle">IP de la unidad</label>
             <input type="text" id="cfgIp" class="input" placeholder="192.168.5.126" />
           </div>
           <div>
@@ -452,6 +463,27 @@
         <div style="margin-top: var(--agp-sp-3);">
           <button type="button" class="btn" id="btnSaveCfg">Guardar configuración</button>
           <span class="subtitle" id="cfgMsg" style="margin-left:12px"></span>
+        </div>
+      </div>
+
+      <!-- ============ Actualizar firmware ============ -->
+      <div class="card" style="margin-top: var(--agp-sp-3);">
+        <h2>Actualizar firmware</h2>
+        <div class="row"><span>Versión instalada</span><strong id="fwCurrent" style="color:var(--agp-text)">—</strong></div>
+        <div style="display:flex; align-items:flex-end; gap:12px; margin-top: var(--agp-sp-3);">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <label class="subtitle">Versión a instalar</label>
+            <select id="fwVersionSelect" class="input" style="min-width:180px;"></select>
+          </div>
+          <button type="button" class="btn" id="btnFlashFw">Actualizar</button>
+        </div>
+        <div class="subtitle" id="fwFlashMsg" style="margin-top: var(--agp-sp-2);"></div>
+        <div class="subtitle" id="fwEmptyHint" style="margin-top: var(--agp-sp-2); display:none;">
+          No hay firmwares en el cache. Subí un <code>.hex</code> o sincronizá desde
+          <a href="firmwares.html">Firmwares</a>.
+        </div>
+        <div class="subtitle" id="fwLockWarn" style="margin-top: var(--agp-sp-2); display:none;">
+          No se puede actualizar con el guiado activo. Pausá la dirección automática primero.
         </div>
       </div>
     </section>
