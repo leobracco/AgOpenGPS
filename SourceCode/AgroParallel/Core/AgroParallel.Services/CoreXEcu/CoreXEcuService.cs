@@ -22,6 +22,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using AgroParallel.Models;
+using AgroParallel.OrbitX;
 using AgroParallel.Services.Abstractions;
 
 namespace AgroParallel.Services
@@ -511,6 +512,68 @@ namespace AgroParallel.Services
             {
                 var mapped = AgpErrorMapper.FromException(ex);
                 return new CoreXEcuMotorTestResultDto { Ok = false, ErrorCode = mapped.Code, Error = mapped.Friendly };
+            }
+        }
+
+        // -------- /api/firmware (OTA Teensy via FlasherX) -----------------------
+
+        public async Task<CoreXEcuFlashResultDto> FlashFirmwareAsync(string version)
+        {
+            var cfg = LoadConfig();
+            if (!cfg.Enabled)
+                return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-100", Error = "Comunicación CoreX-ECU deshabilitada." };
+            if (string.IsNullOrWhiteSpace(version))
+                return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-103", Error = "Falta la versión a flashear." };
+
+            // Resolver el .hex en el MISMO cache que sirve el Firmware Manager.
+            OrbitXConfig ocfg;
+            try { ocfg = OrbitXConfig.Load(); } catch { ocfg = new OrbitXConfig(); }
+            string cacheDir = FirmwareMirror.ResolveCacheDir(ocfg);
+            string hexPath = FirmwareMirror.PathBin(cacheDir, "corex-ecu", version);
+            if (!File.Exists(hexPath))
+                return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-SYS-009", Error = "No encontré ese firmware en el cache. Subilo o sincronizalo primero.", Detail = hexPath };
+
+            string url = BaseUrl(cfg) + "/api/firmware";
+            long size = new FileInfo(hexPath).Length;
+
+            // El flasheo bloquea unos segundos: el firmware consume el body char a
+            // char (yield al IMU) y recién responde 200 antes del flash_move(). El
+            // _http compartido tiene Timeout=15s; usamos un cliente dedicado con
+            // timeout amplio para no cortar a mitad de un .hex de ~1.3 MB.
+            try
+            {
+                using (var flashHttp = new HttpClient { Timeout = TimeSpan.FromMinutes(3) })
+                using (var fs = File.OpenRead(hexPath))
+                using (var content = new StreamContent(fs))
+                {
+                    content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                    content.Headers.ContentLength = size;
+
+                    var resp = await flashHttp.PostAsync(url, content).ConfigureAwait(false);
+                    string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                    if (resp.IsSuccessStatusCode)
+                        return new CoreXEcuFlashResultDto { Ok = true, Version = version, BytesSent = size };
+
+                    var errDto = ParseFirmwareError(body);
+                    int code = (int)resp.StatusCode;
+                    if (code == 409)
+                        return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-409", Error = "No se puede actualizar con el guiado activo. Pausá la dirección automática primero.", Detail = errDto.Detail ?? errDto.Error ?? "" };
+                    if (code == 400)
+                        return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-101", Error = "El firmware rechazó el archivo (HEX inválido o no es de este equipo).", Detail = errDto.Error ?? errDto.Detail ?? "" };
+                    if (code == 413)
+                        return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-101", Error = "El archivo es demasiado grande para la unidad.", Detail = errDto.Error ?? "" };
+                    return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-101", Error = "HTTP " + code, Detail = errDto.Detail ?? errDto.Error ?? "" };
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = "AGP-NET-002", Error = "Timeout enviando el firmware." };
+            }
+            catch (Exception ex)
+            {
+                var mapped = AgpErrorMapper.FromException(ex);
+                return new CoreXEcuFlashResultDto { Ok = false, ErrorCode = mapped.Code, Error = mapped.Friendly };
             }
         }
 
