@@ -65,5 +65,11 @@ namespace AgroParallel.Services.Abstractions
 
         /// <summary>DELETE /api/calibration/pwm-sweep — aborta y frena motor.</summary>
         Task<CoreXEcuOkResultDto> CancelSweepAsync();
+
+        /// <summary>POST /api/firmware (Teensy) — streamea el .hex cacheado del producto
+        /// "corex-ecu" a la unidad y reboota. 409 si el guiado está activo, 400 si el
+        /// HEX es inválido / no es de este equipo. La verificación de versión nueva la
+        /// hace la UI releyendo /status tras el reboot.</summary>
+        Task<CoreXEcuFlashResultDto> FlashFirmwareAsync(string version);
     }
 }
