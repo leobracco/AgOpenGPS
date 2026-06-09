@@ -478,11 +478,14 @@ namespace AgIO
 
         private void StartAOG()
         {
-            Process[] processName = Process.GetProcessesByName("AgOpenGPS");
+            // El GPS ahora se llama PilotX.exe (AgOpenGPS -> PilotX). CoreX y
+            // PilotX se invocan mutuamente: PilotX levanta CoreX.exe y CoreX
+            // levanta PilotX.exe.
+            Process[] processName = Process.GetProcessesByName("PilotX");
             if (processName.Length == 0)
             {
                 //Start application here
-                string strPath = Path.Combine(Application.StartupPath, "AgOpenGPS.exe");
+                string strPath = Path.Combine(Application.StartupPath, "PilotX.exe");
 
                 try
                 {
@@ -493,8 +496,8 @@ namespace AgIO
                 }
                 catch
                 {
-                    TimedMessageBox(2000, "No File Found", "Can't Find AgOpenGPS");
-                    Log.EventWriter("Can't Find AgOpenGPS - File Not Found");
+                    TimedMessageBox(2000, "No File Found", "Can't Find PilotX");
+                    Log.EventWriter("Can't Find PilotX - File Not Found");
                 }
             }
             else
