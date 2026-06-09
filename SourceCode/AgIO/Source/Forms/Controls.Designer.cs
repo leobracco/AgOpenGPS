@@ -146,7 +146,7 @@ namespace AgIO
 
         private void btnExit_Click(object sender, EventArgs e)
         {
-            using (var dlg = new FormYes("Warning: Closing AgIO will stop communication with hardware.\r\nAre you sure you want to close?", true))
+            using (var dlg = new FormYes("Warning: Closing CoreX will stop communication with hardware.\r\nAre you sure you want to close?", true))
             {
                 var result = dlg.ShowDialog(this);
 
@@ -332,10 +332,8 @@ namespace AgIO
                     Program.Restart();
                 }
             }
-            this.Text = "CoreX · v" + Program.Version + " · " +
-                (string.IsNullOrEmpty(RegistrySettings.profileName)
-                    ? "(sin perfil)"
-                    : RegistrySettings.profileName);
+            this.Text = "CoreX  v" + Program.Version + "   Using Profile: "
+                + RegistrySettings.profileName;
         }
 
         private void modSimToolStrip_Click(object sender, EventArgs e)

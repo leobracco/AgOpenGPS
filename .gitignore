@@ -491,4 +491,11 @@ Build/
 # Nunca van al repo: se suben al panel OrbitX /firmwares o se copian a USB.
 PilotX-*.zip
 PilotX-*.zip.sha256
+PilotX_*.zip
+PilotX_*.zip.sha256
+
+# Capturas sueltas de UI/diagnóstico que quedan en root (no son del repo).
+corex_*.png
+pilotx_*.png
+.playwright-mcp/
 

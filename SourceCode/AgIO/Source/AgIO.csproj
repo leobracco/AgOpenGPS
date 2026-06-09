@@ -2,6 +2,10 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <!-- El binario debe llamarse CoreX.exe: PilotX (GPS) lo invoca por ese
+         nombre (FormGPS.cs). El resto del código AgIO quedó revertido al
+         estado post-MQTT; solo conservamos el nombre de salida. -->
+    <AssemblyName>CoreX</AssemblyName>
     <PublishDir>..\..\..\AgOpenGPS\</PublishDir>
     <ApplicationIcon>AgIO_ico.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
@@ -48,9 +52,6 @@
       <DependentUpon>FormLoop.cs</DependentUpon>
     </Compile>
     <Compile Update="Forms\MQTT.Designer.cs">
-      <DependentUpon>FormLoop.cs</DependentUpon>
-    </Compile>
-    <Compile Update="Forms\NodePanel.Designer.cs">
       <DependentUpon>FormLoop.cs</DependentUpon>
     </Compile>
     <Compile Update="Properties\Resources.Designer.cs">

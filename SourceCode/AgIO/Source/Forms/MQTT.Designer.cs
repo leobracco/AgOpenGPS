@@ -64,13 +64,6 @@ namespace AgIO
                 {
                     _mqttMessagesTotal++;
                     AddRecentTopic(e.ApplicationMessage.Topic);
-                    // Indexar para el panel web (LAN PWA en puerto 8080).
-                    try
-                    {
-                        IndexNodeMessage(e.ApplicationMessage.Topic,
-                            e.ApplicationMessage.PayloadSegment.ToArray());
-                    }
-                    catch { }
                     return Task.CompletedTask;
                 };
 

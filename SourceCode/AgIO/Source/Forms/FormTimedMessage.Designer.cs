@@ -75,7 +75,7 @@
             this.Name = "FormTimedMessage";
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
-            this.Text = "CoreX · Aviso";
+            this.Text = "CoreX Message";
             this.TopMost = true;
             this.ResumeLayout(false);
             this.PerformLayout();

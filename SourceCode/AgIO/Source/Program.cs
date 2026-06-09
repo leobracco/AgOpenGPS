@@ -33,7 +33,6 @@ namespace AgIO
                     Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo(RegistrySettings.culture);
                     Application.EnableVisualStyles();
                     Application.SetCompatibleTextRenderingDefault(false);
-                    Application.Idle += (sender, args) => CTheme.ApplyOpenForms();
                     Application.Run(new FormLoop());
                 }
             }

@@ -154,9 +154,6 @@
   <data name="B_Machine" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\btnImages\B_Machine.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="B_MQTT" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\btnImages\B_MQTT_small.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
-  </data>
   <data name="B_UDP" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\btnImages\B_UDP.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>

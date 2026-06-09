@@ -1104,9 +1104,7 @@ namespace AgIO
             //
             // btnMQTT
             //
-            this.btnMQTT.BackColor = System.Drawing.Color.Transparent;
-            this.btnMQTT.BackgroundImage = global::AgIO.Properties.Resources.B_MQTT;
-            this.btnMQTT.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
+            this.btnMQTT.BackColor = System.Drawing.Color.Gainsboro;
             this.btnMQTT.FlatAppearance.BorderColor = System.Drawing.SystemColors.HotTrack;
             this.btnMQTT.FlatAppearance.BorderSize = 0;
             this.btnMQTT.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -1118,7 +1116,7 @@ namespace AgIO
             this.btnMQTT.Name = "btnMQTT";
             this.btnMQTT.Size = new System.Drawing.Size(90, 36);
             this.btnMQTT.TabIndex = 514;
-            this.btnMQTT.Text = "";
+            this.btnMQTT.Text = "MQTT";
             this.btnMQTT.UseVisualStyleBackColor = false;
             this.btnMQTT.Click += new System.EventHandler(this.btnMQTT_Click);
             this.btnMQTT.DoubleClick += new System.EventHandler(this.btnMQTT_DoubleClick);
@@ -1208,7 +1206,7 @@ namespace AgIO
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Margin = new System.Windows.Forms.Padding(4);
             this.MaximizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(480, 320);
+            this.MinimumSize = new System.Drawing.Size(50, 50);
             this.Name = "FormLoop";
             this.Padding = new System.Windows.Forms.Padding(4);
             this.Text = "CoreX";
