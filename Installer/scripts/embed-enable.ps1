@@ -4,7 +4,7 @@
 #  Aplica:
 #   1) Crea usuario local "pilotx" sin password
 #   2) Auto-logon a ese usuario al boot
-#   3) Reemplaza Shell=explorer.exe por AgOpenGPS.exe (PilotX como shell)
+#   3) Reemplaza Shell=explorer.exe por PilotX.exe (PilotX como shell)
 #   4) Watchdog: si PilotX no arranca, restaura explorer.exe (Task Scheduler)
 #   5) Apaga servicios bloatware (lista conservadora — NO toca red/audio/drivers)
 #   6) Plan de energía: alto rendimiento, sin sleep, sin apagar monitor
@@ -66,9 +66,9 @@ if (-not (Test-Admin)) {
 Log "=== embed-enable.ps1 iniciando ==="
 Log "AppPath=$AppPath KioskUser=$KioskUser"
 
-$AogExe = Join-Path $AppPath "AgOpenGPS.exe"
+$AogExe = Join-Path $AppPath "PilotX.exe"
 if (-not (Test-Path $AogExe)) {
-    Log "AgOpenGPS.exe no encontrado en $AppPath — abortando" "ERROR"
+    Log "PilotX.exe no encontrado en $AppPath — abortando" "ERROR"
     exit 3
 }
 
@@ -141,7 +141,7 @@ try {
 
 # 3.5) ── Watchdog: si PilotX no arranca, vuelve a explorer.exe ──────────────
 # Crea una scheduled task que corre 60s después del boot. Si NO encuentra
-# AgOpenGPS.exe corriendo, asume crash-loop y restaura Shell=explorer.exe.
+# PilotX.exe corriendo, asume crash-loop y restaura Shell=explorer.exe.
 try {
     $watchdogScript = @'
 $ErrorActionPreference="SilentlyContinue"

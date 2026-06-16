@@ -591,5 +591,98 @@
     } catch (e) { msg('err', '✕ ' + e.message); }
   });
 
-  loadActivo().then(loadCatalogo);
+  // ===== Catálogo de OTRA maquinaria (cosechadora/pulverizadora/fertilizadora) =====
+  // Mismo patrón que el de sembradoras pero con un nivel más (tipo → marca →
+  // modelo). Al "Aplicar" hace POST /api/implemento/aplicar-maquina y recarga.
+  var _maq = { tipos: [], byCat: {} };
+
+  function paintMaqChips(tpl) {
+    var box = $('maqChips');
+    if (!box) return;
+    if (!tpl) { box.innerHTML = ''; $('maqDesc').textContent = ''; return; }
+    var chips = [];
+    if (tpl.ancho_labor_m > 0) chips.push(chip('Ancho: ' + tpl.ancho_labor_m + ' m'));
+    if (tpl.numero_secciones > 0) chips.push(chip(tpl.numero_secciones + ' secciones'));
+    if (tpl.subtipo) chips.push(chip(tpl.subtipo));
+    if (tpl.sistema) chips.push(chip(tpl.sistema.replace('_', ' ')));
+    box.innerHTML = chips.join(' ');
+    $('maqDesc').textContent = tpl.descripcion || '';
+  }
+
+  function maqModelos() {
+    var cat = $('maqTipo').value;
+    var marca = $('maqMarca').value;
+    var tipo = _maq.byCat[cat];
+    if (!tipo) return [];
+    var b = (tipo.marcas || []).find(function (m) { return m.marca === marca; });
+    return (b && b.modelos) || [];
+  }
+
+  function refillMaqModelos() {
+    var modelos = maqModelos();
+    var sel = $('maqModelo');
+    sel.innerHTML = modelos.map(function (m) {
+      return '<option value="' + m.modelo + '">' + m.modelo + '</option>';
+    }).join('');
+    if (modelos.length > 0) { sel.value = modelos[0].modelo; paintMaqChips(modelos[0]); }
+    else { paintMaqChips(null); }
+  }
+
+  function refillMaqMarcas() {
+    var cat = $('maqTipo').value;
+    var tipo = _maq.byCat[cat];
+    var marcas = (tipo && tipo.marcas) || [];
+    var sel = $('maqMarca');
+    sel.innerHTML = marcas.map(function (b) {
+      return '<option value="' + b.marca + '">' + b.marca + '</option>';
+    }).join('');
+    if (marcas.length > 0) sel.value = marcas[0].marca;
+    refillMaqModelos();
+  }
+
+  async function loadCatalogoMaquinas() {
+    try {
+      var data = await fetchJson('/api/catalogo/maquinas', { cache: 'no-store' });
+      if (!data || !data.ok || !data.tipos) return;
+      _maq.tipos = data.tipos;
+      _maq.byCat = {};
+      _maq.tipos.forEach(function (t) { _maq.byCat[t.categoria] = t; });
+      var st = $('maqTipo');
+      st.innerHTML = _maq.tipos.map(function (t) {
+        return '<option value="' + t.categoria + '">' + t.etiqueta + '</option>';
+      }).join('');
+      if (_maq.tipos.length > 0) st.value = _maq.tipos[0].categoria;
+      refillMaqMarcas();
+    } catch (_) { /* catálogo opcional */ }
+  }
+
+  $('maqTipo').addEventListener('change', refillMaqMarcas);
+  $('maqMarca').addEventListener('change', refillMaqModelos);
+  $('maqModelo').addEventListener('change', function () {
+    var modelo = $('maqModelo').value;
+    var tpl = maqModelos().find(function (m) { return m.modelo === modelo; });
+    paintMaqChips(tpl);
+  });
+  $('btnAplicarMaquina').addEventListener('click', async function () {
+    var categoria = $('maqTipo').value;
+    var marca = $('maqMarca').value;
+    var modelo = $('maqModelo').value;
+    if (!categoria || !marca || !modelo) return;
+    if (!confirm('Esto reemplaza la geometría de sembradora del implemento activo. ¿Aplicar ' + marca + ' ' + modelo + '?')) return;
+    msg('', 'Aplicando…');
+    try {
+      var data = await fetchJson('/api/implemento/aplicar-maquina', {
+        method: 'POST',
+        body: JSON.stringify({ categoria: categoria, marca: marca, modelo: modelo })
+      });
+      if (data && data.ok) {
+        await loadActivo();
+        msg('ok', '✓ Aplicado: ' + marca + ' ' + modelo);
+      } else {
+        msg('err', '✕ ' + ((data && data.error) || 'no se pudo aplicar'));
+      }
+    } catch (e) { msg('err', '✕ ' + e.message); }
+  });
+
+  loadActivo().then(loadCatalogo).then(loadCatalogoMaquinas);
 })();

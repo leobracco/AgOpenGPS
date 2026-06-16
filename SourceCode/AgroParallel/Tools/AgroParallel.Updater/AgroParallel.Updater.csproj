@@ -4,7 +4,7 @@
     AgroParallel.Updater
     Pequeño ejecutable de consola que sobrevive al cierre de PilotX, extrae el
     ZIP staged sobre el directorio de instalación y vuelve a lanzar la app.
-    Debe copiarse al mismo directorio que AgOpenGPS.exe (PublishDir).
+    Debe copiarse al mismo directorio que PilotX.exe (PublishDir).
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

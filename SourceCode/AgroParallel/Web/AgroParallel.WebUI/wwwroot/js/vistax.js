@@ -134,7 +134,7 @@
       (tol ? (' · tol ±' + tol + '%') : '');
 
     var badges = '';
-    var okCount = 0, bajoCount = 0, tapCount = 0, excCount = 0, ndCount = 0, muCount = 0;
+    var okCount = 0, bajoCount = 0, tapCount = 0, excCount = 0, ndCount = 0, muCount = 0, secOffCount = 0;
     trenes.forEach(function (t) {
       var surcos = pick(t, 'Surcos', 'surcos') || [];
       surcos.forEach(function (s) {
@@ -144,16 +144,18 @@
         else if (st === 'tapado') tapCount++;
         else if (st === 'exceso' || st === 'warn') excCount++;
         else if (st === 'muted') muCount++;
+        else if (st === 'seccion-off') secOffCount++;
         else ndCount++;
       });
     });
-    if (okCount > 0)   badges += '<span class="pill ok"><span class="dot"></span> ' + okCount + ' OK</span>';
-    if (bajoCount > 0) badges += '<span class="pill bad"><span class="dot"></span> ' + bajoCount + ' bajo</span>';
-    if (tapCount > 0)  badges += '<span class="pill bad"><span class="dot"></span> ' + tapCount + ' tapado</span>';
-    if (excCount > 0)  badges += '<span class="pill"><span class="dot" style="background:var(--vx-exceso)"></span> ' + excCount + ' exceso</span>';
-    if (muCount > 0)   badges += '<span class="pill"><span class="dot"></span> ' + muCount + ' silenciado</span>';
-    if (ndCount > 0)   badges += '<span class="pill"><span class="dot"></span> ' + ndCount + ' sin datos</span>';
-    if (!badges)       badges += '<span class="pill"><span class="dot"></span> sin sensores</span>';
+    if (okCount > 0)     badges += '<span class="pill ok"><span class="dot"></span> ' + okCount + ' OK</span>';
+    if (bajoCount > 0)   badges += '<span class="pill bad"><span class="dot"></span> ' + bajoCount + ' bajo</span>';
+    if (tapCount > 0)    badges += '<span class="pill bad"><span class="dot"></span> ' + tapCount + ' tapado</span>';
+    if (excCount > 0)    badges += '<span class="pill"><span class="dot" style="background:var(--vx-exceso)"></span> ' + excCount + ' exceso</span>';
+    if (muCount > 0)     badges += '<span class="pill"><span class="dot"></span> ' + muCount + ' silenciado</span>';
+    if (secOffCount > 0) badges += '<span class="pill"><span class="dot" style="background:#535E54"></span> ' + secOffCount + ' sección OFF</span>';
+    if (ndCount > 0)     badges += '<span class="pill"><span class="dot"></span> ' + ndCount + ' sin datos</span>';
+    if (!badges)         badges += '<span class="pill"><span class="dot"></span> sin sensores</span>';
     $('vxBadges').innerHTML = badges;
 
     var html = '';
@@ -208,6 +210,7 @@
     $('vxTrenes').innerHTML = html;
     bindSensorClicks();
     bindBarObjetivoInputs();
+    refreshDetailIfOpen();
 
     $('vxSpm').textContent = (spm == null) ? '–' : fmtNum(spm, 1);
     var objMax = 0;
@@ -425,38 +428,178 @@
     } catch (_) { /* silencioso — UI sigue funcionando */ }
   }
 
-  // Cierra el menú contextual abierto (si hay).
-  function closeMenu() {
-    var m = document.getElementById('vxMenu');
-    if (m && m.parentNode) m.parentNode.removeChild(m);
-  }
-  document.addEventListener('click', function (e) {
-    var m = document.getElementById('vxMenu');
-    if (m && !m.contains(e.target)) closeMenu();
-  });
+  // ---------- Panel detalle de surco (modal centrado) ----------
+  // Antes: click en sensor → menú mini con sólo "Silenciar". Ahora: panel
+  // grande con datos en vivo del surco (SPM, objetivo, %, estado, sección
+  // AOG asociada) + botones de acción. Refresca solo cuando llega el próximo
+  // poll, así el operario ve el SPM cambiar sin tener que reabrir.
+  //
+  // state.detailFocus = { uid, cable } mientras el panel está abierto. Cuando
+  // un nuevo render llega, refreshDetailIfOpen() repinta el contenido buscando
+  // ese (uid,cable) en el snapshot fresco.
+  state.detailFocus = null;
 
-  function showMenu(x, y, cellData) {
-    closeMenu();
-    var menu = document.createElement('div');
-    menu.id = 'vxMenu';
-    menu.className = 'vx-menu';
-    var muted = cellData.muted;
-    menu.innerHTML =
-      '<div class="head">Sensor ' + escapeHtml(cellData.uid || '—') +
-        ' · cable ' + escapeHtml(cellData.cable) +
-        (cellData.bajada ? ' · B' + escapeHtml(cellData.bajada) : '') + '</div>' +
-      '<div class="item" data-act="mute">' + (muted ? '🔔 Reactivar sensor' : '🔕 Silenciar sensor') + '</div>';
-    document.body.appendChild(menu);
-    // Posicionar dentro del viewport
-    var w = menu.offsetWidth, h = menu.offsetHeight;
-    var px = Math.min(window.innerWidth - w - 8, Math.max(8, x));
-    var py = Math.min(window.innerHeight - h - 8, Math.max(8, y));
-    menu.style.left = px + 'px';
-    menu.style.top = py + 'px';
-    menu.querySelector('[data-act=mute]').addEventListener('click', function () {
-      toggleMute(cellData.uid, cellData.cable, !muted);
-      closeMenu();
+  function closeDetail() {
+    state.detailFocus = null;
+    var m = document.getElementById('vxDetail');
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+    var bd = document.getElementById('vxDetailBackdrop');
+    if (bd && bd.parentNode) bd.parentNode.removeChild(bd);
+  }
+
+  // Busca el surco actual en state.live por (uid, cable). Devuelve null si
+  // ya no existe (ej. el operario cambió el implemento).
+  function findSurcoVivo(uid, cable) {
+    var live = state.live;
+    if (!live) return null;
+    var trenes = pick(live, 'Trenes', 'trenes') || [];
+    for (var i = 0; i < trenes.length; i++) {
+      var surcos = pick(trenes[i], 'Surcos', 'surcos') || [];
+      for (var j = 0; j < surcos.length; j++) {
+        var s = surcos[j];
+        var u = pick(s, 'Uid', 'uid') || '';
+        var c = pick(s, 'Cable', 'cable');
+        if (u === uid && c === cable) {
+          return { surco: s, tren: trenes[i] };
+        }
+      }
+    }
+    return null;
+  }
+
+  function labelEstado(st) {
+    st = (st || '').toLowerCase();
+    if (st === 'ok')          return { txt: 'OK',          color: 'var(--vx-ok)' };
+    if (st === 'tapado')      return { txt: 'TAPADO',      color: 'var(--vx-tapado)' };
+    if (st === 'bajo'
+     || st === 'bad')         return { txt: 'BAJO OBJETIVO', color: '#C9A52D' };
+    if (st === 'exceso'
+     || st === 'warn')        return { txt: 'EXCESO',      color: 'var(--vx-exceso)' };
+    if (st === 'muted')       return { txt: 'SILENCIADO',  color: 'var(--vx-muted)' };
+    if (st === 'no-data')     return { txt: 'SIN SEÑAL',   color: 'var(--vx-no-data)' };
+    if (st === 'seccion-off') return { txt: 'SECCIÓN AOG CERRADA', color: '#535E54' };
+    return { txt: st.toUpperCase(), color: 'var(--agp-text-muted)' };
+  }
+
+  function refreshDetailIfOpen() {
+    if (!state.detailFocus) return;
+    var body = document.getElementById('vxDetailBody');
+    if (!body) return;
+    var found = findSurcoVivo(state.detailFocus.uid, state.detailFocus.cable);
+    if (!found) {
+      body.innerHTML = '<div class="empty-hint">El surco ya no aparece en el snapshot.</div>';
+      return;
+    }
+    var s = found.surco, t = found.tren;
+    var st  = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
+    var sp  = pick(s, 'Spm', 'spm') || 0;
+    var obj = pick(s, 'Objetivo', 'objetivo') || pick(t, 'Objetivo', 'objetivo') || 0;
+    var ratio = obj > 0 ? Math.max(0, Math.min(1.5, sp / obj)) : 0;
+    var pct = obj > 0 ? Math.round(sp / obj * 100) : null;
+    var bj  = pick(s, 'Bajada', 'bajada');
+    var tipo = pick(s, 'Tipo', 'tipo') || 'semilla';
+    var muted = !!pick(s, 'Muted', 'muted');
+    var secCort = !!pick(s, 'SeccionCortada', 'seccionCortada');
+    var lastIso = pick(s, 'LastSeenIso', 'lastSeenIso') || '';
+    var tNombre = pick(t, 'Nombre', 'nombre') || ('Tren ' + (pick(t, 'Tren', 'tren') || '?'));
+    var lbl = labelEstado(st);
+
+    // Barra de % objetivo. Si seccion-off, no la mostramos (no aplica).
+    var fillPct = Math.round(ratio * 100);
+    if (fillPct > 100) fillPct = 100;
+
+    var html = '' +
+      '<div class="vd-row">' +
+        '<span class="vd-k">Tipo</span><span class="vd-v">' + escapeHtml(tipo) + '</span>' +
+      '</div>' +
+      '<div class="vd-row">' +
+        '<span class="vd-k">Tren</span><span class="vd-v">' + escapeHtml(tNombre) + '</span>' +
+      '</div>' +
+      '<div class="vd-row">' +
+        '<span class="vd-k">Bajada</span><span class="vd-v">' + (bj == null ? '–' : escapeHtml(String(bj))) + '</span>' +
+      '</div>' +
+      '<div class="vd-row">' +
+        '<span class="vd-k">Cable / UID</span><span class="vd-v" style="font-family:var(--agp-font-mono)">' +
+          (state.detailFocus.cable || '–') + ' · ' + escapeHtml(state.detailFocus.uid || '—') +
+        '</span>' +
+      '</div>' +
+      '<div class="vd-row">' +
+        '<span class="vd-k">Estado</span>' +
+        '<span class="vd-v"><strong style="color:' + lbl.color + '">' + lbl.txt + '</strong></span>' +
+      '</div>' +
+      '<hr class="vd-sep">' +
+      '<div class="vd-row big">' +
+        '<span class="vd-k">SPM actual</span>' +
+        '<span class="vd-v"><strong>' + fmtNum(sp, sp >= 100 ? 0 : 1) + '</strong> sem/min</span>' +
+      '</div>' +
+      '<div class="vd-row big">' +
+        '<span class="vd-k">Objetivo</span>' +
+        '<span class="vd-v"><strong>' + (obj > 0 ? fmtNum(obj, 0) : '–') + '</strong> sem/min</span>' +
+      '</div>';
+
+    if (obj > 0 && st !== 'seccion-off' && st !== 'no-data') {
+      html += '' +
+        '<div class="vd-row big">' +
+          '<span class="vd-k">% objetivo</span>' +
+          '<span class="vd-v"><strong>' + (pct == null ? '–' : pct) + '%</strong></span>' +
+        '</div>' +
+        '<div class="vd-bar"><div class="vd-bar-fill" style="width:' + fillPct + '%"></div></div>';
+    }
+
+    if (secCort) {
+      html += '<div class="vd-warn">⚠ Sección AOG cerrada — este surco no sensa hasta que vuelva a abrir.</div>';
+    }
+
+    if (lastIso) {
+      html += '<div class="vd-row" style="margin-top:8px"><span class="vd-k">Última lectura</span>' +
+              '<span class="vd-v" style="font-family:var(--agp-font-mono); font-size:var(--agp-fs-xs)">' +
+              escapeHtml(lastIso) + '</span></div>';
+    }
+
+    body.innerHTML = html;
+
+    // Botón mute con texto dinámico.
+    var btnMute = document.getElementById('vxDetailMute');
+    if (btnMute) {
+      btnMute.textContent = muted ? '🔔 Reactivar sensor' : '🔕 Silenciar sensor';
+      btnMute.setAttribute('data-muted', muted ? '1' : '0');
+    }
+  }
+
+  function showDetail(uid, cable, muted) {
+    closeDetail();
+    state.detailFocus = { uid: uid, cable: cable };
+
+    var bd = document.createElement('div');
+    bd.id = 'vxDetailBackdrop';
+    bd.className = 'vx-detail-backdrop';
+    bd.addEventListener('click', closeDetail);
+    document.body.appendChild(bd);
+
+    var panel = document.createElement('div');
+    panel.id = 'vxDetail';
+    panel.className = 'vx-detail';
+    panel.innerHTML =
+      '<div class="vd-head">' +
+        '<span>Detalle de surco</span>' +
+        '<button id="vxDetailClose" class="btn-ico" title="Cerrar">✕</button>' +
+      '</div>' +
+      '<div id="vxDetailBody" class="vd-body">cargando…</div>' +
+      '<div class="vd-foot">' +
+        '<button id="vxDetailMute" class="btn" data-muted="' + (muted ? '1' : '0') + '">' +
+          (muted ? '🔔 Reactivar sensor' : '🔕 Silenciar sensor') +
+        '</button>' +
+      '</div>';
+    document.body.appendChild(panel);
+
+    document.getElementById('vxDetailClose').addEventListener('click', closeDetail);
+    document.getElementById('vxDetailMute').addEventListener('click', function () {
+      var nowMuted = this.getAttribute('data-muted') === '1';
+      toggleMute(uid, cable, !nowMuted);
+      // El siguiente pollLive() refresca el panel automáticamente vía refreshDetailIfOpen.
     });
+
+    refreshDetailIfOpen();
   }
 
   function bindSensorClicks() {
@@ -464,12 +607,11 @@
     cells.forEach(function (cell) {
       cell.addEventListener('click', function (ev) {
         ev.stopPropagation();
-        showMenu(ev.clientX, ev.clientY, {
-          uid: cell.getAttribute('data-uid') || '',
-          cable: parseInt(cell.getAttribute('data-cable') || '0', 10),
-          bajada: cell.getAttribute('data-bajada') || '',
-          muted: cell.getAttribute('data-muted') === '1'
-        });
+        showDetail(
+          cell.getAttribute('data-uid') || '',
+          parseInt(cell.getAttribute('data-cable') || '0', 10),
+          cell.getAttribute('data-muted') === '1'
+        );
       });
     });
   }

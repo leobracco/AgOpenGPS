@@ -5,6 +5,12 @@
 (function () {
   'use strict';
 
+  // Modo widget flotante (PilotX abre páginas como datos-lote.html?widget=1 como
+  // ventana chica independiente, sin la navegación del Hub). En ese modo no
+  // renderizamos el sidebar: la página muestra solo su contenido y se cierra con
+  // la X nativa de la ventana. Sale temprano para no hacer trabajo de más.
+  if (document.documentElement.classList.contains('widget-mode')) return;
+
   // Cierra el Hub. Canal principal: WebView2.postMessage('close-hub'), que el
   // FormAgroParallelHubWebView2 escucha via WebMessageReceived y mapea a
   // _host.Close(). postMessage SIEMPRE está disponible apenas la página corre
@@ -48,6 +54,7 @@
     { id: 'vistax',   ico: '◉',  label: 'VistaX',   href: 'vistax.html' },
     { id: 'sectionx', ico: '▦',  label: 'SectionX', href: 'sectionx.html' },
     { id: 'flowx',    ico: '◊',  label: 'FlowX',    href: 'flowx.html' },
+    { id: 'linex',    ico: '⊞',  label: 'LineX',    href: 'linex.html' },
     { id: 'stormx',   ico: '☴',  label: 'StormX',   href: 'stormx.html' },
     { id: 'corex-ecu', ico: '⌬', label: 'CoreX-ECU', href: 'corex-ecu.html' },
     { id: 'insumos',  ico: '🌱', label: 'Insumos',  href: 'insumos.html' },

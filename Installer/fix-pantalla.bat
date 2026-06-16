@@ -30,8 +30,8 @@ echo.
 
 REM ---- [1] Matar AOG y AgIO si estan corriendo
 echo [1/5] Matando AOG/AgIO si estan abiertos...
-taskkill /F /IM AgOpenGPS.exe /T 2>nul
-taskkill /F /IM AgIO.exe /T 2>nul
+taskkill /F /IM PilotX.exe /T 2>nul
+taskkill /F /IM CoreX.exe /T 2>nul
 echo.
 
 REM ---- [2] Crear estructura de carpetas en D:
@@ -48,18 +48,18 @@ echo.
 REM ---- [3] Detectar carpeta de instalacion (Piloto vs PilotX)
 echo [3/5] Detectando carpeta de instalacion...
 set INSTDIR=
-if exist "C:\Program Files\AgroParallel\PilotX\AgOpenGPS.exe" (
+if exist "C:\Program Files\AgroParallel\PilotX\PilotX.exe" (
     set "INSTDIR=C:\Program Files\AgroParallel\PilotX"
-) else if exist "C:\Program Files\AgroParallel\Piloto\AgOpenGPS.exe" (
+) else if exist "C:\Program Files\AgroParallel\Piloto\PilotX.exe" (
     set "INSTDIR=C:\Program Files\AgroParallel\Piloto"
-) else if exist "C:\Program Files (x86)\AgroParallel\PilotX\AgOpenGPS.exe" (
+) else if exist "C:\Program Files (x86)\AgroParallel\PilotX\PilotX.exe" (
     set "INSTDIR=C:\Program Files (x86)\AgroParallel\PilotX"
-) else if exist "C:\Program Files (x86)\AgroParallel\Piloto\AgOpenGPS.exe" (
+) else if exist "C:\Program Files (x86)\AgroParallel\Piloto\PilotX.exe" (
     set "INSTDIR=C:\Program Files (x86)\AgroParallel\Piloto"
 )
 
 if "%INSTDIR%"=="" (
-    echo   ERROR: no encontre AgOpenGPS.exe instalado.
+    echo   ERROR: no encontre PilotX.exe instalado.
     echo   Buscado en C:\Program Files\AgroParallel\{Piloto,PilotX} y x86.
     pause
     exit /b 1
@@ -96,7 +96,7 @@ echo Lanzando AgOpenGPS...
 echo (cerralo cuando termines de probar para volver a esta ventana)
 echo.
 pushd "%INSTDIR%"
-start "" "%INSTDIR%\AgOpenGPS.exe"
+start "" "%INSTDIR%\PilotX.exe"
 popd
 
 echo.

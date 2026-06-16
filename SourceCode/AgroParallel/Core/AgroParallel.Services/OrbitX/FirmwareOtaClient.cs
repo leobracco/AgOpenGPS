@@ -195,10 +195,21 @@ namespace AgroParallel.OrbitX
             return fallback ?? "127.0.0.1";
         }
 
+        // Puerto del WebHost EmbedIO (AgpWebHost). EmbedIO bindea por Sockets en
+        // 0.0.0.0:5180 sin requerir URL ACL — eso garantiza acceso desde LAN sin
+        // admin, a diferencia del antiguo FirmwareLanServer (HttpListener).
+        // Si en el futuro AgpWebHost cambia de puerto, sincronizar este valor.
+        public const int EmbedIoFirmwarePort = 5180;
+
+        // Construye la URL HTTP que el ESP32 usa para bajar el .bin.
+        // El parámetro httpPort queda por compatibilidad con callers viejos pero
+        // se ignora — siempre se sirve desde el endpoint EmbedIO en :5180
+        // (/api/firmwares/{producto}/{version}/firmware.bin), que es accesible
+        // desde LAN sin URL ACL.
         public static string BuildFirmwareUrl(string producto, string version, int httpPort)
         {
             string ip = ResolveLanIp();
-            return $"http://{ip}:{httpPort}/firmware/{Uri.EscapeDataString(producto)}/{Uri.EscapeDataString(version)}/firmware.bin";
+            return $"http://{ip}:{EmbedIoFirmwarePort}/api/firmwares/{Uri.EscapeDataString(producto)}/{Uri.EscapeDataString(version)}/firmware.bin";
         }
 
         private void Log(string msg) => OnLog?.Invoke(this, msg);

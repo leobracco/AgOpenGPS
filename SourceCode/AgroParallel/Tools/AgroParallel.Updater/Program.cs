@@ -5,17 +5,21 @@
 //   AgroParallel.Updater.exe --pid <pid> --zip <path> --install <dir> --exe <path>
 //
 // Flujo:
-//   1. Espera a que el proceso PID termine (max 60 s). Si no termina, mata.
+//   1. Espera a que el proceso PID (PilotX) termine (max 60 s). Si no, lo mata.
+//   1b.Cierra el RESTO de procesos que corren desde el install dir (típicamente
+//      CoreX/AgIO). Comparten DLLs (AgLibrary.dll, etc.) con PilotX, así que si
+//      siguen vivos mantienen esos archivos bloqueados y la extracción falla.
 //   2. Hace backup del install dir actual a <install>\AgroParallel\Backups\<ts>\
 //      (solo .exe + .dll + Branding\ + AgroParallel\wwwroot\, no Fields/).
-//   3. Extrae el ZIP encima de <install>.
-//   4. Relanza <exe>.
-//   5. Si algo falla, restaura desde backup.
+//   3. Extrae el ZIP encima de <install> (salteando el propio Updater en uso).
+//   4. Relanza CoreX (y demás apps cerradas) primero, PilotX al final.
+//   5. Si algo falla, restaura desde backup y relanza igual el estado previo.
 //
 // Log: <install>\AgroParallel\Updates\updater.log
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -48,7 +52,7 @@ namespace AgroParallel.Updater
                 Console.Error.WriteLine("Faltan argumentos: --zip y --install son obligatorios.");
                 return 2;
             }
-            if (string.IsNullOrEmpty(exe)) exe = Path.Combine(install, "AgOpenGPS.exe");
+            if (string.IsNullOrEmpty(exe)) exe = Path.Combine(install, "PilotX.exe");
 
             try { _logPath = Path.Combine(install, "AgroParallel", "Updates", "updater.log"); } catch { }
             Log("==== AgroParallel.Updater iniciando ====");
@@ -74,6 +78,12 @@ namespace AgroParallel.Updater
                 catch (ArgumentException) { Log("Proceso PID " + pid + " ya no existe."); }
                 catch (Exception ex) { Log("Error esperando proceso: " + ex.Message); }
             }
+
+            // 1b. Cerrar el resto de apps que corren desde el install dir (CoreX,
+            // etc.). Comparten DLLs con PilotX; si siguen vivas, AgLibrary.dll y
+            // compañía quedan bloqueadas y la extracción falla. Las relanzamos al
+            // final (CoreX antes que PilotX para que el broker esté arriba).
+            List<string> closedExes = CloseInstallDirProcesses(install, pid);
 
             // Pausa extra para que liberen los file handles (DLLs).
             Thread.Sleep(1500);
@@ -121,29 +131,78 @@ namespace AgroParallel.Updater
                 }
             }
 
-            // 4. Relanzar PilotX.
-            try
+            // 4. Relanzar. Primero las apps que cerramos en 1b (CoreX → el broker
+            // MQTT tiene que estar arriba antes que PilotX), PilotX al final.
+            foreach (var path in closedExes)
             {
-                if (File.Exists(exe))
-                {
-                    Log("Relanzando " + exe);
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = exe,
-                        UseShellExecute = true,
-                        WorkingDirectory = install
-                    };
-                    Process.Start(psi);
-                }
-                else Log("ERROR: exe no existe tras update: " + exe);
+                if (string.Equals(Path.GetFileName(path), Path.GetFileName(exe), StringComparison.OrdinalIgnoreCase))
+                    continue; // PilotX va al final
+                RelaunchExe(path, install);
+                Thread.Sleep(1500); // dar tiempo a que el broker levante
             }
-            catch (Exception ex)
-            {
-                Log("Relanzar fallo: " + ex.Message);
-            }
+
+            if (File.Exists(exe)) RelaunchExe(exe, install);
+            else Log("ERROR: exe no existe tras update: " + exe);
 
             Log("==== Updater terminado ====");
             return extractOk ? 0 : 1;
+        }
+
+        // Cierra todo proceso cuyo ejecutable vive dentro de install dir, salvo
+        // el PID ya manejado (PilotX) y el propio Updater. Devuelve las rutas de
+        // los exes cerrados para poder relanzarlos después. CloseMainWindow primero
+        // (cierre ordenado, p.ej. AgIO baja el broker), Kill como último recurso.
+        private static List<string> CloseInstallDirProcesses(string install, int skipPid)
+        {
+            var closed = new List<string>();
+            string installFull;
+            try { installFull = Path.GetFullPath(install).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar; }
+            catch { return closed; }
+
+            int selfPid = Process.GetCurrentProcess().Id;
+            foreach (var p in Process.GetProcesses())
+            {
+                if (p.Id == skipPid || p.Id == selfPid) continue;
+                string path = null;
+                try { path = p.MainModule != null ? p.MainModule.FileName : null; }
+                catch { continue; } // acceso denegado / sin main module → no es nuestro
+                if (string.IsNullOrEmpty(path)) continue;
+                if (!path.StartsWith(installFull, StringComparison.OrdinalIgnoreCase)) continue;
+
+                try
+                {
+                    Log("Cerrando proceso del install dir: " + Path.GetFileName(path) + " (PID " + p.Id + ")");
+                    bool exited = false;
+                    try { if (p.CloseMainWindow()) exited = p.WaitForExit(8000); } catch { }
+                    if (!exited && !p.HasExited)
+                    {
+                        Log("No cerró ordenado — matando PID " + p.Id);
+                        try { p.Kill(); p.WaitForExit(5000); } catch (Exception ex) { Log("Kill fallo: " + ex.Message); }
+                    }
+                    closed.Add(path);
+                }
+                catch (Exception ex) { Log("No pude cerrar PID " + p.Id + ": " + ex.Message); }
+            }
+            return closed;
+        }
+
+        private static void RelaunchExe(string exe, string install)
+        {
+            try
+            {
+                Log("Relanzando " + exe);
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exe,
+                    UseShellExecute = true,
+                    WorkingDirectory = install
+                };
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                Log("Relanzar fallo (" + Path.GetFileName(exe) + "): " + ex.Message);
+            }
         }
 
         // Backup superficial: copia archivos del top-level del install dir
@@ -190,6 +249,13 @@ namespace AgroParallel.Updater
         // pero ZipFile.ExtractToDirectory(overwrite) recién en 4.6.2+.
         private static void ExtractZipOverwrite(string zipPath, string targetDir)
         {
+            // El Updater está corriendo desde el install dir, así que no puede
+            // sobrescribir su propio .exe (Windows lo tiene bloqueado). Lo salteamos:
+            // si el Updater cambia, viaja en el ZIP igual y se aplica en el próximo
+            // update (cuando ya no esté en uso este).
+            string selfExe = null;
+            try { selfExe = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName); } catch { }
+
             using (var fs = File.OpenRead(zipPath))
             using (var zip = new ZipArchive(fs, ZipArchiveMode.Read))
             {
@@ -198,6 +264,12 @@ namespace AgroParallel.Updater
                     if (string.IsNullOrEmpty(entry.Name)) // entrada de directorio
                     {
                         Directory.CreateDirectory(Path.Combine(targetDir, entry.FullName));
+                        continue;
+                    }
+                    if (!string.IsNullOrEmpty(selfExe) &&
+                        string.Equals(entry.Name, selfExe, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Log("Salteando self (en uso): " + entry.FullName);
                         continue;
                     }
                     string dst = Path.GetFullPath(Path.Combine(targetDir, entry.FullName));

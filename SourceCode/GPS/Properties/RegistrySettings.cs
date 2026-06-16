@@ -249,6 +249,28 @@ namespace AgOpenGPS
                 {
                     baseDirectory = Path.Combine(workingDirectory, "AgOpenGPS");
                 }
+
+                // Instalación kiosko desde cero: el perfil recién booteado todavía
+                // no tiene materializada la carpeta Documentos, así que
+                // GetFolderPath(MyDocuments) devuelve "" y baseDirectory queda
+                // RELATIVO ("AgOpenGPS"). Más tarde ApplicationModel hace
+                // baseDirectory.CreateSubdirectory("Fields") SIN try/catch y
+                // revienta con DirectoryNotFoundException. Forzamos una ruta
+                // absoluta de respaldo (ProgramData) para que el arranque no caiga.
+                if (string.IsNullOrWhiteSpace(baseDirectory) || !Path.IsPathRooted(baseDirectory))
+                {
+                    string fallbackRoot = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                    if (string.IsNullOrWhiteSpace(fallbackRoot))
+                        fallbackRoot = AppDomain.CurrentDomain.BaseDirectory;
+                    baseDirectory = Path.Combine(fallbackRoot, "AgOpenGPS");
+                    Log.EventWriter("WorkingDir -> MyDocuments vacío (kiosko), usando fallback: " + baseDirectory);
+                }
+
+                // ApplicationModel asume que baseDirectory ya existe (CreateSubdirectory
+                // sin guarda). Lo creamos explícitamente acá; la creación de los
+                // subdirectorios de abajo está envuelta en try/catch que sólo loguea.
+                if (!Directory.Exists(baseDirectory))
+                    Directory.CreateDirectory(baseDirectory);
             }
             catch (Exception ex)
             {

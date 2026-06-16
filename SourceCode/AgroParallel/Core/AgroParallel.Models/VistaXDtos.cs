@@ -269,5 +269,15 @@ namespace AgroParallel.Models
         public string VistaModoDefault { get; set; } = "surcos";
         public List<VistaXTrenLiveDto> Trenes { get; set; } = new List<VistaXTrenLiveDto>();
         public List<VistaXNodoLiveDto> Nodos { get; set; } = new List<VistaXNodoLiveDto>();
+
+        // ----- Diagnóstico de "por qué no arranca el monitoreo" -------------
+        // Visible en el widget al tocar el pill "detenido". Permite al operario
+        // ver inmediatamente qué condición está bloqueando el arranque.
+        public string MetodoInicio { get; set; } = "sensores";
+        public int SeccionesPintando { get; set; }       // cuántas OnRequest=true
+        public int SensoresArriba { get; set; }          // SPM>0.5 contando para arranque
+        public int UmbralSensores { get; set; }          // de la config
+        public double VelMinima { get; set; }            // umbral según metodo
+        public string MotivoDetenido { get; set; } = ""; // human-readable
     }
 }

@@ -81,7 +81,7 @@ if (-not $SkipBuild) {
 
 # 3) Verificar que la carpeta Build tenga los exes
 $buildDir = Join-Path $root "Build"
-foreach ($exe in @("AgOpenGPS.exe", "AgIO.exe")) {
+foreach ($exe in @("PilotX.exe", "CoreX.exe")) {
     if (-not (Test-Path (Join-Path $buildDir $exe))) {
         Write-Host "ERROR: falta $exe en $buildDir. Corre build.ps1 primero." -ForegroundColor Red
         exit 1

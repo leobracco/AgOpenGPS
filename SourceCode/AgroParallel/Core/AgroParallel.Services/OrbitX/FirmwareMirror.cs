@@ -89,34 +89,24 @@ namespace AgroParallel.OrbitX
         }
 
         // ── Lista lo que hay en cache (con flag local=true) ────────────────
+        // MERGE filesystem + index.json. El disco es la fuente de verdad de lo
+        // que está descargado (incluye los .bin subidos a mano por USB que el
+        // cloud no lista); el index.json suma las versiones del catálogo cloud
+        // que todavía no se bajaron (local=false). Antes preferíamos index.json
+        // y hacíamos `return` temprano: los firmwares locales que no estaban en
+        // el catálogo quedaban INVISIBLES tras un sync (caso flowx subido por
+        // USB que desaparecía del Hub al sincronizar CoreX-ECU). Clave de dedup:
+        // producto+version, case-insensitive — gana el de disco.
         public static List<FirmwareCatalogItem> ListLocal(string cacheDir)
         {
             var result = new List<FirmwareCatalogItem>();
             if (!Directory.Exists(cacheDir)) return result;
 
-            // Si hay index.json reciente, lo usamos y marcamos cuáles están en disco.
-            string idx = Path.Combine(cacheDir, "index.json");
-            if (File.Exists(idx))
-            {
-                try
-                {
-                    var json = File.ReadAllText(idx);
-                    var doc = JsonSerializer.Deserialize<IndexFile>(json,
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    if (doc?.catalog != null)
-                    {
-                        foreach (var fw in doc.catalog)
-                        {
-                            fw.local = File.Exists(PathBin(cacheDir, fw.producto, fw.version));
-                            result.Add(fw);
-                        }
-                        return result;
-                    }
-                }
-                catch { /* fallthrough → derivar del filesystem */ }
-            }
+            // Índice de lo ya agregado para deduplicar y para no pisar lo de disco.
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string Key(string producto, string version) => (producto ?? "") + "\u0000" + (version ?? "");
 
-            // Sin index — recorrer carpetas.
+            // 1) Recorrer carpetas — fuente de verdad de lo descargado en disco.
             foreach (var dirP in Directory.GetDirectories(cacheDir))
             {
                 string producto = Path.GetFileName(dirP);
@@ -141,10 +131,36 @@ namespace AgroParallel.OrbitX
                             ts           = m.descargado_at,
                             local        = File.Exists(PathBin(cacheDir, producto, version)),
                         });
+                        seen.Add(Key(m.producto, m.version));
                     }
                     catch { /* manifest roto, ignorar */ }
                 }
             }
+
+            // 2) Sumar las entradas del catálogo cloud (index.json) que no estén
+            //    ya en disco — versiones disponibles para descargar (local=false).
+            string idx = Path.Combine(cacheDir, "index.json");
+            if (File.Exists(idx))
+            {
+                try
+                {
+                    var json = File.ReadAllText(idx);
+                    var doc = JsonSerializer.Deserialize<IndexFile>(json,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (doc?.catalog != null)
+                    {
+                        foreach (var fw in doc.catalog)
+                        {
+                            if (seen.Contains(Key(fw.producto, fw.version))) continue;
+                            fw.local = File.Exists(PathBin(cacheDir, fw.producto, fw.version));
+                            result.Add(fw);
+                            seen.Add(Key(fw.producto, fw.version));
+                        }
+                    }
+                }
+                catch { /* index roto — nos quedamos con lo del filesystem */ }
+            }
+
             return result;
         }
 
@@ -184,6 +200,12 @@ namespace AgroParallel.OrbitX
                     foreach (var fw in catalog)
                     {
                         if (string.IsNullOrEmpty(fw.producto) || string.IsNullOrEmpty(fw.version)) continue;
+                        // PilotX (app PC) se baja ON-DEMAND desde PilotXSelfUpdate,
+                        // NO en el mirror periódico: el ZIP pesa decenas de MB y no
+                        // se sirve a nodos ESP32 por LAN. Sigue en index.json (catálogo)
+                        // para que el panel de actualizaciones lo vea, pero el .bin
+                        // solo se descarga cuando el operario toca "Buscar/Descargar".
+                        if (string.Equals(fw.producto, "PilotX", StringComparison.OrdinalIgnoreCase)) continue;
                         string bin = PathBin(cacheDir, fw.producto, fw.version);
                         if (File.Exists(bin)) continue; // ya está
 

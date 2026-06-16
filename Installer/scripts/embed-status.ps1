@@ -5,7 +5,7 @@
 #  (kiosko) o en modo desktop normal. Util para debug en campo.
 #
 #  Reporta:
-#    - Shell actual (explorer.exe vs AgOpenGPS.exe)
+#    - Shell actual (explorer.exe vs PilotX.exe)
 #    - AutoAdminLogon ON/OFF y usuario default
 #    - Watchdog Task presente?
 #    - Servicios desactivados / corriendo (los que toca embed-enable)

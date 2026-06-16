@@ -467,12 +467,21 @@ namespace AgroParallel.WebHost.Controllers
             string prodLo = (u.Tipo ?? "").Trim().ToLowerInvariant();
             if (string.IsNullOrEmpty(prodLo)) return new { ok = false, error = "tipo-vacio" };
 
+            // El topic MQTT del firmware FlowX es `agp/flow/...` (sin "x" final),
+            // así que NodoRegistry guarda Tipo="Flow". Pero los .bin se suben con
+            // el nombre canónico del producto ("flowx"). Mismo caso para otros
+            // futuros productos con topic abreviado. Hacemos un alias bidirec-
+            // cional acá: buscamos por el tipo original Y por el nombre con
+            // "x" agregado/sacado.
+            string prodAlt = prodLo.EndsWith("x") ? prodLo.Substring(0, prodLo.Length - 1) : prodLo + "x";
+
             OrbitXConfig cfg = SafeLoadOrbitX();
             string cacheDir = FirmwareMirror.ResolveCacheDir(cfg);
             var all = FirmwareMirror.ListLocal(cacheDir) ?? new List<FirmwareCatalogItem>();
 
             var versiones = all
-                .Where(f => string.Equals(f.producto, prodLo, StringComparison.OrdinalIgnoreCase))
+                .Where(f => string.Equals(f.producto, prodLo, StringComparison.OrdinalIgnoreCase)
+                         || string.Equals(f.producto, prodAlt, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(f => f.version, StringComparer.OrdinalIgnoreCase)
                 .Select(f => new
                 {

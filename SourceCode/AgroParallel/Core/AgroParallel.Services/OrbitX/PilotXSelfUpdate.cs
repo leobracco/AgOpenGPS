@@ -2,18 +2,22 @@
 // PilotXSelfUpdate.cs
 // Núcleo del auto-update de la app PC PilotX.
 //
-// Canal PÚBLICO (sin device-auth) — pedido explícito 2026-05-27:
-//   GET  https://agroparallel.com/update/pilotx/latest.json
-//        → { "version":"...", "url":"...", "sha256":"...",
-//            "size_bytes":..., "changelog":"..." }
-//   GET  <url-del-manifest>           (ZIP del payload)
+// Canal OrbitX (device-auth) — pedido explícito 2026-06-08:
+//   "subir el ZIP a OrbitX y que el tractor lo baje on-demand para actualizar".
 //
-// Ventajas vs el viejo OTA OrbitX (que sigue existiendo para los nodos ESP32):
-//  · No requiere pairing/device-token: cualquier tractor encendido y con
-//    internet puede actualizar — útil cuando el operario está con el cloud
-//    desvinculado o el master_token roto.
-//  · Deploy = subir 2 archivos a la web pública (latest.json + el zip).
-//  · Cero cambios server-side para shippear una versión nueva.
+//   GET  <ServerUrl>/api/ota/catalogo?producto=PilotX     (X-Device-ID/X-Auth-Token)
+//        → [ { producto, version, hash_sha256, tamano_bytes, changelog, ts }, … ]
+//   GET  <ServerUrl>/api/ota/firmware/PilotX/<version>     (mismo device-auth)
+//        → ZIP del payload (el server lo guarda como <version>.bin, son los
+//          mismos bytes; el Updater lo trata como ZIP por magic bytes PK).
+//
+// On-demand: el mirror periódico de firmwares (FirmwareMirror) NO baja PilotX
+// (lo saltea explícito); el ZIP se descarga SOLO cuando el operario toca
+// "Buscar"/"Descargar" en el panel de actualizaciones. Así no saturamos datos
+// móviles bajando decenas de MB a cada tractor en cada tick.
+//
+// Requiere tractor VINCULADO a OrbitX (DeviceId + DeviceToken). Si no está
+// vinculado, Check/Download devuelven error claro — no hay fallback público.
 //
 // Stage: <baseDir>/AgroParallel/Updates/<version>/payload.zip
 // Apply: lanza Updater.exe con args { --pid, --zip, --install, --exe } y sale.
@@ -24,6 +28,7 @@
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -38,11 +43,15 @@ namespace AgroParallel.OrbitX
     public static class PilotXSelfUpdate
     {
         private const string PRODUCT = "PilotX";
-        // Canal público — pedido explícito 2026-05-27 "que busque las
-        // actualizaciones PilotX directamente en agroparallel.com/update".
-        // Sin device-auth: solo hay que tener internet en el tractor.
-        public const string PublicUpdateBaseUrl = "https://agroparallel.com/update/pilotx/";
-        public const string PublicManifestUrl  = PublicUpdateBaseUrl + "latest.json";
+
+        /// <summary>
+        /// Se dispara cuando ApplyAsync lanzó el Updater y el host debe cerrarse
+        /// ordenadamente (guardar lote, etc.). El host (FormGPS) se suscribe una
+        /// vez y hace Close(). Si nadie se suscribe, el Updater igual mata el
+        /// proceso por timeout (60s) — pero eso saltea el guardado de lote.
+        /// </summary>
+        public static event Action ApplyRequested;
+
         private static readonly object _lock = new object();
         private static PilotXUpdateStatus _status = new PilotXUpdateStatus
         {
@@ -110,40 +119,42 @@ namespace AgroParallel.OrbitX
                     return asm.Location;
             }
             catch { }
-            return Path.Combine(InstallDir(), "AgOpenGPS.exe");
+            return Path.Combine(InstallDir(), "PilotX.exe");
         }
 
-        // ── Manifest DTO (latest.json del canal público) ───────────────────
-        // Shape esperado:
-        //   { "version": "2026.5.27",
-        //     "url":     "https://agroparallel.com/update/pilotx/2026.5.27.zip",
-        //     "sha256":  "abc123…",
-        //     "size_bytes": 12345678,
-        //     "changelog": "Fixes prescripciones, lock URL OrbitX, …" }
-        // `url` puede ser absoluta o relativa (en cuyo caso se resuelve contra
-        // PublicUpdateBaseUrl). `sha256` y `changelog` son opcionales pero muy
-        // recomendados — sin sha256 saltea verificación y confía en HTTPS.
-        private sealed class PublicManifest
+        // ── Catálogo OTA OrbitX (item de /api/ota/catalogo) ────────────────
+        private sealed class CatalogItem
         {
+            public string producto { get; set; }
             public string version { get; set; }
-            public string url { get; set; }
-            public string sha256 { get; set; }
-            public long size_bytes { get; set; }
+            public string hash_sha256 { get; set; }
+            public long tamano_bytes { get; set; }
             public string changelog { get; set; }
+            public long ts { get; set; }
+        }
+
+        // Valida que la config tenga lo necesario para hablar con OrbitX.
+        private static void RequireAuth(OrbitXConfig cfg)
+        {
+            if (cfg == null || string.IsNullOrEmpty(cfg.ServerUrl)
+                || string.IsNullOrEmpty(cfg.DeviceId) || string.IsNullOrEmpty(cfg.DeviceToken))
+                throw new Exception("Tractor no vinculado a OrbitX — no se puede buscar/descargar la actualización.");
         }
 
         // ── Check ──────────────────────────────────────────────────────────
-        // El parámetro `cfg` se mantiene por compatibilidad con el adapter pero
-        // YA NO se usa — el canal de update es público y vive en
-        // PublicManifestUrl. Si en algún momento queremos volver al OTA OrbitX
-        // device-auth, hay que rescatar el código del git log (commit anterior).
+        // Pide el catálogo OTA filtrado por PilotX y elige la mayor versión semver.
         public static async Task<PilotXUpdateStatus> CheckAsync(HttpClient http, OrbitXConfig cfg)
         {
             Update(s => { s.Phase = PilotXUpdatePhase.Checking; s.LastError = null; });
             try
             {
-                using (var req = new HttpRequestMessage(HttpMethod.Get, PublicManifestUrl))
+                RequireAuth(cfg);
+
+                string url = cfg.ServerUrl.TrimEnd('/') + "/api/ota/catalogo?producto=" + Uri.EscapeDataString(PRODUCT);
+                using (var req = new HttpRequestMessage(HttpMethod.Get, url))
                 {
+                    req.Headers.Add("X-Device-ID", cfg.DeviceId);
+                    req.Headers.Add("X-Auth-Token", cfg.DeviceToken);
                     // Cache-bust: el operario que tocó "Buscar" quiere la versión
                     // nueva ya, no la cacheada por un CDN intermedio.
                     req.Headers.Add("Cache-Control", "no-cache");
@@ -153,16 +164,27 @@ namespace AgroParallel.OrbitX
                         if (!resp.IsSuccessStatusCode)
                         {
                             string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                            throw new Exception("Manifest HTTP " + (int)resp.StatusCode
-                                + " en " + PublicManifestUrl
+                            throw new Exception("Catálogo HTTP " + (int)resp.StatusCode
+                                + " en " + url
                                 + (string.IsNullOrEmpty(body) ? "" : " · " + Trunc(body, 160)));
                         }
                         string json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        var m = JsonSerializer.Deserialize<PublicManifest>(json,
-                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        var list = JsonSerializer.Deserialize<List<CatalogItem>>(json,
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                            ?? new List<CatalogItem>();
+
+                        // Mayor versión semver de PilotX (el server ya filtra por
+                        // producto, pero revalidamos por las dudas).
+                        CatalogItem latest = null;
+                        foreach (var it in list)
+                        {
+                            if (it == null || string.IsNullOrEmpty(it.version)) continue;
+                            if (!string.Equals(it.producto, PRODUCT, StringComparison.OrdinalIgnoreCase)) continue;
+                            if (latest == null || CompareSemver(it.version, latest.version) > 0) latest = it;
+                        }
 
                         long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                        if (m == null || string.IsNullOrEmpty(m.version))
+                        if (latest == null)
                         {
                             Update(s =>
                             {
@@ -177,27 +199,21 @@ namespace AgroParallel.OrbitX
                             return Snapshot();
                         }
 
-                        bool newer = CompareSemver(m.version, DetectCurrentVersion()) > 0;
-                        bool staged = File.Exists(StagingZip(m.version));
+                        bool newer = CompareSemver(latest.version, DetectCurrentVersion()) > 0;
+                        bool staged = File.Exists(StagingZip(latest.version));
 
                         Update(s =>
                         {
-                            s.AvailableVersion = m.version;
-                            s.Changelog = m.changelog ?? "";
-                            s.SizeBytes = m.size_bytes;
-                            s.Sha256 = m.sha256;
+                            s.AvailableVersion = latest.version;
+                            s.Changelog = latest.changelog ?? "";
+                            s.SizeBytes = latest.tamano_bytes;
+                            s.Sha256 = latest.hash_sha256;
                             s.LastCheckUnixMs = nowMs;
                             s.StagingReady = staged;
-                            // Guardamos la URL del ZIP en el campo Changelog NO,
-                            // mejor en un slot dedicado: aprovecho LastError=null
-                            // y persisto la URL en una static aparte.
                             if (staged) s.Phase = PilotXUpdatePhase.ReadyToApply;
                             else if (newer) s.Phase = PilotXUpdatePhase.UpdateAvailable;
                             else s.Phase = PilotXUpdatePhase.Idle;
                         });
-
-                        // URL del ZIP — la guardamos aparte para que Download la use.
-                        lock (_lock) { _lastManifestZipUrl = ResolveZipUrl(m.url, m.version); }
                     }
                 }
             }
@@ -208,45 +224,31 @@ namespace AgroParallel.OrbitX
             return Snapshot();
         }
 
-        // URL del ZIP de la última check — resuelta contra PublicUpdateBaseUrl
-        // si vino relativa. Cleared/seteada SOLO desde CheckAsync.
-        private static string _lastManifestZipUrl;
-
-        private static string ResolveZipUrl(string urlFromManifest, string version)
-        {
-            if (!string.IsNullOrEmpty(urlFromManifest))
-            {
-                if (urlFromManifest.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                    || urlFromManifest.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                    return urlFromManifest;
-                // Relativa al folder del manifest.
-                return PublicUpdateBaseUrl + urlFromManifest.TrimStart('/');
-            }
-            // Convención por defecto si el manifest no trae `url`.
-            return PublicUpdateBaseUrl + Uri.EscapeDataString(version) + ".zip";
-        }
-
         // ── Download ───────────────────────────────────────────────────────
-        // El `cfg` queda ignorado — la URL del ZIP la determinó CheckAsync
-        // desde el manifest público.
+        // Baja el ZIP de PilotX desde OrbitX (device-auth) a staging y verifica
+        // SHA256 contra el hash del catálogo.
         public static async Task<PilotXUpdateStatus> DownloadAsync(HttpClient http, OrbitXConfig cfg)
         {
-            string version, expectedHash, zipUrl;
+            string version, expectedHash;
             lock (_lock)
             {
                 version = _status.AvailableVersion;
                 expectedHash = _status.Sha256;
-                zipUrl = _lastManifestZipUrl;
             }
             if (string.IsNullOrEmpty(version))
             {
                 Update(s => { s.Phase = PilotXUpdatePhase.Error; s.LastError = "No hay versión disponible. Ejecutá Check primero."; });
                 return Snapshot();
             }
-            if (string.IsNullOrEmpty(zipUrl))
+
+            try
             {
-                // Fallback por si Check no se llamó (improbable): convención.
-                zipUrl = PublicUpdateBaseUrl + Uri.EscapeDataString(version) + ".zip";
+                RequireAuth(cfg);
+            }
+            catch (Exception ex)
+            {
+                Update(s => { s.Phase = PilotXUpdatePhase.Error; s.LastError = ex.Message; });
+                return Snapshot();
             }
 
             Update(s => { s.Phase = PilotXUpdatePhase.Downloading; s.ProgressPct = 0; s.LastError = null; });
@@ -258,8 +260,12 @@ namespace AgroParallel.OrbitX
                 string tmp = zip + ".part";
                 if (File.Exists(tmp)) File.Delete(tmp);
 
+                string zipUrl = cfg.ServerUrl.TrimEnd('/') + "/api/ota/firmware/"
+                              + Uri.EscapeDataString(PRODUCT) + "/" + Uri.EscapeDataString(version);
                 using (var req = new HttpRequestMessage(HttpMethod.Get, zipUrl))
                 {
+                    req.Headers.Add("X-Device-ID", cfg.DeviceId);
+                    req.Headers.Add("X-Auth-Token", cfg.DeviceToken);
                     req.Headers.Add("Cache-Control", "no-cache");
                     using (var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
                     {
@@ -291,7 +297,7 @@ namespace AgroParallel.OrbitX
                     }
                 }
 
-                // Verifica SHA256 si el manifest lo trajo; si no, confiamos en HTTPS.
+                // Verifica SHA256 si el catálogo lo trajo; si no, confiamos en HTTPS.
                 string got = FirmwareMirror.Sha256File(tmp);
                 if (!string.IsNullOrEmpty(expectedHash) && !string.Equals(got, expectedHash, StringComparison.OrdinalIgnoreCase))
                 {
@@ -355,6 +361,19 @@ namespace AgroParallel.OrbitX
                 };
                 Process.Start(psi);
                 Update(s => { s.Phase = PilotXUpdatePhase.Applying; });
+
+                // Pedirle al host que se cierre ordenadamente. Esperamos un toque
+                // para que el HTTP response de /apply llegue al WebView antes de
+                // bajar la app; si no, el Updater igual lo mata por timeout.
+                var handler = ApplyRequested;
+                if (handler != null)
+                {
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(1500).ConfigureAwait(false);
+                        try { handler(); } catch { }
+                    });
+                }
             }
             catch (Exception ex)
             {

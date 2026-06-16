@@ -22,6 +22,7 @@
   // ---- refs UI ----
   var pillEl       = document.getElementById('estadoPill');
   var pillText     = document.getElementById('estadoText');
+  var kpiAreaLindero = document.getElementById('kpiAreaLindero');
   var kpiAreaNeta  = document.getElementById('kpiAreaNeta');
   var kpiAreaTotal = document.getElementById('kpiAreaTotal');
   var kpiAreaOver  = document.getElementById('kpiAreaOverlap');
@@ -61,6 +62,35 @@
   function fmtNum(v, dec) {
     if (v == null || isNaN(v)) return '—';
     return Number(v).toFixed(dec || 0);
+  }
+
+  // /api/aog/state serializa con los nombres PascalCase de las props C#
+  // (sin CamelCasePolicy). Normalizamos acá a camelCase para que renderSnap()
+  // /recompute() no tengan que conocer la convención del backend. Sin esto los
+  // KPIs leían undefined y quedaban todos en cero. Mismo patrón que flowx.js.
+  function normalizeSnap(raw) {
+    if (!raw) return null;
+    function pick(o, p, c) { return (o[p] != null) ? o[p] : o[c]; }
+    var track = pick(raw, 'ActiveTrack', 'activeTrack');
+    return {
+      isJobStarted:        !!pick(raw, 'IsJobStarted', 'isJobStarted'),
+      avgSpeed:            Number(pick(raw, 'AvgSpeed', 'avgSpeed') || 0),
+      numSections:         Number(pick(raw, 'NumSections', 'numSections') || 0),
+      sectionOnRequest:    pick(raw, 'SectionOnRequest', 'sectionOnRequest') || [],
+      workedAreaTotalM2:   Number(pick(raw, 'WorkedAreaTotalM2', 'workedAreaTotalM2') || 0),
+      actualAreaCoveredM2: Number(pick(raw, 'ActualAreaCoveredM2', 'actualAreaCoveredM2') || 0),
+      boundaryAreaM2:      Number(pick(raw, 'BoundaryAreaM2', 'boundaryAreaM2') || 0),
+      toolWidth:           Number(pick(raw, 'ToolWidth', 'toolWidth') || 0),
+      currentFieldDirectory: pick(raw, 'CurrentFieldDirectory', 'currentFieldDirectory'),
+      vehicleBrand:        pick(raw, 'VehicleBrand', 'vehicleBrand'),
+      vehicleType:         pick(raw, 'VehicleType', 'vehicleType'),
+      shapeIsInside:       !!pick(raw, 'ShapeIsInside', 'shapeIsInside'),
+      shapeCurrentDose:    Number(pick(raw, 'ShapeCurrentDose', 'shapeCurrentDose') || 0),
+      activeTrack: track ? {
+        name: pick(track, 'Name', 'name'),
+        mode: pick(track, 'Mode', 'mode')
+      } : null
+    };
   }
 
   function setDoseUnits() {
@@ -192,6 +222,8 @@
     var overlap = Math.max(0, worked - actual);
     var overlapPct = worked > 0 ? (overlap / worked * 100) : 0;
 
+    var lindero = snap.boundaryAreaM2 || 0;
+    kpiAreaLindero.textContent = lindero > 0 ? fmtNum(lindero / 10000, 2) : '—';
     kpiAreaNeta.textContent  = fmtNum(actual / 10000, 2);
     kpiAreaTotal.textContent = fmtNum(worked / 10000, 2);
     kpiAreaOver.textContent  = fmtNum(overlap / 10000, 2);
@@ -238,8 +270,8 @@
     try {
       var r = await fetch('/api/aog/state', { cache: 'no-store' });
       if (!r.ok) return;
-      var snap = await r.json();
-      renderSnap(snap);
+      var raw = await r.json();
+      renderSnap(normalizeSnap(raw));
     } catch (e) { /* offline */ }
   }
 

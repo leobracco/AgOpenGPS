@@ -119,6 +119,18 @@ namespace AgroParallel.Adapters
                         }
                         snap.Boundaries = bnds;
                         snap.Headlands = hdls;
+
+                        // Área del lote por lindero: boundary[0] exterior menos
+                        // los internos (exclusiones). Misma lógica que
+                        // CFieldData.UpdateFieldBoundaryGUIAreas, computada acá
+                        // para no depender de cuándo AOG la refrescó. m² → ha = ×1e-4.
+                        if (_form.bnd.bndList.Count > 0)
+                        {
+                            double areaM2 = _form.bnd.bndList[0].area;
+                            for (int i = 1; i < _form.bnd.bndList.Count; i++)
+                                areaM2 -= _form.bnd.bndList[i].area;
+                            snap.BoundaryAreaM2 = areaM2;
+                        }
                     }
 
                     if (_form.trk != null && _form.trk.gArr != null && _form.trk.idx >= 0 && _form.trk.idx < _form.trk.gArr.Count)

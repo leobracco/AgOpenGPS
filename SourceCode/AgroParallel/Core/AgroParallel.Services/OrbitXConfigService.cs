@@ -29,6 +29,8 @@ namespace AgroParallel.Services
 
         private string _lastError = "";
 
+        public event Action ConfigSaved;
+
         // ── Pairing in-memory state ─────────────────────────────────────────
         // El código + secret viven en memoria (no en disco): si el tractor
         // reinicia sin haber sido reclamado, se genera otro código nuevo, lo
@@ -74,6 +76,10 @@ namespace AgroParallel.Services
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
             File.WriteAllText(path, JsonSerializer.Serialize(dto, opts));
+            // Dispara después de persistir — FormGPS escucha y relanza OrbitXSync
+            // para que el heartbeat arranque sin reiniciar PilotX. Cubre tanto el
+            // Save de la UI como el claim de pairing (GetPairInfoAsync) y ResetPairing.
+            try { ConfigSaved?.Invoke(); } catch { /* swallow — no romper el Save por un subscriber */ }
         }
 
         public OrbitXStatus GetStatus()

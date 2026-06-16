@@ -70,8 +70,8 @@
           html +=
             '<div class="card">' +
               '<h2>' + nombre + ' <span class="sub">' + (n.uid || '') + '</span></h2>' +
-              '<div class="metric"><span>' + fmt(n.caudal_lmin) + '</span><span class="u">L/min</span></div>' +
-              '<div class="row"><span>Target</span><strong>' + fmt(n.target_lmin) + ' L/min</strong></div>' +
+              '<div class="metric"><span>' + fmt(n.caudal_lha) + '</span><span class="u">L/ha</span></div>' +
+              '<div class="row"><span>Target</span><strong>' + fmt(n.target_lha) + ' L/ha</strong></div>' +
               '<div class="row"><span>PWM</span><strong>' + (n.pwm || 0) + '</strong></div>' +
               '<div class="row"><span>PID</span>' +
                 '<strong><span class="pill ' + pidCls + '">' + (n.pid_estado || 'off') + '</span></strong>' +

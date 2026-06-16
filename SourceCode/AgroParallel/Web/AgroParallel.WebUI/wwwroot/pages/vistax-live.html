@@ -8,9 +8,11 @@
   <style>
     /* ============================================================================
        Widget MONITOR VistaX — franja inferior sobre PilotX.
-       Diseño: full-width, alto mínimo (~80–100 px). Una sola fila con chips
-       por surco primario (semilla/fertilizante). Sin números, sólo color.
-       El operario lo ve mientras siembra para detectar surcos tapados al toque.
+       Layout vertical:
+         · topbar mini (18 px): label + pill + sem/min + fallas + km/h + ⚙
+         · strip principal: chips por surco (toma todo el alto restante)
+       Click en chip → popup detalle (overlay sobre strip).
+       Click en ⚙ → modal config método de inicio.
        ============================================================================ */
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -18,48 +20,69 @@
     }
     body {
       font-family: var(--agp-font-sans);
-      display: flex;
-      align-items: stretch;
+      display: flex; flex-direction: column;
       overflow: hidden;
-      gap: 0;
     }
 
-    /* ----- Pill de estado (izquierda) ----- */
-    .vx-status {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      padding: 5px 9px;
+    /* ----- Topbar mini ----- */
+    .vx-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 2px 6px;
       background: var(--agp-surface);
-      border-right: 1px solid var(--agp-border);
-      min-width: 76px;
+      border-bottom: 1px solid var(--agp-border);
       flex-shrink: 0;
+      min-height: 18px;
+      font-size: 9px;
     }
-    .vx-status .title {
-      font-size: 9px; font-weight: var(--agp-fw-bold);
-      letter-spacing: 1px; text-transform: uppercase;
+    .vx-bar .lbl {
+      font-weight: var(--agp-fw-bold);
+      letter-spacing: 0.8px; text-transform: uppercase;
       color: var(--agp-text-muted);
     }
-    .vx-status .pill {
-      margin-top: 3px;
-      padding: 2px 8px; border-radius: var(--agp-radius-pill);
+    .vx-bar .pill {
+      padding: 1px 6px; border-radius: var(--agp-radius-pill);
       font-size: 9px; font-weight: var(--agp-fw-bold);
       background: var(--vx-ok); color: #0A1A06;
       line-height: 1.2;
     }
-    .vx-status .pill.warn { background: var(--vx-exceso); color: #fff; }
-    .vx-status .pill.bad  { background: rgba(201,45,45,0.85); color: #fff; }
+    .vx-bar .pill.warn { background: var(--vx-exceso); color: #fff; }
+    .vx-bar .pill.bad  { background: rgba(201,45,45,0.85); color: #fff; }
 
-    /* ----- Strip central ----- */
-    /* Se adapta a la cantidad de sensores: con pocos, chips anchos en una
-       fila; con muchos, wrappea a 2-3 filas. Si aún así no entran, scroll
-       vertical (el horizontal se evita para que el operario no tenga que
-       hacer scroll lateral en la cabina). */
+    .vx-bar .kpis { display: flex; gap: 10px; margin-left: auto; align-items: center; }
+    .vx-bar .k {
+      display: flex; gap: 4px; align-items: baseline;
+      font-family: var(--agp-font-mono);
+    }
+    .vx-bar .k .kl {
+      font-size: 8px; color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 0.6px;
+      font-family: var(--agp-font-sans);
+    }
+    .vx-bar .k .kv {
+      font-size: 11px; font-weight: var(--agp-fw-bold);
+    }
+    .vx-bar .k.fallas.bad .kv { color: #E25555; }
+
+    .vx-cfg-btn {
+      width: 18px; height: 16px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      color: var(--agp-text-muted);
+      font-size: 10px;
+      cursor: pointer;
+      padding: 0;
+    }
+    .vx-cfg-btn:hover { color: var(--agp-text); border-color: var(--agp-text-muted); }
+
+    /* ----- Strip de chips (toma todo el espacio) ----- */
     .vx-strip {
       flex: 1;
       display: flex;
       flex-wrap: wrap;
       align-content: stretch;
-      padding: 4px;
+      padding: 3px;
       gap: 3px;
       overflow-y: auto;
       overflow-x: hidden;
@@ -73,8 +96,8 @@
     .vx-chip {
       flex: 1 1 22px;
       min-width: 18px;
-      max-width: 60px;
-      min-height: 28px;
+      max-width: 70px;
+      min-height: 30px;
       position: relative;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -84,72 +107,199 @@
       cursor: pointer; user-select: none;
       font-family: var(--agp-font-mono);
     }
-    .vx-chip .num {
-      font-size: 9px; opacity: 0.7; line-height: 1;
-    }
-    .vx-chip .tipo {
+    .vx-chip .num   { font-size: 10px; opacity: 0.85; line-height: 1; }
+    .vx-chip .tipo  {
       position: absolute; bottom: 2px; right: 3px;
       font-size: 7px; font-weight: var(--agp-fw-bold);
       opacity: 0.55;
     }
-    .vx-chip.s-ok      { background: var(--vx-ok);      color: #0A1A06; border-color: var(--vx-ok); }
-    .vx-chip.s-bajo    { background: #4A2A2A;           color: #fff;    border-color: #6A3A3A; }
-    .vx-chip.s-tapado  { background: var(--vx-tapado);  color: #fff;    border-color: var(--vx-tapado-border); }
-    .vx-chip.s-exceso  { background: var(--vx-exceso);  color: #fff;    border-color: var(--vx-exceso-dark); }
-    .vx-chip.s-no-data { background: var(--vx-no-data); color: var(--agp-text-muted); }
-    .vx-chip.s-muted   { background: var(--vx-muted);   color: var(--agp-text-muted); border-style: dashed; }
+    .vx-chip.s-ok          { background: var(--vx-ok);     color: #0A1A06; border-color: var(--vx-ok); }
+    .vx-chip.s-bajo        { background: #4A2A2A;          color: #fff;    border-color: #6A3A3A; }
+    .vx-chip.s-tapado      { background: var(--vx-tapado); color: #fff;    border-color: var(--vx-tapado-border); }
+    .vx-chip.s-exceso      { background: var(--vx-exceso); color: #fff;    border-color: var(--vx-exceso-dark); }
+    .vx-chip.s-no-data     { background: var(--vx-no-data);color: var(--agp-text-muted); }
+    .vx-chip.s-muted       { background: var(--vx-muted);  color: var(--agp-text-muted); border-style: dashed; }
+    .vx-chip.s-seccion-off { background: #2A2A2A;          color: #888;    border: 1px dashed #555; }
 
-    /* Sección de tipo (semilla / fertilizante) — separador visual. */
     .vx-strip .sep {
       width: 1px; background: var(--agp-border);
-      margin: 4px 4px;
+      margin: 3px 4px;
       flex-shrink: 0;
     }
-
-    /* ----- KPIs derecha ----- */
-    .vx-side {
-      display: flex; align-items: center; gap: 10px;
-      padding: 0 11px;
-      background: var(--agp-surface);
-      border-left: 1px solid var(--agp-border);
-      flex-shrink: 0;
-    }
-    .vx-side .k {
-      display: flex; flex-direction: column;
-      align-items: center; line-height: 1.05;
-      min-width: 42px;
-    }
-    .vx-side .k .lbl {
-      font-size: 8px; color: var(--agp-text-muted);
-      text-transform: uppercase; letter-spacing: 0.8px;
-    }
-    .vx-side .k .val {
-      font-family: var(--agp-font-mono);
-      font-size: 14px; font-weight: var(--agp-fw-bold);
-    }
-    .vx-side .k.fallas.bad .val { color: #E25555; }
 
     .vx-empty {
       flex: 1;
       display: flex; align-items: center; justify-content: center;
-      color: var(--agp-text-muted); font-size: 12px;
+      color: var(--agp-text-muted); font-size: 11px;
     }
+
+    /* ----- Popup overlay (detalle surco / config método / diag) -----
+       El widget vive en una franja de ~70-120 px alto dentro de un WebView2.
+       El popup NO puede salir de esa caja. Por eso lo hacemos ultra-compacto:
+       caja ~60 px alto, ~360 px ancho, rows de 1 línea, font 10 px. Si el
+       contenido es más alto, el body scrolea internamente. */
+    .vx-pop-back {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 50;
+      align-items: center; justify-content: center;
+    }
+    .vx-pop-back.open { display: flex; }
+    .vx-pop {
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      color: var(--agp-text);
+      width: 96%; max-width: 380px;
+      max-height: 100%;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.8);
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      font-size: 10px;
+    }
+    .vx-pop .head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 2px 7px;
+      background: var(--agp-bg);
+      border-bottom: 1px solid var(--agp-border);
+      flex-shrink: 0;
+      min-height: 18px;
+    }
+    .vx-pop .head .ttl {
+      font-weight: var(--agp-fw-bold); font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .vx-pop .head .x {
+      cursor: pointer; padding: 0 6px;
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: transparent;
+      color: var(--agp-text-muted);
+      font-size: 12px; line-height: 1.2;
+    }
+    .vx-pop .body { padding: 3px 7px; overflow-y: auto; flex: 1; }
+    .vx-pop .row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 1px 0;
+      font-family: var(--agp-font-mono); font-size: 10px;
+      line-height: 1.3;
+    }
+    .vx-pop .row .lbl { color: var(--agp-text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-size: 8px; font-family: var(--agp-font-sans); }
+    .vx-pop .bar { height: 4px; background: var(--vx-no-data); border-radius: 2px; overflow: hidden; margin: 2px 0; }
+    .vx-pop .bar > i { display: block; height: 100%; background: var(--vx-ok); transition: width 0.2s linear; }
+    .vx-pop .warn { margin-top: 3px; padding: 2px 5px; background: rgba(201,45,45,0.22); border: 1px solid rgba(201,45,45,0.5); border-radius: var(--agp-radius-sm); color: #F0A0A0; font-size: 9px; line-height: 1.3; }
+
+    .vx-pop .opt {
+      display: flex; align-items: flex-start; gap: 7px;
+      padding: 6px; margin-top: 5px;
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer;
+    }
+    .vx-pop .opt.sel { border-color: var(--vx-ok); background: rgba(74,186,62,0.08); }
+    .vx-pop .opt input { margin-top: 2px; }
+    .vx-pop .opt .ot { font-weight: var(--agp-fw-bold); font-size: 11px; }
+    .vx-pop .opt .od { font-size: 10px; color: var(--agp-text-muted); line-height: 1.3; }
+    .vx-pop .foot {
+      display: flex; justify-content: flex-end; gap: 6px;
+      padding: 6px 9px;
+      background: var(--agp-bg);
+      border-top: 1px solid var(--agp-border);
+    }
+    .vx-pop .foot button {
+      padding: 4px 12px; font-size: 11px;
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-surface);
+      color: var(--agp-text);
+      cursor: pointer;
+    }
+    .vx-pop .foot button.primary {
+      background: var(--vx-ok); color: #0A1A06; border-color: var(--vx-ok);
+      font-weight: var(--agp-fw-bold);
+    }
+    .vx-pop .foot .msg { flex: 1; align-self: center; color: var(--agp-text-muted); font-size: 10px; }
   </style>
 </head>
 <body>
-  <div class="vx-status">
-    <span class="title">VistaX</span>
+  <!-- Topbar mini: label + pill + KPIs + engrane -->
+  <div class="vx-bar">
+    <span class="lbl">VistaX</span>
     <span id="vxPill" class="pill"><span id="vxPillTxt">…</span></span>
+    <div class="kpis">
+      <div class="k"><span class="kl">sem/min</span><span class="kv" id="vxSpm">—</span></div>
+      <div class="k fallas" id="vxFallasBox"><span class="kl">fallas</span><span class="kv" id="vxFallas">0</span></div>
+      <div class="k"><span class="kl">km/h</span><span class="kv" id="vxVel">—</span></div>
+      <button id="vxCfgBtn" class="vx-cfg-btn" title="Método de inicio">⚙</button>
+    </div>
   </div>
 
+  <!-- Strip principal -->
   <div class="vx-strip" id="vxStrip"></div>
 
-  <div class="vx-side">
-    <div class="k"><div class="lbl">sem/min</div><div class="val" id="vxSpm">—</div></div>
-    <div class="k fallas" id="vxFallasBox"><div class="lbl">fallas</div><div class="val" id="vxFallas">0</div></div>
-    <div class="k"><div class="lbl">km/h</div><div class="val" id="vxVel">—</div></div>
+  <!-- Popup mini: detalle de surco (click en chip) -->
+  <div id="vxPopBack" class="vx-pop-back">
+    <div class="vx-pop" id="vxPop">
+      <div class="head">
+        <span class="ttl" id="vxPopTtl">Surco</span>
+        <button class="x" id="vxPopX" title="Cerrar">×</button>
+      </div>
+      <div class="body" id="vxPopBody"></div>
+    </div>
   </div>
 
-  <script src="../js/vistax-live.js"></script>
+  <!-- Popup diagnóstico (click en pill) -->
+  <div id="vxDiagBack" class="vx-pop-back">
+    <div class="vx-pop">
+      <div class="head">
+        <span class="ttl">Estado del monitoreo</span>
+        <button class="x" id="vxDiagX" title="Cerrar">×</button>
+      </div>
+      <div class="body" id="vxDiagBody"></div>
+    </div>
+  </div>
+
+  <!-- Mini-modal: método de inicio de monitoreo -->
+  <div id="vxCfgBack" class="vx-pop-back">
+    <div class="vx-pop">
+      <div class="head">
+        <span class="ttl">Método de inicio</span>
+        <button class="x" id="vxCfgX" title="Cerrar">×</button>
+      </div>
+      <div class="body">
+        <label class="opt" data-m="sensores">
+          <input type="radio" name="vxMet" value="sensores" />
+          <div>
+            <div class="ot">Caída de semilla</div>
+            <div class="od">Arranca cuando varios sensores detectan semilla y la velocidad es &ge; 1 km/h.</div>
+          </div>
+        </label>
+        <label class="opt" data-m="pintando">
+          <input type="radio" name="vxMet" value="pintando" />
+          <div>
+            <div class="ot">Mapeo Activo</div>
+            <div class="od">Arranca cuando alguna sección está pintando y la velocidad es &ge; 0.3 km/h. Se detiene apenas deja de pintar.</div>
+          </div>
+        </label>
+      </div>
+      <div class="foot">
+        <span class="msg" id="vxCfgMsg"></span>
+        <button id="vxCfgCancel">Cancelar</button>
+        <button id="vxCfgSave" class="primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cache-bust del JS: WebView2 cachea agresivamente los assets aunque la
+       URL del HTML traiga ?_t=... Solución: cargamos vistax-live.js
+       dinámicamente con un timestamp único en cada navegación. -->
+  <script>
+    (function () {
+      var s = document.createElement('script');
+      s.src = '../js/vistax-live.js?v=' + Date.now();
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>

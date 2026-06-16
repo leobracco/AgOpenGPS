@@ -1,14 +1,14 @@
 // PilotX-KioskSetup.exe
 // ================================================================================
 // Configura una PC Windows en un tractor para arrancar directamente en AgOpenGPS
-// (modo kiosko): AutoLogon a usuario "pilotx" + Shell de Windows = AgOpenGPS.exe.
+// (modo kiosko): AutoLogon a usuario "pilotx" + Shell de Windows = PilotX.exe.
 //
 // Uso:
 //   PilotX-KioskSetup.exe                 → modo interactivo (pide confirmacion)
 //   PilotX-KioskSetup.exe /yes            → aplica sin preguntar
 //   PilotX-KioskSetup.exe /undo           → revierte (Shell=explorer, AutoLogon=0)
 //   PilotX-KioskSetup.exe /status         → muestra estado actual
-//   PilotX-KioskSetup.exe /aog "C:\path"  → usa este path para AgOpenGPS.exe
+//   PilotX-KioskSetup.exe /aog "C:\path"  → usa este path para PilotX.exe
 //
 // Pensado para una PC en condiciones poco prolijas: detecta y limpia Shells
 // rotos (apuntando a .bat que no existen), lo cual es comun en tractores que
@@ -31,9 +31,9 @@ namespace AgroParallel.PilotX.KioskSetup
         private const string PasswordlessKey = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device";
 
         private static readonly string[] AogCandidates = {
-            @"C:\PilotX\AgOpenGPS.exe",
-            @"C:\Program Files\AgroParallel\PilotX\AgOpenGPS.exe",
-            @"C:\Program Files (x86)\AgroParallel\PilotX\AgOpenGPS.exe",
+            @"C:\PilotX\PilotX.exe",
+            @"C:\Program Files\AgroParallel\PilotX\PilotX.exe",
+            @"C:\Program Files (x86)\AgroParallel\PilotX\PilotX.exe",
         };
 
         private static int Main(string[] args)
@@ -71,7 +71,7 @@ namespace AgroParallel.PilotX.KioskSetup
             string aog = ResolveAog(aogExplicit);
             if (aog == null)
             {
-                WriteErr("No encontre AgOpenGPS.exe en ninguno de:");
+                WriteErr("No encontre PilotX.exe en ninguno de:");
                 foreach (var c in AogCandidates) Console.WriteLine("  - " + c);
                 Console.WriteLine();
                 Console.WriteLine("Pasalo explicito:  PilotX-KioskSetup.exe /aog \"C:\\PilotX\"");
@@ -213,7 +213,7 @@ namespace AgroParallel.PilotX.KioskSetup
                 if (File.Exists(explicitPath)) return explicitPath;
                 if (Directory.Exists(explicitPath))
                 {
-                    string c = Path.Combine(explicitPath, "AgOpenGPS.exe");
+                    string c = Path.Combine(explicitPath, "PilotX.exe");
                     if (File.Exists(c)) return c;
                 }
                 return null;
@@ -223,7 +223,7 @@ namespace AgroParallel.PilotX.KioskSetup
             try
             {
                 string here = Path.GetDirectoryName(typeof(Program).Assembly.Location);
-                string c = Path.Combine(here ?? "", "AgOpenGPS.exe");
+                string c = Path.Combine(here ?? "", "PilotX.exe");
                 if (File.Exists(c)) return c;
             }
             catch { }

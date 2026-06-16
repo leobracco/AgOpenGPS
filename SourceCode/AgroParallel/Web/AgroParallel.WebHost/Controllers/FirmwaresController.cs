@@ -178,6 +178,67 @@ namespace AgroParallel.WebHost.Controllers
             }
         }
 
+        // Streamea el .bin del cache LAN. Esto reemplaza al FirmwareLanServer
+        // (HttpListener http.sys) cuando no hay URL ACL — EmbedIO bindea con
+        // Sockets a 0.0.0.0, así que los ESP32 acceden por LAN sin admin.
+        // URL final que se publica al ESP32 por MQTT (ver
+        // FirmwareOtaClient.BuildFirmwareUrl):
+        //   http://<LAN_IP>:5180/api/firmwares/<producto>/<version>/firmware.bin
+        [Route(HttpVerbs.Get, "/firmwares/{producto}/{version}/firmware.bin")]
+        public async Task Download(string producto, string version)
+        {
+            if (string.IsNullOrEmpty(producto) || !RxProducto.IsMatch(producto))
+            { await WriteError(404, "invalid-producto"); return; }
+            if (string.IsNullOrEmpty(version) || !RxVersion.IsMatch(version))
+            { await WriteError(404, "invalid-version"); return; }
+
+            string prodLo = producto.ToLowerInvariant();
+            OrbitXConfig cfg = SafeLoadOrbitX();
+            string cacheDir = FirmwareMirror.ResolveCacheDir(cfg);
+            string binPath = FirmwareMirror.PathBin(cacheDir, prodLo, version);
+
+            // FlowX publica MQTT en `agp/flow/...` pero el .bin se sube como "flowx".
+            // Si el lookup directo no encuentra, probamos el alias (sufijo "x").
+            if (!File.Exists(binPath))
+            {
+                string prodAlt = prodLo.EndsWith("x")
+                    ? prodLo.Substring(0, prodLo.Length - 1)
+                    : prodLo + "x";
+                string altPath = FirmwareMirror.PathBin(cacheDir, prodAlt, version);
+                if (File.Exists(altPath))
+                {
+                    prodLo = prodAlt;
+                    binPath = altPath;
+                }
+            }
+
+            if (!File.Exists(binPath))
+            { await WriteError(404, "not-found"); return; }
+
+            var info = new FileInfo(binPath);
+            HttpContext.Response.StatusCode = 200;
+            HttpContext.Response.ContentType = "application/octet-stream";
+            HttpContext.Response.ContentLength64 = info.Length;
+            HttpContext.Response.Headers["Cache-Control"] = "no-store";
+            HttpContext.Response.Headers["Content-Disposition"] =
+                $"attachment; filename=\"{prodLo}-{version}.bin\"";
+
+            using (var fs = File.OpenRead(binPath))
+            {
+                await fs.CopyToAsync(HttpContext.Response.OutputStream).ConfigureAwait(false);
+            }
+        }
+
+        private async Task WriteError(int code, string err)
+        {
+            HttpContext.Response.StatusCode = code;
+            HttpContext.Response.ContentType = "application/json";
+            var bytes = System.Text.Encoding.UTF8.GetBytes(
+                JsonSerializer.Serialize(new { ok = false, error = err }));
+            await HttpContext.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length)
+                .ConfigureAwait(false);
+        }
+
         [Route(HttpVerbs.Delete, "/firmwares/{producto}/{version}")]
         public object Delete(string producto, string version)
         {

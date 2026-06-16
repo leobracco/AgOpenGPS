@@ -363,8 +363,15 @@
   var otaSha        = document.getElementById('otaSha');
   var pushStatus    = document.getElementById('pushStatus');
   var saveStatus    = document.getElementById('saveStatus');
+  var salidaProdSel = document.getElementById('salidaProdSel');
+  var salidaProdName = document.getElementById('salidaProdName');
+  var estOnline     = document.getElementById('estOnline');
+  var estFw         = document.getElementById('estFw');
+  var estUptime     = document.getElementById('estUptime');
 
   var currentUid = null;
+  // Índice de la reguladora/producto cuyo PID+actuador se edita en "Salida y barra".
+  var selectedProdIdx = 0;
 
   function findNodo(uid) {
     if (!cfg || !cfg.nodos) return null;
@@ -435,11 +442,25 @@
     if (nodo3wire)  nodo3wire.checked  = !!n.is_3wire;
     if (nodoInv)    nodoInv.checked    = !!n.invert_relay;
     if (nodoInvMotor) nodoInvMotor.checked = !!n.invert_motor;
+    if (selectedProdIdx >= (n.productos || []).length) selectedProdIdx = 0;
     renderProductos(n);
+    renderSalidaProd(n);
     renderCortes(n);
     renderMaster(n);
     renderSec3w(n);
+    renderEstado(n);
     refreshAogHints();
+  }
+
+  // Tarjeta "Estado" del nodo activo: cruza la config con el registry LAN.
+  function renderEstado(n) {
+    if (!estOnline) return;
+    var reg = (nodos || []).find(function (x) { return x && x.uid === n.uid; });
+    var online = !!(reg && reg.online);
+    estOnline.textContent = online ? 'Online' : 'Offline';
+    estOnline.className = 'badge ' + (online ? 'ok' : 'bad');
+    if (estFw)     estFw.textContent     = reg && reg.firmware ? ('· fw ' + reg.firmware) : '';
+    if (estUptime) estUptime.textContent = reg && reg.uptime ? ('· up ' + fmtUptime(reg.uptime)) : '';
   }
 
   // Master: -1 = salida dedicada (firmware), 0 = sin master, 1..nCortes = corte.
@@ -458,40 +479,35 @@
     nodoMaster.innerHTML = html;
   }
 
+  // Tabla slim de reguladoras: identidad + dosis + modo (badge). Los parámetros
+  // de PID/actuador se editan en "Salida y barra" para la reguladora seleccionada.
   function renderProductos(n) {
     if (!tblProductos) return;
     var tbody = tblProductos.querySelector('tbody');
     tbody.innerHTML = '';
     (n.productos || []).forEach(function (p, idx) {
       var tr = document.createElement('tr');
+      tr.setAttribute('data-row', idx);
+      if (idx === selectedProdIdx) tr.className = 'sel';
+      var manualBadge = p.modo_manual
+        ? '<span class="badge warn">Manual</span>'
+        : '<span class="badge ok">Auto</span>';
       tr.innerHTML =
-        '<td><input type="number" min="0" max="1" step="1" data-k="id" value="' + (p.id || 0) + '" style="width:60px" title="0=reg. 1 (principal), 1=reg. 2 (firmware MaxProductCount=2)"></td>' +
-        '<td><input type="text"                   data-k="nombre"    value="' + escapeHtml(p.nombre || '') + '" style="width:140px"></td>' +
-        '<td><select data-k="tipo" style="width:90px" title="Válvula motorizada o motor de bomba">' +
+        '<td><input type="number" min="0" max="1" step="1" data-k="id" value="' + (p.id || 0) + '" style="width:60px" title="0=reg. 1 (principal), 1=reg. 2"></td>' +
+        '<td><input type="text" data-k="nombre" value="' + escapeHtml(p.nombre || '') + '" style="width:160px"></td>' +
+        '<td><select data-k="tipo" style="width:100px" title="Válvula motorizada o motor de bomba">' +
             '<option value="valvula"' + (p.tipo === 'motor' ? '' : ' selected') + '>Válvula</option>' +
             '<option value="motor"'   + (p.tipo === 'motor' ? ' selected' : '') + '>Motor</option>' +
           '</select></td>' +
-        '<td><select data-k="flow_index" style="width:70px" title="Cuál de los 2 caudalímetros lee esta reguladora">' +
+        '<td><select data-k="flow_index" style="width:80px" title="Cuál de los 2 caudalímetros lee esta reguladora">' +
             '<option value="0"' + ((p.flow_index | 0) === 1 ? '' : ' selected') + '>1</option>' +
             '<option value="1"' + ((p.flow_index | 0) === 1 ? ' selected' : '') + '>2</option>' +
           '</select></td>' +
-        '<td><input type="number" step="0.1"      data-k="meter_cal" value="' + (p.meter_cal || 0) + '" style="width:100px"></td>' +
         '<td><input type="number" data-adaptive="dose" data-k="dosis_lha" value="' + (p.dosis_lha || 0) + '" style="width:90px"></td>' +
-        '<td style="text-align:center;"><input type="checkbox" data-k="modo_manual"' + (p.modo_manual ? ' checked' : '') + '></td>' +
-        '<td><input type="number" step="0.1" min="0" data-k="manual_lmin" value="' + (p.manual_lmin || 0) + '" style="width:80px"></td>' +
-        '<td><input type="number" step="0.1" min="0" data-k="paso_lha" value="' + (p.paso_lha != null ? p.paso_lha : 5) + '" style="width:80px"></td>' +
-        '<td><input type="number" step="0.1" min="0" data-k="paso_lmin" value="' + (p.paso_lmin != null ? p.paso_lmin : 1) + '" style="width:80px"></td>' +
-        '<td><input type="number" step="1" min="0" max="4095" data-k="pwm_min"   value="' + (p.pwm_min || 0) + '" style="width:80px" title="PWM al que arranca el PID (12-bit, 0..4095)"></td>' +
-        '<td><input type="number" step="1" min="0" max="4095" data-k="pwm_max"   value="' + (p.pwm_max != null ? p.pwm_max : 4095) + '" style="width:80px" title="PWM máximo del PID (0 ó ≤min = sin techo)"></td>' +
-        '<td><input type="number" data-adaptive="pid"  data-k="kp"        value="' + (p.kp || 0) + '" style="width:70px"></td>' +
-        '<td><input type="number" data-adaptive="pid"  data-k="ki"        value="' + (p.ki || 0) + '" style="width:70px"></td>' +
-        '<td><input type="number" data-adaptive="pid"  data-k="kd"        value="' + (p.kd || 0) + '" style="width:70px"></td>' +
-        '<td style="text-align:center;"><input type="checkbox" data-k="invert_motor"' + (p.invert_motor ? ' checked' : '') + ' title="Invertir sentido de esta reguladora"></td>' +
+        '<td style="text-align:center;">' + manualBadge + '</td>' +
         '<td style="white-space:nowrap;">' +
-          '<button type="button" class="btn" data-act="calibrar" data-idx="' + idx + '" title="Calibrar caudalímetro">Calibrar</button> ' +
-          '<button type="button" class="btn" data-act="autotune" data-idx="' + idx + '" title="Auto-tune PID">Auto-tune</button> ' +
-          '<button type="button" class="btn" data-act="caracterizar" data-idx="' + idx + '" title="Barrido PWM para detectar pwm_min real">Detectar PWM</button> ' +
-          '<button type="button" class="btn" data-act="delete"   data-idx="' + idx + '" style="color:var(--agp-state-bad)">×</button>' +
+          '<button type="button" class="btn" data-act="select" data-idx="' + idx + '" title="Editar PID/actuador de esta reguladora">Editar PID</button> ' +
+          '<button type="button" class="btn" data-act="delete" data-idx="' + idx + '" style="color:var(--agp-state-bad)">×</button>' +
         '</td>';
       tbody.appendChild(tr);
     });
@@ -500,6 +516,66 @@
         window.AGPSteps.attachAdaptive(inp, inp.getAttribute('data-adaptive'));
       });
     }
+  }
+
+  // ---- "Salida y barra": editor de PID/actuador de la reguladora seleccionada ----
+  var DETAIL_KEYS = ['meter_cal', 'pwm_min', 'pwm_max', 'kp', 'ki', 'kd',
+                     'manual_lmin', 'paso_lha', 'paso_lmin', 'modo_manual', 'invert_motor'];
+
+  function detailEls() { return document.querySelectorAll('[data-pk]'); }
+
+  function renderSalidaProd(n) {
+    var list = (n && n.productos) ? n.productos : [];
+    // Dropdown de reguladoras.
+    if (salidaProdSel) {
+      var html = '';
+      list.forEach(function (p, i) {
+        var label = (p.nombre || ('Reg. ' + (i + 1))) + ' (id ' + (p.id || 0) + ')';
+        html += '<option value="' + i + '"' + (i === selectedProdIdx ? ' selected' : '') + '>' + escapeHtml(label) + '</option>';
+      });
+      salidaProdSel.innerHTML = html;
+      salidaProdSel.disabled = list.length === 0;
+    }
+    var p = list[selectedProdIdx] || null;
+    if (salidaProdName) salidaProdName.textContent = p ? (p.nombre || ('reg. ' + (selectedProdIdx + 1))) : '—';
+    detailEls().forEach(function (el) {
+      var k = el.getAttribute('data-pk');
+      el.disabled = !p;
+      if (el.type === 'checkbox') { el.checked = !!(p && p[k]); return; }
+      if (!p) { if (el.tagName === 'SELECT') el.value = '0'; else el.value = ''; return; }
+      if (k === 'modo_manual') el.value = p.modo_manual ? '1' : '0';
+      else {
+        var def = (k === 'pwm_max') ? 4095 : (k === 'paso_lha' ? 5 : (k === 'paso_lmin' ? 1 : 0));
+        el.value = (p[k] != null) ? p[k] : def;
+      }
+    });
+    if (window.AGPSteps) {
+      detailEls().forEach(function (el) {
+        if (el.getAttribute('data-adaptive')) window.AGPSteps.attachAdaptive(el, el.getAttribute('data-adaptive'));
+      });
+    }
+  }
+
+  // Lee el editor de detalle dentro del producto p (mutación in-place).
+  function readSalidaDetail(p) {
+    if (!p) return;
+    detailEls().forEach(function (el) {
+      var k = el.getAttribute('data-pk');
+      if (el.type === 'checkbox') { p[k] = !!el.checked; return; }
+      if (k === 'modo_manual') { p.modo_manual = (el.value === '1'); return; }
+      if (k === 'pwm_min' || k === 'pwm_max') p[k] = parseInt(el.value, 10) || 0;
+      else p[k] = parseFloat(el.value) || 0;
+    });
+  }
+
+  // Cambia la reguladora en edición, conservando lo tipeado en la actual.
+  function selectProducto(n, idx) {
+    var list = (n && n.productos) ? n.productos : [];
+    if (idx < 0 || idx >= list.length) return;
+    if (list[selectedProdIdx]) readSalidaDetail(list[selectedProdIdx]);
+    selectedProdIdx = idx;
+    renderProductos(n);
+    renderSalidaProd(n);
   }
 
   // ============================================================================
@@ -644,26 +720,33 @@
     var prods = [];
     if (tblProductos) {
       var rows = tblProductos.querySelectorAll('tbody tr');
-      rows.forEach(function (tr) {
-        // [data-k] captura inputs Y selects (tipo/flow_index son <select>).
-        var inputs = tr.querySelectorAll('[data-k]');
-        var p = { id: 0, nombre: '', tipo: 'valvula', flow_index: 0, invert_motor: false,
-                  meter_cal: 0, dosis_lha: 0, pwm_min: 0, pwm_max: 4095, kp: 0, ki: 0, kd: 0,
-                  modo_manual: false, manual_lmin: 0, paso_lha: 5, paso_lmin: 1 };
-        inputs.forEach(function (inp) {
+      var existing = n.productos || [];
+      rows.forEach(function (tr, rowIdx) {
+        // Partimos del producto existente para CONSERVAR los campos que ahora
+        // se editan en "Salida y barra" (PID/actuador), no en la tabla slim.
+        var base = existing[rowIdx] || {
+          id: 0, nombre: '', tipo: 'valvula', flow_index: 0, invert_motor: false,
+          meter_cal: 0, dosis_lha: 0, pwm_min: 0, pwm_max: 4095, kp: 0, ki: 0, kd: 0,
+          modo_manual: false, manual_lmin: 0, paso_lha: 5, paso_lmin: 1
+        };
+        var p = {};
+        DETAIL_KEYS.concat(['id', 'nombre', 'tipo', 'flow_index', 'invert_motor', 'dosis_lha'])
+          .forEach(function (k) { p[k] = base[k]; });
+        // Campos slim editables en la tabla.
+        tr.querySelectorAll('[data-k]').forEach(function (inp) {
           var k = inp.getAttribute('data-k');
           if (k === 'nombre' || k === 'tipo') p[k] = inp.value;
-          else if (k === 'modo_manual' || k === 'invert_motor') p[k] = !!inp.checked;
-          else if (k === 'id' || k === 'pwm_min' || k === 'pwm_max' || k === 'flow_index') p[k] = parseInt(inp.value, 10) || 0;
-          else p[k] = parseFloat(inp.value) || 0;
+          else if (k === 'id' || k === 'flow_index') p[k] = parseInt(inp.value, 10) || 0;
+          else p[k] = parseFloat(inp.value) || 0; // dosis_lha
         });
-        // Firmware acepta id ∈ {0,1} (MaxProductCount=2). Clamp acá para que
-        // no se guarden valores que el ESP va a forzar a 0 sin avisar.
+        // Firmware acepta id ∈ {0,1} (MaxProductCount=2).
         if (p.id < 0) p.id = 0;
         if (p.id > 1) p.id = 1;
         prods.push(p);
       });
     }
+    // Volcamos el editor "Salida y barra" en la reguladora seleccionada.
+    if (prods[selectedProdIdx]) readSalidaDetail(prods[selectedProdIdx]);
     n.productos = prods;
 
     // Cables: si el usuario cambió `nodoNumCortes`, re-asignamos automático
@@ -835,7 +918,7 @@
       );
       if (apply) {
         p.meter_cal = Math.round(meterCal * 100) / 100;
-        renderProductos(n);
+        renderSalidaProd(n);
       }
     } catch (e) {
       await showAlert('Calibración fallida', e.message || String(e));
@@ -878,7 +961,7 @@
         p.kp = Number(r.kp) || 0;
         p.ki = Number(r.ki) || 0;
         p.kd = Number(r.kd) || 0;
-        renderProductos(n);
+        renderSalidaProd(n);
       }
     } catch (e) {
       await showAlert('Auto-tune fallido', e.message || String(e));
@@ -937,7 +1020,7 @@
       var apply = await askConfirm('Resultado caracterización', msg);
       if (apply && pwmMinEstab != null && pwmMinEstab > 0) {
         p.pwm_min = pwmMinEstab;
-        renderProductos(n);
+        renderSalidaProd(n);
       }
     } catch (e) {
       await showAlert('Caracterización fallida', e.message || String(e));
@@ -1017,7 +1100,9 @@
       n.productos.forEach(function (p) { if (p.id >= nextId) nextId = p.id + 1; });
       if (nextId > 1) nextId = 1;
       n.productos.push({ id: nextId, nombre: 'Producto ' + (n.productos.length + 1), tipo: 'valvula', flow_index: nextId, invert_motor: false, meter_cal: 100, dosis_lha: 100, pwm_min: 40, pwm_max: 4095, kp: 1, ki: 0.1, kd: 0, modo_manual: false, manual_lmin: 0, paso_lha: 5, paso_lmin: 1 });
+      selectedProdIdx = n.productos.length - 1;
       renderProductos(n);
+      renderSalidaProd(n);
     });
   }
 
@@ -1180,26 +1265,213 @@
 
   if (tblProductos) {
     tblProductos.addEventListener('click', function (e) {
-      var btn = e.target.closest && e.target.closest('button[data-act]');
-      if (!btn) return;
       var n = findNodo(currentUid);
       if (!n) return;
-      var act = btn.getAttribute('data-act');
-      var idx = parseInt(btn.getAttribute('data-idx'), 10);
-      if (isNaN(idx)) return;
-      commitEditorToCfg();
-      if (act === 'delete') {
-        n.productos.splice(idx, 1);
-        renderProductos(n);
-      } else if (act === 'calibrar') {
-        runCalibrar(n, idx);
-      } else if (act === 'autotune') {
-        runAutotune(n, idx);
-      } else if (act === 'caracterizar') {
-        runCaracterizar(n, idx);
+      var btn = e.target.closest && e.target.closest('button[data-act]');
+      if (btn) {
+        var act = btn.getAttribute('data-act');
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        if (isNaN(idx)) return;
+        if (act === 'delete') {
+          commitEditorToCfg();
+          n.productos.splice(idx, 1);
+          if (selectedProdIdx >= n.productos.length) selectedProdIdx = Math.max(0, n.productos.length - 1);
+          renderProductos(n);
+          renderSalidaProd(n);
+        } else if (act === 'select') {
+          selectProducto(n, idx);
+        }
+        return;
+      }
+      // Click en cualquier parte de la fila (fuera de un input) = seleccionar.
+      var tr = e.target.closest && e.target.closest('tr[data-row]');
+      if (tr && !e.target.closest('input,select')) {
+        selectProducto(n, parseInt(tr.getAttribute('data-row'), 10));
       }
     });
   }
+
+  // Dropdown de reguladora en "Salida y barra".
+  if (salidaProdSel) {
+    salidaProdSel.addEventListener('change', function () {
+      var n = findNodo(currentUid);
+      if (!n) return;
+      selectProducto(n, parseInt(salidaProdSel.value, 10) || 0);
+    });
+  }
+
+  // Cambiar el "Modo" (auto/manual) refresca el badge de la tabla al instante.
+  var salModoSel = document.querySelector('select[data-pk="modo_manual"]');
+  if (salModoSel) {
+    salModoSel.addEventListener('change', function () {
+      var n = findNodo(currentUid);
+      if (!n || !n.productos[selectedProdIdx]) return;
+      n.productos[selectedProdIdx].modo_manual = (salModoSel.value === '1');
+      renderProductos(n);
+    });
+  }
+
+  // Botones Calibrar / Auto-tune / Detectar PWM de "Salida y barra".
+  var salidaSection = salidaProdSel ? salidaProdSel.closest('.fx-section') : null;
+  if (salidaSection) {
+    salidaSection.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('button[data-sal-act]');
+      if (!btn) return;
+      var n = findNodo(currentUid);
+      if (!n || !n.productos[selectedProdIdx]) return;
+      commitEditorToCfg();
+      var act = btn.getAttribute('data-sal-act');
+      if (act === 'pwmman') openPwmManual(n, selectedProdIdx);
+      else if (act === 'calibrar') runCalibrar(n, selectedProdIdx);
+      else if (act === 'autotune') runAutotune(n, selectedProdIdx);
+      else if (act === 'caracterizar') runCaracterizar(n, selectedProdIdx);
+    });
+  }
+
+  // ==========================================================================
+  // Modal de búsqueda MANUAL del PWM mínimo. Verbos firmware:
+  //   manual_pwm  {producto_id, value:-4095..+4095}  (>0 abre, <0 cierra)
+  //   manual_stop {producto_id}
+  //   save_pwm_min{producto_id, dir:"pos"|"neg", value:0..4095}
+  // El operario aplica un PWM, observa caudal/pulsos, ajusta y guarda. Nada
+  // automático. El firmware corta el motor a los 4s sin comando, así que
+  // re-aplicamos (heartbeat) cada 1.5s mientras hay un PWM aplicado.
+  // ==========================================================================
+  var pwmBackdrop   = document.getElementById('pwmBackdrop');
+  var pwmProdName   = document.getElementById('pwmProdName');
+  var pwmDirPos     = document.getElementById('pwmDirPos');
+  var pwmDirNeg     = document.getElementById('pwmDirNeg');
+  var pwmValueEl    = document.getElementById('pwmValue');
+  var pwmMinusBtn   = document.getElementById('pwmMinus');
+  var pwmPlusBtn    = document.getElementById('pwmPlus');
+  var pwmApplyBtn   = document.getElementById('pwmApply');
+  var pwmZeroBtn    = document.getElementById('pwmZero');
+  var pwmCloseBtn   = document.getElementById('pwmClose');
+  var pwmSaveBtn    = document.getElementById('pwmSave');
+  var pwmLiveFlow   = document.getElementById('pwmLiveFlow');
+  var pwmLivePwm    = document.getElementById('pwmLivePwm');
+  var pwmLivePulsos = document.getElementById('pwmLivePulsos');
+  var pwmLiveHint   = document.getElementById('pwmLiveHint');
+
+  // pwmCtx: { uid, pid (canal 0/1), prodIdx (índice array), dir, applied, hb, liveHandle }
+  var pwmCtx = null;
+
+  function pwmReadValue() {
+    var v = parseInt(pwmValueEl ? pwmValueEl.value : '0', 10);
+    if (!isFinite(v)) v = 0;
+    return Math.max(0, Math.min(4095, v));
+  }
+  function pwmSigned() {
+    var mag = pwmReadValue();
+    return (pwmCtx && pwmCtx.dir === 'neg') ? -mag : mag;
+  }
+  function pwmSetDir(dir) {
+    if (!pwmCtx) return;
+    pwmCtx.dir = dir;
+    if (pwmDirPos) pwmDirPos.classList.toggle('primary', dir === 'pos');
+    if (pwmDirNeg) pwmDirNeg.classList.toggle('primary', dir === 'neg');
+  }
+  function pwmApplyNow() {
+    if (!pwmCtx) return;
+    pwmCtx.applied = true;
+    sendCmd(pwmCtx.uid, 'manual_pwm', { producto_id: pwmCtx.pid, value: pwmSigned() });
+  }
+  function pwmRenderLive() {
+    if (!pwmCtx) return;
+    var ln = null;
+    if (live && live.nodos) {
+      for (var i = 0; i < live.nodos.length; i++) {
+        if (live.nodos[i].uid === pwmCtx.uid) { ln = live.nodos[i]; break; }
+      }
+    }
+    if (ln && ln.online) {
+      var caudal = Number(ln.caudal_lmin) || 0;
+      if (pwmLiveFlow)   pwmLiveFlow.textContent   = caudal.toFixed(2);
+      if (pwmLivePwm)    pwmLivePwm.textContent    = (ln.pwm != null ? Math.round(ln.pwm) : '—');
+      if (pwmLivePulsos) pwmLivePulsos.textContent = (ln.pulsos != null ? ln.pulsos : '—');
+      if (pwmLiveHint) {
+        if (!pwmCtx.applied) { pwmLiveHint.textContent = 'Listo. Aplicá un PWM para empezar.'; pwmLiveHint.style.color = ''; }
+        else if (caudal > 0.05) { pwmLiveHint.textContent = '✓ Hay caudal — la reguladora abre a este PWM.'; pwmLiveHint.style.color = 'var(--agp-state-ok)'; }
+        else { pwmLiveHint.textContent = 'Sin caudal a este PWM — subí el valor con +.'; pwmLiveHint.style.color = 'var(--agp-state-bad)'; }
+      }
+    } else {
+      if (pwmLiveFlow)   pwmLiveFlow.textContent   = '—';
+      if (pwmLivePwm)    pwmLivePwm.textContent    = '—';
+      if (pwmLivePulsos) pwmLivePulsos.textContent = '—';
+      if (pwmLiveHint)   { pwmLiveHint.textContent = 'Esperando telemetría del nodo…'; pwmLiveHint.style.color = ''; }
+    }
+  }
+  function pwmCleanup(stopMotor) {
+    if (!pwmCtx) return;
+    if (pwmCtx.hb)         clearInterval(pwmCtx.hb);
+    if (pwmCtx.liveHandle) clearInterval(pwmCtx.liveHandle);
+    if (stopMotor) sendCmd(pwmCtx.uid, 'manual_stop', { producto_id: pwmCtx.pid });
+    pwmCtx = null;
+  }
+  function pwmCloseModal(stopMotor) {
+    pwmCleanup(stopMotor);
+    if (pwmBackdrop) pwmBackdrop.classList.remove('show');
+  }
+  function openPwmManual(n, prodIdx) {
+    if (!pwmBackdrop || !n || !n.productos[prodIdx]) return;
+    var p = n.productos[prodIdx];
+    pwmCtx = { uid: n.uid, pid: (p.id | 0), prodIdx: prodIdx, dir: 'pos', applied: false, hb: null, liveHandle: null };
+    if (pwmProdName) pwmProdName.textContent = p.nombre || ('reg. ' + ((p.id | 0) + 1));
+    if (pwmValueEl)  pwmValueEl.value = (p.pwm_min && p.pwm_min > 0) ? p.pwm_min : 200;
+    pwmSetDir('pos');
+    pwmRenderLive();
+    pwmBackdrop.classList.add('show');
+    pwmCtx.hb = setInterval(function () { if (pwmCtx && pwmCtx.applied) pwmApplyNow(); }, 1500);
+    pwmCtx.liveHandle = setInterval(function () {
+      fetch('/api/flowx/live', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (s) { live = s; pwmRenderLive(); })
+        .catch(function () {});
+    }, 700);
+  }
+
+  if (pwmDirPos)   pwmDirPos.addEventListener('click', function () { pwmSetDir('pos'); if (pwmCtx && pwmCtx.applied) pwmApplyNow(); });
+  if (pwmDirNeg)   pwmDirNeg.addEventListener('click', function () { pwmSetDir('neg'); if (pwmCtx && pwmCtx.applied) pwmApplyNow(); });
+  if (pwmMinusBtn) pwmMinusBtn.addEventListener('click', function () { if (pwmValueEl) { pwmValueEl.value = Math.max(0, pwmReadValue() - 5); if (pwmCtx && pwmCtx.applied) pwmApplyNow(); } });
+  if (pwmPlusBtn)  pwmPlusBtn.addEventListener('click', function () { if (pwmValueEl) { pwmValueEl.value = Math.min(4095, pwmReadValue() + 5); if (pwmCtx && pwmCtx.applied) pwmApplyNow(); } });
+  if (pwmApplyBtn) pwmApplyBtn.addEventListener('click', function () { pwmApplyNow(); });
+  if (pwmZeroBtn)  pwmZeroBtn.addEventListener('click', function () { if (pwmCtx) { pwmCtx.applied = false; sendCmd(pwmCtx.uid, 'manual_pwm', { producto_id: pwmCtx.pid, value: 0 }); } });
+  if (pwmCloseBtn) pwmCloseBtn.addEventListener('click', function () { pwmCloseModal(true); });
+  if (pwmBackdrop) pwmBackdrop.addEventListener('click', function (e) { if (e.target === pwmBackdrop) pwmCloseModal(true); });
+  if (pwmSaveBtn)  pwmSaveBtn.addEventListener('click', async function () {
+    if (!pwmCtx) return;
+    var mag = pwmReadValue();
+    var dir = pwmCtx.dir;
+    var prodIdx = pwmCtx.prodIdx;
+    await sendCmd(pwmCtx.uid, 'save_pwm_min', { producto_id: pwmCtx.pid, dir: dir, value: mag });
+    // El piso "abrir" (pos) es el pwm_min del PID que edita la UI. Además de
+    // guardarlo en el nodo, hay que reflejarlo en el campo Y PERSISTIRLO a
+    // flowX.json: si no, el bridge sigue reenviando el pwm_min viejo en cada
+    // target (~200ms) y pisa lo que el nodo acaba de guardar, y al recargar la
+    // página el campo vuelve al valor de disco. (El sentido "cerrar"/neg va a
+    // pwm_min_neg, que el bridge no toca y la UI no edita, así que no se persiste.)
+    var n = findNodo(pwmCtx.uid);
+    if (dir === 'pos' && n && n.productos[prodIdx]) {
+      n.productos[prodIdx].pwm_min = mag;
+      if (prodIdx === selectedProdIdx) renderSalidaProd(n);
+    }
+    pwmCloseModal(true);
+    if (dir === 'pos') await saveCfg(); // commit editor + POST /api/flowx/config
+    await showAlert('PWM mínimo guardado',
+      'Se guardó pwm_min ' + (dir === 'pos' ? '(abrir)' : '(cerrar)') + ' = ' + mag +
+      (dir === 'pos' ? ' en el nodo y en la configuración.' : ' en el nodo.'));
+  });
+
+  // ===== Pestañas de Configuración =====
+  var fxTabs = document.querySelectorAll('.fx-tab');
+  var fxPanes = document.querySelectorAll('.fx-pane');
+  function showTab(name) {
+    fxTabs.forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-fxtab') === name); });
+    fxPanes.forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-fxpane') === name); });
+  }
+  fxTabs.forEach(function (t) {
+    t.addEventListener('click', function () { showTab(t.getAttribute('data-fxtab')); });
+  });
 
 
   if (btnSaveCfg) btnSaveCfg.addEventListener('click', saveCfg);

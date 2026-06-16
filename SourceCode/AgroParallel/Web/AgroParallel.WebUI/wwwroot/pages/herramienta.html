@@ -190,6 +190,34 @@
       <div id="catDesc" class="help" style="margin-top: var(--agp-sp-1)"></div>
     </div>
 
+    <!-- ====================== CATÁLOGO DE OTRA MAQUINARIA ====================== -->
+    <div class="card" style="margin-bottom: var(--agp-sp-3);">
+      <h3 style="margin-top:0">Otra maquinaria</h3>
+      <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+        Cosechadora, pulverizadora o fertilizadora. Elegí tipo, marca y modelo y
+        tocá "Aplicar". Se carga el ancho de labor y la cantidad de secciones.
+        Esto reemplaza la geometría de sembradora (surcos/trenes) del implemento activo.
+      </p>
+      <div style="display:flex; gap: var(--agp-sp-2); align-items:flex-end; flex-wrap: wrap;">
+        <div class="field" style="min-width: 180px">
+          <label>Tipo</label>
+          <select id="maqTipo" style="min-height: var(--agp-touch-min)"></select>
+        </div>
+        <div class="field" style="min-width: 200px">
+          <label>Marca</label>
+          <select id="maqMarca" style="min-height: var(--agp-touch-min)"></select>
+        </div>
+        <div class="field" style="min-width: 240px">
+          <label>Modelo</label>
+          <select id="maqModelo" style="min-height: var(--agp-touch-min)"></select>
+        </div>
+        <button class="btn primary" id="btnAplicarMaquina" type="button"
+                style="min-height: var(--agp-touch-min)">Aplicar</button>
+      </div>
+      <div id="maqChips" style="margin-top: var(--agp-sp-2); display:flex; flex-wrap: wrap; gap: 6px;"></div>
+      <div id="maqDesc" class="help" style="margin-top: var(--agp-sp-1)"></div>
+    </div>
+
     <!-- ====================== BARRA DE IMPLEMENTOS (CRUD) ====================== -->
     <div class="card" style="margin-bottom: var(--agp-sp-3);">
       <div class="page-head" style="margin:0; gap: var(--agp-sp-2); flex-wrap: wrap;">

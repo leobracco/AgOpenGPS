@@ -86,6 +86,13 @@ namespace AgroParallel.OrbitX
 
         public void Start()
         {
+            // El mirror LAN de firmwares es INDEPENDIENTE del sync con OrbitX
+            // cloud — el técnico de campo puede flashear sin internet siempre
+            // que haya subido el .bin al cache local (POST /api/firmwares/upload).
+            // Antes esto colgaba del early-return de _cfg.Enabled y dejaba el
+            // server :8088 sin levantar.
+            StartFirmwareMirror();
+
             if (IsRunning || !_cfg.Enabled)
             {
                 Trace("Start abortado — IsRunning=" + IsRunning + " Enabled=" + _cfg.Enabled);
@@ -121,6 +128,7 @@ namespace AgroParallel.OrbitX
         private void StartFirmwareMirror()
         {
             if (!_cfg.FirmwareMirrorEnabled) return;
+            if (_firmwareServer != null) return; // ya arrancado (Start() llamado dos veces)
 
             _firmwareServer = new FirmwareLanServer(_cfg, msg => Trace(msg));
             _firmwareServer.Start();
@@ -228,6 +236,8 @@ namespace AgroParallel.OrbitX
                 if (_cfg.SyncVistaX) EnqueueVistaXFiles();
                 if (_cfg.SyncQuantiX) EnqueueQuantiXFiles();
                 if (_cfg.SyncSectionX) EnqueueSectionXFiles();
+                if (_cfg.SyncFlowX) EnqueueFlowXFiles();
+                if (_cfg.SyncStormX) EnqueueStormXFiles();
                 if (_cfg.SyncAOG) EnqueueAOGFiles();
 
                 // Subir cola.
@@ -289,6 +299,25 @@ namespace AgroParallel.OrbitX
         {
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             EnqueueIfChanged(Path.Combine(baseDir, "sectionX.json"), "sectionx/sectionX.json", "sectionx_config", "sectionx");
+        }
+
+        // FlowX: pulverización con bomba central y dosis por sección. Por ahora
+        // sólo encolamos el config (flowX.json) — el bridge no persiste calibraciones
+        // ni telemetría a disco. Cuando se sumen logs/NDJSON de caudal vs target
+        // se agregan acá con el mismo patrón.
+        private void EnqueueFlowXFiles()
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            EnqueueIfChanged(Path.Combine(baseDir, "flowX.json"), "flowx/flowX.json", "flowx_config", "flowx");
+        }
+
+        // StormX: estación meteo móvil. Firmware aún sin MQTT publishing — el config
+        // ya se persiste y conviene sincronizarlo igual para tener la URL/IP/topics
+        // del nodo en la nube cuando el firmware esté.
+        private void EnqueueStormXFiles()
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            EnqueueIfChanged(Path.Combine(baseDir, "stormX.json"), "stormx/stormX.json", "stormx_config", "stormx");
         }
 
         private void EnqueueAOGFiles()
@@ -705,7 +734,9 @@ namespace AgroParallel.OrbitX
                         {
                             { "vistax", _cfg.SyncVistaX },
                             { "quantix", _cfg.SyncQuantiX },
-                            { "sectionx", _cfg.SyncSectionX }
+                            { "sectionx", _cfg.SyncSectionX },
+                            { "flowx", _cfg.SyncFlowX },
+                            { "stormx", _cfg.SyncStormX }
                         }
                     }
                 };

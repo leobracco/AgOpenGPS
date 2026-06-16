@@ -72,7 +72,12 @@ namespace AgroParallel.Common
             if (string.IsNullOrWhiteSpace(pagePath))
                 throw new ArgumentException("pagePath requerido", nameof(pagePath));
 
-            _url = hubBaseUrl.TrimEnd('/') + "/" + pagePath.TrimStart('/');
+            // Cache-bust: el WebView2 cachea agresivamente el HTML aunque EmbedIO
+            // mande no-cache. Con un query param único por sesión nos aseguramos
+            // que cada arranque trae la última versión del strip/stats.
+            var sep = pagePath.IndexOf('?') >= 0 ? "&" : "?";
+            _url = hubBaseUrl.TrimEnd('/') + "/" + pagePath.TrimStart('/')
+                 + sep + "_t=" + DateTime.UtcNow.Ticks;
             _minSize = new Size(
                 Math.Max(120, minSize.Width),
                 Math.Max(60 + DragBarHeight, minSize.Height + DragBarHeight));

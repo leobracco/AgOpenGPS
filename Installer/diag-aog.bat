@@ -4,7 +4,7 @@ REM Uso: doble click, o   diag-aog.bat   en CMD.
 
 setlocal EnableDelayedExpansion
 
-set AOG=C:\Program Files\AgroParallel\Piloto\AgOpenGPS.exe
+set AOG=C:\Program Files\AgroParallel\Piloto\PilotX.exe
 set DIR=C:\Program Files\AgroParallel\Piloto
 
 echo === Diagnostico AgOpenGPS ===

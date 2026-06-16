@@ -2,6 +2,7 @@
 // Independiente de IOrbitXSyncService para que la UI HTML pueda
 // editar la config aunque el syncer no esté corriendo (ej. wizard inicial).
 
+using System;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 
@@ -11,6 +12,15 @@ namespace AgroParallel.Services.Abstractions
     {
         OrbitXConfigDto Load();
         void Save(OrbitXConfigDto dto);
+
+        /// <summary>
+        /// Se dispara DESPUÉS de persistir orbitX.json (Save / claim de pairing /
+        /// ResetPairing). FormGPS se suscribe para llamar ReloadOrbitXSync() y
+        /// arrancar/parar el syncer en caliente — sin este evento, activar o
+        /// vincular OrbitX desde la UI dejaba el flag en true pero el heartbeat
+        /// nunca arrancaba hasta reiniciar PilotX (device figuraba offline).
+        /// </summary>
+        event Action ConfigSaved;
 
         /// <summary>Snapshot para el dashboard (último sync, cloud conectado, etc).</summary>
         OrbitXStatus GetStatus();

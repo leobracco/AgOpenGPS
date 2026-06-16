@@ -239,6 +239,7 @@ namespace AgroParallel.WebHost.Controllers
             //  · AnchoTotalM (lo decide el operario o sale de la geometría AOG)
             //  · OverlapM / HitchLengthM / lookaheads (config de PilotX)
             //  · Trenes / Surcos / Secciones (estructura ya armada)
+            dto.Categoria = "sembradora";
             dto.Marca = tpl.Marca;
             dto.Modelo = tpl.Modelo;
             dto.TipoCultivo = tpl.TipoCultivo;
@@ -298,6 +299,74 @@ namespace AgroParallel.WebHost.Controllers
                 }
                 dto.NumeroSurcos = tpl.NumeroSurcos;
             }
+
+            bool ok = _svc.SaveImplemento(dto);
+            await WriteJson(new { ok = ok, slug = _svc.GetActiveSlug(), implemento = dto });
+        }
+
+        // ---- Catálogo de OTRA maquinaria (cosechadora/pulverizadora/fertilizadora) ----
+        // GET  /api/catalogo/maquinas → tipos → marcas → modelos
+        // POST /api/implemento/aplicar-maquina {categoria, marca, modelo}
+        //       → setea ancho de labor + secciones + categoría/marca/modelo y
+        //         limpia la estructura de sembradora (surcos/trenes/torres).
+
+        [Route(HttpVerbs.Get, "/catalogo/maquinas")]
+        public async Task GetCatalogoMaquinas()
+        {
+            await WriteJson(new
+            {
+                ok = true,
+                tipos = MaquinasCatalog.GroupedByTipo()
+            });
+        }
+
+        [Route(HttpVerbs.Post, "/implemento/aplicar-maquina")]
+        public async Task AplicarMaquina()
+        {
+            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
+            string body = await ReadBody();
+            string categoria = "", marca = "", modelo = "";
+            try
+            {
+                using (var doc = System.Text.Json.JsonDocument.Parse(body))
+                {
+                    if (doc.RootElement.TryGetProperty("categoria", out var ec)) categoria = ec.GetString() ?? "";
+                    if (doc.RootElement.TryGetProperty("marca", out var em)) marca = em.GetString() ?? "";
+                    if (doc.RootElement.TryGetProperty("modelo", out var emo)) modelo = emo.GetString() ?? "";
+                }
+            }
+            catch { await WriteJson(new { ok = false, error = "bad-json" }); return; }
+
+            var tpl = MaquinasCatalog.Find(categoria, marca, modelo);
+            if (tpl == null) { await WriteJson(new { ok = false, error = "template-not-found" }); return; }
+
+            var dto = _svc.GetImplemento();
+            if (dto == null) dto = new ImplementoDto();
+
+            // Identidad + ancho de labor (dato principal del catálogo de máquinas).
+            dto.Categoria = tpl.Categoria;
+            dto.Marca = tpl.Marca;
+            dto.Modelo = tpl.Modelo;
+            dto.AnchoTotalM = tpl.AnchoLaborM;
+
+            // Las máquinas no sembradoras no tienen surcos/torres ni dosificador
+            // de siembra: limpiamos esa estructura para que la página no muestre
+            // datos de sembradora que no aplican.
+            dto.NumeroSurcos = 0;
+            dto.Surcos = new List<SurcoDto>();
+            dto.Trenes = new List<TrenDto> { new TrenDto { Id = 1, Nombre = "Tren único", DistanciaM = 0 } };
+            dto.NumeroTorres = 0;
+            dto.TipoCultivo = "";
+            dto.TipoSiembra = "";
+            dto.TipoDosificador = "";
+            dto.TipoEstructura = "";
+            dto.TieneFertilizacion = (tpl.Categoria == "fertilizadora");
+
+            // Secciones: una por sección de corte del modelo (mínimo 1).
+            int n = tpl.NumeroSecciones > 0 ? tpl.NumeroSecciones : 1;
+            dto.Secciones = new List<SeccionDto>();
+            for (int i = 1; i <= n; i++)
+                dto.Secciones.Add(new SeccionDto { Id = i, Nombre = "Sección " + i });
 
             bool ok = _svc.SaveImplemento(dto);
             await WriteJson(new { ok = ok, slug = _svc.GetActiveSlug(), implemento = dto });

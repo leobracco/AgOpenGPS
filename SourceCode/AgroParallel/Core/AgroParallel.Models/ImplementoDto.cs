@@ -167,6 +167,16 @@ namespace AgroParallel.Models
         //  · SectionX: queda redundante si LineX está activo.
         //  · VistaX:   usa NumeroTorres para auto-paquetar sensores por torre.
 
+        /// <summary>
+        /// Tipo de máquina: "sembradora" (default) | "cosechadora" |
+        /// "pulverizadora" | "fertilizadora". Lo setea el catálogo al aplicar
+        /// una plantilla. Vacío en implementos viejos = se trata como sembradora.
+        /// La UI lo usa para mostrar los campos que aplican a cada máquina; los
+        /// surcos/trenes/torres solo tienen sentido en sembradoras.
+        /// </summary>
+        [JsonPropertyName("categoria")]
+        public string Categoria { get; set; } = "";
+
         [JsonPropertyName("marca")]
         public string Marca { get; set; } = "";
 

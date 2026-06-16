@@ -8,7 +8,7 @@ ningún host concreto.
 Este README es el contrato. Mientras se respete, podemos hostear estos
 servicios desde **cualquier shell**:
 
-- Hoy: `AgOpenGPS.exe` (net48 + WinForms) → adapters en `SourceCode/GPS/AgroParallel/Common/FormGps*.cs`
+- Hoy: `PilotX.exe` (net48 + WinForms) → adapters en `SourceCode/GPS/AgroParallel/Common/FormGps*.cs`
 - Mañana: shell Avalonia (`AgroParallel.Shell.Avalonia`, net10 + Avalonia 11) → adapters propios
 - Futuro: cualquier headless / test runner / CLI
 

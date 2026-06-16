@@ -25,6 +25,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
@@ -120,6 +121,10 @@ public partial class VistaXPanel : UserControl
 
         var live = _live;
         var trenes = live?.Trenes ?? new List<VistaXTrenLive>();
+        // Cuando el back dice "no estamos sensando" (sembradora levantada,
+        // velocidad <1 km/h o menos de UmbralSensoresActivos surcos con SPM>0)
+        // forzamos todos los sensores a gris. Respeta el contrato de SeedMonitor.
+        bool monActivo = live != null && live.MonitoreoActivo;
 
         // Subtitle (impl + tolerancia)
         string impName = string.IsNullOrEmpty(live?.NombreImplemento) ? "--" : live!.NombreImplemento!;
@@ -212,7 +217,7 @@ public partial class VistaXPanel : UserControl
             {
                 if (emptyHint != null) emptyHint.IsVisible = false;
                 foreach (var tr in trenes)
-                    trenesHost.Children.Add(BuildTrenSection(tr));
+                    trenesHost.Children.Add(BuildTrenSection(tr, monActivo));
             }
         }
 
@@ -254,7 +259,7 @@ public partial class VistaXPanel : UserControl
         return b;
     }
 
-    private Control BuildTrenSection(VistaXTrenLive tr)
+    private Control BuildTrenSection(VistaXTrenLive tr, bool monActivo)
     {
         var outer = new StackPanel { Spacing = 8 };
 
@@ -304,7 +309,16 @@ public partial class VistaXPanel : UserControl
             });
             var wrap = new WrapPanel { Orientation = Orientation.Horizontal };
             foreach (var s in tubitos)
-                wrap.Children.Add(BuildSensorCell(s, tr.Objetivo));
+            {
+                var sensorClosure = s;
+                var cell = BuildSensorCell(sensorClosure, tr.Objetivo, monActivo);
+                cell.Cursor = new Cursor(StandardCursorType.Hand);
+                // Tapped es el evento "click/touch" de alto nivel de Avalonia:
+                // se dispara tras Pointer{Press,Release} en el mismo control
+                // y NO es interferido por hijos con Background (el "tube" lo era).
+                cell.Tapped += (_, e) => { e.Handled = true; ShowSensorDetail(sensorClosure, tr.Objetivo, tr, monActivo); };
+                wrap.Children.Add(cell);
+            }
             outer.Children.Add(wrap);
         }
 
@@ -325,7 +339,13 @@ public partial class VistaXPanel : UserControl
             });
             var stack = new StackPanel { Spacing = 6 };
             foreach (var s in barras)
-                stack.Children.Add(BuildSensorBar(s, tr.Objetivo));
+            {
+                var sensorClosure = s;
+                var bar = BuildSensorBar(sensorClosure, tr.Objetivo, monActivo);
+                bar.Cursor = new Cursor(StandardCursorType.Hand);
+                bar.Tapped += (_, e) => { e.Handled = true; ShowSensorDetail(sensorClosure, tr.Objetivo, tr, monActivo); };
+                stack.Children.Add(bar);
+            }
             outer.Children.Add(stack);
         }
 
@@ -340,44 +360,56 @@ public partial class VistaXPanel : UserControl
         };
     }
 
-    private static Control BuildSensorCell(VistaXSurcoLive s, double objTren)
+    private static Control BuildSensorCell(VistaXSurcoLive s, double objTren, bool monActivo)
     {
         var st = NormalizeEstado(s.Estado);
         double sp = s.Spm;
         double obj = s.Objetivo > 0 ? s.Objetivo : objTren;
 
         IBrush tubeBrush;
-        switch (st)
-        {
-            case "ok":     tubeBrush = _brushOk;     break;
-            case "tapado": tubeBrush = _brushTapado; break;
-            case "exceso": tubeBrush = _brushExceso; break;
-            case "muted":  tubeBrush = _brushMuted;  break;
-            case "no-data": tubeBrush = _brushNoData; break;
-            case "bajo":
-            {
-                // gradiente manual negro->ok segun ratioObjetivo (replica del JS)
-                double r = Math.Max(0.0, Math.Min(1.0, s.RatioObjetivo));
-                int g  = (int)Math.Round(0x4B * r);
-                int rr = (int)Math.Round(0x05 + (0x40 - 0x05) * r);
-                int bb = (int)Math.Round(0x05 + (0x18 - 0x05) * r);
-                tubeBrush = new SolidColorBrush(Color.FromRgb((byte)rr, (byte)(g + 0x0A), (byte)bb));
-                break;
-            }
-            default: tubeBrush = _brushNoData; break;
-        }
-
         string label;
         IBrush labelBrush;
-        switch (st)
+
+        if (!monActivo)
         {
-            case "no-data": label = "sin señal";     labelBrush = _textDim;  break;
-            case "tapado":  label = "TAPADO";        labelBrush = _brushErr; break;
-            case "bajo":    label = "bajo objetivo"; labelBrush = _brushErr; break;
-            case "exceso":  label = "exceso";        labelBrush = _brushWarn; break;
-            case "muted":   label = "silenciado";    labelBrush = _textDim;  break;
-            case "ok":      label = "sem/min";       labelBrush = _brushOk;  break;
-            default:        label = "sem/min";       labelBrush = _textDim;  break;
+            // Sembradora no esta sembrando segun SeedMonitor (sin velocidad o
+            // sin minimo de sensores activos). Todo gris, sin alarma por sensor.
+            tubeBrush  = _brushMuted;
+            label      = "OFF";
+            labelBrush = _textDim;
+        }
+        else
+        {
+            switch (st)
+            {
+                case "ok":      tubeBrush = _brushOk;     break;
+                case "tapado":  tubeBrush = _brushTapado; break;
+                case "exceso":  tubeBrush = _brushExceso; break;
+                case "muted":   tubeBrush = _brushMuted;  break;
+                case "no-data": tubeBrush = _brushNoData; break;
+                case "bajo":
+                {
+                    // gradiente manual negro->ok segun ratioObjetivo (replica del JS)
+                    double r = Math.Max(0.0, Math.Min(1.0, s.RatioObjetivo));
+                    int g  = (int)Math.Round(0x4B * r);
+                    int rr = (int)Math.Round(0x05 + (0x40 - 0x05) * r);
+                    int bb = (int)Math.Round(0x05 + (0x18 - 0x05) * r);
+                    tubeBrush = new SolidColorBrush(Color.FromRgb((byte)rr, (byte)(g + 0x0A), (byte)bb));
+                    break;
+                }
+                default: tubeBrush = _brushNoData; break;
+            }
+
+            switch (st)
+            {
+                case "no-data": label = "sin señal";     labelBrush = _textDim;  break;
+                case "tapado":  label = "TAPADO";        labelBrush = _brushErr; break;
+                case "bajo":    label = "bajo objetivo"; labelBrush = _brushErr; break;
+                case "exceso":  label = "exceso";        labelBrush = _brushWarn; break;
+                case "muted":   label = "silenciado";    labelBrush = _textDim;  break;
+                case "ok":      label = "sem/min";       labelBrush = _brushOk;  break;
+                default:        label = "sem/min";       labelBrush = _textDim;  break;
+            }
         }
 
         string spmTxt = sp >= 100 ? sp.ToString("0", CultureInfo.InvariantCulture)
@@ -395,7 +427,10 @@ public partial class VistaXPanel : UserControl
             CornerRadius = new global::Avalonia.CornerRadius(6),
             HorizontalAlignment = HorizontalAlignment.Center,
         };
-        if (s.Muted)
+        // Cuando monActivo=false todo el monitor esta apagado: omitimos el
+        // tag MUTE individual para no confundir (la franja gris ya transmite
+        // "off" y el detalle del sensor sigue exponiendo Muted=true al tocarlo).
+        if (s.Muted && monActivo)
         {
             // overlay "MUTE" leyenda chiquita
             var muteTag = new TextBlock
@@ -463,7 +498,7 @@ public partial class VistaXPanel : UserControl
         };
     }
 
-    private static Control BuildSensorBar(VistaXSurcoLive s, double objTren)
+    private static Control BuildSensorBar(VistaXSurcoLive s, double objTren, bool monActivo)
     {
         var st = NormalizeEstado(s.Estado);
         double sp = s.Spm;
@@ -475,15 +510,25 @@ public partial class VistaXPanel : UserControl
         string nombreTipo = PrettifyTipo(s.Tipo);
         string estadoTxt;
         IBrush estadoBrush;
-        switch (st)
+        if (!monActivo)
         {
-            case "no-data": estadoTxt = "sin señal";  estadoBrush = _textDim;  break;
-            case "tapado":  estadoTxt = "TAPADO";     estadoBrush = _brushErr; break;
-            case "bajo":    estadoTxt = "BAJO";       estadoBrush = _brushErr; break;
-            case "exceso":  estadoTxt = "EXCESO";     estadoBrush = _brushWarn; break;
-            case "muted":   estadoTxt = "silenciado"; estadoBrush = _textDim;  break;
-            case "ok":      estadoTxt = "OK";         estadoBrush = _brushOk;  break;
-            default:        estadoTxt = "--";         estadoBrush = _textDim;  break;
+            // Mismo principio que las celdas: en off forzamos gris.
+            estadoTxt   = "OFF";
+            estadoBrush = _textDim;
+            ratio       = 0;
+        }
+        else
+        {
+            switch (st)
+            {
+                case "no-data": estadoTxt = "sin señal";  estadoBrush = _textDim;  break;
+                case "tapado":  estadoTxt = "TAPADO";     estadoBrush = _brushErr; break;
+                case "bajo":    estadoTxt = "BAJO";       estadoBrush = _brushErr; break;
+                case "exceso":  estadoTxt = "EXCESO";     estadoBrush = _brushWarn; break;
+                case "muted":   estadoTxt = "silenciado"; estadoBrush = _textDim;  break;
+                case "ok":      estadoTxt = "OK";         estadoBrush = _brushOk;  break;
+                default:        estadoTxt = "--";         estadoBrush = _textDim;  break;
+            }
         }
 
         string valTxt = sp >= 100 ? sp.ToString("0", CultureInfo.InvariantCulture)
@@ -674,5 +719,137 @@ public partial class VistaXPanel : UserControl
     private void OnConfigurarClick(object? sender, RoutedEventArgs e)
     {
         OnRequestConfigurar?.Invoke();
+    }
+
+    // ---------- detalle de un solo sensor ----------------------------------
+
+    /// <summary>
+    /// Abre el overlay con la informacion completa del sensor tocado.
+    /// El cuerpo se reconstruye en cada apertura (no hay binding) — es info
+    /// puntual de un evento de toque, no se actualiza mientras esta abierto.
+    /// </summary>
+    private void ShowSensorDetail(VistaXSurcoLive s, double objTren, VistaXTrenLive tr, bool monActivo)
+    {
+        var overlay  = this.FindControl<Border>("DetailOverlay");
+        var title    = this.FindControl<TextBlock>("DetailTitle");
+        var subtitle = this.FindControl<TextBlock>("DetailSubtitle");
+        var body     = this.FindControl<StackPanel>("DetailBody");
+        var footer   = this.FindControl<TextBlock>("DetailFooter");
+        if (overlay == null || title == null || subtitle == null || body == null || footer == null) return;
+
+        string trenNombre = string.IsNullOrEmpty(tr.Nombre)
+            ? "Tren " + tr.Tren.ToString(CultureInfo.InvariantCulture)
+            : tr.Nombre!;
+        string bajadaStr  = s.Bajada != 0 ? "B" + s.Bajada.ToString(CultureInfo.InvariantCulture) : "—";
+        string tipoStr    = PrettifyTipo(s.Tipo);
+
+        title.Text    = tipoStr + " · " + bajadaStr;
+        subtitle.Text = trenNombre + (s.Cable != 0 ? " · cable " + s.Cable.ToString(CultureInfo.InvariantCulture) : "");
+
+        var stReal = NormalizeEstado(s.Estado);
+        string estadoLabel;
+        IBrush estadoBrush;
+        if (!monActivo)
+        {
+            estadoLabel = "OFF (sembradora no está sembrando)";
+            estadoBrush = _textDim;
+        }
+        else
+        {
+            switch (stReal)
+            {
+                case "ok":      estadoLabel = "OK";         estadoBrush = _brushOk;     break;
+                case "tapado":  estadoLabel = "TAPADO";     estadoBrush = _brushErr;    break;
+                case "bajo":    estadoLabel = "BAJO";       estadoBrush = _brushErr;    break;
+                case "exceso":  estadoLabel = "EXCESO";     estadoBrush = _brushWarn;   break;
+                case "muted":   estadoLabel = "silenciado"; estadoBrush = _textDim;     break;
+                case "no-data": estadoLabel = "sin señal";  estadoBrush = _textDim;     break;
+                default:        estadoLabel = stReal;       estadoBrush = _textDim;     break;
+            }
+        }
+
+        double obj = s.Objetivo > 0 ? s.Objetivo : objTren;
+        double ratio = obj > 0 ? Math.Max(0.0, Math.Min(1.3, s.Spm / obj)) : 0.0;
+
+        body.Children.Clear();
+
+        // Estado grande
+        body.Children.Add(BuildDetailRow("Estado", estadoLabel, estadoBrush, big: true));
+
+        // SPM real + Objetivo
+        string spmTxt = s.Spm.ToString(s.Spm >= 100 ? "0" : "0.0", CultureInfo.InvariantCulture);
+        body.Children.Add(BuildDetailRow("Lectura actual",
+            spmTxt + " sem/min",
+            monActivo ? _textHi : _textDim,
+            big: true));
+        body.Children.Add(BuildDetailRow("Objetivo",
+            (obj > 0 ? obj.ToString("0", CultureInfo.InvariantCulture) + " sem/min" : "—"),
+            _textHi));
+        // Barra ratio
+        body.Children.Add(BuildBar(monActivo ? Math.Min(1.0, ratio) : 0, estadoBrush));
+
+        // Metadata
+        body.Children.Add(BuildDetailRow("Tipo",   tipoStr, _textMid));
+        body.Children.Add(BuildDetailRow("Bajada", bajadaStr, _textMid));
+        body.Children.Add(BuildDetailRow("Cable",  s.Cable != 0 ? s.Cable.ToString(CultureInfo.InvariantCulture) : "—", _textMid));
+        body.Children.Add(BuildDetailRow("Nodo UID", string.IsNullOrEmpty(s.Uid) ? "—" : s.Uid!, _textMid));
+        body.Children.Add(BuildDetailRow("Silenciado", s.Muted ? "sí" : "no",
+            s.Muted ? _brushMuted : _textMid));
+
+        footer.Text = monActivo
+            ? "Datos en vivo · /api/vistax/live · 2 Hz. Tocá fuera o presioná Esc para cerrar."
+            : "Monitor detenido: el back marca MonitoreoActivo=false (velocidad <1 km/h, sembradora levantada o menos del umbral de sensores). Al arrancar, los sensores se encienden solos.";
+
+        overlay.IsVisible = true;
+        // Si la ventana no tiene foco para Escape, igual el backdrop cubre todo.
+        Focus();
+    }
+
+    private static Control BuildDetailRow(string label, string value, IBrush valueBrush, bool big = false)
+    {
+        var g = new Grid();
+        g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+        g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        var lab = new TextBlock
+        {
+            Text = label,
+            Foreground = _textDim,
+            FontSize = big ? 12 : 11,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var val = new TextBlock
+        {
+            Text = value,
+            Foreground = valueBrush,
+            FontSize = big ? 20 : 13,
+            FontWeight = big ? FontWeight.Bold : FontWeight.SemiBold,
+            FontFamily = big ? new FontFamily("Consolas, Courier New, monospace") : FontFamily.Default,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(lab, 0);
+        Grid.SetColumn(val, 1);
+        g.Children.Add(lab);
+        g.Children.Add(val);
+        return g;
+    }
+
+    private void OnDetailBackdropPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var overlay = this.FindControl<Border>("DetailOverlay");
+        if (overlay != null) overlay.IsVisible = false;
+    }
+
+    private void OnDetailCardPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // Absorbo el evento para que no burbujee al backdrop y cierre el overlay
+        // cuando el operario toca dentro de la tarjeta.
+        e.Handled = true;
+    }
+
+    private void OnDetailCloseClick(object? sender, RoutedEventArgs e)
+    {
+        var overlay = this.FindControl<Border>("DetailOverlay");
+        if (overlay != null) overlay.IsVisible = false;
     }
 }

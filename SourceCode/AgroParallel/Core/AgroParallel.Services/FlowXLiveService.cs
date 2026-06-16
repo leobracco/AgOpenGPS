@@ -41,6 +41,7 @@ namespace AgroParallel.Services
             public double TargetLmin;
             public double ErrorLmin;
             public int Pwm;
+            public long Pulsos;
             public string PidEstado;
             public DateTime LastTs;
         }
@@ -53,6 +54,14 @@ namespace AgroParallel.Services
             new Dictionary<string, FxTuneResultDto>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, FxCalibrarResultDto> _calibrar =
             new Dictionary<string, FxCalibrarResultDto>(StringComparer.OrdinalIgnoreCase);
+
+        // Caracterización: guardamos el JSON crudo tal cual lo emite el firmware
+        // (payload de agp/flow/<uid>/caracterizar_result). La curva pwm/hz se
+        // muestra en la UI sin necesidad de tipar un DTO específico — el
+        // resultado es informativo (el operario decide si copia pwm_min al
+        // campo de configuración).
+        private readonly Dictionary<string, string> _char =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // Timeout para considerar un nodo online.
         private const int TimeoutMs = 3000;
@@ -82,6 +91,7 @@ namespace AgroParallel.Services
             _ = _nodos.SubscribeAsync("agp/flow/+/status_live");
             _ = _nodos.SubscribeAsync("agp/flow/+/autotune_result");
             _ = _nodos.SubscribeAsync("agp/flow/+/calibrar_result");
+            _ = _nodos.SubscribeAsync("agp/flow/+/caracterizar_result");
             IsRunning = true;
             System.Diagnostics.Debug.WriteLine("[flowx] live service started");
         }
@@ -113,6 +123,8 @@ namespace AgroParallel.Services
             { HandleAutotune(uidFromTopic, e.Payload); return; }
             if (e.Topic.EndsWith("/calibrar_result", StringComparison.OrdinalIgnoreCase))
             { HandleCalibrar(uidFromTopic, e.Payload); return; }
+            if (e.Topic.EndsWith("/caracterizar_result", StringComparison.OrdinalIgnoreCase))
+            { lock (_lock) { _char[uidFromTopic] = e.Payload ?? ""; } return; }
             if (!e.Topic.EndsWith("/status_live", StringComparison.OrdinalIgnoreCase)) return;
 
             try
@@ -130,6 +142,7 @@ namespace AgroParallel.Services
                     double target = ReadDouble(root, "target_lmin", "target", "t");
                     double error  = ReadDouble(root, "error_lmin", "error", "err");
                     int pwm       = (int)ReadDouble(root, "pwm");
+                    long pulsos   = (long)ReadDouble(root, "pulsos", "pulses");
                     string pidEstado =
                         ReadString(root, "pid_estado", "pid_state", "estado")
                         ?? "";
@@ -146,6 +159,7 @@ namespace AgroParallel.Services
                         if (target > 0) r.TargetLmin = target;
                         if (error != 0) r.ErrorLmin = error;
                         r.Pwm = pwm;
+                        r.Pulsos = pulsos;
                         if (!string.IsNullOrEmpty(pidEstado)) r.PidEstado = pidEstado;
                         r.LastTs = now;
                     }
@@ -198,22 +212,42 @@ namespace AgroParallel.Services
                 {
                     _readings.TryGetValue(uid, out var r);
                     string nombre = "";
+                    double dosisLha = 0;
                     if (_cfg?.Nodos != null)
                     {
                         var cfgNodo = _cfg.Nodos.FirstOrDefault(n =>
                             string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase));
-                        if (cfgNodo != null) nombre = cfgNodo.Nombre ?? "";
+                        if (cfgNodo != null)
+                        {
+                            nombre = cfgNodo.Nombre ?? "";
+                            // Dosis del primer producto (el firmware/bridge maneja
+                            // hoy un solo producto por nodo en Sensor[0]).
+                            if (cfgNodo.Productos != null && cfgNodo.Productos.Count > 0)
+                                dosisLha = cfgNodo.Productos[0].DosisLha;
+                        }
                     }
                     bool online = r != null && (now - r.LastTs).TotalMilliseconds <= TimeoutMs;
+
+                    double caudalLmin = r?.CaudalLmin ?? 0;
+                    double targetLmin = r?.TargetLmin ?? 0;
+                    // L/ha: como target_lmin = dosis · vel · ancho / 600, la dosis
+                    // por hectárea real aplicada = caudal_lmin / target_lmin · dosis
+                    // (vel y ancho se cancelan). Sin target no se puede derivar.
+                    double caudalLha = (targetLmin > 0.0001)
+                        ? caudalLmin / targetLmin * dosisLha
+                        : 0;
 
                     snap.Nodos.Add(new FxNodoLiveDto
                     {
                         Uid = uid,
                         Nombre = nombre,
                         Online = online,
-                        CaudalLmin = r?.CaudalLmin ?? 0,
-                        TargetLmin = r?.TargetLmin ?? 0,
+                        CaudalLmin = caudalLmin,
+                        TargetLmin = targetLmin,
+                        CaudalLha = caudalLha,
+                        TargetLha = dosisLha,
                         Pwm = r?.Pwm ?? 0,
+                        Pulsos = r?.Pulsos ?? 0,
                         PidEstado = r?.PidEstado ?? "",
                         ErrorLmin = r?.ErrorLmin ?? 0,
                         LastSeenIso = (r != null && r.LastTs != default(DateTime))
@@ -330,6 +364,21 @@ namespace AgroParallel.Services
         {
             if (string.IsNullOrEmpty(uid)) return;
             lock (_lock) { _calibrar.Remove(uid); }
+        }
+
+        // Caracterización: devolvemos el JSON crudo (curva + pwm_min + hz_max).
+        // La UI parsea — el payload puede ser ~600B con la curva incluida y no
+        // vale la pena tiparlo en C# para algo que solo se muestra y se copia.
+        public string GetCaracterizarResultRaw(string uid)
+        {
+            if (string.IsNullOrEmpty(uid)) return null;
+            lock (_lock) { return _char.TryGetValue(uid, out var r) ? r : null; }
+        }
+
+        public void ClearCaracterizarResult(string uid)
+        {
+            if (string.IsNullOrEmpty(uid)) return;
+            lock (_lock) { _char.Remove(uid); }
         }
     }
 }

@@ -16,6 +16,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using AgroParallel.Cut;
 using AgroParallel.Models;
 using AgroParallel.SectionX;
 using AgroParallel.Services.Abstractions;
@@ -82,7 +83,7 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Get, "/sectionx/status")]
         public async Task GetStatus()
         {
-            var br = SectionXBridge.Current;
+            var br = CutDispatcher.Current;
             if (br == null)
             {
                 await SendJsonAsync(new
@@ -95,12 +96,12 @@ namespace AgroParallel.WebHost.Controllers
                 });
                 return;
             }
-            var s = br.GetStatus();
+            var s = br.GetStatus("sectionx");
             await SendJsonAsync(new
             {
                 running = s.Running,
                 connected = s.Connected,
-                nodoCount = s.NodoCount,
+                nodoCount = s.NodeCount,
                 messagesSent = s.MessagesSent,
                 lastPublishMsAgo = s.LastPublishMsAgo
             });
@@ -114,7 +115,7 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Get, "/sectionx/debug")]
         public async Task GetDebug()
         {
-            var br = SectionXBridge.Current;
+            var br = CutDispatcher.Current;
             if (br == null)
             {
                 await SendJsonAsync(new
@@ -124,7 +125,7 @@ namespace AgroParallel.WebHost.Controllers
                 });
                 return;
             }
-            var snap = br.GetDebugSnapshot(30);
+            var snap = br.GetDebugSnapshot("sectionx", 30);
             // Reproyectar a snake_case-ish keys que espera el JS sin atar el
             // tipo del Core a System.Text.Json attrs.
             var last = new System.Collections.Generic.Dictionary<string, object>();
@@ -149,7 +150,7 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Post, "/sectionx/test/{uid}")]
         public async Task RunTest(string uid)
         {
-            var br = SectionXBridge.Current;
+            var br = CutDispatcher.Current;
             if (br == null)
             {
                 await SendJsonAsync(new { ok = false, error = "bridge-not-running" });

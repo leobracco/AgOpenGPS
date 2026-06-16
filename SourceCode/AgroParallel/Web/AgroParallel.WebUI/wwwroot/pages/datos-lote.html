@@ -4,10 +4,23 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Datos del lote · Agro Parallel</title>
+  <script>
+    // Modo widget flotante: PilotX abre esta página con ?widget=1 como ventana
+    // chica e independiente. En ese modo NO mostramos la navegación del Hub
+    // (sidebar): solo los datos del lote. Marcamos <html> acá, en el <head>,
+    // antes de que pinte el <body>, para evitar flash de la barra.
+    if (location.search.indexOf('widget=1') !== -1) {
+      document.documentElement.classList.add('widget-mode');
+    }
+  </script>
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../layout.css" />
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
+    /* Widget flotante: sin sidebar, el contenido toma todo el ancho. */
+    html.widget-mode body { grid-template-columns: 1fr; }
+    html.widget-mode aside.sidebar { display: none; }
+
     /* Touch friendly: tarjetas grandes, números enormes, todo legible
        a 11 pulgadas con sol. Sin scrolls anidados, sin tooltips. */
     .metric.xl { font-size: var(--agp-fs-display); }
@@ -80,6 +93,11 @@
 
     <!-- KPIs principales del lote (todos en castellano) -->
     <div class="grid">
+      <div class="card">
+        <h3>Área del lote (lindero)</h3>
+        <div class="metric xl"><span id="kpiAreaLindero">—</span><span class="unit">ha</span></div>
+        <div class="row"><span>(superficie del lindero)</span></div>
+      </div>
       <div class="card">
         <h3>Área cubierta</h3>
         <div class="metric xl"><span id="kpiAreaNeta">—</span><span class="unit">ha</span></div>

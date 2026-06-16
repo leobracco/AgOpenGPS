@@ -23,7 +23,7 @@
                                Foreground="{StaticResource PilotXTextHi}"
                                FontSize="22"
                                FontWeight="SemiBold"/>
-                    <TextBlock Text="Canal de actualizaciones: agroparallel.com/update/pilotx"
+                    <TextBlock Text="Canal de actualizaciones: OrbitX (cloud Agro Parallel)"
                                Foreground="{StaticResource PilotXTextDim}"
                                FontSize="12"/>
                 </StackPanel>

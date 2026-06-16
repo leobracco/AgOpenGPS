@@ -27,6 +27,7 @@ namespace AgroParallel.Shell
         private static IFlowXLiveService s_flowxLive;
         private static IFlowXConfigService s_flowxCfg;
         private static ISectionXConfigService s_sectionxCfg;
+        private static IOrbitXConfigService s_orbitxCfg;
         private static string s_url;
 
         public static AgpWebHost Host { get { lock (s_lock) return s_host; } }
@@ -42,6 +43,10 @@ namespace AgroParallel.Shell
         // relanzar SectionXBridge cuando el operario guarda desde la UI Hub
         // (si no se relanza, /sections nunca se publica → relays no se activan).
         public static ISectionXConfigService SectionXConfigSvc { get { lock (s_lock) return s_sectionxCfg; } }
+
+        // Misma idea para OrbitX: FormGPS se suscribe a ConfigSaved para relanzar
+        // OrbitXSync en caliente cuando el operario activa/vincula desde la UI.
+        public static IOrbitXConfigService OrbitXConfigSvc { get { lock (s_lock) return s_orbitxCfg; } }
 
         /// <summary>
         /// Idempotente: si ya hay host corriendo, no hace nada.
@@ -74,20 +79,23 @@ namespace AgroParallel.Shell
 
                 var vistaxCfg = new VistaXConfigService();
                 var insumosCat = new InsumoCatalogService();
-                var vistaxLive = new VistaXLiveService(s_nodos, vistaxCfg, insumosCat);
+                var vistaxLive = new VistaXLiveService(s_nodos, vistaxCfg, insumosCat, state, sectionsCore);
                 var flowxCfg = new FlowXConfigService();
                 var flowxLive = new FlowXLiveService(s_nodos, flowxCfg);
                 var stormxCfg = new StormXConfigService();
                 var stormxLive = new StormXLiveService(s_nodos, stormxCfg);
-                // Instancia única expuesta a FormGPS — sin esto el controller
-                // construiría su propia y el evento ConfigSaved no llegaría al shell.
+                var linexCfg = new LineXConfigService();
+                var linexLive = new LineXLiveService(s_nodos, linexCfg);
+                // Instancias únicas expuestas a FormGPS — sin esto el controller
+                // construiría las suyas y el evento ConfigSaved no llegaría al shell.
                 var sectionxCfg = new SectionXConfigService();
+                var orbitxCfg = new OrbitXConfigService();
 
                 var host = new AgpWebHost(
                     state,
                     new SistemaService(),
                     s_nodos,
-                    new OrbitXConfigService(),
+                    orbitxCfg,
                     sectionxCfg,
                     new CamarasConfigService(),
                     new QuantiXConfigService(s_nodos),
@@ -106,6 +114,8 @@ namespace AgroParallel.Shell
                     flowxLive,
                     stormxCfg,
                     stormxLive,
+                    linexCfg,
+                    linexLive,
                     wwwroot,
                     port,
                     insumos: null,
@@ -119,6 +129,7 @@ namespace AgroParallel.Shell
                 s_flowxLive = flowxLive;
                 s_flowxCfg = flowxCfg;
                 s_sectionxCfg = sectionxCfg;
+                s_orbitxCfg = orbitxCfg;
 
                 // FlowXBridge: publica targets PC -> ESP. No depende del WebHost,
                 // pero el ciclo de vida queda atado al bootstrap para que arranque
@@ -150,6 +161,7 @@ namespace AgroParallel.Shell
                 s_flowxLive = null;
                 s_flowxCfg = null;
                 s_sectionxCfg = null;
+                s_orbitxCfg = null;
                 s_host = null;
                 s_nodos = null;
                 s_url = null;

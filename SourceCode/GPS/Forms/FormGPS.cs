@@ -176,7 +176,7 @@ namespace AgOpenGPS
         public OrbitXSync orbitXSync;
         // ORBITX_MOD_END
         // SECTIONX_MOD_START
-        public SectionXBridge sectionXBridge;
+        public AgroParallel.Cut.CutDispatcher cutDispatcher;
         public SectionsSpeedPublisher sectionsSpeedPublisher;
         // SECTIONX_MOD_END
         // CAMARAS_MOD_START
@@ -606,11 +606,11 @@ namespace AgOpenGPS
             if (RegistrySettings.vehicleFileName != "" && Properties.Settings.Default.setDisplay_isAutoStartAgIO)
             {
                 //Start AgIO process
-                Process[] processName = Process.GetProcessesByName("AgIO");
+                Process[] processName = Process.GetProcessesByName("CoreX");
                 if (processName.Length == 0)
                 {
                     //Start application here
-                    string strPath = Path.Combine(Application.StartupPath, "AgIO.exe");
+                    string strPath = Path.Combine(Application.StartupPath, "CoreX.exe");
                     try
                     {
                         ProcessStartInfo processInfo = new ProcessStartInfo
@@ -666,11 +666,12 @@ namespace AgOpenGPS
             try
             {
                 var oxCfg = OrbitXConfig.Load();
-                if (oxCfg.Enabled && !string.IsNullOrEmpty(oxCfg.DeviceToken))
-                {
-                    orbitXSync = new OrbitXSync(new AgroParallel.Adapters.FormGpsStateProvider(this), oxCfg);
-                    orbitXSync.Start();
-                }
+                // Instanciamos siempre — el LAN firmware server (puerto 8088)
+                // arranca dentro de Start() y es INDEPENDIENTE del flag Enabled
+                // de OrbitX cloud. Sin esto el OTA local no funciona si el
+                // técnico de campo no tiene OrbitX habilitado.
+                orbitXSync = new OrbitXSync(new AgroParallel.Adapters.FormGpsStateProvider(this), oxCfg);
+                orbitXSync.Start();
 
                 // CAMARAS_MOD_START — Relay de cámaras: siempre registra al cloud
                 // para que el panel sepa que el tractor tiene cámaras; los workers
@@ -685,15 +686,21 @@ namespace AgOpenGPS
             catch { }
             // ORBITX_MOD_END
 
-            // SECTIONX_MOD_START — Bridge de secciones al inicio.
+            // SECTIONX_MOD_START — Despachador de corte unificado al inicio.
             try
             {
-                var sxCfg = SectionXConfig.Load();
-                if (sxCfg.Enabled && sxCfg.Nodos.Count > 0)
-                {
-                    sectionXBridge = new SectionXBridge(new AgroParallel.Adapters.FormGpsStateProvider(this), sxCfg);
-                    _ = sectionXBridge.StartAsync();
-                }
+                // Arranca SIEMPRE (sin gate enabled/nodos): cada adapter se auto-filtra
+                // por su config y recarga cada 2 s. Despacha el corte de PilotX a los
+                // nodos SectionX (relays → agp/quantix/.../sections) y LineX (servo →
+                // agp/linex/.../sections) en un solo lugar.
+                cutDispatcher = new AgroParallel.Cut.CutDispatcher(
+                    new AgroParallel.Adapters.FormGpsStateProvider(this),
+                    new AgroParallel.Cut.ICutAdapter[]
+                    {
+                        new AgroParallel.Cut.SectionXCutAdapter(),
+                        new AgroParallel.Cut.LineXCutAdapter()
+                    });
+                _ = cutDispatcher.StartAsync();
 
                 // Publisher de velocidad por sección — independiente de SectionXConfig.Nodos
                 // porque la velocidad la consumen también QuantiX/FlowX/VistaX (no solo relays).
@@ -837,6 +844,22 @@ namespace AgOpenGPS
                 var toolGeometry = new global::AgroParallel.Adapters.FormGpsToolGeometryCalculator(this);
                 var tram = new global::AgroParallel.Adapters.FormGpsTramCalculator(this);
                 var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
+                // Cuando el operario aplica un update, PilotXSelfUpdate lanza el
+                // Updater externo y nos pide cerrar. Cerramos ordenado (FormClosing
+                // guarda el lote) en vez de dejar que el Updater nos mate a los 60s.
+                if (!_pilotxApplyHooked)
+                {
+                    _pilotxApplyHooked = true;
+                    global::AgroParallel.OrbitX.PilotXSelfUpdate.ApplyRequested += () =>
+                    {
+                        try
+                        {
+                            if (IsDisposed || !IsHandleCreated) return;
+                            BeginInvoke(new Action(() => { try { Close(); } catch { } }));
+                        }
+                        catch { }
+                    };
+                }
                 global::AgroParallel.Shell.AgpWebHostBootstrap.EnsureStarted(
                     state, lotes, vehicleTool, shapefile,
                     coverage, sectionsCore, quantixRuntime, guidance, pilotxUpdate,
@@ -879,6 +902,32 @@ namespace AgOpenGPS
                 {
                     System.Diagnostics.Debug.WriteLine("[AgroParallel] SectionX subscribe: " + ex.Message);
                 }
+
+                // Mismo patrón para OrbitX: al activar/vincular desde la UI Hub
+                // (o al reclamar el código de pairing) se persiste orbitX.json y
+                // hay que relanzar OrbitXSync en caliente. Sin esto el flag queda
+                // en true pero el heartbeat nunca arranca → el tractor figura
+                // offline en el panel cloud hasta reiniciar PilotX. Bug 2026-06-09.
+                try
+                {
+                    var oxSvc = global::AgroParallel.Shell.AgpWebHostBootstrap.OrbitXConfigSvc;
+                    if (oxSvc != null)
+                    {
+                        oxSvc.ConfigSaved += () =>
+                        {
+                            try
+                            {
+                                if (IsDisposed || !IsHandleCreated) return;
+                                BeginInvoke(new Action(() => ReloadOrbitXSync()));
+                            }
+                            catch { /* swallow — no romper el save por un handler */ }
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("[AgroParallel] OrbitX subscribe: " + ex.Message);
+                }
             }
             catch (Exception ex)
             {
@@ -891,6 +940,9 @@ namespace AgOpenGPS
 
         // Centralized shutdown coordinator
         private bool isShuttingDown = false;
+
+        // Evita suscribir el handler de PilotXSelfUpdate.ApplyRequested más de una vez.
+        private bool _pilotxApplyHooked = false;
 
         private async void FormGPS_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -959,7 +1011,7 @@ namespace AgOpenGPS
             try { camarasRelay?.Dispose(); camarasRelay = null; } catch { }
             try { orbitXSync?.Stop(); orbitXSync = null; } catch { }
             try { sectionsSpeedPublisher?.Dispose(); sectionsSpeedPublisher = null; } catch { }
-            try { sectionXBridge?.Dispose(); sectionXBridge = null; } catch { }
+            try { cutDispatcher?.Dispose(); cutDispatcher = null; } catch { }
             try { flowXBridge?.Dispose(); flowXBridge = null; } catch { }
             // AGROPARALLEL_MOD_END
 
@@ -1121,7 +1173,7 @@ namespace AgOpenGPS
             {
                 try
                 {
-                    Process[] agio = Process.GetProcessesByName("AgIO");
+                    Process[] agio = Process.GetProcessesByName("CoreX");
                     if (agio.Length > 0) agio[0].CloseMainWindow();
                 }
                 catch { }
@@ -1149,7 +1201,7 @@ namespace AgOpenGPS
             {
                 try
                 {
-                    Process[] agio = Process.GetProcessesByName("AgIO");
+                    Process[] agio = Process.GetProcessesByName("CoreX");
                     if (agio.Length > 0)
                     {
                         agio[0].CloseMainWindow();
@@ -1935,6 +1987,18 @@ namespace AgOpenGPS
                     {
                         try { ToggleVistaX(); } catch { }
                     }
+
+                    // Refresh incondicional del overlay FlowX a 4Hz. Antes el
+                    // único refresh periódico colgaba del tail de
+                    // UpdateShapefileCurrentDose(), que sólo corre con mapa de
+                    // prescripción o QuantiX activo (OpenGL.Designer.cs) y además
+                    // sale temprano si shapefileLegend==null. Con FlowX solo (sin
+                    // QuantiX) el widget se pintaba una vez al prender el toggle y
+                    // quedaba congelado, aunque la telemetría seguía viva. Este
+                    // timer corre siempre, así que acá el widget se mantiene al día
+                    // sin depender de QuantiX. UpdateFlowXLegend ya se auto-oculta
+                    // si el overlay está apagado o no hay nodos.
+                    try { UpdateFlowXLegend(); } catch { }
                 }
                 catch { /* defaults: todo ON */ }
             };
@@ -2657,27 +2721,7 @@ namespace AgOpenGPS
                     return;
                 }
 
-                string wwwroot = System.IO.Path.Combine(
-                    System.AppDomain.CurrentDomain.BaseDirectory,
-                    "AgroParallel", "wwwroot");
-
-                var state = new global::AgroParallel.Adapters.FormGpsStateProvider(this);
-                var lotes = new global::AgroParallel.Adapters.FormGpsLotesService(this);
-                var vehicleTool = new global::AgroParallel.Adapters.FormGpsVehicleToolService(this);
-                var shapefile = new global::AgroParallel.Adapters.FormGpsShapefileService(this);
-                // Core/view split (adapter scaffolding): AOG sigue siendo el motor;
-                // los HTML leen estos servicios via REST en lugar de FormGPS directo.
-                var coverage = new global::AgroParallel.Adapters.FormGpsCoverageService(this);
-                var sectionsCore = new global::AgroParallel.Adapters.FormGpsSectionControlService(this);
-                var quantixRuntime = new global::AgroParallel.Adapters.FormGpsQuantiXRuntimeService(this, state);
-                var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
-                var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
-                var hub = new global::AgroParallel.Shell.FormAgroParallelHubWebView2(
-                    state, lotes, vehicleTool, shapefile,
-                    coverage, sectionsCore, quantixRuntime, guidance,
-                    pilotxUpdate,
-                    wwwroot);
-                hub.InitialPage = initialPage; // null = welcome
+                var hub = BuildHubForm(initialPage);
                 // El Hub se overlay sobre el GLControl del mapa (oglMain) en lugar
                 // de ir fullscreen. Sigue al control si AOG se redimensiona o mueve.
                 hub.AnchorControl = this.oglMain;
@@ -2688,6 +2732,83 @@ namespace AgOpenGPS
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[AgroParallel] OpenHub: " + ex.Message);
+            }
+        }
+
+        // Arma una instancia del host WebView2 con todos los adapters de FormGPS
+        // cableados. Lo comparten OpenAgroParallelHub (pantalla completa sobre el
+        // mapa) y OpenAgroParallelWidget (widget flotante chico).
+        private global::AgroParallel.Shell.FormAgroParallelHubWebView2 BuildHubForm(string initialPage)
+        {
+            string wwwroot = System.IO.Path.Combine(
+                System.AppDomain.CurrentDomain.BaseDirectory,
+                "AgroParallel", "wwwroot");
+
+            var state = new global::AgroParallel.Adapters.FormGpsStateProvider(this);
+            var lotes = new global::AgroParallel.Adapters.FormGpsLotesService(this);
+            var vehicleTool = new global::AgroParallel.Adapters.FormGpsVehicleToolService(this);
+            var shapefile = new global::AgroParallel.Adapters.FormGpsShapefileService(this);
+            // Core/view split (adapter scaffolding): AOG sigue siendo el motor;
+            // los HTML leen estos servicios via REST en lugar de FormGPS directo.
+            var coverage = new global::AgroParallel.Adapters.FormGpsCoverageService(this);
+            var sectionsCore = new global::AgroParallel.Adapters.FormGpsSectionControlService(this);
+            var quantixRuntime = new global::AgroParallel.Adapters.FormGpsQuantiXRuntimeService(this, state);
+            var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
+            var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
+            var hub = new global::AgroParallel.Shell.FormAgroParallelHubWebView2(
+                state, lotes, vehicleTool, shapefile,
+                coverage, sectionsCore, quantixRuntime, guidance,
+                pilotxUpdate,
+                wwwroot);
+            hub.InitialPage = initialPage; // null = welcome
+            return hub;
+        }
+
+        // Diccionario de widgets flotantes abiertos, keyed por página, para no
+        // duplicar ventanas si el operario toca el botón dos veces.
+        private System.Collections.Generic.Dictionary<string, Form> _floatWidgets;
+
+        /// <summary>
+        /// Abre una página HTML como widget flotante chico (ventana independiente
+        /// sobre el mapa, sin cubrirlo). Reemplaza al widget Avalonia (spike no
+        /// shippeado) para popups como datos-lote.html / datos-gps.html: el
+        /// operario sigue viendo la pantalla principal. Si ya hay un widget abierto
+        /// para esa página, lo trae al frente en vez de duplicarlo.
+        /// </summary>
+        public void OpenAgroParallelWidget(string page, string title, int width, int height)
+        {
+            try
+            {
+                if (_floatWidgets == null)
+                    _floatWidgets = new System.Collections.Generic.Dictionary<string, Form>(StringComparer.OrdinalIgnoreCase);
+
+                if (_floatWidgets.TryGetValue(page, out var existing)
+                    && existing != null && !existing.IsDisposed)
+                {
+                    existing.BringToFront();
+                    return;
+                }
+
+                // Marcamos la página como widget (sin sidebar del Hub) para que
+                // muestre solo su contenido. El HTML lee ?widget=1.
+                string initialPage = page;
+                if (initialPage.IndexOf('?') < 0) initialPage += "?widget=1";
+                else if (initialPage.IndexOf("widget=", StringComparison.OrdinalIgnoreCase) < 0) initialPage += "&widget=1";
+
+                var widget = BuildHubForm(initialPage);
+                widget.FloatingWidget = true;
+                widget.FloatingSize = new System.Drawing.Size(width, height);
+                if (!string.IsNullOrEmpty(title)) widget.Text = title;
+                // AnchorControl solo para posicionar el widget en la esquina del
+                // mapa; en modo flotante NO se ancla ni cubre el mapa.
+                widget.AnchorControl = this.oglMain;
+                _floatWidgets[page] = widget;
+                widget.FormClosed += (s, e) => { _floatWidgets.Remove(page); };
+                widget.Show(this);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[AgroParallel] OpenWidget: " + ex.Message);
             }
         }
 
@@ -2737,19 +2858,12 @@ namespace AgOpenGPS
         }
         public void ReloadSectionXBridge()
         {
-            try
-            {
-                if (sectionXBridge != null) { sectionXBridge.Dispose(); sectionXBridge = null; }
-                var cfg = SectionXConfig.Load();
-                if (cfg.Enabled && cfg.Nodos.Count > 0)
-                {
-                    sectionXBridge = new SectionXBridge(new AgroParallel.Adapters.FormGpsStateProvider(this), cfg);
-                    _ = sectionXBridge.StartAsync();
-                }
-            }
+            // El despachador arranca siempre y recarga solo cada 2 s; esto fuerza
+            // la recarga inmediata de todos los adapters al guardar config desde la UI.
+            try { cutDispatcher?.ReloadNow(); }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[SectionX] ReloadBridge: " + ex.Message);
+                System.Diagnostics.Debug.WriteLine("[Cut] ReloadNow: " + ex.Message);
             }
         }
 
@@ -3584,6 +3698,11 @@ namespace AgOpenGPS
             this.Controls.Add(flowXLegend);
             flowXLegend.BringToFront();
 
+            // Ajuste de dosis con los botones −/+ táctiles del widget (paso
+            // configurable, L/ha en auto o L/min en manual) + toggle de modo.
+            flowXLegend.DoseChangeRequested += OnFlowXDoseChange;
+            flowXLegend.ModeToggleRequested += OnFlowXModeToggle;
+
             // Posición custom persistida → restaurar.
             try
             {
@@ -3627,6 +3746,20 @@ namespace AgOpenGPS
                     return;
                 }
 
+                // Modo/manual_lmin se leen de la config (no del live), así el
+                // widget refleja el toggle al instante aunque el nodo esté offline.
+                var modoByUid = new System.Collections.Generic.Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+                var manualByUid = new System.Collections.Generic.Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                if (cfg.Nodos != null)
+                {
+                    foreach (var cn in cfg.Nodos)
+                    {
+                        if (string.IsNullOrEmpty(cn.Uid) || cn.Productos == null || cn.Productos.Count == 0) continue;
+                        modoByUid[cn.Uid] = cn.Productos[0].ModoManual;
+                        manualByUid[cn.Uid] = cn.Productos[0].ManualLmin;
+                    }
+                }
+
                 var rows = new System.Collections.Generic.List<AgroParallel.FlowX.FlowXLegendControl.NodoLive>();
                 if (live != null)
                 {
@@ -3635,6 +3768,8 @@ namespace AgOpenGPS
                     {
                         foreach (var n in snap.Nodos)
                         {
+                            bool modo; modoByUid.TryGetValue(n.Uid ?? "", out modo);
+                            double manual; manualByUid.TryGetValue(n.Uid ?? "", out manual);
                             rows.Add(new AgroParallel.FlowX.FlowXLegendControl.NodoLive
                             {
                                 Uid = n.Uid,
@@ -3642,8 +3777,13 @@ namespace AgOpenGPS
                                 Online = n.Online,
                                 CaudalLmin = n.CaudalLmin,
                                 TargetLmin = n.TargetLmin,
+                                CaudalLha = n.CaudalLha,
+                                TargetLha = n.TargetLha,
                                 Pwm = n.Pwm,
-                                PidEstado = n.PidEstado
+                                Pulsos = n.Pulsos,
+                                PidEstado = n.PidEstado,
+                                ModoManual = modo,
+                                ManualLmin = manual
                             });
                         }
                     }
@@ -3655,6 +3795,8 @@ namespace AgOpenGPS
                     foreach (var n in cfg.Nodos)
                     {
                         if (string.IsNullOrEmpty(n.Uid)) continue;
+                        bool modo; modoByUid.TryGetValue(n.Uid, out modo);
+                        double manual; manualByUid.TryGetValue(n.Uid, out manual);
                         rows.Add(new AgroParallel.FlowX.FlowXLegendControl.NodoLive
                         {
                             Uid = n.Uid,
@@ -3663,7 +3805,9 @@ namespace AgOpenGPS
                             CaudalLmin = 0,
                             TargetLmin = 0,
                             Pwm = 0,
-                            PidEstado = "off"
+                            PidEstado = "off",
+                            ModoManual = modo,
+                            ManualLmin = manual
                         });
                     }
                 }
@@ -3688,6 +3832,104 @@ namespace AgOpenGPS
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[FlowX] UpdateFlowXLegend: " + ex.Message);
+            }
+        }
+
+        // Resuelve el primer producto del nodo {uid} en flowX.json.
+        private static FxProducto FindFlowXProd(FlowXConfig cfg, string uid)
+        {
+            if (cfg == null || cfg.Nodos == null) return null;
+            foreach (var n in cfg.Nodos)
+            {
+                if (!string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase)) continue;
+                if (n.Productos == null || n.Productos.Count == 0) return null;
+                return n.Productos[0];
+            }
+            return null;
+        }
+
+        // Aplica el ajuste pedido desde los botones −/+ del widget. En auto mueve
+        // la dosis L/ha con paso_lha; en manual mueve el caudal fijo L/min con
+        // paso_lmin. Persiste en flowX.json (Productos[0]); el FlowXBridge relee
+        // disco cada 2s y reempuja el target, así que no hace falta tocar MQTT.
+        // Recarga el live service para que el "/target" se actualice ya mismo.
+        private void OnFlowXDoseChange(string uid, int sign)
+        {
+            if (string.IsNullOrEmpty(uid) || sign == 0) return;
+            try
+            {
+                var cfg = FlowXConfig.Load();
+                var prod = FindFlowXProd(cfg, uid);
+                if (prod == null) return;
+
+                if (prod.ModoManual)
+                {
+                    double paso = prod.PasoLmin > 0 ? prod.PasoLmin : 1.0;
+                    double nueva = prod.ManualLmin + sign * paso;
+                    if (nueva < 0) nueva = 0;
+                    if (nueva > 500) nueva = 500;
+                    prod.ManualLmin = nueva;
+                }
+                else
+                {
+                    double paso = prod.PasoLha > 0 ? prod.PasoLha : 5.0;
+                    double nueva = prod.DosisLha + sign * paso;
+                    if (nueva < 0) nueva = 0;
+                    if (nueva > 2000) nueva = 2000;
+                    prod.DosisLha = nueva;
+                }
+                cfg.Save();
+
+                try { AgroParallel.Shell.AgpWebHostBootstrap.FlowXLive?.Reload(); }
+                catch { }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[FlowX] OnFlowXDoseChange: " + ex.Message);
+            }
+        }
+
+        // Alterna automático ↔ manual para el nodo desde el widget. Al pasar a
+        // manual, si todavía no hay un caudal fijo definido, lo sembramos con la
+        // última dosis aplicada (L/ha → L/min) para no arrancar en 0.
+        private void OnFlowXModeToggle(string uid)
+        {
+            if (string.IsNullOrEmpty(uid)) return;
+            try
+            {
+                var cfg = FlowXConfig.Load();
+                var prod = FindFlowXProd(cfg, uid);
+                if (prod == null) return;
+
+                prod.ModoManual = !prod.ModoManual;
+                if (prod.ModoManual && prod.ManualLmin <= 0)
+                {
+                    // Sembrar con el último target L/min que estaba aplicando, si lo hay.
+                    double seed = 0;
+                    try
+                    {
+                        var live = AgroParallel.Shell.AgpWebHostBootstrap.FlowXLive;
+                        var snap = live != null ? live.GetSnapshot() : null;
+                        if (snap != null && snap.Nodos != null)
+                        {
+                            foreach (var n in snap.Nodos)
+                            {
+                                if (string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase))
+                                { seed = n.TargetLmin; break; }
+                            }
+                        }
+                    }
+                    catch { }
+                    if (seed > 0) prod.ManualLmin = Math.Round(seed, 1);
+                }
+                cfg.Save();
+
+                try { AgroParallel.Shell.AgpWebHostBootstrap.FlowXLive?.Reload(); }
+                catch { }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[FlowX] OnFlowXModeToggle: " + ex.Message);
             }
         }
         // FLOWX_LEGEND_MOD_END

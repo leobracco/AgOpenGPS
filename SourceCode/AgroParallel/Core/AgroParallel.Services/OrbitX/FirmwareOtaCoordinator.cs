@@ -199,23 +199,17 @@ namespace AgroParallel.OrbitX
             }
 
             int port = _cfg != null && _cfg.FirmwareHttpPort > 0 ? _cfg.FirmwareHttpPort : 8088;
-            string url = FirmwareOtaClient.BuildFirmwareUrl(prodLo, version, port);
-            // FlowX usa convención 5-part `agp/flow/<uid>/cmd/<verb>` (verbo en el
-            // topic, no en el payload). El resto de los firmwares
-            // (QuantiX/VistaX/StormX) usan 4-part `agp/{prod}/<uid>/cmd` con
-            // `{cmd:"ota", ...}` en el payload. Sin este routing, el OTA a FlowX
-            // se publica en 4-part y el firmware (suscripto a `cmd/+`) nunca lo ve.
-            bool isFlow = (prodLo == "flow" || prodLo == "flowx");
-            string topic = isFlow
-                ? "agp/flow/" + uid + "/cmd/ota"
-                : "agp/" + prodLo + "/" + uid + "/cmd";
 
-            // Buscar sha256 esperado en el manifest local del cache. Si el archivo
-            // no está en cache o falta el hash, mandamos OTA sin sha256 — los
-            // firmwares lo tratan como opcional (legacy path). Tener el hash es
-            // anti-corrupción: si el .bin se corrompe en LAN o el server LAN
-            // sirve un archivo equivocado, el firmware aborta antes de bootear
-            // un binario incompleto.
+            // FlowX publica MQTT en `agp/flow/...` (topic prefix `flow`), por lo
+            // que NodoRegistry guarda Tipo="Flow" → prodLo="flow". Pero los .bin
+            // del producto se suben al cache con el nombre canónico ("flowx").
+            // Resolvemos el nombre real del producto buscándolo en cache: probamos
+            // prodLo primero y, si no aparece, su alias (sufijo "x" agregado o
+            // removido). El resultado lo usamos para BuildFirmwareUrl y sha256 —
+            // si lo dejábamos en "flow", el ESP32 pedía /firmware/flow/... y se
+            // comía un 404 silencioso.
+            string prodAlt = prodLo.EndsWith("x") ? prodLo.Substring(0, prodLo.Length - 1) : prodLo + "x";
+            string prodCache = prodLo;
             string sha256 = null;
             try
             {
@@ -225,17 +219,30 @@ namespace AgroParallel.OrbitX
                 {
                     foreach (var f in local)
                     {
-                        if (string.Equals(f.producto, prodLo, StringComparison.OrdinalIgnoreCase) &&
-                            string.Equals(f.version, version, StringComparison.OrdinalIgnoreCase) &&
-                            !string.IsNullOrEmpty(f.hash_sha256))
+                        bool matchProd = string.Equals(f.producto, prodLo, StringComparison.OrdinalIgnoreCase)
+                                      || string.Equals(f.producto, prodAlt, StringComparison.OrdinalIgnoreCase);
+                        if (matchProd &&
+                            string.Equals(f.version, version, StringComparison.OrdinalIgnoreCase))
                         {
-                            sha256 = f.hash_sha256;
+                            prodCache = (f.producto ?? prodLo).ToLowerInvariant();
+                            if (!string.IsNullOrEmpty(f.hash_sha256)) sha256 = f.hash_sha256;
                             break;
                         }
                     }
                 }
             }
             catch (Exception ex) { _log("OTA sha256 lookup error: " + ex.Message); }
+
+            string url = FirmwareOtaClient.BuildFirmwareUrl(prodCache, version, port);
+            // FlowX usa convención 5-part `agp/flow/<uid>/cmd/<verb>` (verbo en el
+            // topic, no en el payload). El resto de los firmwares
+            // (QuantiX/VistaX/StormX) usan 4-part `agp/{prod}/<uid>/cmd` con
+            // `{cmd:"ota", ...}` en el payload. Sin este routing, el OTA a FlowX
+            // se publica en 4-part y el firmware (suscripto a `cmd/+`) nunca lo ve.
+            bool isFlow = (prodLo == "flow" || prodLo == "flowx");
+            string topic = isFlow
+                ? "agp/flow/" + uid + "/cmd/ota"
+                : "agp/" + prodLo + "/" + uid + "/cmd";
 
             // En FlowX el verbo va en el topic — la clave `cmd` no hace falta
             // (la firmware ignora claves desconocidas, pero la omitimos por

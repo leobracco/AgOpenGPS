@@ -18,8 +18,11 @@
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -54,8 +57,15 @@ namespace AgroParallel.OrbitX
 
             int port = _cfg.FirmwareHttpPort > 0 ? _cfg.FirmwareHttpPort : 8088;
 
-            // Intento 1: bind público (LAN). Falla con HttpListenerException si
-            // no hay URL ACL ni permisos de admin.
+            // Intento 1: bind público (LAN, wildcard). Falla con HttpListenerException
+            // si no hay URL ACL ni permisos de admin (caso habitual).
+            // Intento 2: bind a cada IP IPv4 específica del PC + localhost. Este
+            // path NO requiere URL ACL en Windows — http.sys solo exige ACL para
+            // wildcards (+ y *) y hostnames. Es lo que rescata el escenario sin
+            // admin: los ESP32 alcanzan al PC por su IP LAN (192.168.5.10) y el
+            // listener acepta esa interfaz puntual.
+            // Intento 3 (último recurso): localhost solo. Logueamos warn porque
+            // los ESP32 no van a poder bajar el .bin.
             string publicPrefix = $"http://+:{port}/";
             string localPrefix  = $"http://localhost:{port}/";
 
@@ -68,23 +78,45 @@ namespace AgroParallel.OrbitX
             }
             catch (HttpListenerException ex)
             {
-                _log($"FW server: bind público falló ({ex.Message}). " +
-                     $"Para LAN OTA, ejecutar UNA VEZ como admin: " +
+                _log($"FW server: bind wildcard falló ({ex.Message}). " +
+                     $"Probando bind por IP LAN específica (no requiere admin). " +
+                     $"Para wildcard estable ejecutar UNA VEZ como admin: " +
                      $"netsh http add urlacl url=http://+:{port}/ user=Everyone");
+                try { _listener?.Close(); } catch { }
+
+                var ips = GetLocalIPv4Addresses();
+                _listener = new HttpListener();
+                _listener.Prefixes.Add(localPrefix);
+                foreach (var ip in ips)
+                {
+                    try { _listener.Prefixes.Add($"http://{ip}:{port}/"); }
+                    catch (Exception exAdd) { _log($"FW server: skip prefix {ip}: {exAdd.Message}"); }
+                }
                 try
                 {
-                    _listener?.Close();
-                    _listener = new HttpListener();
-                    _listener.Prefixes.Add(localPrefix);
                     _listener.Start();
-                    BoundPrefix = localPrefix;
-                    _log("FW server: arrancado solo en localhost (los nodos ESP32 NO podrán descargar)");
+                    BoundPrefix = localPrefix + " (+ " + string.Join(", ", ips) + ")";
+                    _log($"FW server: bindeado por IP específica ({string.Join(", ", ips)})");
                 }
                 catch (Exception ex2)
                 {
-                    LastError = ex2.Message;
-                    _log($"FW server falló: {ex2.Message}");
-                    return;
+                    _log($"FW server: bind por IP específica falló ({ex2.Message}), cae a localhost-only");
+                    // Si todavía falla, fallback total a localhost.
+                    try { _listener?.Close(); } catch { }
+                    try
+                    {
+                        _listener = new HttpListener();
+                        _listener.Prefixes.Add(localPrefix);
+                        _listener.Start();
+                        BoundPrefix = localPrefix;
+                        _log("FW server: arrancado solo en localhost (los nodos ESP32 NO podrán descargar)");
+                    }
+                    catch (Exception ex3)
+                    {
+                        LastError = ex3.Message;
+                        _log($"FW server falló: {ex3.Message}");
+                        return;
+                    }
                 }
             }
             catch (Exception ex)
@@ -199,6 +231,30 @@ namespace AgroParallel.OrbitX
             {
                 try { ctx.Response.Close(); } catch { }
             }
+        }
+
+        // Enumera IPv4 unicast no-loopback de interfaces operativas. Usadas para
+        // armar prefixes específicos cuando el bind wildcard falla por ACL.
+        private static List<string> GetLocalIPv4Addresses()
+        {
+            var result = new List<string>();
+            try
+            {
+                foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                    var props = ni.GetIPProperties();
+                    foreach (var ua in props.UnicastAddresses)
+                    {
+                        if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                        var s = ua.Address.ToString();
+                        if (!result.Contains(s)) result.Add(s);
+                    }
+                }
+            }
+            catch { /* best-effort */ }
+            return result;
         }
 
         // ── Helpers de respuesta ────────────────────────────────────────────

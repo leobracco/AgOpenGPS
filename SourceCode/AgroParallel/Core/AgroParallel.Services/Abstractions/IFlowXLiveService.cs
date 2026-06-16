@@ -45,5 +45,15 @@ namespace AgroParallel.Services.Abstractions
 
         /// <summary>Limpia el resultado cacheado de calibración.</summary>
         void ClearCalibrarResult(string uid);
+
+        /// <summary>
+        /// Último payload crudo recibido en agp/flow/{uid}/caracterizar_result.
+        /// Contiene la curva PWM/Hz, pwm_min y hz_max. Devuelve null si todavía
+        /// no llegó nada.
+        /// </summary>
+        string GetCaracterizarResultRaw(string uid);
+
+        /// <summary>Limpia el resultado cacheado de caracterización.</summary>
+        void ClearCaracterizarResult(string uid);
     }
 }

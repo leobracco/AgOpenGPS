@@ -23,8 +23,8 @@
 #ifndef AppVersion
   #define AppVersion "1.0.0"
 #endif
-#define AppExeAOG     "AgOpenGPS.exe"
-#define AppExeAgIO    "AgIO.exe"
+#define AppExeAOG     "PilotX.exe"
+#define AppExeAgIO    "CoreX.exe"
 
 ; Carpeta donde build.ps1 dejo los binarios mergeados (AOG + AgIO)
 #define BuildDir "..\Build"
@@ -84,7 +84,7 @@ Name: "wipesettings";  Description: "Eliminar TAMBIEN aog_settings.json y config
 Name: "embedmode";     Description: "Activar modo EMBED (kiosko anti-tanques: AutoLogon, sin desktop, watchdog, servicios off)"; GroupDescription: "Modo de uso:"; Flags: unchecked
 
 [Files]
-; Todo el contenido de Build/ va a {app} (incluye AOG.exe, AgIO.exe, DLLs, runtimes, idiomas)
+; Todo el contenido de Build/ va a {app} (incluye PilotX.exe, CoreX.exe, DLLs, runtimes, idiomas)
 ; NO incluimos JSONs de estado/config que pueden tener paths personales del dev
 ; (working_directory, lotes abiertos, etc). Si el usuario quiere migrar config,
 ; lo hace manualmente.
@@ -156,7 +156,7 @@ Filename: "powershell.exe"; \
   Flags: runhidden waituntilterminated
 
 ; Agregar carpeta de instalacion a exclusiones de Microsoft Defender (evita
-; falsos positivos sobre AgOpenGPS.exe / AgIO.exe). Silencioso si Defender
+; falsos positivos sobre PilotX.exe / CoreX.exe). Silencioso si Defender
 ; no esta o no se puede agregar.
 Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""try {{ Add-MpPreference -ExclusionPath '{app}' -ErrorAction Stop }} catch {{}}"""; \
@@ -167,7 +167,7 @@ Filename: "powershell.exe"; \
 ; Solo si el usuario marco la task "embedmode". Corre embed-enable.ps1 al final
 ; del install. El script:
 ;   - crea usuario "pilotx" con AutoLogon
-;   - reemplaza Shell por AgOpenGPS.exe
+;   - reemplaza Shell por PilotX.exe
 ;   - registra watchdog scheduled task
 ;   - desactiva ~30 servicios (Spooler, DiagTrack, WSearch, SysMain, etc.)
 ;   - plan de energia HighPerformance
@@ -234,8 +234,8 @@ end;
 // ---------------------------------------------------------------------------
 // Antes de empezar a copiar archivos, matamos cualquier proceso AgroParallel
 // que pueda tener locks sobre los .exe/.dll. Incluye:
-//   - AgOpenGPS.exe (UI principal)
-//   - AgIO.exe (broker MQTT embebido en puerto 1883)
+//   - PilotX.exe (UI principal)
+//   - CoreX.exe (broker MQTT embebido en puerto 1883)
 //   - GPS_Out.exe / AgDiag.exe / ModSim.exe (utilidades)
 //   - node.exe (servidores legacy de VistaX/OrbitX-Sync)
 // Si node.exe esta corriendo otra cosa que no sea AgroParallel, igualmente lo
@@ -245,8 +245,8 @@ procedure KillAgroParallelProcesses();
 var
   ResultCode: Integer;
 begin
-  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM AgOpenGPS.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM AgIO.exe /T',      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM PilotX.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM CoreX.exe /T',      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM GPS_Out.exe /T',   '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM AgDiag.exe /T',    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM ModSim.exe /T',    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
@@ -272,8 +272,8 @@ begin
   if CurUninstallStep = usUninstall then
   begin
     // Mismo cleanup en uninstall
-    Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM AgOpenGPS.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM AgIO.exe /T',      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM PilotX.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM CoreX.exe /T',      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM GPS_Out.exe /T',   '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;

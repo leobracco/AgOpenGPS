@@ -163,6 +163,13 @@ namespace AgroParallel.Models
 
         /// <summary>Área neta cubierta en m² (sin contar solapamiento).</summary>
         public double ActualAreaCoveredM2 { get; set; }
+
+        /// <summary>
+        /// Área del lote según el lindero (boundary exterior menos boundaries
+        /// internos/exclusiones), en m². 0 si no hay lindero cargado. Equivale a
+        /// CFieldData.areaBoundaryOuterLessInner. Para hectáreas: × 0.0001.
+        /// </summary>
+        public double BoundaryAreaM2 { get; set; }
     }
 
     /// <summary>

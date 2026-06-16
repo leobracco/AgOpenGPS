@@ -59,6 +59,21 @@ namespace AgroParallel.Shell
         private Control _anchorHooked;
         private Form _anchorParentForm;
 
+        /// <summary>
+        /// Modo "widget flotante": ventana chica, draggable y por encima del mapa
+        /// que NO lo cubre. Sustituye al widget Avalonia (spike no shippeado) para
+        /// popups de datos como datos-lote.html / datos-gps.html, de modo que el
+        /// operario siga viendo la pantalla principal. Si está en true,
+        /// <see cref="ApplyAnchor"/> NO se usa (no se cubre el mapa); en su lugar la
+        /// ventana toma <see cref="FloatingSize"/> y se ubica en una esquina del
+        /// <see cref="AnchorControl"/>. La página HTML trae su propio botón de
+        /// cierre (mensaje 'close-hub').
+        /// </summary>
+        public bool FloatingWidget { get; set; }
+
+        /// <summary>Tamaño del widget flotante (solo aplica si FloatingWidget == true).</summary>
+        public Size FloatingSize { get; set; } = new Size(720, 760);
+
         // ---------- Pre-warm del runtime de WebView2 ----------
         // CoreWebView2Environment.CreateAsync(...) es la operación más lenta del
         // cold-start del Hub (típicamente 500ms-1s la primera vez por arranque).
@@ -201,6 +216,38 @@ namespace AgroParallel.Shell
             }
         }
 
+        /// <summary>
+        /// Configura la ventana como widget flotante chico: borde tool-window
+        /// (título mínimo con X, draggable), Normal (no maximizado), tamaño
+        /// FloatingSize y ubicada en la esquina superior derecha del AnchorControl
+        /// (o del área de trabajo si no hay anchor). A diferencia de ApplyAnchor,
+        /// NO cubre el mapa ni sigue al control: queda flotando para que el
+        /// operario siga viendo la pantalla principal.
+        /// </summary>
+        private void ApplyFloating()
+        {
+            WindowState = FormWindowState.Normal;
+            FormBorderStyle = FormBorderStyle.SizableToolWindow;
+
+            Size sz = FloatingSize;
+            if (sz.Width < 200) sz.Width = 720;
+            if (sz.Height < 200) sz.Height = 760;
+
+            var c = AnchorControl;
+            if (c != null && !c.IsDisposed && c.IsHandleCreated)
+            {
+                Rectangle r = c.RectangleToScreen(c.ClientRectangle);
+                int x = r.Right - sz.Width - 24;
+                int y = r.Top + 24;
+                SetBounds(x, y, sz.Width, sz.Height);
+            }
+            else
+            {
+                Rectangle wa = Screen.PrimaryScreen.WorkingArea;
+                SetBounds(wa.Right - sz.Width - 24, wa.Top + 24, sz.Width, sz.Height);
+            }
+        }
+
         private void OnAnchorChanged(object sender, EventArgs e) { UpdateAnchorBounds(); }
 
         private void OnAnchorDestroyed(object sender, EventArgs e)
@@ -228,7 +275,11 @@ namespace AgroParallel.Shell
             // sobre él en lugar de ir maximized. Esto debe pasar antes de
             // navegar el WebView2 para que el layout final ya esté aplicado y
             // el contenido no parpadee al re-encajar.
-            if (AnchorControl != null)
+            if (FloatingWidget)
+            {
+                try { ApplyFloating(); } catch { }
+            }
+            else if (AnchorControl != null)
             {
                 try { ApplyAnchor(); } catch { }
             }
@@ -255,11 +306,13 @@ namespace AgroParallel.Shell
 
                     var vistaxCfg = new VistaXConfigService();
                     var insumosCat = new InsumoCatalogService();
-                    var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat);
+                    var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat, _state, _sectionsCore);
                     var flowxCfg = new FlowXConfigService();
                     var flowxLive = new FlowXLiveService(_nodos, flowxCfg);
                     var stormxCfg = new StormXConfigService();
                     var stormxLive = new StormXLiveService(_nodos, stormxCfg);
+                    var linexCfg = new LineXConfigService();
+                    var linexLive = new LineXLiveService(_nodos, linexCfg);
                     _webHost = new AgpWebHost(
                         _state,
                         new SistemaService(),
@@ -283,6 +336,8 @@ namespace AgroParallel.Shell
                         flowxLive,
                         stormxCfg,
                         stormxLive,
+                        linexCfg,
+                        linexLive,
                         _wwwroot,
                         _port);
                     _webHost.Start();

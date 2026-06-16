@@ -2,7 +2,7 @@
 # Diagnostica por que AgOpenGPS no levanta.
 # Uso: powershell -ExecutionPolicy Bypass -File .\diag-aog.ps1
 
-$aog = "C:\Program Files\AgroParallel\Piloto\AgOpenGPS.exe"
+$aog = "C:\Program Files\AgroParallel\Piloto\PilotX.exe"
 
 Write-Host "=== Diagnostico AgOpenGPS ===" -ForegroundColor Cyan
 Write-Host ""

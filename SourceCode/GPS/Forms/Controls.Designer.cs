@@ -1040,11 +1040,11 @@ namespace AgOpenGPS
         {
             Log.EventWriter("AgIO Manually Started");
 
-            Process[] processName = Process.GetProcessesByName("AgIO");
+            Process[] processName = Process.GetProcessesByName("CoreX");
             if (processName.Length == 0)
             {
                 //Start application here
-                string strPath = Path.Combine(Application.StartupPath, "AgIO.exe");
+                string strPath = Path.Combine(Application.StartupPath, "CoreX.exe");
 
                 try
                 {
@@ -1183,16 +1183,17 @@ namespace AgOpenGPS
         private void btnFieldStats_Click(object sender, EventArgs e)
         {
             // AgroParallel: el popup táctil reemplaza a FormFieldData. Se abre
-            // como WIDGET Avalonia (ventana chica draggable encima de AOG, X
-            // nativa, estilo FlowX), no como página dentro del Hub. Así el
-            // operario sigue viendo el mapa y el widget queda flotando al lado.
-            // Si el exe Avalonia no está presente, fallback al Hub WebView2.
+            // como WIDGET chico flotante (ventana independiente encima del mapa,
+            // X nativa), no como página dentro del Hub. Así el operario sigue
+            // viendo la pantalla principal y el widget queda flotando al lado.
+            // Preferimos el widget Avalonia si está presente; si no (caso normal,
+            // spike no shippeado), abrimos un widget flotante WebView2.
             if (!isJobStarted) return;
 
             if (!LaunchAvaloniaWidget("pages/datos-lote.html", "float",
-                                      "Datos del lote", 720, 760))
+                                      "Datos del lote", 520, 620))
             {
-                OpenAgroParallelHub("pages/datos-lote.html");
+                OpenAgroParallelWidget("pages/datos-lote.html", "Datos del lote", 520, 620);
             }
         }
 
