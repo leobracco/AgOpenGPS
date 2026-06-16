@@ -12,6 +12,25 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.23] — 2026-06-16
+
+### Added
+- **Ventana flotante de "Datos del lote"**. El ícono de admiración (!) de la
+  pantalla principal ahora abre los datos del lote como una ventana chica
+  independiente (modo widget, 520×620, sin la navegación del Hub) para que el
+  operario siga viendo el mapa por detrás.
+- **Área del lote por lindero**. Se expone `BoundaryAreaM2` en el snapshot de
+  estado (`/api/aog/state`) y se muestra en hectáreas en la tarjeta "Área del
+  lote (lindero)". Mismo cálculo que las áreas GUI nativas de AOG (boundary
+  exterior menos exclusiones internas).
+
+### Fixed
+- **Casing del endpoint `/api/aog/state`**. `datos-lote.js` y `datos-gps.js`
+  normalizan el JSON PascalCase del host; antes leían claves camelCase y
+  mostraban todo en cero.
+
+---
+
 ## [1.0.4] — 2026-05-16
 
 ### Fixed
