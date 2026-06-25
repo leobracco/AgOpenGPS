@@ -1925,11 +1925,12 @@
   // ============================================================================
 
   loadMotores();
-  // Cargamos columnas DBF y secciones del tool en background — el primer
-  // render de la tab Motores ya las encuentra en cache si el usuario clickea
-  // rápido. Si no, showTab('motores') las refresca igual antes de pintar.
+  // Cargamos columnas DBF, secciones e implemento central en background.
+  // implCentral alimenta syncTrenes() (cfg.trenes que espera el bridge) y el
+  // mapeo surco→sección; sin esta carga, guardar dejaría cfg.trenes sin actualizar.
   loadShapeFields();
   loadAogSections();
+  loadImplCentral();
 
   // Polling adaptativo:
   //   · tabs "live" (monitor/pid/calibrar/prueba) → 500ms (tiempo real)
