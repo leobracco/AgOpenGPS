@@ -208,8 +208,49 @@
     if (chip.lastChild) chip.lastChild.textContent = 'Pincel: ' + label;
   }
 
-  // Stub temporal — se reemplaza en la tarea del toggle Planter/Tabla.
-  function renderTabla() {}
+  function renderTabla() {
+    var tbl = document.getElementById('qxTabla');
+    var nodo = activeNodo();
+    if (!tbl) return;
+    if (state.siembraView !== 'tabla' || !nodo) { tbl.style.display = 'none'; return; }
+    var ms = nodo.motores || [];
+    var rows = '<tr><th>Motor</th><th>Surcos</th><th>Dosis fija</th>'
+             + '<th>Efectiva</th><th>PPS</th><th>Estado</th></tr>';
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i];
+      var live = liveMotor(nodo.uid, i);
+      var real = live ? (pick(live, 'ppsReal', 'PpsReal') || 0).toFixed(1) : '\u2014';
+      var fija = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
+      var ef = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : (fija + ' fija');
+      var estado = (state.siembraEnMarcha && motorAllCut(nodo, i)) ? '\u25CB corte' : '\u25CF dosif.';
+      var surcos = (m.cortes || []).join(',') || '\u2014';
+      var nombre = escapeHtml(m.nombre || ('M' + (i + 1)));
+      rows += '<tr>'
+        + '<td><span class="sw" style="display:inline-block;width:10px;height:10px;'
+        + 'border-radius:2px;background:' + motorColor(i) + '"></span> ' + nombre + '</td>'
+        + '<td>' + surcos + '</td>'
+        + '<td>' + fija + '</td>'
+        + '<td>' + ef + '</td>'
+        + '<td>' + real + '</td>'
+        + '<td>' + estado + '</td>'
+        + '</tr>';
+    }
+    tbl.innerHTML = rows;
+    tbl.style.display = 'table';
+  }
+
+  function setSiembraView(v) {
+    state.siembraView = v;
+    var sp = document.getElementById('segPlanter');
+    var st = document.getElementById('segTabla');
+    if (sp) sp.classList.toggle('on', v === 'planter');
+    if (st) st.classList.toggle('on', v === 'tabla');
+    var wrap = document.querySelector('.planter-wrap');
+    if (wrap) wrap.style.display = (v === 'planter') ? 'block' : 'none';
+    var list = document.getElementById('qxMotorList');
+    if (list) list.style.display = (v === 'planter') ? 'flex' : 'none';
+    renderSiembra();
+  }
   // Stub temporal — se reemplaza en la tarea de huérfanos.
   function updateOrphanWarn() {}
 
@@ -1102,6 +1143,11 @@
     if (!nodo) return;
     autoReparto((nodo.motores || []).length < totalSurcos() ? 'uno' : 'grupos');
   });
+
+  var segP = document.getElementById('segPlanter');
+  if (segP) segP.addEventListener('click', function () { setSiembraView('planter'); });
+  var segT = document.getElementById('segTabla');
+  if (segT) segT.addEventListener('click', function () { setSiembraView('tabla'); });
 
   // ============================================================================
   // PID LIVE-TUNE
