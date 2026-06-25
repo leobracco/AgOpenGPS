@@ -127,14 +127,10 @@
     document.querySelectorAll('.tab').forEach(function (t) {
       t.classList.toggle('active', t.getAttribute('data-tab') === name);
     });
-    ['Monitor', 'Motores', 'Shape', 'Pid', 'Calibrar', 'Prueba'].forEach(function (k) {
+    ['Siembra', 'Shape', 'Pid', 'Calibrar', 'Prueba'].forEach(function (k) {
       var el = $('tab' + k);
       if (el) el.style.display = (k.toLowerCase() === name) ? '' : 'none';
     });
-    if (name === 'motores')  {
-      // Refrescamos NumSections, columnas DBF e implemento central antes de pintar.
-      Promise.all([loadAogSections(), loadShapeFields(), loadImplCentral()]).then(renderMotores);
-    }
     if (name === 'shape')    refreshShapeActive();
     if (name === 'pid')      renderPid();
     if (name === 'calibrar') renderCalibrar();

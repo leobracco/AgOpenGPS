@@ -281,53 +281,104 @@
     .shape-required-grid .chip.missing {
       background: rgba(201,45,45,0.15); color: #C92D2D;
     }
+
+    /* ===== Tira de surcos unificada (Siembra) ===== */
+    .qx-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+    .qx-title{color:var(--agp-text);font-weight:700;font-size:15px}
+    .seg{display:flex;background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:8px;overflow:hidden;margin-left:auto}
+    .seg button{background:transparent;border:0;color:var(--agp-text-muted);padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer}
+    .seg button.on{background:#1c2a1e;color:var(--agp-accent)}
+    .planter-wrap{background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:10px;padding:10px}
+    .planter-cap{display:flex;justify-content:space-between;color:var(--agp-text-muted);font-size:11px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+    .strip{display:flex;gap:3px;flex-wrap:wrap}
+    .cell{width:24px;height:36px;border-radius:4px;font-size:10px;color:#0a0f0c;display:flex;align-items:center;justify-content:center;font-weight:800;position:relative;cursor:pointer;user-select:none}
+    .cell.off{background:#2c352e;color:#5f6a61;box-shadow:inset 0 0 0 1px #3a443c}
+    .cell.orphan{background:#1a211c;color:#5f6a61;box-shadow:inset 0 0 0 1px #3a443c}
+    .cell.brush{outline:2px solid #fff;outline-offset:1px}
+    .qx-tools{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+    .brushchip{display:flex;align-items:center;gap:6px;background:#16201a;border:1px solid var(--agp-border);border-radius:20px;padding:6px 14px;color:var(--agp-text);font-weight:600}
+    .brushchip .sw{width:14px;height:14px;border-radius:4px;background:#2c352e}
+    .mlist{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+    .mrow{display:flex;align-items:center;gap:10px;background:#121a14;border:1px solid var(--agp-border);border-radius:9px;padding:10px 11px}
+    .mrow.sel{border-color:var(--agp-accent);box-shadow:0 0 0 1px var(--agp-accent) inset}
+    .mrow .sw{width:16px;height:16px;border-radius:5px;flex:0 0 auto}
+    .mrow .nm{width:90px;color:var(--agp-text);font-weight:700}
+    .mrow .cnt{color:var(--agp-text-muted);font-size:11px;width:120px}
+    .dosebox input{width:64px;background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:6px;color:var(--agp-accent);padding:6px;font-size:13px;text-align:right}
+    .eff{margin-left:6px;font-size:11px;padding:3px 8px;border-radius:10px}
+    .eff.mapa{background:#13233a;color:#5fb0e0}.eff.fija{background:#2a2418;color:#e0a33e}
+    .pps{margin-left:auto;color:#9fb0a4;font-variant-numeric:tabular-nums}
+    .bar{width:80px;height:6px;background:var(--agp-bg-soft);border-radius:4px;overflow:hidden;margin-left:8px}
+    .bar>i{display:block;height:100%;background:var(--agp-accent)}
+    .bar.warn>i{background:#e0a33e}
+    .badge{font-size:10px;padding:3px 7px;border-radius:8px;background:#2c352e;color:#9fb0a4;margin-left:8px}
+    .badge.cut{background:#3a2230;color:#e08bb0}.badge.dev{background:#3a2f18;color:#e0a33e}
+    .cell-colors{--c1:#4ABA3E;--c2:#7F6BE0;--c3:#E0A33E;--c4:#3E9BE0;--c5:#E06B8B;--c6:#46C5B0}
+    table.dense{width:100%;border-collapse:collapse;font-size:12px}
+    table.dense th{text-align:left;color:var(--agp-text-muted);font-weight:600;padding:6px;border-bottom:1px solid var(--agp-border)}
+    table.dense td{padding:6px;border-bottom:1px solid #1d271f;color:var(--agp-text)}
+    .qx-actions{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
+    .msg{font-size:var(--agp-fs-sm);color:var(--agp-text-muted);margin-left:auto}
+    .msg.ok{color:var(--agp-accent)}.msg.err{color:#C92D2D}
   </style>
 </head>
 <body>
   <aside class="sidebar" data-active="quantix"></aside>
   <main class="page">
     <div class="page-head">
-      <div><h1>QuantiX</h1><div class="subtitle">Control PID · 2 motores por nodo</div></div>
+      <div><h1>QuantiX</h1><div class="subtitle">Siembra · N motores · dosis y corte por surco</div></div>
       <span class="pill" id="qxStatus"><span class="dot"></span> Cargando…</span>
     </div>
 
     <div class="tabs">
-      <div class="tab active" data-tab="monitor">Monitor</div>
-      <div class="tab" data-tab="motores">Motores</div>
+      <div class="tab active" data-tab="siembra">Siembra</div>
       <div class="tab" data-tab="shape">Shape (dosis)</div>
       <div class="tab" data-tab="pid">PID live</div>
       <div class="tab" data-tab="calibrar">Calibración</div>
       <div class="tab" data-tab="prueba">Prueba</div>
     </div>
 
-    <!-- ===== MONITOR ===== -->
-    <div id="tabMonitor">
-      <div id="qxList"></div>
-      <div id="qxEmpty" class="card" style="display:none">
-        <div class="subtitle">No se ven nodos QuantiX en la LAN.</div>
-        <p style="margin-top: var(--agp-sp-2); color: var(--agp-text-muted)">
-          Verificá que el broker MQTT esté corriendo en CoreX y que los nodos QuantiX
-          estén encendidos y conectados al WiFi del tractor. Los anuncios viajan en
-          <code>agp/quantix/+/announcement</code> y la telemetría en
-          <code>agp/quantix/+/status_live</code>.
-        </p>
-      </div>
-    </div>
+    <!-- ===== SIEMBRA (config + monitor unificado) ===== -->
+    <div id="tabSiembra">
+      <div class="card">
+        <div class="qx-head">
+          <span class="qx-title" id="qxModeLabel">Configurar</span>
+          <div class="seg">
+            <button id="segPlanter" class="on" data-view="planter">Planter</button>
+            <button id="segTabla" data-view="tabla">Tabla</button>
+          </div>
+        </div>
 
-    <!-- ===== MOTORES (CRUD config) ===== -->
-    <div id="tabMotores" style="display:none">
-      <div id="mtList"></div>
-      <div class="btn-row" style="margin-top: var(--agp-sp-4)">
-        <button class="btn primary" id="btnImportDiscovered">⇩ Importar nodos descubiertos</button>
-        <!-- "+ Agregar manual" eliminado: los nodos solo se incorporan por
-             auto-descubrimiento MQTT (`agp/quantix/+/announcement`). Pedirle
-             el UID al operario a mano introducía typos que rompían el match
-             con el firmware (UID es case-sensitive, 12 hex). -->
-        <span style="flex:1"></span>
-        <button class="btn primary" id="btnSaveMotores">Guardar todo</button>
-        <button class="btn" id="btnSendAll">Enviar todos por MQTT</button>
+        <!-- Tira de surcos (config + live, mismo objeto) -->
+        <div class="planter-wrap">
+          <div class="planter-cap">
+            <span id="planterCapL">Sembradora · color = motor</span>
+            <span id="planterCapR">tocá un surco para pintarlo con el motor activo</span>
+          </div>
+          <div class="strip" id="qxStrip"></div>
+        </div>
+
+        <!-- Toolbar (solo en Configurar) -->
+        <div class="qx-tools" id="qxTools">
+          <span class="brushchip" id="qxBrush"><span class="sw"></span>Pincel: —</span>
+          <button class="btn primary" id="btnAddMotor">+ Motor</button>
+          <button class="btn" id="btnAutoReparto">Auto-repartir</button>
+          <button class="btn warn" id="btnQuitarSurco">Quitar surco</button>
+          <span id="qxOrphanWarn" class="pill warn" style="display:none"></span>
+        </div>
+
+        <!-- Lista de motores (config: dosis fija + efectiva / live: pps + badge) -->
+        <div class="mlist" id="qxMotorList"></div>
+
+        <!-- Vista Tabla (densa) -->
+        <table class="dense" id="qxTabla" style="display:none"></table>
+
+        <div class="qx-actions">
+          <button class="btn" id="btnSaveMotores">Guardar</button>
+          <button class="btn" id="btnSendAll">Enviar a nodos</button>
+          <div id="mtMsg" class="msg"></div>
+        </div>
       </div>
-      <div id="mtMsg" style="margin-top: var(--agp-sp-3); color: var(--agp-text-muted); font-size: var(--agp-fs-sm)"></div>
     </div>
 
     <!-- ===== SHAPE (upload de shapefile para dosis variable) ===== -->
