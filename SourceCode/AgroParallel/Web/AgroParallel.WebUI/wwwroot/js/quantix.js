@@ -154,8 +154,8 @@
       var m = ms[i];
       var sel = (i === state.brushMotor) ? ' sel' : '';
       var efClass = m.campo_dosis ? 'mapa' : 'fija';
-      var efTxt = m.campo_dosis ? ('mapa ' + m.campo_dosis) : 'fija';
-      var nombre = m.nombre || ('Motor ' + (i + 1));
+      var efTxt = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : 'fija';
+      var nombre = escapeHtml(m.nombre || ('Motor ' + (i + 1)));
       var dosis = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
       html += '<div class="mrow' + sel + '" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
