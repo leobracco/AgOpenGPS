@@ -118,6 +118,23 @@
     el.innerHTML = html;
   }
 
+  // Asigna 'surco' al motor del pincel, quitándolo de cualquier otro motor.
+  function paintSurco(surco) {
+    var nodo = activeNodo();
+    var ms = (nodo && nodo.motores) || [];
+    if (!nodo || state.brushMotor >= ms.length) return;
+    ms.forEach(function (m, i) {
+      m.cortes = (m.cortes || []).filter(function (c) { return c !== surco; });
+      if (i === state.brushMotor && m.cortes.indexOf(surco) < 0) {
+        m.cortes.push(surco); m.cortes.sort(function (a, b) { return a - b; });
+      }
+    });
+    state.dirty = true;
+  }
+
+  // Stub temporal — se reemplaza en la tarea de lista de motores.
+  function renderMotorList() {}
+
   async function loadImplCentral() {
     try {
       var r = await fetch('/api/implemento', { cache: 'no-store' });
@@ -809,6 +826,32 @@
   if (btnImp) btnImp.addEventListener('click', importDiscovered);
   $('btnSaveMotores').addEventListener('click', saveMotores);
   $('btnSendAll').addEventListener('click', sendAllNodos);
+
+  (function bindStripPaint() {
+    var strip = document.getElementById('qxStrip');
+    if (!strip || strip._painted) return;
+    strip._painted = true;
+    var painting = false;
+    function cellSurco(t) {
+      return t && t.classList && t.classList.contains('cell')
+        ? parseInt(t.getAttribute('data-surco'), 10) : NaN;
+    }
+    function apply(t) {
+      var s = cellSurco(t);
+      if (!isNaN(s)) { paintSurco(s); renderStrip(); renderMotorList(); }
+    }
+    strip.addEventListener('pointerdown', function (e) {
+      if (state.siembraView !== 'planter' || state.activeTab !== 'siembra') return;
+      painting = true; apply(e.target);
+      try { strip.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    strip.addEventListener('pointermove', function (e) {
+      if (!painting) return;
+      apply(document.elementFromPoint(e.clientX, e.clientY));
+    });
+    strip.addEventListener('pointerup', function () { painting = false; });
+    strip.addEventListener('pointercancel', function () { painting = false; });
+  })();
 
   // ============================================================================
   // PID LIVE-TUNE
