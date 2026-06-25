@@ -251,8 +251,28 @@
     if (list) list.style.display = (v === 'planter') ? 'flex' : 'none';
     renderSiembra();
   }
-  // Stub temporal — se reemplaza en la tarea de huérfanos.
-  function updateOrphanWarn() {}
+  // Devuelve los surcos (1-based) sin motor asignado en el nodo activo.
+  function surcosHuerfanos() {
+    var nodo = activeNodo();
+    if (!nodo) return [];
+    var total = totalSurcos();
+    var huerfanos = [];
+    for (var s = 1; s <= total; s++) {
+      if (surcoOwner(nodo, s) < 0) huerfanos.push(s);
+    }
+    return huerfanos;
+  }
+
+  // Muestra/oculta el aviso de surcos sin motor en #qxOrphanWarn.
+  function updateOrphanWarn() {
+    var el = document.getElementById('qxOrphanWarn');
+    if (!el) return;
+    var h = surcosHuerfanos();
+    if (h.length === 0) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = '';
+    el.textContent = h.length + ' surco' + (h.length !== 1 ? 's' : '') +
+      ' sin motor: ' + h.join(', ');
+  }
 
   function renderSiembra() {
     renderStrip();
@@ -466,8 +486,6 @@
 
   var FRESH_MS = 3000;
   var statusEl = $('qxStatus');
-  var listEl   = $('qxList');
-  var emptyEl  = $('qxEmpty');
 
   function deltaClass(target, real) {
     if (!target || target <= 0) return '';
@@ -483,108 +501,6 @@
   function pwmPct(pwm) {
     if (!pwm) return 0;
     return Math.max(0, Math.min(100, Math.round((pwm / 4095) * 100)));
-  }
-
-  function renderMotorCard(uid, nodoOnline, m) {
-    var target = pick(m, 'ppsTarget', 'PpsTarget') || 0;
-    var real   = pick(m, 'ppsReal',   'PpsReal')   || 0;
-    var pwm    = pick(m, 'pwm',       'Pwm')       || 0;
-    var rpm    = pick(m, 'rpm',       'Rpm')       || 0;
-    var pulsos = pick(m, 'pulsos',    'Pulsos')    || 0;
-    var seen   = pick(m, 'lastSeenUtc','LastSeenUtc');
-
-    var stale = ageMs(seen) > FRESH_MS;
-    var cls = nodoOnline && !stale ? deltaClass(target, real) : 'delta-err';
-    var delta = deltaPct(target, real);
-    var deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
-
-    var pct = pwmPct(pwm);
-    var pidLabel = nodoOnline && !stale
-      ? (Math.abs(delta) <= 2 ? '<span class="pill ok"><span class="dot"></span> en setpoint</span>'
-         : Math.abs(delta) <= 8 ? '<span class="pill warn"><span class="dot"></span> ajustando</span>'
-         : '<span class="pill err"><span class="dot"></span> fuera de setpoint</span>')
-      : '<span class="pill err"><span class="dot"></span> sin telemetría</span>';
-
-    var mid = m.id != null ? m.id : m.Id;
-
-    // Gauge real/target: 0..150% del target. Si target=0, mostrar fill al 0.
-    var ratioPct = target > 0 ? Math.min(150, Math.max(0, (real / target) * 100)) : 0;
-    var markerPct = target > 0 ? (100 / 150) * 100 : 0; // marker visual del target dentro de 0..150
-    var fillCls = (nodoOnline && !stale) ? deltaClass(target, real) : 'err';
-    fillCls = fillCls.replace('delta-', '');
-
-    return '' +
-      '<div class="card motor-card">' +
-        '<div class="mc-head">' +
-          '<h3>Motor ' + ((mid|0) + 1) + '</h3>' +
-          pidLabel +
-        '</div>' +
-
-        '<div class="mc-readouts">' +
-          '<div>' +
-            '<div class="lbl">PPS real</div>' +
-            '<div class="big real ' + cls + '">' + real.toFixed(1) + '</div>' +
-          '</div>' +
-          '<div>' +
-            '<div class="lbl" style="text-align:right">Objetivo</div>' +
-            '<div class="big tgt">' + target.toFixed(1) + '</div>' +
-          '</div>' +
-        '</div>' +
-
-        // Gauge: barra real/target con marca de target
-        '<div class="gauge" title="Real ' + real.toFixed(1) + ' / Objetivo ' + target.toFixed(1) + '">' +
-          '<div class="fill ' + fillCls + '" style="width:' + (ratioPct / 1.5) + '%"></div>' +
-          (target > 0 ? '<div class="marker" style="left:' + markerPct + '%"></div>' : '') +
-        '</div>' +
-        '<div class="gauge-legend"><span>0</span><span class="' + cls + '">Δ ' + deltaStr + '</span><span>+50%</span></div>' +
-
-        // PWM como slider visual
-        '<div style="margin-top: var(--agp-sp-3); font-size: var(--agp-fs-xs); color: var(--agp-text-muted); text-transform: uppercase; letter-spacing: 0.5px">PWM</div>' +
-        '<div class="pwm-slider" title="PWM ' + pwm + ' / 4095 (' + pct + '%)">' +
-          '<div class="track"></div>' +
-          '<div class="fill" style="width:' + pct + '%"></div>' +
-          '<div class="thumb" style="left:' + pct + '%"></div>' +
-        '</div>' +
-        '<div class="gauge-legend"><span>0</span><span>' + pwm + ' / 4095 · ' + pct + '%</span><span>4095</span></div>' +
-
-        '<div class="kv">' +
-          '<div class="k">RPM</div><div class="v">' + rpm + '</div>' +
-          '<div class="k">Pulsos</div><div class="v">' + pulsos.toLocaleString() + '</div>' +
-          '<div class="k">Visto</div><div class="v">' + (stale ? '⚠ ' : '') + (Math.round(ageMs(seen)/100)/10) + ' s</div>' +
-          '<div class="k">UID</div><div class="v" style="font-size:var(--agp-fs-xs)">' + escapeHtml(uid) + '</div>' +
-        '</div>' +
-      '</div>';
-  }
-
-  function renderNodoMonitor(n) {
-    var uid = pick(n, 'uid', 'Uid') || '';
-    var ip  = pick(n, 'ip',  'Ip')  || '—';
-    var fw  = pick(n, 'firmware', 'Firmware') || '—';
-    var online = !!pick(n, 'online', 'Online');
-    var motors = pick(n, 'motorsLive', 'MotorsLive') || [];
-
-    state.liveByUid[uid] = { online: online, motors: motors };
-
-    if (!motors.length) {
-      return '' +
-        '<section style="margin-bottom: var(--agp-sp-5)">' +
-          '<div class="node-head">' +
-            '<h2 style="margin:0">QuantiX node <span style="font-family:var(--agp-font-mono); color:var(--agp-text-muted); font-size:var(--agp-fs-md); font-weight:normal">' + escapeHtml(uid) + '</span></h2>' +
-            '<span class="pill ' + (online ? 'ok' : 'err') + '"><span class="dot"></span> ' + (online ? 'online' : 'offline') + ' · ' + escapeHtml(ip) + ' · fw ' + escapeHtml(fw) + '</span>' +
-          '</div>' +
-          '<div class="card subtitle">Sin telemetría todavía — esperando <code>status_live</code>…</div>' +
-        '</section>';
-    }
-    motors = motors.slice().sort(function (a, b) { return (a.id || a.Id || 0) - (b.id || b.Id || 0); });
-    var cards = motors.map(function (m) { return renderMotorCard(uid, online, m); }).join('');
-    return '' +
-      '<section style="margin-bottom: var(--agp-sp-5)">' +
-        '<div class="node-head">' +
-          '<h2 style="margin:0">QuantiX node <span style="font-family:var(--agp-font-mono); color:var(--agp-text-muted); font-size:var(--agp-fs-md); font-weight:normal">' + escapeHtml(uid) + '</span></h2>' +
-          '<span class="pill ' + (online ? 'ok' : 'err') + '"><span class="dot"></span> ' + (online ? 'online' : 'offline') + ' · ' + escapeHtml(ip) + ' · fw ' + escapeHtml(fw) + '</span>' +
-        '</div>' +
-        '<div class="grid">' + cards + '</div>' +
-      '</section>';
   }
 
   // Refresca el estado de PilotX (job, secciones cortadas, velocidad, área).
@@ -628,32 +544,22 @@
         statusEl.className = 'pill ' + (nodos.length > 0 ? 'ok' : 'warn');
         statusEl.innerHTML = '<span class="dot"></span> ' + nodos.length + ' nodo' + (nodos.length !== 1 ? 's' : '') + ' QuantiX';
       }
-      if (state.activeTab === 'monitor') {
-        if (nodos.length === 0) {
-          if (listEl) listEl.innerHTML = '';
-          if (emptyEl) emptyEl.style.display = '';
-          return;
-        }
-        if (emptyEl) emptyEl.style.display = 'none';
-        if (listEl) listEl.innerHTML = nodos.map(renderNodoMonitor).join('');
-      } else {
-        // Mantener cache para Calibración (necesita pulsos)
-        for (var i = 0; i < nodos.length; i++) {
-          var n = nodos[i];
-          var uid = pick(n, 'uid', 'Uid');
-          var motors = pick(n, 'motorsLive', 'MotorsLive') || [];
-          state.liveByUid[uid] = { online: !!pick(n, 'online', 'Online'), motors: motors };
-        }
-        // Si estoy en Calibrar, refrescá pulsos
-        if (state.activeTab === 'calibrar') updateCalibrarPulses();
-        if (state.activeTab === 'pid')      updatePidLive();
-        if (state.activeTab === 'prueba')   updatePruebaLive();
-        if (state.activeTab === 'siembra') {
-          await refreshAogLiveState();
-          computeEnMarcha();
-          applyMarchaChrome();
-          renderSiembra();
-        }
+      // Mantener cache para Calibración (necesita pulsos)
+      for (var i = 0; i < nodos.length; i++) {
+        var n = nodos[i];
+        var uid = pick(n, 'uid', 'Uid');
+        var motors = pick(n, 'motorsLive', 'MotorsLive') || [];
+        state.liveByUid[uid] = { online: !!pick(n, 'online', 'Online'), motors: motors };
+      }
+      // Si estoy en Calibrar, refrescá pulsos
+      if (state.activeTab === 'calibrar') updateCalibrarPulses();
+      if (state.activeTab === 'pid')      updatePidLive();
+      if (state.activeTab === 'prueba')   updatePruebaLive();
+      if (state.activeTab === 'siembra') {
+        await refreshAogLiveState();
+        computeEnMarcha();
+        applyMarchaChrome();
+        renderSiembra();
       }
     } catch (e) {
       if (statusEl) {
@@ -693,309 +599,44 @@
     };
   }
 
-  function renderMotorCfg(nodoIdx, motorIdx) {
-    var m = state.motoresCfg.nodos[nodoIdx].motores[motorIdx] || defaultMotor();
-    var mClass = motorIdx === 0 ? '' : 'm1';
 
-    // Chips por SECCIÓN PilotX (las que vienen de AOG vía /api/aog/state).
-    // El feedback del usuario fue claro: "deben ser las secciones que traemos
-    // de AOG", no surcos físicos del implemento. cortes[] es la fuente de
-    // verdad y se persiste tal cual. surcos_cubiertos[] queda como legacy
-    // pasthrough (no editable acá; si en el futuro se reintroduce el modo
-    // surco-físico se hará detrás de un toggle explícito).
-    var nsAog = state.aogNumSections | 0;
-    var savedSec = {};
-    (m.cortes || []).forEach(function (c) { savedSec[c | 0] = true; });
-    // Si el backend AOG aún no respondió, deducimos el rango del propio cortes[]
-    // guardado para no perder la visualización en frío.
-    var maxKnown = nsAog;
-    if (!maxKnown) (m.cortes || []).forEach(function (c) { if ((c | 0) > maxKnown) maxKnown = c | 0; });
-    var surcosHtml = '';
-    if (maxKnown <= 0) {
-      surcosHtml = '<span style="color: var(--agp-text-muted); font-size: var(--agp-fs-sm)">' +
-        'No se detectaron secciones de PilotX. Configurá las secciones del implemento en la UI nativa de PilotX.</span>';
-    } else {
-      for (var s2 = 1; s2 <= maxKnown; s2++) {
-        var chk2 = savedSec[s2] ? ' checked' : '';
-        surcosHtml +=
-          '<label class="sec-chip"><input type="checkbox" data-sec="' + s2 + '"' + chk2 + '> S' + s2 + '</label>';
-      }
-    }
-
-    // Shapefile dropdown: columnas DBF del shape activo en el piloto. Preferimos
-    // numéricas (las que sirven para dosis); las no numéricas quedan al final
-    // marcadas. Si el shape no está cargado, mostramos el guardado como
-    // "(sin shape)" para no perder la config al editar.
-    var hasShape = !!(state.shapeSource);
-    var shapeOpts = [{ v: '', t: hasShape ? '— sin asignar —' : '— sin shape cargado —' }];
-    var numericNames = {};
-    if (Array.isArray(state.shapeFields)) {
-      state.shapeFields.forEach(function (f) {
-        if (!f || !f.name) return;
-        if (f.numeric) numericNames[f.name] = true;
-      });
-      // Numéricas primero
-      state.shapeFields.forEach(function (f) {
-        if (f && f.name && f.numeric) {
-          var rng = (isFinite(f.min) && isFinite(f.max))
-            ? ' (' + fmtNum(f.min) + '..' + fmtNum(f.max) + ')' : '';
-          shapeOpts.push({ v: f.name, t: f.name + rng });
-        }
-      });
-      // No-numéricas al final, deshabilitadas visualmente pero seleccionables
-      state.shapeFields.forEach(function (f) {
-        if (f && f.name && !f.numeric) {
-          shapeOpts.push({ v: f.name, t: f.name + ' (no numérico)' });
-        }
-      });
-    }
-    // Preservar valor guardado aunque no esté en el shape actual
-    if (m.campo_dosis && !shapeOpts.some(function (o) { return o.v === m.campo_dosis; })) {
-      shapeOpts.push({ v: m.campo_dosis, t: m.campo_dosis + (hasShape ? ' (no existe en shape)' : ' (guardado)') });
-    }
-
-    return '' +
-      '<div class="motor-cfg ' + mClass + '" data-mi="' + motorIdx + '">' +
-        '<h4>M' + motorIdx + ' — <input type="text" data-f="nombre" value="' + escapeHtml(m.nombre || '') + '" style="font-weight:bold; width:auto; min-width:160px"></h4>' +
-        '<div class="fld-grid">' +
-          fld('Dosis fija (0=mapa)', 'dosis_fija', m.dosis_fija, 'number', '0', '0.1') +
-          fldSelect('Campo shapefile', 'campo_dosis', m.campo_dosis, shapeOpts) +
-          fld('MeterCal',            'meter_cal',   m.meter_cal,   'number', '0.1', '0.5') +
-          fld('Dientes',             'dientes_engranaje', m.dientes_engranaje, 'number', '1', '1') +
-          fldSelect('Tipo motor', 'motor_type', m.motor_type | 0, [
-            { v: 0, t: 'Eléctrico' },
-            { v: 1, t: 'Hidráulico' }
-          ], true) +
-          fldSelect('Tren', 'tren', m.tren | 0, trenOpts(m.tren | 0), true) +
-          // step=10 (no 1) porque sin el drag del slider, ir de 0 a 4095 de a 1
-          // con autorepeat tarda casi un minuto. Con 10, autorepeat 80ms ≈ 5s.
-          // Para afinar más fino, el operario puede tocar tap-a-tap.
-          fldRange('PWM min', 'pwm_min', m.pwm_min | 0, 0, 4095, 10) +
-          fldRange('PWM max', 'pwm_max', m.pwm_max | 0, 0, 4095, 10) +
-        '</div>' +
-        '<div class="sec-row">' +
-          '<label class="sec-row-label">Secciones PilotX cubiertas <span style="font-weight:normal; color: var(--agp-text-muted); font-size: var(--agp-fs-sm)">(' + (nsAog || maxKnown || 0) + ' detectadas — se configuran en <a href="herramienta.html#seccionesx" style="color: var(--agp-accent)">Implemento → Secciones</a>)</span></label>' +
-          '<div class="sec-grid">' + surcosHtml + '</div>' +
-        '</div>' +
-      '</div>';
-  }
-
-  function fld(label, name, value, type, min, step) {
-    var attrs = 'data-f="' + name + '" type="' + (type || 'text') + '"';
-    if (min !== undefined) attrs += ' min="' + min + '"';
-    if (step !== undefined) attrs += ' step="' + step + '"';
-    var v = value == null ? '' : value;
-    return '<div class="field"><label>' + escapeHtml(label) + '</label>' +
-           '<input ' + attrs + ' value="' + escapeHtml(v) + '"></div>';
-  }
-
-  // Select con data-int="1" cuando el valor es entero (motor_type, tren).
-  // readMotoresFromUI lo usa para parsear con parseInt en lugar de string.
-  function fldSelect(label, name, value, options, isInt) {
-    var v = (value == null ? '' : String(value));
-    var opts = '';
-    for (var i = 0; i < options.length; i++) {
-      var o = options[i];
-      var ov = String(o.v);
-      opts += '<option value="' + escapeHtml(ov) + '"' +
-              (ov === v ? ' selected' : '') + '>' + escapeHtml(o.t) + '</option>';
-    }
-    return '<div class="field"><label>' + escapeHtml(label) + '</label>' +
-           '<select data-f="' + name + '"' + (isInt ? ' data-int="1"' : '') + '>' + opts + '</select></div>';
-  }
-
-  // Stepper PWM (antes era slider). El thumb del range era imposible de mover
-  // con dedo grueso sobre la pantalla del tractor — un par de botones [−][+]
-  // con autorepeat al mantener apretado es mucho más práctico. El <output>
-  // queda como readout secundario en el label (se actualiza vía input event
-  // delegado más abajo); el stepper trae su propio readout interno.
-  function fldRange(label, name, value, min, max, step) {
-    var v = value == null ? min : value;
-    var stepperHtml = window.AGPSteps
-      ? window.AGPSteps.stepperHTML({
-          value: v, min: min, max: max, mode: 'int', step: step || 1,
-          attrs: 'data-f="' + name + '" data-int="1"'
-        })
-      : ('<input data-f="' + name + '" data-int="1" type="number" min="' + min +
-         '" max="' + max + '" step="' + (step || 1) + '" value="' + escapeHtml(v) + '">');
-    return '<div class="field"><label>' + escapeHtml(label) +
-           ' <output class="range-out">' + escapeHtml(v) + '</output></label>' +
-           stepperHtml + '</div>';
-  }
-
-  // Opciones del dropdown de tren para cada motor. Se arman desde el implemento
-  // CENTRAL (Herramienta), no desde la config local de QuantiX. Si el motor
-  // tiene un tren guardado que ya no existe, lo mostramos al final como
-  // "(eliminado)" para no perder la config silenciosamente.
-  function trenOpts(currentId) {
-    var trenes = (state.implCentral && Array.isArray(state.implCentral.trenes))
-      ? state.implCentral.trenes : [];
-    var opts = trenes.map(function (t) {
-      var lbl = (t.nombre || ('Tren ' + t.id));
-      if (t.distancia_m) lbl += ' (' + fmtNum(t.distancia_m) + ' m)';
-      return { v: t.id | 0, t: lbl };
-    });
-    if (opts.length === 0) opts.push({ v: 0, t: '— definí trenes en Herramienta —' });
-    var exists = opts.some(function (o) { return (o.v | 0) === (currentId | 0); });
-    if (!exists) opts.push({ v: currentId | 0, t: 'Tren ' + currentId + ' (eliminado)' });
-    return opts;
-  }
-
-  // Banner read-only: trenes/surcos/secciones se editan en Herramienta. QuantiX
-  // sólo lee. Mostramos un resumen para que el operario sepa de dónde sale el
-  // mapeo que está usando.
-  function renderTrenesBar() {
-    var c = state.implCentral || {};
-    var nT = Array.isArray(c.trenes) ? c.trenes.length : 0;
-    var nS = (c.numero_surcos | 0) || (Array.isArray(c.surcos) ? c.surcos.length : 0);
-    var nSec = Array.isArray(c.secciones) ? c.secciones.length : 0;
-    return '' +
-      '<div class="card" style="margin-bottom: var(--agp-sp-4); border-left: 3px solid var(--agp-accent)">' +
-        '<div class="node-head" style="margin-bottom: var(--agp-sp-2)">' +
-          '<h3 style="margin:0">Implemento (read-only)</h3>' +
-          '<a class="btn" href="herramienta.html">Editar en Herramienta</a>' +
-        '</div>' +
-        '<div class="subtitle" style="color: var(--agp-text-muted)">' +
-          'Trenes: <strong>' + (nT || '—') + '</strong> · ' +
-          'Surcos: <strong>' + (nS || '—') + '</strong> · ' +
-          'Secciones PilotX: <strong>' + (nSec || '—') + '</strong>' +
-        '</div>' +
-        (nT === 0
-          ? '<div class="subtitle" style="margin-top: var(--agp-sp-2); color: var(--agp-state-warn-tx)">Sin trenes definidos — los motores no tendrán dónde asignarse hasta que cargues Herramienta.</div>'
-          : '') +
-      '</div>';
-  }
-
-  function renderMotores() {
-    var listEl = $('mtList');
+  // Sincroniza cfg.trenes desde el implemento central antes de persistir
+  // (los trenes ya no se editan en QuantiX; vienen del implemento).
+  function syncTrenes() {
     var cfg = state.motoresCfg;
-    var html = renderTrenesBar();
-    if (!cfg.nodos || cfg.nodos.length === 0) {
-      listEl.innerHTML = html + '<div class="card subtitle">No hay nodos QuantiX configurados. ' +
-        'Cuando un nodo nuevo aparezca por MQTT (<code>agp/quantix/+/announcement</code>) se auto-registra al primer arranque.</div>';
-      return;
-    }
-    for (var i = 0; i < cfg.nodos.length; i++) {
-      var n = cfg.nodos[i];
-      if (!n.motores) n.motores = [defaultMotor('Producto 1'), defaultMotor('Producto 2')];
-      html += '<div class="card" data-ni="' + i + '" style="margin-bottom: var(--agp-sp-4)">' +
-        '<div class="node-head">' +
-          '<div class="uid-row" style="flex:1">' +
-            '<input type="text" data-nf="nombre" value="' + escapeHtml(n.nombre || '') + '" style="font-weight:bold; max-width:280px" placeholder="Nombre del nodo">' +
-            '<span style="color: var(--agp-text-muted); font-size: var(--agp-fs-xs)">UID</span>' +
-            '<input type="text" data-nf="uid" value="' + escapeHtml(n.uid || '') + '" style="font-family: var(--agp-font-mono); max-width:200px">' +
-            '<label style="display:flex; gap:6px; align-items:center"><input type="checkbox" data-nf="habilitado"' + (n.habilitado ? ' checked' : '') + '> <span>Habilitado</span></label>' +
-          '</div>' +
-          '<span class="pill ' + (state.liveByUid[n.uid] && state.liveByUid[n.uid].online ? 'ok' : 'err') + '">' +
-            '<span class="dot"></span> ' + (state.liveByUid[n.uid] && state.liveByUid[n.uid].online ? 'online' : 'offline') +
-          '</span>' +
-        '</div>' +
-        renderMotorCfg(i, 0) +
-        renderMotorCfg(i, 1) +
-        '<div class="btn-row">' +
-          '<button class="btn" data-act="send" data-ni="' + i + '">Enviar config por MQTT</button>' +
-          '<button class="btn" data-act="del" data-ni="' + i + '" style="color:#C92D2D">Quitar nodo</button>' +
-          '<span class="send-msg" data-msg="' + i + '"></span>' +
-        '</div>' +
-      '</div>';
-    }
-    listEl.innerHTML = html;
-    // Engancha los steppers PWM min/max de cada motor recién renderizado.
-    // bindSteppers es idempotente sobre el mismo root (lo marca con un flag).
-    if (window.AGPSteps) window.AGPSteps.bindSteppers(listEl);
-  }
-
-  function readMotoresFromUI() {
-    var cfg = state.motoresCfg;
-
-    // Trenes ya no se editan acá (vienen del implemento central). Mantenemos
-    // cfg.trenes sincronizado al guardar para que el backend QuantiX siga
-    // recibiendo la lista que espera (compat con QxTrenConfigDto).
     if (state.implCentral && Array.isArray(state.implCentral.trenes)) {
       cfg.trenes = state.implCentral.trenes.map(function (t) {
         return { id: t.id | 0, nombre: t.nombre || ('Tren ' + t.id), distancia_m: t.distancia_m || 0 };
       });
     }
-
-    var cards = document.querySelectorAll('#mtList > .card[data-ni]');
-    cards.forEach(function (card) {
-      var ni = parseInt(card.getAttribute('data-ni'), 10);
-      var n = cfg.nodos[ni];
-      if (!n) return;
-      card.querySelectorAll('input[data-nf]').forEach(function (inp) {
-        var f = inp.getAttribute('data-nf');
-        n[f] = (inp.type === 'checkbox') ? inp.checked : inp.value;
-      });
-      var motorCfgs = card.querySelectorAll('.motor-cfg');
-      motorCfgs.forEach(function (mc) {
-        var mi = parseInt(mc.getAttribute('data-mi'), 10);
-        var m = n.motores[mi]; if (!m) return;
-        mc.querySelectorAll('[data-f]').forEach(function (inp) {
-          var f = inp.getAttribute('data-f');
-          var isInt = inp.getAttribute('data-int') === '1';
-          if (inp.type === 'range' || isInt) {
-            m[f] = parseInt(inp.value, 10) || 0;
-          } else if (inp.type === 'number') {
-            m[f] = parseFloat(inp.value) || 0;
-          } else {
-            m[f] = inp.value || '';
-          }
-        });
-        // Secciones PilotX cubiertas (cortes[]) — fuente de verdad única en UI.
-        // surcos_cubiertos[] queda intacto (legacy passthrough): si no había
-        // chips data-sec en el DOM (caso "no hay secciones detectadas") no
-        // tocamos cortes para no borrar lo que ya estaba guardado.
-        var secInputs = mc.querySelectorAll('input[data-sec]');
-        if (secInputs.length > 0) {
-          var cortes = [];
-          secInputs.forEach(function (s) {
-            if (s.checked) cortes.push(parseInt(s.getAttribute('data-sec'), 10));
-          });
-          m.cortes = cortes;
-        }
-      });
-    });
-    return cfg;
   }
 
   async function saveMotores() {
     var msg = $('mtMsg');
-    msg.textContent = 'Guardando…';
-    var cfg = readMotoresFromUI();
+    var huerfanos = surcosHuerfanos();
+    if (huerfanos.length > 0) {
+      if (!confirm('Hay ' + huerfanos.length + ' surco' + (huerfanos.length !== 1 ? 's' : '') +
+        ' sin motor asignado (' + huerfanos.join(', ') + '). ¿Guardar igual?')) {
+        if (msg) msg.textContent = 'Guardado cancelado.';
+        return;
+      }
+    }
+    if (msg) msg.textContent = 'Guardando…';
+    syncTrenes();
     try {
       var res = await fetch('/api/quantix/motores', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cfg)
+        body: JSON.stringify(state.motoresCfg)
       });
       var data = await res.json();
-      msg.textContent = data.ok ? '✓ Guardado.' : '✕ ' + (data.error || 'error');
-    } catch (e) { msg.textContent = '✕ ' + e.message; }
-  }
-
-  async function sendNodo(idx, msgEl) {
-    msgEl.textContent = '… enviando';
-    msgEl.className = 'send-msg';
-    var cfg = readMotoresFromUI();
-    var n = cfg.nodos[idx];
-    if (!n || !n.uid) { msgEl.textContent = '✕ falta UID'; msgEl.className = 'send-msg err'; return; }
-    try {
-      // Persistir primero (para que el backend lea el config actualizado)
-      await fetch('/api/quantix/motores', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cfg)
-      });
-      var res = await fetch('/api/quantix/' + encodeURIComponent(n.uid) + '/send', { method: 'POST' });
-      var data = await res.json();
-      msgEl.textContent = data.ok ? '✓ ' + (data.topic || 'enviado') : '✕ ' + (data.error || 'sin conexión MQTT');
-      msgEl.className = 'send-msg ' + (data.ok ? 'ok' : 'err');
-    } catch (e) {
-      msgEl.textContent = '✕ ' + e.message; msgEl.className = 'send-msg err';
-    }
+      if (msg) msg.textContent = data.ok ? '✓ Guardado.' : '✕ ' + (data.error || 'error');
+    } catch (e) { if (msg) msg.textContent = '✕ ' + e.message; }
   }
 
   async function sendAllNodos() {
-    var msg = $('mtMsg'); msg.textContent = 'Enviando todos…';
-    var cfg = readMotoresFromUI();
+    var msg = $('mtMsg'); if (msg) msg.textContent = 'Enviando todos…';
+    syncTrenes();
+    var cfg = state.motoresCfg;
     await fetch('/api/quantix/motores', {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cfg)
@@ -1010,100 +651,12 @@
         if (data.ok) sent++; else fail++;
       } catch (e) { fail++; }
     }
-    msg.textContent = 'Enviados: ' + sent + ' · Fallos: ' + fail;
+    if (msg) msg.textContent = 'Enviados: ' + sent + ' · Fallos: ' + fail;
   }
 
-  // addNodo() (creaba un nodo con UID random "QX-XXXXXXXX") fue eliminado:
-  // los nodos solo se incorporan vía importDiscovered() desde el registry
-  // de announcements MQTT reales. Esto evita typos y desalineación con el
-  // firmware del nodo físico.
+  // Los nodos solo se incorporan vía announcement MQTT real (auto-descubrimiento).
+  // Esto evita typos y desalineación con el firmware del nodo físico.
 
-  function delNodo(idx) {
-    if (!confirm('¿Quitar nodo ' + (state.motoresCfg.nodos[idx].uid || '?') + '?')) return;
-    var uid = state.motoresCfg.nodos[idx].uid;
-    if (uid && state.motoresCfg.ignorados.indexOf(uid) < 0) state.motoresCfg.ignorados.push(uid);
-    state.motoresCfg.nodos.splice(idx, 1);
-    saveMotores();
-    renderMotores();
-  }
-
-  // (Trenes ya no se crean/borran desde QuantiX — Herramienta es la fuente única.)
-
-  var mtListEl = $('mtList');
-  if (mtListEl) mtListEl.addEventListener('click', function (ev) {
-    var btn = ev.target.closest('button[data-act]');
-    if (!btn) return;
-    var idx = parseInt(btn.getAttribute('data-ni'), 10);
-    if (btn.getAttribute('data-act') === 'send') {
-      var msgEl = document.querySelector('span[data-msg="' + idx + '"]');
-      sendNodo(idx, msgEl);
-    } else if (btn.getAttribute('data-act') === 'del') {
-      delNodo(idx);
-    }
-  });
-  // Readout secundario en el label cuando el operario toca [−]/[+] del stepper
-  // (o, históricamente, arrastra el slider — ahora ya no hay slider pero el
-  // handler sigue tolerando ambos). Buscamos .range-out subiendo a .field
-  // porque el input vive adentro del .agp-stepper.
-  if (mtListEl) mtListEl.addEventListener('input', function (ev) {
-    var inp = ev.target;
-    if (inp.tagName !== 'INPUT') return;
-    if (inp.type !== 'range' && inp.type !== 'hidden' && inp.type !== 'number') return;
-    var field = inp.closest('.field'); if (!field) return;
-    var out = field.querySelector('.range-out');
-    if (out) out.textContent = inp.value;
-  });
-  // btnAddNodo eliminado del HTML — ver comentario arriba (solo auto-descubrimiento).
-
-  async function importDiscovered() {
-    readMotoresFromUI();
-    // Traemos QuantiX vivos del registry
-    var found = [];
-    try {
-      var res = await fetch('/api/quantix/live', { cache: 'no-store' });
-      var data = await res.json();
-      found = pick(data, 'nodos', 'Nodos') || [];
-    } catch (e) {}
-    if (!found.length) {
-      $('mtMsg').textContent = 'No hay nodos QuantiX descubiertos por MQTT en este momento.';
-      return;
-    }
-    var existing = {};
-    (state.motoresCfg.nodos || []).forEach(function (n) { if (n.uid) existing[n.uid.toUpperCase()] = true; });
-    var ignored = {};
-    (state.motoresCfg.ignorados || []).forEach(function (u) { if (u) ignored[u.toUpperCase()] = true; });
-    var added = 0;
-    for (var i = 0; i < found.length; i++) {
-      var uid = pick(found[i], 'uid', 'Uid');
-      if (!uid) continue;
-      var k = uid.toUpperCase();
-      if (existing[k] || ignored[k]) continue;
-      var idx = state.motoresCfg.nodos.length + 1;
-      var baseCorte = (idx - 1) * 7 + 1;
-      var cortes = []; for (var c = 0; c < 7; c++) cortes.push(baseCorte + c);
-      state.motoresCfg.nodos.push({
-        uid: uid,
-        nombre: 'QuantiX ' + idx,
-        habilitado: true,
-        distancia_entre_trenes: 0,
-        motores: [
-          Object.assign(defaultMotor('Producto 1'), { cortes: cortes }),
-          defaultMotor('Producto 2')
-        ]
-      });
-      existing[k] = true;
-      added++;
-    }
-    if (added > 0) {
-      await saveMotores();
-      renderMotores();
-      $('mtMsg').textContent = '✓ Importados ' + added + ' nodo' + (added > 1 ? 's' : '') + ' descubierto' + (added > 1 ? 's' : '') + '.';
-    } else {
-      $('mtMsg').textContent = 'Todos los nodos descubiertos ya están configurados.';
-    }
-  }
-  var btnImp = $('btnImportDiscovered');
-  if (btnImp) btnImp.addEventListener('click', importDiscovered);
   $('btnSaveMotores').addEventListener('click', saveMotores);
   $('btnSendAll').addEventListener('click', sendAllNodos);
 
