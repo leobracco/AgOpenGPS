@@ -133,8 +133,89 @@
     state.lastTouchedSurco = surco;
   }
 
-  // Stub temporal — se reemplaza en la tarea de lista de motores.
-  function renderMotorList() {}
+  function fmtCortes(cortes) {
+    if (!cortes || !cortes.length) return 'sin surcos';
+    var sorted = cortes.slice().sort(function (a, b) { return a - b; });
+    return 'surcos ' + sorted.join(',');
+  }
+
+  function renderMotorList() {
+    var el = document.getElementById('qxMotorList');
+    if (!el) return;
+    var nodo = activeNodo();
+    if (!nodo) { el.innerHTML = ''; return; }
+
+    // Si estamos en vivo, delega al render live (se implementa en una tarea posterior).
+    if (state.siembraEnMarcha && typeof renderMotorListLive === 'function') { renderMotorListLive(); return; }
+
+    var ms = nodo.motores || [];
+    var html = '';
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i];
+      var sel = (i === state.brushMotor) ? ' sel' : '';
+      var efClass = m.campo_dosis ? 'mapa' : 'fija';
+      var efTxt = m.campo_dosis ? ('mapa ' + m.campo_dosis) : 'fija';
+      var nombre = m.nombre || ('Motor ' + (i + 1));
+      var dosis = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
+      html += '<div class="mrow' + sel + '" data-mi="' + i + '">'
+        + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
+        + '<span class="nm">' + nombre + '</span>'
+        + '<span class="cnt">' + fmtCortes(m.cortes) + '</span>'
+        + '<span class="dosebox"><input type="number" step="0.1" data-mi="' + i + '" '
+        + 'class="qxDosisFija" value="' + dosis + '"> <span class="u">kg/ha</span></span>'
+        + '<span class="eff ' + efClass + '">' + efTxt + '</span>'
+        + '</div>';
+    }
+    el.innerHTML = html;
+
+    // Tap a la fila = fijar pincel (sin robar foco al input de dosis).
+    var rows = el.querySelectorAll('.mrow');
+    for (var r = 0; r < rows.length; r++) {
+      rows[r].addEventListener('click', function (e) {
+        if (e.target && e.target.classList && e.target.classList.contains('qxDosisFija')) return;
+        state.brushMotor = parseInt(this.getAttribute('data-mi'), 10);
+        updateBrushChip(); renderStrip(); renderMotorList();
+      });
+    }
+    // Editar dosis fija.
+    var inputs = el.querySelectorAll('.qxDosisFija');
+    for (var k = 0; k < inputs.length; k++) {
+      inputs[k].addEventListener('change', function () {
+        var idx = parseInt(this.getAttribute('data-mi'), 10);
+        var n2 = activeNodo();
+        if (n2 && n2.motores && n2.motores[idx]) {
+          n2.motores[idx].dosis_fija = parseFloat(this.value) || 0;
+          state.dirty = true;
+          renderMotorList();
+        }
+      });
+    }
+  }
+
+  function updateBrushChip() {
+    var chip = document.getElementById('qxBrush');
+    var nodo = activeNodo();
+    if (!chip || !nodo) return;
+    var ms = nodo.motores || [];
+    var m = ms[state.brushMotor];
+    var sw = chip.querySelector('.sw');
+    if (sw) sw.style.background = motorColor(state.brushMotor);
+    var label = m ? (m.nombre || ('Motor ' + (state.brushMotor + 1))) : '\u2014';
+    if (chip.lastChild) chip.lastChild.textContent = 'Pincel: ' + label;
+  }
+
+  // Stub temporal — se reemplaza en la tarea del toggle Planter/Tabla.
+  function renderTabla() {}
+  // Stub temporal — se reemplaza en la tarea de huérfanos.
+  function updateOrphanWarn() {}
+
+  function renderSiembra() {
+    renderStrip();
+    renderMotorList();
+    updateBrushChip();
+    renderTabla();
+    updateOrphanWarn();
+  }
 
   function addMotor() {
     var nodo = activeNodo();
@@ -260,7 +341,7 @@
       var el = $('tab' + k);
       if (el) el.style.display = (k.toLowerCase() === name) ? '' : 'none';
     });
-    if (name === 'siembra')  renderStrip();
+    if (name === 'siembra')  renderSiembra();
     if (name === 'shape')    refreshShapeActive();
     if (name === 'pid')      renderPid();
     if (name === 'calibrar') renderCalibrar();
@@ -449,7 +530,7 @@
         if (!state.motoresCfg.nodos) state.motoresCfg.nodos = [];
       }
     } catch (e) { /* ignore */ }
-    if (state.activeTab === 'siembra') renderStrip();
+    if (state.activeTab === 'siembra') renderSiembra();
   }
 
   function defaultMotor(nombre) {
