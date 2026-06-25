@@ -15,7 +15,7 @@ namespace AgroParallel.QuantiX
         /// <param name="campoLookup">
         /// Función que devuelve la dosis del campo DBF dado su nombre
         /// (típicamente IAogStateProvider.GetShapeFieldDose). Solo se invoca
-        /// cuando CampoDosis no está vacío.
+        /// cuando CampoDosis no está vacío. No debe ser null.
         /// </param>
         public static double Resolve(
             bool manualMode,
@@ -30,7 +30,7 @@ namespace AgroParallel.QuantiX
 
             // Mapa manda: campo específico del motor, o mapa global del tick.
             double mapa = !string.IsNullOrEmpty(campoDosis)
-                ? (campoLookup != null ? campoLookup(campoDosis) : 0)
+                ? campoLookup(campoDosis)
                 : mapaGlobal;
 
             if (mapa > 0)

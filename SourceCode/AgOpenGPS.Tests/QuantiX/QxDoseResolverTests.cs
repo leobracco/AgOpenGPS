@@ -50,5 +50,21 @@ namespace AgOpenGPS.Tests.QuantiX
             double d = Resolve(false, 0, 0, "", 0);
             Assert.That(d, Is.EqualTo(0));
         }
+
+        [Test]
+        public void ManualDosisCero_para_el_motor()
+        {
+            // Operario pone el widget manual en 0 = parar el motor: NO cae al mapa ni a la fija.
+            double d = Resolve(true, 0, 60, "", 70);
+            Assert.That(d, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CampoDosis_sin_valor_cae_a_fija()
+        {
+            // El campo DBF existe pero la zona no tiene dosis (lookup=0) → cae a la fija.
+            double d = Resolve(false, 0, 60, "DOSIS_A", 0, campoLookup: 0);
+            Assert.That(d, Is.EqualTo(60));
+        }
     }
 }
