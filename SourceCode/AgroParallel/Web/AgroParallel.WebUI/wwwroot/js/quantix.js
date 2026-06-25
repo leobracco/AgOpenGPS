@@ -78,7 +78,7 @@
   function totalSurcos() {
     var nodo = activeNodo();
     var max = state.aogNumSections | 0;
-    if (nodo) nodo.motores.forEach(function (m) {
+    if (nodo) (nodo.motores || []).forEach(function (m) {
       (m.cortes || []).forEach(function (c) { if ((c | 0) > max) max = c | 0; });
     });
     return Math.max(max, 1);
@@ -86,8 +86,9 @@
 
   // Índice surco (1-based) → motorIdx (o -1 si huérfano).
   function surcoOwner(nodo, surco) {
-    for (var i = 0; i < nodo.motores.length; i++) {
-      if ((nodo.motores[i].cortes || []).indexOf(surco) >= 0) return i;
+    var ms = nodo.motores || [];
+    for (var i = 0; i < ms.length; i++) {
+      if ((ms[i].cortes || []).indexOf(surco) >= 0) return i;
     }
     return -1;
   }
@@ -97,11 +98,11 @@
     var el = document.getElementById('qxStrip');
     if (!el) return;
     var nodo = activeNodo();
+    el.classList.toggle('cell-colors', !!nodo);
     if (!nodo) {
       el.innerHTML = '<span class="msg">No hay nodos QuantiX configurados</span>';
       return;
     }
-    el.classList.add('cell-colors');
     var total = totalSurcos();
     var html = '';
     for (var s = 1; s <= total; s++) {
