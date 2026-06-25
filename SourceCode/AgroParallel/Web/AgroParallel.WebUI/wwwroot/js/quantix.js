@@ -59,6 +59,64 @@
     implCentral: null
   };
 
+  // --- Estado de la tira de surcos (Tarea 3-8) ---
+  state.brushMotor = 0;          // índice del motor activo (pincel)
+  state.siembraView = 'planter'; // 'planter' | 'tabla'
+
+  var MOTOR_COLORS = ['#4ABA3E', '#7F6BE0', '#E0A33E', '#3E9BE0', '#E06B8B', '#46C5B0'];
+  function motorColor(idx) { return MOTOR_COLORS[idx % MOTOR_COLORS.length]; }
+
+  // Nodo activo (config plana: 1 nodo lógico de N motores). Si hay varios nodos
+  // físicos, se opera sobre el primero habilitado; el resto conserva su config.
+  function activeNodo() {
+    var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
+    return ns.find(function (n) { return n.habilitado; }) || ns[0] || null;
+  }
+
+  // Total de surcos = máx(secciones de PilotX, surcos cubiertos por motores, 1).
+  // Usa state.aogNumSections (entero) que carga loadAogSections().
+  function totalSurcos() {
+    var nodo = activeNodo();
+    var max = state.aogNumSections | 0;
+    if (nodo) nodo.motores.forEach(function (m) {
+      (m.cortes || []).forEach(function (c) { if ((c | 0) > max) max = c | 0; });
+    });
+    return Math.max(max, 1);
+  }
+
+  // Índice surco (1-based) → motorIdx (o -1 si huérfano).
+  function surcoOwner(nodo, surco) {
+    for (var i = 0; i < nodo.motores.length; i++) {
+      if ((nodo.motores[i].cortes || []).indexOf(surco) >= 0) return i;
+    }
+    return -1;
+  }
+
+  // Renderiza la tira de celdas coloreadas por motor en #qxStrip.
+  function renderStrip() {
+    var el = document.getElementById('qxStrip');
+    if (!el) return;
+    var nodo = activeNodo();
+    if (!nodo) {
+      el.innerHTML = '<span class="msg">No hay nodos QuantiX configurados</span>';
+      return;
+    }
+    el.classList.add('cell-colors');
+    var total = totalSurcos();
+    var html = '';
+    for (var s = 1; s <= total; s++) {
+      var owner = surcoOwner(nodo, s);
+      if (owner < 0) {
+        html += '<div class="cell orphan" data-surco="' + s + '">' + s + '</div>';
+      } else {
+        var brush = owner === state.brushMotor ? ' brush' : '';
+        html += '<div class="cell' + brush + '" data-surco="' + s + '" '
+              + 'style="background:' + motorColor(owner) + '">' + s + '</div>';
+      }
+    }
+    el.innerHTML = html;
+  }
+
   async function loadImplCentral() {
     try {
       var r = await fetch('/api/implemento', { cache: 'no-store' });
@@ -131,6 +189,7 @@
       var el = $('tab' + k);
       if (el) el.style.display = (k.toLowerCase() === name) ? '' : 'none';
     });
+    if (name === 'siembra')  renderStrip();
     if (name === 'shape')    refreshShapeActive();
     if (name === 'pid')      renderPid();
     if (name === 'calibrar') renderCalibrar();
@@ -319,6 +378,7 @@
         if (!state.motoresCfg.nodos) state.motoresCfg.nodos = [];
       }
     } catch (e) { /* ignore */ }
+    if (state.activeTab === 'siembra') renderStrip();
   }
 
   function defaultMotor(nombre) {
