@@ -106,6 +106,10 @@
     var total = totalSurcos();
     var html = '';
     for (var s = 1; s <= total; s++) {
+      if (state.siembraEnMarcha && state.sectionOn && state.sectionOn[s - 1] === false) {
+        html += '<div class="cell off" data-surco="' + s + '">' + s + '</div>';
+        continue;
+      }
       var owner = surcoOwner(nodo, s);
       if (owner < 0) {
         html += '<div class="cell orphan" data-surco="' + s + '">' + s + '</div>';
@@ -215,6 +219,69 @@
     updateBrushChip();
     renderTabla();
     updateOrphanWarn();
+  }
+
+  // Busca el motor live (por id) del nodo en el registry de telemetría.
+  function liveMotor(uid, i) {
+    var by = state.liveByUid && state.liveByUid[uid];
+    var ms = by && by.motors ? by.motors : [];
+    for (var k = 0; k < ms.length; k++) {
+      var mid = pick(ms[k], 'id', 'Id');
+      if ((mid | 0) === i) return ms[k];
+    }
+    return null;
+  }
+
+  // Todos los surcos del motor están cortados (sección OFF) → motor frenado.
+  function motorAllCut(nodo, i) {
+    var ms = nodo.motores || [];
+    var cortes = (ms[i] && ms[i].cortes) || [];
+    if (!cortes.length || !state.sectionOn) return false;
+    for (var c = 0; c < cortes.length; c++) {
+      if (state.sectionOn[cortes[c] - 1] !== false) return false;
+    }
+    return true;
+  }
+
+  // En marcha = job abierto en PilotX y hay telemetría live de algún nodo.
+  function computeEnMarcha() {
+    state.siembraEnMarcha = !!(state.aogJobStarted &&
+        state.liveByUid && Object.keys(state.liveByUid).length > 0);
+  }
+
+  function renderMotorListLive() {
+    var el = document.getElementById('qxMotorList');
+    var nodo = activeNodo();
+    if (!el || !nodo) return;
+    var ms = nodo.motores || [];
+    var html = '';
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i];
+      var live = liveMotor(nodo.uid, i);
+      var real = live ? (pick(live, 'ppsReal', 'PpsReal') || 0) : 0;
+      var target = live ? (pick(live, 'ppsTarget', 'PpsTarget') || 0) : 0;
+      var cutAll = motorAllCut(nodo, i);
+      var badge = '<span class="badge">OK</span>';
+      var barClass = 'bar';
+      var pct = target > 0 ? Math.min(100, real / target * 100) : 0;
+      if (cutAll) {
+        badge = '<span class="badge cut">corte</span>'; pct = 0;
+      } else if (target > 0 && Math.abs(real - target) / target > 0.15) {
+        badge = '<span class="badge dev">desvío</span>'; barClass = 'bar warn';
+      }
+      var obj = cutAll ? '\u2014' : target.toFixed(1);
+      var nombre = escapeHtml(m.nombre || ('Motor ' + (i + 1)));
+      html += '<div class="mrow" data-mi="' + i + '">'
+        + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
+        + '<span class="nm">' + nombre + '</span>'
+        + '<span class="dosebox"><span class="u">obj</span> '
+        + '<b style="color:var(--agp-accent)">' + obj + '</b></span>'
+        + '<span class="pps">' + real.toFixed(1) + ' / ' + target.toFixed(1) + ' pps</span>'
+        + '<span class="' + barClass + '"><i style="width:' + pct.toFixed(0) + '%"></i></span>'
+        + badge
+        + '</div>';
+    }
+    el.innerHTML = html;
   }
 
   function addMotor() {
@@ -341,7 +408,7 @@
       var el = $('tab' + k);
       if (el) el.style.display = (k.toLowerCase() === name) ? '' : 'none';
     });
-    if (name === 'siembra')  renderSiembra();
+    if (name === 'siembra')  { computeEnMarcha(); applyMarchaChrome(); renderSiembra(); }
     if (name === 'shape')    refreshShapeActive();
     if (name === 'pid')      renderPid();
     if (name === 'calibrar') renderCalibrar();
@@ -479,6 +546,38 @@
       '</section>';
   }
 
+  // Refresca el estado de PilotX (job, secciones cortadas, velocidad, área).
+  async function refreshAogLiveState() {
+    try {
+      var r = await fetch('/api/aog/state', { cache: 'no-store' });
+      var d = await r.json();
+      state.aogJobStarted = !!pick(d, 'IsJobStarted', 'isJobStarted');
+      state.sectionOn = pick(d, 'SectionOnRequest', 'sectionOnRequest') || null;
+      var ns = pick(d, 'NumSections', 'numSections');
+      if (ns != null) state.aogNumSections = ns;
+      state.aogSpeed = pick(d, 'AvgSpeed', 'avgSpeed') || 0;
+      var areaM2 = pick(d, 'ActualAreaCoveredM2', 'actualAreaCoveredM2') || 0;
+      state.aogAreaHa = areaM2 * 0.0001;
+    } catch (e) { /* mantené el último estado */ }
+  }
+
+  // Ajusta el "chrome" de Siembra según modo (label, toolbar, caption).
+  function applyMarchaChrome() {
+    var label = document.getElementById('qxModeLabel');
+    var tools = document.getElementById('qxTools');
+    var capL = document.getElementById('planterCapL');
+    var capR = document.getElementById('planterCapR');
+    var live = state.siembraEnMarcha;
+    if (label) label.textContent = live ? 'En marcha' : 'Configurar';
+    if (tools) tools.style.display = live ? 'none' : 'flex';
+    if (capL) capL.textContent = live
+      ? 'Sembradora en vivo \xb7 gris = surco cortado'
+      : 'Sembradora \xb7 color = motor';
+    if (capR) capR.textContent = live
+      ? ((state.aogSpeed || 0).toFixed(1) + ' km/h \xb7 ' + (state.aogAreaHa || 0).toFixed(1) + ' ha')
+      : 'toc\xe1 un surco para pintarlo con el motor activo';
+  }
+
   async function pollLive() {
     try {
       var res = await fetch('/api/quantix/live', { cache: 'no-store' });
@@ -508,6 +607,12 @@
         if (state.activeTab === 'calibrar') updateCalibrarPulses();
         if (state.activeTab === 'pid')      updatePidLive();
         if (state.activeTab === 'prueba')   updatePruebaLive();
+        if (state.activeTab === 'siembra') {
+          await refreshAogLiveState();
+          computeEnMarcha();
+          applyMarchaChrome();
+          renderSiembra();
+        }
       }
     } catch (e) {
       if (statusEl) {
