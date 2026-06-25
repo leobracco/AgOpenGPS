@@ -243,31 +243,16 @@ namespace AgroParallel.QuantiX
                         // Fuente de secciones según tren físico del motor.
                         bool[] secMotor = (motor.Tren == 0) ? seccionesPilotX : secTrasero;
 
-                        // Dosis efectiva (prioridad):
-                        //   1) Manual (widget pantalla principal) override total.
-                        //   2) DosisFija de config (fuera de mapa default).
-                        //   3) CampoDosis específico del motor (shapefile DBF).
-                        //   4) Campo global del shapefile (StyleField).
-                        double dosisEfectiva;
-                        if (motor.ManualMode)
-                        {
-                            dosisEfectiva = motor.ManualDosis;
-                        }
-                        else
-                        {
-                            dosisEfectiva = motor.DosisFija;
-                            if (dosisEfectiva <= 0)
-                            {
-                                if (!string.IsNullOrEmpty(motor.CampoDosis))
-                                {
-                                    dosisEfectiva = _state.GetShapeFieldDose(motor.CampoDosis);
-                                }
-                                else
-                                {
-                                    dosisEfectiva = dosis; // Campo global (StyleField).
-                                }
-                            }
-                        }
+                        // Dosis efectiva: Manual > Mapa > Fija (ver QxDoseResolver).
+                        // Antes la DosisFija ganaba sobre el mapa; ahora "mapa manda".
+                        // 'dosis' es el mapa global del tick (0 si fuera del lote/sin vel).
+                        double dosisEfectiva = QxDoseResolver.Resolve(
+                            motor.ManualMode,
+                            motor.ManualDosis,
+                            motor.DosisFija,
+                            motor.CampoDosis,
+                            dosis,
+                            campo => _state.GetShapeFieldDose(campo));
 
                         // Eje solidario: el motor alimenta TODAS las secciones.
                         // El corte mecánico lo hace el embrague/relay (SectionX).
