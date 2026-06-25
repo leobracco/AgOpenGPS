@@ -43,7 +43,7 @@
   // ---------- State ----------
 
   var state = {
-    activeTab: 'monitor',
+    activeTab: 'siembra',
     motoresCfg: { nodos: [], ignorados: [] },
     liveByUid: {},
     // NumSections viene del piloto (snapshot del tool actual). Se usa para
@@ -671,7 +671,8 @@
 
   // (Trenes ya no se crean/borran desde QuantiX — Herramienta es la fuente única.)
 
-  $('mtList').addEventListener('click', function (ev) {
+  var mtListEl = $('mtList');
+  if (mtListEl) mtListEl.addEventListener('click', function (ev) {
     var btn = ev.target.closest('button[data-act]');
     if (!btn) return;
     var idx = parseInt(btn.getAttribute('data-ni'), 10);
@@ -686,7 +687,7 @@
   // (o, históricamente, arrastra el slider — ahora ya no hay slider pero el
   // handler sigue tolerando ambos). Buscamos .range-out subiendo a .field
   // porque el input vive adentro del .agp-stepper.
-  $('mtList').addEventListener('input', function (ev) {
+  if (mtListEl) mtListEl.addEventListener('input', function (ev) {
     var inp = ev.target;
     if (inp.tagName !== 'INPUT') return;
     if (inp.type !== 'range' && inp.type !== 'hidden' && inp.type !== 'number') return;
@@ -1983,7 +1984,7 @@
   //   · pestaña del WebView no visible → pausa total
   // Bajamos la presión sobre el WebHost cuando el operario está configurando
   // sin perder el feel real-time cuando mira telemetría.
-  var LIVE_TABS = { monitor: 1, pid: 1, calibrar: 1, prueba: 1 };
+  var LIVE_TABS = { siembra: 1, pid: 1, calibrar: 1, prueba: 1 };
   var pollTimer = null;
   function schedulePoll() {
     if (pollTimer) clearTimeout(pollTimer);
