@@ -130,10 +130,63 @@
       }
     });
     state.dirty = true;
+    state.lastTouchedSurco = surco;
   }
 
   // Stub temporal — se reemplaza en la tarea de lista de motores.
   function renderMotorList() {}
+
+  function addMotor() {
+    var nodo = activeNodo();
+    if (!nodo) return;
+    nodo.motores = nodo.motores || [];
+    var m = defaultMotor('Motor ' + (nodo.motores.length + 1));
+    m.cortes = [];
+    nodo.motores.push(m);
+    state.brushMotor = nodo.motores.length - 1;
+    state.dirty = true;
+    renderStrip(); renderMotorList();
+  }
+
+  // Quita el último surco tocado de cualquier motor (queda huérfano).
+  function quitarSurco() {
+    var s = state.lastTouchedSurco;
+    if (!s) return;
+    var nodo = activeNodo();
+    if (!nodo) return;
+    (nodo.motores || []).forEach(function (m) {
+      m.cortes = (m.cortes || []).filter(function (c) { return c !== s; });
+    });
+    state.dirty = true;
+    renderStrip(); renderMotorList();
+  }
+
+  // Auto-repartir: 'uno' = 1 motor por surco (crea motores si faltan);
+  // 'grupos' = reparte los surcos en N grupos parejos entre los motores actuales.
+  function autoReparto(modo) {
+    var nodo = activeNodo();
+    if (!nodo) return;
+    nodo.motores = nodo.motores || [];
+    var total = totalSurcos();
+    if (modo === 'uno') {
+      while (nodo.motores.length < total) {
+        var nm = defaultMotor('Motor ' + (nodo.motores.length + 1));
+        nm.cortes = [];
+        nodo.motores.push(nm);
+      }
+      nodo.motores.forEach(function (m, i) { m.cortes = (i < total) ? [i + 1] : []; });
+    } else {
+      var n = nodo.motores.length;
+      if (n === 0) return;
+      nodo.motores.forEach(function (m) { m.cortes = []; });
+      for (var s = 1; s <= total; s++) {
+        var g = Math.floor((s - 1) * n / total);
+        nodo.motores[g].cortes.push(s);
+      }
+    }
+    state.dirty = true;
+    renderStrip(); renderMotorList();
+  }
 
   async function loadImplCentral() {
     try {
@@ -838,7 +891,7 @@
     }
     function apply(t) {
       var s = cellSurco(t);
-      if (!isNaN(s)) { paintSurco(s); renderStrip(); renderMotorList(); }
+      if (!isNaN(s)) { state.lastTouchedSurco = s; paintSurco(s); renderStrip(); renderMotorList(); }
     }
     strip.addEventListener('pointerdown', function (e) {
       if (state.siembraView !== 'planter' || state.activeTab !== 'siembra') return;
@@ -852,6 +905,17 @@
     strip.addEventListener('pointerup', function () { painting = false; });
     strip.addEventListener('pointercancel', function () { painting = false; });
   })();
+
+  var btnAdd = document.getElementById('btnAddMotor');
+  if (btnAdd) btnAdd.addEventListener('click', addMotor);
+  var btnQuit = document.getElementById('btnQuitarSurco');
+  if (btnQuit) btnQuit.addEventListener('click', quitarSurco);
+  var btnAuto = document.getElementById('btnAutoReparto');
+  if (btnAuto) btnAuto.addEventListener('click', function () {
+    var nodo = activeNodo();
+    if (!nodo) return;
+    autoReparto((nodo.motores || []).length < totalSurcos() ? 'uno' : 'grupos');
+  });
 
   // ============================================================================
   // PID LIVE-TUNE
