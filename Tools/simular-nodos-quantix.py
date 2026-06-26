@@ -3,8 +3,8 @@
 # ============================================================================
 # simular-nodos-quantix.py
 #
-# Simula N nodos (tolvas) QuantiX con M motores cada uno para probar el planter
-# unificado del Hub (PilotX). Hace DOS cosas:
+# Simula N nodos QuantiX (cada nodo = un ESP32 que maneja 2 motores; la tolva
+# es aparte) para probar el planter unificado del Hub (PilotX). Hace DOS cosas:
 #
 #   1) CONFIG (siempre): arma la lista de nodos/motores y la persiste vía
 #      PUT /api/quantix/motores. Esto es lo que alimenta el planter de la
@@ -88,8 +88,8 @@ def default_motor(nombre, dosis_fija, cortes):
 
 
 def build_sim_nodos(n_nodos, motores_por_nodo):
-    """Arma n_nodos tolvas con M motores cada una. Asigna los surcos en orden
-    para que cada surco pertenezca a UN solo motor (1 surco = 1 motor)."""
+    """Arma n_nodos nodos con M motores cada uno (el nodo real maneja 2). Asigna
+    los surcos en orden para que cada surco pertenezca a UN solo motor."""
     nodos = []
     surco = 1  # contador global de surcos (1-based)
     for ni in range(n_nodos):
@@ -102,7 +102,7 @@ def build_sim_nodos(n_nodos, motores_por_nodo):
             surco += 1
         nodos.append({
             "uid": uid,
-            "nombre": "Tolva %d" % (ni + 1),
+            "nombre": "Nodo %d" % (ni + 1),
             "habilitado": True,
             "distancia_entre_trenes": 0.0,
             "motores": motores,
@@ -302,10 +302,10 @@ def loop_live(broker, puerto, sim_nodos, hz):
 # ----------------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser(
-        description="Simula nodos QuantiX (tolvas) con N motores para probar el planter del Hub.")
+        description="Simula nodos QuantiX (ESP32 de 2 motores) para probar el planter del Hub.")
     ap.add_argument("--base", default=DEFAULT_BASE,
                     help="URL base del Hub PilotX (default %s)" % DEFAULT_BASE)
-    ap.add_argument("--nodos", type=int, default=7, help="cantidad de nodos/tolvas (default 7)")
+    ap.add_argument("--nodos", type=int, default=7, help="cantidad de nodos (default 7)")
     ap.add_argument("--motores", type=int, default=2, help="motores por nodo (default 2)")
     ap.add_argument("--agregar", action="store_true",
                     help="conserva los nodos reales y agrega los simulados (default: reemplaza)")

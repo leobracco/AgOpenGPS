@@ -66,10 +66,10 @@
   var MOTOR_COLORS = ['#4ABA3E', '#7F6BE0', '#E0A33E', '#3E9BE0', '#E06B8B', '#46C5B0'];
   function motorColor(idx) { return MOTOR_COLORS[idx % MOTOR_COLORS.length]; }
 
-  // Lista PLANA de todos los motores de todas las tolvas (nodos habilitados).
+  // Lista PLANA de todos los motores de todos los nodos habilitados.
   // Cada entrada: { nodo, nodeIdx, motorIdx, motor, uid }. El índice en este
   // arreglo es el "índice plano" que usa el pincel (state.brushMotor) y el color.
-  // Así un solo planter muestra los N motores de las 2 (o más) tolvas juntos.
+  // Así un solo planter muestra los N motores de los 2 (o más) nodos juntos.
   function allMotors() {
     var out = [];
     var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
@@ -84,7 +84,7 @@
     return out;
   }
 
-  // ¿Hay más de una tolva habilitada? (para etiquetar T1/T2 en la lista).
+  // ¿Hay más de un nodo habilitado? (para etiquetar N1/N2 en la lista).
   function nodoCount() {
     var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
     var c = 0;
@@ -94,10 +94,11 @@
     return c;
   }
 
-  // Etiqueta de tolva para un motor plano (solo si hay varias tolvas).
-  function tolvaTag(entry) {
+  // Etiqueta de nodo para un motor plano (solo si hay varios nodos). Un nodo
+  // (ESP32) maneja 2 motores; la tolva es otra cosa. Por eso etiquetamos "N" (nodo).
+  function nodoTag(entry) {
     if (nodoCount() <= 1) return '';
-    return ' · T' + (entry.nodeIdx + 1);
+    return ' · N' + (entry.nodeIdx + 1);
   }
 
   // Total de surcos = máx(secciones de PilotX, surcos cubiertos por motores, 1).
@@ -149,7 +150,7 @@
   }
 
   // Asigna 'surco' al motor del pincel, quitándolo de cualquier otro motor de
-  // CUALQUIER tolva (1 surco = 1 motor en todo el conjunto).
+  // CUALQUIER nodo (1 surco = 1 motor en todo el conjunto).
   function paintSurco(surco) {
     var all = allMotors();
     if (state.brushMotor >= all.length) return;
@@ -190,7 +191,7 @@
       html += '<div class="mrow' + sel + '" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
         + '<span class="nm">' + nombre + '</span>'
-        + '<span class="cnt">' + fmtCortes(m.cortes) + escapeHtml(tolvaTag(all[i])) + '</span>'
+        + '<span class="cnt">' + fmtCortes(m.cortes) + escapeHtml(nodoTag(all[i])) + '</span>'
         + '<span class="dosebox"><input type="number" step="0.1" data-mi="' + i + '" '
         + 'class="qxDosisFija" value="' + dosis + '"> <span class="u">kg/ha</span></span>'
         + '<span class="eff ' + efClass + '">' + efTxt + '</span>'
@@ -229,7 +230,7 @@
     var sw = chip.querySelector('.sw');
     if (sw) sw.style.background = motorColor(state.brushMotor);
     var m = entry ? entry.motor : null;
-    var label = m ? ((m.nombre || ('Motor ' + (state.brushMotor + 1))) + tolvaTag(entry)) : '\u2014';
+    var label = m ? ((m.nombre || ('Motor ' + (state.brushMotor + 1))) + nodoTag(entry)) : '\u2014';
     if (chip.lastChild) chip.lastChild.textContent = 'Pincel: ' + label;
   }
 
@@ -249,7 +250,7 @@
       var ef = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : (fija + ' fija');
       var estado = (state.siembraEnMarcha && motorAllCut(m)) ? '\u25CB corte' : '\u25CF dosif.';
       var surcos = (m.cortes || []).join(',') || '\u2014';
-      var nombre = escapeHtml((m.nombre || ('M' + (i + 1))) + tolvaTag(all[i]));
+      var nombre = escapeHtml((m.nombre || ('M' + (i + 1))) + nodoTag(all[i]));
       rows += '<tr>'
         + '<td><span class="sw" style="display:inline-block;width:10px;height:10px;'
         + 'border-radius:2px;background:' + motorColor(i) + '"></span> ' + nombre + '</td>'
@@ -277,7 +278,7 @@
     if (list) list.style.display = (v === 'planter') ? 'flex' : 'none';
     renderSiembra();
   }
-  // Devuelve los surcos (1-based) sin motor asignado en NINGUNA tolva.
+  // Devuelve los surcos (1-based) sin motor asignado en NINGÚN nodo.
   function surcosHuerfanos() {
     if (!allMotors().length) return [];
     var total = totalSurcos();
@@ -356,7 +357,7 @@
         badge = '<span class="badge dev">desvío</span>'; barClass = 'bar warn';
       }
       var obj = cutAll ? '\u2014' : target.toFixed(1);
-      var nombre = escapeHtml((m.nombre || ('Motor ' + (i + 1))) + tolvaTag(all[i]));
+      var nombre = escapeHtml((m.nombre || ('Motor ' + (i + 1))) + nodoTag(all[i]));
       html += '<div class="mrow" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
         + '<span class="nm">' + nombre + '</span>'
@@ -371,13 +372,13 @@
     el.innerHTML = html;
   }
 
-  // Agrega un motor a la tolva del pincel activo (o a la última tolva habilitada).
+  // Agrega un motor al nodo del pincel activo (o al último nodo habilitado).
   function addMotor() {
     var all = allMotors();
     var entry = all[state.brushMotor] || all[all.length - 1];
     var nodo = entry ? entry.nodo : null;
     if (!nodo) {
-      // Sin pincel: usar la última tolva habilitada.
+      // Sin pincel: usar el último nodo habilitado.
       var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
       for (var n = ns.length - 1; n >= 0; n--) {
         if (ns[n] && ns[n].habilitado !== false) { nodo = ns[n]; break; }
@@ -388,7 +389,7 @@
     var m = defaultMotor('Motor ' + (nodo.motores.length + 1));
     m.cortes = [];
     nodo.motores.push(m);
-    // El nuevo motor es el último de la lista plana de su tolva: recalcular índice.
+    // El nuevo motor es el último de la lista plana de su nodo: recalcular índice.
     var after = allMotors();
     for (var i = 0; i < after.length; i++) {
       if (after[i].nodo === nodo && after[i].motor === m) { state.brushMotor = i; break; }
@@ -397,7 +398,7 @@
     renderStrip(); renderMotorList();
   }
 
-  // Quita el último surco tocado de cualquier motor de cualquier tolva (queda huérfano).
+  // Quita el último surco tocado de cualquier motor de cualquier nodo (queda huérfano).
   function quitarSurco() {
     var s = state.lastTouchedSurco;
     if (!s) return;
@@ -408,7 +409,7 @@
     renderStrip(); renderMotorList();
   }
 
-  // Auto-repartir sobre TODOS los motores de TODAS las tolvas (lista plana):
+  // Auto-repartir sobre TODOS los motores de TODOS los nodos (lista plana):
   // 'uno' = 1 surco por motor en orden; 'grupos' = surcos en N grupos parejos.
   function autoReparto(modo) {
     var all = allMotors();
