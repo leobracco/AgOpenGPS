@@ -215,11 +215,12 @@
     if (state.siembraView !== 'tabla' || !nodo) { tbl.style.display = 'none'; return; }
     var ms = nodo.motores || [];
     var rows = '<tr><th>Motor</th><th>Surcos</th><th>Dosis fija</th>'
-             + '<th>Efectiva</th><th>PPS</th><th>Estado</th></tr>';
+             + '<th>Efectiva</th><th>PPS</th><th>RPM</th><th>Estado</th></tr>';
     for (var i = 0; i < ms.length; i++) {
       var m = ms[i];
       var live = liveMotor(nodo.uid, i);
       var real = live ? (pick(live, 'ppsReal', 'PpsReal') || 0).toFixed(1) : '\u2014';
+      var rpm = live ? (pick(live, 'rpm', 'Rpm') | 0) : '\u2014';
       var fija = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
       var ef = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : (fija + ' fija');
       var estado = (state.siembraEnMarcha && motorAllCut(nodo, i)) ? '\u25CB corte' : '\u25CF dosif.';
@@ -232,6 +233,7 @@
         + '<td>' + fija + '</td>'
         + '<td>' + ef + '</td>'
         + '<td>' + real + '</td>'
+        + '<td>' + rpm + '</td>'
         + '<td>' + estado + '</td>'
         + '</tr>';
     }
@@ -321,6 +323,7 @@
       var live = liveMotor(nodo.uid, i);
       var real = live ? (pick(live, 'ppsReal', 'PpsReal') || 0) : 0;
       var target = live ? (pick(live, 'ppsTarget', 'PpsTarget') || 0) : 0;
+      var rpm = live ? (pick(live, 'rpm', 'Rpm') | 0) : 0;
       var cutAll = motorAllCut(nodo, i);
       var badge = '<span class="badge">OK</span>';
       var barClass = 'bar';
@@ -338,6 +341,7 @@
         + '<span class="dosebox"><span class="u">obj</span> '
         + '<b style="color:var(--agp-accent)">' + obj + '</b></span>'
         + '<span class="pps">' + real.toFixed(1) + ' / ' + target.toFixed(1) + ' pps</span>'
+        + '<span class="rpm">' + rpm + ' rpm</span>'
         + '<span class="' + barClass + '"><i style="width:' + pct.toFixed(0) + '%"></i></span>'
         + badge
         + '</div>';
