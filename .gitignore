@@ -499,3 +499,6 @@ corex_*.png
 pilotx_*.png
 .playwright-mcp/
 
+
+# Backups generados por el simulador de nodos QuantiX (tools/)
+tools/quantiX_motores.backup-*.json
