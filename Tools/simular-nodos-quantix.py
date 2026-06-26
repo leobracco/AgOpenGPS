@@ -326,6 +326,12 @@ def main():
         print("nodos y motores deben ser >= 1")
         sys.exit(2)
 
+    # El nodo QuantiX (ESP32) maneja 2 motores físicos. Avisamos si se pide más
+    # para no simular una topología que el fierro real no soporta.
+    if args.motores > 2:
+        print("AVISO: el nodo QuantiX acepta 2 motores físicos; %d es solo simulación."
+              % args.motores)
+
     cfg, sim_nodos = aplicar_config(args.base, args.nodos, args.motores, args.agregar)
     if cfg is None:
         sys.exit(1)
