@@ -22,6 +22,16 @@ namespace AgroParallel.Models
         [JsonPropertyName("dosis_fija")]
         public double DosisFija { get; set; }
 
+        // Unidad de la dosis de ESTE motor: "kg_ha" (masa por hectárea, default)
+        // o "sem_m" (semillas por metro de surco). Cambia la rama de cálculo de pps.
+        [JsonPropertyName("unidad_dosis")]
+        public string UnidadDosis { get; set; } = "kg_ha";
+
+        // Calibración para unidad "sem_m": semillas que entrega el dosificador por
+        // vuelta. Con dientes_engranaje (pulsos por vuelta) da semillas por pulso.
+        [JsonPropertyName("semillas_vuelta")]
+        public double SemillasVuelta { get; set; }
+
         [JsonPropertyName("campo_dosis")]
         public string CampoDosis { get; set; } = "";
 

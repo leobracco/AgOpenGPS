@@ -286,17 +286,37 @@ namespace AgroParallel.QuantiX
                             seccionOn = true;
 
                         double anchoActivo = seccionOn ? anchoTotal : 0;
+                        bool esSemillas = string.Equals(motor.UnidadDosis, "sem_m",
+                            StringComparison.OrdinalIgnoreCase);
 
-                        // PPS (pulsos por segundo para el motor).
-                        // Fórmula:
-                        //   producto_g_por_seg = dosis_kg_ha × 1000 × ancho_m × vel_m/s / 10000
-                        //   pps = producto_g_por_seg / meterCal (gramos por pulso)
+                        // PPS (pulsos por segundo para el motor) según la unidad de dosis.
                         double pps = 0;
-                        if (seccionOn && dosisEfectiva > 0 && motor.MeterCal > 0 && velMotorKmh > 0.5)
+                        double velocidadMs = velMotorKmh / 3.6;
+                        if (seccionOn && dosisEfectiva > 0 && velMotorKmh > 0.5)
                         {
-                            double velocidadMs = velMotorKmh / 3.6;
-                            double productoGramosPorSeg = (dosisEfectiva * 1000.0 * anchoActivo * velocidadMs) / 10000.0;
-                            pps = productoGramosPorSeg / motor.MeterCal;
+                            if (esSemillas)
+                            {
+                                // sem/m: dosis = semillas por metro de surco.
+                                //   surcos = cortes del motor (eje solidario: planta todos juntos).
+                                //   semillas/seg = dosis × vel_m/s × surcos
+                                //   semillas_por_pulso = semillas_vuelta / pulsos_por_vuelta (dientes)
+                                //   pps = semillas/seg / semillas_por_pulso
+                                int surcos = tieneCortes ? motor.Cortes.Count : 1;
+                                int ppvSem = motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 24;
+                                double semPorPulso = motor.SemillasVuelta > 0 ? motor.SemillasVuelta / ppvSem : 0;
+                                if (semPorPulso > 0)
+                                {
+                                    double semillasPorSeg = dosisEfectiva * velocidadMs * surcos;
+                                    pps = semillasPorSeg / semPorPulso;
+                                }
+                            }
+                            else if (motor.MeterCal > 0)
+                            {
+                                // kg/ha: producto_g_por_seg = dosis × 1000 × ancho × vel / 10000
+                                //        pps = producto_g_por_seg / meterCal (gramos por pulso)
+                                double productoGramosPorSeg = (dosisEfectiva * 1000.0 * anchoActivo * velocidadMs) / 10000.0;
+                                pps = productoGramosPorSeg / motor.MeterCal;
+                            }
                         }
 
                         // Log detallado por motor cada 5 segundos.
@@ -304,8 +324,17 @@ namespace AgroParallel.QuantiX
                         {
                             int ppr = motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 24;
                             double rpmTarget = ppr > 0 ? pps * 60.0 / ppr : 0;
-                            Log(string.Format("  M{0} dosis={1:F0}kg/ha ancho={2:F1}m vel={3:F1}km/h cal={4:F1}g/p RPM={5:F0} pps={6:F1}",
-                                mi, dosisEfectiva, anchoActivo, velMotorKmh, motor.MeterCal, rpmTarget, pps));
+                            if (esSemillas)
+                            {
+                                int surcos = tieneCortes ? motor.Cortes.Count : 1;
+                                Log(string.Format("  M{0} dosis={1:F1}sem/m surcos={2} vel={3:F1}km/h sem/vuelta={4:F0} RPM={5:F0} pps={6:F1}",
+                                    mi, dosisEfectiva, surcos, velMotorKmh, motor.SemillasVuelta, rpmTarget, pps));
+                            }
+                            else
+                            {
+                                Log(string.Format("  M{0} dosis={1:F0}kg/ha ancho={2:F1}m vel={3:F1}km/h cal={4:F1}g/p RPM={5:F0} pps={6:F1}",
+                                    mi, dosisEfectiva, anchoActivo, velMotorKmh, motor.MeterCal, rpmTarget, pps));
+                            }
                         }
 
                         string topic = "agp/quantix/" + nodo.Uid + "/target";

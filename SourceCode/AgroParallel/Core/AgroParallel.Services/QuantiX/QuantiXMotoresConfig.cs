@@ -29,6 +29,16 @@ namespace AgroParallel.QuantiX
         [JsonPropertyName("dosis_fija")]
         public double DosisFija { get; set; }
 
+        // Unidad de la dosis: "kg_ha" (masa por hectárea, default) o "sem_m"
+        // (semillas por metro de surco). El bridge elige la fórmula de pps según esto.
+        [JsonPropertyName("unidad_dosis")]
+        public string UnidadDosis { get; set; }
+
+        // Calibración para "sem_m": semillas que entrega el dosificador por vuelta.
+        // semillas_por_pulso = SemillasVuelta / DientesEngranaje (pulsos por vuelta).
+        [JsonPropertyName("semillas_vuelta")]
+        public double SemillasVuelta { get; set; }
+
         // Modo manual runtime (toggle MAN/AUTO en widget pantalla principal).
         // Si true, la dosis efectiva = ManualDosis (override total).
         [JsonPropertyName("manual_mode")]
@@ -109,6 +119,7 @@ namespace AgroParallel.QuantiX
         public QxMotorConfig()
         {
             Nombre = "Motor";
+            UnidadDosis = "kg_ha";
             MotorType = 0;
             Kp = 80; Ki = 30; Kd = 0;
             PwmMin = 600; PwmMax = 4095;

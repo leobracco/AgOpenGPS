@@ -188,12 +188,23 @@
       var efTxt = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : 'fija';
       var nombre = escapeHtml(m.nombre || ('Motor ' + (i + 1)));
       var dosis = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
+      var esSem = (m.unidad_dosis === 'sem_m');
+      var unidadLbl = esSem ? 'sem/m' : 'kg/ha';
+      // En sem/m hace falta la calibración: semillas por vuelta del dosificador.
+      var calBox = esSem
+        ? ('<span class="calbox"><input type="number" step="1" min="0" data-mi="' + i + '" '
+           + 'class="qxSemVuelta" value="' + (typeof m.semillas_vuelta === 'number' ? m.semillas_vuelta : 0)
+           + '"> <span class="u">sem/vuelta</span></span>')
+        : '';
       html += '<div class="mrow' + sel + '" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
         + '<span class="nm">' + nombre + '</span>'
         + '<span class="cnt">' + fmtCortes(m.cortes) + escapeHtml(nodoTag(all[i])) + '</span>'
         + '<span class="dosebox"><input type="number" step="0.1" data-mi="' + i + '" '
-        + 'class="qxDosisFija" value="' + dosis + '"> <span class="u">kg/ha</span></span>'
+        + 'class="qxDosisFija" value="' + dosis + '"> '
+        + '<button class="uToggle" type="button" data-mi="' + i + '" title="Cambiar unidad (kg/ha ↔ sem/m)">'
+        + unidadLbl + '</button></span>'
+        + calBox
         + '<span class="eff ' + efClass + '">' + efTxt + '</span>'
         + '<button class="mdel" type="button" data-del="' + i + '" title="Borrar motor">\u00D7</button>'
         + '</div>';
@@ -205,7 +216,8 @@
     for (var r = 0; r < rows.length; r++) {
       rows[r].addEventListener('click', function (e) {
         if (e.target && e.target.classList &&
-            (e.target.classList.contains('qxDosisFija') || e.target.classList.contains('mdel'))) return;
+            (e.target.classList.contains('qxDosisFija') || e.target.classList.contains('mdel') ||
+             e.target.classList.contains('uToggle') || e.target.classList.contains('qxSemVuelta'))) return;
         state.brushMotor = parseInt(this.getAttribute('data-mi'), 10);
         updateBrushChip(); renderStrip(); renderMotorList();
       });
@@ -226,6 +238,33 @@
         var entry = allMotors()[idx];
         if (entry && entry.motor) {
           entry.motor.dosis_fija = parseFloat(this.value) || 0;
+          state.dirty = true;
+          renderMotorList();
+        }
+      });
+    }
+    // Cambiar unidad de dosis del motor (kg/ha <-> sem/m).
+    var togs = el.querySelectorAll('.uToggle');
+    for (var t = 0; t < togs.length; t++) {
+      togs[t].addEventListener('click', function (e) {
+        e.stopPropagation();
+        var idx = parseInt(this.getAttribute('data-mi'), 10);
+        var entry = allMotors()[idx];
+        if (entry && entry.motor) {
+          entry.motor.unidad_dosis = (entry.motor.unidad_dosis === 'sem_m') ? 'kg_ha' : 'sem_m';
+          state.dirty = true;
+          renderMotorList();
+        }
+      });
+    }
+    // Calibración sem/m: semillas que entrega el dosificador por vuelta.
+    var sems = el.querySelectorAll('.qxSemVuelta');
+    for (var s = 0; s < sems.length; s++) {
+      sems[s].addEventListener('change', function () {
+        var idx = parseInt(this.getAttribute('data-mi'), 10);
+        var entry = allMotors()[idx];
+        if (entry && entry.motor) {
+          entry.motor.semillas_vuelta = parseFloat(this.value) || 0;
           state.dirty = true;
           renderMotorList();
         }
@@ -415,6 +454,8 @@
     var all = allMotors();
     var entry = all[flatIdx];
     if (!entry || !entry.nodo) return;
+    var nombre = (entry.motor && entry.motor.nombre) || ('Motor ' + (flatIdx + 1));
+    if (!confirm('\u00BFBorrar ' + nombre + '? Sus surcos quedan sin motor.')) return;
     var ms = entry.nodo.motores || [];
     ms.splice(entry.motorIdx, 1);
     var n = allMotors().length;
@@ -619,7 +660,8 @@
 
   function defaultMotor(nombre) {
     return {
-      nombre: nombre || 'Motor', dosis_fija: 0, campo_dosis: '',
+      nombre: nombre || 'Motor', dosis_fija: 0,
+      unidad_dosis: 'kg_ha', semillas_vuelta: 0, campo_dosis: '',
       kp: 80, ki: 30, kd: 0, pwm_min: 600, pwm_max: 4095, meter_cal: 50,
       max_integral: 1200, deadband: 2, slew_rate: 40, dientes_engranaje: 20,
       motor_type: 0, max_hz: 40, ff_gain: 1.0, alpha: 0.4,
