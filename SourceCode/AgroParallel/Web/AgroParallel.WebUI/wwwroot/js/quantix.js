@@ -66,29 +66,55 @@
   var MOTOR_COLORS = ['#4ABA3E', '#7F6BE0', '#E0A33E', '#3E9BE0', '#E06B8B', '#46C5B0'];
   function motorColor(idx) { return MOTOR_COLORS[idx % MOTOR_COLORS.length]; }
 
-  // Nodo activo (config plana: 1 nodo lógico de N motores). Si hay varios nodos
-  // físicos, se opera sobre el primero habilitado; el resto conserva su config.
-  function activeNodo() {
+  // Lista PLANA de todos los motores de todas las tolvas (nodos habilitados).
+  // Cada entrada: { nodo, nodeIdx, motorIdx, motor, uid }. El índice en este
+  // arreglo es el "índice plano" que usa el pincel (state.brushMotor) y el color.
+  // Así un solo planter muestra los N motores de las 2 (o más) tolvas juntos.
+  function allMotors() {
+    var out = [];
     var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
-    return ns.find(function (n) { return n.habilitado; }) || ns[0] || null;
+    for (var n = 0; n < ns.length; n++) {
+      var nodo = ns[n];
+      if (!nodo || nodo.habilitado === false) continue;
+      var ms = nodo.motores || [];
+      for (var i = 0; i < ms.length; i++) {
+        out.push({ nodo: nodo, nodeIdx: n, motorIdx: i, motor: ms[i], uid: nodo.uid });
+      }
+    }
+    return out;
+  }
+
+  // ¿Hay más de una tolva habilitada? (para etiquetar T1/T2 en la lista).
+  function nodoCount() {
+    var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
+    var c = 0;
+    for (var i = 0; i < ns.length; i++) {
+      if (ns[i] && ns[i].habilitado !== false) c++;
+    }
+    return c;
+  }
+
+  // Etiqueta de tolva para un motor plano (solo si hay varias tolvas).
+  function tolvaTag(entry) {
+    if (nodoCount() <= 1) return '';
+    return ' · T' + (entry.nodeIdx + 1);
   }
 
   // Total de surcos = máx(secciones de PilotX, surcos cubiertos por motores, 1).
   // Usa state.aogNumSections (entero) que carga loadAogSections().
   function totalSurcos() {
-    var nodo = activeNodo();
     var max = state.aogNumSections | 0;
-    if (nodo) (nodo.motores || []).forEach(function (m) {
-      (m.cortes || []).forEach(function (c) { if ((c | 0) > max) max = c | 0; });
+    allMotors().forEach(function (e) {
+      (e.motor.cortes || []).forEach(function (c) { if ((c | 0) > max) max = c | 0; });
     });
     return Math.max(max, 1);
   }
 
-  // Índice surco (1-based) → motorIdx (o -1 si huérfano).
-  function surcoOwner(nodo, surco) {
-    var ms = nodo.motores || [];
-    for (var i = 0; i < ms.length; i++) {
-      if ((ms[i].cortes || []).indexOf(surco) >= 0) return i;
+  // Índice surco (1-based) → índice plano del motor dueño (o -1 si huérfano).
+  function surcoOwner(surco) {
+    var all = allMotors();
+    for (var i = 0; i < all.length; i++) {
+      if ((all[i].motor.cortes || []).indexOf(surco) >= 0) return i;
     }
     return -1;
   }
@@ -97,9 +123,9 @@
   function renderStrip() {
     var el = document.getElementById('qxStrip');
     if (!el) return;
-    var nodo = activeNodo();
-    el.classList.toggle('cell-colors', !!nodo);
-    if (!nodo) {
+    var hayMotores = allMotors().length > 0;
+    el.classList.toggle('cell-colors', hayMotores);
+    if (!hayMotores) {
       el.innerHTML = '<span class="msg">No hay nodos QuantiX configurados</span>';
       return;
     }
@@ -110,7 +136,7 @@
         html += '<div class="cell off" data-surco="' + s + '">' + s + '</div>';
         continue;
       }
-      var owner = surcoOwner(nodo, s);
+      var owner = surcoOwner(s);
       if (owner < 0) {
         html += '<div class="cell orphan" data-surco="' + s + '">' + s + '</div>';
       } else {
@@ -122,12 +148,13 @@
     el.innerHTML = html;
   }
 
-  // Asigna 'surco' al motor del pincel, quitándolo de cualquier otro motor.
+  // Asigna 'surco' al motor del pincel, quitándolo de cualquier otro motor de
+  // CUALQUIER tolva (1 surco = 1 motor en todo el conjunto).
   function paintSurco(surco) {
-    var nodo = activeNodo();
-    var ms = (nodo && nodo.motores) || [];
-    if (!nodo || state.brushMotor >= ms.length) return;
-    ms.forEach(function (m, i) {
+    var all = allMotors();
+    if (state.brushMotor >= all.length) return;
+    all.forEach(function (e, i) {
+      var m = e.motor;
       m.cortes = (m.cortes || []).filter(function (c) { return c !== surco; });
       if (i === state.brushMotor && m.cortes.indexOf(surco) < 0) {
         m.cortes.push(surco); m.cortes.sort(function (a, b) { return a - b; });
@@ -146,16 +173,15 @@
   function renderMotorList() {
     var el = document.getElementById('qxMotorList');
     if (!el) return;
-    var nodo = activeNodo();
-    if (!nodo) { el.innerHTML = ''; return; }
+    var all = allMotors();
+    if (!all.length) { el.innerHTML = ''; return; }
 
     // Si estamos en vivo, delega al render live (se implementa en una tarea posterior).
     if (state.siembraEnMarcha && typeof renderMotorListLive === 'function') { renderMotorListLive(); return; }
 
-    var ms = nodo.motores || [];
     var html = '';
-    for (var i = 0; i < ms.length; i++) {
-      var m = ms[i];
+    for (var i = 0; i < all.length; i++) {
+      var m = all[i].motor;
       var sel = (i === state.brushMotor) ? ' sel' : '';
       var efClass = m.campo_dosis ? 'mapa' : 'fija';
       var efTxt = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : 'fija';
@@ -164,7 +190,7 @@
       html += '<div class="mrow' + sel + '" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
         + '<span class="nm">' + nombre + '</span>'
-        + '<span class="cnt">' + fmtCortes(m.cortes) + '</span>'
+        + '<span class="cnt">' + fmtCortes(m.cortes) + escapeHtml(tolvaTag(all[i])) + '</span>'
         + '<span class="dosebox"><input type="number" step="0.1" data-mi="' + i + '" '
         + 'class="qxDosisFija" value="' + dosis + '"> <span class="u">kg/ha</span></span>'
         + '<span class="eff ' + efClass + '">' + efTxt + '</span>'
@@ -181,14 +207,14 @@
         updateBrushChip(); renderStrip(); renderMotorList();
       });
     }
-    // Editar dosis fija.
+    // Editar dosis fija (escribe sobre el motor plano correspondiente).
     var inputs = el.querySelectorAll('.qxDosisFija');
     for (var k = 0; k < inputs.length; k++) {
       inputs[k].addEventListener('change', function () {
         var idx = parseInt(this.getAttribute('data-mi'), 10);
-        var n2 = activeNodo();
-        if (n2 && n2.motores && n2.motores[idx]) {
-          n2.motores[idx].dosis_fija = parseFloat(this.value) || 0;
+        var entry = allMotors()[idx];
+        if (entry && entry.motor) {
+          entry.motor.dosis_fija = parseFloat(this.value) || 0;
           state.dirty = true;
           renderMotorList();
         }
@@ -198,34 +224,32 @@
 
   function updateBrushChip() {
     var chip = document.getElementById('qxBrush');
-    var nodo = activeNodo();
-    if (!chip || !nodo) return;
-    var ms = nodo.motores || [];
-    var m = ms[state.brushMotor];
+    if (!chip) return;
+    var entry = allMotors()[state.brushMotor];
     var sw = chip.querySelector('.sw');
     if (sw) sw.style.background = motorColor(state.brushMotor);
-    var label = m ? (m.nombre || ('Motor ' + (state.brushMotor + 1))) : '\u2014';
+    var m = entry ? entry.motor : null;
+    var label = m ? ((m.nombre || ('Motor ' + (state.brushMotor + 1))) + tolvaTag(entry)) : '\u2014';
     if (chip.lastChild) chip.lastChild.textContent = 'Pincel: ' + label;
   }
 
   function renderTabla() {
     var tbl = document.getElementById('qxTabla');
-    var nodo = activeNodo();
     if (!tbl) return;
-    if (state.siembraView !== 'tabla' || !nodo) { tbl.style.display = 'none'; return; }
-    var ms = nodo.motores || [];
+    var all = allMotors();
+    if (state.siembraView !== 'tabla' || !all.length) { tbl.style.display = 'none'; return; }
     var rows = '<tr><th>Motor</th><th>Surcos</th><th>Dosis fija</th>'
              + '<th>Efectiva</th><th>PPS</th><th>RPM</th><th>Estado</th></tr>';
-    for (var i = 0; i < ms.length; i++) {
-      var m = ms[i];
-      var live = liveMotor(nodo.uid, i);
+    for (var i = 0; i < all.length; i++) {
+      var m = all[i].motor;
+      var live = liveMotor(all[i].uid, all[i].motorIdx);
       var real = live ? (pick(live, 'ppsReal', 'PpsReal') || 0).toFixed(1) : '\u2014';
       var rpm = live ? (pick(live, 'rpm', 'Rpm') | 0) : '\u2014';
       var fija = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
       var ef = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : (fija + ' fija');
-      var estado = (state.siembraEnMarcha && motorAllCut(nodo, i)) ? '\u25CB corte' : '\u25CF dosif.';
+      var estado = (state.siembraEnMarcha && motorAllCut(m)) ? '\u25CB corte' : '\u25CF dosif.';
       var surcos = (m.cortes || []).join(',') || '\u2014';
-      var nombre = escapeHtml(m.nombre || ('M' + (i + 1)));
+      var nombre = escapeHtml((m.nombre || ('M' + (i + 1))) + tolvaTag(all[i]));
       rows += '<tr>'
         + '<td><span class="sw" style="display:inline-block;width:10px;height:10px;'
         + 'border-radius:2px;background:' + motorColor(i) + '"></span> ' + nombre + '</td>'
@@ -253,14 +277,13 @@
     if (list) list.style.display = (v === 'planter') ? 'flex' : 'none';
     renderSiembra();
   }
-  // Devuelve los surcos (1-based) sin motor asignado en el nodo activo.
+  // Devuelve los surcos (1-based) sin motor asignado en NINGUNA tolva.
   function surcosHuerfanos() {
-    var nodo = activeNodo();
-    if (!nodo) return [];
+    if (!allMotors().length) return [];
     var total = totalSurcos();
     var huerfanos = [];
     for (var s = 1; s <= total; s++) {
-      if (surcoOwner(nodo, s) < 0) huerfanos.push(s);
+      if (surcoOwner(s) < 0) huerfanos.push(s);
     }
     return huerfanos;
   }
@@ -296,9 +319,8 @@
   }
 
   // Todos los surcos del motor están cortados (sección OFF) → motor frenado.
-  function motorAllCut(nodo, i) {
-    var ms = nodo.motores || [];
-    var cortes = (ms[i] && ms[i].cortes) || [];
+  function motorAllCut(motor) {
+    var cortes = (motor && motor.cortes) || [];
     if (!cortes.length || !state.sectionOn) return false;
     for (var c = 0; c < cortes.length; c++) {
       if (state.sectionOn[cortes[c] - 1] !== false) return false;
@@ -314,17 +336,17 @@
 
   function renderMotorListLive() {
     var el = document.getElementById('qxMotorList');
-    var nodo = activeNodo();
-    if (!el || !nodo) return;
-    var ms = nodo.motores || [];
+    if (!el) return;
+    var all = allMotors();
+    if (!all.length) return;
     var html = '';
-    for (var i = 0; i < ms.length; i++) {
-      var m = ms[i];
-      var live = liveMotor(nodo.uid, i);
+    for (var i = 0; i < all.length; i++) {
+      var m = all[i].motor;
+      var live = liveMotor(all[i].uid, all[i].motorIdx);
       var real = live ? (pick(live, 'ppsReal', 'PpsReal') || 0) : 0;
       var target = live ? (pick(live, 'ppsTarget', 'PpsTarget') || 0) : 0;
       var rpm = live ? (pick(live, 'rpm', 'Rpm') | 0) : 0;
-      var cutAll = motorAllCut(nodo, i);
+      var cutAll = motorAllCut(m);
       var badge = '<span class="badge">OK</span>';
       var barClass = 'bar';
       var pct = target > 0 ? Math.min(100, real / target * 100) : 0;
@@ -334,7 +356,7 @@
         badge = '<span class="badge dev">desvío</span>'; barClass = 'bar warn';
       }
       var obj = cutAll ? '\u2014' : target.toFixed(1);
-      var nombre = escapeHtml(m.nombre || ('Motor ' + (i + 1)));
+      var nombre = escapeHtml((m.nombre || ('Motor ' + (i + 1))) + tolvaTag(all[i]));
       html += '<div class="mrow" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
         + '<span class="nm">' + nombre + '</span>'
@@ -349,52 +371,57 @@
     el.innerHTML = html;
   }
 
+  // Agrega un motor a la tolva del pincel activo (o a la última tolva habilitada).
   function addMotor() {
-    var nodo = activeNodo();
+    var all = allMotors();
+    var entry = all[state.brushMotor] || all[all.length - 1];
+    var nodo = entry ? entry.nodo : null;
+    if (!nodo) {
+      // Sin pincel: usar la última tolva habilitada.
+      var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
+      for (var n = ns.length - 1; n >= 0; n--) {
+        if (ns[n] && ns[n].habilitado !== false) { nodo = ns[n]; break; }
+      }
+    }
     if (!nodo) return;
     nodo.motores = nodo.motores || [];
     var m = defaultMotor('Motor ' + (nodo.motores.length + 1));
     m.cortes = [];
     nodo.motores.push(m);
-    state.brushMotor = nodo.motores.length - 1;
+    // El nuevo motor es el último de la lista plana de su tolva: recalcular índice.
+    var after = allMotors();
+    for (var i = 0; i < after.length; i++) {
+      if (after[i].nodo === nodo && after[i].motor === m) { state.brushMotor = i; break; }
+    }
     state.dirty = true;
     renderStrip(); renderMotorList();
   }
 
-  // Quita el último surco tocado de cualquier motor (queda huérfano).
+  // Quita el último surco tocado de cualquier motor de cualquier tolva (queda huérfano).
   function quitarSurco() {
     var s = state.lastTouchedSurco;
     if (!s) return;
-    var nodo = activeNodo();
-    if (!nodo) return;
-    (nodo.motores || []).forEach(function (m) {
-      m.cortes = (m.cortes || []).filter(function (c) { return c !== s; });
+    allMotors().forEach(function (e) {
+      e.motor.cortes = (e.motor.cortes || []).filter(function (c) { return c !== s; });
     });
     state.dirty = true;
     renderStrip(); renderMotorList();
   }
 
-  // Auto-repartir: 'uno' = 1 motor por surco (crea motores si faltan);
-  // 'grupos' = reparte los surcos en N grupos parejos entre los motores actuales.
+  // Auto-repartir sobre TODOS los motores de TODAS las tolvas (lista plana):
+  // 'uno' = 1 surco por motor en orden; 'grupos' = surcos en N grupos parejos.
   function autoReparto(modo) {
-    var nodo = activeNodo();
-    if (!nodo) return;
-    nodo.motores = nodo.motores || [];
+    var all = allMotors();
+    if (!all.length) return;
     var total = totalSurcos();
+    all.forEach(function (e) { e.motor.cortes = []; });
     if (modo === 'uno') {
-      while (nodo.motores.length < total) {
-        var nm = defaultMotor('Motor ' + (nodo.motores.length + 1));
-        nm.cortes = [];
-        nodo.motores.push(nm);
-      }
-      nodo.motores.forEach(function (m, i) { m.cortes = (i < total) ? [i + 1] : []; });
+      for (var i = 0; i < all.length && i < total; i++) all[i].motor.cortes = [i + 1];
     } else {
-      var n = nodo.motores.length;
-      if (n === 0) return;
-      nodo.motores.forEach(function (m) { m.cortes = []; });
+      var n = all.length;
       for (var s = 1; s <= total; s++) {
         var g = Math.floor((s - 1) * n / total);
-        nodo.motores[g].cortes.push(s);
+        all[g].motor.cortes.push(s);
       }
     }
     state.dirty = true;
@@ -670,9 +697,9 @@
   if (btnQuit) btnQuit.addEventListener('click', quitarSurco);
   var btnAuto = document.getElementById('btnAutoReparto');
   if (btnAuto) btnAuto.addEventListener('click', function () {
-    var nodo = activeNodo();
-    if (!nodo) return;
-    autoReparto((nodo.motores || []).length < totalSurcos() ? 'uno' : 'grupos');
+    var all = allMotors();
+    if (!all.length) return;
+    autoReparto(all.length < totalSurcos() ? 'uno' : 'grupos');
   });
 
   var segP = document.getElementById('segPlanter');
