@@ -1,0 +1,279 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.SistemaPanel"
+             Background="{StaticResource PilotXBgDeep}">
+    <!--
+        SistemaPanel - reemplazo nativo de pages/sistema.html.
+
+        Mantiene el mismo contrato REST (GET/POST /api/sistema/brillo,
+        POST /api/sistema/power) pero hace las llamadas desde HttpClient
+        de PilotX.Desktop, sin instanciar WebView. Cuando AgpWebHost
+        desaparezca, SistemaClient se rebindea al ISistemaService in-proc.
+
+        Power actions usan "tap to confirm" inline (toca una vez = pasa a
+        estado "Confirmar"; segunda tocada en <5s = ejecuta; otra tocada o
+        timeout = revierte). Mas seguro que un confirm() de browser y mas
+        rapido que un dialog modal.
+    -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,20,24,24" Spacing="14">
+
+            <!-- ============ Header ============ -->
+            <StackPanel Spacing="2">
+                <TextBlock Text="Sistema"
+                           Foreground="{StaticResource PilotXTextHi}"
+                           FontSize="22"
+                           FontWeight="SemiBold"/>
+                <TextBlock Text="Configuracion del equipo - brillo y energia"
+                           Foreground="{StaticResource PilotXTextDim}"
+                           FontSize="12"/>
+            </StackPanel>
+
+            <!-- ============ Brillo ============ -->
+            <TextBlock Text="Brillo de pantalla"
+                       Foreground="{StaticResource PilotXTextHi}"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Margin="0,4,0,0"/>
+            <Border Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="18,16,18,16"
+                    MaxWidth="720"
+                    HorizontalAlignment="Left">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                        <Slider Grid.Column="0"
+                                Name="BrilloSlider"
+                                Minimum="0" Maximum="100"
+                                Value="50"
+                                VerticalAlignment="Center"
+                                Margin="0,0,18,0"
+                                ValueChanged="OnBrilloSliderChanged"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                    Spacing="2" VerticalAlignment="Center">
+                            <TextBlock Name="BrilloValue"
+                                       Text="--"
+                                       Foreground="{StaticResource PilotXAccent}"
+                                       FontSize="40"
+                                       FontWeight="Bold"
+                                       MinWidth="80"
+                                       TextAlignment="Right"/>
+                            <TextBlock Text="%"
+                                       Foreground="{StaticResource PilotXAccent}"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Bottom"
+                                       Margin="2,0,0,6"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Quick presets -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="0%"
+                                Tag="0"
+                                Background="{StaticResource PilotXBgHigh}"
+                                Foreground="{StaticResource PilotXTextMid}"
+                                BorderBrush="{StaticResource PilotXBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="14,8,14,8"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="OnBrilloPreset"/>
+                        <Button Content="25%"
+                                Tag="25"
+                                Background="{StaticResource PilotXBgHigh}"
+                                Foreground="{StaticResource PilotXTextMid}"
+                                BorderBrush="{StaticResource PilotXBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="14,8,14,8"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="OnBrilloPreset"/>
+                        <Button Content="50%"
+                                Tag="50"
+                                Background="{StaticResource PilotXBgHigh}"
+                                Foreground="{StaticResource PilotXTextMid}"
+                                BorderBrush="{StaticResource PilotXBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="14,8,14,8"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="OnBrilloPreset"/>
+                        <Button Content="75%"
+                                Tag="75"
+                                Background="{StaticResource PilotXBgHigh}"
+                                Foreground="{StaticResource PilotXTextMid}"
+                                BorderBrush="{StaticResource PilotXBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="14,8,14,8"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="OnBrilloPreset"/>
+                        <Button Content="100%"
+                                Tag="100"
+                                Background="{StaticResource PilotXBgHigh}"
+                                Foreground="{StaticResource PilotXTextMid}"
+                                BorderBrush="{StaticResource PilotXBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="14,8,14,8"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="OnBrilloPreset"/>
+                    </StackPanel>
+
+                    <TextBlock Name="BrilloStatus"
+                               Text="Cargando..."
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ Energia ============ -->
+            <TextBlock Text="Energia"
+                       Foreground="{StaticResource PilotXTextHi}"
+                       FontSize="16"
+                       FontWeight="SemiBold"
+                       Margin="0,8,0,0"/>
+
+            <UniformGrid Columns="2" Rows="2">
+                <!-- Apagar -->
+                <Button Name="BtnPowerShutdown"
+                        Tag="shutdown"
+                        Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="#C84141"
+                        BorderThickness="0,0,0,0"
+                        CornerRadius="10"
+                        Padding="16,14,16,14"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        Margin="0,0,6,6"
+                        Click="OnPowerClick">
+                    <Border BorderBrush="#C84141"
+                            BorderThickness="4,0,0,0"
+                            Padding="10,0,0,0">
+                        <StackPanel Spacing="4" HorizontalAlignment="Left">
+                            <TextBlock Name="LblShutdownTitle"
+                                       Text="Apagar la PC"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Name="LblShutdownDesc"
+                                       Text="Detiene PilotX y apaga el sistema."
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <!-- Reiniciar -->
+                <Button Name="BtnPowerRestart"
+                        Tag="restart"
+                        Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="#DC8C1E"
+                        BorderThickness="0,0,0,0"
+                        CornerRadius="10"
+                        Padding="16,14,16,14"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        Margin="6,0,0,6"
+                        Click="OnPowerClick">
+                    <Border BorderBrush="#DC8C1E"
+                            BorderThickness="4,0,0,0"
+                            Padding="10,0,0,0">
+                        <StackPanel Spacing="4" HorizontalAlignment="Left">
+                            <TextBlock Name="LblRestartTitle"
+                                       Text="Reiniciar la PC"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Name="LblRestartDesc"
+                                       Text="Detiene PilotX y reinicia el sistema."
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <!-- Suspender -->
+                <Button Name="BtnPowerSuspend"
+                        Tag="suspend"
+                        Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="#3D87C6"
+                        BorderThickness="0,0,0,0"
+                        CornerRadius="10"
+                        Padding="16,14,16,14"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        Margin="0,6,6,0"
+                        Click="OnPowerClick">
+                    <Border BorderBrush="#3D87C6"
+                            BorderThickness="4,0,0,0"
+                            Padding="10,0,0,0">
+                        <StackPanel Spacing="4" HorizontalAlignment="Left">
+                            <TextBlock Name="LblSuspendTitle"
+                                       Text="Suspender"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Name="LblSuspendDesc"
+                                       Text="Pone la PC en suspension (S3)."
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+                </Button>
+
+                <!-- Cerrar PilotX -->
+                <Button Name="BtnPowerExitApp"
+                        Tag="exitApp"
+                        Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="#707070"
+                        BorderThickness="0,0,0,0"
+                        CornerRadius="10"
+                        Padding="16,14,16,14"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        Margin="6,6,0,0"
+                        Click="OnPowerClick">
+                    <Border BorderBrush="#707070"
+                            BorderThickness="4,0,0,0"
+                            Padding="10,0,0,0">
+                        <StackPanel Spacing="4" HorizontalAlignment="Left">
+                            <TextBlock Name="LblExitAppTitle"
+                                       Text="Cerrar PilotX"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Name="LblExitAppDesc"
+                                       Text="Cierra solo la aplicacion."
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+                </Button>
+            </UniformGrid>
+
+            <TextBlock Name="PowerStatus"
+                       Text=""
+                       Foreground="{StaticResource PilotXTextDim}"
+                       FontSize="12"
+                       MinHeight="16"
+                       TextWrapping="Wrap"
+                       Margin="0,4,0,0"/>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

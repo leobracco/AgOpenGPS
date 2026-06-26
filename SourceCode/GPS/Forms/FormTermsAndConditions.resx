@@ -118,13 +118,13 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="labelTerms.Text" xml:space="preserve">
-    <value>AgOpenGPS is strictly educational software to learn about guidance systems, GPS sentences, and theoretical application of machine control.
+    <value>ADVERTENCIA — Leer atentamente antes de continuar.
 
-It is in no way to be used on real equipment in any circumstance. A simulator is provided to allow the student to safely experience machine guidance.
+Este software de guiado y piloto automático asistido se entrega EN SU ESTADO ACTUAL, sin garantía alguna, expresa ni implícita. El usuario asume la totalidad del riesgo derivado de su uso.
 
-There are no safety systems in the software and none are implied. 
+Agro Parallel, Leonardo Bracco y todo distribuidor, revendedor o integrador NO se hacen responsables por daños materiales, lesiones personales, pérdida de cultivos, lucro cesante ni perjuicios directos, indirectos, incidentales o consecuentes derivados del uso, mal uso o falla del sistema.
 
-USE AT OWN RISK.
+El operador es el único responsable de mantener el control del vehículo en todo momento, vigilar el entorno y desactivar el piloto automático ante cualquier situación de riesgo.
 </value>
   </data>
   <data name="textBoxLicense.Text" xml:space="preserve">

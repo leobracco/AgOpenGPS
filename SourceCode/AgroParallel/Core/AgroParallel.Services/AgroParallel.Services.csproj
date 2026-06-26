@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AgroParallel.Services — interfaces + implementaciones de servicios
+    (QuantiX, SectionX, OrbitX, VistaX, MQTT, etc.).
+    No conoce FormGPS: depende de IAogStateProvider/IAogCommandSink.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>AgroParallel.Services</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- No fallar build por reglas de estilo (IDE0055 etc.) heredadas del editorconfig.
+         Los archivos portados de GPS/ usan formato del shell upstream legacy. -->
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
+    <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" Version="1.2.0" />
+    <PackageReference Include="System.Text.Json" Version="6.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgroParallel.Models\AgroParallel.Models.csproj" />
+
+  </ItemGroup>
+
+</Project>

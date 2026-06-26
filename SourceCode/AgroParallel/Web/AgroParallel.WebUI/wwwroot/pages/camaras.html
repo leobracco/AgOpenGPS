@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cámaras · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .cam-grid {
+      display:grid; gap: var(--agp-sp-3);
+    }
+    /* Layouts seleccionables manualmente */
+    .cam-grid.lay-1x1 { grid-template-columns: 1fr; }
+    .cam-grid.lay-2x1 { grid-template-columns: repeat(2, 1fr); }
+    .cam-grid.lay-2x2 { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; }
+    /* En 1x1 solo se muestra el tile enfocado */
+    .cam-grid.lay-1x1 .cam-tile:not(.focused) { display: none; }
+    /* En 2x1 solo los primeros dos tiles (índice 0 y 1) — manejado por JS marcando .hidden */
+    .cam-tile.hidden { display: none; }
+
+    .cam-toolbar {
+      display:flex; align-items:center; gap: var(--agp-sp-2);
+      margin-bottom: var(--agp-sp-3); flex-wrap: wrap;
+    }
+    .cam-toolbar .layout-group { display:flex; gap: 4px; }
+    .cam-toolbar .btn.compact { padding: 6px 12px; min-height: 36px; }
+    .cam-toolbar .btn.compact.active {
+      background: var(--agp-accent-soft); border-color: var(--agp-accent);
+      color: var(--agp-text); font-weight: var(--agp-fw-medium);
+    }
+    .cam-toolbar .hint { color: var(--agp-text-muted); font-size: var(--agp-fs-xs); }
+
+    .cam-tile {
+      background: #0e1612; border-radius: var(--agp-radius-lg);
+      border: var(--agp-border-w) solid var(--agp-border);
+      aspect-ratio: 16/9; position: relative; overflow: hidden;
+      display:grid; place-items:center;
+      color: rgba(255,255,255,0.4); font-family: var(--agp-font-mono);
+    }
+    .cam-tile img.frame {
+      position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#000;
+    }
+    .cam-tile .label {
+      position:absolute; top: var(--agp-sp-3); left: var(--agp-sp-3);
+      padding: 2px 8px; background: rgba(0,0,0,0.55); color:white;
+      font-size: var(--agp-fs-sm); border-radius: var(--agp-radius-sm);
+      display:flex; align-items:center; gap:6px;
+    }
+    .cam-tile .label .ok-dot {
+      width:8px; height:8px; border-radius:50%;
+      background: var(--agp-accent); box-shadow: 0 0 6px var(--agp-accent);
+    }
+    .cam-tile .label .err-dot { width:8px; height:8px; border-radius:50%; background:#C92D2D; }
+    .cam-tile .err-msg {
+      position:absolute; bottom: var(--agp-sp-3); left: var(--agp-sp-3);
+      right: var(--agp-sp-3); color:#C92D2D; font-size: var(--agp-fs-xs);
+      background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: var(--agp-radius-sm);
+      display:none;
+    }
+    .cam-tile.errored .err-msg { display:block; }
+    .cam-tile.errored img.frame { opacity: 0.15; filter: grayscale(1); }
+
+    .tabs { display:flex; gap:var(--agp-sp-2); border-bottom: var(--agp-border-w) solid var(--agp-border); margin-bottom: var(--agp-sp-5); }
+    .tab { padding: var(--agp-sp-3) var(--agp-sp-4); cursor:pointer; border-bottom: 2px solid transparent; color: var(--agp-text-muted); }
+    .tab.active { color: var(--agp-text); border-bottom-color: var(--agp-accent); font-weight: var(--agp-fw-medium); }
+
+    .cfg-row { display:grid; grid-template-columns: 24px 1.2fr 1.3fr 0.6fr 0.6fr 1fr 1fr 70px;
+      gap: var(--agp-sp-2); align-items:center; padding: var(--agp-sp-2) 0;
+      border-bottom: 1px dashed var(--agp-border); }
+    .cfg-row.head { font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing:0.5px; border-bottom: var(--agp-border-w) solid var(--agp-border); }
+    .cfg-row input[type=text], .cfg-row input[type=password], .cfg-row input[type=number] { width:100%; }
+    .cfg-row input[type=checkbox] { width:18px; height:18px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="camaras"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Cámaras</h1><div class="subtitle" id="camSubtitle">Cargando…</div></div>
+      <span class="pill" id="camStatus"><span class="dot"></span> —</span>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="monitor">Monitor</div>
+      <div class="tab" data-tab="config">Configuración</div>
+    </div>
+
+    <div id="tabMonitor">
+      <div class="cam-toolbar">
+        <div class="layout-group" id="layoutGroup">
+          <button class="btn compact" data-layout="1x1" title="1 cámara">1×1</button>
+          <button class="btn compact" data-layout="2x1" title="2 cámaras">2×1</button>
+          <button class="btn compact active" data-layout="2x2" title="4 cámaras">2×2</button>
+        </div>
+        <span class="hint">Doble click en una cámara para enfocarla / volver.</span>
+      </div>
+      <div id="camGrid" class="cam-grid lay-2x2"></div>
+      <div id="camEmpty" class="card" style="display:none">
+        <div class="subtitle">No hay cámaras activas configuradas.</div>
+        <p style="margin-top: var(--agp-sp-2); color: var(--agp-text-muted)">
+          Ir a la pestaña <strong>Configuración</strong> y marcar al menos una cámara como activa.
+        </p>
+      </div>
+    </div>
+
+    <div id="tabConfig" style="display:none">
+      <div class="card" style="max-width: 1100px">
+        <div class="cfg-row head">
+          <div>#</div>
+          <div>Nombre</div>
+          <div>IP</div>
+          <div>Puerto</div>
+          <div>Canal</div>
+          <div>Usuario</div>
+          <div>Clave</div>
+          <div style="text-align:center">Activa</div>
+        </div>
+        <div id="cfgList"></div>
+        <div style="display:flex; gap:var(--agp-sp-3); margin-top: var(--agp-sp-4)">
+          <button class="btn" id="btnAddCam">+ Agregar cámara</button>
+          <span style="flex:1"></span>
+          <div class="field" style="display:flex; align-items:center; gap:8px">
+            <label style="margin:0">Refresco (ms)</label>
+            <input type="number" id="inpRefresco" style="width:90px" min="200" step="100" value="1000">
+          </div>
+          <button class="btn primary" id="btnSave">Guardar</button>
+        </div>
+        <div id="cfgMsg" style="margin-top: var(--agp-sp-3); color: var(--agp-text-muted); font-size: var(--agp-fs-sm)"></div>
+      </div>
+    </div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/camaras.js"></script>
+</body>
+</html>

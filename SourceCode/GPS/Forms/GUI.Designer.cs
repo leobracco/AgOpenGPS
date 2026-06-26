@@ -13,6 +13,7 @@ using System.IO;
 using System.Windows.Forms;
 using AgOpenGPS.Core.Models;
 using AgOpenGPS.Core.Drawing;
+using AgroParallel.Common;
 
 namespace AgOpenGPS
 {
@@ -138,6 +139,13 @@ namespace AgOpenGPS
 
                 //reset the counter
                 fourSecondCounter = 0;
+
+                // ORBITX_MOD — Escribir gps_status.json para el agente OrbitX-Sync
+                try
+                {
+                    WriteGpsStatusJson();
+                }
+                catch { }
 
                 if (isJobStarted)
                 {
@@ -511,6 +519,17 @@ namespace AgOpenGPS
             textColorDay = Settings.Default.setDisplay_colorTextDay.CheckColorFor255();
             textColorNight = Settings.Default.setDisplay_colorTextNight.CheckColorFor255();
 
+            // PilotX UI: cabina clara, técnica y legible. El verde queda como
+            // señal operativa; el marco no debe volverse un bloque negro.
+            Theme.Current = Theme.Mode.Day;
+            frameDayColor = Theme.BgBlack;
+            frameNightColor = Color.FromArgb(0x16, 0x1D, 0x18);
+            textColorDay = Theme.TextPrimary;
+            textColorNight = Color.FromArgb(0xEA, 0xF2, 0xE8);
+            sectionColorDay = Theme.Accent;
+            fieldColorDay = Color.FromArgb(0xD8, 0xDE, 0xD6);
+            fieldColorNight = Color.FromArgb(0x21, 0x2A, 0x24);
+
             //load the string of custom colors
             string[] words = Properties.Settings.Default.setDisplay_customColors.Split(',');
             for (int i = 0; i < 16; i++)
@@ -552,17 +571,11 @@ namespace AgOpenGPS
 
             string directoryName = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location);
 
-            simulatorOnToolStripMenuItem.Checked = Settings.Default.setMenu_isSimulatorOn;
-            if (simulatorOnToolStripMenuItem.Checked)
-            {
-                panelSim.Visible = true;
-                timerSim.Enabled = true;
-            }
-            else
-            {
-                panelSim.Visible = false;
-                timerSim.Enabled = false;
-            }
+            // Simulator removed from UI: force off regardless of saved setting
+            Settings.Default.setMenu_isSimulatorOn = false;
+            simulatorOnToolStripMenuItem.Checked = false;
+            panelSim.Visible = false;
+            timerSim.Enabled = false;
 
             if (timerSim.Enabled) gpsHz = 10;
 
@@ -1199,7 +1212,7 @@ namespace AgOpenGPS
             return (" ?? ");
         }
 
-        //Mouse Clicks 
+        //Mouse Clicks
         private void oglMain_MouseDown(object sender, MouseEventArgs e)
         {
 
@@ -1210,6 +1223,12 @@ namespace AgOpenGPS
 
                 //0 at bottom for opengl, 0 at top for windows, so invert Y value
                 Point point = oglMain.PointToClient(Cursor.Position);
+
+                // SHAPEFILE_MOD_START
+                // Modo inspeccion: si esta activo, consumir el click.
+                if (TryHandleShapefileInspectClick(e.X, e.Y))
+                    return;
+                // SHAPEFILE_MOD_END
 
                 if (isJobStarted)
                 {

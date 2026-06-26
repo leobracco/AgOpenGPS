@@ -267,13 +267,13 @@ namespace AgIO
             }
 
             this.Text =
-            "AgIO  v" + Program.Version + " Profile: " + RegistrySettings.profileName;
+            "CoreX  v" + Program.Version + " Profile: " + RegistrySettings.profileName;
 
             if (RegistrySettings.profileName == "")
             {
                 Log.EventWriter("Using Default Profile At Start Warning");
 
-                YesMessageBox("AgIO - No Profile Open \r\n\r\n Create or Open a Profile");
+                YesMessageBox("CoreX - No Profile Open \r\n\r\n Create or Open a Profile");
 
                 using (var form = new FormProfiles(this))
                 {
@@ -285,7 +285,7 @@ namespace AgIO
                         Program.Restart();
                     }
                 }
-                this.Text = "AgIO  v" + Program.Version + " Profile: "
+                this.Text = "CoreX  v" + Program.Version + " Profile: "
                     + RegistrySettings.profileName;
             }
 
@@ -295,6 +295,8 @@ namespace AgIO
                 Log.EventWriter("Run GPS_Out");
             }
 
+            // MQTT Broker — arranca automáticamente.
+            StartMqttBroker();
         }
 
         private void FormLoop_FormClosing(object sender, FormClosingEventArgs e)
@@ -332,6 +334,9 @@ namespace AgIO
             {
                 processName[0].CloseMainWindow();
             }
+
+            // MQTT Broker shutdown.
+            StopMqttBroker();
 
             Log.EventWriter("Program Exit: " +
                 DateTime.Now.ToString("f", CultureInfo.InvariantCulture) + "\n\r");
@@ -456,6 +461,9 @@ namespace AgIO
 
             //send a hello to modules
             SendUDPMessage(helloFromAgIO, epModule);
+
+            // MQTT broker status update.
+            DoMqttStatus();
 
 
             //if (isLogNMEA)
@@ -658,7 +666,8 @@ namespace AgIO
 
         private void ShowAgIO()
         {
-            Process[] processName = Process.GetProcessesByName("AgIO");
+            // El binario se llama CoreX.exe → el proceso es "CoreX".
+            Process[] processName = Process.GetProcessesByName("CoreX");
 
             if (processName.Length != 0)
             {

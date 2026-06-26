@@ -1,0 +1,218 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.VistaXPanel"
+             Background="{StaticResource PilotXBgDeep}">
+    <!--
+        VistaXPanel - reemplazo nativo (Monitor live-only) de pages/vistax.html.
+
+        Cabin-critical: ver sensores por tren/surco (tubitos semilla/ferti +
+        barras turbina/tolva/etc.), spm promedio, surcos activos, fallas y
+        alarma. Polling 2Hz contra /api/vistax/live mientras esta abierto.
+
+        Comportamiento de pintado:
+          · MonitoreoActivo=false (sembradora levantada o velocidad <1 km/h
+            o menos de UmbralSensoresActivos surcos activos): todos los
+            tubitos y barras se renderean en GRIS (off). El back ya
+            determina cuando se considera "sensando" via SeedMonitor.
+          · MonitoreoActivo=true: cada sensor se pinta por su estado real.
+          · Click sobre cualquier sensor abre el overlay de detalle con
+            UID/Tren/Bajada/Tipo/SPM/Objetivo/Ratio/Cable/Estado/Muted.
+
+        Las otras tabs (Insumo & calibracion, Implemento, Nodos, Config) NO
+        estan portadas: el boton "Configurar" abre el WebView lazy sobre
+        pages/vistax.html — esos flujos se editan en el galpon, no manejando.
+    -->
+    <Grid>
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,20,24,24" Spacing="14">
+
+            <!-- ============ Header ============ -->
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="VistaX"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="22" FontWeight="SemiBold"/>
+                    <TextBlock Name="SubtitleText"
+                               Text="Monitoreo de siembra"
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"/>
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Name="BtnConfigurar"
+                        Content="Configurar"
+                        Click="OnConfigurarClick"
+                        Background="{StaticResource PilotXBgHigh}"
+                        Foreground="{StaticResource PilotXTextHi}"
+                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="14,6,14,6"
+                        VerticalAlignment="Center"
+                        ToolTip.Tip="Abre Insumo / Implemento / Nodos / Config en el Hub"/>
+            </Grid>
+
+            <!-- ============ KPI strip ============ -->
+            <Border Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="16,12,16,12">
+                <Grid ColumnDefinitions="*,*,*,*,*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2">
+                        <TextBlock Text="SPM PROMEDIO" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                        <TextBlock Name="KpiSpm" Text="--"
+                                   Foreground="{StaticResource PilotXAccent}"
+                                   FontSize="22" FontWeight="Bold"
+                                   FontFamily="Consolas, Courier New, monospace"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Text="OBJETIVO" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                        <TextBlock Name="KpiObj" Text="--"
+                                   Foreground="{StaticResource PilotXTextHi}"
+                                   FontSize="22" FontWeight="Bold"
+                                   FontFamily="Consolas, Courier New, monospace"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Spacing="2">
+                        <TextBlock Text="SURCOS ACTIVOS" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                        <TextBlock Name="KpiActivos" Text="0"
+                                   Foreground="{StaticResource PilotXTextHi}"
+                                   FontSize="22" FontWeight="Bold"
+                                   FontFamily="Consolas, Courier New, monospace"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="3" Spacing="2">
+                        <TextBlock Text="FALLAS" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                        <TextBlock Name="KpiFallas" Text="0"
+                                   Foreground="{StaticResource PilotXTextHi}"
+                                   FontSize="22" FontWeight="Bold"
+                                   FontFamily="Consolas, Courier New, monospace"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="4" Spacing="2">
+                        <TextBlock Text="IMPLEMENTO" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                        <TextBlock Name="KpiImp" Text="--"
+                                   Foreground="{StaticResource PilotXTextMid}"
+                                   FontSize="14" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+
+                    <!-- Alarm chip -->
+                    <Border Grid.Column="5"
+                            Name="AlarmChip"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="12,6,12,6"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Name="AlarmDot" Width="10" Height="10"
+                                     Fill="{StaticResource PilotXTextDim}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="AlarmText"
+                                       Text="sin datos"
+                                       Foreground="{StaticResource PilotXTextMid}"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ============ Badges (conteo por estado) ============ -->
+            <WrapPanel Name="BadgesHost"/>
+
+            <!-- ============ Trenes (live, construido en code-behind) ============ -->
+            <StackPanel Name="TrenesHost" Spacing="14"/>
+
+            <TextBlock Name="EmptyHint"
+                       Text="Sin trenes mapeados. Configurá el implemento desde el botón Configurar."
+                       Foreground="{StaticResource PilotXTextDim}"
+                       FontSize="12"
+                       TextWrapping="Wrap"
+                       IsVisible="True"/>
+
+            <!-- ============ Nodos VistaX ============ -->
+            <TextBlock Text="Nodos VistaX"
+                       Foreground="{StaticResource PilotXTextHi}"
+                       FontSize="14" FontWeight="SemiBold"
+                       Margin="0,8,0,0"/>
+            <WrapPanel Name="NodosHost"/>
+            <TextBlock Name="NodosEmpty"
+                       Text="Sin nodos VistaX vistos todavía. Verificá MQTT broker en CoreX/AgIO."
+                       Foreground="{StaticResource PilotXTextDim}"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       IsVisible="True"/>
+
+            <TextBlock Text="El mapeo de sensores, calibración, alarmas e insumos se editan en el Hub (botón Configurar)."
+                       Foreground="{StaticResource PilotXTextDim}"
+                       FontSize="11"
+                       TextWrapping="Wrap"/>
+        </StackPanel>
+    </ScrollViewer>
+
+    <!--
+        Overlay de detalle de un solo sensor. Aparece al tocar cualquier
+        celda/barra. Backdrop semitransparente sobre el panel para que el
+        operario vea contexto pero el dato puntual quede destacado.
+        Tap fuera de la tarjeta = cerrar.
+    -->
+    <Border Name="DetailOverlay"
+            IsVisible="False"
+            Background="#CC0A0E0B"
+            ZIndex="50"
+            PointerPressed="OnDetailBackdropPressed">
+        <Border Name="DetailCard"
+                Width="440"
+                MaxHeight="560"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Background="{StaticResource PilotXBgMid}"
+                BorderBrush="{StaticResource PilotXBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="22,18,22,18"
+                BoxShadow="0 12 24 0 #80000000"
+                PointerPressed="OnDetailCardPressed">
+            <Grid RowDefinitions="Auto,*,Auto">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2">
+                        <TextBlock Name="DetailTitle"
+                                   Text="Sensor"
+                                   Foreground="{StaticResource PilotXTextHi}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Name="DetailSubtitle"
+                                   Text=""
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="11"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Name="DetailClose"
+                            Content="X"
+                            Width="36" Height="36"
+                            FontSize="14"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="18"
+                            Click="OnDetailCloseClick"
+                            ToolTip.Tip="Cerrar (Esc)"/>
+                </Grid>
+
+                <StackPanel Grid.Row="1" Name="DetailBody" Spacing="12" Margin="0,14,0,0"/>
+
+                <TextBlock Grid.Row="2"
+                           Name="DetailFooter"
+                           Text=""
+                           Foreground="{StaticResource PilotXTextDim}"
+                           FontSize="10"
+                           Margin="0,12,0,0"
+                           TextWrapping="Wrap"/>
+            </Grid>
+        </Border>
+    </Border>
+    </Grid>
+</UserControl>

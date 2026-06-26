@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
+    <AssemblyName>PilotX</AssemblyName>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishDir>..\..\AgOpenGPS\</PublishDir>
     <ApplicationIcon>AOG.ico</ApplicationIcon>
@@ -10,6 +11,13 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <EmbeddedResourceUseDependentUponConvention>true</EmbeddedResourceUseDependentUponConvention>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <!-- Desactivar analyzers de Roslyn en este proyecto: Directory.Build.props
+         los habilita globalmente, y FormGPS.cs es tan grande que Roslyn crashea
+         con OutOfMemoryException al intentar analizar sus BoundBlockOperation.
+         El resto de los proyectos siguen con analyzers habilitados. -->
+    <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
@@ -27,24 +35,69 @@
     <Content Include="License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="AOG.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Branding\favicon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Branding\logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Branding\logo-fondo-blanco.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Iconos del menú superior cargados en runtime por FormGPS.Load:
+         (a) "HUB" para toolStripAgroParallel, (b) cámara para toolStripCamaras.
+         Se leen como archivo desde Application.StartupPath\btnImages\ para
+         que el rebrand del Hub no requiera regenerar Resources.resx. -->
+    <Content Include="btnImages\AgroParallelHub.png">
+      <Link>btnImages\AgroParallelHub.png</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="btnImages\Camera2D64.png">
+      <Link>btnImages\Camera2D64.png</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
     <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
     <ProjectReference Include="..\Keypad\Keypad.csproj" />
+    <!-- AgroParallel Core (Fase A: extracción de POCOs y servicios) -->
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Models\AgroParallel.Models.csproj" />
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+    <!-- AgroParallel Fase B: Hub HTML detrás del flag UseWebUI -->
+    <ProjectReference Include="..\AgroParallel\Web\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
+    <ProjectReference Include="..\AgroParallel\Web\AgroParallel.Shell\AgroParallel.Shell.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AgroParallel Fase B: copiar wwwroot al output como AgroParallel\wwwroot\ -->
+    <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\**\*.*" LinkBase="AgroParallel\wwwroot">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Dev4Agriculture.ISO11783.ISOXML" Version="0.23.1.1" />
     <PackageReference Include="GMap.NET.WinForms" Version="2.1.7" />
     <PackageReference Include="MechanikaDesign.WinForms.UI.ColorPicker" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3856.49" />
     <PackageReference Include="OpenTK.GLControl" Version="3.3.3" />
-    <PackageReference Include="SourceGear.sqlite3" Version="3.50.3"/>
+    <PackageReference Include="SourceGear.sqlite3" Version="3.50.3" />
     <PackageReference Include="System.Data.SQLite" Version="2.0.1" />
     <PackageReference Include="System.Memory" Version="4.6.0" />
     <PackageReference Include="System.Resources.Extensions" Version="9.0.0" />
     <PackageReference Include="System.ValueTuple" Version="4.6.1" />
+    <!-- VISTAX_MOD_START -->
+    <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
+<PackageReference Include="System.Text.Json" Version="9.0.0" />
+    <!-- VISTAX_MOD_END -->
+    <!-- SHAPEFILE_MOD_START -->
+    <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" Version="1.2.0" />
+    <!-- SHAPEFILE_MOD_END -->
   </ItemGroup>
 
   <ItemGroup>

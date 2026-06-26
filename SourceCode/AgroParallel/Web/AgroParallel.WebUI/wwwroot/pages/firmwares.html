@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Firmwares · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ──────────────────────────────────────────────────────────────────────
+       Firmwares — dark cockpit edition
+       Repinta los badges, pills, dropzone y form controls con los tokens
+       del theme.css. Antes había colores light hardcoded (#e6f0ff, #fde7e7)
+       que cantaban feo sobre el fondo gris carbón del Hub.
+       ────────────────────────────────────────────────────────────────────── */
+
+    .fw-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--agp-sp-5); }
+    @media (max-width: 1100px) { .fw-grid { grid-template-columns: 1fr; } }
+
+    .fw-card {
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius);
+      padding: var(--agp-sp-5);
+    }
+    .fw-card h2 { margin-top: 0; }
+    .fw-card .card-sub {
+      color: var(--agp-text-muted);
+      font-size: var(--agp-fs-sm);
+      margin-bottom: var(--agp-sp-4);
+    }
+
+    /* ─── Catálogo agrupado por producto ───────────────────────────────── */
+    .fw-prod {
+      margin-bottom: var(--agp-sp-4);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm, 6px);
+      overflow: hidden;
+      background: var(--agp-surface-2);
+    }
+    .fw-prod:last-child { margin-bottom: 0; }
+    .fw-prod-head {
+      padding: var(--agp-sp-3) var(--agp-sp-4);
+      background: var(--agp-bg-soft);
+      font-weight: var(--agp-fw-medium);
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--agp-border);
+    }
+    .fw-prod-head .name {
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: var(--agp-fs-sm);
+      color: var(--agp-text);
+    }
+    .fw-prod-head .count {
+      color: var(--agp-text-muted);
+      font-size: var(--agp-fs-xs);
+      font-variant-numeric: tabular-nums;
+    }
+    .fw-ver {
+      display: grid;
+      grid-template-columns: 110px 1fr 92px 1fr;
+      gap: var(--agp-sp-3);
+      align-items: center;
+      padding: var(--agp-sp-3) var(--agp-sp-4);
+      border-top: 1px solid var(--agp-border);
+      font-size: var(--agp-fs-sm);
+    }
+    .fw-ver:first-of-type { border-top: none; }
+    .fw-ver:hover { background: var(--agp-bg-soft); }
+    .fw-ver .v {
+      font-weight: var(--agp-fw-semi);
+      font-family: var(--agp-font-mono);
+      color: var(--agp-text);
+    }
+    .fw-ver .hash {
+      color: var(--agp-text-dim);
+      font-family: var(--agp-font-mono);
+      font-size: 11px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .fw-ver .size {
+      color: var(--agp-text-muted);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-family: var(--agp-font-mono);
+    }
+    .fw-ver .actions {
+      display: flex;
+      gap: var(--agp-sp-2);
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    /* Badges cloud/local sobre dark — fondos translúcidos + tokens del tema */
+    .fw-ver .badge-cloud,
+    .fw-ver .badge-local {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: var(--agp-fw-medium);
+      border: 1px solid transparent;
+    }
+    .fw-ver .badge-cloud {
+      background: rgba(61, 139, 253, 0.14);
+      color: #7DB2FF;
+      border-color: rgba(61, 139, 253, 0.30);
+    }
+    .fw-ver .badge-local {
+      background: var(--agp-accent-soft);
+      color: var(--agp-accent-hover);
+      border-color: rgba(75, 166, 63, 0.30);
+    }
+
+    /* Empty state cuando no hay nada en cache */
+    .fw-empty {
+      padding: var(--agp-sp-6) var(--agp-sp-4);
+      text-align: center;
+      color: var(--agp-text-muted);
+      border: 1px dashed var(--agp-border);
+      border-radius: var(--agp-radius-sm, 6px);
+      background: var(--agp-bg-soft);
+    }
+    .fw-empty .em-title {
+      color: var(--agp-text);
+      font-weight: var(--agp-fw-medium);
+      margin-bottom: 6px;
+    }
+
+    /* ─── Form de upload ───────────────────────────────────────────────── */
+    .upl-form > .field { display: block; margin-bottom: var(--agp-sp-4); }
+    .upl-form label {
+      display: block;
+      font-size: var(--agp-fs-xs);
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--agp-text-muted);
+      margin-bottom: 6px;
+      font-weight: var(--agp-fw-medium);
+    }
+    .upl-form input[type=text],
+    .upl-form select,
+    .upl-form textarea {
+      width: 100%; min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm, 6px);
+      background: var(--agp-bg);
+      color: var(--agp-text);
+      font-size: var(--agp-fs-md);
+      font-family: inherit;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .upl-form input[type=text]:focus,
+    .upl-form select:focus,
+    .upl-form textarea:focus {
+      outline: none;
+      border-color: var(--agp-accent);
+      background: var(--agp-bg-soft);
+    }
+    .upl-form textarea { min-height: 88px; resize: vertical; }
+    .upl-form select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, var(--agp-text-muted) 50%),
+                        linear-gradient(135deg, var(--agp-text-muted) 50%, transparent 50%);
+      background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+      padding-right: 32px;
+    }
+    .upl-form select option { background: var(--agp-surface-2); color: var(--agp-text); }
+
+    /* Drop-zone de archivo */
+    .upl-form .file-drop {
+      border: 2px dashed var(--agp-border-strong);
+      border-radius: var(--agp-radius-sm, 6px);
+      padding: var(--agp-sp-5);
+      text-align: center;
+      color: var(--agp-text-muted);
+      cursor: pointer;
+      background: var(--agp-bg);
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .upl-form .file-drop:hover { border-color: var(--agp-accent); background: var(--agp-bg-soft); }
+    .upl-form .file-drop.has-file {
+      border-color: var(--agp-accent);
+      background: var(--agp-accent-soft);
+      color: var(--agp-text);
+    }
+    .upl-form .file-drop .drop-icon {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+      margin-bottom: 6px;
+      color: var(--agp-text-dim);
+    }
+    .upl-form .file-drop.has-file .drop-icon { color: var(--agp-accent); }
+    .upl-form .file-drop .drop-hint {
+      font-size: var(--agp-fs-xs);
+      color: var(--agp-text-dim);
+      margin-top: 4px;
+    }
+    /* Ocultamos el <input type=file> nativo, el drop-zone hace de label */
+    .upl-form input[type=file] {
+      position: absolute;
+      width: 1px; height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .upl-meta {
+      font-size: var(--agp-fs-sm);
+      color: var(--agp-text-muted);
+      font-family: var(--agp-font-mono);
+    }
+
+    .upl-progress {
+      height: 6px;
+      background: var(--agp-bg-soft);
+      border: 1px solid var(--agp-border);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: var(--agp-sp-3);
+    }
+    .upl-progress > div {
+      height: 100%;
+      background: linear-gradient(90deg, var(--agp-accent) 0%, var(--agp-accent-hover) 100%);
+      width: 0%;
+      transition: width .2s linear;
+    }
+
+    /* ─── Pills (LAN, ok, err) ─────────────────────────────────────────── */
+    .pill-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: var(--agp-fs-sm);
+      background: var(--agp-bg-soft);
+      border: 1px solid var(--agp-border);
+      color: var(--agp-text-muted);
+      font-family: var(--agp-font-mono);
+    }
+    .pill-info.ok {
+      background: var(--agp-accent-soft);
+      border-color: rgba(75, 166, 63, 0.30);
+      color: var(--agp-accent-hover);
+    }
+    .pill-info.err {
+      background: var(--agp-state-bad-bg);
+      border-color: rgba(178, 62, 62, 0.40);
+      color: var(--agp-state-bad);
+    }
+
+    /* Resultado del upload */
+    #uplResult:not(:empty) {
+      margin-top: var(--agp-sp-3);
+      padding: var(--agp-sp-3);
+      border-radius: var(--agp-radius-sm, 6px);
+      border: 1px solid var(--agp-border);
+      background: var(--agp-bg-soft);
+      font-size: var(--agp-fs-sm);
+    }
+    #uplResult.ok    { border-color: rgba(75, 166, 63, 0.30); background: var(--agp-accent-soft); color: var(--agp-text); }
+    #uplResult.err   { border-color: rgba(178, 62, 62, 0.40); background: var(--agp-state-bad-bg); color: var(--agp-state-bad); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="firmwares"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Firmwares</h1>
+        <div class="subtitle">Catálogo local de <code>.bin</code> · cache servida a los nodos por LAN</div>
+      </div>
+      <div style="display:flex; gap:var(--agp-sp-2); align-items:center">
+        <span id="lanPill" class="pill-info">—</span>
+        <button class="btn compact" id="btnRefresh" type="button">Refrescar</button>
+      </div>
+    </div>
+
+    <div class="fw-grid">
+      <!-- COLUMNA IZQUIERDA: catálogo en cache -->
+      <div class="fw-card">
+        <h2>Catálogo local</h2>
+        <div class="card-sub">
+          <span id="metaCache">—</span>
+        </div>
+        <div id="fwList">
+          <div class="fw-empty">
+            <div class="em-title">Cargando catálogo…</div>
+            <div>Leyendo el cache local de firmwares.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMNA DERECHA: subir .bin/.hex desde la PC -->
+      <div class="fw-card">
+        <h2>Subir firmware desde la PC</h2>
+        <div class="card-sub">
+          Útil cuando no hay internet — el archivo queda en el cache local y los nodos lo descargan por LAN.
+        </div>
+
+        <div class="upl-form">
+          <!-- Dropzone real (el <input file> está oculto, el label hace de zona clickable) -->
+          <div class="field">
+            <label for="fwFile">Archivo firmware</label>
+            <label class="file-drop" id="fwDrop" for="fwFile">
+              <span class="drop-icon" aria-hidden="true">⇪</span>
+              <span class="drop-text" id="fwDropText">Tocá para elegir un archivo</span>
+              <span class="drop-hint">.bin · .hex · .zip · máx. 8 MB</span>
+            </label>
+            <input type="file" id="fwFile" accept=".bin,.hex,.zip,application/octet-stream" />
+            <div id="fileMeta" class="upl-meta" style="margin-top:8px"></div>
+          </div>
+
+          <div class="field">
+            <label for="fwProducto">Producto</label>
+            <select id="fwProducto">
+              <option value="">— Elegir producto —</option>
+              <optgroup label="Nodos (.bin)">
+                <option value="quantix">QuantiX</option>
+                <option value="vistax">VistaX</option>
+                <option value="sectionx">SectionX</option>
+                <option value="flowx">FlowX</option>
+                <option value="stormx">StormX</option>
+                <option value="soilx">SoilX</option>
+                <option value="signalx">SignalX</option>
+                <option value="cowx">CowX</option>
+                <option value="linex">LineX</option>
+              </optgroup>
+              <optgroup label="Pilotaje (.hex)">
+                <option value="corex-ecu">CoreX-ECU</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="fwVersion">Versión (semver · ej 1.5.0)</label>
+            <input type="text" id="fwVersion" placeholder="1.5.0" autocomplete="off" inputmode="decimal" />
+          </div>
+
+          <div class="field">
+            <label for="fwChangelog">Changelog (opcional)</label>
+            <textarea id="fwChangelog" placeholder="Qué cambia respecto a la versión anterior"></textarea>
+          </div>
+
+          <button class="btn primary" id="btnUpload" type="button" style="width:100%; min-height:48px">
+            Subir al cache
+          </button>
+          <div class="upl-progress" id="uplProgressWrap" style="display:none"><div id="uplProgress"></div></div>
+          <div id="uplResult"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/firmwares.js"></script>
+</body>
+</html>

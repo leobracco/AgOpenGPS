@@ -1,0 +1,114 @@
+// ============================================================================
+// FormVistaXPopup.cs - Ventana popup nativa de VistaX (sin CefSharp)
+// Ubicación: SourceCode/GPS/AgroParallel/VistaX/FormVistaXPopup.cs
+// Target: net48 (C# 7.3)
+//
+// Wraps VistaXNativePanel en un Form resizable. Si FormGPS ya tiene un
+// SeedMonitor activo, nos enganchamos al mismo; sino creamos uno propio
+// asi el popup funciona aun si el panel embebido esta apagado.
+// El FormGPS mantiene una unica instancia (singleton) via OpenAgroParallelModulePopup.
+// ============================================================================
+
+using System;
+using System.Drawing;
+using System.Windows.Forms;
+
+namespace AgroParallel.VistaX
+{
+    public class FormVistaXPopup : Form
+    {
+        private readonly VistaXNativePanel _panel;
+        private readonly SeedMonitor _attachedMonitor;
+        private readonly SeedMonitor _ownMonitor;
+        private readonly VistaXConfig _config;
+
+        public FormVistaXPopup(VistaXConfig cfg, SeedMonitor existingMonitor)
+        {
+            if (cfg == null) throw new ArgumentNullException("cfg");
+            _config = cfg;
+
+            Text = "VistaX";
+            Size = new Size(900, 400);
+            MinimumSize = new Size(480, 220);
+            StartPosition = FormStartPosition.CenterParent;
+            BackColor = Color.FromArgb(0, 0, 0);
+            ShowInTaskbar = true;
+            KeyPreview = true;
+
+            _panel = new VistaXNativePanel(cfg);
+            _panel.Dock = DockStyle.Fill;
+            _panel.AlarmMuted = cfg.AlarmMuted;
+            Controls.Add(_panel);
+
+            if (existingMonitor != null && existingMonitor.IsRunning)
+            {
+                _attachedMonitor = existingMonitor;
+                existingMonitor.SnapshotUpdated += _panel.SetSnapshot;
+                _panel.ObjetivoChanged += v => existingMonitor.SetObjetivo(v, 0);
+            }
+            else
+            {
+                _ownMonitor = new SeedMonitor((AgroParallel.Services.Abstractions.IAogStateProvider)null, cfg);
+                _ownMonitor.SnapshotUpdated += _panel.SetSnapshot;
+                _panel.ObjetivoChanged += v => _ownMonitor.SetObjetivo(v, 0);
+                _ = _ownMonitor.StartAsync();
+            }
+
+            // Boton de config en el header del panel: cierra el popup y delega
+            // al FormGPS owner para abrir el dialogo de config.
+            _panel.ConfigRequested += () =>
+            {
+                var owner = Owner as AgOpenGPS.FormGPS;
+                Close();
+                owner?.BeginInvoke(new Action(() => owner.OpenVistaXConfigDialog()));
+            };
+
+            KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Escape) Close();
+            };
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            // Persistir estado del mute si cambio durante la sesion del popup.
+            try
+            {
+                if (_config != null && _panel != null
+                    && _panel.AlarmMuted != _config.AlarmMuted)
+                {
+                    _config.AlarmMuted = _panel.AlarmMuted;
+                    _config.Save();
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (_attachedMonitor != null)
+                    _attachedMonitor.SnapshotUpdated -= _panel.SetSnapshot;
+            }
+            catch { }
+
+            // Dispose del monitor en background con timeout — MQTTnet puede
+            // bloquear el Stop si esta en un backoff de reconexion, y si eso
+            // corre en el hilo UI el Close() del Form nunca vuelve.
+            if (_ownMonitor != null)
+            {
+                var m = _ownMonitor;
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        var stop = m.StopAsync();
+                        stop.Wait(2000);
+                    }
+                    catch { }
+                    try { m.Dispose(); } catch { }
+                });
+            }
+
+            base.OnFormClosed(e);
+        }
+    }
+}

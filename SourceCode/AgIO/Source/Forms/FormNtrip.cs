@@ -114,7 +114,7 @@ namespace AgIO
 
             Properties.Settings.Default.Save();
 
-            mf.YesMessageBox("Restart of AgIO is Required - Restarting");
+            mf.YesMessageBox("Restart of CoreX is Required - Restarting");
             Log.EventWriter("Program Reset: Selecting NTRIP Feature");
 
             Program.Restart();

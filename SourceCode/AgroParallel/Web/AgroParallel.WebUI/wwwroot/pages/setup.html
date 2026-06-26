@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Asistente · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .wizard-shell { max-width: 920px; margin: 0 auto; }
+    .stepper {
+      display:flex; gap:8px; margin: var(--agp-sp-3) 0 var(--agp-sp-4) 0;
+      flex-wrap:wrap;
+    }
+    .stepper .step {
+      flex:1; min-width: 120px;
+      padding: 10px 12px;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      color: var(--agp-text-muted);
+      text-align:center; font-size: var(--agp-fs-sm);
+    }
+    .stepper .step.active {
+      border-color: var(--agp-accent);
+      color: var(--agp-text);
+      font-weight: var(--agp-fw-medium);
+      background: rgba(74,186,62,0.08);
+    }
+    .stepper .step.done {
+      border-color: var(--agp-state-ok);
+      color: var(--agp-state-ok);
+      background: rgba(74,186,62,0.04);
+    }
+    .stepper .step .num {
+      display:inline-block; width:22px; height:22px; line-height:22px;
+      border-radius: 50%; background: rgba(0,0,0,0.18);
+      color: var(--agp-text); margin-right: 6px; font-weight: var(--agp-fw-medium);
+    }
+    .panel { padding: var(--agp-sp-4); }
+    .panel h2 { margin-top: 0; }
+    .check-item {
+      display:flex; align-items:center; gap: var(--agp-sp-2);
+      padding: var(--agp-sp-2) 0;
+      border-bottom: 1px dashed var(--agp-border);
+    }
+    .check-item .ico { width: 22px; text-align:center; font-size: 1.1em; }
+    .check-item.ok .ico  { color: var(--agp-state-ok); }
+    .check-item.bad .ico { color: var(--agp-state-bad); }
+    .check-item.idle .ico { color: var(--agp-text-muted); }
+    .nav-row {
+      display:flex; gap:var(--agp-sp-2); justify-content: space-between;
+      align-items:center; margin-top: var(--agp-sp-4);
+    }
+    .pictogram {
+      display:inline-block; width:48px; height:48px; line-height:48px;
+      text-align:center; font-size:24px; border-radius: 8px;
+      background: var(--agp-bg-soft); border:1px solid var(--agp-border);
+      margin-right: var(--agp-sp-2);
+    }
+    .led-card {
+      display:flex; align-items:center; gap: var(--agp-sp-3);
+      padding: var(--agp-sp-3); border-radius: var(--agp-radius-md);
+      border: 1px solid var(--agp-border);
+      margin-bottom: var(--agp-sp-2);
+    }
+    .led-dot { width:18px; height:18px; border-radius:50%; flex-shrink:0; }
+    .live-stat {
+      display:flex; align-items:center; gap: var(--agp-sp-2);
+      padding: 6px 0; color: var(--agp-text-muted);
+    }
+    .live-stat strong { color: var(--agp-text); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active=""></aside>
+  <main class="page">
+    <div class="wizard-shell">
+      <div class="page-head">
+        <div>
+          <h1>Bienvenido a PilotX</h1>
+          <div class="subtitle">Asistente de primera vez — te guía para tener el sistema operativo en 6 pasos</div>
+        </div>
+        <div>
+          <button class="btn" id="btnDismiss">No mostrar de nuevo</button>
+        </div>
+      </div>
+
+      <div class="stepper" id="stepper">
+        <div class="step active" data-step="0"><span class="num">0</span>Bienvenida</div>
+        <div class="step"        data-step="1"><span class="num">1</span>Chequeo PC</div>
+        <div class="step"        data-step="2"><span class="num">2</span>OrbitX</div>
+        <div class="step"        data-step="3"><span class="num">3</span>Encender</div>
+        <div class="step"        data-step="4"><span class="num">4</span>Aceptar</div>
+        <div class="step"        data-step="5"><span class="num">5</span>Configurar</div>
+      </div>
+
+      <div class="card panel" id="panel0">
+        <h2>Bienvenido</h2>
+        <p>Vamos a configurar tu PilotX por primera vez. El asistente chequea que tu PC del tractor esté lista,
+           opcionalmente lo vincula con la nube OrbitX, y te ayuda a aceptar los controladores que vayan apareciendo
+           en la red MQTT.</p>
+        <p class="subtitle">
+          Tip: si te perdés en el camino, podés saltar pasos con <em>Siguiente</em>. Cuando termines, este asistente
+          deja de abrirse al inicio (siempre podés volver desde la página de Nodos).
+        </p>
+        <div class="nav-row">
+          <span></span>
+          <button class="btn primary" id="btnNext0">Empezar →</button>
+        </div>
+      </div>
+
+      <div class="card panel" id="panel1" hidden>
+        <h2>1 · Chequeo del PC del tractor</h2>
+        <p class="subtitle">Verifica que las piezas locales estén operativas. Esto se chequea solo, no necesitás tocar nada.</p>
+        <div id="checkPc">
+          <div class="check-item idle" id="chkWeb"><span class="ico">⋯</span><div>Servidor web local (puerto 5180) <div class="subtitle" id="chkWebSub">verificando…</div></div></div>
+          <div class="check-item idle" id="chkBroker"><span class="ico">⋯</span><div>Broker MQTT (puerto 1883) <div class="subtitle" id="chkBrokerSub">verificando…</div></div></div>
+          <div class="check-item idle" id="chkAog"><span class="ico">⋯</span><div>PilotX (estado de motor de guiado) <div class="subtitle" id="chkAogSub">verificando…</div></div></div>
+        </div>
+        <div class="nav-row">
+          <button class="btn" data-go="0">← Atrás</button>
+          <button class="btn primary" data-go="2">Siguiente →</button>
+        </div>
+      </div>
+
+      <div class="card panel" id="panel2" hidden>
+        <h2>2 · Vincular con OrbitX Cloud (opcional)</h2>
+        <p class="subtitle">
+          Sincroniza lotes, firmwares OTA y prescripciones con la nube. Podés saltar este paso si querés trabajar
+          completamente offline; lo configurás más adelante desde la página OrbitX.
+        </p>
+        <div class="live-stat" id="orbitxStat"><span class="dot-off">○</span> <span>No vinculado</span></div>
+        <div style="display:flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-3); flex-wrap:wrap;">
+          <a class="btn primary" href="orbitx.html">Abrir página OrbitX para vincular</a>
+        </div>
+        <div class="nav-row">
+          <button class="btn" data-go="1">← Atrás</button>
+          <button class="btn primary" data-go="3">Siguiente →</button>
+        </div>
+      </div>
+
+      <div class="card panel" id="panel3" hidden>
+        <h2>3 · Encendé los controladores</h2>
+        <p class="subtitle">
+          Energizá los nodos AgroParallel que tengas instalados (QuantiX, VistaX, SectionX, FlowX, StormX).
+          Cada nodo se anuncia en MQTT cuando ya está conectado al WiFi del tractor.
+        </p>
+        <div class="led-card">
+          <span class="led-dot" style="background: var(--agp-state-ok)"></span>
+          <div><strong>LED verde fijo</strong> — Conectado al broker. Listo para aceptarse.</div>
+        </div>
+        <div class="led-card">
+          <span class="led-dot" style="background: orange"></span>
+          <div><strong>LED naranja parpadeando</strong> — El nodo necesita Wi-Fi. Conectate al portal cautivo del nodo desde el celular
+            (red <code>&lt;Producto&gt;-XXXX</code>) y configurale el SSID/clave del tractor.</div>
+        </div>
+        <div class="led-card">
+          <span class="led-dot" style="background: var(--agp-state-bad)"></span>
+          <div><strong>LED rojo</strong> — Falla de hardware. Revisá alimentación y cableado.</div>
+        </div>
+        <div class="live-stat" id="liveBrokerStat" style="margin-top: var(--agp-sp-3);"><span>Broker:</span> <strong id="liveBroker">—</strong></div>
+        <div class="live-stat"><span>Nodos descubiertos:</span> <strong id="liveDescubiertos">0</strong></div>
+        <div class="nav-row">
+          <button class="btn" data-go="2">← Atrás</button>
+          <button class="btn primary" data-go="4">Ya están encendidos →</button>
+        </div>
+      </div>
+
+      <div class="card panel" id="panel4" hidden>
+        <h2>4 · Aceptá los nodos que aparecieron</h2>
+        <p class="subtitle">
+          Los controladores anunciados en la red están abajo. Aceptá los que te pertenecen y poneles un alias
+          humano. Si aparece algo que no es tuyo (ej: nodo del vecino o de banco de pruebas), tocá Ignorar.
+        </p>
+        <div id="tabAceptar">
+          <table class="tbl-nodos" id="tblPendientes" style="width:100%; border-collapse: collapse;">
+            <thead><tr style="text-align:left; color: var(--agp-text-muted);">
+              <th>UID</th><th>Tipo</th><th>IP</th><th>FW</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+          <div class="subtitle" id="empPend" style="padding: var(--agp-sp-3) 0;">No hay nodos pendientes. Asegurate de haberlos encendido y que estén conectados al WiFi del tractor.</div>
+        </div>
+        <div class="live-stat" style="margin-top: var(--agp-sp-3);">
+          <span>Total aceptados:</span> <strong id="liveAceptados">0</strong>
+          <span style="margin-left: var(--agp-sp-3);">Pendientes:</span> <strong id="livePendientes">0</strong>
+        </div>
+        <div class="nav-row">
+          <button class="btn" data-go="3">← Atrás</button>
+          <button class="btn primary" data-go="5">Siguiente →</button>
+        </div>
+      </div>
+
+      <div class="card panel" id="panel5" hidden>
+        <h2>5 · Configurá cada módulo</h2>
+        <p class="subtitle">
+          Para cada nodo aceptado, abrí la página correspondiente y completá la configuración funcional
+          (calibración, mapeo de cables, parámetros PID, etc.). Podés volver a este asistente cuando quieras.
+        </p>
+        <div id="listConfig"></div>
+        <div class="nav-row">
+          <button class="btn" data-go="4">← Atrás</button>
+          <button class="btn primary" id="btnFinish">Terminar asistente ✓</button>
+        </div>
+      </div>
+
+      <div class="card panel" id="panel6" hidden>
+        <h2>Listo</h2>
+        <p>Tu PilotX ya está configurado. Podés volver a este asistente desde la página <em>Nodos</em> si en el futuro
+           cambiás de hardware.</p>
+        <div class="nav-row">
+          <span></span>
+          <a class="btn primary" href="hub.html">Ir al Hub →</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/setup.js"></script>
+</body>
+</html>

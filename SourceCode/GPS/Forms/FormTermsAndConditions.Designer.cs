@@ -51,7 +51,7 @@
             this.labelTermsAndConditions.Name = "labelTermsAndConditions";
             this.labelTermsAndConditions.Size = new System.Drawing.Size(580, 45);
             this.labelTermsAndConditions.TabIndex = 34;
-            this.labelTermsAndConditions.Text = "Terms and Conditions";
+            this.labelTermsAndConditions.Text = "Términos y Condiciones — Agro Parallel";
             this.labelTermsAndConditions.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // labelTerms
@@ -83,7 +83,7 @@
             // 
             this.buttonYouTube.BackColor = System.Drawing.Color.Transparent;
             this.buttonYouTube.FlatAppearance.BorderSize = 0;
-            this.buttonYouTube.FlatAppearance.MouseOverBackColor = System.Drawing.Color.CornflowerBlue;
+            this.buttonYouTube.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(74, 186, 62);
             this.buttonYouTube.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.buttonYouTube.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
             this.buttonYouTube.Image = global::AgOpenGPS.Properties.Resources.YouTube;
@@ -92,7 +92,7 @@
             this.buttonYouTube.Name = "buttonYouTube";
             this.buttonYouTube.Size = new System.Drawing.Size(120, 110);
             this.buttonYouTube.TabIndex = 146;
-            this.buttonYouTube.Text = "YouTube Tutorials";
+            this.buttonYouTube.Text = "Tutoriales";
             this.buttonYouTube.TextAlign = System.Drawing.ContentAlignment.BottomCenter;
             this.buttonYouTube.UseVisualStyleBackColor = false;
             this.buttonYouTube.Click += new System.EventHandler(this.buttonYouTube_Click);
@@ -101,7 +101,7 @@
             // 
             this.buttonDiscourse.BackColor = System.Drawing.Color.Transparent;
             this.buttonDiscourse.FlatAppearance.BorderSize = 0;
-            this.buttonDiscourse.FlatAppearance.MouseOverBackColor = System.Drawing.Color.CornflowerBlue;
+            this.buttonDiscourse.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(74, 186, 62);
             this.buttonDiscourse.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.buttonDiscourse.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
             this.buttonDiscourse.Image = global::AgOpenGPS.Properties.Resources.Discourse;
@@ -110,7 +110,7 @@
             this.buttonDiscourse.Name = "buttonDiscourse";
             this.buttonDiscourse.Size = new System.Drawing.Size(120, 120);
             this.buttonDiscourse.TabIndex = 145;
-            this.buttonDiscourse.Text = "Discourse Forum";
+            this.buttonDiscourse.Text = "Instagram";
             this.buttonDiscourse.TextAlign = System.Drawing.ContentAlignment.BottomCenter;
             this.buttonDiscourse.UseVisualStyleBackColor = false;
             this.buttonDiscourse.Click += new System.EventHandler(this.buttonDiscourse_Click);
@@ -119,7 +119,7 @@
             // 
             this.buttonGitHub.BackColor = System.Drawing.Color.Transparent;
             this.buttonGitHub.FlatAppearance.BorderSize = 0;
-            this.buttonGitHub.FlatAppearance.MouseOverBackColor = System.Drawing.Color.CornflowerBlue;
+            this.buttonGitHub.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(74, 186, 62);
             this.buttonGitHub.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.buttonGitHub.Font = new System.Drawing.Font("Tahoma", 11F, System.Drawing.FontStyle.Bold);
             this.buttonGitHub.Image = global::AgOpenGPS.Properties.Resources.GitHub;
@@ -128,7 +128,7 @@
             this.buttonGitHub.Name = "buttonGitHub";
             this.buttonGitHub.Size = new System.Drawing.Size(120, 120);
             this.buttonGitHub.TabIndex = 144;
-            this.buttonGitHub.Text = "Check for Updates";
+            this.buttonGitHub.Text = "Sitio web";
             this.buttonGitHub.TextAlign = System.Drawing.ContentAlignment.BottomCenter;
             this.buttonGitHub.UseVisualStyleBackColor = false;
             this.buttonGitHub.Click += new System.EventHandler(this.buttonGitHub_Click);
@@ -138,7 +138,7 @@
             this.labelDisagree.BackColor = System.Drawing.Color.Transparent;
             this.labelDisagree.DialogResult = System.Windows.Forms.DialogResult.Cancel;
             this.labelDisagree.FlatAppearance.BorderSize = 0;
-            this.labelDisagree.FlatAppearance.MouseOverBackColor = System.Drawing.Color.CornflowerBlue;
+            this.labelDisagree.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(74, 186, 62);
             this.labelDisagree.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.labelDisagree.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.labelDisagree.Image = global::AgOpenGPS.Properties.Resources.Cancel64;
@@ -147,7 +147,7 @@
             this.labelDisagree.Name = "labelDisagree";
             this.labelDisagree.Size = new System.Drawing.Size(135, 90);
             this.labelDisagree.TabIndex = 39;
-            this.labelDisagree.Text = "Disagree";
+            this.labelDisagree.Text = "No acepto";
             this.labelDisagree.TextAlign = System.Drawing.ContentAlignment.BottomCenter;
             this.labelDisagree.UseVisualStyleBackColor = false;
             // 
@@ -156,7 +156,7 @@
             this.labelAgree.BackColor = System.Drawing.Color.Transparent;
             this.labelAgree.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.labelAgree.FlatAppearance.BorderSize = 0;
-            this.labelAgree.FlatAppearance.MouseOverBackColor = System.Drawing.Color.CornflowerBlue;
+            this.labelAgree.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(74, 186, 62);
             this.labelAgree.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.labelAgree.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.labelAgree.Image = global::AgOpenGPS.Properties.Resources.OK64;
@@ -165,7 +165,7 @@
             this.labelAgree.Name = "labelAgree";
             this.labelAgree.Size = new System.Drawing.Size(135, 90);
             this.labelAgree.TabIndex = 10;
-            this.labelAgree.Text = "Agree";
+            this.labelAgree.Text = "Acepto";
             this.labelAgree.TextAlign = System.Drawing.ContentAlignment.BottomCenter;
             this.labelAgree.UseVisualStyleBackColor = false;
             // 
@@ -187,7 +187,7 @@
             this.labelVersion.Name = "labelVersion";
             this.labelVersion.Size = new System.Drawing.Size(120, 25);
             this.labelVersion.TabIndex = 149;
-            this.labelVersion.Text = "Version:";
+            this.labelVersion.Text = "Versión:";
             this.labelVersion.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // labelVersionActual
@@ -205,7 +205,8 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.Color.Lavender;
+            // PilotX bg (#F5F7F4). El Form_About_Load lo refuerza en runtime.
+            this.BackColor = System.Drawing.Color.FromArgb(245, 247, 244);
             this.ClientSize = new System.Drawing.Size(1000, 640);
             this.Controls.Add(this.pictureBoxWarning);
             this.Controls.Add(this.labelTermsAndConditions);

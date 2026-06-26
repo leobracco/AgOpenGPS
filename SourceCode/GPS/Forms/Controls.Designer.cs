@@ -27,6 +27,14 @@ namespace AgOpenGPS
         public bool isABCyled = false;
         private void btnContour_Click(object sender, EventArgs e)
         {
+            // Cherry-pick upstream 08bf5665 (6.8.3): si había un track activo,
+            // resetearlo antes de tocar contour evita el crash al volver de
+            // Contour a Tracks con un trk.idx que ya no es válido.
+            if (trk.idx != -1)
+            {
+                trk.idx = -1;
+            }
+
             trk.isAutoTrack = false;
             btnAutoTrack.Image = Resources.AutoTrackOff;
 
@@ -39,6 +47,11 @@ namespace AgOpenGPS
                 guidanceLookAheadTime = 0.5;
                 btnContourLock.Image = Resources.ColorUnlocked;
                 ct.isLocked = false;
+
+                // Ocultar btnTrack mientras Contour está activo — si lo dejamos
+                // visible el operario puede tocarlo y entra en estado inválido.
+                btnTrack.Enabled = false;
+                btnTrack.Visible = false;
             }
 
             else
@@ -55,6 +68,8 @@ namespace AgOpenGPS
                     TimedMessageBox(2000, gStr.gsGuidanceStopped, gStr.gsContourOn);
                 }
 
+                btnTrack.Enabled = true;
+                btnTrack.Visible = true;
             }
 
             PanelUpdateRightAndBottom();
@@ -237,6 +252,10 @@ namespace AgOpenGPS
                 //yt.Set_Alternate_skips();
 
                 btnAutoYouTurn.Image = Properties.Resources.YouTurnNo;
+
+                // If a turn was already triggered, restore the original path before resetting
+                yt.RestorePreTriggerState();
+
                 yt.ResetYouTurn();
 
                 //new direction so reset where to put turn diagnostic
@@ -619,25 +638,6 @@ namespace AgOpenGPS
                 if (triStrip[j].isDrawing) triStrip[j].TurnMappingOff();
             }
 
-            // Start AgShare upload (if enabled)
-            agShareUploadTask = Task.CompletedTask;
-            if (!isAgShareUploadStarted &&
-                Settings.Default.AgShareEnabled &&
-                Settings.Default.AgShareUploadActive)
-            {
-                try
-                {
-                    isAgShareUploadStarted = true;
-                    var uploader = new AgShareUploader(agShareClient);
-                    agShareUploadTask = uploader.UploadAsync(snapshot, this);
-                }
-                catch (Exception ex)
-                {
-                    Log.EventWriter("AgShare upload start error: " + ex.Message);
-                    TimedMessageBox(4000, "AgShare upload failed", "An error occurred while starting upload to AgShare.");
-                }
-            }
-
             // Save field data with individual exception handling for each operation
             await Task.Run(() =>
             {
@@ -662,19 +662,6 @@ namespace AgOpenGPS
                 catch (Exception ex) { Log.EventWriter($"WARNING: ISOXML export failed: {ex}"); }
             });
 
-            if (Settings.Default.AgShareEnabled && Settings.Default.AgShareUploadActive)
-            {
-                try
-                {
-                    await agShareUploadTask;
-                }
-                catch (Exception ex)
-                {
-                    Log.EventWriter("AgShare upload error: " + ex.Message);
-                    TimedMessageBox(4000, "AgShare upload failed", "An error occurred during upload to AgShare.");
-                }
-            }
-
             Log.EventWriter("** Field closed **   " + currentFieldDirectory + "   " +
                 DateTime.Now.ToString("f", CultureInfo.InvariantCulture));
 
@@ -683,37 +670,10 @@ namespace AgOpenGPS
                 panelRight.Enabled = false;
                 FieldMenuButtonEnableDisable(false);
                 JobClose();
-                Text = "AgOpenGPS";
+                Text = "PilotX · Agro Parallel";
             }));
         }
 
-        #region AgShare Snapshot
-
-        private bool isAgShareUploadStarted = false;
-        private FieldSnapshot snapshot;
-
-        //this method is called to create a snapshot of the field for AgShare so we can close the field to speed up close and re-open
-        public void AgShareSnapshot()
-        {
-            if (!isJobStarted) return;
-
-            snapshot = AgShareUploader.CreateSnapshot(this);
-        }
-
-
-
-        public void AgShareUpload()
-        {
-            //check if we're already uploading by closing a field or are we shutting down
-            if (!isJobStarted || snapshot == null || isAgShareUploadStarted || isShuttingDown)
-                return;
-
-            //set bool to true so we don't start another upload by double clicking or something.
-            isAgShareUploadStarted = true;
-            var uploader = new AgShareUploader(agShareClient);
-            agShareUploadTask = uploader.UploadAsync(snapshot, this);
-        }
-        #endregion
         private void tramLinesMenuField_Click(object sender, EventArgs e)
         {
             if (ct.isContourBtnOn) btnContour.PerformClick();
@@ -1080,11 +1040,11 @@ namespace AgOpenGPS
         {
             Log.EventWriter("AgIO Manually Started");
 
-            Process[] processName = Process.GetProcessesByName("AgIO");
+            Process[] processName = Process.GetProcessesByName("CoreX");
             if (processName.Length == 0)
             {
                 //Start application here
-                string strPath = Path.Combine(Application.StartupPath, "AgIO.exe");
+                string strPath = Path.Combine(Application.StartupPath, "CoreX.exe");
 
                 try
                 {
@@ -1222,73 +1182,31 @@ namespace AgOpenGPS
         #region Top Panel
         private void btnFieldStats_Click(object sender, EventArgs e)
         {
-            Form f = Application.OpenForms["FormGPSData"];
-
-            if (f != null)
-            {
-                f.Focus();
-                f.Close();
-            }
-
-            f = null;
-            f = Application.OpenForms["FormFieldData"];
-
-            if (f != null)
-            {
-                f.Focus();
-                f.Close();
-                return;
-            }
-
+            // AgroParallel: el popup táctil reemplaza a FormFieldData. Se abre
+            // como WIDGET chico flotante (ventana independiente encima del mapa,
+            // X nativa), no como página dentro del Hub. Así el operario sigue
+            // viendo la pantalla principal y el widget queda flotando al lado.
+            // Preferimos el widget Avalonia si está presente; si no (caso normal,
+            // spike no shippeado), abrimos un widget flotante WebView2.
             if (!isJobStarted) return;
 
-            Form form = new FormFieldData(this);
-            form.Show(this);
-
-            form.Top = this.Top + this.Height / 2 - GPSDataWindowTopOffset;
-            if (isPanelBottomHidden)
-                form.Left = this.Left + 5;
-            else
-                form.Left = this.Left + GPSDataWindowLeft + 5;
-
-
-            Form ff = Application.OpenForms["FormGPS"];
-            ff.Focus();
-
-            btnAutoSteerConfig.Focus();
+            if (!LaunchAvaloniaWidget("pages/datos-lote.html", "float",
+                                      "Datos del lote", 520, 620))
+            {
+                OpenAgroParallelWidget("pages/datos-lote.html", "Datos del lote", 520, 620);
+            }
         }
 
         private void btnGPSData_Click(object sender, EventArgs e)
         {
-            Form f = Application.OpenForms["FormGPSData"];
-
-            if (f != null)
+            // AgroParallel: el popup táctil reemplaza a FormGPSData. Idem
+            // btnFieldStats: widget Avalonia draggable. Si no hay exe Avalonia,
+            // fallback al Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/datos-gps.html", "float",
+                                      "Antena GPS", 680, 720))
             {
-                f.Focus();
-                f.Close();
-                return;
+                OpenAgroParallelHub("pages/datos-gps.html");
             }
-
-            f = null;
-            f = Application.OpenForms["FormFieldData"];
-
-            if (f != null)
-            {
-                f.Focus();
-                f.Close();
-            }
-
-            Form form = new FormGPSData(this);
-            form.Show(this);
-
-            form.Top = this.Top + this.Height / 2 - GPSDataWindowTopOffset;
-            if (isPanelBottomHidden)
-                form.Left = this.Left + 5;
-            else
-                form.Left = this.Left + GPSDataWindowLeft + 5;
-
-            Form ff = Application.OpenForms["FormGPS"];
-            ff.Focus();
         }
         private void btnShutdown_Click(object sender, EventArgs e)
         {
@@ -1412,13 +1330,6 @@ namespace AgOpenGPS
                 form.ShowDialog(this);
             }
         }
-
-        private void AgShareApiMenuItem_Click(object sender, EventArgs e)
-        {
-            var form = new FormAgShareSettings(agShareClient);
-            form.ShowDialog(this);
-        }
-
 
         private void hotKeysToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -1920,7 +1831,11 @@ namespace AgOpenGPS
                         FileCreateContour();
                         FileCreateSections();
 
+
                         Log.EventWriter("All Section Mapping Deleted");
+                        // COREX_FIELD_MOD_START
+                        NotificarBorradoArea();
+                        // COREX_FIELD_MOD_END
                     }
                     else
                     {

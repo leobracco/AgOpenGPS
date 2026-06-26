@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cámaras · widget</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <style>
+    /* Widget standalone: pantalla completa, sin sidebar ni tabs ni config.
+       Solo cámaras activas. Doble click = fullscreen una cámara. */
+    html, body { margin:0; padding:0; height:100%; background:#000; overflow:hidden; }
+    body { font-family: var(--agp-font, sans-serif); color:#DDE0E3; }
+    #grid {
+      display:grid; gap:4px; padding:4px;
+      width:100%; height:100%; box-sizing:border-box;
+    }
+    .lay-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .lay-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+    .lay-3, .lay-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+    .lay-focus .tile { display:none; }
+    .lay-focus .tile.focus { display:block; grid-column:1/-1; grid-row:1/-1; }
+
+    .tile {
+      position:relative; background:#0e1612; border-radius:6px; overflow:hidden;
+      cursor: pointer;
+    }
+    .tile img {
+      position:absolute; inset:0; width:100%; height:100%;
+      object-fit:contain; background:#000;
+    }
+    .tile .label {
+      position:absolute; top:8px; left:8px;
+      padding:2px 8px; background:rgba(0,0,0,0.55); color:#DDE0E3;
+      font-size:12px; border-radius:4px;
+      display:flex; align-items:center; gap:6px; pointer-events:none;
+    }
+    .tile .dot {
+      width:8px; height:8px; border-radius:50%;
+      background:#4BA63F; box-shadow:0 0 6px #4BA63F;
+    }
+    .tile.err .dot { background:#C92D2D; box-shadow:none; }
+    .tile.err img { opacity:0.15; filter:grayscale(1); }
+
+    #empty {
+      position:fixed; inset:0; display:grid; place-items:center;
+      color:#8A8F95; font-size:18px;
+    }
+  </style>
+</head>
+<body>
+  <div id="grid" class="lay-1"></div>
+  <div id="empty" style="display:none">Sin cámaras activas</div>
+
+  <script>
+  (function () {
+    var grid = document.getElementById('grid');
+    var empty = document.getElementById('empty');
+    var activas = [];
+    var focusIdx = -1;       // -1 = mosaico; >=0 = fullscreen sobre esa cámara
+    var refrescoMs = 1000;
+    var tilesEl = [];
+
+    function build() {
+      grid.innerHTML = '';
+      tilesEl = [];
+      if (activas.length === 0) {
+        empty.style.display = 'grid';
+        return;
+      }
+      empty.style.display = 'none';
+      var lay = Math.min(activas.length, 4);
+      grid.className = 'lay-' + lay + (focusIdx >= 0 ? ' lay-focus' : '');
+      for (var k = 0; k < activas.length; k++) {
+        var a = activas[k];
+        var div = document.createElement('div');
+        div.className = 'tile' + (a.idx === focusIdx ? ' focus' : '');
+        div.dataset.idx = a.idx;
+        div.innerHTML =
+          '<img alt="" />' +
+          '<span class="label"><span class="dot"></span>' +
+          (a.cam.nombre ? escapeHtml(a.cam.nombre) : ('Cámara ' + (a.idx + 1))) +
+          '</span>';
+        div.addEventListener('dblclick', onTileDblClick);
+        grid.appendChild(div);
+        tilesEl.push({ idx: a.idx, el: div, img: div.querySelector('img') });
+      }
+    }
+
+    function onTileDblClick(e) {
+      var idx = parseInt(e.currentTarget.dataset.idx, 10);
+      focusIdx = (focusIdx === idx) ? -1 : idx;
+      build();
+    }
+
+    function tickFrames() {
+      var ts = Date.now();
+      for (var i = 0; i < tilesEl.length; i++) {
+        var t = tilesEl[i];
+        // En fullscreen solo refrescamos la enfocada.
+        if (focusIdx >= 0 && t.idx !== focusIdx) continue;
+        t.img.onerror = (function (el) { return function () { el.classList.add('err'); }; })(t.el);
+        t.img.onload = (function (el) { return function () { el.classList.remove('err'); }; })(t.el);
+        t.img.src = '/api/camaras/' + t.idx + '/snapshot?t=' + ts;
+      }
+      setTimeout(tickFrames, refrescoMs);
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' })[c];
+      });
+    }
+
+    async function loadConfig() {
+      try {
+        var res = await fetch('/api/camaras/config', { cache: 'no-store' });
+        var data = await res.json();
+        var cfg = (data && data.ok) ? data.config : { camaras: [], refrescoMs: 1000 };
+        refrescoMs = Math.max(200, cfg.refrescoMs || 1000);
+        activas = [];
+        var cams = cfg.camaras || [];
+        for (var i = 0; i < cams.length; i++) {
+          if (cams[i] && cams[i].activa) activas.push({ idx: i, cam: cams[i] });
+        }
+        build();
+        tickFrames();
+      } catch (e) {
+        empty.textContent = 'No se pudo cargar la configuración';
+        empty.style.display = 'grid';
+      }
+    }
+
+    loadConfig();
+  })();
+  </script>
+</body>
+</html>

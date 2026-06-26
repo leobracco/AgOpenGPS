@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#4BA63F" />
+  <link rel="manifest" href="/m/manifest.webmanifest" />
+  <link rel="stylesheet" href="/m/m.css" />
+  <title>QuantiX · AP Field</title>
+  <style>
+    .mot { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px; }
+    .mot + .mot { margin-top: 10px; }
+    .mot .hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .mot .hd .nm { font-weight: 700; font-size: 16px; }
+    .mot .liv { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+    .mot .liv b { color: var(--text); font-variant-numeric: tabular-nums; font-size: 15px; }
+    .pwm-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+    .pwm-row input[type=range] { flex: 1; height: 44px; }
+    .pwm-row .v { min-width: 60px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <header class="hdr">
+    <button class="back" onclick="history.length>1?history.back():location.replace('/m/')">&lsaquo;</button>
+    <h1>QuantiX</h1>
+    <span class="status">--</span>
+  </header>
+  <main class="wrap">
+    <div class="card">
+      <div class="sub">Probar motor con PWM directo, calibrar pulsos/L y ver caudal vivo. Toca un motor para expandirlo.</div>
+    </div>
+    <div id="nodos"></div>
+    <div id="vacio" class="empty" style="display:none;">No hay nodos QuantiX detectados. Encende el nodo y volve.</div>
+  </main>
+  <div id="toast"></div>
+  <script src="/m/m.js"></script>
+  <script>
+    var liveByUid = {};      // uid -> snapshot live
+    var openMotor = {};      // key uid:mi -> bool
+    var pwmDraft  = {};      // key uid:mi -> pwm slider value
+
+    APF.startHeartbeat(5000);
+
+    async function loadLive() {
+      try {
+        var j = await APF.getJSON('/api/quantix/live', 3000);
+        if (!j.ok) return;
+        liveByUid = {};
+        (j.nodos || []).forEach(function (n) { liveByUid[n.uid || n.Uid] = n; });
+        render();
+      } catch (e) { /* offline: el heartbeat ya lo dice */ }
+    }
+    loadLive();
+    setInterval(loadLive, 1000);
+
+    function render() {
+      var keys = Object.keys(liveByUid);
+      var box = document.getElementById('nodos');
+      if (keys.length === 0) {
+        document.getElementById('vacio').style.display = 'block';
+        box.innerHTML = ''; return;
+      }
+      document.getElementById('vacio').style.display = 'none';
+
+      var html = '';
+      keys.forEach(function (uid) {
+        var n = liveByUid[uid];
+        var online = !!(n.online || n.Online);
+        var motors = (n.payload && (n.payload.motors || n.payload.Motors)) || [];
+        html += '<div class="card">' +
+                '<h2>' + (n.type || n.Type || 'QuantiX') + ' <span class="pill ' + (online?'ok':'bad') + '">' + (online?'online':'offline') + '</span></h2>' +
+                '<div class="sub">UID ' + uid + ' · ' + (n.ip || n.Ip || '--') + '</div>';
+        if (motors.length === 0) {
+          html += '<div class="sub" style="margin-top:8px;">Sin telemetria de motores todavia.</div>';
+        }
+        motors.forEach(function (m) {
+          var mi = m.id || m.Id || 0;
+          var key = uid + ':' + mi;
+          var open = !!openMotor[key];
+          var pwm = (pwmDraft[key] != null) ? pwmDraft[key] : 0;
+          html += '<div class="mot" data-uid="' + uid + '" data-mi="' + mi + '">' +
+                  '<div class="hd"><div class="nm">Motor ' + mi + '</div>' +
+                    '<button class="btn" style="width:auto; min-height:40px; padding:0 14px;" data-act="toggle">' + (open?'Cerrar':'Abrir') + '</button>' +
+                  '</div>' +
+                  '<div class="liv">' +
+                    '<div>Caudal <b>' + fmt(m.flow || m.Flow) + '</b> L/min</div>' +
+                    '<div>PWM <b>' + (m.pwm != null ? m.pwm : (m.Pwm || 0)) + '</b></div>' +
+                    '<div>Pulsos/L <b>' + (m.ppl || m.Ppl || '--') + '</b></div>' +
+                    '<div>Estado <b>' + (m.state || m.State || '--') + '</b></div>' +
+                  '</div>';
+          if (open) {
+            html += '<div class="pwm-row">' +
+                      '<input type="range" min="0" max="1023" step="10" value="' + pwm + '" data-act="pwm-slider">' +
+                      '<span class="v">' + pwm + '</span>' +
+                    '</div>' +
+                    '<div class="btn-row">' +
+                      '<button class="btn primary" data-act="start">Girar</button>' +
+                      '<button class="btn danger"  data-act="stop">Detener</button>' +
+                    '</div>' +
+                    '<div class="btn-row" style="margin-top:8px;">' +
+                      '<button class="btn" data-act="cal">Calibrar pulsos</button>' +
+                    '</div>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+      });
+      box.innerHTML = html;
+    }
+
+    function fmt(v) { if (v == null || isNaN(v)) return '--'; return (+v).toFixed(2); }
+
+    document.addEventListener('click', async function (e) {
+      var btn = e.target.closest('[data-act]'); if (!btn) return;
+      var mot = btn.closest('.mot'); if (!mot) return;
+      var uid = mot.dataset.uid, mi = +mot.dataset.mi;
+      var key = uid + ':' + mi;
+      var act = btn.dataset.act;
+      if (act === 'toggle') { openMotor[key] = !openMotor[key]; render(); return; }
+      if (act === 'start') {
+        var pwm = pwmDraft[key] || 0;
+        if (pwm < 50) { APF.toast('Sube el PWM antes de girar', 'bad'); return; }
+        if (!confirm('Girar motor ' + mi + ' del nodo ' + uid + ' a PWM ' + pwm + '?')) return;
+        try {
+          await APF.postJSON('/api/quantix/' + encodeURIComponent(uid) + '/cmd?verb=test&retain=false',
+                             { cmd: 'start', id: mi, pwm: pwm });
+          APF.toast('Motor girando a PWM ' + pwm, 'ok');
+        } catch (e) { APF.toast('Error: ' + e.message, 'bad'); }
+        return;
+      }
+      if (act === 'stop') {
+        try {
+          await APF.postJSON('/api/quantix/' + encodeURIComponent(uid) + '/cmd?verb=test&retain=false',
+                             { cmd: 'stop', id: mi, pwm: 0 });
+          APF.toast('Motor detenido', 'ok');
+        } catch (e) { APF.toast('Error: ' + e.message, 'bad'); }
+        return;
+      }
+      if (act === 'cal') {
+        var pulsos = prompt('Pulsos objetivo de la calibracion (ej 1000):', '1000');
+        if (!pulsos) return;
+        var pwm = pwmDraft[key] || 400;
+        try {
+          await APF.postJSON('/api/quantix/' + encodeURIComponent(uid) + '/cmd?verb=cal&retain=false',
+                             { cmd: 'start', id: mi, pulsos: +pulsos, pwm: pwm });
+          APF.toast('Calibracion iniciada', 'ok');
+        } catch (e) { APF.toast('Error: ' + e.message, 'bad'); }
+        return;
+      }
+    });
+
+    document.addEventListener('input', function (e) {
+      if (e.target.matches('[data-act="pwm-slider"]')) {
+        var mot = e.target.closest('.mot');
+        var key = mot.dataset.uid + ':' + mot.dataset.mi;
+        pwmDraft[key] = +e.target.value;
+        mot.querySelector('.pwm-row .v').textContent = e.target.value;
+      }
+    });
+  </script>
+</body>
+</html>

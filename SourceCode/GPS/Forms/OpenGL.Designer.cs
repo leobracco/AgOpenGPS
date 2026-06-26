@@ -6,6 +6,9 @@ using AgOpenGPS.Core.DrawLib;
 using AgOpenGPS.Core.Models;
 using AgOpenGPS.Core.Performance;
 using AgOpenGPS.Properties;
+// SHAPEFILE_MOD_START
+using AgroParallel.Common;
+// SHAPEFILE_MOD_END
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System;
@@ -408,9 +411,33 @@ namespace AgOpenGPS
 
                     #endregion
 
+                    // SHAPEFILE_MOD_START
+                    if (shapefileLayer != null && isJobStarted)
+                    {
+                        // Matrices en coords del mundo para la unproyeccion
+                        // del click de inspeccion (paso 12).
+                        GL.GetDouble(GetPName.ModelviewMatrix, _glModelView);
+                        GL.GetDouble(GetPName.ProjectionMatrix, _glProjection);
+                        GL.GetInteger(GetPName.Viewport, _glViewport);
+                        _glMatricesValid = true;
+
+                        shapefileLayer.Draw(AppModel.LocalPlane);
+                        shapefileLayer.SamplePosition(
+                            pivotAxlePos.easting, pivotAxlePos.northing);
+                        UpdateShapefileCurrentDose();
+                    }
+                    else if (quantiXBridge != null && quantiXBridge.IsRunning)
+                    {
+                        // Sin mapa pero con QuantiX activo: actualizar el
+                        // legend para que muestre los vúmetros y permita
+                        // dosis manual.
+                        UpdateShapefileCurrentDose();
+                    }
+                    // SHAPEFILE_MOD_END
+
                     #region Guidance Lines
 
-                    //draw contour line if button on 
+                    //draw contour line if button on
                     if (ct.isContourBtnOn)
                     {
                         ct.DrawContourLine();

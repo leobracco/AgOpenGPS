@@ -542,7 +542,13 @@ namespace AgOpenGPS
         /// </summary>
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
-            // Guard clauses: do not handle until initialized / prevent NREs during early dialogs
+            // AGRO PARALLEL: hotkeys desactivados — el equipo en campo usa
+            // pantalla táctil y no tiene teclado físico. Las teclas accidentales
+            // (ej: teclado bluetooth conectado) activaban el piloto automático.
+            return base.ProcessCmdKey(ref msg, keyData);
+
+            // --- HOTKEYS ORIGINALES (DESACTIVADOS) ---
+            #if false
             if (!_uiReady || hotkeys == null || hotkeys.Length < 19)
                 return base.ProcessCmdKey(ref msg, keyData);
 
@@ -802,6 +808,7 @@ namespace AgOpenGPS
 
             // Fallback: let base handle anything else
             return base.ProcessCmdKey(ref msg, keyData);
+            #endif
         }
         #endregion
 

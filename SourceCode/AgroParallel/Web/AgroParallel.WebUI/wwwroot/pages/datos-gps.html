@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Antena GPS · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Mismas reglas táctiles que datos-lote.html: tipografía gigante,
+       sin tooltips, sin scrolls anidados. */
+    .metric.xl { font-size: var(--agp-fs-display); }
+    .row-big {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: var(--agp-sp-3) 0;
+      border-bottom: 1px solid var(--agp-border);
+      font-size: var(--agp-fs-md);
+    }
+    .row-big:last-child { border-bottom: 0; }
+    .row-big strong {
+      font-size: var(--agp-fs-lg);
+      color: var(--agp-text);
+      font-variant-numeric: tabular-nums;
+    }
+    .coord {
+      font-family: var(--agp-font-mono, ui-monospace, monospace);
+      font-variant-numeric: tabular-nums;
+    }
+    .note {
+      font-size: var(--agp-fs-sm);
+      color: var(--agp-text-muted);
+      margin-top: var(--agp-sp-2);
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Antena GPS</h1>
+        <div class="subtitle">Posición actual del tractor y calidad de la señal</div>
+      </div>
+      <span id="estadoPill" class="pill idle"><span class="dot"></span> <span id="estadoText">Sin fix</span></span>
+    </div>
+
+    <!-- KPIs principales: velocidad + rumbo (lo que el operario chequea de un vistazo) -->
+    <div class="grid">
+      <div class="card">
+        <h3>Velocidad</h3>
+        <div class="metric xl"><span id="kpiVel">—</span><span class="unit">km/h</span></div>
+        <div class="row"><span>Promedio del último segundo</span></div>
+      </div>
+      <div class="card">
+        <h3>Rumbo</h3>
+        <div class="metric xl"><span id="kpiHeading">—</span><span class="unit">°</span></div>
+        <div class="row"><span>Dirección de avance</span><strong id="kpiCardinal" style="color:var(--agp-text)">—</strong></div>
+      </div>
+    </div>
+
+    <!-- Coordenadas grandes y legibles (a 11 pulgadas con sol todavía se leen) -->
+    <h2 style="margin-top: var(--agp-sp-6);">Coordenadas</h2>
+    <div class="card">
+      <div class="row-big">
+        <span>Latitud</span>
+        <strong class="coord" id="kpiLat">—</strong>
+      </div>
+      <div class="row-big">
+        <span>Longitud</span>
+        <strong class="coord" id="kpiLon">—</strong>
+      </div>
+      <div class="row-big">
+        <span>Easting (local)</span>
+        <strong class="coord" id="kpiEast">—</strong>
+      </div>
+      <div class="row-big">
+        <span>Northing (local)</span>
+        <strong class="coord" id="kpiNorth">—</strong>
+      </div>
+    </div>
+
+    <!-- Antena / vehículo: ofrece contexto sin meter al operario en config -->
+    <h2 style="margin-top: var(--agp-sp-6);">Equipo</h2>
+    <div class="card">
+      <div class="row-big">
+        <span>Vehículo</span>
+        <strong id="detVehiculo">—</strong>
+      </div>
+      <div class="row-big">
+        <span>Ancho de herramienta</span>
+        <strong id="detAncho">— m</strong>
+      </div>
+      <div class="row-big">
+        <span>Secciones</span>
+        <strong id="detSec">—</strong>
+      </div>
+      <div class="row-big">
+        <span>Trabajo en curso</span>
+        <strong id="detJob">—</strong>
+      </div>
+      <div class="note">
+        Para cambiar la altura de la antena, el offset lateral u otros parámetros del montaje,
+        ingresá a la configuración del piloto desde la UI nativa de PilotX (botón <strong>Vehículo</strong>).
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/datos-gps.js"></script>
+</body>
+</html>

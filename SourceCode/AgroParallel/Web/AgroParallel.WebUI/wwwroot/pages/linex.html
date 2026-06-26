@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LineX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Selector de tipo de placa: servo vs embrague magnético */
+    .board-seg { display:inline-flex; border:1px solid var(--agp-border); border-radius: var(--agp-radius-md); overflow:hidden; }
+    .board-seg button {
+      min-height:40px; padding:0 16px; border:0; background:var(--agp-bg-soft);
+      color:var(--agp-text-muted); font-weight:var(--agp-fw-medium); cursor:pointer;
+    }
+    .board-seg button.active { background: var(--agp-accent); color:white; }
+
+    /* Estado en vivo por surco */
+    .surco-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: var(--agp-sp-2); }
+    .surco-cell {
+      background: var(--agp-bg-soft); border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md); padding: var(--agp-sp-2);
+      display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center;
+    }
+    .surco-cell .num { font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold); color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+    .surco-cell .st  { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .surco-cell.open { border-color: var(--agp-accent); background: rgba(74,186,62,0.10); }
+    .surco-cell.open .num { color: var(--agp-accent); }
+    .surco-cell.open .st  { color: var(--agp-accent); font-weight: var(--agp-fw-bold); }
+
+    /* Tabla de configuración de surcos */
+    .cfg-table { width:100%; border-collapse:collapse; }
+    .cfg-table th, .cfg-table td { padding:6px 8px; border-bottom:1px solid var(--agp-border); text-align:center; font-size: var(--agp-fs-sm); }
+    .cfg-table th { color: var(--agp-text-muted); font-weight: var(--agp-fw-medium); }
+    .cfg-table input[type=number] { width:72px; text-align:center; padding:4px; font-family: var(--agp-font-mono); }
+    .cfg-table input[type=checkbox] { width:20px; height:20px; }
+    .servo-only.hidden { display:none; }
+
+    .lx-status {
+      display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px;
+      background: var(--agp-bg-soft); border:1px solid var(--agp-border);
+      font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-medium); color: var(--agp-text-muted);
+    }
+    .lx-status .dot { width:10px; height:10px; border-radius:50%; background: var(--agp-text-muted); }
+    .lx-status.green .dot { background: var(--agp-accent); }
+    .lx-status.green { color: var(--agp-accent); border-color: var(--agp-accent); }
+    .lx-status.gray .dot { background:#8a8a8a; }
+
+    #lxToast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--agp-text); color: white; padding: 12px 20px; border-radius: var(--agp-radius-md);
+      font-size: var(--agp-fs-md); font-weight: var(--agp-fw-medium);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease; z-index: 9999; max-width: 480px; text-align: center;
+    }
+    #lxToast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    #lxToast.ok   { background: var(--agp-accent); }
+    #lxToast.bad  { background: #b3261e; }
+    #lxToast.warn { background: #b07900; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="linex"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>LineX</h1><div class="subtitle">Corte de siembra surco por surco</div></div>
+      <div style="display:flex; gap:var(--agp-sp-3); align-items:center">
+        <span id="lxStatusChip" class="lx-status gray" title="Estado del monitoreo">
+          <span class="dot"></span><span class="lbl">…</span>
+        </span>
+        <label class="switch"><input type="checkbox" id="enabledChk"><span class="track"></span> Habilitado</label>
+        <select id="nodoSel" style="min-width:240px"></select>
+      </div>
+    </div>
+
+    <!-- Banner: los nodos se descubren solos por MQTT -->
+    <div class="card" style="margin-bottom: var(--agp-sp-3); border-left: 3px solid var(--agp-accent);">
+      <div class="subtitle" id="lxNoNodos" style="margin:0">
+        Los nodos LineX aparecen automáticamente cuando se anuncian por MQTT. Encendé la placa en la red del tractor.
+      </div>
+    </div>
+
+    <h2 style="margin-top:0">Estado en vivo</h2>
+    <div class="card" id="liveSurcos">
+      <div class="subtitle">Seleccioná un nodo…</div>
+    </div>
+
+    <h2>Tipo de placa</h2>
+    <div class="card">
+      <div style="display:flex; align-items:center; gap: var(--agp-sp-3); flex-wrap:wrap">
+        <div class="board-seg" id="boardSeg">
+          <button type="button" data-board="servo" class="active">Servomotores</button>
+          <button type="button" data-board="embrague">Embragues magnéticos</button>
+        </div>
+        <span class="subtitle" id="boardHint" style="margin:0">
+          Servo: control por ángulo/pulso (PCA9685). Embrague magnético: corte on/off binario por surco.
+        </span>
+      </div>
+    </div>
+
+    <h2>Configuración del nodo</h2>
+    <div class="card">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: var(--agp-sp-3)">
+        <label>Nombre<br><input type="text" id="cfgNombre" style="width:100%"></label>
+        <label>Cantidad de surcos<br><input type="number" id="cfgSectionCount" min="1" max="16" style="width:100%"></label>
+        <label class="servo-only">Frecuencia PWM (Hz)<br><input type="number" id="cfgPwmFreq" min="24" max="1000" style="width:100%"></label>
+        <label class="servo-only">Pin Output Enable<br><input type="number" id="cfgOePin" min="0" max="39" style="width:100%"></label>
+        <label>Timeout comunicación (ms)<br><input type="number" id="cfgCommTimeout" min="200" max="60000" style="width:100%"></label>
+      </div>
+    </div>
+
+    <h2>Surcos</h2>
+    <div class="card">
+      <table class="cfg-table" id="surcoTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Canal</th>
+            <th class="servo-only">Áng. abierto</th>
+            <th class="servo-only">Áng. cerrado</th>
+            <th class="servo-only">µs mín</th>
+            <th class="servo-only">µs máx</th>
+            <th class="servo-only">Rampa (ms)</th>
+            <th>Invertir</th>
+            <th>Seguro abierto</th>
+            <th>Sección PilotX</th>
+            <th>Prueba</th>
+          </tr>
+        </thead>
+        <tbody id="surcoBody"></tbody>
+      </table>
+      <div class="subtitle" style="margin-top:var(--agp-sp-2)">
+        Cada fila es un surco. "Sección PilotX" (1..16, 0 = sin asignar) mapea el surco a una sección del piloto.
+        "Seguro abierto" define el estado ante pérdida de comunicación (por defecto: cerrar el surco).
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; gap:var(--agp-sp-3); align-items:center; flex-wrap:wrap">
+        <button class="btn primary" id="btnSave">Guardar configuración</button>
+        <button class="btn" id="btnPush" title="Envía la configuración de surcos al nodo por MQTT">📤 Enviar al nodo</button>
+        <button class="btn" id="btnTestOpen" title="Abre todos los surcos del nodo (prueba)">▲ Abrir todos</button>
+        <button class="btn" id="btnTestClose" title="Cierra todos los surcos del nodo (prueba)">▼ Cerrar todos</button>
+        <span id="hint" style="color: var(--agp-text-muted); font-size: var(--agp-fs-sm)"></span>
+      </div>
+    </div>
+
+    <h2>JSON (debug)</h2>
+    <div class="card">
+      <textarea id="jsonOut" readonly style="min-height:140px; font-family:var(--agp-font-mono); font-size:var(--agp-fs-sm)"></textarea>
+    </div>
+
+    <div id="lxToast" role="status" aria-live="polite"></div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/linex.js"></script>
+</body>
+</html>

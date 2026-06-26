@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#4BA63F" />
+  <link rel="manifest" href="/m/manifest.webmanifest" />
+  <link rel="stylesheet" href="/m/m.css" />
+  <title>Secciones · AP Field</title>
+</head>
+<body>
+  <header class="hdr">
+    <button class="back" onclick="history.length>1?history.back():location.replace('/m/')">&lsaquo;</button>
+    <h1>Secciones</h1>
+    <span class="status">--</span>
+  </header>
+  <main class="wrap">
+    <div class="card">
+      <h2>Estado en vivo</h2>
+      <div class="sub">Solo lectura por ahora. Refleja lo que el PilotX esta decidiendo en vivo. El override manual desde celular se va a habilitar en una proxima version.</div>
+      <div class="row"><span>Total</span><strong id="totSec">--</strong></div>
+      <div class="row"><span>Activas</span><strong id="actSec">--</strong></div>
+      <div class="row"><span>Velocidad</span><strong id="velSec">-- km/h</strong></div>
+    </div>
+    <div id="sections"></div>
+    <div id="vacio" class="empty" style="display:none;">No hay secciones definidas en el implemento.</div>
+  </main>
+  <div id="toast"></div>
+  <script src="/m/m.js"></script>
+  <script>
+    APF.startHeartbeat(5000);
+
+    async function tick() {
+      try {
+        var j = await APF.getJSON('/api/aog/sections', 2500);
+        var snap = (j && j.snapshot) || null;
+        if (!snap) { return; }
+        render(snap);
+      } catch (e) { /* offline */ }
+    }
+    tick();
+    setInterval(tick, 700);
+
+    function render(s) {
+      var secs = s.sections || s.Sections || [];
+      document.getElementById('totSec').textContent = secs.length;
+      var act = 0; secs.forEach(function (x) { if (x.on || x.On) act++; });
+      document.getElementById('actSec').textContent = act + ' / ' + secs.length;
+      document.getElementById('velSec').textContent = ((s.speedKmh || s.SpeedKmh || 0).toFixed(1)) + ' km/h';
+
+      var box = document.getElementById('sections');
+      if (secs.length === 0) {
+        document.getElementById('vacio').style.display = 'block';
+        box.innerHTML = ''; return;
+      }
+      document.getElementById('vacio').style.display = 'none';
+      var html = '';
+      secs.forEach(function (sec, i) {
+        var on = sec.on || sec.On;
+        var ov = sec.override || sec.Override;
+        html += '<button class="tog ' + (on?'on':'off') + '" data-i="' + i + '" data-on="' + (on?'1':'0') + '">' +
+                  '<div><div class="id">' + (i+1) + '</div><div class="st">' + (ov?'OVERRIDE':'AUTO') + '</div></div>' +
+                  '<div>' + (on?'ABIERTA':'CERRADA') + '</div>' +
+                '</button>';
+      });
+      box.innerHTML = html;
+    }
+
+    // Override manual aun no implementado en el backend. Toque informativo.
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('.tog')) APF.toast('Override manual disponible en proxima version', 'warn');
+    });
+  </script>
+</body>
+</html>

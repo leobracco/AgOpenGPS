@@ -1,0 +1,241 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.StormXPanel"
+             Background="{StaticResource PilotXBgDeep}">
+    <!--
+        StormXPanel - reemplazo nativo de pages/stormx.html.
+
+        Lee del /api/stormx/live cada 1s (mismo cadence que el stormx.js
+        original) y pinta:
+          - Pill de estado global (Pulverizar OK / NO PULVERIZAR / sin datos)
+          - 4 KPIs: Viento + dir, Temperatura + Delta-T, Humedad + Presion,
+            Veredicto + edad de la lectura
+          - Umbrales operativos en uso (eco del config, read-only)
+          - Lista de nodos StormX detectados
+    -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,20,24,24" Spacing="14">
+
+            <!-- ============ Header ============ -->
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="StormX"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="22"
+                               FontWeight="SemiBold"/>
+                    <TextBlock Text="Estacion meteorologica movil"
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"/>
+                </StackPanel>
+
+                <Border Grid.Column="1"
+                        Background="{StaticResource PilotXBgHigh}"
+                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="999"
+                        Padding="14,6,14,6"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Ellipse Name="EstadoDot"
+                                 Width="10" Height="10"
+                                 Fill="{StaticResource PilotXTextDim}"
+                                 VerticalAlignment="Center"/>
+                        <TextBlock Name="EstadoText"
+                                   Text="Condiciones --"
+                                   Foreground="{StaticResource PilotXTextMid}"
+                                   FontSize="13"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ============ KPIs ============ -->
+            <UniformGrid Columns="2" Rows="2">
+                <Border Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="{StaticResource PilotXBorder}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="16,14,16,14"
+                        Margin="0,0,8,8">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Viento"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                            <TextBlock Name="KpiWind" Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="36" FontWeight="Bold"/>
+                            <TextBlock Text="m/s"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="14" Margin="0,0,0,8"/>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Direccion"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="11"/>
+                            <TextBlock Grid.Column="1" Name="KpiDir" Text="-- °"
+                                       Foreground="{StaticResource PilotXTextHi}" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="{StaticResource PilotXBorder}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="16,14,16,14"
+                        Margin="8,0,0,8">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Temperatura"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="12" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                            <TextBlock Name="KpiTemp" Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="36" FontWeight="Bold"/>
+                            <TextBlock Text="°C"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="14" Margin="0,0,0,8"/>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Delta-T"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="11"/>
+                            <TextBlock Grid.Column="1" Name="KpiDeltaT" Text="-- °C"
+                                       Foreground="{StaticResource PilotXTextHi}" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="{StaticResource PilotXBorder}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="16,14,16,14"
+                        Margin="0,8,8,0">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Humedad"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="12" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                            <TextBlock Name="KpiHum" Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="36" FontWeight="Bold"/>
+                            <TextBlock Text="%"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="14" Margin="0,0,0,8"/>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Presion"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="11"/>
+                            <TextBlock Grid.Column="1" Name="KpiPress" Text="-- hPa"
+                                       Foreground="{StaticResource PilotXTextHi}" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="{StaticResource PilotXBorder}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="16,14,16,14"
+                        Margin="8,8,0,0">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Pulverizacion"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="12" FontWeight="SemiBold"/>
+                        <TextBlock Name="KpiAdvice" Text="--"
+                                   Foreground="{StaticResource PilotXTextHi}"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   TextWrapping="Wrap"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Ultima lectura"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="11"/>
+                            <TextBlock Grid.Column="1" Name="KpiAge" Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- ============ Umbrales operativos ============ -->
+            <TextBlock Text="Umbrales operativos"
+                       Foreground="{StaticResource PilotXTextHi}"
+                       FontSize="16" FontWeight="SemiBold"
+                       Margin="0,4,0,0"/>
+            <Border Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="18,14,18,16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="El sistema activa una alerta cuando viento, humedad o Delta-T salen de rango para pulverizar."
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"
+                               TextWrapping="Wrap"/>
+                    <UniformGrid Columns="5" Rows="1">
+                        <StackPanel Spacing="2" Margin="0,0,8,0">
+                            <TextBlock Text="Viento max."
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock Name="LimWindMax" Text="--"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Spacing="2" Margin="0,0,8,0">
+                            <TextBlock Text="Viento min."
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock Name="LimWindMin" Text="--"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Spacing="2" Margin="0,0,8,0">
+                            <TextBlock Text="Humedad min."
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock Name="LimHumMin" Text="--"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Spacing="2" Margin="0,0,8,0">
+                            <TextBlock Text="Temp. max."
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock Name="LimTempMax" Text="--"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Delta-T max."
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13" FontWeight="SemiBold"/>
+                            <TextBlock Name="LimDeltaTMax" Text="--"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                        </StackPanel>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <!-- ============ Nodos ============ -->
+            <TextBlock Text="Nodos StormX"
+                       Foreground="{StaticResource PilotXTextHi}"
+                       FontSize="16" FontWeight="SemiBold"
+                       Margin="0,4,0,0"/>
+            <Border Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="18,14,18,16">
+                <StackPanel Name="NodosList" Spacing="8">
+                    <TextBlock Name="NodosEmpty"
+                               Text="Buscando nodos en LAN... La estacion StormX publica telemetria en agp/storm/{uid}/status_live al broker MQTT del PC."
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

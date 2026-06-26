@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#4BA63F" />
+  <link rel="manifest" href="/m/manifest.webmanifest" />
+  <link rel="stylesheet" href="/m/m.css" />
+  <title>FlowX · AP Field</title>
+</head>
+<body>
+  <header class="hdr">
+    <button class="back" onclick="history.length>1?history.back():location.replace('/m/')">&lsaquo;</button>
+    <h1>FlowX</h1>
+    <span class="status" id="hdrStatus">--</span>
+  </header>
+  <main class="wrap">
+
+    <!-- Live por nodo. El snapshot del backend es per-uid; lo iteramos. -->
+    <div id="nodosLive">
+      <div class="card"><div class="empty">Cargando...</div></div>
+    </div>
+
+    <!-- Setpoint manual: aplica al primer producto del primer nodo (uso de test
+         desde el implemento). El control "serio" vive en el Hub / config. -->
+    <div class="card">
+      <h2>Setpoint manual (test)</h2>
+      <div class="sub">Pisa el dosis_lha del primer producto del primer nodo. Si tenés varios nodos, usá el Hub.</div>
+      <label class="lbl">Dosis objetivo (L/ha)</label>
+      <input class="input" id="spDosis" type="number" inputmode="decimal" min="0" step="1" value="0" />
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn primary" id="btnSp">Aplicar setpoint</button>
+      </div>
+    </div>
+
+  </main>
+  <div id="toast"></div>
+  <script src="/m/m.js"></script>
+  <script src="/js/steps.js"></script>
+  <script>
+    APF.startHeartbeat(5000);
+
+    function fmt(v, dec) {
+      if (v == null || isNaN(v)) return '--';
+      return (+v).toFixed(dec == null ? 1 : dec);
+    }
+
+    // Pinta una card por nodo con caudal real, target, PWM, estado PID.
+    // Topic origen: agp/flow/{uid}/status_live (snake_case en el DTO).
+    async function loadLive() {
+      try {
+        var j = await APF.getJSON('/api/flowx/live', 2500);
+        var nodos = (j && j.nodos) || [];
+        var box = document.getElementById('nodosLive');
+        var hdr = document.getElementById('hdrStatus');
+
+        if (nodos.length === 0) {
+          box.innerHTML = '<div class="card"><div class="empty">Sin nodos FlowX configurados. Agregalos desde el Hub.</div></div>';
+          if (hdr) hdr.textContent = '--';
+          return;
+        }
+
+        var anyOnline = false;
+        var html = '';
+        nodos.forEach(function (n) {
+          if (n.online) anyOnline = true;
+          var nombre = n.nombre || ('Nodo ' + (n.uid || ''));
+          var pidCls = n.pid_estado === 'ok' ? 'ok' :
+                       (n.pid_estado === 'saturado' || n.pid_estado === 'sin_pulsos') ? 'warn' : 'bad';
+          html +=
+            '<div class="card">' +
+              '<h2>' + nombre + ' <span class="sub">' + (n.uid || '') + '</span></h2>' +
+              '<div class="metric"><span>' + fmt(n.caudal_lha) + '</span><span class="u">L/ha</span></div>' +
+              '<div class="row"><span>Target</span><strong>' + fmt(n.target_lha) + ' L/ha</strong></div>' +
+              '<div class="row"><span>PWM</span><strong>' + (n.pwm || 0) + '</strong></div>' +
+              '<div class="row"><span>PID</span>' +
+                '<strong><span class="pill ' + pidCls + '">' + (n.pid_estado || 'off') + '</span></strong>' +
+              '</div>' +
+              '<div class="row"><span>Estado</span>' +
+                '<strong><span class="pill ' + (n.online ? 'ok' : 'bad') + '">' +
+                  (n.online ? 'online' : 'offline') +
+                '</span></strong>' +
+              '</div>' +
+            '</div>';
+        });
+        box.innerHTML = html;
+        if (hdr) hdr.textContent = anyOnline ? 'online' : 'offline';
+      } catch (e) {
+        // offline — dejamos el último render visible
+      }
+    }
+    loadLive();
+    setInterval(loadLive, 1000);
+
+    // Paso adaptativo en el input de setpoint (kg/L/ha).
+    if (window.AGPSteps) window.AGPSteps.attachAdaptive(document.getElementById('spDosis'), 'dose');
+
+    document.getElementById('btnSp').addEventListener('click', async function () {
+      var v = parseFloat(document.getElementById('spDosis').value);
+      if (!isFinite(v) || v < 0) { APF.toast('Dosis invalida', 'bad'); return; }
+      try {
+        // Reescribimos dosis_lha del primer producto del primer nodo habilitado.
+        var cur = await APF.getJSON('/api/flowx/config', 3000);
+        if (!cur || !cur.nodos || cur.nodos.length === 0) {
+          APF.toast('Sin nodos configurados', 'bad'); return;
+        }
+        var nodo = null;
+        for (var i = 0; i < cur.nodos.length; i++) {
+          if (cur.nodos[i] && cur.nodos[i].habilitado !== false) { nodo = cur.nodos[i]; break; }
+        }
+        if (!nodo) nodo = cur.nodos[0];
+        if (!nodo.productos || nodo.productos.length === 0) {
+          APF.toast('Nodo sin productos', 'bad'); return;
+        }
+        nodo.productos[0].dosis_lha = v;
+        await APF.postJSON('/api/flowx/config', cur, 3000);
+        APF.toast('Setpoint enviado: ' + v + ' L/ha', 'ok');
+      } catch (e) { APF.toast('Error: ' + e.message, 'bad'); }
+    });
+  </script>
+</body>
+</html>

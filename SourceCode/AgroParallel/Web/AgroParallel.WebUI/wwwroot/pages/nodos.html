@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nodos · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .filter-bar { display:flex; gap: var(--agp-sp-3); margin-bottom: var(--agp-sp-4); flex-wrap:wrap; }
+    .filter-bar .btn.active { background: var(--agp-accent-soft); border-color: var(--agp-accent); color: var(--agp-text); font-weight: var(--agp-fw-medium); }
+    .diag-grid { display:grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm); }
+    .diag-grid .k { color: var(--agp-text-muted); }
+    .msg-log { font-family: var(--agp-font-mono); font-size: var(--agp-fs-xs); max-height: 360px; overflow:auto; background:#0e1612; color:#cfe; border-radius: var(--agp-radius-sm); padding: var(--agp-sp-2); }
+    .msg-log .row { padding: 2px 0; border-bottom: 1px dashed rgba(255,255,255,0.06); white-space: pre-wrap; word-break: break-all; }
+    .msg-log .topic { color: var(--agp-accent); }
+    .msg-log .ts { color: rgba(255,255,255,0.4); margin-right:6px; }
+
+    /* Tabs de estado curado (pendiente/aceptado/offline/ignorado) */
+    .tabs { display:flex; gap:4px; margin: var(--agp-sp-3) 0; flex-wrap:wrap; }
+    .tabs .tab {
+      padding: 8px 14px; min-height: 40px;
+      border: var(--agp-border-w) solid var(--agp-border);
+      background: var(--agp-bg-soft);
+      color: var(--agp-text-muted);
+      border-radius: var(--agp-radius-md);
+      cursor: pointer; font-weight: var(--agp-fw-medium);
+    }
+    .tabs .tab.active {
+      background: var(--agp-accent);
+      color: var(--agp-bg);
+      border-color: var(--agp-accent);
+    }
+    .tabs .tab .badge {
+      display: inline-block; margin-left: 6px; padding: 1px 8px;
+      background: rgba(0,0,0,0.18); border-radius: 999px; font-size: 0.85em;
+    }
+    .tbl-nodos { width:100%; border-collapse: collapse; }
+    .tbl-nodos th, .tbl-nodos td {
+      text-align:left; padding: 10px 8px;
+      border-bottom: 1px solid var(--agp-border);
+    }
+    .tbl-nodos th { color: var(--agp-text-muted); font-weight: var(--agp-fw-medium); }
+    .tbl-nodos td.actions { white-space: nowrap; text-align:right; }
+    .tbl-nodos tbody tr.row-link { cursor: pointer; }
+    .tbl-nodos tbody tr.row-link:hover { background: var(--agp-bg-soft); }
+    .tbl-nodos tbody tr.row-link td.actions button { cursor: pointer; }
+    .tipo-pill {
+      display:inline-block; padding: 2px 8px; border-radius: 999px;
+      background: var(--agp-bg-soft); border:1px solid var(--agp-border);
+      font-size: 0.85em; color: var(--agp-text);
+    }
+    .dot-on  { color: var(--agp-state-ok); }
+    .dot-off { color: var(--agp-text-muted); }
+    .uid-mono { font-family: var(--agp-font-mono); font-size: 0.9em; color: var(--agp-text-muted); }
+
+    /* Badge boot_reason (resets anormales) y pin del implemento */
+    .badge-boot {
+      display: inline-block; margin-left: 8px; padding: 1px 7px;
+      background: #C92D2D; color: #fff; border-radius: 999px;
+      font-size: 0.75em; font-weight: var(--agp-fw-bold);
+      letter-spacing: 0.3px;
+    }
+    .badge-boot.warn { background: #DC8C1E; }
+    .pin-imp {
+      display: inline-block; padding: 3px 8px;
+      border-radius: var(--agp-radius-sm);
+      border: 1px solid var(--agp-border);
+      background: var(--agp-bg-soft); color: var(--agp-text-muted);
+      font-size: 0.85em; cursor: pointer;
+    }
+    .pin-imp.on {
+      background: var(--agp-accent-soft);
+      border-color: var(--agp-accent);
+      color: var(--agp-text);
+    }
+    /* Banner de alarmas — nodos del implemento activo que cayeron offline */
+    .alert-banner {
+      display:none;
+      margin-bottom: var(--agp-sp-3);
+      padding: var(--agp-sp-3);
+      background: rgba(201,45,45,0.10);
+      border: 1px solid rgba(201,45,45,0.55);
+      border-radius: var(--agp-radius-sm);
+      color: #E15A5A;
+      font-size: var(--agp-fs-md);
+      font-weight: var(--agp-fw-semi);
+    }
+    .alert-banner.visible { display:block; }
+    .alert-banner .titulo { display:flex; align-items:center; gap: var(--agp-sp-2); }
+    .alert-banner ul { margin: var(--agp-sp-2) 0 0; padding-left: 22px; font-weight: var(--agp-fw-regular); }
+    .alert-banner .slug { opacity:.7; font-family: var(--agp-font-mono); font-size: 0.85em; }
+    .alert-banner .silenciar {
+      float:right; margin-top: -2px; padding: 4px 10px;
+      background: transparent; border: 1px solid rgba(225,90,90,0.55);
+      color:#E15A5A; border-radius: var(--agp-radius-sm); cursor:pointer; font-size: 0.85em;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="nodos"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Nodos</h1><div class="subtitle">Dispositivos AgroParallel descubiertos en la LAN</div></div>
+      <div style="display:flex; gap:var(--agp-sp-2); align-items:center;">
+        <div id="headerStats" style="display:flex; gap:var(--agp-sp-2)"></div>
+        <button class="btn" id="btnAsistente">Asistente de primera vez</button>
+      </div>
+    </div>
+
+    <div id="alertBanner" class="alert-banner" role="alert" aria-live="assertive">
+      <button type="button" class="silenciar" id="btnSilenciar">Silenciar</button>
+      <div class="titulo">⚠ <span id="alertTitulo">Nodos del implemento activo offline</span>
+        <span class="slug" id="alertSlug"></span></div>
+      <ul id="alertLista"></ul>
+    </div>
+
+    <div class="tabs" id="estadoTabs">
+      <button class="tab active" data-tab="pendiente">Pendientes <span class="badge" id="cntPendiente">0</span></button>
+      <button class="tab"        data-tab="aceptado">Aceptados <span class="badge" id="cntAceptado">0</span></button>
+      <button class="tab"        data-tab="offline">Off-line <span class="badge" id="cntOffline">0</span></button>
+      <button class="tab"        data-tab="ignorado">Ignorados <span class="badge" id="cntIgnorado">0</span></button>
+    </div>
+
+    <div class="card">
+      <div id="emptyMsg" class="subtitle" hidden>No hay nodos en esta vista.</div>
+      <div style="overflow-x:auto;">
+        <table class="tbl-nodos" id="tblNodos">
+          <thead><tr>
+            <th>Estado</th>
+            <th>Alias / UID</th>
+            <th>Tipo</th>
+            <th>IP</th>
+            <th>FW</th>
+            <th>Última señal</th>
+            <th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: var(--agp-sp-3);">
+      <div class="subtitle">
+        <strong>¿Cómo funciona?</strong>
+        Cada controlador AgroParallel se anuncia en el broker MQTT con
+        <code>agp/&lt;producto&gt;/&lt;uid&gt;/announcement</code>. Apenas aparece, lo
+        verás en <em>Pendientes</em>. Tocá <strong>Aceptar</strong>, ponele un alias humano
+        (ej: "Motor izquierdo") y queda registrado.
+      </div>
+    </div>
+
+    <h2>Diagnóstico MQTT</h2>
+    <div class="card" style="max-width:920px">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: var(--agp-sp-3)">
+        <div style="font-weight:var(--agp-fw-semi)">Conexión al broker</div>
+        <span class="pill" id="mqttPill"><span class="dot"></span> consultando…</span>
+      </div>
+      <div class="diag-grid" id="diagInfo">
+        <div class="k">Broker</div><div id="diagBroker">—</div>
+        <div class="k">Intentos de conexión</div><div id="diagAttempts">—</div>
+        <div class="k">Última conexión OK</div><div id="diagLastOk">—</div>
+        <div class="k">Nodos conocidos</div><div id="diagCount">—</div>
+        <div class="k">Suscripciones</div><div id="diagSubs">—</div>
+        <div class="k">Wildcard <code>#</code></div><div id="diagWild">off</div>
+        <div class="k">Mensajes perdidos (gaps)</div><div id="diagSeqGaps">0</div>
+        <div class="k">Reboots detectados</div><div id="diagSeqResets">0</div>
+      </div>
+      <div id="diagErrorBox" style="display:none; margin-top: var(--agp-sp-3); padding: var(--agp-sp-3);
+        background:rgba(201,45,45,0.08); border:1px solid rgba(201,45,45,0.35);
+        border-radius: var(--agp-radius-sm); color:#E15A5A; font-size:var(--agp-fs-sm)">
+        <div style="display:flex; align-items:center; gap: var(--agp-sp-2); flex-wrap:wrap">
+          <span id="diagErrorCode" style="display:inline-block; padding: 2px 8px;
+            background:#C92D2D; color:#fff; border-radius: var(--agp-radius-sm);
+            font-family:var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+            letter-spacing:0.5px; font-size:var(--agp-fs-sm)">AGP-???-000</span>
+          <span id="diagErrorTs" style="font-family:var(--agp-font-mono); opacity:.7"></span>
+        </div>
+        <div id="diagError" style="margin-top: var(--agp-sp-2); color: var(--agp-text-strong, #fff);
+          font-size: var(--agp-fs-md); font-weight: var(--agp-fw-semi)"></div>
+        <div style="margin-top: var(--agp-sp-2); font-size: var(--agp-fs-xs); opacity:.75">
+          Para soporte: dictá el código <strong id="diagErrorCodeRepeat">—</strong> por teléfono o WhatsApp.
+        </div>
+        <details id="diagErrorTechBox" style="margin-top: var(--agp-sp-2); display:none">
+          <summary style="cursor:pointer; font-size: var(--agp-fs-xs); opacity:.7">Detalle técnico (soporte)</summary>
+          <pre id="diagErrorTech" style="margin: var(--agp-sp-2) 0 0; padding: var(--agp-sp-2);
+            background:rgba(0,0,0,0.25); border-radius: var(--agp-radius-sm);
+            font-family: var(--agp-font-mono); font-size: var(--agp-fs-xs);
+            white-space: pre-wrap; word-break: break-word; color:#E2C7C7"></pre>
+        </details>
+      </div>
+      <div style="display:flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-3); flex-wrap:wrap">
+        <button class="btn primary" id="btnReconnect">Reconectar al broker</button>
+        <button class="btn" id="btnRefresh">Refrescar</button>
+        <button class="btn" id="btnWild">Activar captura wildcard</button>
+        <span style="flex:1"></span>
+        <button class="btn" id="rescanBtn">Re-escanear nodos</button>
+      </div>
+      <div style="margin-top: var(--agp-sp-3); font-weight: var(--agp-fw-semi)">Últimos mensajes MQTT</div>
+      <div class="msg-log" id="msgLog"><div class="row" style="opacity:.5">— sin mensajes aún —</div></div>
+      <div style="color: var(--agp-text-muted); font-size: var(--agp-fs-xs); margin-top: var(--agp-sp-2)">
+        Si tu nodo no aparece arriba: chequeá que esté publicando en <code>agp/&lt;tipo&gt;/&lt;UID&gt;/announcement</code>. Activá wildcard para ver TODO lo que pasa por el broker.
+      </div>
+    </div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/nodos.js"></script>
+</body>
+</html>

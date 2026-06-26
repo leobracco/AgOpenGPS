@@ -31,8 +31,6 @@ namespace AgOpenGPS
             btnFromKML.Text = gStr.gsFromKml;
             btnFromExisting.Text = gStr.gsFromExisting;
             btnJobClose.Text = gStr.gsClose;
-            btnJobAgShare.Enabled = Properties.Settings.Default.AgShareEnabled;
-            btnAgShareBulkUpload.Enabled = Properties.Settings.Default.AgShareEnabled;
 
             this.Text = gStr.gsStartNewField;
         }
@@ -44,10 +42,6 @@ namespace AgOpenGPS
             string directoryName = Path.Combine(RegistrySettings.fieldsDirectory, mf.currentFieldDirectory);
 
             string fileAndDirectory = Path.Combine(directoryName, "Field.txt");
-
-            //Trigger a snapshot to create a temp data file for the AgShare Upload
-            if (mf.isJobStarted && Properties.Settings.Default.AgShareEnabled) mf.AgShareSnapshot();
-
 
             if (!File.Exists(fileAndDirectory))
             {
@@ -178,7 +172,7 @@ namespace AgOpenGPS
                                     // Convert to miles if not metric
                                     Distance distanceObj = new Distance(distance * 1000); // Distance expects meters
                                     double displayDistance = mf.isMetric ? distanceObj.InKilometers : distanceObj.InMiles;
-                                    distanceList += displayDistance.ToString("F3");
+                                    distanceList += displayDistance.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
                                 }
                             }
                         }
@@ -275,36 +269,5 @@ namespace AgOpenGPS
             mf.isCancelJobMenu = true;
         }
 
-        private async void btnJobAgShare_Click(object sender, EventArgs e)
-        {
-            if (mf.isJobStarted)
-            {
-                await mf.FileSaveEverythingBeforeClosingField();
-            }
-            using (var form = new FormAgShareDownloader(mf))
-            {
-                form.ShowDialog(this);
-            }
-
-            DialogResult = DialogResult.Ignore;
-            Close();
-        }
-
-        private void btnAgShareBulkUpload_Click(object sender, EventArgs e)
-        {
-            if (mf.isJobStarted)
-            {
-                FormDialog.Show(gStr.gsError, gStr.gsCloseFieldFirst, DialogSeverity.Error);
-                return;
-            }
-
-            using (var form = new FormAgShareUploader(mf.agShareClient))
-            {
-                form.ShowDialog(this);
-            }
-
-            DialogResult = DialogResult.Ignore;
-            Close();
-        }
     }
 }

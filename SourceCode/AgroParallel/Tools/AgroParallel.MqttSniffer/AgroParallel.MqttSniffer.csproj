@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AgroParallel.MqttSniffer
+    Herramienta de diagnóstico: se conecta al broker MQTT del ecosistema
+    (el broker embebido en AgIO, por default 127.0.0.1:1883) y vuelca todo
+    el tráfico al stdout con coloreado por producto + comandos interactivos
+    (publish, subscribe, filter, stats).
+    Uso típico:
+      AgroParallel.MqttSniffer.exe                 -> conecta 127.0.0.1:1883, suscribe #
+      AgroParallel.MqttSniffer.exe -h 192.168.5.10 -> broker en LAN
+      AgroParallel.MqttSniffer.exe -t agp/vistax/# -> filtra a VistaX
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>AgroParallel.MqttSniffer</RootNamespace>
+    <AssemblyName>AgroParallel.MqttSniffer</AssemblyName>
+    <LangVersion>7.3</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
+    <PackageReference Include="System.Text.Json" Version="6.0.10" />
+  </ItemGroup>
+
+</Project>

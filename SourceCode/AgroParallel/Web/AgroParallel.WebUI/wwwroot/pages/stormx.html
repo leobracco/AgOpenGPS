@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StormX · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+</head>
+<body>
+  <aside class="sidebar" data-active="stormx"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>StormX</h1>
+        <div class="subtitle">Estación meteorológica móvil</div>
+      </div>
+      <span class="pill idle" id="okPill"><span class="dot"></span> Condiciones —</span>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Viento</h3>
+        <div class="metric"><span id="kpiWind">—</span><span class="unit">m/s</span></div>
+        <div class="row"><span>Dirección</span><strong id="kpiDir" style="color:var(--agp-text)">— °</strong></div>
+      </div>
+      <div class="card">
+        <h3>Temperatura</h3>
+        <div class="metric"><span id="kpiTemp">—</span><span class="unit">°C</span></div>
+        <div class="row"><span>Delta-T</span><strong id="kpiDeltaT" style="color:var(--agp-text)">— °C</strong></div>
+      </div>
+      <div class="card">
+        <h3>Humedad</h3>
+        <div class="metric"><span id="kpiHum">—</span><span class="unit">%</span></div>
+        <div class="row"><span>Presión</span><strong id="kpiPress" style="color:var(--agp-text)">— hPa</strong></div>
+      </div>
+      <div class="card">
+        <h3>Pulverización</h3>
+        <div class="metric" style="font-size: var(--agp-fs-xl)" id="kpiAdvice">—</div>
+        <div class="row"><span>Última lectura</span><strong id="kpiAge" style="color:var(--agp-text)">—</strong></div>
+      </div>
+    </div>
+
+    <h2>Umbrales operativos</h2>
+    <div class="card">
+      <div class="subtitle" style="margin-bottom: var(--agp-sp-3);">
+        El sistema activa una alerta cuando viento, humedad o Delta-T salen de
+        rango para pulverizar. Editable desde aquí (próximamente).
+      </div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--agp-sp-3);">
+        <div><strong>Viento máx.</strong><div class="subtitle">5.5 m/s</div></div>
+        <div><strong>Viento mín.</strong><div class="subtitle">1.0 m/s</div></div>
+        <div><strong>Humedad mín.</strong><div class="subtitle">50 %</div></div>
+        <div><strong>Temp. máx.</strong><div class="subtitle">28 °C</div></div>
+        <div><strong>Delta-T máx.</strong><div class="subtitle">8 °C</div></div>
+      </div>
+    </div>
+
+    <h2>Nodos StormX</h2>
+    <div class="card" id="nodosList">
+      <div class="subtitle">
+        Buscando nodos en LAN... La estación StormX publica telemetría en
+        <code>agp/storm/{uid}/status_live</code> al broker MQTT del PC.
+      </div>
+    </div>
+
+    <h2>Próximamente</h2>
+    <div class="card">
+      <ul style="margin:0; padding-left: 1.2em; color: var(--agp-text-muted);">
+        <li>Editor de umbrales con persistencia en <code>stormX.json</code></li>
+        <li>Histórico 24h de viento/temp/humedad con gráficos</li>
+        <li>Bloqueo automático del FlowX cuando las condiciones son adversas</li>
+        <li>Logging a campo (CSV + sync a OrbitX)</li>
+        <li>Mapa de calor de viento sobre el lote</li>
+      </ul>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/stormx.js"></script>
+</body>
+</html>

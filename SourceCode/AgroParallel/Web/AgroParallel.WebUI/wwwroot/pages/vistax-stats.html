@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VistaX stats</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <style>
+    /* ============================================================================
+       Widget STATS VistaX — ventana superior sobre PilotX.
+       Diseño: panel angosto (~360–420 px) con KPIs grandes (sem/m, sem/ha,
+       densidad, velocidad) + lista de auxiliares (turbina, eje, tolva, etc.).
+       Complementa al MONITOR strip (vistax-live.html) que va abajo.
+       ============================================================================ */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--agp-bg); color: var(--agp-text);
+    }
+    body {
+      font-family: var(--agp-font-sans);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ----- Header ----- */
+    .vx-head {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 9px;
+      background: var(--agp-surface);
+      border-bottom: 1px solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .vx-head .title {
+      font-weight: var(--agp-fw-bold);
+      font-size: 11px; letter-spacing: 0.3px;
+      flex: 1;
+    }
+    .vx-head .pill {
+      padding: 2px 8px; border-radius: var(--agp-radius-pill);
+      font-size: 10px; font-weight: var(--agp-fw-bold);
+      background: var(--vx-ok); color: #0A1A06;
+    }
+    .vx-head .pill.warn { background: var(--vx-exceso); color: #fff; }
+    .vx-head .pill.bad  { background: rgba(201,45,45,0.85); color: #fff; }
+
+    /* ----- KPIs grandes ----- */
+    .vx-kpis {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--agp-border);
+      flex-shrink: 0;
+    }
+    .vx-kpi {
+      background: var(--agp-bg);
+      padding: 6px 6px 5px; text-align: center;
+      position: relative;
+    }
+    .vx-kpi .lbl {
+      font-size: 8px; color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .vx-kpi .val {
+      font-family: var(--agp-font-mono);
+      font-size: 17px; font-weight: var(--agp-fw-bold);
+      line-height: 1.1;
+    }
+    .vx-kpi .u {
+      font-size: 8px; color: var(--agp-text-muted);
+      margin-left: 3px;
+    }
+    .vx-kpi.warn .val { color: #E2A23A; }
+    .vx-kpi.bad  .val { color: #E25555; }
+    .vx-kpi .sub {
+      margin-top: 1px;
+      font-size: 8px; color: var(--agp-text-muted);
+      font-family: var(--agp-font-mono);
+    }
+
+    /* ----- Objetivo / desvío barra ----- */
+    .vx-target {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 9px;
+      border-bottom: 1px solid var(--agp-border);
+      background: var(--agp-surface);
+      flex-shrink: 0;
+      font-size: 10px;
+    }
+    .vx-target .lbl { color: var(--agp-text-muted); }
+    .vx-target .val {
+      font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+    }
+    .vx-target .bar {
+      flex: 1; height: 6px;
+      background: var(--agp-bg);
+      border: 1px solid var(--agp-border);
+      border-radius: 3px;
+      position: relative; overflow: hidden;
+    }
+    .vx-target .bar .fill {
+      position: absolute; top: 0; bottom: 0; left: 50%;
+      width: 0%; background: var(--vx-ok);
+      transition: width 0.3s, background 0.3s;
+    }
+    .vx-target .bar.bajo  .fill { background: #C24545; }
+    .vx-target .bar.exceso .fill { background: var(--vx-exceso); }
+    .vx-target .bar .center {
+      position: absolute; top: -1px; bottom: -1px; left: 50%;
+      width: 1px; background: var(--agp-text-muted);
+      opacity: 0.5;
+    }
+    .vx-target .desvio { font-family: var(--agp-font-mono); }
+
+    /* ----- Section header genérico ----- */
+    .vx-section-head {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 9px;
+      font-size: 9px; font-weight: var(--agp-fw-bold);
+      color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      background: var(--agp-surface);
+      border-bottom: 1px solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .vx-section-head .lbl { flex: 1; }
+    .vx-section-head .count {
+      font-family: var(--agp-font-mono);
+      color: var(--agp-text-muted);
+      font-size: 9px;
+      background: var(--agp-bg);
+      padding: 1px 6px; border-radius: 8px;
+      border: 1px solid var(--agp-border);
+    }
+    .vx-section-head .count.bad {
+      color: #fff; background: rgba(201,45,45,0.55);
+      border-color: rgba(201,45,45,0.65);
+    }
+
+    /* ----- Lista de auxiliares ----- */
+    .vx-aux {
+      flex: 1; overflow: auto;
+      padding: 4px;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .vx-aux-row {
+      display: flex; align-items: center; gap: 7px;
+      padding: 4px 7px;
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-left-width: 3px;
+    }
+    .vx-aux-row .ico {
+      width: 18px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: var(--agp-fw-bold);
+      border-radius: 50%;
+      background: var(--agp-bg);
+      color: var(--agp-text-muted);
+      flex-shrink: 0;
+    }
+    .vx-aux-row .meta { flex: 1; min-width: 0; line-height: 1.15; }
+    .vx-aux-row .lbl {
+      font-size: 11px; font-weight: var(--agp-fw-medium);
+      color: var(--agp-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .vx-aux-row .sub {
+      font-size: 9px; color: var(--agp-text-muted);
+      font-family: var(--agp-font-mono);
+    }
+    .vx-aux-row .v {
+      font-family: var(--agp-font-mono);
+      font-size: 12px; font-weight: var(--agp-fw-bold);
+      min-width: 48px; text-align: right;
+    }
+    .vx-aux-row .v .u {
+      font-size: 8px; color: var(--agp-text-muted);
+      text-transform: uppercase; margin-left: 2px;
+    }
+    .vx-aux-row.s-ok       { border-left-color: var(--vx-ok); }
+    .vx-aux-row.s-ok .ico  { background: var(--vx-ok); color: #0A1A06; }
+    .vx-aux-row.s-bajo     { border-left-color: #C24545; }
+    .vx-aux-row.s-bajo .ico{ background: #4A2A2A; color: #fff; }
+    .vx-aux-row.s-tapado   { border-left-color: var(--vx-tapado); }
+    .vx-aux-row.s-tapado .ico { background: var(--vx-tapado); color: #fff; }
+    .vx-aux-row.s-exceso   { border-left-color: var(--vx-exceso); }
+    .vx-aux-row.s-exceso .ico { background: var(--vx-exceso); color: #fff; }
+    .vx-aux-row.s-no-data  { border-left-color: var(--agp-border); opacity: 0.65; }
+    .vx-aux-row.s-muted    { border-left-color: var(--vx-muted); opacity: 0.5; border-style: dashed; }
+
+    .vx-empty {
+      text-align: center; color: var(--agp-text-muted);
+      padding: 10px 0; font-size: 10px;
+    }
+
+    /* ----- Footer ----- */
+    .vx-foot {
+      padding: 3px 9px; font-size: 9px;
+      color: var(--agp-text-muted);
+      border-top: 1px solid var(--agp-border);
+      background: var(--agp-surface);
+      display: flex; gap: 10px; align-items: center;
+      flex-shrink: 0;
+    }
+    .vx-foot .age { font-family: var(--agp-font-mono); }
+  </style>
+</head>
+<body>
+  <div class="vx-head">
+    <span class="title">VistaX · Estadísticas</span>
+    <span id="vxPill" class="pill"><span id="vxPillTxt">…</span></span>
+  </div>
+
+  <div class="vx-kpis">
+    <div class="vx-kpi"><div class="lbl">Sem/m promedio</div><div class="val"><span id="vxSemM">—</span></div><div class="sub" id="vxSemMSub">—</div></div>
+    <div class="vx-kpi"><div class="lbl">Sem/ha</div><div class="val"><span id="vxSemHa">—</span></div><div class="sub" id="vxSemHaSub">—</div></div>
+    <div class="vx-kpi"><div class="lbl">Sem/min</div><div class="val"><span id="vxSpm">—</span></div><div class="sub">prom</div></div>
+    <div class="vx-kpi"><div class="lbl">Vel km/h</div><div class="val"><span id="vxVel">—</span></div><div class="sub" id="vxVelSub">—</div></div>
+  </div>
+
+  <div class="vx-target">
+    <span class="lbl">Objetivo</span>
+    <span class="val" id="vxObj">—</span>
+    <div class="bar" id="vxBar"><span class="fill" id="vxBarFill"></span><span class="center"></span></div>
+    <span class="desvio" id="vxDesvio">—</span>
+  </div>
+
+  <div class="vx-section-head">
+    <span class="lbl">Auxiliares</span>
+    <span class="count" id="vxAuxCount">0</span>
+  </div>
+  <div class="vx-aux" id="vxAuxBody"></div>
+
+  <div class="vx-foot">
+    <span id="vxImp">—</span>
+    <span style="flex:1"></span>
+    <span class="age" id="vxAge">—</span>
+  </div>
+
+  <script src="../js/vistax-stats.js"></script>
+</body>
+</html>

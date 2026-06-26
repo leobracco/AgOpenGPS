@@ -107,6 +107,8 @@ namespace AgIO
             this.btnRunAOG = new System.Windows.Forms.Button();
             this.btnUDP = new System.Windows.Forms.Button();
             this.btnGPSData = new System.Windows.Forms.Button();
+            this.btnMQTT = new System.Windows.Forms.Button();
+            this.lblMQTTStatus = new System.Windows.Forms.Label();
             this.statusStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
@@ -1099,7 +1101,39 @@ namespace AgIO
             this.btnGPSData.TabIndex = 513;
             this.btnGPSData.UseVisualStyleBackColor = false;
             this.btnGPSData.Click += new System.EventHandler(this.btnGPSData_Click);
-            // 
+            //
+            // btnMQTT
+            //
+            this.btnMQTT.BackColor = System.Drawing.Color.Gainsboro;
+            this.btnMQTT.FlatAppearance.BorderColor = System.Drawing.SystemColors.HotTrack;
+            this.btnMQTT.FlatAppearance.BorderSize = 0;
+            this.btnMQTT.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnMQTT.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnMQTT.ForeColor = System.Drawing.Color.Black;
+            this.btnMQTT.ImeMode = System.Windows.Forms.ImeMode.NoControl;
+            this.btnMQTT.Location = new System.Drawing.Point(131, 300);
+            this.btnMQTT.Margin = new System.Windows.Forms.Padding(4);
+            this.btnMQTT.Name = "btnMQTT";
+            this.btnMQTT.Size = new System.Drawing.Size(90, 36);
+            this.btnMQTT.TabIndex = 514;
+            this.btnMQTT.Text = "MQTT";
+            this.btnMQTT.UseVisualStyleBackColor = false;
+            this.btnMQTT.Click += new System.EventHandler(this.btnMQTT_Click);
+            this.btnMQTT.DoubleClick += new System.EventHandler(this.btnMQTT_DoubleClick);
+            //
+            // lblMQTTStatus
+            //
+            this.lblMQTTStatus.BackColor = System.Drawing.Color.Transparent;
+            this.lblMQTTStatus.Font = new System.Drawing.Font("Tahoma", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblMQTTStatus.ForeColor = System.Drawing.Color.Gray;
+            this.lblMQTTStatus.Location = new System.Drawing.Point(131, 338);
+            this.lblMQTTStatus.Margin = new System.Windows.Forms.Padding(2, 0, 2, 0);
+            this.lblMQTTStatus.Name = "lblMQTTStatus";
+            this.lblMQTTStatus.Size = new System.Drawing.Size(90, 16);
+            this.lblMQTTStatus.TabIndex = 515;
+            this.lblMQTTStatus.Text = "Off";
+            this.lblMQTTStatus.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            //
             // FormLoop
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 18F);
@@ -1164,6 +1198,8 @@ namespace AgIO
             this.Controls.Add(this.lblToGPS);
             this.Controls.Add(this.lblFromGPS);
             this.Controls.Add(this.btnGPSData);
+            this.Controls.Add(this.btnMQTT);
+            this.Controls.Add(this.lblMQTTStatus);
             this.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
@@ -1173,7 +1209,7 @@ namespace AgIO
             this.MinimumSize = new System.Drawing.Size(50, 50);
             this.Name = "FormLoop";
             this.Padding = new System.Windows.Forms.Padding(4);
-            this.Text = "AgIO";
+            this.Text = "CoreX";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormLoop_FormClosing);
             this.Load += new System.EventHandler(this.FormLoop_Load);
             this.Resize += new System.EventHandler(this.FormLoop_Resize);
@@ -1256,6 +1292,8 @@ namespace AgIO
         private ToolStripMenuItem toolStripAgDiag;
         private ToolStripMenuItem toolStripSettings;
         private ToolStripMenuItem deviceManagerToolStripMenuItem;
+        private Button btnMQTT;
+        private Label lblMQTTStatus;
     }
 }
 

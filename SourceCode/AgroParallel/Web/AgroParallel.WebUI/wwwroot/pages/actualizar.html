@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Actualizar · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    .card-update {
+      padding: var(--agp-sp-5);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius);
+      background: var(--agp-bg-soft);
+      max-width: 760px;
+    }
+    .row { display:flex; justify-content:space-between; align-items:baseline; padding: var(--agp-sp-2) 0; border-bottom: 1px dashed var(--agp-border); }
+    .row:last-child { border-bottom: none; }
+    .row .label { color: var(--agp-text-muted); }
+    .row .val   { font-family: var(--agp-font-mono); font-weight: var(--agp-fw-semi); }
+    .progress { height: 14px; background: var(--agp-bg); border-radius: 7px; overflow:hidden; margin: var(--agp-sp-3) 0; }
+    .progress > div { height:100%; background: var(--agp-accent); width: 0%; transition: width 200ms linear; }
+    .actions { display:flex; gap: var(--agp-sp-3); margin-top: var(--agp-sp-5); flex-wrap:wrap; }
+    .btn { min-height: 56px; padding: 0 var(--agp-sp-5); font-size: var(--agp-fs-lg); }
+    .btn-primary { background: var(--agp-accent); color: #fff; border:none; border-radius: var(--agp-radius); }
+    .btn-secondary { background: transparent; color: var(--agp-text); border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius); }
+    .btn-danger { background: #b8392b; color:#fff; border:none; border-radius: var(--agp-radius); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .changelog { white-space: pre-wrap; font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm); margin-top: var(--agp-sp-3); padding: var(--agp-sp-3); background: var(--agp-bg); border-radius: var(--agp-radius); max-height: 180px; overflow:auto; }
+    .phase-pill { display:inline-block; padding: 2px 10px; border-radius: 12px; font-size: var(--agp-fs-sm); }
+    .phase-Idle, .phase-UpdateAvailable, .phase-ReadyToApply { background: var(--agp-bg); color: var(--agp-text-muted); }
+    .phase-Checking, .phase-Downloading, .phase-Applying { background: var(--agp-accent-soft); color: var(--agp-state-ok); }
+    .phase-Error { background: var(--agp-state-bad-bg); color: var(--agp-state-bad); }
+    .err { color: var(--agp-state-bad); margin-top: var(--agp-sp-2); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="actualizar"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Actualizar PilotX</h1><div class="subtitle">Canal de actualizaciones: <strong>OrbitX (cloud Agro Parallel)</strong></div></div>
+      <div><span id="phasePill" class="phase-pill phase-Idle">Idle</span></div>
+    </div>
+
+    <section class="card-update">
+      <div class="row"><span class="label">Versión instalada</span><span id="vCurrent" class="val">—</span></div>
+      <div class="row"><span class="label">Versión disponible</span><span id="vAvail" class="val">—</span></div>
+      <div class="row"><span class="label">Tamaño</span><span id="vSize" class="val">—</span></div>
+      <div class="row"><span class="label">SHA-256</span><span id="vHash" class="val" style="font-size:11px">—</span></div>
+      <div class="row"><span class="label">Última consulta</span><span id="vChecked" class="val">—</span></div>
+
+      <div class="progress"><div id="progBar"></div></div>
+      <div id="errLine" class="err" style="display:none"></div>
+      <div id="changelogBox" class="changelog" style="display:none"></div>
+
+      <div class="actions">
+        <button id="btnCheck"    class="btn btn-secondary">Buscar actualización</button>
+        <button id="btnDownload" class="btn btn-secondary" disabled>Descargar</button>
+        <button id="btnApply"    class="btn btn-primary"   disabled>Aplicar y reiniciar</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/actualizar.js"></script>
+</body>
+</html>

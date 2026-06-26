@@ -1,0 +1,567 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="clr-namespace:PilotX.Desktop.Controls"
+        xmlns:vw="clr-namespace:PilotX.Desktop.Views"
+        x:Class="PilotX.Desktop.MainWindow"
+        Width="1280" Height="800"
+        Background="{StaticResource PilotXBgDeep}"
+        TransparencyLevelHint="Transparent"
+        Title="PilotX">
+    <!--
+        Chrome cockpit:
+         · En modo "full" (default): borderless maximizado, sin header,
+           solo FAB X arriba a la derecha. Es el Hub principal de cabina.
+         · En modo "float": ventana chica con header arrastrable, marca
+           PilotX + titulo, esquinas redondeadas. Usado por widgets que
+           tienen que dejar ver el mapa detras (camaras, monitores, etc.).
+    -->
+    <Border Name="RootBorder"
+            Background="{StaticResource PilotXBgDeep}"
+            BorderBrush="{StaticResource PilotXBorderHigh}"
+            BorderThickness="1"
+            CornerRadius="0">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+            <!-- =================== HEADER (modo float) =================== -->
+            <Border Name="HeaderBar"
+                    Grid.Row="0"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,0,0,1"
+                    Height="44"
+                    IsVisible="False"
+                    PointerPressed="OnHeaderPressed">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" VerticalAlignment="Center">
+
+                    <!-- Marca PX -->
+                    <Border Grid.Column="0"
+                            Width="28" Height="28"
+                            CornerRadius="6"
+                            Background="{StaticResource PilotXAccent}"
+                            Margin="10,0,8,0">
+                        <TextBlock Text="PX"
+                                   Foreground="{StaticResource PilotXBgDeep}"
+                                   FontWeight="Bold"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Titulo -->
+                    <TextBlock Grid.Column="1"
+                               Name="HeaderTitle"
+                               Text="PilotX"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="0,0,12,0"/>
+
+                    <!-- Subtitulo (espacio flexible) -->
+                    <TextBlock Grid.Column="2"
+                               Name="HeaderSubtitle"
+                               Text=""
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="11"
+                               VerticalAlignment="Center"/>
+
+                    <!-- Boton cerrar (rojo translucido) -->
+                    <Button Grid.Column="3"
+                            Name="HeaderCloseButton"
+                            Content="X"
+                            Width="44" Height="44"
+                            FontSize="16"
+                            Foreground="{StaticResource PilotXErr}"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Click="OnCloseClick"
+                            ToolTip.Tip="Cerrar"/>
+                </Grid>
+            </Border>
+
+            <!-- =================== HUD COCKPIT (modo full) =================== -->
+            <!--
+                Barra horizontal con datos vivos del estado de PilotX
+                (speed/heading/GPS) leidos del AgpWebHost via HTTP polling.
+                Solo aparece en modo full (en widgets float seria ruido).
+                Mientras no haya render de mapa nativo en Avalonia, este HUD
+                da "feeling PilotX" desde el cold-start.
+            -->
+            <Border Name="HudBar"
+                    Grid.Row="1"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,0,0,1"
+                    Height="44"
+                    IsVisible="False">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto"
+                      VerticalAlignment="Center"
+                      Margin="14,0,14,0">
+
+                    <!-- Marca PX (lado izquierdo, fija) -->
+                    <Border Grid.Column="0"
+                            Width="28" Height="28"
+                            CornerRadius="6"
+                            Background="{StaticResource PilotXAccent}"
+                            Margin="0,0,10,0">
+                        <TextBlock Text="PX"
+                                   Foreground="{StaticResource PilotXBgDeep}"
+                                   FontWeight="Bold"
+                                   FontSize="12"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Chip GPS / Job: pinta verde si IsJobStarted, ambar si no -->
+                    <Border Grid.Column="1"
+                            Name="HudStatusChip"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="12,4,12,4"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Name="HudStatusDot"
+                                     Width="10" Height="10"
+                                     Fill="{StaticResource PilotXTextDim}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="HudStatusText"
+                                       Text="Sin conexion"
+                                       Foreground="{StaticResource PilotXTextMid}"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Chip Heading -->
+                    <Border Grid.Column="2"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,4,10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="HDG"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="HudHeading"
+                                       Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="°"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Centro flexible (vacio por ahora — placeholder para track / lote) -->
+                    <TextBlock Grid.Column="3"
+                               Name="HudTrack"
+                               Text=""
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
+
+                    <!-- Chip Speed (lado derecho, mas grande — dato ancla del operario) -->
+                    <Border Grid.Column="4"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="12,4,12,4"
+                            Margin="0,0,10,0">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Name="HudSpeed"
+                                       Text="0.0"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="km/h"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,3"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Chip Area trabajada -->
+                    <Border Grid.Column="5"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="10,4,10,4">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="AREA"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="HudArea"
+                                       Text="--"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="ha"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- =================== MAPA NATIVO (default) =================== -->
+            <!--
+                Vista principal del guiado, render nativo Avalonia 2D
+                (placeholder para el upgrade futuro a OpenGlControlBase).
+                Es lo que el operario ve durante el trabajo en cabina.
+                NO HAY WebView residente — es zero-cost Chromium en el
+                hot path de operacion de campo.
+            -->
+            <vw:MapPanel x:Name="MapHost" Grid.Row="2"/>
+
+            <!-- =================== FIELD DATA (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/datos-lote.html. Se muestra cuando
+                el operario tocá FieldTools en la toolbar. SIN WebView.
+            -->
+            <vw:FieldDataPanel x:Name="FieldDataHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== SISTEMA (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/sistema.html (brillo + power).
+                Hace HTTP a /api/sistema/* pero NO instancia WebView.
+            -->
+            <vw:SistemaPanel x:Name="SistemaHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== DATOS GPS (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/datos-gps.html: lat/lon/easting/
+                northing + rumbo + cardinal + velocidad. Sin WebView, sin
+                red propia: consume el HudSnapshot del HudPoller.
+            -->
+            <vw:GpsDataPanel x:Name="GpsDataHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== STORMX (overlay nativo) =================== -->
+            <!--
+                Reemplazo nativo de pages/stormx.html: meteo + veredicto de
+                pulverizacion. Polling propio a /api/stormx/live (1Hz) que
+                arranca al abrir el panel y se detiene al cerrarlo.
+            -->
+            <vw:StormXPanel x:Name="StormXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== FLOWX (overlay nativo, live-only) =================== -->
+            <!--
+                Reemplazo nativo PARCIAL de pages/flowx.html: KPIs cabin-
+                critical (caudal real, target, PWM, PID, secciones, savings).
+                El editor de config (productos/cables/PID) NO esta portado:
+                el boton "Configurar" abre el WebView lazy sobre flowx.html.
+            -->
+            <vw:FlowXPanel x:Name="FlowXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                Reemplazo nativo PARCIAL de pages/sectionx.html: KPIs cabin-
+                critical (estado del bridge + grilla de secciones abiertas).
+                El editor de mapeo surcos->secciones, test de reles y debug
+                MQTT NO estan portados: el boton "Configurar" abre el
+                WebView lazy sobre sectionx.html.
+            -->
+            <vw:SectionXPanel x:Name="SectionXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                Reemplazo nativo PARCIAL (Monitor tab) de pages/quantix.html:
+                ver dosis real/objetivo + PWM + estado PID por motor. Otras
+                tabs (Motores CRUD, Shape, PID live-tune, Calibracion, Prueba)
+                siguen en HTML via boton "Configurar".
+            -->
+            <vw:QuantiXPanel x:Name="QuantiXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                VistaXPanel — overlay nativo (8vo port).
+                Reemplazo nativo PARCIAL (Monitor tab) de pages/vistax.html:
+                ver SPM por surco, badges por estado, trenes con sensores
+                semilla/ferti (tubitos) y otros sensores (barras). Otras tabs
+                (Insumo & calibracion, Implemento, Nodos, Config) siguen en
+                HTML via boton "Configurar".
+            -->
+            <vw:VistaXPanel x:Name="VistaXHost" Grid.Row="2" IsVisible="False"/>
+
+            <!--
+                CoreXEcuPanel — overlay nativo (9no port).
+                Reemplazo nativo PARCIAL (Live tab) de pages/corex-ecu.html:
+                telemetria del autosteer Teensy (IMU, WAS, GPS, CAN Keya,
+                Autosteer, Sistema). Las otras tabs (Estado/checklist,
+                Calibracion / motor manual + barrido PWM, Conexion con Teensy)
+                siguen en HTML via boton "Configurar". NO se toca firmware.
+            -->
+            <vw:CoreXEcuPanel x:Name="CoreXEcuHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== HUB (home nativo, 11vo port) =================== -->
+            <!--
+                HubPanel - reemplazo nativo de pages/hub.html. KPIs del
+                tractor llegan via HudSnapshot @4Hz, lista de nodos via
+                /api/nodos/unified @3s, toggles QX/VX/FX via /api/overlays
+                (FormGPS relee overlayPrefs.json cada 250ms). NO se hace
+                polling redundante del estado AOG: se consume el HUD que
+                ya viene.
+            -->
+            <vw:HubPanel x:Name="HubHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== NODOS (overlay nativo, 12vo port) =================== -->
+            <!--
+                NodosPanel - reemplazo nativo (parcial) de pages/nodos.html.
+                Live monitor: tabs + tabla + banner alarma offline-del-implemento.
+                Polling 3s a /api/nodos/unified. Las acciones de curado
+                (aceptar/ignorar/renombrar/restaurar) y el diagnostico MQTT
+                (wildcard + msg log) siguen en HTML via boton "Configurar".
+                Por la doctrina "nodos solo se agregan automaticamente" no hay
+                un boton "Agregar" - cualquier alta sale del MQTT announcement.
+            -->
+            <vw:NodosPanel x:Name="NodosHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== ACTUALIZAR (overlay nativo, 13vo port) =================== -->
+            <!--
+                ActualizarPanel - reemplazo nativo de pages/actualizar.html.
+                Self-update del propio PilotX via OrbitX OTA. Polling 1s a
+                /api/pilotx/update/status; acciones POST a check/download/apply.
+                Cuando Aplicar dispara Updater.exe, PilotX se cierra solo.
+            -->
+            <vw:ActualizarPanel x:Name="ActualizarHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== CAMARAS (overlay nativo, 14vo port) =================== -->
+            <!--
+                CamarasPanel - reemplazo nativo (parcial) de pages/camaras.html.
+                Tab Monitor only: layouts 1x1/2x1/2x2 con snapshot JPEG polling
+                a /api/camaras/{idx}/snapshot. Doble click -> toggle foco 1x1.
+                El tab Config (forms IP/usuario/clave por camara) sigue HTML
+                via boton "Configurar".
+            -->
+            <vw:CamarasPanel x:Name="CamarasHost" Grid.Row="2" IsVisible="False"/>
+
+            <!-- =================== CABINA-ALARMAS (overlay top, 10mo port) =================== -->
+            <!--
+                Banner cabin-critical: nodos del implemento ACTIVO offline.
+                NO oculta el mapa ni otros overlays - se acopla arriba con
+                ZIndex alto + VerticalAlignment=Top. Polling 2s independiente,
+                arranca con la app y se autogestiona (mostrar/ocultar).
+                Reemplazo nativo de pages/cabina-alarmas.html.
+            -->
+            <vw:CabinaAlarmasOverlay x:Name="CabinaAlarmasHost"
+                                     Grid.Row="2"
+                                     ZIndex="100"
+                                     VerticalAlignment="Top"/>
+
+            <!-- =================== WEBVIEW SLOT (lazy on-demand) =================== -->
+            <!--
+                Contenedor vacio donde se instancia el WebView SOLO cuando
+                el operario abre una pantalla todavia no portada a nativo.
+                Al cerrar la pantalla (boton Atras / Esc), el WebView se
+                hace Dispose y este Panel queda vacio otra vez. Cada
+                pantalla portada a nativo = un WebView menos.
+            -->
+            <Panel x:Name="WebViewSlot" Grid.Row="2" IsVisible="False"/>
+
+            <!-- Boton "Atras" para volver al mapa nativo desde una pantalla web -->
+            <Button x:Name="WebViewBack"
+                    Grid.Row="2"
+                    Content="&lt;-"
+                    Width="48" Height="48"
+                    FontSize="20"
+                    FontWeight="Bold"
+                    Foreground="{StaticResource PilotXTextHi}"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="24"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Margin="14,12,0,0"
+                    IsVisible="False"
+                    Click="OnBackClick"
+                    ToolTip.Tip="Volver al mapa"/>
+
+            <!-- ============ MINI-MAPA (modo full, esquina inf. izq.) ============ -->
+            <!--
+                Primer paso de render nativo Avalonia: el outline del lote
+                activo + sprite del tractor, dibujados con DrawingContext.
+                Mientras no migremos el OpenGL completo, este thumbnail da
+                feedback espacial encima del WebView (que muestra el Hub).
+            -->
+            <Border Name="MiniMapWrap"
+                    Grid.Row="2"
+                    Width="240" Height="180"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Margin="14,0,0,14"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    IsVisible="False"
+                    BoxShadow="0 4 12 0 #80000000">
+                <Grid>
+                    <ctl:MiniMapView Name="MiniMap"/>
+                    <!-- Label esquina sup. izq. del mini-mapa -->
+                    <Border Background="{StaticResource PilotXBgDeep}"
+                            CornerRadius="4"
+                            Padding="6,2"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Margin="6">
+                        <TextBlock Text="MAPA"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"/>
+                    </Border>
+                    <!-- Boton X chiquito para ocultar el mini-mapa -->
+                    <Button Name="MiniMapHide"
+                            Content="x"
+                            Width="22" Height="22"
+                            FontSize="11"
+                            Padding="0"
+                            Background="{StaticResource PilotXBgDeep}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorder}"
+                            BorderThickness="1"
+                            CornerRadius="11"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,6,6,0"
+                            Click="OnMiniMapHide"
+                            ToolTip.Tip="Ocultar mini-mapa"/>
+                </Grid>
+            </Border>
+
+            <!-- Pin para reabrir el mini-mapa cuando esta oculto -->
+            <Button Name="MiniMapShow"
+                    Grid.Row="2"
+                    Content="[M]"
+                    Width="44" Height="44"
+                    FontSize="12"
+                    Background="{StaticResource PilotXBgMid}"
+                    Foreground="{StaticResource PilotXTextMid}"
+                    BorderBrush="{StaticResource PilotXBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="22"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Margin="14,0,0,14"
+                    IsVisible="False"
+                    Click="OnMiniMapShow"
+                    ToolTip.Tip="Mostrar mini-mapa"/>
+
+            <!-- FAB X (modo full, ya que sin header no hay otra forma de cerrar) -->
+            <Button x:Name="CloseButton"
+                    Grid.Row="2"
+                    Content="X"
+                    Width="48" Height="48"
+                    FontSize="20"
+                    Foreground="#FFFFFF"
+                    Background="{StaticResource PilotXErrStrong}"
+                    BorderBrush="#FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="24"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,12,12,0"
+                    IsVisible="False"
+                    Click="OnCloseClick"/>
+
+            <!-- =================== TOOLBAR INFERIOR (placeholder) =================== -->
+            <!--
+                Tres botones placeholder, alineados al toolbar real de FormGPS:
+                · Engranaje  (Settings / vehiculo+implemento)
+                · FieldTools (lote / boundary / job)
+                · Tools      (SpecialFunctions / productos X-* / Hub)
+                Bound a comandos vacios por ahora. La paridad real con FormGPS
+                viene en una iteracion posterior, cuando empecemos a portar
+                botones uno por uno (project_pilotx_toolbar_icons).
+            -->
+            <Border Name="BottomToolbar"
+                    Grid.Row="3"
+                    Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="0,1,0,0"
+                    Height="64"
+                    IsVisible="False">
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="16">
+                    <!--
+                        Engranaje: ajustes (vehiculo/implemento/sistema). Se
+                        desactiva si no hay GPS fix — coherente con
+                        project_pilotx_toolbar_icons.
+                    -->
+                    <Button Name="BtnSettings"
+                            Width="56" Height="48"
+                            Content="(:)"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Click="OnSettingsClick"
+                            ToolTip.Tip="Ajustes - Sistema/Vehiculo/Implemento (requiere GPS)"/>
+                    <!--
+                        FieldTools: datos del lote activo. Se desactiva si no
+                        hay job iniciado (IsJobStarted=false).
+                    -->
+                    <Button Name="BtnFieldTools"
+                            Width="56" Height="48"
+                            Content="[F]"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Click="OnFieldToolsClick"
+                            ToolTip.Tip="Herramientas de lote - datos del lote activo (requiere lote)"/>
+                    <!--
+                        Tools (SpecialFunctions): SIEMPRE activo. Abre un
+                        menu con los productos X-* + Hub. Cada item navega
+                        el WebView a su pagina del wwwroot.
+                    -->
+                    <Button Name="BtnTools"
+                            Width="56" Height="48"
+                            Content="[T]"
+                            Background="{StaticResource PilotXBgHigh}"
+                            Foreground="{StaticResource PilotXTextMid}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            ToolTip.Tip="Special Functions - productos X-* / Hub">
+                        <Button.Flyout>
+                            <MenuFlyout Placement="Top">
+                                <MenuItem Header="Hub"        Click="OnNavHub"/>
+                                <MenuItem Header="Datos GPS"  Click="OnNavDatosGps"/>
+                                <MenuItem Header="-"/>
+                                <MenuItem Header="Camaras"    Click="OnNavCamaras"/>
+                                <MenuItem Header="VistaX"     Click="OnNavVistaX"/>
+                                <MenuItem Header="QuantiX"    Click="OnNavQuantiX"/>
+                                <MenuItem Header="SectionX"   Click="OnNavSectionX"/>
+                                <MenuItem Header="FlowX"      Click="OnNavFlowX"/>
+                                <MenuItem Header="StormX"     Click="OnNavStormX"/>
+                                <MenuItem Header="CoreX ECU"  Click="OnNavCoreX"/>
+                                <MenuItem Header="-"/>
+                                <MenuItem Header="Nodos"      Click="OnNavNodos"/>
+                                <MenuItem Header="Firmwares"  Click="OnNavFirmwares"/>
+                                <MenuItem Header="OrbitX"     Click="OnNavOrbitX"/>
+                                <MenuItem Header="Actualizar PilotX" Click="OnNavActualizar"/>
+                                <MenuItem Header="Debug"      Click="OnNavDebug"/>
+                            </MenuFlyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,318 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.HubPanel"
+             Background="{StaticResource PilotXBgDeep}">
+    <!--
+        HubPanel - reemplazo nativo de pages/hub.html (home del Hub).
+        KPIs (velocidad/rumbo/dosis/secciones/posicion/lote) se actualizan
+        desde el HudSnapshot que ya viene a 4Hz, sin red propia. La lista
+        de nodos se refresca a 3s contra /api/nodos/unified (reusa
+        NodosClient). Los toggles de widgets QX/VX/FX hablan a
+        /api/overlays (FormGPS los relee cada 250ms desde JSON y aplica
+        en caliente).
+    -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24,20,24,24" Spacing="16">
+
+            <!-- ============ Header + pills ============ -->
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="Hub"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="22" FontWeight="SemiBold"/>
+                    <TextBlock Text="Estado en tiempo real del sistema"
+                               Foreground="{StaticResource PilotXTextDim}"
+                               FontSize="12"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            VerticalAlignment="Center">
+
+                    <!-- Pill: trabajo -->
+                    <Border Name="PillJob"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1" CornerRadius="999"
+                            Padding="12,6,12,6">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Name="DotJob" Width="8" Height="8"
+                                     Fill="{StaticResource PilotXTextDim}"/>
+                            <TextBlock Name="TxtJob"
+                                       Text="Sin trabajo"
+                                       Foreground="{StaticResource PilotXTextMid}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pill: broker -->
+                    <Border Name="PillBroker"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1" CornerRadius="999"
+                            Padding="12,6,12,6">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Name="DotBroker" Width="8" Height="8"
+                                     Fill="{StaticResource PilotXTextDim}"/>
+                            <TextBlock Name="TxtBroker"
+                                       Text="Broker MQTT"
+                                       Foreground="{StaticResource PilotXTextMid}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Pill: nodos -->
+                    <Border Name="PillNodos"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1" CornerRadius="999"
+                            Padding="12,6,12,6">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Ellipse Name="DotNodos" Width="8" Height="8"
+                                     Fill="{StaticResource PilotXTextDim}"/>
+                            <TextBlock Name="TxtNodos"
+                                       Text="0 nodos"
+                                       Foreground="{StaticResource PilotXTextMid}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- ============ Grid 4 KPI cards ============ -->
+            <UniformGrid Columns="2" Rows="2">
+
+                <!-- Velocidad / Rumbo -->
+                <Border Margin="0,0,8,8"
+                        Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="{StaticResource PilotXBorder}"
+                        BorderThickness="1" CornerRadius="8"
+                        Padding="16,14,16,14">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Velocidad"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="12" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                            <TextBlock Name="KpiSpeed"
+                                       Text="0.0"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="34" FontWeight="Bold"/>
+                            <TextBlock Text="km/h"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="14"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,7"/>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                            <TextBlock Grid.Column="0" Text="Rumbo"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                            <TextBlock Grid.Column="1" Name="KpiHeading" Text="— °"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13" FontWeight="SemiBold"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Dosis / Shape -->
+                <Border Margin="8,0,0,8"
+                        Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="{StaticResource PilotXBorder}"
+                        BorderThickness="1" CornerRadius="8"
+                        Padding="16,14,16,14">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Dosis actual"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="12" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                            <TextBlock Name="KpiDose"
+                                       Text="—"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="34" FontWeight="Bold"/>
+                            <TextBlock Text="kg/ha"
+                                       Foreground="{StaticResource PilotXTextDim}"
+                                       FontSize="14"
+                                       VerticalAlignment="Bottom"
+                                       Margin="0,0,0,7"/>
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                            <TextBlock Grid.Column="0" Text="Shapefile"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                            <Border Grid.Column="1" Name="ShapePill"
+                                    Background="{StaticResource PilotXBgHigh}"
+                                    BorderBrush="{StaticResource PilotXBorderHigh}"
+                                    BorderThickness="1" CornerRadius="999"
+                                    Padding="8,2,8,2">
+                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                    <Ellipse Name="DotShape" Width="6" Height="6"
+                                             Fill="{StaticResource PilotXTextDim}"/>
+                                    <TextBlock Name="TxtShape" Text="sin shape"
+                                               Foreground="{StaticResource PilotXTextMid}" FontSize="11"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Secciones -->
+                <Border Margin="0,8,8,0"
+                        Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="{StaticResource PilotXBorder}"
+                        BorderThickness="1" CornerRadius="8"
+                        Padding="16,14,16,14">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Secciones"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="12" FontWeight="SemiBold"/>
+                        <StackPanel Name="SectionsRow"
+                                    Orientation="Horizontal"
+                                    Spacing="4"
+                                    HorizontalAlignment="Stretch"
+                                    MinHeight="34"/>
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+                            <TextBlock Grid.Column="0" Name="KpiSecCount" Text="0 de 0 abiertas"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                            <TextBlock Grid.Column="1" Name="KpiToolWidth" Text="— m"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13" FontWeight="SemiBold"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Posición / Lote -->
+                <Border Margin="8,8,0,0"
+                        Background="{StaticResource PilotXBgMid}"
+                        BorderBrush="{StaticResource PilotXBorder}"
+                        BorderThickness="1" CornerRadius="8"
+                        Padding="16,14,16,14">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Posicion"
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="12" FontWeight="SemiBold"/>
+                        <TextBlock Name="KpiLatLon" Text="—"
+                                   Foreground="{StaticResource PilotXTextHi}"
+                                   FontSize="20" FontWeight="SemiBold"
+                                   FontFamily="Consolas, Courier New, monospace"
+                                   TextWrapping="Wrap"/>
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                            <TextBlock Grid.Column="0" Text="Lote activo"
+                                       Foreground="{StaticResource PilotXTextDim}" FontSize="12"/>
+                            <TextBlock Grid.Column="1" Name="KpiField" Text="—"
+                                       Foreground="{StaticResource PilotXTextHi}"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxWidth="160"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- ============ Overlays toggles ============ -->
+            <TextBlock Text="Widgets sobre el mapa"
+                       Foreground="{StaticResource PilotXTextHi}"
+                       FontSize="16" FontWeight="SemiBold"
+                       Margin="0,4,0,0"/>
+            <Border Background="{StaticResource PilotXBgMid}"
+                    BorderBrush="{StaticResource PilotXBorder}"
+                    BorderThickness="1" CornerRadius="8"
+                    Padding="16,14,16,14">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2">
+                        <TextBlock Text="Overlays de PilotX"
+                                   Foreground="{StaticResource PilotXTextHi}"
+                                   FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="Activa o desactiva en caliente cada widget que se ve sobre el mapa principal."
+                                   Foreground="{StaticResource PilotXTextDim}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Name="BtnOvQX"
+                                Content="⟁ QuantiX"
+                                Click="OnToggleQx"
+                                MinHeight="36"
+                                Padding="14,6,14,6"
+                                FontSize="13" FontWeight="SemiBold"
+                                Background="{StaticResource PilotXAccent}"
+                                Foreground="White"
+                                BorderBrush="{StaticResource PilotXAccent}"
+                                BorderThickness="1"
+                                CornerRadius="6"/>
+                        <Button Name="BtnOvVX"
+                                Content="◉ VistaX"
+                                Click="OnToggleVx"
+                                MinHeight="36"
+                                Padding="14,6,14,6"
+                                FontSize="13" FontWeight="SemiBold"
+                                Background="{StaticResource PilotXAccent}"
+                                Foreground="White"
+                                BorderBrush="{StaticResource PilotXAccent}"
+                                BorderThickness="1"
+                                CornerRadius="6"/>
+                        <Button Name="BtnOvFX"
+                                Content="◊ FlowX"
+                                Click="OnToggleFx"
+                                MinHeight="36"
+                                Padding="14,6,14,6"
+                                FontSize="13" FontWeight="SemiBold"
+                                Background="{StaticResource PilotXAccent}"
+                                Foreground="White"
+                                BorderBrush="{StaticResource PilotXAccent}"
+                                BorderThickness="1"
+                                CornerRadius="6"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ============ Nodos ============ -->
+            <TextBlock Text="Nodos detectados"
+                       Foreground="{StaticResource PilotXTextHi}"
+                       FontSize="16" FontWeight="SemiBold"
+                       Margin="0,4,0,0"/>
+            <StackPanel Name="NodosHost" Spacing="6"/>
+
+            <!-- ============ Acciones rapidas ============ -->
+            <TextBlock Text="Acciones rapidas"
+                       Foreground="{StaticResource PilotXTextHi}"
+                       FontSize="16" FontWeight="SemiBold"
+                       Margin="0,4,0,0"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Name="BtnGoQuantix"
+                        Content="Abrir QuantiX"
+                        Click="OnGoQuantix"
+                        MinHeight="40"
+                        Padding="18,8,18,8"
+                        FontSize="14" FontWeight="SemiBold"
+                        Background="{StaticResource PilotXAccent}"
+                        Foreground="White"
+                        BorderBrush="{StaticResource PilotXAccent}"
+                        BorderThickness="1"
+                        CornerRadius="6"/>
+                <Button Name="BtnGoVistax"
+                        Content="Abrir VistaX"
+                        Click="OnGoVistax"
+                        MinHeight="40"
+                        Padding="18,8,18,8"
+                        FontSize="14" FontWeight="SemiBold"
+                        Background="{StaticResource PilotXBgHigh}"
+                        Foreground="{StaticResource PilotXTextHi}"
+                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="6"/>
+                <Button Name="BtnGoNodos"
+                        Content="Ver nodos"
+                        Click="OnGoNodos"
+                        MinHeight="40"
+                        Padding="18,8,18,8"
+                        FontSize="14" FontWeight="SemiBold"
+                        Background="{StaticResource PilotXBgHigh}"
+                        Foreground="{StaticResource PilotXTextHi}"
+                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="6"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

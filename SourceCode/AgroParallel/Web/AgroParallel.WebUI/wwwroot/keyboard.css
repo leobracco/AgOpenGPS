@@ -1,0 +1,138 @@
+/* ============================================================================
+   keyboard.css — Teclado virtual en pantalla
+   Tema PilotX (usa --agp-* del theme.css)
+   ============================================================================ */
+
+.agp-kbd {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: var(--agp-surface, #202326);
+  border-top: 1px solid var(--agp-border, #2F3338);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  padding: 8px 10px 10px 10px;
+  transform: translateY(110%);
+  transition: transform 180ms ease-out;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Desactiva double-tap-zoom y pinch sin matar la síntesis del click —
+     reemplaza al touchstart.preventDefault() del JS que rompía el teclado
+     táctil. Ver comentario en keyboard.js / ensureRoot(). */
+  touch-action: manipulation;
+  font-family: var(--agp-font-sans, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: 18px;
+  color: var(--agp-text, #DDE0E3);
+}
+.agp-kbd.open { transform: translateY(0); }
+
+.agp-kbd-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.agp-kbd-hint {
+  font-size: 13px;
+  color: var(--agp-text-muted, #8A8F95);
+  padding-left: 4px;
+}
+.agp-kbd-close {
+  background: var(--agp-bg-soft, #1C1F22);
+  color: var(--agp-text, #DDE0E3);
+  border: 1px solid var(--agp-border, #2F3338);
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  width: 56px;
+  height: 36px;
+  cursor: pointer;
+}
+.agp-kbd-close:active { background: var(--agp-border, #2F3338); }
+
+.agp-kbd-grid { display: flex; flex-direction: column; gap: 6px; }
+.agp-kbd-row  { display: flex; gap: 6px; }
+
+.agp-key {
+  flex: 1;
+  height: 52px;
+  min-width: 36px;
+  background: var(--agp-bg-soft, #1C1F22);
+  color: var(--agp-text, #DDE0E3);
+  border: 1px solid var(--agp-border, #2F3338);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  transition: background-color 80ms ease;
+}
+.agp-key:active,
+.agp-key.active {
+  background: var(--agp-border, #2F3338);
+  transform: translateY(1px);
+}
+.agp-key.mod {
+  background: var(--agp-bg, #16181A);
+  font-size: 16px;
+}
+.agp-key.mod.accent {
+  background: var(--agp-accent, #4BA63F);
+  color: #fff;
+  border-color: var(--agp-accent, #4BA63F);
+}
+.agp-key.mod.accent:active { background: var(--agp-accent-press, #3F8E36); }
+.agp-key.space {
+  font-size: 13px;
+  color: var(--agp-text-muted, #8A8F95);
+}
+
+/* Shift activo */
+.agp-kbd-shift .agp-key.shift,
+.agp-kbd-caps  .agp-key.shift {
+  background: var(--agp-accent-soft, rgba(75, 166, 63, 0.14));
+  border-color: var(--agp-accent, #4BA63F);
+  color: var(--agp-accent, #4BA63F);
+}
+.agp-kbd-caps .agp-key.shift {
+  background: var(--agp-accent, #4BA63F);
+  color: #fff;
+}
+
+/* Popup de acentos al long-press */
+.agp-kbd-accents {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: var(--agp-surface, #202326);
+  border: 1px solid var(--agp-border, #2F3338);
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+.agp-key-accent {
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+}
+
+/* Compacto en layout numérico (4 columnas) */
+.agp-kbd-numeric .agp-key { height: 56px; font-size: 22px; }
+
+/* Más pequeño en pantallas chicas */
+@media (max-height: 720px) {
+  .agp-kbd { padding: 6px 8px 8px 8px; }
+  .agp-key { height: 44px; font-size: 16px; }
+  .agp-kbd-numeric .agp-key { height: 48px; font-size: 20px; }
+}
+
+/* Ocultar visualmente cuando hay reduce-motion */
+@media (prefers-reduced-motion: reduce) {
+  .agp-kbd { transition: none; }
+}

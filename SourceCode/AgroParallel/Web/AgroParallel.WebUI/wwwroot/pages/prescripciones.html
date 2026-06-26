@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Prescripciones · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    .presc-row {
+      display:grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: var(--agp-sp-3);
+      align-items: center;
+      padding: var(--agp-sp-3);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      margin-bottom: var(--agp-sp-2);
+      cursor: pointer;
+      background: var(--agp-surface);
+      transition: background 120ms;
+    }
+    .presc-row:hover { background: rgba(74,186,62,0.06); }
+    .presc-row.is-active { border-color: var(--agp-accent); background: rgba(74,186,62,0.08); }
+    .presc-row .radio-dot {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid var(--agp-border);
+      display:flex; align-items:center; justify-content:center;
+    }
+    .presc-row.is-active .radio-dot { border-color: var(--agp-accent); }
+    .presc-row.is-active .radio-dot::after {
+      content:''; width:12px; height:12px; border-radius:50%;
+      background: var(--agp-accent);
+    }
+    .presc-row .nombre { font-weight: var(--agp-fw-medium); color: var(--agp-text); }
+    .presc-row .meta {
+      font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top:2px;
+    }
+    .presc-row select {
+      min-height: 40px;
+      padding: 6px 10px;
+      background: var(--agp-input-bg, var(--agp-bg));
+      color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+    }
+    .empty-hint {
+      padding: var(--agp-sp-4);
+      text-align: center;
+      color: var(--agp-text-muted);
+      font-size: var(--agp-fs-sm);
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="prescripciones"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Prescripciones</h1>
+        <div class="subtitle">Variable-rate · zonas de dosis para QuantiX</div>
+      </div>
+      <span class="pill idle" id="activaPill"><span class="dot"></span> Sin prescripción activa</span>
+    </div>
+
+    <div class="card">
+      <div class="subtitle" style="margin-bottom: var(--agp-sp-3)">
+        Las prescripciones se sincronizan automáticamente desde OrbitX a
+        <code>data/prescripciones/</code>. Marcá la activa con el círculo: el
+        bridge de QuantiX consulta la zona donde está el GPS y aplica la dosis
+        del polígono que lo contiene. Si el GPS sale de la prescripción, cae al
+        shapefile/DosisFija como antes.
+      </div>
+
+      <div id="lista"></div>
+      <div id="emptyHint" class="empty-hint" style="display:none">
+        No hay prescripciones descargadas todavía. Verificá que OrbitX-Sync esté
+        corriendo y que tu organización tenga prescripciones cargadas.
+      </div>
+
+      <div class="toolbar" style="margin-top: var(--agp-sp-4)">
+        <div class="grow"></div>
+        <button id="btnRecargar" type="button" class="btn-ghost">Recargar</button>
+        <button id="btnDesactivar" type="button" class="btn-ghost">Quitar activa</button>
+      </div>
+    </div>
+  </main>
+  <script src="../js/sidebar.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      const $ = id => document.getElementById(id);
+      let state = { items: [], activaId: '' };
+
+      async function fetchJson(url, init) {
+        const r = await fetch(url, init || {});
+        if (!r.ok) throw new Error(url + ' -> ' + r.status);
+        return await r.json();
+      }
+
+      async function load() {
+        try {
+          const res = await fetchJson('/api/prescripciones/list');
+          state.items = (res && res.items) || [];
+          const activa = (state.items.find(x => x.activo) || {}).id || '';
+          state.activaId = activa;
+          render();
+        } catch (e) {
+          console.error('[presc] load error:', e);
+          state.items = [];
+          render();
+        }
+      }
+
+      function render() {
+        const lista = $('lista');
+        const empty = $('emptyHint');
+        const pill = $('activaPill');
+        lista.innerHTML = '';
+
+        if (!state.items.length) {
+          empty.style.display = '';
+          pill.classList.remove('on'); pill.classList.add('idle');
+          pill.innerHTML = '<span class="dot"></span> Sin prescripción activa';
+          return;
+        }
+        empty.style.display = 'none';
+
+        for (const it of state.items) {
+          const row = document.createElement('div');
+          row.className = 'presc-row' + (it.activo ? ' is-active' : '');
+          row.dataset.id = it.id;
+
+          const left = document.createElement('div');
+          left.innerHTML = '<div class="radio-dot"></div>';
+
+          const mid = document.createElement('div');
+          const nombre = document.createElement('div');
+          nombre.className = 'nombre';
+          nombre.textContent = it.nombre || it.archivo || it.id;
+          const meta = document.createElement('div');
+          meta.className = 'meta';
+          const kb = it.bytes ? (' · ' + Math.round(it.bytes / 1024) + ' KB') : '';
+          const props = (it.propiedades_candidatas || []).join(', ');
+          meta.textContent = (props ? 'campos: ' + props : 'sin propiedades numéricas') + kb;
+          mid.appendChild(nombre);
+          mid.appendChild(meta);
+
+          const right = document.createElement('div');
+          if ((it.propiedades_candidatas || []).length > 0) {
+            const sel = document.createElement('select');
+            sel.dataset.role = 'prop';
+            for (const p of it.propiedades_candidatas) {
+              const o = document.createElement('option');
+              o.value = p; o.textContent = p;
+              sel.appendChild(o);
+            }
+            // si está activa, pre-seleccionar la propiedad que estaba elegida
+            sel.addEventListener('click', e => e.stopPropagation());
+            sel.addEventListener('change', async () => {
+              if (it.activo) {
+                await setActiva(it.id, sel.value);
+              }
+            });
+            right.appendChild(sel);
+          }
+
+          row.addEventListener('click', () => setActiva(it.id, right.querySelector('select')?.value || ''));
+
+          row.appendChild(left);
+          row.appendChild(mid);
+          row.appendChild(right);
+          lista.appendChild(row);
+        }
+
+        // Pill
+        const activa = state.items.find(x => x.activo);
+        if (activa) {
+          pill.classList.remove('idle'); pill.classList.add('on');
+          pill.innerHTML = '<span class="dot"></span> Activa: ' + (activa.nombre || activa.id);
+        } else {
+          pill.classList.remove('on'); pill.classList.add('idle');
+          pill.innerHTML = '<span class="dot"></span> Sin prescripción activa';
+        }
+      }
+
+      async function setActiva(id, propiedad) {
+        try {
+          await fetchJson('/api/prescripciones/activa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, propiedad_dosis: propiedad || '' })
+          });
+        } catch (e) { console.error('[presc] setActiva error:', e); }
+        await load();
+      }
+
+      async function clearActiva() {
+        try {
+          await fetchJson('/api/prescripciones/activa/clear', { method: 'POST' });
+        } catch (e) { console.error('[presc] clear error:', e); }
+        await load();
+      }
+
+      $('btnRecargar').addEventListener('click', load);
+      $('btnDesactivar').addEventListener('click', clearActiva);
+      load();
+    })();
+  </script>
+</body>
+</html>

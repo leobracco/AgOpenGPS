@@ -3,6 +3,8 @@ using AgOpenGPS.Forms;
 using Microsoft.Win32;
 using System;
 using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Windows.Forms;
 
 namespace AgOpenGPS
@@ -12,6 +14,19 @@ namespace AgOpenGPS
         public const string vehicleFileName = "VehicleFileName";
         public const string workingDirectory = "WorkingDirectory";
         public const string language = "Language";
+    }
+
+    // JSON backup para las settings que el registro pierde en apagados forzados.
+    public class SettingsBackup
+    {
+        [JsonPropertyName("working_directory")]
+        public string WorkingDirectory { get; set; }
+
+        [JsonPropertyName("vehicle_file_name")]
+        public string VehicleFileName { get; set; }
+
+        [JsonPropertyName("language")]
+        public string Language { get; set; }
     }
 
     public static class RegistrySettings
@@ -25,8 +40,44 @@ namespace AgOpenGPS
         public static string baseDirectory;
         public static string fieldsDirectory;
 
+        private static readonly string BackupPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory, "aog_settings.json");
+
+        private static void SaveBackupJson()
+        {
+            try
+            {
+                var backup = new SettingsBackup
+                {
+                    WorkingDirectory = workingDirectory,
+                    VehicleFileName = vehicleFileName,
+                    Language = culture
+                };
+                var opts = new JsonSerializerOptions { WriteIndented = true };
+                File.WriteAllText(BackupPath, JsonSerializer.Serialize(backup, opts));
+            }
+            catch { }
+        }
+
+        private static SettingsBackup LoadBackupJson()
+        {
+            try
+            {
+                if (File.Exists(BackupPath))
+                {
+                    var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    return JsonSerializer.Deserialize<SettingsBackup>(
+                        File.ReadAllText(BackupPath), opts);
+                }
+            }
+            catch { }
+            return null;
+        }
+
         public static void Load()
         {
+            bool registryOk = false;
+
             try
             {
                 //opening the subkey
@@ -57,15 +108,69 @@ namespace AgOpenGPS
 
                 //close registry
                 regKey.Close();
+                registryOk = true;
             }
             catch (Exception ex)
             {
                 Log.EventWriter("Registry -> Catch, Serious Problem Creating Registry keys: " + ex.ToString());
-                Reset();
             }
+
+            // Si el registro falló o el workingDirectory quedó en Default sin
+            // vehículo, intentar recuperar desde el backup JSON.
+            if (!registryOk
+                || (workingDirectory == defaultString && string.IsNullOrEmpty(vehicleFileName)))
+            {
+                var backup = LoadBackupJson();
+                if (backup != null)
+                {
+                    bool restored = false;
+
+                    if (!string.IsNullOrEmpty(backup.WorkingDirectory)
+                        && (workingDirectory == defaultString || !registryOk))
+                    {
+                        workingDirectory = backup.WorkingDirectory;
+                        restored = true;
+                    }
+
+                    if (!string.IsNullOrEmpty(backup.VehicleFileName)
+                        && string.IsNullOrEmpty(vehicleFileName))
+                    {
+                        vehicleFileName = backup.VehicleFileName;
+                        restored = true;
+                    }
+
+                    if (!string.IsNullOrEmpty(backup.Language)
+                        && (culture == "en" || !registryOk))
+                    {
+                        culture = backup.Language;
+                        restored = true;
+                    }
+
+                    if (restored)
+                    {
+                        Log.EventWriter("Settings restored from JSON backup: " + BackupPath);
+                        // Re-escribir al registro para que quede sincronizado.
+                        try
+                        {
+                            RegistryKey fixKey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\AgOpenGPS");
+                            fixKey.SetValue(RegKeys.workingDirectory, workingDirectory);
+                            fixKey.SetValue(RegKeys.vehicleFileName, vehicleFileName);
+                            fixKey.SetValue(RegKeys.language, culture);
+                            fixKey.Close();
+                        }
+                        catch { }
+                    }
+                }
+            }
+
+            if (!registryOk && workingDirectory == defaultString)
+                Reset();
 
             //make sure directories exist and are in right place if not default workingDir
             CreateDirectories();
+
+            // Guardar backup JSON con los valores actuales.
+            SaveBackupJson();
 
             //keep below 500 kb
             Log.CheckLogSize(Path.Combine(logsDirectory, "AgOpenGPS_Events_Log.txt"), 1000000);
@@ -97,6 +202,9 @@ namespace AgOpenGPS
                 }
 
                 key.Close();
+
+                // Mantener el backup JSON sincronizado.
+                SaveBackupJson();
             }
             catch (Exception ex)
             {
@@ -141,6 +249,28 @@ namespace AgOpenGPS
                 {
                     baseDirectory = Path.Combine(workingDirectory, "AgOpenGPS");
                 }
+
+                // Instalación kiosko desde cero: el perfil recién booteado todavía
+                // no tiene materializada la carpeta Documentos, así que
+                // GetFolderPath(MyDocuments) devuelve "" y baseDirectory queda
+                // RELATIVO ("AgOpenGPS"). Más tarde ApplicationModel hace
+                // baseDirectory.CreateSubdirectory("Fields") SIN try/catch y
+                // revienta con DirectoryNotFoundException. Forzamos una ruta
+                // absoluta de respaldo (ProgramData) para que el arranque no caiga.
+                if (string.IsNullOrWhiteSpace(baseDirectory) || !Path.IsPathRooted(baseDirectory))
+                {
+                    string fallbackRoot = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                    if (string.IsNullOrWhiteSpace(fallbackRoot))
+                        fallbackRoot = AppDomain.CurrentDomain.BaseDirectory;
+                    baseDirectory = Path.Combine(fallbackRoot, "AgOpenGPS");
+                    Log.EventWriter("WorkingDir -> MyDocuments vacío (kiosko), usando fallback: " + baseDirectory);
+                }
+
+                // ApplicationModel asume que baseDirectory ya existe (CreateSubdirectory
+                // sin guarda). Lo creamos explícitamente acá; la creación de los
+                // subdirectorios de abajo está envuelta en try/catch que sólo loguea.
+                if (!Directory.Exists(baseDirectory))
+                    Directory.CreateDirectory(baseDirectory);
             }
             catch (Exception ex)
             {

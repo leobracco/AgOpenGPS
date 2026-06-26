@@ -23,9 +23,6 @@ namespace AgOpenGPS
             labelCancel.Text = gStr.gsCancel;
             labelExitToWindows.Text = gStr.gsExitToWindows + ":";
             labelShutdownIn.Text = gStr.gsShutdownIn + ":";
-
-            //Trigger a snapshot to create a temp data file for the AgShare Upload
-            if (mf.isJobStarted && Properties.Settings.Default.AgShareEnabled) mf.AgShareSnapshot();
         }
 
         private void FormSaveOrNot_Load(object sender, EventArgs e)

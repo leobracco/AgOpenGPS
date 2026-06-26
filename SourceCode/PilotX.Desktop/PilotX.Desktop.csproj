@@ -1,0 +1,100 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PilotX.Desktop - shell Avalonia oficial de PilotX.
+
+    Estrategia strangler fig: el shell WinForms (FormGPS + AgroParallel.Shell
+    WebView2) sigue siendo el productivo en el tractor. Este proyecto crece
+    en paralelo hasta tener paridad funcional y se promueve cuando llegue
+    el momento.
+
+    PIVOT: el WebView (Chromium/Edge) NO es el target final. Es puente
+    temporal LAZY (instanciar al abrir pantalla / dispose al cerrar). UI
+    final = 100% nativa Avalonia (XAML + Skia + MVVM). Cada pantalla
+    portada = un WebView menos. Cuando no quede UI web residente se
+    elimina EmbedIO/AgpWebHost (:5180).
+
+    Build:  dotnet build SourceCode/PilotX.Desktop/PilotX.Desktop.csproj -c Debug
+    Run:    dotnet run -project SourceCode/PilotX.Desktop -no-build
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- net9.0-windows: matchea el SDK del tractor (9.0.312). El shell
+         WinForms sigue en net48; este proyecto es independiente. -->
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <RootNamespace>PilotX.Desktop</RootNamespace>
+    <AssemblyName>PilotX.Desktop</AssemblyName>
+    <NoWarn>$(NoWarn);CS8618;CS8600;CS8601;CS8602;IDE0055</NoWarn>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- AllowUnsafeBlocks: necesario para los pointer ops de Silk.NET.OpenGL
+         en Views/MapGlSurface (BufferData/BufferSubData/UniformMatrix4 toman
+         void*). El uso de unsafe esta acotado a ese archivo y a operaciones
+         de upload de buffers GL — nada que cruce confianza. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- ==========================================================
+         Tuning de runtime para tractor (objetivo bajo consumo)
+         ==========================================================
+         La PC del tractor es una embedded modesta, no un server.
+         Workstation GC vs Server GC: Server GC pre-aloca 1 heap por
+         core + threads dedicados, hace pausas mas cortas a costa de
+         RAM y CPU permanentes. Para una UI single-window con tasks
+         de polling chicos, Workstation GC consume menos memoria y
+         se porta mejor en perfiles ARM/embebido (Linux/Pi a futuro).
+    -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <!-- TieredCompilation: JIT escalonado, primer hit barato + recompila
+         hot paths despues. Reduce arranque sin perder steady-state perf. -->
+    <TieredCompilation>true</TieredCompilation>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+    <!-- Invariant globalization: no carga ICU (~25MB en .NET 9) si no usamos
+         locale-aware formatting. Toda la UI es internamente ASCII y los
+         numeros usan CultureInfo.InvariantCulture. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- Release: ReadyToRun + sin debugging-only overhead. NativeAOT queda
+       pendiente: Avalonia 11.2 todavia no trimea 100% limpio en algunos
+       paquetes (WebView.Avalonia particularmente). Primer paso = R2R. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.3" Condition="'$(Configuration)' == 'Debug'" />
+
+    <!-- CommunityToolkit.Mvvm: source generators ([ObservableProperty],
+         [RelayCommand]). NO usa reflexion en runtime, asi que es seguro
+         para trimming/NativeAOT y se justifica la dependencia. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+
+    <!-- WebView.Avalonia 11.0.0.1: PUENTE TEMPORAL. Se instancia on-demand
+         al abrir una pantalla todavia no portada, se hace Dispose al cerrar.
+         NUNCA residente durante el guiado. Cuando todas las pantallas esten
+         portadas a nativo, se borra esta referencia + EmbedIO/AgpWebHost. -->
+    <PackageReference Include="WebView.Avalonia" Version="11.0.0.1" />
+    <PackageReference Include="WebView.Avalonia.Desktop" Version="11.0.0.1" />
+
+    <!-- Silk.NET.OpenGL: bindings .NET (~3MB) al loader GL nativo.
+         Lo usa Views/MapGlSurface para implementar el render OpenGL del
+         mapa (Stage 1 migracion FormGPS -> Avalonia GL ES). Se conecta
+         al GlInterface que Avalonia expone via OpenGlControlBase
+         (sin GLFW ni SDL aparte). Stages siguientes (sections, guidance,
+         tool, youturn) reutilizan la misma binding. -->
+    <PackageReference Include="Silk.NET.OpenGL" Version="2.21.0" />
+  </ItemGroup>
+
+</Project>

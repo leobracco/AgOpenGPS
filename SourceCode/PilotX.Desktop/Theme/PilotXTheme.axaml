@@ -1,0 +1,51 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        PilotX dark cockpit palette.
+        Mismos valores que SourceCode/AgroParallel/Web/AgroParallel.WebUI/wwwroot/theme.css
+        para que el cromo Avalonia y la PWA del WebView sientan continuidad
+        cuando estan apilados en pantalla del tractor.
+
+        Memo: feedback_branding_pilotx + project_pilotx_design_system.
+    -->
+
+    <!-- Tonos base de cabina (deep -> mid -> high) -->
+    <Color x:Key="PilotXBgDeepColor">#101612</Color>   <!-- fondo principal cabina -->
+    <Color x:Key="PilotXBgMidColor">#1A1F1B</Color>    <!-- header bar / cards -->
+    <Color x:Key="PilotXBgHighColor">#262C28</Color>   <!-- hover / elevated -->
+    <Color x:Key="PilotXBorderColor">#2A332C</Color>   <!-- separadores sutiles -->
+    <Color x:Key="PilotXBorderHighColor">#535E54</Color> <!-- bordes visibles -->
+
+    <!-- Texto -->
+    <Color x:Key="PilotXTextHiColor">#E2E7E2</Color>   <!-- titulos / primary -->
+    <Color x:Key="PilotXTextMidColor">#C5CFC5</Color>  <!-- body -->
+    <Color x:Key="PilotXTextDimColor">#8FA092</Color>  <!-- captions / subtitle -->
+
+    <!-- Acento PilotX (verde marca) -->
+    <Color x:Key="PilotXAccentColor">#4ABA3E</Color>
+    <Color x:Key="PilotXAccentHoverColor">#5BC850</Color>
+
+    <!-- Semaforo cabina -->
+    <Color x:Key="PilotXOkColor">#4ABA3E</Color>
+    <Color x:Key="PilotXWarnColor">#E2B53E</Color>
+    <Color x:Key="PilotXErrColor">#E15A5A</Color>
+    <Color x:Key="PilotXErrStrongColor">#C92D2D</Color>
+
+    <!-- Brushes ya armados para bindear directo desde XAML -->
+    <SolidColorBrush x:Key="PilotXBgDeep"        Color="{StaticResource PilotXBgDeepColor}"/>
+    <SolidColorBrush x:Key="PilotXBgMid"         Color="{StaticResource PilotXBgMidColor}"/>
+    <SolidColorBrush x:Key="PilotXBgHigh"        Color="{StaticResource PilotXBgHighColor}"/>
+    <SolidColorBrush x:Key="PilotXBorder"        Color="{StaticResource PilotXBorderColor}"/>
+    <SolidColorBrush x:Key="PilotXBorderHigh"    Color="{StaticResource PilotXBorderHighColor}"/>
+    <SolidColorBrush x:Key="PilotXTextHi"        Color="{StaticResource PilotXTextHiColor}"/>
+    <SolidColorBrush x:Key="PilotXTextMid"       Color="{StaticResource PilotXTextMidColor}"/>
+    <SolidColorBrush x:Key="PilotXTextDim"       Color="{StaticResource PilotXTextDimColor}"/>
+    <SolidColorBrush x:Key="PilotXAccent"        Color="{StaticResource PilotXAccentColor}"/>
+    <SolidColorBrush x:Key="PilotXAccentHover"   Color="{StaticResource PilotXAccentHoverColor}"/>
+    <SolidColorBrush x:Key="PilotXOk"            Color="{StaticResource PilotXOkColor}"/>
+    <SolidColorBrush x:Key="PilotXWarn"          Color="{StaticResource PilotXWarnColor}"/>
+    <SolidColorBrush x:Key="PilotXErr"           Color="{StaticResource PilotXErrColor}"/>
+    <SolidColorBrush x:Key="PilotXErrStrong"     Color="{StaticResource PilotXErrStrongColor}"/>
+
+</ResourceDictionary>

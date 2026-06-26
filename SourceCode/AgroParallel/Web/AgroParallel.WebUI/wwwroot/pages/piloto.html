@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Piloto · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .map-wrap {
+      position: relative;
+      width: 100%;
+      height: calc(100vh - 180px);
+      min-height: 480px;
+      background: var(--agp-bg);
+      border-radius: var(--agp-radius-lg);
+      border: var(--agp-border-w) solid var(--agp-border);
+      overflow: hidden;
+    }
+    #map { width: 100%; height: 100%; display:block; cursor: grab; }
+    #map:active { cursor: grabbing; }
+
+    .hud {
+      position: absolute; top: 12px; left: 12px;
+      display:flex; gap: var(--agp-sp-2); flex-wrap: wrap; align-items:flex-start;
+      pointer-events: none;
+    }
+    .hud .chip {
+      background: rgba(31,36,40,0.92);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: 6px 10px;
+      font-size: var(--agp-fs-sm);
+      color: var(--agp-text);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.45);
+      pointer-events: auto;
+    }
+    .hud .chip strong { font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold); color: var(--agp-text); }
+    .hud .chip .lbl   { color: var(--agp-text-muted); margin-right: 4px; text-transform: uppercase; font-size: var(--agp-fs-xs); letter-spacing: 0.5px; }
+
+    .map-controls {
+      position: absolute; top: 12px; right: 12px;
+      display:flex; gap: 6px;
+    }
+    .map-controls button {
+      width: 36px; height: 36px; padding: 0;
+      border-radius: var(--agp-radius-md); border: var(--agp-border-w) solid var(--agp-border);
+      background: rgba(31,36,40,0.92); color: var(--agp-text);
+      font-size: 16px; cursor: pointer;
+    }
+    .map-controls button.primary { background: var(--agp-accent); color: white; border-color: var(--agp-accent); }
+
+    .map-footer {
+      position: absolute; left: 12px; bottom: 12px;
+      display:flex; gap: var(--agp-sp-2); pointer-events: none;
+    }
+    .map-footer .chip { pointer-events: auto; }
+
+    /* Monitor de siembra — tira horizontal de surcos. Paleta nueva:
+       ok=verde, bajo=fade negro→verde, tapado=negro, exceso=azul,
+       no-data=gris, muted=gris opacado. */
+    .seedmon {
+      display:flex; flex-direction:column;
+      gap: 6px; margin-top: var(--agp-sp-3);
+      padding: var(--agp-sp-2);
+      background: var(--agp-bg);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+    }
+    .seedmon header { display:flex; gap: var(--agp-sp-3); align-items:center; font-size: var(--agp-fs-sm); color: var(--agp-text-muted); flex-wrap: wrap; }
+    .seedmon header strong { color: var(--agp-text); font-family: var(--agp-font-mono); }
+    .seedmon .trenes { display:flex; flex-direction:column; gap: 4px; }
+    .seedmon .tren { display:flex; gap: 4px; align-items:center; }
+    .seedmon .tren .lbl { font-size: var(--agp-fs-xs); width: 72px; color: var(--agp-text-muted); }
+    .seedmon .strip { display:flex; gap: 2px; flex: 1; flex-wrap: wrap; }
+    .seedmon .cell {
+      width: 18px; height: 22px; border-radius: 3px;
+      background: var(--vx-no-data); border: 1px solid var(--vx-no-data-border);
+      cursor: pointer; transition: transform var(--agp-dur-fast) var(--agp-ease);
+      position: relative;
+    }
+    .seedmon .cell:hover { transform: translateY(-1px); }
+    .seedmon .cell.muted::after {
+      content:''; position:absolute; left:2px; right:2px; top:50%;
+      height:2px; background: var(--agp-text-muted); border-radius:1px; transform: translateY(-50%);
+    }
+    .seedmon .cell.cut { opacity: 0.35; }
+    .seedmon .legend { display:flex; gap: var(--agp-sp-3); font-size: 11px; color: var(--agp-text-muted); align-items:center; }
+    .seedmon .legend .sw { display:inline-block; width:12px; height:12px; border-radius:2px; margin-right:4px; vertical-align:-2px; border:1px solid rgba(0,0,0,0.25); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="piloto"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Piloto</h1><div class="subtitle">Mapa en vivo · vehículo y herramienta</div></div>
+      <span class="pill warn" id="mapStatus"><span class="dot"></span> Cargando…</span>
+    </div>
+
+    <div class="map-wrap">
+      <canvas id="map"></canvas>
+
+      <div class="hud">
+        <div class="chip"><span class="lbl">Vehículo</span><strong id="hudVehicle">—</strong></div>
+        <div class="chip"><span class="lbl">Implemento</span><strong id="hudImpl">—</strong></div>
+        <div class="chip"><span class="lbl">Vel</span><strong id="hudSpeed">0.0</strong> km/h</div>
+        <div class="chip"><span class="lbl">Rumbo</span><strong id="hudHeading">0</strong>°</div>
+        <div class="chip"><span class="lbl">XTE</span><strong id="hudXte">—</strong></div>
+        <div class="chip"><span class="lbl">Dosis</span><strong id="hudDose">—</strong></div>
+        <div class="chip"><span class="lbl">Sec</span><strong id="hudSec">0/0</strong></div>
+        <div class="chip"><span class="lbl">Lat,Lon</span><strong id="hudLatLon">—</strong></div>
+      </div>
+
+      <div class="map-controls">
+        <button id="btnFollow" class="primary" title="Seguir tractor">◎</button>
+        <button id="btnShape"  class="primary" title="Mostrar shapefile">▦</button>
+        <button id="btnCovReset" title="Borrar cobertura pintada">⌫</button>
+        <button id="btnZoomIn"  title="Acercar">＋</button>
+        <button id="btnZoomOut" title="Alejar">−</button>
+      </div>
+    </div>
+
+    <section class="seedmon" id="seedmon" hidden>
+      <header>
+        <span><span class="lbl">Monitor de siembra</span> · <strong id="smImpl">—</strong></span>
+        <span>SPM <strong id="smSpm">—</strong></span>
+        <span>Surcos <strong id="smActivos">—</strong></span>
+        <span>Fallas <strong id="smFallas">0</strong></span>
+      </header>
+      <div class="trenes" id="smTrenes"></div>
+    </section>
+
+    <h2 style="margin-top: var(--agp-sp-5)">Asistencias</h2>
+    <div class="toggles" style="display:flex; flex-wrap:wrap; gap: var(--agp-sp-3)">
+      <label class="switch"><input type="checkbox" checked><span class="track"></span> Auto-secciones</label>
+      <label class="switch"><input type="checkbox" checked><span class="track"></span> Tasa variable</label>
+      <label class="switch"><input type="checkbox"><span class="track"></span> Recordatorio fin línea</label>
+      <label class="switch"><input type="checkbox" checked><span class="track"></span> Cámaras visibles</label>
+    </div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/piloto.js"></script>
+</body>
+</html>

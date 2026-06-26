@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    AgroParallel.Updater
+    Pequeño ejecutable de consola que sobrevive al cierre de PilotX, extrae el
+    ZIP staged sobre el directorio de instalación y vuelve a lanzar la app.
+    Debe copiarse al mismo directorio que PilotX.exe (PublishDir).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>AgroParallel.Updater</RootNamespace>
+    <AssemblyName>AgroParallel.Updater</AssemblyName>
+    <LangVersion>7.3</LangVersion>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishDir>..\..\..\..\AgOpenGPS\</PublishDir>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+  </ItemGroup>
+
+</Project>

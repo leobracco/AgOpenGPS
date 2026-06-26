@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#4BA63F" />
+  <link rel="manifest" href="/m/manifest.webmanifest" />
+  <link rel="stylesheet" href="/m/m.css" />
+  <title>VistaX · AP Field</title>
+  <style>
+    .sens { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .sens:last-child { border-bottom: 0; }
+    .sens .l { flex: 1; }
+    .sens .l b { font-size: 16px; font-variant-numeric: tabular-nums; }
+    .sens .l .s { font-size: 12px; color: var(--muted); }
+    .sens .actions { display: flex; gap: 6px; }
+    .sens .actions button { min-height: 40px; padding: 0 12px; font-size: 13px; width: auto; }
+    .calbar {
+      background: var(--surface-2); border: 1px solid var(--accent); border-radius: var(--r);
+      padding: 12px; margin-bottom: 12px;
+    }
+    .calbar h2 { margin: 0 0 8px; }
+  </style>
+</head>
+<body>
+  <header class="hdr">
+    <button class="back" onclick="history.length>1?history.back():location.replace('/m/')">&lsaquo;</button>
+    <h1>VistaX</h1>
+    <span class="status">--</span>
+  </header>
+  <main class="wrap">
+    <div id="calBox"></div>
+
+    <div class="card">
+      <h2>Calibrar 5 s</h2>
+      <div class="sub">Pone el insumo activo en modo calibracion. Despues elegis "objetivo" (densidad normal) o "saturado" (referencia maxima).</div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn primary" id="btnCalStart">Iniciar 5 s</button>
+        <button class="btn" id="btnCalCancel">Cancelar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Sensores en vivo</h2>
+      <div id="sensores"><div class="empty">Cargando...</div></div>
+    </div>
+  </main>
+  <div id="toast"></div>
+  <script src="/m/m.js"></script>
+  <script>
+    APF.startHeartbeat(5000);
+    var lastCalState = null;
+
+    async function loadLive() {
+      try {
+        var j = await APF.getJSON('/api/vistax/live', 2500);
+        var sensores = (j && (j.sensores || j.Sensores)) || [];
+        var box = document.getElementById('sensores');
+        if (sensores.length === 0) { box.innerHTML = '<div class="empty">Sin sensores activos.</div>'; return; }
+        var html = '';
+        sensores.forEach(function (s) {
+          var spm = s.spm != null ? s.spm : (s.Spm || 0);
+          var nombre = s.nombre || s.Nombre || ('S' + (s.surco || s.Surco || '?'));
+          var falla = s.falla || s.Falla;
+          var muted = s.muted || s.Muted;
+          html += '<div class="sens" data-uid="' + (s.uid || s.Uid || '') + '" data-cable="' + (s.cable || s.Cable || 0) + '">' +
+                    '<div class="l">' +
+                      '<b>' + spm.toFixed(0) + ' SPM</b>' +
+                      ' <span class="pill ' + (falla?'bad':(muted?'warn':'ok')) + '">' + (falla?'falla':(muted?'mute':'ok')) + '</span>' +
+                      '<div class="s">' + nombre + ' · cable ' + (s.cable || s.Cable || 0) + '</div>' +
+                    '</div>' +
+                    '<div class="actions">' +
+                      '<button class="btn" data-act="mute">' + (muted?'Activar':'Silenciar') + '</button>' +
+                    '</div>' +
+                  '</div>';
+        });
+        box.innerHTML = html;
+      } catch (e) { /* offline */ }
+    }
+    loadLive();
+    setInterval(loadLive, 1000);
+
+    async function loadCalState() {
+      try {
+        var st = await APF.getJSON('/api/vistax/calibrar/state', 2500);
+        lastCalState = st;
+        var box = document.getElementById('calBox');
+        if (!st || !st.activa) { box.innerHTML = ''; return; }
+        var html = '<div class="calbar">' +
+                     '<h2>Calibracion activa</h2>' +
+                     '<div class="row"><span>Tiempo restante</span><strong>' + (st.segundosRestantes || st.SegundosRestantes || 0).toFixed(1) + ' s</strong></div>' +
+                     '<div class="row"><span>Pulsos acumulados</span><strong>' + (st.pulsos || st.Pulsos || 0) + '</strong></div>';
+        if (st.terminada || st.Terminada) {
+          html += '<div class="btn-row" style="margin-top:10px;">' +
+                    '<button class="btn primary" data-cal="objetivo">Es objetivo</button>' +
+                    '<button class="btn"         data-cal="saturado">Es saturado</button>' +
+                  '</div>';
+        }
+        html += '</div>';
+        box.innerHTML = html;
+      } catch (e) { /* offline */ }
+    }
+    loadCalState();
+    setInterval(loadCalState, 600);
+
+    document.getElementById('btnCalStart').addEventListener('click', async function () {
+      try { await APF.postJSON('/api/vistax/calibrar/start', { segundos: 5 }, 3000); APF.toast('Calibracion iniciada', 'ok'); }
+      catch (e) { APF.toast('Error: ' + e.message, 'bad'); }
+    });
+    document.getElementById('btnCalCancel').addEventListener('click', async function () {
+      try { await APF.postJSON('/api/vistax/calibrar/cancel', {}, 3000); APF.toast('Calibracion cancelada', 'ok'); }
+      catch (e) { APF.toast('Error: ' + e.message, 'bad'); }
+    });
+
+    document.addEventListener('click', async function (e) {
+      var muteBtn = e.target.closest('[data-act="mute"]');
+      if (muteBtn) {
+        var row = muteBtn.closest('.sens');
+        var uid = row.dataset.uid, cable = +row.dataset.cable;
+        var quieroMute = muteBtn.textContent.trim().toLowerCase() === 'silenciar';
+        try {
+          await APF.postJSON('/api/vistax/sensor/mute', { uid: uid, cable: cable, muted: quieroMute }, 3000);
+          APF.toast(quieroMute?'Silenciado':'Activado', 'ok');
+          loadLive();
+        } catch (err) { APF.toast('Error: ' + err.message, 'bad'); }
+        return;
+      }
+      var calBtn = e.target.closest('[data-cal]');
+      if (calBtn) {
+        var modo = calBtn.dataset.cal;
+        try {
+          await APF.postJSON('/api/vistax/calibrar/apply', { tipo: modo }, 3000);
+          APF.toast('Aplicado como ' + modo, 'ok');
+        } catch (err) { APF.toast('Error: ' + err.message, 'bad'); }
+      }
+    });
+  </script>
+</body>
+</html>

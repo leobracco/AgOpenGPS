@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Datos del lote · Agro Parallel</title>
+  <script>
+    // Modo widget flotante: PilotX abre esta página con ?widget=1 como ventana
+    // chica e independiente. En ese modo NO mostramos la navegación del Hub
+    // (sidebar): solo los datos del lote. Marcamos <html> acá, en el <head>,
+    // antes de que pinte el <body>, para evitar flash de la barra.
+    if (location.search.indexOf('widget=1') !== -1) {
+      document.documentElement.classList.add('widget-mode');
+    }
+  </script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Widget flotante: sin sidebar, el contenido toma todo el ancho. */
+    html.widget-mode body { grid-template-columns: 1fr; }
+    html.widget-mode aside.sidebar { display: none; }
+
+    /* Touch friendly: tarjetas grandes, números enormes, todo legible
+       a 11 pulgadas con sol. Sin scrolls anidados, sin tooltips. */
+    .metric.xl { font-size: var(--agp-fs-display); }
+    .savings-card {
+      background: linear-gradient(180deg, rgba(75,166,63,0.10) 0%, rgba(75,166,63,0.02) 100%);
+      border: 1px solid rgba(75,166,63,0.30);
+    }
+    .savings-card h2 { color: var(--agp-state-ok); margin-top: 0; }
+    .dose-toggle {
+      display: flex;
+      gap: var(--agp-sp-2);
+      flex-wrap: wrap;
+      margin-bottom: var(--agp-sp-4);
+    }
+    .dose-toggle button {
+      min-height: var(--agp-touch-min);
+      padding: 0 var(--agp-sp-4);
+      font-size: var(--agp-fs-md);
+      font-weight: var(--agp-fw-semi);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-surface-2);
+      color: var(--agp-text-muted);
+      border: 1px solid var(--agp-border);
+      cursor: pointer;
+      flex: 1 1 240px;
+    }
+    .dose-toggle button.active {
+      background: var(--agp-accent-soft);
+      color: var(--agp-text);
+      border-color: var(--agp-accent);
+    }
+    .row-big {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: var(--agp-sp-3) 0;
+      border-bottom: 1px solid var(--agp-border);
+      font-size: var(--agp-fs-md);
+    }
+    .row-big:last-child { border-bottom: 0; }
+    .row-big strong {
+      font-size: var(--agp-fs-lg);
+      color: var(--agp-text);
+      font-variant-numeric: tabular-nums;
+    }
+    .input-touch {
+      width: 100%;
+      min-height: var(--agp-touch-min);
+      font-size: var(--agp-fs-lg);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      padding: 0 var(--agp-sp-3);
+      background: var(--agp-bg);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      color: var(--agp-text);
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="lote"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Datos del lote</h1>
+        <div class="subtitle">Información del trabajo en curso y ahorro por corte automático</div>
+      </div>
+      <span id="estadoPill" class="pill idle"><span class="dot"></span> <span id="estadoText">Sin trabajo</span></span>
+    </div>
+
+    <!-- KPIs principales del lote (todos en castellano) -->
+    <div class="grid">
+      <div class="card">
+        <h3>Área del lote (lindero)</h3>
+        <div class="metric xl"><span id="kpiAreaLindero">—</span><span class="unit">ha</span></div>
+        <div class="row"><span>(superficie del lindero)</span></div>
+      </div>
+      <div class="card">
+        <h3>Área cubierta</h3>
+        <div class="metric xl"><span id="kpiAreaNeta">—</span><span class="unit">ha</span></div>
+        <div class="row"><span>(sin contar repintado)</span></div>
+      </div>
+      <div class="card">
+        <h3>Área total trabajada</h3>
+        <div class="metric xl"><span id="kpiAreaTotal">—</span><span class="unit">ha</span></div>
+        <div class="row"><span>(incluye solapamientos)</span></div>
+      </div>
+      <div class="card">
+        <h3>Repintado</h3>
+        <div class="metric xl"><span id="kpiAreaOverlap">—</span><span class="unit">ha</span></div>
+        <div class="row"><span>Porcentaje</span><strong id="kpiOverlapPct" style="color:var(--agp-text)">—</strong></div>
+      </div>
+      <div class="card">
+        <h3>Velocidad</h3>
+        <div class="metric xl"><span id="kpiVel">—</span><span class="unit">km/h</span></div>
+        <div class="row"><span>Secciones activas</span><strong id="kpiSec" style="color:var(--agp-text)">— de —</strong></div>
+      </div>
+    </div>
+
+    <!-- AHORRO POR CORTE AUTOMATICO -->
+    <h2 style="margin-top: var(--agp-sp-6); color: var(--agp-state-ok);">
+      Insumo ahorrado por corte automático
+    </h2>
+    <div class="card savings-card">
+      <div class="subtitle" style="margin-bottom: var(--agp-sp-4); font-size: var(--agp-fs-md);">
+        Sin corte automático pasarías de nuevo por las zonas ya hechas.
+        Eso es <strong>solapamiento</strong> e implica insumo desperdiciado.
+        Este es <strong>lo que te ahorraste</strong>: <em>(área solapada) × (dosis configurada)</em>.
+      </div>
+
+      <!-- Selector táctil: tipo de insumo -->
+      <div class="dose-toggle" id="doseToggle">
+        <button type="button" data-mode="kg"    class="active">Semilla / Fertilizante (kg/ha)</button>
+        <button type="button" data-mode="l">Líquido pulverización (L/ha)</button>
+      </div>
+
+      <!-- Dosis editable (precarga desde QuantiX / FlowX si hay) -->
+      <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--agp-sp-3); margin-bottom: var(--agp-sp-4);">
+        <div>
+          <div class="subtitle">Dosis aplicada</div>
+          <div style="display:flex; gap:var(--agp-sp-2); align-items:center;">
+            <input id="doseValue" type="number" inputmode="decimal" min="0" step="0.1"
+                   class="input-touch" value="0" />
+            <span class="unit" id="doseUnit" style="min-width:80px; text-align:left;">kg/ha</span>
+          </div>
+          <div class="subtitle" id="doseSource" style="margin-top: var(--agp-sp-1);">
+            Editá si querés. Se autocarga si hay config.
+          </div>
+        </div>
+        <div>
+          <div class="subtitle">Precio del insumo (opcional)</div>
+          <div style="display:flex; gap:var(--agp-sp-2); align-items:center;">
+            <input id="priceValue" type="number" inputmode="decimal" min="0" step="0.01"
+                   class="input-touch" placeholder="0.00" />
+            <span class="unit" id="priceUnit" style="min-width:80px; text-align:left;">USD/kg</span>
+          </div>
+          <div class="subtitle" style="margin-top: var(--agp-sp-1);">Para calcular en plata.</div>
+        </div>
+      </div>
+
+      <!-- Resultados grandes -->
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <div>
+          <div class="subtitle">Insumo ahorrado</div>
+          <div class="metric xl" style="color: var(--agp-state-ok);">
+            <span id="kpiSavedInsumo">—</span><span class="unit" id="kpiSavedUnit">kg</span>
+          </div>
+        </div>
+        <div>
+          <div class="subtitle">Ahorro estimado</div>
+          <div class="metric xl" style="color: var(--agp-state-ok);">
+            <span id="kpiSavedMoney">—</span><span class="unit" id="kpiSavedCurrency">USD</span>
+          </div>
+        </div>
+        <div>
+          <div class="subtitle">Área que NO repintaste</div>
+          <div class="metric xl"><span id="kpiSavedHa">—</span><span class="unit">ha</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detalles del lote -->
+    <h2 style="margin-top: var(--agp-sp-6);">Detalles</h2>
+    <div class="card">
+      <div class="row-big"><span>Lote en curso</span><strong id="detLote">—</strong></div>
+      <div class="row-big"><span>Ancho de herramienta</span><strong id="detAncho">— m</strong></div>
+      <div class="row-big"><span>Vehículo</span><strong id="detVehiculo">—</strong></div>
+      <div class="row-big"><span>Guía activa</span><strong id="detTrack">Ninguna</strong></div>
+      <div class="row-big"><span>Dosis del shapefile aquí</span><strong id="detShape">—</strong></div>
+    </div>
+
+    <!-- Exportar sesiones VistaX como ZIP descargable -->
+    <h2 style="margin-top: var(--agp-sp-6);">Exportar datos VistaX</h2>
+    <div class="card">
+      <div class="subtitle" style="margin-bottom: var(--agp-sp-3);">
+        Bajá un ZIP con todos los archivos VistaX del lote actual: NDJSON con telemetría
+        por surco y shapefiles (puntos + heatmap SPM) que se abren en QGIS, SMS, Agrian.
+      </div>
+      <div style="display:flex; gap:var(--agp-sp-2); align-items:center;">
+        <button id="btnExportVistaXZip" class="btn"
+                style="min-height:var(--agp-touch-min); padding:0 var(--agp-sp-5);">
+          Exportar VistaX (ZIP)
+        </button>
+        <span id="exportVxStatus" class="subtitle"></span>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/datos-lote.js"></script>
+</body>
+</html>

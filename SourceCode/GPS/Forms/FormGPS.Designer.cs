@@ -46,7 +46,6 @@ namespace AgOpenGPS
             this.kioskModeToolStrip = new System.Windows.Forms.ToolStripMenuItem();
             this.resetALLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.resetEverythingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.AgShareApiMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.helpMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tmrWatchdog = new System.Windows.Forms.Timer(this.components);
             this.contextMenuStripFlag = new System.Windows.Forms.ContextMenuStrip(this.components);
@@ -130,6 +129,11 @@ namespace AgOpenGPS
             this.panelLeft = new System.Windows.Forms.TableLayoutPanel();
             this.statusStrip2 = new System.Windows.Forms.StatusStrip();
             this.toolStripDropDownButton1 = new System.Windows.Forms.ToolStripDropDownButton();
+            // AGROPARALLEL_MOD_START
+            this.toolStripAgroParallel = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripCamaras = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparatorAgroParallel = new System.Windows.Forms.ToolStripSeparator();
+            // AGROPARALLEL_MOD_END
             this.toolStripConfig = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSteerSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripAllSettings = new System.Windows.Forms.ToolStripMenuItem();
@@ -243,7 +247,7 @@ namespace AgOpenGPS
             this.menuStrip1.AutoSize = false;
             this.menuStrip1.BackColor = System.Drawing.Color.Transparent;
             this.menuStrip1.Dock = System.Windows.Forms.DockStyle.None;
-            this.menuStrip1.Font = new System.Drawing.Font("Tahoma", 22F);
+            this.menuStrip1.Font = new System.Drawing.Font("Segoe UI", 22F);
             this.menuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.fileToolStripMenuItem});
             this.menuStrip1.Location = new System.Drawing.Point(20, 3);
@@ -265,9 +269,8 @@ namespace AgOpenGPS
             this.toolStripSeparator4,
             this.kioskModeToolStrip,
             this.resetALLToolStripMenuItem,
-            this.AgShareApiMenuItem,
             this.helpMenuItem});
-            this.fileToolStripMenuItem.Font = new System.Drawing.Font("Tahoma", 27.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.fileToolStripMenuItem.Font = new System.Drawing.Font("Segoe UI", 27.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.fileToolStripMenuItem.Image = global::AgOpenGPS.Properties.Resources.fileMenu;
             this.fileToolStripMenuItem.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             this.fileToolStripMenuItem.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
@@ -305,23 +308,26 @@ namespace AgOpenGPS
             this.menustripLanguage.Text = "Language";
             // 
             // toolStripSeparator11
-            // 
+            //
             this.toolStripSeparator11.Name = "toolStripSeparator11";
             this.toolStripSeparator11.Size = new System.Drawing.Size(379, 6);
+            this.toolStripSeparator11.Visible = false;
             // 
             // simulatorOnToolStripMenuItem
-            // 
+            //
             this.simulatorOnToolStripMenuItem.CheckOnClick = true;
             this.simulatorOnToolStripMenuItem.Name = "simulatorOnToolStripMenuItem";
             this.simulatorOnToolStripMenuItem.Size = new System.Drawing.Size(382, 50);
             this.simulatorOnToolStripMenuItem.Text = "Simulator On";
+            this.simulatorOnToolStripMenuItem.Visible = false;
             this.simulatorOnToolStripMenuItem.Click += new System.EventHandler(this.simulatorOnToolStripMenuItem_Click);
-            // 
+            //
             // enterSimCoordsToolStripMenuItem
-            // 
+            //
             this.enterSimCoordsToolStripMenuItem.Name = "enterSimCoordsToolStripMenuItem";
             this.enterSimCoordsToolStripMenuItem.Size = new System.Drawing.Size(382, 50);
             this.enterSimCoordsToolStripMenuItem.Text = "Enter Sim Coords";
+            this.enterSimCoordsToolStripMenuItem.Visible = false;
             this.enterSimCoordsToolStripMenuItem.Click += new System.EventHandler(this.enterSimCoordsToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
@@ -350,14 +356,7 @@ namespace AgOpenGPS
             this.resetEverythingToolStripMenuItem.Size = new System.Drawing.Size(372, 50);
             this.resetEverythingToolStripMenuItem.Text = "Reset To Default";
             this.resetEverythingToolStripMenuItem.Click += new System.EventHandler(this.resetALLToolStripMenuItem_Click);
-            // 
-            // AgShareApiMenuItem
-            // 
-            this.AgShareApiMenuItem.Name = "AgShareApiMenuItem";
-            this.AgShareApiMenuItem.Size = new System.Drawing.Size(382, 50);
-            this.AgShareApiMenuItem.Text = "AgShare API";
-            this.AgShareApiMenuItem.Click += new System.EventHandler(this.AgShareApiMenuItem_Click);
-            // 
+            //
             // helpMenuItem
             // 
             this.helpMenuItem.Name = "helpMenuItem";
@@ -437,10 +436,9 @@ namespace AgOpenGPS
             // cboxpRowWidth
             // 
             this.cboxpRowWidth.Anchor = System.Windows.Forms.AnchorStyles.None;
-            this.cboxpRowWidth.BackColor = System.Drawing.Color.Lavender;
             this.cboxpRowWidth.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cboxpRowWidth.FlatStyle = System.Windows.Forms.FlatStyle.System;
-            this.cboxpRowWidth.Font = new System.Drawing.Font("Tahoma", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.cboxpRowWidth.Font = new System.Drawing.Font("Segoe UI", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.cboxpRowWidth.FormattingEnabled = true;
             this.cboxpRowWidth.Items.AddRange(new object[] {
             "0",
@@ -476,7 +474,6 @@ namespace AgOpenGPS
             // 
             // panelDrag
             // 
-            this.panelDrag.BackColor = System.Drawing.Color.White;
             this.panelDrag.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Center;
             this.panelDrag.ColumnCount = 1;
             this.panelDrag.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -509,7 +506,7 @@ namespace AgOpenGPS
             this.btnPathGoStop.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnPathGoStop.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnPathGoStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnPathGoStop.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnPathGoStop.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnPathGoStop.ForeColor = System.Drawing.Color.DarkGray;
             this.btnPathGoStop.Image = global::AgOpenGPS.Properties.Resources.boundaryPlay;
             this.btnPathGoStop.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -533,7 +530,7 @@ namespace AgOpenGPS
             this.btnPickPath.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnPickPath.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnPickPath.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnPickPath.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnPickPath.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnPickPath.ForeColor = System.Drawing.Color.DarkGray;
             this.btnPickPath.Image = global::AgOpenGPS.Properties.Resources.FileExplorerWindows;
             this.btnPickPath.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -557,7 +554,7 @@ namespace AgOpenGPS
             this.btnPathRecordStop.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnPathRecordStop.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnPathRecordStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnPathRecordStop.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnPathRecordStop.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnPathRecordStop.ForeColor = System.Drawing.Color.DarkGray;
             this.btnPathRecordStop.Image = global::AgOpenGPS.Properties.Resources.BoundaryRecord;
             this.btnPathRecordStop.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -581,7 +578,7 @@ namespace AgOpenGPS
             this.btnResumePath.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnResumePath.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnResumePath.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnResumePath.Font = new System.Drawing.Font("Tahoma", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnResumePath.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnResumePath.ForeColor = System.Drawing.Color.Red;
             this.btnResumePath.Image = global::AgOpenGPS.Properties.Resources.pathResumeStart;
             this.btnResumePath.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -605,7 +602,7 @@ namespace AgOpenGPS
             this.btnSwapABRecordedPath.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnSwapABRecordedPath.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnSwapABRecordedPath.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSwapABRecordedPath.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSwapABRecordedPath.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSwapABRecordedPath.ForeColor = System.Drawing.Color.DarkGray;
             this.btnSwapABRecordedPath.Image = global::AgOpenGPS.Properties.Resources.ABSwapPoints;
             this.btnSwapABRecordedPath.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -624,7 +621,7 @@ namespace AgOpenGPS
             this.btnResetSim.ContextMenuStrip = this.contextMenuStripFlag;
             this.btnResetSim.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnResetSim.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnResetSim.Font = new System.Drawing.Font("Tahoma", 9.75F);
+            this.btnResetSim.Font = new System.Drawing.Font("Segoe UI", 9.75F);
             this.btnResetSim.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnResetSim.Location = new System.Drawing.Point(4, 4);
             this.btnResetSim.Name = "btnResetSim";
@@ -640,7 +637,7 @@ namespace AgOpenGPS
             this.btnResetSteerAngle.ContextMenuStrip = this.contextMenuStripFlag;
             this.btnResetSteerAngle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnResetSteerAngle.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnResetSteerAngle.Font = new System.Drawing.Font("Tahoma", 9.75F);
+            this.btnResetSteerAngle.Font = new System.Drawing.Font("Segoe UI", 9.75F);
             this.btnResetSteerAngle.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnResetSteerAngle.Location = new System.Drawing.Point(70, 4);
             this.btnResetSteerAngle.Name = "btnResetSteerAngle";
@@ -676,12 +673,11 @@ namespace AgOpenGPS
             // 
             // btnSection8Man
             // 
-            this.btnSection8Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection8Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection8Man.Enabled = false;
             this.btnSection8Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection8Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection8Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection8Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection8Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection8Man.Location = new System.Drawing.Point(817, 243);
             this.btnSection8Man.Name = "btnSection8Man";
@@ -693,12 +689,11 @@ namespace AgOpenGPS
             // 
             // btnSection7Man
             // 
-            this.btnSection7Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection7Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection7Man.Enabled = false;
             this.btnSection7Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection7Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection7Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection7Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection7Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection7Man.Location = new System.Drawing.Point(817, 216);
             this.btnSection7Man.Name = "btnSection7Man";
@@ -710,12 +705,11 @@ namespace AgOpenGPS
             // 
             // btnSection6Man
             // 
-            this.btnSection6Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection6Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection6Man.Enabled = false;
             this.btnSection6Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection6Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection6Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection6Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection6Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection6Man.Location = new System.Drawing.Point(817, 189);
             this.btnSection6Man.Name = "btnSection6Man";
@@ -727,12 +721,11 @@ namespace AgOpenGPS
             // 
             // btnSection5Man
             // 
-            this.btnSection5Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection5Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection5Man.Enabled = false;
             this.btnSection5Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection5Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection5Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection5Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection5Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection5Man.Location = new System.Drawing.Point(817, 162);
             this.btnSection5Man.Name = "btnSection5Man";
@@ -744,12 +737,11 @@ namespace AgOpenGPS
             // 
             // btnSection4Man
             // 
-            this.btnSection4Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection4Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection4Man.Enabled = false;
             this.btnSection4Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection4Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection4Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection4Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection4Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection4Man.Location = new System.Drawing.Point(817, 136);
             this.btnSection4Man.Name = "btnSection4Man";
@@ -761,12 +753,11 @@ namespace AgOpenGPS
             // 
             // btnSection3Man
             // 
-            this.btnSection3Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection3Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection3Man.Enabled = false;
             this.btnSection3Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection3Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection3Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection3Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection3Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection3Man.Location = new System.Drawing.Point(817, 110);
             this.btnSection3Man.Name = "btnSection3Man";
@@ -778,12 +769,11 @@ namespace AgOpenGPS
             // 
             // btnSection2Man
             // 
-            this.btnSection2Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection2Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection2Man.Enabled = false;
             this.btnSection2Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection2Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection2Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection2Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection2Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection2Man.Location = new System.Drawing.Point(817, 83);
             this.btnSection2Man.Name = "btnSection2Man";
@@ -795,12 +785,11 @@ namespace AgOpenGPS
             // 
             // btnSection1Man
             // 
-            this.btnSection1Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection1Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection1Man.Enabled = false;
             this.btnSection1Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection1Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection1Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection1Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection1Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection1Man.Location = new System.Drawing.Point(817, 56);
             this.btnSection1Man.Name = "btnSection1Man";
@@ -812,12 +801,11 @@ namespace AgOpenGPS
             // 
             // btnSection9Man
             // 
-            this.btnSection9Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection9Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection9Man.Enabled = false;
             this.btnSection9Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection9Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection9Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection9Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection9Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection9Man.Location = new System.Drawing.Point(777, 56);
             this.btnSection9Man.Name = "btnSection9Man";
@@ -829,12 +817,11 @@ namespace AgOpenGPS
             // 
             // btnSection10Man
             // 
-            this.btnSection10Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection10Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection10Man.Enabled = false;
             this.btnSection10Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection10Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection10Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection10Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection10Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection10Man.Location = new System.Drawing.Point(777, 83);
             this.btnSection10Man.Name = "btnSection10Man";
@@ -846,12 +833,11 @@ namespace AgOpenGPS
             // 
             // btnSection11Man
             // 
-            this.btnSection11Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection11Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection11Man.Enabled = false;
             this.btnSection11Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection11Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection11Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection11Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection11Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection11Man.Location = new System.Drawing.Point(777, 110);
             this.btnSection11Man.Name = "btnSection11Man";
@@ -863,12 +849,11 @@ namespace AgOpenGPS
             // 
             // btnSection12Man
             // 
-            this.btnSection12Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection12Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection12Man.Enabled = false;
             this.btnSection12Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection12Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection12Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection12Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection12Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection12Man.Location = new System.Drawing.Point(777, 136);
             this.btnSection12Man.Name = "btnSection12Man";
@@ -912,8 +897,7 @@ namespace AgOpenGPS
             // 
             // lblHz
             // 
-            this.lblHz.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.lblHz.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblHz.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblHz.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.lblHz.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.lblHz.Location = new System.Drawing.Point(92, 276);
@@ -931,7 +915,7 @@ namespace AgOpenGPS
             this.statusStripLeft.BackColor = System.Drawing.Color.Transparent;
             this.statusStripLeft.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.statusStripLeft.Dock = System.Windows.Forms.DockStyle.None;
-            this.statusStripLeft.Font = new System.Drawing.Font("Tahoma", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.statusStripLeft.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.statusStripLeft.GripMargin = new System.Windows.Forms.Padding(0);
             this.statusStripLeft.ImageScalingSize = new System.Drawing.Size(60, 60);
             this.statusStripLeft.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -956,8 +940,14 @@ namespace AgOpenGPS
             this.SmoothABtoolStripMenu,
             this.deleteContourPathsToolStripMenuItem,
             this.webcamToolStrip,
-            this.offsetFixToolStrip});
-            this.toolStripDropDownButton4.Font = new System.Drawing.Font("Tahoma", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.offsetFixToolStrip,
+            // AGROPARALLEL_MOD_START — Hub + Cámaras siempre accesibles (no requieren GPS ni lote)
+            this.toolStripSeparatorAgroParallel,
+            this.toolStripAgroParallel,
+            this.toolStripCamaras
+            // AGROPARALLEL_MOD_END
+            });
+            this.toolStripDropDownButton4.Font = new System.Drawing.Font("Segoe UI", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.toolStripDropDownButton4.Image = global::AgOpenGPS.Properties.Resources.SpecialFunctions;
             this.toolStripDropDownButton4.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             this.toolStripDropDownButton4.ImageTransparentColor = System.Drawing.Color.Magenta;
@@ -1144,7 +1134,7 @@ namespace AgOpenGPS
             this.btnSimSetSpeedToZero.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.btnSimSetSpeedToZero.ContextMenuStrip = this.contextMenuStripFlag;
             this.btnSimSetSpeedToZero.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSimSetSpeedToZero.Font = new System.Drawing.Font("Tahoma", 9.75F);
+            this.btnSimSetSpeedToZero.Font = new System.Drawing.Font("Segoe UI", 9.75F);
             this.btnSimSetSpeedToZero.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSimSetSpeedToZero.Location = new System.Drawing.Point(413, 4);
             this.btnSimSetSpeedToZero.Name = "btnSimSetSpeedToZero";
@@ -1161,7 +1151,7 @@ namespace AgOpenGPS
             this.btnSimReverseDirection.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
             this.btnSimReverseDirection.ContextMenuStrip = this.contextMenuStripFlag;
             this.btnSimReverseDirection.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSimReverseDirection.Font = new System.Drawing.Font("Tahoma", 9.75F);
+            this.btnSimReverseDirection.Font = new System.Drawing.Font("Segoe UI", 9.75F);
             this.btnSimReverseDirection.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSimReverseDirection.Location = new System.Drawing.Point(563, 4);
             this.btnSimReverseDirection.Name = "btnSimReverseDirection";
@@ -1172,12 +1162,11 @@ namespace AgOpenGPS
             // 
             // btnSection16Man
             // 
-            this.btnSection16Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection16Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection16Man.Enabled = false;
             this.btnSection16Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection16Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection16Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection16Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection16Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection16Man.Location = new System.Drawing.Point(777, 243);
             this.btnSection16Man.Name = "btnSection16Man";
@@ -1189,12 +1178,11 @@ namespace AgOpenGPS
             // 
             // btnSection15Man
             // 
-            this.btnSection15Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection15Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection15Man.Enabled = false;
             this.btnSection15Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection15Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection15Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection15Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection15Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection15Man.Location = new System.Drawing.Point(777, 216);
             this.btnSection15Man.Name = "btnSection15Man";
@@ -1206,12 +1194,11 @@ namespace AgOpenGPS
             // 
             // btnSection14Man
             // 
-            this.btnSection14Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection14Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection14Man.Enabled = false;
             this.btnSection14Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection14Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection14Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection14Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection14Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection14Man.Location = new System.Drawing.Point(777, 189);
             this.btnSection14Man.Name = "btnSection14Man";
@@ -1223,12 +1210,11 @@ namespace AgOpenGPS
             // 
             // btnSection13Man
             // 
-            this.btnSection13Man.BackColor = System.Drawing.Color.Silver;
             this.btnSection13Man.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnSection13Man.Enabled = false;
             this.btnSection13Man.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnSection13Man.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSection13Man.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSection13Man.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSection13Man.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSection13Man.Location = new System.Drawing.Point(777, 162);
             this.btnSection13Man.Name = "btnSection13Man";
@@ -1240,7 +1226,6 @@ namespace AgOpenGPS
             // 
             // panelNavigation
             // 
-            this.panelNavigation.BackColor = System.Drawing.Color.WhiteSmoke;
             this.panelNavigation.ColumnCount = 2;
             this.panelNavigation.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.panelNavigation.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -1277,7 +1262,7 @@ namespace AgOpenGPS
             this.btnTiltDn.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnTiltDn.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnTiltDn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnTiltDn.Font = new System.Drawing.Font("Tahoma", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnTiltDn.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnTiltDn.Image = global::AgOpenGPS.Properties.Resources.TiltDown;
             this.btnTiltDn.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnTiltDn.Location = new System.Drawing.Point(16, 18);
@@ -1299,7 +1284,7 @@ namespace AgOpenGPS
             this.btnTiltUp.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnTiltUp.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnTiltUp.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnTiltUp.Font = new System.Drawing.Font("Tahoma", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnTiltUp.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnTiltUp.Image = global::AgOpenGPS.Properties.Resources.TiltUp;
             this.btnTiltUp.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnTiltUp.Location = new System.Drawing.Point(105, 18);
@@ -1319,7 +1304,7 @@ namespace AgOpenGPS
             this.btnBrightnessDn.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnBrightnessDn.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnBrightnessDn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnBrightnessDn.Font = new System.Drawing.Font("Tahoma", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnBrightnessDn.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnBrightnessDn.Image = global::AgOpenGPS.Properties.Resources.BrightnessDn;
             this.btnBrightnessDn.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnBrightnessDn.Location = new System.Drawing.Point(3, 371);
@@ -1379,7 +1364,7 @@ namespace AgOpenGPS
             this.btn3D.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btn3D.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btn3D.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btn3D.Font = new System.Drawing.Font("Tahoma", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn3D.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btn3D.Image = global::AgOpenGPS.Properties.Resources.Camera3D64;
             this.btn3D.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btn3D.Location = new System.Drawing.Point(105, 110);
@@ -1401,7 +1386,7 @@ namespace AgOpenGPS
             this.btn2D.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btn2D.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btn2D.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btn2D.Font = new System.Drawing.Font("Tahoma", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btn2D.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btn2D.Image = global::AgOpenGPS.Properties.Resources.Camera2D64;
             this.btn2D.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btn2D.Location = new System.Drawing.Point(16, 110);
@@ -1423,7 +1408,7 @@ namespace AgOpenGPS
             this.btnGrid.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnGrid.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnGrid.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnGrid.Font = new System.Drawing.Font("Tahoma", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnGrid.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnGrid.Image = global::AgOpenGPS.Properties.Resources.GridRotate;
             this.btnGrid.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnGrid.Location = new System.Drawing.Point(94, 188);
@@ -1445,7 +1430,7 @@ namespace AgOpenGPS
             this.btnN2D.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnN2D.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnN2D.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnN2D.Font = new System.Drawing.Font("Tahoma", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnN2D.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnN2D.Image = global::AgOpenGPS.Properties.Resources.CameraNorth2D;
             this.btnN2D.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnN2D.Location = new System.Drawing.Point(16, 202);
@@ -1486,12 +1471,11 @@ namespace AgOpenGPS
             // 
             // btnZone1
             // 
-            this.btnZone1.BackColor = System.Drawing.Color.Silver;
             this.btnZone1.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnZone1.Enabled = false;
             this.btnZone1.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnZone1.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnZone1.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnZone1.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnZone1.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnZone1.Location = new System.Drawing.Point(712, 56);
             this.btnZone1.Name = "btnZone1";
@@ -1503,12 +1487,11 @@ namespace AgOpenGPS
             // 
             // btnZone2
             // 
-            this.btnZone2.BackColor = System.Drawing.Color.Silver;
             this.btnZone2.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnZone2.Enabled = false;
             this.btnZone2.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnZone2.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnZone2.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnZone2.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnZone2.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnZone2.Location = new System.Drawing.Point(712, 82);
             this.btnZone2.Name = "btnZone2";
@@ -1520,12 +1503,11 @@ namespace AgOpenGPS
             // 
             // btnZone3
             // 
-            this.btnZone3.BackColor = System.Drawing.Color.Silver;
             this.btnZone3.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnZone3.Enabled = false;
             this.btnZone3.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnZone3.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnZone3.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnZone3.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnZone3.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnZone3.Location = new System.Drawing.Point(712, 108);
             this.btnZone3.Name = "btnZone3";
@@ -1537,12 +1519,11 @@ namespace AgOpenGPS
             // 
             // btnZone4
             // 
-            this.btnZone4.BackColor = System.Drawing.Color.Silver;
             this.btnZone4.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnZone4.Enabled = false;
             this.btnZone4.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnZone4.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnZone4.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnZone4.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnZone4.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnZone4.Location = new System.Drawing.Point(712, 134);
             this.btnZone4.Name = "btnZone4";
@@ -1554,12 +1535,11 @@ namespace AgOpenGPS
             // 
             // btnZone5
             // 
-            this.btnZone5.BackColor = System.Drawing.Color.Silver;
             this.btnZone5.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnZone5.Enabled = false;
             this.btnZone5.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnZone5.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnZone5.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnZone5.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnZone5.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnZone5.Location = new System.Drawing.Point(712, 160);
             this.btnZone5.Name = "btnZone5";
@@ -1571,12 +1551,11 @@ namespace AgOpenGPS
             // 
             // btnZone6
             // 
-            this.btnZone6.BackColor = System.Drawing.Color.Silver;
             this.btnZone6.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnZone6.Enabled = false;
             this.btnZone6.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnZone6.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnZone6.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnZone6.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnZone6.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnZone6.Location = new System.Drawing.Point(712, 186);
             this.btnZone6.Name = "btnZone6";
@@ -1588,12 +1567,11 @@ namespace AgOpenGPS
             // 
             // btnZone7
             // 
-            this.btnZone7.BackColor = System.Drawing.Color.Silver;
             this.btnZone7.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnZone7.Enabled = false;
             this.btnZone7.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnZone7.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnZone7.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnZone7.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnZone7.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnZone7.Location = new System.Drawing.Point(712, 212);
             this.btnZone7.Name = "btnZone7";
@@ -1605,12 +1583,11 @@ namespace AgOpenGPS
             // 
             // btnZone8
             // 
-            this.btnZone8.BackColor = System.Drawing.Color.Silver;
             this.btnZone8.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnZone8.Enabled = false;
             this.btnZone8.FlatAppearance.BorderColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.btnZone8.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnZone8.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnZone8.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnZone8.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnZone8.Location = new System.Drawing.Point(712, 238);
             this.btnZone8.Name = "btnZone8";
@@ -1655,7 +1632,7 @@ namespace AgOpenGPS
             this.statusStrip2.BackColor = System.Drawing.Color.Transparent;
             this.statusStrip2.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.statusStrip2.Dock = System.Windows.Forms.DockStyle.None;
-            this.statusStrip2.Font = new System.Drawing.Font("Tahoma", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.statusStrip2.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.statusStrip2.GripMargin = new System.Windows.Forms.Padding(0);
             this.statusStrip2.ImageScalingSize = new System.Drawing.Size(60, 60);
             this.statusStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -1679,9 +1656,10 @@ namespace AgOpenGPS
             this.toolStripWorkingDirectories,
             this.toolStripGPSData,
             this.toolStripColors,
-            this.toolStripSectionColors,
-            this.toolStripHotkeys});
-            this.toolStripDropDownButton1.Font = new System.Drawing.Font("Tahoma", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripSectionColors
+            // AGROPARALLEL_MOD: AP/Cámaras movido a toolStripDropDownButton4 (Tools, siempre activo)
+            });
+            this.toolStripDropDownButton1.Font = new System.Drawing.Font("Segoe UI", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.toolStripDropDownButton1.Image = global::AgOpenGPS.Properties.Resources.Settings48;
             this.toolStripDropDownButton1.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             this.toolStripDropDownButton1.ImageTransparentColor = System.Drawing.Color.Magenta;
@@ -1755,6 +1733,33 @@ namespace AgOpenGPS
             this.toolStripHotkeys.Text = "HotKeys";
             this.toolStripHotkeys.Click += new System.EventHandler(this.hotKeysToolStripMenuItem_Click);
             // 
+            // AGROPARALLEL_MOD_START
+            // 
+            // toolStripSeparatorAgroParallel
+            // 
+            this.toolStripSeparatorAgroParallel.Name = "toolStripSeparatorAgroParallel";
+            this.toolStripSeparatorAgroParallel.Size = new System.Drawing.Size(416, 6);
+            // 
+            // toolStripAgroParallel
+            //
+            this.toolStripAgroParallel.Name = "toolStripAgroParallel";
+            this.toolStripAgroParallel.Size = new System.Drawing.Size(100, 44);
+            this.toolStripAgroParallel.Text = "\u2B22 AP";
+            this.toolStripAgroParallel.Font = new System.Drawing.Font("Segoe UI", 14F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripAgroParallel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(230)))), ((int)(((byte)(118)))));
+            this.toolStripAgroParallel.Click += new System.EventHandler(this.toolStripAgroParallel_Click);
+            //
+            // toolStripCamaras
+            //
+            this.toolStripCamaras.Name = "toolStripCamaras";
+            this.toolStripCamaras.Size = new System.Drawing.Size(100, 44);
+            this.toolStripCamaras.Text = "\uD83D\uDCF7 C\u00E1maras"; // 📷 Cámaras
+            this.toolStripCamaras.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripCamaras.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(74)))), ((int)(((byte)(186)))), ((int)(((byte)(62))))); // PilotX #4ABA3E
+            this.toolStripCamaras.Click += new System.EventHandler(this.toolStripCamaras_Click);
+            // 
+            // AGROPARALLEL_MOD_END
+            // 
             // btnNavigationSettings
             // 
             this.btnNavigationSettings.BackColor = System.Drawing.Color.Transparent;
@@ -1766,7 +1771,7 @@ namespace AgOpenGPS
             this.btnNavigationSettings.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnNavigationSettings.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnNavigationSettings.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnNavigationSettings.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnNavigationSettings.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnNavigationSettings.ForeColor = System.Drawing.Color.DarkGray;
             this.btnNavigationSettings.Image = global::AgOpenGPS.Properties.Resources.NavigationSettings;
             this.btnNavigationSettings.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -1789,7 +1794,7 @@ namespace AgOpenGPS
             this.btnAutoSteerConfig.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnAutoSteerConfig.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnAutoSteerConfig.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAutoSteerConfig.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnAutoSteerConfig.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnAutoSteerConfig.ForeColor = System.Drawing.Color.Black;
             this.btnAutoSteerConfig.Image = global::AgOpenGPS.Properties.Resources.AutoSteerConf;
             this.btnAutoSteerConfig.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -1815,7 +1820,7 @@ namespace AgOpenGPS
             this.btnStartAgIO.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnStartAgIO.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnStartAgIO.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnStartAgIO.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnStartAgIO.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnStartAgIO.ForeColor = System.Drawing.Color.DarkGray;
             this.btnStartAgIO.Image = global::AgOpenGPS.Properties.Resources.AgIO;
             this.btnStartAgIO.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -1840,7 +1845,7 @@ namespace AgOpenGPS
             this.btnJobMenu.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnJobMenu.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnJobMenu.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnJobMenu.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnJobMenu.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnJobMenu.ForeColor = System.Drawing.Color.DarkGray;
             this.btnJobMenu.Image = global::AgOpenGPS.Properties.Resources.JobActive;
             this.btnJobMenu.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -1861,7 +1866,7 @@ namespace AgOpenGPS
             this.statusStrip1.BackColor = System.Drawing.Color.Transparent;
             this.statusStrip1.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.statusStrip1.Dock = System.Windows.Forms.DockStyle.None;
-            this.statusStrip1.Font = new System.Drawing.Font("Tahoma", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.statusStrip1.Font = new System.Drawing.Font("Segoe UI", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.statusStrip1.GripMargin = new System.Windows.Forms.Padding(0);
             this.statusStrip1.ImageScalingSize = new System.Drawing.Size(60, 60);
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -1890,7 +1895,7 @@ namespace AgOpenGPS
             this.recordedPathStripMenu,
             this.copyTracksToolStripMenuItem});
             this.toolStripBtnFieldTools.Enabled = false;
-            this.toolStripBtnFieldTools.Font = new System.Drawing.Font("Tahoma", 27.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripBtnFieldTools.Font = new System.Drawing.Font("Segoe UI", 27.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.toolStripBtnFieldTools.Image = global::AgOpenGPS.Properties.Resources.FieldTools;
             this.toolStripBtnFieldTools.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             this.toolStripBtnFieldTools.ImageTransparentColor = System.Drawing.Color.Magenta;
@@ -1901,7 +1906,7 @@ namespace AgOpenGPS
             // 
             // boundariesToolStripMenuItem
             // 
-            this.boundariesToolStripMenuItem.Font = new System.Drawing.Font("Tahoma", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.boundariesToolStripMenuItem.Font = new System.Drawing.Font("Segoe UI", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.boundariesToolStripMenuItem.Image = global::AgOpenGPS.Properties.Resources.Boundary;
             this.boundariesToolStripMenuItem.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             this.boundariesToolStripMenuItem.Name = "boundariesToolStripMenuItem";
@@ -1911,7 +1916,7 @@ namespace AgOpenGPS
             // 
             // headlandToolStripMenuItem
             // 
-            this.headlandToolStripMenuItem.Font = new System.Drawing.Font("Tahoma", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.headlandToolStripMenuItem.Font = new System.Drawing.Font("Segoe UI", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.headlandToolStripMenuItem.Image = global::AgOpenGPS.Properties.Resources.HeadlandBuild;
             this.headlandToolStripMenuItem.Name = "headlandToolStripMenuItem";
             this.headlandToolStripMenuItem.Size = new System.Drawing.Size(445, 70);
@@ -1920,7 +1925,7 @@ namespace AgOpenGPS
             // 
             // headlandBuildToolStripMenuItem
             // 
-            this.headlandBuildToolStripMenuItem.Font = new System.Drawing.Font("Tahoma", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.headlandBuildToolStripMenuItem.Font = new System.Drawing.Font("Segoe UI", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.headlandBuildToolStripMenuItem.Image = global::AgOpenGPS.Properties.Resources.Headache;
             this.headlandBuildToolStripMenuItem.Name = "headlandBuildToolStripMenuItem";
             this.headlandBuildToolStripMenuItem.Size = new System.Drawing.Size(445, 70);
@@ -1929,7 +1934,7 @@ namespace AgOpenGPS
             // 
             // tramLinesMenuField
             // 
-            this.tramLinesMenuField.Font = new System.Drawing.Font("Tahoma", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.tramLinesMenuField.Font = new System.Drawing.Font("Segoe UI", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.tramLinesMenuField.Image = global::AgOpenGPS.Properties.Resources.TramAll;
             this.tramLinesMenuField.Name = "tramLinesMenuField";
             this.tramLinesMenuField.Size = new System.Drawing.Size(445, 70);
@@ -1946,7 +1951,7 @@ namespace AgOpenGPS
             // 
             // deleteAppliedToolStripMenuItem
             // 
-            this.deleteAppliedToolStripMenuItem.Font = new System.Drawing.Font("Tahoma", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.deleteAppliedToolStripMenuItem.Font = new System.Drawing.Font("Segoe UI", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.deleteAppliedToolStripMenuItem.Image = global::AgOpenGPS.Properties.Resources.TrashApplied;
             this.deleteAppliedToolStripMenuItem.Name = "deleteAppliedToolStripMenuItem";
             this.deleteAppliedToolStripMenuItem.Size = new System.Drawing.Size(445, 70);
@@ -1955,7 +1960,7 @@ namespace AgOpenGPS
             // 
             // flagByLatLonToolStripMenuItem
             // 
-            this.flagByLatLonToolStripMenuItem.Font = new System.Drawing.Font("Tahoma", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.flagByLatLonToolStripMenuItem.Font = new System.Drawing.Font("Segoe UI", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.flagByLatLonToolStripMenuItem.Image = global::AgOpenGPS.Properties.Resources.FlagRed;
             this.flagByLatLonToolStripMenuItem.Name = "flagByLatLonToolStripMenuItem";
             this.flagByLatLonToolStripMenuItem.Size = new System.Drawing.Size(445, 70);
@@ -1964,7 +1969,7 @@ namespace AgOpenGPS
             // 
             // recordedPathStripMenu
             // 
-            this.recordedPathStripMenu.Font = new System.Drawing.Font("Tahoma", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.recordedPathStripMenu.Font = new System.Drawing.Font("Segoe UI", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.recordedPathStripMenu.Image = global::AgOpenGPS.Properties.Resources.RecPath;
             this.recordedPathStripMenu.Name = "recordedPathStripMenu";
             this.recordedPathStripMenu.Size = new System.Drawing.Size(445, 70);
@@ -1973,7 +1978,7 @@ namespace AgOpenGPS
             // 
             // copyTracksToolStripMenuItem
             // 
-            this.copyTracksToolStripMenuItem.Font = new System.Drawing.Font("Tahoma", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.copyTracksToolStripMenuItem.Font = new System.Drawing.Font("Segoe UI", 26.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.copyTracksToolStripMenuItem.Image = global::AgOpenGPS.Properties.Resources.FileNew;
             this.copyTracksToolStripMenuItem.Name = "copyTracksToolStripMenuItem";
             this.copyTracksToolStripMenuItem.Size = new System.Drawing.Size(445, 70);
@@ -1999,7 +2004,7 @@ namespace AgOpenGPS
             // 
             this.lblGuidanceLine.Anchor = System.Windows.Forms.AnchorStyles.Top;
             this.lblGuidanceLine.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblGuidanceLine.Font = new System.Drawing.Font("Tahoma", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblGuidanceLine.Font = new System.Drawing.Font("Segoe UI", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblGuidanceLine.Location = new System.Drawing.Point(211, 66);
             this.lblGuidanceLine.Name = "lblGuidanceLine";
             this.lblGuidanceLine.Size = new System.Drawing.Size(583, 83);
@@ -2035,7 +2040,7 @@ namespace AgOpenGPS
             this.btnNudge.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnNudge.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnNudge.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnNudge.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnNudge.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnNudge.Image = global::AgOpenGPS.Properties.Resources.ABSnapNudgeMenu;
             this.btnNudge.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnNudge.Location = new System.Drawing.Point(3, 496);
@@ -2058,7 +2063,7 @@ namespace AgOpenGPS
             this.btnABDraw.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnABDraw.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnABDraw.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnABDraw.Font = new System.Drawing.Font("Tahoma", 12F);
+            this.btnABDraw.Font = new System.Drawing.Font("Segoe UI", 12F);
             this.btnABDraw.Image = global::AgOpenGPS.Properties.Resources.ABDraw;
             this.btnABDraw.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnABDraw.Location = new System.Drawing.Point(3, 418);
@@ -2080,7 +2085,7 @@ namespace AgOpenGPS
             this.btnPlusAB.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnPlusAB.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnPlusAB.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnPlusAB.Font = new System.Drawing.Font("Tahoma", 12F);
+            this.btnPlusAB.Font = new System.Drawing.Font("Segoe UI", 12F);
             this.btnPlusAB.Image = global::AgOpenGPS.Properties.Resources.AddNew;
             this.btnPlusAB.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnPlusAB.Location = new System.Drawing.Point(3, 335);
@@ -2102,7 +2107,7 @@ namespace AgOpenGPS
             this.btnBuildTracks.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnBuildTracks.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnBuildTracks.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnBuildTracks.Font = new System.Drawing.Font("Tahoma", 12F);
+            this.btnBuildTracks.Font = new System.Drawing.Font("Segoe UI", 12F);
             this.btnBuildTracks.Image = global::AgOpenGPS.Properties.Resources.ABTracks;
             this.btnBuildTracks.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnBuildTracks.Location = new System.Drawing.Point(3, 252);
@@ -2123,7 +2128,7 @@ namespace AgOpenGPS
             this.btnTracksOff.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnTracksOff.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnTracksOff.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnTracksOff.Font = new System.Drawing.Font("Tahoma", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnTracksOff.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnTracksOff.Image = global::AgOpenGPS.Properties.Resources.SwitchOff;
             this.btnTracksOff.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnTracksOff.Location = new System.Drawing.Point(3, 169);
@@ -2142,7 +2147,7 @@ namespace AgOpenGPS
             this.cboxAutoSnapToPivot.FlatAppearance.BorderColor = System.Drawing.Color.Silver;
             this.cboxAutoSnapToPivot.FlatAppearance.CheckedBackColor = System.Drawing.Color.PaleGreen;
             this.cboxAutoSnapToPivot.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.cboxAutoSnapToPivot.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Bold);
+            this.cboxAutoSnapToPivot.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold);
             this.cboxAutoSnapToPivot.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.cboxAutoSnapToPivot.Image = global::AgOpenGPS.Properties.Resources.AutoSteerSnapToPivot;
             this.cboxAutoSnapToPivot.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -2165,7 +2170,7 @@ namespace AgOpenGPS
             this.btnRefNudge.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnRefNudge.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnRefNudge.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnRefNudge.Font = new System.Drawing.Font("Tahoma", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnRefNudge.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnRefNudge.Image = global::AgOpenGPS.Properties.Resources.ABSnapNudgeMenuRef;
             this.btnRefNudge.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnRefNudge.Location = new System.Drawing.Point(3, 3);
@@ -2211,7 +2216,7 @@ namespace AgOpenGPS
             this.btnTrack.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnTrack.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnTrack.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnTrack.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnTrack.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnTrack.Image = global::AgOpenGPS.Properties.Resources.TrackOn;
             this.btnTrack.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnTrack.Location = new System.Drawing.Point(902, 3);
@@ -2234,7 +2239,7 @@ namespace AgOpenGPS
             this.btnSnapToPivot.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnSnapToPivot.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnSnapToPivot.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSnapToPivot.Font = new System.Drawing.Font("Tahoma", 14.25F);
+            this.btnSnapToPivot.Font = new System.Drawing.Font("Segoe UI", 14.25F);
             this.btnSnapToPivot.Image = global::AgOpenGPS.Properties.Resources.SnapToPivot;
             this.btnSnapToPivot.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSnapToPivot.Location = new System.Drawing.Point(827, 3);
@@ -2255,7 +2260,7 @@ namespace AgOpenGPS
             this.btnAdjRight.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnAdjRight.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnAdjRight.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAdjRight.Font = new System.Drawing.Font("Tahoma", 14.25F);
+            this.btnAdjRight.Font = new System.Drawing.Font("Segoe UI", 14.25F);
             this.btnAdjRight.Image = global::AgOpenGPS.Properties.Resources.SnapRight;
             this.btnAdjRight.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnAdjRight.Location = new System.Drawing.Point(749, 3);
@@ -2275,7 +2280,7 @@ namespace AgOpenGPS
             this.btnAdjLeft.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnAdjLeft.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnAdjLeft.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAdjLeft.Font = new System.Drawing.Font("Tahoma", 14.25F);
+            this.btnAdjLeft.Font = new System.Drawing.Font("Segoe UI", 14.25F);
             this.btnAdjLeft.Image = global::AgOpenGPS.Properties.Resources.SnapLeft;
             this.btnAdjLeft.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnAdjLeft.Location = new System.Drawing.Point(671, 3);
@@ -2296,7 +2301,7 @@ namespace AgOpenGPS
             this.btnFlag.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnFlag.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnFlag.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnFlag.Font = new System.Drawing.Font("Tahoma", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnFlag.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnFlag.Image = global::AgOpenGPS.Properties.Resources.FlagRed;
             this.btnFlag.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnFlag.Location = new System.Drawing.Point(593, 3);
@@ -2318,7 +2323,7 @@ namespace AgOpenGPS
             this.btnHeadlandOnOff.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnHeadlandOnOff.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnHeadlandOnOff.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnHeadlandOnOff.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnHeadlandOnOff.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnHeadlandOnOff.Image = global::AgOpenGPS.Properties.Resources.HeadlandOff;
             this.btnHeadlandOnOff.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnHeadlandOnOff.Location = new System.Drawing.Point(515, 3);
@@ -2343,7 +2348,7 @@ namespace AgOpenGPS
             this.cboxIsSectionControlled.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.cboxIsSectionControlled.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.cboxIsSectionControlled.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.cboxIsSectionControlled.Font = new System.Drawing.Font("Tahoma", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.cboxIsSectionControlled.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.cboxIsSectionControlled.ForeColor = System.Drawing.SystemColors.ButtonFace;
             this.cboxIsSectionControlled.Image = global::AgOpenGPS.Properties.Resources.HeadlandSectionOn;
             this.cboxIsSectionControlled.Location = new System.Drawing.Point(437, 3);
@@ -2366,7 +2371,7 @@ namespace AgOpenGPS
             this.btnHydLift.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnHydLift.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnHydLift.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnHydLift.Font = new System.Drawing.Font("Tahoma", 12F);
+            this.btnHydLift.Font = new System.Drawing.Font("Segoe UI", 12F);
             this.btnHydLift.Image = global::AgOpenGPS.Properties.Resources.HydraulicLiftOff;
             this.btnHydLift.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnHydLift.Location = new System.Drawing.Point(359, 3);
@@ -2388,7 +2393,7 @@ namespace AgOpenGPS
             this.btnTramDisplayMode.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnTramDisplayMode.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnTramDisplayMode.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnTramDisplayMode.Font = new System.Drawing.Font("Tahoma", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnTramDisplayMode.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnTramDisplayMode.Image = global::AgOpenGPS.Properties.Resources.TramOff;
             this.btnTramDisplayMode.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnTramDisplayMode.Location = new System.Drawing.Point(281, 3);
@@ -2410,7 +2415,7 @@ namespace AgOpenGPS
             this.btnResetToolHeading.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnResetToolHeading.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnResetToolHeading.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnResetToolHeading.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnResetToolHeading.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnResetToolHeading.ForeColor = System.Drawing.Color.Black;
             this.btnResetToolHeading.Image = global::AgOpenGPS.Properties.Resources.ResetTool;
             this.btnResetToolHeading.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -2434,7 +2439,7 @@ namespace AgOpenGPS
             this.btnChangeMappingColor.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnChangeMappingColor.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnChangeMappingColor.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnChangeMappingColor.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnChangeMappingColor.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnChangeMappingColor.ForeColor = System.Drawing.Color.Black;
             this.btnChangeMappingColor.Image = global::AgOpenGPS.Properties.Resources.SectionMapping;
             this.btnChangeMappingColor.ImeMode = System.Windows.Forms.ImeMode.NoControl;
@@ -2459,7 +2464,7 @@ namespace AgOpenGPS
             this.btnYouSkipEnable.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnYouSkipEnable.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnYouSkipEnable.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnYouSkipEnable.Font = new System.Drawing.Font("Tahoma", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnYouSkipEnable.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnYouSkipEnable.Image = global::AgOpenGPS.Properties.Resources.YouSkipOff;
             this.btnYouSkipEnable.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnYouSkipEnable.Location = new System.Drawing.Point(59, 3);
@@ -2502,7 +2507,7 @@ namespace AgOpenGPS
             this.btnAutoSteer.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnAutoSteer.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnAutoSteer.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAutoSteer.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold);
+            this.btnAutoSteer.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold);
             this.btnAutoSteer.Image = global::AgOpenGPS.Properties.Resources.AutoSteerOff;
             this.btnAutoSteer.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnAutoSteer.Location = new System.Drawing.Point(3, 650);
@@ -2524,7 +2529,7 @@ namespace AgOpenGPS
             this.btnAutoYouTurn.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnAutoYouTurn.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnAutoYouTurn.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAutoYouTurn.Font = new System.Drawing.Font("Tahoma", 14.25F);
+            this.btnAutoYouTurn.Font = new System.Drawing.Font("Segoe UI", 14.25F);
             this.btnAutoYouTurn.Image = global::AgOpenGPS.Properties.Resources.YouTurnNo;
             this.btnAutoYouTurn.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnAutoYouTurn.Location = new System.Drawing.Point(3, 583);
@@ -2546,7 +2551,7 @@ namespace AgOpenGPS
             this.btnSectionMasterAuto.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnSectionMasterAuto.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnSectionMasterAuto.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSectionMasterAuto.Font = new System.Drawing.Font("Tahoma", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSectionMasterAuto.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSectionMasterAuto.Image = global::AgOpenGPS.Properties.Resources.SectionMasterOff;
             this.btnSectionMasterAuto.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSectionMasterAuto.Location = new System.Drawing.Point(3, 516);
@@ -2570,7 +2575,7 @@ namespace AgOpenGPS
             this.btnSectionMasterManual.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnSectionMasterManual.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnSectionMasterManual.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSectionMasterManual.Font = new System.Drawing.Font("Tahoma", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnSectionMasterManual.Font = new System.Drawing.Font("Segoe UI", 15.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSectionMasterManual.Image = global::AgOpenGPS.Properties.Resources.ManualOff;
             this.btnSectionMasterManual.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnSectionMasterManual.Location = new System.Drawing.Point(3, 449);
@@ -2593,7 +2598,7 @@ namespace AgOpenGPS
             this.btnIsobusSectionControl.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnIsobusSectionControl.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnIsobusSectionControl.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnIsobusSectionControl.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnIsobusSectionControl.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnIsobusSectionControl.Image = global::AgOpenGPS.Properties.Resources.IsobusSectionControlOff;
             this.btnIsobusSectionControl.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnIsobusSectionControl.Location = new System.Drawing.Point(3, 379);
@@ -2616,7 +2621,7 @@ namespace AgOpenGPS
             this.btnAutoTrack.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnAutoTrack.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnAutoTrack.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAutoTrack.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnAutoTrack.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnAutoTrack.Image = global::AgOpenGPS.Properties.Resources.AutoTrackOff;
             this.btnAutoTrack.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnAutoTrack.Location = new System.Drawing.Point(3, 309);
@@ -2638,7 +2643,7 @@ namespace AgOpenGPS
             this.btnCycleLinesBk.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnCycleLinesBk.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnCycleLinesBk.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCycleLinesBk.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnCycleLinesBk.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnCycleLinesBk.Image = global::AgOpenGPS.Properties.Resources.ABLineCycleBk;
             this.btnCycleLinesBk.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnCycleLinesBk.Location = new System.Drawing.Point(3, 239);
@@ -2660,7 +2665,7 @@ namespace AgOpenGPS
             this.btnCycleLines.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnCycleLines.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnCycleLines.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCycleLines.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnCycleLines.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnCycleLines.Image = global::AgOpenGPS.Properties.Resources.ABLineCycle;
             this.btnCycleLines.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnCycleLines.Location = new System.Drawing.Point(3, 169);
@@ -2682,7 +2687,7 @@ namespace AgOpenGPS
             this.btnContour.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnContour.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnContour.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnContour.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnContour.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnContour.Image = global::AgOpenGPS.Properties.Resources.ContourOff;
             this.btnContour.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnContour.Location = new System.Drawing.Point(3, 99);
@@ -2704,7 +2709,7 @@ namespace AgOpenGPS
             this.btnContourLock.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnContourLock.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnContourLock.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnContourLock.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnContourLock.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnContourLock.Image = global::AgOpenGPS.Properties.Resources.ColorUnlocked;
             this.btnContourLock.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnContourLock.Location = new System.Drawing.Point(3, 29);
@@ -2718,7 +2723,7 @@ namespace AgOpenGPS
             // lblNumCu
             // 
             this.lblNumCu.Anchor = System.Windows.Forms.AnchorStyles.Top;
-            this.lblNumCu.Font = new System.Drawing.Font("Tahoma", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblNumCu.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblNumCu.ForeColor = System.Drawing.Color.Black;
             this.lblNumCu.Location = new System.Drawing.Point(6, 0);
             this.lblNumCu.Margin = new System.Windows.Forms.Padding(0);
@@ -2747,13 +2752,12 @@ namespace AgOpenGPS
             // btnChargeStatus
             // 
             this.btnChargeStatus.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnChargeStatus.BackColor = System.Drawing.Color.Silver;
             this.btnChargeStatus.BackgroundImageLayout = System.Windows.Forms.ImageLayout.None;
             this.btnChargeStatus.FlatAppearance.BorderColor = System.Drawing.Color.Gray;
             this.btnChargeStatus.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnChargeStatus.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnChargeStatus.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnChargeStatus.Font = new System.Drawing.Font("Tahoma", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnChargeStatus.Font = new System.Drawing.Font("Segoe UI", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnChargeStatus.Image = global::AgOpenGPS.Properties.Resources.ChargeIndicator;
             this.btnChargeStatus.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnChargeStatus.Location = new System.Drawing.Point(86, 5);
@@ -2771,7 +2775,7 @@ namespace AgOpenGPS
             this.btnGPSData.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnGPSData.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnGPSData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnGPSData.Font = new System.Drawing.Font("Tahoma", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnGPSData.Font = new System.Drawing.Font("Segoe UI", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnGPSData.Image = global::AgOpenGPS.Properties.Resources.GPSQuality;
             this.btnGPSData.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnGPSData.Location = new System.Drawing.Point(124, 2);
@@ -2810,7 +2814,7 @@ namespace AgOpenGPS
             this.btnMaximizeMainForm.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnMaximizeMainForm.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnMaximizeMainForm.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnMaximizeMainForm.Font = new System.Drawing.Font("Tahoma", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnMaximizeMainForm.Font = new System.Drawing.Font("Segoe UI", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnMaximizeMainForm.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnMaximizeMainForm.Location = new System.Drawing.Point(361, 3);
             this.btnMaximizeMainForm.Name = "btnMaximizeMainForm";
@@ -2829,7 +2833,7 @@ namespace AgOpenGPS
             this.btnMinimizeMainForm.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnMinimizeMainForm.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnMinimizeMainForm.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnMinimizeMainForm.Font = new System.Drawing.Font("Tahoma", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnMinimizeMainForm.Font = new System.Drawing.Font("Segoe UI", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnMinimizeMainForm.ForeColor = System.Drawing.Color.DimGray;
             this.btnMinimizeMainForm.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnMinimizeMainForm.Location = new System.Drawing.Point(290, 3);
@@ -2850,7 +2854,7 @@ namespace AgOpenGPS
             this.btnFieldStats.FlatAppearance.MouseDownBackColor = System.Drawing.Color.Transparent;
             this.btnFieldStats.FlatAppearance.MouseOverBackColor = System.Drawing.Color.Transparent;
             this.btnFieldStats.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnFieldStats.Font = new System.Drawing.Font("Tahoma", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.btnFieldStats.Font = new System.Drawing.Font("Segoe UI", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnFieldStats.Image = global::AgOpenGPS.Properties.Resources.FieldStats;
             this.btnFieldStats.ImeMode = System.Windows.Forms.ImeMode.NoControl;
             this.btnFieldStats.Location = new System.Drawing.Point(2, 2);
@@ -2866,7 +2870,7 @@ namespace AgOpenGPS
             this.lblHardwareMessage.Anchor = System.Windows.Forms.AnchorStyles.Top;
             this.lblHardwareMessage.BackColor = System.Drawing.Color.Bisque;
             this.lblHardwareMessage.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.lblHardwareMessage.Font = new System.Drawing.Font("Tahoma", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblHardwareMessage.Font = new System.Drawing.Font("Segoe UI", 20.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblHardwareMessage.ImageAlign = System.Drawing.ContentAlignment.BottomLeft;
             this.lblHardwareMessage.Location = new System.Drawing.Point(62, 110);
             this.lblHardwareMessage.Name = "lblHardwareMessage";
@@ -2881,7 +2885,6 @@ namespace AgOpenGPS
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
-            this.BackColor = System.Drawing.Color.WhiteSmoke;
             this.ClientSize = new System.Drawing.Size(1000, 720);
             this.Controls.Add(this.panelControlBox);
             this.Controls.Add(this.panelRight);
@@ -2924,7 +2927,7 @@ namespace AgOpenGPS
             this.Controls.Add(this.lblHardwareMessage);
             this.Controls.Add(this.oglBack);
             this.DoubleBuffered = true;
-            this.Font = new System.Drawing.Font("Tahoma", 12F);
+            this.Font = new System.Drawing.Font("Segoe UI", 12F);
             this.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -2932,7 +2935,7 @@ namespace AgOpenGPS
             this.MinimumSize = new System.Drawing.Size(1000, 720);
             this.Name = "FormGPS";
             this.Padding = new System.Windows.Forms.Padding(3);
-            this.Text = "AgOpenGPS";
+            this.Text = "PilotX · Agro Parallel";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormGPS_FormClosing);
             this.Load += new System.EventHandler(this.FormGPS_Load);
             this.ResizeEnd += new System.EventHandler(this.FormGPS_ResizeEnd);
@@ -3115,11 +3118,15 @@ namespace AgOpenGPS
         private System.Windows.Forms.ToolStripMenuItem toolStripColors;
         private System.Windows.Forms.ToolStripMenuItem toolStripSectionColors;
         private System.Windows.Forms.ToolStripMenuItem toolStripHotkeys;
+        // AGROPARALLEL_MOD_START
+        private System.Windows.Forms.ToolStripMenuItem toolStripAgroParallel;
+        private System.Windows.Forms.ToolStripMenuItem toolStripCamaras;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparatorAgroParallel;
+        // AGROPARALLEL_MOD_END
         private System.Windows.Forms.Button btnChargeStatus;
         private System.Windows.Forms.Label lblHardwareMessage;
         private System.Windows.Forms.ToolStripMenuItem eventViewerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem tramsMultiMenuField;
-        private System.Windows.Forms.ToolStripMenuItem AgShareApiMenuItem;
         private System.Windows.Forms.ToolStripMenuItem profileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem newProfileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem loadProfileToolStripMenuItem;

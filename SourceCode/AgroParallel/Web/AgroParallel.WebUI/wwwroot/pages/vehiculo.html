@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vehículo · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ---- tabstrip ---- */
+    .tabs {
+      display: flex; gap: var(--agp-sp-1);
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+      margin: 0 0 var(--agp-sp-3) 0;
+      flex-wrap: wrap;
+    }
+    .tabs .tab {
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      min-height: var(--agp-touch-min);
+      background: transparent; border: 0;
+      color: var(--agp-text-muted);
+      font: inherit; cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+    .tabs .tab.on {
+      color: var(--agp-accent);
+      border-bottom-color: var(--agp-accent);
+      font-weight: var(--agp-fw-semi);
+    }
+    .panel { display: none; }
+    .panel.on { display: block; }
+
+    /* ---- tipo de vehículo: tarjetas grandes con SVG ---- */
+    .veh-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--agp-sp-3);
+    }
+    .veh-card {
+      display: flex; flex-direction: column; align-items: center;
+      gap: var(--agp-sp-2);
+      padding: var(--agp-sp-3);
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s, transform 0.05s;
+      min-height: 170px;
+    }
+    .veh-card:hover { background: var(--agp-bg); }
+    .veh-card:active { transform: translateY(1px); }
+    .veh-card.on {
+      border-color: var(--agp-accent);
+      background: var(--agp-accent-soft, rgba(74,186,62,0.10));
+    }
+    .veh-card .veh-icon {
+      width: 92px; height: 64px;
+      color: var(--agp-text-muted);
+    }
+    .veh-card.on .veh-icon { color: var(--agp-accent); }
+    /* Sprites reales de PilotX dentro de las cards: grayscale leve cuando idle,
+       tinte de acento cuando seleccionado. */
+    .veh-card .veh-img {
+      width: 100px; height: 100px;
+      object-fit: contain;
+      filter: grayscale(0.55) brightness(0.95) contrast(1.05);
+      transition: filter 0.15s, transform 0.05s;
+    }
+    .veh-card.on .veh-img {
+      filter: grayscale(0) brightness(1) contrast(1.05) drop-shadow(0 2px 6px rgba(74,186,62,0.35));
+    }
+    .veh-card .veh-name {
+      font-weight: var(--agp-fw-semi);
+      color: var(--agp-text);
+      text-align: center;
+    }
+    .veh-card .veh-hint {
+      font-size: var(--agp-fs-xs);
+      color: var(--agp-text-muted);
+      text-align: center;
+    }
+    .veh-card input { display: none; }
+
+    /* ---- geometría con diagrama ---- */
+    .geo-split {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+      gap: var(--agp-sp-4);
+      align-items: start;
+    }
+    @media (max-width: 980px) { .geo-split { grid-template-columns: 1fr; } }
+
+    .diagram {
+      background: var(--agp-bg-soft);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+      text-align: center;
+    }
+    .diagram svg { width: 100%; max-width: 460px; height: auto; }
+    /* Wrapper para superponer SVG de cotas sobre una imagen real */
+    .diagram-stack {
+      position: relative;
+      max-width: 460px;
+      margin: 0 auto;
+    }
+    .diagram-stack img.base {
+      width: 100%;
+      max-width: 460px;
+      height: auto;
+      display: block;
+      filter: grayscale(0.55) brightness(0.95);
+    }
+    .diagram-stack svg.over {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    .diagram .legend {
+      margin-top: var(--agp-sp-2);
+      font-size: var(--agp-fs-xs);
+      color: var(--agp-text-muted);
+      text-align: left;
+    }
+    .diagram .legend b { color: var(--agp-text); }
+    .lbl-num { fill: var(--agp-accent); font-weight: 700; font-size: 13px; }
+    .lbl-txt { fill: var(--agp-text); font-size: 11px; }
+    .arrow   { stroke: var(--agp-accent); stroke-width: 1.5; fill: none; }
+    .axle    { stroke: var(--agp-text-muted); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
+
+    .veh-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--agp-sp-3);
+    }
+    .veh-grid .field { display: flex; flex-direction: column; gap: 4px; }
+    .veh-grid .field input {
+      min-height: var(--agp-touch-min);
+      width: 100%;
+    }
+    .field .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px;
+      border-radius: 11px;
+      background: var(--agp-accent); color: #fff;
+      font-size: var(--agp-fs-xs); font-weight: 700;
+      margin-right: 6px;
+    }
+    .field label { display: flex; align-items: center; }
+
+    .msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-3); min-height: 18px; }
+    .msg.ok  { color: var(--agp-state-ok); }
+    .msg.err { color: var(--agp-state-bad); }
+    .help { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="vehiculo"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Vehículo</h1><div class="subtitle">Tipo, geometría y antena GPS</div></div>
+      <span class="pill" id="vehStatus"><span class="dot"></span> Cargando…</span>
+    </div>
+
+    <!-- tabstrip -->
+    <div class="tabs">
+      <button class="tab on" data-panel="tipo">Tipo</button>
+      <button class="tab"    data-panel="geometria">Geometría</button>
+      <button class="tab"    data-panel="antena">Antena GPS</button>
+    </div>
+
+    <!-- =================== TIPO =================== -->
+    <section class="panel on" id="panel-tipo">
+      <div class="card">
+        <h3 style="margin-top:0">¿Qué vehículo es?</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Elegí el tipo de máquina que más se parece. Cambia cómo se dibuja el tractor en el mapa y cómo se interpreta la geometría.
+        </p>
+        <div class="veh-cards">
+          <!-- 0 = Tractor (común). Sprite real de PilotX (vista superior). -->
+          <label class="veh-card" data-vt="0" data-variant="tractor">
+            <input type="radio" name="vehicleType" value="0">
+            <img class="veh-img" src="../img/tractors/TractorAoG.png" alt="Tractor común" loading="lazy">
+            <div class="veh-name">Tractor</div>
+            <div class="veh-hint">Común con enganche trasero</div>
+          </label>
+
+          <!-- 0 = Tractor (variante pulverizadora) — mapea al mismo PilotX type
+               pero el sprite NewHolland es de chasis más alto, característico. -->
+          <label class="veh-card" data-vt="0" data-variant="sprayer">
+            <input type="radio" name="vehicleType" value="0">
+            <img class="veh-img" src="../img/tractors/TractorNewHolland.png" alt="Pulverizadora" loading="lazy">
+            <div class="veh-name">Pulverizadora</div>
+            <div class="veh-hint">Autopropulsada, botalón ancho</div>
+          </label>
+
+          <!-- 1 = Harvester -->
+          <label class="veh-card" data-vt="1" data-variant="harvester">
+            <input type="radio" name="vehicleType" value="1">
+            <img class="veh-img" src="../img/harvesters/HarvesterAoG.png" alt="Cosechadora" loading="lazy">
+            <div class="veh-name">Cosechadora</div>
+            <div class="veh-hint">Dirección por eje trasero</div>
+          </label>
+
+          <!-- 2 = Articulated (usamos sprite Rear que tiene cabina visible) -->
+          <label class="veh-card" data-vt="2" data-variant="articulated">
+            <input type="radio" name="vehicleType" value="2">
+            <img class="veh-img" src="../img/articulated/ArticulatedRearAoG.png" alt="Articulada 4WD" loading="lazy">
+            <div class="veh-name">Articulada</div>
+            <div class="veh-hint">4WD con pivote central</div>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== GEOMETRÍA =================== -->
+    <section class="panel" id="panel-geometria">
+      <div class="card">
+        <h3 style="margin-top:0">Geometría del tractor</h3>
+        <div class="geo-split">
+          <div class="diagram">
+            <!-- Tractor visto desde el costado, con cotas numeradas -->
+            <svg viewBox="0 0 460 240" aria-hidden="true">
+              <!-- piso -->
+              <line x1="20" y1="200" x2="440" y2="200" stroke="var(--agp-text-muted)" stroke-width="1"/>
+              <!-- ruedas -->
+              <circle cx="120" cy="180" r="28" fill="var(--agp-text)" opacity="0.85"/>
+              <circle cx="120" cy="180" r="10" fill="#fff" opacity="0.6"/>
+              <circle cx="340" cy="186" r="22" fill="var(--agp-text)" opacity="0.85"/>
+              <circle cx="340" cy="186" r="8"  fill="#fff" opacity="0.6"/>
+              <!-- chasis -->
+              <rect x="90" y="120" width="270" height="50" rx="6" fill="var(--agp-text)" opacity="0.85"/>
+              <!-- cabina -->
+              <rect x="190" y="80" width="90" height="42" rx="5" fill="var(--agp-text)" opacity="0.55"/>
+              <!-- antena GPS -->
+              <circle cx="235" cy="60" r="6" fill="var(--agp-accent)"/>
+              <line x1="235" y1="60" x2="235" y2="80" stroke="var(--agp-accent)" stroke-width="2"/>
+              <!-- ejes (verticales punteadas) -->
+              <line x1="120" y1="120" x2="120" y2="220" class="axle"/>
+              <line x1="340" y1="120" x2="340" y2="220" class="axle"/>
+
+              <!-- COTA 1: Distancia entre ejes -->
+              <path class="arrow" d="M120,225 L340,225"/>
+              <path class="arrow" d="M120,220 L120,230 M340,220 L340,230"/>
+              <text x="220" y="222" text-anchor="middle" class="lbl-num">1</text>
+              <text x="230" y="240" text-anchor="middle" class="lbl-txt">Distancia entre ejes</text>
+
+              <!-- COTA 2: Pivote (antena → eje trasero) -->
+              <path class="arrow" d="M120,75 L235,75"/>
+              <path class="arrow" d="M120,70 L120,80 M235,70 L235,80"/>
+              <text x="178" y="70" text-anchor="middle" class="lbl-num">2</text>
+
+              <!-- COTA 3: Altura antena -->
+              <path class="arrow" d="M250,60 L250,200"/>
+              <path class="arrow" d="M245,60 L255,60 M245,200 L255,200"/>
+              <text x="260" y="130" class="lbl-num">3</text>
+
+              <!-- Etiqueta extra: eje trasero -->
+              <text x="120" y="232" text-anchor="middle" class="lbl-txt" style="font-style:italic">eje trasero</text>
+              <text x="340" y="232" text-anchor="middle" class="lbl-txt" style="font-style:italic">eje delantero</text>
+            </svg>
+            <div class="legend">
+              <div><b>1</b> Distancia entre ejes — del centro del eje trasero al delantero.</div>
+              <div><b>2</b> Pivote — del eje trasero a la antena GPS (positivo si la antena está hacia adelante).</div>
+              <div><b>3</b> Altura antena — del piso hasta la antena.</div>
+            </div>
+          </div>
+
+          <div class="veh-grid">
+            <div class="field">
+              <label><span class="badge">1</span>Distancia entre ejes (m)</label>
+              <input type="number" id="wheelbase" min="0.5" max="20" step="0.1">
+              <div class="help">Eje delantero ↔ trasero</div>
+            </div>
+            <div class="field">
+              <label>Ancho de trocha (m)</label>
+              <input type="number" id="trackWidth" min="0.5" max="10" step="0.05">
+              <div class="help">Centro a centro de ruedas</div>
+            </div>
+            <div class="field">
+              <label>Ángulo máx. dirección (°)</label>
+              <input type="number" id="maxSteerAngle" min="5" max="60" step="0.5">
+              <div class="help">Cuánto giran las ruedas a tope</div>
+            </div>
+            <div class="field">
+              <label>Vel. mín. autosteer (km/h)</label>
+              <input type="number" id="slowSpeedCutoff" min="0" max="10" step="0.1">
+              <div class="help">Bajo esto se apaga el piloto</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== ANTENA =================== -->
+    <section class="panel" id="panel-antena">
+      <div class="card">
+        <h3 style="margin-top:0">Antena GPS</h3>
+        <div class="geo-split">
+          <div class="diagram">
+            <!-- Vista superior real (sprite PilotX) + overlay SVG con cotas -->
+            <div class="diagram-stack">
+              <img class="base" src="../img/tractors/TractorAoG.png" alt="Tractor visto desde arriba">
+              <!-- Overlay: el sprite es ~256×256, el viewBox respeta esa relación.
+                   El tractor ocupa aprox. x∈[55..200] y∈[10..245] dentro del PNG.
+                   Eje trasero (ruedas grandes) ≈ y=210, eje delantero ≈ y=40.
+                   Centro horizontal ≈ x=128.  -->
+              <svg class="over" viewBox="0 0 256 256" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <!-- línea de simetría del tractor -->
+                <line x1="128" y1="0" x2="128" y2="256" stroke="var(--agp-text-muted)" stroke-width="0.8" stroke-dasharray="3 4"/>
+                <!-- eje trasero (línea punteada perpendicular) -->
+                <line x1="40" y1="210" x2="216" y2="210" class="axle"/>
+                <!-- eje delantero -->
+                <line x1="60" y1="40"  x2="196" y2="40"  class="axle"/>
+
+                <!-- antena: punto destacado (offset hacia la derecha del centro) -->
+                <circle cx="148" cy="120" r="5" fill="var(--agp-accent)" stroke="#fff" stroke-width="1.5"/>
+                <text x="148" y="110" text-anchor="middle" class="lbl-txt">antena</text>
+
+                <!-- COTA 2: Pivote (eje trasero ↔ antena) -->
+                <path class="arrow" d="M128,232 L148,232"/>
+                <path class="arrow" d="M125,228 L125,236 M151,228 L151,236"/>
+                <text x="138" y="248" text-anchor="middle" class="lbl-num">2</text>
+
+                <!-- COTA 4: Offset lateral (centro ↔ antena, horizontal) -->
+                <path class="arrow" d="M128,90 L148,90"/>
+                <path class="arrow" d="M128,86 L128,94 M148,86 L148,94"/>
+                <text x="138" y="82" text-anchor="middle" class="lbl-num">4</text>
+
+                <!-- Indicador frente -->
+                <polygon points="128,4 122,16 134,16" fill="var(--agp-accent)"/>
+                <text x="128" y="30" text-anchor="middle" class="lbl-txt" style="font-weight:700">FRENTE</text>
+              </svg>
+            </div>
+            <div class="legend">
+              <div><b>2</b> Pivote — distancia del eje trasero a la antena (+ delante, − atrás).</div>
+              <div><b>3</b> Altura — diagrama del costado (pestaña Geometría).</div>
+              <div><b>4</b> Offset lateral — desde el centro del tractor a la antena (+ derecha, − izquierda).</div>
+            </div>
+          </div>
+
+          <div class="veh-grid">
+            <div class="field">
+              <label><span class="badge">3</span>Altura antena (m)</label>
+              <input type="number" id="antennaHeight" min="0.1" max="10" step="0.05">
+              <div class="help">Sobre el suelo</div>
+            </div>
+            <div class="field">
+              <label><span class="badge">2</span>Pivote (m)</label>
+              <input type="number" id="antennaPivot" min="-10" max="10" step="0.05">
+              <div class="help">+ delante del eje trasero</div>
+            </div>
+            <div class="field">
+              <label><span class="badge">4</span>Offset lateral (m)</label>
+              <input type="number" id="antennaOffset" min="-5" max="5" step="0.01">
+              <div class="help">+ a la derecha del centro</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div style="margin-top: var(--agp-sp-4); display:flex; gap: var(--agp-sp-2); align-items: center;">
+      <button class="btn primary" id="btnSaveVeh" style="min-height: var(--agp-touch-min)">Guardar y aplicar</button>
+      <button class="btn" id="btnReloadVeh">Descartar cambios</button>
+      <span class="msg" id="msgVeh"></span>
+    </div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/vehiculo.js"></script>
+</body>
+</html>

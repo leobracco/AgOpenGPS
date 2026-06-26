@@ -62,7 +62,7 @@ namespace AgIO
 
             Properties.Settings.Default.Save();
 
-            mf.YesMessageBox("AgIO will Restart to Enable UDP Networking Features");
+            mf.YesMessageBox("CoreX will Restart to Enable UDP Networking Features");
             Log.EventWriter("Program Reset: Start Ethernet Selected");
 
             Program.Restart();

@@ -485,3 +485,20 @@ $RECYCLE.BIN/
 *.swp
 
 .claude/settings.local.json
+Build/
+
+# Artefactos de release PilotX (los empaqueta build.ps1 en root).
+# Nunca van al repo: se suben al panel OrbitX /firmwares o se copian a USB.
+PilotX-*.zip
+PilotX-*.zip.sha256
+PilotX_*.zip
+PilotX_*.zip.sha256
+
+# Capturas sueltas de UI/diagnóstico que quedan en root (no son del repo).
+corex_*.png
+pilotx_*.png
+.playwright-mcp/
+
+
+# Backups generados por el simulador de nodos QuantiX (tools/)
+tools/quantiX_motores.backup-*.json

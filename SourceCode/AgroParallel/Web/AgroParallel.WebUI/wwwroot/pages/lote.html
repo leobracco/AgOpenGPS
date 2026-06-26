@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lote · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    .new-row { display: flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-3); }
+    .new-row input { flex:1; min-height: var(--agp-touch-min); }
+    .new-row .btn { min-height: var(--agp-touch-min); }
+
+    .current-bar { display:flex; align-items:center; gap:var(--agp-sp-3); flex-wrap: wrap; }
+    .current-bar .name { font-size: var(--agp-fs-lg); font-weight: var(--agp-fw-semi); }
+    .msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-3); min-height: 18px; }
+    .msg.ok  { color: var(--agp-state-ok); }
+    .msg.err { color: var(--agp-state-bad); }
+
+    /* Toolbar de la tabla: buscador + count + page size */
+    .lt-toolbar { display:flex; gap: var(--agp-sp-3); align-items:center;
+                  margin: var(--agp-sp-4) 0 var(--agp-sp-2); flex-wrap: wrap; }
+    .lt-toolbar .search { flex:1; min-width: 220px; min-height: var(--agp-touch-min); }
+    .lt-toolbar .count  { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+    .lt-toolbar select  { min-height: var(--agp-touch-min); }
+
+    /* Tabla de lotes */
+    .lt-table { width:100%; border-collapse: collapse; }
+    .lt-table thead th {
+      text-align:left; padding: var(--agp-sp-2) var(--agp-sp-3);
+      font-size: var(--agp-fs-xs); text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--agp-text-muted); border-bottom: var(--agp-border-w) solid var(--agp-border);
+      cursor: pointer; user-select: none; white-space: nowrap;
+    }
+    .lt-table thead th .arr { color: var(--agp-accent); margin-left: 4px; }
+    .lt-table tbody tr {
+      border-bottom: 1px solid var(--agp-border-soft, var(--agp-border));
+      transition: background 0.1s ease;
+    }
+    .lt-table tbody tr:hover { background: var(--agp-bg-soft); }
+    .lt-table tbody tr.current { background: var(--agp-accent-soft, rgba(74,186,62,0.08)); }
+    .lt-table tbody tr.current td:first-child { border-left: 3px solid var(--agp-accent); }
+    .lt-table tbody td {
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      font-size: var(--agp-fs-sm); vertical-align: middle;
+    }
+    .lt-table .col-name   { font-weight: var(--agp-fw-medium); word-break: break-all; }
+    .lt-table .col-date   { font-family: var(--agp-font-mono); color: var(--agp-text-muted); white-space: nowrap; }
+    .lt-table .col-flags  { white-space: nowrap; }
+    .lt-table .col-flags .pill { font-size: var(--agp-fs-xs); padding: 1px 6px; margin-right: 4px; }
+    .lt-table .col-act    { text-align: right; white-space: nowrap; }
+    .lt-table .col-act .btn { min-height: 36px; padding: 4px 12px; font-size: var(--agp-fs-sm); margin-left: 4px; }
+
+    /* Footer: paginación */
+    .lt-pager { display:flex; gap: var(--agp-sp-2); justify-content:center; align-items:center;
+                margin-top: var(--agp-sp-3); flex-wrap: wrap; }
+    .lt-pager .info { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); margin: 0 var(--agp-sp-2); }
+    .lt-pager .btn { min-height: 36px; padding: 4px 12px; }
+    .lt-pager .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+
+    .empty-row td { padding: var(--agp-sp-5); text-align: center; color: var(--agp-text-muted); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="lote"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div><h1>Lote</h1><div class="subtitle">Abrir, cerrar o crear un lote</div></div>
+      <span class="pill" id="curPill"><span class="dot"></span> Cargando…</span>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">Lote actual</h3>
+      <div class="current-bar">
+        <div class="name" id="curName">—</div>
+        <div style="flex:1"></div>
+        <button class="btn" id="btnClose" disabled>Cerrar lote</button>
+      </div>
+      <div class="msg" id="msgCur"></div>
+    </div>
+
+    <div class="card" style="margin-top: var(--agp-sp-4)">
+      <h3 style="margin-top:0">Crear lote nuevo</h3>
+      <div class="new-row">
+        <input type="text" id="newName" placeholder="Nombre del lote…" maxlength="64" />
+        <button class="btn" id="btnAddDate" title="Agregar fecha">+ Fecha</button>
+        <button class="btn primary" id="btnCreate">Crear y abrir</button>
+      </div>
+      <div class="msg" id="msgNew"></div>
+    </div>
+
+    <h2 style="margin-top: var(--agp-sp-6)">Lotes guardados</h2>
+
+    <div class="lt-toolbar">
+      <input type="search" id="searchInp" class="search" placeholder="Buscar por nombre…" autocomplete="off">
+      <span class="count" id="ltCount">0 lotes</span>
+      <label style="color: var(--agp-text-muted); font-size: var(--agp-fs-sm);">Por página</label>
+      <select id="pageSize">
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+        <option value="100">100</option>
+      </select>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden">
+      <table class="lt-table" id="lt">
+        <thead>
+          <tr>
+            <th data-sort="name">Nombre <span class="arr" data-arr="name"></span></th>
+            <th data-sort="lastModifiedUtc">Modificado <span class="arr" data-arr="lastModifiedUtc">▼</span></th>
+            <th data-sort="hasBoundary">Estado <span class="arr" data-arr="hasBoundary"></span></th>
+            <th class="col-act">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="ltBody"></tbody>
+      </table>
+    </div>
+
+    <div class="lt-pager" id="ltPager"></div>
+  </main>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/lote.js"></script>
+</body>
+</html>

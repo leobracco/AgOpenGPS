@@ -27,7 +27,7 @@ namespace AgIO
                     RegistrySettings.Load();
 
                     Log.EventWriter("Program Started: " + DateTime.Now.ToString("f", CultureInfo.InvariantCulture));
-                    Log.EventWriter("AgIO Version: " + Application.ProductVersion.ToString(CultureInfo.InvariantCulture));
+                    Log.EventWriter("CoreX Version: " + Application.ProductVersion.ToString(CultureInfo.InvariantCulture));
 
                     Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo(RegistrySettings.culture);
                     Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo(RegistrySettings.culture);

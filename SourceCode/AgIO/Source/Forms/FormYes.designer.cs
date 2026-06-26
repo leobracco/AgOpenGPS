@@ -95,7 +95,7 @@
             this.ShowIcon = false;
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "AgIO Message";
+            this.Text = "CoreX Message";
             this.TopMost = true;
             this.ResumeLayout(false);
 
