@@ -195,17 +195,27 @@
         + '<span class="dosebox"><input type="number" step="0.1" data-mi="' + i + '" '
         + 'class="qxDosisFija" value="' + dosis + '"> <span class="u">kg/ha</span></span>'
         + '<span class="eff ' + efClass + '">' + efTxt + '</span>'
+        + '<button class="mdel" type="button" data-del="' + i + '" title="Borrar motor">\u00D7</button>'
         + '</div>';
     }
     el.innerHTML = html;
 
-    // Tap a la fila = fijar pincel (sin robar foco al input de dosis).
+    // Tap a la fila = fijar pincel (sin robar foco al input de dosis ni al borrar).
     var rows = el.querySelectorAll('.mrow');
     for (var r = 0; r < rows.length; r++) {
       rows[r].addEventListener('click', function (e) {
-        if (e.target && e.target.classList && e.target.classList.contains('qxDosisFija')) return;
+        if (e.target && e.target.classList &&
+            (e.target.classList.contains('qxDosisFija') || e.target.classList.contains('mdel'))) return;
         state.brushMotor = parseInt(this.getAttribute('data-mi'), 10);
         updateBrushChip(); renderStrip(); renderMotorList();
+      });
+    }
+    // Botón × = borrar ese motor (sus surcos quedan huérfanos).
+    var dels = el.querySelectorAll('.mdel');
+    for (var d = 0; d < dels.length; d++) {
+      dels[d].addEventListener('click', function (e) {
+        e.stopPropagation();
+        deleteMotor(parseInt(this.getAttribute('data-del'), 10));
       });
     }
     // Editar dosis fija (escribe sobre el motor plano correspondiente).
@@ -396,6 +406,21 @@
     }
     state.dirty = true;
     renderStrip(); renderMotorList();
+  }
+
+  // Borra un motor de su nodo (lista plana). Sus surcos quedan huérfanos (gris)
+  // y se pueden reasignar pintándolos. El pincel se reajusta para no apuntar a
+  // un índice inexistente. Persiste recién al tocar Guardar.
+  function deleteMotor(flatIdx) {
+    var all = allMotors();
+    var entry = all[flatIdx];
+    if (!entry || !entry.nodo) return;
+    var ms = entry.nodo.motores || [];
+    ms.splice(entry.motorIdx, 1);
+    var n = allMotors().length;
+    if (state.brushMotor >= n) state.brushMotor = n > 0 ? n - 1 : 0;
+    state.dirty = true;
+    renderStrip(); renderMotorList(); updateBrushChip(); updateOrphanWarn();
   }
 
   // Quita el último surco tocado de cualquier motor de cualquier nodo (queda huérfano).
