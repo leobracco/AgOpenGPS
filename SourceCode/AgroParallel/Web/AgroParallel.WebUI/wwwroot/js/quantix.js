@@ -1213,7 +1213,6 @@
 
         var pul   = pick(m, 'pulsos', 'Pulsos') || 0;
         var pwmA  = pick(m, 'pwm', 'Pwm') || 0;
-        var calOn = !!pick(m, 'calibrando', 'Calibrando');
         var ppr   = parseInt((mc.querySelector('input[data-cal-f="ppr"]') || {}).value, 10) || 1;
 
         var pEl  = mc.querySelector('[data-cal="pulsos"]');     if (pEl)  pEl.textContent  = pul.toLocaleString();
@@ -1226,8 +1225,11 @@
           var delta = pul - st.startPulsos;
           if (dEl) dEl.textContent = delta.toLocaleString();
           if (vEl) vEl.textContent = (ppr > 0 ? (delta / ppr).toFixed(2) : '—');
-          // El firmware bajó CalibActive cuando llegó a la meta → grabamos endPulsos.
-          if (!calOn && st.endPulsos == null && delta > 0) {
+          // El firmware gira hasta st.meta pulsos y frena solo. La telemetría no
+          // expone un flag de calibración, así que detectamos la meta en el PC:
+          // grabamos endPulsos cuando el Δ de pulsos alcanza el objetivo comandado
+          // (vueltas*ppr, el mismo valor que se le mandó al nodo en 'start').
+          if (st.meta && st.endPulsos == null && delta >= st.meta) {
             st.endPulsos = pul;
             var msgEl = mc.querySelector('span[data-cal-msg="' + mi + '"]');
             if (msgEl) { msgEl.textContent = '✓ Meta alcanzada — pesá los surcos y apretá Calcular'; msgEl.className = 'send-msg ok'; }
@@ -1818,12 +1820,12 @@
         ? '<span style="color:var(--agp-text-muted)">— sin columnas DBF —</span>'
         : fields.map(function (f) {
             var nm = (typeof f === 'string') ? f : (f && f.name);
-            return '<span class="chip ok" style="margin:2px">' + nm + '</span>';
+            return '<span class="chip ok" style="margin:2px">' + escapeHtml(nm || '') + '</span>';
           }).join('');
       box.innerHTML =
         '<div style="display:grid;grid-template-columns:auto 1fr;gap:var(--agp-sp-2) var(--agp-sp-3);align-items:baseline">' +
           '<div class="lbl" style="font-size:var(--agp-fs-xs);color:var(--agp-text-muted);text-transform:uppercase">Archivo</div>' +
-          '<div style="font-family:var(--agp-font-mono)">' + d.sourceToken + '</div>' +
+          '<div style="font-family:var(--agp-font-mono)">' + escapeHtml(d.sourceToken) + '</div>' +
           '<div class="lbl" style="font-size:var(--agp-fs-xs);color:var(--agp-text-muted);text-transform:uppercase">Columnas DBF</div>' +
           '<div class="shape-required-grid" style="margin:0">' + fieldsHtml + '</div>' +
         '</div>';
