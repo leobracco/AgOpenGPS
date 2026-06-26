@@ -243,6 +243,12 @@ namespace AgroParallel.QuantiX
                         // Fuente de secciones según tren físico del motor.
                         bool[] secMotor = (motor.Tren == 0) ? seccionesPilotX : secTrasero;
 
+                        // Velocidad real de este motor según las secciones que cubre.
+                        // Captura el efecto de rotación en curvas (un motor en el
+                        // extremo externo va más rápido que el promedio, el interno
+                        // más lento). Fallback a AvgSpeed si no hay datos por sección.
+                        double velMotorKmh = MotorSpeedKmh(motor.Cortes, snap.SectionSpeedsKmh, snap.AvgSpeed);
+
                         // Dosis efectiva: Manual > Mapa > Fija (ver QxDoseResolver).
                         // Antes la DosisFija ganaba sobre el mapa; ahora "mapa manda".
                         // 'dosis' es el mapa global del tick (0 si fuera del lote/sin vel).
@@ -276,7 +282,7 @@ namespace AgroParallel.QuantiX
 
                         // Sin cortes asignados → funciona si hay dosis y velocidad.
                         bool tieneCortes = motor.Cortes != null && motor.Cortes.Count > 0;
-                        if (!seccionOn && !tieneCortes && dosisEfectiva > 0 && velocidadKmh > 0.5)
+                        if (!seccionOn && !tieneCortes && dosisEfectiva > 0 && velMotorKmh > 0.5)
                             seccionOn = true;
 
                         double anchoActivo = seccionOn ? anchoTotal : 0;
@@ -286,9 +292,9 @@ namespace AgroParallel.QuantiX
                         //   producto_g_por_seg = dosis_kg_ha × 1000 × ancho_m × vel_m/s / 10000
                         //   pps = producto_g_por_seg / meterCal (gramos por pulso)
                         double pps = 0;
-                        if (seccionOn && dosisEfectiva > 0 && motor.MeterCal > 0 && velocidadKmh > 0.5)
+                        if (seccionOn && dosisEfectiva > 0 && motor.MeterCal > 0 && velMotorKmh > 0.5)
                         {
-                            double velocidadMs = velocidadKmh / 3.6;
+                            double velocidadMs = velMotorKmh / 3.6;
                             double productoGramosPorSeg = (dosisEfectiva * 1000.0 * anchoActivo * velocidadMs) / 10000.0;
                             pps = productoGramosPorSeg / motor.MeterCal;
                         }
@@ -298,8 +304,8 @@ namespace AgroParallel.QuantiX
                         {
                             int ppr = motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 24;
                             double rpmTarget = ppr > 0 ? pps * 60.0 / ppr : 0;
-                            Log(string.Format("  M{0} dosis={1:F0}kg/ha ancho={2:F1}m cal={3:F1}g/p RPM={4:F0} pps={5:F1}",
-                                mi, dosisEfectiva, anchoActivo, motor.MeterCal, rpmTarget, pps));
+                            Log(string.Format("  M{0} dosis={1:F0}kg/ha ancho={2:F1}m vel={3:F1}km/h cal={4:F1}g/p RPM={5:F0} pps={6:F1}",
+                                mi, dosisEfectiva, anchoActivo, velMotorKmh, motor.MeterCal, rpmTarget, pps));
                         }
 
                         string topic = "agp/quantix/" + nodo.Uid + "/target";
@@ -327,6 +333,31 @@ namespace AgroParallel.QuantiX
             {
                 Log("Tick error: " + ex.Message);
             }
+        }
+
+        // Velocidad efectiva de un motor = promedio de la velocidad real de las
+        // secciones que cubre (Cortes). PilotX calcula esas velocidades con el
+        // efecto de rotación del implemento en curvas (signo incluido: una
+        // sección interna puede ir más lento o incluso para atrás). Si no hay
+        // velocidades por sección o el motor no tiene cortes válidos, cae a la
+        // velocidad promedio del tractor.
+        private static double MotorSpeedKmh(IList<int> cortes, double[] sectionSpeeds, double avgSpeedKmh)
+        {
+            if (sectionSpeeds == null || sectionSpeeds.Length == 0) return avgSpeedKmh;
+            if (cortes == null || cortes.Count == 0) return avgSpeedKmh;
+
+            double sum = 0;
+            int count = 0;
+            foreach (int corte in cortes)
+            {
+                int idx = corte - 1;
+                if (idx >= 0 && idx < sectionSpeeds.Length)
+                {
+                    sum += sectionSpeeds[idx];
+                    count++;
+                }
+            }
+            return count > 0 ? sum / count : avgSpeedKmh;
         }
 
         private System.Threading.Tasks.Task OnStatusReceived(MqttApplicationMessageReceivedEventArgs args)
