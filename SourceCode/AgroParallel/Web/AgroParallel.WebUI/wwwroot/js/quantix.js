@@ -409,31 +409,6 @@
     } catch (e) { state.implCentral = null; }
   }
 
-  // Mapping surco_numero → seccion_pilotx_id desde el implemento central.
-  // El motor guarda surcos_cubiertos[]; al guardar derivamos cortes[] = lista
-  // de secciones PilotX únicas que cubren esos surcos. Si el central no tiene
-  // surcos cargados, devuelve {} y el caller cae al fallback.
-  function surcoToSeccionMap() {
-    var c = state.implCentral;
-    var map = {};
-    if (!c || !Array.isArray(c.surcos)) return map;
-    c.surcos.forEach(function (s) {
-      var n = s.numero | 0;
-      var sec = s.seccion_pilotx | 0;
-      if (n > 0 && sec > 0) map[n] = sec;
-    });
-    return map;
-  }
-  function surcosToCortes(surcos) {
-    var m = surcoToSeccionMap();
-    var set = {};
-    (surcos || []).forEach(function (n) {
-      var sec = m[n | 0];
-      if (sec) set[sec] = true;
-    });
-    return Object.keys(set).map(function (k) { return k | 0; }).sort(function (a, b) { return a - b; });
-  }
-
   async function loadAogSections() {
     try {
       var r = await fetch('/api/aog/state', { cache: 'no-store' });
@@ -596,10 +571,9 @@
       max_integral: 1200, deadband: 2, slew_rate: 40, dientes_engranaje: 20,
       motor_type: 0, max_hz: 40, ff_gain: 1.0, alpha: 0.4,
       slew_rate_per_sec: 5000, pid_time: 50,
-      // surcos_cubiertos[] es la fuente única de verdad de qué surcos físicos
-      // alimenta este motor. cortes[] queda como cache derivado para el bridge
-      // que aún habla en términos de secciones PilotX (se recalcula al guardar).
-      surcos_cubiertos: [], cortes: [], tren: 0
+      // cortes[] = surcos/secciones PilotX que alimenta este motor (se pintan
+      // directo en la tira de surcos). Es lo que consume el bridge.
+      cortes: [], tren: 0
     };
   }
 
