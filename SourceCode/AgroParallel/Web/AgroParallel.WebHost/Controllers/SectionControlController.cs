@@ -5,17 +5,15 @@
 // el view solo lee. Cuando el Core se migre, este controller deja de tocar PilotX.
 // ============================================================================
 
-using System.Text;
 using System.Threading.Tasks;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class SectionControlController : WebApiController
+    public sealed class SectionControlController : AgpControllerBase
     {
         private readonly ISectionControlService _sections;
 
@@ -25,14 +23,10 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/aog/sections")]
-        public async Task GetSections()
+        public Task GetSections()
         {
             var snap = _sections != null ? _sections.GetSnapshot() : null;
-            string json = SysJson.Serialize(new { ok = true, snapshot = snap }, new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-            });
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
+            return WriteJsonAsync(new { ok = true, snapshot = snap });
         }
     }
 }
