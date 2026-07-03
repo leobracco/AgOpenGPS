@@ -65,10 +65,16 @@
     { id: 'camaras',  ico: '⌘',  label: 'Cámaras',  href: 'camaras.html' },
     { id: 'nodos',    ico: '📡', label: 'Nodos',    href: 'nodos.html' },
     { id: 'setup',    ico: '🧭', label: 'Asistente', href: 'setup.html' },
+    { id: 'sistema',  ico: '🖥', label: 'Sistema',  href: 'sistema.html' },
     { id: 'debug',    ico: '🐞', label: 'Debug',    href: 'debug.html' },
     { id: 'pwa-qr',   ico: '▣',  label: 'Conectar celular', href: 'pwa-qr.html' },
     { id: 'actualizar', ico: '⤓', label: 'Actualizar', href: 'actualizar.html' }
   ];
+
+  function iconHtml(id) {
+    var src = '../img/icons/existing/agp-' + id + '.png';
+    return '<span class="ico"><img src="' + src + '" alt="" aria-hidden="true" loading="lazy" onerror="this.style.display=&quot;none&quot;"></span>';
+  }
 
   function render(aside) {
     const active = aside.getAttribute('data-active') || '';
@@ -80,13 +86,15 @@
       '    <div class="brand-sub">PilotX · preview</div>',
       '  </div>',
       '</div>',
-      '<ul class="nav">'
+      '<ul class="nav" aria-label="Navegacion principal">'
     ];
     for (const it of ITEMS) {
-      const cls = it.id === active ? ' class="active"' : '';
+      const isActive = it.id === active;
+      const cls = isActive ? ' class="active"' : '';
+      const aria = isActive ? ' aria-current="page"' : '';
       html.push(
-        '<li><a' + cls + ' href="' + it.href + '">' +
-          '<span class="ico">' + it.ico + '</span>' +
+        '<li><a' + cls + aria + ' href="' + it.href + '" title="' + it.label + '">' +
+          iconHtml(it.id) +
           '<span class="label">' + it.label + '</span>' +
         '</a></li>'
       );

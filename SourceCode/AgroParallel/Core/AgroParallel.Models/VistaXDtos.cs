@@ -261,6 +261,12 @@ namespace AgroParallel.Models
         public double ToleranciaDesvio { get; set; }
         public string NombreImplemento { get; set; } = "";
 
+        /// <summary>
+        /// Distancia entre surcos (m). El cliente la usa para derivar sem/ha a
+        /// partir de sem/m por surco (sem/ha = sem/m · 10000 / distancia).
+        /// </summary>
+        public double DistanciaEntreSurcos { get; set; } = 0.191;
+
         // ----- Layout torres (vista agrupada del overlay live) --------------
         // Se reflejan acá para que el cliente HTML pueda dibujar la vista
         // torres sin tener que pegarle a /api/vistax/implemento aparte.

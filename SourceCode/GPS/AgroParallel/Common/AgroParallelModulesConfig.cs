@@ -58,9 +58,8 @@ namespace AgroParallel.Common
 
             try
             {
-                string json = File.ReadAllText(path);
                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var cfg = JsonSerializer.Deserialize<AgroParallelModulesConfig>(json, opts);
+                var cfg = AtomicJson.Read<AgroParallelModulesConfig>(path, opts);
 
                 if (cfg == null || cfg.Modules == null)
                     return CreateDefault();
@@ -80,7 +79,7 @@ namespace AgroParallel.Common
             try
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(GetConfigPath(), JsonSerializer.Serialize(this, opts));
+                AtomicJson.Write(GetConfigPath(), JsonSerializer.Serialize(this, opts));
             }
             catch (Exception ex)
             {

@@ -1,0 +1,10 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+  <style>
+    path, rect, circle, line, polyline, polygon { stroke: #101612; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .accent { stroke: #4ABA3E; }
+  </style>
+<path d="M12 21V10"/>
+<path class="accent" d="M12 10c-3.5 0-6-2.5-6-6 3.5 0 6 2.5 6 6Z"/>
+<path class="accent" d="M12 13c3.5 0 6-2.5 6-6-3.5 0-6 2.5-6 6Z"/>
+<path d="M6 21h12"/>
+</svg>

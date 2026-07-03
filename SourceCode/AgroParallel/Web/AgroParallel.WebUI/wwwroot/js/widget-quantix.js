@@ -125,6 +125,7 @@
     const html = [];
     (nodo.motores || []).forEach((m) => {
       const idx = m.idx;
+      const unidad = (m.unidad === 'sem_m') ? 'sem/m' : 'kg/ha';
       const dosisShown = m.manual_mode ? m.manual_dosis : m.objetivo;
       const decimals = doseDecimals(dosisShown);
       const inputValue = fmt(dosisShown, decimals);
@@ -136,7 +137,7 @@
         '<div class="motor' + activoClass + '" data-uid="' + nodo.uid + '" data-idx="' + idx + '">' +
           '<div class="row1">' +
             '<div class="nombre" title="' + escapeAttr(m.nombre) + '">' + escapeHtml(m.nombre) + '</div>' +
-            '<div class="obj">OBJ <b>' + fmt(m.objetivo) + '</b> · REAL ' + fmt(m.real) + '</div>' +
+            '<div class="obj">OBJ <b>' + fmt(m.objetivo) + '</b> · REAL ' + fmt(m.real) + ' <span class="u">' + unidad + '</span></div>' +
           '</div>' +
           '<div class="row2">' +
             '<button class="btn-man' + (m.manual_mode ? ' manual' : '') + '" ' +
@@ -208,7 +209,8 @@
     editing.uid = uid;
     editing.idx = idx;
     editing.value = fmt(cur, doseDecimals(cur)); // arranca con la dosis actual
-    keypadTitle.textContent = (motor.nombre || ('Motor ' + idx)) + ' · dosis (kg/ha)';
+    var unidad = (motor.unidad === 'sem_m') ? 'sem/m' : 'kg/ha';
+    keypadTitle.textContent = (motor.nombre || ('Motor ' + idx)) + ' · dosis (' + unidad + ')';
     keypadDisplay.textContent = editing.value;
     keypadBackdrop.classList.add('show');
   }

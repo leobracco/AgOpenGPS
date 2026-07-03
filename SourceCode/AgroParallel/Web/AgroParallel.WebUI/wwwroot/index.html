@@ -53,7 +53,7 @@
       flex-direction: column;
       align-items: center;
       gap: 14px;
-      animation: agp-fade-in 0.9s ease-out both;
+      animation: agp-fade-in 0.4s ease-out both;
     }
 
     .agp-wordmark {
@@ -91,7 +91,7 @@
     .agp-glyph {
       width: clamp(96px, 12vw, 144px);
       height: clamp(96px, 12vw, 144px);
-      animation: agp-fade-in 0.9s 0.15s ease-out both;
+      animation: agp-fade-in 0.4s 0.05s ease-out both;
     }
     .agp-glyph .line { stroke: var(--agp-border-strong); }
     .agp-glyph .line-active { stroke: var(--agp-accent); }
@@ -103,7 +103,7 @@
       flex-direction: column;
       align-items: center;
       gap: 18px;
-      animation: agp-fade-in 0.9s 0.45s ease-out both;
+      animation: agp-fade-in 0.4s 0.2s ease-out both;
     }
 
     .agp-progress {
@@ -151,7 +151,7 @@
       transition: background 0.15s ease, transform 0.05s ease;
       box-shadow: 0 8px 32px rgba(75, 166, 63, 0.25);
       opacity: 0;
-      animation: agp-fade-in 0.6s 1.6s ease-out forwards;
+      animation: agp-fade-in 0.35s 0.55s ease-out forwards;
     }
     .agp-enter:hover  { background: var(--agp-accent-hover); }
     .agp-enter:active { background: var(--agp-accent-press); transform: scale(0.98); }
@@ -167,7 +167,7 @@
       letter-spacing: 0.32em;
       text-transform: uppercase;
       color: var(--agp-text-dim);
-      animation: agp-fade-in 0.9s 0.9s ease-out both;
+      animation: agp-fade-in 0.4s 0.35s ease-out both;
     }
     .agp-foot .sep { color: var(--agp-border-strong); margin: 0 10px; }
 
@@ -244,7 +244,7 @@
       // "piloto.html" del WebView: la pantalla del piloto vive nativa en
       // Agro Parallel / AgValoniaGPS y se ve al cerrar el Hub.
       var target = "pages/hub.html";
-      var autoMs = 1600;
+      var autoMs = 800;
       var goneTo = false;
 
       function go() {

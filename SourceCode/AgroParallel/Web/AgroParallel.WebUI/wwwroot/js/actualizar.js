@@ -116,27 +116,62 @@
     }
   });
 
+  // Overlay a pantalla completa mientras PilotX se reinicia. Dos fases:
+  //   1) esperar a que el server VIEJO deje de responder (si reconectamos
+  //      antes de que cierre, recargaríamos la versión vieja);
+  //   2) esperar a que el server nuevo vuelva y recargar solos.
+  // Sin límite de intentos: la pantalla nunca queda muerta, siempre informa.
+  function showRebootOverlay() {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.85);' +
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+      'gap:16px;color:#fff;text-align:center;padding:24px';
+    ov.innerHTML =
+      '<div style="font-size:22px;font-weight:600">Aplicando actualización…</div>' +
+      '<div id="rebootMsg" style="font-size:16px;opacity:.8">PilotX se está reiniciando. ' +
+      'Esta pantalla se recarga sola cuando vuelva.</div>';
+    document.body.appendChild(ov);
+    return ov.querySelector('#rebootMsg');
+  }
+
+  async function ping() {
+    try { await agpApi.get('pilotx/update/status'); return true; }
+    catch { return false; }
+  }
+
+  async function waitForRestartAndReload() {
+    const msg = showRebootOverlay();
+    const t0 = Date.now();
+    const secs = () => Math.round((Date.now() - t0) / 1000);
+
+    // Fase 1: esperar a que el server viejo caiga (máx 90s; si nunca cae
+    // asumimos que el updater fue más rápido que nuestro polling).
+    let down = false;
+    while (!down && Date.now() - t0 < 90000) {
+      await new Promise(r => setTimeout(r, 2000));
+      down = !(await ping());
+    }
+
+    // Fase 2: esperar a que vuelva. Sin tope de intentos.
+    for (;;) {
+      await new Promise(r => setTimeout(r, 2000));
+      if (await ping()) { location.href = '/'; return; }
+      msg.textContent = secs() < 300
+        ? ('Esperando que PilotX vuelva… (' + secs() + ' s)')
+        : ('Está tardando más de lo normal (' + secs() + ' s). ' +
+           'Si no vuelve solo, reiniciá PilotX desde el escritorio.');
+    }
+  }
+
   btnApply.addEventListener('click', async () => {
     if (!confirm('La aplicación se va a cerrar para aplicar la actualización. ¿Continuar?')) return;
     btnApply.disabled = true;
     try {
       await agpApi.post('pilotx/update/apply');
-      // Mensaje al operario y reintentar reconexión.
       phasePill.className = 'phase-pill phase-Applying';
       phasePill.textContent = 'Aplicando…';
-      document.body.style.opacity = '0.5';
-      let attempts = 0;
-      const recon = setInterval(async () => {
-        attempts++;
-        try {
-          await agpApi.get('pilotx/update/status');
-          // si responde, PilotX volvió: recargamos.
-          clearInterval(recon);
-          location.href = '/';
-        } catch {
-          if (attempts > 60) clearInterval(recon);
-        }
-      }, 2000);
+      stopPolling();
+      waitForRestartAndReload();
     } catch (e) {
       errLine.style.display = '';
       errLine.textContent = 'No se pudo iniciar la aplicación del update: ' + e.message;

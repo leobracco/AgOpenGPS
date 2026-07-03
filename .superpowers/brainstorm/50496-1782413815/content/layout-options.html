@@ -1,0 +1,98 @@
+<h2>¿Qué layout para N motores?</h2>
+<p class="subtitle">Tres direcciones para la pantalla de QuantiX que tiene que escalar hasta 36/48 surcos, mostrar dosis por motor (mapa o fija) y la asignación motor↔surco. Mirá las maquetas y elegí la que te cierre. Podés clickear.</p>
+
+<style>
+  .mk { background:#101612; border:1px solid #2a352c; border-radius:10px; padding:12px; margin-top:10px; }
+  .mk h4 { margin:0 0 8px; color:#E2E7E2; font-size:13px; }
+  .strip { display:flex; gap:3px; flex-wrap:wrap; }
+  .cell { width:18px; height:26px; border-radius:3px; font-size:9px; color:#101612; display:flex; align-items:center; justify-content:center; font-weight:700; }
+  .c1{background:#4ABA3E}.c2{background:#7F6BE0}.c3{background:#E0A33E}.c4{background:#3E9BE0}.c5{background:#E06B8B}.c6{background:#46C5B0}
+  .coff{background:#3a463c;color:#7e8a80}
+  .mlist { margin-top:10px; display:flex; flex-direction:column; gap:5px; }
+  .mrow { display:flex; align-items:center; gap:8px; background:#16201a; border:1px solid #2a352c; border-radius:6px; padding:5px 8px; font-size:11px; color:#C5CFC5; }
+  .mrow .sw { width:12px; height:12px; border-radius:3px; }
+  .mrow .nm { width:62px; color:#E2E7E2; font-weight:600; }
+  .mrow .dose { background:#0c120e; border:1px solid #2a352c; border-radius:4px; padding:2px 6px; color:#4ABA3E; font-variant-numeric:tabular-nums; }
+  .mrow .pps { margin-left:auto; color:#7e8a80; }
+  table.dense { width:100%; border-collapse:collapse; font-size:11px; }
+  table.dense th { text-align:left; color:#7e8a80; font-weight:600; padding:4px 6px; border-bottom:1px solid #2a352c; }
+  table.dense td { padding:4px 6px; border-bottom:1px solid #1d271f; color:#C5CFC5; }
+  table.dense .sw { display:inline-block; width:10px; height:10px; border-radius:2px; vertical-align:middle; margin-right:4px; }
+  .split2 { display:flex; gap:10px; }
+  .split2 .left { flex:1; } .split2 .right { width:90px; }
+  .vplant { display:flex; flex-direction:column; gap:3px; }
+  .vcell { height:14px; border-radius:3px; }
+  .opt-mk .content { width:100%; }
+</style>
+
+<div class="options">
+  <!-- OPTION A -->
+  <div class="option opt-mk" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Barra de surcos (planter) + lista de motores</h3>
+      <p>Arriba, una tira con TODOS los surcos coloreados por motor (tap a un surco lo reasigna). Abajo, lista de motores con su dosis y estado live. Tap a un motor resalta sus surcos. Lo más visual e intuitivo; escala bien a 48.</p>
+      <div class="mk">
+        <h4>Surcos 1–24 · color = motor · gris = cortado</h4>
+        <div class="strip">
+          <div class="cell c1">1</div><div class="cell c1">2</div><div class="cell c2">3</div><div class="cell c2">4</div><div class="cell c3">5</div><div class="cell c3">6</div>
+          <div class="cell c4">7</div><div class="cell c4">8</div><div class="cell coff">9</div><div class="cell coff">10</div><div class="cell c5">11</div><div class="cell c5">12</div>
+          <div class="cell c6">13</div><div class="cell c6">14</div><div class="cell c1">15</div><div class="cell c1">16</div><div class="cell c2">17</div><div class="cell c2">18</div>
+          <div class="cell c3">19</div><div class="cell c3">20</div><div class="cell c4">21</div><div class="cell c4">22</div><div class="cell c5">23</div><div class="cell c5">24</div>
+        </div>
+        <div class="mlist">
+          <div class="mrow"><span class="sw c1"></span><span class="nm">Motor 1</span><span class="dose">62.0 kg/ha</span><span>mapa</span><span class="pps">24.1 pps ●</span></div>
+          <div class="mrow"><span class="sw c2"></span><span class="nm">Motor 2</span><span class="dose">58.5 kg/ha</span><span>fija</span><span class="pps">22.7 pps ●</span></div>
+          <div class="mrow"><span class="sw c3"></span><span class="nm">Motor 3</span><span class="dose">70.0 kg/ha</span><span>mapa</span><span class="pps">0.0 pps ○ corte</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="option opt-mk" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tabla densa (un renglón por motor)</h3>
+      <p>Una fila por motor: nombre, surcos asignados (chips), dosis fija editable, dosis efectiva (mapa/fija), PPS live y estado de corte. Rapidísimo para muchos motores y para el que sabe; menos "visual" para asignar surcos.</p>
+      <div class="mk">
+        <table class="dense">
+          <tr><th>Motor</th><th>Surcos</th><th>Dosis fija</th><th>Efectiva</th><th>PPS</th><th>Estado</th></tr>
+          <tr><td><span class="sw c1"></span>M1</td><td>1,2,15,16</td><td>60.0</td><td>62.0 <small>mapa</small></td><td>24.1</td><td>● dosif.</td></tr>
+          <tr><td><span class="sw c2"></span>M2</td><td>3,4,17,18</td><td>58.5</td><td>58.5 <small>fija</small></td><td>22.7</td><td>● dosif.</td></tr>
+          <tr><td><span class="sw c3"></span>M3</td><td>5,6,19,20</td><td>70.0</td><td>70.0 <small>mapa</small></td><td>0.0</td><td>○ corte</td></tr>
+          <tr><td><span class="sw c4"></span>M4</td><td>7,8,21,22</td><td>60.0</td><td>61.3 <small>mapa</small></td><td>23.8</td><td>● dosif.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="option opt-mk" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Split: lista de motores (izq) + planter live (der)</h3>
+      <p>Izquierda la lista de motores con dosis; derecha un diagrama vertical de la sembradora que se "apaga" surco por surco en vivo. Bueno para monitoreo en marcha; la asignación se hace en un sub-panel aparte.</p>
+      <div class="mk">
+        <div class="split2">
+          <div class="left">
+            <div class="mlist" style="margin-top:0">
+              <div class="mrow"><span class="sw c1"></span><span class="nm">Motor 1</span><span class="dose">62.0</span><span class="pps">24.1 ●</span></div>
+              <div class="mrow"><span class="sw c2"></span><span class="nm">Motor 2</span><span class="dose">58.5</span><span class="pps">22.7 ●</span></div>
+              <div class="mrow"><span class="sw c3"></span><span class="nm">Motor 3</span><span class="dose">70.0</span><span class="pps">0.0 ○</span></div>
+            </div>
+          </div>
+          <div class="right">
+            <div class="vplant">
+              <div class="vcell c1"></div><div class="vcell c1"></div><div class="vcell c2"></div><div class="vcell c2"></div>
+              <div class="vcell coff"></div><div class="vcell coff"></div><div class="vcell c4"></div><div class="vcell c4"></div>
+              <div class="vcell c5"></div><div class="vcell c5"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:14px">Mi recomendación: <strong>A</strong> (planter + lista) para configurar y monitorear, y reusar la <strong>tira de surcos</strong> de A como overlay live en la pantalla principal de PilotX. La tabla de B la podemos ofrecer como vista alternativa para 36/48 motores.</p>

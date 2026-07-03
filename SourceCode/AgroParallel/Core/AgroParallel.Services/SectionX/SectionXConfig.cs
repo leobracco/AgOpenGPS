@@ -86,26 +86,19 @@ namespace AgroParallel.SectionX
         public static SectionXConfig Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
-            {
-                var def = new SectionXConfig();
-                def.Save();
-                return def;
-            }
-            try
-            {
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                return JsonSerializer.Deserialize<SectionXConfig>(File.ReadAllText(path), opts)
-                    ?? new SectionXConfig();
-            }
-            catch { return new SectionXConfig(); }
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var cfg = AgroParallel.Common.AtomicJson.Read<SectionXConfig>(path, opts);
+            if (cfg != null) return cfg;
+            var def = new SectionXConfig();
+            def.Save();
+            return def;
         }
 
         public void Save()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(path, JsonSerializer.Serialize(this, opts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }
     }
 }

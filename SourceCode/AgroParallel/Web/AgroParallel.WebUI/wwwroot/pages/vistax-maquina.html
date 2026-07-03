@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VistaX · Estado de Máquina</title>
+<!-- Sin Google Fonts: la PC del tractor no tiene internet. Stacks locales. -->
+<style>
+  :root{
+    --bg:#0A0C0F; --panel:#1A1F25; --line:#252b31;
+    --ok:#6DC231; --ok2:#4ABA3E; --lime:#A4BA3E;
+    --warn:#E8B93E; --alarm:#E8443E; --off:#3a4149;
+    --txt:#E6EAEE; --muted:#8A939C;
+    --disp:"Barlow Condensed","Segoe UI","Inter",system-ui,sans-serif;
+    --mono:"JetBrains Mono","Cascadia Mono","Consolas",monospace;
+    --body:"Inter","Segoe UI",system-ui,sans-serif;
+    /* bloque pequeño (ajustable) */
+    --fw:720px; --fh:380px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:#05070a; display:grid; place-items:center; padding:1.2%; color:var(--txt); font-family:var(--body); user-select:none}
+
+  .frame{
+    container-type:size;
+    width:min(100%, var(--fw)); height:min(100%, var(--fh));
+    background:var(--bg); border:1px solid var(--line); border-radius:14px;
+    box-shadow:0 10px 44px rgba(0,0,0,.5); overflow:hidden;
+    display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:auto 1fr;
+    gap:1.2cqmin; padding:1.4cqmin;
+  }
+
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:1.4cqmin 1.6cqmin; display:flex; flex-direction:column; min-height:0; min-width:0}
+  .card h2{font-family:var(--disp); font-weight:600; text-transform:uppercase; letter-spacing:.07em;
+    font-size:clamp(9px,2.2cqmin,14px); color:var(--muted); margin-bottom:1cqmin;
+    display:flex; justify-content:space-between; align-items:center; gap:4px}
+  .tag{font-family:var(--mono); font-size:clamp(7px,1.7cqmin,11px); padding:1px 5px; border-radius:3px; letter-spacing:0; white-space:nowrap}
+  .tag.ok{background:rgba(109,194,49,.15); color:var(--ok)}
+  .tag.warn{background:rgba(232,185,62,.15); color:var(--warn)}
+  .tag.alarm{background:rgba(232,68,62,.18); color:var(--alarm)}
+  .tag.off{background:rgba(58,65,73,.3); color:var(--off)}
+
+  /* ---- Turbina ---- */
+  .turbina{align-items:center; justify-content:space-between}
+  .gauge{position:relative; width:100%; max-width:22cqh; aspect-ratio:1}
+  .gauge svg{width:100%; height:100%; transform:rotate(135deg)}
+  .gauge .rpm{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center}
+  .gauge .rpm b{font-family:var(--mono); font-weight:700; font-size:clamp(14px,4.6cqmin,26px); color:var(--lime); line-height:1}
+  .gauge .rpm small{font-family:var(--disp); text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-size:clamp(7px,1.7cqmin,11px)}
+  .setpt{font-family:var(--mono); font-size:clamp(7px,1.7cqmin,11px); color:var(--muted); text-align:center}
+  .setpt b{color:var(--txt)}
+
+  /* ---- Herramienta ---- */
+  .herram{align-items:center; justify-content:center; gap:1.4cqmin}
+  .tool-ico{width:14cqh; height:14cqh; position:relative}
+  .tool-ico svg{width:100%; height:100%}
+  .tool-state{font-family:var(--disp); text-transform:uppercase; letter-spacing:.06em; font-weight:700; font-size:clamp(13px,3.6cqmin,22px)}
+  .down .tool-state{color:var(--ok)} .up .tool-state{color:var(--warn)}
+  .down .arrow{fill:var(--ok)} .up .arrow{fill:var(--warn)}
+  .herram.off .tool-state{color:var(--off)} .herram.off .arrow{fill:var(--off)}
+
+  /* ---- Ejes ---- */
+  .ejes .eje-list{display:flex; flex-direction:column; gap:1.4cqmin; flex:1; justify-content:center; overflow-y:auto}
+  .eje{display:flex; align-items:center; gap:1.4cqmin}
+  .eje .spin{width:5.5cqh; height:5.5cqh; min-width:22px; min-height:22px; flex:0 0 auto}
+  .eje .spin svg{width:100%; height:100%}
+  .eje.on .spin svg{animation:rot .8s linear infinite}
+  .eje.on .spin .gearpath{fill:var(--ok)}
+  .eje.off .spin .gearpath{fill:var(--off)}
+  .eje.alarm .spin .gearpath{fill:var(--alarm)}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .eje .info{flex:1; min-width:0}
+  .eje .info .nm{font-family:var(--disp); text-transform:uppercase; letter-spacing:.05em; font-size:clamp(10px,2.4cqmin,15px)}
+  .eje .info .rpm{font-family:var(--mono); font-size:clamp(7px,1.7cqmin,11px); color:var(--muted)}
+  .eje.on .info .rpm{color:var(--ok)} .eje.alarm .info .rpm{color:var(--alarm)}
+
+  /* ---- Tolvas ---- */
+  .tolvas{grid-column:span 4}
+  .tolva-grid{display:flex; gap:1.6cqmin; flex:1; align-items:stretch}
+  .tolva{flex:1; display:flex; flex-direction:column; align-items:center; min-width:0}
+  .tank{flex:1; width:100%; max-width:11cqh; margin:.6cqmin auto; position:relative;
+    background:#0d1013; border:2px solid var(--line); border-radius:6px; overflow:hidden}
+  .tank .liq{position:absolute; left:0; right:0; bottom:0; background:linear-gradient(var(--ok2),var(--ok)); transition:height .4s ease}
+  .tank .liq::before{content:''; position:absolute; top:0; left:0; right:0; height:3px; background:rgba(255,255,255,.25)}
+  .tolva.warn .liq{background:linear-gradient(#c99a2a,var(--warn))}
+  .tolva.alarm .liq{background:linear-gradient(#a5302b,var(--alarm))}
+  .tolva.alarm .tank{border-color:var(--alarm); animation:blink 1s steps(2) infinite}
+  .tolva.off .liq{background:var(--off)}
+  @keyframes blink{50%{background:#2a1214}}
+  .tolva .nm{font-family:var(--disp); text-transform:uppercase; letter-spacing:.05em; font-size:clamp(9px,2.1cqmin,14px); color:var(--muted); text-align:center}
+  .tolva .pct{font-family:var(--mono); font-weight:700; font-size:clamp(11px,2.7cqmin,17px); color:var(--lime)}
+  .tolva.warn .pct{color:var(--warn)} .tolva.alarm .pct{color:var(--alarm)} .tolva.off .pct{color:var(--off)}
+
+  .empty-hint{font-family:var(--mono); font-size:clamp(8px,1.9cqmin,12px); color:var(--muted);
+    display:flex; align-items:center; justify-content:center; flex:1; text-align:center}
+
+  /* ---- Bloque angosto: 2 columnas ---- */
+  @container (max-width:560px){
+    .frame{grid-template-columns:repeat(2,1fr); grid-template-rows:auto auto 1fr}
+    .ejes{grid-column:span 2 !important}
+    .tolvas{grid-column:span 2}
+    .tolva-grid{flex-wrap:wrap}
+    .tolva{flex:1 1 40%}
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+
+  <!-- TURBINA -->
+  <div class="card turbina">
+    <h2>Turbina <span class="tag off" id="turb-tag">—</span></h2>
+    <div class="gauge">
+      <svg viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="42" fill="none" stroke="#0d1013" stroke-width="9" stroke-dasharray="198 264" stroke-linecap="round"/>
+        <circle id="turb-arc" cx="50" cy="50" r="42" fill="none" stroke="var(--off)" stroke-width="9" stroke-dasharray="0 264" stroke-linecap="round"/>
+      </svg>
+      <div class="rpm"><b id="turb-rpm">—</b><small>RPM</small></div>
+    </div>
+    <div class="setpt">Consigna <b id="turb-set">—</b></div>
+  </div>
+
+  <!-- HERRAMIENTA -->
+  <div class="card herram off" id="herram">
+    <h2 style="align-self:stretch">Herramienta <span class="tag off" id="herram-tag">—</span></h2>
+    <div class="tool-ico">
+      <svg viewBox="0 0 64 64">
+        <rect x="28" y="4" width="8" height="30" rx="2" fill="#3a4149"/>
+        <path class="arrow" d="M20 34 L44 34 L32 54 Z"/>
+        <rect x="10" y="56" width="44" height="4" rx="2" fill="#3a4149"/>
+      </svg>
+    </div>
+    <div class="tool-state" id="herram-txt">—</div>
+  </div>
+
+  <!-- EJES -->
+  <div class="card ejes" style="grid-column:span 2">
+    <h2>Rotación de ejes <span class="tag off" id="ejes-tag">0/0</span></h2>
+    <div class="eje-list" id="eje-list"></div>
+  </div>
+
+  <!-- TOLVAS -->
+  <div class="card tolvas">
+    <h2>Tolvas <span class="tag off" id="tolvas-tag">—</span></h2>
+    <div class="tolva-grid" id="tolva-grid"></div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================================
+   VistaX · Estado de Máquina — versión PilotX.
+   Se alimenta de GET /api/vistax/live a 2 Hz. Todos los sensores llegan en
+   trenes[].surcos[] con { tipo, valor, objetivo, estado }. Filtramos por tipo:
+     · turbina            → gauge RPM (valor=RPM, objetivo=consigna)
+     · rotacion_eje       → lista de ejes girando (valor=RPM, on si valor>0.5)
+     · bajada_herramienta → BAJADA/LEVANTADA (switch: valor>0.5 = bajada)
+     · tolva_vacia/llena  → NIVEL POR SWITCH (no hay % real): LLENA/OK/VACÍA
+   Los ejes y tolvas se descubren dinámicos del snapshot (no hardcodeados).
+   La densidad se setea en la página aparte (vistax-densidad.html), por eso acá
+   no se dibuja el control +/- por tolva.
+   ============================================================================ */
+(function(){
+  'use strict';
+  var POLL_MS = 500;
+
+  function pick(o,a,b){ return (o && o[a]!=null) ? o[a] : (o ? o[b] : undefined); }
+  function num(n){ return (n==null||isNaN(n)) ? null : Number(n); }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  var state = { paused:false, timer:null, ejeKeys:'', tolvaKeys:'' };
+
+  // Todos los surcos aplanados con su tipo normalizado.
+  function collect(live){
+    var out=[];
+    (pick(live,'trenes','Trenes')||[]).forEach(function(t){
+      (pick(t,'surcos','Surcos')||[]).forEach(function(s){
+        out.push({
+          tipo:(pick(s,'tipo','Tipo')||'').toLowerCase(),
+          nombre: pick(s,'nombre','Nombre')||'',
+          uid: pick(s,'uid','Uid')||'',
+          cable: pick(s,'cable','Cable'),
+          bajada: pick(s,'bajada','Bajada'),
+          valor: num(pick(s,'valor','Valor')),
+          objetivo: num(pick(s,'objetivo','Objetivo')),
+          estado:(pick(s,'estado','Estado')||'no-data').toLowerCase(),
+          muted: !!pick(s,'muted','Muted')
+        });
+      });
+    });
+    return out;
+  }
+  function byTipo(all, tipo){ return all.filter(function(s){ return s.tipo===tipo; }); }
+  function nombreDe(s, fallback){ return s.nombre || fallback; }
+  function vivo(s){ return s.estado!=='no-data' && s.estado!=='muted' && s.estado!=='seccion-off'; }
+
+  function setTag(id,cls,txt){
+    var e=document.getElementById(id); if(!e) return;
+    e.className='tag '+cls; e.textContent=txt;
+  }
+
+  /* ---------- Turbina ---------- */
+  function updTurbina(all){
+    var t = byTipo(all,'turbina')[0];
+    var rpmEl=document.getElementById('turb-rpm'), setEl=document.getElementById('turb-set');
+    var arc=document.getElementById('turb-arc');
+    if(!t || !vivo(t) || t.valor==null){
+      rpmEl.textContent='—'; setEl.textContent='—';
+      arc.setAttribute('stroke','var(--off)'); arc.setAttribute('stroke-dasharray','0 264');
+      setTag('turb-tag','off','—'); return;
+    }
+    var rpm=t.valor, consigna=t.objetivo;
+    var max = (consigna>0) ? consigna*1.2 : 4200;   // tope del gauge (visual)
+    rpmEl.textContent=Math.round(rpm);
+    setEl.textContent = consigna? Math.round(consigna) : '—';
+    var pct=Math.max(0,Math.min(1, rpm/max));
+    arc.setAttribute('stroke-dasharray',(pct*198).toFixed(0)+' 264');
+    // Estado por consigna: <70% = baja (alarm), <90% = atención, sino ok.
+    var st='ok',lbl='OK',col='var(--ok)';
+    if(consigna>0){
+      if(rpm < consigna*0.7){ st='alarm'; lbl='BAJA'; col='var(--alarm)'; }
+      else if(rpm < consigna*0.9){ st='warn'; lbl='ATENCIÓN'; col='var(--warn)'; }
+    }
+    arc.setAttribute('stroke',col);
+    setTag('turb-tag',st,lbl);
+  }
+
+  /* ---------- Bajada de herramienta ---------- */
+  function updHerramienta(all){
+    var h = byTipo(all,'bajada_herramienta')[0];
+    var card=document.getElementById('herram'), txt=document.getElementById('herram-txt');
+    if(!h || !vivo(h) || h.valor==null){
+      card.className='card herram off'; txt.textContent='—';
+      setTag('herram-tag','off','—'); return;
+    }
+    // Switch: valor>0.5 = herramienta en el suelo (bajada).
+    var baja = h.valor>0.5;
+    card.className='card herram '+(baja?'down':'up');
+    txt.textContent = baja?'BAJADA':'LEVANTADA';
+    setTag('herram-tag', baja?'ok':'warn', baja?'BAJADA':'LEVANTADA');
+  }
+
+  /* ---------- Rotación de ejes (dinámico) ---------- */
+  function updEjes(all){
+    var ejes = byTipo(all,'rotacion_eje');
+    var keys = ejes.map(function(e){ return e.uid+'#'+e.cable; }).join(',');
+    var list=document.getElementById('eje-list');
+    if(keys!==state.ejeKeys){
+      state.ejeKeys=keys;
+      if(ejes.length===0){
+        list.innerHTML='<div class="empty-hint">sin ejes mapeados</div>';
+      }else{
+        list.innerHTML=ejes.map(function(e,i){
+          return '<div class="eje off" id="eje'+i+'">'+
+            '<div class="spin"><svg viewBox="0 0 24 24"><path class="gearpath" d="M12 8a4 4 0 100 8 4 4 0 000-8zm9.4 4l-1.9-1.1.3-2.2-2.1-.9-1.1-1.9-2.2.3L12 2.5 10.6 4.3 8.4 4 7.3 5.9l-2.2-.3-.9 2.1L2.3 8.9 4.1 10l-.3 2.2 2.1.9 1.1 1.9 2.2-.3L12 21.5l1.4-1.8 2.2.3.9-2.1 1.9-1.1-.3-2.2z"/></svg></div>'+
+            '<div class="info"><div class="nm">'+esc(nombreDe(e,'Eje '+(i+1)))+'</div><div class="rpm" id="eje'+i+'-rpm">—</div></div>'+
+          '</div>';
+        }).join('');
+      }
+    }
+    var on=0;
+    ejes.forEach(function(e,i){
+      var el=document.getElementById('eje'+i); if(!el) return;
+      var rpmEl=document.getElementById('eje'+i+'-rpm');
+      if(!vivo(e) || e.valor==null){ el.className='eje off'; rpmEl.textContent='—'; return; }
+      var girando = e.valor>0.5;
+      if(girando) on++;
+      el.className='eje '+(girando?'on':'off');
+      rpmEl.textContent = girando ? (Math.round(e.valor)+' rpm') : 'Parado';
+    });
+    setTag('ejes-tag', ejes.length===0?'off':(on===ejes.length?'ok':(on>0?'warn':'alarm')), on+'/'+ejes.length);
+  }
+
+  /* ---------- Tolvas (nivel por switch, NO %) ----------
+     Cada tolva se identifica por su "nombre" (o uid). Puede tener un sensor
+     tolva_vacia y/o tolva_llena. Estado resultante:
+       · llena=on              → LLENA  (verde, tanque ~100%)
+       · vacia=on              → VACÍA  (rojo, alarma, tanque ~8%)
+       · ambos off             → OK     (verde suave, tanque ~55%)
+       · sin lectura reciente  → —      (gris, off)                                   */
+  function updTolvas(all){
+    var vacias = byTipo(all,'tolva_vacia');
+    var llenas = byTipo(all,'tolva_llena');
+    var map={};
+    function keyOf(s){ return s.nombre || s.uid || ('cable'+s.cable); }
+    vacias.forEach(function(s){ var k=keyOf(s); (map[k]=map[k]||{}).vacia=s; });
+    llenas.forEach(function(s){ var k=keyOf(s); (map[k]=map[k]||{}).llena=s; });
+    var keysArr=Object.keys(map);
+    var keys=keysArr.join(',');
+    var grid=document.getElementById('tolva-grid');
+    if(keys!==state.tolvaKeys){
+      state.tolvaKeys=keys;
+      if(keysArr.length===0){
+        grid.innerHTML='<div class="empty-hint">sin sensores de tolva mapeados</div>';
+      }else{
+        grid.innerHTML=keysArr.map(function(k,i){
+          return '<div class="tolva off" id="tol'+i+'">'+
+            '<div class="pct" id="tol'+i+'-pct">—</div>'+
+            '<div class="tank"><div class="liq" id="tol'+i+'-liq" style="height:0%"></div></div>'+
+            '<div class="nm">'+esc(k)+'</div>'+
+          '</div>';
+        }).join('');
+      }
+    }
+    var alarmas=0, total=keysArr.length;
+    keysArr.forEach(function(k,i){
+      var g=map[k];
+      var el=document.getElementById('tol'+i); if(!el) return;
+      var liq=document.getElementById('tol'+i+'-liq'), pct=document.getElementById('tol'+i+'-pct');
+      var vac=g.vacia, lle=g.llena;
+      var hayDato = (vac && vivo(vac)) || (lle && vivo(lle));
+      if(!hayDato){ el.className='tolva off'; liq.style.height='0%'; pct.textContent='—'; return; }
+      var vacOn = vac && vivo(vac) && vac.valor>0.5;
+      var lleOn = lle && vivo(lle) && lle.valor>0.5;
+      if(vacOn){ el.className='tolva alarm'; liq.style.height='8%';  pct.textContent='VACÍA'; alarmas++; }
+      else if(lleOn){ el.className='tolva';  liq.style.height='100%'; pct.textContent='LLENA'; }
+      else{ el.className='tolva'; liq.style.height='55%'; pct.textContent='OK'; }
+    });
+    setTag('tolvas-tag', total===0?'off':(alarmas>0?'alarm':'ok'), alarmas>0?(alarmas+' vacía'+(alarmas===1?'':'s')):(total+' ok'));
+  }
+
+  function render(live){
+    if(!live) return;
+    var all=collect(live);
+    updTurbina(all);
+    updHerramienta(all);
+    updEjes(all);
+    updTolvas(all);
+  }
+
+  async function poll(){
+    if(state.paused) return;
+    try{
+      var r=await fetch('/api/vistax/live', { cache:'no-store' });
+      if(r.ok) render(await r.json());
+    }catch(e){ /* silencioso */ }
+  }
+
+  function start(){
+    if(state.timer) return;
+    poll();
+    state.timer=setInterval(poll, POLL_MS);
+  }
+
+  document.addEventListener('visibilitychange', function(){
+    state.paused=document.hidden;
+    if(!state.paused) poll();
+  });
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>
+</body>
+</html>

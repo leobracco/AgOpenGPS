@@ -28,25 +28,18 @@ namespace AgroParallel.Services
         public LineXConfigDto Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
-            {
-                var def = new LineXConfigDto();
-                Save(def);
-                return def;
-            }
-            try
-            {
-                return JsonSerializer.Deserialize<LineXConfigDto>(File.ReadAllText(path), ReadOpts)
-                    ?? new LineXConfigDto();
-            }
-            catch { return new LineXConfigDto(); }
+            var cfg = AgroParallel.Common.AtomicJson.Read<LineXConfigDto>(path, ReadOpts);
+            if (cfg != null) return cfg;
+            var def = new LineXConfigDto();
+            Save(def);
+            return def;
         }
 
         public void Save(LineXConfigDto dto)
         {
             if (dto == null) return;
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            File.WriteAllText(path, JsonSerializer.Serialize(dto, WriteOpts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, WriteOpts));
         }
     }
 }

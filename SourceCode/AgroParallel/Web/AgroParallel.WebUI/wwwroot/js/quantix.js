@@ -84,6 +84,23 @@
     return out;
   }
 
+  // Busca el motor de config (no live) por uid + índice de motor.
+  function findMotor(uid, mi) {
+    var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
+    for (var i = 0; i < ns.length; i++) {
+      if (ns[i] && ns[i].uid === uid && ns[i].motores && ns[i].motores[mi])
+        return ns[i].motores[mi];
+    }
+    return null;
+  }
+
+  // rpm del eje del dosificador = pps / pulsos-por-vuelta * 60. El operario no ve
+  // pps; ve rpm (velocidad del motor) y la dosis agronómica aparte.
+  function ppsToRpm(motor, pps) {
+    var ppr = (motor && motor.dientes_engranaje > 0) ? motor.dientes_engranaje : 24;
+    return ppr > 0 ? (pps / ppr * 60) : 0;
+  }
+
   // ¿Hay más de un nodo habilitado? (para etiquetar N1/N2 en la lista).
   function nodoCount() {
     var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
@@ -171,6 +188,61 @@
     return 'surcos ' + sorted.join(',');
   }
 
+  // Columnas numéricas del shapefile activo, candidatas a ser mapa de dosis.
+  function shapeDoseFields() {
+    var out = [];
+    (state.shapeFields || []).forEach(function (f) {
+      if (typeof f === 'string') { out.push(f); return; }
+      if (f && f.name && f.numeric !== false) out.push(f.name);
+    });
+    return out;
+  }
+
+  // Trenes físicos disponibles (del implemento central). [{id,nombre,distancia_m}].
+  function trenesDisponibles() {
+    var ts = (state.implCentral && state.implCentral.trenes) || [];
+    return Array.isArray(ts) ? ts : [];
+  }
+
+  // <select> de tren para un motor. Solo se muestra si hay 2+ trenes definidos;
+  // con un solo tren no tiene sentido elegir. Setea motor.tren (0=delantero).
+  function trenSelectHtml(i, tren) {
+    var ts = trenesDisponibles();
+    if (ts.length < 2) return '';
+    var cur = tren | 0;
+    var opts = ts.map(function (t) {
+      var id = t.id | 0;
+      var nm = t.nombre || ('Tren ' + id);
+      return '<option value="' + id + '"' + (id === cur ? ' selected' : '') + '>'
+        + escapeHtml(nm) + '</option>';
+    }).join('');
+    return '<select class="qxTren" data-mi="' + i + '" title="Tren físico del motor">'
+      + opts + '</select>';
+  }
+
+  // <select> mapa/fija para un motor: "Dosis fija" + cada columna del shape.
+  // Si el motor ya apunta a una columna que el shape actual no tiene (lote sin
+  // prescripción cargada), la conservamos VISIBLE pero deshabilitada: así no se
+  // pierde la config y queda claro que el mapa no es seleccionable hasta cargar
+  // el lote con shapefile. Sin esto, el motor configurado mostraba 2 opciones y
+  // el resto solo "Dosis fija" (inconsistencia que confundía al operario).
+  function mapaSelectHtml(i, campoDosis) {
+    var fields = shapeDoseFields();
+    var cur = campoDosis || '';
+    var curMissing = cur && fields.indexOf(cur) < 0;
+    var opts = '<option value=""' + (cur ? '' : ' selected') + '>Dosis fija</option>';
+    fields.forEach(function (nm) {
+      var sel = (nm === cur) ? ' selected' : '';
+      opts += '<option value="' + escapeHtml(nm) + '"' + sel + '>Mapa: ' + escapeHtml(nm) + '</option>';
+    });
+    if (curMissing) {
+      opts += '<option value="' + escapeHtml(cur) + '" selected disabled>Mapa: '
+        + escapeHtml(cur) + ' (sin shape)</option>';
+    }
+    return '<select class="qxMapa" data-mi="' + i + '" title="Dosis fija o mapa (columna del shapefile)">'
+      + opts + '</select>';
+  }
+
   function renderMotorList() {
     var el = document.getElementById('qxMotorList');
     if (!el) return;
@@ -184,8 +256,6 @@
     for (var i = 0; i < all.length; i++) {
       var m = all[i].motor;
       var sel = (i === state.brushMotor) ? ' sel' : '';
-      var efClass = m.campo_dosis ? 'mapa' : 'fija';
-      var efTxt = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : 'fija';
       var nombre = escapeHtml(m.nombre || ('Motor ' + (i + 1)));
       var dosis = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
       var esSem = (m.unidad_dosis === 'sem_m');
@@ -196,16 +266,19 @@
            + 'class="qxSemVuelta" value="' + (typeof m.semillas_vuelta === 'number' ? m.semillas_vuelta : 0)
            + '"> <span class="u">sem/vuelta</span></span>')
         : '';
+      var nombreRaw = (m.nombre != null ? String(m.nombre) : ('Motor ' + (i + 1)));
       html += '<div class="mrow' + sel + '" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
-        + '<span class="nm">' + nombre + '</span>'
+        + '<input class="qxNombre" type="text" data-mi="' + i + '" value="' + escapeHtml(nombreRaw)
+        + '" title="Nombre del motor">'
         + '<span class="cnt">' + fmtCortes(m.cortes) + escapeHtml(nodoTag(all[i])) + '</span>'
+        + trenSelectHtml(i, m.tren)
         + '<span class="dosebox"><input type="number" step="0.1" data-mi="' + i + '" '
         + 'class="qxDosisFija" value="' + dosis + '"> '
         + '<button class="uToggle" type="button" data-mi="' + i + '" title="Cambiar unidad (kg/ha ↔ sem/m)">'
         + unidadLbl + '</button></span>'
         + calBox
-        + '<span class="eff ' + efClass + '">' + efTxt + '</span>'
+        + mapaSelectHtml(i, m.campo_dosis)
         + '<button class="mdel" type="button" data-del="' + i + '" title="Borrar motor">\u00D7</button>'
         + '</div>';
     }
@@ -217,7 +290,9 @@
       rows[r].addEventListener('click', function (e) {
         if (e.target && e.target.classList &&
             (e.target.classList.contains('qxDosisFija') || e.target.classList.contains('mdel') ||
-             e.target.classList.contains('uToggle') || e.target.classList.contains('qxSemVuelta'))) return;
+             e.target.classList.contains('uToggle') || e.target.classList.contains('qxSemVuelta') ||
+             e.target.classList.contains('qxMapa') || e.target.classList.contains('qxNombre') ||
+             e.target.classList.contains('qxTren'))) return;
         state.brushMotor = parseInt(this.getAttribute('data-mi'), 10);
         updateBrushChip(); renderStrip(); renderMotorList();
       });
@@ -257,6 +332,51 @@
         }
       });
     }
+    // Renombrar motor (no re-renderiza en vivo para no perder el foco mientras
+    // se tipea; el pincel/brushchip se actualiza al confirmar).
+    var noms = el.querySelectorAll('.qxNombre');
+    for (var nm = 0; nm < noms.length; nm++) {
+      noms[nm].addEventListener('change', function () {
+        var idx = parseInt(this.getAttribute('data-mi'), 10);
+        var entry = allMotors()[idx];
+        if (entry && entry.motor) {
+          entry.motor.nombre = (this.value || '').trim() || ('Motor ' + (idx + 1));
+          state.dirty = true;
+          updateBrushChip();
+        }
+      });
+    }
+    // Tren físico del motor (0 = delantero). Afecta el timing de secciones del
+    // tren trasero en el bridge.
+    var trenes = el.querySelectorAll('.qxTren');
+    for (var tr = 0; tr < trenes.length; tr++) {
+      trenes[tr].addEventListener('change', function (e) {
+        e.stopPropagation();
+        var idx = parseInt(this.getAttribute('data-mi'), 10);
+        var entry = allMotors()[idx];
+        if (entry && entry.motor) {
+          entry.motor.tren = parseInt(this.value, 10) || 0;
+          state.dirty = true;
+        }
+      });
+    }
+    // Mapa/fija: vacío = dosis fija; nombre de columna = mapa del shapefile.
+    var mapas = el.querySelectorAll('.qxMapa');
+    for (var mp = 0; mp < mapas.length; mp++) {
+      ['pointerdown', 'mousedown', 'touchstart', 'click'].forEach(function (evName) {
+        mapas[mp].addEventListener(evName, function (e) { e.stopPropagation(); });
+      });
+      mapas[mp].addEventListener('change', function (e) {
+        e.stopPropagation();
+        var idx = parseInt(this.getAttribute('data-mi'), 10);
+        var entry = allMotors()[idx];
+        if (entry && entry.motor) {
+          entry.motor.campo_dosis = this.value || '';
+          state.dirty = true;
+          updateBrushChip();
+        }
+      });
+    }
     // Calibración sem/m: semillas que entrega el dosificador por vuelta.
     var sems = el.querySelectorAll('.qxSemVuelta');
     for (var s = 0; s < sems.length; s++) {
@@ -288,14 +408,17 @@
     if (!tbl) return;
     var all = allMotors();
     if (state.siembraView !== 'tabla' || !all.length) { tbl.style.display = 'none'; return; }
+    var ctx = qxAgro.ctxFrom(state.implCentral, state.aogSpeed);
     var rows = '<tr><th>Motor</th><th>Surcos</th><th>Dosis fija</th>'
-             + '<th>Efectiva</th><th>PPS</th><th>RPM</th><th>Estado</th></tr>';
+             + '<th>Efectiva</th><th>Real</th><th>RPM</th><th>Estado</th></tr>';
     for (var i = 0; i < all.length; i++) {
       var m = all[i].motor;
       var live = liveMotor(all[i].uid, all[i].motorIdx);
-      var real = live ? (pick(live, 'ppsReal', 'PpsReal') || 0).toFixed(1) : '\u2014';
+      var realPps = live ? (pick(live, 'ppsReal', 'PpsReal') || 0) : 0;
+      var real = live ? qxAgro.label(qxAgro.units(m, realPps, ctx)) : '\u2014';
       var rpm = live ? (pick(live, 'rpm', 'Rpm') | 0) : '\u2014';
-      var fija = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
+      var unidad = (m.unidad_dosis === 'sem_m') ? 'sem/m' : 'kg/ha';
+      var fija = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1) + ' ' + unidad;
       var ef = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : (fija + ' fija');
       var estado = (state.siembraEnMarcha && motorAllCut(m)) ? '\u25CB corte' : '\u25CF dosif.';
       var surcos = (m.cortes || []).join(',') || '\u2014';
@@ -389,6 +512,7 @@
     if (!el) return;
     var all = allMotors();
     if (!all.length) return;
+    var ctx = qxAgro.ctxFrom(state.implCentral, state.aogSpeed);
     var html = '';
     for (var i = 0; i < all.length; i++) {
       var m = all[i].motor;
@@ -405,14 +529,17 @@
       } else if (target > 0 && Math.abs(real - target) / target > 0.15) {
         badge = '<span class="badge dev">desvío</span>'; barClass = 'bar warn';
       }
-      var obj = cutAll ? '\u2014' : target.toFixed(1);
+      // Unidades agronómicas (el operario no ve pps): sem/m·sem/ha o kg/ha.
+      var uObj = qxAgro.primary(qxAgro.units(m, target, ctx));
+      var objVal = cutAll ? '\u2014' : uObj.v;
+      var realLine = cutAll ? ('\u2014 ' + uObj.u) : qxAgro.label(qxAgro.units(m, real, ctx));
       var nombre = escapeHtml((m.nombre || ('Motor ' + (i + 1))) + nodoTag(all[i]));
       html += '<div class="mrow" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
         + '<span class="nm">' + nombre + '</span>'
-        + '<span class="dosebox"><span class="u">obj</span> '
-        + '<b style="color:var(--agp-accent)">' + obj + '</b></span>'
-        + '<span class="pps">' + real.toFixed(1) + ' / ' + target.toFixed(1) + ' pps</span>'
+        + '<span class="dosebox"><span class="u">obj ' + uObj.u + '</span> '
+        + '<b style="color:var(--agp-accent)">' + objVal + '</b></span>'
+        + '<span class="pps">' + realLine + '</span>'
         + '<span class="rpm">' + rpm + ' rpm</span>'
         + '<span class="' + barClass + '"><i style="width:' + pct.toFixed(0) + '%"></i></span>'
         + badge
@@ -423,6 +550,12 @@
 
   // Agrega un motor al nodo del pincel activo (o al último nodo habilitado).
   function addMotor() {
+    // Tope de 24 motores totales (spec: hasta 24, escalando a 36/48 más adelante).
+    if (allMotors().length >= 24) {
+      var mm = $('mtMsg');
+      if (mm) { mm.textContent = 'Máximo 24 motores'; mm.className = 'msg err'; }
+      return;
+    }
     var all = allMotors();
     var entry = all[state.brushMotor] || all[all.length - 1];
     var nodo = entry ? entry.nodo : null;
@@ -542,7 +675,12 @@
       var el = $('tab' + k);
       if (el) el.style.display = (k.toLowerCase() === name) ? '' : 'none';
     });
-    if (name === 'siembra')  { computeEnMarcha(); applyMarchaChrome(); renderSiembra(); }
+    if (name === 'siembra')  {
+      computeEnMarcha(); applyMarchaChrome(); renderSiembra();
+      // Refresca columnas del shapefile activo para poblar el selector mapa/fija
+      // por motor, y re-renderiza cuando llegan.
+      if (!state.siembraEnMarcha) loadShapeFields().then(function () { renderSiembra(); });
+    }
     if (name === 'shape')    refreshShapeActive();
     if (name === 'pid')      renderPid();
     if (name === 'calibrar') renderCalibrar();
@@ -831,8 +969,9 @@
     return '<div class="motor-cfg ' + (mi === 0 ? '' : 'm1') + '" data-mi="' + mi + '">' +
       '<h4>M' + mi + ' — ' + escapeHtml(m.nombre || 'Motor') + '</h4>' +
       '<div class="kv" style="margin-top:0">' +
-        '<div class="k">PPS real</div><div class="v" data-live="pps_real">—</div>' +
-        '<div class="k">PPS target</div><div class="v" data-live="pps_target">—</div>' +
+        '<div class="k">rpm</div><div class="v" data-live="rpm">—</div>' +
+        '<div class="k">Dosis real</div><div class="v" data-live="dosis_real">—</div>' +
+        '<div class="k">Dosis obj.</div><div class="v" data-live="dosis_target">—</div>' +
         '<div class="k">PWM</div><div class="v" data-live="pwm">—</div>' +
       '</div>' +
       '<div class="fld-grid" style="margin-top: var(--agp-sp-3)">' +
@@ -867,11 +1006,15 @@
         var t = pick(m, 'ppsTarget', 'PpsTarget') || 0;
         var r = pick(m, 'ppsReal',   'PpsReal')   || 0;
         var p = pick(m, 'pwm',       'Pwm')       || 0;
-        var elT = mc.querySelector('[data-live="pps_target"]');
-        var elR = mc.querySelector('[data-live="pps_real"]');
-        var elP = mc.querySelector('[data-live="pwm"]');
-        if (elT) elT.textContent = t.toFixed(1);
-        if (elR) elR.textContent = r.toFixed(1);
+        var cfg = findMotor(uid, mi);
+        var ctx = qxAgro.ctxFrom(state.implCentral, state.aogSpeed);
+        var elRpm = mc.querySelector('[data-live="rpm"]');
+        var elDR  = mc.querySelector('[data-live="dosis_real"]');
+        var elDT  = mc.querySelector('[data-live="dosis_target"]');
+        var elP   = mc.querySelector('[data-live="pwm"]');
+        if (elRpm) elRpm.textContent = ppsToRpm(cfg, r).toFixed(0) + ' rpm';
+        if (elDR) elDR.textContent = cfg ? qxAgro.label(qxAgro.units(cfg, r, ctx)) : '\u2014';
+        if (elDT) elDT.textContent = cfg ? qxAgro.label(qxAgro.units(cfg, t, ctx)) : '\u2014';
         if (elP) elP.textContent = p;
       });
     });
@@ -1186,8 +1329,18 @@
     var defaultVueltas = 10;
     var defaultSurcos = 6;
     var metaIni = defaultVueltas * ppr;
+    var esSemCal = m.unidad_dosis === 'sem_m';
+    var actualLbl = esSemCal ? 'Sem/vuelta actual' : 'MeterCal actual';
+    var actualVal = esSemCal ? (m.semillas_vuelta || 0) : (m.meter_cal || 0);
+    var calcLbl = esSemCal ? 'Sem/vuelta calculado' : 'MeterCal calculado';
+    var applyLbl = esSemCal ? '💾 Guardar sem/vuelta' : '💾 Guardar MeterCal';
+    var unidadHint = esSemCal
+      ? 'Contá las <strong>semillas</strong> caídas en cada surco. Promediar varios mejora la precisión.'
+      : 'Ingresá <strong>gramos</strong> medidos en cada surco. Promediar varios mejora la precisión.';
     return '<div class="motor-cfg ' + (mi === 0 ? '' : 'm1') + '" data-mi="' + mi + '">' +
-      '<h4>M' + mi + ' — ' + escapeHtml(m.nombre || 'Motor') + '</h4>' +
+      '<h4>M' + mi + ' — ' + escapeHtml(m.nombre || 'Motor') +
+        ' <span style="font-weight:normal;color:var(--agp-text-muted);font-size:var(--agp-fs-sm)">· ' +
+        (esSemCal ? 'semilla (sem/m)' : 'masa (kg/ha)') + '</span></h4>' +
 
       // ── Parámetros (lo que el operario configura ANTES de iniciar) ──────
       '<div class="fld-grid" style="margin-top:0">' +
@@ -1202,7 +1355,7 @@
       '</div>' +
       '<div class="kv" style="margin-top: var(--agp-sp-2)">' +
         '<div class="k">Meta total</div><div class="v"><span data-cal="meta">' + metaIni + '</span> pulsos</div>' +
-        '<div class="k">MeterCal actual</div><div class="v">' + (m.meter_cal || 0) + '</div>' +
+        '<div class="k">' + actualLbl + '</div><div class="v">' + actualVal + '</div>' +
       '</div>' +
 
       // ── Botones de control del motor ────────────────────────────────────
@@ -1223,19 +1376,17 @@
 
       // ── Surcos (lista dinámica) + Calcular ──────────────────────────────
       '<h4 style="margin-top: var(--agp-sp-4)">Resultado por surco</h4>' +
-      '<p style="color: var(--agp-text-muted); margin-top:0">' +
-        'Ingresá gramos o semillas medidos en cada surco. Promediar varios mejora la precisión.' +
-      '</p>' +
+      '<p style="color: var(--agp-text-muted); margin-top:0">' + unidadHint + '</p>' +
       '<div class="fld-grid" data-cal="surcoList"></div>' +
       '<div class="btn-row" style="margin-top: var(--agp-sp-3)">' +
         '<button class="btn primary" data-cal-act="calc" data-mi="' + mi + '">✓ Calcular</button>' +
-        '<button class="btn" data-cal-act="apply" data-mi="' + mi + '" disabled>💾 Guardar MeterCal</button>' +
+        '<button class="btn" data-cal-act="apply" data-mi="' + mi + '" disabled>' + applyLbl + '</button>' +
         '<span class="send-msg" data-cal-result="' + mi + '"></span>' +
       '</div>' +
       '<div class="kv" style="margin-top: var(--agp-sp-2)" data-cal="resultBox" hidden>' +
         '<div class="k">Promedio por surco</div><div class="v" data-cal="prom">—</div>' +
         '<div class="k">Unidades / pulso</div><div class="v" data-cal="upp">—</div>' +
-        '<div class="k">MeterCal calculado</div><div class="v" data-cal="newcal">—</div>' +
+        '<div class="k">' + calcLbl + '</div><div class="v" data-cal="newcal">—</div>' +
       '</div>' +
     '</div>';
   }
@@ -1428,36 +1579,63 @@
       }
 
       var promedio = suma / count;
-      var unidadesPorPulso = promedio / pulsosTot;
-      var meterCal = pulsosTot / promedio;  // pulsos por unidad → lo que el bridge multiplica
+      var motorCal = findMotor(uid, mi);
+      var esSemCal = motorCal && motorCal.unidad_dosis === 'sem_m';
+      var pprC = readInt('ppr', (motorCal && motorCal.dientes_engranaje) || 20);
 
-      var promEl   = mc.querySelector('[data-cal="prom"]');   if (promEl)   promEl.textContent   = promedio.toFixed(2) + ' (' + count + ' surcos)';
-      var uppEl    = mc.querySelector('[data-cal="upp"]');    if (uppEl)    uppEl.textContent    = unidadesPorPulso.toFixed(4);
-      var newcalEl = mc.querySelector('[data-cal="newcal"]'); if (newcalEl) newcalEl.textContent = meterCal.toFixed(4);
+      var promEl   = mc.querySelector('[data-cal="prom"]');
+      var uppEl    = mc.querySelector('[data-cal="upp"]');
+      var newcalEl = mc.querySelector('[data-cal="newcal"]');
       var box2 = mc.querySelector('[data-cal="resultBox"]'); if (box2) box2.hidden = false;
-
-      // Cacheamos para el botón Guardar.
-      st.meterCalCalc = meterCal;
       var applyBtn2 = mc.querySelector('button[data-cal-act="apply"]'); if (applyBtn2) applyBtn2.disabled = false;
-      resEl.textContent = '✓ MeterCal = ' + meterCal.toFixed(4); resEl.className = 'send-msg ok';
+
+      if (esSemCal) {
+        // Semilla (sem/m): el motor giró pulsosTot pulsos = vueltasReales vueltas.
+        // promedio = semillas contadas por surco. semillas/vuelta = promedio / vueltas.
+        var vueltasReales = pprC > 0 ? (pulsosTot / pprC) : 0;
+        if (vueltasReales <= 0) { resEl.textContent = '✕ PPR inválido para calcular sem/vuelta'; resEl.className = 'send-msg err'; return; }
+        var semVuelta = promedio / vueltasReales;
+        var semPorPulso = semVuelta / pprC;
+        if (promEl)   promEl.textContent   = promedio.toFixed(1) + ' sem (' + count + ' surcos)';
+        if (uppEl)    uppEl.textContent    = semPorPulso.toFixed(4) + ' sem/pulso';
+        if (newcalEl) newcalEl.textContent = semVuelta.toFixed(2) + ' sem/vuelta';
+        st.semVueltaCalc = semVuelta; st.meterCalCalc = null;
+        resEl.textContent = '✓ ' + semVuelta.toFixed(2) + ' sem/vuelta'; resEl.className = 'send-msg ok';
+      } else {
+        // Masa (kg/ha): meter_cal = pulsos por unidad (gramos) → lo que el bridge multiplica.
+        var unidadesPorPulso = promedio / pulsosTot;
+        var meterCal = pulsosTot / promedio;
+        if (promEl)   promEl.textContent   = promedio.toFixed(2) + ' (' + count + ' surcos)';
+        if (uppEl)    uppEl.textContent    = unidadesPorPulso.toFixed(4) + ' u/pulso';
+        if (newcalEl) newcalEl.textContent = meterCal.toFixed(4);
+        st.meterCalCalc = meterCal; st.semVueltaCalc = null;
+        resEl.textContent = '✓ MeterCal = ' + meterCal.toFixed(4); resEl.className = 'send-msg ok';
+      }
     } else if (act === 'apply') {
-      var newCal = st && st.meterCalCalc;
+      var esSemApply = st && st.semVueltaCalc != null;
+      var newCal = esSemApply ? st.semVueltaCalc : (st && st.meterCalCalc);
       if (!newCal || newCal <= 0) { resEl.textContent = '✕ apretá Calcular primero'; resEl.className = 'send-msg err'; return; }
       var nIdx = -1;
       for (var i = 0; i < state.motoresCfg.nodos.length; i++)
         if (state.motoresCfg.nodos[i].uid === uid) { nIdx = i; break; }
       if (nIdx >= 0 && state.motoresCfg.nodos[nIdx].motores[mi]) {
-        state.motoresCfg.nodos[nIdx].motores[mi].meter_cal = Math.round(newCal * 10000) / 10000;
+        var motorApply = state.motoresCfg.nodos[nIdx].motores[mi];
+        if (esSemApply) {
+          motorApply.semillas_vuelta = Math.round(newCal * 100) / 100;
+        } else {
+          motorApply.meter_cal = Math.round(newCal * 10000) / 10000;
+        }
         // PPR también lo persistimos por si el operario lo ajustó.
         var pprCfg = readInt('ppr', 0);
-        if (pprCfg > 0) state.motoresCfg.nodos[nIdx].motores[mi].dientes_engranaje = pprCfg;
+        if (pprCfg > 0) motorApply.dientes_engranaje = pprCfg;
         await fetch('/api/quantix/motores', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(state.motoresCfg)
         });
         var res = await fetch('/api/quantix/' + encodeURIComponent(uid) + '/send', { method: 'POST' });
         var data = await res.json();
-        resEl.textContent = data.ok ? '✓ MeterCal=' + newCal.toFixed(4) + ' guardado y enviado' : '✕ guardado pero MQTT falló';
+        var okLbl = esSemApply ? (newCal.toFixed(2) + ' sem/vuelta') : ('MeterCal=' + newCal.toFixed(4));
+        resEl.textContent = data.ok ? ('✓ ' + okLbl + ' guardado y enviado') : '✕ guardado pero MQTT falló';
         resEl.className = 'send-msg ' + (data.ok ? 'ok' : 'err');
       }
     }
@@ -1506,7 +1684,7 @@
       '<h4>M' + mi + ' — ' + escapeHtml(m.nombre || 'Motor') + '</h4>' +
 
       '<div class="kv" style="margin-top:0">' +
-        '<div class="k">PPS real</div><div class="v" data-pr="pps_real">—</div>' +
+        '<div class="k">rpm</div><div class="v" data-pr="rpm">—</div>' +
         '<div class="k">PWM actual</div><div class="v" data-pr="pwm">—</div>' +
         '<div class="k">Pulsos</div><div class="v" data-pr="pulsos">—</div>' +
         '<div class="k">PWM min cfg</div><div class="v" data-pr="pwm_min_cfg">' + (m.pwm_min || 0) + '</div>' +
@@ -1588,7 +1766,8 @@
         var pps = pick(m, 'ppsReal', 'PpsReal') || 0;
         var pwm = pick(m, 'pwm', 'Pwm') || 0;
         var pul = pick(m, 'pulsos', 'Pulsos') || 0;
-        var p1 = mc.querySelector('[data-pr="pps_real"]'); if (p1) p1.textContent = pps.toFixed(1);
+        var cfgP = findMotor(uid, mi);
+        var p1 = mc.querySelector('[data-pr="rpm"]'); if (p1) p1.textContent = ppsToRpm(cfgP, pps).toFixed(0) + ' rpm';
         var p2 = mc.querySelector('[data-pr="pwm"]'); if (p2) p2.textContent = pwm;
         var p3 = mc.querySelector('[data-pr="pulsos"]'); if (p3) p3.textContent = pul.toLocaleString();
       });

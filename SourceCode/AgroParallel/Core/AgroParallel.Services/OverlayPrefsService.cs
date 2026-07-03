@@ -78,18 +78,11 @@ namespace AgroParallel.Services
             lock (_lock)
             {
                 string path = PathOnDisk;
-                if (!File.Exists(path))
-                {
-                    var def = new OverlayPrefsDto();
-                    try { File.WriteAllText(path, JsonSerializer.Serialize(def, WriteOpts)); } catch { }
-                    return def;
-                }
-                try
-                {
-                    return JsonSerializer.Deserialize<OverlayPrefsDto>(File.ReadAllText(path), ReadOpts)
-                        ?? new OverlayPrefsDto();
-                }
-                catch { return new OverlayPrefsDto(); }
+                var cfg = AgroParallel.Common.AtomicJson.Read<OverlayPrefsDto>(path, ReadOpts);
+                if (cfg != null) return cfg;
+                var def = new OverlayPrefsDto();
+                try { AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(def, WriteOpts)); } catch { }
+                return def;
             }
         }
 
@@ -98,7 +91,7 @@ namespace AgroParallel.Services
             if (dto == null) return;
             lock (_lock)
             {
-                try { File.WriteAllText(PathOnDisk, JsonSerializer.Serialize(dto, WriteOpts)); } catch { }
+                try { AgroParallel.Common.AtomicJson.Write(PathOnDisk, JsonSerializer.Serialize(dto, WriteOpts)); } catch { }
             }
         }
     }

@@ -135,6 +135,8 @@
 
     var badges = '';
     var okCount = 0, bajoCount = 0, tapCount = 0, excCount = 0, ndCount = 0, muCount = 0, secOffCount = 0;
+    // Promedio de sem/m sobre surcos de semilla que están sembrando (Valor > 0).
+    var semMSum = 0, semMN = 0;
     trenes.forEach(function (t) {
       var surcos = pick(t, 'Surcos', 'surcos') || [];
       surcos.forEach(function (s) {
@@ -146,8 +148,12 @@
         else if (st === 'muted') muCount++;
         else if (st === 'seccion-off') secOffCount++;
         else ndCount++;
+        var tipo = String(pick(s, 'Tipo', 'tipo') || 'semilla').toLowerCase();
+        var valM = pick(s, 'Valor', 'valor') || 0;
+        if (tipo === 'semilla' && valM > 0) { semMSum += valM; semMN++; }
       });
     });
+    var semMProm = semMN > 0 ? (semMSum / semMN) : 0;
     if (okCount > 0)     badges += '<span class="pill ok"><span class="dot"></span> ' + okCount + ' OK</span>';
     if (bajoCount > 0)   badges += '<span class="pill bad"><span class="dot"></span> ' + bajoCount + ' bajo</span>';
     if (tapCount > 0)    badges += '<span class="pill bad"><span class="dot"></span> ' + tapCount + ' tapado</span>';
@@ -168,7 +174,7 @@
         var obj = pick(t, 'Objetivo', 'objetivo');
         var surcos = pick(t, 'Surcos', 'surcos') || [];
         html += '<h2 style="margin-top:var(--agp-sp-4)">' + escapeHtml(nombre);
-        if (obj) html += ' <span class="subtitle">· objetivo ' + fmtNum(obj, 0) + ' sem/min</span>';
+        if (obj) html += ' <span class="subtitle">· objetivo ' + fmtNum(obj, 0) + '</span>';
         html += '</h2>';
 
         // Split: semilla + cualquier variante de ferti → tubitos
@@ -212,13 +218,9 @@
     bindBarObjetivoInputs();
     refreshDetailIfOpen();
 
-    $('vxSpm').textContent = (spm == null) ? '–' : fmtNum(spm, 1);
-    var objMax = 0;
-    trenes.forEach(function (t) {
-      var o = pick(t, 'Objetivo', 'objetivo') || 0;
-      if (o > objMax) objMax = o;
-    });
-    $('vxObj').textContent = objMax ? (fmtNum(objMax, 0) + ' sem/min') : '–';
+    $('vxSpm').textContent = semMProm > 0 ? fmtNum(semMProm, semMProm >= 100 ? 0 : 1) : '–';
+    var semHaProm = vxSemHa(semMProm);
+    if ($('vxSemHa')) $('vxSemHa').textContent = semHaProm > 0 ? (fmtNum(semHaProm, 0) + ' sem/ha') : '–';
     $('vxActivos').textContent = activos;
     $('vxFallas').textContent = fallas;
     $('vxImp').textContent = impNombre;
@@ -264,10 +266,24 @@
     return 'var(--vx-no-data)';
   }
 
+  // Distancia entre surcos (m) del snapshot live; default 0.191. Se usa para
+  // derivar sem/ha a partir de sem/m por surco.
+  function vxSpacing() {
+    var d = state.live ? (pick(state.live, 'DistanciaEntreSurcos', 'distanciaEntreSurcos') || 0) : 0;
+    return d > 0 ? d : 0.191;
+  }
+  // sem/ha = sem/m · 10000 / distancia_entre_surcos.
+  function vxSemHa(valM) {
+    var sp = vxSpacing();
+    return sp > 0 ? (valM * 10000 / sp) : 0;
+  }
+
   function renderSensorCell(s, objTren) {
     var st = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
     var b = pick(s, 'Bajada', 'bajada');
-    var sp = pick(s, 'Spm', 'spm') || 0;
+    // Valor = lectura cruda del firmware en sem/m (densidad espacial, que es
+    // lo que ve el operario). Spm (sem/min) es interno; al usuario no le sirve.
+    var valM = pick(s, 'Valor', 'valor') || 0;
     var obj = pick(s, 'Objetivo', 'objetivo') || objTren || 0;
     var uid = pick(s, 'Uid', 'uid') || '';
     var cable = pick(s, 'Cable', 'cable');
@@ -277,11 +293,12 @@
               : (st === 'bajo' || st === 'bad') ? 'bajo objetivo'
               : (st === 'exceso' || st === 'warn') ? 'exceso'
               : (st === 'muted') ? 'silenciado'
-              : 'sem/min';
+              : 'sem/m';
     var cls = 's-' + st;
     var bg = colorForSurco(s);
-    var spmTxt = fmtNum(sp, sp >= 100 ? 0 : 1);
-    var objTxt = obj ? fmtNum(obj, 0) : '–';
+    var valTxt = fmtNum(valM, valM >= 100 ? 0 : 1);
+    var semHa = vxSemHa(valM);
+    var haTxt = semHa ? fmtNum(semHa, 0) : '–';
     var badge = muted ? '<span class="badge muted">MUTE</span>' :
                 (st === 'tapado' ? '<span class="badge">!</span>' : '');
     return '' +
@@ -292,8 +309,8 @@
         '<div class="tube" style="background:' + bg + '"></div>' +
         badge +
         '<div class="id">B' + escapeHtml(b == null ? '–' : b) + '</div>' +
-        '<div class="pps">' + spmTxt + '</div>' +
-        '<div class="obj">real <span class="sep">·</span> obj ' + objTxt + '</div>' +
+        '<div class="pps">' + valTxt + '</div>' +
+        '<div class="obj">' + haTxt + ' sem/ha</div>' +
         '<div class="row2">' + label + '</div>' +
       '</div>';
   }
@@ -493,6 +510,7 @@
     var s = found.surco, t = found.tren;
     var st  = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
     var sp  = pick(s, 'Spm', 'spm') || 0;
+    var valM = pick(s, 'Valor', 'valor') || 0; // sem/m (lo que ve el operario)
     var obj = pick(s, 'Objetivo', 'objetivo') || pick(t, 'Objetivo', 'objetivo') || 0;
     var ratio = obj > 0 ? Math.max(0, Math.min(1.5, sp / obj)) : 0;
     var pct = obj > 0 ? Math.round(sp / obj * 100) : null;
@@ -529,12 +547,20 @@
       '</div>' +
       '<hr class="vd-sep">' +
       '<div class="vd-row big">' +
-        '<span class="vd-k">SPM actual</span>' +
-        '<span class="vd-v"><strong>' + fmtNum(sp, sp >= 100 ? 0 : 1) + '</strong> sem/min</span>' +
+        '<span class="vd-k">Semillas / metro</span>' +
+        '<span class="vd-v"><strong>' + fmtNum(valM, valM >= 100 ? 0 : 1) + '</strong> sem/m</span>' +
+      '</div>' +
+      '<div class="vd-row">' +
+        '<span class="vd-k">Semillas / 10 m</span>' +
+        '<span class="vd-v"><strong>' + fmtNum(valM * 10, valM * 10 >= 100 ? 0 : 1) + '</strong> sem/10m</span>' +
       '</div>' +
       '<div class="vd-row big">' +
+        '<span class="vd-k">Semillas / hectárea</span>' +
+        '<span class="vd-v"><strong>' + (vxSemHa(valM) > 0 ? fmtNum(vxSemHa(valM), 0) : '–') + '</strong> sem/ha</span>' +
+      '</div>' +
+      '<div class="vd-row">' +
         '<span class="vd-k">Objetivo</span>' +
-        '<span class="vd-v"><strong>' + (obj > 0 ? fmtNum(obj, 0) : '–') + '</strong> sem/min</span>' +
+        '<span class="vd-v"><strong>' + (obj > 0 ? fmtNum(obj, 0) : '–') + '</strong></span>' +
       '</div>';
 
     if (obj > 0 && st !== 'seccion-off' && st !== 'no-data') {
@@ -807,20 +833,11 @@
     var prevImp = state.imp || {};
     var prevSetup = pick(prevImp, 'Setup', 'setup') || {};
 
-    // Geometría y trenes vienen del IMPLEMENTO CENTRAL (no se editan acá).
-    var anchoC = central.ancho_total_m || 0;
-    var nSurcosC = central.numero_surcos || (Array.isArray(central.surcos) ? central.surcos.length : 0);
-    var distC = central.distancia_entre_surcos_m || 0;
-    var nSecC = Array.isArray(central.secciones) ? central.secciones.length : 0;
-    var trenesC = (Array.isArray(central.trenes) ? central.trenes : []).map(function (t) {
-      // Mantener compat con VistaXTrenConfigDto: id/nombre/surcos.
-      // "surcos" = cantidad de surcos asignados a ese tren en el central.
-      var nSur = 0;
-      if (Array.isArray(central.surcos)) {
-        central.surcos.forEach(function (s) { if ((s.tren_id | 0) === (t.id | 0)) nSur++; });
-      }
-      return { id: t.id | 0, nombre: t.nombre || ('Tren ' + t.id), surcos: nSur };
-    });
+    // La geometría (ancho/surcos/distancia/secciones/torres) y los TRENES los
+    // manda el IMPLEMENTO CENTRAL: NO se editan ni se envían desde acá. El PUT
+    // a /api/vistax/implemento ignora esos campos (los re-deriva del central),
+    // así que solo mandamos lo que VistaX realmente posee: mapeo_sensores +
+    // límites/densidad del setup.
 
     var rowsSens = Array.from(document.querySelectorAll('#tblSensores tbody tr'));
     var sensores = rowsSens.map(function (tr) {
@@ -850,25 +867,20 @@
       id: pick(prevImp, 'Id', 'id') || '',
       nombre: pick(prevImp, 'Nombre', 'nombre') || central.nombre || '',
       setup: {
-        // Densidad / factor K viven en el catálogo de insumos. Preservamos
-        // lo que ya estaba en el DTO previo para no pisar nada.
+        // Solo campos VistaX-owned. Geometría (distancia/total_surcos/
+        // secciones_aog/ancho_implemento/torres) la ignora el backend: la manda
+        // el central. Densidad / factor K viven en el catálogo de insumos;
+        // preservamos lo que ya estaba en el DTO previo para no pisar nada.
         densidad_objetivo: pick(prevSetup, 'densidad_objetivo', 'DensidadObjetivo') ?? 0,
         tolerancia_desvio: parseFloat($('impTol').value || '0') || 0,
-        distancia_entre_surcos: distC,
         factor_k_default: pick(prevSetup, 'factor_k_default', 'FactorK') ?? 0,
         objetivos_tren: pick(prevSetup, 'objetivos_tren', 'ObjetivosTren') || {},
-        total_surcos: nSurcosC,
-        secciones_aog: nSecC,
-        ancho_implemento: anchoC,
-        // Torres: agrupado opcional para la vista live.
-        torres: parseInt(($('impTorres') && $('impTorres').value) || '0', 10) || 0,
         surcos_por_torre: parseInt(($('impSurcosTorre') && $('impSurcosTorre').value) || '0', 10) || 0,
         vista_modo_default: (($('impVistaModo') && $('impVistaModo').value) === 'torres' ? 'torres' : 'surcos'),
         // Preservamos resto del setup que no editamos acá.
         max_densidad_sensor: pick(prevSetup, 'max_densidad_sensor', 'MaxDensidadSensor') ?? 20,
         insumo_activo_id: pick(prevSetup, 'insumo_activo_id', 'InsumoActivoId') || ''
       },
-      trenes: trenesC,
       mapeo_sensores: sensores
     };
   }

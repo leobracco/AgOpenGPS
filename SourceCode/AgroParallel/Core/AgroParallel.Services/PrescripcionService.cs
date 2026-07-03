@@ -80,9 +80,7 @@ namespace AgroParallel.Services
         {
             try
             {
-                string p = StatePath();
-                if (!File.Exists(p)) return new StateFileDto();
-                return JsonSerializer.Deserialize<StateFileDto>(File.ReadAllText(p), JsonOpts)
+                return AgroParallel.Common.AtomicJson.Read<StateFileDto>(StatePath(), JsonOpts)
                     ?? new StateFileDto();
             }
             catch { return new StateFileDto(); }
@@ -90,7 +88,7 @@ namespace AgroParallel.Services
 
         private static void SaveState(StateFileDto st)
         {
-            try { File.WriteAllText(StatePath(), JsonSerializer.Serialize(st)); }
+            try { AgroParallel.Common.AtomicJson.Write(StatePath(), JsonSerializer.Serialize(st)); }
             catch { /* permission denied: el lookup en memoria sigue OK */ }
         }
 

@@ -28,25 +28,19 @@ namespace AgroParallel.Services
         public StormXConfigDto Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
-            {
-                var def = new StormXConfigDto();
-                Save(def);
-                return def;
-            }
-            try
-            {
-                return JsonSerializer.Deserialize<StormXConfigDto>(File.ReadAllText(path), ReadOpts)
-                    ?? new StormXConfigDto();
-            }
-            catch { return new StormXConfigDto(); }
+            // AtomicJson.Read recupera del .bak si el principal está corrupto/vacío.
+            var cfg = AgroParallel.Common.AtomicJson.Read<StormXConfigDto>(path, ReadOpts);
+            if (cfg != null) return cfg;
+            var def = new StormXConfigDto();
+            Save(def);
+            return def;
         }
 
         public void Save(StormXConfigDto dto)
         {
             if (dto == null) return;
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            File.WriteAllText(path, JsonSerializer.Serialize(dto, WriteOpts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, WriteOpts));
         }
     }
 }

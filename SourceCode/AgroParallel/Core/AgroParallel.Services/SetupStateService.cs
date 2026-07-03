@@ -28,22 +28,12 @@ namespace AgroParallel.Services
         {
             lock (_lock)
             {
-                if (!File.Exists(_path))
-                {
-                    var def = new SetupStateDto();
-                    SaveInternal(def);
-                    return def;
-                }
-                try
-                {
-                    var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    return JsonSerializer.Deserialize<SetupStateDto>(File.ReadAllText(_path), opts)
-                           ?? new SetupStateDto();
-                }
-                catch
-                {
-                    return new SetupStateDto();
-                }
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var cfg = AgroParallel.Common.AtomicJson.Read<SetupStateDto>(_path, opts);
+                if (cfg != null) return cfg;
+                var def = new SetupStateDto();
+                SaveInternal(def);
+                return def;
             }
         }
 
@@ -56,7 +46,7 @@ namespace AgroParallel.Services
         private void SaveInternal(SetupStateDto dto)
         {
             var opts = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(_path, JsonSerializer.Serialize(dto, opts));
+            AgroParallel.Common.AtomicJson.Write(_path, JsonSerializer.Serialize(dto, opts));
         }
 
         public void MarkPaso(string paso, bool valor)
@@ -100,17 +90,9 @@ namespace AgroParallel.Services
 
         private SetupStateDto LoadNoLock()
         {
-            if (!File.Exists(_path)) return new SetupStateDto();
-            try
-            {
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                return JsonSerializer.Deserialize<SetupStateDto>(File.ReadAllText(_path), opts)
-                       ?? new SetupStateDto();
-            }
-            catch
-            {
-                return new SetupStateDto();
-            }
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            return AgroParallel.Common.AtomicJson.Read<SetupStateDto>(_path, opts)
+                   ?? new SetupStateDto();
         }
     }
 }

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VistaX · Setear Densidad</title>
+<!-- Sin Google Fonts: la PC del tractor no tiene internet. Stacks locales. -->
+<style>
+  :root{
+    --bg:#0A0C0F; --panel:#1A1F25; --line:#252b31;
+    --ok:#6DC231; --ok2:#4ABA3E; --lime:#A4BA3E;
+    --warn:#E8B93E; --alarm:#E8443E; --off:#3a4149;
+    --txt:#E6EAEE; --muted:#8A939C;
+    --disp:"Barlow Condensed","Segoe UI","Inter",system-ui,sans-serif;
+    --mono:"JetBrains Mono","Cascadia Mono","Consolas",monospace;
+    --body:"Inter","Segoe UI",system-ui,sans-serif;
+    --fw:900px; --fh:560px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:#05070a; display:grid; place-items:center; padding:1.2%; color:var(--txt); font-family:var(--body); user-select:none}
+
+  .frame{
+    container-type:size;
+    width:min(100%,var(--fw)); height:min(100%,var(--fh));
+    background:var(--bg); border:1px solid var(--line); border-radius:14px; overflow:hidden;
+    box-shadow:0 10px 44px rgba(0,0,0,.5);
+    display:grid; grid-template-rows:auto 1fr auto;
+  }
+  header{display:flex; justify-content:space-between; align-items:center;
+    padding:1.6cqmin 2.4cqmin; background:var(--panel); border-bottom:1px solid var(--line)}
+  header h1{font-family:var(--disp); font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:clamp(14px,3.4cqmin,22px)}
+  header h1 span{color:var(--lime)}
+  header .hint{font-family:var(--mono); font-size:clamp(8px,1.8cqmin,12px); color:var(--muted)}
+
+  main{display:grid; grid-template-columns:1fr minmax(180px,30%); gap:1.6cqmin; padding:1.6cqmin; min-height:0}
+
+  /* Lista de productos */
+  .list{display:flex; flex-direction:column; gap:1.2cqmin; overflow:auto; min-height:0}
+  .row{background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:1.4cqmin; padding:1.2cqmin 1.6cqmin}
+  .row .tag{font-family:var(--mono); font-size:clamp(8px,1.7cqmin,11px); color:var(--muted); background:#0d1013; border:1px solid var(--line); padding:2px 6px; border-radius:4px}
+  .row .meta .nm{font-family:var(--disp); text-transform:uppercase; letter-spacing:.04em; font-size:clamp(11px,2.5cqmin,16px); line-height:1.1}
+  .row .meta .cur{font-family:var(--mono); font-size:clamp(8px,1.8cqmin,12px); color:var(--muted)}
+  .row .meta .cur b{color:var(--txt)}
+
+  .setter{display:flex; align-items:center; gap:.8cqmin}
+  .sbtn{width:7cqh; height:7cqh; min-width:34px; min-height:34px; border-radius:7px; cursor:pointer;
+    background:#0d1013; border:1px solid var(--line); color:var(--lime);
+    font-family:var(--disp); font-weight:700; font-size:clamp(16px,3.4cqmin,22px);
+    display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent}
+  .sbtn:active{background:var(--ok2); color:#0A0C0F}
+  .val{min-width:74px; text-align:center; background:#0d1013; border:1px solid var(--line); border-radius:7px;
+    padding:.6cqmin .4cqmin; cursor:pointer}
+  .val b{font-family:var(--mono); font-weight:700; font-size:clamp(14px,3.2cqmin,20px); color:var(--lime); display:block; line-height:1}
+  .val small{font-family:var(--disp); text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-size:clamp(6px,1.4cqmin,10px)}
+  .val.active{border-color:var(--lime); box-shadow:0 0 0 2px rgba(164,186,62,.25)}
+  .val.dirty b{color:var(--warn)}
+
+  /* Numpad */
+  .pad{display:grid; grid-template-columns:repeat(3,1fr); grid-auto-rows:1fr; gap:.8cqmin}
+  .pad button{border-radius:8px; background:var(--panel); border:1px solid var(--line); color:var(--txt);
+    font-family:var(--mono); font-weight:700; font-size:clamp(14px,3.2cqmin,20px); cursor:pointer; -webkit-tap-highlight-color:transparent}
+  .pad button:active{background:#0d1013}
+  .pad .clr{color:var(--alarm)} .pad .del{color:var(--warn)}
+
+  footer{display:flex; justify-content:space-between; align-items:center; gap:1.2cqmin;
+    padding:1.4cqmin 2cqmin; background:var(--panel); border-top:1px solid var(--line)}
+  footer .info{font-family:var(--mono); font-size:clamp(8px,1.8cqmin,12px); color:var(--muted)}
+  footer .info b{color:var(--warn)}
+  .actions{display:flex; gap:1cqmin}
+  .btn{font-family:var(--disp); font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+    font-size:clamp(11px,2.6cqmin,16px); padding:1cqmin 3cqmin; border-radius:8px; cursor:pointer; border:1px solid var(--line)}
+  .btn.cancel{background:transparent; color:var(--muted)}
+  .btn.cancel:active{background:#0d1013}
+  .btn.apply{background:var(--ok2); color:#0A0C0F; border-color:var(--ok2)}
+  .btn.apply:active{background:var(--ok)}
+  .btn.apply:disabled{opacity:.4; pointer-events:none}
+  .empty{font-family:var(--mono); font-size:clamp(9px,2cqmin,13px); color:var(--muted); padding:2cqmin; text-align:center}
+</style>
+</head>
+<body>
+<div class="frame">
+  <header>
+    <h1>Setear <span>densidad</span></h1>
+    <span class="hint" id="hint">Tocá un valor y editá con el teclado</span>
+  </header>
+
+  <main>
+    <div class="list" id="list"></div>
+    <div class="pad" id="pad">
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k=".">.</button><button data-k="0">0</button><button class="del" data-k="del">⌫</button>
+      <button class="clr" data-k="clr" style="grid-column:span 3">Borrar</button>
+    </div>
+  </main>
+
+  <footer>
+    <span class="info">Cambios pendientes: <b id="dirty">0</b></span>
+    <div class="actions">
+      <button class="btn cancel" id="btn-cancel">Cancelar</button>
+      <button class="btn apply" id="btn-apply" disabled>Aplicar</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ============================================================================
+   VistaX · Setear Densidad — versión PilotX.
+   Carga/guarda contra GET/PUT /api/vistax/implemento.
+   Cada "producto" de la lista = un TREN de siembra del implemento. El objetivo
+   de densidad por tren vive en setup.objetivos_tren (sem/m, la unidad que ve el
+   operario; es la misma con la que el monitor compara Valor vs objetivo).
+   Si el implemento no tiene trenes, se cae a una sola fila global que edita
+   setup.densidad_objetivo.
+
+   IMPORTANTE (landmine EmbedIO): el GET devuelve las claves en camelCase, pero
+   el PUT deserializa con los [JsonPropertyName] snake_case. Por eso al aplicar
+   reconstruimos el DTO COMPLETO en snake_case (preservando todo lo que no
+   tocamos, incluido mapeo_sensores) — nunca reenviamos el JSON camelCase crudo.
+   ============================================================================ */
+(function(){
+  'use strict';
+
+  function pickAny(o, keys){
+    if(!o) return undefined;
+    for(var i=0;i<keys.length;i++){ if(o[keys[i]]!=null) return o[keys[i]]; }
+    return undefined;
+  }
+  function nz(v, d){ return (v==null||isNaN(v)) ? d : Number(v); }
+
+  var PRODUCTOS = [];   // {id, nm, unidad, step, min, max, dens, nuevo, _edit}
+  var activo = null;    // id del input en edición
+  var rawImp = null;    // implemento crudo (camelCase) tal como vino del GET
+  var GLOBAL = '__global__';
+
+  /* ---------- Carga ---------- */
+  async function cargar(){
+    try{
+      var r = await fetch('/api/vistax/implemento', { cache:'no-store' });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      var res = await r.json();
+      rawImp = pickAny(res, ['implemento','Implemento']) || res;
+    }catch(e){
+      rawImp = null;
+      document.getElementById('list').innerHTML =
+        '<div class="empty">No se pudo leer el implemento.<br>Reintentá desde el Hub.</div>';
+      return;
+    }
+    buildProductos();
+    render();
+  }
+
+  function buildProductos(){
+    var setup  = pickAny(rawImp, ['setup','Setup']) || {};
+    var trenes = pickAny(rawImp, ['trenes','Trenes']) || [];
+    var objTren= pickAny(setup, ['objetivosTren','ObjetivosTren','objetivos_tren']) || {};
+    var densG  = nz(pickAny(setup, ['densidadObjetivo','DensidadObjetivo','densidad_objetivo']), 16);
+    var maxD   = nz(pickAny(setup, ['maxDensidadSensor','MaxDensidadSensor','max_densidad_sensor']), 20);
+
+    PRODUCTOS = trenes.map(function(t){
+      var id = String(pickAny(t, ['id','Id']));
+      var nm = pickAny(t, ['nombre','Nombre']) || ('Tren '+id);
+      var d  = objTren[id]!=null ? Number(objTren[id]) : densG;
+      return { id:id, nm:nm, unidad:'sem/m', step:0.5, min:1, max:maxD, dens:d };
+    });
+
+    if(PRODUCTOS.length===0){
+      PRODUCTOS = [{ id:GLOBAL, nm:'Semilla', unidad:'sem/m', step:0.5, min:1, max:maxD, dens:densG }];
+    }
+    PRODUCTOS.forEach(function(p){ p.nuevo=p.dens; p._edit=undefined; });
+  }
+
+  /* ---------- Render ---------- */
+  function fmt(v){ return Number.isInteger(v)? String(v) : Number(v).toFixed(1); }
+  function get(id){ return PRODUCTOS.find(function(p){ return p.id===id; }); }
+
+  function render(){
+    document.getElementById('list').innerHTML = PRODUCTOS.map(function(p){
+      return '<div class="row" id="row-'+p.id+'">'+
+        '<span class="tag">'+(p.id===GLOBAL?'#gen':'#'+p.id)+'</span>'+
+        '<div class="meta">'+
+          '<div class="nm">'+esc(p.nm)+'</div>'+
+          '<div class="cur">Actual: <b id="cur-'+p.id+'">'+fmt(p.dens)+'</b> '+p.unidad+'</div>'+
+        '</div>'+
+        '<div class="setter">'+
+          '<button class="sbtn" data-id="'+p.id+'" data-d="-1">−</button>'+
+          '<div class="val" id="set-'+p.id+'" data-id="'+p.id+'"><b>'+fmt(p.nuevo)+'</b><small>'+p.unidad+'</small></div>'+
+          '<button class="sbtn" data-id="'+p.id+'" data-d="1">+</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    document.querySelectorAll('.sbtn').forEach(function(b){ b.onclick=function(){ stepVal(b.dataset.id, +b.dataset.d); }; });
+    document.querySelectorAll('.val').forEach(function(v){ v.onclick=function(){ selectInput(v.dataset.id); }; });
+    refresh();
+  }
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function selectInput(id){
+    activo=id;
+    document.querySelectorAll('.val').forEach(function(v){ v.classList.toggle('active', v.dataset.id===id); });
+  }
+  function stepVal(id, dir){
+    var p=get(id); if(!p) return;
+    setVal(id, Number(p.nuevo) + dir*p.step);
+    p._edit=undefined;
+    selectInput(id);
+  }
+  function setVal(id, v){
+    var p=get(id); if(!p) return;
+    p.nuevo = Math.max(p.min, Math.min(p.max, Math.round(v*10)/10));
+    refresh();
+  }
+
+  /* numpad edita el input activo */
+  document.getElementById('pad').addEventListener('click', function(e){
+    var k=e.target.dataset.k; if(!k||!activo) return;
+    var p=get(activo); if(!p) return;
+    var s = p._edit!=null ? p._edit : '';
+    if(k==='clr') s='';
+    else if(k==='del') s=s.slice(0,-1);
+    else if(k==='.'){ if(!s.includes('.')) s+= (s===''?'0.':'.'); }
+    else s+=k;
+    p._edit=s;
+    var val = (s===''||s==='0.') ? 0 : parseFloat(s);
+    p.nuevo = Math.max(p.min, Math.min(p.max, isNaN(val)?0:val));
+    refresh(s);
+  });
+
+  function refresh(editStr){
+    var dirty=0;
+    PRODUCTOS.forEach(function(p){
+      var el=document.getElementById('set-'+p.id); if(!el) return;
+      var show = (p.id===activo && editStr!=null && editStr!=='') ? editStr : fmt(p.nuevo);
+      el.querySelector('b').textContent = show;
+      var chg = Number(p.nuevo)!==Number(p.dens);
+      el.classList.toggle('dirty', chg);
+      if(chg) dirty++;
+    });
+    document.getElementById('dirty').textContent=dirty;
+    document.getElementById('btn-apply').disabled = dirty===0;
+  }
+
+  /* ---------- Reconstrucción snake_case del implemento ---------- */
+  function toSnakeImplemento(imp){
+    var setup = pickAny(imp, ['setup','Setup']) || {};
+    var trenes = pickAny(imp, ['trenes','Trenes']) || [];
+    var mapeo  = pickAny(imp, ['mapeoSensores','MapeoSensores','mapeo_sensores']) || [];
+
+    // Objetivos por tren: partimos de lo previo y aplicamos los cambios de la UI.
+    var objTren = {};
+    var prevObj = pickAny(setup, ['objetivosTren','ObjetivosTren','objetivos_tren']) || {};
+    Object.keys(prevObj).forEach(function(k){ objTren[k]=Number(prevObj[k]); });
+    var densGlobal = nz(pickAny(setup, ['densidadObjetivo','DensidadObjetivo','densidad_objetivo']), 16);
+    PRODUCTOS.forEach(function(p){
+      if(p.id===GLOBAL) densGlobal = Number(p.nuevo);
+      else objTren[p.id] = Number(p.nuevo);
+    });
+
+    return {
+      id: pickAny(imp, ['id','Id']) || '',
+      nombre: pickAny(imp, ['nombre','Nombre']) || '',
+      setup: {
+        densidad_objetivo: densGlobal,
+        tolerancia_desvio: nz(pickAny(setup, ['toleranciaDesvio','ToleranciaDesvio','tolerancia_desvio']), 20),
+        distancia_entre_surcos: nz(pickAny(setup, ['distanciaEntreSurcos','DistanciaEntreSurcos','distancia_entre_surcos']), 0.191),
+        factor_k_default: nz(pickAny(setup, ['factorKDefault','FactorK','factor_k_default']), 0.15),
+        objetivos_tren: objTren,
+        total_surcos: nz(pickAny(setup, ['totalSurcos','TotalSurcos','total_surcos']), 0),
+        secciones_aog: nz(pickAny(setup, ['seccionesAog','SeccionesAOG','secciones_aog']), 0),
+        ancho_implemento: nz(pickAny(setup, ['anchoImplemento','AnchoImplemento','ancho_implemento']), 0),
+        max_densidad_sensor: nz(pickAny(setup, ['maxDensidadSensor','MaxDensidadSensor','max_densidad_sensor']), 20),
+        insumo_activo_id: pickAny(setup, ['insumoActivoId','InsumoActivoId','insumo_activo_id']) || '',
+        torres: nz(pickAny(setup, ['torres','Torres']), 0),
+        surcos_por_torre: nz(pickAny(setup, ['surcosPorTorre','SurcosPorTorre','surcos_por_torre']), 0),
+        vista_modo_default: pickAny(setup, ['vistaModoDefault','VistaModoDefault','vista_modo_default']) || 'surcos'
+      },
+      trenes: trenes.map(function(t){
+        return {
+          id: nz(pickAny(t, ['id','Id']), 0),
+          nombre: pickAny(t, ['nombre','Nombre']) || '',
+          surcos: nz(pickAny(t, ['surcos','Surcos']), 0)
+        };
+      }),
+      mapeo_sensores: mapeo.map(function(s){
+        return {
+          uid: pickAny(s, ['uid','Uid']) || '',
+          cable: nz(pickAny(s, ['cable','Cable']), 0),
+          pin: nz(pickAny(s, ['pin','Pin']), 0),
+          bajada: nz(pickAny(s, ['bajada','Bajada']), 0),
+          surco_desde: nz(pickAny(s, ['surcoDesde','SurcoDesde','surco_desde']), 0),
+          surco_hasta: nz(pickAny(s, ['surcoHasta','SurcoHasta','surco_hasta']), 0),
+          tipo: pickAny(s, ['tipo','Tipo']) || 'semilla',
+          nombre: pickAny(s, ['nombre','Nombre']) || '',
+          tren: nz(pickAny(s, ['tren','Tren']), 1),
+          is_active: !!pickAny(s, ['isActive','IsActive','is_active']),
+          seccion_aog: nz(pickAny(s, ['seccionAog','SeccionAOG','seccion_aog']), 0),
+          muted: !!pickAny(s, ['muted','Muted']),
+          objetivo: nz(pickAny(s, ['objetivo','Objetivo']), 0)
+        };
+      })
+    };
+  }
+
+  /* ---------- Acciones ---------- */
+  document.getElementById('btn-apply').onclick = async function(){
+    if(!rawImp) return;
+    var hint=document.getElementById('hint');
+    var dto = toSnakeImplemento(rawImp);
+    hint.textContent='Guardando…';
+    try{
+      var r = await fetch('/api/vistax/implemento', {
+        method:'PUT',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(dto)
+      });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      // Consolidar: lo aplicado pasa a ser el "actual".
+      PRODUCTOS.forEach(function(p){ p.dens=p.nuevo; p._edit=undefined; });
+      hint.textContent='Guardado ✓';
+      // Recargar del backend para reflejar cualquier normalización.
+      await cargar();
+      setTimeout(function(){ hint.textContent='Tocá un valor y editá con el teclado'; }, 1500);
+    }catch(e){
+      hint.textContent='Error al guardar';
+    }
+  };
+
+  document.getElementById('btn-cancel').onclick = function(){
+    PRODUCTOS.forEach(function(p){ p.nuevo=p.dens; p._edit=undefined; });
+    activo=null; render();
+  };
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', cargar);
+  else cargar();
+})();
+</script>
+</body>
+</html>

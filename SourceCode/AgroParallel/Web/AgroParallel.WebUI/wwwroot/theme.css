@@ -148,6 +148,60 @@
 }
 
 /* ============================================================================
+   UX baseline overrides
+   ============================================================================ */
+:root {
+  --agp-border-soft: rgba(221, 224, 227, 0.08);
+  --agp-text-strong: #F2F4F6;
+  --agp-danger: #B84A4A;
+  --agp-danger-hover: #CB5A5A;
+  --agp-danger-soft: rgba(201, 45, 45, 0.14);
+  --agp-warn: #C99D35;
+  --agp-warn-soft: rgba(216, 178, 62, 0.14);
+  --agp-font: var(--agp-font-sans);
+}
+
+body {
+  min-width: 320px;
+  accent-color: var(--agp-accent);
+  overscroll-behavior: none;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+[role="button"],
+a.btn,
+label.switch {
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================================
    Reset mínimo + baseline
    ============================================================================ */
 *, *::before, *::after { box-sizing: border-box; }
@@ -224,4 +278,82 @@ html, body {
     --agp-touch-rec: 46px;
     --agp-touch-big: 58px;
   }
+}
+
+/* ============================================================================
+   Agro Parallel visual language - light field UI
+   Referencia: simple, suave, gris, funcional, verde primario.
+   ============================================================================ */
+:root {
+  --agp-bg: #F5F7F4;
+  --agp-bg-soft: #ECEFEC;
+  --agp-surface: #FFFFFF;
+  --agp-surface-2: #F7F8F7;
+  --agp-surface-3: #E9EDE9;
+  --agp-border: #DDE3DD;
+  --agp-border-soft: rgba(16, 22, 18, 0.07);
+  --agp-border-strong: #C5CFC5;
+  --agp-text: #101612;
+  --agp-text-strong: #101612;
+  --agp-text-muted: #535E54;
+  --agp-text-dim: #8A948B;
+
+  --agp-accent: #4ABA3E;
+  --agp-accent-hover: #3FAF34;
+  --agp-accent-press: #319628;
+  --agp-accent-soft: rgba(74, 186, 62, 0.13);
+
+  --agp-state-ok: #2E9D35;
+  --agp-state-warn: #B98D14;
+  --agp-state-bad: #D84A4A;
+  --agp-state-idle: #A7AEA8;
+  --agp-state-warn-bg: #FFF5D7;
+  --agp-state-bad-bg: #FFE4E4;
+  --agp-danger: #D84A4A;
+  --agp-danger-hover: #C83D3D;
+  --agp-danger-soft: rgba(216, 74, 74, 0.12);
+  --agp-warn: #E6B83F;
+  --agp-warn-soft: rgba(230, 184, 63, 0.16);
+
+  --vx-ok: #4ABA3E;
+  --vx-ok-dark: #2E7D2B;
+  --vx-tapado: #101612;
+  --vx-tapado-border: #101612;
+  --vx-exceso: #2377C8;
+  --vx-exceso-dark: #14508E;
+  --vx-no-data: #C5CFC5;
+  --vx-no-data-border: #AEB8AE;
+  --vx-muted: #B9C1BA;
+  --vx-muted-border: #AEB8AE;
+
+  --agp-overlay: rgba(16, 22, 18, 0.34);
+  --agp-shadow-sm: 0 1px 2px rgba(16, 22, 18, 0.05);
+  --agp-shadow-md: 0 8px 24px rgba(16, 22, 18, 0.08);
+  --agp-shadow-lg: 0 18px 42px rgba(16, 22, 18, 0.12);
+}
+
+html,
+body {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(245,247,244,0.96)),
+    var(--agp-bg);
+  color: var(--agp-text);
+}
+
+::selection {
+  background: rgba(74, 186, 62, 0.24);
+  color: var(--agp-text-strong);
+}
+
+* {
+  scrollbar-color: #C7D0C8 transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #C7D0C8;
+  border-color: var(--agp-bg);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #AEB8AE;
 }

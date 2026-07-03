@@ -44,6 +44,45 @@
     .power-card.suspend  { border-left-color: #3D87C6; }
     .power-card .pc-title { font-weight: var(--agp-fw-semi); font-size: var(--agp-fs-md); }
     .power-card .pc-desc { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); margin-top: 4px; }
+
+    /* Lista de backups */
+    .bk-list { margin-top: var(--agp-sp-4); display: flex; flex-direction: column; gap: var(--agp-sp-2); }
+    .bk-item {
+      display: grid; grid-template-columns: 1fr auto auto; align-items: center;
+      gap: var(--agp-sp-3);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3) var(--agp-sp-4);
+    }
+    .bk-info .bk-when { font-weight: var(--agp-fw-semi); font-size: var(--agp-fs-md); }
+    .bk-info .bk-meta { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); margin-top: 2px; }
+    .bk-tag {
+      display: inline-block; margin-left: var(--agp-sp-2);
+      padding: 1px 8px; border-radius: 999px;
+      font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-semi);
+      text-transform: uppercase; letter-spacing: 0.04em; vertical-align: middle;
+    }
+    .bk-tag.instalador { background: rgba(75,166,63,0.18); color: var(--agp-accent); }
+    .bk-tag.auto       { background: rgba(61,135,198,0.18); color: #6FB3E6; }
+    .bk-tag.previo     { background: rgba(255,255,255,0.08); color: var(--agp-text-dim); }
+    .bk-item .btn.restore, .bk-item .btn.view { min-height: 48px; white-space: nowrap; }
+    .bk-empty { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); margin-top: var(--agp-sp-3); }
+
+    /* Detalle (contenido del backup) */
+    .bk-detail {
+      grid-column: 1 / -1;
+      margin-top: var(--agp-sp-3);
+      border-top: var(--agp-border-w) solid var(--agp-border);
+      padding-top: var(--agp-sp-3);
+      max-height: 280px; overflow-y: auto;
+    }
+    .bk-file {
+      display: grid; grid-template-columns: 1fr auto; gap: var(--agp-sp-4);
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm);
+      padding: 3px 0; color: var(--agp-text-muted);
+    }
+    .bk-file .bk-file-size { color: var(--agp-text-dim); white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -89,7 +128,70 @@
       </div>
     </div>
     <div id="powerStatus" class="status"></div>
+
+    <h2>Configuración · respaldo</h2>
+    <div class="card" style="max-width:720px">
+      <div class="pc-desc" style="color:var(--agp-text-muted);font-size:var(--agp-fs-sm);margin-bottom:var(--agp-sp-4)">
+        PilotX respalda la configuración automáticamente en el equipo (una copia
+        por día, se conservan 14 días). El respaldo es sólo de la configuración:
+        no incluye los lotes (Fields). “Forzar backup ahora” suma una copia
+        diaria; “Backup de instalador” deja una copia permanente que no se borra.
+        También podés bajar una copia a un pendrive o restaurarla en otra PC.
+      </div>
+      <div class="quick-btns">
+        <button id="btnBackupNow" class="btn">⟳  Forzar backup ahora</button>
+        <button id="btnInstallerBackup" class="btn">📌  Backup de instalador</button>
+        <button id="btnExportCfg" class="btn">⭳  Exportar a pendrive</button>
+        <button id="btnImportCfg" class="btn">⭱  Restaurar desde archivo</button>
+        <input id="fileImportCfg" type="file" accept=".zip" style="display:none" />
+      </div>
+      <div id="cfgStatus" class="status"></div>
+    </div>
+
+    <h2>Backups guardados</h2>
+    <div class="card" style="max-width:720px">
+      <div class="pc-desc" style="color:var(--agp-text-muted);font-size:var(--agp-fs-sm);margin-bottom:var(--agp-sp-2)">
+        Copias en el equipo (una por día + las que fuerces vos). Tocá “Restaurar”
+        para volver la configuración a ese punto. Antes de restaurar se respalda
+        el estado actual.
+      </div>
+      <div class="quick-btns">
+        <button id="btnReloadBackups" class="btn compact">⟲  Actualizar lista</button>
+      </div>
+      <div id="bkList" class="bk-list"></div>
+      <div id="bkStatus" class="status"></div>
+    </div>
   </main>
+
+  <!-- Modal de confirmación táctil (reemplaza al confirm() nativo del OS,
+       que sale chico y con botones OK/Cancel imposibles con guantes). -->
+  <div id="confirmModal" class="cfm-overlay" style="display:none">
+    <div class="cfm-box">
+      <div id="cfmMsg" class="cfm-msg"></div>
+      <div class="cfm-btns">
+        <button id="cfmCancel" class="btn cfm-btn">Cancelar</button>
+        <button id="cfmOk" class="btn cfm-btn cfm-ok">Confirmar</button>
+      </div>
+    </div>
+  </div>
+  <style>
+    .cfm-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,.55);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cfm-box {
+      background: var(--agp-bg-soft, #1d2022);
+      border: 1px solid var(--agp-border, #333);
+      border-radius: 12px;
+      padding: 28px 32px;
+      max-width: 420px; width: calc(100% - 48px);
+    }
+    .cfm-msg { font-size: var(--agp-fs-lg, 20px); margin-bottom: 24px; text-align: center; }
+    .cfm-btns { display: flex; gap: 16px; }
+    .cfm-btn { flex: 1; min-height: 56px; font-size: var(--agp-fs-md, 17px); }
+    .cfm-ok { background: #C84141; border-color: #C84141; color: #fff; }
+  </style>
 
   <script src="../js/api.js"></script>
   <script src="../js/keyboard.js"></script>

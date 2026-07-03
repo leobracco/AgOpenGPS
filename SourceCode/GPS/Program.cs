@@ -42,6 +42,19 @@ namespace AgOpenGPS
                 Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo(RegistrySettings.culture);
                 Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo(RegistrySettings.culture);
 
+                // Respaldo de configuración a %ProgramData%\AgroParallel\Backups
+                // (fuera del dir de instalación → sobrevive updates/reinstalls).
+                // Inmediato al arrancar (captura la config buena de la sesión
+                // previa) + un backup automático por día (se conservan 14 días).
+                // Incluye la config de Documents\AgOpenGPS (sin Fields/lotes ni
+                // Logs, que pesan GBs) más la config del dir de instalación.
+                try
+                {
+                    AgroParallel.Services.ConfigBackupService.StartAutomatic(
+                        new[] { RegistrySettings.baseDirectory });
+                }
+                catch { }
+
                 int aogExitCode = 0;
                 try
                 {

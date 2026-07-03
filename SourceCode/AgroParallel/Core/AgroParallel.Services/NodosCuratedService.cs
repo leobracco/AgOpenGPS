@@ -29,25 +29,17 @@ namespace AgroParallel.Services
         {
             lock (_lock)
             {
-                if (!File.Exists(_path))
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                var dto = AgroParallel.Common.AtomicJson.Read<NodosCuratedDto>(_path, opts);
+                if (dto == null)
                 {
                     var def = new NodosCuratedDto();
                     SaveInternal(def);
                     return def;
                 }
-                try
-                {
-                    var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    var dto = JsonSerializer.Deserialize<NodosCuratedDto>(File.ReadAllText(_path), opts)
-                              ?? new NodosCuratedDto();
-                    if (dto.Aceptados == null) dto.Aceptados = new List<NodoAceptadoDto>();
-                    if (dto.Ignorados == null) dto.Ignorados = new List<string>();
-                    return dto;
-                }
-                catch
-                {
-                    return new NodosCuratedDto();
-                }
+                if (dto.Aceptados == null) dto.Aceptados = new List<NodoAceptadoDto>();
+                if (dto.Ignorados == null) dto.Ignorados = new List<string>();
+                return dto;
             }
         }
 
@@ -60,7 +52,7 @@ namespace AgroParallel.Services
         private void SaveInternal(NodosCuratedDto dto)
         {
             var opts = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(_path, JsonSerializer.Serialize(dto, opts));
+            AgroParallel.Common.AtomicJson.Write(_path, JsonSerializer.Serialize(dto, opts));
         }
 
         public IReadOnlyList<NodoUnifiedDto> GetUnified(INodoRegistryService registry)
@@ -241,20 +233,12 @@ namespace AgroParallel.Services
         // Versión interna sin re-lock (asume que el caller ya tiene _lock).
         private NodosCuratedDto LoadNoLock()
         {
-            if (!File.Exists(_path)) return new NodosCuratedDto();
-            try
-            {
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var dto = JsonSerializer.Deserialize<NodosCuratedDto>(File.ReadAllText(_path), opts)
-                          ?? new NodosCuratedDto();
-                if (dto.Aceptados == null) dto.Aceptados = new List<NodoAceptadoDto>();
-                if (dto.Ignorados == null) dto.Ignorados = new List<string>();
-                return dto;
-            }
-            catch
-            {
-                return new NodosCuratedDto();
-            }
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var dto = AgroParallel.Common.AtomicJson.Read<NodosCuratedDto>(_path, opts)
+                      ?? new NodosCuratedDto();
+            if (dto.Aceptados == null) dto.Aceptados = new List<NodoAceptadoDto>();
+            if (dto.Ignorados == null) dto.Ignorados = new List<string>();
+            return dto;
         }
     }
 }

@@ -117,14 +117,20 @@ namespace AgroParallel.WebHost.Controllers
         private readonly IVistaXConfigService _cfg;
         private readonly IVistaXLiveService _live;
         private readonly IVistaXCalibracionService _calib;
+        // Fuente única de la geometría física (ancho/surcos/distancia/torres/trenes).
+        // VistaX YA NO edita ni persiste geometría: el GET la muestra derivada del
+        // central y el PUT la ignora. VistaX solo dueña de mapeo_sensores + límites.
+        private readonly IImplementoService _impCentral;
 
         public VistaXController(IVistaXConfigService cfg,
                                 IVistaXLiveService live,
-                                IVistaXCalibracionService calib = null)
+                                IVistaXCalibracionService calib = null,
+                                IImplementoService impCentral = null)
         {
             _cfg = cfg;
             _live = live;
             _calib = calib;
+            _impCentral = impCentral;
         }
 
         [Route(HttpVerbs.Get, "/vistax/config")]
@@ -154,11 +160,54 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetImplemento()
         {
             if (_cfg == null) return WriteJson(Unavailable());
+            var imp = _cfg.GetImplemento() ?? new VistaXImplementoDto();
+            // La geometría física (ancho/surcos/distancia/torres/trenes) YA NO vive
+            // en el archivo VistaX: se deriva del implemento central para que la UI
+            // muestre siempre lo mismo que QuantiX/SectionX/guiado nativo. VistaX
+            // solo es dueña de mapeo_sensores + límites/densidad (Setup.*).
+            MergeCentralGeometry(imp);
             return WriteJson(new
             {
                 path = _cfg.GetImplementoPath(),
-                implemento = _cfg.GetImplemento()
+                implemento = imp
             });
+        }
+
+        // Superpone la geometría del implemento central sobre el DTO VistaX que
+        // se devuelve a la UI. No persiste: solo ajusta la instancia en memoria
+        // para el serializado. Idempotente (siempre escribe los mismos valores).
+        private void MergeCentralGeometry(VistaXImplementoDto imp)
+        {
+            if (imp == null) return;
+            ImplementoDto c = null;
+            try { c = _impCentral?.GetImplemento(); } catch { }
+            if (c == null) return;
+            if (imp.Setup == null) imp.Setup = new VistaXSetupDto();
+
+            if (!string.IsNullOrEmpty(c.Nombre)) imp.Nombre = c.Nombre;
+            if (c.AnchoTotalM > 0) imp.Setup.AnchoImplemento = c.AnchoTotalM;
+            if (c.NumeroSurcos > 0) imp.Setup.TotalSurcos = c.NumeroSurcos;
+            if (c.DistanciaEntreSurcosM > 0) imp.Setup.DistanciaEntreSurcos = c.DistanciaEntreSurcosM;
+            if (c.NumeroTorres > 0) imp.Setup.Torres = c.NumeroTorres;
+            if (c.Secciones != null && c.Secciones.Count > 0) imp.Setup.SeccionesAOG = c.Secciones.Count;
+
+            if (c.Trenes != null && c.Trenes.Count > 0)
+            {
+                var trenes = new System.Collections.Generic.List<VistaXTrenConfigDto>();
+                foreach (var t in c.Trenes)
+                {
+                    int surcosTren = c.Surcos != null
+                        ? c.Surcos.Count(s => s.TrenId == t.Id)
+                        : 0;
+                    trenes.Add(new VistaXTrenConfigDto
+                    {
+                        Id = t.Id,
+                        Nombre = string.IsNullOrEmpty(t.Nombre) ? ("Tren " + t.Id) : t.Nombre,
+                        Surcos = surcosTren
+                    });
+                }
+                imp.Trenes = trenes;
+            }
         }
 
         [Route(HttpVerbs.Put, "/vistax/implemento")]
@@ -172,7 +221,33 @@ namespace AgroParallel.WebHost.Controllers
             try { dto = SysJson.Deserialize<VistaXImplementoDto>(body, JsonOpts); }
             catch (Exception ex) { return new { ok = false, error = "invalid-json: " + ex.Message }; }
             if (dto == null) return new { ok = false, error = "empty-body" };
-            _cfg.SaveImplemento(dto);
+
+            // VistaX ya NO edita geometría física: se ignora lo que venga en el body
+            // para ancho/surcos/distancia/torres/trenes y se re-deriva del central.
+            // Partimos del implemento persistido y solo pisamos lo que VistaX posee
+            // (mapeo_sensores + límites/densidad del Setup). Así un PUT accidental
+            // con geometría vieja no desincroniza al resto de las apps.
+            var actual = _cfg.GetImplemento() ?? new VistaXImplementoDto();
+            if (dto.Setup != null)
+            {
+                var s = actual.Setup ?? (actual.Setup = new VistaXSetupDto());
+                // Campos VistaX-owned (límites, densidad, insumo, vista) — sí se guardan.
+                s.DensidadObjetivo = dto.Setup.DensidadObjetivo;
+                s.ToleranciaDesvio = dto.Setup.ToleranciaDesvio;
+                s.FactorK = dto.Setup.FactorK;
+                s.ObjetivosTren = dto.Setup.ObjetivosTren ?? s.ObjetivosTren;
+                s.MaxDensidadSensor = dto.Setup.MaxDensidadSensor;
+                s.InsumoActivoId = dto.Setup.InsumoActivoId;
+                s.SurcosPorTorre = dto.Setup.SurcosPorTorre;
+                s.VistaModoDefault = dto.Setup.VistaModoDefault;
+                // NO se tocan: AnchoImplemento, TotalSurcos, DistanciaEntreSurcos,
+                // SeccionesAOG, Torres → los manda el implemento central.
+            }
+            // mapeo_sensores es 100% VistaX: se reemplaza tal cual viene.
+            if (dto.MapeoSensores != null) actual.MapeoSensores = dto.MapeoSensores;
+            if (!string.IsNullOrEmpty(dto.Id)) actual.Id = dto.Id;
+
+            _cfg.SaveImplemento(actual);
             _live?.Reload();
             return new { ok = true };
         }

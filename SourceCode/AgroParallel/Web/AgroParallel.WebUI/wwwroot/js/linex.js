@@ -65,7 +65,11 @@
   }
 
   // -------- config en memoria --------
-  function currentNode() {
+  // Sin argumentos devuelve el nodo existente o un stub NO persistido (solo
+  // para render). Con create=true lo agrega a cfg.nodos — únicamente cuando
+  // el operario edita o guarda. Bug previo: con solo renderizar un nodo
+  // descubierto se agregaba un entry habilitado:true a lineX.json (fantasma).
+  function currentNode(create) {
     if (!cfg || !selectedUid) return null;
     if (!cfg.nodos) cfg.nodos = [];
     for (var i = 0; i < cfg.nodos.length; i++) {
@@ -83,7 +87,7 @@
       comm_timeout_ms: 3000,
       surcos: []
     };
-    cfg.nodos.push(stub);
+    if (create) cfg.nodos.push(stub);
     return stub;
   }
 
@@ -188,7 +192,7 @@
 
   // -------- pull edits desde el DOM al modelo --------
   function syncFromForm() {
-    var node = currentNode();
+    var node = currentNode(true); // acá sí persiste: el operario editó/guardó
     if (!node) return;
     node.nombre = cfgNombre.value.trim() || 'Nodo LineX';
     node.section_count = Math.max(1, Math.min(16, parseInt(cfgSectionCount.value, 10) || 7));
@@ -357,7 +361,7 @@
   function onBoardClick(e) {
     var b = e.target.closest('button[data-board]');
     if (!b) return;
-    var node = currentNode();
+    var node = currentNode(true); // edición explícita del operario
     if (!node) return;
     node.board_type = b.getAttribute('data-board');
     applyBoardVisibility(node);
@@ -374,7 +378,7 @@
   }
 
   function onSectionCountChange() {
-    var node = currentNode();
+    var node = currentNode(true); // edición explícita del operario
     if (!node) return;
     node.section_count = Math.max(1, Math.min(16, parseInt(cfgSectionCount.value, 10) || 7));
     ensureSurcos(node);

@@ -1818,6 +1818,24 @@ namespace AgOpenGPS
                 OpenAgroParallelHub("pages/camaras.html");
         }
 
+        private void toolStripVistaXSemilla_Click(object sender, EventArgs e)
+        {
+            if (!LaunchAvaloniaWidget("pages/vistax-semilla.html", "float", "VistaX · Semilla", 980, 520))
+                OpenAgroParallelWidget("pages/vistax-semilla.html", "VistaX · Semilla", 980, 520);
+        }
+
+        private void toolStripVistaXMaquina_Click(object sender, EventArgs e)
+        {
+            if (!LaunchAvaloniaWidget("pages/vistax-maquina.html", "float", "VistaX · Máquina", 720, 380))
+                OpenAgroParallelWidget("pages/vistax-maquina.html", "VistaX · Máquina", 720, 380);
+        }
+
+        private void toolStripVistaXDensidad_Click(object sender, EventArgs e)
+        {
+            if (!LaunchAvaloniaWidget("pages/vistax-densidad.html", "float", "VistaX · Densidad", 900, 560))
+                OpenAgroParallelWidget("pages/vistax-densidad.html", "VistaX · Densidad", 900, 560);
+        }
+
         // Lanza AgroParallel.Shell.Avalonia.exe como proceso aparte. AOG sigue
         // siendo el motor (FormGPS) y el host AgpWebHost ya esta corriendo en
         // :5180 desde FormGPS_Load. El widget solo es un WebView2 + ventana.

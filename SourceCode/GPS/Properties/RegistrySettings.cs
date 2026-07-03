@@ -54,7 +54,7 @@ namespace AgOpenGPS
                     Language = culture
                 };
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(BackupPath, JsonSerializer.Serialize(backup, opts));
+                AgroParallel.Common.AtomicJson.Write(BackupPath, JsonSerializer.Serialize(backup, opts));
             }
             catch { }
         }
@@ -63,12 +63,8 @@ namespace AgOpenGPS
         {
             try
             {
-                if (File.Exists(BackupPath))
-                {
-                    var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    return JsonSerializer.Deserialize<SettingsBackup>(
-                        File.ReadAllText(BackupPath), opts);
-                }
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return AgroParallel.Common.AtomicJson.Read<SettingsBackup>(BackupPath, opts);
             }
             catch { }
             return null;

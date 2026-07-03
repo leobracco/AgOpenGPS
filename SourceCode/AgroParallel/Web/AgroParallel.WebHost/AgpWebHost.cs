@@ -112,7 +112,8 @@ namespace AgroParallel.WebHost
                           int port = 5180,
                           IInsumoCatalogService insumos = null,
                           IToolGeometryCalculator toolGeometry = null,
-                          ITramCalculator tram = null)
+                          ITramCalculator tram = null,
+                          IImplementoService implemento = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -165,9 +166,10 @@ namespace AgroParallel.WebHost
             // ImplementoService: source-of-truth de geometría física del Hub.
             // VistaX/VehicleTool son opcionales — sólo se usan para sembrar un
             // "default" en la primera ejecución si no hay implementos/ todavía.
-            // El service NO escribe en la config nativa AOG (sin SyncToVehicleTool):
-            // el Hub edita su propio catálogo y AgValoniaGPS/AOG mantiene su Tool aparte.
-            _implemento = new ImplementoService(_vistaxCfg, _vehicleTool, _quantixCfg, _sectionxCfg);
+            // El bootstrap del shell puede inyectar UNA instancia compartida para
+            // que VistaXLiveService y el WebHost lean el mismo cache (sin dos copias
+            // desincronizadas). Si nadie la pasa, se auto-instancia.
+            _implemento = implemento ?? new ImplementoService(_vistaxCfg, _vehicleTool, _quantixCfg, _sectionxCfg);
             _wwwroot = wwwroot;
             _port = port;
             // Url publica: la usa el WebView2 del Hub WinForms (loopback, no requiere LAN).
@@ -214,10 +216,11 @@ namespace AgroParallel.WebHost
                  .WithController(() => new QuantiXController(_nodos, _quantixCfg))
                  .WithController(() => new OrbitXController(_orbitxCfg))
                  .WithController(() => new FirmwaresController())
+                 .WithController(() => new ConfiguracionController())
                  .WithController(() => new SectionXController(_sectionxCfg))
                  .WithController(() => new CamarasController(_camarasCfg));
                 if (_vistaxCfg != null || _vistaxLive != null)
-                    m.WithController(() => new VistaXController(_vistaxCfg, _vistaxLive, _vistaxCalib));
+                    m.WithController(() => new VistaXController(_vistaxCfg, _vistaxLive, _vistaxCalib, _implemento));
                 if (_debug != null) m.WithController(() => new DebugController(_debug));
                 if (_lotes != null) m.WithController(() => new LotesController(_lotes));
                 if (_vehicleTool != null) m.WithController(() => new VehicleToolController(_vehicleTool));

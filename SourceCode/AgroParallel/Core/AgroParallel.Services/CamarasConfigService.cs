@@ -46,15 +46,12 @@ namespace AgroParallel.Services
         {
             try
             {
-                if (File.Exists(Path_))
+                var cfg = AgroParallel.Common.AtomicJson.Read<CamarasConfigDto>(Path_, ReadOpts);
+                if (cfg != null)
                 {
-                    var cfg = JsonSerializer.Deserialize<CamarasConfigDto>(File.ReadAllText(Path_), ReadOpts);
-                    if (cfg != null)
-                    {
-                        if (cfg.Camaras == null) cfg.Camaras = new System.Collections.Generic.List<CamaraDto>();
-                        if (cfg.RefrescoMs < 200) cfg.RefrescoMs = 1000;
-                        return cfg;
-                    }
+                    if (cfg.Camaras == null) cfg.Camaras = new System.Collections.Generic.List<CamaraDto>();
+                    if (cfg.RefrescoMs < 200) cfg.RefrescoMs = 1000;
+                    return cfg;
                 }
             }
             catch { }
@@ -69,7 +66,7 @@ namespace AgroParallel.Services
         public void SaveConfig(CamarasConfigDto cfg)
         {
             if (cfg == null) return;
-            try { File.WriteAllText(Path_, JsonSerializer.Serialize(cfg, WriteOpts)); }
+            try { AgroParallel.Common.AtomicJson.Write(Path_, JsonSerializer.Serialize(cfg, WriteOpts)); }
             catch { }
         }
 

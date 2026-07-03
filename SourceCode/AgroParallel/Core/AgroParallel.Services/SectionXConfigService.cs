@@ -31,25 +31,18 @@ namespace AgroParallel.Services
         public SectionXConfigDto Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
-            {
-                var def = new SectionXConfigDto();
-                Save(def);
-                return def;
-            }
-            try
-            {
-                return JsonSerializer.Deserialize<SectionXConfigDto>(File.ReadAllText(path), ReadOpts)
-                    ?? new SectionXConfigDto();
-            }
-            catch { return new SectionXConfigDto(); }
+            var cfg = AgroParallel.Common.AtomicJson.Read<SectionXConfigDto>(path, ReadOpts);
+            if (cfg != null) return cfg;
+            var def = new SectionXConfigDto();
+            Save(def);
+            return def;
         }
 
         public void Save(SectionXConfigDto dto)
         {
             if (dto == null) return;
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            File.WriteAllText(path, JsonSerializer.Serialize(dto, WriteOpts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, WriteOpts));
             // Dispara después de persistir — FormGPS escucha y relanza el bridge
             // para que /sections empiece a publicarse sin reiniciar AOG.
             try { ConfigSaved?.Invoke(); } catch { /* swallow — no podemos romper el Save por un subscriber */ }

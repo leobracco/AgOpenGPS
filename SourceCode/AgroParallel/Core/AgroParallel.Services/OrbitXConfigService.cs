@@ -48,17 +48,16 @@ namespace AgroParallel.Services
         public OrbitXConfigDto Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
-            {
-                var def = Defaults();
-                Save(def);
-                return def;
-            }
             try
             {
                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var cfg = JsonSerializer.Deserialize<OrbitXConfigDto>(File.ReadAllText(path), opts);
-                if (cfg == null) return Defaults();
+                var cfg = AgroParallel.Common.AtomicJson.Read<OrbitXConfigDto>(path, opts);
+                if (cfg == null)
+                {
+                    var def = Defaults();
+                    Save(def);
+                    return def;
+                }
                 if (string.IsNullOrEmpty(cfg.DeviceId)) cfg.DeviceId = GenerateDeviceId();
                 // Forzar la URL del cloud — JSONs viejos podrían tener un valor
                 // distinto (ej. localhost de pruebas). El operario NO la edita.
@@ -75,7 +74,7 @@ namespace AgroParallel.Services
             dto.ServerUrl = FixedServerUrl;
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(path, JsonSerializer.Serialize(dto, opts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, opts));
             // Dispara después de persistir — FormGPS escucha y relanza OrbitXSync
             // para que el heartbeat arranque sin reiniciar PilotX. Cubre tanto el
             // Save de la UI como el claim de pairing (GetPairInfoAsync) y ResetPairing.

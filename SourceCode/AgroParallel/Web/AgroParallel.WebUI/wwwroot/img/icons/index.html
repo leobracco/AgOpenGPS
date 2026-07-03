@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Iconos Agro Parallel</title>
+  <meta http-equiv="Cache-Control" content="no-store">
+  <style>
+    :root {
+      --agp-green: #4aba3e;
+      --agp-carbon: #101612;
+      --agp-mid: #535e54;
+      --agp-border: #dfe6df;
+      --agp-bg: #f5f7f4;
+      --agp-card: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--agp-bg);
+      color: var(--agp-carbon);
+      font-family: "Poppins", "Segoe UI", Arial, sans-serif;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--agp-border);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 8px 0 0;
+      color: var(--agp-mid);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid rgba(74, 186, 62, .34);
+      border-radius: 999px;
+      color: #267f22;
+      background: rgba(74, 186, 62, .1);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(154px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .icon-card {
+      min-height: 136px;
+      padding: 16px 14px 14px;
+      border: 1px solid var(--agp-border);
+      border-radius: 8px;
+      background: var(--agp-card);
+      box-shadow: 0 8px 24px rgba(16, 22, 18, .04);
+    }
+
+    .icon-card img {
+      width: 44px;
+      height: 44px;
+      display: block;
+      margin-bottom: 16px;
+    }
+
+    .icon-card strong {
+      display: block;
+      font-size: 14px;
+      line-height: 1.15;
+    }
+
+    .icon-card code {
+      display: block;
+      margin-top: 7px;
+      color: var(--agp-mid);
+      font: 11px/1.3 Consolas, "SFMono-Regular", monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .empty {
+      margin-top: 18px;
+      padding: 18px;
+      border: 1px solid var(--agp-border);
+      border-radius: 8px;
+      background: var(--agp-card);
+      color: var(--agp-mid);
+    }
+
+    @media (max-width: 680px) {
+      main {
+        width: min(100vw - 20px, 1180px);
+        padding-top: 18px;
+      }
+
+      header {
+        align-items: start;
+        flex-direction: column;
+      }
+
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Iconos Agro Parallel</h1>
+        <p>Familia inicial de SVGs para modulos, navegacion, datos y estados de la plataforma.</p>
+      </div>
+      <span class="badge" id="count">Cargando</span>
+    </header>
+
+    <section class="grid" id="icons" aria-label="Catalogo de iconos"></section>
+    <div class="empty" id="empty" hidden>No se pudo cargar el manifiesto de iconos.</div>
+  </main>
+
+  <script>
+    const iconVersion = Date.now().toString();
+    document.write(`<script src="./agp-icons.js?v=${iconVersion}"><\/script>`);
+  </script>
+  <script>
+    const grid = document.getElementById("icons");
+    const empty = document.getElementById("empty");
+    const count = document.getElementById("count");
+
+    function renderIcons(icons, source) {
+      count.textContent = `${icons.length} iconos`;
+      count.title = source;
+      empty.hidden = true;
+      grid.innerHTML = icons.map((icon) => `
+        <article class="icon-card">
+          <img src="./${icon.file}?v=${iconVersion}" alt="">
+          <strong>${icon.label}</strong>
+          <code>${icon.file}</code>
+        </article>
+      `).join("");
+    }
+
+    if (window.location.protocol === "file:") {
+      renderIcons(window.AGP_ICONS || [], "agp-icons.js");
+    } else {
+      fetch(`./agp-icons.json?v=${iconVersion}`, { cache: "no-store" })
+        .then((response) => {
+          if (!response.ok) throw new Error("manifest");
+          return response.json();
+        })
+        .then((icons) => renderIcons(icons, "agp-icons.json"))
+        .catch(() => renderIcons(window.AGP_ICONS || [], "agp-icons.js"));
+    }
+  </script>
+</body>
+</html>

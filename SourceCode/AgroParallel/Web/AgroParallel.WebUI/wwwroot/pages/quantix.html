@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>QuantiX · Agro Parallel</title>
-  <link rel="stylesheet" href="../theme.css" />
-  <link rel="stylesheet" href="../layout.css" />
-  <link rel="stylesheet" href="../keyboard.css" />
+  <link rel="stylesheet" href="../theme.css?v=agp-light-compact-20260627" />
+  <link rel="stylesheet" href="../layout.css?v=agp-light-compact-20260627" />
+  <link rel="stylesheet" href="../keyboard.css?v=agp-light-compact-20260627" />
   <style>
     .motor-card { position: relative; padding: var(--agp-sp-4); }
     .motor-card .mc-head { display:flex; justify-content:space-between; align-items:center;
@@ -303,6 +303,10 @@
     .mrow.sel{border-color:var(--agp-accent);box-shadow:0 0 0 1px var(--agp-accent) inset}
     .mrow .sw{width:16px;height:16px;border-radius:5px;flex:0 0 auto}
     .mrow .nm{width:90px;color:var(--agp-text);font-weight:700}
+    .mrow .qxNombre{width:104px;flex:0 0 auto;background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:6px;color:var(--agp-text);font-weight:700;font-size:13px;padding:6px 7px}
+    .mrow .qxNombre:hover,.mrow .qxNombre:focus{border-color:var(--agp-accent);outline:none}
+    .qxTren{flex:0 0 auto;height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);color:var(--agp-text);font-size:11px;padding:0 6px;cursor:pointer}
+    .qxTren:hover{border-color:var(--agp-accent)}
     .mrow .cnt{color:var(--agp-text-muted);font-size:11px;width:120px}
     .mrow .mdel{margin-left:auto;flex:0 0 auto;width:30px;height:30px;border-radius:7px;border:1px solid var(--agp-border);background:#2a1818;color:#e08b8b;font-size:16px;line-height:1;cursor:pointer}
     .mrow .mdel:hover{background:#3a2020;color:#ff9b9b}
@@ -315,6 +319,8 @@
     .calbox .u{color:var(--agp-text-muted);font-size:10px}
     .eff{margin-left:6px;font-size:11px;padding:3px 8px;border-radius:10px}
     .eff.mapa{background:#13233a;color:#5fb0e0}.eff.fija{background:#2a2418;color:#e0a33e}
+    .qxMapa{margin-left:6px;flex:0 0 auto;max-width:150px;height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);color:var(--agp-text);font-size:11px;padding:0 6px;cursor:pointer}
+    .qxMapa:hover{border-color:var(--agp-accent)}
     .pps{margin-left:auto;color:#9fb0a4;font-variant-numeric:tabular-nums}
     .rpm{margin-left:10px;color:#7e8a80;font-size:11px;font-variant-numeric:tabular-nums}
     .bar{width:80px;height:6px;background:var(--agp-bg-soft);border-radius:4px;overflow:hidden;margin-left:8px}
@@ -329,22 +335,621 @@
     .qx-actions{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
     .msg{font-size:var(--agp-fs-sm);color:var(--agp-text-muted);margin-left:auto}
     .msg.ok{color:var(--agp-accent)}.msg.err{color:#C92D2D}
+
+    /* ===== QuantiX UX pass ===== */
+    .quantix-page{display:flex;flex-direction:column;gap:var(--agp-sp-4)}
+    .quantix-page .page-head{margin-bottom:0;padding-bottom:var(--agp-sp-2);border-bottom:1px solid var(--agp-border-soft,rgba(255,255,255,.06))}
+    .quantix-page .page-head h1{letter-spacing:0}
+    .quantix-page .page-head .subtitle{color:#A5ABB1}
+    #qxStatus{align-self:center;min-height:34px;padding:0 var(--agp-sp-3);border-color:var(--agp-border-strong)}
+    .quantix-tabs{position:sticky;top:0;z-index:var(--agp-z-sticky);display:flex;gap:var(--agp-sp-2);margin:calc(var(--agp-sp-2) * -1) 0 0;padding:var(--agp-sp-2) 0 var(--agp-sp-3);background:rgba(22,24,26,.96);border-bottom:1px solid var(--agp-border);overflow-x:auto;scrollbar-width:thin}
+    .quantix-tabs .tab{flex:0 0 auto;min-height:var(--agp-touch-min);padding:0 var(--agp-sp-4);border:1px solid var(--agp-border);border-radius:var(--agp-radius-md);background:var(--agp-surface);color:var(--agp-text-muted);font:var(--agp-fw-semi) var(--agp-fs-sm)/1 var(--agp-font);cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+    .quantix-tabs .tab:hover{color:var(--agp-text);border-color:var(--agp-border-strong);background:var(--agp-surface-2)}
+    .quantix-tabs .tab.active{color:var(--agp-text-strong,#fff);border-color:var(--agp-accent);background:var(--agp-accent-soft);box-shadow:inset 0 -3px 0 var(--agp-accent)}
+    .quantix-page .card{border-radius:var(--agp-radius-md);background:linear-gradient(180deg,rgba(255,255,255,.018),rgba(255,255,255,0)),var(--agp-surface)}
+    .qx-head{padding-bottom:var(--agp-sp-3);border-bottom:1px solid var(--agp-border-soft,rgba(255,255,255,.06))}
+    .qx-title{font-size:var(--agp-fs-lg);color:var(--agp-text-strong,var(--agp-text))}
+    .seg{border-radius:var(--agp-radius-md);background:var(--agp-bg)}
+    .seg button{min-height:40px;padding:0 var(--agp-sp-4)}
+    .seg button.on{background:var(--agp-accent-soft);color:var(--agp-text-strong,var(--agp-text));box-shadow:inset 0 0 0 1px var(--agp-accent)}
+    .planter-wrap{padding:var(--agp-sp-4);border-color:var(--agp-border-strong);background:linear-gradient(180deg,rgba(75,166,63,.035),rgba(0,0,0,0)),var(--agp-bg-soft)}
+    .planter-cap{gap:var(--agp-sp-3);align-items:center;color:#A4ABA4}
+    .strip{gap:5px;align-items:stretch;min-height:46px}
+    .cell{width:clamp(28px,3.2vw,38px);height:44px;border-radius:var(--agp-radius-sm);color:#071009;font-size:var(--agp-fs-xs);box-shadow:inset 0 -10px 18px rgba(0,0,0,.14),inset 0 0 0 1px rgba(255,255,255,.18);transition:transform var(--agp-dur-fast) var(--agp-ease),filter var(--agp-dur-fast) var(--agp-ease)}
+    .cell:hover{filter:brightness(1.1);transform:translateY(-1px)}
+    .cell.brush{outline:3px solid var(--agp-text-strong,#fff);outline-offset:2px}
+    .qx-tools,.qx-actions{padding-top:var(--agp-sp-2)}
+    .brushchip{min-height:var(--agp-touch-min);border-radius:var(--agp-radius-md);background:var(--agp-bg)}
+    .brushchip .sw,.mrow .sw{box-shadow:inset 0 0 0 1px rgba(255,255,255,.24)}
+    .mlist{gap:var(--agp-sp-2)}
+    .mrow{min-height:54px;padding:var(--agp-sp-3);border-color:var(--agp-border);background:var(--agp-bg);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+    .mrow:hover{border-color:var(--agp-border-strong);background:var(--agp-bg-soft)}
+    .mrow.sel{background:linear-gradient(90deg,rgba(75,166,63,.12),rgba(75,166,63,.03));border-color:var(--agp-accent);box-shadow:inset 4px 0 0 var(--agp-accent)}
+    .mrow .qxNombre{width:124px;min-height:38px}
+    .mrow .cnt{flex:1 1 150px;width:auto;min-width:130px;color:#A0A7A0}
+    .dosebox,.calbox{min-height:38px}
+    .dosebox input,.calbox input{min-height:38px}
+    .uToggle,.qxTren,.qxMapa{min-height:38px}
+    .qxMapa{max-width:190px;margin-left:0}
+    .mrow .mdel{width:38px;height:38px;font-size:20px}
+    .pps{color:var(--agp-text);font-weight:var(--agp-fw-semi)}
+    .rpm{color:var(--agp-text-muted)}
+    .bar{width:96px;height:8px;background:var(--agp-surface-2)}
+    table.dense{overflow:hidden;border:1px solid var(--agp-border);border-radius:var(--agp-radius-md);background:var(--agp-bg);font-size:var(--agp-fs-sm)}
+    table.dense th,table.dense td{padding:var(--agp-sp-3)}
+    table.dense tr:hover td{background:rgba(75,166,63,.045)}
+    .shape-drop{min-height:150px;display:grid;place-items:center;border-color:var(--agp-border-strong);background:linear-gradient(180deg,rgba(75,166,63,.055),rgba(75,166,63,.015)),var(--agp-bg-soft)}
+    .shape-drop:hover{border-color:var(--agp-accent)}
+    .shape-icon{margin-bottom:var(--agp-sp-3)}
+    .shape-file-row{min-height:var(--agp-touch-min);border:1px solid var(--agp-border);background:var(--agp-bg)}
+    .motor-cfg{border:1px solid var(--agp-border);border-left-width:4px;background:var(--agp-bg)}
+    .motor-cfg h4{color:var(--agp-text-strong,var(--agp-text))}
+    .kv{padding:var(--agp-sp-3);border-radius:var(--agp-radius-md);background:rgba(0,0,0,.12)}
+    .kv .v{color:var(--agp-text-strong,var(--agp-text));font-variant-numeric:tabular-nums}
+    .send-msg,.msg{min-height:22px;display:inline-flex;align-items:center}
+    @media (max-width:1100px),(max-height:820px){
+      .quantix-page{gap:var(--agp-sp-3)}
+      .quantix-tabs{padding-bottom:var(--agp-sp-2)}
+      .planter-wrap{padding:var(--agp-sp-3)}
+      .cell{width:30px;height:40px}
+      .mrow{gap:var(--agp-sp-2)}
+      .mrow .qxNombre{width:112px}
+      .bar{width:72px}
+    }
+    @media (max-width:760px){
+      .quantix-page .page-head{align-items:stretch}
+      #qxStatus{align-self:flex-start}
+      .qx-head{align-items:stretch}
+      .seg{width:100%;margin-left:0}
+      .seg button{flex:1 1 0}
+      .mrow{align-items:stretch}
+      .mrow .qxNombre,.mrow .cnt,.qxMapa,.dosebox{flex:1 1 100%;width:100%;max-width:none}
+      .pps{margin-left:0}
+      .qx-actions .msg,.msg{flex:1 1 100%;margin-left:0}
+    }
+
+    /* ===== QuantiX service panes: PID / Calibracion / Prueba ===== */
+    .quantix-tabs .tab{min-height:40px;padding:0 var(--agp-sp-3);font-size:var(--agp-fs-sm)}
+    #pidList,#calList,#prList{display:flex;flex-direction:column;gap:var(--agp-sp-3)}
+    #tabPid .card,#tabCalibrar .card,#tabPrueba .card{
+      margin-bottom:0!important;
+      padding:var(--agp-sp-3);
+      border-color:var(--agp-border);
+      background:var(--agp-surface);
+    }
+    #tabPid .card>h3,#tabCalibrar .card>h3,#tabPrueba .card>h3,
+    #tabPid .node-head{
+      min-height:38px;
+      margin:0 0 var(--agp-sp-3)!important;
+      padding:0 0 var(--agp-sp-2);
+      border-bottom:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
+    }
+    #tabPid .card>h3,#tabCalibrar .card>h3,#tabPrueba .card>h3{
+      display:flex;
+      align-items:center;
+      gap:var(--agp-sp-2);
+      color:var(--agp-text-strong,var(--agp-text));
+      font-size:var(--agp-fs-md);
+      text-transform:none;
+      letter-spacing:0;
+    }
+    #tabPid .node-head h3{
+      color:var(--agp-text-strong,var(--agp-text));
+      font-size:var(--agp-fs-md);
+      text-transform:none;
+      letter-spacing:0;
+    }
+    #tabCalibrar .card>p{
+      margin:0 0 var(--agp-sp-3)!important;
+      padding:var(--agp-sp-2) var(--agp-sp-3);
+      border:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
+      border-radius:var(--agp-radius-md);
+      background:rgba(0,0,0,.12);
+      color:var(--agp-text-muted)!important;
+      font-size:var(--agp-fs-xs);
+      line-height:1.35;
+    }
+    #tabPid .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
+      gap:var(--agp-sp-3);
+      align-items:start;
+    }
+    #tabPid .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{
+      position:relative;
+      padding:var(--agp-sp-3);
+      border-left-width:1px;
+      border-radius:var(--agp-radius-md);
+      background:var(--agp-bg);
+      box-shadow:none;
+    }
+    #tabPid .motor-cfg::before,#tabCalibrar .motor-cfg::before,#tabPrueba .motor-cfg::before{
+      content:'';
+      position:absolute;
+      left:0;right:0;top:0;
+      height:3px;
+      border-radius:var(--agp-radius-md) var(--agp-radius-md) 0 0;
+      background:var(--agp-accent);
+      opacity:.85;
+    }
+    #tabPid .motor-cfg.m1::before,#tabCalibrar .motor-cfg.m1::before,#tabPrueba .motor-cfg.m1::before{background:#E0A33E}
+    #tabPid .motor-cfg h4,#tabCalibrar .motor-cfg h4,#tabPrueba .motor-cfg h4{
+      margin:0 0 var(--agp-sp-2)!important;
+      padding-top:2px;
+      color:var(--agp-text-strong,var(--agp-text));
+      font-size:var(--agp-fs-sm);
+      font-weight:var(--agp-fw-semi);
+      text-transform:none;
+      letter-spacing:0;
+    }
+    #tabPrueba .motor-cfg h4:not(:first-child),#tabCalibrar .motor-cfg h4:not(:first-child){
+      margin-top:var(--agp-sp-3)!important;
+      padding-top:var(--agp-sp-3);
+      border-top:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
+    }
+    #tabPid .kv,#tabCalibrar .kv,#tabPrueba .kv{
+      margin-top:0!important;
+      padding:var(--agp-sp-2);
+      border:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
+      border-radius:var(--agp-radius-sm);
+      background:rgba(255,255,255,.018);
+      column-gap:var(--agp-sp-2);
+      row-gap:4px;
+      font-size:var(--agp-fs-xs);
+    }
+    #tabPid .kv .k,#tabCalibrar .kv .k,#tabPrueba .kv .k{
+      color:#8F969B;
+      font-size:10px;
+      letter-spacing:.3px;
+    }
+    #tabPid .kv .v,#tabCalibrar .kv .v,#tabPrueba .kv .v{
+      color:var(--agp-text-strong,var(--agp-text));
+      font-size:var(--agp-fs-sm);
+      font-weight:var(--agp-fw-bold);
+      line-height:1.15;
+    }
+    #tabPid .fld-grid,#tabCalibrar .fld-grid,#tabPrueba .fld-grid{
+      grid-template-columns:repeat(auto-fit,minmax(116px,1fr));
+      gap:var(--agp-sp-2);
+      margin-top:var(--agp-sp-2)!important;
+    }
+    #tabPid .field,#tabCalibrar .field,#tabPrueba .field{gap:4px;margin:0}
+    #tabPid .field label,#tabCalibrar .field label,#tabPrueba .field label{
+      min-height:16px;
+      font-size:10px;
+      line-height:1.2;
+      text-transform:uppercase;
+      letter-spacing:.3px;
+    }
+    #tabPid input,#tabCalibrar input,#tabPrueba input,
+    #tabPid select,#tabCalibrar select,#tabPrueba select{
+      min-height:38px;
+      height:38px;
+      padding:0 var(--agp-sp-2);
+      font-size:var(--agp-fs-sm);
+      text-align:center;
+    }
+    #tabPid .agp-stepper,#tabCalibrar .agp-stepper,#tabPrueba .agp-stepper{
+      height:40px;
+      min-height:40px;
+      border-radius:var(--agp-radius-sm);
+    }
+    #tabPid .agp-stepper .agp-step-btn,#tabCalibrar .agp-stepper .agp-step-btn,#tabPrueba .agp-stepper .agp-step-btn{
+      flex-basis:42px;
+      font-size:18px;
+    }
+    #tabPid .agp-stepper .agp-step-val,#tabCalibrar .agp-stepper .agp-step-val,#tabPrueba .agp-stepper .agp-step-val{
+      font-size:var(--agp-fs-sm);
+      font-weight:var(--agp-fw-bold);
+    }
+    #tabPid .btn-row,#tabCalibrar .btn-row,#tabPrueba .btn-row{
+      gap:var(--agp-sp-2);
+      margin-top:var(--agp-sp-2)!important;
+      padding-top:var(--agp-sp-2);
+      border-top:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
+    }
+    #tabPid .btn,#tabCalibrar .btn,#tabPrueba .btn{
+      min-height:38px;
+      padding:0 var(--agp-sp-3);
+      font-size:var(--agp-fs-sm);
+    }
+    #tabPid .send-msg,#tabCalibrar .send-msg,#tabPrueba .send-msg{
+      flex:1 1 120px;
+      justify-content:flex-end;
+      min-height:38px;
+      margin-left:0;
+      text-align:right;
+      font-size:var(--agp-fs-xs);
+    }
+    #tabCalibrar [data-cal="surcoList"]{
+      grid-template-columns:repeat(auto-fit,minmax(78px,1fr));
+      padding:var(--agp-sp-2);
+      border:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
+      border-radius:var(--agp-radius-sm);
+      background:rgba(0,0,0,.10);
+    }
+    #tabCalibrar [data-cal="surcoList"] input{min-width:0}
+    #tabPrueba .motor-cfg>.fld-grid:nth-of-type(3){
+      grid-template-columns:repeat(auto-fit,minmax(96px,1fr));
+    }
+    @media (max-width:1100px),(max-height:820px){
+      .quantix-tabs .tab{min-height:36px;padding:0 var(--agp-sp-2)}
+      #tabPid .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{
+        grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+      }
+      #tabPid .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{padding:var(--agp-sp-2)}
+      #tabPid .btn,#tabCalibrar .btn,#tabPrueba .btn{min-height:36px}
+    }
+    @media (max-width:760px){
+      #tabPid .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{grid-template-columns:1fr}
+      #tabPid .send-msg,#tabCalibrar .send-msg,#tabPrueba .send-msg{
+        flex-basis:100%;
+        justify-content:flex-start;
+        text-align:left;
+      }
+    }
+
+    /* ===== Agro Parallel light style for QuantiX ===== */
+    .quantix-page .page-head{
+      border-bottom-color:var(--agp-border-soft);
+    }
+    .quantix-page .page-head .subtitle{color:var(--agp-text-muted)}
+    .quantix-tabs{
+      background:rgba(245,247,244,.96);
+      border-bottom-color:var(--agp-border);
+    }
+    .quantix-tabs .tab{
+      background:#fff;
+      border-color:var(--agp-border);
+      color:var(--agp-text-muted);
+      box-shadow:0 1px 2px rgba(16,22,18,.04);
+    }
+    .quantix-tabs .tab:hover{background:var(--agp-bg-soft);color:var(--agp-text-strong)}
+    .quantix-tabs .tab.active{
+      background:var(--agp-accent-soft);
+      color:var(--agp-text-strong);
+      border-color:var(--agp-accent);
+      box-shadow:inset 0 -3px 0 var(--agp-accent);
+    }
+    .quantix-page .card{
+      background:#fff;
+      border-color:var(--agp-border);
+      box-shadow:var(--agp-shadow-sm);
+    }
+    .qx-head{border-bottom-color:var(--agp-border-soft)}
+    .qx-title{color:var(--agp-text-strong)}
+    .seg{background:var(--agp-bg-soft);border-color:var(--agp-border)}
+    .seg button{color:var(--agp-text-muted)}
+    .seg button.on{background:#fff;color:var(--agp-accent);box-shadow:inset 0 -3px 0 var(--agp-accent)}
+    .planter-wrap{
+      background:linear-gradient(180deg,rgba(74,186,62,.05),rgba(255,255,255,0)),#fff;
+      border-color:var(--agp-border);
+    }
+    .planter-cap{color:var(--agp-text-muted)}
+    .cell{
+      color:#fff;
+      box-shadow:inset 0 -12px 18px rgba(16,22,18,.12),inset 0 0 0 1px rgba(16,22,18,.10);
+    }
+    .cell.off,.cell.orphan{
+      background:#E3E8E3;
+      color:#7C867D;
+      box-shadow:inset 0 0 0 1px #C9D2CA;
+    }
+    .cell.brush{outline-color:var(--agp-text-strong)}
+    .brushchip,.mrow,.motor-cfg,.shape-file-row{
+      background:#fff;
+      border-color:var(--agp-border);
+      color:var(--agp-text);
+    }
+    .mrow:hover{background:var(--agp-surface-2)}
+    .mrow.sel{
+      background:linear-gradient(90deg,rgba(74,186,62,.12),rgba(255,255,255,1));
+      border-color:var(--agp-accent);
+      box-shadow:inset 4px 0 0 var(--agp-accent);
+    }
+    .mrow .qxNombre,.qxTren,.qxMapa,.dosebox input,.calbox input,.uToggle{
+      background:#fff;
+      border-color:var(--agp-border);
+      color:var(--agp-text-strong);
+    }
+    .mrow .cnt,.pps,.rpm,.calbox .u{color:var(--agp-text-muted)}
+    .mrow .mdel{background:#FFF1F1;color:var(--agp-state-bad);border-color:#F0C6C6}
+    .mrow .mdel:hover{background:#FFE4E4;color:#B72F2F}
+    .uToggle{background:var(--agp-bg-soft);color:var(--agp-accent)}
+    .eff.mapa{background:#E8F3FF;color:#1764A6}
+    .eff.fija{background:#FFF5D7;color:#8F6811}
+    .bar{background:#E2E8E2}
+    table.dense{background:#fff;border-color:var(--agp-border)}
+    table.dense th{color:var(--agp-text-muted);border-bottom-color:var(--agp-border)}
+    table.dense td{color:var(--agp-text);border-bottom-color:var(--agp-border-soft)}
+    table.dense tr:hover td{background:rgba(74,186,62,.05)}
+    .shape-drop{
+      background:linear-gradient(180deg,rgba(74,186,62,.06),rgba(255,255,255,1));
+      border-color:var(--agp-border-strong);
+    }
+    .shape-icon{color:var(--agp-accent)}
+    .shape-file-row .ext{background:var(--agp-accent)}
+    #tabPid .card,#tabCalibrar .card,#tabPrueba .card{background:#fff;border-color:var(--agp-border)}
+    #tabPid .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{background:#fff;border-color:var(--agp-border)}
+    #tabPid .kv,#tabCalibrar .kv,#tabPrueba .kv{
+      background:var(--agp-surface-2);
+      border-color:var(--agp-border-soft);
+    }
+    #tabPid .kv .k,#tabCalibrar .kv .k,#tabPrueba .kv .k{color:var(--agp-text-muted)}
+    #tabPid .kv .v,#tabCalibrar .kv .v,#tabPrueba .kv .v{color:var(--agp-text-strong)}
+    #tabCalibrar .card>p{
+      background:var(--agp-surface-2);
+      border-color:var(--agp-border-soft);
+      color:var(--agp-text-muted)!important;
+    }
+    #tabCalibrar [data-cal="surcoList"]{
+      background:var(--agp-surface-2);
+      border-color:var(--agp-border-soft);
+    }
+    .agp-stepper{
+      background:var(--agp-surface-2);
+      border-color:var(--agp-border);
+    }
+    .agp-stepper .agp-step-btn{
+      background:#fff;
+      color:var(--agp-text-strong);
+    }
+    .agp-stepper .agp-step-btn:active{
+      background:var(--agp-accent);
+      color:#fff;
+    }
+    .agp-stepper .agp-step-val{
+      color:var(--agp-text-strong);
+      border-color:var(--agp-border);
+    }
+
+    /* ===== QuantiX compact density pass ===== */
+    .quantix-page{
+      gap:8px;
+    }
+    .quantix-page .page-head{
+      padding-bottom:6px;
+    }
+    #qxStatus{
+      min-height:28px;
+    }
+    .quantix-tabs{
+      gap:6px;
+      margin:-4px 0 0;
+      padding:4px 0 6px;
+    }
+    .quantix-tabs .tab{
+      min-height:32px;
+      padding:0 10px;
+      border-radius:7px;
+      font-size:12px;
+    }
+    .quantix-page .card{
+      padding:10px;
+    }
+    .qx-head{
+      gap:8px;
+      margin-bottom:8px;
+      padding-bottom:8px;
+    }
+    .qx-title{
+      font-size:15px;
+    }
+    .seg{
+      padding:2px;
+    }
+    .seg button{
+      min-height:32px;
+      padding:0 10px;
+      font-size:12px;
+    }
+    .planter-wrap{
+      padding:10px;
+    }
+    .planter-cap{
+      margin-bottom:4px;
+      font-size:10px;
+    }
+    .strip{
+      gap:3px;
+      min-height:36px;
+    }
+    .cell{
+      width:clamp(22px,2.4vw,30px);
+      height:34px;
+      border-radius:6px;
+      font-size:10px;
+    }
+    .qx-tools,
+    .qx-actions{
+      gap:6px;
+      margin-top:8px;
+      padding-top:6px;
+    }
+    .brushchip{
+      min-height:34px;
+      padding:4px 10px;
+      font-size:12px;
+    }
+    .mlist{
+      gap:6px;
+      margin-top:8px;
+    }
+    .mrow{
+      min-height:42px;
+      gap:7px;
+      padding:7px 9px;
+      border-radius:7px;
+    }
+    .mrow .sw{
+      width:12px;
+      height:12px;
+    }
+    .mrow .qxNombre{
+      width:96px;
+      min-height:32px;
+      height:32px;
+      font-size:12px;
+    }
+    .mrow .cnt{
+      min-width:100px;
+      font-size:10px;
+    }
+    .dosebox,
+    .calbox{
+      min-height:32px;
+    }
+    .dosebox input,
+    .calbox input,
+    .uToggle,
+    .qxTren,
+    .qxMapa{
+      min-height:32px;
+      height:32px;
+      font-size:11px;
+    }
+    .mrow .mdel{
+      width:32px;
+      height:32px;
+    }
+    .bar{
+      width:64px;
+    }
+    table.dense th,
+    table.dense td{
+      padding:6px 8px;
+    }
+    .shape-drop{
+      min-height:110px;
+      padding:12px;
+    }
+    .shape-icon{
+      margin-bottom:6px;
+      font-size:28px;
+    }
+    .shape-file-row{
+      min-height:36px;
+      padding:5px 8px;
+    }
+    #tabPid .card,
+    #tabCalibrar .card,
+    #tabPrueba .card{
+      padding:10px;
+    }
+    #tabPid .live-tune-grid,
+    #tabCalibrar .live-tune-grid,
+    #tabPrueba .live-tune-grid{
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:8px;
+    }
+    #tabPid .motor-cfg,
+    #tabCalibrar .motor-cfg,
+    #tabPrueba .motor-cfg{
+      padding:9px;
+      border-radius:7px;
+    }
+    #tabPid .kv,
+    #tabCalibrar .kv,
+    #tabPrueba .kv{
+      min-height:auto;
+      padding:6px;
+      row-gap:2px;
+    }
+    #tabPid .kv .k,
+    #tabCalibrar .kv .k,
+    #tabPrueba .kv .k{
+      font-size:10px;
+    }
+    #tabPid .kv .v,
+    #tabCalibrar .kv .v,
+    #tabPrueba .kv .v{
+      font-size:15px;
+    }
+    #tabPid .fld-grid,
+    #tabCalibrar .fld-grid,
+    #tabPrueba .fld-grid{
+      grid-template-columns:repeat(auto-fit,minmax(96px,1fr));
+      gap:6px;
+    }
+    #tabPid input,
+    #tabPid select,
+    #tabCalibrar input,
+    #tabCalibrar select,
+    #tabPrueba input,
+    #tabPrueba select{
+      min-height:32px;
+      height:32px;
+      font-size:12px;
+    }
+    #tabPid .agp-stepper,
+    #tabCalibrar .agp-stepper,
+    #tabPrueba .agp-stepper{
+      min-height:34px;
+      height:34px;
+    }
+    #tabPid .agp-stepper .agp-step-btn,
+    #tabCalibrar .agp-stepper .agp-step-btn,
+    #tabPrueba .agp-stepper .agp-step-btn{
+      flex-basis:34px;
+    }
+    #tabPid .btn,
+    #tabCalibrar .btn,
+    #tabPrueba .btn{
+      min-height:32px;
+      padding:0 9px;
+      font-size:12px;
+    }
+    #tabPid .send-msg,
+    #tabCalibrar .send-msg,
+    #tabPrueba .send-msg{
+      min-height:32px;
+      padding:5px 8px;
+      font-size:12px;
+    }
+    @media (max-width:1100px), (max-height:820px){
+      .quantix-tabs{
+        overflow-x:auto;
+      }
+      .cell{
+        width:24px;
+        height:32px;
+      }
+      #tabPid .live-tune-grid,
+      #tabCalibrar .live-tune-grid,
+      #tabPrueba .live-tune-grid{
+        grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+      }
+    }
+    @media (max-width:760px){
+      .mrow .qxNombre,
+      .mrow .cnt,
+      .qxMapa,
+      .dosebox{
+        flex:1 1 100%;
+        width:100%;
+        max-width:none;
+      }
+      .qx-tools .btn,
+      .qx-actions .btn{
+        flex:1 1 auto;
+      }
+    }
   </style>
 </head>
 <body>
   <aside class="sidebar" data-active="quantix"></aside>
-  <main class="page">
+  <main class="page quantix-page">
     <div class="page-head">
       <div><h1>QuantiX</h1><div class="subtitle">Siembra · N motores · dosis y corte por surco</div></div>
       <span class="pill" id="qxStatus"><span class="dot"></span> Cargando…</span>
     </div>
 
-    <div class="tabs">
-      <div class="tab active" data-tab="siembra">Siembra</div>
-      <div class="tab" data-tab="shape">Shape (dosis)</div>
-      <div class="tab" data-tab="pid">PID live</div>
-      <div class="tab" data-tab="calibrar">Calibración</div>
-      <div class="tab" data-tab="prueba">Prueba</div>
+    <div class="tabs quantix-tabs" role="tablist" aria-label="Secciones de QuantiX">
+      <button type="button" class="tab active" data-tab="siembra">Siembra</button>
+      <button type="button" class="tab" data-tab="shape">Shape (dosis)</button>
+      <button type="button" class="tab" data-tab="pid">PID live</button>
+      <button type="button" class="tab" data-tab="calibrar">Calibración</button>
+      <button type="button" class="tab" data-tab="prueba">Prueba</button>
     </div>
 
     <!-- ===== SIEMBRA (config + monitor unificado) ===== -->
@@ -353,8 +958,8 @@
         <div class="qx-head">
           <span class="qx-title" id="qxModeLabel">Configurar</span>
           <div class="seg">
-            <button id="segPlanter" class="on" data-view="planter">Planter</button>
-            <button id="segTabla" data-view="tabla">Tabla</button>
+            <button type="button" id="segPlanter" class="on" data-view="planter">Planter</button>
+            <button type="button" id="segTabla" data-view="tabla">Tabla</button>
           </div>
         </div>
 
@@ -457,6 +1062,7 @@
   <script src="../js/keyboard.js"></script>
   <script src="../js/sidebar.js"></script>
   <script src="../js/steps.js"></script>
+  <script src="../js/qx-agro.js"></script>
   <script src="../js/quantix.js"></script>
 </body>
 </html>

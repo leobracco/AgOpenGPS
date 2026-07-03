@@ -95,29 +95,20 @@ namespace AgroParallel.Services
         }
 
         /// <summary>
-        /// Escritura atómica: escribe a `.tmp` y reemplaza el destino con File.Replace.
-        /// Sin esto, un crash entre WriteAllText y disk-flush deja el JSON truncado
-        /// y la próxima carga cae a defaults — perdemos la config del operario.
+        /// Escritura atómica + durable (tmp + flush a disco + File.Replace con .bak).
+        /// Delega en AtomicJson para unificar el patrón con el resto de las configs.
         /// </summary>
         private static void WriteAtomic(string path, string contents)
         {
-            string tmp = path + ".tmp";
-            File.WriteAllText(tmp, contents);
-            if (File.Exists(path))
-            {
-                // File.Replace garantiza rename atómico en NTFS y preserva atributos.
-                // backupFileName=null → no guarda backup.
-                File.Replace(tmp, path, null);
-            }
-            else
-            {
-                File.Move(tmp, path);
-            }
+            AgroParallel.Common.AtomicJson.Write(path, contents);
         }
 
         private CoreXEcuConfigDto LoadOrDefault()
         {
             string p = Path();
+            // AtomicJson.Read recupera del .bak si el principal está corrupto/vacío.
+            var cfg = AgroParallel.Common.AtomicJson.Read<CoreXEcuConfigDto>(p, ReadOpts);
+            if (cfg != null) return cfg;
             if (!File.Exists(p))
             {
                 var def = new CoreXEcuConfigDto();
@@ -125,18 +116,10 @@ namespace AgroParallel.Services
                 catch { /* swallow — corremos sin persistir */ }
                 return def;
             }
-            try
-            {
-                return JsonSerializer.Deserialize<CoreXEcuConfigDto>(File.ReadAllText(p), ReadOpts)
-                    ?? new CoreXEcuConfigDto();
-            }
-            catch
-            {
-                // Archivo corrupto: NO sobrescribimos — el operario puede tener
-                // la IP correcta editada a mano. Devolvemos defaults sólo para
-                // que el Hub arranque.
-                return new CoreXEcuConfigDto();
-            }
+            // Archivo (y .bak) corrupto: NO sobrescribimos — el operario puede tener
+            // la IP correcta editada a mano. Devolvemos defaults sólo para que el
+            // Hub arranque.
+            return new CoreXEcuConfigDto();
         }
 
         private static string Path()

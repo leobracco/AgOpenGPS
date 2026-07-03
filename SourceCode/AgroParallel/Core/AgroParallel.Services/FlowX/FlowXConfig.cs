@@ -132,26 +132,19 @@ namespace AgroParallel.FlowX
         public static FlowXConfig Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
-            {
-                var def = new FlowXConfig();
-                def.Save();
-                return def;
-            }
-            try
-            {
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                return JsonSerializer.Deserialize<FlowXConfig>(File.ReadAllText(path), opts)
-                    ?? new FlowXConfig();
-            }
-            catch { return new FlowXConfig(); }
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var cfg = AgroParallel.Common.AtomicJson.Read<FlowXConfig>(path, opts);
+            if (cfg != null) return cfg;
+            var def = new FlowXConfig();
+            def.Save();
+            return def;
         }
 
         public void Save()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(path, JsonSerializer.Serialize(this, opts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }
     }
 }

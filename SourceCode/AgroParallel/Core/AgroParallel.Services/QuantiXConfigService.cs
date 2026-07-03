@@ -118,16 +118,15 @@ namespace AgroParallel.Services
         public QxMotoresConfigDto GetMotores()
         {
             string p = Path(MotoresFile);
-            if (!File.Exists(p))
-            {
-                var def = new QxMotoresConfigDto();
-                SeedDefaultTrenes(def);
-                return def;
-            }
             try
             {
-                var dto = JsonSerializer.Deserialize<QxMotoresConfigDto>(File.ReadAllText(p), ReadOpts);
-                if (dto == null) dto = new QxMotoresConfigDto();
+                var dto = AgroParallel.Common.AtomicJson.Read<QxMotoresConfigDto>(p, ReadOpts);
+                if (dto == null)
+                {
+                    var def = new QxMotoresConfigDto();
+                    SeedDefaultTrenes(def);
+                    return def;
+                }
                 if (dto.Nodos == null) dto.Nodos = new System.Collections.Generic.List<QxNodoConfigDto>();
                 if (dto.Ignorados == null) dto.Ignorados = new System.Collections.Generic.List<string>();
                 if (dto.Trenes == null) dto.Trenes = new System.Collections.Generic.List<QxTrenConfigDto>();
@@ -149,7 +148,7 @@ namespace AgroParallel.Services
         public void SaveMotores(QxMotoresConfigDto dto)
         {
             if (dto == null) return;
-            try { File.WriteAllText(Path(MotoresFile), JsonSerializer.Serialize(dto, WriteOpts)); }
+            try { AgroParallel.Common.AtomicJson.Write(Path(MotoresFile), JsonSerializer.Serialize(dto, WriteOpts)); }
             catch { }
         }
 

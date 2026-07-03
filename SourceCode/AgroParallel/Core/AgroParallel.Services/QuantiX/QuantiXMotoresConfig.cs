@@ -186,21 +186,16 @@ namespace AgroParallel.QuantiX
         public static MotoresConfig Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path)) return new MotoresConfig();
-            try
-            {
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                return JsonSerializer.Deserialize<MotoresConfig>(File.ReadAllText(path), opts)
-                    ?? new MotoresConfig();
-            }
-            catch { return new MotoresConfig(); }
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var cfg = AgroParallel.Common.AtomicJson.Read<MotoresConfig>(path, opts);
+            return cfg ?? new MotoresConfig();
         }
 
         public void Save()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(path, JsonSerializer.Serialize(this, opts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }
     }
 }

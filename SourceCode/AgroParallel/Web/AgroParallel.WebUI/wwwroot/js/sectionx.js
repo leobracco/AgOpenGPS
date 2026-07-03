@@ -44,6 +44,7 @@
   var cfg = null;             // sectionX.json en memoria
   var quantixNodos = [];      // lista de QuantiX disponibles (uid/nombre)
   var selectedUid = null;     // uid actualmente seleccionado en el dropdown
+  var formDirty = false;      // true si el operario editó el nodo actual
   // Implemento central (Herramienta) — fuente única de verdad de trenes/surcos.
   // SectionX sólo lo lee para mostrar el resumen y poblar el dropdown "Tren".
   var implCentral = null;
@@ -55,8 +56,11 @@
   }
 
   // Devuelve la entrada SxNodo de sectionX.json que matchea el uid seleccionado.
-  // Si todavía no existe, la crea al vuelo con campos por defecto + 0 cables.
-  function currentNode() {
+  // Si no existe devuelve un stub NO persistido (solo para render). Con
+  // create=true lo agrega a cfg.nodos — únicamente cuando el operario editó
+  // o guardó. Bug previo: con solo seleccionar un nodo en el dropdown se
+  // agregaba un entry habilitado:true a sectionX.json (nodo fantasma).
+  function currentNode(create) {
     if (!cfg || !selectedUid) return null;
     if (!cfg.nodos) cfg.nodos = [];
     for (var i = 0; i < cfg.nodos.length; i++) {
@@ -71,7 +75,7 @@
       distanciaEntreTrenes: qx ? (qx.distancia_entre_trenes ?? qx.distanciaEntreTrenes ?? 0) : 0,
       cables: []
     };
-    cfg.nodos.push(stub);
+    if (create) cfg.nodos.push(stub);
     return stub;
   }
 
@@ -185,7 +189,7 @@
   }
 
   function collectFromUi() {
-    var n = currentNode();
+    var n = currentNode(true); // acá sí persiste: el operario editó/guardó
     if (!n) return;
     nodoForm.querySelectorAll('input[data-name],select[data-name]').forEach(function (el) {
       var k = el.getAttribute('data-name');
@@ -288,8 +292,9 @@
   if (nodoSel) {
     nodoSel.addEventListener('change', function () {
       // Antes de cambiar, persistir en memoria los valores del nodo actual
-      // para no perderlos al cambiar de selección sin guardar.
-      try { collectFromUi(); } catch (_) {}
+      // (solo si el operario los editó — evita nodos fantasma en la config).
+      if (formDirty) { try { collectFromUi(); } catch (_) {} }
+      formDirty = false;
       selectedUid = nodoSel.value || null;
       renderForm();
     });
@@ -297,11 +302,13 @@
 
   if (cablesEl) {
     cablesEl.addEventListener('input', function () {
+      formDirty = true;
       renderJson();
     });
   }
   if (nodoForm) {
     nodoForm.addEventListener('input', function () {
+      formDirty = true;
       renderJson();
     });
   }

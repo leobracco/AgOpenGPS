@@ -29,19 +29,17 @@ namespace AgroParallel.Services
         public InsumoCatalogDto Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
-            {
-                // Primer arranque: catálogo con dos ejemplos típicos para que el
-                // operario vea de qué se trata y los edite. No quedan "activos"
-                // por defecto — se elige a mano desde la UI.
-                var def = CreateDefault();
-                Save(def);
-                return def;
-            }
             try
             {
-                var dto = JsonSerializer.Deserialize<InsumoCatalogDto>(File.ReadAllText(path), ReadOpts);
-                if (dto == null) return CreateDefault();
+                var dto = AgroParallel.Common.AtomicJson.Read<InsumoCatalogDto>(path, ReadOpts);
+                if (dto == null)
+                {
+                    // Primer arranque (o archivo + .bak ilegibles): catálogo semilla
+                    // para que el operario vea de qué se trata y lo edite.
+                    var def = CreateDefault();
+                    Save(def);
+                    return def;
+                }
                 // Si el archivo existía de una versión previa con items vacío,
                 // re-poblar con defaults y persistir. Conserva ActivoId si quedó.
                 if (dto.Items == null || dto.Items.Count == 0)
@@ -60,7 +58,7 @@ namespace AgroParallel.Services
         {
             if (dto == null) return;
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            File.WriteAllText(path, JsonSerializer.Serialize(dto, WriteOpts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, WriteOpts));
         }
 
         public InsumoDto GetActivo()

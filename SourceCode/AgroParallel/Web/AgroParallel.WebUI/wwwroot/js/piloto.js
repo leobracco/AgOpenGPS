@@ -924,9 +924,14 @@
     if (!hasTrenes) return;
 
     if (smImpl)    smImpl.textContent    = pk(live, 'nombreImplemento', 'NombreImplemento') || (activo ? 'activo' : 'inactivo');
-    if (smSpm)     smSpm.textContent     = (pk(live, 'spmPromedio', 'SpmPromedio') || 0).toFixed(0);
     if (smActivos) smActivos.textContent = pk(live, 'surcosActivos', 'SurcosActivos') || 0;
     if (smFallas)  smFallas.textContent  = pk(live, 'fallasActivas', 'FallasActivas') || 0;
+
+    // El operario ve sem/m y sem/ha, no sem/min. Valor (sem/m) es la lectura
+    // espacial cruda del firmware; sem/ha = sem/m · 10000 / distancia_surcos.
+    var spaceM = pk(live, 'distanciaEntreSurcos', 'DistanciaEntreSurcos') || 0;
+    if (!(spaceM > 0)) spaceM = 0.191;
+    var semMSum = 0, semMN = 0;
 
     // Reconstruir trenes
     var html = '';
@@ -943,14 +948,18 @@
         var uid = pk(s, 'uid', 'Uid') || '';
         var cable = pk(s, 'cable', 'Cable');
         if (cable == null) cable = 0;
-        var spm = (pk(s, 'spm', 'Spm') || 0).toFixed(0);
+        var valM = pk(s, 'valor', 'Valor') || 0; // sem/m
+        var tipo = String(pk(s, 'tipo', 'Tipo') || 'semilla').toLowerCase();
+        if (tipo === 'semilla' && valM > 0) { semMSum += valM; semMN++; }
+        var semM = valM.toFixed(valM >= 100 ? 0 : 1);
+        var semHaCell = (spaceM > 0 ? Math.round(valM * 10000 / spaceM) : 0);
         var obj = pk(s, 'objetivo', 'Objetivo');
         var baj = pk(s, 'bajada', 'Bajada') || (j + 1);
         var bg = smColorForSurco(s);
         var cls = 'cell';
         if (muted || st === 'muted') cls += ' muted';
         if (cut) cls += ' cut';
-        var title = 'bajada ' + baj + ' · ' + spm + ' spm';
+        var title = 'bajada ' + baj + ' · ' + semM + ' sem/m · ' + semHaCell + ' sem/ha';
         if (obj != null) title += ' / obj ' + Number(obj).toFixed(0);
         title += ' · ' + st + (muted ? ' (silenciado)' : '');
         cells += '<div class="' + cls + '"'
@@ -964,6 +973,13 @@
       html += '<div class="tren"><div class="lbl">' + name + '</div><div class="strip">' + cells + '</div></div>';
     }
     smTrenes.innerHTML = html;
+    var semMProm = semMN > 0 ? (semMSum / semMN) : 0;
+    if (smSpm) smSpm.textContent = semMProm > 0 ? semMProm.toFixed(semMProm >= 100 ? 0 : 1) : '—';
+    var smSemHa = document.getElementById('smSemHa');
+    if (smSemHa) {
+      var semHaProm = spaceM > 0 ? Math.round(semMProm * 10000 / spaceM) : 0;
+      smSemHa.textContent = semHaProm > 0 ? String(semHaProm) : '—';
+    }
     bindSeedCellClicks();
   }
 

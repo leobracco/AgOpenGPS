@@ -40,16 +40,13 @@ namespace AgroParallel.Camaras
         {
             try
             {
-                if (File.Exists(Path_))
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, IncludeFields = true };
+                var cfg = AgroParallel.Common.AtomicJson.Read<CamarasConfig>(Path_, opts);
+                if (cfg != null)
                 {
-                    var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true, IncludeFields = true };
-                    var cfg = JsonSerializer.Deserialize<CamarasConfig>(File.ReadAllText(Path_), opts);
-                    if (cfg != null)
-                    {
-                        if (cfg.camaras == null) cfg.camaras = new List<Camara>();
-                        if (cfg.refrescoMs < 200) cfg.refrescoMs = 1000;
-                        return cfg;
-                    }
+                    if (cfg.camaras == null) cfg.camaras = new List<Camara>();
+                    if (cfg.refrescoMs < 200) cfg.refrescoMs = 1000;
+                    return cfg;
                 }
             }
             catch { }
@@ -66,7 +63,7 @@ namespace AgroParallel.Camaras
             try
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true, IncludeFields = true };
-                File.WriteAllText(Path_, JsonSerializer.Serialize(this, opts));
+                AgroParallel.Common.AtomicJson.Write(Path_, JsonSerializer.Serialize(this, opts));
             }
             catch { }
         }

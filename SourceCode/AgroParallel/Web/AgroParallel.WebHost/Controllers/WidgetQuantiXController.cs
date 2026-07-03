@@ -118,9 +118,25 @@ namespace AgroParallel.WebHost.Controllers
                                 if (ml.Id == mi) { ppsReal = ml.PpsReal; break; }
                             }
                         }
+                        // Inversa pps→dosis según la unidad del motor (un motor es
+                        // O semilla O fertilizante, nunca ambos). El operario ve
+                        // sem/m (semilla) o kg/ha (fertilizante), nunca pps.
+                        bool esSem = string.Equals(motor.UnidadDosis, "sem_m", StringComparison.OrdinalIgnoreCase);
                         double real = 0;
-                        if (velMs > 0.1 && motor.MeterCal > 0 && anchoM > 0)
-                            real = ppsReal * motor.MeterCal * 10.0 / (anchoM * velMs);
+                        if (velMs > 0.1)
+                        {
+                            if (esSem)
+                            {
+                                double ppvSem = motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 24;
+                                double semPorPulso = motor.SemillasVuelta / ppvSem;
+                                int surcos = (motor.Cortes != null && motor.Cortes.Count > 0) ? motor.Cortes.Count : 1;
+                                real = ppsReal * semPorPulso / (velMs * surcos); // sem/m
+                            }
+                            else if (motor.MeterCal > 0 && anchoM > 0)
+                            {
+                                real = ppsReal * motor.MeterCal * 10.0 / (anchoM * velMs); // kg/ha
+                            }
+                        }
 
                         bool activo = (live != null && live.Online) && (ppsReal > 0 || objetivo > 0);
 
@@ -131,6 +147,7 @@ namespace AgroParallel.WebHost.Controllers
                             manual_mode = motor.ManualMode,
                             manual_dosis = motor.ManualDosis,
                             dosis_fija_config = motor.DosisFija,
+                            unidad = esSem ? "sem_m" : "kg_ha",
                             objetivo,
                             real,
                             activo

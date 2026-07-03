@@ -20,6 +20,32 @@ namespace AgLibrary.Settings
     {
         public static LoadResult LoadXMLFile(string filePath, object obj)
         {
+            var result = LoadXMLFileInner(filePath, obj);
+
+            // Si el principal falta o está corrupto, intentar la última versión
+            // buena (`.bak`) que dejó File.Replace en el guardado atómico. Así un
+            // XML dañado por un corte de luz no significa perder la config.
+            if (result != LoadResult.Ok)
+            {
+                string bak = filePath + ".bak";
+                if (File.Exists(bak))
+                {
+                    var fromBak = LoadXMLFileInner(bak, obj);
+                    if (fromBak == LoadResult.Ok)
+                    {
+                        // Re-materializar el principal desde el respaldo para que la
+                        // próxima carga ya no dependa del .bak.
+                        try { SaveXMLFile(filePath, obj); } catch { }
+                        return LoadResult.Ok;
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private static LoadResult LoadXMLFileInner(string filePath, object obj)
+        {
             bool Errors = false;
             try
             {
@@ -199,7 +225,13 @@ namespace AgLibrary.Settings
                     Directory.CreateDirectory(dirName);
                 }
 
-                using (XmlTextWriter xml = new XmlTextWriter(filePath + ".tmp", Encoding.UTF8)
+                // Escribir primero a un archivo temporal y forzar el flush a disco
+                // físico (FlushFileBuffers). Sin esto los datos pueden quedar en la
+                // caché del OS/disco y perderse si se corta la luz de golpe.
+                string tmpPath = filePath + ".tmp";
+                using (var fs = new FileStream(tmpPath, FileMode.Create, FileAccess.Write,
+                           FileShare.None, 4096, FileOptions.WriteThrough))
+                using (XmlTextWriter xml = new XmlTextWriter(fs, Encoding.UTF8)
                 {
                     Formatting = Formatting.Indented,
                     Indentation = 4
@@ -271,13 +303,32 @@ namespace AgLibrary.Settings
                     // End the document
                     xml.WriteEndDocument();
                     xml.Flush();
+                    fs.Flush(true); // FlushFileBuffers: garantiza datos en disco
                 }
 
+                // Intercambio atómico. File.Replace deja la versión anterior como
+                // `.bak` (última buena conocida) y nunca deja el destino borrado:
+                // un corte de luz acá conserva el XML viejo entero. Si no existe el
+                // destino todavía, es la primera escritura → simple Move.
                 if (File.Exists(filePath))
-                    File.Delete(filePath);
-
-                if (File.Exists(filePath + ".tmp"))
-                    File.Move(filePath + ".tmp", filePath);
+                {
+                    try
+                    {
+                        File.Replace(tmpPath, filePath, filePath + ".bak");
+                    }
+                    catch (Exception)
+                    {
+                        // Fallback raro (File.Replace falla en algunos FS/volúmenes o
+                        // por antivirus): respaldar primero y recién después mover.
+                        try { File.Copy(filePath, filePath + ".bak", true); } catch { }
+                        try { File.Delete(filePath); } catch { }
+                        File.Move(tmpPath, filePath);
+                    }
+                }
+                else
+                {
+                    File.Move(tmpPath, filePath);
+                }
             }
             catch (Exception ex)
             {

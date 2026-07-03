@@ -132,6 +132,9 @@ namespace AgOpenGPS
             // AGROPARALLEL_MOD_START
             this.toolStripAgroParallel = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripCamaras = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripVistaXSemilla = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripVistaXMaquina = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripVistaXDensidad = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparatorAgroParallel = new System.Windows.Forms.ToolStripSeparator();
             // AGROPARALLEL_MOD_END
             this.toolStripConfig = new System.Windows.Forms.ToolStripMenuItem();
@@ -944,7 +947,10 @@ namespace AgOpenGPS
             // AGROPARALLEL_MOD_START — Hub + Cámaras siempre accesibles (no requieren GPS ni lote)
             this.toolStripSeparatorAgroParallel,
             this.toolStripAgroParallel,
-            this.toolStripCamaras
+            this.toolStripCamaras,
+            this.toolStripVistaXSemilla,
+            this.toolStripVistaXMaquina,
+            this.toolStripVistaXDensidad
             // AGROPARALLEL_MOD_END
             });
             this.toolStripDropDownButton4.Font = new System.Drawing.Font("Segoe UI", 24F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -1757,7 +1763,34 @@ namespace AgOpenGPS
             this.toolStripCamaras.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.toolStripCamaras.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(74)))), ((int)(((byte)(186)))), ((int)(((byte)(62))))); // PilotX #4ABA3E
             this.toolStripCamaras.Click += new System.EventHandler(this.toolStripCamaras_Click);
-            // 
+            //
+            // toolStripVistaXSemilla
+            //
+            this.toolStripVistaXSemilla.Name = "toolStripVistaXSemilla";
+            this.toolStripVistaXSemilla.Size = new System.Drawing.Size(100, 44);
+            this.toolStripVistaXSemilla.Text = "\uD83C\uDF31 VistaX \u00B7 Semilla"; // 🌱 VistaX · Semilla
+            this.toolStripVistaXSemilla.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripVistaXSemilla.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(74)))), ((int)(((byte)(186)))), ((int)(((byte)(62))))); // PilotX #4ABA3E
+            this.toolStripVistaXSemilla.Click += new System.EventHandler(this.toolStripVistaXSemilla_Click);
+            //
+            // toolStripVistaXMaquina
+            //
+            this.toolStripVistaXMaquina.Name = "toolStripVistaXMaquina";
+            this.toolStripVistaXMaquina.Size = new System.Drawing.Size(100, 44);
+            this.toolStripVistaXMaquina.Text = "\u2699 VistaX \u00B7 M\u00E1quina"; // ⚙ VistaX · Máquina
+            this.toolStripVistaXMaquina.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripVistaXMaquina.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(74)))), ((int)(((byte)(186)))), ((int)(((byte)(62))))); // PilotX #4ABA3E
+            this.toolStripVistaXMaquina.Click += new System.EventHandler(this.toolStripVistaXMaquina_Click);
+            //
+            // toolStripVistaXDensidad
+            //
+            this.toolStripVistaXDensidad.Name = "toolStripVistaXDensidad";
+            this.toolStripVistaXDensidad.Size = new System.Drawing.Size(100, 44);
+            this.toolStripVistaXDensidad.Text = "\uD83C\uDF9A VistaX \u00B7 Densidad"; // 🎚 VistaX · Densidad
+            this.toolStripVistaXDensidad.Font = new System.Drawing.Font("Segoe UI", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripVistaXDensidad.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(74)))), ((int)(((byte)(186)))), ((int)(((byte)(62))))); // PilotX #4ABA3E
+            this.toolStripVistaXDensidad.Click += new System.EventHandler(this.toolStripVistaXDensidad_Click);
+            //
             // AGROPARALLEL_MOD_END
             // 
             // btnNavigationSettings
@@ -3121,6 +3154,9 @@ namespace AgOpenGPS
         // AGROPARALLEL_MOD_START
         private System.Windows.Forms.ToolStripMenuItem toolStripAgroParallel;
         private System.Windows.Forms.ToolStripMenuItem toolStripCamaras;
+        private System.Windows.Forms.ToolStripMenuItem toolStripVistaXSemilla;
+        private System.Windows.Forms.ToolStripMenuItem toolStripVistaXMaquina;
+        private System.Windows.Forms.ToolStripMenuItem toolStripVistaXDensidad;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparatorAgroParallel;
         // AGROPARALLEL_MOD_END
         private System.Windows.Forms.Button btnChargeStatus;

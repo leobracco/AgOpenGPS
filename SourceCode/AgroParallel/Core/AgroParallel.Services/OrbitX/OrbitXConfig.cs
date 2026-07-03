@@ -136,28 +136,24 @@ namespace AgroParallel.OrbitX
         public static OrbitXConfig Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var cfg = AgroParallel.Common.AtomicJson.Read<OrbitXConfig>(path, opts);
+            if (cfg != null)
             {
-                var def = new OrbitXConfig();
-                def.Save();
-                return def;
-            }
-            try
-            {
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var cfg = JsonSerializer.Deserialize<OrbitXConfig>(File.ReadAllText(path), opts);
-                if (cfg != null && string.IsNullOrEmpty(cfg.DeviceId))
+                if (string.IsNullOrEmpty(cfg.DeviceId))
                     cfg.DeviceId = GenerateDeviceId();
-                return cfg ?? new OrbitXConfig();
+                return cfg;
             }
-            catch { return new OrbitXConfig(); }
+            var def = new OrbitXConfig();
+            def.Save();
+            return def;
         }
 
         public void Save()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
-            File.WriteAllText(path, JsonSerializer.Serialize(this, opts));
+            AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }
 
         // Persiste sólo campos que actualiza OrbitXSync (LastSync, FilesSynced,
