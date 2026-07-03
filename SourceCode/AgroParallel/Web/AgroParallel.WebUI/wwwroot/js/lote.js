@@ -30,29 +30,14 @@
     } catch (e) { return '—'; }
   }
 
-  // Backend (EmbedIO/Swan) serializa POCO con PascalCase. Normalizamos a camelCase
-  // para uniformar el JS.
-  function lkeys(v) {
-    if (v == null) return v;
-    if (Array.isArray(v)) return v.map(lkeys);
-    if (typeof v !== 'object') return v;
-    var out = {};
-    for (var k in v) {
-      if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
-      var nk = k.length > 0 ? k.charAt(0).toLowerCase() + k.substring(1) : k;
-      out[nk] = lkeys(v[k]);
-    }
-    return out;
-  }
-
   // ---------- State ----------
 
   var state = {
     current: null,    // nombre del lote abierto
-    all: [],          // lista completa de FieldInfo (camelCase)
+    all: [],          // lista completa de FieldInfo (snake_case)
     busy: false,
     search: '',
-    sort: { key: 'lastModifiedUtc', dir: 'desc' }, // por defecto: más recientes primero
+    sort: { key: 'last_modified_utc', dir: 'desc' }, // por defecto: más recientes primero
     page: 1,
     pageSize: 25
   };
@@ -96,14 +81,14 @@
       var va = a[key], vb = b[key];
       // Current siempre primero (override del sort), salvo si search activa
       if (!q) {
-        if (!!a.isCurrent !== !!b.isCurrent) return a.isCurrent ? -1 : 1;
+        if (!!a.is_current !== !!b.is_current) return a.is_current ? -1 : 1;
       }
-      if (key === 'lastModifiedUtc') {
+      if (key === 'last_modified_utc') {
         var ta = va ? new Date(va).getTime() : 0;
         var tb = vb ? new Date(vb).getTime() : 0;
         return (ta - tb) * dir;
       }
-      if (key === 'hasBoundary') {
+      if (key === 'has_boundary') {
         return ((va ? 1 : 0) - (vb ? 1 : 0)) * dir;
       }
       // name (default string)
@@ -151,9 +136,9 @@
         '</td></tr>';
     } else {
       body.innerHTML = slice.map(function (f) {
-        var isCur = !!f.isCurrent;
-        var hasB  = !!f.hasBoundary;
-        var ha    = (f.areaHa && f.areaHa > 0) ? f.areaHa.toFixed(2) + ' ha' : '';
+        var isCur = !!f.is_current;
+        var hasB  = !!f.has_boundary;
+        var ha    = (f.area_ha && f.area_ha > 0) ? f.area_ha.toFixed(2) + ' ha' : '';
 
         var flags = '';
         if (isCur) flags += '<span class="pill ok"><span class="dot"></span> abierto</span>';
@@ -168,7 +153,7 @@
         return '' +
           '<tr class="' + (isCur ? 'current' : '') + '" data-name="' + esc(f.name) + '">' +
             '<td class="col-name">' + esc(f.name) + '</td>' +
-            '<td class="col-date">' + fmtDate(f.lastModifiedUtc) + '</td>' +
+            '<td class="col-date">' + fmtDate(f.last_modified_utc) + '</td>' +
             '<td class="col-flags">' + flags + '</td>' +
             '<td class="col-act">' + actions + '</td>' +
           '</tr>';
@@ -196,7 +181,7 @@
   async function loadCurrent() {
     try {
       var r = await fetch('/api/lotes/current', { cache: 'no-store' });
-      var d = lkeys(await r.json());
+      var d = await r.json();
       state.current = (d && d.name) || null;
     } catch (e) { state.current = null; }
     renderCurrent();
@@ -205,7 +190,7 @@
   async function loadList() {
     try {
       var r = await fetch('/api/lotes', { cache: 'no-store' });
-      var d = lkeys(await r.json());
+      var d = await r.json();
       state.all = Array.isArray(d) ? d : [];
     } catch (e) { state.all = []; }
     renderTable();
@@ -224,7 +209,7 @@
     renderCurrent();
     try {
       var r = await fetch('/api/lotes/open?name=' + encodeURIComponent(name), { method: 'POST' });
-      var d = lkeys(await r.json());
+      var d = await r.json();
       setMsg($('msgCur'), (d && d.ok) ? ('✓ Lote abierto: ' + name) : '✕ No se pudo abrir el lote.', (d && d.ok) ? 'ok' : 'err');
     } catch (e) { setMsg($('msgCur'), '✕ ' + e.message, 'err'); }
     state.busy = false;
@@ -239,7 +224,7 @@
     renderCurrent();
     try {
       var r = await fetch('/api/lotes/close', { method: 'POST' });
-      var d = lkeys(await r.json());
+      var d = await r.json();
       setMsg($('msgCur'), (d && d.ok) ? '✓ Lote cerrado.' : '✕ No se pudo cerrar el lote.', (d && d.ok) ? 'ok' : 'err');
     } catch (e) { setMsg($('msgCur'), '✕ ' + e.message, 'err'); }
     state.busy = false;
@@ -262,7 +247,7 @@
     setMsg($('msgNew'), '… creando "' + clean + '" …');
     try {
       var r = await fetch('/api/lotes/create?name=' + encodeURIComponent(clean), { method: 'POST' });
-      var d = lkeys(await r.json());
+      var d = await r.json();
       if (d && d.ok) { setMsg($('msgNew'), '✓ Lote creado y abierto: ' + clean, 'ok'); inp.value = ''; }
       else            setMsg($('msgNew'), '✕ No se pudo crear el lote.', 'err');
     } catch (e) { setMsg($('msgNew'), '✕ ' + e.message, 'err'); }

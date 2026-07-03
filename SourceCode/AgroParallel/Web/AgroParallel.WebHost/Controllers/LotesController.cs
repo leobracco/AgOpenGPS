@@ -1,14 +1,13 @@
 // ============================================================================
 // LotesController.cs
 // REST endpoints for gestión de lotes (Fields/) desde la UI HTML.
-//   GET  /api/lotes              → list of FieldInfo
+//   GET  /api/lotes              → list of FieldInfo (snake_case)
 //   GET  /api/lotes/current      → { name: string|null }
 //   POST /api/lotes/open?name=…  → { ok: bool }
 //   POST /api/lotes/close        → { ok: bool }
 //   POST /api/lotes/create?name= → { ok: bool }
 // ============================================================================
 
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Threading.Tasks;
@@ -20,45 +19,45 @@ using EmbedIO.WebApi;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class LotesController : WebApiController
+    public sealed class LotesController : AgpControllerBase
     {
         private readonly ILotesService _lotes;
 
         public LotesController(ILotesService lotes) { _lotes = lotes; }
 
         [Route(HttpVerbs.Get, "/lotes")]
-        public IList<FieldInfo> List()
+        public Task List()
         {
-            if (_lotes == null) return new List<FieldInfo>();
-            return _lotes.ListFields();
+            var list = _lotes != null ? _lotes.ListFields() : new System.Collections.Generic.List<FieldInfo>();
+            return WriteJsonAsync(list);
         }
 
         [Route(HttpVerbs.Get, "/lotes/current")]
-        public object Current()
+        public Task Current()
         {
             string name = _lotes != null ? _lotes.GetCurrentFieldName() : null;
-            return new { name = name };
+            return WriteJsonAsync(new { name });
         }
 
         [Route(HttpVerbs.Post, "/lotes/open")]
-        public async Task<object> Open([QueryField] string name)
+        public async Task Open([QueryField] string name)
         {
             bool ok = _lotes != null && await _lotes.OpenFieldAsync(name);
-            return new { ok = ok };
+            await WriteJsonAsync(new { ok });
         }
 
         [Route(HttpVerbs.Post, "/lotes/close")]
-        public async Task<object> Close()
+        public async Task Close()
         {
             bool ok = _lotes != null && await _lotes.CloseFieldAsync();
-            return new { ok = ok };
+            await WriteJsonAsync(new { ok });
         }
 
         [Route(HttpVerbs.Post, "/lotes/create")]
-        public async Task<object> Create([QueryField] string name)
+        public async Task Create([QueryField] string name)
         {
             bool ok = _lotes != null && await _lotes.CreateFieldAsync(name);
-            return new { ok = ok };
+            await WriteJsonAsync(new { ok });
         }
 
         // Devuelve un ZIP con todo lo que el VistaXFieldLogger dejó en
@@ -72,18 +71,18 @@ namespace AgroParallel.WebHost.Controllers
             if (string.IsNullOrEmpty(fieldDir) || !Directory.Exists(fieldDir))
             {
                 HttpContext.Response.StatusCode = 404;
-                await HttpContext.SendStringAsync("{\"ok\":false,\"error\":\"no-field\"}", "application/json", System.Text.Encoding.UTF8).ConfigureAwait(false);
+                await WriteJsonAsync(new { ok = false, error = "no-field" });
                 return;
             }
-            string vistaxDir = Path.Combine(fieldDir, "VistaX");
+            string vistaxDir = System.IO.Path.Combine(fieldDir, "VistaX");
             if (!Directory.Exists(vistaxDir))
             {
                 HttpContext.Response.StatusCode = 404;
-                await HttpContext.SendStringAsync("{\"ok\":false,\"error\":\"no-vistax-data\"}", "application/json", System.Text.Encoding.UTF8).ConfigureAwait(false);
+                await WriteJsonAsync(new { ok = false, error = "no-vistax-data" });
                 return;
             }
 
-            string fieldName = Path.GetFileName(fieldDir.TrimEnd(Path.DirectorySeparatorChar));
+            string fieldName = System.IO.Path.GetFileName(fieldDir.TrimEnd(System.IO.Path.DirectorySeparatorChar));
             string fname = string.Format("vistax_{0}_{1:yyyyMMdd_HHmmss}.zip",
                                           fieldName, System.DateTime.Now);
 
@@ -94,12 +93,13 @@ namespace AgroParallel.WebHost.Controllers
 
             // Stream directo al body — no buffereo en memoria por si la sesión
             // pesa decenas de MB (heatmap shapefiles + ndjson largos).
+            // serialización especial a propósito: binario ZIP, no JSON.
             using (var zip = new ZipArchive(HttpContext.Response.OutputStream,
                                             ZipArchiveMode.Create, true))
             {
                 foreach (var path in Directory.GetFiles(vistaxDir, "*", SearchOption.TopDirectoryOnly))
                 {
-                    string entryName = Path.GetFileName(path);
+                    string entryName = System.IO.Path.GetFileName(path);
                     var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
                     using (var es = entry.Open())
                     using (var fs = File.OpenRead(path))
