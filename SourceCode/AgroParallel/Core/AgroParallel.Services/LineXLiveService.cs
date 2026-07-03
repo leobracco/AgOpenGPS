@@ -2,12 +2,13 @@
 // LineXLiveService.cs — implementación.
 //
 // Estrategia:
-//   - Suscribe agp/linex/+/status_live al MQTT compartido del NodoRegistry.
+//   - Suscribe agp/linex/+/status_live al MQTT compartido del NodoRegistry,
+//     vía MqttLiveServiceBase<Reading>.
 //   - Parsea payload del firmware:
 //       { uid, sections:[{id, state(bool), angle, us}], rssi, uptime }
 //     Si el firmware no incluye uid en el payload, lo infiere de topic[2]
 //     (canónico 4-part: agp/linex/<uid>/status_live).
-//   - Mantiene Dictionary<uid, Reading>.
+//   - Mantiene Dictionary<uid, Reading> (heredado de la base como _readings).
 //   - GetSnapshot() recompone la lista resolviendo nombre/board_type desde
 //     config y marcando Online según timeout (3 s default).
 // ============================================================================
@@ -21,33 +22,34 @@ using AgroParallel.Services.Abstractions;
 
 namespace AgroParallel.Services
 {
-    public sealed class LineXLiveService : ILineXLiveService, IDisposable
+    public sealed class LineXLiveService : MqttLiveServiceBase<LineXLiveService.Reading>,
+        ILineXLiveService, IDisposable
     {
-        private readonly INodoRegistryService _nodos;
         private readonly ILineXConfigService _cfgSvc;
 
         private LineXConfigDto _cfg;
-        private readonly object _lock = new object();
 
-        // uid → última lectura
-        private sealed class Reading
+        // uid → última lectura (heredado _readings de la base)
+        public sealed class Reading
         {
             public List<LxSurcoLiveDto> Surcos = new List<LxSurcoLiveDto>();
             public int Rssi;
             public long Uptime;
             public DateTime LastTs;
         }
-        private readonly Dictionary<string, Reading> _readings =
-            new Dictionary<string, Reading>(StringComparer.OrdinalIgnoreCase);
 
-        // Timeout para considerar un nodo online.
-        private const int TimeoutMs = 3000;
-
-        public bool IsRunning { get; private set; }
-
-        public LineXLiveService(INodoRegistryService nodos, ILineXConfigService cfgSvc)
+        // ── Configuración de la base ─────────────────────────────────────────
+        protected override string TopicPrefix => "agp/linex/";
+        protected override int MinParts => 4;
+        protected override string[] Subscriptions => new[]
         {
-            _nodos = nodos;
+            "agp/linex/+/status_live",
+        };
+
+        // ── Constructor ──────────────────────────────────────────────────────
+        public LineXLiveService(INodoRegistryService nodos, ILineXConfigService cfgSvc)
+            : base(nodos)
+        {
             _cfgSvc = cfgSvc;
             Reload();
         }
@@ -60,117 +62,88 @@ namespace AgroParallel.Services
             }
         }
 
-        public void Start()
+        public void Dispose() => Stop();
+
+        // ── OnStart / OnStop ─────────────────────────────────────────────────
+        protected override void OnStart()
         {
-            if (IsRunning) return;
-            if (_nodos == null) return;
-            _nodos.MessageReceived += OnMqttMessage;
-            _ = _nodos.SubscribeAsync("agp/linex/+/status_live");
-            IsRunning = true;
             System.Diagnostics.Trace.WriteLine("[linex] live service started");
         }
 
-        public void Stop()
+        protected override void OnStop()
         {
-            if (!IsRunning) return;
-            try { _nodos.MessageReceived -= OnMqttMessage; } catch { }
-            IsRunning = false;
-            lock (_lock) { _readings.Clear(); }
             System.Diagnostics.Trace.WriteLine("[linex] live service stopped");
         }
 
-        public void Dispose() => Stop();
-
-        // ------------------- MQTT in --------------------
-        private void OnMqttMessage(object sender, MqttMessageReceivedEventArgs e)
+        // ── OnPayload ────────────────────────────────────────────────────────
+        // subtopic viene de parts[3]: solo "status_live" por ahora.
+        protected override void OnPayload(string uid, string subtopic, string[] topicParts, JsonElement root)
         {
-            if (string.IsNullOrEmpty(e.Topic)) return;
-            if (!e.Topic.StartsWith("agp/linex/", StringComparison.OrdinalIgnoreCase)) return;
-            if (!e.Topic.EndsWith("/status_live", StringComparison.OrdinalIgnoreCase)) return;
+            if (!string.Equals(subtopic, "status_live", StringComparison.OrdinalIgnoreCase))
+                return;
 
-            var parts = e.Topic.Split('/');
-            if (parts.Length < 4) return;
-            string uidFromTopic = parts[2];
+            // El firmware puede incluir "uid" en el payload; si viene, se usa.
+            string resolvedUid = root.TryGetProperty("uid", out var ju) && ju.ValueKind == JsonValueKind.String
+                ? ju.GetString()
+                : uid;
+            if (string.IsNullOrEmpty(resolvedUid)) resolvedUid = uid;
+            if (string.IsNullOrEmpty(resolvedUid)) return;
 
-            try
+            var surcos = new List<LxSurcoLiveDto>();
+            if (root.TryGetProperty("sections", out var secs) && secs.ValueKind == JsonValueKind.Array)
             {
-                using (var doc = JsonDocument.Parse(e.Payload))
+                foreach (var s in secs.EnumerateArray())
                 {
-                    var root = doc.RootElement;
-                    string uid = root.TryGetProperty("uid", out var ju) && ju.ValueKind == JsonValueKind.String
-                        ? ju.GetString()
-                        : uidFromTopic;
-                    if (string.IsNullOrEmpty(uid)) uid = uidFromTopic;
-                    if (string.IsNullOrEmpty(uid)) return;
-
-                    var surcos = new List<LxSurcoLiveDto>();
-                    if (root.TryGetProperty("sections", out var secs) && secs.ValueKind == JsonValueKind.Array)
+                    surcos.Add(new LxSurcoLiveDto
                     {
-                        foreach (var s in secs.EnumerateArray())
-                        {
-                            surcos.Add(new LxSurcoLiveDto
-                            {
-                                Id = (int)ReadDouble(s, "id"),
-                                Abierto = ReadBool(s, "state", "abierto", "open"),
-                                Angle = (int)ReadDouble(s, "angle"),
-                                Us = (int)ReadDouble(s, "us")
-                            });
-                        }
-                    }
-
-                    int rssi = (int)ReadDouble(root, "rssi");
-                    long uptime = (long)ReadDouble(root, "uptime");
-
-                    DateTime now = DateTime.UtcNow;
-                    lock (_lock)
-                    {
-                        if (!_readings.TryGetValue(uid, out var r))
-                        {
-                            r = new Reading();
-                            _readings[uid] = r;
-                        }
-                        r.Surcos = surcos;
-                        r.Rssi = rssi;
-                        r.Uptime = uptime;
-                        r.LastTs = now;
-                    }
+                        Id = (int)ReadDouble(s, "id"),
+                        Abierto = ReadBoolOpen(s, "state", "abierto", "open"),
+                        Angle = (int)ReadDouble(s, "angle"),
+                        Us = (int)ReadDouble(s, "us")
+                    });
                 }
             }
-            catch { /* payload roto: ignorar */ }
-        }
 
-        private static double ReadDouble(JsonElement root, params string[] keys)
-        {
-            foreach (var k in keys)
-            {
-                if (root.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number)
-                    return v.GetDouble();
-            }
-            return 0;
-        }
+            int rssi     = (int)ReadDouble(root, "rssi");
+            long uptime  = (long)ReadDouble(root, "uptime");
 
-        private static bool ReadBool(JsonElement root, params string[] keys)
-        {
-            foreach (var k in keys)
+            DateTime now = DateTime.UtcNow;
+            lock (_lock)
             {
-                if (root.TryGetProperty(k, out var v))
+                if (!_readings.TryGetValue(resolvedUid, out var r))
                 {
-                    if (v.ValueKind == JsonValueKind.True) return true;
-                    if (v.ValueKind == JsonValueKind.False) return false;
-                    if (v.ValueKind == JsonValueKind.Number) return v.GetDouble() != 0;
-                    if (v.ValueKind == JsonValueKind.String)
-                    {
-                        var st = v.GetString();
-                        return string.Equals(st, "open", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(st, "true", StringComparison.OrdinalIgnoreCase)
-                            || st == "1";
-                    }
+                    r = new Reading();
+                    _readings[resolvedUid] = r;
+                }
+                r.Surcos = surcos;
+                r.Rssi = rssi;
+                r.Uptime = uptime;
+                r.LastTs = now;
+            }
+        }
+
+        // ReadBool especial: acepta además el string "open" (firmware LineX).
+        // La base soporta "true"/"ok"/"1"; "open" es específico de este firmware.
+        private static bool ReadBoolOpen(JsonElement root, params string[] keys)
+        {
+            foreach (var k in keys)
+            {
+                if (!root.TryGetProperty(k, out var v)) continue;
+                if (v.ValueKind == JsonValueKind.True) return true;
+                if (v.ValueKind == JsonValueKind.False) return false;
+                if (v.ValueKind == JsonValueKind.Number) return v.GetDouble() != 0;
+                if (v.ValueKind == JsonValueKind.String)
+                {
+                    var st = v.GetString();
+                    return string.Equals(st, "open", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(st, "true", StringComparison.OrdinalIgnoreCase)
+                        || st == "1";
                 }
             }
             return false;
         }
 
-        // ------------------- Snapshot --------------------
+        // ── Snapshot ─────────────────────────────────────────────────────────
         public LineXLiveSnapshotDto GetSnapshot()
         {
             lock (_lock)
@@ -202,7 +175,7 @@ namespace AgroParallel.Services
                             boardType = cfgNodo.BoardType ?? "";
                         }
                     }
-                    bool online = r != null && (now - r.LastTs).TotalMilliseconds <= TimeoutMs;
+                    bool online = r != null && IsOnline(r.LastTs, now);
 
                     snap.Nodos.Add(new LxNodoLiveDto
                     {
