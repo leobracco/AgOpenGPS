@@ -3,10 +3,10 @@
 // REST endpoint para la barra del implemento en runtime (Stage 4a migracion
 // OpenGL del mapa PilotX.Desktop):
 //   GET /api/aog/tool/geometry
-//      { ok: true, snapshot: { numSections, isValid, sections: [...] } }
+//      { ok: true, snapshot: { num_sections, is_valid, sections: [...] } }
 //
 // Cadencia esperada: 4 Hz (igual que el HUD). Cada seccion trae sus puntos
-// leftPoint/rightPoint en coords mundo + estado vivo (isOn/isMapping/btn).
+// left_e/left_n/right_e/right_n en coords mundo + estado vivo (is_on/is_mapping/btn_state).
 // No usa revision-cache: los puntos cambian cada frame que el tractor se
 // mueve, asi que el cliente re-uploadea el VBO en cada poll.
 //
@@ -14,17 +14,15 @@
 // implemento). Aca solo emitimos runtime — el config CRUD vive aparte.
 // ============================================================================
 
-using System.Text;
 using System.Threading.Tasks;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class ToolGeometryController : WebApiController
+    public sealed class ToolGeometryController : AgpControllerBase
     {
         private readonly IToolGeometryCalculator _tool;
 
@@ -34,14 +32,10 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/aog/tool/geometry")]
-        public async Task GetToolGeometry()
+        public Task GetToolGeometry()
         {
             var snap = _tool != null ? _tool.GetGeometry() : null;
-            string json = SysJson.Serialize(new { ok = true, snapshot = snap }, new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-            });
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
+            return WriteJsonAsync(new { ok = true, snapshot = snap });
         }
     }
 }
