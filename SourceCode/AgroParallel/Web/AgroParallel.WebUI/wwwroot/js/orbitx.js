@@ -30,25 +30,16 @@
     } catch (e) { return iso; }
   }
 
-  // EmbedIO serializa respuestas en PascalCase; el archivo on-disk también es
-  // PascalCase. Leer ambos casings para ser tolerantes a cualquier cambio de
-  // policy futuro del WebHost.
-  function pick(o, camel, pascal) {
-    if (!o) return undefined;
-    var v = o[camel];
-    if (v === undefined || v === null) v = o[pascal];
-    return v;
-  }
-
   function renderStatus(s) {
     if (!statusEl) return;
-    var enabled        = pick(s, 'enabled', 'Enabled');
-    var lastSync       = pick(s, 'lastSync', 'LastSync');
-    var filesSynced    = pick(s, 'filesSynced', 'FilesSynced');
-    var estabSlug      = pick(s, 'estabSlug', 'EstabSlug');
-    var deviceId       = pick(s, 'deviceId', 'DeviceId');
-    var cloudConnected = pick(s, 'cloudConnected', 'CloudConnected');
-    var lastError      = pick(s, 'lastError', 'LastError');
+    // snake_case (AgpJson wire format)
+    var enabled        = s.enabled;
+    var lastSync       = s.last_sync;
+    var filesSynced    = s.files_synced;
+    var estabSlug      = s.estab_slug;
+    var deviceId       = s.device_id;
+    var cloudConnected = s.cloud_connected;
+    var lastError      = s.last_error;
     statusEl.innerHTML = '' +
       '<div class="card"><h3>Heartbeat</h3>' +
         '<div class="metric" style="font-size:var(--agp-fs-xl)">' + (enabled ? 'on' : 'off') + '</div>' +
@@ -75,16 +66,17 @@
     // y NO se persiste al operario; pedido explícito 2026-05-27.
     // Estab slug / Device Token siguen editables para debug/claim manual.
     // Device ID se autogenera del MAC → readonly.
-    var serverUrl       = pick(cfg, 'serverUrl', 'ServerUrl');
-    var estabSlug       = pick(cfg, 'estabSlug', 'EstabSlug');
-    var deviceId        = pick(cfg, 'deviceId', 'DeviceId');
-    var deviceToken     = pick(cfg, 'deviceToken', 'DeviceToken');
-    var syncIntervalSec = pick(cfg, 'syncIntervalSec', 'SyncIntervalSec');
-    var enabled         = pick(cfg, 'enabled', 'Enabled');
-    var syncAOG         = pick(cfg, 'syncAOG', 'SyncAOG');
-    var syncVistaX      = pick(cfg, 'syncVistaX', 'SyncVistaX');
-    var syncQuantiX     = pick(cfg, 'syncQuantiX', 'SyncQuantiX');
-    var syncSectionX    = pick(cfg, 'syncSectionX', 'SyncSectionX');
+    // snake_case (AgpJson + [JsonPropertyName] en OrbitXConfigDto)
+    var serverUrl       = cfg.server_url;
+    var estabSlug       = cfg.estab_slug;
+    var deviceId        = cfg.device_id;
+    var deviceToken     = cfg.device_token;
+    var syncIntervalSec = cfg.sync_interval_sec;
+    var enabled         = cfg.enabled;
+    var syncAOG         = cfg.sync_aog;
+    var syncVistaX      = cfg.sync_vistax;
+    var syncQuantiX     = cfg.sync_quantix;
+    var syncSectionX    = cfg.sync_sectionx;
     formEl.innerHTML = '' +
       '<div class="field" style="margin-bottom: var(--agp-sp-3)">' +
         '<label>Server URL</label>' +
@@ -94,17 +86,17 @@
         '<div style="margin-top:4px; font-size:11px; color:var(--agp-text-muted)">Fija por sistema — no se edita desde la UI.</div>' +
       '</div>' +
       '<div style="display:grid; grid-template-columns: 1fr 1fr; gap: var(--agp-sp-4)">' +
-        field('Establecimiento slug',  'estabSlug',    estabSlug, false) +
-        field('Device ID',             'deviceId',     deviceId, true) +
-        field('Device Token',          'deviceToken',  deviceToken, false) +
-        field('Sync interval (s)',     'syncIntervalSec', syncIntervalSec, false, 'number') +
+        field('Establecimiento slug',  'estab_slug',        estabSlug, false) +
+        field('Device ID',             'device_id',         deviceId, true) +
+        field('Device Token',          'device_token',      deviceToken, false) +
+        field('Sync interval (s)',     'sync_interval_sec', syncIntervalSec, false, 'number') +
       '</div>' +
       '<div style="display:flex; flex-wrap:wrap; gap:var(--agp-sp-4); margin-top: var(--agp-sp-3)">' +
-        toggle('Enabled',     'enabled',     enabled) +
-        toggle('Sync Piloto', 'syncAOG',     syncAOG) +
-        toggle('Sync VistaX', 'syncVistaX',  syncVistaX) +
-        toggle('Sync QuantiX','syncQuantiX', syncQuantiX) +
-        toggle('Sync SectionX','syncSectionX',syncSectionX) +
+        toggle('Enabled',      'enabled',      enabled) +
+        toggle('Sync Piloto',  'sync_aog',     syncAOG) +
+        toggle('Sync VistaX',  'sync_vistax',  syncVistaX) +
+        toggle('Sync QuantiX', 'sync_quantix', syncQuantiX) +
+        toggle('Sync SectionX','sync_sectionx',syncSectionX) +
       '</div>';
     formEl._dto = cfg;
   }
@@ -143,7 +135,7 @@
       renderForm(cfg);
       renderStatus(status);
       if (connectedPill) {
-        var cc = pick(status, 'cloudConnected', 'CloudConnected');
+        var cc = status.cloud_connected;
         connectedPill.className = 'pill ' + (cc ? 'ok' : 'idle');
         connectedPill.innerHTML = '<span class="dot"></span> ' + (cc ? 'Cloud conectado' : 'Sin verificar');
       }
@@ -221,11 +213,12 @@
       pairPillEl.className = 'pair-state-pill pending';
       pairPillEl.textContent = 'esperando confirmación';
     }
+    // snake_case (AgpJson wire format)
     var code = info.code || '——————';
-    var expires = info.expiresInSec || 0;
+    var expires = info.expires_in_sec || 0;
     var mm = Math.floor(expires / 60), ss = expires % 60;
     var clock = expires > 0 ? ('vence en ' + mm + ':' + (ss < 10 ? '0' : '') + ss) : '';
-    var serverUrl = info.serverUrl || '(no configurado)';
+    var serverUrl = info.server_url || '(no configurado)';
     pairBodyEl.innerHTML = '' +
       '<div class="pair-code" id="pairCode">' + escapeHtml(code) + '</div>' +
       '<div class="pair-steps">' +
@@ -237,25 +230,25 @@
           '<div class="body">Tipeá los 6 caracteres de arriba, dale un nombre al tractor y confirmá. En unos segundos esta pantalla va a decir "Vinculado".</div></div>' +
       '</div>' +
       '<div class="pair-meta">' +
-        '<div>Device ID local: <strong style="font-family:var(--agp-font-mono)">' + escapeHtml(info.deviceId || '—') + '</strong></div>' +
+        '<div>Device ID local: <strong style="font-family:var(--agp-font-mono)">' + escapeHtml(info.device_id || '—') + '</strong></div>' +
         '<div>Server: <strong>' + escapeHtml(serverUrl) + '</strong></div>' +
         (clock ? '<div>' + clock + '</div>' : '') +
         '<div style="flex:1"></div>' +
       '</div>' +
-      // Cuando hay errorCode (status="offline"), pintamos badge AGP-* +
+      // Cuando hay error_code (status="offline"), pintamos badge AGP-* +
       // mensaje amigable + <details> técnico para soporte, igual que la
-      // página /nodos. Si no hay errorCode (estado pending/expired), solo
+      // página /nodos. Si no hay error_code (estado pending/expired), solo
       // el hint en italic como antes.
-      (info.errorCode
+      (info.error_code
         ? '<div style="margin-top: var(--agp-sp-3); padding: var(--agp-sp-2) var(--agp-sp-3); background: rgba(201,45,45,0.08); border: 1px solid rgba(201,45,45,0.35); border-radius: var(--agp-radius); font-size: var(--agp-fs-sm)">' +
             '<div style="display:flex; align-items:center; gap: var(--agp-sp-2); flex-wrap:wrap">' +
-              '<span style="background:#C92D2D; color:#fff; padding:2px 6px; border-radius:4px; font-family:var(--agp-font-mono); font-weight:700; font-size:11px">' + escapeHtml(info.errorCode) + '</span>' +
+              '<span style="background:#C92D2D; color:#fff; padding:2px 6px; border-radius:4px; font-family:var(--agp-font-mono); font-weight:700; font-size:11px">' + escapeHtml(info.error_code) + '</span>' +
               (info.hint ? '<span>' + escapeHtml(info.hint) + '</span>' : '') +
             '</div>' +
-            '<div style="margin-top: var(--agp-sp-2); color: var(--agp-text-muted); font-size: 11px">Para soporte: dictá el código <strong>' + escapeHtml(info.errorCode) + '</strong> al asistente por WhatsApp o teléfono.</div>' +
-            (info.hintTechnical
+            '<div style="margin-top: var(--agp-sp-2); color: var(--agp-text-muted); font-size: 11px">Para soporte: dictá el código <strong>' + escapeHtml(info.error_code) + '</strong> al asistente por WhatsApp o teléfono.</div>' +
+            (info.hint_technical
               ? '<details style="margin-top: var(--agp-sp-2)"><summary style="cursor:pointer; font-size:11px; color:var(--agp-text-muted)">Detalle técnico (soporte)</summary>' +
-                '<pre style="font-family:var(--agp-font-mono); font-size:11px; background:var(--agp-bg-2,#0e1612); color:var(--agp-text); padding:6px 8px; border-radius:4px; margin:6px 0 0 0; white-space:pre-wrap; word-break:break-word">' + escapeHtml(info.hintTechnical) + '</pre>' +
+                '<pre style="font-family:var(--agp-font-mono); font-size:11px; background:var(--agp-bg-2,#0e1612); color:var(--agp-text); padding:6px 8px; border-radius:4px; margin:6px 0 0 0; white-space:pre-wrap; word-break:break-word">' + escapeHtml(info.hint_technical) + '</pre>' +
                 '</details>'
               : '') +
           '</div>'
@@ -273,9 +266,9 @@
     pairPillEl.textContent = '✓ activo';
     pairBodyEl.innerHTML = '' +
       '<div class="pair-meta" style="margin-bottom: var(--agp-sp-3)">' +
-        '<div>Establecimiento: <strong>' + escapeHtml(info.estabSlug || '—') + '</strong></div>' +
-        '<div>Device ID: <strong style="font-family:var(--agp-font-mono)">' + escapeHtml(info.deviceId || '—') + '</strong></div>' +
-        '<div>Server: <strong>' + escapeHtml(info.serverUrl || '—') + '</strong></div>' +
+        '<div>Establecimiento: <strong>' + escapeHtml(info.estab_slug || '—') + '</strong></div>' +
+        '<div>Device ID: <strong style="font-family:var(--agp-font-mono)">' + escapeHtml(info.device_id || '—') + '</strong></div>' +
+        '<div>Server: <strong>' + escapeHtml(info.server_url || '—') + '</strong></div>' +
       '</div>' +
       '<div class="pair-actions">' +
         '<button class="btn" id="btnUnpair">Desvincular</button>' +
@@ -308,7 +301,7 @@
       pairCardEl.style.display = 'block';
       if (info.paired) {
         renderPairPaired(info);
-        if (info.justClaimed) {
+        if (info.just_claimed) {
           // Refrescamos el form/estado para reflejar token nuevo.
           load();
         }
