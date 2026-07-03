@@ -119,7 +119,7 @@
     }
 
     sel.innerHTML = data.sesiones.map(function (s) {
-      var lbl = s.fechaIso || s.ts;
+      var lbl = s.fecha_iso || s.ts;
       return '<option value="' + s.ts + '">' + lbl + '</option>';
     }).join('');
 
@@ -134,8 +134,8 @@
     var s = state.sesionActual;
     if (!s) { meta.textContent = '–'; return; }
     var parts = [];
-    if (s.hasHeatmap) parts.push(s.heatmapCeldas + ' celdas heatmap');
-    if (s.hasPuntos) parts.push(s.puntos + ' puntos');
+    if (s.has_heatmap) parts.push(s.heatmap_celdas + ' celdas heatmap');
+    if (s.has_puntos) parts.push(s.puntos + ' puntos');
     meta.textContent = parts.length ? parts.join(' · ') : 'sin datos exportados';
   }
 
