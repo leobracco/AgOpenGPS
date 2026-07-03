@@ -253,7 +253,7 @@ namespace AgroParallel.OrbitX
                     }
                 }
             }
-            catch { /* best-effort */ }
+            catch { } // silencioso a propósito: best-effort enumerar interfaces de red
             return result;
         }
 

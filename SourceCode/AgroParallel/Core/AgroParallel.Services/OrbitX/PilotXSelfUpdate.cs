@@ -91,7 +91,7 @@ namespace AgroParallel.OrbitX
                 var ver = asm.GetName().Version;
                 return ver != null ? ver.ToString() : "0.0.0";
             }
-            catch { return "0.0.0"; }
+            catch { return "0.0.0"; } // silencioso a propósito: fallback de versión si no se puede leer
         }
 
         // ── Paths ──────────────────────────────────────────────────────────
@@ -272,7 +272,7 @@ namespace AgroParallel.OrbitX
                         if (!resp.IsSuccessStatusCode)
                         {
                             string body = "";
-                            try { body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false); } catch { }
+                            try { body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false); } catch { } // silencioso a propósito: best-effort leer snippet de error HTTP
                             throw new Exception("ZIP HTTP " + (int)resp.StatusCode
                                 + " en " + zipUrl
                                 + (string.IsNullOrEmpty(body) ? "" : " · " + Trunc(body, 160)));

@@ -185,7 +185,7 @@ namespace AgroParallel.OrbitX
         private static void Trace(string msg)
         {
             string line = "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] " + msg;
-            try { System.Diagnostics.Debug.WriteLine("[OrbitX] " + line); } catch { }
+            try { System.Diagnostics.Debug.WriteLine("[OrbitX] " + line); } catch { } // silencioso a propósito: fallback del propio logger
             try
             {
                 lock (_logLock)
@@ -506,7 +506,7 @@ namespace AgroParallel.OrbitX
                 var resp = await _http.SendAsync(req);
                 int code = (int)resp.StatusCode;
                 string body = "";
-                try { body = await resp.Content.ReadAsStringAsync(); } catch { }
+                try { body = await resp.Content.ReadAsStringAsync(); } catch { } // silencioso a propósito: best-effort leer snippet de error HTTP
                 if (resp.IsSuccessStatusCode)
                 {
                     Trace("[HB] AUTO-REG OK " + code + " — device creado en CouchDB con master token. " +
@@ -514,7 +514,7 @@ namespace AgroParallel.OrbitX
                     LastHeartbeatStatus = "auto-registered (regenerate token!)";
                     LastError = null;
                     _cfg.DeviceToken = _cfg.MasterToken;
-                    try { _cfg.Save(); } catch { }
+                    try { _cfg.Save(); } catch (Exception ex) { AgpLog.Warn("OrbitXSync", "guardar config tras auto-registro", ex); }
                 }
                 else
                 {
@@ -561,7 +561,7 @@ namespace AgroParallel.OrbitX
                 var response = await _http.SendAsync(request);
                 int code = (int)response.StatusCode;
                 string body = "";
-                try { body = await response.Content.ReadAsStringAsync(); } catch { }
+                try { body = await response.Content.ReadAsStringAsync(); } catch { } // silencioso a propósito: best-effort leer snippet de error HTTP
                 string snippet = body == null ? "" : (body.Length > 300 ? body.Substring(0, 300) + "…" : body);
 
                 LastHeartbeatTime = DateTime.Now;
@@ -643,7 +643,7 @@ namespace AgroParallel.OrbitX
                 if (!response.IsSuccessStatusCode)
                 {
                     string errBody = "";
-                    try { errBody = await response.Content.ReadAsStringAsync(); } catch { }
+                    try { errBody = await response.Content.ReadAsStringAsync(); } catch { } // silencioso a propósito: best-effort leer snippet de error HTTP
                     Trace("[PRESC] LIST HTTP " + (int)response.StatusCode + " url=" + url
                         + (string.IsNullOrEmpty(errBody) ? "" : " body=" + Truncate(errBody, 200)));
                     return;
