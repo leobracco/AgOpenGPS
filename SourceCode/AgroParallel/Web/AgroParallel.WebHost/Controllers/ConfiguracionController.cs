@@ -21,12 +21,11 @@ using EmbedIO.WebApi;
 using System;
 using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class ConfiguracionController : WebApiController
+    public sealed class ConfiguracionController : AgpControllerBase
     {
         // Cap del zip de import (config son KBs; 64 MB cubre de sobra y frena
         // que suban un archivo gigante por error).
@@ -43,7 +42,10 @@ namespace AgroParallel.WebHost.Controllers
             }
             catch (Exception ex)
             {
-                await WriteJson(500, new { ok = false, error = "export-failed", detail = ex.Message });
+                // serialización especial a propósito: error 500 escrito directo al stream
+                // antes de cambiar el Content-Type a zip.
+                HttpContext.Response.StatusCode = 500;
+                await WriteJsonAsync(new { ok = false, error = "export-failed", detail = ex.Message });
                 return;
             }
 
@@ -54,12 +56,13 @@ namespace AgroParallel.WebHost.Controllers
             HttpContext.Response.Headers["Cache-Control"] = "no-store";
             HttpContext.Response.Headers["Content-Disposition"] =
                 "attachment; filename=\"" + name + "\"";
+            // serialización especial a propósito: binario ZIP, no JSON.
             await HttpContext.Response.OutputStream.WriteAsync(zip, 0, zip.Length)
                 .ConfigureAwait(false);
         }
 
         [Route(HttpVerbs.Post, "/config/backup")]
-        public object Backup([QueryField] string tipo)
+        public Task Backup([QueryField] string tipo)
         {
             try
             {
@@ -73,21 +76,21 @@ namespace AgroParallel.WebHost.Controllers
                 string dir = ConfigBackupService.RunBackup(
                     ConfigBackupService.ConfiguredExtraDirs,
                     force: true, installer: installer);
-                return new
+                return WriteJsonAsync(new
                 {
                     ok = dir != null,
                     carpeta = dir,
                     nombre = dir != null ? Path.GetFileName(dir) : null
-                };
+                });
             }
             catch (Exception ex)
             {
-                return new { ok = false, error = "backup-failed", detail = ex.Message };
+                return WriteJsonAsync(new { ok = false, error = "backup-failed", detail = ex.Message });
             }
         }
 
         [Route(HttpVerbs.Get, "/config/backups")]
-        public object Backups()
+        public Task Backups()
         {
             try
             {
@@ -101,52 +104,52 @@ namespace AgroParallel.WebHost.Controllers
                         bytes = b.TotalBytes
                     })
                     .ToArray();
-                return new { ok = true, backups = list };
+                return WriteJsonAsync(new { ok = true, backups = list });
             }
             catch (Exception ex)
             {
-                return new { ok = false, error = ex.Message };
+                return WriteJsonAsync(new { ok = false, error = ex.Message });
             }
         }
 
         [Route(HttpVerbs.Get, "/config/backup-detalle")]
-        public object BackupDetalle([QueryField] string nombre)
+        public Task BackupDetalle([QueryField] string nombre)
         {
             if (string.IsNullOrWhiteSpace(nombre))
-                return new { ok = false, error = "falta-nombre" };
+                return WriteJsonAsync(new { ok = false, error = "falta-nombre" });
 
             try
             {
                 var files = ConfigBackupService.ListBackupFiles(nombre)
                     .Select(f => new { ruta = f.Path, bytes = f.Bytes })
                     .ToArray();
-                return new { ok = true, nombre, archivos = files };
+                return WriteJsonAsync(new { ok = true, nombre, archivos = files });
             }
             catch (Exception ex)
             {
-                return new { ok = false, error = ex.Message };
+                return WriteJsonAsync(new { ok = false, error = ex.Message });
             }
         }
 
         [Route(HttpVerbs.Post, "/config/restore")]
-        public object Restore([QueryField] string nombre)
+        public Task Restore([QueryField] string nombre)
         {
             if (string.IsNullOrWhiteSpace(nombre))
-                return new { ok = false, error = "falta-nombre" };
+                return WriteJsonAsync(new { ok = false, error = "falta-nombre" });
 
             var r = ConfigBackupService.RestoreFromBackup(
                 nombre, ConfigBackupService.ConfiguredExtraDirs);
 
-            return new
+            return WriteJsonAsync(new
             {
                 ok = r.Ok,
                 archivos_restaurados = r.FilesRestored,
                 error = r.Error
-            };
+            });
         }
 
         [Route(HttpVerbs.Post, "/config/import")]
-        public async Task<object> Import()
+        public async Task Import()
         {
             byte[] data;
             try
@@ -161,7 +164,10 @@ namespace AgroParallel.WebHost.Controllers
                     {
                         total += n;
                         if (total > MaxZipBytes)
-                            return new { ok = false, error = "file-too-large", max_bytes = MaxZipBytes };
+                        {
+                            await WriteJsonAsync(new { ok = false, error = "file-too-large", max_bytes = MaxZipBytes });
+                            return;
+                        }
                         await buf.WriteAsync(chunk, 0, n).ConfigureAwait(false);
                     }
                     data = buf.ToArray();
@@ -169,30 +175,25 @@ namespace AgroParallel.WebHost.Controllers
             }
             catch (Exception ex)
             {
-                return new { ok = false, error = "read-failed", detail = ex.Message };
+                await WriteJsonAsync(new { ok = false, error = "read-failed", detail = ex.Message });
+                return;
             }
 
             if (data.Length < 22) // tamaño mínimo de un zip vacío (EOCD)
-                return new { ok = false, error = "empty-or-invalid" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "empty-or-invalid" });
+                return;
+            }
 
             var result = ConfigBackupService.ImportFromZip(
                 data, ConfigBackupService.ConfiguredExtraDirs);
 
-            return new
+            await WriteJsonAsync(new
             {
                 ok = result.Ok,
                 archivos_restaurados = result.FilesRestored,
                 error = result.Error
-            };
-        }
-
-        private async Task WriteJson(int code, object payload)
-        {
-            HttpContext.Response.StatusCode = code;
-            HttpContext.Response.ContentType = "application/json";
-            var bytes = System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload));
-            await HttpContext.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length)
-                .ConfigureAwait(false);
+            });
         }
     }
 }
