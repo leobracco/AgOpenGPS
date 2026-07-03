@@ -7,35 +7,16 @@
 //   POST /api/insumos/activo       (body = { id: "..." }) → { ok, activo }
 // ============================================================================
 
-using System.IO;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class InsumoCatalogController : WebApiController
+    public sealed class InsumoCatalogController : AgpControllerBase
     {
-        private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
-        // El ResponseSerializer default (Swan) ignora [JsonPropertyName] de
-        // System.Text.Json y emite PascalCase. Los DTOs InsumoCatalogDto /
-        // InsumoDto traen [JsonPropertyName("activo_id"|"items"|"nombre"|...)]
-        // y la UI lee snake_case. Serializamos a mano con System.Text.Json
-        // para que respete los atributos.
-        private static readonly JsonSerializerOptions JsonOutOpts = new JsonSerializerOptions
-        {
-            // Sin policy: cada propiedad usa su [JsonPropertyName] explícito.
-        };
-
         private readonly IInsumoCatalogService _svc;
 
         public InsumoCatalogController(IInsumoCatalogService svc)
@@ -43,67 +24,52 @@ namespace AgroParallel.WebHost.Controllers
             _svc = svc;
         }
 
-        private async Task SendJsonAsync(object obj)
-        {
-            string json = JsonSerializer.Serialize(obj, JsonOutOpts);
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
-        }
-
         [Route(HttpVerbs.Get, "/insumos")]
-        public async Task Get()
+        public Task Get()
         {
-            if (_svc == null) { await SendJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
-            await SendJsonAsync(_svc.Load());
+            if (_svc == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(_svc.Load());
         }
 
         [Route(HttpVerbs.Post, "/insumos")]
-        public async Task<object> Save()
+        public async Task Save()
         {
-            if (_svc == null) return new { ok = false, error = "service-unavailable" };
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
-            var dto = JsonSerializer.Deserialize<InsumoCatalogDto>(body, JsonOpts);
-            if (dto == null) return new { ok = false, error = "invalid-body" };
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var dto = await ReadJsonBodyAsync<InsumoCatalogDto>();
+            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
             _svc.Save(dto);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Get, "/insumos/activo")]
-        public async Task GetActivo()
+        public Task GetActivo()
         {
-            if (_svc == null) { await SendJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            if (_svc == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
             var activo = _svc.GetActivo();
-            if (activo == null) { await SendJsonAsync(new { ok = false, error = "none" }); return; }
-            await SendJsonAsync(activo);
+            if (activo == null) return WriteJsonAsync(new { ok = false, error = "none" });
+            return WriteJsonAsync(activo);
         }
 
         // Body esperado: { "id": "soja-dm-46i17" }. id="" deselecciona.
         [Route(HttpVerbs.Post, "/insumos/activo")]
         public async Task SetActivo()
         {
-            if (_svc == null) { await SendJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
-            string id = "";
             try
             {
-                using (var doc = JsonDocument.Parse(body))
+                body = await ReadBodyAsync();
+                using (var doc = System.Text.Json.JsonDocument.Parse(body))
                 {
+                    string id = "";
                     if (doc.RootElement.TryGetProperty("id", out var jId))
                         id = jId.GetString() ?? "";
+                    bool ok = _svc.SetActivo(id);
+                    var activoDto = _svc.GetActivo();
+                    await WriteJsonAsync(new { ok, activo = activoDto });
                 }
             }
-            catch { await SendJsonAsync(new { ok = false, error = "invalid-body" }); return; }
-
-            bool ok = _svc.SetActivo(id);
-            // activo se inlinea como JsonElement para que su [JsonPropertyName] aplique.
-            var activoDto = _svc.GetActivo();
-            string activoJson = activoDto == null ? "null"
-                : JsonSerializer.Serialize(activoDto, JsonOutOpts);
-            string body2 = "{\"ok\":" + (ok ? "true" : "false") + ",\"activo\":" + activoJson + "}";
-            await HttpContext.SendStringAsync(body2, "application/json", Encoding.UTF8).ConfigureAwait(false);
+            catch { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); }
         }
     }
 }
