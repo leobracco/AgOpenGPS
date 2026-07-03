@@ -1,7 +1,7 @@
 // ============================================================================
 // CamarasController.cs
 // Endpoints REST del módulo Cámaras:
-//   GET  /api/camaras/config           → { ok, config: { camaras:[...], refrescoMs } }
+//   GET  /api/camaras/config           → { ok, config: { camaras:[...], refresco_ms } }
 //   PUT  /api/camaras/config           → recibe el mismo shape, persiste a JSON
 //   GET  /api/camaras/{idx}/snapshot   → proxy a la cámara IP con auth Digest/Basic
 //
@@ -10,58 +10,50 @@
 // ============================================================================
 
 using System;
-using System.IO;
-using System.Text.Json;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class CamarasController : WebApiController
+    public sealed class CamarasController : AgpControllerBase
     {
-        // El response-serializer default de EmbedIO (Swan) ignora
-        // [JsonPropertyName] y emite PascalCase. La UI JS lee lowercase
-        // (c.nombre, c.ip, state.config.camaras...), así que serializamos a
-        // mano con System.Text.Json — mismo patrón que QuantiXController.
-        private static readonly JsonSerializerOptions ReadOpts = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
         private readonly ICamarasConfigService _svc;
 
         public CamarasController(ICamarasConfigService svc) { _svc = svc; }
 
         [Route(HttpVerbs.Get, "/camaras/config")]
-        public async Task GetConfig()
+        public Task GetConfig()
         {
-            string json = _svc == null
-                ? SysJson.Serialize(new { ok = false, error = "service-unavailable" })
-                : SysJson.Serialize(new { ok = true, config = _svc.GetConfig() });
-            await HttpContext
-                .SendStringAsync(json, "application/json", System.Text.Encoding.UTF8)
-                .ConfigureAwait(false);
+            if (_svc == null)
+                return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(new { ok = true, config = _svc.GetConfig() });
         }
 
         [Route(HttpVerbs.Put, "/camaras/config")]
-        public async Task<object> PutConfig()
+        public async Task PutConfig()
         {
             if (_svc == null)
-                return new { ok = false, error = "service-unavailable" };
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync().ConfigureAwait(false);
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable" }).ConfigureAwait(false);
+                return;
+            }
             CamarasConfigDto cfg;
-            try { cfg = SysJson.Deserialize<CamarasConfigDto>(body, ReadOpts); }
-            catch (Exception ex) { return new { ok = false, error = "bad-json: " + ex.Message }; }
-            if (cfg == null) return new { ok = false, error = "empty-body" };
+            try { cfg = await ReadJsonBodyAsync<CamarasConfigDto>().ConfigureAwait(false); }
+            catch (Exception ex)
+            {
+                await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }).ConfigureAwait(false);
+                return;
+            }
+            if (cfg == null)
+            {
+                await WriteJsonAsync(new { ok = false, error = "empty-body" }).ConfigureAwait(false);
+                return;
+            }
             _svc.SaveConfig(cfg);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true }).ConfigureAwait(false);
         }
 
         [Route(HttpVerbs.Get, "/camaras/{idx}/snapshot")]
