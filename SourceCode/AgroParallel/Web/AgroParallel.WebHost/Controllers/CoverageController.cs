@@ -8,17 +8,15 @@
 //   (b) mirrorear este snapshot — útil cuando se abre un lote ya empezado.
 // ============================================================================
 
-using System.Text;
 using System.Threading.Tasks;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class CoverageController : WebApiController
+    public sealed class CoverageController : AgpControllerBase
     {
         private readonly ICoverageService _coverage;
 
@@ -28,22 +26,19 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/aog/coverage")]
-        public async Task GetCoverage()
+        public Task GetCoverage()
         {
             var snap = _coverage != null ? _coverage.GetSnapshot() : null;
-            string json = SysJson.Serialize(new { ok = true, snapshot = snap }, new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-            });
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
+            return WriteJsonAsync(new { ok = true, snapshot = snap });
         }
 
         [Route(HttpVerbs.Post, "/aog/coverage/reset")]
-        public object Reset()
+        public Task Reset()
         {
-            if (_coverage == null) return new { ok = false, error = "service-unavailable" };
+            if (_coverage == null)
+                return WriteErrorAsync(503, "service-unavailable", "Servicio de cobertura no disponible.");
             _coverage.Reset();
-            return new { ok = true };
+            return WriteJsonAsync(new { ok = true });
         }
     }
 }
