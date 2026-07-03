@@ -18,10 +18,10 @@
 // versión es la fuente de verdad para "hash + size + changelog".
 // ============================================================================
 
+using AgroParallel.Models;
 using AgroParallel.OrbitX;
 using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,7 +32,7 @@ using System.Threading.Tasks;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class FirmwaresController : WebApiController
+    public sealed class FirmwaresController : AgpControllerBase
     {
         // Mismo regex que usa el router del cloud OrbitX y el LAN server para
         // armar paths — alfanumérico (case-insensitive) + guion para casos como
@@ -46,7 +46,7 @@ namespace AgroParallel.WebHost.Controllers
         private const long MaxBinBytes = 8L * 1024 * 1024;
 
         [Route(HttpVerbs.Get, "/firmwares")]
-        public object List()
+        public Task List()
         {
             OrbitXConfig cfg = SafeLoadOrbitX();
             string cacheDir = FirmwareMirror.ResolveCacheDir(cfg);
@@ -79,27 +79,27 @@ namespace AgroParallel.WebHost.Controllers
             int port = cfg != null && cfg.FirmwareHttpPort > 0 ? cfg.FirmwareHttpPort : 8088;
             string lan = FirmwareOtaClient.ResolveLanIp();
 
-            return new
+            return WriteJsonAsync(new
             {
                 ok = true,
                 cache_dir = cacheDir,
                 lan_ip = lan,
                 http_port = port,
                 productos = byProducto
-            };
+            });
         }
 
         [Route(HttpVerbs.Post, "/firmwares/upload")]
-        public async Task<object> Upload()
+        public async Task Upload()
         {
             string producto = (HttpContext.Request.Headers["X-AP-Producto"] ?? "").Trim();
             string version = (HttpContext.Request.Headers["X-AP-Version"] ?? "").Trim();
             string changelog = HttpContext.Request.Headers["X-AP-Changelog"] ?? "";
 
             if (string.IsNullOrEmpty(producto) || !RxProducto.IsMatch(producto))
-                return new { ok = false, error = "invalid-producto" };
+            { await WriteJsonAsync(new { ok = false, error = "invalid-producto" }).ConfigureAwait(false); return; }
             if (string.IsNullOrEmpty(version) || !RxVersion.IsMatch(version))
-                return new { ok = false, error = "invalid-version" };
+            { await WriteJsonAsync(new { ok = false, error = "invalid-version" }).ConfigureAwait(false); return; }
 
             string prodLo = producto.ToLowerInvariant();
 
@@ -132,7 +132,8 @@ namespace AgroParallel.WebHost.Controllers
                         {
                             fs.Dispose();
                             try { File.Delete(tmp); } catch { }
-                            return new { ok = false, error = "file-too-large", max_bytes = MaxBinBytes };
+                            await WriteJsonAsync(new { ok = false, error = "file-too-large", max_bytes = MaxBinBytes }).ConfigureAwait(false);
+                            return;
                         }
                         await fs.WriteAsync(buf, 0, n).ConfigureAwait(false);
                     }
@@ -141,7 +142,8 @@ namespace AgroParallel.WebHost.Controllers
                 if (total < 1024)
                 {
                     try { File.Delete(tmp); } catch { }
-                    return new { ok = false, error = "file-too-small", bytes = total };
+                    await WriteJsonAsync(new { ok = false, error = "file-too-small", bytes = total }).ConfigureAwait(false);
+                    return;
                 }
 
                 // Hash + manifest. Igual que FirmwareMirror.DownloadAsync.
@@ -162,19 +164,19 @@ namespace AgroParallel.WebHost.Controllers
                     FirmwareMirror.PathManifest(cacheDir, prodLo, version),
                     JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
 
-                return new
+                await WriteJsonAsync(new
                 {
                     ok = true,
                     producto = prodLo,
                     version,
                     hash_sha256 = sha,
                     tamano_bytes = total
-                };
+                }).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
-                return new { ok = false, error = "upload-failed", detail = ex.Message };
+                await WriteJsonAsync(new { ok = false, error = "upload-failed", detail = ex.Message }).ConfigureAwait(false);
             }
         }
 
@@ -188,9 +190,9 @@ namespace AgroParallel.WebHost.Controllers
         public async Task Download(string producto, string version)
         {
             if (string.IsNullOrEmpty(producto) || !RxProducto.IsMatch(producto))
-            { await WriteError(404, "invalid-producto"); return; }
+            { await WriteErrorAsync(404, "invalid-producto", "Producto inválido.").ConfigureAwait(false); return; }
             if (string.IsNullOrEmpty(version) || !RxVersion.IsMatch(version))
-            { await WriteError(404, "invalid-version"); return; }
+            { await WriteErrorAsync(404, "invalid-version", "Versión inválida.").ConfigureAwait(false); return; }
 
             string prodLo = producto.ToLowerInvariant();
             OrbitXConfig cfg = SafeLoadOrbitX();
@@ -213,7 +215,7 @@ namespace AgroParallel.WebHost.Controllers
             }
 
             if (!File.Exists(binPath))
-            { await WriteError(404, "not-found"); return; }
+            { await WriteErrorAsync(404, "not-found", "Firmware no encontrado en el cache.").ConfigureAwait(false); return; }
 
             var info = new FileInfo(binPath);
             HttpContext.Response.StatusCode = 200;
@@ -229,23 +231,13 @@ namespace AgroParallel.WebHost.Controllers
             }
         }
 
-        private async Task WriteError(int code, string err)
-        {
-            HttpContext.Response.StatusCode = code;
-            HttpContext.Response.ContentType = "application/json";
-            var bytes = System.Text.Encoding.UTF8.GetBytes(
-                JsonSerializer.Serialize(new { ok = false, error = err }));
-            await HttpContext.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length)
-                .ConfigureAwait(false);
-        }
-
         [Route(HttpVerbs.Delete, "/firmwares/{producto}/{version}")]
-        public object Delete(string producto, string version)
+        public Task Delete(string producto, string version)
         {
             if (string.IsNullOrEmpty(producto) || !RxProducto.IsMatch(producto))
-                return new { ok = false, error = "invalid-producto" };
+                return WriteJsonAsync(new { ok = false, error = "invalid-producto" });
             if (string.IsNullOrEmpty(version) || !RxVersion.IsMatch(version))
-                return new { ok = false, error = "invalid-version" };
+                return WriteJsonAsync(new { ok = false, error = "invalid-version" });
 
             string prodLo = producto.ToLowerInvariant();
             OrbitXConfig cfg = SafeLoadOrbitX();
@@ -253,7 +245,7 @@ namespace AgroParallel.WebHost.Controllers
             string dirVer = FirmwareMirror.DirVersion(cacheDir, prodLo, version);
 
             if (!Directory.Exists(dirVer))
-                return new { ok = false, error = "not-found" };
+                return WriteJsonAsync(new { ok = false, error = "not-found" });
 
             try
             {
@@ -269,11 +261,11 @@ namespace AgroParallel.WebHost.Controllers
                 }
                 catch { /* ignorar — el dir queda, no es crítico */ }
 
-                return new { ok = true, producto = prodLo, version };
+                return WriteJsonAsync(new { ok = true, producto = prodLo, version });
             }
             catch (Exception ex)
             {
-                return new { ok = false, error = "delete-failed", detail = ex.Message };
+                return WriteJsonAsync(new { ok = false, error = "delete-failed", detail = ex.Message });
             }
         }
 
