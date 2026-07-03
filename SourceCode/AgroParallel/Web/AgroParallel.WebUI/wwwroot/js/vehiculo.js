@@ -8,21 +8,6 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
-  // Normalizador PascalCase → camelCase. EmbedIO/Swan serializa anónimos en
-  // lowercase pero los POCOs llegan PascalCase desde la red en algunos pipes.
-  function lkeys(v) {
-    if (Array.isArray(v)) return v.map(lkeys);
-    if (v && typeof v === 'object') {
-      var out = {};
-      Object.keys(v).forEach(function (k) {
-        var nk = k.charAt(0).toLowerCase() + k.slice(1);
-        out[nk] = lkeys(v[k]);
-      });
-      return out;
-    }
-    return v;
-  }
-
   function pill(state, text) {
     var el = $('vehStatus');
     el.className = 'pill ' + (state === 'ok' ? 'ok' : state === 'err' ? 'bad' : '');
@@ -90,7 +75,7 @@
     pill('', 'Cargando…');
     try {
       var res = await fetch('/api/vehicle', { cache: 'no-store' });
-      var data = lkeys(await res.json());
+      var data = await res.json();
       if (!data.ok) throw new Error(data.error || 'GET falló');
       fillForm(data.vehicle);
       pill('ok', 'OK');
@@ -109,7 +94,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cfg)
       });
-      var data = lkeys(await res.json());
+      var data = await res.json();
       if (data.ok) {
         msg('ok', '✓ Guardado y aplicado.');
       } else {
