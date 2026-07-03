@@ -12,17 +12,16 @@
 // ============================================================================
 
 using System.Collections.Generic;
-using System.IO;
+using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;
-using Swan.Formatters;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class DebugController : WebApiController
+    public sealed class DebugController : AgpControllerBase
     {
         private readonly IDebugLogService _log;
 
@@ -32,14 +31,14 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/debug/snapshot")]
-        public object Snapshot([QueryField] int max)
+        public Task Snapshot([QueryField] int max)
         {
             if (_log == null) return Unavailable();
-            return _log.GetSnapshot(max > 0 ? max : 500);
+            return WriteJsonAsync(_log.GetSnapshot(max > 0 ? max : 500));
         }
 
         [Route(HttpVerbs.Get, "/debug/entries")]
-        public object Entries([QueryField] long since, [QueryField] string modules)
+        public Task Entries([QueryField] long since, [QueryField] string modules)
         {
             if (_log == null) return Unavailable();
             List<string> mods = null;
@@ -48,79 +47,72 @@ namespace AgroParallel.WebHost.Controllers
                 mods = new List<string>(modules.Split(','));
             }
             var list = _log.GetEntriesSince(since, mods);
-            return new { ok = true, count = list.Count, entries = list };
+            return WriteJsonAsync(new { ok = true, count = list.Count, entries = list });
         }
 
         [Route(HttpVerbs.Get, "/debug/config")]
-        public object GetConfig()
+        public Task GetConfig()
         {
             if (_log == null) return Unavailable();
-            return _log.GetConfig();
+            return WriteJsonAsync(_log.GetConfig());
         }
 
         [Route(HttpVerbs.Put, "/debug/config")]
-        public async System.Threading.Tasks.Task<object> PutConfig()
+        public async Task PutConfig()
         {
-            if (_log == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_log == null) { await Unavailable(); return; }
             DebugConfigDto cfg;
-            try { cfg = Json.Deserialize<DebugConfigDto>(body); }
-            catch { return new { ok = false, error = "invalid-json" }; }
+            try { cfg = await ReadJsonBodyAsync<DebugConfigDto>(); }
+            catch { await WriteJsonAsync(new { ok = false, error = "invalid-json" }); return; }
             _log.SaveConfig(cfg);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Post, "/debug/module")]
-        public object ToggleModule([QueryField] string name, [QueryField] bool on)
+        public Task ToggleModule([QueryField] string name, [QueryField] bool on)
         {
             if (_log == null) return Unavailable();
-            if (string.IsNullOrEmpty(name)) return new { ok = false, error = "missing-name" };
+            if (string.IsNullOrEmpty(name)) return WriteJsonAsync(new { ok = false, error = "missing-name" });
             _log.SetModuleEnabled(name, on);
-            return new { ok = true, name, on };
+            return WriteJsonAsync(new { ok = true, name, on });
         }
 
         [Route(HttpVerbs.Post, "/debug/clear")]
-        public object Clear()
+        public Task Clear()
         {
             if (_log == null) return Unavailable();
             _log.Clear();
-            return new { ok = true };
+            return WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Post, "/debug/record")]
-        public object Record([QueryField] bool on)
+        public Task Record([QueryField] bool on)
         {
             if (_log == null) return Unavailable();
             if (on)
             {
                 string p = _log.StartRecording();
-                return new { ok = !string.IsNullOrEmpty(p), file = p };
+                return WriteJsonAsync(new { ok = !string.IsNullOrEmpty(p), file = p });
             }
             _log.StopRecording();
-            return new { ok = true };
+            return WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Post, "/debug/append")]
-        public async System.Threading.Tasks.Task<object> Append()
+        public async Task Append()
         {
-            if (_log == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
-            try
-            {
-                var dto = Json.Deserialize<DebugEntryDto>(body);
-                _log.Append(dto?.Module, dto?.Level, dto?.Message);
-                return new { ok = true };
-            }
+            if (_log == null) { await Unavailable(); return; }
+            DebugEntryDto dto;
+            try { dto = await ReadJsonBodyAsync<DebugEntryDto>(); }
             catch
             {
-                return new { ok = false, error = "invalid-json" };
+                await WriteJsonAsync(new { ok = false, error = "invalid-json" });
+                return;
             }
+            _log.Append(dto?.Module, dto?.Level, dto?.Message);
+            await WriteJsonAsync(new { ok = true });
         }
 
-        private object Unavailable() => new { ok = false, error = "service-unavailable" };
+        private Task Unavailable() => WriteJsonAsync(new { ok = false, error = "service-unavailable" });
     }
 }

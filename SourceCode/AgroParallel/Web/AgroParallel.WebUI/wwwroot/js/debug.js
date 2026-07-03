@@ -140,10 +140,13 @@
   async function loadSnapshot() {
     const r = await fetch('/api/debug/snapshot?max=500');
     const j = await r.json();
-    state.cfg = j.config || { modules: {}, minLevel: 'debug' };
+    // Snake_case: recording_file, min_level (AgpJson wire format)
+    var cfg = j.config || { modules: {}, min_level: 'debug' };
+    // Normalizar min_level→minLevel internamente para el UI state
+    state.cfg = { modules: cfg.modules || {}, minLevel: cfg.min_level || cfg.minLevel || 'debug' };
     state.seq = j.seq || 0;
     state.recording = !!j.recording;
-    state.recordingFile = j.recordingFile || null;
+    state.recordingFile = j.recording_file || null;
     // Sembrar buffer
     state.buffer = (j.entries || []).filter(passesFilter);
     renderAll();
@@ -153,10 +156,12 @@
 
   async function putConfig() {
     try {
+      // Mandar snake_case al servidor (min_level en lugar de minLevel)
+      var payload = { modules: state.cfg.modules, min_level: state.cfg.minLevel };
       await fetch('/api/debug/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(state.cfg)
+        body: JSON.stringify(payload)
       });
     } catch (_) {}
   }
