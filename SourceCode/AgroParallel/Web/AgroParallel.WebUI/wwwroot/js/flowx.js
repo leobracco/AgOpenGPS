@@ -860,7 +860,7 @@
         fetch('/api/flowx/' + encodeURIComponent(uid) + '/' + kind, { cache: 'no-store' })
           .then(function (r) { return r.json(); })
           .then(function (body) {
-            if (body && body.hasResult && body.result) resolve(body.result);
+            if (body && body.has_result && body.result) resolve(body.result);
             else setTimeout(loop, 500);
           })
           .catch(function () { setTimeout(loop, 500); });

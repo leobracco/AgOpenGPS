@@ -13,10 +13,7 @@
 // ============================================================================
 
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
@@ -26,20 +23,8 @@ using EmbedIO.WebApi;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class FlowXController : WebApiController
+    public sealed class FlowXController : AgpControllerBase
     {
-        private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
-        // Sin policy: cada DTO usa su [JsonPropertyName] explícito (snake_case).
-        // Swan (serializer default de EmbedIO) ignora esos atributos y emite
-        // PascalCase — el JS espera snake_case, así que loadCfg() veía nodos
-        // undefined y el operario percibía "habilité FlowX, salí, volví y se
-        // deshabilitó". Mismo bug que ya estaba documentado en SectionXController.
-        private static readonly JsonSerializerOptions JsonOutOpts = new JsonSerializerOptions();
-
         private readonly IFlowXConfigService _cfg;
         private readonly INodoRegistryService _nodos;
         private readonly IFlowXLiveService _live;
@@ -51,41 +36,33 @@ namespace AgroParallel.WebHost.Controllers
             _live = live;
         }
 
-        private async Task SendJsonAsync(object obj)
-        {
-            string json = JsonSerializer.Serialize(obj, JsonOutOpts);
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
-        }
-
         [Route(HttpVerbs.Get, "/flowx/config")]
-        public async Task GetConfig()
+        public Task GetConfig()
         {
-            if (_cfg == null) { await SendJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
-            await SendJsonAsync(_cfg.Load());
+            if (_cfg == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(_cfg.Load());
         }
 
         [Route(HttpVerbs.Post, "/flowx/config")]
         public async Task SaveConfig()
         {
-            if (_cfg == null) { await SendJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_cfg == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            string body = await ReadBodyAsync().ConfigureAwait(false);
             FlowXConfigDto dto;
-            try { dto = JsonSerializer.Deserialize<FlowXConfigDto>(body, JsonOpts); }
+            try { dto = AgpJson.Deserialize<FlowXConfigDto>(body); }
             catch { dto = null; }
-            if (dto == null) { await SendJsonAsync(new { ok = false, error = "invalid-body" }); return; }
+            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
             _cfg.Save(dto);
-            await SendJsonAsync(new { ok = true });
+            await WriteJsonAsync(new { ok = true });
         }
 
         // Nodos FlowX descubiertos vía agp/flow/{uid}/announcement (4-part).
         // NodoRegistryService deriva el type del topic (parts[1]), así que
         // filtramos por "flow" case-insensitive.
         [Route(HttpVerbs.Get, "/flowx/nodos")]
-        public object GetNodos()
+        public Task GetNodos()
         {
-            if (_nodos == null) return new { ok = false, nodos = new object[0] };
+            if (_nodos == null) return WriteJsonAsync(new { ok = false, nodos = new object[0] });
             var all = _nodos.GetAll() ?? new List<NodoStatus>();
             var flow = all
                 .Where(n => n != null && !string.IsNullOrEmpty(n.Type)
@@ -106,7 +83,7 @@ namespace AgroParallel.WebHost.Controllers
                     crash_count = n.CrashCount
                 })
                 .ToList();
-            return new { ok = true, nodos = flow };
+            return WriteJsonAsync(new { ok = true, nodos = flow });
         }
 
         // Publica config persistente (electroválvulas + caudalímetro) al firmware.
@@ -121,9 +98,7 @@ namespace AgroParallel.WebHost.Controllers
             if (_nodos == null) return new { ok = false, error = "mqtt-unavailable" };
             if (string.IsNullOrWhiteSpace(uid)) return new { ok = false, error = "uid-required" };
 
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync().ConfigureAwait(false);
+            string body = await ReadBodyAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) return new { ok = false, error = "empty-body" };
 
             string topic = "agp/flow/" + uid + "/config";
@@ -135,10 +110,10 @@ namespace AgroParallel.WebHost.Controllers
         // Si el live service no está cableado todavía, devolvemos un snapshot vacío
         // para que la UI no rompa.
         [Route(HttpVerbs.Get, "/flowx/live")]
-        public async Task GetLive()
+        public Task GetLive()
         {
-            if (_live == null) { await SendJsonAsync(new FlowXLiveSnapshotDto { MonitoreoActivo = false }); return; }
-            await SendJsonAsync(_live.GetSnapshot());
+            if (_live == null) return WriteJsonAsync(new FlowXLiveSnapshotDto { MonitoreoActivo = false });
+            return WriteJsonAsync(_live.GetSnapshot());
         }
 
         // Publica un comando arbitrario al nodo en agp/flow/{uid}/cmd/{verb}.
@@ -155,9 +130,7 @@ namespace AgroParallel.WebHost.Controllers
             if (string.IsNullOrWhiteSpace(uid)) return new { ok = false, error = "uid-required" };
             if (string.IsNullOrWhiteSpace(verb)) return new { ok = false, error = "verb-required" };
 
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync().ConfigureAwait(false);
+            string body = await ReadBodyAsync().ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(body)) body = "{}";
 
             string topic = "agp/flow/" + uid + "/cmd/" + verb;
@@ -166,57 +139,57 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         // Último resultado de auto-tune / calibración cacheado por el live service.
-        // Si el firmware todavía no responde, devolvemos hasResult=false y la UI
+        // Si el firmware todavía no responde, devolvemos has_result=false y la UI
         // sigue polleando hasta el timeout.
         [Route(HttpVerbs.Get, "/flowx/{uid}/autotune")]
-        public async Task GetAutoTune(string uid)
+        public Task GetAutoTune(string uid)
         {
-            if (_live == null) { await SendJsonAsync(new { ok = true, hasResult = false }); return; }
+            if (_live == null) return WriteJsonAsync(new { ok = true, has_result = false });
             var r = _live.GetAutoTuneResult(uid);
-            if (r == null) { await SendJsonAsync(new { ok = true, hasResult = false }); return; }
-            await SendJsonAsync(new { ok = true, hasResult = true, result = r });
+            if (r == null) return WriteJsonAsync(new { ok = true, has_result = false });
+            return WriteJsonAsync(new { ok = true, has_result = true, result = r });
         }
 
         [Route(HttpVerbs.Get, "/flowx/{uid}/calibrar")]
-        public async Task GetCalibrar(string uid)
+        public Task GetCalibrar(string uid)
         {
-            if (_live == null) { await SendJsonAsync(new { ok = true, hasResult = false }); return; }
+            if (_live == null) return WriteJsonAsync(new { ok = true, has_result = false });
             var r = _live.GetCalibrarResult(uid);
-            if (r == null) { await SendJsonAsync(new { ok = true, hasResult = false }); return; }
-            await SendJsonAsync(new { ok = true, hasResult = true, result = r });
+            if (r == null) return WriteJsonAsync(new { ok = true, has_result = false });
+            return WriteJsonAsync(new { ok = true, has_result = true, result = r });
         }
 
         // Caracterización: el firmware barre PWM 0..4095 y publica la curva +
         // pwm_min real (primer PWM con flujo) + pwm_min_estable (PID-utilizable)
         // + hz_max. La UI lo dispara con cmd verb=caracterizar_start y pollea
-        // este endpoint hasta hasResult=true. El raw es el JSON tal cual lo
+        // este endpoint hasta has_result=true. El raw es el JSON tal cual lo
         // emite el firmware — devolvemos como string crudo para no tener que
         // tipar la curva.
         [Route(HttpVerbs.Get, "/flowx/{uid}/caracterizar")]
         public async Task GetCaracterizar(string uid)
         {
-            if (_live == null) { await SendJsonAsync(new { ok = true, hasResult = false }); return; }
+            if (_live == null) { await WriteJsonAsync(new { ok = true, has_result = false }); return; }
             string raw = _live.GetCaracterizarResultRaw(uid);
             if (string.IsNullOrEmpty(raw))
             {
-                await SendJsonAsync(new { ok = true, hasResult = false });
+                await WriteJsonAsync(new { ok = true, has_result = false });
                 return;
             }
-            // Emitimos un envelope { ok, hasResult, result:<raw inline> }. Como
+            // Emitimos un envelope { ok, has_result, result:<raw inline> }. Como
             // el raw ya es JSON, lo concatenamos en vez de re-serializar.
-            string json = "{\"ok\":true,\"hasResult\":true,\"result\":" + raw + "}";
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8)
+            string json = "{\"ok\":true,\"has_result\":true,\"result\":" + raw + "}";
+            await HttpContext.SendStringAsync(json, "application/json", System.Text.Encoding.UTF8)
                 .ConfigureAwait(false);
         }
 
         // Limpia el último resultado cacheado — la UI lo llama antes de
         // disparar caracterizar_start para no leer una corrida vieja.
         [Route(HttpVerbs.Delete, "/flowx/{uid}/caracterizar")]
-        public async Task ClearCaracterizar(string uid)
+        public Task ClearCaracterizar(string uid)
         {
-            if (_live == null) { await SendJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            if (_live == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
             _live.ClearCaracterizarResult(uid);
-            await SendJsonAsync(new { ok = true });
+            return WriteJsonAsync(new { ok = true });
         }
     }
 }
