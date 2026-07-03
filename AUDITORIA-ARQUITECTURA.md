@@ -89,7 +89,7 @@
 | StormX | 0.2.0 | ESP32-S3 | 🔨 | **SÍ publica MQTT** (announcement + status_live + cmd/OTA). ❌ sin safe-mode; LCD sin watchdog |
 | LineX | 1.0.0 | ESP32 devkit | ✅ | safe-mode, buffer 3072, tests nativos (sin CI) |
 | CoreX ECU | ? | — | ❓ | carpeta Firmware_Embebido vacía — el fw v1.14 real vive en otro lado (verificar) |
-| SectionX | — | — | ❓ | no existe como firmware separado en el árbol (¿secciones = relays de CoreX ECU?) |
+| SectionX | — | — | ✅ n/a | NO es firmware: es software PC (CutDispatcher+SectionXCutAdapter) que traduce el estado de secciones de PilotX a MQTT; los relés los acciona el firmware QuantiX. Ver `docs/SECTIONX.md` |
 
 ### ❌ Lo que falta / ➖ de más (transversal)
 - **Sin librería común**: MQTT_Custom.cpp y OTA.cpp clonados ~90% entre productos → **~65% de las ~8.400 líneas duplicadas**. Recomendación: lib PlatformIO compartida (MQTT + OTA + provisioning + safe-mode).
