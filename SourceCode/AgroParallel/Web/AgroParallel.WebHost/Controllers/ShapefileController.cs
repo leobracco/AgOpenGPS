@@ -15,19 +15,16 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class ShapefileController : WebApiController
+    public sealed class ShapefileController : AgpControllerBase
     {
         private readonly IShapefileService _shape;
 
@@ -57,28 +54,25 @@ namespace AgroParallel.WebHost.Controllers
                 if (_shape == null)
                 {
                     result = new ShapefileUploadResult { Ok = false, Error = "Servicio de shapefile no disponible." };
-                    await Write(result);
+                    await WriteJsonAsync(result);
                     return;
                 }
 
-                string body;
-                using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                    body = await sr.ReadToEndAsync().ConfigureAwait(false);
+                string body = await ReadBodyAsync().ConfigureAwait(false);
 
-                var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 UploadBody parsed = null;
-                try { parsed = SysJson.Deserialize<UploadBody>(body, opts); }
+                try { parsed = AgpJson.Deserialize<UploadBody>(body); }
                 catch (Exception ex)
                 {
                     result = new ShapefileUploadResult { Ok = false, Error = "JSON inválido: " + ex.Message };
-                    await Write(result);
+                    await WriteJsonAsync(result);
                     return;
                 }
 
                 if (parsed?.files == null || parsed.files.Count == 0)
                 {
                     result = new ShapefileUploadResult { Ok = false, Error = "Body sin archivos." };
-                    await Write(result);
+                    await WriteJsonAsync(result);
                     return;
                 }
 
@@ -91,7 +85,7 @@ namespace AgroParallel.WebHost.Controllers
                     catch (Exception ex)
                     {
                         result = new ShapefileUploadResult { Ok = false, Error = "Base64 inválido en " + f.name + ": " + ex.Message };
-                        await Write(result);
+                        await WriteJsonAsync(result);
                         return;
                     }
                     files.Add(new ShapefileUploadFile(f.name, bytes));
@@ -103,7 +97,7 @@ namespace AgroParallel.WebHost.Controllers
             {
                 result = new ShapefileUploadResult { Ok = false, Error = "Excepción server: " + ex.Message };
             }
-            await Write(result);
+            await WriteJsonAsync(result);
         }
 
         [Route(HttpVerbs.Delete, "/aog/shape")]
@@ -117,16 +111,7 @@ namespace AgroParallel.WebHost.Controllers
                 else ok = await _shape.RemoveAsync().ConfigureAwait(false);
             }
             catch (Exception ex) { err = ex.Message; }
-            await Write(new { ok, error = err });
-        }
-
-        private Task Write(object payload)
-        {
-            string json = SysJson.Serialize(payload, new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-            });
-            return HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8);
+            await WriteJsonAsync(new { ok, error = err });
         }
     }
 }

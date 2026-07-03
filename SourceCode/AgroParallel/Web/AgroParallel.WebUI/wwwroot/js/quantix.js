@@ -2113,7 +2113,7 @@
       });
       var d = await r.json();
       if (d && d.ok) {
-        shapeSetMsg('ok', '✓ Cargado · ' + (d.polygonCount || 0) + ' polígonos');
+        shapeSetMsg('ok', '✓ Cargado · ' + (d.polygon_count || 0) + ' polígonos');
         shapeSelected = [];
         shapeRenderFileList();
         var inp = $sf('shapeFiles'); if (inp) inp.value = '';
