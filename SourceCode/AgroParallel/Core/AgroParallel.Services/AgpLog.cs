@@ -4,9 +4,12 @@ using System.Diagnostics;
 namespace AgroParallel.Services
 {
     /// <summary>
-    /// Fachada estática de logging. Rutea a Debug.WriteLine con el formato
+    /// Fachada estática de logging. Rutea a Trace.WriteLine con el formato
     /// "[Modulo] mensaje" que el TraceListener de DebugLogService ya captura
     /// (nivel inferido por heurística). No abre archivos ni lanza nunca.
+    /// Trace y no Debug: Debug.WriteLine tiene [Conditional("DEBUG")] y se
+    /// elimina en Release, que es como se distribuye PilotX; TRACE está
+    /// definido en ambas configuraciones y el listener vive en Trace.Listeners.
     /// </summary>
     public static class AgpLog
     {
@@ -28,7 +31,7 @@ namespace AgroParallel.Services
 
         private static void Write(string modulo, string msg)
         {
-            try { Debug.WriteLine($"[{modulo}] {msg}"); } catch { /* jamás romper por loguear */ }
+            try { Trace.WriteLine($"[{modulo}] {msg}"); } catch { /* jamás romper por loguear */ }
         }
     }
 }
