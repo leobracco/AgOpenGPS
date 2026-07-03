@@ -481,11 +481,11 @@
       var s = await r.json();
       if (!s.connected) {
         setStatusChip('red', 'broker caído', 'No hay conexión con el broker MQTT. Revisar CoreX/AgIO.');
-      } else if (!s.running || (s.nodoCount | 0) === 0) {
+      } else if (!s.running || (s.nodo_count | 0) === 0) {
         setStatusChip('yellow', 'sin nodos', 'Bridge conectado pero no hay nodos configurados todavía.');
-      } else if (s.lastPublishMsAgo != null && s.lastPublishMsAgo < 3000) {
+      } else if (s.last_publish_ms_ago != null && s.last_publish_ms_ago < 3000) {
         setStatusChip('green', 'publicando', 'Bridge publicando OK. Último mensaje hace ' +
-          Math.round(s.lastPublishMsAgo / 100) / 10 + 's.');
+          Math.round(s.last_publish_ms_ago / 100) / 10 + 's.');
       } else {
         setStatusChip('yellow', 'inactivo',
           'Bridge conectado y con nodos, pero no publica desde hace rato. ' +
@@ -502,7 +502,7 @@
   // ---------------------------------------------------------------------------
   function renderDebug(snap) {
     if (!debugPubEl || !debugLogEl) return;
-    var last = (snap && snap.lastByNodo) || {};
+    var last = (snap && snap.last_by_nodo) || {};
     var keys = Object.keys(last);
     if (keys.length === 0) {
       debugPubEl.innerHTML = '<div class="subtitle">Bridge sin publicar todavía. ' +
@@ -511,7 +511,7 @@
       debugPubEl.innerHTML = keys.map(function (uid) {
         var e = last[uid] || {};
         var bits = Array.isArray(e.bits) ? '[' + e.bits.join(',') + ']' : '(sin datos)';
-        var ago = (e.msAgo != null) ? (Math.round(e.msAgo / 100) / 10) + 's' : '?';
+        var ago = (e.ms_ago != null) ? (Math.round(e.ms_ago / 100) / 10) + 's' : '?';
         return '<div class="debug-row">' +
                  '<div><strong>' + escapeHtml(uid) + '</strong> · hace ' + ago + '</div>' +
                  '<div style="color: var(--agp-text-muted)">→ ' + escapeHtml(e.topic || '') + '</div>' +
@@ -519,7 +519,7 @@
                '</div>';
       }).join('');
     }
-    var lines = (snap && snap.logTail) || [];
+    var lines = (snap && snap.log_tail) || [];
     debugLogEl.textContent = lines.length === 0 ? '(log vacío)' : lines.join('\n');
   }
 
