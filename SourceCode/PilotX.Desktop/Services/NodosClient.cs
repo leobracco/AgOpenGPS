@@ -40,8 +40,8 @@ public sealed class NodosUnifiedResponse
     [JsonPropertyName("ok")]              public bool   Ok              { get; set; }
     [JsonPropertyName("count")]           public int    Count           { get; set; }
     [JsonPropertyName("nodos")]           public List<NodoUnified>? Nodos { get; set; }
-    [JsonPropertyName("brokerConnected")] public bool   BrokerConnected { get; set; }
-    [JsonPropertyName("implementoSlug")]  public string? ImplementoSlug { get; set; }
+    [JsonPropertyName("broker_connected")] public bool   BrokerConnected { get; set; }
+    [JsonPropertyName("implemento_slug")]  public string? ImplementoSlug { get; set; }
 }
 
 public sealed class NodosClient

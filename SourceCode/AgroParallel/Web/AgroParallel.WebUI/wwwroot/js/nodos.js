@@ -308,12 +308,10 @@
 
   async function refresh() {
     try {
-      // /api/nodos/unified ya viene en snake_case (lkeys lo deja igual o
-      // sólo cambia las raíces). Filtramos null defensivamente.
       var res = await fetch('/api/nodos/unified', { cache: 'no-store' });
-      var data = lkeys(await res.json());
+      var data = await res.json();
       unified = (data && data.nodos) || [];
-      implementoSlug = (data && data.implementoSlug) || '';
+      implementoSlug = (data && data.implemento_slug) || '';
       nodos = unified;  // mantengo `nodos` por compatibilidad con otras funciones
     } catch (e) {
       unified = []; nodos = [];
@@ -428,14 +426,14 @@
     if (!mqttPill) return;
     try {
       var r = await fetch('/api/nodos/diagnostic', { cache: 'no-store' });
-      var data = lkeys(await r.json());
+      var data = await r.json();
       if (!data || !data.ok || !data.diag) {
         mqttPill.className = 'pill err';
         mqttPill.innerHTML = '<span class="dot"></span> sin servicio';
         return;
       }
       var d = data.diag;
-      wildOn = !!d.wildcardCaptureOn;
+      wildOn = !!d.wildcard_capture_on;
 
       if (d.connected) {
         mqttPill.className = 'pill ok';
@@ -444,35 +442,35 @@
         mqttPill.className = 'pill err';
         mqttPill.innerHTML = '<span class="dot"></span> DESCONECTADO';
       }
-      diagBroker.textContent   = (d.brokerAddress || '?') + ':' + (d.brokerPort || 0);
-      diagCount.textContent    = d.knownNodesCount;
+      diagBroker.textContent   = (d.broker_address || '?') + ':' + (d.broker_port || 0);
+      diagCount.textContent    = d.known_nodes_count;
       diagSubs.innerHTML       = (d.subscriptions || []).map(function (s) { return '<code>' + escapeHtml(s) + '</code>'; }).join(' ');
       diagWild.textContent     = wildOn ? 'ON' : 'off';
-      diagAttempts.textContent = d.connectAttempts != null ? d.connectAttempts : '—';
-      diagLastOk.textContent   = d.lastConnectedUtc ? new Date(d.lastConnectedUtc).toLocaleString() : '— nunca —';
+      diagAttempts.textContent = d.connect_attempts != null ? d.connect_attempts : '—';
+      diagLastOk.textContent   = d.last_connected_utc ? new Date(d.last_connected_utc).toLocaleString() : '— nunca —';
       if (diagSeqGaps) {
-        var gaps = d.seqGapCount != null ? d.seqGapCount : 0;
-        var lastGap = (d.recentSeqGaps && d.recentSeqGaps.length > 0) ? d.recentSeqGaps[0] : null;
+        var gaps = d.seq_gap_count != null ? d.seq_gap_count : 0;
+        var lastGap = (d.recent_seq_gaps && d.recent_seq_gaps.length > 0) ? d.recent_seq_gaps[0] : null;
         if (lastGap) {
-          diagSeqGaps.textContent = gaps + ' · último: ' + lastGap.uid + ' (' + lastGap.missed + ' msg, ' + fmtHms(lastGap.timestampUtc) + ')';
+          diagSeqGaps.textContent = gaps + ' · último: ' + lastGap.uid + ' (' + lastGap.missed + ' msg, ' + fmtHms(lastGap.timestamp_utc) + ')';
         } else {
           diagSeqGaps.textContent = gaps + '';
         }
       }
-      if (diagSeqResets) diagSeqResets.textContent = d.seqResetCount != null ? d.seqResetCount : 0;
+      if (diagSeqResets) diagSeqResets.textContent = d.seq_reset_count != null ? d.seq_reset_count : 0;
       if (btnWild) btnWild.textContent = wildOn ? 'Desactivar captura wildcard' : 'Activar captura wildcard';
 
-      if (d.lastError && !d.connected) {
+      if (d.last_error && !d.connected) {
         diagErrorBox.style.display = '';
-        var code = d.lastErrorCode || 'AGP-SYS-009';
+        var code = d.last_error_code || 'AGP-SYS-009';
         if (diagErrorCode)       diagErrorCode.textContent = code;
         if (diagErrorCodeRepeat) diagErrorCodeRepeat.textContent = code;
-        if (diagErrorTs)         diagErrorTs.textContent = d.lastErrorUtc ? fmtHms(d.lastErrorUtc) : '';
-        diagError.textContent = d.lastError;
+        if (diagErrorTs)         diagErrorTs.textContent = d.last_error_utc ? fmtHms(d.last_error_utc) : '';
+        diagError.textContent = d.last_error;
         if (diagErrorTechBox && diagErrorTech) {
-          if (d.lastErrorTechnical) {
+          if (d.last_error_technical) {
             diagErrorTechBox.style.display = '';
-            diagErrorTech.textContent = d.lastErrorTechnical;
+            diagErrorTech.textContent = d.last_error_technical;
           } else {
             diagErrorTechBox.style.display = 'none';
             diagErrorTech.textContent = '';
@@ -483,12 +481,12 @@
       }
 
       if (msgLog) {
-        var msgs = d.recentMessages || [];
+        var msgs = d.recent_messages || [];
         if (msgs.length === 0) {
           msgLog.innerHTML = '<div class="row" style="opacity:.5">— sin mensajes aún —</div>';
         } else {
           msgLog.innerHTML = msgs.map(function (m) {
-            return '<div class="row"><span class="ts">' + fmtHms(m.timestampUtc) + '</span>' +
+            return '<div class="row"><span class="ts">' + fmtHms(m.timestamp_utc) + '</span>' +
                    '<span class="topic">' + escapeHtml(m.topic) + '</span>  ' +
                    escapeHtml(m.payload) + '</div>';
           }).join('');

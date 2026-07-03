@@ -91,9 +91,9 @@
       var data = await res.json();
       var nodos = (data && data.nodos) || [];
       var online = nodos.filter(function (n) { return n.online; }).length;
-      // brokerConnected viene del NodoRegistryService.GetDiagnostic().Connected;
+      // broker_connected viene del NodoRegistryService.GetDiagnostic().Connected;
       // distingue "CoreX broker arriba" (verde) de "no hay nodos todavía" (idle).
-      var brokerOk = !!(data && data.brokerConnected);
+      var brokerOk = !!(data && data.broker_connected);
 
       setPill($('pillBroker'),
         brokerOk ? 'ok' : 'bad',

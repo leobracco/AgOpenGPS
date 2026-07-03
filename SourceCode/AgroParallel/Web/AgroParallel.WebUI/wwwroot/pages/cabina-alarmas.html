@@ -143,7 +143,7 @@
         var r = await fetch('/api/nodos/unified', { cache: 'no-store' });
         var d = lkeys(await r.json());
         if (!d || !d.ok) return;
-        lastImplSlug = d.implementoSlug || '';
+        lastImplSlug = d.implemento_slug || '';
 
         var offlines = (d.nodos || []).filter(function (n) {
           return n.del_implemento_activo && !n.online;

@@ -28,20 +28,13 @@ using EmbedIO.Routing;
 using EmbedIO.WebApi;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class NodosController : WebApiController
+    public sealed class NodosController : AgpControllerBase
     {
-        private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
         private readonly INodoRegistryService _registry;
         private readonly INodosCuratedService _curated;
         private readonly FirmwareOtaCoordinator _ota;
@@ -82,53 +75,63 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/nodos")]
-        public object GetAll()
+        public async Task GetAll()
         {
             if (_registry == null)
-                return new { ok = false, nodos = new List<NodoStatus>(), brokerConnected = false, error = "service-unavailable" };
+            {
+                await WriteJsonAsync(new { ok = false, nodos = new List<NodoStatus>(), broker_connected = false, error = "service-unavailable" });
+                return;
+            }
             var list = _registry.GetAll();
             bool brokerConnected = false;
             try { brokerConnected = _registry.GetDiagnostic().Connected; } catch { }
-            return new { ok = true, count = list.Count, nodos = list, brokerConnected = brokerConnected };
+            await WriteJsonAsync(new { ok = true, count = list.Count, nodos = list, broker_connected = brokerConnected });
         }
 
         [Route(HttpVerbs.Get, "/nodos/diagnostic")]
-        public object Diagnostic()
+        public async Task Diagnostic()
         {
             if (_registry == null)
-                return new { ok = false, error = "service-unavailable" };
-            return new { ok = true, diag = _registry.GetDiagnostic() };
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+                return;
+            }
+            await WriteJsonAsync(new { ok = true, diag = _registry.GetDiagnostic() });
         }
 
         [Route(HttpVerbs.Post, "/nodos/wildcard")]
-        public async Task<object> SetWildcard([QueryField] bool on)
+        public async Task SetWildcard([QueryField] bool on)
         {
-            if (_registry == null) return new { ok = false, error = "service-unavailable" };
+            if (_registry == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             var ok = await _registry.SetWildcardCaptureAsync(on);
-            return new { ok };
+            await WriteJsonAsync(new { ok });
         }
 
         [Route(HttpVerbs.Post, "/nodos/reconnect")]
-        public async Task<object> Reconnect()
+        public async Task Reconnect()
         {
-            if (_registry == null) return new { ok = false, error = "service-unavailable" };
+            if (_registry == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             var ok = await _registry.ReconnectAsync();
-            return new { ok, diag = _registry.GetDiagnostic() };
+            await WriteJsonAsync(new { ok, diag = _registry.GetDiagnostic() });
         }
 
         // ---------- vista curada ----------
 
         [Route(HttpVerbs.Get, "/nodos/unified")]
-        public object GetUnified()
+        public async Task GetUnified()
         {
-            if (_curated == null) return new { ok = false, error = "service-unavailable", nodos = new List<NodoUnifiedDto>() };
+            if (_curated == null)
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable", nodos = new List<NodoUnifiedDto>() });
+                return;
+            }
             var list = _curated.GetUnified(_registry);
             MarcarImplementoActivo(list);
             bool brokerConnected = false;
             try { if (_registry != null) brokerConnected = _registry.GetDiagnostic().Connected; } catch { }
             string implementoSlug = "";
             try { if (_implemento != null) implementoSlug = _implemento.GetActiveSlug(); } catch { }
-            return new { ok = true, count = list.Count, nodos = list, brokerConnected, implementoSlug };
+            await WriteJsonAsync(new { ok = true, count = list.Count, nodos = list, broker_connected = brokerConnected, implemento_slug = implementoSlug });
         }
 
         // ---------- vínculo nodo ↔ implemento activo ----------
@@ -142,14 +145,14 @@ namespace AgroParallel.WebHost.Controllers
         /// que ahora no está montado), su offline se ignora silenciosamente.
         /// </summary>
         [Route(HttpVerbs.Post, "/nodos/asignacion-implemento")]
-        public async Task<object> AsignacionImplemento()
+        public async Task AsignacionImplemento()
         {
-            if (_implemento == null) return new { ok = false, error = "service-unavailable" };
-            var body = await ReadBody<AsignacionBody>();
-            if (body == null || string.IsNullOrEmpty(body.uid)) return new { ok = false, error = "invalid-body" };
+            if (_implemento == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var body = await ReadJsonBodyAsync<AsignacionBody>();
+            if (body == null || string.IsNullOrEmpty(body.uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
 
             string slug = _implemento.GetActiveSlug();
-            if (string.IsNullOrEmpty(slug)) return new { ok = false, error = "no-active-implemento" };
+            if (string.IsNullOrEmpty(slug)) { await WriteJsonAsync(new { ok = false, error = "no-active-implemento" }); return; }
 
             string uid = body.uid.Trim();
             bool sinCambios = false;
@@ -166,13 +169,13 @@ namespace AgroParallel.WebHost.Controllers
                 else sinCambios = true;
             });
 
-            if (sinCambios) return new { ok = true, slug = slug, asignado = body.asignado, sin_cambios = true };
+            if (sinCambios) { await WriteJsonAsync(new { ok = true, slug = slug, asignado = body.asignado, sin_cambios = true }); return; }
             // Si acabamos de asignar un nodo nuevo al implemento activo, encendemos
             // el overlay del producto correspondiente si estaba apagado — misma lógica
             // que cuando se cambia de implemento. Solo en alta (asignado=true).
             if (body.asignado && result != null)
                 AgroParallel.Services.OverlayAutoOpener.EnsureForActiveImplemento(_implemento, _curated);
-            return new { ok = result != null, slug = slug, asignado = body.asignado };
+            await WriteJsonAsync(new { ok = result != null, slug = slug, asignado = body.asignado });
         }
 
         public sealed class AceptarBody { public string uid { get; set; } public string tipo { get; set; } public string alias { get; set; } }
@@ -180,11 +183,11 @@ namespace AgroParallel.WebHost.Controllers
         public sealed class RenombrarBody { public string uid { get; set; } public string alias { get; set; } }
 
         [Route(HttpVerbs.Post, "/nodos/aceptar")]
-        public async Task<object> Aceptar()
+        public async Task Aceptar()
         {
-            if (_curated == null) return new { ok = false, error = "service-unavailable" };
-            var body = await ReadBody<AceptarBody>();
-            if (body == null || string.IsNullOrEmpty(body.uid)) return new { ok = false, error = "invalid-body" };
+            if (_curated == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var body = await ReadJsonBodyAsync<AceptarBody>();
+            if (body == null || string.IsNullOrEmpty(body.uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
             _curated.Aceptar(body.uid, body.tipo, body.alias);
 
             // Auto-asignación al implemento ACTIVO: si el operario acepta un nodo
@@ -218,45 +221,48 @@ namespace AgroParallel.WebHost.Controllers
                 }
                 catch { /* no bloqueamos la aceptación si el implemento falla */ }
             }
-            return new { ok = true, auto_asignado = autoAsignado, implemento_slug = slugActivo };
+            await WriteJsonAsync(new { ok = true, auto_asignado = autoAsignado, implemento_slug = slugActivo });
         }
 
         [Route(HttpVerbs.Post, "/nodos/ignorar")]
-        public async Task<object> Ignorar()
+        public async Task Ignorar()
         {
-            if (_curated == null) return new { ok = false, error = "service-unavailable" };
-            var body = await ReadBody<UidBody>();
-            if (body == null || string.IsNullOrEmpty(body.uid)) return new { ok = false, error = "invalid-body" };
+            if (_curated == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var body = await ReadJsonBodyAsync<UidBody>();
+            if (body == null || string.IsNullOrEmpty(body.uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
             _curated.Ignorar(body.uid);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Post, "/nodos/restaurar")]
-        public async Task<object> Restaurar()
+        public async Task Restaurar()
         {
-            if (_curated == null) return new { ok = false, error = "service-unavailable" };
-            var body = await ReadBody<UidBody>();
-            if (body == null || string.IsNullOrEmpty(body.uid)) return new { ok = false, error = "invalid-body" };
+            if (_curated == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var body = await ReadJsonBodyAsync<UidBody>();
+            if (body == null || string.IsNullOrEmpty(body.uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
             _curated.Restaurar(body.uid);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Post, "/nodos/renombrar")]
-        public async Task<object> Renombrar()
+        public async Task Renombrar()
         {
-            if (_curated == null) return new { ok = false, error = "service-unavailable" };
-            var body = await ReadBody<RenombrarBody>();
+            if (_curated == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var body = await ReadJsonBodyAsync<RenombrarBody>();
             if (body == null || string.IsNullOrEmpty(body.uid) || string.IsNullOrEmpty(body.alias))
-                return new { ok = false, error = "invalid-body" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "invalid-body" });
+                return;
+            }
             _curated.Renombrar(body.uid, body.alias);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Delete, "/nodos/{uid}")]
-        public object Eliminar(string uid)
+        public async Task Eliminar(string uid)
         {
-            if (_curated == null) return new { ok = false, error = "service-unavailable" };
-            if (string.IsNullOrEmpty(uid)) return new { ok = false, error = "invalid-uid" };
+            if (_curated == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            if (string.IsNullOrEmpty(uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-uid" }); return; }
             _curated.Eliminar(uid);
 
             // Limpia el UID del implemento ACTIVO si estaba asignado (evita huérfanos
@@ -281,7 +287,7 @@ namespace AgroParallel.WebHost.Controllers
                 }
                 catch { }
             }
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         // =====================================================================
@@ -301,18 +307,21 @@ namespace AgroParallel.WebHost.Controllers
         /// hay, y comandos disponibles según el tipo.
         /// </summary>
         [Route(HttpVerbs.Get, "/nodos/{uid}/estado")]
-        public object Estado(string uid)
+        public async Task Estado(string uid)
         {
-            if (string.IsNullOrEmpty(uid)) return new { ok = false, error = "invalid-uid" };
+            if (string.IsNullOrEmpty(uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-uid" }); return; }
             if (_registry == null || _curated == null)
-                return new { ok = false, error = "service-unavailable" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+                return;
+            }
 
             // Combina datos del registry (telemetría runtime) con el curado (alias/estado)
             // a través del DTO unificado, así no duplicamos lógica de "estado pendiente/offline".
             var unified = _curated.GetUnified(_registry);
             MarcarImplementoActivo(unified);
             var u = unified.FirstOrDefault(n => string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase));
-            if (u == null) return new { ok = false, error = "not-found" };
+            if (u == null) { await WriteJsonAsync(new { ok = false, error = "not-found" }); return; }
 
             // Last seen → segundos. Si no parsea ISO, dejamos null (UI lo trata como ∞).
             int? lastSeenSec = null;
@@ -389,7 +398,7 @@ namespace AgroParallel.WebHost.Controllers
             }
             catch { }
 
-            return new
+            await WriteJsonAsync(new
             {
                 ok = true,
                 uid = u.Uid,
@@ -432,7 +441,7 @@ namespace AgroParallel.WebHost.Controllers
                     online_sec = OnlineThresholdSec,
                     status_fresh_sec = StatusFreshSec
                 }
-            };
+            });
         }
 
         // Cada fila de la matriz documental tiene una clave única que la UI usa
@@ -454,18 +463,21 @@ namespace AgroParallel.WebHost.Controllers
         /// descendente (semver lex).
         /// </summary>
         [Route(HttpVerbs.Get, "/nodos/{uid}/firmwares")]
-        public object Firmwares(string uid)
+        public async Task Firmwares(string uid)
         {
-            if (string.IsNullOrEmpty(uid)) return new { ok = false, error = "invalid-uid" };
+            if (string.IsNullOrEmpty(uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-uid" }); return; }
             if (_registry == null || _curated == null)
-                return new { ok = false, error = "service-unavailable" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+                return;
+            }
 
             var unified = _curated.GetUnified(_registry);
             var u = unified.FirstOrDefault(n => string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase));
-            if (u == null) return new { ok = false, error = "not-found" };
+            if (u == null) { await WriteJsonAsync(new { ok = false, error = "not-found" }); return; }
 
             string prodLo = (u.Tipo ?? "").Trim().ToLowerInvariant();
-            if (string.IsNullOrEmpty(prodLo)) return new { ok = false, error = "tipo-vacio" };
+            if (string.IsNullOrEmpty(prodLo)) { await WriteJsonAsync(new { ok = false, error = "tipo-vacio" }); return; }
 
             // El topic MQTT del firmware FlowX es `agp/flow/...` (sin "x" final),
             // así que NodoRegistry guarda Tipo="Flow". Pero los .bin se suben con
@@ -496,7 +508,7 @@ namespace AgroParallel.WebHost.Controllers
             int port = cfg != null && cfg.FirmwareHttpPort > 0 ? cfg.FirmwareHttpPort : 8088;
             string lan = FirmwareOtaClient.ResolveLanIp();
 
-            return new
+            await WriteJsonAsync(new
             {
                 ok = true,
                 uid = u.Uid,
@@ -505,32 +517,38 @@ namespace AgroParallel.WebHost.Controllers
                 http_port = port,
                 lan_ip = lan,
                 versiones
-            };
+            });
         }
 
         public sealed class OtaBody { public string version { get; set; } public bool allow_downgrade { get; set; } }
 
         /// <summary>Dispara OTA contra el nodo con la versión indicada.</summary>
         [Route(HttpVerbs.Post, "/nodos/{uid}/ota")]
-        public async Task<object> OtaSend(string uid)
+        public async Task OtaSend(string uid)
         {
-            if (string.IsNullOrEmpty(uid)) return new { ok = false, error = "invalid-uid" };
+            if (string.IsNullOrEmpty(uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-uid" }); return; }
             if (_ota == null || _registry == null || _curated == null)
-                return new { ok = false, error = "service-unavailable" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+                return;
+            }
 
-            var body = await ReadBody<OtaBody>();
+            var body = await ReadJsonBodyAsync<OtaBody>();
             if (body == null || string.IsNullOrEmpty(body.version))
-                return new { ok = false, error = "invalid-body" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "invalid-body" });
+                return;
+            }
 
             var unified = _curated.GetUnified(_registry);
             var u = unified.FirstOrDefault(n => string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase));
-            if (u == null) return new { ok = false, error = "not-found" };
+            if (u == null) { await WriteJsonAsync(new { ok = false, error = "not-found" }); return; }
 
             string prodLo = (u.Tipo ?? "").Trim().ToLowerInvariant();
-            if (string.IsNullOrEmpty(prodLo)) return new { ok = false, error = "tipo-vacio" };
+            if (string.IsNullOrEmpty(prodLo)) { await WriteJsonAsync(new { ok = false, error = "tipo-vacio" }); return; }
 
             var (ok, url, topic, err) = await _ota.SendOtaAsync(prodLo, u.Uid, body.version, body.allow_downgrade);
-            return new { ok, url, topic, error = err };
+            await WriteJsonAsync(new { ok, url, topic, error = err });
         }
 
         /// <summary>
@@ -539,13 +557,13 @@ namespace AgroParallel.WebHost.Controllers
         /// publica tres estados como mucho).
         /// </summary>
         [Route(HttpVerbs.Get, "/nodos/{uid}/ota/progress")]
-        public object OtaProgress(string uid)
+        public async Task OtaProgress(string uid)
         {
-            if (string.IsNullOrEmpty(uid)) return new { ok = false, error = "invalid-uid" };
-            if (_ota == null) return new { ok = false, error = "service-unavailable" };
+            if (string.IsNullOrEmpty(uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-uid" }); return; }
+            if (_ota == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             var st = _ota.GetState(uid);
-            if (st == null) return new { ok = true, uid, ota = (object)null };
-            return new
+            if (st == null) { await WriteJsonAsync(new { ok = true, uid, ota = (object)null }); return; }
+            await WriteJsonAsync(new
             {
                 ok = true,
                 uid,
@@ -558,7 +576,7 @@ namespace AgroParallel.WebHost.Controllers
                     url = st.Url,
                     last_change_utc = st.LastChangeUtc.ToString("o")
                 }
-            };
+            });
         }
 
         public sealed class CmdBody { public string cmd { get; set; } public Dictionary<string, object> extras { get; set; } }
@@ -568,15 +586,21 @@ namespace AgroParallel.WebHost.Controllers
         /// El firmware acepta lo que entienda y descarta el resto.
         /// </summary>
         [Route(HttpVerbs.Post, "/nodos/{uid}/cmd")]
-        public async Task<object> Cmd(string uid)
+        public async Task Cmd(string uid)
         {
-            if (string.IsNullOrEmpty(uid)) return new { ok = false, error = "invalid-uid" };
+            if (string.IsNullOrEmpty(uid)) { await WriteJsonAsync(new { ok = false, error = "invalid-uid" }); return; }
             if (_ota == null || _registry == null || _curated == null)
-                return new { ok = false, error = "service-unavailable" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+                return;
+            }
 
-            var body = await ReadBody<CmdBody>();
+            var body = await ReadJsonBodyAsync<CmdBody>();
             if (body == null || string.IsNullOrEmpty(body.cmd))
-                return new { ok = false, error = "invalid-body" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "invalid-body" });
+                return;
+            }
 
             // Lista corta de comandos válidos. "ota" tiene endpoint propio porque
             // necesita armar URL + tracking — no permitirlo por acá evita
@@ -590,33 +614,23 @@ namespace AgroParallel.WebHost.Controllers
                 "clear_safe_mode"
             };
             if (!validos.Contains(body.cmd))
-                return new { ok = false, error = "cmd-no-soportado", cmd = body.cmd };
+            {
+                await WriteJsonAsync(new { ok = false, error = "cmd-no-soportado", cmd = body.cmd });
+                return;
+            }
 
             var unified = _curated.GetUnified(_registry);
             var u = unified.FirstOrDefault(n => string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase));
-            if (u == null) return new { ok = false, error = "not-found" };
+            if (u == null) { await WriteJsonAsync(new { ok = false, error = "not-found" }); return; }
 
             string prodLo = (u.Tipo ?? "").Trim().ToLowerInvariant();
             var (ok, topic, err) = await _ota.SendCmdAsync(prodLo, u.Uid, body.cmd, body.extras);
-            return new { ok, topic, cmd = body.cmd, error = err };
+            await WriteJsonAsync(new { ok, topic, cmd = body.cmd, error = err });
         }
 
         private OrbitXConfig SafeLoadOrbitX()
         {
             try { return OrbitXConfig.Load(); } catch { return new OrbitXConfig(); }
-        }
-
-        private async Task<T> ReadBody<T>() where T : class
-        {
-            try
-            {
-                string body;
-                using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                    body = await sr.ReadToEndAsync();
-                if (string.IsNullOrEmpty(body)) return null;
-                return JsonSerializer.Deserialize<T>(body, JsonOpts);
-            }
-            catch { return null; }
         }
     }
 }
