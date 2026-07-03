@@ -593,8 +593,8 @@ namespace AgroParallel.Models
 
 ## Cierre
 
-- [ ] **Task 15: Verificación final.** `dotnet build` + `dotnet test` de la sln completa; smoke manual del Hub (una página por módulo, guardar/recargar); revisar que `grep -rn "catch { }" SRV/` solo devuelva los comentados como intencionales.
-- [ ] **Task 16: Actualizar AUDITORIA-ARQUITECTURA.md** — corregir los hallazgos desactualizados (662 defensas → ~4; 313 catch → 23 en backend; tests: había infra NUnit + CI, faltaba solo cobertura de Services) y marcar Bloque A como completado.
+- [x] **Task 15: Verificación final.** `dotnet build` + `dotnet test` de la sln completa; smoke manual del Hub (una página por módulo, guardar/recargar); revisar que `grep -rn "catch { }" SRV/` solo devuelva los comentados como intencionales.
+- [x] **Task 16: Actualizar AUDITORIA-ARQUITECTURA.md** — corregir los hallazgos desactualizados (662 defensas → ~4; 313 catch → 23 en backend; tests: había infra NUnit + CI, faltaba solo cobertura de Services) y marcar Bloque A como completado.
 
 ## Riesgos y decisiones
 

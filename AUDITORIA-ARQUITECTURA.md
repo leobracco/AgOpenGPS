@@ -1,6 +1,6 @@
 # Auditoría de arquitectura — Ecosistema Agro Parallel
 
-> Fecha: 2026-07-02 · Complementa a `AUDITORIA-HUB.md` (endpoints/pantallas).
+> Fecha: 2026-07-02 · Actualizada 2026-07-03 (post Bloque A) · Complementa a `AUDITORIA-HUB.md` (endpoints/pantallas).
 > Cobertura: backend .NET (PilotX), frontend Hub (JS/HTML), firmwares ESP32, cloud OrbitX-Server.
 > Estados: ✅ LISTO · 🔨 EN DESARROLLO · ❌ FALTANTE · ➖ DE MÁS
 
@@ -10,12 +10,12 @@
 
 | # | Hallazgo | Capa | Gravedad |
 |---|---|---|---|
-| 1 | ~313 `catch {}` vacíos — excepciones tragadas sin log | Backend | 🔴 crítico |
-| 2 | Cero tests automatizados en las 4 capas (backend, frontend, firmware*, cloud) | Todas | 🔴 crítico |
-| 3 | Sin backups automatizados de CouchDB — crash = pérdida total | Cloud | 🔴 crítico |
+| 1 | ✅ RESUELTO (Bloque A1) — el "~313 `catch {}`" era repo completo; en backend AgroParallel.* eran ~23 críticos, ahora loguean vía AgpLog. Quedan one-liners best-effort deliberados | Backend | 🔴→✅ |
+| 2 | 🔨 PARCIAL — la auditoría decía "cero tests" pero ya había infra NUnit + CI (Core.Tests, AgLibrary.Tests); Bloque A4 agregó AgroParallel.Services.Tests (67 tests). Falta cobertura frontend/firmware/cloud | Todas | 🔴→🟠 |
+| 3 | ✅ RESUELTO (QW2) — backup diario CouchDB automatizado en OrbitX-Server | Cloud | 🔴→✅ |
 | 4 | ~65% de código duplicado entre los 5 firmwares (MQTT/OTA/provisioning clonados) | Firmware | 🟠 alto |
-| 5 | Serialización JSON mixta (Swan PascalCase vs S.T.Json snake_case) → workarounds tolerantes en backend + ~662 `??`/lowercase en JS | Backend+Front | 🟠 alto |
-| 6 | Bridges MQTT (QuantiX/FlowX/Cut) ~60% duplicados, sin clase base | Backend | 🟠 alto |
+| 5 | ✅ RESUELTO (Bloque A2) — el "~662 defensas JS" era una estimación errada: había ~4 reales; el problema de fondo eran 63/95 DTOs sin `[JsonPropertyName]`. Wire local unificado a snake_case (AgpJson + AgpControllerBase en los 32 controllers), fallbacks de doble casing eliminados del JS | Backend+Front | 🟠→✅ |
+| 6 | 🔨 PARCIAL (Bloque A3) — live services MQTT (FlowX/LineX/StormX/VistaX) sobre `MqttLiveServiceBase`; QuantiXMotorBridge/FlowXBridge (conexión propia) quedan para bloque futuro | Backend | 🟠 |
 | 7 | Helpers frontend duplicados: `escapeHtml` en 28 archivos, `fmt` en 16, `toast` en 4 | Frontend | 🟠 alto |
 | 8 | Sin DI ni logging estructurado — bootstrap manual gigante, diagnóstico en campo a ciegas | Backend | 🟠 alto |
 | 9 | Sin monitoreo/alerting en cloud (solo console.log) | Cloud | 🟠 alto |
@@ -39,16 +39,16 @@
 - CamarasRemoteRelay: stub de relay, sin captura real.
 
 ### ❌ Lo que falta
-- **Logging estructurado** (hoy: Debug.WriteLine + logs a disco ad-hoc tipo `qx_bridge.log`).
-- **Tests** (cero en AgroParallel.Services; los bridges MQTT y parsers son los más riesgosos).
+- ~~Logging estructurado~~ ✅ Bloque A1: fachada `AgpLog` (Info/Warn/Error) sobre DebugLogService (Trace + ring buffer); catch críticos loguean con contexto.
+- ~~Tests~~ ✅ Bloque A4: `AgroParallel.Services.Tests` (NUnit 4.3.2, net8.0, 67 tests en CI): AgpJson, AgpErrorMapper, guards OTA (anti-downgrade), MqttLiveServiceBase, ConfigValidation.
 - **DI container** — todo instanciado a mano en el bootstrap; controllers no testeables.
-- **Validación de config al guardar** (se puede persistir JSON inválido).
+- ~~Validación de config al guardar~~ ✅ Bloque A5: `ConfigValidation` en Models + AGP-CFG-001 (400) en los 7 controllers de config; el Hub muestra mensaje+detalle.
 - Resiliencia MQTT (si el broker cae, reconexión ad-hoc por servicio).
 
 ### ➖ De más
-- ~313 `catch {}` vacíos (muchos deliberados, pero sin siquiera un trace).
-- Duplicación entre bridges (timer + lock + last-payload dict + log a disco, repetido 3-4 veces).
-- Workarounds de casing (`GetBool(el, "enabled", "Enabled")` en OrbitXController) que existirían solo por la mezcla Swan/S.T.Json.
+- ~~catch {} vacíos~~ ✅ Bloque A1: el conteo real en backend AgroParallel.* era ~23 críticos (313 era repo completo, incluyendo GPS legacy); resueltos con AgpLog. Los one-liners `try { X } catch { }` best-effort restantes son deliberados.
+- ~~Duplicación entre live services MQTT~~ ✅ Bloque A3: `MqttLiveServiceBase<TReading>` (Start/Stop, filtro topic, parse, helpers ReadDouble/ReadBool/ReadString, timeout online); FlowX/LineX/StormX/VistaX migrados. QuantiXMotorBridge/FlowXBridge (conexión MQTT propia) pendientes para bloque futuro.
+- ~~Workarounds de casing~~ ✅ Bloque A2: eliminados junto con la unificación del wire (AgpControllerBase en los 32 controllers).
 - Timers sin Dispose garantizado en algunos bridges.
 
 ---
@@ -74,8 +74,8 @@
 ### ➖ De más
 - `escapeHtml` redefinido en **28 archivos**, `fmt` en 16, `toast` en 4, `$()` en 30+. ~8-12% del JS es duplicación evitable con un `ui-helpers.js`.
 - Estilos `<style>` locales de 150-200 líneas en prescripciones/cabina-alarmas/sectionx que duplican `.card`/`.pill`.
-- Stubs de 7 surcos fake en sectionx.js/linex.js.
-- ~662 lugares defendiéndose del doble casing de la API (síntoma del problema #5 del backend).
+- ~~Stubs de 7 surcos fake en sectionx.js/linex.js~~ ✅ QW4.
+- ~~"~662 lugares defendiéndose del doble casing"~~ ✅ Bloque A2 — el número era una estimación errada (~4 defensas reales); igualmente se eliminaron todos los helpers `pick()`/`lkeys()` y fallbacks `x.a || x.A` al unificar el wire en snake_case.
 
 ---
 
@@ -125,29 +125,29 @@
 
 ## 5. Backlog maestro propuesto
 
-### Bloque A — Confiabilidad en campo (backend PilotX)
-- A1. Logging estructurado + barrida de `catch {}` (reemplazar por log con contexto). 🔴
-- A2. Unificar serialización JSON de controllers (matar el doble casing en la raíz). 🟠
-- A3. Clase base para bridges MQTT (QuantiX/FlowX/Cut) + Dispose garantizado. 🟠
-- A4. Tests de los parsers/bridges más críticos (dosis, secciones, envelope). 🔴
-- A5. Validación de configs al guardar. 🟡
+### Bloque A — Confiabilidad en campo (backend PilotX) — ✅ COMPLETADO 2026-07-03
+- ✅ A1. Logging estructurado (`AgpLog`) + barrida de los ~23 `catch {}` críticos (CamarasRemoteRelay, OrbitX/*).
+- ✅ A2. Serialización unificada: STJ 8.0 + `AgpJson` snake_case + `AgpControllerBase` en los 32 controllers; JS sin fallbacks de doble casing.
+- ✅ A3. `MqttLiveServiceBase<TReading>` — live services FlowX/LineX/StormX/VistaX migrados (QuantiXMotorBridge/FlowXBridge quedan para bloque futuro).
+- ✅ A4. `AgroParallel.Services.Tests` — 67 tests (AgpJson, AgpErrorMapper, guards OTA, MqttLiveServiceBase, ConfigValidation) corriendo en CI.
+- ✅ A5. Validación de configs al guardar con AGP-CFG-001 en los 7 módulos.
 
 ### Bloque B — Frontend Hub
 - B1. `ui-helpers.js` compartido (escapeHtml/fmt/toast/$) + limpiar 28 duplicados. 🟠
 - B2. Manejo uniforme de errores de red + loading states en acciones. 🟠
 - B3. Poller central con pausa en visibilitychange + retry/backoff. 🟡
-- B4. Sacar stubs fake sectionx/linex; targets táctiles ≥48px. 🟡
-- B5. Los 3 críticos de AUDITORIA-HUB.md: confirmación power, auto-reload actualizar, editor umbrales StormX. 🔴
+- B4. 🔨 Stubs fake sectionx/linex ✅ (QW4); targets táctiles ≥48px pendiente. 🟡
+- B5. 🔨 Confirmación power + auto-reload actualizar ✅ (QW1); editor umbrales StormX pendiente. 🔴
 
 ### Bloque C — Firmwares
 - C1. Lib PlatformIO compartida `agp-node-core` (MQTT + OTA + provisioning + safe-mode). 🟠 (esfuerzo alto, gran retorno)
 - C2. Safe-mode en StormX + watchdog LCD. 🟠
-- C3. Buffer FlowX 1024→2048 + sacar broker hardcodeado QuantiX. 🟡 (rápido)
+- ✅ C3. Buffer FlowX 1024→2048 + sacar broker hardcodeado QuantiX (QW3).
 - C4. Versionar schema MQTT en todos (como VistaX). 🟡
 - C5. Aclarar CoreX ECU / SectionX firmware (dónde viven, estado real). ❓
 
 ### Bloque D — Cloud OrbitX
-- D1. Backups CouchDB diarios automatizados. 🔴 (esfuerzo bajo)
+- ✅ D1. Backups CouchDB diarios automatizados (QW2).
 - D2. Monitoreo + alerting básico. 🟠
 - D3. Viewer VistaX heatmap en cloud + descarga de lotes desde panel. 🟡
 - D4. Tanda C hardening: validación entrada, rate limit uploads, socket revocación. 🟡
