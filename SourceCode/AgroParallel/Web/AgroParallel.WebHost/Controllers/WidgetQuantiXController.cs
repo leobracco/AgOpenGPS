@@ -20,20 +20,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.QuantiX;
 using AgroParallel.Services.Abstractions;
-using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
+using EmbedIO;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class WidgetQuantiXController : WebApiController
+    public sealed class WidgetQuantiXController : AgpControllerBase
     {
         private readonly IQuantiXRuntimeService _runtime;
         private readonly INodoRegistryService _registry;
@@ -50,7 +47,7 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/widget-quantix/state")]
-        public async Task GetState()
+        public Task GetState()
         {
             // Config en disco (single source of truth de motores + manual).
             MotoresConfig mc;
@@ -164,7 +161,7 @@ namespace AgroParallel.WebHost.Controllers
                 }
             }
 
-            string json = SysJson.Serialize(new
+            return WriteJsonAsync(new
             {
                 ok = true,
                 connected = _registry != null,
@@ -172,44 +169,42 @@ namespace AgroParallel.WebHost.Controllers
                 ancho_m = anchoM,
                 nodos = nodosOut
             });
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
         }
 
         // Body: { "uid": "...", "motor_idx": 0, "manual": true, "dosis": 35.5 }
         [Route(HttpVerbs.Post, "/widget-quantix/manual")]
-        public async Task<object> PostManual()
+        public async Task PostManual()
         {
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync().ConfigureAwait(false);
-
             ManualReq req;
-            try
-            {
-                req = SysJson.Deserialize<ManualReq>(body, new System.Text.Json.JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-            }
-            catch (Exception ex) { return new { ok = false, error = "bad-json: " + ex.Message }; }
+            try { req = await ReadJsonBodyAsync<ManualReq>().ConfigureAwait(false); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
             if (req == null || string.IsNullOrEmpty(req.Uid))
-                return new { ok = false, error = "uid-required" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "uid-required" });
+                return;
+            }
             if (req.MotorIdx < 0 || req.MotorIdx > 1)
-                return new { ok = false, error = "motor-idx-oob" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "motor-idx-oob" });
+                return;
+            }
 
             MotoresConfig mc;
             try { mc = MotoresConfig.Load(); }
-            catch (Exception ex) { return new { ok = false, error = "load: " + ex.Message }; }
-            if (mc == null || mc.Nodos == null) return new { ok = false, error = "no-config" };
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "load: " + ex.Message }); return; }
+            if (mc == null || mc.Nodos == null) { await WriteJsonAsync(new { ok = false, error = "no-config" }); return; }
 
             QxNodoConfig target = null;
             foreach (var n in mc.Nodos)
             {
                 if (string.Equals(n.Uid, req.Uid, StringComparison.OrdinalIgnoreCase)) { target = n; break; }
             }
-            if (target == null) return new { ok = false, error = "nodo-not-found" };
+            if (target == null) { await WriteJsonAsync(new { ok = false, error = "nodo-not-found" }); return; }
             if (target.Motores == null || req.MotorIdx >= target.Motores.Length)
-                return new { ok = false, error = "motor-not-found" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "motor-not-found" });
+                return;
+            }
 
             var motor = target.Motores[req.MotorIdx];
             motor.ManualMode = req.Manual;
@@ -219,21 +214,22 @@ namespace AgroParallel.WebHost.Controllers
             // próximo MAN (no se pierde lo que el operario tipeó).
 
             try { mc.Save(); }
-            catch (Exception ex) { return new { ok = false, error = "save: " + ex.Message }; }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "save: " + ex.Message }); return; }
 
-            return new
+            await WriteJsonAsync(new
             {
                 ok = true,
                 uid = req.Uid,
                 motor_idx = req.MotorIdx,
                 manual_mode = motor.ManualMode,
                 manual_dosis = motor.ManualDosis
-            };
+            });
         }
 
         private sealed class ManualReq
         {
             public string Uid { get; set; }
+            [JsonPropertyName("motor_idx")]
             public int MotorIdx { get; set; }
             public bool Manual { get; set; }
             public double Dosis { get; set; }
