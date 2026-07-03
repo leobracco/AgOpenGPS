@@ -37,21 +37,21 @@
 
   function render(st) {
     if (!st) return;
-    $('vCurrent').textContent = st.currentVersion || '—';
-    $('vAvail').textContent = st.availableVersion || '—';
-    $('vSize').textContent = fmtBytes(st.sizeBytes);
+    $('vCurrent').textContent = st.current_version || '—';
+    $('vAvail').textContent = st.available_version || '—';
+    $('vSize').textContent = fmtBytes(st.size_bytes);
     $('vHash').textContent = st.sha256 ? st.sha256.slice(0, 16) + '…' : '—';
-    $('vChecked').textContent = fmtTs(st.lastCheckUnixMs);
+    $('vChecked').textContent = fmtTs(st.last_check_unix_ms);
 
     const phaseName = ['Idle','Checking','UpdateAvailable','Downloading','ReadyToApply','Applying','','','','Error'][st.phase] || 'Idle';
     phasePill.className = 'phase-pill phase-' + phaseName;
     phasePill.textContent = phaseName;
 
-    progBar.style.width = (st.progressPct > 0 ? st.progressPct : 0) + '%';
+    progBar.style.width = (st.progress_pct > 0 ? st.progress_pct : 0) + '%';
 
-    if (st.lastError) {
+    if (st.last_error) {
       errLine.style.display = '';
-      errLine.textContent = 'Error: ' + st.lastError;
+      errLine.textContent = 'Error: ' + st.last_error;
     } else {
       errLine.style.display = 'none';
       errLine.textContent = '';
@@ -68,7 +68,7 @@
     const isBusy = (st.phase === 1 /* Checking */ || st.phase === 3 /* Downloading */ || st.phase === 5 /* Applying */);
     btnCheck.disabled = isBusy;
     btnDownload.disabled = isBusy || !(st.phase === 2 /* UpdateAvailable */ || st.phase === 9 /* Error */);
-    btnApply.disabled = isBusy || !(st.phase === 4 /* ReadyToApply */ || st.stagingReady);
+    btnApply.disabled = isBusy || !(st.phase === 4 /* ReadyToApply */ || st.staging_ready);
   }
 
   async function refresh() {
