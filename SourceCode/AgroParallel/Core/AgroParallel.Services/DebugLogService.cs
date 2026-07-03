@@ -61,7 +61,7 @@ namespace AgroParallel.Services
         private static string ConfigPath()
         {
             var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AgroParallel");
-            try { Directory.CreateDirectory(dir); } catch { }
+            try { Directory.CreateDirectory(dir); } catch { } // silencioso a propósito: fallback de I/O del propio logger
             return Path.Combine(dir, "debug.json");
         }
 
@@ -69,20 +69,16 @@ namespace AgroParallel.Services
         {
             try
             {
-                string p = ConfigPath();
-                if (File.Exists(p))
+                var c = AgroParallel.Common.AtomicJson.Read<DebugConfigDto>(ConfigPath(), JsonOpts);
+                if (c != null)
                 {
-                    var c = JsonSerializer.Deserialize<DebugConfigDto>(File.ReadAllText(p));
-                    if (c != null)
-                    {
-                        if (c.Modules == null) c.Modules = new Dictionary<string, bool>();
-                        if (c.MaxBufferLines <= 0) c.MaxBufferLines = 5000;
-                        if (string.IsNullOrEmpty(c.MinLevel)) c.MinLevel = "debug";
-                        return c;
-                    }
+                    if (c.Modules == null) c.Modules = new Dictionary<string, bool>();
+                    if (c.MaxBufferLines <= 0) c.MaxBufferLines = 5000;
+                    if (string.IsNullOrEmpty(c.MinLevel)) c.MinLevel = "debug";
+                    return c;
                 }
             }
-            catch { }
+            catch { } // silencioso a propósito: parseo de config del logger — riesgo de recursión si AgpLog, cae a default
             // Default: todos los módulos conocidos en true.
             var def = new DebugConfigDto
             {
@@ -119,7 +115,7 @@ namespace AgroParallel.Services
                 if (_cfg.MaxBufferLines <= 0) _cfg.MaxBufferLines = 5000;
                 try
                 {
-                    File.WriteAllText(ConfigPath(), JsonSerializer.Serialize(_cfg, JsonOpts));
+                    AgroParallel.Common.AtomicJson.Write(ConfigPath(), JsonSerializer.Serialize(_cfg, JsonOpts));
                 }
                 catch (Exception ex)
                 {
@@ -135,8 +131,8 @@ namespace AgroParallel.Services
             lock (_lock)
             {
                 _cfg.Modules[module.ToLowerInvariant()] = enabled;
-                try { File.WriteAllText(ConfigPath(), JsonSerializer.Serialize(_cfg, JsonOpts)); }
-                catch { }
+                try { AgroParallel.Common.AtomicJson.Write(ConfigPath(), JsonSerializer.Serialize(_cfg, JsonOpts)); }
+                catch { } // silencioso a propósito: fallback de I/O del propio logger
             }
         }
 
@@ -208,7 +204,7 @@ namespace AgroParallel.Services
 
             foreach (var s in subsCopy)
             {
-                try { s(entry); } catch { }
+                try { s(entry); } catch { } // silencioso a propósito: notificación a suscriptores — riesgo de recursión si AgpLog
             }
         }
 
@@ -278,7 +274,7 @@ namespace AgroParallel.Services
                 string dir = !string.IsNullOrEmpty(_cfg.RecordDir)
                     ? _cfg.RecordDir
                     : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AgroParallel", "debug-logs");
-                try { Directory.CreateDirectory(dir); } catch { }
+                try { Directory.CreateDirectory(dir); } catch { } // silencioso a propósito: fallback de I/O del propio logger
                 string file = "debug-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".log";
                 _recPath = Path.Combine(dir, file);
                 _recBytes = 0;
@@ -287,7 +283,7 @@ namespace AgroParallel.Services
                     var fs = new FileStream(_recPath, FileMode.Create, FileAccess.Write, FileShare.Read);
                     _recWriter = new StreamWriter(fs, new UTF8Encoding(false)) { AutoFlush = true };
                     _cfg.RecordToFile = true;
-                    try { File.WriteAllText(ConfigPath(), JsonSerializer.Serialize(_cfg, JsonOpts)); } catch { }
+                    try { AgroParallel.Common.AtomicJson.Write(ConfigPath(), JsonSerializer.Serialize(_cfg, JsonOpts)); } catch { } // silencioso a propósito: fallback de I/O del propio logger
                 }
                 catch (Exception ex)
                 {
@@ -305,7 +301,7 @@ namespace AgroParallel.Services
             {
                 StopRecordingLocked();
                 _cfg.RecordToFile = false;
-                try { File.WriteAllText(ConfigPath(), JsonSerializer.Serialize(_cfg, JsonOpts)); } catch { }
+                try { AgroParallel.Common.AtomicJson.Write(ConfigPath(), JsonSerializer.Serialize(_cfg, JsonOpts)); } catch { } // silencioso a propósito: fallback de I/O del propio logger
             }
         }
 
@@ -313,7 +309,7 @@ namespace AgroParallel.Services
         {
             if (_recWriter != null)
             {
-                try { _recWriter.Flush(); _recWriter.Dispose(); } catch { }
+                try { _recWriter.Flush(); _recWriter.Dispose(); } catch { } // silencioso a propósito: fallback de I/O del propio logger
                 _recWriter = null;
             }
             _recPath = null;
@@ -345,7 +341,7 @@ namespace AgroParallel.Services
                     _recBytes = 0;
                 }
             }
-            catch { }
+            catch { } // silencioso a propósito: fallback de I/O del propio logger (escritura/rotación NDJSON)
         }
 
         // ---------- Subscriptions ----------------------------------------
@@ -384,7 +380,7 @@ namespace AgroParallel.Services
                 _trace = new ForwardingTraceListener(this);
                 Trace.Listeners.Add(_trace);
             }
-            catch { }
+            catch { } // silencioso a propósito: fallback de I/O del propio logger (hook de TraceListener)
         }
 
         public void Dispose()
@@ -398,7 +394,7 @@ namespace AgroParallel.Services
                     _trace = null;
                 }
             }
-            catch { }
+            catch { } // silencioso a propósito: Dispose del TraceListener en shutdown
             lock (_lock) StopRecordingLocked();
         }
 
@@ -443,7 +439,7 @@ namespace AgroParallel.Services
                     msg = line.Substring(m.Length);
                 }
                 string lvl = GuessLevel(msg);
-                try { _owner.Append(module, lvl, msg); } catch { }
+                try { _owner.Append(module, lvl, msg); } catch { } // silencioso a propósito: riesgo de recursión (este ES el logger)
             }
 
             private static string GuessLevel(string msg)
