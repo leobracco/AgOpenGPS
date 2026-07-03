@@ -28,6 +28,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using AgroParallel.OrbitX;
+using AgroParallel.Services;
 
 namespace AgroParallel.Camaras
 {
@@ -68,11 +69,11 @@ namespace AgroParallel.Camaras
                         var fi = new FileInfo(path);
                         if (fi.Exists && fi.Length > 2 * 1024 * 1024) File.Delete(path);
                     }
-                    catch { }
+                    catch { } // silencioso a propósito: limpieza best-effort del archivo de log propio
                     File.AppendAllText(path, line + Environment.NewLine);
                 }
             }
-            catch { }
+            catch { } // silencioso a propósito: fallback de I/O del propio log de CamarasRemoteRelay
         }
 
         public CamarasRemoteRelay(OrbitXConfig cfg)
@@ -174,14 +175,15 @@ namespace AgroParallel.Camaras
                         Log("cam" + idx + " ISAPI FAIL " + info.Error);
                 }, ct));
             }
-            try { await Task.WhenAll(tasks); } catch { }
+            try { await Task.WhenAll(tasks); }
+            catch (Exception ex) { AgpLog.Warn("CamRelay", "probe ISAPI de cámaras al arranque", ex); }
         }
 
         public void Stop()
         {
             if (!IsRunning) return;
             IsRunning = false;
-            try { _cts?.Cancel(); } catch { }
+            try { _cts?.Cancel(); } catch { } // silencioso a propósito: Cancel en shutdown
             lock (_lock)
             {
                 foreach (var w in _workers.Values) w.Stop();
@@ -237,7 +239,7 @@ namespace AgroParallel.Camaras
                     string cand = Path.Combine(p, "ffmpeg.exe");
                     if (File.Exists(cand)) return cand;
                 }
-                catch { }
+                catch { } // silencioso a propósito: búsqueda best-effort en PATH
             }
             return null;
         }
@@ -272,7 +274,7 @@ namespace AgroParallel.Camaras
 
                 try { await ReportEstado(ct); }
                 catch (Exception ex) { LastError = "register: " + ex.Message; }
-                try { await Task.Delay(TimeSpan.FromSeconds(30), ct); } catch { }
+                try { await Task.Delay(TimeSpan.FromSeconds(30), ct); } catch { } // silencioso a propósito: OperationCanceledException al detener el loop
             }
         }
 
@@ -293,7 +295,7 @@ namespace AgroParallel.Camaras
                     if (!r.IsSuccessStatusCode)
                     {
                         string snippet = "";
-                        try { snippet = await r.Content.ReadAsStringAsync(); } catch { }
+                        try { snippet = await r.Content.ReadAsStringAsync(); } catch { } // silencioso a propósito: best-effort leer snippet de error HTTP
                         if (snippet.Length > 200) snippet = snippet.Substring(0, 200) + "…";
                         LastError = "register " + code;
                         Log("[register] FAIL " + code + " " + r.ReasonPhrase + " body=" + snippet);
@@ -387,8 +389,8 @@ namespace AgroParallel.Camaras
             public void Stop()
             {
                 IsPublishing = false;
-                try { _cts?.Cancel(); } catch { }
-                try { if (_proc != null && !_proc.HasExited) _proc.Kill(); } catch { }
+                try { _cts?.Cancel(); } catch { } // silencioso a propósito: Cancel en Stop del worker
+                try { if (_proc != null && !_proc.HasExited) _proc.Kill(); } catch { } // silencioso a propósito: kill proceso ffmpeg en stop
             }
 
             private async Task RunLoop(CancellationToken ct)
@@ -459,7 +461,7 @@ namespace AgroParallel.Camaras
                                         Log("cam" + _idx + " ffmpeg> " + line);
                                 }
                             }
-                            catch { }
+                            catch { } // silencioso a propósito: cleanup lectura stderr de ffmpeg
                         });
 
                         // Si no se cae en 3s consideramos que está publicando OK
@@ -485,14 +487,14 @@ namespace AgroParallel.Camaras
                     }
                     finally
                     {
-                        try { if (_proc != null && !_proc.HasExited) _proc.Kill(); } catch { }
+                        try { if (_proc != null && !_proc.HasExited) _proc.Kill(); } catch { } // silencioso a propósito: kill ffmpeg en finally/cleanup
                         IsPublishing = false;
                     }
 
                     if (ct.IsCancellationRequested) break;
 
                     // Backoff exponencial hasta 30s
-                    try { await Task.Delay(backoff, ct); } catch { }
+                    try { await Task.Delay(backoff, ct); } catch { } // silencioso a propósito: OperationCanceledException al cancelar el backoff
                     backoff = Math.Min(backoff * 2, 30000);
 
                     // Si corrió >2 minutos OK, resetear backoff (caída transitoria)
@@ -510,7 +512,7 @@ namespace AgroParallel.Camaras
                     if (string.IsNullOrEmpty(u.UserInfo)) return url;
                     return url.Replace(u.UserInfo + "@", "***:***@");
                 }
-                catch { return "***"; }
+                catch { return "***"; } // silencioso a propósito: best-effort de enmascarado de URL
             }
 
             private string BuildPushUrl()
@@ -524,7 +526,7 @@ namespace AgroParallel.Camaras
                         var u = new Uri(_cfgOrbit.ServerUrl);
                         host = u.Host;
                     }
-                    catch { return null; }
+                    catch { return null; } // silencioso a propósito: parse de URI para host del servidor RTSP
                 }
                 // orbitx.* está detrás de Cloudflare proxy (naranja) que sólo proxea
                 // HTTP/HTTPS. RTSP/8554 no pasa. cam.* está en DNS-only y va directo
