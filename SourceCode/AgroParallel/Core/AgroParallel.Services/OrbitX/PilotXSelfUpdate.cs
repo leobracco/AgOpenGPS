@@ -118,7 +118,7 @@ namespace AgroParallel.OrbitX
                 if (asm != null && !string.IsNullOrEmpty(asm.Location))
                     return asm.Location;
             }
-            catch { }
+            catch { } // silencioso a propósito: fallback de detección de exe propio
             return Path.Combine(InstallDir(), "PilotX.exe");
         }
 
@@ -371,7 +371,7 @@ namespace AgroParallel.OrbitX
                     Task.Run(async () =>
                     {
                         await Task.Delay(1500).ConfigureAwait(false);
-                        try { handler(); } catch { }
+                        try { handler(); } catch { } // silencioso a propósito: evento de cierre ordenado, no interrumpir el Updater
                     });
                 }
             }

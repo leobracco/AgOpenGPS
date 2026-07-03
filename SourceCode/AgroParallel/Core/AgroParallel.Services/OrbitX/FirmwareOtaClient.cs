@@ -173,7 +173,7 @@ namespace AgroParallel.OrbitX
                     && System.Net.IPAddress.TryParse(b, out _))
                     return b;
             }
-            catch { }
+            catch { } // silencioso a propósito: auto-detección best-effort de IP LAN
 
             // 2) Auto-detectar la primera IPv4 no-loopback.
             try
@@ -190,7 +190,7 @@ namespace AgroParallel.OrbitX
                     }
                 }
             }
-            catch { }
+            catch { } // silencioso a propósito: auto-detección best-effort de IP LAN
 
             return fallback ?? "127.0.0.1";
         }
@@ -216,8 +216,8 @@ namespace AgroParallel.OrbitX
 
         public void Dispose()
         {
-            try { _mqtt?.DisconnectAsync().Wait(500); } catch { }
-            try { _mqtt?.Dispose(); } catch { }
+            try { _mqtt?.DisconnectAsync().Wait(500); } catch { } // silencioso a propósito: Disconnect MQTT en Dispose
+            try { _mqtt?.Dispose(); } catch { } // silencioso a propósito: Dispose MQTT en shutdown
             _mqtt = null;
             _connected = false;
         }

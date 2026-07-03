@@ -18,6 +18,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
 
 namespace AgroParallel.OrbitX
@@ -195,11 +196,11 @@ namespace AgroParallel.OrbitX
                         var fi = new FileInfo(path);
                         if (fi.Exists && fi.Length > 2 * 1024 * 1024) File.Delete(path);
                     }
-                    catch { }
+                    catch { } // silencioso a propósito: limpieza best-effort del archivo de log propio
                     File.AppendAllText(path, line + Environment.NewLine);
                 }
             }
-            catch { }
+            catch { } // silencioso a propósito: fallback de I/O del propio log de OrbitXSync
         }
 
         // Estado del último heartbeat — visible para diagnóstico desde la UI.
@@ -368,7 +369,10 @@ namespace AgroParallel.OrbitX
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AgpLog.Error("OrbitXSync", "encolar archivos de lote AOG", ex);
+            }
         }
 
         // Hash tracking para no subir archivos sin cambios.
@@ -420,7 +424,10 @@ namespace AgroParallel.OrbitX
                     LoteNombre = loteNombre
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "encolar archivo si cambió", ex);
+            }
         }
 
         // =====================================================================
@@ -752,7 +759,10 @@ namespace AgroParallel.OrbitX
 
                 await _http.SendAsync(request);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "enviar posición GPS al cloud", ex);
+            }
         }
 
         private static string ComputeMd5(string input)

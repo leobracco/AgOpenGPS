@@ -82,7 +82,7 @@ namespace AgroParallel.OrbitX
                      $"Probando bind por IP LAN específica (no requiere admin). " +
                      $"Para wildcard estable ejecutar UNA VEZ como admin: " +
                      $"netsh http add urlacl url=http://+:{port}/ user=Everyone");
-                try { _listener?.Close(); } catch { }
+                try { _listener?.Close(); } catch { } // silencioso a propósito: Close de socket tras fallo de bind
 
                 var ips = GetLocalIPv4Addresses();
                 _listener = new HttpListener();
@@ -102,7 +102,7 @@ namespace AgroParallel.OrbitX
                 {
                     _log($"FW server: bind por IP específica falló ({ex2.Message}), cae a localhost-only");
                     // Si todavía falla, fallback total a localhost.
-                    try { _listener?.Close(); } catch { }
+                    try { _listener?.Close(); } catch { } // silencioso a propósito: Close de socket tras fallo de bind
                     try
                     {
                         _listener = new HttpListener();
@@ -136,9 +136,9 @@ namespace AgroParallel.OrbitX
         {
             if (!IsRunning) return;
             IsRunning = false;
-            try { _cts?.Cancel(); } catch { }
-            try { _listener?.Stop(); } catch { }
-            try { _listener?.Close(); } catch { }
+            try { _cts?.Cancel(); } catch { } // silencioso a propósito: Stop/Cancel en shutdown
+            try { _listener?.Stop(); } catch { } // silencioso a propósito: Stop/Cancel en shutdown
+            try { _listener?.Close(); } catch { } // silencioso a propósito: Close en shutdown
             _listener = null;
         }
 
@@ -225,11 +225,11 @@ namespace AgroParallel.OrbitX
             }
             catch (Exception ex)
             {
-                try { SendJson(ctx, 500, new { error = ex.Message }); } catch { }
+                try { SendJson(ctx, 500, new { error = ex.Message }); } catch { } // silencioso a propósito: best-effort al escribir error HTTP
             }
             finally
             {
-                try { ctx.Response.Close(); } catch { }
+                try { ctx.Response.Close(); } catch { } // silencioso a propósito: Close de socket HTTP en finally
             }
         }
 

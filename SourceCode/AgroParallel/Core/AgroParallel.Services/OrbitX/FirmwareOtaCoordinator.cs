@@ -141,8 +141,8 @@ namespace AgroParallel.OrbitX
                 if (!_started) return;
                 _started = false;
             }
-            try { _registry.MessageReceived -= OnMqttMessage; } catch { }
-            try { _watchdog?.Dispose(); _watchdog = null; } catch { }
+            try { _registry.MessageReceived -= OnMqttMessage; } catch { } // silencioso a propósito: desuscribir en Stop/Dispose
+            try { _watchdog?.Dispose(); _watchdog = null; } catch { } // silencioso a propósito: Dispose de timer en shutdown
         }
 
         // ── Lecturas ─────────────────────────────────────────────────────────
