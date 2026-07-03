@@ -8,9 +8,10 @@
 //   · Parámetros  — GET/POST /api/corex-ecu/params (auto-zero, keya, IMU EMA)
 //   · Conexión    — config persistida del Hub (IP, puerto, timeout)
 //
-// Nota sobre el JSON: EmbedIO (Swan.Lite) emite SIEMPRE camelCase a partir del
-// PascalCase del DTO en C#, e ignora los `[JsonPropertyName]` de outbound. Por
-// eso desde acá leemos `s.imu.yawDeg`, `s.was.zeroDone`, `s.errorCode`, etc.
+// Nota sobre el JSON: todos los endpoints emiten snake_case vía AgpJson.
+// Los [JsonPropertyName] de los DTOs tienen precedencia sobre la política global,
+// por lo que algunos campos mantienen el nombre del atributo explícito.
+// Leemos: s.error_code, s.imu.yaw_deg, s.was.zero_done, etc.
 // ============================================================================
 (function () {
   'use strict';
@@ -120,7 +121,7 @@
   function renderStatus(s) {
     if (!s || !s.ok) {
       setPill(false, 'ECU offline');
-      showError(s && s.errorCode, (s && s.error) || 'Sin respuesta del CoreX-ECU.', s && s.errorTechnical);
+      showError(s && s.error_code, (s && s.error) || 'Sin respuesta del CoreX-ECU.', s && s.error_technical);
       clearLive();
       return;
     }
@@ -134,18 +135,18 @@
 
     var imu = s.imu || {};
     $('imuMode').textContent = imu.mode || '—';
-    $('imuYaw').textContent = fmt(imu.yawDeg) + ' °';
-    $('imuRoll').textContent = fmt(imu.rollDeg) + ' °';
-    $('imuPitch').textContent = fmt(imu.pitchDeg) + ' °';
-    $('imuYawRate').textContent = fmt(imu.yawRateDps) + ' °/s';
+    $('imuYaw').textContent = fmt(imu.yaw_deg) + ' °';
+    $('imuRoll').textContent = fmt(imu.roll_deg) + ' °';
+    $('imuPitch').textContent = fmt(imu.pitch_deg) + ' °';
+    $('imuYawRate').textContent = fmt(imu.yaw_rate_dps) + ' °/s';
 
     var w = s.was || {};
     $('wasSrc').textContent = w.source ? prettySource(w.source) : '—';
-    $('wasAngle').textContent = fmt(w.angleDeg) + ' °';
-    $('wasZero').textContent = w.zeroDone ? 'OK (centro capturado)' : 'Pendiente';
-    $('wasRaw').textContent = fmtInt(w.encoderRaw);
-    $('wasCenter').textContent = fmtInt(w.zeroTicks);
-    $('wasTpd').textContent = fmt(w.ticksPerDeg, 2);
+    $('wasAngle').textContent = fmt(w.angle_deg) + ' °';
+    $('wasZero').textContent = w.zero_done ? 'OK (centro capturado)' : 'Pendiente';
+    $('wasRaw').textContent = fmtInt(w.encoder_raw);
+    $('wasCenter').textContent = fmtInt(w.zero_ticks);
+    $('wasTpd').textContent = fmt(w.ticks_per_deg, 2);
     // Firmware v1.11+: en modo ADS el firmware reporta probe + lectura cruda.
     // En modo Keya estos campos vienen vacíos / 0 — los mostramos igual para
     // que el operario pueda diagnosticar el chip antes de cambiar de fuente.
@@ -153,33 +154,33 @@
     var isAds = srcLow === 'ads_se' || srcLow === 'ads_diff';
     var elAdsP = $('wasAdsPresent');
     var elAdsR = $('wasAdsRaw');
-    if (elAdsP) elAdsP.textContent = isAds ? (w.adsPresent ? 'Sí (chip detectado)' : 'No (sin respuesta I²C)')
-                                           : (w.adsPresent ? 'Detectado (no activo)' : '—');
-    if (elAdsR) elAdsR.textContent = isAds ? fmtInt(w.adsRaw) : (w.adsPresent ? fmtInt(w.adsRaw) : '—');
+    if (elAdsP) elAdsP.textContent = isAds ? (w.ads_present ? 'Sí (chip detectado)' : 'No (sin respuesta I²C)')
+                                           : (w.ads_present ? 'Detectado (no activo)' : '—');
+    if (elAdsR) elAdsR.textContent = isAds ? fmtInt(w.ads_raw) : (w.ads_present ? fmtInt(w.ads_raw) : '—');
 
     var g = s.gps || {};
-    $('gpsSpd').textContent = fmt(g.speedKmh) + ' km/h';
-    $('gpsKnots').textContent = fmt(g.speedKnots, 2);
-    $('gpsHdg').textContent = fmt(g.headingDeg) + ' °';
-    $('gpsGga').textContent = yesNo(g.ggaSeen);
+    $('gpsSpd').textContent = fmt(g.speed_kmh) + ' km/h';
+    $('gpsKnots').textContent = fmt(g.speed_knots, 2);
+    $('gpsHdg').textContent = fmt(g.heading_deg) + ' °';
+    $('gpsGga').textContent = yesNo(g.gga_seen);
 
     var c = s.can || {};
-    $('canEn').textContent = yesNo(c.keyaSteerEnabled);
-    $('canCurr').textContent = fmt(c.keyaCurrentA, 2) + ' A';
+    $('canEn').textContent = yesNo(c.keya_steer_enabled);
+    $('canCurr').textContent = fmt(c.keya_current_a, 2) + ' A';
 
     var a = s.autosteer || {};
     $('asRun').textContent = a.running ? 'Corriendo' : 'Detenido';
-    $('asGuide').textContent = a.guidanceActive ? 'Activa' : 'Inactiva';
+    $('asGuide').textContent = a.guidance_active ? 'Activa' : 'Inactiva';
     $('asWd').textContent = fmtInt(a.watchdog) + (a.watchdog >= 100 ? ' (caído)' : '');
     $('asPwm').textContent = fmtInt(a.pwm);
-    $('asSp').textContent = fmt(a.setpointDeg) + ' °';
+    $('asSp').textContent = fmt(a.setpoint_deg) + ' °';
 
     $('ip').textContent = s.ip || '—';
     $('eth').textContent = s.ethernet ? 'Link up' : 'Link down';
     $('fwVer').textContent = (s.firmware || '—') + (s.version ? (' ' + s.version) : '');
-    $('upTime').textContent = fmtSeconds(s.uptimeSec);
+    $('upTime').textContent = fmtSeconds(s.uptime_sec);
 
-    // Calibración tab: bloqueo del joystick + reflejo de motor.testActive.
+    // Calibración tab: bloqueo del joystick + reflejo de motor.test_active.
     updateMotorLock(s);
   }
 
@@ -205,7 +206,7 @@
       return;
     }
     if (!s.ok) {
-      cl.innerHTML = '<div class="subtitle">' + escapeHtml((s.errorCode || '') + ' · ' + (s.error || 'Sin respuesta del CoreX-ECU.')) + '</div>';
+      cl.innerHTML = '<div class="subtitle">' + escapeHtml((s.error_code || '') + ' · ' + (s.error || 'Sin respuesta del CoreX-ECU.')) + '</div>';
       return;
     }
 
@@ -223,19 +224,19 @@
       detail: imu.present ? ('Modo ' + (imu.mode || '?')) : 'No detectada'
     });
     checks.push({
-      state: w.zeroDone ? 'ok' : 'warn',
+      state: w.zero_done ? 'ok' : 'warn',
       label: 'WAS auto-zero',
-      detail: w.zeroDone ? ('Centro = ' + (w.zeroTicks || 0) + ' ticks · fuente ' + (w.source || '?')) : 'Pendiente · esperá que el tractor esté quieto y derecho'
+      detail: w.zero_done ? ('Centro = ' + (w.zero_ticks || 0) + ' ticks · fuente ' + (w.source || '?')) : 'Pendiente · esperá que el tractor esté quieto y derecho'
     });
     checks.push({
-      state: g.ggaSeen ? 'ok' : 'warn',
+      state: g.gga_seen ? 'ok' : 'warn',
       label: 'GPS NMEA',
-      detail: g.ggaSeen ? ('Spd ' + fmt(g.speedKmh) + ' km/h') : 'Sin GGA recibido'
+      detail: g.gga_seen ? ('Spd ' + fmt(g.speed_kmh) + ' km/h') : 'Sin GGA recibido'
     });
     checks.push({
-      state: c.keyaSteerEnabled ? 'ok' : 'unknown',
+      state: c.keya_steer_enabled ? 'ok' : 'unknown',
       label: 'CAN Keya',
-      detail: c.keyaSteerEnabled ? ('Motor habilitado · ' + fmt(c.keyaCurrentA, 2) + ' A') : 'Motor deshabilitado'
+      detail: c.keya_steer_enabled ? ('Motor habilitado · ' + fmt(c.keya_current_a, 2) + ' A') : 'Motor deshabilitado'
     });
     var wd = a.watchdog || 0;
     checks.push({
@@ -246,7 +247,7 @@
     checks.push({
       state: 'ok',
       label: 'Uptime',
-      detail: fmtSeconds(s.uptimeSec)
+      detail: fmtSeconds(s.uptime_sec)
     });
 
     var ico = { ok: '✓', warn: '!', fail: '✕', unknown: '?' };
@@ -270,7 +271,7 @@
       .then(function (r) { return r.json(); })
       .then(function (p) {
         if (!p || p.ok === false) {
-          $('paramsMsg').textContent = ((p && p.errorCode) || 'AGP-NET-201') + ' · ' + ((p && p.error) || 'No se pudo leer /params.');
+          $('paramsMsg').textContent = ((p && p.error_code) || 'AGP-NET-201') + ' · ' + ((p && p.error) || 'No se pudo leer /params.');
           return;
         }
         var az = p.autoZero || {}, ky = p.keya || {}, im = p.imu || {};
@@ -371,7 +372,7 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (!j || !j.ok) {
-          $('paramsMsg').textContent = ((j && j.errorCode) || 'AGP-NET-201') + ' · ' + ((j && j.error) || 'No se pudo guardar.');
+          $('paramsMsg').textContent = ((j && j.error_code) || 'AGP-NET-201') + ' · ' + ((j && j.error) || 'No se pudo guardar.');
           return;
         }
         var u = j.updated || {};
@@ -392,7 +393,7 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (!j || !j.ok) {
-          $('zeroMsg').textContent = ((j && j.errorCode) || 'AGP-NET-201') + ' · ' + ((j && j.error) || 'Falló.');
+          $('zeroMsg').textContent = ((j && j.error_code) || 'AGP-NET-201') + ' · ' + ((j && j.error) || 'Falló.');
           return;
         }
         $('zeroMsg').textContent = 'OK · centro = ' + (j.zeroTicks || 0) + ' ticks.';
@@ -485,8 +486,8 @@
         setToggle($('cfgEnabled'), !!c.enabled);
         $('cfgIp').value = c.ip || '';
         $('cfgPort').value = c.port || 80;
-        $('cfgTimeout').value = c.timeoutMs || 3000;
-        setWasSourceButtons(c.wasSource);
+        $('cfgTimeout').value = c.timeout_ms || 3000;
+        setWasSourceButtons(c.was_source);
       })
       .catch(function () { /* swallow — la UI arranca con defaults */ });
 
@@ -511,8 +512,8 @@
       enabled: $('cfgEnabled').classList.contains('on'),
       ip: $('cfgIp').value.trim(),
       port: parseInt($('cfgPort').value, 10) || 80,
-      timeoutMs: parseInt($('cfgTimeout').value, 10) || 3000,
-      wasSource: wasSource
+      timeout_ms: parseInt($('cfgTimeout').value, 10) || 3000,
+      was_source: wasSource
     };
     $('cfgMsg').textContent = 'Guardando…';
     fetch('/api/corex-ecu/config', {
@@ -540,11 +541,11 @@
             if (wj && wj.ok) {
               var msg = 'OK · fuente WAS aplicada al firmware (' + prettySource(wj.source || wasSource) + ')';
               if (wj.probed) {
-                msg += wj.adsPresent ? ' · ADS1115 detectado ✓' : ' · ADS1115 NO detectado ✗';
+                msg += wj.ads_present ? ' · ADS1115 detectado ✓' : ' · ADS1115 NO detectado ✗';
               }
               $('cfgMsg').textContent = msg + '.';
             } else {
-              var code = (wj && (wj.errorCode || wj.error_code)) || 'AGP-NET-201';
+              var code = (wj && wj.error_code) || 'AGP-NET-201';
               var err  = (wj && wj.error) || 'No se pudo aplicar la fuente WAS al firmware.';
               $('cfgMsg').textContent = 'OK config persistida · ' + code + ' · ' + err;
             }
@@ -575,7 +576,7 @@
   function updateMotorLock(s) {
     // Bloqueamos los botones si guidance está activa (cualquier intento da 409).
     var a = (s && s.autosteer) || {};
-    var locked = !!a.guidanceActive;
+    var locked = !!a.guidance_active;
     var warn = $('motorLockWarn');
     if (warn) warn.classList.toggle('visible', locked);
     var fwWarn = $('fwLockWarn');
@@ -606,9 +607,9 @@
     var ms = $('motorStatus');
     var m = (s && s.motor) || {};
     if (!ms) return;
-    if (m.testActive) {
-      ms.innerHTML = '<span class="active">● Motor activo</span> · PWM ' + (m.testPwm || 0) +
-                     ' · queda ' + (m.testRemainingMs || 0) + ' ms';
+    if (m.test_active) {
+      ms.innerHTML = '<span class="active">● Motor activo</span> · PWM ' + (m.test_pwm || 0) +
+                     ' · queda ' + (m.test_remaining_ms || 0) + ' ms';
     } else {
       ms.textContent = 'Motor inactivo · sin comando manual.';
     }
@@ -630,7 +631,7 @@
         // Si saltó 409 mid-hold, frenamos el repeater para no spamear.
         stopHolding();
         var msg = (j && j.error) || 'No se pudo mover el motor.';
-        $('motorStatus').textContent = ((j && (j.errorCode || j.error_code)) || 'AGP-NET-201') + ' · ' + msg;
+        $('motorStatus').textContent = ((j && j.error_code) || 'AGP-NET-201') + ' · ' + msg;
       }
     } catch (e) {
       stopHolding();
@@ -770,13 +771,13 @@
       var cls = (!r.measured)
         ? (i === (currentStep | 0) - 1 ? 'current' : 'pending')
         : '';
-      var dps = r.measured ? Number(r.degPerSec || r.deg_per_sec || 0) : null;
+      var dps = r.measured ? Number(r.deg_per_sec || 0) : null;
       var dPerPwm = r.measured && r.pwm ? (dps / Math.abs(r.pwm)).toFixed(3) : '—';
       rows.push(
         '<tr class="' + cls + '">' +
           '<td>' + (r.pwm > 0 ? '+' : '') + r.pwm + '</td>' +
-          '<td>' + (r.measured ? (r.deltaTicks != null ? r.deltaTicks : r.delta_ticks) : '—') + '</td>' +
-          '<td>' + (r.measured ? (r.durationMs != null ? r.durationMs : r.duration_ms) : '—') + '</td>' +
+          '<td>' + (r.measured ? r.delta_ticks : '—') + '</td>' +
+          '<td>' + (r.measured ? r.duration_ms : '—') + '</td>' +
           '<td>' + (r.measured ? Number(dps).toFixed(3) : '—') + '</td>' +
           '<td>' + dPerPwm + '</td>' +
         '</tr>'
@@ -798,13 +799,12 @@
       });
       var j = await r.json();
       if (!j || !j.ok) {
-        $('sweepMsg').textContent = ((j && (j.errorCode || j.error_code)) || 'AGP-NET-201') + ' · ' +
+        $('sweepMsg').textContent = ((j && j.error_code) || 'AGP-NET-201') + ' · ' +
                                     ((j && j.error) || 'No se pudo iniciar.');
         return;
       }
-      var est = j.estimatedMs || j.estimated_ms || 0;
-      $('sweepMsg').textContent = 'Barrido en curso — ' + (j.stepCount || j.step_count || 16) +
-                                  ' pasos · ~' + Math.round(est / 1000) + ' s estimados.';
+      $('sweepMsg').textContent = 'Barrido en curso — ' + (j.step_count || 16) +
+                                  ' pasos · ~' + Math.round((j.estimated_ms || 0) / 1000) + ' s estimados.';
       $('sweepTable').style.display = 'table';
       $('sweepProgress').style.display = 'block';
       $('btnSweepStart').disabled = true;
@@ -828,10 +828,10 @@
       var j = await r.json();
       if (!j || !j.ok) return;
       var state = j.state || 'idle';
-      var curr  = j.currentStep || j.current_step || 0;
-      var total = j.totalSteps  || j.total_steps  || SWEEP_STEPS.length;
+      var curr  = j.current_step || 0;
+      var total = j.total_steps  || SWEEP_STEPS.length;
       $('sweepProgText').textContent = 'Estado: ' + state + ' · paso ' + curr + ' / ' + total +
-                                        (j.ticksPerDeg ? (' · ticks/deg ' + Number(j.ticksPerDeg).toFixed(2)) : '');
+                                        (j.ticks_per_deg ? (' · ticks/deg ' + Number(j.ticks_per_deg).toFixed(2)) : '');
       renderSweepRows(j.results || [], curr);
 
       if (state === 'done') {
@@ -861,7 +861,7 @@
       if (j && j.ok) {
         $('sweepMsg').textContent = 'Barrido cancelado.';
       } else {
-        $('sweepMsg').textContent = ((j && (j.errorCode || j.error_code)) || 'AGP-NET-201') + ' · ' +
+        $('sweepMsg').textContent = ((j && j.error_code) || 'AGP-NET-201') + ' · ' +
                                     ((j && j.error) || 'No se pudo cancelar.');
       }
       stopSweepPolling();
@@ -947,7 +947,7 @@
           flashing = false;
           $('btnFlashFw').disabled = false;
           sel.disabled = false;
-          var code = (j && (j.errorCode || j.error_code)) || 'AGP-NET-201';
+          var code = (j && j.error_code) || 'AGP-NET-201';
           $('fwFlashMsg').textContent = code + ' · ' + ((j && j.error) || 'No se pudo actualizar.');
         }
       })
