@@ -7,17 +7,14 @@
 // calculaba JS replicando la fórmula del bridge; ahora se sirve desde C#.
 // ============================================================================
 
-using System.Text;
 using System.Threading.Tasks;
 using AgroParallel.Services.Abstractions;
-using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
+using EmbedIO;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class QuantiXRuntimeController : WebApiController
+    public sealed class QuantiXRuntimeController : AgpControllerBase
     {
         private readonly IQuantiXRuntimeService _runtime;
 
@@ -27,14 +24,10 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/quantix/runtime")]
-        public async Task GetRuntime()
+        public Task GetRuntime()
         {
             var snap = _runtime != null ? _runtime.GetSnapshot() : null;
-            string json = SysJson.Serialize(new { ok = true, snapshot = snap }, new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
-            });
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
+            return WriteJsonAsync(new { ok = true, snapshot = snap });
         }
     }
 }
