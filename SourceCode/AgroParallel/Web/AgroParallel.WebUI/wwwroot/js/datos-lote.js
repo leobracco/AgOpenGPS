@@ -64,32 +64,25 @@
     return Number(v).toFixed(dec || 0);
   }
 
-  // /api/aog/state serializa con los nombres PascalCase de las props C#
-  // (sin CamelCasePolicy). Normalizamos acá a camelCase para que renderSnap()
-  // /recompute() no tengan que conocer la convención del backend. Sin esto los
-  // KPIs leían undefined y quedaban todos en cero. Mismo patrón que flowx.js.
+  // /api/aog/state serializa en snake_case (AgpJson).
   function normalizeSnap(raw) {
     if (!raw) return null;
-    function pick(o, p, c) { return (o[p] != null) ? o[p] : o[c]; }
-    var track = pick(raw, 'ActiveTrack', 'activeTrack');
+    var track = raw.active_track;
     return {
-      isJobStarted:        !!pick(raw, 'IsJobStarted', 'isJobStarted'),
-      avgSpeed:            Number(pick(raw, 'AvgSpeed', 'avgSpeed') || 0),
-      numSections:         Number(pick(raw, 'NumSections', 'numSections') || 0),
-      sectionOnRequest:    pick(raw, 'SectionOnRequest', 'sectionOnRequest') || [],
-      workedAreaTotalM2:   Number(pick(raw, 'WorkedAreaTotalM2', 'workedAreaTotalM2') || 0),
-      actualAreaCoveredM2: Number(pick(raw, 'ActualAreaCoveredM2', 'actualAreaCoveredM2') || 0),
-      boundaryAreaM2:      Number(pick(raw, 'BoundaryAreaM2', 'boundaryAreaM2') || 0),
-      toolWidth:           Number(pick(raw, 'ToolWidth', 'toolWidth') || 0),
-      currentFieldDirectory: pick(raw, 'CurrentFieldDirectory', 'currentFieldDirectory'),
-      vehicleBrand:        pick(raw, 'VehicleBrand', 'vehicleBrand'),
-      vehicleType:         pick(raw, 'VehicleType', 'vehicleType'),
-      shapeIsInside:       !!pick(raw, 'ShapeIsInside', 'shapeIsInside'),
-      shapeCurrentDose:    Number(pick(raw, 'ShapeCurrentDose', 'shapeCurrentDose') || 0),
-      activeTrack: track ? {
-        name: pick(track, 'Name', 'name'),
-        mode: pick(track, 'Mode', 'mode')
-      } : null
+      isJobStarted:          !!raw.is_job_started,
+      avgSpeed:              Number(raw.avg_speed || 0),
+      numSections:           Number(raw.num_sections || 0),
+      sectionOnRequest:      raw.section_on_request || [],
+      workedAreaTotalM2:     Number(raw.worked_area_total_m2 || 0),
+      actualAreaCoveredM2:   Number(raw.actual_area_covered_m2 || 0),
+      boundaryAreaM2:        Number(raw.boundary_area_m2 || 0),
+      toolWidth:             Number(raw.tool_width || 0),
+      currentFieldDirectory: raw.current_field_directory,
+      vehicleBrand:          raw.vehicle_brand,
+      vehicleType:           raw.vehicle_type,
+      shapeIsInside:         !!raw.shape_is_inside,
+      shapeCurrentDose:      Number(raw.shape_current_dose || 0),
+      activeTrack: track ? { name: track.name, mode: track.mode } : null
     };
   }
 

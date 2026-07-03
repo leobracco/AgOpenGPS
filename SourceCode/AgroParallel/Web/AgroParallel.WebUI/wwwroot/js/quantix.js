@@ -639,7 +639,8 @@
     try {
       var r = await fetch('/api/aog/state', { cache: 'no-store' });
       var d = await r.json();
-      var n = (d && (d.NumSections != null ? d.NumSections : d.numSections)) || 0;
+      // /api/aog/state serializa en snake_case (AgpJson).
+      var n = (d && d.num_sections) || 0;
       state.aogNumSections = n;
     } catch (e) { /* keep previous */ }
   }
@@ -650,8 +651,9 @@
     try {
       var r = await fetch('/api/aog/shape-fields', { cache: 'no-store' });
       var d = await r.json();
+      // /api/aog/shape-fields serializa en snake_case: sourceToken → source_token
       if (d && d.ok) {
-        state.shapeSource = d.sourceToken || '';
+        state.shapeSource = d.source_token || '';
         state.shapeFields = Array.isArray(d.fields) ? d.fields : [];
       } else {
         state.shapeSource = '';
@@ -716,14 +718,14 @@
   // Refresca el estado de PilotX (job, secciones cortadas, velocidad, área).
   async function refreshAogLiveState() {
     try {
+      // /api/aog/state serializa en snake_case (AgpJson).
       var r = await fetch('/api/aog/state', { cache: 'no-store' });
       var d = await r.json();
-      state.aogJobStarted = !!pick(d, 'IsJobStarted', 'isJobStarted');
-      state.sectionOn = pick(d, 'SectionOnRequest', 'sectionOnRequest') || null;
-      var ns = pick(d, 'NumSections', 'numSections');
-      if (ns != null) state.aogNumSections = ns;
-      state.aogSpeed = pick(d, 'AvgSpeed', 'avgSpeed') || 0;
-      var areaM2 = pick(d, 'ActualAreaCoveredM2', 'actualAreaCoveredM2') || 0;
+      state.aogJobStarted = !!d.is_job_started;
+      state.sectionOn = d.section_on_request || null;
+      if (d.num_sections != null) state.aogNumSections = d.num_sections;
+      state.aogSpeed = d.avg_speed || 0;
+      var areaM2 = d.actual_area_covered_m2 || 0;
       state.aogAreaHa = areaM2 * 0.0001;
     } catch (e) { /* mantené el último estado */ }
   }
@@ -2062,7 +2064,8 @@
     try {
       var r = await fetch('/api/aog/shape-fields', { cache: 'no-store' });
       var d = await r.json();
-      if (!d || !d.ok || !d.sourceToken) {
+      // /api/aog/shape-fields serializa en snake_case: sourceToken → source_token
+      if (!d || !d.ok || !d.source_token) {
         box.innerHTML = '<div class="subtitle">No hay shapefile activo en este lote.</div>';
         return;
       }
@@ -2076,7 +2079,7 @@
       box.innerHTML =
         '<div style="display:grid;grid-template-columns:auto 1fr;gap:var(--agp-sp-2) var(--agp-sp-3);align-items:baseline">' +
           '<div class="lbl" style="font-size:var(--agp-fs-xs);color:var(--agp-text-muted);text-transform:uppercase">Archivo</div>' +
-          '<div style="font-family:var(--agp-font-mono)">' + escapeHtml(d.sourceToken) + '</div>' +
+          '<div style="font-family:var(--agp-font-mono)">' + escapeHtml(d.source_token) + '</div>' +
           '<div class="lbl" style="font-size:var(--agp-fs-xs);color:var(--agp-text-muted);text-transform:uppercase">Columnas DBF</div>' +
           '<div class="shape-required-grid" style="margin:0">' + fieldsHtml + '</div>' +
         '</div>';

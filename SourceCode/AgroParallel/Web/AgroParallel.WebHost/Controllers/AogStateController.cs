@@ -8,18 +8,16 @@
 // Punto de entrada para la UI HTML cuando no se quiere suscribir al WS.
 // ============================================================================
 
-using System.Text;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class AogStateController : WebApiController
+    public sealed class AogStateController : AgpControllerBase
     {
         private readonly IAogStateProvider _state;
 
@@ -29,33 +27,27 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/aog/state")]
-        public AogStateSnapshot GetState()
+        public Task GetState()
         {
-            return _state.GetSnapshot();
+            return WriteJsonAsync(_state.GetSnapshot());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape")]
-        public ShapeSnapshot GetShape()
+        public Task GetShape()
         {
-            return _state.GetShape();
+            return WriteJsonAsync(_state.GetShape());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape-fields")]
-        public async Task GetShapeFields()
+        public Task GetShapeFields()
         {
-            // System.Text.Json directo: el ResponseSerializer default (Swan) emite
-            // PascalCase y la UI espera camelCase (sourceToken/fields/name/numeric).
             var data = _state.GetShapeFields() ?? new ShapeFieldsSnapshot();
-            string json = SysJson.Serialize(new
+            return WriteJsonAsync(new
             {
                 ok = true,
-                sourceToken = data.SourceToken ?? string.Empty,
+                source_token = data.SourceToken ?? string.Empty,
                 fields = data.Fields
-            }, new System.Text.Json.JsonSerializerOptions
-            {
-                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
             });
-            await HttpContext.SendStringAsync(json, "application/json", Encoding.UTF8).ConfigureAwait(false);
         }
     }
 }

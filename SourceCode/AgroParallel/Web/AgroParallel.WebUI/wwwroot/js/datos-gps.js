@@ -27,26 +27,23 @@
     return Number(v).toFixed(dec || 0);
   }
 
-  // /api/aog/state serializa en PascalCase (props C# sin CamelCasePolicy).
-  // Normalizamos a camelCase para que render() no quede leyendo undefined → 0.
-  // Mismo patrón que flowx.js / datos-lote.js.
+  // /api/aog/state serializa en snake_case (AgpJson).
   function normalizeSnap(raw) {
     if (!raw) return null;
-    function pick(o, p, c) { return (o[p] != null) ? o[p] : o[c]; }
     return {
-      isJobStarted:        !!pick(raw, 'IsJobStarted', 'isJobStarted'),
-      avgSpeed:            Number(pick(raw, 'AvgSpeed', 'avgSpeed') || 0),
-      heading:             Number(pick(raw, 'Heading', 'heading') || 0),
-      latitude:            Number(pick(raw, 'Latitude', 'latitude') || 0),
-      longitude:           Number(pick(raw, 'Longitude', 'longitude') || 0),
-      pivotEasting:        Number(pick(raw, 'PivotEasting', 'pivotEasting') || 0),
-      pivotNorthing:       Number(pick(raw, 'PivotNorthing', 'pivotNorthing') || 0),
-      numSections:         Number(pick(raw, 'NumSections', 'numSections') || 0),
-      sectionOnRequest:    pick(raw, 'SectionOnRequest', 'sectionOnRequest') || [],
-      toolWidth:           Number(pick(raw, 'ToolWidth', 'toolWidth') || 0),
-      currentFieldDirectory: pick(raw, 'CurrentFieldDirectory', 'currentFieldDirectory'),
-      vehicleBrand:        pick(raw, 'VehicleBrand', 'vehicleBrand'),
-      vehicleType:         pick(raw, 'VehicleType', 'vehicleType')
+      isJobStarted:          !!raw.is_job_started,
+      avgSpeed:              Number(raw.avg_speed || 0),
+      heading:               Number(raw.heading || 0),
+      latitude:              Number(raw.latitude || 0),
+      longitude:             Number(raw.longitude || 0),
+      pivotEasting:          Number(raw.pivot_easting || 0),
+      pivotNorthing:         Number(raw.pivot_northing || 0),
+      numSections:           Number(raw.num_sections || 0),
+      sectionOnRequest:      raw.section_on_request || [],
+      toolWidth:             Number(raw.tool_width || 0),
+      currentFieldDirectory: raw.current_field_directory,
+      vehicleBrand:          raw.vehicle_brand,
+      vehicleType:           raw.vehicle_type
     };
   }
 

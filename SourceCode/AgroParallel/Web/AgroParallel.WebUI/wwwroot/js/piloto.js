@@ -223,7 +223,8 @@
     ctx.stroke();
   }
 
-  function pickPt(p) { return { e: (p.e != null ? p.e : p.E) || 0, n: (p.n != null ? p.n : p.N) || 0 }; }
+  // /api/aog/state serializa en snake_case (AgpJson): FieldPoint.E → e, FieldPoint.N → n.
+  function pickPt(p) { return { e: p.e || 0, n: p.n || 0 }; }
 
   function drawPolyline(pts, closed, stroke, lineWidth, fill, dash) {
     if (!pts || pts.length < 2) return;
@@ -318,19 +319,21 @@
     var stroke = '#E27A0F'; // naranja Agro Parallel
 
     if (mode.indexOf('curve') >= 0 || mode.indexOf('pivot') >= 0) {
-      var pts = t.curvePts || t.CurvePts || [];
+      // TrackInfo.CurvePts → curve_pts (snake_case AgpJson)
+      var pts = t.curve_pts || [];
       drawPolyline(pts, false, stroke, 2);
       return;
     }
 
     // AB line: extender desde el heading de A en ambos sentidos ~1km.
-    var A = t.A || t.a;
-    var B = t.B || t.b;
+    // TrackInfo.A → a, TrackInfo.B → b (snake_case AgpJson)
+    var A = t.a;
+    var B = t.b;
     if (!A || !B) return;
-    var ax = (A.e != null ? A.e : A.E);
-    var ay = (A.n != null ? A.n : A.N);
-    var bx = (B.e != null ? B.e : B.E);
-    var by = (B.n != null ? B.n : B.N);
+    var ax = A.e;
+    var ay = A.n;
+    var bx = B.e;
+    var by = B.n;
     var dx = bx - ax, dy = by - ay;
     var len = Math.hypot(dx, dy);
     if (len < 0.1) return;
@@ -713,12 +716,13 @@
   function computeXteCm() {
     var t = snap.activeTrack;
     if (!t) return null;
-    var A = t.A || t.a, B = t.B || t.b;
+    // TrackInfo.A → a, TrackInfo.B → b, TrackInfo.CurvePts → curve_pts (snake_case AgpJson)
+    var A = t.a, B = t.b;
     if (A && B) {
-      var ax = A.e != null ? A.e : A.E;
-      var ay = A.n != null ? A.n : A.N;
-      var bx = B.e != null ? B.e : B.E;
-      var by = B.n != null ? B.n : B.N;
+      var ax = A.e;
+      var ay = A.n;
+      var bx = B.e;
+      var by = B.n;
       var dx = bx - ax, dy = by - ay;
       var L2 = dx*dx + dy*dy;
       if (L2 < 1e-6) return null;
@@ -727,7 +731,7 @@
       var cross = (pe - ax) * dy - (pn - ay) * dx;
       return (cross / Math.sqrt(L2)) * 100; // cm
     }
-    var pts = t.curvePts || t.CurvePts;
+    var pts = t.curve_pts;
     if (pts && pts.length >= 2) {
       // distancia al segmento más cercano
       var best = Infinity, sign = 1;
@@ -792,34 +796,28 @@
     try {
       var res = await fetch('/api/aog/state', { cache: 'no-store' });
       var s = await res.json();
-      // El controller usa PascalCase serializado por System.Text.Json default (camelCase).
-      // Soportamos ambos.
-      function pick(o, a, b) { return o[a] != null ? o[a] : o[b]; }
-      snap.isJobStarted     = !!pick(s, 'isJobStarted', 'IsJobStarted');
-      snap.avgSpeed         = pick(s, 'avgSpeed', 'AvgSpeed') || 0;
-      snap.heading          = pick(s, 'heading', 'Heading') || 0;
-      snap.pivotEasting     = pick(s, 'pivotEasting', 'PivotEasting') || 0;
-      snap.pivotNorthing    = pick(s, 'pivotNorthing', 'PivotNorthing') || 0;
-      snap.latitude         = pick(s, 'latitude', 'Latitude') || 0;
-      snap.longitude        = pick(s, 'longitude', 'Longitude') || 0;
-      snap.numSections      = pick(s, 'numSections', 'NumSections') || 0;
-      snap.sectionOnRequest = pick(s, 'sectionOnRequest', 'SectionOnRequest') || [];
-      var sp = pick(s, 'sectionPositions', 'SectionPositions') || [];
+      // /api/aog/state serializa en snake_case (AgpJson).
+      snap.isJobStarted     = !!s.is_job_started;
+      snap.avgSpeed         = s.avg_speed || 0;
+      snap.heading          = s.heading || 0;
+      snap.pivotEasting     = s.pivot_easting || 0;
+      snap.pivotNorthing    = s.pivot_northing || 0;
+      snap.latitude         = s.latitude || 0;
+      snap.longitude        = s.longitude || 0;
+      snap.numSections      = s.num_sections || 0;
+      snap.sectionOnRequest = s.section_on_request || [];
+      var sp = s.section_positions || [];
       snap.sectionPositions = sp.map(function (e) {
-        return {
-          index: e.index != null ? e.index : e.Index,
-          left:  e.left  != null ? e.left  : e.Left,
-          right: e.right != null ? e.right : e.Right
-        };
+        return { index: e.index, left: e.left, right: e.right };
       });
-      snap.toolWidth        = pick(s, 'toolWidth', 'ToolWidth') || 0;
-      snap.shapeCurrentDose = pick(s, 'shapeCurrentDose', 'ShapeCurrentDose') || 0;
-      snap.shapeIsInside    = !!pick(s, 'shapeIsInside', 'ShapeIsInside');
-      snap.vehicleType      = pick(s, 'vehicleType', 'VehicleType') || 'Tractor';
-      snap.vehicleBrand     = pick(s, 'vehicleBrand', 'VehicleBrand') || 'AGOpenGPS';
-      snap.boundaries       = pick(s, 'boundaries', 'Boundaries') || [];
-      snap.headlands        = pick(s, 'headlands', 'Headlands') || [];
-      snap.activeTrack      = pick(s, 'activeTrack', 'ActiveTrack') || null;
+      snap.toolWidth        = s.tool_width || 0;
+      snap.shapeCurrentDose = s.shape_current_dose || 0;
+      snap.shapeIsInside    = !!s.shape_is_inside;
+      snap.vehicleType      = s.vehicle_type || 'Tractor';
+      snap.vehicleBrand     = s.vehicle_brand || 'AGOpenGPS';
+      snap.boundaries       = s.boundaries || [];
+      snap.headlands        = s.headlands || [];
+      snap.activeTrack      = s.active_track || null;
 
       // Cobertura persistente (solo si hay job y movimiento real). Cada muestra
       // incluye heading + sectionOnRequest. Pintamos sobre el canvas oculto
@@ -856,21 +854,21 @@
       if (!res.ok) { shape.polygons = []; return; }
       var s = await res.json();
       if (!s) { shape.polygons = []; return; }
-      function pick(o, a, b) { return o[a] != null ? o[a] : o[b]; }
-      shape.sourceToken = pick(s, 'sourceToken', 'SourceToken') || '';
-      shape.count       = pick(s, 'count', 'Count') || 0;
-      shape.styleField  = pick(s, 'styleField', 'StyleField') || null;
+      // /api/aog/shape serializa en snake_case (AgpJson).
+      shape.sourceToken = s.source_token || '';
+      shape.count       = s.count || 0;
+      shape.styleField  = s.style_field || null;
 
-      var polys = pick(s, 'polygons', 'Polygons') || [];
+      var polys = s.polygons || [];
       var out = [];
       for (var i = 0; i < polys.length; i++) {
         var p = polys[i];
         out.push({
-          r:     pick(p, 'r', 'R') || 0,
-          g:     pick(p, 'g', 'G') || 0,
-          b:     pick(p, 'b', 'B') || 0,
-          a:     pick(p, 'a', 'A') != null ? pick(p, 'a', 'A') : 80,
-          rings: pick(p, 'rings', 'Rings') || []
+          r: p.r || 0,
+          g: p.g || 0,
+          b: p.b || 0,
+          a: p.a != null ? p.a : 80,
+          rings: p.rings || []
         });
       }
       shape.polygons = out;

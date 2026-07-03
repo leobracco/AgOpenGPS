@@ -32,22 +32,19 @@
   var live = null;
   var aogSnap = null; // último snapshot AOG normalizado a camelCase
 
-  // /api/aog/state serializa con los nombres PascalCase de las props C# (Newtonsoft
-  // sin CamelCasePolicy). Normalizamos acá para que el resto del módulo no tenga
-  // que conocer la convención del backend.
+  // /api/aog/state serializa en snake_case (AgpJson).
   var DEFAULT_CORTES_PER_NODE = 7;
   function normalizeAogSnap(raw) {
     if (!raw) return null;
-    function pick(o, p, c) { return (o[p] != null) ? o[p] : o[c]; }
     return {
-      numSections: Number(pick(raw, 'NumSections', 'numSections') || 0),
-      toolWidth: Number(pick(raw, 'ToolWidth', 'toolWidth') || 0),
-      avgSpeed: Number(pick(raw, 'AvgSpeed', 'avgSpeed') || 0),
-      sectionOnRequest: pick(raw, 'SectionOnRequest', 'sectionOnRequest') || [],
-      sectionPositions: pick(raw, 'SectionPositions', 'sectionPositions') || [],
-      isJobStarted: !!pick(raw, 'IsJobStarted', 'isJobStarted'),
-      workedAreaTotalM2: Number(pick(raw, 'WorkedAreaTotalM2', 'workedAreaTotalM2') || 0),
-      actualAreaCoveredM2: Number(pick(raw, 'ActualAreaCoveredM2', 'actualAreaCoveredM2') || 0)
+      numSections:         Number(raw.num_sections || 0),
+      toolWidth:           Number(raw.tool_width || 0),
+      avgSpeed:            Number(raw.avg_speed || 0),
+      sectionOnRequest:    raw.section_on_request || [],
+      sectionPositions:    raw.section_positions || [],
+      isJobStarted:        !!raw.is_job_started,
+      workedAreaTotalM2:   Number(raw.worked_area_total_m2 || 0),
+      actualAreaCoveredM2: Number(raw.actual_area_covered_m2 || 0)
     };
   }
 

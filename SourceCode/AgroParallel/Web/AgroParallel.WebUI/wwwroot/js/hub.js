@@ -54,31 +54,25 @@
       var s = await res.json();
       if (!s) return;
 
-      $('kpiSpeed').textContent = fmtNum(s.AvgSpeed != null ? s.AvgSpeed : s.avgSpeed, 1);
-      var hdg = radToDeg(s.Heading != null ? s.Heading : s.heading);
+      // /api/aog/state serializa en snake_case (AgpJson).
+      $('kpiSpeed').textContent = fmtNum(s.avg_speed, 1);
+      var hdg = radToDeg(s.heading);
       $('kpiHeading').textContent = (hdg == null ? '— ' : Math.round(hdg)) + '°';
 
-      var dose = s.ShapeCurrentDose != null ? s.ShapeCurrentDose : s.shapeCurrentDose;
+      var dose = s.shape_current_dose;
       $('kpiDose').textContent = dose ? fmtNum(dose, 0) : '—';
-      var inside = s.ShapeIsInside != null ? s.ShapeIsInside : s.shapeIsInside;
-      if (dose && inside) setPill($('kpiShape'), 'ok', 'dentro de zona');
+      if (dose && s.shape_is_inside) setPill($('kpiShape'), 'ok', 'dentro de zona');
       else if (dose) setPill($('kpiShape'), 'warn', 'fuera de zona');
       else setPill($('kpiShape'), 'idle', 'sin shape');
 
-      var numSec = s.NumSections != null ? s.NumSections : s.numSections;
-      var secReq = s.SectionOnRequest != null ? s.SectionOnRequest : s.sectionOnRequest;
-      renderSections(numSec, secReq);
-      var w = s.ToolWidth != null ? s.ToolWidth : s.toolWidth;
-      $('kpiToolWidth').textContent = (w ? fmtNum(w, 2) : '—') + ' m';
+      renderSections(s.num_sections, s.section_on_request);
+      $('kpiToolWidth').textContent = (s.tool_width ? fmtNum(s.tool_width, 2) : '—') + ' m';
 
-      var lat = s.Latitude != null ? s.Latitude : s.latitude;
-      var lon = s.Longitude != null ? s.Longitude : s.longitude;
-      $('kpiLatLon').textContent = fmtLatLon(lat, lon);
+      $('kpiLatLon').textContent = fmtLatLon(s.latitude, s.longitude);
 
-      var field = s.CurrentFieldDirectory != null ? s.CurrentFieldDirectory : s.currentFieldDirectory;
-      $('kpiField').textContent = field || '—';
+      $('kpiField').textContent = s.current_field_directory || '—';
 
-      var jobStarted = s.IsJobStarted != null ? s.IsJobStarted : s.isJobStarted;
+      var jobStarted = !!s.is_job_started;
       setPill($('pillJob'), jobStarted ? 'ok' : 'idle', jobStarted ? 'Trabajo activo' : 'Sin trabajo');
     } catch (e) {
       setPill($('pillJob'), 'bad', 'Piloto offline');
