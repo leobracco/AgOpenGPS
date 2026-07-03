@@ -63,19 +63,6 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  function lkeys(v) {
-    if (v == null) return v;
-    if (Array.isArray(v)) return v.map(lkeys);
-    if (typeof v !== 'object') return v;
-    var out = {};
-    for (var k in v) {
-      if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
-      var nk = k.length > 0 ? k.charAt(0).toLowerCase() + k.substring(1) : k;
-      out[nk] = lkeys(v[k]);
-    }
-    return out;
-  }
-
   function relTime(iso) {
     if (!iso) return '—';
     var t = Date.parse(iso);
@@ -100,7 +87,7 @@
 
   async function getJson(url) {
     var r = await fetch(url, { cache: 'no-store' });
-    return lkeys(await r.json());
+    return r.json();
   }
 
   async function postJson(url, body) {
@@ -109,7 +96,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body || {})
     });
-    return lkeys(await r.json());
+    return r.json();
   }
 
   // ── Render: identidad ───────────────────────────────────────────────────
@@ -329,7 +316,7 @@
       elOtaDetalle.textContent = '';
       return;
     }
-    var pct = Math.max(0, Math.min(100, Number(ota.progress_pct || ota.progressPct || 0)));
+    var pct = Math.max(0, Math.min(100, Number(ota.progress_pct || 0)));
     var status = ota.status;
     var version = ota.version || '';
     var det = ota.detalle || '';
@@ -424,7 +411,7 @@
       }
       toast('OTA enviado al nodo', 'ok');
       otaActivoUid = UID;
-      renderOtaState({ status: 'sent', progressPct: 5, version: version, detalle: 'Comando enviado al nodo' });
+      renderOtaState({ status: 'sent', progress_pct: 5, version: version, detalle: 'Comando enviado al nodo' });
       // arranca polling
       if (pollOtaTimer) clearInterval(pollOtaTimer);
       pollOtaTimer = setInterval(pollProgress, 1000);
