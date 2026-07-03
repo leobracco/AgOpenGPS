@@ -8,25 +8,17 @@
 // ============================================================================
 
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text.Json;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class StormXController : WebApiController
+    public sealed class StormXController : AgpControllerBase
     {
-        private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
         private readonly IStormXConfigService _cfg;
         private readonly INodoRegistryService _nodos;
         private readonly IStormXLiveService _live;
@@ -39,31 +31,28 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/stormx/config")]
-        public object GetConfig()
+        public Task GetConfig()
         {
-            if (_cfg == null) return new { ok = false, error = "service-unavailable" };
-            return _cfg.Load();
+            if (_cfg == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(_cfg.Load());
         }
 
         [Route(HttpVerbs.Post, "/stormx/config")]
-        public async Task<object> SaveConfig()
+        public async Task SaveConfig()
         {
-            if (_cfg == null) return new { ok = false, error = "service-unavailable" };
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
-            var dto = JsonSerializer.Deserialize<StormXConfigDto>(body, JsonOpts);
-            if (dto == null) return new { ok = false, error = "invalid-body" };
+            if (_cfg == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var dto = await ReadJsonBodyAsync<StormXConfigDto>();
+            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
             _cfg.Save(dto);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         // Filtra los nodos del NodoRegistry por type "storm". Hoy va a estar
         // vacío hasta que el firmware StormX publique `agp/storm/{uid}/announcement`.
         [Route(HttpVerbs.Get, "/stormx/nodos")]
-        public object GetNodos()
+        public Task GetNodos()
         {
-            if (_nodos == null) return new { ok = false, nodos = new object[0] };
+            if (_nodos == null) return WriteJsonAsync(new { ok = false, nodos = new object[0] });
             var all = _nodos.GetAll() ?? new List<NodoStatus>();
             var storm = all
                 .Where(n => n != null && !string.IsNullOrEmpty(n.Type)
@@ -78,14 +67,14 @@ namespace AgroParallel.WebHost.Controllers
                     last_seen_utc = n.LastSeenUtc
                 })
                 .ToList();
-            return new { ok = true, nodos = storm };
+            return WriteJsonAsync(new { ok = true, nodos = storm });
         }
 
         [Route(HttpVerbs.Get, "/stormx/live")]
-        public object GetLive()
+        public Task GetLive()
         {
-            if (_live == null) return new StormXLiveSnapshotDto { MonitoreoActivo = false };
-            return _live.GetSnapshot();
+            if (_live == null) return WriteJsonAsync(new StormXLiveSnapshotDto { MonitoreoActivo = false });
+            return WriteJsonAsync(_live.GetSnapshot());
         }
     }
 }
