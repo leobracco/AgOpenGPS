@@ -54,12 +54,12 @@ namespace AgroParallel.WebHost.Controllers
             var cfg = _cfg.Load();
             // Campos editables desde la UI:
             cfg.Enabled = incoming.Enabled;
-            if (!string.IsNullOrEmpty(incoming.EstabSlug))   cfg.EstabSlug       = incoming.EstabSlug;
-            if (!string.IsNullOrEmpty(incoming.DeviceToken))  cfg.DeviceToken     = incoming.DeviceToken;
-            if (incoming.SyncIntervalSec > 0)                 cfg.SyncIntervalSec = incoming.SyncIntervalSec;
-            cfg.SyncAOG      = incoming.SyncAOG;
-            cfg.SyncVistaX   = incoming.SyncVistaX;
-            cfg.SyncQuantiX  = incoming.SyncQuantiX;
+            if (!string.IsNullOrEmpty(incoming.EstabSlug)) cfg.EstabSlug = incoming.EstabSlug;
+            if (!string.IsNullOrEmpty(incoming.DeviceToken)) cfg.DeviceToken = incoming.DeviceToken;
+            if (incoming.SyncIntervalSec > 0) cfg.SyncIntervalSec = incoming.SyncIntervalSec;
+            cfg.SyncAOG = incoming.SyncAOG;
+            cfg.SyncVistaX = incoming.SyncVistaX;
+            cfg.SyncQuantiX = incoming.SyncQuantiX;
             cfg.SyncSectionX = incoming.SyncSectionX;
 
             _cfg.Save(cfg);
