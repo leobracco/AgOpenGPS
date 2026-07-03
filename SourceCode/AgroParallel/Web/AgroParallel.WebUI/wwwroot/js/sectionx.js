@@ -440,7 +440,7 @@
         var res = await fetch('/api/sectionx/test/' + encodeURIComponent(n.uid), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cables: cables, stepMs: 1000 })
+          body: JSON.stringify({ cables: cables, step_ms: 1000 })
         });
         var body = await res.json();
         if (body && body.ok) {
