@@ -414,9 +414,9 @@
     for (var i = 0; i < all.length; i++) {
       var m = all[i].motor;
       var live = liveMotor(all[i].uid, all[i].motorIdx);
-      var realPps = live ? (pick(live, 'ppsReal', 'PpsReal') || 0) : 0;
+      var realPps = live ? (live.pps_real || 0) : 0;
       var real = live ? qxAgro.label(qxAgro.units(m, realPps, ctx)) : '\u2014';
-      var rpm = live ? (pick(live, 'rpm', 'Rpm') | 0) : '\u2014';
+      var rpm = live ? (live.rpm | 0) : '\u2014';
       var unidad = (m.unidad_dosis === 'sem_m') ? 'sem/m' : 'kg/ha';
       var fija = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1) + ' ' + unidad;
       var ef = m.campo_dosis ? ('mapa ' + escapeHtml(m.campo_dosis)) : (fija + ' fija');
@@ -485,8 +485,7 @@
     var by = state.liveByUid && state.liveByUid[uid];
     var ms = by && by.motors ? by.motors : [];
     for (var k = 0; k < ms.length; k++) {
-      var mid = pick(ms[k], 'id', 'Id');
-      if ((mid | 0) === i) return ms[k];
+      if ((ms[k].id | 0) === i) return ms[k];
     }
     return null;
   }
@@ -517,9 +516,9 @@
     for (var i = 0; i < all.length; i++) {
       var m = all[i].motor;
       var live = liveMotor(all[i].uid, all[i].motorIdx);
-      var real = live ? (pick(live, 'ppsReal', 'PpsReal') || 0) : 0;
-      var target = live ? (pick(live, 'ppsTarget', 'PpsTarget') || 0) : 0;
-      var rpm = live ? (pick(live, 'rpm', 'Rpm') | 0) : 0;
+      var real = live ? (live.pps_real || 0) : 0;
+      var target = live ? (live.pps_target || 0) : 0;
+      var rpm = live ? (live.rpm | 0) : 0;
       var cutAll = motorAllCut(m);
       var badge = '<span class="badge">OK</span>';
       var barClass = 'bar';
@@ -758,9 +757,9 @@
       // Mantener cache para Calibración (necesita pulsos)
       for (var i = 0; i < nodos.length; i++) {
         var n = nodos[i];
-        var uid = pick(n, 'uid', 'Uid');
-        var motors = pick(n, 'motorsLive', 'MotorsLive') || [];
-        state.liveByUid[uid] = { online: !!pick(n, 'online', 'Online'), motors: motors };
+        var uid = n.uid;
+        var motors = n.motors_live || [];
+        state.liveByUid[uid] = { online: !!n.online, motors: motors };
       }
       // Si estoy en Calibrar, refrescá pulsos
       if (state.activeTab === 'calibrar') updateCalibrarPulses();
@@ -1000,12 +999,12 @@
         var mi = parseInt(mc.getAttribute('data-mi'), 10);
         var m = null;
         for (var k = 0; k < live.motors.length; k++) {
-          if ((live.motors[k].id || live.motors[k].Id || 0) === mi) { m = live.motors[k]; break; }
+          if ((live.motors[k].id | 0) === mi) { m = live.motors[k]; break; }
         }
         if (!m) return;
-        var t = pick(m, 'ppsTarget', 'PpsTarget') || 0;
-        var r = pick(m, 'ppsReal',   'PpsReal')   || 0;
-        var p = pick(m, 'pwm',       'Pwm')       || 0;
+        var t = m.pps_target || 0;
+        var r = m.pps_real || 0;
+        var p = m.pwm || 0;
         var cfg = findMotor(uid, mi);
         var ctx = qxAgro.ctxFrom(state.implCentral, state.aogSpeed);
         var elRpm = mc.querySelector('[data-live="rpm"]');
@@ -1108,7 +1107,7 @@
         await new Promise(function (r) { setTimeout(r, 200); });
         var m = getLiveMotor(uid, mi);
         if (m) {
-          var pps = pick(m, 'ppsReal', 'PpsReal') || 0;
+          var pps = m.pps_real || 0;
           if (pps > peak) peak = pps;
         }
       }
@@ -1185,9 +1184,9 @@
       try {
         var pr = await fetch('/api/quantix/' + encodeURIComponent(uid) + '/autotune', { cache: 'no-store' });
         var pd = await pr.json();
-        if (pd && pd.ok && pd.hasResult && pd.result) {
-          var ts = Date.parse(pd.result.receivedUtc);
-          if (!isNaN(ts) && ts >= startedAt - 1000 && (pd.result.motorId === mi || pd.result.motorId === 0)) {
+        if (pd && pd.ok && pd.has_result && pd.result) {
+          var ts = Date.parse(pd.result.received_utc);
+          if (!isNaN(ts) && ts >= startedAt - 1000 && (pd.result.motor_id === mi || pd.result.motor_id === 0)) {
             result = pd.result; break;
           }
         }
@@ -1432,11 +1431,11 @@
         var mi = parseInt(mc.getAttribute('data-mi'), 10);
         var m = null;
         for (var k = 0; k < live.motors.length; k++)
-          if ((live.motors[k].id || live.motors[k].Id || 0) === mi) { m = live.motors[k]; break; }
+          if ((live.motors[k].id | 0) === mi) { m = live.motors[k]; break; }
         if (!m) return;
 
-        var pul   = pick(m, 'pulsos', 'Pulsos') || 0;
-        var pwmA  = pick(m, 'pwm', 'Pwm') || 0;
+        var pul   = m.pulsos || 0;
+        var pwmA  = m.pwm || 0;
         var ppr   = parseInt((mc.querySelector('input[data-cal-f="ppr"]') || {}).value, 10) || 1;
 
         var pEl  = mc.querySelector('[data-cal="pulsos"]');     if (pEl)  pEl.textContent  = pul.toLocaleString();
@@ -1497,8 +1496,8 @@
       var live = state.liveByUid[uid]; var pulNow = 0;
       if (live && live.motors) {
         for (var k = 0; k < live.motors.length; k++)
-          if ((live.motors[k].id || live.motors[k].Id || 0) === mi)
-            pulNow = pick(live.motors[k], 'pulsos', 'Pulsos') || 0;
+          if ((live.motors[k].id | 0) === mi)
+            pulNow = live.motors[k].pulsos || 0;
       }
       st.startPulsos = pulNow; st.endPulsos = null;
       st.vueltas = vueltas; st.ppr = ppr; st.pwm = pwm; st.meta = meta;
@@ -1519,8 +1518,8 @@
       var live2 = state.liveByUid[uid]; var pulEnd = 0;
       if (live2 && live2.motors) {
         for (var j = 0; j < live2.motors.length; j++)
-          if ((live2.motors[j].id || live2.motors[j].Id || 0) === mi)
-            pulEnd = pick(live2.motors[j], 'pulsos', 'Pulsos') || 0;
+          if ((live2.motors[j].id | 0) === mi)
+            pulEnd = live2.motors[j].pulsos || 0;
       }
       st.endPulsos = pulEnd;
       try {
@@ -1567,8 +1566,8 @@
           var liveC = state.liveByUid[uid];
           if (liveC && liveC.motors) {
             for (var kk = 0; kk < liveC.motors.length; kk++)
-              if ((liveC.motors[kk].id || liveC.motors[kk].Id || 0) === mi)
-                endP = pick(liveC.motors[kk], 'pulsos', 'Pulsos') || 0;
+              if ((liveC.motors[kk].id | 0) === mi)
+                endP = liveC.motors[kk].pulsos || 0;
           }
         }
         if (endP != null) pulsosTot = endP - st.startPulsos;
@@ -1761,11 +1760,11 @@
         var mi = parseInt(mc.getAttribute('data-mi'), 10);
         var m = null;
         for (var k = 0; k < live.motors.length; k++)
-          if ((live.motors[k].id || live.motors[k].Id || 0) === mi) { m = live.motors[k]; break; }
+          if ((live.motors[k].id | 0) === mi) { m = live.motors[k]; break; }
         if (!m) return;
-        var pps = pick(m, 'ppsReal', 'PpsReal') || 0;
-        var pwm = pick(m, 'pwm', 'Pwm') || 0;
-        var pul = pick(m, 'pulsos', 'Pulsos') || 0;
+        var pps = m.pps_real || 0;
+        var pwm = m.pwm || 0;
+        var pul = m.pulsos || 0;
         var cfgP = findMotor(uid, mi);
         var p1 = mc.querySelector('[data-pr="rpm"]'); if (p1) p1.textContent = ppsToRpm(cfgP, pps).toFixed(0) + ' rpm';
         var p2 = mc.querySelector('[data-pr="pwm"]'); if (p2) p2.textContent = pwm;
@@ -1796,7 +1795,7 @@
     var live = state.liveByUid[uid];
     if (!live || !live.motors) return null;
     for (var k = 0; k < live.motors.length; k++)
-      if ((live.motors[k].id || live.motors[k].Id || 0) === mi) return live.motors[k];
+      if ((live.motors[k].id | 0) === mi) return live.motors[k];
     return null;
   }
 
@@ -1854,7 +1853,7 @@
       setTimeout(async function () {
         if (!st.rampActive) return;
         var m = getLiveMotor(uid, mi);
-        var pps = m ? (pick(m, 'ppsReal', 'PpsReal') || 0) : 0;
+        var pps = m ? (m.pps_real || 0) : 0;
         if (pps >= st.rampHzMin) {
           // Encontrado.
           var found = st.rampPwm;

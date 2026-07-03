@@ -13,28 +13,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
-using System.Text.Json;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class QuantiXController : WebApiController
+    public sealed class QuantiXController : AgpControllerBase
     {
-        // Usamos System.Text.Json (no Swan): los DTOs tienen [JsonPropertyName("snake_case")]
-        // que Swan no honra. Con Swan, los campos como dosis_fija/kp/ki/kd quedaban en default
-        // y al guardar se "borraba" la config del motor.
-        private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
         private readonly INodoRegistryService _registry;
         private readonly IQuantiXConfigService _qx;
 
@@ -45,10 +34,10 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/quantix/live")]
-        public object GetLive()
+        public Task GetLive()
         {
             if (_registry == null)
-                return new { ok = false, count = 0, nodos = new List<NodoStatus>(), error = "service-unavailable" };
+                return WriteJsonAsync(new { ok = false, count = 0, nodos = new List<NodoStatus>(), error = "service-unavailable" });
 
             var all = _registry.GetAll();
             var qx = new List<NodoStatus>();
@@ -58,93 +47,80 @@ namespace AgroParallel.WebHost.Controllers
                 if (n.Type != null && n.Type.IndexOf("quantix", StringComparison.OrdinalIgnoreCase) >= 0)
                     qx.Add(n);
             }
-            return new { ok = true, count = qx.Count, nodos = qx };
+            return WriteJsonAsync(new { ok = true, count = qx.Count, nodos = qx });
         }
 
         [Route(HttpVerbs.Get, "/quantix/motores")]
-        public async Task GetMotores()
+        public Task GetMotores()
         {
-            // Serializamos manualmente con System.Text.Json: el ResponseSerializer
-            // default de EmbedIO (Swan) ignora [JsonPropertyName] y emite PascalCase
-            // (Nodos/Motores/Kp/...), pero la UI espera snake_case (espejo del JSON
-            // en disco). Sin esto, loadMotores() recibía Nodos en mayúscula y
-            // renderMotores() veía nodos=undefined → "No hay nodos QuantiX configurados".
-            string json = _qx == null
-                ? SysJson.Serialize(new { ok = false, error = "service-unavailable" })
-                : SysJson.Serialize(new { ok = true, config = _qx.GetMotores() });
-            await HttpContext.SendStringAsync(json, "application/json", System.Text.Encoding.UTF8).ConfigureAwait(false);
+            if (_qx == null)
+                return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(new { ok = true, config = _qx.GetMotores() });
         }
 
         [Route(HttpVerbs.Put, "/quantix/motores")]
-        public async Task<object> PutMotores()
+        public async Task PutMotores()
         {
-            if (_qx == null) return new { ok = false, error = "service-unavailable" };
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync().ConfigureAwait(false);
+            if (_qx == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             QxMotoresConfigDto cfg;
-            try { cfg = SysJson.Deserialize<QxMotoresConfigDto>(body, JsonOpts); }
-            catch (Exception ex) { return new { ok = false, error = "bad-json: " + ex.Message }; }
-            if (cfg == null) return new { ok = false, error = "empty-body" };
+            try { cfg = await ReadJsonBodyAsync<QxMotoresConfigDto>().ConfigureAwait(false); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
+            if (cfg == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
             _qx.SaveMotores(cfg);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Post, "/quantix/{uid}/send")]
-        public async Task<object> SendConfig(string uid)
+        public async Task SendConfig(string uid)
         {
-            if (_qx == null) return new { ok = false, error = "service-unavailable" };
+            if (_qx == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             bool ok = await _qx.SendNodoConfigAsync(uid).ConfigureAwait(false);
-            return new { ok, topic = "agp/quantix/" + uid + "/config" };
+            await WriteJsonAsync(new { ok, topic = "agp/quantix/" + uid + "/config" });
         }
 
         [Route(HttpVerbs.Post, "/quantix/{uid}/cmd")]
-        public async Task<object> SendCmd(string uid, [QueryField] string verb, [QueryField] bool retain)
+        public async Task SendCmd(string uid, [QueryField] string verb, [QueryField] bool retain)
         {
-            if (_qx == null) return new { ok = false, error = "service-unavailable" };
+            if (_qx == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             if (string.IsNullOrWhiteSpace(verb))
-                return new { ok = false, error = "verb-required" };
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync().ConfigureAwait(false);
+            {
+                await WriteJsonAsync(new { ok = false, error = "verb-required" });
+                return;
+            }
+            // El payload al ESP32 se reenvía crudo: no re-serializar.
+            string body = await ReadBodyAsync().ConfigureAwait(false);
             bool ok = await _qx.SendCmdAsync(uid, verb, body, retain).ConfigureAwait(false);
-            return new { ok, topic = "agp/quantix/" + uid + "/" + verb };
+            await WriteJsonAsync(new { ok, topic = "agp/quantix/" + uid + "/" + verb });
         }
 
         // Devuelve el último resultado de auto-tune recibido para el nodo.
         // La UI lo poolea después de disparar autotune_start hasta que el
         // timestamp supera el momento de inicio (o se agota el timeout).
         [Route(HttpVerbs.Get, "/quantix/{uid}/autotune")]
-        public async Task GetAutoTune(string uid)
+        public Task GetAutoTune(string uid)
         {
-            object payload;
             if (_qx == null)
+                return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+
+            var r = _qx.GetAutoTuneResult(uid);
+            if (r == null)
+                return WriteJsonAsync(new { ok = true, has_result = false });
+
+            return WriteJsonAsync(new
             {
-                payload = new { ok = false, error = "service-unavailable" };
-            }
-            else
-            {
-                var r = _qx.GetAutoTuneResult(uid);
-                payload = r == null
-                    ? new { ok = true, hasResult = false }
-                    : (object)new
-                    {
-                        ok = true,
-                        hasResult = true,
-                        result = new
-                        {
-                            uid = r.Uid,
-                            motorId = r.MotorId,
-                            ok = r.Ok,
-                            kp = r.Kp,
-                            ki = r.Ki,
-                            kd = r.Kd,
-                            receivedUtc = r.ReceivedUtc.ToString("o")
-                        }
-                    };
-            }
-            string json = SysJson.Serialize(payload);
-            await HttpContext.SendStringAsync(json, "application/json", System.Text.Encoding.UTF8).ConfigureAwait(false);
+                ok = true,
+                has_result = true,
+                result = new
+                {
+                    uid = r.Uid,
+                    motor_id = r.MotorId,
+                    ok = r.Ok,
+                    kp = r.Kp,
+                    ki = r.Ki,
+                    kd = r.Kd,
+                    received_utc = r.ReceivedUtc.ToString("o")
+                }
+            });
         }
     }
 }
