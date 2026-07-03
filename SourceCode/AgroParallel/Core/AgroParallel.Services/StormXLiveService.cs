@@ -2,7 +2,8 @@
 // StormXLiveService.cs — implementación.
 //
 // Estrategia:
-//   - Suscribe agp/storm/+/status_live al MQTT compartido del NodoRegistry.
+//   - Suscribe agp/storm/+/status_live al MQTT compartido del NodoRegistry,
+//     vía MqttLiveServiceBase<Reading>.
 //   - Parsea payload del firmware (campos opcionales, todos numéricos):
 //     wind_ms, gust_ms, wind_dir, temp_c, hum_pct, press_hpa, delta_t_c, rain_mm.
 //   - Si el firmware no manda delta_t_c, se calcula con la fórmula psicrométrica
@@ -30,28 +31,52 @@ using AgroParallel.Services.Abstractions;
 
 namespace AgroParallel.Services
 {
-    public sealed class StormXLiveService : IStormXLiveService, IDisposable
+    public sealed class StormXLiveService : MqttLiveServiceBase<StormXLiveService.Reading>,
+        IStormXLiveService, IDisposable
     {
-        private readonly INodoRegistryService _nodos;
         private readonly IStormXConfigService _cfgSvc;
 
         private StormXConfigDto _cfg;
-        private readonly object _lock = new object();
 
-        private sealed class Reading
+        // uid → última lectura (heredado _readings de la base)
+        public sealed class Reading
         {
             public double WindMs, GustMs, WindDir, TempC, HumPct, PressHpa, DeltaTC, RainMm;
             public bool HasDeltaT;
             public DateTime LastTs;
         }
-        private readonly Dictionary<string, Reading> _readings =
-            new Dictionary<string, Reading>(StringComparer.OrdinalIgnoreCase);
 
-        public bool IsRunning { get; private set; }
+        // ── Configuración de la base ─────────────────────────────────────────
+        protected override string TopicPrefix => "agp/storm/";
+        protected override int MinParts => 4;
+        protected override string[] Subscriptions => new[] { "agp/storm/+/status_live" };
 
-        public StormXLiveService(INodoRegistryService nodos, IStormXConfigService cfgSvc)
+        // Timeout: LogIntervalSec*2, mínimo 30 s.
+        protected override int TimeoutMs
         {
-            _nodos = nodos;
+            get
+            {
+                int sec;
+                lock (_lock) { sec = _cfg?.LogIntervalSec ?? 30; }
+                return Math.Max(30, sec * 2) * 1000;
+            }
+        }
+
+        // ExtractUid: intentar del payload ("uid"), fallback a parts[2] (canónico).
+        protected override string ExtractUid(string[] parts, JsonElement root)
+        {
+            if (root.TryGetProperty("uid", out var ju) && ju.ValueKind == JsonValueKind.String)
+            {
+                var v = ju.GetString();
+                if (!string.IsNullOrEmpty(v)) return v;
+            }
+            return parts.Length > 2 ? parts[2] : null;
+        }
+
+        // ── Constructor ──────────────────────────────────────────────────────
+        public StormXLiveService(INodoRegistryService nodos, IStormXConfigService cfgSvc)
+            : base(nodos)
+        {
             _cfgSvc = cfgSvc;
             Reload();
         }
@@ -64,79 +89,69 @@ namespace AgroParallel.Services
             }
         }
 
-        public void Start()
+        public void Dispose() => Stop();
+
+        // ── OnStart / OnStop ─────────────────────────────────────────────────
+        protected override void OnStart()
         {
-            if (IsRunning) return;
-            if (_nodos == null) return;
-            _nodos.MessageReceived += OnMqttMessage;
-            _ = _nodos.SubscribeAsync("agp/storm/+/status_live");
-            IsRunning = true;
             System.Diagnostics.Trace.WriteLine("[stormx] live service started");
         }
 
-        public void Stop()
+        protected override void OnStop()
         {
-            if (!IsRunning) return;
-            try { _nodos.MessageReceived -= OnMqttMessage; } catch { }
-            IsRunning = false;
-            lock (_lock) _readings.Clear();
             System.Diagnostics.Trace.WriteLine("[stormx] live service stopped");
         }
 
-        public void Dispose() => Stop();
-
-        // ------------------- MQTT in --------------------
-        private void OnMqttMessage(object sender, MqttMessageReceivedEventArgs e)
+        // ── OnPayload ────────────────────────────────────────────────────────
+        // subtopic = "status_live". El uid ya viene extraído del payload o del topic.
+        protected override void OnPayload(string uid, string subtopic, string[] topicParts, JsonElement root)
         {
-            if (string.IsNullOrEmpty(e.Topic)) return;
-            if (!e.Topic.StartsWith("agp/storm/", StringComparison.OrdinalIgnoreCase)) return;
-            if (!e.Topic.EndsWith("/status_live", StringComparison.OrdinalIgnoreCase)) return;
-
-            var parts = e.Topic.Split('/');
-            if (parts.Length < 4) return;
-            string uidFromTopic = parts[2];
-
-            try
+            DateTime now = DateTime.UtcNow;
+            lock (_lock)
             {
-                using (var doc = JsonDocument.Parse(e.Payload))
+                if (!_readings.TryGetValue(uid, out var r))
                 {
-                    var root = doc.RootElement;
-                    string uid = root.TryGetProperty("uid", out var ju) && ju.ValueKind == JsonValueKind.String
-                        ? ju.GetString() : uidFromTopic;
-                    if (string.IsNullOrEmpty(uid)) uid = uidFromTopic;
-                    if (string.IsNullOrEmpty(uid)) return;
+                    r = new Reading();
+                    _readings[uid] = r;
+                }
+                r.WindMs   = ReadDouble(root, "wind_ms",   "wind",  "viento_ms");
+                r.GustMs   = ReadDouble(root, "gust_ms",   "gust",  "rafaga_ms");
+                r.WindDir  = ReadDouble(root, "wind_dir",  "dir",   "viento_dir");
+                r.TempC    = ReadDouble(root, "temp_c",    "temp",  "temperatura");
+                r.HumPct   = ReadDouble(root, "hum_pct",   "hum",   "humedad");
+                r.PressHpa = ReadDouble(root, "press_hpa", "press", "presion");
+                r.RainMm   = ReadDouble(root, "rain_mm",   "rain",  "lluvia_mm");
 
-                    DateTime now = DateTime.UtcNow;
-                    lock (_lock)
-                    {
-                        if (!_readings.TryGetValue(uid, out var r))
-                        {
-                            r = new Reading();
-                            _readings[uid] = r;
-                        }
-                        r.WindMs   = ReadDouble(root, "wind_ms",   "wind", "viento_ms");
-                        r.GustMs   = ReadDouble(root, "gust_ms",   "gust", "rafaga_ms");
-                        r.WindDir  = ReadDouble(root, "wind_dir",  "dir",  "viento_dir");
-                        r.TempC    = ReadDouble(root, "temp_c",    "temp", "temperatura");
-                        r.HumPct   = ReadDouble(root, "hum_pct",   "hum",  "humedad");
-                        r.PressHpa = ReadDouble(root, "press_hpa", "press","presion");
-                        r.RainMm   = ReadDouble(root, "rain_mm",   "rain", "lluvia_mm");
+                if (TryReadDoubleStrict(root, out double dt, "delta_t_c", "delta_t"))
+                {
+                    r.DeltaTC = dt;
+                    r.HasDeltaT = true;
+                }
+                else
+                {
+                    r.DeltaTC = ComputeDeltaT(r.TempC, r.HumPct);
+                    r.HasDeltaT = false;
+                }
+                r.LastTs = now;
+            }
+        }
 
-                        if (TryReadDouble(root, out double dt, "delta_t_c", "delta_t"))
-                        {
-                            r.DeltaTC = dt;
-                            r.HasDeltaT = true;
-                        }
-                        else
-                        {
-                            r.DeltaTC = ComputeDeltaT(r.TempC, r.HumPct);
-                            r.HasDeltaT = false;
-                        }
-                        r.LastTs = now;
-                    }
+        // TryReadDoubleStrict: devuelve true y el valor si el campo existe y es Number.
+        // Necesario para distinguir "campo ausente" de "campo = 0" en delta_t_c.
+        // La base expone ReadDouble (con fallback 0) pero no expone el TryGet; lo
+        // implementamos privado acá para no modificar la base.
+        private static bool TryReadDoubleStrict(JsonElement root, out double value, params string[] keys)
+        {
+            foreach (var k in keys)
+            {
+                if (root.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number)
+                {
+                    value = v.GetDouble();
+                    return true;
                 }
             }
-            catch { /* payload roto */ }
+            value = 0;
+            return false;
         }
 
         // Delta-T = T - Tw (bulbo seco - bulbo húmedo). Aproximación Stull 2011.
@@ -151,24 +166,6 @@ namespace AgroParallel.Services
                 - 4.686035;
             double dt = T - Tw;
             return dt < 0 ? 0 : dt;
-        }
-
-        private static double ReadDouble(JsonElement root, params string[] keys)
-        {
-            return TryReadDouble(root, out double v, keys) ? v : 0;
-        }
-        private static bool TryReadDouble(JsonElement root, out double value, params string[] keys)
-        {
-            foreach (var k in keys)
-            {
-                if (root.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number)
-                {
-                    value = v.GetDouble();
-                    return true;
-                }
-            }
-            value = 0;
-            return false;
         }
 
         // ------------------- Snapshot --------------------

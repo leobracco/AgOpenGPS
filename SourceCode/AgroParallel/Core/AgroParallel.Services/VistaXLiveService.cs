@@ -3,9 +3,10 @@
 //
 // Estrategia:
 //   - Suscribe el filtro vistax/+/telemetria (y el configurado) al MQTT
-//     compartido del NodoRegistry.
+//     compartido del NodoRegistry, vía MqttLiveServiceBase<Reading>.
 //   - Parsea payload { uid, sensores:[{cable, valor, raw}] }.
 //   - Mantiene Dictionary<(uid,cable), LastReading> con timestamp + valor.
+//     La clave compuesta "uid#cable" es compatible con _readings heredado.
 //   - Cada tick (interval = cfg.UiUpdateIntervalMs), recompone el snapshot
 //     mapeando (uid, cable) → SensorConfig.Bajada/Tren y proyectando a Trenes.
 //   - SPM = (valor_actual - valor_previo) / Δt en segundos * 60. Se clampa
@@ -28,9 +29,9 @@ using AgroParallel.Services.Abstractions;
 
 namespace AgroParallel.Services
 {
-    public sealed class VistaXLiveService : IVistaXLiveService, IDisposable
+    public sealed class VistaXLiveService : MqttLiveServiceBase<VistaXLiveService.Reading>,
+        IVistaXLiveService, IDisposable
     {
-        private readonly INodoRegistryService _nodos;
         private readonly IVistaXConfigService _cfgSvc;
         // Fuente única de verdad de la geometría física (ancho, distancia entre
         // surcos, trenes, torres). Si está presente, gana sobre la copia legacy
@@ -74,10 +75,9 @@ namespace AgroParallel.Services
 
         private VistaXConfigDto _cfg;
         private VistaXImplementoDto _imp;
-        private readonly object _lock = new object();
 
-        // (uid,cable) → última lectura
-        private sealed class Reading
+        // (uid,cable) → última lectura (heredado _readings de la base con clave compuesta)
+        public sealed class Reading
         {
             public double LastValor;
             public double PrevValor;
@@ -87,20 +87,56 @@ namespace AgroParallel.Services
             public string Uid;
             public int Cable;
         }
-        private readonly Dictionary<string, Reading> _readings =
-            new Dictionary<string, Reading>(StringComparer.OrdinalIgnoreCase);
 
         // Nodos VistaX vistos en MQTT (uid → última telemetría)
+        // Extra respecto a _readings (que usa clave compuesta uid#cable).
         private readonly Dictionary<string, DateTime> _nodosVistos =
             new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
-        public bool IsRunning { get; private set; }
+        // ── Configuración de la base ─────────────────────────────────────────
+        protected override string TopicPrefix => "vistax/";
+        protected override int MinParts => 3;
 
+        // Subscriptions fijas: wildcard estándar por UID.
+        // El TelemetriaTopic configurable se suscribe dinámicamente en OnStart().
+        protected override string[] Subscriptions => new[] { "vistax/+/telemetria" };
+
+        // Timeout configurable (SensorTimeoutMs); default 3000 ms.
+        protected override int TimeoutMs
+        {
+            get
+            {
+                int t;
+                lock (_lock) { t = _cfg?.SensorTimeoutMs ?? 0; }
+                return t > 0 ? t : 3000;
+            }
+        }
+
+        // ExtractUid: leer del payload ("uid"); si falta o parts[1]="nodos" (legacy),
+        // intentar parts[1] como UID del topic "vistax/<uid>/telemetria".
+        // El mensaje legacy "vistax/nodos/telemetria" siempre trae uid en el payload.
+        protected override string ExtractUid(string[] parts, JsonElement root)
+        {
+            if (root.TryGetProperty("uid", out var ju))
+            {
+                var v = ju.GetString();
+                if (!string.IsNullOrEmpty(v)) return v;
+            }
+            // Fallback: parts[1] si no es "nodos" (topic moderno vistax/<uid>/telemetria).
+            if (parts.Length >= 3 &&
+                !string.Equals(parts[1], "nodos", StringComparison.OrdinalIgnoreCase))
+            {
+                return parts[1];
+            }
+            return null;
+        }
+
+        // ── Constructor ──────────────────────────────────────────────────────
         public VistaXLiveService(INodoRegistryService nodos, IVistaXConfigService cfgSvc,
             IInsumoCatalogService insumos = null, IAogStateProvider state = null,
             ISectionControlService sections = null, IImplementoService impCentral = null)
+            : base(nodos)
         {
-            _nodos = nodos;
             _cfgSvc = cfgSvc;
             _insumos = insumos;
             _state = state;
@@ -118,102 +154,75 @@ namespace AgroParallel.Services
             }
         }
 
-        public void Start()
+        public void Dispose() => Stop();
+
+        // ── OnStart / OnStop ─────────────────────────────────────────────────
+        // Suscribir el topic legacy configurable (además del wildcard de Subscriptions).
+        protected override void OnStart()
         {
-            if (IsRunning) return;
-            if (_nodos == null) return;
-            _nodos.MessageReceived += OnMqttMessage;
-            // El filtro estándar legacy.
-            _ = _nodos.SubscribeAsync(_cfg?.TelemetriaTopic ?? "vistax/nodos/telemetria");
-            // Wildcard adicional por compatibilidad con futuros UIDs por-nodo.
-            _ = _nodos.SubscribeAsync("vistax/+/telemetria");
-            IsRunning = true;
+            string legacy;
+            lock (_lock) { legacy = _cfg?.TelemetriaTopic; }
+            if (!string.IsNullOrEmpty(legacy))
+                Subscribe(legacy);
             System.Diagnostics.Trace.WriteLine("[vistax] live service started");
         }
 
-        public void Stop()
+        protected override void OnStop()
         {
-            if (!IsRunning) return;
-            try { _nodos.MessageReceived -= OnMqttMessage; } catch { }
-            IsRunning = false;
-            lock (_lock) { _readings.Clear(); _nodosVistos.Clear(); }
+            lock (_lock) { _nodosVistos.Clear(); }
             System.Diagnostics.Trace.WriteLine("[vistax] live service stopped");
         }
 
-        public void Dispose() => Stop();
-
-        // ------------------- MQTT in --------------------
-        private void OnMqttMessage(object sender, MqttMessageReceivedEventArgs e)
+        // ── OnPayload ────────────────────────────────────────────────────────
+        // El uid ya viene extraído del payload o del topic. Procesa el array
+        // "sensores" y calcula SPM por cable. También actualiza _nodosVistos.
+        protected override void OnPayload(string uid, string subtopic, string[] topicParts, JsonElement root)
         {
-            if (string.IsNullOrEmpty(e.Topic)) return;
-            // Aceptamos: vistax/nodos/telemetria (legacy) y vistax/<uid>/telemetria.
-            if (!e.Topic.StartsWith("vistax/", StringComparison.OrdinalIgnoreCase)) return;
-            if (!e.Topic.EndsWith("/telemetria", StringComparison.OrdinalIgnoreCase) &&
-                !e.Topic.Equals(_cfg?.TelemetriaTopic ?? "", StringComparison.OrdinalIgnoreCase))
-                return;
+            DateTime now = DateTime.UtcNow;
+            lock (_lock) _nodosVistos[uid] = now;
 
-            try
+            if (!root.TryGetProperty("sensores", out var arr) || arr.ValueKind != JsonValueKind.Array) return;
+            foreach (var s in arr.EnumerateArray())
             {
-                using (var doc = JsonDocument.Parse(e.Payload))
+                int cable = s.TryGetProperty("cable", out var jc) && jc.ValueKind == JsonValueKind.Number
+                    ? jc.GetInt32() : 0;
+                double valor = s.TryGetProperty("valor", out var jv) && jv.ValueKind == JsonValueKind.Number
+                    ? jv.GetDouble() : 0.0;
+                string key = uid + "#" + cable;
+                lock (_lock)
                 {
-                    var root = doc.RootElement;
-                    string uid = root.TryGetProperty("uid", out var ju) ? (ju.GetString() ?? "") : "";
-                    if (string.IsNullOrEmpty(uid))
+                    if (!_readings.TryGetValue(key, out var r))
                     {
-                        // Si el topic es vistax/<uid>/telemetria, intentar inferir UID del topic.
-                        var parts = e.Topic.Split('/');
-                        if (parts.Length >= 3) uid = parts[1];
+                        r = new Reading { Uid = uid, Cable = cable };
+                        _readings[key] = r;
                     }
-                    if (string.IsNullOrEmpty(uid)) return;
-
-                    DateTime now = DateTime.UtcNow;
-                    lock (_lock) _nodosVistos[uid] = now;
-
-                    if (!root.TryGetProperty("sensores", out var arr) || arr.ValueKind != JsonValueKind.Array) return;
-                    foreach (var s in arr.EnumerateArray())
+                    r.PrevValor = r.LastValor;
+                    r.PrevTs = r.LastTs;
+                    r.LastValor = valor;
+                    r.LastTs = now;
+                    // SPM = derivada temporal escalada a /min, si tenemos prev.
+                    if (r.PrevTs != default(DateTime))
                     {
-                        int cable = s.TryGetProperty("cable", out var jc) && jc.ValueKind == JsonValueKind.Number
-                            ? jc.GetInt32() : 0;
-                        double valor = s.TryGetProperty("valor", out var jv) && jv.ValueKind == JsonValueKind.Number
-                            ? jv.GetDouble() : 0.0;
-                        string key = uid + "#" + cable;
-                        lock (_lock)
+                        double dt = (now - r.PrevTs).TotalSeconds;
+                        if (dt > 0.01)
                         {
-                            if (!_readings.TryGetValue(key, out var r))
-                            {
-                                r = new Reading { Uid = uid, Cable = cable };
-                                _readings[key] = r;
-                            }
-                            r.PrevValor = r.LastValor;
-                            r.PrevTs = r.LastTs;
-                            r.LastValor = valor;
-                            r.LastTs = now;
-                            // SPM = derivada temporal escalada a /min, si tenemos prev.
-                            if (r.PrevTs != default(DateTime))
-                            {
-                                double dt = (now - r.PrevTs).TotalSeconds;
-                                if (dt > 0.01)
-                                {
-                                    double dv = r.LastValor - r.PrevValor;
-                                    // El payload típico ya viene como "sem/m" o lecturas
-                                    // crudas. Para SPM aproximamos: valor * 60 si parece tasa,
-                                    // o derivada si parece acumulador. Heurística simple:
-                                    // si el "valor" actual ≥ "prev", lo tratamos como acumulador.
-                                    if (dv >= 0 && r.PrevValor > 0)
-                                        r.Spm = dv / dt * 60.0;
-                                    else
-                                        r.Spm = valor * 60.0;
-                                }
-                            }
+                            double dv = r.LastValor - r.PrevValor;
+                            // El payload típico ya viene como "sem/m" o lecturas
+                            // crudas. Para SPM aproximamos: valor * 60 si parece tasa,
+                            // o derivada si parece acumulador. Heurística simple:
+                            // si el "valor" actual ≥ "prev", lo tratamos como acumulador.
+                            if (dv >= 0 && r.PrevValor > 0)
+                                r.Spm = dv / dt * 60.0;
                             else
-                            {
                                 r.Spm = valor * 60.0;
-                            }
                         }
+                    }
+                    else
+                    {
+                        r.Spm = valor * 60.0;
                     }
                 }
             }
-            catch { }
         }
 
         // ------------------- Snapshot --------------------
