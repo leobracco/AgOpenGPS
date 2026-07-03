@@ -26,4 +26,9 @@
 
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Permite que el proyecto de tests acceda a los internal (guards OTA, etc.) -->
+    <InternalsVisibleTo Include="AgroParallel.Services.Tests" />
+  </ItemGroup>
+
 </Project>

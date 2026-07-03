@@ -467,7 +467,7 @@ namespace AgroParallel.OrbitX
         // H1: parse semver "1.11.0" / "1.2.3-rc1" → System.Version (ignora suffix
         // alfanumérico). Devuelve true si `requested` < `current` estrictamente.
         // Tolera basura (devuelve false → no bloquea) — el caller ya logueó error.
-        private static bool IsDowngrade(string current, string requested)
+        internal static bool IsDowngrade(string current, string requested)
         {
             if (string.IsNullOrEmpty(current) || string.IsNullOrEmpty(requested)) return false;
             Version vc, vr;
@@ -476,7 +476,7 @@ namespace AgroParallel.OrbitX
             return vr.CompareTo(vc) < 0;
         }
 
-        private static bool TryParseLooseVersion(string s, out Version v)
+        internal static bool TryParseLooseVersion(string s, out Version v)
         {
             v = null;
             if (string.IsNullOrEmpty(s)) return false;
