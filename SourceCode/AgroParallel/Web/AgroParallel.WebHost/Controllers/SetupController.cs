@@ -3,28 +3,20 @@
 // Endpoints REST del asistente de primera vez del Hub PilotX:
 //   GET  /api/setup/estado    → SetupStateDto + chequeos en vivo (broker, nodos)
 //   POST /api/setup/paso      { paso, valor }
-//   POST /api/setup/completar { completed:bool }
-//   POST /api/setup/dismiss   { dismissed:bool }
+//   POST /api/setup/completar { valor:bool }
+//   POST /api/setup/dismiss   { valor:bool }
 // ============================================================================
 
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
-using System.IO;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class SetupController : WebApiController
+    public sealed class SetupController : AgpControllerBase
     {
-        private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
         private readonly ISetupStateService _setup;
         private readonly INodoRegistryService _registry;
         private readonly INodosCuratedService _curated;
@@ -42,7 +34,7 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/setup/estado")]
-        public object GetEstado()
+        public Task GetEstado()
         {
             var dto = _setup != null ? _setup.Load() : new SetupStateDto();
 
@@ -91,7 +83,7 @@ namespace AgroParallel.WebHost.Controllers
             }
             catch { }
 
-            return new
+            return WriteJsonAsync(new
             {
                 ok = true,
                 estado = dto,
@@ -103,53 +95,40 @@ namespace AgroParallel.WebHost.Controllers
                     nodos_pendientes = nodosPendientes,
                     orbitx_vinculado = orbitxVinculado
                 }
-            };
+            });
         }
 
         public sealed class PasoBody { public string paso { get; set; } public bool valor { get; set; } }
         public sealed class FlagBody { public bool valor { get; set; } }
 
         [Route(HttpVerbs.Post, "/setup/paso")]
-        public async Task<object> MarcarPaso()
+        public async Task MarcarPaso()
         {
-            if (_setup == null) return new { ok = false, error = "service-unavailable" };
-            var body = await ReadBody<PasoBody>();
-            if (body == null || string.IsNullOrEmpty(body.paso)) return new { ok = false, error = "invalid-body" };
+            if (_setup == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var body = await ReadJsonBodyAsync<PasoBody>();
+            if (body == null || string.IsNullOrEmpty(body.paso)) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
             _setup.MarkPaso(body.paso, body.valor);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Post, "/setup/completar")]
-        public async Task<object> Completar()
+        public async Task Completar()
         {
-            if (_setup == null) return new { ok = false, error = "service-unavailable" };
-            var body = await ReadBody<FlagBody>();
+            if (_setup == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var body = await ReadJsonBodyAsync<FlagBody>();
             bool v = body != null ? body.valor : true;
             _setup.MarkCompleted(v);
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Post, "/setup/dismiss")]
-        public async Task<object> Dismiss()
+        public async Task Dismiss()
         {
-            if (_setup == null) return new { ok = false, error = "service-unavailable" };
-            var body = await ReadBody<FlagBody>();
+            if (_setup == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            var body = await ReadJsonBodyAsync<FlagBody>();
             bool v = body != null ? body.valor : true;
             _setup.MarkDismissed(v);
-            return new { ok = true };
-        }
-
-        private async Task<T> ReadBody<T>() where T : class
-        {
-            try
-            {
-                string body;
-                using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                    body = await sr.ReadToEndAsync();
-                if (string.IsNullOrEmpty(body)) return null;
-                return JsonSerializer.Deserialize<T>(body, JsonOpts);
-            }
-            catch { return null; }
+            await WriteJsonAsync(new { ok = true });
         }
     }
 }
