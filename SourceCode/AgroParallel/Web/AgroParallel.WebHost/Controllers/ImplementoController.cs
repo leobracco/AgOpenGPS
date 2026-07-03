@@ -1,12 +1,6 @@
 // ============================================================================
 // ImplementoController.cs — REST del implemento central.
 //
-// IMPORTANTE: EmbedIO usa Swan.Json por default y NO honra [JsonPropertyName],
-// por lo que los DTOs salían con keys PascalCase y el JS no las leía. Acá
-// serializamos el body de la respuesta manualmente con System.Text.Json y lo
-// escribimos a HttpContext.Response para preservar snake_case (mismo workaround
-// que QuantiXController / VistaXController).
-//
 // Endpoints:
 //   GET    /api/implemento                → ImplementoDto del ACTIVO
 //   PUT    /api/implemento                → guarda en el ACTIVO
@@ -22,24 +16,16 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
-using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class ImplementoController : WebApiController
+    public sealed class ImplementoController : AgpControllerBase
     {
-        private static readonly System.Text.Json.JsonSerializerOptions JsonOpts =
-            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
         private readonly IImplementoService _svc;
         private readonly INodosCuratedService _curated;
 
@@ -59,30 +45,14 @@ namespace AgroParallel.WebHost.Controllers
             OverlayAutoOpener.EnsureForActiveImplemento(_svc, _curated);
         }
 
-        // ---- helpers de respuesta -------------------------------------
-
-        private async Task WriteJson(object payload)
-        {
-            HttpContext.Response.ContentType = "application/json; charset=utf-8";
-            byte[] bytes = Encoding.UTF8.GetBytes(SysJson.Serialize(payload, JsonOpts));
-            await HttpContext.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length)
-                .ConfigureAwait(false);
-        }
-
-        private async Task<string> ReadBody()
-        {
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                return await sr.ReadToEndAsync().ConfigureAwait(false);
-        }
-
         // ---- ACTIVO (compat: rutas pre-CRUD) ---------------------------
 
-        [Route(HttpVerbs.Get, "/implemento")]
+        [Route(EmbedIO.HttpVerbs.Get, "/implemento")]
         public async Task GetActivo()
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             var dto = _svc.GetImplemento();
-            await WriteJson(new
+            await WriteJsonAsync(new
             {
                 ok = true,
                 slug = _svc.GetActiveSlug(),
@@ -91,28 +61,27 @@ namespace AgroParallel.WebHost.Controllers
             });
         }
 
-        [Route(HttpVerbs.Put, "/implemento")]
+        [Route(EmbedIO.HttpVerbs.Put, "/implemento")]
         public async Task PutActivo()
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
-            string body = await ReadBody();
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             ImplementoDto dto;
-            try { dto = SysJson.Deserialize<ImplementoDto>(body, JsonOpts); }
-            catch (Exception ex) { await WriteJson(new { ok = false, error = "bad-json: " + ex.Message }); return; }
-            if (dto == null) { await WriteJson(new { ok = false, error = "empty-body" }); return; }
+            try { dto = await ReadJsonBodyAsync<ImplementoDto>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
+            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
             bool ok = _svc.SaveImplemento(dto);
-            await WriteJson(new { ok = ok, slug = _svc.GetActiveSlug() });
+            await WriteJsonAsync(new { ok = ok, slug = _svc.GetActiveSlug() });
         }
 
         // ---- CRUD multi-implemento -------------------------------------
 
-        [Route(HttpVerbs.Get, "/implementos")]
+        [Route(EmbedIO.HttpVerbs.Get, "/implementos")]
         public async Task ListImplementos()
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             // Forzamos bootstrap implícito via GetImplemento.
             _svc.GetImplemento();
-            await WriteJson(new
+            await WriteJsonAsync(new
             {
                 ok = true,
                 activo = _svc.GetActiveSlug(),
@@ -120,41 +89,40 @@ namespace AgroParallel.WebHost.Controllers
             });
         }
 
-        [Route(HttpVerbs.Get, "/implementos/{slug}")]
+        [Route(EmbedIO.HttpVerbs.Get, "/implementos/{slug}")]
         public async Task GetBySlug(string slug)
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             var dto = _svc.Load(slug);
-            if (dto == null) { await WriteJson(new { ok = false, error = "not-found" }); return; }
-            await WriteJson(new { ok = true, slug = slug, implemento = dto });
+            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "not-found" }); return; }
+            await WriteJsonAsync(new { ok = true, slug = slug, implemento = dto });
         }
 
-        [Route(HttpVerbs.Put, "/implementos/{slug}")]
+        [Route(EmbedIO.HttpVerbs.Put, "/implementos/{slug}")]
         public async Task PutBySlug(string slug)
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
-            string body = await ReadBody();
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             ImplementoDto dto;
-            try { dto = SysJson.Deserialize<ImplementoDto>(body, JsonOpts); }
-            catch (Exception ex) { await WriteJson(new { ok = false, error = "bad-json: " + ex.Message }); return; }
-            if (dto == null) { await WriteJson(new { ok = false, error = "empty-body" }); return; }
+            try { dto = await ReadJsonBodyAsync<ImplementoDto>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
+            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
             bool ok = _svc.Save(slug, dto);
-            await WriteJson(new { ok = ok, slug = slug });
+            await WriteJsonAsync(new { ok = ok, slug = slug });
         }
 
-        [Route(HttpVerbs.Delete, "/implementos/{slug}")]
+        [Route(EmbedIO.HttpVerbs.Delete, "/implementos/{slug}")]
         public async Task DeleteBySlug(string slug)
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             bool ok = _svc.Delete(slug);
-            await WriteJson(new { ok = ok, activo = _svc.GetActiveSlug() });
+            await WriteJsonAsync(new { ok = ok, activo = _svc.GetActiveSlug() });
         }
 
-        [Route(HttpVerbs.Post, "/implementos/activo")]
+        [Route(EmbedIO.HttpVerbs.Post, "/implementos/activo")]
         public async Task SetActivo()
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
-            string body = await ReadBody();
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            string body = await ReadBodyAsync();
             string slug = "";
             try
             {
@@ -162,17 +130,17 @@ namespace AgroParallel.WebHost.Controllers
                     if (doc.RootElement.TryGetProperty("slug", out var el))
                         slug = el.GetString() ?? "";
             }
-            catch { await WriteJson(new { ok = false, error = "bad-json" }); return; }
+            catch { await WriteJsonAsync(new { ok = false, error = "bad-json" }); return; }
             bool ok = _svc.SetActive(slug);
             if (ok) AutoOpenOverlays();
-            await WriteJson(new { ok = ok, activo = _svc.GetActiveSlug() });
+            await WriteJsonAsync(new { ok = ok, activo = _svc.GetActiveSlug() });
         }
 
-        [Route(HttpVerbs.Post, "/implementos/nuevo")]
+        [Route(EmbedIO.HttpVerbs.Post, "/implementos/nuevo")]
         public async Task Nuevo()
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
-            string body = await ReadBody();
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            string body = await ReadBodyAsync();
             string nombre = "";
             try
             {
@@ -193,7 +161,7 @@ namespace AgroParallel.WebHost.Controllers
             dto.Secciones.Add(new SeccionDto { Id = 1, Nombre = "Sección 1" });
             bool ok = _svc.Save(slug, dto);
             if (ok) { _svc.SetActive(slug); AutoOpenOverlays(); }
-            await WriteJson(new { ok = ok, slug = slug });
+            await WriteJsonAsync(new { ok = ok, slug = slug });
         }
 
         // ---- Catálogo de modelos de sembradoras ------------------------
@@ -202,21 +170,21 @@ namespace AgroParallel.WebHost.Controllers
         //       → busca template y mergea sus campos en el implemento activo,
         //         preservando ancho/overlap/hitch/secciones existentes.
 
-        [Route(HttpVerbs.Get, "/catalogo/sembradoras")]
+        [Route(EmbedIO.HttpVerbs.Get, "/catalogo/sembradoras")]
         public async Task GetCatalogo()
         {
-            await WriteJson(new
+            await WriteJsonAsync(new
             {
                 ok = true,
                 marcas = SembradorasCatalog.GroupedByMarca()
             });
         }
 
-        [Route(HttpVerbs.Post, "/implemento/aplicar-plantilla")]
+        [Route(EmbedIO.HttpVerbs.Post, "/implemento/aplicar-plantilla")]
         public async Task AplicarPlantilla()
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
-            string body = await ReadBody();
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            string body = await ReadBodyAsync();
             string marca = "", modelo = "";
             try
             {
@@ -226,10 +194,10 @@ namespace AgroParallel.WebHost.Controllers
                     if (doc.RootElement.TryGetProperty("modelo", out var emo)) modelo = emo.GetString() ?? "";
                 }
             }
-            catch { await WriteJson(new { ok = false, error = "bad-json" }); return; }
+            catch { await WriteJsonAsync(new { ok = false, error = "bad-json" }); return; }
 
             var tpl = SembradorasCatalog.Find(marca, modelo);
-            if (tpl == null) { await WriteJson(new { ok = false, error = "template-not-found" }); return; }
+            if (tpl == null) { await WriteJsonAsync(new { ok = false, error = "template-not-found" }); return; }
 
             var dto = _svc.GetImplemento();
             if (dto == null) dto = new ImplementoDto();
@@ -301,7 +269,7 @@ namespace AgroParallel.WebHost.Controllers
             }
 
             bool ok = _svc.SaveImplemento(dto);
-            await WriteJson(new { ok = ok, slug = _svc.GetActiveSlug(), implemento = dto });
+            await WriteJsonAsync(new { ok = ok, slug = _svc.GetActiveSlug(), implemento = dto });
         }
 
         // ---- Catálogo de OTRA maquinaria (cosechadora/pulverizadora/fertilizadora) ----
@@ -310,21 +278,21 @@ namespace AgroParallel.WebHost.Controllers
         //       → setea ancho de labor + secciones + categoría/marca/modelo y
         //         limpia la estructura de sembradora (surcos/trenes/torres).
 
-        [Route(HttpVerbs.Get, "/catalogo/maquinas")]
+        [Route(EmbedIO.HttpVerbs.Get, "/catalogo/maquinas")]
         public async Task GetCatalogoMaquinas()
         {
-            await WriteJson(new
+            await WriteJsonAsync(new
             {
                 ok = true,
                 tipos = MaquinasCatalog.GroupedByTipo()
             });
         }
 
-        [Route(HttpVerbs.Post, "/implemento/aplicar-maquina")]
+        [Route(EmbedIO.HttpVerbs.Post, "/implemento/aplicar-maquina")]
         public async Task AplicarMaquina()
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
-            string body = await ReadBody();
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            string body = await ReadBodyAsync();
             string categoria = "", marca = "", modelo = "";
             try
             {
@@ -335,10 +303,10 @@ namespace AgroParallel.WebHost.Controllers
                     if (doc.RootElement.TryGetProperty("modelo", out var emo)) modelo = emo.GetString() ?? "";
                 }
             }
-            catch { await WriteJson(new { ok = false, error = "bad-json" }); return; }
+            catch { await WriteJsonAsync(new { ok = false, error = "bad-json" }); return; }
 
             var tpl = MaquinasCatalog.Find(categoria, marca, modelo);
-            if (tpl == null) { await WriteJson(new { ok = false, error = "template-not-found" }); return; }
+            if (tpl == null) { await WriteJsonAsync(new { ok = false, error = "template-not-found" }); return; }
 
             var dto = _svc.GetImplemento();
             if (dto == null) dto = new ImplementoDto();
@@ -369,14 +337,14 @@ namespace AgroParallel.WebHost.Controllers
                 dto.Secciones.Add(new SeccionDto { Id = i, Nombre = "Sección " + i });
 
             bool ok = _svc.SaveImplemento(dto);
-            await WriteJson(new { ok = ok, slug = _svc.GetActiveSlug(), implemento = dto });
+            await WriteJsonAsync(new { ok = ok, slug = _svc.GetActiveSlug(), implemento = dto });
         }
 
-        [Route(HttpVerbs.Post, "/implementos/copiar")]
+        [Route(EmbedIO.HttpVerbs.Post, "/implementos/copiar")]
         public async Task Copiar()
         {
-            if (_svc == null) { await WriteJson(new { ok = false, error = "service-unavailable" }); return; }
-            string body = await ReadBody();
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            string body = await ReadBodyAsync();
             string from = "", nombre = "";
             try
             {
@@ -386,8 +354,8 @@ namespace AgroParallel.WebHost.Controllers
                     if (doc.RootElement.TryGetProperty("nombre", out var en)) nombre = en.GetString() ?? "";
                 }
             }
-            catch { await WriteJson(new { ok = false, error = "bad-json" }); return; }
-            if (string.IsNullOrWhiteSpace(from)) { await WriteJson(new { ok = false, error = "from-required" }); return; }
+            catch { await WriteJsonAsync(new { ok = false, error = "bad-json" }); return; }
+            if (string.IsNullOrWhiteSpace(from)) { await WriteJsonAsync(new { ok = false, error = "from-required" }); return; }
             if (string.IsNullOrWhiteSpace(nombre)) nombre = from + " (copia)";
 
             string slug = ImplementoService.MakeSlug(nombre);
@@ -396,7 +364,7 @@ namespace AgroParallel.WebHost.Controllers
 
             bool ok = _svc.Copy(from, slug, nombre);
             if (ok) { _svc.SetActive(slug); AutoOpenOverlays(); }
-            await WriteJson(new { ok = ok, slug = slug });
+            await WriteJsonAsync(new { ok = ok, slug = slug });
         }
     }
 }
