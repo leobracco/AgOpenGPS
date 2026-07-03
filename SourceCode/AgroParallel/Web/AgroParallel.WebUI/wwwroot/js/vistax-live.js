@@ -12,14 +12,12 @@
   var PRIMARIOS = { 'semilla': 1, 'fertilizante': 1 };
 
   function $(id) { return document.getElementById(id); }
-  function pick(o, a, b) { return (o && o[a] != null) ? o[a] : (o ? o[b] : undefined); }
   function fmt(n, d) {
     if (n == null || isNaN(n)) return '—';
     return Number(n).toFixed(d == null ? 1 : d);
   }
   function tipoOf(s) {
-    var t = pick(s, 'Tipo', 'tipo');
-    return (t || '').toLowerCase();
+    return (s.tipo || '').toLowerCase();
   }
   function classFromEstado(st) {
     st = (st || 'no-data').toLowerCase();
@@ -52,9 +50,9 @@
   var state = { paused: false, timer: null, lastLive: null, detailFocus: null, lastCfg: null };
 
   function renderChip(s, monActivo) {
-    var bajada = pick(s, 'Bajada', 'bajada') || 0;
-    var estado = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
-    var muted  = pick(s, 'Muted', 'muted');
+    var bajada = s.bajada || 0;
+    var estado = (s.estado || 'no-data').toLowerCase();
+    var muted  = s.muted;
     // Reglas de prioridad visual:
     //   1. Si el MONITOREO no está activo → todos los chips IDLE (gris)
     //      independientemente de lo que reporten los sensores. El usuario
@@ -69,8 +67,8 @@
     else if (muted)                     cls = 's-muted';
     else                                cls = classFromEstado(estado);
     var tipo   = tipoOf(s);
-    var uid    = pick(s, 'Uid', 'uid') || '';
-    var cable  = pick(s, 'Cable', 'cable');
+    var uid    = s.uid || '';
+    var cable  = s.cable;
     var tag    = '';
     if (tipo === 'semilla')      tag = '<span class="tipo">S</span>';
     else if (tipo === 'fertilizante') tag = '<span class="tipo">F</span>';
@@ -86,13 +84,13 @@
   function findSurcoVivo(uid, cable) {
     var live = state.lastLive;
     if (!live) return null;
-    var trenes = pick(live, 'Trenes', 'trenes') || [];
+    var trenes = live.trenes || [];
     for (var i = 0; i < trenes.length; i++) {
-      var surcos = pick(trenes[i], 'Surcos', 'surcos') || [];
+      var surcos = trenes[i].surcos || [];
       for (var j = 0; j < surcos.length; j++) {
         var s = surcos[j];
-        var u = pick(s, 'Uid', 'uid') || '';
-        var c = pick(s, 'Cable', 'cable');
+        var u = s.uid || '';
+        var c = s.cable;
         if (u === uid && String(c) === String(cable)) return s;
       }
     }
@@ -118,15 +116,15 @@
       body.innerHTML = '<div class="warn">Sensor no encontrado en el snapshot actual.</div>';
       return;
     }
-    var bajada = (s.bajada != null ? s.bajada : pick(s, 'Bajada', 'bajada')) || 0;
+    var bajada = s.bajada || 0;
     var tipo   = tipoOf(s);
-    var estado = ((s.estado != null ? s.estado : pick(s, 'Estado', 'estado')) || 'no-data').toLowerCase();
-    var spm    = s.spm != null ? s.spm : pick(s, 'Spm', 'spm');
-    var obj    = s.objetivo != null ? s.objetivo : pick(s, 'Objetivo', 'objetivo');
+    var estado = (s.estado || 'no-data').toLowerCase();
+    var spm    = s.spm;
+    var obj    = s.objetivo;
     var pct    = (spm != null && obj != null && obj > 0) ? Math.round((spm / obj) * 100) : null;
-    var muted  = s.muted != null ? s.muted : pick(s, 'Muted', 'muted');
-    var secOff = s.seccion_cortada != null ? s.seccion_cortada : pick(s, 'SeccionCortada', 'seccionCortada');
-    var tren   = s.tren != null ? s.tren : pick(s, 'Tren', 'tren');
+    var muted  = s.muted;
+    var secOff = s.seccion_cortada;
+    var tren   = s.tren;
 
     ttl.textContent = 'Surco ' + bajada + (tipo ? ' · ' + tipo : '');
 
@@ -165,12 +163,12 @@
   function render(live) {
     if (!live) return;
     state.lastLive = live;
-    var trenes   = live.trenes != null ? live.trenes : (pick(live, 'Trenes', 'trenes') || []);
-    var spm      = live.spm_promedio != null ? live.spm_promedio : pick(live, 'SpmPromedio', 'spmPromedio');
-    var fallas   = (live.fallas_activas != null ? live.fallas_activas : pick(live, 'FallasActivas', 'fallasActivas')) || 0;
-    var vel      = live.velocidad != null ? live.velocidad : pick(live, 'Velocidad', 'velocidad');
-    var hasAlarm = live.has_alarm != null ? live.has_alarm : pick(live, 'HasAlarm', 'hasAlarm');
-    var monAct   = live.monitoreo_activo != null ? live.monitoreo_activo : pick(live, 'MonitoreoActivo', 'monitoreoActivo');
+    var trenes   = live.trenes || [];
+    var spm      = live.spm_promedio;
+    var fallas   = live.fallas_activas || 0;
+    var vel      = live.velocidad;
+    var hasAlarm = live.has_alarm;
+    var monAct   = live.monitoreo_activo;
 
     $('vxSpm').textContent    = (spm == null) ? '—' : fmt(spm, 0);
     $('vxFallas').textContent = fallas;
@@ -185,7 +183,7 @@
     else { txt.textContent = 'ok'; }
 
     // Tooltip nativo con el diagnóstico — siempre disponible al pasar el mouse.
-    var motivo = (live.motivo_detenido != null ? live.motivo_detenido : pick(live, 'MotivoDetenido', 'motivoDetenido')) || '';
+    var motivo = live.motivo_detenido || '';
     pill.title = motivo || (monAct ? 'Monitoreando' : '');
 
     var fbox = $('vxFallasBox');
@@ -194,14 +192,14 @@
     // Aplanar surcos primarios en orden (tren, bajada).
     var todos = [];
     trenes.forEach(function (t) {
-      var surcos = pick(t, 'Surcos', 'surcos') || [];
+      var surcos = t.surcos || [];
       surcos.forEach(function (s) { todos.push(s); });
     });
     todos.sort(function (a, b) {
-      var ta = pick(a, 'Tren', 'tren') || 0;
-      var tb = pick(b, 'Tren', 'tren') || 0;
+      var ta = a.tren || 0;
+      var tb = b.tren || 0;
       if (ta !== tb) return ta - tb;
-      return (pick(a, 'Bajada', 'bajada') || 0) - (pick(b, 'Bajada', 'bajada') || 0);
+      return (a.bajada || 0) - (b.bajada || 0);
     });
 
     // Separar primarios en dos sub-listas: semilla / fertilizante.
@@ -251,7 +249,7 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var cfg = await r.json();
       state.lastCfg = cfg;
-      var cur = (cfg.metodo_inicio != null ? cfg.metodo_inicio : pick(cfg, 'MetodoInicio', 'metodoInicio')) || 'sensores';
+      var cur = cfg.metodo_inicio || 'sensores';
       paintCfgRadio(cur);
       msg.textContent = '';
     } catch (e) {
@@ -305,14 +303,14 @@
     var live = state.lastLive || {};
     var body = $('vxDiagBody');
     if (!body) return;
-    var monAct  = live.monitoreo_activo != null ? live.monitoreo_activo : pick(live, 'MonitoreoActivo', 'monitoreoActivo');
-    var metodo  = (live.metodo_inicio != null ? live.metodo_inicio : pick(live, 'MetodoInicio', 'metodoInicio')) || '—';
-    var motivo  = (live.motivo_detenido != null ? live.motivo_detenido : pick(live, 'MotivoDetenido', 'motivoDetenido')) || '';
-    var vel     = live.velocidad != null ? live.velocidad : pick(live, 'Velocidad', 'velocidad');
-    var velMin  = live.vel_minima != null ? live.vel_minima : pick(live, 'VelMinima', 'velMinima');
-    var secPint = live.secciones_pintando != null ? live.secciones_pintando : pick(live, 'SeccionesPintando', 'seccionesPintando');
-    var sensArr = live.sensores_arriba != null ? live.sensores_arriba : pick(live, 'SensoresArriba', 'sensoresArriba');
-    var umbral  = live.umbral_sensores != null ? live.umbral_sensores : pick(live, 'UmbralSensores', 'umbralSensores');
+    var monAct  = live.monitoreo_activo;
+    var metodo  = live.metodo_inicio || '—';
+    var motivo  = live.motivo_detenido || '';
+    var vel     = live.velocidad;
+    var velMin  = live.vel_minima;
+    var secPint = live.secciones_pintando;
+    var sensArr = live.sensores_arriba;
+    var umbral  = live.umbral_sensores;
 
     var html = '';
     html += '<div class="row"><span class="lbl">Estado</span><span>' +

@@ -165,7 +165,6 @@
   'use strict';
   var POLL_MS = 500;
 
-  function pick(o,a,b){ return (o && o[a]!=null) ? o[a] : (o ? o[b] : undefined); }
   function num(n){ return (n==null||isNaN(n)) ? null : Number(n); }
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -174,18 +173,18 @@
   // Todos los surcos aplanados con su tipo normalizado.
   function collect(live){
     var out=[];
-    (live.trenes != null ? live.trenes : (pick(live,'trenes','Trenes')||[])).forEach(function(t){
-      (pick(t,'surcos','Surcos')||[]).forEach(function(s){
+    (live.trenes || []).forEach(function(t){
+      (t.surcos || []).forEach(function(s){
         out.push({
-          tipo:(pick(s,'tipo','Tipo')||'').toLowerCase(),
-          nombre: pick(s,'nombre','Nombre')||'',
-          uid: pick(s,'uid','Uid')||'',
-          cable: pick(s,'cable','Cable'),
-          bajada: pick(s,'bajada','Bajada'),
-          valor: num(pick(s,'valor','Valor')),
-          objetivo: num(pick(s,'objetivo','Objetivo')),
-          estado:(pick(s,'estado','Estado')||'no-data').toLowerCase(),
-          muted: !!pick(s,'muted','Muted')
+          tipo:(s.tipo||'').toLowerCase(),
+          nombre: s.nombre||'',
+          uid: s.uid||'',
+          cable: s.cable,
+          bajada: s.bajada,
+          valor: num(s.valor),
+          objetivo: num(s.objetivo),
+          estado:(s.estado||'no-data').toLowerCase(),
+          muted: !!s.muted
         });
       });
     });

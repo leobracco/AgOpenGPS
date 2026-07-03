@@ -12,7 +12,6 @@
   'use strict';
 
   function $(id) { return document.getElementById(id); }
-  function pick(o, a, b) { return (o && o[a] != null) ? o[a] : (o ? o[b] : undefined); }
 
   function escapeHtml(s) {
     return String(s == null ? '' : s)
@@ -82,12 +81,12 @@
   function knownUids() {
     var out = [], seen = {};
     (state.nodos || []).forEach(function (n) {
-      var uid = n.uid != null ? n.uid : pick(n, 'Uid', 'uid');
-      if (uid && !seen[uid]) { seen[uid] = true; out.push({ uid: uid, online: !!(n.online != null ? n.online : pick(n, 'Online', 'online')) }); }
+      var uid = n.uid;
+      if (uid && !seen[uid]) { seen[uid] = true; out.push({ uid: uid, online: !!n.online }); }
     });
-    var sensores = state.imp ? (pick(state.imp, 'MapeoSensores', 'mapeo_sensores') || []) : [];
+    var sensores = state.imp ? (state.imp.mapeo_sensores || []) : [];
     sensores.forEach(function (s) {
-      var uid = pick(s, 'uid', 'Uid');
+      var uid = s.uid;
       if (uid && !seen[uid]) { seen[uid] = true; out.push({ uid: uid, online: false }); }
     });
     return out;
@@ -119,15 +118,15 @@
     state.live = live;
     if (!live) return;
 
-    var trenes = pick(live, 'trenes', 'Trenes') || [];
-    var spm = live.spm_promedio != null ? live.spm_promedio : pick(live, 'SpmPromedio', 'spmPromedio');
-    var activos = (live.surcos_activos != null ? live.surcos_activos : pick(live, 'SurcosActivos', 'surcosActivos')) || 0;
-    var fallas = (live.fallas_activas != null ? live.fallas_activas : pick(live, 'FallasActivas', 'fallasActivas')) || 0;
-    var hasAlarm = live.has_alarm != null ? live.has_alarm : pick(live, 'HasAlarm', 'hasAlarm');
-    var alarmMsg = (live.alarm_message != null ? live.alarm_message : pick(live, 'AlarmMessage', 'alarmMessage')) || '';
-    var impNombre = (live.nombre_implemento != null ? live.nombre_implemento : pick(live, 'NombreImplemento', 'nombreImplemento')) || '–';
-    var tol = live.tolerancia_desvio != null ? live.tolerancia_desvio : pick(live, 'ToleranciaDesvio', 'toleranciaDesvio');
-    var monActivo = live.monitoreo_activo != null ? live.monitoreo_activo : pick(live, 'MonitoreoActivo', 'monitoreoActivo');
+    var trenes = live.trenes || [];
+    var spm = live.spm_promedio;
+    var activos = live.surcos_activos || 0;
+    var fallas = live.fallas_activas || 0;
+    var hasAlarm = live.has_alarm;
+    var alarmMsg = live.alarm_message || '';
+    var impNombre = live.nombre_implemento || '–';
+    var tol = live.tolerancia_desvio;
+    var monActivo = live.monitoreo_activo;
 
     $('vxSubtitle').textContent =
       'Monitoreo de siembra · ' + (impNombre || '–') +
@@ -138,9 +137,9 @@
     // Promedio de sem/m sobre surcos de semilla que están sembrando (Valor > 0).
     var semMSum = 0, semMN = 0;
     trenes.forEach(function (t) {
-      var surcos = pick(t, 'Surcos', 'surcos') || [];
+      var surcos = t.surcos || [];
       surcos.forEach(function (s) {
-        var st = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
+        var st = (s.estado || 'no-data').toLowerCase();
         if (st === 'ok') okCount++;
         else if (st === 'bajo' || st === 'bad') bajoCount++;
         else if (st === 'tapado') tapCount++;
@@ -148,8 +147,8 @@
         else if (st === 'muted') muCount++;
         else if (st === 'seccion-off') secOffCount++;
         else ndCount++;
-        var tipo = String(pick(s, 'Tipo', 'tipo') || 'semilla').toLowerCase();
-        var valM = pick(s, 'Valor', 'valor') || 0;
+        var tipo = String(s.tipo || 'semilla').toLowerCase();
+        var valM = s.valor || 0;
         if (tipo === 'semilla' && valM > 0) { semMSum += valM; semMN++; }
       });
     });
@@ -169,10 +168,10 @@
       html = '<div class="empty-hint">Sin trenes mapeados. Configurá el implemento en la pestaña Implemento.</div>';
     } else {
       trenes.forEach(function (t) {
-        var tren = pick(t, 'Tren', 'tren');
-        var nombre = pick(t, 'Nombre', 'nombre') || ('Tren ' + tren);
-        var obj = pick(t, 'Objetivo', 'objetivo');
-        var surcos = pick(t, 'Surcos', 'surcos') || [];
+        var tren = t.tren;
+        var nombre = t.nombre || ('Tren ' + tren);
+        var obj = t.objetivo;
+        var surcos = t.surcos || [];
         html += '<h2 style="margin-top:var(--agp-sp-4)">' + escapeHtml(nombre);
         if (obj) html += ' <span class="subtitle">· objetivo ' + fmtNum(obj, 0) + '</span>';
         html += '</h2>';
@@ -181,7 +180,7 @@
         //        resto (turbina, tolva*, bajada_herramienta, rotacion_eje…) → barras
         var tubitos = [], barras = [];
         surcos.forEach(function (s) {
-          var tipo = String(pick(s, 'Tipo', 'tipo') || 'semilla').toLowerCase();
+          var tipo = String(s.tipo || 'semilla').toLowerCase();
           if (tipo === 'semilla' || tipo.indexOf('ferti') === 0 || tipo === 'fertilizante') {
             tubitos.push(s);
           } else {
@@ -191,7 +190,7 @@
 
         if (tubitos.length > 0) {
           tubitos.sort(function (a, b) {
-            return (pick(a, 'Bajada', 'bajada') || 0) - (pick(b, 'Bajada', 'bajada') || 0);
+            return (a.bajada || 0) - (b.bajada || 0);
           });
           html += '<div class="tren-sub">Semilla / Fertilizante · ' + tubitos.length + '</div>';
           html += '<div class="sensors">';
@@ -201,10 +200,10 @@
 
         if (barras.length > 0) {
           barras.sort(function (a, b) {
-            var ta = String(pick(a, 'Tipo', 'tipo') || '');
-            var tb = String(pick(b, 'Tipo', 'tipo') || '');
+            var ta = String(a.tipo || '');
+            var tb = String(b.tipo || '');
             if (ta !== tb) return ta.localeCompare(tb);
-            return (pick(a, 'Bajada', 'bajada') || 0) - (pick(b, 'Bajada', 'bajada') || 0);
+            return (a.bajada || 0) - (b.bajada || 0);
           });
           html += '<div class="tren-sub">Otros sensores · ' + barras.length + '</div>';
           html += '<div class="sensors-bars">';
@@ -246,7 +245,7 @@
   // Mapeo de estado a estilo. "bajo" se pinta con un degradé negro→verde según
   // ratio real/objetivo (0 = negro, 1 = verde). El resto son colores planos.
   function colorForSurco(surco) {
-    var st = (pick(surco, 'Estado', 'estado') || 'no-data').toLowerCase();
+    var st = (surco.estado || 'no-data').toLowerCase();
     if (st === 'ok')      return 'var(--vx-ok)';
     if (st === 'tapado')  return 'var(--vx-tapado)';
     if (st === 'exceso' || st === 'warn')
@@ -256,7 +255,7 @@
     if (st === 'bajo' || st === 'bad') {
       // Ratio en [0..1]. Usamos linear-gradient con stop intermedio para que
       // el verde aparezca recién cerca del objetivo.
-      var r = Math.max(0, Math.min(1, (surco.ratio_objetivo != null ? surco.ratio_objetivo : pick(surco, 'RatioObjetivo', 'ratioObjetivo')) || 0));
+      var r = Math.max(0, Math.min(1, surco.ratio_objetivo || 0));
       // tono interpolado manual: black → ok
       var g = Math.round(0x4B * r);
       var rr = Math.round(0x05 + (0x40 - 0x05) * r);
@@ -270,7 +269,7 @@
   // derivar sem/ha a partir de sem/m por surco.
   function vxSpacing() {
     var _l = state.live;
-    var d = _l ? (_l.distancia_entre_surcos != null ? _l.distancia_entre_surcos : (pick(_l, 'DistanciaEntreSurcos', 'distanciaEntreSurcos') || 0)) : 0;
+    var d = _l ? (_l.distancia_entre_surcos || 0) : 0;
     return d > 0 ? d : 0.191;
   }
   // sem/ha = sem/m · 10000 / distancia_entre_surcos.
@@ -280,15 +279,15 @@
   }
 
   function renderSensorCell(s, objTren) {
-    var st = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
-    var b = pick(s, 'Bajada', 'bajada');
+    var st = (s.estado || 'no-data').toLowerCase();
+    var b = s.bajada;
     // Valor = lectura cruda del firmware en sem/m (densidad espacial, que es
     // lo que ve el operario). Spm (sem/min) es interno; al usuario no le sirve.
-    var valM = pick(s, 'Valor', 'valor') || 0;
-    var obj = pick(s, 'Objetivo', 'objetivo') || objTren || 0;
-    var uid = pick(s, 'Uid', 'uid') || '';
-    var cable = pick(s, 'Cable', 'cable');
-    var muted = !!pick(s, 'Muted', 'muted');
+    var valM = s.valor || 0;
+    var obj = s.objetivo || objTren || 0;
+    var uid = s.uid || '';
+    var cable = s.cable;
+    var muted = !!s.muted;
     var label = (st === 'no-data') ? 'sin señal'
               : (st === 'tapado')  ? 'TAPADO'
               : (st === 'bajo' || st === 'bad') ? 'bajo objetivo'
@@ -322,19 +321,19 @@
   // El input lleva data-* con el sensor identity para que el handler
   // pueda armar el upsert con todos los campos requeridos.
   function renderSensorBar(s, objTren) {
-    var st = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
-    var b = pick(s, 'Bajada', 'bajada');
-    var sp = pick(s, 'Spm', 'spm') || 0;
-    var obj = pick(s, 'Objetivo', 'objetivo') || 0; // 0 = hereda del tren
+    var st = (s.estado || 'no-data').toLowerCase();
+    var b = s.bajada;
+    var sp = s.spm || 0;
+    var obj = s.objetivo || 0; // 0 = hereda del tren
     var ratio = (obj > 0) ? Math.max(0, Math.min(1.3, sp / obj)) : 0;
     var fillPct = Math.round(ratio * 100);
     if (st === 'no-data') fillPct = 0;
     if (st === 'tapado') fillPct = Math.max(fillPct, 6); // hint visual
-    var uid = pick(s, 'Uid', 'uid') || '';
-    var cable = pick(s, 'Cable', 'cable');
-    var muted = !!pick(s, 'Muted', 'muted');
-    var tipo = pick(s, 'Tipo', 'tipo') || '';
-    var tren = pick(s, 'Tren', 'tren') || 0;
+    var uid = s.uid || '';
+    var cable = s.cable;
+    var muted = !!s.muted;
+    var tipo = s.tipo || '';
+    var tren = s.tren || 0;
 
     var nombreTipo = tipo
       .replace('bajada_herramienta', 'Bajada herr.')
@@ -470,13 +469,13 @@
   function findSurcoVivo(uid, cable) {
     var live = state.live;
     if (!live) return null;
-    var trenes = pick(live, 'Trenes', 'trenes') || [];
+    var trenes = live.trenes || [];
     for (var i = 0; i < trenes.length; i++) {
-      var surcos = pick(trenes[i], 'Surcos', 'surcos') || [];
+      var surcos = trenes[i].surcos || [];
       for (var j = 0; j < surcos.length; j++) {
         var s = surcos[j];
-        var u = pick(s, 'Uid', 'uid') || '';
-        var c = pick(s, 'Cable', 'cable');
+        var u = s.uid || '';
+        var c = s.cable;
         if (u === uid && c === cable) {
           return { surco: s, tren: trenes[i] };
         }
@@ -509,18 +508,18 @@
       return;
     }
     var s = found.surco, t = found.tren;
-    var st  = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
-    var sp  = pick(s, 'Spm', 'spm') || 0;
-    var valM = pick(s, 'Valor', 'valor') || 0; // sem/m (lo que ve el operario)
-    var obj = pick(s, 'Objetivo', 'objetivo') || pick(t, 'Objetivo', 'objetivo') || 0;
+    var st  = (s.estado || 'no-data').toLowerCase();
+    var sp  = s.spm || 0;
+    var valM = s.valor || 0; // sem/m (lo que ve el operario)
+    var obj = s.objetivo || t.objetivo || 0;
     var ratio = obj > 0 ? Math.max(0, Math.min(1.5, sp / obj)) : 0;
     var pct = obj > 0 ? Math.round(sp / obj * 100) : null;
-    var bj  = pick(s, 'Bajada', 'bajada');
-    var tipo = pick(s, 'Tipo', 'tipo') || 'semilla';
-    var muted = !!pick(s, 'Muted', 'muted');
-    var secCort = !!(s.seccion_cortada != null ? s.seccion_cortada : pick(s, 'SeccionCortada', 'seccionCortada'));
-    var lastIso = (s.last_seen_iso != null ? s.last_seen_iso : pick(s, 'LastSeenIso', 'lastSeenIso')) || '';
-    var tNombre = pick(t, 'Nombre', 'nombre') || ('Tren ' + (pick(t, 'Tren', 'tren') || '?'));
+    var bj  = s.bajada;
+    var tipo = s.tipo || 'semilla';
+    var muted = !!s.muted;
+    var secCort = !!s.seccion_cortada;
+    var lastIso = s.last_seen_iso || '';
+    var tNombre = t.nombre || ('Tren ' + (t.tren || '?'));
     var lbl = labelEstado(st);
 
     // Barra de % objetivo. Si seccion-off, no la mostramos (no aplica).
@@ -675,7 +674,7 @@
   // ---------- Nodos ----------
 
   function renderNodos(live) {
-    var nodos = (live && (live.nodos != null ? live.nodos : pick(live, 'Nodos', 'nodos'))) || [];
+    var nodos = (live && live.nodos) || [];
     // Mantener un datalist global con todos los UIDs vistos para autocompletar
     // el mapeo de sensores. Se actualiza en cada poll. Si más adelante el nodo
     // se desconecta, el último UID conocido queda en el datalist hasta el
@@ -688,10 +687,10 @@
     }
     var html = '';
     nodos.forEach(function (n) {
-      var uid = (n.uid != null ? n.uid : pick(n, 'Uid', 'uid')) || '–';
-      var online = n.online != null ? n.online : pick(n, 'Online', 'online');
-      var sensors = (n.sensors_reporting != null ? n.sensors_reporting : pick(n, 'SensorsReporting', 'sensorsReporting')) || 0;
-      var last = n.last_seen_iso != null ? n.last_seen_iso : pick(n, 'LastSeenIso', 'lastSeenIso');
+      var uid = n.uid || '–';
+      var online = n.online;
+      var sensors = n.sensors_reporting || 0;
+      var last = n.last_seen_iso;
       html += '<div class="nodo-card">' +
               '<div class="uid">' + escapeHtml(uid) + '</div>' +
               '<div style="margin-top:var(--agp-sp-2)">' +
@@ -754,8 +753,8 @@
 
       // DTO VistaX: tolerancia + mapeo de sensores (lo VistaX-específico).
       var res = await window.agpApi.get('vistax/implemento');
-      state.imp = res.implemento != null ? res.implemento : (pick(res, 'Implemento', 'implemento') || res);
-      state.impPath = res.path != null ? res.path : (pick(res, 'Path', 'path') || '');
+      state.imp = res.implemento || res;
+      state.impPath = res.path || '';
       paintImplemento();
     } catch (e) {
       $('impStatus').textContent = 'No se pudo cargar el implemento';
@@ -764,7 +763,7 @@
 
   function paintImplemento() {
     var i = state.imp || {};
-    var setup = pick(i, 'Setup', 'setup') || {};
+    var setup = i.setup || {};
     var central = state.implCentral || {};
 
     // Banner: resumen read-only desde el implemento central.
@@ -779,14 +778,14 @@
     if ((el = $('vxImplNumTrenes'))) el.textContent = nTrenesC || '–';
 
     // Único parámetro editable del VistaX a este nivel: tolerancia.
-    $('impTol').value = pick(setup, 'tolerancia_desvio', 'ToleranciaDesvio') ?? 0;
+    $('impTol').value = setup.tolerancia_desvio ?? 0;
 
     // Torres (agrupado opcional). 0 = sin agrupar; vista_modo_default decide
     // qué muestra el overlay live por defecto. El operario puede cambiar
     // en runtime (la preferencia runtime vive en localStorage).
-    var torres = pick(setup, 'torres', 'Torres') ?? 0;
-    var spt    = pick(setup, 'surcos_por_torre', 'SurcosPorTorre') ?? 0;
-    var modo   = pick(setup, 'vista_modo_default', 'VistaModoDefault') || 'surcos';
+    var torres = setup.torres ?? 0;
+    var spt    = setup.surcos_por_torre ?? 0;
+    var modo   = setup.vista_modo_default || 'surcos';
     if ($('impTorres'))      $('impTorres').value = torres | 0;
     if ($('impSurcosTorre')) $('impSurcosTorre').value = spt | 0;
     if ($('impVistaModo'))   $('impVistaModo').value = (modo === 'torres' ? 'torres' : 'surcos');
@@ -796,7 +795,7 @@
       ? central.trenes
       : [{ id: 0, nombre: 'Tren 0' }];
 
-    var sensores = pick(i, 'MapeoSensores', 'mapeo_sensores') || [];
+    var sensores = i.mapeo_sensores || [];
     var sBody = document.querySelector('#tblSensores tbody');
     sBody.innerHTML = sensores.map(function (s, idx) {
       return renderSensorRow(s, idx, trenesCentral);
@@ -812,19 +811,19 @@
   }
 
   function renderSensorRow(s, idx, trenes) {
-    var trenSel = (pick(s, 'tren', 'Tren') ?? 0) | 0;
+    var trenSel = (s.tren ?? 0) | 0;
     var trenOpts = trenes.map(function (t) {
       var sel = ((t.id | 0) === trenSel) ? ' selected' : '';
       return '<option value="' + (t.id | 0) + '"' + sel + '>' + escapeHtml(t.nombre || ('Tren ' + t.id)) + '</option>';
     }).join('');
-    var uidVal = pick(s, 'uid', 'Uid') || '';
+    var uidVal = s.uid || '';
     return '<tr data-idx="' + idx + '">' +
            '<td><select data-f="uid">' + buildUidOptions(uidVal) + '</select></td>' +
-           '<td><input type="number" data-f="cable" value="' + (pick(s, 'cable', 'Cable') ?? 0) + '" /></td>' +
-           '<td><input type="number" data-f="bajada" value="' + (pick(s, 'bajada', 'Bajada') ?? 0) + '" /></td>' +
+           '<td><input type="number" data-f="cable" value="' + (s.cable ?? 0) + '" /></td>' +
+           '<td><input type="number" data-f="bajada" value="' + (s.bajada ?? 0) + '" /></td>' +
            '<td><select data-f="tren">' + trenOpts + '</select></td>' +
-           '<td>' + renderTipoSelect(pick(s, 'tipo', 'Tipo') || 'semilla') + '</td>' +
-           '<td><input type="checkbox" data-f="is_active" ' + (pick(s, 'is_active', 'IsActive') !== false ? 'checked' : '') + ' /></td>' +
+           '<td>' + renderTipoSelect(s.tipo || 'semilla') + '</td>' +
+           '<td><input type="checkbox" data-f="is_active" ' + (s.is_active !== false ? 'checked' : '') + ' /></td>' +
            '<td class="actions"><button class="btn small btn-del-sensor">×</button></td>' +
            '</tr>';
   }
@@ -832,7 +831,7 @@
   function readImplementoFromForm() {
     var central = state.implCentral || {};
     var prevImp = state.imp || {};
-    var prevSetup = pick(prevImp, 'Setup', 'setup') || {};
+    var prevSetup = prevImp.setup || {};
 
     // La geometría (ancho/surcos/distancia/secciones/torres) y los TRENES los
     // manda el IMPLEMENTO CENTRAL: NO se editan ni se envían desde acá. El PUT
@@ -865,22 +864,22 @@
 
     return {
       // id/nombre del implemento: heredan del previo (no editable acá).
-      id: pick(prevImp, 'Id', 'id') || '',
-      nombre: pick(prevImp, 'Nombre', 'nombre') || central.nombre || '',
+      id: prevImp.id || '',
+      nombre: prevImp.nombre || central.nombre || '',
       setup: {
         // Solo campos VistaX-owned. Geometría (distancia/total_surcos/
         // secciones_aog/ancho_implemento/torres) la ignora el backend: la manda
         // el central. Densidad / factor K viven en el catálogo de insumos;
         // preservamos lo que ya estaba en el DTO previo para no pisar nada.
-        densidad_objetivo: pick(prevSetup, 'densidad_objetivo', 'DensidadObjetivo') ?? 0,
+        densidad_objetivo: prevSetup.densidad_objetivo ?? 0,
         tolerancia_desvio: parseFloat($('impTol').value || '0') || 0,
-        factor_k_default: pick(prevSetup, 'factor_k_default', 'FactorK') ?? 0,
-        objetivos_tren: pick(prevSetup, 'objetivos_tren', 'ObjetivosTren') || {},
+        factor_k_default: prevSetup.factor_k_default ?? 0,
+        objetivos_tren: prevSetup.objetivos_tren || {},
         surcos_por_torre: parseInt(($('impSurcosTorre') && $('impSurcosTorre').value) || '0', 10) || 0,
         vista_modo_default: (($('impVistaModo') && $('impVistaModo').value) === 'torres' ? 'torres' : 'surcos'),
         // Preservamos resto del setup que no editamos acá.
-        max_densidad_sensor: pick(prevSetup, 'max_densidad_sensor', 'MaxDensidadSensor') ?? 20,
-        insumo_activo_id: pick(prevSetup, 'insumo_activo_id', 'InsumoActivoId') || ''
+        max_densidad_sensor: prevSetup.max_densidad_sensor ?? 20,
+        insumo_activo_id: prevSetup.insumo_activo_id || ''
       },
       mapeo_sensores: sensores
     };
@@ -912,13 +911,13 @@
     // un solo nodo arriba y aun así me pide tipearlo".
     var seed = {};
     try {
-      var nodos = (state.live && (state.live.nodos != null ? state.live.nodos : (state.live.Nodos || []))) || [];
+      var nodos = (state.live && state.live.nodos) || [];
       var defaultUid = '';
       for (var i = 0; i < nodos.length; i++) {
         var n = nodos[i];
-        if (pick(n, 'Online', 'online')) { defaultUid = pick(n, 'Uid', 'uid') || ''; break; }
+        if (n.online) { defaultUid = n.uid || ''; break; }
       }
-      if (!defaultUid && nodos.length > 0) defaultUid = pick(nodos[0], 'Uid', 'uid') || '';
+      if (!defaultUid && nodos.length > 0) defaultUid = nodos[0].uid || '';
       if (defaultUid) seed.uid = defaultUid;
     } catch (_) { /* sin live snapshot aún */ }
     var tr = document.createElement('tr');
@@ -946,20 +945,15 @@
 
   function paintConfig() {
     var c = state.cfg || {};
-    function cfgPick(snake, pascal, camel) {
-      if (c[snake] != null) return c[snake];
-      if (c[pascal] != null) return c[pascal];
-      return c[camel];
-    }
-    $('cfgImpPath').value = cfgPick('implemento_json_path', 'ImplementoJsonPath', 'implementoJsonPath') || '';
-    $('cfgUiMs').value = cfgPick('ui_update_interval_ms', 'UiUpdateIntervalMs', 'uiUpdateIntervalMs') || 500;
-    $('cfgTimeoutMs').value = cfgPick('sensor_timeout_ms', 'SensorTimeoutMs', 'sensorTimeoutMs') || 3000;
-    $('cfgLogField').checked = !!cfgPick('log_to_field_record', 'LogToFieldRecord', 'logToFieldRecord');
-    $('cfgMetodo').value = cfgPick('metodo_inicio', 'MetodoInicio', 'metodoInicio') || 'sensores';
-    $('cfgUmbral').value = cfgPick('umbral_sensores_activos', 'UmbralSensoresActivos', 'umbralSensoresActivos') || 3;
-    $('cfgTConf').value = cfgPick('tiempo_confirmacion_ms', 'TiempoConfirmacionMs', 'tiempoConfirmacionMs') || 500;
-    $('cfgMuted').checked = !!cfgPick('alarm_muted', 'AlarmMuted', 'alarmMuted');
-    $('cfgLogDrive').value = cfgPick('log_output_drive', 'LogOutputDrive', 'logOutputDrive') || '';
+    $('cfgImpPath').value = c.implemento_json_path || '';
+    $('cfgUiMs').value = c.ui_update_interval_ms || 500;
+    $('cfgTimeoutMs').value = c.sensor_timeout_ms || 3000;
+    $('cfgLogField').checked = !!c.log_to_field_record;
+    $('cfgMetodo').value = c.metodo_inicio || 'sensores';
+    $('cfgUmbral').value = c.umbral_sensores_activos || 3;
+    $('cfgTConf').value = c.tiempo_confirmacion_ms || 500;
+    $('cfgMuted').checked = !!c.alarm_muted;
+    $('cfgLogDrive').value = c.log_output_drive || '';
     $('cfgStatus').textContent = 'Cargada';
   }
 
@@ -967,21 +961,17 @@
   // etc. que ya no se muestran en la UI (el broker MQTT lo maneja CoreX).
   function readConfigFromForm() {
     var c = state.cfg || {};
-    function cfgGet(snake, pascal, camel, def) {
-      var v = c[snake] != null ? c[snake] : (c[pascal] != null ? c[pascal] : c[camel]);
-      return v == null ? def : v;
-    }
     return {
-      enabled: cfgGet('enabled', 'Enabled', 'enabled', true),
-      broker_address: cfgGet('broker_address', 'BrokerAddress', 'brokerAddress', '127.0.0.1'),
-      broker_port: cfgGet('broker_port', 'BrokerPort', 'brokerPort', 1883),
-      client_id: cfgGet('client_id', 'ClientId', 'clientId', 'PilotX_VistaX'),
-      username: cfgGet('username', 'Username', 'username', ''),
-      password: cfgGet('password', 'Password', 'password', ''),
-      use_tls: cfgGet('use_tls', 'UseTls', 'useTls', false),
-      telemetria_topic: cfgGet('telemetria_topic', 'TelemetriaTopic', 'telemetriaTopic', 'vistax/nodos/telemetria'),
-      speed_topic: cfgGet('speed_topic', 'SpeedTopic', 'speedTopic', 'aog/machine/speed'),
-      sections_topic: cfgGet('sections_topic', 'SectionsTopic', 'sectionsTopic', 'sections/state'),
+      enabled: c.enabled != null ? c.enabled : true,
+      broker_address: c.broker_address || '127.0.0.1',
+      broker_port: c.broker_port || 1883,
+      client_id: c.client_id || 'PilotX_VistaX',
+      username: c.username || '',
+      password: c.password || '',
+      use_tls: c.use_tls || false,
+      telemetria_topic: c.telemetria_topic || 'vistax/nodos/telemetria',
+      speed_topic: c.speed_topic || 'aog/machine/speed',
+      sections_topic: c.sections_topic || 'sections/state',
       implemento_json_path: $('cfgImpPath').value || '',
       ui_update_interval_ms: parseInt($('cfgUiMs').value || '500', 10) || 500,
       sensor_timeout_ms: parseInt($('cfgTimeoutMs').value || '3000', 10) || 3000,

@@ -32,7 +32,6 @@
   }
 
   function $(id) { return document.getElementById(id); }
-  function pick(o, a, b) { return (o && o[a] != null) ? o[a] : (o ? o[b] : undefined); }
   function fmt(n, d) {
     if (n == null || isNaN(n)) return '—';
     return Number(n).toFixed(d == null ? 1 : d);
@@ -62,7 +61,7 @@
     toleranciaPct: 20
   };
 
-  function tipoOf(s) { return (pick(s, 'Tipo', 'tipo') || '').toLowerCase(); }
+  function tipoOf(s) { return (s.tipo || '').toLowerCase(); }
   function classFromEstado(st) {
     st = (st || 'no-data').toLowerCase();
     if (st === 'ok')     return 's-ok';
@@ -84,9 +83,8 @@
   function avgValor(arr) {
     var s = 0, n = 0;
     for (var i = 0; i < arr.length; i++) {
-      var muted = pick(arr[i], 'Muted', 'muted');
-      if (muted) continue;
-      var v = pick(arr[i], 'Valor', 'valor');
+      if (arr[i].muted) continue;
+      var v = arr[i].valor;
       if (v == null || isNaN(v)) continue;
       s += Number(v); n++;
     }
@@ -96,11 +94,11 @@
   function renderAuxRow(s) {
     var tipo   = tipoOf(s);
     var meta   = AUX_META[tipo] || { ico: '?', label: tipo || 'sensor', unit: '', mode: 'rate' };
-    var bajada = pick(s, 'Bajada', 'bajada') || 0;
-    var estado = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
-    var muted  = pick(s, 'Muted', 'muted');
-    var val    = pick(s, 'Valor', 'valor');
-    var spm    = pick(s, 'Spm', 'spm');
+    var bajada = s.bajada || 0;
+    var estado = (s.estado || 'no-data').toLowerCase();
+    var muted  = s.muted;
+    var val    = s.valor;
+    var spm    = s.spm;
 
     var cls = muted ? 's-muted' : classFromEstado(estado);
     var vTxt = '—';
@@ -136,9 +134,8 @@
   function countFallas(arr) {
     var n = 0;
     for (var i = 0; i < arr.length; i++) {
-      var muted = pick(arr[i], 'Muted', 'muted');
-      var estado = (pick(arr[i], 'Estado', 'estado') || 'no-data').toLowerCase();
-      if (!muted && (estado === 'tapado' || estado === 'bajo' || estado === 'exceso')) n++;
+      var estado = (arr[i].estado || 'no-data').toLowerCase();
+      if (!arr[i].muted && (estado === 'tapado' || estado === 'bajo' || estado === 'exceso')) n++;
     }
     return n;
   }
@@ -190,14 +187,14 @@
 
   function render(live) {
     if (!live) return;
-    var trenes   = live.trenes != null ? live.trenes : (pick(live, 'Trenes', 'trenes') || []);
-    var spm      = live.spm_promedio != null ? live.spm_promedio : pick(live, 'SpmPromedio', 'spmPromedio');
-    var fallas   = (live.fallas_activas != null ? live.fallas_activas : pick(live, 'FallasActivas', 'fallasActivas')) || 0;
-    var vel      = live.velocidad != null ? live.velocidad : pick(live, 'Velocidad', 'velocidad');
-    var hasAlarm = live.has_alarm != null ? live.has_alarm : pick(live, 'HasAlarm', 'hasAlarm');
-    var monAct   = live.monitoreo_activo != null ? live.monitoreo_activo : pick(live, 'MonitoreoActivo', 'monitoreoActivo');
-    var impNom   = (live.nombre_implemento != null ? live.nombre_implemento : pick(live, 'NombreImplemento', 'nombreImplemento')) || '—';
-    var tolFromLive = live.tolerancia_desvio != null ? live.tolerancia_desvio : pick(live, 'ToleranciaDesvio', 'toleranciaDesvio');
+    var trenes   = live.trenes || [];
+    var spm      = live.spm_promedio;
+    var fallas   = live.fallas_activas || 0;
+    var vel      = live.velocidad;
+    var hasAlarm = live.has_alarm;
+    var monAct   = live.monitoreo_activo;
+    var impNom   = live.nombre_implemento || '—';
+    var tolFromLive = live.tolerancia_desvio;
     if (tolFromLive != null && !isNaN(tolFromLive) && tolFromLive > 0) {
       state.toleranciaPct = tolFromLive;
     }
@@ -213,7 +210,7 @@
     // Aplanar todos los surcos.
     var todos = [];
     trenes.forEach(function (t) {
-      (pick(t, 'Surcos', 'surcos') || []).forEach(function (s) { todos.push(s); });
+      (t.surcos || []).forEach(function (s) { todos.push(s); });
     });
 
     var primarios  = todos.filter(function (s) { return PRIMARIOS[tipoOf(s)]; });
@@ -262,7 +259,7 @@
         var pa = prioOf(ta), pb = prioOf(tb);
         if (pa !== pb) return pa - pb;
         if (ta !== tb) return ta < tb ? -1 : 1;
-        return (pick(a, 'Bajada', 'bajada') || 0) - (pick(b, 'Bajada', 'bajada') || 0);
+        return (a.bajada || 0) - (b.bajada || 0);
       });
       auxBody.innerHTML = auxiliares.map(renderAuxRow).join('');
     }
@@ -291,15 +288,12 @@
       if (!r.ok) return;
       var j = await r.json();
       // El endpoint devuelve { path, implemento: {...} }; el setup está en implemento.setup.
-      var imp = j.implemento != null ? j.implemento : (pick(j, 'Implemento', 'implemento') || j);
-      var setup = imp.setup != null ? imp.setup : (pick(imp, 'Setup', 'setup') || imp);
+      var imp = j.implemento || j;
+      var setup = imp.setup || imp;
       // setup ya tiene [JsonPropertyName] snake_case (distancia_entre_surcos, etc.)
-      var d    = setup.distancia_entre_surcos != null ? setup.distancia_entre_surcos
-               : pick(setup, 'DistanciaEntreSurcos', 'distanciaEntreSurcos');
-      var dens = setup.densidad_objetivo != null ? setup.densidad_objetivo
-               : pick(setup, 'DensidadObjetivo', 'densidadObjetivo');
-      var tol  = setup.tolerancia_desvio != null ? setup.tolerancia_desvio
-               : pick(setup, 'ToleranciaDesvio', 'toleranciaDesvio');
+      var d    = setup.distancia_entre_surcos;
+      var dens = setup.densidad_objetivo;
+      var tol  = setup.tolerancia_desvio;
       if (d != null && !isNaN(d)) state.distanciaEntreSurcos = Number(d);
       if (dens != null && !isNaN(dens)) state.densidadObjetivo = Number(dens);
       if (tol != null && !isNaN(tol) && tol > 0) state.toleranciaPct = Number(tol);
