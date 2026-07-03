@@ -106,9 +106,9 @@
       try {
         var r = await fetch('/api/sistema/pwa-info', { cache: 'no-store' });
         var j = await r.json();
-        if (j.qrPngBase64) document.getElementById('qr').src = j.qrPngBase64;
-        document.getElementById('urlPrimary').textContent = j.url || j.mdnsUrl || '(sin red detectada)';
-        document.getElementById('urlMdns').textContent = j.mdnsUrl || '';
+        if (j.qr_png_base64) document.getElementById('qr').src = j.qr_png_base64;
+        document.getElementById('urlPrimary').textContent = j.url || j.mdns_url || '(sin red detectada)';
+        document.getElementById('urlMdns').textContent = j.mdns_url || '';
         var ips = j.ips || [];
         document.getElementById('ipCount').textContent = ips.length;
         var box = document.getElementById('ipList');
