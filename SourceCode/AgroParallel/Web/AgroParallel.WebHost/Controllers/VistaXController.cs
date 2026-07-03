@@ -65,6 +65,13 @@ namespace AgroParallel.WebHost.Controllers
             try { dto = await ReadJsonBodyAsync<VistaXConfigDto>(); }
             catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "invalid-json: " + ex.Message }); return; }
             if (dto == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
+            // Validar ANTES de persistir — el PUT es reemplazo completo del DTO.
+            var val = ConfigValidation.ValidarVistaXConfig(dto);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
+            }
             _cfg.SaveConfig(dto);
             _live?.Reload();
             await WriteJsonAsync(new { ok = true });
@@ -157,6 +164,15 @@ namespace AgroParallel.WebHost.Controllers
             // mapeo_sensores es 100% VistaX: se reemplaza tal cual viene.
             if (dto.MapeoSensores != null) actual.MapeoSensores = dto.MapeoSensores;
             if (!string.IsNullOrEmpty(dto.Id)) actual.Id = dto.Id;
+
+            // Validar el estado RESULTANTE del merge (no el DTO crudo): la
+            // geometría central que este PUT ignora no debe generar rechazos.
+            var val = ConfigValidation.ValidarVistaXImplemento(actual);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
+            }
 
             _cfg.SaveImplemento(actual);
             _live?.Reload();
@@ -270,6 +286,14 @@ namespace AgroParallel.WebHost.Controllers
                 existente.SeccionAOG = req.SeccionAOG;
                 existente.Objetivo = req.Objetivo;
                 // Muted no se toca acá: tiene su propio endpoint /sensor/mute.
+            }
+
+            // Validar el implemento resultante (el sensor ya quedó mergeado).
+            var val = ConfigValidation.ValidarVistaXImplemento(imp);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
             }
 
             _cfg.SaveImplemento(imp);

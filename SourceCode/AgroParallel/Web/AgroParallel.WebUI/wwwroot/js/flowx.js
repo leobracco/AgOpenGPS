@@ -802,6 +802,14 @@
           saveStatus.style.color = 'var(--agp-state-ok)';
           setTimeout(function () { saveStatus.textContent = ''; saveStatus.style.color = ''; }, 2500);
         }
+      } else if (body && body.error === 'AGP-CFG-001') {
+        // Config inválida rechazada por el backend: código + friendly en el
+        // status, detalle técnico en el modal (mismo patrón AGP-* del resto).
+        if (saveStatus) {
+          saveStatus.textContent = body.error + ' · ' + body.mensaje;
+          saveStatus.style.color = 'var(--agp-state-bad)';
+        }
+        await showAlert(body.error + ' · ' + body.mensaje, body.detalle || '');
       } else {
         if (saveStatus) {
           saveStatus.textContent = 'Error: ' + ((body && body.error) || 'unknown');

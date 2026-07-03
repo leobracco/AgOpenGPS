@@ -49,6 +49,13 @@ namespace AgroParallel.WebHost.Controllers
             try { dto = await ReadJsonBodyAsync<SectionXConfigDto>(); }
             catch { dto = null; }
             if (dto == null) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
+            // Validar ANTES de persistir — el POST es reemplazo completo del DTO.
+            var val = ConfigValidation.ValidarSectionX(dto);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
+            }
             _cfg.Save(dto);
             await WriteJsonAsync(new { ok = true });
         }

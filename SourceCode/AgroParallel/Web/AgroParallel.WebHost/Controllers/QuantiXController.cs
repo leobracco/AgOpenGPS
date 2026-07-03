@@ -66,6 +66,13 @@ namespace AgroParallel.WebHost.Controllers
             try { cfg = await ReadJsonBodyAsync<QxMotoresConfigDto>().ConfigureAwait(false); }
             catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
             if (cfg == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
+            // Validar ANTES de persistir — el PUT es reemplazo completo del DTO.
+            var val = ConfigValidation.ValidarQuantiX(cfg);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
+            }
             _qx.SaveMotores(cfg);
             await WriteJsonAsync(new { ok = true });
         }

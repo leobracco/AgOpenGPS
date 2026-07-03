@@ -69,6 +69,13 @@ namespace AgroParallel.WebHost.Controllers
             try { dto = await ReadJsonBodyAsync<ImplementoDto>(); }
             catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
             if (dto == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
+            // Validar ANTES de persistir — el PUT es reemplazo completo del DTO.
+            var val = ConfigValidation.ValidarImplemento(dto);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
+            }
             bool ok = _svc.SaveImplemento(dto);
             await WriteJsonAsync(new { ok = ok, slug = _svc.GetActiveSlug() });
         }
@@ -106,6 +113,13 @@ namespace AgroParallel.WebHost.Controllers
             try { dto = await ReadJsonBodyAsync<ImplementoDto>(); }
             catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
             if (dto == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
+            // Validar ANTES de persistir — el PUT es reemplazo completo del DTO.
+            var val = ConfigValidation.ValidarImplemento(dto);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
+            }
             bool ok = _svc.Save(slug, dto);
             await WriteJsonAsync(new { ok = ok, slug = slug });
         }

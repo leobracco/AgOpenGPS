@@ -297,12 +297,17 @@
   function doSave() {
     syncFromForm();
     renderJson();
-    api('/linex/config', {
+    // fetch directo (no api()): un 400 de validación trae body JSON con
+    // error/mensaje/detalle que queremos mostrar, no tirar excepción.
+    fetch('/api/linex/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cfg)
-    }).then(function (r) {
+    }).then(function (res) { return res.json(); }).then(function (r) {
       if (r && r.ok) toast('Configuración guardada', 'ok');
+      else if (r && r.error === 'AGP-CFG-001')
+        // Config inválida: código + friendly + detalle técnico del backend.
+        toast(r.error + ' · ' + r.mensaje + (r.detalle ? ' — ' + r.detalle : ''), 'bad', 8000);
       else toast('No se pudo guardar', 'bad');
     }).catch(function () { toast('Error al guardar', 'bad'); });
   }

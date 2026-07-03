@@ -43,6 +43,13 @@ namespace AgroParallel.WebHost.Controllers
             if (_cfg == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
             var dto = await ReadJsonBodyAsync<StormXConfigDto>();
             if (dto == null) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
+            // Validar ANTES de persistir — el POST es reemplazo completo del DTO.
+            var val = ConfigValidation.ValidarStormX(dto);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
+            }
             _cfg.Save(dto);
             await WriteJsonAsync(new { ok = true });
         }

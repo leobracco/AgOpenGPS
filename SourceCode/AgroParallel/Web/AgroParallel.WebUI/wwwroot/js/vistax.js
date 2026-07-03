@@ -894,6 +894,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dto)
       });
+      var data = await r.json();
+      if (data && data.error === 'AGP-CFG-001') {
+        // Config inválida: código + friendly + detalle técnico del backend.
+        $('impStatus').textContent = data.error + ' · ' + data.mensaje + (data.detalle ? ' — ' + data.detalle : '');
+        return;
+      }
       if (!r.ok) throw new Error('HTTP ' + r.status);
       $('impStatus').textContent = 'Guardado ✓';
     } catch (e) {
@@ -993,6 +999,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dto)
       });
+      var data = await r.json();
+      if (data && data.error === 'AGP-CFG-001') {
+        // Config inválida: código + friendly + detalle técnico del backend.
+        $('cfgStatus').textContent = data.error + ' · ' + data.mensaje + (data.detalle ? ' — ' + data.detalle : '');
+        return;
+      }
       if (!r.ok) throw new Error('HTTP ' + r.status);
       $('cfgStatus').textContent = 'Guardada ✓';
     } catch (e) {

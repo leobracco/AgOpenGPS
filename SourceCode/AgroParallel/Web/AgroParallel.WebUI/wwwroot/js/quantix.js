@@ -839,7 +839,13 @@
         body: JSON.stringify(state.motoresCfg)
       });
       var data = await res.json();
-      if (msg) msg.textContent = data.ok ? '✓ Guardado.' : '✕ ' + (data.error || 'error');
+      if (msg) {
+        if (data.ok) msg.textContent = '✓ Guardado.';
+        else if (data.error === 'AGP-CFG-001')
+          // Config inválida: código + friendly + detalle técnico del backend.
+          msg.textContent = '✕ ' + data.error + ' · ' + data.mensaje + (data.detalle ? ' — ' + data.detalle : '');
+        else msg.textContent = '✕ ' + (data.error || 'error');
+      }
     } catch (e) { if (msg) msg.textContent = '✕ ' + e.message; }
   }
 

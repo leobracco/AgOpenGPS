@@ -337,6 +337,9 @@
         await refreshLista();
         msg('ok', '✓ Guardado');
         pill('ok', 'OK · ' + (state.impl.nombre || state.activo));
+      } else if (data && data.error === 'AGP-CFG-001') {
+        // Config inválida: código + friendly + detalle técnico del backend.
+        msg('err', '✕ ' + data.error + ' · ' + data.mensaje + (data.detalle ? ' — ' + data.detalle : ''));
       } else {
         msg('err', '✕ ' + ((data && data.error) || 'no se pudo guardar'));
       }

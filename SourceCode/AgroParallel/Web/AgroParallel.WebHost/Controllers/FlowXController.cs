@@ -52,6 +52,13 @@ namespace AgroParallel.WebHost.Controllers
             try { dto = AgpJson.Deserialize<FlowXConfigDto>(body); }
             catch { dto = null; }
             if (dto == null) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
+            // Validar ANTES de persistir — el POST es reemplazo completo del DTO.
+            var val = ConfigValidation.ValidarFlowX(dto);
+            if (!val.Ok)
+            {
+                await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
+                return;
+            }
             _cfg.Save(dto);
             await WriteJsonAsync(new { ok = true });
         }

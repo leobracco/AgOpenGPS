@@ -401,11 +401,14 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        var ok = (await res.json()).ok;
-        if (ok) {
+        var data = await res.json();
+        if (data && data.ok) {
           toast('Config guardada · bridge actualizado', 'ok');
           // Refresh inmediato del chip para reflejar el nuevo estado del bridge.
           pollStatus();
+        } else if (data && data.error === 'AGP-CFG-001') {
+          // Config inválida: código + friendly + detalle técnico del backend.
+          toast(data.error + ' · ' + data.mensaje + (data.detalle ? ' — ' + data.detalle : ''), 'bad', 8000);
         } else {
           toast('Error al guardar', 'bad');
         }
