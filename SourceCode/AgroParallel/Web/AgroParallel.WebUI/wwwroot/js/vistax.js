@@ -82,8 +82,8 @@
   function knownUids() {
     var out = [], seen = {};
     (state.nodos || []).forEach(function (n) {
-      var uid = pick(n, 'Uid', 'uid');
-      if (uid && !seen[uid]) { seen[uid] = true; out.push({ uid: uid, online: !!pick(n, 'Online', 'online') }); }
+      var uid = n.uid != null ? n.uid : pick(n, 'Uid', 'uid');
+      if (uid && !seen[uid]) { seen[uid] = true; out.push({ uid: uid, online: !!(n.online != null ? n.online : pick(n, 'Online', 'online')) }); }
     });
     var sensores = state.imp ? (pick(state.imp, 'MapeoSensores', 'mapeo_sensores') || []) : [];
     sensores.forEach(function (s) {
@@ -119,15 +119,15 @@
     state.live = live;
     if (!live) return;
 
-    var trenes = pick(live, 'Trenes', 'trenes') || [];
-    var spm = pick(live, 'SpmPromedio', 'spmPromedio');
-    var activos = pick(live, 'SurcosActivos', 'surcosActivos') || 0;
-    var fallas = pick(live, 'FallasActivas', 'fallasActivas') || 0;
-    var hasAlarm = pick(live, 'HasAlarm', 'hasAlarm');
-    var alarmMsg = pick(live, 'AlarmMessage', 'alarmMessage') || '';
-    var impNombre = pick(live, 'NombreImplemento', 'nombreImplemento') || '–';
-    var tol = pick(live, 'ToleranciaDesvio', 'toleranciaDesvio');
-    var monActivo = pick(live, 'MonitoreoActivo', 'monitoreoActivo');
+    var trenes = pick(live, 'trenes', 'Trenes') || [];
+    var spm = live.spm_promedio != null ? live.spm_promedio : pick(live, 'SpmPromedio', 'spmPromedio');
+    var activos = (live.surcos_activos != null ? live.surcos_activos : pick(live, 'SurcosActivos', 'surcosActivos')) || 0;
+    var fallas = (live.fallas_activas != null ? live.fallas_activas : pick(live, 'FallasActivas', 'fallasActivas')) || 0;
+    var hasAlarm = live.has_alarm != null ? live.has_alarm : pick(live, 'HasAlarm', 'hasAlarm');
+    var alarmMsg = (live.alarm_message != null ? live.alarm_message : pick(live, 'AlarmMessage', 'alarmMessage')) || '';
+    var impNombre = (live.nombre_implemento != null ? live.nombre_implemento : pick(live, 'NombreImplemento', 'nombreImplemento')) || '–';
+    var tol = live.tolerancia_desvio != null ? live.tolerancia_desvio : pick(live, 'ToleranciaDesvio', 'toleranciaDesvio');
+    var monActivo = live.monitoreo_activo != null ? live.monitoreo_activo : pick(live, 'MonitoreoActivo', 'monitoreoActivo');
 
     $('vxSubtitle').textContent =
       'Monitoreo de siembra · ' + (impNombre || '–') +
@@ -256,7 +256,7 @@
     if (st === 'bajo' || st === 'bad') {
       // Ratio en [0..1]. Usamos linear-gradient con stop intermedio para que
       // el verde aparezca recién cerca del objetivo.
-      var r = Math.max(0, Math.min(1, pick(surco, 'RatioObjetivo', 'ratioObjetivo') || 0));
+      var r = Math.max(0, Math.min(1, (surco.ratio_objetivo != null ? surco.ratio_objetivo : pick(surco, 'RatioObjetivo', 'ratioObjetivo')) || 0));
       // tono interpolado manual: black → ok
       var g = Math.round(0x4B * r);
       var rr = Math.round(0x05 + (0x40 - 0x05) * r);
@@ -269,7 +269,8 @@
   // Distancia entre surcos (m) del snapshot live; default 0.191. Se usa para
   // derivar sem/ha a partir de sem/m por surco.
   function vxSpacing() {
-    var d = state.live ? (pick(state.live, 'DistanciaEntreSurcos', 'distanciaEntreSurcos') || 0) : 0;
+    var _l = state.live;
+    var d = _l ? (_l.distancia_entre_surcos != null ? _l.distancia_entre_surcos : (pick(_l, 'DistanciaEntreSurcos', 'distanciaEntreSurcos') || 0)) : 0;
     return d > 0 ? d : 0.191;
   }
   // sem/ha = sem/m · 10000 / distancia_entre_surcos.
@@ -517,8 +518,8 @@
     var bj  = pick(s, 'Bajada', 'bajada');
     var tipo = pick(s, 'Tipo', 'tipo') || 'semilla';
     var muted = !!pick(s, 'Muted', 'muted');
-    var secCort = !!pick(s, 'SeccionCortada', 'seccionCortada');
-    var lastIso = pick(s, 'LastSeenIso', 'lastSeenIso') || '';
+    var secCort = !!(s.seccion_cortada != null ? s.seccion_cortada : pick(s, 'SeccionCortada', 'seccionCortada'));
+    var lastIso = (s.last_seen_iso != null ? s.last_seen_iso : pick(s, 'LastSeenIso', 'lastSeenIso')) || '';
     var tNombre = pick(t, 'Nombre', 'nombre') || ('Tren ' + (pick(t, 'Tren', 'tren') || '?'));
     var lbl = labelEstado(st);
 
@@ -674,7 +675,7 @@
   // ---------- Nodos ----------
 
   function renderNodos(live) {
-    var nodos = (live && (pick(live, 'Nodos', 'nodos'))) || [];
+    var nodos = (live && (live.nodos != null ? live.nodos : pick(live, 'Nodos', 'nodos'))) || [];
     // Mantener un datalist global con todos los UIDs vistos para autocompletar
     // el mapeo de sensores. Se actualiza en cada poll. Si más adelante el nodo
     // se desconecta, el último UID conocido queda en el datalist hasta el
@@ -687,10 +688,10 @@
     }
     var html = '';
     nodos.forEach(function (n) {
-      var uid = pick(n, 'Uid', 'uid') || '–';
-      var online = pick(n, 'Online', 'online');
-      var sensors = pick(n, 'SensorsReporting', 'sensorsReporting') || 0;
-      var last = pick(n, 'LastSeenIso', 'lastSeenIso');
+      var uid = (n.uid != null ? n.uid : pick(n, 'Uid', 'uid')) || '–';
+      var online = n.online != null ? n.online : pick(n, 'Online', 'online');
+      var sensors = (n.sensors_reporting != null ? n.sensors_reporting : pick(n, 'SensorsReporting', 'sensorsReporting')) || 0;
+      var last = n.last_seen_iso != null ? n.last_seen_iso : pick(n, 'LastSeenIso', 'lastSeenIso');
       html += '<div class="nodo-card">' +
               '<div class="uid">' + escapeHtml(uid) + '</div>' +
               '<div style="margin-top:var(--agp-sp-2)">' +
@@ -753,8 +754,8 @@
 
       // DTO VistaX: tolerancia + mapeo de sensores (lo VistaX-específico).
       var res = await window.agpApi.get('vistax/implemento');
-      state.imp = pick(res, 'Implemento', 'implemento') || res.implemento || res;
-      state.impPath = pick(res, 'Path', 'path') || '';
+      state.imp = res.implemento != null ? res.implemento : (pick(res, 'Implemento', 'implemento') || res);
+      state.impPath = res.path != null ? res.path : (pick(res, 'Path', 'path') || '');
       paintImplemento();
     } catch (e) {
       $('impStatus').textContent = 'No se pudo cargar el implemento';
@@ -911,7 +912,7 @@
     // un solo nodo arriba y aun así me pide tipearlo".
     var seed = {};
     try {
-      var nodos = (state.live && (state.live.Nodos || state.live.nodos)) || [];
+      var nodos = (state.live && (state.live.nodos != null ? state.live.nodos : (state.live.Nodos || []))) || [];
       var defaultUid = '';
       for (var i = 0; i < nodos.length; i++) {
         var n = nodos[i];
@@ -945,46 +946,51 @@
 
   function paintConfig() {
     var c = state.cfg || {};
-    $('cfgImpPath').value = pick(c, 'ImplementoJsonPath', 'implementoJsonPath') || '';
-    $('cfgUiMs').value = pick(c, 'UiUpdateIntervalMs', 'uiUpdateIntervalMs') || 500;
-    $('cfgTimeoutMs').value = pick(c, 'SensorTimeoutMs', 'sensorTimeoutMs') || 3000;
-    $('cfgLogField').checked = !!pick(c, 'LogToFieldRecord', 'logToFieldRecord');
-    $('cfgMetodo').value = pick(c, 'MetodoInicio', 'metodoInicio') || 'sensores';
-    $('cfgUmbral').value = pick(c, 'UmbralSensoresActivos', 'umbralSensoresActivos') || 3;
-    $('cfgTConf').value = pick(c, 'TiempoConfirmacionMs', 'tiempoConfirmacionMs') || 500;
-    $('cfgMuted').checked = !!pick(c, 'AlarmMuted', 'alarmMuted');
-    $('cfgLogDrive').value = pick(c, 'LogOutputDrive', 'logOutputDrive') || '';
+    function cfgPick(snake, pascal, camel) {
+      if (c[snake] != null) return c[snake];
+      if (c[pascal] != null) return c[pascal];
+      return c[camel];
+    }
+    $('cfgImpPath').value = cfgPick('implemento_json_path', 'ImplementoJsonPath', 'implementoJsonPath') || '';
+    $('cfgUiMs').value = cfgPick('ui_update_interval_ms', 'UiUpdateIntervalMs', 'uiUpdateIntervalMs') || 500;
+    $('cfgTimeoutMs').value = cfgPick('sensor_timeout_ms', 'SensorTimeoutMs', 'sensorTimeoutMs') || 3000;
+    $('cfgLogField').checked = !!cfgPick('log_to_field_record', 'LogToFieldRecord', 'logToFieldRecord');
+    $('cfgMetodo').value = cfgPick('metodo_inicio', 'MetodoInicio', 'metodoInicio') || 'sensores';
+    $('cfgUmbral').value = cfgPick('umbral_sensores_activos', 'UmbralSensoresActivos', 'umbralSensoresActivos') || 3;
+    $('cfgTConf').value = cfgPick('tiempo_confirmacion_ms', 'TiempoConfirmacionMs', 'tiempoConfirmacionMs') || 500;
+    $('cfgMuted').checked = !!cfgPick('alarm_muted', 'AlarmMuted', 'alarmMuted');
+    $('cfgLogDrive').value = cfgPick('log_output_drive', 'LogOutputDrive', 'logOutputDrive') || '';
     $('cfgStatus').textContent = 'Cargada';
   }
 
-  // Mezcla los campos editados con state.cfg para preservar BrokerAddress/topics
+  // Mezcla los campos editados con state.cfg para preservar broker_address/topics
   // etc. que ya no se muestran en la UI (el broker MQTT lo maneja CoreX).
   function readConfigFromForm() {
     var c = state.cfg || {};
-    var get = function (a, b, def) {
-      var v = pick(c, a, b);
+    function cfgGet(snake, pascal, camel, def) {
+      var v = c[snake] != null ? c[snake] : (c[pascal] != null ? c[pascal] : c[camel]);
       return v == null ? def : v;
-    };
+    }
     return {
-      Enabled: get('Enabled', 'enabled', true),
-      BrokerAddress: get('BrokerAddress', 'brokerAddress', '127.0.0.1'),
-      BrokerPort: get('BrokerPort', 'brokerPort', 1883),
-      ClientId: get('ClientId', 'clientId', 'PilotX_VistaX'),
-      Username: get('Username', 'username', ''),
-      Password: get('Password', 'password', ''),
-      UseTls: get('UseTls', 'useTls', false),
-      TelemetriaTopic: get('TelemetriaTopic', 'telemetriaTopic', 'vistax/nodos/telemetria'),
-      SpeedTopic: get('SpeedTopic', 'speedTopic', 'aog/machine/speed'),
-      SectionsTopic: get('SectionsTopic', 'sectionsTopic', 'sections/state'),
-      ImplementoJsonPath: $('cfgImpPath').value || '',
-      UiUpdateIntervalMs: parseInt($('cfgUiMs').value || '500', 10) || 500,
-      SensorTimeoutMs: parseInt($('cfgTimeoutMs').value || '3000', 10) || 3000,
-      LogToFieldRecord: $('cfgLogField').checked,
-      MetodoInicio: $('cfgMetodo').value || 'sensores',
-      UmbralSensoresActivos: parseInt($('cfgUmbral').value || '3', 10) || 3,
-      TiempoConfirmacionMs: parseInt($('cfgTConf').value || '500', 10) || 500,
-      AlarmMuted: $('cfgMuted').checked,
-      LogOutputDrive: $('cfgLogDrive').value || ''
+      enabled: cfgGet('enabled', 'Enabled', 'enabled', true),
+      broker_address: cfgGet('broker_address', 'BrokerAddress', 'brokerAddress', '127.0.0.1'),
+      broker_port: cfgGet('broker_port', 'BrokerPort', 'brokerPort', 1883),
+      client_id: cfgGet('client_id', 'ClientId', 'clientId', 'PilotX_VistaX'),
+      username: cfgGet('username', 'Username', 'username', ''),
+      password: cfgGet('password', 'Password', 'password', ''),
+      use_tls: cfgGet('use_tls', 'UseTls', 'useTls', false),
+      telemetria_topic: cfgGet('telemetria_topic', 'TelemetriaTopic', 'telemetriaTopic', 'vistax/nodos/telemetria'),
+      speed_topic: cfgGet('speed_topic', 'SpeedTopic', 'speedTopic', 'aog/machine/speed'),
+      sections_topic: cfgGet('sections_topic', 'SectionsTopic', 'sectionsTopic', 'sections/state'),
+      implemento_json_path: $('cfgImpPath').value || '',
+      ui_update_interval_ms: parseInt($('cfgUiMs').value || '500', 10) || 500,
+      sensor_timeout_ms: parseInt($('cfgTimeoutMs').value || '3000', 10) || 3000,
+      log_to_field_record: $('cfgLogField').checked,
+      metodo_inicio: $('cfgMetodo').value || 'sensores',
+      umbral_sensores_activos: parseInt($('cfgUmbral').value || '3', 10) || 3,
+      tiempo_confirmacion_ms: parseInt($('cfgTConf').value || '500', 10) || 500,
+      alarm_muted: $('cfgMuted').checked,
+      log_output_drive: $('cfgLogDrive').value || ''
     };
   }
 

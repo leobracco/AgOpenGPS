@@ -190,14 +190,14 @@
 
   function render(live) {
     if (!live) return;
-    var trenes   = pick(live, 'Trenes', 'trenes') || [];
-    var spm      = pick(live, 'SpmPromedio', 'spmPromedio');
-    var fallas   = pick(live, 'FallasActivas', 'fallasActivas') || 0;
-    var vel      = pick(live, 'Velocidad', 'velocidad');
-    var hasAlarm = pick(live, 'HasAlarm', 'hasAlarm');
-    var monAct   = pick(live, 'MonitoreoActivo', 'monitoreoActivo');
-    var impNom   = pick(live, 'NombreImplemento', 'nombreImplemento') || '—';
-    var tolFromLive = pick(live, 'ToleranciaDesvio', 'toleranciaDesvio');
+    var trenes   = live.trenes != null ? live.trenes : (pick(live, 'Trenes', 'trenes') || []);
+    var spm      = live.spm_promedio != null ? live.spm_promedio : pick(live, 'SpmPromedio', 'spmPromedio');
+    var fallas   = (live.fallas_activas != null ? live.fallas_activas : pick(live, 'FallasActivas', 'fallasActivas')) || 0;
+    var vel      = live.velocidad != null ? live.velocidad : pick(live, 'Velocidad', 'velocidad');
+    var hasAlarm = live.has_alarm != null ? live.has_alarm : pick(live, 'HasAlarm', 'hasAlarm');
+    var monAct   = live.monitoreo_activo != null ? live.monitoreo_activo : pick(live, 'MonitoreoActivo', 'monitoreoActivo');
+    var impNom   = (live.nombre_implemento != null ? live.nombre_implemento : pick(live, 'NombreImplemento', 'nombreImplemento')) || '—';
+    var tolFromLive = live.tolerancia_desvio != null ? live.tolerancia_desvio : pick(live, 'ToleranciaDesvio', 'toleranciaDesvio');
     if (tolFromLive != null && !isNaN(tolFromLive) && tolFromLive > 0) {
       state.toleranciaPct = tolFromLive;
     }
@@ -290,13 +290,16 @@
       var r = await fetch('/api/vistax/implemento', { cache: 'no-store' });
       if (!r.ok) return;
       var j = await r.json();
-      var setup = pick(j, 'Setup', 'setup') || j;
-      var d = pick(setup, 'DistanciaEntreSurcos', 'distanciaEntreSurcos');
-      if (d == null) d = pick(setup, 'distancia_entre_surcos', 'distancia_entre_surcos');
-      var dens = pick(setup, 'DensidadObjetivo', 'densidadObjetivo');
-      if (dens == null) dens = pick(setup, 'densidad_objetivo', 'densidad_objetivo');
-      var tol = pick(setup, 'ToleranciaDesvio', 'toleranciaDesvio');
-      if (tol == null) tol = pick(setup, 'tolerancia_desvio', 'tolerancia_desvio');
+      // El endpoint devuelve { path, implemento: {...} }; el setup está en implemento.setup.
+      var imp = j.implemento != null ? j.implemento : (pick(j, 'Implemento', 'implemento') || j);
+      var setup = imp.setup != null ? imp.setup : (pick(imp, 'Setup', 'setup') || imp);
+      // setup ya tiene [JsonPropertyName] snake_case (distancia_entre_surcos, etc.)
+      var d    = setup.distancia_entre_surcos != null ? setup.distancia_entre_surcos
+               : pick(setup, 'DistanciaEntreSurcos', 'distanciaEntreSurcos');
+      var dens = setup.densidad_objetivo != null ? setup.densidad_objetivo
+               : pick(setup, 'DensidadObjetivo', 'densidadObjetivo');
+      var tol  = setup.tolerancia_desvio != null ? setup.tolerancia_desvio
+               : pick(setup, 'ToleranciaDesvio', 'toleranciaDesvio');
       if (d != null && !isNaN(d)) state.distanciaEntreSurcos = Number(d);
       if (dens != null && !isNaN(dens)) state.densidadObjetivo = Number(dens);
       if (tol != null && !isNaN(tol) && tol > 0) state.toleranciaPct = Number(tol);

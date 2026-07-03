@@ -174,7 +174,7 @@
   // Todos los surcos aplanados con su tipo normalizado.
   function collect(live){
     var out=[];
-    (pick(live,'trenes','Trenes')||[]).forEach(function(t){
+    (live.trenes != null ? live.trenes : (pick(live,'trenes','Trenes')||[])).forEach(function(t){
       (pick(t,'surcos','Surcos')||[]).forEach(function(s){
         out.push({
           tipo:(pick(s,'tipo','Tipo')||'').toLowerCase(),

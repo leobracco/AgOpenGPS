@@ -62,7 +62,10 @@
     try {
       var r = await fetch('/api/vistax/implemento');
       var dto = await r.json();
-      var max = (dto && dto.implemento && dto.implemento.setup && dto.implemento.setup.max_densidad_sensor) || 20;
+      // { path, implemento: { setup: { max_densidad_sensor: ... } } }
+      var imp = dto && (dto.implemento != null ? dto.implemento : dto);
+      var setup = imp && (imp.setup != null ? imp.setup : imp);
+      var max = (setup && setup.max_densidad_sensor) || 20;
       var input = $('vxMaxSensor');
       if (input) input.value = max;
       var lbl = $('vxMaxSensorLabel');
@@ -74,8 +77,9 @@
     try {
       var r = await fetch('/api/vistax/implemento');
       var dto = await r.json();
-      if (!dto || !dto.implemento) return;
-      var imp = dto.implemento;
+      if (!dto) return;
+      var imp = dto.implemento != null ? dto.implemento : dto;
+      if (!imp) return;
       if (!imp.setup) imp.setup = {};
       var val = parseFloat($('vxMaxSensor').value);
       if (!(val > 0 && val < 500)) { alert('Valor inválido.'); return; }

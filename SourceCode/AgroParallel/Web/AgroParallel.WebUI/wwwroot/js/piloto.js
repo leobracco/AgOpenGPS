@@ -903,7 +903,7 @@
     if (st === 'muted')   return 'var(--vx-muted)';
     if (st === 'no-data') return 'var(--vx-no-data)';
     // bajo → interpolar rgb(5,5,5) → rgb(75,166,63) según ratio
-    var ratio = pk(s, 'ratioObjetivo', 'RatioObjetivo');
+    var ratio = s.ratio_objetivo != null ? s.ratio_objetivo : pk(s, 'ratioObjetivo', 'RatioObjetivo');
     if (ratio == null) ratio = 0;
     ratio = Math.max(0, Math.min(1, ratio));
     var r = Math.round(5  + (75  - 5)  * ratio);
@@ -916,20 +916,21 @@
     if (!seedMonRoot) return;
     // pick PascalCase/camelCase
     function pk(o, a, b) { return o[a] != null ? o[a] : o[b]; }
-    var trenes = pk(live, 'trenes', 'Trenes') || [];
-    var activo = !!pk(live, 'monitoreoActivo', 'MonitoreoActivo');
+    // Soporte snake_case (nuevo) + PascalCase/camelCase (retrocompatibilidad).
+    var trenes = live.trenes != null ? live.trenes : (pk(live, 'trenes', 'Trenes') || []);
+    var activo = !!(live.monitoreo_activo != null ? live.monitoreo_activo : pk(live, 'monitoreoActivo', 'MonitoreoActivo'));
     var hasTrenes = trenes.length > 0;
     // ocultar el panel si no hay implemento VistaX configurado
     seedMonRoot.hidden = !hasTrenes;
     if (!hasTrenes) return;
 
-    if (smImpl)    smImpl.textContent    = pk(live, 'nombreImplemento', 'NombreImplemento') || (activo ? 'activo' : 'inactivo');
-    if (smActivos) smActivos.textContent = pk(live, 'surcosActivos', 'SurcosActivos') || 0;
-    if (smFallas)  smFallas.textContent  = pk(live, 'fallasActivas', 'FallasActivas') || 0;
+    if (smImpl)    smImpl.textContent    = (live.nombre_implemento != null ? live.nombre_implemento : pk(live, 'nombreImplemento', 'NombreImplemento')) || (activo ? 'activo' : 'inactivo');
+    if (smActivos) smActivos.textContent = (live.surcos_activos != null ? live.surcos_activos : pk(live, 'surcosActivos', 'SurcosActivos')) || 0;
+    if (smFallas)  smFallas.textContent  = (live.fallas_activas != null ? live.fallas_activas : pk(live, 'fallasActivas', 'FallasActivas')) || 0;
 
     // El operario ve sem/m y sem/ha, no sem/min. Valor (sem/m) es la lectura
     // espacial cruda del firmware; sem/ha = sem/m · 10000 / distancia_surcos.
-    var spaceM = pk(live, 'distanciaEntreSurcos', 'DistanciaEntreSurcos') || 0;
+    var spaceM = (live.distancia_entre_surcos != null ? live.distancia_entre_surcos : pk(live, 'distanciaEntreSurcos', 'DistanciaEntreSurcos')) || 0;
     if (!(spaceM > 0)) spaceM = 0.191;
     var semMSum = 0, semMN = 0;
 
@@ -937,24 +938,24 @@
     var html = '';
     for (var i = 0; i < trenes.length; i++) {
       var tr = trenes[i];
-      var name = pk(tr, 'nombre', 'Nombre') || ('Tren ' + (pk(tr, 'tren', 'Tren') || (i + 1)));
-      var surcos = pk(tr, 'surcos', 'Surcos') || [];
+      var name = (tr.nombre != null ? tr.nombre : pk(tr, 'nombre', 'Nombre')) || ('Tren ' + ((tr.tren != null ? tr.tren : pk(tr, 'tren', 'Tren')) || (i + 1)));
+      var surcos = (tr.surcos != null ? tr.surcos : pk(tr, 'surcos', 'Surcos')) || [];
       var cells = '';
       for (var j = 0; j < surcos.length; j++) {
         var s = surcos[j];
-        var st = (pk(s, 'estado', 'Estado') || 'no-data').toLowerCase();
-        var cut = !!pk(s, 'seccionCortada', 'SeccionCortada');
-        var muted = !!pk(s, 'muted', 'Muted');
-        var uid = pk(s, 'uid', 'Uid') || '';
-        var cable = pk(s, 'cable', 'Cable');
+        var st = ((s.estado != null ? s.estado : pk(s, 'estado', 'Estado')) || 'no-data').toLowerCase();
+        var cut = !!(s.seccion_cortada != null ? s.seccion_cortada : pk(s, 'seccionCortada', 'SeccionCortada'));
+        var muted = !!(s.muted != null ? s.muted : pk(s, 'muted', 'Muted'));
+        var uid = (s.uid != null ? s.uid : pk(s, 'uid', 'Uid')) || '';
+        var cable = s.cable != null ? s.cable : pk(s, 'cable', 'Cable');
         if (cable == null) cable = 0;
-        var valM = pk(s, 'valor', 'Valor') || 0; // sem/m
-        var tipo = String(pk(s, 'tipo', 'Tipo') || 'semilla').toLowerCase();
+        var valM = (s.valor != null ? s.valor : pk(s, 'valor', 'Valor')) || 0; // sem/m
+        var tipo = String((s.tipo != null ? s.tipo : pk(s, 'tipo', 'Tipo')) || 'semilla').toLowerCase();
         if (tipo === 'semilla' && valM > 0) { semMSum += valM; semMN++; }
         var semM = valM.toFixed(valM >= 100 ? 0 : 1);
         var semHaCell = (spaceM > 0 ? Math.round(valM * 10000 / spaceM) : 0);
-        var obj = pk(s, 'objetivo', 'Objetivo');
-        var baj = pk(s, 'bajada', 'Bajada') || (j + 1);
+        var obj = s.objetivo != null ? s.objetivo : pk(s, 'objetivo', 'Objetivo');
+        var baj = (s.bajada != null ? s.bajada : pk(s, 'bajada', 'Bajada')) || (j + 1);
         var bg = smColorForSurco(s);
         var cls = 'cell';
         if (muted || st === 'muted') cls += ' muted';

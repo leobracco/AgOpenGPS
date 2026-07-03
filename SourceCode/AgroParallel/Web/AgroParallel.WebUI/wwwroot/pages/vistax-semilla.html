@@ -155,7 +155,7 @@
 
   /* Aplana los surcos de tipo semilla/fertilizante en orden (tren, bajada). */
   function collectPrimarios(live){
-    var trenes = pick(live,'trenes','Trenes')||[];
+    var trenes = (live.trenes != null ? live.trenes : pick(live,'trenes','Trenes'))||[];
     var out=[];
     trenes.forEach(function(t){
       var surcos = pick(t,'surcos','Surcos')||[];
@@ -191,7 +191,7 @@
     var ref=S[i]; if(!ref) return;
     var estado=(pick(s,'estado','Estado')||'no-data').toLowerCase();
     var valor =num(pick(s,'valor','Valor'));           // sem/m crudo (lo que ve el operario)
-    var ratio =num(pick(s,'ratioObjetivo','RatioObjetivo'));
+    var ratio =num(s.ratio_objetivo != null ? s.ratio_objetivo : pick(s,'ratioObjetivo','RatioObjetivo'));
 
     var cls=classFromEstado(estado, monActivo);
     if(cls!==ref.cls){ ref.el.className='sensor '+cls; ref.cls=cls; }
@@ -215,10 +215,10 @@
 
   function render(live){
     if(!live) return;
-    var monActivo = !!pick(live,'monitoreoActivo','MonitoreoActivo');
-    var vel       = num(pick(live,'velocidad','Velocidad'));
-    var fallas    = pick(live,'fallasActivas','FallasActivas')||0;
-    var dist      = num(pick(live,'distanciaEntreSurcos','DistanciaEntreSurcos'));
+    var monActivo = !!(live.monitoreo_activo != null ? live.monitoreo_activo : pick(live,'monitoreoActivo','MonitoreoActivo'));
+    var vel       = num(live.velocidad != null ? live.velocidad : pick(live,'velocidad','Velocidad'));
+    var fallas    = (live.fallas_activas != null ? live.fallas_activas : pick(live,'fallasActivas','FallasActivas'))||0;
+    var dist      = num(live.distancia_entre_surcos != null ? live.distancia_entre_surcos : pick(live,'distanciaEntreSurcos','DistanciaEntreSurcos'));
     if(dist==null) dist=0.191;
 
     var surcos = collectPrimarios(live);
@@ -253,7 +253,7 @@
     document.getElementById('k-alarm').textContent = fallas;
 
     document.getElementById('f-okpct').textContent = (monActivo && act) ? (Math.round(ok/act*100)+'%') : '—';
-    var motivo = pick(live,'motivoDetenido','MotivoDetenido')||'';
+    var motivo = (live.motivo_detenido != null ? live.motivo_detenido : pick(live,'motivoDetenido','MotivoDetenido'))||'';
     document.getElementById('f-estado').textContent = monActivo ? 'Sembrando' : (motivo || 'Detenido');
   }
 

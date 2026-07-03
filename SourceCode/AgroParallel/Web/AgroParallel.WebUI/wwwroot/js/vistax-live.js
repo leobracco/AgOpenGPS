@@ -118,15 +118,15 @@
       body.innerHTML = '<div class="warn">Sensor no encontrado en el snapshot actual.</div>';
       return;
     }
-    var bajada = pick(s, 'Bajada', 'bajada') || 0;
+    var bajada = (s.bajada != null ? s.bajada : pick(s, 'Bajada', 'bajada')) || 0;
     var tipo   = tipoOf(s);
-    var estado = (pick(s, 'Estado', 'estado') || 'no-data').toLowerCase();
-    var spm    = pick(s, 'Spm', 'spm');
-    var obj    = pick(s, 'Objetivo', 'objetivo');
+    var estado = ((s.estado != null ? s.estado : pick(s, 'Estado', 'estado')) || 'no-data').toLowerCase();
+    var spm    = s.spm != null ? s.spm : pick(s, 'Spm', 'spm');
+    var obj    = s.objetivo != null ? s.objetivo : pick(s, 'Objetivo', 'objetivo');
     var pct    = (spm != null && obj != null && obj > 0) ? Math.round((spm / obj) * 100) : null;
-    var muted  = pick(s, 'Muted', 'muted');
-    var secOff = pick(s, 'SeccionCortada', 'seccionCortada');
-    var tren   = pick(s, 'Tren', 'tren');
+    var muted  = s.muted != null ? s.muted : pick(s, 'Muted', 'muted');
+    var secOff = s.seccion_cortada != null ? s.seccion_cortada : pick(s, 'SeccionCortada', 'seccionCortada');
+    var tren   = s.tren != null ? s.tren : pick(s, 'Tren', 'tren');
 
     ttl.textContent = 'Surco ' + bajada + (tipo ? ' · ' + tipo : '');
 
@@ -165,12 +165,12 @@
   function render(live) {
     if (!live) return;
     state.lastLive = live;
-    var trenes   = pick(live, 'Trenes', 'trenes') || [];
-    var spm      = pick(live, 'SpmPromedio', 'spmPromedio');
-    var fallas   = pick(live, 'FallasActivas', 'fallasActivas') || 0;
-    var vel      = pick(live, 'Velocidad', 'velocidad');
-    var hasAlarm = pick(live, 'HasAlarm', 'hasAlarm');
-    var monAct   = pick(live, 'MonitoreoActivo', 'monitoreoActivo');
+    var trenes   = live.trenes != null ? live.trenes : (pick(live, 'Trenes', 'trenes') || []);
+    var spm      = live.spm_promedio != null ? live.spm_promedio : pick(live, 'SpmPromedio', 'spmPromedio');
+    var fallas   = (live.fallas_activas != null ? live.fallas_activas : pick(live, 'FallasActivas', 'fallasActivas')) || 0;
+    var vel      = live.velocidad != null ? live.velocidad : pick(live, 'Velocidad', 'velocidad');
+    var hasAlarm = live.has_alarm != null ? live.has_alarm : pick(live, 'HasAlarm', 'hasAlarm');
+    var monAct   = live.monitoreo_activo != null ? live.monitoreo_activo : pick(live, 'MonitoreoActivo', 'monitoreoActivo');
 
     $('vxSpm').textContent    = (spm == null) ? '—' : fmt(spm, 0);
     $('vxFallas').textContent = fallas;
@@ -185,7 +185,7 @@
     else { txt.textContent = 'ok'; }
 
     // Tooltip nativo con el diagnóstico — siempre disponible al pasar el mouse.
-    var motivo = pick(live, 'MotivoDetenido', 'motivoDetenido') || '';
+    var motivo = (live.motivo_detenido != null ? live.motivo_detenido : pick(live, 'MotivoDetenido', 'motivoDetenido')) || '';
     pill.title = motivo || (monAct ? 'Monitoreando' : '');
 
     var fbox = $('vxFallasBox');
@@ -251,7 +251,7 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var cfg = await r.json();
       state.lastCfg = cfg;
-      var cur = pick(cfg, 'MetodoInicio', 'metodoInicio') || 'sensores';
+      var cur = (cfg.metodo_inicio != null ? cfg.metodo_inicio : pick(cfg, 'MetodoInicio', 'metodoInicio')) || 'sensores';
       paintCfgRadio(cur);
       msg.textContent = '';
     } catch (e) {
@@ -277,9 +277,8 @@
     var nuevo = currentCfgRadio();
     if (!state.lastCfg) { msg.textContent = 'Sin config base'; return; }
     var dto = Object.assign({}, state.lastCfg);
-    // Setear ambas grafías por las dudas del binder server-side.
-    dto.MetodoInicio = nuevo;
-    dto.metodoInicio = nuevo;
+    // snake_case — el binder server-side usa PropertyNameCaseInsensitive=true.
+    dto.metodo_inicio = nuevo;
     msg.textContent = 'Guardando…';
     try {
       var r = await fetch('/api/vistax/config', {
@@ -306,14 +305,14 @@
     var live = state.lastLive || {};
     var body = $('vxDiagBody');
     if (!body) return;
-    var monAct  = pick(live, 'MonitoreoActivo', 'monitoreoActivo');
-    var metodo  = pick(live, 'MetodoInicio', 'metodoInicio') || '—';
-    var motivo  = pick(live, 'MotivoDetenido', 'motivoDetenido') || '';
-    var vel     = pick(live, 'Velocidad', 'velocidad');
-    var velMin  = pick(live, 'VelMinima', 'velMinima');
-    var secPint = pick(live, 'SeccionesPintando', 'seccionesPintando');
-    var sensArr = pick(live, 'SensoresArriba', 'sensoresArriba');
-    var umbral  = pick(live, 'UmbralSensores', 'umbralSensores');
+    var monAct  = live.monitoreo_activo != null ? live.monitoreo_activo : pick(live, 'MonitoreoActivo', 'monitoreoActivo');
+    var metodo  = (live.metodo_inicio != null ? live.metodo_inicio : pick(live, 'MetodoInicio', 'metodoInicio')) || '—';
+    var motivo  = (live.motivo_detenido != null ? live.motivo_detenido : pick(live, 'MotivoDetenido', 'motivoDetenido')) || '';
+    var vel     = live.velocidad != null ? live.velocidad : pick(live, 'Velocidad', 'velocidad');
+    var velMin  = live.vel_minima != null ? live.vel_minima : pick(live, 'VelMinima', 'velMinima');
+    var secPint = live.secciones_pintando != null ? live.secciones_pintando : pick(live, 'SeccionesPintando', 'seccionesPintando');
+    var sensArr = live.sensores_arriba != null ? live.sensores_arriba : pick(live, 'SensoresArriba', 'sensoresArriba');
+    var umbral  = live.umbral_sensores != null ? live.umbral_sensores : pick(live, 'UmbralSensores', 'umbralSensores');
 
     var html = '';
     html += '<div class="row"><span class="lbl">Estado</span><span>' +

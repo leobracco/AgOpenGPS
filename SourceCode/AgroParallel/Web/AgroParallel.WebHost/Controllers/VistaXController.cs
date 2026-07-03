@@ -19,101 +19,18 @@
 // ============================================================================
 
 using System;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
 using EmbedIO.WebApi;
-using SysJson = System.Text.Json.JsonSerializer;
 
 namespace AgroParallel.WebHost.Controllers
 {
-    public sealed class VistaXController : WebApiController
+    public sealed class VistaXController : AgpControllerBase
     {
-        // System.Text.Json para respetar los [JsonPropertyName] snake_case de los
-        // DTOs. Swan.Json los ignora y devuelve un objeto vacío — mismo bug que
-        // afectó a QuantiX/VehicleTool en su momento.
-        private static readonly JsonSerializerOptions JsonOpts = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-
-        // Outbound: serializamos con [JsonPropertyName] (que en VistaX devuelve
-        // PascalCase del C# o snake_case según el atributo). Después
-        // post-procesamos renombrando TODAS las claves a camelCase para que la
-        // UI HTML (vistax.js, vistax-live.js) reciba siempre `trenes`, `uid`,
-        // `surcos`, etc. El default de Swan.Lite emite PascalCase y rompía la
-        // UI: el JS leía `j.trenes` y obtenía undefined → "sin sensores".
-        private static readonly JsonSerializerOptions WriteOptsRaw = new JsonSerializerOptions();
-
-        private Task WriteJson(object payload)
-        {
-            string raw = SysJson.Serialize(payload, WriteOptsRaw);
-            string camel = RewriteKeysCamelCase(raw);
-            return HttpContext.SendStringAsync(camel, "application/json", Encoding.UTF8);
-        }
-
-        private static string RewriteKeysCamelCase(string json)
-        {
-            using (var doc = JsonDocument.Parse(json))
-            using (var ms = new MemoryStream())
-            {
-                using (var w = new Utf8JsonWriter(ms))
-                    WriteCamel(w, doc.RootElement);
-                return Encoding.UTF8.GetString(ms.ToArray());
-            }
-        }
-
-        private static void WriteCamel(Utf8JsonWriter w, JsonElement el)
-        {
-            switch (el.ValueKind)
-            {
-                case JsonValueKind.Object:
-                    w.WriteStartObject();
-                    foreach (var p in el.EnumerateObject())
-                    {
-                        w.WritePropertyName(ToCamelKey(p.Name));
-                        WriteCamel(w, p.Value);
-                    }
-                    w.WriteEndObject();
-                    break;
-                case JsonValueKind.Array:
-                    w.WriteStartArray();
-                    foreach (var item in el.EnumerateArray())
-                        WriteCamel(w, item);
-                    w.WriteEndArray();
-                    break;
-                default:
-                    el.WriteTo(w);
-                    break;
-            }
-        }
-
-        private static string ToCamelKey(string name)
-        {
-            if (string.IsNullOrEmpty(name)) return name;
-            if (name.IndexOf('_') < 0)
-            {
-                if (char.IsUpper(name[0])) return char.ToLowerInvariant(name[0]) + name.Substring(1);
-                return name;
-            }
-            var parts = name.Split('_');
-            var sb = new StringBuilder();
-            sb.Append(parts[0].ToLowerInvariant());
-            for (int i = 1; i < parts.Length; i++)
-            {
-                if (parts[i].Length == 0) continue;
-                sb.Append(char.ToUpperInvariant(parts[i][0]));
-                if (parts[i].Length > 1) sb.Append(parts[i].Substring(1).ToLowerInvariant());
-            }
-            return sb.ToString();
-        }
-
         private readonly IVistaXConfigService _cfg;
         private readonly IVistaXLiveService _live;
         private readonly IVistaXCalibracionService _calib;
@@ -136,37 +53,34 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Get, "/vistax/config")]
         public Task GetConfig()
         {
-            if (_cfg == null) return WriteJson(Unavailable());
-            return WriteJson(_cfg.GetConfig());
+            if (_cfg == null) return WriteJsonAsync(Unavailable());
+            return WriteJsonAsync(_cfg.GetConfig());
         }
 
         [Route(HttpVerbs.Put, "/vistax/config")]
-        public async System.Threading.Tasks.Task<object> PutConfig()
+        public async Task PutConfig()
         {
-            if (_cfg == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_cfg == null) { await WriteJsonAsync(Unavailable()); return; }
             VistaXConfigDto dto;
-            try { dto = SysJson.Deserialize<VistaXConfigDto>(body, JsonOpts); }
-            catch (Exception ex) { return new { ok = false, error = "invalid-json: " + ex.Message }; }
-            if (dto == null) return new { ok = false, error = "empty-body" };
+            try { dto = await ReadJsonBodyAsync<VistaXConfigDto>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "invalid-json: " + ex.Message }); return; }
+            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
             _cfg.SaveConfig(dto);
             _live?.Reload();
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Get, "/vistax/implemento")]
         public Task GetImplemento()
         {
-            if (_cfg == null) return WriteJson(Unavailable());
+            if (_cfg == null) return WriteJsonAsync(Unavailable());
             var imp = _cfg.GetImplemento() ?? new VistaXImplementoDto();
             // La geometría física (ancho/surcos/distancia/torres/trenes) YA NO vive
             // en el archivo VistaX: se deriva del implemento central para que la UI
             // muestre siempre lo mismo que QuantiX/SectionX/guiado nativo. VistaX
             // solo es dueña de mapeo_sensores + límites/densidad (Setup.*).
             MergeCentralGeometry(imp);
-            return WriteJson(new
+            return WriteJsonAsync(new
             {
                 path = _cfg.GetImplementoPath(),
                 implemento = imp
@@ -211,16 +125,13 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Put, "/vistax/implemento")]
-        public async System.Threading.Tasks.Task<object> PutImplemento()
+        public async Task PutImplemento()
         {
-            if (_cfg == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_cfg == null) { await WriteJsonAsync(Unavailable()); return; }
             VistaXImplementoDto dto;
-            try { dto = SysJson.Deserialize<VistaXImplementoDto>(body, JsonOpts); }
-            catch (Exception ex) { return new { ok = false, error = "invalid-json: " + ex.Message }; }
-            if (dto == null) return new { ok = false, error = "empty-body" };
+            try { dto = await ReadJsonBodyAsync<VistaXImplementoDto>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "invalid-json: " + ex.Message }); return; }
+            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
 
             // VistaX ya NO edita geometría física: se ignora lo que venga en el body
             // para ancho/surcos/distancia/torres/trenes y se re-deriva del central.
@@ -249,43 +160,46 @@ namespace AgroParallel.WebHost.Controllers
 
             _cfg.SaveImplemento(actual);
             _live?.Reload();
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         [Route(HttpVerbs.Get, "/vistax/live")]
         public Task GetLive()
         {
-            if (_live == null) return WriteJson(Unavailable());
-            return WriteJson(_live.GetSnapshot());
+            if (_live == null) return WriteJsonAsync(Unavailable());
+            return WriteJsonAsync(_live.GetSnapshot());
         }
 
         [Route(HttpVerbs.Post, "/vistax/reload")]
-        public object Reload()
+        public Task Reload()
         {
             _cfg?.GetConfig(); // ensure file touched
             _live?.Reload();
-            return new { ok = true };
+            return WriteJsonAsync(new { ok = true });
         }
 
         // Toggle de silenciado por sensor (uid + cable). Persiste en implemento.json
         // poniendo Muted en la entrada correspondiente de mapeo_sensores. La UI
         // usa esto desde el monitor o desde el widget del piloto.
         [Route(HttpVerbs.Post, "/vistax/sensor/mute")]
-        public async System.Threading.Tasks.Task<object> MuteSensor()
+        public async Task MuteSensor()
         {
-            if (_cfg == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_cfg == null) { await WriteJsonAsync(Unavailable()); return; }
             MuteRequest req;
-            try { req = SysJson.Deserialize<MuteRequest>(body, JsonOpts); }
-            catch (Exception ex) { return new { ok = false, error = "invalid-json: " + ex.Message }; }
+            try { req = await ReadJsonBodyAsync<MuteRequest>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "invalid-json: " + ex.Message }); return; }
             if (req == null || string.IsNullOrEmpty(req.uid))
-                return new { ok = false, error = "uid-required" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "uid-required" });
+                return;
+            }
 
             var imp = _cfg.GetImplemento() ?? new VistaXImplementoDto();
             if (imp.MapeoSensores == null)
-                return new { ok = false, error = "no-mapeo" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "no-mapeo" });
+                return;
+            }
             int hits = 0;
             foreach (var s in imp.MapeoSensores)
             {
@@ -296,10 +210,10 @@ namespace AgroParallel.WebHost.Controllers
                     hits++;
                 }
             }
-            if (hits == 0) return new { ok = false, error = "sensor-not-found" };
+            if (hits == 0) { await WriteJsonAsync(new { ok = false, error = "sensor-not-found" }); return; }
             _cfg.SaveImplemento(imp);
             _live?.Reload();
-            return new { ok = true, hits };
+            await WriteJsonAsync(new { ok = true, hits });
         }
 
         private sealed class MuteRequest
@@ -315,17 +229,17 @@ namespace AgroParallel.WebHost.Controllers
         // la UI guarde fila a fila sin tener que repostear todo el implemento.
         // ----------------------------------------------------------------
         [Route(HttpVerbs.Post, "/vistax/sensor/config")]
-        public async System.Threading.Tasks.Task<object> SetSensorConfig()
+        public async Task SetSensorConfig()
         {
-            if (_cfg == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_cfg == null) { await WriteJsonAsync(Unavailable()); return; }
             VistaXSensorConfigDto req;
-            try { req = SysJson.Deserialize<VistaXSensorConfigDto>(body, JsonOpts); }
-            catch (Exception ex) { return new { ok = false, error = "invalid-json: " + ex.Message }; }
+            try { req = await ReadJsonBodyAsync<VistaXSensorConfigDto>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "invalid-json: " + ex.Message }); return; }
             if (req == null || string.IsNullOrEmpty(req.Uid))
-                return new { ok = false, error = "uid-required" };
+            {
+                await WriteJsonAsync(new { ok = false, error = "uid-required" });
+                return;
+            }
 
             // Normalizar tipo contra el catálogo.
             if (!VistaXSensorTypes.All.Contains(req.Tipo))
@@ -360,7 +274,7 @@ namespace AgroParallel.WebHost.Controllers
 
             _cfg.SaveImplemento(imp);
             _live?.Reload();
-            return new { ok = true };
+            await WriteJsonAsync(new { ok = true });
         }
 
         // ----------------------------------------------------------------
@@ -371,7 +285,7 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Get, "/vistax/sensor/tipos")]
         public Task GetSensorTipos()
         {
-            return WriteJson(VistaXSensorTypes.All.Select(t => new
+            return WriteJsonAsync(VistaXSensorTypes.All.Select(t => new
             {
                 id = t,
                 modo = VistaXSensorTypes.ModoFirmware(t),
@@ -400,46 +314,40 @@ namespace AgroParallel.WebHost.Controllers
         // Calibración "Detectar densidad N segundos".
         // ----------------------------------------------------------------
         [Route(HttpVerbs.Post, "/vistax/calibrar/start")]
-        public async System.Threading.Tasks.Task<object> CalibrarStart()
+        public async Task CalibrarStart()
         {
-            if (_calib == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_calib == null) { await WriteJsonAsync(Unavailable()); return; }
             VistaXCalibracionStartDto req;
-            try { req = SysJson.Deserialize<VistaXCalibracionStartDto>(body, JsonOpts); }
-            catch (Exception ex) { return new { ok = false, error = "invalid-json: " + ex.Message }; }
+            try { req = await ReadJsonBodyAsync<VistaXCalibracionStartDto>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "invalid-json: " + ex.Message }); return; }
             bool ok = _calib.Start(req ?? new VistaXCalibracionStartDto());
-            if (!ok) return new { ok = false, error = "no-insumo-activo" };
-            return new { ok = true, state = _calib.GetState() };
+            if (!ok) { await WriteJsonAsync(new { ok = false, error = "no-insumo-activo" }); return; }
+            await WriteJsonAsync(new { ok = true, state = _calib.GetState() });
         }
 
         [Route(HttpVerbs.Get, "/vistax/calibrar/state")]
         public Task CalibrarState()
         {
-            if (_calib == null) return WriteJson(Unavailable());
-            return WriteJson(_calib.GetState());
+            if (_calib == null) return WriteJsonAsync(Unavailable());
+            return WriteJsonAsync(_calib.GetState());
         }
 
         [Route(HttpVerbs.Post, "/vistax/calibrar/apply")]
-        public async System.Threading.Tasks.Task<object> CalibrarApply()
+        public async Task CalibrarApply()
         {
-            if (_calib == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_calib == null) { await WriteJsonAsync(Unavailable()); return; }
             VistaXCalibracionApplyDto req;
-            try { req = SysJson.Deserialize<VistaXCalibracionApplyDto>(body, JsonOpts); }
-            catch (Exception ex) { return new { ok = false, error = "invalid-json: " + ex.Message }; }
+            try { req = await ReadJsonBodyAsync<VistaXCalibracionApplyDto>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "invalid-json: " + ex.Message }); return; }
             bool ok = _calib.Apply(req ?? new VistaXCalibracionApplyDto());
-            return new { ok };
+            await WriteJsonAsync(new { ok });
         }
 
         [Route(HttpVerbs.Post, "/vistax/calibrar/cancel")]
-        public object CalibrarCancel()
+        public Task CalibrarCancel()
         {
             _calib?.Cancel();
-            return new { ok = true };
+            return WriteJsonAsync(new { ok = true });
         }
 
         // ----------------------------------------------------------------
@@ -450,24 +358,21 @@ namespace AgroParallel.WebHost.Controllers
         // remoto desde una página HTML (ej. botón en piloto.html).
         // ----------------------------------------------------------------
         [Route(HttpVerbs.Get, "/vistax/overlay")]
-        public object GetOverlay()
+        public Task GetOverlay()
         {
-            if (_cfg == null) return Unavailable();
+            if (_cfg == null) return WriteJsonAsync(Unavailable());
             var cfg = _cfg.GetConfig();
-            return new { activo = cfg != null && cfg.Enabled };
+            return WriteJsonAsync(new { activo = cfg != null && cfg.Enabled });
         }
 
         [Route(HttpVerbs.Post, "/vistax/overlay")]
-        public async System.Threading.Tasks.Task<object> SetOverlay()
+        public async Task SetOverlay()
         {
-            if (_cfg == null) return Unavailable();
-            string body;
-            using (var sr = new StreamReader(HttpContext.Request.InputStream))
-                body = await sr.ReadToEndAsync();
+            if (_cfg == null) { await WriteJsonAsync(Unavailable()); return; }
             OverlayRequest req;
-            try { req = SysJson.Deserialize<OverlayRequest>(body, JsonOpts); }
-            catch (Exception ex) { return new { ok = false, error = "invalid-json: " + ex.Message }; }
-            if (req == null) return new { ok = false, error = "invalid-body" };
+            try { req = await ReadJsonBodyAsync<OverlayRequest>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "invalid-json: " + ex.Message }); return; }
+            if (req == null) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
 
             // Persistir en vistaX.json (fuente de verdad para el panel nativo
             // que crea FormGPS.InitVistaX). El cambio se ve la próxima vez que
@@ -475,7 +380,7 @@ namespace AgroParallel.WebHost.Controllers
             var cfg = _cfg.GetConfig() ?? new VistaXConfigDto();
             cfg.Enabled = req.activo;
             _cfg.SaveConfig(cfg);
-            return new { ok = true, activo = cfg.Enabled };
+            await WriteJsonAsync(new { ok = true, activo = cfg.Enabled });
         }
 
         private sealed class OverlayRequest { public bool activo { get; set; } }

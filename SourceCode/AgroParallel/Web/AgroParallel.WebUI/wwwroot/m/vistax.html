@@ -54,20 +54,30 @@
     async function loadLive() {
       try {
         var j = await APF.getJSON('/api/vistax/live', 2500);
-        var sensores = (j && (j.sensores || j.Sensores)) || [];
+        // El snapshot live tiene trenes[].surcos[] — aplanamos todos los surcos.
+        var trenes = (j && (j.trenes != null ? j.trenes : (j.Trenes || []))) || [];
+        var sensores = [];
+        trenes.forEach(function(t) {
+          var surcos = t.surcos != null ? t.surcos : (t.Surcos || []);
+          surcos.forEach(function(s) { sensores.push(s); });
+        });
         var box = document.getElementById('sensores');
         if (sensores.length === 0) { box.innerHTML = '<div class="empty">Sin sensores activos.</div>'; return; }
         var html = '';
         sensores.forEach(function (s) {
-          var spm = s.spm != null ? s.spm : (s.Spm || 0);
-          var nombre = s.nombre || s.Nombre || ('S' + (s.surco || s.Surco || '?'));
-          var falla = s.falla || s.Falla;
-          var muted = s.muted || s.Muted;
-          html += '<div class="sens" data-uid="' + (s.uid || s.Uid || '') + '" data-cable="' + (s.cable || s.Cable || 0) + '">' +
+          var spm = s.spm != null ? s.spm : 0;
+          var bajada = s.bajada != null ? s.bajada : 0;
+          var nombre = s.nombre || ('B' + bajada);
+          var estado = (s.estado || 'no-data').toLowerCase();
+          var falla = estado === 'tapado' || estado === 'bajo';
+          var muted = !!s.muted;
+          var uid = s.uid || '';
+          var cable = s.cable || 0;
+          html += '<div class="sens" data-uid="' + uid + '" data-cable="' + cable + '">' +
                     '<div class="l">' +
                       '<b>' + spm.toFixed(0) + ' SPM</b>' +
                       ' <span class="pill ' + (falla?'bad':(muted?'warn':'ok')) + '">' + (falla?'falla':(muted?'mute':'ok')) + '</span>' +
-                      '<div class="s">' + nombre + ' · cable ' + (s.cable || s.Cable || 0) + '</div>' +
+                      '<div class="s">' + nombre + ' · cable ' + cable + '</div>' +
                     '</div>' +
                     '<div class="actions">' +
                       '<button class="btn" data-act="mute">' + (muted?'Activar':'Silenciar') + '</button>' +
@@ -85,12 +95,13 @@
         var st = await APF.getJSON('/api/vistax/calibrar/state', 2500);
         lastCalState = st;
         var box = document.getElementById('calBox');
-        if (!st || !st.activa) { box.innerHTML = ''; return; }
+        // VistaXCalibracionStateDto: running, segundos_restantes, muestras, listo_para_aplicar
+        if (!st || !st.running) { box.innerHTML = ''; return; }
         var html = '<div class="calbar">' +
                      '<h2>Calibracion activa</h2>' +
-                     '<div class="row"><span>Tiempo restante</span><strong>' + (st.segundosRestantes || st.SegundosRestantes || 0).toFixed(1) + ' s</strong></div>' +
-                     '<div class="row"><span>Pulsos acumulados</span><strong>' + (st.pulsos || st.Pulsos || 0) + '</strong></div>';
-        if (st.terminada || st.Terminada) {
+                     '<div class="row"><span>Tiempo restante</span><strong>' + (st.segundos_restantes || 0).toFixed(1) + ' s</strong></div>' +
+                     '<div class="row"><span>Muestras acumuladas</span><strong>' + (st.muestras || 0) + '</strong></div>';
+        if (st.listo_para_aplicar) {
           html += '<div class="btn-row" style="margin-top:10px;">' +
                     '<button class="btn primary" data-cal="objetivo">Es objetivo</button>' +
                     '<button class="btn"         data-cal="saturado">Es saturado</button>' +
@@ -127,10 +138,10 @@
       }
       var calBtn = e.target.closest('[data-cal]');
       if (calBtn) {
-        var modo = calBtn.dataset.cal;
         try {
-          await APF.postJSON('/api/vistax/calibrar/apply', { tipo: modo }, 3000);
-          APF.toast('Aplicado como ' + modo, 'ok');
+          // VistaXCalibracionApplyDto: aceptar=true, valor_override=0 (usa promedio capturado)
+          await APF.postJSON('/api/vistax/calibrar/apply', { aceptar: true, valor_override: 0 }, 3000);
+          APF.toast('Calibración aplicada', 'ok');
         } catch (err) { APF.toast('Error: ' + err.message, 'bad'); }
       }
     });
