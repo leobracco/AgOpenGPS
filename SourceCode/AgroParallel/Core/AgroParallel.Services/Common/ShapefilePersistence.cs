@@ -33,17 +33,15 @@ namespace AgroParallel.Common
             if (string.IsNullOrWhiteSpace(fieldDirectoryFullPath)) return null;
 
             string path = Path.Combine(fieldDirectoryFullPath, FileName);
-            if (!File.Exists(path)) return null;
 
             try
             {
-                string json = File.ReadAllText(path);
                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                return JsonSerializer.Deserialize<ShapefileFieldConfig>(json, opts);
+                return AtomicJson.Read<ShapefileFieldConfig>(path, opts);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[Shapefile] Error leyendo " + path
+                System.Diagnostics.Trace.WriteLine("[Shapefile] Error leyendo " + path
                     + ": " + ex.Message);
                 return null;
             }
@@ -59,11 +57,11 @@ namespace AgroParallel.Common
             try
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(path, JsonSerializer.Serialize(cfg, opts));
+                AtomicJson.Write(path, JsonSerializer.Serialize(cfg, opts));
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[Shapefile] Error guardando " + path
+                System.Diagnostics.Trace.WriteLine("[Shapefile] Error guardando " + path
                     + ": " + ex.Message);
             }
         }
@@ -72,10 +70,11 @@ namespace AgroParallel.Common
         {
             if (string.IsNullOrWhiteSpace(fieldDirectoryFullPath)) return;
             string path = Path.Combine(fieldDirectoryFullPath, FileName);
-            try { if (File.Exists(path)) File.Delete(path); }
+            try { if (File.Exists(path)) File.Delete(path); } catch { }
+            try { if (File.Exists(path + AtomicJson.BakSuffix)) File.Delete(path + AtomicJson.BakSuffix); }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[Shapefile] Error borrando " + path
+                System.Diagnostics.Trace.WriteLine("[Shapefile] Error borrando " + path
                     + ": " + ex.Message);
             }
         }

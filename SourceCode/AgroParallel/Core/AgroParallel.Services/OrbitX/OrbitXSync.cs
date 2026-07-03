@@ -185,7 +185,7 @@ namespace AgroParallel.OrbitX
         private static void Trace(string msg)
         {
             string line = "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] " + msg;
-            try { System.Diagnostics.Debug.WriteLine("[OrbitX] " + line); } catch { } // silencioso a propósito: fallback del propio logger
+            try { System.Diagnostics.Trace.WriteLine("[OrbitX] " + line); } catch { } // silencioso a propósito: fallback del propio logger
             try
             {
                 lock (_logLock)

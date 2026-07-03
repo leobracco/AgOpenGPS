@@ -71,7 +71,7 @@ namespace AgroParallel.Services
             _nodos.MessageReceived += OnMqttMessage;
             _ = _nodos.SubscribeAsync("agp/storm/+/status_live");
             IsRunning = true;
-            System.Diagnostics.Debug.WriteLine("[stormx] live service started");
+            System.Diagnostics.Trace.WriteLine("[stormx] live service started");
         }
 
         public void Stop()
@@ -80,7 +80,7 @@ namespace AgroParallel.Services
             try { _nodos.MessageReceived -= OnMqttMessage; } catch { }
             IsRunning = false;
             lock (_lock) _readings.Clear();
-            System.Diagnostics.Debug.WriteLine("[stormx] live service stopped");
+            System.Diagnostics.Trace.WriteLine("[stormx] live service stopped");
         }
 
         public void Dispose() => Stop();

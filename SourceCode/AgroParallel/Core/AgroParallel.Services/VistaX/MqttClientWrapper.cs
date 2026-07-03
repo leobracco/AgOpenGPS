@@ -97,7 +97,7 @@ namespace AgroParallel.VistaX
 
         private async Task OnConnectedAsync(MqttClientConnectedEventArgs args)
         {
-            System.Diagnostics.Debug.WriteLine("[VistaX] MQTT conectado");
+            System.Diagnostics.Trace.WriteLine("[VistaX] MQTT conectado");
             var handler = ConnectionStateChanged;
             if (handler != null) handler(true);
 
@@ -110,7 +110,7 @@ namespace AgroParallel.VistaX
                             .WithTopic(topic)
                             .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
                             .Build());
-                    System.Diagnostics.Debug.WriteLine("[VistaX] Suscrito: " + topic);
+                    System.Diagnostics.Trace.WriteLine("[VistaX] Suscrito: " + topic);
                 }
                 catch (Exception ex)
                 {
@@ -122,7 +122,7 @@ namespace AgroParallel.VistaX
 
         private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs args)
         {
-            System.Diagnostics.Debug.WriteLine("[VistaX] MQTT desconectado");
+            System.Diagnostics.Trace.WriteLine("[VistaX] MQTT desconectado");
             var handler = ConnectionStateChanged;
             if (handler != null) handler(false);
 
@@ -137,7 +137,7 @@ namespace AgroParallel.VistaX
                 {
                     await Task.Delay(delay, _cts.Token);
                     await _client.ConnectAsync(_options, _cts.Token);
-                    System.Diagnostics.Debug.WriteLine("[VistaX] Reconectado");
+                    System.Diagnostics.Trace.WriteLine("[VistaX] Reconectado");
                     return;
                 }
                 catch (OperationCanceledException)
@@ -146,7 +146,7 @@ namespace AgroParallel.VistaX
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("[VistaX] Reintento fallido: " + ex.Message);
+                    System.Diagnostics.Trace.WriteLine("[VistaX] Reintento fallido: " + ex.Message);
                     delay = Math.Min(delay * 2, maxDelay);
                 }
             }

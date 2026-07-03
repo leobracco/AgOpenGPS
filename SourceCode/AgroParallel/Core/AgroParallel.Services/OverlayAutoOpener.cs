@@ -80,7 +80,7 @@ namespace AgroParallel.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[OverlayAutoOpener] " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[OverlayAutoOpener] " + ex.Message);
             }
         }
     }

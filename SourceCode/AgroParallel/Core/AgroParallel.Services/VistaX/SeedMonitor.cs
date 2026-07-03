@@ -74,13 +74,13 @@ namespace AgroParallel.VistaX
         {
             if (!_config.Enabled)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] Deshabilitado");
+                System.Diagnostics.Trace.WriteLine("[VistaX] Deshabilitado");
                 return;
             }
             if (IsRunning) return;
 
             _implemento = _config.LoadImplemento();
-            System.Diagnostics.Debug.WriteLine("[VistaX] Implemento: " + (_implemento.Nombre ?? "?")
+            System.Diagnostics.Trace.WriteLine("[VistaX] Implemento: " + (_implemento.Nombre ?? "?")
                 + " | Sensores: " + _implemento.MapeoSensores.Count);
 
             // Parsear método de inicio
@@ -92,7 +92,7 @@ namespace AgroParallel.VistaX
                 case "manual": _metodoInicio = MetodoInicioMonitoreo.Manual; break;
                 default: _metodoInicio = MetodoInicioMonitoreo.Sensores; break;
             }
-            System.Diagnostics.Debug.WriteLine("[VistaX] Método inicio: " + _metodoInicio);
+            System.Diagnostics.Trace.WriteLine("[VistaX] Método inicio: " + _metodoInicio);
 
             // Inicializar surcos — KEY INCLUYE TREN.
             // Soporta 1:1 (43 sensores / 43 surcos) y 1:N (8 sensores / 96 surcos).
@@ -169,14 +169,14 @@ namespace AgroParallel.VistaX
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine("[VistaX] Surcos inicializados: " + _surcos.Count);
+            System.Diagnostics.Trace.WriteLine("[VistaX] Surcos inicializados: " + _surcos.Count);
 
             _mqtt = new MqttClientWrapper(_config);
             _mqtt.MessageReceived += OnMqttMessage;
             _mqtt.ConnectionStateChanged += delegate (bool c) { _isConnected = c; };
             _mqtt.ErrorOccurred += delegate (string err)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] " + err);
+                System.Diagnostics.Trace.WriteLine("[VistaX] " + err);
             };
 
             await _mqtt.ConnectAsync();
@@ -194,7 +194,7 @@ namespace AgroParallel.VistaX
                 intervalMs);
 
             IsRunning = true;
-            System.Diagnostics.Debug.WriteLine("[VistaX] Monitor iniciado — "
+            System.Diagnostics.Trace.WriteLine("[VistaX] Monitor iniciado — "
                 + _surcos.Count + " surcos mapeados");
         }
 
@@ -286,7 +286,7 @@ namespace AgroParallel.VistaX
                     }
                 }
 
-                System.Diagnostics.Debug.WriteLine("[VistaX] Implemento recargado. Sensores activos: "
+                System.Diagnostics.Trace.WriteLine("[VistaX] Implemento recargado. Sensores activos: "
                     + _implemento.MapeoSensores.Count + " | Surcos en mapa: " + _surcos.Count);
 
                 // Re-publicar configs de sensores especiales (tolva, bajada, etc.)
@@ -295,7 +295,7 @@ namespace AgroParallel.VistaX
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] ReloadImplemento error: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[VistaX] ReloadImplemento error: " + ex.Message);
             }
         }
 
@@ -352,7 +352,7 @@ namespace AgroParallel.VistaX
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] Error: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[VistaX] Error: " + ex.Message);
             }
         }
 
@@ -620,7 +620,7 @@ namespace AgroParallel.VistaX
         {
             _monitoreoActivo = true;
             _confirmacionInicio = DateTime.MinValue;
-            System.Diagnostics.Debug.WriteLine("[VistaX] MONITOREO INICIADO — " + motivo);
+            System.Diagnostics.Trace.WriteLine("[VistaX] MONITOREO INICIADO — " + motivo);
         }
 
         // Mapea el tipo lógico de sensor (catálogo VistaX) al modo eléctrico
@@ -665,12 +665,12 @@ namespace AgroParallel.VistaX
                     .Build();
 
                 _ = _mqtt.PublishAsync(msg);
-                System.Diagnostics.Debug.WriteLine("[VistaX] cables/config enviado a " + uid
+                System.Diagnostics.Trace.WriteLine("[VistaX] cables/config enviado a " + uid
                     + " cable=" + cable + " tipo=" + tipo + " modo=" + modo);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] Error enviando cables/config: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[VistaX] Error enviando cables/config: " + ex.Message);
             }
         }
 
@@ -732,12 +732,12 @@ namespace AgroParallel.VistaX
                         .Build();
 
                     _ = _mqtt.PublishAsync(msg);
-                    System.Diagnostics.Debug.WriteLine("[VistaX] cables/config (batch) enviado a "
+                    System.Diagnostics.Trace.WriteLine("[VistaX] cables/config (batch) enviado a "
                         + uid + " — " + kv.Value.Count + " cable(s)");
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("[VistaX] Error enviando batch a " + uid
+                    System.Diagnostics.Trace.WriteLine("[VistaX] Error enviando batch a " + uid
                         + ": " + ex.Message);
                 }
             }
@@ -748,7 +748,7 @@ namespace AgroParallel.VistaX
             _monitoreoActivo = false;
             _confirmacionInicio = DateTime.MinValue;
             _paradaDesde = DateTime.MinValue;
-            System.Diagnostics.Debug.WriteLine("[VistaX] MONITOREO DETENIDO");
+            System.Diagnostics.Trace.WriteLine("[VistaX] MONITOREO DETENIDO");
         }
 
         public void IniciarMonitoreoManual()
@@ -779,7 +779,7 @@ namespace AgroParallel.VistaX
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine("[VistaX] Objetivo actualizado: tren="
+            System.Diagnostics.Trace.WriteLine("[VistaX] Objetivo actualizado: tren="
                 + tren + " valor=" + value);
         }
 
@@ -814,7 +814,7 @@ namespace AgroParallel.VistaX
                     }
                 }
             }
-            System.Diagnostics.Debug.WriteLine("[VistaX] Mute uid=" + uid
+            System.Diagnostics.Trace.WriteLine("[VistaX] Mute uid=" + uid
                 + " cable=" + cable + " muted=" + muted + " hits=" + hits);
             return hits;
         }

@@ -352,7 +352,7 @@ namespace AgroParallel.Shell
                     }
                     catch (Exception bex)
                     {
-                        System.Diagnostics.Debug.WriteLine("[HubWV2] FlowXBridge start: " + bex.Message);
+                        System.Diagnostics.Trace.WriteLine("[HubWV2] FlowXBridge start: " + bex.Message);
                     }
                 }
 

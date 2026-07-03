@@ -36,13 +36,8 @@ namespace AgroParallel.Services
         {
             try
             {
-                string p = ConfigPath();
-                if (File.Exists(p))
-                {
-                    var dto = JsonSerializer.Deserialize<VistaXConfigDto>(
-                        File.ReadAllText(p), ReadOpts);
-                    if (dto != null) return Sanitize(dto);
-                }
+                var dto = AgroParallel.Common.AtomicJson.Read<VistaXConfigDto>(ConfigPath(), ReadOpts);
+                if (dto != null) return Sanitize(dto);
             }
             catch { }
             return new VistaXConfigDto();
@@ -53,11 +48,11 @@ namespace AgroParallel.Services
             if (dto == null) return;
             try
             {
-                File.WriteAllText(ConfigPath(), JsonSerializer.Serialize(Sanitize(dto), WriteOpts));
+                AgroParallel.Common.AtomicJson.Write(ConfigPath(), JsonSerializer.Serialize(Sanitize(dto), WriteOpts));
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[vistax] error guardando config: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[vistax] error guardando config: " + ex.Message);
             }
         }
 
@@ -98,13 +93,12 @@ namespace AgroParallel.Services
             if (p == null || !File.Exists(p)) return new VistaXImplementoDto();
             try
             {
-                var dto = JsonSerializer.Deserialize<VistaXImplementoDto>(
-                    File.ReadAllText(p), ReadOpts);
+                var dto = AgroParallel.Common.AtomicJson.Read<VistaXImplementoDto>(p, ReadOpts);
                 return dto ?? new VistaXImplementoDto();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[vistax] error leyendo implemento: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[vistax] error leyendo implemento: " + ex.Message);
                 return new VistaXImplementoDto();
             }
         }
@@ -127,11 +121,11 @@ namespace AgroParallel.Services
             }
             try
             {
-                File.WriteAllText(p, JsonSerializer.Serialize(dto, WriteOpts));
+                AgroParallel.Common.AtomicJson.Write(p, JsonSerializer.Serialize(dto, WriteOpts));
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[vistax] error guardando implemento: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[vistax] error guardando implemento: " + ex.Message);
             }
         }
     }

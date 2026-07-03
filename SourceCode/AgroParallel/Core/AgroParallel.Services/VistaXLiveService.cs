@@ -32,6 +32,13 @@ namespace AgroParallel.Services
     {
         private readonly INodoRegistryService _nodos;
         private readonly IVistaXConfigService _cfgSvc;
+        // Fuente única de verdad de la geometría física (ancho, distancia entre
+        // surcos, trenes, torres). Si está presente, gana sobre la copia legacy
+        // del vistaX implemento — así el operario edita la geometría en un solo
+        // lugar (herramienta.html) y el overlay VistaX la refleja sin tener que
+        // reguardar la pestaña VistaX. Si es null, se cae al comportamiento
+        // legacy (geometría desde el vistaX implemento).
+        private readonly IImplementoService _impCentral;
         // Opcional: si está presente, se consultan los bounds DropMin/DropMax del
         // insumo activo para definir "bajo"/"exceso" por surco. Si es null o el
         // insumo activo no tiene bounds seteados, se cae al cálculo legacy
@@ -91,13 +98,14 @@ namespace AgroParallel.Services
 
         public VistaXLiveService(INodoRegistryService nodos, IVistaXConfigService cfgSvc,
             IInsumoCatalogService insumos = null, IAogStateProvider state = null,
-            ISectionControlService sections = null)
+            ISectionControlService sections = null, IImplementoService impCentral = null)
         {
             _nodos = nodos;
             _cfgSvc = cfgSvc;
             _insumos = insumos;
             _state = state;
             _sections = sections;
+            _impCentral = impCentral;
             Reload();
         }
 
@@ -120,7 +128,7 @@ namespace AgroParallel.Services
             // Wildcard adicional por compatibilidad con futuros UIDs por-nodo.
             _ = _nodos.SubscribeAsync("vistax/+/telemetria");
             IsRunning = true;
-            System.Diagnostics.Debug.WriteLine("[vistax] live service started");
+            System.Diagnostics.Trace.WriteLine("[vistax] live service started");
         }
 
         public void Stop()
@@ -129,7 +137,7 @@ namespace AgroParallel.Services
             try { _nodos.MessageReceived -= OnMqttMessage; } catch { }
             IsRunning = false;
             lock (_lock) { _readings.Clear(); _nodosVistos.Clear(); }
-            System.Diagnostics.Debug.WriteLine("[vistax] live service stopped");
+            System.Diagnostics.Trace.WriteLine("[vistax] live service stopped");
         }
 
         public void Dispose() => Stop();
@@ -213,6 +221,23 @@ namespace AgroParallel.Services
         {
             lock (_lock)
             {
+                // Geometría desde el implemento CENTRAL (fuente única de verdad).
+                // Se lee fresco cada tick — GetImplemento() devuelve el cache del
+                // servicio, así que es barato y siempre refleja la última edición
+                // hecha en herramienta.html sin depender de un Reload() manual.
+                ImplementoDto central = null;
+                try { central = _impCentral?.GetImplemento(); } catch { /* fallback legacy */ }
+
+                double distCentral = (central != null && central.DistanciaEntreSurcosM > 0)
+                    ? central.DistanciaEntreSurcosM
+                    : (_imp?.Setup?.DistanciaEntreSurcos ?? 0.191);
+                int torresCentral = (central != null && central.NumeroTorres > 0)
+                    ? central.NumeroTorres
+                    : (_imp?.Setup?.Torres ?? 0);
+                string nombreCentral = !string.IsNullOrEmpty(central?.Nombre)
+                    ? central.Nombre
+                    : (_imp?.Nombre ?? "");
+
                 var snap = new VistaXLiveSnapshotDto
                 {
                     // Asignado al final del método con la lógica real (velocidad +
@@ -220,9 +245,10 @@ namespace AgroParallel.Services
                     // solo significaba "estoy suscripto a MQTT", lo que dejaba todo
                     // pintado como "sembrando" aun con tractor quieto en el galpón.
                     MonitoreoActivo = false,
-                    NombreImplemento = _imp?.Nombre ?? "",
+                    NombreImplemento = nombreCentral,
+                    DistanciaEntreSurcos = distCentral,
                     ToleranciaDesvio = _imp?.Setup?.ToleranciaDesvio ?? 0,
-                    Torres = _imp?.Setup?.Torres ?? 0,
+                    Torres = torresCentral,
                     SurcosPorTorre = _imp?.Setup?.SurcosPorTorre ?? 0,
                     VistaModoDefault = _imp?.Setup?.VistaModoDefault ?? "surcos"
                 };
@@ -240,25 +266,37 @@ namespace AgroParallel.Services
                 }
                 catch { /* defensivo: no romper el snapshot por un fallo en sections */ }
 
-                // Trenes: derivar desde Implemento.Trenes o, si no hay, de los sensores.
-                var trenes = new Dictionary<int, VistaXTrenLiveDto>();
-                if (_imp?.Trenes != null && _imp.Trenes.Count > 0)
+                // Trenes: la ESTRUCTURA (id + nombre) sale del implemento central si
+                // está disponible; si no, del vistaX implemento legacy. Los OBJETIVOS
+                // por tren siguen siendo propios de VistaX (_imp.Setup), porque son
+                // densidad de siembra, no geometría.
+                var trenesFuente = new List<Tuple<int, string>>();
+                if (central?.Trenes != null && central.Trenes.Count > 0)
+                {
+                    foreach (var t in central.Trenes)
+                        trenesFuente.Add(Tuple.Create(t.Id, t.Nombre));
+                }
+                else if (_imp?.Trenes != null && _imp.Trenes.Count > 0)
                 {
                     foreach (var t in _imp.Trenes)
+                        trenesFuente.Add(Tuple.Create(t.Id, t.Nombre));
+                }
+
+                var trenes = new Dictionary<int, VistaXTrenLiveDto>();
+                foreach (var t in trenesFuente)
+                {
+                    if (!trenes.ContainsKey(t.Item1))
                     {
-                        if (!trenes.ContainsKey(t.Id))
+                        double obj = _imp?.Setup?.DensidadObjetivo ?? 0;
+                        if (_imp?.Setup?.ObjetivosTren != null &&
+                            _imp.Setup.ObjetivosTren.TryGetValue(t.Item1.ToString(), out var v))
+                            obj = v;
+                        trenes[t.Item1] = new VistaXTrenLiveDto
                         {
-                            double obj = _imp.Setup?.DensidadObjetivo ?? 0;
-                            if (_imp.Setup?.ObjetivosTren != null &&
-                                _imp.Setup.ObjetivosTren.TryGetValue(t.Id.ToString(), out var v))
-                                obj = v;
-                            trenes[t.Id] = new VistaXTrenLiveDto
-                            {
-                                Tren = t.Id,
-                                Nombre = string.IsNullOrEmpty(t.Nombre) ? ("Tren " + t.Id) : t.Nombre,
-                                Objetivo = obj
-                            };
-                        }
+                            Tren = t.Item1,
+                            Nombre = string.IsNullOrEmpty(t.Item2) ? ("Tren " + t.Item1) : t.Item2,
+                            Objetivo = obj
+                        };
                     }
                 }
 

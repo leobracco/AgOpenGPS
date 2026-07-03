@@ -59,19 +59,19 @@ namespace AgroParallel.VistaX
             try
             {
                 _sessionDir = ResolveOutputDir();
-                System.Diagnostics.Debug.WriteLine("[VistaX-Log] ResolveOutputDir => \""
+                System.Diagnostics.Trace.WriteLine("[VistaX-Log] ResolveOutputDir => \""
                     + (_sessionDir ?? "NULL") + "\"");
 
                 if (string.IsNullOrEmpty(_sessionDir))
                 {
-                    System.Diagnostics.Debug.WriteLine("[VistaX-Log] No se pudo resolver directorio de salida");
+                    System.Diagnostics.Trace.WriteLine("[VistaX-Log] No se pudo resolver directorio de salida");
                     return;
                 }
 
                 if (!Directory.Exists(_sessionDir))
                 {
                     Directory.CreateDirectory(_sessionDir);
-                    System.Diagnostics.Debug.WriteLine("[VistaX-Log] Directorio creado: " + _sessionDir);
+                    System.Diagnostics.Trace.WriteLine("[VistaX-Log] Directorio creado: " + _sessionDir);
                 }
 
                 _sessionStart = DateTime.Now;
@@ -82,11 +82,11 @@ namespace AgroParallel.VistaX
                 _writer.AutoFlush = true;
                 _lineCount = 0;
 
-                System.Diagnostics.Debug.WriteLine("[VistaX-Log] INICIADO OK: " + _ndjsonPath);
+                System.Diagnostics.Trace.WriteLine("[VistaX-Log] INICIADO OK: " + _ndjsonPath);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX-Log] ERROR iniciando: " + ex.ToString());
+                System.Diagnostics.Trace.WriteLine("[VistaX-Log] ERROR iniciando: " + ex.ToString());
                 _writer = null;
             }
         }
@@ -104,7 +104,7 @@ namespace AgroParallel.VistaX
             catch { }
             _writer = null;
 
-            System.Diagnostics.Debug.WriteLine("[VistaX-Log] Detenido: " + _lineCount + " registros");
+            System.Diagnostics.Trace.WriteLine("[VistaX-Log] Detenido: " + _lineCount + " registros");
 
             // Exportar shapefiles en background.
             if (_lineCount > 0 && !string.IsNullOrEmpty(_ndjsonPath))
@@ -119,7 +119,7 @@ namespace AgroParallel.VistaX
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine("[VistaX-Log] Error SHP: " + ex.Message);
+                        System.Diagnostics.Trace.WriteLine("[VistaX-Log] Error SHP: " + ex.Message);
                     }
                 });
             }
@@ -197,11 +197,11 @@ namespace AgroParallel.VistaX
                 _lineCount++;
 
                 if (_lineCount <= 3 || _lineCount % 50 == 0)
-                    System.Diagnostics.Debug.WriteLine("[VistaX-Log] Linea " + _lineCount);
+                    System.Diagnostics.Trace.WriteLine("[VistaX-Log] Linea " + _lineCount);
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX-Log] Error escribiendo: " + ex.ToString());
+                System.Diagnostics.Trace.WriteLine("[VistaX-Log] Error escribiendo: " + ex.ToString());
             }
         }
 
@@ -346,7 +346,7 @@ namespace AgroParallel.VistaX
             Shapefile.WriteAllFeatures(features, shpPath);
             WritePrj(Path.ChangeExtension(ndjsonPath, ".prj"));
 
-            System.Diagnostics.Debug.WriteLine("[VistaX-Log] SHP puntos: " + shpPath
+            System.Diagnostics.Trace.WriteLine("[VistaX-Log] SHP puntos: " + shpPath
                 + " (" + features.Count + " puntos)");
         }
 
@@ -405,7 +405,7 @@ namespace AgroParallel.VistaX
             // Limitar tamaño de grilla.
             if (cols > 2000 || rows > 2000 || (long)cols * rows > 500000)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX-Log] Heatmap: grilla demasiado grande ("
+                System.Diagnostics.Trace.WriteLine("[VistaX-Log] Heatmap: grilla demasiado grande ("
                     + cols + "x" + rows + "), saltando");
                 return;
             }
@@ -491,7 +491,7 @@ namespace AgroParallel.VistaX
             Shapefile.WriteAllFeatures(features, heatPath);
             WritePrj(Path.ChangeExtension(heatPath, ".prj"));
 
-            System.Diagnostics.Debug.WriteLine("[VistaX-Log] SHP heatmap: " + heatPath
+            System.Diagnostics.Trace.WriteLine("[VistaX-Log] SHP heatmap: " + heatPath
                 + " (" + features.Count + " celdas, " + cols + "x" + rows + " grilla)");
         }
 

@@ -67,7 +67,7 @@ namespace AgroParallel.QuantiX
             if (IsRunning || !_cfg.Enabled) return;
             _timer.Start();
             IsRunning = true;
-            System.Diagnostics.Debug.WriteLine("[QuantiX] Start → "
+            System.Diagnostics.Trace.WriteLine("[QuantiX] Start → "
                 + _endpoint + " @ " + _timer.Interval + "ms");
         }
 
@@ -76,7 +76,7 @@ namespace AgroParallel.QuantiX
             if (!IsRunning) return;
             _timer.Stop();
             IsRunning = false;
-            System.Diagnostics.Debug.WriteLine("[QuantiX] Stop (" + PacketsSent + " paquetes)");
+            System.Diagnostics.Trace.WriteLine("[QuantiX] Stop (" + PacketsSent + " paquetes)");
         }
 
         private void OnTick(object s, ElapsedEventArgs e)
@@ -110,7 +110,7 @@ namespace AgroParallel.QuantiX
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[QuantiX] OnTick: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[QuantiX] OnTick: " + ex.Message);
             }
         }
 

@@ -58,7 +58,7 @@ namespace AgroParallel.Camaras
         internal static void Log(string msg)
         {
             string line = "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] " + msg;
-            try { System.Diagnostics.Debug.WriteLine("[CamRelay] " + line); } catch { }
+            try { System.Diagnostics.Trace.WriteLine("[CamRelay] " + line); } catch { }
             try
             {
                 lock (_logLock)

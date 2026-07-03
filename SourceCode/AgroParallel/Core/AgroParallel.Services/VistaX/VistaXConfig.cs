@@ -104,18 +104,16 @@ namespace AgroParallel.VistaX
         public static VistaXConfig Load()
         {
             string path = GetConfigPath();
-            if (!File.Exists(path))
-            {
-                var def = new VistaXConfig();
-                def.Save();
-                return def;
-            }
-
             try
             {
-                string json = File.ReadAllText(path);
                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var config = JsonSerializer.Deserialize<VistaXConfig>(json, opts);
+                var config = AgroParallel.Common.AtomicJson.Read<VistaXConfig>(path, opts);
+                if (config == null)
+                {
+                    var def = new VistaXConfig();
+                    def.Save();
+                    return def;
+                }
 
                 // Sanitizar valores de layout (por si el JSON tiene valores absurdos)
                 if (config != null)
@@ -139,7 +137,7 @@ namespace AgroParallel.VistaX
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] Error config: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[VistaX] Error config: " + ex.Message);
                 return new VistaXConfig();
             }
         }
@@ -149,11 +147,11 @@ namespace AgroParallel.VistaX
             try
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(GetConfigPath(), JsonSerializer.Serialize(this, opts));
+                AgroParallel.Common.AtomicJson.Write(GetConfigPath(), JsonSerializer.Serialize(this, opts));
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] Error guardando: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[VistaX] Error guardando: " + ex.Message);
             }
         }
 
@@ -174,7 +172,7 @@ namespace AgroParallel.VistaX
                 }
             }
 
-            System.Diagnostics.Debug.WriteLine("[VistaX] No se encontró JSON de implemento");
+            System.Diagnostics.Trace.WriteLine("[VistaX] No se encontró JSON de implemento");
             return new ImplementoConfig();
         }
 
@@ -194,12 +192,12 @@ namespace AgroParallel.VistaX
             try
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(path, JsonSerializer.Serialize(imp, opts));
+                AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(imp, opts));
                 return true;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] Error guardando implemento: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[VistaX] Error guardando implemento: " + ex.Message);
                 return false;
             }
         }
@@ -208,16 +206,15 @@ namespace AgroParallel.VistaX
         {
             try
             {
-                string json = File.ReadAllText(path);
                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var config = JsonSerializer.Deserialize<ImplementoConfig>(json, opts);
-                System.Diagnostics.Debug.WriteLine("[VistaX] Implemento cargado: " + path
+                var config = AgroParallel.Common.AtomicJson.Read<ImplementoConfig>(path, opts);
+                System.Diagnostics.Trace.WriteLine("[VistaX] Implemento cargado: " + path
                     + " (" + (config.MapeoSensores != null ? config.MapeoSensores.Count : 0) + " sensores)");
                 return config ?? new ImplementoConfig();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[VistaX] Error parseando implemento: " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[VistaX] Error parseando implemento: " + ex.Message);
                 return new ImplementoConfig();
             }
         }

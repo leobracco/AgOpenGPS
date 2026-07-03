@@ -43,26 +43,12 @@ namespace AgroParallel.QuantiX
         public static QuantiXConfig Load()
         {
             string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
-            if (!File.Exists(path))
-            {
-                var def = new QuantiXConfig();
-                def.Save();
-                return def;
-            }
-
-            try
-            {
-                string json = File.ReadAllText(path);
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var cfg = JsonSerializer.Deserialize<QuantiXConfig>(json, opts);
-                return cfg ?? new QuantiXConfig();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("[QuantiX] Error leyendo "
-                    + FileName + ": " + ex.Message);
-                return new QuantiXConfig();
-            }
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var cfg = AgroParallel.Common.AtomicJson.Read<QuantiXConfig>(path, opts);
+            if (cfg != null) return cfg;
+            var def = new QuantiXConfig();
+            def.Save();
+            return def;
         }
 
         public void Save()
@@ -71,11 +57,11 @@ namespace AgroParallel.QuantiX
             {
                 string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                File.WriteAllText(path, JsonSerializer.Serialize(this, opts));
+                AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[QuantiX] Error guardando "
+                System.Diagnostics.Trace.WriteLine("[QuantiX] Error guardando "
                     + FileName + ": " + ex.Message);
             }
         }

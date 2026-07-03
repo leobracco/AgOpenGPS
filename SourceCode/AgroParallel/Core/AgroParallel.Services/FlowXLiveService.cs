@@ -93,7 +93,7 @@ namespace AgroParallel.Services
             _ = _nodos.SubscribeAsync("agp/flow/+/calibrar_result");
             _ = _nodos.SubscribeAsync("agp/flow/+/caracterizar_result");
             IsRunning = true;
-            System.Diagnostics.Debug.WriteLine("[flowx] live service started");
+            System.Diagnostics.Trace.WriteLine("[flowx] live service started");
         }
 
         public void Stop()
@@ -102,7 +102,7 @@ namespace AgroParallel.Services
             try { _nodos.MessageReceived -= OnMqttMessage; } catch { }
             IsRunning = false;
             lock (_lock) { _readings.Clear(); }
-            System.Diagnostics.Debug.WriteLine("[flowx] live service stopped");
+            System.Diagnostics.Trace.WriteLine("[flowx] live service stopped");
         }
 
         public void Dispose() => Stop();

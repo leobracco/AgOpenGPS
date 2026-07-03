@@ -75,21 +75,28 @@ namespace AgroParallel.Shell
 
                 s_nodos = new NodoRegistryService();
                 try { s_nodos.Start(brokerHost, brokerPort); }
-                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[AgpBootstrap] NodoRegistry start: " + ex.Message); }
+                catch (Exception ex) { System.Diagnostics.Trace.WriteLine("[AgpBootstrap] NodoRegistry start: " + ex.Message); }
 
                 var vistaxCfg = new VistaXConfigService();
                 var insumosCat = new InsumoCatalogService();
-                var vistaxLive = new VistaXLiveService(s_nodos, vistaxCfg, insumosCat, state, sectionsCore);
+                // Instancias únicas expuestas a FormGPS — sin esto el controller
+                // construiría las suyas y el evento ConfigSaved no llegaría al shell.
+                var sectionxCfg = new SectionXConfigService();
+                var orbitxCfg = new OrbitXConfigService();
+                var quantixCfg = new QuantiXConfigService(s_nodos);
+                // Implemento central: UNA sola instancia compartida entre el live
+                // service de VistaX y el WebHost. Sin esto habría dos caches (uno
+                // por instancia) y el overlay VistaX mostraría geometría vieja hasta
+                // reiniciar. VistaX/VehicleTool/QuantiX/SectionX son opcionales (solo
+                // para el seed inicial del "default" si no hay implementos/ todavía).
+                var implemento = new ImplementoService(vistaxCfg, vehicleTool, quantixCfg, sectionxCfg);
+                var vistaxLive = new VistaXLiveService(s_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento);
                 var flowxCfg = new FlowXConfigService();
                 var flowxLive = new FlowXLiveService(s_nodos, flowxCfg);
                 var stormxCfg = new StormXConfigService();
                 var stormxLive = new StormXLiveService(s_nodos, stormxCfg);
                 var linexCfg = new LineXConfigService();
                 var linexLive = new LineXLiveService(s_nodos, linexCfg);
-                // Instancias únicas expuestas a FormGPS — sin esto el controller
-                // construiría las suyas y el evento ConfigSaved no llegaría al shell.
-                var sectionxCfg = new SectionXConfigService();
-                var orbitxCfg = new OrbitXConfigService();
 
                 var host = new AgpWebHost(
                     state,
@@ -98,7 +105,7 @@ namespace AgroParallel.Shell
                     orbitxCfg,
                     sectionxCfg,
                     new CamarasConfigService(),
-                    new QuantiXConfigService(s_nodos),
+                    quantixCfg,
                     vistaxCfg,
                     vistaxLive,
                     new DebugLogService(),
@@ -120,7 +127,8 @@ namespace AgroParallel.Shell
                     port,
                     insumos: null,
                     toolGeometry: toolGeometry,
-                    tram: tram);
+                    tram: tram,
+                    implemento: implemento);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;
@@ -142,7 +150,7 @@ namespace AgroParallel.Shell
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("[AgpBootstrap] FlowXBridge start: " + ex.Message);
+                    System.Diagnostics.Trace.WriteLine("[AgpBootstrap] FlowXBridge start: " + ex.Message);
                 }
 
                 return s_host;

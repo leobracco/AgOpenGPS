@@ -266,7 +266,7 @@ namespace AgroParallel.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("[implemento] Load(" + slug + "): " + ex.Message);
+                System.Diagnostics.Trace.WriteLine("[implemento] Load(" + slug + "): " + ex.Message);
                 return null;
             }
         }
@@ -282,11 +282,12 @@ namespace AgroParallel.Services
                     var clean = Sanitize(dto);
                     WriteAtomic(FilePath(slug), JsonSerializer.Serialize(clean, WriteOpts));
                     if (slug == _cacheSlug) _cache = clean;
+                    SyncToolIfChanged(slug, clean);
                     return true;
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("[implemento] Save(" + slug + "): " + ex.Message);
+                    System.Diagnostics.Trace.WriteLine("[implemento] Save(" + slug + "): " + ex.Message);
                     return false;
                 }
             }
@@ -314,30 +315,23 @@ namespace AgroParallel.Services
                     var clean = Sanitize(dto);
                     WriteAtomic(p, JsonSerializer.Serialize(clean, WriteOpts));
                     if (slug == _cacheSlug) _cache = clean;
+                    SyncToolIfChanged(slug, clean);
                     return clean;
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("[implemento] Update(" + slug + "): " + ex.Message);
+                    System.Diagnostics.Trace.WriteLine("[implemento] Update(" + slug + "): " + ex.Message);
                     return null;
                 }
             }
         }
 
-        /// <summary>Escritura atómica tmp+File.Replace. Evita JSON truncado si crashea
-        /// entre WriteAllText y disk-flush (perderíamos config del operario).</summary>
+        /// <summary>Escritura atómica + durable (tmp + flush a disco + File.Replace con
+        /// .bak). Delega en AtomicJson para unificar el patrón con el resto de las
+        /// configs y evitar JSON truncado ante un corte de luz.</summary>
         private static void WriteAtomic(string path, string contents)
         {
-            string tmp = path + ".tmp";
-            File.WriteAllText(tmp, contents);
-            if (File.Exists(path))
-            {
-                File.Replace(tmp, path, null);
-            }
-            else
-            {
-                File.Move(tmp, path);
-            }
+            AgroParallel.Common.AtomicJson.Write(path, contents);
         }
 
         public bool SetActive(string slug)
@@ -356,7 +350,7 @@ namespace AgroParallel.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("[implemento] SetActive(" + slug + "): " + ex.Message);
+                    System.Diagnostics.Trace.WriteLine("[implemento] SetActive(" + slug + "): " + ex.Message);
                     return false;
                 }
             }
@@ -387,7 +381,7 @@ namespace AgroParallel.Services
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("[implemento] Delete(" + slug + "): " + ex.Message);
+                    System.Diagnostics.Trace.WriteLine("[implemento] Delete(" + slug + "): " + ex.Message);
                     return false;
                 }
             }
@@ -429,6 +423,94 @@ namespace AgroParallel.Services
             if (string.IsNullOrEmpty(slug)) slug = "default";
             return Save(slug, dto);
         }
+
+        // ----------------------------------------------------------------
+        // Write-back central → Registro nativo (ToolConfig de AOG)
+        // ----------------------------------------------------------------
+        // "Central manda, Registro se deriva": el implemento central es el único
+        // editor de geometría. Cada vez que se guarda el implemento ACTIVO, si
+        // algún campo tool/geometría cambió respecto del Registro nativo, se pisa
+        // el Registro (via IVehicleToolService.SaveTool → rebuild CTool). Así
+        // QuantiX/SectionX/SeedMonitor/guiado nativo — que leen tool.width — se
+        // mantienen consistentes sin que el operario toque la config vieja.
+        //
+        // Dirty-check: si SOLO cambió mapeo VistaX / densidad (no tool), el
+        // ToolConfigDto derivado es idéntico al actual → no se llama SaveTool,
+        // no se reconstruye CTool, no hay parpadeo de secciones.
+
+        private void SyncToolIfChanged(string slug, ImplementoDto dto)
+        {
+            if (_vehicleTool == null || dto == null) return;
+            // Solo el implemento ACTIVO define el Tool nativo. Guardar uno inactivo
+            // (ej. editar otro perfil) no debe tocar el Registro del que está en uso.
+            string active = GetActiveSlug();
+            if (string.IsNullOrEmpty(active) || slug != active) return;
+
+            ToolConfigDto actual = null;
+            try { actual = _vehicleTool.GetTool(); } catch { }
+            if (actual == null) actual = new ToolConfigDto();
+
+            var derivado = MapToToolConfig(dto, actual);
+            if (ToolEquals(actual, derivado)) return; // nada tool/geometría cambió
+
+            try { _vehicleTool.SaveTool(derivado); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine("[implemento] SyncTool(" + slug + "): " + ex.Message);
+            }
+        }
+
+        // Mapea el implemento central → ToolConfigDto nativo. Los campos que el
+        // central no modela (o que están en 0 por implemento viejo) se dejan como
+        // están en el Registro actual para no destruir valores existentes.
+        private static ToolConfigDto MapToToolConfig(ImplementoDto d, ToolConfigDto actual)
+        {
+            int numSec = (d.Secciones != null && d.Secciones.Count > 0)
+                ? d.Secciones.Count : actual.NumSections;
+            if (numSec < 1) numSec = 1;
+            if (numSec > 16) numSec = 16;
+
+            return new ToolConfigDto
+            {
+                Width = d.AnchoTotalM > 0 ? d.AnchoTotalM : actual.Width,
+                Overlap = d.OverlapM,
+                Offset = d.OffsetM,
+                NumSections = numSec,
+                HitchLength = d.HitchLengthM,
+                TrailingHitchLength = d.TrailingHitchLengthM,
+                TrailingToolToPivotLength = d.TrailingToolToPivotM,
+                LookAheadOn = d.LookaheadOnS,
+                LookAheadOff = d.LookaheadOffS,
+                TurnOffDelay = d.TurnOffDelayS,
+                IsToolTrailing = d.IsTrailing,
+                IsToolTBT = d.IsTBT,
+                IsToolRearFixed = d.IsRearFixed,
+                IsToolFrontFixed = d.IsFrontFixed,
+                IsSectionOffWhenOut = d.SectionOffWhenOut
+            };
+        }
+
+        private static bool ToolEquals(ToolConfigDto a, ToolConfigDto b)
+        {
+            const double eps = 1e-4;
+            return NearEq(a.Width, b.Width, eps)
+                && NearEq(a.Overlap, b.Overlap, eps)
+                && NearEq(a.Offset, b.Offset, eps)
+                && a.NumSections == b.NumSections
+                && NearEq(a.HitchLength, b.HitchLength, eps)
+                && NearEq(a.TrailingHitchLength, b.TrailingHitchLength, eps)
+                && NearEq(a.TrailingToolToPivotLength, b.TrailingToolToPivotLength, eps)
+                && NearEq(a.LookAheadOn, b.LookAheadOn, eps)
+                && NearEq(a.LookAheadOff, b.LookAheadOff, eps)
+                && NearEq(a.TurnOffDelay, b.TurnOffDelay, eps)
+                && a.IsToolTrailing == b.IsToolTrailing
+                && a.IsToolTBT == b.IsToolTBT
+                && a.IsToolRearFixed == b.IsToolRearFixed
+                && a.IsToolFrontFixed == b.IsToolFrontFixed
+                && a.IsSectionOffWhenOut == b.IsSectionOffWhenOut;
+        }
+
+        private static bool NearEq(double x, double y, double eps) => Math.Abs(x - y) <= eps;
 
         // ----------------------------------------------------------------
         // Sanitización
