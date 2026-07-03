@@ -94,19 +94,6 @@
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
-    function lkeys(v) {
-      if (v == null) return v;
-      if (Array.isArray(v)) return v.map(lkeys);
-      if (typeof v !== 'object') return v;
-      var out = {};
-      for (var k in v) {
-        if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
-        var nk = k.length > 0 ? k.charAt(0).toLowerCase() + k.substring(1) : k;
-        out[nk] = lkeys(v[k]);
-      }
-      return out;
-    }
-
     // Notifica al host WinForms/Avalonia para mostrar/ocultar el control.
     // Si el host no es WebView2 (ej. abierto en navegador para tests), el
     // postMessage falla silencioso — no hay nada que romper.
@@ -141,7 +128,7 @@
     async function tick() {
       try {
         var r = await fetch('/api/nodos/unified', { cache: 'no-store' });
-        var d = lkeys(await r.json());
+        var d = await r.json();
         if (!d || !d.ok) return;
         lastImplSlug = d.implemento_slug || '';
 

@@ -14,8 +14,6 @@
   // ---------- Shared helpers ----------
 
   function $(id) { return document.getElementById(id); }
-  function pick(o, a, b) { return (o && o[a] != null) ? o[a] : (o ? o[b] : undefined); }
-
   function escapeHtml(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -751,7 +749,7 @@
     try {
       var res = await fetch('/api/quantix/live', { cache: 'no-store' });
       var data = await res.json();
-      var nodos = pick(data, 'nodos', 'Nodos') || [];
+      var nodos = (data && data.nodos) || [];
       if (statusEl) {
         statusEl.className = 'pill ' + (nodos.length > 0 ? 'ok' : 'warn');
         statusEl.innerHTML = '<span class="dot"></span> ' + nodos.length + ' nodo' + (nodos.length !== 1 ? 's' : '') + ' QuantiX';

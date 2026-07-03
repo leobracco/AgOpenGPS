@@ -290,22 +290,6 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // Normaliza un objeto/array recursivamente a keys camelCase de primer char en
-  // minúscula. El backend serializa con PascalCase (Nodos, Uid, Type, Online…)
-  // y la UI espera lowercase. Aplicar siempre al parsear respuesta.
-  function lkeys(v) {
-    if (v == null) return v;
-    if (Array.isArray(v)) return v.map(lkeys);
-    if (typeof v !== 'object') return v;
-    var out = {};
-    for (var k in v) {
-      if (!Object.prototype.hasOwnProperty.call(v, k)) continue;
-      var nk = k.length > 0 ? k.charAt(0).toLowerCase() + k.substring(1) : k;
-      out[nk] = lkeys(v[k]);
-    }
-    return out;
-  }
-
   async function refresh() {
     try {
       var res = await fetch('/api/nodos/unified', { cache: 'no-store' });
