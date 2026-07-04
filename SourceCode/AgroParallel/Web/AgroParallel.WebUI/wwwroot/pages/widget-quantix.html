@@ -23,6 +23,7 @@
     }
 
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
 
     html, body {
       margin: 0; padding: 0;
@@ -177,100 +178,153 @@
       text-overflow: ellipsis;
     }
 
-    /* ---- Lista de motores (todos los nodos, scrollea si hay >3) ---- */
-    .motors {
+    /* ---- Carrusel de motor con foco: UN motor grande + nav ‹ › + dots ----
+       Escala a N motores: se edita/ve el motor enfocado, la tira de dots
+       muestra el estado de todos, y el foco salta solo al motor en alarma. */
+    .focus-zone {
       flex: 1; min-height: 0;
-      padding: 4px 7px;
-      display: flex; flex-direction: column; gap: 4px;
-      overflow-y: auto;
-      scrollbar-width: none;
+      padding: 4px 5px 2px 5px;
+      display: grid; grid-template-columns: 26px minmax(0, 1fr) 26px;
+      gap: 4px;
+      align-items: stretch;
     }
+    .nav {
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      color: var(--text-main);
+      border-radius: 9px;
+      font-size: 18px; font-weight: 950;
+      cursor: pointer; padding: 0;
+      font-family: inherit;
+      touch-action: manipulation;
+    }
+    .nav:disabled { opacity: .3; cursor: default; }
 
-    .motors::-webkit-scrollbar { display: none; }
-
-    .motor {
-      height: 32px; flex: none;
-      display: grid; grid-template-columns: 24px minmax(0, 1fr) 34px;
-      gap: 5px; align-items: center;
-      padding: 4px 5px;
+    .focus-card {
+      min-width: 0;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 11px;
+      padding: 5px 6px;
       position: relative; overflow: hidden;
-      cursor: pointer;
-      min-width: 0;
+      display: flex; flex-direction: column; gap: 3px;
     }
-
-    .motor::before {
+    .focus-card::before {
       content: "";
       position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
       background: var(--status);
     }
 
-    .id {
-      width: 20px; height: 20px; border-radius: 7px;
-      background: var(--status); color: #07100a;
-      display: grid; place-items: center;
-      font-size: 10px; font-weight: 950;
+    .f-head {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 4px; min-width: 0;
+      padding-left: 3px;
     }
-
-    .m-title {
-      display: flex; justify-content: space-between; gap: 4px;
-      align-items: center;
-      font-size: 8.5px; font-weight: 900; line-height: 1;
-      white-space: nowrap; overflow: hidden;
+    .f-name {
+      font-size: 9px; font-weight: 900;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       min-width: 0;
     }
-
-    .m-title .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-
-    .state {
-      color: var(--status);
-      font-size: 6px; text-transform: uppercase;
-      letter-spacing: .15px; font-weight: 950; white-space: nowrap;
+    .f-man {
       flex: none;
+      border: 1px solid var(--border);
+      background: var(--bg-soft); color: var(--text-muted);
+      border-radius: 6px;
+      font-size: 8px; font-weight: 950;
+      height: 17px; padding: 0 7px;
+      cursor: pointer; font-family: inherit;
+      touch-action: manipulation;
+    }
+    .f-man.manual {
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      border-color: transparent; color: #081008;
     }
 
-    .bar {
-      margin-top: 3px; height: 4px; border-radius: 99px;
-      background: #0b1219; overflow: hidden;
+    /* Lo que está dosificando AHORA, bien grande. */
+    .f-real {
+      display: flex; align-items: baseline; gap: 3px;
+      padding-left: 3px; min-width: 0;
     }
-
-    .fill {
-      height: 100%; width: var(--bar);
-      border-radius: inherit; background: var(--status);
+    .f-real b {
+      font-size: 19px; font-weight: 950; line-height: 1;
+      letter-spacing: -.5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      min-width: 0;
     }
-
-    .data {
-      margin-top: 3px;
-      display: flex; gap: 4px;
+    .f-real small {
       color: var(--text-muted);
-      font-size: 6.3px; font-weight: 800; line-height: 1;
-      white-space: nowrap;
+      font-size: 6.5px; font-weight: 800; flex: none;
+    }
+    .f-dev {
+      margin-left: auto; flex: none;
+      color: var(--status);
+      font-size: 11px; font-weight: 950;
+    }
+
+    .f-data {
+      padding-left: 3px;
+      display: flex; gap: 6px;
+      color: var(--text-muted);
+      font-size: 6.8px; font-weight: 800; line-height: 1;
+      white-space: nowrap; overflow: hidden;
+    }
+    .f-data b { color: var(--text-main); font-size: 7.4px; }
+    .f-data .st { color: var(--status); text-transform: uppercase; font-weight: 950; }
+
+    /* Stepper del motor enfocado (solo activo en MAN). */
+    .f-step {
+      margin-top: auto;
+      display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px;
+      gap: 3px;
+      opacity: .45;
+    }
+    .f-step.enabled { opacity: 1; }
+    .f-step button {
+      height: 24px; border-radius: 7px;
+      background: #263545; border: 0; cursor: pointer;
+      color: var(--text-main);
+      font-size: 16px; line-height: 1; font-weight: 950;
+      font-family: inherit; padding: 0;
+      touch-action: manipulation;
+    }
+    .f-step .f-dose {
+      height: 24px; border-radius: 7px;
+      background: #0d151d; border: 1px solid var(--border);
+      color: var(--text-main);
+      font-size: 10px; font-weight: 900;
+      display: grid; place-items: center;
+      cursor: pointer; min-width: 0;
+      overflow: hidden; white-space: nowrap;
+    }
+
+    /* Tira de dots: un punto por motor, coloreado por estado. */
+    .dots {
+      flex: none;
+      height: 14px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 5px;
+      padding: 0 7px;
       overflow: hidden;
-      min-width: 0;
+    }
+    .dots i {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--c, var(--idle));
+      display: block; flex: none;
+      cursor: pointer;
+      transition: transform .15s;
+    }
+    .dots i.cur {
+      transform: scale(1.45);
+      outline: 1px solid var(--text-main);
+      outline-offset: 1px;
     }
 
-    .data span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      min-width: 0;
+    /* Flash del borde cuando el foco salta solo a un motor en alarma. */
+    @keyframes qxflash {
+      0%, 100% { border-color: rgba(255,255,255,.11); }
+      50% { border-color: var(--red); box-shadow: 0 0 8px rgba(255,91,91,.5); }
     }
-
-    .data b { color: var(--text-main); font-size: 6.8px; }
-
-    .var {
-      color: var(--status); text-align: right;
-      font-size: 8.8px; font-weight: 950; line-height: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .var small {
-      display: block; color: var(--text-muted);
-      font-size: 5.8px; text-transform: uppercase; margin-top: 2px;
-    }
+    .quantix-widget.flash { animation: qxflash .5s 2; }
 
     /* ---- Footer: modo + leyenda ---- */
     .footer {
@@ -453,7 +507,12 @@
       </div>
     </div>
 
-    <div class="motors" id="motorList"></div>
+    <div class="focus-zone" id="focusZone">
+      <button class="nav" id="navPrev" type="button">‹</button>
+      <div class="focus-card" id="focusCard"></div>
+      <button class="nav" id="navNext" type="button">›</button>
+    </div>
+    <div class="dots" id="dotsBar"></div>
     <div class="empty" id="emptyMsg" hidden>Sin nodos QuantiX configurados.</div>
 
     <div class="footer">

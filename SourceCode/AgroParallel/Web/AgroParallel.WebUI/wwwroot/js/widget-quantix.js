@@ -1,6 +1,6 @@
 // ============================================================================
 // widget-quantix.js — overlay HTML del widget QuantiX (220x240) en pantalla
-// principal de PilotX. Diseño según mockup quantix_agro_parallel_widget_220x240.
+// principal de PilotX. Carrusel de motor con foco (escala a N motores).
 //
 // Conversa con:
 //   GET  /api/widget-quantix/state              (poll cada 500ms)
@@ -8,19 +8,21 @@
 //   POST /api/widget-quantix/manual-all         (MAN/AUTO + dosis GLOBAL)
 //
 // Reglas de la UI:
-//   · La lista muestra TODOS los motores de TODOS los nodos habilitados
-//     (scrollea si no entran). Cada fila se colorea por desvío real vs
-//     objetivo: verde |desv| ≤ 4%, ámbar baja, rojo alta, gris sin datos.
+//   · Zona central: UN motor grande (el enfocado) con real grande, desvío,
+//     OBJ/RPM/estado, botón MAN/AUTO propio y stepper de dosis (activo en MAN).
+//   · Navegación: botones ‹ › + swipe horizontal + tap en un dot. La tira de
+//     dots muestra el estado de TODOS los motores (verde/ámbar/rojo/gris).
+//   · Auto-salto de foco al motor en alarma de dosis, con reglas anti-molestia:
+//       - solo si el desvío persiste > 3 s
+//       - no salta si el operario interactuó en los últimos 8 s
+//       - no salta con keypad o modal abiertos
+//       - con varias alarmas va al peor |desvío|
+//       - el borde del widget parpadea 2 veces al saltar
 //   · Tabs AUTO/MAN del header = modo GLOBAL (todos los motores), con
-//     confirmación. El stepper −/valor/+ es la dosis global: habilitado solo
-//     si todos están en MAN y comparten unidad (kg/ha vs sem/m); con unidades
-//     mezcladas la dosis pareja no tiene sentido y queda deshabilitada.
-//   · Manual POR MOTOR: tap en la fila → modal. En AUTO ofrece pasar a MAN;
-//     en MAN ofrece volver a AUTO o editar su dosis con el keypad.
+//     confirmación. El stepper del header es la dosis global: habilitado solo
+//     si todos están en MAN y comparten unidad (kg/ha vs sem/m).
 //   · Al pasar a MAN, si manual_dosis está en 0, se inicializa con
-//     dosis_fija_config (la dosis "fuera de mapa" configurada en el Hub).
-//   · Al pasar a AUTO no se pierde el valor manual: queda persistido en
-//     quantiX_motores.json y reaparece la próxima vez que se vuelva a MAN.
+//     dosis_fija_config. Al volver a AUTO el valor manual queda persistido.
 //   · Keypad numérico propio (el teclado global de keyboard.js mide 320px y
 //     taparía el widget entero).
 // ============================================================================
@@ -28,9 +30,12 @@
   'use strict';
 
   const POLL_MS = 500;
-  const DEV_PCT = 4; // umbral de desvío verde/ámbar/rojo
+  const DEV_PCT = 4;          // umbral de desvío verde/ámbar/rojo
+  const ALARM_PERSIST_MS = 3000;  // el desvío debe sostenerse antes de saltar
+  const INTERACT_QUIET_MS = 8000; // no auto-saltar si hubo interacción reciente
 
   const $ = (id) => document.getElementById(id);
+  const widgetEl = document.querySelector('.quantix-widget');
   const onlineDot = $('onlineDot');
   const nodoNombreEl = $('nodoNombre');
   const mainDose = $('mainDose');
@@ -44,7 +49,11 @@
   const motorCountEl = $('motorCount');
   const targetDoseEl = $('targetDose');
   const realAverageEl = $('realAverage');
-  const motorList = $('motorList');
+  const focusZone = $('focusZone');
+  const focusCard = $('focusCard');
+  const navPrev = $('navPrev');
+  const navNext = $('navNext');
+  const dotsBar = $('dotsBar');
   const emptyMsg = $('emptyMsg');
   const modeText = $('modeText');
 
@@ -80,6 +89,12 @@
   let gState = { allMan: false, allAuto: true, sameUnit: true, uniformDose: null, unidad: 'kg_ha' };
   // Keypad: qué estamos editando (motor puntual o dosis global).
   let editing = { global: false, uid: null, idx: -1, value: '' };
+  // Foco del carrusel: clave estable "uid#idx" (sobrevive a refreshes).
+  let focusKey = null;
+  // Auto-salto: primer avistaje de cada alarma + última interacción del operario.
+  const alarmSince = new Map(); // key "uid#idx" → timestamp
+  let lastInteract = 0;
+  document.addEventListener('pointerdown', () => { lastInteract = Date.now(); }, true);
 
   const keypadBackdrop = $('keypadBackdrop');
   const keypadTitle = $('keypadTitle');
@@ -88,6 +103,7 @@
 
   // Helpers ------------------------------------------------------------------
   function unidadLabel(u) { return (u === 'sem_m') ? 'sem/m' : 'kg/ha'; }
+  function keyOf(f) { return f.nodoUid + '#' + f.m.idx; }
 
   // Paso adaptativo según dosis actual (espejo de AdaptiveStep.cs).
   function doseStep(value) {
@@ -111,11 +127,8 @@
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   }
-  function escapeAttr(s) {
-    return String(s || '').replace(/"/g, '&quot;');
-  }
 
-  // Motores aplanados de todos los nodos, con numeración 1..N para el badge.
+  // Motores aplanados de todos los nodos, con numeración 1..N.
   function allMotores() {
     const out = [];
     let num = 1;
@@ -128,15 +141,64 @@
   // Estado del desvío real vs objetivo de un motor.
   function devStatus(m) {
     if (!m.activo || !(m.objetivo > 0))
-      return { st: 'off', label: '—', color: 'var(--idle)', bar: 0, variation: '—' };
+      return { st: 'off', label: '—', color: 'var(--idle)', dev: 0, variation: '—' };
     const diff = (m.real - m.objetivo) / m.objetivo * 100;
     const variation = (diff >= 0 ? '+' : '') + diff.toFixed(1) + '%';
     if (diff > DEV_PCT)
-      return { st: 'high', label: 'Alta', color: 'var(--red)', bar: 100, variation };
+      return { st: 'high', label: 'Alta', color: 'var(--red)', dev: diff, variation };
     if (diff < -DEV_PCT)
-      return { st: 'low', label: 'Baja', color: 'var(--amber)', bar: Math.max(8, 100 + diff), variation };
-    return { st: 'ok', label: 'OK', color: 'var(--green)', bar: Math.min(100, Math.max(8, 100 + diff)), variation };
+      return { st: 'low', label: 'Baja', color: 'var(--amber)', dev: diff, variation };
+    return { st: 'ok', label: 'OK', color: 'var(--green)', dev: diff, variation };
   }
+
+  // Foco ----------------------------------------------------------------------
+  function focusedIndex(flat) {
+    if (focusKey == null) return 0;
+    const i = flat.findIndex((f) => keyOf(f) === focusKey);
+    return i >= 0 ? i : 0;
+  }
+  function setFocus(flat, i, userAction) {
+    if (flat.length === 0) { focusKey = null; return; }
+    const j = ((i % flat.length) + flat.length) % flat.length;
+    focusKey = keyOf(flat[j]);
+    if (userAction) lastInteract = Date.now();
+    render();
+  }
+
+  // Auto-salto al motor en alarma (con reglas anti-molestia).
+  function autoJump(flat) {
+    const now = Date.now();
+    // Actualizar mapa de alarmas (primer avistaje / limpiar las que salieron).
+    const seen = new Set();
+    let worst = null; // {key, absDev}
+    flat.forEach((f) => {
+      const s = devStatus(f.m);
+      const k = keyOf(f);
+      if (s.st === 'high' || s.st === 'low') {
+        seen.add(k);
+        if (!alarmSince.has(k)) alarmSince.set(k, now);
+        if (now - alarmSince.get(k) >= ALARM_PERSIST_MS) {
+          const abs = Math.abs(s.dev);
+          if (!worst || abs > worst.absDev) worst = { key: k, absDev: abs };
+        }
+      }
+    });
+    for (const k of Array.from(alarmSince.keys())) {
+      if (!seen.has(k)) alarmSince.delete(k);
+    }
+
+    if (!worst || worst.key === focusKey) return;
+    if (modalBackdrop.classList.contains('show')) return;
+    if (keypadBackdrop.classList.contains('show')) return;
+    if (now - lastInteract < INTERACT_QUIET_MS) return;
+
+    focusKey = worst.key;
+    // Flash del borde: 2 parpadeos para avisar que el foco saltó solo.
+    widgetEl.classList.remove('flash');
+    void widgetEl.offsetWidth; // reinicia la animación si ya estaba
+    widgetEl.classList.add('flash');
+  }
+  widgetEl.addEventListener('animationend', () => widgetEl.classList.remove('flash'));
 
   // Render -------------------------------------------------------------------
   function render() {
@@ -144,7 +206,8 @@
     const nodos = state.nodos || [];
 
     if (flat.length === 0) {
-      motorList.innerHTML = '';
+      focusZone.hidden = true;
+      dotsBar.hidden = true;
       emptyMsg.hidden = false;
       nodoNombreEl.textContent = 'QuantiX';
       onlineDot.classList.remove('on');
@@ -159,8 +222,11 @@
       manualBtn.classList.remove('active');
       manualCtl.classList.remove('enabled');
       gDose.textContent = '—';
+      focusKey = null;
       return;
     }
+    focusZone.hidden = false;
+    dotsBar.hidden = false;
     emptyMsg.hidden = true;
 
     // Header: nombre del nodo (o cantidad si hay varios) + online.
@@ -212,31 +278,46 @@
     modeText.textContent = allMan ? 'MAN' : (mixed ? 'MIX' : 'AUTO');
     modeText.className = 'badge' + (allMan ? '' : (mixed ? ' mix' : ' auto'));
 
-    // Lista de motores.
-    motorList.innerHTML = flat.map((f) => {
-      const m = f.m;
-      const s = devStatus(m);
-      const nombre = escapeHtml(m.nombre) + (m.manual_mode ? ' · MAN' : '');
-      return (
-        '<article class="motor" style="--status:' + s.color + ';--bar:' + s.bar + '%" ' +
-          'data-uid="' + escapeAttr(f.nodoUid) + '" data-idx="' + m.idx + '">' +
-          '<div class="id">' + f.num + '</div>' +
-          '<div>' +
-            '<div class="m-title">' +
-              '<span class="n">' + nombre + '</span>' +
-              '<span class="state">' + s.label + '</span>' +
-            '</div>' +
-            '<div class="bar"><div class="fill"></div></div>' +
-            '<div class="data">' +
-              '<span>OBJ <b>' + fmt(m.objetivo) + '</b></span>' +
-              '<span>R <b>' + fmt(m.real) + '</b></span>' +
-              '<span>RPM <b>' + (m.rpm != null ? m.rpm : '—') + '</b></span>' +
-              '<span>' + unidadLabel(m.unidad) + '</span>' +
-            '</div>' +
-          '</div>' +
-          '<div class="var">' + s.variation + '<small>desv</small></div>' +
-        '</article>'
-      );
+    // ---- Carrusel: motor enfocado ----
+    const fi = focusedIndex(flat);
+    focusKey = keyOf(flat[fi]); // normalizar (por si el motor enfocado desapareció)
+    const f = flat[fi];
+    const m = f.m;
+    const s = devStatus(m);
+    const manDose = m.manual_dosis > 0 ? m.manual_dosis : (m.dosis_fija_config || 0);
+
+    focusCard.style.setProperty('--status', s.color);
+    focusCard.innerHTML =
+      '<div class="f-head">' +
+        '<span class="f-name">' + f.num + ' · ' + escapeHtml(m.nombre) + '</span>' +
+        '<button class="f-man' + (m.manual_mode ? ' manual' : '') + '" id="fMan" type="button">' +
+          (m.manual_mode ? 'MAN' : 'AUTO') + '</button>' +
+      '</div>' +
+      '<div class="f-real">' +
+        '<b>' + fmt(m.real) + '</b>' +
+        '<small>' + unidadLabel(m.unidad) + '</small>' +
+        '<span class="f-dev">' + s.variation + '</span>' +
+      '</div>' +
+      '<div class="f-data">' +
+        '<span>OBJ <b>' + fmt(m.objetivo) + '</b></span>' +
+        '<span>RPM <b>' + (m.rpm != null ? m.rpm : '—') + '</b></span>' +
+        '<span class="st">' + s.label + '</span>' +
+      '</div>' +
+      '<div class="f-step' + (m.manual_mode ? ' enabled' : '') + '">' +
+        '<button id="fDn" type="button">−</button>' +
+        '<div class="f-dose" id="fDose" role="button" tabindex="0">' + fmt(manDose) + '</div>' +
+        '<button id="fUp" type="button">+</button>' +
+      '</div>';
+
+    // Nav habilitada solo si hay más de un motor.
+    navPrev.disabled = flat.length < 2;
+    navNext.disabled = flat.length < 2;
+
+    // ---- Dots: estado de todos los motores ----
+    dotsBar.innerHTML = flat.map((x, i) => {
+      const st = devStatus(x.m);
+      return '<i style="--c:' + st.color + '"' + (i === fi ? ' class="cur"' : '') +
+        ' data-i="' + i + '"></i>';
     }).join('');
   }
 
@@ -274,46 +355,76 @@
     keypadBackdrop.classList.add('show');
   });
 
-  // Handlers por motor (tap en la fila) ---------------------------------------
-  motorList.addEventListener('click', async (ev) => {
-    const row = ev.target.closest('.motor');
-    if (!row) return;
-    const uid = row.getAttribute('data-uid');
-    const idx = parseInt(row.getAttribute('data-idx'), 10);
-    const motor = findMotor(uid, idx);
-    if (!motor) return;
+  // Handlers del carrusel ------------------------------------------------------
+  navPrev.addEventListener('click', () => setFocus(allMotores(), focusedIndex(allMotores()) - 1, true));
+  navNext.addEventListener('click', () => setFocus(allMotores(), focusedIndex(allMotores()) + 1, true));
 
-    if (!motor.manual_mode) {
-      const r = await ask(
-        escapeText(motor.nombre) + ' a MANUAL',
-        '¿Confirmás MAN? Vas a sobreescribir la dosis del mapa.',
-        'Confirmar', null
-      );
-      if (r !== 'ok') return;
-      // Dosis inicial: respeta manual_dosis persistido; si está en 0 usa la
-      // dosis_fija_config (fuera de mapa default).
-      const dosis = motor.manual_dosis > 0 ? motor.manual_dosis : (motor.dosis_fija_config || 0);
-      await sendManual(uid, idx, true, dosis);
-    } else {
-      const r = await ask(
-        escapeText(motor.nombre) + ' (MAN)',
-        'Dosis manual: ' + fmt(motor.manual_dosis) + ' ' + unidadLabel(motor.unidad),
-        'Volver a AUTO', 'Editar dosis'
-      );
-      if (r === 'ok') {
+  // Swipe horizontal sobre la focus-card.
+  let touchX = null;
+  focusZone.addEventListener('touchstart', (ev) => {
+    if (ev.touches.length === 1) touchX = ev.touches[0].clientX;
+  }, { passive: true });
+  focusZone.addEventListener('touchend', (ev) => {
+    if (touchX == null) return;
+    const dx = ev.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if (Math.abs(dx) < 30) return;
+    const flat = allMotores();
+    setFocus(flat, focusedIndex(flat) + (dx < 0 ? 1 : -1), true);
+  }, { passive: true });
+
+  // Tap en un dot → enfocar ese motor.
+  dotsBar.addEventListener('click', (ev) => {
+    const dot = ev.target.closest('i[data-i]');
+    if (!dot) return;
+    setFocus(allMotores(), parseInt(dot.getAttribute('data-i'), 10), true);
+  });
+
+  // Acciones sobre el motor enfocado (delegación: el card se re-renderiza).
+  focusCard.addEventListener('click', async (ev) => {
+    const flat = allMotores();
+    const f = flat[focusedIndex(flat)];
+    if (!f) return;
+    const m = f.m;
+    const uid = f.nodoUid;
+    const idx = m.idx;
+
+    if (ev.target.closest('#fMan')) {
+      if (!m.manual_mode) {
+        const r = await ask(
+          (m.nombre || 'Motor') + ' a MANUAL',
+          '¿Confirmás MAN? Vas a sobreescribir la dosis del mapa.',
+          'Confirmar', null
+        );
+        if (r !== 'ok') return;
+        const dosis = m.manual_dosis > 0 ? m.manual_dosis : (m.dosis_fija_config || 0);
+        await sendManual(uid, idx, true, dosis);
+      } else {
+        const r = await ask(
+          (m.nombre || 'Motor') + ' a AUTO',
+          '¿Volver a dosis del mapa / configuración?',
+          'Confirmar', null
+        );
+        if (r !== 'ok') return;
         await sendManual(uid, idx, false, 0);
-      } else if (r === 'alt') {
-        openKeypad(uid, idx, motor);
       }
+      return;
+    }
+
+    if (ev.target.closest('#fDn') || ev.target.closest('#fUp')) {
+      if (!m.manual_mode) return;
+      const dir = ev.target.closest('#fUp') ? 1 : -1;
+      const cur = m.manual_dosis > 0 ? m.manual_dosis : (m.dosis_fija_config || 0);
+      const next = Math.max(0, cur + dir * doseStep(cur));
+      await sendManual(uid, idx, true, Math.round(next * 10) / 10);
+      return;
+    }
+
+    if (ev.target.closest('#fDose')) {
+      if (!m.manual_mode) return;
+      openKeypad(uid, idx, m);
     }
   });
-  function escapeText(s) { return String(s || 'Motor'); }
-
-  function findMotor(uid, idx) {
-    const n = (state.nodos || []).find((x) => x.uid === uid);
-    if (!n) return null;
-    return (n.motores || []).find((m) => m.idx === idx);
-  }
 
   // ---- Keypad in-widget ----------------------------------------------------
   function openKeypad(uid, idx, motor) {
@@ -373,6 +484,7 @@
       const j = await r.json();
       if (!j || !j.ok) return;
       state = j;
+      autoJump(allMotores());
       render();
     } catch (e) { /* ignorar — el next tick reintenta */ }
   }
