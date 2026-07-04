@@ -118,22 +118,65 @@ namespace AgroParallel.Services
         public QxMotoresConfigDto GetMotores()
         {
             string p = Path(MotoresFile);
+            QxMotoresConfigDto dto;
             try
             {
-                var dto = AgroParallel.Common.AtomicJson.Read<QxMotoresConfigDto>(p, ReadOpts);
-                if (dto == null)
-                {
-                    var def = new QxMotoresConfigDto();
-                    SeedDefaultTrenes(def);
-                    return def;
-                }
-                if (dto.Nodos == null) dto.Nodos = new System.Collections.Generic.List<QxNodoConfigDto>();
-                if (dto.Ignorados == null) dto.Ignorados = new System.Collections.Generic.List<string>();
-                if (dto.Trenes == null) dto.Trenes = new System.Collections.Generic.List<QxTrenConfigDto>();
-                if (dto.Trenes.Count == 0) SeedDefaultTrenes(dto);
-                return dto;
+                dto = AgroParallel.Common.AtomicJson.Read<QxMotoresConfigDto>(p, ReadOpts)
+                      ?? new QxMotoresConfigDto();
             }
-            catch { var fallback = new QxMotoresConfigDto(); SeedDefaultTrenes(fallback); return fallback; }
+            catch { dto = new QxMotoresConfigDto(); }
+
+            if (dto.Nodos == null) dto.Nodos = new System.Collections.Generic.List<QxNodoConfigDto>();
+            if (dto.Ignorados == null) dto.Ignorados = new System.Collections.Generic.List<string>();
+            if (dto.Trenes == null) dto.Trenes = new System.Collections.Generic.List<QxTrenConfigDto>();
+            if (dto.Trenes.Count == 0) SeedDefaultTrenes(dto);
+
+            MergeNodosDescubiertos(dto);
+            return dto;
+        }
+
+        // Regla del ecosistema: los nodos NUNCA se tipean a mano — se incorporan
+        // solos vía announcement MQTT (evita typos de UID). Acá mergeamos los
+        // QuantiX descubiertos por el registry que todavía no están en el archivo
+        // ni en la lista de ignorados. El merge es SOLO en memoria: el nodo se
+        // persiste recién cuando el operario toca Guardar (mismo criterio
+        // anti-"nodo fantasma" que SectionX).
+        private void MergeNodosDescubiertos(QxMotoresConfigDto dto)
+        {
+            if (_nodos == null) return;
+            System.Collections.Generic.IReadOnlyList<NodoStatus> vivos;
+            try { vivos = _nodos.GetAll(); }
+            catch { return; }
+            if (vivos == null) return;
+
+            foreach (var n in vivos)
+            {
+                if (n == null || string.IsNullOrWhiteSpace(n.Uid)) continue;
+                if (n.Type == null || n.Type.IndexOf("quantix", StringComparison.OrdinalIgnoreCase) < 0) continue;
+
+                bool ignorado = dto.Ignorados.Exists(
+                    u => string.Equals(u, n.Uid, StringComparison.OrdinalIgnoreCase));
+                if (ignorado) continue;
+
+                bool presente = dto.Nodos.Exists(
+                    x => x != null && string.Equals(x.Uid, n.Uid, StringComparison.OrdinalIgnoreCase));
+                if (presente) continue;
+
+                // Cantidad de motores según el announcement (el firmware
+                // Quantix2Motors reporta 2); default 2 si no vino.
+                int motores = n.Motors > 0 ? n.Motors : 2;
+                var arr = new QxMotorConfigDto[motores];
+                for (int i = 0; i < motores; i++)
+                    arr[i] = new QxMotorConfigDto { Nombre = "Motor " + (i + 1) };
+
+                dto.Nodos.Add(new QxNodoConfigDto
+                {
+                    Uid = n.Uid,
+                    Nombre = "Nodo QuantiX " + n.Uid,
+                    Habilitado = true,
+                    Motores = arr
+                });
+            }
         }
 
         // Implementos de doble tren son lo más común — sembramos esa configuración

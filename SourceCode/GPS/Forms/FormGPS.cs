@@ -711,27 +711,9 @@ namespace AgOpenGPS
             catch { }
             // SECTIONX_MOD_END
 
-            // QUANTIX_MOD_START — Bridge de motores al inicio (no espera campo abierto).
-            try
-            {
-                if (quantiXBridge == null)
-                {
-                    var motCfg = MotoresConfig.Load();
-                    if (motCfg.Nodos.Count > 0)
-                    {
-                        Console.WriteLine("[QuantiX] " + motCfg.Nodos.Count + " nodo(s) configurados, iniciando bridge...");
-                        quantiXBridge = new QuantiXMotorBridge(new AgroParallel.Adapters.FormGpsStateProvider(this), new AgroParallel.Services.PrescripcionService());
-                        _ = quantiXBridge.StartAsync();
-                    }
-                }
-                // Visibilidad de la leyenda QX se fuerza al final de
-                // InitShapefileLegend (que se llama después de este bloque).
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("[QuantiX] Error iniciando bridge: " + ex.Message);
-            }
-            // QUANTIX_MOD_END
+            // QUANTIX_MOD: el bridge de motores arranca DESPUÉS del bloque
+            // AGROPARALLEL_WEB_UI (fin de FormGPS_Load) porque necesita el
+            // NodoRegistry que crea AgpWebHostBootstrap.EnsureStarted.
 
             // FLOWX_MOD_START — Bridge de bomba pulverizadora al inicio.
             // Solo arranca si flowX.json tiene Enabled=true y al menos un nodo.
@@ -934,6 +916,33 @@ namespace AgOpenGPS
                 System.Diagnostics.Debug.WriteLine("[AgroParallel] WebHost autostart: " + ex.Message);
             }
             // AGROPARALLEL_WEB_UI_END
+
+            // QUANTIX_MOD_START — Bridge de motores al inicio (no espera campo
+            // abierto). Va después de EnsureStarted porque publica por la
+            // conexión MQTT del NodoRegistry (Bootstrap.Nodos).
+            try
+            {
+                if (quantiXBridge == null)
+                {
+                    var motCfg = MotoresConfig.Load();
+                    if (motCfg.Nodos.Count > 0)
+                    {
+                        Console.WriteLine("[QuantiX] " + motCfg.Nodos.Count + " nodo(s) configurados, iniciando bridge...");
+                        quantiXBridge = new QuantiXMotorBridge(
+                            new AgroParallel.Adapters.FormGpsStateProvider(this),
+                            global::AgroParallel.Shell.AgpWebHostBootstrap.Nodos,
+                            new AgroParallel.Services.PrescripcionService());
+                        _ = quantiXBridge.StartAsync();
+                    }
+                }
+                // Visibilidad de la leyenda QX se fuerza al final de
+                // InitShapefileLegend (que se llama después de este bloque).
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[QuantiX] Error iniciando bridge: " + ex.Message);
+            }
+            // QUANTIX_MOD_END
         }
 
         #region Shutdown Handling
@@ -3966,7 +3975,10 @@ namespace AgOpenGPS
                 // No depende de Enabled del sender UDP.
                 if (quantiXBridge == null)
                 {
-                    quantiXBridge = new QuantiXMotorBridge(new AgroParallel.Adapters.FormGpsStateProvider(this), new AgroParallel.Services.PrescripcionService());
+                    quantiXBridge = new QuantiXMotorBridge(
+                        new AgroParallel.Adapters.FormGpsStateProvider(this),
+                        global::AgroParallel.Shell.AgpWebHostBootstrap.Nodos,
+                        new AgroParallel.Services.PrescripcionService());
                     _ = quantiXBridge.StartAsync();
                 }
 

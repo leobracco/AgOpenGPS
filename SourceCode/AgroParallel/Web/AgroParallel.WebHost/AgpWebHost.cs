@@ -75,6 +75,7 @@ namespace AgroParallel.WebHost
         private CancellationTokenSource _cts;
         private TelemetryHub _telemetry;
         private DebugHub _debugHub;
+        private QuantiXLiveHub _quantixHub;
         private MdnsResponder _mdns;
         // Coordinador único de OTA hacia nodos ESP32 (todos los productos X-*).
         // Reusa la conexión MQTT del NodoRegistryService; sin él los endpoints
@@ -189,6 +190,7 @@ namespace AgroParallel.WebHost
 
             _telemetry = new TelemetryHub(_state);
             _debugHub = _debug != null ? new DebugHub(_debug) : null;
+            _quantixHub = _nodos != null ? new QuantiXLiveHub(_nodos) : null;
 
             // OTA coordinator: necesita el registry MQTT vivo. Si no hay
             // registry, los endpoints de OTA quedan en service-unavailable y
@@ -206,6 +208,7 @@ namespace AgroParallel.WebHost
                 .WithModule(_telemetry);
 
             if (_debugHub != null) _server = _server.WithModule(_debugHub);
+            if (_quantixHub != null) _server = _server.WithModule(_quantixHub);
 
             _server = _server.WithWebApi("/api", m =>
             {
@@ -276,6 +279,7 @@ namespace AgroParallel.WebHost
             _ = _server.RunAsync(_cts.Token);
             _telemetry.Start();
             _debugHub?.Start();
+            _quantixHub?.Start();
             _vistaxLive?.Start();
             _flowxLive?.Start();
             _stormxLive?.Start();
@@ -300,6 +304,7 @@ namespace AgroParallel.WebHost
             try { _flowxLive?.Stop(); } catch { }
             try { _stormxLive?.Stop(); } catch { }
             try { _linexLive?.Stop(); } catch { }
+            try { _quantixHub?.Stop(); } catch { }
             try { _debugHub?.Stop(); } catch { }
             try { _telemetry?.Stop(); } catch { }
             try { _otaCoord?.Dispose(); _otaCoord = null; } catch { }

@@ -1,7 +1,7 @@
 // ============================================================================
 // quantix.js — UI completa del módulo QuantiX.
 // Tabs:
-//   Monitor    → /api/quantix/live (2 Hz)
+//   Monitor    → WS /ws/quantix (push) con fallback a /api/quantix/live (poll)
 //   Motores    → /api/quantix/motores GET/PUT + POST /{uid}/send
 //   PID live   → POST /{uid}/cmd?verb=config con {configs:[...]} para tune en vivo
 //   Calibrar   → POST /{uid}/cmd?verb=calibrar para start/stop, lee pulsos de live
@@ -745,32 +745,39 @@
       : 'toc\xe1 un surco para pintarlo con el motor activo';
   }
 
+  // Aplica un payload live {ok, count, nodos} — mismo shape por WS y por HTTP,
+  // así el push y el fallback comparten este único camino de procesamiento.
+  function applyLive(data) {
+    var nodos = (data && data.nodos) || [];
+    if (statusEl) {
+      statusEl.className = 'pill ' + (nodos.length > 0 ? 'ok' : 'warn');
+      statusEl.innerHTML = '<span class="dot"></span> ' + nodos.length + ' nodo' + (nodos.length !== 1 ? 's' : '') + ' QuantiX';
+    }
+    // Mantener cache para Calibración (necesita pulsos)
+    for (var i = 0; i < nodos.length; i++) {
+      var n = nodos[i];
+      var uid = n.uid;
+      var motors = n.motors_live || [];
+      state.liveByUid[uid] = { online: !!n.online, motors: motors };
+    }
+    if (state.activeTab === 'calibrar') updateCalibrarPulses();
+    if (state.activeTab === 'pid')      updatePidLive();
+    if (state.activeTab === 'prueba')   updatePruebaLive();
+    // Siembra se re-renderiza con el estado AOG cacheado; el fetch de
+    // /api/aog/state lo hace el loop de polling (1 vez por período, no
+    // por cada push WS).
+    if (state.activeTab === 'siembra') {
+      computeEnMarcha();
+      applyMarchaChrome();
+      renderSiembra();
+    }
+  }
+
   async function pollLive() {
     try {
       var res = await fetch('/api/quantix/live', { cache: 'no-store' });
       var data = await res.json();
-      var nodos = (data && data.nodos) || [];
-      if (statusEl) {
-        statusEl.className = 'pill ' + (nodos.length > 0 ? 'ok' : 'warn');
-        statusEl.innerHTML = '<span class="dot"></span> ' + nodos.length + ' nodo' + (nodos.length !== 1 ? 's' : '') + ' QuantiX';
-      }
-      // Mantener cache para Calibración (necesita pulsos)
-      for (var i = 0; i < nodos.length; i++) {
-        var n = nodos[i];
-        var uid = n.uid;
-        var motors = n.motors_live || [];
-        state.liveByUid[uid] = { online: !!n.online, motors: motors };
-      }
-      // Si estoy en Calibrar, refrescá pulsos
-      if (state.activeTab === 'calibrar') updateCalibrarPulses();
-      if (state.activeTab === 'pid')      updatePidLive();
-      if (state.activeTab === 'prueba')   updatePruebaLive();
-      if (state.activeTab === 'siembra') {
-        await refreshAogLiveState();
-        computeEnMarcha();
-        applyMarchaChrome();
-        renderSiembra();
-      }
+      applyLive(data);
     } catch (e) {
       if (statusEl) {
         statusEl.className = 'pill err';
@@ -2192,29 +2199,65 @@
   loadAogSections();
   loadImplCentral();
 
-  // Polling adaptativo:
-  //   · tabs "live" (monitor/pid/calibrar/prueba) → 500ms (tiempo real)
-  //   · tabs "config" (motores/shape) → 2000ms (solo refresca pill de "X nodos")
-  //   · pestaña del WebView no visible → pausa total
-  // Bajamos la presión sobre el WebHost cuando el operario está configurando
-  // sin perder el feel real-time cuando mira telemetría.
+  // Transporte live:
+  //   · WS /ws/quantix → push en tiempo real (el server manda solo cuando cambia).
+  //   · Fallback HTTP: si el WS no abre / se cae, polling adaptativo:
+  //       tabs "live" (monitor/pid/calibrar/prueba) → 500ms
+  //       tabs "config" (motores/shape) → 2000ms (solo pill de "X nodos")
+  //   · El estado AOG (/api/aog/state para la tab Siembra) se sigue refrescando
+  //     por polling aunque el WS esté abierto — no viaja por /ws/quantix.
+  //   · Pestaña del WebView no visible → pausa total (WS cerrado + sin polls).
   var LIVE_TABS = { siembra: 1, pid: 1, calibrar: 1, prueba: 1 };
   var pollTimer = null;
+  var liveWs = null;
+  var liveWsOpen = false;
+
+  function connectLiveWs() {
+    if (liveWs || document.hidden || !('WebSocket' in window)) return;
+    try {
+      var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var ws = new WebSocket(proto + '//' + location.host + '/ws/quantix');
+      liveWs = ws;
+      ws.onopen = function () { liveWsOpen = true; };
+      ws.onmessage = function (ev) {
+        try { applyLive(JSON.parse(ev.data)); } catch (_) {}
+      };
+      ws.onclose = ws.onerror = function () {
+        if (liveWs === ws) { liveWs = null; liveWsOpen = false; }
+        try { ws.close(); } catch (_) {}
+        // Reintento en 5s (si la pestaña sigue visible). Mientras tanto,
+        // el loop de polling cubre el live por HTTP.
+        if (!document.hidden) setTimeout(connectLiveWs, 5000);
+      };
+    } catch (_) { liveWs = null; liveWsOpen = false; }
+  }
+
   function schedulePoll() {
     if (pollTimer) clearTimeout(pollTimer);
     if (document.hidden) { pollTimer = null; return; }
     var period = LIVE_TABS[state.activeTab] ? 500 : 2000;
-    pollTimer = setTimeout(function () { pollLive().finally(schedulePoll); }, period);
+    pollTimer = setTimeout(async function () {
+      // Con WS abierto, el live viene por push; solo falta el estado AOG
+      // que consume la tab Siembra.
+      try {
+        if (!liveWsOpen) await pollLive();
+        else if (state.activeTab === 'siembra') await refreshAogLiveState();
+      } catch (_) {}
+      schedulePoll();
+    }, period);
   }
-  // pollLive es async; envolvemos por compatibilidad con .finally().
+
   (async function bootPoll() {
+    connectLiveWs();
     try { await pollLive(); } catch (_) {}
     schedulePoll();
   })();
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
       if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+      if (liveWs) { try { liveWs.close(); } catch (_) {} liveWs = null; liveWsOpen = false; }
     } else {
+      connectLiveWs();
       schedulePoll();
     }
   });

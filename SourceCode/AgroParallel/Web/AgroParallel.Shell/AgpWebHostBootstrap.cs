@@ -48,6 +48,10 @@ namespace AgroParallel.Shell
         // OrbitXSync en caliente cuando el operario activa/vincula desde la UI.
         public static IOrbitXConfigService OrbitXConfigSvc { get { lock (s_lock) return s_orbitxCfg; } }
 
+        // Registry MQTT compartido: QuantiXMotorBridge (FormGPS) publica sus
+        // targets por esta conexión en vez de abrir un IMqttClient propio.
+        public static INodoRegistryService Nodos { get { lock (s_lock) return s_nodos; } }
+
         /// <summary>
         /// Idempotente: si ya hay host corriendo, no hace nada.
         /// Lo invocan FormGPS_Load (arranque temprano) y el Hub WebView2 (defensive).
