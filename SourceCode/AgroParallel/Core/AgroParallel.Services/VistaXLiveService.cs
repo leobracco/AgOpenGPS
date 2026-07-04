@@ -86,6 +86,18 @@ namespace AgroParallel.Services
             public double Spm;
             public string Uid;
             public int Cable;
+            // Acumulador monotónico del firmware (campo "acum", v2.8.0+). Si el
+            // payload lo trae, SPM se deriva de acá (dv/dt) — con flujo estable
+            // la derivada sobre "valor" (tasa puntual) colapsa a ≈0.
+            // La derivada se calcula sobre una VENTANA de ≥1 s (no tick a tick):
+            // "acum" es entero, y a 4 Hz el delta por tick es tan chico (8-9
+            // pulsos a 35 pps) que la cuantización mete ±12% de ruido → falsas
+            // alarmas bajo/exceso. Con ventana de 1 s el error cae a ~±3%.
+            public double WinAcum;      // acum al inicio de la ventana
+            public DateTime WinTs;      // inicio de la ventana
+            public bool HasAcum;
+            // true si el sensor reporta modo "state" (on/off): SPM no aplica.
+            public bool IsState;
         }
 
         // Nodos VistaX vistos en MQTT (uid → última telemetría)
@@ -188,6 +200,13 @@ namespace AgroParallel.Services
                     ? jc.GetInt32() : 0;
                 double valor = s.TryGetProperty("valor", out var jv) && jv.ValueKind == JsonValueKind.Number
                     ? jv.GetDouble() : 0.0;
+                // "acum": acumulador monotónico de pulsos (firmware v2.8.0+).
+                bool hasAcum = s.TryGetProperty("acum", out var ja) && ja.ValueKind == JsonValueKind.Number;
+                double acum = hasAcum ? ja.GetDouble() : 0.0;
+                // "modo":"state" → sensor on/off (bajada/tolva/presión): SPM no aplica.
+                bool isState = s.TryGetProperty("modo", out var jm) &&
+                    jm.ValueKind == JsonValueKind.String &&
+                    string.Equals(jm.GetString(), "state", StringComparison.OrdinalIgnoreCase);
                 string key = uid + "#" + cable;
                 lock (_lock)
                 {
@@ -200,17 +219,57 @@ namespace AgroParallel.Services
                     r.PrevTs = r.LastTs;
                     r.LastValor = valor;
                     r.LastTs = now;
-                    // SPM = derivada temporal escalada a /min, si tenemos prev.
-                    if (r.PrevTs != default(DateTime))
+                    r.IsState = isState;
+
+                    if (isState)
                     {
+                        // On/off: no hay "pulsos por minuto" que derivar.
+                        r.Spm = 0;
+                    }
+                    else if (hasAcum)
+                    {
+                        // SPM = derivada del ACUMULADOR (estable con flujo constante).
+                        // El firmware manda "valor" como tasa puntual (pps) y "acum"
+                        // como contador monotónico: derivar sobre valor colapsa a ≈0
+                        // apenas el flujo se estabiliza. Ventana ≥1 s (ver Reading).
+                        if (!r.HasAcum || r.WinTs == default(DateTime))
+                        {
+                            r.WinTs = now;
+                            r.WinAcum = acum;
+                            r.Spm = valor * 60.0; // primer sample: tasa puntual
+                        }
+                        else
+                        {
+                            double dv = acum - r.WinAcum;
+                            if (dv < 0)
+                            {
+                                // Reboot del nodo (acum arranca de 0): reiniciar la
+                                // ventana y mantener el SPM anterior este tick.
+                                r.WinTs = now;
+                                r.WinAcum = acum;
+                            }
+                            else
+                            {
+                                double dt = (now - r.WinTs).TotalSeconds;
+                                if (dt >= 1.0)
+                                {
+                                    r.Spm = dv / dt * 60.0;
+                                    r.WinTs = now;
+                                    r.WinAcum = acum;
+                                }
+                                // dt < 1 s: ventana en curso, mantener SPM anterior.
+                            }
+                        }
+                        r.HasAcum = true;
+                    }
+                    else if (r.PrevTs != default(DateTime))
+                    {
+                        // Legacy sin "acum": heurística histórica sobre "valor".
                         double dt = (now - r.PrevTs).TotalSeconds;
                         if (dt > 0.01)
                         {
                             double dv = r.LastValor - r.PrevValor;
-                            // El payload típico ya viene como "sem/m" o lecturas
-                            // crudas. Para SPM aproximamos: valor * 60 si parece tasa,
-                            // o derivada si parece acumulador. Heurística simple:
-                            // si el "valor" actual ≥ "prev", lo tratamos como acumulador.
+                            // valor*60 si parece tasa, derivada si parece acumulador.
                             if (dv >= 0 && r.PrevValor > 0)
                                 r.Spm = dv / dt * 60.0;
                             else
@@ -361,6 +420,9 @@ namespace AgroParallel.Services
                         surco.SeccionCortada = seccionOff;
 
                         bool stale = r == null || (now - r.LastTs).TotalMilliseconds > timeoutMs;
+                        bool esState = VistaXSensorTypes.IsState(sc.Tipo);
+                        bool esSiembra = string.Equals(sc.Tipo, VistaXSensorTypes.Semilla, StringComparison.OrdinalIgnoreCase) ||
+                                         string.Equals(sc.Tipo, VistaXSensorTypes.Fertilizante, StringComparison.OrdinalIgnoreCase);
                         if (seccionOff)
                         {
                             // Prioridad por encima de mute/no-data: el operario decidió
@@ -376,6 +438,30 @@ namespace AgroParallel.Services
                         else if (stale)
                         {
                             surco.Estado = "no-data";
+                        }
+                        else if (esState)
+                        {
+                            // Sensores on/off (bajada/tolva/presión/final de carrera):
+                            // los umbrales de densidad NO aplican. La única alarma
+                            // productiva es tolva vacía (valor=1 → sin insumo).
+                            if (string.Equals(sc.Tipo, VistaXSensorTypes.TolvaVacia, StringComparison.OrdinalIgnoreCase) &&
+                                surco.Valor >= 0.5)
+                            {
+                                surco.Estado = "alerta";
+                                surco.Alerta = true;
+                            }
+                            else
+                            {
+                                surco.Estado = "ok";
+                            }
+                        }
+                        else if (!esSiembra && sc.Objetivo <= 0)
+                        {
+                            // Pulse no-siembra (turbina/rotación) SIN objetivo propio:
+                            // informativo — el objetivo del tren es densidad de siembra
+                            // y compararlo contra RPM genera falsas alarmas. Con
+                            // sc.Objetivo > 0 (setpoint del operario) sí se evalúa abajo.
+                            surco.Estado = "ok";
                         }
                         else
                         {
@@ -497,8 +583,13 @@ namespace AgroParallel.Services
                     {
                         if (s.Estado == "muted" || s.Estado == "no-data" || s.Estado == "seccion-off") continue;
                         activos++;
-                        if (s.Estado == "tapado" || s.Estado == "bajo") fallas++;
-                        if (s.Spm > 0) { sumSpm += s.Spm; sumN++; }
+                        // "alerta" = tolva vacía (sensor state): cuenta como falla productiva.
+                        if (s.Estado == "tapado" || s.Estado == "bajo" || s.Estado == "alerta") fallas++;
+                        // SPM promedio: solo sensores de siembra/fertilización — meter
+                        // RPM de turbina o rotación de eje distorsiona la media.
+                        bool esSiembraStat = string.Equals(s.Tipo, VistaXSensorTypes.Semilla, StringComparison.OrdinalIgnoreCase) ||
+                                             string.Equals(s.Tipo, VistaXSensorTypes.Fertilizante, StringComparison.OrdinalIgnoreCase);
+                        if (esSiembraStat && s.Spm > 0) { sumSpm += s.Spm; sumN++; }
                     }
                 }
                 snap.SurcosActivos = activos;

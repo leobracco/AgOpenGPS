@@ -463,6 +463,7 @@ namespace AgroParallel.Services
                         Ip = n.Ip,
                         Firmware = n.Firmware,
                         Motors = n.Motors,
+                        Cables = n.Cables,
                         Uptime = n.Uptime,
                         LastSeenUtc = n.LastSeenUtc,
                         Online = n.Online,
@@ -633,6 +634,10 @@ namespace AgroParallel.Services
                     string ip = ExtractJson(payload, "ip");
                     string fw = ExtractJson(payload, "fw");
                     int motors = ExtractJsonInt(payload, "motors");
+                    // Capacidad de cables/entradas declarada por el nodo (VistaX
+                    // y similares). El nodo es la fuente de verdad de cuántos
+                    // sensores admite — la PC no hardcodea ese límite.
+                    int cables = ExtractJsonInt(payload, "cables");
                     long uptime = ExtractJsonLong(payload, "uptime");
                     string bootReason = ExtractJson(payload, "boot_reason");
                     // Tanda 2: safe_mode + crash_count reportados por firmwares con AgpSafeMode.
@@ -644,6 +649,7 @@ namespace AgroParallel.Services
                     if (!string.IsNullOrEmpty(ip) && n.Ip != ip) { n.Ip = ip; changed = true; }
                     if (!string.IsNullOrEmpty(fw) && n.Firmware != fw) { n.Firmware = fw; changed = true; }
                     if (motors > 0 && n.Motors != motors) { n.Motors = motors; changed = true; }
+                    if (cables > 0 && n.Cables != cables) { n.Cables = cables; changed = true; }
                     if (uptime > 0 && n.Uptime != uptime) { n.Uptime = uptime; changed = true; }
                     if (!string.IsNullOrEmpty(bootReason) && n.BootReason != bootReason)
                     {

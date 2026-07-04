@@ -27,6 +27,12 @@ namespace AgroParallel.Models
         /// <summary>Cantidad de motores (sólo QuantiX), 0 si no aplica.</summary>
         public int Motors { get; set; }
 
+        /// <summary>Capacidad de cables/entradas que el nodo declara en su
+        /// announcement (VistaX y similares). 0 si el firmware no lo reporta.
+        /// La UI usa esto para saber cuántos sensores admite cada nodo sin
+        /// hardcodear el límite en la PC.</summary>
+        public int Cables { get; set; }
+
         /// <summary>Uptime del nodo en segundos al momento del announcement.</summary>
         public long Uptime { get; set; }
 
