@@ -7,6 +7,7 @@
 // Endpoints:
 //   GET  /api/widget-quantix/state               → snapshot UI-ready
 //   POST /api/widget-quantix/manual              → setea manual_mode/manual_dosis
+//   POST /api/widget-quantix/manual-all          → manual global (todos los motores)
 //
 // La selección de nodo (paginador) la maneja el frontend (localStorage); el
 // backend expone TODOS los nodos QuantiX configurados y deja que la UI elija
@@ -108,11 +109,12 @@ namespace AgroParallel.WebHost.Controllers
 
                         // Real: inversa pps→kg/ha usando live del nodo.
                         double ppsReal = 0;
+                        int rpm = 0;
                         if (live != null && live.MotorsLive != null)
                         {
                             foreach (var ml in live.MotorsLive)
                             {
-                                if (ml.Id == mi) { ppsReal = ml.PpsReal; break; }
+                                if (ml.Id == mi) { ppsReal = ml.PpsReal; rpm = ml.Rpm; break; }
                             }
                         }
                         // Inversa pps→dosis según la unidad del motor (un motor es
@@ -147,6 +149,7 @@ namespace AgroParallel.WebHost.Controllers
                             unidad = esSem ? "sem_m" : "kg_ha",
                             objetivo,
                             real,
+                            rpm,
                             activo
                         });
                     }
@@ -224,6 +227,62 @@ namespace AgroParallel.WebHost.Controllers
                 manual_mode = motor.ManualMode,
                 manual_dosis = motor.ManualDosis
             });
+        }
+
+        // Manual GLOBAL: aplica MAN/AUTO (y opcionalmente dosis) a TODOS los
+        // motores de TODOS los nodos habilitados. La dosis global solo tiene
+        // sentido si todos los motores comparten unidad (kg_ha o sem_m) — esa
+        // regla la aplica el frontend deshabilitando el stepper; acá si viene
+        // dosis > 0 se aplica pareja a todos.
+        // Body: { "manual": true, "dosis": 35.5 }   (dosis opcional, 0 = no tocar)
+        [Route(HttpVerbs.Post, "/widget-quantix/manual-all")]
+        public async Task PostManualAll()
+        {
+            ManualAllReq req;
+            try { req = await ReadJsonBodyAsync<ManualAllReq>().ConfigureAwait(false); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
+            if (req == null) { await WriteJsonAsync(new { ok = false, error = "body-required" }); return; }
+
+            MotoresConfig mc;
+            try { mc = MotoresConfig.Load(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "load: " + ex.Message }); return; }
+            if (mc == null || mc.Nodos == null) { await WriteJsonAsync(new { ok = false, error = "no-config" }); return; }
+
+            int afectados = 0;
+            foreach (var nodo in mc.Nodos)
+            {
+                if (nodo == null || !nodo.Habilitado || nodo.Motores == null) continue;
+                int motCount = nodo.Motores.Length;
+                for (int mi = 0; mi < motCount && mi < 2; mi++)
+                {
+                    var motor = nodo.Motores[mi];
+                    if (motor == null) continue;
+                    motor.ManualMode = req.Manual;
+                    if (req.Manual)
+                    {
+                        if (req.Dosis > 0)
+                            motor.ManualDosis = req.Dosis;
+                        else if (motor.ManualDosis <= 0)
+                            // Sin dosis explícita: inicializar con la fija
+                            // configurada (misma semántica que el toggle
+                            // por motor del frontend).
+                            motor.ManualDosis = motor.DosisFija;
+                    }
+                    // AUTO no borra ManualDosis (persiste para el próximo MAN).
+                    afectados++;
+                }
+            }
+
+            try { mc.Save(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "save: " + ex.Message }); return; }
+
+            await WriteJsonAsync(new { ok = true, manual_mode = req.Manual, afectados });
+        }
+
+        private sealed class ManualAllReq
+        {
+            public bool Manual { get; set; }
+            public double Dosis { get; set; }
         }
 
         private sealed class ManualReq

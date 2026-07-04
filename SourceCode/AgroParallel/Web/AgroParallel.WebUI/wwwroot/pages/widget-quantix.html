@@ -2,265 +2,484 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=220, initial-scale=1" />
   <title>QuantiX · widget</title>
-  <link rel="stylesheet" href="../theme.css" />
-  <link rel="stylesheet" href="../keyboard.css" />
   <style>
-    /* El widget es un overlay sobre el OpenGL de PilotX — sin chrome de página.
-       Body transparente para que el form WinForms pueda darle bordes/arrastre. */
+    /* Widget overlay 220x240 sobre el OpenGL de PilotX — sin chrome de página.
+       Ajuste compacto: conserva estructura, IDs y comportamiento esperado del widget. */
+    :root {
+      --bg-panel: #121b24;
+      --bg-card: #17232f;
+      --bg-soft: #1d2a36;
+      --border: rgba(255,255,255,.10);
+      --text-main: #f4f7f9;
+      --text-muted: #91a2ae;
+      --green: #28d17c;
+      --amber: #ffb84d;
+      --red: #ff5b5b;
+      --idle: #5c6b76;
+      --brand: #4ABA3E;
+      --brand-2: #7ad364;
+    }
+
+    * { box-sizing: border-box; }
+
     html, body {
-      margin: 0; padding: 0; height: 100%;
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
       background: transparent;
-      color: var(--agp-text);
-      font-family: var(--agp-font, system-ui, sans-serif);
+      color: var(--text-main);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
     }
 
-    .widget {
-      width: 100%; height: 100%; box-sizing: border-box;
-      background: rgba(22, 24, 26, 0.92);
-      border: 1px solid var(--agp-border-strong);
-      border-radius: 10px;
-      padding: 8px 10px;
-      display: flex; flex-direction: column; gap: 6px;
-      backdrop-filter: blur(4px);
+    .quantix-widget {
+      width: 100%; height: 100%;
+      border-radius: 14px;
+      background: rgba(18, 27, 36, .96);
+      border: 1px solid rgba(255,255,255,.11);
+      overflow: hidden;
+      display: flex; flex-direction: column;
     }
 
-    .hdr {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 6px; font-size: 13px; font-weight: 600;
+    /* ---- Top: nodo + dosis principal + control global AUTO/MAN ---- */
+    /* Alto automático: el box .mode (tabs 20px + botones 24px, tocables con
+       guante) define la altura; un height fijo lo clipearía. */
+    .top {
+      flex: none;
+      padding: 6px 7px;
+      display: flex; justify-content: space-between; gap: 6px;
+      border-bottom: 1px solid var(--border);
+      min-width: 0;
     }
-    .hdr .title { color: var(--agp-text); }
-    .hdr .pager { display: flex; gap: 4px; align-items: center; }
-    .hdr .pager button {
-      width: 22px; height: 22px; border-radius: 4px;
-      background: var(--agp-surface-2); border: 1px solid var(--agp-border);
-      color: var(--agp-text); cursor: pointer; font-size: 13px; line-height: 1;
-      padding: 0;
-    }
-    .hdr .pager button:disabled { opacity: 0.35; cursor: default; }
-    .hdr .pager .idx { color: var(--agp-text-muted); font-size: 12px; min-width: 32px; text-align: center; }
 
-    .online-dot {
-      width: 8px; height: 8px; border-radius: 999px;
-      background: var(--agp-state-idle);
-      display: inline-block; margin-right: 4px;
+    .top > div:first-child {
+      min-width: 0;
+      flex: 1 1 auto;
     }
-    .online-dot.on { background: var(--agp-state-ok); }
+
+    .crop {
+      display: flex; align-items: center; gap: 5px;
+      height: 18px; padding: 0 6px; max-width: 106px;
+      border-radius: 999px;
+      background: #0e161e; border: 1px solid var(--border);
+      font-size: 9px; font-weight: 900;
+      white-space: nowrap; overflow: hidden;
+    }
+
+    .crop .nm { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+    .dot {
+      width: 7px; height: 7px; border-radius: 50%; flex: none;
+      background: var(--idle);
+    }
+
+    .dot.on { background: var(--brand); box-shadow: 0 0 10px rgba(74,186,62,.8); }
+
+    .dose {
+      margin-top: 4px;
+      font-size: 17px; line-height: 1; font-weight: 950;
+      letter-spacing: -.7px;
+      white-space: nowrap;
+      max-width: 116px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .dose small {
+      color: var(--text-muted);
+      font-size: 7px; font-weight: 800; margin-left: 1px;
+    }
+
+    .mode {
+      width: 94px; flex: 0 0 94px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 3px;
+      overflow: hidden;
+    }
+
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+
+    .mode .tabs button {
+      border: 0; height: 20px; border-radius: 7px;
+      background: transparent; color: var(--text-muted);
+      font-size: 8px; font-weight: 900; padding: 0; cursor: pointer;
+      font-family: inherit;
+    }
+
+    .mode .tabs button.active {
+      color: #081008;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+    }
+
+    .manual {
+      margin-top: 3px;
+      display: grid; grid-template-columns: 28px 1fr 28px; gap: 3px;
+      opacity: .45;
+    }
+
+    .manual.enabled { opacity: 1; }
+
+    .manual button, .manual div {
+      height: 24px; border-radius: 7px;
+      background: #0d151d; border: 1px solid var(--border);
+      color: var(--text-main);
+      font-size: 8px; font-weight: 900;
+      display: grid; place-items: center;
+      overflow: hidden; white-space: nowrap;
+      min-width: 0;
+    }
+
+    .manual button {
+      background: #263545; border: 0; cursor: pointer;
+      font-size: 17px; line-height: 1; font-weight: 950;
+      font-family: inherit; padding: 0;
+    }
+
+    .manual div {
+      cursor: pointer;
+      text-overflow: ellipsis;
+      padding: 0 2px;
+    }
+
+    /* ---- Summary: motores / objetivo / real ---- */
+    .summary {
+      height: 34px; flex: none;
+      padding: 5px 7px;
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sum {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 4px;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .sum-label {
+      color: var(--text-muted);
+      font-size: 6.4px; font-weight: 900;
+      text-transform: uppercase; letter-spacing: .2px; line-height: 1;
+    }
+
+    .sum-val {
+      margin-top: 3px;
+      font-size: 10px; font-weight: 950; line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ---- Lista de motores (todos los nodos, scrollea si hay >3) ---- */
+    .motors {
+      flex: 1; min-height: 0;
+      padding: 4px 7px;
+      display: flex; flex-direction: column; gap: 4px;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+
+    .motors::-webkit-scrollbar { display: none; }
 
     .motor {
-      background: var(--agp-surface);
-      border: 1px solid var(--agp-border);
-      border-radius: 6px;
-      padding: 6px 8px;
-      display: flex; flex-direction: column; gap: 4px;
+      height: 32px; flex: none;
+      display: grid; grid-template-columns: 24px minmax(0, 1fr) 34px;
+      gap: 5px; align-items: center;
+      padding: 4px 5px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      position: relative; overflow: hidden;
+      cursor: pointer;
+      min-width: 0;
     }
-    .motor.activo { border-color: var(--agp-accent); }
 
-    .motor .row1 {
+    .motor::before {
+      content: "";
+      position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+      background: var(--status);
+    }
+
+    .id {
+      width: 20px; height: 20px; border-radius: 7px;
+      background: var(--status); color: #07100a;
+      display: grid; place-items: center;
+      font-size: 10px; font-weight: 950;
+    }
+
+    .m-title {
+      display: flex; justify-content: space-between; gap: 4px;
+      align-items: center;
+      font-size: 8.5px; font-weight: 900; line-height: 1;
+      white-space: nowrap; overflow: hidden;
+      min-width: 0;
+    }
+
+    .m-title .n { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+    .state {
+      color: var(--status);
+      font-size: 6px; text-transform: uppercase;
+      letter-spacing: .15px; font-weight: 950; white-space: nowrap;
+      flex: none;
+    }
+
+    .bar {
+      margin-top: 3px; height: 4px; border-radius: 99px;
+      background: #0b1219; overflow: hidden;
+    }
+
+    .fill {
+      height: 100%; width: var(--bar);
+      border-radius: inherit; background: var(--status);
+    }
+
+    .data {
+      margin-top: 3px;
+      display: flex; gap: 4px;
+      color: var(--text-muted);
+      font-size: 6.3px; font-weight: 800; line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .data span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .data b { color: var(--text-main); font-size: 6.8px; }
+
+    .var {
+      color: var(--status); text-align: right;
+      font-size: 8.8px; font-weight: 950; line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .var small {
+      display: block; color: var(--text-muted);
+      font-size: 5.8px; text-transform: uppercase; margin-top: 2px;
+    }
+
+    /* ---- Footer: modo + leyenda ---- */
+    .footer {
+      height: 27px; flex: none;
+      padding: 4px 7px;
+      border-top: 1px solid var(--border);
       display: flex; justify-content: space-between; align-items: center;
-      gap: 6px;
+      background: rgba(0,0,0,.13);
+      gap: 5px;
     }
-    .motor .nombre {
-      font-size: 12px; color: var(--agp-text); font-weight: 600;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      max-width: 110px;
-    }
-    .motor .obj {
-      font-size: 11px; color: var(--agp-text-muted);
-      font-family: var(--agp-font-mono, monospace);
-    }
-    .motor .obj b { color: var(--agp-text); font-weight: 600; }
 
-    .motor .row2 {
-      display: flex; align-items: center; gap: 4px;
+    .badge {
+      height: 18px; padding: 0 7px; border-radius: 999px;
+      display: inline-flex; align-items: center;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      color: #081008;
+      font-size: 8px; font-weight: 950; letter-spacing: .25px;
+      white-space: nowrap;
+      flex: none;
     }
-    .btn-man {
-      padding: 3px 8px; border-radius: 4px; cursor: pointer;
-      font-size: 11px; font-weight: 600;
-      background: var(--agp-surface-2); border: 1px solid var(--agp-border);
-      color: var(--agp-text-muted);
-      min-width: 44px; text-align: center;
-    }
-    .btn-man.manual {
-      background: var(--agp-accent); border-color: var(--agp-accent);
-      color: #0e1612;
-    }
-    .dose-wrap {
-      flex: 1; display: flex; align-items: center; gap: 2px;
-    }
-    .dose-input {
-      flex: 1; min-width: 0; box-sizing: border-box;
-      padding: 3px 6px; border-radius: 4px;
-      background: var(--agp-surface-2);
-      border: 1px solid var(--agp-border);
-      color: var(--agp-text);
-      font-family: var(--agp-font-mono, monospace);
-      font-size: 13px; text-align: right;
-    }
-    .dose-input:disabled {
-      opacity: 0.5; cursor: not-allowed;
-    }
-    .dose-step {
-      width: 22px; height: 24px; padding: 0;
-      background: var(--agp-surface-2); border: 1px solid var(--agp-border);
-      color: var(--agp-text); border-radius: 4px;
-      font-size: 12px; cursor: pointer;
-    }
-    .dose-step:disabled { opacity: 0.3; cursor: not-allowed; }
 
-    /* Modal de confirmación */
-    .modal-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.55);
-      display: none;
-      align-items: center; justify-content: center;
-      z-index: 50;
+    .badge.mix { background: var(--amber); }
+    .badge.auto { background: var(--bg-soft); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .legend {
+      display: flex; gap: 5px;
+      color: var(--text-muted); font-size: 6.5px; font-weight: 900;
+      overflow: hidden;
+      white-space: nowrap;
     }
-    .modal-backdrop.show { display: flex; }
-    .modal {
-      background: var(--agp-surface);
-      border: 1px solid var(--agp-border-strong);
-      border-radius: 8px;
-      padding: 16px;
-      max-width: 240px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    }
-    .modal h2 { font-size: 14px; margin: 0 0 6px 0; color: var(--agp-text); }
-    .modal p { font-size: 12px; margin: 0 0 12px 0; color: var(--agp-text-muted); }
-    .modal .actions { display: flex; gap: 6px; justify-content: flex-end; }
-    .modal .btn {
-      padding: 6px 12px; border-radius: 4px; cursor: pointer;
-      font-size: 12px; font-weight: 600; border: 1px solid var(--agp-border);
-      background: var(--agp-surface-2); color: var(--agp-text);
-    }
-    .modal .btn.primary {
-      background: var(--agp-accent); border-color: var(--agp-accent); color: #0e1612;
+
+    .legend span { display: flex; align-items: center; gap: 2px; }
+    .legend i {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--c); display: block; flex: none;
     }
 
     .empty {
       flex: 1; display: flex; align-items: center; justify-content: center;
-      color: var(--agp-text-muted); font-size: 12px; text-align: center;
+      color: var(--text-muted); font-size: 10px; text-align: center;
       padding: 10px;
     }
 
-    /* Keypad in-widget: el WebView2 mide 220x240, así que el teclado global
-       no entra. Hacemos un keypad propio que ocupa toda la card del widget. */
+    /* ---- Modal de confirmación / acciones ---- */
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 50;
+    }
+
+    .modal-backdrop.show { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      width: 178px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .modal h2 { font-size: 12px; margin: 0 0 5px 0; font-weight: 900; }
+    .modal p { font-size: 10px; margin: 0 0 9px 0; color: var(--text-muted); }
+
+    .modal .actions { display: flex; flex-direction: column; gap: 5px; }
+
+    .modal .btn {
+      padding: 7px 10px; border-radius: 8px; cursor: pointer;
+      font-size: 11px; font-weight: 900; border: 1px solid var(--border);
+      background: var(--bg-soft); color: var(--text-main);
+      font-family: inherit;
+    }
+
+    .modal .btn.primary {
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      border-color: transparent; color: #081008;
+    }
+
+    .modal .btn[hidden] { display: none; }
+
+    /* ---- Keypad in-widget (el teclado global taparía los 240px) ---- */
     .keypad-backdrop {
       position: fixed; inset: 0;
-      background: rgba(8, 10, 12, 0.96);
+      background: rgba(8, 10, 12, 0.97);
       display: none; flex-direction: column;
       z-index: 100;
       padding: 6px;
-      box-sizing: border-box;
     }
+
     .keypad-backdrop.show { display: flex; }
-    .keypad-head {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 4px; margin-bottom: 4px;
-    }
+
     .keypad-title {
-      font-size: 11px; color: var(--agp-text-muted);
+      font-size: 10px; color: var(--text-muted); font-weight: 800;
+      margin-bottom: 4px;
       overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
     }
+
     .keypad-display {
-      background: var(--agp-surface);
-      border: 1px solid var(--agp-border-strong);
-      border-radius: 4px;
-      padding: 6px 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 8px;
       margin-bottom: 4px;
-      font-family: var(--agp-font-mono, monospace);
-      font-size: 22px;
-      color: var(--agp-text); text-align: right;
-      min-height: 30px; line-height: 1;
+      font-size: 21px; font-weight: 950;
+      text-align: right;
+      min-height: 29px; line-height: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
+
     .keypad-grid {
       flex: 1;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       grid-auto-rows: 1fr;
       gap: 3px;
+      min-height: 0;
     }
-    .keypad-grid .kp {
-      background: var(--agp-surface-2);
-      border: 1px solid var(--agp-border);
-      color: var(--agp-text);
-      border-radius: 4px;
-      font-size: 18px; font-weight: 600;
+
+    .keypad-grid .kp, .keypad-actions .kp {
+      background: var(--bg-soft);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      border-radius: 8px;
+      font-size: 16px; font-weight: 900;
       cursor: pointer; padding: 0;
       touch-action: manipulation;
+      font-family: inherit;
     }
-    .keypad-grid .kp:active { background: var(--agp-surface-3, #2b2f33); }
-    .keypad-grid .kp.del { color: #E15A5A; }
+
+    .keypad-grid .kp:active { background: #263545; }
+    .keypad-grid .kp.del { color: var(--red); }
+
     .keypad-actions {
       display: grid; grid-template-columns: 1fr 1fr; gap: 3px; margin-top: 3px;
     }
-    .keypad-actions .kp {
-      background: var(--agp-surface-2);
-      border: 1px solid var(--agp-border);
-      color: var(--agp-text);
-      border-radius: 4px;
-      font-size: 13px; font-weight: 700;
-      cursor: pointer; padding: 8px 0;
-      touch-action: manipulation;
-    }
-    .keypad-actions .kp.ok {
-      background: var(--agp-accent);
-      border-color: var(--agp-accent);
-      color: #0e1612;
-    }
 
-    /* La "dosis" ya no es un <input>: es un botón-display read-only para
-       que keyboard.js no se autoabra. */
-    .dose-display {
-      flex: 1; min-width: 0; box-sizing: border-box;
-      padding: 3px 6px; border-radius: 4px;
-      background: var(--agp-surface-2);
-      border: 1px solid var(--agp-border);
-      color: var(--agp-text);
-      font-family: var(--agp-font-mono, monospace);
-      font-size: 13px; text-align: right;
-      cursor: pointer;
-      line-height: 18px; min-height: 18px;
+    .keypad-actions .kp { font-size: 12px; padding: 7px 0; }
+    .keypad-actions .kp.ok {
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      border-color: transparent; color: #081008;
     }
-    .dose-display.disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
-  <div class="widget" id="widget">
-    <div class="hdr">
-      <div class="title">
-        <span class="online-dot" id="onlineDot"></span>
-        <span id="nodoNombre">QuantiX</span>
+  <aside class="quantix-widget">
+    <div class="top">
+      <div>
+        <div class="crop"><span class="dot" id="onlineDot"></span><span class="nm" id="nodoNombre">QuantiX</span></div>
+        <div class="dose"><span id="mainDose">—</span><small id="mainUnit"></small></div>
       </div>
-      <div class="pager">
-        <button id="btnPrev" type="button">‹</button>
-        <span class="idx" id="pagerIdx">—</span>
-        <button id="btnNext" type="button">›</button>
+      <div class="mode">
+        <div class="tabs">
+          <button id="autoBtn" type="button">AUTO</button>
+          <button id="manualBtn" type="button">MAN</button>
+        </div>
+        <div class="manual" id="manualCtl">
+          <button id="gDn" type="button">−</button>
+          <div id="gDose" role="button" tabindex="0">—</div>
+          <button id="gUp" type="button">+</button>
+        </div>
       </div>
     </div>
-    <div id="motoresWrap"></div>
+
+    <div class="summary">
+      <div class="sum">
+        <div class="sum-label">Mot</div>
+        <div class="sum-val" id="motorCount">0</div>
+      </div>
+      <div class="sum">
+        <div class="sum-label">Obj</div>
+        <div class="sum-val" id="targetDose">—</div>
+      </div>
+      <div class="sum">
+        <div class="sum-label">Real</div>
+        <div class="sum-val" id="realAverage">—</div>
+      </div>
+    </div>
+
+    <div class="motors" id="motorList"></div>
     <div class="empty" id="emptyMsg" hidden>Sin nodos QuantiX configurados.</div>
-  </div>
+
+    <div class="footer">
+      <span class="badge auto" id="modeText">AUTO</span>
+      <div class="legend">
+        <span><i style="--c:var(--green)"></i>OK</span>
+        <span><i style="--c:var(--amber)"></i>BAJA</span>
+        <span><i style="--c:var(--red)"></i>ALTA</span>
+      </div>
+    </div>
+  </aside>
 
   <div class="modal-backdrop" id="modalBackdrop">
     <div class="modal">
       <h2 id="modalTitle">Cambiar modo</h2>
       <p id="modalMsg">¿Pasar a MANUAL?</p>
       <div class="actions">
-        <button class="btn" id="modalCancel" type="button">Cancelar</button>
         <button class="btn primary" id="modalOk" type="button">Confirmar</button>
+        <button class="btn" id="modalAlt" type="button" hidden>Editar dosis</button>
+        <button class="btn" id="modalCancel" type="button">Cancelar</button>
       </div>
     </div>
   </div>
 
   <div class="keypad-backdrop" id="keypadBackdrop">
-    <div class="keypad-head">
-      <span class="keypad-title" id="keypadTitle">Dosis</span>
-    </div>
+    <div class="keypad-title" id="keypadTitle">Dosis</div>
     <div class="keypad-display" id="keypadDisplay">0</div>
     <div class="keypad-grid" id="keypadGrid">
       <button class="kp" type="button" data-k="7">7</button>
