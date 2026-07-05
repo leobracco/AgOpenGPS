@@ -107,31 +107,44 @@ def sensor_cfg(uid, cable, tipo, bajada, nombre, tren=1):
     }
 
 
-def build_topologia():
+def build_topologia(surcos=14, fert=False):
     """Devuelve (mapeo, nodos). mapeo = lista VistaXSensorConfigDto;
-    nodos = [{uid, cables:[{cable, tipo, pps|estado}]}] para el loop live."""
+    nodos = [{uid, cables:[{cable, tipo, pps|estado}]}] para el loop live.
+    surcos = cantidad de surcos de semilla; se reparten de a 7 por nodo
+    (capacidad de cables del firmware real). fert=True agrega un tren 2 de
+    fertilizante con la misma cantidad de surcos (una fila más en el strip)."""
     mapeo = []
     nodos = []
 
-    # --- VX-SIM01: semilla surcos 1..7 (7/7 cables) ---
-    uid1 = SIM_PREFIX + "01"
-    cables1 = []
-    for c in range(1, 8):
-        mapeo.append(sensor_cfg(uid1, c, "semilla", c, "Surco %d" % c))
-        cables1.append({"cable": c, "tipo": "semilla", "pps": PPS_SEMILLA})
-    nodos.append({"uid": uid1, "cables": cables1})
+    def agregar_tren(tipo, tren, desde_nodo):
+        """Reparte `surcos` sensores de `tipo` en nodos de 7 cables.
+        Devuelve la cantidad de nodos usados."""
+        n_nodos = (surcos + CABLES_POR_NODO - 1) // CABLES_POR_NODO
+        surco = 0
+        for ni in range(n_nodos):
+            uid = "%s%02d" % (SIM_PREFIX, desde_nodo + ni)
+            cables = []
+            for c in range(1, CABLES_POR_NODO + 1):
+                if surco >= surcos:
+                    break
+                surco += 1
+                nombre = ("Surco %d" if tipo == "semilla" else "Ferti %d") % surco
+                cfg = sensor_cfg(uid, c, tipo, surco, nombre, tren=tren)
+                cfg["surco_desde"] = surco
+                cfg["surco_hasta"] = surco
+                mapeo.append(cfg)
+                cables.append({"cable": c, "tipo": tipo, "pps": PPS_SEMILLA})
+            nodos.append({"uid": uid, "cables": cables})
+        return n_nodos
 
-    # --- VX-SIM02: semilla surcos 8..14 (7/7 cables) ---
-    uid2 = SIM_PREFIX + "02"
-    cables2 = []
-    for c in range(1, 8):
-        surco = 7 + c
-        mapeo.append(sensor_cfg(uid2, c, "semilla", surco, "Surco %d" % surco))
-        cables2.append({"cable": c, "tipo": "semilla", "pps": PPS_SEMILLA})
-    nodos.append({"uid": uid2, "cables": cables2})
+    # --- Tren 1: semilla (VX-SIM01, VX-SIM02, ...) ---
+    usados = agregar_tren("semilla", 1, 1)
+    # --- Tren 2 (opcional): fertilizante ---
+    if fert:
+        usados += agregar_tren("fertilizante", 2, usados + 1)
 
-    # --- VX-SIM03: bajada + rotación + turbina + tolvas (5/7 cables) ---
-    uid3 = SIM_PREFIX + "03"
+    # --- Último nodo: bajada + rotación + turbina + tolvas (5/7 cables) ---
+    uid3 = "%s%02d" % (SIM_PREFIX, usados + 1)
     cables3 = []
     mapeo.append(sensor_cfg(uid3, 1, "bajada_herramienta", 0, "Bajada herramienta"))
     cables3.append({"cable": 1, "tipo": "bajada_herramienta", "estado": 1})
@@ -148,7 +161,7 @@ def build_topologia():
     return mapeo, nodos
 
 
-def aplicar_config(base, agregar):
+def aplicar_config(base, agregar, surcos=14, fert=False):
     url = base.rstrip("/") + "/api/vistax/implemento"
     actual = http_get_json(url)
     # GET /api/vistax/implemento envuelve el DTO; tolerar ambas formas.
@@ -166,7 +179,7 @@ def aplicar_config(base, agregar):
     except OSError as e:
         print("Aviso: no se pudo escribir backup (%s)" % e)
 
-    mapeo_sim, nodos = build_topologia()
+    mapeo_sim, nodos = build_topologia(surcos, fert)
     mapeo_actual = imp.get("mapeo_sensores") or []
     reales = [s for s in mapeo_actual
               if not str(s.get("uid", "")).startswith(SIM_PREFIX)]
@@ -181,6 +194,8 @@ def aplicar_config(base, agregar):
     setup = imp.get("setup") or {}
     objetivos = setup.get("objetivos_tren") or {}
     objetivos["1"] = round(PPS_SEMILLA * 60.0)
+    if fert:
+        objetivos["2"] = round(PPS_SEMILLA * 60.0)
     setup["objetivos_tren"] = objetivos
     # Tolerancia de desvío 15%: sin esto queda 0 y CUALQUIER desvío del ruido
     # simulado (±7%) pinta bajo/exceso en vez de ok.
@@ -404,6 +419,10 @@ def main():
                     help="quita los sensores simulados (VX-SIM*) y sale")
     ap.add_argument("--live", action="store_true",
                     help="publica telemetría MQTT en vivo (nodos online + flujo)")
+    ap.add_argument("--surcos", type=int, default=14, metavar="N",
+                    help="cantidad de surcos de semilla a simular (default 14; se reparten de a 7 por nodo)")
+    ap.add_argument("--fert", action="store_true",
+                    help="agrega un tren 2 de fertilizante con la misma cantidad de surcos")
     ap.add_argument("--falla", type=int, default=0, metavar="N",
                     help="simula N surcos de semilla tapados (flujo 0)")
     ap.add_argument("--tolva-vacia", action="store_true",
@@ -418,7 +437,7 @@ def main():
         limpiar_config(args.base)
         return
 
-    nodos = aplicar_config(args.base, args.agregar)
+    nodos = aplicar_config(args.base, args.agregar, max(1, args.surcos), args.fert)
     if nodos is None:
         sys.exit(1)
 
