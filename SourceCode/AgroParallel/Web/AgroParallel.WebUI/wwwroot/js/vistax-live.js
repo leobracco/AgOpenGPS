@@ -65,6 +65,9 @@
     if (!monActivo)                     cls = 's-no-data';
     else if (estado === 'seccion-off')  cls = 's-seccion-off';
     else if (muted)                     cls = 's-muted';
+    // no-data CON alerta = monitoreo activo y el sensor de siembra no
+    // reporta telemetría (nodo caído / no cae semilla) → falla en rojo.
+    else if (estado === 'no-data' && s.alerta) cls = 's-tapado';
     else                                cls = classFromEstado(estado);
     var tipo   = tipoOf(s);
     var uid    = s.uid || '';

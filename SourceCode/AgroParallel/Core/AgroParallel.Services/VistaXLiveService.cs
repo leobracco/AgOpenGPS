@@ -461,6 +461,15 @@ namespace AgroParallel.Services
                         else if (stale)
                         {
                             surco.Estado = "no-data";
+                            // Monitoreo activo + sensor de siembra sin telemetría =
+                            // falla productiva (nodo caído / cable cortado / no cae
+                            // semilla). Espejo de EvaluarAlarmasPorTimeout del
+                            // SeedMonitor nativo: "no llegan datos" mientras se
+                            // siembra ES una alarma, no un gris neutro.
+                            if (_siembra.Activo && esSiembra)
+                            {
+                                surco.Alerta = true;
+                            }
                         }
                         else if (esState)
                         {
@@ -604,6 +613,14 @@ namespace AgroParallel.Services
                 {
                     foreach (var s in tl.Surcos)
                     {
+                        if (s.Estado == "no-data" && s.Alerta)
+                        {
+                            // no-data CON alerta (monitoreo activo, sensor de siembra
+                            // sin telemetría) = falla productiva. No suma a "activos"
+                            // porque no está reportando, pero sí a "fallas".
+                            fallas++;
+                            continue;
+                        }
                         if (s.Estado == "muted" || s.Estado == "no-data" || s.Estado == "seccion-off") continue;
                         activos++;
                         // "alerta" = tolva vacía (sensor state): cuenta como falla productiva.
