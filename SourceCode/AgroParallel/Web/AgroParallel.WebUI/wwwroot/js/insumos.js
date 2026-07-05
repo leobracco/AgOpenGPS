@@ -223,7 +223,7 @@
 
   async function save() {
     var nombre = ($('fNombre').value || '').trim();
-    if (!nombre) { alert('Falta el nombre del insumo.'); return; }
+    if (!nombre) { await AgpModal.alert('Insumos', 'Falta el nombre del insumo.'); return; }
 
     var items = state.catalogo.items || (state.catalogo.items = []);
     var editId = state.editando;
@@ -257,7 +257,7 @@
 
   async function eliminar() {
     if (!state.editando) return;
-    if (!confirm('¿Eliminar este insumo del catálogo?')) return;
+    if (!await AgpModal.confirm('Eliminar insumo', '¿Eliminar este insumo del catálogo?')) return;
     state.catalogo.items = (state.catalogo.items || []).filter(function (x) {
       return x.id !== state.editando;
     });

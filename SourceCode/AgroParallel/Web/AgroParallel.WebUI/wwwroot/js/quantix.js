@@ -580,12 +580,12 @@
   // Borra un motor de su nodo (lista plana). Sus surcos quedan huérfanos (gris)
   // y se pueden reasignar pintándolos. El pincel se reajusta para no apuntar a
   // un índice inexistente. Persiste recién al tocar Guardar.
-  function deleteMotor(flatIdx) {
+  async function deleteMotor(flatIdx) {
     var all = allMotors();
     var entry = all[flatIdx];
     if (!entry || !entry.nodo) return;
     var nombre = (entry.motor && entry.motor.nombre) || ('Motor ' + (flatIdx + 1));
-    if (!confirm('\u00BFBorrar ' + nombre + '? Sus surcos quedan sin motor.')) return;
+    if (!await AgpModal.confirm('Borrar motor', '\u00BFBorrar ' + nombre + '? Sus surcos quedan sin motor.')) return;
     var ms = entry.nodo.motores || [];
     ms.splice(entry.motorIdx, 1);
     var n = allMotors().length;
@@ -832,7 +832,7 @@
     var msg = $('mtMsg');
     var huerfanos = surcosHuerfanos();
     if (huerfanos.length > 0) {
-      if (!confirm('Hay ' + huerfanos.length + ' surco' + (huerfanos.length !== 1 ? 's' : '') +
+      if (!await AgpModal.confirm('Surcos sin motor', 'Hay ' + huerfanos.length + ' surco' + (huerfanos.length !== 1 ? 's' : '') +
         ' sin motor asignado (' + huerfanos.join(', ') + '). ¿Guardar igual?')) {
         if (msg) msg.textContent = 'Guardado cancelado.';
         return;
@@ -1224,7 +1224,7 @@
     var kp = parseFloat(result.kp).toFixed(1);
     var ki = parseFloat(result.ki).toFixed(1);
     var kd = parseFloat(result.kd).toFixed(1);
-    var apply = confirm('Auto-Tune completado:\n\nKp = ' + kp + '\nKi = ' + ki + '\nKd = ' + kd + '\n\n¿Aplicar estos valores?');
+    var apply = await AgpModal.confirm('Auto-Tune completado', 'Kp = ' + kp + '\nKi = ' + ki + '\nKd = ' + kd + '\n\n¿Aplicar estos valores?');
     if (!apply) {
       msgEl.textContent = 'Resultado descartado (Kp=' + kp + ' Ki=' + ki + ' Kd=' + kd + ')';
       msgEl.className = 'send-msg';
@@ -2143,7 +2143,7 @@
   }
 
   async function shapeRemove() {
-    if (!confirm('¿Quitar la capa de shapefile activa del lote?')) return;
+    if (!await AgpModal.confirm('Quitar capa', '¿Quitar la capa de shapefile activa del lote?')) return;
     shapeSetMsg('', 'Quitando…');
     try {
       var r = await fetch('/api/aog/shape', { method: 'DELETE' });

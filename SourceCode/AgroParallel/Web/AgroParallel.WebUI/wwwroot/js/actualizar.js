@@ -164,7 +164,7 @@
   }
 
   btnApply.addEventListener('click', async () => {
-    if (!confirm('La aplicación se va a cerrar para aplicar la actualización. ¿Continuar?')) return;
+    if (!await AgpModal.confirm('Aplicar actualización', 'La aplicación se va a cerrar para aplicar la actualización. ¿Continuar?')) return;
     btnApply.disabled = true;
     try {
       await agpApi.post('pilotx/update/apply');

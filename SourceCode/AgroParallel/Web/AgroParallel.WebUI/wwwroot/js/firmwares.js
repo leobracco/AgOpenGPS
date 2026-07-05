@@ -107,17 +107,17 @@
 
   async function onDelete(prod, ver) {
     if (!prod || !ver) return;
-    if (!confirm('¿Borrar ' + prod + ' ' + ver + ' del cache local?\n\nEl .bin se elimina del disco. Los nodos ya actualizados no se ven afectados.')) return;
+    if (!await AgpModal.confirm('Borrar firmware', '¿Borrar ' + prod + ' ' + ver + ' del cache local?\n\nEl .bin se elimina del disco. Los nodos ya actualizados no se ven afectados.')) return;
     try {
       const r = await fetch('/api/firmwares/' + encodeURIComponent(prod) + '/' + encodeURIComponent(ver), {
         method: 'DELETE'
       });
       const data = await r.json();
       if (!data.ok) {
-        alert('No se pudo borrar: ' + (data.error || 'desconocido'));
+        await AgpModal.alert('Borrar firmware', 'No se pudo borrar: ' + (data.error || 'desconocido'));
       }
     } catch (e) {
-      alert('Error: ' + (e.message || e));
+      await AgpModal.alert('Borrar firmware', 'Error: ' + (e.message || e));
     }
     refresh();
   }

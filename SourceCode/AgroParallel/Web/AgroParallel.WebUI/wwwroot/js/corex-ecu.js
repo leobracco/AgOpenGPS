@@ -404,13 +404,16 @@
   }
 
   function rebootEcu() {
-    if (!confirm('¿Reiniciar el CoreX-ECU? El autosteer se interrumpe ~3-5 segundos.')) return;
-    fetch('/api/corex-ecu/reboot', { method: 'POST' })
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        alert(j && j.ok ? 'Reinicio solicitado.' : 'No se pudo reiniciar.');
-      })
-      .catch(function (e) { alert('Error: ' + e); });
+    AgpModal.confirm('Reiniciar CoreX-ECU', '¿Reiniciar el CoreX-ECU? El autosteer se interrumpe ~3-5 segundos.')
+      .then(function (ok) {
+        if (!ok) return;
+        fetch('/api/corex-ecu/reboot', { method: 'POST' })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            AgpModal.alert('CoreX-ECU', j && j.ok ? 'Reinicio solicitado.' : 'No se pudo reiniciar.');
+          })
+          .catch(function (e) { AgpModal.alert('CoreX-ECU', 'Error: ' + e); });
+      });
   }
 
   // -------- Conexión / config persistida ----------------------------------
@@ -854,7 +857,7 @@
   }
 
   async function cancelSweep() {
-    if (!confirm('¿Cancelar el barrido en curso? El motor se frena de inmediato.')) return;
+    if (!await AgpModal.confirm('Cancelar barrido', '¿Cancelar el barrido en curso? El motor se frena de inmediato.')) return;
     try {
       var r = await fetch('/api/corex-ecu/calibration/pwm-sweep', { method: 'DELETE' });
       var j = await r.json();
@@ -924,10 +927,13 @@
       $('fwFlashMsg').textContent = 'No se puede actualizar con el guiado activo.';
       return;
     }
-    if (!window.confirm('¿Actualizar el CoreX-ECU a la versión ' + version +
-        '?\n\nLa unidad se va a reiniciar. No la apagues durante el proceso.')) {
-      return;
-    }
+    AgpModal.confirm('Actualizar firmware',
+        '¿Actualizar el CoreX-ECU a la versión ' + version +
+        '?\n\nLa unidad se va a reiniciar. No la apagues durante el proceso.')
+      .then(function (ok) { if (ok) doFlash(version, sel); });
+  }
+
+  function doFlash(version, sel) {
     flashing = true;
     $('btnFlashFw').disabled = true;
     sel.disabled = true;

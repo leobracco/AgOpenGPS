@@ -275,14 +275,14 @@
       '</div>';
     var btn = document.getElementById('btnUnpair');
     if (btn) btn.addEventListener('click', async function () {
-      if (!confirm('¿Desvincular este tractor de OrbitX? El token actual se borra y vas a tener que volver a vincularlo desde el panel cloud.')) return;
+      if (!await AgpModal.confirm('Desvincular OrbitX', '¿Desvincular este tractor de OrbitX? El token actual se borra y vas a tener que volver a vincularlo desde el panel cloud.')) return;
       btn.disabled = true;
       try {
         await fetch('/api/orbitx/pair-reset', { method: 'POST' });
         lastShownCode = null;
         await pollPair();
       } catch (e) {
-        alert('Error: ' + e.message);
+        await AgpModal.alert('OrbitX', 'Error: ' + e.message);
         btn.disabled = false;
       }
     });

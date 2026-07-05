@@ -352,7 +352,7 @@
       if (!uid) return;
 
       if (act === 'aceptar') {
-        var alias = window.prompt('Alias humano para el nodo (ej: "Motor izquierdo"):', 'Nodo ' + uid);
+        var alias = await AgpModal.text('Aceptar nodo', 'Alias humano para el nodo (ej: "Motor izquierdo"):', 'Nodo ' + uid);
         if (alias == null) return;
         alias = alias.trim();
         if (!alias) return;
@@ -360,25 +360,25 @@
           setActiveTab('aceptado'); await refresh();
         }
       } else if (act === 'ignorar') {
-        if (!window.confirm('Ignorar este nodo? Dejará de aparecer en Pendientes.')) return;
+        if (!await AgpModal.confirm('Ignorar nodo', 'Ignorar este nodo? Dejará de aparecer en Pendientes.')) return;
         if (await postJson('/api/nodos/ignorar', { uid: uid })) await refresh();
       } else if (act === 'restaurar') {
         if (await postJson('/api/nodos/restaurar', { uid: uid })) await refresh();
       } else if (act === 'renombrar') {
         var actual = '';
         unified.some(function (n) { if (n.uid === uid) { actual = n.alias || ''; return true; } return false; });
-        var nuevo = window.prompt('Nuevo alias:', actual);
+        var nuevo = await AgpModal.text('Renombrar nodo', 'Nuevo alias:', actual);
         if (nuevo == null) return;
         nuevo = nuevo.trim();
         if (!nuevo) return;
         if (await postJson('/api/nodos/renombrar', { uid: uid, alias: nuevo })) await refresh();
       } else if (act === 'eliminar') {
-        if (!window.confirm('Eliminar este nodo de la configuración?\n\nUID: ' + uid + '\n\nSe pierde el alias. Si vuelve a anunciarse, aparecerá como Pendiente.')) return;
+        if (!await AgpModal.confirm('Eliminar nodo', 'Eliminar este nodo de la configuración?\n\nUID: ' + uid + '\n\nSe pierde el alias. Si vuelve a anunciarse, aparecerá como Pendiente.')) return;
         if (await deleteUid(uid)) await refresh();
       } else if (act === 'configurar') {
         var page = pageForTipo(tipo);
         if (page) window.location.href = page;
-        else window.alert('No hay página de configuración para este tipo de nodo todavía.');
+        else AgpModal.alert('Nodos', 'No hay página de configuración para este tipo de nodo todavía.');
       } else if (act === 'implemento') {
         // Toggle de pertenencia al implemento ACTIVO. Si pasa a desasignado y
         // estaba alarmado offline, despejamos su entrada para que no quede en

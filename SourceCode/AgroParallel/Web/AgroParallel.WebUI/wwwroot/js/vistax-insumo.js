@@ -82,7 +82,7 @@
       if (!imp) return;
       if (!imp.setup) imp.setup = {};
       var val = parseFloat($('vxMaxSensor').value);
-      if (!(val > 0 && val < 500)) { alert('Valor inválido.'); return; }
+      if (!(val > 0 && val < 500)) { await AgpModal.alert('VistaX', 'Valor inválido.'); return; }
       imp.setup.max_densidad_sensor = val;
       await fetch('/api/vistax/implemento', {
         method: 'PUT',
@@ -108,7 +108,7 @@
     var sel = $('vxInsumoSel');
     var id = sel ? sel.value : '';
     if (!id) {
-      alert('No hay insumo activo. Elegí uno antes de calibrar.');
+      await AgpModal.alert('Calibración', 'No hay insumo activo. Elegí uno antes de calibrar.');
       return;
     }
     try {
@@ -119,11 +119,11 @@
       });
       var res = await r.json();
       if (!res || res.ok === false) {
-        alert('No se pudo iniciar la calibración: ' + (res && res.error ? res.error : 'error'));
+        await AgpModal.alert('Calibración', 'No se pudo iniciar la calibración: ' + (res && res.error ? res.error : 'error'));
         return;
       }
     } catch (e) {
-      alert('Error al iniciar: ' + e);
+      await AgpModal.alert('Calibración', 'Error al iniciar: ' + e);
       return;
     }
     openModal(modo);
@@ -221,7 +221,7 @@
   async function applyCalib() {
     var input = $('vxCalibOverride');
     var val = parseFloat(input.value);
-    if (!(val > 0)) { alert('Valor inválido.'); return; }
+    if (!(val > 0)) { await AgpModal.alert('VistaX', 'Valor inválido.'); return; }
     try {
       var r = await fetch('/api/vistax/calibrar/apply', {
         method: 'POST',
@@ -230,10 +230,10 @@
       });
       var res = await r.json();
       if (!res || !res.ok) {
-        alert('No se pudo guardar: ' + (res && res.error ? res.error : 'error'));
+        await AgpModal.alert('Calibración', 'No se pudo guardar: ' + (res && res.error ? res.error : 'error'));
         return;
       }
-    } catch (e) { alert('Error: ' + e); return; }
+    } catch (e) { await AgpModal.alert('Calibración', 'Error: ' + e); return; }
     closeModal();
     await loadInsumos();
   }

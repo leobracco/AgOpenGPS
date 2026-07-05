@@ -191,8 +191,8 @@
   if (btnZoomIn)  btnZoomIn.addEventListener('click', function () { view.pxPerMeter = Math.min(200, view.pxPerMeter * 1.25); });
   if (btnZoomOut) btnZoomOut.addEventListener('click', function () { view.pxPerMeter = Math.max(2, view.pxPerMeter / 1.25); });
   if (btnCovReset) btnCovReset.addEventListener('click', function () {
-    if (!confirm('¿Borrar la cobertura pintada del mapa?')) return;
-    resetCoverage();
+    AgpModal.confirm('Borrar cobertura', '¿Borrar la cobertura pintada del mapa?')
+      .then(function (ok) { if (ok) resetCoverage(); });
   });
 
   // ---- dibujo ----

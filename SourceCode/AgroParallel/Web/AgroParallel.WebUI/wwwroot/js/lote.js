@@ -218,7 +218,7 @@
 
   async function closeLote() {
     if (state.busy || !state.current) return;
-    if (!confirm('¿Cerrar el lote "' + state.current + '"? Se guardan boundary, sections, contour y tracks.')) return;
+    if (!await AgpModal.confirm('Cerrar lote', '¿Cerrar el lote "' + state.current + '"? Se guardan boundary, sections, contour y tracks.')) return;
     state.busy = true;
     setMsg($('msgCur'), '… cerrando "' + state.current + '" …');
     renderCurrent();
@@ -240,7 +240,7 @@
     if (!clean) { setMsg($('msgNew'), '✕ Nombre inválido (sin caracteres especiales).', 'err'); return; }
     var dup = state.all.some(function (f) { return f.name && f.name.toLowerCase() === clean.toLowerCase(); });
     if (dup) {
-      if (!confirm('Ya existe un lote llamado "' + clean + '". ¿Querés abrirlo en lugar de crear?')) return;
+      if (!await AgpModal.confirm('Lote existente', 'Ya existe un lote llamado "' + clean + '". ¿Querés abrirlo en lugar de crear?')) return;
       return openLote(clean);
     }
     state.busy = true;

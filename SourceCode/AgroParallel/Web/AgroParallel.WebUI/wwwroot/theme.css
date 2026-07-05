@@ -357,3 +357,29 @@ body {
 *::-webkit-scrollbar-thumb:hover {
   background: #AEB8AE;
 }
+
+/* ── AgpModal (js/modal.js) ─────────────────────────────────────────────
+   Diálogo HTML compartido: reemplaza confirm/alert/prompt (muertos en
+   WebView2). Mismo look que los modales de flowx/herramienta. */
+.agp-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.55);
+  display: none; align-items: center; justify-content: center;
+  z-index: var(--agp-z-modal, 1000);
+}
+.agp-modal-backdrop.show { display: flex; }
+.agp-modal {
+  background: var(--agp-surface); border: 1px solid var(--agp-border-strong);
+  border-radius: 8px; padding: 18px; min-width: 320px; max-width: 480px;
+  box-shadow: var(--agp-shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.5));
+}
+.agp-modal h2 { font-size: 15px; margin: 0 0 8px 0; color: var(--agp-text); }
+.agp-modal .msg {
+  font-size: 13px; margin: 0 0 12px 0; color: var(--agp-text-muted);
+  white-space: pre-line;
+}
+.agp-modal input[type=text] {
+  width: 100%; padding: 8px; box-sizing: border-box; min-height: 44px;
+  background: var(--agp-surface-2); color: var(--agp-text);
+  border: 1px solid var(--agp-border); border-radius: 4px; font-size: 14px;
+}
+.agp-modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }

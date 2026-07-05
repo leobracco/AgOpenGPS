@@ -203,14 +203,14 @@
     var tipo = btn.getAttribute('data-tipo') || '';
     if (!uid) return;
     if (act === 'aceptar') {
-      var alias = window.prompt('Alias humano (ej: "Motor izquierdo"):', 'Nodo ' + uid);
+      var alias = await AgpModal.text('Aceptar nodo', 'Alias humano (ej: "Motor izquierdo"):', 'Nodo ' + uid);
       if (alias == null) return;
       alias = alias.trim();
       if (!alias) return;
       try { await postJson('/api/nodos/aceptar', { uid: uid, tipo: tipo, alias: alias }); } catch (e) {}
       pollUnified();
     } else if (act === 'ignorar') {
-      if (!window.confirm('Ignorar este nodo? No volverá a aparecer.')) return;
+      if (!await AgpModal.confirm('Ignorar nodo', 'Ignorar este nodo? No volverá a aparecer.')) return;
       try { await postJson('/api/nodos/ignorar', { uid: uid }); } catch (e) {}
       pollUnified();
     }

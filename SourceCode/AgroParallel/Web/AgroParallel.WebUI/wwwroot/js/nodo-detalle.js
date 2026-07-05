@@ -401,7 +401,7 @@
       toast('Ya hay un OTA en curso para este nodo', 'err');
       return;
     }
-    if (!window.confirm('Aplicar firmware v' + version + ' al nodo?\n\nEl nodo se va a reiniciar.')) return;
+    if (!await AgpModal.confirm('Actualizar firmware', 'Aplicar firmware v' + version + ' al nodo?\n\nEl nodo se va a reiniciar.')) return;
 
     try {
       var res = await postJson('/api/nodos/' + encodeURIComponent(UID) + '/ota', { version: version });
@@ -422,7 +422,7 @@
 
   async function dispararCmd(cmd) {
     if (!UID || !cmd) return;
-    if (requiereConfirm(cmd) && !window.confirm(confirmMsg(cmd))) return;
+    if (requiereConfirm(cmd) && !await AgpModal.confirm('Confirmar comando', confirmMsg(cmd))) return;
     try {
       var res = await postJson('/api/nodos/' + encodeURIComponent(UID) + '/cmd', { cmd: cmd });
       if (!res || !res.ok) {

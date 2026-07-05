@@ -388,7 +388,7 @@
         }
         if (v.warnings.length > 0) {
           var msg = '⚠️ ' + v.warnings.join('\n⚠️ ') + '\n\n¿Guardar igualmente?';
-          if (!window.confirm(msg)) {
+          if (!await AgpModal.confirm('Advertencias', msg)) {
             toast('Guardado cancelado', 'warn');
             return;
           }
