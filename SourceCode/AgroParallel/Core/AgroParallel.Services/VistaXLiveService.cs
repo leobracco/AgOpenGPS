@@ -59,19 +59,12 @@ namespace AgroParallel.Services
         // Si es null, todo se comporta como si todas las secciones estuvieran ON.
         private readonly ISectionControlService _sections;
 
-        // Estado del "estamos sembrando" con hysteresis: una vez activo, se mantiene
-        // hasta que la velocidad esté < 0.3 km/h por más de 10 s seguidos. Replica
-        // EvaluarInicio() del SeedMonitor para que el snapshot HTTP del Hub coincida
-        // con lo que ve el overlay nativo en FormGPS.
-        private bool _monitoreoActivo;
-        private DateTime _paradaDesde = DateTime.MinValue;
-        // Tracking del "sin pintar" en modo pintando: si AOG deja de pintar
-        // todas las secciones durante >2s, apagamos el monitor inmediatamente
-        // (sin esperar los 10s de la histeresis de velocidad). Pensado para
-        // que el monitor refleje el estado real del mapeo: si AOG no pinta,
-        // no estamos sembrando para fines de mapeo aunque el tractor siga
-        // andando rápido entre cabeceras.
-        private DateTime _sinPintarDesde = DateTime.MinValue;
+        // Estado del "estamos sembrando" — máquina COMPARTIDA con SeedMonitor
+        // (deuda D#1): mismas reglas de arranque por método, histéresis de
+        // parada (vel<0.3 por >10s) y apagado a 2s sin pintar. Así el snapshot
+        // HTTP del Hub coincide con lo que ve el overlay nativo en FormGPS.
+        private readonly AgroParallel.VistaX.SiembraStateMachine _siembra =
+            new AgroParallel.VistaX.SiembraStateMachine();
 
         private VistaXConfigDto _cfg;
         private VistaXImplementoDto _imp;
@@ -198,7 +191,7 @@ namespace AgroParallel.Services
 
         protected override void OnStop()
         {
-            lock (_lock) { _nodosVistos.Clear(); }
+            lock (_lock) { _nodosVistos.Clear(); _siembra.Reset(); }
             System.Diagnostics.Trace.WriteLine("[vistax] live service stopped");
         }
 
@@ -671,18 +664,20 @@ namespace AgroParallel.Services
             catch { return 0; }
         }
 
+        /// <summary>
+        /// Inicio/parada manual del monitoreo (método "manual" o stop del
+        /// operario). Mismo contrato que SeedMonitor.IniciarMonitoreoManual().
+        /// </summary>
+        public void ForzarMonitoreoManual(bool activo)
+        {
+            lock (_lock) _siembra.ForzarManual(activo);
+        }
+
         // Decide si "estamos sembrando" usando el snapshot recién armado.
-        // Debe llamarse adentro de _lock (lo está). Mantiene estado en
-        // _monitoreoActivo y _paradaDesde para histeresis equivalente a
-        // SeedMonitor.EvaluarInicio() (velocidad <0.3 km/h por >10 s → off).
-        //
-        // Branch por _cfg.MetodoInicio:
-        //   - "pintando": arranca cuando AOG pinta ≥1 sección + vel≥1 km/h.
-        //                 Para cuando deja de pintar o vel<0.3 sostenida 10s.
-        //   - "sensores" (o cualquier otro / default): arranca cuando hay
-        //                 ≥UmbralSensoresActivos surcos detectando caída de
-        //                 semilla (SPM>0.5) + vel≥1 km/h. Para con vel<0.3
-        //                 sostenida 10s. Es el comportamiento histórico.
+        // Debe llamarse adentro de _lock (lo está). La lógica vive en la
+        // SiembraStateMachine COMPARTIDA con SeedMonitor (D#1) — acá solo
+        // juntamos las lecturas (velocidad, secciones, sensores) y volcamos
+        // los contadores al snapshot para el pill "detenido" del widget.
         private bool EvaluarSembrando(VistaXLiveSnapshotDto snap, DateTime now)
         {
             if (_state == null)
@@ -690,129 +685,64 @@ namespace AgroParallel.Services
                 snap.MotivoDetenido = "Sin estado de PilotX (state provider null)";
                 return false;
             }
-            double vel = LeerVelocidadSegura();
 
             string metodo = (_cfg?.MetodoInicio ?? "sensores").Trim().ToLowerInvariant();
-            snap.MetodoInicio = metodo;
+            _siembra.Configurar(metodo,
+                _cfg?.UmbralSensoresActivos ?? 3,
+                _cfg?.TiempoConfirmacionMs ?? 500);
+            snap.MetodoInicio = _siembra.Metodo;
 
-            bool condicionArranque;
+            // Secciones pintando (fuente: ISectionControlService, si está).
             int seccionesPintando = 0;
+            bool seccionesDisponibles = _sections != null;
+            if (_sections != null)
+            {
+                try
+                {
+                    var secSnap = _sections.GetSnapshot();
+                    if (secSnap?.OnRequest != null)
+                    {
+                        for (int i = 0; i < secSnap.OnRequest.Length; i++)
+                            if (secSnap.OnRequest[i]) seccionesPintando++;
+                    }
+                }
+                catch { /* defensivo */ }
+            }
+
+            // Sensores de semilla con caída detectada (SPM>0.5, no muted).
             int sensoresArriba = 0;
-            int umbralCfg = 3;
-            double velMin;
-            string motivo = "";
-
-            if (metodo == "pintando")
+            if (snap.Trenes != null)
             {
-                velMin = 0.3;
-                if (_sections != null)
+                foreach (var t in snap.Trenes)
                 {
-                    try
+                    if (t?.Surcos == null) continue;
+                    foreach (var s in t.Surcos)
                     {
-                        var secSnap = _sections.GetSnapshot();
-                        if (secSnap?.OnRequest != null)
-                        {
-                            for (int i = 0; i < secSnap.OnRequest.Length; i++)
-                                if (secSnap.OnRequest[i]) seccionesPintando++;
-                        }
-                    }
-                    catch { /* defensivo */ }
-                }
-                else
-                {
-                    motivo = "Sin servicio de secciones (sections null)";
-                }
-                condicionArranque = seccionesPintando > 0 && vel >= velMin;
-                if (string.IsNullOrEmpty(motivo))
-                {
-                    if (seccionesPintando == 0)        motivo = "PilotX no está pintando ninguna sección";
-                    else if (vel < velMin)             motivo = "Velocidad " + vel.ToString("0.0") + " km/h < " + velMin.ToString("0.0");
-                }
-            }
-            else
-            {
-                velMin = 1.0;
-                try { if (_cfg != null && _cfg.UmbralSensoresActivos > 0) umbralCfg = _cfg.UmbralSensoresActivos; }
-                catch { }
-
-                if (snap.Trenes != null)
-                {
-                    foreach (var t in snap.Trenes)
-                    {
-                        if (t?.Surcos == null) continue;
-                        foreach (var s in t.Surcos)
-                        {
-                            if (s == null) continue;
-                            if (!string.Equals(s.Tipo, "semilla", StringComparison.OrdinalIgnoreCase)) continue;
-                            if (s.Muted) continue;
-                            if (s.Estado == "no-data" || s.Estado == "muted" || s.Estado == "seccion-off") continue;
-                            if (s.Spm > 0.5) sensoresArriba++;
-                        }
+                        if (s == null) continue;
+                        if (!string.Equals(s.Tipo, "semilla", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (s.Muted) continue;
+                        if (s.Estado == "no-data" || s.Estado == "muted" || s.Estado == "seccion-off") continue;
+                        if (s.Spm > 0.5) sensoresArriba++;
                     }
                 }
-
-                condicionArranque = vel >= velMin && sensoresArriba >= umbralCfg;
-                if (sensoresArriba < umbralCfg) motivo = "Solo " + sensoresArriba + " sensor(es) con SPM>0.5 (umbral " + umbralCfg + ")";
-                else if (vel < velMin)          motivo = "Velocidad " + vel.ToString("0.0") + " km/h < " + velMin.ToString("0.0");
             }
+
+            bool activo = _siembra.Evaluar(new AgroParallel.VistaX.SiembraEntrada
+            {
+                VelocidadKmh = LeerVelocidadSegura(),
+                SeccionesActivas = seccionesPintando,
+                SeccionesDisponibles = seccionesDisponibles,
+                SensoresActivos = sensoresArriba
+            }, now);
 
             // Volcamos los contadores al snapshot — el widget los muestra al
             // tocar el pill "detenido" para que el operario sepa qué falta.
             snap.SeccionesPintando = seccionesPintando;
             snap.SensoresArriba = sensoresArriba;
-            snap.UmbralSensores = umbralCfg;
-            snap.VelMinima = velMin;
-            snap.MotivoDetenido = motivo;
-
-            // Histeresis común a ambos modos: una vez activo, sigue activo
-            // hasta que vel<0.3 sostenida >10 s.
-            if (_monitoreoActivo)
-            {
-                if (vel < 0.3)
-                {
-                    if (_paradaDesde == DateTime.MinValue) _paradaDesde = now;
-                    else if ((now - _paradaDesde).TotalSeconds > 10) _monitoreoActivo = false;
-                }
-                else
-                {
-                    _paradaDesde = DateTime.MinValue;
-                }
-
-                // En modo "pintando": si AOG deja de pintar todas las
-                // secciones por >2s, apagamos el monitor sin esperar a la
-                // parada del tractor. Es la semántica que el operario espera:
-                // "no pinta → no estoy sembrando".
-                if (metodo == "pintando")
-                {
-                    if (seccionesPintando == 0)
-                    {
-                        if (_sinPintarDesde == DateTime.MinValue) _sinPintarDesde = now;
-                        else if ((now - _sinPintarDesde).TotalSeconds > 2)
-                        {
-                            _monitoreoActivo = false;
-                            _sinPintarDesde = DateTime.MinValue;
-                        }
-                    }
-                    else
-                    {
-                        _sinPintarDesde = DateTime.MinValue;
-                    }
-                }
-                else
-                {
-                    _sinPintarDesde = DateTime.MinValue;
-                }
-            }
-            else
-            {
-                if (condicionArranque)
-                {
-                    _monitoreoActivo = true;
-                    _paradaDesde = DateTime.MinValue;
-                    _sinPintarDesde = DateTime.MinValue;
-                }
-            }
-            return _monitoreoActivo;
+            snap.UmbralSensores = _siembra.UmbralSensores;
+            snap.VelMinima = _siembra.VelMinima;
+            snap.MotivoDetenido = _siembra.MotivoDetenido;
+            return activo;
         }
     }
 }

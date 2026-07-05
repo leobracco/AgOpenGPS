@@ -39,17 +39,18 @@ namespace AgroParallel.VistaX
         private DateTime _lastDataTime = DateTime.MinValue;
         private bool _isConnected;
         private bool _disposed;
-        private bool _monitoreoActivo;
+        // Estado "¿estamos sembrando?" — máquina COMPARTIDA con
+        // VistaXLiveService (D#1): mismas reglas de arranque por método,
+        // confirmación sostenida, histéresis de parada y apagado sin pintar.
+        private readonly SiembraStateMachine _siembra = new SiembraStateMachine();
         private MetodoInicioMonitoreo _metodoInicio;
-        private DateTime _confirmacionInicio = DateTime.MinValue;
-        private DateTime _paradaDesde = DateTime.MinValue;
 
         public event Action<SeedMonitorSnapshot> SnapshotUpdated;
         public event Action<string> AlarmTriggered;
 
         public bool IsRunning { get; private set; }
         public bool IsConnected { get { return _isConnected; } }
-        public bool MonitoreoActivo { get { return _monitoreoActivo; } }
+        public bool MonitoreoActivo { get { return _siembra.Activo; } }
 
         public SeedMonitor(IAogStateProvider state, VistaXConfig config)
         {
@@ -83,8 +84,11 @@ namespace AgroParallel.VistaX
             System.Diagnostics.Trace.WriteLine("[VistaX] Implemento: " + (_implemento.Nombre ?? "?")
                 + " | Sensores: " + _implemento.MapeoSensores.Count);
 
-            // Parsear método de inicio
-            _monitoreoActivo = false;
+            // Parsear método de inicio (el enum queda solo para el snapshot;
+            // las reglas viven en la SiembraStateMachine compartida).
+            _siembra.Reset();
+            _siembra.Configurar(_config.MetodoInicio,
+                _config.UmbralSensoresActivos, _config.TiempoConfirmacionMs);
             switch ((_config.MetodoInicio ?? "sensores").ToLowerInvariant())
             {
                 case "herramienta": _metodoInicio = MetodoInicioMonitoreo.Herramienta; break;
@@ -467,7 +471,7 @@ namespace AgroParallel.VistaX
                         // activar por pintado de secciones y que no caiga semilla.
                         // El umbral histórico de 1.5 km/h queda como fallback para
                         // cuando el monitor todavía no se declaró activo.
-                        if (!seccionCortada && (_monitoreoActivo || _velocidad > 1.5))
+                        if (!seccionCortada && (_siembra.Activo || _velocidad > 1.5))
                         {
                             // Evaluar contra el flujo total si es rango (el sensor
                             // no puede distinguir surcos individuales, pero sí
@@ -545,88 +549,35 @@ namespace AgroParallel.VistaX
 
         private void EvaluarInicio()
         {
-            // Auto-detener si la velocidad cae a 0 por más de 10s (parada).
-            if (_monitoreoActivo)
+            lock (_lock)
             {
-                lock (_lock)
+                // Juntar lecturas del ciclo — las reglas (arranque por método,
+                // confirmación sostenida, histéresis, apagado sin pintar)
+                // viven en la SiembraStateMachine compartida con el overlay.
+                int sensoresActivos = 0;
+                foreach (var s in _surcos.Values)
                 {
-                    if (_velocidad < 0.3)
-                    {
-                        if (_paradaDesde == DateTime.MinValue)
-                            _paradaDesde = DateTime.UtcNow;
-                        else if ((DateTime.UtcNow - _paradaDesde).TotalSeconds > 10)
-                            DetenerMonitoreo();
-                    }
-                    else
-                    {
-                        _paradaDesde = DateTime.MinValue;
-                    }
+                    if (s.Tipo == "semilla" && s.Valor > 0) sensoresActivos++;
                 }
-                return;
+
+                bool seccionesDisponibles = _seccionesT1.Count > 0 || _seccionesT2.Count > 0;
+                int seccionesActivas = _seccionesT1.Count(s => s == 1)
+                                     + _seccionesT2.Count(s => s == 1);
+
+                bool antes = _siembra.Activo;
+                bool ahora = _siembra.Evaluar(new SiembraEntrada
+                {
+                    VelocidadKmh = _velocidad,
+                    SeccionesActivas = seccionesActivas,
+                    SeccionesDisponibles = seccionesDisponibles,
+                    SensoresActivos = sensoresActivos
+                }, DateTime.UtcNow);
+
+                if (ahora && !antes)
+                    System.Diagnostics.Trace.WriteLine("[VistaX] MONITOREO INICIADO — " + _siembra.Metodo);
+                else if (!ahora && antes)
+                    System.Diagnostics.Trace.WriteLine("[VistaX] MONITOREO DETENIDO — " + _siembra.MotivoDetenido);
             }
-
-            switch (_metodoInicio)
-            {
-                case MetodoInicioMonitoreo.Sensores:
-                    lock (_lock)
-                    {
-                        int activos = 0;
-                        foreach (var s in _surcos.Values)
-                        {
-                            if (s.Tipo == "semilla" && s.Valor > 0) activos++;
-                        }
-                        int umbral = Math.Max(1, _config.UmbralSensoresActivos);
-                        if (activos >= umbral && _velocidad > 1.0)
-                        {
-                            if (_confirmacionInicio == DateTime.MinValue)
-                            {
-                                _confirmacionInicio = DateTime.UtcNow;
-                            }
-                            else if ((DateTime.UtcNow - _confirmacionInicio).TotalMilliseconds >= _config.TiempoConfirmacionMs)
-                            {
-                                IniciarMonitoreo("sensores (" + activos + " activos, vel=" + _velocidad.ToString("F1") + ")");
-                            }
-                        }
-                        else
-                        {
-                            _confirmacionInicio = DateTime.MinValue;
-                        }
-                    }
-                    break;
-
-                case MetodoInicioMonitoreo.Herramienta:
-                    lock (_lock)
-                    {
-                        bool bajada = _seccionesT1.Count > 0 || _seccionesT2.Count > 0;
-                        if (bajada)
-                        {
-                            bool algunaActiva = _seccionesT1.Any(s => s == 1) || _seccionesT2.Any(s => s == 1);
-                            if (algunaActiva)
-                                IniciarMonitoreo("herramienta bajada");
-                        }
-                    }
-                    break;
-
-                case MetodoInicioMonitoreo.Pintando:
-                    lock (_lock)
-                    {
-                        bool pintando = _seccionesT1.Any(s => s == 1) || _seccionesT2.Any(s => s == 1);
-                        if (pintando && _velocidad > 0.5)
-                            IniciarMonitoreo("pintando (secciones activas)");
-                    }
-                    break;
-
-                case MetodoInicioMonitoreo.Manual:
-                    // Se inicia externamente via IniciarMonitoreoManual()
-                    break;
-            }
-        }
-
-        private void IniciarMonitoreo(string motivo)
-        {
-            _monitoreoActivo = true;
-            _confirmacionInicio = DateTime.MinValue;
-            System.Diagnostics.Trace.WriteLine("[VistaX] MONITOREO INICIADO — " + motivo);
         }
 
         // Mapea el tipo lógico de sensor (catálogo VistaX) al modo eléctrico
@@ -751,15 +702,14 @@ namespace AgroParallel.VistaX
 
         public void DetenerMonitoreo()
         {
-            _monitoreoActivo = false;
-            _confirmacionInicio = DateTime.MinValue;
-            _paradaDesde = DateTime.MinValue;
-            System.Diagnostics.Trace.WriteLine("[VistaX] MONITOREO DETENIDO");
+            lock (_lock) _siembra.ForzarManual(false);
+            System.Diagnostics.Trace.WriteLine("[VistaX] MONITOREO DETENIDO (manual)");
         }
 
         public void IniciarMonitoreoManual()
         {
-            IniciarMonitoreo("manual (botón UI)");
+            lock (_lock) _siembra.ForzarManual(true);
+            System.Diagnostics.Trace.WriteLine("[VistaX] MONITOREO INICIADO — manual (botón UI)");
         }
 
         // Actualiza el objetivo de siembra (semillas/m) in-memory. Si tren > 0
@@ -869,7 +819,7 @@ namespace AgroParallel.VistaX
         {
             lock (_lock)
             {
-                if (!_monitoreoActivo) return;
+                if (!_siembra.Activo) return;
                 if (_velocidad < 1.5) return;
 
                 var timeout = TimeSpan.FromMilliseconds(
@@ -983,7 +933,7 @@ namespace AgroParallel.VistaX
                 snapshot.HasAlarm = hasAlarm;
                 snapshot.AlarmMessage = alarmMsg;
                 snapshot.NombreImplemento = _implemento.Nombre ?? "";
-                snapshot.MonitoreoActivo = _monitoreoActivo;
+                snapshot.MonitoreoActivo = _siembra.Activo;
                 snapshot.MetodoInicio = _metodoInicio;
                 snapshot.ToleranciaDesvio = _implemento != null && _implemento.Setup != null
                     ? _implemento.Setup.ToleranciaDesvio : 0;

@@ -26,5 +26,11 @@ namespace AgroParallel.Services.Abstractions
 
         /// <summary>Recarga config + implemento (llamar tras un PUT).</summary>
         void Reload();
+
+        /// <summary>
+        /// Inicio/parada manual del monitoreo (método de inicio "manual" o
+        /// stop explícito del operario desde la UI).
+        /// </summary>
+        void ForzarMonitoreoManual(bool activo);
     }
 }
