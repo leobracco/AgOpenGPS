@@ -59,6 +59,14 @@ namespace AgroParallel.Common
             HandleCreated += OnHandleCreatedOnce;
         }
 
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            // Copia la forma del card HTML (border-radius 14px) para que las
+            // esquinas del UserControl no asomen sobre el mapa.
+            OverlayRegionHelper.ApplyRounded(this, 14);
+        }
+
         private async void OnHandleCreatedOnce(object sender, EventArgs e)
         {
             HandleCreated -= OnHandleCreatedOnce;

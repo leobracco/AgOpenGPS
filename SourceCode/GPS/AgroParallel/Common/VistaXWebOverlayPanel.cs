@@ -153,6 +153,9 @@ namespace AgroParallel.Common
         {
             base.OnResize(e);
             LayoutChildren();
+            // La ventana copia la forma redondeada del HTML — sin esto las
+            // esquinas cuadradas del UserControl asoman en negro sobre el mapa.
+            OverlayRegionHelper.ApplyRounded(this, 8);
         }
 
         // Dispone la WebView2 ocupando todo menos:
