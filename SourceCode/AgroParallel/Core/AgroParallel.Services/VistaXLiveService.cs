@@ -105,6 +105,10 @@ namespace AgroParallel.Services
         private readonly Dictionary<string, DateTime> _nodosVistos =
             new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
 
+        // UIDs que ya avisamos por usar el topic legacy (D#4) — un log por nodo.
+        private readonly HashSet<string> _legacyAvisados =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         // ── Configuración de la base ─────────────────────────────────────────
         protected override string TopicPrefix => "vistax/";
         protected override int MinParts => 3;
@@ -176,6 +180,19 @@ namespace AgroParallel.Services
             lock (_lock) { legacy = _cfg?.TelemetriaTopic; }
             if (!string.IsNullOrEmpty(legacy))
                 Subscribe(legacy);
+
+            // D#2: dejar registro explícito de qué dependencias opcionales
+            // faltan — sin esto el servicio degrada en silencio y cuesta
+            // diagnosticar por qué (p.ej.) no gatea por sección o no toma
+            // los bounds del insumo.
+            var faltantes = new List<string>();
+            if (_insumos == null) faltantes.Add("insumos (bounds de insumo → tolerancia genérica)");
+            if (_state == null) faltantes.Add("state (velocidad PilotX → siempre 0, sin auto-monitoreo)");
+            if (_sections == null) faltantes.Add("sections (corte de sección → todos los surcos como ON)");
+            if (_impCentral == null) faltantes.Add("implemento central (geometría → copia vistaX legacy)");
+            if (faltantes.Count > 0)
+                AgpLog.Warn("VistaXLive", "providers opcionales ausentes: " + string.Join("; ", faltantes));
+
             System.Diagnostics.Trace.WriteLine("[vistax] live service started");
         }
 
@@ -192,6 +209,19 @@ namespace AgroParallel.Services
         {
             DateTime now = DateTime.UtcNow;
             lock (_lock) _nodosVistos[uid] = now;
+
+            // D#4: el topic legacy "vistax/nodos/telemetria" sigue soportado
+            // (puede haber firmware viejo en campo) pero avisamos una vez por
+            // UID para saber qué nodos falta actualizar.
+            if (topicParts.Length >= 2 &&
+                string.Equals(topicParts[1], "nodos", StringComparison.OrdinalIgnoreCase))
+            {
+                bool avisar;
+                lock (_lock) avisar = _legacyAvisados.Add(uid);
+                if (avisar)
+                    AgpLog.Warn("VistaXLive", "nodo " + uid +
+                        " publica por el topic legacy vistax/nodos/telemetria (firmware viejo — actualizar)");
+            }
 
             if (!root.TryGetProperty("sensores", out var arr) || arr.ValueKind != JsonValueKind.Array) return;
             foreach (var s in arr.EnumerateArray())
@@ -695,7 +725,7 @@ namespace AgroParallel.Services
                 condicionArranque = seccionesPintando > 0 && vel >= velMin;
                 if (string.IsNullOrEmpty(motivo))
                 {
-                    if (seccionesPintando == 0)        motivo = "AOG no está pintando ninguna sección";
+                    if (seccionesPintando == 0)        motivo = "PilotX no está pintando ninguna sección";
                     else if (vel < velMin)             motivo = "Velocidad " + vel.ToString("0.0") + " km/h < " + velMin.ToString("0.0");
                 }
             }

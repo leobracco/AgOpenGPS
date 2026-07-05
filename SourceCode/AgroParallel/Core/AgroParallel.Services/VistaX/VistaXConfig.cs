@@ -144,6 +144,23 @@ namespace AgroParallel.VistaX
 
         public void Save()
         {
+            // D#5: misma validación que el PUT del Hub (AGP-CFG-001) antes de
+            // persistir — el overlay nativo no debe poder escribir un
+            // vistaX.json que el resto del sistema después rechace.
+            var val = AgroParallel.Models.ConfigValidation.ValidarVistaXConfig(
+                new AgroParallel.Models.VistaXConfigDto
+                {
+                    SensorTimeoutMs = SensorTimeoutMs,
+                    UiUpdateIntervalMs = UiUpdateIntervalMs,
+                    TiempoConfirmacionMs = TiempoConfirmacionMs
+                });
+            if (!val.Ok)
+            {
+                AgroParallel.Services.AgpLog.Warn("VistaXConfig",
+                    "AGP-CFG-001: config inválida, no se persiste: " + string.Join("; ", val.Errores));
+                return;
+            }
+
             try
             {
                 var opts = new JsonSerializerOptions { WriteIndented = true };
