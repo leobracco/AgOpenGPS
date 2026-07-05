@@ -264,6 +264,13 @@
         var sel = (t.id === s.tren_id) ? ' selected' : '';
         return '<option value="' + t.id + '"' + sel + '>' + esc(t.nombre || ('Tren ' + t.id)) + '</option>';
       }).join('');
+      // Si la sección asignada quedó fuera de rango (bajaron numSections), la
+      // reseteamos en el estado: si no, el select muestra "—" pero al guardar
+      // se persistiría el valor viejo inválido.
+      if (s.seccion_pilotx > nSec || s.seccion_pilotx < 0 || !isFinite(s.seccion_pilotx)) {
+        s.seccion_pilotx = 0;
+        markDirty();
+      }
       var secOpts = '<option value="0"' + (s.seccion_pilotx === 0 ? ' selected' : '') + '>—</option>';
       for (var k = 1; k <= nSec; k++) {
         secOpts += '<option value="' + k + '"' + (s.seccion_pilotx === k ? ' selected' : '') + '>' + k + '</option>';
