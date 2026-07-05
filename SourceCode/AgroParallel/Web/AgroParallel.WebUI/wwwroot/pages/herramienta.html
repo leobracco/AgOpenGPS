@@ -156,6 +156,30 @@
     @media (max-width: 1100px) {
       .semb-surco { min-width: 10px; width: 14px; height: 18px; font-size: 8px; }
     }
+
+    /* Modal (mismo patrón que flowx.html — WebView2 desactiva prompt/confirm) */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 50;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background: var(--agp-surface); border: 1px solid var(--agp-border-strong);
+      border-radius: 8px; padding: 18px; min-width: 320px; max-width: 480px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .modal h2 { font-size: 15px; margin: 0 0 8px 0; color: var(--agp-text); }
+    .modal .msg { font-size: 13px; margin: 0 0 12px 0; color: var(--agp-text-muted);
+                  white-space: pre-line; }
+    .modal input[type=text] {
+      width: 100%; padding: 6px 8px; box-sizing: border-box;
+      background: var(--agp-surface-2); color: var(--agp-text);
+      border: 1px solid var(--agp-border); border-radius: 4px; font-size: 13px;
+      min-height: var(--agp-touch-min);
+    }
+    .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    .modal .actions .btn { min-height: var(--agp-touch-min); }
+    .modal .btn.primary { background: var(--agp-accent); border-color: var(--agp-accent); color: #0e1612; }
   </style>
 </head>
 <body>
@@ -286,7 +310,7 @@
       <div class="card">
         <h3 style="margin-top:0">Trenes físicos de siembra</h3>
         <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
-          Si la sembradora tiene un solo tren, dejá el default (Tren 0). Si tiene dos cuerpos
+          Si la sembradora tiene un solo tren, dejá el default (Tren único). Si tiene dos cuerpos
           (delantero/trasero), agregá un segundo tren e indicá la distancia entre ellos.
         </p>
         <table id="tblTrenes" style="width:100%; border-collapse: collapse;">
@@ -377,6 +401,22 @@
       <span class="msg" id="msgTool"></span>
     </div>
   </main>
+
+  <!-- Modal propio: WebView2 desactiva window.prompt() y bloquea
+       window.confirm() — sin esto los botones Nuevo/Copiar/Eliminar y los
+       guards de "cambios sin guardar" quedan muertos en el tractor. -->
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h2 id="modalTitle">Título</h2>
+      <p class="msg" id="modalMsg">Mensaje</p>
+      <input id="modalInput" type="text" hidden />
+      <div class="actions">
+        <button id="modalCancel" type="button" class="btn">Cancelar</button>
+        <button id="modalOk" type="button" class="btn primary">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../js/keyboard.js"></script>
   <script src="../js/sidebar.js"></script>
   <script src="../js/sembradora-visual.js"></script>

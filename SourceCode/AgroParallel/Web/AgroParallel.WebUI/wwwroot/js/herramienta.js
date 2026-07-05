@@ -41,6 +41,79 @@
   }
   function num(v, def) { return (typeof v === 'number' && isFinite(v)) ? v : def; }
 
+  // Escapa texto que va a atributos/HTML interpolado — un nombre con comillas
+  // ("Tren \"A\"") rompía los value="..." de las tablas.
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ==========================================================================
+  // Modal HTML — sustituye window.prompt / window.confirm / window.alert
+  // (desactivados en WebView2; mismo patrón que flowx.js).
+  // ==========================================================================
+  var modalBackdrop = $('modalBackdrop');
+  var modalTitle = $('modalTitle');
+  var modalMsg = $('modalMsg');
+  var modalInput = $('modalInput');
+  var modalOk = $('modalOk');
+  var modalCancel = $('modalCancel');
+  var modalResolver = null;
+
+  function closeModal(result) {
+    if (modalBackdrop) modalBackdrop.classList.remove('show');
+    if (modalInput) modalInput.hidden = true;
+    var r = modalResolver;
+    modalResolver = null;
+    if (r) r(result);
+  }
+  if (modalOk) modalOk.addEventListener('click', function () {
+    var val = (modalInput && !modalInput.hidden) ? modalInput.value : true;
+    closeModal(val);
+  });
+  if (modalCancel) modalCancel.addEventListener('click', function () { closeModal(null); });
+  if (modalBackdrop) modalBackdrop.addEventListener('click', function (e) {
+    if (e.target === modalBackdrop) closeModal(null);
+  });
+
+  // askConfirm(title, msg) → Promise<boolean>
+  function askConfirm(title, msgTxt) {
+    if (!modalBackdrop) return Promise.resolve(window.confirm(title + '\n\n' + msgTxt));
+    modalTitle.textContent = title;
+    modalMsg.textContent = msgTxt;
+    if (modalInput) { modalInput.hidden = true; modalInput.value = ''; }
+    modalBackdrop.classList.add('show');
+    return new Promise(function (res) { modalResolver = function (v) { res(v === true); }; });
+  }
+  // askText(title, msg, defaultVal) → Promise<string|null>
+  function askText(title, msgTxt, defaultVal) {
+    if (!modalBackdrop) return Promise.resolve(window.prompt(title + '\n\n' + msgTxt, defaultVal || ''));
+    modalTitle.textContent = title;
+    modalMsg.textContent = msgTxt;
+    if (modalInput) {
+      modalInput.hidden = false;
+      modalInput.value = defaultVal || '';
+      setTimeout(function () { try { modalInput.focus(); modalInput.select(); } catch (e) {} }, 50);
+    }
+    modalBackdrop.classList.add('show');
+    return new Promise(function (res) {
+      modalResolver = function (v) { res(v === null ? null : String(v)); };
+    });
+  }
+  // showAlert(title, msg) → Promise<void>
+  function showAlert(title, msgTxt) {
+    if (!modalBackdrop) { window.alert(title + '\n\n' + msgTxt); return Promise.resolve(); }
+    modalTitle.textContent = title;
+    modalMsg.textContent = msgTxt;
+    if (modalInput) modalInput.hidden = true;
+    modalCancel.style.display = 'none';
+    modalBackdrop.classList.add('show');
+    return new Promise(function (res) {
+      modalResolver = function () { modalCancel.style.display = ''; res(); };
+    });
+  }
+
   // Repaint debounced de la vista de sembradora — evita parpadeo cuando el
   // usuario tipea rápido en inputs (nombre, distancia, etc.).
   var _visTimer = 0;
@@ -145,7 +218,7 @@
       tr.style.borderBottom = '1px solid var(--agp-border)';
       tr.innerHTML =
         '<td style="padding:6px">' + (t.id != null ? t.id : idx) + '</td>' +
-        '<td style="padding:6px"><input type="text" data-tren-idx="' + idx + '" data-field="nombre" value="' + (t.nombre || '') + '"></td>' +
+        '<td style="padding:6px"><input type="text" data-tren-idx="' + idx + '" data-field="nombre" value="' + esc(t.nombre) + '"></td>' +
         '<td style="padding:6px"><input type="number" step="0.05" data-tren-idx="' + idx + '" data-field="distancia_m" value="' + (t.distancia_m || 0) + '"></td>' +
         '<td style="padding:6px">' + (state.impl.trenes.length > 1 ? '<button class="btn" data-del-tren="' + idx + '">Quitar</button>' : '') + '</td>';
       tb.appendChild(tr);
@@ -189,7 +262,7 @@
       tr.style.borderBottom = '1px solid var(--agp-border)';
       var trenOpts = state.impl.trenes.map(function (t) {
         var sel = (t.id === s.tren_id) ? ' selected' : '';
-        return '<option value="' + t.id + '"' + sel + '>' + (t.nombre || ('Tren ' + t.id)) + '</option>';
+        return '<option value="' + t.id + '"' + sel + '>' + esc(t.nombre || ('Tren ' + t.id)) + '</option>';
       }).join('');
       var secOpts = '<option value="0"' + (s.seccion_pilotx === 0 ? ' selected' : '') + '>—</option>';
       for (var k = 1; k <= nSec; k++) {
@@ -213,7 +286,9 @@
 
   function resizeSurcos(n) {
     ensureImpl();
-    n = Math.max(0, Math.min(96, n | 0));
+    // Máximo 200: alineado con el input (max="200") y el corte surco-a-surco
+    // tipo LineX — antes clampaba a 96 en silencio.
+    n = Math.max(0, Math.min(200, n | 0));
     while (state.impl.surcos.length > n) state.impl.surcos.pop();
     while (state.impl.surcos.length < n) {
       var k = state.impl.surcos.length + 1;
@@ -240,7 +315,7 @@
       tr.style.borderBottom = '1px solid var(--agp-border)';
       tr.innerHTML =
         '<td style="padding:6px">' + (s.id != null ? s.id : (idx + 1)) + '</td>' +
-        '<td style="padding:6px"><input type="text" data-sec-idx="' + idx + '" data-field="nombre" value="' + (s.nombre || '') + '"></td>' +
+        '<td style="padding:6px"><input type="text" data-sec-idx="' + idx + '" data-field="nombre" value="' + esc(s.nombre) + '"></td>' +
         '<td style="padding:6px"><input type="number" step="0.05" min="0" data-sec-idx="' + idx + '" data-field="lookahead_on" value="' + (s.lookahead_on || 0) + '"></td>' +
         '<td style="padding:6px"><input type="number" step="0.05" min="0" data-sec-idx="' + idx + '" data-field="lookahead_off" value="' + (s.lookahead_off || 0) + '"></td>';
       tb.appendChild(tr);
@@ -275,6 +350,11 @@
     if (!opts.headers) opts.headers = {};
     if (opts.body && !opts.headers['Content-Type']) opts.headers['Content-Type'] = 'application/json';
     var r = await fetch(url, opts);
+    if (!r.ok) {
+      // Sin esto, un 500 con body HTML explota en r.json() con un mensaje críptico.
+      var err; try { err = await r.json(); } catch (_) { err = null; }
+      return err || { ok: false, error: 'HTTP ' + r.status };
+    }
     return await r.json();
   }
 
@@ -291,7 +371,7 @@
     var sel = $('implActivoSel');
     sel.innerHTML = state.lista.map(function (e) {
       var s = e.slug === state.activo ? ' selected' : '';
-      return '<option value="' + e.slug + '"' + s + '>' + e.nombre + '</option>';
+      return '<option value="' + esc(e.slug) + '"' + s + '>' + esc(e.nombre) + '</option>';
     }).join('');
     if (state.lista.length === 0) {
       sel.innerHTML = '<option value="">(sin implementos)</option>';
@@ -347,13 +427,13 @@
   }
 
   async function descartar() {
-    if (state.dirty && !confirm('Descartar cambios sin guardar?')) return;
+    if (state.dirty && !(await askConfirm('Descartar cambios', '¿Descartar los cambios sin guardar?'))) return;
     msg('', '');
     await loadActivo();
   }
 
   async function cambiarActivo(slug) {
-    if (state.dirty && !confirm('Hay cambios sin guardar. Cambiar de implemento igual?')) {
+    if (state.dirty && !(await askConfirm('Cambios sin guardar', '¿Cambiar de implemento igual? Se pierden los cambios.'))) {
       // revertir el select
       $('implActivoSel').value = state.activo;
       return;
@@ -371,8 +451,8 @@
   }
 
   async function nuevoImplemento() {
-    if (state.dirty && !confirm('Hay cambios sin guardar. Crear uno nuevo igual?')) return;
-    var nombre = prompt('Nombre del nuevo implemento:', 'Implemento nuevo');
+    if (state.dirty && !(await askConfirm('Cambios sin guardar', '¿Crear uno nuevo igual? Se pierden los cambios.'))) return;
+    var nombre = await askText('Nuevo implemento', 'Nombre del nuevo implemento:', 'Implemento nuevo');
     if (nombre == null) return;
     nombre = nombre.trim();
     if (!nombre) return;
@@ -391,9 +471,9 @@
 
   async function copiarImplemento() {
     if (!state.activo) return;
-    if (state.dirty && !confirm('Hay cambios sin guardar. Duplicar igual? (se copia la versión guardada)')) return;
+    if (state.dirty && !(await askConfirm('Cambios sin guardar', '¿Duplicar igual? Se copia la versión guardada.'))) return;
     var sugerido = (state.impl && state.impl.nombre ? state.impl.nombre : state.activo) + ' (copia)';
-    var nombre = prompt('Nombre para la copia:', sugerido);
+    var nombre = await askText('Guardar como…', 'Nombre para la copia:', sugerido);
     if (nombre == null) return;
     nombre = nombre.trim();
     if (!nombre) return;
@@ -412,9 +492,9 @@
 
   async function eliminarImplemento() {
     if (!state.activo) return;
-    if (state.lista.length <= 1) { alert('No se puede eliminar el único implemento. Creá otro primero.'); return; }
+    if (state.lista.length <= 1) { await showAlert('No se puede eliminar', 'Es el único implemento. Creá otro primero.'); return; }
     var nombre = state.impl && state.impl.nombre ? state.impl.nombre : state.activo;
-    if (!confirm('Eliminar el implemento "' + nombre + '"? No se puede deshacer.')) return;
+    if (!(await askConfirm('Eliminar implemento', '¿Eliminar "' + nombre + '"? No se puede deshacer.'))) return;
     var data = await fetchJson('/api/implementos/' + encodeURIComponent(state.activo), { method: 'DELETE' });
     if (data && data.ok) {
       state.activo = data.activo || '';
@@ -502,7 +582,7 @@
     return '<span style="display:inline-block; padding: 2px 10px; '
       + 'background: var(--agp-bg-soft); border-radius: 12px; '
       + 'font-size: var(--agp-fs-xs); color: var(--agp-text-muted);">'
-      + text + '</span>';
+      + esc(text) + '</span>';
   }
 
   function paintCatChips(tpl) {
@@ -527,7 +607,7 @@
     var sel = $('catModelo');
     var modelos = _cat.byMarca[marca] || [];
     sel.innerHTML = modelos.map(function (m) {
-      return '<option value="' + m.modelo + '">' + m.modelo + '</option>';
+      return '<option value="' + esc(m.modelo) + '">' + esc(m.modelo) + '</option>';
     }).join('');
     if (modelos.length > 0) {
       sel.value = modelos[0].modelo;
@@ -546,7 +626,7 @@
       _cat.marcas.forEach(function (b) { _cat.byMarca[b.marca] = b.modelos || []; });
       var sm = $('catMarca');
       sm.innerHTML = _cat.marcas.map(function (b) {
-        return '<option value="' + b.marca + '">' + b.marca + '</option>';
+        return '<option value="' + esc(b.marca) + '">' + esc(b.marca) + '</option>';
       }).join('');
       // Pre-seleccionar la marca actual del implemento, si está en el catálogo.
       if (state.impl && state.impl.marca && _cat.byMarca[state.impl.marca]) {
@@ -578,7 +658,7 @@
     var marca = $('catMarca').value;
     var modelo = $('catModelo').value;
     if (!marca || !modelo) return;
-    if (state.dirty && !confirm('Hay cambios sin guardar. Aplicar plantilla igual?')) return;
+    if (state.dirty && !(await askConfirm('Cambios sin guardar', '¿Aplicar la plantilla igual? Se pierden los cambios.'))) return;
     msg('', 'Aplicando plantilla…');
     try {
       var data = await fetchJson('/api/implemento/aplicar-plantilla', {
@@ -625,7 +705,7 @@
     var modelos = maqModelos();
     var sel = $('maqModelo');
     sel.innerHTML = modelos.map(function (m) {
-      return '<option value="' + m.modelo + '">' + m.modelo + '</option>';
+      return '<option value="' + esc(m.modelo) + '">' + esc(m.modelo) + '</option>';
     }).join('');
     if (modelos.length > 0) { sel.value = modelos[0].modelo; paintMaqChips(modelos[0]); }
     else { paintMaqChips(null); }
@@ -637,7 +717,7 @@
     var marcas = (tipo && tipo.marcas) || [];
     var sel = $('maqMarca');
     sel.innerHTML = marcas.map(function (b) {
-      return '<option value="' + b.marca + '">' + b.marca + '</option>';
+      return '<option value="' + esc(b.marca) + '">' + esc(b.marca) + '</option>';
     }).join('');
     if (marcas.length > 0) sel.value = marcas[0].marca;
     refillMaqModelos();
@@ -652,7 +732,7 @@
       _maq.tipos.forEach(function (t) { _maq.byCat[t.categoria] = t; });
       var st = $('maqTipo');
       st.innerHTML = _maq.tipos.map(function (t) {
-        return '<option value="' + t.categoria + '">' + t.etiqueta + '</option>';
+        return '<option value="' + esc(t.categoria) + '">' + esc(t.etiqueta) + '</option>';
       }).join('');
       if (_maq.tipos.length > 0) st.value = _maq.tipos[0].categoria;
       refillMaqMarcas();
@@ -671,7 +751,7 @@
     var marca = $('maqMarca').value;
     var modelo = $('maqModelo').value;
     if (!categoria || !marca || !modelo) return;
-    if (!confirm('Esto reemplaza la geometría de sembradora del implemento activo. ¿Aplicar ' + marca + ' ' + modelo + '?')) return;
+    if (!(await askConfirm('Aplicar máquina', 'Esto reemplaza la geometría de sembradora del implemento activo.\n¿Aplicar ' + marca + ' ' + modelo + '?'))) return;
     msg('', 'Aplicando…');
     try {
       var data = await fetchJson('/api/implemento/aplicar-maquina', {
