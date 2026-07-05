@@ -76,17 +76,25 @@
     }
     .vx-cfg-btn:hover { color: var(--agp-text); border-color: var(--agp-text-muted); }
 
-    /* ----- Strip de chips (toma todo el espacio) ----- */
+    /* ----- Strip de chips (toma todo el espacio) -----
+       Una fila por tren del implemento: .vx-strip apila .vx-row verticales
+       y cada .vx-row reparte sus chips a lo ancho. */
     .vx-strip {
       flex: 1;
       display: flex;
-      flex-wrap: wrap;
-      align-content: stretch;
+      flex-direction: column;
       padding: 3px;
       gap: 3px;
       overflow-y: auto;
       overflow-x: hidden;
       min-width: 0;
+    }
+    .vx-row {
+      flex: 1;
+      display: flex;
+      gap: 3px;
+      min-width: 0;
+      min-height: 0;
     }
     .vx-strip::-webkit-scrollbar { width: 4px; }
     .vx-strip::-webkit-scrollbar-thumb {
@@ -120,12 +128,6 @@
     .vx-chip.s-no-data     { background: var(--vx-no-data);color: var(--agp-text-muted); }
     .vx-chip.s-muted       { background: var(--vx-muted);  color: var(--agp-text-muted); border-style: dashed; }
     .vx-chip.s-seccion-off { background: #2A2A2A;          color: #888;    border: 1px dashed #555; }
-
-    .vx-strip .sep {
-      width: 1px; background: var(--agp-border);
-      margin: 3px 4px;
-      flex-shrink: 0;
-    }
 
     .vx-empty {
       flex: 1;

@@ -1,6 +1,6 @@
 // ============================================================================
 // vistax-live.js — franja MONITOR de VistaX para la barra inferior de PilotX.
-// Una sola fila de chips: un chip por surco primario (semilla/fertilizante).
+// Una fila de chips POR TREN: un chip por surco primario (semilla/fertilizante).
 // El operario lo usa como vista de "todo el ancho de la sembradora" para
 // detectar surcos tapados al toque sin entrar al Hub.
 // Polleo /api/vistax/live a 2 Hz. Pausa con visibilitychange.
@@ -58,7 +58,7 @@
     //      independientemente de lo que reporten los sensores. El usuario
     //      no debe ver "verde OK" antes de que el sistema empiece a sembrar
     //      (caída de semilla / sección pintando, según método configurado).
-    //   2. Si la sección de AOG está cerrada para este surco → gris oscuro punteado.
+    //   2. Si la sección de PilotX está cerrada para este surco → gris oscuro punteado.
     //   3. Si está muteado por config → s-muted (gris claro punteado).
     //   4. Sino, el estado real reportado por el backend.
     var cls;
@@ -138,10 +138,10 @@
       html += '<div class="bar"><i style="width:' + Math.min(100, pctClamp) + '%"></i></div>';
     }
     html += '<div class="row"><span class="lbl">Tren · Cable</span><span>' + esc(tren) + ' · ' + esc(cable) + '</span></div>';
-    html += '<div class="row"><span class="lbl">Sección AOG</span><span>' +
+    html += '<div class="row"><span class="lbl">Sección PilotX</span><span>' +
             (secOff ? 'cerrada' : 'abierta') + '</span></div>';
     if (muted)  html += '<div class="warn">Sensor muteado — alarmas desactivadas.</div>';
-    if (secOff) html += '<div class="warn">Sección AOG cerrada — este surco no sensa.</div>';
+    if (secOff) html += '<div class="warn">Sección PilotX cerrada — este surco no sensa.</div>';
     body.innerHTML = html;
   }
 
@@ -202,25 +202,29 @@
       return (a.bajada || 0) - (b.bajada || 0);
     });
 
-    // Separar primarios en dos sub-listas: semilla / fertilizante.
-    var semilla = [], fert = [];
-    todos.forEach(function (s) {
-      var t = tipoOf(s);
-      if (t === 'semilla') semilla.push(s);
-      else if (t === 'fertilizante') fert.push(s);
-    });
+    // Solo tipos primarios (semilla/fertilizante) van al strip.
+    var primarios = todos.filter(function (s) { return PRIMARIOS[tipoOf(s)]; });
 
     var strip = $('vxStrip');
-    if (semilla.length === 0 && fert.length === 0) {
+    if (primarios.length === 0) {
       strip.innerHTML = '<div class="vx-empty">sin sensores de siembra/fertilización mapeados</div>';
       return;
     }
 
-    var html = semilla.map(function (s) { return renderChip(s, !!monAct); }).join('');
-    if (semilla.length > 0 && fert.length > 0) {
-      html += '<span class="sep"></span>';
-    }
-    html += fert.map(function (s) { return renderChip(s, !!monAct); }).join('');
+    // Una FILA de chips por tren: la cantidad de filas del strip refleja la
+    // cantidad de trenes del implemento (ej. tren 1 semilla / tren 2 ferti).
+    var porTren = {};
+    primarios.forEach(function (s) {
+      var t = s.tren || 1;
+      (porTren[t] = porTren[t] || []).push(s);
+    });
+    var html = Object.keys(porTren)
+      .map(Number).sort(function (a, b) { return a - b; })
+      .map(function (t) {
+        return '<div class="vx-row">' +
+          porTren[t].map(function (s) { return renderChip(s, !!monAct); }).join('') +
+        '</div>';
+      }).join('');
     strip.innerHTML = html;
     bindChipClicks();
     refreshDetail(); // si hay popup abierto, actualizar reactivamente.
