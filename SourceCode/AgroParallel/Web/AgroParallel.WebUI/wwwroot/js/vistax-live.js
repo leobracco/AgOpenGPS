@@ -221,8 +221,16 @@
       var t = s.tren || 1;
       (porTren[t] = porTren[t] || []).push(s);
     });
-    var html = Object.keys(porTren)
-      .map(Number).sort(function (a, b) { return a - b; })
+    var trenKeys = Object.keys(porTren)
+      .map(Number).sort(function (a, b) { return a - b; });
+    // Ancho de chip uniforme entre filas: sin esto, un tren con pocos surcos
+    // (ej. tren 2 con 2 fertilizantes) estira sus chips hasta max-width y
+    // queda desalineado con el tren de 40+ surcos de arriba.
+    var maxN = 1;
+    trenKeys.forEach(function (t) { if (porTren[t].length > maxN) maxN = porTren[t].length; });
+    strip.style.setProperty('--vx-chip-w',
+      'calc((100% - ' + (maxN - 1) + ' * 3px) / ' + maxN + ')');
+    var html = trenKeys
       .map(function (t) {
         return '<div class="vx-row">' +
           porTren[t].map(function (s) { return renderChip(s, !!monAct); }).join('') +

@@ -102,7 +102,10 @@
     }
 
     .vx-chip {
-      flex: 1 1 22px;
+      /* --vx-chip-w la setea vistax-live.js según el tren con MÁS surcos,
+         así todas las filas usan el mismo ancho de chip (sin esto un tren
+         con 2 fertilizantes estiraba sus chips hasta max-width). */
+      flex: 0 1 var(--vx-chip-w, 22px);
       min-width: 18px;
       max-width: 70px;
       min-height: 30px;
