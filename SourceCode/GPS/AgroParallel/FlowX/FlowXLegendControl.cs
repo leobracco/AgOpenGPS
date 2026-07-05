@@ -105,6 +105,15 @@ namespace AgroParallel.FlowX
             return CError;
         }
 
+        protected override void OnResize(EventArgs e)
+        {
+            base.OnResize(e);
+            // Copia la forma del card GDI (RoundedRect radio 8 en OnPaint) —
+            // sin la Region las esquinas del UserControl asoman en negro
+            // sobre el mapa (igual que en los overlays WebView2).
+            AgroParallel.Common.OverlayRegionHelper.ApplyRounded(this, 8);
+        }
+
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
