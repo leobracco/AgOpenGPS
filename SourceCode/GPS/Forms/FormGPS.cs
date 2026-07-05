@@ -415,6 +415,11 @@ namespace AgOpenGPS
             //winform initialization
             InitializeComponent();
 
+            // Ícono de la ventana (barra de tareas/Alt-Tab) = ícono del exe
+            // (isotipo Agro Parallel). El del .resx quedó viejo.
+            try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
+            catch { /* sin ícono no es fatal */ }
+
             InitializeLanguages();
 
             AppCore = new ApplicationCore(
