@@ -461,7 +461,13 @@ namespace AgroParallel.VistaX
                                 seccionCortada = seccionesTren[secIdx] == 0;
                         }
 
-                        if (!seccionCortada && _velocidad > 1.5)
+                        // Compuerta de alarma: si el monitoreo está ACTIVO (arrancó
+                        // por caída de semilla, señal de secciones PilotX, manual,
+                        // etc.) el flujo en cero SIEMPRE alarma — el caso típico es
+                        // activar por pintado de secciones y que no caiga semilla.
+                        // El umbral histórico de 1.5 km/h queda como fallback para
+                        // cuando el monitor todavía no se declaró activo.
+                        if (!seccionCortada && (_monitoreoActivo || _velocidad > 1.5))
                         {
                             // Evaluar contra el flujo total si es rango (el sensor
                             // no puede distinguir surcos individuales, pero sí

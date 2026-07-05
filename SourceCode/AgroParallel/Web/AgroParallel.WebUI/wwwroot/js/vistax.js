@@ -448,7 +448,7 @@
   // ---------- Panel detalle de surco (modal centrado) ----------
   // Antes: click en sensor → menú mini con sólo "Silenciar". Ahora: panel
   // grande con datos en vivo del surco (SPM, objetivo, %, estado, sección
-  // AOG asociada) + botones de acción. Refresca solo cuando llega el próximo
+  // PilotX asociada) + botones de acción. Refresca solo cuando llega el próximo
   // poll, así el operario ve el SPM cambiar sin tener que reabrir.
   //
   // state.detailFocus = { uid, cable } mientras el panel está abierto. Cuando
@@ -494,7 +494,7 @@
      || st === 'warn')        return { txt: 'EXCESO',      color: 'var(--vx-exceso)' };
     if (st === 'muted')       return { txt: 'SILENCIADO',  color: 'var(--vx-muted)' };
     if (st === 'no-data')     return { txt: 'SIN SEÑAL',   color: 'var(--vx-no-data)' };
-    if (st === 'seccion-off') return { txt: 'SECCIÓN AOG CERRADA', color: '#535E54' };
+    if (st === 'seccion-off') return { txt: 'SECCIÓN PILOTX CERRADA', color: '#535E54' };
     return { txt: st.toUpperCase(), color: 'var(--agp-text-muted)' };
   }
 
@@ -573,7 +573,7 @@
     }
 
     if (secCort) {
-      html += '<div class="vd-warn">⚠ Sección AOG cerrada — este surco no sensa hasta que vuelva a abrir.</div>';
+      html += '<div class="vd-warn">⚠ Sección PilotX cerrada — este surco no sensa hasta que vuelva a abrir.</div>';
     }
 
     if (lastIso) {

@@ -48,7 +48,7 @@
     .sensor.s-no-data .tube { background: var(--vx-no-data); border:1px solid var(--vx-no-data-border); }
     .sensor.s-muted   .tube { background: var(--vx-muted); border:1px solid var(--vx-muted-border); }
     .sensor.s-muted   .pps  { color: var(--agp-text-muted); }
-    /* "seccion-off": AOG cerró la sección de este surco. Más oscuro que muted */
+    /* "seccion-off": PilotX cerró la sección de este surco. Más oscuro que muted */
     /* para que el operario lo distinga de un silencio manual.                  */
     .sensor.s-seccion-off .tube { background: #1A1F1B; border:1px dashed #535E54; }
     .sensor.s-seccion-off .pps  { color: #535E54; }
@@ -508,7 +508,7 @@
         <label>Método inicio monitoreo</label>
         <select id="cfgMetodo">
           <option value="sensores">Caída de semilla (umbral N sensores)</option>
-          <option value="pintando">Pintado de secciones AOG</option>
+          <option value="pintando">Pintado de secciones PilotX</option>
           <option value="manual">Manual</option>
           <option value="velocidad">Por velocidad</option>
         </select>
@@ -516,9 +516,10 @@
         <div class="help" style="font-size:var(--agp-fs-xs); color:var(--agp-text-muted); margin:-4px 0 8px 0">
           <strong>Caída de semilla:</strong> arranca cuando <em>N</em> sensores
           detectan flujo + velocidad ≥ 1 km/h.<br>
-          <strong>Pintado de secciones:</strong> arranca cuando AOG abre al menos
-          una sección + velocidad ≥ 1 km/h. Surcos cuya sección AOG esté apagada
-          quedan grises (no sensan ni alarman) hasta que la sección vuelva.
+          <strong>Pintado de secciones:</strong> arranca cuando PilotX abre al menos
+          una sección + velocidad ≥ 1 km/h. Si con el monitoreo activo no cae
+          semilla, se dispara la alarma de flujo. Surcos cuya sección PilotX esté
+          apagada quedan grises (no sensan ni alarman) hasta que la sección vuelva.
         </div>
         <label>Umbral sensores activos</label><input id="cfgUmbral" type="number" />
         <label>Tiempo confirmación (ms)</label><input id="cfgTConf" type="number" />
