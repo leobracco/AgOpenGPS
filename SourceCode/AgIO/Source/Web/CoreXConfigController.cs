@@ -4,11 +4,14 @@
 // SerialPort y Settings no son thread-safe.
 //
 // Rutas:
-//   GET  /api/corex/config/serial   → lista puertos disponibles + estado por canal
-//   POST /api/corex/serial/open     → body {channel, port, baud} → {ok}
-//   POST /api/corex/serial/close    → body {channel}             → {ok:true}
-//   GET  /api/corex/config/ntrip    → configuración NTRIP actual
-//   POST /api/corex/config/ntrip    → guarda config; {ok, restart}
+//   GET  /api/corex/config/serial        → lista puertos disponibles + estado por canal
+//   POST /api/corex/serial/open          → body {channel, port, baud} → {ok}
+//   POST /api/corex/serial/close         → body {channel}             → {ok:true}
+//   GET  /api/corex/config/ntrip         → configuración NTRIP actual
+//   POST /api/corex/config/ntrip         → guarda config; {ok, restart}
+//   GET  /api/corex/config/red           → estado UDP + subnet + IP local
+//   POST /api/corex/config/red/udp       → cambia UDP on/off; siempre reinicia
+//   POST /api/corex/config/red/subnet    → envía subnet a módulos; no reinicia
 // ============================================================================
 
 using System;
@@ -225,6 +228,78 @@ namespace AgIO
             }
         }
 
+        // ── GET /api/corex/config/red ─────────────────────────────────────────
+        // Devuelve estado UDP on/off, subnet configurada e IP local del host.
+        [Route(HttpVerbs.Get, "/corex/config/red")]
+        public async Task GetRed()
+        {
+            var data = await _form.RunOnUiAsync(() =>
+            {
+                var s = Properties.Settings.Default;
+                return new
+                {
+                    UdpIsOn  = s.setUDP_isOn,
+                    Subnet   = new int[] { s.etIP_SubnetOne, s.etIP_SubnetTwo, s.etIP_SubnetThree },
+                    IpActual = _form.GetLocalIpForWeb(),
+                };
+            }).ConfigureAwait(false);
+
+            await WriteJsonAsync(data).ConfigureAwait(false);
+        }
+
+        // ── POST /api/corex/config/red/udp ───────────────────────────────────
+        // Body: { "on": true/false }. Guarda y reinicia CoreX (siempre).
+        [Route(HttpVerbs.Post, "/corex/config/red/udp")]
+        public async Task PostRedUdp()
+        {
+            var req = await ReadJsonBodyAsync<UdpOnOffRequest>().ConfigureAwait(false);
+            if (req == null)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Body requerido").ConfigureAwait(false);
+                return;
+            }
+
+            // SetUdpOnOffFromWeb ya llama RestartFromWeb() internamente (timer 800 ms).
+            // La respuesta HTTP sale antes de que el proceso termine.
+            await _form.RunOnUiAsync<object>(() =>
+            {
+                _form.SetUdpOnOffFromWeb(req.On);
+                return null;
+            }).ConfigureAwait(false);
+
+            await WriteJsonAsync(new { Ok = true, Restart = true }).ConfigureAwait(false);
+        }
+
+        // ── POST /api/corex/config/red/subnet ────────────────────────────────
+        // Body: { "o1": 192, "o2": 168, "o3": 5 }. Envía subnet a módulos;
+        // NO reinicia CoreX.
+        [Route(HttpVerbs.Post, "/corex/config/red/subnet")]
+        public async Task PostRedSubnet()
+        {
+            var req = await ReadJsonBodyAsync<SubnetRequest>().ConfigureAwait(false);
+            if (req == null)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Body requerido").ConfigureAwait(false);
+                return;
+            }
+
+            try
+            {
+                await _form.RunOnUiAsync<object>(() =>
+                {
+                    _form.SendSubnetFromWeb(req.O1, req.O2, req.O3);
+                    return null;
+                }).ConfigureAwait(false);
+            }
+            catch (ArgumentException ex)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", ex.Message).ConfigureAwait(false);
+                return;
+            }
+
+            await WriteJsonAsync(new { Ok = true, Restart = false }).ConfigureAwait(false);
+        }
+
         // Valida formato IPv4: 4 octetos, cada uno 0-255, máx 3 dígitos.
         // Acepta también strings con "COM" (puerto serie directo, igual que el form).
         private static bool CheckCasterIpValid(string ip)
@@ -285,5 +360,19 @@ namespace AgIO
     internal sealed class SerialCloseRequest
     {
         [JsonPropertyName("channel")] public string Channel { get; set; }
+    }
+
+    // ── DTOs de red UDP ───────────────────────────────────────────────────────
+
+    internal sealed class UdpOnOffRequest
+    {
+        [JsonPropertyName("on")] public bool On { get; set; }
+    }
+
+    internal sealed class SubnetRequest
+    {
+        [JsonPropertyName("o1")] public byte O1 { get; set; }
+        [JsonPropertyName("o2")] public byte O2 { get; set; }
+        [JsonPropertyName("o3")] public byte O3 { get; set; }
     }
 }

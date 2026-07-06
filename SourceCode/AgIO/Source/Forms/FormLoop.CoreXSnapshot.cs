@@ -218,6 +218,128 @@ namespace AgIO
             restartWebTimer.Start();
         }
 
+        // ── Puentes de red UDP para el web host ───────────────────────────────
+
+        /// <summary>
+        /// Guarda el estado UDP on/off y reinicia CoreX (igual que FormEthernet y
+        /// FormUDP.btnUDPOff_Click: SIEMPRE reinicia para aplicar el cambio).
+        /// </summary>
+        public void SetUdpOnOffFromWeb(bool on)
+        {
+            var s = Properties.Settings.Default;
+            s.setUDP_isOn = on;
+            if (!on) s.setUDP_isSendNMEAToUDP = false;
+            s.Save();
+            AgLibrary.Logging.Log.EventWriter("Program Reset: UDP on/off desde la web");
+            RestartFromWeb();
+        }
+
+        /// <summary>
+        /// Envía el comando de cambio de subnet a todos los módulos de la LAN y
+        /// actualiza epModule + Settings. Réplica de FormUDP.btnSendSubnet_Click
+        /// (líneas 217-290), adaptada para recibir los octetos como parámetros.
+        /// No reinicia CoreX.
+        /// </summary>
+        public void SendSubnetFromWeb(byte o1, byte o2, byte o3)
+        {
+            // PGN de cambio de subnet: mismo array que FormUDP.sendIPToModules.
+            byte[] sendIPToModules = { 0x80, 0x81, 0x7F, 201, 5, 201, 201, 192, 168, 5, 0x47 };
+            sendIPToModules[7] = o1;
+            sendIPToModules[8] = o2;
+            sendIPToModules[9] = o3;
+
+            // Broadcast por cada NIC activa (igual que el form).
+            foreach (var nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.Supports(System.Net.NetworkInformation.NetworkInterfaceComponent.IPv4)
+                    && nic.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up)
+                {
+                    foreach (var info in nic.GetIPProperties().UnicastAddresses)
+                    {
+                        if (info.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+                            && !System.Net.IPAddress.IsLoopback(info.Address)
+                            && info.IPv4Mask != null)
+                        {
+                            System.Net.Sockets.Socket scanSocket;
+                            try
+                            {
+                                if (nic.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up
+                                    && info.IPv4Mask != null)
+                                {
+                                    scanSocket = new System.Net.Sockets.Socket(
+                                        System.Net.Sockets.AddressFamily.InterNetwork,
+                                        System.Net.Sockets.SocketType.Dgram,
+                                        System.Net.Sockets.ProtocolType.Udp);
+                                    scanSocket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket,
+                                        System.Net.Sockets.SocketOptionName.Broadcast, true);
+                                    scanSocket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket,
+                                        System.Net.Sockets.SocketOptionName.ReuseAddress, true);
+                                    scanSocket.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket,
+                                        System.Net.Sockets.SocketOptionName.DontRoute, true);
+                                    try
+                                    {
+                                        scanSocket.Bind(new System.Net.IPEndPoint(info.Address, 9999));
+                                        scanSocket.SendTo(sendIPToModules, 0, sendIPToModules.Length,
+                                            System.Net.Sockets.SocketFlags.None, epModuleSet);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        AgLibrary.Logging.Log.EventWriter(
+                                            "Catch -> Send Subnet Bind and Send (web): " + ex.ToString());
+                                    }
+                                    scanSocket.Dispose();
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                AgLibrary.Logging.Log.EventWriter(
+                                    "Catch -> Nic Loop Send Subnet (web): " + ex.ToString());
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Persistir y actualizar epModule en caliente (igual que el form).
+            Properties.Settings.Default.etIP_SubnetOne   = o1;
+            Properties.Settings.Default.etIP_SubnetTwo   = o2;
+            Properties.Settings.Default.etIP_SubnetThree = o3;
+            Properties.Settings.Default.Save();
+
+            epModule = new System.Net.IPEndPoint(
+                System.Net.IPAddress.Parse(o1 + "." + o2 + "." + o3 + ".255"), 8888);
+
+            AgLibrary.Logging.Log.EventWriter("Subnet enviada desde web: " + o1 + "." + o2 + "." + o3);
+        }
+
+        /// <summary>
+        /// Devuelve las IPs locales que CoreX usa para la red UDP (lo que
+        /// muestra lblIP en LoadUDPNetwork, sin los saltos de línea del label).
+        /// Si UDP está apagado devuelve "Off".
+        /// </summary>
+        public string GetLocalIpForWeb()
+        {
+            if (!Properties.Settings.Default.setUDP_isOn) return "Off";
+
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                foreach (System.Net.IPAddress ipa in System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName()))
+                {
+                    if (ipa.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    {
+                        if (sb.Length > 0) sb.Append(", ");
+                        sb.Append(ipa.ToString().Trim());
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AgLibrary.Logging.Log.EventWriter("GetLocalIpForWeb error: " + ex.Message);
+            }
+            return sb.Length > 0 ? sb.ToString() : "—";
+        }
+
         // ── Fase 2 del spec ───────────────────────────────────────────────────
         // FormLoop queda como host invisible; la ventana
         // visible es FormWebShell. Hide() no frena los timers (el message
