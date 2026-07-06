@@ -75,7 +75,7 @@ namespace AgIO
             var tcs = new System.Threading.Tasks.TaskCompletionSource<T>();
             BeginInvoke((MethodInvoker)(() =>
             {
-                try   { tcs.SetResult(fn()); }
+                try { tcs.SetResult(fn()); }
                 catch (Exception ex) { tcs.SetException(ex); }
             }));
             return tcs.Task;
@@ -139,12 +139,12 @@ namespace AgIO
         {
             switch (channel)
             {
-                case "gps":     CloseGPSPort();            break;
-                case "gps2":    CloseGPS2Port();           break;
-                case "rtcm":    CloseRtcmPort();           break;
-                case "imu":     CloseIMUPort();            break;
-                case "steer":   CloseSteerModulePort();    break;
-                case "machine": CloseMachineModulePort();  break;
+                case "gps": CloseGPSPort(); break;
+                case "gps2": CloseGPS2Port(); break;
+                case "rtcm": CloseRtcmPort(); break;
+                case "imu": CloseIMUPort(); break;
+                case "steer": CloseSteerModulePort(); break;
+                case "machine": CloseMachineModulePort(); break;
                 default: throw new ArgumentException("canal desconocido: " + channel);
             }
         }
@@ -165,33 +165,33 @@ namespace AgIO
             // Calcular si hay cambio que requiere reinicio ANTES de pisar settings.
             bool restart = (d.IsOn != s.setNTRIP_isOn)
                 || (d.SendToSerial != s.setNTRIP_sendToSerial)
-                || (d.SendToUdp   != s.setNTRIP_sendToUDP);
+                || (d.SendToUdp != s.setNTRIP_sendToUDP);
 
             s.setNTRIP_isOn = d.IsOn;
             if (d.IsOn)
             {
                 // Mismo comportamiento que cboxIsNTRIPOn_Click y btnSerialOK_Click.
-                s.setRadio_isOn          = isRadio_RequiredOn       = false;
-                s.setPass_isOn           = isSerialPass_RequiredOn  = false;
+                s.setRadio_isOn = isRadio_RequiredOn = false;
+                s.setPass_isOn = isSerialPass_RequiredOn = false;
             }
 
-            s.setNTRIP_casterURL        = d.CasterUrl      ?? "";
-            s.setNTRIP_casterIP         = d.CasterIp       ?? "";
-            s.setNTRIP_casterPort       = d.CasterPort;
-            s.setNTRIP_mount            = d.Mount           ?? "";
-            s.setNTRIP_userName         = d.UserName        ?? "";
-            s.setNTRIP_userPassword     = d.UserPassword    ?? "";
-            s.setNTRIP_sendGGAInterval  = d.SendGgaInterval;
-            s.setNTRIP_isGGAManual      = d.IsGgaManual;
-            s.setNTRIP_manualLat        = d.ManualLat;
-            s.setNTRIP_manualLon        = d.ManualLon;
-            s.setNTRIP_isTCP            = d.IsTcp;
-            s.setNTRIP_isHTTP10         = d.IsHttp10;
-            s.setNTRIP_packetSize       = d.PacketSize;
-            s.setNTRIP_sendToSerial     = isSendToSerial    = d.SendToSerial;
-            s.setNTRIP_sendToUDP        = isSendToUDP       = d.SendToUdp;
-            s.setNTRIP_sendToUDPPort    = d.SendToUdpPort;
-            packetSizeNTRIP             = d.PacketSize;
+            s.setNTRIP_casterURL = d.CasterUrl ?? "";
+            s.setNTRIP_casterIP = d.CasterIp ?? "";
+            s.setNTRIP_casterPort = d.CasterPort;
+            s.setNTRIP_mount = d.Mount ?? "";
+            s.setNTRIP_userName = d.UserName ?? "";
+            s.setNTRIP_userPassword = d.UserPassword ?? "";
+            s.setNTRIP_sendGGAInterval = d.SendGgaInterval;
+            s.setNTRIP_isGGAManual = d.IsGgaManual;
+            s.setNTRIP_manualLat = d.ManualLat;
+            s.setNTRIP_manualLon = d.ManualLon;
+            s.setNTRIP_isTCP = d.IsTcp;
+            s.setNTRIP_isHTTP10 = d.IsHttp10;
+            s.setNTRIP_packetSize = d.PacketSize;
+            s.setNTRIP_sendToSerial = isSendToSerial = d.SendToSerial;
+            s.setNTRIP_sendToUDP = isSendToUDP = d.SendToUdp;
+            s.setNTRIP_sendToUDPPort = d.SendToUdpPort;
+            packetSizeNTRIP = d.PacketSize;
 
             s.Save();
 
@@ -301,8 +301,8 @@ namespace AgIO
             }
 
             // Persistir y actualizar epModule en caliente (igual que el form).
-            Properties.Settings.Default.etIP_SubnetOne   = o1;
-            Properties.Settings.Default.etIP_SubnetTwo   = o2;
+            Properties.Settings.Default.etIP_SubnetOne = o1;
+            Properties.Settings.Default.etIP_SubnetTwo = o2;
             Properties.Settings.Default.etIP_SubnetThree = o3;
             Properties.Settings.Default.Save();
 
@@ -348,6 +348,25 @@ namespace AgIO
                 AgLibrary.Logging.Log.EventWriter("GetLocalIpForWeb error: " + ex.Message);
             }
             return sb.Length > 0 ? sb.ToString() : "—";
+        }
+
+        // ── Puentes de módulos para el web host ──────────────────────────────
+        // Los handlers de los cbox en Controls.Designer.cs son eventos Click
+        // (NO CheckedChanged), por lo que asignar cbox.Checked desde acá NO
+        // dispara ningún evento y no hay doble ejecución de SetModulesOnOff().
+        // El puente replica exactamente lo que hace cada cbox_Click: primero
+        // actualiza el campo isConnected*, luego llama SetModulesOnOff() una vez.
+
+        /// <summary>
+        /// Aplica los tres módulos on/off en caliente desde la web.
+        /// SetModulesOnOff() persiste si hubo cambio (igual que los checkboxes del form).
+        /// </summary>
+        public void SetModulesFromWeb(bool imu, bool steer, bool machine)
+        {
+            isConnectedIMU = cboxIsIMUModule.Checked = imu;
+            isConnectedSteer = cboxIsSteerModule.Checked = steer;
+            isConnectedMachine = cboxIsMachineModule.Checked = machine;
+            SetModulesOnOff();
         }
 
         // ── Fase 2 del spec ───────────────────────────────────────────────────

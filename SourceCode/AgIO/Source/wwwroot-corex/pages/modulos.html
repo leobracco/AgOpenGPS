@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Módulos — CoreX</title>
+  <!-- Rutas absolutas: esta página vive en /pages/ y los assets están en la raíz. -->
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <style>
+    .mod-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px; padding: 14px;
+    }
+    .corex-card {
+      background: var(--agp-surface); border: 1px solid var(--agp-border);
+      border-radius: 8px; padding: 14px;
+    }
+    .corex-card h2 { margin: 0 0 12px; font-size: 1.05em; }
+    /* Fila de módulo: dot + nombre a la izquierda, toggle a la derecha */
+    .mod-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0; border-bottom: 1px solid var(--agp-border);
+    }
+    .mod-row:last-child { border-bottom: none; }
+    .mod-left {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .dot {
+      display: inline-block; width: 10px; height: 10px;
+      border-radius: 50%; flex-shrink: 0;
+      background: var(--agp-text-muted);
+    }
+    .dot.on  { background: var(--agp-state-ok, #4ABA3E); }
+    .dot.bad { background: var(--agp-state-bad, #c0392b); }
+    .mod-name { font-size: 0.95em; }
+    /* Toggle táctil (igual que red.html) */
+    .toggle-wrap {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .toggle-wrap input[type="checkbox"] {
+      width: 22px; height: 22px; cursor: pointer; flex-shrink: 0;
+    }
+    .toggle-wrap input[type="checkbox"]:disabled { cursor: not-allowed; opacity: 0.55; }
+    /* Hint informativo */
+    .info-hint {
+      font-size: 0.85em; color: var(--agp-text-muted);
+      padding: 8px; border-radius: 6px;
+      background: var(--agp-bg); border: 1px solid var(--agp-border);
+      margin-bottom: 12px;
+    }
+    header.corex-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--agp-border);
+      background: var(--agp-surface);
+    }
+    header.corex-top h1 { margin: 0; font-size: 1.2em; }
+    .nav-back { font-size: 0.9em; color: var(--agp-text-muted);
+                text-decoration: none; padding: 6px 10px;
+                border: 1px solid var(--agp-border); border-radius: 6px; }
+    .nav-back:hover { background: var(--agp-border); }
+  </style>
+</head>
+<body>
+  <header class="corex-top">
+    <h1>Módulos</h1>
+    <a class="nav-back" href="/index.html">← Dashboard</a>
+  </header>
+
+  <div class="mod-grid">
+
+    <section class="corex-card">
+      <h2>Módulos habilitados</h2>
+
+      <p class="info-hint">
+        Activá o desactivá cada módulo en caliente. El cambio se persiste
+        automáticamente (sin botón guardar) y el dot refleja el "hello" vivo
+        de cada módulo en la red.
+      </p>
+
+      <!-- Steer -->
+      <div class="mod-row">
+        <div class="mod-left">
+          <span class="dot" id="dot-steer"></span>
+          <span class="mod-name">Dirección (Steer)</span>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="tog-steer" aria-label="Habilitar módulo Steer">
+        </div>
+      </div>
+
+      <!-- Machine -->
+      <div class="mod-row">
+        <div class="mod-left">
+          <span class="dot" id="dot-machine"></span>
+          <span class="mod-name">Máquina</span>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="tog-machine" aria-label="Habilitar módulo Máquina">
+        </div>
+      </div>
+
+      <!-- IMU -->
+      <div class="mod-row">
+        <div class="mod-left">
+          <span class="dot" id="dot-imu"></span>
+          <span class="mod-name">IMU</span>
+        </div>
+        <div class="toggle-wrap">
+          <input type="checkbox" id="tog-imu" aria-label="Habilitar módulo IMU">
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/modulos.js"></script>
+</body>
+</html>

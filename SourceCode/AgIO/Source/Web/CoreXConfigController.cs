@@ -54,39 +54,39 @@ namespace AgIO
                     {
                         Gps = new
                         {
-                            Port    = FormLoop.portNameGPS,
-                            Baud    = FormLoop.baudRateGPS,
-                            IsOpen  = _form.spGPS.IsOpen,
+                            Port = FormLoop.portNameGPS,
+                            Baud = FormLoop.baudRateGPS,
+                            IsOpen = _form.spGPS.IsOpen,
                         },
                         Gps2 = new
                         {
-                            Port    = FormLoop.portNameGPS2,
-                            Baud    = FormLoop.baudRateGPS2,
-                            IsOpen  = _form.spGPS2.IsOpen,
+                            Port = FormLoop.portNameGPS2,
+                            Baud = FormLoop.baudRateGPS2,
+                            IsOpen = _form.spGPS2.IsOpen,
                         },
                         Rtcm = new
                         {
-                            Port    = FormLoop.portNameRtcm,
-                            Baud    = FormLoop.baudRateRtcm,
-                            IsOpen  = _form.spRtcm.IsOpen,
+                            Port = FormLoop.portNameRtcm,
+                            Baud = FormLoop.baudRateRtcm,
+                            IsOpen = _form.spRtcm.IsOpen,
                         },
                         Imu = new
                         {
-                            Port    = FormLoop.portNameIMU,
-                            Baud    = FormLoop.baudRateIMU,
-                            IsOpen  = _form.spIMU.IsOpen,
+                            Port = FormLoop.portNameIMU,
+                            Baud = FormLoop.baudRateIMU,
+                            IsOpen = _form.spIMU.IsOpen,
                         },
                         Steer = new
                         {
-                            Port    = FormLoop.portNameSteerModule,
-                            Baud    = FormLoop.baudRateSteerModule,
-                            IsOpen  = _form.spSteerModule.IsOpen,
+                            Port = FormLoop.portNameSteerModule,
+                            Baud = FormLoop.baudRateSteerModule,
+                            IsOpen = _form.spSteerModule.IsOpen,
                         },
                         Machine = new
                         {
-                            Port    = FormLoop.portNameMachineModule,
-                            Baud    = FormLoop.baudRateMachineModule,
-                            IsOpen  = _form.spMachineModule.IsOpen,
+                            Port = FormLoop.portNameMachineModule,
+                            Baud = FormLoop.baudRateMachineModule,
+                            IsOpen = _form.spMachineModule.IsOpen,
                         },
                     },
                 };
@@ -167,23 +167,23 @@ namespace AgIO
                 var s = Properties.Settings.Default;
                 return new NtripConfigDto
                 {
-                    IsOn            = s.setNTRIP_isOn,
-                    CasterUrl       = s.setNTRIP_casterURL   ?? "",
-                    CasterIp        = s.setNTRIP_casterIP    ?? "",
-                    CasterPort      = s.setNTRIP_casterPort,
-                    Mount           = s.setNTRIP_mount        ?? "",
-                    UserName        = s.setNTRIP_userName     ?? "",
-                    UserPassword    = s.setNTRIP_userPassword ?? "",
+                    IsOn = s.setNTRIP_isOn,
+                    CasterUrl = s.setNTRIP_casterURL ?? "",
+                    CasterIp = s.setNTRIP_casterIP ?? "",
+                    CasterPort = s.setNTRIP_casterPort,
+                    Mount = s.setNTRIP_mount ?? "",
+                    UserName = s.setNTRIP_userName ?? "",
+                    UserPassword = s.setNTRIP_userPassword ?? "",
                     SendGgaInterval = s.setNTRIP_sendGGAInterval,
-                    IsGgaManual     = s.setNTRIP_isGGAManual,
-                    ManualLat       = s.setNTRIP_manualLat,
-                    ManualLon       = s.setNTRIP_manualLon,
-                    IsTcp           = s.setNTRIP_isTCP,
-                    IsHttp10        = s.setNTRIP_isHTTP10,
-                    PacketSize      = s.setNTRIP_packetSize,
-                    SendToSerial    = s.setNTRIP_sendToSerial,
-                    SendToUdp       = s.setNTRIP_sendToUDP,
-                    SendToUdpPort   = s.setNTRIP_sendToUDPPort,
+                    IsGgaManual = s.setNTRIP_isGGAManual,
+                    ManualLat = s.setNTRIP_manualLat,
+                    ManualLon = s.setNTRIP_manualLon,
+                    IsTcp = s.setNTRIP_isTCP,
+                    IsHttp10 = s.setNTRIP_isHTTP10,
+                    PacketSize = s.setNTRIP_packetSize,
+                    SendToSerial = s.setNTRIP_sendToSerial,
+                    SendToUdp = s.setNTRIP_sendToUDP,
+                    SendToUdpPort = s.setNTRIP_sendToUDPPort,
                 };
             }).ConfigureAwait(false);
 
@@ -238,8 +238,8 @@ namespace AgIO
                 var s = Properties.Settings.Default;
                 return new
                 {
-                    UdpIsOn  = s.setUDP_isOn,
-                    Subnet   = new int[] { s.etIP_SubnetOne, s.etIP_SubnetTwo, s.etIP_SubnetThree },
+                    UdpIsOn = s.setUDP_isOn,
+                    Subnet = new int[] { s.etIP_SubnetOne, s.etIP_SubnetTwo, s.etIP_SubnetThree },
                     IpActual = _form.GetLocalIpForWeb(),
                 };
             }).ConfigureAwait(false);
@@ -309,6 +309,43 @@ namespace AgIO
             await WriteJsonAsync(new { Ok = true, Restart = false }).ConfigureAwait(false);
         }
 
+        // ── GET /api/corex/config/modulos ─────────────────────────────────────
+        // Devuelve el estado configurado (on/off) de cada módulo.
+        [Route(HttpVerbs.Get, "/corex/config/modulos")]
+        public async Task GetModulos()
+        {
+            var data = await _form.RunOnUiAsync(() => new
+            {
+                Imu = _form.isConnectedIMU,
+                Steer = _form.isConnectedSteer,
+                Machine = _form.isConnectedMachine,
+            }).ConfigureAwait(false);
+
+            await WriteJsonAsync(data).ConfigureAwait(false);
+        }
+
+        // ── POST /api/corex/config/modulos ────────────────────────────────────
+        // Body: { "imu": bool, "steer": bool, "machine": bool }
+        // Aplica en caliente igual que los checkboxes del form.
+        [Route(HttpVerbs.Post, "/corex/config/modulos")]
+        public async Task PostModulos()
+        {
+            var req = await ReadJsonBodyAsync<ModulesRequest>().ConfigureAwait(false);
+            if (req == null)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Body requerido").ConfigureAwait(false);
+                return;
+            }
+
+            await _form.RunOnUiAsync<object>(() =>
+            {
+                _form.SetModulesFromWeb(req.Imu, req.Steer, req.Machine);
+                return null;
+            }).ConfigureAwait(false);
+
+            await WriteJsonAsync(new { Ok = true }).ConfigureAwait(false);
+        }
+
         // Valida formato IPv4: 4 octetos, cada uno 0-255, máx 3 dígitos.
         // Acepta también strings con "COM" (puerto serie directo, igual que el form).
         private static bool CheckCasterIpValid(string ip)
@@ -333,23 +370,23 @@ namespace AgIO
         // del body JS snake_case funcione sin ambigüedad.
         public sealed class NtripConfigDto
         {
-            [JsonPropertyName("is_on")]              public bool   IsOn            { get; set; }
-            [JsonPropertyName("caster_url")]         public string CasterUrl       { get; set; }
-            [JsonPropertyName("caster_ip")]          public string CasterIp        { get; set; }
-            [JsonPropertyName("caster_port")]        public int    CasterPort      { get; set; }
-            [JsonPropertyName("mount")]              public string Mount           { get; set; }
-            [JsonPropertyName("user_name")]          public string UserName        { get; set; }
-            [JsonPropertyName("user_password")]      public string UserPassword    { get; set; }
-            [JsonPropertyName("send_gga_interval")]  public int    SendGgaInterval { get; set; }
-            [JsonPropertyName("is_gga_manual")]      public bool   IsGgaManual     { get; set; }
-            [JsonPropertyName("manual_lat")]         public double ManualLat       { get; set; }
-            [JsonPropertyName("manual_lon")]         public double ManualLon       { get; set; }
-            [JsonPropertyName("is_tcp")]             public bool   IsTcp           { get; set; }
-            [JsonPropertyName("is_http10")]          public bool   IsHttp10        { get; set; }
-            [JsonPropertyName("packet_size")]        public int    PacketSize      { get; set; }
-            [JsonPropertyName("send_to_serial")]     public bool   SendToSerial    { get; set; }
-            [JsonPropertyName("send_to_udp")]        public bool   SendToUdp       { get; set; }
-            [JsonPropertyName("send_to_udp_port")]   public int    SendToUdpPort   { get; set; }
+            [JsonPropertyName("is_on")] public bool IsOn { get; set; }
+            [JsonPropertyName("caster_url")] public string CasterUrl { get; set; }
+            [JsonPropertyName("caster_ip")] public string CasterIp { get; set; }
+            [JsonPropertyName("caster_port")] public int CasterPort { get; set; }
+            [JsonPropertyName("mount")] public string Mount { get; set; }
+            [JsonPropertyName("user_name")] public string UserName { get; set; }
+            [JsonPropertyName("user_password")] public string UserPassword { get; set; }
+            [JsonPropertyName("send_gga_interval")] public int SendGgaInterval { get; set; }
+            [JsonPropertyName("is_gga_manual")] public bool IsGgaManual { get; set; }
+            [JsonPropertyName("manual_lat")] public double ManualLat { get; set; }
+            [JsonPropertyName("manual_lon")] public double ManualLon { get; set; }
+            [JsonPropertyName("is_tcp")] public bool IsTcp { get; set; }
+            [JsonPropertyName("is_http10")] public bool IsHttp10 { get; set; }
+            [JsonPropertyName("packet_size")] public int PacketSize { get; set; }
+            [JsonPropertyName("send_to_serial")] public bool SendToSerial { get; set; }
+            [JsonPropertyName("send_to_udp")] public bool SendToUdp { get; set; }
+            [JsonPropertyName("send_to_udp_port")] public int SendToUdpPort { get; set; }
         }
     }
 
@@ -362,8 +399,8 @@ namespace AgIO
     internal sealed class SerialOpenRequest
     {
         [JsonPropertyName("channel")] public string Channel { get; set; }
-        [JsonPropertyName("port")]    public string Port    { get; set; }
-        [JsonPropertyName("baud")]    public int    Baud    { get; set; }
+        [JsonPropertyName("port")] public string Port { get; set; }
+        [JsonPropertyName("baud")] public int Baud { get; set; }
     }
 
     internal sealed class SerialCloseRequest
@@ -385,5 +422,13 @@ namespace AgIO
         [JsonPropertyName("o1")] public int O1 { get; set; }
         [JsonPropertyName("o2")] public int O2 { get; set; }
         [JsonPropertyName("o3")] public int O3 { get; set; }
+    }
+
+    // ── DTO de módulos ────────────────────────────────────────────────────────
+    internal sealed class ModulesRequest
+    {
+        [JsonPropertyName("imu")] public bool Imu { get; set; }
+        [JsonPropertyName("steer")] public bool Steer { get; set; }
+        [JsonPropertyName("machine")] public bool Machine { get; set; }
     }
 }
