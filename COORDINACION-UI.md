@@ -261,3 +261,9 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   Congelé sus IDs y los del dashboard index.html en §4-bis. Codex arranca el
   rediseño HTML/CSS de CoreX: markup y estilos libres, IDs/`data-*`/name="dest"
   intactos. El JS ya maneja disabled + clases on/bad en los dots.
+- [2026-07-06] [Claude] Rediseño CoreX aplicado (commit 3e12c0b8): adapté los
+  mockups de Diseño/CoreX/corex_agroparallel_html_screens a las 5 páginas
+  reales. Nueva capa `corex.css` (prefijo cx-; pisa el `body{display:grid}` de
+  layout.css del Hub) + logo en `img/agro_logo.png`. IDs congelados intactos,
+  verificado live en :5181. Hook extra a respetar: serial.js PISA el className
+  de los botones por canal con `btn-canal` / `btn-canal cerrar`.
