@@ -106,6 +106,41 @@ saveStatus sec3wGrid tblProductos`
 > empiecen a tocar. Codex: avisá en §7 qué pantalla arrancás y Claude le agrega
 > el registro de IDs antes.
 
+### 4-bis. CoreX WebUI (`SourceCode/AgIO/Source/wwwroot-corex/`) — OTRO wwwroot
+
+**Ojo: es un árbol distinto al del Hub.** Lo sirve CoreX.exe (EmbedIO,
+`127.0.0.1:5181`). Mismos contratos que §2. Editar el fuente requiere
+**rebuild de `AgIO.csproj` + relanzar CoreX.exe** (se copia al output).
+
+#### index.html (dashboard)
+`btnMqtt btnNtrip cardGps cardModulos cardMqtt cardNtrip dotGps dotImu
+dotMachine dotMqtt dotNtrip dotSteer gpsLat gpsLon hdrProfile hdrVersion
+modImu modMachine modSteer mqttClients mqttMsgs mqttPort mqttTopics
+mqttUptime ntripCaster ntripEstado ntripKb`
+
+#### pages/serial.html
+`baud-gps baud-gps2 baud-rtcm btn-gps btn-gps2 btn-imu btn-machine btn-rtcm
+btn-steer dot-gps dot-gps2 dot-imu dot-machine dot-rtcm dot-steer port-gps
+port-gps2 port-imu port-machine port-rtcm port-steer`
+(sufijos = canales fijos del JS: `gps gps2 rtcm imu steer machine`)
+
+#### pages/ntrip.html
+`btn-save caster_ip caster_port caster_url dest_serial dest_udp http_ver
+is_gga_manual is_on is_tcp manual_lat manual_lon mount packet_size
+send_gga_interval send_to_udp_port user_name user_password`
+**Además:** los radios destino comparten `name="dest"` (el JS lee por name).
+
+#### pages/red.html
+`btn-subnet ip-actual o1 o2 o3 subnet-hint udp-on`
+
+#### pages/modulos.html
+`dot-imu dot-machine dot-steer tog-imu tog-machine tog-steer`
+
+**Clases que setea el JS (no pisar con CSS que dependa de su ausencia):**
+los `dot-*` reciben `on` (verde) / `bad` (rojo) / ninguna (gris neutro);
+botones/toggles reciben `disabled` durante requests. El JS también reescribe
+`subnet-hint` con `createTextNode` (nada de markup fijo adentro).
+
 ---
 
 ## 5. Estado de pantallas
@@ -220,3 +255,9 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
 - [2026-06-28] [Codex] Correccion iconografia: usuario marco que los SVG generados no servian. Cambie el catalogo WebUI a PNGs existentes del proyecto, copiados en wwwroot/img/icons/existing desde GPS/btnImages/PilotXVariants, GPS/btnImages, GPS/btnImages_pilotx y AgIO/btnImages. agp-icons.json/agp-icons.js ahora apuntan a existing/*.png; index.html tiene cache-busting.
 
 - [2026-06-28] [Codex] Integre iconos existentes en sidebar.js: el render ya ignora los emojis/mojibake it.ico y muestra img ../img/icons/existing/agp-{id}.png. Ajuste layout.css para tamanos/centrado. Validado con node --check y HTTP 200.
+
+- [2026-07-06] [Claude] Terminé la lógica de las 4 páginas de config de CoreX
+  (serial, ntrip, red, modulos) en `wwwroot-corex/` (¡otro wwwroot, ver §4-bis!).
+  Congelé sus IDs y los del dashboard index.html en §4-bis. Codex arranca el
+  rediseño HTML/CSS de CoreX: markup y estilos libres, IDs/`data-*`/name="dest"
+  intactos. El JS ya maneja disabled + clases on/bad en los dots.
