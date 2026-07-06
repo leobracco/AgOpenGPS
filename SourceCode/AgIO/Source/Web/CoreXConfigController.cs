@@ -104,9 +104,20 @@ namespace AgIO
                 return;
             }
 
-            bool opened = await _form.RunOnUiAsync(
-                () => _form.OpenSerialFromWeb(req.Channel, req.Port ?? "", req.Baud)
-            ).ConfigureAwait(false);
+            // Canal desconocido u otro argumento inválido: respondemos 400 JSON
+            // en vez de dejar que EmbedIO tire un 500 de texto plano.
+            bool opened;
+            try
+            {
+                opened = await _form.RunOnUiAsync(
+                    () => _form.OpenSerialFromWeb(req.Channel, req.Port ?? "", req.Baud)
+                ).ConfigureAwait(false);
+            }
+            catch (ArgumentException ex)
+            {
+                await WriteErrorAsync(400, "BAD_CHANNEL", ex.Message).ConfigureAwait(false);
+                return;
+            }
 
             await WriteJsonAsync(new { Ok = opened }).ConfigureAwait(false);
         }
@@ -123,11 +134,19 @@ namespace AgIO
                 return;
             }
 
-            await _form.RunOnUiAsync<bool>(() =>
+            try
             {
-                _form.CloseSerialFromWeb(req.Channel);
-                return true;
-            }).ConfigureAwait(false);
+                await _form.RunOnUiAsync<bool>(() =>
+                {
+                    _form.CloseSerialFromWeb(req.Channel);
+                    return true;
+                }).ConfigureAwait(false);
+            }
+            catch (ArgumentException ex)
+            {
+                await WriteErrorAsync(400, "BAD_CHANNEL", ex.Message).ConfigureAwait(false);
+                return;
+            }
 
             await WriteJsonAsync(new { Ok = true }).ConfigureAwait(false);
         }

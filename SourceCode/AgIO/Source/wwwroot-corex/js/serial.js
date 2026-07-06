@@ -84,10 +84,24 @@
   }
 
   // Alterna el estado del canal: abre si estaba cerrado, cierra si estaba abierto.
+  // El botón se deshabilita durante la operación: un doble toque táctil no
+  // debe disparar dos requests concurrentes sobre el mismo puerto.
   async function toggle(ch) {
     var btn     = $('btn-' + ch);
     var isOpen  = btn.className.indexOf('cerrar') !== -1;
 
+    btn.disabled = true;
+    try {
+      await doToggle(ch, isOpen);
+    } finally {
+      btn.disabled = false;
+    }
+
+    // Recarga siempre para reflejar el estado real (no solo el esperado).
+    await load();
+  }
+
+  async function doToggle(ch, isOpen) {
     if (isOpen) {
       try {
         await fetch('/api/corex/serial/close', {
@@ -129,9 +143,6 @@
           port + ' no se pudo abrir — ¿está en uso o desconectado?');
       }
     }
-
-    // Recarga siempre para reflejar el estado real (no solo el esperado).
-    await load();
   }
 
   // Engancha cada botón con su canal al cargar.
