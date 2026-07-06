@@ -53,7 +53,16 @@ namespace AgIO
                         m => m.WithContentCaching(false));
                 }
 
-                _ = _server.RunAsync();
+                // RunAsync es fire-and-forget: si el bind a :5181 falla (puerto
+                // ocupado), la excepción viaja en la task y el catch de abajo
+                // no la ve. La logueamos acá para diagnóstico (trampa conocida
+                // de colisiones de puerto tipo :5180/:1883).
+                _server.RunAsync().ContinueWith(t =>
+                {
+                    if (t.IsFaulted)
+                        Log.EventWriter("CoreX web host caído (¿:5181 ocupado?): "
+                            + t.Exception?.GetBaseException());
+                }, System.Threading.Tasks.TaskContinuationOptions.OnlyOnFaulted);
                 Log.EventWriter("CoreX web host escuchando en " + Url);
             }
             catch (Exception ex)
