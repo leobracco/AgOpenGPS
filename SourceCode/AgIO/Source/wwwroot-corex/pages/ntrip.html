@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NTRIP — CoreX</title>
+  <!-- Rutas absolutas: esta página vive en /pages/ y los assets están en la raíz. -->
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <style>
+    .ntrip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px; padding: 14px;
+    }
+    .corex-card {
+      background: var(--agp-surface); border: 1px solid var(--agp-border);
+      border-radius: 8px; padding: 14px;
+    }
+    .corex-card h2 { margin: 0 0 12px; font-size: 1.05em; }
+    .field-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .field-row label { font-size: 0.9em; color: var(--agp-text-muted); }
+    .field-row input[type="text"],
+    .field-row input[type="number"],
+    .field-row select {
+      width: 100%; padding: 10px 8px; font-size: 1em;
+      border: 1px solid var(--agp-border); border-radius: 6px;
+      background: var(--agp-bg); color: var(--agp-text);
+      box-sizing: border-box;
+    }
+    .field-row input:disabled,
+    .field-row select:disabled { opacity: 0.55; }
+    /* Checkbox grande táctil */
+    .toggle-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 0; margin-bottom: 10px;
+    }
+    .toggle-row input[type="checkbox"] {
+      width: 22px; height: 22px; cursor: pointer; flex-shrink: 0;
+    }
+    .toggle-row label { font-size: 1em; cursor: pointer; }
+    /* Radios destino */
+    .radio-row {
+      display: flex; align-items: center; gap: 10px; padding: 6px 0;
+    }
+    .radio-row input[type="radio"] {
+      width: 20px; height: 20px; cursor: pointer; flex-shrink: 0;
+    }
+    .radio-row label { font-size: 1em; cursor: pointer; }
+    /* Botón guardar grande */
+    .btn-save {
+      width: 100%; padding: 14px; font-size: 1.05em;
+      border: none; border-radius: 6px; cursor: pointer;
+      background: var(--agp-state-ok, #4ABA3E); color: #fff;
+      margin-top: 4px;
+    }
+    .btn-save:disabled { opacity: 0.55; cursor: not-allowed; }
+    header.corex-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--agp-border);
+      background: var(--agp-surface);
+    }
+    header.corex-top h1 { margin: 0; font-size: 1.2em; }
+    .nav-back { font-size: 0.9em; color: var(--agp-text-muted);
+                text-decoration: none; padding: 6px 10px;
+                border: 1px solid var(--agp-border); border-radius: 6px; }
+    .nav-back:hover { background: var(--agp-border); }
+    /* Fila de aviso de reinicio */
+    .restart-hint {
+      font-size: 0.85em; color: var(--agp-text-muted);
+      margin-top: 10px; padding: 8px; border-radius: 6px;
+      background: var(--agp-bg); border: 1px solid var(--agp-border);
+    }
+    /* Área de guardar unificada al final de la página */
+    .save-area {
+      padding: 14px; border-top: 1px solid var(--agp-border);
+    }
+  </style>
+</head>
+<body>
+  <header class="corex-top">
+    <h1>NTRIP</h1>
+    <a class="nav-back" href="/index.html">← Dashboard</a>
+  </header>
+
+  <div class="ntrip-grid">
+
+    <!-- Card: Conexión -->
+    <section class="corex-card">
+      <h2>Conexión</h2>
+
+      <div class="toggle-row">
+        <input type="checkbox" id="is_on">
+        <label for="is_on">Habilitar NTRIP</label>
+      </div>
+
+      <div class="field-row">
+        <label for="caster_url">URL del caster</label>
+        <input type="text" id="caster_url" placeholder="rtk2go.com">
+      </div>
+
+      <div class="field-row">
+        <label for="caster_ip">IP del caster (resuelve desde URL o ingresá manualmente)</label>
+        <input type="text" id="caster_ip" placeholder="0.0.0.0">
+      </div>
+
+      <div class="field-row">
+        <label for="caster_port">Puerto del caster</label>
+        <input type="number" id="caster_port" min="1" max="65535" step="1">
+      </div>
+
+      <div class="field-row">
+        <label for="mount">Mountpoint</label>
+        <input type="text" id="mount" placeholder="MOUNTPOINT">
+      </div>
+
+      <div class="field-row">
+        <label for="user_name">Usuario</label>
+        <input type="text" id="user_name" autocomplete="off">
+      </div>
+
+      <div class="field-row">
+        <label for="user_password">Contraseña</label>
+        <input type="text" id="user_password" autocomplete="off">
+      </div>
+    </section>
+
+    <!-- Card: GGA -->
+    <section class="corex-card">
+      <h2>GGA</h2>
+
+      <div class="field-row">
+        <label for="send_gga_interval">Intervalo de envío GGA (segundos; 0 = no enviar)</label>
+        <input type="number" id="send_gga_interval" min="0" max="300" step="1">
+      </div>
+
+      <div class="field-row">
+        <label for="is_gga_manual">Fuente de posición GGA</label>
+        <select id="is_gga_manual">
+          <option value="gps">Usar posición GPS</option>
+          <option value="manual">Usar posición manual</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <label for="manual_lat">Latitud manual</label>
+        <input type="number" id="manual_lat" step="0.000001" min="-90" max="90">
+      </div>
+
+      <div class="field-row">
+        <label for="manual_lon">Longitud manual</label>
+        <input type="number" id="manual_lon" step="0.000001" min="-180" max="180">
+      </div>
+    </section>
+
+    <!-- Card: Avanzado -->
+    <section class="corex-card">
+      <h2>Avanzado</h2>
+
+      <div class="toggle-row">
+        <input type="checkbox" id="is_tcp">
+        <label for="is_tcp">Usar TCP (en vez de NTRIP/HTTP)</label>
+      </div>
+
+      <div class="field-row">
+        <label for="http_ver">Versión HTTP</label>
+        <select id="http_ver">
+          <option value="1.0">1.0</option>
+          <option value="1.1">1.1</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <label for="packet_size">Tamaño de paquete</label>
+        <select id="packet_size">
+          <option value="256">256</option>
+          <option value="512">512</option>
+          <option value="1024">1024</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <label>Destino de las correcciones</label>
+        <div class="radio-row">
+          <input type="radio" name="dest" id="dest_serial" value="serial">
+          <label for="dest_serial">Puerto serie</label>
+        </div>
+        <div class="radio-row">
+          <input type="radio" name="dest" id="dest_udp" value="udp">
+          <label for="dest_udp">UDP</label>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <label for="send_to_udp_port">Puerto UDP de destino</label>
+        <input type="number" id="send_to_udp_port" min="1" max="65535" step="1">
+      </div>
+
+      <p class="restart-hint">
+        Cambiar "Habilitar NTRIP" o el destino (serie/UDP) requiere reiniciar CoreX.
+        Los demás cambios se aplican en caliente.
+      </p>
+    </section>
+
+  </div>
+
+  <!-- Área de guardado unificada -->
+  <div class="save-area">
+    <button class="btn-save" id="btn-save">Guardar</button>
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/ntrip.js"></script>
+</body>
+</html>

@@ -1,12 +1,14 @@
 // ============================================================================
-// CoreXConfigController.cs — Endpoints de configuración de puertos serie
-// para la UI web de CoreX. Toda lectura/escritura de FormLoop se hace vía
-// RunOnUiAsync porque los SerialPort y Settings no son thread-safe.
+// CoreXConfigController.cs — Endpoints de configuración de CoreX (web UI).
+// Toda lectura/escritura de FormLoop se hace vía RunOnUiAsync porque los
+// SerialPort y Settings no son thread-safe.
 //
 // Rutas:
 //   GET  /api/corex/config/serial   → lista puertos disponibles + estado por canal
 //   POST /api/corex/serial/open     → body {channel, port, baud} → {ok}
 //   POST /api/corex/serial/close    → body {channel}             → {ok:true}
+//   GET  /api/corex/config/ntrip    → configuración NTRIP actual
+//   POST /api/corex/config/ntrip    → guarda config; {ok, restart}
 // ============================================================================
 
 using System;
@@ -150,9 +152,124 @@ namespace AgIO
 
             await WriteJsonAsync(new { Ok = true }).ConfigureAwait(false);
         }
+
+        // ── GET /api/corex/config/ntrip ───────────────────────────────────────
+        // Devuelve la configuración NTRIP actual desde Settings. Se ejecuta en
+        // el hilo UI para leer Settings de forma segura.
+        [Route(HttpVerbs.Get, "/corex/config/ntrip")]
+        public async Task GetNtrip()
+        {
+            var data = await _form.RunOnUiAsync(() =>
+            {
+                var s = Properties.Settings.Default;
+                return new NtripConfigDto
+                {
+                    IsOn            = s.setNTRIP_isOn,
+                    CasterUrl       = s.setNTRIP_casterURL   ?? "",
+                    CasterIp        = s.setNTRIP_casterIP    ?? "",
+                    CasterPort      = s.setNTRIP_casterPort,
+                    Mount           = s.setNTRIP_mount        ?? "",
+                    UserName        = s.setNTRIP_userName     ?? "",
+                    UserPassword    = s.setNTRIP_userPassword ?? "",
+                    SendGgaInterval = s.setNTRIP_sendGGAInterval,
+                    IsGgaManual     = s.setNTRIP_isGGAManual,
+                    ManualLat       = s.setNTRIP_manualLat,
+                    ManualLon       = s.setNTRIP_manualLon,
+                    IsTcp           = s.setNTRIP_isTCP,
+                    IsHttp10        = s.setNTRIP_isHTTP10,
+                    PacketSize      = s.setNTRIP_packetSize,
+                    SendToSerial    = s.setNTRIP_sendToSerial,
+                    SendToUdp       = s.setNTRIP_sendToUDP,
+                    SendToUdpPort   = s.setNTRIP_sendToUDPPort,
+                };
+            }).ConfigureAwait(false);
+
+            await WriteJsonAsync(data).ConfigureAwait(false);
+        }
+
+        // ── POST /api/corex/config/ntrip ──────────────────────────────────────
+        // Guarda la configuración NTRIP. Responde {ok, restart}.
+        // Si restart=true, inicia un reinicio diferido de CoreX.
+        [Route(HttpVerbs.Post, "/corex/config/ntrip")]
+        public async Task PostNtrip()
+        {
+            var dto = await ReadJsonBodyAsync<NtripConfigDto>().ConfigureAwait(false);
+            if (dto == null)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Body requerido").ConfigureAwait(false);
+                return;
+            }
+
+            // Validar IP del caster si no está vacía (misma lógica que FormNtrip.CheckIPValid)
+            if (!string.IsNullOrEmpty(dto.CasterIp) && !CheckCasterIpValid(dto.CasterIp))
+            {
+                await WriteErrorAsync(400, "AGP-CFG-002", "IP del caster inválida", dto.CasterIp)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            bool restart = await _form.RunOnUiAsync(
+                () => _form.SaveNtripConfigFromWeb(dto)
+            ).ConfigureAwait(false);
+
+            await WriteJsonAsync(new { Ok = true, Restart = restart }).ConfigureAwait(false);
+
+            // Reinicio diferido: la respuesta HTTP ya salió antes de esta línea.
+            if (restart)
+            {
+                await _form.RunOnUiAsync<object>(() =>
+                {
+                    _form.RestartFromWeb();
+                    return null;
+                }).ConfigureAwait(false);
+            }
+        }
+
+        // Valida formato IPv4: 4 octetos, cada uno 0-255, máx 3 dígitos.
+        // Acepta también strings con "COM" (puerto serie directo, igual que el form).
+        private static bool CheckCasterIpValid(string ip)
+        {
+            if (ip.Contains("COM")) return true;
+            var parts = ip.Split('.');
+            if (parts.Length != 4) return false;
+            foreach (var part in parts)
+            {
+                if (part.Length == 0 || part.Length > 3) return false;
+                if (!int.TryParse(part, out int val)) return false;
+                if (val < 0 || val > 255) return false;
+            }
+            return true;
+        }
+
+        // ── DTO de configuración NTRIP ────────────────────────────────────────
+        // Anidado en CoreXConfigController para que FormLoop pueda referenciarlo
+        // como CoreXConfigController.NtripConfigDto sin namespace adicional.
+        // public: FormLoop.SaveNtripConfigFromWeb lo recibe directamente.
+        // [JsonPropertyName] explícito en cada prop para que la deserialización
+        // del body JS snake_case funcione sin ambigüedad.
+        public sealed class NtripConfigDto
+        {
+            [JsonPropertyName("is_on")]              public bool   IsOn            { get; set; }
+            [JsonPropertyName("caster_url")]         public string CasterUrl       { get; set; }
+            [JsonPropertyName("caster_ip")]          public string CasterIp        { get; set; }
+            [JsonPropertyName("caster_port")]        public int    CasterPort      { get; set; }
+            [JsonPropertyName("mount")]              public string Mount           { get; set; }
+            [JsonPropertyName("user_name")]          public string UserName        { get; set; }
+            [JsonPropertyName("user_password")]      public string UserPassword    { get; set; }
+            [JsonPropertyName("send_gga_interval")]  public int    SendGgaInterval { get; set; }
+            [JsonPropertyName("is_gga_manual")]      public bool   IsGgaManual     { get; set; }
+            [JsonPropertyName("manual_lat")]         public double ManualLat       { get; set; }
+            [JsonPropertyName("manual_lon")]         public double ManualLon       { get; set; }
+            [JsonPropertyName("is_tcp")]             public bool   IsTcp           { get; set; }
+            [JsonPropertyName("is_http10")]          public bool   IsHttp10        { get; set; }
+            [JsonPropertyName("packet_size")]        public int    PacketSize      { get; set; }
+            [JsonPropertyName("send_to_serial")]     public bool   SendToSerial    { get; set; }
+            [JsonPropertyName("send_to_udp")]        public bool   SendToUdp       { get; set; }
+            [JsonPropertyName("send_to_udp_port")]   public int    SendToUdpPort   { get; set; }
+        }
     }
 
-    // ── DTOs de entrada ───────────────────────────────────────────────────────
+    // ── DTOs de entrada de puertos serie ─────────────────────────────────────
     // AgpJson usa SnakeCaseLower como NamingPolicy de escritura Y lectura
     // (PropertyNameCaseInsensitive = true, pero eso solo cubre mayúsculas/
     // minúsculas, no guiones bajos). Para garantizar que el body JS snake_case

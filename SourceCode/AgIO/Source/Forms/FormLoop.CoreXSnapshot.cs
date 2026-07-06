@@ -149,6 +149,70 @@ namespace AgIO
             }
         }
 
+        // ── Puentes NTRIP para el web host ────────────────────────────────────
+        // Replica exactamente lo que hace FormNtrip.btnSerialOK_Click, pero
+        // sin acceso a la UI del form. El criterio de reinicio es el mismo que
+        // ntripStatusChanged en el form: cambió is_on o el destino serial/UDP.
+
+        /// <summary>
+        /// Guarda la configuración NTRIP desde la web y devuelve true si CoreX
+        /// necesita reiniciarse (cambió is_on o el destino serial/UDP).
+        /// </summary>
+        public bool SaveNtripConfigFromWeb(CoreXConfigController.NtripConfigDto d)
+        {
+            var s = Properties.Settings.Default;
+
+            // Calcular si hay cambio que requiere reinicio ANTES de pisar settings.
+            bool restart = (d.IsOn != s.setNTRIP_isOn)
+                || (d.SendToSerial != s.setNTRIP_sendToSerial)
+                || (d.SendToUdp   != s.setNTRIP_sendToUDP);
+
+            s.setNTRIP_isOn = d.IsOn;
+            if (d.IsOn)
+            {
+                // Mismo comportamiento que cboxIsNTRIPOn_Click y btnSerialOK_Click.
+                s.setRadio_isOn          = isRadio_RequiredOn       = false;
+                s.setPass_isOn           = isSerialPass_RequiredOn  = false;
+            }
+
+            s.setNTRIP_casterURL        = d.CasterUrl      ?? "";
+            s.setNTRIP_casterIP         = d.CasterIp       ?? "";
+            s.setNTRIP_casterPort       = d.CasterPort;
+            s.setNTRIP_mount            = d.Mount           ?? "";
+            s.setNTRIP_userName         = d.UserName        ?? "";
+            s.setNTRIP_userPassword     = d.UserPassword    ?? "";
+            s.setNTRIP_sendGGAInterval  = d.SendGgaInterval;
+            s.setNTRIP_isGGAManual      = d.IsGgaManual;
+            s.setNTRIP_manualLat        = d.ManualLat;
+            s.setNTRIP_manualLon        = d.ManualLon;
+            s.setNTRIP_isTCP            = d.IsTcp;
+            s.setNTRIP_isHTTP10         = d.IsHttp10;
+            s.setNTRIP_packetSize       = d.PacketSize;
+            s.setNTRIP_sendToSerial     = isSendToSerial    = d.SendToSerial;
+            s.setNTRIP_sendToUDP        = isSendToUDP       = d.SendToUdp;
+            s.setNTRIP_sendToUDPPort    = d.SendToUdpPort;
+            packetSizeNTRIP             = d.PacketSize;
+
+            s.Save();
+
+            // Aplica en caliente solo si no hay cambio que requiera reinicio
+            // (igual que el form: ConfigureNTRIP() solo si !ntripStatusChanged).
+            if (!restart) ConfigureNTRIP();
+
+            return restart;
+        }
+
+        /// <summary>
+        /// Inicia un reinicio diferido de CoreX (800 ms) para que la respuesta
+        /// HTTP pueda salir antes de que el proceso termine.
+        /// </summary>
+        public void RestartFromWeb()
+        {
+            var t = new System.Windows.Forms.Timer { Interval = 800 };
+            t.Tick += (s2, e2) => { t.Stop(); Program.Restart(); };
+            t.Start();
+        }
+
         // ── Fase 2 del spec ───────────────────────────────────────────────────
         // FormLoop queda como host invisible; la ventana
         // visible es FormWebShell. Hide() no frena los timers (el message
