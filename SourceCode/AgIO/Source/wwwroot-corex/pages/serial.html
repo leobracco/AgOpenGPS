@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Puertos serie — CoreX</title>
+  <!-- Rutas absolutas: esta página vive en /pages/ y los assets están en la raíz. -->
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <style>
+    /* Layout de la página de puertos — idéntico al dashboard (mismas variables). */
+    .serial-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px; padding: 14px;
+    }
+    .corex-card {
+      background: var(--agp-surface); border: 1px solid var(--agp-border);
+      border-radius: 8px; padding: 14px;
+    }
+    .corex-card h2 { margin: 0 0 12px; font-size: 1.05em; }
+    .field-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+    .field-row label { font-size: 0.9em; color: var(--agp-text-muted); }
+    /* Selects grandes: táctiles (operario con guantes). */
+    .field-row select {
+      width: 100%; padding: 10px 8px; font-size: 1em;
+      border: 1px solid var(--agp-border); border-radius: 6px;
+      background: var(--agp-bg); color: var(--agp-text);
+    }
+    .field-row select:disabled { opacity: 0.55; }
+    /* Botones de acción — grandes y visibles. */
+    .btn-canal {
+      width: 100%; padding: 12px; font-size: 1em;
+      border: none; border-radius: 6px; cursor: pointer;
+      background: var(--agp-state-ok, #4ABA3E); color: #fff;
+      margin-top: 4px;
+    }
+    .btn-canal.cerrar {
+      background: var(--agp-state-bad, #c0392b);
+    }
+    .dot { display: inline-block; width: 10px; height: 10px;
+           border-radius: 50%; margin-right: 6px;
+           background: var(--agp-text-muted); }
+    .dot.on  { background: var(--agp-state-ok,  #4ABA3E); }
+    .dot.bad { background: var(--agp-state-bad, #c0392b); }
+    header.corex-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid var(--agp-border);
+      background: var(--agp-surface);
+    }
+    header.corex-top h1 { margin: 0; font-size: 1.2em; }
+    .nav-back { font-size: 0.9em; color: var(--agp-text-muted);
+                text-decoration: none; padding: 6px 10px;
+                border: 1px solid var(--agp-border); border-radius: 6px; }
+    .nav-back:hover { background: var(--agp-border); }
+  </style>
+</head>
+<body>
+  <header class="corex-top">
+    <h1>Puertos serie</h1>
+    <a class="nav-back" href="/index.html">← Dashboard</a>
+  </header>
+
+  <main class="serial-grid">
+
+    <!-- GPS principal -->
+    <section class="corex-card">
+      <h2><span class="dot" id="dot-gps"></span>GPS</h2>
+      <div class="field-row">
+        <label for="port-gps">Puerto</label>
+        <select id="port-gps"></select>
+      </div>
+      <div class="field-row">
+        <label for="baud-gps">Velocidad (baud)</label>
+        <select id="baud-gps">
+          <option value="4800">4800</option>
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600">57600</option>
+          <option value="115200">115200</option>
+        </select>
+      </div>
+      <button class="btn-canal" id="btn-gps">Abrir</button>
+    </section>
+
+    <!-- GPS 2 (receptor dual/base) -->
+    <section class="corex-card">
+      <h2><span class="dot" id="dot-gps2"></span>GPS 2</h2>
+      <div class="field-row">
+        <label for="port-gps2">Puerto</label>
+        <select id="port-gps2"></select>
+      </div>
+      <div class="field-row">
+        <label for="baud-gps2">Velocidad (baud)</label>
+        <select id="baud-gps2">
+          <option value="4800">4800</option>
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600">57600</option>
+          <option value="115200">115200</option>
+        </select>
+      </div>
+      <button class="btn-canal" id="btn-gps2">Abrir</button>
+    </section>
+
+    <!-- RTCM (correcciones RTK) -->
+    <section class="corex-card">
+      <h2><span class="dot" id="dot-rtcm"></span>RTCM</h2>
+      <div class="field-row">
+        <label for="port-rtcm">Puerto</label>
+        <select id="port-rtcm"></select>
+      </div>
+      <div class="field-row">
+        <label for="baud-rtcm">Velocidad (baud)</label>
+        <select id="baud-rtcm">
+          <option value="4800">4800</option>
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600">57600</option>
+          <option value="115200">115200</option>
+        </select>
+      </div>
+      <button class="btn-canal" id="btn-rtcm">Abrir</button>
+    </section>
+
+    <!-- IMU (baud fijo 38400 — solo selección de puerto) -->
+    <section class="corex-card">
+      <h2><span class="dot" id="dot-imu"></span>IMU</h2>
+      <div class="field-row">
+        <label for="port-imu">Puerto</label>
+        <select id="port-imu"></select>
+      </div>
+      <button class="btn-canal" id="btn-imu">Abrir</button>
+    </section>
+
+    <!-- Steer (baud fijo 38400) -->
+    <section class="corex-card">
+      <h2><span class="dot" id="dot-steer"></span>Dirección (Steer)</h2>
+      <div class="field-row">
+        <label for="port-steer">Puerto</label>
+        <select id="port-steer"></select>
+      </div>
+      <button class="btn-canal" id="btn-steer">Abrir</button>
+    </section>
+
+    <!-- Machine (baud fijo 38400) -->
+    <section class="corex-card">
+      <h2><span class="dot" id="dot-machine"></span>Máquina</h2>
+      <div class="field-row">
+        <label for="port-machine">Puerto</label>
+        <select id="port-machine"></select>
+      </div>
+      <button class="btn-canal" id="btn-machine">Abrir</button>
+    </section>
+
+  </main>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/serial.js"></script>
+</body>
+</html>

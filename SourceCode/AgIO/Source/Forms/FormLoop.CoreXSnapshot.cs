@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Forms;
 
 namespace AgIO
 {
@@ -61,7 +62,95 @@ namespace AgIO
         public void ToggleMqttBrokerFromWeb() => btnMQTT_Click(null, EventArgs.Empty);
         public void ToggleNtripFromWeb() => btnStartStopNtrip_Click(null, EventArgs.Empty);
 
-        // Fase 2 del spec: FormLoop queda como host invisible; la ventana
+        // ── Puentes de hilos para el web host ────────────────────────────────
+        // EmbedIO despacha requests en pool threads; los SerialPort, labels y
+        // Settings de FormLoop NO son thread-safe. Todo acceso pasa por acá.
+
+        /// <summary>
+        /// Ejecuta <paramref name="fn"/> en el hilo UI y devuelve el resultado
+        /// al endpoint web. Nunca bloquear el hilo UI desde este awaitable.
+        /// </summary>
+        public System.Threading.Tasks.Task<T> RunOnUiAsync<T>(Func<T> fn)
+        {
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<T>();
+            BeginInvoke((MethodInvoker)(() =>
+            {
+                try   { tcs.SetResult(fn()); }
+                catch (Exception ex) { tcs.SetException(ex); }
+            }));
+            return tcs.Task;
+        }
+
+        /// <summary>
+        /// Abre el canal serie indicado con el puerto y baud elegidos desde la
+        /// web. Escribe los campos static antes de llamar al OpenXPort original
+        /// (que también persiste y actualiza el label). Devuelve true si quedó
+        /// abierto.
+        /// </summary>
+        public bool OpenSerialFromWeb(string channel, string port, int baud)
+        {
+            switch (channel)
+            {
+                case "gps":
+                    portNameGPS = port;
+                    baudRateGPS = baud;
+                    OpenGPSPort();
+                    return spGPS.IsOpen;
+
+                case "gps2":
+                    portNameGPS2 = port;
+                    baudRateGPS2 = baud;
+                    OpenGPS2Port();
+                    return spGPS2.IsOpen;
+
+                case "rtcm":
+                    portNameRtcm = port;
+                    baudRateRtcm = baud;
+                    OpenRtcmPort();
+                    return spRtcm.IsOpen;
+
+                case "imu":
+                    // IMU tiene baud fijo (38400); ignoramos el parámetro baud.
+                    portNameIMU = port;
+                    OpenIMUPort();
+                    return spIMU.IsOpen;
+
+                case "steer":
+                    // Steer tiene baud fijo (38400); ignoramos el parámetro baud.
+                    portNameSteerModule = port;
+                    OpenSteerModulePort();
+                    return spSteerModule.IsOpen;
+
+                case "machine":
+                    // Machine tiene baud fijo (38400); ignoramos el parámetro baud.
+                    portNameMachineModule = port;
+                    OpenMachineModulePort();
+                    return spMachineModule.IsOpen;
+
+                default:
+                    throw new ArgumentException("canal desconocido: " + channel);
+            }
+        }
+
+        /// <summary>
+        /// Cierra el canal serie indicado desde la web.
+        /// </summary>
+        public void CloseSerialFromWeb(string channel)
+        {
+            switch (channel)
+            {
+                case "gps":     CloseGPSPort();            break;
+                case "gps2":    CloseGPS2Port();           break;
+                case "rtcm":    CloseRtcmPort();           break;
+                case "imu":     CloseIMUPort();            break;
+                case "steer":   CloseSteerModulePort();    break;
+                case "machine": CloseMachineModulePort();  break;
+                default: throw new ArgumentException("canal desconocido: " + channel);
+            }
+        }
+
+        // ── Fase 2 del spec ───────────────────────────────────────────────────
+        // FormLoop queda como host invisible; la ventana
         // visible es FormWebShell. Hide() no frena los timers (el message
         // loop de Application.Run sigue vivo), así que el broker, el UDP y
         // el snapshot @1Hz siguen andando ocultos.
