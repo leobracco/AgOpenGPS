@@ -152,12 +152,8 @@ botones/toggles reciben `disabled` durante requests. El JS también reescribe
 **Pills de cabecera en TODAS las páginas:** `hdrVersion` y `hdrProfile`
 existen también en las 4 subpáginas (las llena `js/hdr.js`, refresh cada 5 s;
 en index las llena `corex.js` @1Hz). No renombrar ni sacar esos spans.
-**Criterio de tamaño (feedback usuario):** la UI de CoreX debe quedar MÁS
-CHICA que la ventana WinForms original de AgIO (~735x525), no llenar la
-pantalla de 10" (1080x720). `corex.css` acota `.cx-shell` a `max-width:740px`
-centrado con borde/sombra propios, y densifica todo: body 12.5px, sidebar
-138px, inputs/botones 32px, paneles padding 10px. No volver a estirar el
-layout al viewport.
+Medidas de `corex.css` compactadas para la pantalla de 10" (1080x720):
+targets táctiles ≥40px, el resto densificado.
 
 ---
 
