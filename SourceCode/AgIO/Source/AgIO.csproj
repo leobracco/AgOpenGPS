@@ -68,4 +68,19 @@
     </EmbeddedResource>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="wwwroot-corex\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- Design system compartido: misma fuente de verdad que el Hub PilotX.
+       Se copia en build a wwwroot-corex/ del output (spec decisión 5). -->
+  <Target Name="CopyCoreXDesignSystem" AfterTargets="Build">
+    <ItemGroup>
+      <AgpDesignCss Include="..\..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\theme.css;..\..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\layout.css;..\..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\keyboard.css" />
+      <AgpDesignJs Include="..\..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\js\modal.js;..\..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\js\keyboard.js" />
+    </ItemGroup>
+    <Copy SourceFiles="@(AgpDesignCss)" DestinationFolder="$(OutDir)wwwroot-corex" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(AgpDesignJs)" DestinationFolder="$(OutDir)wwwroot-corex\js" SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
