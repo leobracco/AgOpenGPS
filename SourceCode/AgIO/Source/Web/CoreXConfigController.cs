@@ -283,11 +283,20 @@ namespace AgIO
                 return;
             }
 
+            // Defensa server-side además de la validación del JS.
+            if (req.O1 < 0 || req.O1 > 255 || req.O2 < 0 || req.O2 > 255
+                || req.O3 < 0 || req.O3 > 255)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Octetos fuera de rango 0-255")
+                    .ConfigureAwait(false);
+                return;
+            }
+
             try
             {
                 await _form.RunOnUiAsync<object>(() =>
                 {
-                    _form.SendSubnetFromWeb(req.O1, req.O2, req.O3);
+                    _form.SendSubnetFromWeb((byte)req.O1, (byte)req.O2, (byte)req.O3);
                     return null;
                 }).ConfigureAwait(false);
             }
@@ -369,10 +378,12 @@ namespace AgIO
         [JsonPropertyName("on")] public bool On { get; set; }
     }
 
+    // int (no byte): System.Text.Json hace overflow silencioso con byte
+    // (300 → 44). El rango 0-255 se valida en el endpoint.
     internal sealed class SubnetRequest
     {
-        [JsonPropertyName("o1")] public byte O1 { get; set; }
-        [JsonPropertyName("o2")] public byte O2 { get; set; }
-        [JsonPropertyName("o3")] public byte O3 { get; set; }
+        [JsonPropertyName("o1")] public int O1 { get; set; }
+        [JsonPropertyName("o2")] public int O2 { get; set; }
+        [JsonPropertyName("o3")] public int O3 { get; set; }
     }
 }

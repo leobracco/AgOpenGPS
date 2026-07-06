@@ -39,14 +39,24 @@
   }
 
   // Muestra la IP actual como referencia en el hint de subnet.
+  // Construye los nodos a mano: nunca innerHTML con datos del server.
   function actualizarHintSubnet(ipActual) {
     var hint = $('subnet-hint');
-    if (ipActual && ipActual !== 'Off' && ipActual !== '—') {
-      hint.innerHTML =
-        'IP actual del host: <strong>' + ipActual + '</strong>. ' +
-        'Ingresá los tres primeros octetos de la subnet de la LAN. ' +
-        'Al confirmar, CoreX envía el comando a <strong>todos</strong> los nodos presentes en la red.';
-    }
+    if (!ipActual || ipActual === 'Off' || ipActual === '—') return;
+
+    while (hint.firstChild) hint.removeChild(hint.firstChild);
+
+    hint.appendChild(document.createTextNode('IP actual del host: '));
+    var ipStrong = document.createElement('strong');
+    ipStrong.textContent = ipActual;
+    hint.appendChild(ipStrong);
+    hint.appendChild(document.createTextNode(
+      '. Ingresá los tres primeros octetos de la subnet de la LAN. ' +
+      'Al confirmar, CoreX envía el comando a '));
+    var todosStrong = document.createElement('strong');
+    todosStrong.textContent = 'todos';
+    hint.appendChild(todosStrong);
+    hint.appendChild(document.createTextNode(' los nodos presentes en la red.'));
   }
 
   // ── Toggle UDP on/off ───────────────────────────────────────────────────

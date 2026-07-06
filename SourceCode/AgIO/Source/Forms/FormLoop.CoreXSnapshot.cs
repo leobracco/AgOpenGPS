@@ -321,15 +321,25 @@ namespace AgIO
         {
             if (!Properties.Settings.Default.setUDP_isOn) return "Off";
 
+            // Enumeración de NICs en memoria (sin Dns.GetHostAddresses: la
+            // resolución DNS puede tardar segundos y esto corre en el hilo UI).
             var sb = new System.Text.StringBuilder();
             try
             {
-                foreach (System.Net.IPAddress ipa in System.Net.Dns.GetHostAddresses(System.Net.Dns.GetHostName()))
+                foreach (var nic in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
                 {
-                    if (ipa.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    if (nic.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up
+                        || !nic.Supports(System.Net.NetworkInformation.NetworkInterfaceComponent.IPv4))
+                        continue;
+
+                    foreach (var info in nic.GetIPProperties().UnicastAddresses)
                     {
-                        if (sb.Length > 0) sb.Append(", ");
-                        sb.Append(ipa.ToString().Trim());
+                        if (info.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+                            && !System.Net.IPAddress.IsLoopback(info.Address))
+                        {
+                            if (sb.Length > 0) sb.Append(", ");
+                            sb.Append(info.Address.ToString());
+                        }
                     }
                 }
             }
