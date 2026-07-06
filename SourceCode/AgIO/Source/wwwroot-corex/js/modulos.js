@@ -38,6 +38,11 @@
   }
 
   // ── Cargar estado configurado inicial ─────────────────────────────────────
+  // Los toggles arrancan bloqueados y solo se habilitan cuando el GET inicial
+  // trae el estado real. Sin esto, un GET fallido dejaría los 3 toggles en
+  // false y el primer toque apagaría módulos que estaban prendidos.
+  var configLoaded = false;
+
   function loadConfig() {
     fetch('/api/corex/config/modulos', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
@@ -45,15 +50,19 @@
         togSteer.checked   = !!d.steer;
         togMachine.checked = !!d.machine;
         togImu.checked     = !!d.imu;
+        configLoaded = true;
+        lockToggles(false);
       })
       .catch(function () {
-        AgpModal.alert('Error de red', 'No se pudo cargar la configuración de módulos.');
+        AgpModal.alert('Error de red',
+          'No se pudo cargar la configuración de módulos. Reintentando…');
+        setTimeout(loadConfig, 3000);
       });
   }
 
   // ── Guardar los 3 estados en POST y releer ────────────────────────────────
   function saveAndRefresh() {
-    if (busy) return;
+    if (busy || !configLoaded) return;
     busy = true;
     lockToggles(true);
 
@@ -109,8 +118,10 @@
   }
 
   // ── Init ──────────────────────────────────────────────────────────────────
+  lockToggles(true); // bloqueados hasta que loadConfig traiga el estado real
   loadConfig();
   pollStatus();
-  setInterval(pollStatus, 2000);
+  var statusInterval = setInterval(pollStatus, 2000);
+  window.addEventListener('pagehide', function () { clearInterval(statusInterval); });
 
 }());
