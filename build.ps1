@@ -72,6 +72,12 @@ if (Test-Path $aioBin) {
             Copy-Item $_.FullName -Destination $dest -Force
         }
     }
+    # Dashboard web de CoreX (:5181): CoreXWebHost sirve estaticos desde
+    # <exe>\wwwroot-corex; la copia plana de arriba no baja a subdirs.
+    $corexWww = Join-Path $aioBin "wwwroot-corex"
+    if (Test-Path $corexWww) {
+        Copy-Item $corexWww -Destination $OutDir -Recurse -Force
+    }
 }
 
 # Copiar AgroParallel.Updater (helper de self-update — lo lanza PilotXSelfUpdate)

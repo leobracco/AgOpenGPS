@@ -39,6 +39,10 @@
     <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
     <PackageReference Include="System.Memory" Version="4.6.0" />
     <PackageReference Include="System.Resources.Extensions" Version="9.0.0" />
+    <!-- Alineado con PilotX (AgOpenGPS.csproj usa 9.0.0): build.ps1 mergea ambos
+         outputs en Build/ y queda la DLL 9.x; sin esto CoreX redirige a 8.0.0.5
+         y el status :5181 revienta con FileLoadException. -->
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>

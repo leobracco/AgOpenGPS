@@ -44,7 +44,8 @@ namespace AgIO
                 catch (Exception ex)
                 {
                     // WebView2 runtime ausente: no rompemos CoreX, queda la UI vieja.
-                    Log.EventWriter("FormWebShell sin WebView2: " + ex.Message);                    Close();
+                    Log.EventWriter("FormWebShell sin WebView2: " + ex.Message);
+                    Close();
                 }
             };
         }
