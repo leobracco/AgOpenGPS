@@ -9,14 +9,19 @@ namespace AgIO
 {
     /// <summary>
     /// Ventana web de CoreX: WebView2 fullscreen contra el host local :5181.
-    /// Convive con FormLoop (UI vieja) durante la migración — spec decisión 4.
+    /// Cuando el dashboard carga OK oculta FormLoop (host invisible, spec
+    /// Fase 2); si esta ventana se cierra o WebView2 falla, la UI vieja
+    /// reaparece como escape de seguridad.
     /// </summary>
     public sealed class FormWebShell : Form
     {
         private readonly WebView2 _web = new WebView2();
+        private readonly FormLoop _loop;
+        private bool _hidLegacy;
 
-        public FormWebShell()
+        public FormWebShell(FormLoop loop)
         {
+            _loop = loop;
             Text = "CoreX";
             StartPosition = FormStartPosition.CenterScreen;
             Width = 1100;
@@ -39,6 +44,16 @@ namespace AgIO
                     try { Directory.CreateDirectory(userData); } catch { }
                     var env = await CoreWebView2Environment.CreateAsync(null, userData);
                     await _web.EnsureCoreWebView2Async(env);
+                    _web.CoreWebView2.NavigationCompleted += (s2, e2) =>
+                    {
+                        // Recién con el dashboard cargado escondemos la UI
+                        // vieja: si el host :5181 no responde, queda visible.
+                        if (e2.IsSuccess && !_hidLegacy)
+                        {
+                            _hidLegacy = true;
+                            _loop.HideLegacyUi();
+                        }
+                    };
                     _web.CoreWebView2.Navigate(CoreXWebHost.Url);
                 }
                 catch (Exception ex)
@@ -46,6 +61,17 @@ namespace AgIO
                     // WebView2 runtime ausente: no rompemos CoreX, queda la UI vieja.
                     Log.EventWriter("FormWebShell sin WebView2: " + ex.Message);
                     Close();
+                }
+            };
+
+            FormClosed += (s, e) =>
+            {
+                // Escape de seguridad: al cerrar la web vuelve la UI vieja
+                // (salvo que la app entera se esté cerrando).
+                if (_hidLegacy && !_loop.IsDisposed && !_loop.Disposing)
+                {
+                    try { _loop.ShowLegacyUi(); }
+                    catch { /* cierre de app en curso */ }
                 }
             };
         }

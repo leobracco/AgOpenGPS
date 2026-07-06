@@ -60,5 +60,28 @@ namespace AgIO
         // botones WinForms para que web y UI vieja hagan exactamente lo mismo.
         public void ToggleMqttBrokerFromWeb() => btnMQTT_Click(null, EventArgs.Empty);
         public void ToggleNtripFromWeb() => btnStartStopNtrip_Click(null, EventArgs.Empty);
+
+        // Fase 2 del spec: FormLoop queda como host invisible; la ventana
+        // visible es FormWebShell. Hide() no frena los timers (el message
+        // loop de Application.Run sigue vivo), así que el broker, el UDP y
+        // el snapshot @1Hz siguen andando ocultos.
+        private bool legacyUiHidden;
+
+        public void HideLegacyUi()
+        {
+            legacyUiHidden = true;
+            ShowInTaskbar = false;
+            Hide();
+        }
+
+        // Escape de seguridad: si la ventana web se cierra (o WebView2
+        // falla), la UI vieja vuelve para no dejar al operario sin nada.
+        public void ShowLegacyUi()
+        {
+            legacyUiHidden = false;
+            ShowInTaskbar = true;
+            Show();
+            WindowState = System.Windows.Forms.FormWindowState.Normal;
+        }
     }
 }

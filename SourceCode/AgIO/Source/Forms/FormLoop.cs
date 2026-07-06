@@ -305,8 +305,11 @@ namespace AgIO
             corexWebHost = new CoreXWebHost(this);
             corexWebHost.Start();
 
-            // Ventana web (convive con la UI vieja durante la migración).
-            new FormWebShell().Show(this);
+            // Ventana web: cuando carga OK oculta esta UI vieja (host
+            // invisible); si se cierra o falla WebView2, la re-muestra.
+            // Sin owner a propósito: ocultar al owner ocultaría también
+            // a la owned form (comportamiento WinForms).
+            new FormWebShell(this).Show();
         }
 
         private void FormLoop_FormClosing(object sender, FormClosingEventArgs e)
@@ -681,6 +684,10 @@ namespace AgIO
 
         private void ShowAgIO()
         {
+            // Con la UI vieja oculta (host invisible detrás de FormWebShell)
+            // no hay que traerla al frente: rompería el ocultamiento.
+            if (legacyUiHidden) return;
+
             // El binario se llama CoreX.exe → el proceso es "CoreX".
             Process[] processName = Process.GetProcessesByName("CoreX");
 
