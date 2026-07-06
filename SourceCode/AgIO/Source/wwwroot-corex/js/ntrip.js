@@ -85,7 +85,7 @@
       .then(function (res) {
         btn.disabled = false;
         if (!res.ok) {
-          AgpModal.alert('Error al guardar', (res.data && res.data.friendly) || 'Error desconocido.');
+          AgpModal.alert('Error al guardar', (res.data && (res.data.mensaje || res.data.friendly)) || 'Error desconocido.');
           return;
         }
         if (res.data.restart) {

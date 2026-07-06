@@ -369,6 +369,60 @@ namespace AgIO
             SetModulesOnOff();
         }
 
+        // ── Puentes de perfiles para el web host ─────────────────────────────
+        // Réplica de FormProfiles: guardar = Save() del perfil activo;
+        // cargar = cambiar el nombre en Registry y reiniciar (al arrancar,
+        // RegistrySettings.Load() lee el perfil nuevo); crear = nombre nuevo
+        // en Registry + copia de la config actual (sin reinicio) o valores
+        // de fábrica vía Reset() (con reinicio).
+
+        /// <summary>
+        /// Guarda la configuración actual en el XML del perfil activo.
+        /// </summary>
+        public void SaveProfileFromWeb()
+        {
+            Properties.Settings.Default.Save();
+            AgLibrary.Logging.Log.EventWriter(
+                "Perfil guardado desde web: " + RegistrySettings.profileName);
+        }
+
+        /// <summary>
+        /// Cambia el perfil activo y reinicia CoreX para aplicarlo completo
+        /// (puertos serie, UDP, NTRIP y broker arrancan con el perfil nuevo).
+        /// </summary>
+        public void LoadProfileFromWeb(string nombre)
+        {
+            RegistrySettings.Save(RegKeys.profileName, nombre);
+            AgLibrary.Logging.Log.EventWriter(
+                "Program Reset: cargar perfil desde web: " + nombre);
+            RestartFromWeb();
+        }
+
+        /// <summary>
+        /// Crea un perfil nuevo. desdeActual=true copia la config vigente al
+        /// XML nuevo (sin reinicio: nada cambia en memoria). desdeActual=false
+        /// resetea a valores de fábrica (Settings.Reset ya persiste) y
+        /// reinicia. Devuelve true si CoreX se reinicia.
+        /// </summary>
+        public bool CreateProfileFromWeb(string nombre, bool desdeActual)
+        {
+            RegistrySettings.Save(RegKeys.profileName, nombre);
+
+            if (desdeActual)
+            {
+                Properties.Settings.Default.Save();
+                AgLibrary.Logging.Log.EventWriter(
+                    "Perfil creado desde web (copia de la config actual): " + nombre);
+                return false;
+            }
+
+            Properties.Settings.Default.Reset();
+            AgLibrary.Logging.Log.EventWriter(
+                "Program Reset: perfil nuevo de fábrica desde web: " + nombre);
+            RestartFromWeb();
+            return true;
+        }
+
         // ── Fase 2 del spec ───────────────────────────────────────────────────
         // FormLoop queda como host invisible; la ventana
         // visible es FormWebShell. Hide() no frena los timers (el message

@@ -87,7 +87,7 @@
         .then(function (res) {
           $('udp-on').disabled = false;
           if (!res.ok) {
-            AgpModal.alert('Error', (res.data && res.data.friendly) || 'Error desconocido.');
+            AgpModal.alert('Error', (res.data && (res.data.mensaje || res.data.friendly)) || 'Error desconocido.');
             return;
           }
           // restart=true siempre en este endpoint; esperamos que CoreX vuelva.
@@ -138,7 +138,7 @@
         .then(function (res) {
           btn.disabled = false;
           if (!res.ok) {
-            AgpModal.alert('Error', (res.data && res.data.friendly) || 'Error desconocido.');
+            AgpModal.alert('Error', (res.data && (res.data.mensaje || res.data.friendly)) || 'Error desconocido.');
             return;
           }
           // Releer el estado actualizado y confirmar al operario.

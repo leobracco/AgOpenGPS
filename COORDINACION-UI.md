@@ -136,6 +136,14 @@ send_gga_interval send_to_udp_port user_name user_password`
 #### pages/modulos.html
 `dot-imu dot-machine dot-steer tog-imu tog-machine tog-steer`
 
+#### pages/perfil.html
+`btn-cargar btn-crear btn-guardar chk-fabrica inp-nombre perfil-activo
+sel-perfil`
+Endpoints: `GET /api/corex/config/perfiles`, `POST /api/corex/perfil/guardar`,
+`POST /api/corex/perfil/cargar {nombre}` (reinicia),
+`POST /api/corex/perfil/crear {nombre, desde_actual}` (reinicia solo si
+`desde_actual=false`). Incluye keyboard.js (teclado virtual autoenganchado).
+
 **Clases que setea el JS (no pisar con CSS que dependa de su ausencia):**
 los `dot-*` reciben `on` (verde) / `bad` (rojo) / ninguna (gris neutro);
 botones/toggles reciben `disabled` durante requests. El JS también reescribe
