@@ -6,6 +6,10 @@
          nombre (FormGPS.cs). El resto del código AgIO quedó revertido al
          estado post-MQTT; solo conservamos el nombre de salida. -->
     <AssemblyName>CoreX</AssemblyName>
+    <!-- WebView2 copia el WebView2Loader.dll según PlatformTarget; con AnyCPU
+         cae al loader x86 y el proceso 64-bit tira BadImageFormatException.
+         PilotX resuelve lo mismo con win-x64. -->
+    <PlatformTarget>x64</PlatformTarget>
     <PublishDir>..\..\..\AgOpenGPS\</PublishDir>
     <ApplicationIcon>AgIO_ico.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
@@ -31,6 +35,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3856.49" />
     <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
     <PackageReference Include="System.Memory" Version="4.6.0" />
     <PackageReference Include="System.Resources.Extensions" Version="9.0.0" />

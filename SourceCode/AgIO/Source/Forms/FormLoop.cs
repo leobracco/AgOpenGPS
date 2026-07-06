@@ -304,6 +304,9 @@ namespace AgIO
             // Dashboard web CoreX.
             corexWebHost = new CoreXWebHost(this);
             corexWebHost.Start();
+
+            // Ventana web (convive con la UI vieja durante la migración).
+            new FormWebShell().Show(this);
         }
 
         private void FormLoop_FormClosing(object sender, FormClosingEventArgs e)
