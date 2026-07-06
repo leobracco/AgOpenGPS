@@ -104,7 +104,17 @@
 
   function waitForRestart() {
     AgpModal.alert('Reiniciando', 'CoreX se está reiniciando… esperá unos segundos.');
+    // Timeout: 30 intentos × 2 s = 60 s. Si CoreX no vuelve, avisamos en vez
+    // de dejar al operario mirando un modal colgado para siempre.
+    var attempts = 0;
     var interval = setInterval(function () {
+      attempts++;
+      if (attempts > 30) {
+        clearInterval(interval);
+        AgpModal.alert('CoreX no responde',
+          'El reinicio está tardando más de lo esperado. Cerrá y volvé a abrir CoreX.');
+        return;
+      }
       fetch('/api/corex/status')
         .then(function (r) {
           if (r.ok) {

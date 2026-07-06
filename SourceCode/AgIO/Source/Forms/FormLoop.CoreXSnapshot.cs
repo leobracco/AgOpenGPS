@@ -202,15 +202,20 @@ namespace AgIO
             return restart;
         }
 
+        // Timer único de reinicio: si el operario guarda dos veces rápido, el
+        // segundo pedido reemplaza al primero (no dos Program.Restart()).
+        private System.Windows.Forms.Timer restartWebTimer;
+
         /// <summary>
         /// Inicia un reinicio diferido de CoreX (800 ms) para que la respuesta
         /// HTTP pueda salir antes de que el proceso termine.
         /// </summary>
         public void RestartFromWeb()
         {
-            var t = new System.Windows.Forms.Timer { Interval = 800 };
-            t.Tick += (s2, e2) => { t.Stop(); Program.Restart(); };
-            t.Start();
+            restartWebTimer?.Stop();
+            restartWebTimer = new System.Windows.Forms.Timer { Interval = 800 };
+            restartWebTimer.Tick += (s2, e2) => { restartWebTimer.Stop(); Program.Restart(); };
+            restartWebTimer.Start();
         }
 
         // ── Fase 2 del spec ───────────────────────────────────────────────────
