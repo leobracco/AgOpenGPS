@@ -141,6 +141,12 @@ los `dot-*` reciben `on` (verde) / `bad` (rojo) / ninguna (gris neutro);
 botones/toggles reciben `disabled` durante requests. El JS también reescribe
 `subnet-hint` con `createTextNode` (nada de markup fijo adentro).
 
+**Pills de cabecera en TODAS las páginas:** `hdrVersion` y `hdrProfile`
+existen también en las 4 subpáginas (las llena `js/hdr.js`, refresh cada 5 s;
+en index las llena `corex.js` @1Hz). No renombrar ni sacar esos spans.
+Medidas de `corex.css` compactadas para la pantalla de 10" (1080x720):
+targets táctiles ≥40px, el resto densificado.
+
 ---
 
 ## 5. Estado de pantallas

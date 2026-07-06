@@ -2,6 +2,10 @@
    corex.css — capa visual CoreX, adaptada del diseño entregado en
    Diseño/CoreX/corex_agroparallel_html_screens (estilo Agro Parallel claro).
 
+   Medidas compactadas para la pantalla táctil de 10" (1080x720): los targets
+   táctiles se mantienen ≥40px pero fuentes/paddings bajan para que las
+   páginas entren sin scroll (o con el mínimo posible).
+
    Se carga DESPUÉS de theme.css/layout.css (que vienen del Hub en build y
    traen los tokens --agp-* + estilos del modal). Todas las clases nuevas van
    prefijadas cx- para no chocar con las del Hub. Se conservan los hooks que
@@ -38,45 +42,46 @@ a { text-decoration: none; color: inherit; }
 
 .cx-shell {
   display: grid;
-  grid-template-columns: 230px 1fr;
+  grid-template-columns: 190px 1fr;
   min-height: 100vh;
 }
 
 .cx-sidebar {
   background: #f8fbf7;
   border-right: 1px solid var(--cx-line);
-  padding: 20px 16px;
+  padding: 14px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 7px;
 }
 
-.cx-side-logo img { height: 40px; max-width: 190px; object-fit: contain; }
+.cx-side-logo img { height: 32px; max-width: 160px; object-fit: contain; }
 
 .cx-mini {
-  font-size: 11px; color: var(--cx-muted);
-  text-transform: uppercase; letter-spacing: .12em;
-  font-weight: 800; margin: 4px 0 6px;
+  font-size: 10px; color: var(--cx-muted);
+  text-transform: uppercase; letter-spacing: .1em;
+  font-weight: 800; margin: 2px 0 4px;
 }
 
 .cx-side-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 13px; border-radius: 14px;
-  font-weight: 700; color: #344039; font-size: 15px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 12px;
+  font-weight: 700; color: #344039; font-size: 14px;
+  min-height: 40px; box-sizing: border-box;
 }
 .cx-side-item.active {
   background: #e8f6e5; color: var(--cx-dark);
   box-shadow: inset 3px 0 0 var(--cx-green);
 }
 .cx-ico {
-  width: 34px; height: 34px; border-radius: 11px;
+  width: 30px; height: 30px; border-radius: 10px;
   background: #fff; border: 1px solid var(--cx-line);
-  display: grid; place-items: center; font-size: 17px;
+  display: grid; place-items: center; font-size: 15px;
   flex-shrink: 0;
 }
 
 .cx-content {
-  padding: 24px;
+  padding: 16px 18px;
   background: linear-gradient(180deg, #fbfdfb, #f3f7f2);
   min-width: 0;
 }
@@ -85,17 +90,17 @@ a { text-decoration: none; color: inherit; }
 
 .cx-head {
   display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 16px; margin-bottom: 18px; flex-wrap: wrap;
+  gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
 }
-.cx-head h2 { margin: 0; font-size: 30px; letter-spacing: -.03em; }
-.cx-head p  { margin: 5px 0 0; color: var(--cx-muted); }
+.cx-head h2 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+.cx-head p  { margin: 3px 0 0; color: var(--cx-muted); font-size: 13px; }
 
-.cx-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.cx-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 .cx-pill {
-  display: inline-flex; align-items: center; gap: 8px;
-  border-radius: 999px; padding: 8px 12px;
+  display: inline-flex; align-items: center; gap: 7px;
+  border-radius: 999px; padding: 6px 10px;
   background: #fff; border: 1px solid var(--cx-line);
-  font-weight: 750; font-size: 13px;
+  font-weight: 750; font-size: 12.5px;
 }
 
 /* ── Dots de estado (hook del JS: on / bad / neutro) ────────────────────── */
@@ -104,33 +109,33 @@ a { text-decoration: none; color: inherit; }
   display: inline-block; width: 10px; height: 10px;
   border-radius: 50%; background: #c3cdc4; flex-shrink: 0;
 }
-.dot.on  { background: var(--cx-green); box-shadow: 0 0 0 4px rgba(74, 186, 62, .15); }
-.dot.bad { background: var(--cx-bad);   box-shadow: 0 0 0 4px rgba(181, 53, 42, .13); }
+.dot.on  { background: var(--cx-green); box-shadow: 0 0 0 3px rgba(74, 186, 62, .15); }
+.dot.bad { background: var(--cx-bad);   box-shadow: 0 0 0 3px rgba(181, 53, 42, .13); }
 
 /* ── Grillas y paneles ──────────────────────────────────────────────────── */
 
 .cx-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
 }
 
 .cx-panel {
   background: var(--cx-card);
   border: 1px solid var(--cx-line);
-  border-radius: 22px;
-  padding: 20px;
-  box-shadow: 0 10px 22px rgba(13, 28, 17, .06);
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 8px 18px rgba(13, 28, 17, .05);
 }
 .cx-panel h3 {
-  margin: 0 0 14px; font-size: 19px;
-  display: flex; align-items: center; gap: 10px;
+  margin: 0 0 10px; font-size: 16px;
+  display: flex; align-items: center; gap: 9px;
 }
 
 /* Línea clave-valor (dashboard) */
 .kv {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 7px 0; font-size: 15px;
+  padding: 5px 0; font-size: 14px;
   border-bottom: 1px solid #eef3ee; gap: 10px;
 }
 .kv:last-of-type { border-bottom: none; }
@@ -139,70 +144,70 @@ a { text-decoration: none; color: inherit; }
 
 /* ── Filas de módulo (serial / módulos) ─────────────────────────────────── */
 
-.cx-mod-list { display: grid; gap: 12px; }
+.cx-mod-list { display: grid; gap: 8px; }
 
 .cx-mod-row {
   display: grid;
-  grid-template-columns: 48px minmax(120px, 1fr) minmax(130px, 1fr) 110px 110px;
-  gap: 12px; align-items: center;
+  grid-template-columns: 40px minmax(110px, 1fr) minmax(120px, 1fr) 100px 100px;
+  gap: 10px; align-items: center;
   background: #fff; border: 1px solid var(--cx-line);
-  border-radius: 16px; padding: 12px;
+  border-radius: 13px; padding: 8px 10px;
 }
 .cx-mod-icon {
-  width: 44px; height: 44px; border-radius: 14px;
+  width: 38px; height: 38px; border-radius: 12px;
   display: grid; place-items: center;
-  background: #eaf7e8; color: var(--cx-dark); font-size: 21px;
+  background: #eaf7e8; color: var(--cx-dark); font-size: 18px;
   position: relative;
 }
 .cx-mod-icon .dot { position: absolute; top: -3px; right: -3px; }
-.cx-mod-name { font-size: 16px; font-weight: 800; }
-.cx-mod-sub  { font-size: 12.5px; color: var(--cx-muted); }
+.cx-mod-name { font-size: 14.5px; font-weight: 800; }
+.cx-mod-sub  { font-size: 11.5px; color: var(--cx-muted); }
 
 .cx-badge {
   display: inline-flex; align-items: center; justify-content: center;
   background: #edf8ea; color: var(--cx-dark);
   border: 1px solid #cce7c8; border-radius: 999px;
-  padding: 8px 10px; font-size: 13px; font-weight: 800;
+  padding: 6px 8px; font-size: 12px; font-weight: 800;
   white-space: nowrap;
 }
 
 /* ── Formularios ────────────────────────────────────────────────────────── */
 
-.cx-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.cx-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .cx-form.one { grid-template-columns: 1fr; }
 
 .cx-field label {
-  display: block; font-size: 13px; color: var(--cx-muted);
-  font-weight: 800; margin-bottom: 7px;
+  display: block; font-size: 12px; color: var(--cx-muted);
+  font-weight: 800; margin-bottom: 5px;
 }
 
 .cx-input, .cx-panel select {
-  width: 100%; height: 46px;
-  border: 1px solid #d4ded5; border-radius: 12px;
-  background: #fff; padding: 0 12px;
-  font-size: 16px; font-weight: 600; color: var(--cx-ink);
+  width: 100%; height: 40px;
+  border: 1px solid #d4ded5; border-radius: 11px;
+  background: #fff; padding: 0 10px;
+  font-size: 15px; font-weight: 600; color: var(--cx-ink);
   box-sizing: border-box;
 }
 .cx-input:disabled, .cx-panel select:disabled { opacity: .55; }
 .cx-input.big {
-  height: 58px; font-size: 26px; text-align: center; font-weight: 850;
+  height: 48px; font-size: 22px; text-align: center; font-weight: 850;
 }
 
 /* Valor de solo lectura (IP actual) */
 .cx-readonly {
-  font-family: Consolas, monospace; font-size: 16px;
-  padding: 12px; background: #f5f8f5;
-  border: 1px solid var(--cx-line); border-radius: 12px;
-  min-height: 22px; word-break: break-all; font-weight: 700;
+  font-family: Consolas, monospace; font-size: 15px;
+  padding: 9px 10px; background: #f5f8f5;
+  border: 1px solid var(--cx-line); border-radius: 11px;
+  min-height: 20px; word-break: break-all; font-weight: 700;
 }
 
 /* Toggle / radio táctiles */
 .cx-toggle-row {
-  display: flex; align-items: center; gap: 12px; padding: 9px 0;
+  display: flex; align-items: center; gap: 10px; padding: 6px 0;
 }
-.cx-toggle-row label { font-size: 15px; font-weight: 650; cursor: pointer; }
+.cx-toggle-row label { font-size: 14px; font-weight: 650; cursor: pointer; }
 input[type="checkbox"], input[type="radio"] {
-  width: 24px; height: 24px; cursor: pointer; flex-shrink: 0;
+  width: 22px; height: 22px; cursor: pointer; flex-shrink: 0;
   accent-color: var(--cx-green);
 }
 input[type="checkbox"]:disabled, input[type="radio"]:disabled {
@@ -210,38 +215,39 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled {
 }
 
 /* Fila de octetos subnet */
-.cx-subnet-row { display: flex; gap: 8px; align-items: center; }
-.cx-subnet-row .cx-input { width: 84px; }
-.cx-subnet-sep { font-size: 22px; font-weight: 900; color: var(--cx-muted); }
+.cx-subnet-row { display: flex; gap: 7px; align-items: center; }
+.cx-subnet-row .cx-input { width: 74px; }
+.cx-subnet-sep { font-size: 20px; font-weight: 900; color: var(--cx-muted); }
 
 /* Hint informativo */
 .cx-hint {
-  font-size: 13.5px; color: var(--cx-muted); line-height: 1.4;
-  padding: 10px 12px; border-radius: 12px;
+  font-size: 12.5px; color: var(--cx-muted); line-height: 1.35;
+  padding: 8px 10px; border-radius: 11px;
   background: #f5f8f5; border: 1px solid var(--cx-line);
-  margin: 12px 0 0;
+  margin: 10px 0 0;
 }
 
 /* ── Botones de acción ──────────────────────────────────────────────────── */
 
-.cx-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.cx-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 
 .cx-btn {
-  border: 1px solid var(--cx-line); border-radius: 13px;
-  padding: 13px 18px; font-size: 15px; font-weight: 800;
+  border: 1px solid var(--cx-line); border-radius: 12px;
+  padding: 10px 14px; font-size: 14px; font-weight: 800;
   background: #eef3ee; color: var(--cx-ink); cursor: pointer;
+  min-height: 40px;
 }
 .cx-btn.green {
   background: linear-gradient(135deg, var(--cx-green), var(--cx-dark));
   color: #fff; border: 0;
 }
-.cx-btn.wide { width: 100%; justify-content: center; padding: 14px; }
+.cx-btn.wide { width: 100%; justify-content: center; padding: 11px; }
 .cx-btn:disabled { opacity: .55; cursor: not-allowed; }
 
 /* Botón por canal serie — serial.js PISA className con estas clases. */
 .btn-canal {
-  width: 100%; padding: 12px; font-size: 15px; font-weight: 800;
-  border: 0; border-radius: 13px; cursor: pointer;
+  width: 100%; padding: 10px; font-size: 14px; font-weight: 800;
+  border: 0; border-radius: 12px; cursor: pointer; min-height: 40px;
   background: linear-gradient(135deg, var(--cx-green), var(--cx-dark));
   color: #fff;
 }
@@ -250,11 +256,11 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled {
 
 /* Lista de topics MQTT (dashboard) */
 .topics {
-  font-family: Consolas, monospace; font-size: 12px;
-  max-height: 150px; overflow-y: auto; white-space: pre;
-  color: var(--cx-muted); margin-top: 10px;
+  font-family: Consolas, monospace; font-size: 11.5px;
+  max-height: 110px; overflow-y: auto; white-space: pre;
+  color: var(--cx-muted); margin-top: 8px;
   background: #f5f8f5; border: 1px solid var(--cx-line);
-  border-radius: 12px; padding: 10px;
+  border-radius: 11px; padding: 8px;
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
@@ -267,7 +273,7 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled {
   }
   .cx-mini { display: none; }
   .cx-form { grid-template-columns: 1fr; }
-  .cx-mod-row { grid-template-columns: 48px 1fr; }
-  .cx-content { padding: 14px; }
-  .cx-head h2 { font-size: 24px; }
+  .cx-mod-row { grid-template-columns: 40px 1fr; }
+  .cx-content { padding: 12px; }
+  .cx-head h2 { font-size: 20px; }
 }
