@@ -155,6 +155,13 @@ en index las llena `corex.js` @1Hz). No renombrar ni sacar esos spans.
 Medidas de `corex.css` compactadas para la pantalla de 10" (1080x720):
 targets táctiles ≥40px, el resto densificado.
 
+**Responsive (corex.css):** tipografías/espaciados fluidos con `clamp()`;
+el menú lateral NUNCA desaparece — en `<760px` colapsa a barra de solo
+íconos (`font-size:0` en `.cx-side-item`, restaurado en `.cx-ico`); en
+`<560px` formularios a 1 columna y controles de `.cx-mod-row` apilados en
+la col 2 (nth-child, nunca bajo la col del ícono). No reintroducir la
+media query vieja que movía el sidebar arriba.
+
 ---
 
 ## 5. Estado de pantallas

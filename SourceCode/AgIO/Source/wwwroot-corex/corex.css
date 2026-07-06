@@ -6,6 +6,10 @@
    táctiles se mantienen ≥40px pero fuentes/paddings bajan para que las
    páginas entren sin scroll (o con el mínimo posible).
 
+   Responsive fluido: tipografías y espaciados con clamp() (escalan con el
+   ancho del viewport, útil con escala de Windows 125-150%). El menú lateral
+   NUNCA desaparece: en <760px colapsa a barra vertical de solo íconos.
+
    Se carga DESPUÉS de theme.css/layout.css (que vienen del Hub en build y
    traen los tokens --agp-* + estilos del modal). Todas las clases nuevas van
    prefijadas cx- para no chocar con las del Hub. Se conservan los hooks que
@@ -42,7 +46,7 @@ a { text-decoration: none; color: inherit; }
 
 .cx-shell {
   display: grid;
-  grid-template-columns: 190px 1fr;
+  grid-template-columns: clamp(150px, 17vw, 190px) 1fr;
   min-height: 100vh;
 }
 
@@ -81,7 +85,7 @@ a { text-decoration: none; color: inherit; }
 }
 
 .cx-content {
-  padding: 16px 18px;
+  padding: clamp(10px, 1.6vw, 16px) clamp(10px, 1.8vw, 18px);
   background: linear-gradient(180deg, #fbfdfb, #f3f7f2);
   min-width: 0;
 }
@@ -92,8 +96,8 @@ a { text-decoration: none; color: inherit; }
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
 }
-.cx-head h2 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
-.cx-head p  { margin: 3px 0 0; color: var(--cx-muted); font-size: 13px; }
+.cx-head h2 { margin: 0; font-size: clamp(17px, 2.2vw, 22px); letter-spacing: -.02em; }
+.cx-head p  { margin: 3px 0 0; color: var(--cx-muted); font-size: clamp(11.5px, 1.3vw, 13px); }
 
 .cx-pills { display: flex; gap: 6px; flex-wrap: wrap; }
 .cx-pill {
@@ -116,19 +120,19 @@ a { text-decoration: none; color: inherit; }
 
 .cx-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: clamp(8px, 1.2vw, 12px);
 }
 
 .cx-panel {
   background: var(--cx-card);
   border: 1px solid var(--cx-line);
   border-radius: 16px;
-  padding: 14px;
+  padding: clamp(10px, 1.4vw, 14px);
   box-shadow: 0 8px 18px rgba(13, 28, 17, .05);
 }
 .cx-panel h3 {
-  margin: 0 0 10px; font-size: 16px;
+  margin: 0 0 10px; font-size: clamp(14px, 1.6vw, 16px);
   display: flex; align-items: center; gap: 9px;
 }
 
@@ -265,15 +269,31 @@ input[type="checkbox"]:disabled, input[type="radio"]:disabled {
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 
-@media (max-width: 920px) {
-  .cx-shell { grid-template-columns: 1fr; }
-  .cx-sidebar {
-    flex-direction: row; flex-wrap: wrap; align-items: center;
-    border-right: 0; border-bottom: 1px solid var(--cx-line);
-  }
+/* Angosto: el menú lateral NO se va — colapsa a barra de solo íconos.
+   El texto de .cx-side-item es un nodo suelto tras .cx-ico, así que se
+   oculta con font-size:0 en el <a> y se restaura el tamaño en el ícono. */
+@media (max-width: 760px) {
+  .cx-shell { grid-template-columns: 56px 1fr; }
+  .cx-sidebar { padding: 10px 6px; align-items: center; }
+  .cx-side-logo img { max-width: 40px; height: 26px; }
   .cx-mini { display: none; }
+  .cx-side-item {
+    font-size: 0; gap: 0; justify-content: center;
+    width: 44px; padding: 6px;
+  }
+  .cx-ico { font-size: 16px; }
+  .cx-footer-note { display: none; }
+  /* Fila de módulo en 3 columnas: lo que baja a la 2da fila arranca en la
+     col 2 (nunca en la de 40px del ícono). */
+  .cx-mod-row { grid-template-columns: 40px minmax(90px, 1fr) minmax(100px, 1fr); }
+  .cx-mod-row > :nth-child(4) { grid-column: 2; }
+  .cx-mod-row > :nth-child(5) { grid-column: 3; }
+}
+
+/* Muy angosto: formularios a una columna y controles de módulo apilados. */
+@media (max-width: 560px) {
   .cx-form { grid-template-columns: 1fr; }
+  .cx-head { flex-direction: column; }
   .cx-mod-row { grid-template-columns: 40px 1fr; }
-  .cx-content { padding: 12px; }
-  .cx-head h2 { font-size: 20px; }
+  .cx-mod-row > :nth-child(n+3) { grid-column: 2; }
 }
