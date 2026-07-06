@@ -71,6 +71,9 @@ namespace AgIO
 
         public int focusSkipCounter = 310;
 
+        // Web host del dashboard CoreX (127.0.0.1:5181).
+        private CoreXWebHost corexWebHost;
+
         public FormLoop()
         {
             InitializeComponent();
@@ -297,6 +300,10 @@ namespace AgIO
 
             // MQTT Broker — arranca automáticamente.
             StartMqttBroker();
+
+            // Dashboard web CoreX.
+            corexWebHost = new CoreXWebHost(this);
+            corexWebHost.Start();
         }
 
         private void FormLoop_FormClosing(object sender, FormClosingEventArgs e)
@@ -337,6 +344,8 @@ namespace AgIO
 
             // MQTT Broker shutdown.
             StopMqttBroker();
+
+            corexWebHost?.Dispose();
 
             Log.EventWriter("Program Exit: " +
                 DateTime.Now.ToString("f", CultureInfo.InvariantCulture) + "\n\r");

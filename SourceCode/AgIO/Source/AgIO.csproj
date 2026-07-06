@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\AgLibrary\AgLibrary.csproj" />
+    <ProjectReference Include="..\..\AgroParallel\Web\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
     <ProjectReference Include="..\..\Keypad\Keypad.csproj" />
   </ItemGroup>
 
