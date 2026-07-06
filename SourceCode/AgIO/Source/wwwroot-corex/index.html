@@ -4,110 +4,86 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CoreX</title>
-  <link rel="stylesheet" href="theme.css">
-  <link rel="stylesheet" href="layout.css">
-  <style>
-    /* Grid del dashboard — solo layout local, la piel viene del theme. */
-    .corex-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 14px; padding: 14px;
-    }
-    .corex-card {
-      background: var(--agp-surface); border: 1px solid var(--agp-border);
-      border-radius: 8px; padding: 14px;
-    }
-    .corex-card h2 { margin: 0 0 10px; font-size: 1.05em; }
-    .kv { display: flex; justify-content: space-between; padding: 3px 0;
-          font-size: 0.95em; }
-    .kv .k { color: var(--agp-text-muted); }
-    .kv .v { font-family: var(--agp-font-mono); }
-    .dot { display: inline-block; width: 10px; height: 10px;
-           border-radius: 50%; margin-right: 6px;
-           background: var(--agp-text-muted); }
-    .dot.on { background: var(--agp-state-ok, #4ABA3E); }
-    .dot.bad { background: var(--agp-state-bad, #c0392b); }
-    .topics { font-family: var(--agp-font-mono); font-size: 0.8em;
-              max-height: 160px; overflow-y: auto; white-space: pre;
-              color: var(--agp-text-muted); margin-top: 8px; }
-    header.corex-top {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; border-bottom: 1px solid var(--agp-border);
-      background: var(--agp-surface);
-    }
-    header.corex-top h1 { margin: 0; font-size: 1.2em; }
-    .muted { color: var(--agp-text-muted); font-size: 0.85em; }
-  </style>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/corex.css">
 </head>
 <body>
-  <header class="corex-top">
-    <h1>CoreX</h1>
-    <div class="muted"><span id="hdrVersion">—</span> · perfil <span id="hdrProfile">—</span></div>
-  </header>
+  <div class="cx-shell">
 
-  <!-- Barra de navegación a páginas de configuración. -->
-  <nav style="padding: 10px 14px; border-bottom: 1px solid var(--agp-border);
-              background: var(--agp-surface); display: flex; gap: 10px; flex-wrap: wrap;">
-    <a href="/pages/serial.html"
-       style="padding: 8px 16px; border: 1px solid var(--agp-border); border-radius: 6px;
-              text-decoration: none; color: var(--agp-text); font-size: 0.95em;
-              background: var(--agp-bg);">
-      Puertos serie
-    </a>
-    <a href="/pages/ntrip.html"
-       style="padding: 8px 16px; border: 1px solid var(--agp-border); border-radius: 6px;
-              text-decoration: none; color: var(--agp-text); font-size: 0.95em;
-              background: var(--agp-bg);">
-      NTRIP
-    </a>
-    <a href="/pages/red.html"
-       style="padding: 8px 16px; border: 1px solid var(--agp-border); border-radius: 6px;
-              text-decoration: none; color: var(--agp-text); font-size: 0.95em;
-              background: var(--agp-bg);">
-      Red
-    </a>
-    <a href="/pages/modulos.html"
-       style="padding: 8px 16px; border: 1px solid var(--agp-border); border-radius: 6px;
-              text-decoration: none; color: var(--agp-text); font-size: 0.95em;
-              background: var(--agp-bg);">
-      Módulos
-    </a>
-  </nav>
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item active" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+    </aside>
 
-  <main class="corex-grid">
-    <section class="corex-card" id="cardGps">
-      <h2><span class="dot" id="dotGps"></span>GPS</h2>
-      <div class="kv"><span class="k">Latitud</span><span class="v" id="gpsLat">—</span></div>
-      <div class="kv"><span class="k">Longitud</span><span class="v" id="gpsLon">—</span></div>
-    </section>
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>CoreX</h2>
+          <p>Vista compacta del estado del sistema</p>
+        </div>
+        <div class="cx-pills">
+          <span class="cx-pill"><span id="hdrVersion">—</span></span>
+          <span class="cx-pill">perfil&nbsp;<span id="hdrProfile">—</span></span>
+        </div>
+      </div>
 
-    <section class="corex-card" id="cardNtrip">
-      <h2><span class="dot" id="dotNtrip"></span>NTRIP</h2>
-      <div class="kv"><span class="k">Estado</span><span class="v" id="ntripEstado">—</span></div>
-      <div class="kv"><span class="k">Recibido</span><span class="v" id="ntripKb">—</span></div>
-      <div class="kv"><span class="k">Caster</span><span class="v" id="ntripCaster">—</span></div>
-      <button class="btn" id="btnNtrip" style="margin-top:10px;">Iniciar / Detener</button>
-    </section>
+      <div class="cx-grid">
 
-    <section class="corex-card" id="cardMqtt">
-      <h2><span class="dot" id="dotMqtt"></span>MQTT broker</h2>
-      <div class="kv"><span class="k">Puerto</span><span class="v" id="mqttPort">—</span></div>
-      <div class="kv"><span class="k">Clientes</span><span class="v" id="mqttClients">—</span></div>
-      <div class="kv"><span class="k">Mensajes</span><span class="v" id="mqttMsgs">—</span></div>
-      <div class="kv"><span class="k">Uptime</span><span class="v" id="mqttUptime">—</span></div>
-      <button class="btn" id="btnMqtt" style="margin-top:10px;">Encender / Apagar</button>
-      <div class="topics" id="mqttTopics"></div>
-    </section>
+        <section class="cx-panel" id="cardGps">
+          <h3><span class="dot" id="dotGps"></span>GPS</h3>
+          <div class="kv"><span class="k">Latitud</span><span class="v" id="gpsLat">—</span></div>
+          <div class="kv"><span class="k">Longitud</span><span class="v" id="gpsLon">—</span></div>
+        </section>
 
-    <section class="corex-card" id="cardModulos">
-      <h2>Módulos</h2>
-      <div class="kv"><span class="k"><span class="dot" id="dotSteer"></span>Dirección (Steer)</span><span class="v" id="modSteer">—</span></div>
-      <div class="kv"><span class="k"><span class="dot" id="dotMachine"></span>Máquina</span><span class="v" id="modMachine">—</span></div>
-      <div class="kv"><span class="k"><span class="dot" id="dotImu"></span>IMU</span><span class="v" id="modImu">—</span></div>
-    </section>
-  </main>
+        <section class="cx-panel" id="cardNtrip">
+          <h3><span class="dot" id="dotNtrip"></span>NTRIP</h3>
+          <div class="kv"><span class="k">Estado</span><span class="v" id="ntripEstado">—</span></div>
+          <div class="kv"><span class="k">Recibido</span><span class="v" id="ntripKb">—</span></div>
+          <div class="kv"><span class="k">Caster</span><span class="v" id="ntripCaster">—</span></div>
+          <div class="cx-actions">
+            <button class="cx-btn green wide" id="btnNtrip">Iniciar / Detener</button>
+          </div>
+        </section>
 
-  <script src="js/modal.js"></script>
-  <script src="js/corex.js"></script>
+        <section class="cx-panel" id="cardMqtt">
+          <h3><span class="dot" id="dotMqtt"></span>MQTT broker</h3>
+          <div class="kv"><span class="k">Puerto</span><span class="v" id="mqttPort">—</span></div>
+          <div class="kv"><span class="k">Clientes</span><span class="v" id="mqttClients">—</span></div>
+          <div class="kv"><span class="k">Mensajes</span><span class="v" id="mqttMsgs">—</span></div>
+          <div class="kv"><span class="k">Uptime</span><span class="v" id="mqttUptime">—</span></div>
+          <div class="cx-actions">
+            <button class="cx-btn wide" id="btnMqtt">Encender / Apagar</button>
+          </div>
+          <div class="topics" id="mqttTopics"></div>
+        </section>
+
+        <section class="cx-panel" id="cardModulos">
+          <h3>Módulos</h3>
+          <div class="kv">
+            <span class="k"><span class="dot" id="dotSteer"></span>Dirección (Steer)</span>
+            <span class="v" id="modSteer">—</span>
+          </div>
+          <div class="kv">
+            <span class="k"><span class="dot" id="dotMachine"></span>Máquina</span>
+            <span class="v" id="modMachine">—</span>
+          </div>
+          <div class="kv">
+            <span class="k"><span class="dot" id="dotImu"></span>IMU</span>
+            <span class="v" id="modImu">—</span>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/corex.js"></script>
 </body>
 </html>

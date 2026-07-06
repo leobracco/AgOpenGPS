@@ -4,140 +4,83 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Red UDP — CoreX</title>
-  <!-- Rutas absolutas: esta página vive en /pages/ y los assets están en la raíz. -->
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/layout.css">
-  <style>
-    .red-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 14px; padding: 14px;
-    }
-    .corex-card {
-      background: var(--agp-surface); border: 1px solid var(--agp-border);
-      border-radius: 8px; padding: 14px;
-    }
-    .corex-card h2 { margin: 0 0 12px; font-size: 1.05em; }
-    .field-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-    .field-row label { font-size: 0.9em; color: var(--agp-text-muted); }
-    .field-row input[type="number"] {
-      width: 100%; padding: 10px 8px; font-size: 1em;
-      border: 1px solid var(--agp-border); border-radius: 6px;
-      background: var(--agp-bg); color: var(--agp-text);
-      box-sizing: border-box;
-    }
-    .field-row input:disabled { opacity: 0.55; }
-    /* Valor de solo lectura (IP actual) */
-    .readonly-val {
-      font-family: var(--agp-font-mono); font-size: 1em;
-      padding: 10px 8px; background: var(--agp-bg);
-      border: 1px solid var(--agp-border); border-radius: 6px;
-      min-height: 40px; word-break: break-all;
-    }
-    /* Toggle UDP táctil */
-    .toggle-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 8px 0; margin-bottom: 10px;
-    }
-    .toggle-row input[type="checkbox"] {
-      width: 22px; height: 22px; cursor: pointer; flex-shrink: 0;
-    }
-    .toggle-row label { font-size: 1em; cursor: pointer; }
-    /* Fila de octetos de subnet */
-    .subnet-row {
-      display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
-    }
-    .subnet-row input[type="number"] {
-      width: 70px; padding: 10px 8px; font-size: 1em; text-align: center;
-      border: 1px solid var(--agp-border); border-radius: 6px;
-      background: var(--agp-bg); color: var(--agp-text);
-    }
-    .subnet-row .dot-sep { font-size: 1.3em; font-weight: bold;
-                           color: var(--agp-text-muted); }
-    /* Hint informativo */
-    .info-hint {
-      font-size: 0.85em; color: var(--agp-text-muted);
-      padding: 8px; border-radius: 6px;
-      background: var(--agp-bg); border: 1px solid var(--agp-border);
-      margin-bottom: 10px;
-    }
-    /* Botón acción grande */
-    .btn-action {
-      width: 100%; padding: 14px; font-size: 1.05em;
-      border: none; border-radius: 6px; cursor: pointer;
-      background: var(--agp-state-ok, #4ABA3E); color: #fff;
-      margin-top: 4px;
-    }
-    .btn-action:disabled { opacity: 0.55; cursor: not-allowed; }
-    header.corex-top {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; border-bottom: 1px solid var(--agp-border);
-      background: var(--agp-surface);
-    }
-    header.corex-top h1 { margin: 0; font-size: 1.2em; }
-    .nav-back { font-size: 0.9em; color: var(--agp-text-muted);
-                text-decoration: none; padding: 6px 10px;
-                border: 1px solid var(--agp-border); border-radius: 6px; }
-    .nav-back:hover { background: var(--agp-border); }
-    .restart-hint {
-      font-size: 0.85em; color: var(--agp-text-muted);
-      margin-top: 10px; padding: 8px; border-radius: 6px;
-      background: var(--agp-bg); border: 1px solid var(--agp-border);
-    }
-  </style>
+  <link rel="stylesheet" href="/corex.css">
 </head>
 <body>
-  <header class="corex-top">
-    <h1>Red UDP</h1>
-    <a class="nav-back" href="/index.html">← Dashboard</a>
-  </header>
+  <div class="cx-shell">
 
-  <div class="red-grid">
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <a class="cx-side-item active" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+    </aside>
 
-    <!-- Card: Estado de red -->
-    <section class="corex-card">
-      <h2>Estado de red</h2>
-
-      <div class="field-row">
-        <label>IP local del host</label>
-        <div class="readonly-val" id="ip-actual">—</div>
-      </div>
-
-      <div class="toggle-row">
-        <input type="checkbox" id="udp-on">
-        <label for="udp-on">UDP habilitado</label>
-      </div>
-
-      <p class="restart-hint">
-        Cambiar el estado UDP requiere reiniciar CoreX.
-      </p>
-    </section>
-
-    <!-- Card: Subnet de módulos -->
-    <section class="corex-card">
-      <h2>Subnet de módulos</h2>
-
-      <p class="info-hint" id="subnet-hint">
-        Ingresá los tres primeros octetos de la subnet de la LAN del tractor.
-        Al confirmar, CoreX envía el comando a <strong>todos</strong> los nodos
-        presentes en la red.
-      </p>
-
-      <div class="field-row">
-        <label>Nuevos tres primeros octetos</label>
-        <div class="subnet-row">
-          <input type="number" id="o1" min="0" max="255" step="1">
-          <span class="dot-sep">.</span>
-          <input type="number" id="o2" min="0" max="255" step="1">
-          <span class="dot-sep">.</span>
-          <input type="number" id="o3" min="0" max="255" step="1">
-          <span class="dot-sep">. x</span>
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>Red UDP</h2>
+          <p>Activación UDP y subnet de los módulos LAN</p>
         </div>
       </div>
 
-      <button class="btn-action" id="btn-subnet">Enviar a módulos</button>
-    </section>
+      <div class="cx-grid">
 
+        <!-- Card: Estado de red -->
+        <section class="cx-panel">
+          <h3>Estado de red</h3>
+
+          <div class="cx-form one">
+            <div class="cx-field">
+              <label>IP local del host</label>
+              <div class="cx-readonly" id="ip-actual">—</div>
+            </div>
+          </div>
+
+          <div class="cx-toggle-row">
+            <input type="checkbox" id="udp-on">
+            <label for="udp-on">UDP habilitado</label>
+          </div>
+
+          <p class="cx-hint">
+            Cambiar el estado UDP requiere reiniciar CoreX.
+          </p>
+        </section>
+
+        <!-- Card: Subnet de módulos -->
+        <section class="cx-panel">
+          <h3>Subnet de módulos</h3>
+
+          <p class="cx-hint" id="subnet-hint" style="margin: 0 0 14px;">
+            Ingresá los tres primeros octetos de la subnet de la LAN del tractor.
+            Al confirmar, CoreX envía el comando a <strong>todos</strong> los nodos
+            presentes en la red.
+          </p>
+
+          <div class="cx-field">
+            <label>Nuevos tres primeros octetos</label>
+            <div class="cx-subnet-row">
+              <input class="cx-input big" type="number" id="o1" min="0" max="255" step="1">
+              <span class="cx-subnet-sep">.</span>
+              <input class="cx-input big" type="number" id="o2" min="0" max="255" step="1">
+              <span class="cx-subnet-sep">.</span>
+              <input class="cx-input big" type="number" id="o3" min="0" max="255" step="1">
+              <span class="cx-subnet-sep">. x</span>
+            </div>
+          </div>
+
+          <div class="cx-actions">
+            <button class="cx-btn green wide" id="btn-subnet">Enviar a módulos</button>
+          </div>
+        </section>
+
+      </div>
+    </div>
   </div>
 
   <script src="/js/modal.js"></script>

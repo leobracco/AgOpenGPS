@@ -1,0 +1,273 @@
+/* ============================================================================
+   corex.css — capa visual CoreX, adaptada del diseño entregado en
+   Diseño/CoreX/corex_agroparallel_html_screens (estilo Agro Parallel claro).
+
+   Se carga DESPUÉS de theme.css/layout.css (que vienen del Hub en build y
+   traen los tokens --agp-* + estilos del modal). Todas las clases nuevas van
+   prefijadas cx- para no chocar con las del Hub. Se conservan los hooks que
+   el JS ya usa: .dot (.on/.bad), .btn-canal (.cerrar).
+   ============================================================================ */
+
+:root {
+  --cx-green: #4ABA3E;
+  --cx-dark:  #0e5a24;
+  --cx-ink:   #101612;
+  --cx-muted: #66736c;
+  --cx-line:  #dfe8df;
+  --cx-bg:    #edf3ed;
+  --cx-card:  #ffffff;
+  --cx-bad:   #b5352a;
+}
+
+body {
+  margin: 0;
+  /* layout.css (Hub) hace body display:grid con sidebar propia — acá el
+     shell lo arma .cx-shell, así que el body vuelve a ser bloque simple. */
+  display: block;
+  grid-template-columns: none;
+  background:
+    radial-gradient(circle at 90% -10%, rgba(74, 186, 62, .13), transparent 30%),
+    var(--cx-bg);
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: var(--cx-ink);
+}
+
+a { text-decoration: none; color: inherit; }
+
+/* ── Shell: sidebar + contenido ─────────────────────────────────────────── */
+
+.cx-shell {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  min-height: 100vh;
+}
+
+.cx-sidebar {
+  background: #f8fbf7;
+  border-right: 1px solid var(--cx-line);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cx-side-logo img { height: 40px; max-width: 190px; object-fit: contain; }
+
+.cx-mini {
+  font-size: 11px; color: var(--cx-muted);
+  text-transform: uppercase; letter-spacing: .12em;
+  font-weight: 800; margin: 4px 0 6px;
+}
+
+.cx-side-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 13px; border-radius: 14px;
+  font-weight: 700; color: #344039; font-size: 15px;
+}
+.cx-side-item.active {
+  background: #e8f6e5; color: var(--cx-dark);
+  box-shadow: inset 3px 0 0 var(--cx-green);
+}
+.cx-ico {
+  width: 34px; height: 34px; border-radius: 11px;
+  background: #fff; border: 1px solid var(--cx-line);
+  display: grid; place-items: center; font-size: 17px;
+  flex-shrink: 0;
+}
+
+.cx-content {
+  padding: 24px;
+  background: linear-gradient(180deg, #fbfdfb, #f3f7f2);
+  min-width: 0;
+}
+
+/* ── Cabecera de página ─────────────────────────────────────────────────── */
+
+.cx-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; margin-bottom: 18px; flex-wrap: wrap;
+}
+.cx-head h2 { margin: 0; font-size: 30px; letter-spacing: -.03em; }
+.cx-head p  { margin: 5px 0 0; color: var(--cx-muted); }
+
+.cx-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.cx-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 999px; padding: 8px 12px;
+  background: #fff; border: 1px solid var(--cx-line);
+  font-weight: 750; font-size: 13px;
+}
+
+/* ── Dots de estado (hook del JS: on / bad / neutro) ────────────────────── */
+
+.dot {
+  display: inline-block; width: 10px; height: 10px;
+  border-radius: 50%; background: #c3cdc4; flex-shrink: 0;
+}
+.dot.on  { background: var(--cx-green); box-shadow: 0 0 0 4px rgba(74, 186, 62, .15); }
+.dot.bad { background: var(--cx-bad);   box-shadow: 0 0 0 4px rgba(181, 53, 42, .13); }
+
+/* ── Grillas y paneles ──────────────────────────────────────────────────── */
+
+.cx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.cx-panel {
+  background: var(--cx-card);
+  border: 1px solid var(--cx-line);
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 10px 22px rgba(13, 28, 17, .06);
+}
+.cx-panel h3 {
+  margin: 0 0 14px; font-size: 19px;
+  display: flex; align-items: center; gap: 10px;
+}
+
+/* Línea clave-valor (dashboard) */
+.kv {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 0; font-size: 15px;
+  border-bottom: 1px solid #eef3ee; gap: 10px;
+}
+.kv:last-of-type { border-bottom: none; }
+.kv .k { color: var(--cx-muted); display: flex; align-items: center; gap: 8px; }
+.kv .v { font-weight: 750; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ── Filas de módulo (serial / módulos) ─────────────────────────────────── */
+
+.cx-mod-list { display: grid; gap: 12px; }
+
+.cx-mod-row {
+  display: grid;
+  grid-template-columns: 48px minmax(120px, 1fr) minmax(130px, 1fr) 110px 110px;
+  gap: 12px; align-items: center;
+  background: #fff; border: 1px solid var(--cx-line);
+  border-radius: 16px; padding: 12px;
+}
+.cx-mod-icon {
+  width: 44px; height: 44px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: #eaf7e8; color: var(--cx-dark); font-size: 21px;
+  position: relative;
+}
+.cx-mod-icon .dot { position: absolute; top: -3px; right: -3px; }
+.cx-mod-name { font-size: 16px; font-weight: 800; }
+.cx-mod-sub  { font-size: 12.5px; color: var(--cx-muted); }
+
+.cx-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #edf8ea; color: var(--cx-dark);
+  border: 1px solid #cce7c8; border-radius: 999px;
+  padding: 8px 10px; font-size: 13px; font-weight: 800;
+  white-space: nowrap;
+}
+
+/* ── Formularios ────────────────────────────────────────────────────────── */
+
+.cx-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.cx-form.one { grid-template-columns: 1fr; }
+
+.cx-field label {
+  display: block; font-size: 13px; color: var(--cx-muted);
+  font-weight: 800; margin-bottom: 7px;
+}
+
+.cx-input, .cx-panel select {
+  width: 100%; height: 46px;
+  border: 1px solid #d4ded5; border-radius: 12px;
+  background: #fff; padding: 0 12px;
+  font-size: 16px; font-weight: 600; color: var(--cx-ink);
+  box-sizing: border-box;
+}
+.cx-input:disabled, .cx-panel select:disabled { opacity: .55; }
+.cx-input.big {
+  height: 58px; font-size: 26px; text-align: center; font-weight: 850;
+}
+
+/* Valor de solo lectura (IP actual) */
+.cx-readonly {
+  font-family: Consolas, monospace; font-size: 16px;
+  padding: 12px; background: #f5f8f5;
+  border: 1px solid var(--cx-line); border-radius: 12px;
+  min-height: 22px; word-break: break-all; font-weight: 700;
+}
+
+/* Toggle / radio táctiles */
+.cx-toggle-row {
+  display: flex; align-items: center; gap: 12px; padding: 9px 0;
+}
+.cx-toggle-row label { font-size: 15px; font-weight: 650; cursor: pointer; }
+input[type="checkbox"], input[type="radio"] {
+  width: 24px; height: 24px; cursor: pointer; flex-shrink: 0;
+  accent-color: var(--cx-green);
+}
+input[type="checkbox"]:disabled, input[type="radio"]:disabled {
+  cursor: not-allowed; opacity: .55;
+}
+
+/* Fila de octetos subnet */
+.cx-subnet-row { display: flex; gap: 8px; align-items: center; }
+.cx-subnet-row .cx-input { width: 84px; }
+.cx-subnet-sep { font-size: 22px; font-weight: 900; color: var(--cx-muted); }
+
+/* Hint informativo */
+.cx-hint {
+  font-size: 13.5px; color: var(--cx-muted); line-height: 1.4;
+  padding: 10px 12px; border-radius: 12px;
+  background: #f5f8f5; border: 1px solid var(--cx-line);
+  margin: 12px 0 0;
+}
+
+/* ── Botones de acción ──────────────────────────────────────────────────── */
+
+.cx-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+
+.cx-btn {
+  border: 1px solid var(--cx-line); border-radius: 13px;
+  padding: 13px 18px; font-size: 15px; font-weight: 800;
+  background: #eef3ee; color: var(--cx-ink); cursor: pointer;
+}
+.cx-btn.green {
+  background: linear-gradient(135deg, var(--cx-green), var(--cx-dark));
+  color: #fff; border: 0;
+}
+.cx-btn.wide { width: 100%; justify-content: center; padding: 14px; }
+.cx-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Botón por canal serie — serial.js PISA className con estas clases. */
+.btn-canal {
+  width: 100%; padding: 12px; font-size: 15px; font-weight: 800;
+  border: 0; border-radius: 13px; cursor: pointer;
+  background: linear-gradient(135deg, var(--cx-green), var(--cx-dark));
+  color: #fff;
+}
+.btn-canal.cerrar { background: linear-gradient(135deg, #e14b3f, #a02c22); }
+.btn-canal:disabled { opacity: .55; cursor: not-allowed; }
+
+/* Lista de topics MQTT (dashboard) */
+.topics {
+  font-family: Consolas, monospace; font-size: 12px;
+  max-height: 150px; overflow-y: auto; white-space: pre;
+  color: var(--cx-muted); margin-top: 10px;
+  background: #f5f8f5; border: 1px solid var(--cx-line);
+  border-radius: 12px; padding: 10px;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 920px) {
+  .cx-shell { grid-template-columns: 1fr; }
+  .cx-sidebar {
+    flex-direction: row; flex-wrap: wrap; align-items: center;
+    border-right: 0; border-bottom: 1px solid var(--cx-line);
+  }
+  .cx-mini { display: none; }
+  .cx-form { grid-template-columns: 1fr; }
+  .cx-mod-row { grid-template-columns: 48px 1fr; }
+  .cx-content { padding: 14px; }
+  .cx-head h2 { font-size: 24px; }
+}
