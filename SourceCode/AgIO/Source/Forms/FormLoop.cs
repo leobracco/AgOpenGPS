@@ -444,6 +444,9 @@ namespace AgIO
                     lblNTRIPBytes.BackColor = Color.Transparent;
                 }
             }
+
+            // Publica el snapshot para el dashboard web (:5181).
+            UpdateCoreXSnapshot();
         }
 
         private void TwoSecondLoop()
