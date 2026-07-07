@@ -203,7 +203,9 @@ namespace AgOpenGPS
 
             int buttonMaxWidth = 360, buttonHeight = 35;
 
-            if ((Height - oglMain.Height) < 80) //max size - buttons hid
+            //PilotX: si el menú de abajo está reabierto (flotando), las secciones
+            //van arriba del panel como en el layout normal
+            if ((Height - oglMain.Height) < 80 && !panelsPeekBottomOpen) //max size - buttons hid
             {
                 top = Height - 85;
                 if (panelSim.Visible == true)
@@ -294,8 +296,8 @@ namespace AgOpenGPS
 
             int buttonMaxWidth = 400, buttonHeight = 30;
 
-
-            if ((Height - oglMain.Height) < 80) //max size - buttons hid
+            //PilotX: ídem secciones — con el menú de abajo flotando, zonas arriba
+            if ((Height - oglMain.Height) < 80 && !panelsPeekBottomOpen) //max size - buttons hid
             {
                 top = Height - 70;
                 if (panelSim.Visible == true)
