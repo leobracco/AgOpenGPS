@@ -554,7 +554,9 @@ namespace AgOpenGPS
                 customColorsList[i] = iCol;
             }
 
-            isTextureOn = Settings.Default.setDisplay_isTextureOn;
+            // PilotX: fondo del mapa liso gris claro verdoso (fieldColorDay);
+            // la textura de piso z_Floor tapaba el color, queda apagada.
+            isTextureOn = false;
             isLogElevation = Settings.Default.setDisplay_isLogElevation;
             isLineSmooth = Properties.Settings.Default.setDisplay_isLineSmooth;
 
