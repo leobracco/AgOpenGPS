@@ -410,6 +410,23 @@ namespace AgOpenGPS
             }
         }
 
+        // Filtro global: WM_LBUTTONDOWN en cualquier control reinicia el
+        // conteo de auto-ocultado de paneles (solo mientras están visibles;
+        // mostrarlos lo maneja oglMain_MouseDown).
+        private class PanelsAutoHideFilter : IMessageFilter
+        {
+            private const int WM_LBUTTONDOWN = 0x0201;
+            private readonly FormGPS mf;
+            public PanelsAutoHideFilter(FormGPS f) { mf = f; }
+
+            public bool PreFilterMessage(ref Message m)
+            {
+                if (m.Msg == WM_LBUTTONDOWN && !mf.isPanelBottomHidden)
+                    mf.panelsAutoHideCounter = panelsAutoHideDelay;
+                return false;
+            }
+        }
+
         public FormGPS()
         {
             //winform initialization
@@ -421,6 +438,10 @@ namespace AgOpenGPS
             catch { /* sin ícono no es fatal */ }
 
             InitializeLanguages();
+
+            // Auto-ocultado de menús: cualquier toque/click en la app reinicia
+            // el conteo de inactividad (así no se esconden mientras se usan).
+            Application.AddMessageFilter(new PanelsAutoHideFilter(this));
 
             AppCore = new ApplicationCore(
                 new DirectoryInfo(RegistrySettings.baseDirectory),
@@ -1406,6 +1427,7 @@ namespace AgOpenGPS
             panelRight.Enabled = true;
             //boundaryToolStripBtn.Enabled = true;
             isPanelBottomHidden = false;
+            panelsAutoHideCounter = panelsAutoHideDelay;
 
             FieldMenuButtonEnableDisable(true);
             PanelUpdateRightAndBottom();

@@ -69,6 +69,11 @@ namespace AgOpenGPS
         public bool isFlashOnOff = false, isPanFormVisible = false;
         public bool isPanelBottomHidden = false;
 
+        //auto-ocultado de menús (PilotX): segundos de inactividad restantes
+        //antes de esconder los paneles; un toque en el mapa los vuelve a mostrar
+        public int panelsAutoHideCounter = 0;
+        public const int panelsAutoHideDelay = 10;
+
         public bool isKioskMode = false;
         public int makeUTurnCounter = 0;
 
@@ -299,6 +304,14 @@ namespace AgOpenGPS
                 //keeps autoTrack from changing too fast
                 trk.autoTrack3SecTimer++;
                 vehicle.deadZoneDelayCounter++;
+
+                //PilotX: auto-ocultar los paneles tras inactividad
+                if (isJobStarted && !isPanelBottomHidden && panelsAutoHideCounter > 0
+                    && --panelsAutoHideCounter == 0)
+                {
+                    isPanelBottomHidden = true;
+                    PanelsAndOGLSize();
+                }
 
                 lblFix.Text = FixQuality + "Age: " + pn.age.ToString("N1");
 
@@ -999,11 +1012,11 @@ namespace AgOpenGPS
                 {
                     panelBottom.Visible = false;
                     panelLeft.Visible = false;
+                    panelRight.Visible = false;
 
                     oglMain.Left = 20;
 
-
-                    oglMain.Width = this.Width - 98; //22
+                    oglMain.Width = this.Width - 40;
 
                     oglMain.Height = this.Height - 62;
                 }
@@ -1229,6 +1242,20 @@ namespace AgOpenGPS
                 if (TryHandleShapefileInspectClick(e.X, e.Y))
                     return;
                 // SHAPEFILE_MOD_END
+
+                //PilotX: con los menús ocultos, el primer toque en el mapa
+                //solo los vuelve a mostrar (se consume el toque).
+                if (isJobStarted)
+                {
+                    if (isPanelBottomHidden)
+                    {
+                        isPanelBottomHidden = false;
+                        panelsAutoHideCounter = panelsAutoHideDelay;
+                        PanelsAndOGLSize();
+                        return;
+                    }
+                    panelsAutoHideCounter = panelsAutoHideDelay;
+                }
 
                 if (isJobStarted)
                 {
