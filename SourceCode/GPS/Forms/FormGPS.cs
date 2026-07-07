@@ -410,19 +410,28 @@ namespace AgOpenGPS
             }
         }
 
-        // Filtro global: WM_LBUTTONDOWN en cualquier control reinicia el
-        // conteo de auto-ocultado de paneles (solo mientras están visibles;
-        // mostrarlos lo maneja oglMain_MouseDown).
+        // Filtro global: cualquier toque/click en la app reinicia el conteo de
+        // auto-ocultado de paneles. Si los paneles están ocultos, el toque
+        // (en cualquier parte, no solo el mapa) los vuelve a mostrar y se
+        // consume, para que el primer toque no dispare otra acción.
         private class PanelsAutoHideFilter : IMessageFilter
         {
             private const int WM_LBUTTONDOWN = 0x0201;
+            private const int WM_POINTERDOWN = 0x0246; //touch/pen en Win8+
             private readonly FormGPS mf;
             public PanelsAutoHideFilter(FormGPS f) { mf = f; }
 
             public bool PreFilterMessage(ref Message m)
             {
-                if (m.Msg == WM_LBUTTONDOWN && !mf.isPanelBottomHidden)
+                if (m.Msg == WM_LBUTTONDOWN || m.Msg == WM_POINTERDOWN)
+                {
+                    if (mf.isJobStarted && mf.isPanelBottomHidden)
+                    {
+                        mf.ShowAutoHiddenPanels();
+                        return true; //consumir el toque que despierta los menús
+                    }
                     mf.panelsAutoHideCounter = panelsAutoHideDelay;
+                }
                 return false;
             }
         }

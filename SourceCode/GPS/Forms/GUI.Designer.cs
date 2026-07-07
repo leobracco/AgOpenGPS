@@ -994,6 +994,14 @@ namespace AgOpenGPS
             btnFlag.Text = isStanleyUsed ? "S" : "P";
         }
 
+        //PilotX: vuelve a mostrar los paneles auto-ocultados y reinicia el conteo
+        public void ShowAutoHiddenPanels()
+        {
+            isPanelBottomHidden = false;
+            panelsAutoHideCounter = panelsAutoHideDelay;
+            PanelsAndOGLSize();
+        }
+
         private void PanelsAndOGLSize()
         {
             if (!isJobStarted)
@@ -1013,6 +1021,7 @@ namespace AgOpenGPS
                     panelBottom.Visible = false;
                     panelLeft.Visible = false;
                     panelRight.Visible = false;
+                    menuStrip1.Visible = false;
 
                     oglMain.Left = 20;
 
@@ -1025,6 +1034,7 @@ namespace AgOpenGPS
                     panelBottom.Visible = true;
                     panelRight.Visible = true;
                     panelLeft.Visible = true;
+                    menuStrip1.Visible = true;
                     oglMain.Left = 80;
 
                     oglMain.Width = this.Width - statusStripLeft.Width - 92; //22
@@ -1244,14 +1254,13 @@ namespace AgOpenGPS
                 // SHAPEFILE_MOD_END
 
                 //PilotX: con los menús ocultos, el primer toque en el mapa
-                //solo los vuelve a mostrar (se consume el toque).
+                //solo los vuelve a mostrar (se consume el toque). Fallback por
+                //si el filtro global no vio el mensaje.
                 if (isJobStarted)
                 {
                     if (isPanelBottomHidden)
                     {
-                        isPanelBottomHidden = false;
-                        panelsAutoHideCounter = panelsAutoHideDelay;
-                        PanelsAndOGLSize();
+                        ShowAutoHiddenPanels();
                         return;
                     }
                     panelsAutoHideCounter = panelsAutoHideDelay;
