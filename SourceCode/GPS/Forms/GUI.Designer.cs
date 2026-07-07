@@ -70,9 +70,12 @@ namespace AgOpenGPS
         public bool isPanelBottomHidden = false;
 
         //auto-ocultado de menús (PilotX): segundos de inactividad restantes
-        //antes de esconder los paneles; un toque en el mapa los vuelve a mostrar
+        //antes de esconder los paneles. Con todo oculto el mapa sigue operable
+        //(secciones, giro, etc.); cada menú se reabre con su flecha de borde.
         public int panelsAutoHideCounter = panelsAutoHideDelay;
         public const int panelsAutoHideDelay = 10;
+        public bool panelsPeekLeftOpen = false, panelsPeekRightOpen = false, panelsPeekBottomOpen = false;
+        private Button btnPeekLeft, btnPeekRight, btnPeekBottom;
 
         public bool isKioskMode = false;
         public int makeUTurnCounter = 0;
@@ -103,14 +106,17 @@ namespace AgOpenGPS
 
         private void tmrWatchdog_tick(object sender, EventArgs e)
         {
-            //PilotX: auto-ocultar los paneles tras inactividad, aunque no haya GPS
-            if (!isPanelBottomHidden && panelsAutoHideCounter > 0
+            //PilotX: auto-ocultar los paneles tras inactividad, aunque no haya GPS.
+            //También cierra los menús reabiertos con las flechas (peek).
+            if (panelsAutoHideCounter > 0
                 && (DateTime.Now - panelsAutoHideLastTick).TotalSeconds >= 1.0)
             {
                 panelsAutoHideLastTick = DateTime.Now;
-                if (--panelsAutoHideCounter == 0)
+                if (--panelsAutoHideCounter == 0
+                    && (!isPanelBottomHidden || panelsPeekLeftOpen || panelsPeekRightOpen || panelsPeekBottomOpen))
                 {
                     isPanelBottomHidden = true;
+                    panelsPeekLeftOpen = panelsPeekRightOpen = panelsPeekBottomOpen = false;
                     PanelsAndOGLSize();
                     try { System.IO.File.AppendAllText(@"G:\Temp\claude\autohide.log", DateTime.Now.ToString("HH:mm:ss.fff") + " HIDE job=" + isJobStarted + "\r\n"); } catch { }
                 }
@@ -1005,14 +1011,77 @@ namespace AgOpenGPS
             btnFlag.Text = isStanleyUsed ? "S" : "P";
         }
 
-        //PilotX: vuelve a mostrar los paneles auto-ocultados y reinicia el conteo
+        //PilotX: vuelve a mostrar todos los paneles auto-ocultados y reinicia el conteo
         public void ShowAutoHiddenPanels()
         {
-            try { System.IO.File.AppendAllText(@"G:\Temp\claude\autohide.log", DateTime.Now.ToString("HH:mm:ss.fff") + " ShowAutoHiddenPanels job=" + isJobStarted + "\r\n"); } catch { }
             isPanelBottomHidden = false;
+            panelsPeekLeftOpen = panelsPeekRightOpen = panelsPeekBottomOpen = false;
             panelsAutoHideCounter = panelsAutoHideDelay;
             PanelsAndOGLSize();
-            try { System.IO.File.AppendAllText(@"G:\Temp\claude\autohide.log", DateTime.Now.ToString("HH:mm:ss.fff") + " restore OK left=" + panelLeft.Visible + " bottom=" + panelBottom.Visible + "\r\n"); } catch { }
+        }
+
+        //PilotX: flechas de borde para reabrir cada menú con el resto oculto
+        private Button MakePeekButton(string text, EventHandler onClick)
+        {
+            var b = new Button
+            {
+                Text = text,
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(0xE2, 0xE7, 0xE2),
+                ForeColor = Color.FromArgb(0x10, 0x16, 0x12),
+                Visible = false,
+                TabStop = false
+            };
+            b.FlatAppearance.BorderColor = Color.FromArgb(0xC5, 0xCF, 0xC5);
+            b.Click += onClick;
+            Controls.Add(b);
+            return b;
+        }
+
+        public void CreatePanelPeekButtons()
+        {
+            btnPeekLeft = MakePeekButton("❯", (s, e) =>
+            { panelsPeekLeftOpen = true; panelsAutoHideCounter = panelsAutoHideDelay; PanelsAndOGLSize(); });
+            btnPeekRight = MakePeekButton("❮", (s, e) =>
+            { panelsPeekRightOpen = true; panelsAutoHideCounter = panelsAutoHideDelay; PanelsAndOGLSize(); });
+            btnPeekBottom = MakePeekButton("︿", (s, e) =>
+            { panelsPeekBottomOpen = true; panelsAutoHideCounter = panelsAutoHideDelay; PanelsAndOGLSize(); });
+        }
+
+        //aplica visibilidad de paneles + flechas en modo auto-oculto
+        private void ApplyAutoHiddenPanels(bool jobPanels)
+        {
+            panelLeft.Visible = panelsPeekLeftOpen;
+            menuStrip1.Visible = panelsPeekLeftOpen;
+            if (jobPanels)
+            {
+                panelRight.Visible = panelsPeekRightOpen;
+                panelBottom.Visible = panelsPeekBottomOpen;
+            }
+
+            //los paneles reabiertos flotan sobre el mapa
+            if (panelsPeekLeftOpen) { panelLeft.BringToFront(); menuStrip1.BringToFront(); }
+            if (jobPanels && panelsPeekRightOpen) panelRight.BringToFront();
+            if (jobPanels && panelsPeekBottomOpen) panelBottom.BringToFront();
+
+            btnPeekLeft.Visible = !panelsPeekLeftOpen;
+            btnPeekRight.Visible = jobPanels && !panelsPeekRightOpen;
+            btnPeekBottom.Visible = jobPanels && !panelsPeekBottomOpen;
+
+            btnPeekLeft.SetBounds(0, (ClientSize.Height - 90) / 2, 30, 90);
+            btnPeekRight.SetBounds(ClientSize.Width - 30, (ClientSize.Height - 90) / 2, 30, 90);
+            btnPeekBottom.SetBounds((ClientSize.Width - 90) / 2, ClientSize.Height - 32, 90, 32);
+            btnPeekLeft.BringToFront();
+            btnPeekRight.BringToFront();
+            btnPeekBottom.BringToFront();
+        }
+
+        private void HidePeekButtons()
+        {
+            btnPeekLeft.Visible = false;
+            btnPeekRight.Visible = false;
+            btnPeekBottom.Visible = false;
         }
 
         private void PanelsAndOGLSize()
@@ -1026,8 +1095,7 @@ namespace AgOpenGPS
                 //izquierdo y la hamburguesa
                 if (isPanelBottomHidden)
                 {
-                    panelLeft.Visible = false;
-                    menuStrip1.Visible = false;
+                    ApplyAutoHiddenPanels(false);
 
                     oglMain.Left = 20;
                     oglMain.Width = this.Width - 40;
@@ -1036,6 +1104,7 @@ namespace AgOpenGPS
                 {
                     panelLeft.Visible = true;
                     menuStrip1.Visible = true;
+                    HidePeekButtons();
 
                     oglMain.Left = 80;
                     oglMain.Width = this.Width - statusStripLeft.Width - 22; //22
@@ -1047,10 +1116,7 @@ namespace AgOpenGPS
 
                 if (isPanelBottomHidden)
                 {
-                    panelBottom.Visible = false;
-                    panelLeft.Visible = false;
-                    panelRight.Visible = false;
-                    menuStrip1.Visible = false;
+                    ApplyAutoHiddenPanels(true);
 
                     oglMain.Left = 20;
 
@@ -1064,6 +1130,7 @@ namespace AgOpenGPS
                     panelRight.Visible = true;
                     panelLeft.Visible = true;
                     menuStrip1.Visible = true;
+                    HidePeekButtons();
                     oglMain.Left = 80;
 
                     oglMain.Width = this.Width - statusStripLeft.Width - 92; //22
@@ -1282,14 +1349,9 @@ namespace AgOpenGPS
                     return;
                 // SHAPEFILE_MOD_END
 
-                //PilotX: con los menús ocultos, el primer toque en el mapa
-                //solo los vuelve a mostrar (se consume el toque). Fallback por
-                //si el filtro global no vio el mensaje.
-                if (isPanelBottomHidden)
-                {
-                    ShowAutoHiddenPanels();
-                    return;
-                }
+                //PilotX: el mapa sigue operable con los menús ocultos (secciones,
+                //giro, etc.); solo se reinicia el conteo de inactividad. Los menús
+                //se reabren con las flechas de borde.
                 panelsAutoHideCounter = panelsAutoHideDelay;
 
                 if (isJobStarted)

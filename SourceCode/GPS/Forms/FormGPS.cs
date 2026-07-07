@@ -411,9 +411,8 @@ namespace AgOpenGPS
         }
 
         // Filtro global: cualquier toque/click en la app reinicia el conteo de
-        // auto-ocultado de paneles. Si los paneles están ocultos, el toque
-        // (en cualquier parte, no solo el mapa) los vuelve a mostrar y se
-        // consume, para que el primer toque no dispare otra acción.
+        // auto-ocultado de paneles. El toque NO reabre los menús (el mapa sigue
+        // operable oculto); para eso están las flechas de borde.
         private class PanelsAutoHideFilter : IMessageFilter
         {
             private const int WM_LBUTTONDOWN = 0x0201;
@@ -424,14 +423,7 @@ namespace AgOpenGPS
             public bool PreFilterMessage(ref Message m)
             {
                 if (m.Msg == WM_LBUTTONDOWN || m.Msg == WM_POINTERDOWN)
-                {
-                    if (mf.isPanelBottomHidden)
-                    {
-                        mf.ShowAutoHiddenPanels();
-                        return true; //consumir el toque que despierta los menús
-                    }
                     mf.panelsAutoHideCounter = panelsAutoHideDelay;
-                }
                 return false;
             }
         }
@@ -451,6 +443,7 @@ namespace AgOpenGPS
             // Auto-ocultado de menús: cualquier toque/click en la app reinicia
             // el conteo de inactividad (así no se esconden mientras se usan).
             Application.AddMessageFilter(new PanelsAutoHideFilter(this));
+            CreatePanelPeekButtons();
 
             AppCore = new ApplicationCore(
                 new DirectoryInfo(RegistrySettings.baseDirectory),
