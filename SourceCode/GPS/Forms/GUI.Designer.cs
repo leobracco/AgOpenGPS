@@ -71,7 +71,7 @@ namespace AgOpenGPS
 
         //auto-ocultado de menús (PilotX): segundos de inactividad restantes
         //antes de esconder los paneles; un toque en el mapa los vuelve a mostrar
-        public int panelsAutoHideCounter = 0;
+        public int panelsAutoHideCounter = panelsAutoHideDelay;
         public const int panelsAutoHideDelay = 10;
 
         public bool isKioskMode = false;
@@ -306,7 +306,7 @@ namespace AgOpenGPS
                 vehicle.deadZoneDelayCounter++;
 
                 //PilotX: auto-ocultar los paneles tras inactividad
-                if (isJobStarted && !isPanelBottomHidden && panelsAutoHideCounter > 0
+                if (!isPanelBottomHidden && panelsAutoHideCounter > 0
                     && --panelsAutoHideCounter == 0)
                 {
                     isPanelBottomHidden = true;
@@ -1009,8 +1009,24 @@ namespace AgOpenGPS
                 panelBottom.Visible = false;
                 panelRight.Visible = false;
 
-                oglMain.Left = 80;
-                oglMain.Width = this.Width - statusStripLeft.Width - 22; //22                
+                //PilotX: sin lote también aplica el auto-ocultado del panel
+                //izquierdo y la hamburguesa
+                if (isPanelBottomHidden)
+                {
+                    panelLeft.Visible = false;
+                    menuStrip1.Visible = false;
+
+                    oglMain.Left = 20;
+                    oglMain.Width = this.Width - 40;
+                }
+                else
+                {
+                    panelLeft.Visible = true;
+                    menuStrip1.Visible = true;
+
+                    oglMain.Left = 80;
+                    oglMain.Width = this.Width - statusStripLeft.Width - 22; //22
+                }
                 oglMain.Height = this.Height - 60;
             }
             else
@@ -1256,15 +1272,12 @@ namespace AgOpenGPS
                 //PilotX: con los menús ocultos, el primer toque en el mapa
                 //solo los vuelve a mostrar (se consume el toque). Fallback por
                 //si el filtro global no vio el mensaje.
-                if (isJobStarted)
+                if (isPanelBottomHidden)
                 {
-                    if (isPanelBottomHidden)
-                    {
-                        ShowAutoHiddenPanels();
-                        return;
-                    }
-                    panelsAutoHideCounter = panelsAutoHideDelay;
+                    ShowAutoHiddenPanels();
+                    return;
                 }
+                panelsAutoHideCounter = panelsAutoHideDelay;
 
                 if (isJobStarted)
                 {

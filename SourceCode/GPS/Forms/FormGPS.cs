@@ -425,7 +425,7 @@ namespace AgOpenGPS
             {
                 if (m.Msg == WM_LBUTTONDOWN || m.Msg == WM_POINTERDOWN)
                 {
-                    if (mf.isJobStarted && mf.isPanelBottomHidden)
+                    if (mf.isPanelBottomHidden)
                     {
                         mf.ShowAutoHiddenPanels();
                         return true; //consumir el toque que despierta los menús
