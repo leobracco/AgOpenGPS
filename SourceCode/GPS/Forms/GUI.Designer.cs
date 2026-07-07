@@ -97,8 +97,25 @@ namespace AgOpenGPS
         public List<int> buttonOrder = new List<int>();
 
         //Timer triggers at 125 msec
+        //PilotX: reloj propio del auto-ocultado (el resto del watchdog depende
+        //de que haya GPS; esto tiene que correr siempre)
+        private DateTime panelsAutoHideLastTick = DateTime.Now;
+
         private void tmrWatchdog_tick(object sender, EventArgs e)
         {
+            //PilotX: auto-ocultar los paneles tras inactividad, aunque no haya GPS
+            if (!isPanelBottomHidden && panelsAutoHideCounter > 0
+                && (DateTime.Now - panelsAutoHideLastTick).TotalSeconds >= 1.0)
+            {
+                panelsAutoHideLastTick = DateTime.Now;
+                if (--panelsAutoHideCounter == 0)
+                {
+                    isPanelBottomHidden = true;
+                    PanelsAndOGLSize();
+                    try { System.IO.File.AppendAllText(@"G:\Temp\claude\autohide.log", DateTime.Now.ToString("HH:mm:ss.fff") + " HIDE job=" + isJobStarted + "\r\n"); } catch { }
+                }
+            }
+
             if (sentenceCounter == 19)
             {
                 Log.EventWriter("No GPS Warning - Lost GPS");
@@ -304,14 +321,6 @@ namespace AgOpenGPS
                 //keeps autoTrack from changing too fast
                 trk.autoTrack3SecTimer++;
                 vehicle.deadZoneDelayCounter++;
-
-                //PilotX: auto-ocultar los paneles tras inactividad
-                if (!isPanelBottomHidden && panelsAutoHideCounter > 0
-                    && --panelsAutoHideCounter == 0)
-                {
-                    isPanelBottomHidden = true;
-                    PanelsAndOGLSize();
-                }
 
                 lblFix.Text = FixQuality + "Age: " + pn.age.ToString("N1");
 
@@ -999,9 +1008,11 @@ namespace AgOpenGPS
         //PilotX: vuelve a mostrar los paneles auto-ocultados y reinicia el conteo
         public void ShowAutoHiddenPanels()
         {
+            try { System.IO.File.AppendAllText(@"G:\Temp\claude\autohide.log", DateTime.Now.ToString("HH:mm:ss.fff") + " ShowAutoHiddenPanels job=" + isJobStarted + "\r\n"); } catch { }
             isPanelBottomHidden = false;
             panelsAutoHideCounter = panelsAutoHideDelay;
             PanelsAndOGLSize();
+            try { System.IO.File.AppendAllText(@"G:\Temp\claude\autohide.log", DateTime.Now.ToString("HH:mm:ss.fff") + " restore OK left=" + panelLeft.Visible + " bottom=" + panelBottom.Visible + "\r\n"); } catch { }
         }
 
         private void PanelsAndOGLSize()
