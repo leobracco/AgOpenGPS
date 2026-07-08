@@ -74,8 +74,6 @@ namespace AgOpenGPS
         //(secciones, giro, etc.); cada menú se reabre con su flecha de borde.
         public int panelsAutoHideCounter = panelsAutoHideDelay;
         public const int panelsAutoHideDelay = 10;
-        public bool panelsPeekLeftOpen = false, panelsPeekRightOpen = false, panelsPeekBottomOpen = false;
-        private Button btnPeekLeft, btnPeekRight, btnPeekBottom;
 
         public bool isKioskMode = false;
         public int makeUTurnCounter = 0;
@@ -107,18 +105,14 @@ namespace AgOpenGPS
         private void tmrWatchdog_tick(object sender, EventArgs e)
         {
             //PilotX: auto-ocultar los paneles tras inactividad, aunque no haya GPS.
-            //También cierra los menús reabiertos con las flechas (peek).
             if (panelsAutoHideCounter > 0
                 && (DateTime.Now - panelsAutoHideLastTick).TotalSeconds >= 1.0)
             {
                 panelsAutoHideLastTick = DateTime.Now;
-                if (--panelsAutoHideCounter == 0
-                    && (!isPanelBottomHidden || panelsPeekLeftOpen || panelsPeekRightOpen || panelsPeekBottomOpen))
+                if (--panelsAutoHideCounter == 0 && !isPanelBottomHidden)
                 {
                     isPanelBottomHidden = true;
-                    panelsPeekLeftOpen = panelsPeekRightOpen = panelsPeekBottomOpen = false;
                     PanelsAndOGLSize();
-                    try { System.IO.File.AppendAllText(@"G:\Temp\claude\autohide.log", DateTime.Now.ToString("HH:mm:ss.fff") + " HIDE job=" + isJobStarted + "\r\n"); } catch { }
                 }
             }
 
@@ -1015,73 +1009,20 @@ namespace AgOpenGPS
         public void ShowAutoHiddenPanels()
         {
             isPanelBottomHidden = false;
-            panelsPeekLeftOpen = panelsPeekRightOpen = panelsPeekBottomOpen = false;
             panelsAutoHideCounter = panelsAutoHideDelay;
             PanelsAndOGLSize();
         }
 
-        //PilotX: flechas de borde para reabrir cada menú con el resto oculto
-        private Button MakePeekButton(string text, EventHandler onClick)
-        {
-            var b = new Button
-            {
-                Text = text,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(0xE2, 0xE7, 0xE2),
-                ForeColor = Color.FromArgb(0x10, 0x16, 0x12),
-                Visible = false,
-                TabStop = false
-            };
-            b.FlatAppearance.BorderColor = Color.FromArgb(0xC5, 0xCF, 0xC5);
-            b.Click += onClick;
-            Controls.Add(b);
-            return b;
-        }
-
-        public void CreatePanelPeekButtons()
-        {
-            btnPeekLeft = MakePeekButton("❯", (s, e) =>
-            { panelsPeekLeftOpen = true; panelsAutoHideCounter = panelsAutoHideDelay; PanelsAndOGLSize(); });
-            btnPeekRight = MakePeekButton("❮", (s, e) =>
-            { panelsPeekRightOpen = true; panelsAutoHideCounter = panelsAutoHideDelay; PanelsAndOGLSize(); });
-            btnPeekBottom = MakePeekButton("︿", (s, e) =>
-            { panelsPeekBottomOpen = true; panelsAutoHideCounter = panelsAutoHideDelay; PanelsAndOGLSize(); });
-        }
-
-        //aplica visibilidad de paneles + flechas en modo auto-oculto
+        //oculta todos los paneles en modo auto-oculto (queda solo el mapa y el menú flotante)
         private void ApplyAutoHiddenPanels(bool jobPanels)
         {
-            panelLeft.Visible = panelsPeekLeftOpen;
-            menuStrip1.Visible = panelsPeekLeftOpen;
+            panelLeft.Visible = false;
+            menuStrip1.Visible = false;
             if (jobPanels)
             {
-                panelRight.Visible = panelsPeekRightOpen;
-                panelBottom.Visible = panelsPeekBottomOpen;
+                panelRight.Visible = false;
+                panelBottom.Visible = false;
             }
-
-            //los paneles reabiertos flotan sobre el mapa
-            if (panelsPeekLeftOpen) { panelLeft.BringToFront(); menuStrip1.BringToFront(); }
-            if (jobPanels && panelsPeekRightOpen) panelRight.BringToFront();
-            if (jobPanels && panelsPeekBottomOpen) panelBottom.BringToFront();
-
-            btnPeekLeft.Visible = !panelsPeekLeftOpen;
-            btnPeekRight.Visible = jobPanels && !panelsPeekRightOpen;
-            btnPeekBottom.Visible = jobPanels && !panelsPeekBottomOpen;
-
-            btnPeekLeft.SetBounds(0, (ClientSize.Height - 90) / 2, 30, 90);
-            btnPeekRight.SetBounds(ClientSize.Width - 30, (ClientSize.Height - 90) / 2, 30, 90);
-            btnPeekBottom.SetBounds((ClientSize.Width - 90) / 2, ClientSize.Height - 32, 90, 32);
-            btnPeekLeft.BringToFront();
-            btnPeekRight.BringToFront();
-            btnPeekBottom.BringToFront();
-        }
-
-        private void HidePeekButtons()
-        {
-            btnPeekLeft.Visible = false;
-            btnPeekRight.Visible = false;
-            btnPeekBottom.Visible = false;
         }
 
         private void PanelsAndOGLSize()
@@ -1104,7 +1045,6 @@ namespace AgOpenGPS
                 {
                     panelLeft.Visible = true;
                     menuStrip1.Visible = true;
-                    HidePeekButtons();
 
                     oglMain.Left = 80;
                     oglMain.Width = this.Width - statusStripLeft.Width - 22; //22
@@ -1130,7 +1070,6 @@ namespace AgOpenGPS
                     panelRight.Visible = true;
                     panelLeft.Visible = true;
                     menuStrip1.Visible = true;
-                    HidePeekButtons();
                     oglMain.Left = 80;
 
                     oglMain.Width = this.Width - statusStripLeft.Width - 92; //22
@@ -1140,6 +1079,8 @@ namespace AgOpenGPS
             }
 
             PanelSizeRightAndBottom();
+
+            PositionFloatMenuLauncher();
 
             if (tool.isSectionsNotZones)
             {
@@ -1351,7 +1292,7 @@ namespace AgOpenGPS
 
                 //PilotX: el mapa sigue operable con los menús ocultos (secciones,
                 //giro, etc.); solo se reinicia el conteo de inactividad. Los menús
-                //se reabren con las flechas de borde.
+                //se reabren tocando la franja inferior del mapa o desde el menú flotante.
                 panelsAutoHideCounter = panelsAutoHideDelay;
 
                 if (isJobStarted)
@@ -1491,15 +1432,10 @@ namespace AgOpenGPS
                             form.Left = this.Width - 400 + this.Left;
                         }
 
-                        if (isJobStarted)
-                        {
-                            if (point.Y > oglMain.Height - 60 && point.Y < oglMain.Height - 30)
-                            {
-                                isPanelBottomHidden = !isPanelBottomHidden;
-                                PanelsAndOGLSize();
-                                return;
-                            }
-                        }
+                        //PilotX: se quitó el toggle invisible de la franja inferior:
+                        //en pantalla táctil se activaba sin querer al manipular el mapa
+                        //y hacía reaparecer todos los paneles. La restauración ahora es
+                        //deliberada vía el ítem "Paneles" del menú flotante.
                     }
 
                     //tram override
