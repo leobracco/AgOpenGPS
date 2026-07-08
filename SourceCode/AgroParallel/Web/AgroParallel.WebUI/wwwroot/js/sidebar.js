@@ -102,8 +102,8 @@
     html.push('</ul>');
     html.push(
       '<div class="sidebar-foot">',
-      '  <div class="foot-meta">Sesión: <strong style="color:var(--agp-text)">Demo</strong></div>',
-      '  <div class="foot-meta" style="margin-top:4px">Cloud: <span style="color:var(--agp-state-ok)">●</span> conectado</div>',
+      '  <div class="foot-meta">Equipo: <strong id="agpFootEquipo" style="color:var(--agp-text)">—</strong></div>',
+      '  <div class="foot-meta" id="agpFootCloud" style="margin-top:4px">Cloud: <span style="color:var(--agp-text-muted)">●</span> …</div>',
       '  <button id="agpOpenWifi" type="button" style="margin-top:12px; width:100%; min-height:44px; padding:8px 12px;',
       '    background:rgba(74,186,62,0.10); color:var(--agp-text); border:1px solid var(--agp-border);',
       '    border-radius: var(--agp-radius-md); cursor:pointer; font-weight:var(--agp-fw-medium)" title="WiFi de Windows">',
@@ -117,6 +117,29 @@
       '</div>'
     );
     aside.innerHTML = html.join('');
+
+    // Pie con datos reales de OrbitX: establecimiento vinculado + estado cloud
+    (function () {
+      var elEquipo = aside.querySelector('#agpFootEquipo');
+      var elCloud = aside.querySelector('#agpFootCloud');
+      function refresh() {
+        fetch('/api/orbitx/status').then(function (r) { return r.json(); }).then(function (st) {
+          if (elEquipo) {
+            elEquipo.textContent = st.estab_slug || st.device_id || 'Sin vincular';
+            elEquipo.title = st.device_id || '';
+          }
+          if (elCloud) {
+            elCloud.innerHTML = st.cloud_connected
+              ? 'Cloud: <span style="color:var(--agp-state-ok)">●</span> conectado'
+              : 'Cloud: <span style="color:var(--agp-text-muted)">●</span> sin conexión';
+          }
+        }).catch(function () {
+          if (elCloud) elCloud.innerHTML = 'Cloud: <span style="color:var(--agp-text-muted)">●</span> sin conexión';
+        });
+      }
+      refresh();
+      setInterval(refresh, 15000);
+    })();
 
     var btnWifi = aside.querySelector('#agpOpenWifi');
     if (btnWifi) {
