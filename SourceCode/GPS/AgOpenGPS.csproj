@@ -35,6 +35,11 @@
     <Content Include="License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Fuente Material Icons (Google, Apache 2.0) renderizada a bitmap por
+         el menu flotante (GUI.FloatingMenu.cs / FloatMenuGlyph). -->
+    <Content Include="Fonts\MaterialIcons-Regular.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="AOG.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

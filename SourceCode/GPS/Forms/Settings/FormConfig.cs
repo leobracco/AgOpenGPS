@@ -20,6 +20,9 @@ namespace AgOpenGPS
 
         private bool isClosing = false;
 
+        // PilotX: nombre de la TabPage a abrir directamente (seteado por el menú flotante)
+        public string InitialTabName;
+
         //constructor
         public FormConfig(Form callingForm)
         {
@@ -113,6 +116,11 @@ namespace AgOpenGPS
             SectionFeetInchesTotalWidthLabelUpdate(mf.isMetric, mf.tool.width);
 
             tab1.SelectedTab = tabSummary;
+
+            // PilotX: apertura directa de una sección desde el menú flotante
+            if (!string.IsNullOrEmpty(InitialTabName) && tab1.TabPages.ContainsKey(InitialTabName))
+                tab1.SelectedTab = tab1.TabPages[InitialTabName];
+
             //Label translations
             //configload-save
             labelUnitsBottom.Text = gStr.gsUnits + ":";
