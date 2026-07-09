@@ -148,6 +148,74 @@
     }
     .field label { display: flex; align-items: center; }
 
+    /* ---- panel antena (rediseño mockup) ---- */
+    .ant-split {
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+      gap: var(--agp-sp-3);
+      align-items: stretch;
+    }
+    @media (max-width: 980px) { .ant-split { grid-template-columns: 1fr; } }
+
+    .ant-block { display: flex; flex-direction: column; gap: var(--agp-sp-3); align-items: center; }
+
+    .ant-field { text-align: center; }
+    .ant-field label {
+      display: block;
+      font-weight: var(--agp-fw-semi);
+      margin-bottom: 4px;
+    }
+    .ant-input-row {
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    .ant-big {
+      width: 150px;
+      min-height: 56px;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      color: var(--agp-text);
+      font-size: 32px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .ant-big:focus { outline: 2px solid var(--agp-accent); }
+    .ant-big:disabled { opacity: 0.45; }
+    .ant-unit { font-weight: var(--agp-fw-semi); color: var(--agp-text-muted); }
+
+    .ant-diagram svg { width: 100%; max-width: 340px; height: auto; }
+    .cota-pivote { stroke: var(--agp-accent); stroke-width: 4; }
+    .cota-pivote-fill { fill: var(--agp-accent); }
+    .cota-altura { stroke: #c026a8; stroke-width: 4; }
+    .cota-altura-fill { fill: #c026a8; }
+
+    .ant-top-row {
+      display: flex; gap: var(--agp-sp-3);
+      align-items: center; justify-content: center;
+      flex-wrap: wrap;
+    }
+    .ant-top svg { width: 150px; height: auto; }
+
+    .ant-side-select { display: flex; gap: var(--agp-sp-2); }
+    .ant-side {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      width: 92px; min-height: var(--agp-touch-min);
+      padding: var(--agp-sp-2);
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      color: var(--agp-text-muted);
+      font: inherit; font-size: var(--agp-fs-sm);
+      cursor: pointer;
+    }
+    .ant-side svg { width: 74px; height: 58px; }
+    .ant-side.on {
+      border-color: var(--agp-accent);
+      background: var(--agp-accent-soft, rgba(74,186,62,0.12));
+      color: var(--agp-text);
+      font-weight: var(--agp-fw-semi);
+    }
+
     .msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-3); min-height: 18px; }
     .msg.ok  { color: var(--agp-state-ok); }
     .msg.err { color: var(--agp-state-bad); }
@@ -293,70 +361,131 @@
     </section>
 
     <!-- =================== ANTENA =================== -->
+    <!-- Rediseño basado en el mockup config-antena: inputs grandes táctiles en
+         cm, vista lateral con cotas (pivote/altura) y vista superior con el
+         selector de lado del desfase (Izquierda/Centro/Derecha). -->
     <section class="panel" id="panel-antena">
-      <div class="card">
-        <h3 style="margin-top:0">Antena GPS</h3>
-        <div class="geo-split">
-          <div class="diagram">
-            <!-- Vista superior real (sprite PilotX) + overlay SVG con cotas -->
-            <div class="diagram-stack">
-              <img class="base" src="../img/tractors/TractorAoG.png" alt="Tractor visto desde arriba">
-              <!-- Overlay: el sprite es ~256×256, el viewBox respeta esa relación.
-                   El tractor ocupa aprox. x∈[55..200] y∈[10..245] dentro del PNG.
-                   Eje trasero (ruedas grandes) ≈ y=210, eje delantero ≈ y=40.
-                   Centro horizontal ≈ x=128.  -->
-              <svg class="over" viewBox="0 0 256 256" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-                <!-- línea de simetría del tractor -->
-                <line x1="128" y1="0" x2="128" y2="256" stroke="var(--agp-text-muted)" stroke-width="0.8" stroke-dasharray="3 4"/>
-                <!-- eje trasero (línea punteada perpendicular) -->
-                <line x1="40" y1="210" x2="216" y2="210" class="axle"/>
-                <!-- eje delantero -->
-                <line x1="60" y1="40"  x2="196" y2="40"  class="axle"/>
+      <div class="ant-split">
 
-                <!-- antena: punto destacado (offset hacia la derecha del centro) -->
-                <circle cx="148" cy="120" r="5" fill="var(--agp-accent)" stroke="#fff" stroke-width="1.5"/>
-                <text x="148" y="110" text-anchor="middle" class="lbl-txt">antena</text>
+        <!-- ---------- Vista lateral: pivote + altura ---------- -->
+        <div class="card">
+          <h3 style="margin-top:0">Vista lateral</h3>
+          <div class="ant-block">
+            <div class="ant-field">
+              <label for="antennaPivot">Distancia de pivote</label>
+              <div class="ant-input-row">
+                <input class="ant-big" type="number" id="antennaPivot" min="-1000" max="1000" step="1">
+                <span class="ant-unit">cm</span>
+              </div>
+              <div class="help">Del eje trasero a la antena (+ hacia adelante, − hacia atrás)</div>
+            </div>
 
-                <!-- COTA 2: Pivote (eje trasero ↔ antena) -->
-                <path class="arrow" d="M128,232 L148,232"/>
-                <path class="arrow" d="M125,228 L125,236 M151,228 L151,236"/>
-                <text x="138" y="248" text-anchor="middle" class="lbl-num">2</text>
+            <div class="ant-diagram">
+              <svg viewBox="0 0 340 230" aria-hidden="true">
+                <!-- piso -->
+                <line x1="10" y1="205" x2="330" y2="205" stroke="var(--agp-text-muted)" stroke-width="1"/>
+                <!-- tractor lateral (referencia mockup, sin branding) -->
+                <rect x="80" y="80" width="130" height="65" rx="8" fill="var(--agp-bg-soft)" stroke="var(--agp-text-muted)"/>
+                <path d="M105 80 L125 42 L195 52 L200 80 Z" fill="var(--agp-border)" stroke="var(--agp-text-muted)"/>
+                <rect x="212" y="100" width="80" height="45" rx="18" fill="var(--agp-text)" opacity="0.6"/>
+                <circle cx="102" cy="163" r="42" fill="var(--agp-text)" opacity="0.9"/>
+                <circle cx="102" cy="163" r="22" fill="#fff" opacity="0.35"/>
+                <circle cx="235" cy="172" r="32" fill="var(--agp-text)" opacity="0.9"/>
+                <circle cx="235" cy="172" r="16" fill="#fff" opacity="0.35"/>
+                <!-- mástil + antena -->
+                <rect x="180" y="42" width="8" height="40" fill="var(--agp-text)" opacity="0.7"/>
+                <circle cx="184" cy="36" r="6" fill="var(--agp-accent)" stroke="#fff" stroke-width="1.5"/>
 
-                <!-- COTA 4: Offset lateral (centro ↔ antena, horizontal) -->
-                <path class="arrow" d="M128,90 L148,90"/>
-                <path class="arrow" d="M128,86 L128,94 M148,86 L148,94"/>
-                <text x="138" y="82" text-anchor="middle" class="lbl-num">4</text>
+                <!-- COTA pivote (verde): eje trasero → antena -->
+                <line x1="102" y1="22" x2="184" y2="22" class="cota-pivote"/>
+                <path d="M184,22 l-9,-5 v10 z" class="cota-pivote-fill"/>
+                <line x1="102" y1="22" x2="102" y2="205" stroke="var(--agp-accent)" stroke-width="1.2" stroke-dasharray="4 4"/>
+                <text x="143" y="14" text-anchor="middle" class="lbl-txt">pivote</text>
 
-                <!-- Indicador frente -->
-                <polygon points="128,4 122,16 134,16" fill="var(--agp-accent)"/>
-                <text x="128" y="30" text-anchor="middle" class="lbl-txt" style="font-weight:700">FRENTE</text>
+                <!-- COTA altura (magenta): piso → antena -->
+                <line x1="312" y1="36" x2="312" y2="205" class="cota-altura"/>
+                <path d="M312,36 l-5,9 h10 z" class="cota-altura-fill"/>
+                <path d="M312,205 l-5,-9 h10 z" class="cota-altura-fill"/>
+                <line x1="190" y1="36" x2="312" y2="36" stroke="#c026a8" stroke-width="1.2" stroke-dasharray="4 4"/>
+                <text x="326" y="120" text-anchor="middle" class="lbl-txt" transform="rotate(90 326 120)">altura</text>
               </svg>
             </div>
-            <div class="legend">
-              <div><b>2</b> Pivote — distancia del eje trasero a la antena (+ delante, − atrás).</div>
-              <div><b>3</b> Altura — diagrama del costado (pestaña Geometría).</div>
-              <div><b>4</b> Offset lateral — desde el centro del tractor a la antena (+ derecha, − izquierda).</div>
-            </div>
-          </div>
 
-          <div class="veh-grid">
-            <div class="field">
-              <label><span class="badge">3</span>Altura antena (m)</label>
-              <input type="number" id="antennaHeight" min="0.1" max="10" step="0.05">
-              <div class="help">Sobre el suelo</div>
-            </div>
-            <div class="field">
-              <label><span class="badge">2</span>Pivote (m)</label>
-              <input type="number" id="antennaPivot" min="-10" max="10" step="0.05">
-              <div class="help">+ delante del eje trasero</div>
-            </div>
-            <div class="field">
-              <label><span class="badge">4</span>Offset lateral (m)</label>
-              <input type="number" id="antennaOffset" min="-5" max="5" step="0.01">
-              <div class="help">+ a la derecha del centro</div>
+            <div class="ant-field">
+              <label for="antennaHeight">Altura de antena</label>
+              <div class="ant-input-row">
+                <input class="ant-big" type="number" id="antennaHeight" min="10" max="1000" step="1">
+                <span class="ant-unit">cm</span>
+              </div>
+              <div class="help">Desde el piso hasta la antena</div>
             </div>
           </div>
         </div>
+
+        <!-- ---------- Vista superior: desfase lateral ---------- -->
+        <div class="card">
+          <h3 style="margin-top:0">Vista superior</h3>
+          <div class="ant-block">
+            <div class="ant-field">
+              <label for="antennaOffset">Desfase de antena</label>
+              <div class="ant-input-row">
+                <input class="ant-big" type="number" id="antennaOffset" min="0" max="500" step="1">
+                <span class="ant-unit">cm</span>
+              </div>
+              <div class="help">Distancia desde el centro del tractor (el lado se elige abajo)</div>
+            </div>
+
+            <div class="ant-top-row">
+              <div class="ant-diagram ant-top">
+                <svg viewBox="0 0 170 200" aria-hidden="true">
+                  <!-- chasis visto desde arriba -->
+                  <rect x="52" y="25" width="66" height="150" rx="14" fill="var(--agp-bg-soft)" stroke="var(--agp-text-muted)"/>
+                  <rect x="22" y="20" width="26" height="70" rx="10" fill="var(--agp-text)" opacity="0.85"/>
+                  <rect x="122" y="20" width="26" height="70" rx="10" fill="var(--agp-text)" opacity="0.85"/>
+                  <rect x="18" y="120" width="30" height="58" rx="10" fill="var(--agp-text)" opacity="0.85"/>
+                  <rect x="122" y="120" width="30" height="58" rx="10" fill="var(--agp-text)" opacity="0.85"/>
+                  <!-- línea de simetría -->
+                  <line x1="85" y1="8" x2="85" y2="195" stroke="var(--agp-text-muted)" stroke-width="0.8" stroke-dasharray="3 4"/>
+                  <!-- antena (se mueve con el selector) -->
+                  <circle id="svgAntDot" cx="85" cy="100" r="7" fill="var(--agp-accent)" stroke="#fff" stroke-width="2"/>
+                  <!-- cota desfase (centro ↔ antena) -->
+                  <line id="svgAntLine" x1="85" y1="100" x2="85" y2="100" class="cota-pivote"/>
+                  <!-- frente -->
+                  <polygon points="85,2 79,14 91,14" fill="var(--agp-accent)"/>
+                </svg>
+              </div>
+
+              <div class="ant-side-select" role="group" aria-label="Lado del desfase">
+                <button type="button" class="ant-side" id="sideLeft" data-side="left">
+                  <svg viewBox="0 0 74 58" aria-hidden="true">
+                    <line x1="37" y1="7" x2="37" y2="51" stroke="currentColor" stroke-width="3"/>
+                    <line x1="20" y1="29" x2="37" y2="29" stroke="var(--agp-accent)" stroke-width="4"/>
+                    <circle cx="17" cy="29" r="9" fill="#d33" stroke="#a00" stroke-width="2"/>
+                  </svg>
+                  <span>Izquierda</span>
+                </button>
+                <button type="button" class="ant-side" id="sideCenter" data-side="center">
+                  <svg viewBox="0 0 74 58" aria-hidden="true">
+                    <line x1="37" y1="7" x2="37" y2="51" stroke="currentColor" stroke-width="3"/>
+                    <circle cx="37" cy="29" r="9" fill="#d33" stroke="#a00" stroke-width="2"/>
+                  </svg>
+                  <span>Centro</span>
+                </button>
+                <button type="button" class="ant-side" id="sideRight" data-side="right">
+                  <svg viewBox="0 0 74 58" aria-hidden="true">
+                    <line x1="37" y1="7" x2="37" y2="51" stroke="currentColor" stroke-width="3"/>
+                    <line x1="37" y1="29" x2="54" y2="29" stroke="var(--agp-accent)" stroke-width="4"/>
+                    <circle cx="57" cy="29" r="9" fill="#d33" stroke="#a00" stroke-width="2"/>
+                  </svg>
+                  <span>Derecha</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="help" style="text-align:center">La antena dual va montada del lado <b>derecho</b>.</div>
+          </div>
+        </div>
+
       </div>
     </section>
 

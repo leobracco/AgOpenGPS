@@ -46,9 +46,13 @@
     $('trackWidth').value     = num(v.trackWidth, 1.9);
     $('maxSteerAngle').value  = num(v.maxSteerAngle, 30);
     $('slowSpeedCutoff').value = num(v.slowSpeedCutoff, 0.5);
-    $('antennaHeight').value  = num(v.antennaHeight, 3);
-    $('antennaPivot').value   = num(v.antennaPivot, 0.1);
-    $('antennaOffset').value  = num(v.antennaOffset, 0);
+    // La antena se edita en cm (como la pantalla WinForms original);
+    // el API habla en metros. Signo del offset: >0 izquierda, <0 derecha.
+    $('antennaHeight').value  = Math.round(num(v.antennaHeight, 3) * 100);
+    $('antennaPivot').value   = Math.round(num(v.antennaPivot, 0.1) * 100);
+    var off = num(v.antennaOffset, 0);
+    $('antennaOffset').value  = Math.round(Math.abs(off) * 100);
+    setSide(off > 0 ? 'left' : off < 0 ? 'right' : 'center');
   }
 
   function num(v, def) {
@@ -59,16 +63,49 @@
     var picked = document.querySelector('.veh-card.on');
     var vt = picked ? parseInt(picked.dataset.vt, 10) : 0;
     if (picked) localStorage.setItem('agp.vehVariant', picked.dataset.variant || '');
+    // Offset: input en cm absoluto + lado elegido → metros con signo
+    // (misma convención que WinForms: izquierda +, derecha −, centro 0).
+    var offCm = Math.abs(parseFloat($('antennaOffset').value) || 0);
+    var offM = side === 'left' ? offCm / 100 : side === 'right' ? -offCm / 100 : 0;
     return {
       vehicleType: isFinite(vt) ? vt : 0,
       wheelbase: parseFloat($('wheelbase').value),
       trackWidth: parseFloat($('trackWidth').value),
       maxSteerAngle: parseFloat($('maxSteerAngle').value),
       slowSpeedCutoff: parseFloat($('slowSpeedCutoff').value),
-      antennaHeight: parseFloat($('antennaHeight').value),
-      antennaPivot: parseFloat($('antennaPivot').value),
-      antennaOffset: parseFloat($('antennaOffset').value)
+      antennaHeight: (parseFloat($('antennaHeight').value) || 0) / 100,
+      antennaPivot: (parseFloat($('antennaPivot').value) || 0) / 100,
+      antennaOffset: offM
     };
+  }
+
+  // ---- Selector de lado del desfase de antena ----
+  var side = 'center';
+
+  function setSide(s) {
+    side = s;
+    document.querySelectorAll('.ant-side').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.side === s);
+    });
+    var inp = $('antennaOffset');
+    if (s === 'center') {
+      inp.value = 0;
+      inp.disabled = true;
+    } else {
+      inp.disabled = false;
+    }
+    updateAntSvg();
+  }
+
+  // Mueve el punto de la antena y la cota en el SVG de vista superior.
+  function updateAntSvg() {
+    var dot = document.getElementById('svgAntDot');
+    var line = document.getElementById('svgAntLine');
+    if (!dot || !line) return;
+    var cx = side === 'left' ? 62 : side === 'right' ? 108 : 85;
+    dot.setAttribute('cx', cx);
+    line.setAttribute('x1', 85);
+    line.setAttribute('x2', cx);
   }
 
   async function load() {
@@ -125,6 +162,10 @@
       var r = c.querySelector('input');
       if (r) r.checked = true;
     });
+  });
+
+  document.querySelectorAll('.ant-side').forEach(function (b) {
+    b.addEventListener('click', function () { setSide(b.dataset.side); });
   });
 
   $('btnSaveVeh').addEventListener('click', save);
