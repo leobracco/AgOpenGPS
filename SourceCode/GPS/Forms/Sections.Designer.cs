@@ -197,7 +197,7 @@ namespace AgOpenGPS
             }
             HideZones();
 
-            int oglCenter = isPanelBottomHidden ? oglCenter = oglMain.Width / 2 + 30 : statusStripLeft.Width + oglMain.Width / 2;
+            int oglCenter = oglMain.Width / 2 + 30; //PilotX: sin botoneras, el mapa siempre ocupa todo el ancho
 
             int top = 140;
 
@@ -290,7 +290,7 @@ namespace AgOpenGPS
                 return;
             }
 
-            int oglCenter = isPanelBottomHidden ? oglCenter = oglMain.Width / 2 + 30 : statusStripLeft.Width + oglMain.Width / 2;
+            int oglCenter = oglMain.Width / 2 + 30; //PilotX: sin botoneras, el mapa siempre ocupa todo el ancho
 
             int top = 130;
 

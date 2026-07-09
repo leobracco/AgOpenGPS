@@ -410,24 +410,6 @@ namespace AgOpenGPS
             }
         }
 
-        // Filtro global: cualquier toque/click en la app reinicia el conteo de
-        // auto-ocultado de paneles. El toque NO reabre los menús (el mapa sigue
-        // operable oculto); para eso está el ítem "Paneles" del menú flotante.
-        private class PanelsAutoHideFilter : IMessageFilter
-        {
-            private const int WM_LBUTTONDOWN = 0x0201;
-            private const int WM_POINTERDOWN = 0x0246; //touch/pen en Win8+
-            private readonly FormGPS mf;
-            public PanelsAutoHideFilter(FormGPS f) { mf = f; }
-
-            public bool PreFilterMessage(ref Message m)
-            {
-                if (m.Msg == WM_LBUTTONDOWN || m.Msg == WM_POINTERDOWN)
-                    mf.panelsAutoHideCounter = panelsAutoHideDelay;
-                return false;
-            }
-        }
-
         public FormGPS()
         {
             //winform initialization
@@ -440,9 +422,8 @@ namespace AgOpenGPS
 
             InitializeLanguages();
 
-            // Auto-ocultado de menús: cualquier toque/click en la app reinicia
-            // el conteo de inactividad (así no se esconden mientras se usan).
-            Application.AddMessageFilter(new PanelsAutoHideFilter(this));
+            //PilotX: las botoneras WinForms no se muestran más; todo el control
+            //vive en el menú flotante (ver GUI.FloatingMenu.cs)
             CreateFloatingMenu();
 
             AppCore = new ApplicationCore(
@@ -1428,8 +1409,6 @@ namespace AgOpenGPS
             this.menustripLanguage.Enabled = false;
             panelRight.Enabled = true;
             //boundaryToolStripBtn.Enabled = true;
-            isPanelBottomHidden = false;
-            panelsAutoHideCounter = panelsAutoHideDelay;
 
             FieldMenuButtonEnableDisable(true);
             PanelUpdateRightAndBottom();
@@ -1658,8 +1637,6 @@ namespace AgOpenGPS
             recPath.recList?.Clear();
             recPath.shortestDubinsList?.Clear();
             recPath.shuttleDubinsList?.Clear();
-
-            isPanelBottomHidden = false;
 
             PanelsAndOGLSize();
             SetZoom();

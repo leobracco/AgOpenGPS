@@ -191,34 +191,19 @@ namespace AgOpenGPS
             btnFloatMenuBack.Visible = false;
             floatMenuBackAction = null;
 
-            FloatMenuAddCategory("Lote", FloatMenuGlyph(0xE55F, 38, pxGreen), FloatMenuFillLote);          //pin de mapa
+            //las tres primeras categorías son espejo de las botoneras WinForms
+            //originales (derecha / inferior / izquierda), con sus mismos botones
+            FloatMenuAddCategory("Operación", FloatMenuGlyph(0xE55D, 38, pxGreen), FloatMenuFillOperacion); //botonera derecha
+            FloatMenuAddCategory("Lote", FloatMenuGlyph(0xE55F, 38, pxGreen), FloatMenuFillLote);           //botonera inferior
+            FloatMenuAddCategory("General", FloatMenuGlyph(0xE5D2, 38, pxGreen), FloatMenuFillGeneral);     //botonera izquierda
             FloatMenuAddCategory("Líneas", FloatMenuGlyph(0xE922, 38, pxGreen), FloatMenuFillLineas);       //flechas paralelas
-            FloatMenuAddCategory("Guiado", FloatMenuGlyph(0xE55D, 38, pxGreen), FloatMenuFillGuiado);       //vehículo
             FloatMenuAddCategory("Ruta grabada", FloatMenuGlyph(0xEACD, 38, pxGreen), FloatMenuFillRutaGrabada); //punto grabación
-            FloatMenuAddCategory("Secciones", FloatMenuGlyph(0xE9B0, 38, pxGreen), FloatMenuFillSecciones); //grilla
             FloatMenuAddCategory("Vista", FloatMenuGlyph(0xE8F4, 38, pxGreen), FloatMenuFillVista);         //ojo
             FloatMenuAddCategory("Configuración", FloatMenuGlyph(0xE8B8, 38, pxGreen), FloatMenuFillConfig); //engranaje
             FloatMenuAddCategory("Herramientas", FloatMenuGlyph(0xF10B, 38, pxGreen), FloatMenuFillHerramientas); //herramientas
             FloatMenuAddCategory("Agro Parallel", FloatMenuGlyph(0xE80B, 38, pxGreen), FloatMenuFillAgroParallel); //mundo conectado
             FloatMenuAddCategory("Simulador", FloatMenuGlyph(0xF06C, 38, pxGreen), FloatMenuFillSimulador); //robot
             FloatMenuAddCategory("Sistema", FloatMenuGlyph(0xE30C, 38, pxGreen), FloatMenuFillSistema);     //ventanas
-
-            //PilotX: muestra/oculta los paneles auto-ocultados de forma deliberada.
-            //Reemplaza al toggle invisible de la franja del mapa, que en táctil se
-            //disparaba sin querer y hacía reaparecer todos los paneles.
-            FloatMenuAddAction("Paneles", FloatMenuGlyph(0xE5D2, 30, pxGreen), () =>
-            {
-                if (isPanelBottomHidden)
-                {
-                    ShowAutoHiddenPanels();
-                }
-                else
-                {
-                    isPanelBottomHidden = true;
-                    PanelsAndOGLSize();
-                }
-                panelFloatMenu.Visible = false;
-            });
 
             flowFloatMenu.ResumeLayout();
             FloatMenuFitToContent(4);
@@ -269,39 +254,73 @@ namespace AgOpenGPS
 
         //--- contenido de cada categoría (se van sumando iterativamente) ---
 
+        //espejo de la botonera DERECHA original (controles al volante)
+        private void FloatMenuFillOperacion()
+        {
+            FloatMenuAddButton("AutoSteer", btnAutoSteer);
+            FloatMenuAddButton("U-Turn", btnAutoYouTurn);
+            FloatMenuAddButton("Secc. Auto", btnSectionMasterAuto);
+            FloatMenuAddButton("Secc. Manual", btnSectionMasterManual);
+            FloatMenuAddButton("ISOBUS", btnIsobusSectionControl);
+            FloatMenuAddButton("AutoTrack", btnAutoTrack);
+            FloatMenuAddButton("Línea ant.", btnCycleLinesBk);
+            FloatMenuAddButton("Línea sig.", btnCycleLines);
+            FloatMenuAddButton("Contorno", btnContour);
+            FloatMenuAddButton("Bloq. contorno", btnContourLock);
+        }
+
+        //espejo de la botonera INFERIOR original (herramientas del lote)
         private void FloatMenuFillLote()
         {
+            FloatMenuAddButton("Elegir línea", btnTrack);
+            FloatMenuAddButton("Snap pivot", btnSnapToPivot);
+            FloatMenuAddButton("Ajustar ‹", btnAdjLeft);
+            FloatMenuAddButton("Ajustar ›", btnAdjRight);
+            FloatMenuAddButton("Bandera", btnFlag);
+            FloatMenuAddButton("Cabecera", btnHeadlandOnOff);
+            //checkbox: habilita/deshabilita el control de secciones
+            FloatMenuAddAction("Control: " + (cboxIsSectionControlled.Checked ? "SÍ" : "NO"),
+                FloatMenuGlyph(0xE9F6, 30, pxText), () =>
+                {
+                    cboxIsSectionControlled.Checked = !cboxIsSectionControlled.Checked;
+                    FloatMenuShowCategory("Lote", FloatMenuFillLote, floatMenuBackAction);
+                });
+            FloatMenuAddButton("Hidráulico", btnHydLift);
+            FloatMenuAddButton("Tram lines", btnTramDisplayMode);
+            FloatMenuAddButton("Rumbo herr.", btnResetToolHeading);
+            FloatMenuAddButton("Color mapeo", btnChangeMappingColor);
+            FloatMenuAddButton("Saltos U-Turn", btnYouSkipEnable);
+            //ancho de salto (combobox original): cicla las opciones
+            FloatMenuAddAction("Filas salto: " + (cboxpRowWidth.SelectedItem ?? "—"),
+                FloatMenuGlyph(0xE3EC, 30, pxText), () =>
+                {
+                    if (cboxpRowWidth.Items.Count > 0)
+                        cboxpRowWidth.SelectedIndex =
+                            (cboxpRowWidth.SelectedIndex + 1) % cboxpRowWidth.Items.Count;
+                    FloatMenuShowCategory("Lote", FloatMenuFillLote, floatMenuBackAction);
+                });
+        }
+
+        //espejo de la botonera IZQUIERDA original (navegación y accesos)
+        private void FloatMenuFillGeneral()
+        {
+            FloatMenuAddButton("Navegación", btnNavigationSettings);
             FloatMenuAddButton("Lote", btnJobMenu);
             FloatMenuAddButton("Datos lote", btnFieldStats);
-            FloatMenuAddButton("Bandera", btnFlag);
-            FloatMenuAddButton("Tram lines", btnTramDisplayMode);
+            FloatMenuAddButton("Datos GPS", btnGPSData);
+            FloatMenuAddButton("Dirección", btnAutoSteerConfig);
+            //CoreX: la trae al frente o lanza CoreX.exe
+            FloatMenuAddButton("CoreX", btnStartAgIO);
         }
 
         private void FloatMenuFillLineas()
         {
-            FloatMenuAddButton("Líneas", btnTrack);
             FloatMenuAddButton("Dibujar AB", btnABDraw);
             FloatMenuAddButton("A+", btnPlusAB);
             FloatMenuAddButton("Crear líneas", btnBuildTracks);
             FloatMenuAddButton("Ocultar líneas", btnTracksOff);
-            FloatMenuAddButton("Línea sig.", btnCycleLines);
-            FloatMenuAddButton("Línea ant.", btnCycleLinesBk);
-            FloatMenuAddButton("Snap pivot", btnSnapToPivot);
             FloatMenuAddButton("Nudge", btnNudge);
             FloatMenuAddButton("Nudge ref.", btnRefNudge);
-            FloatMenuAddButton("Ajustar ‹", btnAdjLeft);
-            FloatMenuAddButton("Ajustar ›", btnAdjRight);
-        }
-
-        private void FloatMenuFillGuiado()
-        {
-            FloatMenuAddButton("Contorno", btnContour);
-            FloatMenuAddButton("Bloq. contorno", btnContourLock);
-            FloatMenuAddButton("U-Turn", btnAutoYouTurn);
-            FloatMenuAddButton("Saltos U-Turn", btnYouSkipEnable);
-            FloatMenuAddButton("Cabecera", btnHeadlandOnOff);
-            FloatMenuAddButton("Hidráulico", btnHydLift);
-            FloatMenuAddButton("AutoTrack", btnAutoTrack);
         }
 
         private void FloatMenuFillRutaGrabada()
@@ -311,13 +330,6 @@ namespace AgOpenGPS
             FloatMenuAddButton("Elegir ruta", btnPickPath);
             FloatMenuAddButton("Reanudar", btnResumePath);
             FloatMenuAddButton("Invertir AB", btnSwapABRecordedPath);
-        }
-
-        private void FloatMenuFillSecciones()
-        {
-            FloatMenuAddButton("Auto", btnSectionMasterAuto);
-            FloatMenuAddButton("Manual", btnSectionMasterManual);
-            FloatMenuAddButton("ISOBUS", btnIsobusSectionControl);
         }
 
         private void FloatMenuFillVista()
@@ -331,7 +343,6 @@ namespace AgOpenGPS
             FloatMenuAddButton("Brillo −", btnBrightnessDn);
             FloatMenuAddButton("Inclinar +", btnTiltUp);
             FloatMenuAddButton("Inclinar −", btnTiltDn);
-            FloatMenuAddButton("Color mapeo", btnChangeMappingColor);
         }
 
         private void FloatMenuFillConfig()
@@ -358,11 +369,10 @@ namespace AgOpenGPS
                 () => FloatMenuOpenConfig("tabTram"));
 
             //otras pantallas de configuración fuera de FormConfig
+            //(Navegación / Dirección / Datos GPS viven en "General", como en
+            //la botonera izquierda original)
             FloatMenuAddAction("Todos los ajustes", FloatMenuGlyph(0xE429, 30, pxText),
                 () => allSettingsMenuItem_Click(this, EventArgs.Empty));
-            FloatMenuAddButton("Navegación", btnNavigationSettings);
-            FloatMenuAddButton("Dirección", btnAutoSteerConfig);
-            FloatMenuAddButton("Datos GPS", btnGPSData);
             FloatMenuAddAction("Colores", Properties.Resources.ColourPick,
                 () => colorsToolStripMenuItem_Click(this, EventArgs.Empty));
             FloatMenuAddAction("Colores secciones", Properties.Resources.SectionMapping,
@@ -455,9 +465,7 @@ namespace AgOpenGPS
 
         private void FloatMenuFillAgroParallel()
         {
-            //ventana nueva de CoreX: la trae al frente o lanza CoreX.exe
-            FloatMenuAddAction("CoreX", Properties.Resources.AgIO,
-                () => InvokeOnClick(btnStartAgIO, EventArgs.Empty));
+            //CoreX quedó en "General" (botonera izquierda original)
             FloatMenuAddAction("Hub", FloatMenuGlyph(0xE9F4, 30, pxText),
                 () => toolStripAgroParallel_Click(this, EventArgs.Empty));
             FloatMenuAddAction("Cámaras", FloatMenuGlyph(0xE412, 30, pxText),
@@ -476,7 +484,6 @@ namespace AgOpenGPS
             FloatMenuAddButton("Reversa", btnSimReverseDirection);
             FloatMenuAddButton("Velocidad 0", btnSimSetSpeedToZero);
             FloatMenuAddButton("Ángulo 0", btnResetSteerAngle);
-            FloatMenuAddButton("Rumbo herr.", btnResetToolHeading);
         }
 
         private void FloatMenuFillSistema()
@@ -564,11 +571,7 @@ namespace AgOpenGPS
                 Padding = new Padding(0, 6, 0, 6)
             };
             b.FlatAppearance.BorderColor = pxGreen;
-            b.Click += (s, e) =>
-            {
-                panelsAutoHideCounter = panelsAutoHideDelay;
-                FloatMenuShowCategory(title, fill, back);
-            };
+            b.Click += (s, e) => FloatMenuShowCategory(title, fill, back);
             flowFloatMenu.Controls.Add(b);
         }
 
@@ -600,11 +603,7 @@ namespace AgOpenGPS
                 Margin = new Padding(4)
             };
             b.FlatAppearance.BorderColor = pxBorder;
-            b.Click += (s, e) =>
-            {
-                panelsAutoHideCounter = panelsAutoHideDelay;
-                action();
-            };
+            b.Click += (s, e) => action();
             flowFloatMenu.Controls.Add(b);
         }
     }

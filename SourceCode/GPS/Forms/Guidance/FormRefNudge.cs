@@ -59,7 +59,7 @@ namespace AgOpenGPS
 
         private void FormEditTrack_FormClosing(object sender, FormClosingEventArgs e)
         {
-            mf.panelRight.Visible = true;
+            //PilotX: panelRight ya no se muestra — el control vive en el menú flotante
         }
 
         private void nudSnapDistance_Click(object sender, EventArgs e)

@@ -67,13 +67,6 @@ namespace AgOpenGPS
         public DateTime sunset = DateTime.Now;
 
         public bool isFlashOnOff = false, isPanFormVisible = false;
-        public bool isPanelBottomHidden = false;
-
-        //auto-ocultado de menús (PilotX): segundos de inactividad restantes
-        //antes de esconder los paneles. Con todo oculto el mapa sigue operable
-        //(secciones, giro, etc.); cada menú se reabre con su flecha de borde.
-        public int panelsAutoHideCounter = panelsAutoHideDelay;
-        public const int panelsAutoHideDelay = 10;
 
         public bool isKioskMode = false;
         public int makeUTurnCounter = 0;
@@ -98,24 +91,8 @@ namespace AgOpenGPS
         public List<int> buttonOrder = new List<int>();
 
         //Timer triggers at 125 msec
-        //PilotX: reloj propio del auto-ocultado (el resto del watchdog depende
-        //de que haya GPS; esto tiene que correr siempre)
-        private DateTime panelsAutoHideLastTick = DateTime.Now;
-
         private void tmrWatchdog_tick(object sender, EventArgs e)
         {
-            //PilotX: auto-ocultar los paneles tras inactividad, aunque no haya GPS.
-            if (panelsAutoHideCounter > 0
-                && (DateTime.Now - panelsAutoHideLastTick).TotalSeconds >= 1.0)
-            {
-                panelsAutoHideLastTick = DateTime.Now;
-                if (--panelsAutoHideCounter == 0 && !isPanelBottomHidden)
-                {
-                    isPanelBottomHidden = true;
-                    PanelsAndOGLSize();
-                }
-            }
-
             if (sentenceCounter == 19)
             {
                 Log.EventWriter("No GPS Warning - Lost GPS");
@@ -1005,78 +982,19 @@ namespace AgOpenGPS
             btnFlag.Text = isStanleyUsed ? "S" : "P";
         }
 
-        //PilotX: vuelve a mostrar todos los paneles auto-ocultados y reinicia el conteo
-        public void ShowAutoHiddenPanels()
-        {
-            isPanelBottomHidden = false;
-            panelsAutoHideCounter = panelsAutoHideDelay;
-            PanelsAndOGLSize();
-        }
-
-        //oculta todos los paneles en modo auto-oculto (queda solo el mapa y el menú flotante)
-        private void ApplyAutoHiddenPanels(bool jobPanels)
-        {
-            panelLeft.Visible = false;
-            menuStrip1.Visible = false;
-            if (jobPanels)
-            {
-                panelRight.Visible = false;
-                panelBottom.Visible = false;
-            }
-        }
-
         private void PanelsAndOGLSize()
         {
-            if (!isJobStarted)
-            {
-                panelBottom.Visible = false;
-                panelRight.Visible = false;
+            //PilotX: las botoneras WinForms (izquierda, derecha, abajo y la
+            //hamburguesa) no se muestran más — todo el control pasa por el
+            //menú flotante. El mapa ocupa siempre el ancho completo.
+            panelLeft.Visible = false;
+            menuStrip1.Visible = false;
+            panelRight.Visible = false;
+            panelBottom.Visible = false;
 
-                //PilotX: sin lote también aplica el auto-ocultado del panel
-                //izquierdo y la hamburguesa
-                if (isPanelBottomHidden)
-                {
-                    ApplyAutoHiddenPanels(false);
-
-                    oglMain.Left = 20;
-                    oglMain.Width = this.Width - 40;
-                }
-                else
-                {
-                    panelLeft.Visible = true;
-                    menuStrip1.Visible = true;
-
-                    oglMain.Left = 80;
-                    oglMain.Width = this.Width - statusStripLeft.Width - 22; //22
-                }
-                oglMain.Height = this.Height - 60;
-            }
-            else
-            {
-
-                if (isPanelBottomHidden)
-                {
-                    ApplyAutoHiddenPanels(true);
-
-                    oglMain.Left = 20;
-
-                    oglMain.Width = this.Width - 40;
-
-                    oglMain.Height = this.Height - 62;
-                }
-                else
-                {
-                    panelBottom.Visible = true;
-                    panelRight.Visible = true;
-                    panelLeft.Visible = true;
-                    menuStrip1.Visible = true;
-                    oglMain.Left = 80;
-
-                    oglMain.Width = this.Width - statusStripLeft.Width - 92; //22
-
-                    oglMain.Height = this.Height - 118;
-                }
-            }
+            oglMain.Left = 20;
+            oglMain.Width = this.Width - 40;
+            oglMain.Height = this.Height - (isJobStarted ? 62 : 60);
 
             PanelSizeRightAndBottom();
 
@@ -1290,11 +1208,6 @@ namespace AgOpenGPS
                     return;
                 // SHAPEFILE_MOD_END
 
-                //PilotX: el mapa sigue operable con los menús ocultos (secciones,
-                //giro, etc.); solo se reinicia el conteo de inactividad. Los menús
-                //se reabren tocando la franja inferior del mapa o desde el menú flotante.
-                panelsAutoHideCounter = panelsAutoHideDelay;
-
                 if (isJobStarted)
                 {
                     if (isBtnAutoSteerOn || yt.isYouTurnBtnOn)
@@ -1432,10 +1345,8 @@ namespace AgOpenGPS
                             form.Left = this.Width - 400 + this.Left;
                         }
 
-                        //PilotX: se quitó el toggle invisible de la franja inferior:
-                        //en pantalla táctil se activaba sin querer al manipular el mapa
-                        //y hacía reaparecer todos los paneles. La restauración ahora es
-                        //deliberada vía el ítem "Paneles" del menú flotante.
+                        //PilotX: las botoneras WinForms ya no existen; todo el
+                        //control vive en el menú flotante.
                     }
 
                     //tram override
