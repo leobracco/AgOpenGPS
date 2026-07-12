@@ -15,11 +15,16 @@
       <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
       <div class="cx-mini">CoreX · Agro Parallel</div>
       <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
       <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
       <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <a class="cx-side-item" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
       <a class="cx-side-item active" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
       <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
       <a class="cx-side-item" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
+      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
     </aside>
 
     <div class="cx-content">
@@ -84,6 +89,35 @@
           </div>
         </section>
 
+        <!-- Card: IP de PilotX (destino de los datos GPS/módulos, puerto 15555) -->
+        <section class="cx-panel">
+          <h3>IP de PilotX</h3>
+
+          <p class="cx-hint" style="margin: 0 0 14px;">
+            Dirección a donde CoreX manda los datos de GPS y módulos. Con
+            PilotX en esta misma pantalla dejá la de fábrica
+            <strong>127.255.255.255</strong> (local, permite varios programas
+            escuchando). Guardar reinicia CoreX.
+          </p>
+
+          <div class="cx-field">
+            <label>Dirección IP</label>
+            <div class="cx-subnet-row">
+              <input class="cx-input big" type="number" id="p1" min="0" max="255" step="1">
+              <span class="cx-subnet-sep">.</span>
+              <input class="cx-input big" type="number" id="p2" min="0" max="255" step="1">
+              <span class="cx-subnet-sep">.</span>
+              <input class="cx-input big" type="number" id="p3" min="0" max="255" step="1">
+              <span class="cx-subnet-sep">.</span>
+              <input class="cx-input big" type="number" id="p4" min="0" max="255" step="1">
+            </div>
+          </div>
+
+          <div class="cx-actions">
+            <button class="cx-btn green wide" id="btn-pilotx">Guardar y reiniciar</button>
+          </div>
+        </section>
+
       </div>
     </div>
   </div>
@@ -91,5 +125,6 @@
   <script src="/js/modal.js"></script>
   <script src="/js/hdr.js"></script>
   <script src="/js/red.js"></script>
+  <script src="../js/cx-shell.js"></script>
 </body>
 </html>

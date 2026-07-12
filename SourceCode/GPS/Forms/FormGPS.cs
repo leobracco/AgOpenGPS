@@ -154,6 +154,11 @@ namespace AgOpenGPS
         // del implemento activo offline. UI HTML (cabina-alarmas.html) hosteada
         // en WebView2 para facilitar la futura migración a Avalonia.
         private AgroParallel.Common.AlertaNodosWebOverlayControl alertaNodosOverlay;
+        // Tira de estado de módulos (CoreX/Motor/GPS/IMU/Machine), SIEMPRE
+        // visible arriba a la izquierda del mapa — a diferencia del banner de
+        // alarmas, no depende de que el operario abra el Hub. Mismos datos que
+        // hub.html (pillCorex/etc) vía GET /api/corex-bridge/status.
+        private AgroParallel.Common.EstadoModulosOverlayControl estadoModulosOverlay;
         // FlowX overlay: telemetría read-only (caudal real/target/PWM/PID) por
         // nodo configurado. Se posiciona apilado sobre el shapefileLegend.
         private AgroParallel.FlowX.FlowXLegendControl flowXLegend;
@@ -420,6 +425,18 @@ namespace AgOpenGPS
             try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
             catch { /* sin ícono no es fatal */ }
 
+            // Botón CoreX (ex AgIO): el bitmap embebido es el logo viejo de AgIO.
+            // Usamos el mismo ícono CoreX que el sidebar del Hub web.
+            try
+            {
+                string coreXPng = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory,
+                    "AgroParallel", "wwwroot", "img", "icons", "existing", "agp-corex.png");
+                if (System.IO.File.Exists(coreXPng))
+                    btnStartAgIO.Image = System.Drawing.Image.FromFile(coreXPng);
+            }
+            catch { /* branding no fatal */ }
+
             InitializeLanguages();
 
             //PilotX: las botoneras WinForms no se muestran más; todo el control
@@ -440,7 +457,18 @@ namespace AgOpenGPS
                 Properties.Settings.Default.setDisplay_camPitch,
                 Properties.Settings.Default.setDisplay_camZoom);
 
-            worldGrid = new WorldGrid(Resources.z_Floor);
+            // Piso del mapa: si existe Branding\suelo.png (textura Agro Parallel,
+            // 1024x1024) la usamos; si no, el z_Floor embebido de AOG.
+            System.Drawing.Bitmap floorBmp = Resources.z_Floor;
+            try
+            {
+                string sueloPng = System.IO.Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "Branding", "suelo.png");
+                if (System.IO.File.Exists(sueloPng))
+                    floorBmp = new System.Drawing.Bitmap(sueloPng);
+            }
+            catch { /* textura custom no fatal */ }
+            worldGrid = new WorldGrid(floorBmp);
 
             //our vehicle made with gl object and pointer of mainform
             vehicle = new CVehicle(this);
@@ -772,6 +800,10 @@ namespace AgOpenGPS
                 System.Diagnostics.Debug.WriteLine("[AgroParallel] Prewarm: " + ex.Message);
             }
 
+            // El widget "Elegir guía" (pages/guia-rapida.html) ya NO se abre al
+            // arrancar: aparece cuando se abre un lote (JobNew) y se cierra con
+            // el lote (JobClose) — ver OpenGuiaRapidaWidget/CloseGuiaRapidaWidget.
+
             // Íconos del menú superior: cargar PNG desde btnImages/ en runtime
             // (más simple que pasarlos por Resources.resx, que es autogenerado).
             // Si los archivos no existen, dejamos el texto fallback que ya pintó el Designer.
@@ -832,6 +864,8 @@ namespace AgOpenGPS
                 var sectionsCore = new global::AgroParallel.Adapters.FormGpsSectionControlService(this);
                 var quantixRuntime = new global::AgroParallel.Adapters.FormGpsQuantiXRuntimeService(this, state);
                 var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
+                var imuCalibracion = new global::AgroParallel.Adapters.FormGpsImuCalibracionService(this);
+                var trackList = new global::AgroParallel.Adapters.FormGpsTrackListService(this);
                 var toolGeometry = new global::AgroParallel.Adapters.FormGpsToolGeometryCalculator(this);
                 var tram = new global::AgroParallel.Adapters.FormGpsTramCalculator(this);
                 var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
@@ -856,7 +890,9 @@ namespace AgOpenGPS
                     coverage, sectionsCore, quantixRuntime, guidance, pilotxUpdate,
                     wwwroot,
                     toolGeometry: toolGeometry,
-                    tram: tram);
+                    tram: tram,
+                    imuCalibracion: imuCalibracion,
+                    trackList: trackList);
 
                 // El widget QX HTML necesita la Url del host para navegar; cuando
                 // InitShapefileMenu() corrió antes (línea 739), Url todavía no
@@ -867,6 +903,10 @@ namespace AgOpenGPS
                 // hasta que la página emita postMessage('show') al detectar nodos
                 // del implemento activo offline.
                 try { InitAlertaNodosOverlay(); } catch (Exception exA) { System.Diagnostics.Debug.WriteLine("[AlertaNodos] init: " + exA.Message); }
+
+                // Tira de estado de módulos, SIEMPRE visible sobre el mapa
+                // (pedido de usuario: verla en la pantalla principal sin abrir el Hub).
+                try { InitEstadoModulosOverlay(); } catch (Exception exM) { System.Diagnostics.Debug.WriteLine("[EstadoModulos] init: " + exM.Message); }
 
                 // Cuando el operario guarda sectionX.json desde la UI Hub,
                 // relanzar el SectionXBridge — si no lo hacemos, el bridge se
@@ -1410,6 +1450,9 @@ namespace AgOpenGPS
             panelRight.Enabled = true;
             //boundaryToolStripBtn.Enabled = true;
 
+            //menú viejo AOG: al abrir lote las botoneras arrancan visibles
+            isPanelBottomHidden = false;
+
             FieldMenuButtonEnableDisable(true);
             PanelUpdateRightAndBottom();
             PanelsAndOGLSize();
@@ -1432,11 +1475,17 @@ namespace AgOpenGPS
             // QUANTIX_MOD_START
             StartQuantiXSender();
             // QUANTIX_MOD_END
+
+            // GUIA_RAPIDA_MOD: el widget HTML "Elegir guía" vive SOLO con lote
+            // abierto — aparece acá y se cierra en JobClose.
+            OpenGuiaRapidaWidget();
         }
 
         //close the current job
         public void JobClose()
         {
+            // GUIA_RAPIDA_MOD: sin lote no hay guías que elegir
+            CloseGuiaRapidaWidget();
             recPath.resumeState = 0;
             btnResumePath.Image = Properties.Resources.pathResumeStart;
             recPath.currentPositonIndex = 0;
@@ -1637,6 +1686,9 @@ namespace AgOpenGPS
             recPath.recList?.Clear();
             recPath.shortestDubinsList?.Clear();
             recPath.shuttleDubinsList?.Clear();
+
+            //menú viejo AOG: al cerrar lote, resetear la flecha de botoneras
+            isPanelBottomHidden = false;
 
             PanelsAndOGLSize();
             SetZoom();
@@ -2743,7 +2795,10 @@ namespace AgOpenGPS
                                 var host = hostFld.GetValue(existing) as global::AgroParallel.WebHost.AgpWebHost;
                                 if (wv?.CoreWebView2 != null && host != null)
                                 {
-                                    string url = host.Url.TrimEnd('/') + "/" + initialPage.TrimStart('/');
+                                    // URL absoluta (dashboard CoreX :5181) va tal cual
+                                    string url = initialPage.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                                        ? initialPage
+                                        : host.Url.TrimEnd('/') + "/" + initialPage.TrimStart('/');
                                     wv.CoreWebView2.Navigate(url);
                                 }
                             }
@@ -2800,6 +2855,32 @@ namespace AgOpenGPS
         // Diccionario de widgets flotantes abiertos, keyed por página, para no
         // duplicar ventanas si el operario toca el botón dos veces.
         private System.Collections.Generic.Dictionary<string, Form> _floatWidgets;
+
+        // Widget "Elegir guía": ventanita HTML siempre visible MIENTRAS hay un
+        // lote abierto (la abre JobNew, la cierra JobClose). Colapsada muestra
+        // solo el botón "Elegir guía"; expandida lista las guías del lote y
+        // las acciones (centrar, mover, curva, crear...).
+        private const string GuiaRapidaPage = "pages/guia-rapida.html";
+
+        public void OpenGuiaRapidaWidget()
+        {
+            try { OpenAgroParallelWidget(GuiaRapidaPage, "Guías", 200, 80); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[GuiaRapida] open: " + ex.Message); }
+        }
+
+        public void CloseGuiaRapidaWidget()
+        {
+            try
+            {
+                if (_floatWidgets != null
+                    && _floatWidgets.TryGetValue(GuiaRapidaPage, out var w)
+                    && w != null && !w.IsDisposed)
+                {
+                    w.Close();
+                }
+            }
+            catch { /* cierre best-effort */ }
+        }
 
         /// <summary>
         /// Abre una página HTML como widget flotante chico (ventana independiente
@@ -3443,6 +3524,57 @@ namespace AgOpenGPS
             alertaNodosOverlay.Width = this.ClientSize.Width;
             this.Controls.Add(alertaNodosOverlay);
             alertaNodosOverlay.BringToFront();
+        }
+
+        // Tira de estado de módulos (CoreX/Motor/GPS/IMU/Machine), arriba a la
+        // izquierda del mapa — a diferencia del banner de alarmas, arranca
+        // Visible=true y queda ahí siempre (pedido de usuario: verlo en la
+        // pantalla principal sin depender de abrir el Hub). Esquina default
+        // elegida porque top-center tiene el botón "Menú" y top-right suele
+        // tener el widget de stats de VistaX — pero es arrastrable (tapaba
+        // otra cosa en la práctica) y la posición se persiste en
+        // overlayPrefs.json (EmX/EmY). El drag se implementa DEL LADO DEL
+        // HTML (Pointer Events + postMessage, ver EstadoModulosOverlayControl
+        // y estado-modulos.js) en vez de OverlayDragger — el control es
+        // 100% WebView2 y una barrita nativa de agarre queda demasiado
+        // angosta para tocar con el dedo. Lazy: mismo patrón que
+        // InitAlertaNodosOverlay, reintenta en próximas pasadas si el host
+        // todavía no levantó.
+        private void InitEstadoModulosOverlay()
+        {
+            if (estadoModulosOverlay != null) return;
+            string baseUrl = AgroParallel.Shell.AgpWebHostBootstrap.Url;
+            if (string.IsNullOrEmpty(baseUrl)) return;
+
+            estadoModulosOverlay = new AgroParallel.Common.EstadoModulosOverlayControl(baseUrl);
+            estadoModulosOverlay.Anchor = AnchorStyles.Top | AnchorStyles.Left;
+            estadoModulosOverlay.Location = new Point(8, 8);
+            this.Controls.Add(estadoModulosOverlay);
+            estadoModulosOverlay.BringToFront();
+
+            // Posición custom persistida (drag previo) → restaurar.
+            try
+            {
+                var prefs = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                if (prefs.EmX >= 0 && prefs.EmY >= 0)
+                {
+                    estadoModulosOverlay.Location = new Point(prefs.EmX, prefs.EmY);
+                }
+            }
+            catch { }
+
+            // Persistir al soltar (DragEnded lo dispara el propio control
+            // cuando el HTML manda postMessage {type:'drag_end'}).
+            estadoModulosOverlay.DragEnded += pt =>
+            {
+                try
+                {
+                    var p = AgroParallel.Services.OverlayPrefsService.Instance.Load();
+                    p.EmX = pt.X; p.EmY = pt.Y;
+                    AgroParallel.Services.OverlayPrefsService.Instance.Save(p);
+                }
+                catch { }
+            };
         }
 
         private void InitShapefileLegend()

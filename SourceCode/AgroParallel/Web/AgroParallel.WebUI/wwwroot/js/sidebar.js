@@ -44,39 +44,106 @@
   }
 
   // El Hub WebView solo muestra productos AgroParallel (X-*) + cloud + utilidades
-  // del Hub. La config dura del tractor (Piloto, Vehículo, Herramienta, brillo
-  // /energía del PC) vive en la UI nativa de Agro Parallel / AgValoniaGPS.
-  // El FAB "✕ Cerrar Hub" devuelve al piloto nativo.
-  const ITEMS = [
-    { id: 'hub',      ico: '▤',  label: 'Hub',      href: 'hub.html' },
-    { id: 'herramienta', ico: '⚙', label: 'Implemento', href: 'herramienta.html' },
-    { id: 'quantix',  ico: '⟁',  label: 'QuantiX',  href: 'quantix.html' },
-    { id: 'vistax',   ico: '◉',  label: 'VistaX',   href: 'vistax.html' },
-    { id: 'sectionx', ico: '▦',  label: 'SectionX', href: 'sectionx.html' },
-    { id: 'flowx',    ico: '◊',  label: 'FlowX',    href: 'flowx.html' },
-    { id: 'linex',    ico: '⊞',  label: 'LineX',    href: 'linex.html' },
-    { id: 'stormx',   ico: '☴',  label: 'StormX',   href: 'stormx.html' },
-    { id: 'corex-ecu', ico: '⌬', label: 'CoreX-ECU', href: 'corex-ecu.html' },
-    { id: 'insumos',  ico: '🌱', label: 'Insumos',  href: 'insumos.html' },
-    { id: 'mapas',    ico: '🗺',  label: 'Mapas',    href: 'mapas.html' },
-    { id: 'prescripciones', ico: '⛗', label: 'Prescripciones', href: 'prescripciones.html' },
-    { id: 'orbitx',   ico: '☁',  label: 'OrbitX',   href: 'orbitx.html' },
-    { id: 'firmwares', ico: '⬇', label: 'Firmwares', href: 'firmwares.html' },
-    { id: 'camaras',  ico: '⌘',  label: 'Cámaras',  href: 'camaras.html' },
-    { id: 'nodos',    ico: '📡', label: 'Nodos',    href: 'nodos.html' },
-    { id: 'setup',    ico: '🧭', label: 'Asistente', href: 'setup.html' },
-    { id: 'sistema',  ico: '🖥', label: 'Sistema',  href: 'sistema.html' },
-    { id: 'debug',    ico: '🐞', label: 'Debug',    href: 'debug.html' },
-    { id: 'pwa-qr',   ico: '▣',  label: 'Conectar celular', href: 'pwa-qr.html' },
-    { id: 'actualizar', ico: '⤓', label: 'Actualizar', href: 'actualizar.html' }
+  // del Hub. El FAB "✕ Cerrar Hub" devuelve al piloto nativo.
+  //
+  // Navegación agrupada: con 20+ páginas la lista plana no entraba en la
+  // pantalla de 10". Grupos colapsables (acordeón táctil); el grupo de la
+  // página activa arranca abierto y el estado de cada grupo persiste en
+  // localStorage (agp.nav.g.<id>). group id '' = ítems sueltos arriba de todo.
+  const GROUPS = [
+    { id: '', label: '', items: [
+      { id: 'hub',      ico: '▤',  label: 'Hub',      href: 'hub.html' }
+    ]},
+    { id: 'modulos', label: 'Módulos', items: [
+      { id: 'quantix',  ico: '⟁',  label: 'QuantiX',  href: 'quantix.html' },
+      { id: 'flowx',    ico: '◊',  label: 'FlowX',    href: 'flowx.html' },
+      { id: 'sectionx', ico: '▦',  label: 'SectionX', href: 'sectionx.html' },
+      { id: 'linex',    ico: '⊞',  label: 'LineX',    href: 'linex.html' },
+      { id: 'vistax',   ico: '◉',  label: 'VistaX',   href: 'vistax.html' },
+      { id: 'stormx',   ico: '☴',  label: 'StormX',   href: 'stormx.html' },
+      { id: 'corex-ecu', ico: '⌬', label: 'CoreX-ECU', href: 'corex-ecu.html' },
+      { id: 'nodos',    ico: '📡', label: 'Nodos',    href: 'nodos.html' },
+      { id: 'camaras',  ico: '⌘',  label: 'Cámaras',  href: 'camaras.html' }
+    ]},
+    { id: 'campo', label: 'Campo', items: [
+      { id: 'insumos',  ico: '🌱', label: 'Insumos',  href: 'insumos.html' },
+      { id: 'mapas',    ico: '🗺',  label: 'Mapas',    href: 'mapas.html' },
+      { id: 'prescripciones', ico: '⛗', label: 'Prescripciones', href: 'prescripciones.html' }
+    ]},
+    { id: 'config', label: 'Configuración', items: [
+      { id: 'vehiculo', ico: '🚜', label: 'Vehículo', href: 'vehiculo.html' },
+      { id: 'config-implemento', ico: '⚙', label: 'Implemento PilotX', href: 'config-implemento.html' },
+      { id: 'herramienta', ico: '⚙', label: 'Implemento', href: 'herramienta.html' },
+      { id: 'calibracion-imu', ico: '⟲', label: 'Calibración IMU', href: 'calibracion-imu.html' },
+      { id: 'setup',    ico: '🧭', label: 'Asistente', href: 'setup.html' },
+      { id: 'sistema',  ico: '🖥', label: 'Sistema',  href: 'sistema.html' },
+      // CoreX corre como servicio sin ventana: su config vive en :5181
+      // (con link de vuelta "PilotX" en su propio sidebar).
+      { id: 'corex',    ico: '⌬',  label: 'CoreX',    href: 'http://127.0.0.1:5181/' }
+    ]},
+    { id: 'cloud', label: 'Cloud', items: [
+      { id: 'orbitx',   ico: '☁',  label: 'OrbitX',   href: 'orbitx.html' },
+      { id: 'firmwares', ico: '⬇', label: 'Firmwares', href: 'firmwares.html' },
+      { id: 'actualizar', ico: '⤓', label: 'Actualizar', href: 'actualizar.html' },
+      { id: 'pwa-qr',   ico: '▣',  label: 'Conectar celular', href: 'pwa-qr.html' }
+    ]},
+    { id: 'mant', label: 'Mantenimiento', items: [
+      { id: 'debug',    ico: '🐞', label: 'Debug',    href: 'debug.html' }
+    ]}
   ];
+
+  // CSS de los grupos inyectado desde acá (capa JS) para no tocar layout.css
+  // de Codex. Tokens de theme.css como siempre. En modo icono (<=900px) los
+  // headers se ocultan y quedan todos los ítems visibles como antes.
+  function injectGroupCss() {
+    if (document.getElementById('agpNavGroupsCss')) return;
+    var st = document.createElement('style');
+    st.id = 'agpNavGroupsCss';
+    st.textContent = [
+      '.nav-group-head { display:flex; align-items:center; width:100%; min-height:44px;',
+      '  padding: var(--agp-sp-1) var(--agp-sp-4); background:transparent; border:0; cursor:pointer;',
+      '  color: var(--agp-text-muted); font: inherit; font-size: var(--agp-fs-xs);',
+      '  text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; }',
+      '.nav-group-head:hover { color: var(--agp-text); }',
+      '.nav-group-head .chev { margin-left:auto; transition: transform 0.15s; font-size: 13px; }',
+      '.nav-group.open > .nav-group-head .chev { transform: rotate(90deg); }',
+      '.nav-group-head .gdot { margin-left:6px; color: var(--agp-accent); font-size: 10px; display:none; }',
+      '.nav-group.has-active > .nav-group-head .gdot { display:inline; }',
+      '.nav-sub { list-style:none; margin:0; padding:0; display:none; }',
+      '.nav-group.open > .nav-sub { display:block; }',
+      '@media (max-width: 900px) {',
+      '  .nav-group-head { display:none; }',
+      '  .nav-sub { display:block !important; }',
+      '}'
+    ].join('\n');
+    document.head.appendChild(st);
+  }
 
   function iconHtml(id) {
     var src = '../img/icons/existing/agp-' + id + '.png';
     return '<span class="ico"><img src="' + src + '" alt="" aria-hidden="true" loading="lazy" onerror="this.style.display=&quot;none&quot;"></span>';
   }
 
+  function itemHtml(it, active) {
+    const isActive = it.id === active;
+    const cls = isActive ? ' class="active"' : '';
+    const aria = isActive ? ' aria-current="page"' : '';
+    return '<li><a' + cls + aria + ' href="' + it.href + '" title="' + it.label + '">' +
+      iconHtml(it.id) +
+      '<span class="label">' + it.label + '</span>' +
+    '</a></li>';
+  }
+
+  function groupOpen(g, hasActive) {
+    // El grupo de la página activa SIEMPRE arranca abierto (que el operario
+    // se vea a sí mismo); el resto respeta lo último que dejó en localStorage.
+    if (hasActive) return true;
+    try { return localStorage.getItem('agp.nav.g.' + g.id) === '1'; }
+    catch (_) { return false; }
+  }
+
   function render(aside) {
+    injectGroupCss();
     const active = aside.getAttribute('data-active') || '';
     const html = [
       '<div class="brand">',
@@ -88,15 +155,21 @@
       '</div>',
       '<ul class="nav" aria-label="Navegacion principal">'
     ];
-    for (const it of ITEMS) {
-      const isActive = it.id === active;
-      const cls = isActive ? ' class="active"' : '';
-      const aria = isActive ? ' aria-current="page"' : '';
+    for (const g of GROUPS) {
+      if (!g.id) {
+        for (const it of g.items) html.push(itemHtml(it, active));
+        continue;
+      }
+      const hasActive = g.items.some(function (it) { return it.id === active; });
+      const open = groupOpen(g, hasActive);
       html.push(
-        '<li><a' + cls + aria + ' href="' + it.href + '" title="' + it.label + '">' +
-          iconHtml(it.id) +
-          '<span class="label">' + it.label + '</span>' +
-        '</a></li>'
+        '<li class="nav-group' + (open ? ' open' : '') + (hasActive ? ' has-active' : '') +
+          '" data-group="' + g.id + '">' +
+          '<button type="button" class="nav-group-head" aria-expanded="' + open + '">' +
+            '<span>' + g.label + '</span><span class="gdot">●</span><span class="chev">▸</span>' +
+          '</button>' +
+          '<ul class="nav-sub">' + g.items.map(function (it) { return itemHtml(it, active); }).join('') + '</ul>' +
+        '</li>'
       );
     }
     html.push('</ul>');
@@ -117,6 +190,18 @@
       '</div>'
     );
     aside.innerHTML = html.join('');
+
+    // Acordeón: tap en el header abre/cierra y persiste la elección.
+    aside.querySelectorAll('.nav-group-head').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var li = btn.parentNode;
+        var open = !li.classList.contains('open');
+        li.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', String(open));
+        try { localStorage.setItem('agp.nav.g.' + li.dataset.group, open ? '1' : '0'); }
+        catch (_) { /* storage puede no estar (webview restrictivo) */ }
+      });
+    });
 
     // Pie con datos reales de OrbitX: establecimiento vinculado + estado cloud
     (function () {

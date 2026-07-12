@@ -63,9 +63,32 @@ namespace AgroParallel.Models
         [JsonPropertyName("offset")]
         public double Offset { get; set; }
 
-        /// <summary>Cantidad de secciones [1..16].</summary>
+        /// <summary>Cantidad de secciones efectiva (modo secciones [1..16], modo zonas [1..64]).</summary>
         [JsonPropertyName("numSections")]
         public int NumSections { get; set; }
+
+        /// <summary>true = modo secciones individuales (≤16, ancho propio);
+        /// false = modo zonas (≤64 secciones iguales agrupadas).</summary>
+        [JsonPropertyName("isSectionsNotZones")]
+        public bool IsSectionsNotZones { get; set; } = true;
+
+        /// <summary>Modo secciones: ancho de cada sección (m), largo = NumSections.
+        /// Deriva de setSection_position1..17. null/vacío ⇒ reparto igual de Width.</summary>
+        [JsonPropertyName("sectionWidths")]
+        public double[] SectionWidths { get; set; }
+
+        /// <summary>Modo zonas: ancho de cada sección (m, todas iguales).</summary>
+        [JsonPropertyName("sectionWidthMulti")]
+        public double SectionWidthMulti { get; set; }
+
+        /// <summary>Modo zonas: cantidad de zonas [1..8].</summary>
+        [JsonPropertyName("zones")]
+        public int Zones { get; set; }
+
+        /// <summary>Modo zonas: última sección de cada zona (largo = Zones,
+        /// ascendente, la última debe ser NumSections). Mapea setTool_zones.</summary>
+        [JsonPropertyName("zoneRanges")]
+        public int[] ZoneRanges { get; set; }
 
         /// <summary>Largo enganche del tractor (m).</summary>
         [JsonPropertyName("hitchLength")]

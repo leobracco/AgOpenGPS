@@ -188,6 +188,47 @@
     }, 2000);
   }
 
+  // ── Sistema (port de FormAdvancedSettings) ────────────────────────────────
+  // Dos toggles que se guardan al instante, sin reinicio. Arrancan
+  // bloqueados hasta que el GET trae el estado real (mismo criterio que
+  // modulos.js: un GET fallido no debe pisar la config con false).
+
+  var avanzadoLoaded = false;
+
+  function lockAvanzado(locked) {
+    $('chk-start-min').disabled = locked;
+    $('chk-auto-gpsout').disabled = locked;
+  }
+
+  function loadAvanzado() {
+    fetch('/api/corex/config/avanzado', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        $('chk-start-min').checked = !!d.start_minimized;
+        $('chk-auto-gpsout').checked = !!d.auto_gps_out;
+        avanzadoLoaded = true;
+        lockAvanzado(false);
+      })
+      .catch(function () { setTimeout(loadAvanzado, 3000); });
+  }
+
+  function saveAvanzado() {
+    if (!avanzadoLoaded) return;
+    lockAvanzado(true);
+    fetch('/api/corex/config/avanzado', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        start_minimized: $('chk-start-min').checked,
+        auto_gps_out: $('chk-auto-gpsout').checked,
+      }),
+    })
+      .catch(function () {
+        AgpModal.alert('Error de red', 'No se pudo guardar la configuración de sistema.');
+      })
+      .finally(function () { lockAvanzado(false); });
+  }
+
   // ── Inicialización ────────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -195,6 +236,41 @@
     $('btn-guardar').addEventListener('click', onGuardar);
     $('btn-cargar').addEventListener('click', onCargar);
     $('btn-crear').addEventListener('click', onCrear);
+
+    lockAvanzado(true);
+    loadAvanzado();
+    $('chk-start-min').addEventListener('change', saveAvanzado);
+    $('chk-auto-gpsout').addEventListener('change', saveAvanzado);
+
+    // Ciclo de vida (modo demonio: CoreX no tiene ventana propia).
+    $('btn-reiniciar').addEventListener('click', function () {
+      AgpModal.confirm('Reiniciar CoreX',
+        '¿Reiniciar CoreX ahora? Se corta la corrección unos segundos.')
+        .then(function (si) {
+          if (!si) return;
+          fetch('/api/corex/reiniciar', { method: 'POST' })
+            .then(function () { waitForRestart(); })
+            .catch(function () {
+              AgpModal.alert('Error de red', 'No se pudo pedir el reinicio.');
+            });
+        });
+    });
+
+    $('btn-apagar').addEventListener('click', function () {
+      AgpModal.confirm('Apagar CoreX',
+        '¿Apagar CoreX? Deja de haber GPS y corrección hasta que se vuelva a iniciar.')
+        .then(function (si) {
+          if (!si) return;
+          fetch('/api/corex/apagar', { method: 'POST' })
+            .then(function () {
+              AgpModal.alert('CoreX apagado',
+                'CoreX se está cerrando. Esta página va a dejar de responder.');
+            })
+            .catch(function () {
+              AgpModal.alert('Error de red', 'No se pudo pedir el apagado.');
+            });
+        });
+    });
   });
 
 })();

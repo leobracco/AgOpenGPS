@@ -45,6 +45,38 @@ namespace AgIO
         public bool Alive { get; set; }
         public double Latitude { get; set; }
         public double Longitude { get; set; }
+
+        // Detalle GPS/IMU (port de FormGPSData). Los imu_* son crudos tal como
+        // llegan en PANDA (heading/roll/pitch ×10); el frontend los escala.
+        public string FixQuality { get; set; } = "";
+        public int Sats { get; set; }
+        public double Hdop { get; set; }
+        public double SpeedKmh { get; set; }
+        public double AltitudeM { get; set; }
+        public double AgeSec { get; set; }
+        public double RollDeg { get; set; }
+        public double HeadingTrue { get; set; }
+        public double HeadingDual { get; set; }
+        public int ImuHeading { get; set; }
+        public int ImuRoll { get; set; }
+        public int ImuPitch { get; set; }
+        public int ImuYawRate { get; set; }
+
+        // null mientras la captura de sentencias está apagada (se enciende
+        // sola mientras la página GPS de la web esté abierta).
+        public CoreXNmeaDto Nmea { get; set; }
+    }
+
+    public class CoreXNmeaDto
+    {
+        public string Gga { get; set; } = "";
+        public string Vtg { get; set; } = "";
+        public string Panda { get; set; } = "";
+        public string Paogi { get; set; } = "";
+        public string Hdt { get; set; } = "";
+        public string Avr { get; set; } = "";
+        public string Hpd { get; set; } = "";
+        public string Ksxt { get; set; } = "";
     }
 
     public class CoreXNtripDto

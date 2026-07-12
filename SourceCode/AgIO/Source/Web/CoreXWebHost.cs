@@ -45,6 +45,8 @@ namespace AgIO
                         m.WithController(() => new CoreXCommandController(_form));
                         m.WithController(() => new CoreXConfigController(_form));
                         m.WithController(() => new CoreXPerfilesController(_form));
+                        m.WithController(() => new CoreXDiagController(_form));
+                        m.WithController(() => new CoreXRadioController(_form));
                     });
 
                 if (Directory.Exists(wwwroot))

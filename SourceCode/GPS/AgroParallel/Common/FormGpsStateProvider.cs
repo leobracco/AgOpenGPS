@@ -45,6 +45,9 @@ namespace AgroParallel.Adapters
                 snap.CurrentFieldDirectory = _form.currentFieldDirectory;
                 snap.FieldsDirectory = RegistrySettings.fieldsDirectory;
                 snap.AvgSpeed = _form.avgSpeed;
+                snap.FixQuality = _form.pn != null ? _form.pn.fixQuality : 0;
+                snap.PowerOnline = System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus
+                    == System.Windows.Forms.PowerLineStatus.Online;
                 snap.Heading = _form.pivotAxlePos.heading;
                 snap.PivotEasting = _form.pivotAxlePos.easting;
                 snap.PivotNorthing = _form.pivotAxlePos.northing;

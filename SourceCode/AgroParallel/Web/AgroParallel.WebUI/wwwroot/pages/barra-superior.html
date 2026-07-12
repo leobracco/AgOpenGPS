@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es" class="widget-mode">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Barra superior · PilotX</title>
+  <style>
+    /* Copia HTML de la barra superior nativa (panelControlBox) como widget
+       flotante horizontal: Datos lote, Carga, GPS, Velocidad, Minimizar,
+       Maximizar, Apagar — mismo orden e íconos que el panel nativo. La barra
+       nativa sigue intacta; esto es un espejo. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #F5F7F4;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      padding: 4px;
+      overflow: hidden;
+    }
+    .bar {
+      display: flex; align-items: stretch; gap: 4px;
+      height: 100%;
+    }
+    .tbtn {
+      flex: 0 0 auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; padding: 3px 8px;
+      min-width: 52px;
+      border: 1px solid #C5CFC5; border-radius: 10px;
+      background: #E2E7E2; color: #101612;
+      font: 600 9.5px/1 "Segoe UI", sans-serif;
+      text-align: center; cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    .tbtn img { width: 26px; height: 26px; object-fit: contain; }
+    .tbtn:active { background: #C5CFC5; transform: translateY(1px); }
+    .tbtn.flash { border-color: #4ABA3E; box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
+    .tbtn.disabled { opacity: .45; pointer-events: none; }
+
+    /* Datos lote / GPS: el color de fondo replica el BackColor nativo del
+       botón (calidad de fix / estado). Carga es un indicador puro, sin click. */
+    .tbtn.stat-ok   { background: #C6F0BE; border-color: #7FC96E; }
+    .tbtn.stat-mid  { background: #FFD9A0; border-color: #E0A94A; }
+    .tbtn.stat-low  { background: #FFF3A0; border-color: #E0CB4A; }
+    .tbtn.stat-bad  { background: #FFC2BE; border-color: #E06A63; }
+
+    .tbtn.readonly { cursor: default; }
+    .tbtn.readonly:active { background: inherit; transform: none; }
+
+    .speed {
+      flex: 0 0 auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-width: 66px; padding: 3px 8px;
+      border: 1px solid #C5CFC5; border-radius: 10px;
+      background: #fff; color: #101612;
+    }
+    .speed .val { font: 700 20px/1 "Arial", sans-serif; }
+    .speed .unit { font: 600 9px/1 "Segoe UI", sans-serif; color: #5a675c; margin-top: 2px; }
+
+    .sep { flex: 1 1 auto; }
+
+    .tbtn.win-close { background: #F0DCDC; }
+    .tbtn.win-close:active { background: #E6C4C4; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <!-- Datos del lote (btnFieldStats): abre el widget flotante de datos de
+         lote; se atenúa sin lote abierto, igual que el nativo -->
+    <button type="button" class="tbtn" id="btnLote" data-cmd="lote_datos" title="Datos del lote">
+      <img src="../img/topbar/FieldStats.png" alt=""><span>Lote</span>
+    </button>
+
+    <!-- Carga (btnChargeStatus): solo indicador, sin acción nativa -->
+    <div class="tbtn readonly" id="btnCarga" title="Alimentación">
+      <img src="../img/topbar/ChargeIndicator.png" alt=""><span>Carga</span>
+    </div>
+
+    <!-- GPS (btnGPSData): abre el widget flotante de datos GPS; color = calidad de fix -->
+    <button type="button" class="tbtn" id="btnGps" data-cmd="datos_gps" title="Datos GPS">
+      <img src="../img/topbar/GPSQuality.png" alt=""><span>GPS</span>
+    </button>
+
+    <!-- Velocidad (lblSpeed): solo lectura, vive de /api/aog/state -->
+    <div class="speed" id="speedBox" title="Velocidad">
+      <span class="val" id="speedVal">0.0</span>
+      <span class="unit">km/h</span>
+    </div>
+
+    <div class="sep"></div>
+
+    <button type="button" class="tbtn" data-cmd="minimizar" title="Minimizar">
+      <img src="../img/topbar/WindowMinimize.png" alt=""><span>Min.</span>
+    </button>
+    <button type="button" class="tbtn" data-cmd="maximizar" title="Maximizar">
+      <img src="../img/topbar/WindowMaximize.png" alt=""><span>Max.</span>
+    </button>
+    <button type="button" class="tbtn win-close" data-cmd="apagar" title="Cerrar PilotX">
+      <img src="../img/topbar/WindowClose.png" alt=""><span>Cerrar</span>
+    </button>
+  </div>
+  <script src="../js/barra-superior.js?v=1"></script>
+</body>
+</html>

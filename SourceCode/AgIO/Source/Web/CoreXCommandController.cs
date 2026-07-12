@@ -34,5 +34,27 @@ namespace AgIO
             _form.BeginInvoke((MethodInvoker)(() => _form.ToggleNtripFromWeb()));
             return WriteJsonAsync(new { ok = true });
         }
+
+        // ── Ciclo de vida (modo demonio: CoreX no tiene ventana propia) ──────
+        // El timer interno de 800 ms deja salir la respuesta HTTP antes de
+        // reiniciar/cerrar el proceso.
+
+        [Route(HttpVerbs.Post, "/corex/reiniciar")]
+        public Task Reiniciar()
+        {
+            _form.BeginInvoke((MethodInvoker)(() =>
+            {
+                AgLibrary.Logging.Log.EventWriter("Program Reset: reinicio pedido desde la web");
+                _form.RestartFromWeb();
+            }));
+            return WriteJsonAsync(new { ok = true, restart = true });
+        }
+
+        [Route(HttpVerbs.Post, "/corex/apagar")]
+        public Task Apagar()
+        {
+            _form.BeginInvoke((MethodInvoker)(() => _form.ShutdownFromWeb()));
+            return WriteJsonAsync(new { ok = true });
+        }
     }
 }

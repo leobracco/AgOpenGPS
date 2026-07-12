@@ -31,6 +31,12 @@
         $('o2').value = sub[1] != null ? sub[1] : 168;
         $('o3').value = sub[2] != null ? sub[2] : 5;
 
+        var pilotx = d.pilotx_ip || [127, 0, 0, 1];
+        $('p1').value = pilotx[0] != null ? pilotx[0] : 127;
+        $('p2').value = pilotx[1] != null ? pilotx[1] : 0;
+        $('p3').value = pilotx[2] != null ? pilotx[2] : 0;
+        $('p4').value = pilotx[3] != null ? pilotx[3] : 1;
+
         actualizarHintSubnet(d.ip_actual || '');
       })
       .catch(function () {
@@ -184,12 +190,58 @@
     }, 2000);
   }
 
+  // ── IP de PilotX (eth_loop, port de FormEthernet) ────────────────────────
+  // Guardar SIEMPRE reinicia CoreX (igual que el form viejo).
+
+  function onGuardarPilotx() {
+    var p1 = parseInt($('p1').value, 10);
+    var p2 = parseInt($('p2').value, 10);
+    var p3 = parseInt($('p3').value, 10);
+    var p4 = parseInt($('p4').value, 10);
+
+    if (!esOcteto(p1) || !esOcteto(p2) || !esOcteto(p3) || !esOcteto(p4)) {
+      AgpModal.alert('Valor inválido', 'Cada octeto debe ser un número entre 0 y 255.');
+      return;
+    }
+
+    AgpModal.confirm('IP de PilotX',
+      'Guardar ' + p1 + '.' + p2 + '.' + p3 + '.' + p4 +
+      ' reinicia CoreX. ¿Continuar?')
+      .then(function (si) {
+        if (!si) return;
+        var btn = $('btn-pilotx');
+        btn.disabled = true;
+        fetch('/api/corex/config/red/pilotx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ o1: p1, o2: p2, o3: p3, o4: p4 }),
+        })
+          .then(function (r) {
+            return r.json().then(function (d) { return { ok: r.ok, data: d }; });
+          })
+          .then(function (res) {
+            if (!res.ok) {
+              btn.disabled = false;
+              AgpModal.alert('Error',
+                (res.data && (res.data.mensaje || res.data.friendly)) || 'Error desconocido.');
+              return;
+            }
+            waitForRestart();
+          })
+          .catch(function () {
+            btn.disabled = false;
+            AgpModal.alert('Error de red', 'No se pudo guardar la IP de PilotX.');
+          });
+      });
+  }
+
   // ── Inicialización ───────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
     load();
     $('udp-on').addEventListener('change', onToggleUdp);
     $('btn-subnet').addEventListener('click', onEnviarSubnet);
+    $('btn-pilotx').addEventListener('click', onGuardarPilotx);
   });
 
 })();

@@ -16,11 +16,16 @@
       <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
       <div class="cx-mini">CoreX · Agro Parallel</div>
       <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
       <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
       <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <a class="cx-side-item" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
       <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
       <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
       <a class="cx-side-item active" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
+      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
     </aside>
 
     <div class="cx-content">
@@ -100,6 +105,36 @@
           </p>
         </section>
 
+        <!-- Card: Sistema (port FormAdvancedSettings) -->
+        <section class="cx-panel">
+          <h3>Sistema</h3>
+
+          <div class="cx-toggle-row">
+            <input type="checkbox" id="chk-start-min">
+            <label for="chk-start-min">Arrancar CoreX minimizado</label>
+          </div>
+
+          <div class="cx-toggle-row">
+            <input type="checkbox" id="chk-auto-gpsout">
+            <label for="chk-auto-gpsout">Iniciar salida GPS automáticamente</label>
+          </div>
+
+          <p class="cx-hint">
+            Se guardan al instante, sin reinicio. La salida GPS reenvía la
+            posición a otros programas de la PC.
+          </p>
+
+          <div class="cx-actions" style="margin-top: 12px;">
+            <button class="cx-btn" id="btn-reiniciar">Reiniciar CoreX</button>
+            <button class="cx-btn" id="btn-apagar">Apagar CoreX</button>
+          </div>
+
+          <p class="cx-hint">
+            CoreX corre sin ventana (servicio). Si lo apagás, se vuelve a
+            iniciar desde PilotX o al reiniciar la pantalla.
+          </p>
+        </section>
+
       </div>
     </div>
   </div>
@@ -108,5 +143,6 @@
   <script src="/js/keyboard.js"></script>
   <script src="/js/hdr.js"></script>
   <script src="/js/perfil.js"></script>
+  <script src="../js/cx-shell.js"></script>
 </body>
 </html>

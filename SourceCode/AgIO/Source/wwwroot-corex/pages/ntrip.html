@@ -7,6 +7,19 @@
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/layout.css">
   <link rel="stylesheet" href="/corex.css">
+  <style>
+    .mnt-wrap { max-height: 46vh; overflow-y: auto; border: 1px solid var(--cx-line, #e4e8e2);
+                border-radius: 10px; }
+    .mnt-table { width: 100%; border-collapse: collapse; font-size: .88em; }
+    .mnt-table th { text-align: left; color: var(--cx-muted); font-size: .82em;
+                    padding: 8px 10px; border-bottom: 1px solid var(--cx-line, #e4e8e2);
+                    position: sticky; top: 0; background: var(--cx-panel, #fff); }
+    .mnt-table td { padding: 10px; border-bottom: 1px solid var(--cx-line, #e4e8e2); }
+    .mnt-table tbody tr { cursor: pointer; }
+    .mnt-table tr.sel td { background: rgba(74, 186, 62, .12); font-weight: 700; }
+    .mnt-table td.num { font-variant-numeric: tabular-nums; text-align: right;
+                        white-space: nowrap; }
+  </style>
 </head>
 <body>
   <div class="cx-shell">
@@ -15,11 +28,16 @@
       <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
       <div class="cx-mini">CoreX · Agro Parallel</div>
       <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
       <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
       <a class="cx-side-item active" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <a class="cx-side-item" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
       <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
       <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
       <a class="cx-side-item" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
+      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
     </aside>
 
     <div class="cx-content">
@@ -161,6 +179,27 @@
 
       </div>
 
+      <!-- Mountpoints del caster (port FormSource) -->
+      <section class="cx-panel" style="margin-top: 14px;">
+        <div style="display:flex; justify-content: space-between; align-items:center; gap: 12px; flex-wrap: wrap;">
+          <h3 style="margin:0;">Mountpoints del caster</h3>
+          <button class="cx-btn" id="btn-mounts">Buscar mountpoints</button>
+        </div>
+        <p class="cx-hint" id="mnt-hint" style="margin: 8px 0 10px;">
+          Consulta la lista de bases del caster de arriba. Tocá una para
+          elegirla como mountpoint (después Guardar). Ordenadas de la más
+          cercana a la más lejana.
+        </p>
+        <div class="mnt-wrap" id="mnt-wrap" style="display:none;">
+          <table class="mnt-table">
+            <thead>
+              <tr><th>Mountpoint</th><th>Formato</th><th>Sistema</th><th>Distancia</th></tr>
+            </thead>
+            <tbody id="mnt-body"></tbody>
+          </table>
+        </div>
+      </section>
+
       <!-- Área de guardado unificada -->
       <div class="cx-actions">
         <button class="cx-btn green wide" id="btn-save">Guardar</button>
@@ -171,5 +210,6 @@
   <script src="/js/modal.js"></script>
   <script src="/js/hdr.js"></script>
   <script src="/js/ntrip.js"></script>
+  <script src="../js/cx-shell.js"></script>
 </body>
 </html>

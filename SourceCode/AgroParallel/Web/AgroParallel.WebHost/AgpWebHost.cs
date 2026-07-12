@@ -40,6 +40,13 @@ namespace AgroParallel.WebHost
         private readonly ISectionControlService _sectionsCore;
         private readonly IQuantiXRuntimeService _quantixRuntime;
         private readonly IGuidanceCalculator _guidance;
+        // Calibración de roll del IMU interno (CAHRS/FormGPS.ahrs). Igual que
+        // guidance/toolGeometry/tram: inyectado por FormGPS, no auto-instanciado
+        // (necesita la referencia real al form vivo).
+        private readonly IImuCalibracionService _imuCalibracion;
+        // Lista de guías (AB/curvas) del lote activo (FormGPS.trk.gArr). Mismo
+        // criterio: inyectado por FormGPS, no auto-instanciado.
+        private readonly ITrackListService _trackList;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -56,6 +63,10 @@ namespace AgroParallel.WebHost
         // (file-based, sin dependencias). Permite diagnóstico live + step-by-step
         // de boot + selector WAS (encoder Keya vs analógico) desde el Hub.
         private readonly ICoreXEcuService _corexEcu;
+        // CoreX (AgIO): puente de solo-lectura hacia el sidecar que corre en
+        // 127.0.0.1:5181 y habla con GPS/IMU/Machine/Steer. Auto-instanciado
+        // (puerto fijo, sin config). Alimenta la tira de estado de hub.html.
+        private readonly ICoreXBridgeService _corexBridge;
         // Capa de identidad curada sobre el registry MQTT: aceptados, ignorados y
         // alias humano persistidos en nodos.json. Auto-instanciado.
         private readonly INodosCuratedService _nodosCurated;
@@ -114,7 +125,9 @@ namespace AgroParallel.WebHost
                           IInsumoCatalogService insumos = null,
                           IToolGeometryCalculator toolGeometry = null,
                           ITramCalculator tram = null,
-                          IImplementoService implemento = null)
+                          IImplementoService implemento = null,
+                          IImuCalibracionService imuCalibracion = null,
+                          ITrackListService trackList = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -133,6 +146,8 @@ namespace AgroParallel.WebHost
             _sectionsCore = sectionsCore;     // nullable
             _quantixRuntime = quantixRuntime; // nullable
             _guidance = guidance;             // nullable
+            _imuCalibracion = imuCalibracion; // nullable
+            _trackList = trackList;           // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -159,6 +174,7 @@ namespace AgroParallel.WebHost
             // CoreX-ECU: bridge HTTP al firmware Teensy. Auto-instanciado para que
             // /pages/corex-ecu.html funcione aunque el shell no se entere del módulo.
             _corexEcu = new CoreXEcuService();
+            _corexBridge = new CoreXBridgeService();
             // Nodos curados + estado del wizard: archivos pequeños, sin dependencias.
             // Auto-instanciados para que /pages/nodos.html y /pages/setup.html
             // funcionen aunque el shell no se entere de los nuevos servicios.
@@ -219,6 +235,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new QuantiXController(_nodos, _quantixCfg))
                  .WithController(() => new OrbitXController(_orbitxCfg))
                  .WithController(() => new FirmwaresController())
+                 .WithController(() => new BotoneraController())
                  .WithController(() => new ConfiguracionController())
                  .WithController(() => new SectionXController(_sectionxCfg))
                  .WithController(() => new CamarasController(_camarasCfg));
@@ -253,10 +270,23 @@ namespace AgroParallel.WebHost
                 m.WithController(() => new OverlayPrefsController());
                 // CoreX-ECU: proxy al firmware Teensy de autosteer.
                 if (_corexEcu != null) m.WithController(() => new CoreXEcuController(_corexEcu));
+                // CoreX (AgIO): estado resumido de GPS/IMU/Machine/Steer para el Hub.
+                if (_corexBridge != null) m.WithController(() => new CoreXBridgeController(_corexBridge));
+                // Calibración de roll del IMU interno de PilotX (CAHRS/FormGPS.ahrs).
+                if (_imuCalibracion != null) m.WithController(() => new ImuCalibracionController(_imuCalibracion));
+                // Lista de guías (AB/curvas) del lote activo.
+                if (_trackList != null) m.WithController(() => new TrackListController(_trackList));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
             {
+                // Forzar REVALIDACIÓN de estáticos en el cliente: sin max-age el
+                // WebView2 cachea .html/.js por heurística y quedaba corriendo
+                // UI VIEJA después de un rebuild ("los botones no hacen nada",
+                // "no se muestra nada"). Con no-cache el cliente revalida cada
+                // vez (ETag → 304 si no cambió, sigue siendo rápido) y toma los
+                // archivos nuevos apenas se reinicia PilotX.
+                _server = _server.WithModule(new NoClientCacheModule());
 #if DEBUG
                 // DEV: sin cache. Cambios en wwwroot se ven sin recompilar.
                 _server = _server.WithStaticFolder("/", _wwwroot, false, m =>
@@ -264,10 +294,8 @@ namespace AgroParallel.WebHost
                     m.WithContentCaching(false);
                 });
 #else
-                // RELEASE: cache de estáticos en memoria + Cache-Control immutable.
-                // El rebuild dispara invalidación natural (los .js/.css se copian
-                // nuevos al output), así que es seguro. Mejora el "second open"
-                // del Hub y la navegación inter-páginas en la PC del tractor.
+                // RELEASE: cache de estáticos en memoria DEL SERVIDOR (rápido);
+                // el cliente revalida por el módulo no-cache de arriba.
                 _server = _server.WithStaticFolder("/", _wwwroot, true, m =>
                 {
                     m.WithContentCaching(true);
@@ -294,6 +322,20 @@ namespace AgroParallel.WebHost
             catch { _mdns = null; }
 
             IsRunning = true;
+        }
+
+        // Módulo passthrough: setea Cache-Control: no-cache en TODAS las
+        // respuestas y deja seguir el pipeline (IsFinalHandler = false). Los
+        // controllers que quieren no-store lo pisan después sin problema.
+        private sealed class NoClientCacheModule : EmbedIO.WebModuleBase
+        {
+            public NoClientCacheModule() : base("/") { }
+            public override bool IsFinalHandler => false;
+            protected override Task OnRequestAsync(IHttpContext context)
+            {
+                context.Response.Headers["Cache-Control"] = "no-cache";
+                return Task.CompletedTask;
+            }
         }
 
         public void Stop()

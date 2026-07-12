@@ -128,11 +128,92 @@
     }, 2000);
   }
 
+  // ── Mountpoints del caster (port de FormSource) ──────────────────────────
+  // GET /api/corex/ntrip/mounts?ip=..&port=.. baja la sourcetable y devuelve
+  // los mountpoints ya ordenados por distancia. Tocar una fila la elige como
+  // mountpoint (falta Guardar, igual que el resto del formulario).
+
+  function fmtDistKm(km) {
+    if (typeof km !== 'number' || km < 0) return '—';
+    return km < 100 ? km.toFixed(1) + ' km' : Math.round(km) + ' km';
+  }
+
+  function renderMounts(mounts) {
+    var body = $('mnt-body');
+    while (body.firstChild) body.removeChild(body.firstChild);
+
+    var actual = $('mount').value.trim();
+
+    mounts.forEach(function (m) {
+      var tr = document.createElement('tr');
+      if (m.mount === actual) tr.className = 'sel';
+
+      [m.mount, m.format, m.nav_system].forEach(function (t) {
+        var td = document.createElement('td');
+        td.textContent = t || '—';
+        tr.appendChild(td);
+      });
+      var tdDist = document.createElement('td');
+      tdDist.className = 'num';
+      tdDist.textContent = fmtDistKm(m.distance_km);
+      tr.appendChild(tdDist);
+
+      tr.addEventListener('click', function () {
+        $('mount').value = m.mount;
+        var sel = body.querySelector('tr.sel');
+        if (sel) sel.className = '';
+        tr.className = 'sel';
+        $('mnt-hint').textContent = 'Elegido "' + m.mount + '"'
+          + (m.distance_km >= 0 ? ' (' + fmtDistKm(m.distance_km) + ')' : '')
+          + '. Acordate de Guardar.';
+      });
+
+      body.appendChild(tr);
+    });
+
+    $('mnt-wrap').style.display = mounts.length ? '' : 'none';
+  }
+
+  function buscarMounts() {
+    var ip = $('caster_ip').value.trim() || $('caster_url').value.trim();
+    var port = parseInt($('caster_port').value, 10);
+
+    if (!ip || !port) {
+      AgpModal.alert('Faltan datos', 'Completá la IP (o URL) y el puerto del caster.');
+      return;
+    }
+
+    var btn = $('btn-mounts');
+    btn.disabled = true;
+    $('mnt-hint').textContent = 'Consultando el caster…';
+
+    fetch('/api/corex/ntrip/mounts?ip=' + encodeURIComponent(ip)
+        + '&port=' + encodeURIComponent(port), { cache: 'no-store' })
+      .then(function (r) { return r.json().then(function (d) { return { st: r.status, d: d }; }); })
+      .then(function (x) {
+        if (x.st !== 200) {
+          $('mnt-hint').textContent = (x.d && x.d.mensaje) || 'No se pudo consultar el caster.';
+          renderMounts([]);
+          return;
+        }
+        var mounts = x.d.mounts || [];
+        $('mnt-hint').textContent = mounts.length
+          ? mounts.length + ' mountpoints. Tocá uno para elegirlo (después Guardar).'
+          : 'El caster no devolvió mountpoints.';
+        renderMounts(mounts);
+      })
+      .catch(function () {
+        $('mnt-hint').textContent = 'Error de red consultando el caster.';
+      })
+      .finally(function () { btn.disabled = false; });
+  }
+
   // ── Inicialización ───────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
     load();
     $('btn-save').addEventListener('click', save);
+    $('btn-mounts').addEventListener('click', buscarMounts);
   });
 
 })();

@@ -1,0 +1,119 @@
+﻿<!doctype html>
+<html lang="es" class="widget-mode">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Menú · PilotX</title>
+  <style>
+    /* Copia HTML del menú IZQUIERDO nativo (panelLeft) como widget flotante.
+       Columna principal con los íconos nativos; al tocar un ítem con submenú
+       la ventana se expande a la derecha y muestra sus opciones en HTML
+       (resize vía postMessage al host). El menú nativo sigue intacto. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #F5F7F4;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      padding: 4px;
+      overflow: hidden;
+    }
+    .wrap { display: flex; gap: 6px; height: 100%; }
+
+    .col {
+      display: flex; flex-direction: column; gap: 4px;
+      width: 100px; flex: 0 0 100px; height: 100%;
+    }
+    .mbtn {
+      flex: 1 1 0;
+      min-height: 60px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 2px; padding: 4px 2px;
+      border: 1px solid #C5CFC5; border-radius: 10px;
+      background: #E2E7E2; color: #101612;
+      font: 600 10.5px/1.1 "Segoe UI", sans-serif;
+      text-align: center; cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    .mbtn img { width: 38px; height: 38px; object-fit: contain; }
+    .mbtn:active { background: #C5CFC5; transform: translateY(1px); }
+    .mbtn.on { border-color: #4ABA3E; background: rgba(74,186,62,0.15); }
+    .mbtn.flash { border-color: #4ABA3E; box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
+
+    /* submenú (columna derecha) */
+    .sub {
+      flex: 1 1 auto; min-width: 0; height: 100%;
+      background: #fff;
+      border: 1px solid #C5CFC5; border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+      padding: 8px;
+      display: flex; flex-direction: column; gap: 6px;
+      overflow: hidden;
+    }
+    .sub[hidden] { display: none; }
+    .sub h3 {
+      font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+      color: #5a675c; padding: 0 2px;
+      flex: 0 0 auto;
+    }
+    .sub .items {
+      flex: 1 1 auto; min-height: 0;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      align-content: start;
+    }
+    .sbtn {
+      min-height: 62px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; padding: 4px;
+      border: 1px solid #C5CFC5; border-radius: 10px;
+      background: #F0F4EF; color: #101612;
+      font: 600 11px/1.1 "Segoe UI", sans-serif;
+      text-align: center; cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    .sbtn .ico { font-size: 20px; line-height: 1; }
+    .sbtn:active { background: #E2E7E2; transform: translateY(1px); }
+    .sbtn.flash { border-color: #4ABA3E; box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- columna principal: mismo orden e íconos que el panelLeft nativo.
+         data-cmd = acción directa; data-sub = abre submenú HTML -->
+    <div class="col" id="mainCol">
+      <button type="button" class="mbtn" data-sub="navegacion">
+        <img src="../img/menu/NavigationSettings.png" alt=""><span>Navegación</span>
+      </button>
+      <button type="button" class="mbtn" data-sub="config">
+        <img src="../img/menu/Settings48.png" alt=""><span>Config</span>
+      </button>
+      <button type="button" class="mbtn" data-sub="herramientas">
+        <img src="../img/menu/SpecialFunctions.png" alt=""><span>Herramientas</span>
+      </button>
+      <button type="button" class="mbtn" data-sub="lote">
+        <img src="../img/menu/JobActive.png" alt=""><span>Lote</span>
+      </button>
+      <button type="button" class="mbtn" data-sub="herrlote">
+        <img src="../img/menu/FieldTools.png" alt=""><span>Herr. lote</span>
+      </button>
+      <button type="button" class="mbtn" data-cmd="direccion">
+        <img src="../img/menu/AutoSteerConf.png" alt=""><span>Dirección</span>
+      </button>
+      <button type="button" class="mbtn" data-cmd="corex">
+        <img src="../img/menu/CoreX.png" alt=""><span>CoreX</span>
+      </button>
+    </div>
+
+    <!-- submenú: lo llena el JS según el ítem tocado -->
+    <div class="sub" id="subPanel" hidden>
+      <h3 id="subTitle"></h3>
+      <div class="items" id="subItems"></div>
+    </div>
+  </div>
+  <script src="../js/menu-izquierda.js?v=3"></script>
+</body>
+</html>

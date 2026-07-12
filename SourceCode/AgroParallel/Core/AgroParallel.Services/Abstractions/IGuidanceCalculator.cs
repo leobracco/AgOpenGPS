@@ -18,5 +18,12 @@ namespace AgroParallel.Services.Abstractions
         /// cuando no hay guidance set. Cadencia baja (1 Hz) — los puntos
         /// solo cambian al redefinir la linea. Defensive: nunca tira.</summary>
         GuidanceGeometrySnapshot GetGeometry();
+
+        /// <summary>Ejecuta un comando de guiado disparado desde la UI web
+        /// (barra rápida de guías). Comandos: "center" (centrar guía),
+        /// "nudge_left"/"nudge_right" (mover guía), "contour" (activar
+        /// curva/contorno), "build" (crear guías), "pick" (elegir guía).
+        /// Devuelve false si el comando es desconocido o falló.</summary>
+        bool ExecuteCommand(string command);
     }
 }

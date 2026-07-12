@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Radio — CoreX</title>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/keyboard.css">
+  <link rel="stylesheet" href="/corex.css">
+  <style>
+    .ch-table { width: 100%; border-collapse: collapse; font-size: .9em; }
+    .ch-table th { text-align: left; color: var(--cx-muted); font-size: .82em;
+                   padding: 6px 10px; border-bottom: 1px solid var(--cx-line, #e4e8e2); }
+    .ch-table td { padding: 10px; border-bottom: 1px solid var(--cx-line, #e4e8e2); }
+    .ch-table tr.sel td { background: rgba(74, 186, 62, .12); font-weight: 700; }
+    .ch-table tbody tr { cursor: pointer; min-height: 44px; }
+    .cmd-resp { font-family: Consolas, monospace; font-size: .82em;
+                white-space: pre-wrap; word-break: break-all;
+                background: var(--cx-panel-2, #fff);
+                border: 1px solid var(--cx-line, #e4e8e2); border-radius: 10px;
+                padding: 10px 12px; min-height: 48px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="cx-shell">
+
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
+      <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <a class="cx-side-item active" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
+      <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
+      <a class="cx-side-item" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
+      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
+    </aside>
+
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>Radio RTCM</h2>
+          <p>Corrección por radio en vez de NTRIP (fuentes excluyentes)</p>
+        </div>
+        <div class="cx-pills">
+          <span class="cx-pill"><span id="hdrVersion">—</span></span>
+          <span class="cx-pill">perfil&nbsp;<span id="hdrProfile">—</span></span>
+        </div>
+      </div>
+
+      <section class="cx-panel">
+        <h3><span class="dot" id="dotRadio"></span>Conexión</h3>
+        <div class="cx-form">
+          <label class="cx-field">
+            <span>Radio encendida</span>
+            <input type="checkbox" id="radioOn">
+          </label>
+          <label class="cx-field">
+            <span>Puerto</span>
+            <select class="cx-input" id="radioPort"></select>
+          </label>
+          <label class="cx-field">
+            <span>Velocidad (baudios)</span>
+            <select class="cx-input" id="radioBaud">
+              <option>4800</option><option>9600</option><option>19200</option>
+              <option>38400</option><option>57600</option><option>115200</option>
+            </select>
+          </label>
+        </div>
+        <div class="cx-actions">
+          <button class="cx-btn" id="btnRadioRescan">Buscar puertos</button>
+          <button class="cx-btn green" id="btnRadioSave">Guardar</button>
+        </div>
+        <p class="cx-hint" id="radioMsg" style="margin: 8px 0 0;">
+          Encender la radio apaga NTRIP y paso serial: una sola fuente de
+          corrección a la vez.
+        </p>
+      </section>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <h3>Canales</h3>
+        <p class="cx-hint" style="margin: 0 0 10px;">
+          Tocá un canal para seleccionarlo y después Guardar.
+          Sintonizar manda la frecuencia a la radio ya mismo.
+        </p>
+        <table class="ch-table">
+          <thead>
+            <tr><th>Nombre</th><th>Frecuencia</th><th>Distancia</th></tr>
+          </thead>
+          <tbody id="chBody"></tbody>
+        </table>
+        <p class="cx-hint" id="chEmpty" style="margin: 10px 0 0;">Sin canales cargados.</p>
+        <div class="cx-actions" style="margin-top: 12px;">
+          <button class="cx-btn" id="btnChAdd">Agregar</button>
+          <button class="cx-btn" id="btnChEdit">Editar</button>
+          <button class="cx-btn" id="btnChDel">Borrar</button>
+          <button class="cx-btn green" id="btnChTune">Sintonizar</button>
+        </div>
+      </section>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <h3>Paso serial RTCM</h3>
+        <p class="cx-hint" style="margin: 0 0 10px;">
+          Reenvía la corrección que entra por el puerto de arriba directo al
+          GPS, sin radio ni NTRIP (fuentes excluyentes). Guardar reinicia CoreX.
+        </p>
+        <div class="cx-form">
+          <label class="cx-field">
+            <span>Paso serial encendido</span>
+            <input type="checkbox" id="passOn">
+          </label>
+          <label class="cx-field">
+            <span>Enviar al GPS por serial</span>
+            <input type="checkbox" id="passToSerial">
+          </label>
+          <label class="cx-field">
+            <span>Enviar por UDP</span>
+            <input type="checkbox" id="passToUdp">
+          </label>
+          <label class="cx-field">
+            <span>Puerto UDP destino</span>
+            <input class="cx-input" type="number" id="passUdpPort" min="1" max="65535">
+          </label>
+        </div>
+        <div class="cx-actions">
+          <button class="cx-btn green" id="btnPassSave">Guardar y reiniciar</button>
+        </div>
+      </section>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <h3>Comando a la radio</h3>
+        <p class="cx-hint" style="margin: 0 0 10px;">
+          Para ajustes avanzados del equipo de radio (consultar el manual del
+          fabricante). La respuesta aparece abajo.
+        </p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <input class="cx-input" id="cmdTexto" style="flex: 1 1 220px;"
+                 placeholder="SL&amp;F=439.000">
+          <button class="cx-btn" id="btnCmdSend">Enviar</button>
+        </div>
+        <div class="cmd-resp" id="cmdResp">—</div>
+      </section>
+    </div>
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/keyboard.js"></script>
+  <script src="/js/hdr.js"></script>
+  <script src="/js/radio.js"></script>
+  <script src="../js/cx-shell.js"></script>
+</body>
+</html>

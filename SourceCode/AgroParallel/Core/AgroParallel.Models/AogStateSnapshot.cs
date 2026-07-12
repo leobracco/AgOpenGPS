@@ -72,6 +72,12 @@ namespace AgroParallel.Models
         public double AvgSpeed { get; set; }      // km/h
         public double Heading { get; set; }       // rad
 
+        /// <summary>Calidad de fix GPS (pn.fixQuality): 4=RTK fijo, 5=RTK float, 2=DGPS, otro=sin fix.</summary>
+        public int FixQuality { get; set; }
+
+        /// <summary>Alimentación externa conectada (SystemInformation.PowerStatus), para la barra superior HTML.</summary>
+        public bool PowerOnline { get; set; }
+
         public double PivotEasting { get; set; }
         public double PivotNorthing { get; set; }
 

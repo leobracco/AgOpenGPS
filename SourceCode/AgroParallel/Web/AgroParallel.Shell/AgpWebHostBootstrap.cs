@@ -71,7 +71,9 @@ namespace AgroParallel.Shell
             string brokerHost = "127.0.0.1",
             int brokerPort = 1883,
             IToolGeometryCalculator toolGeometry = null,
-            ITramCalculator tram = null)
+            ITramCalculator tram = null,
+            IImuCalibracionService imuCalibracion = null,
+            ITrackListService trackList = null)
         {
             lock (s_lock)
             {
@@ -132,7 +134,9 @@ namespace AgroParallel.Shell
                     insumos: null,
                     toolGeometry: toolGeometry,
                     tram: tram,
-                    implemento: implemento);
+                    implemento: implemento,
+                    imuCalibracion: imuCalibracion,
+                    trackList: trackList);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;

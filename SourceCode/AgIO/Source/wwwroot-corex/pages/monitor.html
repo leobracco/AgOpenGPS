@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monitor — CoreX</title>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/corex.css">
+  <style>
+    .mon-box { font-family: Consolas, monospace; font-size: .78em;
+               line-height: 1.4; white-space: pre-wrap; word-break: break-all;
+               background: var(--cx-panel-2, #fff); border: 1px solid var(--cx-line, #e4e8e2);
+               border-radius: 10px; padding: 10px 12px; height: 34vh;
+               overflow-y: auto; }
+    .mon-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+               margin-bottom: 10px; }
+    .mon-bar h3 { margin: 0; flex: 1 1 auto; }
+    .mon-chk { display: inline-flex; align-items: center; gap: 6px;
+               color: var(--cx-muted); font-size: .85em; min-height: 40px; }
+    .pgn-table { width: 100%; border-collapse: collapse; font-size: .85em; }
+    .pgn-table td { padding: 6px 10px; border-bottom: 1px solid var(--cx-line, #e4e8e2); }
+    .pgn-table td:first-child { font-weight: 750; font-variant-numeric: tabular-nums;
+                                width: 64px; }
+    details.pgn > summary { cursor: pointer; font-weight: 700; min-height: 40px;
+                            display: flex; align-items: center; }
+  </style>
+</head>
+<body>
+  <div class="cx-shell">
+
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
+      <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <a class="cx-side-item" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
+      <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <a class="cx-side-item active" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
+      <a class="cx-side-item" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
+      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
+    </aside>
+
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>Monitor de tráfico</h2>
+          <p>Mensajes UDP entre CoreX y los módulos, y flujo GPS crudo</p>
+        </div>
+        <div class="cx-pills">
+          <span class="cx-pill"><span id="hdrVersion">—</span></span>
+          <span class="cx-pill">perfil&nbsp;<span id="hdrProfile">—</span></span>
+        </div>
+      </div>
+
+      <section class="cx-panel">
+        <div class="mon-bar">
+          <h3>Tráfico UDP (PGN)</h3>
+          <label class="mon-chk"><input type="checkbox" id="chkUdpNmea">NMEA</label>
+          <label class="mon-chk"><input type="checkbox" id="chkUdpNtrip">NTRIP</label>
+          <button class="cx-btn" id="btnUdpPause">Pausar</button>
+          <button class="cx-btn" id="btnUdpClear">Limpiar</button>
+          <button class="cx-btn" id="btnUdpSave">Guardar</button>
+        </div>
+        <div class="mon-box" id="udpBox"></div>
+        <p class="cx-hint" style="margin: 8px 0 0;">
+          Formato: <code>seg.mseg &nbsp; origen/destino &nbsp; &lt; recibido / &gt; enviado &nbsp; PGN</code>.
+          NMEA agrega las sentencias GPS que entran por red; NTRIP marca cada
+          paquete de corrección reenviado.
+        </p>
+      </section>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <div class="mon-bar">
+          <h3>GPS crudo (NMEA)</h3>
+          <button class="cx-btn" id="btnRawPause">Pausar</button>
+          <button class="cx-btn" id="btnRawClear">Limpiar</button>
+          <button class="cx-btn" id="btnRawSave">Guardar</button>
+        </div>
+        <div class="mon-box" id="rawBox"></div>
+        <p class="cx-hint" style="margin: 8px 0 0;">
+          Flujo de sentencias tal como llega del receptor (serial o red),
+          con marca de tiempo mm:ss.mseg.
+        </p>
+      </section>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <details class="pgn">
+          <summary>Guía de PGN</summary>
+          <table class="pgn-table">
+            <tr><td>254</td><td>Datos de dirección (hacia el módulo)</td></tr>
+            <tr><td>253</td><td>Desde el módulo de dirección</td></tr>
+            <tr><td>252</td><td>Ajustes de dirección</td></tr>
+            <tr><td>251</td><td>Configuración de dirección</td></tr>
+            <tr><td>250</td><td>Sensores del módulo de dirección</td></tr>
+            <tr><td>239</td><td>Datos de máquina</td></tr>
+            <tr><td>238</td><td>Configuración de máquina</td></tr>
+            <tr><td>237</td><td>Desde el módulo de máquina</td></tr>
+            <tr><td>236</td><td>Configuración de pines</td></tr>
+            <tr><td>235</td><td>Dimensiones de secciones</td></tr>
+            <tr><td>234</td><td>Módulo Matt Switch</td></tr>
+            <tr><td>229</td><td>Secciones 64 on/off</td></tr>
+            <tr><td>203</td><td>Respuesta de escaneo de subred</td></tr>
+            <tr><td>202</td><td>Pedido de escaneo</td></tr>
+            <tr><td>201</td><td>Cambio de subred</td></tr>
+            <tr><td>200</td><td>Hello a todos los módulos</td></tr>
+            <tr><td>126</td><td>Hello respuesta dirección</td></tr>
+            <tr><td>123</td><td>Hello respuesta máquina</td></tr>
+            <tr><td>121</td><td>Hello respuesta IMU</td></tr>
+            <tr><td>120</td><td>Hello respuesta GPS</td></tr>
+          </table>
+        </details>
+      </section>
+    </div>
+  </div>
+
+  <script src="/js/modal.js"></script>
+  <script src="/js/hdr.js"></script>
+  <script src="/js/monitor.js"></script>
+  <script src="../js/cx-shell.js"></script>
+</body>
+</html>

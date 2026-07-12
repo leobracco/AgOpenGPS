@@ -248,6 +248,34 @@ namespace AgroParallel.Shell
             }
         }
 
+        /// <summary>
+        /// Redimensiona un widget flotante en caliente (ej: guia-rapida.html
+        /// expandiendo un panel de acciones) manteniendo la misma esquina de
+        /// anclaje que <see cref="ApplyFloating"/> — crece/achica hacia abajo,
+        /// no hacia arriba, para no taparle el mapa al operario. Se dispara
+        /// desde <see cref="OnWebMessageReceived"/> vía postMessage('resize:WxH').
+        /// No-op si la ventana no es un widget flotante.
+        /// </summary>
+        public void ResizeFloatingWidget(int width, int height)
+        {
+            if (!FloatingWidget) return;
+            if (width < 200) width = 200;
+            if (height < 80) height = 80;
+
+            var c = AnchorControl;
+            if (c != null && !c.IsDisposed && c.IsHandleCreated)
+            {
+                Rectangle r = c.RectangleToScreen(c.ClientRectangle);
+                int x = r.Right - width - 24;
+                int y = r.Top + 24;
+                SetBounds(x, y, width, height);
+            }
+            else
+            {
+                SetBounds(Left, Top, width, height);
+            }
+        }
+
         private void OnAnchorChanged(object sender, EventArgs e) { UpdateAnchorBounds(); }
 
         private void OnAnchorDestroyed(object sender, EventArgs e)
@@ -386,7 +414,11 @@ namespace AgroParallel.Shell
                 string target = _webHost.Url;
                 if (!string.IsNullOrEmpty(InitialPage))
                 {
-                    target = target.TrimEnd('/') + "/" + InitialPage.TrimStart('/');
+                    // URL absoluta (ej: dashboard CoreX en 127.0.0.1:5181) se
+                    // navega tal cual; lo relativo se cuelga del host del Hub.
+                    target = InitialPage.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                        ? InitialPage
+                        : target.TrimEnd('/') + "/" + InitialPage.TrimStart('/');
                 }
                 _webView.CoreWebView2.Navigate(target);
             }
@@ -414,6 +446,19 @@ namespace AgroParallel.Shell
             else if (string.Equals(msg, "open-wifi-settings", StringComparison.OrdinalIgnoreCase))
             {
                 try { new ShellBridge(this).OpenWifiSettings(); } catch { }
+            }
+            else if (msg != null && msg.StartsWith("resize:", StringComparison.OrdinalIgnoreCase))
+            {
+                // 'resize:WxH' — paneles expandibles de widgets flotantes chicos
+                // (ej: guia-rapida.html al desplegar el panel de un ícono agrupado).
+                string spec = msg.Substring("resize:".Length);
+                string[] parts = spec.Split(new[] { 'x', 'X' }, 2);
+                if (parts.Length == 2
+                    && int.TryParse(parts[0], out int w)
+                    && int.TryParse(parts[1], out int h))
+                {
+                    try { BeginInvoke(new Action(() => ResizeFloatingWidget(w, h))); } catch { }
+                }
             }
         }
 

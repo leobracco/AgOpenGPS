@@ -67,6 +67,8 @@ namespace AgOpenGPS
         public DateTime sunset = DateTime.Now;
 
         public bool isFlashOnOff = false, isPanFormVisible = false;
+        //estado de la flecha del mapa que oculta las botoneras (menú viejo AOG)
+        public bool isPanelBottomHidden = false;
 
         public bool isKioskMode = false;
         public int makeUTurnCounter = 0;
@@ -540,9 +542,14 @@ namespace AgOpenGPS
                 customColorsList[i] = iCol;
             }
 
-            // PilotX: fondo del mapa liso gris claro verdoso (fieldColorDay);
-            // la textura de piso z_Floor tapaba el color, queda apagada.
-            isTextureOn = false;
+            // PilotX: textura de suelo Agro Parallel (Branding\suelo.png vía
+            // WorldGrid) SIEMPRE activa al arrancar — es el look de producto.
+            // (El branding previo la apagaba y además persistía false en el
+            // setting al pasar por Display, así que no confiamos en el valor
+            // guardado.) El toggle "Textura" de Display sigue funcionando
+            // durante la sesión.
+            isTextureOn = true;
+            Settings.Default.setDisplay_isTextureOn = true;
             isLogElevation = Settings.Default.setDisplay_isLogElevation;
             isLineSmooth = Properties.Settings.Default.setDisplay_isLineSmooth;
 
@@ -869,6 +876,10 @@ namespace AgOpenGPS
                 }
 
                 PanelSizeRightAndBottom();
+
+                //cualquier acción que refresca paneles reinicia el countdown
+                //del auto-ocultado (que no se escondan mientras se usan)
+                ReiniciarTimerOcultarPaneles();
             }
         }
 
@@ -984,19 +995,50 @@ namespace AgOpenGPS
 
         private void PanelsAndOGLSize()
         {
-            //PilotX: las botoneras WinForms (izquierda, derecha, abajo y la
-            //hamburguesa) no se muestran más — todo el control pasa por el
-            //menú flotante. El mapa ocupa siempre el ancho completo.
-            panelLeft.Visible = false;
-            menuStrip1.Visible = false;
-            panelRight.Visible = false;
-            panelBottom.Visible = false;
+            //Vuelta a los menúes ORIGINALES de AOG (pedido de usuario
+            //2026-07-10): botoneras izquierda/derecha/abajo visibles según
+            //trabajo, con la flecha del mapa (MenuShowHide, esquina inferior
+            //izquierda) que las oculta/muestra. El menú flotante convive.
+            if (!isJobStarted)
+            {
+                panelBottom.Visible = false;
+                panelRight.Visible = false;
+                panelLeft.Visible = true;
 
-            oglMain.Left = 20;
-            oglMain.Width = this.Width - 40;
-            oglMain.Height = this.Height - (isJobStarted ? 62 : 60);
+                oglMain.Left = 80;
+                oglMain.Width = this.Width - statusStripLeft.Width - 22;
+                oglMain.Height = this.Height - 60;
+            }
+            else
+            {
+                if (isPanelBottomHidden)
+                {
+                    panelBottom.Visible = false;
+                    panelLeft.Visible = false;
+
+                    oglMain.Left = 20;
+                    oglMain.Width = this.Width - 98;
+                    oglMain.Height = this.Height - 62;
+                }
+                else
+                {
+                    panelBottom.Visible = true;
+                    panelRight.Visible = true;
+                    panelLeft.Visible = true;
+
+                    oglMain.Left = 80;
+                    oglMain.Width = this.Width - statusStripLeft.Width - 92;
+                    oglMain.Height = this.Height - 118;
+                }
+            }
 
             PanelSizeRightAndBottom();
+
+            //countdown del auto-ocultado: corre mientras las botoneras estén visibles
+            ReiniciarTimerOcultarPaneles();
+
+            //flecha WinForms de mostrar/ocultar botoneras
+            ActualizarTogglePaneles();
 
             PositionFloatMenuLauncher();
 
@@ -1345,8 +1387,17 @@ namespace AgOpenGPS
                             form.Left = this.Width - 400 + this.Left;
                         }
 
-                        //PilotX: las botoneras WinForms ya no existen; todo el
-                        //control vive en el menú flotante.
+                        //flecha del mapa (MenuShowHide, esquina inferior izq):
+                        //oculta/muestra las botoneras — comportamiento AOG original
+                        if (isJobStarted)
+                        {
+                            if (point.Y > oglMain.Height - 60 && point.Y < oglMain.Height - 30)
+                            {
+                                isPanelBottomHidden = !isPanelBottomHidden;
+                                PanelsAndOGLSize();
+                                return;
+                            }
+                        }
                     }
 
                     //tram override

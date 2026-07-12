@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPS — CoreX</title>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/layout.css">
+  <link rel="stylesheet" href="/corex.css">
+  <style>
+    /* Sentencias NMEA: fila etiqueta + valor monoespaciado scrolleable */
+    .nmea-row { display: grid; grid-template-columns: 84px 1fr; gap: 10px;
+                align-items: center; padding: 7px 0;
+                border-bottom: 1px solid var(--cx-line, #e4e8e2); }
+    .nmea-row:last-of-type { border-bottom: none; }
+    .nmea-tag { color: var(--cx-muted); font-weight: 700; font-size: .82em; }
+    .nmea-val { font-family: Consolas, monospace; font-size: .82em;
+                white-space: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  </style>
+</head>
+<body>
+  <div class="cx-shell">
+
+    <aside class="cx-sidebar">
+      <div class="cx-side-logo"><img src="/img/agro_logo.png" alt="Agro Parallel"></div>
+      <div class="cx-mini">CoreX · Agro Parallel</div>
+      <a class="cx-side-item" href="/index.html"><span class="cx-ico">🏠</span>Principal</a>
+      <a class="cx-side-item active" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
+      <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
+      <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
+      <a class="cx-side-item" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
+      <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
+      <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
+      <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
+      <a class="cx-side-item" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
+      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
+    </aside>
+
+    <div class="cx-content">
+      <div class="cx-head">
+        <div>
+          <h2>Datos GPS</h2>
+          <p>Posición, calidad de señal, IMU y sentencias en vivo</p>
+        </div>
+        <div class="cx-pills">
+          <span class="cx-pill"><span id="hdrVersion">—</span></span>
+          <span class="cx-pill">perfil&nbsp;<span id="hdrProfile">—</span></span>
+        </div>
+      </div>
+
+      <div class="cx-grid">
+
+        <section class="cx-panel">
+          <h3><span class="dot" id="dotGpsLive"></span>Posición</h3>
+          <div class="kv"><span class="k">Latitud</span><span class="v" id="gpsLat">—</span></div>
+          <div class="kv"><span class="k">Longitud</span><span class="v" id="gpsLon">—</span></div>
+          <div class="kv"><span class="k">Altitud</span><span class="v" id="gpsAlt">—</span></div>
+          <div class="kv"><span class="k">Velocidad</span><span class="v" id="gpsSpeed">—</span></div>
+        </section>
+
+        <section class="cx-panel">
+          <h3>Calidad de señal</h3>
+          <div class="kv"><span class="k">Corrección</span><span class="v" id="gpsFix">—</span></div>
+          <div class="kv"><span class="k">Satélites</span><span class="v" id="gpsSats">—</span></div>
+          <div class="kv"><span class="k">HDOP</span><span class="v" id="gpsHdop">—</span></div>
+          <div class="kv"><span class="k">Edad de corrección</span><span class="v" id="gpsAge">—</span></div>
+        </section>
+
+        <section class="cx-panel">
+          <h3>Rumbo e inclinación</h3>
+          <div class="kv"><span class="k">Rumbo GPS</span><span class="v" id="gpsHdg">—</span></div>
+          <div class="kv"><span class="k">Rumbo dual</span><span class="v" id="gpsHdgDual">—</span></div>
+          <div class="kv"><span class="k">Rolido</span><span class="v" id="gpsRoll">—</span></div>
+        </section>
+
+        <section class="cx-panel">
+          <h3>IMU</h3>
+          <div class="kv"><span class="k">Rumbo</span><span class="v" id="imuHdg">—</span></div>
+          <div class="kv"><span class="k">Rolido</span><span class="v" id="imuRoll">—</span></div>
+          <div class="kv"><span class="k">Cabeceo</span><span class="v" id="imuPitch">—</span></div>
+          <div class="kv"><span class="k">Giro (yaw)</span><span class="v" id="imuYaw">—</span></div>
+        </section>
+
+      </div>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <h3>Sentencias NMEA</h3>
+        <p class="cx-hint" style="margin: 0 0 10px;">
+          Se capturan en vivo mientras esta página está abierta.
+        </p>
+        <div class="nmea-row"><span class="nmea-tag">GGA</span><span class="nmea-val" id="nmeaGga">—</span></div>
+        <div class="nmea-row"><span class="nmea-tag">VTG</span><span class="nmea-val" id="nmeaVtg">—</span></div>
+        <div class="nmea-row"><span class="nmea-tag">PANDA</span><span class="nmea-val" id="nmeaPanda">—</span></div>
+        <div class="nmea-row"><span class="nmea-tag">PAOGI</span><span class="nmea-val" id="nmeaPaogi">—</span></div>
+        <div class="nmea-row"><span class="nmea-tag">HDT</span><span class="nmea-val" id="nmeaHdt">—</span></div>
+        <div class="nmea-row"><span class="nmea-tag">AVR</span><span class="nmea-val" id="nmeaAvr">—</span></div>
+        <div class="nmea-row"><span class="nmea-tag">HPD</span><span class="nmea-val" id="nmeaHpd">—</span></div>
+        <div class="nmea-row"><span class="nmea-tag">KSXT</span><span class="nmea-val" id="nmeaKsxt">—</span></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="/js/hdr.js"></script>
+  <script src="/js/gps.js"></script>
+  <script src="../js/cx-shell.js"></script>
+</body>
+</html>

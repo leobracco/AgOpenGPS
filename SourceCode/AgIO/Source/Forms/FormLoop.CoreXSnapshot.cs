@@ -17,6 +17,55 @@ namespace AgIO
                 topics = _mqttRecentTopics.Take(20).ToList();
             }
 
+            // Capturas controladas por la web (sentencias NMEA, monitor UDP,
+            // monitor GPS crudo): mientras la página correspondiente pollee su
+            // endpoint mantenemos la captura viva; a los 5 s sin requests la
+            // apagamos (solo si la prendimos nosotros, para no pisar a los
+            // forms de la UI vieja).
+            bool webWants = WebMonitorWants(ref _gpsSentencesWebReqTicks);
+            if (webWants && !isGPSSentencesOn)
+            {
+                isGPSSentencesOn = true;
+                _gpsSentencesWebOwned = true;
+            }
+            else if (!webWants && _gpsSentencesWebOwned)
+            {
+                isGPSSentencesOn = false;
+                _gpsSentencesWebOwned = false;
+            }
+
+            bool udpMonWants = WebMonitorWants(ref _udpMonWebReqTicks);
+            if (udpMonWants && !isUDPMonitorOn)
+            {
+                isUDPMonitorOn = true;
+                _udpMonWebOwned = true;
+            }
+            else if (!udpMonWants && _udpMonWebOwned)
+            {
+                isUDPMonitorOn = false;
+                _udpMonWebOwned = false;
+                logUDPSentence.Clear();
+            }
+
+            bool rawMonWants = WebMonitorWants(ref _rawMonWebReqTicks);
+            if (rawMonWants && !isLogMonitorOn)
+            {
+                isLogMonitorOn = true;
+                _rawMonWebOwned = true;
+            }
+            else if (!rawMonWants && _rawMonWebOwned)
+            {
+                isLogMonitorOn = false;
+                _rawMonWebOwned = false;
+                logMonitorSentence.Clear();
+            }
+
+            // Tope de seguridad: si un monitor quedó prendido sin que nadie
+            // drene (p. ej. la UI vieja abierta pero congelada), que el buffer
+            // no crezca sin límite.
+            if (logUDPSentence.Length > 200000) logUDPSentence.Clear();
+            if (logMonitorSentence.Length > 200000) logMonitorSentence.Clear();
+
             CoreXState.Instance.Publish(new CoreXStatusDto
             {
                 Version = Program.Version,
@@ -26,6 +75,34 @@ namespace AgIO
                     Alive = lastHelloGPS,
                     Latitude = latitude,
                     Longitude = longitude,
+
+                    // Port de FormGPSData: mismos campos que sus labels.
+                    FixQuality = FixQuality.TrimEnd(' ', ':'),
+                    Sats = satellitesData,
+                    Hdop = hdopData,
+                    SpeedKmh = speedData,
+                    AltitudeM = altitudeData,
+                    AgeSec = ageData,
+                    RollDeg = rollData,
+                    HeadingTrue = headingTrueData,
+                    HeadingDual = headingTrueDualData,
+                    ImuHeading = imuHeadingData,
+                    ImuRoll = imuRollData,
+                    ImuPitch = imuPitchData,
+                    ImuYawRate = imuYawRateData,
+                    Nmea = isGPSSentencesOn
+                        ? new CoreXNmeaDto
+                        {
+                            Gga = ggaSentence ?? "",
+                            Vtg = vtgSentence ?? "",
+                            Panda = pandaSentence ?? "",
+                            Paogi = paogiSentence ?? "",
+                            Hdt = hdtSentence ?? "",
+                            Avr = avrSentence ?? "",
+                            Hpd = hpdSentence ?? "",
+                            Ksxt = ksxtSentence ?? "",
+                        }
+                        : null,
                 },
                 Ntrip = new CoreXNtripDto
                 {
@@ -61,6 +138,60 @@ namespace AgIO
         // botones WinForms para que web y UI vieja hagan exactamente lo mismo.
         public void ToggleMqttBrokerFromWeb() => btnMQTT_Click(null, EventArgs.Empty);
         public void ToggleNtripFromWeb() => btnStartStopNtrip_Click(null, EventArgs.Empty);
+
+        // ── Capturas keep-alive para las páginas de la web ───────────────────
+        // Cada GET del endpoint correspondiente renueva su timestamp desde el
+        // pool thread de EmbedIO; UpdateCoreXSnapshot (hilo UI, 1 Hz) lo lee
+        // con Interlocked y decide encender/apagar el flag de captura.
+        private long _gpsSentencesWebReqTicks;
+        private bool _gpsSentencesWebOwned;
+        private long _udpMonWebReqTicks;
+        private bool _udpMonWebOwned;
+        private long _rawMonWebReqTicks;
+        private bool _rawMonWebOwned;
+
+        private static bool WebMonitorWants(ref long ticksField) =>
+            (DateTime.UtcNow.Ticks - System.Threading.Interlocked.Read(ref ticksField))
+                < 5 * TimeSpan.TicksPerSecond;
+
+        private static void RenewWebMonitor(ref long ticksField) =>
+            System.Threading.Interlocked.Exchange(ref ticksField, DateTime.UtcNow.Ticks);
+
+        public void KeepGpsSentencesAliveFromWeb() => RenewWebMonitor(ref _gpsSentencesWebReqTicks);
+        public void KeepUdpMonitorAliveFromWeb() => RenewWebMonitor(ref _udpMonWebReqTicks);
+        public void KeepRawMonitorAliveFromWeb() => RenewWebMonitor(ref _rawMonWebReqTicks);
+
+        // ── Puentes del monitor de tráfico (SOLO hilo UI, vía RunOnUiAsync) ──
+        // Port de FormUDPMonitor / FormSerialMonitor: drenan el StringBuilder
+        // igual que los timer1_Tick de esos forms (leer y limpiar).
+
+        /// <summary>Drena el log de tráfico UDP/PGN y devuelve flags de filtro.</summary>
+        public CoreXDiagController.UdpMonitorDrainDto DrainUdpMonitorFromWeb()
+        {
+            string data = logUDPSentence.ToString();
+            logUDPSentence.Clear();
+            return new CoreXDiagController.UdpMonitorDrainDto
+            {
+                Data = data,
+                LogNmea = isGPSLogOn,
+                LogNtrip = isNTRIPLogOn,
+            };
+        }
+
+        /// <summary>Aplica los filtros del monitor UDP (NMEA y NTRIP).</summary>
+        public void SetUdpMonitorFlagsFromWeb(bool logNmea, bool logNtrip)
+        {
+            isGPSLogOn = logNmea;
+            isNTRIPLogOn = logNtrip;
+        }
+
+        /// <summary>Drena el log crudo de sentencias GPS (monitor serial/NMEA).</summary>
+        public string DrainRawMonitorFromWeb()
+        {
+            string data = logMonitorSentence.ToString();
+            logMonitorSentence.Clear();
+            return data;
+        }
 
         // ── Puentes de hilos para el web host ────────────────────────────────
         // EmbedIO despacha requests en pool threads; los SerialPort, labels y
@@ -423,11 +554,195 @@ namespace AgIO
             return true;
         }
 
-        // ── Fase 2 del spec ───────────────────────────────────────────────────
-        // FormLoop queda como host invisible; la ventana
-        // visible es FormWebShell. Hide() no frena los timers (el message
-        // loop de Application.Run sigue vivo), así que el broker, el UDP y
-        // el snapshot @1Hz siguen andando ocultos.
+        // ── Puentes de radio RTCM para el web host (SOLO hilo UI) ────────────
+        // Port de FormRadio/FormRadioChannel. La radio comparte el pipeline
+        // RTCM con NTRIP y serial-pass: guardar reconfigura vía ConfigureNTRIP()
+        // (que relee los tres flags de Settings), igual que btnRadioOK_Click.
+
+        /// <summary>Config de radio + canales con distancia a la posición actual.</summary>
+        public CoreXRadioController.RadioConfigDto GetRadioConfigForWeb()
+        {
+            var s = Properties.Settings.Default;
+            var channels = new List<CoreXRadioController.RadioChannelDto>();
+
+            foreach (var c in s.setRadio_Channels ?? new List<CRadioChannel>())
+            {
+                // Distancia al canal si tiene ubicación "lat lon". El form viejo
+                // exigía lat>0 && lon>0 (nunca cierto en el hemisferio sur);
+                // acá alcanza con tener fix (!=0).
+                double distanciaKm = -1;
+                if (!string.IsNullOrEmpty(c.Location) && latitude != 0 && longitude != 0)
+                {
+                    var loc = c.Location.Split(' ');
+                    if (loc.Length >= 2
+                        && double.TryParse(loc[0], System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out double lat)
+                        && double.TryParse(loc[1], System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out double lon))
+                    {
+                        distanciaKm = glm.DistanceLonLat(lon, lat, longitude, latitude);
+                    }
+                }
+
+                channels.Add(new CoreXRadioController.RadioChannelDto
+                {
+                    Id = c.Id,
+                    Name = c.Name ?? "",
+                    Frequency = c.Frequency ?? "",
+                    Location = c.Location ?? "",
+                    DistanceKm = distanciaKm,
+                });
+            }
+
+            return new CoreXRadioController.RadioConfigDto
+            {
+                IsOn = s.setRadio_isOn,
+                Port = s.setPort_portNameRadio ?? "",
+                Baud = s.setPort_baudRateRadio ?? "9600",
+                Channel = s.setPort_radioChannel ?? "",
+                PortOpen = spRadio != null && spRadio.IsOpen,
+                AvailablePorts = System.IO.Ports.SerialPort.GetPortNames()
+                    .Distinct().OrderBy(p => p).ToList(),
+                Channels = channels,
+            };
+        }
+
+        /// <summary>
+        /// Guarda la config de radio (y la lista de canales completa). Devuelve
+        /// null si está OK o el mensaje de error de validación. Radio encendida
+        /// apaga NTRIP y serial-pass (excluyentes, igual que el form).
+        /// </summary>
+        public string SaveRadioConfigFromWeb(CoreXRadioController.RadioConfigSaveRequest r)
+        {
+            if (r.IsOn && string.IsNullOrEmpty(r.Channel))
+                return "La radio está encendida pero no hay canal seleccionado.";
+
+            var s = Properties.Settings.Default;
+            s.setPort_portNameRadio = r.Port ?? "";
+            s.setPort_baudRateRadio = string.IsNullOrEmpty(r.Baud) ? "9600" : r.Baud;
+            s.setPort_radioChannel = r.Channel ?? "";
+            s.setRadio_isOn = r.IsOn;
+
+            if (r.IsOn)
+            {
+                s.setNTRIP_isOn = false;
+                s.setPass_isOn = false;
+            }
+
+            if (r.Channels != null)
+            {
+                s.setRadio_Channels = r.Channels.Select(c => new CRadioChannel
+                {
+                    Id = c.Id,
+                    Name = c.Name ?? "",
+                    Frequency = c.Frequency ?? "",
+                    Location = c.Location ?? "",
+                }).ToList();
+            }
+
+            s.Save();
+            ConfigureNTRIP();
+            AgLibrary.Logging.Log.EventWriter("Radio config guardada desde web (on="
+                + r.IsOn + ", canal=" + (r.Channel ?? "") + ")");
+            return null;
+        }
+
+        /// <summary>
+        /// Manda un comando de texto a la radio (p. ej. "SL&amp;F=439.000" para
+        /// sintonizar). Si el puerto no está abierto lo abre con la config
+        /// guardada solo durante el comando. Devuelve la respuesta de la radio
+        /// (puede ser vacía) o lanza con mensaje amigable.
+        /// </summary>
+        public string SendRadioCommandFromWeb(string comando)
+        {
+            bool abiertoTemporal = false;
+
+            if (spRadio == null || !spRadio.IsOpen)
+            {
+                var s = Properties.Settings.Default;
+                if (string.IsNullOrEmpty(s.setPort_portNameRadio))
+                    throw new InvalidOperationException("No hay puerto de radio configurado.");
+
+                spRadio = new System.IO.Ports.SerialPort(
+                    s.setPort_portNameRadio, int.Parse(s.setPort_baudRateRadio))
+                { NewLine = "\r\n" };
+                spRadio.Open();
+                abiertoTemporal = true;
+            }
+
+            try
+            {
+                spRadio.WriteLine(comando);
+                // La radio contesta enseguida; margen corto como el form viejo.
+                System.Threading.Thread.Sleep(150);
+
+                int n = spRadio.BytesToRead;
+                if (n == 0) return "";
+                byte[] buffer = new byte[n];
+                spRadio.Read(buffer, 0, n);
+                return System.Text.Encoding.UTF8.GetString(buffer, 0, n);
+            }
+            finally
+            {
+                if (abiertoTemporal && spRadio != null)
+                {
+                    try { spRadio.Close(); spRadio.Dispose(); } catch { /* puerto ya caído */ }
+                    spRadio = null;
+                }
+            }
+        }
+
+        // ── Puente de paso serial RTCM (port de FormSerialPass) ──────────────
+        // Comparte puerto/baud con la radio (mismos settings setPort_*Radio).
+        // Igual que btnSerialOK_Click del form: pass ON apaga NTRIP y radio,
+        // y SIEMPRE reinicia CoreX para aplicar.
+        public void SaveSerialPassFromWeb(bool isOn, string port, string baud,
+            bool toSerial, bool toUdp, int udpPort)
+        {
+            var s = Properties.Settings.Default;
+            s.setPass_isOn = isOn;
+
+            if (isOn)
+            {
+                s.setNTRIP_isOn = isNTRIP_RequiredOn = false;
+                s.setRadio_isOn = isRadio_RequiredOn = false;
+            }
+
+            s.setNTRIP_sendToUDPPort = udpPort;
+            s.setNTRIP_sendToSerial = isSendToSerial = toSerial;
+            s.setNTRIP_sendToUDP = isSendToUDP = toUdp;
+            s.setPort_portNameRadio = port ?? "";
+            s.setPort_baudRateRadio = string.IsNullOrEmpty(baud) ? "9600" : baud;
+            s.Save();
+
+            AgLibrary.Logging.Log.EventWriter("Program Reset: paso serial desde web (on="
+                + isOn + ")");
+            RestartFromWeb();
+        }
+
+        // ── Puente de IP de PilotX (port de FormEthernet) ────────────────────
+        // eth_loop* es la IP a donde CoreX manda los datos de GPS/módulos
+        // (puerto 15555, normalmente 127.0.0.1 con PilotX en la misma pantalla).
+        // El form reinicia siempre al guardar; acá igual.
+        public void SavePilotxIpFromWeb(byte o1, byte o2, byte o3, byte o4)
+        {
+            var s = Properties.Settings.Default;
+            s.eth_loopOne = o1;
+            s.eth_loopTwo = o2;
+            s.eth_loopThree = o3;
+            s.eth_loopFour = o4;
+            s.Save();
+
+            AgLibrary.Logging.Log.EventWriter("Program Reset: IP de PilotX desde web: "
+                + o1 + "." + o2 + "." + o3 + "." + o4);
+            RestartFromWeb();
+        }
+
+        // ── Modo demonio ──────────────────────────────────────────────────────
+        // CoreX no tiene ventana: FormLoop es solo el host invisible del
+        // message loop. Hide() no frena los timers (Application.Run sigue
+        // vivo), así que el broker, el UDP, los puertos y el snapshot @1Hz
+        // siguen andando ocultos. La única interfaz es la web en :5181.
         private bool legacyUiHidden;
 
         public void HideLegacyUi()
@@ -437,14 +752,18 @@ namespace AgIO
             Hide();
         }
 
-        // Escape de seguridad: si la ventana web se cierra (o WebView2
-        // falla), la UI vieja vuelve para no dejar al operario sin nada.
-        public void ShowLegacyUi()
+        /// <summary>
+        /// Cierra CoreX prolijo desde la web (timer 800 ms para que la
+        /// respuesta HTTP salga antes). FormClosing persiste settings y
+        /// apaga puertos/broker.
+        /// </summary>
+        public void ShutdownFromWeb()
         {
-            legacyUiHidden = false;
-            ShowInTaskbar = true;
-            Show();
-            WindowState = System.Windows.Forms.FormWindowState.Normal;
+            AgLibrary.Logging.Log.EventWriter("Apagado de CoreX pedido desde la web");
+            restartWebTimer?.Stop();
+            restartWebTimer = new System.Windows.Forms.Timer { Interval = 800 };
+            restartWebTimer.Tick += (s2, e2) => { restartWebTimer.Stop(); Close(); };
+            restartWebTimer.Start();
         }
     }
 }

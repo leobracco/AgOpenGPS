@@ -52,6 +52,11 @@
     <Content Include="Branding\logo-fondo-blanco.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Textura de suelo del mapa (WorldGrid): la carga FormGPS en runtime,
+         si falta cae al z_Floor embebido. 1024x1024 para mosaico OpenGL. -->
+    <Content Include="Branding\suelo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <!-- Iconos del menú superior cargados en runtime por FormGPS.Load:
          (a) "HUB" para toolStripAgroParallel, (b) cámara para toolStripCamaras.
          Se leen como archivo desde Application.StartupPath\btnImages\ para

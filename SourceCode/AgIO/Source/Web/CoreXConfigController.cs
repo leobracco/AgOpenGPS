@@ -15,7 +15,10 @@
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.IO.Ports;
+using System.Linq;
+using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using AgroParallel.WebHost.Controllers;
@@ -241,6 +244,7 @@ namespace AgIO
                     UdpIsOn = s.setUDP_isOn,
                     Subnet = new int[] { s.etIP_SubnetOne, s.etIP_SubnetTwo, s.etIP_SubnetThree },
                     IpActual = _form.GetLocalIpForWeb(),
+                    PilotxIp = new int[] { s.eth_loopOne, s.eth_loopTwo, s.eth_loopThree, s.eth_loopFour },
                 };
             }).ConfigureAwait(false);
 
@@ -309,6 +313,208 @@ namespace AgIO
             await WriteJsonAsync(new { Ok = true, Restart = false }).ConfigureAwait(false);
         }
 
+        // ── POST /api/corex/config/red/pilotx ─────────────────────────────────
+        // Body: { "o1":127, "o2":0, "o3":0, "o4":1 }. IP a donde CoreX manda
+        // los datos (puerto 15555; port de FormEthernet). Guarda y SIEMPRE
+        // reinicia CoreX.
+        [Route(HttpVerbs.Post, "/corex/config/red/pilotx")]
+        public async Task PostRedPilotx()
+        {
+            var req = await ReadJsonBodyAsync<PilotxIpRequest>().ConfigureAwait(false);
+            if (req == null)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Body requerido").ConfigureAwait(false);
+                return;
+            }
+
+            if (req.O1 < 0 || req.O1 > 255 || req.O2 < 0 || req.O2 > 255
+                || req.O3 < 0 || req.O3 > 255 || req.O4 < 0 || req.O4 > 255)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Octetos fuera de rango 0-255")
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            // SavePilotxIpFromWeb llama RestartFromWeb() internamente.
+            await _form.RunOnUiAsync<object>(() =>
+            {
+                _form.SavePilotxIpFromWeb((byte)req.O1, (byte)req.O2, (byte)req.O3, (byte)req.O4);
+                return null;
+            }).ConfigureAwait(false);
+
+            await WriteJsonAsync(new { Ok = true, Restart = true }).ConfigureAwait(false);
+        }
+
+        // ── GET /api/corex/config/avanzado ────────────────────────────────────
+        // Port de FormAdvancedSettings: arranque minimizado y auto-inicio de
+        // la salida GPS.
+        [Route(HttpVerbs.Get, "/corex/config/avanzado")]
+        public async Task GetAvanzado()
+        {
+            var data = await _form.RunOnUiAsync(() =>
+            {
+                var s = Properties.Settings.Default;
+                return new
+                {
+                    AutoGpsOut = s.setDisplay_isAutoRunGPS_Out,
+                    StartMinimized = s.setDisplay_StartMinimized,
+                };
+            }).ConfigureAwait(false);
+
+            await WriteJsonAsync(data).ConfigureAwait(false);
+        }
+
+        // ── POST /api/corex/config/avanzado ───────────────────────────────────
+        // Aplica en caliente, sin reinicio (igual que el form).
+        [Route(HttpVerbs.Post, "/corex/config/avanzado")]
+        public async Task PostAvanzado()
+        {
+            var req = await ReadJsonBodyAsync<AvanzadoRequest>().ConfigureAwait(false);
+            if (req == null)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Body requerido").ConfigureAwait(false);
+                return;
+            }
+
+            await _form.RunOnUiAsync<object>(() =>
+            {
+                var s = Properties.Settings.Default;
+                s.setDisplay_isAutoRunGPS_Out = req.AutoGpsOut;
+                s.setDisplay_StartMinimized = req.StartMinimized;
+                s.Save();
+                return null;
+            }).ConfigureAwait(false);
+
+            await WriteJsonAsync(new { Ok = true }).ConfigureAwait(false);
+        }
+
+        // ── GET /api/corex/ntrip/mounts?ip=..&port=.. ─────────────────────────
+        // Port de FormNtrip.btnGetSourceTable + FormSource: baja la sourcetable
+        // del caster (GET / HTTP/1.0 por TCP), filtra las líneas STR y devuelve
+        // los mountpoints con distancia a la posición actual, ordenados del más
+        // cercano al más lejano. Corre en el pool thread (no toca la UI): la
+        // posición sale del snapshot y la red tiene timeout propio.
+        // Acepta IP o hostname (el form viejo solo IP).
+        [Route(HttpVerbs.Get, "/corex/ntrip/mounts")]
+        public async Task GetNtripMounts()
+        {
+            string ipStr = HttpContext.Request.QueryString["ip"];
+            string portStr = HttpContext.Request.QueryString["port"];
+
+            if (string.IsNullOrWhiteSpace(ipStr) || !int.TryParse(portStr, out int port)
+                || port < 1 || port > 65535)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST",
+                    "Falta la IP/URL o el puerto del caster.").ConfigureAwait(false);
+                return;
+            }
+
+            // Resolver hostname → IPv4 si no es una IP literal.
+            System.Net.IPAddress casterIp;
+            if (!System.Net.IPAddress.TryParse(ipStr.Trim(), out casterIp))
+            {
+                try
+                {
+                    var addrs = await System.Net.Dns.GetHostAddressesAsync(ipStr.Trim())
+                        .ConfigureAwait(false);
+                    casterIp = addrs.FirstOrDefault(a =>
+                        a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                }
+                catch { casterIp = null; }
+
+                if (casterIp == null)
+                {
+                    await WriteErrorAsync(400, "DNS",
+                        "No se pudo resolver la dirección del caster.").ConfigureAwait(false);
+                    return;
+                }
+            }
+
+            string page;
+            try
+            {
+                page = await FetchSourceTableAsync(casterIp, port).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await WriteErrorAsync(502, "CASTER",
+                    "No se pudo conectar al caster (revisá IP y puerto).", ex.Message)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            // Posición actual para la distancia (0,0 = sin fix → sin distancia).
+            var gps = CoreXState.Instance.Snapshot().Gps;
+            double lat = gps?.Latitude ?? 0, lon = gps?.Longitude ?? 0;
+            bool hayFix = lat != 0 || lon != 0;
+
+            var mounts = new List<MountDto>();
+            foreach (var line in page.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var f = line.Split(';');
+                if (f.Length < 11 || f[0] != "STR") continue;
+
+                double.TryParse(f[9].Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double mLat);
+                double.TryParse(f[10].Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double mLon);
+
+                double dist = -1;
+                if (hayFix && (mLat != 0 || mLon != 0))
+                    dist = glm.DistanceLonLat(mLon, mLat, lon, lat);
+
+                mounts.Add(new MountDto
+                {
+                    Mount = f[1].Trim(),
+                    Identifier = f[2].Trim(),
+                    Format = f[3].Trim(),
+                    NavSystem = f[6].Trim(),
+                    Country = f[8].Trim(),
+                    Lat = mLat,
+                    Lon = mLon,
+                    DistanceKm = dist,
+                });
+            }
+
+            // Más cercano primero; sin distancia al final, por nombre.
+            mounts = mounts
+                .OrderBy(m => m.DistanceKm < 0 ? double.MaxValue : m.DistanceKm)
+                .ThenBy(m => m.Mount, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            await WriteJsonAsync(new { Ok = true, Count = mounts.Count, Mounts = mounts })
+                .ConfigureAwait(false);
+        }
+
+        // Baja la sourcetable cruda con timeouts (6 s conexión, 10 s total,
+        // tope 2 MB). Mismo request que el form viejo.
+        private static async Task<string> FetchSourceTableAsync(System.Net.IPAddress ip, int port)
+        {
+            using (var client = new System.Net.Sockets.TcpClient())
+            using (var cts = new System.Threading.CancellationTokenSource(10000))
+            {
+                var connect = client.ConnectAsync(ip, port);
+                if (await Task.WhenAny(connect, Task.Delay(6000)).ConfigureAwait(false) != connect)
+                    throw new TimeoutException("Timeout de conexión al caster.");
+                await connect.ConfigureAwait(false); // rethrow si falló
+
+                var stream = client.GetStream();
+                byte[] req = Encoding.ASCII.GetBytes(
+                    "GET / HTTP/1.0\r\nUser-Agent: NTRIP CoreX\r\nAccept: */*\r\nConnection: close\r\n\r\n");
+                await stream.WriteAsync(req, 0, req.Length, cts.Token).ConfigureAwait(false);
+
+                var sb = new StringBuilder();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = await stream.ReadAsync(buf, 0, buf.Length, cts.Token).ConfigureAwait(false)) > 0)
+                {
+                    sb.Append(Encoding.ASCII.GetString(buf, 0, n));
+                    if (sb.Length > 2 * 1024 * 1024) break;
+                }
+                return sb.ToString();
+            }
+        }
+
         // ── GET /api/corex/config/modulos ─────────────────────────────────────
         // Devuelve el estado configurado (on/off) de cada módulo.
         [Route(HttpVerbs.Get, "/corex/config/modulos")]
@@ -360,6 +566,21 @@ namespace AgIO
                 if (val < 0 || val > 255) return false;
             }
             return true;
+        }
+
+        // ── DTO de mountpoint de la sourcetable ───────────────────────────────
+        // Solo salida (AgpJson serializa a snake_case: DistanceKm→distance_km).
+        public sealed class MountDto
+        {
+            public string Mount { get; set; } = "";
+            public string Identifier { get; set; } = "";
+            public string Format { get; set; } = "";
+            public string NavSystem { get; set; } = "";
+            public string Country { get; set; } = "";
+            public double Lat { get; set; }
+            public double Lon { get; set; }
+            // -1 = el caster no publica ubicación o no hay fix GPS.
+            public double DistanceKm { get; set; } = -1;
         }
 
         // ── DTO de configuración NTRIP ────────────────────────────────────────
@@ -422,6 +643,22 @@ namespace AgIO
         [JsonPropertyName("o1")] public int O1 { get; set; }
         [JsonPropertyName("o2")] public int O2 { get; set; }
         [JsonPropertyName("o3")] public int O3 { get; set; }
+    }
+
+    // ── DTO de IP de PilotX (eth_loop) ───────────────────────────────────────
+    internal sealed class PilotxIpRequest
+    {
+        [JsonPropertyName("o1")] public int O1 { get; set; }
+        [JsonPropertyName("o2")] public int O2 { get; set; }
+        [JsonPropertyName("o3")] public int O3 { get; set; }
+        [JsonPropertyName("o4")] public int O4 { get; set; }
+    }
+
+    // ── DTO de ajustes avanzados ─────────────────────────────────────────────
+    internal sealed class AvanzadoRequest
+    {
+        [JsonPropertyName("auto_gps_out")] public bool AutoGpsOut { get; set; }
+        [JsonPropertyName("start_minimized")] public bool StartMinimized { get; set; }
     }
 
     // ── DTO de módulos ────────────────────────────────────────────────────────

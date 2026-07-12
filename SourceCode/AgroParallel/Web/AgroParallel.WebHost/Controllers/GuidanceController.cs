@@ -41,5 +41,34 @@ namespace AgroParallel.WebHost.Controllers
             var snap = _guidance != null ? _guidance.GetGeometry() : null;
             return WriteJsonAsync(new { ok = true, snapshot = snap });
         }
+
+        // Comando de guiado desde la barra rápida web (pages/guia-rapida.html):
+        //   POST /api/aog/guidance/command  { "cmd": "center|nudge_left|nudge_right|contour|build|pick" }
+        // Dispara el Click del botón nativo correspondiente en el hilo UI de PilotX.
+        [Route(HttpVerbs.Post, "/aog/guidance/command")]
+        public async Task PostGuidanceCommand()
+        {
+            if (_guidance == null)
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+                return;
+            }
+            CommandBody body;
+            try { body = await ReadJsonBodyAsync<CommandBody>(); }
+            catch { await WriteJsonAsync(new { ok = false, error = "bad-json" }); return; }
+            if (body == null || string.IsNullOrWhiteSpace(body.Cmd))
+            {
+                await WriteJsonAsync(new { ok = false, error = "empty-cmd" });
+                return;
+            }
+            bool ok = _guidance.ExecuteCommand(body.Cmd);
+            await WriteJsonAsync(new { ok, cmd = body.Cmd });
+        }
+
+        private sealed class CommandBody
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("cmd")]
+            public string Cmd { get; set; }
+        }
     }
 }

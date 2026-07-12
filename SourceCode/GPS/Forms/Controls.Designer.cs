@@ -546,7 +546,14 @@ namespace AgOpenGPS
                 f.Close();
             }
 
-            if (this.OwnedForms.Any())
+            // PilotX: el Hub WebView y los widgets web (barra rápida de guías,
+            // cámaras, etc.) son OwnedForms PERMANENTES — con el guard original
+            // el menú de lote quedaba bloqueado siempre ("cerrá las ventanas").
+            // Solo bloquean las ventanas nativas de AOG que hayan quedado abiertas.
+            var blockingForms = this.OwnedForms
+                .Where(of => !(of is global::AgroParallel.Shell.FormAgroParallelHubWebView2))
+                .ToArray();
+            if (blockingForms.Length > 0)
             {
                 TimedMessageBox(2000, gStr.gsWindowsStillOpen, gStr.gsCloseAllWindowsFirst);
                 return;
@@ -1038,9 +1045,13 @@ namespace AgOpenGPS
         }
         private void btnStartAgIO_Click(object sender, EventArgs e)
         {
-            Log.EventWriter("AgIO Manually Started");
+            Log.EventWriter("CoreX abierto desde el menú");
 
+            // CoreX corre headless (sin ventana): su panel es el dashboard web
+            // en 127.0.0.1:5181, que abrimos dentro del shell del Hub (overlay
+            // sobre el mapa; la página trae sus botones Hub/Cerrar).
             Process[] processName = Process.GetProcessesByName("CoreX");
+            bool justStarted = false;
             if (processName.Length == 0)
             {
                 //Start application here
@@ -1048,26 +1059,36 @@ namespace AgOpenGPS
 
                 try
                 {
-                    //TimedMessageBox(2000, "Please Wait", "Starting AgIO");
                     ProcessStartInfo processInfo = new ProcessStartInfo();
                     processInfo.FileName = strPath;
-                    //processInfo.ErrorDialog = true;
-                    //processInfo.UseShellExecute = false;
                     processInfo.WorkingDirectory = Path.GetDirectoryName(strPath);
                     Process proc = Process.Start(processInfo);
+                    justStarted = true;
                 }
                 catch
                 {
-                    TimedMessageBox(2000, "No File Found", "Can't Find AgIO");
-                    Log.EventWriter("AgIO Not Found");
-
+                    TimedMessageBox(2000, "No se encontró", "No se encuentra CoreX.exe");
+                    Log.EventWriter("CoreX.exe no encontrado");
+                    return;
                 }
+            }
+
+            const string coreXUrl = "http://127.0.0.1:5181/";
+            if (justStarted)
+            {
+                // Recién lanzado: darle ~2 s a EmbedIO para levantar el server
+                // antes de navegar, si no el WebView muestra error de conexión.
+                var t = new System.Windows.Forms.Timer { Interval = 2000 };
+                t.Tick += (s2, e2) =>
+                {
+                    t.Stop(); t.Dispose();
+                    OpenAgroParallelHub(coreXUrl);
+                };
+                t.Start();
             }
             else
             {
-                //Set foreground window
-                ShowWindow(processName[0].MainWindowHandle, 9);
-                SetForegroundWindow(processName[0].MainWindowHandle);
+                OpenAgroParallelHub(coreXUrl);
             }
         }
         private void btnAutoSteerConfig_Click(object sender, EventArgs e)

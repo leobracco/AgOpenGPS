@@ -65,6 +65,12 @@ namespace AgOpenGPS.Core
 
         public void DrawFieldSurface(ColorRgba fieldColor, double cameraZoom, bool mustDrawFieldTexture)
         {
+            // Compat: tinte blanco (textura con colores reales)
+            DrawFieldSurface(fieldColor, new ColorRgba((byte)255, (byte)255, (byte)255), cameraZoom, mustDrawFieldTexture);
+        }
+
+        public void DrawFieldSurface(ColorRgba fieldColor, ColorRgba textureTint, double cameraZoom, bool mustDrawFieldTexture)
+        {
             //adjust bitmap zoom based on cam zoom
             if (cameraZoom > 100) Count = 4;
             else if (cameraZoom > 80) Count = 8;
@@ -87,6 +93,10 @@ namespace AgOpenGPS.Core
 
             if (mustDrawFieldTexture)
             {
+                // El color GL vigente MODULA la textura: si quedaba fieldColor
+                // (gris) la imagen del suelo salía teñida de gris. Tinte
+                // explícito: blanco de día (colores reales), atenuado de noche.
+                GLW.SetColor(textureTint);
                 GeoCoord u0v0 = new GeoCoord(eastingMin, northingMax);
                 GeoCoord uCountvCount = new GeoCoord(eastingMax, northingMin);
                 FloorTexture.DrawRepeatedZ(u0v0, uCountvCount, -0.10, Count);

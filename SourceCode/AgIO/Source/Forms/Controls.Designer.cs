@@ -12,16 +12,17 @@ namespace AgIO
 {
     public partial class FormLoop
     {
+        // Modo demonio: CoreX no tiene ventana, así que los avisos van al log
+        // de eventos (visible en la página Eventos de la web) en vez de abrir
+        // toasts/diálogos huérfanos que bloquearían el hilo UI.
         public void TimedMessageBox(int timeout, string title, string message)
         {
-            var form = new FormTimedMessage(timeout, title, message);
-            form.Show();
+            Log.EventWriter("[Aviso] " + title + ": " + message);
         }
 
         public void YesMessageBox(string s1)
         {
-            var form = new FormYes(s1);
-            form.ShowDialog(this);
+            Log.EventWriter("[Aviso] " + s1.Replace("\r\n", " ").Trim());
         }
 
         #region Buttons

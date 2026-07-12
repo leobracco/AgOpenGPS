@@ -154,5 +154,13 @@ namespace AgroParallel.Adapters
 
             return geom;
         }
+
+        public bool ExecuteCommand(string command)
+        {
+            // Delegado a FormGPS, que resuelve el botón nativo y clickea en el
+            // hilo de UI (ver ExecuteGuidanceCommand en GUI.FloatingMenu.cs).
+            try { return _form != null && _form.ExecuteGuidanceCommand(command); }
+            catch { return false; }
+        }
     }
 }

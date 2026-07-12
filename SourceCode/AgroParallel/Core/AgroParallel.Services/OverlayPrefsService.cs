@@ -52,6 +52,11 @@ namespace AgroParallel.Services
 
         [JsonPropertyName("fx_x")] public int FxX { get; set; } = -1;
         [JsonPropertyName("fx_y")] public int FxY { get; set; } = -1;
+
+        // Tira de estado de módulos (CoreX/Motor/GPS/IMU/Machine), overlay
+        // siempre visible arriba del mapa. Default top-left(8,8) si -1.
+        [JsonPropertyName("em_x")] public int EmX { get; set; } = -1;
+        [JsonPropertyName("em_y")] public int EmY { get; set; } = -1;
     }
 
     public sealed class OverlayPrefsService

@@ -126,7 +126,12 @@ namespace AgOpenGPS
 
                     #region World and Grid
 
-                    worldGrid.DrawFieldSurface(fieldColor, camera.ZoomValue, isTextureOn);
+                    // Tinte de la textura de suelo: blanco de día (imagen con
+                    // colores reales), atenuado de noche para no encandilar.
+                    worldGrid.DrawFieldSurface(fieldColor,
+                        isDay ? new ColorRgba((byte)255, (byte)255, (byte)255)
+                              : new ColorRgba((byte)110, (byte)110, (byte)110),
+                        camera.ZoomValue, isTextureOn);
 
                     if (isGridOn) worldGrid.DrawFieldGrid(isDay, FieldBoundingBox);
 
@@ -1681,6 +1686,9 @@ namespace AgOpenGPS
             VehicleTextures.Harvester.SetBitmap(HarvesterBitmaps.GetBitmap(Settings.Default.setBrand_HBrand));
             VehicleTextures.ArticulatedFront.SetBitmap(ArticulatedBitmaps.GetFrontBitmap(Settings.Default.setBrand_WDBrand));
             VehicleTextures.ArticulatedRear.SetBitmap(ArticulatedBitmaps.GetRearBitmap(Settings.Default.setBrand_WDBrand));
+            // Sprite custom Agro Parallel (Mis vehículos): si hay uno elegido,
+            // pisa las texturas recién seteadas (SIEMPRE al final del bloque).
+            AplicarVehiculoCustom();
         }
 
         private void DrawManUTurnBtn()

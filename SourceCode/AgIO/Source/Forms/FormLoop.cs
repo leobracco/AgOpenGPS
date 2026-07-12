@@ -77,6 +77,14 @@ namespace AgIO
         public FormLoop()
         {
             InitializeComponent();
+
+            // Modo demonio: CoreX corre sin ventana. Este form queda como host
+            // invisible del message loop (los puertos serie, UDP, MQTT y los
+            // timers dependen de él); toda la operación es vía web (:5181).
+            // Opacity 0 evita cualquier flash antes del Hide() de Shown.
+            ShowInTaskbar = false;
+            Opacity = 0;
+            Shown += (s, e) => HideLegacyUi();
         }
 
         //First run
@@ -274,22 +282,11 @@ namespace AgIO
 
             if (RegistrySettings.profileName == "")
             {
-                Log.EventWriter("Using Default Profile At Start Warning");
-
-                YesMessageBox("CoreX - No Profile Open \r\n\r\n Create or Open a Profile");
-
-                using (var form = new FormProfiles(this))
-                {
-                    form.ShowDialog(this);
-                    if (form.DialogResult == DialogResult.Yes)
-                    {
-                        Log.EventWriter("Program Reset: Saving or Selecting Profile");
-
-                        Program.Restart();
-                    }
-                }
-                this.Text = "CoreX  v" + Program.Version + " Profile: "
-                    + RegistrySettings.profileName;
+                // Modo demonio: sin diálogo de perfiles al arrancar. CoreX
+                // sigue con valores por defecto y el operario crea/carga un
+                // perfil desde la página Perfil de la web.
+                Log.EventWriter("Sin perfil al arrancar: usando valores por "
+                    + "defecto. Crear o cargar un perfil desde la web (:5181).");
             }
 
             if (Settings.Default.setDisplay_isAutoRunGPS_Out)
@@ -301,15 +298,11 @@ namespace AgIO
             // MQTT Broker — arranca automáticamente.
             StartMqttBroker();
 
-            // Dashboard web CoreX.
+            // Dashboard web CoreX: única interfaz. La ventana se oculta en el
+            // handler de Shown (ver constructor); se accede desde el Hub de
+            // PilotX o cualquier navegador de la máquina.
             corexWebHost = new CoreXWebHost(this);
             corexWebHost.Start();
-
-            // Ventana web: cuando carga OK oculta esta UI vieja (host
-            // invisible); si se cierra o falla WebView2, la re-muestra.
-            // Sin owner a propósito: ocultar al owner ocultaría también
-            // a la owned form (comportamiento WinForms).
-            new FormWebShell(this).Show();
         }
 
         private void FormLoop_FormClosing(object sender, FormClosingEventArgs e)

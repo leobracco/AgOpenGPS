@@ -30,10 +30,16 @@
         <h1>Hub</h1>
         <div class="subtitle">Estado en tiempo real del sistema</div>
       </div>
-      <div style="display:flex; gap:var(--agp-sp-3); flex-wrap:wrap" id="hubPills">
+      <div style="display:flex; gap:var(--agp-sp-3); flex-wrap:wrap; align-items:center" id="hubPills">
         <span class="pill idle" id="pillJob"><span class="dot"></span> Sin trabajo</span>
         <span class="pill idle" id="pillBroker"><span class="dot"></span> Broker MQTT</span>
         <span class="pill idle" id="pillNodos"><span class="dot"></span> 0 nodos</span>
+        <span style="width:1px; align-self:stretch; background:var(--agp-border)" aria-hidden="true"></span>
+        <span class="pill idle" id="pillCorex"><span class="dot"></span> CoreX</span>
+        <span class="pill idle" id="pillMotor"><span class="dot"></span> Motor</span>
+        <span class="pill idle" id="pillGps"><span class="dot"></span> GPS</span>
+        <span class="pill idle" id="pillImu"><span class="dot"></span> IMU</span>
+        <span class="pill idle" id="pillMachine"><span class="dot"></span> Machine</span>
       </div>
     </div>
 
@@ -85,6 +91,7 @@
       <a class="btn primary" href="quantix.html">Abrir QuantiX</a>
       <a class="btn" href="vistax.html">Abrir VistaX</a>
       <a class="btn" href="nodos.html">Ver nodos</a>
+      <a class="btn" href="calibracion-imu.html">Calibrar IMU</a>
     </div>
   </main>
 

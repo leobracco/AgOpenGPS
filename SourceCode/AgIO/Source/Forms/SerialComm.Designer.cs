@@ -115,7 +115,7 @@ namespace AgIO
             {
                 Log.EventWriter("No Arduino Port, IMU Port Exc: " + ex.ToString());
 
-                MessageBox.Show(ex.Message + "\n\r" + "\n\r" + "Go to Settings -> COM Ports to Fix", "No Arduino Port Active");
+                Log.EventWriter("[Aviso] Puerto serie no disponible: " + ex.Message);
 
 
                 Properties.Settings.Default.setPort_wasIMUConnected = false;
@@ -157,7 +157,7 @@ namespace AgIO
                 catch (Exception e)
                 {
                     Log.EventWriter("Closing Machine Serial Port" + e.ToString());
-                    MessageBox.Show(e.Message, "Connection already terminated??");
+                    Log.EventWriter("[Aviso] Cierre de puerto serie: " + e.Message);
                 }
 
                 Properties.Settings.Default.setPort_wasIMUConnected = false;
@@ -341,7 +341,7 @@ namespace AgIO
             {
                 Log.EventWriter("Opening Machine Port" + e.ToString());
 
-                MessageBox.Show(e.Message + "\n\r" + "\n\r" + "Go to Settings -> COM Ports to Fix", "No Arduino Port Active");
+                Log.EventWriter("[Aviso] Puerto serie no disponible: " + e.Message);
 
 
                 Properties.Settings.Default.setPort_wasSteerModuleConnected = false;
@@ -372,7 +372,7 @@ namespace AgIO
                 catch (Exception e)
                 {
                     Log.EventWriter("Closing Machine Serial Port" + e.ToString());
-                    MessageBox.Show(e.Message, "Connection already terminated??");
+                    Log.EventWriter("[Aviso] Cierre de puerto serie: " + e.Message);
                 }
 
                 Properties.Settings.Default.setPort_wasSteerModuleConnected = false;
@@ -553,7 +553,7 @@ namespace AgIO
             {
                 Log.EventWriter("Opening Machine Port: " + e.ToString());
 
-                MessageBox.Show(e.Message + "\n\r" + "\n\r" + "Go to Settings -> COM Ports to Fix", "No Arduino Port Active");
+                Log.EventWriter("[Aviso] Puerto serie no disponible: " + e.Message);
 
 
                 Properties.Settings.Default.setPort_wasMachineModuleConnected = false;
@@ -584,7 +584,7 @@ namespace AgIO
                 catch (Exception e)
                 {
                     Log.EventWriter("Closing Machine Serial Port: " + e.ToString());
-                    MessageBox.Show(e.Message, "Connection already terminated??");
+                    Log.EventWriter("[Aviso] Cierre de puerto serie: " + e.Message);
                 }
 
                 Properties.Settings.Default.setPort_wasMachineModuleConnected = false;
@@ -776,7 +776,7 @@ namespace AgIO
             catch (Exception e)
             {
                 Log.EventWriter("Closing GPS Port" + e.ToString());
-                MessageBox.Show(e.Message, "Connection already terminated?");
+                Log.EventWriter("[Aviso] Cierre de puerto serie: " + e.Message);
             }
 
             spGPS.Dispose();
@@ -869,7 +869,7 @@ namespace AgIO
             catch (Exception e)
             {
                 Log.EventWriter("Closing GPS2 Port" + e.ToString());
-                MessageBox.Show(e.Message, "Connection already terminated?");
+                Log.EventWriter("[Aviso] Cierre de puerto serie: " + e.Message);
             }
 
             spGPS2.Dispose();
@@ -933,7 +933,7 @@ namespace AgIO
             catch (Exception e)
             {
                 Log.EventWriter("Closing RTCM Port" + e.ToString());
-                MessageBox.Show(e.Message, "Connection already terminated?");
+                Log.EventWriter("[Aviso] Cierre de puerto serie: " + e.Message);
             }
 
             wasRtcmConnectedLastRun = false;

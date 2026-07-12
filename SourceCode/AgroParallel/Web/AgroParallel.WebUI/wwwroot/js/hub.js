@@ -1,6 +1,6 @@
 // ============================================================================
 // hub.js — vista resumen del estado del piloto en tiempo real.
-// Pollea /api/aog/state (1Hz) y /api/nodos (3s).
+// Pollea /api/aog/state (1Hz), /api/nodos (3s) y /api/corex-bridge/status (2s).
 // ============================================================================
 
 (function () {
@@ -118,6 +118,42 @@
     }
   }
 
+  // Tira de módulos (CoreX + GPS/IMU/Machine/Steer). Refleja exactamente la
+  // misma lógica ok/bad/idle que usa el propio dashboard de CoreX
+  // (wwwroot-corex/js/corex.js, setDot): GPS no tiene estado "no conectado"
+  // (siempre se espera), Motor/IMU/Machine sí (son módulos opcionales según
+  // qué nodos tenga enchufados el tractor).
+  async function refreshModulos() {
+    try {
+      var res = await fetch('/api/corex-bridge/status', { cache: 'no-store' });
+      var d = await res.json();
+      if (!d || !d.ok) {
+        setPill($('pillCorex'), 'bad', 'CoreX offline');
+        setPill($('pillMotor'), 'idle', 'Motor');
+        setPill($('pillGps'), 'idle', 'GPS');
+        setPill($('pillImu'), 'idle', 'IMU');
+        setPill($('pillMachine'), 'idle', 'Machine');
+        return;
+      }
+      setPill($('pillCorex'), 'ok', 'CoreX');
+      setPill($('pillGps'), d.gps_alive ? 'ok' : 'bad', 'GPS');
+      setModulePill($('pillMotor'), 'Motor', d.steer_configured, d.steer_hello);
+      setModulePill($('pillImu'), 'IMU', d.imu_configured, d.imu_hello);
+      setModulePill($('pillMachine'), 'Machine', d.machine_configured, d.machine_hello);
+    } catch (e) {
+      setPill($('pillCorex'), 'bad', 'CoreX offline');
+      setPill($('pillMotor'), 'idle', 'Motor');
+      setPill($('pillGps'), 'idle', 'GPS');
+      setPill($('pillImu'), 'idle', 'IMU');
+      setPill($('pillMachine'), 'idle', 'Machine');
+    }
+  }
+
+  function setModulePill(el, label, configured, hello) {
+    if (!configured) { setPill(el, 'idle', label + ' no conectado'); return; }
+    setPill(el, hello ? 'ok' : 'bad', hello ? label : label + ' sin responder');
+  }
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -126,6 +162,8 @@
 
   refreshState();
   refreshNodos();
+  refreshModulos();
   setInterval(refreshState, 1000);
   setInterval(refreshNodos, 3000);
+  setInterval(refreshModulos, 2000);
 })();

@@ -60,9 +60,37 @@ namespace AgroParallel.Adapters
             // numOfSections en PilotX depende de setTool_isSectionsNotZones:
             // si secciones, viene de setVehicle_numSections; si zonas, de
             // setTool_numSectionsMulti. Para la UI HTML mostramos el efectivo.
-            int numSec = s.setTool_isSectionsNotZones
+            bool sectionsMode = s.setTool_isSectionsNotZones;
+            int numSec = sectionsMode
                 ? s.setVehicle_numSections
                 : s.setTool_numSectionsMulti;
+
+            // Modo secciones: anchos individuales desde las posiciones
+            // (widths[i] = |pos[i+1] - pos[i]|, mismo cálculo que ConfigTool).
+            double[] widths = null;
+            if (sectionsMode)
+            {
+                decimal[] pos = ReadSectionPositions(s);
+                int n = Math.Max(1, Math.Min(16, numSec));
+                widths = new double[n];
+                for (int i = 0; i < n; i++)
+                    widths[i] = Math.Abs((double)(pos[i + 1] - pos[i]));
+            }
+
+            // Modo zonas: setTool_zones = "cantZonas,hasta1,...,hasta8".
+            int zones = 0; int[] zoneRanges = null;
+            try
+            {
+                string[] words = (s.setTool_zones ?? "").Split(',');
+                if (words.Length > 0) int.TryParse(words[0], out zones);
+                if (zones > 0)
+                {
+                    zoneRanges = new int[zones];
+                    for (int i = 1; i <= zones && i < words.Length; i++)
+                        int.TryParse(words[i], out zoneRanges[i - 1]);
+                }
+            }
+            catch { /* string corrupta: la UI cae a defaults */ }
 
             return new ToolConfigDto
             {
@@ -70,6 +98,11 @@ namespace AgroParallel.Adapters
                 Overlap                   = s.setVehicle_toolOverlap,
                 Offset                    = s.setVehicle_toolOffset,
                 NumSections               = numSec,
+                IsSectionsNotZones        = sectionsMode,
+                SectionWidths             = widths,
+                SectionWidthMulti         = s.setTool_sectionWidthMulti,
+                Zones                     = zones,
+                ZoneRanges                = zoneRanges,
                 HitchLength               = s.setVehicle_hitchLength,
                 TrailingHitchLength       = s.setTool_toolTrailingHitchLength,
                 TrailingToolToPivotLength = s.setTool_trailingToolToPivotLength,
@@ -110,9 +143,22 @@ namespace AgroParallel.Adapters
                 s.Save();
 
                 // Reload CVehicle en hilo UI — el ctor recompone gains, lookahead, etc.
+                // OJO: Opacity/Color/IsImage NO viven en el ctor — los asigna
+                // LoadSettings DESPUÉS de construir. Sin re-aplicarlos acá el
+                // vehículo quedaba dibujado como triángulo transparente
+                // ("no muestra ningún tractor") hasta reiniciar PilotX.
                 InvokeOnUi(() =>
                 {
-                    try { _form.vehicle = new CVehicle(_form); } catch { }
+                    try
+                    {
+                        _form.vehicle = new CVehicle(_form);
+                        var s2 = Settings.Default;
+                        _form.vehicle.VehicleConfig.Opacity = s2.setDisplay_vehicleOpacity * 0.01;
+                        _form.vehicle.VehicleConfig.Color =
+                            (AgOpenGPS.Core.Models.ColorRgba)s2.setDisplay_colorVehicle.CheckColorFor255();
+                        _form.vehicle.VehicleConfig.IsImage = s2.setDisplay_isVehicleImage;
+                    }
+                    catch { }
                 });
                 return true;
             }
@@ -125,13 +171,71 @@ namespace AgroParallel.Adapters
             try
             {
                 var s = Settings.Default;
-                s.setVehicle_toolWidth          = ClampD(cfg.Width, 0.1, 100.0);
                 s.setVehicle_toolOverlap        = ClampD(cfg.Overlap, -2.0, 2.0);
                 s.setVehicle_toolOffset         = ClampD(cfg.Offset, -10.0, 10.0);
 
-                int n = ClampInt(cfg.NumSections, 1, 16);
-                if (s.setTool_isSectionsNotZones) s.setVehicle_numSections = n;
-                else s.setTool_numSectionsMulti = n;
+                // ---- secciones vs zonas (réplica de tabTSections_Leave) ----
+                s.setTool_isSectionsNotZones = cfg.IsSectionsNotZones;
+                if (cfg.IsSectionsNotZones)
+                {
+                    // Modo secciones: ≤16, cada una con su ancho. El ancho total
+                    // es la suma; las posiciones quedan simétricas respecto de 0
+                    // (mismo cálculo que CalculateSectionPositions).
+                    int n = ClampInt(cfg.NumSections, 1, 16);
+                    s.setVehicle_numSections = n;
+
+                    double defW = n > 0 && cfg.Width > 0 ? cfg.Width / n : 0.5;
+                    decimal[] w = new decimal[16];
+                    for (int i = 0; i < 16; i++)
+                    {
+                        double wi = (cfg.SectionWidths != null && i < cfg.SectionWidths.Length && cfg.SectionWidths[i] > 0)
+                            ? cfg.SectionWidths[i] : defW;
+                        w[i] = (decimal)ClampD(wi, 0.01, 10.0);
+                    }
+
+                    decimal total = 0;
+                    for (int j = 0; j < n; j++) total += w[j];
+
+                    decimal[] pos = new decimal[17];
+                    pos[0] = total * -0.5m;
+                    for (int j = 1; j < 17; j++)
+                        pos[j] = j <= n ? pos[j - 1] + w[j - 1] : 0m;
+                    WriteSectionPositions(s, pos);
+
+                    s.setVehicle_toolWidth = (double)total;
+                    // WinForms fuerza secciones monocolor en este modo
+                    s.setColor_isMultiColorSections = false;
+                }
+                else
+                {
+                    // Modo zonas: ≤64 secciones iguales; total = n × anchoSección.
+                    int n = ClampInt(cfg.NumSections, 1, 64);
+                    s.setTool_numSectionsMulti = n;
+
+                    double sw = cfg.SectionWidthMulti > 0
+                        ? cfg.SectionWidthMulti
+                        : (cfg.Width > 0 ? cfg.Width / n : 0.5);
+                    sw = ClampD(sw, 0.01, 10.0);
+                    s.setTool_sectionWidthMulti = sw;
+                    s.setVehicle_toolWidth = n * sw;
+
+                    // setTool_zones = "cantZonas,hasta1..hasta8" (9 valores SIEMPRE).
+                    int z = ClampInt(cfg.Zones, 1, 8);
+                    if (z > n) z = n;                   // no más zonas que secciones
+                    int[] zr = new int[9];
+                    zr[0] = z;
+                    int prev = 0;
+                    for (int i = 1; i <= z; i++)
+                    {
+                        int r = (cfg.ZoneRanges != null && i - 1 < cfg.ZoneRanges.Length)
+                            ? cfg.ZoneRanges[i - 1] : n;
+                        r = ClampInt(r, prev + 1, n);   // ascendente estricto
+                        zr[i] = r;
+                        prev = r;
+                    }
+                    zr[z] = n;                          // la última zona cierra en n
+                    s.setTool_zones = string.Join(",", zr);
+                }
 
                 s.setVehicle_hitchLength            = ClampD(cfg.HitchLength, -10.0, 10.0);
                 s.setTool_toolTrailingHitchLength   = ClampD(cfg.TrailingHitchLength, -20.0, 5.0);
@@ -155,14 +259,23 @@ namespace AgroParallel.Adapters
 
                 // Reload CTool en hilo UI; mismo pattern que ConfigTool.Designer.cs:720+
                 // que recompone sections (positions + widths) tras un cambio de tool.
+                bool sectionsMode = cfg.IsSectionsNotZones;
                 InvokeOnUi(() =>
                 {
                     try
                     {
                         _form.tool = new CTool(_form);
-                        try { _form.LineUpIndividualSectionBtns(); } catch { }
-                        try { _form.SectionSetPosition(); } catch { }
-                        try { _form.SectionCalcWidths(); } catch { }
+                        if (sectionsMode)
+                        {
+                            try { _form.LineUpIndividualSectionBtns(); } catch { }
+                            try { _form.SectionSetPosition(); } catch { }
+                            try { _form.SectionCalcWidths(); } catch { }
+                        }
+                        else
+                        {
+                            try { _form.SectionCalcMulti(); } catch { }
+                            try { _form.LineUpAllZoneButtons(); } catch { }
+                        }
                     }
                     catch { }
                 });
@@ -171,7 +284,55 @@ namespace AgroParallel.Adapters
             catch { return false; }
         }
 
+        public string GetVehiculoCustom()
+        {
+            try { return Settings.Default.setBrand_VehiculoCustom ?? ""; }
+            catch { return ""; }
+        }
+
+        public bool SetVehiculoCustom(string archivo)
+        {
+            try
+            {
+                // solo nombre de archivo plano (nada de rutas / traversal)
+                archivo = (archivo ?? "").Trim();
+                if (archivo.IndexOfAny(new[] { '/', '\\', ':' }) >= 0) return false;
+
+                Settings.Default.setBrand_VehiculoCustom = archivo;
+                Settings.Default.Save();
+                InvokeOnUi(() => _form.AplicarVehiculoCustom());
+                return true;
+            }
+            catch { return false; }
+        }
+
         // --- helpers ------------------------------------------------------------
+
+        private static decimal[] ReadSectionPositions(Settings s)
+        {
+            return new[]
+            {
+                s.setSection_position1,  s.setSection_position2,  s.setSection_position3,
+                s.setSection_position4,  s.setSection_position5,  s.setSection_position6,
+                s.setSection_position7,  s.setSection_position8,  s.setSection_position9,
+                s.setSection_position10, s.setSection_position11, s.setSection_position12,
+                s.setSection_position13, s.setSection_position14, s.setSection_position15,
+                s.setSection_position16, s.setSection_position17
+            };
+        }
+
+        private static void WriteSectionPositions(Settings s, decimal[] p)
+        {
+            s.setSection_position1 = p[0];   s.setSection_position2 = p[1];
+            s.setSection_position3 = p[2];   s.setSection_position4 = p[3];
+            s.setSection_position5 = p[4];   s.setSection_position6 = p[5];
+            s.setSection_position7 = p[6];   s.setSection_position8 = p[7];
+            s.setSection_position9 = p[8];   s.setSection_position10 = p[9];
+            s.setSection_position11 = p[10]; s.setSection_position12 = p[11];
+            s.setSection_position13 = p[12]; s.setSection_position14 = p[13];
+            s.setSection_position15 = p[14]; s.setSection_position16 = p[15];
+            s.setSection_position17 = p[16];
+        }
 
         private void InvokeOnUi(Action act)
         {

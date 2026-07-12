@@ -184,6 +184,19 @@
     .ant-unit { font-weight: var(--agp-fw-semi); color: var(--agp-text-muted); }
 
     .ant-diagram svg { width: 100%; max-width: 340px; height: auto; }
+    /* Sprites reales del FormConfig sobre fondo blanco (los PNG traen fondo) */
+    .diagram img.real, .ant-diagram img.real {
+      width: 100%; max-width: 420px; height: auto;
+      background: #fff; border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-2); box-sizing: border-box;
+    }
+    .ant-side .ant-side-img {
+      width: 108px; height: 108px; object-fit: contain;
+      background: #fff; border-radius: var(--agp-radius-sm, 6px);
+      filter: grayscale(0.5);
+      transition: filter 0.15s;
+    }
+    .ant-side.on .ant-side-img { filter: none; }
     .cota-pivote { stroke: var(--agp-accent); stroke-width: 4; }
     .cota-pivote-fill { fill: var(--agp-accent); }
     .cota-altura { stroke: #c026a8; stroke-width: 4; }
@@ -196,10 +209,10 @@
     }
     .ant-top svg { width: 150px; height: auto; }
 
-    .ant-side-select { display: flex; gap: var(--agp-sp-2); }
+    .ant-side-select { display: flex; gap: var(--agp-sp-2); justify-content: center; flex-wrap: wrap; }
     .ant-side {
       display: flex; flex-direction: column; align-items: center; gap: 4px;
-      width: 92px; min-height: var(--agp-touch-min);
+      width: 128px; min-height: var(--agp-touch-min);
       padding: var(--agp-sp-2);
       background: var(--agp-bg-soft);
       border: var(--agp-border-w) solid var(--agp-border);
@@ -244,18 +257,23 @@
         <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
           Elegí el tipo de máquina que más se parece. Cambia cómo se dibuja el tractor en el mapa y cómo se interpreta la geometría.
         </p>
-        <div class="veh-cards">
+        <!-- Flujo UNIFICADO (usuario 2026-07-10): 1) elegís el TIPO acá,
+             2) abajo se despliegan los vehículos disponibles de ese tipo
+             (sprites propios de img/vehiculos/ + el estándar de PilotX).
+             data-tiposlug enlaza cada tipo con la convención de archivo
+             tipo_marca_modelo.png -->
+        <div class="veh-cards" id="tipoCards">
           <!-- 0 = Tractor (común). Sprite real de PilotX (vista superior). -->
-          <label class="veh-card" data-vt="0" data-variant="tractor">
+          <label class="veh-card" data-vt="0" data-variant="tractor" data-tiposlug="rigido">
             <input type="radio" name="vehicleType" value="0">
             <img class="veh-img" src="../img/tractors/TractorAoG.png" alt="Tractor común" loading="lazy">
-            <div class="veh-name">Tractor</div>
+            <div class="veh-name">Tractor rígido</div>
             <div class="veh-hint">Común con enganche trasero</div>
           </label>
 
           <!-- 0 = Tractor (variante pulverizadora) — mapea al mismo PilotX type
                pero el sprite NewHolland es de chasis más alto, característico. -->
-          <label class="veh-card" data-vt="0" data-variant="sprayer">
+          <label class="veh-card" data-vt="0" data-variant="sprayer" data-tiposlug="pulverizadora">
             <input type="radio" name="vehicleType" value="0">
             <img class="veh-img" src="../img/tractors/TractorNewHolland.png" alt="Pulverizadora" loading="lazy">
             <div class="veh-name">Pulverizadora</div>
@@ -263,7 +281,7 @@
           </label>
 
           <!-- 1 = Harvester -->
-          <label class="veh-card" data-vt="1" data-variant="harvester">
+          <label class="veh-card" data-vt="1" data-variant="harvester" data-tiposlug="cosechadora">
             <input type="radio" name="vehicleType" value="1">
             <img class="veh-img" src="../img/harvesters/HarvesterAoG.png" alt="Cosechadora" loading="lazy">
             <div class="veh-name">Cosechadora</div>
@@ -271,12 +289,27 @@
           </label>
 
           <!-- 2 = Articulated (usamos sprite Rear que tiene cabina visible) -->
-          <label class="veh-card" data-vt="2" data-variant="articulated">
+          <label class="veh-card" data-vt="2" data-variant="articulated" data-tiposlug="articulado">
             <input type="radio" name="vehicleType" value="2">
             <img class="veh-img" src="../img/articulated/ArticulatedRearAoG.png" alt="Articulada 4WD" loading="lazy">
             <div class="veh-name">Articulada</div>
             <div class="veh-hint">4WD con pivote central</div>
           </label>
+        </div>
+      </div>
+
+      <!-- Paso 2: modelos disponibles del tipo elegido. El elegido es el que
+           se dibuja en el mapa del piloto (pisa la marca embebida). -->
+      <div class="card" style="margin-top: var(--agp-sp-3)">
+        <h3 style="margin-top:0" id="modelosTitulo">Elegí tu vehículo</h3>
+        <p class="help" style="margin: 0 0 var(--agp-sp-3) 0">
+          Para sumar uno nuevo: PNG vista superior (frente hacia arriba, fondo
+          transparente) en <b>AgroParallel\wwwroot\img\vehiculos\</b> con nombre
+          <b>tipo_marca_modelo.png</b> — tipos: rigido, articulado, cosechadora,
+          pulverizadora (ej: rigido_pauny_580.png; modelo opcional).
+        </p>
+        <div class="veh-cards" id="misVehiculos">
+          <div class="help">Cargando…</div>
         </div>
       </div>
     </section>
@@ -287,50 +320,15 @@
         <h3 style="margin-top:0">Geometría del tractor</h3>
         <div class="geo-split">
           <div class="diagram">
-            <!-- Tractor visto desde el costado, con cotas numeradas -->
-            <svg viewBox="0 0 460 240" aria-hidden="true">
-              <!-- piso -->
-              <line x1="20" y1="200" x2="440" y2="200" stroke="var(--agp-text-muted)" stroke-width="1"/>
-              <!-- ruedas -->
-              <circle cx="120" cy="180" r="28" fill="var(--agp-text)" opacity="0.85"/>
-              <circle cx="120" cy="180" r="10" fill="#fff" opacity="0.6"/>
-              <circle cx="340" cy="186" r="22" fill="var(--agp-text)" opacity="0.85"/>
-              <circle cx="340" cy="186" r="8"  fill="#fff" opacity="0.6"/>
-              <!-- chasis -->
-              <rect x="90" y="120" width="270" height="50" rx="6" fill="var(--agp-text)" opacity="0.85"/>
-              <!-- cabina -->
-              <rect x="190" y="80" width="90" height="42" rx="5" fill="var(--agp-text)" opacity="0.55"/>
-              <!-- antena GPS -->
-              <circle cx="235" cy="60" r="6" fill="var(--agp-accent)"/>
-              <line x1="235" y1="60" x2="235" y2="80" stroke="var(--agp-accent)" stroke-width="2"/>
-              <!-- ejes (verticales punteadas) -->
-              <line x1="120" y1="120" x2="120" y2="220" class="axle"/>
-              <line x1="340" y1="120" x2="340" y2="220" class="axle"/>
-
-              <!-- COTA 1: Distancia entre ejes -->
-              <path class="arrow" d="M120,225 L340,225"/>
-              <path class="arrow" d="M120,220 L120,230 M340,220 L340,230"/>
-              <text x="220" y="222" text-anchor="middle" class="lbl-num">1</text>
-              <text x="230" y="240" text-anchor="middle" class="lbl-txt">Distancia entre ejes</text>
-
-              <!-- COTA 2: Pivote (antena → eje trasero) -->
-              <path class="arrow" d="M120,75 L235,75"/>
-              <path class="arrow" d="M120,70 L120,80 M235,70 L235,80"/>
-              <text x="178" y="70" text-anchor="middle" class="lbl-num">2</text>
-
-              <!-- COTA 3: Altura antena -->
-              <path class="arrow" d="M250,60 L250,200"/>
-              <path class="arrow" d="M245,60 L255,60 M245,200 L255,200"/>
-              <text x="260" y="130" class="lbl-num">3</text>
-
-              <!-- Etiqueta extra: eje trasero -->
-              <text x="120" y="232" text-anchor="middle" class="lbl-txt" style="font-style:italic">eje trasero</text>
-              <text x="340" y="232" text-anchor="middle" class="lbl-txt" style="font-style:italic">eje delantero</text>
-            </svg>
-            <div class="legend">
-              <div><b>1</b> Distancia entre ejes — del centro del eje trasero al delantero.</div>
-              <div><b>2</b> Pivote — del eje trasero a la antena GPS (positivo si la antena está hacia adelante).</div>
-              <div><b>3</b> Altura antena — del piso hasta la antena.</div>
+            <!-- Sprite real del FormConfig (RadiusWheelBase*): cambia según el
+                 tipo elegido en la pestaña Tipo — tractor, cosechadora o
+                 articulada (mismo comportamiento que WinForms). -->
+            <img class="real" id="geoDiagram" src="../img/vehicle/RadiusWheelBase.png"
+                 alt="Medidas del vehículo" loading="lazy">
+            <div class="legend" id="geoLegend">
+              <div>El dibujo corresponde al <b>tipo de vehículo elegido</b> en la pestaña Tipo.</div>
+              <div><b>Distancia entre ejes</b> — del centro del eje trasero al delantero.</div>
+              <div><b>Trocha</b> — centro a centro de ruedas.</div>
             </div>
           </div>
 
@@ -381,34 +379,11 @@
             </div>
 
             <div class="ant-diagram">
-              <svg viewBox="0 0 340 230" aria-hidden="true">
-                <!-- piso -->
-                <line x1="10" y1="205" x2="330" y2="205" stroke="var(--agp-text-muted)" stroke-width="1"/>
-                <!-- tractor lateral (referencia mockup, sin branding) -->
-                <rect x="80" y="80" width="130" height="65" rx="8" fill="var(--agp-bg-soft)" stroke="var(--agp-text-muted)"/>
-                <path d="M105 80 L125 42 L195 52 L200 80 Z" fill="var(--agp-border)" stroke="var(--agp-text-muted)"/>
-                <rect x="212" y="100" width="80" height="45" rx="18" fill="var(--agp-text)" opacity="0.6"/>
-                <circle cx="102" cy="163" r="42" fill="var(--agp-text)" opacity="0.9"/>
-                <circle cx="102" cy="163" r="22" fill="#fff" opacity="0.35"/>
-                <circle cx="235" cy="172" r="32" fill="var(--agp-text)" opacity="0.9"/>
-                <circle cx="235" cy="172" r="16" fill="#fff" opacity="0.35"/>
-                <!-- mástil + antena -->
-                <rect x="180" y="42" width="8" height="40" fill="var(--agp-text)" opacity="0.7"/>
-                <circle cx="184" cy="36" r="6" fill="var(--agp-accent)" stroke="#fff" stroke-width="1.5"/>
-
-                <!-- COTA pivote (verde): eje trasero → antena -->
-                <line x1="102" y1="22" x2="184" y2="22" class="cota-pivote"/>
-                <path d="M184,22 l-9,-5 v10 z" class="cota-pivote-fill"/>
-                <line x1="102" y1="22" x2="102" y2="205" stroke="var(--agp-accent)" stroke-width="1.2" stroke-dasharray="4 4"/>
-                <text x="143" y="14" text-anchor="middle" class="lbl-txt">pivote</text>
-
-                <!-- COTA altura (magenta): piso → antena -->
-                <line x1="312" y1="36" x2="312" y2="205" class="cota-altura"/>
-                <path d="M312,36 l-5,9 h10 z" class="cota-altura-fill"/>
-                <path d="M312,205 l-5,-9 h10 z" class="cota-altura-fill"/>
-                <line x1="190" y1="36" x2="312" y2="36" stroke="#c026a8" stroke-width="1.2" stroke-dasharray="4 4"/>
-                <text x="326" y="120" text-anchor="middle" class="lbl-txt" transform="rotate(90 326 120)">altura</text>
-              </svg>
+              <!-- Sprite real del FormConfig (Antenna{Tractor,Harvester,Articulated}):
+                   cambia según el tipo elegido en la pestaña Tipo. Verde = pivote,
+                   magenta = altura, igual que las flechas del dibujo. -->
+              <img class="real" id="antDiagram" src="../img/vehicle/AntennaTractor.png"
+                   alt="Posición de la antena en el vehículo" loading="lazy">
             </div>
 
             <div class="ant-field">
@@ -435,51 +410,21 @@
               <div class="help">Distancia desde el centro del tractor (el lado se elige abajo)</div>
             </div>
 
-            <div class="ant-top-row">
-              <div class="ant-diagram ant-top">
-                <svg viewBox="0 0 170 200" aria-hidden="true">
-                  <!-- chasis visto desde arriba -->
-                  <rect x="52" y="25" width="66" height="150" rx="14" fill="var(--agp-bg-soft)" stroke="var(--agp-text-muted)"/>
-                  <rect x="22" y="20" width="26" height="70" rx="10" fill="var(--agp-text)" opacity="0.85"/>
-                  <rect x="122" y="20" width="26" height="70" rx="10" fill="var(--agp-text)" opacity="0.85"/>
-                  <rect x="18" y="120" width="30" height="58" rx="10" fill="var(--agp-text)" opacity="0.85"/>
-                  <rect x="122" y="120" width="30" height="58" rx="10" fill="var(--agp-text)" opacity="0.85"/>
-                  <!-- línea de simetría -->
-                  <line x1="85" y1="8" x2="85" y2="195" stroke="var(--agp-text-muted)" stroke-width="0.8" stroke-dasharray="3 4"/>
-                  <!-- antena (se mueve con el selector) -->
-                  <circle id="svgAntDot" cx="85" cy="100" r="7" fill="var(--agp-accent)" stroke="#fff" stroke-width="2"/>
-                  <!-- cota desfase (centro ↔ antena) -->
-                  <line id="svgAntLine" x1="85" y1="100" x2="85" y2="100" class="cota-pivote"/>
-                  <!-- frente -->
-                  <polygon points="85,2 79,14 91,14" fill="var(--agp-accent)"/>
-                </svg>
-              </div>
-
-              <div class="ant-side-select" role="group" aria-label="Lado del desfase">
-                <button type="button" class="ant-side" id="sideLeft" data-side="left">
-                  <svg viewBox="0 0 74 58" aria-hidden="true">
-                    <line x1="37" y1="7" x2="37" y2="51" stroke="currentColor" stroke-width="3"/>
-                    <line x1="20" y1="29" x2="37" y2="29" stroke="var(--agp-accent)" stroke-width="4"/>
-                    <circle cx="17" cy="29" r="9" fill="#d33" stroke="#a00" stroke-width="2"/>
-                  </svg>
-                  <span>Izquierda</span>
-                </button>
-                <button type="button" class="ant-side" id="sideCenter" data-side="center">
-                  <svg viewBox="0 0 74 58" aria-hidden="true">
-                    <line x1="37" y1="7" x2="37" y2="51" stroke="currentColor" stroke-width="3"/>
-                    <circle cx="37" cy="29" r="9" fill="#d33" stroke="#a00" stroke-width="2"/>
-                  </svg>
-                  <span>Centro</span>
-                </button>
-                <button type="button" class="ant-side" id="sideRight" data-side="right">
-                  <svg viewBox="0 0 74 58" aria-hidden="true">
-                    <line x1="37" y1="7" x2="37" y2="51" stroke="currentColor" stroke-width="3"/>
-                    <line x1="37" y1="29" x2="54" y2="29" stroke="var(--agp-accent)" stroke-width="4"/>
-                    <circle cx="57" cy="29" r="9" fill="#d33" stroke="#a00" stroke-width="2"/>
-                  </svg>
-                  <span>Derecha</span>
-                </button>
-              </div>
+            <!-- Selector de lado con las imágenes reales del FormConfig; son el
+                 visual principal de la vista superior (sin SVG propio). -->
+            <div class="ant-side-select" role="group" aria-label="Lado del desfase">
+              <button type="button" class="ant-side" id="sideLeft" data-side="left">
+                <img class="ant-side-img" src="../img/vehicle/AntennaLeftOffset.png" alt="" loading="lazy">
+                <span>Izquierda</span>
+              </button>
+              <button type="button" class="ant-side" id="sideCenter" data-side="center">
+                <img class="ant-side-img" src="../img/vehicle/AntennaNoOffset.png" alt="" loading="lazy">
+                <span>Centro</span>
+              </button>
+              <button type="button" class="ant-side" id="sideRight" data-side="right">
+                <img class="ant-side-img" src="../img/vehicle/AntennaRightOffset.png" alt="" loading="lazy">
+                <span>Derecha</span>
+              </button>
             </div>
 
             <div class="help" style="text-align:center">La antena dual va montada del lado <b>derecho</b>.</div>
@@ -497,6 +442,6 @@
   </main>
   <script src="../js/keyboard.js"></script>
   <script src="../js/sidebar.js"></script>
-  <script src="../js/vehiculo.js"></script>
+  <script src="../js/vehiculo.js?v=4"></script>
 </body>
 </html>
