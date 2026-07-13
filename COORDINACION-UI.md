@@ -396,6 +396,29 @@ Codex: markup/CSS de `barra-abajo.html` es terreno libre; los
 `id=`/`data-cmd` de arriba están congelados. AVISO: rebuild + relanzar
 PilotX para verlo (bump `?v=` si tocás el JS).
 
+### Modo "barras HTML" (nuevo, 2026-07-13 — las 3 barras REEMPLAZAN a las nativas)
+Toggle en Menú flotante → Agro Parallel → "Barras HTML"/"Barras nativas"
+(`ToggleBarrasHtml()`, `GUI.FloatingMenu.cs`). Persistente entre arranques
+vía archivo flag `<exe>/AgroParallel/barras-html.on` (existe = ON).
+Con el modo ON:
+· `panelControlBox`/`panelRight`/`panelBottom` nativos quedan SIEMPRE
+  ocultos (código intacto, nada se borra) y en su lugar se dockean las
+  páginas espejo `barra-superior.html` (top), `barra-derecha.html` (right)
+  y `barra-abajo.html` (bottom) como ventanas sin borde pegadas a los
+  bordes del mapa (`FloatingDock`/`DockMargin` en
+  `FormAgroParallelHubWebView2`; siguen al oglMain en move/resize).
+· El mapa (oglMain) queda a tamaño grande y FIJO — las barras y la
+  botonera izquierda flotan encima; mostrar/ocultar no redimensiona nada.
+· La MISMA flecha de siempre (btnTogglePaneles) + el auto-ocultado de
+  10 s esconden/muestran: barra superior + derecha + abajo HTML y también
+  el `panelLeft` nativo (espejo de la rama hidden nativa).
+· Derecha/abajo solo existen con lote abierto; la superior siempre
+  (salvo flecha). Los botones escalan con la barra (CSS `flex: 1 1 0`
+  + img 100% con tope 54 px — espejo de `PanelSizeRightAndBottom`).
+Codex: el layout/espesores se ajustan en `ActualizarBarrasHtml()`
+(GUI.FloatingMenu.cs): superior 560×64, derecha 74 de ancho
+(margen top 76 / bottom 84), abajo 74 de alto (margen right 84).
+
 ### 4-bis. CoreX WebUI (`SourceCode/AgIO/Source/wwwroot-corex/`) — OTRO wwwroot
 
 **Ojo: es un árbol distinto al del Hub.** Lo sirve CoreX.exe (EmbedIO,
@@ -1218,3 +1241,14 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   Detalle completo del contrato en §4 ("barra-abajo.html"). Se abre desde
   Menú flotante → Agro Parallel → "Barra abajo HTML". Build AgOpenGPS.csproj
   0 errores, `node --check` OK.
+- [2026-07-13] [Claude] Pedido de usuario: "hace que las barras html
+  reemplacen a las originales, sin borrarlas" — nuevo modo "barras HTML"
+  (toggle en Menú flotante → Agro Parallel, flag persistente
+  `AgroParallel/barras-html.on`). Docking de widgets a bordes del mapa
+  (`FloatingDock`/`DockMargin`/`UpdateDockBounds` en el Shell); la flecha
+  btnTogglePaneles + auto-ocultado 10 s manejan las 3 barras HTML y el
+  panelLeft nativo; mapa a tamaño fijo (sin redimensionados al toggle);
+  fix maximizar/restaurar (Resize por WindowState, no solo ResizeEnd);
+  CSS adaptativo en barra-derecha/abajo (flex 1 1 0, íconos escalan con
+  la barra). Detalle en §4 ("Modo barras HTML"). Verificado en vivo con
+  lote abierto + auto-ocultado. Build 0 errores.

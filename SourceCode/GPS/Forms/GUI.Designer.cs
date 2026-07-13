@@ -999,6 +999,38 @@ namespace AgOpenGPS
             //2026-07-10): botoneras izquierda/derecha/abajo visibles según
             //trabajo, con la flecha del mapa (MenuShowHide, esquina inferior
             //izquierda) que las oculta/muestra. El menú flotante convive.
+            //Modo barras HTML: las nativas quedan SIEMPRE ocultas (intactas,
+            //sin borrar) y las reemplazan las barras espejo dockeadas a los
+            //bordes del mapa (ActualizarBarrasHtml). El mapa toma el tamaño
+            //grande y las barras flotan encima; la flecha (btnTogglePaneles)
+            //y el auto-ocultado siguen funcionando igual, pero sobre las HTML.
+            if (isHtmlBarsMode)
+            {
+                panelBottom.Visible = false;
+                panelRight.Visible = false;
+                //la flecha (y el auto-ocultado de 10 s) esconde también la
+                //botonera izquierda nativa, espejo de la rama hidden nativa
+                panelLeft.Visible = !(isJobStarted && isPanelBottomHidden);
+                if (panelLeft.Visible) panelLeft.BringToFront();
+
+                //mapa SIEMPRE al tamaño grande y FIJO: las barras HTML y la
+                //botonera izquierda flotan encima, así mostrar/ocultar con la
+                //flecha no redimensiona el mapa (sin saltos ni reflashes).
+                oglMain.Left = 20;
+                oglMain.Width = this.Width - 98;
+                oglMain.Height = this.Height - 62;
+
+                ActualizarBarrasHtml();
+                ReiniciarTimerOcultarPaneles();
+                ActualizarTogglePaneles();
+                PositionFloatMenuLauncher();
+
+                if (tool.isSectionsNotZones) LineUpIndividualSectionBtns();
+                else LineUpAllZoneButtons();
+                return;
+            }
+            ActualizarBarrasHtml(); //modo apagado: cierra barras dock si quedaron
+
             if (!isJobStarted)
             {
                 panelBottom.Visible = false;

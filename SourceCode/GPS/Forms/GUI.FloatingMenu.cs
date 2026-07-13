@@ -53,6 +53,126 @@ namespace AgOpenGPS
         private static readonly Color pxText = Color.FromArgb(0x10, 0x16, 0x12);
         private static readonly Color pxGreen = Color.FromArgb(0x4A, 0xBA, 0x3E);
 
+        // ==================================================================
+        // Modo "barras HTML": las 3 barras espejo (superior/derecha/abajo)
+        // REEMPLAZAN a las nativas (panelControlBox/panelRight/panelBottom),
+        // que quedan intactas pero ocultas. Se dockean a los bordes del mapa
+        // vía FloatingDock y las muestra/oculta la MISMA flecha de siempre
+        // (btnTogglePaneles) + el auto-ocultado de 10 s. Persistente entre
+        // arranques (archivo flag en AgroParallel\).
+        // ==================================================================
+        public bool isHtmlBarsMode = false;
+
+        private const string BarraTopPage = "pages/barra-superior.html";
+        private const string BarraRightPage = "pages/barra-derecha.html";
+        private const string BarraBottomPage = "pages/barra-abajo.html";
+
+        private static string BarrasHtmlFlagPath => System.IO.Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory, "AgroParallel", "barras-html.on");
+
+        public void ToggleBarrasHtml()
+        {
+            isHtmlBarsMode = !isHtmlBarsMode;
+            try
+            {
+                string flag = BarrasHtmlFlagPath;
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(flag));
+                if (isHtmlBarsMode) System.IO.File.WriteAllText(flag, "1");
+                else if (System.IO.File.Exists(flag)) System.IO.File.Delete(flag);
+            }
+            catch { /* persistencia best-effort */ }
+            isPanelBottomHidden = false; //arrancar el modo nuevo con todo a la vista
+            PanelsAndOGLSize();
+        }
+
+        //Sincroniza las 3 barras dockeadas con el estado actual. La llama
+        //PanelsAndOGLSize (misma frecuencia con la que el nativo repinta
+        //sus paneles). Con el modo apagado cierra las barras y restaura
+        //panelControlBox.
+        public void ActualizarBarrasHtml()
+        {
+            if (!isHtmlBarsMode)
+            {
+                CerrarBarraHtmlDock(BarraTopPage);
+                CerrarBarraHtmlDock(BarraRightPage);
+                CerrarBarraHtmlDock(BarraBottomPage);
+                try { panelControlBox.Visible = true; } catch { }
+                return;
+            }
+
+            try { panelControlBox.Visible = false; } catch { }
+
+            //superior: visible salvo que la flecha oculte las botoneras con
+            //lote abierto (sin lote siempre se ve, como panelControlBox).
+            //Derecha/abajo: solo con lote abierto y botoneras visibles.
+            bool operables = isJobStarted && !isPanelBottomHidden;
+            MostrarBarraHtmlDock(BarraTopPage, "Barra superior",
+                new Size(560, 64), "top", new Padding(0),
+                !(isJobStarted && isPanelBottomHidden));
+            MostrarBarraHtmlDock(BarraRightPage, "Barra derecha",
+                new Size(74, 0), "right", new Padding(0, 76, 0, 84), operables);
+            MostrarBarraHtmlDock(BarraBottomPage, "Barra abajo",
+                new Size(0, 74), "bottom", new Padding(0, 0, 84, 0), operables);
+        }
+
+        private void MostrarBarraHtmlDock(string page, string title, Size sz,
+            string dock, Padding margin, bool visible)
+        {
+            try
+            {
+                if (_floatWidgets == null)
+                    _floatWidgets = new System.Collections.Generic.Dictionary<string, Form>(StringComparer.OrdinalIgnoreCase);
+
+                if (_floatWidgets.TryGetValue(page, out var existing)
+                    && existing != null && !existing.IsDisposed)
+                {
+                    var hub = existing as global::AgroParallel.Shell.FormAgroParallelHubWebView2;
+                    if (hub != null && hub.FloatingDock == dock)
+                    {
+                        existing.Visible = visible;
+                        return;
+                    }
+                    //estaba abierta como widget flotante común: recrear dockeada
+                    try { existing.Close(); } catch { }
+                }
+                if (!visible) return;
+
+                string initialPage = page + (page.IndexOf('?') < 0 ? "?widget=1" : "&widget=1");
+                var widget = BuildHubForm(initialPage);
+                widget.FloatingWidget = true;
+                widget.FloatingDock = dock;
+                widget.DockMargin = margin;
+                widget.FloatingSize = sz;
+                if (!string.IsNullOrEmpty(title)) widget.Text = title;
+                widget.AnchorControl = this.oglMain;
+                _floatWidgets[page] = widget;
+                widget.FormClosed += (s, e) => { _floatWidgets.Remove(page); };
+                widget.Show(this);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[BarrasHtml] " + ex.Message);
+            }
+        }
+
+        //Cierra la barra SOLO si está dockeada (no toca un widget flotante
+        //común que el operario haya abierto desde el menú).
+        private void CerrarBarraHtmlDock(string page)
+        {
+            try
+            {
+                if (_floatWidgets != null
+                    && _floatWidgets.TryGetValue(page, out var w)
+                    && w != null && !w.IsDisposed
+                    && w is global::AgroParallel.Shell.FormAgroParallelHubWebView2 hub
+                    && !string.IsNullOrEmpty(hub.FloatingDock))
+                {
+                    w.Close();
+                }
+            }
+            catch { }
+        }
+
         //Botón flecha para ocultar/mostrar las botoneras (menú viejo AOG).
         //Es un Button real (no el dibujito GL MenuShowHide, que quedaba tapado
         //por overlays) — siempre visible con lote abierto, esquina inf. izq.
@@ -93,6 +213,9 @@ namespace AgOpenGPS
         public void CreateFloatingMenu()
         {
             CreateTogglePanelesButton();
+
+            //restaurar el modo barras HTML del arranque anterior
+            try { isHtmlBarsMode = System.IO.File.Exists(BarrasHtmlFlagPath); } catch { }
 
             btnFloatMenuLauncher = new Button
             {
@@ -601,6 +724,14 @@ namespace AgOpenGPS
             {
                 panelFloatMenu.Visible = false;
                 OpenAgroParallelWidget("pages/barra-abajo.html", "Barra abajo", 920, 96);
+            });
+            //modo barras HTML: las 3 barras espejo reemplazan a las nativas
+            //(dockeadas a los bordes del mapa; la flecha las oculta/muestra)
+            FloatMenuAddAction(isHtmlBarsMode ? "Barras nativas" : "Barras HTML",
+                FloatMenuGlyph(0xE8D3, 30, pxText), () =>
+            {
+                panelFloatMenu.Visible = false;
+                ToggleBarrasHtml();
             });
             FloatMenuAddAction("Cámaras", FloatMenuGlyph(0xE412, 30, pxText),
                 () => toolStripCamaras_Click(this, EventArgs.Empty));

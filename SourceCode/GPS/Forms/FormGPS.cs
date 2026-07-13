@@ -1298,6 +1298,20 @@ namespace AgOpenGPS
             }
         }
 
+        //Maximizar/restaurar NO dispara ResizeEnd (solo el drag del borde),
+        //así que sin esto el layout quedaba con el tamaño viejo y recién se
+        //reacomodaba de golpe con la próxima acción (flecha, abrir lote...).
+        private FormWindowState lastWindowState = FormWindowState.Normal;
+
+        private void FormGPS_Resize(object sender, EventArgs e)
+        {
+            if (WindowState == lastWindowState) return;
+            lastWindowState = WindowState;
+            if (WindowState == FormWindowState.Minimized) return;
+            PanelsAndOGLSize();
+            if (isGPSPositionInitialized) SetZoom();
+        }
+
         private void FormGPS_ResizeEnd(object sender, EventArgs e)
         {
             PanelsAndOGLSize();

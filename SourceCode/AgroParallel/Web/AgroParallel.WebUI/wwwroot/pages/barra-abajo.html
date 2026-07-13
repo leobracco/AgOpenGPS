@@ -26,8 +26,11 @@
       align-items: stretch; gap: 4px; height: 100%;
       justify-content: flex-start;
     }
+    /* Los botones crecen para repartirse el ancho de la barra (espejo de
+       PanelSizeRightAndBottom en el nativo, tope 150px como el sizer) y el
+       ícono escala con el botón. Achicar la barra achica los íconos. */
     .rbtn {
-      flex: 0 0 auto;
+      flex: 1 1 0; min-width: 34px; max-width: 150px;
       display: flex; align-items: center; justify-content: center;
       padding: 4px;
       border: 1px solid #C5CFC5; border-radius: 10px;
@@ -35,7 +38,11 @@
       -webkit-user-select: none; user-select: none;
       touch-action: manipulation;
     }
-    .rbtn img { width: 54px; height: 54px; object-fit: contain; pointer-events: none; }
+    .rbtn img {
+      width: 100%; height: 100%;
+      max-width: 54px; max-height: 54px;
+      object-fit: contain; pointer-events: none;
+    }
     .rbtn:active { background: #C5CFC5; transform: translateY(1px); }
     .rbtn.flash { border-color: #4ABA3E; box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
     .rbtn.disabled { opacity: .45; pointer-events: none; }

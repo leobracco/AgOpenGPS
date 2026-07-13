@@ -74,6 +74,19 @@ namespace AgroParallel.Shell
         /// <summary>Tamaño del widget flotante (solo aplica si FloatingWidget == true).</summary>
         public Size FloatingSize { get; set; } = new Size(720, 760);
 
+        /// <summary>
+        /// Dock del widget flotante contra un borde del AnchorControl:
+        /// "top" | "right" | "bottom" (null = flotante libre en la esquina,
+        /// comportamiento histórico). Con dock la ventana va SIN borde (parece
+        /// una barra nativa), toma el largo completo de ese borde (el espesor
+        /// sale de FloatingSize) y SIGUE al mapa si PilotX se mueve o
+        /// redimensiona. Lo usan las barras HTML que reemplazan a las nativas.
+        /// </summary>
+        public string FloatingDock { get; set; }
+
+        /// <summary>Margen del dock (reserva espacio p/ no pisar otras barras).</summary>
+        public Padding DockMargin { get; set; }
+
         // ---------- Pre-warm del runtime de WebView2 ----------
         // CoreWebView2Environment.CreateAsync(...) es la operación más lenta del
         // cold-start del Hub (típicamente 500ms-1s la primera vez por arranque).
@@ -184,7 +197,14 @@ namespace AgroParallel.Shell
 
             UpdateAnchorBounds();
 
-            // Hook (idempotente): solo una vez por instancia de control.
+            HookAnchor(c);
+        }
+
+        // Hook (idempotente) a los eventos del anchor + form padre: solo una
+        // vez por instancia de control. Lo comparten ApplyAnchor (overlay
+        // completo) y ApplyFloating con dock (barras HTML).
+        private void HookAnchor(Control c)
+        {
             if (_anchorHooked != c)
             {
                 if (_anchorHooked != null)
@@ -226,6 +246,19 @@ namespace AgroParallel.Shell
         /// </summary>
         private void ApplyFloating()
         {
+            // Dockeado a un borde del mapa: sin borde (parece barra nativa),
+            // sigue al anchor, y su geometría la calcula UpdateDockBounds.
+            if (!string.IsNullOrEmpty(FloatingDock))
+            {
+                WindowState = FormWindowState.Normal;
+                FormBorderStyle = FormBorderStyle.None;
+                ShowInTaskbar = false;
+                UpdateDockBounds();
+                var anchor = AnchorControl;
+                if (anchor != null && !anchor.IsDisposed) HookAnchor(anchor);
+                return;
+            }
+
             WindowState = FormWindowState.Normal;
             FormBorderStyle = FormBorderStyle.SizableToolWindow;
 
@@ -259,6 +292,14 @@ namespace AgroParallel.Shell
         public void ResizeFloatingWidget(int width, int height)
         {
             if (!FloatingWidget) return;
+            if (!string.IsNullOrEmpty(FloatingDock))
+            {
+                // Barra dockeada: el resize solo cambia el espesor/tamaño base;
+                // la posición la sigue calculando el dock.
+                FloatingSize = new Size(width, height);
+                UpdateDockBounds();
+                return;
+            }
             if (width < 200) width = 200;
             if (height < 80) height = 80;
 
@@ -276,7 +317,60 @@ namespace AgroParallel.Shell
             }
         }
 
-        private void OnAnchorChanged(object sender, EventArgs e) { UpdateAnchorBounds(); }
+        private void OnAnchorChanged(object sender, EventArgs e)
+        {
+            if (FloatingWidget)
+            {
+                if (!string.IsNullOrEmpty(FloatingDock)) UpdateDockBounds();
+            }
+            else
+            {
+                UpdateAnchorBounds();
+            }
+        }
+
+        /// <summary>
+        /// Geometría de barra dockeada: pegada al borde FloatingDock del
+        /// AnchorControl, largo completo de ese borde (menos DockMargin) y
+        /// espesor = FloatingSize. "top" queda centrada con su ancho propio.
+        /// </summary>
+        private void UpdateDockBounds()
+        {
+            Rectangle r;
+            var c = AnchorControl;
+            if (c != null && !c.IsDisposed && c.IsHandleCreated)
+                r = c.RectangleToScreen(c.ClientRectangle);
+            else
+                r = Screen.PrimaryScreen.WorkingArea;
+            if (r.Width < 100 || r.Height < 100) return; // oculto/minimizado
+
+            var m = DockMargin;
+            int x, y, w, h;
+            switch ((FloatingDock ?? string.Empty).ToLowerInvariant())
+            {
+                case "top":
+                    w = Math.Max(200, FloatingSize.Width);
+                    h = Math.Max(40, FloatingSize.Height);
+                    x = r.Left + (r.Width - w) / 2;
+                    y = r.Top + 4 + m.Top;
+                    break;
+                case "right":
+                    w = Math.Max(40, FloatingSize.Width);
+                    h = r.Height - 8 - m.Top - m.Bottom;
+                    x = r.Right - w - 4 - m.Right;
+                    y = r.Top + 4 + m.Top;
+                    break;
+                case "bottom":
+                    h = Math.Max(40, FloatingSize.Height);
+                    w = r.Width - 8 - m.Left - m.Right;
+                    x = r.Left + 4 + m.Left;
+                    y = r.Bottom - h - 4 - m.Bottom;
+                    break;
+                default:
+                    return;
+            }
+            SetBounds(x, y, w, h);
+        }
 
         private void OnAnchorDestroyed(object sender, EventArgs e)
         {

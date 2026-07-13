@@ -2972,6 +2972,7 @@ namespace AgOpenGPS
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormGPS_FormClosing);
             this.Load += new System.EventHandler(this.FormGPS_Load);
             this.ResizeEnd += new System.EventHandler(this.FormGPS_ResizeEnd);
+            this.Resize += new System.EventHandler(this.FormGPS_Resize);
             this.Move += new System.EventHandler(this.FormGPS_Move);
             this.contextMenuStripOpenGL.ResumeLayout(false);
             this.menuStrip1.ResumeLayout(false);
