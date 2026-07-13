@@ -78,6 +78,52 @@ namespace AgroParallel.Models
         /// <summary>Alimentación externa conectada (SystemInformation.PowerStatus), para la barra superior HTML.</summary>
         public bool PowerOnline { get; set; }
 
+        // ---- Barra derecha HTML (espejo del panelRight nativo) ----------------
+        // Estados de los botones de operación. La UI web replica con esto las
+        // mismas imágenes/visibilidades que pinta GUI.Designer.cs.
+
+        /// <summary>Piloto automático activado (isBtnAutoSteerOn).</summary>
+        public bool IsAutoSteerOn { get; set; }
+
+        /// <summary>Auto-centrar guía al pivote (trk.isAutoSnapToPivot) — cambia el ícono del piloto.</summary>
+        public bool IsAutoSnapToPivot { get; set; }
+
+        /// <summary>Giro automático en cabecera activado (yt.isYouTurnBtnOn).</summary>
+        public bool IsYouTurnOn { get; set; }
+
+        /// <summary>Secciones en automático (autoBtnState == Auto).</summary>
+        public bool IsSectionAutoOn { get; set; }
+
+        /// <summary>Secciones en manual (manualBtnState == On).</summary>
+        public bool IsSectionManualOn { get; set; }
+
+        /// <summary>Hay comunicación ISOBUS viva (isobus.IsAlive()) — muestra el botón.</summary>
+        public bool IsobusAlive { get; set; }
+
+        /// <summary>Control de secciones ISOBUS habilitado.</summary>
+        public bool IsobusOn { get; set; }
+
+        /// <summary>Cambio automático de guía (trk.isAutoTrack).</summary>
+        public bool IsAutoTrackOn { get; set; }
+
+        /// <summary>Guiado por contorno activado (ct.isContourBtnOn).</summary>
+        public bool IsContourOn { get; set; }
+
+        /// <summary>Contorno bloqueado a la pasada actual (ct.isLocked).</summary>
+        public bool IsContourLocked { get; set; }
+
+        /// <summary>Índice de la guía activa (trk.idx). -1 = sin guía.</summary>
+        public int TrackIdx { get; set; } = -1;
+
+        /// <summary>Cantidad de guías visibles (para mostrar los botones de ciclado).</summary>
+        public int TracksVisible { get; set; }
+
+        /// <summary>Cantidad total de guías del lote (trk.gArr.Count).</summary>
+        public int TracksTotal { get; set; }
+
+        /// <summary>Hay lindero cargado (bnd.bndList.Count > 0) — habilita U-turn.</summary>
+        public bool HasBoundary { get; set; }
+
         public double PivotEasting { get; set; }
         public double PivotNorthing { get; set; }
 

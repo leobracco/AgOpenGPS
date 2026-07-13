@@ -58,6 +58,39 @@ namespace AgroParallel.Adapters
                     snap.Longitude = _form.AppModel.CurrentLatLon.Longitude;
                 }
 
+                // Barra derecha HTML: estados de los botones de operación
+                // (mismas variables que pinta GUI.Designer.cs / Sections.Designer.cs).
+                snap.IsAutoSteerOn = _form.isBtnAutoSteerOn;
+                snap.IsSectionAutoOn = _form.autoBtnState == btnStates.Auto;
+                snap.IsSectionManualOn = _form.manualBtnState == btnStates.On;
+                if (_form.trk != null)
+                {
+                    snap.IsAutoSnapToPivot = _form.trk.isAutoSnapToPivot;
+                    snap.IsAutoTrackOn = _form.trk.isAutoTrack;
+                    snap.TrackIdx = _form.trk.idx;
+                    if (_form.trk.gArr != null)
+                    {
+                        snap.TracksTotal = _form.trk.gArr.Count;
+                        int vis = 0;
+                        for (int i = 0; i < _form.trk.gArr.Count; i++)
+                            if (_form.trk.gArr[i].isVisible) vis++;
+                        snap.TracksVisible = vis;
+                    }
+                }
+                if (_form.yt != null) snap.IsYouTurnOn = _form.yt.isYouTurnBtnOn;
+                if (_form.ct != null)
+                {
+                    snap.IsContourOn = _form.ct.isContourBtnOn;
+                    snap.IsContourLocked = _form.ct.isLocked;
+                }
+                if (_form.isobus != null)
+                {
+                    snap.IsobusAlive = _form.isobus.IsAlive();
+                    snap.IsobusOn = _form.isobus.SectionControlEnabled;
+                }
+                snap.HasBoundary = _form.bnd != null && _form.bnd.bndList != null
+                    && _form.bnd.bndList.Count > 0;
+
                 snap.ToolEasting = _form.toolPos.easting;
                 snap.ToolNorthing = _form.toolPos.northing;
                 snap.ToolHeading = _form.toolPos.heading;

@@ -590,6 +590,12 @@ namespace AgOpenGPS
                 panelFloatMenu.Visible = false;
                 OpenAgroParallelWidget("pages/barra-superior.html", "Barra superior", 560, 64);
             });
+            //copia HTML flotante de la barra derecha (panelRight nativo sigue igual)
+            FloatMenuAddAction("Barra derecha HTML", FloatMenuGlyph(0xE5D2, 30, pxText), () =>
+            {
+                panelFloatMenu.Visible = false;
+                OpenAgroParallelWidget("pages/barra-derecha.html", "Barra derecha", 96, 620);
+            });
             FloatMenuAddAction("Cámaras", FloatMenuGlyph(0xE412, 30, pxText),
                 () => toolStripCamaras_Click(this, EventArgs.Empty));
             FloatMenuAddAction("VistaX · Semilla", FloatMenuGlyph(0xE8F4, 30, pxText),
@@ -773,6 +779,7 @@ namespace AgOpenGPS
                 case "uturn_skips": b = btnYouSkipEnable; break;
                 case "sec_auto": b = btnSectionMasterAuto; break;
                 case "sec_manual": b = btnSectionMasterManual; break;
+                case "isobus": b = btnIsobusSectionControl; break;
                 case "hidraulico": b = btnHydLift; break;
                 //--- lote ---
                 case "lote_menu": b = btnJobMenu; break;

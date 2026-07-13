@@ -324,6 +324,42 @@ markup/CSS de `barra-superior.html` es terreno libre para reestilar; los
 PilotX para verlo (WebView2 cachea JS por URL — si tocás `barra-superior.js`,
 bumpeá el `?v=`).
 
+### barra-derecha.html (nueva, 2026-07-13 — espejo HTML de la barra lateral derecha nativa)
+Mismo patrón que `barra-superior.html` pero para **`panelRight`** (esquina
+inferior derecha, `Anchor=Bottom|Right`, `FlowDirection=BottomUp`,
+`FormGPS.Designer.cs:2511-2530`). Contiene, en el mismo orden que el nativo
+(de abajo hacia arriba — el HTML usa `flex-direction: column-reverse`):
+`btnAutoSteer` → `btnAutoYouTurn` → `btnSectionMasterAuto` →
+`btnSectionMasterManual` → `btnIsobusSectionControl` → `btnAutoTrack` →
+`btnCycleLinesBk` → `btnCycleLines` → `btnContour` → `btnContourLock` →
+`lblNumCu`.
+IDs: `btnPiloto btnUturn btnSecAuto btnSecManual btnIsobus btnAutoTrack
+btnTrackPrev btnTrackNext btnContour btnContourLock numCu noLote` + `img*`
+por botón con imagen de estado. Comandos (`data-cmd`) ya existentes:
+`autosteer uturn sec_auto sec_manual autotrack track_prev track_next contour
+contour_lock`; nuevo: **`isobus`** (→ `btnIsobusSectionControl`).
+Íconos nativos copiados a `wwwroot/img/barra-derecha/` (20 PNG de
+`btnImages/`, los mismos que referencia `Resources.resx`).
+**Estado en vivo**: `AogStateSnapshot` suma `IsAutoSteerOn IsAutoSnapToPivot
+IsYouTurnOn IsSectionAutoOn IsSectionManualOn IsobusAlive IsobusOn
+IsAutoTrackOn IsContourOn IsContourLocked TrackIdx TracksVisible TracksTotal
+HasBoundary` (llenados en `FormGpsStateProvider.cs`; van solos por
+`GET /api/aog/state`, wire snake_case). `barra-derecha.js` pollea cada 500 ms
+y replica las MISMAS reglas del nativo (`GUI.Designer.cs:829-876`):
+· piloto `disabled` sin guía ni contorno; imagen On/Off ± SnapToPivot
+· U-turn visible = guía activa && !contorno && lindero cargado
+· AutoTrack/ciclado visibles = 2+ guías visibles && guía activa && !contorno
+· candado visible = contorno on; `numCu` = "n/total" (como `lblNumCu`)
+· ISOBUS visible solo con `isobus.IsAlive()`
+· sin lote abierto: overlay "Abrí un lote para operar" (el nativo oculta el
+  panel entero).
+Tras cada comando hace un `poll()` inmediato para reflejar el toggle sin
+esperar el próximo tick. Se abre desde Menú flotante → Agro Parallel →
+"Barra derecha HTML" (`OpenAgroParallelWidget("pages/barra-derecha.html",
+"Barra derecha", 96, 620)`). Codex: markup/CSS de `barra-derecha.html` es
+terreno libre; los `id=`/`data-cmd` de arriba están congelados. AVISO:
+rebuild + relanzar PilotX para verlo (bump `?v=` si tocás el JS).
+
 ### 4-bis. CoreX WebUI (`SourceCode/AgIO/Source/wwwroot-corex/`) — OTRO wwwroot
 
 **Ojo: es un árbol distinto al del Hub.** Lo sirve CoreX.exe (EmbedIO,
@@ -1129,3 +1165,11 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   `GUI.FloatingMenu.cs`) + relanzar CoreX y PilotX para verlo. Codex:
   markup/CSS de `barra-superior.html` es terreno libre para reestilar; los
   `id=`/`data-cmd` de §4 están congelados.
+- [2026-07-13] [Claude] Pedido de usuario: "genera la barra lateral derecha,
+  una copia 100% y funcional" — espejo del `panelRight` nativo (Piloto/
+  U-turn/Secciones/ISOBUS/AutoTrack/ciclado guías/Contorno/candado/numCu).
+  Nueva página `pages/barra-derecha.html` + `js/barra-derecha.js`; comando
+  nuevo `isobus`; snapshot extendido con 14 campos de estado de botones.
+  Detalle completo del contrato en §4 ("barra-derecha.html"). Se abre desde
+  Menú flotante → Agro Parallel → "Barra derecha HTML". Build AgOpenGPS.csproj
+  0 errores, `node --check` OK.
