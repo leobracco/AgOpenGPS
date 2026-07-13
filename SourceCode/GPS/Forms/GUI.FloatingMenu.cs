@@ -596,6 +596,12 @@ namespace AgOpenGPS
                 panelFloatMenu.Visible = false;
                 OpenAgroParallelWidget("pages/barra-derecha.html", "Barra derecha", 96, 620);
             });
+            //copia HTML flotante de la barra de abajo (panelBottom nativo sigue igual)
+            FloatMenuAddAction("Barra abajo HTML", FloatMenuGlyph(0xE5D2, 30, pxText), () =>
+            {
+                panelFloatMenu.Visible = false;
+                OpenAgroParallelWidget("pages/barra-abajo.html", "Barra abajo", 920, 96);
+            });
             FloatMenuAddAction("Cámaras", FloatMenuGlyph(0xE412, 30, pxText),
                 () => toolStripCamaras_Click(this, EventArgs.Empty));
             FloatMenuAddAction("VistaX · Semilla", FloatMenuGlyph(0xE8F4, 30, pxText),
@@ -739,7 +745,26 @@ namespace AgOpenGPS
         {
             Button b = null;
             Action act = null;
-            switch ((cmd ?? "").Trim().ToLowerInvariant())
+            string cmdLower = (cmd ?? "").Trim().ToLowerInvariant();
+            //skips_{n}: ancho de salteo de U-turn (cboxpRowWidth 1..10). Setear
+            //SelectedIndex dispara SelectedIndexChanged solo (ComboBox nativo).
+            if (cmdLower.StartsWith("skips_"))
+            {
+                int nSkips;
+                if (int.TryParse(cmdLower.Substring(6), out nSkips) && nSkips >= 1 && nSkips <= 10)
+                {
+                    act = () => cboxpRowWidth.SelectedIndex = nSkips - 1;
+                    try
+                    {
+                        if (InvokeRequired) BeginInvoke((MethodInvoker)(() => act()));
+                        else act();
+                        return true;
+                    }
+                    catch { return false; }
+                }
+                return false;
+            }
+            switch (cmdLower)
             {
                 //--- guías ---
                 case "center": b = btnSnapToPivot; break;      //centrar guía
@@ -831,6 +856,16 @@ namespace AgOpenGPS
                 case "lindero": act = () => boundariesToolStripMenuItem_Click(this, EventArgs.Empty); break;
                 case "cabecera": act = () => headlandToolStripMenuItem_Click(this, EventArgs.Empty); break;
                 case "cabecera_onoff": b = btnHeadlandOnOff; break;
+                // cboxIsSectionControlled es un CheckBox: mismo patrón que
+                // auto_snap_to_pivot (togglear Checked + handler a mano).
+                case "cabecera_secciones":
+                    act = () =>
+                    {
+                        cboxIsSectionControlled.Checked = !cboxIsSectionControlled.Checked;
+                        cboxIsSectionControlled_Click(this, EventArgs.Empty);
+                    };
+                    break;
+                case "reset_herramienta": b = btnResetToolHeading; break;
                 //--- vista ---
                 case "v2d": b = btn2D; break;
                 case "v3d": b = btn3D; break;

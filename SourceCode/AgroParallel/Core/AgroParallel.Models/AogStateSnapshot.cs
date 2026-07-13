@@ -124,6 +124,41 @@ namespace AgroParallel.Models
         /// <summary>Hay lindero cargado (bnd.bndList.Count > 0) — habilita U-turn.</summary>
         public bool HasBoundary { get; set; }
 
+        // ---- Barra abajo HTML (espejo del panelBottom nativo) -----------------
+
+        /// <summary>Color de la próxima bandera (flagColor): 0=roja, 1=verde, 2=amarilla.</summary>
+        public int FlagColor { get; set; }
+
+        /// <summary>Feature de nudge/ajuste de guía habilitada (isNudgeOn).</summary>
+        public bool IsNudgeOn { get; set; }
+
+        /// <summary>El lote tiene cabecera construida (bndList[0].hdLine.Count > 0).</summary>
+        public bool HasHeadland { get; set; }
+
+        /// <summary>Cabecera activada (bnd.isHeadlandOn).</summary>
+        public bool IsHeadlandOn { get; set; }
+
+        /// <summary>La cabecera controla las secciones (bnd.isSectionControlledByHeadland).</summary>
+        public bool IsSectionControlledByHeadland { get; set; }
+
+        /// <summary>Hidráulico habilitado por config ((setArdMac_setting0 &amp; 2) == 2).</summary>
+        public bool HasHydLift { get; set; }
+
+        /// <summary>Levante hidráulico activado (vehicle.isHydLiftOn).</summary>
+        public bool IsHydLiftOn { get; set; }
+
+        /// <summary>Hay tramlines en el lote (tramList + tramBndOuterArr > 0).</summary>
+        public bool HasTram { get; set; }
+
+        /// <summary>Modo de vista de tramlines (tram.displayMode): 0=off, 1=todo, 2=líneas, 3=lindero.</summary>
+        public int TramDisplayMode { get; set; }
+
+        /// <summary>Modo de salteo del U-turn (yt.skipMode): 0=normal, 1=alterno, 2=saltea trabajadas.</summary>
+        public int YouSkipMode { get; set; }
+
+        /// <summary>Cantidad de pasadas que saltea el U-turn (yt.rowSkipsWidth, 1..10).</summary>
+        public int RowSkipsWidth { get; set; } = 1;
+
         public double PivotEasting { get; set; }
         public double PivotNorthing { get; set; }
 

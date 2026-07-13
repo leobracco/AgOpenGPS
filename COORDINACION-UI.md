@@ -360,6 +360,42 @@ esperar el próximo tick. Se abre desde Menú flotante → Agro Parallel →
 terreno libre; los `id=`/`data-cmd` de arriba están congelados. AVISO:
 rebuild + relanzar PilotX para verlo (bump `?v=` si tocás el JS).
 
+### barra-abajo.html (nueva, 2026-07-13 — espejo HTML de la barra inferior nativa)
+Mismo patrón que `barra-derecha.html` pero para **`panelBottom`**
+(`FlowDirection=RightToLeft`, `FormGPS.Designer.cs:2218-2240`). Contiene, en
+el mismo orden que el nativo (de derecha a izquierda — el HTML usa
+`flex-direction: row-reverse`): `btnTrack` → `btnSnapToPivot` → `btnAdjRight`
+→ `btnAdjLeft` → `btnFlag` → `btnHeadlandOnOff` → `cboxIsSectionControlled`
+→ `btnHydLift` → `btnTramDisplayMode` → `btnResetToolHeading` →
+`btnChangeMappingColor` → `btnYouSkipEnable` → `cboxpRowWidth`.
+IDs: `btnTrack btnCenter btnNudgeR btnNudgeL btnFlag btnHeadland btnHdlSec
+btnHyd btnTram btnResetTool btnMapColor btnYouSkip selSkips noLote` + `img*`
+en los de imagen dinámica. Comandos (`data-cmd`) ya existentes: `pick center
+nudge_right nudge_left bandera cabecera_onoff hidraulico tram_vista
+mapeo_color uturn_skips`; nuevos: **`cabecera_secciones`** (toggle
+`cboxIsSectionControlled`), **`reset_herramienta`** (`btnResetToolHeading`) y
+**`skips_{n}`** con n=1..10 (setea `cboxpRowWidth.SelectedIndex`).
+Íconos nativos copiados a `wwwroot/img/barra-abajo/` (22 PNG de `btnImages/`).
+**Estado en vivo**: `AogStateSnapshot` suma `FlagColor IsNudgeOn HasHeadland
+IsHeadlandOn IsSectionControlledByHeadland HasHydLift IsHydLiftOn HasTram
+TramDisplayMode YouSkipMode RowSkipsWidth` (llenados en
+`FormGpsStateProvider.cs`; wire snake_case por `GET /api/aog/state`).
+`barra-abajo.js` pollea cada 500 ms con las MISMAS reglas del nativo:
+· centrar/mover guía visibles = guía activa && nudge on
+· bandera = Flag{Red|Grn|Yel} según `flag_color` (0/1/2)
+· cabecera + secciones-por-cabecera visibles = hdLine creado
+· hidráulico visible = módulo habilitado && cabecera creada; `disabled` si
+  la cabecera está apagada
+· tram visible = tram creado; imagen Tram{Off|All|Lines|Outer} por modo
+· salteo U-turn + select 1..10 visibles = guía activa; imagen
+  YouSkip{Off|On|WorkedTracks}; el select no se pisa mientras tiene foco
+· sin lote abierto: overlay "Abrí un lote para operar".
+Se abre desde Menú flotante → Agro Parallel → "Barra abajo HTML"
+(`OpenAgroParallelWidget("pages/barra-abajo.html", "Barra abajo", 920, 96)`).
+Codex: markup/CSS de `barra-abajo.html` es terreno libre; los
+`id=`/`data-cmd` de arriba están congelados. AVISO: rebuild + relanzar
+PilotX para verlo (bump `?v=` si tocás el JS).
+
 ### 4-bis. CoreX WebUI (`SourceCode/AgIO/Source/wwwroot-corex/`) — OTRO wwwroot
 
 **Ojo: es un árbol distinto al del Hub.** Lo sirve CoreX.exe (EmbedIO,
@@ -1172,4 +1208,13 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   nuevo `isobus`; snapshot extendido con 14 campos de estado de botones.
   Detalle completo del contrato en §4 ("barra-derecha.html"). Se abre desde
   Menú flotante → Agro Parallel → "Barra derecha HTML". Build AgOpenGPS.csproj
+  0 errores, `node --check` OK.
+- [2026-07-13] [Claude] Pedido de usuario: "ahora hace la barra abajo" —
+  espejo del `panelBottom` nativo (elegir guía/centrar/mover/bandera/cabecera/
+  secciones por cabecera/hidráulico/tram/reset herramienta/color mapeo/skips
+  U-turn + select 1..10). Nueva página `pages/barra-abajo.html` +
+  `js/barra-abajo.js`; comandos nuevos `cabecera_secciones`,
+  `reset_herramienta` y `skips_{n}`; snapshot extendido con 11 campos.
+  Detalle completo del contrato en §4 ("barra-abajo.html"). Se abre desde
+  Menú flotante → Agro Parallel → "Barra abajo HTML". Build AgOpenGPS.csproj
   0 errores, `node --check` OK.

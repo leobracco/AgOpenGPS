@@ -91,6 +91,30 @@ namespace AgroParallel.Adapters
                 snap.HasBoundary = _form.bnd != null && _form.bnd.bndList != null
                     && _form.bnd.bndList.Count > 0;
 
+                // Barra abajo HTML: estados del panelBottom nativo.
+                snap.FlagColor = _form.flagColor;
+                snap.IsNudgeOn = _form.isNudgeOn;
+                if (_form.bnd != null)
+                {
+                    snap.HasHeadland = _form.bnd.bndList != null && _form.bnd.bndList.Count > 0
+                        && _form.bnd.bndList[0].hdLine != null && _form.bnd.bndList[0].hdLine.Count > 0;
+                    snap.IsHeadlandOn = _form.bnd.isHeadlandOn;
+                    snap.IsSectionControlledByHeadland = _form.bnd.isSectionControlledByHeadland;
+                }
+                snap.HasHydLift = (AgOpenGPS.Properties.Settings.Default.setArdMac_setting0 & 2) == 2;
+                if (_form.vehicle != null) snap.IsHydLiftOn = _form.vehicle.isHydLiftOn;
+                if (_form.tram != null)
+                {
+                    snap.HasTram = (_form.tram.tramList != null ? _form.tram.tramList.Count : 0)
+                        + (_form.tram.tramBndOuterArr != null ? _form.tram.tramBndOuterArr.Count : 0) > 0;
+                    snap.TramDisplayMode = (int)_form.tram.displayMode;
+                }
+                if (_form.yt != null)
+                {
+                    snap.YouSkipMode = (int)_form.yt.skipMode;
+                    snap.RowSkipsWidth = _form.yt.rowSkipsWidth;
+                }
+
                 snap.ToolEasting = _form.toolPos.easting;
                 snap.ToolNorthing = _form.toolPos.northing;
                 snap.ToolHeading = _form.toolPos.heading;
