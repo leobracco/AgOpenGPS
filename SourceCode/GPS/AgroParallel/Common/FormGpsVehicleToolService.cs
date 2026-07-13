@@ -306,6 +306,161 @@ namespace AgroParallel.Adapters
             catch { return false; }
         }
 
+        // --- IMU / fuente de rumbo (espejo de tabDHeading + tabDRoll) ------------
+
+        public ImuConfigDto GetImu()
+        {
+            var s = Settings.Default;
+            return new ImuConfigDto
+            {
+                HeadingSource          = s.setGPS_headingFromWhichSource,
+                FusionGpsPercent       = ClampInt((int)Math.Round(s.setIMU_fusionWeight2 * 500.0), 0, 100),
+                MinGpsStep10Cm         = s.setF_minHeadingStepDistance == 1.0,
+                DualHeadingOffset      = s.setGPS_dualHeadingOffset,
+                DualReverseDistance    = s.setGPS_dualReverseDetectionDistance,
+                IsRtkAlarm             = s.setGPS_isRTK,
+                IsRtkKillAutosteer     = s.setGPS_isRTK_KillAutoSteer,
+                FixJumpAlarmDistance   = s.setGPS_jumpFixAlarmDistance,
+                IsReverseOn            = s.setIMU_isReverseOn,
+                AutoSwitchDualFix      = s.setAutoSwitchDualFixOn,
+                AutoSwitchDualFixSpeed = s.setAutoSwitchDualFixSpeed,
+                RollFilterPercent      = ClampInt((int)Math.Round(s.setIMU_rollFilter * 100.0), 0, 100),
+                InvertRoll             = s.setIMU_invertRoll
+            };
+        }
+
+        public bool SaveImu(ImuConfigDto cfg)
+        {
+            if (cfg == null) return false;
+            try
+            {
+                var s = Settings.Default;
+
+                string src = cfg.HeadingSource == "Dual" ? "Dual" : "Fix";
+                s.setGPS_headingFromWhichSource = src;
+
+                // Mismo rango que hsbarFusion de la WinForm (5..60 % GPS)
+                double fusion = ClampInt(cfg.FusionGpsPercent, 5, 60) * 0.002;
+                s.setIMU_fusionWeight2 = fusion;
+
+                // Paso mínimo GPS: mismo par de valores que UpdateStepDistanceUI()
+                s.setF_minHeadingStepDistance = cfg.MinGpsStep10Cm ? 1.0 : 0.5;
+                s.setGPS_minimumStepLimit     = cfg.MinGpsStep10Cm ? 0.1 : 0.05;
+
+                s.setGPS_dualHeadingOffset            = ClampD(cfg.DualHeadingOffset, -100.0, 100.0);
+                s.setGPS_dualReverseDetectionDistance = ClampD(cfg.DualReverseDistance, 0.0, 10.0);
+                s.setGPS_isRTK                = cfg.IsRtkAlarm;
+                s.setGPS_isRTK_KillAutoSteer  = cfg.IsRtkKillAutosteer;
+                s.setGPS_jumpFixAlarmDistance = ClampInt(cfg.FixJumpAlarmDistance, 0, 1000);
+                s.setIMU_isReverseOn          = cfg.IsReverseOn;
+                s.setAutoSwitchDualFixOn      = cfg.AutoSwitchDualFix;
+                s.setAutoSwitchDualFixSpeed   = ClampD(cfg.AutoSwitchDualFixSpeed, 1.0, 10.0);
+
+                // Mismo rango que hsbarRollFilter de la WinForm (0..98)
+                double rollFilter = ClampInt(cfg.RollFilterPercent, 0, 98) * 0.01;
+                s.setIMU_rollFilter = rollFilter;
+                s.setIMU_invertRoll = cfg.InvertRoll;
+                s.Save();
+
+                // Aplicar en vivo (mismo efecto que tabDHeading_Leave/tabDRoll_Leave)
+                InvokeOnUi(() =>
+                {
+                    try
+                    {
+                        _form.headingFromSource = src;
+                        _form.ahrs.fusionWeight = fusion;
+                        _form.minHeadingStepDist = s.setF_minHeadingStepDistance;
+                        _form.gpsMinimumStepDistance = s.setGPS_minimumStepLimit;
+                        _form.isFirstHeadingSet = false;
+                        _form.pn.headingTrueDualOffset = s.setGPS_dualHeadingOffset;
+                        _form.dualReverseDetectionDistance = s.setGPS_dualReverseDetectionDistance;
+                        _form.isRTK_AlarmOn = s.setGPS_isRTK;
+                        _form.isRTK_KillAutosteer = s.setGPS_isRTK_KillAutoSteer;
+                        _form.ahrs.isReverseOn = s.setIMU_isReverseOn;
+                        _form.ahrs.autoSwitchDualFixOn = s.setAutoSwitchDualFixOn;
+                        _form.ahrs.autoSwitchDualFixSpeed = s.setAutoSwitchDualFixSpeed;
+                        _form.ahrs.rollFilter = rollFilter;
+                        _form.ahrs.isRollInvert = s.setIMU_invertRoll;
+                    }
+                    catch { }
+                });
+                return true;
+            }
+            catch { return false; }
+        }
+
+        public ImuLiveDto GetImuLive()
+        {
+            var a = _form.ahrs;
+            bool hasRoll = a.imuRoll != 88888;
+            return new ImuLiveDto
+            {
+                HasImuHeading = a.imuHeading != 99999,
+                HasImuRoll    = hasRoll,
+                ImuRoll       = hasRoll ? a.imuRoll : 0.0,
+                RollZero      = a.rollZero
+            };
+        }
+
+        public bool ZeroRoll()
+        {
+            if (_form.ahrs.imuRoll == 88888) return false;
+            InvokeOnUi(() =>
+            {
+                try
+                {
+                    // Mismo cálculo que btnZeroRoll_Click: el roll crudo pasa a ser el cero.
+                    _form.ahrs.imuRoll += _form.ahrs.rollZero;
+                    _form.ahrs.rollZero = _form.ahrs.imuRoll;
+                    PersistRollZero();
+                }
+                catch { }
+            });
+            return true;
+        }
+
+        public bool AdjustRollZero(double delta)
+        {
+            if (_form.ahrs.imuRoll == 88888) return false;
+            if (double.IsNaN(delta) || double.IsInfinity(delta)) return false;
+            double d = ClampD(delta, -5.0, 5.0);
+            InvokeOnUi(() =>
+            {
+                try { _form.ahrs.rollZero += d; PersistRollZero(); } catch { }
+            });
+            return true;
+        }
+
+        public bool RemoveRollZero()
+        {
+            InvokeOnUi(() =>
+            {
+                try { _form.ahrs.rollZero = 0; PersistRollZero(); } catch { }
+            });
+            return true;
+        }
+
+        public bool ResetImu()
+        {
+            InvokeOnUi(() =>
+            {
+                try
+                {
+                    _form.ahrs.imuHeading = 99999;
+                    _form.ahrs.imuRoll = 88888;
+                }
+                catch { }
+            });
+            return true;
+        }
+
+        private void PersistRollZero()
+        {
+            // La WinForm persiste en tabDRoll_Leave; acá persistimos de inmediato.
+            Settings.Default.setIMU_rollZero = _form.ahrs.rollZero;
+            Settings.Default.Save();
+        }
+
         // --- helpers ------------------------------------------------------------
 
         private static decimal[] ReadSectionPositions(Settings s)

@@ -6,6 +6,13 @@
 //   GET  /api/tool              → ToolConfigDto
 //   PUT  /api/tool              ← ToolConfigDto
 //   GET  /api/vehicle-tool      → { vehicle, tool }  (bundle conveniente)
+//   GET  /api/imu               → ImuConfigDto
+//   PUT  /api/imu               ← ImuConfigDto
+//   GET  /api/imu/live          → ImuLiveDto (roll actual, cero, presencia IMU)
+//   POST /api/imu/roll-zero     → poner roll actual como cero
+//   POST /api/imu/roll-adjust   ← { delta } ajuste fino del cero (±°)
+//   POST /api/imu/roll-remove   → rollZero = 0
+//   POST /api/imu/reset         → reset IMU (centinelas)
 // ============================================================================
 
 using System;
@@ -137,6 +144,73 @@ namespace AgroParallel.WebHost.Controllers
         {
             [System.Text.Json.Serialization.JsonPropertyName("archivo")]
             public string Archivo { get; set; }
+        }
+
+        // --- IMU ----------------------------------------------------------------
+
+        private sealed class RollAdjustBody
+        {
+            public double delta { get; set; }
+        }
+
+        [Route(HttpVerbs.Get, "/imu")]
+        public Task GetImu()
+        {
+            if (_svc == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(new { ok = true, imu = _svc.GetImu() });
+        }
+
+        [Route(HttpVerbs.Put, "/imu")]
+        public async Task PutImu()
+        {
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            ImuConfigDto cfg;
+            try { cfg = await ReadJsonBodyAsync<ImuConfigDto>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
+            if (cfg == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
+            bool ok = _svc.SaveImu(cfg);
+            await WriteJsonAsync(new { ok });
+        }
+
+        [Route(HttpVerbs.Get, "/imu/live")]
+        public Task GetImuLive()
+        {
+            if (_svc == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(new { ok = true, live = _svc.GetImuLive() });
+        }
+
+        [Route(HttpVerbs.Post, "/imu/roll-zero")]
+        public Task PostRollZero()
+        {
+            if (_svc == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            bool ok = _svc.ZeroRoll();
+            return WriteJsonAsync(new { ok, error = ok ? null : "no-imu-roll" });
+        }
+
+        [Route(HttpVerbs.Post, "/imu/roll-adjust")]
+        public async Task PostRollAdjust()
+        {
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            RollAdjustBody body;
+            try { body = await ReadJsonBodyAsync<RollAdjustBody>(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
+            if (body == null) { await WriteJsonAsync(new { ok = false, error = "empty-body" }); return; }
+            bool ok = _svc.AdjustRollZero(body.delta);
+            await WriteJsonAsync(new { ok, error = ok ? null : "no-imu-roll" });
+        }
+
+        [Route(HttpVerbs.Post, "/imu/roll-remove")]
+        public Task PostRollRemove()
+        {
+            if (_svc == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(new { ok = _svc.RemoveRollZero() });
+        }
+
+        [Route(HttpVerbs.Post, "/imu/reset")]
+        public Task PostImuReset()
+        {
+            if (_svc == null) return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            return WriteJsonAsync(new { ok = _svc.ResetImu() });
         }
     }
 }

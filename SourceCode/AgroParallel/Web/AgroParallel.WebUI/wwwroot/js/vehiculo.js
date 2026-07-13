@@ -1,7 +1,8 @@
 // ============================================================================
-// vehiculo.js — GET/PUT /api/vehicle. Lee Properties.Settings.Default
-// (setVehicle_*) del piloto, edita y persiste. Al guardar el piloto recarga CVehicle
-// en el hilo de UI (sin reiniciar el GPS).
+// vehiculo.js — GET/PUT /api/vehicle + /api/imu. Lee Properties.Settings.Default
+// (setVehicle_*/setGPS_*/setIMU_*) del piloto, edita y persiste. Al guardar el
+// piloto recarga CVehicle / aplica IMU en el hilo de UI (sin reiniciar el GPS).
+// La solapa Rumbo/IMU espeja las tabs WinForms tabDHeading + tabDRoll.
 // ============================================================================
 (function () {
   'use strict';
@@ -134,6 +135,128 @@
     }
   }
 
+  // ==========================================================================
+  // Solapa Rumbo / IMU  (espejo de tabDHeading + tabDRoll)
+  // ==========================================================================
+  var headingSrc = 'Fix';
+  var imuLoaded = false;
+  var liveTimer = null;
+
+  function setHeadingSrc(src) {
+    headingSrc = src === 'Dual' ? 'Dual' : 'Fix';
+    document.querySelectorAll('.imu-src .src-btn').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.src === headingSrc);
+    });
+    updateDualBox();
+  }
+
+  function updateDualBox() {
+    // Con fuente "Fix" los ajustes de dual no aplican (misma lógica que la WinForm)
+    var dual = headingSrc === 'Dual';
+    var box = $('dualBox');
+    box.style.opacity = dual ? '1' : '0.45';
+    box.querySelectorAll('input').forEach(function (i) { i.disabled = !dual; });
+    if (dual) {
+      $('autoSwitchDualFixSpeed').disabled = !$('autoSwitchDualFix').checked;
+    }
+  }
+
+  function updateFusionLbl() {
+    var v = parseInt($('fusionSlider').value, 10) || 0;
+    $('fusionLbl').textContent = 'GPS ' + v + '% / IMU ' + (100 - v) + '%';
+  }
+
+  function updateRollFilterLbl() {
+    $('rollFilterLbl').textContent = ($('rollFilterSlider').value || 0) + ' %';
+  }
+
+  function fillImu(m) {
+    if (!m) return;
+    setHeadingSrc(m.headingSource);
+    $('fusionSlider').value = m.fusionGpsPercent | 0;
+    updateFusionLbl();
+    $('minGpsStep').checked = !!m.minGpsStep10cm;
+    $('isReverseOn').checked = !!m.isReverseOn;
+    $('dualHeadingOffset').value = num(m.dualHeadingOffset, 0);
+    $('dualReverseDistance').value = num(m.dualReverseDistance, 0.35);
+    $('autoSwitchDualFix').checked = !!m.autoSwitchDualFix;
+    $('autoSwitchDualFixSpeed').value = num(m.autoSwitchDualFixSpeed, 2);
+    $('isRtkAlarm').checked = !!m.isRtkAlarm;
+    $('isRtkKill').checked = !!m.isRtkKillAutosteer;
+    $('fixJumpAlarm').value = m.fixJumpAlarmDistance | 0;
+    $('rollFilterSlider').value = m.rollFilterPercent | 0;
+    updateRollFilterLbl();
+    $('invertRoll').checked = !!m.invertRoll;
+    updateDualBox();
+    imuLoaded = true;
+  }
+
+  function readImu() {
+    return {
+      headingSource: headingSrc,
+      fusionGpsPercent: parseInt($('fusionSlider').value, 10) || 50,
+      minGpsStep10cm: $('minGpsStep').checked,
+      dualHeadingOffset: parseFloat($('dualHeadingOffset').value) || 0,
+      dualReverseDistance: parseFloat($('dualReverseDistance').value) || 0,
+      isRtkAlarm: $('isRtkAlarm').checked,
+      isRtkKillAutosteer: $('isRtkKill').checked,
+      fixJumpAlarmDistance: parseInt($('fixJumpAlarm').value, 10) || 0,
+      isReverseOn: $('isReverseOn').checked,
+      autoSwitchDualFix: $('autoSwitchDualFix').checked,
+      autoSwitchDualFixSpeed: parseFloat($('autoSwitchDualFixSpeed').value) || 2,
+      rollFilterPercent: parseInt($('rollFilterSlider').value, 10) || 0,
+      invertRoll: $('invertRoll').checked
+    };
+  }
+
+  async function refreshImuLive() {
+    try {
+      var res = await fetch('/api/imu/live', { cache: 'no-store' });
+      var data = await res.json();
+      if (!data.ok) return;
+      var l = data.live;
+      $('rollLiveVal').textContent = l.hasImuRoll ? l.imuRoll.toFixed(2) : '***';
+      $('rollZeroVal').textContent = (l.rollZero || 0).toFixed(2);
+      // La fusión solo tiene sentido con IMU presente (o con auto-switch dual)
+      $('fusionSlider').disabled = !(l.hasImuHeading || $('autoSwitchDualFix').checked);
+    } catch (e) { /* silencioso: polling */ }
+  }
+
+  function startLive() {
+    if (liveTimer) return;
+    refreshImuLive();
+    liveTimer = setInterval(refreshImuLive, 1000);
+  }
+  function stopLive() {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  }
+
+  function msgRoll(state, text) {
+    var el = $('msgRoll');
+    el.className = 'msg ' + (state || '');
+    el.textContent = text || '';
+  }
+
+  async function rollAction(url, body, okText) {
+    msgRoll('', '…');
+    try {
+      var res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+      var data = await res.json();
+      if (data.ok) msgRoll('ok', '✓ ' + okText);
+      else msgRoll('err', data.error === 'no-imu-roll' ? '✕ No hay roll de IMU (***)' : '✕ ' + (data.error || 'falló'));
+    } catch (e) {
+      msgRoll('err', '✕ ' + e.message);
+    }
+    refreshImuLive();
+  }
+
+  // ==========================================================================
+  // Carga / guardado
+  // ==========================================================================
   async function load() {
     pill('', 'Cargando…');
     try {
@@ -141,6 +264,11 @@
       var data = await res.json();
       if (!data.ok) throw new Error(data.error || 'GET falló');
       fillForm(data.vehicle);
+
+      var resImu = await fetch('/api/imu', { cache: 'no-store' });
+      var dataImu = await resImu.json();
+      if (dataImu.ok) fillImu(dataImu.imu);
+
       pill('ok', 'OK');
     } catch (e) {
       pill('err', 'Error');
@@ -158,11 +286,18 @@
         body: JSON.stringify(cfg)
       });
       var data = await res.json();
-      if (data.ok) {
-        msg('ok', '✓ Guardado y aplicado.');
-      } else {
-        msg('err', '✕ ' + (data.error || 'no se pudo guardar'));
+      if (!data.ok) { msg('err', '✕ ' + (data.error || 'no se pudo guardar')); return; }
+
+      if (imuLoaded) {
+        var resImu = await fetch('/api/imu', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(readImu())
+        });
+        var dataImu = await resImu.json();
+        if (!dataImu.ok) { msg('err', '✕ IMU: ' + (dataImu.error || 'no se pudo guardar')); return; }
       }
+      msg('ok', '✓ Guardado y aplicado.');
     } catch (e) {
       msg('err', '✕ ' + e.message);
     }
@@ -176,6 +311,8 @@
       t.classList.add('on');
       var p = document.getElementById('panel-' + t.dataset.panel);
       if (p) p.classList.add('on');
+      // Polling de roll en vivo solo mientras la solapa IMU está visible
+      if (t.dataset.panel === 'imu') startLive(); else stopLive();
     });
   });
 
@@ -195,6 +332,30 @@
 
   document.querySelectorAll('.ant-side').forEach(function (b) {
     b.addEventListener('click', function () { setSide(b.dataset.side); });
+  });
+
+  // ---- listeners solapa IMU ----
+  document.querySelectorAll('.imu-src .src-btn').forEach(function (b) {
+    b.addEventListener('click', function () { setHeadingSrc(b.dataset.src); });
+  });
+  $('fusionSlider').addEventListener('input', updateFusionLbl);
+  $('rollFilterSlider').addEventListener('input', updateRollFilterLbl);
+  $('autoSwitchDualFix').addEventListener('change', updateDualBox);
+
+  $('btnRollZero').addEventListener('click', function () {
+    rollAction('/api/imu/roll-zero', null, 'Roll puesto en cero.');
+  });
+  $('btnRollMinus').addEventListener('click', function () {
+    rollAction('/api/imu/roll-adjust', { delta: -0.1 }, 'Cero ajustado −0.1°.');
+  });
+  $('btnRollPlus').addEventListener('click', function () {
+    rollAction('/api/imu/roll-adjust', { delta: 0.1 }, 'Cero ajustado +0.1°.');
+  });
+  $('btnRollRemove').addEventListener('click', function () {
+    rollAction('/api/imu/roll-remove', null, 'Offset de cero quitado.');
+  });
+  $('btnImuReset').addEventListener('click', function () {
+    rollAction('/api/imu/reset', null, 'IMU reseteado.');
   });
 
   $('btnSaveVeh').addEventListener('click', save);

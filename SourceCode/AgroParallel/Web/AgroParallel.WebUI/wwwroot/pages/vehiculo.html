@@ -229,6 +229,92 @@
       font-weight: var(--agp-fw-semi);
     }
 
+    /* ---- panel IMU ---- */
+    .imu-split {
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) minmax(300px, 1fr);
+      gap: var(--agp-sp-3);
+      align-items: start;
+    }
+    @media (max-width: 980px) { .imu-split { grid-template-columns: 1fr; } }
+
+    .imu-src { display: flex; gap: var(--agp-sp-2); }
+    .imu-src .src-btn {
+      flex: 1;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      min-height: var(--agp-touch-min);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      color: var(--agp-text-muted);
+      font: inherit; cursor: pointer;
+    }
+    .imu-src .src-btn.on {
+      border-color: var(--agp-accent);
+      background: var(--agp-accent-soft, rgba(74,186,62,0.12));
+      color: var(--agp-text);
+      font-weight: var(--agp-fw-semi);
+    }
+    .imu-src .src-btn .src-hint { font-size: var(--agp-fs-xs); font-weight: 400; }
+
+    .chk-row {
+      display: flex; align-items: center; gap: var(--agp-sp-2);
+      min-height: var(--agp-touch-min);
+      cursor: pointer;
+    }
+    .chk-row input[type="checkbox"] {
+      width: 26px; height: 26px;
+      accent-color: var(--agp-accent);
+      flex: none;
+    }
+    .chk-row .chk-txt { display: flex; flex-direction: column; }
+    .chk-row .chk-txt .help { margin-top: 0; }
+
+    .slider-row { display: flex; align-items: center; gap: var(--agp-sp-2); }
+    .slider-row input[type="range"] {
+      flex: 1; min-height: var(--agp-touch-min);
+      accent-color: var(--agp-accent);
+    }
+    .slider-row .slider-val {
+      min-width: 84px; text-align: right;
+      font-weight: var(--agp-fw-semi);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .imu-field { display: flex; flex-direction: column; gap: 4px; margin-top: var(--agp-sp-3); }
+    .imu-field > label { font-weight: var(--agp-fw-semi); }
+    .imu-num-row { display: flex; align-items: center; gap: 10px; }
+    .imu-num-row input {
+      width: 130px; min-height: var(--agp-touch-min);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft); color: var(--agp-text);
+      font-size: 22px; font-weight: 700; text-align: center;
+    }
+    .imu-num-row input:disabled { opacity: 0.45; }
+
+    .roll-live {
+      display: flex; gap: var(--agp-sp-3); justify-content: center;
+      text-align: center; margin: var(--agp-sp-2) 0;
+    }
+    .roll-live .roll-box {
+      flex: 1; max-width: 200px;
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-2);
+    }
+    .roll-live .roll-val {
+      font-size: 34px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--agp-text);
+    }
+    .roll-live .roll-lbl { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+
+    .roll-btns { display: flex; flex-wrap: wrap; gap: var(--agp-sp-2); justify-content: center; }
+    .roll-btns .btn { min-height: var(--agp-touch-min); min-width: 84px; }
+
     .msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-3); min-height: 18px; }
     .msg.ok  { color: var(--agp-state-ok); }
     .msg.err { color: var(--agp-state-bad); }
@@ -239,7 +325,7 @@
   <aside class="sidebar" data-active="vehiculo"></aside>
   <main class="page">
     <div class="page-head">
-      <div><h1>Vehículo</h1><div class="subtitle">Tipo, geometría y antena GPS</div></div>
+      <div><h1>Vehículo</h1><div class="subtitle">Tipo, geometría, antena GPS y rumbo/IMU</div></div>
       <span class="pill" id="vehStatus"><span class="dot"></span> Cargando…</span>
     </div>
 
@@ -248,6 +334,7 @@
       <button class="tab on" data-panel="tipo">Tipo</button>
       <button class="tab"    data-panel="geometria">Geometría</button>
       <button class="tab"    data-panel="antena">Antena GPS</button>
+      <button class="tab"    data-panel="imu">Rumbo / IMU</button>
     </div>
 
     <!-- =================== TIPO =================== -->
@@ -429,6 +516,158 @@
 
             <div class="help" style="text-align:center">La antena dual va montada del lado <b>derecho</b>.</div>
           </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- =================== RUMBO / IMU =================== -->
+    <!-- Espejo HTML de las solapas WinForms tabDHeading + tabDRoll.
+         Rumbo: fuente Fix/Dual, fusión GPS/IMU, paso mínimo, RTK, reversa.
+         Roll: nivelación (cero), filtro, invertir. -->
+    <section class="panel" id="panel-imu">
+      <div class="imu-split">
+
+        <!-- ---------- Rumbo ---------- -->
+        <div class="card">
+          <h3 style="margin-top:0">Fuente de rumbo</h3>
+          <div class="imu-src" role="group" aria-label="Fuente de rumbo">
+            <button type="button" class="src-btn" id="srcFix" data-src="Fix">
+              <span>GPS simple</span>
+              <span class="src-hint">Una antena — rumbo por movimiento</span>
+            </button>
+            <button type="button" class="src-btn" id="srcDual" data-src="Dual">
+              <span>Antena dual</span>
+              <span class="src-hint">Dos antenas — rumbo instantáneo</span>
+            </button>
+          </div>
+
+          <div class="imu-field">
+            <label>Fusión GPS / IMU</label>
+            <div class="slider-row">
+              <input type="range" id="fusionSlider" min="5" max="60" step="1">
+              <span class="slider-val" id="fusionLbl">— / —</span>
+            </div>
+            <div class="help" id="fusionHelp">Cuánto pesa el GPS frente al IMU para el rumbo.</div>
+          </div>
+
+          <label class="chk-row" style="margin-top: var(--agp-sp-2)">
+            <input type="checkbox" id="minGpsStep">
+            <span class="chk-txt">
+              <span>Paso mínimo GPS de 10 cm</span>
+              <span class="help">Apagado usa 5 cm. Con señal inestable conviene 10 cm.</span>
+            </span>
+          </label>
+
+          <label class="chk-row">
+            <input type="checkbox" id="isReverseOn">
+            <span class="chk-txt">
+              <span>Detectar reversa con IMU</span>
+              <span class="help">Evita que el tractor "se dé vuelta" en el mapa al retroceder.</span>
+            </span>
+          </label>
+
+          <div id="dualBox">
+            <div class="imu-field">
+              <label for="dualHeadingOffset">Offset rumbo dual (°)</label>
+              <div class="imu-num-row">
+                <input type="number" id="dualHeadingOffset" min="-100" max="100" step="0.1">
+                <span class="ant-unit">°</span>
+              </div>
+              <div class="help">Corrección si las antenas no están perfectamente alineadas.</div>
+            </div>
+
+            <div class="imu-field">
+              <label for="dualReverseDistance">Distancia detección reversa (m)</label>
+              <div class="imu-num-row">
+                <input type="number" id="dualReverseDistance" min="0" max="10" step="0.1">
+                <span class="ant-unit">m</span>
+              </div>
+            </div>
+
+            <label class="chk-row" style="margin-top: var(--agp-sp-2)">
+              <input type="checkbox" id="autoSwitchDualFix">
+              <span class="chk-txt">
+                <span>Cambio automático dual ↔ simple</span>
+                <span class="help">A baja velocidad usa rumbo simple; al acelerar vuelve a dual.</span>
+              </span>
+            </label>
+
+            <div class="imu-field" id="autoSwitchSpeedBox">
+              <label for="autoSwitchDualFixSpeed">Velocidad de cambio (km/h)</label>
+              <div class="imu-num-row">
+                <input type="number" id="autoSwitchDualFixSpeed" min="1" max="10" step="0.1">
+                <span class="ant-unit">km/h</span>
+              </div>
+            </div>
+          </div>
+
+          <h3>Alarmas GPS</h3>
+          <label class="chk-row">
+            <input type="checkbox" id="isRtkAlarm">
+            <span class="chk-txt">
+              <span>Alarma al perder RTK</span>
+            </span>
+          </label>
+          <label class="chk-row">
+            <input type="checkbox" id="isRtkKill">
+            <span class="chk-txt">
+              <span>Cortar piloto al perder RTK</span>
+            </span>
+          </label>
+          <div class="imu-field">
+            <label for="fixJumpAlarm">Alarma de salto de posición (m)</label>
+            <div class="imu-num-row">
+              <input type="number" id="fixJumpAlarm" min="0" max="1000" step="1">
+              <span class="ant-unit">m</span>
+            </div>
+            <div class="help">0 = desactivada. Avisa si el GPS salta más que esta distancia.</div>
+          </div>
+        </div>
+
+        <!-- ---------- Roll ---------- -->
+        <div class="card">
+          <h3 style="margin-top:0">Inclinación (roll)</h3>
+          <p class="help" style="margin:0 0 var(--agp-sp-2) 0">
+            Con el tractor en piso nivelado, tocá <b>Poner en cero</b> para calibrar la inclinación.
+          </p>
+
+          <div class="roll-live">
+            <div class="roll-box">
+              <div class="roll-val" id="rollLiveVal">***</div>
+              <div class="roll-lbl">Roll actual (°)</div>
+            </div>
+            <div class="roll-box">
+              <div class="roll-val" id="rollZeroVal">0.00</div>
+              <div class="roll-lbl">Cero guardado (°)</div>
+            </div>
+          </div>
+
+          <div class="roll-btns">
+            <button class="btn primary" id="btnRollZero" type="button">Poner en cero</button>
+            <button class="btn" id="btnRollMinus" type="button">− 0.1°</button>
+            <button class="btn" id="btnRollPlus" type="button">+ 0.1°</button>
+            <button class="btn" id="btnRollRemove" type="button">Quitar cero</button>
+            <button class="btn" id="btnImuReset" type="button">Reset IMU</button>
+          </div>
+          <div class="msg" id="msgRoll" style="text-align:center"></div>
+
+          <div class="imu-field">
+            <label>Filtro de roll</label>
+            <div class="slider-row">
+              <input type="range" id="rollFilterSlider" min="0" max="98" step="1">
+              <span class="slider-val" id="rollFilterLbl">0 %</span>
+            </div>
+            <div class="help">Más filtro = lectura más suave pero más lenta.</div>
+          </div>
+
+          <label class="chk-row">
+            <input type="checkbox" id="invertRoll">
+            <span class="chk-txt">
+              <span>Invertir roll</span>
+              <span class="help">Si al inclinarse a la derecha corrige para el lado equivocado.</span>
+            </span>
+          </label>
         </div>
 
       </div>
