@@ -73,7 +73,9 @@ namespace AgroParallel.Shell
             IToolGeometryCalculator toolGeometry = null,
             ITramCalculator tram = null,
             IImuCalibracionService imuCalibracion = null,
-            ITrackListService trackList = null)
+            ITrackListService trackList = null,
+            IPerfilVehiculoService perfiles = null,
+            IConfigVehiculoService configVehiculo = null)
         {
             lock (s_lock)
             {
@@ -136,7 +138,9 @@ namespace AgroParallel.Shell
                     tram: tram,
                     implemento: implemento,
                     imuCalibracion: imuCalibracion,
-                    trackList: trackList);
+                    trackList: trackList,
+                    perfiles: perfiles,
+                    configVehiculo: configVehiculo);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;

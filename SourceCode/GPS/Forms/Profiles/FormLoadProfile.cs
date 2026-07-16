@@ -55,6 +55,14 @@ namespace AgOpenGPS.Forms.Profiles
             if (listViewProfiles.SelectedItems.Count <= 0) return;
 
             string profileName = listViewProfiles.SelectedItems[0].Text;
+            //PilotX: perfiles protegidos con clave (sidecar .clave) solo se
+            //borran desde la página Perfiles del Hub, que pide la clave.
+            if (global::AgroParallel.Adapters.PerfilGuard.EstaProtegido(RegistrySettings.vehiclesDirectory, profileName))
+            {
+                FormDialog.Show("Perfil protegido", "Gestionalo desde el menú Perfiles (pide la clave).", DialogSeverity.Error);
+                return;
+            }
+
             if (RegistrySettings.vehicleFileName != profileName)
             {
                 DialogResult result = FormDialog.ShowQuestion(

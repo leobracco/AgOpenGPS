@@ -1114,10 +1114,8 @@ namespace AgOpenGPS
         }
         private void btnConfig_Click(object sender, EventArgs e)
         {
-            using (FormConfig form = new FormConfig(this))
-            {
-                form.ShowDialog(this);
-            }
+            // AgroParallel: la Configuración ahora es HTML (pages/config.html)
+            FloatMenuOpenConfig("tabSummary");
         }
 
         #endregion

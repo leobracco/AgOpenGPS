@@ -1252,3 +1252,26 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   CSS adaptativo en barra-derecha/abajo (flex 1 1 0, íconos escalan con
   la barra). Detalle en §4 ("Modo barras HTML"). Verificado en vivo con
   lote abierto + auto-ocultado. Build 0 errores.
+- [2026-07-16] [Claude] Pedido de usuario: "copia al 100% la ventana de
+  Configuración a html" — réplica completa de FormConfig (19 solapas; la
+  20ª, tabVGuidance, está vacía en el original) en `pages/config.html` +
+  `js/config.js`, con íconos/imágenes originales copiados a
+  `img/config/`. Backend: `IConfigVehiculoService` + `FormGpsConfigService`
+  (GPS, aplica settings + runtime como los Enter/Leave nativos) +
+  `ConfigVehiculoController` (`GET /api/aog/config` snapshot snake_case,
+  `POST /api/aog/config/{seccion}`, acciones rolido/preparar secciones).
+  Guardado on-leave por solapa (réplica); relay/amachine solo persisten
+  con "Enviar + Guardar" (PGN 236/238). Botón Guardar flotante con
+  estados: neutro "Sin cambios" → verde pulsante "Guardar" al detectar
+  cambios → tilde "Guardado" 1.5 s al persistir. Entry points
+  redirigidos: menú flotante (`FloatMenuOpenConfig` → widget
+  `config.html?tab=X`, mapa de TabPages en `ConfigTabToHtml`) y engranaje
+  (`btnConfig_Click`); la WinForm nativa queda como fallback
+  (`FloatMenuOpenConfigNativa`). Fix: el tipo de vehículo ahora se aplica
+  al runtime (`vehicle.VehicleConfig.Type`) sin reiniciar. Además: tira
+  estado-módulos deshabilitada de la pantalla principal (pedido de
+  usuario; el control se conserva). Deep-links `?tab=` congelados:
+  summary/vconfig/vdimensions/vantenna/tconfig/thitch/tooloffset/
+  toolpivot/tsettings/tsections/tswitches/relay/amachine/heading/roll/
+  uturn/tram/display/botones. Build 0 errores, verificado en vivo por
+  solapa (Playwright + API).

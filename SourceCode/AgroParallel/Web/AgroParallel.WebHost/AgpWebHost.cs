@@ -47,6 +47,12 @@ namespace AgroParallel.WebHost
         // Lista de guías (AB/curvas) del lote activo (FormGPS.trk.gArr). Mismo
         // criterio: inyectado por FormGPS, no auto-instanciado.
         private readonly ITrackListService _trackList;
+        // Perfiles de vehículo (Vehicles/*.xml): cargar/sumar/copiar/proteger
+        // desde pages/perfiles.html. Inyectado por FormGPS (necesita el form vivo).
+        private readonly IPerfilVehiculoService _perfiles;
+        // Réplica HTML de FormConfig (pages/config.html). Inyectado por FormGPS
+        // (todas las acciones tocan Settings + estado vivo del form).
+        private readonly IConfigVehiculoService _configVehiculo;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -127,7 +133,9 @@ namespace AgroParallel.WebHost
                           ITramCalculator tram = null,
                           IImplementoService implemento = null,
                           IImuCalibracionService imuCalibracion = null,
-                          ITrackListService trackList = null)
+                          ITrackListService trackList = null,
+                          IPerfilVehiculoService perfiles = null,
+                          IConfigVehiculoService configVehiculo = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -148,6 +156,8 @@ namespace AgroParallel.WebHost
             _guidance = guidance;             // nullable
             _imuCalibracion = imuCalibracion; // nullable
             _trackList = trackList;           // nullable
+            _perfiles = perfiles;             // nullable
+            _configVehiculo = configVehiculo; // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -276,6 +286,10 @@ namespace AgroParallel.WebHost
                 if (_imuCalibracion != null) m.WithController(() => new ImuCalibracionController(_imuCalibracion));
                 // Lista de guías (AB/curvas) del lote activo.
                 if (_trackList != null) m.WithController(() => new TrackListController(_trackList));
+                // Perfiles de vehículo (pages/perfiles.html).
+                if (_perfiles != null) m.WithController(() => new PerfilesController(_perfiles));
+                // Configuración completa vehículo/implemento (pages/config.html).
+                if (_configVehiculo != null) m.WithController(() => new ConfigVehiculoController(_configVehiculo));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))

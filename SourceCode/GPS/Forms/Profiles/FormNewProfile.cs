@@ -92,6 +92,14 @@ namespace AgOpenGPS.Forms.Profiles
 
             string newProfilePath = Path.Combine(RegistrySettings.vehiclesDirectory, newProfileName + ".xml");
 
+            //PilotX: no permitir pisar un perfil protegido con clave.
+            if (File.Exists(newProfilePath) &&
+                global::AgroParallel.Adapters.PerfilGuard.EstaProtegido(RegistrySettings.vehiclesDirectory, newProfileName))
+            {
+                FormDialog.Show("Perfil protegido", "No se puede sobrescribir. Gestionalo desde el menú Perfiles.", DialogSeverity.Error);
+                return;
+            }
+
             if (File.Exists(newProfilePath))
             {
                 var overwrite = FormDialog.ShowQuestion(

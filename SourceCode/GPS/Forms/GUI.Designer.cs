@@ -1008,17 +1008,22 @@ namespace AgOpenGPS
             {
                 panelBottom.Visible = false;
                 panelRight.Visible = false;
-                //la flecha (y el auto-ocultado de 10 s) esconde también la
-                //botonera izquierda nativa, espejo de la rama hidden nativa
-                panelLeft.Visible = !(isJobStarted && isPanelBottomHidden);
-                if (panelLeft.Visible) panelLeft.BringToFront();
+                //el panelLeft nativo también se reemplaza por su espejo HTML
+                //(menu-izquierda.html dockeada al borde izquierdo)
+                panelLeft.Visible = false;
+                //la franja superior nativa desaparece entera: los labels que
+                //vivían ahí (fix/edad y lote/línea actual) se ocultan y el
+                //mapa sube hasta el borde (la barra HTML flota encima).
+                lblFix.Visible = false;
+                lblCurrentField.Visible = false;
 
-                //mapa SIEMPRE al tamaño grande y FIJO: las barras HTML y la
-                //botonera izquierda flotan encima, así mostrar/ocultar con la
-                //flecha no redimensiona el mapa (sin saltos ni reflashes).
+                //mapa SIEMPRE al tamaño grande y FIJO: las barras HTML
+                //flotan encima, así mostrar/ocultar con la flecha no
+                //redimensiona el mapa (sin saltos ni reflashes).
+                oglMain.Top = 0;
                 oglMain.Left = 20;
                 oglMain.Width = this.Width - 98;
-                oglMain.Height = this.Height - 62;
+                oglMain.Height = this.Height - 12;
 
                 ActualizarBarrasHtml();
                 ReiniciarTimerOcultarPaneles();

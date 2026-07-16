@@ -360,6 +360,12 @@ namespace AgroParallel.Shell
                     x = r.Right - w - 4 - m.Right;
                     y = r.Top + 4 + m.Top;
                     break;
+                case "left":
+                    w = Math.Max(40, FloatingSize.Width);
+                    h = r.Height - 8 - m.Top - m.Bottom;
+                    x = r.Left + 4 + m.Left;
+                    y = r.Top + 4 + m.Top;
+                    break;
                 case "bottom":
                     h = Math.Max(40, FloatingSize.Height);
                     w = r.Width - 8 - m.Left - m.Right;

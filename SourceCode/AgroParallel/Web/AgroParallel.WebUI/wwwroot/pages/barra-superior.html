@@ -62,10 +62,75 @@
 
     .tbtn.win-close { background: #F0DCDC; }
     .tbtn.win-close:active { background: #E6C4C4; }
+
+    /* Chips de info (solo lectura): fecha, lat/lon, señal, ha/h, ha hechas.
+       Formato de dos líneas como .speed: valor + etiqueta chica. */
+    .chip {
+      flex: 0 0 auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-width: 64px; padding: 3px 8px;
+      border: 1px solid #C5CFC5; border-radius: 10px;
+      background: #fff; color: #101612;
+      text-align: center;
+    }
+    .chip .val { font: 700 13px/1.15 "Segoe UI", sans-serif; white-space: nowrap; }
+    .chip .lbl { font: 600 8.5px/1 "Segoe UI", sans-serif; color: #5a675c; margin-top: 2px; }
+    .chip.stat-ok   { background: #C6F0BE; border-color: #7FC96E; }
+    .chip.stat-mid  { background: #FFD9A0; border-color: #E0A94A; }
+    .chip.stat-low  { background: #FFF3A0; border-color: #E0CB4A; }
+    .chip.stat-bad  { background: #FFC2BE; border-color: #E06A63; }
+    #chipLatLon .val { font-size: 10.5px; }
+
+    /* Panel desplegable de la hamburguesa: espejo HTML COMPLETO del menú
+       nativo (menuStrip1): Perfil, Idioma, Simulador, Coordenadas sim,
+       Kiosco, Reset TODO, Ayuda. Se abre expandiendo el widget (resize). */
+    .bar { height: 56px; flex: 0 0 auto; }
+    body { display: flex; flex-direction: column; }
+    /* menú abierto: la barra se esconde y el widget se achica a un panel
+       compacto centrado (no ocupa todo el ancho de la pantalla) */
+    body.menu-open .bar { display: none; }
+    .menu {
+      flex: 1 1 auto; margin-top: 0; padding: 8px;
+      border: 1px solid #C5CFC5; border-radius: 10px;
+      background: #fff; overflow-y: auto;
+    }
+    .mlist { display: flex; flex-direction: column; gap: 6px; }
+    /* [hidden] pierde contra display:flex/grid de .mlist/.mlang */
+    .mlist[hidden], .menu[hidden] { display: none; }
+    .mitem {
+      display: flex; align-items: center; gap: 10px;
+      min-height: 46px; padding: 6px 14px;
+      border: 1px solid #C5CFC5; border-radius: 10px;
+      background: #E2E7E2; color: #101612;
+      font: 600 14px/1.2 "Segoe UI", sans-serif;
+      text-align: left; cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
+    }
+    .mitem:active { background: #C5CFC5; }
+    .mitem .arrow { margin-left: auto; color: #5a675c; font-weight: 700; }
+    .mitem.back { background: #F5F7F4; }
+    .mitem.danger { background: #F0DCDC; border-color: #E06A63; }
+    .mitem .state { margin-left: auto; font-size: 12px; color: #5a675c; }
+    .mitem .state.on { color: #2e8b25; font-weight: 700; }
+    .mlang {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    }
+    .mlang .mitem.back { grid-column: 1 / -1; }
+    .mtitle {
+      font: 700 12px/1 "Segoe UI", sans-serif; color: #5a675c;
+      padding: 2px 4px 6px;
+    }
   </style>
 </head>
 <body>
   <div class="bar">
+    <!-- Hamburguesa (menuStrip1 nativo): despliega el panel HTML de abajo
+         (espejo completo del menú nativo, sin abrir el ToolStrip WinForms) -->
+    <button type="button" class="tbtn" id="btnMenu" title="Menú principal">
+      <img src="../img/topbar/FileMenu.png" alt=""><span>Menú</span>
+    </button>
+
     <!-- Datos del lote (btnFieldStats): abre el widget flotante de datos de
          lote; se atenúa sin lote abierto, igual que el nativo -->
     <button type="button" class="tbtn" id="btnLote" data-cmd="lote_datos" title="Datos del lote">
@@ -88,6 +153,28 @@
       <span class="unit">km/h</span>
     </div>
 
+    <!-- Info en vivo: fecha/hora, posición, tipo de señal, rendimiento -->
+    <div class="chip" id="chipFecha" title="Fecha y hora">
+      <span class="val" id="fechaVal">—</span>
+      <span class="lbl" id="fechaLbl">fecha</span>
+    </div>
+    <div class="chip" id="chipLatLon" title="Posición (lat / lon)">
+      <span class="val" id="latVal">—</span>
+      <span class="val" id="lonVal">—</span>
+    </div>
+    <div class="chip" id="chipSenal" title="Tipo de señal GPS">
+      <span class="val" id="senalVal">—</span>
+      <span class="lbl">señal</span>
+    </div>
+    <div class="chip" id="chipHaHora" title="Ritmo de trabajo">
+      <span class="val" id="haHoraVal">0.0</span>
+      <span class="lbl">ha/h</span>
+    </div>
+    <div class="chip" id="chipHaHechas" title="Hectáreas trabajadas">
+      <span class="val" id="haHechasVal">0.00</span>
+      <span class="lbl">ha hechas</span>
+    </div>
+
     <div class="sep"></div>
 
     <button type="button" class="tbtn" data-cmd="minimizar" title="Minimizar">
@@ -100,6 +187,55 @@
       <img src="../img/topbar/WindowClose.png" alt=""><span>Cerrar</span>
     </button>
   </div>
-  <script src="../js/barra-superior.js?v=1"></script>
+
+  <!-- Desplegable de la hamburguesa (oculto hasta tocar Menú) -->
+  <div class="menu" id="menuPanel" hidden>
+    <!-- nivel raíz -->
+    <div class="mlist" id="mlistRoot">
+      <button type="button" class="mitem back" id="btnCerrarMenu">✕ Cerrar menú</button>
+      <button type="button" class="mitem" data-cmd="perfil_gestion">Perfiles del vehículo</button>
+      <button type="button" class="mitem" data-sub="idioma">Idioma<span class="arrow">›</span></button>
+      <button type="button" class="mitem" data-cmd="simulador" data-keep="1">Simulador
+        <span class="state" id="simState">—</span></button>
+      <button type="button" class="mitem" data-cmd="sim_coords">Coordenadas del simulador</button>
+      <button type="button" class="mitem" data-cmd="kiosco">Modo kiosco (pantalla completa)</button>
+      <button type="button" class="mitem danger" data-cmd="reset_all">Restablecer TODO</button>
+      <button type="button" class="mitem" data-cmd="ayuda">Ayuda</button>
+    </div>
+
+    <!-- Idioma: misma lista y mismos códigos que el menú nativo -->
+    <div class="mlist mlang" id="mlistIdioma" hidden>
+      <button type="button" class="mitem back" data-back="1">‹ Volver</button>
+      <button type="button" class="mitem" data-cmd="idioma_es">Español</button>
+      <button type="button" class="mitem" data-cmd="idioma_en">English</button>
+      <button type="button" class="mitem" data-cmd="idioma_pt">Português</button>
+      <button type="button" class="mitem" data-cmd="idioma_fr">Français</button>
+      <button type="button" class="mitem" data-cmd="idioma_de">Deutsch</button>
+      <button type="button" class="mitem" data-cmd="idioma_it">Italiano</button>
+      <button type="button" class="mitem" data-cmd="idioma_nl">Nederlands</button>
+      <button type="button" class="mitem" data-cmd="idioma_da">Dansk</button>
+      <button type="button" class="mitem" data-cmd="idioma_no">Norsk</button>
+      <button type="button" class="mitem" data-cmd="idioma_sv">Svenska</button>
+      <button type="button" class="mitem" data-cmd="idioma_fi">Suomalainen</button>
+      <button type="button" class="mitem" data-cmd="idioma_et">Eesti</button>
+      <button type="button" class="mitem" data-cmd="idioma_lv">Latviski</button>
+      <button type="button" class="mitem" data-cmd="idioma_lt">Lietuvių</button>
+      <button type="button" class="mitem" data-cmd="idioma_pl">Polski</button>
+      <button type="button" class="mitem" data-cmd="idioma_cs">Čeština</button>
+      <button type="button" class="mitem" data-cmd="idioma_sk">Slovenčina</button>
+      <button type="button" class="mitem" data-cmd="idioma_hu">Magyar</button>
+      <button type="button" class="mitem" data-cmd="idioma_ro">Română</button>
+      <button type="button" class="mitem" data-cmd="idioma_hr">Hrvatski</button>
+      <button type="button" class="mitem" data-cmd="idioma_sr">Srpski</button>
+      <button type="button" class="mitem" data-cmd="idioma_ru">Русский</button>
+      <button type="button" class="mitem" data-cmd="idioma_uk">Yкраїнська</button>
+      <button type="button" class="mitem" data-cmd="idioma_tr">Türkçe</button>
+      <button type="button" class="mitem" data-cmd="idioma_zh-CHS">中国人</button>
+      <button type="button" class="mitem" data-cmd="idioma_ja">日本語</button>
+      <button type="button" class="mitem" data-cmd="idioma_ko">한국인</button>
+    </div>
+  </div>
+
+  <script src="../js/barra-superior.js?v=4"></script>
 </body>
 </html>

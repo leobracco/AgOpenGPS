@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Configuración · PilotX</title>
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Configuración del vehículo/implemento — réplica HTML de FormConfig.
+       Navegación por menú lateral (como el original: tabs ocultas + botonera).
+       Deep-link: ?tab=vconfig | vdimensions | vantenna | summary | …
+       Guardado: réplica del Leave nativo — al salir de una sección con cambios
+       se postea a /api/aog/config/{seccion}. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --verde: #4ABA3E;
+      --fondo: #F5F7F4;
+      --carta: #ffffff;
+      --borde: #C5CFC5;
+      --texto: #101612;
+      --gris: #535E54;
+      --rojo: #c0392b;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+      background: var(--fondo); color: var(--texto);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #layout { flex: 1; min-height: 0; display: flex; }
+
+    /* ---- menú lateral ---- */
+    #menu {
+      width: 190px; flex: none; overflow-y: auto;
+      background: var(--carta); border-right: 1px solid var(--borde);
+      padding: 8px 6px; display: flex; flex-direction: column; gap: 2px;
+    }
+    #menu .grupo {
+      font: 700 11px "Segoe UI", Roboto, sans-serif; color: var(--gris);
+      text-transform: uppercase; letter-spacing: 0.4px;
+      padding: 10px 8px 4px;
+    }
+    #menu button {
+      display: flex; align-items: center; gap: 8px;
+      min-height: 42px; padding: 4px 8px; width: 100%;
+      border: 0; border-radius: 8px; background: transparent;
+      font: 600 13px "Segoe UI", Roboto, sans-serif; color: var(--texto);
+      text-align: left; cursor: pointer; touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+    }
+    #menu button img { width: 26px; height: 26px; object-fit: contain; flex: none; }
+    #menu button.sel { background: #eaf6e8; box-shadow: inset 3px 0 0 var(--verde); }
+    #menu button:active { background: #e6ede5; }
+
+    /* ---- panel principal ---- */
+    #main { flex: 1; min-width: 0; overflow-y: auto; padding: 12px; }
+    section[data-tab] { display: none; }
+    section[data-tab].activa { display: block; }
+    .carta {
+      background: var(--carta); border: 1px solid var(--borde);
+      border-radius: 12px; padding: 14px; margin-bottom: 12px;
+    }
+    .carta h2 { font-size: 15px; margin-bottom: 10px; }
+    .nota { font-size: 12px; color: var(--gris); }
+
+    /* ---- footer común (réplica del footer de FormConfig) ---- */
+    #footer {
+      flex: none; display: flex; align-items: center; gap: 14px;
+      padding: 8px 12px; background: var(--carta);
+      border-top: 1px solid var(--borde); font-size: 13px;
+    }
+    #footer .dato b { color: var(--verde); }
+    #estado { flex: 1; text-align: right; font-size: 13px; color: var(--gris); }
+    #estado.err { color: var(--rojo); font-weight: 600; }
+    #estado.ok { color: #2e8b25; font-weight: 600; }
+
+    /* botón Guardar flotante con estados (neutro / .dirty / .ok) */
+    #btnGuardarFloat {
+      position: fixed; right: 22px; bottom: 56px; z-index: 50;
+      width: 96px; padding: 8px 6px 6px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      border: 1px solid var(--borde, #C5CFC5); border-radius: 16px;
+      background: var(--panel, #F5F7F4);
+      box-shadow: 0 4px 14px rgba(16, 22, 18, 0.18);
+      cursor: pointer; font: inherit;
+    }
+    #btnGuardarFloat:active { transform: scale(0.96); }
+    #btnGuardarFloat img { width: 56px; height: 56px; filter: grayscale(1); opacity: 0.45; }
+    #btnGuardarCap { font-size: 12px; color: var(--gris, #535E54); }
+
+    /* hay cambios sin guardar: ícono pleno + pulso + aviso */
+    #btnGuardarFloat.dirty { border-color: var(--verde, #4ABA3E); animation: pulsoGuardar 1.2s ease-in-out infinite; }
+    #btnGuardarFloat.dirty img { filter: none; opacity: 1; }
+    #btnGuardarFloat.dirty #btnGuardarCap { color: var(--verde, #4ABA3E); font-weight: 700; }
+    @keyframes pulsoGuardar {
+      0%, 100% { box-shadow: 0 4px 14px rgba(16, 22, 18, 0.18); }
+      50% { box-shadow: 0 0 0 6px rgba(74, 186, 62, 0.35); }
+    }
+
+    /* recién guardado: tilde verde (el JS cambia la imagen a OK64) */
+    #btnGuardarFloat.ok { border-color: var(--verde, #4ABA3E); }
+    #btnGuardarFloat.ok img { filter: none; opacity: 1; }
+    #btnGuardarFloat.ok #btnGuardarCap { color: #2e8b25; font-weight: 700; }
+
+    /* ---- summary ---- */
+    .sumgrid {
+      display: grid; grid-template-columns: auto 1fr; gap: 8px 16px;
+      font-size: 14px; align-items: center;
+    }
+    .sumgrid .k { color: var(--gris); font-weight: 600; }
+    .sumgrid .v { font-weight: 700; font-size: 16px; }
+
+    /* ---- radios con imagen (tipo vehículo / marcas / antena) ---- */
+    .radios { display: flex; flex-wrap: wrap; gap: 8px; }
+    .radioimg {
+      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
+      padding: 6px; cursor: pointer; touch-action: manipulation;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      -webkit-user-select: none; user-select: none;
+    }
+    .radioimg img { object-fit: contain; pointer-events: none; }
+    .radioimg.sel { border-color: var(--verde); background: #eaf6e8; }
+    .radioimg .cap { font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .radioimg.tipo img { width: 110px; height: 72px; }
+    .radioimg.marca img { width: 56px; height: 56px; }
+    .radioimg.ant img { width: 64px; height: 70px; }
+
+    /* ---- preview vehículo con opacidad ---- */
+    #vprevWrap {
+      width: 220px; height: 220px; border: 1px solid var(--borde); border-radius: 10px;
+      background: url('../img/config/VehicleOpacity.png') center / cover;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    #vprev { max-width: 90%; max-height: 90%; }
+    .opacidadFila { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+    .opacidadFila button {
+      width: 56px; height: 56px; border: 1px solid var(--borde); border-radius: 10px;
+      background: #fff; cursor: pointer; touch-action: manipulation;
+    }
+    .opacidadFila button img { width: 40px; height: 40px; }
+    #lblOpacidad { font: 700 18px "Segoe UI", Roboto, sans-serif; min-width: 64px; text-align: center; }
+
+    /* ---- inputs numéricos estilo NUD ---- */
+    .nudfila { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .nudfila label { font: 600 14px "Segoe UI", Roboto, sans-serif; min-width: 150px; }
+    .nud {
+      width: 130px; min-height: 52px; text-align: center;
+      font: 700 22px "Segoe UI", Roboto, sans-serif;
+      border: 1px solid var(--borde); border-radius: 10px; background: aliceblue;
+    }
+    .nud.invalido { border-color: var(--rojo); background: #fdf0ee; }
+    .unidad { font: 600 14px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .diagrama { max-width: 100%; max-height: 340px; object-fit: contain; display: block; margin: 0 auto 12px; }
+    .dosCol { display: flex; gap: 14px; flex-wrap: wrap; }
+    .dosCol > div { flex: 1; min-width: 280px; }
+
+    .chkimg {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
+      padding: 6px; cursor: pointer; -webkit-user-select: none; user-select: none;
+    }
+    .chkimg img { width: 64px; height: 64px; object-fit: contain; pointer-events: none; }
+    .chkimg.sel { border-color: var(--verde); background: #eaf6e8; }
+
+    .pendiente { padding: 30px; text-align: center; color: var(--gris); font-size: 14px; }
+
+    /* ---- tanda 2: implemento ---- */
+    .radioimg.estilo img { width: 200px; height: 98px; }
+    .radioimg.dircol img { width: 110px; height: 145px; }
+    .btnZero {
+      width: 56px; height: 56px; border: 1px solid var(--borde); border-radius: 10px;
+      background: #fff; cursor: pointer; touch-action: manipulation; flex: none;
+    }
+    .btnZero img { width: 40px; height: 40px; object-fit: contain; }
+    .timingCols { display: flex; gap: 14px; flex-wrap: wrap; }
+    .timingCol {
+      flex: 1; min-width: 200px; display: flex; flex-direction: column;
+      align-items: center; gap: 8px;
+    }
+    .timingCol img { width: 200px; height: 253px; object-fit: contain; }
+
+    /* ---- tanda 3: secciones / switches / relay / máquina ---- */
+    .secGrilla {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px;
+    }
+    .secGrilla .celda { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .secGrilla .celda .cap { font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .secGrilla .nud { width: 100%; min-height: 44px; font-size: 18px; }
+    .secGrilla .nud:disabled { background: #eef1ee; color: var(--gris); }
+    select.nud { appearance: auto; padding: 0 4px; font-size: 18px; }
+    .relayGrilla {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 8px;
+    }
+    .relayGrilla .celda { display: flex; align-items: center; gap: 6px; }
+    .relayGrilla .celda .cap { font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris); min-width: 44px; }
+    .relayGrilla select.nud { flex: 1; min-height: 44px; font-size: 14px; width: auto; }
+    .togglesGrid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .togglesGrid .chkimg img { height: 64px; }
+    input[type="range"] { min-height: 44px; accent-color: var(--verde, #4ABA3E); }
+    .swCol { display: flex; flex-direction: column; gap: 10px; }
+    .chkimg.sw { flex-direction: row; gap: 10px; padding: 8px 12px; width: 100%; justify-content: flex-start; }
+    .chkimg.sw img { width: 52px; height: 52px; }
+    .chkimg.sw .cap { font-size: 13px; }
+    .chkimg.sw.deshab { opacity: 0.45; pointer-events: none; }
+    .btnEnviar {
+      display: inline-flex; align-items: center; gap: 8px;
+      min-height: 52px; padding: 6px 16px;
+      border: 1px solid var(--borde); border-radius: 10px; background: #fff;
+      font: 700 14px "Segoe UI", Roboto, sans-serif; color: var(--texto);
+      cursor: pointer; touch-action: manipulation;
+    }
+    .btnEnviar img { width: 36px; height: 36px; }
+    .btnEnviar:active { background: #e6ede5; }
+  </style>
+</head>
+<body>
+  <div id="layout">
+    <nav id="menu">
+      <button type="button" data-tab="summary"><img src="../img/config/Con_VehicleMenu.png" alt="" />Resumen</button>
+      <div class="grupo">Vehículo</div>
+      <button type="button" data-tab="vconfig"><img src="../img/config/ConS_VehicleConfig.png" alt="" />Tipo y marca</button>
+      <button type="button" data-tab="vdimensions"><img src="../img/config/RadiusWheelBase.png" alt="" />Dimensiones</button>
+      <button type="button" data-tab="vantenna"><img src="../img/config/ConS_ImplementAntenna.png" alt="" />Antena</button>
+      <div class="grupo">Implemento</div>
+      <button type="button" data-tab="tconfig"><img src="../img/config/ConS_ImplementConfig.png" alt="" />Enganche</button>
+      <button type="button" data-tab="thitch"><img src="../img/config/ConS_ImplementHitch.png" alt="" />Distancias</button>
+      <button type="button" data-tab="tooloffset"><img src="../img/config/ConS_ImplementOffset.png" alt="" />Offset</button>
+      <button type="button" data-tab="toolpivot"><img src="../img/config/ConS_ImplementPivot.png" alt="" />Pivote</button>
+      <button type="button" data-tab="tsettings"><img src="../img/config/ConS_ImplementSettings.png" alt="" />Timing</button>
+      <div class="grupo">Secciones</div>
+      <button type="button" data-tab="tsections"><img src="../img/config/ConS_ImplementSection.png" alt="" />Secciones</button>
+      <button type="button" data-tab="tswitches"><img src="../img/config/ConS_ImplementSwitch.png" alt="" />Switches</button>
+      <button type="button" data-tab="relay"><img src="../img/config/ConS_Pins.png" alt="" />Pines relay</button>
+      <button type="button" data-tab="amachine"><img src="../img/config/ConS_ModulesMachine.png" alt="" />Máquina</button>
+      <div class="grupo">GPS / IMU</div>
+      <button type="button" data-tab="heading"><img src="../img/config/ConS_SourcesHeading.png" alt="" />Rumbo</button>
+      <button type="button" data-tab="roll"><img src="../img/config/ConS_SourcesRoll.png" alt="" />Rolido</button>
+      <div class="grupo">Otros</div>
+      <button type="button" data-tab="uturn"><img src="../img/config/Con_UTurnMenu.png" alt="" />U-Turn</button>
+      <button type="button" data-tab="tram"><img src="../img/config/Con_TramMenu.png" alt="" />Tram</button>
+      <button type="button" data-tab="display"><img src="../img/config/Con_Display.png" alt="" />Display</button>
+      <button type="button" data-tab="botones"><img src="../img/config/Con_FeatureMenu.png" alt="" />Botones</button>
+    </nav>
+
+    <main id="main">
+      <!-- ================= Resumen ================= -->
+      <section data-tab="summary">
+        <div class="carta">
+          <h2 id="sumPerfil">Perfil: —</h2>
+          <p class="nota" style="margin-bottom:12px">
+            Las configuraciones del vehículo se agrupan en «perfiles» — se crean
+            y cargan desde la página <b>Perfiles</b>.
+          </p>
+          <div class="sumgrid">
+            <span class="k">Unidades:</span>      <span class="v" id="sumUnidades">—</span>
+            <span class="k">Ancho:</span>          <span class="v" id="sumAncho">—</span>
+            <span class="k">Secciones:</span>      <span class="v" id="sumSecciones">—</span>
+            <span class="k">Offset:</span>         <span class="v" id="sumOffset">—</span>
+            <span class="k">Overlap:</span>        <span class="v" id="sumOverlap">—</span>
+            <span class="k">Lookahead:</span>      <span class="v" id="sumLookahead">—</span>
+            <span class="k">Ancho tram:</span>     <span class="v" id="sumTram">—</span>
+            <span class="k">Entre ejes:</span>     <span class="v" id="sumWheelbase">—</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Vehículo: tipo y marca ================= -->
+      <section data-tab="vconfig">
+        <div class="carta">
+          <h2>Tipo de vehículo</h2>
+          <div class="radios" id="vTipos">
+            <div class="radioimg tipo" data-tipo="0"><img src="../img/config/vehiclePageTractor.png" alt="" /><span class="cap">Tractor</span></div>
+            <div class="radioimg tipo" data-tipo="1"><img src="../img/config/vehiclePageHarvester.png" alt="" /><span class="cap">Cosechadora</span></div>
+            <div class="radioimg tipo" data-tipo="2"><img src="../img/config/vehiclePageArticulated.png" alt="" /><span class="cap">Articulado</span></div>
+          </div>
+          <p class="nota" id="vNotaHarvester" hidden>La cosechadora fuerza el implemento a frontal.</p>
+        </div>
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Marca</h2>
+            <div class="radios" id="vMarcas"></div>
+          </div>
+          <div class="carta">
+            <h2>Imagen</h2>
+            <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start">
+              <div id="vprevWrap"><img id="vprev" src="" alt="" /></div>
+              <div>
+                <div class="chkimg" id="vSinImagen">
+                  <img src="../img/config/brands/Brand/BrandTriangleVehicle.png" alt="" />
+                  <span class="cap">Sin imagen</span>
+                </div>
+                <div class="opacidadFila">
+                  <button type="button" id="btnOpacDn"><img src="../img/config/DnArrow64.png" alt="−" /></button>
+                  <span id="lblOpacidad">100%</span>
+                  <button type="button" id="btnOpacUp"><img src="../img/config/UpArrow64.png" alt="+" /></button>
+                </div>
+                <p class="nota" style="margin-top:8px">Opacidad del dibujo en el mapa (20–100%).</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Vehículo: dimensiones ================= -->
+      <section data-tab="vdimensions">
+        <div class="carta">
+          <h2>Dimensiones del vehículo</h2>
+          <img class="diagrama" id="dimImg" src="../img/config/RadiusWheelBase.png" alt="" />
+          <div class="nudfila">
+            <label for="nudWheelbase">Entre ejes</label>
+            <input class="nud" id="nudWheelbase" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila">
+            <label for="nudTrack">Trocha</label>
+            <input class="nud" id="nudTrack" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila" id="filaHitch">
+            <label for="nudHitch">Largo de enganche</label>
+            <input class="nud" id="nudHitch" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <p class="nota" id="notaHitchOculto" hidden>
+            El largo de enganche no aplica con implemento fijo o frontal — se
+            configura en la pestaña Distancias del implemento.
+          </p>
+        </div>
+      </section>
+
+      <!-- ================= Vehículo: antena ================= -->
+      <section data-tab="vantenna">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Posición de antena</h2>
+            <img class="diagrama" id="antImg" src="../img/config/AntennaTractor.png" alt="" />
+          </div>
+          <div class="carta">
+            <div class="nudfila">
+              <label for="nudAntHeight">Altura de antena</label>
+              <input class="nud" id="nudAntHeight" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <div class="nudfila">
+              <label for="nudAntPivot">Distancia al pivote</label>
+              <input class="nud" id="nudAntPivot" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <h2 style="margin-top:6px">Offset de antena</h2>
+            <div class="nudfila">
+              <label for="nudAntOffset">Offset</label>
+              <input class="nud" id="nudAntOffset" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <div class="radios" id="antLados">
+              <div class="radioimg ant" data-lado="izq"><img src="../img/config/AntennaLeftOffset.png" alt="" /><span class="cap">Izquierda</span></div>
+              <div class="radioimg ant" data-lado="centro"><img src="../img/config/AntennaNoOffset.png" alt="" /><span class="cap">Centro</span></div>
+              <div class="radioimg ant" data-lado="der"><img src="../img/config/AntennaRightOffset.png" alt="" /><span class="cap">Derecha</span></div>
+            </div>
+            <p class="nota" style="margin-top:10px">** Antena dual: la posición va a la derecha.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: estilo de enganche ================= -->
+      <section data-tab="tconfig">
+        <div class="carta">
+          <h2>Estilo de enganche</h2>
+          <!-- réplica tabTConfig: 4 radios imagen; Harvester los oculta -->
+          <div class="radios" id="tcRadios">
+            <div class="radioimg estilo" data-estilo="rear"><img src="../img/config/ToolChkRear.png" alt="" /><span class="cap">Fijo trasero</span></div>
+            <div class="radioimg estilo" data-estilo="tbt"><img src="../img/config/ToolChkTBT.png" alt="" /><span class="cap">Tanque intermedio (TBT)</span></div>
+            <div class="radioimg estilo" data-estilo="front"><img src="../img/config/ToolChkFront.png" alt="" /><span class="cap">Frontal</span></div>
+            <div class="radioimg estilo" data-estilo="trailing"><img src="../img/config/ToolChkTrailing.png" alt="" /><span class="cap">De arrastre</span></div>
+          </div>
+          <div id="tcHarvester" hidden>
+            <img class="diagrama" src="../img/config/vehiclePageHarvester.png" alt="" />
+            <p class="nota">La cosechadora usa siempre implemento frontal — no hay nada que elegir.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: distancias de enganche ================= -->
+      <section data-tab="thitch">
+        <div class="carta">
+          <h2>Distancias de enganche</h2>
+          <img class="diagrama" id="thImg" src="../img/config/ToolHitchPageTrailing.png" alt="" />
+          <div class="nudfila" id="thFilaDrawbar">
+            <label for="nudDrawbar">Largo de barra</label>
+            <input class="nud" id="nudDrawbar" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila" id="thFilaTrailing">
+            <label for="nudTrailingHitch">Enganche de arrastre</label>
+            <input class="nud" id="nudTrailingHitch" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div class="nudfila" id="thFilaTank">
+            <label for="nudTankHitch">Enganche del tanque</label>
+            <input class="nud" id="nudTankHitch" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: offset y overlap ================= -->
+      <section data-tab="tooloffset">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Offset del implemento</h2>
+            <div class="nudfila">
+              <button type="button" class="btnZero" id="btnZeroOffset"><img src="../img/config/SteerZero.png" alt="0" /></button>
+              <input class="nud" id="nudToolOffset" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <div class="radios" id="toLados">
+              <div class="radioimg dircol" data-lado="izq"><img src="../img/config/ToolOffsetNegativeLeft.png" alt="" /><span class="cap">Izquierda</span></div>
+              <div class="radioimg dircol" data-lado="der"><img src="../img/config/ToolOffsetPositiveRight.png" alt="" /><span class="cap">Derecha</span></div>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Overlap / Gap</h2>
+            <div class="nudfila">
+              <button type="button" class="btnZero" id="btnZeroOverlap"><img src="../img/config/SteerZero.png" alt="0" /></button>
+              <input class="nud" id="nudToolOverlap" type="text" inputmode="numeric" />
+              <span class="unidad" data-unidad></span>
+            </div>
+            <div class="radios" id="toModos">
+              <div class="radioimg dircol" data-modo="overlap"><img src="../img/config/ToolOverlap.png" alt="" /><span class="cap">Overlap</span></div>
+              <div class="radioimg dircol" data-modo="gap"><img src="../img/config/ToolGap.png" alt="" /><span class="cap">Gap</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: pivote (trailing) ================= -->
+      <section data-tab="toolpivot">
+        <div class="carta">
+          <h2>Distancia rueda / pivote del implemento</h2>
+          <!-- ⚠️ cruce de imágenes intencional del original: behind usa …OffsetNeg -->
+          <div class="radios" id="tpLados">
+            <div class="radioimg dircol" data-pivote="ahead"><img src="../img/config/ToolHitchPivotOffsetPos.png" alt="" /><span class="cap">Adelante</span></div>
+            <div class="radioimg dircol" data-pivote="behind"><img src="../img/config/ToolHitchPivotOffsetNeg.png" alt="" /><span class="cap">Detrás</span></div>
+          </div>
+          <div class="nudfila" style="margin-top:12px">
+            <button type="button" class="btnZero" id="btnZeroPivot"><img src="../img/config/SteerZero.png" alt="0" /></button>
+            <input class="nud" id="nudPivot" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Implemento: timing look-ahead ================= -->
+      <section data-tab="tsettings">
+        <div class="carta">
+          <h2>Tiempos de anticipación de secciones</h2>
+          <div class="timingCols">
+            <div class="timingCol">
+              <img src="../img/config/SectionOnLookAhead.gif" alt="" />
+              <input class="nud" id="nudLookAheadOn" type="text" inputmode="numeric" />
+              <span class="unidad">Encendido (s)</span>
+            </div>
+            <div class="timingCol">
+              <img src="../img/config/SectionLookAheadOff.gif" alt="" />
+              <input class="nud" id="nudLookAheadOff" type="text" inputmode="numeric" />
+              <span class="unidad">Apagado (s)</span>
+            </div>
+            <div class="timingCol">
+              <img src="../img/config/SectionLookAheadDelay.gif" alt="" />
+              <input class="nud" id="nudTurnOffDelay" type="text" inputmode="numeric" />
+              <span class="unidad">Retardo de apagado (s)</span>
+            </div>
+          </div>
+          <p class="nota" style="margin-top:10px">
+            «Apagado» y «Retardo» son excluyentes: al usar uno el otro vuelve a 0.
+            El apagado no puede superar 0.8 × encendido.
+          </p>
+        </div>
+      </section>
+      <!-- ================= Secciones (tabTSections) ================= -->
+      <section data-tab="tsections">
+        <div class="carta">
+          <h2>Modo de secciones</h2>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
+            <!-- réplica cboxIsUnique: checked = zonas (simétrico) -->
+            <div class="chkimg" id="secModo">
+              <img id="secModoImg" src="../img/config/ConT_Asymmetric.png" alt="" />
+              <span class="cap" id="secModoCap">Secciones individuales</span>
+            </div>
+            <p class="nota" style="max-width:420px">
+              <b>Individuales:</b> hasta 16 secciones, cada una con su ancho.<br />
+              <b>Simétricas (zonas):</b> hasta 64 secciones del mismo ancho,
+              agrupadas en 2–8 zonas.
+            </p>
+          </div>
+        </div>
+
+        <!-- modo secciones individuales -->
+        <div class="carta" id="secCartaInd">
+          <h2>Secciones individuales</h2>
+          <div class="nudfila">
+            <label for="selNumSections">Cantidad</label>
+            <select class="nud" id="selNumSections" data-no-keyboard></select>
+            <label for="nudDefaultWidth" style="min-width:auto">Ancho por defecto</label>
+            <input class="nud" id="nudDefaultWidth" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <p class="nota" style="margin-bottom:8px">
+            Cambiar la cantidad pisa todos los anchos con el ancho por defecto.
+          </p>
+          <div id="secGrilla" class="secGrilla"></div>
+          <p style="margin-top:10px; font-weight:700">
+            Ancho total: <span id="secTotal">—</span>
+          </p>
+        </div>
+
+        <!-- modo zonas -->
+        <div class="carta" id="secCartaZonas">
+          <h2>Secciones simétricas</h2>
+          <div class="nudfila">
+            <label for="nudNumSectionsMulti">Secciones</label>
+            <input class="nud" id="nudNumSectionsMulti" type="text" inputmode="numeric" />
+            <label for="selZonas" style="min-width:auto">Zonas</label>
+            <select class="nud" id="selZonas" data-no-keyboard>
+              <option>2</option><option>3</option><option>4</option><option>5</option>
+              <option>6</option><option>7</option><option>8</option>
+            </select>
+            <label for="nudWidthMulti" style="min-width:auto">Ancho de sección</label>
+            <input class="nud" id="nudWidthMulti" type="text" inputmode="numeric" />
+            <span class="unidad" data-unidad></span>
+          </div>
+          <div id="zonasGrilla" class="secGrilla"></div>
+          <p style="margin-top:10px; font-weight:700">
+            Ancho total: <span id="secTotalZonas">—</span>
+          </p>
+        </div>
+
+        <div class="carta">
+          <h2>Control de secciones</h2>
+          <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start">
+            <div class="chkimg" id="secBoundary">
+              <img id="secBoundaryImg" src="../img/config/SectionOnBoundary.png" alt="" />
+              <span class="cap">Cortar fuera del lote</span>
+            </div>
+            <div>
+              <div class="nudfila">
+                <img src="../img/config/SectionOffBelow.png" alt="" style="height:44px" />
+                <label for="nudCutoff" style="min-width:auto">Cortar por debajo de</label>
+                <input class="nud" id="nudCutoff" type="text" inputmode="numeric" />
+                <span class="unidad" id="secCutoffUnidad">km/h</span>
+              </div>
+              <div class="nudfila">
+                <label for="nudMinCoverage">Cobertura mínima</label>
+                <input class="nud" id="nudMinCoverage" type="text" inputmode="numeric" />
+                <span class="unidad">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Switches (tabTSwitches) ================= -->
+      <section data-tab="tswitches">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Switch de trabajo</h2>
+            <div class="swCol" id="swWork">
+              <div class="chkimg sw" id="swWorkOn"><img src="../img/config/HydraulicLiftOff.png" alt="" /><span class="cap">Activar</span></div>
+              <div class="chkimg sw" id="swWorkManual"><img src="../img/config/ManualOff.png" alt="" /><span class="cap">Secciones: Manual</span></div>
+              <div class="chkimg sw" id="swWorkAuto"><img src="../img/config/SectionMasterOff.png" alt="" /><span class="cap">Secciones: Auto</span></div>
+              <div class="chkimg sw" id="swWorkLow"><img id="swWorkLowImg" src="../img/config/SwitchActiveOpen.png" alt="" /><span class="cap">Activo con contacto cerrado</span></div>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Switch de dirección</h2>
+            <div class="swCol" id="swSteer">
+              <div class="chkimg sw" id="swSteerOn"><img src="../img/config/AutoSteerOff.png" alt="" /><span class="cap">Activar</span></div>
+              <div class="chkimg sw" id="swSteerManual"><img src="../img/config/ManualOff.png" alt="" /><span class="cap">Secciones: Manual</span></div>
+              <div class="chkimg sw" id="swSteerAuto"><img src="../img/config/SectionMasterOff.png" alt="" /><span class="cap">Secciones: Auto</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Pines relay (tabRelay) ================= -->
+      <section data-tab="relay">
+        <div class="carta">
+          <h2>Pines del módulo de máquina</h2>
+          <p class="nota" style="margin-bottom:10px">
+            Los cambios se aplican recién al tocar <b>Enviar + Guardar</b> —
+            salir de la pestaña sin enviar los descarta (igual que el original).
+          </p>
+          <div id="relayGrilla" class="relayGrilla"></div>
+          <div class="nudfila" style="margin-top:14px">
+            <button type="button" class="btnZero" id="btnRelayDefault" title="Config por defecto"><img src="../img/config/UpArrow64.png" alt="" /></button>
+            <button type="button" class="btnZero" id="btnRelayNone" title="Todos sin función"><img src="../img/config/back-button.png" alt="" /></button>
+            <button type="button" class="btnEnviar" id="btnRelaySend"><img src="../img/config/ToolAcceptChange.png" alt="" />Enviar + Guardar</button>
+            <img id="relayPendiente" src="../img/config/ConSt_Mandatory.png" alt="" style="height:44px" hidden />
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Máquina (tabAMachine) ================= -->
+      <section data-tab="amachine">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Levante hidráulico</h2>
+            <div class="chkimg sw" id="maHydOn" style="margin-bottom:12px">
+              <img id="maHydOnImg" src="../img/config/SwitchOff.png" alt="" />
+              <span class="cap">Habilitar levante</span>
+            </div>
+            <div class="nudfila">
+              <img src="../img/config/ConMa_LiftRaiseTime.png" alt="" style="height:44px" />
+              <label for="nudRaiseTime" style="min-width:auto">Tiempo de subida</label>
+              <input class="nud" id="nudRaiseTime" type="text" inputmode="numeric" />
+              <span class="unidad">s</span>
+            </div>
+            <div class="nudfila">
+              <img src="../img/config/ConMa_LiftLowerTime.png" alt="" style="height:44px" />
+              <label for="nudLowerTime" style="min-width:auto">Tiempo de bajada</label>
+              <input class="nud" id="nudLowerTime" type="text" inputmode="numeric" />
+              <span class="unidad">s</span>
+            </div>
+            <div class="nudfila">
+              <label for="nudHydLookAhead">Anticipación del levante</label>
+              <input class="nud" id="nudHydLookAhead" type="text" inputmode="numeric" />
+              <span class="unidad">s</span>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Módulo</h2>
+            <div class="chkimg sw" id="maInvert" style="margin-bottom:12px">
+              <img src="../img/config/ConSt_InvertRelay.png" alt="" />
+              <span class="cap">Invertir relés</span>
+            </div>
+            <div class="nudfila">
+              <label for="nudUser1">Usuario 1</label>
+              <input class="nud" id="nudUser1" type="text" inputmode="numeric" />
+            </div>
+            <div class="nudfila">
+              <label for="nudUser2">Usuario 2</label>
+              <input class="nud" id="nudUser2" type="text" inputmode="numeric" />
+            </div>
+            <div class="nudfila">
+              <label for="nudUser3">Usuario 3</label>
+              <input class="nud" id="nudUser3" type="text" inputmode="numeric" />
+            </div>
+            <div class="nudfila">
+              <label for="nudUser4">Usuario 4</label>
+              <input class="nud" id="nudUser4" type="text" inputmode="numeric" />
+            </div>
+          </div>
+        </div>
+        <div class="carta">
+          <div class="nudfila" style="margin-bottom:0">
+            <button type="button" class="btnEnviar" id="btnMachineSend"><img src="../img/config/ToolAcceptChange.png" alt="" />Enviar + Guardar</button>
+            <img id="maPendiente" src="../img/config/ConSt_Mandatory.png" alt="" style="height:44px" hidden />
+            <span class="nota">Salir sin enviar descarta los cambios (igual que el original).</span>
+          </div>
+        </div>
+      </section>
+      <!-- ================= Rumbo (tabDHeading) ================= -->
+      <section data-tab="heading">
+        <div class="carta">
+          <h2>Tipo de antena</h2>
+          <div style="display:flex; gap:14px; flex-wrap:wrap">
+            <div class="radioimg dircol" id="rbHeadDual">
+              <img src="../img/config/Con_SourcesGPSDual.png" alt="" /><span class="cap">Dual</span>
+            </div>
+            <div class="radioimg dircol" id="rbHeadFix">
+              <img src="../img/config/Con_SourcesGPSSingle.png" alt="" /><span class="cap">Fix</span>
+            </div>
+          </div>
+        </div>
+        <div class="dosCol">
+          <div class="carta" id="hdCartaDual">
+            <h2>Antena dual</h2>
+            <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-start">
+              <img src="../img/config/Con_SourcesHead.png" alt="" style="height:120px" />
+              <div>
+                <div class="nudfila">
+                  <label for="nudDualHeadingOffset">Offset de rumbo</label>
+                  <input class="nud" id="nudDualHeadingOffset" type="text" inputmode="numeric" />
+                  <span class="unidad">°</span>
+                </div>
+                <div class="nudfila">
+                  <label for="nudDualReverseDistance">Distancia de reversa</label>
+                  <input class="nud" id="nudDualReverseDistance" type="text" inputmode="numeric" />
+                  <span class="unidad">m</span>
+                </div>
+                <div class="chkimg sw" id="hdAutoSwitch" style="margin:10px 0">
+                  <img src="../img/config/Con_SourcesGPSDual.png" alt="" style="height:44px" />
+                  <span class="cap">Auto Dual ↔ Fix</span>
+                </div>
+                <div class="nudfila">
+                  <label for="nudAutoSwitchSpeed">Velocidad de conmutación</label>
+                  <input class="nud" id="nudAutoSwitchSpeed" type="text" inputmode="numeric" />
+                  <span class="unidad" id="hdSwitchUnidad">km/h</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="carta" id="hdCartaSingle">
+            <h2>Antena simple (Fix)</h2>
+            <div class="chkimg sw" id="hdMinStep" style="margin-bottom:8px">
+              <img src="../img/config/ConS_SourceFix.png" alt="" style="height:44px" />
+              <span class="cap" id="hdMinStepCap">Paso mínimo: 5 cm</span>
+            </div>
+            <p class="nota" style="margin-bottom:12px">Distancia de rumbo: <b id="hdStepDist">50 cm</b></p>
+            <div class="nudfila">
+              <span class="unidad">IMU</span>
+              <input type="range" id="hsbarFusion" min="5" max="60" step="1" style="flex:1" data-no-keyboard />
+              <span class="unidad">GPS</span>
+            </div>
+            <p class="nota">Fusión: <b id="lblFusionIMU">70%</b> IMU / <b id="lblFusion">30%</b> GPS
+              &nbsp;(por defecto: 70% IMU)</p>
+            <div class="chkimg sw" id="hdReverse" style="margin-top:10px">
+              <img src="../img/config/YouTurnReverse.png" alt="" style="height:44px" />
+              <span class="cap">Detección de reversa</span>
+            </div>
+          </div>
+        </div>
+        <div class="carta">
+          <h2>Alarmas GPS</h2>
+          <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:center">
+            <div class="nudfila" style="margin-bottom:0">
+              <label for="nudFixJump">Salto de fix</label>
+              <input class="nud" id="nudFixJump" type="text" inputmode="numeric" />
+              <span class="unidad">cm (0 desactiva)</span>
+            </div>
+            <div class="chkimg sw" id="hdRtk">
+              <img src="../img/config/Con_SourcesRTKAlarm.png" alt="" style="height:44px" />
+              <span class="cap">Alarma RTK</span>
+            </div>
+            <div class="chkimg sw" id="hdRtkKill">
+              <img src="../img/config/AutoSteerOff.png" alt="" style="height:44px" />
+              <span class="cap">La alarma frena el autoguiado</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Rolido (tabDRoll) ================= -->
+      <section data-tab="roll">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Cero de rolido</h2>
+            <p style="font-size:34px; font-weight:800; margin:6px 0 14px" id="rollZeroLbl">0.00</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap">
+              <button type="button" class="btnZero" id="btnRollZero" title="Poner el rolido actual como cero"><img src="../img/config/ConDa_RollSetZero.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnRollRemove" title="Quitar offset"><img src="../img/config/ConDa_RemoveOffset.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnRollUp" title="+0.1°"><img src="../img/config/UpArrow64.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnRollDown" title="−0.1°"><img src="../img/config/DnArrow64.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnResetImu" title="Reiniciar IMU"><img src="../img/config/ConDa_ResetIMU.png" alt="" /></button>
+            </div>
+            <p class="nota" style="margin-top:8px">Cero actual · flechas ±0.1° · el último botón reinicia la IMU.</p>
+            <div class="chkimg sw" id="rollInvert" style="margin-top:12px">
+              <img src="../img/config/ConDa_InvertRoll.png" alt="" style="height:44px" />
+              <span class="cap">Invertir rolido</span>
+            </div>
+            <div class="nudfila" style="margin-top:14px">
+              <label for="hsbarRollFilter">Filtro</label>
+              <input type="range" id="hsbarRollFilter" min="0" max="98" step="1" style="flex:1" data-no-keyboard />
+              <span class="unidad" id="rollFilterPct">0%</span>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Ayuda</h2>
+            <img src="../img/config/ConD_RollHelper.png" alt="" style="max-width:100%" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= U-Turn (tabUTurn) ================= -->
+      <section data-tab="uturn">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Geometría del giro</h2>
+            <div class="nudfila">
+              <img src="../img/config/ConU_UturnRadius.png" alt="" style="height:64px" />
+              <label for="nudUturnRadius" style="min-width:auto">Radio</label>
+              <input class="nud" id="nudUturnRadius" type="text" inputmode="numeric" />
+              <span class="unidad" id="utUnidad1">m</span>
+            </div>
+            <div class="nudfila">
+              <img src="../img/config/ConU_UturnDistance.png" alt="" style="height:64px" />
+              <label for="nudUturnDistance" style="min-width:auto">Distancia al límite</label>
+              <input class="nud" id="nudUturnDistance" type="text" inputmode="numeric" />
+              <span class="unidad" id="utUnidad2">m</span>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Suavizado y extensión</h2>
+            <div class="nudfila">
+              <img src="../img/config/ConU_UturnSmooth.png" alt="" style="height:64px" />
+              <button type="button" class="btnZero" id="btnSmoothDn"><img src="../img/config/DnArrow64.png" alt="" /></button>
+              <b id="utSmoothLbl" style="min-width:52px; text-align:center; font-size:22px">14</b>
+              <button type="button" class="btnZero" id="btnSmoothUp"><img src="../img/config/UpArrow64.png" alt="" /></button>
+            </div>
+            <p class="nota" style="margin-bottom:12px">Suavizado: usar 3 o 4 × radio.</p>
+            <div class="nudfila">
+              <img src="../img/config/ConU_UturnLength.png" alt="" style="height:64px" />
+              <button type="button" class="btnZero" id="btnExtDn"><img src="../img/config/DnArrow64.png" alt="" /></button>
+              <b id="utExtLbl" style="min-width:52px; text-align:center; font-size:22px">20 m</b>
+              <button type="button" class="btnZero" id="btnExtUp"><img src="../img/config/UpArrow64.png" alt="" /></button>
+            </div>
+            <p class="nota">Extensión: usar 2 o 3 × radio.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Tram (tabTram) ================= -->
+      <section data-tab="tram">
+        <div class="carta">
+          <h2>Trochas (tramlines)</h2>
+          <div style="display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start">
+            <img src="../img/config/ConT_TramSpacing.png" alt="" style="height:120px" />
+            <div>
+              <div class="nudfila">
+                <label for="nudTramWidth">Ancho de trocha</label>
+                <input class="nud" id="nudTramWidth" type="text" inputmode="numeric" />
+                <span class="unidad" data-unidad></span>
+              </div>
+              <div class="chkimg sw" id="tramDisplay" style="margin:10px 0">
+                <img src="../img/config/ConT_TramOverrideDisplay.png" alt="" style="height:44px" />
+                <span class="cap">Mostrar control en pantalla</span>
+              </div>
+              <div class="chkimg sw" id="tramOverride">
+                <img src="../img/config/ConT_TramOverride.png" alt="" style="height:44px" />
+                <span class="cap">Invertir exterior / interior</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Display (tabDisplay) ================= -->
+      <section data-tab="display">
+        <div class="carta">
+          <h2>Elementos en pantalla</h2>
+          <div class="togglesGrid" id="dispGrilla">
+            <div class="chkimg" data-k="polygons"><img src="../img/config/ConD_Poligons.png" alt="" /><span class="cap">Polígonos</span></div>
+            <div class="chkimg" data-k="speedo"><img src="../img/config/ConD_Speedometer.png" alt="" /><span class="cap">Velocímetro</span></div>
+            <div class="chkimg" data-k="keyboard"><img src="../img/config/ConD_KeyBoard.png" alt="" /><span class="cap">Teclado</span></div>
+            <div class="chkimg" data-k="brightness"><img src="../img/config/BrightnessUp.png" alt="" /><span class="cap">Brillo</span></div>
+            <div class="chkimg" data-k="svenn_arrow"><img src="../img/config/SvennArrow.png" alt="" /><span class="cap">Flecha Svenn</span></div>
+            <div class="chkimg" data-k="start_full_screen"><img src="../img/config/ConD_FullScreenBegin.png" alt="" /><span class="cap">Iniciar pantalla completa</span></div>
+            <div class="chkimg" data-k="log_elevation"><img src="../img/config/ConD_LogElevation.png" alt="" /><span class="cap">Registrar elevación</span></div>
+            <div class="chkimg" data-k="floor"><img src="../img/config/ConD_FloorTexture.png" alt="" /><span class="cap">Textura de piso</span></div>
+            <div class="chkimg" data-k="grid"><img src="../img/config/ConD_Grid.png" alt="" /><span class="cap">Grilla</span></div>
+            <div class="chkimg" data-k="extra_guides"><img src="../img/config/ConD_ExtraGuides.png" alt="" /><span class="cap">Guías extra</span></div>
+            <div class="chkimg" data-k="direction_markers"><img src="../img/config/ConD_DirectionMarker.png" alt="" /><span class="cap">Marcas de dirección</span></div>
+            <div class="chkimg" data-k="section_lines"><img src="../img/config/ConD_SectionHighlights.png" alt="" /><span class="cap">Líneas de sección</span></div>
+            <div class="chkimg" data-k="headland_distance"><img src="../img/config/HeadlandDistance.png" alt="" /><span class="cap">Distancia a cabecera</span></div>
+            <div class="chkimg" data-k="line_smooth"><img src="../img/config/ConD_LineSmooth.png" alt="" /><span class="cap">Suavizado de líneas</span></div>
+          </div>
+          <div class="nudfila" style="margin-top:14px">
+            <label for="nudNumGuideLines">Cantidad de líneas guía</label>
+            <input class="nud" id="nudNumGuideLines" type="text" inputmode="numeric" />
+          </div>
+        </div>
+        <div class="carta">
+          <h2>Unidades</h2>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
+            <div class="radioimg dircol" id="rbMetric">
+              <img src="../img/config/ConD_Metric.png" alt="" /><span class="cap">Métrico</span>
+            </div>
+            <div class="radioimg dircol" id="rbImperial">
+              <img src="../img/config/ConD_Imperial.png" alt="" /><span class="cap">Imperial</span>
+            </div>
+            <p class="nota" style="max-width:360px">
+              Cambiar las unidades guarda todo y recarga la configuración
+              (igual que el original, que cierra la ventana).
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= Botones / features (tabBtns) ================= -->
+      <section data-tab="botones">
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Menú de campo</h2>
+            <div class="togglesGrid">
+              <div class="chkimg" data-k="feature_tram"><img src="../img/config/TramAll.png" alt="" /><span class="cap">Trochas</span></div>
+              <div class="chkimg" data-k="feature_headland"><img src="../img/config/HeadlandOn.png" alt="" /><span class="cap">Cabeceras</span></div>
+              <div class="chkimg" data-k="feature_boundary"><img src="../img/config/Boundary.png" alt="" /><span class="cap">Límites</span></div>
+              <div class="chkimg" data-k="feature_rec_path"><img src="../img/config/RecPath.png" alt="" /><span class="cap">Camino grabado</span></div>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Menú de herramientas</h2>
+            <div class="togglesGrid">
+              <div class="chkimg" data-k="feature_ab_smooth"><img src="../img/config/ABSmooth.png" alt="" /><span class="cap">Suavizar AB</span></div>
+              <div class="chkimg" data-k="feature_hide_contour"><img src="../img/config/Trash.png" alt="" /><span class="cap">Borrar contorno</span></div>
+              <div class="chkimg" data-k="feature_webcam"><img src="../img/config/Webcam.png" alt="" /><span class="cap">Cámara web</span></div>
+              <div class="chkimg" data-k="feature_offset_fix"><img src="../img/config/YouTurnReverse.png" alt="" /><span class="cap">Corrección de offset</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="dosCol">
+          <div class="carta">
+            <h2>Menú inferior</h2>
+            <div class="togglesGrid">
+              <div class="chkimg" data-k="feature_uturn"><img src="../img/config/z_TurnManual.png" alt="" /><span class="cap">U-Turn</span></div>
+              <div class="chkimg" data-k="feature_lateral"><img src="../img/config/z_LateralManual.png" alt="" /><span class="cap">Lateral</span></div>
+              <div class="chkimg" data-k="feature_nudge"><img src="../img/config/SnapToPivot.png" alt="" /><span class="cap">Ajuste fino (nudge)</span></div>
+            </div>
+          </div>
+          <div class="carta">
+            <h2>Sonidos</h2>
+            <div class="togglesGrid">
+              <div class="chkimg" data-k="sound_steer"><img src="../img/config/ConF_SteerSound.png" alt="" /><span class="cap">Autoguiado</span></div>
+              <div class="chkimg" data-k="sound_turn"><img src="../img/config/ConF_TurnSound.png" alt="" /><span class="cap">U-Turn</span></div>
+              <div class="chkimg" data-k="sound_hyd_lift"><img src="../img/config/ConF_HydLiftSound.png" alt="" /><span class="cap">Levante</span></div>
+              <div class="chkimg" data-k="sound_sections"><img src="../img/config/ConF_SoundSections.png" alt="" /><span class="cap">Secciones</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="carta">
+          <h2>Sistema</h2>
+          <div class="togglesGrid">
+            <div class="chkimg" data-k="shutdown_no_power"><img src="../img/config/ChargingNo.png" alt="" /><span class="cap">Apagar sin alimentación</span></div>
+            <div class="chkimg" data-k="auto_start_corex"><img src="../img/config/AgIO.png" alt="" /><span class="cap">CoreX: inicio automático</span></div>
+            <div class="chkimg" data-k="auto_off_corex"><img src="../img/config/AgIO.png" alt="" /><span class="cap">CoreX: cierre automático</span></div>
+            <div class="chkimg" data-k="hardware_messages"><img src="../img/config/HardwareMessage.png" alt="" /><span class="cap">Mensajes de hardware</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- botón Guardar flotante, visible en todas las solapas.
+       Estados: (neutro) sin cambios · .dirty hay cambios sin guardar (pulso
+       verde + aviso) · .ok recién guardado (tilde verde, 1.5s) -->
+  <button type="button" id="btnGuardarFloat" title="Guardar">
+    <img id="btnGuardarImg" src="../img/config/FileSave.png" alt="Guardar" />
+    <span id="btnGuardarCap">Sin cambios</span>
+  </button>
+
+  <div id="footer">
+    <span class="dato" id="ftPerfil">Perfil: <b>—</b></span>
+    <span class="dato" id="ftAncho">Ancho: <b>—</b></span>
+    <span class="dato" id="ftUnidades">Unidades: <b>—</b></span>
+    <span id="estado"></span>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/config.js?v=1"></script>
+</body>
+</html>

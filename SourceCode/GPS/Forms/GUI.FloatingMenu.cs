@@ -66,6 +66,7 @@ namespace AgOpenGPS
         private const string BarraTopPage = "pages/barra-superior.html";
         private const string BarraRightPage = "pages/barra-derecha.html";
         private const string BarraBottomPage = "pages/barra-abajo.html";
+        private const string BarraLeftPage = "pages/menu-izquierda.html";
 
         private static string BarrasHtmlFlagPath => System.IO.Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "AgroParallel", "barras-html.on");
@@ -96,18 +97,28 @@ namespace AgOpenGPS
                 CerrarBarraHtmlDock(BarraTopPage);
                 CerrarBarraHtmlDock(BarraRightPage);
                 CerrarBarraHtmlDock(BarraBottomPage);
+                CerrarBarraHtmlDock(BarraLeftPage);
+                //menuStrip1 NO se restaura: la hamburguesa nativa quedó
+                //retirada definitivamente (se oculta en FormGPS_Load).
                 try { panelControlBox.Visible = true; } catch { }
                 return;
             }
 
-            try { panelControlBox.Visible = false; } catch { }
+            try { panelControlBox.Visible = false; menuStrip1.Visible = false; } catch { }
 
-            //superior: visible salvo que la flecha oculte las botoneras con
-            //lote abierto (sin lote siempre se ve, como panelControlBox).
-            //Derecha/abajo: solo con lote abierto y botoneras visibles.
+            //superior: SIEMPRE visible (pedido 2026-07-13): reemplaza por
+            //completo al panelControlBox nativo y no participa del
+            //auto-ocultado de la flecha. Derecha/abajo: solo con lote
+            //abierto y botoneras visibles.
             bool operables = isJobStarted && !isPanelBottomHidden;
+            //ancha: incluye hamburguesa + chips de info
+            //(fecha, lat/lon, señal, ha/h, ha hechas)
             MostrarBarraHtmlDock(BarraTopPage, "Barra superior",
-                new Size(560, 64), "top", new Padding(0),
+                new Size(1020, 64), "top", new Padding(0), true);
+            //izquierda: reemplaza al panelLeft nativo — visible salvo flecha,
+            //con margen abajo para no tapar btnTogglePaneles ni el zoom.
+            MostrarBarraHtmlDock(BarraLeftPage, "Menú izquierda",
+                new Size(116, 0), "left", new Padding(0, 76, 0, 200),
                 !(isJobStarted && isPanelBottomHidden));
             MostrarBarraHtmlDock(BarraRightPage, "Barra derecha",
                 new Size(74, 0), "right", new Padding(0, 76, 0, 84), operables);
@@ -620,10 +631,71 @@ namespace AgOpenGPS
             FloatMenuShowCategory("Configuración", FloatMenuFillConfig);
         }
 
-        //abre FormConfig directo en la solapa pedida, sin pasar por su menú lateral
+        //abre la Configuración HTML (pages/config.html) directo en la solapa
+        //pedida. Reemplaza a FormConfig; la WinForm nativa queda como fallback
+        //(FloatMenuOpenConfigNativa) por si el WebView2 falla.
         private void FloatMenuOpenConfig(string tabName)
         {
-            panelFloatMenu.Visible = false; //cerrar el menú flotante antes del diálogo modal
+            //null si llega desde la barra HTML sin haber abierto nunca el menú flotante
+            if (panelFloatMenu != null) panelFloatMenu.Visible = false;
+
+            string tab = ConfigTabToHtml(tabName);
+
+            //si ya hay un widget de config abierto (quizás en otra solapa),
+            //lo cerramos: el dict _floatWidgets se indexa por page+query y si
+            //no, se acumularían ventanas de config una por pestaña.
+            if (_floatWidgets != null)
+            {
+                var abiertos = new System.Collections.Generic.List<string>();
+                foreach (var k in _floatWidgets.Keys)
+                    if (k.StartsWith("pages/config.html", StringComparison.OrdinalIgnoreCase))
+                        abiertos.Add(k);
+                foreach (var k in abiertos)
+                {
+                    Form f;
+                    if (_floatWidgets.TryGetValue(k, out f) && f != null && !f.IsDisposed)
+                    {
+                        try { f.Close(); } catch { }
+                    }
+                }
+            }
+
+            OpenAgroParallelWidget("pages/config.html?tab=" + tab, "Configuración", 1180, 700);
+        }
+
+        //mapa TabPage WinForm (FormConfig) → id de solapa en config.html
+        private static string ConfigTabToHtml(string tabName)
+        {
+            switch (tabName)
+            {
+                case "tabVConfig": return "vconfig";
+                case "tabVDimensions": return "vdimensions";
+                case "tabVAntenna": return "vantenna";
+                case "tabVGuidance": return "vconfig";     //vacía en el original
+                case "tabTConfig": return "tconfig";
+                case "tabTHitch": return "thitch";
+                case "tabToolOffset": return "tooloffset";
+                case "tabToolPivot": return "toolpivot";
+                case "tabTSettings": return "tsettings";
+                case "tabTSections": return "tsections";
+                case "tabTSwitches": return "tswitches";
+                case "tabRelay": return "relay";
+                case "tabAMachine": return "amachine";
+                case "tabDHeading": return "heading";
+                case "tabDRoll": return "roll";
+                case "tabUTurn": return "uturn";
+                case "tabTram": return "tram";
+                case "tabDisplay": return "display";
+                case "tabBtns": return "botones";
+                default: return "summary";
+            }
+        }
+
+        //fallback: FormConfig WinForm nativa (no referenciada desde el menú,
+        //se conserva para diagnóstico/emergencia)
+        private void FloatMenuOpenConfigNativa(string tabName)
+        {
+            if (panelFloatMenu != null) panelFloatMenu.Visible = false; //cerrar antes del diálogo modal
             using (var form = new FormConfig(this) { InitialTabName = tabName })
             {
                 form.ShowDialog(this);
@@ -895,6 +967,27 @@ namespace AgOpenGPS
                 }
                 return false;
             }
+            //idioma_{code}: cambio de idioma desde el submenú HTML de la
+            //hamburguesa. Usa el MISMO SetLanguage que el menú nativo. El code
+            //se toma del cmd original (no lowercased) porque los tags nativos
+            //distinguen mayúsculas (ej. "zh-CHS").
+            if (cmdLower.StartsWith("idioma_"))
+            {
+                string lang = (cmd ?? "").Trim().Substring(7);
+                //validar ANTES de SetLanguage: ese método guarda el código en
+                //el registro ANTES de crear la CultureInfo, así que un código
+                //inválido dejaba a PilotX crasheando en el arranque.
+                try { new System.Globalization.CultureInfo(lang); }
+                catch { return false; }
+                Action setLang = () => { try { SetLanguage(lang); } catch { } };
+                try
+                {
+                    if (InvokeRequired) BeginInvoke((MethodInvoker)(() => setLang()));
+                    else setLang();
+                    return true;
+                }
+                catch { return false; }
+            }
             switch (cmdLower)
             {
                 //--- guías ---
@@ -951,6 +1044,25 @@ namespace AgOpenGPS
                 case "minimizar": b = btnMinimizeMainForm; break;
                 case "maximizar": b = btnMaximizeMainForm; break;
                 case "apagar": b = btnShutdown; break;
+                //hamburguesa nativa (perfil/idioma/simulador/kiosco/reset/ayuda):
+                //DropDown.Show con coordenadas del form para que funcione aunque
+                //menuStrip1 esté oculto en modo barras HTML.
+                case "menu_principal":
+                    act = () => fileToolStripMenuItem.DropDown.Show(this, new Point(24, 76));
+                    break;
+                //ítems de la hamburguesa espejados en HTML (barra-superior.html).
+                //simulatorOnToolStripMenuItem es CheckOnClick: el handler lee
+                //Checked YA toggleado, así que replicamos el click completo.
+                case "simulador":
+                    act = () =>
+                    {
+                        simulatorOnToolStripMenuItem.Checked = !simulatorOnToolStripMenuItem.Checked;
+                        simulatorOnToolStripMenuItem_Click(simulatorOnToolStripMenuItem, EventArgs.Empty);
+                    };
+                    break;
+                case "sim_coords": act = () => enterSimCoordsToolStripMenuItem_Click(this, EventArgs.Empty); break;
+                case "kiosco": act = () => kioskModeToolStrip_Click(this, EventArgs.Empty); break;
+                case "reset_all": act = () => resetALLToolStripMenuItem_Click(this, EventArgs.Empty); break;
                 //los 3 desplegables nativos del panel izquierdo
                 case "menu_all": act = () => toolStripDropDownButton1.ShowDropDown(); break;
                 case "menu_herr_lote": act = () => toolStripBtnFieldTools.ShowDropDown(); break;
@@ -962,6 +1074,9 @@ namespace AgOpenGPS
                 case "colores_sec": act = () => colorsSectionToolStripMenuItem_Click(this, EventArgs.Empty); break;
                 case "perfil_nuevo": act = () => newProfileToolStripMenuItem_Click(this, EventArgs.Empty); break;
                 case "perfil_cargar": act = () => loadProfileToolStripMenuItem_Click(this, EventArgs.Empty); break;
+                //gestión completa de perfiles en HTML (reemplaza las 2 forms nativas):
+                //cargar/sumar/copiar/proteger con clave/borrar/backup
+                case "perfil_gestion": act = () => OpenAgroParallelWidget("pages/perfiles.html", "Perfiles", 560, 620); break;
                 case "directorios": act = () => setWorkingDirectoryToolStripMenuItem_Click(this, EventArgs.Empty); break;
                 case "ayuda": act = () => helpMenuItem_Click(this, EventArgs.Empty); break;
                 //--- submenú Herramientas (espejo de SpecialFunctions) ---

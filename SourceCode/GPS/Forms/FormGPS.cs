@@ -543,11 +543,90 @@ namespace AgOpenGPS
             isobus = new CISOBUS(this);
         }
 
+        //Levanta el AgpWebHost:5180 con TODOS los servicios (perfiles, tracks,
+        //imu, debug, etc.). DEBE correr antes de que cualquier widget HTML
+        //(barras espejo, overlays) instancie el Hub: si el Hub ve el host
+        //apagado levanta un fallback SIN estos servicios y le gana el puerto
+        //(bug 2026-07-14: /api/aog/perfiles 404). Idempotente.
+        private void StartAgroParallelWebHost()
+        {
+            try
+            {
+                string wwwroot = System.IO.Path.Combine(
+                    System.AppDomain.CurrentDomain.BaseDirectory, "AgroParallel", "wwwroot");
+                var state = new global::AgroParallel.Adapters.FormGpsStateProvider(this);
+                var lotes = new global::AgroParallel.Adapters.FormGpsLotesService(this);
+                var vehicleTool = new global::AgroParallel.Adapters.FormGpsVehicleToolService(this);
+                var shapefile = new global::AgroParallel.Adapters.FormGpsShapefileService(this);
+                var coverage = new global::AgroParallel.Adapters.FormGpsCoverageService(this);
+                var sectionsCore = new global::AgroParallel.Adapters.FormGpsSectionControlService(this);
+                var quantixRuntime = new global::AgroParallel.Adapters.FormGpsQuantiXRuntimeService(this, state);
+                var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
+                var imuCalibracion = new global::AgroParallel.Adapters.FormGpsImuCalibracionService(this);
+                var trackList = new global::AgroParallel.Adapters.FormGpsTrackListService(this);
+                var perfiles = new global::AgroParallel.Adapters.FormGpsPerfilService(this);
+                var configVehiculo = new global::AgroParallel.Adapters.FormGpsConfigService(this);
+                var toolGeometry = new global::AgroParallel.Adapters.FormGpsToolGeometryCalculator(this);
+                var tram = new global::AgroParallel.Adapters.FormGpsTramCalculator(this);
+                var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
+                // Cuando el operario aplica un update, PilotXSelfUpdate lanza el
+                // Updater externo y nos pide cerrar. Cerramos ordenado (FormClosing
+                // guarda el lote) en vez de dejar que el Updater nos mate a los 60s.
+                if (!_pilotxApplyHooked)
+                {
+                    _pilotxApplyHooked = true;
+                    global::AgroParallel.OrbitX.PilotXSelfUpdate.ApplyRequested += () =>
+                    {
+                        try
+                        {
+                            if (IsDisposed || !IsHandleCreated) return;
+                            BeginInvoke(new Action(() => { try { Close(); } catch { } }));
+                        }
+                        catch { }
+                    };
+                }
+                global::AgroParallel.Shell.AgpWebHostBootstrap.EnsureStarted(
+                    state, lotes, vehicleTool, shapefile,
+                    coverage, sectionsCore, quantixRuntime, guidance, pilotxUpdate,
+                    wwwroot,
+                    toolGeometry: toolGeometry,
+                    tram: tram,
+                    imuCalibracion: imuCalibracion,
+                    trackList: trackList,
+                    perfiles: perfiles,
+                    configVehiculo: configVehiculo);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[AgroParallel] WebHost start: " + ex.Message);
+                //a archivo también: sin debugger el fallo era invisible
+                try
+                {
+                    System.IO.File.AppendAllText(
+                        System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "webhost_autostart.log"),
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss ") + ex + Environment.NewLine);
+                }
+                catch { }
+            }
+        }
+
         private void FormGPS_Load(object sender, EventArgs e)
         {
             Log.EventWriter("Program Started: "
                 + DateTime.Now.ToString("f", CultureInfo.InvariantCulture));
             Log.EventWriter("AOG Version: " + Application.ProductVersion.ToString(CultureInfo.InvariantCulture));
+
+            //la hamburguesa nativa (menuStrip1) queda retirada DEFINITIVAMENTE
+            //(pedido 2026-07-13): su espejo HTML vive en barra-superior.html
+            //(botón Menú → panel desplegable). El control sigue existiendo
+            //porque sus ítems se disparan desde ExecuteGuidanceCommand
+            //(perfil/idioma/simulador/kiosco/reset/ayuda), pero no se muestra.
+            menuStrip1.Visible = false;
+
+            //WebHost YA: el diálogo de términos (ShowDialog) bombea mensajes y
+            //un resize puede abrir las barras HTML antes de tiempo — si el host
+            //no está arriba, el Hub levanta su fallback sin perfiles/tracks.
+            StartAgroParallelWebHost();
 
             if (!Properties.Settings.Default.setDisplay_isTermsAccepted)
             {
@@ -848,51 +927,12 @@ namespace AgOpenGPS
                 System.Diagnostics.Debug.WriteLine("[AgroParallel] Iconos: " + ex.Message);
             }
 
-            // Levantar AgpWebHost:5180 ya mismo (no esperar al click del Hub).
-            // Esto habilita que widgets Avalonia standalone (AgroParallel.Shell.Avalonia.exe
-            // --page=pages/camaras.html) puedan conectar sin abrir el Hub completo.
-            // Idempotente: si el Hub se abre despues, reusa este mismo host.
+            // Levantar AgpWebHost:5180 (idempotente — la llamada REAL está al
+            // comienzo de FormGPS_Load, antes del diálogo de términos, para
+            // ganarle al fallback del Hub; acá queda de red de seguridad).
             try
             {
-                string wwwroot = System.IO.Path.Combine(
-                    System.AppDomain.CurrentDomain.BaseDirectory, "AgroParallel", "wwwroot");
-                var state = new global::AgroParallel.Adapters.FormGpsStateProvider(this);
-                var lotes = new global::AgroParallel.Adapters.FormGpsLotesService(this);
-                var vehicleTool = new global::AgroParallel.Adapters.FormGpsVehicleToolService(this);
-                var shapefile = new global::AgroParallel.Adapters.FormGpsShapefileService(this);
-                var coverage = new global::AgroParallel.Adapters.FormGpsCoverageService(this);
-                var sectionsCore = new global::AgroParallel.Adapters.FormGpsSectionControlService(this);
-                var quantixRuntime = new global::AgroParallel.Adapters.FormGpsQuantiXRuntimeService(this, state);
-                var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
-                var imuCalibracion = new global::AgroParallel.Adapters.FormGpsImuCalibracionService(this);
-                var trackList = new global::AgroParallel.Adapters.FormGpsTrackListService(this);
-                var toolGeometry = new global::AgroParallel.Adapters.FormGpsToolGeometryCalculator(this);
-                var tram = new global::AgroParallel.Adapters.FormGpsTramCalculator(this);
-                var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
-                // Cuando el operario aplica un update, PilotXSelfUpdate lanza el
-                // Updater externo y nos pide cerrar. Cerramos ordenado (FormClosing
-                // guarda el lote) en vez de dejar que el Updater nos mate a los 60s.
-                if (!_pilotxApplyHooked)
-                {
-                    _pilotxApplyHooked = true;
-                    global::AgroParallel.OrbitX.PilotXSelfUpdate.ApplyRequested += () =>
-                    {
-                        try
-                        {
-                            if (IsDisposed || !IsHandleCreated) return;
-                            BeginInvoke(new Action(() => { try { Close(); } catch { } }));
-                        }
-                        catch { }
-                    };
-                }
-                global::AgroParallel.Shell.AgpWebHostBootstrap.EnsureStarted(
-                    state, lotes, vehicleTool, shapefile,
-                    coverage, sectionsCore, quantixRuntime, guidance, pilotxUpdate,
-                    wwwroot,
-                    toolGeometry: toolGeometry,
-                    tram: tram,
-                    imuCalibracion: imuCalibracion,
-                    trackList: trackList);
+                StartAgroParallelWebHost();
 
                 // El widget QX HTML necesita la Url del host para navegar; cuando
                 // InitShapefileMenu() corrió antes (línea 739), Url todavía no
@@ -904,9 +944,11 @@ namespace AgOpenGPS
                 // del implemento activo offline.
                 try { InitAlertaNodosOverlay(); } catch (Exception exA) { System.Diagnostics.Debug.WriteLine("[AlertaNodos] init: " + exA.Message); }
 
-                // Tira de estado de módulos, SIEMPRE visible sobre el mapa
-                // (pedido de usuario: verla en la pantalla principal sin abrir el Hub).
-                try { InitEstadoModulosOverlay(); } catch (Exception exM) { System.Diagnostics.Debug.WriteLine("[EstadoModulos] init: " + exM.Message); }
+                // Tira de estado de módulos: DESHABILITADA (pedido de usuario
+                // 2026-07: sacarla de la pantalla principal). El control
+                // (EstadoModulosOverlayControl + estado-modulos.html) se
+                // conserva por si se quiere volver a habilitar.
+                //try { InitEstadoModulosOverlay(); } catch (Exception exM) { System.Diagnostics.Debug.WriteLine("[EstadoModulos] init: " + exM.Message); }
 
                 // Cuando el operario guarda sectionX.json desde la UI Hub,
                 // relanzar el SectionXBridge — si no lo hacemos, el bridge se
@@ -963,6 +1005,15 @@ namespace AgOpenGPS
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[AgroParallel] WebHost autostart: " + ex.Message);
+                //a archivo también: sin debugger el fallo era invisible y el Hub
+                //levantaba su host fallback SIN perfiles/tracks/imu (bug 2026-07-14)
+                try
+                {
+                    System.IO.File.AppendAllText(
+                        System.IO.Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "webhost_autostart.log"),
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss ") + ex + Environment.NewLine);
+                }
+                catch { }
             }
             // AGROPARALLEL_WEB_UI_END
 
@@ -1490,9 +1541,10 @@ namespace AgOpenGPS
             StartQuantiXSender();
             // QUANTIX_MOD_END
 
-            // GUIA_RAPIDA_MOD: el widget HTML "Elegir guía" vive SOLO con lote
-            // abierto — aparece acá y se cierra en JobClose.
-            OpenGuiaRapidaWidget();
+            // GUIA_RAPIDA_MOD: el widget "Elegir guía" ya NO se abre solo al
+            // abrir lote (pedido 2026-07-13, molestaba): el operario lo abre
+            // desde el menú flotante ("Elegir guía") cuando lo necesita.
+            // JobClose lo sigue cerrando por si quedó abierto.
         }
 
         //close the current job

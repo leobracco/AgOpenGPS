@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Perfiles · PilotX</title>
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Perfiles del vehículo — reemplaza FormNewProfile/FormLoadProfile.
+       Un perfil = TODAS las configuraciones del vehículo (XML completo).
+       Acciones: Cargar / Sumar (nuevo) / Copiar / Proteger / Borrar / Backup. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --verde: #4ABA3E;
+      --fondo: #F5F7F4;
+      --carta: #ffffff;
+      --borde: #C5CFC5;
+      --texto: #101612;
+      --gris: #535E54;
+      --rojo: #c0392b;
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+      background: var(--fondo); color: var(--texto);
+      display: flex; flex-direction: column;
+      padding: 10px; gap: 10px; overflow: hidden;
+    }
+    header { display: flex; align-items: center; gap: 10px; }
+    header h1 { font-size: 17px; flex: 1; }
+    .btn {
+      min-height: 46px; padding: 0 14px;
+      border: 1px solid var(--borde); border-radius: 10px;
+      background: var(--carta); color: var(--texto);
+      font: 600 14px "Segoe UI", Roboto, sans-serif;
+      cursor: pointer; touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+    }
+    .btn:active { background: #e6ede5; }
+    .btn.primario { background: var(--verde); border-color: var(--verde); color: #fff; }
+    .btn.primario:active { filter: brightness(0.92); }
+    .btn.peligro { color: var(--rojo); border-color: #e0b4ae; }
+    .btn:disabled { opacity: 0.45; pointer-events: none; }
+
+    #lista {
+      flex: 1; min-height: 0; overflow-y: auto;
+      background: var(--carta); border: 1px solid var(--borde); border-radius: 12px;
+    }
+    .fila {
+      display: flex; align-items: center; gap: 10px;
+      min-height: 52px; padding: 6px 12px;
+      border-bottom: 1px solid #e7ece6; cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+    }
+    .fila:last-child { border-bottom: 0; }
+    .fila.sel { background: #eaf6e8; box-shadow: inset 3px 0 0 var(--verde); }
+    .fila .nombre { flex: 1; font-weight: 600; font-size: 15px; word-break: break-all; }
+    .tag {
+      font: 700 11px "Segoe UI", Roboto, sans-serif;
+      padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+    }
+    .tag.uso { background: var(--verde); color: #fff; }
+    .tag.lock { background: #eef1ee; color: var(--gris); border: 1px solid var(--borde); }
+    .vacio { padding: 18px; color: var(--gris); text-align: center; }
+
+    #acciones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+    #estado { min-height: 20px; font-size: 13px; color: var(--gris); }
+    #estado.err { color: var(--rojo); font-weight: 600; }
+    #estado.ok { color: #2e8b25; font-weight: 600; }
+
+    /* ---- diálogo inline (nada de window.prompt: táctil + teclado propio) ---- */
+    #velo {
+      position: fixed; inset: 0; background: rgba(16,22,18,0.45);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding-top: 6vh; z-index: 50;
+    }
+    #velo[hidden] { display: none; }
+    .dlg {
+      background: var(--carta); border-radius: 14px; padding: 16px;
+      width: min(440px, 92vw); display: flex; flex-direction: column; gap: 10px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    }
+    .dlg h2 { font-size: 15px; }
+    .dlg .nota { font-size: 12px; color: var(--gris); }
+    .dlg label { font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .dlg input, .dlg select {
+      min-height: 46px; padding: 0 10px; font-size: 15px;
+      border: 1px solid var(--borde); border-radius: 10px; background: #fff;
+      width: 100%;
+    }
+    .dlg .botones { display: flex; gap: 8px; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Perfiles del vehículo</h1>
+    <button type="button" class="btn" id="btnBackup">💾 Backup ahora</button>
+    <button type="button" class="btn primario" id="btnSumar">➕ Sumar perfil</button>
+  </header>
+
+  <div id="lista"><div class="vacio">Cargando…</div></div>
+
+  <div id="acciones">
+    <button type="button" class="btn primario" id="btnCargar" disabled>▶ Cargar</button>
+    <button type="button" class="btn" id="btnCopiar" disabled>📋 Copiar</button>
+    <button type="button" class="btn" id="btnProteger" disabled>🔒 Proteger</button>
+    <button type="button" class="btn" id="btnDesproteger" disabled>🔓 Desproteger</button>
+    <button type="button" class="btn peligro" id="btnBorrar" disabled>🗑 Borrar</button>
+  </div>
+
+  <div id="estado"></div>
+
+  <!-- diálogo genérico: título + campos según acción -->
+  <div id="velo" hidden>
+    <div class="dlg">
+      <h2 id="dlgTitulo"></h2>
+      <div class="nota" id="dlgNota"></div>
+      <div id="campoNombre" hidden>
+        <label for="inNombre">Nombre</label>
+        <input id="inNombre" type="text" autocomplete="off" />
+      </div>
+      <div id="campoDesde" hidden>
+        <label for="inDesde">Copiar configuración desde</label>
+        <select id="inDesde" data-no-keyboard></select>
+      </div>
+      <div id="campoClave" hidden>
+        <label for="inClave">Clave</label>
+        <input id="inClave" type="password" autocomplete="off" />
+      </div>
+      <div class="botones">
+        <button type="button" class="btn" id="dlgCancelar">Cancelar</button>
+        <button type="button" class="btn primario" id="dlgOk">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/perfiles.js?v=1"></script>
+</body>
+</html>

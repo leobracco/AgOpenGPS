@@ -224,6 +224,18 @@ namespace AgOpenGPS
                 }
             }
 
+            //PilotX modo barras HTML: la barra de abajo dockeada (74px + margen)
+            //taparía las secciones; se corren arriba de la barra y quedan FIJAS.
+            if (isHtmlBarsMode)
+            {
+                top = Height - 165;
+                if (panelSim.Visible == true)
+                {
+                    top = Height - 200;
+                    panelSim.Top = Height - 158;
+                }
+            }
+
             if (tool.isSectionsNotZones)
             {
                 //if (!isJobStarted) top = Height - 40;
@@ -313,6 +325,17 @@ namespace AgOpenGPS
                 {
                     top = Height - 160;
                     panelSim.Top = Height - 120;
+                }
+            }
+
+            //PilotX modo barras HTML: ídem secciones — zonas arriba de la barra de abajo
+            if (isHtmlBarsMode)
+            {
+                top = Height - 150;
+                if (panelSim.Visible == true)
+                {
+                    top = Height - 185;
+                    panelSim.Top = Height - 145;
                 }
             }
 
