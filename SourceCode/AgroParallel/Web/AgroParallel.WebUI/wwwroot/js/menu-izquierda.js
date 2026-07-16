@@ -26,6 +26,7 @@
         { ico: '🌗', label: 'Día / Noche', cmd: 'dia_noche' },
         { ico: '🔆', label: 'Brillo +', cmd: 'brillo_up' },
         { ico: '🔅', label: 'Brillo −', cmd: 'brillo_dn' },
+        { ico: '⬢', label: 'Hub', cmd: 'hub' },
         { ico: '⚙', label: 'Panel nativo', cmd: 'navegacion' }
       ]
     },

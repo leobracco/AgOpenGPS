@@ -1037,6 +1037,7 @@ namespace AgOpenGPS
                 case "mapeo_color": b = btnChangeMappingColor; break;
                 //--- menú izquierdo HTML (espejo del panelLeft nativo) ---
                 case "navegacion": b = btnNavigationSettings; break;
+                case "hub": act = () => toolStripAgroParallel_Click(this, EventArgs.Empty); break;
                 case "direccion": b = btnAutoSteerConfig; break;
                 case "corex": b = btnStartAgIO; break;
                 case "datos_gps": b = btnGPSData; break;
