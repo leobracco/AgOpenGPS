@@ -1020,10 +1020,12 @@ namespace AgOpenGPS
                 //mapa SIEMPRE al tamaño grande y FIJO: las barras HTML
                 //flotan encima, así mostrar/ocultar con la flecha no
                 //redimensiona el mapa (sin saltos ni reflashes).
+                //Pantalla completa de borde a borde (pedido 2026-07-16):
+                //sin franjas del form visibles a los costados.
                 oglMain.Top = 0;
-                oglMain.Left = 20;
-                oglMain.Width = this.Width - 98;
-                oglMain.Height = this.Height - 12;
+                oglMain.Left = 0;
+                oglMain.Width = this.Width;
+                oglMain.Height = this.Height;
 
                 ActualizarBarrasHtml();
                 ReiniciarTimerOcultarPaneles();

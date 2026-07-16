@@ -253,6 +253,7 @@ namespace AgroParallel.Shell
                 WindowState = FormWindowState.Normal;
                 FormBorderStyle = FormBorderStyle.None;
                 ShowInTaskbar = false;
+                TryRoundCorners();
                 UpdateDockBounds();
                 var anchor = AnchorControl;
                 if (anchor != null && !anchor.IsDisposed) HookAnchor(anchor);
@@ -261,6 +262,7 @@ namespace AgroParallel.Shell
 
             WindowState = FormWindowState.Normal;
             FormBorderStyle = FormBorderStyle.SizableToolWindow;
+            TryRoundCorners();
 
             Size sz = FloatingSize;
             if (sz.Width < 200) sz.Width = 720;
@@ -560,6 +562,27 @@ namespace AgroParallel.Shell
                     try { BeginInvoke(new Action(() => ResizeFloatingWidget(w, h))); } catch { }
                 }
             }
+        }
+
+        // ---------- Esquinas redondeadas de la ventana (Windows 11) ----------
+        // Los widgets HTML dibujan tarjetas con border-radius, pero la ventana
+        // WinForms es rectangular y se ve el fondo cuadrado del WebView2 en las
+        // esquinas. DWMWA_WINDOW_CORNER_PREFERENCE = ROUND le pide al compositor
+        // que recorte la ventana con esquinas redondeadas (antialiasing incluido).
+        // En Windows 10 el atributo no existe y la llamada falla silenciosa (no-op).
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll", PreserveSig = true)]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        private void TryRoundCorners()
+        {
+            const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+            const int DWMWCP_ROUND = 2;
+            try
+            {
+                int pref = DWMWCP_ROUND;
+                DwmSetWindowAttribute(Handle, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
+            }
+            catch { /* Win10 o DWM apagado: la ventana queda cuadrada, sin romper */ }
         }
 
         private void OnClosing(object sender, FormClosingEventArgs e)
