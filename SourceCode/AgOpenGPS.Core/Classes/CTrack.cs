@@ -11,7 +11,8 @@ namespace AgOpenGPS
     public class CTrack
     {
         //pointers to mainform controls
-        private readonly FormGPS mf;
+        // Host invertido (ITrackHost) — traspaso de portabilidad 2026-07-17.
+        private readonly ITrackHost mf;
 
         public List<CTrk> gArr = new List<CTrk>();
 
@@ -19,7 +20,7 @@ namespace AgOpenGPS
 
         public bool isAutoTrack = false, isAutoSnapToPivot = false, isAutoSnapped;
 
-        public CTrack(FormGPS _f)
+        public CTrack(ITrackHost _f)
         {
             //constructor
             mf = _f;
@@ -79,20 +80,20 @@ namespace AgOpenGPS
 
                 if (gArr[i].mode == TrackMode.AB)
                 {
-                    double abHeading = mf.trk.gArr[i].heading;
+                    double abHeading = mf.Tracks[i].heading;
 
-                    endPtA.easting = mf.trk.gArr[i].ptA.easting - (Math.Sin(abHeading) * 2000);
-                    endPtA.northing = mf.trk.gArr[i].ptA.northing - (Math.Cos(abHeading) * 2000);
+                    endPtA.easting = mf.Tracks[i].ptA.easting - (Math.Sin(abHeading) * 2000);
+                    endPtA.northing = mf.Tracks[i].ptA.northing - (Math.Cos(abHeading) * 2000);
 
-                    endPtB.easting = mf.trk.gArr[i].ptB.easting + (Math.Sin(abHeading) * 2000);
-                    endPtB.northing = mf.trk.gArr[i].ptB.northing + (Math.Cos(abHeading) * 2000);
+                    endPtB.easting = mf.Tracks[i].ptB.easting + (Math.Sin(abHeading) * 2000);
+                    endPtB.northing = mf.Tracks[i].ptB.northing + (Math.Cos(abHeading) * 2000);
 
                     //x2-x1
                     double dx = endPtB.easting - endPtA.easting;
                     //z2-z1
                     double dy = endPtB.northing - endPtA.northing;
 
-                    dist = ((dy * mf.steerAxlePos.easting) - (dx * mf.steerAxlePos.northing) + (endPtB.easting
+                    dist = ((dy * mf.SteerAxlePos.easting) - (dx * mf.SteerAxlePos.northing) + (endPtB.easting
                                             * endPtA.northing) - (endPtB.northing * endPtA.easting))
                                                 / Math.Sqrt((dy * dy) + (dx * dx));
 
@@ -134,13 +135,13 @@ namespace AgOpenGPS
                 }
                 else
                 {
-                    mf.curve.isCurveValid = false;
-                    gArr[idx].nudgeDistance += mf.curve.isHeadingSameWay ? dist : -dist;
+                    mf.Curve.isCurveValid = false;
+                    gArr[idx].nudgeDistance += mf.Curve.isHeadingSameWay ? dist : -dist;
 
                 }
 
-                //if (gArr[idx].nudgeDistance > 0.5 * mf.tool.width) gArr[idx].nudgeDistance -= mf.tool.width;
-                //else if (gArr[idx].nudgeDistance < -0.5 * mf.tool.width) gArr[idx].nudgeDistance += mf.tool.width;
+                //if (gArr[idx].nudgeDistance > 0.5 * mf.Tool.width) gArr[idx].nudgeDistance -= mf.Tool.width;
+                //else if (gArr[idx].nudgeDistance < -0.5 * mf.Tool.width) gArr[idx].nudgeDistance += mf.Tool.width;
             }
         }
 
@@ -154,7 +155,7 @@ namespace AgOpenGPS
                 }
                 else
                 {
-                    mf.curve.isCurveValid = false;
+                    mf.Curve.isCurveValid = false;
                 }
 
                 gArr[idx].nudgeDistance = 0;
@@ -165,7 +166,7 @@ namespace AgOpenGPS
         {
             if (idx > -1)
             {
-                NudgeTrack(gArr[idx].mode == TrackMode.AB ? mf.ABLine.distanceFromCurrentLinePivot : mf.curve.distanceFromCurrentLinePivot);
+                NudgeTrack(gArr[idx].mode == TrackMode.AB ? mf.ABLine.distanceFromCurrentLinePivot : mf.Curve.distanceFromCurrentLinePivot);
             }
         }
 
@@ -180,8 +181,8 @@ namespace AgOpenGPS
                 }
                 else
                 {
-                    mf.curve.isCurveValid = false;
-                    NudgeRefCurve(mf.curve.isHeadingSameWay ? dist : -dist);
+                    mf.Curve.isCurveValid = false;
+                    NudgeRefCurve(mf.Curve.isHeadingSameWay ? dist : -dist);
                 }
             }
         }
@@ -199,7 +200,7 @@ namespace AgOpenGPS
 
         public void NudgeRefCurve(double distAway)
         {
-            mf.curve.isCurveValid = false;
+            mf.Curve.isCurveValid = false;
 
             List<vec3> curList = new List<vec3>();
 
