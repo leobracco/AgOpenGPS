@@ -1035,7 +1035,7 @@ namespace AgOpenGPS
             {
                 panelNavigation.Visible = true;
                 navPanelCounter = 2;
-                if (displayBrightness.isWmiMonitor) btnBrightnessDn.Text = (displayBrightness.GetBrightness().ToString()) + "%";
+                if (displayBrightness.IsSupported) btnBrightnessDn.Text = (displayBrightness.GetBrightness().ToString()) + "%";
                 else btnBrightnessDn.Text = "??";
             }
 
@@ -1994,7 +1994,7 @@ namespace AgOpenGPS
         }
         private void btnBrightnessUp_Click(object sender, EventArgs e)
         {
-            if (displayBrightness.isWmiMonitor)
+            if (displayBrightness.IsSupported)
             {
                 displayBrightness.BrightnessIncrease();
                 btnBrightnessDn.Text = displayBrightness.GetBrightness().ToString() + "%";
@@ -2005,7 +2005,7 @@ namespace AgOpenGPS
         }
         private void btnBrightnessDn_Click(object sender, EventArgs e)
         {
-            if (displayBrightness.isWmiMonitor)
+            if (displayBrightness.IsSupported)
             {
                 displayBrightness.BrightnessDecrease();
                 btnBrightnessDn.Text = displayBrightness.GetBrightness().ToString() + "%";

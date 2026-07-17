@@ -36,7 +36,7 @@
 | ~~`Settings.Default`~~ **NO BLOQUEA** (verificado 2026-07-16): es un POCO propio serializado por XmlSettingsHandler (no ApplicationSettings); solo usa Point/Size/Color, que en .NET moderno viven en System.Drawing.Primitives (multiplataforma). El bloqueador real es System.Drawing.**Common** (Bitmap/Graphics), no estos primitivos | Settings.cs ×2 | listo | listo | listo |
 | `System.IO.Ports` (serie GPS/steer/machine en AgIO) | SerialComm, FormCommSetGPS, NTRIP pass | requiere USB host API (driver serial USB) | funciona (`/dev/tty*`) | **no hay puerto serie accesible** — bloqueante salvo BLE/red |
 | `Microsoft.Web.WebView2` | Hub, overlays AgroParallel | reemplazar por WebView Android | **sin soporte oficial Linux** — reemplazar (CEF/WebKitGTK) o UI nativa | WKWebView |
-| `System.Management` (WMI) | CBrightness.cs | reescribir | reescribir | reescribir |
+| ~~`System.Management` (WMI)~~ **AISLADO 2026-07-17**: FormGPS habla solo con la interfaz `IBrightnessController`; la impl WMI (`CWindowsSettingsBrightnessController`) es la pieza a reemplazar por plataforma (sysfs backlight en Linux, WindowManager en Android) | CBrightness.cs | impl nueva | impl nueva | impl nueva |
 | `System.Media.SoundPlayer` | CSound.cs | reemplazar audio | reemplazar | reemplazar |
 | `Accord.Video.DirectShow` (webcam) | FormWebCam.cs | reemplazar | reemplazar | reemplazar |
 | `System.Windows.Forms.DataVisualization.Charting` | 4 Form*Graph | reemplazar charts | ídem | ídem |
@@ -66,7 +66,7 @@
 | CABLine.cs | 568 | Lógica de líneas AB para guiado | FormGPS, GL calls puros | ADAPTABLE |
 | CBoundary.cs | 24 | Gestión de límites de campo, punto-en-área | FormGPS, Settings.Default | ADAPTABLE |
 | CBoundaryList.cs | 28 | Lista de límites con coordenadas y áreas | — | PORTABLE |
-| CBrightness.cs | 82 | Brillo de monitor vía WMI | System.Management (Windows-only) | REESCRIBIR |
+| CBrightness.cs | 97 | Brillo de monitor: interfaz `IBrightnessController` + impl WMI | WMI aislado en la impl Windows (2026-07-17); en el port se escribe otra impl de la interfaz | ADAPTABLE |
 | CContour.cs | 671 | Líneas de contorno de campo | FormGPS, GL calls puros | ADAPTABLE |
 | CDubins.cs | 636 | Curvas Dubins para rutas óptimas | Settings.Default | ADAPTABLE |
 | CExtensionMethods.cs | 124 | Extensores para controles WinForms y color | System.Windows.Forms, System.Drawing | REESCRIBIR |
@@ -100,7 +100,7 @@
 | VehicleTextures.cs | 86 | Caché lazy de texturas de vehículo | Ninguna directa: delega en `Texture2D` (~~using Drawing muerto~~ eliminado 2026-07-16) | ADAPTABLE |
 | BoundaryBuilder.cs | 614 | Constructor de límites desde pistas (segmentación, intersecciones, recorte) | System.IO (portable) | ADAPTABLE |
 
-**Subtotal Classes: 12 PORTABLE · 25 ADAPTABLE · 2 REESCRIBIR.** Los 2 que quedan a reescribir: CBrightness (WMI, ya autoaislado con fallback) y CExtensionMethods (helpers UI puros). CModuleComm, CSound y CGLM se destrabaron con los traspasos del 2026-07-16. **Texturas:** todo el camino Bitmap→GL quedó concentrado en `Texture2D` (Core.DrawLib) — en un port se reimplementa esa clase (decoder PNG + GLES) y Brands/ScreenTextures/VehicleTextures no se tocan.
+**Subtotal Classes: 12 PORTABLE · 26 ADAPTABLE · 1 REESCRIBIR.** El único que queda a reescribir: CExtensionMethods (helpers UI puros). CModuleComm, CSound y CGLM se destrabaron con los traspasos del 2026-07-16; CBrightness quedó detrás de `IBrightnessController` el 2026-07-17 (la impl WMI se reemplaza por plataforma). **Texturas:** todo el camino Bitmap→GL quedó concentrado en `Texture2D` (Core.DrawLib) — en un port se reimplementa esa clase (decoder PNG + GLES) y Brands/ScreenTextures/VehicleTextures no se tocan.
 
 ## GPS/Forms raíz + partials FormGPS (35) y Forms/Guidance (24)
 
@@ -208,7 +208,7 @@
 - `UseWindowsForms=true`, `OutputType=WinExe`, `RuntimeIdentifier=win-x64` → **bloqueante**, define el proyecto como Windows Desktop.
 - NuGets Windows-only: `GMap.NET.WinForms`, `MechanikaDesign ColorPicker`, `OpenTK.GLControl`, `Microsoft.Web.WebView2` (sin Linux oficial).
 - NuGets multiplataforma OK: `MQTTnet`, `System.Text.Json`, `SQLite`, `NetTopologySuite.IO.Esri.Shapefile`, `Dev4Agriculture.ISO11783.ISOXML`, `System.Memory`.
-- References Windows-only: `System.Management` (WMI), `System.Windows.Forms.DataVisualization`.
+- References Windows-only: `System.Management` (WMI, usado solo por la impl Windows de `IBrightnessController` — se elimina junto con ella en el port), `System.Windows.Forms.DataVisualization`.
 
 **Subtotal infra: 21 PORTABLE · 4 ADAPTABLE · 9 REESCRIBIR.** Es la zona más portable de todo el repo.
 

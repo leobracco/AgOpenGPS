@@ -371,7 +371,7 @@ namespace AgOpenGPS
         /// <summary>
         /// The new brightness code
         /// </summary>
-        public CWindowsSettingsBrightnessController displayBrightness;
+        public IBrightnessController displayBrightness;
 
         /// <summary>
         /// The ISOBUS communication class
@@ -686,7 +686,7 @@ namespace AgOpenGPS
 
             if (isBrightnessOn)
             {
-                if (displayBrightness.isWmiMonitor)
+                if (displayBrightness.IsSupported)
                 {
                     Settings.Default.setDisplay_brightnessSystem = displayBrightness.GetBrightness();
                     Settings.Default.Save();
@@ -698,7 +698,7 @@ namespace AgOpenGPS
                 }
 
                 //display brightness
-                if (displayBrightness.isWmiMonitor)
+                if (displayBrightness.IsSupported)
                 {
                     if (Settings.Default.setDisplay_brightness < Settings.Default.setDisplay_brightnessSystem)
                     {
@@ -1276,7 +1276,7 @@ namespace AgOpenGPS
             Log.EventWriter("Program Exit: " + DateTime.Now.ToString("f", CultureInfo.CreateSpecificCulture(RegistrySettings.culture)) + "\r");
 
             // Restore display brightness
-            if (displayBrightness.isWmiMonitor)
+            if (displayBrightness.IsSupported)
             {
                 try { displayBrightness.SetBrightness(Settings.Default.setDisplay_brightnessSystem); }
                 catch { }
