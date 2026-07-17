@@ -15,9 +15,10 @@ namespace AgOpenGPS
         private readonly ColorRgba referenceLineRed = new ColorRgba(0.930f, 0.2f, 0.2f);
         private readonly ColorRgba shadowAreaGray = new ColorRgba(0.5f, 0.5f, 0.5f, 0.2f);
         private readonly ColorRgba shadowLinesGray = new ColorRgba(0.55f, 0.55f, 0.55f, 0.2f);
-        private readonly ColorRgba currentAbLinePurple = new ColorRgba(0.95f, 0.20f, 0.950f);
+        //estilo PilotX: guía activa blanca, vecinas gris claro (pedido 2026-07-16)
+        private readonly ColorRgba currentAbLinePurple = new ColorRgba(0.98f, 0.98f, 0.98f);
         private readonly ColorRgba extraGuidelinesBlack = new ColorRgba(0.0f, 0.0f, 0.0f, 0.5f);
-        private readonly ColorRgba extraGuidelinesGreen = new ColorRgba(0.19907f, 0.6f, 0.19750f, 0.6f);
+        private readonly ColorRgba extraGuidelinesGreen = new ColorRgba(0.72f, 0.75f, 0.72f, 0.6f);
 
         public double abHeading, abLength;
 

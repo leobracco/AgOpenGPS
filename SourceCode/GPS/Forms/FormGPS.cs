@@ -2876,8 +2876,13 @@ namespace AgOpenGPS
                 }
 
                 var hub = BuildHubForm(initialPage);
-                // El Hub se overlay sobre el GLControl del mapa (oglMain) en lugar
-                // de ir fullscreen. Sigue al control si AOG se redimensiona o mueve.
+                // El Hub abre como ventana flotante con borde tool-window (X de
+                // cierre), igual o más chica que la de Configuración (1180x700).
+                // Nada de overlay fullscreen: el operario siempre puede cerrarla
+                // y seguir viendo el mapa (pedido 2026-07-16).
+                hub.FloatingWidget = true;
+                hub.FloatingSize = new System.Drawing.Size(1180, 700);
+                hub.Text = "Agro Parallel";
                 hub.AnchorControl = this.oglMain;
                 _hubFormWeb = hub;
                 _hubFormWeb.FormClosed += (s, e) => { _hubFormWeb = null; };

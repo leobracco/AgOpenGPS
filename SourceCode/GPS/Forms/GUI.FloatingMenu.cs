@@ -252,6 +252,9 @@ namespace AgOpenGPS
         public void PositionFloatMenuLauncher()
         {
             if (btnFloatMenuLauncher == null) return;
+            //en modo barras HTML el lanzador hamburguesa sobra: todo vive en
+            //la barra superior y el menú izquierdo HTML (pedido 2026-07-16)
+            btnFloatMenuLauncher.Visible = !isHtmlBarsMode;
             btnFloatMenuLauncher.SetBounds((ClientSize.Width - 110) / 2, 4, 110, 44);
             btnFloatMenuLauncher.BringToFront();
 

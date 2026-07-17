@@ -1161,7 +1161,8 @@ namespace AgOpenGPS
                     GL.End();
 
                     GL.LineWidth(mf.ABLine.lineWidth);
-                    GL.Color3(0.95f, 0.2f, 0.95f);
+                    //estilo PilotX: guía activa blanca (pedido 2026-07-16)
+                    GL.Color3(0.98f, 0.98f, 0.98f);
                     if (mf.trk.gArr[mf.trk.idx].mode <= TrackMode.Curve)
                     {
                         GL.Begin(PrimitiveType.LineStrip);
@@ -1213,7 +1214,8 @@ namespace AgOpenGPS
                 GL.End();
 
                 GL.LineWidth(mf.ABLine.lineWidth);
-                GL.Color4(0.2, 0.5, 0.2, 0.6);
+                //estilo PilotX: guías vecinas gris claro (pedido 2026-07-16)
+                GL.Color4(0.72, 0.75, 0.72, 0.6);
 
                 if (mf.trk.gArr[mf.trk.idx].mode != TrackMode.bndCurve)
                     GL.Begin(PrimitiveType.LineStrip);

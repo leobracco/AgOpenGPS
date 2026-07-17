@@ -269,18 +269,22 @@ namespace AgroParallel.Shell
             if (sz.Height < 200) sz.Height = 760;
 
             var c = AnchorControl;
-            if (c != null && !c.IsDisposed && c.IsHandleCreated)
-            {
-                Rectangle r = c.RectangleToScreen(c.ClientRectangle);
-                int x = r.Right - sz.Width - 24;
-                int y = r.Top + 24;
-                SetBounds(x, y, sz.Width, sz.Height);
-            }
-            else
-            {
-                Rectangle wa = Screen.PrimaryScreen.WorkingArea;
-                SetBounds(wa.Right - sz.Width - 24, wa.Top + 24, sz.Width, sz.Height);
-            }
+            Rectangle area = (c != null && !c.IsDisposed && c.IsHandleCreated)
+                ? c.RectangleToScreen(c.ClientRectangle)
+                : Screen.PrimaryScreen.WorkingArea;
+
+            // Clamp: ningún widget puede quedar más grande que la pantalla/mapa
+            // (en pantallas chicas de tractor 1180px de config no entra). Se
+            // achica al área disponible menos un margen (pedido 2026-07-16).
+            if (sz.Width > area.Width - 16) sz.Width = area.Width - 16;
+            if (sz.Height > area.Height - 16) sz.Height = area.Height - 16;
+
+            int x = area.Right - sz.Width - 24;
+            int y = area.Top + 24;
+            if (x < area.Left + 8) x = area.Left + 8;
+            if (y + sz.Height > area.Bottom - 8) y = area.Bottom - 8 - sz.Height;
+            if (y < area.Top + 8) y = area.Top + 8;
+            SetBounds(x, y, sz.Width, sz.Height);
         }
 
         /// <summary>
