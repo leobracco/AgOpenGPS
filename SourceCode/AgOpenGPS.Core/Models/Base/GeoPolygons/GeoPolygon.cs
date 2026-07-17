@@ -1,4 +1,3 @@
-﻿using Accord.Imaging.Filters;
 using System;
 using System.Collections.Generic;
 

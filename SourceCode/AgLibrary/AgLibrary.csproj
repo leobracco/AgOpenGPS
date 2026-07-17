@@ -2,12 +2,13 @@
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
-    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Accord.Imaging" Version="3.8.0" />
-    <PackageReference Include="Accord.Video.DirectShow" Version="3.8.0" />
+    <!-- Solo por Point/Size/Color (System.Drawing.Primitives en .NET moderno,
+         multiplataforma). Sin WinForms ni Accord: los controles UI se movieron
+         al proyecto GPS (traspaso portabilidad 2026-07-16). -->
+    <Reference Include="System.Drawing" />
     <PackageReference Include="System.Memory" Version="4.6.0" />
   </ItemGroup>
 

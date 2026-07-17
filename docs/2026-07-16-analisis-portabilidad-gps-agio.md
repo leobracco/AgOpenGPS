@@ -33,7 +33,7 @@
 | `System.Windows.Forms` (UseWindowsForms=true) | toda la UI de ambos proyectos | reescribir UI | reescribir UI | reescribir UI |
 | `OpenTK.GLControl` (windowing WinForms) | OpenGL.Designer.cs, GeoViewport.cs | reemplazar host GL (las llamadas GL puras son portables vía GLES/ANGLE) | ídem | ídem |
 | ~~`Microsoft.Win32.Registry`~~ **RESUELTO 2026-07-16**: RegistrySettings (ambos proyectos) ahora persiste en JSON (`aog_settings.json` / `corex_settings.json`); Registry quedó aislado en métodos `*LegacyRegistry` (migración one-shot, se eliminan en el port) | RegistrySettings.cs ×2 | listo | listo | listo |
-| `Settings.Default` (ApplicationSettings .NET Framework) | ~60 archivos | abstracción de settings | ídem | ídem |
+| ~~`Settings.Default`~~ **NO BLOQUEA** (verificado 2026-07-16): es un POCO propio serializado por XmlSettingsHandler (no ApplicationSettings); solo usa Point/Size/Color, que en .NET moderno viven en System.Drawing.Primitives (multiplataforma). El bloqueador real es System.Drawing.**Common** (Bitmap/Graphics), no estos primitivos | Settings.cs ×2 | listo | listo | listo |
 | `System.IO.Ports` (serie GPS/steer/machine en AgIO) | SerialComm, FormCommSetGPS, NTRIP pass | requiere USB host API (driver serial USB) | funciona (`/dev/tty*`) | **no hay puerto serie accesible** — bloqueante salvo BLE/red |
 | `Microsoft.Web.WebView2` | Hub, overlays AgroParallel | reemplazar por WebView Android | **sin soporte oficial Linux** — reemplazar (CEF/WebKitGTK) o UI nativa | WKWebView |
 | `System.Management` (WMI) | CBrightness.cs | reescribir | reescribir | reescribir |
@@ -47,7 +47,7 @@
 ### Qué falta, en orden, para compilar en otra plataforma
 
 1. **Extraer el core a una librería .NET Standard/net8.0 sin referencias UI**: Classes/ (geometría, guiado, YouTurn, Dubins), IO/ (12 archivos ya 100% portables), Protocols/ISOBUS, NMEA/PGN parsing de AgIO, lógica UDP/MQTT/NTRIP. El acoplamiento dominante es `FormGPS`/`FormLoop` inyectado por constructor → reemplazar por interfaces (el patrón ya existe en `AgroParallel/Common/FormGps*Service.cs`).
-2. **Abstraer persistencia**: ~~RegistrySettings~~ (HECHO 2026-07-16: JSON primario en ambos proyectos, Registry solo migración legacy aislada) + Settings.Default → los POCOs ya serializan a XML propio (XmlSettingsHandler), falta sacar System.Drawing (Point/Size/Color) del POCO.
+2. **Abstraer persistencia**: HECHO 2026-07-16. RegistrySettings → JSON primario (Registry solo migración legacy aislada). Settings.Default ya era POCO + XmlSettingsHandler y sus Point/Size/Color son System.Drawing.Primitives (portables) — no requiere cambios. Además AgLibrary quedó sin WinForms/Accord (los controles RepeatButton/VideoSourcePlayer se movieron a Keypad y GPS): Log + Settings son ahora una base 100% portable.
 3. **Reemplazar el host OpenGL**: GLControl → surface GL por plataforma; las llamadas `GL.*` (render de mapa, coverage, líneas) migran casi directo a GLES2/ANGLE.
 4. **Reescribir UI**: los ~174 archivos REESCRIBIR son formularios; gran parte de la config ya migró a HTML (config.html, perfiles, nodos, Hub) servida por EmbedIO — ese camino (backend EmbedIO + frontend web) es el que menos reescritura exige para Linux/Android.
 5. **Plataforma específica**: serie (Android USB host / iOS sin serie), audio, brillo, webcam, WebView.
