@@ -852,6 +852,12 @@ namespace AgOpenGPS
                 //calc overlap
                 oglZoom.Refresh();
             }
+
+            // PilotX: revelar la ventana recién con el primer frame pintado
+            // (arranca con Opacity=0 para evitar el destello de controles a
+            // medio dibujar en el arranque; ver ctor de FormGPS).
+            RevealAfterFirstPaint();
+
             _paintTimer?.Stop();
         }
 

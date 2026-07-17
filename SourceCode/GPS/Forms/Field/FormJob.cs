@@ -17,6 +17,19 @@ namespace AgOpenGPS
         //class variables
         private readonly FormGPS mf = null;
 
+        // PilotX: doble buffer a nivel ventana (WS_EX_COMPOSITED) para que el
+        // diálogo no aparezca con los botones blancos sin pintar (destello).
+        // Seguro acá porque este form no tiene OpenGL.
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED
+                return cp;
+            }
+        }
+
         public FormJob(System.Windows.Forms.Form callingForm)
         {
             //get ref of the calling main form

@@ -426,6 +426,26 @@ namespace AgroParallel.Shell
             {
                 try { ApplyAnchor(); } catch { }
             }
+
+            // Anti-parpadeo (2026-07-17): las barras dockeadas (espejo HTML)
+            // aparecían como franja lisa #F5F7F4 durante los ~2-3 s que tarda
+            // WebView2 en inicializar + renderizar la página (capturado con
+            // ráfaga de screenshots al continuar lote). Arrancan invisibles
+            // y se revelan recién con NavigationCompleted; failsafe 4 s por
+            // si la navegación falla.
+            bool dockedBar = FloatingWidget && !string.IsNullOrEmpty(FloatingDock);
+            if (dockedBar)
+            {
+                Opacity = 0;
+                var revealTimer = new System.Windows.Forms.Timer { Interval = 4000 };
+                revealTimer.Tick += (s2, e2) =>
+                {
+                    revealTimer.Stop();
+                    revealTimer.Dispose();
+                    try { if (!IsDisposed && Opacity < 1) Opacity = 1; } catch { }
+                };
+                revealTimer.Start();
+            }
             try
             {
                 // Si FormGPS ya levanto el host via AgpWebHostBootstrap (camino normal),
@@ -512,6 +532,20 @@ namespace AgroParallel.Shell
                 // está disponible inmediatamente, a diferencia de hostObjects
                 // que tiene timing race con el primer load del documento.
                 _webView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+
+                // Reveal de barra dockeada: ver comentario anti-parpadeo arriba.
+                if (dockedBar)
+                {
+                    _webView.CoreWebView2.NavigationCompleted += (s2, e2) =>
+                    {
+                        try
+                        {
+                            if (!IsDisposed && Opacity < 1)
+                                BeginInvoke(new Action(() => { try { Opacity = 1; } catch { } }));
+                        }
+                        catch { }
+                    };
+                }
 
                 // F12 (DevTools), Ctrl+R / F5 (reload) — habilitados por los
                 // settings nativos de WebView2. Si esto se desactiva (por

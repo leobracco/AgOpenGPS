@@ -942,7 +942,13 @@ namespace AgOpenGPS
                 if (panelRight.Controls[i].Visible && panelRight.Controls[i] is Button) viz++;
             }
 
-            if (viz == 0) return;
+            if (viz == 0)
+            {
+                // PilotX: sin botones visibles el panel quedaba como recuadro
+                // blanco vacío (destello al continuar lote) — ocultarlo.
+                panelRight.Visible = false;
+                return;
+            }
 
             int sizer = (Height - 140) / (viz);
             if (sizer > 120) { sizer = 120; }
@@ -953,6 +959,21 @@ namespace AgOpenGPS
                 {
                     panelRight.Controls[i].Height = sizer;
                 }
+            }
+
+            // PilotX: encoger el panel a la altura real de su contenido
+            // (AutoSize no funciona con FlowDirection.BottomUp). Sin esto
+            // quedaba un rectángulo blanco vacío de 714 px con los botones
+            // solo abajo (destello capturado por ráfaga 2026-07-17).
+            {
+                int contentH = panelRight.Padding.Vertical;
+                foreach (Control c in panelRight.Controls)
+                {
+                    if (c.Visible) contentH += c.Height + c.Margin.Vertical;
+                }
+                int bottom = panelRight.Bottom;
+                panelRight.Height = contentH;
+                panelRight.Top = bottom - contentH;
             }
 
             if (panelBottom.Visible)

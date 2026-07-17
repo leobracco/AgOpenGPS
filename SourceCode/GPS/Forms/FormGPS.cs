@@ -420,10 +420,46 @@ namespace AgOpenGPS
             }
         }
 
+        // Ver comentario en el ctor: reveal diferido anti-destello de arranque.
+        private System.Windows.Forms.Timer revealFailsafe;
+
+        internal void RevealAfterFirstPaint()
+        {
+            if (Opacity < 1) Opacity = 1;
+            if (revealFailsafe != null)
+            {
+                revealFailsafe.Stop();
+                revealFailsafe.Dispose();
+                revealFailsafe = null;
+            }
+        }
+
         public FormGPS()
         {
             //winform initialization
             InitializeComponent();
+
+            // PilotX: la ventana arranca invisible y se revela recién con el
+            // primer frame OpenGL pintado (RevealAfterFirstPaint, llamado al
+            // final de oglMain_Paint). Sin esto Windows muestra el HWND antes
+            // del primer paint completo y se ve un destello de ~400 ms con
+            // controles a medio dibujar y restos de la pantalla de atrás
+            // (capturado con ráfaga de screenshots 2026-07-17). Failsafe: si
+            // en 3 s no hubo paint, se muestra igual. El failsafe arranca en
+            // Shown (no acá): el diálogo de licencia bombea mensajes durante
+            // Load y hacía vencer el timer con la ventana aún tapada.
+            Opacity = 0;
+            revealFailsafe = new System.Windows.Forms.Timer { Interval = 3000 };
+            revealFailsafe.Tick += (s, e) => RevealAfterFirstPaint();
+            Shown += (s, e) => revealFailsafe?.Start();
+
+            // PilotX: la botonera derecha tiene 714 px de alto fijo en el
+            // Designer pero pocos botones abajo — el resto quedaba como
+            // rectángulo blanco vacío al abrir lote (destello, ráfaga
+            // 2026-07-17). AutoSize/GrowAndShrink no encogen un
+            // FlowLayoutPanel BottomUp (quirk WinForms), así que la altura
+            // se fija a mano en PanelSizeRightAndBottom.
+            panelRight.AutoSize = false;
 
             // Adaptar los GLControl del Designer a la interfaz portable.
             oglMain = new WinFormsGlSurface(oglMainControl);
@@ -1537,6 +1573,14 @@ namespace AgOpenGPS
             PanelUpdateRightAndBottom();
             PanelsAndOGLSize();
             SetZoom();
+
+            // PilotX: pintar las botoneras YA, antes de que la carga del lote
+            // ocupe el hilo de UI varios segundos. Sin esto quedaban como
+            // franjas blancas vacías hasta terminar la carga (destello
+            // capturado con ráfaga de screenshots 2026-07-17).
+            if (panelRight.Visible) panelRight.Refresh();
+            if (panelBottom.Visible) panelBottom.Refresh();
+            if (panelLeft.Visible) panelLeft.Refresh();
 
             fileSaveCounter = 25;
             lblGuidanceLine.Visible = false;
