@@ -1,9 +1,11 @@
 ﻿using AgOpenGPS.Core.Models;
 using System;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
+// Helpers WinForms puros (traspaso portabilidad 2026-07-17: movidos de
+// Classes/ a Controls/ para que Classes/ quede sin UI; la extensión
+// portable CheckColorFor255 vive en Classes/ColorExtensions.cs).
 namespace AgOpenGPS
 {
     public class NudlessNumericUpDown : NumericUpDown
@@ -88,60 +90,5 @@ namespace AgOpenGPS
             }
             pb.Value = value;               // Move to correct value
         }
-
-        public static Color CheckColorFor255(this Color color)
-        {
-            var currentR = color.R;
-            var currentG = color.G;
-            var currentB = color.B;
-
-            if (currentR == 255) currentR = 254;
-            if (currentG == 255) currentG = 254;
-            if (currentB == 255) currentB = 254;
-
-            return Color.FromArgb(color.A, currentR, currentG, currentB);
-        }
     }
-
-    //public class ExtendedPanel : Panel
-    //{
-    //    private const int WS_EX_TRANSPARENT = 0x20;
-    //    public ExtendedPanel()
-    //    {
-    //        SetStyle(ControlStyles.Opaque, true);
-    //    }
-
-    //    private int opacity = 50;
-    //    [DefaultValue(50)]
-    //    public int Opacity
-    //    {
-    //        get
-    //        {
-    //            return this.opacity;
-    //        }
-    //        set
-    //        {
-    //            if (value < 0 || value > 100)
-    //                throw new System.ArgumentException("value must be between 0 and 100");
-    //            this.opacity = value;
-    //        }
-    //    }
-    //    protected override CreateParams CreateParams
-    //    {
-    //        get
-    //        {
-    //            CreateParams cp = base.CreateParams;
-    //            cp.ExStyle = cp.ExStyle | WS_EX_TRANSPARENT;
-    //            return cp;
-    //        }
-    //    }
-    //    protected override void OnPaint(PaintEventArgs e)
-    //    {
-    //        using (var brush = new SolidBrush(Color.FromArgb(this.opacity * 255 / 100, this.BackColor)))
-    //        {
-    //            e.Graphics.FillRectangle(brush, this.ClientRectangle);
-    //        }
-    //        base.OnPaint(e);
-    //    }
-    //}
 }

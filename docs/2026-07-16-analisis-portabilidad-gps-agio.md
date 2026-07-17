@@ -69,7 +69,8 @@
 | CBrightness.cs | 97 | Brillo de monitor: interfaz `IBrightnessController` + impl WMI | WMI aislado en la impl Windows (2026-07-17); en el port se escribe otra impl de la interfaz | ADAPTABLE |
 | CContour.cs | 671 | Líneas de contorno de campo | FormGPS, GL calls puros | ADAPTABLE |
 | CDubins.cs | 636 | Curvas Dubins para rutas óptimas | Settings.Default | ADAPTABLE |
-| CExtensionMethods.cs | 124 | Extensores para controles WinForms y color | System.Windows.Forms, System.Drawing | REESCRIBIR |
+| ~~CExtensionMethods.cs~~ (movido a Controls/ 2026-07-17) | 60 | Helpers WinForms (NudlessNumericUpDown, TramModeBitmaps, ProgressBar) — ya no vive en Classes/ | System.Windows.Forms (es UI, se reescribe con la UI) | — |
+| ColorExtensions.cs | 26 | CheckColorFor255 (Color puro, ex CExtensionMethods) | System.Drawing.Primitives (portable) | PORTABLE |
 | CFeatureSettings.cs | 59 | Flags de features (POCO) | — | PORTABLE |
 | CFence.cs | 168 | Cerca/valla con render OpenGL | FormGPS, GL calls puros | ADAPTABLE |
 | CFenceLine.cs | 300 | Procesamiento de líneas de cerca | — | PORTABLE |
@@ -100,7 +101,7 @@
 | VehicleTextures.cs | 86 | Caché lazy de texturas de vehículo | Ninguna directa: delega en `Texture2D` (~~using Drawing muerto~~ eliminado 2026-07-16) | ADAPTABLE |
 | BoundaryBuilder.cs | 614 | Constructor de límites desde pistas (segmentación, intersecciones, recorte) | System.IO (portable) | ADAPTABLE |
 
-**Subtotal Classes: 12 PORTABLE · 26 ADAPTABLE · 1 REESCRIBIR.** El único que queda a reescribir: CExtensionMethods (helpers UI puros). CModuleComm, CSound y CGLM se destrabaron con los traspasos del 2026-07-16; CBrightness quedó detrás de `IBrightnessController` el 2026-07-17 (la impl WMI se reemplaza por plataforma). **Texturas:** todo el camino Bitmap→GL quedó concentrado en `Texture2D` (Core.DrawLib) — en un port se reimplementa esa clase (decoder PNG + GLES) y Brands/ScreenTextures/VehicleTextures no se tocan.
+**Subtotal Classes: 13 PORTABLE · 26 ADAPTABLE · 0 REESCRIBIR.** Classes/ quedó sin archivos a reescribir: CModuleComm, CSound y CGLM se destrabaron con los traspasos del 2026-07-16; CBrightness quedó detrás de `IBrightnessController` el 2026-07-17 (la impl WMI se reemplaza por plataforma); y CExtensionMethods se partió el 2026-07-17 — los helpers WinForms se mudaron a Controls/ (UI, se reescribe con la UI) y `CheckColorFor255` quedó portable en ColorExtensions.cs. **Texturas:** todo el camino Bitmap→GL quedó concentrado en `Texture2D` (Core.DrawLib) — en un port se reimplementa esa clase (decoder PNG + GLES) y Brands/ScreenTextures/VehicleTextures no se tocan.
 
 ## GPS/Forms raíz + partials FormGPS (35) y Forms/Guidance (24)
 
