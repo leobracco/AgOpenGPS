@@ -236,6 +236,185 @@ namespace AgroParallel.Adapters
             return snap;
         }
 
+        // Volcado "Todos los ajustes": espeja FormAllSettings.LoadLabels() como
+        // pares etiqueta/valor agrupados, ya formateados del lado PilotX.
+        public AllSettingsSnapshot GetAllSettings()
+        {
+            var dump = new AllSettingsSnapshot();
+            try
+            {
+                var s = AgOpenGPS.Properties.Settings.Default;
+
+                dump.SemVer = Program.SemVer;
+                dump.VehicleFile = RegistrySettings.vehiclesDirectory + " -> "
+                    + RegistrySettings.vehicleFileName + ".xml";
+
+                // --- Dirección / AutoSteer ---
+                var g = new SettingGroup("Dirección");
+                g.Add("Ángulo máx. de dirección", s.setVehicle_maxSteerAngle.ToString());
+                g.Add("Cuentas por grado (WAS)", s.setAS_countsPerDegree.ToString());
+                g.Add("Ackerman", s.setAS_ackerman.ToString());
+                double wasOffset = s.setAS_countsPerDegree != 0
+                    ? s.setAS_wasOffset / (double)s.setAS_countsPerDegree : 0;
+                g.Add("Offset WAS", wasOffset.ToString("N2"));
+                g.Add("PWM alto", s.setAS_highSteerPWM.ToString());
+                g.Add("PWM bajo", s.setAS_lowSteerPWM.ToString());
+                g.Add("PWM mínimo", s.setAS_minSteerPWM.ToString());
+                g.Add("Ganancia Kp", s.setAS_Kp.ToString());
+                g.Add("Zona muerta · retardo", s.setAS_deadZoneDelay.ToString());
+                g.Add("Zona muerta · rumbo", s.setAS_deadZoneHeading.ToString());
+                g.Add("Dirección en reversa", Bool(s.setAS_isSteerInReverse));
+                g.Add("Comp. inclinación lateral", s.setAS_sideHillComp.ToString());
+                dump.Groups.Add(g);
+
+                // --- Guiado ---
+                g = new SettingGroup("Guiado");
+                g.Add("Usa Stanley", Bool(s.setVehicle_isStanleyUsed));
+                g.Add("Adquisición punto objetivo", s.setVehicle_goalPointAcquireFactor.ToString("N2"));
+                g.Add("Look-ahead (hold)", s.setVehicle_goalPointLookAheadHold.ToString());
+                g.Add("Look-ahead (mult)", s.setVehicle_goalPointLookAheadMult.ToString());
+                g.Add("Stanley · ganancia rumbo", s.stanleyHeadingErrorGain.ToString());
+                g.Add("Stanley · ganancia distancia", s.stanleyDistanceErrorGain.ToString());
+                g.Add("Stanley · ganancia integral AB", s.stanleyIntegralGainAB.ToString());
+                g.Add("Pure Pursuit · integral AB", s.purePursuitIntegralGainAB.ToString());
+                g.Add("Distancia de snap", s.setAS_snapDistance.ToString());
+                g.Add("Distancia de snap (ref)", s.setAS_snapDistanceRef.ToString());
+                g.Add("Vel. de parada de emergencia", s.setVehicle_panicStopSpeed.ToString());
+                g.Add("Vel. angular máx.", s.setVehicle_maxAngularVelocity.ToString());
+                dump.Groups.Add(g);
+
+                // --- Vehículo ---
+                g = new SettingGroup("Vehículo");
+                g.Add("Tipo de vehículo", s.setVehicle_vehicleType.ToString());
+                g.Add("Distancia entre ejes", s.setVehicle_wheelbase.ToString());
+                g.Add("Ancho de trocha", s.setVehicle_trackWidth.ToString());
+                g.Add("Largo de enganche", s.setVehicle_hitchLength.ToString());
+                g.Add("Corte por baja velocidad", s.setVehicle_slowSpeedCutoff.ToString());
+                dump.Groups.Add(g);
+
+                // --- Antena ---
+                g = new SettingGroup("Antena");
+                g.Add("Pivote", s.setVehicle_antennaPivot.ToString());
+                g.Add("Altura", s.setVehicle_antennaHeight.ToString());
+                g.Add("Offset", s.setVehicle_antennaOffset.ToString());
+                dump.Groups.Add(g);
+
+                // --- GPS / RTK ---
+                g = new SettingGroup("GPS / RTK");
+                g.Add("Alarma de antigüedad de fix", s.setGPS_ageAlarm.ToString());
+                g.Add("Es RTK", Bool(s.setGPS_isRTK));
+                g.Add("RTK corta autoguiado", Bool(s.setGPS_isRTK_KillAutoSteer));
+                g.Add("Offset rumbo dual", s.setGPS_dualHeadingOffset.ToString());
+                g.Add("Dist. detección reversa dual", s.setGPS_dualReverseDetectionDistance.ToString());
+                g.Add("Fuente de rumbo", s.setGPS_headingFromWhichSource.ToString());
+                g.Add("Límite mínimo de paso", s.setGPS_minimumStepLimit.ToString());
+                g.Add("Paso mínimo de rumbo", s.setF_minHeadingStepDistance.ToString());
+                dump.Groups.Add(g);
+
+                // --- IMU ---
+                g = new SettingGroup("IMU");
+                g.Add("Cero de roll", s.setIMU_rollZero.ToString());
+                g.Add("Filtro de roll", s.setIMU_rollFilter.ToString());
+                g.Add("Invertir roll", Bool(s.setIMU_invertRoll));
+                g.Add("Peso de fusión", s.setIMU_fusionWeight2.ToString());
+                g.Add("Dual como IMU", Bool(s.setIMU_isDualAsIMU));
+                g.Add("Reversa activada", Bool(s.setIMU_isReverseOn));
+                dump.Groups.Add(g);
+
+                // --- Implemento ---
+                g = new SettingGroup("Implemento");
+                g.Add("Ancho de herramienta", s.setVehicle_toolWidth.ToString());
+                g.Add("Solape", s.setVehicle_toolOverlap.ToString());
+                g.Add("Offset", s.setVehicle_toolOffset.ToString());
+                g.Add("Herramienta al frente", Bool(s.setTool_isToolFront));
+                g.Add("Trasera fija", Bool(s.setTool_isToolRearFixed));
+                g.Add("Remolcada", Bool(s.setTool_isToolTrailing));
+                g.Add("TBT (tanque + remolque)", Bool(s.setTool_isToolTBT));
+                g.Add("Largo enganche remolque", s.setTool_toolTrailingHitchLength.ToString());
+                g.Add("Remolque a pivote", s.setTool_trailingToolToPivotLength.ToString());
+                g.Add("Enganche del tanque", s.setVehicle_tankTrailingHitchLength.ToString());
+                g.Add("Look-ahead encendido", s.setVehicle_toolLookAheadOn.ToString());
+                g.Add("Look-ahead apagado", s.setVehicle_toolLookAheadOff.ToString());
+                g.Add("Retardo de apagado", s.setVehicle_toolOffDelay.ToString());
+                g.Add("Look-ahead elev. hidráulica", s.setVehicle_hydraulicLiftLookAhead.ToString());
+                dump.Groups.Add(g);
+
+                // --- Secciones ---
+                g = new SettingGroup("Secciones");
+                g.Add("Cantidad de secciones", s.setVehicle_numSections.ToString());
+                g.Add("Modo rápido", Bool(s.setSection_isFast));
+                g.Add("Apagar sección fuera del lote", Bool(s.setTool_isSectionOffWhenOut));
+                g.Add("Secciones (no zonas)", Bool(s.setTool_isSectionsNotZones));
+                g.Add("Control por cabecera", Bool(s.setHeadland_isSectionControlled));
+                dump.Groups.Add(g);
+
+                // --- Giros ---
+                g = new SettingGroup("Giros en U");
+                g.Add("Radio de giro", s.set_youTurnRadius.ToString());
+                dump.Groups.Add(g);
+
+                // --- Switches / trabajo ---
+                g = new SettingGroup("Switches de trabajo");
+                g.Add("Sistema de trabajo remoto", Bool(s.setF_isRemoteWorkSystemOn));
+                g.Add("Switch de dirección habilitado", Bool(s.setF_isSteerWorkSwitchEnabled));
+                g.Add("Switch dirección → secciones manuales", Bool(s.setF_isSteerWorkSwitchManualSections));
+                g.Add("Switch de trabajo habilitado", Bool(s.setF_isWorkSwitchEnabled));
+                g.Add("Switch de trabajo activo en bajo", Bool(s.setF_isWorkSwitchActiveLow));
+                g.Add("Switch trabajo → secciones manuales", Bool(s.setF_isWorkSwitchManualSections));
+                dump.Groups.Add(g);
+
+                // --- Sistema ---
+                g = new SettingGroup("Sistema");
+                g.Add("Idioma (cultura)", RegistrySettings.culture);
+                g.Add("Auto-iniciar CoreX", Bool(s.setDisplay_isAutoStartAgIO));
+                g.Add("Auto-cerrar CoreX", Bool(s.setDisplay_isAutoOffAgIO));
+                dump.Groups.Add(g);
+
+                // --- Telemetría en vivo ---
+                if (_form != null)
+                {
+                    var perf = new SettingGroup("Rendimiento");
+                    perf.Add("Tiempo de frame (ms)", _form.frameTime.ToString("N1"));
+                    perf.Add("Time slice", _form.timeSliceOfLastFix != 0
+                        ? (1 / _form.timeSliceOfLastFix).ToString("N3") : "—");
+                    perf.Add("Frecuencia GPS (Hz)", _form.gpsHz.ToString("N1"));
+                    perf.Add("Sentencias perdidas", _form.missedSentenceCount.ToString());
+                    dump.Live.Add(perf);
+
+                    var pos = new SettingGroup("Posición");
+                    if (_form.pn != null)
+                    {
+                        pos.Add("Easting", System.Math.Round(_form.pn.fix.easting, 2).ToString());
+                        pos.Add("Northing", System.Math.Round(_form.pn.fix.northing, 2).ToString());
+                    }
+                    pos.Add("Altitud", _form.isMetric ? _form.Altitude : _form.AltitudeFeet);
+                    pos.Add("Calidad de fix", _form.FixQuality);
+                    dump.Live.Add(pos);
+
+                    var head = new SettingGroup("Rumbo");
+                    head.Add("Rumbo IMU (°)", _form.GyroInDegrees);
+                    head.Add("Rumbo fijo-a-fijo (°)", _form.GPSHeading);
+                    head.Add("Rumbo fusionado (°)", (_form.fixHeading * 57.2957795).ToString("N1"));
+                    if (_form.ahrs != null)
+                        head.Add("Velocidad angular", _form.ahrs.imuYawRate.ToString("N2"));
+                    dump.Live.Add(head);
+
+                    var sat = new SettingGroup("Satélites");
+                    sat.Add("Satélites rastreados", _form.SatsTracked);
+                    sat.Add("HDOP", _form.HDOP);
+                    dump.Live.Add(sat);
+                }
+            }
+            catch
+            {
+                // Defensivo: nunca romper el endpoint por estado parcial de FormGPS.
+            }
+            return dump;
+        }
+
+        // "Sí"/"No" legible para el operario (el volcado viejo mostraba True/False).
+        private static string Bool(bool v) => v ? "Sí" : "No";
+
         // Reduce densidad de polylines: descarta puntos a < minStepM metros del anterior.
         private static List<FieldPoint> DecimateVec3(System.Collections.Generic.List<vec3> src, double minStepM)
         {

@@ -13,6 +13,14 @@ namespace AgroParallel.Services.Abstractions
         AogStateSnapshot GetSnapshot();
 
         /// <summary>
+        /// Volcado completo de ajustes estáticos + telemetría en vivo, ya
+        /// formateado como pares etiqueta/valor. Reemplaza la vieja ventana
+        /// WinForms "View All Settings" (FormAllSettings) por la página HTML
+        /// /pages/ajustes-todos.html.
+        /// </summary>
+        AllSettingsSnapshot GetAllSettings();
+
+        /// <summary>
         /// Lee el valor numérico de un campo DBF arbitrario del shapefile
         /// activo, en el polígono actualmente bajo el tractor. Retorna 0 si
         /// no hay shapefile, no hay polígono, o el campo no es numérico.

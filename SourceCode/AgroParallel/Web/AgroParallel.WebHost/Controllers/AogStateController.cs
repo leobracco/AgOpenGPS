@@ -1,6 +1,8 @@
 // ============================================================================
 // AogStateController.cs
 // Endpoint REST: GET /api/aog/state         → snapshot JSON del estado PilotX.
+//                GET /api/aog/all-settings  → volcado "Todos los ajustes"
+//                                             (reemplazo de FormAllSettings).
 //                GET /api/aog/shape         → polígonos del shapefile activo.
 //                GET /api/aog/shape-fields  → columnas DBF del shapefile activo
 //                                             (la UI QuantiX las usa para el
@@ -30,6 +32,12 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetState()
         {
             return WriteJsonAsync(_state.GetSnapshot());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/all-settings")]
+        public Task GetAllSettings()
+        {
+            return WriteJsonAsync(_state.GetAllSettings());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape")]

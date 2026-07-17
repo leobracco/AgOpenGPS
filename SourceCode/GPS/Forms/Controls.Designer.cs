@@ -1752,8 +1752,14 @@ namespace AgOpenGPS
 
         private void allSettingsMenuItem_Click(object sender, EventArgs e)
         {
-            Form form = new FormAllSettings(this);
-            form.Show(this);
+            // AgroParallel: la ventana WinForms FormAllSettings se reemplazó por
+            // la página HTML /pages/ajustes-todos.html (volcado solo-lectura de
+            // ajustes + telemetría). Widget Avalonia si existe; si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/ajustes-todos.html", "float",
+                                      "Todos los ajustes", 900, 720))
+            {
+                OpenAgroParallelHub("pages/ajustes-todos.html");
+            }
         }
         private void boundaryToolToolStripMenu_Click(object sender, EventArgs e)
         {
