@@ -1905,18 +1905,14 @@ namespace AgOpenGPS
         }
         private void xTEChartToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //check if window already exists
-            Form fx = Application.OpenForms["FormXTEGraph"];
-
-            if (fx != null)
+            // AgroParallel: la ventana WinForms FormGraphXTE se reemplazó por la
+            // página HTML /pages/grafico-xte.html (gráfico de guiado en vivo,
+            // solo lectura). Widget Avalonia si existe; si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/grafico-xte.html", "float",
+                                      "Gráfico XTE", 900, 700))
             {
-                fx.Focus();
-                return;
+                OpenAgroParallelHub("pages/grafico-xte.html");
             }
-
-            //
-            Form formX = new FormGraphXTE(this);
-            formX.Show(this);
         }
         private void eventViewerToolStripMenuItem_Click(object sender, EventArgs e)
         {

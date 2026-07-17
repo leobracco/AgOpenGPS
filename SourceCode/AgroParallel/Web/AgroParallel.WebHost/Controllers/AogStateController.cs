@@ -6,6 +6,9 @@
 //                GET /api/aog/eventos        → registro de eventos (histórico
 //                                             en disco + sesión actual;
 //                                             reemplazo de FormEventViewer).
+//                GET /api/aog/graph-xte      → muestra en vivo (error de rumbo
+//                                             + XTE) para el gráfico de guiado
+//                                             (reemplazo de FormGraphXTE).
 //                GET /api/aog/shape         → polígonos del shapefile activo.
 //                GET /api/aog/shape-fields  → columnas DBF del shapefile activo
 //                                             (la UI QuantiX las usa para el
@@ -47,6 +50,12 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetEventLog()
         {
             return WriteJsonAsync(_state.GetEventLog());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/graph-xte")]
+        public Task GetXteGraph()
+        {
+            return WriteJsonAsync(_state.GetXteGraphSample());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape")]

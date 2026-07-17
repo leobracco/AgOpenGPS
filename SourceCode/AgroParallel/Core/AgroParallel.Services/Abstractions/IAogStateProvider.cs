@@ -28,6 +28,13 @@ namespace AgroParallel.Services.Abstractions
         EventLogSnapshot GetEventLog();
 
         /// <summary>
+        /// Muestra en vivo (error de rumbo + XTE) para el gráfico de guiado.
+        /// Reemplaza la ventana WinForms FormGraphXTE por la página HTML
+        /// /pages/grafico-xte.html, que arma su propio buffer rodante.
+        /// </summary>
+        XteGraphSample GetXteGraphSample();
+
+        /// <summary>
         /// Lee el valor numérico de un campo DBF arbitrario del shapefile
         /// activo, en el polígono actualmente bajo el tractor. Retorna 0 si
         /// no hay shapefile, no hay polígono, o el campo no es numérico.

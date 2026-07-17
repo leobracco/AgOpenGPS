@@ -475,6 +475,25 @@ namespace AgroParallel.Adapters
             };
         }
 
+        public XteGraphSample GetXteGraphSample()
+        {
+            var s = new XteGraphSample();
+            try
+            {
+                if (_form != null && _form.vehicle != null)
+                {
+                    // Mismos valores que graficaba FormGraphXTE.DrawChart().
+                    s.HeadingErrorDeg = System.Math.Round(_form.vehicle.modeActualHeadingError, 1);
+                    s.XteCm = System.Math.Round(_form.vehicle.modeActualXTE * 100.0, 0);
+                }
+            }
+            catch
+            {
+                // Defensivo: valores en 0 si el estado de guiado no está listo.
+            }
+            return s;
+        }
+
         // "Sí"/"No" legible para el operario (el volcado viejo mostraba True/False).
         private static string Bool(bool v) => v ? "Sí" : "No";
 

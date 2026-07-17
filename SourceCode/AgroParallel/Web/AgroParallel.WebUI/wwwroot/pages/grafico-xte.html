@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gráfico XTE · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Gráfico de guiado en vivo (reemplazo del WinForms FormGraphXTE): error
+       de rumbo (°) y error de seguimiento XTE (cm) en un buffer rodante.
+       Solo lectura — los botones de escala son 100% del lado cliente. */
+    .g-readouts { display: flex; gap: var(--agp-sp-6); flex-wrap: wrap; margin-bottom: var(--agp-sp-4); }
+    .g-read {
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3) var(--agp-sp-5); min-width: 160px;
+    }
+    .g-read .g-label { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); }
+    .g-read .g-value {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-display);
+      font-weight: var(--agp-fw-bold); line-height: 1.1;
+    }
+    .g-read.he .g-value  { color: var(--agp-accent); }
+    .g-read.xte .g-value { color: #3D87C6; }
+
+    .g-chart-wrap {
+      position: relative;
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-3);
+    }
+    #xteCanvas { display: block; width: 100%; height: 52vh; }
+    .g-axis {
+      position: absolute; right: var(--agp-sp-4); font-family: var(--agp-font-mono);
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+    }
+    .g-axis.max { top: var(--agp-sp-3); }
+    .g-axis.min { bottom: var(--agp-sp-3); }
+
+    .g-legend { display: flex; gap: var(--agp-sp-5); margin-top: var(--agp-sp-3); font-size: var(--agp-fs-sm); }
+    .g-legend span::before {
+      content: ''; display: inline-block; width: 14px; height: 3px;
+      vertical-align: middle; margin-right: 6px; border-radius: 2px;
+    }
+    .g-legend .lg-he::before  { background: var(--agp-accent); }
+    .g-legend .lg-xte::before { background: #3D87C6; }
+
+    .g-controls { display: flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-4); flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Gráfico XTE</h1>
+        <div class="subtitle">Guiado en vivo · error de rumbo y de seguimiento · solo lectura</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div class="g-readouts">
+      <div class="g-read he">
+        <div class="g-label">Error de rumbo</div>
+        <div class="g-value"><span id="valHe">0.0</span>°</div>
+      </div>
+      <div class="g-read xte">
+        <div class="g-label">Error de seguimiento (XTE)</div>
+        <div class="g-value"><span id="valXte">0</span> cm</div>
+      </div>
+    </div>
+
+    <div class="g-chart-wrap">
+      <div class="g-axis max" id="axisMax">80</div>
+      <div class="g-axis min" id="axisMin">-80</div>
+      <canvas id="xteCanvas"></canvas>
+    </div>
+
+    <div class="g-legend">
+      <span class="lg-he">Error de rumbo (°)</span>
+      <span class="lg-xte">XTE (cm)</span>
+    </div>
+
+    <div class="g-controls">
+      <button class="btn compact" id="btnGainDown">− Escala</button>
+      <button class="btn compact" id="btnGainAuto">Auto</button>
+      <button class="btn compact" id="btnGainUp">+ Escala</button>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/grafico-xte.js"></script>
+</body>
+</html>
