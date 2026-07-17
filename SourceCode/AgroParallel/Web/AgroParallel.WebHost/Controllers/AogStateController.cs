@@ -35,6 +35,11 @@
 //                                             colores de secciones (reemplazo de
 //                                             FormColorSection; aplica por command
 //                                             sec_colors_<hex1>_..._<hex16>_<0|1>).
+//                GET /api/aog/display-colors → colores de marco/campo/texto (día y
+//                                             noche) + suavizado de cámara + modo
+//                                             día para la pantalla de colores de
+//                                             display (reemplazo de FormColor;
+//                                             aplica por command display_colors_...).
 //                GET /api/aog/shape         → polígonos del shapefile activo.
 //                GET /api/aog/shape-fields  → columnas DBF del shapefile activo
 //                                             (la UI QuantiX las usa para el
@@ -118,6 +123,12 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetSectionColors()
         {
             return WriteJsonAsync(_state.GetSectionColors());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/display-colors")]
+        public Task GetDisplayColors()
+        {
+            return WriteJsonAsync(_state.GetDisplayColors());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape")]

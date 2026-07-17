@@ -1105,6 +1105,61 @@ namespace AgOpenGPS
                 }
                 catch { return false; }
             }
+            //display_colors_{frameDay}_{frameNight}_{fieldDay}_{fieldNight}_{textDay}
+            //_{textNight}_{camSmooth}_{0|1}: colores de display (marco/campo/texto para
+            //día y noche, hex RRGGBB sin '#') + suavizado de cámara (0..100) + modo día
+            //(último token). Reemplaza el OK de FormColor: escribe los mf.*Color +
+            //Settings.setDisplay_color* + setDisplay_camSmooth + camSmoothFactor, aplica
+            //el modo día/noche con SwapDayNightMode() y persiste con Save().
+            if (cmdLower.StartsWith("display_colors_"))
+            {
+                string rest = cmdLower.Substring("display_colors_".Length);
+                string[] parts = rest.Split('_');
+                if (parts.Length != 8) return false;
+                var cols = new System.Drawing.Color[6];
+                for (int i = 0; i < 6; i++)
+                {
+                    if (parts[i].Length != 6) return false;
+                    int rgb;
+                    if (!int.TryParse(parts[i], System.Globalization.NumberStyles.HexNumber,
+                                      System.Globalization.CultureInfo.InvariantCulture, out rgb))
+                        return false;
+                    cols[i] = System.Drawing.Color.FromArgb(255,
+                        (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+                }
+                int camSmooth;
+                if (!int.TryParse(parts[6], System.Globalization.NumberStyles.Integer,
+                                  System.Globalization.CultureInfo.InvariantCulture, out camSmooth))
+                    return false;
+                if (camSmooth < 0) camSmooth = 0;
+                if (camSmooth > 100) camSmooth = 100;
+                bool wantDay = parts[7] == "1";
+                Action apply = () =>
+                {
+                    var st = Properties.Settings.Default;
+                    frameDayColor = st.setDisplay_colorDayFrame = cols[0];
+                    frameNightColor = st.setDisplay_colorNightFrame = cols[1];
+                    fieldColorDay = st.setDisplay_colorFieldDay = cols[2];
+                    fieldColorNight = st.setDisplay_colorFieldNight = cols[3];
+                    textColorDay = st.setDisplay_colorTextDay = cols[4];
+                    textColorNight = st.setDisplay_colorTextNight = cols[5];
+                    st.setDisplay_camSmooth = camSmooth;
+                    camSmoothFactor = ((double)camSmooth * 0.004) + 0.15;
+                    // Aplicar el modo pedido y reflejar los colores en los controles
+                    // vivos (igual que FormColor: swap para pasar de modo, o doble
+                    // swap para re-aplicar el modo actual).
+                    if (isDay != wantDay) SwapDayNightMode();
+                    else { SwapDayNightMode(); SwapDayNightMode(); }
+                    st.Save();
+                };
+                try
+                {
+                    if (InvokeRequired) BeginInvoke((MethodInvoker)(() => apply()));
+                    else apply();
+                    return true;
+                }
+                catch { return false; }
+            }
             switch (cmdLower)
             {
                 //--- guías ---

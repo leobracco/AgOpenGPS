@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Colores de pantalla · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    /* Colores de pantalla (reemplazo del WinForms FormColor): colores de marco,
+       campo y texto para modo día y noche, suavizado de cámara y selección de
+       modo. El estado inicial viene de /api/aog/display-colors; aplicar escribe por
+       POST /api/aog/guidance/command (display_colors_<6 hex>_<camSmooth>_<0|1>). */
+    .co-mode {
+      display: flex; gap: var(--agp-sp-3); max-width: 640px; margin-bottom: var(--agp-sp-4);
+    }
+    .co-mode .btn { flex: 1; }
+    .co-mode .btn.active { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+
+    .co-grid {
+      display: grid; grid-template-columns: auto 1fr 1fr; gap: var(--agp-sp-3);
+      align-items: center; max-width: 640px;
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4) var(--agp-sp-5);
+    }
+    .co-grid .co-head { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); font-weight: var(--agp-fw-bold); text-align: center; }
+    .co-grid .co-row-label { font-size: var(--agp-fs-md); color: var(--agp-text); }
+    .co-grid input[type="color"] {
+      width: 100%; height: 44px; padding: 0;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-bg); cursor: pointer;
+    }
+
+    .co-cam {
+      max-width: 640px; margin-top: var(--agp-sp-4);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4) var(--agp-sp-5);
+    }
+    .co-cam .co-cam-label { display: flex; justify-content: space-between; font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-bottom: var(--agp-sp-2); }
+    .co-cam input[type="range"] { width: 100%; accent-color: var(--agp-accent); }
+    .co-cam #camVal { color: var(--agp-text); font-weight: var(--agp-fw-bold); font-family: var(--agp-font-mono); }
+
+    .co-foot { display: flex; gap: var(--agp-sp-3); margin-top: var(--agp-sp-5); max-width: 640px; }
+    .co-foot .btn { flex: 1; }
+    .btn.primary { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .btn.primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Colores de pantalla</h1>
+        <div class="subtitle">Marco, campo y texto para día y noche + cámara</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div class="co-mode">
+      <button class="btn" id="btnDay" data-mode="day">Modo día</button>
+      <button class="btn" id="btnNight" data-mode="night">Modo noche</button>
+    </div>
+
+    <div class="co-grid">
+      <div></div>
+      <div class="co-head">Día</div>
+      <div class="co-head">Noche</div>
+
+      <div class="co-row-label">Marco / fondo</div>
+      <input type="color" id="frameDay" />
+      <input type="color" id="frameNight" />
+
+      <div class="co-row-label">Campo</div>
+      <input type="color" id="fieldDay" />
+      <input type="color" id="fieldNight" />
+
+      <div class="co-row-label">Texto</div>
+      <input type="color" id="textDay" />
+      <input type="color" id="textNight" />
+    </div>
+
+    <div class="co-cam">
+      <div class="co-cam-label">
+        <span>Suavizado de cámara</span>
+        <span id="camVal">0 %</span>
+      </div>
+      <input type="range" id="camSmooth" min="0" max="100" step="1" value="0" />
+    </div>
+
+    <div class="co-foot">
+      <button class="btn" id="btnReset">Restablecer</button>
+      <button class="btn primary" id="btnApply">Aplicar</button>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/colores.js"></script>
+</body>
+</html>

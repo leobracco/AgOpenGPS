@@ -82,6 +82,15 @@ namespace AgroParallel.Services.Abstractions
         SectionColorsSnapshot GetSectionColors();
 
         /// <summary>
+        /// Devuelve los colores de display (marco/campo/texto para día y noche),
+        /// el suavizado de cámara y si está en modo día. Reemplaza la ventana
+        /// WinForms FormColor por la página HTML /pages/colores.html. Aplicar va por
+        /// POST /api/aog/guidance/command (display_colors_&lt;frameDay&gt;_&lt;frameNight&gt;
+        /// _&lt;fieldDay&gt;_&lt;fieldNight&gt;_&lt;textDay&gt;_&lt;textNight&gt;_&lt;camSmooth&gt;_&lt;0|1&gt;).
+        /// </summary>
+        DisplayColorsSnapshot GetDisplayColors();
+
+        /// <summary>
         /// Lee el valor numérico de un campo DBF arbitrario del shapefile
         /// activo, en el polígono actualmente bajo el tractor. Retorna 0 si
         /// no hay shapefile, no hay polígono, o el campo no es numérico.

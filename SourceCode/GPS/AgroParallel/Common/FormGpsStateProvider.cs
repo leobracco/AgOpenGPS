@@ -633,6 +633,45 @@ namespace AgroParallel.Adapters
             return s;
         }
 
+        public DisplayColorsSnapshot GetDisplayColors()
+        {
+            var s = new DisplayColorsSnapshot();
+            try
+            {
+                if (_form != null)
+                {
+                    // Colores en vivo (se cargan de Settings al arrancar; misma fuente
+                    // que abre FormColor con el FormColorPicker).
+                    s.FrameDay = Hex(_form.frameDayColor);
+                    s.FrameNight = Hex(_form.frameNightColor);
+                    s.FieldDay = Hex(_form.fieldColorDay);
+                    s.FieldNight = Hex(_form.fieldColorNight);
+                    s.TextDay = Hex(_form.textColorDay);
+                    s.TextNight = Hex(_form.textColorNight);
+                    s.IsDay = _form.isDay;
+                }
+                s.CamSmooth = AgOpenGPS.Properties.Settings.Default.setDisplay_camSmooth;
+            }
+            catch
+            {
+                // Defensivo: negro/0 si el form o las settings no están listas.
+            }
+            if (s.FrameDay == null) s.FrameDay = "#000000";
+            if (s.FrameNight == null) s.FrameNight = "#000000";
+            if (s.FieldDay == null) s.FieldDay = "#000000";
+            if (s.FieldNight == null) s.FieldNight = "#000000";
+            if (s.TextDay == null) s.TextDay = "#000000";
+            if (s.TextNight == null) s.TextNight = "#000000";
+            return s;
+        }
+
+        // System.Drawing.Color → "#RRGGBB" (ignora alpha; los colores de display
+        // son opacos).
+        private static string Hex(System.Drawing.Color c)
+        {
+            return "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2");
+        }
+
         // "Sí"/"No" legible para el operario (el volcado viejo mostraba True/False).
         private static string Bool(bool v) => v ? "Sí" : "No";
 

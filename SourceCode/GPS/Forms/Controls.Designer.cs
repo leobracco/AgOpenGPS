@@ -1445,11 +1445,16 @@ namespace AgOpenGPS
         }
         private void colorsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (var form = new FormColor(this))
+            // AgroParallel: la ventana WinForms FormColor se reemplazó por la página
+            // HTML /pages/colores.html (colores de marco/campo/texto para día y noche
+            // + suavizado de cámara + modo día, aplica por POST
+            // /api/aog/guidance/command display_colors_...). Widget Avalonia si existe;
+            // si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/colores.html", "float",
+                                      "Colores de pantalla", 720, 640))
             {
-                form.ShowDialog(this);
+                OpenAgroParallelHub("pages/colores.html");
             }
-            Settings.Default.Save();
         }
         private void colorsSectionToolStripMenuItem_Click(object sender, EventArgs e)
         {
