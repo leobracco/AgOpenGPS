@@ -66,6 +66,14 @@ namespace AgroParallel.Services.Abstractions
         ShiftPosSnapshot GetShiftPos();
 
         /// <summary>
+        /// Coordenadas guardadas del simulador (lat/lon) + si se puede aplicar
+        /// (simulador encendido y sin lote abierto). Reemplaza la ventana WinForms
+        /// FormSimCoords por la página HTML /pages/sim-coords.html. Aplicar va por
+        /// POST /api/aog/guidance/command (sim_coords_&lt;lat&gt;_&lt;lon&gt;).
+        /// </summary>
+        SimCoordsSnapshot GetSimCoords();
+
+        /// <summary>
         /// Lee el valor numérico de un campo DBF arbitrario del shapefile
         /// activo, en el polígono actualmente bajo el tractor. Retorna 0 si
         /// no hay shapefile, no hay polígono, o el campo no es numérico.

@@ -1344,9 +1344,14 @@ namespace AgOpenGPS
 
         private void enterSimCoordsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (var form = new FormSimCoords(this))
+            // AgroParallel: la ventana WinForms FormSimCoords se reemplazó por la
+            // página HTML /pages/sim-coords.html (reubicar el simulador a una lat/lon,
+            // aplica por POST /api/aog/guidance/command sim_coords_<lat>_<lon>).
+            // Widget Avalonia si existe; si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/sim-coords.html", "float",
+                                      "Coordenadas del simulador", 560, 620))
             {
-                form.ShowDialog(this);
+                OpenAgroParallelHub("pages/sim-coords.html");
             }
         }
 

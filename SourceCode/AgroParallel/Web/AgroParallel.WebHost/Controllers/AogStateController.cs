@@ -19,6 +19,11 @@
 //                                             roll, easting crudo/sin corregir,
 //                                             roll IMU) para el gráfico de chequeo
 //                                             de roll (reemplazo de FormCorrection).
+//                GET /api/aog/sim-coords     → lat/lon guardada del simulador +
+//                                             si se puede aplicar (sim on / sin
+//                                             lote) para la pantalla de coordenadas
+//                                             del simulador (reemplazo de
+//                                             FormSimCoords; aplica por command).
 //                GET /api/aog/shift-pos      → corrimiento de deriva GPS (norte/
 //                                             este cm + offsets on) para la
 //                                             pantalla de corregir posición
@@ -96,6 +101,12 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetShiftPos()
         {
             return WriteJsonAsync(_state.GetShiftPos());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/sim-coords")]
+        public Task GetSimCoords()
+        {
+            return WriteJsonAsync(_state.GetSimCoords());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape")]

@@ -583,6 +583,27 @@ namespace AgroParallel.Adapters
             return s;
         }
 
+        public SimCoordsSnapshot GetSimCoords()
+        {
+            var s = new SimCoordsSnapshot();
+            try
+            {
+                // Mismo origen que FormSimCoords_Load: la lat/lon guardada del sim.
+                s.Latitude = AgOpenGPS.Properties.Settings.Default.setGPS_SimLatitude;
+                s.Longitude = AgOpenGPS.Properties.Settings.Default.setGPS_SimLongitude;
+                if (_form != null)
+                {
+                    s.SimOn = _form.timerSim != null && _form.timerSim.Enabled;
+                    s.JobStarted = _form.isJobStarted;
+                }
+            }
+            catch
+            {
+                // Defensivo: 0/off si las settings o el form no están listos.
+            }
+            return s;
+        }
+
         // "Sí"/"No" legible para el operario (el volcado viejo mostraba True/False).
         private static string Bool(bool v) => v ? "Sí" : "No";
 

@@ -1023,6 +1023,37 @@ namespace AgOpenGPS
                 }
                 catch { return false; }
             }
+            //sim_coords_{lat}_{lon}: reubica el simulador a esa coordenada (teletransporte).
+            //Reemplaza el OK de FormSimCoords. Sólo con simulador encendido y sin lote
+            //abierto (mismos guards). lat/lon en grados decimales, cultura invariante.
+            if (cmdLower.StartsWith("sim_coords_"))
+            {
+                string rest = cmdLower.Substring("sim_coords_".Length);
+                string[] parts = rest.Split('_');
+                if (parts.Length != 2) return false;
+                double lat, lon;
+                var styles = System.Globalization.NumberStyles.Float |
+                             System.Globalization.NumberStyles.AllowLeadingSign;
+                if (!double.TryParse(parts[0], styles,
+                                     System.Globalization.CultureInfo.InvariantCulture, out lat) ||
+                    !double.TryParse(parts[1], styles,
+                                     System.Globalization.CultureInfo.InvariantCulture, out lon))
+                    return false;
+                if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) return false;
+                // Guards: no reubicar con lote abierto ni con el simulador apagado.
+                if (isJobStarted) return false;
+                if (timerSim == null || !timerSim.Enabled) return false;
+                double latF = lat, lonF = lon;
+                Action apply = () =>
+                    pn.DefineLocalPlane(new AgOpenGPS.Core.Models.Wgs84(latF, lonF), true);
+                try
+                {
+                    if (InvokeRequired) BeginInvoke((MethodInvoker)(() => apply()));
+                    else apply();
+                    return true;
+                }
+                catch { return false; }
+            }
             switch (cmdLower)
             {
                 //--- guías ---
