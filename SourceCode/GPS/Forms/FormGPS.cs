@@ -1812,7 +1812,9 @@ namespace AgOpenGPS
             oglMain.MakeCurrent();
             GL.MatrixMode(MatrixMode.Projection);
             GL.LoadIdentity();
-            Matrix4 mat = Matrix4.CreatePerspectiveFieldOfView((float)fovy, oglMain.AspectRatio, 1f, (float)(camDistanceFactor * camera.camSetDistance));
+            // PilotX: piso de 2200 m al far plane (las guias miden 2000 m) — con zoom cerca el -4×camDist
+            // quedaba en ~80 m y las guías se cortaban a mitad del lote.
+            Matrix4 mat = Matrix4.CreatePerspectiveFieldOfView((float)fovy, oglMain.AspectRatio, 1f, (float)Math.Max(2200.0, camDistanceFactor * camera.camSetDistance));
             GL.LoadMatrix(ref mat);
             GL.MatrixMode(MatrixMode.Modelview);
         }

@@ -70,7 +70,9 @@ namespace AgOpenGPS
         {
             oglMain.MakeCurrent();
             SetVehicleTextures();
-            GL.ClearColor(0.14f, 0.14f, 0.37f, 1.0f);
+            // PilotX: gris oscuro de producto (mismo que la pantalla sin GPS),
+            // no el azul heredado de AOG.
+            GL.ClearColor(0.122f, 0.1258f, 0.1275f, 1.0f);
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.CullFace(CullFaceMode.Back);
             SetZoom();
@@ -84,7 +86,7 @@ namespace AgOpenGPS
             GL.LoadIdentity();
             GL.Viewport(0, 0, oglMain.Width, oglMain.Height);
             Matrix4 mat = Matrix4.CreatePerspectiveFieldOfView((float)fovy, (float)oglMain.Width / (float)oglMain.Height,
-                1.0f, (float)(camDistanceFactor * camera.camSetDistance));
+                1.0f, (float)Math.Max(2200.0, camDistanceFactor * camera.camSetDistance));
             GL.LoadMatrix(ref mat);
             GL.MatrixMode(MatrixMode.Modelview);
             if (isLineSmooth) GL.Enable(EnableCap.LineSmooth);
@@ -109,7 +111,8 @@ namespace AgOpenGPS
                     //  Clear the color and depth buffer.
                     GL.Clear(ClearBufferMask.DepthBufferBit | ClearBufferMask.ColorBufferBit);
 
-                    if (isDay) GL.ClearColor(0.27f, 0.4f, 0.7f, 1.0f);
+                    // PilotX: fondo gris de producto también de día (antes azul AOG).
+                    if (isDay) GL.ClearColor(0.122f, 0.1258f, 0.1275f, 1.0f);
                     else GL.ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
                     GL.LoadIdentity();
@@ -730,6 +733,16 @@ namespace AgOpenGPS
                     oglMain.SwapBuffers();
 
                     if (leftMouseDownOnOpenGL) MakeFlagMark();
+                }
+                else
+                {
+                    // PilotX: sin fix todavía — limpiar y presentar gris igual,
+                    // si no el buffer queda indefinido y la pantalla parpadea
+                    // al abrir hasta que llega el primer fix.
+                    oglMain.MakeCurrent();
+                    GL.ClearColor(0.122f, 0.1258f, 0.1275f, 1.0f);
+                    GL.Clear(ClearBufferMask.DepthBufferBit | ClearBufferMask.ColorBufferBit);
+                    oglMain.SwapBuffers();
                 }
             }
             else
