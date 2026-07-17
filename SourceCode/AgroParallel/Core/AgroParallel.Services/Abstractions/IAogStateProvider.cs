@@ -49,6 +49,15 @@ namespace AgroParallel.Services.Abstractions
         SteerGraphSample GetSteerGraphSample();
 
         /// <summary>
+        /// Estado del corrimiento de deriva GPS (norte/este en cm + si se
+        /// mantiene aplicado). Reemplaza la ventana WinForms FormShiftPos por la
+        /// página HTML /pages/corregir-posicion.html. Las escrituras van por
+        /// POST /api/aog/guidance/command (shift_north_/shift_east_/shift_zero/
+        /// offsets_on/offsets_off).
+        /// </summary>
+        ShiftPosSnapshot GetShiftPos();
+
+        /// <summary>
         /// Lee el valor numérico de un campo DBF arbitrario del shapefile
         /// activo, en el polígono actualmente bajo el tractor. Retorna 0 si
         /// no hay shapefile, no hay polígono, o el campo no es numérico.

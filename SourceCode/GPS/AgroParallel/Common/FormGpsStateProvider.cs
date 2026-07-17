@@ -532,6 +532,29 @@ namespace AgroParallel.Adapters
             return s;
         }
 
+        public ShiftPosSnapshot GetShiftPos()
+        {
+            var s = new ShiftPosSnapshot();
+            try
+            {
+                if (_form != null && _form.AppModel != null &&
+                    _form.AppModel.SharedFieldProperties != null)
+                {
+                    // GeoDelta es struct (value type): nunca null.
+                    var d = _form.AppModel.SharedFieldProperties.DriftCompensation;
+                    // Mismos valores que mostraba FormShiftPos (m → cm).
+                    s.NorthCm = System.Math.Round(d.NorthingDelta * 100.0, 0);
+                    s.EastCm = System.Math.Round(d.EastingDelta * 100.0, 0);
+                    s.OffsetsOn = _form.isKeepOffsetsOn;
+                }
+            }
+            catch
+            {
+                // Defensivo: 0/off si el modelo de campo no está listo.
+            }
+            return s;
+        }
+
         // "Sí"/"No" legible para el operario (el volcado viejo mostraba True/False).
         private static string Bool(bool v) => v ? "Sí" : "No";
 

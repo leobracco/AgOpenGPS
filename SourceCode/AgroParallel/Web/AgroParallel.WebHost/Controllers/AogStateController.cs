@@ -15,6 +15,12 @@
 //                GET /api/aog/graph-steer    → muestra en vivo (dirección real vs
 //                                             seteada) para el gráfico de dirección
 //                                             (reemplazo de FormGraphSteer).
+//                GET /api/aog/shift-pos      → corrimiento de deriva GPS (norte/
+//                                             este cm + offsets on) para la
+//                                             pantalla de corregir posición
+//                                             (reemplazo de FormShiftPos; las
+//                                             escrituras van por POST
+//                                             /api/aog/guidance/command).
 //                GET /api/aog/shape         → polígonos del shapefile activo.
 //                GET /api/aog/shape-fields  → columnas DBF del shapefile activo
 //                                             (la UI QuantiX las usa para el
@@ -74,6 +80,12 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetSteerGraph()
         {
             return WriteJsonAsync(_state.GetSteerGraphSample());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/shift-pos")]
+        public Task GetShiftPos()
+        {
+            return WriteJsonAsync(_state.GetShiftPos());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape")]

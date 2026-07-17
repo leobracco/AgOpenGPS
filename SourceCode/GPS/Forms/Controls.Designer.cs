@@ -1926,9 +1926,14 @@ namespace AgOpenGPS
         }
         private void offsetFixToolStrip_Click(object sender, EventArgs e)
         {
-            using (var form = new FormShiftPos(this))
+            // AgroParallel: la ventana WinForms FormShiftPos se reemplazó por la
+            // página HTML /pages/corregir-posicion.html (corrimiento de deriva GPS,
+            // aplica en vivo por POST /api/aog/guidance/command). Widget Avalonia
+            // si existe; si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/corregir-posicion.html", "float",
+                                      "Corregir posición", 620, 640))
             {
-                form.ShowDialog(this);
+                OpenAgroParallelHub("pages/corregir-posicion.html");
             }
         }
         private void correctionToolStrip_Click(object sender, EventArgs e)

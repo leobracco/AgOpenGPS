@@ -991,6 +991,38 @@ namespace AgOpenGPS
                 }
                 catch { return false; }
             }
+            //shift_north_{cm} / shift_east_{cm}: corrimiento de deriva GPS (drift
+            //compensation) en cm, absoluto, clamp ±9999. Reemplaza los
+            //NumericUpDown de FormShiftPos (aplica en vivo, igual que el modal).
+            if (cmdLower.StartsWith("shift_north_") || cmdLower.StartsWith("shift_east_"))
+            {
+                bool isNorth = cmdLower.StartsWith("shift_north_");
+                string num = cmdLower.Substring(isNorth ? 12 : 11);
+                int cm;
+                if (!int.TryParse(num, System.Globalization.NumberStyles.AllowLeadingSign,
+                                  System.Globalization.CultureInfo.InvariantCulture, out cm))
+                    return false;
+                if (cm > 9999) cm = 9999;
+                if (cm < -9999) cm = -9999;
+                int cmFinal = cm;
+                Action setShift = () =>
+                {
+                    // GeoDelta es struct (value type): nunca null.
+                    var cur = AppModel.SharedFieldProperties.DriftCompensation;
+                    double north = cur.NorthingDelta;
+                    double east = cur.EastingDelta;
+                    if (isNorth) north = cmFinal / 100.0; else east = cmFinal / 100.0;
+                    AppModel.SharedFieldProperties.DriftCompensation =
+                        new AgOpenGPS.Core.Models.GeoDelta(north, east);
+                };
+                try
+                {
+                    if (InvokeRequired) BeginInvoke((MethodInvoker)(() => setShift()));
+                    else setShift();
+                    return true;
+                }
+                catch { return false; }
+            }
             switch (cmdLower)
             {
                 //--- guías ---
@@ -1093,6 +1125,14 @@ namespace AgOpenGPS
                 case "suavizar_ab": act = () => SmoothABtoolStripMenu_Click(this, EventArgs.Empty); break;
                 case "borrar_contornos": act = () => deleteContourPathsToolStripMenuItem_Click(this, EventArgs.Empty); break;
                 case "corregir_pos": act = () => offsetFixToolStrip_Click(this, EventArgs.Empty); break;
+                //corregir posición en HTML (reemplaza FormShiftPos): poner el
+                //corrimiento de deriva en cero y togglear si se mantiene aplicado.
+                case "shift_zero":
+                    act = () => AppModel.SharedFieldProperties.DriftCompensation =
+                        new AgOpenGPS.Core.Models.GeoDelta(0.0, 0.0);
+                    break;
+                case "offsets_on": act = () => isKeepOffsetsOn = true; break;
+                case "offsets_off": act = () => isKeepOffsetsOn = false; break;
                 case "visor_eventos": act = () => eventViewerToolStripMenuItem_Click(this, EventArgs.Empty); break;
                 case "webcam": act = () => webcamToolStrip_Click(this, EventArgs.Empty); break;
                 //--- submenú Herr. lote (espejo de FieldTools) ---
