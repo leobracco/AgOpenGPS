@@ -1,12 +1,11 @@
-﻿using System;
-using AgOpenGPS.Core.Translations;
+using System;
 
 namespace AgOpenGPS
 {
     public class CModuleComm
     {
-        //copy of the mainform address
-        private readonly FormGPS mf;
+        // Host invertido (FormGPS implementa IModuleCommHost) — traspaso 2026-07-17
+        private readonly IModuleCommHost mf;
 
         //acciones que la UI cablea (FormGPS las apunta a los botones nativos).
         //Antes esta clase llamaba btn*.PerformClick() directo — dependencia
@@ -47,7 +46,7 @@ namespace AgOpenGPS
         public bool workSwitchHigh, oldWorkSwitchHigh, steerSwitchHigh, oldSteerSwitchHigh, oldSteerSwitchRemote;
 
         //constructor
-        public CModuleComm(FormGPS _f)
+        public CModuleComm(IModuleCommHost _f)
         {
             mf = _f;
             //WorkSwitch logic
@@ -61,11 +60,11 @@ namespace AgOpenGPS
         public void CheckWorkAndSteerSwitch()
         {
             //AutoSteerAuto button enable - Ray Bear inspired code - Thx Ray!
-            if (mf.ahrs.isAutoSteerAuto && steerSwitchHigh != oldSteerSwitchRemote)
+            if (mf.IsAutoSteerAuto && steerSwitchHigh != oldSteerSwitchRemote)
             {
                 oldSteerSwitchRemote = steerSwitchHigh;
                 //steerSwith is active low
-                if (steerSwitchHigh == mf.isBtnAutoSteerOn)
+                if (steerSwitchHigh == mf.IsBtnAutoSteerOn)
                 {
                     ToggleAutoSteer?.Invoke();
                 }
@@ -81,21 +80,21 @@ namespace AgOpenGPS
                     {
                         if (isWorkSwitchManualSections)
                         {
-                            if (mf.manualBtnState != btnStates.On)
+                            if (mf.ManualBtnState != btnStates.On)
                                 ToggleSectionMasterManual?.Invoke();
                         }
                         else
                         {
-                            if (mf.autoBtnState != btnStates.Auto)
+                            if (mf.AutoBtnState != btnStates.Auto)
                                 ToggleSectionMasterAuto?.Invoke();
                         }
                     }
 
                     else//Checks both on-screen buttons, performs click if button is not off
                     {
-                        if (mf.autoBtnState != btnStates.Off)
+                        if (mf.AutoBtnState != btnStates.Off)
                             ToggleSectionMasterAuto?.Invoke();
-                        if (mf.manualBtnState != btnStates.Off)
+                        if (mf.ManualBtnState != btnStates.Off)
                             ToggleSectionMasterManual?.Invoke();
                     }
                 }
@@ -104,26 +103,26 @@ namespace AgOpenGPS
                 {
                     oldSteerSwitchHigh = steerSwitchHigh;
 
-                    if ((mf.isBtnAutoSteerOn && mf.ahrs.isAutoSteerAuto)
-                        || !mf.ahrs.isAutoSteerAuto && !steerSwitchHigh)
+                    if ((mf.IsBtnAutoSteerOn && mf.IsAutoSteerAuto)
+                        || !mf.IsAutoSteerAuto && !steerSwitchHigh)
                     {
                         if (isSteerWorkSwitchManualSections)
                         {
-                            if (mf.manualBtnState != btnStates.On)
+                            if (mf.ManualBtnState != btnStates.On)
                                 ToggleSectionMasterManual?.Invoke();
                         }
                         else
                         {
-                            if (mf.autoBtnState != btnStates.Auto)
+                            if (mf.AutoBtnState != btnStates.Auto)
                                 ToggleSectionMasterAuto?.Invoke();
                         }
                     }
 
                     else//Checks both on-screen buttons, performs click if button is not off
                     {
-                        if (mf.autoBtnState != btnStates.Off)
+                        if (mf.AutoBtnState != btnStates.Off)
                             ToggleSectionMasterAuto?.Invoke();
-                        if (mf.manualBtnState != btnStates.Off)
+                        if (mf.ManualBtnState != btnStates.Off)
                             ToggleSectionMasterManual?.Invoke();
                     }
                 }

@@ -10,7 +10,7 @@ using System.Linq;
 
 namespace AgOpenGPS
 {
-    public enum btnStates { Off, Auto, On }
+    // btnStates se movió a AgOpenGPS.Core/Classes/BtnStates.cs (traspaso 2026-07-17)
 
     public partial class FormGPS
     {
