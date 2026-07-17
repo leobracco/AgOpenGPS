@@ -58,7 +58,7 @@ Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **e
 
 | # | Punto | Estado | % | Qué falta |
 |---|---|---|---|---|
-| 1 | Extraer core a librería sin UI | AVANZADO | ~40% | ~14 clases de Classes/ acopladas a `FormGPS` por constructor ( CAHRS/CDubins/CFieldData/CModuleComm/CTram/CSim/CBoundary(+CFence/CTurn/CHead)/CSection/CPatches/CTool/CVehicle/CABLine/CABCurve/CContour/CGuidance/CYouTurn/CTrack/CRecordedPath/CNMEA/CISOBUS ya movidas) → interfaces estilo `FormGps*Service`; y el parsing NMEA/PGN de AgIO (NMEA.Designer ya extraído a `CNmeaParser` 2026-07-17; faltan PGN.Designer y UDP) |
+| 1 | Extraer core a librería sin UI | AVANZADO | ~40% | ~14 clases de Classes/ acopladas a `FormGPS` por constructor ( CAHRS/CDubins/CFieldData/CModuleComm/CTram/CSim/CBoundary(+CFence/CTurn/CHead)/CSection/CPatches/CTool/CVehicle/CABLine/CABCurve/CContour/CGuidance/CYouTurn/CTrack/CRecordedPath/CNMEA/CISOBUS ya movidas) → interfaces estilo `FormGps*Service`; y el parsing NMEA/PGN de AgIO (NMEA.Designer ya extraído a `CNmeaParser` 2026-07-17; ruteo PGN loopback + parsing scan-reply extraídos a `CPgnRouter` 2026-07-17; falta la capa de sockets UDP.designer, marcada ADAPTABLE — se difiere: es el transporte vivo con módulos ESP32 y no se puede validar end-to-end sin banco) |
 | 2 | Abstraer persistencia | **HECHO** | 100% | — (Registry solo migración legacy aislada; en el port se borra el `#region Legacy`) |
 | 3 | Aislar host OpenGL | AVANZADO | ~70% | `oglSelf` de los editores (FormABDraw/FormHeadLine/etc., UI a reescribir igual) y GeoViewport; la impl EGL/SDL/GLSurfaceView es trabajo del port |
 | 4 | Reescribir UI | EN CURSO (vía web) | ~25% | ~174 archivos WinForms; cada pantalla que migra a HTML/EmbedIO (config, perfiles, nodos, firmwares, datos lote/GPS ya migradas) baja este costo |
@@ -267,7 +267,7 @@ Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **e
 | ListViewColumnSorterExt.cs | ~60 | Sorter de ListView | WinForms | REESCRIBIR |
 | FormLoop.cs | 805 | God-class: init de puertos serie, UDP, timers | WinForms, sockets, SerialPort, DllImport User32, RegistrySettings | ADAPTABLE |
 | FormLoop.CoreXSnapshot.cs | 769 | Publica snapshot @1Hz + captura web-driven de NMEA/UDP con keep-alive | — | PORTABLE |
-| UDP.designer.cs | 470 | **Lógica UDP**: broadcast, multicast, scan de red, hello a módulos | Sockets estándar (portables), host WinForms | ADAPTABLE |
+| UDP.designer.cs → Classes/PgnRouter.cs | 470 | **Lógica UDP**: broadcast, multicast, scan de red, hello a módulos. Ruteo de PGN loopback (steer/machine) + parsing de scan-reply (PGN 203) **extraídos 2026-07-17** a `CPgnRouter` puro (sin sockets ni WinForms). La capa de sockets sigue en el host WinForms — **diferida**: transporte a módulos ESP32 en vivo, sin banco de pruebas | Sockets estándar (portables), host WinForms | ADAPTABLE (parcial ✅) |
 | MQTT.Designer.cs | ~150 | **Broker MQTT embebido (MQTTnet)**: Start/Stop, handlers, :1883 | MQTTnet portable; updates de labels WinForms | ADAPTABLE |
 | SerialComm.Designer.cs | ~200 | **6 puertos serie** (GPS×2, RTCM, IMU, Steer, Machine): callbacks, envío | System.IO.Ports (Android: USB host; iOS: sin serie) | ADAPTABLE |
 | ~~NMEA.Designer.cs~~ → Classes/NmeaParser.cs | ~300 | **Parsing NMEA completo** (checksums, fix, sats, heading, IMU) — **extraído 2026-07-17** a `CNmeaParser` sin UI (host: `INmeaParserHost`, bridge `FormLoop.NmeaBridge.cs` con forwarders) | — | PORTABLE ✅ |

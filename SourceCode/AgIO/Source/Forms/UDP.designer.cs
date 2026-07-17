@@ -195,51 +195,11 @@ namespace AgIO
 
             if (data[0] == 0x80 && data[1] == 0x81)
             {
-                switch (data[3])
-                {
-                    case 0xFE: //254 AutoSteer Data
-                        {
-                            //serList.AddRange(data);
-                            SendSteerModulePort(data, data.Length);
-                            SendMachineModulePort(data, data.Length);
-                            break;
-                        }
-                    case 0xEF: //239 machine pgn
-                        {
-                            SendMachineModulePort(data, data.Length);
-                            SendSteerModulePort(data, data.Length);
-                            break;
-                        }
-                    case 0xE5: //229 Symmetric Sections - Zones
-                        {
-                            SendMachineModulePort(data, data.Length);
-                            //SendSteerModulePort(data, data.Length);
-                            break;
-                        }
-                    case 0xFC: //252 steer settings
-                        {
-                            SendSteerModulePort(data, data.Length);
-                            break;
-                        }
-                    case 0xFB: //251 steer config
-                        {
-                            SendSteerModulePort(data, data.Length);
-                            break;                        }
-
-                    case 0xEE: //238 machine config
-                        {
-                            SendMachineModulePort(data, data.Length);
-                            SendSteerModulePort(data, data.Length);
-                            break;                        }
-
-                    case 0xEC: //236 machine config
-                        {
-                            SendMachineModulePort(data, data.Length);
-                            SendSteerModulePort(data, data.Length);
-                            break;
-                        }
-                }
-            }                            
+                //ruteo PGN→puertos serie: lógica pura en CPgnRouter (portabilidad)
+                CPgnRouter.RouteLoopbackPgn(data[3], out bool toSteer, out bool toMachine);
+                if (toSteer) SendSteerModulePort(data, data.Length);
+                if (toMachine) SendMachineModulePort(data, data.Length);
+            }
         }
 
         private void ReceiveDataLoopAsync(IAsyncResult asyncResult)
@@ -381,64 +341,10 @@ namespace AgIO
                     else if (data[3] == 121 && data.Length == 11)
                         traffic.helloFromIMU = 0;
 
-                    //scan Reply
-                    else if (data[3] == 203 && data.Length == 13) //
+                    //scan Reply: parsing puro en CPgnRouter (portabilidad)
+                    else if (data[3] == 203 && data.Length == 13)
                     {
-                        if (data[2] == 126)  //steer module
-                        {
-                            scanReply.steerIP = data[5].ToString() + "." + data[6].ToString() + "." + data[7].ToString() + "." + data[8].ToString();
-
-                            scanReply.subnet[0] = data[09];
-                            scanReply.subnet[1] = data[10];
-                            scanReply.subnet[2] = data[11];
-
-                            scanReply.subnetStr = data[9].ToString() + "." + data[10].ToString() + "." + data[11].ToString();
-
-                            scanReply.isNewData = true;
-                            scanReply.isNewSteer = true;
-                        }
-                        //
-                        else if (data[2] == 123)   //machine module
-                        {
-                            scanReply.machineIP = data[5].ToString() + "." + data[6].ToString() + "." + data[7].ToString() + "." + data[8].ToString();
-
-                            scanReply.subnet[0] = data[09];
-                            scanReply.subnet[1] = data[10];
-                            scanReply.subnet[2] = data[11];
-
-                            scanReply.subnetStr = data[9].ToString() + "." + data[10].ToString() + "." + data[11].ToString();
-
-                            scanReply.isNewData = true;
-                            scanReply.isNewMachine = true;
-
-                        }
-                        else if (data[2] == 121)   //IMU Module
-                        {
-                            scanReply.IMU_IP = data[5].ToString() + "." + data[6].ToString() + "." + data[7].ToString() + "." + data[8].ToString();
-
-                            scanReply.subnet[0] = data[09];
-                            scanReply.subnet[1] = data[10];
-                            scanReply.subnet[2] = data[11];
-
-                            scanReply.subnetStr = data[9].ToString() + "." + data[10].ToString() + "." + data[11].ToString();
-
-                            scanReply.isNewData = true;
-                            scanReply.isNewIMU = true;
-                        }
-
-                        else if (data[2] == 120)    //GPS module
-                        {
-                            scanReply.GPS_IP = data[5].ToString() + "." + data[6].ToString() + "." + data[7].ToString() + "." + data[8].ToString();
-
-                            scanReply.subnet[0] = data[09];
-                            scanReply.subnet[1] = data[10];
-                            scanReply.subnet[2] = data[11];
-
-                            scanReply.subnetStr = data[9].ToString() + "." + data[10].ToString() + "." + data[11].ToString();
-
-                            scanReply.isNewData = true;
-                            scanReply.isNewGPS = true;
-                        }
+                        CPgnRouter.ParseScanReply(data, scanReply);
                     }
 
                     if (isUDPMonitorOn)
