@@ -1,4 +1,4 @@
-﻿//Please, if you use this, share the improvements
+//Please, if you use this, share the improvements
 
 using AgOpenGPS.Core.Drawing;
 using AgOpenGPS.Core.DrawLib;
@@ -10,7 +10,8 @@ namespace AgOpenGPS
 {
     public class CVehicle
     {
-        private readonly FormGPS mf;
+        // Host invertido (FormGPS implementa IVehicleHost) — traspaso 2026-07-17
+        private readonly IVehicleHost mf;
 
         public int deadZoneHeading, deadZoneDelay;
         public int deadZoneDelayCounter;
@@ -43,7 +44,7 @@ namespace AgOpenGPS
 
         public double functionSpeedLimit;
 
-        public CVehicle(FormGPS _f)
+        public CVehicle(IVehicleHost _f)
         {
             //constructor
             mf = _f;
@@ -105,7 +106,7 @@ namespace AgOpenGPS
         public double UpdateGoalPointDistance()
         {
             double xTE = Math.Abs(modeActualXTE);
-            double goalPointDistance = mf.avgSpeed * 0.05 * goalPointLookAheadMult;
+            double goalPointDistance = mf.AvgSpeed * 0.05 * goalPointLookAheadMult;
 
             double LoekiAheadHold = goalPointLookAheadHold;
             double LoekiAheadAcquire = goalPointLookAheadHold * goalPointAcquireFactor;
@@ -140,14 +141,14 @@ namespace AgOpenGPS
 
         public void DrawVehicle()
         {
-            GL.Rotate(glm.toDegrees(-mf.fixHeading), 0.0, 0.0, 1.0);
+            GL.Rotate(glm.toDegrees(-mf.FixHeading), 0.0, 0.0, 1.0);
             //mf.font.DrawText3D(0, 0, "&TGF");
-            if (mf.isFirstHeadingSet && !mf.tool.isToolFrontFixed)
+            if (mf.IsFirstHeadingSet && !mf.Tool.isToolFrontFixed)
             {
                 // Draw the rigid hitch
-                double hitchLengthFromPivot = mf.tool.GetHitchLengthFromVehiclePivot();
-                double hitchHeading = mf.tool.GetHitchHeadingFromVehiclePivot(hitchLengthFromPivot);
-                double hitchAngleOffset = hitchHeading - mf.fixHeading;
+                double hitchLengthFromPivot = mf.Tool.GetHitchLengthFromVehiclePivot();
+                double hitchHeading = mf.Tool.GetHitchHeadingFromVehiclePivot(hitchLengthFromPivot);
+                double hitchAngleOffset = hitchHeading - mf.FixHeading;
                 double sinOffset = Math.Sin(hitchAngleOffset);
                 double cosOffset = Math.Cos(hitchAngleOffset);
 
@@ -159,7 +160,7 @@ namespace AgOpenGPS
                 }
 
                 XyCoord[] vertices;
-                if (!mf.tool.isToolRearFixed)
+                if (!mf.Tool.isToolRearFixed)
                 {
                     vertices = new XyCoord[]
                     {
@@ -180,10 +181,10 @@ namespace AgOpenGPS
             }
 
             //draw the vehicle Body
-            if (!mf.isFirstHeadingSet && mf.headingFromSource != "Dual")
+            if (!mf.IsFirstHeadingSet && mf.HeadingFromSource != "Dual")
             {
                 GL.Color4(1, 1, 1, 0.75);
-                mf.ScreenTextures.QuestionMark.Draw(new XyCoord(1.0, 5.0), new XyCoord(5.0, 1.0));
+                mf.QuestionMarkTexture.Draw(new XyCoord(1.0, 5.0), new XyCoord(5.0, 1.0));
             }
 
             //3 vehicle types  tractor=0 harvestor=1 Articulated=2
@@ -201,11 +202,11 @@ namespace AgOpenGPS
                     GLW.SetColor(vehicleColor);
 
                     AckermannAngles(
-                        -(mf.timerSim.Enabled ? mf.sim.steerangleAve : mf.mc.actualSteerAngleDegrees),
+                        -(mf.IsSimEnabled ? mf.Sim.steerangleAve : mf.Mc.actualSteerAngleDegrees),
                         out double leftAckermann,
                         out double rightAckermann);
                     XyCoord tractorCenter = new XyCoord(0.0, 0.5 * VehicleConfig.Wheelbase);
-                    mf.VehicleTextures.Tractor.DrawCentered(
+                    mf.TractorTexture.DrawCentered(
                         tractorCenter,
                         new XyDelta(VehicleConfig.TrackWidth, -1.0 * VehicleConfig.Wheelbase));
 
@@ -215,7 +216,7 @@ namespace AgOpenGPS
                     GL.Rotate(rightAckermann, 0, 0, 1);
 
                     XyDelta frontWheelDelta = new XyDelta(0.5 * VehicleConfig.TrackWidth, -0.75 * VehicleConfig.Wheelbase);
-                    mf.VehicleTextures.FrontWheel.DrawCenteredAroundOrigin(frontWheelDelta);
+                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(frontWheelDelta);
 
                     GL.PopMatrix();
 
@@ -225,7 +226,7 @@ namespace AgOpenGPS
                     GL.Translate(-VehicleConfig.TrackWidth * 0.5, VehicleConfig.Wheelbase, 0);
                     GL.Rotate(leftAckermann, 0, 0, 1);
 
-                    mf.VehicleTextures.FrontWheel.DrawCenteredAroundOrigin(frontWheelDelta);
+                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(frontWheelDelta);
 
                     GL.PopMatrix();
                     //disable, straight color
@@ -235,7 +236,7 @@ namespace AgOpenGPS
                     //vehicle body
 
                     AckermannAngles(
-                        mf.timerSim.Enabled ? mf.sim.steerAngle : mf.mc.actualSteerAngleDegrees,
+                        mf.IsSimEnabled ? mf.Sim.steerAngle : mf.Mc.actualSteerAngleDegrees,
                         out double leftAckermannAngle,
                         out double rightAckermannAngle);
                     ColorRgba harvesterWheelColor = new ColorRgba(
@@ -249,37 +250,37 @@ namespace AgOpenGPS
                     GL.Translate(VehicleConfig.TrackWidth * 0.5, -VehicleConfig.Wheelbase, 0);
                     GL.Rotate(rightAckermannAngle, 0, 0, 1);
                     XyDelta forntWheelDelta = new XyDelta(0.25 * VehicleConfig.TrackWidth, 0.5 * VehicleConfig.Wheelbase);
-                    mf.VehicleTextures.FrontWheel.DrawCenteredAroundOrigin(forntWheelDelta);
+                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(forntWheelDelta);
                     GL.PopMatrix();
 
                     //Left Wheel
                     GL.PushMatrix();
                     GL.Translate(-VehicleConfig.TrackWidth * 0.5, -VehicleConfig.Wheelbase, 0);
                     GL.Rotate(leftAckermannAngle, 0, 0, 1);
-                    mf.VehicleTextures.FrontWheel.DrawCenteredAroundOrigin(forntWheelDelta);
+                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(forntWheelDelta);
                     GL.PopMatrix();
 
                     GLW.SetColor(vehicleColor);
-                    mf.VehicleTextures.Harvester.DrawCenteredAroundOrigin(
+                    mf.HarvesterTexture.DrawCenteredAroundOrigin(
                         new XyDelta(VehicleConfig.TrackWidth, -1.5 * VehicleConfig.Wheelbase));
                     //disable, straight color
                 }
                 else if (VehicleConfig.Type == VehicleType.Articulated)
                 {
-                    double modelSteerAngle = 0.5 * (mf.timerSim.Enabled ? mf.sim.steerAngle : mf.mc.actualSteerAngleDegrees);
+                    double modelSteerAngle = 0.5 * (mf.IsSimEnabled ? mf.Sim.steerAngle : mf.Mc.actualSteerAngleDegrees);
                     GLW.SetColor(vehicleColor);
 
                     XyDelta articulated = new XyDelta(VehicleConfig.TrackWidth, -0.65 * VehicleConfig.Wheelbase);
                     GL.PushMatrix();
                     GL.Translate(0, -VehicleConfig.Wheelbase * 0.5, 0);
                     GL.Rotate(modelSteerAngle, 0, 0, 1);
-                    mf.VehicleTextures.ArticulatedRear.DrawCenteredAroundOrigin(articulated);
+                    mf.ArticulatedRearTexture.DrawCenteredAroundOrigin(articulated);
                     GL.PopMatrix();
 
                     GL.PushMatrix();
                     GL.Translate(0, VehicleConfig.Wheelbase * 0.5, 0);
                     GL.Rotate(-modelSteerAngle, 0, 0, 1);
-                    mf.VehicleTextures.ArticulatedFront.DrawCenteredAroundOrigin(articulated);
+                    mf.ArticulatedFrontTexture.DrawCenteredAroundOrigin(articulated);
                     GL.PopMatrix();
                 }
             }
@@ -306,7 +307,7 @@ namespace AgOpenGPS
                 }
                 GL.End();
             }
-            if (mf.camera.camSetDistance > -75 && mf.isFirstHeadingSet)
+            if (mf.CamSetDistance > -75 && mf.IsFirstHeadingSet)
             {
                 //draw the bright antenna dot
                 // background layer
@@ -319,9 +320,9 @@ namespace AgOpenGPS
                 GLW.DrawPoint(-VehicleConfig.AntennaOffset, VehicleConfig.AntennaPivot, 0.1);
             }
 
-            if (mf.bnd.isBndBeingMade && mf.bnd.isDrawAtPivot)
+            if (mf.Bnd.isBndBeingMade && mf.Bnd.isDrawAtPivot)
             {
-                if (mf.bnd.isDrawRightSide)
+                if (mf.Bnd.isDrawRightSide)
                 {
                     GL.LineWidth(2);
                     GL.Color3(0.0, 1.270, 0.0);
@@ -329,8 +330,8 @@ namespace AgOpenGPS
                     {
                         GL.Vertex2(0.0, 0.0);
                         GL.Color3(1.270, 1.220, 0.20);
-                        GL.Vertex2(mf.bnd.createBndOffset, 0);
-                        GL.Vertex2(mf.bnd.createBndOffset * 0.75, 0.25);
+                        GL.Vertex2(mf.Bnd.createBndOffset, 0);
+                        GL.Vertex2(mf.Bnd.createBndOffset * 0.75, 0.25);
                     }
                     GL.End();
                 }
@@ -343,20 +344,20 @@ namespace AgOpenGPS
                     {
                         GL.Vertex2(0.0, 0.0);
                         GL.Color3(1.270, 1.220, 0.20);
-                        GL.Vertex2(-mf.bnd.createBndOffset, 0);
-                        GL.Vertex2(-mf.bnd.createBndOffset * 0.75, 0.25);
+                        GL.Vertex2(-mf.Bnd.createBndOffset, 0);
+                        GL.Vertex2(-mf.Bnd.createBndOffset * 0.75, 0.25);
                     }
                     GL.End();
                 }
             }
 
             //Svenn Arrow
-            if (mf.isSvennArrowOn && mf.camera.camSetDistance > -1000)
+            if (mf.IsSvennArrowOn && mf.CamSetDistance > -1000)
             {
-                //double offs = mf.curve.distanceFromCurrentLinePivot * 0.3;
-                double svennDist = mf.camera.camSetDistance * -0.07;
+                //double offs = distanceFromCurrentLinePivot de la curva * 0.3;
+                double svennDist = mf.CamSetDistance * -0.07;
                 double svennWidth = svennDist * 0.22;
-                GLW.SetLineWidth(mf.ABLine.lineWidth);
+                GLW.SetLineWidth(mf.ABLineWidth);
                 GLW.SetColor(Colors.SvenArrowColor);
                 XyCoord[] vertices = {
                     new XyCoord(svennWidth, VehicleConfig.Wheelbase + svennDist),
