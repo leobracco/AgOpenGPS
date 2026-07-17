@@ -494,6 +494,44 @@ namespace AgroParallel.Adapters
             return s;
         }
 
+        public HeadingGraphSample GetHeadingGraphSample()
+        {
+            var s = new HeadingGraphSample();
+            try
+            {
+                if (_form != null)
+                {
+                    // Mismos valores que graficaba FormGraphHeading (rumbo en rad → °).
+                    s.GpsHeadingDeg = System.Math.Round(glm.toDegrees(_form.gpsHeading), 1);
+                    s.ImuHeadingDeg = System.Math.Round(glm.toDegrees(_form.imuCorrected), 1);
+                }
+            }
+            catch
+            {
+                // Defensivo: valores en 0 si la fusión de rumbo no está lista.
+            }
+            return s;
+        }
+
+        public SteerGraphSample GetSteerGraphSample()
+        {
+            var s = new SteerGraphSample();
+            try
+            {
+                if (_form != null && _form.mc != null)
+                {
+                    // Mismos valores que graficaba FormGraphSteer (chart units → °).
+                    s.ActualSteerDeg = System.Math.Round(_form.mc.actualSteerAngleChart * 0.01, 1);
+                    s.SetSteerDeg = System.Math.Round(_form.guidanceLineSteerAngle * 0.01, 1);
+                }
+            }
+            catch
+            {
+                // Defensivo: valores en 0 si el guiado/dirección no está listo.
+            }
+            return s;
+        }
+
         // "Sí"/"No" legible para el operario (el volcado viejo mostraba True/False).
         private static string Bool(bool v) => v ? "Sí" : "No";
 

@@ -9,6 +9,12 @@
 //                GET /api/aog/graph-xte      → muestra en vivo (error de rumbo
 //                                             + XTE) para el gráfico de guiado
 //                                             (reemplazo de FormGraphXTE).
+//                GET /api/aog/graph-heading  → muestra en vivo (rumbo GPS vs IMU
+//                                             corregido) para el gráfico de rumbo
+//                                             (reemplazo de FormGraphHeading).
+//                GET /api/aog/graph-steer    → muestra en vivo (dirección real vs
+//                                             seteada) para el gráfico de dirección
+//                                             (reemplazo de FormGraphSteer).
 //                GET /api/aog/shape         → polígonos del shapefile activo.
 //                GET /api/aog/shape-fields  → columnas DBF del shapefile activo
 //                                             (la UI QuantiX las usa para el
@@ -56,6 +62,18 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetXteGraph()
         {
             return WriteJsonAsync(_state.GetXteGraphSample());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/graph-heading")]
+        public Task GetHeadingGraph()
+        {
+            return WriteJsonAsync(_state.GetHeadingGraphSample());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/graph-steer")]
+        public Task GetSteerGraph()
+        {
+            return WriteJsonAsync(_state.GetSteerGraphSample());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape")]

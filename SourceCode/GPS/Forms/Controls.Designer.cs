@@ -1875,33 +1875,25 @@ namespace AgOpenGPS
         }
         private void headingChartToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //check if window already exists
-            Form fh = Application.OpenForms["FormHeadingGraph"];
-
-            if (fh != null)
+            // AgroParallel: la ventana WinForms FormGraphHeading se reemplazó por la
+            // página HTML /pages/grafico-rumbo.html (rumbo GPS vs IMU corregido en
+            // vivo, solo lectura). Widget Avalonia si existe; si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/grafico-rumbo.html", "float",
+                                      "Gráfico de rumbo", 900, 700))
             {
-                fh.Focus();
-                return;
+                OpenAgroParallelHub("pages/grafico-rumbo.html");
             }
-
-            //
-            Form formH = new FormGraphHeading(this);
-            formH.Show(this);
         }
         private void toolStripAutoSteerChart_Click(object sender, EventArgs e)
         {
-            //check if window already exists
-            Form fcg = Application.OpenForms["FormSteerGraph"];
-
-            if (fcg != null)
+            // AgroParallel: la ventana WinForms FormGraphSteer se reemplazó por la
+            // página HTML /pages/grafico-direccion.html (ángulo de dirección real vs
+            // seteado en vivo, solo lectura). Widget Avalonia si existe; si no, Hub.
+            if (!LaunchAvaloniaWidget("pages/grafico-direccion.html", "float",
+                                      "Gráfico de dirección", 900, 700))
             {
-                fcg.Focus();
-                return;
+                OpenAgroParallelHub("pages/grafico-direccion.html");
             }
-
-            //
-            Form formG = new FormGraphSteer(this);
-            formG.Show(this);
         }
         private void xTEChartToolStripMenuItem_Click(object sender, EventArgs e)
         {

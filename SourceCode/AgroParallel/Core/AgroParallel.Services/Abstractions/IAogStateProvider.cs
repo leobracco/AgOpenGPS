@@ -35,6 +35,20 @@ namespace AgroParallel.Services.Abstractions
         XteGraphSample GetXteGraphSample();
 
         /// <summary>
+        /// Muestra en vivo (rumbo GPS + rumbo IMU corregido) para el gráfico de
+        /// rumbo. Reemplaza la ventana WinForms FormGraphHeading por la página
+        /// HTML /pages/grafico-rumbo.html, que arma su propio buffer rodante.
+        /// </summary>
+        HeadingGraphSample GetHeadingGraphSample();
+
+        /// <summary>
+        /// Muestra en vivo (ángulo de dirección real + seteado) para el gráfico
+        /// de dirección. Reemplaza la ventana WinForms FormGraphSteer por la
+        /// página HTML /pages/grafico-direccion.html, con buffer rodante propio.
+        /// </summary>
+        SteerGraphSample GetSteerGraphSample();
+
+        /// <summary>
         /// Lee el valor numérico de un campo DBF arbitrario del shapefile
         /// activo, en el polígono actualmente bajo el tractor. Retorna 0 si
         /// no hay shapefile, no hay polígono, o el campo no es numérico.
