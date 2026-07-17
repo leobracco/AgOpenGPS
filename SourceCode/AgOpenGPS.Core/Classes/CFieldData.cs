@@ -1,12 +1,12 @@
-﻿using System;
-using System.Security.Policy;
+using System;
 using System.Text;
 
 namespace AgOpenGPS
 {
     public class CFieldData
     {
-        private readonly FormGPS mf;
+        // Host invertido (FormGPS implementa IFieldDataHost) — traspaso 2026-07-17
+        private readonly IFieldDataHost mf;
 
         //all the section area added up;
         public double workedAreaTotal;
@@ -89,21 +89,21 @@ namespace AgOpenGPS
         {
             get
             {
-                if (mf.avgSpeed > 2)
+                if (mf.AvgSpeed > 2)
                 {
                     TimeSpan timeSpan = TimeSpan.FromHours(((areaBoundaryOuterLessInner - workedAreaTotal) * glm.m2ha
-                        / (mf.tool.width * mf.avgSpeed * 0.1)));
+                        / (mf.ToolWidth * mf.AvgSpeed * 0.1)));
                     return timeSpan.Hours.ToString("00:") + timeSpan.Minutes.ToString("00") + '"';
                 }
                 else return "\u221E Hrs";
             }
         }
 
-        public string WorkRateHectares => (mf.tool.width * mf.avgSpeed * 0.1).ToString("N1") + " ha/hr";
-        public string WorkRateAcres => (mf.tool.width * mf.avgSpeed * 0.2471).ToString("N1") + " ac/hr";
+        public string WorkRateHectares => (mf.ToolWidth * mf.AvgSpeed * 0.1).ToString("N1") + " ha/hr";
+        public string WorkRateAcres => (mf.ToolWidth * mf.AvgSpeed * 0.2471).ToString("N1") + " ac/hr";
 
         //constructor
-        public CFieldData(FormGPS _f)
+        public CFieldData(IFieldDataHost _f)
         {
             mf = _f;
             workedAreaTotal = 0;
@@ -113,14 +113,14 @@ namespace AgOpenGPS
 
         public void UpdateFieldBoundaryGUIAreas()
         {
-            if (mf.bnd.bndList.Count > 0)
+            if (mf.BoundaryList.Count > 0)
             {
-                areaOuterBoundary = mf.bnd.bndList[0].area;
+                areaOuterBoundary = mf.BoundaryList[0].area;
                 areaBoundaryOuterLessInner = areaOuterBoundary;
 
-                for (int i = 1; i < mf.bnd.bndList.Count; i++)
+                for (int i = 1; i < mf.BoundaryList.Count; i++)
                 {
-                    areaBoundaryOuterLessInner -= mf.bnd.bndList[i].area;
+                    areaBoundaryOuterLessInner -= mf.BoundaryList[i].area;
                 }
             }
             else
@@ -135,7 +135,7 @@ namespace AgOpenGPS
         public String GetDescription()
         {
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("Field: {0}", mf.displayFieldName);
+            sb.AppendFormat("Field: {0}", mf.DisplayFieldName);
             sb.AppendLine();
             sb.AppendFormat("Total Hectares: {0}", AreaBoundaryLessInnersHectares);
             sb.AppendLine();
@@ -149,11 +149,11 @@ namespace AgOpenGPS
             sb.AppendLine();
             sb.AppendFormat("Missing Acres: {0}", WorkedAreaRemainAcres);
             sb.AppendLine();
-            sb.AppendFormat("Tool Width: {0}", mf.tool.width);
+            sb.AppendFormat("Tool Width: {0}", mf.ToolWidth);
             sb.AppendLine();
-            sb.AppendFormat("Sections: {0}", mf.tool.numOfSections);
+            sb.AppendFormat("Sections: {0}", mf.ToolNumOfSections);
             sb.AppendLine();
-            sb.AppendFormat("Section Overlap: {0}", mf.tool.overlap);
+            sb.AppendFormat("Section Overlap: {0}", mf.ToolOverlap);
             sb.AppendLine();
             return sb.ToString();
         }

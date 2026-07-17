@@ -58,7 +58,7 @@ Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **e
 
 | # | Punto | Estado | % | Qué falta |
 |---|---|---|---|---|
-| 1 | Extraer core a librería sin UI | AVANZADO | ~40% | ~24 clases de Classes/ acopladas a `FormGPS` por constructor (CABCurve, CABLine, CContour, CGuidance, CYouTurn, CVehicle, CTool, CTrack, CRecordedPath, CBoundary, CFence, CNMEA, CSim, CAHRS, CFieldData, CHead, CModuleComm, CPatches, CSection, CTurn, CTram, CISOBUS…) → interfaces estilo `FormGps*Service`; y el parsing NMEA/PGN de AgIO (NMEA.Designer, PGN.Designer, UDP) |
+| 1 | Extraer core a librería sin UI | AVANZADO | ~40% | ~22 clases de Classes/ acopladas a `FormGPS` por constructor (CABCurve, CABLine, CContour, CGuidance, CYouTurn, CVehicle, CTool, CTrack, CRecordedPath, CBoundary, CFence, CNMEA, CSim, CHead, CModuleComm, CPatches, CSection, CTurn, CTram, CISOBUS…; CAHRS/CDubins/CFieldData ya movidas) → interfaces estilo `FormGps*Service`; y el parsing NMEA/PGN de AgIO (NMEA.Designer, PGN.Designer, UDP) |
 | 2 | Abstraer persistencia | **HECHO** | 100% | — (Registry solo migración legacy aislada; en el port se borra el `#region Legacy`) |
 | 3 | Aislar host OpenGL | AVANZADO | ~70% | `oglSelf` de los editores (FormABDraw/FormHeadLine/etc., UI a reescribir igual) y GeoViewport; la impl EGL/SDL/GLSurfaceView es trabajo del port |
 | 4 | Reescribir UI | EN CURSO (vía web) | ~25% | ~174 archivos WinForms; cada pantalla que migra a HTML/EmbedIO (config, perfiles, nodos, firmwares, datos lote/GPS ya migradas) baja este costo |
@@ -88,7 +88,7 @@ Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **e
 | CFeatureSettings.cs | 59 | Flags de features (POCO) | — | PORTABLE |
 | CFence.cs | 168 | Cerca/valla con render OpenGL | FormGPS, GL calls puros | ADAPTABLE |
 | CFenceLine.cs | 300 | Procesamiento de líneas de cerca | — | PORTABLE |
-| CFieldData.cs | 160 | Área trabajada, distancia, estadísticas de campo | FormGPS | ADAPTABLE |
+| CFieldData.cs | 160 | Área trabajada, distancia, estadísticas de campo | ~~FormGPS~~ invertida con `IFieldDataHost` — **movida a Core 2026-07-17** | PORTABLE |
 | CFlag.cs | 39 | Datos de banderas (POCO) | — | PORTABLE |
 | CGLM.cs | 427 | Matemática GLM (vectores, matrices, polígonos) | Solo OpenTK GL (~~Drawing.Imaging~~ → `MakeGrayscale3` movido a FormMap.cs, su único consumidor, traspaso 2026-07-16) | PORTABLE (GL inmediato: en móvil vía GLES/ANGLE) |
 | CGuidance.cs | 412 | Guiado Stanley / Pure Pursuit / PID | FormGPS (fuerte), Settings.Default | ADAPTABLE |
@@ -115,9 +115,9 @@ Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **e
 | VehicleTextures.cs | 86 | Caché lazy de texturas de vehículo | Ninguna directa: delega en `Texture2D` (~~using Drawing muerto~~ eliminado 2026-07-16) | ADAPTABLE |
 | BoundaryBuilder.cs | 614 | Constructor de límites desde pistas (segmentación, intersecciones, recorte) | System.IO (portable) | ADAPTABLE |
 
-**Nota 2026-07-17:** los archivos PORTABLE de esta tabla (vec3, CFlag, CHeadLine, CBoundaryList, CFenceLine, CTurnLines, CFeatureSettings, TrackCopier, BoundaryBuilder, ColorExtensions, CGLM, y desde la 2ª tanda CAHRS y CDubins) **ya viven en `AgOpenGPS.Core/Classes/`** con namespace `AgOpenGPS` intacto; además se extrajeron los POCOs `CTrk`/`TrackMode` (de CTrack.cs) y `CRecPathPt` (de CRecordedPath.cs), y `Settings`/`RegistrySettings` viven en `AgOpenGPS.Core/Properties/`.
+**Nota 2026-07-17:** los archivos PORTABLE de esta tabla (vec3, CFlag, CHeadLine, CBoundaryList, CFenceLine, CTurnLines, CFeatureSettings, TrackCopier, BoundaryBuilder, ColorExtensions, CGLM, y desde la 2ª tanda CAHRS y CDubins) **ya viven en `AgOpenGPS.Core/Classes/`** con namespace `AgOpenGPS` intacto; además se extrajeron los POCOs `CTrk`/`TrackMode` (de CTrack.cs) y `CRecPathPt` (de CRecordedPath.cs), y `Settings`/`RegistrySettings` viven en `AgOpenGPS.Core/Properties/`. **Tercera tanda (2026-07-17):** `CFieldData` se movió a Core invertida con la interfaz `IFieldDataHost` (Core/Interfaces/) que FormGPS implementa en `FormGps.FieldDataHost.cs` — patrón a repetir para las demás clases acopladas.
 
-**Subtotal Classes: 15 PORTABLE · 24 ADAPTABLE · 0 REESCRIBIR.** Classes/ quedó sin archivos a reescribir: CModuleComm, CSound y CGLM se destrabaron con los traspasos del 2026-07-16; CBrightness quedó detrás de `IBrightnessController` el 2026-07-17 (la impl WMI se reemplaza por plataforma); y CExtensionMethods se partió el 2026-07-17 — los helpers WinForms se mudaron a Controls/ (UI, se reescribe con la UI) y `CheckColorFor255` quedó portable en ColorExtensions.cs. **Texturas:** todo el camino Bitmap→GL quedó concentrado en `Texture2D` (Core.DrawLib) — en un port se reimplementa esa clase (decoder PNG + GLES) y Brands/ScreenTextures/VehicleTextures no se tocan.
+**Subtotal Classes: 16 PORTABLE · 23 ADAPTABLE · 0 REESCRIBIR.** Classes/ quedó sin archivos a reescribir: CModuleComm, CSound y CGLM se destrabaron con los traspasos del 2026-07-16; CBrightness quedó detrás de `IBrightnessController` el 2026-07-17 (la impl WMI se reemplaza por plataforma); y CExtensionMethods se partió el 2026-07-17 — los helpers WinForms se mudaron a Controls/ (UI, se reescribe con la UI) y `CheckColorFor255` quedó portable en ColorExtensions.cs. **Texturas:** todo el camino Bitmap→GL quedó concentrado en `Texture2D` (Core.DrawLib) — en un port se reimplementa esa clase (decoder PNG + GLES) y Brands/ScreenTextures/VehicleTextures no se tocan.
 
 ## GPS/Forms raíz + partials FormGPS (35) y Forms/Guidance (24)
 
