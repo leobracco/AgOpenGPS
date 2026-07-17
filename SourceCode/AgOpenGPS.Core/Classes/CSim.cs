@@ -1,11 +1,12 @@
-﻿using AgOpenGPS.Core.Models;
+using AgOpenGPS.Core.Models;
 using System;
 
 namespace AgOpenGPS
 {
     public class CSim
     {
-        private readonly FormGPS mf;
+        // Host invertido (FormGPS implementa ISimHost) — traspaso 2026-07-17
+        private readonly ISimHost mf;
 
         #region properties sim
 
@@ -18,7 +19,7 @@ namespace AgOpenGPS
 
         #endregion properties sim
 
-        public CSim(FormGPS _f)
+        public CSim(ISimHost _f)
         {
             mf = _f;
             CurrentLatLon = new Wgs84(
@@ -61,35 +62,36 @@ namespace AgOpenGPS
                 steerangleAve = steerAngle;
             }
 
-            mf.mc.actualSteerAngleDegrees = steerangleAve;
+            mf.Mc.actualSteerAngleDegrees = steerangleAve;
 
             double temp = stepDistance * Math.Tan(steerangleAve * 0.0165329252) / 2;
             headingTrue += temp;
             if (headingTrue > glm.twoPI) headingTrue -= glm.twoPI;
             if (headingTrue < 0) headingTrue += glm.twoPI;
 
-            mf.pn.vtgSpeed = Math.Abs(Math.Round(4 * stepDistance * 10, 2));
-            mf.pn.AverageTheSpeed();
+            mf.VtgSpeed = Math.Abs(Math.Round(4 * stepDistance * 10, 2));
+            mf.AverageTheSpeed();
 
             //Calculate the next Lat Long based on heading and distance
             CurrentLatLon = CurrentLatLon.CalculateNewPostionFromBearingDistance(headingTrue, stepDistance);
 
             GeoCoord fixCoord = mf.AppModel.LocalPlane.ConvertWgs84ToGeoCoord(CurrentLatLon);
-            mf.pn.fix.northing = fixCoord.Northing;
-            mf.pn.fix.easting = fixCoord.Easting;
-            mf.pn.headingTrue = mf.pn.headingTrueDual = glm.toDegrees(headingTrue);
-            mf.ahrs.imuHeading = mf.pn.headingTrue;
-            if (mf.ahrs.imuHeading >= 360) mf.ahrs.imuHeading -= 360;
+            mf.FixNorthing = fixCoord.Northing;
+            mf.FixEasting = fixCoord.Easting;
+            double headingDeg = glm.toDegrees(headingTrue);
+            mf.HeadingTrueDegrees = headingDeg;
+            if (headingDeg >= 360) headingDeg -= 360;
+            mf.Ahrs.imuHeading = headingDeg;
 
             mf.AppModel.CurrentLatLon = CurrentLatLon;
 
-            mf.pn.hdop = 0.7;
+            mf.Hdop = 0.7;
 
-            mf.pn.altitude = SimulateAltitude(mf.AppModel.CurrentLatLon);
+            mf.Altitude = SimulateAltitude(mf.AppModel.CurrentLatLon);
 
-            mf.pn.satellitesTracked = 12;
+            mf.SatellitesTracked = 12;
 
-            mf.sentenceCounter = 0;
+            mf.SentenceCounter = 0;
 
             mf.UpdateFixPosition();
 
