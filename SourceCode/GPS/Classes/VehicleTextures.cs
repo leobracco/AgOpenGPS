@@ -1,6 +1,5 @@
 ﻿using AgOpenGPS.Core.DrawLib;
 using AgOpenGPS.Properties;
-using System.Drawing;
 
 namespace AgOpenGPS.Classes
 {

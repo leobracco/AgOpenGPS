@@ -75,7 +75,7 @@
 | CFenceLine.cs | 300 | Procesamiento de líneas de cerca | — | PORTABLE |
 | CFieldData.cs | 160 | Área trabajada, distancia, estadísticas de campo | FormGPS | ADAPTABLE |
 | CFlag.cs | 39 | Datos de banderas (POCO) | — | PORTABLE |
-| CGLM.cs | 427 | Matemática GLM (vectores, matrices, polígonos, texturas) | OpenTK GL, System.Drawing.Imaging (texturas) | ADAPTABLE |
+| CGLM.cs | 427 | Matemática GLM (vectores, matrices, polígonos) | Solo OpenTK GL (~~Drawing.Imaging~~ → `MakeGrayscale3` movido a FormMap.cs, su único consumidor, traspaso 2026-07-16) | PORTABLE (GL inmediato: en móvil vía GLES/ANGLE) |
 | CGuidance.cs | 412 | Guiado Stanley / Pure Pursuit / PID | FormGPS (fuerte), Settings.Default | ADAPTABLE |
 | CHead.cs | 167 | Cabecera (posición, velocidad) | — | PORTABLE |
 | CHeadLine.cs | 33 | Rutas de cabecera | — | PORTABLE |
@@ -94,13 +94,13 @@
 | CTurnLines.cs | 108 | Líneas de giro | — | PORTABLE |
 | CVehicle.cs | 386 | Configuración de vehículo (ruedas, antena, PID) | FormGPS, Settings.Default | ADAPTABLE |
 | CYouTurn.cs | 2958 | Giros en U (generación y ejecución) | FormGPS (fuerte), GL calls puros | ADAPTABLE |
-| ScreenTextures.cs | 245 | Caché lazy de texturas de pantalla | Properties.Resources, Drawing implícito | ADAPTABLE |
+| ScreenTextures.cs | 245 | Caché lazy de texturas de pantalla | Ninguna directa: delega en `Texture2D` (Core.DrawLib), que es EL punto de aislamiento Bitmap→GL a reimplementar por plataforma | ADAPTABLE |
 | TrackCopier.cs | 192 | Copiar/convertir pistas entre campos | — | PORTABLE |
 | vec3.cs | 172 | Structs vec2/vec3 y utilidades geométricas | — | PORTABLE |
-| VehicleTextures.cs | 86 | Caché lazy de texturas de vehículo | Drawing implícito, Resources | ADAPTABLE |
+| VehicleTextures.cs | 86 | Caché lazy de texturas de vehículo | Ninguna directa: delega en `Texture2D` (~~using Drawing muerto~~ eliminado 2026-07-16) | ADAPTABLE |
 | BoundaryBuilder.cs | 614 | Constructor de límites desde pistas (segmentación, intersecciones, recorte) | System.IO (portable) | ADAPTABLE |
 
-**Subtotal Classes: 11 PORTABLE · 26 ADAPTABLE · 2 REESCRIBIR.** Los 2 que quedan a reescribir: CBrightness (WMI, ya autoaislado con fallback) y CExtensionMethods (helpers UI puros). CModuleComm y CSound pasaron a ADAPTABLE con los traspasos del 2026-07-16.
+**Subtotal Classes: 12 PORTABLE · 25 ADAPTABLE · 2 REESCRIBIR.** Los 2 que quedan a reescribir: CBrightness (WMI, ya autoaislado con fallback) y CExtensionMethods (helpers UI puros). CModuleComm, CSound y CGLM se destrabaron con los traspasos del 2026-07-16. **Texturas:** todo el camino Bitmap→GL quedó concentrado en `Texture2D` (Core.DrawLib) — en un port se reimplementa esa clase (decoder PNG + GLES) y Brands/ScreenTextures/VehicleTextures no se tocan.
 
 ## GPS/Forms raíz + partials FormGPS (35) y Forms/Guidance (24)
 
