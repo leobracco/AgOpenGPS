@@ -19,9 +19,9 @@ namespace AgOpenGPS
         public int fixQuality, ageAlarm;
         public int satellitesTracked;
 
-        private readonly FormGPS mf;
+        private readonly INmeaHost mf;
 
-        public CNMEA(FormGPS f)
+        public CNMEA(INmeaHost f)
         {
             //constructor, grab the main form reference
             mf = f;
@@ -33,23 +33,23 @@ namespace AgOpenGPS
         {
             //average the speed
             //if (speed > 70) speed = 70;
-            mf.avgSpeed = (mf.avgSpeed * 0.75) + (speed * 0.25);
+            mf.AvgSpeed = (mf.AvgSpeed * 0.75) + (speed * 0.25);
         }
 
         public void DefineLocalPlane(Wgs84 origin, bool setSim)
         {
             mf.AppModel.LocalPlane = new LocalPlane(origin, mf.AppModel.SharedFieldProperties);
-            if (setSim && mf.timerSim.Enabled)
+            if (setSim && mf.IsSimTimerEnabled)
             {
                 mf.AppModel.CurrentLatLon = origin;
-                mf.sim.CurrentLatLon = origin;
+                mf.Sim.CurrentLatLon = origin;
 
                 Properties.Settings.Default.setGPS_SimLatitude = mf.AppModel.LocalPlane.Origin.Latitude;
                 Properties.Settings.Default.setGPS_SimLongitude = mf.AppModel.LocalPlane.Origin.Longitude;
                 Properties.Settings.Default.Save();
             }
             GeoCoord geoCoord = mf.AppModel.LocalPlane.ConvertWgs84ToGeoCoord(mf.AppModel.CurrentLatLon);
-            mf.worldGrid.checkZoomWorldGrid(geoCoord);
+            mf.WorldGrid.checkZoomWorldGrid(geoCoord);
         }
 
     }
