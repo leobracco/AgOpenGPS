@@ -10,12 +10,18 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="OpenTK" Version="3.3.3" />
     <PackageReference Include="System.Memory" Version="4.6.0" />
+    <!-- RegistrySettings/Settings (traspaso portabilidad 2026-07-17) -->
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
     <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
+    <!-- AtomicJson (AgroParallel.Common) para RegistrySettings (2026-07-17) -->
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Models\AgroParallel.Models.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="PresentationCore" />
     <Reference Include="System.Net.Http" />
+    <!-- Color/Point/Size de Settings (System.Drawing.Primitives en .NET moderno) -->
+    <Reference Include="System.Drawing" />
   </ItemGroup>
 
   <ItemGroup>
