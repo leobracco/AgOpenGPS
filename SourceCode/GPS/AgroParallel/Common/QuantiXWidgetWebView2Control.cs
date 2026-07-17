@@ -52,7 +52,10 @@ namespace AgroParallel.Common
             _webView = new WebView2
             {
                 Dock = DockStyle.Fill,
-                AllowExternalDrop = false
+                AllowExternalDrop = false,
+                // Anti-parpadeo: sin esto WebView2 pinta blanco mientras
+                // navega y el widget flashea al auto-abrirse con el lote.
+                DefaultBackgroundColor = Color.Black
             };
             Controls.Add(_webView);
 

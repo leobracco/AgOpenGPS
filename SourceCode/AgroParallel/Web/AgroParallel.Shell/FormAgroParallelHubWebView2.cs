@@ -174,7 +174,16 @@ namespace AgroParallel.Shell
             Width = 1280;
             Height = 800;
 
-            _webView = new WebView2 { Dock = DockStyle.Fill };
+            // Anti-parpadeo (2026-07-17): mientras WebView2 inicializa y navega,
+            // el control pinta su DefaultBackgroundColor — blanco por defecto —
+            // y cada barra/widget que se crea flashea blanco sobre el mapa
+            // (muy notorio al aceptar términos y al abrir un lote, que es
+            // cuando se instancian las barras dockeadas y los overlays).
+            // Usamos el fondo del design system (#F5F7F4) en el form y en el
+            // WebView para que la transición sea imperceptible.
+            var agpBg = System.Drawing.Color.FromArgb(0xF5, 0xF7, 0xF4);
+            BackColor = agpBg;
+            _webView = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = agpBg };
             Controls.Add(_webView);
 
             Load += OnLoad;
