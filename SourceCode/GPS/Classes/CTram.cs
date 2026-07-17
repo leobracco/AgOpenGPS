@@ -1,9 +1,7 @@
-﻿using Accord.Imaging.Filters;
-using AgOpenGPS.Core.Models;
+﻿using AgOpenGPS.Core.Models;
 using OpenTK.Graphics.OpenGL;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 
 namespace AgOpenGPS
 {
@@ -53,29 +51,9 @@ namespace AgOpenGPS
         }
 
 
-        public static Bitmap GetModeBitmap(TramMode mode)
-        {
-            Bitmap modeBitMap;
-            switch (mode)
-            {
-                case TramMode.None:
-                    modeBitMap = Properties.Resources.TramOff;
-                    break;
-                case TramMode.All:
-                    modeBitMap = Properties.Resources.TramAll;
-                    break;
-                case TramMode.FillTracks:
-                    modeBitMap = Properties.Resources.TramLines;
-                    break;
-                case TramMode.BoundaryTracks:
-                    modeBitMap = Properties.Resources.TramOuter;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(mode), "TramMode argument out of range");
-            }
-            return modeBitMap;
-        }
-
+        //GetModeBitmap(TramMode) se movió a TramModeBitmaps (CExtensionMethods.cs):
+        //era el único uso de System.Drawing acá y es puro asset de UI
+        //(traspaso portabilidad 2026-07-16).
 
         public void IsTramOuterOrInner()
         {

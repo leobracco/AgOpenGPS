@@ -80,16 +80,16 @@
 | CHead.cs | 167 | Cabecera (posición, velocidad) | — | PORTABLE |
 | CHeadLine.cs | 33 | Rutas de cabecera | — | PORTABLE |
 | CISOBUS.cs | 180 | Protocolo ISOBUS para secciones | FormGPS | ADAPTABLE |
-| CModuleComm.cs | 123 | Comunicación de módulos, switches trabajo/dirección | FormGPS con `btnAutoSteer.PerformClick()` (UI directa) | REESCRIBIR |
+| CModuleComm.cs | 123 | Comunicación de módulos, switches trabajo/dirección | ~~`btn*.PerformClick()` directo~~ → delegados `Action` que FormGPS cablea (traspaso 2026-07-16) | ADAPTABLE |
 | CNMEA.cs | 55 | Parseo NMEA | FormGPS, Settings.Default | ADAPTABLE |
 | CPatches.cs | 162 | Parches/áreas trabajadas (triángulos) | FormGPS, colores UI | ADAPTABLE |
 | CRecordedPath.cs | 849 | Grabación/replay de rutas Dubins | FormGPS, GL calls puros | ADAPTABLE |
 | CSection.cs | 75 | Datos de secciones (POCO + timers) | — | PORTABLE |
 | CSim.cs | 124 | Simulador de movimiento GPS | FormGPS, Settings.Default | ADAPTABLE |
-| CSound.cs | 37 | Sonidos de alarma | System.Media.SoundPlayer | REESCRIBIR |
+| CSound.cs | 37 | Sonidos de alarma | ~~System.Media directo~~ → aislado en `AgpSoundPlayer` (único punto a reimplementar por plataforma, traspaso 2026-07-16) | ADAPTABLE |
 | CTool.cs | 383 | Configuración de implemento (ancho, solape, ejes) | FormGPS, OpenTK, System.Drawing, Settings.Default | ADAPTABLE |
-| CTrack.cs | 355 | Pistas de referencia AB/Curva | FormGPS, WinForms, OpenTK, Drawing | ADAPTABLE |
-| CTram.cs | 261 | Tramlines | FormGPS, Accord.Imaging, Bitmap, OpenTK | ADAPTABLE |
+| CTrack.cs | 355 | Pistas de referencia AB/Curva | FormGPS, OpenTK (~~usings WinForms/Drawing muertos~~ eliminados 2026-07-16) | ADAPTABLE |
+| CTram.cs | 261 | Tramlines | FormGPS, OpenTK (~~Accord/Bitmap~~ → `GetModeBitmap` movido a `TramModeBitmaps` en la capa UI, traspaso 2026-07-16) | ADAPTABLE |
 | CTurn.cs | 192 | Lógica de giros | — | PORTABLE |
 | CTurnLines.cs | 108 | Líneas de giro | — | PORTABLE |
 | CVehicle.cs | 386 | Configuración de vehículo (ruedas, antena, PID) | FormGPS, Settings.Default | ADAPTABLE |
@@ -100,7 +100,7 @@
 | VehicleTextures.cs | 86 | Caché lazy de texturas de vehículo | Drawing implícito, Resources | ADAPTABLE |
 | BoundaryBuilder.cs | 614 | Constructor de límites desde pistas (segmentación, intersecciones, recorte) | System.IO (portable) | ADAPTABLE |
 
-**Subtotal Classes: 11 PORTABLE · 24 ADAPTABLE · 4 REESCRIBIR.** Los 4 a reescribir: WMI, WinForms directo, SoundPlayer.
+**Subtotal Classes: 11 PORTABLE · 26 ADAPTABLE · 2 REESCRIBIR.** Los 2 que quedan a reescribir: CBrightness (WMI, ya autoaislado con fallback) y CExtensionMethods (helpers UI puros). CModuleComm y CSound pasaron a ADAPTABLE con los traspasos del 2026-07-16.
 
 ## GPS/Forms raíz + partials FormGPS (35) y Forms/Guidance (24)
 

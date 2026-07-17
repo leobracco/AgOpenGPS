@@ -67,7 +67,7 @@ namespace AgOpenGPS
 
             if (mf.bnd.bndList.Count == 0) mf.tram.generateMode = TramMode.FillTracks;
 
-            btnMode.BackgroundImage = CTram.GetModeBitmap(mf.tram.generateMode);
+            btnMode.BackgroundImage = TramModeBitmaps.Get(mf.tram.generateMode);
 
             if (mf.bnd.bndList.Count == 0) btnMode.Enabled = false;
 
@@ -244,7 +244,7 @@ namespace AgOpenGPS
                 default:
                     break;
             }
-            btnMode.BackgroundImage = CTram.GetModeBitmap(mf.tram.generateMode);
+            btnMode.BackgroundImage = TramModeBitmaps.Get(mf.tram.generateMode);
             MoveBuildTramLine(0);
         }
 

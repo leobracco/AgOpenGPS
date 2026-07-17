@@ -1,4 +1,5 @@
-﻿using AgOpenGPS.Core.Translations;
+﻿using System;
+using AgOpenGPS.Core.Translations;
 
 namespace AgOpenGPS
 {
@@ -6,6 +7,14 @@ namespace AgOpenGPS
     {
         //copy of the mainform address
         private readonly FormGPS mf;
+
+        //acciones que la UI cablea (FormGPS las apunta a los botones nativos).
+        //Antes esta clase llamaba btn*.PerformClick() directo — dependencia
+        //WinForms innecesaria para la lógica de switches (traspaso
+        //portabilidad 2026-07-16).
+        public Action ToggleAutoSteer;
+        public Action ToggleSectionMasterManual;
+        public Action ToggleSectionMasterAuto;
 
         //Critical Safety Properties
         public bool isOutOfBounds = true;
@@ -58,7 +67,7 @@ namespace AgOpenGPS
                 //steerSwith is active low
                 if (steerSwitchHigh == mf.isBtnAutoSteerOn)
                 {
-                    mf.btnAutoSteer.PerformClick();
+                    ToggleAutoSteer?.Invoke();
                 }
             }
 
@@ -73,21 +82,21 @@ namespace AgOpenGPS
                         if (isWorkSwitchManualSections)
                         {
                             if (mf.manualBtnState != btnStates.On)
-                                mf.btnSectionMasterManual.PerformClick();
+                                ToggleSectionMasterManual?.Invoke();
                         }
                         else
                         {
                             if (mf.autoBtnState != btnStates.Auto)
-                                mf.btnSectionMasterAuto.PerformClick();
+                                ToggleSectionMasterAuto?.Invoke();
                         }
                     }
 
                     else//Checks both on-screen buttons, performs click if button is not off
                     {
                         if (mf.autoBtnState != btnStates.Off)
-                            mf.btnSectionMasterAuto.PerformClick();
+                            ToggleSectionMasterAuto?.Invoke();
                         if (mf.manualBtnState != btnStates.Off)
-                            mf.btnSectionMasterManual.PerformClick();
+                            ToggleSectionMasterManual?.Invoke();
                     }
                 }
 
@@ -101,21 +110,21 @@ namespace AgOpenGPS
                         if (isSteerWorkSwitchManualSections)
                         {
                             if (mf.manualBtnState != btnStates.On)
-                                mf.btnSectionMasterManual.PerformClick();
+                                ToggleSectionMasterManual?.Invoke();
                         }
                         else
                         {
                             if (mf.autoBtnState != btnStates.Auto)
-                                mf.btnSectionMasterAuto.PerformClick();
+                                ToggleSectionMasterAuto?.Invoke();
                         }
                     }
 
                     else//Checks both on-screen buttons, performs click if button is not off
                     {
                         if (mf.autoBtnState != btnStates.Off)
-                            mf.btnSectionMasterAuto.PerformClick();
+                            ToggleSectionMasterAuto?.Invoke();
                         if (mf.manualBtnState != btnStates.Off)
-                            mf.btnSectionMasterManual.PerformClick();
+                            ToggleSectionMasterManual?.Invoke();
                     }
                 }
             }

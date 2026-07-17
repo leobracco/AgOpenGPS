@@ -1,22 +1,21 @@
-﻿using System.Media;
-
-namespace AgOpenGPS
+﻿namespace AgOpenGPS
 {
     public class CSound
     {
-        //sound objects - wave files in resources
-        public readonly SoundPlayer sndBoundaryAlarm = new SoundPlayer(Properties.Resources.Alarm10);
-        public readonly SoundPlayer sndUTurnTooClose = new SoundPlayer(Properties.Resources.TF012);
+        //sound objects - wave files en resources, detrás de AgpSoundPlayer
+        //(sin System.Media directo acá: traspaso portabilidad 2026-07-16)
+        public readonly AgpSoundPlayer sndBoundaryAlarm = new AgpSoundPlayer(Properties.Resources.Alarm10);
+        public readonly AgpSoundPlayer sndUTurnTooClose = new AgpSoundPlayer(Properties.Resources.TF012);
 
-        public readonly SoundPlayer sndAutoSteerOn = new SoundPlayer(Properties.Resources.SteerOn);
-        public readonly SoundPlayer sndAutoSteerOff = new SoundPlayer(Properties.Resources.SteerOff);
-        public readonly SoundPlayer sndHydLiftUp = new SoundPlayer(Properties.Resources.HydUp);
-        public readonly SoundPlayer sndHydLiftDn = new SoundPlayer(Properties.Resources.HydDown);
-        public readonly SoundPlayer sndRTKAlarm = new SoundPlayer(Properties.Resources.rtk_lost);
-        public readonly SoundPlayer sndSectionOn = new SoundPlayer(Properties.Resources.SectionOn);
-        public readonly SoundPlayer sndSectionOff = new SoundPlayer(Properties.Resources.SectionOff);
-        public readonly SoundPlayer sndHeadland = new SoundPlayer(Properties.Resources.Headland);
-        public readonly SoundPlayer sndRTKRecoverd = new SoundPlayer(Properties.Resources.rtk_back);
+        public readonly AgpSoundPlayer sndAutoSteerOn = new AgpSoundPlayer(Properties.Resources.SteerOn);
+        public readonly AgpSoundPlayer sndAutoSteerOff = new AgpSoundPlayer(Properties.Resources.SteerOff);
+        public readonly AgpSoundPlayer sndHydLiftUp = new AgpSoundPlayer(Properties.Resources.HydUp);
+        public readonly AgpSoundPlayer sndHydLiftDn = new AgpSoundPlayer(Properties.Resources.HydDown);
+        public readonly AgpSoundPlayer sndRTKAlarm = new AgpSoundPlayer(Properties.Resources.rtk_lost);
+        public readonly AgpSoundPlayer sndSectionOn = new AgpSoundPlayer(Properties.Resources.SectionOn);
+        public readonly AgpSoundPlayer sndSectionOff = new AgpSoundPlayer(Properties.Resources.SectionOff);
+        public readonly AgpSoundPlayer sndHeadland = new AgpSoundPlayer(Properties.Resources.Headland);
+        public readonly AgpSoundPlayer sndRTKRecoverd = new AgpSoundPlayer(Properties.Resources.rtk_back);
 
 
         public bool isBoundAlarming, isRTKAlarming;

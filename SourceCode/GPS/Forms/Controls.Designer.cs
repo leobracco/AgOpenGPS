@@ -1595,7 +1595,7 @@ namespace AgOpenGPS
             tram.isRightManualOn = false;
 
             tram.displayMode = GetNextDisplayMode(tram.displayMode);
-            btnTramDisplayMode.Image = CTram.GetModeBitmap(tram.displayMode);
+            btnTramDisplayMode.Image = TramModeBitmaps.Get(tram.displayMode);
         }
 
         private TramMode GetNextDisplayMode(TramMode currentMode)
@@ -2145,7 +2145,7 @@ namespace AgOpenGPS
             {
                 tram.displayMode = TramMode.FillTracks;
             }
-            btnTramDisplayMode.Image = CTram.GetModeBitmap(tram.displayMode);
+            btnTramDisplayMode.Image = TramModeBitmaps.Get(tram.displayMode);
         }
 
         private ToolStripMenuItem steerChartToolStripMenuItem;

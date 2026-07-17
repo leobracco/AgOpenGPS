@@ -507,6 +507,11 @@ namespace AgOpenGPS
 
             //module communication
             mc = new CModuleComm(this);
+            //cableado de los switches físicos a los botones nativos: la clase
+            //no toca WinForms directo (traspaso portabilidad 2026-07-16)
+            mc.ToggleAutoSteer = () => btnAutoSteer.PerformClick();
+            mc.ToggleSectionMasterManual = () => btnSectionMasterManual.PerformClick();
+            mc.ToggleSectionMasterAuto = () => btnSectionMasterAuto.PerformClick();
 
             //boundary object
             bnd = new CBoundary(this);

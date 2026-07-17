@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AgOpenGPS.Core.Models;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -41,6 +42,27 @@ namespace AgOpenGPS
         }
     }
 
+
+    /// <summary>
+    /// Bitmaps de los modos de tramline. Vivía en CTram.GetModeBitmap; se
+    /// movió acá (archivo de helpers UI) para que CTram quede sin
+    /// System.Drawing (traspaso portabilidad 2026-07-16).
+    /// </summary>
+    public static class TramModeBitmaps
+    {
+        public static Bitmap Get(TramMode mode)
+        {
+            switch (mode)
+            {
+                case TramMode.None: return Properties.Resources.TramOff;
+                case TramMode.All: return Properties.Resources.TramAll;
+                case TramMode.FillTracks: return Properties.Resources.TramLines;
+                case TramMode.BoundaryTracks: return Properties.Resources.TramOuter;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(mode), "TramMode argument out of range");
+            }
+        }
+    }
 
     public static class CExtensionMethods
     {
