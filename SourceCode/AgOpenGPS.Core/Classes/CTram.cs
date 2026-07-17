@@ -1,4 +1,4 @@
-﻿using AgOpenGPS.Core.Models;
+using AgOpenGPS.Core.Models;
 using OpenTK.Graphics.OpenGL;
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,8 @@ namespace AgOpenGPS
 {
     public class CTram
     {
-        private readonly FormGPS mf;
+        // Host invertido (FormGPS implementa ITramHost) — traspaso 2026-07-17
+        private readonly ITramHost mf;
 
         public List<vec2> tramBndOuterArr = new List<vec2>();
         public List<vec2> tramBndInnerArr = new List<vec2>();
@@ -30,9 +31,10 @@ namespace AgOpenGPS
         public TramMode displayMode;
         public TramMode generateMode = TramMode.All;
 
-        internal int controlByte;
+        // era internal; ahora lo escribe el GPS desde otro assembly (traspaso 2026-07-17)
+        public int controlByte;
 
-        public CTram(FormGPS _f)
+        public CTram(ITramHost _f)
         {
             //constructor
             mf = _f;
@@ -57,18 +59,18 @@ namespace AgOpenGPS
 
         public void IsTramOuterOrInner()
         {
-            isOuter = ((int)(tramWidth / mf.tool.width + 0.5)) % 2 == 0;
+            isOuter = ((int)(tramWidth / mf.ToolWidth + 0.5)) % 2 == 0;
             if (Properties.Settings.Default.setTool_isTramOuterInverted) isOuter = !isOuter;
         }
 
         public void DrawTram()
         {
-            if (mf.camera.camSetDistance > -500) GL.LineWidth(10);
+            if (mf.CamSetDistance > -500) GL.LineWidth(10);
             else GL.LineWidth(6);
 
             GL.Color4(0, 0, 0, alpha);
 
-            if (mf.tram.displayMode.IncludesFillTracks())
+            if (displayMode.IncludesFillTracks())
             {
                 if (tramList.Count > 0)
                 {
@@ -84,7 +86,7 @@ namespace AgOpenGPS
                 }
             }
 
-            if (mf.tram.displayMode.IncludesBoundaryTracks())
+            if (displayMode.IncludesBoundaryTracks())
             {
                 if (tramBndOuterArr.Count > 0)
                 {
@@ -97,12 +99,12 @@ namespace AgOpenGPS
                 }
             }
 
-            if (mf.camera.camSetDistance > -500) GL.LineWidth(4);
+            if (mf.CamSetDistance > -500) GL.LineWidth(4);
             else GL.LineWidth(2);
 
             GL.Color4(0.930f, 0.72f, 0.73530f, alpha);
 
-            if (mf.tram.displayMode.IncludesFillTracks())
+            if (displayMode.IncludesFillTracks())
             {
                 if (tramList.Count > 0)
                 {
@@ -117,7 +119,7 @@ namespace AgOpenGPS
                     }
                 }
             }
-            if (mf.tram.displayMode.IncludesBoundaryTracks())
+            if (displayMode.IncludesBoundaryTracks())
             {
                 if (tramBndOuterArr.Count > 0)
                 {
@@ -133,7 +135,7 @@ namespace AgOpenGPS
 
         public void BuildTramBnd()
         {
-            bool isBndExist = mf.bnd.bndList.Count != 0;
+            bool isBndExist = mf.BoundaryList.Count != 0;
 
             if (isBndExist)
             {
@@ -161,7 +163,7 @@ namespace AgOpenGPS
         {
             List<vec2> newTrack = new List<vec2>();
 
-            int ptCount = mf.bnd.bndList[0].fenceLine.Count;
+            int ptCount = mf.BoundaryList[0].fenceLine.Count;
             if (ptCount < 2) return newTrack;
 
             // Identical to the headland "Build Around" algorithm (btnBndLoop_Click):
@@ -179,11 +181,11 @@ namespace AgOpenGPS
 
             for (int i = 0; i < ptCount; i++)
             {
-                double heading = mf.bnd.bndList[0].fenceLine[i].heading;
+                double heading = mf.BoundaryList[0].fenceLine[i].heading;
 
                 vec3 pt = new vec3(
-                    mf.bnd.bndList[0].fenceLine[i].easting  - (Math.Sin(glm.PIBy2 + heading) * distance),
-                    mf.bnd.bndList[0].fenceLine[i].northing - (Math.Cos(glm.PIBy2 + heading) * distance),
+                    mf.BoundaryList[0].fenceLine[i].easting - (Math.Sin(glm.PIBy2 + heading) * distance),
+                    mf.BoundaryList[0].fenceLine[i].northing - (Math.Cos(glm.PIBy2 + heading) * distance),
                     heading);
 
                 bool add = true;
@@ -192,8 +194,8 @@ namespace AgOpenGPS
                 {
                     double check = glm.DistanceSquared(
                         pt.northing, pt.easting,
-                        mf.bnd.bndList[0].fenceLine[j].northing,
-                        mf.bnd.bndList[0].fenceLine[j].easting);
+                        mf.BoundaryList[0].fenceLine[j].northing,
+                        mf.BoundaryList[0].fenceLine[j].easting);
 
                     if (check < distSq)
                     {
@@ -206,7 +208,7 @@ namespace AgOpenGPS
 
                 if (rawList.Count > 0)
                 {
-                    double spacingSq = (pt.easting  - rawList[rawList.Count - 1].easting)  * (pt.easting  - rawList[rawList.Count - 1].easting)
+                    double spacingSq = (pt.easting - rawList[rawList.Count - 1].easting) * (pt.easting - rawList[rawList.Count - 1].easting)
                                      + (pt.northing - rawList[rawList.Count - 1].northing) * (pt.northing - rawList[rawList.Count - 1].northing);
                     if (spacingSq > 1.0)
                         rawList.Add(pt);
@@ -227,8 +229,8 @@ namespace AgOpenGPS
             rawList.Add(new vec3(rawList[0]));
             rawList.Add(new vec3(rawList[0]));
 
-            CABCurve.MakePointMinimumSpacing(ref rawList, 1.2);
-            CABCurve.CalculateHeadings(ref rawList);
+            CurveSmoothing.MakePointMinimumSpacing(ref rawList, 1.2);
+            CurveSmoothing.CalculateHeadings(ref rawList);
 
             foreach (var p in rawList)
                 newTrack.Add(new vec2(p.easting, p.northing));
