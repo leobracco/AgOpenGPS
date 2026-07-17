@@ -891,7 +891,7 @@ namespace AgOpenGPS
                     (int)(fd.areaOuterBoundary),
                     bnd.bndList,
                     AppModel.LocalPlane,
-                    trk,
+                    trk.gArr,
                     ISO11783_TaskFile.Version.V3);
             }
             catch (Exception e)
@@ -918,7 +918,7 @@ namespace AgOpenGPS
                     (int)(fd.areaOuterBoundary),
                     bnd.bndList,
                     AppModel.LocalPlane,
-                    trk,
+                    trk.gArr,
                     ISO11783_TaskFile.Version.V4);
             }
             catch (Exception e)

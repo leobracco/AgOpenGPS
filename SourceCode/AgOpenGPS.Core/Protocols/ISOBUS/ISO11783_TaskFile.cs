@@ -16,7 +16,7 @@ namespace AgOpenGPS.Protocols.ISOBUS
             int area,
             List<CBoundaryList> bndList,
             LocalPlane localPlane,
-            CTrack trk,
+            List<CTrk> gArr,
             Version version)
         {
             if (!Enum.IsDefined(typeof(Version), version))
@@ -25,7 +25,7 @@ namespace AgOpenGPS.Protocols.ISOBUS
             var isoxml = ISOXML.Create(directoryName);
 
             SetFileInformation(isoxml, version);
-            AddPartfield(isoxml, designator, area, bndList, localPlane, trk, version);
+            AddPartfield(isoxml, designator, area, bndList, localPlane, gArr, version);
 
             isoxml.Save();
         }
@@ -34,7 +34,9 @@ namespace AgOpenGPS.Protocols.ISOBUS
         {
             isoxml.DataTransferOrigin = ISO11783TaskDataFileDataTransferOrigin.FMIS;
             isoxml.ManagementSoftwareManufacturer = "AgOpenGPS";
-            isoxml.ManagementSoftwareVersion = Program.Version;
+            // Sin depender de GPS/Program.cs (portabilidad): misma semantica Major.Minor.Patch.
+            isoxml.ManagementSoftwareVersion =
+                System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version.ToString(3) ?? "0.0.0";
 
             switch (version)
             {
@@ -56,7 +58,7 @@ namespace AgOpenGPS.Protocols.ISOBUS
             int area,
             List<CBoundaryList> bndList,
             LocalPlane localPlane,
-            CTrack trk,
+            List<CTrk> gArr,
             Version version)
         {
             var partfield = new ISOPartfield();
@@ -66,7 +68,7 @@ namespace AgOpenGPS.Protocols.ISOBUS
 
             AddBoundary(partfield, bndList, localPlane);
             AddHeadland(partfield, bndList, localPlane);
-            AddTracks(isoxml, partfield, trk, localPlane, version);
+            AddTracks(isoxml, partfield, gArr, localPlane, version);
 
             isoxml.Data.Partfield.Add(partfield);
         }
@@ -135,11 +137,11 @@ namespace AgOpenGPS.Protocols.ISOBUS
             }
         }
 
-        private static void AddTracks(ISOXML isoxml, ISOPartfield partfield, CTrack trk, LocalPlane localPlane, Version version)
+        private static void AddTracks(ISOXML isoxml, ISOPartfield partfield, List<CTrk> gArr, LocalPlane localPlane, Version version)
         {
-            if (trk.gArr == null) return;
+            if (gArr == null) return;
 
-            foreach (CTrk track in trk.gArr)
+            foreach (CTrk track in gArr)
             {
                 if (track.mode != TrackMode.AB && track.mode != TrackMode.Curve) continue;
 

@@ -46,7 +46,7 @@
 
 ### Qué falta, en orden, para compilar en otra plataforma
 
-1. **Extraer el core a una librería .NET Standard/net8.0 sin referencias UI**: Classes/ (geometría, guiado, YouTurn, Dubins), IO/ (12 archivos ya 100% portables), Protocols/ISOBUS, NMEA/PGN parsing de AgIO, lógica UDP/MQTT/NTRIP. El acoplamiento dominante es `FormGPS`/`FormLoop` inyectado por constructor → reemplazar por interfaces (el patrón ya existe en `AgroParallel/Common/FormGps*Service.cs`).
+1. **Extraer el core a una librería sin referencias UI**: AVANZADO 2026-07-17 — primera tanda movida a `AgOpenGPS.Core` (namespace `AgOpenGPS` intacto, cero churn en consumidores): IO/ completo (12), Protocols/ISOBUS (4, `ISO11783_TaskFile` desacoplado de `CTrack`/`Program` — ahora recibe `List<CTrk>`), y 13 archivos de Classes/ (vec3, CFlag, CHeadLine, CBoundaryList+CFenceLine+CTurnLines —partial reunida—, CFeatureSettings, TrackCopier, BoundaryBuilder —desacoplado de RegistrySettings—, ColorExtensions, CGLM) + POCOs extraídos `CTrk`/`TrackMode` (ex CTrack.cs) y `CRecPathPt` (ex CRecordedPath.cs). **Falta**: las ~24 clases de guiado/estado acopladas a `FormGPS` inyectado por constructor → reemplazar por interfaces (el patrón ya existe en `AgroParallel/Common/FormGps*Service.cs`), y el parsing NMEA/PGN de AgIO.
 2. **Abstraer persistencia**: HECHO 2026-07-16. RegistrySettings → JSON primario (Registry solo migración legacy aislada). Settings.Default ya era POCO + XmlSettingsHandler y sus Point/Size/Color son System.Drawing.Primitives (portables) — no requiere cambios. Además AgLibrary quedó sin WinForms/Accord (los controles RepeatButton/VideoSourcePlayer se movieron a Keypad y GPS): Log + Settings son ahora una base 100% portable.
 3. **Reemplazar el host OpenGL**: AVANZADO 2026-07-17. El render de FormGPS (oglMain/oglBack/oglZoom) ya habla solo con `IOpenGLSurface`; en el port se escribe otra impl de la interfaz (EGL/SDL en Linux, GLSurfaceView en Android) + el wiring de eventos Load/Paint/Resize del host. Quedan los `oglSelf` de los editores (FormABDraw/FormHeadLine/etc., que son UI a reescribir de todos modos) y GeoViewport. Las llamadas `GL.*` migran casi directo a GLES2/ANGLE.
 4. **Reescribir UI**: los ~174 archivos REESCRIBIR son formularios; gran parte de la config ya migró a HTML (config.html, perfiles, nodos, Hub) servida por EmbedIO — ese camino (backend EmbedIO + frontend web) es el que menos reescritura exige para Linux/Android.
@@ -100,6 +100,8 @@
 | vec3.cs | 172 | Structs vec2/vec3 y utilidades geométricas | — | PORTABLE |
 | VehicleTextures.cs | 86 | Caché lazy de texturas de vehículo | Ninguna directa: delega en `Texture2D` (~~using Drawing muerto~~ eliminado 2026-07-16) | ADAPTABLE |
 | BoundaryBuilder.cs | 614 | Constructor de límites desde pistas (segmentación, intersecciones, recorte) | System.IO (portable) | ADAPTABLE |
+
+**Nota 2026-07-17:** los archivos PORTABLE de esta tabla (vec3, CFlag, CHeadLine, CBoundaryList, CFenceLine, CTurnLines, CFeatureSettings, TrackCopier, BoundaryBuilder, ColorExtensions, CGLM) **ya viven en `AgOpenGPS.Core/Classes/`** con namespace `AgOpenGPS` intacto; además se extrajeron los POCOs `CTrk`/`TrackMode` (de CTrack.cs) y `CRecPathPt` (de CRecordedPath.cs).
 
 **Subtotal Classes: 13 PORTABLE · 26 ADAPTABLE · 0 REESCRIBIR.** Classes/ quedó sin archivos a reescribir: CModuleComm, CSound y CGLM se destrabaron con los traspasos del 2026-07-16; CBrightness quedó detrás de `IBrightnessController` el 2026-07-17 (la impl WMI se reemplaza por plataforma); y CExtensionMethods se partió el 2026-07-17 — los helpers WinForms se mudaron a Controls/ (UI, se reescribe con la UI) y `CheckColorFor255` quedó portable en ColorExtensions.cs. **Texturas:** todo el camino Bitmap→GL quedó concentrado en `Texture2D` (Core.DrawLib) — en un port se reimplementa esa clase (decoder PNG + GLES) y Brands/ScreenTextures/VehicleTextures no se tocan.
 
@@ -211,7 +213,7 @@
 - NuGets multiplataforma OK: `MQTTnet`, `System.Text.Json`, `SQLite`, `NetTopologySuite.IO.Esri.Shapefile`, `Dev4Agriculture.ISO11783.ISOXML`, `System.Memory`.
 - References Windows-only: `System.Management` (WMI, usado solo por la impl Windows de `IBrightnessController` — se elimina junto con ella en el port), `System.Windows.Forms.DataVisualization`.
 
-**Subtotal infra: 21 PORTABLE · 4 ADAPTABLE · 9 REESCRIBIR.** Es la zona más portable de todo el repo.
+**Subtotal infra: 21 PORTABLE · 4 ADAPTABLE · 9 REESCRIBIR.** Es la zona más portable de todo el repo. **Nota 2026-07-17:** IO/ (12 archivos) y Protocols/ISOBUS (4) ya se movieron a `AgOpenGPS.Core` — la librería compila sin WinForms y sus 34 tests pasan.
 
 ## GPS/AgroParallel — Common, VistaX, FlowX (40)
 

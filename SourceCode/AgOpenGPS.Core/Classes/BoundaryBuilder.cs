@@ -108,7 +108,9 @@ namespace AgOpenGPS.Classes
             }
         }
 
-        public bool SaveToBoundaryFile(string fieldDirectory)
+        // Recibe la ruta completa del lote (el caller resuelve fieldsDirectory):
+        // sin RegistrySettings aca, esta clase es portable (traspaso 2026-07-17).
+        public bool SaveToBoundaryFile(string fieldDirectoryFullPath)
         {
             try
             {
@@ -118,7 +120,7 @@ namespace AgOpenGPS.Classes
                     return false;
                 }
 
-                string path = Path.Combine(RegistrySettings.fieldsDirectory, fieldDirectory, "Boundary.txt");
+                string path = Path.Combine(fieldDirectoryFullPath, "Boundary.txt");
                 File.WriteAllLines(path, GetBoundaryFileLines(FinalizedBoundary));
                 Log.EventWriter($"Boundary successfully saved to {path}");
                 return true;
@@ -599,10 +601,8 @@ namespace AgOpenGPS.Classes
                 (a - b).GetLengthSquared() < INTERSECTION_TOLERANCE_SQ;
 
             public int GetHashCode(vec2 p) =>
-                HashCode.Combine(
-                    Math.Round(p.easting / INTERSECTION_TOLERANCE),
-                    Math.Round(p.northing / INTERSECTION_TOLERANCE)
-                );
+                (Math.Round(p.easting / INTERSECTION_TOLERANCE),
+                 Math.Round(p.northing / INTERSECTION_TOLERANCE)).GetHashCode();
         }
         #endregion
     }

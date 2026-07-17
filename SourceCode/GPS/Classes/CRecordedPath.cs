@@ -5,28 +5,6 @@ using System.Collections.Generic;
 
 namespace AgOpenGPS
 {
-    public class CRecPathPt
-    {
-        public double easting { get; set; }
-        public double northing { get; set; }
-        public double heading { get; set; }
-        public double speed { get; set; }
-        public bool autoBtnState { get; set; }
-
-        //constructor
-        public CRecPathPt(double _easting, double _northing, double _heading, double _speed,
-                            bool _autoBtnState)
-        {
-            easting = _easting;
-            northing = _northing;
-            heading = _heading;
-            speed = _speed;
-            autoBtnState = _autoBtnState;
-        }
-
-        public GeoCoord AsGeoCoord => new GeoCoord(northing, easting);
-    }
-
     public class CRecordedPath
     {
         //constructor

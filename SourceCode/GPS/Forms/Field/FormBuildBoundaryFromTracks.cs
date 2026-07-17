@@ -704,7 +704,7 @@ namespace AgOpenGPS.Forms.Field
             try
             {
                 ValidateSaveConditions();
-                _builder.SaveToBoundaryFile(_mf.currentFieldDirectory);
+                _builder.SaveToBoundaryFile(System.IO.Path.Combine(RegistrySettings.fieldsDirectory, _mf.currentFieldDirectory));
             }
             catch (Exception ex)
             {
