@@ -381,8 +381,30 @@ namespace AgOpenGPS
 
             GLW.SetPointSize(1.0f);
 
-            //Draw reference AB line
-            GeoCoord[] abEndPoints = { track.endPtA.ToGeoCoord(), track.endPtB.ToGeoCoord() };
+            // PilotX: centrar el tramo dibujado en el vehículo. La guía
+            // matemática es infinita pero el dibujo eran ±2000 m fijos desde
+            // el origen del lote: manejando más lejos la línea "se cortaba"
+            // (visto con el sim a 6 km). Se proyecta la posición actual sobre
+            // la línea y se dibuja ±abLength alrededor de esa proyección.
+            double sinH = Math.Sin(abHeading), cosH = Math.Cos(abHeading);
+            double distAlong = ((mf.GuidanceLookPos.easting - currentLinePtA.easting) * sinH)
+                             + ((mf.GuidanceLookPos.northing - currentLinePtA.northing) * cosH);
+            vec3 drawPtA = new vec3(
+                currentLinePtA.easting + (sinH * (distAlong - abLength)),
+                currentLinePtA.northing + (cosH * (distAlong - abLength)), abHeading);
+            vec3 drawPtB = new vec3(
+                currentLinePtA.easting + (sinH * (distAlong + abLength)),
+                currentLinePtA.northing + (cosH * (distAlong + abLength)), abHeading);
+
+            //Draw reference AB line (recentrada igual que la actual)
+            double refAlong = ((mf.GuidanceLookPos.easting - track.ptA.easting) * sinH)
+                            + ((mf.GuidanceLookPos.northing - track.ptA.northing) * cosH);
+            GeoCoord[] abEndPoints = {
+                new vec2(track.ptA.easting + (sinH * (refAlong - abLength)),
+                         track.ptA.northing + (cosH * (refAlong - abLength))).ToGeoCoord(),
+                new vec2(track.ptA.easting + (sinH * (refAlong + abLength)),
+                         track.ptA.northing + (cosH * (refAlong + abLength))).ToGeoCoord()
+            };
             GLW.SetLineWidth(4.0f);
             GLW.EnableLineStipple();
             GLW.SetLineStipple(1, 0x0F00);
@@ -392,8 +414,8 @@ namespace AgOpenGPS
 
             // shadow
             double shadowOffset = isHeadingSameWay ? mf.Tool.offset : -mf.Tool.offset;
-            GeoCoord ptA = currentLinePtA.ToGeoCoord();
-            GeoCoord ptB = currentLinePtB.ToGeoCoord();
+            GeoCoord ptA = drawPtA.ToGeoCoord();
+            GeoCoord ptB = drawPtB.ToGeoCoord();
             GeoDir abDir = new GeoDir(abHeading);
             GeoDir perpendicalurRightDir = abDir.PerpendicularRight;
             GeoDelta rightOffset = (shadowOffset + 0.5 * mf.Tool.width) * perpendicalurRightDir;
@@ -413,7 +435,7 @@ namespace AgOpenGPS
             GLW.DrawLineLoopPrimitive(shadowCoords);
 
             //draw current AB Line
-            GeoCoord[] currentAbLine = { currentLinePtA.ToGeoCoord(), currentLinePtB.ToGeoCoord() };
+            GeoCoord[] currentAbLine = { drawPtA.ToGeoCoord(), drawPtB.ToGeoCoord() };
             LineStyle blackBackgroundStyle = new LineStyle(lineWidth * 3, Colors.Black);
             LineStyle purpleForgroundStyle = new LineStyle(lineWidth, currentAbLinePurple);
             GLW.DrawLinesPrimitiveLayered(
@@ -424,7 +446,7 @@ namespace AgOpenGPS
             if (mf.IsSideGuideLines && mf.CamSetDistance > mf.Tool.width * -400)
             {
                 double toolWidth = mf.Tool.width - mf.Tool.overlap;
-                GeoLineSegment currentLine = new GeoLineSegment(currentLinePtA.ToGeoCoord(), currentLinePtB.ToGeoCoord());
+                GeoLineSegment currentLine = new GeoLineSegment(drawPtA.ToGeoCoord(), drawPtB.ToGeoCoord());
                 GeoDir perpendicularRightDir = currentLine.Direction.PerpendicularRight;
                 GeoLineSegment[] lines = new GeoLineSegment[2 * numGuideLines];
                 int linesIndex = 0;
