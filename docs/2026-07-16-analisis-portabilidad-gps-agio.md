@@ -52,6 +52,20 @@
 4. **Reescribir UI**: los ~174 archivos REESCRIBIR son formularios; gran parte de la config ya migró a HTML (config.html, perfiles, nodos, Hub) servida por EmbedIO — ese camino (backend EmbedIO + frontend web) es el que menos reescritura exige para Linux/Android.
 5. **Plataforma específica**: serie (Android USB host / iOS sin serie), audio, brillo, webcam, WebView.
 
+### Estado global del trabajo estructural (actualizado 2026-07-17)
+
+Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **en este repo antes del port** (extraer/aislar); la UI nueva y las impls por plataforma se escriben recién en el port.
+
+| # | Punto | Estado | % | Qué falta |
+|---|---|---|---|---|
+| 1 | Extraer core a librería sin UI | AVANZADO | ~40% | ~24 clases de Classes/ acopladas a `FormGPS` por constructor (CABCurve, CABLine, CContour, CGuidance, CYouTurn, CVehicle, CTool, CTrack, CRecordedPath, CBoundary, CFence, CNMEA, CSim, CAHRS, CFieldData, CHead, CModuleComm, CPatches, CSection, CTurn, CTram, CISOBUS…) → interfaces estilo `FormGps*Service`; y el parsing NMEA/PGN de AgIO (NMEA.Designer, PGN.Designer, UDP) |
+| 2 | Abstraer persistencia | **HECHO** | 100% | — (Registry solo migración legacy aislada; en el port se borra el `#region Legacy`) |
+| 3 | Aislar host OpenGL | AVANZADO | ~70% | `oglSelf` de los editores (FormABDraw/FormHeadLine/etc., UI a reescribir igual) y GeoViewport; la impl EGL/SDL/GLSurfaceView es trabajo del port |
+| 4 | Reescribir UI | EN CURSO (vía web) | ~25% | ~174 archivos WinForms; cada pantalla que migra a HTML/EmbedIO (config, perfiles, nodos, firmwares, datos lote/GPS ya migradas) baja este costo |
+| 5 | Plataforma específica | PARCIAL | ~40% | Serie (Android USB host), webcam, WebView2. Audio (`AgpSoundPlayer`), brillo (`IBrightnessController`) y texturas (`Texture2D`) ya quedaron detrás de un punto único |
+
+**Lectura global:** del trabajo estructural pre-port (puntos 1–3+5), está hecho **≈ 50%**. Ya viven en `AgOpenGPS.Core` (sin WinForms, 34 tests verdes): IO/ completo, Protocols/ISOBUS, 13 clases portables + POCOs `CTrk`/`CRecPathPt`. El grueso restante es uno solo y bien definido: **invertir el acoplamiento `FormGPS` de las ~24 clases de guiado/estado** (punto 1), que arrastra consigo casi todo lo demás.
+
 ---
 
 # GPS — SourceCode/GPS
