@@ -71,10 +71,10 @@ namespace AgOpenGPS
 
         //Color tramColor = Color.YellowGreen;
 
-        //pointers to mainform controls
-        private readonly FormGPS mf;
+        // Host invertido (FormGPS implementa IABLineHost) — traspaso 2026-07-17
+        private readonly IABLineHost mf;
 
-        public CABLine(FormGPS _f)
+        public CABLine(IABLineHost _f)
         {
             //constructor
             mf = _f;
@@ -86,13 +86,13 @@ namespace AgOpenGPS
 
         public void BuildCurrentABLineList(vec3 pivot)
         {
-            if (mf.trk.gArr.Count < mf.trk.idx || mf.trk.idx < 0) return;
+            if (mf.Tracks.Count < mf.TrackIdx || mf.TrackIdx < 0) return;
 
-            CTrk track = mf.trk.gArr[mf.trk.idx];
+            CTrk track = mf.Tracks[mf.TrackIdx];
 
-            if (!isABValid || ((mf.secondsSinceStart - lastSecond) > 0.66 && (!mf.isBtnAutoSteerOn || mf.mc.steerSwitchHigh)))
+            if (!isABValid || ((mf.SecondsSinceStart - lastSecond) > 0.66 && (!mf.IsBtnAutoSteerOn || mf.Mc.steerSwitchHigh)))
             {
-                lastSecond = mf.secondsSinceStart;
+                lastSecond = mf.SecondsSinceStart;
 
                 double dx, dy;
 
@@ -105,14 +105,14 @@ namespace AgOpenGPS
                 track.endPtB.northing = track.ptB.northing + (Math.Cos(abHeading) * abLength);
 
                 //move the ABLine over based on the overlap amount set in
-                double widthMinusOverlap = mf.tool.width - mf.tool.overlap;
+                double widthMinusOverlap = mf.Tool.width - mf.Tool.overlap;
 
                 //x2-x1
                 dx = track.endPtB.easting - track.endPtA.easting;
                 //z2-z1
                 dy = track.endPtB.northing - track.endPtA.northing;
 
-                distanceFromRefLine = ((dy * mf.guidanceLookPos.easting) - (dx * mf.guidanceLookPos.northing) + (track.endPtB.easting
+                distanceFromRefLine = ((dy * mf.GuidanceLookPos.easting) - (dx * mf.GuidanceLookPos.northing) + (track.endPtB.easting
                                         * track.endPtA.northing) - (track.endPtB.northing * track.endPtA.easting))
                                             / Math.Sqrt((dy * dy) + (dx * dx));
 
@@ -120,25 +120,25 @@ namespace AgOpenGPS
 
                 isHeadingSameWay = Math.PI - Math.Abs(Math.Abs(pivot.heading - abHeading) - Math.PI) < glm.PIBy2;
 
-                //if (mf.yt.isYouTurnTriggered && !mf.yt.isGoingStraightThrough) isHeadingSameWay = !isHeadingSameWay;
+                //if (mf.IsYouTurnTriggered && !isGoingStraightThrough) isHeadingSameWay = !isHeadingSameWay;
 
                 //Which ABLine is the vehicle on, negative is left and positive is right side
 
-                double RefDist = (distanceFromRefLine + (isHeadingSameWay ? mf.tool.offset : -mf.tool.offset) - track.nudgeDistance) / widthMinusOverlap;
+                double RefDist = (distanceFromRefLine + (isHeadingSameWay ? mf.Tool.offset : -mf.Tool.offset) - track.nudgeDistance) / widthMinusOverlap;
 
                 if (RefDist < 0) howManyPathsAway = (int)(RefDist - 0.5);
                 else howManyPathsAway = (int)(RefDist + 0.5);
             }
 
-            if (!isABValid || howManyPathsAway != lastHowManyPathsAway || (isHeadingSameWay != lastIsHeadingSameWay && mf.tool.offset != 0))
+            if (!isABValid || howManyPathsAway != lastHowManyPathsAway || (isHeadingSameWay != lastIsHeadingSameWay && mf.Tool.offset != 0))
             {
                 isABValid = true;
                 lastHowManyPathsAway = howManyPathsAway;
                 lastIsHeadingSameWay = isHeadingSameWay;
 
-                double widthMinusOverlap = mf.tool.width - mf.tool.overlap;
+                double widthMinusOverlap = mf.Tool.width - mf.Tool.overlap;
 
-                double distAway = widthMinusOverlap * howManyPathsAway + (isHeadingSameWay ? -mf.tool.offset : mf.tool.offset) + track.nudgeDistance;
+                double distAway = widthMinusOverlap * howManyPathsAway + (isHeadingSameWay ? -mf.Tool.offset : mf.Tool.offset) + track.nudgeDistance;
 
                 distAway += (0.5 * widthMinusOverlap);
 
@@ -168,24 +168,24 @@ namespace AgOpenGPS
             double dx, dy;
 
             //Check uturn first
-            if (mf.yt.isYouTurnTriggered && mf.yt.DistanceFromYouTurnLine())//do the pure pursuit from youTurn
+            if (mf.IsYouTurnTriggered && mf.YouTurnDistanceFromYouTurnLine())//do the pure pursuit from youTurn
             {
                 //now substitute what it thinks are AB line values with auto turn values
-                steerAngleAB = mf.yt.steerAngleYT;
-                distanceFromCurrentLinePivot = mf.yt.distanceFromCurrentLine;
+                steerAngleAB = mf.YouTurnSteerAngle;
+                distanceFromCurrentLinePivot = mf.YouTurnDistanceFromCurrentLine;
 
-                goalPointAB = mf.yt.goalPointYT;
-                radiusPointAB.easting = mf.yt.radiusPointYT.easting;
-                radiusPointAB.northing = mf.yt.radiusPointYT.northing;
-                ppRadiusAB = mf.yt.ppRadiusYT;
+                goalPointAB = mf.YouTurnGoalPoint;
+                radiusPointAB.easting = mf.YouTurnRadiusPoint.easting;
+                radiusPointAB.northing = mf.YouTurnRadiusPoint.northing;
+                ppRadiusAB = mf.YouTurnPpRadius;
 
-                mf.vehicle.modeTimeCounter = 0;
-                mf.vehicle.modeActualXTE = (distanceFromCurrentLinePivot);
+                mf.Vehicle.modeTimeCounter = 0;
+                mf.Vehicle.modeActualXTE = (distanceFromCurrentLinePivot);
             }
 
             //Stanley
-            else if (mf.isStanleyUsed)
-                mf.gyd.StanleyGuidanceABLine(currentLinePtA, currentLinePtB, pivot, steer);
+            else if (mf.IsStanleyUsed)
+                mf.StanleyGuidanceABLine(currentLinePtA, currentLinePtB, pivot, steer);
 
             //Pure Pursuit
             else
@@ -202,7 +202,7 @@ namespace AgOpenGPS
                             / Math.Sqrt((dy * dy) + (dx * dx));
 
                 //integral slider is set to 0
-                if (mf.vehicle.purePursuitIntegralGain != 0 && !mf.isReverse)
+                if (mf.Vehicle.purePursuitIntegralGain != 0 && !mf.IsReverse)
                 {
                     pivotDistanceError = distanceFromCurrentLinePivot * 0.2 + pivotDistanceError * 0.8;
 
@@ -221,23 +221,23 @@ namespace AgOpenGPS
 
                     //pivotErrorTotal = pivotDistanceError + pivotDerivative;
 
-                    if (mf.isBtnAutoSteerOn
+                    if (mf.IsBtnAutoSteerOn
                         && Math.Abs(pivotDerivative) < (0.1)
-                        && mf.avgSpeed > 2.5
-                        && !mf.yt.isYouTurnTriggered)
+                        && mf.AvgSpeed > 2.5
+                        && !mf.IsYouTurnTriggered)
                     //&& Math.Abs(pivotDistanceError) < 0.2)
 
                     {
                         //if over the line heading wrong way, rapidly decrease integral
                         if ((inty < 0 && distanceFromCurrentLinePivot < 0) || (inty > 0 && distanceFromCurrentLinePivot > 0))
                         {
-                            inty += pivotDistanceError * mf.vehicle.purePursuitIntegralGain * -0.04;
+                            inty += pivotDistanceError * mf.Vehicle.purePursuitIntegralGain * -0.04;
                         }
                         else
                         {
                             if (Math.Abs(distanceFromCurrentLinePivot) > 0.02)
                             {
-                                inty += pivotDistanceError * mf.vehicle.purePursuitIntegralGain * -0.02;
+                                inty += pivotDistanceError * mf.Vehicle.purePursuitIntegralGain * -0.02;
                                 if (inty > 0.2) inty = 0.2;
                                 else if (inty < -0.2) inty = -0.2;
                             }
@@ -257,9 +257,9 @@ namespace AgOpenGPS
                 rNorthAB = currentLinePtA.northing + (U * dy);
 
                 //update base on autosteer settings and distance from line
-                double goalPointDistance = mf.vehicle.UpdateGoalPointDistance();
+                double goalPointDistance = mf.Vehicle.UpdateGoalPointDistance();
 
-                if (mf.isReverse ^ isHeadingSameWay)
+                if (mf.IsReverse ^ isHeadingSameWay)
                 {
                     goalPointAB.easting = rEastAB + (Math.Sin(abHeading) * goalPointDistance);
                     goalPointAB.northing = rNorthAB + (Math.Cos(abHeading) * goalPointDistance);
@@ -277,23 +277,23 @@ namespace AgOpenGPS
                 //calculate the the new x in local coordinates and steering angle degrees based on wheelbase
                 double localHeading;
 
-                if (isHeadingSameWay) localHeading = glm.twoPI - mf.fixHeading + inty;
-                else localHeading = glm.twoPI - mf.fixHeading - inty;
+                if (isHeadingSameWay) localHeading = glm.twoPI - mf.FixHeading + inty;
+                else localHeading = glm.twoPI - mf.FixHeading - inty;
 
                 ppRadiusAB = goalPointDistanceDSquared / (2 * (((goalPointAB.easting - pivot.easting) * Math.Cos(localHeading))
                     + ((goalPointAB.northing - pivot.northing) * Math.Sin(localHeading))));
 
                 steerAngleAB = glm.toDegrees(Math.Atan(2 * (((goalPointAB.easting - pivot.easting) * Math.Cos(localHeading))
-                    + ((goalPointAB.northing - pivot.northing) * Math.Sin(localHeading))) * mf.vehicle.VehicleConfig.Wheelbase
+                    + ((goalPointAB.northing - pivot.northing) * Math.Sin(localHeading))) * mf.Vehicle.VehicleConfig.Wheelbase
                     / goalPointDistanceDSquared));
 
-                if (mf.ahrs.imuRoll != 88888)
-                    steerAngleAB += mf.ahrs.imuRoll * -mf.gyd.sideHillCompFactor;
+                if (mf.Ahrs.imuRoll != 88888)
+                    steerAngleAB += mf.Ahrs.imuRoll * -mf.SideHillCompFactor;
 
                 //steerAngleAB *= 1.4;
 
-                if (steerAngleAB < -mf.vehicle.maxSteerAngle) steerAngleAB = -mf.vehicle.maxSteerAngle;
-                if (steerAngleAB > mf.vehicle.maxSteerAngle) steerAngleAB = mf.vehicle.maxSteerAngle;
+                if (steerAngleAB < -mf.Vehicle.maxSteerAngle) steerAngleAB = -mf.Vehicle.maxSteerAngle;
+                if (steerAngleAB > mf.Vehicle.maxSteerAngle) steerAngleAB = mf.Vehicle.maxSteerAngle;
 
                 //limit circle size for display purpose
                 if (ppRadiusAB < -500) ppRadiusAB = -500;
@@ -309,7 +309,7 @@ namespace AgOpenGPS
                 //    //clamp the steering angle to not exceed safe angular velocity
                 //    if (Math.Abs(mf.setAngVel) > 1000)
                 //    {
-                //        //mf.setAngVel = mf.setAngVel < 0 ? -mf.vehicle.maxAngularVelocity : mf.vehicle.maxAngularVelocity;
+                //        //mf.setAngVel = mf.setAngVel < 0 ? -mf.Vehicle.maxAngularVelocity : mf.Vehicle.maxAngularVelocity;
                 //        mf.setAngVel = mf.setAngVel < 0 ? -1000 : 1000;
                 //    }
                 //}
@@ -319,7 +319,7 @@ namespace AgOpenGPS
                     distanceFromCurrentLinePivot *= -1.0;
 
                 //used for acquire/hold mode
-                mf.vehicle.modeActualXTE = (distanceFromCurrentLinePivot);
+                mf.Vehicle.modeActualXTE = (distanceFromCurrentLinePivot);
 
                 double steerHeadingError = (pivot.heading - abHeading);
                 //Fix the circular error
@@ -333,14 +333,14 @@ namespace AgOpenGPS
                 else if (steerHeadingError < -glm.PIBy2)
                     steerHeadingError += Math.PI;
 
-                mf.vehicle.modeActualHeadingError = glm.toDegrees(steerHeadingError);
+                mf.Vehicle.modeActualHeadingError = glm.toDegrees(steerHeadingError);
 
                 //Convert to millimeters
-                mf.guidanceLineDistanceOff = (short)Math.Round(distanceFromCurrentLinePivot * 1000.0, MidpointRounding.AwayFromZero);
-                mf.guidanceLineSteerAngle = (short)(steerAngleAB * 100);
+                mf.GuidanceLineDistanceOff = (short)Math.Round(distanceFromCurrentLinePivot * 1000.0, MidpointRounding.AwayFromZero);
+                mf.GuidanceLineSteerAngle = (short)(steerAngleAB * 100);
             }
 
-            //mf.setAngVel = 0.277777 * mf.avgSpeed * (Math.Tan(glm.toRadians(steerAngleAB))) / mf.vehicle.wheelbase;
+            //mf.setAngVel = 0.277777 * mf.AvgSpeed * (Math.Tan(glm.toRadians(steerAngleAB))) / mf.Vehicle.wheelbase;
             //mf.setAngVel = glm.toDegrees(mf.setAngVel);
         }
 
@@ -354,14 +354,14 @@ namespace AgOpenGPS
             GLW.DrawLinesPrimitive(desLineEndPoints);
 
             GLW.SetColor(pointsTextGreen);
-            mf.font.DrawText3D(desPtA.easting, desPtA.northing, "&A", mf.camHeading);
-            mf.font.DrawText3D(desPtB.easting, desPtB.northing, "&B", mf.camHeading);
+            mf.TextFont.DrawText3D(desPtA.easting, desPtA.northing, "&A", mf.CamHeading);
+            mf.TextFont.DrawText3D(desPtB.easting, desPtB.northing, "&B", mf.CamHeading);
         }
 
         public void DrawABLines()
         {
             // Draw AB Points
-            CTrk track = mf.trk.gArr[mf.trk.idx];
+            CTrk track = mf.Tracks[mf.TrackIdx];
             GLW.SetPointSize(8.0f);
             GLW.BeginPointsPrimitive();
 
@@ -375,8 +375,8 @@ namespace AgOpenGPS
 
             if (!isMakingABLine)
             {
-                mf.font.DrawText3D(track.ptA.easting, track.ptA.northing, "&A", mf.camHeading);
-                mf.font.DrawText3D(track.ptB.easting, track.ptB.northing, "&B", mf.camHeading);
+                mf.TextFont.DrawText3D(track.ptA.easting, track.ptA.northing, "&A", mf.CamHeading);
+                mf.TextFont.DrawText3D(track.ptB.easting, track.ptB.northing, "&B", mf.CamHeading);
             }
 
             GLW.SetPointSize(1.0f);
@@ -391,13 +391,13 @@ namespace AgOpenGPS
             GLW.DisableLineStipple();
 
             // shadow
-            double shadowOffset = isHeadingSameWay ? mf.tool.offset : -mf.tool.offset;
+            double shadowOffset = isHeadingSameWay ? mf.Tool.offset : -mf.Tool.offset;
             GeoCoord ptA = currentLinePtA.ToGeoCoord();
             GeoCoord ptB = currentLinePtB.ToGeoCoord();
             GeoDir abDir = new GeoDir(abHeading);
             GeoDir perpendicalurRightDir = abDir.PerpendicularRight;
-            GeoDelta rightOffset = (shadowOffset + 0.5 * mf.tool.width) * perpendicalurRightDir;
-            GeoDelta leftOffset = (shadowOffset - 0.5 * mf.tool.width) * perpendicalurRightDir;
+            GeoDelta rightOffset = (shadowOffset + 0.5 * mf.Tool.width) * perpendicalurRightDir;
+            GeoDelta leftOffset = (shadowOffset - 0.5 * mf.Tool.width) * perpendicalurRightDir;
 
             GeoCoord[] shadowCoords = {
                 ptA + leftOffset,
@@ -421,15 +421,15 @@ namespace AgOpenGPS
                 blackBackgroundStyle,
                 purpleForgroundStyle);
 
-            if (mf.isSideGuideLines && mf.camera.camSetDistance > mf.tool.width * -400)
+            if (mf.IsSideGuideLines && mf.CamSetDistance > mf.Tool.width * -400)
             {
-                double toolWidth = mf.tool.width - mf.tool.overlap;
+                double toolWidth = mf.Tool.width - mf.Tool.overlap;
                 GeoLineSegment currentLine = new GeoLineSegment(currentLinePtA.ToGeoCoord(), currentLinePtB.ToGeoCoord());
                 GeoDir perpendicularRightDir = currentLine.Direction.PerpendicularRight;
                 GeoLineSegment[] lines = new GeoLineSegment[2 * numGuideLines];
                 int linesIndex = 0;
 
-                double oddOffset = 2 * (isHeadingSameWay ? mf.tool.offset : -mf.tool.offset);
+                double oddOffset = 2 * (isHeadingSameWay ? mf.Tool.offset : -mf.Tool.offset);
                 for (int i = 1; i <= numGuideLines; i += 2)
                 {
                     GeoLineSegment rightOddLine = currentLine.Shifted((toolWidth * i + oddOffset) * perpendicularRightDir);
@@ -451,7 +451,7 @@ namespace AgOpenGPS
                     extraGuidelinesBackgroundStyle,
                     extraGuidelinesForegroundStyle);
             }
-            mf.yt.DrawYouTurn();
+            mf.DrawYouTurn();
 
             GLW.SetPointSize(1.0f);
             GLW.SetLineWidth(1.0f);
@@ -459,40 +459,40 @@ namespace AgOpenGPS
 
         public void BuildTram()
         {
-            if (mf.tram.generateMode.IncludesBoundaryTracks())
+            if (mf.Tram.generateMode.IncludesBoundaryTracks())
             {
-                mf.tram.BuildTramBnd();
+                mf.Tram.BuildTramBnd();
             }
             else
             {
-                mf.tram.tramBndOuterArr?.Clear();
-                mf.tram.tramBndInnerArr?.Clear();
+                mf.Tram.tramBndOuterArr?.Clear();
+                mf.Tram.tramBndInnerArr?.Clear();
             }
 
-            mf.tram.tramList?.Clear();
-            mf.tram.tramArr?.Clear();
+            mf.Tram.tramList?.Clear();
+            mf.Tram.tramArr?.Clear();
 
-            if (!mf.tram.generateMode.IncludesFillTracks())
+            if (!mf.Tram.generateMode.IncludesFillTracks())
             {
                 return;
             }
 
             List<vec2> tramRef = new List<vec2>();
 
-            bool isBndExist = mf.bnd.bndList.Count != 0;
+            bool isBndExist = mf.Bnd.bndList.Count != 0;
 
-            abHeading = mf.trk.gArr[mf.trk.idx].heading;
+            abHeading = mf.Tracks[mf.TrackIdx].heading;
 
             double hsin = Math.Sin(abHeading);
             double hcos = Math.Cos(abHeading);
 
-            double len = glm.Distance(mf.trk.gArr[mf.trk.idx].endPtA, mf.trk.gArr[mf.trk.idx].endPtB);
+            double len = glm.Distance(mf.Tracks[mf.TrackIdx].endPtA, mf.Tracks[mf.TrackIdx].endPtB);
             //divide up the AB line into segments
             vec2 P1 = new vec2();
             for (int i = 0; i < (int)len; i += 4)
             {
-                P1.easting = (hsin * i) + mf.trk.gArr[mf.trk.idx].endPtA.easting;
-                P1.northing = (hcos * i) + mf.trk.gArr[mf.trk.idx].endPtA.northing;
+                P1.easting = (hsin * i) + mf.Tracks[mf.TrackIdx].endPtA.easting;
+                P1.northing = (hcos * i) + mf.Tracks[mf.TrackIdx].endPtA.northing;
                 tramRef.Add(P1);
             }
 
@@ -502,58 +502,58 @@ namespace AgOpenGPS
             hsin = Math.Sin(headingCalc);
             hcos = Math.Cos(headingCalc);
 
-            mf.tram.tramList?.Clear();
-            mf.tram.tramArr?.Clear();
+            mf.Tram.tramList?.Clear();
+            mf.Tram.tramArr?.Clear();
 
             //no boundary starts on first pass
-            bool skipFirstPass = isBndExist && mf.tram.generateMode.IncludesBoundaryTracks();
+            bool skipFirstPass = isBndExist && mf.Tram.generateMode.IncludesBoundaryTracks();
             int startPass = skipFirstPass ? 1 : 0;
 
             double widd;
-            for (int i = startPass; i < mf.tram.passes; i++)
+            for (int i = startPass; i < mf.Tram.passes; i++)
             {
-                mf.tram.tramArr = new List<vec2>
+                mf.Tram.tramArr = new List<vec2>
                 {
                     Capacity = 128
                 };
 
-                mf.tram.tramList.Add(mf.tram.tramArr);
+                mf.Tram.tramList.Add(mf.Tram.tramArr);
 
-                widd = (mf.tram.tramWidth * 0.5) - mf.tram.halfWheelTrack;
-                widd += (mf.tram.tramWidth * i);
+                widd = (mf.Tram.tramWidth * 0.5) - mf.Tram.halfWheelTrack;
+                widd += (mf.Tram.tramWidth * i);
 
                 for (int j = 0; j < tramRef.Count; j++)
                 {
                     P1.easting = hsin * widd + tramRef[j].easting;
                     P1.northing = (hcos * widd) + tramRef[j].northing;
 
-                    if (!isBndExist || mf.bnd.bndList[0].fenceLineEar.IsPointInPolygon(P1))
+                    if (!isBndExist || mf.Bnd.bndList[0].fenceLineEar.IsPointInPolygon(P1))
                     {
-                        mf.tram.tramArr.Add(P1);
+                        mf.Tram.tramArr.Add(P1);
                     }
                 }
             }
 
-            for (int i = startPass; i < mf.tram.passes; i++)
+            for (int i = startPass; i < mf.Tram.passes; i++)
             {
-                mf.tram.tramArr = new List<vec2>
+                mf.Tram.tramArr = new List<vec2>
                 {
                     Capacity = 128
                 };
 
-                mf.tram.tramList.Add(mf.tram.tramArr);
+                mf.Tram.tramList.Add(mf.Tram.tramArr);
 
-                widd = (mf.tram.tramWidth * 0.5) + mf.tram.halfWheelTrack;
-                widd += (mf.tram.tramWidth * i);
+                widd = (mf.Tram.tramWidth * 0.5) + mf.Tram.halfWheelTrack;
+                widd += (mf.Tram.tramWidth * i);
 
                 for (int j = 0; j < tramRef.Count; j++)
                 {
                     P1.easting = (hsin * widd) + tramRef[j].easting;
                     P1.northing = (hcos * widd) + tramRef[j].northing;
 
-                    if (!isBndExist || mf.bnd.bndList[0].fenceLineEar.IsPointInPolygon(P1))
+                    if (!isBndExist || mf.Bnd.bndList[0].fenceLineEar.IsPointInPolygon(P1))
                     {
-                        mf.tram.tramArr.Add(P1);
+                        mf.Tram.tramArr.Add(P1);
                     }
                 }
             }
@@ -561,7 +561,7 @@ namespace AgOpenGPS
             tramRef?.Clear();
             //outside tram
 
-            if (mf.bnd.bndList.Count == 0 || mf.tram.passes != 0)
+            if (mf.Bnd.bndList.Count == 0 || mf.Tram.passes != 0)
             {
                 //return;
             }
