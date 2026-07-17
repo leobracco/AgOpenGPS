@@ -58,7 +58,7 @@ Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **e
 
 | # | Punto | Estado | % | Qué falta |
 |---|---|---|---|---|
-| 1 | Extraer core a librería sin UI | AVANZADO | ~40% | ~14 clases de Classes/ acopladas a `FormGPS` por constructor ( CAHRS/CDubins/CFieldData/CModuleComm/CTram/CSim/CBoundary(+CFence/CTurn/CHead)/CSection/CPatches/CTool/CVehicle/CABLine/CABCurve/CContour/CGuidance/CYouTurn/CTrack/CRecordedPath/CNMEA/CISOBUS ya movidas) → interfaces estilo `FormGps*Service`; y el parsing NMEA/PGN de AgIO (NMEA.Designer, PGN.Designer, UDP) |
+| 1 | Extraer core a librería sin UI | AVANZADO | ~40% | ~14 clases de Classes/ acopladas a `FormGPS` por constructor ( CAHRS/CDubins/CFieldData/CModuleComm/CTram/CSim/CBoundary(+CFence/CTurn/CHead)/CSection/CPatches/CTool/CVehicle/CABLine/CABCurve/CContour/CGuidance/CYouTurn/CTrack/CRecordedPath/CNMEA/CISOBUS ya movidas) → interfaces estilo `FormGps*Service`; y el parsing NMEA/PGN de AgIO (NMEA.Designer ya extraído a `CNmeaParser` 2026-07-17; faltan PGN.Designer y UDP) |
 | 2 | Abstraer persistencia | **HECHO** | 100% | — (Registry solo migración legacy aislada; en el port se borra el `#region Legacy`) |
 | 3 | Aislar host OpenGL | AVANZADO | ~70% | `oglSelf` de los editores (FormABDraw/FormHeadLine/etc., UI a reescribir igual) y GeoViewport; la impl EGL/SDL/GLSurfaceView es trabajo del port |
 | 4 | Reescribir UI | EN CURSO (vía web) | ~25% | ~174 archivos WinForms; cada pantalla que migra a HTML/EmbedIO (config, perfiles, nodos, firmwares, datos lote/GPS ya migradas) baja este costo |
@@ -270,7 +270,7 @@ Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **e
 | UDP.designer.cs | 470 | **Lógica UDP**: broadcast, multicast, scan de red, hello a módulos | Sockets estándar (portables), host WinForms | ADAPTABLE |
 | MQTT.Designer.cs | ~150 | **Broker MQTT embebido (MQTTnet)**: Start/Stop, handlers, :1883 | MQTTnet portable; updates de labels WinForms | ADAPTABLE |
 | SerialComm.Designer.cs | ~200 | **6 puertos serie** (GPS×2, RTCM, IMU, Steer, Machine): callbacks, envío | System.IO.Ports (Android: USB host; iOS: sin serie) | ADAPTABLE |
-| NMEA.Designer.cs | ~300 | **Parsing NMEA completo** (checksums, fix, sats, heading, IMU) | — | PORTABLE |
+| ~~NMEA.Designer.cs~~ → Classes/NmeaParser.cs | ~300 | **Parsing NMEA completo** (checksums, fix, sats, heading, IMU) — **extraído 2026-07-17** a `CNmeaParser` sin UI (host: `INmeaParserHost`, bridge `FormLoop.NmeaBridge.cs` con forwarders) | — | PORTABLE ✅ |
 | NTRIPComm.Designer.cs | ~250 | **Cliente NTRIP**: TCP al caster, auth HTTP, RTCM, GGA interval | TCP portable; salida a serie requiere adaptación | ADAPTABLE |
 | CoreXWebHost.cs | ~80 | Host EmbedIO :5181 (API + estáticos) | EmbedIO (portable) | PORTABLE |
 | CoreXStatusController.cs | 15 | GET /api/corex/status | — | PORTABLE |

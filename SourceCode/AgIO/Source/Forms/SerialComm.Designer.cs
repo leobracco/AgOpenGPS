@@ -787,8 +787,7 @@ namespace AgIO
         //called by the GPS delegate every time a chunk is rec'd
         private void ReceiveGPSPort(string sentence)
         {
-            rawBuffer += sentence;
-            ParseNMEA(ref rawBuffer);
+            nmea.ParseIncoming(sentence);
 
             traffic.cntrGPSOut += sentence.Length;
             if (isGPSCommOpen) recvGPSSentence = sentence;

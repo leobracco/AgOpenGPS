@@ -4,8 +4,23 @@ using AgLibrary.Logging;
 
 namespace AgIO
 {
-    public partial class FormLoop
+    /// <summary>
+    /// Parser NMEA de CoreX (ex NMEA.Designer.cs, partial de FormLoop).
+    /// Sin dependencias de WinForms: consume el host via INmeaParserHost
+    /// (inversion de dependencia, traspaso de portabilidad 2026-07-17).
+    /// Acumula bytes crudos con ParseIncoming(), extrae sentencias validas
+    /// (checksum), parsea GGA/VTG/HDT/AVR/HPD/TRA/KSXT/PAOGI/PANDA/PSTI y
+    /// arma el PGN 0xD6 que el host manda a PilotX y al modulo autosteer.
+    /// </summary>
+    public class CNmeaParser
     {
+        private readonly INmeaParserHost host;
+
+        public CNmeaParser(INmeaParserHost host)
+        {
+            this.host = host;
+        }
+
         private string rawBuffer = "";
         private string[] words;
         private string nextNMEASentence = "";
@@ -88,8 +103,9 @@ namespace AgIO
             return sentence;
         }
 
-        public void ParseNMEA(ref string buffer)
+        public void ParseIncoming(string data)
         {
+            rawBuffer += data;
             if (rawBuffer == null) return;
 
             //find end of a sentence
@@ -128,9 +144,9 @@ namespace AgIO
                 return;
             }
 
-            if (isLogMonitorOn)
+            if (host.IsLogMonitorOn)
             {
-                logMonitorSentence.Append(DateTime.UtcNow
+                host.AppendLogMonitor(DateTime.UtcNow
                     .ToString("mm:ss.fff ", CultureInfo.InvariantCulture) + rawBuffer);
             }
 
@@ -139,7 +155,7 @@ namespace AgIO
             while (true)
             {
                 //extract the next NMEA single sentence
-                nextNMEASentence = Parse(ref buffer);
+                nextNMEASentence = Parse(ref rawBuffer);
                 if (nextNMEASentence == null) break;
 
                 words = nextNMEASentence.Split(',');
@@ -156,55 +172,55 @@ namespace AgIO
                 if ((words[0] == "$GPGGA" || words[0] == "$GNGGA") && words.Length > 13)
                 {
                     ParseGGA();
-                    if (isGPSSentencesOn) ggaSentence = nextNMEASentence;
+                    if (host.IsGpsSentencesOn) ggaSentence = nextNMEASentence;
                 }
 
                 else if ((words[0] == "$GPVTG" || words[0] == "$GNVTG") && words.Length > 7)
                 {
                     ParseVTG();
-                    if (isGPSSentencesOn) vtgSentence = nextNMEASentence;
+                    if (host.IsGpsSentencesOn) vtgSentence = nextNMEASentence;
                 }
 
                 //else if (words[0] == "$GPRMC" || words[0] == "$GNRMC")
                 //{
                 //    ParseRMC();
-                //    if (isGPSSentencesOn) rmcSentence = nextNMEASentence;
+                //    if (host.IsGpsSentencesOn) rmcSentence = nextNMEASentence;
                 //}
 
                 else if (words[0] == "$KSXT")
                 {
                     ParseKSXT();
-                    if (isGPSSentencesOn) ksxtSentence = nextNMEASentence;
+                    if (host.IsGpsSentencesOn) ksxtSentence = nextNMEASentence;
                 }
 
                 else if (words[0] == "$GPHPD")
                 {
                     ParseHPD();
-                    if (isGPSSentencesOn) hpdSentence = nextNMEASentence;
+                    if (host.IsGpsSentencesOn) hpdSentence = nextNMEASentence;
                 }
 
                 else if (words[0] == "$PAOGI" && words.Length > 14)
                 {
                     ParseOGI();
-                    if (isGPSSentencesOn) paogiSentence = nextNMEASentence;
+                    if (host.IsGpsSentencesOn) paogiSentence = nextNMEASentence;
                 }
 
                 else if (words[0] == "$PANDA" && words.Length > 14)
                 {
                     ParsePANDA();
-                    if (isGPSSentencesOn) pandaSentence = nextNMEASentence;
+                    if (host.IsGpsSentencesOn) pandaSentence = nextNMEASentence;
                 }
 
                 else if (words[0] == "$GPHDT" || words[0] == "$GNHDT")
                 {
                     ParseHDT();
-                    if (isGPSSentencesOn) hdtSentence = nextNMEASentence;
+                    if (host.IsGpsSentencesOn) hdtSentence = nextNMEASentence;
                 }
 
                 else if (words[0] == "$PTNL" && words.Length > 8)
                 {
                     ParseAVR();
-                    if (isGPSSentencesOn) avrSentence = nextNMEASentence;
+                    if (host.IsGpsSentencesOn) avrSentence = nextNMEASentence;
                 }
 
                 else if (words[0] == "$GNTRA" || words[0] == "$GPTRA")
@@ -304,11 +320,8 @@ namespace AgIO
                 //checksum
                 nmeaPGN[56] = (byte)CK_A;
 
-                //Send nmea to AgOpenGPS
-                SendToLoopBackMessageAOG(nmeaPGN);
-
-                //Send nmea to autosteer module 8888
-                if (isSendNMEAToUDP) SendUDPMessage(nmeaPGN, epModule);
+                //Enviar a PilotX (loopback) y al modulo autosteer si corresponde
+                host.SendNmeaPgn(nmeaPGN);
             }
         }
 

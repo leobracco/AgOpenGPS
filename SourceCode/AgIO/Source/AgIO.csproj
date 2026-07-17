@@ -47,7 +47,7 @@
     <Compile Update="Forms\Controls.Designer.cs">
       <DependentUpon>FormLoop.cs</DependentUpon>
     </Compile>
-    <Compile Update="Forms\NMEA.Designer.cs">
+    <Compile Update="Forms\FormLoop.NmeaBridge.cs">
       <DependentUpon>FormLoop.cs</DependentUpon>
     </Compile>
     <Compile Update="Forms\NTRIPComm.Designer.cs">

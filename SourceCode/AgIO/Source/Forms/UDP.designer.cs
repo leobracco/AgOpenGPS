@@ -451,8 +451,7 @@ namespace AgIO
                 else if (data[0] == 36 && (data[1] == 71 || data[1] == 80 || data[1] == 75))
                 {
                     traffic.cntrGPSOut += data.Length;
-                    rawBuffer += Encoding.ASCII.GetString(data);
-                    ParseNMEA(ref rawBuffer);
+                    nmea.ParseIncoming(Encoding.ASCII.GetString(data));
 
                     if (isUDPMonitorOn && isGPSLogOn)
                     {
