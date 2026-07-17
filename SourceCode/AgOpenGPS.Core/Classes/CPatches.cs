@@ -1,4 +1,4 @@
-﻿//Please, if you use this, share the improvements
+//Please, if you use this, share the improvements
 
 using System;
 using System.Collections.Generic;
@@ -7,8 +7,8 @@ namespace AgOpenGPS
 {
     public class CPatches
     {
-        //copy of the mainform address
-        private readonly FormGPS mf;
+        // Host invertido (FormGPS implementa IPatchesHost) — traspaso 2026-07-17
+        private readonly IPatchesHost mf;
 
         //list of patch data individual triangles
         public List<vec3> triangleList = new List<vec3>();
@@ -26,8 +26,8 @@ namespace AgOpenGPS
         public int currentStartSectionNum, currentEndSectionNum;
         public int newStartSectionNum, newEndSectionNum;
 
-        //simple constructor, position is set in GPSWinForm_Load in FormGPS when creating new object
-        public CPatches(FormGPS _f)
+        //simple constructor, position is set in GPSWinForm_Load in el host when creating new object
+        public CPatches(IPatchesHost _f)
         {
             //constructor
             mf = _f;
@@ -50,20 +50,20 @@ namespace AgOpenGPS
 
                 patchList.Add(triangleList);
 
-                if (!mf.tool.isMultiColoredSections)
+                if (!mf.ToolIsMultiColoredSections)
                 {
-                    triangleList.Add(new vec3(mf.sectionColorDay.R, mf.sectionColorDay.G, mf.sectionColorDay.B));
+                    triangleList.Add(mf.SectionColorDayVec);
                 }
                 else
                 {
-                    if (mf.tool.isSectionsNotZones)
-                        triangleList.Add(new vec3(mf.tool.secColors[j].R, mf.tool.secColors[j].G, mf.tool.secColors[j].B));
+                    if (mf.ToolIsSectionsNotZones)
+                        triangleList.Add(mf.SecColorVec(j));
                     else
-                        triangleList.Add(new vec3(mf.sectionColorDay.R, mf.sectionColorDay.G, mf.sectionColorDay.B));
+                        triangleList.Add(mf.SectionColorDayVec);
                 }
 
-                leftPoint = mf.section[currentStartSectionNum].leftPoint;
-                rightPoint = mf.section[currentEndSectionNum].rightPoint;
+                leftPoint = mf.Section[currentStartSectionNum].leftPoint;
+                rightPoint = mf.Section[currentEndSectionNum].rightPoint;
 
                 //left side of triangle
                 triangleList.Add(new vec3(leftPoint.easting, leftPoint.northing, 0));
@@ -71,7 +71,7 @@ namespace AgOpenGPS
                 //Right side of triangle
                 triangleList.Add(new vec3(rightPoint.easting, rightPoint.northing, 0));
 
-                mf.patchCounter++;
+                mf.IncrementPatchCounter();
             }
         }
 
@@ -85,7 +85,7 @@ namespace AgOpenGPS
             if (triangleList.Count > 4)
             {
                 //save the triangle list in a patch list to add to saving file
-                mf.patchSaveList.Add(triangleList);
+                mf.PatchSaveList.Add(triangleList);
             }
             else
             {
@@ -99,8 +99,8 @@ namespace AgOpenGPS
 
         public void AddMappingPoint(int j)
         {
-            leftPoint = mf.section[currentStartSectionNum].leftPoint;
-            rightPoint = mf.section[currentEndSectionNum].rightPoint;
+            leftPoint = mf.Section[currentStartSectionNum].leftPoint;
+            rightPoint = mf.Section[currentEndSectionNum].rightPoint;
 
             //add two triangles for next step.
             //left side
@@ -132,8 +132,8 @@ namespace AgOpenGPS
                                   + (triangleList[c - 3].easting * (triangleList[c - 1].northing - triangleList[c - 2].northing)));
 
                     temp *= 0.5;
-                    mf.fd.workedAreaTotal += temp;
-                    mf.fd.workedAreaTotalUser += temp;
+                    mf.Fd.workedAreaTotal += temp;
+                    mf.Fd.workedAreaTotalUser += temp;
                 }
             }
 
@@ -142,17 +142,17 @@ namespace AgOpenGPS
                 numTriangles = 0;
 
                 //save the cutoff patch to be saved later
-                mf.patchSaveList.Add(triangleList);
+                mf.PatchSaveList.Add(triangleList);
 
                 triangleList = new List<vec3>(64);
 
                 patchList.Add(triangleList);
 
                 //Add Patch colour
-                if (!mf.tool.isMultiColoredSections)
-                    triangleList.Add(new vec3(mf.sectionColorDay.R, mf.sectionColorDay.G, mf.sectionColorDay.B));
+                if (!mf.ToolIsMultiColoredSections)
+                    triangleList.Add(mf.SectionColorDayVec);
                 else
-                    triangleList.Add(new vec3(mf.tool.secColors[j].R, mf.tool.secColors[j].G, mf.tool.secColors[j].B));
+                    triangleList.Add(mf.SecColorVec(j));
 
                 //add the points to List, yes its more points, but breaks up patches for culling
                 triangleList.Add(new vec3(leftPoint.easting, leftPoint.northing, 0));
