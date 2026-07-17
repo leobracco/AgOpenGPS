@@ -58,13 +58,18 @@ Avance de los 5 puntos del roadmap. El % pondera solo el trabajo que se hace **e
 
 | # | Punto | Estado | % | Qué falta |
 |---|---|---|---|---|
-| 1 | Extraer core a librería sin UI | AVANZADO | ~40% | ~14 clases de Classes/ acopladas a `FormGPS` por constructor ( CAHRS/CDubins/CFieldData/CModuleComm/CTram/CSim/CBoundary(+CFence/CTurn/CHead)/CSection/CPatches/CTool/CVehicle/CABLine/CABCurve/CContour/CGuidance/CYouTurn/CTrack/CRecordedPath/CNMEA/CISOBUS ya movidas) → interfaces estilo `FormGps*Service`; y el parsing NMEA/PGN de AgIO (NMEA.Designer ya extraído a `CNmeaParser` 2026-07-17; ruteo PGN loopback + parsing scan-reply extraídos a `CPgnRouter` 2026-07-17; falta la capa de sockets UDP.designer, marcada ADAPTABLE — se difiere: es el transporte vivo con módulos ESP32 y no se puede validar end-to-end sin banco) |
+| 1 | Extraer core a librería sin UI | **MAYORMENTE HECHO** | ~90% | **Verificado 2026-07-17: Core compila limpio (0 warn/err) + 34/34 tests verdes.** GPS/Classes ya solo tiene 7 archivos platform-specific (AgpSoundPlayer, Brands, CBrightness, CSound, GlSurface, ScreenTextures, VehicleTextures); las ~24 clases de guiado/estado están todas en `AgOpenGPS.Core/Classes/` con interfaces `IXxxHost`. AgIO: NMEA→`CNmeaParser`, ruteo/parsing PGN→`CPgnRouter`. **Único pendiente**: la capa de sockets UDP.designer (ADAPTABLE) — **diferida**: transporte vivo con módulos ESP32, no validable end-to-end sin banco |
 | 2 | Abstraer persistencia | **HECHO** | 100% | — (Registry solo migración legacy aislada; en el port se borra el `#region Legacy`) |
-| 3 | Aislar host OpenGL | AVANZADO | ~70% | `oglSelf` de los editores (FormABDraw/FormHeadLine/etc., UI a reescribir igual) y GeoViewport; la impl EGL/SDL/GLSurfaceView es trabajo del port |
+| 3 | Aislar host OpenGL | AVANZADO | ~85% | **GeoViewport ya está aislado**: `GeoViewportBase` vive en Core y `GeoViewport` es su adapter WinForms fino; FormBndTool y FormGrid ya lo usan (0 `GL.*` directos). **Único pendiente**: los `GL.*` inline de 4 editores (FormABDraw ~63, FormTramLine ~64, FormHeadLine ~59, FormHeadAche ~73) — son UI a reescribir igual en el port, se difieren (no se pueden validar sin abrir/dibujar en cada editor). La impl EGL/SDL/GLSurfaceView es trabajo del port |
 | 4 | Reescribir UI | EN CURSO (vía web) | ~25% | ~174 archivos WinForms; cada pantalla que migra a HTML/EmbedIO (config, perfiles, nodos, firmwares, datos lote/GPS ya migradas) baja este costo |
 | 5 | Plataforma específica | PARCIAL | ~40% | Serie (Android USB host), webcam, WebView2. Audio (`AgpSoundPlayer`), brillo (`IBrightnessController`) y texturas (`Texture2D`) ya quedaron detrás de un punto único |
 
-**Lectura global:** del trabajo estructural pre-port (puntos 1–3+5), está hecho **≈ 50%**. Ya viven en `AgOpenGPS.Core` (sin WinForms, 34 tests verdes): IO/ completo, Protocols/ISOBUS, 13 clases portables + POCOs `CTrk`/`CRecPathPt`. El grueso restante es uno solo y bien definido: **invertir el acoplamiento `FormGPS` de las ~24 clases de guiado/estado** (punto 1), que arrastra consigo casi todo lo demás.
+**Lectura global (revisada 2026-07-17):** el trabajo estructural pre-port de **valor accionable en-repo está esencialmente completo**. La inversión del acoplamiento `FormGPS` de las ~24 clases de guiado/estado —que era el grueso del punto 1— **ya está hecha y verificada** (Core compila limpio, 34/34 tests verdes, GPS/Classes reducido a 7 archivos platform-specific). El aislamiento OpenGL (punto 3) tiene su pieza no-UI (`GeoViewportBase`/`GeoViewport`) resuelta. Lo que resta NO es trabajo estructural pre-port sino:
+
+- **Diferido por falta de banco**: capa de sockets UDP.designer (punto 1) — transporte vivo con nodos ESP32.
+- **Port-time / UI-rewrite**: los `GL.*` inline de 4 editores (punto 3), la reescritura de UI (punto 4), y las impls por plataforma (punto 5: serie Android USB, webcam, WebView, audio, brillo — estos últimos ya detrás de un punto único de aislamiento).
+
+Es decir: **de lo que se puede hacer y validar en este repo antes del port, queda muy poco**. El siguiente track de valor real es el punto 4 (migración progresiva de pantallas WinForms → HTML/EmbedIO), que es el que baja de verdad el costo de port a Linux/Android y ya está en curso vía el Hub web (coordinado con Codex).
 
 ---
 
