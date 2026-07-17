@@ -21,6 +21,13 @@ namespace AgroParallel.Services.Abstractions
         AllSettingsSnapshot GetAllSettings();
 
         /// <summary>
+        /// Registro de eventos: cola del log persistido en disco + buffer de la
+        /// sesión actual. Reemplaza la vieja ventana WinForms FormEventViewer
+        /// por la página HTML /pages/eventos.html.
+        /// </summary>
+        EventLogSnapshot GetEventLog();
+
+        /// <summary>
         /// Lee el valor numérico de un campo DBF arbitrario del shapefile
         /// activo, en el polígono actualmente bajo el tractor. Retorna 0 si
         /// no hay shapefile, no hay polígono, o el campo no es numérico.

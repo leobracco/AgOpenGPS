@@ -1920,8 +1920,14 @@ namespace AgOpenGPS
         }
         private void eventViewerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            Form form = new FormEventViewer(Path.Combine(RegistrySettings.logsDirectory, "AgOpenGPS_Events_Log.txt"));
-            form.Show(this);
+            // AgroParallel: la ventana WinForms FormEventViewer se reemplazó por
+            // la página HTML /pages/eventos.html (visor solo-lectura del registro
+            // de eventos). Widget Avalonia si existe; si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/eventos.html", "float",
+                                      "Eventos", 900, 720))
+            {
+                OpenAgroParallelHub("pages/eventos.html");
+            }
             this.Activate();
         }
         private void webcamToolStrip_Click(object sender, EventArgs e)

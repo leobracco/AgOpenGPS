@@ -412,6 +412,69 @@ namespace AgroParallel.Adapters
             return dump;
         }
 
+        public EventLogSnapshot GetEventLog()
+        {
+            // Mismo archivo que abría FormEventViewer.
+            string path = System.IO.Path.Combine(
+                RegistrySettings.logsDirectory, "AgOpenGPS_Events_Log.txt");
+
+            // Solo la cola: el log crece a cientos de KB y al operario le sirve
+            // lo reciente (el archivo completo queda en disco).
+            const int maxBytes = 256 * 1024;
+            string history = "";
+            try
+            {
+                if (System.IO.File.Exists(path))
+                {
+                    using (var fs = new System.IO.FileStream(path, System.IO.FileMode.Open,
+                        System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite))
+                    {
+                        bool truncado = fs.Length > maxBytes;
+                        if (truncado) fs.Seek(-maxBytes, System.IO.SeekOrigin.End);
+                        using (var sr = new System.IO.StreamReader(fs))
+                            history = sr.ReadToEnd();
+
+                        if (truncado)
+                        {
+                            // Arrancar en una línea completa.
+                            int nl = history.IndexOf('\n');
+                            if (nl >= 0 && nl + 1 < history.Length)
+                                history = history.Substring(nl + 1);
+                            history = "(…mostrando el final del log; el archivo completo queda en "
+                                + path + ")\n\n" + history;
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                history = "(no se pudo leer el archivo de log: " + ex.Message + ")";
+            }
+
+            // Log.sbEvents lo appendea el hilo UI; leerlo mientras appendea no es
+            // thread-safe. El endpoint corre en hilo del web host: marshalamos.
+            string session;
+            try
+            {
+                if (_form != null && _form.InvokeRequired)
+                    session = (string)_form.Invoke(
+                        new System.Func<string>(() => AgLibrary.Logging.Log.sbEvents.ToString()));
+                else
+                    session = AgLibrary.Logging.Log.sbEvents.ToString();
+            }
+            catch (System.Exception ex)
+            {
+                session = "(no se pudo leer la sesión: " + ex.Message + ")";
+            }
+
+            return new EventLogSnapshot
+            {
+                File = path,
+                History = history,
+                Session = session,
+            };
+        }
+
         // "Sí"/"No" legible para el operario (el volcado viejo mostraba True/False).
         private static string Bool(bool v) => v ? "Sí" : "No";
 

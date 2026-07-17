@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Eventos · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Visor de log: monospace, salto de línea respetado, scroll propio.
+       Solo lectura (reemplazo de la ventana WinForms FormEventViewer). */
+    .log-box {
+      font-family: var(--agp-font-mono);
+      font-size: var(--agp-fs-sm);
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4);
+      max-height: 62vh;
+      overflow-y: auto;
+      color: var(--agp-text);
+    }
+    .log-head {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: var(--agp-sp-3); flex-wrap: wrap; margin-bottom: var(--agp-sp-3);
+    }
+    .log-hint {
+      font-size: var(--agp-fs-sm); color: var(--agp-text-muted);
+      min-height: 1.4em; margin-bottom: var(--agp-sp-3);
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="eventos"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Eventos</h1>
+        <div class="subtitle">Registro del sistema · histórico y sesión actual · solo lectura</div>
+      </div>
+      <button class="btn" id="btnRefreshLog">Actualizar</button>
+    </div>
+
+    <div class="log-hint" id="logHint">Cargando…</div>
+    <div class="log-box" id="logBox">—</div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/eventos.js"></script>
+</body>
+</html>

@@ -88,6 +88,7 @@
       { id: 'pwa-qr',   ico: '▣',  label: 'Conectar celular', href: 'pwa-qr.html' }
     ]},
     { id: 'mant', label: 'Mantenimiento', items: [
+      { id: 'eventos',  ico: '📜', label: 'Eventos',  href: 'eventos.html' },
       { id: 'debug',    ico: '🐞', label: 'Debug',    href: 'debug.html' }
     ]}
   ];
