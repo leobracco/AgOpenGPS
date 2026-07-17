@@ -8,7 +8,7 @@ namespace AgOpenGPS
 {
     public class CISOBUS
     {
-        private readonly FormGPS mf;
+        private readonly IIsobusHost mf;
 
         private DateTimeOffset timestamp;
 
@@ -23,7 +23,7 @@ namespace AgOpenGPS
         private DateTimeOffset totalDistanceTime;
 
 
-        public CISOBUS(FormGPS _f)
+        public CISOBUS(IIsobusHost _f)
         {
             //constructor
             mf = _f;
@@ -125,14 +125,7 @@ namespace AgOpenGPS
                 // Changed, act accordingly
                 sectionControlEnabled = value;
 
-                if (sectionControlEnabled)
-                {
-                    mf.btnIsobusSectionControl.Image = Properties.Resources.IsobusSectionControlOn;
-                }
-                else // Section control disabled
-                {
-                    mf.btnIsobusSectionControl.Image = Properties.Resources.IsobusSectionControlOff;
-                }
+                mf.IsobusSectionControlImageOn = sectionControlEnabled;
             }
         }
 
@@ -141,7 +134,7 @@ namespace AgOpenGPS
             // Check if the timestamp is not older than 1 second
             bool isAlive = (timestamp != default && DateTimeOffset.Now - timestamp < TimeSpan.FromSeconds(1));
 
-            mf.btnIsobusSectionControl.Visible = isAlive;
+            mf.IsobusButtonVisible = isAlive;
 
             return isAlive;
         }
