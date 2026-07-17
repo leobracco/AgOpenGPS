@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ayuda · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    /* Ayuda de PilotX (reemplazo del WinForms FormHelp). Contenido propio de
+       Agro Parallel: accesos a las utilidades internas del Hub + "Acerca de"
+       con la versión instalada (GET /api/pilotx/update/status). Sin links a
+       comunidades upstream de AgOpenGPS (branding PilotX). */
+    .help-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: var(--agp-sp-3); margin-top: var(--agp-sp-2);
+    }
+    a.help-card {
+      display: flex; align-items: flex-start; gap: var(--agp-sp-3);
+      text-decoration: none; color: inherit;
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4);
+      transition: border-color var(--agp-dur-fast) var(--agp-ease),
+                  background var(--agp-dur-fast) var(--agp-ease);
+    }
+    a.help-card:hover, a.help-card:focus { border-color: var(--agp-accent); background: var(--agp-bg-soft); }
+    a.help-card .hc-ico { font-size: 26px; line-height: 1; flex: 0 0 auto; }
+    a.help-card .hc-title { font-size: var(--agp-fs-lg); color: var(--agp-text); font-weight: var(--agp-fw-bold); }
+    a.help-card .hc-desc { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: 2px; }
+
+    .about {
+      max-width: 640px; margin-top: var(--agp-sp-4);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-4) var(--agp-sp-5);
+    }
+    .about .row-big {
+      display: flex; justify-content: space-between; align-items: baseline;
+      padding: var(--agp-sp-3) 0; border-bottom: 1px solid var(--agp-border);
+      font-size: var(--agp-fs-md);
+    }
+    .about .row-big:last-child { border-bottom: 0; }
+    .about .row-big strong { font-size: var(--agp-fs-lg); color: var(--agp-text); font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="ayuda"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Ayuda</h1>
+        <div class="subtitle">Guías rápidas, diagnóstico y datos del equipo</div>
+      </div>
+    </div>
+
+    <h2>Puesta a punto</h2>
+    <div class="help-grid">
+      <a class="help-card" href="setup.html">
+        <span class="hc-ico">🧭</span>
+        <span>
+          <span class="hc-title">Asistente de configuración</span>
+          <span class="hc-desc">Paso a paso para dejar el tractor listo para trabajar</span>
+        </span>
+      </a>
+      <a class="help-card" href="vehiculo.html">
+        <span class="hc-ico">🚜</span>
+        <span>
+          <span class="hc-title">Vehículo</span>
+          <span class="hc-desc">Antena, geometría y parámetros del tractor</span>
+        </span>
+      </a>
+      <a class="help-card" href="calibracion-imu.html">
+        <span class="hc-ico">⟲</span>
+        <span>
+          <span class="hc-title">Calibración IMU</span>
+          <span class="hc-desc">Nivelar y orientar el sensor inercial</span>
+        </span>
+      </a>
+    </div>
+
+    <h2 style="margin-top: var(--agp-sp-6);">Diagnóstico</h2>
+    <div class="help-grid">
+      <a class="help-card" href="eventos.html">
+        <span class="hc-ico">📜</span>
+        <span>
+          <span class="hc-title">Eventos</span>
+          <span class="hc-desc">Registro de lo que pasó en la sesión y en disco</span>
+        </span>
+      </a>
+      <a class="help-card" href="debug.html">
+        <span class="hc-ico">🐞</span>
+        <span>
+          <span class="hc-title">Debug</span>
+          <span class="hc-desc">Datos técnicos crudos para resolver problemas</span>
+        </span>
+      </a>
+      <a class="help-card" href="sistema.html">
+        <span class="hc-ico">🖥</span>
+        <span>
+          <span class="hc-title">Sistema</span>
+          <span class="hc-desc">Estado de la PC, red y servicios de PilotX</span>
+        </span>
+      </a>
+    </div>
+
+    <h2 style="margin-top: var(--agp-sp-6);">Soporte y actualización</h2>
+    <div class="help-grid">
+      <a class="help-card" href="actualizar.html">
+        <span class="hc-ico">⤓</span>
+        <span>
+          <span class="hc-title">Actualizar PilotX</span>
+          <span class="hc-desc">Buscar, descargar e instalar la última versión</span>
+        </span>
+      </a>
+      <a class="help-card" href="pwa-qr.html">
+        <span class="hc-ico">▣</span>
+        <span>
+          <span class="hc-title">Conectar celular</span>
+          <span class="hc-desc">Abrir el panel desde el teléfono con un QR</span>
+        </span>
+      </a>
+      <a class="help-card" href="orbitx.html">
+        <span class="hc-ico">☁</span>
+        <span>
+          <span class="hc-title">OrbitX (nube)</span>
+          <span class="hc-desc">Vinculación con la nube y sincronización de lotes</span>
+        </span>
+      </a>
+    </div>
+
+    <h2 style="margin-top: var(--agp-sp-6);">Acerca de</h2>
+    <div class="about">
+      <div class="row-big">
+        <span>Aplicación</span>
+        <strong>PilotX · Agro Parallel</strong>
+      </div>
+      <div class="row-big">
+        <span>Versión instalada</span>
+        <strong id="aboutVersion">—</strong>
+      </div>
+      <div class="row-big">
+        <span>Equipo</span>
+        <strong id="aboutEquipo">—</strong>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/ayuda.js"></script>
+</body>
+</html>

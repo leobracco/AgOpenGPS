@@ -1412,9 +1412,16 @@ namespace AgOpenGPS
 
         private void helpMenuItem_Click(object sender, EventArgs e)
         {
-            using (var form = new FormHelp())
+            // AgroParallel: la ventana WinForms FormHelp (que linkeaba a la comunidad
+            // upstream de AgOpenGPS) se reemplazó por la página HTML /pages/ayuda.html,
+            // con contenido propio de PilotX: accesos a las utilidades internas del Hub
+            // (asistente, vehículo, IMU, eventos, debug, sistema, actualizar, celular,
+            // OrbitX) + "Acerca de" con la versión instalada. Widget Avalonia si existe;
+            // si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/ayuda.html", "float",
+                                      "Ayuda", 900, 680))
             {
-                form.ShowDialog(this);
+                OpenAgroParallelHub("pages/ayuda.html");
             }
         }
         private void simulatorOnToolStripMenuItem_Click(object sender, EventArgs e)

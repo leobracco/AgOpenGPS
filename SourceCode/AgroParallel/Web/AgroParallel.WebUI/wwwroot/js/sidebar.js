@@ -89,7 +89,8 @@
     ]},
     { id: 'mant', label: 'Mantenimiento', items: [
       { id: 'eventos',  ico: '📜', label: 'Eventos',  href: 'eventos.html' },
-      { id: 'debug',    ico: '🐞', label: 'Debug',    href: 'debug.html' }
+      { id: 'debug',    ico: '🐞', label: 'Debug',    href: 'debug.html' },
+      { id: 'ayuda',    ico: '❔', label: 'Ayuda',    href: 'ayuda.html' }
     ]}
   ];
 
