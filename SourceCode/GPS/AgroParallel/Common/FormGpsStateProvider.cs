@@ -532,6 +532,34 @@ namespace AgroParallel.Adapters
             return s;
         }
 
+        public CorrectionGraphSample GetCorrectionGraphSample()
+        {
+            var s = new CorrectionGraphSample();
+            try
+            {
+                if (_form != null)
+                {
+                    // Mismos valores crudos que graficaba/mostraba FormCorrection (m).
+                    s.CorrectionDistance = System.Math.Round(_form.correctionDistanceGraph, 3);
+                    s.UncorrectedEasting = System.Math.Round(_form.uncorrectedEastingGraph, 3);
+                    if (_form.pn != null)
+                        s.Easting = System.Math.Round(_form.pn.fix.easting, 3);
+
+                    // Roll del IMU: 88888 = sin IMU (igual criterio que RollInDegrees).
+                    if (_form.ahrs != null && _form.ahrs.imuRoll != 88888)
+                    {
+                        s.RollPresent = true;
+                        s.RollDegrees = System.Math.Round(_form.ahrs.imuRoll, 1);
+                    }
+                }
+            }
+            catch
+            {
+                // Defensivo: 0/sin-roll si el GPS/IMU no está listo.
+            }
+            return s;
+        }
+
         public ShiftPosSnapshot GetShiftPos()
         {
             var s = new ShiftPosSnapshot();

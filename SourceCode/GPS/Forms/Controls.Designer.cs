@@ -1938,18 +1938,15 @@ namespace AgOpenGPS
         }
         private void correctionToolStrip_Click(object sender, EventArgs e)
         {
-            //check if window already exists
-            Form fcc = Application.OpenForms["FormCorrection"];
-
-            if (fcc != null)
+            // AgroParallel: la ventana WinForms FormCorrection se reemplazó por la
+            // página HTML /pages/grafico-correccion.html (chequeo de roll: corrección
+            // por roll del IMU vs deriva GPS, buffer rodante). Widget Avalonia si
+            // existe; si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/grafico-correccion.html", "float",
+                                      "Chequeo de roll", 900, 700))
             {
-                fcc.Focus();
-                return;
+                OpenAgroParallelHub("pages/grafico-correccion.html");
             }
-
-            //
-            Form formC = new FormCorrection(this);
-            formC.Show(this);
         }
 
         #endregion

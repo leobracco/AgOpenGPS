@@ -49,6 +49,14 @@ namespace AgroParallel.Services.Abstractions
         SteerGraphSample GetSteerGraphSample();
 
         /// <summary>
+        /// Muestra en vivo (distancia de corrección por roll, easting crudo y sin
+        /// corregir, roll del IMU) para el gráfico de chequeo de roll. Reemplaza la
+        /// ventana WinForms FormCorrection por la página HTML
+        /// /pages/grafico-correccion.html, con buffer rodante propio.
+        /// </summary>
+        CorrectionGraphSample GetCorrectionGraphSample();
+
+        /// <summary>
         /// Estado del corrimiento de deriva GPS (norte/este en cm + si se
         /// mantiene aplicado). Reemplaza la ventana WinForms FormShiftPos por la
         /// página HTML /pages/corregir-posicion.html. Las escrituras van por

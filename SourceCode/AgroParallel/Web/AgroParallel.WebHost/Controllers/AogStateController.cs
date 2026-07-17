@@ -15,6 +15,10 @@
 //                GET /api/aog/graph-steer    → muestra en vivo (dirección real vs
 //                                             seteada) para el gráfico de dirección
 //                                             (reemplazo de FormGraphSteer).
+//                GET /api/aog/graph-correction → muestra en vivo (corrección por
+//                                             roll, easting crudo/sin corregir,
+//                                             roll IMU) para el gráfico de chequeo
+//                                             de roll (reemplazo de FormCorrection).
 //                GET /api/aog/shift-pos      → corrimiento de deriva GPS (norte/
 //                                             este cm + offsets on) para la
 //                                             pantalla de corregir posición
@@ -80,6 +84,12 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetSteerGraph()
         {
             return WriteJsonAsync(_state.GetSteerGraphSample());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/graph-correction")]
+        public Task GetCorrectionGraph()
+        {
+            return WriteJsonAsync(_state.GetCorrectionGraphSample());
         }
 
         [Route(HttpVerbs.Get, "/aog/shift-pos")]
