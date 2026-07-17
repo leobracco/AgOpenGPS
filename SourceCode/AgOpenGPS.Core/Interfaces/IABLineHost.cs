@@ -22,8 +22,8 @@ namespace AgOpenGPS
         AgOpenGPS.Core.DrawLib.Font TextFont { get; }
 
         // --- trk (CTrack, todavía en GPS) ---
-        /// <summary>trk.idx — índice de la pista activa.</summary>
-        int TrackIdx { get; }
+        /// <summary>trk.idx — índice de la pista activa (-1 = ninguna).</summary>
+        int TrackIdx { get; set; }
 
         /// <summary>trk.gArr — lista de pistas (CTrk ya vive en Core).</summary>
         List<CTrk> Tracks { get; }

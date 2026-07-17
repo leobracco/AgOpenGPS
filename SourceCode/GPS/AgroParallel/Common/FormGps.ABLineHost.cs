@@ -20,7 +20,11 @@ namespace AgOpenGPS
 
         AgOpenGPS.Core.DrawLib.Font IABLineHost.TextFont => font;
 
-        int IABLineHost.TrackIdx => trk.idx;
+        int IABLineHost.TrackIdx
+        {
+            get => trk.idx;
+            set => trk.idx = value;
+        }
         List<CTrk> IABLineHost.Tracks => trk.gArr;
 
         bool IABLineHost.IsYouTurnTriggered => yt.isYouTurnTriggered;
