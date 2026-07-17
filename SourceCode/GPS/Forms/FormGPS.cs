@@ -378,6 +378,11 @@ namespace AgOpenGPS
         /// </summary>
         public CISOBUS isobus;
 
+        // Surfaces OpenGL portables (traspaso portabilidad 2026-07-17): el
+        // render habla con IOpenGLSurface; los GLControl WinForms quedan en
+        // los campos ogl*Control del Designer (host Windows reemplazable).
+        public IOpenGLSurface oglMain, oglBack, oglZoom;
+
         #endregion // Class Props and instances
 
         //The method assigned to the PowerModeChanged event call
@@ -419,6 +424,11 @@ namespace AgOpenGPS
         {
             //winform initialization
             InitializeComponent();
+
+            // Adaptar los GLControl del Designer a la interfaz portable.
+            oglMain = new WinFormsGlSurface(oglMainControl);
+            oglBack = new WinFormsGlSurface(oglBackControl);
+            oglZoom = new WinFormsGlSurface(oglZoomControl);
 
             // Ícono de la ventana (barra de tareas/Alt-Tab) = ícono del exe
             // (isotipo Agro Parallel). El del .resx quedó viejo.
@@ -1588,8 +1598,8 @@ namespace AgOpenGPS
             lblGuidanceLine.Visible = false;
             lblHardwareMessage.Visible = false;
 
-            //zoom gone
-            oglZoom.SendToBack();
+            //zoom gone (z-order = host WinForms)
+            oglZoomControl.SendToBack();
 
             //clean all the lines
             bnd.bndList.Clear();
@@ -2888,7 +2898,7 @@ namespace AgOpenGPS
                 hub.FloatingWidget = true;
                 hub.FloatingSize = new System.Drawing.Size(1180, 700);
                 hub.Text = "Agro Parallel";
-                hub.AnchorControl = this.oglMain;
+                hub.AnchorControl = this.oglMainControl;
                 _hubFormWeb = hub;
                 _hubFormWeb.FormClosed += (s, e) => { _hubFormWeb = null; };
                 _hubFormWeb.Show(this);
@@ -2991,7 +3001,7 @@ namespace AgOpenGPS
                 if (!string.IsNullOrEmpty(title)) widget.Text = title;
                 // AnchorControl solo para posicionar el widget en la esquina del
                 // mapa; en modo flotante NO se ancla ni cubre el mapa.
-                widget.AnchorControl = this.oglMain;
+                widget.AnchorControl = this.oglMainControl;
                 _floatWidgets[page] = widget;
                 widget.FormClosed += (s, e) => { _floatWidgets.Remove(page); };
                 widget.Show(this);

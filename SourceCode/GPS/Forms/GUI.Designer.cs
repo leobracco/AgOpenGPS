@@ -1281,7 +1281,7 @@ namespace AgOpenGPS
                 int centerY = oglMain.Height / 2;
 
                 //0 at bottom for opengl, 0 at top for windows, so invert Y value
-                Point point = oglMain.PointToClient(Cursor.Position);
+                Point point = oglMainControl.PointToClient(Cursor.Position);
 
                 // SHAPEFILE_MOD_START
                 // Modo inspeccion: si esta activo, consumir el click.

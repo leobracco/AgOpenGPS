@@ -1,4 +1,4 @@
-namespace AgOpenGPS
+﻿namespace AgOpenGPS
 {
     partial class FormGPS
     {
@@ -55,7 +55,7 @@ namespace AgOpenGPS
             this.toolStripSeparator12 = new System.Windows.Forms.ToolStripSeparator();
             this.toolStripMenuFlagForm = new System.Windows.Forms.ToolStripMenuItem();
             this.cboxpRowWidth = new System.Windows.Forms.ComboBox();
-            this.oglZoom = new OpenTK.GLControl();
+            this.oglZoomControl = new OpenTK.GLControl();
             this.panelDrag = new System.Windows.Forms.TableLayoutPanel();
             this.btnPathGoStop = new System.Windows.Forms.Button();
             this.btnPickPath = new System.Windows.Forms.Button();
@@ -79,8 +79,8 @@ namespace AgOpenGPS
             this.btnSection10Man = new System.Windows.Forms.Button();
             this.btnSection11Man = new System.Windows.Forms.Button();
             this.btnSection12Man = new System.Windows.Forms.Button();
-            this.oglMain = new OpenTK.GLControl();
-            this.oglBack = new OpenTK.GLControl();
+            this.oglMainControl = new OpenTK.GLControl();
+            this.oglBackControl = new OpenTK.GLControl();
             this.lblHz = new System.Windows.Forms.Label();
             this.statusStripLeft = new System.Windows.Forms.StatusStrip();
             this.toolStripDropDownButton4 = new System.Windows.Forms.ToolStripDropDownButton();
@@ -461,19 +461,19 @@ namespace AgOpenGPS
             this.cboxpRowWidth.TabIndex = 247;
             this.cboxpRowWidth.SelectedIndexChanged += new System.EventHandler(this.cboxpRowWidth_SelectedIndexChanged);
             // 
-            // oglZoom
+            // oglZoomControl
             // 
-            this.oglZoom.BackColor = System.Drawing.Color.Black;
-            this.oglZoom.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.oglZoom.Location = new System.Drawing.Point(122, 63);
-            this.oglZoom.Margin = new System.Windows.Forms.Padding(0);
-            this.oglZoom.Name = "oglZoom";
-            this.oglZoom.Size = new System.Drawing.Size(41, 44);
-            this.oglZoom.TabIndex = 182;
-            this.oglZoom.VSync = false;
-            this.oglZoom.Load += new System.EventHandler(this.oglZoom_Load);
-            this.oglZoom.Paint += new System.Windows.Forms.PaintEventHandler(this.oglZoom_Paint);
-            this.oglZoom.Resize += new System.EventHandler(this.oglZoom_Resize);
+            this.oglZoomControl.BackColor = System.Drawing.Color.Black;
+            this.oglZoomControl.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.oglZoomControl.Location = new System.Drawing.Point(122, 63);
+            this.oglZoomControl.Margin = new System.Windows.Forms.Padding(0);
+            this.oglZoomControl.Name = "oglZoomControl";
+            this.oglZoomControl.Size = new System.Drawing.Size(41, 44);
+            this.oglZoomControl.TabIndex = 182;
+            this.oglZoomControl.VSync = false;
+            this.oglZoomControl.Load += new System.EventHandler(this.oglZoom_Load);
+            this.oglZoomControl.Paint += new System.Windows.Forms.PaintEventHandler(this.oglZoom_Paint);
+            this.oglZoomControl.Resize += new System.EventHandler(this.oglZoom_Resize);
             // 
             // panelDrag
             // 
@@ -866,37 +866,37 @@ namespace AgOpenGPS
             this.btnSection12Man.UseVisualStyleBackColor = false;
             this.btnSection12Man.Click += new System.EventHandler(this.btnSectionXMan_Click);
             // 
-            // oglMain
+            // oglMainControl
             // 
-            this.oglMain.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            this.oglMainControl.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.oglMain.BackColor = System.Drawing.Color.Black;
-            this.oglMain.ContextMenuStrip = this.contextMenuStripOpenGL;
-            this.oglMain.Location = new System.Drawing.Point(78, 50);
-            this.oglMain.Margin = new System.Windows.Forms.Padding(0);
-            this.oglMain.Name = "oglMain";
-            this.oglMain.Size = new System.Drawing.Size(848, 601);
-            this.oglMain.TabIndex = 180;
-            this.oglMain.VSync = false;
-            this.oglMain.Load += new System.EventHandler(this.oglMain_Load);
-            this.oglMain.Paint += new System.Windows.Forms.PaintEventHandler(this.oglMain_Paint);
-            this.oglMain.MouseDown += new System.Windows.Forms.MouseEventHandler(this.oglMain_MouseDown);
-            this.oglMain.Resize += new System.EventHandler(this.oglMain_Resize);
+            this.oglMainControl.BackColor = System.Drawing.Color.Black;
+            this.oglMainControl.ContextMenuStrip = this.contextMenuStripOpenGL;
+            this.oglMainControl.Location = new System.Drawing.Point(78, 50);
+            this.oglMainControl.Margin = new System.Windows.Forms.Padding(0);
+            this.oglMainControl.Name = "oglMainControl";
+            this.oglMainControl.Size = new System.Drawing.Size(848, 601);
+            this.oglMainControl.TabIndex = 180;
+            this.oglMainControl.VSync = false;
+            this.oglMainControl.Load += new System.EventHandler(this.oglMain_Load);
+            this.oglMainControl.Paint += new System.Windows.Forms.PaintEventHandler(this.oglMain_Paint);
+            this.oglMainControl.MouseDown += new System.Windows.Forms.MouseEventHandler(this.oglMain_MouseDown);
+            this.oglMainControl.Resize += new System.EventHandler(this.oglMain_Resize);
             // 
-            // oglBack
+            // oglBackControl
             // 
-            this.oglBack.BackColor = System.Drawing.Color.Black;
-            this.oglBack.ForeColor = System.Drawing.Color.Transparent;
-            this.oglBack.Location = new System.Drawing.Point(122, 70);
-            this.oglBack.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
-            this.oglBack.Name = "oglBack";
-            this.oglBack.Size = new System.Drawing.Size(500, 300);
-            this.oglBack.TabIndex = 181;
-            this.oglBack.VSync = false;
-            this.oglBack.Load += new System.EventHandler(this.oglBack_Load);
-            this.oglBack.Paint += new System.Windows.Forms.PaintEventHandler(this.oglBack_Paint);
-            this.oglBack.Resize += new System.EventHandler(this.oglBack_Resize);
+            this.oglBackControl.BackColor = System.Drawing.Color.Black;
+            this.oglBackControl.ForeColor = System.Drawing.Color.Transparent;
+            this.oglBackControl.Location = new System.Drawing.Point(122, 70);
+            this.oglBackControl.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
+            this.oglBackControl.Name = "oglBackControl";
+            this.oglBackControl.Size = new System.Drawing.Size(500, 300);
+            this.oglBackControl.TabIndex = 181;
+            this.oglBackControl.VSync = false;
+            this.oglBackControl.Load += new System.EventHandler(this.oglBack_Load);
+            this.oglBackControl.Paint += new System.Windows.Forms.PaintEventHandler(this.oglBack_Paint);
+            this.oglBackControl.Resize += new System.EventHandler(this.oglBack_Resize);
             // 
             // lblHz
             // 
@@ -2953,12 +2953,12 @@ namespace AgOpenGPS
             this.Controls.Add(this.btnSection11Man);
             this.Controls.Add(this.btnSection10Man);
             this.Controls.Add(this.btnSection9Man);
-            this.Controls.Add(this.oglMain);
-            this.Controls.Add(this.oglZoom);
+            this.Controls.Add(this.oglMainControl);
+            this.Controls.Add(this.oglZoomControl);
             this.Controls.Add(this.lblCurrentField);
             this.Controls.Add(this.lblGuidanceLine);
             this.Controls.Add(this.lblHardwareMessage);
-            this.Controls.Add(this.oglBack);
+            this.Controls.Add(this.oglBackControl);
             this.DoubleBuffered = true;
             this.Font = new System.Drawing.Font("Segoe UI", 12F);
             this.ForeColor = System.Drawing.SystemColors.ActiveCaptionText;
@@ -3032,9 +3032,9 @@ namespace AgOpenGPS
         public System.Windows.Forms.Button btnAutoYouTurn;
         public System.Windows.Forms.Button btnAutoSteer;
         private System.Windows.Forms.HScrollBar hsbarSteerAngle;
-        private OpenTK.GLControl oglZoom;
-        private OpenTK.GLControl oglMain;
-        private OpenTK.GLControl oglBack;
+        private OpenTK.GLControl oglZoomControl;
+        private OpenTK.GLControl oglMainControl;
+        private OpenTK.GLControl oglBackControl;
         private System.Windows.Forms.ComboBox cboxpRowWidth;
         private System.Windows.Forms.Label lblHz;
         public System.Windows.Forms.Button btnContour;

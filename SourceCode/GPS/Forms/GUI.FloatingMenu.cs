@@ -155,7 +155,7 @@ namespace AgOpenGPS
                 widget.DockMargin = margin;
                 widget.FloatingSize = sz;
                 if (!string.IsNullOrEmpty(title)) widget.Text = title;
-                widget.AnchorControl = this.oglMain;
+                widget.AnchorControl = this.oglMainControl;
                 _floatWidgets[page] = widget;
                 widget.FormClosed += (s, e) => { _floatWidgets.Remove(page); };
                 widget.Show(this);
