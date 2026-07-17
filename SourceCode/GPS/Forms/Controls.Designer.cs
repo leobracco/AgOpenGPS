@@ -1942,8 +1942,15 @@ namespace AgOpenGPS
         }
         private void webcamToolStrip_Click(object sender, EventArgs e)
         {
-            Form form = new FormWebCam();
-            form.Show(this);
+            // AgroParallel: la ventana WinForms FormWebCam (webcam USB por DirectShow)
+            // se reemplazó por la página HTML /pages/camaras.html, que ya integra las
+            // cámaras Hikvision del equipo vía su API (RTSP→MediaMTX) en el Hub. Widget
+            // Avalonia si existe; si no, Hub WebView2.
+            if (!LaunchAvaloniaWidget("pages/camaras.html", "float",
+                                      "Cámaras", 1000, 720))
+            {
+                OpenAgroParallelHub("pages/camaras.html");
+            }
             this.Activate();
         }
         private void offsetFixToolStrip_Click(object sender, EventArgs e)
