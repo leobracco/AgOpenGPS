@@ -1,4 +1,3 @@
-﻿using Microsoft.Win32;
 using System;
 using System.Threading;
 using System.Windows.Forms;

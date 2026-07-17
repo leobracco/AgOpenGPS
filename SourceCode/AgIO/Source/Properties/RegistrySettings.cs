@@ -1,14 +1,8 @@
-﻿using AgIO.Properties;
 using AgLibrary.Logging;
-using Microsoft.Win32;
 using System;
-using System.Configuration;
 using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Windows.Forms;
-using System.Xml.Linq;
-using System.Xml.XPath;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AgIO
 {
@@ -19,6 +13,23 @@ namespace AgIO
         public const string language = "Language";
     }
 
+    // Archivo de settings de arranque de CoreX (fuente primaria).
+    public class CoreXSettingsFile
+    {
+        [JsonPropertyName("working_directory")]
+        public string WorkingDirectory { get; set; }
+
+        [JsonPropertyName("profile_name")]
+        public string ProfileName { get; set; }
+
+        [JsonPropertyName("language")]
+        public string Language { get; set; }
+    }
+
+    // Settings de arranque persistidas en JSON (corex_settings.json junto al exe).
+    // El Registry de Windows quedó relegado a migración legacy de una sola vez
+    // (traspaso portabilidad 2026-07-16): en un port a otra plataforma se
+    // eliminan los métodos *LegacyRegistry* y el resto compila igual.
     public static class RegistrySettings
     {
         public const string defaultString = "Default";
@@ -30,46 +41,61 @@ namespace AgIO
         public static string logsDirectory;
         public static string profileName = "";
 
-        public static void Load()
+        private static readonly string SettingsPath = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory, "corex_settings.json");
+
+        private static void SaveJson()
         {
             try
             {
-                //opening the subkey
-                RegistryKey regKey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\AgOpenGPS");
-
-                if (regKey.GetValue(RegKeys.workingDirectory) == null || regKey.GetValue(RegKeys.workingDirectory).ToString() == "")
+                var data = new CoreXSettingsFile
                 {
-                    regKey.SetValue(RegKeys.workingDirectory, defaultString);
-                    Log.EventWriter("Registry -> Key workingDirectory was null");
-                }
-                workingDirectory = regKey.GetValue(RegKeys.workingDirectory).ToString();
-
-                //Profile File Name from Registry Key
-                if (regKey.GetValue(RegKeys.profileName) == null)
-                {
-                    regKey.SetValue(RegKeys.profileName, "");
-                    Log.EventWriter("Registry -> Key Profile Name was null and Created");
-                }
-                profileName = regKey.GetValue(RegKeys.profileName).ToString();
-
-                //Culture from Registry Key
-                if (regKey.GetValue("Language").ToString() == "")
-                {
-                    regKey.SetValue("Language", "en");
-                    Log.EventWriter("Registry -> Culture was null and Created");
-                }
-                culture = regKey.GetValue("Language").ToString();
-
-                regKey.Close();
+                    WorkingDirectory = workingDirectory,
+                    ProfileName = profileName,
+                    Language = culture
+                };
+                var opts = new JsonSerializerOptions { WriteIndented = true };
+                AgroParallel.Common.AtomicJson.Write(SettingsPath, JsonSerializer.Serialize(data, opts));
             }
             catch (Exception ex)
             {
-                Log.EventWriter("Registry -> Catch, Serious Problem Creating Registry keys: " + ex.ToString());
-                Reset();
+                Log.EventWriter("Settings -> Unable to save " + SettingsPath + ": " + ex.ToString());
+            }
+        }
+
+        private static CoreXSettingsFile LoadJson()
+        {
+            try
+            {
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                return AgroParallel.Common.AtomicJson.Read<CoreXSettingsFile>(SettingsPath, opts);
+            }
+            catch { }
+            return null;
+        }
+
+        public static void Load()
+        {
+            var file = LoadJson();
+
+            if (file != null)
+            {
+                if (!string.IsNullOrEmpty(file.WorkingDirectory)) workingDirectory = file.WorkingDirectory;
+                if (!string.IsNullOrEmpty(file.ProfileName)) profileName = file.ProfileName;
+                if (!string.IsNullOrEmpty(file.Language)) culture = file.Language;
+            }
+            else
+            {
+                // Primera corrida sin JSON: migrar una única vez desde el
+                // Registry de Windows (instalaciones anteriores).
+                TryMigrateFromLegacyRegistry();
             }
 
             //make sure directories exist and are in right place if not default workingDir
             CreateDirectories();
+
+            // Persistir (crea el archivo en primera corrida / migración).
+            SaveJson();
 
             //keep below 500 kb
             Log.CheckLogSize(Path.Combine(logsDirectory, "AgIO_Events_Log.txt"), 1000000);
@@ -79,43 +105,72 @@ namespace AgIO
 
         public static void Save(string name, string value)
         {
-            try
-            {
-                RegistryKey key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\AgOpenGPS");
-                key.SetValue(name, value);
-                Log.EventWriter("Registry -> Key " + name + " Saved to registry key with value: " + value);
+            if (name == RegKeys.profileName)
+                profileName = value;
+            else if (name == RegKeys.language)
+                culture = value;
+            else if (name == RegKeys.workingDirectory)
+                workingDirectory = value;
 
-                if (name == RegKeys.profileName)
-                    profileName = value;
-                key.Close();
-            }
-            catch (Exception ex)
-            {
-                Log.EventWriter("Registry -> Catch, Serious Problem Saving keys: " + ex.ToString());
-            }
+            SaveJson();
+            Log.EventWriter("Settings -> Key " + name + " saved with value: " + value);
         }
 
         public static void Reset()
         {
             try
             {
-                Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\AgOpenGPS");
-
-                Log.EventWriter("Registry -> Resetting Registry SubKey Tree and Full Default Reset");
+                if (File.Exists(SettingsPath)) File.Delete(SettingsPath);
+                Log.EventWriter("Settings -> Full Default Reset, deleted " + SettingsPath);
             }
             catch (Exception ex)
             {
-                Log.EventWriter("Registry -> Catch, Serious Problem Resetting Registry keys: " + ex.ToString());
+                Log.EventWriter("Settings -> Catch, Problem Resetting settings file: " + ex.ToString());
+            }
 
-                Log.FileSaveSystemEvents();
+            // Borrar también la clave legacy para que una futura migración no
+            // resucite los valores viejos.
+            DeleteLegacyRegistry();
+        }
 
-                MessageBox.Show("Can't delete the Registery SubKeyTree",
-                "Critical Registry Error",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-                Environment.Exit(0);
+        #region Legacy Windows Registry (eliminar en port a otra plataforma)
+
+        private static void TryMigrateFromLegacyRegistry()
+        {
+            try
+            {
+                using (var regKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\AgOpenGPS"))
+                {
+                    if (regKey == null) return;
+
+                    var wd = regKey.GetValue(RegKeys.workingDirectory) as string;
+                    if (!string.IsNullOrEmpty(wd)) workingDirectory = wd;
+
+                    var pf = regKey.GetValue(RegKeys.profileName) as string;
+                    if (!string.IsNullOrEmpty(pf)) profileName = pf;
+
+                    var lang = regKey.GetValue(RegKeys.language) as string;
+                    if (!string.IsNullOrEmpty(lang)) culture = lang;
+
+                    Log.EventWriter("Settings -> Migrated legacy Registry values to " + SettingsPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("Settings -> Legacy Registry migration failed (using defaults): " + ex.ToString());
             }
         }
+
+        private static void DeleteLegacyRegistry()
+        {
+            try
+            {
+                Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\AgOpenGPS", false);
+            }
+            catch { }
+        }
+
+        #endregion
 
         private static void CreateDirectories()
         {
@@ -128,6 +183,18 @@ namespace AgIO
                 else //user set to other
                 {
                     baseDirectory = Path.Combine(workingDirectory, "AgOpenGPS");
+                }
+
+                // Perfil kiosko sin Documentos materializada: GetFolderPath puede
+                // devolver "" y baseDirectory quedaría relativo. Forzar ruta
+                // absoluta de respaldo (mismo criterio que PilotX).
+                if (string.IsNullOrWhiteSpace(baseDirectory) || !Path.IsPathRooted(baseDirectory))
+                {
+                    string fallbackRoot = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                    if (string.IsNullOrWhiteSpace(fallbackRoot))
+                        fallbackRoot = AppDomain.CurrentDomain.BaseDirectory;
+                    baseDirectory = Path.Combine(fallbackRoot, "AgOpenGPS");
+                    Log.EventWriter("WorkingDir -> MyDocuments vacío (kiosko), usando fallback: " + baseDirectory);
                 }
             }
             catch (Exception ex)

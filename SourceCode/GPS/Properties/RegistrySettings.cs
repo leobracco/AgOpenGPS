@@ -1,11 +1,8 @@
-﻿using AgLibrary.Logging;
-using AgOpenGPS.Forms;
-using Microsoft.Win32;
+using AgLibrary.Logging;
 using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Windows.Forms;
 
 namespace AgOpenGPS
 {
@@ -16,7 +13,7 @@ namespace AgOpenGPS
         public const string language = "Language";
     }
 
-    // JSON backup para las settings que el registro pierde en apagados forzados.
+    // Archivo de settings de arranque (fuente primaria, ex backup del Registry).
     public class SettingsBackup
     {
         [JsonPropertyName("working_directory")]
@@ -29,6 +26,10 @@ namespace AgOpenGPS
         public string Language { get; set; }
     }
 
+    // Settings de arranque persistidas en JSON (aog_settings.json junto al exe).
+    // El Registry de Windows quedó relegado a migración legacy de una sola vez
+    // (traspaso portabilidad 2026-07-16): en un port a otra plataforma se
+    // eliminan los métodos *LegacyRegistry* y el resto compila igual.
     public static class RegistrySettings
     {
         public const string defaultString = "Default";
@@ -40,31 +41,39 @@ namespace AgOpenGPS
         public static string baseDirectory;
         public static string fieldsDirectory;
 
-        private static readonly string BackupPath = Path.Combine(
+        // Valor de workingDirectory persistido en disco. Puede diferir del campo
+        // en memoria: cambiar la carpeta de trabajo requiere reinicio, así que
+        // Save() escribe el valor nuevo al JSON sin re-mapear los directorios.
+        private static string persistedWorkingDirectory = "Default";
+
+        private static readonly string SettingsPath = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory, "aog_settings.json");
 
-        private static void SaveBackupJson()
+        private static void SaveJson()
         {
             try
             {
-                var backup = new SettingsBackup
+                var data = new SettingsBackup
                 {
-                    WorkingDirectory = workingDirectory,
+                    WorkingDirectory = persistedWorkingDirectory,
                     VehicleFileName = vehicleFileName,
                     Language = culture
                 };
                 var opts = new JsonSerializerOptions { WriteIndented = true };
-                AgroParallel.Common.AtomicJson.Write(BackupPath, JsonSerializer.Serialize(backup, opts));
+                AgroParallel.Common.AtomicJson.Write(SettingsPath, JsonSerializer.Serialize(data, opts));
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.EventWriter("Settings -> Unable to save " + SettingsPath + ": " + ex.ToString());
+            }
         }
 
-        private static SettingsBackup LoadBackupJson()
+        private static SettingsBackup LoadJson()
         {
             try
             {
                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                return AgroParallel.Common.AtomicJson.Read<SettingsBackup>(BackupPath, opts);
+                return AgroParallel.Common.AtomicJson.Read<SettingsBackup>(SettingsPath, opts);
             }
             catch { }
             return null;
@@ -72,101 +81,28 @@ namespace AgOpenGPS
 
         public static void Load()
         {
-            bool registryOk = false;
+            var file = LoadJson();
 
-            try
+            if (file != null)
             {
-                //opening the subkey
-                RegistryKey regKey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\AgOpenGPS");
-
-                if (regKey.GetValue(RegKeys.workingDirectory) == null || regKey.GetValue(RegKeys.workingDirectory).ToString() == "")
-                {
-                    regKey.SetValue(RegKeys.workingDirectory, defaultString);
-                    Log.EventWriter("Registry -> Key workingDirectory was null");
-                }
-                workingDirectory = regKey.GetValue(RegKeys.workingDirectory).ToString();
-
-                //Vehicle File Name Registry Key
-                if (regKey.GetValue(RegKeys.vehicleFileName) == null)
-                {
-                    regKey.SetValue(RegKeys.vehicleFileName, "");
-                    Log.EventWriter("Registry -> Key vehicleFileName was null");
-                }
-                vehicleFileName = regKey.GetValue(RegKeys.vehicleFileName).ToString();
-
-                //Language Registry Key
-                if (regKey.GetValue(RegKeys.language) == null || regKey.GetValue(RegKeys.language).ToString() == "")
-                {
-                    regKey.SetValue(RegKeys.language, "en");
-                    Log.EventWriter("Registry -> Key language was null");
-                }
-                culture = regKey.GetValue(RegKeys.language).ToString();
-
-                //close registry
-                regKey.Close();
-                registryOk = true;
+                if (!string.IsNullOrEmpty(file.WorkingDirectory)) workingDirectory = file.WorkingDirectory;
+                if (!string.IsNullOrEmpty(file.VehicleFileName)) vehicleFileName = file.VehicleFileName;
+                if (!string.IsNullOrEmpty(file.Language)) culture = file.Language;
             }
-            catch (Exception ex)
+            else
             {
-                Log.EventWriter("Registry -> Catch, Serious Problem Creating Registry keys: " + ex.ToString());
+                // Primera corrida sin JSON: migrar una única vez desde el
+                // Registry de Windows (instalaciones anteriores).
+                TryMigrateFromLegacyRegistry();
             }
 
-            // Si el registro falló o el workingDirectory quedó en Default sin
-            // vehículo, intentar recuperar desde el backup JSON.
-            if (!registryOk
-                || (workingDirectory == defaultString && string.IsNullOrEmpty(vehicleFileName)))
-            {
-                var backup = LoadBackupJson();
-                if (backup != null)
-                {
-                    bool restored = false;
-
-                    if (!string.IsNullOrEmpty(backup.WorkingDirectory)
-                        && (workingDirectory == defaultString || !registryOk))
-                    {
-                        workingDirectory = backup.WorkingDirectory;
-                        restored = true;
-                    }
-
-                    if (!string.IsNullOrEmpty(backup.VehicleFileName)
-                        && string.IsNullOrEmpty(vehicleFileName))
-                    {
-                        vehicleFileName = backup.VehicleFileName;
-                        restored = true;
-                    }
-
-                    if (!string.IsNullOrEmpty(backup.Language)
-                        && (culture == "en" || !registryOk))
-                    {
-                        culture = backup.Language;
-                        restored = true;
-                    }
-
-                    if (restored)
-                    {
-                        Log.EventWriter("Settings restored from JSON backup: " + BackupPath);
-                        // Re-escribir al registro para que quede sincronizado.
-                        try
-                        {
-                            RegistryKey fixKey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\AgOpenGPS");
-                            fixKey.SetValue(RegKeys.workingDirectory, workingDirectory);
-                            fixKey.SetValue(RegKeys.vehicleFileName, vehicleFileName);
-                            fixKey.SetValue(RegKeys.language, culture);
-                            fixKey.Close();
-                        }
-                        catch { }
-                    }
-                }
-            }
-
-            if (!registryOk && workingDirectory == defaultString)
-                Reset();
+            persistedWorkingDirectory = workingDirectory;
 
             //make sure directories exist and are in right place if not default workingDir
             CreateDirectories();
 
-            // Guardar backup JSON con los valores actuales.
-            SaveBackupJson();
+            // Persistir (crea el archivo en primera corrida / migración).
+            SaveJson();
 
             //keep below 500 kb
             Log.CheckLogSize(Path.Combine(logsDirectory, "AgOpenGPS_Events_Log.txt"), 1000000);
@@ -176,62 +112,78 @@ namespace AgOpenGPS
 
         public static void Save(string name, string value)
         {
-            try
+            if (name == RegKeys.vehicleFileName)
+                vehicleFileName = value;
+            else if (name == RegKeys.language)
+                culture = value;
+            else if (name == RegKeys.workingDirectory)
             {
-                //adding or editing "Language" subkey to the "SOFTWARE" subkey  
-                RegistryKey key = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\AgOpenGPS");
-
-                if (name == RegKeys.vehicleFileName)
-                    vehicleFileName = value;
-                else if (name == RegKeys.language)
-                    culture = value;
-
-                if (name == RegKeys.workingDirectory && value == Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
-                {
-                    key.SetValue(name, defaultString);
-                    Log.EventWriter("Registry -> Key " + name + " Saved to registry key with value: " + defaultString);
-                }
-                else//storing the value
-                {
-                    key.SetValue(name, value);
-                    Log.EventWriter("Registry -> Key " + name + " Saved to registry key with value: " + value);
-                }
-
-                key.Close();
-
-                // Mantener el backup JSON sincronizado.
-                SaveBackupJson();
+                // MyDocuments se guarda como "Default" (comportamiento histórico).
+                persistedWorkingDirectory =
+                    (value == Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments))
+                        ? defaultString : value;
             }
-            catch (Exception ex)
-            {
-                Log.EventWriter("Registry -> Catch, Unable to save " + name + ": " + ex.ToString());
-            }
+
+            SaveJson();
+            Log.EventWriter("Settings -> Key " + name + " saved with value: "
+                + (name == RegKeys.workingDirectory ? persistedWorkingDirectory : value));
         }
 
         public static void Reset()
         {
             try
             {
-                Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\AgOpenGPS");
-
-                Log.EventWriter("Registry -> Resetting Registry SubKey Tree and Full Default Reset");
+                if (File.Exists(SettingsPath)) File.Delete(SettingsPath);
+                Log.EventWriter("Settings -> Full Default Reset, deleted " + SettingsPath);
             }
-            catch (Exception ex)//program will crash anyways!
+            catch (Exception ex)
             {
-                Log.EventWriter("Registry -> Catch, Serious Problem Resetting Registry keys: " + ex.ToString());
+                Log.EventWriter("Settings -> Catch, Problem Resetting settings file: " + ex.ToString());
+            }
 
-                Log.FileSaveSystemEvents();
+            // Borrar también la clave legacy para que una futura migración no
+            // resucite los valores viejos.
+            DeleteLegacyRegistry();
+        }
 
-                // Show critical registry error
-                FormDialog.Show(
-                    "Critical Registry Error",
-                    "Can't delete the Registry SubKeyTree",
-                    DialogSeverity.Error);
+        #region Legacy Windows Registry (eliminar en port a otra plataforma)
 
+        private static void TryMigrateFromLegacyRegistry()
+        {
+            try
+            {
+                using (var regKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"SOFTWARE\AgOpenGPS"))
+                {
+                    if (regKey == null) return;
 
-                Environment.Exit(0);
+                    var wd = regKey.GetValue(RegKeys.workingDirectory) as string;
+                    if (!string.IsNullOrEmpty(wd)) workingDirectory = wd;
+
+                    var vf = regKey.GetValue(RegKeys.vehicleFileName) as string;
+                    if (!string.IsNullOrEmpty(vf)) vehicleFileName = vf;
+
+                    var lang = regKey.GetValue(RegKeys.language) as string;
+                    if (!string.IsNullOrEmpty(lang)) culture = lang;
+
+                    Log.EventWriter("Settings -> Migrated legacy Registry values to " + SettingsPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("Settings -> Legacy Registry migration failed (using defaults): " + ex.ToString());
             }
         }
+
+        private static void DeleteLegacyRegistry()
+        {
+            try
+            {
+                Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(@"SOFTWARE\AgOpenGPS", false);
+            }
+            catch { }
+        }
+
+        #endregion
 
         private static void CreateDirectories()
         {

@@ -32,7 +32,7 @@
 |---|---|---|---|---|
 | `System.Windows.Forms` (UseWindowsForms=true) | toda la UI de ambos proyectos | reescribir UI | reescribir UI | reescribir UI |
 | `OpenTK.GLControl` (windowing WinForms) | OpenGL.Designer.cs, GeoViewport.cs | reemplazar host GL (las llamadas GL puras son portables vía GLES/ANGLE) | ídem | ídem |
-| `Microsoft.Win32.Registry` (RegistrySettings, en ambos proyectos) | ~50 archivos lo consumen | migrar a JSON/prefs | migrar a JSON en `~/.config` | migrar a prefs |
+| ~~`Microsoft.Win32.Registry`~~ **RESUELTO 2026-07-16**: RegistrySettings (ambos proyectos) ahora persiste en JSON (`aog_settings.json` / `corex_settings.json`); Registry quedó aislado en métodos `*LegacyRegistry` (migración one-shot, se eliminan en el port) | RegistrySettings.cs ×2 | listo | listo | listo |
 | `Settings.Default` (ApplicationSettings .NET Framework) | ~60 archivos | abstracción de settings | ídem | ídem |
 | `System.IO.Ports` (serie GPS/steer/machine en AgIO) | SerialComm, FormCommSetGPS, NTRIP pass | requiere USB host API (driver serial USB) | funciona (`/dev/tty*`) | **no hay puerto serie accesible** — bloqueante salvo BLE/red |
 | `Microsoft.Web.WebView2` | Hub, overlays AgroParallel | reemplazar por WebView Android | **sin soporte oficial Linux** — reemplazar (CEF/WebKitGTK) o UI nativa | WKWebView |
@@ -47,7 +47,7 @@
 ### Qué falta, en orden, para compilar en otra plataforma
 
 1. **Extraer el core a una librería .NET Standard/net8.0 sin referencias UI**: Classes/ (geometría, guiado, YouTurn, Dubins), IO/ (12 archivos ya 100% portables), Protocols/ISOBUS, NMEA/PGN parsing de AgIO, lógica UDP/MQTT/NTRIP. El acoplamiento dominante es `FormGPS`/`FormLoop` inyectado por constructor → reemplazar por interfaces (el patrón ya existe en `AgroParallel/Common/FormGps*Service.cs`).
-2. **Abstraer persistencia**: RegistrySettings + Settings.Default → JSON multiplataforma (ya existe backup JSON parcial).
+2. **Abstraer persistencia**: ~~RegistrySettings~~ (HECHO 2026-07-16: JSON primario en ambos proyectos, Registry solo migración legacy aislada) + Settings.Default → los POCOs ya serializan a XML propio (XmlSettingsHandler), falta sacar System.Drawing (Point/Size/Color) del POCO.
 3. **Reemplazar el host OpenGL**: GLControl → surface GL por plataforma; las llamadas `GL.*` (render de mapa, coverage, líneas) migran casi directo a GLES2/ANGLE.
 4. **Reescribir UI**: los ~174 archivos REESCRIBIR son formularios; gran parte de la config ya migró a HTML (config.html, perfiles, nodos, Hub) servida por EmbedIO — ese camino (backend EmbedIO + frontend web) es el que menos reescritura exige para Linux/Android.
 5. **Plataforma específica**: serie (Android USB host / iOS sin serie), audio, brillo, webcam, WebView.
@@ -200,7 +200,7 @@
 
 **Visuals/SectionsVisual.cs:** PORTABLE — usa el wrapper interno GLW, sin Drawing.
 
-**Properties/ (3):** Settings.cs y Resources.Designer.cs PORTABLES/autogenerados; **RegistrySettings.cs REESCRIBIR** (Registry de Windows; ya tiene respaldo JSON parcial → completar la migración).
+**Properties/ (3):** Settings.cs y Resources.Designer.cs PORTABLES/autogenerados; **RegistrySettings.cs PORTABLE** (2026-07-16: JSON primario `aog_settings.json`; Registry aislado en `#region Legacy` que se elimina en el port).
 
 **Program.cs:** ADAPTABLE — Mutex single-instance + Application.Run + crash logging; cada plataforma necesita su entry point.
 
@@ -267,7 +267,7 @@
 
 - **ADAPTABLE:** FormCommSetGPS.cs (582 — selector de puertos con lógica de enumeración serie).
 - **REESCRIBIR (diálogos):** FormAdvancedSettings, FormEthernet, FormUDP, FormNtrip, FormGPSData, FormEventViewer, FormSerialMonitor (usa Dispatcher WPF), FormSerialPass, FormRadio, FormRadioChannel, FormISOBUS (Registry + Process.Start + DllImport), FormProfiles, FormUDPMonitor, FormSource, FormKeyboard, FormNumeric, FormPGN, FormYes, FormTimedMessage.
-- **REESCRIBIR (infra Windows):** RegistrySettings.cs, Program.cs (Mutex + Application.Run), NumericUpDownExtensions, TextBoxExtensions, Resources.Designer.cs.
+- **REESCRIBIR (infra Windows):** Program.cs (Mutex + Application.Run), NumericUpDownExtensions, TextBoxExtensions, Resources.Designer.cs. RegistrySettings.cs pasó a PORTABLE (2026-07-16: JSON primario `corex_settings.json`; Registry aislado en `#region Legacy`).
 - **REESCRIBIR (~22 .Designer.cs):** layout autogenerado de todos los forms.
 - **PORTABLE:** Settings.cs (singleton de settings planos, con salvedad ApplicationSettings).
 

@@ -5,7 +5,6 @@ using AgLibrary.Logging;
 using AgOpenGPS.Controls;
 using AgOpenGPS.Core.Translations;
 using AgOpenGPS.Helpers;
-using Microsoft.Win32;
 using System;
 using System.Drawing;
 using System.IO;
