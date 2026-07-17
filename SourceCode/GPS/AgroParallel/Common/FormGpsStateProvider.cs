@@ -604,6 +604,35 @@ namespace AgroParallel.Adapters
             return s;
         }
 
+        public SectionColorsSnapshot GetSectionColors()
+        {
+            var s = new SectionColorsSnapshot();
+            var colors = new string[16];
+            try
+            {
+                // Mismo origen que FormColorSection_Load: los 16 colores guardados.
+                var st = AgOpenGPS.Properties.Settings.Default;
+                var src = new System.Drawing.Color[16]
+                {
+                    st.setColor_sec01, st.setColor_sec02, st.setColor_sec03, st.setColor_sec04,
+                    st.setColor_sec05, st.setColor_sec06, st.setColor_sec07, st.setColor_sec08,
+                    st.setColor_sec09, st.setColor_sec10, st.setColor_sec11, st.setColor_sec12,
+                    st.setColor_sec13, st.setColor_sec14, st.setColor_sec15, st.setColor_sec16,
+                };
+                for (int i = 0; i < 16; i++)
+                    colors[i] = "#" + src[i].R.ToString("X2") + src[i].G.ToString("X2") + src[i].B.ToString("X2");
+                s.MultiColor = st.setColor_isMultiColorSections;
+            }
+            catch
+            {
+                // Defensivo: negro si las settings no están listas.
+                for (int i = 0; i < 16; i++)
+                    if (colors[i] == null) colors[i] = "#000000";
+            }
+            s.Colors = colors;
+            return s;
+        }
+
         // "Sí"/"No" legible para el operario (el volcado viejo mostraba True/False).
         private static string Bool(bool v) => v ? "Sí" : "No";
 

@@ -1455,11 +1455,16 @@ namespace AgOpenGPS
         {
             if (tool.isSectionsNotZones)
             {
-                using (var form = new FormColorSection(this))
+                // AgroParallel: la ventana WinForms FormColorSection se reemplazó por
+                // la página HTML /pages/colores-secciones.html (16 colores de sección
+                // + modo multicolor, aplica por POST /api/aog/guidance/command
+                // sec_colors_<hex1>_..._<hex16>_<0|1>). Widget Avalonia si existe; si
+                // no, Hub WebView2.
+                if (!LaunchAvaloniaWidget("pages/colores-secciones.html", "float",
+                                          "Colores de secciones", 700, 700))
                 {
-                    form.ShowDialog(this);
+                    OpenAgroParallelHub("pages/colores-secciones.html");
                 }
-                Settings.Default.Save();
             }
             else
             {

@@ -1054,6 +1054,57 @@ namespace AgOpenGPS
                 }
                 catch { return false; }
             }
+            //sec_colors_{hex1}_..._{hex16}_{0|1}: guarda los 16 colores de sección
+            //(hex RRGGBB, sin '#') + el flag multicolor (último token). Reemplaza el
+            //OK de FormColorSection: escribe Settings.setColor_secNN + tool.secColors +
+            //setColor_isMultiColorSections y persiste con Save().
+            if (cmdLower.StartsWith("sec_colors_"))
+            {
+                string rest = cmdLower.Substring("sec_colors_".Length);
+                string[] parts = rest.Split('_');
+                if (parts.Length != 17) return false;
+                var cols = new System.Drawing.Color[16];
+                for (int i = 0; i < 16; i++)
+                {
+                    if (parts[i].Length != 6) return false;
+                    int rgb;
+                    if (!int.TryParse(parts[i], System.Globalization.NumberStyles.HexNumber,
+                                      System.Globalization.CultureInfo.InvariantCulture, out rgb))
+                        return false;
+                    cols[i] = System.Drawing.Color.FromArgb(255,
+                        (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+                }
+                bool multi = parts[16] == "1";
+                Action apply = () =>
+                {
+                    var st = Properties.Settings.Default;
+                    tool.secColors[0] = st.setColor_sec01 = cols[0];
+                    tool.secColors[1] = st.setColor_sec02 = cols[1];
+                    tool.secColors[2] = st.setColor_sec03 = cols[2];
+                    tool.secColors[3] = st.setColor_sec04 = cols[3];
+                    tool.secColors[4] = st.setColor_sec05 = cols[4];
+                    tool.secColors[5] = st.setColor_sec06 = cols[5];
+                    tool.secColors[6] = st.setColor_sec07 = cols[6];
+                    tool.secColors[7] = st.setColor_sec08 = cols[7];
+                    tool.secColors[8] = st.setColor_sec09 = cols[8];
+                    tool.secColors[9] = st.setColor_sec10 = cols[9];
+                    tool.secColors[10] = st.setColor_sec11 = cols[10];
+                    tool.secColors[11] = st.setColor_sec12 = cols[11];
+                    tool.secColors[12] = st.setColor_sec13 = cols[12];
+                    tool.secColors[13] = st.setColor_sec14 = cols[13];
+                    tool.secColors[14] = st.setColor_sec15 = cols[14];
+                    tool.secColors[15] = st.setColor_sec16 = cols[15];
+                    st.setColor_isMultiColorSections = tool.isMultiColoredSections = multi;
+                    st.Save();
+                };
+                try
+                {
+                    if (InvokeRequired) BeginInvoke((MethodInvoker)(() => apply()));
+                    else apply();
+                    return true;
+                }
+                catch { return false; }
+            }
             switch (cmdLower)
             {
                 //--- guías ---

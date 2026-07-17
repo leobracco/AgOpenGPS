@@ -74,6 +74,14 @@ namespace AgroParallel.Services.Abstractions
         SimCoordsSnapshot GetSimCoords();
 
         /// <summary>
+        /// Devuelve los 16 colores de sección guardados (hex "#RRGGBB") y el flag
+        /// multicolor. Reemplaza la ventana WinForms FormColorSection por la página
+        /// HTML /pages/colores-secciones.html. Aplicar va por POST
+        /// /api/aog/guidance/command (sec_colors_&lt;hex1&gt;_..._&lt;hex16&gt;_&lt;0|1&gt;).
+        /// </summary>
+        SectionColorsSnapshot GetSectionColors();
+
+        /// <summary>
         /// Lee el valor numérico de un campo DBF arbitrario del shapefile
         /// activo, en el polígono actualmente bajo el tractor. Retorna 0 si
         /// no hay shapefile, no hay polígono, o el campo no es numérico.

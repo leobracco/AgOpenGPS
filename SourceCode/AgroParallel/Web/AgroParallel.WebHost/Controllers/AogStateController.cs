@@ -30,6 +30,11 @@
 //                                             (reemplazo de FormShiftPos; las
 //                                             escrituras van por POST
 //                                             /api/aog/guidance/command).
+//                GET /api/aog/section-colors → los 16 colores de sección + flag
+//                                             multicolor para la pantalla de
+//                                             colores de secciones (reemplazo de
+//                                             FormColorSection; aplica por command
+//                                             sec_colors_<hex1>_..._<hex16>_<0|1>).
 //                GET /api/aog/shape         → polígonos del shapefile activo.
 //                GET /api/aog/shape-fields  → columnas DBF del shapefile activo
 //                                             (la UI QuantiX las usa para el
@@ -107,6 +112,12 @@ namespace AgroParallel.WebHost.Controllers
         public Task GetSimCoords()
         {
             return WriteJsonAsync(_state.GetSimCoords());
+        }
+
+        [Route(HttpVerbs.Get, "/aog/section-colors")]
+        public Task GetSectionColors()
+        {
+            return WriteJsonAsync(_state.GetSectionColors());
         }
 
         [Route(HttpVerbs.Get, "/aog/shape")]
