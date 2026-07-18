@@ -739,7 +739,11 @@ namespace AgOpenGPS
                 return;
             }
 
-            GetHeadland();
+            // Cabecera migrada a HTML (pages/cabecera.html, flujo Build Around).
+            // FormHeadLine se mantiene para el reshape manual (fase 2).
+            if (!LaunchAvaloniaWidget("pages/cabecera.html", "float", "Cabecera", 1000, 720))
+            { OpenAgroParallelHub("pages/cabecera.html"); }
+            this.Activate();
         }
         private void headlandBuildToolStripMenuItem_Click(object sender, EventArgs e)
         {
