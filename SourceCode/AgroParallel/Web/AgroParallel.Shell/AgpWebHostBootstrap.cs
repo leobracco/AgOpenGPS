@@ -76,7 +76,8 @@ namespace AgroParallel.Shell
             ITrackListService trackList = null,
             IPerfilVehiculoService perfiles = null,
             IConfigVehiculoService configVehiculo = null,
-            IHeadlandEditService headlandEdit = null)
+            IHeadlandEditService headlandEdit = null,
+            ITramSimpleService tramSimple = null)
         {
             lock (s_lock)
             {
@@ -142,7 +143,8 @@ namespace AgroParallel.Shell
                     trackList: trackList,
                     perfiles: perfiles,
                     configVehiculo: configVehiculo,
-                    headlandEdit: headlandEdit);
+                    headlandEdit: headlandEdit,
+                    tramSimple: tramSimple);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;

@@ -692,9 +692,11 @@ namespace AgOpenGPS
                 return;
             }
 
-            Form form99 = new FormTram(this, trk.gArr[trk.idx].mode != TrackMode.AB);
-            form99.Show(this);
-
+            // Tramlines simples migrado a HTML (pages/tramline.html). El editor
+            // avanzado (FormTramLine, corte por mouse) queda para una fase 2.
+            if (!LaunchAvaloniaWidget("pages/tramline.html", "float", "Tramlines", 560, 720))
+            { OpenAgroParallelHub("pages/tramline.html"); }
+            this.Activate();
         }
 
         private void tramLinesMenuMulti_Click(object sender, EventArgs e)

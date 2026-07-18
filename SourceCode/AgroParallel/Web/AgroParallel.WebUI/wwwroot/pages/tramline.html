@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tramlines · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    /* Tramlines simples (reemplazo del WinForms FormTram): ajusta pasadas / modo /
+       transparencia / swap AB de las huellas de rueda. La vista previa se dibuja
+       sobre el mapa principal de PilotX (tram.displayMode). La geometría corre en
+       C# (POST /api/tram-simple/*); acá solo mandamos comandos y refrescamos. */
+    .tl-card {
+      max-width: 460px; margin-top: var(--agp-sp-3);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-5);
+      display: flex; flex-direction: column; gap: var(--agp-sp-4);
+    }
+    .tl-row { display: flex; align-items: center; justify-content: space-between; gap: var(--agp-sp-3); }
+    .tl-label { font-size: var(--agp-fs-md); color: var(--agp-text); }
+    .tl-stepper { display: flex; align-items: center; gap: var(--agp-sp-3); }
+    .tl-stepper .btn { font-size: var(--agp-fs-lg); min-width: 64px; min-height: 64px; }
+    .tl-value {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-xl);
+      font-weight: var(--agp-fw-bold); color: var(--agp-accent);
+      min-width: 56px; text-align: center;
+    }
+    #btnMode { min-height: 56px; min-width: 180px; }
+    .tl-slider { display: flex; align-items: center; gap: var(--agp-sp-3); flex: 1 1 auto; }
+    .tl-slider input[type=range] { flex: 1 1 auto; }
+    .tl-slider .tl-value { font-size: var(--agp-fs-md); min-width: 52px; }
+    .tl-info { border-top: var(--agp-border-w) solid var(--agp-border); padding-top: var(--agp-sp-3); }
+    .tl-info .tl-row { padding: var(--agp-sp-1) 0; }
+    .tl-info .tl-mono { font-family: var(--agp-font-mono); color: var(--agp-text-muted); }
+    .tl-foot { display: flex; gap: var(--agp-sp-3); margin-top: var(--agp-sp-2); flex-wrap: wrap; }
+    .tl-foot .btn { flex: 1 1 120px; min-height: 56px; }
+    #btnSave { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .tl-warn {
+      display: none; background: #5a2c2c; color: #fff; border-radius: var(--agp-radius-sm);
+      padding: var(--agp-sp-3); font-size: var(--agp-fs-sm); margin-top: var(--agp-sp-3);
+    }
+    .tl-warn.show { display: block; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Tramlines</h1>
+        <div class="subtitle">Huellas de rueda por pasadas · vista previa en el mapa</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div id="warnBox" class="tl-warn">Activá primero una línea de guía (AB o curva) para armar los tramlines.</div>
+
+    <div class="tl-card">
+      <div class="tl-row">
+        <span class="tl-label">Pasadas entre huellas</span>
+        <div class="tl-stepper">
+          <button class="btn" id="btnLess" aria-label="Menos pasadas">−</button>
+          <div class="tl-value" id="valPasses">1</div>
+          <button class="btn" id="btnMore" aria-label="Más pasadas">+</button>
+        </div>
+      </div>
+
+      <div class="tl-row">
+        <span class="tl-label">Modo</span>
+        <button class="btn" id="btnMode">Todo</button>
+      </div>
+
+      <div class="tl-row">
+        <span class="tl-label">Transparencia</span>
+        <div class="tl-slider">
+          <input type="range" id="rngAlpha" min="0" max="100" step="5" value="80" />
+          <span class="tl-value" id="valAlpha">80%</span>
+        </div>
+      </div>
+
+      <button class="btn" id="btnSwap">Invertir A ↔ B</button>
+
+      <div class="tl-info">
+        <div class="tl-row"><span class="tl-label">Ancho herramienta</span><span class="tl-mono" id="valTool">—</span></div>
+        <div class="tl-row"><span class="tl-label">Ancho tramline</span><span class="tl-mono" id="valTram">—</span></div>
+        <div class="tl-row"><span class="tl-label">Trocha vehículo</span><span class="tl-mono" id="valTrack">—</span></div>
+      </div>
+
+      <div class="tl-foot">
+        <button class="btn" id="btnCancel">Cancelar</button>
+        <button class="btn" id="btnSave">Guardar</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/tramline.js"></script>
+</body>
+</html>

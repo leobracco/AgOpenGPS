@@ -54,6 +54,9 @@ namespace AgroParallel.WebHost
         // (todas las acciones tocan Settings + estado vivo del form).
         private readonly IConfigVehiculoService _configVehiculo;
         private readonly IHeadlandEditService _headlandEdit;
+        // Editor "Tramlines simples" (tramline.html, reemplazo de FormTram).
+        // Inyectado por FormGPS (toca trk/ABLine/curve/tram del form vivo).
+        private readonly ITramSimpleService _tramSimple;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -137,7 +140,8 @@ namespace AgroParallel.WebHost
                           ITrackListService trackList = null,
                           IPerfilVehiculoService perfiles = null,
                           IConfigVehiculoService configVehiculo = null,
-                          IHeadlandEditService headlandEdit = null)
+                          IHeadlandEditService headlandEdit = null,
+                          ITramSimpleService tramSimple = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -161,6 +165,7 @@ namespace AgroParallel.WebHost
             _perfiles = perfiles;             // nullable
             _configVehiculo = configVehiculo; // nullable
             _headlandEdit = headlandEdit;     // nullable
+            _tramSimple = tramSimple;         // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -295,6 +300,7 @@ namespace AgroParallel.WebHost
                 if (_configVehiculo != null) m.WithController(() => new ConfigVehiculoController(_configVehiculo));
                 // Editor de cabecera HTML (pages/cabecera.html) — flujo Build Around.
                 if (_headlandEdit != null) m.WithController(() => new HeadlandController(_headlandEdit));
+                if (_tramSimple != null) m.WithController(() => new TramSimpleController(_tramSimple));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
