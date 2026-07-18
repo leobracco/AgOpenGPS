@@ -103,6 +103,24 @@
     if (!skipsTouching && selSkips.value !== w) selSkips.value = w;
   }
 
+  // Auto-ocultado: cualquier interacción sobre la barra (hover/touch/click)
+  // reinicia el contador de 15 s en PilotX vía "paneles_keepalive".
+  // Throttle 2 s para no inundar el canal de comandos con el pointermove.
+  var kaLast = 0;
+  function keepalive() {
+    var now = Date.now();
+    if (now - kaLast < 2000) return;
+    kaLast = now;
+    fetch('/api/aog/guidance/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd: 'paneles_keepalive' })
+    }).catch(function () {});
+  }
+  ['pointermove', 'pointerdown', 'touchstart'].forEach(function (ev) {
+    document.addEventListener(ev, keepalive, { passive: true });
+  });
+
   poll();
   setInterval(poll, 500);
 })();

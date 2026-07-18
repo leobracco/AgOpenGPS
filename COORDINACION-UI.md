@@ -1296,3 +1296,12 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   (max desvio 0.00 m), Reset = contorno (dist 0), Apagar ok, toggle
   secciones-en-cabecera round-trip ok. Paginas migradas y APIs de estado/
   graficos/eventos/ajustes: todas 200 con datos reales.
+- [2026-07-18] [Claude] Pedido de usuario: auto-ocultado de barras — el
+  contador ahora es de 15 s (era 10) y se REINICIA con cualquier interacción
+  sobre las barras (hover/touch/click). Mecánica: barra-abajo/barra-derecha/
+  menu-izquierda escuchan pointermove/pointerdown/touchstart (throttle 2 s)
+  y mandan el comando "paneles_keepalive" por el canal existente
+  (POST /api/aog/guidance/command) → ExecuteGuidanceCommand reinicia
+  timerOcultarPaneles. La barra superior no participa (siempre visible).
+  Versiones bumpeadas: menu-izquierda.js?v=4, barra-abajo.js?v=2,
+  barra-derecha.js?v=2. Build 0 errores, endpoint verificado ok:true.

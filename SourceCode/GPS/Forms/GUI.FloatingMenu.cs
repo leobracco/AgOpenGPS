@@ -22,16 +22,17 @@ namespace AgOpenGPS
         private bool floatMenuDragging;
         private Action floatMenuBackAction; //a dónde vuelve la flecha atrás (null = home)
 
-        //Auto-ocultado de botoneras: 10 s después de mostrarse (o de la última
-        //acción que refresca paneles) se esconden solas; la flecha del mapa
-        //(MenuShowHide) las vuelve a traer.
+        //Auto-ocultado de botoneras: 15 s después de mostrarse (o de la última
+        //interacción — hover/touch/click sobre las barras manda
+        //"paneles_keepalive" y reinicia el contador) se esconden solas; la
+        //flecha del mapa (MenuShowHide) las vuelve a traer.
         private Timer timerOcultarPaneles;
 
         public void ReiniciarTimerOcultarPaneles()
         {
             if (timerOcultarPaneles == null)
             {
-                timerOcultarPaneles = new Timer { Interval = 10000 };
+                timerOcultarPaneles = new Timer { Interval = 15000 };
                 timerOcultarPaneles.Tick += (s, e) =>
                 {
                     timerOcultarPaneles.Stop();
@@ -58,7 +59,7 @@ namespace AgOpenGPS
         // REEMPLAZAN a las nativas (panelControlBox/panelRight/panelBottom),
         // que quedan intactas pero ocultas. Se dockean a los bordes del mapa
         // vía FloatingDock y las muestra/oculta la MISMA flecha de siempre
-        // (btnTogglePaneles) + el auto-ocultado de 10 s. Persistente entre
+        // (btnTogglePaneles) + el auto-ocultado de 15 s. Persistente entre
         // arranques (archivo flag en AgroParallel\).
         // ==================================================================
         public bool isHtmlBarsMode = false;
@@ -952,6 +953,19 @@ namespace AgOpenGPS
             Button b = null;
             Action act = null;
             string cmdLower = (cmd ?? "").Trim().ToLowerInvariant();
+            //paneles_keepalive: las barras HTML lo mandan al detectar
+            //interacción (hover/touch/click) para que el auto-ocultado no
+            //las esconda mientras se están usando.
+            if (cmdLower == "paneles_keepalive")
+            {
+                try
+                {
+                    if (InvokeRequired) BeginInvoke((MethodInvoker)ReiniciarTimerOcultarPaneles);
+                    else ReiniciarTimerOcultarPaneles();
+                    return true;
+                }
+                catch { return false; }
+            }
             //skips_{n}: ancho de salteo de U-turn (cboxpRowWidth 1..10). Setear
             //SelectedIndex dispara SelectedIndexChanged solo (ComboBox nativo).
             if (cmdLower.StartsWith("skips_"))
