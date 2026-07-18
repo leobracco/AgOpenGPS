@@ -2525,15 +2525,25 @@ namespace AgOpenGPS
             // ---- Tamaños default dinámicos en base a ClientSize + sensores ----
             // Strip: ancho = barra status (80) + chips (count * 44) + KPIs (210),
             //        clamp [380..ClientSize.Width-32]. Altura ~ 64 px (incluye drag bar).
-            // Stats: ancho ~18% del mapa (clamp 240..320), alto ~38% (clamp 260..440).
+            // Stats: tamaño chico tipo widget QuantiX (220x240): ancho clamp
+            //        220..260, alto clamp 230..300 — pantallas chicas (1080x720)
+            //        no aguantan el 38% de alto anterior.
             int stripContentW = 80 + Math.Max(1, primaryCount) * 44 + 210;
             int defaultStripW = Clamp(stripContentW, 380, Math.Max(380, this.ClientSize.Width - 32));
             int defaultStripH = Clamp((int)(this.ClientSize.Height * 0.07), 60, 96);
-            int defaultStatsW = Clamp((int)(this.ClientSize.Width * 0.18), 240, 320);
-            int defaultStatsH = Clamp((int)(this.ClientSize.Height * 0.38), 260, 440);
+            int defaultStatsW = Clamp((int)(this.ClientSize.Width * 0.18), 220, 260);
+            int defaultStatsH = Clamp((int)(this.ClientSize.Height * 0.32), 230, 300);
 
-            int stripW = prefs.VxStripW > 0 ? prefs.VxStripW : defaultStripW;
-            int stripH = prefs.VxStripH > 0 ? prefs.VxStripH : defaultStripH;
+            // Prefs persistidas de otra resolución (monitor más grande) pueden
+            // dejar el overlay gigante o directamente fuera de la pantalla —
+            // ej: vx_stats_x=1385 en una pantalla de 1080. Sanitizamos: tamaño
+            // clampeado al ClientSize y posición custom solo si el origen cae
+            // dentro del área visible; si no, caemos al default.
+            int maxW = Math.Max(220, this.ClientSize.Width - 16);
+            int maxH = Math.Max(200, this.ClientSize.Height - 16);
+
+            int stripW = prefs.VxStripW > 0 ? Math.Min(prefs.VxStripW, maxW) : defaultStripW;
+            int stripH = prefs.VxStripH > 0 ? Math.Min(prefs.VxStripH, maxH) : defaultStripH;
 
             // ---- Strip (vistax-live.html) ----
             vistaXStripHtml = new AgroParallel.Common.VistaXWebOverlayPanel(
@@ -2541,21 +2551,25 @@ namespace AgOpenGPS
                 new System.Drawing.Size(stripW, stripH),
                 new System.Drawing.Size(360, 50),
                 "VistaX · monitor");
-            bool stripCustom = prefs.VxStripX >= 0 && prefs.VxStripY >= 0;
+            bool stripCustom = prefs.VxStripX >= 0 && prefs.VxStripY >= 0
+                && prefs.VxStripX < this.ClientSize.Width - 40
+                && prefs.VxStripY < this.ClientSize.Height - 40;
             // Sin stretch: anclamos a Bottom|Left para que NO ocupe todo el ancho.
             vistaXStripHtml.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             this.Controls.Add(vistaXStripHtml);
             vistaXStripHtml.BringToFront();
 
             // ---- Stats (vistax-stats.html) ----
-            int statsW = prefs.VxStatsW > 0 ? prefs.VxStatsW : defaultStatsW;
-            int statsH = prefs.VxStatsH > 0 ? prefs.VxStatsH : defaultStatsH;
+            int statsW = prefs.VxStatsW > 0 ? Math.Min(prefs.VxStatsW, maxW) : defaultStatsW;
+            int statsH = prefs.VxStatsH > 0 ? Math.Min(prefs.VxStatsH, maxH) : defaultStatsH;
             vistaXStatsHtml = new AgroParallel.Common.VistaXWebOverlayPanel(
                 baseUrl, "pages/vistax-stats.html",
                 new System.Drawing.Size(statsW, statsH),
                 new System.Drawing.Size(220, 200),
                 "VistaX · stats");
-            bool statsCustom = prefs.VxStatsX >= 0 && prefs.VxStatsY >= 0;
+            bool statsCustom = prefs.VxStatsX >= 0 && prefs.VxStatsY >= 0
+                && prefs.VxStatsX < this.ClientSize.Width - 40
+                && prefs.VxStatsY < this.ClientSize.Height - 40;
             vistaXStatsHtml.Anchor = statsCustom
                 ? (AnchorStyles.Top | AnchorStyles.Left)
                 : (AnchorStyles.Top | AnchorStyles.Right);
