@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace AgOpenGPS
 {
@@ -14,24 +14,24 @@ namespace AgOpenGPS
 
         public void SetHydPosition()
         {
-            if (mf.vehicle.isHydLiftOn && mf.avgSpeed > 0.2 && !mf.isReverse)
+            if (mf.IsHydLiftOn && mf.AvgSpeed > 0.2 && !mf.IsReverse)
             {
                 if (isToolInHeadland)
                 {
-                    mf.p_239.pgn[mf.p_239.hydLift] = 2;
-                    if (mf.sounds.isHydLiftChange != isToolInHeadland)
+                    mf.SetHydLiftPgn(2);
+                    if (mf.IsHydLiftChange != isToolInHeadland)
                     {
-                        if (mf.sounds.isHydLiftSoundOn) mf.sounds.sndHydLiftUp.Play();
-                        mf.sounds.isHydLiftChange = isToolInHeadland;
+                        if (mf.IsHydLiftSoundOn) mf.PlayHydLiftUp();
+                        mf.IsHydLiftChange = isToolInHeadland;
                     }
                 }
                 else
                 {
-                    mf.p_239.pgn[mf.p_239.hydLift] = 1;
-                    if (mf.sounds.isHydLiftChange != isToolInHeadland)
+                    mf.SetHydLiftPgn(1);
+                    if (mf.IsHydLiftChange != isToolInHeadland)
                     {
-                        if (mf.sounds.isHydLiftSoundOn) mf.sounds.sndHydLiftDn.Play();
-                        mf.sounds.isHydLiftChange = isToolInHeadland;
+                        if (mf.IsHydLiftSoundOn) mf.PlayHydLiftDn();
+                        mf.IsHydLiftChange = isToolInHeadland;
                     }
                 }
             }
@@ -43,24 +43,24 @@ namespace AgOpenGPS
             {
                 bool isLeftInWk, isRightInWk = true;
 
-                for (int j = 0; j < mf.tool.numOfSections; j++)
+                for (int j = 0; j < mf.ToolNumOfSections; j++)
                 {
-                    isLeftInWk = j == 0 ? IsPointInsideHeadArea(mf.section[j].leftPoint) : isRightInWk;
-                    isRightInWk = IsPointInsideHeadArea(mf.section[j].rightPoint);
+                    isLeftInWk = j == 0 ? IsPointInsideHeadArea(mf.Section[j].leftPoint) : isRightInWk;
+                    isRightInWk = IsPointInsideHeadArea(mf.Section[j].rightPoint);
 
                     //save left side
                     if (j == 0)
-                        mf.tool.isLeftSideInHeadland = !isLeftInWk;
+                        mf.ToolIsLeftSideInHeadland = !isLeftInWk;
 
                     //merge the two sides into in or out
-                    mf.section[j].isInHeadlandArea = !isLeftInWk && !isRightInWk;
+                    mf.Section[j].isInHeadlandArea = !isLeftInWk && !isRightInWk;
                 }
 
                 //save right side
-                mf.tool.isRightSideInHeadland = !isRightInWk;
+                mf.ToolIsRightSideInHeadland = !isRightInWk;
 
                 //is the tool in or out based on endpoints
-                isToolOuterPointsInHeadland = mf.tool.isLeftSideInHeadland && mf.tool.isRightSideInHeadland;
+                isToolOuterPointsInHeadland = mf.ToolIsLeftSideInHeadland && mf.ToolIsRightSideInHeadland;
             }
         }
 
@@ -70,28 +70,28 @@ namespace AgOpenGPS
             {
                 bool isLookRightIn = false;
 
-                vec3 toolFix = mf.toolPivotPos;
+                vec3 toolFix = mf.ToolPivotPos;
                 double sinAB = Math.Sin(toolFix.heading);
                 double cosAB = Math.Cos(toolFix.heading);
 
                 //generated box for finding closest point
                 double pos = 0;
-                double mOn = (mf.tool.lookAheadDistanceOnPixelsRight - mf.tool.lookAheadDistanceOnPixelsLeft) / mf.tool.rpWidth;
+                double mOn = (mf.ToolLookAheadOnPixelsRight - mf.ToolLookAheadOnPixelsLeft) / mf.ToolRpWidth;
 
-                for (int j = 0; j < mf.tool.numOfSections; j++)
+                for (int j = 0; j < mf.ToolNumOfSections; j++)
                 {
                     bool isLookLeftIn = j == 0 ? IsPointInsideHeadArea(new vec2(
-                        mf.section[j].leftPoint.easting + (sinAB * mf.tool.lookAheadDistanceOnPixelsLeft * 0.1),
-                        mf.section[j].leftPoint.northing + (cosAB * mf.tool.lookAheadDistanceOnPixelsLeft * 0.1))) : isLookRightIn;
+                        mf.Section[j].leftPoint.easting + (sinAB * mf.ToolLookAheadOnPixelsLeft * 0.1),
+                        mf.Section[j].leftPoint.northing + (cosAB * mf.ToolLookAheadOnPixelsLeft * 0.1))) : isLookRightIn;
 
-                    pos += mf.section[j].rpSectionWidth;
-                    double endHeight = (mf.tool.lookAheadDistanceOnPixelsLeft + (mOn * pos)) * 0.1;
+                    pos += mf.Section[j].rpSectionWidth;
+                    double endHeight = (mf.ToolLookAheadOnPixelsLeft + (mOn * pos)) * 0.1;
 
                     isLookRightIn = IsPointInsideHeadArea(new vec2(
-                        mf.section[j].rightPoint.easting + (sinAB * endHeight),
-                        mf.section[j].rightPoint.northing + (cosAB * endHeight)));
+                        mf.Section[j].rightPoint.easting + (sinAB * endHeight),
+                        mf.Section[j].rightPoint.northing + (cosAB * endHeight)));
 
-                    mf.section[j].isLookOnInHeadland = !isLookLeftIn && !isLookRightIn;
+                    mf.Section[j].isLookOnInHeadland = !isLookLeftIn && !isLookRightIn;
                 }
             }
         }
@@ -121,7 +121,7 @@ namespace AgOpenGPS
                 return;
             }
 
-            vec3 vehiclePos = mf.toolPivotPos;
+            vec3 vehiclePos = mf.ToolPivotPos;
 
             vec2? nearest = glm.RaycastToPolygon(vehiclePos, bndList[0].hdLine);
             if (!nearest.HasValue)
@@ -150,17 +150,17 @@ namespace AgOpenGPS
                 (isInside && headingOk && distance < 20.0) ||
                 (!isInside && headingOk && distance < 5.0);
 
-            if (shouldPlay && mf.isHeadlandDistanceOn)
+            if (shouldPlay && mf.IsHeadlandDistanceOn)
             {
-                if (!mf.sounds.isBoundAlarming)
+                if (!mf.IsBoundAlarming)
                 {
-                    mf.sounds.sndHeadland.Play();
-                    mf.sounds.isBoundAlarming = true;
+                    mf.PlayHeadlandSound();
+                    mf.IsBoundAlarming = true;
                 }
             }
             else
             {
-                mf.sounds.isBoundAlarming = false;
+                mf.IsBoundAlarming = false;
             }
         }
 

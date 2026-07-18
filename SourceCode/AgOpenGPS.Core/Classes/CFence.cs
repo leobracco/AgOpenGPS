@@ -1,4 +1,4 @@
-﻿using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL;
 using System;
 using System.Collections.Generic;
 
@@ -56,7 +56,7 @@ namespace AgOpenGPS
 
         public void DrawFenceLines()
         {
-            if (!mf.mc.isOutOfBounds)
+            if (!mf.Mc.isOutOfBounds)
             {
                 GL.Color4(0, 0, 0, 0.8);
                 GL.LineWidth(6);
@@ -76,7 +76,7 @@ namespace AgOpenGPS
             }
             else
             {
-                GL.LineWidth(mf.ABLine.lineWidth * 3);
+                GL.LineWidth(mf.ABLineWidth * 3);
                 GL.Color3(0.95f, 0.25f, 0.250f);
 
                 for (int i = 0; i < bndList.Count; i++)
@@ -88,8 +88,8 @@ namespace AgOpenGPS
             if (bndBeingMadePts.Count > 0)
             {
                 //the boundary so far
-                vec3 pivot = mf.pivotAxlePos;
-                GL.LineWidth(mf.ABLine.lineWidth);
+                vec3 pivot = mf.PivotAxlePos;
+                GL.LineWidth(mf.ABLineWidth);
                 GL.Color3(0.825f, 0.22f, 0.90f);
                 GL.Begin(PrimitiveType.LineStrip);
                 for (int h = 0; h < bndBeingMadePts.Count; h++)
@@ -136,8 +136,8 @@ namespace AgOpenGPS
                     {
                         GL.Vertex2(bndBeingMadePts[0].easting, bndBeingMadePts[0].northing);
                         GL.Vertex2(
-                            mf.section[mf.tool.numOfSections - 1].rightPoint.easting,
-                            mf.section[mf.tool.numOfSections - 1].rightPoint.northing);
+                            mf.Section[mf.ToolNumOfSections - 1].rightPoint.easting,
+                            mf.Section[mf.ToolNumOfSections - 1].rightPoint.northing);
                         GL.Vertex2(
                             bndBeingMadePts[bndBeingMadePts.Count - 1].easting,
                             bndBeingMadePts[bndBeingMadePts.Count - 1].northing);
@@ -145,7 +145,7 @@ namespace AgOpenGPS
                     else
                     {
                         GL.Vertex2(bndBeingMadePts[0].easting, bndBeingMadePts[0].northing);
-                        GL.Vertex2(mf.section[0].leftPoint.easting, mf.section[0].leftPoint.northing);
+                        GL.Vertex2(mf.Section[0].leftPoint.easting, mf.Section[0].leftPoint.northing);
                         GL.Vertex2(
                             bndBeingMadePts[bndBeingMadePts.Count - 1].easting,
                             bndBeingMadePts[bndBeingMadePts.Count - 1].northing);

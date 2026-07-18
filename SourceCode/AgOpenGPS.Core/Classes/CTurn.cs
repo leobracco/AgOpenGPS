@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace AgOpenGPS
@@ -119,13 +119,13 @@ namespace AgOpenGPS
             }
 
             //update the GUI values for boundaries
-            mf.fd.UpdateFieldBoundaryGUIAreas();
+            mf.Fd.UpdateFieldBoundaryGUIAreas();
 
             //to fill the list of line points
             vec3 point = new vec3();
 
             //determine how wide a headland space
-            double totalHeadWidth = mf.yt.uturnDistanceFromBoundary;
+            double totalHeadWidth = mf.UturnDistanceFromBoundary;
 
             //inside boundaries
             for (int j = 0; j < bndList.Count; j++)
