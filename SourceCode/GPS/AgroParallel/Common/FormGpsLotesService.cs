@@ -14,10 +14,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using AgOpenGPS.Core.Models;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 
@@ -67,9 +69,14 @@ namespace AgroParallel.Adapters
                         {
                             var lines = File.ReadAllLines(boundary);
                             info.HasBoundary = lines.Length > 2;
+                            info.AreaHa = ComputeBoundaryAreaHa(lines);
                         }
                         catch { }
                     }
+                    // Distancia al StartFix (línea 9 de Field.txt) — misma
+                    // columna que FormJob (Drive In) / FormFieldExisting.
+                    info.DistanceKm = ComputeStartFixDistanceKm(
+                        Path.Combine(di.FullName, "Field.txt"));
                     result.Add(info);
                 }
                 catch { /* skip broken dir */ }
@@ -123,12 +130,15 @@ namespace AgroParallel.Adapters
                 {
                     try
                     {
+                        bool wasJobStarted = _form.isJobStarted;
+                        string prevDir = _form.currentFieldDirectory;
                         if (_form.isJobStarted)
                         {
                             try { await _form.FileSaveEverythingBeforeClosingField(); } catch { }
                         }
                         // FileOpenField acepta la ruta completa al Field.txt como "openType".
                         _form.FileOpenField(fieldFile);
+                        _form.Lotes_PostOpenFixup(wasJobStarted, prevDir);
                         tcs.TrySetResult(_form.isJobStarted);
                     }
                     catch (Exception ex)
@@ -157,6 +167,7 @@ namespace AgroParallel.Adapters
                     {
                         if (!_form.isJobStarted) { tcs.TrySetResult(true); return; }
                         await _form.FileSaveEverythingBeforeClosingField();
+                        _form.Lotes_PostOpenFixup(wasJobStarted: false, prevFieldDir: null);
                         tcs.TrySetResult(!_form.isJobStarted);
                     }
                     catch (Exception ex)
@@ -193,6 +204,8 @@ namespace AgroParallel.Adapters
                     try
                     {
                         // Mismo flujo que FormFieldDir.btnSave_Click:
+                        bool wasJobStarted = _form.isJobStarted;
+                        string prevDir = _form.currentFieldDirectory;
                         if (_form.isJobStarted)
                         {
                             try { await _form.FileSaveEverythingBeforeClosingField(); } catch { }
@@ -219,6 +232,7 @@ namespace AgroParallel.Adapters
                         _form.FileSaveFlags();
                         _form.FileCreateBoundary();
 
+                        _form.Lotes_PostOpenFixup(wasJobStarted, prevDir);
                         tcs.TrySetResult(_form.isJobStarted);
                     }
                     catch (Exception ex)
@@ -234,6 +248,134 @@ namespace AgroParallel.Adapters
                 tcs.TrySetResult(false);
             }
             return tcs.Task;
+        }
+
+        public Task<bool> CreateFromExistingAsync(string templateName, string newName,
+                                                  bool copyApplied, bool copyFlags,
+                                                  bool copyGuidance, bool copyHeadland)
+        {
+            if (string.IsNullOrWhiteSpace(templateName) || string.IsNullOrWhiteSpace(newName))
+                return Task.FromResult(false);
+            string clean = InvalidChars.Replace(newName, "").Trim();
+            if (string.IsNullOrEmpty(clean)) return Task.FromResult(false);
+
+            var tcs = new TaskCompletionSource<bool>();
+            try
+            {
+                _form.BeginInvoke((MethodInvoker)(async () =>
+                {
+                    try
+                    {
+                        bool wasJobStarted = _form.isJobStarted;
+                        string prevDir = _form.currentFieldDirectory;
+                        if (_form.isJobStarted)
+                        {
+                            try { await _form.FileSaveEverythingBeforeClosingField(); } catch { }
+                        }
+                        bool ok = _form.Lotes_CreateFromExisting(
+                            templateName, clean, copyApplied, copyFlags, copyGuidance, copyHeadland);
+                        _form.Lotes_PostOpenFixup(wasJobStarted, prevDir);
+                        tcs.TrySetResult(ok);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[Lotes] CreateFromExistingAsync: " + ex.Message);
+                        tcs.TrySetResult(false);
+                    }
+                }));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[Lotes] CreateFromExistingAsync invoke: " + ex.Message);
+                tcs.TrySetResult(false);
+            }
+            return tcs.Task;
+        }
+
+        public Task<bool> ImportKmlAsync() => ImportNativeAsync(kml: true);
+
+        public Task<bool> ImportIsoXmlAsync() => ImportNativeAsync(kml: false);
+
+        // Diálogos nativos de import (ex FormJob DialogResult.No / Abort). El
+        // ShowDialog corre en el hilo UI; el HTTP thread espera el resultado.
+        private Task<bool> ImportNativeAsync(bool kml)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            try
+            {
+                _form.BeginInvoke((MethodInvoker)(() =>
+                {
+                    try
+                    {
+                        bool wasJobStarted = _form.isJobStarted;
+                        string prevDir = _form.currentFieldDirectory;
+                        bool ok = kml ? _form.Lotes_ImportKml() : _form.Lotes_ImportIsoXml();
+                        _form.Lotes_PostOpenFixup(wasJobStarted, prevDir);
+                        tcs.TrySetResult(ok);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[Lotes] ImportNativeAsync: " + ex.Message);
+                        tcs.TrySetResult(false);
+                    }
+                }));
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[Lotes] ImportNativeAsync invoke: " + ex.Message);
+                tcs.TrySetResult(false);
+            }
+            return tcs.Task;
+        }
+
+        // ── Helpers de lectura de archivos de lote ─────────────────────────────
+
+        // Distancia km desde la posición actual al StartFix (línea 9 de
+        // Field.txt, formato "lat,lon"). -1 si no se puede calcular.
+        private double ComputeStartFixDistanceKm(string fieldFile)
+        {
+            try
+            {
+                var lines = File.ReadAllLines(fieldFile);
+                if (lines.Length < 9) return -1;
+                string[] words = lines[8].Split(',');
+                if (words.Length < 2) return -1;
+                double lat = double.Parse(words[0], CultureInfo.InvariantCulture);
+                double lon = double.Parse(words[1], CultureInfo.InvariantCulture);
+                var start = new Wgs84(lat, lon);
+                return Math.Round(start.DistanceInKiloMeters(_form.AppModel.CurrentLatLon), 2);
+            }
+            catch { return -1; }
+        }
+
+        // Shoelace sobre Boundary.txt (mismo parseo tolerante a formatos viejos
+        // que FormFieldExisting). Devuelve hectáreas; 0 si no hay contorno.
+        private static double ComputeBoundaryAreaHa(string[] lines)
+        {
+            try
+            {
+                int i = 1; // saltear header "$Boundary"
+                // Formatos viejos: hasta dos líneas True/False antes del count.
+                while (i < lines.Length && (lines[i] == "True" || lines[i] == "False")) i++;
+                if (i >= lines.Length) return 0;
+                int numPoints = int.Parse(lines[i], CultureInfo.InvariantCulture);
+                if (numPoints < 6 || i + numPoints >= lines.Length) return 0;
+
+                double area = 0;
+                double prevE = 0, prevN = 0, firstE = 0, firstN = 0;
+                for (int p = 0; p < numPoints; p++)
+                {
+                    string[] words = lines[i + 1 + p].Split(',');
+                    double e = double.Parse(words[0], CultureInfo.InvariantCulture);
+                    double n = double.Parse(words[1], CultureInfo.InvariantCulture);
+                    if (p == 0) { firstE = e; firstN = n; }
+                    else area += (prevE + e) * (prevN - n);
+                    prevE = e; prevN = n;
+                }
+                area += (prevE + firstE) * (prevN - firstN);
+                return Math.Round(Math.Abs(area / 2) * 0.0001, 1);
+            }
+            catch { return 0; }
         }
     }
 }

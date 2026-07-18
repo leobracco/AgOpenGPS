@@ -26,5 +26,12 @@ namespace AgroParallel.Models
 
         /// <summary>Hectáreas estimadas desde Boundary.txt. 0 si no aplica.</summary>
         public double AreaHa { get; set; }
+
+        /// <summary>
+        /// Distancia en km desde la posición actual del tractor al StartFix del
+        /// lote (línea 9 de Field.txt). Negativa si no se pudo calcular.
+        /// Replica la columna distancia de FormJob (Drive In) / FormFieldExisting.
+        /// </summary>
+        public double DistanceKm { get; set; } = -1;
     }
 }

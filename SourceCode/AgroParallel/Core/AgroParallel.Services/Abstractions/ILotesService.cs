@@ -27,5 +27,21 @@ namespace AgroParallel.Services.Abstractions
 
         /// <summary>Crea un lote nuevo con <paramref name="name"/> y lo deja abierto.</summary>
         Task<bool> CreateFieldAsync(string name);
+
+        /// <summary>
+        /// Crea un lote nuevo clonando <paramref name="templateName"/> (ex
+        /// FormFieldExisting): contorno/headlines/elevación siempre; lo aplicado
+        /// (contour+sections), banderas, líneas de guiado y headland según flags.
+        /// Deja el lote nuevo abierto.
+        /// </summary>
+        Task<bool> CreateFromExistingAsync(string templateName, string newName,
+                                           bool copyApplied, bool copyFlags,
+                                           bool copyGuidance, bool copyHeadland);
+
+        /// <summary>Import de lote desde KML — abre el diálogo nativo (ex FormFieldKML).</summary>
+        Task<bool> ImportKmlAsync();
+
+        /// <summary>Import de lote desde ISO-XML — abre el diálogo nativo (ex FormFieldIsoXml).</summary>
+        Task<bool> ImportIsoXmlAsync();
     }
 }

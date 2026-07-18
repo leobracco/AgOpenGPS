@@ -486,10 +486,6 @@ namespace AgOpenGPS
 
         private void btnJobMenu_Click(object sender, EventArgs e)
         {
-            // Remember current state before opening the Job dialog
-            var wasJobStarted = isJobStarted;
-            var prevFieldDir = currentFieldDirectory;
-
             Form f = Application.OpenForms["FormGPSData"];
             if (f != null)
 
@@ -534,68 +530,12 @@ namespace AgOpenGPS
                 return;
             }
 
-            using (var form = new FormJob(this))
-            {
-                var result = form.ShowDialog(this);
-
-                if (isCancelJobMenu)
-                {
-                    isCancelJobMenu = false;
-                    return;
-                }
-
-                if (isJobStarted)
-                {
-                    if (autoBtnState == btnStates.Auto) btnSectionMasterAuto.PerformClick();
-                    if (manualBtnState == btnStates.On) btnSectionMasterManual.PerformClick();
-                }
-
-                if (result == DialogResult.Yes)
-                {
-                    using (var form2 = new FormFieldDir(this)) { form2.ShowDialog(this); }
-                }
-                else if (result == DialogResult.No)
-                {
-                    using (var form2 = new FormFieldKML(this)) { form2.ShowDialog(this); }
-                }
-                else if (result == DialogResult.Retry)
-                {
-                    using (var form2 = new FormFieldExisting(this)) { form2.ShowDialog(this); }
-                }
-                else if (result == DialogResult.Abort)
-                {
-                    using (var form2 = new FormFieldIsoXml(this)) { form2.ShowDialog(this); }
-                }
-
-                // ---- Only log "Opened" if a field was newly opened or changed ----
-                bool openedNewOrChanged =
-                    isJobStarted &&
-                    (!wasJobStarted ||
-                     !string.Equals(currentFieldDirectory, prevFieldDir, StringComparison.OrdinalIgnoreCase));
-
-                if (openedNewOrChanged)
-                {
-                    double distance = AppModel.CurrentLatLon.DistanceInKiloMeters(AppModel.LocalPlane.Origin);
-                    if (distance > 10)
-                    {
-                        TimedMessageBox(2500, "High Field Start Distance Warning",
-                            "Field Start is " + distance.ToString("N1") + " km From current position");
-                        Log.EventWriter("High Field Start Distance Warning");
-                    }
-
-                    Log.EventWriter("** Opened **  " + currentFieldDirectory + "   " +
-                        DateTime.Now.ToString("f", CultureInfo.InvariantCulture));
-
-                    Settings.Default.setF_CurrentDir = currentFieldDirectory;
-                    Settings.Default.Save();
-                }
-            }
-
-            FieldMenuButtonEnableDisable(isJobStarted);
-            toolStripBtnFieldTools.Enabled = isJobStarted;
-            bnd.isHeadlandOn = (bnd.bndList.Count > 0 && bnd.bndList[0].hdLine.Count > 0);
-            trk.idx = -1;
-            PanelUpdateRightAndBottom();
+            // PilotX: el menú de lote ahora es HTML (lote.html en el Hub) —
+            // reemplaza FormJob + FormFieldDir + FormFieldExisting; los imports
+            // KML/ISO-XML se disparan desde la página vía /api/lotes/import-*.
+            // El fixup post-apertura (section masters, log "** Opened **",
+            // toolbar) vive en Lotes_PostOpenFixup y lo llama el servicio.
+            OpenAgroParallelHub("pages/lote.html");
         }
 
         public async Task FileSaveEverythingBeforeClosingField()

@@ -3,6 +3,8 @@
 //   GET  /api/lotes              → lista de FieldInfo
 //   GET  /api/lotes/current      → { name: string|null }
 //   POST /api/lotes/{open,close,create}
+//   POST /api/lotes/from-existing        → clonar template (ex FormFieldExisting)
+//   POST /api/lotes/import-{kml,isoxml}  → diálogos nativos (ex FormJob)
 //
 // Tabla compacta (no cards), search por nombre, sort por columna,
 // paginado configurable. Refresh pasivo cada 5s — preservando el estado de
@@ -28,6 +30,12 @@
       return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear() +
              ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
     } catch (e) { return '—'; }
+  }
+
+  function fmtDistKm(km) {
+    if (typeof km !== 'number' || !isFinite(km) || km < 0) return '—';
+    if (km < 1) return Math.round(km * 1000) + ' m';
+    return km.toFixed(2) + ' km';
   }
 
   // ---------- State ----------
@@ -88,6 +96,15 @@
         var tb = vb ? new Date(vb).getTime() : 0;
         return (ta - tb) * dir;
       }
+      if (key === 'distance_km') {
+        // Distancias desconocidas (-1) siempre al final.
+        var da = (typeof va === 'number' && va >= 0) ? va : Infinity;
+        var db = (typeof vb === 'number' && vb >= 0) ? vb : Infinity;
+        if (da === Infinity && db === Infinity) return 0;
+        if (da === Infinity) return 1;
+        if (db === Infinity) return -1;
+        return (da - db) * dir;
+      }
       if (key === 'has_boundary') {
         return ((va ? 1 : 0) - (vb ? 1 : 0)) * dir;
       }
@@ -130,7 +147,7 @@
     });
 
     if (!slice.length) {
-      body.innerHTML = '<tr class="empty-row"><td colspan="4">' +
+      body.innerHTML = '<tr class="empty-row"><td colspan="5">' +
         (state.search ? 'Ningún lote coincide con "' + esc(state.search) + '".' :
           'No hay lotes en Fields/. Creá uno arriba.') +
         '</td></tr>';
@@ -146,14 +163,17 @@
         if (ha)    flags += '<span class="pill">' + esc(ha) + '</span>';
         if (!flags) flags = '<span style="color:var(--agp-text-muted); font-size: var(--agp-fs-xs)">—</span>';
 
-        var actions = isCur
-          ? '<button class="btn" data-act="close">Cerrar</button>'
-          : '<button class="btn primary" data-act="open" data-name="' + esc(f.name) + '">Abrir</button>';
+        var actions =
+          '<button class="btn" data-act="clone" data-name="' + esc(f.name) + '">Clonar</button>' +
+          (isCur
+            ? '<button class="btn" data-act="close">Cerrar</button>'
+            : '<button class="btn primary" data-act="open" data-name="' + esc(f.name) + '">Abrir</button>');
 
         return '' +
           '<tr class="' + (isCur ? 'current' : '') + '" data-name="' + esc(f.name) + '">' +
             '<td class="col-name">' + esc(f.name) + '</td>' +
             '<td class="col-date">' + fmtDate(f.last_modified_utc) + '</td>' +
+            '<td class="col-dist">' + fmtDistKm(f.distance_km) + '</td>' +
             '<td class="col-flags">' + flags + '</td>' +
             '<td class="col-act">' + actions + '</td>' +
           '</tr>';
@@ -255,8 +275,8 @@
     await refresh();
   }
 
-  function addDateSuffix() {
-    var inp = $('newName');
+  function addDateSuffix(inpId) {
+    var inp = $(inpId || 'newName');
     if (!inp) return;
     var d = new Date();
     var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
@@ -265,6 +285,71 @@
     if (/\s\d{8}$/.test(v)) return;
     inp.value = (v ? v + s : s.trim());
     inp.focus();
+  }
+
+  // ---------- Clonar desde existente (ex FormFieldExisting) ----------
+
+  var cloneTemplate = null;
+
+  function showClonePane(template) {
+    cloneTemplate = template || null;
+    var pane = $('clonePane');
+    if (!pane) return;
+    pane.style.display = cloneTemplate ? '' : 'none';
+    if (cloneTemplate) {
+      var lbl = $('cloneTemplate');
+      if (lbl) lbl.textContent = cloneTemplate;
+      var inp = $('cloneName');
+      if (inp) { inp.value = cloneTemplate; }
+      setMsg($('msgClone'), '');
+      pane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  async function cloneLote() {
+    if (state.busy || !cloneTemplate) return;
+    var inp = $('cloneName');
+    var raw = (inp && inp.value || '').trim();
+    var clean = raw.replace(/[\\/:*?"<>|.]/g, '').trim();
+    if (!clean) { setMsg($('msgClone'), '✕ Escribí un nombre para el lote nuevo.', 'err'); if (inp) inp.focus(); return; }
+    var dup = state.all.some(function (f) { return f.name && f.name.toLowerCase() === clean.toLowerCase(); });
+    if (dup) { setMsg($('msgClone'), '✕ Ya existe un lote llamado "' + clean + '". Cambiá el nombre.', 'err'); return; }
+    state.busy = true;
+    setMsg($('msgClone'), '… creando "' + clean + '" desde "' + cloneTemplate + '" …');
+    try {
+      var r = await fetch('/api/lotes/from-existing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template: cloneTemplate,
+          name: clean,
+          applied:  !!($('chkApplied')  && $('chkApplied').checked),
+          flags:    !!($('chkFlags')    && $('chkFlags').checked),
+          guidance: !!($('chkGuidance') && $('chkGuidance').checked),
+          headland: !!($('chkHeadland') && $('chkHeadland').checked)
+        })
+      });
+      var d = await r.json();
+      if (d && d.ok) { setMsg($('msgClone'), '✓ Lote creado y abierto: ' + clean, 'ok'); showClonePane(null); }
+      else            setMsg($('msgClone'), '✕ No se pudo crear el lote desde el existente.', 'err');
+    } catch (e) { setMsg($('msgClone'), '✕ ' + e.message, 'err'); }
+    state.busy = false;
+    await refresh();
+  }
+
+  // ---------- Imports nativos (KML / ISO-XML) ----------
+
+  async function importLote(kind) {
+    if (state.busy) return;
+    state.busy = true;
+    setMsg($('msgImport'), '… esperando el selector de archivo en PilotX …');
+    try {
+      var r = await fetch('/api/lotes/import-' + kind, { method: 'POST' });
+      var d = await r.json();
+      setMsg($('msgImport'), (d && d.ok) ? '✓ Lote importado y abierto.' : 'Import cancelado o sin lote abierto.', (d && d.ok) ? 'ok' : '');
+    } catch (e) { setMsg($('msgImport'), '✕ ' + e.message, 'err'); }
+    state.busy = false;
+    await refresh();
   }
 
   // ---------- Wire-up ----------
@@ -278,6 +363,7 @@
       var act = btn.getAttribute('data-act');
       if (act === 'open') openLote(btn.getAttribute('data-name'));
       else if (act === 'close') closeLote();
+      else if (act === 'clone') showClonePane(btn.getAttribute('data-name'));
     });
   }
 
@@ -292,7 +378,7 @@
         state.sort.dir = state.sort.dir === 'asc' ? 'desc' : 'asc';
       } else {
         state.sort.key = key;
-        state.sort.dir = (key === 'name') ? 'asc' : 'desc';
+        state.sort.dir = (key === 'name' || key === 'distance_km') ? 'asc' : 'desc';
       }
       renderTable();
     });
@@ -337,8 +423,21 @@
   }
 
   var btnC = $('btnClose');   if (btnC)  btnC.addEventListener('click', closeLote);
-  var btnA = $('btnAddDate'); if (btnA)  btnA.addEventListener('click', addDateSuffix);
+  var btnA = $('btnAddDate'); if (btnA)  btnA.addEventListener('click', function () { addDateSuffix('newName'); });
   var btnN = $('btnCreate');  if (btnN)  btnN.addEventListener('click', createLote);
+
+  var btnKml = $('btnImportKml'); if (btnKml) btnKml.addEventListener('click', function () { importLote('kml'); });
+  var btnIso = $('btnImportIso'); if (btnIso) btnIso.addEventListener('click', function () { importLote('isoxml'); });
+
+  var btnCd = $('btnCloneDate');   if (btnCd) btnCd.addEventListener('click', function () { addDateSuffix('cloneName'); });
+  var btnCx = $('btnCloneCancel'); if (btnCx) btnCx.addEventListener('click', function () { showClonePane(null); });
+  var btnCc = $('btnCloneCreate'); if (btnCc) btnCc.addEventListener('click', cloneLote);
+  var inpCn = $('cloneName');
+  if (inpCn) {
+    inpCn.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); cloneLote(); }
+    });
+  }
   var inpN = $('newName');
   if (inpN) {
     inpN.addEventListener('keydown', function (ev) {

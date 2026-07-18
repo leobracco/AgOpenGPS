@@ -1361,3 +1361,26 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   sendBeacon (deselecciona + FileSaveFlags, ex btnExit). Verificado live:
   alta use_current y lat/lon manual, notas, pick, delete con renumeración,
   UI 382x320 sin scroll (lista + pane de alta con prefill de posición).
+- [2026-07-18] [Claude] Migración FormJob + FormFieldDir + FormFieldExisting
+  → HTML sobre pages/lote.html (ya existente en el Hub). btnJobMenu ahora
+  abre el Hub en lote.html (se mantiene el guard de ventanas nativas
+  abiertas). Novedades del backend: FieldInfo.DistanceKm (distancia al
+  StartFix de Field.txt, columna Drive-In/FormFieldExisting) + AreaHa real
+  (shoelace sobre Boundary.txt con parseo tolerante a formatos viejos);
+  ILotesService.CreateFromExistingAsync (clona template: offsets/
+  convergence/startfix + boundary/backpic/elevation/headlines siempre,
+  aplicado/banderas/guiado/cabecera opcionales — réplica exacta de
+  FormFieldExisting.btnSave) e Import{Kml,IsoXml}Async (diálogos nativos
+  FormFieldKML/FormFieldIsoXml vía Invoke). Nuevo partial FormGPS.Lotes con
+  Lotes_PostOpenFixup: el bloque post-diálogo de btnJobMenu (section
+  masters off, warning >10 km, log "** Opened **", setF_CurrentDir,
+  FieldMenuButtonEnableDisable/PanelUpdateRightAndBottom) ahora corre en
+  TODOS los open/close/create/clone por HTML — antes el camino HTML dejaba
+  la toolbar desactualizada. UI lote.html: columna Distancia ordenable
+  (desconocidas al final), botón Clonar por fila con pane de opciones
+  (checkboxes cobertura/banderas/guiado/cabecera), botones Importar KML /
+  ISO-XML. Rutas nuevas: POST /api/lotes/{from-existing,import-kml,
+  import-isoxml}. Verificado live: lista con distancia+ha, clonado por API
+  y pane en browser (Field.txt FromExisting con offsets del template,
+  boundary+guiado copiados, sections en blanco), lote clonado quedó
+  abierto y luego cerrado OK.

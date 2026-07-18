@@ -6,6 +6,9 @@
 //   POST /api/lotes/open?name=…  → { ok: bool }
 //   POST /api/lotes/close        → { ok: bool }
 //   POST /api/lotes/create?name= → { ok: bool }
+//   POST /api/lotes/from-existing {template,name,applied,flags,guidance,headland}
+//   POST /api/lotes/import-kml    → diálogo nativo KML     (ex FormJob)
+//   POST /api/lotes/import-isoxml → diálogo nativo ISO-XML (ex FormJob)
 // ============================================================================
 
 using System.IO;
@@ -58,6 +61,60 @@ namespace AgroParallel.WebHost.Controllers
         {
             bool ok = _lotes != null && await _lotes.CreateFieldAsync(name);
             await WriteJsonAsync(new { ok });
+        }
+
+        // Clonar un lote existente como template (ex FormFieldExisting).
+        // Body JSON snake_case: { template, name, applied, flags, guidance, headland }
+        [Route(HttpVerbs.Post, "/lotes/from-existing")]
+        public async Task FromExisting()
+        {
+            if (_lotes == null) { await WriteJsonAsync(new { ok = false }); return; }
+            FromExistingBody body = null;
+            try { body = await ReadJsonBodyAsync<FromExistingBody>(); } catch { }
+            if (body == null || string.IsNullOrWhiteSpace(body.Template) || string.IsNullOrWhiteSpace(body.Name))
+            {
+                await WriteJsonAsync(new { ok = false, error = "body-invalido" });
+                return;
+            }
+            bool ok = await _lotes.CreateFromExistingAsync(
+                body.Template, body.Name, body.Applied, body.Flags, body.Guidance, body.Headland);
+            await WriteJsonAsync(new { ok });
+        }
+
+        // Imports nativos (diálogos WinForms) — ex FormJob KML / ISO-XML.
+        [Route(HttpVerbs.Post, "/lotes/import-kml")]
+        public async Task ImportKml()
+        {
+            bool ok = _lotes != null && await _lotes.ImportKmlAsync();
+            await WriteJsonAsync(new { ok });
+        }
+
+        [Route(HttpVerbs.Post, "/lotes/import-isoxml")]
+        public async Task ImportIsoXml()
+        {
+            bool ok = _lotes != null && await _lotes.ImportIsoXmlAsync();
+            await WriteJsonAsync(new { ok });
+        }
+
+        private sealed class FromExistingBody
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("template")]
+            public string Template { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("name")]
+            public string Name { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("applied")]
+            public bool Applied { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("flags")]
+            public bool Flags { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("guidance")]
+            public bool Guidance { get; set; } = true;
+
+            [System.Text.Json.Serialization.JsonPropertyName("headland")]
+            public bool Headland { get; set; } = true;
         }
 
         // Devuelve un ZIP con todo lo que el VistaXFieldLogger dejó en
