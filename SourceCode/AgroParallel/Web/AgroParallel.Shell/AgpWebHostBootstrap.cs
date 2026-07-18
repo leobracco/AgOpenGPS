@@ -78,7 +78,8 @@ namespace AgroParallel.Shell
             IConfigVehiculoService configVehiculo = null,
             IHeadlandEditService headlandEdit = null,
             ITramSimpleService tramSimple = null,
-            INudgeService nudge = null)
+            INudgeService nudge = null,
+            IQuickAbService quickAb = null)
         {
             lock (s_lock)
             {
@@ -146,7 +147,8 @@ namespace AgroParallel.Shell
                     configVehiculo: configVehiculo,
                     headlandEdit: headlandEdit,
                     tramSimple: tramSimple,
-                    nudge: nudge);
+                    nudge: nudge,
+                    quickAb: quickAb);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;

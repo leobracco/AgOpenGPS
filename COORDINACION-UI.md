@@ -1320,3 +1320,22 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   -166 cm), ref open/move/cancel restaura todo, step 5→10→5 ok, 63 páginas
   y APIs migradas todas 200. TRAMPA deploy: copiar también las DLLs
   AgroParallel.* a Build/ (exe solo → TypeLoadException al arrancar).
+- [2026-07-18] [Claude] Migración FormQuickAB → HTML (pages/ab-rapido.html).
+  Crea guías manejando en 3 modos: Curva (grabar puntos), Línea AB (A+B) y
+  A+ (A+rumbo). Backend: QuickAbDtos + IQuickAbService + FormGPS.QuickAb
+  (partial, geometría idéntica al form nativo: MakePointMinimumSpacing 1.6,
+  AddFirstLastPoints, SmoothAB(4), NudgeRefCurve/NudgeRefABLine con offset
+  (tool.width-overlap)*±0.5+tool.offset; Save = FileSaveTracks + apaga
+  autosteer/U-turn) + adapter FormGpsQuickAbService + QuickAbController
+  (GET /api/quickab/state con tick 500 ms — el punto B del preview sigue al
+  tractor, réplica de timer1 — y POST start/side/mark-a/mark-b/pause/
+  heading/commit/save/cancel). Launcher btnPlusAB → widget flotante.
+  Pedido de usuario: SIN sidebar/menú del Hub — widget chico estilo
+  vistax-stats, responsive con clamp() (escala con vh hasta mínimos), y
+  tamaño de ventana 382x269 (medida confirmada por el usuario en su
+  pantalla). Verificado live: flujo ab completo start→side→markA→markB→
+  commit (suggested "AB 0°")→save persiste track activo en /api/aog/tracks;
+  curva start→markA graba, Cancelar desde UI vuelve a choose; captura entra
+  completa en 382x269 sin scroll. OJO test multi-pestaña: cualquier viewer
+  de ab-rapido.html que navegue/cierre con sesión abierta manda /cancel por
+  pagehide (semántica de dueño único del widget, igual que el form nativo).

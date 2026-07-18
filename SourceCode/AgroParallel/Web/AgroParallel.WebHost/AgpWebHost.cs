@@ -59,6 +59,8 @@ namespace AgroParallel.WebHost
         private readonly ITramSimpleService _tramSimple;
         // Widget "Mover guía" (mover-guia.html, reemplazo de FormNudge/FormRefNudge).
         private readonly INudgeService _nudge;
+        // Widget "AB rápido" (ab-rapido.html, reemplazo de FormQuickAB).
+        private readonly IQuickAbService _quickAb;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -144,7 +146,8 @@ namespace AgroParallel.WebHost
                           IConfigVehiculoService configVehiculo = null,
                           IHeadlandEditService headlandEdit = null,
                           ITramSimpleService tramSimple = null,
-                          INudgeService nudge = null)
+                          INudgeService nudge = null,
+                          IQuickAbService quickAb = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -170,6 +173,7 @@ namespace AgroParallel.WebHost
             _headlandEdit = headlandEdit;     // nullable
             _tramSimple = tramSimple;         // nullable
             _nudge = nudge;                   // nullable
+            _quickAb = quickAb;               // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -307,6 +311,8 @@ namespace AgroParallel.WebHost
                 if (_tramSimple != null) m.WithController(() => new TramSimpleController(_tramSimple));
                 // Mover guía (pages/mover-guia.html) — FormNudge/FormRefNudge.
                 if (_nudge != null) m.WithController(() => new NudgeController(_nudge));
+                // AB rápido (pages/ab-rapido.html) — FormQuickAB.
+                if (_quickAb != null) m.WithController(() => new QuickAbController(_quickAb));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))

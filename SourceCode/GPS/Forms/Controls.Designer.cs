@@ -428,23 +428,14 @@ namespace AgOpenGPS
             //if contour is on, turn it off
             if (ct.isContourBtnOn) { if (ct.isContourBtnOn) btnContour.PerformClick(); }
 
-            //check if window already exists
-            Form fc = Application.OpenForms["FormQuickAB"];
-
-            if (fc != null)
-            {
-                fc.Focus();
-                return;
-            }
-
-            Form form = new FormQuickAB(this);
-            form.Show(this);
+            // AB rápido migrado a HTML (pages/ab-rapido.html, ex FormQuickAB).
+            if (!LaunchAvaloniaWidget("pages/ab-rapido.html", "float", "AB rápido", 382, 269))
+            { OpenAgroParallelHub("pages/ab-rapido.html"); }
 
             if (flp1.Visible)
             {
                 flp1.Visible = false;
             }
-            this.Activate();
         }
 
         private void btnABDraw_Click(object sender, EventArgs e)
