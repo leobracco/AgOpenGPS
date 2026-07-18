@@ -762,20 +762,11 @@ namespace AgOpenGPS
                 btnPickPath.Enabled = true;
                 btnResumePath.Enabled = true;
 
-                using (var form = new FormRecordName(this))
-                {
-                    form.ShowDialog(this);
-                    if (form.DialogResult == DialogResult.OK)
-                    {
-                        String filename = form.filename + ".rec";
-                        FileSaveRecPath();
-                        FileSaveRecPath(filename);
-                    }
-                    else
-                    {
-                        recPath.recList.Clear();
-                    }
-                }
+                // FormRecordName migrado a HTML (pages/recpath.html?mode=save).
+                // Al guardar: POST /api/recpath/save {name}
+                // Al cancelar: POST /api/recpath/discard
+                if (!LaunchAvaloniaWidget("pages/recpath.html?mode=save", "float", "Grabar ruta", 400, 300))
+                { OpenAgroParallelHub("pages/recpath.html?mode=save"); }
             }
             else if (isJobStarted)
             {
@@ -833,13 +824,9 @@ namespace AgOpenGPS
             btnResumePath.Image = Properties.Resources.pathResumeStart;
             recPath.currentPositonIndex = 0;
 
-            using (FormRecordPicker form = new FormRecordPicker(this))
-            {
-                //returns full field.txt file dir name
-                if (form.ShowDialog(this) == DialogResult.Yes)
-                {
-                }
-            }
+            // FormRecordPicker migrado a HTML (pages/recpath.html).
+            if (!LaunchAvaloniaWidget("pages/recpath.html", "float", "Rutas grabadas", 400, 380))
+            { OpenAgroParallelHub("pages/recpath.html"); }
         }
         private void recordedPathStripMenu_Click(object sender, EventArgs e)
         {

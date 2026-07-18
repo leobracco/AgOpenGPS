@@ -1514,3 +1514,18 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   btnExtendB, btnCancelTouch. Verificado live: open 4 tracks + fences,
   tap A/B, makeCurve (5), bndCurve (6), extendB (1222 pts), makeAB (7),
   cancel (backup 4).
+- [2026-07-18] [Claude] Migración FormRecordName + FormRecordPicker → HTML
+  (pages/recpath.html, widget flotante 400x300/380). Dos vistas en un
+  solo widget: picker (lista de .rec del lote, Usar/Borrar/Apagar) y
+  save (nombre + checkboxes fecha/hora, Guardar/Descartar). Vista save
+  se activa con ?mode=save (desde btnPathRecordStop). Backend:
+  IRecPathService (ListPaths/LoadPath/DeletePath/TurnOff/SaveWithName/
+  DiscardRecording) + FormGPS.RecPath (port fiel: lista .rec del fieldDir,
+  load copia a RecPath.txt + parsea recList, delete File.Delete, turnOff
+  StopDriving+clear+save+hidePanel, save FileSaveRecPath×2) + adapter
+  FormGpsRecPathService + RecPathController (GET list + 5 POSTs).
+  Launchers: btnPathRecordStop → recpath.html?mode=save,
+  btnPickPath → recpath.html. IDs congelados: titleText, viewPicker,
+  viewSave, pathList, msgEmpty, btnLoad, btnDelete, btnOff, inpName,
+  chkDate, chkTime, btnSave, btnDiscard. Verificado live: list (vacío),
+  save test-recpath-api → aparece en list, delete → desaparece, discard.
