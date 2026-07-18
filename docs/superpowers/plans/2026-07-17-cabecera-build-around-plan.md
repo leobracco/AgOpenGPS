@@ -57,7 +57,7 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 **Files:**
 - Create: `SourceCode/AgroParallel/Core/AgroParallel.Models/HeadlandEditDtos.cs`
 
-- [ ] **Step 1: Escribir el archivo de DTOs**
+- [x] **Step 1: Escribir el archivo de DTOs**
 
 ```csharp
 // ============================================================================
@@ -94,7 +94,7 @@ namespace AgroParallel.Models
 }
 ```
 
-- [ ] **Step 2: Verificar que el proyecto Models compila**
+- [x] **Step 2: Verificar que el proyecto Models compila**
 
 Este proyecto es netstandard2.0 sin dependencias nuevas. Se compila junto al resto en
 Step del build de la Task 6; no hay build aislado. Continuar.
@@ -106,7 +106,7 @@ Step del build de la Task 6; no hay build aislado. Continuar.
 **Files:**
 - Create: `SourceCode/AgroParallel/Core/AgroParallel.Services/Abstractions/IHeadlandEditService.cs`
 
-- [ ] **Step 1: Escribir la interfaz**
+- [x] **Step 1: Escribir la interfaz**
 
 ```csharp
 // ============================================================================
@@ -143,7 +143,7 @@ namespace AgroParallel.Services.Abstractions
 }
 ```
 
-- [ ] **Step 2: Sin build aislado** — compila en la Task 6.
+- [x] **Step 2: Sin build aislado** — compila en la Task 6.
 
 ---
 
@@ -156,7 +156,7 @@ Este partial vive dentro de `partial class FormGPS`, así que accede directo a
 `bnd`, `hdl`, `tool`, `ftOrMtoM`, `m2FtOrM`, `unitsFtM`, `FileSaveHeadland()`,
 `glm`, `vec3`, `CABCurve` (los mismos miembros que `FormHeadLine` usa vía `mf.`).
 
-- [ ] **Step 1: Escribir el partial**
+- [x] **Step 1: Escribir el partial**
 
 ```csharp
 // ============================================================================
@@ -347,7 +347,7 @@ namespace AgOpenGPS
 }
 ```
 
-- [ ] **Step 2: Verificar acceso a miembros**
+- [x] **Step 2: Verificar acceso a miembros**
 
 Confirmar (grep en `SourceCode/GPS/`) que existen y son accesibles desde FormGPS:
 `bnd.bndList[0].fenceLine/.hdLine`, `bnd.isHeadlandOn`, `bnd.isSectionControlledByHeadland`,
@@ -370,7 +370,7 @@ ajustar acá antes del build.
 **Files:**
 - Create: `SourceCode/GPS/AgroParallel/Common/FormGpsHeadlandEditService.cs`
 
-- [ ] **Step 1: Escribir el adapter**
+- [x] **Step 1: Escribir el adapter**
 
 Mismo patrón que `FormGpsGuidanceCalculator`: namespace `AgroParallel.Adapters`,
 `using AgOpenGPS`, `FormGPS _form`, marshaling al hilo UI, try/catch defensivo.
@@ -484,7 +484,7 @@ namespace AgroParallel.Adapters
 }
 ```
 
-- [ ] **Step 2: Sin build aislado** — compila en la Task 6.
+- [x] **Step 2: Sin build aislado** — compila en la Task 6.
 
 ---
 
@@ -493,7 +493,7 @@ namespace AgroParallel.Adapters
 **Files:**
 - Create: `SourceCode/AgroParallel/Web/AgroParallel.WebHost/Controllers/HeadlandController.cs`
 
-- [ ] **Step 1: Escribir el controller**
+- [x] **Step 1: Escribir el controller**
 
 Mismo patrón que `GuidanceController`: hereda `AgpControllerBase`, `WriteJsonAsync`,
 `ReadJsonBodyAsync<T>()`. Rutas relativas (`/headland/...`) → EmbedIO expone bajo
@@ -589,7 +589,7 @@ namespace AgroParallel.WebHost.Controllers
 }
 ```
 
-- [ ] **Step 2: Sin build aislado** — compila en la Task 6.
+- [x] **Step 2: Sin build aislado** — compila en la Task 6.
 
 ---
 
@@ -600,7 +600,7 @@ namespace AgroParallel.WebHost.Controllers
 - Modify: `SourceCode/AgroParallel/Web/AgroParallel.Shell/AgpWebHostBootstrap.cs`
 - Modify: `SourceCode/GPS/Forms/FormGPS.cs`
 
-- [ ] **Step 1: AgpWebHost — declarar el campo**
+- [x] **Step 1: AgpWebHost — declarar el campo**
 
 Buscar la zona de campos privados (junto a `_guidance`) y agregar:
 ```csharp
@@ -609,7 +609,7 @@ Buscar la zona de campos privados (junto a `_guidance`) y agregar:
 (Si no hay declaración visible de `_guidance` como campo, agregar la línea junto a
 las otras `private readonly I*Service` cerca del top de la clase.)
 
-- [ ] **Step 2: AgpWebHost — nuevo parámetro de ctor**
+- [x] **Step 2: AgpWebHost — nuevo parámetro de ctor**
 
 En el ctor (`public AgpWebHost(...)`, termina en `IConfigVehiculoService configVehiculo = null)`
 en la línea 138), agregar al final de la lista de parámetros:
@@ -622,7 +622,7 @@ Y en el cuerpo del ctor, junto a `_configVehiculo = configVehiculo;` (línea 160
             _headlandEdit = headlandEdit;     // nullable
 ```
 
-- [ ] **Step 3: AgpWebHost — registrar el controller**
+- [x] **Step 3: AgpWebHost — registrar el controller**
 
 Después de la línea 292 (`if (_configVehiculo != null) m.WithController(...)`), agregar:
 ```csharp
@@ -630,7 +630,7 @@ Después de la línea 292 (`if (_configVehiculo != null) m.WithController(...)`)
                 if (_headlandEdit != null) m.WithController(() => new HeadlandController(_headlandEdit));
 ```
 
-- [ ] **Step 4: AgpWebHostBootstrap — nuevo parámetro en EnsureStarted**
+- [x] **Step 4: AgpWebHostBootstrap — nuevo parámetro en EnsureStarted**
 
 En `EnsureStarted(...)` (termina en `IConfigVehiculoService configVehiculo = null)`,
 línea 78), agregar al final:
@@ -645,7 +645,7 @@ línea 143), agregar el named-arg:
                     headlandEdit: headlandEdit);
 ```
 
-- [ ] **Step 5: FormGPS — crear el adapter y pasarlo**
+- [x] **Step 5: FormGPS — crear el adapter y pasarlo**
 
 En `FormGPS.cs` línea ~619 (junto a `var configVehiculo = new ...FormGpsConfigService(this);`):
 ```csharp
@@ -658,7 +658,7 @@ final de los named-args (después de `configVehiculo: configVehiculo`):
                     headlandEdit: headlandEdit);
 ```
 
-- [ ] **Step 6: Build limpio**
+- [x] **Step 6: Build limpio**
 
 Run:
 ```bash
@@ -670,7 +670,7 @@ Expected: `Build succeeded` / 0 errores, genera `PilotX_v1.0.xx.zip`. Si hay err
 de nombre de miembro (p.ej. `tool.width`, `unitsFtM`), corregir en el partial (Task 3)
 y volver a buildear.
 
-- [ ] **Step 7: Commit backend**
+- [x] **Step 7: Commit backend**
 
 ```bash
 git add SourceCode/AgroParallel/Core/AgroParallel.Models/HeadlandEditDtos.cs \
@@ -693,7 +693,7 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 **Files:**
 - Create: `SourceCode/AgroParallel/Web/AgroParallel.WebUI/wwwroot/pages/cabecera.html`
 
-- [ ] **Step 1: Escribir la página**
+- [x] **Step 1: Escribir la página**
 
 Sidebar `data-active="hub"`, page-head con pill de estado, canvas de preview a la
 izquierda y panel de controles a la derecha. Scripts: keyboard.js, sidebar.js,
@@ -784,7 +784,7 @@ cabecera.js. Usa las vars del design-system (theme.css/layout.css).
 </html>
 ```
 
-- [ ] **Step 2: Sin build** — los estáticos se copian a Build/ en la Task 9.
+- [x] **Step 2: Sin build** — los estáticos se copian a Build/ en la Task 9.
 
 ---
 
@@ -793,7 +793,7 @@ cabecera.js. Usa las vars del design-system (theme.css/layout.css).
 **Files:**
 - Create: `SourceCode/AgroParallel/Web/AgroParallel.WebUI/wwwroot/js/cabecera.js`
 
-- [ ] **Step 1: Escribir el JS**
+- [x] **Step 1: Escribir el JS**
 
 Carga estado, dibuja fence+headland en canvas con fit-to-bounds, pan (drag) y zoom
 (rueda) solo de vista. Construir/Reset/Apagar/toggle → POST; redibujan con la
@@ -1034,7 +1034,7 @@ respuesta. Botón "ancho de herramienta" completa la distancia (tool_width_m →
 **Files:**
 - Modify: `SourceCode/GPS/Forms/Controls.Designer.cs` (línea 734)
 
-- [ ] **Step 1: Repuntar `headlandToolStripMenuItem_Click`**
+- [x] **Step 1: Repuntar `headlandToolStripMenuItem_Click`**
 
 Reemplazar el cuerpo (líneas 734-743) para abrir el widget en vez de `GetHeadland()`,
 manteniendo el guard de contorno:
@@ -1055,7 +1055,7 @@ manteniendo el guard de contorno:
 `GetHeadland()` (líneas 721-733) y `FormHeadLine` **se mantienen** (fase 2 reshape).
 NO tocar `headlandBuildToolStripMenuItem_Click` (abre FormHeadAche, otro flujo).
 
-- [ ] **Step 2: Build + copia de estáticos**
+- [x] **Step 2: Build + copia de estáticos**
 
 ```bash
 cd "G:/agroparallel/productos/CentriX-Spark/Software/App_PC/AgOpenGPS"
@@ -1069,7 +1069,7 @@ cabecera.html/.js quedan servidos por :5180.
 
 ## Task 10: Verificación end-to-end + commit final
 
-- [ ] **Step 1: Lanzar PilotX y curl de endpoints (sin lote)**
+- [x] **Step 1: Lanzar PilotX y curl de endpoints (sin lote)**
 
 ```bash
 cd "G:/agroparallel/productos/CentriX-Spark/Software/App_PC/AgOpenGPS"
@@ -1090,13 +1090,13 @@ Expected (sin lote abierto):
 - `/build` → `ok:false` (guard sin contorno).
 - ambos estáticos → `200`.
 
-- [ ] **Step 2: Playwright — navegar + screenshot**
+- [x] **Step 2: Playwright — navegar + screenshot**
 
 Navegar a `http://127.0.0.1:5180/pages/cabecera.html`, tomar screenshot a la raíz del
 repo (`cabecera-verify.png`) y leerla con Read. Verificar: sidebar, título "Cabecera",
 canvas vacío, banner "Primero creá un contorno…", controles deshabilitados.
 
-- [ ] **Step 3: Limpiar y matar procesos**
+- [x] **Step 3: Limpiar y matar procesos**
 
 ```bash
 cd "G:/agroparallel/productos/CentriX-Spark/Software/App_PC/AgOpenGPS"
@@ -1104,7 +1104,7 @@ taskkill //IM PilotX.exe //F 2>/dev/null; taskkill //IM CoreX.exe //F 2>/dev/nul
 rm -rf .playwright-mcp cabecera-verify.png
 ```
 
-- [ ] **Step 4: Commit frontend + launcher**
+- [x] **Step 4: Commit frontend + launcher**
 
 ```bash
 git add SourceCode/AgroParallel/Web/AgroParallel.WebUI/wwwroot/pages/cabecera.html \

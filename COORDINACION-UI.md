@@ -1275,3 +1275,10 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   toolpivot/tsettings/tsections/tswitches/relay/amachine/heading/roll/
   uturn/tram/display/botones. Build 0 errores, verificado en vivo por
   solapa (Playwright + API).
+- [2026-07-18] [Claude] Verificación e2e del widget Cabecera (Build Around,
+  Task 10 del plan): /api/headland/state y /build responden con guards sin
+  lote, estáticos 200, Playwright confirma banner "Primero creá un contorno",
+  badge "sin contorno" y controles [disabled]. Además se commiteó la
+  inversión IBoundaryHost pendiente en los 4 partials de CBoundary (Core) —
+  build 0 errores, tests Core 34/34. Queda el Step 5 (prueba con lote real)
+  como follow-up manual.
