@@ -16,6 +16,13 @@
 
     .tk-body { flex: 1; min-height: 0; display: flex; gap: clamp(4px,0.8vw,8px); padding: clamp(4px,1vh,8px); }
 
+    .tk-map { flex: 1 1 auto; min-width: 0; background: var(--agp-surface);
+      border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      position: relative; overflow: hidden; }
+    #cvMap { width: 100%; height: 100%; display: block; touch-action: none; }
+
+    .tk-mid { flex: 0 0 clamp(200px,26vw,280px); display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+
     .tk-list { flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
 
     .tk-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px;
@@ -54,7 +61,23 @@
   </div>
 
   <div class="tk-body">
-    <div class="tk-list" id="trackList"></div>
+    <div class="tk-map">
+      <canvas id="cvMap"></canvas>
+    </div>
+
+    <div class="tk-mid">
+      <div class="tk-list" id="trackList"></div>
+      <div class="tk-row">
+        <button class="btn" id="btnMakeCurve">+ Curva</button>
+        <button class="btn" id="btnMakeAB">+ AB</button>
+        <button class="btn" id="btnMakeBndCurve">+ Contorno</button>
+      </div>
+      <div class="tk-row">
+        <button class="btn" id="btnExtendA">A +</button>
+        <button class="btn" id="btnExtendB">B +</button>
+        <button class="btn" id="btnCancelTouch">Descartar</button>
+      </div>
+    </div>
 
     <div class="tk-side">
       <div class="tk-row">

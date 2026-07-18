@@ -66,7 +66,41 @@ namespace AgroParallel.Adapters
                     IsVisible = t.isVisible,
                     IsActive = i == snap.ActiveIdx
                 });
+
+                // Geometría para el canvas
+                var geom = new TrackGeomDto { Index = i, Mode = ModeStr(t.mode) };
+                if (t.mode == TrackMode.AB)
+                {
+                    // Extender la recta para dibujo (como ABDraw)
+                    double len = snap.ABLength;
+                    double h = t.heading;
+                    geom.Points = new double[][] {
+                        new double[] { t.ptA.easting - Math.Sin(h) * len, t.ptA.northing - Math.Cos(h) * len },
+                        new double[] { t.ptB.easting + Math.Sin(h) * len, t.ptB.northing + Math.Cos(h) * len }
+                    };
+                }
+                else if (t.curvePts != null && t.curvePts.Count > 0)
+                {
+                    var pts = new double[t.curvePts.Count][];
+                    for (int j = 0; j < t.curvePts.Count; j++)
+                        pts[j] = new double[] { t.curvePts[j].easting, t.curvePts[j].northing };
+                    geom.Points = pts;
+                }
+                else if (t.mode == TrackMode.waterPivot)
+                {
+                    geom.Points = new double[][] { new double[] { t.ptA.easting, t.ptA.northing } };
+                }
+                dto.TrackGeoms.Add(geom);
             }
+
+            // Fences
+            dto.Fences = _form.TrkBuilder_FencesEN();
+            dto.BndSelect = snap.BndSelect;
+            dto.APoint = snap.APoint;
+            dto.BPoint = snap.BPoint;
+            dto.CanMakeLine = snap.CanMakeLine;
+            dto.HasBoundaryCurve = snap.HasBoundaryCurve;
+
             return dto;
         }
 
@@ -117,6 +151,27 @@ namespace AgroParallel.Adapters
 
         public TrackBuilderStateDto CreateABFromPivot(double headingDeg, string name) =>
             OnUi(() => { _form.TrkBuilder_CreateABFromPivot(headingDeg, name); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
+
+        public TrackBuilderStateDto Tap(double easting, double northing) =>
+            OnUi(() => { _form.TrkBuilder_Tap(easting, northing); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
+
+        public TrackBuilderStateDto CancelTouch() =>
+            OnUi(() => { _form.TrkBuilder_CancelTouch(); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
+
+        public TrackBuilderStateDto MakeCurve() =>
+            OnUi(() => Map(_form.TrkBuilder_Snapshot(_form.TrkBuilder_MakeCurve())), Fail());
+
+        public TrackBuilderStateDto MakeABLine() =>
+            OnUi(() => Map(_form.TrkBuilder_Snapshot(_form.TrkBuilder_MakeABLine())), Fail());
+
+        public TrackBuilderStateDto MakeBoundaryCurve() =>
+            OnUi(() => { _form.TrkBuilder_MakeBoundaryCurve(); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
+
+        public TrackBuilderStateDto ExtendA() =>
+            OnUi(() => { _form.TrkBuilder_ExtendA(); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
+
+        public TrackBuilderStateDto ExtendB() =>
+            OnUi(() => { _form.TrkBuilder_ExtendB(); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
 
         public void CloseUse() => OnUiVoid(() => _form.TrkBuilder_CloseUse());
 

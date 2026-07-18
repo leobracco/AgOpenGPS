@@ -456,10 +456,10 @@ namespace AgOpenGPS
                 flp1.Visible = false;
             }
 
-            using (var form = new FormABDraw(this))
-            {
-                form.ShowDialog(this);
-            }
+            // FormABDraw integrado en tracks.html (misma UI que FormBuildTracks).
+            // El canvas con tap A/B y controles de creación de línea viven ahí.
+            if (!LaunchAvaloniaWidget("pages/tracks.html", "float", "Tracks", 900, 560))
+            { OpenAgroParallelHub("pages/tracks.html"); }
 
             PanelUpdateRightAndBottom();
         }

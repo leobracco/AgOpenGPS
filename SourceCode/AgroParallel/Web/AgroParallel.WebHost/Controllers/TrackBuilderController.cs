@@ -101,6 +101,33 @@ namespace AgroParallel.WebHost.Controllers
             await WriteJsonAsync(_svc.CreateABFromPivot(b.HeadingDeg, b.Name));
         }
 
+        [Route(HttpVerbs.Post, "/tracks/tap")]
+        public async Task PostTap()
+        {
+            if (_svc == null) { await Unavailable(); return; }
+            var b = await ReadBody<TapBody>();
+            if (b == null) { await WriteJsonAsync(new { ok = false, error = "bad-json" }); return; }
+            await WriteJsonAsync(_svc.Tap(b.E, b.N));
+        }
+
+        [Route(HttpVerbs.Post, "/tracks/cancel-touch")]
+        public Task PostCancelTouch() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.CancelTouch());
+
+        [Route(HttpVerbs.Post, "/tracks/make-curve")]
+        public Task PostMakeCurve() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.MakeCurve());
+
+        [Route(HttpVerbs.Post, "/tracks/make-ab")]
+        public Task PostMakeAB() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.MakeABLine());
+
+        [Route(HttpVerbs.Post, "/tracks/make-boundary-curve")]
+        public Task PostMakeBndCurve() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.MakeBoundaryCurve());
+
+        [Route(HttpVerbs.Post, "/tracks/extend-a")]
+        public Task PostExtendA() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.ExtendA());
+
+        [Route(HttpVerbs.Post, "/tracks/extend-b")]
+        public Task PostExtendB() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.ExtendB());
+
         [Route(HttpVerbs.Post, "/tracks/use")]
         public Task PostUse()
         {
@@ -139,6 +166,15 @@ namespace AgroParallel.WebHost.Controllers
         {
             [System.Text.Json.Serialization.JsonPropertyName("name")]
             public string Name { get; set; }
+        }
+
+        private sealed class TapBody
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("e")]
+            public double E { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("n")]
+            public double N { get; set; }
         }
 
         private sealed class CreateABBody

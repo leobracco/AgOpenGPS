@@ -37,6 +37,12 @@ namespace AgOpenGPS
             public int SelectedIdx;
             public int ActiveIdx;
             public string Error;
+            public double[] APoint;
+            public double[] BPoint;
+            public bool CanMakeLine;
+            public bool HasBoundaryCurve;
+            public int BndSelect;
+            public double ABLength;
         }
 
         internal TrkBuilderSnapshot TrkBuilder_Snapshot(string error = null)
@@ -46,7 +52,13 @@ namespace AgOpenGPS
                 Tracks = trk.gArr,
                 SelectedIdx = trkBuilderSelIdx,
                 ActiveIdx = trk.idx,
-                Error = error
+                Error = error,
+                APoint = TrkBuilder_APointEN(),
+                BPoint = TrkBuilder_BPointEN(),
+                CanMakeLine = TrkBuilder_CanMakeLine(),
+                HasBoundaryCurve = TrkBuilder_HasBoundaryCurve(),
+                BndSelect = TrkBuilder_BndSelect(),
+                ABLength = ABLine != null ? ABLine.abLength : 2000
             };
         }
 
@@ -244,6 +256,257 @@ namespace AgOpenGPS
 
             trkBuilderBackup.Clear();
             trkBuilderSelIdx = -1;
+        }
+
+        // ── ABDraw: tap A/B en contorno ─────────────────────────────────
+        private bool trkBuilderIsA = true;
+        private int trkBuilderStart = 99999, trkBuilderEnd = 99999;
+        private int trkBuilderBndSel = 0;
+
+        internal void TrkBuilder_Tap(double easting, double northing)
+        {
+            if (bnd == null || bnd.bndList.Count == 0) return;
+
+            if (trkBuilderIsA)
+            {
+                double minDist = double.MaxValue;
+                trkBuilderStart = 99999; trkBuilderEnd = 99999;
+
+                for (int j = 0; j < bnd.bndList.Count; j++)
+                {
+                    for (int i = 0; i < bnd.bndList[j].fenceLine.Count; i++)
+                    {
+                        double dist = ((easting - bnd.bndList[j].fenceLine[i].easting) * (easting - bnd.bndList[j].fenceLine[i].easting))
+                                        + ((northing - bnd.bndList[j].fenceLine[i].northing) * (northing - bnd.bndList[j].fenceLine[i].northing));
+                        if (dist < minDist) { minDist = dist; trkBuilderBndSel = j; trkBuilderStart = i; }
+                    }
+                }
+                trkBuilderIsA = false;
+            }
+            else
+            {
+                double minDist = double.MaxValue;
+                int j2 = trkBuilderBndSel;
+                for (int i = 0; i < bnd.bndList[j2].fenceLine.Count; i++)
+                {
+                    double dist = ((easting - bnd.bndList[j2].fenceLine[i].easting) * (easting - bnd.bndList[j2].fenceLine[i].easting))
+                                    + ((northing - bnd.bndList[j2].fenceLine[i].northing) * (northing - bnd.bndList[j2].fenceLine[i].northing));
+                    if (dist < minDist) { minDist = dist; trkBuilderEnd = i; }
+                }
+                trkBuilderIsA = true;
+            }
+        }
+
+        internal void TrkBuilder_CancelTouch()
+        {
+            trkBuilderStart = 99999; trkBuilderEnd = 99999;
+            trkBuilderIsA = true;
+            curve.desList?.Clear();
+        }
+
+        internal bool TrkBuilder_CanMakeLine()
+        {
+            return trkBuilderStart != 99999 && trkBuilderEnd != 99999;
+        }
+
+        internal double[] TrkBuilder_APointEN()
+        {
+            if (trkBuilderStart == 99999 || trkBuilderBndSel >= bnd.bndList.Count
+                || trkBuilderStart >= bnd.bndList[trkBuilderBndSel].fenceLine.Count) return null;
+            var p = bnd.bndList[trkBuilderBndSel].fenceLine[trkBuilderStart];
+            return new double[] { p.easting, p.northing };
+        }
+
+        internal double[] TrkBuilder_BPointEN()
+        {
+            if (trkBuilderEnd == 99999 || trkBuilderBndSel >= bnd.bndList.Count
+                || trkBuilderEnd >= bnd.bndList[trkBuilderBndSel].fenceLine.Count) return null;
+            var p = bnd.bndList[trkBuilderBndSel].fenceLine[trkBuilderEnd];
+            return new double[] { p.easting, p.northing };
+        }
+
+        internal int TrkBuilder_BndSelect() { return trkBuilderBndSel; }
+
+        internal bool TrkBuilder_HasBoundaryCurve()
+        {
+            for (int i = 0; i < trk.gArr.Count; i++)
+                if (trk.gArr[i].mode == TrackMode.bndCurve) return true;
+            return false;
+        }
+
+        // ── Make Curve desde tap A/B ─────────────────────────────────────
+        internal string TrkBuilder_MakeCurve()
+        {
+            if (trkBuilderStart == 99999 || trkBuilderEnd == 99999) return "sin-puntos";
+            int startIdx = trkBuilderStart, endIdx = trkBuilderEnd;
+            int bndSel = trkBuilderBndSel;
+
+            bool isLoop = false;
+            int limit = endIdx;
+
+            if ((Math.Abs(startIdx - endIdx)) > (bnd.bndList[bndSel].fenceLine.Count * 0.5))
+            {
+                isLoop = true;
+                if (startIdx < endIdx) (endIdx, startIdx) = (startIdx, endIdx);
+                limit = endIdx;
+                endIdx = bnd.bndList[bndSel].fenceLine.Count;
+            }
+            else
+            {
+                if (startIdx > endIdx) (endIdx, startIdx) = (startIdx, endIdx);
+            }
+
+            curve.desList?.Clear();
+            for (int i = startIdx; i < endIdx; i++)
+            {
+                curve.desList.Add(new vec3(bnd.bndList[bndSel].fenceLine[i]));
+                if (isLoop && i == bnd.bndList[bndSel].fenceLine.Count - 1)
+                {
+                    i = -1; isLoop = false; endIdx = limit;
+                }
+            }
+
+            if (curve.desList.Count < 4) { curve.desList?.Clear(); return "pocos-puntos"; }
+
+            CABCurve.MakePointMinimumSpacing(ref curve.desList, 1.6);
+            CABCurve.CalculateHeadings(ref curve.desList);
+
+            trk.gArr.Add(new CTrk());
+            int idx = trk.gArr.Count - 1;
+
+            trk.gArr[idx].ptA = new vec2(curve.desList[0].easting, curve.desList[0].northing);
+            trk.gArr[idx].ptB = new vec2(curve.desList[curve.desList.Count - 1].easting, curve.desList[curve.desList.Count - 1].northing);
+
+            double x = 0, y = 0;
+            foreach (vec3 pt in curve.desList) { x += Math.Cos(pt.heading); y += Math.Sin(pt.heading); }
+            x /= curve.desList.Count; y /= curve.desList.Count;
+            trk.gArr[idx].heading = Math.Atan2(y, x);
+            if (trk.gArr[idx].heading < 0) trk.gArr[idx].heading += glm.twoPI;
+
+            curve.AddFirstLastPoints(ref curve.desList);
+            CABCurve.CalculateHeadings(ref curve.desList);
+
+            trk.gArr[idx].mode = TrackMode.Curve;
+            trk.gArr[idx].name = "Cu " + Math.Round(glm.toDegrees(trk.gArr[idx].heading), 1).ToString(CultureInfo.InvariantCulture) + "\u00B0";
+
+            foreach (vec3 item in curve.desList)
+                trk.gArr[idx].curvePts.Add(item);
+
+            trkBuilderSelIdx = idx;
+            trkBuilderStart = 99999; trkBuilderEnd = 99999;
+            curve.desList?.Clear();
+            return null;
+        }
+
+        // ── Make AB Line desde tap A/B ───────────────────────────────────
+        internal string TrkBuilder_MakeABLine()
+        {
+            if (trkBuilderStart == 99999 || trkBuilderEnd == 99999) return "sin-puntos";
+            int startIdx = trkBuilderStart, endIdx = trkBuilderEnd;
+            int bndSel = trkBuilderBndSel;
+
+            if ((Math.Abs(startIdx - endIdx)) <= (bnd.bndList[bndSel].fenceLine.Count * 0.5))
+            {
+                if (startIdx < endIdx) (endIdx, startIdx) = (startIdx, endIdx);
+            }
+            else
+            {
+                if (startIdx > endIdx) (endIdx, startIdx) = (startIdx, endIdx);
+            }
+
+            double abHead = Math.Atan2(
+                bnd.bndList[bndSel].fenceLine[endIdx].easting - bnd.bndList[bndSel].fenceLine[startIdx].easting,
+                bnd.bndList[bndSel].fenceLine[endIdx].northing - bnd.bndList[bndSel].fenceLine[startIdx].northing);
+            if (abHead < 0) abHead += glm.twoPI;
+
+            trk.gArr.Add(new CTrk());
+            int idx = trk.gArr.Count - 1;
+
+            trk.gArr[idx].heading = abHead;
+            trk.gArr[idx].mode = TrackMode.AB;
+            trk.gArr[idx].ptA.easting = bnd.bndList[bndSel].fenceLine[startIdx].easting;
+            trk.gArr[idx].ptA.northing = bnd.bndList[bndSel].fenceLine[startIdx].northing;
+            trk.gArr[idx].ptB.easting = bnd.bndList[bndSel].fenceLine[endIdx].easting;
+            trk.gArr[idx].ptB.northing = bnd.bndList[bndSel].fenceLine[endIdx].northing;
+            trk.gArr[idx].name = "AB " + Math.Round(glm.toDegrees(abHead), 1).ToString(CultureInfo.InvariantCulture) + "\u00B0";
+
+            trkBuilderSelIdx = idx;
+            trkBuilderStart = 99999; trkBuilderEnd = 99999;
+            return null;
+        }
+
+        // ── Make Boundary Curve ──────────────────────────────────────────
+        internal void TrkBuilder_MakeBoundaryCurve()
+        {
+            if (bnd == null) return;
+            for (int q = 0; q < bnd.bndList.Count; q++)
+            {
+                var bndPts = new List<vec3>();
+                foreach (vec3 pt in bnd.bndList[q].fenceLine)
+                    bndPts.Add(new vec3(pt));
+
+                if (bndPts.Count < 4) continue;
+
+                trk.gArr.Add(new CTrk());
+                int idx = trk.gArr.Count - 1;
+
+                trk.gArr[idx].ptA = new vec2(bndPts[0].easting, bndPts[0].northing);
+                trk.gArr[idx].ptB = new vec2(bndPts[bndPts.Count - 2].easting, bndPts[bndPts.Count - 2].northing);
+                trk.gArr[idx].name = q == 0 ? "Boundary Curve" : "Inner Boundary Curve " + q.ToString();
+                trk.gArr[idx].heading = 0;
+                trk.gArr[idx].mode = TrackMode.bndCurve;
+
+                foreach (vec3 pt in bndPts)
+                    trk.gArr[idx].curvePts.Add(pt);
+
+                trkBuilderSelIdx = idx;
+            }
+            trkBuilderStart = 99999; trkBuilderEnd = 99999;
+        }
+
+        // ── Extend A/B de curva ──────────────────────────────────────────
+        internal void TrkBuilder_ExtendA()
+        {
+            if (trkBuilderSelIdx < 0 || trkBuilderSelIdx >= trk.gArr.Count) return;
+            if (trk.gArr[trkBuilderSelIdx].mode != TrackMode.Curve) return;
+            vec3 s = new vec3(trk.gArr[trkBuilderSelIdx].curvePts[0]);
+            for (int i = 1; i < 50; i++)
+            {
+                vec3 pt = new vec3(s);
+                pt.easting -= (Math.Sin(pt.heading) * i);
+                pt.northing -= (Math.Cos(pt.heading) * i);
+                trk.gArr[trkBuilderSelIdx].curvePts.Insert(0, pt);
+            }
+        }
+
+        internal void TrkBuilder_ExtendB()
+        {
+            if (trkBuilderSelIdx < 0 || trkBuilderSelIdx >= trk.gArr.Count) return;
+            if (trk.gArr[trkBuilderSelIdx].mode != TrackMode.Curve) return;
+            int ptCnt = trk.gArr[trkBuilderSelIdx].curvePts.Count - 1;
+            for (int i = 1; i < 50; i++)
+            {
+                vec3 pt = new vec3(trk.gArr[trkBuilderSelIdx].curvePts[ptCnt]);
+                pt.easting += (Math.Sin(pt.heading) * i);
+                pt.northing += (Math.Cos(pt.heading) * i);
+                trk.gArr[trkBuilderSelIdx].curvePts.Add(pt);
+            }
+        }
+
+        // ── Geometría de tracks para el canvas ──────────────────────────
+        internal List<double[][]> TrkBuilder_FencesEN()
+        {
+            var list = new List<double[][]>();
+            if (bnd == null) return list;
+            for (int j = 0; j < bnd.bndList.Count; j++)
+            {
+                var src = bnd.bndList[j].fenceLine;
+                var outArr = new double[src.Count][];
+                for (int i = 0; i < src.Count; i++)
+                    outArr[i] = new double[] { src[i].easting, src[i].northing };
+                list.Add(outArr);
+            }
+            return list;
         }
 
         // ── Close Cancel ────────────────────────────────────────────────

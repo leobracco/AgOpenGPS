@@ -45,6 +45,28 @@ namespace AgroParallel.Services.Abstractions
         // Crear AB desde posición actual del vehículo (A+ heading).
         TrackBuilderStateDto CreateABFromPivot(double headingDeg, string name);
 
+        // ── Dibujo sobre contorno (ex FormABDraw) ──────────────────────
+        // Tap A/B en el contorno: primer tap = punto A (todos los contornos),
+        // segundo = punto B (mismo contorno). Tras el segundo tap se habilitan
+        // MakeCurve y MakeABLine.
+        TrackBuilderStateDto Tap(double easting, double northing);
+
+        // Cancelar el tap A/B pendiente.
+        TrackBuilderStateDto CancelTouch();
+
+        // Crear curva desde los puntos A/B marcados en el contorno.
+        TrackBuilderStateDto MakeCurve();
+
+        // Crear AB Line desde los puntos A/B marcados en el contorno.
+        TrackBuilderStateDto MakeABLine();
+
+        // Crear Boundary Curve (copia del contorno como track bndCurve).
+        TrackBuilderStateDto MakeBoundaryCurve();
+
+        // Extender extremo A o B de la curva seleccionada (+49 m).
+        TrackBuilderStateDto ExtendA();
+        TrackBuilderStateDto ExtendB();
+
         // Guardar y salir: FileSaveTracks, elegir la guía seleccionada
         // (o la primera visible, o ninguna).
         void CloseUse();

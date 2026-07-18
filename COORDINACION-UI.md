@@ -1498,3 +1498,19 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   btnUse, inputPane, inpName, btnInputOk, btnInputCancel. Verificado live:
   open 4 tracks, select, toggle vis, swap, duplicate, moveUp, rename,
   delete, cancel (backup restaurado).
+- [2026-07-18] [Claude] Integrar FormABDraw en tracks.html (misma página
+  que FormBuildTracks). Canvas interactivo con contornos + tracks dibujados
+  (AB rojo extendido, curva verde con dots A/B, bndCurve dorado), tap A/B
+  en contorno para crear líneas. Backend: ITrackBuilderService extendido
+  con Tap/CancelTouch/MakeCurve/MakeABLine/MakeBoundaryCurve/ExtendA/
+  ExtendB, TrackBuilderDtos ampliado con TrackGeomDto/Fences/BndSelect/
+  APoint/BPoint/CanMakeLine/HasBoundaryCurve, FormGPS.TrackBuilder
+  extendido con port fiel de ABDraw (tap A todos contornos, tap B mismo
+  contorno, MakeCurve loop-aware + spacing + headings + extensiones,
+  MakeABLine, MakeBoundaryCurve, ExtendA/B +49 m). Launcher FormABDraw
+  apunta a tracks.html (900x560 — más ancho para el canvas). Widget
+  ahora tiene 3 columnas: canvas | lista+crear | CRUD. IDs congelados
+  agregados: cvMap, btnMakeCurve, btnMakeAB, btnMakeBndCurve, btnExtendA,
+  btnExtendB, btnCancelTouch. Verificado live: open 4 tracks + fences,
+  tap A/B, makeCurve (5), bndCurve (6), extendB (1222 pts), makeAB (7),
+  cancel (backup 4).
