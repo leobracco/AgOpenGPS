@@ -1369,21 +1369,15 @@ namespace AgOpenGPS
             }
         }
 
-        //Profiles
+        //Profiles — migrados a perfiles.html (Hub)
         private void newProfileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (var form = new FormNewProfile(this))
-            {
-                form.ShowDialog(this);
-            }
+            OpenAgroParallelHub("pages/perfiles.html");
         }
 
         private void loadProfileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (var form = new FormLoadProfile(this))
-            {
-                form.ShowDialog(this);
-            }
+            OpenAgroParallelHub("pages/perfiles.html");
         }
 
         #endregion

@@ -173,6 +173,21 @@ namespace AgroParallel.Adapters
         public TrackBuilderStateDto ExtendB() =>
             OnUi(() => { _form.TrkBuilder_ExtendB(); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
 
+        public TrackBuilderStateDto RecordCurveA() =>
+            OnUi(() => { _form.TrkBuilder_RecordCurveA(); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
+
+        public TrackBuilderStateDto RecordCurvePause() =>
+            OnUi(() => { _form.TrkBuilder_RecordCurvePause(); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
+
+        public TrackBuilderStateDto RecordCurveB(string name) =>
+            OnUi(() => Map(_form.TrkBuilder_Snapshot(_form.TrkBuilder_RecordCurveB(name))), Fail());
+
+        public TrackBuilderStateDto RecordCurveCancel() =>
+            OnUi(() => { _form.TrkBuilder_RecordCurveCancel(); return Map(_form.TrkBuilder_Snapshot()); }, Fail());
+
+        public bool IsRecordingCurve() => OnUi(() => _form.TrkBuilder_IsRecording(), false);
+        public int RecordedPointCount() => OnUi(() => _form.TrkBuilder_RecordedCount(), 0);
+
         public void CloseUse() => OnUiVoid(() => _form.TrkBuilder_CloseUse());
 
         public void CloseCancel() => OnUiVoid(() => _form.TrkBuilder_CloseCancel());

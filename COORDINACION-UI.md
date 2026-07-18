@@ -1529,3 +1529,17 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   viewSave, pathList, msgEmpty, btnLoad, btnDelete, btnOff, inpName,
   chkDate, chkTime, btnSave, btnDiscard. Verificado live: list (vacío),
   save test-recpath-api → aparece en list, delete → desaparece, discard.
+- [2026-07-18] [Claude] Completar tracks.html fase 2: grabación de curva
+  conduciendo + crear AB desde posición. Backend: ITrackBuilderService
+  extendido con RecordCurveA/Pause/B/Cancel + IsRecordingCurve/
+  RecordedPointCount, FormGPS.TrackBuilder con port fiel del flujo
+  isMakingCurve/isRecordingCurve (Position.designer.cs agrega puntos
+  automáticamente), RecordCurveB arma track con spacing + headings +
+  extensiones + NudgeRefCurve. Controller: POST record-curve-a/pause/b/
+  cancel + GET record-status (poll 500 ms solo durante grabación). UI:
+  botones ● A / ⏸ / ■ B / ✕ en tracks.html, estado "Grabando · N pts",
+  nombre por input inline al cerrar con B. IDs congelados agregados:
+  btnRecA, btnRecPause, btnRecB, btnRecCancel, lblRecStatus. Verificado
+  live: recA, status (recording=true), pause/resume, cancel; createAB
+  45° (5 tracks), use. Launchers FormNewProfile/FormLoadProfile apuntan
+  a perfiles.html (Hub, ya migrado).

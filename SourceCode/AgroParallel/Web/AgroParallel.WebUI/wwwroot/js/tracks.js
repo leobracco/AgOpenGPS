@@ -1,7 +1,8 @@
 // ============================================================================
 // tracks.js — Gestor de guías unificado (FormBuildTracks + FormABDraw).
 // Lista CRUD + canvas interactivo (tap A/B en contorno para crear curva/AB,
-// drag = pan, rueda/pinch = zoom). Sin poll.
+// drag = pan, rueda/pinch = zoom) + grabación de curva conduciendo.
+// Poll solo durante grabación (GET /record-status cada 500 ms).
 // ============================================================================
 
 (function () {
@@ -30,6 +31,12 @@
   var btnExtendB = document.getElementById('btnExtendB');
   var btnCancelTouch = document.getElementById('btnCancelTouch');
 
+  var btnRecA = document.getElementById('btnRecA');
+  var btnRecPause = document.getElementById('btnRecPause');
+  var btnRecB = document.getElementById('btnRecB');
+  var btnRecCancel = document.getElementById('btnRecCancel');
+  var lblRecStatus = document.getElementById('lblRecStatus');
+
   var inputPane = document.getElementById('inputPane');
   var inpName = document.getElementById('inpName');
   var btnInputOk = document.getElementById('btnInputOk');
@@ -39,6 +46,7 @@
   var closed = false;
   var inputAction = null;
   var allVisible = true;
+  var recPollTimer = null;
 
   var view = { scale: 1, ox: 0, oy: 0, fitted: false };
   var pointers = {}, drag = null, pinch = null, moved = false;
@@ -212,11 +220,54 @@
   });
   btnInputOk.addEventListener('click', function () {
     inputPane.classList.remove('show');
-    if (inputAction === 'duplicate') post('/duplicate', { name: inpName.value.trim() }).then(function(s){apply(s,true)});
-    else if (inputAction === 'rename') post('/rename', { name: inpName.value.trim() }).then(function(s){apply(s,true)});
+    var name = inpName.value.trim();
+    if (inputAction === 'duplicate') post('/duplicate', { name: name }).then(function(s){apply(s,true)});
+    else if (inputAction === 'rename') post('/rename', { name: name }).then(function(s){apply(s,true)});
+    else if (inputAction === 'record-b') post('/record-curve-b', { name: name }).then(function(s){apply(s,true)});
     inputAction = null;
   });
   btnInputCancel.addEventListener('click', function () { inputPane.classList.remove('show'); inputAction = null; });
+
+  // ── Grabación de curva conduciendo ─────────────────────────────────
+  btnRecA.addEventListener('click', async function () {
+    apply(await post('/record-curve-a'), true);
+    startRecPoll();
+  });
+  btnRecPause.addEventListener('click', async function () { apply(await post('/record-curve-pause'), true); });
+  btnRecB.addEventListener('click', async function () {
+    stopRecPoll();
+    // Pedir nombre
+    inputAction = 'record-b';
+    inpName.value = '';
+    inputPane.classList.add('show');
+  });
+  btnRecCancel.addEventListener('click', async function () {
+    stopRecPoll();
+    apply(await post('/record-curve-cancel'), true);
+  });
+
+  function startRecPoll() {
+    stopRecPoll();
+    recPollTimer = setInterval(async function () {
+      try {
+        var res = await fetch(API + '/record-status');
+        var d = await res.json();
+        lblRecStatus.textContent = d.recording ? ('Grabando · ' + d.points + ' pts') : '';
+        btnRecA.disabled = d.recording;
+        btnRecPause.disabled = !d.recording;
+        btnRecB.disabled = !d.recording || d.points < 4;
+        btnRecCancel.disabled = !d.recording;
+      } catch (e) { }
+    }, 500);
+  }
+  function stopRecPoll() {
+    if (recPollTimer) { clearInterval(recPollTimer); recPollTimer = null; }
+    lblRecStatus.textContent = '';
+    btnRecA.disabled = false;
+    btnRecPause.disabled = true;
+    btnRecB.disabled = true;
+    btnRecCancel.disabled = true;
+  }
 
   function closeWidget(endpoint) {
     if (closed) return; closed = true;
@@ -286,5 +337,5 @@
 
   window.addEventListener('resize', resize);
 
-  (async function () { var data = await post('/open'); if (data) apply(data); })();
+  (async function () { stopRecPoll(); var data = await post('/open'); if (data) apply(data); })();
 })();

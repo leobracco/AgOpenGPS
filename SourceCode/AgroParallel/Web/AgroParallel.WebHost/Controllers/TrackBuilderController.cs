@@ -128,6 +128,30 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Post, "/tracks/extend-b")]
         public Task PostExtendB() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.ExtendB());
 
+        [Route(HttpVerbs.Post, "/tracks/record-curve-a")]
+        public Task PostRecordA() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.RecordCurveA());
+
+        [Route(HttpVerbs.Post, "/tracks/record-curve-pause")]
+        public Task PostRecordPause() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.RecordCurvePause());
+
+        [Route(HttpVerbs.Post, "/tracks/record-curve-b")]
+        public async Task PostRecordB()
+        {
+            if (_svc == null) { await Unavailable(); return; }
+            var b = await ReadBody<NameBody>();
+            await WriteJsonAsync(_svc.RecordCurveB(b?.Name));
+        }
+
+        [Route(HttpVerbs.Post, "/tracks/record-curve-cancel")]
+        public Task PostRecordCancel() => _svc == null ? Unavailable() : WriteJsonAsync(_svc.RecordCurveCancel());
+
+        [Route(HttpVerbs.Get, "/tracks/record-status")]
+        public Task GetRecordStatus()
+        {
+            if (_svc == null) return Unavailable();
+            return WriteJsonAsync(new { ok = true, recording = _svc.IsRecordingCurve(), points = _svc.RecordedPointCount() });
+        }
+
         [Route(HttpVerbs.Post, "/tracks/use")]
         public Task PostUse()
         {

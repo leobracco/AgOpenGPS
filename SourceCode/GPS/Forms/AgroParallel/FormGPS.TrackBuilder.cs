@@ -493,6 +493,85 @@ namespace AgOpenGPS
             }
         }
 
+        // ── Creación interactiva: Record Curve ─────────────────────────
+        private bool trkBuilderRecording = false;
+        private vec2 trkBuilderRecPtA;
+
+        internal void TrkBuilder_RecordCurveA()
+        {
+            trkBuilderRecPtA = new vec2(pivotAxlePos.easting, pivotAxlePos.northing);
+            curve.desList?.Clear();
+            curve.isMakingCurve = true;
+            curve.isRecordingCurve = true;
+            trkBuilderRecording = true;
+        }
+
+        internal void TrkBuilder_RecordCurvePause()
+        {
+            if (!trkBuilderRecording) return;
+            curve.isRecordingCurve = !curve.isRecordingCurve;
+        }
+
+        internal string TrkBuilder_RecordCurveB(string name)
+        {
+            if (!trkBuilderRecording) return "no-recording";
+            curve.isMakingCurve = false;
+            curve.isRecordingCurve = false;
+            trkBuilderRecording = false;
+
+            vec2 ptB = new vec2(pivotAxlePos.easting, pivotAxlePos.northing);
+
+            int cnt = curve.desList.Count;
+            if (cnt < 4) { curve.desList?.Clear(); return "pocos-puntos"; }
+
+            CABCurve.MakePointMinimumSpacing(ref curve.desList, 1.6);
+            CABCurve.CalculateHeadings(ref curve.desList);
+
+            trk.gArr.Add(new CTrk());
+            int idx = trk.gArr.Count - 1;
+
+            trk.gArr[idx].ptA = new vec2(trkBuilderRecPtA);
+            trk.gArr[idx].ptB = new vec2(ptB);
+            trk.gArr[idx].mode = TrackMode.Curve;
+
+            double x = 0, y = 0;
+            foreach (vec3 pt in curve.desList) { x += Math.Cos(pt.heading); y += Math.Sin(pt.heading); }
+            x /= curve.desList.Count; y /= curve.desList.Count;
+            double aveH = Math.Atan2(y, x);
+            if (aveH < 0) aveH += glm.twoPI;
+            trk.gArr[idx].heading = aveH;
+
+            curve.AddFirstLastPoints(ref curve.desList);
+            CABCurve.CalculateHeadings(ref curve.desList);
+
+            foreach (vec3 item in curve.desList)
+                trk.gArr[idx].curvePts.Add(item);
+
+            trk.gArr[idx].name = string.IsNullOrWhiteSpace(name)
+                ? "Cu " + Math.Round(glm.toDegrees(aveH), 1).ToString(CultureInfo.InvariantCulture) + "\u00B0"
+                : name;
+
+            // Nudge a la derecha por defecto
+            double dist = (tool.width - tool.overlap) * 0.5 + tool.offset;
+            trk.idx = idx;
+            trk.NudgeRefCurve(dist);
+
+            trkBuilderSelIdx = idx;
+            curve.desList?.Clear();
+            return null;
+        }
+
+        internal void TrkBuilder_RecordCurveCancel()
+        {
+            curve.isMakingCurve = false;
+            curve.isRecordingCurve = false;
+            curve.desList?.Clear();
+            trkBuilderRecording = false;
+        }
+
+        internal bool TrkBuilder_IsRecording() { return trkBuilderRecording; }
+        internal int TrkBuilder_RecordedCount() { return trkBuilderRecording ? curve.desList.Count : 0; }
+
         // ── Geometría de tracks para el canvas ──────────────────────────
         internal List<double[][]> TrkBuilder_FencesEN()
         {

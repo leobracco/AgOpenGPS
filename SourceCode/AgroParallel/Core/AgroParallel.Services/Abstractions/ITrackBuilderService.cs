@@ -67,6 +67,23 @@ namespace AgroParallel.Services.Abstractions
         TrackBuilderStateDto ExtendA();
         TrackBuilderStateDto ExtendB();
 
+        // ── Creación interactiva (fase 2, ex FormBuildTracks record) ────
+        // Marcar A de curva: arranca la grabación automática (isRecordingCurve).
+        TrackBuilderStateDto RecordCurveA();
+
+        // Pausar/resumir la grabación de curva.
+        TrackBuilderStateDto RecordCurvePause();
+
+        // Marcar B: cierra la curva y la agrega como track.
+        TrackBuilderStateDto RecordCurveB(string name);
+
+        // Cancelar la grabación de curva sin guardar.
+        TrackBuilderStateDto RecordCurveCancel();
+
+        // Estado de grabación (para poll de la UI).
+        bool IsRecordingCurve();
+        int RecordedPointCount();
+
         // Guardar y salir: FileSaveTracks, elegir la guía seleccionada
         // (o la primera visible, o ninguna).
         void CloseUse();
