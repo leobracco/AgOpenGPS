@@ -1901,18 +1901,10 @@ namespace AgOpenGPS
 
                 if (flagNumberPicked > 0)
                 {
-                    Form fc = Application.OpenForms["FormFlags"];
-
-                    if (fc != null)
-                    {
-                        fc.Focus();
-                        return;
-                    }
-
+                    // Banderas migrado a HTML (pages/banderas.html, ex FormFlags).
                     if (flagPts.Count > 0)
                     {
-                        Form form = new FormFlags(this);
-                        form.Show(this);
+                        OpenFlagsWidget();
                     }
                 }
             }

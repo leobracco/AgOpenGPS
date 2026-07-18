@@ -79,7 +79,8 @@ namespace AgroParallel.Shell
             IHeadlandEditService headlandEdit = null,
             ITramSimpleService tramSimple = null,
             INudgeService nudge = null,
-            IQuickAbService quickAb = null)
+            IQuickAbService quickAb = null,
+            IFlagsService flags = null)
         {
             lock (s_lock)
             {
@@ -148,7 +149,8 @@ namespace AgroParallel.Shell
                     headlandEdit: headlandEdit,
                     tramSimple: tramSimple,
                     nudge: nudge,
-                    quickAb: quickAb);
+                    quickAb: quickAb,
+                    flags: flags);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;

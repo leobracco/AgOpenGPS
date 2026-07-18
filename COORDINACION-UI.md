@@ -1339,3 +1339,25 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   completa en 382x269 sin scroll. OJO test multi-pestaña: cualquier viewer
   de ab-rapido.html que navegue/cierre con sesión abierta manda /cancel por
   pagehide (semántica de dueño único del widget, igual que el form nativo).
+- [2026-07-18] [Claude] Fix overlays VistaX strip/stats: defaults compactos
+  (stats 220-260 x 230-300, tipo widget QuantiX) y sanitización de
+  overlayPrefs.json — geometrías persistidas de un monitor más grande
+  dejaban el stats fuera de pantalla (x=1385 en pantalla de 1080). Ahora
+  tamaño clampeado a ClientSize-16 y posición custom solo si el origen es
+  visible (< ClientSize-40); si no, default. Verificado en pantalla real.
+- [2026-07-18] [Claude] Migración FormFlags + FormEnterFlag → HTML
+  (pages/banderas.html, widget flotante 382x320 sin sidebar, estilo
+  ab-rapido). Backend: FlagDtos + IFlagsService + FormGPS.Flags (partial:
+  lista con distancia live glm.Distance, pick/delete —renumera IDs como el
+  nativo—, notas, alta por posición actual (fixHeading, ex btnFlag) o
+  lat/lon manual (rumbo 0, ex FormEnterFlag), import/export CSV con
+  diálogos nativos sin popups de resultado — el error vuelve en el
+  snapshot) + adapter FormGpsFlagsService + FlagsController
+  (GET /api/flags/state con poll 500 ms — réplica del timer1 — y POST
+  pick/delete/notes/add/close/import/export). Launchers: btnFlag (crea y
+  abre widget), menú "lista de banderas", menú "bandera por lat/lon"
+  (?add=1 abre directo el pane de alta) y click sobre bandera en el mapa
+  GL — todos vía OpenFlagsWidget(). Cierre de ventana → POST /close por
+  sendBeacon (deselecciona + FileSaveFlags, ex btnExit). Verificado live:
+  alta use_current y lat/lon manual, notas, pick, delete con renumeración,
+  UI 382x320 sin scroll (lista + pane de alta con prefill de posición).

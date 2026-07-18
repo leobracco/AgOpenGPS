@@ -1119,19 +1119,21 @@ namespace AgOpenGPS
         }
         private void toolStripMenuFlagForm_Click(object sender, EventArgs e)
         {
-            Form fc = Application.OpenForms["FormFlags"];
-
-            if (fc != null)
-            {
-                fc.Focus();
-                return;
-            }
-
+            // Banderas migrado a HTML (pages/banderas.html, ex FormFlags).
             if (flagPts.Count > 0)
             {
                 flagNumberPicked = 1;
-                Form form = new FormFlags(this);
-                form.Show(this);
+                OpenFlagsWidget();
+            }
+        }
+
+        // Abre el widget de banderas (reemplazo de FormFlags/FormEnterFlag).
+        private void OpenFlagsWidget(bool addPane = false)
+        {
+            string page = addPane ? "pages/banderas.html?add=1" : "pages/banderas.html";
+            if (!LaunchAvaloniaWidget(page, "float", "Banderas", 382, 320))
+            {
+                OpenAgroParallelHub(page);
             }
         }
         private void btnFlag_Click(object sender, EventArgs e)
@@ -1146,19 +1148,10 @@ namespace AgOpenGPS
             flagPts = FlagsFiles.DeduplicateFlags(flagPts);
             FileSaveFlags();
 
-            Form fc = Application.OpenForms["FormFlags"];
-
-            if (fc != null)
-            {
-                fc.Focus();
-                return;
-            }
-
             if (flagPts.Count > 0)
             {
                 flagNumberPicked = nextflag;
-                Form form = new FormFlags(this);
-                form.Show(this);
+                OpenFlagsWidget();
             }
         }
 
@@ -1282,11 +1275,8 @@ namespace AgOpenGPS
 
         private void flagByLatLonToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (var form = new FormEnterFlag(this))
-            {
-                form.ShowDialog(this);
-                this.Activate();
-            }
+            // Bandera por lat/lon migrado a HTML (banderas.html?add=1, ex FormEnterFlag).
+            OpenFlagsWidget(addPane: true);
         }
         private void setWorkingDirectoryToolStripMenuItem_Click(object sender, EventArgs e)
         {

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Banderas</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ============================================================================
+       Widget BANDERAS — ventana chica sobre PilotX (reemplazo de FormFlags +
+       FormEnterFlag). Sin sidebar del Hub, estilo ab-rapido: lista de banderas
+       con distancia live, notas editables, alta por posición actual o lat/lon
+       e import/export CSV (diálogos nativos). API: /api/flags/*.
+       ============================================================================ */
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: var(--agp-bg); color: var(--agp-text);
+    }
+    body {
+      font-family: var(--agp-font-sans);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    .fl-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: clamp(3px, 1vh, 6px) 10px;
+      background: var(--agp-surface);
+      border-bottom: 1px solid var(--agp-border);
+      flex-shrink: 0;
+    }
+    .fl-head .title { font-weight: var(--agp-fw-bold); font-size: 13px; flex: 1; }
+    .fl-head .pill {
+      padding: 2px 10px; border-radius: var(--agp-radius-pill);
+      font-size: 10px; font-weight: var(--agp-fw-bold);
+      background: var(--agp-surface-2, var(--agp-bg)); color: var(--agp-text-muted);
+      border: 1px solid var(--agp-border);
+    }
+
+    .fl-body {
+      flex: 1; overflow: hidden;
+      padding: clamp(4px, 1.2vh, 8px);
+      display: flex; flex-direction: column; gap: clamp(3px, 1vh, 8px);
+    }
+
+    .btn {
+      min-height: clamp(28px, 7.5vh, 48px);
+      font-family: var(--agp-font-sans); font-size: clamp(11px, 2.4vh, 14px);
+      background: var(--agp-surface); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer;
+      padding: 2px 6px;
+    }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .fl-accent { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .fl-danger { background: #5a2c2c; color: #fff; border-color: #5a2c2c; }
+
+    /* ── Lista ── */
+    .fl-list {
+      flex: 1; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 3px;
+      min-height: clamp(48px, 14vh, 120px);
+    }
+    .fl-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: clamp(4px, 1.2vh, 8px) 8px;
+      background: var(--agp-surface);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      cursor: pointer; flex-shrink: 0;
+    }
+    .fl-row.sel { border-color: var(--agp-accent); background: var(--agp-surface-2, var(--agp-surface)); }
+    .fl-dot {
+      width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.25);
+    }
+    .fl-dot.c0 { background: #d9534f; }
+    .fl-dot.c1 { background: #4ABA3E; }
+    .fl-dot.c2 { background: #e5c04b; }
+    .fl-name {
+      flex: 1; font-size: clamp(11px, 2.4vh, 14px);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .fl-dist {
+      font-family: var(--agp-font-mono); font-size: clamp(11px, 2.4vh, 14px);
+      font-weight: var(--agp-fw-bold); color: var(--agp-accent);
+    }
+    .fl-empty {
+      text-align: center; color: var(--agp-text-muted);
+      font-size: clamp(10px, 2.2vh, 13px); padding: 12px 4px;
+    }
+
+    /* ── Detalle seleccionada ── */
+    .fl-notes-row { display: flex; gap: 6px; align-items: center; }
+    .fl-input {
+      flex: 1 1 auto; min-height: clamp(28px, 7.5vh, 44px);
+      font-family: var(--agp-font-mono); font-size: clamp(12px, 2.6vh, 15px);
+      background: var(--agp-bg); color: var(--agp-text);
+      border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      min-width: 0; padding: 0 8px;
+    }
+    .fl-actions { display: flex; gap: clamp(4px, 1vw, 8px); }
+    .fl-actions .btn { flex: 1 1 0; }
+
+    /* ── Pane alta ── */
+    .fl-label { font-size: clamp(10px, 2.2vh, 13px); color: var(--agp-text-muted); }
+    .fl-latlon { display: flex; gap: 6px; }
+    .fl-latlon .fl-input { text-align: center; }
+    .fl-colors { display: flex; gap: clamp(4px, 1vw, 8px); }
+    .fl-colors .btn { flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+    .fl-warn {
+      display: none; background: #5a2c2c; color: #fff;
+      border-radius: var(--agp-radius-sm);
+      padding: 6px 8px; font-size: clamp(10px, 2.2vh, 12px);
+      flex-shrink: 0;
+    }
+    .fl-warn.show { display: block; }
+    .hiddenTab { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="fl-head">
+    <span class="title">Banderas</span>
+    <span class="pill" id="countPill">0</span>
+  </div>
+
+  <div class="fl-body">
+    <div id="warnBox" class="fl-warn"></div>
+
+    <!-- ── Vista lista ── -->
+    <div id="paneList" style="display:flex; flex-direction:column; gap:inherit; flex:1; min-height:0;">
+      <div class="fl-list" id="flagList">
+        <div class="fl-empty" id="emptyMsg">No hay banderas en el lote.</div>
+      </div>
+
+      <div class="fl-notes-row" id="rowNotes">
+        <span class="fl-label">Notas</span>
+        <input id="inpNotes" class="fl-input" type="text" value="" />
+      </div>
+
+      <div class="fl-actions">
+        <button class="btn fl-danger" id="btnDelete">🗑 Borrar</button>
+        <button class="btn fl-accent" id="btnNew">➕ Nueva</button>
+      </div>
+      <div class="fl-actions">
+        <button class="btn" id="btnImport">Importar</button>
+        <button class="btn" id="btnExport">Exportar</button>
+      </div>
+    </div>
+
+    <!-- ── Vista alta ── -->
+    <div id="paneAdd" class="hiddenTab" style="flex-direction:column; gap:inherit; flex:1; min-height:0;">
+      <div class="fl-label">Posición (WGS84)</div>
+      <div class="fl-latlon">
+        <input id="inpLat" class="fl-input" type="text" inputmode="decimal" placeholder="Latitud" />
+        <input id="inpLon" class="fl-input" type="text" inputmode="decimal" placeholder="Longitud" />
+      </div>
+      <button class="btn" id="btnUseCurrent">📍 Usar posición actual</button>
+      <div class="fl-label">Color — tocá para crear</div>
+      <div class="fl-colors">
+        <button class="btn" id="btnAddRed"><span class="fl-dot c0"></span>Roja</button>
+        <button class="btn" id="btnAddGreen"><span class="fl-dot c1"></span>Verde</button>
+        <button class="btn" id="btnAddYellow"><span class="fl-dot c2"></span>Amarilla</button>
+      </div>
+      <div class="fl-actions" style="margin-top:auto;">
+        <button class="btn" id="btnCancelAdd">Volver</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/banderas.js"></script>
+</body>
+</html>
