@@ -62,7 +62,8 @@
     [KEY('7'), KEY('8'), KEY('9'), { k: 'back', l: '⌫', c: 'mod back' }],
     [KEY('4'), KEY('5'), KEY('6'), KEY('-')],
     [KEY('1'), KEY('2'), KEY('3'), KEY(',')],
-    [KEY('0'), KEY('.'), { k: 'enter', l: '⏎', c: 'mod enter accent', w: 2 }]
+    [{ k: 'layout', l: 'ABC', c: 'mod layout-toggle' }, KEY('0'), KEY('.'),
+     { k: 'enter', l: '⏎', c: 'mod enter accent' }]
   ];
 
   const ROWS_SYMBOLS = [

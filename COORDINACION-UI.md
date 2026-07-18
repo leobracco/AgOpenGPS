@@ -1282,3 +1282,17 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   inversión IBoundaryHost pendiente en los 4 partials de CBoundary (Core) —
   build 0 errores, tests Core 34/34. Queda el Step 5 (prueba con lote real)
   como follow-up manual.
+- [2026-07-18] [Claude] FIX teclado virtual en cabecera.html (reporte de
+  usuario: "no abre ningun teclado"): el input tenia `readonly` +
+  `data-keyboard="decimal"` — keyboard.js ignora ese atributo y descarta
+  inputs readonly en isEditable(). Se quitaron ambos (el layout numerico ya
+  sale solo por inputmode="decimal"). Ademas faltaba `keyboard.css` en
+  cabecera.html y botonera.html (el teclado renderizaba sin estilo, 172px
+  bajo el sidebar). Y pedido de usuario: tecla ABC en el layout numerico
+  para saltar a QWERTY (nombres). Verificado live: tocar input → teclado
+  numerico → tipear 12 → Construir → offset exacto 12.00 m; ABC → QWERTY ok.
+  Ademas verificacion automatizada del bloque D (Build Around con lote real
+  "2026-07-14 18-32"): build 5 m y 28 m con offset geometrico exacto
+  (max desvio 0.00 m), Reset = contorno (dist 0), Apagar ok, toggle
+  secciones-en-cabecera round-trip ok. Paginas migradas y APIs de estado/
+  graficos/eventos/ajustes: todas 200 con datos reales.
