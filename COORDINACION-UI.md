@@ -1479,3 +1479,22 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   btnCancel, btnExit, lblInfo. Verificado live: open con 4 tracks, cycle,
   swap, passes 3, start 1, add (6 saved), outer (6046/6025 pts bnd),
   alpha 0.5, deleteAll, close.
+- [2026-07-18] [Claude] Migración FormBuildTracks → HTML (pages/tracks.html,
+  widget flotante 650x480 "Gestión de guías", fase 1 = CRUD de lista).
+  Backend: TrackBuilderDtos + ITrackBuilderService (Open/GetState/Toggle
+  Visibility/ToggleAll/Select/Delete/Duplicate/Rename/MoveUp/MoveDown/
+  SwapAB/CreateABFromPivot/CloseUse/CloseCancel) + FormGPS.TrackBuilder
+  (port fiel: backup gArr en Open, restore en Cancel; toggle vis con
+  deselect, swap AB con reverse de curva + headings, CloseUse réplica de
+  btnListUse con fallback a primera visible/ninguna + FileSaveTracks +
+  ResetYouTurn) + adapter FormGpsTrackBuilderService +
+  TrackBuilderController (GET state + 14 POSTs). UI lista interactiva:
+  toggle verde/rojo por track, select con highlight, botones mover/swap/
+  duplicar/renombrar/borrar, input inline para nombre, Usar/Cancelar.
+  Launcher: ya no abre FormBuildTracks nativa. Fase 2 pendiente: creación
+  interactiva (curva record con polling de posición, AB live, KML import,
+  LatLon, pivot). IDs congelados: trackList, btnMoveUp, btnMoveDn,
+  btnSwapAB, btnToggleAll, btnDuplicate, btnRename, btnDelete, btnCancel,
+  btnUse, inputPane, inpName, btnInputOk, btnInputCancel. Verificado live:
+  open 4 tracks, select, toggle vis, swap, duplicate, moveUp, rename,
+  delete, cancel (backup restaurado).

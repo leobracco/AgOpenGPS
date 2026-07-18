@@ -414,8 +414,11 @@ namespace AgOpenGPS
                 return;
             }
 
-            Form form = new FormBuildTracks(this);
-            form.Show(this);
+            // FormBuildTracks migrado a HTML (pages/tracks.html).
+            // El refresco de paneles + FileSaveTracks corre en
+            // TrkBuilder_CloseUse cuando el widget se cierra.
+            if (!LaunchAvaloniaWidget("pages/tracks.html", "float", "Tracks", 650, 480))
+            { OpenAgroParallelHub("pages/tracks.html"); }
 
             if (flp1.Visible)
             {

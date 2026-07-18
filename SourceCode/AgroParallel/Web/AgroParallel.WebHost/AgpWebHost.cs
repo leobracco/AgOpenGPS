@@ -69,6 +69,8 @@ namespace AgroParallel.WebHost
         private readonly ICabeceraLineasService _cabeceraLineas;
         // Constructor de tramlines (tramlines.html, reemplazo de FormTramLine).
         private readonly ITramLineService _tramLine;
+        // Gestor de tracks (tracks.html, reemplazo de FormBuildTracks).
+        private readonly ITrackBuilderService _trackBuilder;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -159,7 +161,8 @@ namespace AgroParallel.WebHost
                           IFlagsService flags = null,
                           IContornoService contorno = null,
                           ICabeceraLineasService cabeceraLineas = null,
-                          ITramLineService tramLine = null)
+                          ITramLineService tramLine = null,
+                          ITrackBuilderService trackBuilder = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -190,6 +193,7 @@ namespace AgroParallel.WebHost
             _contorno = contorno;             // nullable
             _cabeceraLineas = cabeceraLineas;   // nullable
             _tramLine = tramLine;               // nullable
+            _trackBuilder = trackBuilder;       // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -338,6 +342,7 @@ namespace AgroParallel.WebHost
                 // Cabecera por líneas (pages/cabecera-lineas.html) — FormHeadAche.
                 if (_cabeceraLineas != null) m.WithController(() => new CabeceraLineasController(_cabeceraLineas));
                 if (_tramLine != null) m.WithController(() => new TramLineController(_tramLine));
+                if (_trackBuilder != null) m.WithController(() => new TrackBuilderController(_trackBuilder));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))

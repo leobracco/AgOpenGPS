@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tracks</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--agp-bg); color: var(--agp-text); }
+    body { font-family: var(--agp-font-sans); display: flex; flex-direction: column; overflow: hidden; }
+
+    .tk-head { display: flex; align-items: center; gap: 8px; padding: clamp(3px,1vh,6px) 10px;
+      background: var(--agp-surface); border-bottom: 1px solid var(--agp-border); flex-shrink: 0; }
+    .tk-head .title { font-weight: var(--agp-fw-bold); font-size: 13px; flex: 1; }
+
+    .tk-body { flex: 1; min-height: 0; display: flex; gap: clamp(4px,0.8vw,8px); padding: clamp(4px,1vh,8px); }
+
+    .tk-list { flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+
+    .tk-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px;
+      background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      cursor: pointer; font-size: clamp(11px,2.2vh,13px); }
+    .tk-item.selected { background: #d0e8f0; border-color: var(--agp-accent); }
+    .tk-item .tk-vis { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; cursor: pointer; }
+    .tk-item .tk-vis.on { background: #4ABA3E; }
+    .tk-item .tk-vis.off { background: #c94040; }
+    .tk-item .tk-mode { font-family: var(--agp-font-mono); font-size: 10px; color: var(--agp-text-muted); flex-shrink: 0; width: 40px; text-align: center; }
+    .tk-item .tk-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tk-item .tk-active { font-size: 10px; color: var(--agp-accent); }
+
+    .tk-side { flex: 0 0 clamp(150px,20vw,200px); display: flex; flex-direction: column; gap: clamp(3px,0.8vh,6px); }
+
+    .btn { min-height: clamp(26px,5.5vh,38px); font-family: var(--agp-font-sans); font-size: clamp(10px,2vh,12px);
+      background: var(--agp-surface); color: var(--agp-text); border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); cursor: pointer; padding: 2px 6px; }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .tk-accent { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .tk-danger { background: #5a2c2c; color: #fff; border-color: #5a2c2c; }
+    .tk-row { display: flex; gap: clamp(3px,0.6vw,6px); }
+    .tk-row .btn { flex: 1 1 0; }
+    .tk-sep { border-top: 1px solid var(--agp-border); margin: 2px 0; }
+
+    .tk-input { display: none; gap: 4px; align-items: center; }
+    .tk-input.show { display: flex; }
+    .tk-input input { flex: 1; min-height: 28px; font-family: var(--agp-font-sans); font-size: 12px;
+      background: var(--agp-bg); color: var(--agp-text); border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); padding: 0 6px; }
+  </style>
+</head>
+<body>
+  <div class="tk-head">
+    <span class="title">Gestión de guías</span>
+  </div>
+
+  <div class="tk-body">
+    <div class="tk-list" id="trackList"></div>
+
+    <div class="tk-side">
+      <div class="tk-row">
+        <button class="btn" id="btnMoveUp">▲</button>
+        <button class="btn" id="btnMoveDn">▼</button>
+      </div>
+      <button class="btn" id="btnSwapAB">⇄ Swap A↔B</button>
+      <button class="btn" id="btnToggleAll">Mostrar/Ocultar todos</button>
+      <button class="btn" id="btnDuplicate">Duplicar</button>
+      <button class="btn" id="btnRename">Renombrar</button>
+      <button class="btn tk-danger" id="btnDelete">Borrar</button>
+
+      <div class="tk-sep"></div>
+
+      <div class="tk-input" id="inputPane">
+        <input id="inpName" type="text" placeholder="Nombre" />
+        <button class="btn tk-accent" id="btnInputOk">OK</button>
+        <button class="btn" id="btnInputCancel">✕</button>
+      </div>
+
+      <div style="margin-top:auto;"></div>
+      <div class="tk-row">
+        <button class="btn tk-danger" id="btnCancel">Cancelar</button>
+        <button class="btn tk-accent" id="btnUse">Usar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/tracks.js"></script>
+</body>
+</html>
