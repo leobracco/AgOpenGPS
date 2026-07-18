@@ -624,6 +624,7 @@ namespace AgOpenGPS
                 var flags = new global::AgroParallel.Adapters.FormGpsFlagsService(this);
                 var contorno = new global::AgroParallel.Adapters.FormGpsContornoService(this);
                 var cabeceraLineas = new global::AgroParallel.Adapters.FormGpsCabeceraLineasService(this);
+                var tramLine = new global::AgroParallel.Adapters.FormGpsTramLineService(this);
                 var toolGeometry = new global::AgroParallel.Adapters.FormGpsToolGeometryCalculator(this);
                 var tram = new global::AgroParallel.Adapters.FormGpsTramCalculator(this);
                 var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
@@ -659,7 +660,8 @@ namespace AgOpenGPS
                     quickAb: quickAb,
                     flags: flags,
                     contorno: contorno,
-                    cabeceraLineas: cabeceraLineas);
+                    cabeceraLineas: cabeceraLineas,
+                    tramLine: tramLine);
             }
             catch (Exception ex)
             {

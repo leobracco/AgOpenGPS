@@ -631,8 +631,11 @@ namespace AgOpenGPS
                 return;
             }
 
-            Form form99 = new FormTramLine(this);
-            form99.ShowDialog(this);
+            // FormTramLine migrado a HTML (pages/tramlines.html).
+            // El refresco de paneles + FileSaveTram corre en Tram_CloseSession
+            // cuando el widget se cierra (POST /api/tramlines/close).
+            if (!LaunchAvaloniaWidget("pages/tramlines.html", "float", "Tramlines", 1000, 620))
+            { OpenAgroParallelHub("pages/tramlines.html"); }
         }
 
         public void GetHeadland()

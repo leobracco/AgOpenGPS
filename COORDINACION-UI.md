@@ -1459,3 +1459,23 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   + clip exitoso (3754 pts) + undo (6146 pts), section on/off, off, close.
   Clip curva con offset grande falla por geometría (extensiones no cruzan
   la cabecera offseteada) — idéntico al nativo.
+- [2026-07-18] [Claude] Migración FormTramLine → HTML (pages/tramlines.html,
+  widget flotante 1000x620). Backend: TramLineDtos (tracks, new/saved trams,
+  fences, outer/inner bnd, passes, startPass, isOuter, alpha, 3-tap cut
+  state) + ITramLineService (Open/CycleTrack/SwapSide/SetPasses/SetStartPass/
+  SetOuter/SetAlpha/AddLines/DeleteAll/Tap/CancelTouch/CloseSession/
+  CancelSession) + FormGPS.TramLine (port fiel: LoadAndFixLines con auto-
+  detect de lado, BuildCurveTram/BuildABTram con IsPointInPolygon, 3-tap
+  cut con intersección + eliminación por lado, close guarda FileSaveTram +
+  FixTramModeButton, cancel revierte) + adapter FormGpsTramLineService +
+  TramLineController (GET state + 14 POSTs, sin poll). Canvas interactivo
+  con contornos + guías (AB rojo / curva verde) + trams guardados (rosa
+  semitransparente) + preview (blanco) + outer/inner bnd (dorado) +
+  puntos de corte (rojo A / verde B + línea). Launcher:
+  tramsMultiMenuField ya no abre FormTramLine nativa. IDs congelados:
+  cvMap, warnBox, hintText, selTrack, btnPrev, btnNext, btnSwap,
+  btnPassesDn, btnPassesUp, lblPasses, btnStartDn, btnStartUp, lblStart,
+  chkOuter, btnAdd, btnCancelTouch, btnAlphaDn, btnAlphaUp, btnDeleteAll,
+  btnCancel, btnExit, lblInfo. Verificado live: open con 4 tracks, cycle,
+  swap, passes 3, start 1, add (6 saved), outer (6046/6025 pts bnd),
+  alpha 0.5, deleteAll, close.

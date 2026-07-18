@@ -82,7 +82,8 @@ namespace AgroParallel.Shell
             IQuickAbService quickAb = null,
             IFlagsService flags = null,
             IContornoService contorno = null,
-            ICabeceraLineasService cabeceraLineas = null)
+            ICabeceraLineasService cabeceraLineas = null,
+            ITramLineService tramLine = null)
         {
             lock (s_lock)
             {
@@ -154,7 +155,8 @@ namespace AgroParallel.Shell
                     quickAb: quickAb,
                     flags: flags,
                     contorno: contorno,
-                    cabeceraLineas: cabeceraLineas);
+                    cabeceraLineas: cabeceraLineas,
+                    tramLine: tramLine);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;
