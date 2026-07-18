@@ -1409,3 +1409,31 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   scroll, toggle Grabar/Pausa, punto automático del sim, cancel con
   doble-tap. Gate section_rec respetado (sin secciones no agrega puntos,
   igual que el nativo).
+- [2026-07-18] [Claude] Migración FormHeadAche → HTML
+  (pages/cabecera-lineas.html, widget flotante 900x560 "Cabecera por
+  líneas": canvas interactivo izquierda + columna de controles derecha).
+  Backend: CabeceraLineasDtos + ICabeceraLineasService +
+  FormGPS.CabeceraLineas (partial: port fiel de oglSelf_MouseDown — tap A
+  = punto más cercano del fenceLine entre TODOS los contornos, tap B en el
+  mismo contorno; curva = copia del segmento fence loop-aware +
+  CalculateHeadings + extensiones 30 m; AB = recta interpolada 1 m + 30 m;
+  offset hacia adentro con culling de auto-intersección; cycle/delete/
+  extend(+9 m/−5 pts)/build (cruces por GeoLineSegment.IntersectionPoint,
+  errores una-sola-linea/cruces)/reset/off/section-controlled;
+  CloseSession absorbe el bloque post-diálogo del launcher: recalcula
+  isHeadlandOn + PanelsAndOGLSize/PanelUpdateRightAndBottom/SetZoom) +
+  adapter FormGpsCabeceraLineasService + CabeceraLineasController
+  (GET /api/cabecera-lineas/state y POSTs open/tap/cancel-touch/cycle/
+  delete-track/extend/build/reset/off/section-controlled/close — sin
+  poll: la geometría solo cambia por acción del usuario, cada POST
+  devuelve el estado completo). Fallback métrico si m2FtOrM/ftOrMtoM
+  quedaron en 0 por arranque parcial. Canvas: tap=marcar, drag=pan,
+  rueda/pinch=zoom (setPointerCapture con try/catch). IDs congelados:
+  cvMap, warnBox, segCurve, segLine, unitLabel, inpDist, btnWidthX,
+  lblTool, selInfo, btnPrev, btnNext, btnDelTrack, btnAPlus, btnAMinus,
+  btnBPlus, btnBMinus, btnCancelTouch, btnBuild, btnReset, chkSection,
+  btnOff, btnExit. Launcher: headlandBuildToolStripMenuItem ya no abre
+  FormHeadAche. Verificado live: open con lote real (1536 pts), tap A+B
+  por canvas crea curva (762 pts), extend ±, cycle, delete, build con 1
+  línea → una-sola-linea, section-controlled on/off, close; UI 900x560
+  sin scroll, pan/zoom/×ancho OK.

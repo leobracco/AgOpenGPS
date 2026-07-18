@@ -81,7 +81,8 @@ namespace AgroParallel.Shell
             INudgeService nudge = null,
             IQuickAbService quickAb = null,
             IFlagsService flags = null,
-            IContornoService contorno = null)
+            IContornoService contorno = null,
+            ICabeceraLineasService cabeceraLineas = null)
         {
             lock (s_lock)
             {
@@ -152,7 +153,8 @@ namespace AgroParallel.Shell
                     nudge: nudge,
                     quickAb: quickAb,
                     flags: flags,
-                    contorno: contorno);
+                    contorno: contorno,
+                    cabeceraLineas: cabeceraLineas);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;

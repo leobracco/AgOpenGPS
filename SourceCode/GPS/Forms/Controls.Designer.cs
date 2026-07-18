@@ -670,16 +670,12 @@ namespace AgOpenGPS
                 return;
             }
 
-            using (var form = new FormHeadAche(this))
-            {
-                form.ShowDialog(this);
-            }
-
-            bnd.isHeadlandOn = (bnd.bndList.Count > 0 && bnd.bndList[0].hdLine.Count > 0);
-
-            PanelsAndOGLSize();
-            PanelUpdateRightAndBottom();
-            SetZoom();
+            // Constructor de cabecera por líneas migrado a HTML
+            // (pages/cabecera-lineas.html, ex FormHeadAche). El recálculo de
+            // isHeadlandOn + refresco de paneles corre en CabLin_CloseSession
+            // cuando el widget se cierra (POST /api/cabecera-lineas/close).
+            if (!LaunchAvaloniaWidget("pages/cabecera-lineas.html", "float", "Cabecera por líneas", 900, 560))
+            { OpenAgroParallelHub("pages/cabecera-lineas.html"); }
         }
         private void boundariesToolStripMenuItem_Click(object sender, EventArgs e)
         {

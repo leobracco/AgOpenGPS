@@ -65,6 +65,8 @@ namespace AgroParallel.WebHost
         private readonly IFlagsService _flags;
         // Página "Contorno" (contorno.html, reemplazo de FormBoundary/Player).
         private readonly IContornoService _contorno;
+        // Cabecera por líneas (cabecera-lineas.html, reemplazo de FormHeadAche).
+        private readonly ICabeceraLineasService _cabeceraLineas;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -153,7 +155,8 @@ namespace AgroParallel.WebHost
                           INudgeService nudge = null,
                           IQuickAbService quickAb = null,
                           IFlagsService flags = null,
-                          IContornoService contorno = null)
+                          IContornoService contorno = null,
+                          ICabeceraLineasService cabeceraLineas = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -182,6 +185,7 @@ namespace AgroParallel.WebHost
             _quickAb = quickAb;               // nullable
             _flags = flags;                   // nullable
             _contorno = contorno;             // nullable
+            _cabeceraLineas = cabeceraLineas;   // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -326,6 +330,9 @@ namespace AgroParallel.WebHost
 
                 // Contorno (pages/contorno.html) — FormBoundary/FormBoundaryPlayer.
                 if (_contorno != null) m.WithController(() => new ContornoController(_contorno));
+
+                // Cabecera por líneas (pages/cabecera-lineas.html) — FormHeadAche.
+                if (_cabeceraLineas != null) m.WithController(() => new CabeceraLineasController(_cabeceraLineas));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
