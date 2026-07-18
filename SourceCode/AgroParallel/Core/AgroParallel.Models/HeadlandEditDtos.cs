@@ -20,6 +20,20 @@ namespace AgroParallel.Models
         public double ToolWidthM { get; set; }
         public double[][] Fence { get; set; } = new double[0][];
         public double[][] Headland { get; set; } = new double[0][];
+
+        // ── Reshape manual (fase 2, ex FormHeadLine slice) ──────────────────
+        // Todos los contornos (el tap A elige el más cercano entre todos).
+        public System.Collections.Generic.List<double[][]> Fences { get; set; }
+            = new System.Collections.Generic.List<double[][]>();
+        public int BndSelect { get; set; }
+        // Línea de corte vigente (con extensiones/offset ya aplicados).
+        public double[][] Slice { get; set; } = new double[0][];
+        public string SliceMode { get; set; }          // "curve" | "ab" | null
+        public double[] APoint { get; set; }           // toque A pendiente (E/N)
+        public double[] BPoint { get; set; }           // toque B (E/N)
+        public bool CanUndo { get; set; }
+        // distancia-cero | sin-contorno | cruces | null
+        public string Error { get; set; }
     }
 
     public sealed class HeadlandEditResultDto

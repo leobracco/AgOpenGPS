@@ -1437,3 +1437,25 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   por canvas crea curva (762 pts), extend ±, cycle, delete, build con 1
   línea → una-sola-linea, section-controlled on/off, close; UI 900x560
   sin scroll, pan/zoom/×ancho OK.
+- [2026-07-18] [Claude] Completar migración FormHeadLine → HTML (cabecera.html)
+  fase 2: reshape manual (slice). Sobre la cabecera.html existente (que
+  ya tenía Build Around) se agregan controles de edición de borde: selector
+  curva/recta, A±/B± (extend/shrink), ✂ Cortar, Deshacer, Descartar toque,
+  Salir. Backend: HeadlandEditDtos (ampliado con fences/bnd_select/slice/
+  slice_mode/a_point/b_point/can_undo/error), IHeadlandEditService (nuevos:
+  Open/Tap/CancelTouch/Extend/Clip/Undo/CloseSession), FormGPS.HeadlandEdit
+  (port fiel de FormHeadLine: tap A todos los contornos, tap B mismo
+  contorno, curva loop-aware + extensiones 30 m, AB recta interpolada 1 m +
+  30 m, offset SetLineDistance con culling auto-intersección, clip con
+  backup → cruces GeoLineSegment.IntersectionPoint, undo, close =
+  suavizado decimación rumbo + FileSaveHeadland + recalc isHeadlandOn +
+  paneles), HeadlandController (nuevas rutas POST open/tap/cancel-touch/
+  extend/clip/undo/close), cabecera.js reescrito (canvas interactivo
+  tap=A/B, drag=pan, rueda/pinch=zoom; draw slice rojo AB / verde curva +
+  dots A/B). Launcher: GetHeadland() + headlandToolStripMenuItem ya no
+  abren FormHeadLine nativa. IDs congelados agregados: segCurve, segLine,
+  btnAPlus, btnAMinus, btnBPlus, btnBMinus, btnClip, btnUndo,
+  btnCancelTouch, btnExit. Verificado live: build 5 m, slice AB sin offset
+  + clip exitoso (3754 pts) + undo (6146 pts), section on/off, off, close.
+  Clip curva con offset grande falla por geometría (extensiones no cruzan
+  la cabecera offseteada) — idéntico al nativo.

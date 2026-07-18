@@ -637,16 +637,12 @@ namespace AgOpenGPS
 
         public void GetHeadland()
         {
-            using (var form = new FormHeadLine(this))
-            {
-                form.ShowDialog(this);
-            }
-
-            bnd.isHeadlandOn = (bnd.bndList.Count > 0 && bnd.bndList[0].hdLine.Count > 0);
-
-            PanelsAndOGLSize();
-            PanelUpdateRightAndBottom();
-            SetZoom();
+            // FormHeadLine (Build Around + reshape manual) migrado a HTML
+            // (pages/cabecera.html). El suavizado + recálculo de isHeadlandOn
+            // + refresco de paneles corre en HeadlandEdit_CloseSession cuando
+            // el widget se cierra (POST /api/headland/close).
+            if (!LaunchAvaloniaWidget("pages/cabecera.html", "float", "Cabecera", 1000, 720))
+            { OpenAgroParallelHub("pages/cabecera.html"); }
         }
         private void headlandToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -656,8 +652,7 @@ namespace AgOpenGPS
                 return;
             }
 
-            // Cabecera migrada a HTML (pages/cabecera.html, flujo Build Around).
-            // FormHeadLine se mantiene para el reshape manual (fase 2).
+            // FormHeadLine completo (Build Around + slice) migrado a HTML.
             if (!LaunchAvaloniaWidget("pages/cabecera.html", "float", "Cabecera", 1000, 720))
             { OpenAgroParallelHub("pages/cabecera.html"); }
             this.Activate();

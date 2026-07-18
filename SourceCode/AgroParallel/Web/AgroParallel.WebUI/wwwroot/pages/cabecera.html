@@ -32,6 +32,13 @@
     }
     .cab-unit { font-family: var(--agp-font-mono); color: var(--agp-text-muted); min-width: 24px; }
     #btnBuild { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .cab-seg { display: flex; border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-sm); overflow: hidden; }
+    .cab-seg .btn { flex: 1 1 0; border: 0; border-radius: 0; min-height: 44px; }
+    .cab-seg .btn.on { background: var(--agp-accent); color: #fff; }
+    .cab-row { display: flex; gap: var(--agp-sp-2); }
+    .cab-row .btn { flex: 1 1 0; min-height: 44px; }
+    .cab-label { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); }
+    .cab-sep { border-top: var(--agp-border-w) solid var(--agp-border); margin: var(--agp-sp-1) 0; }
     .cab-toggle { display: flex; align-items: center; justify-content: space-between; gap: var(--agp-sp-2); }
     .cab-warn {
       display: none; background: #5a2c2c; color: #fff; border-radius: var(--agp-radius-sm);
@@ -67,11 +74,34 @@
         <button class="btn" id="btnToolWidth">Usar ancho de herramienta</button>
         <button class="btn" id="btnBuild">Construir cabecera</button>
         <button class="btn" id="btnReset">Reset (= contorno)</button>
+
+        <div class="cab-sep"></div>
+
+        <div class="cab-label">Editar borde: tocá A y B en el contorno para cortar la cabecera</div>
+        <div class="cab-seg">
+          <button class="btn on" id="segCurve">Curva</button>
+          <button class="btn" id="segLine">Recta</button>
+        </div>
+        <div class="cab-row">
+          <button class="btn" id="btnAPlus">A +</button>
+          <button class="btn" id="btnAMinus">A −</button>
+          <button class="btn" id="btnBPlus">B +</button>
+          <button class="btn" id="btnBMinus">B −</button>
+        </div>
+        <div class="cab-row">
+          <button class="btn" id="btnClip">✂ Cortar</button>
+          <button class="btn" id="btnUndo">Deshacer</button>
+        </div>
+        <button class="btn" id="btnCancelTouch">Descartar toque</button>
+
+        <div class="cab-sep"></div>
+
         <div class="cab-toggle">
           <span>Secciones controladas en cabecera</span>
           <input id="chkSection" type="checkbox" />
         </div>
         <button class="btn" id="btnOff">Apagar cabecera</button>
+        <button class="btn" id="btnExit">Salir</button>
       </div>
     </div>
   </main>

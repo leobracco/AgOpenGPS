@@ -1,14 +1,22 @@
 // ============================================================================
 // cabecera.js
-// Reemplazo del flujo "Build Around" de FormHeadLine. El canvas es preview
-// read-only: dibuja el contorno (fence) y la cabecera (headland) en E/N metros,
-// con fit-to-bounds + pan (drag) + zoom (rueda). La geometría corre en C#:
-//   GET  /api/headland/state              → estado inicial + geometría
-//   POST /api/headland/build   {distance} → offset (distancia en unidades display)
+// Reemplazo completo de FormHeadLine: Build Around + reshape manual (slice).
+// Canvas interactivo: tap = marcar A/B sobre el contorno, drag = pan,
+// rueda/pinch = zoom. La geometría corre en C#:
+//   GET  /api/headland/state              → estado + geometría
+//   POST /api/headland/open               → iniciar sesión (hdLine=contorno si vacía)
+//   POST /api/headland/build   {distance} → offset Build Around (unidades display)
 //   POST /api/headland/reset              → cabecera = contorno
 //   POST /api/headland/off                → apaga la cabecera
 //   POST /api/headland/section-controlled {on}
-// Sin contorno: banner + Construir deshabilitado.
+//   POST /api/headland/tap {e,n,mode,distance} → punto A/B + línea de corte
+//   POST /api/headland/cancel-touch       → descartar toque/línea
+//   POST /api/headland/extend {end,grow}  → extender/encoger extremo
+//   POST /api/headland/clip               → cortar cabecera con la línea
+//   POST /api/headland/undo               → volver al backup pre-corte
+//   POST /api/headland/close              → suavizar + persistir + paneles
+// Sin poll: la geometría solo cambia por acción del usuario; cada POST del
+// flujo slice devuelve el estado completo. Sin contorno: banner + botones off.
 // ============================================================================
 
 (function () {
@@ -28,18 +36,48 @@
   var statusEl  = document.getElementById('statusText');
   var warnBox   = document.getElementById('warnBox');
 
-  var fence = [];      // [[e,n], ...]
+  var segCurve  = document.getElementById('segCurve');
+  var segLine   = document.getElementById('segLine');
+  var btnAPlus  = document.getElementById('btnAPlus');
+  var btnAMinus = document.getElementById('btnAMinus');
+  var btnBPlus  = document.getElementById('btnBPlus');
+  var btnBMinus = document.getElementById('btnBMinus');
+  var btnClip   = document.getElementById('btnClip');
+  var btnUndo   = document.getElementById('btnUndo');
+  var btnCancel = document.getElementById('btnCancelTouch');
+  var btnExit   = document.getElementById('btnExit');
+
+  var fence = [];      // [[e,n], ...] contorno exterior (compat)
+  var fences = [];     // todos los contornos
+  var bndSelect = 0;
   var headland = [];   // [[e,n], ...]
+  var slice = [];      // línea de corte vigente
+  var sliceMode = null;
+  var aPoint = null, bPoint = null;
+  var canUndo = false;
   var units = 'm';
   var toolWidthM = 0;
   var hasBoundary = false;
+  var mode = 'curve';  // curva | recta (tipo de línea de corte)
+  var closed = false;
 
   // Vista (pan/zoom) — solo afecta el dibujo, no el modelo.
   var view = { scale: 1, ox: 0, oy: 0, fitted: false };
-  var drag = null;
+  var pointers = {};
+  var drag = null, pinch = null, moved = false;
 
   function setStatus(txt) {
     statusEl.textContent = txt;
+  }
+
+  function friendly(code) {
+    switch (code) {
+      case 'sin-contorno':   return 'Primero creá un contorno del lote.';
+      case 'distancia-cero': return 'Con línea curva la distancia no puede ser 0.';
+      case 'cruces':         return 'La línea no cruza la cabecera en 2 puntos. Extendé los extremos e intentá de nuevo.';
+      case 'ui-error':       return 'PilotX no pudo procesar la acción.';
+      default:               return code || '';
+    }
   }
 
   // ── Canvas sizing ─────────────────────────────────────────────────────────
@@ -54,7 +92,9 @@
   }
 
   function bounds() {
-    var pts = fence.length ? fence : headland;
+    var pts = [];
+    for (var j = 0; j < fences.length; j++) pts = pts.concat(fences[j]);
+    if (!pts.length) pts = fence.length ? fence : headland;
     if (!pts.length) return null;
     var minE = Infinity, maxE = -Infinity, minN = Infinity, maxN = -Infinity;
     for (var i = 0; i < pts.length; i++) {
@@ -81,9 +121,12 @@
     view.fitted = true;
   }
 
-  // Modelo (E/N metros) → pantalla (px CSS).
+  // Modelo (E/N metros) → pantalla (px CSS) y viceversa.
   function toScreen(e, n) {
     return { x: e * view.scale + view.ox, y: -n * view.scale + view.oy };
+  }
+  function toField(x, y) {
+    return { e: (x - view.ox) / view.scale, n: -(y - view.oy) / view.scale };
   }
 
   function drawPolyline(pts, color, width, close) {
@@ -99,49 +142,90 @@
     ctx.stroke();
   }
 
+  function drawDot(pt, color, rad) {
+    if (!pt) return;
+    var p = toScreen(pt[0], pt[1]);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, rad, 0, Math.PI * 2);
+    ctx.fillStyle = '#101612';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, rad - 2, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
   function draw() {
     var r = cv.getBoundingClientRect();
     ctx.clearRect(0, 0, r.width, r.height);
-    drawPolyline(fence, '#8a978c', 2, true);    // contorno gris
-    drawPolyline(headland, '#4ABA3E', 3, true); // cabecera verde
+    // contornos: seleccionado más claro, resto tierra
+    if (fences.length) {
+      for (var j = 0; j < fences.length; j++)
+        drawPolyline(fences[j], j === bndSelect ? '#7d8a80' : '#a0764a', 2, true);
+    } else {
+      drawPolyline(fence, '#8a978c', 2, true);
+    }
+    drawPolyline(headland, '#4ABA3E', 3, true);              // cabecera verde
+    if (slice.length)
+      drawPolyline(slice, sliceMode === 'ab' ? '#c9302c' : '#3f9e35', 3, false);
+    if (slice.length) {
+      drawDot(slice[0], '#e8963c', 7);                       // extremo A
+      drawDot(slice[slice.length - 1], '#5a8fd6', 7);        // extremo B
+    }
+    drawDot(aPoint, '#e8963c', 7);                           // toque A pendiente
+    drawDot(bPoint, '#5a8fd6', 7);
   }
 
   // ── Estado ────────────────────────────────────────────────────────────────
-  function applyState(s) {
+  function applyState(s, keepView) {
     if (!s || s.has_field === false) {
       hasBoundary = false;
-      fence = []; headland = [];
+      fence = []; fences = []; headland = []; slice = [];
+      aPoint = null; bPoint = null; canUndo = false;
+      warnBox.textContent = 'Primero creá un contorno del lote para poder construir la cabecera.';
       warnBox.classList.add('show');
-      btnBuild.disabled = true; btnWidth.disabled = true; btnReset.disabled = true; btnOff.disabled = true;
+      setButtons(true);
       setStatus('sin contorno');
       view.fitted = false; draw();
       return;
     }
     hasBoundary = !!s.has_boundary;
     fence = s.fence || [];
+    fences = s.fences || [];
+    bndSelect = s.bnd_select || 0;
     headland = s.headland || [];
+    slice = s.slice || [];
+    sliceMode = s.slice_mode || null;
+    aPoint = s.a_point || null;
+    bPoint = s.b_point || null;
+    canUndo = !!s.can_undo;
     units = s.units || 'm';
     toolWidthM = s.tool_width_m || 0;
     unitLabel.textContent = units;
     chkSection.checked = !!s.is_section_controlled;
-    warnBox.classList.toggle('show', !hasBoundary);
-    var dis = !hasBoundary;
-    btnBuild.disabled = dis; btnWidth.disabled = dis; btnReset.disabled = dis; btnOff.disabled = dis;
+
+    if (s.error) {
+      warnBox.textContent = friendly(s.error);
+      warnBox.classList.add('show');
+    } else {
+      warnBox.classList.toggle('show', !hasBoundary);
+      warnBox.textContent = 'Primero creá un contorno del lote para poder construir la cabecera.';
+    }
+
+    setButtons(!hasBoundary);
     setStatus(s.is_headland_on ? 'cabecera activa' : 'sin cabecera');
-    view.fitted = false;
-    resize();
+    if (!keepView) { view.fitted = false; resize(); } else draw();
   }
 
-  async function loadState() {
-    try {
-      var res = await fetch(API + '/state');
-      var data = await res.json();
-      applyState(data);
-    } catch (e) {
-      setStatus('sin conexión');
-      warnBox.textContent = 'Sin conexión con PilotX.';
-      warnBox.classList.add('show');
-    }
+  function setButtons(dis) {
+    btnBuild.disabled = dis; btnWidth.disabled = dis;
+    btnReset.disabled = dis; btnOff.disabled = dis;
+    var noSlice = dis || !slice.length;
+    btnAPlus.disabled = noSlice; btnAMinus.disabled = noSlice;
+    btnBPlus.disabled = noSlice; btnBMinus.disabled = noSlice;
+    btnClip.disabled = noSlice;
+    btnUndo.disabled = dis || !canUndo;
+    btnCancel.disabled = dis || (!slice.length && !aPoint);
   }
 
   async function post(path, body) {
@@ -158,16 +242,25 @@
     }
   }
 
+  // build/reset/off devuelven el DTO viejo {ok, headland, is_headland_on}.
   function applyResult(data) {
     if (!data) return;
     if (data.headland) headland = data.headland;
     if (typeof data.is_headland_on === 'boolean')
       setStatus(data.is_headland_on ? 'cabecera activa' : 'sin cabecera');
-    if (data.ok === false && data.error) console.warn('[cabecera]', data.error);
+    if (data.ok === false && data.error) {
+      warnBox.textContent = friendly(data.error);
+      warnBox.classList.add('show');
+    }
     draw();
   }
 
-  // ── Controles ───────────────────────────────────────────────────────────────
+  function distVal() {
+    var d = parseFloat(inpDist.value);
+    return isNaN(d) ? 0 : d;
+  }
+
+  // ── Controles Build Around ────────────────────────────────────────────────
   btnWidth.addEventListener('click', function () {
     if (!toolWidthM) return;
     var disp = units === 'ft' ? toolWidthM * 3.28084 : toolWidthM;
@@ -175,14 +268,15 @@
   });
 
   btnBuild.addEventListener('click', async function () {
-    var d = parseFloat(inpDist.value);
-    if (isNaN(d) || d < 0) d = 0;
+    var d = distVal();
+    if (d < 0) d = 0;
     setStatus('construyendo…');
     applyResult(await post('/build', { distance: d }));
   });
 
   btnReset.addEventListener('click', async function () {
     applyResult(await post('/reset', {}));
+    applyState(await post('/cancel-touch', {}), true);
   });
 
   btnOff.addEventListener('click', async function () {
@@ -194,18 +288,112 @@
     await post('/section-controlled', { on: chkSection.checked });
   });
 
-  // ── Pan / zoom (solo vista) ─────────────────────────────────────────────────
+  // ── Controles slice ───────────────────────────────────────────────────────
+  function setMode(m) {
+    mode = m;
+    segCurve.classList.toggle('on', m === 'curve');
+    segLine.classList.toggle('on', m === 'ab');
+  }
+  segCurve.addEventListener('click', function () { setMode('curve'); });
+  segLine.addEventListener('click', function () { setMode('ab'); });
+
+  function bindExtend(btn, end, grow) {
+    btn.addEventListener('click', async function () {
+      applyState(await post('/extend', { end: end, grow: grow }), true);
+    });
+  }
+  bindExtend(btnAPlus, 'a', true);
+  bindExtend(btnAMinus, 'a', false);
+  bindExtend(btnBPlus, 'b', true);
+  bindExtend(btnBMinus, 'b', false);
+
+  btnClip.addEventListener('click', async function () {
+    applyState(await post('/clip', {}), true);
+  });
+
+  btnUndo.addEventListener('click', async function () {
+    applyState(await post('/undo', {}), true);
+  });
+
+  btnCancel.addEventListener('click', async function () {
+    applyState(await post('/cancel-touch', {}), true);
+  });
+
+  function closeWidget() {
+    if (closed) return;
+    closed = true;
+    try { navigator.sendBeacon(API + '/close', '{}'); } catch (e) { }
+    try {
+      if (window.chrome && window.chrome.webview)
+        window.chrome.webview.postMessage('close-hub');
+    } catch (e) { }
+  }
+
+  btnExit.addEventListener('click', closeWidget);
+  window.addEventListener('pagehide', closeWidget);
+
+  // ── Tap / pan / zoom ──────────────────────────────────────────────────────
   cv.addEventListener('pointerdown', function (ev) {
-    drag = { x: ev.clientX, y: ev.clientY, ox: view.ox, oy: view.oy };
-    cv.setPointerCapture(ev.pointerId);
+    pointers[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+    var ids = Object.keys(pointers);
+    if (ids.length === 1) {
+      drag = { x: ev.clientX, y: ev.clientY, ox: view.ox, oy: view.oy };
+      moved = false;
+    } else if (ids.length === 2) {
+      drag = null;
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), scale: view.scale, ox: view.ox, oy: view.oy,
+                cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+    }
+    try { cv.setPointerCapture(ev.pointerId); } catch (e) { /* puntero ya liberado */ }
   });
+
   cv.addEventListener('pointermove', function (ev) {
-    if (!drag) return;
-    view.ox = drag.ox + (ev.clientX - drag.x);
-    view.oy = drag.oy + (ev.clientY - drag.y);
-    draw();
+    if (!pointers[ev.pointerId]) return;
+    pointers[ev.pointerId] = { x: ev.clientX, y: ev.clientY };
+    var ids = Object.keys(pointers);
+
+    if (pinch && ids.length === 2) {
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      var d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch.d > 4) {
+        var factor = d / pinch.d;
+        var r = cv.getBoundingClientRect();
+        var mx = pinch.cx - r.left, my = pinch.cy - r.top;
+        view.scale = pinch.scale * factor;
+        view.ox = mx - (mx - pinch.ox) * factor;
+        view.oy = my - (my - pinch.oy) * factor;
+        draw();
+      }
+      moved = true;
+      return;
+    }
+
+    if (drag) {
+      var dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+      view.ox = drag.ox + dx;
+      view.oy = drag.oy + dy;
+      draw();
+    }
   });
-  cv.addEventListener('pointerup', function () { drag = null; });
+
+  async function endPointer(ev, isTap) {
+    delete pointers[ev.pointerId];
+    if (Object.keys(pointers).length < 2) pinch = null;
+    if (Object.keys(pointers).length === 0) {
+      var wasDrag = drag; drag = null;
+      if (isTap && wasDrag && !moved && hasBoundary) {
+        var r = cv.getBoundingClientRect();
+        var f = toField(ev.clientX - r.left, ev.clientY - r.top);
+        applyState(await post('/tap', { e: f.e, n: f.n, mode: mode, distance: distVal() }), true);
+      }
+    }
+  }
+
+  cv.addEventListener('pointerup', function (ev) { endPointer(ev, true); });
+  cv.addEventListener('pointercancel', function (ev) { endPointer(ev, false); });
+
   cv.addEventListener('wheel', function (ev) {
     ev.preventDefault();
     var r = cv.getBoundingClientRect();
@@ -220,6 +408,15 @@
 
   window.addEventListener('resize', resize);
 
-  // ── Arranque ────────────────────────────────────────────────────────────────
-  loadState();
+  // ── Arranque ──────────────────────────────────────────────────────────────
+  (async function () {
+    setMode('curve');
+    var data = await post('/open', {});
+    if (data) applyState(data);
+    else {
+      setStatus('sin conexión');
+      warnBox.textContent = 'Sin conexión con PilotX.';
+      warnBox.classList.add('show');
+    }
+  })();
 })();
