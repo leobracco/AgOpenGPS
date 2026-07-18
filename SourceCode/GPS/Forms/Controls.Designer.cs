@@ -1797,10 +1797,9 @@ namespace AgOpenGPS
         {
             if (isJobStarted && trk.idx > -1)
             {
-                using (var form = new FormSmoothAB(this))
-                {
-                    form.ShowDialog(this);
-                }
+                if (!LaunchAvaloniaWidget("pages/suavizar-ab.html", "float", "Suavizar AB", 360, 300))
+                { OpenAgroParallelHub("pages/suavizar-ab.html"); }
+                this.Activate();
             }
             else
             {

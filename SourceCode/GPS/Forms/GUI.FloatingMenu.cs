@@ -1160,6 +1160,53 @@ namespace AgOpenGPS
                 }
                 catch { return false; }
             }
+            //smooth_ab_{open|set_<n>|apply|save|cancel}: suavizado de la curva AB
+            //(reemplazo de FormSmoothAB). El widget dibuja sobre el mapa principal:
+            //isSmoothWindowOpen=true muestra la vista previa (curve.smooList), y cada
+            //set_<n> recalcula con curve.SmoothAB(n*2). Requiere lote abierto y una
+            //curva/track seleccionado (mismos guards que el menú nativo). apply guarda
+            //en memoria; save además persiste a archivo; cancel descarta.
+            if (cmdLower.StartsWith("smooth_ab_"))
+            {
+                if (!isJobStarted || trk.idx < 0) return false;
+                string sub = cmdLower.Substring("smooth_ab_".Length);
+                Action apply = null;
+                if (sub == "open")
+                {
+                    apply = () => curve.isSmoothWindowOpen = true;
+                }
+                else if (sub.StartsWith("set_"))
+                {
+                    int count;
+                    if (!int.TryParse(sub.Substring(4), System.Globalization.NumberStyles.Integer,
+                                      System.Globalization.CultureInfo.InvariantCulture, out count))
+                        return false;
+                    if (count < 2) count = 2;
+                    if (count > 100) count = 100;
+                    int c = count;
+                    apply = () => { curve.isSmoothWindowOpen = true; curve.SmoothAB(c * 2); };
+                }
+                else if (sub == "apply")
+                {
+                    apply = () => { curve.isSmoothWindowOpen = false; curve.SaveSmoothList(); curve.smooList?.Clear(); };
+                }
+                else if (sub == "save")
+                {
+                    apply = () => { curve.isSmoothWindowOpen = false; curve.SaveSmoothList(); curve.smooList?.Clear(); FileSaveTracks(); };
+                }
+                else if (sub == "cancel")
+                {
+                    apply = () => { curve.isSmoothWindowOpen = false; curve.smooList?.Clear(); };
+                }
+                else return false;
+                try
+                {
+                    if (InvokeRequired) BeginInvoke((MethodInvoker)(() => apply()));
+                    else apply();
+                    return true;
+                }
+                catch { return false; }
+            }
             switch (cmdLower)
             {
                 //--- guías ---

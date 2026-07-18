@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Suavizar AB · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    /* Suavizar AB (reemplazo del WinForms FormSmoothAB): suaviza la curva AB
+       activa. La vista previa se dibuja sobre el mapa principal de PilotX
+       (isSmoothWindowOpen + curve.smooList). Cada nivel recalcula por
+       POST /api/aog/guidance/command con smooth_ab_set_<n>; "Por ahora" aplica
+       en memoria (smooth_ab_apply), "A archivo" persiste (smooth_ab_save) y
+       "Cancelar" descarta (smooth_ab_cancel). No hay estado inicial que leer:
+       el nivel arranca en 20 igual que el formulario original. */
+    .sa-card {
+      max-width: 420px; margin-top: var(--agp-sp-3);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-5);
+    }
+    .sa-stepper { display: flex; align-items: center; justify-content: center; gap: var(--agp-sp-4); }
+    .sa-stepper .btn { font-size: var(--agp-fs-display); min-width: 88px; min-height: 88px; }
+    .sa-value {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-display);
+      font-weight: var(--agp-fw-bold); color: var(--agp-accent);
+      min-width: 96px; text-align: center; line-height: 1.1;
+    }
+    .sa-hint { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); text-align: center; margin-top: var(--agp-sp-3); }
+    .sa-foot { display: flex; gap: var(--agp-sp-3); margin-top: var(--agp-sp-5); flex-wrap: wrap; }
+    .sa-foot .btn { flex: 1 1 120px; }
+    #btnSave { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Suavizar AB</h1>
+        <div class="subtitle">Suaviza la curva AB activa · vista previa en el mapa</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div class="sa-card">
+      <div class="sa-stepper">
+        <button class="btn" id="btnLess" aria-label="Menos suave">−</button>
+        <div class="sa-value" id="valLevel">20</div>
+        <button class="btn" id="btnMore" aria-label="Más suave">+</button>
+      </div>
+      <div class="sa-hint">Más nivel = curva más suave (2 a 100)</div>
+
+      <div class="sa-foot">
+        <button class="btn" id="btnCancel">Cancelar</button>
+        <button class="btn" id="btnOk">Por ahora</button>
+        <button class="btn" id="btnSave">A archivo</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/suavizar-ab.js"></script>
+</body>
+</html>
