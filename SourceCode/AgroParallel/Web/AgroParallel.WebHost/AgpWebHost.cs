@@ -63,6 +63,8 @@ namespace AgroParallel.WebHost
         private readonly IQuickAbService _quickAb;
         // Widget "Banderas" (banderas.html, reemplazo de FormFlags/FormEnterFlag).
         private readonly IFlagsService _flags;
+        // Página "Contorno" (contorno.html, reemplazo de FormBoundary/Player).
+        private readonly IContornoService _contorno;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -150,7 +152,8 @@ namespace AgroParallel.WebHost
                           ITramSimpleService tramSimple = null,
                           INudgeService nudge = null,
                           IQuickAbService quickAb = null,
-                          IFlagsService flags = null)
+                          IFlagsService flags = null,
+                          IContornoService contorno = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -178,6 +181,7 @@ namespace AgroParallel.WebHost
             _nudge = nudge;                   // nullable
             _quickAb = quickAb;               // nullable
             _flags = flags;                   // nullable
+            _contorno = contorno;             // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -319,6 +323,9 @@ namespace AgroParallel.WebHost
                 if (_quickAb != null) m.WithController(() => new QuickAbController(_quickAb));
                 // Banderas (pages/banderas.html) — FormFlags/FormEnterFlag.
                 if (_flags != null) m.WithController(() => new FlagsController(_flags));
+
+                // Contorno (pages/contorno.html) — FormBoundary/FormBoundaryPlayer.
+                if (_contorno != null) m.WithController(() => new ContornoController(_contorno));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))

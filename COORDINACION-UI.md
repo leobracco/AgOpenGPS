@@ -1384,3 +1384,28 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   y pane en browser (Field.txt FromExisting con offsets del template,
   boundary+guiado copiados, sections en blanco), lote clonado quedó
   abierto y luego cerrado OK.
+- [2026-07-18] [Claude] Migración FormBoundary + FormBoundaryPlayer → HTML
+  (pages/contorno.html, widget flotante 382x430 sin sidebar, estilo
+  banderas). Backend: ContornoDtos + IContornoService + FormGPS.Contorno
+  (partial: lista con área ha/puntos/drive-thru —exterior nunca drive-thru,
+  solo borrable si es único, réplica de UpdateChart/B_Click—, borrar uno/
+  todos, import KML uno/multi con diálogo nativo, Google Earth
+  (FileMakeKMLFromCurrentPosition), FormMap y FormBuildBoundaryFromTracks
+  nativos vía Invoke, y grabación manejando: start arranca en pausa con
+  offset=tool.width/2, set offset_cm/right_side/at_pivot(persiste en
+  Settings)/section_rec, pause=toggle, add-point/undo solo en pausa como
+  el player, save réplica de btnStop con CalculateFenceArea/FixFenceLine/
+  CalculateMinMax/BuildTurnLines, cancel limpia isBndBeingMade) + adapter
+  FormGpsContornoService + ContornoController (GET state y record/status
+  con poll 500 ms — réplica del timer1 — y POSTs drive-thru/delete/
+  delete-all/import-kml/google-earth/mapa/from-tracks/record/*).
+  Confirmaciones destructivas por doble-tap en el HTML ("¿Seguro?", 3 s);
+  cierre de ventana con grabación activa → record/cancel por sendBeacon.
+  Launcher: boundariesToolStripMenuItem ahora abre el widget (ya no
+  FormBoundary/Player nativos; FormMap y FromTracks siguen nativos detrás
+  del widget). Verificado live: state con boundary real (170.76 ha/1536
+  pts), ciclo record start→set→add-point→undo→save(pocos-puntos)→cancel
+  por API, y en browser 382x430 las 3 vistas (lista/crear/grabación) sin
+  scroll, toggle Grabar/Pausa, punto automático del sim, cancel con
+  doble-tap. Gate section_rec respetado (sin secciones no agrega puntos,
+  igual que el nativo).

@@ -685,21 +685,11 @@ namespace AgOpenGPS
         {
             if (!isJobStarted) return;
 
-            using (var boundaryForm = new FormBoundary(this))
+            // Contorno migrado a HTML (pages/contorno.html, ex FormBoundary +
+            // FormBoundaryPlayer). Widget flotante chico estilo banderas.
+            if (!LaunchAvaloniaWidget("pages/contorno.html", "float", "Contorno", 382, 430))
             {
-                var result = boundaryForm.ShowDialog(this);
-
-                if (result == DialogResult.OK)
-                {
-                    var boundaryPlayer = new FormBoundaryPlayer(this);
-                    boundaryPlayer.FormClosed += (s, args) => toolStripBtnFieldTools.Enabled = true;
-                    toolStripBtnFieldTools.Enabled = false;
-                    boundaryPlayer.Show(this);
-                }
-                else if (result == DialogResult.Yes)
-                {
-                    new FormMap(this).Show(this);
-                }
+                OpenAgroParallelHub("pages/contorno.html");
             }
 
             PanelUpdateRightAndBottom();

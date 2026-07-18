@@ -80,7 +80,8 @@ namespace AgroParallel.Shell
             ITramSimpleService tramSimple = null,
             INudgeService nudge = null,
             IQuickAbService quickAb = null,
-            IFlagsService flags = null)
+            IFlagsService flags = null,
+            IContornoService contorno = null)
         {
             lock (s_lock)
             {
@@ -150,7 +151,8 @@ namespace AgroParallel.Shell
                     tramSimple: tramSimple,
                     nudge: nudge,
                     quickAb: quickAb,
-                    flags: flags);
+                    flags: flags,
+                    contorno: contorno);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;
