@@ -1305,3 +1305,18 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   timerOcultarPaneles. La barra superior no participa (siempre visible).
   Versiones bumpeadas: menu-izquierda.js?v=4, barra-abajo.js?v=2,
   barra-derecha.js?v=2. Build 0 errores, endpoint verificado ok:true.
+- [2026-07-18] [Claude] Migración FormNudge + FormRefNudge → HTML
+  (pages/mover-guia.html, solapas "Guía activa" y "Referencia"). Backend:
+  NudgeDtos + INudgeService + FormGPS.Nudge (partial, geometría idéntica a
+  los forms nativos: NudgeTrack/NudgeRefTrack/SnapToPivot) + adapter
+  FormGpsNudgeService (Invoke al hilo UI) + NudgeController
+  (GET /api/nudge/state, POST move/half/zero/pivot/step/close y
+  ref/{open,move,half,step,save,cancel}). Semántica nativa replicada:
+  cerrar Guía persiste (FileSaveTracks), Referencia arma backup al abrir,
+  Guardar persiste, Cancelar restaura e invalida ABLine/curve; pagehide
+  manda save/close por sendBeacon. Launchers btnNudge/btnRefNudge →
+  widget flotante 480x640 (?tab=ref para referencia). Build 0 errores.
+  Verificado live con lote real: move ±paso round-trip exacto (-166→-161→
+  -166 cm), ref open/move/cancel restaura todo, step 5→10→5 ok, 63 páginas
+  y APIs migradas todas 200. TRAMPA deploy: copiar también las DLLs
+  AgroParallel.* a Build/ (exe solo → TypeLoadException al arrancar).

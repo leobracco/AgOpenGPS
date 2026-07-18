@@ -348,20 +348,11 @@ namespace AgOpenGPS
 
         private void btnRefNudge_Click(object sender, EventArgs e)
         {
-            Form fcc = Application.OpenForms["FormNudge"];
-
-            if (fcc != null)
-            {
-                fcc.Focus();
-                TimedMessageBox(2000, "Nudge Window Open", "Close Nudge Window");
-                return;
-            }
-
-
             if (trk.idx > -1)
             {
-                Form form = new FormRefNudge(this);
-                form.Show(this);
+                // Mover guía migrado a HTML (pages/mover-guia.html, solapa Referencia).
+                if (!LaunchAvaloniaWidget("pages/mover-guia.html?tab=ref", "float", "Mover guía", 480, 640))
+                { OpenAgroParallelHub("pages/mover-guia.html?tab=ref"); }
             }
             else
             {
@@ -389,18 +380,11 @@ namespace AgOpenGPS
         }
         private void btnNudge_Click(object sender, EventArgs e)
         {
-            Form fcc = Application.OpenForms["FormNudge"];
-
-            if (fcc != null)
-            {
-                fcc.Focus();
-                return;
-            }
-
             if (trk.idx > -1)
             {
-                Form form = new FormNudge(this);
-                form.Show(this);
+                // Mover guía migrado a HTML (pages/mover-guia.html, solapa Guía).
+                if (!LaunchAvaloniaWidget("pages/mover-guia.html", "float", "Mover guía", 480, 640))
+                { OpenAgroParallelHub("pages/mover-guia.html"); }
             }
             else
             {

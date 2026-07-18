@@ -57,6 +57,8 @@ namespace AgroParallel.WebHost
         // Editor "Tramlines simples" (tramline.html, reemplazo de FormTram).
         // Inyectado por FormGPS (toca trk/ABLine/curve/tram del form vivo).
         private readonly ITramSimpleService _tramSimple;
+        // Widget "Mover guía" (mover-guia.html, reemplazo de FormNudge/FormRefNudge).
+        private readonly INudgeService _nudge;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -141,7 +143,8 @@ namespace AgroParallel.WebHost
                           IPerfilVehiculoService perfiles = null,
                           IConfigVehiculoService configVehiculo = null,
                           IHeadlandEditService headlandEdit = null,
-                          ITramSimpleService tramSimple = null)
+                          ITramSimpleService tramSimple = null,
+                          INudgeService nudge = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -166,6 +169,7 @@ namespace AgroParallel.WebHost
             _configVehiculo = configVehiculo; // nullable
             _headlandEdit = headlandEdit;     // nullable
             _tramSimple = tramSimple;         // nullable
+            _nudge = nudge;                   // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -301,6 +305,8 @@ namespace AgroParallel.WebHost
                 // Editor de cabecera HTML (pages/cabecera.html) — flujo Build Around.
                 if (_headlandEdit != null) m.WithController(() => new HeadlandController(_headlandEdit));
                 if (_tramSimple != null) m.WithController(() => new TramSimpleController(_tramSimple));
+                // Mover guía (pages/mover-guia.html) — FormNudge/FormRefNudge.
+                if (_nudge != null) m.WithController(() => new NudgeController(_nudge));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))

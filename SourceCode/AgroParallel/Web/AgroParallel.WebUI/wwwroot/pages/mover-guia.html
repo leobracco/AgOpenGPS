@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mover guía · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Mover guía (reemplazo de FormNudge/FormRefNudge): corre la guía activa o
+       la de referencia por pasos. El movimiento se ve sobre el mapa de PilotX;
+       la geometría corre en C# (POST /api/nudge/*). Dos solapas: Guía / Referencia. */
+    .ng-card {
+      max-width: 440px; margin-top: var(--agp-sp-3);
+      background: var(--agp-surface);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      padding: var(--agp-sp-5);
+      display: flex; flex-direction: column; gap: var(--agp-sp-4);
+    }
+    .ng-tabs { display: flex; gap: var(--agp-sp-2); }
+    .ng-tabs .btn { flex: 1 1 0; min-height: 52px; }
+    .ng-tabs .btn.on { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .ng-offset {
+      font-family: var(--agp-font-mono); font-size: 44px; font-weight: var(--agp-fw-bold);
+      color: var(--agp-accent); text-align: center; padding: var(--agp-sp-2) 0;
+    }
+    .ng-row { display: flex; align-items: center; justify-content: space-between; gap: var(--agp-sp-3); }
+    .ng-label { font-size: var(--agp-fs-md); color: var(--agp-text); }
+    .ng-step { display: flex; align-items: center; gap: var(--agp-sp-2); }
+    .ng-step input {
+      width: 96px; min-height: 52px; text-align: center;
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-lg);
+      background: var(--agp-bg); color: var(--agp-text);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+    }
+    .ng-units { font-family: var(--agp-font-mono); color: var(--agp-text-muted); }
+    .ng-move { display: flex; gap: var(--agp-sp-3); }
+    .ng-move .btn { flex: 1 1 0; min-height: 64px; font-size: var(--agp-fs-lg); }
+    .ng-foot { display: flex; gap: var(--agp-sp-3); margin-top: var(--agp-sp-2); flex-wrap: wrap; }
+    .ng-foot .btn { flex: 1 1 120px; min-height: 56px; }
+    .ng-accent { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
+    .ng-warn {
+      display: none; background: #5a2c2c; color: #fff; border-radius: var(--agp-radius-sm);
+      padding: var(--agp-sp-3); font-size: var(--agp-fs-sm); margin-top: var(--agp-sp-3);
+    }
+    .ng-warn.show { display: block; }
+    .hiddenTab { display: none !important; }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Mover guía</h1>
+        <div class="subtitle">Corrimiento por pasos · se ve en el mapa</div>
+      </div>
+      <span class="pill idle"><span class="dot"></span> <span id="statusText">—</span></span>
+    </div>
+
+    <div id="warnBox" class="ng-warn">Activá primero una línea de guía (AB o curva).</div>
+
+    <div class="ng-card">
+      <div class="ng-tabs">
+        <button class="btn on" id="tabTrack">Guía activa</button>
+        <button class="btn" id="tabRef">Referencia</button>
+      </div>
+
+      <!-- ── Solapa: guía activa (FormNudge) ── -->
+      <div id="paneTrack">
+        <div class="ng-offset" id="valOffset">0</div>
+
+        <div class="ng-row">
+          <span class="ng-label">Paso</span>
+          <div class="ng-step">
+            <input id="inpStep" type="text" inputmode="decimal" value="0" />
+            <span class="ng-units" id="unitStep">cm</span>
+          </div>
+        </div>
+
+        <div class="ng-move" style="margin-top: var(--agp-sp-3);">
+          <button class="btn" id="btnLeft">◀ Paso</button>
+          <button class="btn" id="btnRight">Paso ▶</button>
+        </div>
+        <div class="ng-move" style="margin-top: var(--agp-sp-3);">
+          <button class="btn" id="btnHalfLeft">◀ ½ herram.</button>
+          <button class="btn" id="btnHalfRight">½ herram. ▶</button>
+        </div>
+        <div class="ng-move" style="margin-top: var(--agp-sp-3);">
+          <button class="btn" id="btnZero">Centrar 0</button>
+          <button class="btn" id="btnPivot">Al pivote</button>
+        </div>
+
+        <div class="ng-foot">
+          <button class="btn ng-accent" id="btnCloseTrack">Cerrar</button>
+        </div>
+      </div>
+
+      <!-- ── Solapa: guía de referencia (FormRefNudge) ── -->
+      <div id="paneRef" class="hiddenTab">
+        <div class="ng-offset" id="valMoved">0</div>
+
+        <div class="ng-row">
+          <span class="ng-label">Paso</span>
+          <div class="ng-step">
+            <input id="inpStepRef" type="text" inputmode="decimal" value="0" />
+            <span class="ng-units" id="unitStepRef">cm</span>
+          </div>
+        </div>
+
+        <div class="ng-move" style="margin-top: var(--agp-sp-3);">
+          <button class="btn" id="btnRefLeft">◀ Paso</button>
+          <button class="btn" id="btnRefRight">Paso ▶</button>
+        </div>
+        <div class="ng-move" style="margin-top: var(--agp-sp-3);">
+          <button class="btn" id="btnRefHalfLeft">◀ ½ herram.</button>
+          <button class="btn" id="btnRefHalfRight">½ herram. ▶</button>
+        </div>
+
+        <div class="ng-foot">
+          <button class="btn" id="btnRefCancel">Cancelar</button>
+          <button class="btn ng-accent" id="btnRefSave">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/mover-guia.js"></script>
+</body>
+</html>
