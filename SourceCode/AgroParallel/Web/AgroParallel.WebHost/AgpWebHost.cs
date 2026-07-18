@@ -53,6 +53,7 @@ namespace AgroParallel.WebHost
         // Réplica HTML de FormConfig (pages/config.html). Inyectado por FormGPS
         // (todas las acciones tocan Settings + estado vivo del form).
         private readonly IConfigVehiculoService _configVehiculo;
+        private readonly IHeadlandEditService _headlandEdit;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
         private readonly IPilotXUpdateService _pilotxUpdate;
@@ -135,7 +136,8 @@ namespace AgroParallel.WebHost
                           IImuCalibracionService imuCalibracion = null,
                           ITrackListService trackList = null,
                           IPerfilVehiculoService perfiles = null,
-                          IConfigVehiculoService configVehiculo = null)
+                          IConfigVehiculoService configVehiculo = null,
+                          IHeadlandEditService headlandEdit = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -158,6 +160,7 @@ namespace AgroParallel.WebHost
             _trackList = trackList;           // nullable
             _perfiles = perfiles;             // nullable
             _configVehiculo = configVehiculo; // nullable
+            _headlandEdit = headlandEdit;     // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
@@ -290,6 +293,8 @@ namespace AgroParallel.WebHost
                 if (_perfiles != null) m.WithController(() => new PerfilesController(_perfiles));
                 // Configuración completa vehículo/implemento (pages/config.html).
                 if (_configVehiculo != null) m.WithController(() => new ConfigVehiculoController(_configVehiculo));
+                // Editor de cabecera HTML (pages/cabecera.html) — flujo Build Around.
+                if (_headlandEdit != null) m.WithController(() => new HeadlandController(_headlandEdit));
             });
 
             if (!string.IsNullOrEmpty(_wwwroot) && Directory.Exists(_wwwroot))
