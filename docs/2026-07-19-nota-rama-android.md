@@ -57,6 +57,11 @@ los servicios que extraigan de FormGPS son los que reemplazan los stubs de
 
 ## Reparto para no pisarnos
 
+**Canal permanente entre sesiones: `COORDINACION-SESIONES.md` (raíz del
+repo)** — declarar ahí qué estás tocando (sección EN CURSO) y anotar
+HECHO/PEDIDO en la bitácora. Pull antes de arrancar, push al commitear.
+
+
 - Esa rama: `Position.designer.cs`, `Sections.Designer.cs`,
   `OpenGL.Designer.cs`/render, `FormGPS.cs` (extracciones).
 - Esta sesión (taller): NO toca `GPS/Forms/` mientras tanto — sigue en
