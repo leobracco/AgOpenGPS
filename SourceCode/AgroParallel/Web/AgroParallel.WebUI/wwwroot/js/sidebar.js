@@ -121,9 +121,12 @@
     document.head.appendChild(st);
   }
 
-  function iconHtml(id) {
+  function iconHtml(id, ico) {
     var src = '../img/icons/existing/agp-' + id + '.png';
-    return '<span class="ico"><img src="' + src + '" alt="" aria-hidden="true" loading="lazy" onerror="this.style.display=&quot;none&quot;"></span>';
+    // Si el PNG no existe (404), caemos al glifo del ítem para que el
+    // ítem nunca quede sin ícono (ej: eventos/ayuda sin PNG dibujado).
+    var fb = String(ico || '').replace(/["<>&]/g, '');
+    return '<span class="ico"><img src="' + src + '" alt="" aria-hidden="true" loading="lazy" onerror="this.parentNode.textContent=&quot;' + fb + '&quot;"></span>';
   }
 
   function itemHtml(it, active) {
@@ -131,7 +134,7 @@
     const cls = isActive ? ' class="active"' : '';
     const aria = isActive ? ' aria-current="page"' : '';
     return '<li><a' + cls + aria + ' href="' + it.href + '" title="' + it.label + '">' +
-      iconHtml(it.id) +
+      iconHtml(it.id, it.ico) +
       '<span class="label">' + it.label + '</span>' +
     '</a></li>';
   }
