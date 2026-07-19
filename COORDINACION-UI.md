@@ -1604,3 +1604,30 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   tracks.html se abre en 2 tamanos (650x480 lista / 900x560 dibujo) —
   unificar cuando se toque; FormEnterFlag/FormFlags nativos quedaron sin
   caller (muertos, borrarlos cuando el carril GPS/Forms se libere).
+- [2026-07-19] [Claude] AUDITORIA FALTANTES (complemento de la de
+  duplicados). Forms nativos aun activos vs objetivo Hub/flotante:
+  1. **Suite VistaX nativa = EL faltante grande**: 15 forms
+     (FormVistaXConfig/Trenes/Sensores/Sonidos/Simulator/Prueba/Popup/
+     Perfiles/Nodos/Mapeo/EditSensor/EditGlobalSensor/SelectTren/
+     ReplaceNode/AssignNode) siguen vivos, abiertos desde el overlay
+     (ConfigRequested → OpenVistaXConfigDialog). Por regla de producto
+     (Hub=config, PilotX=overlay live) esa config deberia redirigir a
+     vistax.html del Hub y retirarse la suite nativa.
+  2. config.html: tabTSwitches sigue sin backend (ya estaba anotado).
+  3. FormNewProfile nativo en primera corrida (sin perfil): posiblemente
+     deliberado (¿WebHost ya corre en ese punto? verificar orden en
+     FormGPS.cs:843 antes de redirigir a perfiles.html).
+  4. FormMap (opciones de mapa/Bing) nativo aun abierto desde
+     FormGPS.Contorno.cs:218 — mapas.html existe en el Hub: rewirear o
+     justificar.
+  5. FormFieldKML/FormFieldIsoXml: imports con dialogo nativo (decision
+     consciente en ILotesService); en Android necesitan reemplazo web.
+  6. Muertos para borrar cuando se libere GPS/Forms: FormBoundary (cero
+     callers), FormEnterFlag + su new FormFlags interno.
+  7. Nativos POR DECISION (quedan): FormSteerWiz/FormSteer/FormBndTool/
+     FormGrid/FormColorPicker + FormConfig (fallback diagnostico
+     documentado en GUI.FloatingMenu).
+  CoreX dashboard: las 9 paginas del gap existen (gps/monitor/radio/
+  serial/ntrip/red/eventos/modulos/perfil) — gap 100% web cubierto;
+  FormISOBUS sigue en duda de producto.
+  PENDIENTE DECISION USUARIO: tramline vs tramlines (auditoria anterior).
