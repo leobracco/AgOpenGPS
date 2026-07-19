@@ -1,8 +1,9 @@
 # Matriz de preparación Android — PilotX / Agro Parallel
 
-> Fecha: 2026-07-18 · Actualización del análisis 2026-07-08 con el estado real
-> del código tras 8 commits de migración HTML (cabecera-lineas, cabecera,
-> tramlines, tracks, recpath + perfiles launcher).
+> Última actualización: 2026-07-19 · 15 commits de portabilidad en esta sesión:
+> migración HTML (7 forms), limpieza Core (PresentationCore eliminada, Registry #if),
+> extracción CoreX (MqttBrokerService, UdpBridgeService, NtripClientService,
+> ISerialPortService + WindowsSerialPortService), structs portables AgpPoint/AgpSize.
 
 ---
 
