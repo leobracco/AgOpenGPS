@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Shell Android Fase 1 (bloque 7 matriz): Activity + WebView contra el
+         WebHost embebido en 127.0.0.1:5180 + Foreground Service con broker
+         MQTT. Sin guiado: los servicios FormGPS-backed van con stubs. -->
+    <!-- net9.0-android: el repo pinnea SDK 9 en global.json -->
+    <TargetFramework>net9.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <!-- Sin "Android" en el root namespace: taparía al namespace Android del SDK -->
+    <RootNamespace>PilotX.Droid</RootNamespace>
+    <ApplicationId>com.agroparallel.pilotx</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.23</ApplicationDisplayVersion>
+    <SupportedOSPlatformVersion>28.0</SupportedOSPlatformVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- Los analyzers de estilo del Directory.Build.props apuntan al código
+         de escritorio; acá generarían ruido sin valor en el scaffold. -->
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Models\AgroParallel.Models.csproj" />
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+    <ProjectReference Include="..\AgroParallel\Web\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
+    <!-- RegistrySettings/paths (toma el target netstandard2.0 del multi-target) -->
+    <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Todo el Hub HTML viaja como assets y se extrae a files/wwwroot en el
+         primer arranque (el WebHost sirve desde disco). -->
+    <AndroidAsset Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\**\*"
+                  Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
