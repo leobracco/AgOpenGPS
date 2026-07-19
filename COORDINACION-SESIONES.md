@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | idle — última tanda: auditorías de duplicados/faltantes UI | — |
-| android | (completar al arrancar) | — |
+| android | Extracción I*Host de Position.designer/Sections.Designer (bloque 9) + primer call site GL→GLW en OpenGL.Designer (bloque 6); probando en runtime (build.ps1 + simulador) antes de commitear | `Position.designer.cs`, `Sections.Designer.cs`, `OpenGL.Designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/{IPositionHost,ISectionsHost}.cs`, `AgOpenGPS.Core/Classes/{CPositionUpdater,CSectionCalculator}.cs`, `AgOpenGPS.Core/DrawLib/GLW.Primitives.cs`, `GPS/AgroParallel/Common/FormGps.{PositionHost,SectionsHost}.cs` |
 
 ## Bitácora (append-only)
 
