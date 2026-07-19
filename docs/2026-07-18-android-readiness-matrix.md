@@ -1,9 +1,11 @@
 # Matriz de preparación Android — PilotX / Agro Parallel
 
-> Última actualización: 2026-07-19 · 15 commits de portabilidad en esta sesión:
-> migración HTML (7 forms), limpieza Core (PresentationCore eliminada, Registry #if),
-> extracción CoreX (MqttBrokerService, UdpBridgeService, NtripClientService,
-> ISerialPortService + WindowsSerialPortService), structs portables AgpPoint/AgpSize.
+> Última actualización: 2026-07-19 (tarde) · Bloques 4 y 5 COMPLETOS:
+> todo el Draw GL de las clases de guiado extraído a DrawLib/Visuals
+> (GuidanceDrawExtensions, WorldGridVisual, IDrawAssetHosts) y
+> **AgOpenGPS.Core + AgLibrary multi-target net48+netstandard2.0** — la
+> lógica de guiado ya compila para Android. Sesión previa: migración HTML
+> (7 forms), extracción CoreX (broker/UDP/NTRIP/serial), AgpPoint/AgpSize.
 
 ---
 
@@ -12,7 +14,7 @@
 | Métrica | Valor |
 |---|---|
 | Archivos .cs netstandard2.0 (portables sin tocar) | **282** (AgroParallel.*) |
-| Archivos .cs AgOpenGPS.Core (parcialmente portable) | **240** (12 con System.Drawing) |
+| Archivos .cs AgOpenGPS.Core (netstandard2.0 salvo DrawLib/Visuals/Drawing) | **240** |
 | Archivos .cs GPS/ (WinForms, requiere rewrite) | **218** |
 | Archivos .cs AgIO/CoreX (WinForms, requiere extracción) | **73** |
 | Páginas HTML del Hub (portables) | **68** |
@@ -20,7 +22,9 @@
 | Forms WinForms nativos activos | **~46** (de los cuales ~30 ya migrados a HTML) |
 | Partials FormGPS.* adapter (puente portable↔nativo) | **11** |
 
-**Portabilidad estimada: ~55% del código fuente ya corre en Android sin cambios.**
+**Portabilidad estimada: ~65% del código fuente ya corre en Android sin cambios**
+(AgroParallel.* + Core netstandard + AgLibrary + Hub HTML/JS; queda render GL,
+FormGPS/forms nativos y el runtime de CoreX).
 
 ---
 
@@ -51,8 +55,8 @@
 | Tarea | Estado | Bloquea |
 |---|---|---|
 | Migrar forms a HTML | ✅ 85% | Fase 1 |
-| AgOpenGPS.Core: eliminar System.Drawing de 12 archivos | ❌ pendiente | Fase 1 |
-| Extraer servicios CoreX a netstandard | ❌ pendiente | Fase 1 (broker) |
+| AgOpenGPS.Core → netstandard2.0 (multi-target) | ✅ hecho 2026-07-19 | Fase 1 |
+| Extraer servicios CoreX a netstandard | ✅ broker/UDP/NTRIP/PGN (serial diferido) | Fase 1 (broker) |
 | Congelar contratos REST/WS/MQTT | ✅ hecho (AgpJson, snake_case, AgpEnvelope) | Fase 1 |
 
 ### Fase 1 — Hub Android (sin guiado) — **valor inmediato**
