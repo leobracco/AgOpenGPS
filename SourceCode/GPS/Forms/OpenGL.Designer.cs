@@ -131,12 +131,12 @@ namespace AgOpenGPS
 
                     // Tinte de la textura de suelo: blanco de día (imagen con
                     // colores reales), atenuado de noche para no encandilar.
-                    worldGrid.DrawFieldSurface(fieldColor,
+                    worldGridVisual.DrawFieldSurface(fieldColor,
                         isDay ? new ColorRgba((byte)255, (byte)255, (byte)255)
                               : new ColorRgba((byte)110, (byte)110, (byte)110),
                         camera.ZoomValue, isTextureOn);
 
-                    if (isGridOn) worldGrid.DrawFieldGrid(isDay, FieldBoundingBox);
+                    if (isGridOn) worldGridVisual.DrawFieldGrid(isDay, FieldBoundingBox);
 
                     if (isDrawPolygons) GL.PolygonMode(MaterialFace.Front, PolygonMode.Line);
 

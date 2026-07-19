@@ -1,113 +1,52 @@
-﻿//Please, if you use this, share the improvements
+//Please, if you use this, share the improvements
 
-using AgOpenGPS.Core.DrawLib;
 using AgOpenGPS.Core.Models;
-using AgOpenGPS.Core.Visuals;
-using OpenTK.Graphics.OpenGL;
 using System;
-using System.Drawing;
 
 namespace AgOpenGPS.Core
 {
+    // Modelo puro del grid del mundo: extents, zoom y estado (FieldGrid,
+    // BingMap). El dibujo GL y las texturas viven en Visuals/WorldGridVisual
+    // (traspaso portabilidad — este archivo queda sin OpenTK ni Bitmap).
     public class WorldGrid
     {
-        private readonly FieldGridVisual _fieldGridVisual;
         private BingMap _bingMap;
-        private BingMapVisual _bingMapVisual;
-        private Bitmap _floorBitmap;
-        private GeoTexture2D _floorTexture;
 
         //Y
-        private double northingMax;
+        internal double northingMax;
 
-        private double northingMin;
+        internal double northingMin;
 
         //X
-        private double eastingMax;
+        internal double eastingMax;
 
-        private double eastingMin;
+        internal double eastingMin;
 
         private double GridSize = 6000;
-        private double Count = 40;
 
-        public WorldGrid(Bitmap floorBitmap)
+        // lo ajusta WorldGridVisual según el zoom de cámara (mismo assembly)
+        internal double Count = 40;
+
+        public WorldGrid()
         {
-            _floorBitmap = floorBitmap;
             FieldGrid = new FieldGrid();
-            _fieldGridVisual = new FieldGridVisual(FieldGrid);
         }
 
         public FieldGrid FieldGrid { get; }
 
         public BingMap BingMap
         {
-            private get
+            internal get
             {
                 return _bingMap;
             }
             set
             {
                 _bingMap = value;
-                _bingMapVisual = (_bingMap != null) ? new BingMapVisual(_bingMap) : null;
             }
         }
 
-        public bool HasBingMap => BingMap != null;
-
-        private GeoTexture2D FloorTexture
-        {
-            get
-            {
-                if (null == _floorTexture) _floorTexture = new GeoTexture2D(_floorBitmap);
-                return _floorTexture;
-            }
-        }
-
-        public void DrawFieldSurface(ColorRgba fieldColor, double cameraZoom, bool mustDrawFieldTexture)
-        {
-            // Compat: tinte blanco (textura con colores reales)
-            DrawFieldSurface(fieldColor, new ColorRgba((byte)255, (byte)255, (byte)255), cameraZoom, mustDrawFieldTexture);
-        }
-
-        public void DrawFieldSurface(ColorRgba fieldColor, ColorRgba textureTint, double cameraZoom, bool mustDrawFieldTexture)
-        {
-            //adjust bitmap zoom based on cam zoom
-            if (cameraZoom > 100) Count = 4;
-            else if (cameraZoom > 80) Count = 8;
-            else if (cameraZoom > 50) Count = 16;
-            else if (cameraZoom > 20) Count = 32;
-            else if (cameraZoom > 10) Count = 64;
-            else Count = 80;
-
-            GLW.SetColor(fieldColor);
-            GL.Begin(PrimitiveType.TriangleStrip);
-            GL.TexCoord2(0, 0);
-            GL.Vertex3(eastingMin, northingMax, -0.10);
-            GL.TexCoord2(Count, 0.0);
-            GL.Vertex3(eastingMax, northingMax, -0.10);
-            GL.TexCoord2(0.0, Count);
-            GL.Vertex3(eastingMin, northingMin, -0.10);
-            GL.TexCoord2(Count, Count);
-            GL.Vertex3(eastingMax, northingMin, -0.10);
-            GL.End();
-
-            if (mustDrawFieldTexture)
-            {
-                // El color GL vigente MODULA la textura: si quedaba fieldColor
-                // (gris) la imagen del suelo salía teñida de gris. Tinte
-                // explícito: blanco de día (colores reales), atenuado de noche.
-                GLW.SetColor(textureTint);
-                GeoCoord u0v0 = new GeoCoord(eastingMin, northingMax);
-                GeoCoord uCountvCount = new GeoCoord(eastingMax, northingMin);
-                FloorTexture.DrawRepeatedZ(u0v0, uCountvCount, -0.10, Count);
-            }
-            _bingMapVisual?.Draw();
-        }
-
-        public void DrawFieldGrid(bool isDay, GeoBoundingBox fieldBoundingBox)
-        {
-            _fieldGridVisual.Draw(isDay, fieldBoundingBox);
-        }
+        public bool HasBingMap => _bingMap != null;
 
         public void checkZoomWorldGrid(GeoCoord geoCoord)
         {

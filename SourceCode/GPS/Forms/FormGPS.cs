@@ -266,6 +266,11 @@ namespace AgOpenGPS
         public WorldGrid worldGrid;
 
         /// <summary>
+        /// dibujo GL del world grid (modelo separado del render)
+        /// </summary>
+        public AgOpenGPS.Core.Visuals.WorldGridVisual worldGridVisual;
+
+        /// <summary>
         /// The NMEA class that decodes it
         /// </summary>
         public CNMEA pn;
@@ -514,7 +519,8 @@ namespace AgOpenGPS
                     floorBmp = new System.Drawing.Bitmap(sueloPng);
             }
             catch { /* textura custom no fatal */ }
-            worldGrid = new WorldGrid(floorBmp);
+            worldGrid = new WorldGrid();
+            worldGridVisual = new AgOpenGPS.Core.Visuals.WorldGridVisual(worldGrid, floorBmp);
 
             //our vehicle made with gl object and pointer of mainform
             vehicle = new CVehicle(this);
