@@ -86,13 +86,13 @@ la sesión android al extraer, pero el taller los usa desde Services),
 - [2026-07-19] [taller] HECHO (respuesta al PEDIDO de la UI vieja) —
   RESUELTO: no es cache ni WebView2. Las barras espejo HTML estan detras
   de un MODO con flag persistente: `isHtmlBarsMode` se lee al arrancar de
-  `Build\AgroParallelarras-html.on` (GUI.FloatingMenu.cs:230). En un
+  `Build\AgroParallel/barras-html.on` (GUI.FloatingMenu.cs:230). En un
   clone/Build fresco el flag NO existe → modo apagado → paneles nativos
   visibles = "interfaz vieja". El WebHost responde 200 igual porque el
   Hub siempre corre. Activar de cualquiera de las dos formas:
   (a) EN LA UI: boton "Menu" (menu flotante) → item "Barras HTML"
       (togglea en caliente y persiste el flag); o
-  (b) A MANO: `Set-Content .\Build\AgroParallelarras-html.on '1'`
+  (b) A MANO: `Set-Content .\Build\AgroParallel/barras-html.on '1'`
       y relanzar PilotX.
   Con el modo prendido: barra superior HTML reemplaza al menuStrip,
   barra derecha/abajo HTML reemplazan panelControlBox/panelBottom,
