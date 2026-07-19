@@ -598,6 +598,9 @@ namespace AgOpenGPS
             displayBrightness = new CWindowsSettingsBrightnessController(Properties.Settings.Default.setDisplay_isBrightnessOn);
 
             isobus = new CISOBUS(this);
+
+            //parser de PGNs entrantes desde CoreX (vive en Core, host invertido)
+            pgnReceiver = new PgnReceiver(this);
         }
 
         //Levanta el AgpWebHost:5180 con TODOS los servicios (perfiles, tracks,
@@ -823,7 +826,7 @@ namespace AgOpenGPS
             }
 
             //nmea limiter
-            udpWatch.Start();
+            pgnReceiver.StartWatch();
 
             panelDrag.Draggable(true);
 
