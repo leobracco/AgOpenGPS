@@ -539,6 +539,29 @@ Owner = quién la está tocando AHORA (para evitar choques en el mismo `.html`).
 | insumos    | ⬜ | — | |
 | otras      | ⬜ | — | lote, mapas, setup, sistema, orbitx, corex-ecu, firmwares, actualizar, datos-* |
 
+### 5.b Censo para la migración a paleta CLARA (2026-07-19, por Claude)
+
+theme.css sigue en dark cockpit; la dirección oficial es CLARA (ver skill
+pilotx-ui-html). Medido: cambiar solo los valores de tokens NO alcanza —
+hay ~475 hex sueltos en pages/, de los cuales estos grupos asumen fondo
+oscuro y necesitan QA/retoque al migrar:
+
+- **100% hardcodeadas (0 tokens):** barra-superior (54 hex), barra-abajo,
+  barra-derecha, menu-izquierda, guia-rapida, perfiles (13), config (23),
+  widget-quantix (22), vistax-maquina (19), vistax-semilla (14),
+  vistax-densidad (19). Son las barras espejo + overlays live: se
+  diseñaron directo en hex sobre el look actual.
+- **Mixtas con hex oscuros:** quantix (19 oscuros de 63), vistax (7),
+  vistax-live (5), contorno (5), botonera (4), tramlines/cabecera-lineas/
+  banderas/herramienta/barra-superior (3 c/u), y ~15 más con 1-2.
+- **Limpias (solo tokens):** hub, lote, piloto, datos-*, setup, ayuda,
+  colores*, eventos, prescripciones, stormx, suavizar-ab, pwa-qr, etc.
+
+Plan sugerido cuando se haga: 1) tokenizar las barras espejo y overlays
+(reemplazar hex por --agp-*), 2) flip de valores en theme.css, 3) QA
+visual de las ~20 mixtas. NO arrancar sin sesión dedicada: el Hub queda
+inconsistente si se hace a medias.
+
 ---
 
 ## 6. Pedidos cruzados
