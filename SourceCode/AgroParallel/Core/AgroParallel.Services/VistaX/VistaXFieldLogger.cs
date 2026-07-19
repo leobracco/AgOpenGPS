@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // VistaXFieldLogger.cs - Registro NDJSON de monitoreo + export a Shapefile
 // Ubicación: SourceCode/GPS/AgroParallel/VistaX/VistaXFieldLogger.cs
 // Target: net48 (C# 7.3)
@@ -226,7 +226,7 @@ namespace AgroParallel.VistaX
                     return Path.Combine(fieldDir, "VistaX");
             }
 
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "VistaX_Logs");
+            return Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "VistaX_Logs");
         }
 
         private string GetFieldName()

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // QuantiXMotoresConfig.cs
 // POCOs + persistencia del archivo `quantiX_motores.json` consumidos por
 // QuantiXMotorBridge. Extraído del FormQuantiXMotores legacy al migrar la UI
@@ -185,7 +185,7 @@ namespace AgroParallel.QuantiX
 
         public static MotoresConfig Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var cfg = AgroParallel.Common.AtomicJson.Read<MotoresConfig>(path, opts);
             return cfg ?? new MotoresConfig();
@@ -193,7 +193,7 @@ namespace AgroParallel.QuantiX
 
         public void Save()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }

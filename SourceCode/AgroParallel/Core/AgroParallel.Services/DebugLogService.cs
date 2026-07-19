@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // DebugLogService.cs — implementación del log unificado.
 //
 // - Ring buffer thread-safe en RAM (List + lock + tope MaxBufferLines).
@@ -60,7 +60,7 @@ namespace AgroParallel.Services
         // ---------- Config persistence ------------------------------------
         private static string ConfigPath()
         {
-            var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AgroParallel");
+            var dir = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "AgroParallel");
             try { Directory.CreateDirectory(dir); } catch { } // silencioso a propósito: fallback de I/O del propio logger
             return Path.Combine(dir, "debug.json");
         }
@@ -273,7 +273,7 @@ namespace AgroParallel.Services
                 StopRecordingLocked();
                 string dir = !string.IsNullOrEmpty(_cfg.RecordDir)
                     ? _cfg.RecordDir
-                    : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "AgroParallel", "debug-logs");
+                    : Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "AgroParallel", "debug-logs");
                 try { Directory.CreateDirectory(dir); } catch { } // silencioso a propósito: fallback de I/O del propio logger
                 string file = "debug-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".log";
                 _recPath = Path.Combine(dir, file);

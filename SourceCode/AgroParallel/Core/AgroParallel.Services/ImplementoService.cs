@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ImplementoService.cs — fuente única de verdad del implemento.
 //
 // Persistencia multi-implemento:
@@ -71,11 +71,11 @@ namespace AgroParallel.Services
         // ----------------------------------------------------------------
 
         public string GetPath()
-            => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DirName);
+            => Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, DirName);
 
         private string ActivePath() => Path.Combine(GetPath(), ActiveFileName);
         private string FilePath(string slug) => Path.Combine(GetPath(), slug + ".json");
-        private string LegacyPath() => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, LegacyFileName);
+        private string LegacyPath() => Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, LegacyFileName);
 
         private void EnsureDir()
         {

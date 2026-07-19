@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // VistaXConfig.cs - Configuración adaptada a la infraestructura real VistaX
 // Ubicación: SourceCode/GPS/AgroParallel/VistaX/VistaXConfig.cs
 // Target: net48 (C# 7.3)
@@ -179,7 +179,7 @@ namespace AgroParallel.VistaX
                 return ParseImplemento(ImplementoJsonPath);
             }
 
-            string dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "implementos");
+            string dataDir = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "data", "implementos");
             if (Directory.Exists(dataDir))
             {
                 string[] files = Directory.GetFiles(dataDir, "*.json");
@@ -202,7 +202,7 @@ namespace AgroParallel.VistaX
             string path = ImplementoJsonPath;
             if (string.IsNullOrEmpty(path))
             {
-                string dataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "implementos");
+                string dataDir = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "data", "implementos");
                 if (!Directory.Exists(dataDir)) Directory.CreateDirectory(dataDir);
                 path = Path.Combine(dataDir, "implemento.json");
             }
@@ -238,7 +238,7 @@ namespace AgroParallel.VistaX
 
         private static string GetConfigPath()
         {
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigFileName);
+            return Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, ConfigFileName);
         }
     }
 }

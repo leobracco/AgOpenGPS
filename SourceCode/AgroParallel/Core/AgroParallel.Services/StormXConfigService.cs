@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // StormXConfigService.cs
 // Lee/escribe stormX.json — patrón idéntico a SectionXConfigService.
 // ============================================================================
@@ -27,7 +27,7 @@ namespace AgroParallel.Services
 
         public StormXConfigDto Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             // AtomicJson.Read recupera del .bak si el principal está corrupto/vacío.
             var cfg = AgroParallel.Common.AtomicJson.Read<StormXConfigDto>(path, ReadOpts);
             if (cfg != null) return cfg;
@@ -39,7 +39,7 @@ namespace AgroParallel.Services
         public void Save(StormXConfigDto dto)
         {
             if (dto == null) return;
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, WriteOpts));
         }
     }

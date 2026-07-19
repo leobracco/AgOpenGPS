@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // OverlayPrefsService.cs
 // Preferencias de visibilidad de los widgets de overlay sobre el mapa de PilotX
 // (QuantiX shapefileLegend, VistaX, FlowX legend). El operario las controla
@@ -76,7 +76,7 @@ namespace AgroParallel.Services
         };
 
         private static string PathOnDisk
-            => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            => Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
 
         public OverlayPrefsDto Load()
         {

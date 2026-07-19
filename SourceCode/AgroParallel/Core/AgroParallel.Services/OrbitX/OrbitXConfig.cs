@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // OrbitXConfig.cs - Configuración de conexión a OrbitX Cloud
 // ============================================================================
 
@@ -135,7 +135,7 @@ namespace AgroParallel.OrbitX
 
         public static OrbitXConfig Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var cfg = AgroParallel.Common.AtomicJson.Read<OrbitXConfig>(path, opts);
             if (cfg != null)
@@ -151,7 +151,7 @@ namespace AgroParallel.OrbitX
 
         public void Save()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }

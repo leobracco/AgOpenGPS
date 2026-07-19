@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // SectionsSpeedPublisher.cs
 //
 // Publica por MQTT la velocidad real de cada sección del implemento (km/h).
@@ -51,7 +51,7 @@ namespace AgroParallel.SectionX
         private const string Topic = "agp/aog/sections_speed";
 
         private static readonly string LogPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "sections_speed.log");
+            AgroParallel.Common.AgpPaths.ConfigRoot, "sections_speed.log");
 
         private static void Log(string msg)
         {

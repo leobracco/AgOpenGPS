@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // CamarasRemoteRelay.cs
 //
 // Servicio que toma cada cámara Hikvision activa de CamarasConfig, spawna un
@@ -63,7 +63,7 @@ namespace AgroParallel.Camaras
             {
                 lock (_logLock)
                 {
-                    string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "camaras_relay.log");
+                    string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "camaras_relay.log");
                     try
                     {
                         var fi = new FileInfo(path);

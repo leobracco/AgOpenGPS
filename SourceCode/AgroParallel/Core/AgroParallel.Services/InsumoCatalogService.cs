@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // InsumoCatalogService.cs
 // Persistencia del catálogo de insumos compartido. Patrón idéntico a
 // FlowXConfigService / SectionXConfigService (JSON en BaseDirectory de PilotX).
@@ -28,7 +28,7 @@ namespace AgroParallel.Services
 
         public InsumoCatalogDto Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             try
             {
                 var dto = AgroParallel.Common.AtomicJson.Read<InsumoCatalogDto>(path, ReadOpts);
@@ -57,7 +57,7 @@ namespace AgroParallel.Services
         public void Save(InsumoCatalogDto dto)
         {
             if (dto == null) return;
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, WriteOpts));
         }
 

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // OrbitXConfigService.cs
 // Implementación de IOrbitXConfigService — lee/escribe orbitX.json y testea
 // la conexión al server (GET /api/health) con X-Device-ID + X-Auth-Token.
@@ -47,7 +47,7 @@ namespace AgroParallel.Services
 
         public OrbitXConfigDto Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             try
             {
                 var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
@@ -72,7 +72,7 @@ namespace AgroParallel.Services
             if (dto == null) return;
             // Cualquier intento de guardar otra URL se neutraliza acá.
             dto.ServerUrl = FixedServerUrl;
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, opts));
             // Dispara después de persistir — FormGPS escucha y relanza OrbitXSync

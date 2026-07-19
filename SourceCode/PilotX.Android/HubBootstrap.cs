@@ -37,7 +37,9 @@ namespace PilotX.Droid
             {
                 if (s_host != null) return;
 
-                // Paths de plataforma ANTES de que nadie lea Settings.
+                // Paths de plataforma ANTES de que nadie lea Settings ni
+                // instancie servicios (el BaseDirectory del APK es read-only).
+                AgroParallel.Common.AgpPaths.ConfigRoot = dataDir;
                 PilotXCore.RegistrySettings.AppBasePath = dataDir;
                 PilotXCore.RegistrySettings.DataRootOverride = externalDataDir;
                 PilotXCore.RegistrySettings.Load();

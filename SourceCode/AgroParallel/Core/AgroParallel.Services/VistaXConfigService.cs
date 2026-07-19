@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // VistaXConfigService.cs — load/save vistaX.json + implemento JSON.
 //
 // Mismas convenciones que el legacy (AgroParallel.VistaX.VistaXConfig) para
@@ -30,7 +30,7 @@ namespace AgroParallel.Services
         };
 
         private static string ConfigPath()
-            => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigFileName);
+            => Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, ConfigFileName);
 
         public VistaXConfigDto GetConfig()
         {
@@ -78,7 +78,7 @@ namespace AgroParallel.Services
                 return cfg.ImplementoJsonPath;
 
             string dataDir = Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory, "data", "implementos");
+                AgroParallel.Common.AgpPaths.ConfigRoot, "data", "implementos");
             if (Directory.Exists(dataDir))
             {
                 string[] files = Directory.GetFiles(dataDir, "*.json");
@@ -111,7 +111,7 @@ namespace AgroParallel.Services
             {
                 // Si no hay path configurado, crear data/implementos/default.json.
                 string dir = Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory, "data", "implementos");
+                    AgroParallel.Common.AgpPaths.ConfigRoot, "data", "implementos");
                 try { Directory.CreateDirectory(dir); } catch { }
                 p = Path.Combine(dir, "default.json");
                 // Y actualizar la config para futuras lecturas.

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // NodosCuratedService.cs
 // Persiste la lista curada de nodos (aceptados/ignorados/alias) en nodos.json.
 // Combina con NodoRegistryService para producir la vista unificada que consume
@@ -22,7 +22,7 @@ namespace AgroParallel.Services
 
         public NodosCuratedService()
         {
-            _path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            _path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
         }
 
         public NodosCuratedDto Load()

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // StormXConfig.cs - Configuración de la estación meteo móvil StormX
 // Equivalente legacy del DTO StormXConfigDto, listo para ser consumido por
 // el futuro StormXBridge (suscriptor MQTT + logger + lecturas para UI).
@@ -72,7 +72,7 @@ namespace AgroParallel.StormX
 
         public static StormXConfig Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var cfg = AgroParallel.Common.AtomicJson.Read<StormXConfig>(path, opts);
             if (cfg != null) return cfg;
@@ -83,7 +83,7 @@ namespace AgroParallel.StormX
 
         public void Save()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }

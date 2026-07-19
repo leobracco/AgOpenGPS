@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // QuantiXMotorBridge.cs - Puente dosis→PPS→MQTT para motores ESP32
 // ============================================================================
 
@@ -63,7 +63,7 @@ namespace AgroParallel.QuantiX
         }
 
         private static readonly string LogPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "qx_bridge.log");
+            AgroParallel.Common.AgpPaths.ConfigRoot, "qx_bridge.log");
 
         private static void Log(string msg)
         {

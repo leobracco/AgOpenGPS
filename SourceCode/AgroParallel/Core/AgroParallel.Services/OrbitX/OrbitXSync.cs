@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // OrbitXSync.cs — Sincronización con OrbitX Cloud (servicio portable).
 //
 // Portado a netstandard2.0 (Tanda 1 del refactor "mover módulos AP"):
@@ -190,7 +190,7 @@ namespace AgroParallel.OrbitX
             {
                 lock (_logLock)
                 {
-                    string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "orbitx_sync.log");
+                    string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "orbitx_sync.log");
                     try
                     {
                         var fi = new FileInfo(path);
@@ -278,7 +278,7 @@ namespace AgroParallel.OrbitX
 
         private void EnqueueVistaXFiles()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
             EnqueueIfChanged(Path.Combine(baseDir, "vistaX.json"), "vistax/vistaX.json", "vistax_config", "vistax");
 
             string implDir = Path.Combine(baseDir, "data", "implementos");
@@ -291,14 +291,14 @@ namespace AgroParallel.OrbitX
 
         private void EnqueueQuantiXFiles()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
             EnqueueIfChanged(Path.Combine(baseDir, "quantiX.json"), "quantix/quantiX.json", "quantix_config", "quantix");
             EnqueueIfChanged(Path.Combine(baseDir, "quantiX_motores.json"), "quantix/motores.json", "quantix_motores", "quantix");
         }
 
         private void EnqueueSectionXFiles()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
             EnqueueIfChanged(Path.Combine(baseDir, "sectionX.json"), "sectionx/sectionX.json", "sectionx_config", "sectionx");
         }
 
@@ -308,7 +308,7 @@ namespace AgroParallel.OrbitX
         // se agregan acá con el mismo patrón.
         private void EnqueueFlowXFiles()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
             EnqueueIfChanged(Path.Combine(baseDir, "flowX.json"), "flowx/flowX.json", "flowx_config", "flowx");
         }
 
@@ -317,7 +317,7 @@ namespace AgroParallel.OrbitX
         // del nodo en la nube cuando el firmware esté.
         private void EnqueueStormXFiles()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
             EnqueueIfChanged(Path.Combine(baseDir, "stormX.json"), "stormx/stormX.json", "stormx_config", "stormx");
         }
 
@@ -690,7 +690,7 @@ namespace AgroParallel.OrbitX
                         continue;
                     }
 
-                    string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "prescripciones");
+                    string dir = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "data", "prescripciones");
                     if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
                     string filePath = Path.Combine(dir, nombre + ".geojson");

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // SectionXConfig.cs - Configuración de corte de secciones
 // Mapeo explícito: cada cable del nodo → sección PilotX.
 // ============================================================================
@@ -85,7 +85,7 @@ namespace AgroParallel.SectionX
 
         public static SectionXConfig Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var cfg = AgroParallel.Common.AtomicJson.Read<SectionXConfig>(path, opts);
             if (cfg != null) return cfg;
@@ -96,7 +96,7 @@ namespace AgroParallel.SectionX
 
         public void Save()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // QuantiXConfigService.cs
 //   * quantiX_motores.json en BaseDirectory (1:1 con legacy).
 //   * Publica agp/quantix/{uid}/config y agp/quantix/{uid}/{verb} usando la
@@ -111,7 +111,7 @@ namespace AgroParallel.Services
         }
 
         private static string Path(string name)
-            => System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, name);
+            => System.IO.Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, name);
 
         // ---------- Motores ----------
 

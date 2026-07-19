@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // CutDispatcher.cs - Despachador único del corte de PilotX a los nodos.
 //
 // Lee una sola vez por tick el estado de corte de PilotX (SectionOnRequest) y lo
@@ -79,7 +79,7 @@ namespace AgroParallel.Cut
         public static CutDispatcher Current { get { return s_current; } }
 
         private static readonly string LogPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "cut_dispatcher.log");
+            AgroParallel.Common.AgpPaths.ConfigRoot, "cut_dispatcher.log");
         private static void Log(string msg)
         {
             try { File.AppendAllText(LogPath, DateTime.Now.ToString("HH:mm:ss ") + msg + "\n"); }

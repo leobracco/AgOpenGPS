@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // QuantiXConfig.cs - Configuracion de la salida UDP de dosis variable (QuantiX)
 // Ubicación: SourceCode/GPS/AgroParallel/QuantiX/QuantiXConfig.cs
 // Target: net48 (C# 7.3)
@@ -42,7 +42,7 @@ namespace AgroParallel.QuantiX
 
         public static QuantiXConfig Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var cfg = AgroParallel.Common.AtomicJson.Read<QuantiXConfig>(path, opts);
             if (cfg != null) return cfg;
@@ -55,7 +55,7 @@ namespace AgroParallel.QuantiX
         {
             try
             {
-                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+                string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
                 var opts = new JsonSerializerOptions { WriteIndented = true };
                 AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
             }

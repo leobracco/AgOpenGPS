@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // SetupStateService.cs
 // Estado del asistente de primera vez del Hub PilotX (setup.json).
 // Pequeño JSON con flags de pasos; se persiste cada vez que el operario
@@ -21,7 +21,7 @@ namespace AgroParallel.Services
 
         public SetupStateService()
         {
-            _path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            _path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
         }
 
         public SetupStateDto Load()

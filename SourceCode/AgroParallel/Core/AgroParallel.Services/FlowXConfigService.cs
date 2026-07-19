@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // FlowXConfigService.cs
 // Lee/escribe flowX.json — patrón idéntico a SectionXConfigService.
 // ============================================================================
@@ -27,7 +27,7 @@ namespace AgroParallel.Services
 
         public FlowXConfigDto Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var cfg = AgroParallel.Common.AtomicJson.Read<FlowXConfigDto>(path, ReadOpts);
             if (cfg != null) return cfg;
             var def = new FlowXConfigDto();
@@ -38,7 +38,7 @@ namespace AgroParallel.Services
         public void Save(FlowXConfigDto dto)
         {
             if (dto == null) return;
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, WriteOpts));
         }
     }

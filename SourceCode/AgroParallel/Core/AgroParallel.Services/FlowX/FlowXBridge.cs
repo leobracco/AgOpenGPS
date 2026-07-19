@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // FlowXBridge.cs - Puente PilotX -> MQTT -> nodo FlowX (bomba pulverizadora).
 //
 // Diferencia clave con SectionXBridge / QuantiXMotorBridge:
@@ -87,7 +87,7 @@ namespace AgroParallel.FlowX
         public int MessagesSent { get; private set; }
 
         private static readonly string LogPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "fx_bridge.log");
+            AgroParallel.Common.AgpPaths.ConfigRoot, "fx_bridge.log");
         private static void Log(string msg)
         {
             try { File.AppendAllText(LogPath, DateTime.Now.ToString("HH:mm:ss ") + msg + "\n"); }

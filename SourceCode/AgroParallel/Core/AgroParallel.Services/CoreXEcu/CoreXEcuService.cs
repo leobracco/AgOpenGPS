@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // CoreXEcuService.cs
 // Proxy HTTP del Hub hacia el firmware CoreX-ECU (Teensy 4.1, v1.11+).
 //
@@ -124,7 +124,7 @@ namespace AgroParallel.Services
 
         private static string Path()
         {
-            return System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            return System.IO.Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
         }
 
         private static CoreXEcuConfigDto Clone(CoreXEcuConfigDto src)

@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // ConfigBackupService.cs - Respaldo de TODA la configuración + datos de PilotX.
 // Target: netstandard2.0 (C# 7.3)
 //
@@ -101,7 +101,7 @@ namespace AgroParallel.Services
                 string programData = Environment.GetFolderPath(
                     Environment.SpecialFolder.CommonApplicationData);
                 if (string.IsNullOrWhiteSpace(programData))
-                    programData = AppDomain.CurrentDomain.BaseDirectory;
+                    programData = AgroParallel.Common.AgpPaths.ConfigRoot;
                 return Path.Combine(programData, "AgroParallel", "Backups");
             }
         }
@@ -157,7 +157,7 @@ namespace AgroParallel.Services
                     Directory.CreateDirectory(destDir);
 
                     // 1) Archivos de config del directorio de instalación → directo.
-                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
                     foreach (var src in installSources)
                     {
                         try
@@ -338,7 +338,7 @@ namespace AgroParallel.Services
             string srcFull = ResolveBackupDir(backupName);
             if (srcFull == null) { res.Error = "no-existe"; return res; }
 
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
 
             // Mapa <nombreCarpeta> → ruta absoluta de árboles de datos (Documents\AgOpenGPS).
             var extraByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -482,7 +482,7 @@ namespace AgroParallel.Services
         private static List<string> CollectInstallSources()
         {
             var result = new List<string>();
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
 
             AddFiles(result, baseDir, "*.json", SearchOption.TopDirectoryOnly);
             AddFiles(result, baseDir, "*.json.bak", SearchOption.TopDirectoryOnly);
@@ -604,7 +604,7 @@ namespace AgroParallel.Services
         /// </summary>
         public static byte[] CreateExportZip(IEnumerable<string> fullDirs)
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
             var extras = (fullDirs ?? Enumerable.Empty<string>())
                 .Where(d => !string.IsNullOrWhiteSpace(d) && Directory.Exists(d))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -667,7 +667,7 @@ namespace AgroParallel.Services
             if (zipBytes == null || zipBytes.Length == 0)
             { res.Error = "empty"; return res; }
 
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = AgroParallel.Common.AgpPaths.ConfigRoot;
 
             // Antes de pisar nada, respaldamos el estado actual (red de seguridad).
             try { RunBackup(fullDirs, force: true); } catch { }

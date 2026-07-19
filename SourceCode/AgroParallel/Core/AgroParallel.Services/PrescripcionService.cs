@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // PrescripcionService.cs
 // Implementación de IPrescripcionService. Lee .geojson de
 // <BaseDir>/data/prescripciones/, parsea Polygon/MultiPolygon, expone lookup
@@ -67,13 +67,13 @@ namespace AgroParallel.Services
         // -------------------- PATHS --------------------
         private static string BaseDir()
         {
-            string d = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, DirName, SubDirName);
+            string d = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, DirName, SubDirName);
             try { if (!Directory.Exists(d)) Directory.CreateDirectory(d); } catch { }
             return d;
         }
 
         private static string StatePath()
-            => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, StateFile);
+            => Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, StateFile);
 
         // -------------------- STATE persist --------------------
         private static StateFileDto LoadState()

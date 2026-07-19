@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // FirmwareMirror.cs - Espejo local de firmwares OTA desde OrbitX cloud
 //
 // Mantiene en disco los .bin descargados del cloud para que FirmwareLanServer
@@ -58,7 +58,7 @@ namespace AgroParallel.OrbitX
         {
             if (!string.IsNullOrEmpty(cfg.FirmwareCacheDir))
                 return Path.GetFullPath(cfg.FirmwareCacheDir);
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "firmware-cache");
+            return Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "firmware-cache");
         }
 
         public static string DirVersion(string cacheDir, string producto, string version)

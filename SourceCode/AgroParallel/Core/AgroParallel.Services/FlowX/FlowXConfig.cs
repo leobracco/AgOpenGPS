@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // FlowXConfig.cs - Configuración de FlowX (corte + dosis para pulverizadoras)
 // Equivalente legacy de SectionXConfig: lee/escribe flowX.json con los
 // mismos nombres snake_case que usan el DTO y el firmware ESP32.
@@ -131,7 +131,7 @@ namespace AgroParallel.FlowX
 
         public static FlowXConfig Load()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var cfg = AgroParallel.Common.AtomicJson.Read<FlowXConfig>(path, opts);
             if (cfg != null) return cfg;
@@ -142,7 +142,7 @@ namespace AgroParallel.FlowX
 
         public void Save()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, FileName);
+            string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             var opts = new JsonSerializerOptions { WriteIndented = true };
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(this, opts));
         }
