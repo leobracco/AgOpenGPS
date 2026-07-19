@@ -100,6 +100,160 @@ namespace AgOpenGPS
         }
     }
 
+    public static class ABLineDrawExtensions
+    {
+        private static readonly ColorRgba newAbLineColor = new ColorRgba(0.95f, 0.70f, 0.50f);
+        private static readonly ColorRgba pointsTextGreen = new ColorRgba(0.2f, 0.950f, 0.20f);
+        private static readonly ColorRgba pointARed = new ColorRgba(0.95f, 0.0f, 0.0f);
+        private static readonly ColorRgba pointBCyan = new ColorRgba(0.0f, 0.90f, 0.95f);
+        private static readonly ColorRgba referenceLineRed = new ColorRgba(0.930f, 0.2f, 0.2f);
+        private static readonly ColorRgba shadowAreaGray = new ColorRgba(0.5f, 0.5f, 0.5f, 0.2f);
+        private static readonly ColorRgba shadowLinesGray = new ColorRgba(0.55f, 0.55f, 0.55f, 0.2f);
+        //estilo PilotX: guía activa blanca, vecinas gris claro (pedido 2026-07-16)
+        private static readonly ColorRgba currentAbLinePurple = new ColorRgba(0.98f, 0.98f, 0.98f);
+        private static readonly ColorRgba extraGuidelinesBlack = new ColorRgba(0.0f, 0.0f, 0.0f, 0.5f);
+        private static readonly ColorRgba extraGuidelinesGreen = new ColorRgba(0.72f, 0.75f, 0.72f, 0.6f);
+
+        public static void DrawABLineNew(this CABLine abLine)
+        {
+            IABLineHost mf = abLine.mf;
+
+            //ABLine currently being designed
+            GeoCoord[] desLineEndPoints = { abLine.desLineEndA.ToGeoCoord(), abLine.desLineEndB.ToGeoCoord() };
+
+            GLW.SetLineWidth(abLine.lineWidth);
+            GLW.SetColor(newAbLineColor);
+            GLW.DrawLinesPrimitive(desLineEndPoints);
+
+            GLW.SetColor(pointsTextGreen);
+            mf.TextFont.DrawText3D(abLine.desPtA.easting, abLine.desPtA.northing, "&A", mf.CamHeading);
+            mf.TextFont.DrawText3D(abLine.desPtB.easting, abLine.desPtB.northing, "&B", mf.CamHeading);
+        }
+
+        public static void DrawABLines(this CABLine abLine)
+        {
+            IABLineHost mf = abLine.mf;
+
+            // Draw AB Points
+            CTrk track = mf.Tracks[mf.TrackIdx];
+            GLW.SetPointSize(8.0f);
+            GLW.BeginPointsPrimitive();
+
+            GLW.SetColor(pointBCyan);
+            GLW.Vertex2(track.ptB.ToGeoCoord());
+            GLW.SetColor(pointARed);
+            GLW.Vertex2(track.ptA.ToGeoCoord());
+            GLW.EndPrimitive();
+
+            GLW.DrawPoint(track.ptA.ToGeoCoord());
+
+            if (!abLine.isMakingABLine)
+            {
+                mf.TextFont.DrawText3D(track.ptA.easting, track.ptA.northing, "&A", mf.CamHeading);
+                mf.TextFont.DrawText3D(track.ptB.easting, track.ptB.northing, "&B", mf.CamHeading);
+            }
+
+            GLW.SetPointSize(1.0f);
+
+            // PilotX: centrar el tramo dibujado en el vehículo. La guía
+            // matemática es infinita pero el dibujo eran ±2000 m fijos desde
+            // el origen del lote: manejando más lejos la línea "se cortaba"
+            // (visto con el sim a 6 km). Se proyecta la posición actual sobre
+            // la línea y se dibuja ±abLength alrededor de esa proyección.
+            double sinH = Math.Sin(abLine.abHeading), cosH = Math.Cos(abLine.abHeading);
+            double distAlong = ((mf.GuidanceLookPos.easting - abLine.currentLinePtA.easting) * sinH)
+                             + ((mf.GuidanceLookPos.northing - abLine.currentLinePtA.northing) * cosH);
+            vec3 drawPtA = new vec3(
+                abLine.currentLinePtA.easting + (sinH * (distAlong - abLine.abLength)),
+                abLine.currentLinePtA.northing + (cosH * (distAlong - abLine.abLength)), abLine.abHeading);
+            vec3 drawPtB = new vec3(
+                abLine.currentLinePtA.easting + (sinH * (distAlong + abLine.abLength)),
+                abLine.currentLinePtA.northing + (cosH * (distAlong + abLine.abLength)), abLine.abHeading);
+
+            //Draw reference AB line (recentrada igual que la actual)
+            double refAlong = ((mf.GuidanceLookPos.easting - track.ptA.easting) * sinH)
+                            + ((mf.GuidanceLookPos.northing - track.ptA.northing) * cosH);
+            GeoCoord[] abEndPoints = {
+                new vec2(track.ptA.easting + (sinH * (refAlong - abLine.abLength)),
+                         track.ptA.northing + (cosH * (refAlong - abLine.abLength))).ToGeoCoord(),
+                new vec2(track.ptA.easting + (sinH * (refAlong + abLine.abLength)),
+                         track.ptA.northing + (cosH * (refAlong + abLine.abLength))).ToGeoCoord()
+            };
+            GLW.SetLineWidth(4.0f);
+            GLW.EnableLineStipple();
+            GLW.SetLineStipple(1, 0x0F00);
+            GLW.SetColor(referenceLineRed);
+            GLW.DrawLinesPrimitive(abEndPoints);
+            GLW.DisableLineStipple();
+
+            // shadow
+            double shadowOffset = abLine.isHeadingSameWay ? mf.Tool.offset : -mf.Tool.offset;
+            GeoCoord ptA = drawPtA.ToGeoCoord();
+            GeoCoord ptB = drawPtB.ToGeoCoord();
+            GeoDir abDir = new GeoDir(abLine.abHeading);
+            GeoDir perpendicalurRightDir = abDir.PerpendicularRight;
+            GeoDelta rightOffset = (shadowOffset + 0.5 * mf.Tool.width) * perpendicalurRightDir;
+            GeoDelta leftOffset = (shadowOffset - 0.5 * mf.Tool.width) * perpendicalurRightDir;
+
+            GeoCoord[] shadowCoords = {
+                ptA + leftOffset,
+                ptA + rightOffset,
+                ptB + rightOffset,
+                ptB + leftOffset
+            };
+
+            GLW.SetColor(shadowAreaGray);
+            GLW.DrawTriangleFanPrimitive(shadowCoords);
+            GLW.SetColor(shadowLinesGray);
+            GLW.SetLineWidth(1.0f);
+            GLW.DrawLineLoopPrimitive(shadowCoords);
+
+            //draw current AB Line
+            GeoCoord[] currentAbLine = { drawPtA.ToGeoCoord(), drawPtB.ToGeoCoord() };
+            LineStyle blackBackgroundStyle = new LineStyle(abLine.lineWidth * 3, Colors.Black);
+            LineStyle purpleForgroundStyle = new LineStyle(abLine.lineWidth, currentAbLinePurple);
+            GLW.DrawLinesPrimitiveLayered(
+                currentAbLine,
+                blackBackgroundStyle,
+                purpleForgroundStyle);
+
+            if (mf.IsSideGuideLines && mf.CamSetDistance > mf.Tool.width * -400)
+            {
+                double toolWidth = mf.Tool.width - mf.Tool.overlap;
+                GeoLineSegment currentLine = new GeoLineSegment(drawPtA.ToGeoCoord(), drawPtB.ToGeoCoord());
+                GeoDir perpendicularRightDir = currentLine.Direction.PerpendicularRight;
+                GeoLineSegment[] lines = new GeoLineSegment[2 * abLine.numGuideLines];
+                int linesIndex = 0;
+
+                double oddOffset = 2 * (abLine.isHeadingSameWay ? mf.Tool.offset : -mf.Tool.offset);
+                for (int i = 1; i <= abLine.numGuideLines; i += 2)
+                {
+                    GeoLineSegment rightOddLine = currentLine.Shifted((toolWidth * i + oddOffset) * perpendicularRightDir);
+                    GeoLineSegment leftOddLine = currentLine.Shifted((toolWidth * -i + oddOffset) * perpendicularRightDir);
+                    lines[linesIndex++] = rightOddLine;
+                    lines[linesIndex++] = leftOddLine;
+                }
+                for (int i = 2; i <= abLine.numGuideLines; i += 2)
+                {
+                    GeoLineSegment rightEvenLine = currentLine.Shifted((toolWidth * i) * perpendicularRightDir);
+                    GeoLineSegment leftEvenLine = currentLine.Shifted((toolWidth * -i) * perpendicularRightDir);
+                    lines[linesIndex++] = rightEvenLine;
+                    lines[linesIndex++] = leftEvenLine;
+                }
+                LineStyle extraGuidelinesBackgroundStyle = new LineStyle(abLine.lineWidth * 3, extraGuidelinesBlack);
+                LineStyle extraGuidelinesForegroundStyle = new LineStyle(abLine.lineWidth, extraGuidelinesGreen);
+                GLW.DrawLinesPrimitiveLayered(
+                    lines,
+                    extraGuidelinesBackgroundStyle,
+                    extraGuidelinesForegroundStyle);
+            }
+            mf.DrawYouTurn();
+
+            GLW.SetPointSize(1.0f);
+            GLW.SetLineWidth(1.0f);
+        }
+    }
+
     public static class ABCurveDrawExtensions
     {
         public static void DrawCurveNew(this CABCurve curve)
