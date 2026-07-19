@@ -282,11 +282,7 @@ namespace AgroParallel.Shell
                 ? c.RectangleToScreen(c.ClientRectangle)
                 : Screen.PrimaryScreen.WorkingArea;
 
-            // Clamp: ningún widget puede quedar más grande que la pantalla/mapa
-            // (en pantallas chicas de tractor 1180px de config no entra). Se
-            // achica al área disponible menos un margen (pedido 2026-07-16).
-            if (sz.Width > area.Width - 16) sz.Width = area.Width - 16;
-            if (sz.Height > area.Height - 16) sz.Height = area.Height - 16;
+            sz = ScaleWidgetToArea(sz, area);
 
             int x = area.Right - sz.Width - 24;
             int y = area.Top + 24;
@@ -294,6 +290,47 @@ namespace AgroParallel.Shell
             if (y + sz.Height > area.Bottom - 8) y = area.Bottom - 8 - sz.Height;
             if (y < area.Top + 8) y = area.Top + 8;
             SetBounds(x, y, sz.Width, sz.Height);
+        }
+
+        /// <summary>
+        /// Adecúa el tamaño pedido de un widget al área disponible del mapa.
+        /// Los width/height de los call sites están pensados para monitor de
+        /// escritorio: en la pantalla del tractor (10" 1080x720) los grandes
+        /// quedaban casi pantalla completa aun con el clamp duro. Pasada
+        /// general 2026-07-19:
+        /// 1) los widgets chicos (&lt;50% del área en ambos ejes) se respetan
+        ///    tal cual — son popups con layout exacto;
+        /// 2) los grandes se escalan proporcional al área (referencia
+        ///    1440x900, factor nunca &lt; 0.6 para no pulverizar los targets
+        ///    táctiles) y se capean a 78% ancho / 85% alto del mapa para que
+        ///    el operario siga viendo el guiado detrás.
+        /// Las páginas del Hub son responsive: reacomodan solas.
+        /// </summary>
+        private static Size ScaleWidgetToArea(Size sz, Rectangle area)
+        {
+            bool esGrande = sz.Width > area.Width * 0.5 || sz.Height > area.Height * 0.5;
+            if (esGrande)
+            {
+                double scale = Math.Min(1.0, Math.Min(area.Width / 1440.0, area.Height / 900.0));
+                if (scale < 0.6) scale = 0.6;
+                sz.Width = (int)Math.Round(sz.Width * scale);
+                sz.Height = (int)Math.Round(sz.Height * scale);
+
+                int maxW = (int)(area.Width * 0.78);
+                int maxH = (int)(area.Height * 0.85);
+                if (sz.Width > maxW) sz.Width = maxW;
+                if (sz.Height > maxH) sz.Height = maxH;
+            }
+            else
+            {
+                // Aun chicos, jamás más grandes que el área menos margen.
+                if (sz.Width > area.Width - 16) sz.Width = area.Width - 16;
+                if (sz.Height > area.Height - 16) sz.Height = area.Height - 16;
+            }
+
+            if (sz.Width < 260) sz.Width = 260;
+            if (sz.Height < 180) sz.Height = 180;
+            return sz;
         }
 
         /// <summary>
@@ -318,10 +355,15 @@ namespace AgroParallel.Shell
             if (width < 200) width = 200;
             if (height < 80) height = 80;
 
+            // OJO: acá NO se aplica ScaleWidgetToArea — los 'resize:WxH' vienen
+            // del propio HTML con el tamaño EXACTO de su contenido (constantes
+            // tipo EXPANDED/COLLAPSED de guia-rapida.js): escalarlos recortaría.
             var c = AnchorControl;
             if (c != null && !c.IsDisposed && c.IsHandleCreated)
             {
                 Rectangle r = c.RectangleToScreen(c.ClientRectangle);
+                if (width > r.Width - 16) width = r.Width - 16;
+                if (height > r.Height - 16) height = r.Height - 16;
                 int x = r.Right - width - 24;
                 int y = r.Top + 24;
                 SetBounds(x, y, width, height);
