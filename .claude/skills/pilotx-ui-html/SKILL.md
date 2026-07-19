@@ -36,9 +36,13 @@ Tokens base (nombres reales): `--agp-bg`, `--agp-bg-soft`, `--agp-surface`,
 `--agp-state-ok/warn/bad/idle`, fuentes `--agp-font-sans/-mono`, tamaños `--agp-fs-*`,
 pesos `--agp-fw-*`, line-height `--agp-lh-*`.
 
-> Nota de estado: el `theme.css` vivo todavía está en versión oscura ("cockpit"). La
-> dirección oficial es CLARA. Al migrar valores, cambian los **valores** de los tokens,
-> nunca sus **nombres** ni el markup que los consume.
+> Nota de estado (2026-07-19): la paleta CLARA **ya está activa** — `theme.css` termina
+> con un `:root` "light field UI" que pisa por cascada los valores del bloque dark
+> cockpit del comienzo (ese bloque quedó como legado y además define los tokens
+> estructurales fs/sp/radius/z/touch, no borrarlo entero). Varios tokens están
+> definidos DOS veces: **no** tokenizar hex por matching de valor (mapeo ambiguo) —
+> solo a mano mirando el render. Detalle y censo de páginas con hex hardcodeados:
+> §5.b de COORDINACION-UI.md.
 
 ### Reparto de capas con Codex
 Diseño/presentación (theme.css, layout.css, keyboard.css, markup + CSS embebido de

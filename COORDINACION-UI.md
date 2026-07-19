@@ -541,10 +541,21 @@ Owner = quién la está tocando AHORA (para evitar choques en el mismo `.html`).
 
 ### 5.b Censo para la migración a paleta CLARA (2026-07-19, por Claude)
 
-theme.css sigue en dark cockpit; la dirección oficial es CLARA (ver skill
-pilotx-ui-html). Medido: cambiar solo los valores de tokens NO alcanza —
-hay ~475 hex sueltos en pages/, de los cuales estos grupos asumen fondo
-oscuro y necesitan QA/retoque al migrar:
+CORRECCIÓN (mismo día): la migración a CLARA ya está hecha a nivel
+tokens — theme.css termina con un :root "light field UI" que PISA los
+valores del bloque dark cockpit del comienzo (la cascada gana). El Hub
+YA se ve claro. La nota del skill pilotx-ui-html estaba desactualizada
+(corregida). Lo que queda del tema:
+
+1. El bloque dark del comienzo tiene ~30 valores de color muertos
+   (pisados). Consolidarlo es limpieza pura sin cambio visual, pero es
+   cirugía de theme.css (capa Codex) — hacerlo en una pasada dedicada.
+   OJO: ese bloque también define los tokens estructurales (fs/sp/
+   radius/z/touch/fonts) que NO están duplicados — no borrar entero.
+2. Los hex oscuros hardcodeados de abajo hoy renderizan como elementos
+   oscuros sobre fondo claro: algunos son semánticos (vx-tapado negro,
+   canvas del mapa) y otros pueden ser manchas heredadas — revisar EN
+   PANTALLA página por página antes de tocar:
 
 - **100% hardcodeadas (0 tokens):** barra-superior (54 hex), barra-abajo,
   barra-derecha, menu-izquierda, guia-rapida, perfiles (13), config (23),
@@ -557,10 +568,10 @@ oscuro y necesitan QA/retoque al migrar:
 - **Limpias (solo tokens):** hub, lote, piloto, datos-*, setup, ayuda,
   colores*, eventos, prescripciones, stormx, suavizar-ab, pwa-qr, etc.
 
-Plan sugerido cuando se haga: 1) tokenizar las barras espejo y overlays
-(reemplazar hex por --agp-*), 2) flip de valores en theme.css, 3) QA
-visual de las ~20 mixtas. NO arrancar sin sesión dedicada: el Hub queda
-inconsistente si se hace a medias.
+Nota: NO tokenizar por matching de valor hex — varios tokens están
+definidos DOS veces (dark pisado + claro) y el mapeo valor→token es
+ambiguo (Claude lo intentó 2026-07-19 y lo revirtió antes de commitear).
+Tokenizar solo a mano, mirando el render.
 
 ---
 
