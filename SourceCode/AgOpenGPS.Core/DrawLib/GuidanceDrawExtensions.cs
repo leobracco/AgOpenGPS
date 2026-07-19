@@ -100,6 +100,24 @@ namespace AgOpenGPS
         }
     }
 
+    public static class CameraDrawExtensions
+    {
+        public static void SetLookAt(this AgOpenGPS.Core.Camera camera, double lookAtX, double lookAtY, double directionHintInDegrees)
+        {
+            //back the camera up
+            GLW.Translate(0, 0, -camera.DistanceToLookAt);
+
+            GLW.RotateX(camera.PitchInDegrees);
+            GLW.Translate(camera.PanX, camera.PanY);
+
+            if (camera.FollowDirectionHint)
+            {
+                GLW.RotateZ(directionHintInDegrees);
+            }
+            GLW.Translate(-lookAtX, -lookAtY, 0.0);
+        }
+    }
+
     public static class ABLineDrawExtensions
     {
         private static readonly ColorRgba newAbLineColor = new ColorRgba(0.95f, 0.70f, 0.50f);

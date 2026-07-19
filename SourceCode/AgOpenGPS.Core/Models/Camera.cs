@@ -1,5 +1,4 @@
-﻿using AgOpenGPS.Core.DrawLib;
-using System;
+﻿using System;
 
 namespace AgOpenGPS.Core
 {
@@ -37,20 +36,9 @@ namespace AgOpenGPS.Core
         // Please use DistanceToLookAt instead
         public double camSetDistance => -2.0 * DistanceToLookAt;
 
-        public void SetLookAt(double lookAtX, double lookAtY, double directionHintInDegrees)
-        {
-            //back the camera up
-            GLW.Translate(0, 0, -DistanceToLookAt);
-
-            GLW.RotateX(PitchInDegrees);
-            GLW.Translate(PanX, PanY);
-
-            if (FollowDirectionHint)
-            {
-                GLW.RotateZ(directionHintInDegrees);
-            }
-            GLW.Translate(-lookAtX, -lookAtY, 0.0);
-        }
+        //SetLookAt() se movió a CameraDrawExtensions
+        //(DrawLib/GuidanceDrawExtensions.cs): era el único uso de GLW acá
+        //(traspaso portabilidad — el modelo queda matemática pura).
 
         // Small steps for accurate zooming (with mousewheel)
         public void ZoomInSmallStep()
