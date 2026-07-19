@@ -33,8 +33,8 @@ namespace AgOpenGPS.Core.ViewModels
 
         public event EventHandler CanExecuteChanged
         {
-            add => CommandManager.RequerySuggested += value;
-            remove => CommandManager.RequerySuggested -= value;
+            add { }
+            remove { }
         }
     }
 
@@ -64,8 +64,8 @@ namespace AgOpenGPS.Core.ViewModels
 
         public event EventHandler CanExecuteChanged
         {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
+            add { }
+            remove { }
         }
 
         public void Execute(object parameter)

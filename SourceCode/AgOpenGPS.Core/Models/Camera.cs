@@ -1,6 +1,5 @@
 ﻿using AgOpenGPS.Core.DrawLib;
 using System;
-using System.Windows.Media.Media3D;
 
 namespace AgOpenGPS.Core
 {

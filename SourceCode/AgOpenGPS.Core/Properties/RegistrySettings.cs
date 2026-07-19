@@ -46,8 +46,11 @@ namespace AgOpenGPS
         // Save() escribe el valor nuevo al JSON sin re-mapear los directorios.
         private static string persistedWorkingDirectory = "Default";
 
-        private static readonly string SettingsPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "aog_settings.json");
+        // En Android u otra plataforma, setear AppBasePath ANTES de Load()
+        // para apuntar a Context.getFilesDir() o equivalente.
+        public static string AppBasePath { get; set; } = AppDomain.CurrentDomain.BaseDirectory;
+
+        private static string SettingsPath => Path.Combine(AppBasePath, "aog_settings.json");
 
         private static void SaveJson()
         {
@@ -146,8 +149,9 @@ namespace AgOpenGPS
             DeleteLegacyRegistry();
         }
 
-        #region Legacy Windows Registry (eliminar en port a otra plataforma)
+        #region Legacy Windows Registry (solo Windows — se excluye en Android/netstandard)
 
+#if NETFRAMEWORK || WINDOWS
         private static void TryMigrateFromLegacyRegistry()
         {
             try
@@ -182,6 +186,10 @@ namespace AgOpenGPS
             }
             catch { }
         }
+#else
+        private static void TryMigrateFromLegacyRegistry() { }
+        private static void DeleteLegacyRegistry() { }
+#endif
 
         #endregion
 

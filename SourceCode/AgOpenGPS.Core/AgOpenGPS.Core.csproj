@@ -18,9 +18,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="PresentationCore" />
     <Reference Include="System.Net.Http" />
-    <!-- Color/Point/Size de Settings (System.Drawing.Primitives en .NET moderno) -->
+    <!-- Color/Point/Size de Settings + Texture2D/BingMap (Fase 2 Android:
+         reemplazar por ColorRgba/SkiaSharp y eliminar esta referencia) -->
     <Reference Include="System.Drawing" />
   </ItemGroup>
 
