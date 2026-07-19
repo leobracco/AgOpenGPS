@@ -6,14 +6,12 @@ using System.Windows.Forms;
 using System.Linq;
 using System.Globalization;
 using AgLibrary.Logging;
+using AgroParallel.Services;
 
 namespace AgIO
 {
     public partial class FormLoop
     {
-        //B5,62,7F,PGN_ID,Length
-        private int totalHeaderByteCount = 5;
-
         public static string portNameGPS = "***";
         public static int baudRateGPS = 4800;
 
@@ -69,10 +67,30 @@ namespace AgIO
         //serial port Arduino is connected to
         public SerialPort spMachineModule = new SerialPort(portNameMachineModule, baudRateMachineModule, Parity.None, 8, StopBits.One);
 
-        //lists for parsing incoming bytes
-        private byte[] pgnSteerModule = new byte[22];
-        private byte[] pgnMachineModule = new byte[22];
-        private byte[] pgnIMU = new byte[22];
+        // Framing PGN byte a byte: máquina de estados portable (netstandard),
+        // una instancia por puerto. Antes estaba triplicada acá.
+        private readonly PgnFrameParser pgnParserSteer = new PgnFrameParser();
+        private readonly PgnFrameParser pgnParserMachine = new PgnFrameParser();
+        private readonly PgnFrameParser pgnParserIMU = new PgnFrameParser();
+
+        private void InitPgnFrameParsers()
+        {
+            pgnParserSteer.OnFrame += frame =>
+            {
+                try { BeginInvoke((MethodInvoker)(() => ReceiveSteerModulePort(frame))); }
+                catch { }
+            };
+            pgnParserMachine.OnFrame += frame =>
+            {
+                try { BeginInvoke((MethodInvoker)(() => ReceiveMachineModulePort(frame))); }
+                catch { }
+            };
+            pgnParserIMU.OnFrame += frame =>
+            {
+                try { BeginInvoke((MethodInvoker)(() => ReceiveIMUPort(frame))); }
+                catch { }
+            };
+        }
 
         #region IMUSerialPort //--------------------------------------------------------------------
         private void ReceiveIMUPort(byte[] Data)
@@ -184,110 +202,22 @@ namespace AgIO
         {
             if (spIMU.IsOpen)
             {
-                byte[] ByteList;
-                ByteList = pgnIMU;
-
                 try
                 {
                     if (spIMU.BytesToRead > 100)
                     {
                         spIMU.DiscardInBuffer();
+                        pgnParserIMU.Reset();
                         return;
                     }
 
-                    byte a;
-
                     int aas = spIMU.BytesToRead;
-
                     for (int i = 0; i < aas; i++)
-                    {
-                        a = (byte)spIMU.ReadByte();
-
-                        switch (ByteList[21])
-                        {
-                            case 0: //find 0x80
-                                {
-                                    if (a == 128) ByteList[ByteList[21]++] = a;
-                                    else ByteList[21] = 0;
-                                    break;
-                                }
-
-                            case 1:  //find 0x81   
-                                {
-                                    if (a == 129) ByteList[ByteList[21]++] = a;
-                                    else
-                                    {
-                                        if (a == 181)
-                                        {
-                                            ByteList[21] = 0;
-                                            ByteList[ByteList[21]++] = a;
-                                        }
-                                        else ByteList[21] = 0;
-                                    }
-                                    break;
-                                }
-
-                            case 2: //Source Address (7F)
-                                {
-                                    if (a < 128 && a > 120)
-                                        ByteList[ByteList[21]++] = a;
-                                    else ByteList[21] = 0;
-                                    break;
-                                }
-
-                            case 3: //PGN ID
-                                {
-                                    ByteList[ByteList[21]++] = a;
-                                    break;
-                                }
-
-                            case 4: //Num of data bytes
-                                {
-                                    ByteList[ByteList[21]++] = a;
-                                    break;
-                                }
-
-                            default: //Data load and Checksum
-                                {
-                                    if (ByteList[21] > 4)
-                                    {
-                                        int length = ByteList[4] + totalHeaderByteCount;
-                                        if ((ByteList[21]) < length)
-                                        {
-                                            ByteList[ByteList[21]++] = a;
-                                            break;
-                                        }
-                                        else
-                                        {
-                                            //crc
-                                            int CK_A = 0;
-                                            for (int j = 2; j < length; j++)
-                                            {
-                                                CK_A = CK_A + ByteList[j];
-                                            }
-
-                                            //if checksum matches finish and update main thread
-                                            if (a == (byte)(CK_A))
-                                            {
-                                                length++;
-                                                ByteList[ByteList[21]++] = (byte)CK_A;
-                                                BeginInvoke((MethodInvoker)(() => ReceiveIMUPort(ByteList.Take(length).ToArray())));
-                                            }
-
-                                            //clear out the current pgn
-                                            ByteList[21] = 0;
-                                            return;
-                                        }
-                                    }
-
-                                    break;
-                                }
-                        }
-                    }
+                        pgnParserIMU.ProcessByte((byte)spIMU.ReadByte());
                 }
                 catch
                 {
-                    ByteList[21] = 0;
+                    pgnParserIMU.Reset();
                 }
             }
         }
@@ -389,110 +319,22 @@ namespace AgIO
         {
             if (spSteerModule.IsOpen)
             {
-                byte[] ByteList;
-                ByteList = pgnSteerModule;
-
                 try
                 {
                     if (spSteerModule.BytesToRead > 100)
                     {
                         spSteerModule.DiscardInBuffer();
+                        pgnParserSteer.Reset();
                         return;
                     }
 
-                    byte a;
-
                     int aas = spSteerModule.BytesToRead;
-
                     for (int i = 0; i < aas; i++)
-                    {
-                        a = (byte)spSteerModule.ReadByte();
-
-                        switch (ByteList[21])
-                        {
-                            case 0: //find 0x80
-                                {
-                                    if (a == 128) ByteList[ByteList[21]++] = a;
-                                    else ByteList[21] = 0;
-                                    break;
-                                }
-
-                            case 1:  //find 0x81   
-                                {
-                                    if (a == 129) ByteList[ByteList[21]++] = a;
-                                    else
-                                    {
-                                        if (a == 181)
-                                        {
-                                            ByteList[21] = 0;
-                                            ByteList[ByteList[21]++] = a;
-                                        }
-                                        else ByteList[21] = 0;
-                                    }
-                                    break;
-                                }
-
-                            case 2: //Source Address (7F)
-                                {
-                                    if (a < 128 && a > 120)
-                                        ByteList[ByteList[21]++] = a;
-                                    else ByteList[21] = 0;
-                                    break;
-                                }
-
-                            case 3: //PGN ID
-                                {
-                                    ByteList[ByteList[21]++] = a;
-                                    break;
-                                }
-
-                            case 4: //Num of data bytes
-                                {
-                                    ByteList[ByteList[21]++] = a;
-                                    break;
-                                }
-
-                            default: //Data load and Checksum
-                                {
-                                    if (ByteList[21] > 4)
-                                    {
-                                        int length = ByteList[4] + totalHeaderByteCount;
-                                        if ((ByteList[21]) < length)
-                                        {
-                                            ByteList[ByteList[21]++] = a;
-                                            break;
-                                        }
-                                        else
-                                        {
-                                            //crc
-                                            int CK_A = 0;
-                                            for (int j = 2; j < length; j++)
-                                            {
-                                                CK_A = CK_A + ByteList[j];
-                                            }
-
-                                            //if checksum matches finish and update main thread
-                                            if (a == (byte)(CK_A))
-                                            {
-                                                length++;
-                                                ByteList[ByteList[21]++] = (byte)CK_A;
-                                                BeginInvoke((MethodInvoker)(() => ReceiveSteerModulePort(ByteList.Take(length).ToArray())));
-                                            }
-
-                                            //clear out the current pgn
-                                            ByteList[21] = 0;
-                                            return;
-                                        }
-                                    }
-
-                                    break;
-                                }
-                        }
-                    }
+                        pgnParserSteer.ProcessByte((byte)spSteerModule.ReadByte());
                 }
                 catch (Exception)
                 {
-                    ByteList[21] = 0;
+                    pgnParserSteer.Reset();
                 }
             }
         }
@@ -601,110 +443,22 @@ namespace AgIO
         {
             if (spMachineModule.IsOpen)
             {
-                byte[] ByteList;
-                ByteList = pgnMachineModule;
-
                 try
                 {
                     if (spMachineModule.BytesToRead > 100)
                     {
                         spMachineModule.DiscardInBuffer();
+                        pgnParserMachine.Reset();
                         return;
                     }
 
-                    byte a;
-
                     int aas = spMachineModule.BytesToRead;
-
                     for (int i = 0; i < aas; i++)
-                    {
-                        a = (byte)spMachineModule.ReadByte();
-
-                        switch (ByteList[21])
-                        {
-                            case 0: //find 0x80
-                                {
-                                    if (a == 128) ByteList[ByteList[21]++] = a;
-                                    else ByteList[21] = 0;
-                                    break;
-                                }
-
-                            case 1:  //find 0x81   
-                                {
-                                    if (a == 129) ByteList[ByteList[21]++] = a;
-                                    else
-                                    {
-                                        if (a == 181)
-                                        {
-                                            ByteList[21] = 0;
-                                            ByteList[ByteList[21]++] = a;
-                                        }
-                                        else ByteList[21] = 0;
-                                    }
-                                    break;
-                                }
-
-                            case 2: //Source Address (7F)
-                                {
-                                    if (a < 128 && a > 120)
-                                        ByteList[ByteList[21]++] = a;
-                                    else ByteList[21] = 0;
-                                    break;
-                                }
-
-                            case 3: //PGN ID
-                                {
-                                    ByteList[ByteList[21]++] = a;
-                                    break;
-                                }
-
-                            case 4: //Num of data bytes
-                                {
-                                    ByteList[ByteList[21]++] = a;
-                                    break;
-                                }
-
-                            default: //Data load and Checksum
-                                {
-                                    if (ByteList[21] > 4)
-                                    {
-                                        int length = ByteList[4] + totalHeaderByteCount;
-                                        if ((ByteList[21]) < length)
-                                        {
-                                            ByteList[ByteList[21]++] = a;
-                                            break;
-                                        }
-                                        else
-                                        {
-                                            //crc
-                                            int CK_A = 0;
-                                            for (int j = 2; j < length; j++)
-                                            {
-                                                CK_A = CK_A + ByteList[j];
-                                            }
-
-                                            //if checksum matches finish and update main thread
-                                            if (a == (byte)(CK_A))
-                                            {
-                                                ByteList[ByteList[21]++] = (byte)CK_A;
-                                                length++;
-                                                BeginInvoke((MethodInvoker)(() => ReceiveMachineModulePort(ByteList.Take(length).ToArray())));
-                                            }
-
-                                            //clear out the current pgn
-                                            ByteList[21] = 0;
-                                            return;
-                                        }
-                                    }
-
-                                    break;
-                                }
-                        }
-                    }
+                        pgnParserMachine.ProcessByte((byte)spMachineModule.ReadByte());
                 }
                 catch (Exception)
                 {
-                    ByteList[21] = 0;
+                    pgnParserMachine.Reset();
                 }
             }
         }

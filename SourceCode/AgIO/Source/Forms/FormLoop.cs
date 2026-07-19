@@ -81,6 +81,9 @@ namespace AgIO
             // FormLoop es el host (ver FormLoop.NmeaBridge.cs).
             nmea = new CNmeaParser(this);
 
+            // Framing PGN de puertos serie → parser portable (netstandard).
+            InitPgnFrameParsers();
+
             // Modo demonio: CoreX corre sin ventana. Este form queda como host
             // invisible del message loop (los puertos serie, UDP, MQTT y los
             // timers dependen de él); toda la operación es vía web (:5181).
