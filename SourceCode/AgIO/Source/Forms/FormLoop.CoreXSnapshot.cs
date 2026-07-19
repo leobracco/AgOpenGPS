@@ -11,11 +11,9 @@ namespace AgIO
     {
         private void UpdateCoreXSnapshot()
         {
-            List<string> topics;
-            lock (_mqttLock)
-            {
-                topics = _mqttRecentTopics.Take(20).ToList();
-            }
+            EnsureMqttService();
+            List<string> topics = _mqttBrokerService?.GetRecentTopics(20)
+                ?? new List<string>();
 
             // Capturas controladas por la web (sentencias NMEA, monitor UDP,
             // monitor GPS crudo): mientras la página correspondiente pollee su
@@ -114,12 +112,11 @@ namespace AgIO
                 },
                 Mqtt = new CoreXMqttDto
                 {
-                    Running = _mqttRunning,
-                    Port = _mqttPort,
-                    Clients = _mqttClientsConnected,
-                    Messages = _mqttMessagesTotal,
-                    UptimeSec = _mqttRunning
-                        ? (long)(DateTime.Now - _mqttStartTime).TotalSeconds : 0,
+                    Running = _mqttBrokerService?.IsRunning ?? false,
+                    Port = _mqttBrokerService?.Port ?? _mqttPort,
+                    Clients = _mqttBrokerService?.ClientsConnected ?? 0,
+                    Messages = _mqttBrokerService?.MessagesTotal ?? 0,
+                    UptimeSec = 0, // simplificado — el servicio no expone start time
                     RecentTopics = topics,
                 },
                 Modules = new CoreXModulesDto
