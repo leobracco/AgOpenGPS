@@ -242,7 +242,7 @@
     checks.push({
       state: a.running ? (wd < 100 ? 'ok' : 'warn') : 'fail',
       label: 'Autosteer loop',
-      detail: a.running ? ('Watchdog PGN 254 = ' + wd + (wd >= 100 ? ' (AOG no manda guidance)' : '')) : 'No está corriendo'
+      detail: a.running ? ('Watchdog PGN 254 = ' + wd + (wd >= 100 ? ' (PilotX no manda guidance)' : '')) : 'No está corriendo'
     });
     checks.push({
       state: 'ok',

@@ -815,12 +815,12 @@ namespace AgOpenGPS
                             WorkingDirectory = Path.GetDirectoryName(strPath)
                         };
                         Process proc = Process.Start(processInfo);
-                        Log.EventWriter("AgIO Started");
+                        Log.EventWriter("CoreX Started");
                     }
                     catch
                     {
-                        TimedMessageBox(2000, "No File Found", "Can't Find AgIO");
-                        Log.EventWriter("Can't Find AgIO, File not Found");
+                        TimedMessageBox(2000, "Archivo no encontrado", "No se encuentra CoreX");
+                        Log.EventWriter("Can't Find CoreX, File not Found");
                     }
                 }
             }

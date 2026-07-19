@@ -528,7 +528,7 @@ Owner = quién la está tocando AHORA (para evitar choques en el mismo `.html`).
 | flowx      | 🟡 | Codex | IDs congelados ✅ documentados; Codex arranca rediseño |
 | stormx     | ⬜ | — | IDs congelados ✅; KPIs en "—" hasta firmware MQTT |
 | piloto     | ⬜ | — | canvas mapa live + HUD + monitor siembra |
-| hub        | ⬜ | — | landing del WebView |
+| hub        | ✅ | — | landing ya en tokens (pills+KPIs+overlays); revisada 2026-07-19 |
 | vehiculo   | ⬜ | — | |
 | herramienta| ⬜ | — | |
 | vistax     | ⬜ | — | |
@@ -1543,3 +1543,16 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   live: recA, status (recording=true), pause/resume, cancel; createAB
   45° (5 tracks), use. Launchers FormNewProfile/FormLoadProfile apuntan
   a perfiles.html (Hub, ya migrado).
+- [2026-07-19] [Claude] Pasada nativa de tamaños de widgets flotantes:
+  ApplyFloating (FormAgroParallelHubWebView2) ahora escala los widgets
+  GRANDES (>50% del area del mapa) proporcional al area disponible
+  (ref 1440x900, piso 0.6) y capea a 78%/85% del mapa; los chicos
+  (ab-rapido, banderas) quedan tal cual. Los resize:WxH en caliente NO
+  se escalan (pixeles exactos del HTML). En escritorio no cambia nada.
+  Codex: no compensar tamanos desde CSS — la ventana ya llega escalada.
+- [2026-07-19] [Claude] Barrido de branding en textos visibles: AOG/AgIO
+  -> PilotX/CoreX en herramienta.html (subtitle), nodo-detalle.html
+  (diagnostico), corex-ecu.js (watchdog), flowx.js (sin estado), 
+  sectionx.js (broker caido) y TimedMessageBox de arranque de CoreX en
+  FormGPS. Solo strings visibles; IDs, campos de API (seccion_aog,
+  /api/aog/*) y nombres de codigo intactos.

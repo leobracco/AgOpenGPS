@@ -483,7 +483,7 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       var s = await r.json();
       if (!s.connected) {
-        setStatusChip('red', 'broker caído', 'No hay conexión con el broker MQTT. Revisar CoreX/AgIO.');
+        setStatusChip('red', 'broker caído', 'No hay conexión con el broker MQTT. Revisar CoreX.');
       } else if (!s.running || (s.nodo_count | 0) === 0) {
         setStatusChip('yellow', 'sin nodos', 'Bridge conectado pero no hay nodos configurados todavía.');
       } else if (s.last_publish_ms_ago != null && s.last_publish_ms_ago < 3000) {

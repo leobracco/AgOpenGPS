@@ -651,7 +651,7 @@
   }
   function refreshAogHints() {
     var num = getCurrentNumSecAog();
-    if (aogNumSec) aogNumSec.textContent = num > 0 ? String(num) : '— (sin estado AOG)';
+    if (aogNumSec) aogNumSec.textContent = num > 0 ? String(num) : '— (sin estado de PilotX)';
     if (anchoHint && aogSnap && Number(aogSnap.toolWidth) > 0) {
       anchoHint.textContent = 'PilotX reporta ancho de implemento: ' +
                               Number(aogSnap.toolWidth).toFixed(2) + ' m';
