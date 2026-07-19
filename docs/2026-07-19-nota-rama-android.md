@@ -62,3 +62,39 @@ los servicios que extraigan de FormGPS son los que reemplazan los stubs de
 - Esta sesión (taller): NO toca `GPS/Forms/` mientras tanto — sigue en
   visual/Hub/Android shell. Coordinación por esta nota y la bitácora
   `COORDINACION-UI.md`.
+
+## Cómo VER la interface nueva completa (setup en esa PC)
+
+La UI nueva NO es WinForms: es el **Hub HTML servido por el propio
+PilotX.exe en `http://127.0.0.1:5180`** + el menú flotante + las barras
+espejo (widgets WebView2 dockeados sobre el mapa). Para verla entera:
+
+1. **Base**: `git fetch` y partir del HEAD de `codex/pilotx-ui-new`
+   (todo lo de hoy está pusheado ahí).
+2. **Build completo**: `powershell -ExecutionPolicy Bypass -File build.ps1`
+   desde la raíz del repo. Compila PilotX + CoreX y **copia el wwwroot a
+   `Build/`** — esto es clave: PilotX RELEASE **cachea los estáticos en
+   RAM al arrancar**; si tocás HTML/JS/CSS no se ve nada hasta rebuild +
+   relanzar.
+3. **Puertos, ANTES de lanzar** (trampas conocidas, `netstat -ano`):
+   - :5180 → un python.exe suelto le gana el bind a PilotX.
+   - :8888 UDP → ModSim.exe del AOG 6.8.3 stock se lo roba a CoreX.
+   - :1883 → un node server.js legacy pelea con el broker de CoreX.
+4. **Lanzar `Build\PilotX.exe`** (lanza CoreX solo; CoreX corre sin
+   ventana: broker :1883 + su dashboard en :5181). Requiere el runtime
+   **WebView2** instalado (Win11 lo trae).
+5. **Primera corrida**: pide crear perfil de vehículo (diálogo nativo).
+   Con el perfil creado, prender el **simulador** para ver guiado, mapa
+   y las barras con datos vivos. Para FieldTools hace falta abrir un lote.
+6. **Dónde mirar**:
+   - Pantalla principal: mapa GL + menú flotante (reemplaza el menú
+     clásico de AOG) + barras espejo HTML (barra-superior/abajo/derecha,
+     menú izquierda) + widgets flotantes por botón (tracks, cabecera,
+     datos-lote/gps...) — ahora escalados al área del mapa.
+   - Hub completo navegable también desde un browser común:
+     `http://localhost:5180/` (68 páginas; útil para inspeccionar sin
+     WebView). Dashboard CoreX: `http://localhost:5181/`.
+   - El overlay VistaX/QuantiX/FlowX se auto-abre al activar un
+     implemento con nodos de ese perfil (o toggle en el Hub).
+7. **Android**: el mismo Hub empaquetado — `SourceCode/PilotX.Android/`
+   (README con pasos de build/instalación del APK).
