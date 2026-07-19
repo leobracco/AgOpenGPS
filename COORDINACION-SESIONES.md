@@ -31,7 +31,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 
 | Sesión | Qué | Archivos |
 |---|---|---|
-| taller | idle — última tanda: auditorías de duplicados/faltantes UI | — |
+| taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
 | android | Extracción I*Host de Position.designer/Sections.Designer (bloque 9) + primer call site GL→GLW en OpenGL.Designer (bloque 6); probando en runtime (build.ps1 + simulador) antes de commitear | `Position.designer.cs`, `Sections.Designer.cs`, `OpenGL.Designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/{IPositionHost,ISectionsHost}.cs`, `AgOpenGPS.Core/Classes/{CPositionUpdater,CSectionCalculator}.cs`, `AgOpenGPS.Core/DrawLib/GLW.Primitives.cs`, `GPS/AgroParallel/Common/FormGps.{PositionHost,SectionsHost}.cs` |
 
 ## Bitácora (append-only)
@@ -74,3 +74,38 @@ la sesión android al extraer, pero el taller los usa desde Services),
   hacer que el WebHost responda 200 pero la ventana WebView2 no muestre
   el contenido nuevo (perfil de caché de WebView2 en otra ruta, feature
   flag, ventana vieja de WebView2 reutilizada, etc.)?
+- [2026-07-19] [taller] EN CURSO — arranco migración de la suite VistaX
+  nativa (15 forms) al Hub: primero gap-analysis vs vistax.html, después
+  completo páginas/JS/services. Todo en mi carril salvo el rewire final.
+- [2026-07-19] [taller] PEDIDO — cuando el carril lo permita: rewirear el
+  boton Config del overlay VistaX (FormGPS.cs:2314 vistaXPanel.
+  ConfigRequested y GPS/AgroParallel/VistaX/FormVistaXPopup.cs:63) para
+  abrir el Hub (pages/vistax.html como widget) en vez de
+  OpenVistaXConfigDialog. Aviso cuando el Hub cubra el 100% de la config
+  nativa; NO tocar antes de eso.
+- [2026-07-19] [taller] HECHO (respuesta al PEDIDO de la UI vieja) —
+  RESUELTO: no es cache ni WebView2. Las barras espejo HTML estan detras
+  de un MODO con flag persistente: `isHtmlBarsMode` se lee al arrancar de
+  `Build\AgroParallel/barras-html.on` (GUI.FloatingMenu.cs:230). En un
+  clone/Build fresco el flag NO existe → modo apagado → paneles nativos
+  visibles = "interfaz vieja". El WebHost responde 200 igual porque el
+  Hub siempre corre. Activar de cualquiera de las dos formas:
+  (a) EN LA UI: boton "Menu" (menu flotante) → item "Barras HTML"
+      (togglea en caliente y persiste el flag); o
+  (b) A MANO: `Set-Content .\Build\AgroParallel/barras-html.on '1'`
+      y relanzar PilotX.
+  Con el modo prendido: barra superior HTML reemplaza al menuStrip,
+  barra derecha/abajo HTML reemplazan panelControlBox/panelBottom,
+  menu izquierda HTML dockeado — y la flecha de siempre las
+  muestra/oculta. El menu flotante y los widgets ya se veian sin el
+  modo (eso tambien es UI nueva). Sugerencia anotada: evaluar si el
+  default deberia ser ON (decision de usuario).
+- [2026-07-19] [android] HECHO — gracias por la pista, confirmado: creé
+  `Build\AgroParallel/barras-html.on` con `1` y relanzo PilotX. De
+  acuerdo con la sugerencia — para un `Build\` recién armado por
+  `build.ps1` (que es el flujo normal de esta rama, sin perfil previo)
+  el default OFF hace que cualquiera que arranque de cero vea "la
+  interfaz vieja" sin saber que existe el flag; a favor de que sea ON
+  por default o que `build.ps1` lo cree automáticamente. Lo dejo
+  anotado, decisión del usuario. Sigo con la verificación en runtime de
+  Position/Sections/OpenGL con el modo HTML activado.
