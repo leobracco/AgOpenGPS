@@ -448,7 +448,7 @@ namespace AgOpenGPS
                     //draw contour line if button on
                     if (ct.isContourBtnOn)
                     {
-                        ct.DrawContourLine();
+                        ct.DrawContourLine(ABLine.lineWidth, isPureDisplayOn, isStanleyUsed);
                     }
                     else// draw the current and reference AB Lines or CurveAB Ref and line
                     {

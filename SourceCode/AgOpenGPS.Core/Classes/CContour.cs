@@ -1,5 +1,4 @@
-﻿using OpenTK.Graphics.OpenGL;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace AgOpenGPS
@@ -17,7 +16,9 @@ namespace AgOpenGPS
 
         public double distanceFromCurrentLinePivot;
 
-        private int A, B, C, stripNum, lastLockPt = int.MaxValue;
+        // stripNum era private; lo lee ContourDrawExtensions (mismo assembly)
+        private int A, B, C, lastLockPt = int.MaxValue;
+        internal int stripNum;
 
         public double abFixHeadingDelta, abHeading;
 
@@ -68,7 +69,8 @@ namespace AgOpenGPS
         }
 
         private double lastSecond;
-        private int pt = 0;
+        // era private; lo lee ContourDrawExtensions (mismo assembly)
+        internal int pt = 0;
 
         public void BuildContourGuidanceLine(vec3 pivot)
         {
@@ -596,71 +598,10 @@ namespace AgOpenGPS
             isContourOn = false;
         }
 
-        //draw the red follow me line
-        public void DrawContourLine()
-        {
-            int ptCount = ctList.Count;
-            if (ptCount < 2) return;
-            GL.LineWidth(mf.ABLine.lineWidth);
-            GL.Color3(0.98f, 0.2f, 0.980f);
-            GL.Begin(PrimitiveType.LineStrip);
-            for (int h = 0; h < ptCount; h++)
-            {
-                GL.Vertex2(ctList[h].easting, ctList[h].northing);
-            }
-            GL.End();
-
-            GL.PointSize(mf.ABLine.lineWidth);
-            GL.Begin(PrimitiveType.Points);
-
-            GL.Color3(0.87f, 08.7f, 0.25f);
-            for (int h = 0; h < ptCount; h++)
-            {
-                GL.Vertex2(ctList[h].easting, ctList[h].northing);
-            }
-
-            GL.End();
-
-            //Draw the captured ref strip, red if locked
-            if (isLocked)
-            {
-                GL.Color3(0.983f, 0.92f, 0.420f);
-                GL.LineWidth(4);
-            }
-            else
-            {
-                GL.Color3(0.3f, 0.982f, 0.0f);
-                GL.LineWidth(mf.ABLine.lineWidth);
-            }
-
-            if (stripNum > -1)
-            {
-                GL.Begin(PrimitiveType.Points);
-                for (int h = 0; h < stripList[stripNum].Count; h++)
-                {
-                    GL.Vertex2(stripList[stripNum][h].easting, stripList[stripNum][h].northing);
-                }
-                GL.End();
-            }
-
-            GL.Color3(0.35f, 0.30f, 0.90f);
-            GL.PointSize(6.0f);
-            GL.Begin(PrimitiveType.Points);
-            GL.Vertex2(stripList[stripNum][pt].easting, stripList[stripNum][pt].northing);
-            GL.End();
-
-            if (mf.IsPureDisplayOn && distanceFromCurrentLinePivot != 32000 && !mf.IsStanleyUsed)
-            {
-                //Draw lookahead Point
-                GL.PointSize(6.0f);
-                GL.Begin(PrimitiveType.Points);
-
-                GL.Color3(1.0f, 0.95f, 0.095f);
-                GL.Vertex2(goalPointCT.easting, goalPointCT.northing);
-                GL.End();
-                GL.PointSize(1.0f);
-            }
-        }
+        //DrawContourLine() se movió a ContourDrawExtensions
+        //(DrawLib/GuidanceDrawExtensions.cs): era el único uso de OpenTK acá;
+        //lineWidth/isPureDisplayOn/isStanleyUsed entran por parámetro desde
+        //el caller GL (traspaso portabilidad).
 
         //Reset the contour to zip
         public void ResetContour()
