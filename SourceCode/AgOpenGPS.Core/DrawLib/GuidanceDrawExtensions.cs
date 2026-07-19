@@ -781,7 +781,6 @@ namespace AgOpenGPS
 
                 if (Math.Abs(tool.trailingToolToPivotLength) > 1 && mf.CamSetDistance > -100)
                 {
-                    tool.textRotate += (mf.Sim.stepDistance);
                     GL.Color4(1, 1, 1, 0.75);
                     XyCoord rightTire00 = new XyCoord(0.75 + tool.offset, trailingTool + 0.51);
                     XyCoord rightTire11 = new XyCoord(1.4 + tool.offset, trailingTool - 0.51);

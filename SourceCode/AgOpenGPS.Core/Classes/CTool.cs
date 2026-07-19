@@ -46,8 +46,7 @@ namespace AgOpenGPS
 
         public int rpWidth;
 
-        // era private; lo escribe ToolDrawExtensions (mismo assembly)
-        internal double textRotate;
+        //textRotate eliminado: se escribía en DrawTool y no se leía nunca
 
         public Color[] secColors = new Color[16];
 
