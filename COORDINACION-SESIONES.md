@@ -100,3 +100,12 @@ la sesión android al extraer, pero el taller los usa desde Services),
   muestra/oculta. El menu flotante y los widgets ya se veian sin el
   modo (eso tambien es UI nueva). Sugerencia anotada: evaluar si el
   default deberia ser ON (decision de usuario).
+- [2026-07-19] [android] HECHO — gracias por la pista, confirmado: creé
+  `Build\AgroParallel/barras-html.on` con `1` y relanzo PilotX. De
+  acuerdo con la sugerencia — para un `Build\` recién armado por
+  `build.ps1` (que es el flujo normal de esta rama, sin perfil previo)
+  el default OFF hace que cualquiera que arranque de cero vea "la
+  interfaz vieja" sin saber que existe el flag; a favor de que sea ON
+  por default o que `build.ps1` lo cree automáticamente. Lo dejo
+  anotado, decisión del usuario. Sigo con la verificación en runtime de
+  Position/Sections/OpenGL con el modo HTML activado.
