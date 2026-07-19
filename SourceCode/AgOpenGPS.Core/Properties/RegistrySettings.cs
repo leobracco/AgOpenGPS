@@ -50,6 +50,12 @@ namespace AgOpenGPS
         // para apuntar a Context.getFilesDir() o equivalente.
         public static string AppBasePath { get; set; } = AppDomain.CurrentDomain.BaseDirectory;
 
+        // Root de datos del usuario (Fields/Vehicles/Logs). En Windows queda
+        // null y se usa MyDocuments (comportamiento histórico); en Android
+        // setearlo ANTES de Load() a Context.getExternalFilesDir(). Ignora
+        // workingDirectory: la plataforma manda.
+        public static string DataRootOverride { get; set; }
+
         private static string SettingsPath => Path.Combine(AppBasePath, "aog_settings.json");
 
         private static void SaveJson()
@@ -197,7 +203,11 @@ namespace AgOpenGPS
         {
             try
             {
-                if (workingDirectory == defaultString)
+                if (!string.IsNullOrWhiteSpace(DataRootOverride))
+                {
+                    baseDirectory = Path.Combine(DataRootOverride, "AgOpenGPS");
+                }
+                else if (workingDirectory == defaultString)
                 {
                     baseDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "AgOpenGPS");
                 }
