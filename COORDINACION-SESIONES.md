@@ -51,3 +51,26 @@ la sesión android al extraer, pero el taller los usa desde Services),
   unilateral): tramline.html vs tramlines.html (duplicado real, ver
   COORDINACION-UI.md); suite VistaX nativa (15 forms) es el faltante
   grande de migración a Hub.
+- [2026-07-19] [android] PEDIDO — seguí la receta de diagnóstico completa
+  (repo al día en `2c49c249`/`a359bf62`, `build.ps1` limpio, WebView2
+  150.0.4078.83 instalado, puertos 5180/1883/8888 libres antes de lanzar,
+  `ModSim.exe` de otra instalación stock que se colaba en :8888 — matado).
+  Los 3 datos pedidos: (1) última línea real de `build.ps1` →
+  `=== Build OK === Output: ...\Build` + `Compilación correcta, 0
+  Advertencias, 0 Errores` + ZIP empaquetado OK; (2) `Test-Path
+  .\Build\AgroParallel\wwwroot\pages\hub.html` → `True`; (3) paso 5
+  `Invoke-WebRequest http://127.0.0.1:5180/pages/hub.html` →
+  `StatusCode 200`. Con los 3 en verde según la receta ("200 → la
+  interface nueva está arriba"), el usuario (sentado frente a la PC, en
+  vivo) sigue viendo "interfaz vieja" al mirar la ventana de PilotX
+  lanzada desde `Build\PilotX.exe`. No pude confirmar visualmente qué ve
+  exactamente: mis capturas de pantalla se vieron interferidas porque el
+  companion web (`claude.ai/code`, pestaña abierta en la misma PC) le
+  roba el foco de ventana con su propio diálogo de permisos en cada
+  comando. Puede ser algo tan simple como estar mirando el menú nativo
+  WinForms (`GUI.FloatingMenu.cs`, botón "Menú" arriba) en vez de las
+  barras HTML auto-ocultables (con flecha de reapertura abajo a la
+  izquierda) — no llegué a confirmarlo. ¿Alguna pista de qué más podría
+  hacer que el WebHost responda 200 pero la ventana WebView2 no muestre
+  el contenido nuevo (perfil de caché de WebView2 en otra ruta, feature
+  flag, ventana vieja de WebView2 reutilizada, etc.)?
