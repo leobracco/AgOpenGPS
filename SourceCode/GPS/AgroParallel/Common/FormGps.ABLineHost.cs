@@ -34,7 +34,7 @@ namespace AgOpenGPS
         vec2 IABLineHost.YouTurnGoalPoint => yt.goalPointYT;
         vec2 IABLineHost.YouTurnRadiusPoint => yt.radiusPointYT;
         double IABLineHost.YouTurnPpRadius => yt.ppRadiusYT;
-        void IABLineHost.DrawYouTurn() => yt.DrawYouTurn();
+        void IABLineHost.DrawYouTurn() => yt.DrawYouTurn(ABLine.lineWidth);
 
         double IABLineHost.SideHillCompFactor => gyd.sideHillCompFactor;
         void IABLineHost.StanleyGuidanceABLine(vec3 curPtA, vec3 curPtB, vec3 pivot, vec3 steer)

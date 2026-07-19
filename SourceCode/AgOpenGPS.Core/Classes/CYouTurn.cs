@@ -1,5 +1,4 @@
-﻿using OpenTK.Graphics.OpenGL;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace AgOpenGPS
@@ -2908,27 +2907,8 @@ namespace AgOpenGPS
             }
         }
 
-        //Duh.... What does this do....
-        public void DrawYouTurn()
-        {
-            if (ytList.Count < 3) return;
-
-            GL.PointSize(mf.ABLine.lineWidth + 2);
-
-            if (isYouTurnTriggered)
-                GL.Color3(0.95f, 0.5f, 0.95f);
-            else if (isOutOfBounds)
-                GL.Color3(0.9495f, 0.395f, 0.325f);
-            else
-                GL.Color3(0.395f, 0.925f, 0.30f);
-
-            GL.Begin(PrimitiveType.Points);
-            for (int i = 0; i < ytList.Count; i++)
-            {
-                GL.Vertex2(ytList[i].easting, ytList[i].northing);
-            }
-            GL.End();
-        }
+        //DrawYouTurn() se movió a YouTurnDrawExtensions (DrawLib/GuidanceDrawExtensions.cs):
+        //era el único uso de OpenTK acá (traspaso portabilidad).
 
         public class CClose
         {

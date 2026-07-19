@@ -1,5 +1,4 @@
 ﻿using AgOpenGPS.Core.Models;
-using OpenTK.Graphics.OpenGL;
 using System;
 using System.Collections.Generic;
 
@@ -597,50 +596,9 @@ namespace AgOpenGPS
             mf.GuidanceLineSteerAngle = (short)(steerAngleRP * 100);
         }
 
-        public void DrawRecordedLine()
-        {
-            int ptCount = recList.Count;
-            if (ptCount < 1) return;
-            GL.LineWidth(1);
-            GL.Color3(0.98f, 0.92f, 0.460f);
-            GL.Begin(PrimitiveType.LineStrip);
-            for (int h = 0; h < ptCount; h++)
-            {
-                GL.Vertex2(recList[h].easting, recList[h].northing);
-            }
-            GL.End();
-
-            if (!isRecordOn)
-            {
-                //Draw lookahead Point
-                GL.PointSize(16.0f);
-                GL.Begin(PrimitiveType.Points);
-
-                //GL.Color(1.0f, 1.0f, 0.25f);
-                //GL.Vertex(rEast, rNorth, 0.0);
-
-                GL.Color3(1.0f, 0.5f, 0.95f);
-                GL.Vertex2(recList[currentPositonIndex].easting, recList[currentPositonIndex].northing);
-                GL.End();
-                GL.PointSize(1.0f);
-            }
-        }
-
-        public void DrawDubins()
-        {
-            if (shuttleDubinsList.Count > 1)
-            {
-                //GL.LineWidth(2);
-                GL.PointSize(2);
-                GL.Color3(0.298f, 0.96f, 0.2960f);
-                GL.Begin(PrimitiveType.Points);
-                for (int h = 0; h < shuttleDubinsList.Count; h++)
-                {
-                    GL.Vertex2(shuttleDubinsList[h].easting, shuttleDubinsList[h].northing);
-                }
-                GL.End();
-            }
-        }
+        //DrawRecordedLine() y DrawDubins() se movieron a RecordedPathDrawExtensions
+        //(DrawLib/GuidanceDrawExtensions.cs): eran el único uso de OpenTK acá
+        //(traspaso portabilidad).
     }
 }
 

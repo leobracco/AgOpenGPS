@@ -368,7 +368,7 @@ namespace AgOpenGPS
                     _drawSectionsTimer?.Stop();
 
                     _drawTramTimer?.Start();
-                    if (tram.displayMode != 0) tram.DrawTram();
+                    if (tram.displayMode != 0) tram.DrawTram(camera.camSetDistance);
                     _drawTramTimer?.Stop();
 
                     GL.PolygonMode(MaterialFace.Front, PolygonMode.Fill);

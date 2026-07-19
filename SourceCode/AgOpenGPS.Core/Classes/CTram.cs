@@ -1,5 +1,4 @@
 using AgOpenGPS.Core.Models;
-using OpenTK.Graphics.OpenGL;
 using System;
 using System.Collections.Generic;
 
@@ -63,75 +62,9 @@ namespace AgOpenGPS
             if (Properties.Settings.Default.setTool_isTramOuterInverted) isOuter = !isOuter;
         }
 
-        public void DrawTram()
-        {
-            if (mf.CamSetDistance > -500) GL.LineWidth(10);
-            else GL.LineWidth(6);
-
-            GL.Color4(0, 0, 0, alpha);
-
-            if (displayMode.IncludesFillTracks())
-            {
-                if (tramList.Count > 0)
-                {
-                    for (int i = 0; i < tramList.Count; i++)
-                    {
-                        GL.Begin(PrimitiveType.LineStrip);
-                        for (int h = 0; h < tramList[i].Count; h++)
-                        {
-                            GL.Vertex2(tramList[i][h].easting, tramList[i][h].northing);
-                        }
-                        GL.End();
-                    }
-                }
-            }
-
-            if (displayMode.IncludesBoundaryTracks())
-            {
-                if (tramBndOuterArr.Count > 0)
-                {
-                    GL.Begin(PrimitiveType.LineLoop);
-                    for (int h = 0; h < tramBndOuterArr.Count; h++) GL.Vertex3(tramBndOuterArr[h].easting, tramBndOuterArr[h].northing, 0);
-                    GL.End();
-                    GL.Begin(PrimitiveType.LineLoop);
-                    for (int h = 0; h < tramBndInnerArr.Count; h++) GL.Vertex3(tramBndInnerArr[h].easting, tramBndInnerArr[h].northing, 0);
-                    GL.End();
-                }
-            }
-
-            if (mf.CamSetDistance > -500) GL.LineWidth(4);
-            else GL.LineWidth(2);
-
-            GL.Color4(0.930f, 0.72f, 0.73530f, alpha);
-
-            if (displayMode.IncludesFillTracks())
-            {
-                if (tramList.Count > 0)
-                {
-                    for (int i = 0; i < tramList.Count; i++)
-                    {
-                        GL.Begin(PrimitiveType.LineStrip);
-                        for (int h = 0; h < tramList[i].Count; h++)
-                        {
-                            GL.Vertex2(tramList[i][h].easting, tramList[i][h].northing);
-                        }
-                        GL.End();
-                    }
-                }
-            }
-            if (displayMode.IncludesBoundaryTracks())
-            {
-                if (tramBndOuterArr.Count > 0)
-                {
-                    GL.Begin(PrimitiveType.LineLoop);
-                    for (int h = 0; h < tramBndOuterArr.Count; h++) GL.Vertex3(tramBndOuterArr[h].easting, tramBndOuterArr[h].northing, 0);
-                    GL.End();
-                    GL.Begin(PrimitiveType.LineLoop);
-                    for (int h = 0; h < tramBndInnerArr.Count; h++) GL.Vertex3(tramBndInnerArr[h].easting, tramBndInnerArr[h].northing, 0);
-                    GL.End();
-                }
-            }
-        }
+        //DrawTram() se movió a TramDrawExtensions (DrawLib/GuidanceDrawExtensions.cs):
+        //era el único uso de OpenTK acá; camSetDistance entra por parámetro
+        //desde el caller GL (traspaso portabilidad).
 
         public void BuildTramBnd()
         {
