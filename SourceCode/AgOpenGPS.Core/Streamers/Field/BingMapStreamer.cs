@@ -2,8 +2,6 @@
 using AgOpenGPS.Core.Interfaces;
 using AgOpenGPS.Core.Models;
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 
 namespace AgOpenGPS.Core.Streamers
@@ -57,10 +55,10 @@ namespace AgOpenGPS.Core.Streamers
                 if (hasBingMap)
                 {
                     GeoBoundingBox geoBb = reader.ReadGeoBoundingBox();
-                    Bitmap bitmap = _bitmapStreamer.Read(fieldDirectory);
-                    if (bitmap != null)
+                    byte[] pngBytes = _bitmapStreamer.Read(fieldDirectory);
+                    if (pngBytes != null)
                     {
-                        bingMap = new BingMap(geoBb, bitmap);
+                        bingMap = new BingMap(geoBb, pngBytes);
                     }
                 }
             }
@@ -78,7 +76,7 @@ namespace AgOpenGPS.Core.Streamers
                     writer.WriteBool(true);
                     writer.WriteGeoBoundingBox(bingMap.GeoBoundingBox);
                 }
-                _bitmapStreamer.Write(bingMap.Bitmap, fieldDirectory);
+                _bitmapStreamer.Write(bingMap.PngBytes, fieldDirectory);
             }
             else
             {
@@ -101,25 +99,21 @@ namespace AgOpenGPS.Core.Streamers
             {
             }
 
-            public Bitmap Read(DirectoryInfo fieldDirectory)
+            // IO plano de bytes PNG: sin System.Drawing (portable).
+            public byte[] Read(DirectoryInfo fieldDirectory)
             {
-                Bitmap bitmap = null;
                 FileInfo fileInfo = GetFileInfo(fieldDirectory);
-                if (fileInfo.Exists)
-                {
-                    bitmap = new Bitmap(Image.FromFile(fileInfo.FullName));
-                }
-                return bitmap;
+                return fileInfo.Exists ? File.ReadAllBytes(fileInfo.FullName) : null;
             }
 
-            public void Write(Bitmap bitmap, DirectoryInfo fieldDirectory)
+            public void Write(byte[] pngBytes, DirectoryInfo fieldDirectory)
             {
                 FileInfo fileInfo = GetFileInfo(fieldDirectory);
                 if (fileInfo.Exists)
                 {
                     fileInfo.Delete();
                 }
-                bitmap?.Save(fileInfo.FullName, ImageFormat.Png);
+                if (pngBytes != null) File.WriteAllBytes(fileInfo.FullName, pngBytes);
             }
         }
     }

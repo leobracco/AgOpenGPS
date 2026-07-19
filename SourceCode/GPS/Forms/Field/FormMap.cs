@@ -297,7 +297,14 @@ namespace AgOpenGPS
                 {
                     bitmap = MakeGrayscale3(bitmap);
                 }
-                bingMap = new BingMap(geoBoundingBox, bitmap);
+                //BingMap ahora guarda PNG crudo (modelo portable sin System.Drawing)
+                byte[] pngBytes;
+                using (var ms = new System.IO.MemoryStream())
+                {
+                    bitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                    pngBytes = ms.ToArray();
+                }
+                bingMap = new BingMap(geoBoundingBox, pngBytes);
             }
             return bingMap;
         }

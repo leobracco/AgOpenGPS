@@ -1,5 +1,6 @@
 ﻿using AgOpenGPS.Core.DrawLib;
 using AgOpenGPS.Properties;
+using System.Drawing;
 
 namespace AgOpenGPS.Classes
 {
@@ -22,7 +23,7 @@ namespace AgOpenGPS.Classes
         {
             get
             {
-                if (_tractor == null) _tractor = new Texture2D(null);
+                if (_tractor == null) _tractor = new Texture2D((Bitmap)null);
                 return _tractor;
             }
         }
@@ -31,7 +32,7 @@ namespace AgOpenGPS.Classes
         {
             get
             {
-                if (_harvester == null) _harvester = new Texture2D(null);
+                if (_harvester == null) _harvester = new Texture2D((Bitmap)null);
                 return _harvester;
             }
         }
@@ -40,7 +41,7 @@ namespace AgOpenGPS.Classes
         {
             get
             {
-                if (_articulatedFront == null) _articulatedFront = new Texture2D(null);
+                if (_articulatedFront == null) _articulatedFront = new Texture2D((Bitmap)null);
                 return _articulatedFront;
             }
         }
@@ -49,7 +50,7 @@ namespace AgOpenGPS.Classes
         {
             get
             {
-                if (_articulatedRear == null) _articulatedRear = new Texture2D(null);
+                if (_articulatedRear == null) _articulatedRear = new Texture2D((Bitmap)null);
                 return _articulatedRear;
             }
         }

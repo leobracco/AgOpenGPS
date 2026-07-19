@@ -10,6 +10,10 @@ namespace AgOpenGPS.Core.DrawLib
         {
         }
 
+        public GeoTexture2D(byte[] pngBytes) : base(pngBytes)
+        {
+        }
+
         public void DrawZ(
             GeoCoord u0v0, // The corner (u==0.0 && v==0.0) of the texture will be mapped to this coord
             GeoCoord u1v1, // The corner (u==1.0 && v==1.0) of the texture will be mapped to this coord
