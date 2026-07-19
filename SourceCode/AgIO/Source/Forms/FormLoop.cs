@@ -320,23 +320,8 @@ namespace AgIO
 
             isobusForm.StopAogTaskControllerProcess();
 
-            if (loopBackSocket != null)
-            {
-                try
-                {
-                    loopBackSocket.Shutdown(SocketShutdown.Both);
-                }
-                finally { loopBackSocket.Close(); }
-            }
-
-            if (UDPSocket != null)
-            {
-                try
-                {
-                    UDPSocket.Shutdown(SocketShutdown.Both);
-                }
-                finally { UDPSocket.Close(); }
-            }
+            // Cierra loopback + UDP LAN (servicio portable).
+            udpBridge.Stop();
 
             Process[] processName = Process.GetProcessesByName("GPS_Out");
             if (processName.Length != 0)

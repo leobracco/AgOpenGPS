@@ -11,48 +11,45 @@ using AgroParallel.Services.Abstractions;
 
 namespace AgroParallel.Services
 {
-    public sealed class UdpBridgeService : IUdpBridgeService, IDisposable
+    public sealed class UdpBridgeService : IUdpBridgeService
     {
         private Socket _loopbackSocket;
         private Socket _udpSocket;
         private EndPoint _epLoopback = new IPEndPoint(IPAddress.Any, 0);
         private EndPoint _epUdp = new IPEndPoint(IPAddress.Any, 0);
         private IPEndPoint _epSendLoopback;
-        private IPEndPoint _epSendModule;
         private readonly byte[] _bufferLoop = new byte[1024];
         private readonly byte[] _bufferUdp = new byte[1024];
 
         public bool IsLoopbackConnected { get; private set; }
         public bool IsUdpConnected { get; private set; }
 
-        public event Action<byte[]> OnLoopbackReceived;
-        public event Action<byte[]> OnUdpReceived;
+        public event Action<byte[], IPEndPoint> OnLoopbackReceived;
+        public event Action<byte[], IPEndPoint> OnUdpReceived;
 
-        public void Start(string moduleSubnet, string loopbackIp = "127.0.0.1",
-                          int loopbackListenPort = 17777, int loopbackSendPort = 15555,
-                          int udpListenPort = 9999, int udpSendPort = 8888)
+        public void StartLoopback(string loopbackSendIp = "127.0.0.1",
+                                  int listenPort = 17777, int sendPort = 15555)
         {
-            _epSendLoopback = new IPEndPoint(IPAddress.Parse(loopbackIp), loopbackSendPort);
-            _epSendModule = new IPEndPoint(IPAddress.Parse(moduleSubnet + ".255"), udpSendPort);
-
-            // Loopback socket
+            _epSendLoopback = new IPEndPoint(IPAddress.Parse(loopbackSendIp), sendPort);
             try
             {
                 _loopbackSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 _loopbackSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-                _loopbackSocket.Bind(new IPEndPoint(IPAddress.Loopback, loopbackListenPort));
+                _loopbackSocket.Bind(new IPEndPoint(IPAddress.Loopback, listenPort));
                 _loopbackSocket.BeginReceiveFrom(_bufferLoop, 0, _bufferLoop.Length, SocketFlags.None,
                     ref _epLoopback, LoopbackReceiveCallback, null);
                 IsLoopbackConnected = true;
             }
             catch { IsLoopbackConnected = false; }
+        }
 
-            // UDP LAN socket
+        public void StartUdp(int listenPort = 9999)
+        {
             try
             {
                 _udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-                _udpSocket.Bind(new IPEndPoint(IPAddress.Any, udpListenPort));
+                _udpSocket.Bind(new IPEndPoint(IPAddress.Any, listenPort));
                 _udpSocket.BeginReceiveFrom(_bufferUdp, 0, _bufferUdp.Length, SocketFlags.None,
                     ref _epUdp, UdpReceiveCallback, null);
                 IsUdpConnected = true;
@@ -70,17 +67,6 @@ namespace AgroParallel.Services
             IsUdpConnected = false;
         }
 
-        public void SendToModules(byte[] data)
-        {
-            if (!IsUdpConnected || _udpSocket == null || data == null || data.Length == 0) return;
-            try
-            {
-                _udpSocket.BeginSendTo(data, 0, data.Length, SocketFlags.None,
-                    _epSendModule, SendCallback, _udpSocket);
-            }
-            catch { }
-        }
-
         public void SendToLoopback(byte[] data)
         {
             if (!IsLoopbackConnected || _loopbackSocket == null || data == null || data.Length == 0) return;
@@ -92,14 +78,13 @@ namespace AgroParallel.Services
             catch { }
         }
 
-        // Enviar a un endpoint específico por UDP (para NTRIP broadcast).
-        public void SendUdpTo(byte[] data, IPEndPoint ep)
+        public void SendUdpTo(byte[] data, IPEndPoint endPoint)
         {
-            if (!IsUdpConnected || _udpSocket == null || data == null || data.Length == 0) return;
+            if (!IsUdpConnected || _udpSocket == null || data == null || data.Length == 0 || endPoint == null) return;
             try
             {
                 _udpSocket.BeginSendTo(data, 0, data.Length, SocketFlags.None,
-                    ep, SendCallback, _udpSocket);
+                    endPoint, SendCallback, _udpSocket);
             }
             catch { }
         }
@@ -116,7 +101,7 @@ namespace AgroParallel.Services
                 {
                     var msg = new byte[len];
                     Array.Copy(_bufferLoop, msg, len);
-                    OnLoopbackReceived?.Invoke(msg);
+                    OnLoopbackReceived?.Invoke(msg, _epLoopback as IPEndPoint);
                 }
                 _loopbackSocket.BeginReceiveFrom(_bufferLoop, 0, _bufferLoop.Length, SocketFlags.None,
                     ref _epLoopback, LoopbackReceiveCallback, null);
@@ -133,7 +118,7 @@ namespace AgroParallel.Services
                 {
                     var msg = new byte[len];
                     Array.Copy(_bufferUdp, msg, len);
-                    OnUdpReceived?.Invoke(msg);
+                    OnUdpReceived?.Invoke(msg, _epUdp as IPEndPoint);
                 }
                 _udpSocket.BeginReceiveFrom(_bufferUdp, 0, _bufferUdp.Length, SocketFlags.None,
                     ref _epUdp, UdpReceiveCallback, null);

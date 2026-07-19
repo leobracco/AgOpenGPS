@@ -4,6 +4,10 @@
 //   - Loopback socket (PilotX ↔ CoreX, :17777 ↔ :15555)
 //   - UDP LAN socket (CoreX ↔ módulos hardware, :9999 ↔ :8888)
 // Sin WinForms: los callbacks de datos usan Action en vez de BeginInvoke.
+// Los sockets arrancan por separado (CoreX levanta loopback siempre y UDP
+// solo si está habilitado en settings). Los endpoints de destino los maneja
+// el host (epModule es mutable en caliente), por eso los Send reciben el
+// endpoint explícito.
 // ============================================================================
 
 using System;
@@ -11,29 +15,31 @@ using System.Net;
 
 namespace AgroParallel.Services.Abstractions
 {
-    public interface IUdpBridgeService
+    public interface IUdpBridgeService : IDisposable
     {
         bool IsLoopbackConnected { get; }
         bool IsUdpConnected { get; }
 
-        // Arranca los sockets. moduleSubnet = "192.168.5" (los 3 primeros octetos).
-        // loopbackIp = la IP loopback del host (127.0.0.1 por default, configurable).
-        void Start(string moduleSubnet, string loopbackIp = "127.0.0.1",
-                   int loopbackListenPort = 17777, int loopbackSendPort = 15555,
-                   int udpListenPort = 9999, int udpSendPort = 8888);
+        // Loopback PilotX↔CoreX. loopbackSendIp/Port = destino de SendToLoopback.
+        void StartLoopback(string loopbackSendIp = "127.0.0.1",
+                           int listenPort = 17777, int sendPort = 15555);
+
+        // UDP LAN CoreX↔módulos. Escucha broadcast en listenPort.
+        void StartUdp(int listenPort = 9999);
 
         void Stop();
 
-        // Enviar datos por UDP LAN a módulos (broadcast .255:8888).
-        void SendToModules(byte[] data);
-
-        // Enviar datos por loopback a PilotX.
+        // Enviar datos por loopback a PilotX (destino fijado en StartLoopback).
         void SendToLoopback(byte[] data);
+
+        // Enviar por UDP LAN a un endpoint arbitrario (módulos .255:8888, NTRIP, etc.).
+        void SendUdpTo(byte[] data, IPEndPoint endPoint);
 
         // Callbacks: el host registra handlers para recibir datos.
         // OnLoopbackReceived: datos de PilotX → CoreX (para reenviar a módulos/serial).
         // OnUdpReceived: datos de módulos → CoreX (para reenviar a PilotX).
-        event Action<byte[]> OnLoopbackReceived;
-        event Action<byte[]> OnUdpReceived;
+        // El segundo parámetro es el endpoint remoto (para logs/monitor).
+        event Action<byte[], IPEndPoint> OnLoopbackReceived;
+        event Action<byte[], IPEndPoint> OnUdpReceived;
     }
 }
