@@ -1,4 +1,4 @@
-// Dibujo GL de las clases de guiado CYouTurn/CTram/CRecordedPath. Vivía
+﻿// Dibujo GL de las clases de guiado CYouTurn/CTram/CRecordedPath. Vivía
 // embebido en cada clase: se movió acá para que queden sin OpenTK
 // (traspaso portabilidad — DrawLib es la capa GL, Windows-only hasta el
 // port a GL ES/Skia). Lo que la clase no expone (lineWidth del ABLine,
@@ -135,6 +135,7 @@ namespace AgOpenGPS
         public static void DrawABLineNew(this CABLine abLine)
         {
             IABLineHost mf = abLine.mf;
+            Font textFont = ((ITextFontHost)mf).TextFont;
 
             //ABLine currently being designed
             GeoCoord[] desLineEndPoints = { abLine.desLineEndA.ToGeoCoord(), abLine.desLineEndB.ToGeoCoord() };
@@ -144,13 +145,14 @@ namespace AgOpenGPS
             GLW.DrawLinesPrimitive(desLineEndPoints);
 
             GLW.SetColor(pointsTextGreen);
-            mf.TextFont.DrawText3D(abLine.desPtA.easting, abLine.desPtA.northing, "&A", mf.CamHeading);
-            mf.TextFont.DrawText3D(abLine.desPtB.easting, abLine.desPtB.northing, "&B", mf.CamHeading);
+            textFont.DrawText3D(abLine.desPtA.easting, abLine.desPtA.northing, "&A", mf.CamHeading);
+            textFont.DrawText3D(abLine.desPtB.easting, abLine.desPtB.northing, "&B", mf.CamHeading);
         }
 
         public static void DrawABLines(this CABLine abLine)
         {
             IABLineHost mf = abLine.mf;
+            Font textFont = ((ITextFontHost)mf).TextFont;
 
             // Draw AB Points
             CTrk track = mf.Tracks[mf.TrackIdx];
@@ -167,8 +169,8 @@ namespace AgOpenGPS
 
             if (!abLine.isMakingABLine)
             {
-                mf.TextFont.DrawText3D(track.ptA.easting, track.ptA.northing, "&A", mf.CamHeading);
-                mf.TextFont.DrawText3D(track.ptB.easting, track.ptB.northing, "&B", mf.CamHeading);
+                textFont.DrawText3D(track.ptA.easting, track.ptA.northing, "&A", mf.CamHeading);
+                textFont.DrawText3D(track.ptB.easting, track.ptB.northing, "&B", mf.CamHeading);
             }
 
             GLW.SetPointSize(1.0f);
@@ -322,8 +324,9 @@ namespace AgOpenGPS
                 GL.End();
 
                 GL.Color3(0.40f, 0.90f, 0.95f);
-                mf.TextFont.DrawText3D(mf.Tracks[mf.TrackIdx].ptA.easting, mf.Tracks[mf.TrackIdx].ptA.northing, "&A", mf.CamHeading);
-                mf.TextFont.DrawText3D(mf.Tracks[mf.TrackIdx].ptB.easting, mf.Tracks[mf.TrackIdx].ptB.northing, "&B", mf.CamHeading);
+                Font textFont = ((ITextFontHost)mf).TextFont;
+                textFont.DrawText3D(mf.Tracks[mf.TrackIdx].ptA.easting, mf.Tracks[mf.TrackIdx].ptA.northing, "&A", mf.CamHeading);
+                textFont.DrawText3D(mf.Tracks[mf.TrackIdx].ptB.easting, mf.Tracks[mf.TrackIdx].ptB.northing, "&B", mf.CamHeading);
 
                 if (curve.isSmoothWindowOpen)
                 {
@@ -455,6 +458,7 @@ namespace AgOpenGPS
         public static void DrawVehicle(this CVehicle vehicle)
         {
             IVehicleHost mf = vehicle.mf;
+            IVehicleTexturesHost textures = (IVehicleTexturesHost)mf;
             VehicleConfig VehicleConfig = vehicle.VehicleConfig;
 
             GL.Rotate(glm.toDegrees(-mf.FixHeading), 0.0, 0.0, 1.0);
@@ -500,7 +504,7 @@ namespace AgOpenGPS
             if (!mf.IsFirstHeadingSet && mf.HeadingFromSource != "Dual")
             {
                 GL.Color4(1, 1, 1, 0.75);
-                mf.QuestionMarkTexture.Draw(new XyCoord(1.0, 5.0), new XyCoord(5.0, 1.0));
+                textures.QuestionMarkTexture.Draw(new XyCoord(1.0, 5.0), new XyCoord(5.0, 1.0));
             }
 
             //3 vehicle types  tractor=0 harvestor=1 Articulated=2
@@ -522,7 +526,7 @@ namespace AgOpenGPS
                         out double leftAckermann,
                         out double rightAckermann);
                     XyCoord tractorCenter = new XyCoord(0.0, 0.5 * VehicleConfig.Wheelbase);
-                    mf.TractorTexture.DrawCentered(
+                    textures.TractorTexture.DrawCentered(
                         tractorCenter,
                         new XyDelta(VehicleConfig.TrackWidth, -1.0 * VehicleConfig.Wheelbase));
 
@@ -532,7 +536,7 @@ namespace AgOpenGPS
                     GL.Rotate(rightAckermann, 0, 0, 1);
 
                     XyDelta frontWheelDelta = new XyDelta(0.5 * VehicleConfig.TrackWidth, -0.75 * VehicleConfig.Wheelbase);
-                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(frontWheelDelta);
+                    textures.FrontWheelTexture.DrawCenteredAroundOrigin(frontWheelDelta);
 
                     GL.PopMatrix();
 
@@ -542,7 +546,7 @@ namespace AgOpenGPS
                     GL.Translate(-VehicleConfig.TrackWidth * 0.5, VehicleConfig.Wheelbase, 0);
                     GL.Rotate(leftAckermann, 0, 0, 1);
 
-                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(frontWheelDelta);
+                    textures.FrontWheelTexture.DrawCenteredAroundOrigin(frontWheelDelta);
 
                     GL.PopMatrix();
                     //disable, straight color
@@ -566,18 +570,18 @@ namespace AgOpenGPS
                     GL.Translate(VehicleConfig.TrackWidth * 0.5, -VehicleConfig.Wheelbase, 0);
                     GL.Rotate(rightAckermannAngle, 0, 0, 1);
                     XyDelta forntWheelDelta = new XyDelta(0.25 * VehicleConfig.TrackWidth, 0.5 * VehicleConfig.Wheelbase);
-                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(forntWheelDelta);
+                    textures.FrontWheelTexture.DrawCenteredAroundOrigin(forntWheelDelta);
                     GL.PopMatrix();
 
                     //Left Wheel
                     GL.PushMatrix();
                     GL.Translate(-VehicleConfig.TrackWidth * 0.5, -VehicleConfig.Wheelbase, 0);
                     GL.Rotate(leftAckermannAngle, 0, 0, 1);
-                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(forntWheelDelta);
+                    textures.FrontWheelTexture.DrawCenteredAroundOrigin(forntWheelDelta);
                     GL.PopMatrix();
 
                     GLW.SetColor(vehicleColor);
-                    mf.HarvesterTexture.DrawCenteredAroundOrigin(
+                    textures.HarvesterTexture.DrawCenteredAroundOrigin(
                         new XyDelta(VehicleConfig.TrackWidth, -1.5 * VehicleConfig.Wheelbase));
                     //disable, straight color
                 }
@@ -590,13 +594,13 @@ namespace AgOpenGPS
                     GL.PushMatrix();
                     GL.Translate(0, -VehicleConfig.Wheelbase * 0.5, 0);
                     GL.Rotate(modelSteerAngle, 0, 0, 1);
-                    mf.ArticulatedRearTexture.DrawCenteredAroundOrigin(articulated);
+                    textures.ArticulatedRearTexture.DrawCenteredAroundOrigin(articulated);
                     GL.PopMatrix();
 
                     GL.PushMatrix();
                     GL.Translate(0, VehicleConfig.Wheelbase * 0.5, 0);
                     GL.Rotate(-modelSteerAngle, 0, 0, 1);
-                    mf.ArticulatedFrontTexture.DrawCenteredAroundOrigin(articulated);
+                    textures.ArticulatedFrontTexture.DrawCenteredAroundOrigin(articulated);
                     GL.PopMatrix();
                 }
             }
@@ -762,7 +766,7 @@ namespace AgOpenGPS
                 GL.Color4(1, 1, 1, 0.75);
                 XyCoord toolAxleCenter = new XyCoord(0.0, trailingTank);
                 XyDelta deltaToU1V1 = new XyDelta(1.5, 1.0);
-                mf.ToolAxleTexture.DrawCentered(toolAxleCenter, deltaToU1V1);
+                ((IToolTexturesHost)mf).ToolAxleTexture.DrawCentered(toolAxleCenter, deltaToU1V1);
 
                 //move down the tank hitch, unwind, rotate to section heading
                 GL.Translate(0.0, trailingTank, 0.0);
@@ -783,8 +787,9 @@ namespace AgOpenGPS
                     XyCoord rightTire11 = new XyCoord(1.4 + tool.offset, trailingTool - 0.51);
                     XyCoord leftTire00 = new XyCoord(-0.75 + tool.offset, trailingTool + 0.51);
                     XyCoord lefttTire11 = new XyCoord(-1.4 + tool.offset, trailingTool - 0.51);
-                    mf.TireTexture.Draw(rightTire00, rightTire11);
-                    mf.TireTexture.Draw(leftTire00, lefttTire11);
+                    Texture2D tireTexture = ((IToolTexturesHost)mf).TireTexture;
+                    tireTexture.Draw(rightTire00, rightTire11);
+                    tireTexture.Draw(leftTire00, lefttTire11);
                 }
                 trailingTool -= tool.trailingToolToPivotLength;
             }

@@ -1,5 +1,4 @@
 using AgOpenGPS.Core;
-using AgOpenGPS.Core.DrawLib;
 
 namespace AgOpenGPS
 {
@@ -38,12 +37,7 @@ namespace AgOpenGPS
         /// <summary>ABLine.lineWidth — grosor de línea de guiado (px GL).</summary>
         int ABLineWidth { get; }
 
-        // --- texturas (quedan en GPS por los Resources) ---
-        Texture2D TractorTexture { get; }
-        Texture2D HarvesterTexture { get; }
-        Texture2D ArticulatedFrontTexture { get; }
-        Texture2D ArticulatedRearTexture { get; }
-        Texture2D FrontWheelTexture { get; }
-        Texture2D QuestionMarkTexture { get; }
+        //las texturas se movieron a IVehicleTexturesHost
+        //(DrawLib/IDrawAssetHosts.cs): eran el único tipo DrawLib acá.
     }
 }

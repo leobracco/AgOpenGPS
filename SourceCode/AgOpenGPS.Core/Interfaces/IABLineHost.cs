@@ -18,8 +18,8 @@ namespace AgOpenGPS
         CModuleComm Mc { get; }
         CAHRS Ahrs { get; }
 
-        /// <summary>font (Core.DrawLib.Font) — texto 3D en el mapa.</summary>
-        AgOpenGPS.Core.DrawLib.Font TextFont { get; }
+        //TextFont se movió a ITextFontHost (DrawLib/IDrawAssetHosts.cs):
+        //era el único tipo DrawLib acá (traspaso portabilidad).
 
         // --- trk (CTrack, todavía en GPS) ---
         /// <summary>trk.idx — índice de la pista activa (-1 = ninguna).</summary>

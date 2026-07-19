@@ -11,7 +11,7 @@ using AgOpenGPS.Core.Models;
 
 namespace AgOpenGPS
 {
-    public partial class FormGPS : IToolHost
+    public partial class FormGPS : IToolHost, IToolTexturesHost
     {
         CModuleComm IToolHost.Mc => mc;
         CSim IToolHost.Sim => sim;
@@ -34,7 +34,7 @@ namespace AgOpenGPS
         double IToolHost.HydLiftLookAheadDistanceLeft => vehicle.hydLiftLookAheadDistanceLeft;
         double IToolHost.HydLiftLookAheadDistanceRight => vehicle.hydLiftLookAheadDistanceRight;
 
-        Texture2D IToolHost.ToolAxleTexture => VehicleTextures.ToolAxle;
-        Texture2D IToolHost.TireTexture => VehicleTextures.Tire;
+        Texture2D IToolTexturesHost.ToolAxleTexture => VehicleTextures.ToolAxle;
+        Texture2D IToolTexturesHost.TireTexture => VehicleTextures.Tire;
     }
 }

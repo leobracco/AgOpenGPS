@@ -9,7 +9,7 @@ using System.Collections.Generic;
 
 namespace AgOpenGPS
 {
-    public partial class FormGPS : IABLineHost
+    public partial class FormGPS : IABLineHost, ITextFontHost
     {
         CTool IABLineHost.Tool => tool;
         CTram IABLineHost.Tram => tram;
@@ -18,7 +18,7 @@ namespace AgOpenGPS
         CModuleComm IABLineHost.Mc => mc;
         CAHRS IABLineHost.Ahrs => ahrs;
 
-        AgOpenGPS.Core.DrawLib.Font IABLineHost.TextFont => font;
+        AgOpenGPS.Core.DrawLib.Font ITextFontHost.TextFont => font;
 
         int IABLineHost.TrackIdx
         {

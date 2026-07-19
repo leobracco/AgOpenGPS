@@ -1,5 +1,4 @@
 using AgOpenGPS.Core;
-using AgOpenGPS.Core.DrawLib;
 using AgOpenGPS.Core.Models;
 
 namespace AgOpenGPS
@@ -41,8 +40,7 @@ namespace AgOpenGPS
         double HydLiftLookAheadDistanceLeft { get; }
         double HydLiftLookAheadDistanceRight { get; }
 
-        // --- texturas (VehicleTextures queda en GPS por los Resources) ---
-        Texture2D ToolAxleTexture { get; }
-        Texture2D TireTexture { get; }
+        //las texturas se movieron a IToolTexturesHost
+        //(DrawLib/IDrawAssetHosts.cs): eran el único tipo DrawLib acá.
     }
 }

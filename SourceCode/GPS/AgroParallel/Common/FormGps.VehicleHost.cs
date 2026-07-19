@@ -10,7 +10,7 @@ using AgOpenGPS.Core.DrawLib;
 
 namespace AgOpenGPS
 {
-    public partial class FormGPS : IVehicleHost
+    public partial class FormGPS : IVehicleHost, IVehicleTexturesHost
     {
         CModuleComm IVehicleHost.Mc => mc;
         CSim IVehicleHost.Sim => sim;
@@ -26,11 +26,11 @@ namespace AgOpenGPS
         bool IVehicleHost.IsSvennArrowOn => isSvennArrowOn;
         int IVehicleHost.ABLineWidth => ABLine.lineWidth;
 
-        Texture2D IVehicleHost.TractorTexture => VehicleTextures.Tractor;
-        Texture2D IVehicleHost.HarvesterTexture => VehicleTextures.Harvester;
-        Texture2D IVehicleHost.ArticulatedFrontTexture => VehicleTextures.ArticulatedFront;
-        Texture2D IVehicleHost.ArticulatedRearTexture => VehicleTextures.ArticulatedRear;
-        Texture2D IVehicleHost.FrontWheelTexture => VehicleTextures.FrontWheel;
-        Texture2D IVehicleHost.QuestionMarkTexture => ScreenTextures.QuestionMark;
+        Texture2D IVehicleTexturesHost.TractorTexture => VehicleTextures.Tractor;
+        Texture2D IVehicleTexturesHost.HarvesterTexture => VehicleTextures.Harvester;
+        Texture2D IVehicleTexturesHost.ArticulatedFrontTexture => VehicleTextures.ArticulatedFront;
+        Texture2D IVehicleTexturesHost.ArticulatedRearTexture => VehicleTextures.ArticulatedRear;
+        Texture2D IVehicleTexturesHost.FrontWheelTexture => VehicleTextures.FrontWheel;
+        Texture2D IVehicleTexturesHost.QuestionMarkTexture => ScreenTextures.QuestionMark;
     }
 }
