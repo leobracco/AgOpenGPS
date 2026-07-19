@@ -1,7 +1,6 @@
-using AgLibrary.Logging;
+﻿using AgLibrary.Logging;
 using AgOpenGPS.Core.Models;
 using AgOpenGPS.Core.Translations;
-using OpenTK.Graphics.OpenGL;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -13,7 +12,8 @@ namespace AgOpenGPS
     {
         //pointers to mainform controls
         // Host invertido (FormGPS implementa IABCurveHost) — traspaso 2026-07-17
-        private readonly IABCurveHost mf;
+        // internal (era private): lo lee ABCurveDrawExtensions (mismo assembly)
+        internal readonly IABCurveHost mf;
 
         //flag for starting stop adding points
         public bool isBtnTrackOn, isMakingCurve, isRecordingCurve;
@@ -44,7 +44,8 @@ namespace AgOpenGPS
         public List<vec3> curList = new List<vec3>();
 
         //guidelines
-        private List<List<vec3>> guideArr = new List<List<vec3>>();
+        // era private; lo lee ABCurveDrawExtensions (mismo assembly)
+        internal List<List<vec3>> guideArr = new List<List<vec3>>();
 
         public bool isCurveValid;
 
@@ -1065,178 +1066,9 @@ namespace AgOpenGPS
             }
         }
 
-        public void DrawCurveNew()
-        {
-            if (desList.Count > 0)
-            {
-                GL.Color3(0.95f, 0.42f, 0.750f);
-                GL.LineWidth(4.0f);
-                GL.Begin(PrimitiveType.LineStrip);
-                for (int h = 0; h < desList.Count; h++)
-                {
-                    GL.Vertex2(desList[h].easting, desList[h].northing);
-                }
-                GL.End();
-
-                GL.Enable(EnableCap.LineStipple);
-                GL.LineStipple(1, 0x0F00);
-                GL.Begin(PrimitiveType.Lines);
-                GL.Color3(0.99f, 0.99f, 0.0);
-                GL.Vertex2(desList[desList.Count - 1].easting, desList[desList.Count - 1].northing);
-                GL.Vertex2(mf.PivotAxlePos.easting, mf.PivotAxlePos.northing);
-                GL.End();
-
-                GL.Disable(EnableCap.LineStipple);
-            }
-        }
-
-        public void DrawCurve()
-        {
-            if (mf.TrackIdx == -1) return;
-
-            int ptCount = mf.Tracks[mf.TrackIdx].curvePts.Count;
-
-            if (mf.Tracks[mf.TrackIdx].mode != TrackMode.waterPivot)
-            {
-                if (mf.Tracks[mf.TrackIdx].curvePts == null || mf.Tracks[mf.TrackIdx].curvePts.Count == 0) return;
-
-                GL.LineWidth(4);
-                GL.Color3(0.96, 0.2f, 0.2f);
-                GL.Begin(PrimitiveType.Lines);
-
-                for (int h = 0; h < ptCount; h++)
-                {
-                    GL.Vertex2(mf.Tracks[mf.TrackIdx].curvePts[h].easting, mf.Tracks[mf.TrackIdx].curvePts[h].northing);
-                }
-                GL.End();
-
-                GL.Color3(0.40f, 0.90f, 0.95f);
-                mf.TextFont.DrawText3D(mf.Tracks[mf.TrackIdx].ptA.easting, mf.Tracks[mf.TrackIdx].ptA.northing, "&A", mf.CamHeading);
-                mf.TextFont.DrawText3D(mf.Tracks[mf.TrackIdx].ptB.easting, mf.Tracks[mf.TrackIdx].ptB.northing, "&B", mf.CamHeading);
-
-                if (isSmoothWindowOpen)
-                {
-                    if (smooList == null || smooList.Count == 0) return;
-
-                    GL.LineWidth(mf.ABLine.lineWidth);
-                    GL.Color3(0.930f, 0.92f, 0.260f);
-                    GL.Begin(PrimitiveType.Lines);
-                    for (int h = 0; h < smooList.Count; h++)
-                    {
-                        GL.Vertex2(smooList[h].easting, smooList[h].northing);
-                    }
-                    GL.End();
-                }
-            }
-            if (!isSmoothWindowOpen) //normal. Smoothing window is not open.
-            {
-                if (curList.Count > 0)
-                {
-                    GL.LineWidth(mf.ABLine.lineWidth * 3);
-                    GL.Color3(0, 0, 0);
-
-                    //ablines and curves are a line - the rest a loop
-                    if (mf.Tracks[mf.TrackIdx].mode <= TrackMode.Curve)
-                    {
-                        GL.Begin(PrimitiveType.LineStrip);
-                    }
-                    else
-                    {
-                        if (mf.Tracks[mf.TrackIdx].mode == TrackMode.waterPivot)
-                        {
-                            GL.PointSize(15.0f);
-                            GL.Begin(PrimitiveType.Points);
-                            GL.Vertex2(
-                                mf.Tracks[mf.TrackIdx].ptA.easting,
-                                mf.Tracks[mf.TrackIdx].ptA.northing);
-                            GL.End();
-                        }
-
-                        GL.Begin(PrimitiveType.LineLoop);
-                    }
-
-                    for (int h = 0; h < curList.Count; h++)
-                    {
-                        GL.Vertex2(curList[h].easting, curList[h].northing);
-                    }
-                    GL.End();
-
-                    GL.LineWidth(mf.ABLine.lineWidth);
-                    //estilo PilotX: guía activa blanca (pedido 2026-07-16)
-                    GL.Color3(0.98f, 0.98f, 0.98f);
-                    if (mf.Tracks[mf.TrackIdx].mode <= TrackMode.Curve)
-                    {
-                        GL.Begin(PrimitiveType.LineStrip);
-                    }
-                    else
-                    {
-                        if (mf.Tracks[mf.TrackIdx].mode == TrackMode.waterPivot)
-                        {
-                            GL.PointSize(15.0f);
-                            GL.Begin(PrimitiveType.Points);
-                            GL.Vertex2(
-                                mf.Tracks[mf.TrackIdx].ptA.easting,
-                                mf.Tracks[mf.TrackIdx].ptA.northing);
-                            GL.End();
-                        }
-
-                        GL.Begin(PrimitiveType.LineLoop);
-                    }
-
-                    for (int h = 0; h < curList.Count; h++)
-                    {
-                        GL.Vertex2(curList[h].easting, curList[h].northing);
-                    }
-                    GL.End();
-
-                    mf.DrawYouTurn();
-                }
-            }
-
-            if (guideArr.Count > 0)
-            {
-                GL.LineWidth(mf.ABLine.lineWidth * 3);
-                GL.Color3(0, 0, 0);
-
-                if (mf.Tracks[mf.TrackIdx].mode != TrackMode.bndCurve)
-                    GL.Begin(PrimitiveType.LineStrip);
-                else
-                    GL.Begin(PrimitiveType.LineLoop);
-
-                for (int i = 0; i < guideArr.Count; i++)
-                {
-                    GL.Begin(PrimitiveType.LineStrip);
-                    for (int h = 0; h < guideArr[i].Count; h++)
-                    {
-                        GL.Vertex2(guideArr[i][h].easting, guideArr[i][h].northing);
-                    }
-                    GL.End();
-                }
-                GL.End();
-
-                GL.LineWidth(mf.ABLine.lineWidth);
-                //estilo PilotX: guías vecinas gris claro (pedido 2026-07-16)
-                GL.Color4(0.72, 0.75, 0.72, 0.6);
-
-                if (mf.Tracks[mf.TrackIdx].mode != TrackMode.bndCurve)
-                    GL.Begin(PrimitiveType.LineStrip);
-                else
-                    GL.Begin(PrimitiveType.LineLoop);
-
-                for (int i = 0; i < guideArr.Count; i++)
-                {
-                    GL.Begin(PrimitiveType.LineStrip);
-                    for (int h = 0; h < guideArr[i].Count; h++)
-                    {
-                        GL.Vertex2(guideArr[i][h].easting, guideArr[i][h].northing);
-                    }
-                    GL.End();
-                }
-                GL.End();
-            }
-
-            GL.PointSize(1.0f);
-        }
+        //DrawCurveNew() y DrawCurve() se movieron a ABCurveDrawExtensions
+        //(DrawLib/GuidanceDrawExtensions.cs): eran el unico uso de OpenTK aca
+        //(traspaso portabilidad).
 
         public void BuildTram()
         {

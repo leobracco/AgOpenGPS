@@ -1,7 +1,4 @@
-using AgOpenGPS.Core.Drawing;
-using AgOpenGPS.Core.DrawLib;
 using AgOpenGPS.Core.Models;
-using OpenTK.Graphics.OpenGL;
 using System;
 using System.Drawing;
 
@@ -9,8 +6,9 @@ namespace AgOpenGPS
 {
     public class CTool
     {
-        // Host invertido (FormGPS implementa IToolHost) — traspaso 2026-07-17
-        private readonly IToolHost mf;
+        // Host invertido (FormGPS implementa IToolHost) — traspaso 2026-07-17.
+        // internal (era private): lo lee ToolDrawExtensions (mismo assembly).
+        internal readonly IToolHost mf;
 
         public double width, halfWidth, contourWidth;
         public double farLeftPosition = 0;
@@ -48,7 +46,8 @@ namespace AgOpenGPS
 
         public int rpWidth;
 
-        private double textRotate;
+        // era private; lo escribe ToolDrawExtensions (mismo assembly)
+        internal double textRotate;
 
         public Color[] secColors = new Color[16];
 
@@ -184,202 +183,8 @@ namespace AgOpenGPS
             return angle;
         }
 
-        private static void DrawHitch(double trailingTank)
-        {
-            XyCoord[] vertices = {
-                new XyCoord(-0.57, trailingTank),
-                new XyCoord(0.0, 0.0),
-                new XyCoord(0.57, trailingTank)
-            };
-            LineStyle backgroundLineStyle = new LineStyle(6.0f, Colors.Black);
-            LineStyle foregroundLineStyle = new LineStyle(1.0f, Colors.HitchColor);
-            GLW.DrawLineLoopPrimitiveLayered(vertices, backgroundLineStyle, foregroundLineStyle);
-        }
-
-        private void DrawTrailingHitch(double trailingTool)
-        {
-            XyCoord[] vertices = {
-                new XyCoord(-0.65 + offset, trailingTool),
-                new XyCoord(0.0, 0.0),
-                new XyCoord(0.65 + offset, trailingTool)
-            };
-            LineStyle backgroundLineStyle = new LineStyle(6.0f, Colors.Black);
-            LineStyle foregroundLineStyle = new LineStyle(1.0f, Colors.HitchTrailingColor);
-            GLW.DrawLineLoopPrimitiveLayered(vertices, backgroundLineStyle, foregroundLineStyle);
-        }
-
-        public void DrawTool()
-        {
-            //translate and rotate at pivot axle
-            GL.Translate(mf.PivotAxlePos.easting, mf.PivotAxlePos.northing, 0);
-            GL.PushMatrix();
-
-            //translate down to the hitch pin
-            double pivotToHitchLength = GetHitchLengthFromVehiclePivot();
-            double hitchHeading = GetHitchHeadingFromVehiclePivot(pivotToHitchLength);
-            GL.Translate(
-                Math.Sin(hitchHeading) * pivotToHitchLength,
-                Math.Cos(hitchHeading) * pivotToHitchLength,
-                0);
-
-            //settings doesn't change trailing hitch length if set to rigid, so do it here
-            double trailingTank, trailingTool;
-            if (isToolTrailing)
-            {
-                trailingTank = tankTrailingHitchLength;
-                trailingTool = trailingHitchLength;
-            }
-            else { trailingTank = 0; trailingTool = 0; }
-
-            // if there is a trailing tow between hitch
-            if (isToolTBT && isToolTrailing)
-            {
-                //rotate to tank heading
-                GL.Rotate(glm.toDegrees(-mf.TankPos.heading), 0.0, 0.0, 1.0);
-
-                DrawHitch(trailingTank);
-
-                GL.Color4(1, 1, 1, 0.75);
-                XyCoord toolAxleCenter = new XyCoord(0.0, trailingTank);
-                XyDelta deltaToU1V1 = new XyDelta(1.5, 1.0);
-                mf.ToolAxleTexture.DrawCentered(toolAxleCenter, deltaToU1V1);
-
-                //move down the tank hitch, unwind, rotate to section heading
-                GL.Translate(0.0, trailingTank, 0.0);
-                GL.Rotate(glm.toDegrees(mf.TankPos.heading), 0.0, 0.0, 1.0);
-            }
-            GL.Rotate(glm.toDegrees(-mf.ToolPivotPos.heading), 0.0, 0.0, 1.0);
-
-            //draw the hitch if trailing
-            if (isToolTrailing)
-            {
-                DrawTrailingHitch(trailingTool);
-
-                if (Math.Abs(trailingToolToPivotLength) > 1 && mf.CamSetDistance > -100)
-                {
-                    textRotate += (mf.Sim.stepDistance);
-                    GL.Color4(1, 1, 1, 0.75);
-                    XyCoord rightTire00 = new XyCoord(0.75 + offset, trailingTool + 0.51);
-                    XyCoord rightTire11 = new XyCoord(1.4 + offset, trailingTool - 0.51);
-                    XyCoord leftTire00 = new XyCoord(-0.75 + offset, trailingTool + 0.51);
-                    XyCoord lefttTire11 = new XyCoord(-1.4 + offset, trailingTool - 0.51);
-                    mf.TireTexture.Draw(rightTire00, rightTire11);
-                    mf.TireTexture.Draw(leftTire00, lefttTire11);
-                }
-                trailingTool -= trailingToolToPivotLength;
-            }
-
-            if (mf.IsJobStarted)
-            {
-                //look ahead lines
-                GL.LineWidth(3);
-                GL.Begin(PrimitiveType.Lines);
-
-                //lookahead section on
-                GL.Color3(0.20f, 0.7f, 0.2f);
-                GL.Vertex2(farLeftPosition, lookAheadDistanceOnPixelsLeft * 0.1 + trailingTool);
-                GL.Vertex2(farRightPosition, lookAheadDistanceOnPixelsRight * 0.1 + trailingTool);
-
-                //lookahead section off
-                GL.Color3(0.70f, 0.2f, 0.2f);
-                GL.Vertex2(farLeftPosition, lookAheadDistanceOffPixelsLeft * 0.1 + trailingTool);
-                GL.Vertex2(farRightPosition, lookAheadDistanceOffPixelsRight * 0.1 + trailingTool);
-
-                if (mf.IsHydLiftOn)
-                {
-                    GL.Color3(0.70f, 0.2f, 0.72f);
-                    GL.Vertex2(mf.Section[0].positionLeft, (mf.HydLiftLookAheadDistanceLeft * 0.1) + trailingTool);
-                    GL.Vertex2(mf.Section[numOfSections - 1].positionRight, (mf.HydLiftLookAheadDistanceRight * 0.1) + trailingTool);
-                }
-                GL.End();
-            }
-
-            //draw the sections
-            GL.LineWidth(2);
-
-            double hite = mf.CamSetDistance / -250;
-            if (hite > 4) hite = 4;
-            if (hite < 1) hite = 1;
-
-            //TooDoo
-            //hite = 0.2;
-
-            for (int j = 0; j < numOfSections; j++)
-            {
-                //if section is on, green, if off, red color
-                if (mf.Section[j].isSectionOn)
-                {
-                    if (mf.Section[j].sectionBtnState == btnStates.Auto)
-                    {
-                        //GL.Color3(0.0f, 0.9f, 0.0f);
-                        if (mf.Section[j].isMappingOn) GL.Color3(0.0f, 0.95f, 0.0f);
-                        else GL.Color3(0.970f, 0.30f, 0.970f);
-                    }
-                    else GL.Color3(0.97, 0.97, 0);
-                }
-                else
-                {
-                    if (!mf.Section[j].isMappingOn) GL.Color3(0.950f, 0.2f, 0.2f);
-                    else GL.Color3(0.00f, 0.250f, 0.97f);
-                    //GL.Color3(0.7f, 0.2f, 0.2f);
-                }
-
-                double mid = (mf.Section[j].positionRight - mf.Section[j].positionLeft) / 2 + mf.Section[j].positionLeft;
-                XyCoord[] vertices = {
-                    new XyCoord(mf.Section[j].positionLeft, trailingTool),
-                    new XyCoord(mf.Section[j].positionLeft, trailingTool - hite),
-                    new XyCoord(mid, trailingTool - hite * 1.5),
-                    new XyCoord(mf.Section[j].positionRight, trailingTool - hite),
-                    new XyCoord(mf.Section[j].positionRight, trailingTool),
-                };
-                GLW.DrawTriangleFanPrimitive(vertices);
-
-                if (mf.CamSetDistance > -width * 200)
-                {
-                    GLW.SetColor(Colors.Black);
-                    GLW.DrawLineLoopPrimitive(vertices);
-                }
-            }
-
-            //zones
-            if (!isSectionsNotZones && zones > 0 && mf.CamSetDistance > -150)
-            {
-                //GL.PointSize(8);
-
-                GL.Begin(PrimitiveType.Lines);
-                for (int i = 1; i < zones; i++)
-                {
-                    GL.Color3(0.5f, 0.80f, 0.950f);
-                    GL.Vertex2(mf.Section[zoneRanges[i]].positionLeft, trailingTool - 0.4);
-                    GL.Vertex2(mf.Section[zoneRanges[i]].positionLeft, trailingTool + 0.2);
-                }
-                GL.End();
-            }
-
-            //tram Dots
-            if (isDisplayTramControl && mf.Tram.displayMode != 0)
-            {
-                if (mf.CamSetDistance > -300)
-                {
-                    if (mf.CamSetDistance > -100)
-                        GL.PointSize(12);
-                    else GL.PointSize(8);
-
-                    ColorRgba rightMarkerColor = ((mf.Tram.controlByte) & 1) != 0 ? Colors.TramMarkerOnColor : Colors.Black;
-                    ColorRgba leftMarkerColor = ((mf.Tram.controlByte) & 2) != 0 ? Colors.TramMarkerOnColor : Colors.Black;
-                    double rightX = mf.Tram.isOuter ? farRightPosition - mf.Tram.halfWheelTrack : mf.Tram.halfWheelTrack;
-                    double leftX = mf.Tram.isOuter ? farLeftPosition + mf.Tram.halfWheelTrack : -mf.Tram.halfWheelTrack;
-                    // section markers
-                    GL.Begin(PrimitiveType.Points);
-                    GLW.SetColor(rightMarkerColor);
-                    GL.Vertex2(rightX, trailingTool);
-                    GLW.SetColor(leftMarkerColor);
-                    GL.Vertex2(leftX, trailingTool);
-                    GL.End();
-                }
-            }
-
-            GL.PopMatrix();
-        }
+        //DrawTool(), DrawHitch() y DrawTrailingHitch() se movieron a
+        //ToolDrawExtensions (DrawLib/GuidanceDrawExtensions.cs): eran el único
+        //uso de OpenTK/GLW acá (traspaso portabilidad).
     }
 }

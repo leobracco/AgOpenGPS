@@ -4,6 +4,8 @@
 // port a GL ES/Skia). Lo que la clase no expone (lineWidth del ABLine,
 // camSetDistance de la cámara) entra por parámetro desde el caller GL.
 
+using AgOpenGPS.Core.Drawing;
+using AgOpenGPS.Core.DrawLib;
 using AgOpenGPS.Core.Models;
 using OpenTK.Graphics.OpenGL;
 using System;
@@ -95,6 +97,630 @@ namespace AgOpenGPS
                 for (int h = 0; h < tram.tramBndInnerArr.Count; h++) GL.Vertex3(tram.tramBndInnerArr[h].easting, tram.tramBndInnerArr[h].northing, 0);
                 GL.End();
             }
+        }
+    }
+
+    public static class ABCurveDrawExtensions
+    {
+        public static void DrawCurveNew(this CABCurve curve)
+        {
+            if (curve.desList.Count > 0)
+            {
+                GL.Color3(0.95f, 0.42f, 0.750f);
+                GL.LineWidth(4.0f);
+                GL.Begin(PrimitiveType.LineStrip);
+                for (int h = 0; h < curve.desList.Count; h++)
+                {
+                    GL.Vertex2(curve.desList[h].easting, curve.desList[h].northing);
+                }
+                GL.End();
+
+                GL.Enable(EnableCap.LineStipple);
+                GL.LineStipple(1, 0x0F00);
+                GL.Begin(PrimitiveType.Lines);
+                GL.Color3(0.99f, 0.99f, 0.0);
+                GL.Vertex2(curve.desList[curve.desList.Count - 1].easting, curve.desList[curve.desList.Count - 1].northing);
+                GL.Vertex2(curve.mf.PivotAxlePos.easting, curve.mf.PivotAxlePos.northing);
+                GL.End();
+
+                GL.Disable(EnableCap.LineStipple);
+            }
+        }
+
+        public static void DrawCurve(this CABCurve curve)
+        {
+            IABCurveHost mf = curve.mf;
+
+            if (mf.TrackIdx == -1) return;
+
+            int ptCount = mf.Tracks[mf.TrackIdx].curvePts.Count;
+
+            if (mf.Tracks[mf.TrackIdx].mode != TrackMode.waterPivot)
+            {
+                if (mf.Tracks[mf.TrackIdx].curvePts == null || mf.Tracks[mf.TrackIdx].curvePts.Count == 0) return;
+
+                GL.LineWidth(4);
+                GL.Color3(0.96, 0.2f, 0.2f);
+                GL.Begin(PrimitiveType.Lines);
+
+                for (int h = 0; h < ptCount; h++)
+                {
+                    GL.Vertex2(mf.Tracks[mf.TrackIdx].curvePts[h].easting, mf.Tracks[mf.TrackIdx].curvePts[h].northing);
+                }
+                GL.End();
+
+                GL.Color3(0.40f, 0.90f, 0.95f);
+                mf.TextFont.DrawText3D(mf.Tracks[mf.TrackIdx].ptA.easting, mf.Tracks[mf.TrackIdx].ptA.northing, "&A", mf.CamHeading);
+                mf.TextFont.DrawText3D(mf.Tracks[mf.TrackIdx].ptB.easting, mf.Tracks[mf.TrackIdx].ptB.northing, "&B", mf.CamHeading);
+
+                if (curve.isSmoothWindowOpen)
+                {
+                    if (curve.smooList == null || curve.smooList.Count == 0) return;
+
+                    GL.LineWidth(mf.ABLine.lineWidth);
+                    GL.Color3(0.930f, 0.92f, 0.260f);
+                    GL.Begin(PrimitiveType.Lines);
+                    for (int h = 0; h < curve.smooList.Count; h++)
+                    {
+                        GL.Vertex2(curve.smooList[h].easting, curve.smooList[h].northing);
+                    }
+                    GL.End();
+                }
+            }
+            if (!curve.isSmoothWindowOpen) //normal. Smoothing window is not open.
+            {
+                if (curve.curList.Count > 0)
+                {
+                    GL.LineWidth(mf.ABLine.lineWidth * 3);
+                    GL.Color3(0, 0, 0);
+
+                    //ablines and curves are a line - the rest a loop
+                    if (mf.Tracks[mf.TrackIdx].mode <= TrackMode.Curve)
+                    {
+                        GL.Begin(PrimitiveType.LineStrip);
+                    }
+                    else
+                    {
+                        if (mf.Tracks[mf.TrackIdx].mode == TrackMode.waterPivot)
+                        {
+                            GL.PointSize(15.0f);
+                            GL.Begin(PrimitiveType.Points);
+                            GL.Vertex2(
+                                mf.Tracks[mf.TrackIdx].ptA.easting,
+                                mf.Tracks[mf.TrackIdx].ptA.northing);
+                            GL.End();
+                        }
+
+                        GL.Begin(PrimitiveType.LineLoop);
+                    }
+
+                    for (int h = 0; h < curve.curList.Count; h++)
+                    {
+                        GL.Vertex2(curve.curList[h].easting, curve.curList[h].northing);
+                    }
+                    GL.End();
+
+                    GL.LineWidth(mf.ABLine.lineWidth);
+                    //estilo PilotX: guía activa blanca (pedido 2026-07-16)
+                    GL.Color3(0.98f, 0.98f, 0.98f);
+                    if (mf.Tracks[mf.TrackIdx].mode <= TrackMode.Curve)
+                    {
+                        GL.Begin(PrimitiveType.LineStrip);
+                    }
+                    else
+                    {
+                        if (mf.Tracks[mf.TrackIdx].mode == TrackMode.waterPivot)
+                        {
+                            GL.PointSize(15.0f);
+                            GL.Begin(PrimitiveType.Points);
+                            GL.Vertex2(
+                                mf.Tracks[mf.TrackIdx].ptA.easting,
+                                mf.Tracks[mf.TrackIdx].ptA.northing);
+                            GL.End();
+                        }
+
+                        GL.Begin(PrimitiveType.LineLoop);
+                    }
+
+                    for (int h = 0; h < curve.curList.Count; h++)
+                    {
+                        GL.Vertex2(curve.curList[h].easting, curve.curList[h].northing);
+                    }
+                    GL.End();
+
+                    mf.DrawYouTurn();
+                }
+            }
+
+            if (curve.guideArr.Count > 0)
+            {
+                GL.LineWidth(mf.ABLine.lineWidth * 3);
+                GL.Color3(0, 0, 0);
+
+                if (mf.Tracks[mf.TrackIdx].mode != TrackMode.bndCurve)
+                    GL.Begin(PrimitiveType.LineStrip);
+                else
+                    GL.Begin(PrimitiveType.LineLoop);
+
+                for (int i = 0; i < curve.guideArr.Count; i++)
+                {
+                    GL.Begin(PrimitiveType.LineStrip);
+                    for (int h = 0; h < curve.guideArr[i].Count; h++)
+                    {
+                        GL.Vertex2(curve.guideArr[i][h].easting, curve.guideArr[i][h].northing);
+                    }
+                    GL.End();
+                }
+                GL.End();
+
+                GL.LineWidth(mf.ABLine.lineWidth);
+                //estilo PilotX: guías vecinas gris claro (pedido 2026-07-16)
+                GL.Color4(0.72, 0.75, 0.72, 0.6);
+
+                if (mf.Tracks[mf.TrackIdx].mode != TrackMode.bndCurve)
+                    GL.Begin(PrimitiveType.LineStrip);
+                else
+                    GL.Begin(PrimitiveType.LineLoop);
+
+                for (int i = 0; i < curve.guideArr.Count; i++)
+                {
+                    GL.Begin(PrimitiveType.LineStrip);
+                    for (int h = 0; h < curve.guideArr[i].Count; h++)
+                    {
+                        GL.Vertex2(curve.guideArr[i][h].easting, curve.guideArr[i][h].northing);
+                    }
+                    GL.End();
+                }
+                GL.End();
+            }
+
+            GL.PointSize(1.0f);
+        }
+    }
+
+    public static class VehicleDrawExtensions
+    {
+        public static void DrawVehicle(this CVehicle vehicle)
+        {
+            IVehicleHost mf = vehicle.mf;
+            VehicleConfig VehicleConfig = vehicle.VehicleConfig;
+
+            GL.Rotate(glm.toDegrees(-mf.FixHeading), 0.0, 0.0, 1.0);
+            //mf.font.DrawText3D(0, 0, "&TGF");
+            if (mf.IsFirstHeadingSet && !mf.Tool.isToolFrontFixed)
+            {
+                // Draw the rigid hitch
+                double hitchLengthFromPivot = mf.Tool.GetHitchLengthFromVehiclePivot();
+                double hitchHeading = mf.Tool.GetHitchHeadingFromVehiclePivot(hitchLengthFromPivot);
+                double hitchAngleOffset = hitchHeading - mf.FixHeading;
+                double sinOffset = Math.Sin(hitchAngleOffset);
+                double cosOffset = Math.Cos(hitchAngleOffset);
+
+                XyCoord TransformVertex(double lateral, double longitudinal)
+                {
+                    double x = lateral * cosOffset + longitudinal * sinOffset;
+                    double y = longitudinal * cosOffset - lateral * sinOffset;
+                    return new XyCoord(x, y);
+                }
+
+                XyCoord[] vertices;
+                if (!mf.Tool.isToolRearFixed)
+                {
+                    vertices = new XyCoord[]
+                    {
+                        TransformVertex(0, hitchLengthFromPivot), TransformVertex(0, 0)
+                    };
+                }
+                else
+                {
+                    vertices = new XyCoord[]
+                    {
+                        TransformVertex(-0.35, hitchLengthFromPivot), TransformVertex(-0.35, 0),
+                        TransformVertex( 0.35, hitchLengthFromPivot), TransformVertex( 0.35, 0)
+                    };
+                }
+                LineStyle backgroundLineStyle = new LineStyle(4, Colors.Black);
+                LineStyle foregroundLineStyle = new LineStyle(1, Colors.HitchRigidColor);
+                GLW.DrawLinesPrimitiveLayered(vertices, backgroundLineStyle, foregroundLineStyle);
+            }
+
+            //draw the vehicle Body
+            if (!mf.IsFirstHeadingSet && mf.HeadingFromSource != "Dual")
+            {
+                GL.Color4(1, 1, 1, 0.75);
+                mf.QuestionMarkTexture.Draw(new XyCoord(1.0, 5.0), new XyCoord(5.0, 1.0));
+            }
+
+            //3 vehicle types  tractor=0 harvestor=1 Articulated=2
+            ColorRgba vehicleColor = new ColorRgba(
+                VehicleConfig.Color.Red,
+                VehicleConfig.Color.Green,
+                VehicleConfig.Color.Blue,
+                (byte)(255.0 * VehicleConfig.Opacity));
+
+            if (VehicleConfig.IsImage)
+            {
+                if (VehicleConfig.Type == VehicleType.Tractor)
+                {
+                    //vehicle body
+                    GLW.SetColor(vehicleColor);
+
+                    AckermannAngles(
+                        -(mf.IsSimEnabled ? mf.Sim.steerangleAve : mf.Mc.actualSteerAngleDegrees),
+                        out double leftAckermann,
+                        out double rightAckermann);
+                    XyCoord tractorCenter = new XyCoord(0.0, 0.5 * VehicleConfig.Wheelbase);
+                    mf.TractorTexture.DrawCentered(
+                        tractorCenter,
+                        new XyDelta(VehicleConfig.TrackWidth, -1.0 * VehicleConfig.Wheelbase));
+
+                    //right wheel
+                    GL.PushMatrix();
+                    GL.Translate(0.5 * VehicleConfig.TrackWidth, VehicleConfig.Wheelbase, 0);
+                    GL.Rotate(rightAckermann, 0, 0, 1);
+
+                    XyDelta frontWheelDelta = new XyDelta(0.5 * VehicleConfig.TrackWidth, -0.75 * VehicleConfig.Wheelbase);
+                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(frontWheelDelta);
+
+                    GL.PopMatrix();
+
+                    //Left Wheel
+                    GL.PushMatrix();
+
+                    GL.Translate(-VehicleConfig.TrackWidth * 0.5, VehicleConfig.Wheelbase, 0);
+                    GL.Rotate(leftAckermann, 0, 0, 1);
+
+                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(frontWheelDelta);
+
+                    GL.PopMatrix();
+                    //disable, straight color
+                }
+                else if (VehicleConfig.Type == VehicleType.Harvester)
+                {
+                    //vehicle body
+
+                    AckermannAngles(
+                        mf.IsSimEnabled ? mf.Sim.steerAngle : mf.Mc.actualSteerAngleDegrees,
+                        out double leftAckermannAngle,
+                        out double rightAckermannAngle);
+                    ColorRgba harvesterWheelColor = new ColorRgba(
+                        Colors.HarvesterWheelColor.Red,
+                        Colors.HarvesterWheelColor.Green,
+                        Colors.HarvesterWheelColor.Blue,
+                        (byte)(255.0 * VehicleConfig.Opacity));
+                    GLW.SetColor(harvesterWheelColor);
+                    //right wheel
+                    GL.PushMatrix();
+                    GL.Translate(VehicleConfig.TrackWidth * 0.5, -VehicleConfig.Wheelbase, 0);
+                    GL.Rotate(rightAckermannAngle, 0, 0, 1);
+                    XyDelta forntWheelDelta = new XyDelta(0.25 * VehicleConfig.TrackWidth, 0.5 * VehicleConfig.Wheelbase);
+                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(forntWheelDelta);
+                    GL.PopMatrix();
+
+                    //Left Wheel
+                    GL.PushMatrix();
+                    GL.Translate(-VehicleConfig.TrackWidth * 0.5, -VehicleConfig.Wheelbase, 0);
+                    GL.Rotate(leftAckermannAngle, 0, 0, 1);
+                    mf.FrontWheelTexture.DrawCenteredAroundOrigin(forntWheelDelta);
+                    GL.PopMatrix();
+
+                    GLW.SetColor(vehicleColor);
+                    mf.HarvesterTexture.DrawCenteredAroundOrigin(
+                        new XyDelta(VehicleConfig.TrackWidth, -1.5 * VehicleConfig.Wheelbase));
+                    //disable, straight color
+                }
+                else if (VehicleConfig.Type == VehicleType.Articulated)
+                {
+                    double modelSteerAngle = 0.5 * (mf.IsSimEnabled ? mf.Sim.steerAngle : mf.Mc.actualSteerAngleDegrees);
+                    GLW.SetColor(vehicleColor);
+
+                    XyDelta articulated = new XyDelta(VehicleConfig.TrackWidth, -0.65 * VehicleConfig.Wheelbase);
+                    GL.PushMatrix();
+                    GL.Translate(0, -VehicleConfig.Wheelbase * 0.5, 0);
+                    GL.Rotate(modelSteerAngle, 0, 0, 1);
+                    mf.ArticulatedRearTexture.DrawCenteredAroundOrigin(articulated);
+                    GL.PopMatrix();
+
+                    GL.PushMatrix();
+                    GL.Translate(0, VehicleConfig.Wheelbase * 0.5, 0);
+                    GL.Rotate(-modelSteerAngle, 0, 0, 1);
+                    mf.ArticulatedFrontTexture.DrawCenteredAroundOrigin(articulated);
+                    GL.PopMatrix();
+                }
+            }
+            else
+            {
+                GL.Color4(1.2, 1.20, 0.0, VehicleConfig.Opacity);
+                GL.Begin(PrimitiveType.TriangleFan);
+                GL.Vertex2(0, VehicleConfig.AntennaPivot);
+                GL.Vertex2(1.0, -0);
+                GL.Color4(0.0, 1.20, 1.22, VehicleConfig.Opacity);
+                GL.Vertex2(0, VehicleConfig.Wheelbase);
+                GL.Color4(1.220, 0.0, 1.2, VehicleConfig.Opacity);
+                GL.Vertex2(-1.0, -0);
+                GL.Vertex2(1.0, -0);
+                GL.End();
+
+                GL.LineWidth(3);
+                GL.Color3(0.12, 0.12, 0.12);
+                GL.Begin(PrimitiveType.LineLoop);
+                {
+                    GL.Vertex2(-1.0, 0);
+                    GL.Vertex2(1.0, 0);
+                    GL.Vertex2(0, VehicleConfig.Wheelbase);
+                }
+                GL.End();
+            }
+            if (mf.CamSetDistance > -75 && mf.IsFirstHeadingSet)
+            {
+                //draw the bright antenna dot
+                // background layer
+                GLW.SetPointSize(16.0f);
+                GLW.SetColor(Colors.Black);
+                GLW.DrawPoint(-VehicleConfig.AntennaOffset, VehicleConfig.AntennaPivot, 0.1);
+                // foreground layer
+                GLW.SetPointSize(10.0f);
+                GLW.SetColor(Colors.AntennaColor);
+                GLW.DrawPoint(-VehicleConfig.AntennaOffset, VehicleConfig.AntennaPivot, 0.1);
+            }
+
+            if (mf.Bnd.isBndBeingMade && mf.Bnd.isDrawAtPivot)
+            {
+                if (mf.Bnd.isDrawRightSide)
+                {
+                    GL.LineWidth(2);
+                    GL.Color3(0.0, 1.270, 0.0);
+                    GL.Begin(PrimitiveType.LineStrip);
+                    {
+                        GL.Vertex2(0.0, 0.0);
+                        GL.Color3(1.270, 1.220, 0.20);
+                        GL.Vertex2(mf.Bnd.createBndOffset, 0);
+                        GL.Vertex2(mf.Bnd.createBndOffset * 0.75, 0.25);
+                    }
+                    GL.End();
+                }
+                //draw on left side
+                else
+                {
+                    GL.LineWidth(2);
+                    GL.Color3(0.0, 1.270, 0.0);
+                    GL.Begin(PrimitiveType.LineStrip);
+                    {
+                        GL.Vertex2(0.0, 0.0);
+                        GL.Color3(1.270, 1.220, 0.20);
+                        GL.Vertex2(-mf.Bnd.createBndOffset, 0);
+                        GL.Vertex2(-mf.Bnd.createBndOffset * 0.75, 0.25);
+                    }
+                    GL.End();
+                }
+            }
+
+            //Svenn Arrow
+            if (mf.IsSvennArrowOn && mf.CamSetDistance > -1000)
+            {
+                //double offs = distanceFromCurrentLinePivot de la curva * 0.3;
+                double svennDist = mf.CamSetDistance * -0.07;
+                double svennWidth = svennDist * 0.22;
+                GLW.SetLineWidth(mf.ABLineWidth);
+                GLW.SetColor(Colors.SvenArrowColor);
+                XyCoord[] vertices = {
+                    new XyCoord(svennWidth, VehicleConfig.Wheelbase + svennDist),
+                    new XyCoord(0, VehicleConfig.Wheelbase + svennWidth + 0.5 + svennDist),
+                    new XyCoord(-svennWidth, VehicleConfig.Wheelbase + svennDist)
+                };
+                GLW.DrawLineStripPrimitive(vertices);
+            }
+            GL.LineWidth(1);
+        }
+
+        private static void AckermannAngles(double wheelAngle, out double leftAckermannAngle, out double rightAckermannAngle)
+        {
+            leftAckermannAngle = wheelAngle;
+            rightAckermannAngle = wheelAngle;
+            if (wheelAngle > 0.0)
+            {
+                leftAckermannAngle *= 1.25;
+            }
+            else
+            {
+                rightAckermannAngle *= 1.25;
+            }
+        }
+    }
+
+    public static class ToolDrawExtensions
+    {
+        private static void DrawHitch(double trailingTank)
+        {
+            XyCoord[] vertices = {
+                new XyCoord(-0.57, trailingTank),
+                new XyCoord(0.0, 0.0),
+                new XyCoord(0.57, trailingTank)
+            };
+            LineStyle backgroundLineStyle = new LineStyle(6.0f, Colors.Black);
+            LineStyle foregroundLineStyle = new LineStyle(1.0f, Colors.HitchColor);
+            GLW.DrawLineLoopPrimitiveLayered(vertices, backgroundLineStyle, foregroundLineStyle);
+        }
+
+        private static void DrawTrailingHitch(CTool tool, double trailingTool)
+        {
+            XyCoord[] vertices = {
+                new XyCoord(-0.65 + tool.offset, trailingTool),
+                new XyCoord(0.0, 0.0),
+                new XyCoord(0.65 + tool.offset, trailingTool)
+            };
+            LineStyle backgroundLineStyle = new LineStyle(6.0f, Colors.Black);
+            LineStyle foregroundLineStyle = new LineStyle(1.0f, Colors.HitchTrailingColor);
+            GLW.DrawLineLoopPrimitiveLayered(vertices, backgroundLineStyle, foregroundLineStyle);
+        }
+
+        public static void DrawTool(this CTool tool)
+        {
+            IToolHost mf = tool.mf;
+
+            //translate and rotate at pivot axle
+            GL.Translate(mf.PivotAxlePos.easting, mf.PivotAxlePos.northing, 0);
+            GL.PushMatrix();
+
+            //translate down to the hitch pin
+            double pivotToHitchLength = tool.GetHitchLengthFromVehiclePivot();
+            double hitchHeading = tool.GetHitchHeadingFromVehiclePivot(pivotToHitchLength);
+            GL.Translate(
+                Math.Sin(hitchHeading) * pivotToHitchLength,
+                Math.Cos(hitchHeading) * pivotToHitchLength,
+                0);
+
+            //settings doesn't change trailing hitch length if set to rigid, so do it here
+            double trailingTank, trailingTool;
+            if (tool.isToolTrailing)
+            {
+                trailingTank = tool.tankTrailingHitchLength;
+                trailingTool = tool.trailingHitchLength;
+            }
+            else { trailingTank = 0; trailingTool = 0; }
+
+            // if there is a trailing tow between hitch
+            if (tool.isToolTBT && tool.isToolTrailing)
+            {
+                //rotate to tank heading
+                GL.Rotate(glm.toDegrees(-mf.TankPos.heading), 0.0, 0.0, 1.0);
+
+                DrawHitch(trailingTank);
+
+                GL.Color4(1, 1, 1, 0.75);
+                XyCoord toolAxleCenter = new XyCoord(0.0, trailingTank);
+                XyDelta deltaToU1V1 = new XyDelta(1.5, 1.0);
+                mf.ToolAxleTexture.DrawCentered(toolAxleCenter, deltaToU1V1);
+
+                //move down the tank hitch, unwind, rotate to section heading
+                GL.Translate(0.0, trailingTank, 0.0);
+                GL.Rotate(glm.toDegrees(mf.TankPos.heading), 0.0, 0.0, 1.0);
+            }
+            GL.Rotate(glm.toDegrees(-mf.ToolPivotPos.heading), 0.0, 0.0, 1.0);
+
+            //draw the hitch if trailing
+            if (tool.isToolTrailing)
+            {
+                DrawTrailingHitch(tool, trailingTool);
+
+                if (Math.Abs(tool.trailingToolToPivotLength) > 1 && mf.CamSetDistance > -100)
+                {
+                    tool.textRotate += (mf.Sim.stepDistance);
+                    GL.Color4(1, 1, 1, 0.75);
+                    XyCoord rightTire00 = new XyCoord(0.75 + tool.offset, trailingTool + 0.51);
+                    XyCoord rightTire11 = new XyCoord(1.4 + tool.offset, trailingTool - 0.51);
+                    XyCoord leftTire00 = new XyCoord(-0.75 + tool.offset, trailingTool + 0.51);
+                    XyCoord lefttTire11 = new XyCoord(-1.4 + tool.offset, trailingTool - 0.51);
+                    mf.TireTexture.Draw(rightTire00, rightTire11);
+                    mf.TireTexture.Draw(leftTire00, lefttTire11);
+                }
+                trailingTool -= tool.trailingToolToPivotLength;
+            }
+
+            if (mf.IsJobStarted)
+            {
+                //look ahead lines
+                GL.LineWidth(3);
+                GL.Begin(PrimitiveType.Lines);
+
+                //lookahead section on
+                GL.Color3(0.20f, 0.7f, 0.2f);
+                GL.Vertex2(tool.farLeftPosition, tool.lookAheadDistanceOnPixelsLeft * 0.1 + trailingTool);
+                GL.Vertex2(tool.farRightPosition, tool.lookAheadDistanceOnPixelsRight * 0.1 + trailingTool);
+
+                //lookahead section off
+                GL.Color3(0.70f, 0.2f, 0.2f);
+                GL.Vertex2(tool.farLeftPosition, tool.lookAheadDistanceOffPixelsLeft * 0.1 + trailingTool);
+                GL.Vertex2(tool.farRightPosition, tool.lookAheadDistanceOffPixelsRight * 0.1 + trailingTool);
+
+                if (mf.IsHydLiftOn)
+                {
+                    GL.Color3(0.70f, 0.2f, 0.72f);
+                    GL.Vertex2(mf.Section[0].positionLeft, (mf.HydLiftLookAheadDistanceLeft * 0.1) + trailingTool);
+                    GL.Vertex2(mf.Section[tool.numOfSections - 1].positionRight, (mf.HydLiftLookAheadDistanceRight * 0.1) + trailingTool);
+                }
+                GL.End();
+            }
+
+            //draw the sections
+            GL.LineWidth(2);
+
+            double hite = mf.CamSetDistance / -250;
+            if (hite > 4) hite = 4;
+            if (hite < 1) hite = 1;
+
+            for (int j = 0; j < tool.numOfSections; j++)
+            {
+                //if section is on, green, if off, red color
+                if (mf.Section[j].isSectionOn)
+                {
+                    if (mf.Section[j].sectionBtnState == btnStates.Auto)
+                    {
+                        if (mf.Section[j].isMappingOn) GL.Color3(0.0f, 0.95f, 0.0f);
+                        else GL.Color3(0.970f, 0.30f, 0.970f);
+                    }
+                    else GL.Color3(0.97, 0.97, 0);
+                }
+                else
+                {
+                    if (!mf.Section[j].isMappingOn) GL.Color3(0.950f, 0.2f, 0.2f);
+                    else GL.Color3(0.00f, 0.250f, 0.97f);
+                }
+
+                double mid = (mf.Section[j].positionRight - mf.Section[j].positionLeft) / 2 + mf.Section[j].positionLeft;
+                XyCoord[] vertices = {
+                    new XyCoord(mf.Section[j].positionLeft, trailingTool),
+                    new XyCoord(mf.Section[j].positionLeft, trailingTool - hite),
+                    new XyCoord(mid, trailingTool - hite * 1.5),
+                    new XyCoord(mf.Section[j].positionRight, trailingTool - hite),
+                    new XyCoord(mf.Section[j].positionRight, trailingTool),
+                };
+                GLW.DrawTriangleFanPrimitive(vertices);
+
+                if (mf.CamSetDistance > -tool.width * 200)
+                {
+                    GLW.SetColor(Colors.Black);
+                    GLW.DrawLineLoopPrimitive(vertices);
+                }
+            }
+
+            //zones
+            if (!tool.isSectionsNotZones && tool.zones > 0 && mf.CamSetDistance > -150)
+            {
+                GL.Begin(PrimitiveType.Lines);
+                for (int i = 1; i < tool.zones; i++)
+                {
+                    GL.Color3(0.5f, 0.80f, 0.950f);
+                    GL.Vertex2(mf.Section[tool.zoneRanges[i]].positionLeft, trailingTool - 0.4);
+                    GL.Vertex2(mf.Section[tool.zoneRanges[i]].positionLeft, trailingTool + 0.2);
+                }
+                GL.End();
+            }
+
+            //tram Dots
+            if (tool.isDisplayTramControl && mf.Tram.displayMode != 0)
+            {
+                if (mf.CamSetDistance > -300)
+                {
+                    if (mf.CamSetDistance > -100)
+                        GL.PointSize(12);
+                    else GL.PointSize(8);
+
+                    ColorRgba rightMarkerColor = ((mf.Tram.controlByte) & 1) != 0 ? Colors.TramMarkerOnColor : Colors.Black;
+                    ColorRgba leftMarkerColor = ((mf.Tram.controlByte) & 2) != 0 ? Colors.TramMarkerOnColor : Colors.Black;
+                    double rightX = mf.Tram.isOuter ? tool.farRightPosition - mf.Tram.halfWheelTrack : mf.Tram.halfWheelTrack;
+                    double leftX = mf.Tram.isOuter ? tool.farLeftPosition + mf.Tram.halfWheelTrack : -mf.Tram.halfWheelTrack;
+                    // section markers
+                    GL.Begin(PrimitiveType.Points);
+                    GLW.SetColor(rightMarkerColor);
+                    GL.Vertex2(rightX, trailingTool);
+                    GLW.SetColor(leftMarkerColor);
+                    GL.Vertex2(leftX, trailingTool);
+                    GL.End();
+                }
+            }
+
+            GL.PopMatrix();
         }
     }
 
