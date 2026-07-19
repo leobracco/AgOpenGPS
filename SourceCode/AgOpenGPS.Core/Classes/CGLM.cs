@@ -1,5 +1,4 @@
-﻿using OpenTK.Graphics.OpenGL;
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace AgOpenGPS
@@ -107,31 +106,8 @@ namespace AgOpenGPS
             return result;
         }
 
-        public static void DrawPolygon(this List<vec3> polygon)
-        {
-            if (polygon.Count > 2)
-            {
-                GL.Begin(PrimitiveType.LineStrip);
-                for (int i = 0; i < polygon.Count; i++)
-                {
-                    GL.Vertex2(polygon[i].easting, polygon[i].northing);
-                }
-                GL.End();
-            }
-        }
-
-        public static void DrawPolygon(this List<vec2> polygon)
-        {
-            if (polygon.Count > 2)
-            {
-                GL.Begin(PrimitiveType.LineLoop);
-                for (int i = 0; i < polygon.Count; i++)
-                {
-                    GL.Vertex2(polygon[i].easting, polygon[i].northing);
-                }
-                GL.End();
-            }
-        }
+        //DrawPolygon(List<vec3>/List<vec2>) se movió a PolygonDrawExtensions
+        //(DrawLib): era el único uso de OpenTK acá y glm es matemática pura.
 
         // Catmull Rom interpoint spline calculation
         public static vec3 Catmull(double t, vec3 p0, vec3 p1, vec3 p2, vec3 p3)
