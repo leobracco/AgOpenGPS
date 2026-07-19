@@ -1590,3 +1590,17 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   sectionx.js (broker caido) y TimedMessageBox de arranque de CoreX en
   FormGPS. Solo strings visibles; IDs, campos de API (seccion_aog,
   /api/aog/*) y nombres de codigo intactos.
+- [2026-07-19] [Claude] AUDITORIA duplicacion de pantallas (pedido del
+  usuario). Resultado: 68 paginas, CERO huerfanas; pares camaras/
+  camaras-widget, cabecera/cabecera-lineas y vistax-* son roles distintos
+  (config vs overlay), no duplicados. UNA duplicacion real:
+  **tramline.html** (FormTram simple, alcanzable via menu flotante
+  "Tram crear") vs **tramlines.html** (FormTramLine editor completo con
+  /api/tramlines/*, que quedo colgado SOLO del menu clasico
+  tramsMultiMenuField — invisible en la UI moderna). Decidir: exponer el
+  editor en menu-izquierda con nombre propio ("Tram editor") wireando un
+  case en GUI.FloatingMenu.cs (carril GPS/Forms = rama android), o
+  retirar tramlines.html+controller si el simple alcanza. Menores:
+  tracks.html se abre en 2 tamanos (650x480 lista / 900x560 dibujo) —
+  unificar cuando se toque; FormEnterFlag/FormFlags nativos quedaron sin
+  caller (muertos, borrarlos cuando el carril GPS/Forms se libere).
