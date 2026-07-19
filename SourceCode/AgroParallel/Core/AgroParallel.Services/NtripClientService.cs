@@ -33,12 +33,13 @@ namespace AgroParallel.Services
         public string CasterIp => _config?.CasterIp ?? "";
 
         public event Action<byte[]> OnRtcmData;
+        public event Action OnGgaSent;
 
         public void Connect(NtripConfig config, Func<NtripGpsData> gpsFeedback)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
             _gpsFeedback = gpsFeedback;
-            _tickCounter = 0;
+            _tickCounter = 21;
             _watchdog = 0;
             _starting = false;
             _ggaIntervalSec = config.SendGgaIntervalSec;
@@ -46,6 +47,9 @@ namespace AgroParallel.Services
             TotalBytes = 0;
             IsConnected = false;
             IsConnecting = false;
+
+            // Intento de conexión inmediato; SecondTick maneja reintentos.
+            DoConnect();
         }
 
         public void Disconnect()
@@ -207,6 +211,7 @@ namespace AgroParallel.Services
                 string gga = BuildGga();
                 byte[] bytes = Encoding.ASCII.GetBytes(gga);
                 _socket.Send(bytes, bytes.Length, 0);
+                OnGgaSent?.Invoke();
             }
             catch { RequestReconnect(); }
         }

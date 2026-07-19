@@ -32,8 +32,9 @@ namespace AgroParallel.Services.Abstractions
         long TotalBytes { get; }
         string CasterIp { get; }
 
-        // Conectar al caster. gpsFeedback = callback que devuelve lat/lon/alt/fix
-        // actuales para construir la GGA.
+        // Conectar al caster (intento inmediato). gpsFeedback = callback que
+        // devuelve lat/lon/alt/fix actuales para construir la GGA.
+        // La reconexión/watchdog/GGA periódica las maneja SecondTick.
         void Connect(NtripConfig config, Func<NtripGpsData> gpsFeedback);
 
         void Disconnect();
@@ -43,6 +44,9 @@ namespace AgroParallel.Services.Abstractions
 
         // Datos RTCM recibidos del caster → el host los reenvía al GPS.
         event Action<byte[]> OnRtcmData;
+
+        // Se envió una GGA periódica al caster (para feedback de UI).
+        event Action OnGgaSent;
     }
 
     public sealed class NtripGpsData

@@ -257,19 +257,13 @@ namespace AgIO
                 {
                     Log.EventWriter(ex.ToString());
                     TimedMessageBox(1500, "URL Not Located, Network Down?", "Cannot Find: " + Properties.Settings.Default.setNTRIP_casterURL);
-                    //if we had a timer already, kill it
-                    tmr?.Dispose();
 
                     //use last known
                     broadCasterIP = Properties.Settings.Default.setNTRIP_casterIP; //Select correct Address
 
-                    // Close the socket if it is still open
-                    if (clientSocket != null && clientSocket.Connected)
-                    {
-                        clientSocket.Shutdown(SocketShutdown.Both);
-                        System.Threading.Thread.Sleep(100);
-                        clientSocket.Close();
-                    }
+                    // Cierra la conexión al caster si estaba abierta.
+                    ntripService?.Disconnect();
+                    isNtripServiceStarted = false;
 
                     //TimedMessageBox(2000, "NTRIP Not Connected", " Reconnect Request");
                     ntripCounter = 15;

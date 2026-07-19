@@ -1,16 +1,20 @@
-﻿using System;
-using System.Text;
+// ============================================================================
+// NTRIPComm.Designer.cs — Wrapper WinForms sobre NtripClientService (portable).
+// El cliente TCP al caster (conexión, auth, GGA periódica, watchdog,
+// reconexión) vive en AgroParallel.Services.NtripClientService
+// (netstandard2.0). Acá queda solo: UI (labels/botón), metering hacia el
+// GPS (queue + timer), y las variantes Radio / Serial-Pass que dependen
+// de puertos serie Windows.
+// ============================================================================
+
+using System;
 using System.Net;
-using System.Net.Sockets;
 using System.Windows.Forms;
-using System.Globalization;
 using System.IO.Ports;
 using System.Collections.Generic;
-using System.Linq;
 using AgLibrary.Logging;
-
-// Declare the delegate prototype to send data back to the form
-delegate void UpdateRTCM_Data(byte[] data);
+using AgroParallel.Services;
+using AgroParallel.Services.Abstractions;
 
 namespace AgIO
 {
@@ -19,11 +23,9 @@ namespace AgIO
         //for the NTRIP CLient counting
         private int ntripCounter = 10;
 
-        private Socket clientSocket;                      // Server connection
-        private byte[] casterRecBuffer = new byte[2800];    // Recieved data buffer
-
-        //Send GGA back timer
-        Timer tmr;
+        // Cliente NTRIP portable (solo modo caster TCP; radio/serial abajo).
+        private NtripClientService ntripService;
+        private bool isNtripServiceStarted;
 
         private string mount;
         private string username;
@@ -33,7 +35,6 @@ namespace AgIO
         private int broadCasterPort;
 
         private int sendGGAInterval = 0;
-        private string GGASentence;
 
         public uint tripBytes = 0;
         private int toUDP_Port = 0;
@@ -56,6 +57,23 @@ namespace AgIO
         //NTRIP metering
         Queue<byte> rawTrip = new Queue<byte>();
 
+        private void EnsureNtripService()
+        {
+            if (ntripService != null) return;
+
+            ntripService = new NtripClientService();
+            ntripService.OnRtcmData += data =>
+            {
+                try { BeginInvoke((MethodInvoker)(() => OnAddMessage(data))); }
+                catch { }
+            };
+            ntripService.OnGgaSent += () =>
+            {
+                try { BeginInvoke((MethodInvoker)(() => isNTRIP_Sending = true)); }
+                catch { }
+            };
+        }
+
         //set up connection to Caster
         private void DoNTRIPSecondRoutine()
         {
@@ -65,12 +83,19 @@ namespace AgIO
                 IncrementNTRIPWatchDog();
             }
 
-            //Have we NTRIP connection
-            if (isNTRIP_RequiredOn && !isNTRIP_Connected && !isNTRIP_Connecting)
+            //Have we NTRIP connection (caster TCP → servicio portable)
+            if (isNTRIP_RequiredOn)
             {
-                if (!isNTRIP_Starting && ntripCounter > 20)
+                if (!isNtripServiceStarted && !isNTRIP_Starting && ntripCounter > 20)
                 {
                     StartNTRIP();
+                }
+
+                if (isNtripServiceStarted)
+                {
+                    ntripService.SecondTick();
+                    isNTRIP_Connected = ntripService.IsConnected;
+                    isNTRIP_Connecting = ntripService.IsConnecting;
                 }
             }
 
@@ -82,17 +107,10 @@ namespace AgIO
                 }
             }
 
-            if (isNTRIP_Connecting)
+            if (isNTRIP_Connecting && ntripCounter > 29)
             {
-                if (ntripCounter > 29)
-                {
-                    TimedMessageBox(1500, "Connection Problem", "Not Connecting To Caster");
-                    ReconnectRequest();
-                }
-                if (clientSocket != null && clientSocket.Connected)
-                {
-                    SendAuthorization();
-                }
+                TimedMessageBox(1500, "Connection Problem", "Not Connecting To Caster");
+                ReconnectRequest();
             }
 
             if (isNTRIP_RequiredOn || isRadio_RequiredOn)
@@ -178,7 +196,6 @@ namespace AgIO
             if (isNTRIP_RequiredOn || isRadio_RequiredOn || isSerialPass_RequiredOn)
             {
                 btnStartStopNtrip.Visible = true;
-                btnStartStopNtrip.Visible = true;
                 lblWatch.Visible = true;
                 lblNTRIPBytes.Visible = true;
                 lblToGPS.Visible = true;
@@ -187,7 +204,6 @@ namespace AgIO
             }
             else
             {
-                btnStartStopNtrip.Visible = false;
                 btnStartStopNtrip.Visible = false;
                 lblWatch.Visible = false;
                 lblNTRIPBytes.Visible = false;
@@ -210,42 +226,41 @@ namespace AgIO
                 toUDP_Port = Properties.Settings.Default.setNTRIP_sendToUDPPort; //send rtcm to which udp port
                 sendGGAInterval = Properties.Settings.Default.setNTRIP_sendGGAInterval; //how often to send fixes
 
-                //if we had a timer already, kill it
-                if (tmr != null)
-                {
-                    tmr.Dispose();
-                }
-
-                //create new timer at fast rate to start
-                if (sendGGAInterval > 0)
-                {
-                    this.tmr = new System.Windows.Forms.Timer();
-                    this.tmr.Interval = 5000;
-                    this.tmr.Tick += new EventHandler(NTRIPtick);
-                }
-
                 try
                 {
-                    // Close the socket if it is still open
-                    if (clientSocket != null && clientSocket.Connected)
-                    {
-                        clientSocket.Shutdown(SocketShutdown.Both);
-                        System.Threading.Thread.Sleep(100);
-                        clientSocket.Close();
-                    }
-
-                    //NTRIP endpoint
+                    //NTRIP endpoint (broadcast RTCM → módulos)
                     epNtrip = new IPEndPoint(IPAddress.Parse(
                         Properties.Settings.Default.etIP_SubnetOne.ToString() + "." +
                         Properties.Settings.Default.etIP_SubnetTwo.ToString() + "." +
                         Properties.Settings.Default.etIP_SubnetThree.ToString() + ".255"), toUDP_Port);
 
-                    // Create the socket object
-                    clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    clientSocket.NoDelay = true;
-                    // Connect to server non-Blocking method
-                    clientSocket.Blocking = false;
-                    clientSocket.BeginConnect(new IPEndPoint(IPAddress.Parse(broadCasterIP), broadCasterPort), new AsyncCallback(OnConnect), null);
+                    EnsureNtripService();
+                    ntripService.Connect(new NtripConfig
+                    {
+                        CasterIp = broadCasterIP,
+                        CasterPort = broadCasterPort,
+                        Mount = mount,
+                        Username = username,
+                        Password = password,
+                        SendGgaIntervalSec = sendGGAInterval,
+                        IsHttp10 = Properties.Settings.Default.setNTRIP_isHTTP10,
+                        IsTcp = Properties.Settings.Default.setNTRIP_isTCP,
+                        IsGgaManual = Properties.Settings.Default.setNTRIP_isGGAManual,
+                        ManualLat = Properties.Settings.Default.setNTRIP_manualLat,
+                        ManualLon = Properties.Settings.Default.setNTRIP_manualLon
+                    },
+                    () => new NtripGpsData
+                    {
+                        Latitude = latitude,
+                        Longitude = longitude,
+                        Altitude = altitudeData,
+                        FixQuality = fixQualityData,
+                        Satellites = satellitesData,
+                        Hdop = hdopData,
+                        Age = ageData
+                    });
+
+                    isNtripServiceStarted = true;
 
                     Log.EventWriter("NTRIP - IP: " + broadCasterIP.ToString() + ":" + broadCasterPort.ToString()
                         + " To Port: " + toUDP_Port.ToString() + " Mount: " + mount);
@@ -345,12 +360,6 @@ namespace AgIO
             isNTRIP_Connected = false;
             isNTRIP_Starting = false;
             isNTRIP_Connecting = false;
-
-            //if we had a timer already, kill it
-            if (tmr != null)
-            {
-                tmr.Dispose();
-            }
         }
 
         private void IncrementNTRIPWatchDog()
@@ -358,65 +367,10 @@ namespace AgIO
             //increment once every second
             ntripCounter++;
 
-            //Thinks is connected but not receiving anything
-            if (NTRIP_Watchdog++ > 30 && isNTRIP_Connected)
+            //Thinks is connected but not receiving anything.
+            //Caster TCP: la reconexión la maneja el servicio; acá solo radio/serial.
+            if (NTRIP_Watchdog++ > 30 && isNTRIP_Connected && !isNTRIP_RequiredOn)
                 ReconnectRequest();
-
-            //Once all connected set the timer GGA to NTRIP Settings
-            if (sendGGAInterval > 0 && ntripCounter == 40) tmr.Interval = sendGGAInterval * 1000;
-        }
-
-        private void SendAuthorization()
-        {
-            // Check we are connected
-            if (clientSocket == null || !clientSocket.Connected)
-            {
-                //TimedMessageBox(2000, gStr.gsNTRIPNotConnected, " At the StartNTRIP() ");
-                ReconnectRequest();
-                return;
-            }
-
-            // Read the message from settings and send it
-            try
-            {
-                if (!Properties.Settings.Default.setNTRIP_isTCP)
-                {
-                    //encode user and password
-                    string auth = ToBase64(username + ":" + password);
-
-                    //grab location sentence
-                    BuildGGA();
-                    GGASentence = sbGGA.ToString();
-
-                    string htt;
-                    if (Properties.Settings.Default.setNTRIP_isHTTP10) htt = "1.0";
-                    else htt = "1.1";
-
-                    //Build authorization string
-                    string str = "GET /" + mount + " HTTP/" + htt + "\r\n";
-                    str += "User-Agent: NTRIP AgOpenGPSClient/6.4\r\n";
-                    str += "Authorization: Basic " + auth + "\r\n"; //This line can be removed if no authorization is needed
-                                                                    //str += GGASentence; //this line can be removed if no position feedback is needed
-                    str += "Accept: */*\r\nConnection: close\r\n";
-                    str += "\r\n";
-
-                    // Convert to byte array and send.
-                    Byte[] byteDateLine = Encoding.ASCII.GetBytes(str.ToCharArray());
-                    clientSocket.Send(byteDateLine, byteDateLine.Length, 0);
-
-                    //enable to periodically send GGA sentence to server.
-                    if (sendGGAInterval > 0) tmr.Enabled = true;
-                }
-                //say its connected
-                isNTRIP_Connected = true;
-                isNTRIP_Starting = false;
-                isNTRIP_Connecting = false;
-            }
-            catch (Exception ex)
-            {
-                ReconnectRequest();
-                Log.EventWriter("Catch - > NTRIP Send Authourization: " + ex.ToString());
-            }
         }
 
         public void OnAddMessage(byte[] data)
@@ -546,82 +500,6 @@ namespace AgIO
             }
         }
 
-        public void SendGGA()
-        {
-            //timer may have brought us here so return if not connected
-            if (!isNTRIP_Connected)
-                return;
-            // Check we are connected
-            if (clientSocket == null || !clientSocket.Connected)
-            {
-                ReconnectRequest();
-                return;
-            }
-
-            // Read the message from the text box and send it
-            try
-            {
-                isNTRIP_Sending = true;
-                BuildGGA();
-                string str = sbGGA.ToString();
-
-                Byte[] byteDateLine = Encoding.ASCII.GetBytes(str.ToCharArray());
-                clientSocket.Send(byteDateLine, byteDateLine.Length, 0);
-            }
-            catch (Exception ex)
-            {
-                Log.EventWriter("Catch - > Send GGA" + ex.ToString());
-
-                ReconnectRequest();
-            }
-        }
-        private void NTRIPtick(object o, EventArgs e)
-        {
-            SendGGA();
-        }
-
-        public void OnConnect(IAsyncResult ar)
-        {
-            // Check if we were sucessfull
-            try
-            {
-                if (clientSocket.Connected)
-                    clientSocket.BeginReceive(casterRecBuffer, 0, casterRecBuffer.Length, SocketFlags.None, new AsyncCallback(OnRecievedData), null);
-            }
-            catch (Exception)
-            {
-                //MessageBox.Show(ex.Message, "Unusual error during Connect!");
-            }
-        }
-
-        public void OnRecievedData(IAsyncResult ar)
-        {
-            // Check if we got any data
-            try
-            {
-                int nBytesRec = clientSocket.EndReceive(ar);
-                if (nBytesRec > 0)
-                {
-                    byte[] localMsg = new byte[nBytesRec];
-                    Array.Copy(casterRecBuffer, localMsg, nBytesRec);
-
-                    BeginInvoke((MethodInvoker)(() => OnAddMessage(localMsg)));
-                    clientSocket.BeginReceive(casterRecBuffer, 0, casterRecBuffer.Length, SocketFlags.None, new AsyncCallback(OnRecievedData), null);
-                }
-                else
-                {
-                    // If no data was recieved then the connection is probably dead
-                    Console.WriteLine("Client {0}, disconnected", clientSocket.RemoteEndPoint);
-                    clientSocket.Shutdown(SocketShutdown.Both);
-                    clientSocket.Close();
-                }
-            }
-            catch (Exception)
-            {
-                //MessageBox.Show( this, ex.Message, "Unusual error druing Recieve!" );
-            }
-        }
-
         private void NtripPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
             // Check if we got any data
@@ -652,24 +530,13 @@ namespace AgIO
             }
         }
 
-        private string ToBase64(string str)
-        {
-            Encoding asciiEncoding = Encoding.ASCII;
-            byte[] byteArray = new byte[asciiEncoding.GetByteCount(str)];
-            byteArray = asciiEncoding.GetBytes(str);
-            return Convert.ToBase64String(byteArray, 0, byteArray.Length);
-        }
-
         private void ShutDownNTRIP()
         {
-            if (clientSocket != null && clientSocket.Connected)
+            if (isNtripServiceStarted)
             {
-                //shut it down
-                clientSocket.Shutdown(SocketShutdown.Both);
-                clientSocket.Close();
-                System.Threading.Thread.Sleep(500);
+                ntripService.Disconnect();
+                isNtripServiceStarted = false;
 
-                //start it up again
                 ReconnectRequest();
 
                 //Also stop the requests now
@@ -690,11 +557,10 @@ namespace AgIO
 
         private void SettingsShutDownNTRIP()
         {
-            if (clientSocket != null && clientSocket.Connected)
+            if (isNtripServiceStarted)
             {
-                clientSocket.Shutdown(SocketShutdown.Both);
-                clientSocket.Close();
-                System.Threading.Thread.Sleep(500);
+                ntripService.Disconnect();
+                isNtripServiceStarted = false;
                 ReconnectRequest();
             }
 
@@ -705,108 +571,6 @@ namespace AgIO
                 spRadio = null;
                 ReconnectRequest();
             }
-        }
-
-        //calculate the NMEA checksum to stuff at the end
-        public string CalculateChecksum(string Sentence)
-        {
-            int sum = 0, inx;
-            char[] sentence_chars = Sentence.ToCharArray();
-            char tmp;
-
-            // All character xor:ed results in the trailing hex checksum
-            // The checksum calc starts after '$' and ends before '*'
-            for (inx = 1; ; inx++)
-            {
-                tmp = sentence_chars[inx];
-
-                // Indicates end of data and start of checksum
-                if (tmp == '*')
-                    break;
-                sum ^= tmp;    // Build checksum
-            }
-
-            // Calculated checksum converted to a 2 digit hex string
-            return String.Format("{0:X2}", sum);
-        }
-
-        private readonly StringBuilder sbGGA = new StringBuilder();
-
-        private void BuildGGA()
-        {
-            double latitude = 0;
-            double longitude = 0;
-
-            if (Properties.Settings.Default.setNTRIP_isGGAManual)
-            {
-                latitude = Properties.Settings.Default.setNTRIP_manualLat;
-                longitude = Properties.Settings.Default.setNTRIP_manualLon;
-            }
-            else
-            {
-                latitude = this.latitude;
-                longitude = this.longitude;
-            }
-
-            //convert to DMS from Degrees
-            double latMinu = latitude;
-            double longMinu = longitude;
-
-            double latDeg = (int)latitude;
-            double longDeg = (int)longitude;
-
-            latMinu -= latDeg;
-            longMinu -= longDeg;
-
-            latMinu = Math.Round(latMinu * 60.0, 7);
-            longMinu = Math.Round(longMinu * 60.0, 7);
-
-            latDeg *= 100.0;
-            longDeg *= 100.0;
-
-            double latNMEA = latMinu + latDeg;
-            double longNMEA = longMinu + longDeg;
-
-            char NS = 'W';
-            char EW = 'N';
-            if (latitude >= 0) NS = 'N';
-            else NS = 'S';
-            if (longitude >= 0) EW = 'E';
-            else EW = 'W';
-
-            //sbGGA.Clear();
-            //sbGGA.Append("$GPGGA,");
-            //sbGGA.Append(DateTime.Now.ToString("HHmmss.00,", CultureInfo.InvariantCulture));
-            //sbGGA.Append(Math.Abs(latNMEA).ToString("0000.000", CultureInfo.InvariantCulture)).Append(',').Append(NS).Append(',');
-            //sbGGA.Append(Math.Abs(longNMEA).ToString("00000.000", CultureInfo.InvariantCulture)).Append(',').Append(EW);
-            //sbGGA.Append(",1,10,1,43.4,M,46.4,M,5,0*");
-
-            //sbGGA.Append(CalculateChecksum(sbGGA.ToString()));
-            //sbGGA.Append("\r\n");
-            sbGGA.Clear();
-            sbGGA.Append("$GPGGA,");
-            sbGGA.Append(DateTime.Now.ToString("HHmmss.00,", CultureInfo.InvariantCulture));
-            sbGGA.Append(Math.Abs(latNMEA).ToString("0000.000", CultureInfo.InvariantCulture)).Append(',').Append(NS).Append(',');
-            sbGGA.Append(Math.Abs(longNMEA).ToString("00000.000", CultureInfo.InvariantCulture)).Append(',').Append(EW);
-            sbGGA.Append(',').Append(fixQualityData.ToString()).Append(',');
-            sbGGA.Append(satellitesData.ToString()).Append(',');
-
-            if (hdopData > 0) sbGGA.Append(hdopData.ToString("0.##", CultureInfo.InvariantCulture)).Append(',');
-
-            else sbGGA.Append("1,");
-
-            sbGGA.Append(altitudeData.ToString("0.###", CultureInfo.InvariantCulture)).Append(',');
-            sbGGA.Append("M,");
-            sbGGA.Append("46.4,M,");  //udulation
-            sbGGA.Append(ageData.ToString("0.#", CultureInfo.InvariantCulture)).Append(','); //age
-            sbGGA.Append("0*");
-
-            sbGGA.Append(CalculateChecksum(sbGGA.ToString()));
-            sbGGA.Append("\r\n");
-            /*
-        $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,5,0*47
-           0     1      2      3    4      5 6  7  8   9    10 11  12 13  14
-                Time      Lat       Lon     FixSatsOP Alt */
         }
     }
 }
