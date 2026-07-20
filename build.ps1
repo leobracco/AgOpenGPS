@@ -42,6 +42,12 @@ Write-Host "`n=== Build AgroParallel.Updater ($Config) ===" -ForegroundColor Cya
 dotnet build "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\AgroParallel.Updater.csproj" -c $Config -v q
 if ($LASTEXITCODE -ne 0) { Write-Host "AgroParallel.Updater FAILED" -ForegroundColor Red; exit 1 }
 
+# ModSim: simulador de GPS/NMEA por UDP :8888 para probar guiado sin antena
+# real. Viaja en el paquete para que cada pantalla pueda simular en banco.
+Write-Host "`n=== Build ModSim ($Config) ===" -ForegroundColor Cyan
+dotnet build "$root\SourceCode\ModSim\Source\ModSim.csproj" -c $Config -v q $verArg
+if ($LASTEXITCODE -ne 0) { Write-Host "ModSim FAILED" -ForegroundColor Red; exit 1 }
+
 # Crear directorio de salida
 if (!(Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
 
@@ -85,6 +91,15 @@ $updBin = "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\bin\$Config\
 if (Test-Path $updBin) {
     Write-Host "Copiando AgroParallel.Updater..." -ForegroundColor Yellow
     Get-ChildItem $updBin -File -Filter "AgroParallel.Updater.*" | ForEach-Object {
+        Copy-Item $_.FullName -Destination $OutDir -Force
+    }
+}
+
+# Copiar ModSim (simulador GPS — lo lanza el operario a mano cuando prueba)
+$modSimBin = "$root\SourceCode\ModSim\Source\bin\$Config"
+if (Test-Path $modSimBin) {
+    Write-Host "Copiando ModSim..." -ForegroundColor Yellow
+    Get-ChildItem $modSimBin -File -Filter "ModSim.exe*" | ForEach-Object {
         Copy-Item $_.FullName -Destination $OutDir -Force
     }
 }
