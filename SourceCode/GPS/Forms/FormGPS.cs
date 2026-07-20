@@ -616,6 +616,9 @@ namespace AgOpenGPS
 
             //stop crítico por boundary + creación/disparo del youturn (vive en Core, host invertido)
             youTurnUpdater = new CYouTurnUpdater(this);
+
+            //switch de heading Fix/VTG/Dual (vive en Core, host invertido)
+            headingUpdater = new CHeadingUpdater(this);
         }
 
         //Levanta el AgpWebHost:5180 con TODOS los servicios (perfiles, tracks,

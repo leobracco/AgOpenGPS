@@ -31,7 +31,7 @@ namespace AgOpenGPS
         vec3 IAutoSteerHost.PivotAxlePos => pivotAxlePos;
         vec3 IAutoSteerHost.SteerAxlePos => steerAxlePos;
 
-        double IAutoSteerHost.GpsHeading => gpsHeading;
+        double IAutoSteerHost.GpsHeading { get => gpsHeading; set => gpsHeading = value; }
         double IAutoSteerHost.AvgSpeed => avgSpeed;
         double IAutoSteerHost.LightbarDistance { get => lightbarDistance; set => lightbarDistance = value; }
         short IAutoSteerHost.GuidanceLineDistanceOff { get => guidanceLineDistanceOff; set => guidanceLineDistanceOff = value; }
@@ -40,8 +40,8 @@ namespace AgOpenGPS
         int IAutoSteerHost.MinSteerSpeedTimer { get => minSteerSpeedTimer; set => minSteerSpeedTimer = value; }
 
         bool IAutoSteerHost.IsBtnAutoSteerOn => isBtnAutoSteerOn;
-        bool IAutoSteerHost.IsReverse => isReverse;
-        bool IAutoSteerHost.IsChangingDirection => isChangingDirection;
+        bool IAutoSteerHost.IsReverse { get => isReverse; set => isReverse = value; }
+        bool IAutoSteerHost.IsChangingDirection { get => isChangingDirection; set => isChangingDirection = value; }
         bool IAutoSteerHost.IsSteerInReverse => isSteerInReverse;
         bool IAutoSteerHost.IsMetric => isMetric;
         bool IAutoSteerHost.IsSimTimerEnabled => timerSim.Enabled;

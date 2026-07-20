@@ -10,6 +10,8 @@ namespace AgOpenGPS
     /// matriz Android, 2026-07-20). Cálculo/armado de PGN y decisión de
     /// tracking (AB/curva) es puro; los toques UI (click del botón, mensaje
     /// timed, timer del simulador) cruzan como método/propiedad.
+    /// GpsHeading/IsReverse/IsChangingDirection son get/set (no solo get)
+    /// porque IHeadingHost (que hereda de acá) también las escribe.
     /// </summary>
     public interface IAutoSteerHost
     {
@@ -30,7 +32,7 @@ namespace AgOpenGPS
         vec3 PivotAxlePos { get; }
         vec3 SteerAxlePos { get; }
 
-        double GpsHeading { get; }
+        double GpsHeading { get; set; }
         double AvgSpeed { get; }
         double LightbarDistance { get; set; }
         short GuidanceLineDistanceOff { get; set; }
@@ -39,8 +41,8 @@ namespace AgOpenGPS
         int MinSteerSpeedTimer { get; set; }
 
         bool IsBtnAutoSteerOn { get; }
-        bool IsReverse { get; }
-        bool IsChangingDirection { get; }
+        bool IsReverse { get; set; }
+        bool IsChangingDirection { get; set; }
         bool IsSteerInReverse { get; }
         bool IsMetric { get; }
         bool IsSimTimerEnabled { get; }
