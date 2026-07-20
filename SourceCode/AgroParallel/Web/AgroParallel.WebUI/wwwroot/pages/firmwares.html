@@ -272,6 +272,8 @@
     #uplResult.ok    { border-color: rgba(75, 166, 63, 0.30); background: var(--agp-accent-soft); color: var(--agp-text); }
     #uplResult.err   { border-color: rgba(178, 62, 62, 0.40); background: var(--agp-state-bad-bg); color: var(--agp-state-bad); }
   </style>
+  <script>if(location.search.indexOf('widget=1')!==-1)document.documentElement.classList.add('widget-mode');</script>
+  <style>html.widget-mode body{grid-template-columns:1fr}html.widget-mode aside.sidebar{display:none}</style>
 </head>
 <body>
   <aside class="sidebar" data-active="firmwares"></aside>
