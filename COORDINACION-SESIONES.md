@@ -109,3 +109,22 @@ la sesión android al extraer, pero el taller los usa desde Services),
   por default o que `build.ps1` lo cree automáticamente. Lo dejo
   anotado, decisión del usuario. Sigo con la verificación en runtime de
   Position/Sections/OpenGL con el modo HTML activado.
+- [2026-07-19] [android] EN CURSO — bloque 9 avanzó bastante hoy, sin
+  commitear todavía (probando antes de commitear, working tree sucio en
+  `codex/android-formgps-render`): además de `IPositionHost`/
+  `CPositionUpdater` e `ISectionsHost`/`CSectionCalculator` (ya
+  declarados arriba), sumé `ISettingsSenderHost`/`CSettingsSender`
+  (`SendSettings`/`SendRelaySettingsToMachineModule`, PGN 252/251/238/
+  236/235) y extendí `CPositionUpdater` con `CalculatePositionHeading`/
+  `CalculateSectionLookAhead` (pivote/hitch/tool + lookahead de
+  sección). Los 6 archivos de `Position.designer.cs`/`Sections.
+  Designer.cs`/`FormGPS.cs` compilan limpio (net48+netstandard2.0 de
+  Core, GPS completo, 0 warnings). Reporte de usuario sin confirmar
+  todavía: no vio guías AB en una prueba no controlada (AB nueva
+  creada por separado en cada build, no comparable) — hice worktree
+  A/B (`../PilotX-clean-test` en `codex/pilotx-ui-new`) y revisión
+  línea por línea, sin encontrar bug; falta el test controlado (mismo
+  lote `66666` guardado en Documents/AgOpenGPS/Fields, con AB) en las
+  dos builds — no lo pude completar por UI automation poco confiable
+  en esta PC (una ventana vieja del AgOpenGPS stock roba foco
+  constantemente + AnyDesk activo). Pendiente antes de commitear.
