@@ -498,6 +498,30 @@ namespace AgOpenGPS
         //lote: abrir/crear lote y todo lo que se hace DENTRO del lote
         private void FloatMenuFillLote()
         {
+            //Accesos directos de lote (pedido usuario 2026-07-20): continuar el
+            //último, abrir uno existente y cerrar el activo — sin pasar por el
+            //submenú intermedio. "Continuar" solo aparece si hay un último lote;
+            //"Cerrar" solo si hay uno abierto.
+            if (!string.IsNullOrEmpty(currentFieldDirectory))
+                FloatMenuAddAction("Continuar lote", FloatMenuGlyph(0xE037, 30, pxGreen), () =>
+                {
+                    panelFloatMenu.Visible = false;
+                    FileOpenField("Resume");
+                });
+
+            FloatMenuAddAction("Abrir lote", FloatMenuGlyph(0xE2C8, 30, pxText), () =>
+            {
+                panelFloatMenu.Visible = false;
+                FloatMenuAbrirLote();
+            });
+
+            if (isJobStarted)
+                FloatMenuAddAction("Cerrar lote", FloatMenuGlyph(0xE5CD, 30, pxText), () =>
+                {
+                    panelFloatMenu.Visible = false;
+                    JobClose();
+                });
+
             //abre el menú de lote (lote nuevo, abrir existente, cerrar, desde KML…)
             FloatMenuAddButton("Lote nuevo / abrir", btnJobMenu);
             FloatMenuAddButton("Datos lote", btnFieldStats);
@@ -511,6 +535,22 @@ namespace AgOpenGPS
             FloatMenuAddAction("Tram crear", FloatMenuScaleIcon(Properties.Resources.TramAll, 30),
                 () => { panelFloatMenu.Visible = false; tramLinesMenuField_Click(this, EventArgs.Empty); });
             FloatMenuAddButton("Tram vista", btnTramDisplayMode);
+        }
+
+        //Réplica del btnJobOpen_Click de FormJob: guarda el lote activo si lo
+        //hay y abre el selector de lotes (FormFilePicker, con lista y distancia)
+        //para cargar el elegido. Directo desde el menú flotante de Lote.
+        private async void FloatMenuAbrirLote()
+        {
+            if (isJobStarted)
+                await FileSaveEverythingBeforeClosingField();
+
+            filePickerFileAndDirectory = "";
+            using (var form = new FormFilePicker(this))
+            {
+                if (form.ShowDialog(this) == DialogResult.Yes)
+                    FileOpenField(filePickerFileAndDirectory);
+            }
         }
 
         //guías: crear (tirar A, A/B, A/B curvo viven en "Crear guías"),
