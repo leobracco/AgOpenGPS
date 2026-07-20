@@ -8,8 +8,8 @@
 (function () {
   'use strict';
 
-  var COLLAPSED = { w: 116, h: 560 };
-  var EXPANDED = { w: 400, h: 560 };
+  var COLLAPSED = { w: 94, h: 560 };
+  var EXPANDED = { w: 384, h: 560 };
 
   // submenús: espejo de los desplegables/paneles nativos de cada ítem
   var SUBMENUS = {
@@ -64,7 +64,9 @@
     lote: {
       titulo: 'Lote',
       items: [
-        { ico: '🗂', label: 'Lote nuevo / abrir', cmd: 'lote_menu' },
+        { ico: '▶', label: 'Continuar lote', cmd: 'lote_continuar' },
+        { ico: '🗂', label: 'Abrir / nuevo', cmd: 'lote_menu' },
+        { ico: '✖', label: 'Cerrar lote', cmd: 'lote_cerrar' },
         { ico: '📊', label: 'Datos lote', cmd: 'lote_datos' },
         { ico: '🚩', label: 'Bandera', cmd: 'bandera' },
         { ico: '📌', label: 'Bandera lat/lon', cmd: 'bandera_latlon' },

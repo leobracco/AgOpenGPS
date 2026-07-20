@@ -119,7 +119,7 @@ namespace AgOpenGPS
             //izquierda: reemplaza al panelLeft nativo — visible salvo flecha,
             //con margen abajo para no tapar btnTogglePaneles ni el zoom.
             MostrarBarraHtmlDock(BarraLeftPage, "Menú izquierda",
-                new Size(116, 0), "left", new Padding(0, 76, 0, 200),
+                new Size(94, 0), "left", new Padding(0, 76, 0, 200),
                 !(isJobStarted && isPanelBottomHidden));
             MostrarBarraHtmlDock(BarraRightPage, "Barra derecha",
                 new Size(74, 0), "right", new Padding(0, 76, 0, 84), operables);
@@ -1305,6 +1305,8 @@ namespace AgOpenGPS
                 case "hidraulico": b = btnHydLift; break;
                 //--- lote ---
                 case "lote_menu": b = btnJobMenu; break;
+                case "lote_continuar": act = () => FileOpenField("Resume"); break;
+                case "lote_cerrar": act = () => JobClose(); break;
                 case "lote_datos": b = btnFieldStats; break;
                 case "bandera": b = btnFlag; break;
                 case "mapeo_color": b = btnChangeMappingColor; break;

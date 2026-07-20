@@ -30,7 +30,9 @@ window.PILOT_COMMANDS = [
   { cmd: 'sec_manual',    label: 'Secc. Manual',   ico: '🟨', grupo: 'Operación' },
   { cmd: 'hidraulico',    label: 'Hidráulico',     ico: '⬍',  grupo: 'Operación' },
   // --- lote ---
-  { cmd: 'lote_menu',     label: 'Lote',           ico: '🗂',  grupo: 'Lote' },
+  { cmd: 'lote_continuar', label: 'Continuar lote', ico: '▶',  grupo: 'Lote' },
+  { cmd: 'lote_menu',     label: 'Abrir / nuevo',  ico: '🗂',  grupo: 'Lote' },
+  { cmd: 'lote_cerrar',   label: 'Cerrar lote',    ico: '✖',  grupo: 'Lote' },
   { cmd: 'lote_datos',    label: 'Datos lote',     ico: '📊', grupo: 'Lote' },
   { cmd: 'bandera',       label: 'Bandera',        ico: '🚩', grupo: 'Lote' },
   { cmd: 'mapeo_color',   label: 'Color mapeo',    ico: '🎨', grupo: 'Lote' },
