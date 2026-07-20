@@ -131,6 +131,29 @@
     state.busy = false;
   });
 
+  // borrar todos (menos el abierto, que el backend rechaza)
+  $('btnDelAll').addEventListener('click', async function () {
+    if (state.busy) return;
+    var borrables = state.all.filter(function (it) { return it.name !== state.current; });
+    if (!borrables.length) { setMsg('No hay lotes para borrar' + (state.current ? ' (el abierto no se borra)' : '') + '.', 'err'); return; }
+    var ok = await AgpModal.confirm('Borrar TODOS los lotes',
+      '¿Borrar ' + borrables.length + ' lote' + (borrables.length > 1 ? 's' : '') + '? Esto NO se puede deshacer.' +
+      (state.current ? '\n\nEl lote abierto "' + state.current + '" no se borra.' : ''));
+    if (!ok) return;
+    state.busy = true;
+    var falla = 0;
+    for (var i = 0; i < borrables.length; i++) {
+      setMsg('Borrando ' + (i + 1) + ' de ' + borrables.length + '…');
+      try { var d = await post('/api/lotes/delete?name=' + encodeURIComponent(borrables[i].name)); if (!(d && d.ok)) falla++; }
+      catch (e) { falla++; }
+    }
+    setMsg(falla
+      ? ('✓ Borrados ' + (borrables.length - falla) + ', ' + falla + ' no se pudieron')
+      : ('✓ Borrados ' + borrables.length + ' lotes'), falla ? 'err' : 'ok');
+    state.busy = false;
+    await refresh();
+  });
+
   // crear
   async function crear() {
     var nm = ($('newName').value || '').trim();

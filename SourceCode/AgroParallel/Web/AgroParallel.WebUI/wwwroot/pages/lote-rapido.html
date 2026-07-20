@@ -39,7 +39,10 @@
 
     h2.lr-lbl { font-size:var(--agp-fs-sm); text-transform:uppercase; letter-spacing:1px;
       color:var(--agp-text-muted); margin:0 0 6px 2px; flex:0 0 auto; }
-    .lr-cur, .lr-cont, .lr-new { flex:0 0 auto; }
+    .lr-cur, .lr-cont, .lr-new, .lr-listhead { flex:0 0 auto; }
+    .lr-listhead { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+    .btn.del { color:var(--agp-state-bad); }
+    #btnDelAll { min-height:34px; padding:0 10px; font-size:var(--agp-fs-sm); }
 
     /* lista: ocupa el espacio restante y scrollea */
     .lr-list { display:flex; flex-direction:column; gap:6px;
@@ -88,7 +91,10 @@
   </div>
 
   <!-- lista -->
-  <h2 class="lr-lbl">Lotes guardados</h2>
+  <div class="lr-listhead">
+    <h2 class="lr-lbl" style="margin:0">Lotes guardados</h2>
+    <button class="btn del" id="btnDelAll" title="Borrar todos los lotes">🗑 Borrar todos</button>
+  </div>
   <div class="lr-list" id="list"><div class="lr-empty">Cargando…</div></div>
   <div class="lr-msg" id="msg"></div>
 
