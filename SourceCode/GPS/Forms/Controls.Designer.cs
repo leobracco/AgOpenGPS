@@ -533,12 +533,14 @@ namespace AgOpenGPS
                 return;
             }
 
-            // PilotX: el menú de lote ahora es HTML (lote.html en el Hub) —
-            // reemplaza FormJob + FormFieldDir + FormFieldExisting; los imports
-            // KML/ISO-XML se disparan desde la página vía /api/lotes/import-*.
-            // El fixup post-apertura (section masters, log "** Opened **",
-            // toolbar) vive en Lotes_PostOpenFixup y lo llama el servicio.
-            OpenAgroParallelHub("pages/lote.html");
+            // PilotX: el menú de lote es un widget flotante simple
+            // (lote-rapido.html): continuar / crear / abrir / borrar. Reemplaza
+            // FormJob + FormFieldDir + FormFieldExisting sin abrir el Hub
+            // completo (pedido usuario 2026-07-20: simple y sencillo). Los
+            // imports KML/ISO-XML y la gestión avanzada siguen en lote.html
+            // (accesible desde el Hub). El fixup post-apertura vive en
+            // Lotes_PostOpenFixup y lo llama el servicio.
+            OpenAgroParallelWidget("pages/lote-rapido.html", "Lote", 420, 540);
         }
 
         public async Task FileSaveEverythingBeforeClosingField()

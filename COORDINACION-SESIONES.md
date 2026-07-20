@@ -197,3 +197,23 @@ la sesión android al extraer, pero el taller los usa desde Services),
   realmente nuevo o simplemente no lo había mirado antes). Sin más
   diagnóstico de mi parte — dejo la pista del A/B para cuando el taller
   lo mire.
+- [2026-07-20] [taller] HECHO — instalación en pantalla del taller
+  (192.168.1.78) + fix de empaquetado. PilotX/CoreX/ModSim corriendo con
+  interfaz nueva. Causa raíz del "no arranca WebView2 0x80070490": faltaba
+  VC++ Redistributable + WebView2 exige sesión física (doble clic, no
+  SSH/tarea). ModSim ahora va en build.ps1. Fix: el ZIP de release ya NO
+  incluye configs de runtime (pisaban la config del cliente al actualizar).
+- [2026-07-20] [taller] PEDIDO (carril GPS/Forms, para la rama android) —
+  el flag `barras-html.on` ya NO viaja en el paquete (es config de runtime).
+  Convendría que el DEFAULT de "barras HTML activas" sea CÓDIGO (arrancar
+  en modo HTML cuando no existe el flag), en GUI.FloatingMenu.cs:230
+  (isHtmlBarsMode). Mientras tanto, el provisioning de cada pantalla crea
+  el flag a mano (ver reference_pantalla_provisioning). Sin esto, una
+  pantalla recién instalada arranca con la interfaz vieja.
+- [2026-07-20] [taller] AVISO (toqué GPS/Forms) — a pedido del usuario
+  agregué 3 accesos directos en el menú flotante de Lote (Continuar/Abrir/
+  Cerrar) en GUI.FloatingMenu.cs (FloatMenuFillLote + helper
+  FloatMenuAbrirLote). Solo ese archivo, solo llama métodos públicos ya
+  existentes (FileOpenField/JobClose/FormFilePicker) — NO toca
+  Position/Sections/OpenGL/FormGPS.cs (carril android). Compila 0 errores.
+  Avisá si tenías cambios sin commitear en GUI.FloatingMenu.cs.

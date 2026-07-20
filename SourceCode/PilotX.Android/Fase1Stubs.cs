@@ -40,6 +40,7 @@ namespace PilotX.Droid
         public Task<bool> OpenFieldAsync(string name) => Task.FromResult(false);
         public Task<bool> CloseFieldAsync() => Task.FromResult(false);
         public Task<bool> CreateFieldAsync(string name) => Task.FromResult(false);
+        public Task<bool> DeleteFieldAsync(string name) => Task.FromResult(false);
         public Task<bool> CreateFromExistingAsync(string templateName, string newName,
                                                   bool copyApplied, bool copyFlags,
                                                   bool copyGuidance, bool copyHeadland)

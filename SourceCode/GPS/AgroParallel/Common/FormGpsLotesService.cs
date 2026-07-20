@@ -185,6 +185,28 @@ namespace AgroParallel.Adapters
             return tcs.Task;
         }
 
+        public Task<bool> DeleteFieldAsync(string name)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);
+                string root = RegistrySettings.fieldsDirectory;
+                string dir = System.IO.Path.Combine(root, name);
+                if (!System.IO.Directory.Exists(dir)) return Task.FromResult(false);
+                // No borrar el lote abierto: cerrarlo antes desde la UI.
+                if (_form.isJobStarted &&
+                    string.Equals(_form.currentFieldDirectory, name, StringComparison.OrdinalIgnoreCase))
+                    return Task.FromResult(false);
+                System.IO.Directory.Delete(dir, true);
+                return Task.FromResult(true);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[Lotes] DeleteFieldAsync: " + ex.Message);
+                return Task.FromResult(false);
+            }
+        }
+
         public Task<bool> CreateFieldAsync(string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);

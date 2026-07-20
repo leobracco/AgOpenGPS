@@ -42,6 +42,12 @@ Write-Host "`n=== Build AgroParallel.Updater ($Config) ===" -ForegroundColor Cya
 dotnet build "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\AgroParallel.Updater.csproj" -c $Config -v q
 if ($LASTEXITCODE -ne 0) { Write-Host "AgroParallel.Updater FAILED" -ForegroundColor Red; exit 1 }
 
+# ModSim: simulador de GPS/NMEA por UDP :8888 para probar guiado sin antena
+# real. Viaja en el paquete para que cada pantalla pueda simular en banco.
+Write-Host "`n=== Build ModSim ($Config) ===" -ForegroundColor Cyan
+dotnet build "$root\SourceCode\ModSim\Source\ModSim.csproj" -c $Config -v q $verArg
+if ($LASTEXITCODE -ne 0) { Write-Host "ModSim FAILED" -ForegroundColor Red; exit 1 }
+
 # Crear directorio de salida
 if (!(Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
 
@@ -89,6 +95,15 @@ if (Test-Path $updBin) {
     }
 }
 
+# Copiar ModSim (simulador GPS — lo lanza el operario a mano cuando prueba)
+$modSimBin = "$root\SourceCode\ModSim\Source\bin\$Config"
+if (Test-Path $modSimBin) {
+    Write-Host "Copiando ModSim..." -ForegroundColor Yellow
+    Get-ChildItem $modSimBin -File -Filter "ModSim.exe*" | ForEach-Object {
+        Copy-Item $_.FullName -Destination $OutDir -Force
+    }
+}
+
 Write-Host "`n=== Build OK === Output: $OutDir" -ForegroundColor Green
 Get-ChildItem $OutDir -Filter "*.exe" | ForEach-Object { Write-Host "  $_" -ForegroundColor White }
 
@@ -113,13 +128,24 @@ if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 Add-Type -AssemblyName System.IO.Compression | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem | Out-Null
 
-$skipDirs = @('Updates','Backups','WebView2Data')
-$skipExt  = @('.pdb')
+# El paquete de release lleva SOLO binarios + estáticos (wwwroot). NUNCA
+# configuraciones de runtime: si el Build local acumuló configs por haber
+# corrido PilotX acá, extraerlos sobre una pantalla en uso le PISA la config
+# del cliente (vistaX.json, perfil, overlays, etc.). Se excluyen:
+#  - dirs de datos/cache de runtime (firmware-cache, data, Fields, Logs...)
+#  - backups y logs (.bak, .log) y flags de runtime (.on, ej barras-html.on)
+#  - todos los .json de config que viven en la RAÍZ del install dir
+#    (los .json legítimos del release están en subdirs: wwwroot, runtimes...)
+$skipDirs = @('Updates','Backups','WebView2Data','firmware-cache',
+              'data','implementos','Fields','Vehicles','Logs','Profiles')
+$skipExt  = @('.pdb','.bak','.log','.on')
 $files = Get-ChildItem $OutDir -Recurse -File -Force | Where-Object {
     $rel   = $_.FullName.Substring($OutDir.Length + 1)
     $parts = $rel.Split([IO.Path]::DirectorySeparatorChar)
+    $esConfigRaiz = ($parts.Length -eq 1) -and ($_.Extension.ToLower() -eq '.json')
     (-not ($parts | Where-Object { $skipDirs -contains $_ })) -and
     ($skipExt -notcontains $_.Extension.ToLower()) -and
+    (-not $esConfigRaiz) -and
     ($_.Name -notlike '*.vshost.*') -and ($_.Name -ne 'updater.log')
 }
 
