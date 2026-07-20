@@ -127,6 +127,9 @@ namespace AgOpenGPS
         //agrega punto de lote/contorno/sección e inicializa primeras posiciones GPS (Core, host invertido)
         public CPositionUpdater positionUpdater;
 
+        //PGN de posición corregida + PGN 254 de autosteer (Core, host invertido)
+        public CAutoSteerUpdater autoSteerUpdater;
+
         public void UpdateFixPosition()
         {
             _updateFixTimer?.Start();
@@ -797,222 +800,13 @@ namespace AgOpenGPS
             #endregion
 
             #region Corrected Position
-            Wgs84 latLon = AppModel.LocalPlane.ConvertGeoCoordToWgs84(pn.fix.ToGeoCoord());
-            byte[] correctedPosition = new byte[30];
-            correctedPosition[0] = 0x80;
-            correctedPosition[1] = 0x81;
-            correctedPosition[2] = 0x7F;
-            correctedPosition[3] = 0x64;
-            correctedPosition[4] = 24;
-            Buffer.BlockCopy(BitConverter.GetBytes(latLon.Longitude), 0, correctedPosition, 5, 8);
-            Buffer.BlockCopy(BitConverter.GetBytes(latLon.Latitude), 0, correctedPosition, 13, 8);
-            Buffer.BlockCopy(BitConverter.GetBytes(glm.toDegrees(gpsHeading)), 0, correctedPosition, 21, 8);
-            SendPgnToLoop(correctedPosition);
+            //Core: CAutoSteerUpdater (traspaso portabilidad 2026-07-20)
+            autoSteerUpdater.SendCorrectedPositionPgn();
             #endregion
 
             #region AutoSteer
-
-            //preset the values
-            guidanceLineDistanceOff = 32000;
-
-            if (ct.isContourBtnOn)
-            {
-                ct.DistanceFromContourLine(pivotAxlePos, steerAxlePos);
-            }
-            else
-            {
-                //auto track routine
-                if (trk.isAutoTrack && !isBtnAutoSteerOn && trk.autoTrack3SecTimer >= 1)
-                {
-                    trk.autoTrack3SecTimer = 0;
-                    int lastIndex = trk.idx;
-                    trk.idx = trk.FindClosestRefTrack(steerAxlePos);
-                    if (lastIndex != trk.idx)
-                    {
-                        curve.isCurveValid = false;
-                        ABLine.isABValid = false;
-                    }
-                }
-
-                //like normal
-                if (trk.gArr != null && trk.gArr.Count > 0 && trk.idx >= 0 && trk.idx < trk.gArr.Count)
-                {
-                    if (trk.gArr[trk.idx].mode == TrackMode.AB)
-                    {
-                        ABLine.BuildCurrentABLineList(pivotAxlePos);
-                        ABLine.GetCurrentABLine(pivotAxlePos, steerAxlePos);
-                    }
-                    else
-                    {
-                        curve.BuildCurveCurrentList(pivotAxlePos);
-                        curve.GetCurrentCurveLine(pivotAxlePos, steerAxlePos);
-                    }
-                }
-            }
-
-            // autosteer at full speed of updates
-
-            //if the whole path driving driving process is green
-            if (recPath.isDrivingRecordedPath) recPath.UpdatePosition();
-
-            // If Drive button off - normal autosteer 
-            if (!vehicle.isInFreeDriveMode)
-            {
-                //fill up0 the appropriate arrays with new values
-                p_254.pgn[p_254.speedHi] = unchecked((byte)((int)(Math.Abs(avgSpeed) * 10.0) >> 8));
-                p_254.pgn[p_254.speedLo] = unchecked((byte)((int)(Math.Abs(avgSpeed) * 10.0)));
-                //mc.machineControlData[mc.cnSpeed] = mc.autoSteerData[mc.sdSpeed];
-
-                //save distance for display
-                lightbarDistance = guidanceLineDistanceOff;
-                isobus.SetGuidanceLineDeviation(guidanceLineDistanceOff * 100);
-                int currentSpeed = (int)(avgSpeed * 1000 / 3.6);  // convert from km/h to mm/s
-                if (isReverse)
-                {
-                    currentSpeed = -currentSpeed;
-                }
-                isobus.SetActualSpeed(currentSpeed);
-                isobus.SetTotalDistance((int)(fd.distanceUser * 1000)); // convert from meter to mm
-
-                if (!isBtnAutoSteerOn) //32020 means auto steer is off
-                {
-                    guidanceLineDistanceOff = 32020;
-                    p_254.pgn[p_254.status] = 0;
-                }
-
-                else p_254.pgn[p_254.status] = 1;
-
-                if (recPath.isDrivingRecordedPath || recPath.isFollowingDubinsToPath) p_254.pgn[p_254.status] = 1;
-
-                //mc.autoSteerData[7] = unchecked((byte)(guidanceLineDistanceOff >> 8));
-                //mc.autoSteerData[8] = unchecked((byte)(guidanceLineDistanceOff));
-
-                //convert to cm from mm and divide by 2 - lightbar
-                int distanceX2;
-                if (guidanceLineDistanceOff == 32020 || guidanceLineDistanceOff == 32000)
-                    distanceX2 = 255;
-
-                else
-                {
-                    distanceX2 = (int)(guidanceLineDistanceOff * 0.05);
-
-                    if (distanceX2 < -127) distanceX2 = -127;
-                    else if (distanceX2 > 127) distanceX2 = 127;
-                    distanceX2 += 127;
-                }
-
-                p_254.pgn[p_254.lineDistance] = unchecked((byte)distanceX2);
-
-                if (!timerSim.Enabled)
-                {
-                    if (isBtnAutoSteerOn && avgSpeed > vehicle.maxSteerSpeed)
-                    {
-                        btnAutoSteer.PerformClick();
-                    }
-
-                    if (isBtnAutoSteerOn && avgSpeed < vehicle.minSteerSpeed)
-                    {
-                        minSteerSpeedTimer++;
-                        if (minSteerSpeedTimer > 80)
-                        {
-                            btnAutoSteer.PerformClick();
-                            if (isMetric)
-                                TimedMessageBox(3000, "AutoSteer Disabled", "Below Minimum Safe Steering Speed: " + vehicle.minSteerSpeed.ToString("N0") + " Kmh");
-                            else
-                                TimedMessageBox(3000, "AutoSteer Disabled", "Below Minimum Safe Steering Speed: " + Speed.KmhToMph(vehicle.minSteerSpeed).ToString("N1") + " MPH");
-                            
-                            Log.EventWriter("Steer Off, Below Min Steering Speed");
-                        }
-                    }
-                    else
-                    {
-                        minSteerSpeedTimer = 0;
-                    }
-                }
-
-                //double tanSteerAngle = Math.Tan(glm.toRadians(((double)(guidanceLineSteerAngle)) * 0.01));
-                //double tanActSteerAngle = Math.Tan(glm.toRadians(mc.actualSteerAngleDegrees));
-
-                //setAngVel = 0.277777 * avgSpeed * tanSteerAngle / vehicle.wheelbase;
-                //actAngVel = glm.toDegrees(0.277777 * avgSpeed * tanActSteerAngle / vehicle.wheelbase);
-
-                //isMaxAngularVelocity = false;
-                ////greater then settings rads/sec limit steer angle
-                //if (Math.Abs(setAngVel) > vehicle.maxAngularVelocity)
-                //{
-                //    setAngVel = vehicle.maxAngularVelocity;
-                //    tanSteerAngle = 3.6 * setAngVel * vehicle.wheelbase / avgSpeed;
-                //    if (guidanceLineSteerAngle < 0)
-                //        guidanceLineSteerAngle = (short)(glm.toDegrees(Math.Atan(tanSteerAngle)) * -100);
-                //    else
-                //        guidanceLineSteerAngle = (short)(glm.toDegrees(Math.Atan(tanSteerAngle)) * 100);
-                //    isMaxAngularVelocity = true;
-                //}
-
-                //setAngVel = glm.toDegrees(setAngVel);
-
-                if (!Properties.Settings.Default.setAutoSwitchDualFixOn && isChangingDirection && ahrs.imuHeading == 99999)
-                {
-                    p_254.pgn[p_254.status] = 0;
-                }
-                //for now if backing up, turn off autosteer
-                if (!isSteerInReverse)
-                {
-                    if (isReverse) p_254.pgn[p_254.status] = 0;
-                }                
-
-                // delay on dead zone.
-                if (p_254.pgn[p_254.status] == 1 && !isReverse
-                    && Math.Abs(guidanceLineSteerAngle - mc.actualSteerAngleDegrees*100) < vehicle.deadZoneHeading)
-                {
-                    if (vehicle.deadZoneDelayCounter > vehicle.deadZoneDelay)
-                    {
-                        vehicle.isInDeadZone = true;
-                    }
-                }
-                else
-                {
-                    vehicle.deadZoneDelayCounter = 0;
-                    vehicle.isInDeadZone = false;
-                }
-
-                 if (!vehicle.isInDeadZone)
-                {
-                    p_254.pgn[p_254.steerAngleHi] = unchecked((byte)(guidanceLineSteerAngle >> 8));
-                    p_254.pgn[p_254.steerAngleLo] = unchecked((byte)(guidanceLineSteerAngle));
-                }
-            }
-
-            else //Drive button is on
-            {
-                //fill up the auto steer array with free drive values
-                p_254.pgn[p_254.speedHi] = unchecked((byte)((int)(80) >> 8));
-                p_254.pgn[p_254.speedLo] = unchecked((byte)((int)(80)));
-
-                //turn on status to operate
-                p_254.pgn[p_254.status] = 1;
-
-                //send the steer angle
-                guidanceLineSteerAngle = (Int16)(vehicle.driveFreeSteerAngle * 100);
-
-                p_254.pgn[p_254.steerAngleHi] = unchecked((byte)(guidanceLineSteerAngle >> 8));
-                p_254.pgn[p_254.steerAngleLo] = unchecked((byte)(guidanceLineSteerAngle));
-
-            }
-
-            //out serial to autosteer module  //indivdual classes load the distance and heading deltas 
-            SendPgnToLoop(p_254.pgn);
-
-            //for average cross track error
-            if (guidanceLineDistanceOff < 29000)
-            {
-                crossTrackError = (int)((double)crossTrackError * 0.90 + Math.Abs((double)guidanceLineDistanceOff) * 0.1);
-            }
-            else
-            {
-                crossTrackError = 0;
-            }
-
+            //Core: CAutoSteerUpdater (traspaso portabilidad 2026-07-20)
+            autoSteerUpdater.BuildAndSendAutoSteerPgn();
             #endregion
 
             #region Youturn

@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Extracción I*Host de Position.designer/Sections.Designer (bloque 9) + primer call site GL→GLW en OpenGL.Designer (bloque 6); probando en runtime (build.ps1 + simulador) antes de commitear | `Position.designer.cs`, `Sections.Designer.cs`, `OpenGL.Designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/{IPositionHost,ISectionsHost}.cs`, `AgOpenGPS.Core/Classes/{CPositionUpdater,CSectionCalculator}.cs`, `AgOpenGPS.Core/DrawLib/GLW.Primitives.cs`, `GPS/AgroParallel/Common/FormGps.{PositionHost,SectionsHost}.cs` |
+| android | Bloque 9: sigo con `UpdateFixPosition` — ya extraje PGN posición corregida + PGN 254 autosteer (`CAutoSteerUpdater`), verificado en runtime y commiteado. Falta: sección Youturn (bnd/yt + sonidos) y el switch de heading (Fix/VTG/Dual) | `Position.designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/IAutoSteerHost.cs`, `AgOpenGPS.Core/Classes/CAutoSteerUpdater.cs`, `GPS/AgroParallel/Common/FormGps.AutoSteerHost.cs` |
 
 ## Bitácora (append-only)
 
@@ -162,3 +162,38 @@ la sesión android al extraer, pero el taller los usa desde Services),
   CPositionUpdater quedo prolijo. Nota menor: el comentario de cabecera
   de CPositionUpdater dice que el form conserva TheRest(), pero ya lo
   moviste (el wrapper delega) — corregir cuando toquen ese archivo.
+- [2026-07-20] [android] EN CURSO — corregido el comentario de cabecera de
+  CPositionUpdater (nota del taller de arriba). Seguí con bloque 9: de
+  `UpdateFixPosition` (Position.designer.cs) extraje las regiones
+  "Corrected Position" (PGN de lat/lon/heading) y "AutoSteer" (selección
+  de línea AB/curva activa, armado y envío del PGN 254 con velocidad/
+  distancia/ángulo de dirección, cross track error) a `CAutoSteerUpdater`
+  + `IAutoSteerHost` — mismo patrón I*Host + partial adapter que las
+  extracciones previas. Es una traspaso mecánico 1:1, sin cambios de
+  lógica; los toques UI que quedaban adentro (click de btnAutoSteer,
+  TimedMessageBox, timerSim.Enabled) cruzan por el host. Compila limpio:
+  Core net48+netstandard2.0, GPS completo (0 warnings), PilotX.Android
+  (solo el warning preexistente CA1422 no relacionado), 133 tests verdes.
+  `UpdateFixPosition` queda reducida a: switch de heading (Fix/VTG/Dual,
+  la parte más grande y compleja que falta, con gotos y ~15 toques UI/IMU
+  entremezclados) + la sección Youturn (bnd/yt + sonidos, boundary safety
+  stop) + el wrap-up final (oglBack/oglMain.Refresh, frameTime). Sin
+  commitear todavía — falta la verificación en runtime (autosteer
+  enganchando/desenganchando bien en el simulador) antes de subir, mismo
+  criterio que la vez pasada con el render GL.
+- [2026-07-20] [android] HECHO — verificación en runtime OK: `build.ps1`,
+  levanté CoreX+PilotX, abrí el lote `66666` vía
+  `POST /api/lotes/open?name=66666` (saltó el diálogo estándar de field
+  origin, aceptado), usuario confirmó AB + barras de sección + AutoSteer
+  enganchando/desenganchando y lightbar moviéndose normal — sin
+  regresión de `CAutoSteerUpdater`. Comiteo.
+- [2026-07-20] [android] PEDIDO (para el taller, fuera de mi carril) — el
+  usuario notó que el menú/barra de arriba (HTML) titila. Hice A/B con
+  `git worktree add ../PilotX-clean-test codex/pilotx-ui-new` (rama
+  pristina, sin ninguno de mis cambios de hoy): **titila igual ahí**, así
+  que es un bug preexistente de la capa HTML/Hub, no una regresión de mi
+  extracción de PGN/autosteer. No lo toco (carril taller: Hub HTML/JS).
+  Usuario dice que es la primera vez que lo nota (no confirma si es
+  realmente nuevo o simplemente no lo había mirado antes). Sin más
+  diagnóstico de mi parte — dejo la pista del A/B para cuando el taller
+  lo mire.
