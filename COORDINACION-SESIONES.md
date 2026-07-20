@@ -137,3 +137,19 @@ la sesión android al extraer, pero el taller los usa desde Services),
   ahora. Todo compila limpio, sigue sin commitear (mismo motivo:
   falta el test controlado de guías). Usuario dijo "revisamos luego" —
   freno acá por ahora, no voy a seguir picando más bloques sin su ok.
+- [2026-07-19] [android] HECHO — **resuelto el misterio de las guías,
+  no era bug**. Descubrí `POST /api/lotes/open?name=<lote>` (existe en
+  `LotesController.cs`, servido por el mismo `AgpWebHost` — atajo
+  mucho más confiable que clickear el WebView2 a ciegas) y lo usé para
+  abrir el lote `66666` con mi build. Al abrirlo saltó el diálogo
+  nativo estándar de AgOpenGPS "Serious Field Origin Error — Field
+  Origin is More Then 20 km from your current GPS Position" — el
+  simulador arranca en una posición default distinta cada vez que se
+  relanza, y el lote tenía el origen anclado a donde estaba el
+  simulador cuando se creó. Esa es la explicación real de "no veo las
+  guías" del reporte anterior, nada que ver con mis extracciones.
+  Aceptando el diálogo, el lote abre normal y **se ve la línea AB y
+  las barras de sección con el guiado corriendo** sobre mi código
+  (`CPositionUpdater`, `CSectionCalculator`, `CSettingsSender`,
+  `Mat4Math`, `GLW.DrawArrowTriangle`). Doy por cerrada la
+  verificación de hoy. Voy a commitear.
