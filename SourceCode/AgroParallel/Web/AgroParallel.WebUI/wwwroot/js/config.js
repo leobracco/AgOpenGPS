@@ -1372,8 +1372,21 @@
 
   document.querySelectorAll('#menu button').forEach(function (b) {
     b.addEventListener('click', function () {
-      // Módulos X-*: navegan a su página del Hub en vez de cambiar de tab.
-      if (b.dataset.nav) { window.location.href = b.dataset.nav; return; }
+      // Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget) dentro de
+      // config, sin salir ni cambiar de estilo. Carga perezosa: el iframe solo
+      // apunta a la página cuando se toca el módulo.
+      if (b.dataset.mod) {
+        var fr = document.getElementById('modIframe');
+        var url = b.dataset.mod + (b.dataset.mod.indexOf('?') < 0 ? '?widget=1' : '&widget=1');
+        if (fr.getAttribute('src') !== url) fr.setAttribute('src', url);
+        document.querySelectorAll('#menu button').forEach(function (x) {
+          x.classList.toggle('sel', x === b);
+        });
+        document.querySelectorAll('section[data-tab]').forEach(function (s) {
+          s.classList.toggle('activa', s.dataset.tab === 'modulo');
+        });
+        return;
+      }
       irATab(b.dataset.tab);
     });
   });

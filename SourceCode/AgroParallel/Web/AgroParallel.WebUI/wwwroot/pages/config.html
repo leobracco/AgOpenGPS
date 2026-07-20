@@ -56,6 +56,9 @@
     #main { flex: 1; min-width: 0; overflow-y: auto; padding: 12px; }
     section[data-tab] { display: none; }
     section[data-tab].activa { display: block; }
+    /* con un módulo embebido, el área principal va sin padding para que el
+       iframe llene y no scrollee doble */
+    #main:has(section[data-tab="modulo"].activa) { padding: 0; overflow: hidden; }
     .carta {
       background: var(--carta); border: 1px solid var(--borde);
       border-radius: 12px; padding: 14px; margin-bottom: 12px;
@@ -245,16 +248,16 @@
       <button type="button" data-tab="tram"><img src="../img/config/Con_TramMenu.png" alt="" />Tram</button>
       <button type="button" data-tab="display"><img src="../img/config/Con_Display.png" alt="" />Display</button>
       <button type="button" data-tab="botones"><img src="../img/config/Con_FeatureMenu.png" alt="" />Botones</button>
-      <!-- Módulos X-*: páginas propias del Hub; se abren por navegación
-           (data-nav) en vez de tab interna. Migrados desde la sección
-           Módulos del Hub (pedido usuario 2026-07-20). -->
+      <!-- Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget, sin su
+           propia sidebar) dentro de config.html, para no salir de la config
+           ni cambiar de estilo (pedido usuario 2026-07-20). -->
       <div class="grupo">Módulos</div>
-      <button type="button" data-nav="quantix.html"><img src="../img/icons/existing/agp-quantix.png" alt="" />QuantiX</button>
-      <button type="button" data-nav="vistax.html"><img src="../img/icons/existing/agp-vistax.png" alt="" />VistaX</button>
-      <button type="button" data-nav="flowx.html"><img src="../img/icons/existing/agp-flowx.png" alt="" />FlowX</button>
-      <button type="button" data-nav="sectionx.html"><img src="../img/icons/existing/agp-sectionx.png" alt="" />SectionX</button>
-      <button type="button" data-nav="linex.html"><img src="../img/icons/existing/agp-linex.png" alt="" />LineX</button>
-      <button type="button" data-nav="stormx.html"><img src="../img/icons/existing/agp-stormx.png" alt="" />StormX</button>
+      <button type="button" data-mod="quantix.html"><img src="../img/icons/existing/agp-quantix.png" alt="" />QuantiX</button>
+      <button type="button" data-mod="vistax.html"><img src="../img/icons/existing/agp-vistax.png" alt="" />VistaX</button>
+      <button type="button" data-mod="flowx.html"><img src="../img/icons/existing/agp-flowx.png" alt="" />FlowX</button>
+      <button type="button" data-mod="sectionx.html"><img src="../img/icons/existing/agp-sectionx.png" alt="" />SectionX</button>
+      <button type="button" data-mod="linex.html"><img src="../img/icons/existing/agp-linex.png" alt="" />LineX</button>
+      <button type="button" data-mod="stormx.html"><img src="../img/icons/existing/agp-stormx.png" alt="" />StormX</button>
     </nav>
 
     <main id="main">
@@ -941,6 +944,12 @@
             <div class="chkimg" data-k="hardware_messages"><img src="../img/config/HardwareMessage.png" alt="" /><span class="cap">Mensajes de hardware</span></div>
           </div>
         </div>
+      </section>
+
+      <!-- Módulo embebido: el iframe carga la página del producto en modo
+           widget (sin su sidebar). El menú de config queda a la izquierda. -->
+      <section data-tab="modulo" style="padding:0; height:100%">
+        <iframe id="modIframe" title="Módulo" style="width:100%; height:100%; border:0; display:block; background:var(--agp-bg)"></iframe>
       </section>
     </main>
   </div>
