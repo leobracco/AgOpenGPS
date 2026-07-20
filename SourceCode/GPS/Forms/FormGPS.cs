@@ -601,6 +601,15 @@ namespace AgOpenGPS
 
             //parser de PGNs entrantes desde CoreX (vive en Core, host invertido)
             pgnReceiver = new PgnReceiver(this);
+
+            //pasos hoja del loop de posición (vive en Core, host invertido)
+            positionUpdater = new CPositionUpdater(this);
+
+            //cálculo de posiciones/anchos/PGN de sección (vive en Core, host invertido)
+            sectionCalculator = new CSectionCalculator(this);
+
+            //armado/envío de PGN de configuración (vive en Core, host invertido)
+            settingsSender = new CSettingsSender(this);
         }
 
         //Levanta el AgpWebHost:5180 con TODOS los servicios (perfiles, tracks,
@@ -1892,118 +1901,12 @@ namespace AgOpenGPS
             GL.MatrixMode(MatrixMode.Modelview);
         }
 
-        public void SendSettings()
-        {
-            //Form Steer Settings
-            p_252.pgn[p_252.countsPerDegree] = unchecked((byte)Properties.Settings.Default.setAS_countsPerDegree);
-            p_252.pgn[p_252.ackerman] = unchecked((byte)Properties.Settings.Default.setAS_ackerman);
+        //armado/envío de PGN de configuración — Core: CSettingsSender (traspaso portabilidad 2026-07-19)
+        public CSettingsSender settingsSender;
 
-            p_252.pgn[p_252.wasOffsetHi] = unchecked((byte)(Properties.Settings.Default.setAS_wasOffset >> 8));
-            p_252.pgn[p_252.wasOffsetLo] = unchecked((byte)(Properties.Settings.Default.setAS_wasOffset));
+        public void SendSettings() => settingsSender.SendSettings();
 
-            p_252.pgn[p_252.highPWM] = unchecked((byte)Properties.Settings.Default.setAS_highSteerPWM);
-            p_252.pgn[p_252.lowPWM] = unchecked((byte)Properties.Settings.Default.setAS_lowSteerPWM);
-            p_252.pgn[p_252.gainProportional] = unchecked((byte)Properties.Settings.Default.setAS_Kp);
-            p_252.pgn[p_252.minPWM] = unchecked((byte)Properties.Settings.Default.setAS_minSteerPWM);
-
-            SendPgnToLoop(p_252.pgn);
-
-            //steer config
-            p_251.pgn[p_251.set0] = Properties.Settings.Default.setArdSteer_setting0;
-            p_251.pgn[p_251.set1] = Properties.Settings.Default.setArdSteer_setting1;
-            p_251.pgn[p_251.maxPulse] = Properties.Settings.Default.setArdSteer_maxPulseCounts;
-            p_251.pgn[p_251.minSpeed] = unchecked((byte)(Properties.Settings.Default.setAS_minSteerSpeed * 10));
-
-            if (Properties.Settings.Default.setAS_isConstantContourOn)
-                p_251.pgn[p_251.angVel] = 1;
-            else p_251.pgn[p_251.angVel] = 0;
-
-            SendPgnToLoop(p_251.pgn);
-
-            //machine settings    
-            p_238.pgn[p_238.set0] = Properties.Settings.Default.setArdMac_setting0;
-            p_238.pgn[p_238.raiseTime] = Properties.Settings.Default.setArdMac_hydRaiseTime;
-            p_238.pgn[p_238.lowerTime] = Properties.Settings.Default.setArdMac_hydLowerTime;
-
-            p_238.pgn[p_238.user1] = Properties.Settings.Default.setArdMac_user1;
-            p_238.pgn[p_238.user2] = Properties.Settings.Default.setArdMac_user2;
-            p_238.pgn[p_238.user3] = Properties.Settings.Default.setArdMac_user3;
-            p_238.pgn[p_238.user4] = Properties.Settings.Default.setArdMac_user4;
-
-            SendPgnToLoop(p_238.pgn);
-        }
-
-        public void SendRelaySettingsToMachineModule()
-        {
-            string[] words = Properties.Settings.Default.setRelay_pinConfig.Split(',');
-
-            //load the pgn
-            p_236.pgn[p_236.pin0] = (byte)int.Parse(words[0]);
-            p_236.pgn[p_236.pin1] = (byte)int.Parse(words[1]);
-            p_236.pgn[p_236.pin2] = (byte)int.Parse(words[2]);
-            p_236.pgn[p_236.pin3] = (byte)int.Parse(words[3]);
-            p_236.pgn[p_236.pin4] = (byte)int.Parse(words[4]);
-            p_236.pgn[p_236.pin5] = (byte)int.Parse(words[5]);
-            p_236.pgn[p_236.pin6] = (byte)int.Parse(words[6]);
-            p_236.pgn[p_236.pin7] = (byte)int.Parse(words[7]);
-            p_236.pgn[p_236.pin8] = (byte)int.Parse(words[8]);
-            p_236.pgn[p_236.pin9] = (byte)int.Parse(words[9]);
-
-            p_236.pgn[p_236.pin10] = (byte)int.Parse(words[10]);
-            p_236.pgn[p_236.pin11] = (byte)int.Parse(words[11]);
-            p_236.pgn[p_236.pin12] = (byte)int.Parse(words[12]);
-            p_236.pgn[p_236.pin13] = (byte)int.Parse(words[13]);
-            p_236.pgn[p_236.pin14] = (byte)int.Parse(words[14]);
-            p_236.pgn[p_236.pin15] = (byte)int.Parse(words[15]);
-            p_236.pgn[p_236.pin16] = (byte)int.Parse(words[16]);
-            p_236.pgn[p_236.pin17] = (byte)int.Parse(words[17]);
-            p_236.pgn[p_236.pin18] = (byte)int.Parse(words[18]);
-            p_236.pgn[p_236.pin19] = (byte)int.Parse(words[19]);
-
-            p_236.pgn[p_236.pin20] = (byte)int.Parse(words[20]);
-            p_236.pgn[p_236.pin21] = (byte)int.Parse(words[21]);
-            p_236.pgn[p_236.pin22] = (byte)int.Parse(words[22]);
-            p_236.pgn[p_236.pin23] = (byte)int.Parse(words[23]);
-            SendPgnToLoop(p_236.pgn);
-
-
-            p_235.pgn[p_235.sec0Lo] = unchecked((byte)(section[0].sectionWidth * 100));
-            p_235.pgn[p_235.sec0Hi] = unchecked((byte)((int)((section[0].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec1Lo] = unchecked((byte)(section[1].sectionWidth * 100));
-            p_235.pgn[p_235.sec1Hi] = unchecked((byte)((int)((section[1].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec2Lo] = unchecked((byte)(section[2].sectionWidth * 100));
-            p_235.pgn[p_235.sec2Hi] = unchecked((byte)((int)((section[2].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec3Lo] = unchecked((byte)(section[3].sectionWidth * 100));
-            p_235.pgn[p_235.sec3Hi] = unchecked((byte)((int)((section[3].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec4Lo] = unchecked((byte)(section[4].sectionWidth * 100));
-            p_235.pgn[p_235.sec4Hi] = unchecked((byte)((int)((section[4].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec5Lo] = unchecked((byte)(section[5].sectionWidth * 100));
-            p_235.pgn[p_235.sec5Hi] = unchecked((byte)((int)((section[5].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec6Lo] = unchecked((byte)(section[6].sectionWidth * 100));
-            p_235.pgn[p_235.sec6Hi] = unchecked((byte)((int)((section[6].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec7Lo] = unchecked((byte)(section[7].sectionWidth * 100));
-            p_235.pgn[p_235.sec7Hi] = unchecked((byte)((int)((section[7].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec8Lo] = unchecked((byte)(section[8].sectionWidth * 100));
-            p_235.pgn[p_235.sec8Hi] = unchecked((byte)((int)((section[8].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec9Lo] = unchecked((byte)(section[9].sectionWidth * 100));
-            p_235.pgn[p_235.sec9Hi] = unchecked((byte)((int)((section[9].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec10Lo] = unchecked((byte)(section[10].sectionWidth * 100));
-            p_235.pgn[p_235.sec10Hi] = unchecked((byte)((int)((section[10].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec11Lo] = unchecked((byte)(section[11].sectionWidth * 100));
-            p_235.pgn[p_235.sec11Hi] = unchecked((byte)((int)((section[11].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec12Lo] = unchecked((byte)(section[12].sectionWidth * 100));
-            p_235.pgn[p_235.sec12Hi] = unchecked((byte)((int)((section[12].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec13Lo] = unchecked((byte)(section[13].sectionWidth * 100));
-            p_235.pgn[p_235.sec13Hi] = unchecked((byte)((int)((section[13].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec14Lo] = unchecked((byte)(section[14].sectionWidth * 100));
-            p_235.pgn[p_235.sec14Hi] = unchecked((byte)((int)((section[14].sectionWidth * 100)) >> 8));
-            p_235.pgn[p_235.sec15Lo] = unchecked((byte)(section[15].sectionWidth * 100));
-            p_235.pgn[p_235.sec15Hi] = unchecked((byte)((int)((section[15].sectionWidth * 100)) >> 8));
-
-            p_235.pgn[p_235.numSections] = (byte)tool.numOfSections;
-
-            SendPgnToLoop(p_235.pgn);
-        }
+        public void SendRelaySettingsToMachineModule() => settingsSender.SendRelaySettingsToMachineModule();
 
         //message box pops up with info then goes away
         public void TimedMessageBox(int timeout, string s1, string s2)
@@ -2638,7 +2541,7 @@ namespace AgOpenGPS
 
             // Close: oculta y persiste el toggle.
             vistaXStripHtml.CloseRequested += () => ToggleVistaX();
-            vistaXStatsHtml.CloseRequested  += () => ToggleVistaX();
+            vistaXStatsHtml.CloseRequested += () => ToggleVistaX();
 
             // Resize grip → persist W/H (X/Y se mantienen).
             vistaXStripHtml.ResizedByUser += sz =>
@@ -3551,93 +3454,9 @@ namespace AgOpenGPS
         // Unproyecta (screenX, screenY) al plano z=0 del mundo usando las
         // matrices capturadas en el ultimo frame. (screenX, screenY) son
         // coords de oglMain (top-left origin).
+        //Core: CPositionUpdater.UnprojectMouseToGround (traspaso portabilidad 2026-07-19)
         private bool UnprojectMouseToGround(int screenX, int screenY, out double east, out double north)
-        {
-            east = 0; north = 0;
-            if (!_glMatricesValid) return false;
-
-            int vpW = _glViewport[2];
-            int vpH = _glViewport[3];
-            if (vpW <= 0 || vpH <= 0) return false;
-
-            // GL viewport tiene origen abajo-izq; oglMain abajo-arriba invertido.
-            double ndcX = (2.0 * (screenX - _glViewport[0])) / vpW - 1.0;
-            double ndcY = 1.0 - (2.0 * (screenY - _glViewport[1])) / vpH;
-
-            // mvp = modelview * projection (convention columna-major GL; el
-            // producto se hace en el mismo orden en el que GL aplica M y P:
-            // p_clip = P * M * p_world, entonces invirtiendo:
-            // p_world = (P * M)^(-1) * p_clip = invMvp * p_clip).
-            double[] mvp = MulMat4(_glProjection, _glModelView);
-            double[] inv;
-            if (!InvertMat4(mvp, out inv)) return false;
-
-            double nx, ny, nz;
-            if (!TransformMat4Point(inv, ndcX, ndcY, -1.0, out nx, out ny, out nz)) return false;
-            double fx, fy, fz;
-            if (!TransformMat4Point(inv, ndcX, ndcY, 1.0, out fx, out fy, out fz)) return false;
-
-            double dz = fz - nz;
-            if (Math.Abs(dz) < 1e-9) return false;
-            double t = -nz / dz;
-            east = nx + t * (fx - nx);
-            north = ny + t * (fy - ny);
-            return true;
-        }
-
-        // Matrices column-major como GL las devuelve. Indice row r col c: a[c*4 + r].
-        private static double[] MulMat4(double[] a, double[] b)
-        {
-            var r = new double[16];
-            for (int c = 0; c < 4; c++)
-                for (int row = 0; row < 4; row++)
-                {
-                    double s = 0;
-                    for (int k = 0; k < 4; k++)
-                        s += a[k * 4 + row] * b[c * 4 + k];
-                    r[c * 4 + row] = s;
-                }
-            return r;
-        }
-
-        private static bool TransformMat4Point(double[] m, double x, double y, double z,
-            out double ox, out double oy, out double oz)
-        {
-            double rx = m[0] * x + m[4] * y + m[8] * z + m[12];
-            double ry = m[1] * x + m[5] * y + m[9] * z + m[13];
-            double rz = m[2] * x + m[6] * y + m[10] * z + m[14];
-            double rw = m[3] * x + m[7] * y + m[11] * z + m[15];
-            if (Math.Abs(rw) < 1e-12) { ox = oy = oz = 0; return false; }
-            ox = rx / rw; oy = ry / rw; oz = rz / rw;
-            return true;
-        }
-
-        private static bool InvertMat4(double[] m, out double[] inv)
-        {
-            inv = new double[16];
-            inv[0] = m[5] * m[10] * m[15] - m[5] * m[11] * m[14] - m[9] * m[6] * m[15] + m[9] * m[7] * m[14] + m[13] * m[6] * m[11] - m[13] * m[7] * m[10];
-            inv[4] = -m[4] * m[10] * m[15] + m[4] * m[11] * m[14] + m[8] * m[6] * m[15] - m[8] * m[7] * m[14] - m[12] * m[6] * m[11] + m[12] * m[7] * m[10];
-            inv[8] = m[4] * m[9] * m[15] - m[4] * m[11] * m[13] - m[8] * m[5] * m[15] + m[8] * m[7] * m[13] + m[12] * m[5] * m[11] - m[12] * m[7] * m[9];
-            inv[12] = -m[4] * m[9] * m[14] + m[4] * m[10] * m[13] + m[8] * m[5] * m[14] - m[8] * m[6] * m[13] - m[12] * m[5] * m[10] + m[12] * m[6] * m[9];
-            inv[1] = -m[1] * m[10] * m[15] + m[1] * m[11] * m[14] + m[9] * m[2] * m[15] - m[9] * m[3] * m[14] - m[13] * m[2] * m[11] + m[13] * m[3] * m[10];
-            inv[5] = m[0] * m[10] * m[15] - m[0] * m[11] * m[14] - m[8] * m[2] * m[15] + m[8] * m[3] * m[14] + m[12] * m[2] * m[11] - m[12] * m[3] * m[10];
-            inv[9] = -m[0] * m[9] * m[15] + m[0] * m[11] * m[13] + m[8] * m[1] * m[15] - m[8] * m[3] * m[13] - m[12] * m[1] * m[11] + m[12] * m[3] * m[9];
-            inv[13] = m[0] * m[9] * m[14] - m[0] * m[10] * m[13] - m[8] * m[1] * m[14] + m[8] * m[2] * m[13] + m[12] * m[1] * m[10] - m[12] * m[2] * m[9];
-            inv[2] = m[1] * m[6] * m[15] - m[1] * m[7] * m[14] - m[5] * m[2] * m[15] + m[5] * m[3] * m[14] + m[13] * m[2] * m[7] - m[13] * m[3] * m[6];
-            inv[6] = -m[0] * m[6] * m[15] + m[0] * m[7] * m[14] + m[4] * m[2] * m[15] - m[4] * m[3] * m[14] - m[12] * m[2] * m[7] + m[12] * m[3] * m[6];
-            inv[10] = m[0] * m[5] * m[15] - m[0] * m[7] * m[13] - m[4] * m[1] * m[15] + m[4] * m[3] * m[13] + m[12] * m[1] * m[7] - m[12] * m[3] * m[5];
-            inv[14] = -m[0] * m[5] * m[14] + m[0] * m[6] * m[13] + m[4] * m[1] * m[14] - m[4] * m[2] * m[13] - m[12] * m[1] * m[6] + m[12] * m[2] * m[5];
-            inv[3] = -m[1] * m[6] * m[11] + m[1] * m[7] * m[10] + m[5] * m[2] * m[11] - m[5] * m[3] * m[10] - m[9] * m[2] * m[7] + m[9] * m[3] * m[6];
-            inv[7] = m[0] * m[6] * m[11] - m[0] * m[7] * m[10] - m[4] * m[2] * m[11] + m[4] * m[3] * m[10] + m[8] * m[2] * m[7] - m[8] * m[3] * m[6];
-            inv[11] = -m[0] * m[5] * m[11] + m[0] * m[7] * m[9] + m[4] * m[1] * m[11] - m[4] * m[3] * m[9] - m[8] * m[1] * m[7] + m[8] * m[3] * m[5];
-            inv[15] = m[0] * m[5] * m[10] - m[0] * m[6] * m[9] - m[4] * m[1] * m[10] + m[4] * m[2] * m[9] + m[8] * m[1] * m[6] - m[8] * m[2] * m[5];
-
-            double det = m[0] * inv[0] + m[1] * inv[4] + m[2] * inv[8] + m[3] * inv[12];
-            if (Math.Abs(det) < 1e-15) return false;
-            double invDet = 1.0 / det;
-            for (int i = 0; i < 16; i++) inv[i] *= invDet;
-            return true;
-        }
+            => positionUpdater.UnprojectMouseToGround(screenX, screenY, out east, out north);
 
         // Camino HTML: hostea WebView2 con /pages/widget-quantix.html en lugar
         // del ShapefileLegendControl. Misma posición/tamaño/drag persistido que
@@ -4491,8 +4310,8 @@ namespace AgOpenGPS
                 string json =
                     "{\r\n" +
                     "  \"fieldName\": \"" + nombreSeguro + "\",\r\n" +
-                    "  \"accion\": \""    + accion       + "\",\r\n" +
-                    "  \"ts\": "          + ts           + "\r\n" +
+                    "  \"accion\": \"" + accion + "\",\r\n" +
+                    "  \"ts\": " + ts + "\r\n" +
                     "}";
 
                 // Intentar múltiples rutas en orden de prioridad
