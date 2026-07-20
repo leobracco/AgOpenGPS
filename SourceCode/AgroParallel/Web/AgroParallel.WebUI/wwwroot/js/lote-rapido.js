@@ -92,7 +92,9 @@
         var d = await post('/api/lotes/open?name=' + encodeURIComponent(name));
         setMsg(d && d.ok ? '✓ Abierto: ' + name : '✕ No se pudo abrir.', d && d.ok ? 'ok' : 'err');
       } else if (act === 'del') {
-        if (!confirm('¿Borrar el lote "' + name + '"? No se puede deshacer.')) { state.busy = false; return; }
+        // confirm() nativo está muerto en WebView2 → modal HTML propio.
+        var ok = await AgpModal.confirm('Borrar lote', '¿Borrar el lote "' + name + '"? No se puede deshacer.');
+        if (!ok) { state.busy = false; return; }
         setMsg('Borrando "' + name + '"…');
         var dd = await post('/api/lotes/delete?name=' + encodeURIComponent(name));
         setMsg(dd && dd.ok ? '✓ Borrado: ' + name
