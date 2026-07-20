@@ -28,8 +28,18 @@ namespace AgOpenGPS
         vec3 IYouTurnHost.PivotAxlePos => pivotAxlePos;
         vec3 IYouTurnHost.SteerAxlePos => steerAxlePos;
 
-        bool IYouTurnHost.IsBoundAlarming { set => sounds.isBoundAlarming = value; }
+        bool IYouTurnHost.IsBoundAlarming
+        {
+            get => sounds.isBoundAlarming;
+            set => sounds.isBoundAlarming = value;
+        }
 
         void IYouTurnHost.ClearUTurnPgn() => p_239.pgn[p_239.uturn] = 0;
+
+        CYouTurn IYouTurnHost.Yt => yt;
+        int IYouTurnHost.CrossTrackError => crossTrackError;
+        bool IYouTurnHost.IsTurnSoundOn => sounds.isTurnSoundOn;
+        void IYouTurnHost.PlayTurnTooCloseSound() => sounds.sndUTurnTooClose.Play();
+        void IYouTurnHost.PlayBoundaryAlarmSound() => sounds.sndBoundaryAlarm.Play();
     }
 }
