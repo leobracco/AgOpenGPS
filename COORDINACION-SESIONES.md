@@ -162,3 +162,16 @@ la sesión android al extraer, pero el taller los usa desde Services),
   CPositionUpdater quedo prolijo. Nota menor: el comentario de cabecera
   de CPositionUpdater dice que el form conserva TheRest(), pero ya lo
   moviste (el wrapper delega) — corregir cuando toquen ese archivo.
+- [2026-07-20] [taller] HECHO — instalación en pantalla del taller
+  (192.168.1.78) + fix de empaquetado. PilotX/CoreX/ModSim corriendo con
+  interfaz nueva. Causa raíz del "no arranca WebView2 0x80070490": faltaba
+  VC++ Redistributable + WebView2 exige sesión física (doble clic, no
+  SSH/tarea). ModSim ahora va en build.ps1. Fix: el ZIP de release ya NO
+  incluye configs de runtime (pisaban la config del cliente al actualizar).
+- [2026-07-20] [taller] PEDIDO (carril GPS/Forms, para la rama android) —
+  el flag `barras-html.on` ya NO viaja en el paquete (es config de runtime).
+  Convendría que el DEFAULT de "barras HTML activas" sea CÓDIGO (arrancar
+  en modo HTML cuando no existe el flag), en GUI.FloatingMenu.cs:230
+  (isHtmlBarsMode). Mientras tanto, el provisioning de cada pantalla crea
+  el flag a mano (ver reference_pantalla_provisioning). Sin esto, una
+  pantalla recién instalada arranca con la interfaz vieja.
