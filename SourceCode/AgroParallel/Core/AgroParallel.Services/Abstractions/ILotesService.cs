@@ -28,6 +28,11 @@ namespace AgroParallel.Services.Abstractions
         /// <summary>Crea un lote nuevo con <paramref name="name"/> y lo deja abierto.</summary>
         Task<bool> CreateFieldAsync(string name);
 
+        /// <summary>Borra la carpeta del lote <paramref name="name"/>. No borra
+        /// el lote que está abierto (hay que cerrarlo antes). false si no existe
+        /// o es el activo.</summary>
+        Task<bool> DeleteFieldAsync(string name);
+
         /// <summary>
         /// Crea un lote nuevo clonando <paramref name="templateName"/> (ex
         /// FormFieldExisting): contorno/headlines/elevación siempre; lo aplicado

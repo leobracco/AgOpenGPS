@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lote</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <style>
+    body { padding: 12px; }
+    .lr-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    .lr-head h1 { font-size: var(--agp-fs-lg); margin:0; }
+
+    /* lote abierto */
+    .lr-cur {
+      display:flex; align-items:center; gap:10px;
+      background: var(--agp-surface-2); border:1px solid var(--agp-border);
+      border-radius:8px; padding:10px 12px; margin-bottom:10px;
+    }
+    .lr-cur .nm { flex:1; min-width:0; font-weight:var(--agp-fw-semi); color:var(--agp-text);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lr-cur .st { font-size:var(--agp-fs-sm); color:var(--agp-text-muted); }
+
+    /* continuar (acción grande) */
+    .lr-cont {
+      width:100%; min-height:56px; margin-bottom:12px;
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      font-size:var(--agp-fs-lg); font-weight:var(--agp-fw-semi);
+    }
+
+    /* crear */
+    .lr-new { display:flex; gap:8px; margin-bottom:14px; }
+    .lr-new input { flex:1; min-width:0; min-height:44px; padding:0 12px;
+      border:1px solid var(--agp-border); border-radius:8px;
+      background: var(--agp-surface); color:var(--agp-text); font-size:var(--agp-fs-md); }
+
+    h2.lr-lbl { font-size:var(--agp-fs-sm); text-transform:uppercase; letter-spacing:1px;
+      color:var(--agp-text-muted); margin:0 0 6px 2px; }
+
+    /* lista */
+    .lr-list { display:flex; flex-direction:column; gap:6px; }
+    .lr-item {
+      display:flex; align-items:center; gap:8px;
+      background: var(--agp-surface); border:1px solid var(--agp-border);
+      border-radius:8px; padding:8px 10px;
+    }
+    .lr-item.cur { border-color: var(--agp-accent); background: var(--agp-accent-soft); }
+    .lr-item .info { flex:1; min-width:0; }
+    .lr-item .info .n { font-weight:var(--agp-fw-medium); color:var(--agp-text);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .lr-item .info .m { font-size:var(--agp-fs-xs); color:var(--agp-text-muted); }
+    .lr-item .btn { min-height:40px; padding:0 12px; }
+    .lr-item .del { min-height:40px; width:44px; padding:0; color:var(--agp-state-bad); }
+    .lr-empty { color:var(--agp-text-muted); text-align:center; padding:18px; font-size:var(--agp-fs-sm); }
+    .lr-msg { font-size:var(--agp-fs-sm); min-height:18px; margin-top:8px; }
+    .lr-msg.ok { color:var(--agp-state-ok); }
+    .lr-msg.err { color:var(--agp-state-bad); }
+  </style>
+</head>
+<body>
+  <div class="lr-head">
+    <h1>Lote</h1>
+    <span class="pill" id="curPill"><span class="dot"></span> —</span>
+  </div>
+
+  <!-- lote abierto ahora -->
+  <div class="lr-cur" id="curBox" hidden>
+    <div>
+      <div class="st">Abierto</div>
+      <div class="nm" id="curName">—</div>
+    </div>
+    <button class="btn" id="btnClose">Cerrar</button>
+  </div>
+
+  <!-- continuar el más reciente -->
+  <button class="btn primary lr-cont" id="btnContinuar" hidden>▶ Continuar <span id="contName"></span></button>
+
+  <!-- crear -->
+  <h2 class="lr-lbl">Crear lote nuevo</h2>
+  <div class="lr-new">
+    <input type="text" id="newName" placeholder="Nombre del lote…" maxlength="64" autocomplete="off" />
+    <button class="btn primary" id="btnCreate">Crear</button>
+  </div>
+
+  <!-- lista -->
+  <h2 class="lr-lbl">Lotes guardados</h2>
+  <div class="lr-list" id="list"><div class="lr-empty">Cargando…</div></div>
+  <div class="lr-msg" id="msg"></div>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/lote-rapido.js"></script>
+</body>
+</html>

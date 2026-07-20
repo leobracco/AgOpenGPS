@@ -63,6 +63,13 @@ namespace AgroParallel.WebHost.Controllers
             await WriteJsonAsync(new { ok });
         }
 
+        [Route(HttpVerbs.Post, "/lotes/delete")]
+        public async Task Delete([QueryField] string name)
+        {
+            bool ok = _lotes != null && await _lotes.DeleteFieldAsync(name);
+            await WriteJsonAsync(new { ok });
+        }
+
         // Clonar un lote existente como template (ex FormFieldExisting).
         // Body JSON snake_case: { template, name, applied, flags, guidance, headland }
         [Route(HttpVerbs.Post, "/lotes/from-existing")]
