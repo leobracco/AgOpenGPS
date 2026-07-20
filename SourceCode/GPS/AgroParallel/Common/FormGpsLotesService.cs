@@ -77,6 +77,9 @@ namespace AgroParallel.Adapters
                     // columna que FormJob (Drive In) / FormFieldExisting.
                     info.DistanceKm = ComputeStartFixDistanceKm(
                         Path.Combine(di.FullName, "Field.txt"));
+                    // Hectáreas trabajadas: mismo cálculo que AOG al abrir el
+                    // lote (SaveOpen.Designer: suma de triángulos de Sections).
+                    info.WorkedHa = ComputeWorkedHa(di.FullName);
                     result.Add(info);
                 }
                 catch { /* skip broken dir */ }
@@ -368,6 +371,33 @@ namespace AgroParallel.Adapters
                 return Math.Round(start.DistanceInKiloMeters(_form.AppModel.CurrentLatLon), 2);
             }
             catch { return -1; }
+        }
+
+        // Hectáreas trabajadas: replica el cálculo de AOG al abrir el lote
+        // (SaveOpen.Designer.cs) — suma del área de los triángulos de cada
+        // patch de Sections.txt. Reusa el parser portable SectionsFiles.Load.
+        // 0 si no hay cobertura o el archivo no existe.
+        private static double ComputeWorkedHa(string fieldDir)
+        {
+            try
+            {
+                if (!File.Exists(Path.Combine(fieldDir, "Sections.txt"))) return 0;
+                var patches = AgOpenGPS.IO.SectionsFiles.Load(fieldDir);
+                double m2 = 0;
+                foreach (var patch in patches)
+                {
+                    int verts = patch.Count - 2;
+                    for (int j = 1; j < verts; j++)
+                    {
+                        double temp = patch[j].easting * (patch[j + 1].northing - patch[j + 2].northing)
+                                    + patch[j + 1].easting * (patch[j + 2].northing - patch[j].northing)
+                                    + patch[j + 2].easting * (patch[j].northing - patch[j + 1].northing);
+                        m2 += Math.Abs(temp * 0.5);
+                    }
+                }
+                return Math.Round(m2 * 0.0001, 1);
+            }
+            catch { return 0; }
         }
 
         // Shoelace sobre Boundary.txt (mismo parseo tolerante a formatos viejos

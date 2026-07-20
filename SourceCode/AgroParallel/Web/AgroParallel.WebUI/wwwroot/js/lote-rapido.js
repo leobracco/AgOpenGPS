@@ -10,11 +10,23 @@
     var m = $('msg'); m.textContent = t || ''; m.className = 'lr-msg' + (cls ? ' ' + cls : '');
   }
 
+  function fmtFecha(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (dias <= 0) return 'hoy';
+    if (dias === 1) return 'ayer';
+    if (dias < 30) return 'hace ' + dias + ' días';
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  }
+
   function fmtMeta(it) {
     var p = [];
-    if (it.area_ha > 0) p.push(it.area_ha.toFixed(1) + ' ha');
-    if (it.distance_km >= 0) p.push(it.distance_km.toFixed(1) + ' km');
-    if (!it.has_boundary) p.push('sin límite');
+    if (it.worked_ha > 0) p.push('▦ ' + it.worked_ha.toFixed(1) + ' ha trabajadas');
+    if (it.area_ha > 0) p.push('⬠ ' + it.area_ha.toFixed(1) + ' ha lote');
+    var f = fmtFecha(it.last_modified_utc);
+    if (f) p.push(f);
     return p.join(' · ');
   }
 

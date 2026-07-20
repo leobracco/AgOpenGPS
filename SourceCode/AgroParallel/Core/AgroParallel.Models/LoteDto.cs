@@ -27,6 +27,10 @@ namespace AgroParallel.Models
         /// <summary>Hectáreas estimadas desde Boundary.txt. 0 si no aplica.</summary>
         public double AreaHa { get; set; }
 
+        /// <summary>Hectáreas trabajadas (cobertura de Sections.txt). 0 si nada.
+        /// Mismo cálculo que AOG al abrir el lote (suma de triángulos).</summary>
+        public double WorkedHa { get; set; }
+
         /// <summary>
         /// Distancia en km desde la posición actual del tractor al StartFix del
         /// lote (línea 9 de Field.txt). Negativa si no se pudo calcular.
