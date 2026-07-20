@@ -128,3 +128,12 @@ la sesión android al extraer, pero el taller los usa desde Services),
   dos builds — no lo pude completar por UI automation poco confiable
   en esta PC (una ventana vieja del AgOpenGPS stock roba foco
   constantemente + AnyDesk activo). Pendiente antes de commitear.
+- [2026-07-19] [android] EN CURSO — cerré `Position.designer.cs`: sumé
+  `TheRest()` a `CPositionUpdater` (con esto el archivo queda solo con
+  `UpdateFixPosition()`, el resto ya es Core) y moví los 3 helpers de
+  álgebra `MulMat4/TransformMat4Point/InvertMat4` de `FormGPS.cs` a
+  `Core/Classes/Mat4Math.cs` (eran static puros, cero riesgo).
+  `UnprojectMouseToGround` se queda en el form pero llama a `Mat4Math.*`
+  ahora. Todo compila limpio, sigue sin commitear (mismo motivo:
+  falta el test controlado de guías). Usuario dijo "revisamos luego" —
+  freno acá por ahora, no voy a seguir picando más bloques sin su ok.
