@@ -269,8 +269,13 @@ namespace AgroParallel.Shell
                 return;
             }
 
+            // FixedToolWindow (antes Sizable): el operario PUEDE mover el widget
+            // (arrastrando la barra de título) pero NO redimensionarlo a mano —
+            // el tamaño lo maneja solo el sistema (ScaleWidgetToArea al abrir +
+            // resize:WxH del contenido responsive). Pedido usuario 2026-07-20.
             WindowState = FormWindowState.Normal;
-            FormBorderStyle = FormBorderStyle.SizableToolWindow;
+            FormBorderStyle = FormBorderStyle.FixedToolWindow;
+            MaximizeBox = false;
             TryRoundCorners();
 
             Size sz = FloatingSize;
