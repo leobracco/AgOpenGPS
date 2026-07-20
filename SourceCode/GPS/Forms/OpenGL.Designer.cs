@@ -1963,26 +1963,8 @@ namespace AgOpenGPS
             catch { }
         }
 
-        private void DrawArrowTriangle(double cx, double cy, double size, bool isRight)
-        {
-            double s = size;
-            GL.Begin(PrimitiveType.Triangles);
-            if (isRight)
-            {
-                // '>' : base on left, tip on right
-                GL.Vertex2(cx - s, cy - s);
-                GL.Vertex2(cx - s, cy + s);
-                GL.Vertex2(cx + s, cy);
-            }
-            else
-            {
-                // '<' : base on right, tip on left
-                GL.Vertex2(cx + s, cy - s);
-                GL.Vertex2(cx + s, cy + s);
-                GL.Vertex2(cx - s, cy);
-            }
-            GL.End();
-        }
+        //Core: GLW.DrawArrowTriangle (traspaso portabilidad 2026-07-19)
+        private void DrawArrowTriangle(double cx, double cy, double size, bool isRight) => GLW.DrawArrowTriangle(cx, cy, size, isRight);
 
         private void DrawLightBar(double width, double height, double offlineDistance)
         {
