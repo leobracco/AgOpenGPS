@@ -175,3 +175,10 @@ la sesión android al extraer, pero el taller los usa desde Services),
   (isHtmlBarsMode). Mientras tanto, el provisioning de cada pantalla crea
   el flag a mano (ver reference_pantalla_provisioning). Sin esto, una
   pantalla recién instalada arranca con la interfaz vieja.
+- [2026-07-20] [taller] AVISO (toqué GPS/Forms) — a pedido del usuario
+  agregué 3 accesos directos en el menú flotante de Lote (Continuar/Abrir/
+  Cerrar) en GUI.FloatingMenu.cs (FloatMenuFillLote + helper
+  FloatMenuAbrirLote). Solo ese archivo, solo llama métodos públicos ya
+  existentes (FileOpenField/JobClose/FormFilePicker) — NO toca
+  Position/Sections/OpenGL/FormGPS.cs (carril android). Compila 0 errores.
+  Avisá si tenías cambios sin commitear en GUI.FloatingMenu.cs.
