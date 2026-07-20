@@ -153,3 +153,12 @@ la sesión android al extraer, pero el taller los usa desde Services),
   (`CPositionUpdater`, `CSectionCalculator`, `CSettingsSender`,
   `Mat4Math`, `GLW.DrawArrowTriangle`). Doy por cerrada la
   verificación de hoy. Voy a commitear.
+- [2026-07-20] [taller] HECHO — review del push android en el taller:
+  merge FF limpio, invariantes OK (Classes/ sin GL ni WinForms), builds
+  no incrementales Core net48+netstandard2.0 / PilotX / CoreX en 0
+  errores, 133 tests verdes, y el APK Android regenerado con el Core
+  nuevo (CPositionUpdater y cia ya viajan en el netstandard del tablet).
+  Matriz actualizada: bloque 9 al ~55%. Buen laburo con el patron —
+  CPositionUpdater quedo prolijo. Nota menor: el comentario de cabecera
+  de CPositionUpdater dice que el form conserva TheRest(), pero ya lo
+  moviste (el wrapper delega) — corregir cuando toquen ese archivo.
