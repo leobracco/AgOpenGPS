@@ -1371,7 +1371,11 @@
   }
 
   document.querySelectorAll('#menu button').forEach(function (b) {
-    b.addEventListener('click', function () { irATab(b.dataset.tab); });
+    b.addEventListener('click', function () {
+      // Módulos X-*: navegan a su página del Hub en vez de cambiar de tab.
+      if (b.dataset.nav) { window.location.href = b.dataset.nav; return; }
+      irATab(b.dataset.tab);
+    });
   });
 
   // ---- botón Guardar flotante con estados -------------------------------------
