@@ -128,13 +128,24 @@ if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 Add-Type -AssemblyName System.IO.Compression | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem | Out-Null
 
-$skipDirs = @('Updates','Backups','WebView2Data')
-$skipExt  = @('.pdb')
+# El paquete de release lleva SOLO binarios + estáticos (wwwroot). NUNCA
+# configuraciones de runtime: si el Build local acumuló configs por haber
+# corrido PilotX acá, extraerlos sobre una pantalla en uso le PISA la config
+# del cliente (vistaX.json, perfil, overlays, etc.). Se excluyen:
+#  - dirs de datos/cache de runtime (firmware-cache, data, Fields, Logs...)
+#  - backups y logs (.bak, .log) y flags de runtime (.on, ej barras-html.on)
+#  - todos los .json de config que viven en la RAÍZ del install dir
+#    (los .json legítimos del release están en subdirs: wwwroot, runtimes...)
+$skipDirs = @('Updates','Backups','WebView2Data','firmware-cache',
+              'data','implementos','Fields','Vehicles','Logs','Profiles')
+$skipExt  = @('.pdb','.bak','.log','.on')
 $files = Get-ChildItem $OutDir -Recurse -File -Force | Where-Object {
     $rel   = $_.FullName.Substring($OutDir.Length + 1)
     $parts = $rel.Split([IO.Path]::DirectorySeparatorChar)
+    $esConfigRaiz = ($parts.Length -eq 1) -and ($_.Extension.ToLower() -eq '.json')
     (-not ($parts | Where-Object { $skipDirs -contains $_ })) -and
     ($skipExt -notcontains $_.Extension.ToLower()) -and
+    (-not $esConfigRaiz) -and
     ($_.Name -notlike '*.vshost.*') -and ($_.Name -ne 'updater.log')
 }
 
