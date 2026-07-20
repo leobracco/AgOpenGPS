@@ -7,8 +7,11 @@
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../layout.css" />
   <style>
-    body { padding: 12px; }
-    .lr-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+    /* layout en columna: cabecera/continuar/crear fijos arriba, la lista
+       ocupa el resto y scrollea sola — así nada queda apretado. */
+    html, body { height: 100%; }
+    body { padding: 12px; display:flex; flex-direction:column; overflow:hidden; box-sizing:border-box; }
+    .lr-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex:0 0 auto; }
     .lr-head h1 { font-size: var(--agp-fs-lg); margin:0; }
 
     /* lote abierto */
@@ -35,10 +38,12 @@
       background: var(--agp-surface); color:var(--agp-text); font-size:var(--agp-fs-md); }
 
     h2.lr-lbl { font-size:var(--agp-fs-sm); text-transform:uppercase; letter-spacing:1px;
-      color:var(--agp-text-muted); margin:0 0 6px 2px; }
+      color:var(--agp-text-muted); margin:0 0 6px 2px; flex:0 0 auto; }
+    .lr-cur, .lr-cont, .lr-new { flex:0 0 auto; }
 
-    /* lista */
-    .lr-list { display:flex; flex-direction:column; gap:6px; }
+    /* lista: ocupa el espacio restante y scrollea */
+    .lr-list { display:flex; flex-direction:column; gap:6px;
+      flex:1 1 auto; min-height:0; overflow-y:auto; padding-right:2px; }
     .lr-item {
       display:flex; align-items:center; gap:8px;
       background: var(--agp-surface); border:1px solid var(--agp-border);
@@ -52,7 +57,7 @@
     .lr-item .btn { min-height:40px; padding:0 12px; }
     .lr-item .del { min-height:40px; width:44px; padding:0; color:var(--agp-state-bad); }
     .lr-empty { color:var(--agp-text-muted); text-align:center; padding:18px; font-size:var(--agp-fs-sm); }
-    .lr-msg { font-size:var(--agp-fs-sm); min-height:18px; margin-top:8px; }
+    .lr-msg { font-size:var(--agp-fs-sm); min-height:18px; margin-top:8px; flex:0 0 auto; }
     .lr-msg.ok { color:var(--agp-state-ok); }
     .lr-msg.err { color:var(--agp-state-bad); }
   </style>
