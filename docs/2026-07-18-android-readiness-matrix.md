@@ -1,11 +1,14 @@
 # Matriz de preparación Android — PilotX / Agro Parallel
 
-> Última actualización: 2026-07-19 (tarde) · Bloques 4 y 5 COMPLETOS:
+> Última actualización: 2026-07-20 · Bloques 4 y 5 COMPLETOS:
 > todo el Draw GL de las clases de guiado extraído a DrawLib/Visuals
 > (GuidanceDrawExtensions, WorldGridVisual, IDrawAssetHosts) y
 > **AgOpenGPS.Core + AgLibrary multi-target net48+netstandard2.0** — la
 > lógica de guiado ya compila para Android. Sesión previa: migración HTML
 > (7 forms), extracción CoreX (broker/UDP/NTRIP/serial), AgpPoint/AgpSize.
+> 2026-07-20 (sesión android): `Position.designer.cs` prácticamente
+> cerrado — CAutoSteerUpdater, CYouTurnUpdater y CHeadingUpdater extraídos
+> a Core, bloque 9 ~65%.
 
 ---
 
@@ -40,7 +43,7 @@ FormGPS/forms nativos y el runtime de CoreX).
 | **6** | **Render del mapa (OpenGL → GL ES/Skia)** | **0%** | **Muy alta** | ~30 archivos (OpenGL.Designer.cs, Visuals/, DrawLib/) | GL inmediato (glBegin/glEnd/glVertex) → shaders + VBO para GL ES, o migrar a Skia/SkiaSharp. Es **el bloque más caro**. AgValoniaGPS (upstream) ya lo resuelve con Avalonia `OpenGlControlBase`. |
 | **7** | **Shell Android (WebView host)** | **60%** | Baja | SourceCode/PilotX.Android/ | **Compila y empaqueta APK (2026-07-19)**: MainActivity + WebView a 127.0.0.1:5180, HubForegroundService con broker MQTTnet embebido + AgpWebHost (servicios netstandard reales; stubs Fase 1 para lo FormGPS-backed), wwwroot como assets (560 entradas, APK 32 MB), DataRootOverride a getExternalFilesDir. Hecho también `AgpPaths.ConfigRoot` (61 usos de BaseDirectory en Services redirigidos; en Windows default idéntico, en Android FilesDir — guardar configs ya funciona). Falta: probar en tablet real y puente JS nativo (close-hub). |
 | **8** | **CoreX extracción a servicios** | **65%** | Alta | ~30 archivos en SourceCode/AgIO/ | Broker MQTT: extraído Y wired (MqttBrokerService). Bridge UDP: extraído Y wired (UdpBridgeService — UDP.designer.cs es wrapper delgado, sockets loopback :17777↔:15555 + LAN :9999↔:8888 en netstandard). NTRIP: extraído Y wired (NtripClientService — NTRIPComm.Designer.cs es wrapper; el form conserva solo UI/metering + radio/serial-pass). Framing PGN serie: extraído a PgnFrameParser portable (estaba triplicado en SerialComm; 7 tests). Serial: interfaz ISerialPortService + impl Windows; falta rutear los SerialPort por la interfaz (diferido: sin hardware para probar). Serial → USB-OTG (`UsbSerialForAndroid`) en Android. |
-| **9** | **FormGPS → desacoplamiento** | **~55%** | Alta | GPS/Forms/ (rama android) | 2026-07-19/20 (sesión android): **GPS loop extraído** — CPositionUpdater (pasos hoja + CalculatePositionHeading + CalculateSectionLookAhead + TheRest), CSectionCalculator, CSettingsSender (PGN 252/251/238/236/235) y Mat4Math en Core con I*Host + partials; verificado en runtime (AB + secciones andando en sim). Antes (taller): PgnDefinitions + PgnReceiver validado en vivo. Queda: UpdateFixPosition (orquestador ~1000 ln en Position.designer), UI de secciones (792 ln), y el resto de FormGPS.cs (4436 ln). |
+| **9** | **FormGPS → desacoplamiento** | **~65%** | Alta | GPS/Forms/ (rama android) | 2026-07-19/20 (sesión android): **GPS loop extraído** — CPositionUpdater (pasos hoja + CalculatePositionHeading + CalculateSectionLookAhead + TheRest), CSectionCalculator, CSettingsSender (PGN 252/251/238/236/235), Mat4Math, CAutoSteerUpdater (PGN posición corregida + PGN254 autosteer), CYouTurnUpdater (stop crítico boundary + creación/disparo giro) y CHeadingUpdater (switch Fix/VTG/Dual, la pieza más grande y compleja) en Core con I*Host + partials; verificado en runtime (AB + secciones + heading + autosteer andando en sim). Antes (taller): PgnDefinitions + PgnReceiver validado en vivo. **`Position.designer.cs` quedó en ~250 líneas** (de ~1600): solo queda el wrap-up final atado a GL/WinForms (oglBack/oglMain.Refresh, envío PGN geoStop), que no puede portar hasta el bloque 6. Queda: UI de secciones (792 ln en Sections.Designer.cs) y el resto de FormGPS.cs (4445 ln). |
 | **10** | **Migración Forms → HTML (widgets)** | **85%** | Baja-Media | ~10 forms restantes | 30+ forms ya migrados a HTML. Quedan nativos por decisión: FormSteerWiz (1321 ln), FormSteer (1268), FormBndTool (1095), FormGrid (173), FormColorPicker (166). Estos quedan nativos en Windows; en Android se reescriben en Avalonia o se migran a HTML después. |
 | **11** | **Almacenamiento / paths** | **100%** | — | 0 | Completado 2026-07-19: `RegistrySettings.DataRootOverride` — en Android se setea a `Context.getExternalFilesDir()` antes de `Load()` y Fields/Vehicles/Logs cuelgan de ahí (en Windows null → MyDocuments, histórico). `AppBasePath` ya cubría el JSON de settings; Registry legacy detrás de `#if NETFRAMEWORK`. SaveOpen/streamers ya van todos por `fieldsDirectory`. Los `Application.StartupPath` restantes son del shell WinForms (lanzar exes, assets), que en Android se reemplaza entero (bloque 7). |
 | **12** | **Self-update** | **0%** | Media | ~3 archivos nuevos | Reemplazar Updater.exe + ZIP por APK servido por OrbitX `/api/ota`. Usar `REQUEST_INSTALL_PACKAGES` o MDM. No bloquea la Fase 1. |
@@ -86,7 +89,7 @@ Self-update APK, cámaras nativo, kiosk mode, arranque automático.
 | Archivo | Líneas | Qué hacer | Impacto |
 |---|---|---|---|
 | `GPS/Forms/FormGPS.cs` | ~4000 | Extraer lógica a servicios | Crítico |
-| `GPS/Forms/Position.designer.cs` | ~1600 | GPS loop → servicio | Crítico |
+| `GPS/Forms/Position.designer.cs` | ~250 (era ~1600) | GPS loop → servicio — **hecho 2026-07-20**, solo queda wrap-up GL | Bajo |
 | `GPS/Forms/OpenGL.Designer.cs` | ~3000 | Render → GL ES/Skia | Crítico |
 | `GPS/Forms/Controls.Designer.cs` | ~2100 | Ya 85% migrado a HTML | Medio |
 | `AgIO/Source/Forms/FormLoop.cs` | ~500 | Broker+bridge → servicio | Alto |

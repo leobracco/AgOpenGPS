@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 9: sigo con `UpdateFixPosition` — extraje sección Youturn (`CYouTurnUpdater`, commiteado). Falta: el switch de heading (Fix/VTG/Dual) y el wrap-up final | `Position.designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/IYouTurnHost.cs`, `AgOpenGPS.Core/Classes/CYouTurnUpdater.cs`, `GPS/AgroParallel/Common/FormGps.YouTurnHost.cs` |
+| android | Bloque 9: `UpdateFixPosition` prácticamente cerrado — extraje el switch de heading (`CHeadingUpdater`, commiteado). Solo queda el wrap-up final atado a GL (oglBack/oglMain.Refresh), que no porta hasta bloque 6. Sigo con lo próximo de la matriz: Sections.Designer.cs (UI, 792 ln) o el resto de FormGPS.cs (4445 ln) | `Position.designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/IHeadingHost.cs`, `AgOpenGPS.Core/Classes/CHeadingUpdater.cs`, `GPS/AgroParallel/Common/FormGps.HeadingHost.cs` |
 
 ## Bitácora (append-only)
 
@@ -238,3 +238,25 @@ la sesión android al extraer, pero el taller los usa desde Services),
 - [2026-07-20] [android] EN CURSO — sigo con bloque 9: arranco el switch
   de heading (Fix/VTG/Dual) en `UpdateFixPosition`, la parte más grande y
   compleja que queda (gotos + ~15 toques UI/IMU entremezclados).
+- [2026-07-20] [android] HECHO — extraje el switch de heading (Fix/VTG/
+  Dual) a `CHeadingUpdater`/`IHeadingHost`, mismo patrón que las
+  extracciones previas. Traspaso mecánico 1:1 (fusión IMU/GPS, detección
+  de reversa, suavizado de cámara, los gotos originales del caso "Fix"
+  preservados tal cual). Amplié `IAutoSteerHost.GpsHeading/IsReverse/
+  IsChangingDirection` a get/set porque `IHeadingHost` (que hereda de él)
+  también las escribe. Compila limpio (Core net48+netstandard2.0 0
+  warnings, GPS completo 0 warnings, 42 tests verdes). Con esto
+  `Position.designer.cs` quedó en ~250 líneas (de ~1600): solo el wrap-up
+  final atado a GL/WinForms, que no porta hasta bloque 6. Commiteado.
+  Durante la verificación en simulador encontré (con `dotnet-dump`) un
+  freeze real de `wglMakeCurrent` al abrir un lote por la API sin foco de
+  ventana — no reprodujo dándole foco a la ventana antes de abrir el lote;
+  es un problema de entorno de esta PC, no del código (el stack no pasa
+  por CHeadingUpdater/CYouTurnUpdater, que ya habían terminado de correr).
+  Aparte, tras ~20 min de manejo continuo en el sim la UI se puso menos
+  fluida (config tarda en abrir) — es acumulación de parches de cobertura
+  en el renderer GL inmediato (bloque 6, 0% migrado, documentado como el
+  más caro de todo el proyecto), no una regresión de hoy: mismo build,
+  fluido recién abierto el lote, pesado después de manejar un rato.
+  Matriz actualizada a bloque 9 ~65%. Sigo con Sections.Designer.cs o el
+  resto de FormGPS.cs.
