@@ -49,6 +49,7 @@
       -webkit-user-select: none; user-select: none;
     }
     #menu button img { width: 26px; height: 26px; object-fit: contain; flex: none; }
+    #menu button .ico-emoji { width: 26px; font-size: 20px; text-align: center; flex: none; line-height: 1; }
     #menu button.sel { background: #eaf6e8; box-shadow: inset 3px 0 0 var(--verde); }
     #menu button:active { background: #e6ede5; }
 
@@ -258,12 +259,23 @@
       <button type="button" data-mod="sectionx.html"><img src="../img/icons/existing/agp-sectionx.png" alt="" />SectionX</button>
       <button type="button" data-mod="linex.html"><img src="../img/icons/existing/agp-linex.png" alt="" />LineX</button>
       <button type="button" data-mod="stormx.html"><img src="../img/icons/existing/agp-stormx.png" alt="" />StormX</button>
+      <!-- Campo: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
+      <div class="grupo">Campo</div>
+      <button type="button" data-mod="insumos.html"><img src="../img/icons/existing/agp-insumos.png" alt="" />Insumos</button>
+      <button type="button" data-mod="mapas.html"><img src="../img/icons/existing/agp-mapas.png" alt="" />Mapas</button>
+      <button type="button" data-mod="prescripciones.html"><img src="../img/icons/existing/agp-prescripciones.png" alt="" />Prescripciones</button>
       <!-- Cloud: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
       <div class="grupo">Cloud</div>
       <button type="button" data-mod="orbitx.html"><img src="../img/icons/existing/agp-orbitx.png" alt="" />OrbitX</button>
       <button type="button" data-mod="firmwares.html"><img src="../img/icons/existing/agp-firmwares.png" alt="" />Firmwares</button>
       <button type="button" data-mod="actualizar.html"><img src="../img/icons/existing/agp-actualizar.png" alt="" />Actualizar</button>
       <button type="button" data-mod="pwa-qr.html"><img src="../img/icons/existing/agp-pwa-qr.png" alt="" />Conectar celular</button>
+      <!-- Mantenimiento: WiFi de Windows (acción nativa) + sistema/eventos/debug. -->
+      <div class="grupo">Mantenimiento</div>
+      <button type="button" data-action="wifi"><span class="ico-emoji">📶</span>WiFi de Windows</button>
+      <button type="button" data-mod="sistema.html"><img src="../img/icons/existing/agp-sistema.png" alt="" />Sistema</button>
+      <button type="button" data-mod="eventos.html"><span class="ico-emoji">📜</span>Eventos</button>
+      <button type="button" data-mod="debug.html"><img src="../img/icons/existing/agp-debug.png" alt="" />Debug</button>
     </nav>
 
     <main id="main">
