@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 9: sigo con `UpdateFixPosition` — ya extraje PGN posición corregida + PGN 254 autosteer (`CAutoSteerUpdater`), verificado en runtime y commiteado. Falta: sección Youturn (bnd/yt + sonidos) y el switch de heading (Fix/VTG/Dual) | `Position.designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/IAutoSteerHost.cs`, `AgOpenGPS.Core/Classes/CAutoSteerUpdater.cs`, `GPS/AgroParallel/Common/FormGps.AutoSteerHost.cs` |
+| android | Bloque 9: sigo con `UpdateFixPosition` — extraje sección Youturn (`CYouTurnUpdater`, commiteado). Falta: el switch de heading (Fix/VTG/Dual) y el wrap-up final | `Position.designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/IYouTurnHost.cs`, `AgOpenGPS.Core/Classes/CYouTurnUpdater.cs`, `GPS/AgroParallel/Common/FormGps.YouTurnHost.cs` |
 
 ## Bitácora (append-only)
 
@@ -217,3 +217,24 @@ la sesión android al extraer, pero el taller los usa desde Services),
   existentes (FileOpenField/JobClose/FormFilePicker) — NO toca
   Position/Sections/OpenGL/FormGPS.cs (carril android). Compila 0 errores.
   Avisá si tenías cambios sin commitear en GUI.FloatingMenu.cs.
+- [2026-07-20] [android] HECHO — traje el push del taller (merge FF de
+  `origin/codex/pilotx-ui-new`, 5 commits: menú de Lote widget +
+  lote-rapido). Sin cambios en mi carril (GPS/Forms/ solo tocado por
+  GUI.FloatingMenu.cs y Controls.Designer.cs, no toca
+  Position/Sections/OpenGL/FormGPS.cs) — sin conflicto real salvo este
+  mismo archivo (resuelto concatenando). Rebuild GPS completo 0 errores
+  después del merge.
+- [2026-07-20] [android] HECHO — extraje la sección Youturn de
+  `UpdateFixPosition` (stop crítico por boundary + creación/disparo del
+  giro Dubins AB/curva + sonidos) a `CYouTurnUpdater`/`IYouTurnHost`,
+  mismo patrón que las extracciones previas. Traspaso mecánico 1:1,
+  revisado línea por línea contra el original sin encontrar diferencias
+  de lógica. Compila limpio (Core net48+netstandard2.0, GPS 0 warnings).
+  Usuario reportó un problema al probar en el simulador pero no llegó a
+  precisar el síntoma antes de pedir seguir con la migración — commiteado
+  igual por ser traspaso mecánico verificado por revisión de código; si
+  reaparece el síntoma avisar con detalle (qué se ve/no se ve, para
+  comparar contra el original línea por línea de nuevo).
+- [2026-07-20] [android] EN CURSO — sigo con bloque 9: arranco el switch
+  de heading (Fix/VTG/Dual) en `UpdateFixPosition`, la parte más grande y
+  compleja que queda (gotos + ~15 toques UI/IMU entremezclados).
