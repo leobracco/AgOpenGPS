@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
+             x:Class="PilotX.Cockpit.Bars.Views.BarraAbajo"
+             x:DataType="vm:BarraAbajoViewModel"
+             Height="64">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- Paleta cockpit PilotX; se mergea aca porque la libreria de barras
+             no tiene Application propia (ver BarraSuperior.axaml, Task 5). -->
+        <ResourceInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarsTheme.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <views:StringToBrushConverter x:Key="StringToBrush"/>
+      <views:SkipsIndexConverter x:Key="SkipsIndex"/>
+    </ResourceDictionary>
+  </UserControl.Resources>
+  <Border Background="{StaticResource PilotXBgMid}"
+          BorderBrush="{StaticResource PilotXBorder}" BorderThickness="0,1,0,0">
+    <DockPanel LastChildFill="False" Margin="6,0">
+      <!-- placeholder cuando no hay lote activo -->
+      <TextBlock DockPanel.Dock="Left" Text="SIN LOTE ACTIVO" VerticalAlignment="Center"
+                 Foreground="{StaticResource PilotXTextDim}"
+                 IsVisible="{Binding NoLoteVisible}"/>
+      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                  IsVisible="{Binding !NoLoteVisible}">
+        <Button Content="PICK" Command="{Binding SendCommand}" CommandParameter="pick"/>
+        <Button Content="CENTRAR" Command="{Binding SendCommand}" CommandParameter="center"/>
+        <Button Content="◀" IsVisible="{Binding NudgeVisible}"
+                Command="{Binding SendCommand}" CommandParameter="nudge_left"/>
+        <Button Content="▶" IsVisible="{Binding NudgeVisible}"
+                Command="{Binding SendCommand}" CommandParameter="nudge_right"/>
+        <Button Command="{Binding SendCommand}" CommandParameter="bandera">
+          <Ellipse Width="14" Height="14" Fill="{Binding FlagColorHex, Converter={StaticResource StringToBrush}}"/>
+        </Button>
+        <Button Content="CABECERA" IsVisible="{Binding HeadlandVisible}"
+                Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"/>
+        <Button Content="CAB. SECC" IsVisible="{Binding HeadlandVisible}"
+                Command="{Binding SendCommand}" CommandParameter="cabecera_secciones"/>
+        <Button Content="HIDRAULICO" IsVisible="{Binding HydVisible}" IsEnabled="{Binding HydEnabled}"
+                Command="{Binding SendCommand}" CommandParameter="hidraulico"/>
+        <Button Content="TRAMLINE" IsVisible="{Binding TramVisible}"
+                Command="{Binding SendCommand}" CommandParameter="tram_vista"/>
+        <Button Content="RESET" Command="{Binding SendCommand}" CommandParameter="reset_herramienta"/>
+        <Button Content="COLOR MAPA" Command="{Binding SendCommand}" CommandParameter="mapeo_color"/>
+        <Button Content="Y-SKIP" IsVisible="{Binding YouSkipVisible}"
+                Command="{Binding SendCommand}" CommandParameter="uturn_skips"/>
+        <ComboBox x:Name="SkipsCombo" IsVisible="{Binding SkipsVisible}"
+                  SelectedIndex="{Binding SkipsValue, Converter={StaticResource SkipsIndex}}"
+                  SelectionChanged="OnSkipsSelectionChanged">
+          <ComboBoxItem Content="1"/>
+          <ComboBoxItem Content="2"/>
+          <ComboBoxItem Content="3"/>
+          <ComboBoxItem Content="4"/>
+          <ComboBoxItem Content="5"/>
+          <ComboBoxItem Content="6"/>
+          <ComboBoxItem Content="7"/>
+          <ComboBoxItem Content="8"/>
+          <ComboBoxItem Content="9"/>
+          <ComboBoxItem Content="10"/>
+        </ComboBox>
+      </StackPanel>
+    </DockPanel>
+  </Border>
+</UserControl>

@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             x:Class="PilotX.Cockpit.Bars.Views.BarraDerecha"
+             x:DataType="vm:BarraDerechaViewModel"
+             Width="72">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- Paleta cockpit PilotX; se mergea aca porque la libreria de barras
+             no tiene Application propia (ver BarraSuperior.axaml, Task 5). -->
+        <ResourceInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarsTheme.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <!-- Boton "activo" (piloto/seccion/uturn/etc. encendido) se tinta con el
+         acento de marca; togglea via Classes.active="{Binding XxxActive}". -->
+    <Style Selector="Button.active">
+      <Setter Property="Background" Value="{StaticResource PilotXAccent}"/>
+      <Setter Property="Foreground" Value="{StaticResource PilotXBgDeep}"/>
+    </Style>
+  </UserControl.Styles>
+  <Border Background="{StaticResource PilotXBgMid}"
+          BorderBrush="{StaticResource PilotXBorder}" BorderThickness="1,0,0,0">
+    <DockPanel LastChildFill="False">
+      <!-- placeholder cuando no hay lote activo -->
+      <TextBlock DockPanel.Dock="Top" Text="SIN LOTE" TextAlignment="Center" TextWrapping="Wrap"
+                 Margin="4,10" Foreground="{StaticResource PilotXTextDim}"
+                 IsVisible="{Binding NoLoteVisible}"/>
+      <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Spacing="6" Margin="4,6"
+                  IsVisible="{Binding !NoLoteVisible}">
+        <Button Content="PILOTO" HorizontalAlignment="Stretch" Classes.active="{Binding PilotoActive}"
+                Command="{Binding SendCommand}" CommandParameter="autosteer"/>
+        <Button Content="U-TURN" HorizontalAlignment="Stretch" IsVisible="{Binding UturnVisible}"
+                Classes.active="{Binding UturnActive}"
+                Command="{Binding SendCommand}" CommandParameter="uturn"/>
+        <Button Content="SEC AUTO" HorizontalAlignment="Stretch" Classes.active="{Binding SecAutoActive}"
+                Command="{Binding SendCommand}" CommandParameter="sec_auto"/>
+        <Button Content="SEC MAN" HorizontalAlignment="Stretch" Classes.active="{Binding SecManualActive}"
+                Command="{Binding SendCommand}" CommandParameter="sec_manual"/>
+        <Button Content="ISOBUS" HorizontalAlignment="Stretch" IsVisible="{Binding IsobusVisible}"
+                Command="{Binding SendCommand}" CommandParameter="isobus"/>
+        <Button Content="AUTOTRACK" HorizontalAlignment="Stretch" Classes.active="{Binding AutoTrackActive}"
+                Command="{Binding SendCommand}" CommandParameter="autotrack"/>
+        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center"
+                    IsVisible="{Binding TrackNavVisible}">
+          <Button Content="‹" Command="{Binding SendCommand}" CommandParameter="track_prev"/>
+          <Button Content="›" Command="{Binding SendCommand}" CommandParameter="track_next"/>
+        </StackPanel>
+        <Button Content="CONTORNO" HorizontalAlignment="Stretch" Classes.active="{Binding ContourActive}"
+                Command="{Binding SendCommand}" CommandParameter="contour"/>
+        <Button Content="BLOQ. CONT." HorizontalAlignment="Stretch" IsVisible="{Binding ContourLockVisible}"
+                Classes.active="{Binding ContourLockActive}"
+                Command="{Binding SendCommand}" CommandParameter="contour_lock"/>
+      </StackPanel>
+    </DockPanel>
+  </Border>
+</UserControl>
