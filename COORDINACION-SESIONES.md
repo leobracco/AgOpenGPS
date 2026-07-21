@@ -182,3 +182,28 @@ la sesión android al extraer, pero el taller los usa desde Services),
   existentes (FileOpenField/JobClose/FormFilePicker) — NO toca
   Position/Sections/OpenGL/FormGPS.cs (carril android). Compila 0 errores.
   Avisá si tenías cambios sin commitear en GUI.FloatingMenu.cs.
+- [2026-07-21] [taller] HECHO — **barras del cockpit en Avalonia nativo**
+  (reemplazan las 4 barras WebView2 espejo; motivo: la pantalla ViewX iba
+  lenta, 4 renderers Chromium). Pusheado a codex/pilotx-ui-new
+  (`a149b17d..868f7f02`), **listo para mergear**. Spec+plan en
+  docs/superpowers/. Dos proyectos NUEVOS net9 (agregados a AgOpenGPS.sln):
+  · `SourceCode/PilotX.Cockpit.Bars` (librería reutilizable: 4 UserControls +
+    ViewModels + clients HTTP + theme + íconos embebidos; PilotX.Desktop la
+    puede consumir después), · `SourceCode/PilotX.Bars.Host` (exe fino
+    self-contained: 4 ventanas ancladas TopMost+NoActivate sobre FormGPS).
+  Comunicación 100% por la API existente (:5180): `GET /api/aog/state` +
+  `POST /api/aog/guidance/command {cmd}`. build.ps1 publica el Host a
+  Build/BarsHost (entra al ZIP). Validado en la pantalla 192.168.1.78:
+  CPU idle 74%→8-12%, ~235MB menos, look con íconos portados de las barras
+  HTML.
+- [2026-07-21] [taller] AVISO (toqué GPS/Forms — carril android) — el swap
+  a las barras Avalonia tocó **GUI.FloatingMenu.cs** (ToggleBarrasHtml /
+  ActualizarBarrasHtml: gate `_barsHostActive`, lanza el Host y cae a
+  WebView2 si no está o si el Host murió) y **FormGPS.cs** (métodos nuevos
+  LaunchBarsHost / StopBarsHost / ResolveBarsHostExe; hook en
+  FormGPS_FormClosing; auto-relaunch en CreateFloatingMenu al arrancar en
+  modo barras). Es **aditivo y reversible** (fallback WebView2 detrás del
+  flag `barras-html`), NO toca Position/Sections/OpenGL ni el render.
+  Al mergear: si tenías cambios en GUI.FloatingMenu.cs/FormGPS.cs sin
+  commitear, ojo con esos hunks — son bloques nuevos marcados, no reescriben
+  lógica existente. Cualquier conflicto avisá y lo resolvemos.
