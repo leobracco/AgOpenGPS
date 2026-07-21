@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | **Bloque 9 cerrado** (~65%, agotado): revisé los 4 archivos grandes restantes de GPS/Forms/ (Sections.Designer.cs, UDPComm.Designer.cs, SaveOpen.Designer.cs, resto de FormGPS.cs) y no queda lógica pura aislable — todo lo que sobra es UI de WinForms o ya tiene su parte pura en Core desde antes. Esperando decisión del usuario: bloque 10 (forms nativos → HTML) o bloque 6 (render GL) | — |
+| android | **Bloque 9 cerrado** (~65%, agotado) y **pusheado a origin** (ver bitácora). En pausa: bloque 10 es carril taller (Hub HTML/JS), bloque 6 lo está llevando la otra sesión en PilotX.Desktop. Sin nada EN CURSO ahora mismo | — |
 
 ## Bitácora (append-only)
 
@@ -260,3 +260,25 @@ la sesión android al extraer, pero el taller los usa desde Services),
   fluido recién abierto el lote, pesado después de manejar un rato.
   Matriz actualizada a bloque 9 ~65%. Sigo con Sections.Designer.cs o el
   resto de FormGPS.cs.
+- [2026-07-21] [android] HECHO — revisé Sections.Designer.cs,
+  UDPComm.Designer.cs, SaveOpen.Designer.cs y el resto de FormGPS.cs
+  completo: sin más lógica pura aislable (todo lo que queda ya tiene su
+  parte de Core extraída antes, o es intrínsecamente WinForms). Bloque 9
+  cerrado de verdad en ~65%. **Pusheado a origin**: rama
+  `codex/android-formgps-render` (era push nuevo, no existía en el
+  remoto) con 6 commits de hoy — youturn (`CYouTurnUpdater`), merge del
+  push de ustedes (menú de Lote), heading (`CHeadingUpdater`, la pieza
+  más grande y compleja de `UpdateFixPosition`), y 3 de docs/bitácora.
+  `Position.designer.cs` quedó en ~250 líneas. Todo compilado limpio y
+  con 42 tests verdes antes de pushear.
+  Aparte, un hallazgo para cuando les sirva: la matriz
+  (docs/2026-07-18-android-readiness-matrix.md) dice bloque 6 "0% hecho"
+  pero encontré que `SourceCode/PilotX.Desktop` (de ustedes, commit
+  `d0c69a1d`) ya tiene el render GL real en Stage 4b de 7 (Avalonia
+  OpenGlControlBase + Silk.NET, strangler-fig vía polling REST a
+  FormGPS) — la matriz quedó desactualizada en esa fila, no la toqué
+  porque es su carril. El usuario confirmó que bloque 6 lo siguen
+  ustedes; no voy a tocar PilotX.Desktop.
+- [2026-07-21] [android] EN CURSO — nada por ahora, bloque 9 cerrado y
+  pusheado. Bloque 10 es carril taller, bloque 6 lo sigue la otra
+  sesión. Esperando indicación del usuario para el próximo foco.
