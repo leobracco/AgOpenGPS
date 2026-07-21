@@ -59,6 +59,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PilotX.Cockpit.Bars", "Pilo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PilotX.Cockpit.Bars.Tests", "PilotX.Cockpit.Bars.Tests\PilotX.Cockpit.Bars.Tests.csproj", "{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PilotX.Bars.Host", "PilotX.Bars.Host\PilotX.Bars.Host.csproj", "{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -333,6 +335,18 @@ Global
 		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|x64.Build.0 = Release|Any CPU
 		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|x86.ActiveCfg = Release|Any CPU
 		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|x86.Build.0 = Release|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Debug|x64.Build.0 = Debug|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Debug|x86.Build.0 = Debug|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Release|x64.ActiveCfg = Release|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Release|x64.Build.0 = Release|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Release|x86.ActiveCfg = Release|Any CPU
+		{030D8E32-F3D5-43D8-B8AE-676ECE7F29D6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
