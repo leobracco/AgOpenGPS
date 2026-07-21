@@ -74,6 +74,20 @@ public partial class App : Application
             top.Show(); left.Show();
             poller.Start();
 
+            // Task 10 (fix spec): re-anclar las 4 barras si cambia la
+            // resolución/pantalla (modo de video, monitor reconectado, etc.).
+            // En un kiosco fijo esto rara vez dispara, pero el spec de diseño
+            // lo exige explícitamente. Screens.Changed (Avalonia 11.2.3) avisa
+            // ante cualquier cambio de la configuración de pantallas; alcanza
+            // con suscribirse una vez (comparten el mismo IScreenImpl).
+            top.Screens.Changed += (_, _) => Dispatcher.UIThread.Post(() =>
+            {
+                top.Reposition();
+                right.Reposition();
+                bottom.Reposition();
+                left.Reposition();
+            });
+
             Program.WatchParent(() => Dispatcher.UIThread.Post(() =>
                 (ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.Shutdown()));
         }

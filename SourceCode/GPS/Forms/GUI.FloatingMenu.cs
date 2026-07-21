@@ -134,7 +134,15 @@ namespace AgOpenGPS
             // espejo (evita duplicado). Si el Host no arrancó (exe ausente),
             // _barsHostActive quedó en false y seguimos de largo al camino
             // WebView2 clásico de abajo (fallback).
-            if (_barsHostActive) return;
+            // Si el Host arrancó pero después murió (crash Skia/GPU en pantalla
+            // débil, mutex de instancia única, etc.), _barsHostActive quedaba
+            // en true para siempre y el operario se quedaba SIN barras. Acá
+            // detectamos el proceso muerto y caemos al fallback WebView2.
+            if (_barsHostActive && (_barsHostProc == null || _barsHostProc.HasExited))
+            {
+                _barsHostActive = false; // caer al camino WebView2 de abajo
+            }
+            if (_barsHostActive) return; // Host vivo: él maneja las barras
 
             //superior: SIEMPRE visible (pedido 2026-07-13): reemplaza por
             //completo al panelControlBox nativo y no participa del
