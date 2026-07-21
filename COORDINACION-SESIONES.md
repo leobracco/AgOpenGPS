@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 9: `UpdateFixPosition` prácticamente cerrado — extraje el switch de heading (`CHeadingUpdater`, commiteado). Solo queda el wrap-up final atado a GL (oglBack/oglMain.Refresh), que no porta hasta bloque 6. Sigo con lo próximo de la matriz: Sections.Designer.cs (UI, 792 ln) o el resto de FormGPS.cs (4445 ln) | `Position.designer.cs`, `FormGPS.cs`, `AgOpenGPS.Core/Interfaces/IHeadingHost.cs`, `AgOpenGPS.Core/Classes/CHeadingUpdater.cs`, `GPS/AgroParallel/Common/FormGps.HeadingHost.cs` |
+| android | **Bloque 9 cerrado** (~65%, agotado): revisé los 4 archivos grandes restantes de GPS/Forms/ (Sections.Designer.cs, UDPComm.Designer.cs, SaveOpen.Designer.cs, resto de FormGPS.cs) y no queda lógica pura aislable — todo lo que sobra es UI de WinForms o ya tiene su parte pura en Core desde antes. Esperando decisión del usuario: bloque 10 (forms nativos → HTML) o bloque 6 (render GL) | — |
 
 ## Bitácora (append-only)
 
