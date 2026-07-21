@@ -1211,6 +1211,9 @@ namespace AgOpenGPS
             try { sectionsSpeedPublisher?.Dispose(); sectionsSpeedPublisher = null; } catch { }
             try { cutDispatcher?.Dispose(); cutDispatcher = null; } catch { }
             try { flowXBridge?.Dispose(); flowXBridge = null; } catch { }
+            // belt & suspenders: el Host igual se autocierra por el watch del
+            // parent-pid, pero lo matamos explícito para no dejarlo colgado.
+            StopBarsHost();
             // AGROPARALLEL_MOD_END
 
             // Turn off auto sections if active
@@ -2021,6 +2024,70 @@ namespace AgOpenGPS
             catch { }
             return null;
         }
+
+        // AGROPARALLEL_MOD_START — barras nativas Avalonia (Task 9, plan
+        // bars-Avalonia): al activar el modo "barras HTML" (isHtmlBarsMode)
+        // el cockpit intenta lanzar PilotX.Bars.Host.exe (net9, ventana
+        // topmost transparente con las 4 barras dibujadas en Avalonia/Skia
+        // en vez de WebView2). Si el exe no está (build viejo, dev sin
+        // compilar el Host) cae al camino WebView2 existente — additive y
+        // reversible, ver GUI.FloatingMenu.cs ToggleBarrasHtml/ActualizarBarrasHtml.
+        private System.Diagnostics.Process _barsHostProc;
+
+        private bool LaunchBarsHost()
+        {
+            try
+            {
+                string exe = ResolveBarsHostExe();
+                if (string.IsNullOrEmpty(exe) || !System.IO.File.Exists(exe)) return false;
+                if (_barsHostProc != null && !_barsHostProc.HasExited) return true; // ya corriendo
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exe,
+                    UseShellExecute = false,
+                    Arguments = "--parent-pid=" + System.Diagnostics.Process.GetCurrentProcess().Id
+                              + " --base-url=http://127.0.0.1:5180/",
+                };
+                _barsHostProc = System.Diagnostics.Process.Start(psi);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[BarsHost] Launch: " + ex.Message);
+                return false;
+            }
+        }
+
+        private void StopBarsHost()
+        {
+            try { if (_barsHostProc != null && !_barsHostProc.HasExited) _barsHostProc.Kill(); }
+            catch { }
+            _barsHostProc = null;
+        }
+
+        private static string ResolveBarsHostExe()
+        {
+            string baseDir = System.AppDomain.CurrentDomain.BaseDirectory;
+            string prod = System.IO.Path.Combine(baseDir, "BarsHost", "PilotX.Bars.Host.exe");
+            if (System.IO.File.Exists(prod)) return prod;
+            try
+            {
+                var dir = new System.IO.DirectoryInfo(baseDir);
+                for (int i = 0; i < 8 && dir != null; i++)
+                {
+                    string cand = System.IO.Path.Combine(dir.FullName,
+                        "SourceCode", "PilotX.Bars.Host", "bin", "Debug", "net9.0-windows",
+                        "PilotX.Bars.Host.exe");
+                    if (System.IO.File.Exists(cand)) return cand;
+                    cand = cand.Replace(@"\Debug\", @"\Release\");
+                    if (System.IO.File.Exists(cand)) return cand;
+                    dir = dir.Parent;
+                }
+            }
+            catch { }
+            return null;
+        }
+        // AGROPARALLEL_MOD_END
 
         // Botón VX removido 2026-05-26 — vivía en panelControlBox y se solapaba
         // con la card de GPS. El toggle del overlay VistaX se hace desde el Hub
