@@ -12,6 +12,14 @@ namespace PilotX.Bars.Host;
 
 public partial class App : Application
 {
+    // Thickness de cada barra (px logicos). Constantes compartidas para que
+    // los insets de Left/Right (que dejan libre el alto de Top/Bottom) nunca
+    // se desincronicen del thickness real de esas dos barras.
+    private const double TopThickness = 64;
+    private const double RightThickness = 74;
+    private const double BottomThickness = 74;
+    private const double LeftThickness = 94;
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -31,22 +39,24 @@ public partial class App : Application
             var vmAba = new BarraAbajoViewModel(cmd);
             var vmIzq = new MenuIzquierdaViewModel(cmd);
 
-            var top    = new BarWindow(BarEdge.Top,    64, new BarraSuperior  { DataContext = vmSup });
-            var right  = new BarWindow(BarEdge.Right,  74, new BarraDerecha   { DataContext = vmDer });
-            var bottom = new BarWindow(BarEdge.Bottom, 74, new BarraAbajo     { DataContext = vmAba });
-            var left   = new BarWindow(BarEdge.Left,   94, new MenuIzquierda  { DataContext = vmIzq });
+            var top    = new BarWindow(BarEdge.Top,    TopThickness,    new BarraSuperior  { DataContext = vmSup });
+            var right  = new BarWindow(BarEdge.Right,  RightThickness,  new BarraDerecha   { DataContext = vmDer }, topInset: TopThickness, bottomInset: BottomThickness);
+            var bottom = new BarWindow(BarEdge.Bottom, BottomThickness, new BarraAbajo     { DataContext = vmAba });
+            var left   = new BarWindow(BarEdge.Left,   LeftThickness,   new MenuIzquierda  { DataContext = vmIzq }, topInset: TopThickness, bottomInset: BottomThickness);
 
             var poller = new CockpitStateClient(Program.BaseUrl);
-            // Arrancan mostradas (Show() mas abajo); este flag evita llamar
-            // Show()/Hide() en cada snapshot (250ms) cuando el estado no cambio.
-            bool rightBottomVisible = true;
+            // Right/bottom arrancan OCULTAS (no Show() abajo): si no hay lote
+            // iniciado no deben parpadear visibles durante el primer poll.
+            // Este flag evita llamar Show()/Hide() en cada snapshot (250ms)
+            // cuando el estado no cambio.
+            bool rightBottomVisible = false;
             poller.SnapshotReceived += s => Dispatcher.UIThread.Post(() =>
             {
                 vmSup.Apply(s);
                 vmDer.Apply(s);
                 vmAba.Apply(s);
 
-                // right/bottom se ocultan cuando no hay lote activo.
+                // right/bottom se muestran solo cuando hay lote activo.
                 // Nota: en Avalonia 11 seteando Window.IsVisible = false una
                 // ventana YA mostrada no se oculta de forma confiable en
                 // Windows (el backing HWND se pinta invisible pero el hit-test
@@ -61,7 +71,7 @@ public partial class App : Application
                 }
             });
 
-            top.Show(); left.Show(); right.Show(); bottom.Show();
+            top.Show(); left.Show();
             poller.Start();
 
             Program.WatchParent(() => Dispatcher.UIThread.Post(() =>
