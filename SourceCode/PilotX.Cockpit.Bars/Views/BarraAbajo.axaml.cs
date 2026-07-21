@@ -13,8 +13,14 @@ public partial class BarraAbajo : UserControl
     // y se manda por el mismo SendCommand que usan los botones.
     private void OnSkipsSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (sender is not ComboBox combo || combo.SelectedIndex < 0) return;
         if (DataContext is not BarraAbajoViewModel vm) return;
-        vm.SendCommand.Execute("skips_" + (combo.SelectedIndex + 1));
+        if (sender is not ComboBox combo || combo.SelectedIndex < 0) return;
+        int value = combo.SelectedIndex + 1;
+        // El binding SelectedIndex es OneWay, pero Avalonia igual dispara
+        // SelectionChanged cuando Apply() actualiza SkipsValue desde el polling
+        // de estado (~250ms). Si el valor coincide con el del VM, no fue el
+        // operario tocando el combo: no reenviar el comando al backend.
+        if (value == vm.SkipsValue) return;
+        vm.SendCommand.Execute("skips_" + value);
     }
 }

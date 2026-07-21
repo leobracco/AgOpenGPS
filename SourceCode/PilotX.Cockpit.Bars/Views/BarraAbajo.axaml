@@ -47,7 +47,7 @@
         <Button Content="Y-SKIP" IsVisible="{Binding YouSkipVisible}"
                 Command="{Binding SendCommand}" CommandParameter="uturn_skips"/>
         <ComboBox x:Name="SkipsCombo" IsVisible="{Binding SkipsVisible}"
-                  SelectedIndex="{Binding SkipsValue, Converter={StaticResource SkipsIndex}}"
+                  SelectedIndex="{Binding SkipsValue, Converter={StaticResource SkipsIndex}, Mode=OneWay}"
                   SelectionChanged="OnSkipsSelectionChanged">
           <ComboBoxItem Content="1"/>
           <ComboBoxItem Content="2"/>
