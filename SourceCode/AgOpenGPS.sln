@@ -57,6 +57,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgroParallel.Services.Tests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PilotX.Cockpit.Bars", "PilotX.Cockpit.Bars\PilotX.Cockpit.Bars.csproj", "{075B9F10-FF12-4F05-A5AE-55048F1ACF78}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PilotX.Cockpit.Bars.Tests", "PilotX.Cockpit.Bars.Tests\PilotX.Cockpit.Bars.Tests.csproj", "{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -319,6 +321,18 @@ Global
 		{075B9F10-FF12-4F05-A5AE-55048F1ACF78}.Release|x64.Build.0 = Release|Any CPU
 		{075B9F10-FF12-4F05-A5AE-55048F1ACF78}.Release|x86.ActiveCfg = Release|Any CPU
 		{075B9F10-FF12-4F05-A5AE-55048F1ACF78}.Release|x86.Build.0 = Release|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Debug|x64.Build.0 = Debug|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Debug|x86.Build.0 = Debug|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|x64.ActiveCfg = Release|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|x64.Build.0 = Release|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|x86.ActiveCfg = Release|Any CPU
+		{D798E91C-3CDE-4A0F-9D4C-F596DE9A2C49}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
