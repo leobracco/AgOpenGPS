@@ -2062,6 +2062,8 @@ namespace AgOpenGPS
         {
             try { if (_barsHostProc != null && !_barsHostProc.HasExited) _barsHostProc.Kill(); }
             catch { }
+            try { _barsHostProc?.Dispose(); }
+            catch { }
             _barsHostProc = null;
         }
 

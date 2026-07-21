@@ -258,6 +258,17 @@ namespace AgOpenGPS
             //restaurar el modo barras HTML del arranque anterior
             try { isHtmlBarsMode = System.IO.File.Exists(BarrasHtmlFlagPath); } catch { }
 
+            // Task 9 (review finding): si el arranque anterior quedó en modo
+            // barras HTML, relanzar el Host nativo (PilotX.Bars.Host.exe) acá
+            // mismo — si no, el operario queda con el fallback WebView2 hasta
+            // tocar el toggle. Mismo criterio que ToggleBarrasHtml: si el exe
+            // no está, LaunchBarsHost devuelve false y ActualizarBarrasHtml
+            // cae al camino WebView2 de siempre.
+            if (isHtmlBarsMode)
+            {
+                _barsHostActive = LaunchBarsHost(); // si el exe nativo existe, arranca las barras Avalonia; si no, _barsHostActive queda false y ActualizarBarrasHtml cae al fallback WebView2
+            }
+
             btnFloatMenuLauncher = new Button
             {
                 Text = "Menú",
