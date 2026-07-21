@@ -7,16 +7,12 @@
   <UserControl.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
-        <!-- Paleta cockpit PilotX; se mergea aca porque la libreria de barras
-             no tiene Application propia (ver BarraSuperior.axaml, Task 5). -->
         <ResourceInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarsTheme.axaml"/>
       </ResourceDictionary.MergedDictionaries>
       <views:StringEqualsConverter x:Key="StrEq"/>
     </ResourceDictionary>
   </UserControl.Resources>
   <UserControl.Styles>
-    <!-- Boton de columna principal "activo" = su submenu esta abierto ahora
-         (togglea via Classes.active="{Binding OpenSubmenu, Converter=StrEq, ...}"). -->
     <Style Selector="Button.active">
       <Setter Property="Background" Value="{StaticResource PilotXAccent}"/>
       <Setter Property="Foreground" Value="{StaticResource PilotXBgDeep}"/>
@@ -24,9 +20,12 @@
   </UserControl.Styles>
   <Border Background="{StaticResource PilotXBgMid}"
           BorderBrush="{StaticResource PilotXBorder}" BorderThickness="0,0,1,0">
-    <DockPanel LastChildFill="False">
+    <!-- Grid de 2 columnas: col 0 = columna principal (ancho fijo, no se
+         aplasta); col 1 = submenú (todos apilados en la misma celda, solo el
+         activo visible). El Host ensancha la ventana al abrir un submenú. -->
+    <Grid ColumnDefinitions="104,*">
       <!-- columna principal: siempre visible -->
-      <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Spacing="6" Margin="4,6" Width="96">
+      <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="6" Margin="4,6">
         <Button Content="Navegación" HorizontalAlignment="Stretch"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion"/>
@@ -42,14 +41,20 @@
         <Button Content="Herr. lote" HorizontalAlignment="Stretch"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="herrlote"/>
+        <Button Content="Guías" HorizontalAlignment="Stretch"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=guias}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="guias"/>
         <Button Content="Dirección" HorizontalAlignment="Stretch"
                 Command="{Binding SendCommand}" CommandParameter="direccion"/>
         <Button Content="CoreX" HorizontalAlignment="Stretch"
                 Command="{Binding SendCommand}" CommandParameter="corex"/>
       </StackPanel>
 
-      <!-- submenu Navegación -->
-      <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Spacing="4" Margin="4,6" Width="120"
+      <!-- submenús: hijos directos de col 1, apilados (solo 1 visible).
+           Al tocar un ítem se ejecuta y se cierra (SendAndCloseCommand). -->
+
+      <!-- Navegación -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}">
         <Button Content="2D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="v2d"/>
         <Button Content="3D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="v3d"/>
@@ -62,8 +67,8 @@
         <Button Content="Navegación" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="navegacion"/>
       </StackPanel>
 
-      <!-- submenu Config -->
-      <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Spacing="4" Margin="4,6" Width="140"
+      <!-- Config -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}">
         <Button Content="Config" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="config_form"/>
         <Button Content="Dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="direccion"/>
@@ -77,8 +82,8 @@
         <Button Content="Ayuda" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="ayuda"/>
       </StackPanel>
 
-      <!-- submenu Herramientas -->
-      <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Spacing="4" Margin="4,6" Width="160"
+      <!-- Herramientas -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}">
         <Button Content="Asistente dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="asistente_direccion"/>
         <Button Content="Gráfico dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grafico_direccion"/>
@@ -93,8 +98,8 @@
         <Button Content="Webcam" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="webcam"/>
       </StackPanel>
 
-      <!-- submenu Lote -->
-      <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Spacing="4" Margin="4,6" Width="140"
+      <!-- Lote -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}">
         <Button Content="Continuar lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_continuar"/>
         <Button Content="Menú lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
@@ -106,8 +111,18 @@
         <Button Content="Mapeo color" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="mapeo_color"/>
       </StackPanel>
 
-      <!-- submenu Herr. lote -->
-      <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Spacing="4" Margin="4,6" Width="150"
+      <!-- Guías (crear/elegir/ocultar líneas de guiado) -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=guias}">
+        <Button Content="Nueva A/B" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_ab"/>
+        <Button Content="Nueva curva" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_curve"/>
+        <Button Content="Recta A+" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_a"/>
+        <Button Content="Elegir guía" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="pick"/>
+        <Button Content="Ocultar guías" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tracks_off"/>
+      </StackPanel>
+
+      <!-- Herr. lote -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}">
         <Button Content="Lindero" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lindero"/>
         <Button Content="Cabecera" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="cabecera"/>
@@ -117,6 +132,6 @@
         <Button Content="Crear tram" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tram_crear"/>
         <Button Content="Ver tram" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tram_vista"/>
       </StackPanel>
-    </DockPanel>
+    </Grid>
   </Border>
 </UserControl>

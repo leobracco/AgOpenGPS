@@ -15,5 +15,9 @@ public sealed partial class MenuIzquierdaViewModel : BarViewModelBase
     private void ToggleSubmenu(string name) =>
         OpenSubmenu = OpenSubmenu == name ? null : name;
 
+    // El auto-cierre del submenú al ejecutar una acción lo maneja el code-behind
+    // de MenuIzquierda (handler de Click), para no meter comandos async en los
+    // botones (rompían el render del Content del botón).
+
     public override void Apply(CockpitSnapshot s) { /* no hace polling de estado */ }
 }

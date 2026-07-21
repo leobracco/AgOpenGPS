@@ -1,0 +1,43 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        Estilos compartidos de las 4 barras del cockpit. Se incluye una vez en
+        App.Styles del Host (y lo puede incluir PilotX.Desktop cuando reuse las
+        barras). Los hex reflejan los tokens de BarsTheme.axaml (paleta cockpit
+        PilotX): superficie #262C28, texto #E2E7E2, borde #3A443C, acento #4ABA3E.
+        Botones táctiles pero compactos (pantalla chica 1024x768): MinHeight 34,
+        fuente 13, esquinas suaves.
+    -->
+    <Style Selector="Button">
+        <Setter Property="Background" Value="#262C28"/>
+        <Setter Property="Foreground" Value="#E2E7E2"/>
+        <Setter Property="BorderBrush" Value="#3A443C"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="5"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="MinHeight" Value="34"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <!-- hover: apenas más claro + texto blanco -->
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#333B34"/>
+        <Setter Property="BorderBrush" Value="#4A554C"/>
+        <Setter Property="TextBlock.Foreground" Value="#FFFFFF"/>
+    </Style>
+
+    <!-- pressed: verde de acento -->
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#4ABA3E"/>
+        <Setter Property="BorderBrush" Value="#4ABA3E"/>
+        <Setter Property="TextBlock.Foreground" Value="#101612"/>
+    </Style>
+
+    <!-- deshabilitado: apagado pero legible -->
+    <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="#1E231F"/>
+        <Setter Property="TextBlock.Foreground" Value="#8FA092"/>
+    </Style>
+</Styles>

@@ -18,7 +18,8 @@ public partial class App : Application
     private const double TopThickness = 64;
     private const double RightThickness = 74;
     private const double BottomThickness = 74;
-    private const double LeftThickness = 94;
+    private const double LeftThickness = 112;      // angosta: solo la columna principal
+    private const double LeftExpanded = 305;        // ancha: columna + submenú al lado
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -70,6 +71,18 @@ public partial class App : Application
                     else { right.Hide(); bottom.Hide(); }
                 }
             });
+
+            // La barra izquierda se ensancha cuando hay un submenú abierto (para
+            // mostrar la lista al lado de la columna principal) y vuelve a angosta
+            // al cerrarlo. Reemplaza el viejo resize:WxH del widget WebView2.
+            vmIzq.PropertyChanged += (_, e) =>
+            {
+                // PropertyChanged llega en el UI thread (viene del click) -> ensancho
+                // sincrónico, así la ventana ya está ancha cuando el submenú se hace
+                // visible y sus botones se miden con el ancho correcto.
+                if (e.PropertyName == nameof(MenuIzquierdaViewModel.OpenSubmenu))
+                    left.SetThickness(vmIzq.OpenSubmenu != null ? LeftExpanded : LeftThickness);
+            };
 
             top.Show(); left.Show();
             poller.Start();

@@ -11,5 +11,7 @@
     </Application.Resources>
     <Application.Styles>
         <FluentTheme />
+        <!-- Estilo táctil compacto de los botones de las 4 barras. -->
+        <StyleInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarStyles.axaml"/>
     </Application.Styles>
 </Application>

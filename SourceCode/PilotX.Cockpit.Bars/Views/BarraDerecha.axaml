@@ -1,59 +1,76 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
              x:Class="PilotX.Cockpit.Bars.Views.BarraDerecha"
-             x:DataType="vm:BarraDerechaViewModel"
-             Width="72">
+             x:DataType="vm:BarraDerechaViewModel">
   <UserControl.Resources>
-    <ResourceDictionary>
-      <ResourceDictionary.MergedDictionaries>
-        <!-- Paleta cockpit PilotX; se mergea aca porque la libreria de barras
-             no tiene Application propia (ver BarraSuperior.axaml, Task 5). -->
-        <ResourceInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarsTheme.axaml"/>
-      </ResourceDictionary.MergedDictionaries>
-    </ResourceDictionary>
+    <views:AssetImageConverter x:Key="Asset"/>
   </UserControl.Resources>
   <UserControl.Styles>
-    <!-- Boton "activo" (piloto/seccion/uturn/etc. encendido) se tinta con el
-         acento de marca; togglea via Classes.active="{Binding XxxActive}". -->
-    <Style Selector="Button.active">
-      <Setter Property="Background" Value="{StaticResource PilotXAccent}"/>
-      <Setter Property="Foreground" Value="{StaticResource PilotXBgDeep}"/>
+    <!-- Botones de ícono, tema claro (como la barra HTML original). -->
+    <Style Selector="Button">
+      <Setter Property="Background" Value="#E2E7E2"/>
+      <Setter Property="BorderBrush" Value="#C5CFC5"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="3"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#D5DDD5"/>
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#C5CFC5"/>
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+    <Style Selector="Image">
+      <Setter Property="Stretch" Value="Uniform"/>
+      <Setter Property="MaxWidth" Value="46"/>
+      <Setter Property="MaxHeight" Value="46"/>
     </Style>
   </UserControl.Styles>
-  <Border Background="{StaticResource PilotXBgMid}"
-          BorderBrush="{StaticResource PilotXBorder}" BorderThickness="1,0,0,0">
-    <DockPanel LastChildFill="False">
-      <!-- placeholder cuando no hay lote activo -->
-      <TextBlock DockPanel.Dock="Top" Text="SIN LOTE" TextAlignment="Center" TextWrapping="Wrap"
-                 Margin="4,10" Foreground="{StaticResource PilotXTextDim}"
-                 IsVisible="{Binding NoLoteVisible}"/>
-      <StackPanel DockPanel.Dock="Top" Orientation="Vertical" Spacing="6" Margin="4,6"
-                  IsVisible="{Binding !NoLoteVisible}">
-        <Button Content="PILOTO" HorizontalAlignment="Stretch" Classes.active="{Binding PilotoActive}"
-                Command="{Binding SendCommand}" CommandParameter="autosteer"/>
-        <Button Content="U-TURN" HorizontalAlignment="Stretch" IsVisible="{Binding UturnVisible}"
-                Classes.active="{Binding UturnActive}"
-                Command="{Binding SendCommand}" CommandParameter="uturn"/>
-        <Button Content="SEC AUTO" HorizontalAlignment="Stretch" Classes.active="{Binding SecAutoActive}"
-                Command="{Binding SendCommand}" CommandParameter="sec_auto"/>
-        <Button Content="SEC MAN" HorizontalAlignment="Stretch" Classes.active="{Binding SecManualActive}"
-                Command="{Binding SendCommand}" CommandParameter="sec_manual"/>
-        <Button Content="ISOBUS" HorizontalAlignment="Stretch" IsVisible="{Binding IsobusVisible}"
-                Command="{Binding SendCommand}" CommandParameter="isobus"/>
-        <Button Content="AUTOTRACK" HorizontalAlignment="Stretch" Classes.active="{Binding AutoTrackActive}"
-                Command="{Binding SendCommand}" CommandParameter="autotrack"/>
-        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center"
-                    IsVisible="{Binding TrackNavVisible}">
-          <Button Content="‹" Command="{Binding SendCommand}" CommandParameter="track_prev"/>
-          <Button Content="›" Command="{Binding SendCommand}" CommandParameter="track_next"/>
-        </StackPanel>
-        <Button Content="CONTORNO" HorizontalAlignment="Stretch" Classes.active="{Binding ContourActive}"
-                Command="{Binding SendCommand}" CommandParameter="contour"/>
-        <Button Content="BLOQ. CONT." HorizontalAlignment="Stretch" IsVisible="{Binding ContourLockVisible}"
-                Classes.active="{Binding ContourLockActive}"
-                Command="{Binding SendCommand}" CommandParameter="contour_lock"/>
-      </StackPanel>
-    </DockPanel>
+
+  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1,0,0,0" Padding="4">
+    <!-- orden visual arriba->abajo (numCu arriba, Piloto abajo, como el nativo) -->
+    <StackPanel Orientation="Vertical" Spacing="4">
+      <TextBlock Text="{Binding NumCuText}" IsVisible="{Binding NumCuVisible}"
+                 FontSize="18" FontWeight="Bold" Foreground="#101612"
+                 HorizontalAlignment="Center" Margin="0,2"/>
+      <Button IsVisible="{Binding ContourLockVisible}" Command="{Binding SendCommand}" CommandParameter="contour_lock">
+        <Image Source="{Binding ContourLockImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="contour">
+        <Image Source="{Binding ContourImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_next">
+        <Image Source="/Assets/barra-derecha/ABLineCycle.png"/>
+      </Button>
+      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_prev">
+        <Image Source="/Assets/barra-derecha/ABLineCycleBk.png"/>
+      </Button>
+      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="autotrack">
+        <Image Source="{Binding AutoTrackImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding IsobusVisible}" Command="{Binding SendCommand}" CommandParameter="isobus">
+        <Image Source="{Binding IsobusImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="sec_manual">
+        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="sec_auto">
+        <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding UturnVisible}" Command="{Binding SendCommand}" CommandParameter="uturn">
+        <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsEnabled="{Binding PilotoEnabled}" Command="{Binding SendCommand}" CommandParameter="autosteer">
+        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}"/>
+      </Button>
+    </StackPanel>
   </Border>
 </UserControl>

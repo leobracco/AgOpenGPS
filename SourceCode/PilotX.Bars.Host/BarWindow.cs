@@ -11,7 +11,7 @@ public enum BarEdge { Top, Right, Bottom, Left }
 public sealed class BarWindow : Window
 {
     private readonly BarEdge _edge;
-    private readonly double _thickness; // alto (top/bottom) o ancho (left/right), en px logicos
+    private double _thickness; // alto (top/bottom) o ancho (left/right), en px logicos
     // Insets verticales SOLO para Left/Right: hay que dejar libre el alto real
     // de las barras Top/Bottom (no el propio thickness, que es el ANCHO de
     // estas barras laterales). Sin esto quedan huecos de 10-30px en las 4
@@ -38,6 +38,15 @@ public sealed class BarWindow : Window
             if (h != null) Win32NoActivate.Apply(h.Handle);
             Reposition();
         };
+    }
+
+    /// <summary>Cambia el grosor (ancho para Left/Right) y re-ancla. Lo usa el
+    /// Host para ensanchar la barra izquierda cuando se abre un submenú y volver
+    /// a angosta al cerrarlo (reemplaza el viejo resize del widget WebView2).</summary>
+    public void SetThickness(double thickness)
+    {
+        _thickness = thickness;
+        Reposition();
     }
 
     public void Reposition()
