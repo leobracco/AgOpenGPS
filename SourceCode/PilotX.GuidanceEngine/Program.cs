@@ -37,8 +37,15 @@ namespace AgOpenGPS
             var baseDir = new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "GuidanceEngineData"));
             if (!baseDir.Exists) baseDir.Create();
 
+            // Mismo fieldsDirectory que usa PilotX real (MyDocuments\AgOpenGPS\Fields,
+            // o DataRootOverride en Android) — necesario para poder abrir un lote real
+            // por nombre (comando "job_start_<lote>"). No toca Windows Registry en
+            // net9.0 puro (guard #if NETFRAMEWORK || WINDOWS en RegistrySettings.cs).
+            RegistrySettings.Load();
+
             Console.WriteLine("PilotX.GuidanceEngine — bloque 14, guidance engine headless");
             Console.WriteLine("Base directory: " + baseDir.FullName);
+            Console.WriteLine("Fields directory: " + RegistrySettings.fieldsDirectory);
 
             var host = new GuidanceEngineHost(baseDir);
             host.Start();

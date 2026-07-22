@@ -77,17 +77,30 @@ namespace AgOpenGPS
             }
         }
 
-        // Mismo vocabulario que FormGPS.ExecuteGuidanceCommand — "autosteer"
-        // es el único mapeado por ahora (el resto de esa función depende de
-        // controles WinForms que acá no existen). Devuelve false para
-        // comando vacío/desconocido, igual que la implementación de FormGPS.
+        // Mismo vocabulario que FormGPS.ExecuteGuidanceCommand — "autosteer",
+        // "job_start_<lote>"/"job_close" por ahora (el resto de esa función
+        // depende de controles WinForms que acá no existen). Devuelve false
+        // para comando vacío/desconocido, igual que la implementación de
+        // FormGPS. "job_start_" preserva el nombre del lote tal cual vino
+        // (no lowercase) por si el nombre de carpeta es case-sensitive
+        // (Linux) — mismo criterio que "idioma_" en GUI.FloatingMenu.cs.
         public bool ExecuteCommand(string command)
         {
-            string cmd = (command ?? "").Trim().ToLowerInvariant();
+            string raw = (command ?? "").Trim();
+            string cmd = raw.ToLowerInvariant();
+
+            if (cmd.StartsWith("job_start_"))
+            {
+                return OpenField(raw.Substring("job_start_".Length));
+            }
+
             switch (cmd)
             {
                 case "autosteer":
                     ((IAutoSteerHost)this).PerformAutoSteerClick();
+                    return true;
+                case "job_close":
+                    CloseField();
                     return true;
                 default:
                     return false;

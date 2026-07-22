@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 14 al ~60% (comando de autosteer también por MQTT, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
+| android | Bloque 14 al ~70% (abrir/cerrar lote real headless, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
 
 ## Bitácora (append-only)
 
@@ -490,3 +490,34 @@ la sesión android al extraer, pero el taller los usa desde Services),
   otro lado (Android UI o Hub) que publique en ese tópico — sin eso, esto
   es un canal listo pero mudo — y ampliar vocabulario cuando ese
   consumidor exista. Voy a commitear y pushear.
+- [2026-07-22] [android] HECHO — como el consumidor real de comandos y el
+  hardware de NTRIP/serial están bloqueados (necesitan Hub/Android UI o
+  gear físico, ninguno disponible ahora), el próximo incremento genuino y
+  verificable sin eso era el otro faltante grande: sin poder abrir un lote,
+  `IsJobStarted` nunca pasaba a true en este proceso y nada de sección/
+  cobertura se podía ejercitar, solo el simulador en campo abierto. Nuevo
+  `GuidanceEngineHost.Job.cs`: `OpenField(string)`/`CloseField()`, mismo
+  flujo de datos que `FormGPS.FileOpenField`/`JobNew`
+  (SaveOpen.Designer.cs/FormGPS.cs) pero sin `OpenFileDialog` ni las ~30
+  asignaciones de botones WinForms de `JobNew` (irrelevantes sin UI) —
+  reusa los streamers portables `AgOpenGPS.IO.FieldPlaneFiles`/
+  `TrackFiles`/`BoundaryFiles` tal cual los usa FormGPS. Omití a propósito
+  `CalculateMinMax`/`FieldBoundingBox` (OpenGL.Designer.cs): confirmé que
+  ninguna clase de Core los lee, solo sirven para encuadrar cámara (bloque
+  6). Agregué `RegistrySettings.Load()` al arranque de `Program.cs` —
+  necesario para que `RegistrySettings.fieldsDirectory` apunte a
+  MyDocuments\AgOpenGPS\Fields (o `DataRootOverride` en Android), el mismo
+  que usa PilotX real; confirmé que no toca Windows Registry en net9.0
+  puro (el guard `#if NETFRAMEWORK || WINDOWS` ya excluye esa rama).
+  Comandos nuevos en `ExecuteCommand`: `"job_start_<lote>"` (preserva
+  mayúsculas del nombre, no lowercase, mismo criterio que "idioma_" en
+  GUI.FloatingMenu.cs — por si el nombre de carpeta es case-sensitive en
+  Linux) y `"job_close"`. Verificado en runtime con `--sim` **contra el
+  lote real `66666`** (el mismo de sesiones anteriores, con AB guardada):
+  `job_start_66666` por TCP → `IsJobStarted=True`, 1 track cargado (la AB),
+  0 boundaries (ese lote no tiene Boundary.txt con datos); `job_close` →
+  `IsJobStarted=False`; lote inexistente → `unknown` sin tocar estado.
+  Compila limpio (0 warnings), `build.ps1` completo OK, 141 tests verdes.
+  Matriz bloque 14 subida a ~70%. Sigue bloqueado lo mismo de antes:
+  consumidor real (Android UI/Hub) y hardware NTRIP/serial. Voy a
+  commitear y pushear.
