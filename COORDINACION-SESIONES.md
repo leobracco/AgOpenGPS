@@ -674,3 +674,28 @@ la sesión android al extraer, pero el taller los usa desde Services),
   `readonly`) 0 errores + 141 tests verdes, `build.ps1` OK, corrida rápida
   de `PilotX.GuidanceEngine.exe --sim` sin cambios de comportamiento.
   Matriz: bloque 7 a 80%, bloque 14 a ~90%. Voy a commitear y pushear.
+- [2026-07-22] [android] HECHO — sin código nuevo esta vez, pero el foco más
+  valioso que quedaba: verificar en runtime real de Android en vez de solo
+  "compila". Encontré que esta PC ya tiene un AVD configurado
+  (`Medium_Phone_API_36.1`) — lo arranqué (cold boot ~6.5 min), compilé el
+  APK (`dotnet build PilotX.Android.csproj -p:AndroidPackageFormat=apk`),
+  `adb install` + lancé la app de verdad. **`HubBootstrap.Start()` corrió
+  sin ninguna excepción** (logcat filtrado por PID: 0 crashes, 0
+  `System.*Exception` — solo un warning SELinux preexistente al guardar
+  `aog_settings.json`, no relacionado a nada de hoy). Con `adb forward` +
+  `curl` contra el Hub real dentro del emulador: `/api/aog/state` devuelve
+  el snapshot completo de `GuidanceEngineStateProvider` con
+  `fields_directory` apuntando bien a
+  `/storage/emulated/0/Android/data/.../files/AgOpenGPS/Fields` y
+  `num_sections`/`tool_width`/`section_positions` reales desde Settings;
+  `/api/lotes` → `[]` sin crash (instalación limpia); **`POST
+  /api/aog/guidance/command {"cmd":"autosteer"}` → `{"ok":true}`, y el
+  snapshot siguiente confirma `is_auto_steer_on:true`** — el roundtrip
+  completo HTTP → `ExecuteCommand` → estado interno → snapshot,
+  corriendo de verdad en Android (emulado), no en el .exe de consola de
+  Windows. Es la validación más fuerte de todo el bloque 14 hasta ahora.
+  Emulador apagado al terminar (`adb emu kill`) para no dejar recursos
+  ocupados. Matriz bloque 14 a ~92%. Sigue pendiente lo mismo de siempre:
+  tablet física real (el emulador no tiene GPS/USB-OTG) y NTRIP/serial con
+  hardware real — ninguno lo puedo destrabar desde acá. Voy a commitear
+  (solo docs) y pushear.
