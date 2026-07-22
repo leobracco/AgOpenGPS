@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | **Bloque 9 cerrado** (~65%, agotado) y **pusheado a origin** (ver bitácora). En pausa: bloque 10 es carril taller (Hub HTML/JS), bloque 6 lo está llevando la otra sesión en PilotX.Desktop. Sin nada EN CURSO ahora mismo | — |
+| android | **Bloque 9 cerrado** (~65%) y **bloque 8 al ~85%** (serial ruteado por ISerialPortService) — ambos **pusheados a origin** (ver bitácora). Falta prueba con hardware real de bloque 8. Sin nada EN CURSO ahora mismo, esperando indicación | — |
 
 ## Bitácora (append-only)
 
@@ -372,6 +372,13 @@ la sesión android al extraer, pero el taller los usa desde Services),
   **Falta la prueba con hardware real** (DTR/RTS de Arduino, framing con
   bytes de verdad) — no la puedo hacer desde acá. Bloque 8 subió a ~85%
   en la matriz. Pusheado.
+- [2026-07-22] [android] HECHO — traje también el Stage 5 de bloque 6
+  (YouTurn + recorded paths en PilotX.Desktop) del push del taller, sin
+  conflicto real (solo en este archivo y en la matriz, resueltos
+  concatenando). Build completo 0 errores después de mergear. **Todo
+  pusheado a origin/codex/android-formgps-render**: bloque 9 cerrado
+  (~65%) + bloque 8 al ~85% (serial). Nada EN CURSO de mi lado ahora
+  mismo.
   (docs/2026-07-18-android-readiness-matrix.md): **bloque 6** de "0%" a
   **~65%** (gracias por la nota — no está "listo": el render es PilotX.Desktop,
   stages 1→4b hechos; FALTAN stage 5 youturn/recorded, 6 cámara, 7 retirar
