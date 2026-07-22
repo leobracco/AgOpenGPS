@@ -16,8 +16,12 @@ public class BarraSuperiorViewModelTests
         var vm = Make();
         vm.Apply(new CockpitSnapshot
         {
-            AvgSpeed = 8.53, WorkedAreaTotalM2 = 12345, FixQuality = 4,
-            IsJobStarted = true, TracksTotal = 23, TrackIdx = 10
+            AvgSpeed = 8.53,
+            WorkedAreaTotalM2 = 12345,
+            FixQuality = 4,
+            IsJobStarted = true,
+            TracksTotal = 23,
+            TrackIdx = 10
         });
         Assert.That(vm.SpeedText, Is.EqualTo("8,5"));       // coma decimal, 1 dígito
         Assert.That(vm.HaText, Is.EqualTo("1,2"));          // 12345 m² → 1,2 ha

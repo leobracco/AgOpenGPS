@@ -32,6 +32,27 @@
   <ItemGroup>
     <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
     <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
+    <!-- MqttBrokerService/UdpBridgeService/NtripClientService/PgnFrameParser/
+         ISerialPortService (bloque 8/14) — ya portables (netstandard2.0). -->
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- System.IO.Ports no viene con el SDK base en net9.0 "puro" (sin
+         -windows): CoreXEngineHost lo necesita para los 6 puertos serie
+         reales (GPS/GPS2/RTCM/IMU/Steer/Machine). -->
+    <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CNmeaParser/INmeaParserHost (AgIO) ya son 100% portables (sin
+         WinForms, ver su propio comentario de cabecera) pero viven
+         físicamente en el proyecto AgIO (net48, WinForms completo).
+         Se linkean por archivo en vez de agregar ProjectReference a todo
+         AgIO.csproj — evita arrastrar OpenTK/WinForms a este proceso. -->
+    <Compile Include="..\AgIO\Source\Classes\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
+    <Compile Include="..\AgIO\Source\Classes\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
+    <Compile Include="..\AgIO\Source\Classes\CGLM.cs" Link="AgIO\CGLM.cs" />
   </ItemGroup>
 
 </Project>

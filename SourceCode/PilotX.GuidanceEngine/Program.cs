@@ -1,13 +1,17 @@
 // ============================================================================
 // Program.cs — entry point del guidance engine headless (bloque 14).
 //
-// Dos modos, no excluyentes:
-//   --sim   arranca el simulador interno (CSim.DoSimTick, el mismo que usa
-//           FormGPS en su modo simulador) para probar el loop completo
-//           heading -> posición corregida -> autosteer -> youturn en
-//           proceso, sin CoreX ni hardware. Loguea cada tick.
-//   (default) escucha PGN de CoreX/ModSim real en :15555 y responde a
-//           :17777 — mismo protocolo que FormGPS.
+// Modos, no excluyentes:
+//   --sim    arranca el simulador interno (CSim.DoSimTick, el mismo que usa
+//            FormGPS en su modo simulador) para probar el loop completo
+//            heading -> posición corregida -> autosteer -> youturn en
+//            proceso, sin CoreX ni hardware. Loguea cada tick.
+//   --corex  arranca TAMBIÉN CoreXEngineHost en este mismo proceso: broker
+//            MQTT, bridge UDP (loopback + LAN), NTRIP y los 6 puertos serie
+//            reales (GPS/GPS2/RTCM/IMU/Steer/Machine) — el "otro lado" que
+//            hoy es AgIO/CoreX.exe aparte. Sin este flag, GuidanceEngineHost
+//            sigue escuchando en :15555 esperando un CoreX externo real
+//            (comportamiento ya validado antes).
 //
 // Ctrl+C para salir.
 // ============================================================================
@@ -15,6 +19,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using AgIO;
 using AgLibrary.Logging;
 
 namespace AgOpenGPS
@@ -24,6 +29,7 @@ namespace AgOpenGPS
         public static void Main(string[] args)
         {
             bool useSim = Array.IndexOf(args, "--sim") >= 0;
+            bool useCoreX = Array.IndexOf(args, "--corex") >= 0;
 
             var baseDir = new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "GuidanceEngineData"));
             if (!baseDir.Exists) baseDir.Create();
@@ -33,8 +39,15 @@ namespace AgOpenGPS
 
             var host = new GuidanceEngineHost(baseDir);
             host.Start();
-
             Console.WriteLine("Escuchando PGN en 127.0.0.1:15555, respondiendo a 127.255.255.255:17777.");
+
+            CoreXEngineHost coreX = null;
+            if (useCoreX)
+            {
+                coreX = new CoreXEngineHost();
+                coreX.StartServices();
+                Console.WriteLine("Modo --corex: broker MQTT (:1883), bridge UDP LAN (:9999) y puertos serie arriba, mismo proceso.");
+            }
 
             Timer simTimer = null;
             if (useSim)
@@ -74,6 +87,7 @@ namespace AgOpenGPS
 
             simTimer?.Dispose();
             Log.EventWriter("GuidanceEngine: cerrando");
+            coreX?.Stop();
             host.Stop();
         }
     }

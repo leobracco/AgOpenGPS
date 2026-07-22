@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | **Bloque 14 arrancado** (~20%): `PilotX.GuidanceEngine`, guidance engine headless, verificado en runtime (sim interno + contra CoreX real). Bloque 9 cerrado (~65%) y bloque 8 al ~85% (serial), ambos pusheados antes. Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
+| android | Bloque 14 al ~40% (wire de CoreX en el mismo proceso, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
 
 ## Bitácora (append-only)
 
@@ -410,3 +410,35 @@ la sesión android al extraer, pero el taller los usa desde Services),
   pusheado a origin/codex/android-formgps-render**: bloque 14 arrancado
   (~20%, `PilotX.GuidanceEngine`) + los merges de bloque 6. Nada EN
   CURSO de mi lado.
+- [2026-07-22] [android] HECHO — retomé el trabajo sin commitear que había
+  quedado a medio hacer de una sesión anterior cortada (working tree con
+  `CoreXEngineHost.cs`/`Net9SerialPortService.cs` nuevos sin trackear y
+  cambios en `Program.cs`): el "wire de MqttBrokerService/UdpBridgeService/
+  NtripClientService en el mismo proceso" que había quedado pendiente en el
+  bloque 14. `CoreXEngineHost` (namespace `AgIO`, junto a `Net9SerialPortService`
+  que reimplementa `ISerialPortService` en net9.0 sin arrastrar el proyecto
+  AgIO net48/WinForms) arranca los 3 servicios + los 6 puertos serie +
+  `CNmeaParser`/`PgnFrameParser` (linkeados por archivo desde AgIO) y rutea
+  PGN loopback↔serie igual que `UDP.designer.cs`/`SerialComm.Designer.cs`.
+  Flag nuevo `--corex` en `Program.cs`. Encontré el motivo por el que había
+  quedado sin terminar: **no compilaba** — `CGLM.cs` (clase `glm`, ya
+  histórica, todo en minúsculas) tira `CS8981` en net9.0 (TargetFramework
+  del `PilotX.GuidanceEngine.csproj`, donde se linkea por archivo), y
+  `TreatWarningsAsErrors` en Release lo vuelve error. Arreglado con
+  `#pragma warning disable/restore CS8981` alrededor de la clase (no se
+  puede renombrar sin auditar todos los usos en AgIO/GPS, y tampoco hacía
+  falta). De paso encontré y arreglé (solo formato, no lógica, con
+  `dotnet format whitespace`) un IDE0055 preexistente en
+  `SourceCode/PilotX.Cockpit.Bars.Tests/BarraSuperiorViewModelTests.cs`
+  (carril taller, ya commiteado con `e5e4f3ee`) que rompía
+  `dotnet test AgOpenGPS.sln` completo — no lo había tocado nadie de mi
+  lado, era formato roto en el archivo tal cual estaba en HEAD. Verificado
+  en runtime: `PilotX.GuidanceEngine.exe --sim --corex` levanta los 3
+  servicios (MQTT :1883, UDP LAN :9999, loopback :17777/:15555) sin
+  excepciones y el heading sigue convergiendo igual (avgSpeed→4.4 km/h,
+  mismo resultado que sin `--corex`). Compila limpio 0 warnings
+  (`AgOpenGPS.sln` completo + `build.ps1`), **141 tests verdes** (incluidos
+  los 8 de Bars.Tests que estaban rotos). Matriz bloque 14 subida a ~40%.
+  Falta (documentado en la matriz): origen de comando real para
+  btnStates/autosteer (hoy sin UI detrás) y prueba de NTRIP/serial con
+  credenciales/hardware real. Voy a commitear y pushear.

@@ -1,8 +1,8 @@
 ﻿using System;
-using System.Windows.Forms;
 
 namespace AgIO
 {
+#pragma warning disable CS8981 // nombre histórico en minúsculas (compat AgIO net48); linkeado también en net9.0 (PilotX.GuidanceEngine) donde el analyzer sí lo marca.
     public static class glm
     {
         //Regex file expression
@@ -33,4 +33,5 @@ namespace AgIO
         }
 
     }
+#pragma warning restore CS8981
 }
