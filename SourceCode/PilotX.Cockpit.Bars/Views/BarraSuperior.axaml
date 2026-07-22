@@ -4,49 +4,42 @@
              xmlns:views="using:PilotX.Cockpit.Bars.Views"
              x:Class="PilotX.Cockpit.Bars.Views.BarraSuperior"
              x:DataType="vm:BarraSuperiorViewModel"
-             Height="64">
+             Height="46">
   <UserControl.Resources>
-    <ResourceDictionary>
-      <ResourceDictionary.MergedDictionaries>
-        <!-- Paleta cockpit PilotX (verde marca + grises cabina); la libreria
-             de barras no tiene Application propia, asi que se mergea aca
-             para que los brushes PilotX* resuelvan en compile-time. -->
-        <ResourceInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarsTheme.axaml"/>
-      </ResourceDictionary.MergedDictionaries>
-      <views:StringToBrushConverter x:Key="StringToBrush"/>
-    </ResourceDictionary>
+    <views:StringToBrushConverter x:Key="StringToBrush"/>
   </UserControl.Resources>
-  <Border Background="{StaticResource PilotXBgMid}"
-          BorderBrush="{StaticResource PilotXBorder}" BorderThickness="0,0,0,1">
-    <DockPanel LastChildFill="False" Margin="6,0">
-      <Button DockPanel.Dock="Left" Content="TRABAJO"
+  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="0,0,0,1">
+    <DockPanel LastChildFill="False" Margin="5,0">
+      <Button DockPanel.Dock="Left" Content="TRABAJO" Margin="2,0"
               Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
-      <Button DockPanel.Dock="Left" Content="GPS"
+      <Button DockPanel.Dock="Left" Content="GPS" Margin="2,0"
               Command="{Binding SendCommand}" CommandParameter="datos_gps"/>
-      <Button DockPanel.Dock="Left" Content="LOTE" IsEnabled="{Binding LoteEnabled}"
+      <Button DockPanel.Dock="Left" Content="LOTE" IsEnabled="{Binding LoteEnabled}" Margin="2,0"
               Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
       <!-- chips de datos vivos -->
-      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="14" Margin="16,0">
-        <TextBlock Text="{Binding SpeedText}" Foreground="{StaticResource PilotXTextHi}"/>
+      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12" Margin="14,0"
+                  VerticalAlignment="Center">
+        <TextBlock Text="{Binding SpeedText}" FontSize="13" FontWeight="SemiBold" Foreground="#101612"/>
         <StackPanel Orientation="Horizontal" Spacing="4">
-          <Ellipse Width="10" Height="10" Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
-          <TextBlock Text="{Binding GpsText}" Foreground="{StaticResource PilotXTextMid}"/>
+          <Ellipse Width="9" Height="9" VerticalAlignment="Center"
+                   Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
+          <TextBlock Text="{Binding GpsText}" FontSize="12" Foreground="#535E54"/>
         </StackPanel>
-        <TextBlock Text="{Binding HaText}" Foreground="{StaticResource PilotXTextMid}"/>
+        <TextBlock Text="{Binding HaText}" FontSize="12" Foreground="#535E54"/>
         <TextBlock Text="{Binding LineBadge}" IsVisible="{Binding LineVisible}"
-                   Foreground="{StaticResource PilotXAccent}"/>
-        <TextBlock Text="{Binding FechaText}" Foreground="{StaticResource PilotXTextDim}"/>
+                   FontSize="12" FontWeight="SemiBold" Foreground="#2E8B29"/>
+        <TextBlock Text="{Binding FechaText}" FontSize="12" Foreground="#8A968C"/>
       </StackPanel>
       <!-- ventana -->
-      <Button DockPanel.Dock="Right" Content="✕"
+      <Button DockPanel.Dock="Right" Content="✕" Margin="2,0"
               Command="{Binding SendCommand}" CommandParameter="apagar"/>
-      <Button DockPanel.Dock="Right" Content="☐"
+      <Button DockPanel.Dock="Right" Content="☐" Margin="2,0"
               Command="{Binding SendCommand}" CommandParameter="maximizar"/>
-      <Button DockPanel.Dock="Right" Content="–"
+      <Button DockPanel.Dock="Right" Content="–" Margin="2,0"
               Command="{Binding SendCommand}" CommandParameter="minimizar"/>
-      <Button DockPanel.Dock="Right" Content="›" IsVisible="{Binding LineVisible}"
+      <Button DockPanel.Dock="Right" Content="›" IsVisible="{Binding LineVisible}" Margin="2,0"
               Command="{Binding SendCommand}" CommandParameter="track_next"/>
-      <Button DockPanel.Dock="Right" Content="‹" IsVisible="{Binding LineVisible}"
+      <Button DockPanel.Dock="Right" Content="‹" IsVisible="{Binding LineVisible}" Margin="2,0"
               Command="{Binding SendCommand}" CommandParameter="track_prev"/>
     </DockPanel>
   </Border>

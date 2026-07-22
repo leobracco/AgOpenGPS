@@ -8,38 +8,12 @@
     <views:AssetImageConverter x:Key="Asset"/>
     <views:SkipsIndexConverter x:Key="SkipsIndex"/>
   </UserControl.Resources>
-  <UserControl.Styles>
-    <Style Selector="Button">
-      <Setter Property="Background" Value="#E2E7E2"/>
-      <Setter Property="BorderBrush" Value="#C5CFC5"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="10"/>
-      <Setter Property="Padding" Value="3"/>
-      <Setter Property="VerticalAlignment" Value="Stretch"/>
-      <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      <Setter Property="VerticalContentAlignment" Value="Center"/>
-    </Style>
-    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="#D5DDD5"/>
-    </Style>
-    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="#C5CFC5"/>
-    </Style>
-    <Style Selector="Button:disabled">
-      <Setter Property="Opacity" Value="0.45"/>
-    </Style>
-    <Style Selector="Image">
-      <Setter Property="Stretch" Value="Uniform"/>
-      <Setter Property="MaxWidth" Value="46"/>
-      <Setter Property="MaxHeight" Value="46"/>
-    </Style>
-  </UserControl.Styles>
 
-  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="0,1,0,0" Padding="4">
+  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="0,1,0,0" Padding="3">
     <!-- orden visual izq->der; a la derecha "elegir guía" (como el nativo RTL) -->
-    <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+    <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
       <ComboBox x:Name="SkipsCombo" IsVisible="{Binding SkipsVisible}" VerticalAlignment="Center"
-                FontSize="18" MinWidth="56"
+                FontSize="14" MinWidth="46"
                 SelectedIndex="{Binding SkipsValue, Converter={StaticResource SkipsIndex}, Mode=OneWay}"
                 SelectionChanged="OnSkipsSelectionChanged">
         <ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/>

@@ -5,27 +5,24 @@
              x:Class="PilotX.Cockpit.Bars.Views.MenuIzquierda"
              x:DataType="vm:MenuIzquierdaViewModel">
   <UserControl.Resources>
-    <ResourceDictionary>
-      <ResourceDictionary.MergedDictionaries>
-        <ResourceInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarsTheme.axaml"/>
-      </ResourceDictionary.MergedDictionaries>
-      <views:StringEqualsConverter x:Key="StrEq"/>
-    </ResourceDictionary>
+    <views:StringEqualsConverter x:Key="StrEq"/>
   </UserControl.Resources>
   <UserControl.Styles>
-    <Style Selector="Button.active">
-      <Setter Property="Background" Value="{StaticResource PilotXAccent}"/>
-      <Setter Property="Foreground" Value="{StaticResource PilotXBgDeep}"/>
+    <!-- Botón de columna principal "activo" = su submenú está abierto. -->
+    <Style Selector="Button.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#4ABA3E"/>
+      <Setter Property="BorderBrush" Value="#4ABA3E"/>
+      <Setter Property="TextBlock.Foreground" Value="#FFFFFF"/>
     </Style>
   </UserControl.Styles>
-  <Border Background="{StaticResource PilotXBgMid}"
-          BorderBrush="{StaticResource PilotXBorder}" BorderThickness="0,0,1,0">
+  <Border Background="#F5F7F4"
+          BorderBrush="#C5CFC5" BorderThickness="0,0,1,0">
     <!-- Grid de 2 columnas: col 0 = columna principal (ancho fijo, no se
          aplasta); col 1 = submenú (todos apilados en la misma celda, solo el
          activo visible). El Host ensancha la ventana al abrir un submenú. -->
-    <Grid ColumnDefinitions="104,*">
+    <Grid ColumnDefinitions="90,*">
       <!-- columna principal: siempre visible -->
-      <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="6" Margin="4,6">
+      <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="4" Margin="3,5">
         <Button Content="Navegación" HorizontalAlignment="Stretch"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion"/>
@@ -54,7 +51,7 @@
            Al tocar un ítem se ejecuta y se cierra (SendAndCloseCommand). -->
 
       <!-- Navegación -->
-      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}">
         <Button Content="2D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="v2d"/>
         <Button Content="3D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="v3d"/>
@@ -68,7 +65,7 @@
       </StackPanel>
 
       <!-- Config -->
-      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}">
         <Button Content="Config" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="config_form"/>
         <Button Content="Dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="direccion"/>
@@ -83,7 +80,7 @@
       </StackPanel>
 
       <!-- Herramientas -->
-      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}">
         <Button Content="Asistente dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="asistente_direccion"/>
         <Button Content="Gráfico dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grafico_direccion"/>
@@ -99,7 +96,7 @@
       </StackPanel>
 
       <!-- Lote -->
-      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}">
         <Button Content="Continuar lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_continuar"/>
         <Button Content="Menú lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
@@ -112,7 +109,7 @@
       </StackPanel>
 
       <!-- Guías (crear/elegir/ocultar líneas de guiado) -->
-      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=guias}">
         <Button Content="Nueva A/B" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_ab"/>
         <Button Content="Nueva curva" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_curve"/>
@@ -122,7 +119,7 @@
       </StackPanel>
 
       <!-- Herr. lote -->
-      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
                   IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}">
         <Button Content="Lindero" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lindero"/>
         <Button Content="Cabecera" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="cabecera"/>

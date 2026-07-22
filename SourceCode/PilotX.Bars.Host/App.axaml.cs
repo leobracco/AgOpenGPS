@@ -15,11 +15,11 @@ public partial class App : Application
     // Thickness de cada barra (px logicos). Constantes compartidas para que
     // los insets de Left/Right (que dejan libre el alto de Top/Bottom) nunca
     // se desincronicen del thickness real de esas dos barras.
-    private const double TopThickness = 64;
-    private const double RightThickness = 74;
-    private const double BottomThickness = 74;
-    private const double LeftThickness = 112;      // angosta: solo la columna principal
-    private const double LeftExpanded = 305;        // ancha: columna + submenú al lado
+    private const double TopThickness = 46;
+    private const double RightThickness = 58;
+    private const double BottomThickness = 58;
+    private const double LeftThickness = 92;        // angosta: solo la columna principal
+    private const double LeftExpanded = 250;        // ancha: columna + submenú al lado
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
