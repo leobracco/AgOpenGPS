@@ -133,7 +133,12 @@ necesitan saber.
   entre coverage y guidance. Respeta `displayMode` (`None`/`All`/
   `FillTracks`/`BoundaryTracks`) y lo emite desde `FormGpsTramCalculator`
   como string (eco del enum `TramMode` de PilotX).
-- Stage 5: YouTurn paths + recorded paths.
+- **Stage 5 (hecho)**: YouTurn paths + recorded paths. Endpoint combinado
+  `GET /api/aog/paths` (`FormGpsPathsCalculator` lee `mf.yt.ytList` +
+  `mf.recPath.recList`, revision-cache por cuentas). `PathsGeometryClient` +
+  `PathsGeometryPoller` corren solo con `--gl=on`. `MapGlSurface` rendera dos
+  `GL_LINE_STRIP` con VBO concatenado + revision-cache: youturn naranja
+  `#FF9E1B` y recorded violeta `#B478FF`, tras la capa de guidance.
 - Stage 6: camera control (zoom rueda / pan drag / rotate touch).
 - Stage 7: retirar `MapSkiaSurface` + `--gl` toggle.
 

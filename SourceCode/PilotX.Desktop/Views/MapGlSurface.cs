@@ -99,6 +99,20 @@ public sealed class MapGlSurface : OpenGlControlBase
     private string _tramDisplayMode = "None";
     private TramGeometrySnapshot? _pendingTram;
 
+    // ---- paths: youturn + recorded (Stage 5) ---------------------------
+    // Dos polilineas simples ("caminos"): el giro de cabecera (youturn) y el
+    // camino grabado (recorded). Cambian rara vez (nuevo giro / grabacion) —
+    // VBO STATIC_DRAW con revision-cache. Layout en _pathsVbo (concatenado):
+    //   [youturn...] [recorded...]
+    // Cada uno con su (Start, Count) en vertices. Se rendean como
+    // GL_LINE_STRIP con colores distintos.
+    private uint _pathsVbo;
+    private int _pathsVboCapacityFloats;
+    private int _pathsYouTurnStart, _pathsYouTurnCount;
+    private int _pathsRecordedStart, _pathsRecordedCount;
+    private long _pathsRevisionUploaded = -1;
+    private PathsGeometrySnapshot? _pendingPaths;
+
     // ---- tool / sections (Stage 4a) ------------------------------------
     // Cada seccion = un segmento Left↔Right en coords mundo. Coloreamos
     // segun estado: gris (off), verde (auto + mapping), rojo (auto + NO
@@ -147,6 +161,11 @@ public sealed class MapGlSurface : OpenGlControlBase
     // con guidance cian ni con boundary verde. Coincide con el render
     // legacy (light pink/cream sobre fondo oscuro).
     private static readonly float[] ColTram          = { 0.930f, 0.720f, 0.735f, 0.65f }; // #EDB8BC alpha 0.65
+    // Paths (Stage 5). Dos colores fuertes y distinguibles entre si y del
+    // resto de las capas: youturn naranja (#FF9E1B), recorded violeta/lila
+    // (#B478FF).
+    private static readonly float[] ColPathsYouTurn  = { 1.000f, 0.620f, 0.106f, 1f }; // #FF9E1B naranja
+    private static readonly float[] ColPathsRecorded = { 0.706f, 0.470f, 1.000f, 1f }; // #B478FF violeta
 
     // Shaders GLSL 3.30 core (compat con GL ES 3.00 cambiando solo el
     // preludio). MVP en uniform; vertex pos en location 0; color en
@@ -211,6 +230,19 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (snap == null) return;
         if (snap.Revision == _tramRevisionUploaded) return;
         _pendingTram = snap;
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de geometria de caminos (Stage 5, PathsGeometryPoller): youturn
+    /// (giro de cabecera) + recorded path. El poller ya filtra por revision;
+    /// aca solo guardamos pendiente y disparamos un frame nuevo.
+    /// </summary>
+    public void OnPaths(PathsGeometrySnapshot snap)
+    {
+        if (snap == null) return;
+        if (snap.Revision == _pathsRevisionUploaded) return;
+        _pendingPaths = snap;
         Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
     }
 
@@ -298,6 +330,12 @@ public sealed class MapGlSurface : OpenGlControlBase
         _tramVbo = _gl.GenBuffer();
         _tramVboCapacityFloats = 0;
 
+        // VBO de paths (Stage 5). STATIC_DRAW: solo cambia al generar un giro
+        // o grabar/cargar un camino. Concatena youturn + recorded; cada uno
+        // con su rango en vertices.
+        _pathsVbo = _gl.GenBuffer();
+        _pathsVboCapacityFloats = 0;
+
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] MapGlSurface: GL init OK");
     }
 
@@ -311,6 +349,7 @@ public sealed class MapGlSurface : OpenGlControlBase
             _gl.DeleteBuffer(_guidanceVbo);
             _gl.DeleteBuffer(_toolVbo);
             _gl.DeleteBuffer(_tramVbo);
+            _gl.DeleteBuffer(_pathsVbo);
             _gl.DeleteVertexArray(_vao);
             _gl.DeleteProgram(_program);
         }
@@ -406,6 +445,19 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         if (_guidanceVertexCount >= 2 && _guidanceMode != "Off")
             DrawGuidance();
+
+        // --- Capa 3b: paths (youturn + recorded) -----------------------
+        // Va despues de guidance: el giro de cabecera y el camino grabado
+        // son marcas de navegacion que deben quedar visibles sobre la linea
+        // activa. Colores fuertes distinguibles (youturn naranja, recorded
+        // violeta). Revision-cache igual que tram.
+        if (_pendingPaths != null)
+        {
+            UploadPaths(_pendingPaths);
+            _pendingPaths = null;
+        }
+        if (_pathsYouTurnCount > 0 || _pathsRecordedCount > 0)
+            DrawPaths();
 
         // --- Capa 3b: tool / sections (Stage 4a) -----------------------
         // Va despues de guidance y antes del boundary: las secciones son
@@ -932,6 +984,100 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         _gl.LineWidth(1.0f);
         _gl.Disable(EnableCap.Blend);
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+    }
+
+    private void UploadPaths(PathsGeometrySnapshot snap)
+    {
+        if (_gl == null) return;
+        _pathsRevisionUploaded = snap.Revision;
+        _pathsYouTurnStart = 0; _pathsYouTurnCount = 0;
+        _pathsRecordedStart = 0; _pathsRecordedCount = 0;
+
+        int ytN = (snap.YouTurn != null && snap.YouTurn.Count >= 2) ? snap.YouTurn.Count : 0;
+        int recN = (snap.Recorded != null && snap.Recorded.Count >= 2) ? snap.Recorded.Count : 0;
+        int totalVerts = ytN + recN;
+        if (totalVerts == 0) return; // nada que renderear, dejamos VBO como estaba
+
+        int needFloats = totalVerts * 2;
+        EnsureScratch(needFloats);
+
+        int writeIdx = 0;
+        int vertexCursor = 0;
+
+        // YouTurn
+        if (ytN > 0)
+        {
+            _pathsYouTurnStart = vertexCursor;
+            _pathsYouTurnCount = ytN;
+            for (int i = 0; i < ytN; i++)
+            {
+                _scratch[writeIdx++] = (float)snap.YouTurn![i].E;
+                _scratch[writeIdx++] = (float)snap.YouTurn[i].N;
+            }
+            vertexCursor += ytN;
+        }
+
+        // Recorded
+        if (recN > 0)
+        {
+            _pathsRecordedStart = vertexCursor;
+            _pathsRecordedCount = recN;
+            for (int i = 0; i < recN; i++)
+            {
+                _scratch[writeIdx++] = (float)snap.Recorded![i].E;
+                _scratch[writeIdx++] = (float)snap.Recorded[i].N;
+            }
+            vertexCursor += recN;
+        }
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _pathsVbo);
+        // BufferData (no SubData) porque la revision implica reemplazo
+        // completo. STATIC_DRAW: rara vez cambia.
+        unsafe
+        {
+            fixed (float* p = _scratch)
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(needFloats * sizeof(float)),
+                    p,
+                    BufferUsageARB.StaticDraw);
+            }
+        }
+        _pathsVboCapacityFloats = needFloats;
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+    }
+
+    private void DrawPaths()
+    {
+        if (_gl == null) return;
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _pathsVbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+        _gl.LineWidth(2.0f);
+
+        // YouTurn (naranja)
+        if (_pathsYouTurnCount > 0)
+        {
+            _gl.Uniform4(_uColor, ColPathsYouTurn[0], ColPathsYouTurn[1], ColPathsYouTurn[2], ColPathsYouTurn[3]);
+            _gl.DrawArrays(PrimitiveType.LineStrip, _pathsYouTurnStart, (uint)_pathsYouTurnCount);
+        }
+
+        // Recorded (violeta)
+        if (_pathsRecordedCount > 0)
+        {
+            _gl.Uniform4(_uColor, ColPathsRecorded[0], ColPathsRecorded[1], ColPathsRecorded[2], ColPathsRecorded[3]);
+            _gl.DrawArrays(PrimitiveType.LineStrip, _pathsRecordedStart, (uint)_pathsRecordedCount);
+        }
+
+        _gl.LineWidth(1.0f);
         _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
         unsafe
         {

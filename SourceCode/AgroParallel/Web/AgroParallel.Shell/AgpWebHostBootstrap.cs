@@ -85,7 +85,8 @@ namespace AgroParallel.Shell
             ICabeceraLineasService cabeceraLineas = null,
             ITramLineService tramLine = null,
             ITrackBuilderService trackBuilder = null,
-            IRecPathService recPath = null)
+            IRecPathService recPath = null,
+            IPathsGeometryCalculator paths = null)
         {
             lock (s_lock)
             {
@@ -160,7 +161,8 @@ namespace AgroParallel.Shell
                     cabeceraLineas: cabeceraLineas,
                     tramLine: tramLine,
                     trackBuilder: trackBuilder,
-                    recPath: recPath);
+                    recPath: recPath,
+                    paths: paths);
                 host.Start();
                 s_host = host;
                 s_url = host.Url;

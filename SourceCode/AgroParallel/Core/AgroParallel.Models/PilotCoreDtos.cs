@@ -246,4 +246,30 @@ namespace AgroParallel.Models
         /// re-upload del VBO.</summary>
         public long Revision { get; set; }
     }
+
+    // ---------------------------------------------------------------------
+    // Paths geometry (Stage 5 — youturn + recorded path)
+    // ---------------------------------------------------------------------
+
+    /// <summary>Dos polilineas de "caminos" en coords mundo, agrupadas en un
+    /// solo snapshot para no duplicar boilerplate de transporte:
+    ///   · YouTurn  → el giro (Dubins/pattern) generado en cabecera. Se
+    ///     rederiza mientras el tractor tiene un giro activo (>= 2 puntos).
+    ///   · Recorded → el camino grabado manejando (record path). Existe
+    ///     mientras hay una grabacion cargada/activa (>= 2 puntos).
+    /// Cada una es una polilinea simple (lista de puntos E/N) que el render
+    /// dibuja como GL_LINE_STRIP con un color propio.</summary>
+    public sealed class PathsGeometrySnapshot
+    {
+        /// <summary>Polilinea del giro de cabecera (youturn). Vacia si no hay
+        /// giro activo.</summary>
+        public List<FieldPoint> YouTurn { get; set; }
+        /// <summary>Polilinea del camino grabado (recorded path). Vacia si no
+        /// hay grabacion.</summary>
+        public List<FieldPoint> Recorded { get; set; }
+        /// <summary>Revision: incrementa cuando cambian las cuentas de puntos
+        /// (youturn.Count / recorded.Count). Permite al cliente saltar el
+        /// re-upload del VBO.</summary>
+        public long Revision { get; set; }
+    }
 }
