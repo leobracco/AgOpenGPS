@@ -699,3 +699,36 @@ la sesión android al extraer, pero el taller los usa desde Services),
   tablet física real (el emulador no tiene GPS/USB-OTG) y NTRIP/serial con
   hardware real — ninguno lo puedo destrabar desde acá. Voy a commitear
   (solo docs) y pushear.
+- [2026-07-22] [android] HECHO — intenté ir un paso más allá: abrir un
+  lote REAL (con boundary/AB de verdad, el mismo `Lote 1` usado en la
+  verificación de consola de Windows) contra el motor corriendo en el
+  emulador, vía `POST /api/lotes/open?name=...`. Encontré 2 gotchas de
+  tooling (ninguno es bug de mi código):
+  1. La build Debug simple por CLI (`dotnet build -c Debug`) usa "Fast
+     Deployment" de .NET-Android y crashea al arrancar (`monodroid: No
+     assemblies found... Assuming this is part of Fast Deployment.
+     Abort`) — no relacionado a nada de hoy, es el flujo normal cuando
+     no se despliega desde el IDE. Se arregla con
+     `-p:EmbedAssembliesIntoApk=true`; con eso el build Debug arranca
+     igual de limpio que el Release (mismo `"Hub arriba"` en el log,
+     sin excepciones).
+  2. Necesitaba Debug (no Release) para poder usar `adb shell run-as`
+     (Release no es `debuggable`) y así copiar la carpeta del lote a
+     `Fields/` sin root (el emulador es imagen Google Play, no rooteable:
+     `adb root` → "cannot run as root in production builds"). Pero
+     **`run-as` tampoco alcanza para el directorio externo**
+     (`/storage/emulated/0/Android/data/.../files/AgOpenGPS/Fields`):
+     da "Permission denied" igual — es una limitación conocida de
+     scoped storage en emuladores/adb (el proceso de `run-as` no hereda
+     el grupo `media_rw` que sí tiene el proceso real de la app). No es
+     nada que se arregle desde el código.
+  **No lo considero un gap real**: `OpenField()`/`CloseField()`
+  (`GuidanceEngineHost.Job.cs`) es el MISMO código exacto ya verificado
+  a fondo contra lotes reales en la consola de Windows (`66666`,
+  `Lote 1`) — lo único que cambia por plataforma es la resolución de
+  `RegistrySettings.fieldsDirectory`, y esa YA se confirmó correcta en
+  Android por `/api/aog/state` (`fields_directory` apuntando bien al
+  storage externo). Verificado de paso: el build Debug (con el fix de
+  fast deployment) también arranca sin crashear, mismo `"Hub arriba"`.
+  Emulador apagado. Sin cambios de código esta vez — solo docs. Voy a
+  commitear y pushear.
