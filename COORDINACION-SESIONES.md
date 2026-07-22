@@ -404,3 +404,9 @@ la sesión android al extraer, pero el taller los usa desde Services),
   para autosteer/btnStates (hoy toggle automático sin UI detrás,
   documentado en el código). Matriz actualizada a bloque 14 ~20%.
   Pusheado.
+- [2026-07-22] [android] HECHO — traje también Stage 6 (cámara zoom/pan/
+  reset) + Stage 7 (GL por default) del push del taller, sin conflicto
+  (solo carril PilotX.Desktop). Build completo 0 errores. **Todo
+  pusheado a origin/codex/android-formgps-render**: bloque 14 arrancado
+  (~20%, `PilotX.GuidanceEngine`) + los merges de bloque 6. Nada EN
+  CURSO de mi lado.
