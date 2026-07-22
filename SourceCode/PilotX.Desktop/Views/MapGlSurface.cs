@@ -31,7 +31,6 @@
 
 using System;
 using System.Collections.Generic;
-using Avalonia.Input;
 using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
 using Avalonia.Threading;
@@ -59,8 +58,6 @@ public sealed class MapGlSurface : OpenGlControlBase
     private double _userZoom = 1.0;          // multiplicador de escala (rueda)
     private double _userPanX, _userPanY;      // offset en metros mundo (arrastre)
     private double _lastEffectiveScale = 1.0; // px físicos por metro (para convertir el pan)
-    private bool _isPanning;
-    private Avalonia.Point _lastPointer;
 
     // ---- estado GL (creado en OnOpenGlInit, render thread) -------------
     private GL? _gl;
@@ -514,56 +511,32 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.UseProgram(0);
     }
 
-    // ---- cámara: zoom (rueda) + pan (arrastre) + reset (doble-click) ---
+    // ---- cámara: API pública (la maneja MapPanel, que sí recibe el mouse;
+    //      OpenGlControlBase no es hit-testable de forma confiable) ---------
 
-    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    /// <summary>Zoom multiplicativo (rueda). factor>1 acerca.</summary>
+    public void ZoomBy(double factor)
     {
-        base.OnPointerWheelChanged(e);
-        // Rueda arriba = acercar. Clamp para no perder el mapa.
-        double factor = e.Delta.Y > 0 ? 1.12 : 1.0 / 1.12;
         _userZoom = Math.Clamp(_userZoom * factor, 0.05, 60.0);
         RequestNextFrameRendering();
-        e.Handled = true;
     }
 
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    /// <summary>Pan por delta de píxeles lógicos del arrastre. renderScaling
+    /// convierte a físicos; scale es px físicos/metro. Pantalla Y-down vs
+    /// mundo Y-up -> +dyPx.</summary>
+    public void PanByPixels(double dxPx, double dyPx, double renderScaling)
     {
-        base.OnPointerPressed(e);
-        if (e.ClickCount >= 2)
-        {
-            // Doble-click: volver al encuadre automático (fit-to-bbox).
-            _userZoom = 1.0; _userPanX = 0; _userPanY = 0;
-            RequestNextFrameRendering();
-            e.Handled = true;
-            return;
-        }
-        _isPanning = true;
-        _lastPointer = e.GetPosition(this);
-        e.Pointer.Capture(this);
-    }
-
-    protected override void OnPointerMoved(PointerEventArgs e)
-    {
-        base.OnPointerMoved(e);
-        if (!_isPanning) return;
-        var p = e.GetPosition(this);
-        double dxPx = p.X - _lastPointer.X;
-        double dyPx = p.Y - _lastPointer.Y;
-        _lastPointer = p;
         double sc = _lastEffectiveScale > 1e-6 ? _lastEffectiveScale : 1.0;
-        // dx/dy vienen en px lógicos; scale es px físicos/metro (RenderScaling
-        // convierte). Pantalla Y-down vs mundo Y-up -> +dyPx.
-        double rs = Avalonia.Controls.TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-        _userPanX -= dxPx * rs / sc;
-        _userPanY += dyPx * rs / sc;
+        _userPanX -= dxPx * renderScaling / sc;
+        _userPanY += dyPx * renderScaling / sc;
         RequestNextFrameRendering();
     }
 
-    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    /// <summary>Vuelve al encuadre automático (fit-to-bbox).</summary>
+    public void ResetCamera()
     {
-        base.OnPointerReleased(e);
-        _isPanning = false;
-        e.Pointer.Capture(null);
+        _userZoom = 1.0; _userPanX = 0; _userPanY = 0;
+        RequestNextFrameRendering();
     }
 
     // ---- helpers de render --------------------------------------------

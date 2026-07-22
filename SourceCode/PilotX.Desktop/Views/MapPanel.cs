@@ -34,8 +34,15 @@ public sealed class MapPanel : Grid
     private readonly MapSkiaSurface? _skia;
     private readonly MapGlSurface? _gl;
 
+    // Estado del pan (arrastre). El input del mapa se maneja ACÁ (en el Grid
+    // contenedor) porque OpenGlControlBase no recibe eventos de puntero de
+    // forma confiable; con Background=Transparent el Grid sí los recibe.
+    private bool _isPanning;
+    private Avalonia.Point _lastPointer;
+
     public MapPanel()
     {
+        Background = Avalonia.Media.Brushes.Transparent;
         if (App.UseGl)
         {
             _gl = new MapGlSurface();
@@ -110,5 +117,42 @@ public sealed class MapPanel : Grid
     public void OnPaths(PathsGeometrySnapshot snap)
     {
         _gl?.OnPaths(snap);
+    }
+
+    // ---- input de cámara: zoom (rueda) / pan (arrastre) / reset (2 clicks) --
+
+    protected override void OnPointerWheelChanged(Avalonia.Input.PointerWheelEventArgs e)
+    {
+        base.OnPointerWheelChanged(e);
+        if (_gl == null) return;
+        _gl.ZoomBy(e.Delta.Y > 0 ? 1.12 : 1.0 / 1.12);
+        e.Handled = true;
+    }
+
+    protected override void OnPointerPressed(Avalonia.Input.PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (_gl == null) return;
+        if (e.ClickCount >= 2) { _gl.ResetCamera(); e.Handled = true; return; }
+        _isPanning = true;
+        _lastPointer = e.GetPosition(this);
+        e.Pointer.Capture(this);
+    }
+
+    protected override void OnPointerMoved(Avalonia.Input.PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+        if (!_isPanning || _gl == null) return;
+        var p = e.GetPosition(this);
+        double rs = Avalonia.Controls.TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
+        _gl.PanByPixels(p.X - _lastPointer.X, p.Y - _lastPointer.Y, rs);
+        _lastPointer = p;
+    }
+
+    protected override void OnPointerReleased(Avalonia.Input.PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+        _isPanning = false;
+        e.Pointer.Capture(null);
     }
 }
