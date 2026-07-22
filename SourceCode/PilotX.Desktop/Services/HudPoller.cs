@@ -28,39 +28,40 @@ namespace PilotX.Desktop.Services;
 /// </summary>
 public sealed class HudSnapshot
 {
-    [JsonPropertyName("isJobStarted")] public bool IsJobStarted { get; set; }
-    [JsonPropertyName("avgSpeed")]     public double AvgSpeed { get; set; }   // km/h
-    [JsonPropertyName("heading")]      public double Heading { get; set; }    // rad
-    [JsonPropertyName("latitude")]     public double Latitude { get; set; }
-    [JsonPropertyName("longitude")]    public double Longitude { get; set; }
-    [JsonPropertyName("workedAreaTotalM2")]  public double WorkedAreaTotalM2 { get; set; }
-    [JsonPropertyName("actualAreaCoveredM2")] public double ActualAreaCoveredM2 { get; set; }
+    // Nombres C# PascalCase; la politica SnakeCaseLower del _jsonOpts los
+    // mapea al snake_case que emite el servidor (is_job_started, avg_speed...).
+    public bool IsJobStarted { get; set; }
+    public double AvgSpeed { get; set; }   // km/h
+    public double Heading { get; set; }    // rad
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public double WorkedAreaTotalM2 { get; set; }
+    public double ActualAreaCoveredM2 { get; set; }
 
     // ---- Campos para el mini-mapa cockpit -------------------------------
     // En metros locales, mismo frame de coordenadas que las boundaries.
-    [JsonPropertyName("pivotEasting")]  public double PivotEasting { get; set; }
-    [JsonPropertyName("pivotNorthing")] public double PivotNorthing { get; set; }
-    [JsonPropertyName("toolWidth")]     public double ToolWidth { get; set; }
+    public double PivotEasting { get; set; }
+    public double PivotNorthing { get; set; }
+    public double ToolWidth { get; set; }
 
     // Primer ring = contorno exterior; rings siguientes = islas/drive-thru.
-    // List<List<FieldPoint>> en JSON: [ [ {E,N}, {E,N} ], [ ... ] ].
-    [JsonPropertyName("boundaries")]    public List<List<FieldPoint>>? Boundaries { get; set; }
+    public List<List<FieldPoint>>? Boundaries { get; set; }
 
     // ---- Datos del lote (consumidos por FieldDataPanel nativo) ----------
-    [JsonPropertyName("currentFieldDirectory")] public string? CurrentFieldDirectory { get; set; }
-    [JsonPropertyName("numSections")]           public int NumSections { get; set; }
-    [JsonPropertyName("sectionOnRequest")]      public bool[]? SectionOnRequest { get; set; }
-    [JsonPropertyName("vehicleType")]           public string? VehicleType { get; set; }
-    [JsonPropertyName("vehicleBrand")]          public string? VehicleBrand { get; set; }
-    [JsonPropertyName("shapeCurrentDose")]      public double ShapeCurrentDose { get; set; }
-    [JsonPropertyName("shapeIsInside")]         public bool ShapeIsInside { get; set; }
+    public string? CurrentFieldDirectory { get; set; }
+    public int NumSections { get; set; }
+    public bool[]? SectionOnRequest { get; set; }
+    public string? VehicleType { get; set; }
+    public string? VehicleBrand { get; set; }
+    public double ShapeCurrentDose { get; set; }
+    public bool ShapeIsInside { get; set; }
 }
 
-/// <summary>Punto 2D en metros locales (Easting/Northing). Mirrors AgroParallel.Models.FieldPoint.</summary>
+/// <summary>Punto 2D en metros locales (Easting/Northing).</summary>
 public sealed class FieldPoint
 {
-    [JsonPropertyName("e")] public double E { get; set; }
-    [JsonPropertyName("n")] public double N { get; set; }
+    public double E { get; set; }
+    public double N { get; set; }
 }
 
 public sealed class HudPoller : IDisposable
@@ -72,7 +73,12 @@ public sealed class HudPoller : IDisposable
 
     private static readonly JsonSerializerOptions _jsonOpts = new JsonSerializerOptions
     {
-        PropertyNameCaseInsensitive = true
+        // El servidor (AgpJson) serializa en snake_case con
+        // JsonNamingPolicy.SnakeCaseLower. Usamos la MISMA politica aca para
+        // que los nombres C# PascalCase mapeen 1:1 (case-insensitive NO cubre
+        // los guiones bajos, por eso los campos multi-palabra no deserializaban).
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower
     };
 
     private readonly string _baseUrl;

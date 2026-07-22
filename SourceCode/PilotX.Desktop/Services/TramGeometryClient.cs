@@ -29,31 +29,33 @@ namespace PilotX.Desktop.Services;
 
 // ----- DTOs cliente ------------------------------------------------------
 
+// Nombres C# PascalCase; SnakeCaseLower del _jsonOpts los mapea al
+// snake_case del servidor (display_mode, outer_boundary...).
 public sealed class TramFieldPoint
 {
-    [JsonPropertyName("e")] public double E { get; set; }
-    [JsonPropertyName("n")] public double N { get; set; }
+    public double E { get; set; }
+    public double N { get; set; }
 }
 
 public sealed class TramLineDto
 {
-    [JsonPropertyName("points")] public List<TramFieldPoint>? Points { get; set; }
+    public List<TramFieldPoint>? Points { get; set; }
 }
 
 public sealed class TramGeometrySnapshot
 {
-    [JsonPropertyName("displayMode")]   public string?              DisplayMode   { get; set; }
-    [JsonPropertyName("lines")]         public List<TramLineDto>?   Lines         { get; set; }
-    [JsonPropertyName("outerBoundary")] public List<TramFieldPoint>? OuterBoundary { get; set; }
-    [JsonPropertyName("innerBoundary")] public List<TramFieldPoint>? InnerBoundary { get; set; }
-    [JsonPropertyName("revision")]      public long                 Revision      { get; set; }
+    public string?              DisplayMode   { get; set; }
+    public List<TramLineDto>?   Lines         { get; set; }
+    public List<TramFieldPoint>? OuterBoundary { get; set; }
+    public List<TramFieldPoint>? InnerBoundary { get; set; }
+    public long                 Revision      { get; set; }
 }
 
 public sealed class TramGeometryResponse
 {
-    [JsonPropertyName("ok")]       public bool                   Ok       { get; set; }
-    [JsonPropertyName("snapshot")] public TramGeometrySnapshot?  Snapshot { get; set; }
-    [JsonPropertyName("error")]    public string?                Error    { get; set; }
+    public bool                   Ok       { get; set; }
+    public TramGeometrySnapshot?  Snapshot { get; set; }
+    public string?                Error    { get; set; }
 }
 
 // ----- Cliente HTTP ------------------------------------------------------
@@ -68,7 +70,9 @@ public sealed class TramGeometryClient
     };
     private static readonly JsonSerializerOptions _jsonOpts = new JsonSerializerOptions
     {
-        PropertyNameCaseInsensitive = true
+        // Snake_case: misma politica que el servidor (AgpJson). Ver HudPoller.
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower
     };
 
     private readonly string _baseUrl;
