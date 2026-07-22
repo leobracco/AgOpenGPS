@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PilotX.GuidanceEngine - bloque 14 (proceso único), primer paso.
+
+    Prueba que el loop de guiado (heading -> posición corregida -> autosteer
+    -> youturn -> envío PGN) corre standalone, SIN FormGPS ni WinForms/GL:
+    orquesta los mismos CPositionUpdater/CHeadingUpdater/CAutoSteerUpdater/
+    CYouTurnUpdater/CSectionCalculator/CSettingsSender que ya viven en
+    AgOpenGPS.Core (extraídos en bloque 9), sobre un host propio
+    (GuidanceEngineHost) que implementa las mismas interfaces I*Host que
+    hoy implementa FormGPS vía partials — mismo patrón, sin UI.
+
+    Deliberadamente net9.0 (NO -windows): nada acá debería necesitar
+    Windows Forms ni OpenGL — si algún día no compila en net9.0 puro es
+    señal de que algo no está realmente desacoplado.
+
+    Habla con CoreX por el mismo protocolo UDP loopback que usa FormGPS
+    (recibe PGN de posición en :15555, contesta PGN a CoreX en
+    127.255.255.255:17777) — así se puede correr contra un CoreX/ModSim
+    real sin tocarlos.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <RootNamespace>PilotX.GuidanceEngine</RootNamespace>
+    <AssemblyName>PilotX.GuidanceEngine</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+    <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
+  </ItemGroup>
+
+</Project>
