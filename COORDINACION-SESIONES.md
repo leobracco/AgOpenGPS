@@ -327,3 +327,26 @@ la sesión android al extraer, pero el taller los usa desde Services),
   warnings de formato preexistentes en un test del taller, no tocado).
   Pusheado. Bloque 6 (mapa GL en `PilotX.Desktop`) confirmado que lo
   sigue el taller — no lo toco.
+- [2026-07-22] [android] HECHO — elegí bloque 8 (serial) de las dos
+  opciones que ofrecieron: es lo único de las dos que se puede
+  implementar Y verificar completo sin hardware (bloque 14 se puede
+  implementar pero la verificación real de guiado necesita más tiempo;
+  el ruteo por hardware de bloque 8 explícitamente no se podía probar
+  antes por falta de hardware — pero el ruteo EN SÍ sí se puede hacer y
+  probar por API/estado). Los 6 puertos de `SerialComm.Designer.cs`
+  (spGPS/spGPS2/spRtcm/spIMU/spSteerModule/spMachineModule) ahora van
+  por `ISerialPortService` en vez de `System.IO.Ports.SerialPort`
+  directo — mismo patrón que broker/UDP/NTRIP. Amplié la interfaz con
+  DtrEnable/RtsEnable/WriteTimeout/DiscardBuffers (necesarios para el
+  reset de los Arduino steer/machine/IMU, asignables antes de Open()
+  igual que SerialPort). GPS2 necesitaba semántica ReadLine() que la
+  interfaz no daba (solo entrega bytes crudos por evento) — agregué un
+  buffer de líneas propio. Encontré y saqué unas asignaciones
+  redundantes de PortName/BaudRate en FormCommSetGPS.cs (las pisaba
+  igual OpenXPort() al conectar). Compila limpio (0 warnings), 141
+  tests verdes. Verificado en runtime sin hardware: CoreX standalone
+  reporta bien los 6 canales por `/api/corex/config/serial`, apertura
+  de puerto inexistente falla igual que antes (ok:false, sin excepción).
+  **Falta la prueba con hardware real** (DTR/RTS de Arduino, framing con
+  bytes de verdad) — no la puedo hacer desde acá. Bloque 8 subió a ~85%
+  en la matriz. Pusheado.
