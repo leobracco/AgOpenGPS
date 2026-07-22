@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PilotX.GuidanceEngine - bloque 14 (proceso único), primer paso.
+
+    Prueba que el loop de guiado (heading -> posición corregida -> autosteer
+    -> youturn -> envío PGN) corre standalone, SIN FormGPS ni WinForms/GL:
+    orquesta los mismos CPositionUpdater/CHeadingUpdater/CAutoSteerUpdater/
+    CYouTurnUpdater/CSectionCalculator/CSettingsSender que ya viven en
+    AgOpenGPS.Core (extraídos en bloque 9), sobre un host propio
+    (GuidanceEngineHost) que implementa las mismas interfaces I*Host que
+    hoy implementa FormGPS vía partials — mismo patrón, sin UI.
+
+    Deliberadamente net9.0 (NO -windows): nada acá debería necesitar
+    Windows Forms ni OpenGL — si algún día no compila en net9.0 puro es
+    señal de que algo no está realmente desacoplado.
+
+    Habla con CoreX por el mismo protocolo UDP loopback que usa FormGPS
+    (recibe PGN de posición en :15555, contesta PGN a CoreX en
+    127.255.255.255:17777) — así se puede correr contra un CoreX/ModSim
+    real sin tocarlos.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <RootNamespace>PilotX.GuidanceEngine</RootNamespace>
+    <AssemblyName>PilotX.GuidanceEngine</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+    <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
+    <!-- MqttBrokerService/UdpBridgeService/NtripClientService/PgnFrameParser/
+         ISerialPortService (bloque 8/14) — ya portables (netstandard2.0). -->
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- System.IO.Ports no viene con el SDK base en net9.0 "puro" (sin
+         -windows): CoreXEngineHost lo necesita para los 6 puertos serie
+         reales (GPS/GPS2/RTCM/IMU/Steer/Machine). -->
+    <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- CNmeaParser/INmeaParserHost (AgIO) ya son 100% portables (sin
+         WinForms, ver su propio comentario de cabecera) pero viven
+         físicamente en el proyecto AgIO (net48, WinForms completo).
+         Se linkean por archivo en vez de agregar ProjectReference a todo
+         AgIO.csproj — evita arrastrar OpenTK/WinForms a este proceso. -->
+    <Compile Include="..\AgIO\Source\Classes\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
+    <Compile Include="..\AgIO\Source\Classes\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
+    <Compile Include="..\AgIO\Source\Classes\CGLM.cs" Link="AgIO\CGLM.cs" />
+  </ItemGroup>
+
+</Project>

@@ -12,9 +12,9 @@ namespace AgOpenGPS
     /// (GPS/Forms/Position.designer.cs): se movieron a Core porque son
     /// orquestación/matemática pura entre objetos ya portados (bnd/ct/
     /// recPath/curve/tool/vehicle/pn/triStrip) — traspaso portabilidad,
-    /// bloque 9 matriz Android (2026-07-19). El form conserva el loop
-    /// (UpdateFixPosition/TheRest) y delega estos pasos acá; el host cruza
-    /// por IPositionHost.
+    /// bloque 9 matriz Android (2026-07-19). El form conserva solo
+    /// UpdateFixPosition (el orquestador); TheRest() también se movió acá.
+    /// El host cruza por IPositionHost.
     /// </summary>
     public class CPositionUpdater
     {

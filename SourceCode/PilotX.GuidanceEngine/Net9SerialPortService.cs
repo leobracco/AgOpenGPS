@@ -1,21 +1,22 @@
 // ============================================================================
-// WindowsSerialPortService.cs — Implementación Windows de ISerialPortService.
-// Wrapper delgado de System.IO.Ports.SerialPort. En Android se reemplaza
-// por UsbSerialPortService (USB-OTG con UsbSerialForAndroid).
+// Net9SerialPortService.cs — implementación de ISerialPortService para este
+// proceso (net9.0). Igual a AgIO/Source/Classes/WindowsSerialPortService.cs
+// (mismo wrapper 1:1 sobre System.IO.Ports.SerialPort) — se reimplementa acá
+// en vez de referenciar el proyecto AgIO (que es un .exe WinForms net48
+// completo) para no arrastrar esa dependencia a un proceso que debe quedar
+// puro net9.0/portable.
 // ============================================================================
 
 using System;
 using System.IO.Ports;
 using AgroParallel.Services.Abstractions;
 
-namespace AgroParallel.Services
+namespace PilotX.GuidanceEngine
 {
-    public sealed class WindowsSerialPortService : ISerialPortService
+    public sealed class Net9SerialPortService : ISerialPortService
     {
         private SerialPort _port;
 
-        // Cacheados hasta que haya un puerto real (igual semántica que
-        // System.IO.Ports.SerialPort: asignables con el puerto cerrado).
         private bool _dtrEnable;
         private bool _rtsEnable;
         private int _writeTimeout = SerialPort.InfiniteTimeout;
@@ -84,10 +85,7 @@ namespace AgroParallel.Services
             if (_port != null && _port.IsOpen) _port.DiscardOutBuffer();
         }
 
-        public string[] GetAvailablePorts()
-        {
-            return SerialPort.GetPortNames();
-        }
+        public string[] GetAvailablePorts() => SerialPort.GetPortNames();
 
         public void Dispose() => Close();
 

@@ -610,6 +610,15 @@ namespace AgOpenGPS
 
             //armado/envío de PGN de configuración (vive en Core, host invertido)
             settingsSender = new CSettingsSender(this);
+
+            //armado/envío de PGN de posición corregida + autosteer (vive en Core, host invertido)
+            autoSteerUpdater = new CAutoSteerUpdater(this);
+
+            //stop crítico por boundary + creación/disparo del youturn (vive en Core, host invertido)
+            youTurnUpdater = new CYouTurnUpdater(this);
+
+            //switch de heading Fix/VTG/Dual (vive en Core, host invertido)
+            headingUpdater = new CHeadingUpdater(this);
         }
 
         //Levanta el AgpWebHost:5180 con TODOS los servicios (perfiles, tracks,

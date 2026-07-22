@@ -16,10 +16,22 @@ namespace AgroParallel.Services.Abstractions
         int BaudRate { get; }
         bool IsOpen { get; }
 
+        // DTR/RTS: reset de placas Arduino al conectar. Asignables antes de
+        // Open() (se cachean y aplican al abrir, igual que System.IO.Ports.SerialPort).
+        bool DtrEnable { get; set; }
+        bool RtsEnable { get; set; }
+
+        // Timeout de escritura (ms). Asignable antes de Open().
+        int WriteTimeout { get; set; }
+
         void Open(string portName, int baudRate);
         void Close();
 
         void Write(byte[] data, int offset, int count);
+
+        // Vacía los buffers de entrada/salida — no-op si el puerto está cerrado.
+        void DiscardInBuffer();
+        void DiscardOutBuffer();
 
         // Datos recibidos del puerto serie.
         event Action<byte[]> OnDataReceived;
