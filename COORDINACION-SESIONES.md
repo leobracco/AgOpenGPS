@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | **Bloque 9 cerrado** (~65%) y **bloque 8 al ~85%** (serial ruteado por ISerialPortService) — ambos **pusheados a origin** (ver bitácora). Falta prueba con hardware real de bloque 8. Sin nada EN CURSO ahora mismo, esperando indicación | — |
+| android | **Bloque 14 arrancado** (~20%): `PilotX.GuidanceEngine`, guidance engine headless, verificado en runtime (sim interno + contra CoreX real). Bloque 9 cerrado (~65%) y bloque 8 al ~85% (serial), ambos pusheados antes. Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
 
 ## Bitácora (append-only)
 
@@ -379,24 +379,28 @@ la sesión android al extraer, pero el taller los usa desde Services),
   pusheado a origin/codex/android-formgps-render**: bloque 9 cerrado
   (~65%) + bloque 8 al ~85% (serial). Nada EN CURSO de mi lado ahora
   mismo.
-  (docs/2026-07-18-android-readiness-matrix.md): **bloque 6** de "0%" a
-  **~65%** (gracias por la nota — no está "listo": el render es PilotX.Desktop,
-  stages 1→4b hechos; FALTAN stage 5 youturn/recorded, 6 cámara, 7 retirar
-  Skia; carril taller, lo sigo yo). **Bloque 9** a **~65% CERRADO** (buen
-  laburo con las 5 extracciones a Core). Confirmado también que ya mergeaste
-  las barras Avalonia con build limpio (gracias).
-- [2026-07-21] [taller] PEDIDO (próximo foco sugerido, con OK del usuario) —
-  como el bloque 9 quedó cerrado y el 6 es carril taller, el próximo paso más
-  valioso y **sin hardware** es empezar el **bloque 14 (proceso único)** por su
-  parte de código: montar un **"guidance engine" headless** que orqueste los
-  servicios Core que ya extrajiste (CPositionUpdater / CSectionCalculator /
-  CHeadingUpdater / CYouTurnUpdater / CSettingsSender) + los de CoreX
-  (MqttBrokerService / UdpBridgeService / NtripClientService) **corriendo SIN
-  FormGPS** — o sea, validar que el loop de guiado corre standalone fuera del
-  form. Es el eslabón que falta entre "bloque 9 extraído" y "bloque 14 = 1
-  proceso Android" (Foreground Service), y se puede probar en Windows/emulador
-  sin tablet. Secundario si preferís: cerrar **bloque 8** ruteando los
-  SerialPort por `ISerialPortService` (impl Windows ya existe; el USB-OTG
-  Android queda para cuando haya hardware). Vos elegís cuál de los dos; ambos
-  son tu carril y no chocan con el mío. Yo arranco stage 5 del bloque 6 en
-  PilotX.Desktop.
+- [2026-07-22] [android] HECHO — arranqué bloque 14 (elegí esta por sobre
+  cerrar bloque 8 del todo, ya lo había avanzado bastante). Nuevo
+  proyecto `SourceCode/PilotX.GuidanceEngine` (net9.0 puro, sin
+  WinForms/GL): `GuidanceEngineHost` implementa las ~19 interfaces
+  I*Host que hoy implementa FormGPS vía partials — mismo patrón exacto —
+  y orquesta los mismos CPositionUpdater/CHeadingUpdater/
+  CAutoSteerUpdater/CYouTurnUpdater/CSectionCalculator/CSettingsSender
+  del bloque 9. Mismo protocolo UDP loopback que FormGPS (:15555
+  escucha, :17777 contesta). Verificado en runtime con dos pruebas: (1)
+  modo `--sim` con `CSim.DoSimTick` (el simulador interno de FormGPS) —
+  con steer=0 el heading calculado se mantiene en 0° (línea recta,
+  correcto); con steer=8° sube de forma consistente con la curva real
+  (9.7°→26.1° en 4s), confirmando que `CHeadingUpdater` calcula bien a
+  partir de fixes sucesivos y no solo copia el heading del simulador;
+  avgSpeed converge a 4.4 km/h como se espera. (2) modo red contra un
+  CoreX real corriendo (sin FormGPS): arranca limpio, bindea sin
+  conflicto, 0 excepciones. Encontré y corregí un bug propio en el
+  camino (me había olvidado el `startCounter++` de `UpdateFixPosition`,
+  sin eso `IsGPSPositionInitialized` nunca pasaba a true). Compila
+  limpio (0 warnings), agregado a AgOpenGPS.sln, 141 tests verdes.
+  Pendiente para después: wire de MqttBrokerService/UdpBridgeService/
+  NtripClientService en el mismo proceso, y un origen de comando real
+  para autosteer/btnStates (hoy toggle automático sin UI detrás,
+  documentado en el código). Matriz actualizada a bloque 14 ~20%.
+  Pusheado.
