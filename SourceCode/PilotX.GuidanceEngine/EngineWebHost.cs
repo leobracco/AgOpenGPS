@@ -1,0 +1,85 @@
+// ============================================================================
+// EngineWebHost.cs — levanta el AgpWebHost (netstandard2.0, EmbedIO :5180)
+// contra el GuidanceEngineHost en vez de FormGPS. Sirve exactamente los 6
+// endpoints /api/aog/{state,coverage,tool,tram,paths,guidance} que PilotX.Desktop
+// pollea para renderizar el mapa — o sea, el motor headless queda "detrás" de
+// la MISMA API HTTP que hoy sirve FormGPS, sin WinForms/GL.
+//
+// No usa AgpWebHostBootstrap (net48, WinForms Shell): instancia AgpWebHost
+// directo. Todos los servicios que el mapa no necesita van en null — sus
+// controllers se registran solo `if (svc != null)`, así que quedan fuera; los
+// controllers "siempre-on" se construyen lazy por request y PilotX.Desktop
+// nunca los toca. wwwroot = null: PilotX.Desktop es nativo, no carga HTML.
+// ============================================================================
+
+using AgroParallel.WebHost;
+using PilotX.GuidanceEngine.Adapters;
+
+namespace AgOpenGPS
+{
+    public sealed class EngineWebHost
+    {
+        private readonly GuidanceEngineHost _host;
+        private readonly int _port;
+        private AgpWebHost _web;
+
+        public EngineWebHost(GuidanceEngineHost host, int port = 5180)
+        {
+            _host = host;
+            _port = port;
+        }
+
+        public string Url => _web?.Url;
+
+        public void Start()
+        {
+            if (_web != null) return;
+
+            var state = new EngineStateProvider(_host);
+            var coverage = new EngineCoverageService(_host);
+            var guidance = new EngineGuidanceCalculator(_host);
+            var toolGeom = new EngineToolGeometryCalculator(_host);
+            var tram = new EngineTramCalculator(_host);
+            var paths = new EnginePathsCalculator(_host);
+
+            _web = new AgpWebHost(
+                state,                 // requerido
+                sistema: null,
+                nodos: null,
+                orbitxCfg: null,
+                sectionxCfg: null,
+                camarasCfg: null,
+                quantixCfg: null,
+                vistaxCfg: null,
+                vistaxLive: null,
+                debug: null,
+                lotes: null,
+                vehicleTool: null,
+                shapefile: null,
+                coverage: coverage,
+                sectionsCore: null,
+                quantixRuntime: null,
+                guidance: guidance,
+                pilotxUpdate: null,
+                flowxCfg: null,
+                flowxLive: null,
+                stormxCfg: null,
+                stormxLive: null,
+                linexCfg: null,
+                linexLive: null,
+                wwwroot: null,
+                port: _port,
+                toolGeometry: toolGeom,
+                tram: tram,
+                paths: paths);
+
+            _web.Start();
+        }
+
+        public void Stop()
+        {
+            try { _web?.Stop(); } catch { }
+            _web = null;
+        }
+    }
+}

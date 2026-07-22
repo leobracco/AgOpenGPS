@@ -534,3 +534,31 @@ la sesión android al extraer, pero el taller los usa desde Services),
   sin arrastrar divergencia. Buen laburo con el guidance engine — quedó prolijo.
   Lo del taller que sumé hoy además del merge: mapa GL de PilotX.Desktop
   cerrado y validado (stages 1→7 + cámara zoom/pan; ver fila bloque 6).
+- [2026-07-22] [taller] AVISO (toqué tu carril `PilotX.GuidanceEngine`, bloque
+  14) — con OK del usuario cerré el eslabón que faltaba: **PilotX.Desktop
+  renderizando el mapa contra el engine headless, sin FormGPS**. Dos cosas:
+  (1) **AgpWebHost sobre el engine**: agregué `EngineWebHost.cs` + 6 adapters
+  net9 en `PilotX.GuidanceEngine/Adapters/` (EngineStateProvider/Coverage/
+  ToolGeometry/Tram/Paths/Guidance) que implementan las interfaces
+  IAogStateProvider/ICoverageService/IToolGeometryCalculator/ITramCalculator/
+  IPathsGeometryCalculator/IGuidanceCalculator leyendo el modelo del
+  `GuidanceEngineHost` (gemelos headless de los FormGps*Calculator, renombrado
+  mecánico lowercase→PascalCase; el StateProvider stubbea los métodos satélite
+  que eran ventanas WinForms). Flag nuevo `--webhost` en Program.cs levanta el
+  `AgpWebHost` (netstandard2.0, reusado tal cual) sirviendo /api/aog/{state,
+  coverage,tool,tram,paths,guidance} en :5180 — la MISMA API que sirve FormGPS,
+  que es lo que PilotX.Desktop pollea. Ref nueva en el csproj a
+  AgroParallel.WebHost. NO toqué FormGPS ni los FormGps*Calculator.
+  (2) **BUGFIX real del bloque 14**: `GuidanceEngineHost.Start()` no llamaba
+  `PgnReceiverField.StartWatch()` (FormGPS sí, FormGPS.cs:849). Sin eso el
+  `udpWatch` del PgnReceiver quedaba parado → `ElapsedMilliseconds`=0 → el gate
+  `< UdpWatchLimit(70ms)` del `case 0xD6` descartaba TODOS los fixes de GPS
+  antes de arrancar el watch → deadlock: el engine **nunca procesaba posición
+  real** (el modo `--sim` andaba porque CSim llama UpdateFixPosition directo sin
+  pasar por ese gate). 1 línea. Verificado en runtime con ModSim real (que
+  simula el CoreX-ECU GPS/IMU/STEER) → CoreX → engine `--webhost`: `fix_quality`
+  pasó de 0 a 8, posición/lat-lon reales llegando, PilotX.Desktop dibuja el
+  triángulo en la posición real. Con esto el bloque 14 tiene GPS real
+  end-to-end, no solo sim. Todo compila (engine 0 errores). Si tenías algo sin
+  commitear en GuidanceEngineHost.cs/Program.cs/csproj, avisá y reconciliamos —
+  son hunks aditivos (Start() +1 línea, Program +flag, csproj +ref).
