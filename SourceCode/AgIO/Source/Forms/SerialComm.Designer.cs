@@ -1,12 +1,11 @@
-﻿//Please, if you use this, share the improvements
+//Please, if you use this, share the improvements
 
-using System.IO.Ports;
 using System;
+using System.Text;
 using System.Windows.Forms;
-using System.Linq;
-using System.Globalization;
 using AgLibrary.Logging;
 using AgroParallel.Services;
+using AgroParallel.Services.Abstractions;
 
 namespace AgIO
 {
@@ -49,29 +48,27 @@ namespace AgIO
         public bool wasIMUConnectedLastRun = false;
         public bool wasRtcmConnectedLastRun = false;
 
-        //serial port gps is connected to
-        public SerialPort spGPS = new SerialPort(portNameGPS, baudRateGPS, Parity.None, 8, StopBits.One);
-
-        //serial port gps2 is connected to
-        public SerialPort spGPS2 = new SerialPort(portNameGPS2, baudRateGPS2, Parity.None, 8, StopBits.One);
-
-        //serial port gps is connected to
-        public SerialPort spRtcm = new SerialPort(portNameRtcm, baudRateRtcm, Parity.None, 8, StopBits.One);
-
-        //serial port Arduino is connected to
-        public SerialPort spIMU = new SerialPort(portNameIMU, baudRateIMU, Parity.None, 8, StopBits.One);
-
-        //serial port Arduino is connected to
-        public SerialPort spSteerModule = new SerialPort(portNameSteerModule, baudRateSteerModule, Parity.None, 8, StopBits.One);
-
-        //serial port Arduino is connected to
-        public SerialPort spMachineModule = new SerialPort(portNameMachineModule, baudRateMachineModule, Parity.None, 8, StopBits.One);
+        // Puertos serie ruteados por ISerialPortService (Windows hoy,
+        // USB-OTG/UsbSerialForAndroid en Android — bloque 8 matriz Android,
+        // 2026-07-22). Antes eran System.IO.Ports.SerialPort directo.
+        public ISerialPortService spGPS = new WindowsSerialPortService();
+        public ISerialPortService spGPS2 = new WindowsSerialPortService();
+        public ISerialPortService spRtcm = new WindowsSerialPortService();
+        public ISerialPortService spIMU = new WindowsSerialPortService();
+        public ISerialPortService spSteerModule = new WindowsSerialPortService();
+        public ISerialPortService spMachineModule = new WindowsSerialPortService();
 
         // Framing PGN byte a byte: máquina de estados portable (netstandard),
         // una instancia por puerto. Antes estaba triplicada acá.
         private readonly PgnFrameParser pgnParserSteer = new PgnFrameParser();
         private readonly PgnFrameParser pgnParserMachine = new PgnFrameParser();
         private readonly PgnFrameParser pgnParserIMU = new PgnFrameParser();
+
+        // Buffer de líneas de GPS2 — ISerialPortService entrega bytes crudos
+        // por evento (no hay ReadLine()); reconstruye la misma semántica que
+        // SerialPort.ReadLine() (corta en '\n', conserva un eventual '\r'
+        // previo tal cual llegó, ya que ese es el terminador NewLine default).
+        private readonly StringBuilder gps2LineBuffer = new StringBuilder();
 
         private void InitPgnFrameParsers()
         {
@@ -90,6 +87,49 @@ namespace AgIO
                 try { BeginInvoke((MethodInvoker)(() => ReceiveIMUPort(frame))); }
                 catch { }
             };
+
+            // Wiring único de los receptores — a diferencia del SerialPort
+            // directo de antes, el wrapper ISerialPortService persiste entre
+            // ciclos Open/Close (solo el puerto físico interno se recrea), así
+            // que no hace falta suscribir/desuscribir en cada Open/Close.
+            spIMU.OnDataReceived += bytes => ProcessSerialBytesForPgn(bytes, pgnParserIMU);
+            spSteerModule.OnDataReceived += bytes => ProcessSerialBytesForPgn(bytes, pgnParserSteer);
+            spMachineModule.OnDataReceived += bytes => ProcessSerialBytesForPgn(bytes, pgnParserMachine);
+            spGPS.OnDataReceived += bytes =>
+            {
+                string sentence = Encoding.ASCII.GetString(bytes);
+                try { BeginInvoke((MethodInvoker)(() => ReceiveGPSPort(sentence))); }
+                catch { }
+            };
+            spGPS2.OnDataReceived += OnGps2DataReceived;
+        }
+
+        // Guarda de basura: si en un solo receive se acumularon > 100 bytes sin
+        // haber cerrado un frame PGN, se descarta ese lote y se resetea el
+        // parser — mismo umbral/criterio que el BytesToRead > 100 original.
+        private static void ProcessSerialBytesForPgn(byte[] bytes, PgnFrameParser parser)
+        {
+            if (bytes.Length > 100)
+            {
+                parser.Reset();
+                return;
+            }
+            for (int i = 0; i < bytes.Length; i++)
+                parser.ProcessByte(bytes[i]);
+        }
+
+        private void OnGps2DataReceived(byte[] bytes)
+        {
+            gps2LineBuffer.Append(Encoding.ASCII.GetString(bytes));
+
+            int nl;
+            while ((nl = gps2LineBuffer.ToString().IndexOf('\n')) >= 0)
+            {
+                string line = gps2LineBuffer.ToString(0, nl);
+                gps2LineBuffer.Remove(0, nl + 1);
+                try { BeginInvoke((MethodInvoker)(() => ReceiveGPS2Port(line))); }
+                catch { }
+            }
         }
 
         #region IMUSerialPort //--------------------------------------------------------------------
@@ -121,14 +161,11 @@ namespace AgIO
         {
             if (!spIMU.IsOpen)
             {
-                spIMU.PortName = portNameIMU;
-                spIMU.BaudRate = baudRateIMU;
-                spIMU.DataReceived += sp_DataReceivedIMU;
                 spIMU.DtrEnable = true;
                 spIMU.RtsEnable = true;
             }
 
-            try { spIMU.Open(); }
+            try { spIMU.Open(portNameIMU, baudRateIMU); }
             catch (Exception ex)
             {
                 Log.EventWriter("No Arduino Port, IMU Port Exc: " + ex.ToString());
@@ -162,7 +199,6 @@ namespace AgIO
         {
             if (spIMU.IsOpen)
             {
-                spIMU.DataReceived -= sp_DataReceivedIMU;
                 try
                 {
                     spIMU.Close();
@@ -181,7 +217,6 @@ namespace AgIO
                 Properties.Settings.Default.setPort_wasIMUConnected = false;
                 Properties.Settings.Default.Save();
 
-                spIMU.Dispose();
                 wasIMUConnectedLastRun = false;
             }
 
@@ -196,30 +231,6 @@ namespace AgIO
 
             wasIMUConnectedLastRun = false;
             lblIMUComm.Text = "---";
-        }
-
-        private void sp_DataReceivedIMU(object sender, System.IO.Ports.SerialDataReceivedEventArgs e)
-        {
-            if (spIMU.IsOpen)
-            {
-                try
-                {
-                    if (spIMU.BytesToRead > 100)
-                    {
-                        spIMU.DiscardInBuffer();
-                        pgnParserIMU.Reset();
-                        return;
-                    }
-
-                    int aas = spIMU.BytesToRead;
-                    for (int i = 0; i < aas; i++)
-                        pgnParserIMU.ProcessByte((byte)spIMU.ReadByte());
-                }
-                catch
-                {
-                    pgnParserIMU.Reset();
-                }
-            }
         }
         #endregion ----------------------------------------------------------------
 
@@ -253,16 +264,13 @@ namespace AgIO
         {
             if (!spSteerModule.IsOpen)
             {
-                spSteerModule.PortName = portNameSteerModule;
-                spSteerModule.BaudRate = baudRateSteerModule;
-                spSteerModule.DataReceived += sp_DataReceivedSteerModule;
                 spSteerModule.DtrEnable = true;
                 spSteerModule.RtsEnable = true;
             }
 
             try
             {
-                spSteerModule.Open();
+                spSteerModule.Open(portNameSteerModule, baudRateSteerModule);
                 //short delay for the use of mega2560, it is working in debugmode with breakpoint
                 System.Threading.Thread.Sleep(1000); // 500 was not enough
 
@@ -297,7 +305,6 @@ namespace AgIO
         {
             if (spSteerModule.IsOpen)
             {
-                spSteerModule.DataReceived -= sp_DataReceivedSteerModule;
                 try { spSteerModule.Close(); }
                 catch (Exception e)
                 {
@@ -307,36 +314,10 @@ namespace AgIO
 
                 Properties.Settings.Default.setPort_wasSteerModuleConnected = false;
                 Properties.Settings.Default.Save();
-
-                spSteerModule.Dispose();
             }
 
             wasSteerModuleConnectedLastRun = false;
             lblMod1Comm.Text = "---";
-        }
-
-        private void sp_DataReceivedSteerModule(object sender, System.IO.Ports.SerialDataReceivedEventArgs e)
-        {
-            if (spSteerModule.IsOpen)
-            {
-                try
-                {
-                    if (spSteerModule.BytesToRead > 100)
-                    {
-                        spSteerModule.DiscardInBuffer();
-                        pgnParserSteer.Reset();
-                        return;
-                    }
-
-                    int aas = spSteerModule.BytesToRead;
-                    for (int i = 0; i < aas; i++)
-                        pgnParserSteer.ProcessByte((byte)spSteerModule.ReadByte());
-                }
-                catch (Exception)
-                {
-                    pgnParserSteer.Reset();
-                }
-            }
         }
         #endregion ----------------------------------------------------------------
 
@@ -377,16 +358,13 @@ namespace AgIO
         {
             if (!spMachineModule.IsOpen)
             {
-                spMachineModule.PortName = portNameMachineModule;
-                spMachineModule.BaudRate = baudRateMachineModule;
-                spMachineModule.DataReceived += sp_DataReceivedMachineModule;
                 spMachineModule.DtrEnable = true;
                 spMachineModule.RtsEnable = true;
             }
 
             try
             {
-                spMachineModule.Open();
+                spMachineModule.Open(portNameMachineModule, baudRateMachineModule);
                 //short delay for the use of mega2560, it is working in debugmode with breakpoint
                 System.Threading.Thread.Sleep(1000); // 500 was not enough
 
@@ -421,7 +399,6 @@ namespace AgIO
         {
             if (spMachineModule.IsOpen)
             {
-                spMachineModule.DataReceived -= sp_DataReceivedMachineModule;
                 try { spMachineModule.Close(); }
                 catch (Exception e)
                 {
@@ -431,36 +408,10 @@ namespace AgIO
 
                 Properties.Settings.Default.setPort_wasMachineModuleConnected = false;
                 Properties.Settings.Default.Save();
-
-                spMachineModule.Dispose();
             }
 
             wasMachineModuleConnectedLastRun = false;
             lblMod2Comm.Text = "---";
-        }
-
-        private void sp_DataReceivedMachineModule(object sender, System.IO.Ports.SerialDataReceivedEventArgs e)
-        {
-            if (spMachineModule.IsOpen)
-            {
-                try
-                {
-                    if (spMachineModule.BytesToRead > 100)
-                    {
-                        spMachineModule.DiscardInBuffer();
-                        pgnParserMachine.Reset();
-                        return;
-                    }
-
-                    int aas = spMachineModule.BytesToRead;
-                    for (int i = 0; i < aas; i++)
-                        pgnParserMachine.ProcessByte((byte)spMachineModule.ReadByte());
-                }
-                catch (Exception)
-                {
-                    pgnParserMachine.Reset();
-                }
-            }
         }
         #endregion --------------------------------------------------------------------
 
@@ -495,16 +446,9 @@ namespace AgIO
                 CloseGPSPort();
             }
 
+            spGPS.WriteTimeout = 1000;
 
-            if (!spGPS.IsOpen)
-            {
-                spGPS.PortName = portNameGPS;
-                spGPS.BaudRate = baudRateGPS;
-                spGPS.DataReceived += sp_DataReceivedGPS;
-                spGPS.WriteTimeout = 1000;
-            }
-
-            try { spGPS.Open(); }
+            try { spGPS.Open(portNameGPS, baudRateGPS); }
             catch (Exception ex)
             {
                 Log.EventWriter("Catch - > Serial GPS Open Fail: " + ex.ToString());
@@ -533,7 +477,6 @@ namespace AgIO
                 Log.EventWriter("[Aviso] Cierre de puerto serie: " + e.Message);
             }
 
-            spGPS.Dispose();
             lblGPS1Comm.Text = "---";
             wasGPSConnectedLastRun = false;
         }
@@ -545,22 +488,6 @@ namespace AgIO
 
             traffic.cntrGPSOut += sentence.Length;
             if (isGPSCommOpen) recvGPSSentence = sentence;
-        }
-
-        //serial port receive in its own thread
-        private void sp_DataReceivedGPS(object sender, System.IO.Ports.SerialDataReceivedEventArgs e)
-        {
-            if (spGPS.IsOpen)
-            {
-                try
-                {
-                    string sentence = spGPS.ReadExisting();
-                    BeginInvoke((MethodInvoker)(() => ReceiveGPSPort(sentence)));
-                }
-                catch (Exception)
-                {
-                }
-            }
         }
         #endregion SerialPortGPS
 
@@ -590,15 +517,9 @@ namespace AgIO
             //close it first
             CloseGPS2Port();
 
-            if (!spGPS2.IsOpen)
-            {
-                spGPS2.PortName = portNameGPS2;
-                spGPS2.BaudRate = baudRateGPS2;
-                spGPS2.DataReceived += sp_DataReceivedGPS2;
-                spGPS2.WriteTimeout = 1000;
-            }
+            spGPS2.WriteTimeout = 1000;
 
-            try { spGPS2.Open(); }
+            try { spGPS2.Open(portNameGPS2, baudRateGPS2); }
             catch (Exception ex)
             {
                 Log.EventWriter("Catch - > Serial GPS Open Fail: " + ex.ToString());
@@ -609,6 +530,7 @@ namespace AgIO
                 //discard any stuff in the buffers
                 spGPS2.DiscardOutBuffer();
                 spGPS2.DiscardInBuffer();
+                gps2LineBuffer.Clear();
 
                 Properties.Settings.Default.setPort_portNameGPS2 = portNameGPS2;
                 Properties.Settings.Default.setPort_baudRateGPS2 = baudRateGPS2;
@@ -617,30 +539,11 @@ namespace AgIO
         }
         public void CloseGPS2Port()
         {
-            spGPS2.DataReceived -= sp_DataReceivedGPS2;
             try { spGPS2.Close(); }
             catch (Exception e)
             {
                 Log.EventWriter("Closing GPS2 Port" + e.ToString());
                 Log.EventWriter("[Aviso] Cierre de puerto serie: " + e.Message);
-            }
-
-            spGPS2.Dispose();
-        }
-
-        //serial port receive in its own thread
-        private void sp_DataReceivedGPS2(object sender, System.IO.Ports.SerialDataReceivedEventArgs e)
-        {
-            if (spGPS2.IsOpen)
-            {
-                try
-                {
-                    string sentence = spGPS2.ReadLine();
-                    BeginInvoke((MethodInvoker)(() => ReceiveGPS2Port(sentence)));
-                }
-                catch (Exception)
-                {
-                }
             }
         }
         #endregion //--------------------------------------------------------
@@ -653,14 +556,9 @@ namespace AgIO
                 CloseRtcmPort();
             }
 
-            if (!spRtcm.IsOpen)
-            {
-                spRtcm.PortName = portNameRtcm;
-                spRtcm.BaudRate = baudRateRtcm;
-                spRtcm.WriteTimeout = 1000;
-            }
+            spRtcm.WriteTimeout = 1000;
 
-            try { spRtcm.Open(); }
+            try { spRtcm.Open(portNameRtcm, baudRateRtcm); }
             catch (Exception ex)
             {
                 Log.EventWriter("Catch - > Serial RTCM Open Fail: " + ex.ToString());
