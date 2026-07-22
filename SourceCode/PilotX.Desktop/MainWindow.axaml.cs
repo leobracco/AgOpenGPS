@@ -361,10 +361,15 @@ public partial class MainWindow : Window
             if (App.UseGl)
             {
                 var cov = new CoverageClient(DeriveOrigin(App.TargetUrl));
+                // 350ms (~3 Hz): la cobertura se pinta continuamente detrás del
+                // tractor, así que a 1 Hz la huella aparecía con ~1s de retraso
+                // ("arranca a pintar más tarde"). En localhost el fetch+deserialize
+                // del snapshot es barato. Revision-cache evita re-subir el VBO si
+                // no cambió. (Incremental /coverage?since=<rev> queda para futuro.)
                 _coveragePoller = new CoveragePoller(cov, snap =>
                 {
                     _mapHost?.OnCoverage(snap);
-                }, periodMs: 1000);
+                }, periodMs: 350);
                 _coveragePoller.Start();
                 Closed += (_, _) => _coveragePoller?.Stop();
 

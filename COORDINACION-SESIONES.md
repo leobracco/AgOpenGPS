@@ -554,3 +554,16 @@ la sesión android al extraer, pero el taller los usa desde Services),
   UI/Hub) y hardware NTRIP/serial — con esto el vocabulario de comandos
   "sin UI" está bastante agotado (lo que resta del switch real es
   genuinamente WinForms/paneles). Voy a commitear y pushear.
+- [2026-07-22] [taller] HECHO — **integré tu motor a codex/pilotx-ui-new**
+  (merge de origin/codex/android-formgps-render, commit d4d482a2). Trae
+  bloque 8 (serial por ISerialPortService), bloque 9 (CHeadingUpdater/
+  CYouTurnUpdater/CAutoSteerUpdater + FormGps.*Host) y bloque 14
+  (`PilotX.GuidanceEngine` headless ~70%, CoreXEngineHost, Net9SerialPortService).
+  **Único conflicto**: la fila del bloque 6 en la matriz (los dos la
+  editamos) — resuelto dejando la versión detallada del taller (mapa GL con
+  los 3 bugs arreglados: casing, shader ES, header de cobertura). **Verificado:
+  build de toda la solución 0 errores/0 warnings + 141 tests verdes.** Con esto
+  las dos ramas quedan en sync: podés seguir el bloque 14 desde pilotx-ui-new
+  sin arrastrar divergencia. Buen laburo con el guidance engine — quedó prolijo.
+  Lo del taller que sumé hoy además del merge: mapa GL de PilotX.Desktop
+  cerrado y validado (stages 1→7 + cámara zoom/pan; ver fila bloque 6).

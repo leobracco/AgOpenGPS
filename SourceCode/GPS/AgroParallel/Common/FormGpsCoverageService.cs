@@ -50,16 +50,18 @@ namespace AgroParallel.Adapters
                     for (int k = 0; k < strip.patchList.Count; k++)
                     {
                         var tri = strip.patchList[k];
-                        if (tri == null || tri.Count < 3) continue;
+                        // patchList[k][0] es un HEADER (contador + color de la sección),
+                        // NO una coordenada. Incluirlo dibujaba un triángulo desde
+                        // ~origen (el color leído como metros) hasta la herramienta —
+                        // la "diagonal" que aparecía al togglear una sección. La
+                        // geometría real del triangle-strip arranca en [1]. Necesitamos
+                        // header + >= 3 vértices reales para un triángulo.
+                        if (tri == null || tri.Count < 4) continue;
                         var cs = new CoverageStrip
                         {
-                            Vertices = new List<CoverageVertex>(tri.Count)
+                            Vertices = new List<CoverageVertex>(tri.Count - 1)
                         };
-                        // Primer vértice de cada patch es header (count + color en
-                        // varios builds PilotX). Lo saltamos si easting/northing parece
-                        // negativo absurdo — heurística defensiva. La mayoría de
-                        // builds limpios no lo necesitan.
-                        for (int v = 0; v < tri.Count; v++)
+                        for (int v = 1; v < tri.Count; v++)
                         {
                             cs.Vertices.Add(new CoverageVertex(tri[v].easting, tri[v].northing));
                         }

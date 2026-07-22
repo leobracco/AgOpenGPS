@@ -31,7 +31,6 @@
 
 using System;
 using System.Collections.Generic;
-using Avalonia.Input;
 using Avalonia.OpenGL;
 using Avalonia.OpenGL.Controls;
 using Avalonia.Threading;
@@ -59,8 +58,6 @@ public sealed class MapGlSurface : OpenGlControlBase
     private double _userZoom = 1.0;          // multiplicador de escala (rueda)
     private double _userPanX, _userPanY;      // offset en metros mundo (arrastre)
     private double _lastEffectiveScale = 1.0; // px físicos por metro (para convertir el pan)
-    private bool _isPanning;
-    private Avalonia.Point _lastPointer;
 
     // ---- estado GL (creado en OnOpenGlInit, render thread) -------------
     private GL? _gl;
@@ -177,17 +174,19 @@ public sealed class MapGlSurface : OpenGlControlBase
     private static readonly float[] ColPathsYouTurn  = { 1.000f, 0.620f, 0.106f, 1f }; // #FF9E1B naranja
     private static readonly float[] ColPathsRecorded = { 0.706f, 0.470f, 1.000f, 1f }; // #B478FF violeta
 
-    // Shaders GLSL 3.30 core (compat con GL ES 3.00 cambiando solo el
-    // preludio). MVP en uniform; vertex pos en location 0; color en
-    // uniform (un draw call por capa de color).
-    private const string VertSrc =
-        "#version 330 core\n" +
+    // Shaders: el MISMO cuerpo sirve para desktop GL 3.30 core y GL ES 3.00;
+    // solo cambia el preludio (#version + precision). Avalonia en Windows
+    // suele negociar un contexto GL ES (ANGLE), donde "#version 330 core"
+    // NO compila -> el programa quedaba inválido y el mapa se veía NEGRO.
+    // Elegimos el preludio según GlVersion.Type en OnOpenGlInit.
+    private static string BuildVertSrc(bool es) =>
+        (es ? "#version 300 es\n" : "#version 330 core\n") +
         "layout (location = 0) in vec2 aPos;\n" +
         "uniform mat4 uMvp;\n" +
         "void main(){ gl_Position = uMvp * vec4(aPos, 0.0, 1.0); }\n";
 
-    private const string FragSrc =
-        "#version 330 core\n" +
+    private static string BuildFragSrc(bool es) =>
+        (es ? "#version 300 es\nprecision mediump float;\n" : "#version 330 core\n") +
         "uniform vec4 uColor;\n" +
         "out vec4 FragColor;\n" +
         "void main(){ FragColor = uColor; }\n";
@@ -300,7 +299,13 @@ public sealed class MapGlSurface : OpenGlControlBase
         // call la primera vez que se usa.
         _gl = GL.GetApi(name => glInterface.GetProcAddress(name));
 
-        _program = CompileProgram(_gl, VertSrc, FragSrc);
+        // Contexto ES (ANGLE en Windows) vs desktop GL -> preludio de shader
+        // distinto. Sin esto, en un contexto ES el shader 330 core no compila
+        // y el mapa queda negro.
+        bool es = GlVersion.Type == Avalonia.OpenGL.GlProfileType.OpenGLES;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] GL context: "
+            + (es ? "OpenGL ES" : "desktop GL") + " " + GlVersion.Major + "." + GlVersion.Minor);
+        _program = CompileProgram(_gl, BuildVertSrc(es), BuildFragSrc(es));
         _uMvp   = _gl.GetUniformLocation(_program, "uMvp");
         _uColor = _gl.GetUniformLocation(_program, "uColor");
 
@@ -506,56 +511,32 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.UseProgram(0);
     }
 
-    // ---- cámara: zoom (rueda) + pan (arrastre) + reset (doble-click) ---
+    // ---- cámara: API pública (la maneja MapPanel, que sí recibe el mouse;
+    //      OpenGlControlBase no es hit-testable de forma confiable) ---------
 
-    protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+    /// <summary>Zoom multiplicativo (rueda). factor>1 acerca.</summary>
+    public void ZoomBy(double factor)
     {
-        base.OnPointerWheelChanged(e);
-        // Rueda arriba = acercar. Clamp para no perder el mapa.
-        double factor = e.Delta.Y > 0 ? 1.12 : 1.0 / 1.12;
         _userZoom = Math.Clamp(_userZoom * factor, 0.05, 60.0);
         RequestNextFrameRendering();
-        e.Handled = true;
     }
 
-    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    /// <summary>Pan por delta de píxeles lógicos del arrastre. renderScaling
+    /// convierte a físicos; scale es px físicos/metro. Pantalla Y-down vs
+    /// mundo Y-up -> +dyPx.</summary>
+    public void PanByPixels(double dxPx, double dyPx, double renderScaling)
     {
-        base.OnPointerPressed(e);
-        if (e.ClickCount >= 2)
-        {
-            // Doble-click: volver al encuadre automático (fit-to-bbox).
-            _userZoom = 1.0; _userPanX = 0; _userPanY = 0;
-            RequestNextFrameRendering();
-            e.Handled = true;
-            return;
-        }
-        _isPanning = true;
-        _lastPointer = e.GetPosition(this);
-        e.Pointer.Capture(this);
-    }
-
-    protected override void OnPointerMoved(PointerEventArgs e)
-    {
-        base.OnPointerMoved(e);
-        if (!_isPanning) return;
-        var p = e.GetPosition(this);
-        double dxPx = p.X - _lastPointer.X;
-        double dyPx = p.Y - _lastPointer.Y;
-        _lastPointer = p;
         double sc = _lastEffectiveScale > 1e-6 ? _lastEffectiveScale : 1.0;
-        // dx/dy vienen en px lógicos; scale es px físicos/metro (RenderScaling
-        // convierte). Pantalla Y-down vs mundo Y-up -> +dyPx.
-        double rs = Avalonia.Controls.TopLevel.GetTopLevel(this)?.RenderScaling ?? 1.0;
-        _userPanX -= dxPx * rs / sc;
-        _userPanY += dyPx * rs / sc;
+        _userPanX -= dxPx * renderScaling / sc;
+        _userPanY += dyPx * renderScaling / sc;
         RequestNextFrameRendering();
     }
 
-    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    /// <summary>Vuelve al encuadre automático (fit-to-bbox).</summary>
+    public void ResetCamera()
     {
-        base.OnPointerReleased(e);
-        _isPanning = false;
-        e.Pointer.Capture(null);
+        _userZoom = 1.0; _userPanX = 0; _userPanY = 0;
+        RequestNextFrameRendering();
     }
 
     // ---- helpers de render --------------------------------------------
