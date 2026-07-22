@@ -177,17 +177,19 @@ public sealed class MapGlSurface : OpenGlControlBase
     private static readonly float[] ColPathsYouTurn  = { 1.000f, 0.620f, 0.106f, 1f }; // #FF9E1B naranja
     private static readonly float[] ColPathsRecorded = { 0.706f, 0.470f, 1.000f, 1f }; // #B478FF violeta
 
-    // Shaders GLSL 3.30 core (compat con GL ES 3.00 cambiando solo el
-    // preludio). MVP en uniform; vertex pos en location 0; color en
-    // uniform (un draw call por capa de color).
-    private const string VertSrc =
-        "#version 330 core\n" +
+    // Shaders: el MISMO cuerpo sirve para desktop GL 3.30 core y GL ES 3.00;
+    // solo cambia el preludio (#version + precision). Avalonia en Windows
+    // suele negociar un contexto GL ES (ANGLE), donde "#version 330 core"
+    // NO compila -> el programa quedaba inválido y el mapa se veía NEGRO.
+    // Elegimos el preludio según GlVersion.Type en OnOpenGlInit.
+    private static string BuildVertSrc(bool es) =>
+        (es ? "#version 300 es\n" : "#version 330 core\n") +
         "layout (location = 0) in vec2 aPos;\n" +
         "uniform mat4 uMvp;\n" +
         "void main(){ gl_Position = uMvp * vec4(aPos, 0.0, 1.0); }\n";
 
-    private const string FragSrc =
-        "#version 330 core\n" +
+    private static string BuildFragSrc(bool es) =>
+        (es ? "#version 300 es\nprecision mediump float;\n" : "#version 330 core\n") +
         "uniform vec4 uColor;\n" +
         "out vec4 FragColor;\n" +
         "void main(){ FragColor = uColor; }\n";
@@ -300,7 +302,13 @@ public sealed class MapGlSurface : OpenGlControlBase
         // call la primera vez que se usa.
         _gl = GL.GetApi(name => glInterface.GetProcAddress(name));
 
-        _program = CompileProgram(_gl, VertSrc, FragSrc);
+        // Contexto ES (ANGLE en Windows) vs desktop GL -> preludio de shader
+        // distinto. Sin esto, en un contexto ES el shader 330 core no compila
+        // y el mapa queda negro.
+        bool es = GlVersion.Type == Avalonia.OpenGL.GlProfileType.OpenGLES;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] GL context: "
+            + (es ? "OpenGL ES" : "desktop GL") + " " + GlVersion.Major + "." + GlVersion.Minor);
+        _program = CompileProgram(_gl, BuildVertSrc(es), BuildFragSrc(es));
         _uMvp   = _gl.GetUniformLocation(_program, "uMvp");
         _uColor = _gl.GetUniformLocation(_program, "uColor");
 
