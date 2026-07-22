@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 14 al ~75% (comandos uturn/pick, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
+| android | Bloque 14 al ~85% (integré GuidanceEngineHost dentro de PilotX.Android, ver bitácora de hoy — con autorización directa del usuario para tocar ese carril). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*`, `SourceCode/PilotX.GuidanceEngine.Core/*`, `SourceCode/PilotX.Android/*` (puntual, hoy) |
 
 ## Bitácora (append-only)
 
@@ -567,3 +567,54 @@ la sesión android al extraer, pero el taller los usa desde Services),
   sin arrastrar divergencia. Buen laburo con el guidance engine — quedó prolijo.
   Lo del taller que sumé hoy además del merge: mapa GL de PilotX.Desktop
   cerrado y validado (stages 1→7 + cámara zoom/pan; ver fila bloque 6).
+- [2026-07-22] [android] AVISO (**crucé a carril taller: `SourceCode/
+  PilotX.Android/*`, con autorización directa del usuario en la
+  conversación** — no es un PEDIDO async, ya está hecho; lo anoto para que
+  quede registrado). Traje mi rama al día con `origin/codex/pilotx-ui-new`
+  primero (merge sin conflicto de código, solo este archivo — resuelto
+  concatenando de nuevo). Con eso, arranqué el "foco 3" que veníamos
+  charlando con el usuario: integrar `GuidanceEngineHost` **dentro de la
+  app Android** (no solo el .exe de consola de Windows), reemplazando 2 de
+  los ~9 stubs Fase 1 (`Fase1Stubs.cs`) por implementaciones reales.
+  **Hallazgo que obligó a partir el proyecto**: `PilotX.GuidanceEngine.csproj`
+  (el .exe de consola) tiene `PackageReference System.IO.Ports` (lo usa
+  `CoreXEngineHost`/`Net9SerialPortService` para los 6 puertos serie) — ese
+  paquete no restaura para `net9.0-android` (`NETSDK1047`: no hay target
+  `net9.0/android-arm64` en su `project.assets.json`), así que
+  `PilotX.Android` no podía referenciarlo directo. Solución: nuevo proyecto
+  **`SourceCode/PilotX.GuidanceEngine.Core`** (agregado a `AgOpenGPS.sln`)
+  con SOLO los 10 archivos `GuidanceEngineHost*.cs` (`git mv`, sin
+  `CoreXEngineHost.cs`/`Net9SerialPortService.cs`, sin System.IO.Ports,
+  sin AgroParallel.Services) — el mismo criterio que ya usaba
+  `CoreXEngineHost.cs` para linkear NmeaParser.cs de AgIO por archivo en
+  vez de referenciar todo el proyecto, aplicado acá a nivel de proyecto
+  entero. `PilotX.GuidanceEngine` (consola) ahora referencia a
+  `PilotX.GuidanceEngine.Core` en vez de duplicar los archivos —
+  `Program.cs`/`CoreXEngineHost.cs` compilan igual (referencia transitiva
+  a `AgOpenGPS.Core`/`AgLibrary` a través del nuevo proyecto). Con eso,
+  `PilotX.Android` sí pudo referenciar `PilotX.GuidanceEngine.Core` sin
+  problema.
+  Nuevo `SourceCode/PilotX.Android/GuidanceEngineServices.cs`:
+  `GuidanceEngineLotesService`/`GuidanceEngineGuidanceCalculator` — mismo
+  patrón que `FormGpsLotesService`/`FormGpsGuidanceCalculator` (Windows,
+  carril taller — solo los leí para copiar el patrón, no los toqué), pero
+  envolviendo un `GuidanceEngineHost` en vez de `FormGPS`. En
+  `HubBootstrap.cs`: se instancia el `GuidanceEngineHost` (con el mismo
+  `dataDir` de la app) y se reemplazan `StubLotesService`/
+  `StubGuidanceCalculator` (borrados de `Fase1Stubs.cs`, ya no se usaban)
+  por las implementaciones reales. **Alcance de esta pasada**: abrir/cerrar
+  lote real (`ListFields`/`OpenFieldAsync`/`CloseFieldAsync`) y snapshot/
+  geometría/comandos de guiado (autosteer/uturn/pick) — YA funcionan de
+  verdad desde el Hub Android. `CreateFieldAsync`/`DeleteFieldAsync`/
+  `CreateFromExistingAsync`/`ImportKmlAsync`/`ImportIsoXmlAsync` quedan en
+  `false` (mismo comportamiento que el stub que reemplazan, no regresión —
+  necesitan portar más de `SaveOpen.Designer.cs`, otra pasada). **Sin fix
+  GPS real todavía**: `GuidanceEngineHost.Start()` deja el loopback UDP
+  escuchando pero nada le manda PGN en Android hoy — eso necesita CoreX/
+  serial por USB-OTG (bloque 8, hardware pendiente). Verificado: `dotnet
+  build PilotX.Android.csproj` 0 errores (mismo warning preexistente
+  CA1422), `dotnet build`/`dotnet test AgOpenGPS.sln` completo 0 errores +
+  141 tests verdes, `build.ps1` OK. Matriz: bloque 7 a 65%, bloque 14 a
+  ~85%. Avisen si esto choca con algo que tengan en curso en
+  `PilotX.Android/` — todo lo que toqué fue aditivo (2 stubs reemplazados,
+  nada eliminado salvo las 2 clases stub ya no usadas).

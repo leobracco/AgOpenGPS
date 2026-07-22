@@ -23,6 +23,7 @@ namespace PilotX.Droid
         private static MqttBrokerService s_broker;
         private static NodoRegistryService s_nodos;
         private static FlowXBridge s_flowxBridge;
+        private static PilotXCore.GuidanceEngineHost s_guidance;
 
         public static bool IsRunning { get { lock (s_lock) return s_host != null; } }
         public static string Url { get { lock (s_lock) return s_host?.Url; } }
@@ -56,6 +57,18 @@ namespace PilotX.Droid
                 var state = new StubAogStateProvider();
                 var sectionsCore = new StubSectionControlService();
 
+                // Guidance engine headless (bloque 14) — reemplaza los stubs de
+                // guiado/lotes por implementaciones reales (GuidanceEngineServices.cs).
+                // Sin fix GPS real todavia (necesita CoreX/serial por USB-OTG,
+                // bloque 8 pendiente de hardware): Start() solo deja el loopback
+                // UDP escuchando, sin nada que le mande PGN por ahora.
+                var guidanceBaseDir = new DirectoryInfo(Path.Combine(dataDir, "GuidanceEngine"));
+                if (!guidanceBaseDir.Exists) guidanceBaseDir.Create();
+                s_guidance = new PilotXCore.GuidanceEngineHost(guidanceBaseDir);
+                s_guidance.Start();
+                var guidanceCalc = new GuidanceEngineGuidanceCalculator(s_guidance);
+                var lotes = new GuidanceEngineLotesService(s_guidance);
+
                 var vistaxCfg = new VistaXConfigService();
                 var insumosCat = new InsumoCatalogService();
                 var sectionxCfg = new SectionXConfigService();
@@ -81,13 +94,13 @@ namespace PilotX.Droid
                     vistaxCfg,
                     vistaxLive,
                     new DebugLogService(),
-                    new StubLotesService(),
+                    lotes,
                     new StubVehicleToolService(),
                     new StubShapefileService(),
                     new StubCoverageService(),
                     sectionsCore,
                     new StubQuantiXRuntimeService(),
-                    new StubGuidanceCalculator(),
+                    guidanceCalc,
                     new StubPilotXUpdateService(),
                     flowxCfg,
                     flowxLive,
@@ -120,9 +133,11 @@ namespace PilotX.Droid
             {
                 try { s_flowxBridge?.Stop(); s_flowxBridge?.Dispose(); } catch { }
                 try { s_host?.Stop(); } catch { }
+                try { s_guidance?.Stop(); } catch { }
                 try { s_nodos?.Stop(); } catch { }
                 try { s_broker?.StopAsync().GetAwaiter().GetResult(); } catch { }
                 s_flowxBridge = null;
+                s_guidance = null;
                 s_host = null;
                 s_nodos = null;
                 s_broker = null;

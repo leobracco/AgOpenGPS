@@ -1,15 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    PilotX.GuidanceEngine - bloque 14 (proceso único), primer paso.
+    PilotX.GuidanceEngine - bloque 14 (proceso único). El .exe de consola:
+    entry point (Program.cs) + el lado "CoreX" (CoreXEngineHost.cs,
+    Net9SerialPortService.cs, con su PackageReference a System.IO.Ports).
 
-    Prueba que el loop de guiado (heading -> posición corregida -> autosteer
-    -> youturn -> envío PGN) corre standalone, SIN FormGPS ni WinForms/GL:
-    orquesta los mismos CPositionUpdater/CHeadingUpdater/CAutoSteerUpdater/
-    CYouTurnUpdater/CSectionCalculator/CSettingsSender que ya viven en
-    AgOpenGPS.Core (extraídos en bloque 9), sobre un host propio
-    (GuidanceEngineHost) que implementa las mismas interfaces I*Host que
-    hoy implementa FormGPS vía partials — mismo patrón, sin UI.
+    El loop de guiado en sí (GuidanceEngineHost*.cs — orquesta los mismos
+    CPositionUpdater/CHeadingUpdater/CAutoSteerUpdater/CYouTurnUpdater/
+    CSectionCalculator/CSettingsSender de AgOpenGPS.Core, bloque 9) vive
+    separado en PilotX.GuidanceEngine.Core: PilotX.Android lo referencia
+    directo para los servicios reales de guiado/lotes del Hub, sin poder
+    arrastrar System.IO.Ports (net9.0-android no lo restaura, ver el
+    comentario de cabecera de PilotX.GuidanceEngine.Core.csproj).
 
     Deliberadamente net9.0 (NO -windows): nada acá debería necesitar
     Windows Forms ni OpenGL — si algún día no compila en net9.0 puro es
@@ -30,7 +32,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+    <ProjectReference Include="..\PilotX.GuidanceEngine.Core\PilotX.GuidanceEngine.Core.csproj" />
     <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
     <!-- MqttBrokerService/UdpBridgeService/NtripClientService/PgnFrameParser/
          ISerialPortService (bloque 8/14) — ya portables (netstandard2.0). -->

@@ -27,6 +27,14 @@
     <ProjectReference Include="..\AgroParallel\Web\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
     <!-- RegistrySettings/paths (toma el target netstandard2.0 del multi-target) -->
     <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+    <!-- GuidanceEngineHost (bloque 14, net9.0 puro) — reemplaza los stubs de
+         guiado/lotes de Fase 1 por implementaciones reales. Es el proyecto
+         SIN System.IO.Ports (PilotX.GuidanceEngine.Core, no el .exe de
+         consola PilotX.GuidanceEngine): net9.0-android no restaura ese
+         paquete para android-arm64/android-x64. El serial real (CoreX)
+         queda para cuando haya USB-OTG (UsbSerialForAndroid, bloque 8
+         matriz). -->
+    <ProjectReference Include="..\PilotX.GuidanceEngine.Core\PilotX.GuidanceEngine.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

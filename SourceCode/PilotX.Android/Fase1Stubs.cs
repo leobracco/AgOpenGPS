@@ -5,6 +5,12 @@
 // guiado) no existen: el tablet es monitor de siembra + config de nodos +
 // OTA + sync. Cuando llegue la Fase 2 (guiado Android) se reemplazan por
 // implementaciones reales sobre los servicios extraídos del Core.
+//
+// StubLotesService y StubGuidanceCalculator ya se reemplazaron (bloque 14,
+// 2026-07-22) por GuidanceEngineLotesService/GuidanceEngineGuidanceCalculator
+// (GuidanceEngineServices.cs), respaldadas por GuidanceEngineHost — sin fix
+// GPS real todavía (falta CoreX/serial por USB-OTG), pero abrir/cerrar lote
+// y ejecutar comandos de guiado (autosteer/uturn/pick) ya funcionan de verdad.
 // ============================================================================
 
 using System.Collections.Generic;
@@ -30,23 +36,6 @@ namespace PilotX.Droid
         public double GetShapeFieldDose(string fieldName) => 0;
         public ShapeSnapshot GetShape() => null;
         public ShapeFieldsSnapshot GetShapeFields() => new ShapeFieldsSnapshot();
-    }
-
-    internal sealed class StubLotesService : ILotesService
-    {
-        public IList<FieldInfo> ListFields() => new List<FieldInfo>();
-        public string GetCurrentFieldName() => "";
-        public string GetCurrentFieldDirectory() => "";
-        public Task<bool> OpenFieldAsync(string name) => Task.FromResult(false);
-        public Task<bool> CloseFieldAsync() => Task.FromResult(false);
-        public Task<bool> CreateFieldAsync(string name) => Task.FromResult(false);
-        public Task<bool> DeleteFieldAsync(string name) => Task.FromResult(false);
-        public Task<bool> CreateFromExistingAsync(string templateName, string newName,
-                                                  bool copyApplied, bool copyFlags,
-                                                  bool copyGuidance, bool copyHeadland)
-            => Task.FromResult(false);
-        public Task<bool> ImportKmlAsync() => Task.FromResult(false);
-        public Task<bool> ImportIsoXmlAsync() => Task.FromResult(false);
     }
 
     internal sealed class StubVehicleToolService : IVehicleToolService
@@ -88,13 +77,6 @@ namespace PilotX.Droid
     internal sealed class StubQuantiXRuntimeService : IQuantiXRuntimeService
     {
         public QuantiXRuntimeSnapshot GetSnapshot() => new QuantiXRuntimeSnapshot();
-    }
-
-    internal sealed class StubGuidanceCalculator : IGuidanceCalculator
-    {
-        public GuidanceSnapshot GetSnapshot() => new GuidanceSnapshot();
-        public GuidanceGeometrySnapshot GetGeometry() => new GuidanceGeometrySnapshot();
-        public bool ExecuteCommand(string command) => false;
     }
 
     internal sealed class StubPilotXUpdateService : IPilotXUpdateService
