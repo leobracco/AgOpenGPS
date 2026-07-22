@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 14 al ~85% (integré GuidanceEngineHost dentro de PilotX.Android, ver bitácora de hoy — con autorización directa del usuario para tocar ese carril). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*`, `SourceCode/PilotX.GuidanceEngine.Core/*`, `SourceCode/PilotX.Android/*` (puntual, hoy) |
+| android | Bloque 14 al ~90% (7 de 9 stubs Fase 1 ya reales, ver bitácora de hoy — con autorización directa del usuario para tocar carril PilotX.Android). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*`, `SourceCode/PilotX.GuidanceEngine.Core/*`, `SourceCode/PilotX.Android/*` (puntual, hoy) |
 
 ## Bitácora (append-only)
 
@@ -618,3 +618,59 @@ la sesión android al extraer, pero el taller los usa desde Services),
   ~85%. Avisen si esto choca con algo que tengan en curso en
   `PilotX.Android/` — todo lo que toqué fue aditivo (2 stubs reemplazados,
   nada eliminado salvo las 2 clases stub ya no usadas).
+- [2026-07-22] [android] AVISO (sigo en carril taller `PilotX.Android/`,
+  mismo pedido del usuario, sin nuevo choque detectado) — el usuario pidió
+  seguir con los stubs que quedaban. `Fase1Stubs.cs` tenía 10 clases en
+  total; la pasada de la sesión anterior (foco 3) ya había reemplazado 2
+  (Lotes, GuidanceCalculator), quedaban 8. Triage antes de tocar nada: leí los 8 `FormGps*.cs` de Windows
+  (`GPS/AgroParallel/Common/`, solo lectura, no los toqué — carril taller)
+  para decidir cuáles son genuinamente datos de guiado (backeable por
+  `GuidanceEngineHost`) y cuáles son otro subsistema. Resultado: **5 más
+  reemplazados** en `GuidanceEngineStateServices.cs` (nuevo archivo) —
+  `StubAogStateProvider`, `StubSectionControlService`,
+  `StubVehicleToolService`, `StubCoverageService`,
+  `StubQuantiXRuntimeService`. Detalle:
+  - `GuidanceEngineStateProvider.GetSnapshot()`: el más grande y el más
+    importante (alimenta el dashboard principal del Hub) — posición,
+    velocidad, área trabajada, autosteer/secciones/track/youturn/contour,
+    boundary/headland, hidráulico, tram, geometría del lote. Copia casi 1:1
+    de `FormGpsStateProvider.GetSnapshot()` (~200 líneas) porque
+    `GuidanceEngineHost` ya expone los mismos objetos Core (`Pn`, `Trk`,
+    `Yt`, `Ct`, `Bnd`, `Vehicle`, `Tram`, `Tool`, `Fd`, `Sections`,
+    `Isobus`) con los mismos nombres de campo que `FormGPS`. Los otros
+    métodos de `IAogStateProvider` (`GetAllSettings` — volcado completo de
+    ajustes, ~175 líneas; los 4 gráficos en vivo XTE/heading/steer/
+    corrección; ShiftPos/SimCoords/colores; todo lo de shapefile) NO se
+    portaron — devuelven el mismo default vacío que el stub. No es
+    regresión, es alcance que dejé afuera a propósito: los gráficos
+    necesitan buffers rodantes que no existen en el motor headless, y
+    shapefile es una capa que `GuidanceEngineHost` no carga en absoluto.
+    Documentado en el header del archivo para que quede claro qué falta.
+  - `GetEventLog()` sí se portó completo (Log.sbEvents + archivo persistido,
+    100% portable, sin UI que marshalar).
+  - `GuidanceEngineVehicleToolService`: casi todo el archivo original
+    (~520 líneas) resultó ser lectura/escritura de `Properties.Settings.Default`
+    sin depender de FormGPS más que para el "reload en caliente". Le saqué
+    `readonly` a `GuidanceEngineHost.Vehicle`/`Tool` (antes `public readonly
+    CVehicle Vehicle`/`CTool Tool`) para poder hacer `_engine.Vehicle = new
+    CVehicle(_engine)` al guardar, mismo patrón que `_form.vehicle = new
+    CVehicle(_form)` en Windows — sin este cambio, guardar vehículo/tool
+    solo hubiera tenido efecto reiniciando la app.
+  - `GuidanceEngineQuantiXRuntimeService`: resultó casi trivial — el
+    original (`FormGpsQuantiXRuntimeService`) ya recibía `IAogStateProvider`
+    por constructor y solo usaba `_form` para un null-check, el resto es
+    `MotoresConfig.Load()` (portable, `AgroParallel.Services`) + la fórmula
+    de dosis máxima. Reusa el `GuidanceEngineStateProvider` de arriba, cero
+    acoplamiento nuevo a `GuidanceEngineHost`.
+  Con esto, de los ~9 stubs originales **quedan 3, y a propósito** (no es
+  que falte tiempo, es que no son datos de guiado): `StubShapefileService`
+  (necesita parser de shapefile, capa que el motor no tiene), 
+  `StubPilotXUpdateService` (self-update, bloque 12 de la matriz, feature
+  aparte — APK vía OrbitX en vez de Updater.exe+ZIP), `StubSistemaService`
+  (brillo/apagado son APIs de Android — `Settings.System`/`PowerManager`,
+  ni FormGPS ni GuidanceEngineHost tienen nada que ver con eso).
+  Verificado: `dotnet build PilotX.Android.csproj` 0 errores (mismo warning
+  preexistente CA1422), `AgOpenGPS.sln` completo (con el cambio de
+  `readonly`) 0 errores + 141 tests verdes, `build.ps1` OK, corrida rápida
+  de `PilotX.GuidanceEngine.exe --sim` sin cambios de comportamiento.
+  Matriz: bloque 7 a 80%, bloque 14 a ~90%. Voy a commitear y pushear.

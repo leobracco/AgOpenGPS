@@ -110,5 +110,12 @@ namespace AgOpenGPS
 
         public string currentFieldDirectory = "";
         public StringBuilder sbGrid = new StringBuilder();
+
+        // Mismos defaults que GUI.Designer.cs (FormGPS) — usados por
+        // GuidanceEngineStateProvider (PilotX.Android). Sin UI de bandera/nudge
+        // headless todavia, pero se dejan disponibles para no hardcodear
+        // sentinels en el DTO.
+        public byte flagColor;
+        public bool isNudgeOn = true;
     }
 }

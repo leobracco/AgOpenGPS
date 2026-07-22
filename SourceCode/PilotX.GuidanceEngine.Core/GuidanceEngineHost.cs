@@ -29,12 +29,14 @@ namespace AgOpenGPS
         public readonly CAHRS Ahrs = new CAHRS();
         public readonly CSim Sim;
         public readonly WorldGrid WorldGridField = new WorldGrid();
-        public readonly CVehicle Vehicle;
+        // No readonly: GuidanceEngineVehicleToolService (PilotX.Android) las
+        // reconstruye al guardar config, mismo patron que FormGPS.vehicle/tool.
+        public CVehicle Vehicle;
         public readonly CBoundary Bnd;
         public readonly CTrack Trk;
         public readonly CABLine ABLineField;
         public readonly CABCurve CurveField;
-        public readonly CTool Tool;
+        public CTool Tool;
         public readonly CModuleComm Mc;
         public readonly CYouTurn Yt;
         public readonly CContour Ct;

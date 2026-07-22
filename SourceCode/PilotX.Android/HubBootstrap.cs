@@ -54,27 +54,31 @@ namespace PilotX.Droid
                 try { s_nodos.Start("127.0.0.1", 1883); }
                 catch (Exception ex) { Android.Util.Log.Warn("PilotX", "NodoRegistry: " + ex.Message); }
 
-                var state = new StubAogStateProvider();
-                var sectionsCore = new StubSectionControlService();
-
                 // Guidance engine headless (bloque 14) — reemplaza los stubs de
-                // guiado/lotes por implementaciones reales (GuidanceEngineServices.cs).
-                // Sin fix GPS real todavia (necesita CoreX/serial por USB-OTG,
-                // bloque 8 pendiente de hardware): Start() solo deja el loopback
-                // UDP escuchando, sin nada que le mande PGN por ahora.
+                // guiado/lotes/estado/cobertura/secciones/vehiculo-tool/QuantiX
+                // runtime por implementaciones reales (GuidanceEngineServices.cs +
+                // GuidanceEngineStateServices.cs). Sin fix GPS real todavia
+                // (necesita CoreX/serial por USB-OTG, bloque 8 pendiente de
+                // hardware): Start() solo deja el loopback UDP escuchando, sin
+                // nada que le mande PGN por ahora.
                 var guidanceBaseDir = new DirectoryInfo(Path.Combine(dataDir, "GuidanceEngine"));
                 if (!guidanceBaseDir.Exists) guidanceBaseDir.Create();
                 s_guidance = new PilotXCore.GuidanceEngineHost(guidanceBaseDir);
                 s_guidance.Start();
                 var guidanceCalc = new GuidanceEngineGuidanceCalculator(s_guidance);
                 var lotes = new GuidanceEngineLotesService(s_guidance);
+                var state = new GuidanceEngineStateProvider(s_guidance);
+                var sectionsCore = new GuidanceEngineSectionControlService(s_guidance);
+                var vehicleTool = new GuidanceEngineVehicleToolService(s_guidance);
+                var coverage = new GuidanceEngineCoverageService(s_guidance);
+                var quantixRuntime = new GuidanceEngineQuantiXRuntimeService(state);
 
                 var vistaxCfg = new VistaXConfigService();
                 var insumosCat = new InsumoCatalogService();
                 var sectionxCfg = new SectionXConfigService();
                 var orbitxCfg = new OrbitXConfigService();
                 var quantixCfg = new QuantiXConfigService(s_nodos);
-                var implemento = new ImplementoService(vistaxCfg, new StubVehicleToolService(), quantixCfg, sectionxCfg);
+                var implemento = new ImplementoService(vistaxCfg, vehicleTool, quantixCfg, sectionxCfg);
                 var vistaxLive = new VistaXLiveService(s_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento);
                 var flowxCfg = new FlowXConfigService();
                 var flowxLive = new FlowXLiveService(s_nodos, flowxCfg);
@@ -95,11 +99,11 @@ namespace PilotX.Droid
                     vistaxLive,
                     new DebugLogService(),
                     lotes,
-                    new StubVehicleToolService(),
+                    vehicleTool,
                     new StubShapefileService(),
-                    new StubCoverageService(),
+                    coverage,
                     sectionsCore,
-                    new StubQuantiXRuntimeService(),
+                    quantixRuntime,
                     guidanceCalc,
                     new StubPilotXUpdateService(),
                     flowxCfg,
