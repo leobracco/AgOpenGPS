@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 14 al ~40% (wire de CoreX en el mismo proceso, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
+| android | Bloque 14 al ~50% (comando real de autosteer, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
 
 ## Bitácora (append-only)
 
@@ -442,3 +442,27 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Falta (documentado en la matriz): origen de comando real para
   btnStates/autosteer (hoy sin UI detrás) y prueba de NTRIP/serial con
   credenciales/hardware real. Voy a commitear y pushear.
+- [2026-07-22] [android] HECHO — siguiente foco de bloque 14: el "origen de
+  comando real para autosteer" que quedó pendiente arriba. Nuevo
+  `GuidanceEngineHost.Commands.cs`: `ExecuteCommand(string)` con el mismo
+  vocabulario que `FormGPS.ExecuteGuidanceCommand` (GUI.FloatingMenu.cs) /
+  `IGuidanceCalculator.ExecuteCommand` (AgroParallel.Services.Abstractions,
+  carril taller — solo miré la interfaz para no reinventar el vocabulario,
+  no toqué ese archivo) — hoy mapea `"autosteer"` a
+  `IAutoSteerHost.PerformAutoSteerClick()`, misma semántica que el botón
+  nativo. Sin FormGPS no hay ventana ni botón: en vez de eso agregué un
+  mini servidor **TCP línea-por-línea** en `:15556` (`StartCommandServer`/
+  `AcceptLoop`/`HandleClient`) — **no usé `HttpListener`** a propósito:
+  no es portable a Linux/Android sin Kestrel, y este proceso debe seguir
+  siendo net9.0 puro sin dependencias nuevas (mismo criterio que ya se
+  venía aplicando en este proyecto). Cableado en `Program.cs`
+  (`host.StartCommandServer()`/`StopCommandServer()` en el arranque/cierre).
+  Verificado en runtime con `--sim`: mandé `"autosteer"` dos veces por TCP
+  (PowerShell `TcpClient`) → `"ok"` las dos, un comando inventado →
+  `"unknown"`, sin excepciones ni caídas del proceso. Compila limpio
+  (0 warnings), 141 tests verdes. Matriz bloque 14 subida a ~50%. Falta:
+  enchufar esto a un transporte real (MQTT del propio `CoreXEngineHost`
+  o el Hub, en vez de este TCP de prueba) y ampliar el vocabulario más
+  allá de "autosteer" si hace falta (job start/stop, youturn, etc. — no
+  los agregué todavía por no inventar semántica sin un consumidor real
+  del otro lado). Voy a commitear y pushear.

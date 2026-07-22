@@ -41,6 +41,9 @@ namespace AgOpenGPS
             host.Start();
             Console.WriteLine("Escuchando PGN en 127.0.0.1:15555, respondiendo a 127.255.255.255:17777.");
 
+            host.StartCommandServer();
+            Console.WriteLine("Comandos por TCP en 127.0.0.1:15556 (linea de texto, ej. \"autosteer\").");
+
             CoreXEngineHost coreX = null;
             if (useCoreX)
             {
@@ -88,6 +91,7 @@ namespace AgOpenGPS
             simTimer?.Dispose();
             Log.EventWriter("GuidanceEngine: cerrando");
             coreX?.Stop();
+            host.StopCommandServer();
             host.Stop();
         }
     }
