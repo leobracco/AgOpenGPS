@@ -33,6 +33,7 @@ namespace AgOpenGPS
         {
             bool useSim = Array.IndexOf(args, "--sim") >= 0;
             bool useCoreX = Array.IndexOf(args, "--corex") >= 0;
+            bool useWebHost = Array.IndexOf(args, "--webhost") >= 0;
 
             var baseDir = new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "GuidanceEngineData"));
             if (!baseDir.Exists) baseDir.Create();
@@ -53,6 +54,15 @@ namespace AgOpenGPS
 
             host.StartCommandServer();
             Console.WriteLine("Comandos por TCP en 127.0.0.1:15556 (linea de texto, ej. \"autosteer\").");
+
+            EngineWebHost webHost = null;
+            if (useWebHost)
+            {
+                webHost = new EngineWebHost(host, 5180);
+                webHost.Start();
+                Console.WriteLine("Modo --webhost: API HTTP /api/aog/* arriba en " + webHost.Url
+                    + " (state/coverage/tool/tram/paths/guidance) — PilotX.Desktop puede renderizar el mapa contra este motor.");
+            }
 
             CoreXEngineHost coreX = null;
             if (useCoreX)
@@ -107,6 +117,7 @@ namespace AgOpenGPS
 
             simTimer?.Dispose();
             Log.EventWriter("GuidanceEngine: cerrando");
+            webHost?.Stop();
             coreX?.Stop();
             host.StopCommandServer();
             host.Stop();

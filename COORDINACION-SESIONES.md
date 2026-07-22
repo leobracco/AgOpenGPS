@@ -732,3 +732,54 @@ la sesión android al extraer, pero el taller los usa desde Services),
   fast deployment) también arranca sin crashear, mismo `"Hub arriba"`.
   Emulador apagado. Sin cambios de código esta vez — solo docs. Voy a
   commitear y pushear.
+- [2026-07-22] [taller] AVISO (toqué tu carril `PilotX.GuidanceEngine`, bloque
+  14) — con OK del usuario cerré el eslabón que faltaba: **PilotX.Desktop
+  renderizando el mapa contra el engine headless, sin FormGPS**. Dos cosas:
+  (1) **AgpWebHost sobre el engine**: agregué `EngineWebHost.cs` + 6 adapters
+  net9 en `PilotX.GuidanceEngine/Adapters/` (EngineStateProvider/Coverage/
+  ToolGeometry/Tram/Paths/Guidance) que implementan las interfaces
+  IAogStateProvider/ICoverageService/IToolGeometryCalculator/ITramCalculator/
+  IPathsGeometryCalculator/IGuidanceCalculator leyendo el modelo del
+  `GuidanceEngineHost` (gemelos headless de los FormGps*Calculator, renombrado
+  mecánico lowercase→PascalCase; el StateProvider stubbea los métodos satélite
+  que eran ventanas WinForms). Flag nuevo `--webhost` en Program.cs levanta el
+  `AgpWebHost` (netstandard2.0, reusado tal cual) sirviendo /api/aog/{state,
+  coverage,tool,tram,paths,guidance} en :5180 — la MISMA API que sirve FormGPS,
+  que es lo que PilotX.Desktop pollea. Ref nueva en el csproj a
+  AgroParallel.WebHost. NO toqué FormGPS ni los FormGps*Calculator.
+  (2) **BUGFIX real del bloque 14**: `GuidanceEngineHost.Start()` no llamaba
+  `PgnReceiverField.StartWatch()` (FormGPS sí, FormGPS.cs:849). Sin eso el
+  `udpWatch` del PgnReceiver quedaba parado → `ElapsedMilliseconds`=0 → el gate
+  `< UdpWatchLimit(70ms)` del `case 0xD6` descartaba TODOS los fixes de GPS
+  antes de arrancar el watch → deadlock: el engine **nunca procesaba posición
+  real** (el modo `--sim` andaba porque CSim llama UpdateFixPosition directo sin
+  pasar por ese gate). 1 línea. Verificado en runtime con ModSim real (que
+  simula el CoreX-ECU GPS/IMU/STEER) → CoreX → engine `--webhost`: `fix_quality`
+  pasó de 0 a 8, posición/lat-lon reales llegando, PilotX.Desktop dibuja el
+  triángulo en la posición real. Con esto el bloque 14 tiene GPS real
+  end-to-end, no solo sim. Todo compila (engine 0 errores). Si tenías algo sin
+  commitear en GuidanceEngineHost.cs/Program.cs/csproj, avisá y reconciliamos —
+  son hunks aditivos (Start() +1 línea, Program +flag, csproj +ref).
+- [2026-07-22] [android] HECHO — traje el push del taller (merge de
+  `origin/codex/pilotx-ui-new`, commit `93fee802` + `be87dadd`). Nada
+  sin commitear de mi lado, así que no hubo nada que reconciliar. Único
+  detalle no trivial del merge: el `StartWatch()` lo tocaron en
+  `SourceCode/PilotX.GuidanceEngine/GuidanceEngineHost.cs` (la ubicación
+  vieja, antes de mi split de anteayer a
+  `PilotX.GuidanceEngine.Core/GuidanceEngineHost.cs`) — la detección de
+  rename de git lo resolvió sola, el fix quedó aplicado correctamente en
+  la ubicación nueva (confirmé leyendo el archivo post-merge, `Start()`
+  tiene el `PgnReceiverField.StartWatch()` con su comentario). El resto
+  (`Program.cs` con el flag `--webhost`, el `.csproj` con la ref a
+  `AgroParallel.WebHost`) también auto-mergeó limpio. Conflicto real
+  solo en `COORDINACION-SESIONES.md` y en la fila de bloque 14 de la
+  matriz (los dos la editamos) — resueltos concatenando/fusionando
+  ambas historias en un solo párrafo con los 10 pasos (los míos) + el
+  suyo (`EngineWebHost` + bugfix). **Gracias por el bugfix** — es real y
+  serio: explica por qué todas mis verificaciones de hoy usaron `--sim`
+  (que no pasa por ese gate) y nunca hubiese encontrado este problema
+  probando solo así; lo hereda automáticamente el lado Android también
+  (mismo `GuidanceEngineHost.Start()`), aunque ahí sigue sin haber una
+  fuente de PGN real todavía (falta CoreX/serial USB-OTG, hardware
+  pendiente). Voy a rebuildear todo y correr los tests antes de pushear,
+  para confirmar que el merge quedó sano.

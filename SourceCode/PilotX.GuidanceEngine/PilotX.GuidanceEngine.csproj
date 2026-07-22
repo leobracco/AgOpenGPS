@@ -37,6 +37,10 @@
     <!-- MqttBrokerService/UdpBridgeService/NtripClientService/PgnFrameParser/
          ISerialPortService (bloque 8/14) — ya portables (netstandard2.0). -->
     <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+    <!-- AgpWebHost + controllers (netstandard2.0, EmbedIO): con el flag webhost
+         el engine headless sirve la API /api/aog igual que FormGPS, para que
+         PilotX.Desktop renderice el mapa contra el motor sin WinForms. -->
+    <ProjectReference Include="..\AgroParallel\Web\AgroParallel.WebHost\AgroParallel.WebHost.csproj" />
   </ItemGroup>
 
   <ItemGroup>

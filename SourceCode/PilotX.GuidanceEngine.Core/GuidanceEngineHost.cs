@@ -120,6 +120,13 @@ namespace AgOpenGPS
             _loopBackSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
             _loopBackSocket.Bind(new IPEndPoint(IPAddress.Loopback, 15555));
             _running = true;
+            // Igual que FormGPS (FormGPS.cs:849): arrancar el watchdog del
+            // PgnReceiver. Sin esto, udpWatch nunca corre → ElapsedMilliseconds
+            // queda en 0 → el gate del PGN 0xD6 (< UdpWatchLimit) descarta TODOS
+            // los fixes de GPS antes de arrancar el watch → deadlock, nunca se
+            // procesa posición real (el modo --sim no pasa por acá y por eso sí
+            // andaba).
+            PgnReceiverField.StartWatch();
             _loopBackSocket.BeginReceiveFrom(_loopBuffer, 0, _loopBuffer.Length, SocketFlags.None,
                 ref _endPointLoopBack, ReceiveAppData, null);
             Log.EventWriter("GuidanceEngine: UDP loopback escuchando en 127.0.0.1:15555");
