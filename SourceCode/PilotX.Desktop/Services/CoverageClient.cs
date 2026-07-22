@@ -42,40 +42,42 @@ namespace PilotX.Desktop.Services;
 // Replicados aca para no obligar a referenciar AgroParallel.Models desde
 // PilotX.Desktop. La frontera de proyectos lo agradece.
 
+// Nombres C# PascalCase; SnakeCaseLower del _jsonOpts los mapea al
+// snake_case del servidor (field_directory, etc.).
 public sealed class CoverageVertex
 {
-    [JsonPropertyName("e")] public double E { get; set; }
-    [JsonPropertyName("n")] public double N { get; set; }
+    public double E { get; set; }
+    public double N { get; set; }
 }
 
 public sealed class CoverageStrip
 {
-    [JsonPropertyName("vertices")] public List<CoverageVertex>? Vertices { get; set; }
+    public List<CoverageVertex>? Vertices { get; set; }
 }
 
 public sealed class CoverageSection
 {
-    [JsonPropertyName("index")]   public int                   Index   { get; set; }
-    [JsonPropertyName("enabled")] public bool                  Enabled { get; set; }
-    [JsonPropertyName("strips")]  public List<CoverageStrip>?  Strips  { get; set; }
+    public int                   Index   { get; set; }
+    public bool                  Enabled { get; set; }
+    public List<CoverageStrip>?  Strips  { get; set; }
 }
 
 public sealed class CoverageSnapshot
 {
-    [JsonPropertyName("fieldDirectory")] public string?              FieldDirectory { get; set; }
-    [JsonPropertyName("revision")]       public long                 Revision       { get; set; }
-    [JsonPropertyName("r")]              public int                  R              { get; set; } = 75;
-    [JsonPropertyName("g")]              public int                  G              { get; set; } = 166;
-    [JsonPropertyName("b")]              public int                  B              { get; set; } = 63;
-    [JsonPropertyName("a")]              public int                  A              { get; set; } = 140;
-    [JsonPropertyName("sections")]       public List<CoverageSection>? Sections    { get; set; }
+    public string?              FieldDirectory { get; set; }
+    public long                 Revision       { get; set; }
+    public int                  R              { get; set; } = 75;
+    public int                  G              { get; set; } = 166;
+    public int                  B              { get; set; } = 63;
+    public int                  A              { get; set; } = 140;
+    public List<CoverageSection>? Sections    { get; set; }
 }
 
 public sealed class CoverageResponse
 {
-    [JsonPropertyName("ok")]       public bool              Ok       { get; set; }
-    [JsonPropertyName("snapshot")] public CoverageSnapshot? Snapshot { get; set; }
-    [JsonPropertyName("error")]    public string?           Error    { get; set; }
+    public bool              Ok       { get; set; }
+    public CoverageSnapshot? Snapshot { get; set; }
+    public string?           Error    { get; set; }
 }
 
 // ----- Cliente HTTP ------------------------------------------------------
@@ -91,7 +93,9 @@ public sealed class CoverageClient
     };
     private static readonly JsonSerializerOptions _jsonOpts = new JsonSerializerOptions
     {
-        PropertyNameCaseInsensitive = true
+        // Snake_case: misma politica que el servidor (AgpJson). Ver HudPoller.
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower
     };
 
     private readonly string _baseUrl;

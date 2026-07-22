@@ -28,24 +28,26 @@ namespace PilotX.Desktop.Services;
 
 // ----- DTOs cliente ------------------------------------------------------
 
+// Nombres C# PascalCase; SnakeCaseLower del _jsonOpts los mapea al
+// snake_case del servidor (you_turn, recorded...).
 public sealed class PathsFieldPoint
 {
-    [JsonPropertyName("e")] public double E { get; set; }
-    [JsonPropertyName("n")] public double N { get; set; }
+    public double E { get; set; }
+    public double N { get; set; }
 }
 
 public sealed class PathsGeometrySnapshot
 {
-    [JsonPropertyName("youTurn")]  public List<PathsFieldPoint>? YouTurn  { get; set; }
-    [JsonPropertyName("recorded")] public List<PathsFieldPoint>? Recorded { get; set; }
-    [JsonPropertyName("revision")] public long                   Revision { get; set; }
+    public List<PathsFieldPoint>? YouTurn  { get; set; }
+    public List<PathsFieldPoint>? Recorded { get; set; }
+    public long                   Revision { get; set; }
 }
 
 public sealed class PathsGeometryResponse
 {
-    [JsonPropertyName("ok")]       public bool                    Ok       { get; set; }
-    [JsonPropertyName("snapshot")] public PathsGeometrySnapshot?  Snapshot { get; set; }
-    [JsonPropertyName("error")]    public string?                 Error    { get; set; }
+    public bool                    Ok       { get; set; }
+    public PathsGeometrySnapshot?  Snapshot { get; set; }
+    public string?                 Error    { get; set; }
 }
 
 // ----- Cliente HTTP ------------------------------------------------------
@@ -60,7 +62,9 @@ public sealed class PathsGeometryClient
     };
     private static readonly JsonSerializerOptions _jsonOpts = new JsonSerializerOptions
     {
-        PropertyNameCaseInsensitive = true
+        // Snake_case: misma politica que el servidor (AgpJson). Ver HudPoller.
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower
     };
 
     private readonly string _baseUrl;

@@ -31,31 +31,33 @@ namespace PilotX.Desktop.Services;
 
 // ----- DTOs cliente ------------------------------------------------------
 
+// Nombres C# PascalCase; SnakeCaseLower del _jsonOpts los mapea al
+// snake_case del servidor (left_e, is_on, btn_state, num_sections...).
 public sealed class ToolSectionGeometry
 {
-    [JsonPropertyName("index")]     public int    Index     { get; set; }
-    [JsonPropertyName("leftE")]     public double LeftE     { get; set; }
-    [JsonPropertyName("leftN")]     public double LeftN     { get; set; }
-    [JsonPropertyName("rightE")]    public double RightE    { get; set; }
-    [JsonPropertyName("rightN")]    public double RightN    { get; set; }
-    [JsonPropertyName("isOn")]      public bool   IsOn      { get; set; }
-    [JsonPropertyName("isMapping")] public bool   IsMapping { get; set; }
+    public int    Index     { get; set; }
+    public double LeftE     { get; set; }
+    public double LeftN     { get; set; }
+    public double RightE    { get; set; }
+    public double RightN    { get; set; }
+    public bool   IsOn      { get; set; }
+    public bool   IsMapping { get; set; }
     /// <summary>0=Off, 1=Auto, 2=On (manual).</summary>
-    [JsonPropertyName("btnState")]  public int    BtnState  { get; set; }
+    public int    BtnState  { get; set; }
 }
 
 public sealed class ToolGeometrySnapshot
 {
-    [JsonPropertyName("numSections")] public int                          NumSections { get; set; }
-    [JsonPropertyName("isValid")]     public bool                         IsValid     { get; set; }
-    [JsonPropertyName("sections")]    public List<ToolSectionGeometry>?   Sections    { get; set; }
+    public int                          NumSections { get; set; }
+    public bool                         IsValid     { get; set; }
+    public List<ToolSectionGeometry>?   Sections    { get; set; }
 }
 
 public sealed class ToolGeometryResponse
 {
-    [JsonPropertyName("ok")]       public bool                   Ok       { get; set; }
-    [JsonPropertyName("snapshot")] public ToolGeometrySnapshot?  Snapshot { get; set; }
-    [JsonPropertyName("error")]    public string?                Error    { get; set; }
+    public bool                   Ok       { get; set; }
+    public ToolGeometrySnapshot?  Snapshot { get; set; }
+    public string?                Error    { get; set; }
 }
 
 // ----- Cliente HTTP ------------------------------------------------------
@@ -69,7 +71,9 @@ public sealed class ToolGeometryClient
     };
     private static readonly JsonSerializerOptions _jsonOpts = new JsonSerializerOptions
     {
-        PropertyNameCaseInsensitive = true
+        // Snake_case: misma politica que el servidor (AgpJson). Ver HudPoller.
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower
     };
 
     private readonly string _baseUrl;
