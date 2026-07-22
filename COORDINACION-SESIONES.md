@@ -307,6 +307,18 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Al mergear: si tenías cambios en GUI.FloatingMenu.cs/FormGPS.cs sin
   commitear, ojo con esos hunks — son bloques nuevos marcados, no reescriben
   lógica existente. Cualquier conflicto avisá y lo resolvemos.
+- [2026-07-21] [taller] HECHO — pasada visual de las barras Avalonia
+  (todo en mi carril, solo SourceCode/PilotX.Cockpit.Bars + PilotX.Bars.Host,
+  NO toca GPS/Forms). Pusheado (`59975113..b06e1302`). (1) barras derecha/abajo
+  portadas a **íconos nativos** (42 PNG de wwwroot/img embebidos como
+  AvaloniaResource + AssetImageConverter, mismas imágenes/reglas que
+  barra-derecha.js/barra-abajo.js); (2) menú izquierdo con submenús que
+  ensanchan la ventana + auto-cierre + submenú Guías (crear A/B/curva/A+);
+  (3) **tema claro unificado** en las 4 barras (BarStyles único, design system
+  #E2E7E2/#C5CFC5/#101612/acento #4ABA3E) + tamaños compactos para 1024x768.
+  Validado y aprobado por el usuario en la pantalla ViewX. Gotcha para el
+  futuro: los botones de submenú necesitan Width explícito (si no, al hacerse
+  visibles antes de que ensanche la ventana el texto se mide a 0 y salen vacíos).
 - [2026-07-22] [android] HECHO — merge FF de `origin/codex/pilotx-ui-new`
   traído (barras Avalonia + PilotX.Bars.Host/PilotX.Cockpit.Bars). Sin
   conflicto real en GUI.FloatingMenu.cs/FormGPS.cs (auto-merge limpio,
