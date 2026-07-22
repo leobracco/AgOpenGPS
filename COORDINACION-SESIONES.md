@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 14 al ~50% (comando real de autosteer, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
+| android | Bloque 14 al ~60% (comando de autosteer también por MQTT, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
 
 ## Bitácora (append-only)
 
@@ -466,3 +466,27 @@ la sesión android al extraer, pero el taller los usa desde Services),
   allá de "autosteer" si hace falta (job start/stop, youturn, etc. — no
   los agregué todavía por no inventar semántica sin un consumidor real
   del otro lado). Voy a commitear y pushear.
+- [2026-07-22] [android] HECHO — seguí con el pendiente de arriba: el
+  comando "autosteer" ahora también se sirve por **MQTT** (el transporte
+  real del ecosistema), no solo por el TCP de prueba. En `CoreXEngineHost`
+  agregué `SubscribeCommands(Action<string> onCommand, string topic =
+  "agp/aog/guidance/command")`: un cliente MQTT (mismo patrón que
+  `FirmwareOtaClient`/`NodoRegistryService` de `AgroParallel.Services` —
+  solo LEÍ esos archivos para copiar el idioma, no los toqué, son carril
+  taller) que se conecta al broker que ya arranca `StartServices()` (mismo
+  puerto, sin credenciales extra) y se suscribe al tópico
+  `agp/aog/guidance/command` (mismo nombre que el REST
+  `POST /api/aog/guidance/command` del Hub, pero en MQTT — mismo
+  vocabulario/semántica). `MQTTnet.Client` no necesitó un `PackageReference`
+  nuevo: ya llega transitivo desde el `ProjectReference` a
+  `AgroParallel.Services` (que sí trae el paquete). Cableado en
+  `Program.cs`: con `--corex`, cada mensaje de ese tópico llama a
+  `host.ExecuteCommand(payload)`. Verificado en runtime con `--sim --corex`:
+  armé un publisher MQTT de prueba descartable (proyecto scratch aparte,
+  no forma parte del repo) y mandé "autosteer" x2 + un comando inventado →
+  `"MQTT cmd \"autosteer\" -> ok"` x2 + `"... bogus_cmd\" -> unknown"` en el
+  log, sin excepciones ni caídas. Compila limpio (0 warnings), 141 tests
+  verdes. Matriz bloque 14 subida a ~60%. Falta: un consumidor real del
+  otro lado (Android UI o Hub) que publique en ese tópico — sin eso, esto
+  es un canal listo pero mudo — y ampliar vocabulario cuando ese
+  consumidor exista. Voy a commitear y pushear.

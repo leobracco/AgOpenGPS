@@ -14,9 +14,12 @@
 
 using System;
 using System.Net;
+using System.Text;
 using AgLibrary.Logging;
 using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
+using MQTTnet;
+using MQTTnet.Client;
 using PilotX.GuidanceEngine;
 
 namespace AgIO
@@ -41,6 +44,9 @@ namespace AgIO
 
         public IPEndPoint EpModule = new IPEndPoint(IPAddress.Parse("255.255.255.255"), 8888);
 
+        private IMqttClient _cmdClient;
+        private int _mqttPort;
+
         public CoreXEngineHost()
         {
             Nmea = new CNmeaParser(this);
@@ -64,6 +70,7 @@ namespace AgIO
         // ---- arranque de los 3 servicios portables ----
         public void StartServices(int mqttPort = 1883, int lanPort = 9999, string loopbackIp = "127.0.0.1")
         {
+            _mqttPort = mqttPort;
             MqttBroker.StartAsync(mqttPort).GetAwaiter().GetResult();
             Log.EventWriter("CoreXEngine: broker MQTT en :" + mqttPort);
 
@@ -86,6 +93,40 @@ namespace AgIO
                 else if (SpGPS.IsOpen) SpGPS.Write(rtcm, 0, rtcm.Length);
             };
             Ntrip.Connect(config, gpsFeedback);
+        }
+
+        // Comando real de guiado (bloque 14) sobre el broker MQTT que ya
+        // arranca StartServices(): el mismo canal que usan QuantiX/VistaX
+        // para descubrimiento (topic "agp/..."). Reemplaza al TCP de prueba
+        // de GuidanceEngineHost.Commands.cs por un transporte que ya es el
+        // estándar del ecosistema (ver COORDINACION-SESIONES.md).
+        // Payload esperado: texto plano con el comando (ej. "autosteer"),
+        // mismo vocabulario que GuidanceEngineHost.ExecuteCommand.
+        public void SubscribeCommands(Action<string> onCommand, string topic = "agp/aog/guidance/command")
+        {
+            var factory = new MqttFactory();
+            _cmdClient = factory.CreateMqttClient();
+
+            var opts = new MqttClientOptionsBuilder()
+                .WithTcpServer("127.0.0.1", _mqttPort)
+                .WithClientId("PilotX_GuidanceEngine_cmd")
+                .WithCleanSession(true)
+                .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
+                .Build();
+
+            _cmdClient.ApplicationMessageReceivedAsync += e =>
+            {
+                var seg = e.ApplicationMessage.PayloadSegment;
+                string cmd = Encoding.UTF8.GetString(seg.Array, seg.Offset, seg.Count);
+                onCommand(cmd);
+                return System.Threading.Tasks.Task.CompletedTask;
+            };
+
+            _cmdClient.ConnectAsync(opts).GetAwaiter().GetResult();
+            _cmdClient.SubscribeAsync(new MqttClientSubscribeOptionsBuilder()
+                .WithTopicFilter(topic).Build()).GetAwaiter().GetResult();
+
+            Log.EventWriter("CoreXEngine: comandos por MQTT en tópico " + topic);
         }
 
         // ---- ruteo PGN loopback -> puertos serie (equivalente a
@@ -185,6 +226,12 @@ namespace AgIO
             SpGPS.Close(); SpGPS2.Close(); SpRtcm.Close();
             SpIMU.Close(); SpSteerModule.Close(); SpMachineModule.Close();
             UdpBridge.Stop();
+            if (_cmdClient != null)
+            {
+                try { _cmdClient.DisconnectAsync().GetAwaiter().GetResult(); } catch { }
+                _cmdClient.Dispose();
+                _cmdClient = null;
+            }
             MqttBroker.StopAsync().GetAwaiter().GetResult();
             Ntrip.Disconnect();
         }

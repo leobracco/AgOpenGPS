@@ -11,7 +11,10 @@
 //            reales (GPS/GPS2/RTCM/IMU/Steer/Machine) — el "otro lado" que
 //            hoy es AgIO/CoreX.exe aparte. Sin este flag, GuidanceEngineHost
 //            sigue escuchando en :15555 esperando un CoreX externo real
-//            (comportamiento ya validado antes).
+//            (comportamiento ya validado antes). Con este flag TAMBIÉN se
+//            suscribe el comando de guiado (GuidanceEngineHost.ExecuteCommand)
+//            al tópico MQTT "agp/aog/guidance/command" — el canal real,
+//            además del TCP de prueba en :15556.
 //
 // Ctrl+C para salir.
 // ============================================================================
@@ -50,6 +53,13 @@ namespace AgOpenGPS
                 coreX = new CoreXEngineHost();
                 coreX.StartServices();
                 Console.WriteLine("Modo --corex: broker MQTT (:1883), bridge UDP LAN (:9999) y puertos serie arriba, mismo proceso.");
+
+                coreX.SubscribeCommands(cmd =>
+                {
+                    bool ok = host.ExecuteCommand(cmd);
+                    Console.WriteLine($"MQTT cmd \"{cmd}\" -> {(ok ? "ok" : "unknown")}");
+                });
+                Console.WriteLine("Comandos por MQTT en topico agp/aog/guidance/command.");
             }
 
             Timer simTimer = null;
