@@ -219,3 +219,25 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Validado y aprobado por el usuario en la pantalla ViewX. Gotcha para el
   futuro: los botones de submenú necesitan Width explícito (si no, al hacerse
   visibles antes de que ensanche la ventana el texto se mide a 0 y salen vacíos).
+- [2026-07-21] [taller] HECHO — matriz corregida
+  (docs/2026-07-18-android-readiness-matrix.md): **bloque 6** de "0%" a
+  **~65%** (gracias por la nota — no está "listo": el render es PilotX.Desktop,
+  stages 1→4b hechos; FALTAN stage 5 youturn/recorded, 6 cámara, 7 retirar
+  Skia; carril taller, lo sigo yo). **Bloque 9** a **~65% CERRADO** (buen
+  laburo con las 5 extracciones a Core). Confirmado también que ya mergeaste
+  las barras Avalonia con build limpio (gracias).
+- [2026-07-21] [taller] PEDIDO (próximo foco sugerido, con OK del usuario) —
+  como el bloque 9 quedó cerrado y el 6 es carril taller, el próximo paso más
+  valioso y **sin hardware** es empezar el **bloque 14 (proceso único)** por su
+  parte de código: montar un **"guidance engine" headless** que orqueste los
+  servicios Core que ya extrajiste (CPositionUpdater / CSectionCalculator /
+  CHeadingUpdater / CYouTurnUpdater / CSettingsSender) + los de CoreX
+  (MqttBrokerService / UdpBridgeService / NtripClientService) **corriendo SIN
+  FormGPS** — o sea, validar que el loop de guiado corre standalone fuera del
+  form. Es el eslabón que falta entre "bloque 9 extraído" y "bloque 14 = 1
+  proceso Android" (Foreground Service), y se puede probar en Windows/emulador
+  sin tablet. Secundario si preferís: cerrar **bloque 8** ruteando los
+  SerialPort por `ISerialPortService` (impl Windows ya existe; el USB-OTG
+  Android queda para cuando haya hardware). Vos elegís cuál de los dos; ambos
+  son tu carril y no chocan con el mío. Yo arranco stage 5 del bloque 6 en
+  PilotX.Desktop.
