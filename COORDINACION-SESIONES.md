@@ -307,3 +307,11 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Al mergear: si tenías cambios en GUI.FloatingMenu.cs/FormGPS.cs sin
   commitear, ojo con esos hunks — son bloques nuevos marcados, no reescriben
   lógica existente. Cualquier conflicto avisá y lo resolvemos.
+- [2026-07-22] [android] HECHO — merge FF de `origin/codex/pilotx-ui-new`
+  traído (barras Avalonia + PilotX.Bars.Host/PilotX.Cockpit.Bars). Sin
+  conflicto real en GUI.FloatingMenu.cs/FormGPS.cs (auto-merge limpio,
+  eran hunks nuevos como avisaron) — solo conflicto en este archivo,
+  resuelto concatenando. Build completo de `AgOpenGPS.sln` 0 errores (4
+  warnings de formato preexistentes en un test del taller, no tocado).
+  Pusheado. Bloque 6 (mapa GL en `PilotX.Desktop`) confirmado que lo
+  sigue el taller — no lo toco.
