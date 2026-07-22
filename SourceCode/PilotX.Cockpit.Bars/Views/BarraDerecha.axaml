@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
+             x:Class="PilotX.Cockpit.Bars.Views.BarraDerecha"
+             x:DataType="vm:BarraDerechaViewModel">
+  <UserControl.Resources>
+    <views:AssetImageConverter x:Key="Asset"/>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <!-- Botones de ícono, tema claro (como la barra HTML original). -->
+    <Style Selector="Button">
+      <Setter Property="Background" Value="#E2E7E2"/>
+      <Setter Property="BorderBrush" Value="#C5CFC5"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="3"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#D5DDD5"/>
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#C5CFC5"/>
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+    <Style Selector="Image">
+      <Setter Property="Stretch" Value="Uniform"/>
+      <Setter Property="MaxWidth" Value="46"/>
+      <Setter Property="MaxHeight" Value="46"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1,0,0,0" Padding="4">
+    <!-- orden visual arriba->abajo (numCu arriba, Piloto abajo, como el nativo) -->
+    <StackPanel Orientation="Vertical" Spacing="4">
+      <TextBlock Text="{Binding NumCuText}" IsVisible="{Binding NumCuVisible}"
+                 FontSize="18" FontWeight="Bold" Foreground="#101612"
+                 HorizontalAlignment="Center" Margin="0,2"/>
+      <Button IsVisible="{Binding ContourLockVisible}" Command="{Binding SendCommand}" CommandParameter="contour_lock">
+        <Image Source="{Binding ContourLockImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="contour">
+        <Image Source="{Binding ContourImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_next">
+        <Image Source="/Assets/barra-derecha/ABLineCycle.png"/>
+      </Button>
+      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_prev">
+        <Image Source="/Assets/barra-derecha/ABLineCycleBk.png"/>
+      </Button>
+      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="autotrack">
+        <Image Source="{Binding AutoTrackImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding IsobusVisible}" Command="{Binding SendCommand}" CommandParameter="isobus">
+        <Image Source="{Binding IsobusImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="sec_manual">
+        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="sec_auto">
+        <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding UturnVisible}" Command="{Binding SendCommand}" CommandParameter="uturn">
+        <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsEnabled="{Binding PilotoEnabled}" Command="{Binding SendCommand}" CommandParameter="autosteer">
+        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}"/>
+      </Button>
+    </StackPanel>
+  </Border>
+</UserControl>

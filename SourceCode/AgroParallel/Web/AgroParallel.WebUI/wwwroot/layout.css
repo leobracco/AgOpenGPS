@@ -52,19 +52,19 @@ aside.sidebar {
   border-left-color: var(--agp-accent); font-weight: var(--agp-fw-semi);
 }
 .nav .ico {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   display: inline-grid;
   place-items: center;
-  flex: 0 0 24px;
+  flex: 0 0 20px;
 }
 .nav .ico img {
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   object-fit: contain;
   display: block;
 }
-.nav .label { font-size: var(--agp-fs-md); }
+.nav .label { font-size: var(--agp-fs-sm); }
 
 .sidebar-foot {
   padding: var(--agp-sp-4) var(--agp-sp-5);
@@ -88,26 +88,20 @@ main.page { padding: var(--agp-sp-6) var(--agp-sp-8); overflow-y: auto; }
   .sidebar-foot { padding: var(--agp-sp-3) var(--agp-sp-4); }
   main.page { padding: var(--agp-sp-4) var(--agp-sp-5); }
 }
-/* Hub en modo float chico (~640-900px ancho): sidebar collapsada a iconos.
-   El operario sigue navegando por tap; los labels se ocultan. */
+/* Hub en modo float chico (~640-900px ancho): sidebar angosta pero SIEMPRE
+   con texto (pedido usuario 2026-07-20). Antes colapsaba a solo íconos y no
+   se leían los nombres; ahora achica íconos y texto y baja el padding, pero
+   los labels quedan visibles. */
 @media (max-width: 900px) {
-  body { grid-template-columns: 64px 1fr; }
-  .brand-name, .brand-sub { display: none; }
-  .brand { padding: 0 0 var(--agp-sp-3); justify-content: center; }
-  .nav a { justify-content: center; padding: var(--agp-sp-3) 0; }
-  .nav .label { display: none; }
-  .nav .ico { width: 28px; height: 28px; flex-basis: 28px; }
-  .nav .ico img { width: 24px; height: 24px; }
-  /* En modo colapsado mantenemos el pie del sidebar VISIBLE para que el
-     operario siga teniendo acceso a "WiFi" y "Cerrar Hub" — antes lo ocultábamos
-     entero (`display:none`) y al abrir un lote el Hub se achica a <900px y el
-     botón ✕ desaparecía. Solo escondemos los textos largos y la línea
-     "Sesión/Cloud", dejando los íconos centrados. */
-  .sidebar-foot { display: block; padding: var(--agp-sp-2) 0; border-top: 1px solid var(--agp-border); }
+  body { grid-template-columns: 150px 1fr; }
+  .brand-sub { display: none; }
+  .brand { padding: 0 var(--agp-sp-3) var(--agp-sp-3); }
+  .nav a { justify-content: flex-start; padding: var(--agp-sp-2) var(--agp-sp-3); gap: var(--agp-sp-2); }
+  .nav .label { display: inline; font-size: var(--agp-fs-sm); }
+  .nav .ico { width: 18px; height: 18px; flex-basis: 18px; }
+  .nav .ico img { width: 16px; height: 16px; }
+  .sidebar-foot { display: block; padding: var(--agp-sp-2) var(--agp-sp-3); border-top: 1px solid var(--agp-border); }
   .sidebar-foot .foot-meta { display: none; }
-  .sidebar-foot .foot-label { display: none; }
-  .sidebar-foot button { padding: 8px 0 !important; font-size: 18px; }
-  .sidebar-foot .foot-ico { font-size: 18px; }
   main.page { padding: var(--agp-sp-3) var(--agp-sp-4); }
 }
 .page-head {

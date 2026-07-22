@@ -112,11 +112,9 @@
       '.nav-group-head .gdot { margin-left:6px; color: var(--agp-accent); font-size: 10px; display:none; }',
       '.nav-group.has-active > .nav-group-head .gdot { display:inline; }',
       '.nav-sub { list-style:none; margin:0; padding:0; display:none; }',
-      '.nav-group.open > .nav-sub { display:block; }',
-      '@media (max-width: 900px) {',
-      '  .nav-group-head { display:none; }',
-      '  .nav-sub { display:block !important; }',
-      '}'
+      '.nav-group.open > .nav-sub { display:block; }'
+      // Sin colapso a solo-íconos en <900px: la sidebar angosta muestra
+      // headers de grupo + texto igual que en desktop (pedido 2026-07-20).
     ].join('\n');
     document.head.appendChild(st);
   }

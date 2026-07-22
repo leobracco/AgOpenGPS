@@ -540,7 +540,7 @@ namespace AgOpenGPS
             // imports KML/ISO-XML y la gestión avanzada siguen en lote.html
             // (accesible desde el Hub). El fixup post-apertura vive en
             // Lotes_PostOpenFixup y lo llama el servicio.
-            OpenAgroParallelWidget("pages/lote-rapido.html", "Lote", 420, 540);
+            OpenAgroParallelWidget("pages/lote-rapido.html", "Lote", 560, 700);
         }
 
         public async Task FileSaveEverythingBeforeClosingField()

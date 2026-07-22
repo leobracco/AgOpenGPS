@@ -1,0 +1,137 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
+             x:Class="PilotX.Cockpit.Bars.Views.MenuIzquierda"
+             x:DataType="vm:MenuIzquierdaViewModel">
+  <UserControl.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarsTheme.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <views:StringEqualsConverter x:Key="StrEq"/>
+    </ResourceDictionary>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <Style Selector="Button.active">
+      <Setter Property="Background" Value="{StaticResource PilotXAccent}"/>
+      <Setter Property="Foreground" Value="{StaticResource PilotXBgDeep}"/>
+    </Style>
+  </UserControl.Styles>
+  <Border Background="{StaticResource PilotXBgMid}"
+          BorderBrush="{StaticResource PilotXBorder}" BorderThickness="0,0,1,0">
+    <!-- Grid de 2 columnas: col 0 = columna principal (ancho fijo, no se
+         aplasta); col 1 = submenú (todos apilados en la misma celda, solo el
+         activo visible). El Host ensancha la ventana al abrir un submenú. -->
+    <Grid ColumnDefinitions="104,*">
+      <!-- columna principal: siempre visible -->
+      <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="6" Margin="4,6">
+        <Button Content="Navegación" HorizontalAlignment="Stretch"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion"/>
+        <Button Content="Config" HorizontalAlignment="Stretch"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="config"/>
+        <Button Content="Herramientas" HorizontalAlignment="Stretch"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="herramientas"/>
+        <Button Content="Lote" HorizontalAlignment="Stretch"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="lote"/>
+        <Button Content="Herr. lote" HorizontalAlignment="Stretch"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="herrlote"/>
+        <Button Content="Guías" HorizontalAlignment="Stretch"
+                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=guias}"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="guias"/>
+        <Button Content="Dirección" HorizontalAlignment="Stretch"
+                Command="{Binding SendCommand}" CommandParameter="direccion"/>
+        <Button Content="CoreX" HorizontalAlignment="Stretch"
+                Command="{Binding SendCommand}" CommandParameter="corex"/>
+      </StackPanel>
+
+      <!-- submenús: hijos directos de col 1, apilados (solo 1 visible).
+           Al tocar un ítem se ejecuta y se cierra (SendAndCloseCommand). -->
+
+      <!-- Navegación -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}">
+        <Button Content="2D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="v2d"/>
+        <Button Content="3D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="v3d"/>
+        <Button Content="Norte 2D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="norte2d"/>
+        <Button Content="Grilla" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grilla"/>
+        <Button Content="Día/Noche" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="dia_noche"/>
+        <Button Content="Brillo +" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="brillo_up"/>
+        <Button Content="Brillo -" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="brillo_dn"/>
+        <Button Content="Hub" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="hub"/>
+        <Button Content="Navegación" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="navegacion"/>
+      </StackPanel>
+
+      <!-- Config -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}">
+        <Button Content="Config" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="config_form"/>
+        <Button Content="Dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="direccion"/>
+        <Button Content="Todos los ajustes" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="todos_ajustes"/>
+        <Button Content="Colores" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="colores"/>
+        <Button Content="Colores sección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="colores_sec"/>
+        <Button Content="Datos GPS" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="datos_gps"/>
+        <Button Content="Perfil nuevo" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="perfil_nuevo"/>
+        <Button Content="Perfil cargar" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="perfil_cargar"/>
+        <Button Content="Directorios" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="directorios"/>
+        <Button Content="Ayuda" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="ayuda"/>
+      </StackPanel>
+
+      <!-- Herramientas -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}">
+        <Button Content="Asistente dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="asistente_direccion"/>
+        <Button Content="Gráfico dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grafico_direccion"/>
+        <Button Content="Gráfico rumbo" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grafico_rumbo"/>
+        <Button Content="Gráfico XTE" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grafico_xte"/>
+        <Button Content="Chequeo roll" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="chequeo_roll"/>
+        <Button Content="Herr. límites" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="herr_limites"/>
+        <Button Content="Suavizar AB" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="suavizar_ab"/>
+        <Button Content="Borrar contornos" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="borrar_contornos"/>
+        <Button Content="Corregir posición" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="corregir_pos"/>
+        <Button Content="Visor de eventos" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="visor_eventos"/>
+        <Button Content="Webcam" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="webcam"/>
+      </StackPanel>
+
+      <!-- Lote -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}">
+        <Button Content="Continuar lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_continuar"/>
+        <Button Content="Menú lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
+        <Button Content="Cerrar lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_cerrar"/>
+        <Button Content="Datos lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
+        <Button Content="Bandera" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="bandera"/>
+        <Button Content="Bandera lat/lon" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="bandera_latlon"/>
+        <Button Content="Borrar aplicado" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="borrar_aplicado"/>
+        <Button Content="Mapeo color" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="mapeo_color"/>
+      </StackPanel>
+
+      <!-- Guías (crear/elegir/ocultar líneas de guiado) -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=guias}">
+        <Button Content="Nueva A/B" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_ab"/>
+        <Button Content="Nueva curva" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_curve"/>
+        <Button Content="Recta A+" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_a"/>
+        <Button Content="Elegir guía" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="pick"/>
+        <Button Content="Ocultar guías" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tracks_off"/>
+      </StackPanel>
+
+      <!-- Herr. lote -->
+      <StackPanel Grid.Column="1" Width="185" HorizontalAlignment="Left" Orientation="Vertical" Spacing="4" Margin="4,6"
+                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}">
+        <Button Content="Lindero" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lindero"/>
+        <Button Content="Cabecera" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="cabecera"/>
+        <Button Content="Cabecera avanzada" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="cabecera_avanzada"/>
+        <Button Content="Cabecera on/off" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"/>
+        <Button Content="Importar guías" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="importar_guias"/>
+        <Button Content="Crear tram" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tram_crear"/>
+        <Button Content="Ver tram" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tram_vista"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

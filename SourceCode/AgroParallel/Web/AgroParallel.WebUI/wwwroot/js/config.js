@@ -1371,7 +1371,33 @@
   }
 
   document.querySelectorAll('#menu button').forEach(function (b) {
-    b.addEventListener('click', function () { irATab(b.dataset.tab); });
+    b.addEventListener('click', function () {
+      // Acciones nativas (no navegan ni embeben): p.ej. WiFi de Windows, que
+      // el host WebView2 abre al recibir el postMessage.
+      if (b.dataset.action === 'wifi') {
+        try {
+          var wv = window.chrome && window.chrome.webview;
+          if (wv) wv.postMessage('open-wifi-settings');
+        } catch (e) { /* fuera de WebView2: no-op */ }
+        return;
+      }
+      // Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget) dentro de
+      // config, sin salir ni cambiar de estilo. Carga perezosa: el iframe solo
+      // apunta a la página cuando se toca el módulo.
+      if (b.dataset.mod) {
+        var fr = document.getElementById('modIframe');
+        var url = b.dataset.mod + (b.dataset.mod.indexOf('?') < 0 ? '?widget=1' : '&widget=1');
+        if (fr.getAttribute('src') !== url) fr.setAttribute('src', url);
+        document.querySelectorAll('#menu button').forEach(function (x) {
+          x.classList.toggle('sel', x === b);
+        });
+        document.querySelectorAll('section[data-tab]').forEach(function (s) {
+          s.classList.toggle('activa', s.dataset.tab === 'modulo');
+        });
+        return;
+      }
+      irATab(b.dataset.tab);
+    });
   });
 
   // ---- botón Guardar flotante con estados -------------------------------------

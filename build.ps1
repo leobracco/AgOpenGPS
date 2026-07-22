@@ -48,6 +48,16 @@ Write-Host "`n=== Build ModSim ($Config) ===" -ForegroundColor Cyan
 dotnet build "$root\SourceCode\ModSim\Source\ModSim.csproj" -c $Config -v q $verArg
 if ($LASTEXITCODE -ne 0) { Write-Host "ModSim FAILED" -ForegroundColor Red; exit 1 }
 
+# PilotX.Bars.Host: proceso Avalonia standalone que dibuja las barras nativas
+# (reemplazo liviano de las barras WebView2). Se publica self-contained porque
+# corre como proceso hijo separado de PilotX y FormGPS.ResolveBarsHostExe lo
+# busca en <baseDir>/BarsHost/PilotX.Bars.Host.exe en produccion.
+Write-Host "`n=== Publish PilotX.Bars.Host ($Config) ===" -ForegroundColor Cyan
+dotnet publish "$root\SourceCode\PilotX.Bars.Host\PilotX.Bars.Host.csproj" `
+    -c $Config -r win-x64 --self-contained true `
+    -p:PublishReadyToRun=true -o "$OutDir\BarsHost" $verArg
+if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.Bars.Host FAILED" -ForegroundColor Red; exit 1 }
+
 # Crear directorio de salida
 if (!(Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
 

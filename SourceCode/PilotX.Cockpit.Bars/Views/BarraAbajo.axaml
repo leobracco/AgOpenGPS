@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:PilotX.Cockpit.Bars.ViewModels"
+             xmlns:views="using:PilotX.Cockpit.Bars.Views"
+             x:Class="PilotX.Cockpit.Bars.Views.BarraAbajo"
+             x:DataType="vm:BarraAbajoViewModel">
+  <UserControl.Resources>
+    <views:AssetImageConverter x:Key="Asset"/>
+    <views:SkipsIndexConverter x:Key="SkipsIndex"/>
+  </UserControl.Resources>
+  <UserControl.Styles>
+    <Style Selector="Button">
+      <Setter Property="Background" Value="#E2E7E2"/>
+      <Setter Property="BorderBrush" Value="#C5CFC5"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="3"/>
+      <Setter Property="VerticalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#D5DDD5"/>
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#C5CFC5"/>
+    </Style>
+    <Style Selector="Button:disabled">
+      <Setter Property="Opacity" Value="0.45"/>
+    </Style>
+    <Style Selector="Image">
+      <Setter Property="Stretch" Value="Uniform"/>
+      <Setter Property="MaxWidth" Value="46"/>
+      <Setter Property="MaxHeight" Value="46"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="0,1,0,0" Padding="4">
+    <!-- orden visual izq->der; a la derecha "elegir guía" (como el nativo RTL) -->
+    <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+      <ComboBox x:Name="SkipsCombo" IsVisible="{Binding SkipsVisible}" VerticalAlignment="Center"
+                FontSize="18" MinWidth="56"
+                SelectedIndex="{Binding SkipsValue, Converter={StaticResource SkipsIndex}, Mode=OneWay}"
+                SelectionChanged="OnSkipsSelectionChanged">
+        <ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/>
+        <ComboBoxItem Content="4"/><ComboBoxItem Content="5"/><ComboBoxItem Content="6"/>
+        <ComboBoxItem Content="7"/><ComboBoxItem Content="8"/><ComboBoxItem Content="9"/>
+        <ComboBoxItem Content="10"/>
+      </ComboBox>
+      <Button IsVisible="{Binding YouSkipVisible}" Command="{Binding SendCommand}" CommandParameter="uturn_skips">
+        <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="mapeo_color">
+        <Image Source="/Assets/barra-abajo/SectionMapping.png"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="reset_herramienta">
+        <Image Source="/Assets/barra-abajo/ResetTool.png"/>
+      </Button>
+      <Button IsVisible="{Binding TramVisible}" Command="{Binding SendCommand}" CommandParameter="tram_vista">
+        <Image Source="{Binding TramImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding HydVisible}" IsEnabled="{Binding HydEnabled}" Command="{Binding SendCommand}" CommandParameter="hidraulico">
+        <Image Source="{Binding HydImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding HeadlandVisible}" Command="{Binding SendCommand}" CommandParameter="cabecera_secciones">
+        <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding HeadlandVisible}" Command="{Binding SendCommand}" CommandParameter="cabecera_onoff">
+        <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="bandera">
+        <Image Source="{Binding FlagImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsVisible="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="nudge_left">
+        <Image Source="/Assets/barra-abajo/SnapLeft.png"/>
+      </Button>
+      <Button IsVisible="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="nudge_right">
+        <Image Source="/Assets/barra-abajo/SnapRight.png"/>
+      </Button>
+      <Button IsVisible="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="center">
+        <Image Source="/Assets/barra-abajo/SnapToPivot.png"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="pick">
+        <Image Source="/Assets/barra-abajo/TrackOn.png"/>
+      </Button>
+    </StackPanel>
+  </Border>
+</UserControl>

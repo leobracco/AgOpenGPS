@@ -101,6 +101,8 @@
     .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
     .modal .btn.primary { background: var(--agp-accent); border-color: var(--agp-accent); color: #0e1612; }
   </style>
+  <script>if(location.search.indexOf('widget=1')!==-1)document.documentElement.classList.add('widget-mode');</script>
+  <style>html.widget-mode body{grid-template-columns:1fr}html.widget-mode aside.sidebar{display:none}</style>
 </head>
 <body>
   <aside class="sidebar" data-active="flowx"></aside>

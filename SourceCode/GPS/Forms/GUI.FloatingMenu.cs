@@ -64,6 +64,12 @@ namespace AgOpenGPS
         // ==================================================================
         public bool isHtmlBarsMode = false;
 
+        // Task 9 (plan bars-Avalonia): true cuando PilotX.Bars.Host.exe (net9,
+        // barras nativas Avalonia/Skia) está corriendo y dueño de las 4 barras.
+        // false = camino WebView2 clásico (fallback, exe no encontrado o modo
+        // apagado). Lo setea ToggleBarrasHtml, lo lee ActualizarBarrasHtml.
+        private bool _barsHostActive = false;
+
         private const string BarraTopPage = "pages/barra-superior.html";
         private const string BarraRightPage = "pages/barra-derecha.html";
         private const string BarraBottomPage = "pages/barra-abajo.html";
@@ -83,6 +89,22 @@ namespace AgOpenGPS
                 else if (System.IO.File.Exists(flag)) System.IO.File.Delete(flag);
             }
             catch { /* persistencia best-effort */ }
+
+            // Task 9: al prender el modo barras, preferir las barras nativas
+            // Avalonia (PilotX.Bars.Host.exe) sobre las 4 ventanas WebView2
+            // espejo. Si el exe no está presente (build viejo / dev sin
+            // compilar el Host) LaunchBarsHost devuelve false y seguimos con
+            // el camino WebView2 de siempre (fallback).
+            if (isHtmlBarsMode)
+            {
+                _barsHostActive = LaunchBarsHost();
+            }
+            else
+            {
+                StopBarsHost();
+                _barsHostActive = false;
+            }
+
             isPanelBottomHidden = false; //arrancar el modo nuevo con todo a la vista
             PanelsAndOGLSize();
         }
@@ -106,6 +128,21 @@ namespace AgOpenGPS
             }
 
             try { panelControlBox.Visible = false; menuStrip1.Visible = false; } catch { }
+
+            // Task 9: si el Host nativo (PilotX.Bars.Host.exe) está activo,
+            // él es el dueño de las 4 barras — no abrir las ventanas WebView2
+            // espejo (evita duplicado). Si el Host no arrancó (exe ausente),
+            // _barsHostActive quedó en false y seguimos de largo al camino
+            // WebView2 clásico de abajo (fallback).
+            // Si el Host arrancó pero después murió (crash Skia/GPU en pantalla
+            // débil, mutex de instancia única, etc.), _barsHostActive quedaba
+            // en true para siempre y el operario se quedaba SIN barras. Acá
+            // detectamos el proceso muerto y caemos al fallback WebView2.
+            if (_barsHostActive && (_barsHostProc == null || _barsHostProc.HasExited))
+            {
+                _barsHostActive = false; // caer al camino WebView2 de abajo
+            }
+            if (_barsHostActive) return; // Host vivo: él maneja las barras
 
             //superior: SIEMPRE visible (pedido 2026-07-13): reemplaza por
             //completo al panelControlBox nativo y no participa del
@@ -228,6 +265,17 @@ namespace AgOpenGPS
 
             //restaurar el modo barras HTML del arranque anterior
             try { isHtmlBarsMode = System.IO.File.Exists(BarrasHtmlFlagPath); } catch { }
+
+            // Task 9 (review finding): si el arranque anterior quedó en modo
+            // barras HTML, relanzar el Host nativo (PilotX.Bars.Host.exe) acá
+            // mismo — si no, el operario queda con el fallback WebView2 hasta
+            // tocar el toggle. Mismo criterio que ToggleBarrasHtml: si el exe
+            // no está, LaunchBarsHost devuelve false y ActualizarBarrasHtml
+            // cae al camino WebView2 de siempre.
+            if (isHtmlBarsMode)
+            {
+                _barsHostActive = LaunchBarsHost(); // si el exe nativo existe, arranca las barras Avalonia; si no, _barsHostActive queda false y ActualizarBarrasHtml cae al fallback WebView2
+            }
 
             btnFloatMenuLauncher = new Button
             {
