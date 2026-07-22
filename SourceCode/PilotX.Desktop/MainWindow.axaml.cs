@@ -81,6 +81,11 @@ public partial class MainWindow : Window
     // Cadencia 1 Hz contra /api/aog/tram — solo cambia al regenerar.
     // Revision-cache filtra snapshots iguales. Solo con UseGl=on.
     private TramGeometryPoller? _tramPoller;
+    // Paths geometry poller (Stage 5 mapa GL): youturn (giro de cabecera) +
+    // recorded path. Cadencia 1 Hz contra /api/aog/paths — solo cambia al
+    // generar un giro o grabar. Revision-cache filtra snapshots iguales.
+    // Solo con UseGl=on.
+    private PathsGeometryPoller? _pathsPoller;
 
     // Toolbar inferior (state-aware).
     private Button? _btnSettings;
@@ -362,6 +367,17 @@ public partial class MainWindow : Window
                 }, periodMs: 1000);
                 _coveragePoller.Start();
                 Closed += (_, _) => _coveragePoller?.Stop();
+
+                // Paths (Stage 5): youturn (giro de cabecera) + recorded path.
+                // 1 Hz con revision-cache — solo cambia al generar un giro o
+                // grabar/cargar un camino. Especifico de GL (como coverage).
+                var pc = new PathsGeometryClient(DeriveOrigin(App.TargetUrl));
+                _pathsPoller = new PathsGeometryPoller(pc, snap =>
+                {
+                    _mapHost?.OnPaths(snap);
+                }, periodMs: 1000);
+                _pathsPoller.Start();
+                Closed += (_, _) => _pathsPoller?.Stop();
             }
 
             // Stages 3/4: pollers de guidance/tool/tram. Corren tanto

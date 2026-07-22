@@ -75,6 +75,9 @@ namespace AgroParallel.WebHost
         private readonly IRecPathService _recPath;
         private readonly IToolGeometryCalculator _toolGeometry;
         private readonly ITramCalculator _tram;
+        // Caminos: youturn (giro de cabecera) + recorded path (Stage 5 render
+        // OpenGL). Igual que tram: inyectado por FormGPS, no auto-instanciado.
+        private readonly IPathsGeometryCalculator _paths;
         private readonly IPilotXUpdateService _pilotxUpdate;
         private readonly IFlowXConfigService _flowxCfg;
         private readonly IFlowXLiveService _flowxLive;
@@ -165,7 +168,8 @@ namespace AgroParallel.WebHost
                           ICabeceraLineasService cabeceraLineas = null,
                           ITramLineService tramLine = null,
                           ITrackBuilderService trackBuilder = null,
-                          IRecPathService recPath = null)
+                          IRecPathService recPath = null,
+                          IPathsGeometryCalculator paths = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -200,6 +204,7 @@ namespace AgroParallel.WebHost
             _recPath = recPath;                 // nullable
             _toolGeometry = toolGeometry;     // nullable (Stage 4a render OpenGL)
             _tram = tram;                     // nullable (Stage 4b render OpenGL)
+            _paths = paths;                   // nullable (Stage 5 render OpenGL)
             _pilotxUpdate = pilotxUpdate;     // nullable
             _flowxCfg = flowxCfg;             // nullable
             _flowxLive = flowxLive;           // nullable
@@ -307,6 +312,7 @@ namespace AgroParallel.WebHost
                 if (_guidance != null) m.WithController(() => new GuidanceController(_guidance));
                 if (_toolGeometry != null) m.WithController(() => new ToolGeometryController(_toolGeometry));
                 if (_tram != null) m.WithController(() => new TramController(_tram));
+                if (_paths != null) m.WithController(() => new PathsController(_paths));
                 if (_pilotxUpdate != null) m.WithController(() => new PilotXUpdateController(_pilotxUpdate));
                 if (_flowxCfg != null) m.WithController(() => new FlowXController(_flowxCfg, _nodos, _flowxLive));
                 if (_stormxCfg != null) m.WithController(() => new StormXController(_stormxCfg, _nodos, _stormxLive));

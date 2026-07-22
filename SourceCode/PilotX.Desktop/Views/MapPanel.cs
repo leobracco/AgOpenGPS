@@ -101,4 +101,14 @@ public sealed class MapPanel : Grid
         _gl?.OnTram(snap);
         _skia?.OnTram(snap);
     }
+
+    /// <summary>
+    /// Push de la geometria de caminos (Stage 5): youturn (giro de cabecera)
+    /// + recorded path. Especifico de GL — la surface Skia legacy no pinta
+    /// estos caminos.
+    /// </summary>
+    public void OnPaths(PathsGeometrySnapshot snap)
+    {
+        _gl?.OnPaths(snap);
+    }
 }

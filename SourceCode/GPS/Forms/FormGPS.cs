@@ -647,6 +647,7 @@ namespace AgOpenGPS
                 var recPathSvc = new global::AgroParallel.Adapters.FormGpsRecPathService(this);
                 var toolGeometry = new global::AgroParallel.Adapters.FormGpsToolGeometryCalculator(this);
                 var tram = new global::AgroParallel.Adapters.FormGpsTramCalculator(this);
+                var paths = new global::AgroParallel.Adapters.FormGpsPathsCalculator(this);
                 var pilotxUpdate = new global::AgroParallel.Adapters.FormGpsPilotXUpdateService();
                 // Cuando el operario aplica un update, PilotXSelfUpdate lanza el
                 // Updater externo y nos pide cerrar. Cerramos ordenado (FormClosing
@@ -683,7 +684,8 @@ namespace AgOpenGPS
                     cabeceraLineas: cabeceraLineas,
                     tramLine: tramLine,
                     trackBuilder: trackBuilder,
-                    recPath: recPathSvc);
+                    recPath: recPathSvc,
+                    paths: paths);
             }
             catch (Exception ex)
             {
