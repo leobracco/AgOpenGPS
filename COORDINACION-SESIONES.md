@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 14 al ~70% (abrir/cerrar lote real headless, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
+| android | Bloque 14 al ~75% (comandos uturn/pick, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
 
 ## Bitácora (append-only)
 
@@ -521,3 +521,36 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Matriz bloque 14 subida a ~70%. Sigue bloqueado lo mismo de antes:
   consumidor real (Android UI/Hub) y hardware NTRIP/serial. Voy a
   commitear y pushear.
+- [2026-07-22] [android] HECHO — 2 comandos más del vocabulario real de
+  FormGPS, mismos bloqueadores de siempre (consumidor real, hardware).
+  Miré el switch completo de `ExecuteGuidanceCommand`
+  (GUI.FloatingMenu.cs) para no inventar nombres: la mayoría de los
+  comandos que quedan son genuinamente UI (abrir paneles/diálogos,
+  colores, menús) — pero encontré 2 que son casi lógica pura:
+  - `"uturn"` → `ToggleYouTurn()`, copia exacta de `btnAutoYouTurn_Click`
+    (Controls.Designer.cs) sin la línea de ícono. Toda la lógica ya vivía
+    en `CYouTurn` (Core, portable desde bloque 9).
+  - `"pick"` → `SelectTrack()`, copia de la parte de selección de
+    `btnTrack_Click` (sin el flyout de nudge/build, que es panel
+    WinForms/HTML). Hallazgo al investigar: **sin este comando, el
+    "uturn" recién agregado era imposible de probar de verdad** —
+    `Trk.idx` queda en -1 después de `job_start_` (mismo comportamiento
+    que FormGPS real: cargar tracks no selecciona ninguno solo) y
+    `ToggleYouTurn()` tiene un `if (Trk.idx == -1) return;` que lo corta
+    en seco. Mismo nombre que `IGuidanceCalculator.ExecuteCommand("pick")`
+    (AgroParallel.Services, carril taller — solo leí la interfaz para
+    copiar el vocabulario, no la toqué) para que si algún día hay un
+    consumidor real, el nombre ya coincide.
+  Verificado en runtime con `--sim` contra un lote distinto al `66666`
+  de antes — **`Lote 1`** (tiene Boundary.txt real, no vacío, a diferencia
+  de 66666): secuencia completa `uturn` (sin boundary → se ignora,
+  silencioso igual que FormGPS) → `job_start_Lote 1` (boundaries=1,
+  tracks=1) → `uturn` (con boundary pero sin guía elegida → se ignora)
+  → `pick` (`track idx=0/1`) → `uturn` (`ON` — confirmado en consola) →
+  `uturn` (`OFF` — confirmado). Las 4 ramas de guarda/toggle de la función
+  original quedaron probadas una por una, no solo "compila". Compila
+  limpio (0 warnings), `build.ps1` completo OK, 141 tests verdes. Matriz
+  bloque 14 a ~75%. Bloqueadores sin cambios: consumidor real (Android
+  UI/Hub) y hardware NTRIP/serial — con esto el vocabulario de comandos
+  "sin UI" está bastante agotado (lo que resta del switch real es
+  genuinamente WinForms/paneles). Voy a commitear y pushear.
