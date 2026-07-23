@@ -502,3 +502,9 @@ pilotx_*.png
 
 # Backups generados por el simulador de nodos QuantiX (tools/)
 tools/quantiX_motores.backup-*.json
+
+# --- ruido de sesión (screenshots + backups de Tools) — no versionar ---
+/*.png
+/Tools/*.backup-*.json
+/.agents/
+/.codex/
