@@ -24,7 +24,6 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
-using AvaloniaWebView;
 using System.Net.Http;
 using PilotX.Cockpit.Bars.Services;
 using PilotX.Cockpit.Bars.ViewModels;
@@ -32,7 +31,6 @@ using PilotX.Cockpit.Bars.Views;
 using PilotX.Desktop.Controls;
 using PilotX.Desktop.Services;
 using PilotX.Desktop.Views;
-using WebViewCore.Events;
 
 namespace PilotX.Desktop;
 
@@ -48,6 +46,14 @@ public partial class MainWindow : Window
 
     // Mapa nativo (siempre presente, ocupa el centro de la pantalla)
     private MapPanel? _mapHost;
+
+    // Creación de guía A/B en el mapa (toco A, manejo, toco B).
+    private Border?    _abCreatePanel;
+    private TextBlock? _abCreateHint;
+    private Button?    _abCreateMark;
+    private int    _abStep;             // 0 = esperando A, 1 = esperando B
+    private double _abAe, _abAn;         // punto A capturado
+    private double _lastPivotE, _lastPivotN; // última posición del tractor (del HUD)
 
     // Barras del cockpit (menús reutilizados de PilotX.Cockpit.Bars) — reemplazan
     // el HudBar + BottomToolbar placeholder por los menús reales.
@@ -69,14 +75,14 @@ public partial class MainWindow : Window
     // WebView lazy: se instancia on-demand y se dispone al cerrar la pantalla.
     private Panel?   _webViewSlot;
     private Button?  _webViewBack;
-    private WebView? _webView;
+    private IWebViewHandle? _webView;
     private bool     _coldStartLogged;
 
     // Ventana-diálogo hija para páginas que el nativo abre como ventana chiquita
     // separada (ej. FormBuildTracks → tracks.html). Es su propia Window con barra
     // de título y X, así NO tapa el mapa ni sufre el airspace del WebView2.
     private Window?  _dialogWin;
-    private WebView? _dialogWebView;
+    private IWebViewHandle? _dialogWebView;
 
     // HUD
     private TextBlock _hudSpeed;
@@ -213,6 +219,9 @@ public partial class MainWindow : Window
         _rootBorder      = this.FindControl<Border>("RootBorder");
 
         _mapHost         = this.FindControl<MapPanel>("MapHost");
+        _abCreatePanel   = this.FindControl<Border>("AbCreatePanel");
+        _abCreateHint    = this.FindControl<TextBlock>("AbCreateHint");
+        _abCreateMark    = this.FindControl<Button>("AbCreateMark");
         _cockpitBarsHost = this.FindControl<Grid>("CockpitBarsHost");
         _barSuperior     = this.FindControl<BarraSuperior>("BarSuperior");
         _barDerecha      = this.FindControl<BarraDerecha>("BarDerecha");
@@ -564,7 +573,7 @@ public partial class MainWindow : Window
         }
         if (e.Key == Key.F12 && _webView != null)
         {
-            try { _webView.OpenDevToolsWindow(); }
+            try { _webView.OpenDevTools(); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] DevTools error: " + ex.Message); }
         }
     }
@@ -661,11 +670,13 @@ public partial class MainWindow : Window
         {
             if (_webView == null)
             {
-                _webView = new WebView();
-                _webView.NavigationCompleted += OnWebViewNavigated;
-                _webViewSlot.Children.Add(_webView);
+                // Sin backend WebView inyectado (ej. build Android sin él aún)
+                // no hay pantalla HTML que mostrar: se queda en el mapa nativo.
+                if (App.WebViewHost == null) return;
+                _webView = App.WebViewHost.Create(OnWebViewNavigated);
+                _webViewSlot.Children.Add(_webView.Control);
             }
-            _webView.Url = new Uri(url);
+            _webView.Navigate(url);
             _webViewSlot.IsVisible = true;
             if (_mapHost != null) _mapHost.IsVisible = false;
             if (_webViewBack != null) _webViewBack.IsVisible = showBackButton;
@@ -684,17 +695,15 @@ public partial class MainWindow : Window
         {
             if (_webView != null)
             {
-                _webView.NavigationCompleted -= OnWebViewNavigated;
-                // Intento navegar a about:blank antes de soltarlo: libera el
-                // contenido y reduce el working set del proceso WebView2 hijo
-                // antes de que el GC lo finalize.
-                try { _webView.Url = new Uri("about:blank"); } catch { }
-                _webViewSlot?.Children.Remove(_webView);
-                // Avalonia.WebView NO expone IDisposable; el control y su
-                // proceso Chromium subyacente se liberan cuando el GC
-                // finalize la referencia. Workstation GC + nullification
-                // explicita habilita ese ciclo. Forzamos GC en el proximo
-                // idle para no esperar al cycle natural.
+                // Release() desengancha el evento y navega a about:blank: libera
+                // el contenido y reduce el working set del proceso hijo antes de
+                // que el GC finalice la referencia.
+                _webViewSlot?.Children.Remove(_webView.Control);
+                _webView.Release();
+                // El control y su proceso subyacente se liberan cuando el GC
+                // finaliza la referencia. Workstation GC + nullification
+                // explícita habilita ese ciclo. Forzamos GC en el próximo idle
+                // para no esperar al ciclo natural.
                 _webView = null;
                 GC.Collect(2, GCCollectionMode.Optimized, blocking: false);
             }
@@ -725,14 +734,15 @@ public partial class MainWindow : Window
             if (_dialogWin != null)
             {
                 // ya abierta → traer al frente y navegar
-                if (_dialogWebView != null) _dialogWebView.Url = new Uri(full);
+                _dialogWebView?.Navigate(full);
                 _dialogWin.Activate();
                 return;
             }
 
-            _dialogWebView = new WebView();
-            _dialogWebView.NavigationCompleted += OnDialogNavigated;
-            _dialogWebView.Url = new Uri(full);
+            // Sin backend WebView no se puede abrir la página HTML en diálogo.
+            if (App.WebViewHost == null) return;
+            _dialogWebView = App.WebViewHost.Create(OnDialogNavigated);
+            _dialogWebView.Navigate(full);
 
             _dialogWin = new Window
             {
@@ -743,11 +753,11 @@ public partial class MainWindow : Window
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 SystemDecorations = SystemDecorations.Full,
                 ShowInTaskbar = false,
-                Content = _dialogWebView
+                Content = _dialogWebView.Control
             };
             _dialogWin.Closed += (_, _) =>
             {
-                try { if (_dialogWebView != null) { _dialogWebView.NavigationCompleted -= OnDialogNavigated; _dialogWebView.Url = new Uri("about:blank"); } } catch { }
+                try { _dialogWebView?.Release(); } catch { }
                 _dialogWebView = null;
                 _dialogWin = null;
             };
@@ -760,10 +770,9 @@ public partial class MainWindow : Window
     }
 
     // La página del diálogo pide cerrar navegando a la URL centinela.
-    private void OnDialogNavigated(object? sender, WebViewUrlLoadedEventArg e)
+    private void OnDialogNavigated(string url)
     {
-        var u = _dialogWebView?.Url?.ToString() ?? string.Empty;
-        if (u.IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
+        if ((url ?? string.Empty).IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
             _dialogWin?.Close();
     }
 
@@ -1335,13 +1344,13 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Camaras closed -> back to native map");
     }
 
-    private void OnWebViewNavigated(object? sender, WebViewUrlLoadedEventArg e)
+    private void OnWebViewNavigated(string url)
     {
         // Puente de cierre: como el WebView2 nativo TAPA los controles Avalonia
         // (el botón "Atrás" queda cubierto — airspace), las páginas HTML cierran
         // el overlay navegando a una URL centinela que interceptamos acá. Es el
         // único canal disponible (este wrapper solo expone NavigationCompleted).
-        var u = _webView?.Url?.ToString() ?? string.Empty;
+        var u = url ?? string.Empty;
         if (u.IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
         {
             CloseWebView();
@@ -1411,7 +1420,8 @@ public partial class MainWindow : Window
                             if (vis && firstVisible < 0) firstVisible = idx;
                         }
                         // Sin ninguna activa pero con alguna visible → activar la primera.
-                        if (!anyActive && firstVisible >= 0)
+                        // (Suspendido durante la creación de una guía A/B.)
+                        if (!_suppressAutoSelect && !anyActive && firstVisible >= 0)
                         {
                             var body = new System.Net.Http.StringContent(
                                 "{\"index\":" + firstVisible + "}",
@@ -1501,13 +1511,14 @@ public partial class MainWindow : Window
             case "corex":      ShowCoreXEcu(); return true;
             case "webcam":     ShowCamaras();  return true;
 
-            // ---- Guías (crear/elegir) → ventana-diálogo chiquita HTML ----
-            // Abre el clon tracks.html, que usa /api/tracks (contra FormGPS
-            // funciona sin abrir la ventana nativa FormBuildTracks; contra el
-            // engine funcionará cuando android cablee el ITrackBuilderService).
+            // ---- Nueva A/B → flujo en el mapa (toco A, manejo, toco B) ----
+            case "track_new_ab":
+                StartAbCreate();
+                return true;
+
+            // ---- Guías (curva/A+/elegir/importar) → ventana-diálogo HTML ----
             case "pick":
             case "importar_guias":
-            case "track_new_ab":
             case "track_new_curve":
             case "track_new_a":
                 OpenDialogPage("pages/tracks.html", "Guías", 680, 520);
@@ -1570,6 +1581,85 @@ public partial class MainWindow : Window
         return false;
     }
 
+    // ---- Creación de guía A/B en el mapa (toco A, manejo, toco B) ----
+    private bool _suppressAutoSelect;
+
+    private void StartAbCreate()
+    {
+        if (_abCreatePanel == null) return;
+        _abStep = 0;
+        _suppressAutoSelect = true;   // que el auto-select no pise la guía nueva
+        _mapHost?.BeginAbCreation();
+        if (_abCreateHint != null) _abCreateHint.Text = "Ubicá el tractor en el inicio y tocá A";
+        if (_abCreateMark != null) _abCreateMark.Content = "Marcar A";
+        _abCreatePanel.IsVisible = true;
+    }
+
+    private async void OnAbCreateMark(object? sender, RoutedEventArgs e)
+    {
+        var (pe, pn, ok) = await GetPivotAsync();
+        if (!ok) return;
+        if (_abStep == 0)
+        {
+            // Marcar A: fija el punto A en la posición actual del tractor.
+            _abAe = pe; _abAn = pn;
+            _mapHost?.SetAbPointA(pe, pn);
+            _abStep = 1;
+            if (_abCreateHint != null) _abCreateHint.Text = "Manejá hasta el final y tocá B";
+            if (_abCreateMark != null) _abCreateMark.Content = "Marcar B";
+        }
+        else
+        {
+            // Marcar B: fija B, calcula el rumbo A→B y crea la guía.
+            double dx = pe - _abAe, dy = pn - _abAn;
+            double dist = Math.Sqrt(dx * dx + dy * dy);
+            if (dist < 1.0)
+            {
+                if (_abCreateHint != null) _abCreateHint.Text = "Manejá un poco más y tocá B";
+                return;
+            }
+            double headingDeg = Math.Atan2(dx, dy) * 180.0 / Math.PI;
+            if (headingDeg < 0) headingDeg += 360.0;
+            if (_cockpitCmd != null)
+                await _cockpitCmd.SendAsync("track_ab_here_" +
+                    headingDeg.ToString("0.####", CultureInfo.InvariantCulture));
+            FinishAbCreate();
+        }
+    }
+
+    private void OnAbCreateCancel(object? sender, RoutedEventArgs e) => FinishAbCreate();
+
+    private void FinishAbCreate()
+    {
+        _abStep = 0;
+        _mapHost?.EndAbCreation();
+        if (_abCreatePanel != null) _abCreatePanel.IsVisible = false;
+        // Reactivar el auto-select recién después de un ratito, para no pisar
+        // la guía que acabamos de crear (el backend tarda en reflejarla).
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            await System.Threading.Tasks.Task.Delay(2500);
+            _suppressAutoSelect = false;
+        });
+    }
+
+    // Lee la posición actual del tractor (pivote) directo del backend — robusto,
+    // no depende del timing del snapshot del HUD.
+    private async System.Threading.Tasks.Task<(double e, double n, bool ok)> GetPivotAsync()
+    {
+        try
+        {
+            var http = _trackHttp ?? new System.Net.Http.HttpClient();
+            string url = DeriveOrigin(App.TargetUrl).TrimEnd('/') + "/api/aog/state";
+            var json = await http.GetStringAsync(url);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            double e = doc.RootElement.TryGetProperty("pivot_easting", out var pe) ? pe.GetDouble() : 0;
+            double n = doc.RootElement.TryGetProperty("pivot_northing", out var pn) ? pn.GetDouble() : 0;
+            return (e, n, true);
+        }
+        catch { return (0, 0, false); }
+    }
+
     // Título humano para la ventana-diálogo de cada comando de pantalla.
     private static string TitleForCommand(string cmd) => cmd switch
     {
@@ -1599,6 +1689,8 @@ public partial class MainWindow : Window
 
     private void OnHudSnapshot(HudSnapshot s)
     {
+        _lastPivotE = s.PivotEasting;
+        _lastPivotN = s.PivotNorthing;
         Dispatcher.UIThread.Post(() =>
         {
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);

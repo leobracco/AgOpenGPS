@@ -182,10 +182,13 @@ public partial class CabinaAlarmasOverlay : UserControl
         if (_alertRoot != null) _alertRoot.IsVisible = false;
     }
 
-    // Console.Beep funciona en Windows .NET; corre en background para no bloquear UI.
+    // Beep de alarma. Console.Beep SOLO existe en Windows (en Android/otros
+    // lanza PlatformNotSupported), así que se guarda por plataforma: en Android
+    // el aviso sonoro real lo hará el head vía su propio canal (pendiente).
     // 880 Hz / 600 ms — mismo tono que el JS legacy (oscilador square @ 880).
     private static void PlayBeep()
     {
+        if (!OperatingSystem.IsWindows()) return;
         try
         {
             Task.Run(() =>

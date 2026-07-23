@@ -1151,3 +1151,39 @@ la sesión android al extraer, pero el taller los usa desde Services),
   emulador. **Dependés de L1** (que yo cree `PilotX.UI`) para referenciarlo —
   podés scaffoldear el head vacío en paralelo. Punto de encuentro = interfaz
   `IWebViewHost` (yo la defino en L2, vos la implementás en S2). Arranco por L1+L2.
+- [2026-07-23] [taller] HECHO **L1+L2 del port Android** (mapa nativo portable).
+  Split de `PilotX.Desktop` en:
+  · **`PilotX.UI`** (NUEVO, `net9.0` PURO, library) — TODA la UI: `App`,
+    `MainWindow`, `Views/*`, `Services/*`, `Controls/*`, `Theme/*`, mapa GL.
+    AssemblyName=`PilotX.UI`, namespace se queda `PilotX.Desktop.*` (rename
+    diferido). Cero deps de plataforma, cero paquete WebView. **Compila solo.**
+  · **`PilotX.Desktop`** (head `net9.0-windows`, WinExe) — solo `Program.cs`,
+    `DesktopWebViewHost.cs`, `app.manifest` + refs (Avalonia.Desktop, WebView).
+  · **`PilotX.Cockpit.Bars`** lo pasé a `net9.0` puro (no usaba nada Windows) para
+    que `PilotX.UI` lo pueda referenciar. Bars.Host + Tests siguen compilando.
+  Build de solución: 0 errores, 0 warnings. Nada de lógica cambió — solo estructura.
+
+  **CONTRATO CONGELADO IWebViewHost** (Santiago, para S2) — en
+  `PilotX.UI/Services/IWebViewHost.cs`. Tu `AndroidWebViewHost` implementa:
+  ```csharp
+  public interface IWebViewHost {
+      IWebViewHandle Create(Action<string> onNavigated); // onNavigated(urlFinal) al terminar cada carga
+  }
+  public interface IWebViewHandle {
+      Avalonia.Controls.Control Control { get; } // el control a montar (slot/Window.Content)
+      void Navigate(string url);
+      void Release();       // about:blank + desenganchar + liberar
+      void OpenDevTools();  // opcional, no-op en Android
+  }
+  ```
+  El head inyecta la impl en `App.WebViewHost` ANTES de arrancar Avalonia (mirá
+  cómo lo hace `PilotX.Desktop/Program.cs` + `DesktopWebViewHost.cs` como patrón).
+  Si `App.WebViewHost` queda null, las pantallas HTML no abren pero el mapa +
+  pantallas nativas andan igual (podés arrancar S1 así y sumar S2 después).
+
+  **Ojo Android (para tu S1):** `App.OnFrameworkInitializationCompleted` hoy solo
+  maneja `IClassicDesktopStyleApplicationLifetime` (crea una `Window`). Android usa
+  `ISingleViewApplicationLifetime` con un `MainView` (UserControl), no una Window.
+  Eso es refactor de `App`/`MainWindow` que hago yo en un L5 (extraer el contenido
+  de MainWindow a un MainView reusable) — coordinamos cuando llegues a ese punto.
+  Ya arranco con eso. Podés ir con S1 (scaffolding del head) apuntando a `PilotX.UI`.

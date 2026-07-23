@@ -158,6 +158,13 @@ public sealed class MapGlSurface : OpenGlControlBase
     // Cross-track error (m) para el lightbar. NaN = sin guía activa (no dibuja).
     private double _xte = double.NaN;
 
+    // Creación de AB en el mapa (toco A, manejo, toco B): mientras _abCreating,
+    // se dibuja el marcador del punto A y una línea pendiente A→tractor, para
+    // que el operario vea la guía formándose de A hasta B.
+    private bool _abCreating;
+    private bool _abHasA;
+    private double _abAe, _abAn;
+
     // Colores cockpit (RGBA 0..1). Identicos al Skia para paridad.
     private static readonly float[] ColBg            = { 0f, 0f, 0f, 1f };            // negro puro
     // Grilla apenas perceptible (gris muy oscuro, alpha bajo) para no confundirse
@@ -552,11 +559,47 @@ public sealed class MapGlSurface : OpenGlControlBase
             DrawTractor(snap.PivotEasting, snap.PivotNorthing, snap.Heading, scale);
         }
 
+        // --- Capa 4b: creación de AB (marcador A + línea pendiente A→tractor) ---
+        if (_abCreating && _abHasA && snap != null)
+            DrawAbCreation(snap.PivotEasting, snap.PivotNorthing, scale);
+
         // --- Capa 5: lightbar (XTE) en espacio-pantalla, sobre todo ----
         DrawLightbar();
 
         _gl.BindVertexArray(0);
         _gl.UseProgram(0);
+    }
+
+    // ---- Creación de AB en el mapa (API pública, la llama MainWindow) ----
+    public void BeginAbCreation() { _abCreating = true; _abHasA = false; RequestNextFrameRendering(); }
+    public void SetAbPointA(double e, double n) { _abAe = e; _abAn = n; _abHasA = true; RequestNextFrameRendering(); }
+    public void EndAbCreation() { _abCreating = false; _abHasA = false; RequestNextFrameRendering(); }
+
+    // Dibuja el marcador del punto A (rombo verde) + la línea pendiente A→tractor.
+    private void DrawAbCreation(double pe, double pn, double scale)
+    {
+        if (_gl == null) return;
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
+
+        // Línea pendiente A → tractor (amarilla brillante) — la guía "en
+        // construcción". Se ve crecer desde A a medida que el tractor avanza.
+        float[] colPend = { 1.0f, 0.92f, 0.20f, 1f }; // amarillo brillante
+        EnsureScratch(4);
+        _scratch[0] = (float)_abAe; _scratch[1] = (float)_abAn;
+        _scratch[2] = (float)pe;    _scratch[3] = (float)pn;
+        UploadAndDraw(PrimitiveType.Lines, 2, colPend);
+
+        // Marcador A: rombo MAGENTA grande (distinto del tractor verde) en el
+        // punto A, para que se vea claro dónde arrancó la guía.
+        double r = 16.0 / scale; // ~16px en mundo
+        float[] colA = { 1.0f, 0.15f, 0.75f, 1f }; // magenta
+        EnsureScratch(8);
+        _scratch[0] = (float)_abAe;       _scratch[1] = (float)(_abAn + r);
+        _scratch[2] = (float)(_abAe - r); _scratch[3] = (float)_abAn;
+        _scratch[4] = (float)(_abAe + r); _scratch[5] = (float)_abAn;
+        _scratch[6] = (float)_abAe;       _scratch[7] = (float)(_abAn - r);
+        UploadAndDraw(PrimitiveType.TriangleStrip, 4, colA);
     }
 
     // Lightbar: barra de desvío arriba-centro del mapa. Un indicador que se

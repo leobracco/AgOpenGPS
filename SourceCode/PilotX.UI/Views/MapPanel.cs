@@ -99,6 +99,11 @@ public sealed class MapPanel : Grid
         _skia?.OnTool(snap);
     }
 
+    // ---- Creación de AB en el mapa (toco A, manejo, toco B) ----
+    public void BeginAbCreation() => _gl?.BeginAbCreation();
+    public void SetAbPointA(double e, double n) => _gl?.SetAbPointA(e, n);
+    public void EndAbCreation() => _gl?.EndAbCreation();
+
     /// <summary>
     /// Push de la geometria de tram (Stage 4b, wheel tracks + bnd).
     /// Ambas surfaces pintan tramlines + outer/inner segun displayMode.

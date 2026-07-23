@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <!-- net9.0 PURO (no -windows): la librería de barras no usa nada específico
+         de Windows, así puede referenciarla también PilotX.UI/PilotX.Android.App
+         para el port Android. Los consumidores Desktop (net9.0-windows) la
+         referencian igual sin problema. -->
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>PilotX.Cockpit.Bars</RootNamespace>

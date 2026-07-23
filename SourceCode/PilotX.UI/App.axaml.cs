@@ -2,11 +2,18 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop;
 
 public partial class App : Application
 {
+    // Backend de WebView inyectado por el head (Desktop = WebView.Avalonia,
+    // Android = WebView nativo). La UI compartida NO depende de ningún paquete
+    // WebView; si es null, las pantallas HTML no portadas no abren (el mapa y
+    // lo nativo siguen andando). Ver Services/IWebViewHost.cs.
+    public static IWebViewHost? WebViewHost { get; set; }
+
     // URL final a la que navega el WebView. Program.Main la arma parseando args.
     // Default: el AgpWebHost del shell legacy (WinForms) en 127.0.0.1:5180.
     public static string TargetUrl { get; set; } = "http://127.0.0.1:5180/";

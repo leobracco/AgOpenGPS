@@ -36,6 +36,9 @@ internal static class Program
         // doble click hasta el primer render HTML. MainWindow lo lee en
         // NavigationCompleted y lo imprime a stdout.
         App.ColdStart = Stopwatch.StartNew();
+        // Inyectar el backend de WebView del head Desktop (WebView.Avalonia).
+        // La UI compartida (PilotX.UI) solo conoce IWebViewHost.
+        App.WebViewHost = new DesktopWebViewHost();
         ParseArgs(args);
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }

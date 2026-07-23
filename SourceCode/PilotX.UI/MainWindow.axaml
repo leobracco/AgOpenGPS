@@ -484,6 +484,53 @@
                                     Width="100" Margin="0,46,0,58"/>
             </Grid>
 
+            <!-- =========== Panel de creación de guía A/B (en el mapa) =========== -->
+            <!--
+                Flujo "toco A, manejo, toco B": aparece al tocar Nueva A/B.
+                Botón grande que cicla Marcar A → Marcar B, + Cancelar. El mapa
+                dibuja la marca A y la línea pendiente A→tractor mientras tanto.
+            -->
+            <Border Name="AbCreatePanel"
+                    Grid.Row="2"
+                    IsVisible="False"
+                    ZIndex="60"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,0,80"
+                    Background="#F0101612"
+                    BorderBrush="{StaticResource PilotXAccent}"
+                    BorderThickness="1.5"
+                    CornerRadius="12"
+                    Padding="14,10"
+                    BoxShadow="0 4 16 0 #90000000">
+                <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <TextBlock Name="AbCreateHint"
+                               Text="Ubicá el tractor en el inicio y tocá A"
+                               Foreground="{StaticResource PilotXTextHi}"
+                               FontSize="14"
+                               VerticalAlignment="Center"/>
+                    <Button Name="AbCreateMark"
+                            Content="Marcar A"
+                            Click="OnAbCreateMark"
+                            MinWidth="120" MinHeight="48"
+                            FontSize="16" FontWeight="Bold"
+                            Foreground="#101612"
+                            Background="{StaticResource PilotXAccent}"
+                            BorderThickness="0"
+                            CornerRadius="8"/>
+                    <Button Name="AbCreateCancel"
+                            Content="Cancelar"
+                            Click="OnAbCreateCancel"
+                            MinWidth="90" MinHeight="48"
+                            FontSize="14"
+                            Foreground="{StaticResource PilotXTextHi}"
+                            Background="{StaticResource PilotXBgHigh}"
+                            BorderBrush="{StaticResource PilotXBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"/>
+                </StackPanel>
+            </Border>
+
             <!-- FAB X (modo full, ya que sin header no hay otra forma de cerrar) -->
             <Button x:Name="CloseButton"
                     Grid.Row="2"
