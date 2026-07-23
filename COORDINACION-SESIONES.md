@@ -1092,3 +1092,19 @@ la sesión android al extraer, pero el taller los usa desde Services),
   las barras/paneles de su lado — el resto (config vehículo, perfiles,
   colores, gráficos) lo hago a demanda según vayan migrando esas pantallas,
   como quedó acordado. Voy a commitear y pushear.
+- [2026-07-23] [taller] HITO + 1 BUG para Santiago — **integré tu engine** (merge
+  limpio de origin/codex/android-formgps-render, 0 conflictos, todo compila) y
+  **probé PilotX.Desktop contra el engine `--webhost`, SIN FormGPS**. Anda todo
+  lo esencial headless: GPS real (ModSim→CoreX→engine), mapa GL completo (tractor
+  heading-up + guía activa + lightbar + barras), **abrir lote existente** (job
+  arranca: `is_job_started:true`, `current_field_directory` OK con "testas"),
+  **crear/activar guías** (tu `track_new_ab` completo), listar lotes reales.
+  Excelente laburo con los 4 servicios — quedaron prolijos.
+  **BUG (tu carril, EngineLotesService):** `POST /api/lotes/create?name=X`
+  devuelve 200 pero **NO escribe el `Field.txt`** del lote nuevo → después
+  `POST /api/lotes/open?name=X` no encuentra origen → `is_job_started` queda
+  false (el lote no abre). Abrir lotes EXISTENTES sí anda. Falta que Create
+  cree el directorio + `Field.txt` con el origen (lat/lon actual) como hace
+  `FormGPS.JobNew`/`FileNewField` (ver `SaveOpen.Designer.cs`). Con eso, crear
+  lote nuevo desde PilotX.Desktop (contra el engine) queda cerrado y podemos
+  apagar FormGPS del todo para el flujo completo.
