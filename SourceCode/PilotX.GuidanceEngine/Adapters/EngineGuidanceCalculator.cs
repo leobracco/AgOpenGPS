@@ -8,6 +8,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 
@@ -19,8 +20,7 @@ namespace PilotX.GuidanceEngine.Adapters
     {
         private readonly GuidanceEngineHost _host;
 
-        private string _lastMode = "Off";
-        private int _lastCount = 0;
+        private string _lastKey = "";
         private long _revision = 0;
 
         public EngineGuidanceCalculator(GuidanceEngineHost host) { _host = host; }
@@ -112,11 +112,31 @@ namespace PilotX.GuidanceEngine.Adapters
                     }
                 }
 
-                if (geom.Mode != _lastMode || geom.Points.Count != _lastCount)
+                // Firma de la geometría: cambia si cambian los PUNTOS, no solo el
+                // modo/cantidad. Antes solo se comparaba mode+count → al conmutar
+                // entre dos líneas AB (ambas mode="AB", count=2) la revisión no
+                // subía y el mapa (cache por revisión) seguía mostrando la vieja.
+                // Muestreo first/middle/last: identifica una línea AB completa y
+                // distingue curvas distintas sin recorrer todos los puntos.
+                int n = geom.Points.Count;
+                string key;
+                if (n == 0)
+                {
+                    key = geom.Mode + ":0";
+                }
+                else
+                {
+                    var p0 = geom.Points[0];
+                    var pm = geom.Points[n / 2];
+                    var pl = geom.Points[n - 1];
+                    key = string.Format(CultureInfo.InvariantCulture,
+                        "{0}:{1}:{2:F3},{3:F3}|{4:F3},{5:F3}|{6:F3},{7:F3}",
+                        geom.Mode, n, p0.E, p0.N, pm.E, pm.N, pl.E, pl.N);
+                }
+                if (key != _lastKey)
                 {
                     _revision++;
-                    _lastMode = geom.Mode;
-                    _lastCount = geom.Points.Count;
+                    _lastKey = key;
                 }
                 geom.Revision = _revision;
             }

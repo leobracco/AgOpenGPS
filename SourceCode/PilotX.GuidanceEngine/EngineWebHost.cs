@@ -62,6 +62,7 @@ namespace AgOpenGPS
             var paths = new EnginePathsCalculator(_host);
             var lotes = new EngineLotesService(_host);
             var trackBuilder = new EngineTrackBuilderService(_host);
+            var trackList = new EngineTrackListService(_host);
             var sectionsCore = new EngineSectionControlService(_host);
 
             _web = new AgpWebHost(
@@ -94,7 +95,8 @@ namespace AgOpenGPS
                 toolGeometry: toolGeom,
                 tram: tram,
                 paths: paths,
-                trackBuilder: trackBuilder);
+                trackBuilder: trackBuilder,
+                trackList: trackList);
 
             _web.Start();
         }

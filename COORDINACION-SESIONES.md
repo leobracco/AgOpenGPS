@@ -1187,3 +1187,18 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Eso es refactor de `App`/`MainWindow` que hago yo en un L5 (extraer el contenido
   de MainWindow a un MainView reusable) — coordinamos cuando llegues a ese punto.
   Ya arranco con eso. Podés ir con S1 (scaffolding del head) apuntando a `PilotX.UI`.
+- [2026-07-23] [taller] 2 FIXES de guías (uno mío, uno tocando tu carril con aviso):
+  Síntoma usuario: "creé otra guía y no la muestra, siempre muestra la misma".
+  1. **(mi carril) `EngineGuidanceCalculator.GetGeometry`** — la revisión solo
+     subía si cambiaba `mode` o `count`. Al conmutar entre dos líneas AB (ambas
+     mode=AB, count=2) NO subía → el mapa (cache por revisión) seguía dibujando
+     la vieja. Ahora la revisión sube ante una FIRMA de los puntos (first/middle/
+     last). Conmutar/crear guías ya redibuja.
+  2. **(tu carril, con aviso) `EngineTrackListService`** NUEVO + registrado en
+     `EngineWebHost` (`trackList:`). El engine no tenía `ITrackListService` →
+     `GET /api/aog/tracks` daba 404 → el mapa no podía listar/seleccionar/auto-
+     activar guías. Es el twin headless de `FormGpsTrackListService` (lee
+     `_host.Trk.gArr`/`.idx`, sin BeginInvoke). Verificado: `/api/aog/tracks`
+     pasó de 404 a `{"ok":true,"tracks":[]}`. Si querés moverlo/renombrarlo o
+     unificarlo con tu `EngineTrackBuilderService`, es todo tuyo — lo dejé andando
+     para no bloquear la prueba del usuario.
