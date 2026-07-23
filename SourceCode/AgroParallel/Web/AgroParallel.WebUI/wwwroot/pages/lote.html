@@ -3,160 +3,125 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Lote · Agro Parallel</title>
+  <title>Lote · PilotX</title>
   <link rel="stylesheet" href="../theme.css" />
-  <link rel="stylesheet" href="../layout.css" />
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
-    .new-row { display: flex; gap: var(--agp-sp-2); margin-top: var(--agp-sp-3); }
-    .new-row input { flex:1; min-height: var(--agp-touch-min); }
-    .new-row .btn { min-height: var(--agp-touch-min); }
+    /* ===== Clon HTML de FormJob (AgOpenGPS 6.8.5) — menú de lote/campo.
+       Grid 2 columnas de botones-imagen (Cerrar/Entrar/Abrir/Continuar a la
+       derecha; ISO-XML/KML/Existente/Nuevo a la izquierda) + campo previo.
+       Sub-pantallas: Abrir (lista de lotes) y Nuevo (nombre). Ventana chica.
+       Estilo tokens --agp-* (tema claro Agro Parallel). ===== */
+    html, body { margin: 0; padding: 0; height: 100%; background: var(--agp-bg); color: var(--agp-text); }
+    body { font-family: var(--agp-font-sans); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 
-    .current-bar { display:flex; align-items:center; gap:var(--agp-sp-3); flex-wrap: wrap; }
-    .current-bar .name { font-size: var(--agp-fs-lg); font-weight: var(--agp-fw-semi); }
-    .msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-3); min-height: 18px; }
-    .msg.ok  { color: var(--agp-state-ok); }
-    .msg.err { color: var(--agp-state-bad); }
+    #ltWin { background: var(--agp-surface); border: 1px solid var(--agp-border-strong);
+      border-radius: var(--agp-radius-md, 10px); box-shadow: 0 6px 24px rgba(16,22,18,.14);
+      display: flex; flex-direction: column; overflow: hidden;
+      width: 640px; height: 560px; }
 
-    /* Toolbar de la tabla: buscador + count + page size */
-    .lt-toolbar { display:flex; gap: var(--agp-sp-3); align-items:center;
-                  margin: var(--agp-sp-4) 0 var(--agp-sp-2); flex-wrap: wrap; }
-    .lt-toolbar .search { flex:1; min-width: 220px; min-height: var(--agp-touch-min); }
-    .lt-toolbar .count  { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
-    .lt-toolbar select  { min-height: var(--agp-touch-min); }
+    .lt-title { flex: 0 0 auto; padding: 7px 12px; font-weight: var(--agp-fw-bold); font-size: 14px;
+      background: var(--agp-surface-2, #EEF2EE); border-bottom: 1px solid var(--agp-border); }
 
-    /* Tabla de lotes */
-    .lt-table { width:100%; border-collapse: collapse; }
-    .lt-table thead th {
-      text-align:left; padding: var(--agp-sp-2) var(--agp-sp-3);
-      font-size: var(--agp-fs-xs); text-transform: uppercase; letter-spacing: 0.5px;
-      color: var(--agp-text-muted); border-bottom: var(--agp-border-w) solid var(--agp-border);
-      cursor: pointer; user-select: none; white-space: nowrap;
-    }
-    .lt-table thead th .arr { color: var(--agp-accent); margin-left: 4px; }
-    .lt-table tbody tr {
-      border-bottom: 1px solid var(--agp-border-soft, var(--agp-border));
-      transition: background 0.1s ease;
-    }
-    .lt-table tbody tr:hover { background: var(--agp-bg-soft); }
-    .lt-table tbody tr.current { background: var(--agp-accent-soft, rgba(74,186,62,0.08)); }
-    .lt-table tbody tr.current td:first-child { border-left: 3px solid var(--agp-accent); }
-    .lt-table tbody td {
-      padding: var(--agp-sp-2) var(--agp-sp-3);
-      font-size: var(--agp-fs-sm); vertical-align: middle;
-    }
-    .lt-table .col-name   { font-weight: var(--agp-fw-medium); word-break: break-all; }
-    .lt-table .col-date   { font-family: var(--agp-font-mono); color: var(--agp-text-muted); white-space: nowrap; }
-    .lt-table .col-flags  { white-space: nowrap; }
-    .lt-table .col-flags .pill { font-size: var(--agp-fs-xs); padding: 1px 6px; margin-right: 4px; }
-    .lt-table .col-act    { text-align: right; white-space: nowrap; }
-    .lt-table .col-act .btn { min-height: 36px; padding: 4px 12px; font-size: var(--agp-fs-sm); margin-left: 4px; }
+    .lt-stage { flex: 1 1 auto; min-height: 0; position: relative; }
+    .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+    .screen.active { display: flex; }
 
-    /* Footer: paginación */
-    .lt-pager { display:flex; gap: var(--agp-sp-2); justify-content:center; align-items:center;
-                margin-top: var(--agp-sp-3); flex-wrap: wrap; }
-    .lt-pager .info { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); margin: 0 var(--agp-sp-2); }
-    .lt-pager .btn { min-height: 36px; padding: 4px 12px; }
-    .lt-pager .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+    /* ---- pantalla principal: grid 2 columnas de botones grandes ---- */
+    #scMain { padding: 10px; }
+    .lt-grid { flex: 1 1 auto; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr;
+      gap: 8px; min-height: 0; }
+    .lt-btn { display: flex; align-items: center; gap: 12px; padding: 6px 14px;
+      background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      cursor: pointer; touch-action: manipulation; text-align: left; }
+    .lt-btn:hover { background: var(--agp-bg-soft, #EEF2EE); border-color: var(--agp-border-strong); }
+    .lt-btn:active { transform: translateY(1px); }
+    .lt-btn:disabled { opacity: .4; pointer-events: none; }
+    .lt-btn img { width: 44px; height: 44px; object-fit: contain; flex: 0 0 auto; }
+    .lt-btn span { font-size: 15px; font-weight: var(--agp-fw-med, 600); color: var(--agp-text); }
+    .lt-btn.close span { color: var(--agp-state-bad, #C0504A); }
+    .lt-btn.primary { border-color: var(--agp-accent); }
+    .lt-btn.primary span { color: var(--agp-accent); font-weight: 700; }
 
-    .empty-row td { padding: var(--agp-sp-5); text-align: center; color: var(--agp-text-muted); }
+    .lt-foot { flex: 0 0 auto; padding: 8px 4px 2px; font-size: 12px; color: var(--agp-text-muted);
+      border-top: 1px solid var(--agp-border); margin-top: 8px; }
 
-    .lt-table .col-dist { font-family: var(--agp-font-mono); white-space: nowrap; color: var(--agp-text-muted); }
-    .chk { display:flex; align-items:center; gap:6px; font-size: var(--agp-fs-sm); cursor:pointer; }
-    .chk input { width:20px; height:20px; }
+    /* ---- sub-pantalla: lista de lotes (Abrir) ---- */
+    .lt-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+      padding: 10px; }
+    .lt-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; min-height: 48px;
+      background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      cursor: pointer; }
+    .lt-item:hover { background: var(--agp-bg-soft, #EEF2EE); border-color: var(--agp-accent); }
+    .lt-item .nm { flex: 1 1 auto; font-size: 15px; }
+    .lt-item .meta { font-size: 12px; color: var(--agp-text-muted); }
+    .lt-sub-head { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      border-bottom: 1px solid var(--agp-border); }
+    .lt-back { background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      padding: 6px 12px; font-size: 14px; cursor: pointer; }
+    .lt-sub-title { font-weight: var(--agp-fw-bold); font-size: 13px; }
+
+    /* ---- sub-pantalla: nombre (Nuevo) ---- */
+    .lt-name-pane { flex: 1 1 auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; justify-content: center; }
+    .lt-name-pane input { min-height: 44px; font-size: 16px; background: #E0FFFF; border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); padding: 0 10px; color: var(--agp-text); }
+    .lt-name-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .lt-name-actions .lt-back.primary { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
   </style>
 </head>
 <body>
-  <aside class="sidebar" data-active="lote"></aside>
-  <main class="page">
-    <div class="page-head">
-      <div><h1>Lote</h1><div class="subtitle">Abrir, cerrar o crear un lote</div></div>
-      <span class="pill" id="curPill"><span class="dot"></span> Cargando…</span>
-    </div>
+  <div id="ltWin">
+    <div class="lt-title">Lote</div>
+    <div class="lt-stage">
 
-    <div class="card">
-      <h3 style="margin-top:0">Lote actual</h3>
-      <div class="current-bar">
-        <div class="name" id="curName">—</div>
-        <div style="flex:1"></div>
-        <button class="btn" id="btnClose" disabled>Cerrar lote</button>
-      </div>
-      <div class="msg" id="msgCur"></div>
-    </div>
-
-    <div class="card" style="margin-top: var(--agp-sp-4)">
-      <h3 style="margin-top:0">Crear lote nuevo</h3>
-      <div class="new-row">
-        <input type="text" id="newName" placeholder="Nombre del lote…" maxlength="64" />
-        <button class="btn" id="btnAddDate" title="Agregar fecha">+ Fecha</button>
-        <button class="btn primary" id="btnCreate">Crear y abrir</button>
-      </div>
-      <div class="msg" id="msgNew"></div>
-      <div class="new-row" style="margin-top: var(--agp-sp-2)">
-        <div style="flex:1; align-self:center; color:var(--agp-text-muted); font-size:var(--agp-fs-sm)">
-          Importar lote desde archivo (abre selector en PilotX)
+      <!-- ============ pantalla principal (FormJob) ============ -->
+      <div class="screen active" id="scMain" data-screen="main">
+        <div class="lt-grid">
+          <!-- fila 1 -->
+          <button class="lt-btn" id="btnFromISOXML"><img src="../img/lote/ISOXML.png"><span>ISO-XML</span></button>
+          <button class="lt-btn close" id="btnClose"><img src="../img/lote/FileClose.png"><span>Cerrar lote</span></button>
+          <!-- fila 2 -->
+          <button class="lt-btn" id="btnFromKML"><img src="../img/lote/BoundaryLoadFromGE.png"><span>Desde KML</span></button>
+          <button class="lt-btn" id="btnDriveIn"><img src="../img/lote/AutoManualIsAuto.png"><span>Entrar al lote</span></button>
+          <!-- fila 3 -->
+          <button class="lt-btn" id="btnFromExisting"><img src="../img/lote/FileExisting.png"><span>Desde existente</span></button>
+          <button class="lt-btn" id="btnOpen"><img src="../img/lote/FileOpen.png"><span>Abrir</span></button>
+          <!-- fila 4 -->
+          <button class="lt-btn" id="btnNew"><img src="../img/lote/FileNew.png"><span>Nuevo lote</span></button>
+          <button class="lt-btn primary" id="btnResume"><img src="../img/lote/FilePrevious.png"><span>Continuar</span></button>
         </div>
-        <button class="btn" id="btnImportKml">Importar KML</button>
-        <button class="btn" id="btnImportIso">Importar ISO-XML</button>
+        <div class="lt-foot" id="lblResume">Sin lote previo</div>
       </div>
-      <div class="msg" id="msgImport"></div>
-    </div>
 
-    <!-- ── Clonar desde existente (ex FormFieldExisting) ── -->
-    <div class="card" id="clonePane" style="margin-top: var(--agp-sp-4); display:none">
-      <h3 style="margin-top:0">Crear desde existente — template: <span id="cloneTemplate" style="color:var(--agp-accent)">—</span></h3>
-      <div class="new-row">
-        <input type="text" id="cloneName" placeholder="Nombre del lote nuevo…" maxlength="64" />
-        <button class="btn" id="btnCloneDate" title="Agregar fecha">+ Fecha</button>
+      <!-- ============ Abrir: lista de lotes ============ -->
+      <div class="screen" id="scOpen" data-screen="open">
+        <div class="lt-sub-head">
+          <button class="lt-back" data-goto="main">‹ Volver</button>
+          <span class="lt-sub-title">Abrir lote</span>
+        </div>
+        <div class="lt-list" id="loteList"></div>
       </div>
-      <div style="display:flex; gap:var(--agp-sp-4); flex-wrap:wrap; margin-top:var(--agp-sp-3)">
-        <label class="chk"><input type="checkbox" id="chkApplied"> Cobertura aplicada</label>
-        <label class="chk"><input type="checkbox" id="chkFlags"> Banderas</label>
-        <label class="chk"><input type="checkbox" id="chkGuidance" checked> Líneas de guiado</label>
-        <label class="chk"><input type="checkbox" id="chkHeadland" checked> Cabecera</label>
+
+      <!-- ============ Nuevo: nombre ============ -->
+      <div class="screen" id="scNew" data-screen="new">
+        <div class="lt-sub-head">
+          <button class="lt-back" data-goto="main">‹ Volver</button>
+          <span class="lt-sub-title">Nuevo lote</span>
+        </div>
+        <div class="lt-name-pane">
+          <label style="font-size:13px;color:var(--agp-text-muted);">Nombre del lote</label>
+          <input id="inpNewName" type="text" maxlength="80" placeholder="Ej: Lote 12 — Maíz">
+          <div class="lt-name-actions">
+            <button class="lt-back" data-goto="main">Cancelar</button>
+            <button class="lt-back primary" id="btnCreate">Crear</button>
+          </div>
+        </div>
       </div>
-      <div class="new-row">
-        <div style="flex:1"></div>
-        <button class="btn" id="btnCloneCancel">Cancelar</button>
-        <button class="btn primary" id="btnCloneCreate">Crear y abrir</button>
-      </div>
-      <div class="msg" id="msgClone"></div>
+
     </div>
+  </div>
 
-    <h2 style="margin-top: var(--agp-sp-6)">Lotes guardados</h2>
-
-    <div class="lt-toolbar">
-      <input type="search" id="searchInp" class="search" placeholder="Buscar por nombre…" autocomplete="off">
-      <span class="count" id="ltCount">0 lotes</span>
-      <label style="color: var(--agp-text-muted); font-size: var(--agp-fs-sm);">Por página</label>
-      <select id="pageSize">
-        <option value="10">10</option>
-        <option value="25" selected>25</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-      </select>
-    </div>
-
-    <div class="card" style="padding:0; overflow:hidden">
-      <table class="lt-table" id="lt">
-        <thead>
-          <tr>
-            <th data-sort="name">Nombre <span class="arr" data-arr="name"></span></th>
-            <th data-sort="last_modified_utc">Modificado <span class="arr" data-arr="last_modified_utc">▼</span></th>
-            <th data-sort="distance_km">Distancia <span class="arr" data-arr="distance_km"></span></th>
-            <th data-sort="has_boundary">Estado <span class="arr" data-arr="has_boundary"></span></th>
-            <th class="col-act">Acción</th>
-          </tr>
-        </thead>
-        <tbody id="ltBody"></tbody>
-      </table>
-    </div>
-
-    <div class="lt-pager" id="ltPager"></div>
-  </main>
   <script src="../js/keyboard.js"></script>
-  <script src="../js/sidebar.js"></script>
-  <script src="../js/modal.js"></script>
   <script src="../js/lote.js"></script>
 </body>
 </html>

@@ -25,6 +25,10 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaWebView;
+using System.Net.Http;
+using PilotX.Cockpit.Bars.Services;
+using PilotX.Cockpit.Bars.ViewModels;
+using PilotX.Cockpit.Bars.Views;
 using PilotX.Desktop.Controls;
 using PilotX.Desktop.Services;
 using PilotX.Desktop.Views;
@@ -45,11 +49,34 @@ public partial class MainWindow : Window
     // Mapa nativo (siempre presente, ocupa el centro de la pantalla)
     private MapPanel? _mapHost;
 
+    // Barras del cockpit (menús reutilizados de PilotX.Cockpit.Bars) — reemplazan
+    // el HudBar + BottomToolbar placeholder por los menús reales.
+    private Grid? _cockpitBarsHost;
+    private BarraSuperior? _barSuperior;
+    private BarraDerecha? _barDerecha;
+    private BarraAbajo? _barAbajo;
+    private MenuIzquierda? _menuIzq;
+    private CockpitStateClient? _cockpitPoller;
+    private GuidanceCommandClient? _cockpitCmd;
+    private HttpClient? _cockpitHttp;
+    private BarraSuperiorViewModel? _vmSup;
+    private BarraDerechaViewModel? _vmDer;
+    private BarraAbajoViewModel? _vmAba;
+    private MenuIzquierdaViewModel? _vmIzq;
+    private const double MenuIzqNarrow = 100;
+    private const double MenuIzqExpanded = 272;
+
     // WebView lazy: se instancia on-demand y se dispone al cerrar la pantalla.
     private Panel?   _webViewSlot;
     private Button?  _webViewBack;
     private WebView? _webView;
     private bool     _coldStartLogged;
+
+    // Ventana-diálogo hija para páginas que el nativo abre como ventana chiquita
+    // separada (ej. FormBuildTracks → tracks.html). Es su propia Window con barra
+    // de título y X, así NO tapa el mapa ni sufre el airspace del WebView2.
+    private Window?  _dialogWin;
+    private WebView? _dialogWebView;
 
     // HUD
     private TextBlock _hudSpeed;
@@ -186,6 +213,11 @@ public partial class MainWindow : Window
         _rootBorder      = this.FindControl<Border>("RootBorder");
 
         _mapHost         = this.FindControl<MapPanel>("MapHost");
+        _cockpitBarsHost = this.FindControl<Grid>("CockpitBarsHost");
+        _barSuperior     = this.FindControl<BarraSuperior>("BarSuperior");
+        _barDerecha      = this.FindControl<BarraDerecha>("BarDerecha");
+        _barAbajo        = this.FindControl<BarraAbajo>("BarAbajo");
+        _menuIzq         = this.FindControl<MenuIzquierda>("MenuIzq");
         _webViewSlot     = this.FindControl<Panel>("WebViewSlot");
         _webViewBack     = this.FindControl<Button>("WebViewBack");
 
@@ -338,8 +370,12 @@ public partial class MainWindow : Window
                 _rootBorder.BorderThickness = new global::Avalonia.Thickness(0);
             }
             if (_headerBar     != null) _headerBar.IsVisible = false;
-            if (_hudBar        != null) _hudBar.IsVisible = true;
-            if (_bottomToolbar != null) _bottomToolbar.IsVisible = true;
+            // Las 4 barras del cockpit reemplazan el HudBar + BottomToolbar
+            // placeholder (menús reales: crear A/B, curva, piloto, secciones…).
+            if (_hudBar        != null) _hudBar.IsVisible = false;
+            if (_bottomToolbar != null) _bottomToolbar.IsVisible = false;
+            if (_cockpitBarsHost != null) _cockpitBarsHost.IsVisible = true;
+            SetupCockpitBars();
             var closeBtn = this.FindControl<Button>("CloseButton");
             if (closeBtn != null) closeBtn.IsVisible = true;
             if (_miniMapWrap != null) _miniMapWrap.IsVisible = true;
@@ -666,6 +702,62 @@ public partial class MainWindow : Window
     }
 
     private void OnWebViewBack(object? sender, RoutedEventArgs e) => CloseWebView();
+
+    // Abre una página del Hub como VENTANA CHIQUITA separada (diálogo), igual
+    // que el form nativo equivalente. Reusa la misma si ya está abierta.
+    private void OpenDialogPage(string relativePath, string title, double w, double h)
+    {
+        string url = App.TargetUrl.TrimEnd('/');
+        int api = url.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
+        string origin = api >= 0 ? url.Substring(0, api) : url;
+        string full = origin + "/" + relativePath.TrimStart('/');
+
+        try
+        {
+            if (_dialogWin != null)
+            {
+                // ya abierta → traer al frente y navegar
+                if (_dialogWebView != null) _dialogWebView.Url = new Uri(full);
+                _dialogWin.Activate();
+                return;
+            }
+
+            _dialogWebView = new WebView();
+            _dialogWebView.NavigationCompleted += OnDialogNavigated;
+            _dialogWebView.Url = new Uri(full);
+
+            _dialogWin = new Window
+            {
+                Title = title,
+                Width = w,
+                Height = h,
+                CanResize = true,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                SystemDecorations = SystemDecorations.Full,
+                ShowInTaskbar = false,
+                Content = _dialogWebView
+            };
+            _dialogWin.Closed += (_, _) =>
+            {
+                try { if (_dialogWebView != null) { _dialogWebView.NavigationCompleted -= OnDialogNavigated; _dialogWebView.Url = new Uri("about:blank"); } } catch { }
+                _dialogWebView = null;
+                _dialogWin = null;
+            };
+            _dialogWin.Show(this);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] OpenDialogPage error: " + ex.Message);
+        }
+    }
+
+    // La página del diálogo pide cerrar navegando a la URL centinela.
+    private void OnDialogNavigated(object? sender, WebViewUrlLoadedEventArg e)
+    {
+        var u = _dialogWebView?.Url?.ToString() ?? string.Empty;
+        if (u.IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
+            _dialogWin?.Close();
+    }
 
     /// <summary>
     /// Handler unificado del boton "&lt;-" (esquina sup. izq.). Cierra el
@@ -1237,6 +1329,17 @@ public partial class MainWindow : Window
 
     private void OnWebViewNavigated(object? sender, WebViewUrlLoadedEventArg e)
     {
+        // Puente de cierre: como el WebView2 nativo TAPA los controles Avalonia
+        // (el botón "Atrás" queda cubierto — airspace), las páginas HTML cierran
+        // el overlay navegando a una URL centinela que interceptamos acá. Es el
+        // único canal disponible (este wrapper solo expone NavigationCompleted).
+        var u = _webView?.Url?.ToString() ?? string.Empty;
+        if (u.IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            CloseWebView();
+            return;
+        }
+
         // Cold-start: si el primer paint del shell fue una pantalla web (modo
         // float), marca el cold-start aca. En modo full el cold-start lo
         // marca el primer snapshot del HUD (ver LogColdStartOnce).
@@ -1260,6 +1363,143 @@ public partial class MainWindow : Window
         var ms = App.ColdStart.ElapsedMilliseconds;
         Console.WriteLine("[PilotX.Desktop] Cold-start (Main -> " + trigger + "): " + ms + " ms");
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Cold-start: " + ms + " ms (" + trigger + ")");
+    }
+
+    // ---------- Barras del cockpit (PilotX.Cockpit.Bars) -------------------
+
+    // Cablea las 4 barras reutilizadas de la librería (mismo patrón que
+    // PilotX.Bars.Host, pero embebidas): ViewModels + GuidanceCommandClient
+    // (POST /api/aog/guidance/command) + CockpitStateClient (poll /api/aog/state
+    // → Apply en cada barra). El menú izquierdo se ensancha al abrir un submenú.
+    private void SetupCockpitBars()
+    {
+        if (_cockpitBarsHost == null) return;
+
+        string baseUrl = DeriveOrigin(App.TargetUrl);
+        _cockpitHttp = new HttpClient();
+        _cockpitCmd = new GuidanceCommandClient(_cockpitHttp, baseUrl);
+        // Ruteo local: los comandos de UI (config, colores, gráficos, banderas…)
+        // abren su página HTML en el WebView de PilotX.Desktop o un panel nativo;
+        // los de guiado (autosteer, crear guías, secciones, youturn…) siguen al
+        // backend por HTTP. Sin esto, todos iban al backend y los de UI no hacían
+        // nada (el engine solo implementa guiado).
+        _cockpitCmd.LocalHandler = RouteCockpitCommand;
+
+        _vmSup = new BarraSuperiorViewModel(_cockpitCmd);
+        _vmDer = new BarraDerechaViewModel(_cockpitCmd);
+        _vmAba = new BarraAbajoViewModel(_cockpitCmd);
+        _vmIzq = new MenuIzquierdaViewModel(_cockpitCmd);
+
+        if (_barSuperior != null) _barSuperior.DataContext = _vmSup;
+        if (_barDerecha  != null) _barDerecha.DataContext  = _vmDer;
+        if (_barAbajo    != null) _barAbajo.DataContext    = _vmAba;
+        if (_menuIzq     != null) _menuIzq.DataContext      = _vmIzq;
+
+        // Ensanchar/angostar el menú izquierdo al abrir/cerrar un submenú
+        // (equivalente al resize de la ventana en el Host). Sin ancho extra el
+        // submenú queda clippeado a la derecha de la columna principal.
+        _vmIzq.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MenuIzquierdaViewModel.OpenSubmenu) && _menuIzq != null)
+                _menuIzq.Width = _vmIzq!.OpenSubmenu != null ? MenuIzqExpanded : MenuIzqNarrow;
+        };
+
+        // Poll de estado dedicado para las barras (superior/derecha/abajo leen
+        // IsJobStarted, autosteer, secciones, etc.). Mismo :5180 que el mapa.
+        _cockpitPoller = new CockpitStateClient(baseUrl, intervalMs: 250);
+        _cockpitPoller.SnapshotReceived += snap => Dispatcher.UIThread.Post(() =>
+        {
+            _vmSup?.Apply(snap);
+            _vmDer?.Apply(snap);
+            _vmAba?.Apply(snap);
+        });
+        _cockpitPoller.Start();
+
+        Closed += (_, _) =>
+        {
+            try { _cockpitPoller?.Dispose(); } catch { }
+            try { _cockpitHttp?.Dispose(); } catch { }
+        };
+    }
+
+    // Ruteo de los comandos de las barras. Devuelve true si se manejó localmente
+    // (navegación a página HTML / panel nativo / acción de ventana); false para
+    // que el comando siga al backend de guiado (POST /api/aog/guidance/command).
+    private bool RouteCockpitCommand(string cmd)
+    {
+        switch (cmd)
+        {
+            // ---- Acciones de ventana ----
+            case "minimizar": WindowState = WindowState.Minimized; return true;
+            case "maximizar":
+                WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+                return true;
+            case "apagar": Close(); return true;
+
+            // ---- Paneles nativos de PilotX.Desktop ----
+            case "datos_gps":  ShowGpsData();  return true;
+            case "lote_datos": ShowFieldData(); return true;
+            case "hub":        ShowHub();      return true;
+            case "corex":      ShowCoreXEcu(); return true;
+            case "webcam":     ShowCamaras();  return true;
+
+            // ---- Ventanas-diálogo chiquitas (como el form nativo equivalente) ----
+            case "pick":
+            case "importar_guias":
+            case "track_new_ab":
+            case "track_new_curve":
+            case "track_new_a":
+                OpenDialogPage("pages/tracks.html", "Guías", 680, 520);
+                return true;
+
+            // Menú de lote (FormJob) → ventana chica
+            case "lote_menu":
+            case "lote_continuar":
+                OpenDialogPage("pages/lote.html", "Lote", 670, 610);
+                return true;
+        }
+
+        // ---- Comandos que abren una página HTML del Hub en el WebView ----
+        string page = cmd switch
+        {
+            "config_form"       => "pages/config.html",
+            "direccion"         => "pages/config.html",
+            "todos_ajustes"     => "pages/ajustes-todos.html",
+            "colores"           => "pages/colores.html",
+            "colores_sec"       => "pages/colores-secciones.html",
+            "mapeo_color"       => "pages/colores-secciones.html",
+            "perfil_nuevo"      => "pages/perfiles.html",
+            "perfil_cargar"     => "pages/perfiles.html",
+            "perfil_gestion"    => "pages/perfiles.html",
+            "directorios"       => "pages/config.html",
+            "ayuda"             => "pages/ayuda.html",
+            "grafico_direccion" => "pages/grafico-direccion.html",
+            "grafico_rumbo"     => "pages/grafico-rumbo.html",
+            "grafico_xte"       => "pages/grafico-xte.html",
+            "chequeo_roll"      => "pages/grafico-correccion.html",
+            "suavizar_ab"       => "pages/suavizar-ab.html",
+            "corregir_pos"      => "pages/corregir-posicion.html",
+            "visor_eventos"     => "pages/eventos.html",
+            "lote_menu"         => "pages/lote.html",
+            "lote_continuar"    => "pages/lote.html",
+            "bandera"           => "pages/banderas.html",
+            "bandera_latlon"    => "pages/banderas.html",
+            "lindero"           => "pages/contorno.html",
+            "cabecera"          => "pages/cabecera.html",
+            "cabecera_avanzada" => "pages/cabecera-lineas.html",
+            "tram_crear"        => "pages/tramline.html",
+            "importar_guias"    => "pages/tracks.html",
+            "pick"              => "pages/tracks.html",
+            "sim_coords"        => "pages/sim-coords.html",
+            "asistente_direccion" => "pages/config.html",
+            "herr_limites"      => "pages/contorno.html",
+            _ => null
+        };
+        if (page != null) { NavigateTo(page); return true; }
+
+        // Resto → backend de guiado (autosteer, sec_*, uturn, contour, track_*,
+        // tracks_off, lote_cerrar, borrar_*, cabecera_onoff, tram_vista, vistas…).
+        return false;
     }
 
     // ---------- HUD --------------------------------------------------------

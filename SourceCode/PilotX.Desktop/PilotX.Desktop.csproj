@@ -97,4 +97,11 @@
     <PackageReference Include="Silk.NET.OpenGL" Version="2.21.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Barras del cockpit (menús superior/derecha/abajo/izquierda) reutilizadas
+         de la librería que también consume PilotX.Bars.Host. Reemplazan el toolbar
+         placeholder por los menús reales (crear A/B, curva, piloto, secciones…). -->
+    <ProjectReference Include="..\PilotX.Cockpit.Bars\PilotX.Cockpit.Bars.csproj" />
+  </ItemGroup>
+
 </Project>

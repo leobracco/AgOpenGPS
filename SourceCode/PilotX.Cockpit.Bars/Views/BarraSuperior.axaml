@@ -4,43 +4,208 @@
              xmlns:views="using:PilotX.Cockpit.Bars.Views"
              x:Class="PilotX.Cockpit.Bars.Views.BarraSuperior"
              x:DataType="vm:BarraSuperiorViewModel"
-             Height="46">
+             Height="52">
   <UserControl.Resources>
     <views:StringToBrushConverter x:Key="StringToBrush"/>
   </UserControl.Resources>
-  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="0,0,0,1">
-    <DockPanel LastChildFill="False" Margin="5,0">
-      <Button DockPanel.Dock="Left" Content="TRABAJO" Margin="2,0"
-              Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
-      <Button DockPanel.Dock="Left" Content="GPS" Margin="2,0"
-              Command="{Binding SendCommand}" CommandParameter="datos_gps"/>
-      <Button DockPanel.Dock="Left" Content="LOTE" IsEnabled="{Binding LoteEnabled}" Margin="2,0"
-              Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
-      <!-- chips de datos vivos -->
-      <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12" Margin="14,0"
-                  VerticalAlignment="Center">
-        <TextBlock Text="{Binding SpeedText}" FontSize="13" FontWeight="SemiBold" Foreground="#101612"/>
-        <StackPanel Orientation="Horizontal" Spacing="4">
-          <Ellipse Width="9" Height="9" VerticalAlignment="Center"
-                   Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
-          <TextBlock Text="{Binding GpsText}" FontSize="12" Foreground="#535E54"/>
+
+  <!-- Estilos locales espejando barra-superior.html (.tab / .tele / .wbtn /
+       .linebadge). Scopeados a este control para no chocar con BarStyles. -->
+  <UserControl.Styles>
+    <!-- Tab pill -->
+    <Style Selector="Button.tab">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="11"/>
+      <Setter Property="Height" Value="40"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F7F9F7"/>
+      <Setter Property="BorderBrush" Value="#C8D1C8"/>
+    </Style>
+    <Style Selector="Button.tab:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="TextBlock.Foreground" Value="#B5BDB5"/>
+    </Style>
+    <!-- Window button -->
+    <Style Selector="Button.wbtn">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Width" Value="38"/>
+      <Setter Property="Height" Value="40"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#59635A"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.wbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F5F7F5"/>
+    </Style>
+    <Style Selector="Button.wbtn.close">
+      <Setter Property="Foreground" Value="#C84E48"/>
+      <Setter Property="BorderBrush" Value="#E5C3C0"/>
+      <Setter Property="Background" Value="#FFF7F6"/>
+    </Style>
+    <Style Selector="Button.wbtn.close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FDEBE9"/>
+    </Style>
+    <!-- linebadge arrows -->
+    <Style Selector="Button.arrow">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Width" Value="30"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="FontSize" Value="18"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#566057"/>
+      <Setter Property="CornerRadius" Value="9"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.arrow:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F2F5F2"/>
+    </Style>
+    <!-- Telemetría value/label -->
+    <Style Selector="TextBlock.televal">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.telelbl">
+      <Setter Property="FontSize" Value="8"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#747D75"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
+    <!-- SISTEMA flyout items -->
+    <Style Selector="MenuItem">
+      <Setter Property="FontSize" Value="13"/>
+    </Style>
+  </UserControl.Styles>
+
+  <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,0,1">
+    <Grid ColumnDefinitions="Auto,Auto,*,Auto,*,Auto,Auto" Margin="8,0">
+
+      <!-- ===== logo Agro Parallel ===== -->
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,8,0">
+        <Viewbox Width="30" Height="30">
+          <Canvas Width="28" Height="28">
+            <Path Fill="#4ABA3E" Data="M4 25L9.2 3h9.6L24 25h-5.3l-1.5-6.2H10.8L9.3 25H4Z"/>
+            <Path Fill="#FFFFFF" Data="M12.7 8.2h2.6l1 4.3h-4.6l1-4.3Z"/>
+            <Path Fill="#FFFFFF" Data="M13.2 13.5h1.6v9.2h-1.6zM9.9 16.1h1.5l-2 6.6H7.8l2.1-6.6ZM16.6 16.1h1.5l2.1 6.6h-1.6l-2-6.6Z"/>
+          </Canvas>
+        </Viewbox>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Text="AGRO" FontSize="11" FontWeight="ExtraBold" Foreground="#101612" LetterSpacing="0.8"/>
+          <TextBlock Text="PARALLEL" FontSize="11" FontWeight="Black" Foreground="#4ABA3E" LetterSpacing="0.8"/>
         </StackPanel>
-        <TextBlock Text="{Binding HaText}" FontSize="12" Foreground="#535E54"/>
-        <TextBlock Text="{Binding LineBadge}" IsVisible="{Binding LineVisible}"
-                   FontSize="12" FontWeight="SemiBold" Foreground="#2E8B29"/>
-        <TextBlock Text="{Binding FechaText}" FontSize="12" Foreground="#8A968C"/>
       </StackPanel>
-      <!-- ventana -->
-      <Button DockPanel.Dock="Right" Content="✕" Margin="2,0"
-              Command="{Binding SendCommand}" CommandParameter="apagar"/>
-      <Button DockPanel.Dock="Right" Content="☐" Margin="2,0"
-              Command="{Binding SendCommand}" CommandParameter="maximizar"/>
-      <Button DockPanel.Dock="Right" Content="–" Margin="2,0"
-              Command="{Binding SendCommand}" CommandParameter="minimizar"/>
-      <Button DockPanel.Dock="Right" Content="›" IsVisible="{Binding LineVisible}" Margin="2,0"
-              Command="{Binding SendCommand}" CommandParameter="track_next"/>
-      <Button DockPanel.Dock="Right" Content="‹" IsVisible="{Binding LineVisible}" Margin="2,0"
-              Command="{Binding SendCommand}" CommandParameter="track_prev"/>
-    </DockPanel>
+
+      <!-- ===== tabs ===== -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+        <Button Classes="tab" Content="TRABAJO"
+                Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
+        <Button Classes="tab" Command="{Binding SendCommand}" CommandParameter="datos_gps">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                     Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
+            <TextBlock Text="GPS" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button Classes="tab" Content="LOTE" IsEnabled="{Binding LoteEnabled}"
+                Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
+        <Button Classes="tab" Content="SISTEMA">
+          <Button.Flyout>
+            <MenuFlyout Placement="Bottom">
+              <MenuItem Header="Perfiles del vehículo" Command="{Binding SendCommand}" CommandParameter="perfil_gestion"/>
+              <MenuItem Header="Idioma">
+                <MenuItem Header="Español"    Command="{Binding SendCommand}" CommandParameter="idioma_es"/>
+                <MenuItem Header="English"    Command="{Binding SendCommand}" CommandParameter="idioma_en"/>
+                <MenuItem Header="Português"  Command="{Binding SendCommand}" CommandParameter="idioma_pt"/>
+                <MenuItem Header="Français"   Command="{Binding SendCommand}" CommandParameter="idioma_fr"/>
+                <MenuItem Header="Deutsch"    Command="{Binding SendCommand}" CommandParameter="idioma_de"/>
+                <MenuItem Header="Italiano"   Command="{Binding SendCommand}" CommandParameter="idioma_it"/>
+                <MenuItem Header="Русский"    Command="{Binding SendCommand}" CommandParameter="idioma_ru"/>
+                <MenuItem Header="Українська" Command="{Binding SendCommand}" CommandParameter="idioma_uk"/>
+              </MenuItem>
+              <MenuItem Header="Simulador"                 Command="{Binding SendCommand}" CommandParameter="simulador"/>
+              <MenuItem Header="Coordenadas del simulador" Command="{Binding SendCommand}" CommandParameter="sim_coords"/>
+              <MenuItem Header="Modo kiosco (pantalla completa)" Command="{Binding SendCommand}" CommandParameter="kiosco"/>
+              <Separator/>
+              <MenuItem Header="Restablecer TODO" Command="{Binding SendCommand}" CommandParameter="reset_all"/>
+              <MenuItem Header="Ayuda"            Command="{Binding SendCommand}" CommandParameter="ayuda"/>
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+      </StackPanel>
+
+      <!-- ===== línea de guía (‹ nº ›) ===== -->
+      <Border Grid.Column="3" VerticalAlignment="Center"
+              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="13"
+              Padding="5,0" IsVisible="{Binding LineVisible}">
+        <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
+          <Button Classes="arrow" Content="‹" Command="{Binding SendCommand}" CommandParameter="track_prev"/>
+          <Border Height="32" MinWidth="52" CornerRadius="9" Padding="10,0"
+                  VerticalAlignment="Center">
+            <Border.Background>
+              <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                <GradientStop Offset="0" Color="#55C646"/>
+                <GradientStop Offset="1" Color="#3DAF35"/>
+              </LinearGradientBrush>
+            </Border.Background>
+            <TextBlock Text="{Binding LineBadge}" FontSize="16" FontWeight="Black" Foreground="#FFFFFF"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Border>
+          <Button Classes="arrow" Content="›" Command="{Binding SendCommand}" CommandParameter="track_next"/>
+        </StackPanel>
+      </Border>
+
+      <!-- ===== telemetría + botones ventana ===== -->
+      <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="60">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" Text="{Binding SpeedText}"/>
+            <TextBlock Classes="telelbl" Text="KM/H"/>
+          </StackPanel>
+        </Border>
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="62">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" FontSize="12" Text="{Binding GpsText}"/>
+            <TextBlock Classes="telelbl" Text="SEÑAL"/>
+          </StackPanel>
+        </Border>
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="56">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" Text="{Binding FechaText}"/>
+            <TextBlock Classes="telelbl" Text="TIEMPO"/>
+          </StackPanel>
+        </Border>
+        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="56">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" Text="{Binding HaText}"/>
+            <TextBlock Classes="telelbl" Text="HA"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0,0,0">
+        <Button Classes="wbtn" Content="–" Command="{Binding SendCommand}" CommandParameter="minimizar"/>
+        <Button Classes="wbtn" Content="☐" Command="{Binding SendCommand}" CommandParameter="maximizar"/>
+        <Button Classes="wbtn close" Content="✕" Command="{Binding SendCommand}" CommandParameter="apagar"/>
+      </StackPanel>
+    </Grid>
   </Border>
 </UserControl>

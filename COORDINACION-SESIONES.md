@@ -31,8 +31,8 @@ la sesión android al extraer, pero el taller los usa desde Services),
 
 | Sesión | Qué | Archivos |
 |---|---|---|
-| taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 14 al ~70% (abrir/cerrar lote real headless, ver bitácora de hoy). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*` |
+| taller | **Migración total a Avalonia — UI (front-end)**: completar mapa GL (guías paralelas, youturn/skip, boundary) y después migrar pantallas WebView → Views nativas | `SourceCode/PilotX.Desktop/*`, `SourceCode/PilotX.Cockpit.Bars/*` |
+| android | **Migración total a Avalonia — engine (back-end)**: que el EngineWebHost sirva TODAS las /api (no solo el mapa) para que PilotX.Desktop corra SIN FormGPS | `SourceCode/PilotX.GuidanceEngine/*`, `GPS/AgroParallel/*` (extracción), `AgOpenGPS.Core/*` |
 
 ## Bitácora (append-only)
 
@@ -562,3 +562,73 @@ la sesión android al extraer, pero el taller los usa desde Services),
   end-to-end, no solo sim. Todo compila (engine 0 errores). Si tenías algo sin
   commitear en GuidanceEngineHost.cs/Program.cs/csproj, avisá y reconciliamos —
   son hunks aditivos (Start() +1 línea, Program +flag, csproj +ref).
+- [2026-07-23] [taller] **PLAN — MIGRACIÓN TOTAL A AVALONIA (decisión del usuario:
+  dejamos el diseño HTML de lado, todo el esfuerzo va a Avalonia nativo).**
+
+  **Objetivo final**: PilotX.Desktop (Avalonia) corre STANDALONE, sin FormGPS
+  WinForms. Eso necesita dos mitades que van en paralelo, una por sesión:
+  · **taller** = toda la UI nativa Avalonia (front-end, `PilotX.Desktop`).
+  · **android** = el engine sirviendo TODAS las /api headless (back-end,
+    `PilotX.GuidanceEngine`), para que ese :5180 sea el engine y no FormGPS.
+  Las dos consumen/exponen la MISMA API HTTP :5180, así que se pueden hacer en
+  paralelo sin pisarse (taller lee la API; android la sirve).
+
+  ### División (tabla)
+
+  | Área | Sesión | Archivos donde tocar | Detalle |
+  |---|---|---|---|
+  | Mapa GL (bloque 6 restante) | **taller** | `SourceCode/PilotX.Desktop/Views/MapGlSurface.cs` (DrawGuidance/DrawPaths/nuevo DrawBoundary+paralelas), `Views/MapPanel.cs`, `Services/GuidanceGeometryClient.cs` (+ nuevo client boundary si hace falta) | guías paralelas vecinas, youturn/skip visuales, boundary. ARRANCA POR ACÁ (elección del usuario). |
+  | Pantallas WebView → Views Avalonia | **taller** | NUEVAS `SourceCode/PilotX.Desktop/Views/{Tracks,Lote,Contorno,Cabecera,Tram,Banderas,ConfigVehiculo,Perfiles,Colores,GraficoXXX}Panel.axaml(.cs)`; ruteo en `PilotX.Desktop/MainWindow.axaml.cs` (reemplazar `OpenDialogPage`/`NavigateTo` por panel nativo); clients en `PilotX.Desktop/Services/*Client.cs` | guías, lote, contorno, cabecera, tram, banderas, config vehículo/implemento, perfiles, colores, gráficos, sim-coords, corregir-posición |
+  | Barras cockpit (ya nativas) | **taller** | `SourceCode/PilotX.Cockpit.Bars/Views/*.axaml`, `ViewModels/*.cs`, `Services/*.cs` | mantener/pulir |
+  | Vocabulario de comandos del engine | **android** | EDITAR `SourceCode/PilotX.GuidanceEngine/GuidanceEngineHost.Commands.cs` (el switch `ExecuteCommand`). COPIAR de `SourceCode/GPS/Forms/GUI.FloatingMenu.cs` (`FormGPS.ExecuteGuidanceCommand`). Modelo del host en `PilotX.GuidanceEngine/GuidanceEngineHost.*.cs` | hoy solo "autosteer"/"job_*"; completar TODO el vocablo (sections, youturn, ciclar guías, contour, tram, banderas…) |
+  | EngineTrackBuilderService (guías) | **android** | NUEVO `SourceCode/PilotX.GuidanceEngine/Adapters/EngineTrackBuilderService.cs`; wire en `PilotX.GuidanceEngine/EngineWebHost.cs`; REFERENCIA `SourceCode/GPS/AgroParallel/Common/FormGpsTrackBuilderService.cs`; PORTAR a Core/host los `TrkBuilder_*` de `SourceCode/GPS/Forms/AgroParallel/FormGPS.TrackBuilder.cs`; interfaz `AgroParallel/Core/AgroParallel.Services/Abstractions/ITrackBuilderService.cs` | crear A/B / curva / elegir / usar headless |
+  | EngineLotesService (lotes) | **android** | NUEVO `PilotX.GuidanceEngine/Adapters/EngineLotesService.cs`; REUSAR `PilotX.GuidanceEngine/GuidanceEngineHost.Job.cs` (OpenField/CloseField ya hechos); REFERENCIA `GPS/AgroParallel/Common/FormGpsLotesService.cs`; interfaz `.../Abstractions/ILotesService.cs` | abrir/cerrar/crear/listar/from-existing |
+  | EngineSectionControlService | **android** | NUEVO `PilotX.GuidanceEngine/Adapters/EngineSectionControlService.cs`; REFERENCIA `GPS/AgroParallel/Common/FormGpsSectionControlService.cs`; interfaz `.../Abstractions/ISectionControlService.cs` | control de secciones headless |
+  | Resto de servicios a demanda | **android** | mismo patrón: `Adapters/Engine{ConfigVehiculo,Perfil,VehicleTool,Flags,Contorno,...}Service.cs` (los 25 `FormGps*Service.cs` de `GPS/AgroParallel/Common/` son la lista y referencia 1:1); wire cada uno en `EngineWebHost.cs` | config, perfiles, colores, gráficos… a medida que taller migra esas pantallas |
+  | Extracción Core que falte (bloque 9) | **android** | de `SourceCode/GPS/Forms/*` hacia `SourceCode/AgOpenGPS.Core/Classes/*` (mismo patrón I*Host + partial que ya venís usando) | lo que FormGPS todavía tiene y los servicios headless necesitan |
+  | Serial USB-OTG (bloque 8) | **android** | `SourceCode/PilotX.Android/*` + impl `ISerialPortService` USB-OTG | cuando haya hardware |
+
+  ### PEDIDO a la sesión android — QUÉ HACER Y POR DÓNDE ARRANCAR
+
+  Ya dejé hecho el patrón: `EngineWebHost.cs` levanta el `AgpWebHost` sobre el
+  engine y cablea **6 providers** del mapa (EngineStateProvider/Coverage/
+  ToolGeometry/Tram/Paths/Guidance, en `PilotX.GuidanceEngine/Adapters/`). Hoy
+  el resto de los `if (svc != null)` del `AgpWebHost` quedan en null → esos
+  endpoints contestan service-unavailable. **Tu trabajo: ir llenando esos
+  servicios con adapters `Engine*` sobre `GuidanceEngineHost`, mismo patrón que
+  mis 6** (gemelos headless de los `FormGps*Service` de `GPS/AgroParallel/Common`).
+
+  **Orden sugerido (por valor para que PilotX.Desktop corra sin FormGPS):**
+
+  1. **`IGuidanceCalculator.ExecuteCommand` COMPLETO** (lo más valioso): hoy
+     `GuidanceEngineHost.ExecuteCommand` (Commands.cs) solo entiende "autosteer"
+     y "job_*". Sin el resto, **las barras del cockpit no hacen nada headless**
+     (autosteer, secciones auto/manual, youturn on/off, ciclar guías, contorno,
+     tram, banderas, etc.). Copiá el vocabulario 1:1 de
+     `FormGPS.ExecuteGuidanceCommand` (`GPS/Forms/GUI.FloatingMenu.cs`) — es un
+     switch grande de strings; cada caso clickea un botón nativo, vos hacelo
+     tocando el modelo del host (mismo criterio que ya usaste para "autosteer" →
+     `PerformAutoSteerClick`). Ese es el back-end de las barras que yo ya tengo
+     nativas.
+  2. **`ITrackBuilderService` (guías) → `EngineTrackBuilderService`**: para que
+     crear A/B / curva / elegir / usar ande headless. El adapter FormGPS está en
+     `GPS/AgroParallel/Common/FormGpsTrackBuilderService.cs` (llama
+     `_form.TrkBuilder_*`). Necesitás portar esos `TrkBuilder_*` a Core o al
+     host. Yo ya tengo la UI (hoy HTML, la paso a Avalonia) que consume
+     `/api/tracks/*` — con esto anda contra el engine.
+  3. **`ILotesService` (lotes) → `EngineLotesService`**: abrir/cerrar/crear/
+     listar/from-existing. Ojo: ya tenés `GuidanceEngineHost.Job.cs`
+     (OpenField/CloseField) — reusalo. El adapter FormGPS es
+     `FormGpsLotesService` (o `LotesService`). Endpoints `/api/lotes/*`.
+  4. **`ISectionControlService`**: para el control de secciones headless.
+  5. El resto (config vehículo/implemento, perfiles, colores, gráficos) a
+     demanda, a medida que yo migro esas pantallas a Avalonia.
+
+  Regla: donde `GuidanceEngineHost` no tenga la lógica que el servicio necesita,
+  extraela de FormGPS a Core (bloque 9, tu carril) — NO la dupliques.
+  Meta parcial buena: con (1) hecho, las barras nativas del cockpit funcionan
+  100% contra el engine sin FormGPS. Con (1)+(2)+(3), el guiado + guías + lotes
+  corren headless. Ahí PilotX.Desktop ya no necesita a FormGPS para lo esencial.
+
+  Yo (taller) arranco por el mapa GL. Avisá cuando tengas (1) para probar las
+  barras contra el engine. Todo por :5180, no nos pisamos.
