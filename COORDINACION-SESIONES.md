@@ -43,6 +43,33 @@ ver la sección "PLAN — MIGRACIÓN TOTAL A AVALONIA" más abajo en la bitácor
 
 ---
 
+## ⚡ SINCRONIZACIÓN 2026-07-23 (PM) — CORRER PILOTX (MAPA NATIVO) EN ANDROID
+
+Meta: **el mapa GL nativo Avalonia corriendo en Android**, no solo el WebView.
+Hoy `PilotX.Android` es un WebView a `127.0.0.1:5180` + engine in-process
+(bloque 7). El mapa nativo vive en `PilotX.Desktop` (`net9.0-windows`) → NO está
+en Android. Para llevarlo hay que **volver portable la UI** (Leonardo) y **armar
+el head Android + integrarlo** (Santiago). 50/50, mismo criterio: front-end vs
+plataforma. La API :5180 sigue siendo el contrato, así que se hace en paralelo.
+
+| | **LEONARDO** (UI Avalonia portable) | **SANTIAGO** (head Android + plataforma) |
+|---|---|---|
+| **Objetivo** | Que la UI (mapa+pantallas) compile en `net9.0` puro, sin deps Windows | Que un head `net9.0-android` hostee esa UI y corra en emulador/tablet |
+| **HACÉ** | **L1.** Extraer la UI de `PilotX.Desktop` a proyecto compartido **`PilotX.UI`** (`net9.0`, sin `-windows`): `App.axaml(.cs)`, `MainWindow.axaml(.cs)`, `Views/*`, `Services/*` (clients HTTP). `PilotX.Desktop` queda como head fino Windows (`Program.cs`). **L2.** Abstraer `WebView.Avalonia` (Windows-only) tras interfaz **`IWebViewHost`** en `PilotX.UI`; impl Windows queda en el head Desktop. **L3.** Verificar que `MapGlSurface` compila en `PilotX.UI` (shaders ya `#version 300 es` → GL ES OK) y que nada del shared usa API Windows. **L4.** Que la baseUrl `:5180` entre por parámetro (Desktop y Android la pasan distinto). | **S1.** Crear head **`PilotX.Android.App`** (`net9.0-android` + `Avalonia.Android`): `MainActivity`/`SplashActivity` que hostee el `AppBuilder` con `PilotX.UI`. **S2.** Impl Android de **`IWebViewHost`** (Android `WebView`) para los diálogos HTML que aún no son nativos. **S3.** Arrancar engine+WebHost+broker in-process al iniciar (reusar tu `HubForegroundService`+`GuidanceEngineHost`) y pasar `http://127.0.0.1:5180` a la UI. **S4.** Plataforma Android: permisos (location/foreground), fuente GPS, serial USB-OTG (bloque 8), lifecycle. **S5.** Packaging APK + prueba en emulador contra engine local. |
+| **Archivos** | `SourceCode/PilotX.UI/*` (NUEVO), `SourceCode/PilotX.Desktop/*` (adelgazar a head) | `SourceCode/PilotX.Android.App/*` (NUEVO), `SourceCode/PilotX.Android/*` (base a reusar), `PilotX.GuidanceEngine.Core/*` (host, ya multi-target) |
+| **NO TOQUES** | El head Android, los servicios de plataforma, packaging | `PilotX.UI/*`, `MapGlSurface`, lo visual/shaders |
+
+**Dependencia de orden:** S1 necesita que exista `PilotX.UI` (L1). Arranca
+Leonardo con **L1+L2**; Santiago hace scaffolding de **S1** en paralelo (proyecto
+android vacío que referencie `PilotX.UI` apenas se cree) y cablea cuando L1 aterrice.
+**Punto de encuentro = la interfaz `IWebViewHost`** (L2 la define, S2 la implementa):
+la firmamos apenas Leonardo la escriba (va a `COORDINACION-UI.md` como contrato).
+
+**Ya resuelto (no rehacer):** el engine ya corre en Android (bloque 7, tuyo) y los
+shaders del mapa ya son GL ES → el grueso es estructura de proyecto, no lógica.
+
+---
+
 ## Carriles vigentes (2026-07-19)
 
 | Sesión | Carril | NO toca |
@@ -1108,3 +1135,19 @@ la sesión android al extraer, pero el taller los usa desde Services),
   `FormGPS.JobNew`/`FileNewField` (ver `SaveOpen.Designer.cs`). Con eso, crear
   lote nuevo desde PilotX.Desktop (contra el engine) queda cerrado y podemos
   apagar FormGPS del todo para el flujo completo.
+- [2026-07-23] [taller] BUG create-lote **RESUELTO de mi lado** — para no
+  bloquear la prueba lo arreglé en `EngineLotesService.CreateFieldAsync`
+  (crea dir + `FieldPlaneFiles.Save` con origen = `AppModelField.CurrentLatLon`
+  + `OpenField`). OJO import: `FieldPlaneFiles` está en `AgOpenGPS.IO` (no
+  `AgOpenGPS.Core.IO`). Verificado: create → `is_job_started:true`, `Field.txt`
+  escrito. Santiago: quedan en `false` (tu carril) `DeleteFieldAsync`,
+  `CreateFromExistingAsync`, `ImportKml/IsoXmlAsync` — cuando quieras.
+- [2026-07-23] [taller] PEDIDO ANDROID (50/50) — armé la tabla "SINCRONIZACIÓN
+  2026-07-23 (PM) — CORRER PILOTX (MAPA NATIVO) EN ANDROID" arriba. Resumen de
+  TU mitad: **S1** head `PilotX.Android.App` (`net9.0-android`+`Avalonia.Android`)
+  que hostee `PilotX.UI`; **S2** impl Android de `IWebViewHost`; **S3** engine+
+  WebHost+broker in-process pasando `127.0.0.1:5180` a la UI; **S4** plataforma
+  (permisos, GPS, serial USB-OTG bloque 8, lifecycle); **S5** APK + prueba en
+  emulador. **Dependés de L1** (que yo cree `PilotX.UI`) para referenciarlo —
+  podés scaffoldear el head vacío en paralelo. Punto de encuentro = interfaz
+  `IWebViewHost` (yo la defino en L2, vos la implementás en S2). Arranco por L1+L2.
