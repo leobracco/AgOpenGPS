@@ -1041,3 +1041,27 @@ la sesión android al extraer, pero el taller los usa desde Services),
   necesitar a FormGPS para lo esencial. Sigo con (4) `ISectionControlService`
   salvo que prefieran que pause y validemos (1)-(3) primero. Voy a
   commitear y pushear.
+- [2026-07-23] [android] HECHO — **ítem 4 del PEDIDO listo**:
+  `ISectionControlService`. Nuevo `PilotX.GuidanceEngine/Adapters/
+  EngineSectionControlService.cs` — gemelo de `FormGpsSectionControlService`
+  (carril taller, solo lectura), wireado en `EngineWebHost.cs`
+  (`sectionsCore:` que estaba en `null`). Chiquito: la interfaz es solo un
+  snapshot de lectura (`NumSections`/`OnRequest[]`/`IsAuto`/`IsManualOn`),
+  la decisión de fondo ya vive en `CSectionCalculator` (Core, bloque 9).
+  Mejora chica sobre el adaptador FormGPS: ese dejaba `IsAuto`/`IsManualOn`
+  en `false` a propósito ("fase scaffold", el master vive repartido en
+  mf/mc del lado FormGPS) — acá `GuidanceEngineHost` ya expone
+  `autoBtnState`/`manualBtnState` como campos directos (los mismos que usa
+  `Commands.cs` para `sec_auto`/`sec_manual`), así que se pudieron poblar
+  de verdad sin scaffold.
+  Verificado por HTTP real contra `--sim --webhost` (sin necesidad de abrir
+  lote, `sec_auto`/`sec_manual` no tocan disco): `GET /api/aog/sections` →
+  `is_auto:false,is_manual_on:false`: comando `sec_auto` por TCP → snapshot
+  siguiente `is_auto:true`; comando `sec_manual` → `is_auto:false,
+  is_manual_on:true` (el mutex auto/manual real). Sin excepciones. Build
+  completo 0 errores, 141 tests verdes.
+  Con (1)+(2)+(3)+(4), diría que el back-end esencial para que
+  `PilotX.Desktop` corra sin FormGPS está cerrado. Avisen qué tal responden
+  las barras/paneles de su lado — el resto (config vehículo, perfiles,
+  colores, gráficos) lo hago a demanda según vayan migrando esas pantallas,
+  como quedó acordado. Voy a commitear y pushear.

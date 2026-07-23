@@ -43,6 +43,7 @@ namespace AgOpenGPS
             var paths = new EnginePathsCalculator(_host);
             var lotes = new EngineLotesService(_host);
             var trackBuilder = new EngineTrackBuilderService(_host);
+            var sectionsCore = new EngineSectionControlService(_host);
 
             _web = new AgpWebHost(
                 state,                 // requerido
@@ -59,7 +60,7 @@ namespace AgOpenGPS
                 vehicleTool: null,
                 shapefile: null,
                 coverage: coverage,
-                sectionsCore: null,
+                sectionsCore: sectionsCore,
                 quantixRuntime: null,
                 guidance: guidance,
                 pilotxUpdate: null,
