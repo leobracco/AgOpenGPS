@@ -129,11 +129,269 @@ namespace AgOpenGPS
                     SelectTrack();
                     return true;
                 case "job_close":
+                case "lote_cerrar":
                     CloseField();
+                    return true;
+
+                // --- resto del vocabulario real de FormGPS.ExecuteGuidanceCommand
+                // (GUI.FloatingMenu.cs) que SÍ es lógica pura (PEDIDO taller
+                // 2026-07-23, COORDINACION-SESIONES.md: "las barras nativas del
+                // cockpit funcionan 100% contra el engine"). Cada caso es la
+                // copia fiel del Click WinForms correspondiente (Controls.Designer.cs
+                // / Sections.Designer.cs) sin las líneas de imagen de botón/sonido,
+                // que no aplican sin UI. ---
+                case "autotrack":
+                    // btnAutoTrack_Click
+                    Trk.isAutoTrack = !Trk.isAutoTrack;
+                    return true;
+                case "sec_auto":
+                    SectionMasterAuto();
+                    return true;
+                case "sec_manual":
+                    SectionMasterManual();
+                    return true;
+                case "contour":
+                    ToggleContour();
+                    return true;
+                case "contour_lock":
+                    // btnContourLock_Click
+                    if (Ct.isContourBtnOn) Ct.SetLockToLine();
+                    return true;
+                case "uturn_skips":
+                    CycleYouTurnSkip();
+                    return true;
+                case "center":
+                    // btnSnapToPivot_Click
+                    Trk.SnapToPivot();
+                    return true;
+                case "nudge_left":
+                    // btnAdjLeft_Click
+                    Trk.NudgeTrack(-AgOpenGPS.Properties.Settings.Default.setAS_snapDistance * 0.01);
+                    return true;
+                case "nudge_right":
+                    // btnAdjRight_Click
+                    Trk.NudgeTrack(AgOpenGPS.Properties.Settings.Default.setAS_snapDistance * 0.01);
+                    return true;
+                case "reset_herramienta":
+                    ResetToolHeading();
+                    return true;
+                case "track_next":
+                    CycleTrack(forward: true);
+                    return true;
+                case "track_prev":
+                    CycleTrack(forward: false);
+                    return true;
+                case "tracks_off":
+                    // btnTracksOff_Click
+                    Trk.idx = -1;
+                    return true;
+                case "hidraulico":
+                    ToggleHydraulicLift();
+                    return true;
+                case "cabecera_onoff":
+                    ToggleHeadland();
+                    return true;
+                case "cabecera_secciones":
+                    // cboxIsSectionControlled_Click (sin persistir a Settings:
+                    // el motor headless no recarga Properties.Settings por sesión
+                    // todavía — mismo criterio que otros toggles en caliente).
+                    Bnd.isSectionControlledByHeadland = !Bnd.isSectionControlledByHeadland;
+                    return true;
+                case "tram_vista":
+                    CycleTramDisplayMode();
                     return true;
                 default:
                     return false;
             }
+        }
+
+        // btnSectionMasterAuto_Click (Sections.Designer.cs), sin imagen/sonido.
+        private void SectionMasterAuto()
+        {
+            manualBtnState = btnStates.Off;
+            autoBtnState = autoBtnState == btnStates.Off ? btnStates.Auto : btnStates.Off;
+            if (autoBtnState == btnStates.Auto) MarkAsWorkedTrack();
+            SetAllSectionsState(autoBtnState);
+        }
+
+        // btnSectionMasterManual_Click (Sections.Designer.cs), sin imagen/sonido.
+        private void SectionMasterManual()
+        {
+            autoBtnState = btnStates.Off;
+            manualBtnState = manualBtnState == btnStates.Off ? btnStates.On : btnStates.Off;
+            if (manualBtnState == btnStates.On) MarkAsWorkedTrack();
+            SetAllSectionsState(manualBtnState);
+        }
+
+        // MarkAsWorkedTrack (Sections.Designer.cs) — pura, sin UI.
+        private void MarkAsWorkedTrack()
+        {
+            if (Trk.idx < 0) return;
+            var track = Trk.gArr[Trk.idx];
+            if (track.mode == TrackMode.AB) track.workedTracks.Add(ABLineField.howManyPathsAway);
+            else if (track.mode == TrackMode.Curve) track.workedTracks.Add(CurveField.howManyPathsAway);
+        }
+
+        // AllSectionsAndButtonsToState/AllZonesAndButtonsToState (Sections.Designer.cs)
+        // sin el manejo de color de botones (WinForms, bloque 10).
+        private void SetAllSectionsState(btnStates state)
+        {
+            if (Tool.isSectionsNotZones)
+            {
+                for (int i = 0; i < 16; i++) Sections[i].sectionBtnState = state;
+                return;
+            }
+
+            if (Tool.zoneRanges[0] == 0) return;
+            if (Tool.zoneRanges[1] != 0)
+                for (int i = 0; i < Tool.zoneRanges[1]; i++) Sections[i].sectionBtnState = state;
+            for (int z = 2; z <= 8; z++)
+            {
+                if (Tool.zoneRanges[z] != 0)
+                    for (int i = Tool.zoneRanges[z - 1]; i < Tool.zoneRanges[z]; i++) Sections[i].sectionBtnState = state;
+            }
+        }
+
+        // btnContour_Click (Controls.Designer.cs), sin imagen de botón. El
+        // "cherry-pick upstream" (resetear trk.idx antes de tocar contour) y el
+        // Enable/DisableYouTurnButtons se inlinean acá (son solo Yt.ResetYouTurn()
+        // + Yt.isYouTurnBtnOn=false, el resto de esas 2 funciones es imagen de botón).
+        private void ToggleContour()
+        {
+            if (Trk.idx != -1) Trk.idx = -1;
+            Trk.isAutoTrack = false;
+
+            Ct.isContourBtnOn = !Ct.isContourBtnOn;
+
+            if (Ct.isContourBtnOn)
+            {
+                Yt.isYouTurnBtnOn = false;
+                Yt.ResetYouTurn();
+                guidanceLookAheadTime = 0.5;
+                Ct.isLocked = false;
+            }
+            else
+            {
+                Yt.isYouTurnBtnOn = false;
+                Yt.ResetYouTurn();
+                ABLineField.isABValid = false;
+                CurveField.isCurveValid = false;
+                Ct.isLocked = false;
+                guidanceLookAheadTime = AgOpenGPS.Properties.Settings.Default.setAS_guidanceLookAheadTime;
+                if (isBtnAutoSteerOn) ((IAutoSteerHost)this).PerformAutoSteerClick();
+            }
+            Log.EventWriter("GuidanceEngine: contour " + (Ct.isContourBtnOn ? "ON" : "OFF"));
+        }
+
+        // btnYouSkipEnable_Click (Controls.Designer.cs), sin imagen de botón.
+        private void CycleYouTurnSkip()
+        {
+            Yt.rowSkipsWidth = AgOpenGPS.Properties.Settings.Default.set_youSkipWidth;
+            switch (Yt.skipMode)
+            {
+                case SkipMode.Normal:
+                    Yt.skipMode = SkipMode.Alternative;
+                    if (Yt.rowSkipsWidth < 2) Yt.rowSkipsWidth = 2;
+                    Yt.Set_Alternate_skips();
+                    break;
+                case SkipMode.Alternative:
+                    Yt.skipMode = SkipMode.IgnoreWorkedTracks;
+                    if (Yt.rowSkipsWidth < 2) Yt.rowSkipsWidth = 2;
+                    break;
+                case SkipMode.IgnoreWorkedTracks:
+                    Yt.skipMode = SkipMode.Normal;
+                    break;
+            }
+            Yt.ResetCreatedYouTurn();
+        }
+
+        // btnResetToolHeading_Click (Controls.Designer.cs) — matemática pura.
+        private void ResetToolHeading()
+        {
+            tankPos.heading = fixHeading;
+            tankPos.easting = hitchPos.easting + (Math.Sin(tankPos.heading) * Tool.tankTrailingHitchLength);
+            tankPos.northing = hitchPos.northing + (Math.Cos(tankPos.heading) * Tool.tankTrailingHitchLength);
+
+            toolPivotPos.heading = tankPos.heading;
+            toolPivotPos.easting = tankPos.easting + (Math.Sin(toolPivotPos.heading) * Tool.trailingHitchLength);
+            toolPivotPos.northing = tankPos.northing + (Math.Cos(toolPivotPos.heading) * Tool.trailingHitchLength);
+        }
+
+        // btnCycleLines_Click / btnCycleLinesBk_Click (Controls.Designer.cs), sin
+        // imagen/label de botón. btnCycleLinesBk tiene el caso especial de contour
+        // lock (mismo criterio que el original: si contour está on, "prev" solo
+        // bloquea la línea en vez de ciclar guía).
+        private void CycleTrack(bool forward)
+        {
+            if (!forward && Ct.isContourBtnOn)
+            {
+                Ct.SetLockToLine();
+                return;
+            }
+
+            Trk.isAutoTrack = false;
+            if (Trk.gArr.Count <= 1) return;
+
+            while (true)
+            {
+                Trk.idx += forward ? 1 : -1;
+                if (Trk.idx >= Trk.gArr.Count) Trk.idx = 0;
+                else if (Trk.idx < 0) Trk.idx = Trk.gArr.Count - 1;
+
+                if (Trk.gArr[Trk.idx].isVisible) break;
+            }
+
+            if (isBtnAutoSteerOn) ((IAutoSteerHost)this).PerformAutoSteerClick();
+            if (Yt.isYouTurnBtnOn) ToggleYouTurn();
+        }
+
+        // btnHydLift_Click (Controls.Designer.cs).
+        private void ToggleHydraulicLift()
+        {
+            if (Bnd.isHeadlandOn)
+            {
+                Vehicle.isHydLiftOn = !Vehicle.isHydLiftOn;
+                if (!Vehicle.isHydLiftOn) P239Field.pgn[P239Field.hydLift] = 0;
+            }
+            else
+            {
+                P239Field.pgn[P239Field.hydLift] = 0;
+                Vehicle.isHydLiftOn = false;
+            }
+        }
+
+        // btnHeadlandOnOff_Click (Controls.Designer.cs).
+        private void ToggleHeadland()
+        {
+            Bnd.isHeadlandOn = !Bnd.isHeadlandOn;
+            if (Vehicle.isHydLiftOn && !Bnd.isHeadlandOn) Vehicle.isHydLiftOn = false;
+            if (!Bnd.isHeadlandOn) P239Field.pgn[P239Field.hydLift] = 0;
+        }
+
+        // btnTramDisplayMode_Click + GetNextDisplayMode (Controls.Designer.cs).
+        private void CycleTramDisplayMode()
+        {
+            Tram.isLeftManualOn = false;
+            Tram.isRightManualOn = false;
+            Tram.displayMode = GetNextTramDisplayMode(Tram.displayMode);
+        }
+
+        private TramMode GetNextTramDisplayMode(TramMode currentMode)
+        {
+            TramMode nextMode;
+            switch (currentMode)
+            {
+                case TramMode.None: nextMode = TramMode.All; break;
+                case TramMode.All: nextMode = TramMode.FillTracks; break;
+                case TramMode.FillTracks: nextMode = TramMode.BoundaryTracks; break;
+                case TramMode.BoundaryTracks: nextMode = TramMode.None; break;
+                default: throw new ArgumentOutOfRangeException(nameof(currentMode), "TramMode argument out of range");
+            }
+            if (nextMode.IncludesBoundaryTracks() && Tram.tramBndOuterArr.Count == 0)
+                nextMode = GetNextTramDisplayMode(nextMode);
+            if (nextMode.IncludesFillTracks() && Tram.tramList.Count == 0)
+                nextMode = GetNextTramDisplayMode(nextMode);
+            return nextMode;
         }
 
         // Crea una guía AB anclada en el pivote actual con el rumbo dado y la

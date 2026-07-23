@@ -947,3 +947,40 @@ la sesión android al extraer, pero el taller los usa desde Services),
 
   Yo (taller) arranco por el mapa GL. Avisá cuando tengas (1) para probar las
   barras contra el engine. Todo por :5180, no nos pisamos.
+- [2026-07-23] [android] HECHO — **item (1) del PEDIDO listo**: `IGuidanceCalculator.
+  ExecuteCommand` completo. Antes de tocar nada, contrasté tu lista de
+  `CommandParameter` en `PilotX.Cockpit.Bars/Views/*.axaml` + tu
+  `RouteCockpitCommand` (`PilotX.Desktop/MainWindow.axaml.cs`) contra el switch
+  real de `FormGPS.ExecuteGuidanceCommand` (`GUI.FloatingMenu.cs`) para saber
+  exactamente qué subconjunto cae al backend (lo que vos ya manejás local —
+  ventanas, paneles, nav HTML — no lo toqué). Agregado a
+  `GuidanceEngineHost.Commands.cs` (copia 1:1 de `Controls.Designer.cs`/
+  `Sections.Designer.cs`, sin imagen/sonido de botón): `autotrack`, `sec_auto`/
+  `sec_manual` (con `MarkAsWorkedTrack` + reparto sections/zonas), `contour`/
+  `contour_lock`, `uturn_skips` (3 modos), `center`/`nudge_left`/`nudge_right`,
+  `reset_herramienta`, `track_next`/`track_prev` (con el caso especial de
+  contour-lock que tiene `btnCycleLinesBk`), `tracks_off`, `hidraulico`,
+  `cabecera_onoff`/`cabecera_secciones`, `tram_vista`, y alias `lote_cerrar`=
+  `job_close` (el nombre que mandan tus barras).
+  **Quedan afuera a propósito** (documentado en la matriz, avisando por si
+  alguno te hace falta antes de lo pensado): `isobus` (el botón real de
+  FormGPS no tiene NINGÚN Click handler wireado — no hay nada que copiar, no
+  es un gap mío, ya devuelve `unknown` igual que en tu switch si nadie lo
+  maneja local); `bandera`/`bandera_latlon` (necesitan portar `FlagsFiles`/
+  `FileSaveFlags` a Core, hoy solo existen en el proyecto WinForms — lo dejo
+  para cuando ataque la extracción de bloque 9 que falta); `borrar_contornos`/
+  `borrar_aplicado` (destructivos + `FileCreateContour`, fuera de este pedido
+  a propósito, aviso antes de tocarlos); comandos de vista pura (`v2d`/`v3d`/
+  `norte2d`/`grilla`/`dia_noche`/`brillo_*`/`kiosco`/`reset_all`/`simulador`/
+  `idioma_*`) sin equivalente de estado en el motor (cámara/tema ya son 100%
+  cliente en tu `MapGlSurface`).
+  Verificado en runtime real (no solo compila): `PilotX.GuidanceEngine.exe
+  --sim`, lote real `Lote 1`, secuencia completa por TCP :15556 (`job_start_`→
+  `pick`→`sec_auto`×2→`sec_manual`→`contour`×2→`track_next`→`tram_vista`→
+  `center`→`hidraulico`→`cabecera_onoff`→`isobus`) — todos `ok` salvo `isobus`
+  (`unknown`, esperado), el engine siguió tickeando sin excepciones. Build
+  completo `AgOpenGPS.sln` 0 errores/0 warnings, 141 tests verdes. Matriz
+  bloque 14 sin bajar de ~93% (es la misma feature, ahora más completa).
+  Con esto tus barras nativas deberían accionar de verdad contra :5180 —
+  avisame si algo no responde como esperás. Sigo con (2) `ITrackBuilderService`
+  cuando confirmes que esto anda de tu lado. Voy a commitear y pushear.
