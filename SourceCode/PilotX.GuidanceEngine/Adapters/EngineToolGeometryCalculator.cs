@@ -50,22 +50,22 @@ namespace PilotX.GuidanceEngine.Adapters
                     int btn;
                     switch (s.sectionBtnState)
                     {
-                        case btnStates.Off:  btn = 0; break;
+                        case btnStates.Off: btn = 0; break;
                         case btnStates.Auto: btn = 1; break;
-                        case btnStates.On:   btn = 2; break;
-                        default:             btn = 0; break;
+                        case btnStates.On: btn = 2; break;
+                        default: btn = 0; break;
                     }
 
                     snap.Sections.Add(new ToolSectionGeometry
                     {
-                        Index     = i,
-                        LeftE     = s.leftPoint.easting,
-                        LeftN     = s.leftPoint.northing,
-                        RightE    = s.rightPoint.easting,
-                        RightN    = s.rightPoint.northing,
-                        IsOn      = s.isSectionOn,
+                        Index = i,
+                        LeftE = s.leftPoint.easting,
+                        LeftN = s.leftPoint.northing,
+                        RightE = s.rightPoint.easting,
+                        RightN = s.rightPoint.northing,
+                        IsOn = s.isSectionOn,
                         IsMapping = s.isMappingOn,
-                        BtnState  = btn
+                        BtnState = btn
                     });
                 }
             }

@@ -4,6 +4,7 @@
 // FormGps.YouTurnHost.cs, sin GL (DrawYouTurn no-op) ni sonidos (log).
 // ============================================================================
 
+using System;
 using System.Collections.Generic;
 using AgLibrary.Logging;
 
@@ -87,5 +88,65 @@ namespace AgOpenGPS
         bool IYouTurnHost.IsTurnSoundOn => false;
         void IYouTurnHost.PlayTurnTooCloseSound() => Log.EventWriter("GuidanceEngine: [sonido] giro demasiado cerca");
         void IYouTurnHost.PlayBoundaryAlarmSound() => Log.EventWriter("GuidanceEngine: [sonido] alarma de boundary");
+
+        // Mismo comportamiento que btnAutoYouTurn_Click (Controls.Designer.cs),
+        // sin la línea de ícono (btnAutoYouTurn.Image, irrelevante sin UI).
+        // Comando "uturn" en GuidanceEngineHost.Commands.cs.
+        public void ToggleYouTurn()
+        {
+            Yt.isTurnCreationTooClose = false;
+
+            if (Bnd.bndList.Count == 0)
+            {
+                Log.EventWriter("GuidanceEngine: uturn intentado sin boundary");
+                return;
+            }
+
+            Yt.turnTooCloseTrigger = false;
+
+            if (!Yt.isYouTurnBtnOn)
+            {
+                Yt.ResetCreatedYouTurn();
+
+                if (Trk.idx == -1) return;
+
+                Yt.isYouTurnBtnOn = true;
+                Yt.isTurnCreationTooClose = false;
+                Yt.isTurnCreationNotCrossingError = false;
+                Yt.ResetYouTurn();
+            }
+            else
+            {
+                Yt.isYouTurnBtnOn = false;
+                Yt.RestorePreTriggerState();
+                Yt.ResetYouTurn();
+                Yt.ResetCreatedYouTurn();
+            }
+
+            string msg = "GuidanceEngine: uturn " + (Yt.isYouTurnBtnOn ? "ON" : "OFF");
+            Log.EventWriter(msg);
+            Console.WriteLine(msg);
+        }
+
+        // Mismo comportamiento que btnTrack_Click (Controls.Designer.cs) para
+        // el caso "elegir guía" — selecciona la primera guía visible cargada
+        // (o la 0 si ninguna está marcada visible). Sin esto Trk.idx se queda
+        // en -1 después de OpenField() y ninguna guía queda activa (mismo
+        // comportamiento que FormGPS: cargar el archivo no selecciona nada
+        // solo). El resto de btnTrack_Click (flyout de nudge/build/ABDraw)
+        // es panel HTML/WinForms, no aplica sin UI. Comando "pick" en
+        // GuidanceEngineHost.Commands.cs — mismo nombre que
+        // IGuidanceCalculator.ExecuteCommand ("pick" = elegir guía).
+        public void SelectTrack()
+        {
+            if (Trk.gArr.Count > 0 && Trk.idx == -1)
+            {
+                Trk.idx = Trk.gArr.FindIndex(t => t.isVisible);
+                if (Trk.idx == -1) Trk.idx = 0;
+            }
+            string msg = "GuidanceEngine: pick -> track idx=" + Trk.idx + "/" + Trk.gArr.Count;
+            Log.EventWriter(msg);
+            Console.WriteLine(msg);
+        }
     }
 }

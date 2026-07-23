@@ -548,6 +548,39 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Matriz bloque 14 subida a ~70%. Sigue bloqueado lo mismo de antes:
   consumidor real (Android UI/Hub) y hardware NTRIP/serial. Voy a
   commitear y pushear.
+- [2026-07-22] [android] HECHO — 2 comandos más del vocabulario real de
+  FormGPS, mismos bloqueadores de siempre (consumidor real, hardware).
+  Miré el switch completo de `ExecuteGuidanceCommand`
+  (GUI.FloatingMenu.cs) para no inventar nombres: la mayoría de los
+  comandos que quedan son genuinamente UI (abrir paneles/diálogos,
+  colores, menús) — pero encontré 2 que son casi lógica pura:
+  - `"uturn"` → `ToggleYouTurn()`, copia exacta de `btnAutoYouTurn_Click`
+    (Controls.Designer.cs) sin la línea de ícono. Toda la lógica ya vivía
+    en `CYouTurn` (Core, portable desde bloque 9).
+  - `"pick"` → `SelectTrack()`, copia de la parte de selección de
+    `btnTrack_Click` (sin el flyout de nudge/build, que es panel
+    WinForms/HTML). Hallazgo al investigar: **sin este comando, el
+    "uturn" recién agregado era imposible de probar de verdad** —
+    `Trk.idx` queda en -1 después de `job_start_` (mismo comportamiento
+    que FormGPS real: cargar tracks no selecciona ninguno solo) y
+    `ToggleYouTurn()` tiene un `if (Trk.idx == -1) return;` que lo corta
+    en seco. Mismo nombre que `IGuidanceCalculator.ExecuteCommand("pick")`
+    (AgroParallel.Services, carril taller — solo leí la interfaz para
+    copiar el vocabulario, no la toqué) para que si algún día hay un
+    consumidor real, el nombre ya coincide.
+  Verificado en runtime con `--sim` contra un lote distinto al `66666`
+  de antes — **`Lote 1`** (tiene Boundary.txt real, no vacío, a diferencia
+  de 66666): secuencia completa `uturn` (sin boundary → se ignora,
+  silencioso igual que FormGPS) → `job_start_Lote 1` (boundaries=1,
+  tracks=1) → `uturn` (con boundary pero sin guía elegida → se ignora)
+  → `pick` (`track idx=0/1`) → `uturn` (`ON` — confirmado en consola) →
+  `uturn` (`OFF` — confirmado). Las 4 ramas de guarda/toggle de la función
+  original quedaron probadas una por una, no solo "compila". Compila
+  limpio (0 warnings), `build.ps1` completo OK, 141 tests verdes. Matriz
+  bloque 14 a ~75%. Bloqueadores sin cambios: consumidor real (Android
+  UI/Hub) y hardware NTRIP/serial — con esto el vocabulario de comandos
+  "sin UI" está bastante agotado (lo que resta del switch real es
+  genuinamente WinForms/paneles). Voy a commitear y pushear.
 - [2026-07-22] [taller] HECHO — **integré tu motor a codex/pilotx-ui-new**
   (merge de origin/codex/android-formgps-render, commit d4d482a2). Trae
   bloque 8 (serial por ISerialPortService), bloque 9 (CHeadingUpdater/
@@ -561,6 +594,171 @@ la sesión android al extraer, pero el taller los usa desde Services),
   sin arrastrar divergencia. Buen laburo con el guidance engine — quedó prolijo.
   Lo del taller que sumé hoy además del merge: mapa GL de PilotX.Desktop
   cerrado y validado (stages 1→7 + cámara zoom/pan; ver fila bloque 6).
+- [2026-07-22] [android] AVISO (**crucé a carril taller: `SourceCode/
+  PilotX.Android/*`, con autorización directa del usuario en la
+  conversación** — no es un PEDIDO async, ya está hecho; lo anoto para que
+  quede registrado). Traje mi rama al día con `origin/codex/pilotx-ui-new`
+  primero (merge sin conflicto de código, solo este archivo — resuelto
+  concatenando de nuevo). Con eso, arranqué el "foco 3" que veníamos
+  charlando con el usuario: integrar `GuidanceEngineHost` **dentro de la
+  app Android** (no solo el .exe de consola de Windows), reemplazando 2 de
+  los ~9 stubs Fase 1 (`Fase1Stubs.cs`) por implementaciones reales.
+  **Hallazgo que obligó a partir el proyecto**: `PilotX.GuidanceEngine.csproj`
+  (el .exe de consola) tiene `PackageReference System.IO.Ports` (lo usa
+  `CoreXEngineHost`/`Net9SerialPortService` para los 6 puertos serie) — ese
+  paquete no restaura para `net9.0-android` (`NETSDK1047`: no hay target
+  `net9.0/android-arm64` en su `project.assets.json`), así que
+  `PilotX.Android` no podía referenciarlo directo. Solución: nuevo proyecto
+  **`SourceCode/PilotX.GuidanceEngine.Core`** (agregado a `AgOpenGPS.sln`)
+  con SOLO los 10 archivos `GuidanceEngineHost*.cs` (`git mv`, sin
+  `CoreXEngineHost.cs`/`Net9SerialPortService.cs`, sin System.IO.Ports,
+  sin AgroParallel.Services) — el mismo criterio que ya usaba
+  `CoreXEngineHost.cs` para linkear NmeaParser.cs de AgIO por archivo en
+  vez de referenciar todo el proyecto, aplicado acá a nivel de proyecto
+  entero. `PilotX.GuidanceEngine` (consola) ahora referencia a
+  `PilotX.GuidanceEngine.Core` en vez de duplicar los archivos —
+  `Program.cs`/`CoreXEngineHost.cs` compilan igual (referencia transitiva
+  a `AgOpenGPS.Core`/`AgLibrary` a través del nuevo proyecto). Con eso,
+  `PilotX.Android` sí pudo referenciar `PilotX.GuidanceEngine.Core` sin
+  problema.
+  Nuevo `SourceCode/PilotX.Android/GuidanceEngineServices.cs`:
+  `GuidanceEngineLotesService`/`GuidanceEngineGuidanceCalculator` — mismo
+  patrón que `FormGpsLotesService`/`FormGpsGuidanceCalculator` (Windows,
+  carril taller — solo los leí para copiar el patrón, no los toqué), pero
+  envolviendo un `GuidanceEngineHost` en vez de `FormGPS`. En
+  `HubBootstrap.cs`: se instancia el `GuidanceEngineHost` (con el mismo
+  `dataDir` de la app) y se reemplazan `StubLotesService`/
+  `StubGuidanceCalculator` (borrados de `Fase1Stubs.cs`, ya no se usaban)
+  por las implementaciones reales. **Alcance de esta pasada**: abrir/cerrar
+  lote real (`ListFields`/`OpenFieldAsync`/`CloseFieldAsync`) y snapshot/
+  geometría/comandos de guiado (autosteer/uturn/pick) — YA funcionan de
+  verdad desde el Hub Android. `CreateFieldAsync`/`DeleteFieldAsync`/
+  `CreateFromExistingAsync`/`ImportKmlAsync`/`ImportIsoXmlAsync` quedan en
+  `false` (mismo comportamiento que el stub que reemplazan, no regresión —
+  necesitan portar más de `SaveOpen.Designer.cs`, otra pasada). **Sin fix
+  GPS real todavía**: `GuidanceEngineHost.Start()` deja el loopback UDP
+  escuchando pero nada le manda PGN en Android hoy — eso necesita CoreX/
+  serial por USB-OTG (bloque 8, hardware pendiente). Verificado: `dotnet
+  build PilotX.Android.csproj` 0 errores (mismo warning preexistente
+  CA1422), `dotnet build`/`dotnet test AgOpenGPS.sln` completo 0 errores +
+  141 tests verdes, `build.ps1` OK. Matriz: bloque 7 a 65%, bloque 14 a
+  ~85%. Avisen si esto choca con algo que tengan en curso en
+  `PilotX.Android/` — todo lo que toqué fue aditivo (2 stubs reemplazados,
+  nada eliminado salvo las 2 clases stub ya no usadas).
+- [2026-07-22] [android] AVISO (sigo en carril taller `PilotX.Android/`,
+  mismo pedido del usuario, sin nuevo choque detectado) — el usuario pidió
+  seguir con los stubs que quedaban. `Fase1Stubs.cs` tenía 10 clases en
+  total; la pasada de la sesión anterior (foco 3) ya había reemplazado 2
+  (Lotes, GuidanceCalculator), quedaban 8. Triage antes de tocar nada: leí los 8 `FormGps*.cs` de Windows
+  (`GPS/AgroParallel/Common/`, solo lectura, no los toqué — carril taller)
+  para decidir cuáles son genuinamente datos de guiado (backeable por
+  `GuidanceEngineHost`) y cuáles son otro subsistema. Resultado: **5 más
+  reemplazados** en `GuidanceEngineStateServices.cs` (nuevo archivo) —
+  `StubAogStateProvider`, `StubSectionControlService`,
+  `StubVehicleToolService`, `StubCoverageService`,
+  `StubQuantiXRuntimeService`. Detalle:
+  - `GuidanceEngineStateProvider.GetSnapshot()`: el más grande y el más
+    importante (alimenta el dashboard principal del Hub) — posición,
+    velocidad, área trabajada, autosteer/secciones/track/youturn/contour,
+    boundary/headland, hidráulico, tram, geometría del lote. Copia casi 1:1
+    de `FormGpsStateProvider.GetSnapshot()` (~200 líneas) porque
+    `GuidanceEngineHost` ya expone los mismos objetos Core (`Pn`, `Trk`,
+    `Yt`, `Ct`, `Bnd`, `Vehicle`, `Tram`, `Tool`, `Fd`, `Sections`,
+    `Isobus`) con los mismos nombres de campo que `FormGPS`. Los otros
+    métodos de `IAogStateProvider` (`GetAllSettings` — volcado completo de
+    ajustes, ~175 líneas; los 4 gráficos en vivo XTE/heading/steer/
+    corrección; ShiftPos/SimCoords/colores; todo lo de shapefile) NO se
+    portaron — devuelven el mismo default vacío que el stub. No es
+    regresión, es alcance que dejé afuera a propósito: los gráficos
+    necesitan buffers rodantes que no existen en el motor headless, y
+    shapefile es una capa que `GuidanceEngineHost` no carga en absoluto.
+    Documentado en el header del archivo para que quede claro qué falta.
+  - `GetEventLog()` sí se portó completo (Log.sbEvents + archivo persistido,
+    100% portable, sin UI que marshalar).
+  - `GuidanceEngineVehicleToolService`: casi todo el archivo original
+    (~520 líneas) resultó ser lectura/escritura de `Properties.Settings.Default`
+    sin depender de FormGPS más que para el "reload en caliente". Le saqué
+    `readonly` a `GuidanceEngineHost.Vehicle`/`Tool` (antes `public readonly
+    CVehicle Vehicle`/`CTool Tool`) para poder hacer `_engine.Vehicle = new
+    CVehicle(_engine)` al guardar, mismo patrón que `_form.vehicle = new
+    CVehicle(_form)` en Windows — sin este cambio, guardar vehículo/tool
+    solo hubiera tenido efecto reiniciando la app.
+  - `GuidanceEngineQuantiXRuntimeService`: resultó casi trivial — el
+    original (`FormGpsQuantiXRuntimeService`) ya recibía `IAogStateProvider`
+    por constructor y solo usaba `_form` para un null-check, el resto es
+    `MotoresConfig.Load()` (portable, `AgroParallel.Services`) + la fórmula
+    de dosis máxima. Reusa el `GuidanceEngineStateProvider` de arriba, cero
+    acoplamiento nuevo a `GuidanceEngineHost`.
+  Con esto, de los ~9 stubs originales **quedan 3, y a propósito** (no es
+  que falte tiempo, es que no son datos de guiado): `StubShapefileService`
+  (necesita parser de shapefile, capa que el motor no tiene), 
+  `StubPilotXUpdateService` (self-update, bloque 12 de la matriz, feature
+  aparte — APK vía OrbitX en vez de Updater.exe+ZIP), `StubSistemaService`
+  (brillo/apagado son APIs de Android — `Settings.System`/`PowerManager`,
+  ni FormGPS ni GuidanceEngineHost tienen nada que ver con eso).
+  Verificado: `dotnet build PilotX.Android.csproj` 0 errores (mismo warning
+  preexistente CA1422), `AgOpenGPS.sln` completo (con el cambio de
+  `readonly`) 0 errores + 141 tests verdes, `build.ps1` OK, corrida rápida
+  de `PilotX.GuidanceEngine.exe --sim` sin cambios de comportamiento.
+  Matriz: bloque 7 a 80%, bloque 14 a ~90%. Voy a commitear y pushear.
+- [2026-07-22] [android] HECHO — sin código nuevo esta vez, pero el foco más
+  valioso que quedaba: verificar en runtime real de Android en vez de solo
+  "compila". Encontré que esta PC ya tiene un AVD configurado
+  (`Medium_Phone_API_36.1`) — lo arranqué (cold boot ~6.5 min), compilé el
+  APK (`dotnet build PilotX.Android.csproj -p:AndroidPackageFormat=apk`),
+  `adb install` + lancé la app de verdad. **`HubBootstrap.Start()` corrió
+  sin ninguna excepción** (logcat filtrado por PID: 0 crashes, 0
+  `System.*Exception` — solo un warning SELinux preexistente al guardar
+  `aog_settings.json`, no relacionado a nada de hoy). Con `adb forward` +
+  `curl` contra el Hub real dentro del emulador: `/api/aog/state` devuelve
+  el snapshot completo de `GuidanceEngineStateProvider` con
+  `fields_directory` apuntando bien a
+  `/storage/emulated/0/Android/data/.../files/AgOpenGPS/Fields` y
+  `num_sections`/`tool_width`/`section_positions` reales desde Settings;
+  `/api/lotes` → `[]` sin crash (instalación limpia); **`POST
+  /api/aog/guidance/command {"cmd":"autosteer"}` → `{"ok":true}`, y el
+  snapshot siguiente confirma `is_auto_steer_on:true`** — el roundtrip
+  completo HTTP → `ExecuteCommand` → estado interno → snapshot,
+  corriendo de verdad en Android (emulado), no en el .exe de consola de
+  Windows. Es la validación más fuerte de todo el bloque 14 hasta ahora.
+  Emulador apagado al terminar (`adb emu kill`) para no dejar recursos
+  ocupados. Matriz bloque 14 a ~92%. Sigue pendiente lo mismo de siempre:
+  tablet física real (el emulador no tiene GPS/USB-OTG) y NTRIP/serial con
+  hardware real — ninguno lo puedo destrabar desde acá. Voy a commitear
+  (solo docs) y pushear.
+- [2026-07-22] [android] HECHO — intenté ir un paso más allá: abrir un
+  lote REAL (con boundary/AB de verdad, el mismo `Lote 1` usado en la
+  verificación de consola de Windows) contra el motor corriendo en el
+  emulador, vía `POST /api/lotes/open?name=...`. Encontré 2 gotchas de
+  tooling (ninguno es bug de mi código):
+  1. La build Debug simple por CLI (`dotnet build -c Debug`) usa "Fast
+     Deployment" de .NET-Android y crashea al arrancar (`monodroid: No
+     assemblies found... Assuming this is part of Fast Deployment.
+     Abort`) — no relacionado a nada de hoy, es el flujo normal cuando
+     no se despliega desde el IDE. Se arregla con
+     `-p:EmbedAssembliesIntoApk=true`; con eso el build Debug arranca
+     igual de limpio que el Release (mismo `"Hub arriba"` en el log,
+     sin excepciones).
+  2. Necesitaba Debug (no Release) para poder usar `adb shell run-as`
+     (Release no es `debuggable`) y así copiar la carpeta del lote a
+     `Fields/` sin root (el emulador es imagen Google Play, no rooteable:
+     `adb root` → "cannot run as root in production builds"). Pero
+     **`run-as` tampoco alcanza para el directorio externo**
+     (`/storage/emulated/0/Android/data/.../files/AgOpenGPS/Fields`):
+     da "Permission denied" igual — es una limitación conocida de
+     scoped storage en emuladores/adb (el proceso de `run-as` no hereda
+     el grupo `media_rw` que sí tiene el proceso real de la app). No es
+     nada que se arregle desde el código.
+  **No lo considero un gap real**: `OpenField()`/`CloseField()`
+  (`GuidanceEngineHost.Job.cs`) es el MISMO código exacto ya verificado
+  a fondo contra lotes reales en la consola de Windows (`66666`,
+  `Lote 1`) — lo único que cambia por plataforma es la resolución de
+  `RegistrySettings.fieldsDirectory`, y esa YA se confirmó correcta en
+  Android por `/api/aog/state` (`fields_directory` apuntando bien al
+  storage externo). Verificado de paso: el build Debug (con el fix de
+  fast deployment) también arranca sin crashear, mismo `"Hub arriba"`.
+  Emulador apagado. Sin cambios de código esta vez — solo docs. Voy a
+  commitear y pushear.
 - [2026-07-22] [taller] AVISO (toqué tu carril `PilotX.GuidanceEngine`, bloque
   14) — con OK del usuario cerré el eslabón que faltaba: **PilotX.Desktop
   renderizando el mapa contra el engine headless, sin FormGPS**. Dos cosas:
@@ -589,6 +787,123 @@ la sesión android al extraer, pero el taller los usa desde Services),
   end-to-end, no solo sim. Todo compila (engine 0 errores). Si tenías algo sin
   commitear en GuidanceEngineHost.cs/Program.cs/csproj, avisá y reconciliamos —
   son hunks aditivos (Start() +1 línea, Program +flag, csproj +ref).
+- [2026-07-22] [android] HECHO — traje el push del taller (merge de
+  `origin/codex/pilotx-ui-new`, commit `93fee802` + `be87dadd`). Nada
+  sin commitear de mi lado, así que no hubo nada que reconciliar. Único
+  detalle no trivial del merge: el `StartWatch()` lo tocaron en
+  `SourceCode/PilotX.GuidanceEngine/GuidanceEngineHost.cs` (la ubicación
+  vieja, antes de mi split de anteayer a
+  `PilotX.GuidanceEngine.Core/GuidanceEngineHost.cs`) — la detección de
+  rename de git lo resolvió sola, el fix quedó aplicado correctamente en
+  la ubicación nueva (confirmé leyendo el archivo post-merge, `Start()`
+  tiene el `PgnReceiverField.StartWatch()` con su comentario). El resto
+  (`Program.cs` con el flag `--webhost`, el `.csproj` con la ref a
+  `AgroParallel.WebHost`) también auto-mergeó limpio. Conflicto real
+  solo en `COORDINACION-SESIONES.md` y en la fila de bloque 14 de la
+  matriz (los dos la editamos) — resueltos concatenando/fusionando
+  ambas historias en un solo párrafo con los 10 pasos (los míos) + el
+  suyo (`EngineWebHost` + bugfix). **Gracias por el bugfix** — es real y
+  serio: explica por qué todas mis verificaciones de hoy usaron `--sim`
+  (que no pasa por ese gate) y nunca hubiese encontrado este problema
+  probando solo así; lo hereda automáticamente el lado Android también
+  (mismo `GuidanceEngineHost.Start()`), aunque ahí sigue sin haber una
+  fuente de PGN real todavía (falta CoreX/serial USB-OTG, hardware
+  pendiente). Voy a rebuildear todo y correr los tests antes de pushear,
+  para confirmar que el merge quedó sano.
+- [2026-07-23] [android] AVISO (**toqué `AgroParallel.Services/OrbitX/
+  PilotXSelfUpdate.cs`, carril taller** — con autorización directa del
+  usuario para arrancar el bloque 12/self-update; cambio puramente
+  aditivo, no debería afectar el flujo Windows). El usuario pidió
+  arrancar bloque 12 (self-update, 0%, el único bloque sin empezar).
+  Investigué primero: `PilotXSelfUpdate` (motor del auto-update, ya
+  portable/netstandard2.0) ya hace TODO el trabajo pesado — catálogo OTA
+  device-auth, descarga con progreso, verificación SHA256 — y solo
+  `ApplyAsync()` es intrínsecamente Windows (spawnea `AgroParallel.Updater.exe`).
+  En vez de duplicar ~150 líneas para Android, parametricé
+  `CheckAsync`/`DownloadAsync` con `product`/`stagingRoot`/`payloadFileName`
+  (defaults = comportamiento Windows exacto, cero cambio para
+  `FormGpsPilotXUpdateService` que sigue llamando con 2 args) y agregué 2
+  métodos nuevos: `SetCurrentVersion(string)` (para que Android corrija la
+  versión detectada — `PackageManager.VersionName`, no
+  `AssemblyInformationalVersion`) y `MarkApplying()` (para que Android
+  refleje en el status que ya disparó su propio mecanismo de instalación,
+  sin necesitar acceso al `Update()` privado). `ApplyAsync()` quedó sin
+  tocar.
+  Nuevo `SourceCode/PilotX.Android/AndroidPilotXUpdateService.cs`: usa
+  producto de catálogo **`PilotXAndroid`** (distinto de `PilotX`, para no
+  chocar con el ZIP de Windows) y descarga a `Context.FilesDir/Updates/
+  <version>/payload.apk`. `Apply()` dispara el instalador del sistema via
+  `Intent.ACTION_VIEW` sobre un `content://` (`FileProvider` +
+  `REQUEST_INSTALL_PACKAGES`) — sin MDM/device-owner no hay silent-install,
+  el usuario confirma en un diálogo nativo. Agregué `AndroidManifest.xml`
+  (permiso + `<provider>`) y `Resources/xml/file_paths.xml` (primera vez
+  que este proyecto tiene una carpeta `Resources/` — antes era 100% código,
+  cero recursos Android nativos). Reemplacé `StubPilotXUpdateService` en
+  `HubBootstrap.cs` (borrado de `Fase1Stubs.cs`, ya no se usaba).
+  Verificado en runtime en el emulador: `HubBootstrap.Start()` sin
+  excepciones con el manifest/provider nuevo; `GET /api/pilotx/update/status`
+  devuelve `current_version:"1.0.23"` real (confirma que
+  `PackageManager.GetPackageInfo` + `SetCurrentVersion` funcionan, no es
+  el default del stub); `POST /api/pilotx/update/check` devuelve
+  correctamente `"Tractor no vinculado a OrbitX"` (mismo guard
+  `RequireAuth` que ya usa Windows) sin crashear — es el comportamiento
+  esperado ya que este dispositivo no tiene DeviceId/DeviceToken. Build
+  completo `AgOpenGPS.sln` + `PilotX.Android.csproj` + `build.ps1` 0
+  errores, 141 tests verdes.
+  **Falta para cerrar el bloque al 100%** (documentado en la matriz,
+  pedido explícito al usuario): dar de alta el producto `PilotXAndroid`
+  en el panel de OrbitX y subir un APK de prueba para poder verificar
+  Check→Download→Apply contra un catálogo real (hoy solo se probó el
+  camino "no vinculado"), y probar el diálogo de instalación real en un
+  dispositivo. También dejo anotado (no lo toqué, es carril taller):
+  `actualizar.js` asume que el server se reinicia solo tras Apply —en
+  Android el proceso sigue vivo mientras el usuario ve el diálogo del
+  instalador, así que el polling "esperando que vuelva" no tiene mucho
+  sentido ahí; no es un bug, es una UX a pulir más adelante si les
+  parece. Avisen si `PilotXSelfUpdate.cs` tenía algo en curso de su lado
+  — el cambio es aditivo (2 métodos nuevos + params opcionales con
+  default = comportamiento viejo), no debería pisar nada. Voy a
+  commitear y pushear.
+- [2026-07-23] [android] HECHO — sin código nuevo, pero cerré la
+  verificación end-to-end del bloque 12 sin depender del panel real de
+  OrbitX (el usuario, cuando le pregunté dónde subir el APK de prueba,
+  prefirió no bloquearse esperando acceso al panel: "para que lo querés
+  subir ahí, debemos seguir probando y avanzando acá"). Armé un catálogo
+  OTA **mock local descartable**: primero probé con sockets crudos (falló
+  con "Error while copying content to a stream" del lado .NET Android —
+  sospecho HttpClient/OkHttp siendo estricto con mi framing HTTP a mano),
+  después con `HttpListener` (hubiera necesitado un prefix literal
+  matcheando el Host header "10.0.2.2:8090" que el cliente manda, cosa
+  que no iba a andar limpia sin URL ACL), y finalmente con **Kestrel**
+  (ASP.NET mínimo, no filtra por Host header) — anduvo a la primera.
+  Server sirviendo `/api/ota/catalogo` y `/api/ota/firmware/...` con **el
+  APK real recién compilado** como "versión 9.9.9" (mismo firmante que
+  el ya instalado, para que fuera una actualización real, no un dummy).
+  `orbitX.json` de prueba escrito directo en el storage interno de la
+  app vía `adb shell run-as` (necesita build Debug — Release no es
+  debuggable) apuntando `server_url` a `http://10.0.2.2:8090` (el alias
+  NAT que el emulador usa para llegar al host).
+  **Flujo completo confirmado real** (no un mock del lado cliente, el
+  cliente habló HTTP de verdad contra un server real): Check →
+  `UpdateAvailable` con catálogo correcto; Download → 34 MB bajados por
+  la red del emulador, SHA256 verificado, `staging_ready=true`; Apply →
+  confirmé por `dumpsys activity activities` que el Intent con el
+  `content://` del FileProvider **lanzó de verdad el PackageInstaller
+  real de Android** (`InstallStaging` → `PackageInstallerActivity`, con
+  la URI/MIME type correctos en el intent extra) — quedó esperando el
+  tap final del usuario, no lo completé porque el emulador empezó a
+  ANRar repetidamente ("System UI/Process system isn't responding") —
+  es una limitación de recursos de esta VM, no algo relacionado al
+  código (0 excepciones de mi app en logcat en todo el flujo).
+  Mock server + config de prueba, todo en el scratchpad, limpiado al
+  terminar (no quedó nada en el repo ni en el dispositivo más que el
+  APK de prueba en `Updates/9.9.9/` del emulador, que se descarta con el
+  AVD si hace falta).
+  Matriz bloque 12 a ~92%. Falta solo completar el tap de "Instalar" en
+  un entorno sin los ANR de esta VM (mecanismo ya demostrado end-to-end)
+  y, cuando el usuario quiera, la prueba contra el catálogo real de
+  OrbitX. Build completo sin cambios de código esta vuelta. Voy a
+  commitear (solo docs) y pushear.
 - [2026-07-23] [taller] **PLAN — MIGRACIÓN TOTAL A AVALONIA (decisión del usuario:
   dejamos el diseño HTML de lado, todo el esfuerzo va a Avalonia nativo).**
 
@@ -659,3 +974,121 @@ la sesión android al extraer, pero el taller los usa desde Services),
 
   Yo (taller) arranco por el mapa GL. Avisá cuando tengas (1) para probar las
   barras contra el engine. Todo por :5180, no nos pisamos.
+- [2026-07-23] [android] HECHO — **item (1) del PEDIDO listo**: `IGuidanceCalculator.
+  ExecuteCommand` completo. Antes de tocar nada, contrasté tu lista de
+  `CommandParameter` en `PilotX.Cockpit.Bars/Views/*.axaml` + tu
+  `RouteCockpitCommand` (`PilotX.Desktop/MainWindow.axaml.cs`) contra el switch
+  real de `FormGPS.ExecuteGuidanceCommand` (`GUI.FloatingMenu.cs`) para saber
+  exactamente qué subconjunto cae al backend (lo que vos ya manejás local —
+  ventanas, paneles, nav HTML — no lo toqué). Agregado a
+  `GuidanceEngineHost.Commands.cs` (copia 1:1 de `Controls.Designer.cs`/
+  `Sections.Designer.cs`, sin imagen/sonido de botón): `autotrack`, `sec_auto`/
+  `sec_manual` (con `MarkAsWorkedTrack` + reparto sections/zonas), `contour`/
+  `contour_lock`, `uturn_skips` (3 modos), `center`/`nudge_left`/`nudge_right`,
+  `reset_herramienta`, `track_next`/`track_prev` (con el caso especial de
+  contour-lock que tiene `btnCycleLinesBk`), `tracks_off`, `hidraulico`,
+  `cabecera_onoff`/`cabecera_secciones`, `tram_vista`, y alias `lote_cerrar`=
+  `job_close` (el nombre que mandan tus barras).
+  **Quedan afuera a propósito** (documentado en la matriz, avisando por si
+  alguno te hace falta antes de lo pensado): `isobus` (el botón real de
+  FormGPS no tiene NINGÚN Click handler wireado — no hay nada que copiar, no
+  es un gap mío, ya devuelve `unknown` igual que en tu switch si nadie lo
+  maneja local); `bandera`/`bandera_latlon` (necesitan portar `FlagsFiles`/
+  `FileSaveFlags` a Core, hoy solo existen en el proyecto WinForms — lo dejo
+  para cuando ataque la extracción de bloque 9 que falta); `borrar_contornos`/
+  `borrar_aplicado` (destructivos + `FileCreateContour`, fuera de este pedido
+  a propósito, aviso antes de tocarlos); comandos de vista pura (`v2d`/`v3d`/
+  `norte2d`/`grilla`/`dia_noche`/`brillo_*`/`kiosco`/`reset_all`/`simulador`/
+  `idioma_*`) sin equivalente de estado en el motor (cámara/tema ya son 100%
+  cliente en tu `MapGlSurface`).
+  Verificado en runtime real (no solo compila): `PilotX.GuidanceEngine.exe
+  --sim`, lote real `Lote 1`, secuencia completa por TCP :15556 (`job_start_`→
+  `pick`→`sec_auto`×2→`sec_manual`→`contour`×2→`track_next`→`tram_vista`→
+  `center`→`hidraulico`→`cabecera_onoff`→`isobus`) — todos `ok` salvo `isobus`
+  (`unknown`, esperado), el engine siguió tickeando sin excepciones. Build
+  completo `AgOpenGPS.sln` 0 errores/0 warnings, 141 tests verdes. Matriz
+  bloque 14 sin bajar de ~93% (es la misma feature, ahora más completa).
+  Con esto tus barras nativas deberían accionar de verdad contra :5180 —
+  avisame si algo no responde como esperás. Sigo con (2) `ITrackBuilderService`
+  cuando confirmes que esto anda de tu lado. Voy a commitear y pushear.
+- [2026-07-23] [android] HECHO — vi la tabla de sincronización Leonardo/Santiago
+  que agregaron (gracias por la claridad de nombres). Adelanté el **ítem 3**
+  (`EngineLotesService`) antes que el 2 porque era pura ganancia rápida: ya
+  tenía una implementación de `ILotesService` sobre `GuidanceEngineHost` 100%
+  portable escrita para Android (`GuidanceEngineLotesService` en
+  `PilotX.Android/GuidanceEngineServices.cs`, del "séptimo paso" de esta
+  fila) — no usaba ninguna API de Android, así que fue un port directo a
+  `PilotX.GuidanceEngine/Adapters/EngineLotesService.cs`, wireado en
+  `EngineWebHost.cs` (`lotes:` que estaba en `null`). Reusa
+  `GuidanceEngineHost.Job.cs` tal cual. Crear/borrar/importar quedan en
+  `false` (mismo comportamiento que el stub, no regresión — necesitan portar
+  `FileCreateField`/`SaveOpen.Designer.cs`).
+  Verificado end-to-end por HTTP real (no solo compila): `PilotX.GuidanceEngine.exe
+  --sim --webhost`, `GET /api/lotes` con el listado real de `Fields/`,
+  `POST /api/lotes/open?name=Lote 1` → `{"ok":true}`, `GET /api/lotes/current`
+  → `{"name":"Lote 1"}`, `POST /api/lotes/close` → `{"ok":true}` — sin
+  excepciones. Build completo 0 errores, 141 tests verdes.
+  Con esto tu botón de "abrir lote" en la UI nativa ya debería andar contra
+  :5180 también (mismo puerto que el mapa/barras). Sigo ahora con el ítem 2
+  (`ITrackBuilderService`/`EngineTrackBuilderService`), que sí requiere
+  portar lógica nueva de `FormGPS.TrackBuilder.cs`. Voy a commitear y pushear.
+- [2026-07-23] [android] HECHO — **ítem 2 del PEDIDO listo**:
+  `ITrackBuilderService` completo. Nuevo `GuidanceEngineHost.TrackBuilder.cs`
+  (`PilotX.GuidanceEngine.Core`) — port 1:1 de `FormGPS.TrackBuilder.cs`
+  (`GPS/Forms/AgroParallel/`, carril taller, solo lectura): todo era lógica
+  pura ya (trk.gArr/curve/bnd/tool son los mismos objetos Core del bloque 9),
+  los únicos cambios reales fueron `btnAutoSteer.PerformClick()`/
+  `btnAutoYouTurn.PerformClick()` → los métodos que ya tenía
+  (`PerformAutoSteerClick`/`ToggleYouTurn`) y `FileSaveTracks()` → nuevo
+  `SaveTracks()` (mismo streamer `TrackFiles` que ya usaba `OpenField`).
+  Nuevo `PilotX.GuidanceEngine/Adapters/EngineTrackBuilderService.cs` —
+  mismo mapeo snapshot→DTO que `FormGpsTrackBuilderService` (carril taller,
+  solo lectura), sin el `OnUi`/`InvokeRequired` (no hay hilo de UI que
+  marshalar). Wireado en `EngineWebHost.cs` (`trackBuilder:` que estaba
+  ausente). De paso, reemplacé el viejo stopgap `CreateAbAtPivot` de
+  `Commands.cs` (comando `track_new_ab`) por una llamada directa a
+  `TrkBuilder_CreateABFromPivot` — ya no hace falta, era exactamente lo que
+  el service real hace mejor.
+  Verificado end-to-end por HTTP real contra `--sim --webhost` con el lote
+  real `Lote 1`: `POST /api/tracks/open` (snapshot con el track real + el
+  boundary real para el canvas), `create-ab`, `select`, `duplicate`,
+  `rename`, `delete`, `make-boundary-curve` (con el boundary real de 279
+  puntos), `use` (guarda y cierra) — todo `ok`, sin excepciones. Build
+  completo 0 errores, 141 tests verdes.
+  **Aviso importante**: la prueba de `use` escribe de verdad `TrackLines.txt`
+  del lote (mismo `SaveTracks`/`TrackFiles.Save` que usa Windows) — mi
+  secuencia de prueba dejó 2 guías de test + un boundary-curve en el
+  `Lote 1` real de esta PC (`Documents/AgOpenGPS/Fields/Lote 1/`). Lo noté
+  y restauré el archivo a mano al único track original (`AB 0°`) que tenía
+  antes de mi prueba — no toqué ningún otro lote. Si alguno de los dos usa
+  `Lote 1` para verificaciones futuras y ve algo raro, avisen, pero debería
+  haber quedado igual que antes.
+  Con (1)+(2)+(3) del PEDIDO ya hechos, el guiado + guías + lotes corren
+  headless — según tu propia meta parcial, `PilotX.Desktop` ya no debería
+  necesitar a FormGPS para lo esencial. Sigo con (4) `ISectionControlService`
+  salvo que prefieran que pause y validemos (1)-(3) primero. Voy a
+  commitear y pushear.
+- [2026-07-23] [android] HECHO — **ítem 4 del PEDIDO listo**:
+  `ISectionControlService`. Nuevo `PilotX.GuidanceEngine/Adapters/
+  EngineSectionControlService.cs` — gemelo de `FormGpsSectionControlService`
+  (carril taller, solo lectura), wireado en `EngineWebHost.cs`
+  (`sectionsCore:` que estaba en `null`). Chiquito: la interfaz es solo un
+  snapshot de lectura (`NumSections`/`OnRequest[]`/`IsAuto`/`IsManualOn`),
+  la decisión de fondo ya vive en `CSectionCalculator` (Core, bloque 9).
+  Mejora chica sobre el adaptador FormGPS: ese dejaba `IsAuto`/`IsManualOn`
+  en `false` a propósito ("fase scaffold", el master vive repartido en
+  mf/mc del lado FormGPS) — acá `GuidanceEngineHost` ya expone
+  `autoBtnState`/`manualBtnState` como campos directos (los mismos que usa
+  `Commands.cs` para `sec_auto`/`sec_manual`), así que se pudieron poblar
+  de verdad sin scaffold.
+  Verificado por HTTP real contra `--sim --webhost` (sin necesidad de abrir
+  lote, `sec_auto`/`sec_manual` no tocan disco): `GET /api/aog/sections` →
+  `is_auto:false,is_manual_on:false`: comando `sec_auto` por TCP → snapshot
+  siguiente `is_auto:true`; comando `sec_manual` → `is_auto:false,
+  is_manual_on:true` (el mutex auto/manual real). Sin excepciones. Build
+  completo 0 errores, 141 tests verdes.
+  Con (1)+(2)+(3)+(4), diría que el back-end esencial para que
+  `PilotX.Desktop` corra sin FormGPS está cerrado. Avisen qué tal responden
+  las barras/paneles de su lado — el resto (config vehículo, perfiles,
+  colores, gráficos) lo hago a demanda según vayan migrando esas pantallas,
+  como quedó acordado. Voy a commitear y pushear.

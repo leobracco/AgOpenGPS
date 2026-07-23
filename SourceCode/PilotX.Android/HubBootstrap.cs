@@ -23,6 +23,8 @@ namespace PilotX.Droid
         private static MqttBrokerService s_broker;
         private static NodoRegistryService s_nodos;
         private static FlowXBridge s_flowxBridge;
+        private static PilotXCore.GuidanceEngineHost s_guidance;
+        private static AndroidPilotXUpdateService s_pilotxUpdate;
 
         public static bool IsRunning { get { lock (s_lock) return s_host != null; } }
         public static string Url { get { lock (s_lock) return s_host?.Url; } }
@@ -53,15 +55,33 @@ namespace PilotX.Droid
                 try { s_nodos.Start("127.0.0.1", 1883); }
                 catch (Exception ex) { Android.Util.Log.Warn("PilotX", "NodoRegistry: " + ex.Message); }
 
-                var state = new StubAogStateProvider();
-                var sectionsCore = new StubSectionControlService();
+                // Guidance engine headless (bloque 14) — reemplaza los stubs de
+                // guiado/lotes/estado/cobertura/secciones/vehiculo-tool/QuantiX
+                // runtime por implementaciones reales (GuidanceEngineServices.cs +
+                // GuidanceEngineStateServices.cs). Sin fix GPS real todavia
+                // (necesita CoreX/serial por USB-OTG, bloque 8 pendiente de
+                // hardware): Start() solo deja el loopback UDP escuchando, sin
+                // nada que le mande PGN por ahora.
+                var guidanceBaseDir = new DirectoryInfo(Path.Combine(dataDir, "GuidanceEngine"));
+                if (!guidanceBaseDir.Exists) guidanceBaseDir.Create();
+                s_guidance = new PilotXCore.GuidanceEngineHost(guidanceBaseDir);
+                s_guidance.Start();
+                var guidanceCalc = new GuidanceEngineGuidanceCalculator(s_guidance);
+                var lotes = new GuidanceEngineLotesService(s_guidance);
+                var state = new GuidanceEngineStateProvider(s_guidance);
+                var sectionsCore = new GuidanceEngineSectionControlService(s_guidance);
+                var vehicleTool = new GuidanceEngineVehicleToolService(s_guidance);
+                var coverage = new GuidanceEngineCoverageService(s_guidance);
+                var quantixRuntime = new GuidanceEngineQuantiXRuntimeService(state);
+                var pilotxUpdate = new AndroidPilotXUpdateService(dataDir);
+                s_pilotxUpdate = pilotxUpdate;
 
                 var vistaxCfg = new VistaXConfigService();
                 var insumosCat = new InsumoCatalogService();
                 var sectionxCfg = new SectionXConfigService();
                 var orbitxCfg = new OrbitXConfigService();
                 var quantixCfg = new QuantiXConfigService(s_nodos);
-                var implemento = new ImplementoService(vistaxCfg, new StubVehicleToolService(), quantixCfg, sectionxCfg);
+                var implemento = new ImplementoService(vistaxCfg, vehicleTool, quantixCfg, sectionxCfg);
                 var vistaxLive = new VistaXLiveService(s_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento);
                 var flowxCfg = new FlowXConfigService();
                 var flowxLive = new FlowXLiveService(s_nodos, flowxCfg);
@@ -81,14 +101,14 @@ namespace PilotX.Droid
                     vistaxCfg,
                     vistaxLive,
                     new DebugLogService(),
-                    new StubLotesService(),
-                    new StubVehicleToolService(),
+                    lotes,
+                    vehicleTool,
                     new StubShapefileService(),
-                    new StubCoverageService(),
+                    coverage,
                     sectionsCore,
-                    new StubQuantiXRuntimeService(),
-                    new StubGuidanceCalculator(),
-                    new StubPilotXUpdateService(),
+                    quantixRuntime,
+                    guidanceCalc,
+                    pilotxUpdate,
                     flowxCfg,
                     flowxLive,
                     stormxCfg,
@@ -120,9 +140,13 @@ namespace PilotX.Droid
             {
                 try { s_flowxBridge?.Stop(); s_flowxBridge?.Dispose(); } catch { }
                 try { s_host?.Stop(); } catch { }
+                try { s_guidance?.Stop(); } catch { }
+                try { s_pilotxUpdate?.Dispose(); } catch { }
                 try { s_nodos?.Stop(); } catch { }
                 try { s_broker?.StopAsync().GetAwaiter().GetResult(); } catch { }
                 s_flowxBridge = null;
+                s_guidance = null;
+                s_pilotxUpdate = null;
                 s_host = null;
                 s_nodos = null;
                 s_broker = null;

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PilotX.GuidanceEngine.Core - GuidanceEngineHost aislado de CoreXEngineHost
+    (bloque 14). Separado de PilotX.GuidanceEngine (el .exe de consola) para
+    que consumidores que NO pueden traer System.IO.Ports (ej. PilotX.Android,
+    net9.0-android no restaura ese paquete) puedan referenciar solo el loop
+    de guiado sin arrastrar el lado CoreX/serial.
+
+    Mismo criterio que ya usa CoreXEngineHost.cs con AgIO (portar por archivo
+    en vez de referenciar todo el proyecto para no arrastrar dependencias
+    ajenas): acá se corta a nivel de proyecto en vez de archivo porque son
+    ~10 archivos, no 3.
+
+    Deliberadamente net9.0 (NO -windows, NO System.IO.Ports): nada acá debería
+    necesitar Windows Forms, OpenGL, ni acceso a hardware serie.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <RootNamespace>AgOpenGPS</RootNamespace>
+    <AssemblyName>PilotX.GuidanceEngine.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+    <ProjectReference Include="..\AgLibrary\AgLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

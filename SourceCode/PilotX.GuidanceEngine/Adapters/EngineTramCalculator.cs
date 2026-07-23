@@ -44,11 +44,11 @@ namespace PilotX.GuidanceEngine.Adapters
 
                 switch (_host.Tram.displayMode)
                 {
-                    case TramMode.None:           snap.DisplayMode = "None"; break;
-                    case TramMode.All:            snap.DisplayMode = "All"; break;
-                    case TramMode.FillTracks:     snap.DisplayMode = "FillTracks"; break;
+                    case TramMode.None: snap.DisplayMode = "None"; break;
+                    case TramMode.All: snap.DisplayMode = "All"; break;
+                    case TramMode.FillTracks: snap.DisplayMode = "FillTracks"; break;
                     case TramMode.BoundaryTracks: snap.DisplayMode = "BoundaryTracks"; break;
-                    default:                      snap.DisplayMode = "None"; break;
+                    default: snap.DisplayMode = "None"; break;
                 }
 
                 var src = _host.Tram.tramList;
