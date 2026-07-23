@@ -837,3 +837,43 @@ la sesión android al extraer, pero el taller los usa desde Services),
   — el cambio es aditivo (2 métodos nuevos + params opcionales con
   default = comportamiento viejo), no debería pisar nada. Voy a
   commitear y pushear.
+- [2026-07-23] [android] HECHO — sin código nuevo, pero cerré la
+  verificación end-to-end del bloque 12 sin depender del panel real de
+  OrbitX (el usuario, cuando le pregunté dónde subir el APK de prueba,
+  prefirió no bloquearse esperando acceso al panel: "para que lo querés
+  subir ahí, debemos seguir probando y avanzando acá"). Armé un catálogo
+  OTA **mock local descartable**: primero probé con sockets crudos (falló
+  con "Error while copying content to a stream" del lado .NET Android —
+  sospecho HttpClient/OkHttp siendo estricto con mi framing HTTP a mano),
+  después con `HttpListener` (hubiera necesitado un prefix literal
+  matcheando el Host header "10.0.2.2:8090" que el cliente manda, cosa
+  que no iba a andar limpia sin URL ACL), y finalmente con **Kestrel**
+  (ASP.NET mínimo, no filtra por Host header) — anduvo a la primera.
+  Server sirviendo `/api/ota/catalogo` y `/api/ota/firmware/...` con **el
+  APK real recién compilado** como "versión 9.9.9" (mismo firmante que
+  el ya instalado, para que fuera una actualización real, no un dummy).
+  `orbitX.json` de prueba escrito directo en el storage interno de la
+  app vía `adb shell run-as` (necesita build Debug — Release no es
+  debuggable) apuntando `server_url` a `http://10.0.2.2:8090` (el alias
+  NAT que el emulador usa para llegar al host).
+  **Flujo completo confirmado real** (no un mock del lado cliente, el
+  cliente habló HTTP de verdad contra un server real): Check →
+  `UpdateAvailable` con catálogo correcto; Download → 34 MB bajados por
+  la red del emulador, SHA256 verificado, `staging_ready=true`; Apply →
+  confirmé por `dumpsys activity activities` que el Intent con el
+  `content://` del FileProvider **lanzó de verdad el PackageInstaller
+  real de Android** (`InstallStaging` → `PackageInstallerActivity`, con
+  la URI/MIME type correctos en el intent extra) — quedó esperando el
+  tap final del usuario, no lo completé porque el emulador empezó a
+  ANRar repetidamente ("System UI/Process system isn't responding") —
+  es una limitación de recursos de esta VM, no algo relacionado al
+  código (0 excepciones de mi app en logcat en todo el flujo).
+  Mock server + config de prueba, todo en el scratchpad, limpiado al
+  terminar (no quedó nada en el repo ni en el dispositivo más que el
+  APK de prueba en `Updates/9.9.9/` del emulador, que se descarta con el
+  AVD si hace falta).
+  Matriz bloque 12 a ~92%. Falta solo completar el tap de "Instalar" en
+  un entorno sin los ANR de esta VM (mecanismo ya demostrado end-to-end)
+  y, cuando el usuario quiera, la prueba contra el catálogo real de
+  OrbitX. Build completo sin cambios de código esta vuelta. Voy a
+  commitear (solo docs) y pushear.
