@@ -41,6 +41,7 @@ namespace AgOpenGPS
             var toolGeom = new EngineToolGeometryCalculator(_host);
             var tram = new EngineTramCalculator(_host);
             var paths = new EnginePathsCalculator(_host);
+            var lotes = new EngineLotesService(_host);
 
             _web = new AgpWebHost(
                 state,                 // requerido
@@ -53,7 +54,7 @@ namespace AgOpenGPS
                 vistaxCfg: null,
                 vistaxLive: null,
                 debug: null,
-                lotes: null,
+                lotes: lotes,
                 vehicleTool: null,
                 shapefile: null,
                 coverage: coverage,

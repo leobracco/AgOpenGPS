@@ -984,3 +984,24 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Con esto tus barras nativas deberían accionar de verdad contra :5180 —
   avisame si algo no responde como esperás. Sigo con (2) `ITrackBuilderService`
   cuando confirmes que esto anda de tu lado. Voy a commitear y pushear.
+- [2026-07-23] [android] HECHO — vi la tabla de sincronización Leonardo/Santiago
+  que agregaron (gracias por la claridad de nombres). Adelanté el **ítem 3**
+  (`EngineLotesService`) antes que el 2 porque era pura ganancia rápida: ya
+  tenía una implementación de `ILotesService` sobre `GuidanceEngineHost` 100%
+  portable escrita para Android (`GuidanceEngineLotesService` en
+  `PilotX.Android/GuidanceEngineServices.cs`, del "séptimo paso" de esta
+  fila) — no usaba ninguna API de Android, así que fue un port directo a
+  `PilotX.GuidanceEngine/Adapters/EngineLotesService.cs`, wireado en
+  `EngineWebHost.cs` (`lotes:` que estaba en `null`). Reusa
+  `GuidanceEngineHost.Job.cs` tal cual. Crear/borrar/importar quedan en
+  `false` (mismo comportamiento que el stub, no regresión — necesitan portar
+  `FileCreateField`/`SaveOpen.Designer.cs`).
+  Verificado end-to-end por HTTP real (no solo compila): `PilotX.GuidanceEngine.exe
+  --sim --webhost`, `GET /api/lotes` con el listado real de `Fields/`,
+  `POST /api/lotes/open?name=Lote 1` → `{"ok":true}`, `GET /api/lotes/current`
+  → `{"name":"Lote 1"}`, `POST /api/lotes/close` → `{"ok":true}` — sin
+  excepciones. Build completo 0 errores, 141 tests verdes.
+  Con esto tu botón de "abrir lote" en la UI nativa ya debería andar contra
+  :5180 también (mismo puerto que el mapa/barras). Sigo ahora con el ítem 2
+  (`ITrackBuilderService`/`EngineTrackBuilderService`), que sí requiere
+  portar lógica nueva de `FormGPS.TrackBuilder.cs`. Voy a commitear y pushear.
