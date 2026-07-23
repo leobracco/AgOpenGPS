@@ -150,6 +150,11 @@ public sealed class MapGlSurface : OpenGlControlBase
     // como hace AgOpenGPS al llenar el lote de líneas de pasada.
     private readonly List<GuidancePoint> _guidancePts = new List<GuidancePoint>();
 
+    // Modo seguimiento heading-up: mapa centrado en el tractor y rotado por el
+    // rumbo (tractor siempre apuntando arriba). Default on (lo que pidió el
+    // operario). North-up = false.
+    private bool _headingUp = true;
+
     // Colores cockpit (RGBA 0..1). Identicos al Skia para paridad.
     private static readonly float[] ColBg            = { 0.055f, 0.078f, 0.063f, 1f }; // #0E1410
     private static readonly float[] ColGrid          = { 0.325f, 0.369f, 0.329f, 0.157f };
@@ -402,19 +407,41 @@ public sealed class MapGlSurface : OpenGlControlBase
         // arriba (a diferencia del DrawingContext Skia que es Y-down).
         ComputeProjection(wPx, hPx, out double cxBbox, out double cyBbox, out double scale);
 
-        // Matriz column-major 4x4 (ortho con offset/scale precomputado).
-        // pos_clip.x = (pos_world.x - cx) * scale * 2 / w
-        // pos_clip.y = (pos_world.y - cy) * scale * 2 / h
+        // Modo heading-up (seguimiento): el mapa se centra en el tractor y rota
+        // por su rumbo, así el tractor SIEMPRE apunta hacia arriba de la pantalla
+        // (aunque doble), como los monitores de guiado. El triángulo del tractor
+        // se dibuja con su rumbo real y la rotación del mundo lo deja apuntando
+        // arriba (no hay que tocar DrawTractor). North-up (rotación 0) queda si
+        // se apaga el modo o si todavía no hay posición.
+        double alpha = 0.0;
+        var followSnap = _snap;
+        if (_headingUp && followSnap != null &&
+            (followSnap.PivotEasting != 0 || followSnap.PivotNorthing != 0))
+        {
+            cxBbox = followSnap.PivotEasting;
+            cyBbox = followSnap.PivotNorthing;
+            alpha = followSnap.Heading;   // rad; rotar el mundo por el rumbo
+        }
+
+        // Matriz column-major 4x4. La rotación se aplica en espacio-pantalla
+        // uniforme (sx/sy sólo corrigen aspecto), así un círculo del mundo se ve
+        // como círculo en pantalla, sólo rotado. Con alpha=0 queda igual que antes.
+        //   clip.x = sx[cosα(x-cx) - sinα(y-cy)]
+        //   clip.y = sy[sinα(x-cx) + cosα(y-cy)]
         float sx = (float)(scale * 2.0 / wPx);
         float sy = (float)(scale * 2.0 / hPx);
-        float tx = (float)(-cxBbox * sx);
-        float ty = (float)(-cyBbox * sy);
+        float ca = (float)Math.Cos(alpha);
+        float sa = (float)Math.Sin(alpha);
+        float m00 = sx * ca,  m10 = sy * sa;      // columna 0 (x)
+        float m01 = -sx * sa, m11 = sy * ca;      // columna 1 (y)
+        float tx = (float)(-(sx * (ca * cxBbox - sa * cyBbox)));
+        float ty = (float)(-(sy * (sa * cxBbox + ca * cyBbox)));
         Span<float> mvp = stackalloc float[16]
         {
-            sx, 0,  0, 0,
-            0,  sy, 0, 0,
-            0,  0,  1, 0,
-            tx, ty, 0, 1
+            m00, m10, 0, 0,
+            m01, m11, 0, 0,
+            0,   0,   1, 0,
+            tx,  ty,  0, 1
         };
         unsafe
         {
@@ -840,19 +867,21 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void DrawGuidanceParallel()
     {
         if (_gl == null) return;
+        // Solo dibujar paralelas cuando hay lote (bbox): ahí acotan al lote y
+        // tienen sentido. Sin lote (grid infinito) serían un choclo de líneas
+        // densas sobre toda la pantalla.
+        if (!_hasBbox) return;
         var snap = _snap;
         double width = snap != null ? snap.ToolWidth : 0;
         if (width < 0.05) return;                     // sin ancho no hay paso
         int n = _guidancePts.Count;
         if (n < 2) return;
 
-        // ¿Cuántas paralelas a cada lado? Cubrir la extensión del lote (o una
-        // ventana razonable si no hay bbox), cap defensivo.
-        double span = _hasBbox
-            ? Math.Max(_maxE - _minE, _maxN - _minN)
-            : 400.0;
+        // ¿Cuántas paralelas a cada lado? Cubrir la extensión del lote, cap
+        // defensivo (evita miles de líneas si el ancho es chico).
+        double span = Math.Max(_maxE - _minE, _maxN - _minN);
         int half = (int)Math.Ceiling(span / width) + 1;
-        half = Math.Clamp(half, 1, 60);
+        half = Math.Clamp(half, 1, 40);
 
         bool isAb = (_guidanceMode == "AB") || n == 2;
 
