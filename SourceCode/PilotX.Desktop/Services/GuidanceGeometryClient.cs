@@ -41,6 +41,12 @@ public sealed class GuidanceGeometrySnapshot
     [JsonPropertyName("mode")]     public string?              Mode     { get; set; } = "Off";
     [JsonPropertyName("points")]   public List<GuidancePoint>? Points   { get; set; }
     [JsonPropertyName("revision")] public long                 Revision { get; set; }
+
+    // Info de desvío para el lightbar (se completa desde /api/aog/guidance,
+    // no viene en /geometry). XteMeters: distancia lateral a la línea (m);
+    // signo = lado. NaN si no hay guía activa.
+    [JsonIgnore] public double XteMeters { get; set; } = double.NaN;
+    [JsonIgnore] public bool   IsLineSet { get; set; }
 }
 
 public sealed class GuidanceGeometryResponse
@@ -48,6 +54,19 @@ public sealed class GuidanceGeometryResponse
     [JsonPropertyName("ok")]       public bool                       Ok       { get; set; }
     [JsonPropertyName("snapshot")] public GuidanceGeometrySnapshot?  Snapshot { get; set; }
     [JsonPropertyName("error")]    public string?                    Error    { get; set; }
+}
+
+// /api/aog/guidance — snapshot de guiado con el XTE.
+public sealed class GuidanceInfoSnapshot
+{
+    [JsonPropertyName("xte_meters")]  public double XteMeters { get; set; }
+    [JsonPropertyName("is_line_set")] public bool   IsLineSet { get; set; }
+}
+
+public sealed class GuidanceInfoResponse
+{
+    [JsonPropertyName("ok")]       public bool                  Ok       { get; set; }
+    [JsonPropertyName("snapshot")] public GuidanceInfoSnapshot? Snapshot { get; set; }
 }
 
 // ----- Cliente HTTP ------------------------------------------------------
@@ -82,7 +101,26 @@ public sealed class GuidanceGeometryClient
             if (!resp.IsSuccessStatusCode) return null;
             var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             var dto = JsonSerializer.Deserialize<GuidanceGeometryResponse>(json, _jsonOpts);
-            if (dto == null || !dto.Ok) return null;
+            if (dto == null || !dto.Ok || dto.Snapshot == null) return null;
+
+            // Completar el XTE desde /api/aog/guidance (para el lightbar). Va en
+            // el mismo poll; si falla, se deja NaN y el lightbar no se dibuja.
+            try
+            {
+                using var r2 = await _http.GetAsync(_baseUrl + "api/aog/guidance", ct).ConfigureAwait(false);
+                if (r2.IsSuccessStatusCode)
+                {
+                    var j2 = await r2.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    var info = JsonSerializer.Deserialize<GuidanceInfoResponse>(j2, _jsonOpts);
+                    if (info != null && info.Ok && info.Snapshot != null)
+                    {
+                        dto.Snapshot.XteMeters = info.Snapshot.IsLineSet ? info.Snapshot.XteMeters : double.NaN;
+                        dto.Snapshot.IsLineSet = info.Snapshot.IsLineSet;
+                    }
+                }
+            }
+            catch { /* xte opcional */ }
+
             return dto.Snapshot;
         }
         catch { return null; }

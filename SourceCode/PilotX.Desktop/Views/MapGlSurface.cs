@@ -155,6 +155,9 @@ public sealed class MapGlSurface : OpenGlControlBase
     // operario). North-up = false.
     private bool _headingUp = true;
 
+    // Cross-track error (m) para el lightbar. NaN = sin guía activa (no dibuja).
+    private double _xte = double.NaN;
+
     // Colores cockpit (RGBA 0..1). Identicos al Skia para paridad.
     private static readonly float[] ColBg            = { 0.055f, 0.078f, 0.063f, 1f }; // #0E1410
     private static readonly float[] ColGrid          = { 0.325f, 0.369f, 0.329f, 0.157f };
@@ -276,6 +279,9 @@ public sealed class MapGlSurface : OpenGlControlBase
     public void OnGuidance(GuidanceGeometrySnapshot snap)
     {
         if (snap == null) return;
+        // El XTE cambia en cada poll aunque la geometría (revision) no —
+        // se guarda siempre para que el lightbar refleje el desvío en vivo.
+        _xte = snap.XteMeters;
         if (snap.Revision == _guidanceRevisionUploaded) return;
         _pendingGuidance = snap;
         Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
@@ -544,8 +550,68 @@ public sealed class MapGlSurface : OpenGlControlBase
             DrawTractor(snap.PivotEasting, snap.PivotNorthing, snap.Heading, scale);
         }
 
+        // --- Capa 5: lightbar (XTE) en espacio-pantalla, sobre todo ----
+        DrawLightbar();
+
         _gl.BindVertexArray(0);
         _gl.UseProgram(0);
+    }
+
+    // Lightbar: barra de desvío arriba-centro del mapa. Un indicador que se
+    // mueve al lado OPUESTO al error (te dice hacia dónde corregir): si estás a
+    // la derecha de la línea, el marcador va a la izquierda. Verde centrado,
+    // amarillo y rojo según crece el desvío. Se dibuja en NDC (MVP identidad),
+    // como overlay fijo (no rota con el mapa).
+    private void DrawLightbar()
+    {
+        if (_gl == null || double.IsNaN(_xte)) return;
+
+        // MVP identidad → vértices en NDC [-1,1].
+        Span<float> idm = stackalloc float[16] { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };
+        unsafe { fixed (float* p = idm) _gl.UniformMatrix4(_uMvp, 1, false, p); }
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+        const double yc = 0.86;      // altura del lightbar (NDC)
+        const double halfW = 0.42;   // medio ancho de la pista
+        const double barH = 0.045;   // alto de las cajas
+        const double fullScale = 0.5; // XTE (m) que llega al borde
+
+        // Pista de fondo (línea tenue) + ticks cada 1/5.
+        float[] colTrack = { 0.561f, 0.627f, 0.573f, 0.35f };
+        EnsureScratch(4);
+        _scratch[0] = (float)-halfW; _scratch[1] = (float)yc;
+        _scratch[2] = (float) halfW; _scratch[3] = (float)yc;
+        UploadAndDraw(PrimitiveType.Lines, 2, colTrack);
+        for (int i = -5; i <= 5; i++)
+        {
+            double tx = i / 5.0 * halfW;
+            double th = (i == 0) ? barH * 1.4 : barH * 0.7; // el central más alto
+            EnsureScratch(4);
+            _scratch[0] = (float)tx; _scratch[1] = (float)(yc - th);
+            _scratch[2] = (float)tx; _scratch[3] = (float)(yc + th);
+            UploadAndDraw(PrimitiveType.Lines, 2, colTrack);
+        }
+
+        // Indicador: lado opuesto al error. Clamp a la pista.
+        double x = Math.Clamp(-_xte / fullScale, -1.0, 1.0) * halfW;
+        double a = Math.Abs(_xte);
+        float[] col = a < 0.05 ? new float[] { 0.290f, 0.729f, 0.243f, 0.95f }   // verde (centrado)
+                    : a < 0.20 ? new float[] { 0.973f, 0.808f, 0.247f, 0.95f }   // amarillo
+                               : new float[] { 0.929f, 0.282f, 0.282f, 0.95f };  // rojo
+        double bw = 0.028; // medio ancho del marcador
+        // Quad (TriangleStrip): (x-bw, yc-barH),(x-bw, yc+barH),(x+bw, yc-barH),(x+bw, yc+barH)
+        EnsureScratch(8);
+        _scratch[0] = (float)(x - bw); _scratch[1] = (float)(yc - barH);
+        _scratch[2] = (float)(x - bw); _scratch[3] = (float)(yc + barH);
+        _scratch[4] = (float)(x + bw); _scratch[5] = (float)(yc - barH);
+        _scratch[6] = (float)(x + bw); _scratch[7] = (float)(yc + barH);
+        UploadAndDraw(PrimitiveType.TriangleStrip, 4, col);
+
+        _gl.Disable(EnableCap.Blend);
     }
 
     // ---- cámara: API pública (la maneja MapPanel, que sí recibe el mouse;
