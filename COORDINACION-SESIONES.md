@@ -16,6 +16,33 @@ Codex-diseño ⇄ Claude-lógica); este es **sesión ⇄ sesión**.
 4. Antes de tocar un archivo del carril del otro: PEDIDO en bitácora y
    esperar respuesta (o coordinar con el usuario).
 
+## ⚡ SINCRONIZACIÓN 2026-07-23 — LEER PRIMERO (evitar duplicar trabajo)
+
+Migración total a Avalonia. **DOS mitades que NO se solapan.** Regla de oro:
+**Leonardo hace la UI (front-end), Santiago hace el engine (back-end).** Las dos
+hablan por la misma API HTTP :5180 — por eso se pueden hacer en paralelo sin
+pisarse. Si un ítem no está en TU columna, NO lo toques.
+
+| | **LEONARDO** (esta PC · rama `codex/pilotx-ui-new`) | **SANTIAGO** (otra PC · rama `codex/android-formgps-render`) |
+|---|---|---|
+| **Rol** | FRONT-END: UI nativa Avalonia | BACK-END: engine headless (que sirva todo) |
+| **Objetivo** | Que PilotX.Desktop se vea/opere 100% nativo | Que el engine sirva TODAS las /api → apagar FormGPS |
+| **HACÉ** | 1. Mapa GL ✅ (hecho: heading-up + lightbar + paralelas). 2. Migrar pantallas WebView→Views Avalonia. 3. Barras/visual. | 1. `ExecuteCommand` COMPLETO en `GuidanceEngineHost.Commands.cs` (copiar de `GUI.FloatingMenu.cs`). 2. `EngineTrackBuilderService`. 3. `EngineLotesService`. 4. `EngineSectionControlService`. 5. resto de `Engine*Service` a demanda. 6. Extracción Core (bloque 9). |
+| **Archivos** | `SourceCode/PilotX.Desktop/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` | `SourceCode/PilotX.GuidanceEngine/*` (Adapters + EngineWebHost + Commands), `AgOpenGPS.Core/Classes/*` (extracción), `GPS/AgroParallel/Common/FormGps*Service.cs` (SOLO leer, como referencia) |
+| **NO TOQUES** | `PilotX.GuidanceEngine/*`, extracción a `AgOpenGPS.Core/`, `GPS/Forms/` (decoupling) | `PilotX.Desktop/*`, `PilotX.Cockpit.Bars/*`, el mapa GL, `wwwroot/*` (HTML/JS del Hub), lo visual |
+
+**Santiago: tu próximo paso concreto** = `ExecuteCommand` completo (para que las
+barras nativas de Leonardo funcionen contra el engine) + `EngineLotesService` +
+`EngineTrackBuilderService`. Patrón = los 6 `Engine*` del mapa que ya están en
+`PilotX.GuidanceEngine/Adapters/` (Leonardo los hizo). Detalle/orden/archivos:
+ver la sección "PLAN — MIGRACIÓN TOTAL A AVALONIA" más abajo en la bitácora
+(entrada [2026-07-23] [taller]).
+
+**Leonardo NO va a tocar el engine** salvo un stopgap ya avisado
+(`track_new_ab`, ver bitácora) que Santiago reemplaza con el service real.
+
+---
+
 ## Carriles vigentes (2026-07-19)
 
 | Sesión | Carril | NO toca |
