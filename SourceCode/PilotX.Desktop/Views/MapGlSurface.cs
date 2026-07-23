@@ -159,8 +159,10 @@ public sealed class MapGlSurface : OpenGlControlBase
     private double _xte = double.NaN;
 
     // Colores cockpit (RGBA 0..1). Identicos al Skia para paridad.
-    private static readonly float[] ColBg            = { 0.055f, 0.078f, 0.063f, 1f }; // #0E1410
-    private static readonly float[] ColGrid          = { 0.325f, 0.369f, 0.329f, 0.157f };
+    private static readonly float[] ColBg            = { 0f, 0f, 0f, 1f };            // negro puro
+    // Grilla apenas perceptible (gris muy oscuro, alpha bajo) para no confundirse
+    // con las guías cian; el fondo queda esencialmente negro.
+    private static readonly float[] ColGrid          = { 0.11f, 0.12f, 0.11f, 0.09f };
     private static readonly float[] ColBoundary      = { 0.357f, 0.784f, 0.314f, 1f }; // #5BC850
     private static readonly float[] ColIslandStroke  = { 0.561f, 0.627f, 0.573f, 1f }; // #8FA092
     private static readonly float[] ColTractor       = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E
