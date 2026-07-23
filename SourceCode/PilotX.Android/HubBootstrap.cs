@@ -25,6 +25,12 @@ namespace PilotX.Droid
         private static FlowXBridge s_flowxBridge;
         private static PilotXCore.GuidanceEngineHost s_guidance;
         private static AndroidPilotXUpdateService s_pilotxUpdate;
+        private static UdpBridgeService s_lanBridge;
+        private static readonly System.Net.IPEndPoint s_epModule =
+            new System.Net.IPEndPoint(System.Net.IPAddress.Parse("255.255.255.255"), 8888);
+#if DEBUG
+        private static System.Threading.Timer s_simTimer;
+#endif
 
         public static bool IsRunning { get { lock (s_lock) return s_host != null; } }
         public static string Url { get { lock (s_lock) return s_host?.Url; } }
@@ -58,14 +64,47 @@ namespace PilotX.Droid
                 // Guidance engine headless (bloque 14) — reemplaza los stubs de
                 // guiado/lotes/estado/cobertura/secciones/vehiculo-tool/QuantiX
                 // runtime por implementaciones reales (GuidanceEngineServices.cs +
-                // GuidanceEngineStateServices.cs). Sin fix GPS real todavia
-                // (necesita CoreX/serial por USB-OTG, bloque 8 pendiente de
-                // hardware): Start() solo deja el loopback UDP escuchando, sin
-                // nada que le mande PGN por ahora.
+                // GuidanceEngineStateServices.cs). Start() deja el loopback UDP
+                // escuchando (:15555); el bridge LAN de abajo es lo que le puede
+                // mandar PGN real sin serie/USB-OTG.
                 var guidanceBaseDir = new DirectoryInfo(Path.Combine(dataDir, "GuidanceEngine"));
                 if (!guidanceBaseDir.Exists) guidanceBaseDir.Create();
                 s_guidance = new PilotXCore.GuidanceEngineHost(guidanceBaseDir);
                 s_guidance.Start();
+
+                // Bridge LAN de "CoreX" sin serie/USB-OTG: mismo patrón que
+                // CoreXEngineHost.StartServices()/ReceiveFromLoopBack/ReceiveFromUdp
+                // (PilotX.GuidanceEngine, Windows) pero sin los 6 puertos serie —
+                // esos necesitan System.IO.Ports (NETSDK1047 en net9.0-android, ver
+                // header de PilotX.GuidanceEngine.Core). Módulos WiFi (GPS/IMU/
+                // Steer/Machine con firmware que habla PGN por UDP, igual que un
+                // AutoSteer ECU en red) mandan/reciben por :9999↔:8888 en vez de
+                // serie — así el motor puede recibir posición/PGN real por WiFi sin
+                // ningún hardware conectado a la tablet misma.
+                s_lanBridge = new UdpBridgeService();
+                s_lanBridge.OnLoopbackReceived += (data, ep) => s_lanBridge.SendUdpTo(data, s_epModule);
+                s_lanBridge.OnUdpReceived += (data, ep) =>
+                {
+                    if (data != null && data.Length >= 4 && data[0] == 0x80 && data[1] == 0x81)
+                        s_lanBridge.SendToLoopback(data);
+                };
+                s_lanBridge.StartLoopback("127.0.0.1", 17777, 15555);
+                s_lanBridge.StartUdp(9999);
+
+#if DEBUG
+                // Mientras no haya ningún módulo real respondiendo por WiFi, en
+                // builds Debug arrancamos TAMBIÉN el simulador interno que usa
+                // PilotX.GuidanceEngine.exe --sim (CSim.DoSimTick), 10 Hz, línea
+                // recta ~4 km/h, para poder probar el resto del motor en un
+                // dispositivo real sin depender de hardware. En builds Release
+                // queda apagado — no debe correr en producción con GPS real.
+                s_guidance.isGPSPositionInitialized = false;
+                s_guidance.isFirstHeadingSet = false;
+                s_guidance.isSimTimerEnabled = true;
+                s_guidance.Sim.stepDistance = 0.11;
+                s_simTimer = new System.Threading.Timer(_ => s_guidance.Sim.DoSimTick(0), null, 0, 100);
+#endif
+
                 var guidanceCalc = new GuidanceEngineGuidanceCalculator(s_guidance);
                 var lotes = new GuidanceEngineLotesService(s_guidance);
                 var state = new GuidanceEngineStateProvider(s_guidance);
@@ -140,6 +179,12 @@ namespace PilotX.Droid
             {
                 try { s_flowxBridge?.Stop(); s_flowxBridge?.Dispose(); } catch { }
                 try { s_host?.Stop(); } catch { }
+#if DEBUG
+                try { s_simTimer?.Dispose(); } catch { }
+                s_simTimer = null;
+#endif
+                try { s_lanBridge?.Stop(); } catch { }
+                s_lanBridge = null;
                 try { s_guidance?.Stop(); } catch { }
                 try { s_pilotxUpdate?.Dispose(); } catch { }
                 try { s_nodos?.Stop(); } catch { }

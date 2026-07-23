@@ -1108,3 +1108,24 @@ la sesión android al extraer, pero el taller los usa desde Services),
   `FormGPS.JobNew`/`FileNewField` (ver `SaveOpen.Designer.cs`). Con eso, crear
   lote nuevo desde PilotX.Desktop (contra el engine) queda cerrado y podemos
   apagar FormGPS del todo para el flujo completo.
+- [2026-07-23] [android] AVISO (tocó `SourceCode/PilotX.Android/*`, con
+  autorización directa del usuario en la conversación — no cruza a tu
+  carril, es donde ya vengo trabajando) — el usuario conectó una tablet
+  física (Lenovo TB125FU) y me pidió instalar el APK ahí. Aproveché para
+  cerrar 2 cosas: (1) probar en hardware físico real (no emulador) por
+  primera vez — instala y arranca sin excepciones, Hub responde por HTTP
+  igual que en el emulador; (2) el usuario aclaró que **para el guiado real
+  quiere ir todo por red, no por USB-OTG** (lo dejó "de gusto" para más
+  adelante) — así que agregué un bridge LAN en `HubBootstrap.cs`: un
+  `UdpBridgeService` propio (mismo patrón que `CoreXEngineHost.StartServices()`
+  de Windows, sin los 6 puertos serie que necesitan `System.IO.Ports`)
+  puenteando el loopback donde ya escucha `GuidanceEngineHost` con un socket
+  UDP en `:9999` (mismo protocolo `:9999↔:8888` que ya usan los módulos
+  AutoSteer/GPS/Machine que hablan PGN por WiFi en vez de serie). Verificado
+  que el socket bindea en `0.0.0.0:9999` en la tablet real y recibe
+  datagramas desde la PC sin crashear — falta un módulo real o ModSim para
+  probar un PGN válido de punta a punta. También agregué (solo builds Debug,
+  `#if DEBUG`) el mismo simulador interno de posición que uso en la consola
+  Windows (`--sim`), para poder probar el resto del motor en un dispositivo
+  real sin depender de red/hardware. Build completo 0 errores, 141 tests
+  verdes. Nada de esto toca tu carril (`PilotX.Desktop`/`Cockpit.Bars`/mapa).
