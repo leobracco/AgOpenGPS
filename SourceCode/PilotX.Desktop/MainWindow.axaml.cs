@@ -376,8 +376,11 @@ public partial class MainWindow : Window
             if (_bottomToolbar != null) _bottomToolbar.IsVisible = false;
             if (_cockpitBarsHost != null) _cockpitBarsHost.IsVisible = true;
             SetupCockpitBars();
+            // La FAB roja de cerrar app queda OCULTA: la barra superior ya trae
+            // su ✕ (apagar). Esa X grande se confundía con "cerrar la pantalla"
+            // y terminaba cerrando toda la app.
             var closeBtn = this.FindControl<Button>("CloseButton");
-            if (closeBtn != null) closeBtn.IsVisible = true;
+            if (closeBtn != null) closeBtn.IsVisible = false;
             if (_miniMapWrap != null) _miniMapWrap.IsVisible = true;
             if (_miniMapShow != null) _miniMapShow.IsVisible = false;
         }
@@ -389,6 +392,11 @@ public partial class MainWindow : Window
             _hudPoller.PollFailed       += OnHudPollFailed;
             _hudPoller.Start();
             Closed += (_, _) => _hudPoller?.Dispose();
+
+            // Al abrir un lote que ya tiene guías, activar la primera visible si
+            // no hay ninguna activa: así las guías aparecen en el mapa apenas se
+            // abre el lote y se cambian con los botones de ciclado ‹ ›.
+            StartTrackAutoSelect(DeriveOrigin(App.TargetUrl));
 
             // Stage 2 mapa GL: poller dedicado para coverage (worked
             // area triangulado). Solo lo enchufamos si UseGl=on; el
@@ -1371,6 +1379,55 @@ public partial class MainWindow : Window
     // PilotX.Bars.Host, pero embebidas): ViewModels + GuidanceCommandClient
     // (POST /api/aog/guidance/command) + CockpitStateClient (poll /api/aog/state
     // → Apply en cada barra). El menú izquierdo se ensancha al abrir un submenú.
+    // ---- Auto-activar guía al abrir un lote ------------------------------
+    private System.Net.Http.HttpClient? _trackHttp;
+    private System.Threading.CancellationTokenSource? _trackCts;
+
+    private void StartTrackAutoSelect(string baseUrl)
+    {
+        _trackHttp = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(4) };
+        _trackCts = new System.Threading.CancellationTokenSource();
+        var ct = _trackCts.Token;
+        string url = baseUrl.TrimEnd('/');
+        _ = System.Threading.Tasks.Task.Run(async () =>
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var json = await _trackHttp.GetStringAsync(url + "/api/aog/tracks", ct).ConfigureAwait(false);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("tracks", out var tracks) &&
+                        tracks.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        int firstVisible = -1;
+                        bool anyActive = false;
+                        foreach (var t in tracks.EnumerateArray())
+                        {
+                            bool vis = t.TryGetProperty("is_visible", out var v) && v.GetBoolean();
+                            bool act = t.TryGetProperty("is_active", out var a) && a.GetBoolean();
+                            int idx = t.TryGetProperty("index", out var ix) ? ix.GetInt32() : -1;
+                            if (act) anyActive = true;
+                            if (vis && firstVisible < 0) firstVisible = idx;
+                        }
+                        // Sin ninguna activa pero con alguna visible → activar la primera.
+                        if (!anyActive && firstVisible >= 0)
+                        {
+                            var body = new System.Net.Http.StringContent(
+                                "{\"index\":" + firstVisible + "}",
+                                System.Text.Encoding.UTF8, "application/json");
+                            await _trackHttp.PostAsync(url + "/api/aog/tracks/select", body, ct).ConfigureAwait(false);
+                        }
+                    }
+                }
+                catch { /* backend caído / sin lote — reintenta */ }
+                try { await System.Threading.Tasks.Task.Delay(1200, ct).ConfigureAwait(false); }
+                catch { break; }
+            }
+        }, ct);
+        Closed += (_, _) => { try { _trackCts?.Cancel(); _trackHttp?.Dispose(); } catch { } };
+    }
+
     private void SetupCockpitBars()
     {
         if (_cockpitBarsHost == null) return;
@@ -1436,14 +1493,18 @@ public partial class MainWindow : Window
                 return true;
             case "apagar": Close(); return true;
 
-            // ---- Paneles nativos de PilotX.Desktop ----
-            case "datos_gps":  ShowGpsData();  return true;
-            case "lote_datos": ShowFieldData(); return true;
+            // ---- Info de lote/GPS → ventana chica cerrable (HTML) ----
+            case "datos_gps":  OpenDialogPage("pages/datos-gps.html",  "Datos GPS",       760, 560); return true;
+            case "lote_datos": OpenDialogPage("pages/datos-lote.html", "Datos del lote",  760, 560); return true;
+            // ---- Paneles nativos grandes (Hub / CoreX / Cámaras) ----
             case "hub":        ShowHub();      return true;
             case "corex":      ShowCoreXEcu(); return true;
             case "webcam":     ShowCamaras();  return true;
 
-            // ---- Ventanas-diálogo chiquitas (como el form nativo equivalente) ----
+            // ---- Guías (crear/elegir) → ventana-diálogo chiquita HTML ----
+            // Abre el clon tracks.html, que usa /api/tracks (contra FormGPS
+            // funciona sin abrir la ventana nativa FormBuildTracks; contra el
+            // engine funcionará cuando android cablee el ITrackBuilderService).
             case "pick":
             case "importar_guias":
             case "track_new_ab":
@@ -1495,12 +1556,44 @@ public partial class MainWindow : Window
             "herr_limites"      => "pages/contorno.html",
             _ => null
         };
-        if (page != null) { NavigateTo(page); return true; }
+        if (page != null)
+        {
+            // Todas las pantallas de config/info abren como VENTANA CHICA
+            // cerrable (con barra de título + X), no a pantalla completa —
+            // así ninguna se confunde con el cierre de la app.
+            OpenDialogPage(page, TitleForCommand(cmd), 820, 600);
+            return true;
+        }
 
         // Resto → backend de guiado (autosteer, sec_*, uturn, contour, track_*,
         // tracks_off, lote_cerrar, borrar_*, cabecera_onoff, tram_vista, vistas…).
         return false;
     }
+
+    // Título humano para la ventana-diálogo de cada comando de pantalla.
+    private static string TitleForCommand(string cmd) => cmd switch
+    {
+        "config_form" or "direccion" or "directorios" or "asistente_direccion" => "Configuración",
+        "todos_ajustes"     => "Todos los ajustes",
+        "colores"           => "Colores",
+        "colores_sec" or "mapeo_color" => "Colores de sección",
+        "perfil_nuevo" or "perfil_cargar" or "perfil_gestion" => "Perfiles",
+        "ayuda"             => "Ayuda",
+        "grafico_direccion" => "Gráfico dirección",
+        "grafico_rumbo"     => "Gráfico rumbo",
+        "grafico_xte"       => "Gráfico XTE",
+        "chequeo_roll"      => "Chequeo de roll",
+        "suavizar_ab"       => "Suavizar AB",
+        "corregir_pos"      => "Corregir posición",
+        "visor_eventos"     => "Eventos",
+        "bandera" or "bandera_latlon" => "Banderas",
+        "lindero" or "herr_limites" => "Contorno",
+        "cabecera"          => "Cabecera",
+        "cabecera_avanzada" => "Cabecera avanzada",
+        "tram_crear"        => "Tramline",
+        "sim_coords"        => "Coordenadas simulador",
+        _ => "PilotX"
+    };
 
     // ---------- HUD --------------------------------------------------------
 
