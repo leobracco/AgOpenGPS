@@ -12,6 +12,8 @@
 // nunca los toca. wwwroot = null: PilotX.Desktop es nativo, no carga HTML.
 // ============================================================================
 
+using System;
+using System.IO;
 using AgroParallel.WebHost;
 using PilotX.GuidanceEngine.Adapters;
 
@@ -19,6 +21,23 @@ namespace AgOpenGPS
 {
     public sealed class EngineWebHost
     {
+        // Ubica el wwwroot del Hub para servir las páginas HTML (config, colores,
+        // gráficos, etc.) que las barras del cockpit abren en el WebView de
+        // PilotX.Desktop. Prueba el Build empaquetado y el WebUI del source.
+        private static string ResolveWwwroot()
+        {
+            var baseDir = AppContext.BaseDirectory;
+            string[] candidates =
+            {
+                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "AgroParallel", "Web", "AgroParallel.WebUI", "wwwroot")),
+                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "Build", "AgroParallel", "wwwroot")),
+                Path.GetFullPath(Path.Combine(baseDir, "wwwroot")),
+            };
+            foreach (var c in candidates)
+                if (Directory.Exists(c)) return c;
+            return null;
+        }
+
         private readonly GuidanceEngineHost _host;
         private readonly int _port;
         private AgpWebHost _web;
@@ -67,7 +86,7 @@ namespace AgOpenGPS
                 stormxLive: null,
                 linexCfg: null,
                 linexLive: null,
-                wwwroot: null,
+                wwwroot: ResolveWwwroot(),
                 port: _port,
                 toolGeometry: toolGeom,
                 tram: tram,
