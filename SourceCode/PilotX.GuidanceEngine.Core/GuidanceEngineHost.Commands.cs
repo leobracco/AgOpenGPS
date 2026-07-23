@@ -114,6 +114,14 @@ namespace AgOpenGPS
                     headingDeg = deg;
                 }
                 TrkBuilder_CreateABFromPivot(headingDeg, null);
+                // TrkBuilder_CreateABFromPivot setea Trk.idx pero NO invalida la
+                // línea de guiado (eso lo hace TrkBuilder_CloseUse en el flujo del
+                // panel de tracks). Al invocarse suelto vía "track_new_ab" hay que
+                // invalidar acá: sin esto, con autosteer ON, BuildCurrentABLineList
+                // saltea el rebuild (CABLine.cs:82,122) y el mapa sigue mostrando la
+                // guía vieja en vez de la recién creada.
+                CurveField.isCurveValid = false;
+                ABLineField.isABValid = false;
                 return true;
             }
 
@@ -340,6 +348,11 @@ namespace AgOpenGPS
 
                 if (Trk.gArr[Trk.idx].isVisible) break;
             }
+
+            // Invalidar la línea activa para que se reconstruya YA desde el nuevo
+            // track (sin esto queda la vieja mientras isABValid siga true).
+            CurveField.isCurveValid = false;
+            ABLineField.isABValid = false;
 
             if (isBtnAutoSteerOn) ((IAutoSteerHost)this).PerformAutoSteerClick();
             if (Yt.isYouTurnBtnOn) ToggleYouTurn();

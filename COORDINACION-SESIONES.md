@@ -1202,3 +1202,18 @@ la sesión android al extraer, pero el taller los usa desde Services),
      pasó de 404 a `{"ok":true,"tracks":[]}`. Si querés moverlo/renombrarlo o
      unificarlo con tu `EngineTrackBuilderService`, es todo tuyo — lo dejé andando
      para no bloquear la prueba del usuario.
+- [2026-07-23] [taller] FIX crítico guías (tu carril, con aviso) — CAUSA RAÍZ de
+  "creé/conmuté guía y el mapa no la cambia". Verificado por API. Cualquier comando
+  que cambie `Trk.idx` DEBE invalidar `ABLineField.isABValid`/`CurveField.isCurveValid`,
+  porque con autosteer ON `BuildCurrentABLineList/BuildCurveCurrentList` saltean el
+  rebuild (CABLine.cs:82,122). Arreglé en `GuidanceEngineHost.Commands.cs`:
+  · `track_new_ab`/`track_ab_here_*`: `TrkBuilder_CreateABFromPivot` setea idx pero
+    NO invalida (eso vive en `TrkBuilder_CloseUse`, que el comando suelto no llama) →
+    agregué invalidación tras crear.
+  · cycle `track_next/prev`: agregué invalidación tras cambiar idx.
+  · (ya estaba) `EngineTrackListService.SelectTrack` invalida.
+  Test: crear AB en pivot ahora mueve la geometría (e:431→e:667) y sube revisión
+  (2→4). Si querés centralizar la invalidación dentro de los TrkBuilder_* o CTrack,
+  es tu carril — lo dejé andando para desbloquear la prueba.
+  PENDIENTE (tu carril, aviso): coverage `sections:[]` vacío con is_section_auto_on:true
+  → el engine headless no registra área trabajada (patches). "No pinta" del usuario.
