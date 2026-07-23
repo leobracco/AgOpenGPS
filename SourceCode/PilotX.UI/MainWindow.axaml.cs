@@ -1407,10 +1407,6 @@ public partial class MainWindow : Window
     // ---- Auto-activar guía al abrir un lote ------------------------------
     private System.Net.Http.HttpClient? _trackHttp;
     private System.Threading.CancellationTokenSource? _trackCts;
-    // Con el piloto DESENGANCHADO, activar automáticamente la guía más cercana al
-    // tractor (como el auto-track de AOG). Con el piloto puesto se sostiene la
-    // línea que se está siguiendo (no reelige, para no pelear con el guiado).
-    private bool _autoNearest = true;
 
     private void StartTrackAutoSelect(string baseUrl)
     {
@@ -1424,14 +1420,17 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    // Estado: ¿piloto enganchado? ¿hay lote? Con el piloto puesto NO
-                    // reelegimos guía (se sostiene la línea activa).
-                    bool autoSteer = false, jobStarted = false;
+                    // Estado: ¿AutoTrack prendido (botón de la barra derecha)?
+                    // ¿piloto enganchado? ¿hay lote? El auto-seguimiento de la guía
+                    // más cercana SOLO corre si el usuario prendió AutoTrack; y con
+                    // el piloto puesto NO reelegimos (se sostiene la línea activa).
+                    bool autoTrackOn = false, autoSteer = false, jobStarted = false;
                     try
                     {
                         var sjson = await _trackHttp.GetStringAsync(url + "/api/aog/state", ct).ConfigureAwait(false);
                         using var sdoc = System.Text.Json.JsonDocument.Parse(sjson);
                         var root = sdoc.RootElement;
+                        autoTrackOn = root.TryGetProperty("is_auto_track_on", out var atv) && atv.GetBoolean();
                         autoSteer = root.TryGetProperty("is_auto_steer_on", out var asv) && asv.GetBoolean();
                         jobStarted = root.TryGetProperty("is_job_started", out var jv) && jv.GetBoolean();
                     }
@@ -1455,9 +1454,10 @@ public partial class MainWindow : Window
 
                         if (!_suppressAutoSelect && jobStarted)
                         {
-                            if (_autoNearest && !autoSteer && anyVisible)
+                            if (autoTrackOn && !autoSteer && anyVisible)
                             {
-                                // Piloto libre → activar SIEMPRE la guía más cercana.
+                                // AutoTrack prendido + piloto libre → seguir la guía
+                                // más cercana (se actualiza al pasar cerca de otra).
                                 var body = new System.Net.Http.StringContent(
                                     "{\"cmd\":\"track_nearest\"}",
                                     System.Text.Encoding.UTF8, "application/json");
@@ -1465,7 +1465,8 @@ public partial class MainWindow : Window
                             }
                             else if (!anyActive && firstVisible >= 0)
                             {
-                                // Fallback (piloto puesto o auto-nearest off): activar al menos una.
+                                // AutoTrack apagado (selección manual se fija): solo
+                                // aseguramos que haya UNA guía activa si no hay ninguna.
                                 var body = new System.Net.Http.StringContent(
                                     "{\"index\":" + firstVisible + "}",
                                     System.Text.Encoding.UTF8, "application/json");
