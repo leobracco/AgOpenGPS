@@ -57,6 +57,14 @@ namespace PilotX.GuidanceEngine.Adapters
                 var trk = _host?.Trk;
                 if (trk?.gArr == null || index < 0 || index >= trk.gArr.Count) return false;
                 trk.idx = index;
+
+                // Invalidar la línea de guiado actual para forzar su reconstrucción
+                // en el próximo tick desde el NUEVO track. Sin esto, con el autosteer
+                // ON, BuildCurrentABLineList/BuildCurveCurrentList saltean el rebuild
+                // (CABLine.cs:82,122) y el mapa sigue mostrando la línea vieja. Mismo
+                // gesto que la rutina auto-track (CAutoSteerUpdater.cs:68-69).
+                try { if (_host.ABLineField != null) _host.ABLineField.isABValid = false; } catch { }
+                try { if (_host.CurveField != null) _host.CurveField.isCurveValid = false; } catch { }
                 return true;
             }
             catch { return false; }
