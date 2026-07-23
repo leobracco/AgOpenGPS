@@ -189,6 +189,25 @@ namespace AgOpenGPS
                 case "track_prev":
                     CycleTrack(forward: false);
                     return true;
+                case "track_nearest":
+                    // Activar la guía (track AB/curva) MÁS CERCANA al tractor AHORA.
+                    // One-shot determinístico: no depende del modo auto-track (que en
+                    // headless está muerto porque autoTrack3SecTimer nunca incrementa).
+                    if (Trk.gArr != null && Trk.gArr.Count > 0)
+                    {
+                        // FindClosestRefTrack necesita idx>=0 como semilla (CTrack.cs:31).
+                        if (Trk.idx < 0)
+                        {
+                            Trk.idx = Trk.gArr.FindIndex(t => t.isVisible);
+                            if (Trk.idx < 0) Trk.idx = 0;
+                        }
+                        int near = Trk.FindClosestRefTrack(steerAxlePos);
+                        if (near >= 0) Trk.idx = near;
+                        // Invalidar para reconstruir la línea desde la nueva guía.
+                        CurveField.isCurveValid = false;
+                        ABLineField.isABValid = false;
+                    }
+                    return true;
                 case "tracks_off":
                     // btnTracksOff_Click
                     Trk.idx = -1;

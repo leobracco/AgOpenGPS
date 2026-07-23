@@ -173,6 +173,16 @@
         </StackPanel>
       </Border>
 
+      <!-- ===== debug de guiado (rumbo/guía/Δ/paralela/cm) ===== -->
+      <TextBlock Grid.Column="4"
+                 Text="{Binding DebugText}"
+                 FontSize="12"
+                 FontWeight="SemiBold"
+                 Foreground="#3B463D"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 TextWrapping="NoWrap"/>
+
       <!-- ===== telemetría + botones ventana ===== -->
       <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
         <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="60">

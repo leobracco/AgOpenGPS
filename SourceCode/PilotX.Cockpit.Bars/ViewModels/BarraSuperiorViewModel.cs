@@ -15,6 +15,10 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
     [ObservableProperty] private string _lineBadge = "";
     [ObservableProperty] private bool _lineVisible;
     [ObservableProperty] private string _fechaText = "";
+    // Debug de guiado (rumbo tractor/guía, Δ, índice de paralela, cm a la guía).
+    // Lo compone MainWindow.UpdateHeadingDebug() (combina HUD + guidance poller)
+    // y lo empuja acá, porque esos datos no están en CockpitSnapshot.
+    [ObservableProperty] private string _debugText = "";
 
     public override void Apply(CockpitSnapshot s)
     {

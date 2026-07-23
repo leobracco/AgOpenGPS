@@ -95,6 +95,8 @@ public partial class MainWindow : Window
     // Índice de la guía paralela respecto de la de referencia (howManyPathsAway):
     // 0 = la inicial, negativo = izquierda, positivo = derecha. NaN = sin guía.
     private double _lastPathsAway = double.NaN;
+    // Distancia perpendicular a la guía (XTE) en metros, con signo. NaN = sin guía.
+    private double _lastXteMeters = double.NaN;
     private TextBlock _hudArea;
     private TextBlock _hudStatusText;
     private Ellipse   _hudStatusDot;
@@ -458,6 +460,7 @@ public partial class MainWindow : Window
                 // Rumbo de la guía activa = dirección A→B de la polyline (0=N, CW).
                 _lastGuideHeadingDeg = ComputeGuideHeadingDeg(snap);
                 _lastPathsAway = (snap.PathsAway == int.MinValue) ? double.NaN : snap.PathsAway;
+                _lastXteMeters = snap.XteMeters; // NaN si no hay guía
                 UpdateHeadingDebug();
             }, periodMs: 1000);
             _guidancePoller.Start();
@@ -1404,6 +1407,10 @@ public partial class MainWindow : Window
     // ---- Auto-activar guía al abrir un lote ------------------------------
     private System.Net.Http.HttpClient? _trackHttp;
     private System.Threading.CancellationTokenSource? _trackCts;
+    // Con el piloto DESENGANCHADO, activar automáticamente la guía más cercana al
+    // tractor (como el auto-track de AOG). Con el piloto puesto se sostiene la
+    // línea que se está siguiendo (no reelige, para no pelear con el guiado).
+    private bool _autoNearest = true;
 
     private void StartTrackAutoSelect(string baseUrl)
     {
@@ -1417,29 +1424,53 @@ public partial class MainWindow : Window
             {
                 try
                 {
+                    // Estado: ¿piloto enganchado? ¿hay lote? Con el piloto puesto NO
+                    // reelegimos guía (se sostiene la línea activa).
+                    bool autoSteer = false, jobStarted = false;
+                    try
+                    {
+                        var sjson = await _trackHttp.GetStringAsync(url + "/api/aog/state", ct).ConfigureAwait(false);
+                        using var sdoc = System.Text.Json.JsonDocument.Parse(sjson);
+                        var root = sdoc.RootElement;
+                        autoSteer = root.TryGetProperty("is_auto_steer_on", out var asv) && asv.GetBoolean();
+                        jobStarted = root.TryGetProperty("is_job_started", out var jv) && jv.GetBoolean();
+                    }
+                    catch { }
+
                     var json = await _trackHttp.GetStringAsync(url + "/api/aog/tracks", ct).ConfigureAwait(false);
                     using var doc = System.Text.Json.JsonDocument.Parse(json);
                     if (doc.RootElement.TryGetProperty("tracks", out var tracks) &&
                         tracks.ValueKind == System.Text.Json.JsonValueKind.Array)
                     {
                         int firstVisible = -1;
-                        bool anyActive = false;
+                        bool anyActive = false, anyVisible = false;
                         foreach (var t in tracks.EnumerateArray())
                         {
                             bool vis = t.TryGetProperty("is_visible", out var v) && v.GetBoolean();
                             bool act = t.TryGetProperty("is_active", out var a) && a.GetBoolean();
                             int idx = t.TryGetProperty("index", out var ix) ? ix.GetInt32() : -1;
                             if (act) anyActive = true;
-                            if (vis && firstVisible < 0) firstVisible = idx;
+                            if (vis) { anyVisible = true; if (firstVisible < 0) firstVisible = idx; }
                         }
-                        // Sin ninguna activa pero con alguna visible → activar la primera.
-                        // (Suspendido durante la creación de una guía A/B.)
-                        if (!_suppressAutoSelect && !anyActive && firstVisible >= 0)
+
+                        if (!_suppressAutoSelect && jobStarted)
                         {
-                            var body = new System.Net.Http.StringContent(
-                                "{\"index\":" + firstVisible + "}",
-                                System.Text.Encoding.UTF8, "application/json");
-                            await _trackHttp.PostAsync(url + "/api/aog/tracks/select", body, ct).ConfigureAwait(false);
+                            if (_autoNearest && !autoSteer && anyVisible)
+                            {
+                                // Piloto libre → activar SIEMPRE la guía más cercana.
+                                var body = new System.Net.Http.StringContent(
+                                    "{\"cmd\":\"track_nearest\"}",
+                                    System.Text.Encoding.UTF8, "application/json");
+                                await _trackHttp.PostAsync(url + "/api/aog/guidance/command", body, ct).ConfigureAwait(false);
+                            }
+                            else if (!anyActive && firstVisible >= 0)
+                            {
+                                // Fallback (piloto puesto o auto-nearest off): activar al menos una.
+                                var body = new System.Net.Http.StringContent(
+                                    "{\"index\":" + firstVisible + "}",
+                                    System.Text.Encoding.UTF8, "application/json");
+                                await _trackHttp.PostAsync(url + "/api/aog/tracks/select", body, ct).ConfigureAwait(false);
+                            }
                         }
                     }
                 }
@@ -1465,40 +1496,52 @@ public partial class MainWindow : Window
         return deg;
     }
 
-    // Refresca el chip central del HUD con el debug de rumbos + índice de paralela.
-    // Formato: "T 123°  ·  G 125°  ·  Δ +2°  ·  ‖ -1 izq"
+    // Compone el debug de guiado y lo empuja a la BarraSuperior del cockpit (que
+    // es la barra VISIBLE, al lado del km/h). El HudBar nativo está oculto en modo
+    // full (lo reemplaza el cockpit), así que escribir en _hudTrack no se ve —
+    // por eso el string va a _vmSup.DebugText.
+    // Formato: "T 123°  G 125°  Δ +2°  ‖ -1 izq  35cm izq"
     private void UpdateHeadingDebug()
     {
-        if (_hudTrack == null) return;
         bool hasT = !double.IsNaN(_lastTractorHeadingDeg);
         bool hasG = !double.IsNaN(_lastGuideHeadingDeg);
 
+        string s;
         if (!hasG)
         {
-            _hudTrack.Text = hasT ? "sin guía" : "";
-            return;
+            s = hasT ? $"T {_lastTractorHeadingDeg:0}°  ·  sin guía" : "";
         }
-
-        string s = hasT
-            ? $"T {_lastTractorHeadingDeg:0}°  ·  G {_lastGuideHeadingDeg:0}°"
-            : $"G {_lastGuideHeadingDeg:0}°";
-
-        if (hasT)
+        else
         {
-            double d = _lastGuideHeadingDeg - _lastTractorHeadingDeg;
-            while (d > 180) d -= 360;
-            while (d < -180) d += 360;
-            s += $"  ·  Δ {d:+0;-0;0}°";
+            s = hasT
+                ? $"T {_lastTractorHeadingDeg:0}°  ·  G {_lastGuideHeadingDeg:0}°"
+                : $"G {_lastGuideHeadingDeg:0}°";
+
+            if (hasT)
+            {
+                double d = _lastGuideHeadingDeg - _lastTractorHeadingDeg;
+                while (d > 180) d -= 360;
+                while (d < -180) d += 360;
+                s += $"  ·  Δ {d:+0;-0;0}°";
+            }
+
+            if (!double.IsNaN(_lastPathsAway))
+            {
+                int n = (int)_lastPathsAway;
+                string lr = n < 0 ? " izq" : n > 0 ? " der" : "";
+                s += $"  ·  ‖ {n}{lr}";
+            }
+
+            if (!double.IsNaN(_lastXteMeters))
+            {
+                int cm = (int)Math.Round(Math.Abs(_lastXteMeters) * 100.0);
+                string lr = _lastXteMeters < 0 ? " izq" : _lastXteMeters > 0 ? " der" : "";
+                s += $"  ·  {cm}cm{lr}";
+            }
         }
 
-        if (!double.IsNaN(_lastPathsAway))
-        {
-            int n = (int)_lastPathsAway;
-            string lr = n < 0 ? " izq" : n > 0 ? " der" : "";
-            s += $"  ·  ‖ {n}{lr}";
-        }
-
-        _hudTrack.Text = s;
+        if (_hudTrack != null) _hudTrack.Text = s;      // HUD nativo (oculto, por si se muestra)
+        if (_vmSup != null) _vmSup.DebugText = s;       // barra visible del cockpit
     }
 
     private void SetupCockpitBars()

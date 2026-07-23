@@ -1227,3 +1227,27 @@ la sesión android al extraer, pero el taller los usa desde Services),
   a `TriStripField[section]` según avanza el pivote (mirar CSection/CTriangleStrip +
   el update de secciones en FormGPS). Es tu `EngineSectionControlService`/coverage.
   Confirmado en runtime hoy: guías (crear/conmutar) ya andan; falta esto para el pintado.
+- [2026-07-23] [taller] Investigación paralela (workflow) + 3 fixes de guiado.
+  HALLAZGOS: (1) el debug de rumbos no se veía porque el HUD nativo (HudBar) está
+  IsVisible=false en modo full (lo reemplazan las barras del cockpit) → lo moví a
+  BarraSuperior.DebugText (columna central, al lado del km/h): muestra
+  "T rumbo° · G guía° · Δ° · ‖ índice-paralela · cm a la guía". (2) el render del
+  mapa está OK. (3) `track_nearest` NUEVO (mi carril de comando, aviso): activa la
+  guía más cercana (FindClosestRefTrack + invalida línea); el auto-track continuo
+  del engine está muerto (autoTrack3SecTimer nunca incrementa en headless). El
+  auto-select del cliente ahora, con piloto DESENGANCHADO, postea track_nearest cada
+  1.2s (elige la más cercana); con piloto puesto sostiene.
+  PENDIENTE GRANDE (TU CARRIL) — COVERAGE "no pinta": el engine headless NUNCA crea
+  las tiras (CPatches). Toda la lógica de section-control + ciclo de patches vive en
+  FormGPS.oglBack_Paint (GPS/Forms/OpenGL.Designer.cs ~1164-1533) y NO está portada.
+  Plan del investigador (alta confianza): extraer a AgOpenGPS.Core/CSectionCalculator
+  un método SectionControlToUpdate() con las regiones "Section Control" (calcula
+  sectionOnRequest/isMappingOn por sección) + "status change" (triStrip.Add(new
+  CPatches(this)) + TurnMappingOn/Off + AddMappingPoint) + BuildMachineByte();
+  invocarlo en GuidanceEngineHost.UpdateFixPosition() (dentro de if(IsJobStarted),
+  tras YouTurnUpdater) en CADA fix. MVP sin OpenGL: tratar grnPixels=0 →
+  isSectionRequiredOn = (sección dentro de boundary + avanza + speed>=slowSpeedCutoff),
+  diferir anti-overlap/headland-por-pixel. El host ya implementa IPatchesHost y
+  AddSectionOrPathPoints ya corre vía TheRest() — solo falta que existan tiras con
+  isDrawing=true. Archivos: CSectionCalculator.cs, ISectionsHost.cs,
+  GuidanceEngineHost.Sections.cs, GuidanceEngineHost.cs.
