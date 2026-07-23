@@ -1217,3 +1217,13 @@ la sesión android al extraer, pero el taller los usa desde Services),
   es tu carril — lo dejé andando para desbloquear la prueba.
   PENDIENTE (tu carril, aviso): coverage `sections:[]` vacío con is_section_auto_on:true
   → el engine headless no registra área trabajada (patches). "No pinta" del usuario.
+- [2026-07-23] [taller] DIAGNÓSTICO coverage "no pinta" (tu carril, NO lo toqué —
+  es pieza grande). `EngineCoverageService` lee bien `_host.TriStripField[j].patchList`,
+  pero el engine headless **nunca AGREGA patches al moverse**: falta cablear el loop
+  de grabado de cobertura en el tick (en FormGPS es el `AddMappingPoint`/sectionCounter
+  del section-control durante el paint/update). Resultado: `/api/aog/coverage` →
+  `sections:[]` aunque `is_section_auto_on:true`. Para que pinte el área trabajada
+  hay que, en el tick del host: por cada sección ON, agregar el triángulo/mapping-point
+  a `TriStripField[section]` según avanza el pivote (mirar CSection/CTriangleStrip +
+  el update de secciones en FormGPS). Es tu `EngineSectionControlService`/coverage.
+  Confirmado en runtime hoy: guías (crear/conmutar) ya andan; falta esto para el pintado.
