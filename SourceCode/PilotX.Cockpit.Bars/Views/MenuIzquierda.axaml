@@ -7,128 +7,251 @@
   <UserControl.Resources>
     <views:StringEqualsConverter x:Key="StrEq"/>
   </UserControl.Resources>
+
+  <!-- Estilos locales espejando menu-izquierda.html (.mbtn / .sub / .sbtn):
+       tarjetas ícono+texto. Scopeados a este control para no chocar con el
+       BarStyles global. -->
   <UserControl.Styles>
-    <!-- Botón de columna principal "activo" = su submenú está abierto. -->
-    <Style Selector="Button.active /template/ ContentPresenter#PART_ContentPresenter">
-      <Setter Property="Background" Value="#4ABA3E"/>
+    <Style Selector="Button.mbtn">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="2"/>
+      <Setter Property="MinHeight" Value="52"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.mbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F0F4F0"/>
+      <Setter Property="BorderBrush" Value="#C8D1C8"/>
+    </Style>
+    <Style Selector="Button.mbtn.active /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#EAF6E7"/>
       <Setter Property="BorderBrush" Value="#4ABA3E"/>
-      <Setter Property="TextBlock.Foreground" Value="#FFFFFF"/>
+    </Style>
+
+    <Style Selector="Button.sbtn">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="9"/>
+      <Setter Property="MinHeight" Value="42"/>
+      <Setter Property="Padding" Value="2"/>
+      <Setter Property="Margin" Value="2"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.sbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F0F4F0"/>
+      <Setter Property="BorderBrush" Value="#C8D1C8"/>
+    </Style>
+
+    <Style Selector="Image.mico">
+      <Setter Property="Width" Value="26"/>
+      <Setter Property="Height" Value="26"/>
+      <Setter Property="Stretch" Value="Uniform"/>
+    </Style>
+    <Style Selector="TextBlock.mlbl">
+      <Setter Property="FontSize" Value="9.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
+    <!-- Ícono emoji del submenú (fuente de emoji de Windows) -->
+    <Style Selector="TextBlock.sico">
+      <Setter Property="FontFamily" Value="Segoe UI Emoji, Segoe UI Symbol, Segoe UI"/>
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="TextBlock.slbl">
+      <Setter Property="FontSize" Value="9"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="#101612"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
+    </Style>
+    <Style Selector="TextBlock.subtitle">
+      <Setter Property="FontSize" Value="10.5"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#6F786F"/>
+      <Setter Property="Margin" Value="2,0,0,6"/>
     </Style>
   </UserControl.Styles>
-  <Border Background="#F5F7F4"
-          BorderBrush="#C5CFC5" BorderThickness="0,0,1,0">
-    <!-- Grid de 2 columnas: col 0 = columna principal (ancho fijo, no se
-         aplasta); col 1 = submenú (todos apilados en la misma celda, solo el
-         activo visible). El Host ensancha la ventana al abrir un submenú. -->
-    <Grid ColumnDefinitions="90,*">
-      <!-- columna principal: siempre visible -->
-      <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="4" Margin="3,5">
-        <Button Content="Navegación" HorizontalAlignment="Stretch"
+
+  <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,1,0" Padding="6">
+    <Grid ColumnDefinitions="84,*">
+
+      <!-- ===== columna principal ===== -->
+      <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="5" Margin="0,0,8,0">
+        <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
-                Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion"/>
-        <Button Content="Config" HorizontalAlignment="Stretch"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/NavigationSettings.png"/><TextBlock Classes="mlbl" Text="Navegación"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}"
-                Command="{Binding ToggleSubmenuCommand}" CommandParameter="config"/>
-        <Button Content="Herramientas" HorizontalAlignment="Stretch"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="config">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="mlbl" Text="Config"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}"
-                Command="{Binding ToggleSubmenuCommand}" CommandParameter="herramientas"/>
-        <Button Content="Lote" HorizontalAlignment="Stretch"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="herramientas">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/SpecialFunctions.png"/><TextBlock Classes="mlbl" Text="Herramientas"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}"
-                Command="{Binding ToggleSubmenuCommand}" CommandParameter="lote"/>
-        <Button Content="Herr. lote" HorizontalAlignment="Stretch"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="lote">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/JobActive.png"/><TextBlock Classes="mlbl" Text="Lote"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}"
-                Command="{Binding ToggleSubmenuCommand}" CommandParameter="herrlote"/>
-        <Button Content="Guías" HorizontalAlignment="Stretch"
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="herrlote">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/FieldTools.png"/><TextBlock Classes="mlbl" Text="Herr. lote"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=guias}"
-                Command="{Binding ToggleSubmenuCommand}" CommandParameter="guias"/>
-        <Button Content="Dirección" HorizontalAlignment="Stretch"
-                Command="{Binding SendCommand}" CommandParameter="direccion"/>
-        <Button Content="CoreX" HorizontalAlignment="Stretch"
-                Command="{Binding SendCommand}" CommandParameter="corex"/>
+                Command="{Binding ToggleSubmenuCommand}" CommandParameter="guias">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/Guias.png"/><TextBlock Classes="mlbl" Text="Guías"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="direccion">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/AutoSteerConf.png"/><TextBlock Classes="mlbl" Text="Dirección"/></StackPanel>
+        </Button>
+        <Button Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/CoreX.png"/><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
+        </Button>
       </StackPanel>
 
-      <!-- submenús: hijos directos de col 1, apilados (solo 1 visible).
-           Al tocar un ítem se ejecuta y se cierra (SendAndCloseCommand). -->
+      <!-- ===== submenús (surface-soft, título + grilla 2 col, emoji+texto) ===== -->
 
       <!-- Navegación -->
-      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
-                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}">
-        <Button Content="2D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="v2d"/>
-        <Button Content="3D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="v3d"/>
-        <Button Content="Norte 2D" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="norte2d"/>
-        <Button Content="Grilla" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grilla"/>
-        <Button Content="Día/Noche" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="dia_noche"/>
-        <Button Content="Brillo +" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="brillo_up"/>
-        <Button Content="Brillo -" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="brillo_dn"/>
-        <Button Content="Hub" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="hub"/>
-        <Button Content="Navegación" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="navegacion"/>
-      </StackPanel>
+      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="NAVEGACIÓN"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2">
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="v2d"><StackPanel><TextBlock Classes="sico" Text="▱"/><TextBlock Classes="slbl" Text="2D"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="v3d"><StackPanel><TextBlock Classes="sico" Text="⛰"/><TextBlock Classes="slbl" Text="3D"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="norte2d"><StackPanel><TextBlock Classes="sico" Text="🧭"/><TextBlock Classes="slbl" Text="Norte 2D"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grilla"><StackPanel><TextBlock Classes="sico" Text="▦"/><TextBlock Classes="slbl" Text="Grilla"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="dia_noche"><StackPanel><TextBlock Classes="sico" Text="🌗"/><TextBlock Classes="slbl" Text="Día / Noche"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_up"><StackPanel><TextBlock Classes="sico" Text="🔆"/><TextBlock Classes="slbl" Text="Brillo +"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_dn"><StackPanel><TextBlock Classes="sico" Text="🔅"/><TextBlock Classes="slbl" Text="Brillo −"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="hub"><StackPanel><TextBlock Classes="sico" Text="⬢"/><TextBlock Classes="slbl" Text="Hub"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="navegacion"><StackPanel><TextBlock Classes="sico" Text="⚙"/><TextBlock Classes="slbl" Text="Panel nativo"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
 
       <!-- Config -->
-      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
-                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}">
-        <Button Content="Config" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="config_form"/>
-        <Button Content="Dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="direccion"/>
-        <Button Content="Todos los ajustes" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="todos_ajustes"/>
-        <Button Content="Colores" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="colores"/>
-        <Button Content="Colores sección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="colores_sec"/>
-        <Button Content="Datos GPS" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="datos_gps"/>
-        <Button Content="Perfil nuevo" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="perfil_nuevo"/>
-        <Button Content="Perfil cargar" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="perfil_cargar"/>
-        <Button Content="Directorios" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="directorios"/>
-        <Button Content="Ayuda" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="ayuda"/>
-      </StackPanel>
+      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="CONFIG"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2">
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="config_form"><StackPanel><TextBlock Classes="sico" Text="🚜"/><TextBlock Classes="slbl" Text="Configuración"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="direccion"><StackPanel><TextBlock Classes="sico" Text="🎯"/><TextBlock Classes="slbl" Text="Dirección"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="todos_ajustes"><StackPanel><TextBlock Classes="sico" Text="🗒"/><TextBlock Classes="slbl" Text="Todos los ajustes"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="colores"><StackPanel><TextBlock Classes="sico" Text="🎨"/><TextBlock Classes="slbl" Text="Colores"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="colores_sec"><StackPanel><TextBlock Classes="sico" Text="🟩"/><TextBlock Classes="slbl" Text="Colores secciones"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="datos_gps"><StackPanel><TextBlock Classes="sico" Text="📡"/><TextBlock Classes="slbl" Text="Datos GPS"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="perfil_nuevo"><StackPanel><TextBlock Classes="sico" Text="➕"/><TextBlock Classes="slbl" Text="Perfil nuevo"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="perfil_cargar"><StackPanel><TextBlock Classes="sico" Text="📂"/><TextBlock Classes="slbl" Text="Cargar perfil"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="directorios"><StackPanel><TextBlock Classes="sico" Text="🗂"/><TextBlock Classes="slbl" Text="Directorios"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="ayuda"><StackPanel><TextBlock Classes="sico" Text="❓"/><TextBlock Classes="slbl" Text="Ayuda"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
 
       <!-- Herramientas -->
-      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
-                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}">
-        <Button Content="Asistente dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="asistente_direccion"/>
-        <Button Content="Gráfico dirección" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grafico_direccion"/>
-        <Button Content="Gráfico rumbo" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grafico_rumbo"/>
-        <Button Content="Gráfico XTE" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="grafico_xte"/>
-        <Button Content="Chequeo roll" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="chequeo_roll"/>
-        <Button Content="Herr. límites" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="herr_limites"/>
-        <Button Content="Suavizar AB" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="suavizar_ab"/>
-        <Button Content="Borrar contornos" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="borrar_contornos"/>
-        <Button Content="Corregir posición" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="corregir_pos"/>
-        <Button Content="Visor de eventos" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="visor_eventos"/>
-        <Button Content="Webcam" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="webcam"/>
-      </StackPanel>
+      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERRAMIENTAS"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2">
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="asistente_direccion"><StackPanel><TextBlock Classes="sico" Text="🪄"/><TextBlock Classes="slbl" Text="Asistente dirección"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_direccion"><StackPanel><TextBlock Classes="sico" Text="📈"/><TextBlock Classes="slbl" Text="Gráfico dirección"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_rumbo"><StackPanel><TextBlock Classes="sico" Text="🧭"/><TextBlock Classes="slbl" Text="Gráfico rumbo"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_xte"><StackPanel><TextBlock Classes="sico" Text="📉"/><TextBlock Classes="slbl" Text="Gráfico XTE"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="chequeo_roll"><StackPanel><TextBlock Classes="sico" Text="⚖"/><TextBlock Classes="slbl" Text="Chequeo roll"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="herr_limites"><StackPanel><TextBlock Classes="sico" Text="⬠"/><TextBlock Classes="slbl" Text="Herram. límites"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="suavizar_ab"><StackPanel><TextBlock Classes="sico" Text="〰"/><TextBlock Classes="slbl" Text="Suavizar AB"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="borrar_contornos"><StackPanel><TextBlock Classes="sico" Text="🗑"/><TextBlock Classes="slbl" Text="Borrar contornos"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="corregir_pos"><StackPanel><TextBlock Classes="sico" Text="📍"/><TextBlock Classes="slbl" Text="Corregir posición"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="visor_eventos"><StackPanel><TextBlock Classes="sico" Text="📜"/><TextBlock Classes="slbl" Text="Visor eventos"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="webcam"><StackPanel><TextBlock Classes="sico" Text="📷"/><TextBlock Classes="slbl" Text="Webcam"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
 
       <!-- Lote -->
-      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
-                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}">
-        <Button Content="Continuar lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_continuar"/>
-        <Button Content="Menú lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_menu"/>
-        <Button Content="Cerrar lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_cerrar"/>
-        <Button Content="Datos lote" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
-        <Button Content="Bandera" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="bandera"/>
-        <Button Content="Bandera lat/lon" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="bandera_latlon"/>
-        <Button Content="Borrar aplicado" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="borrar_aplicado"/>
-        <Button Content="Mapeo color" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="mapeo_color"/>
-      </StackPanel>
-
-      <!-- Guías (crear/elegir/ocultar líneas de guiado) -->
-      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
-                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=guias}">
-        <Button Content="Nueva A/B" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_ab"/>
-        <Button Content="Nueva curva" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_curve"/>
-        <Button Content="Recta A+" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="track_new_a"/>
-        <Button Content="Elegir guía" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="pick"/>
-        <Button Content="Ocultar guías" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tracks_off"/>
-      </StackPanel>
+      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="LOTE"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2">
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_continuar"><StackPanel><TextBlock Classes="sico" Text="▶"/><TextBlock Classes="slbl" Text="Continuar lote"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_menu"><StackPanel><TextBlock Classes="sico" Text="🗂"/><TextBlock Classes="slbl" Text="Abrir / nuevo"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_cerrar"><StackPanel><TextBlock Classes="sico" Text="✖"/><TextBlock Classes="slbl" Text="Cerrar lote"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_datos"><StackPanel><TextBlock Classes="sico" Text="📊"/><TextBlock Classes="slbl" Text="Datos lote"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="bandera"><StackPanel><TextBlock Classes="sico" Text="🚩"/><TextBlock Classes="slbl" Text="Bandera"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="bandera_latlon"><StackPanel><TextBlock Classes="sico" Text="📌"/><TextBlock Classes="slbl" Text="Bandera lat/lon"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="borrar_aplicado"><StackPanel><TextBlock Classes="sico" Text="🗑"/><TextBlock Classes="slbl" Text="Borrar aplicado"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="mapeo_color"><StackPanel><TextBlock Classes="sico" Text="🎨"/><TextBlock Classes="slbl" Text="Color mapeo"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
 
       <!-- Herr. lote -->
-      <StackPanel Grid.Column="1" Width="150" HorizontalAlignment="Left" Orientation="Vertical" Spacing="3" Margin="3,5"
-                  IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}">
-        <Button Content="Lindero" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="lindero"/>
-        <Button Content="Cabecera" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="cabecera"/>
-        <Button Content="Cabecera avanzada" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="cabecera_avanzada"/>
-        <Button Content="Cabecera on/off" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"/>
-        <Button Content="Importar guías" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="importar_guias"/>
-        <Button Content="Crear tram" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tram_crear"/>
-        <Button Content="Ver tram" HorizontalAlignment="Stretch" Command="{Binding SendCommand}" CommandParameter="tram_vista"/>
-      </StackPanel>
+      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERR. LOTE"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2">
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lindero"><StackPanel><TextBlock Classes="sico" Text="⬠"/><TextBlock Classes="slbl" Text="Lindero"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="cabecera"><StackPanel><TextBlock Classes="sico" Text="⛶"/><TextBlock Classes="slbl" Text="Cabecera"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="cabecera_avanzada"><StackPanel><TextBlock Classes="sico" Text="⛶"/><TextBlock Classes="slbl" Text="Cabecera avanzada"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"><StackPanel><TextBlock Classes="sico" Text="🔛"/><TextBlock Classes="slbl" Text="Cabecera SÍ/NO"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="importar_guias"><StackPanel><TextBlock Classes="sico" Text="📥"/><TextBlock Classes="slbl" Text="Importar guías"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tram_crear"><StackPanel><TextBlock Classes="sico" Text="🛤"/><TextBlock Classes="slbl" Text="Tram crear"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tram_vista"><StackPanel><TextBlock Classes="sico" Text="👁"/><TextBlock Classes="slbl" Text="Tram vista"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+
+      <!-- Guías (agregado: crear/elegir/ocultar líneas de guiado) -->
+      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=guias}">
+        <DockPanel>
+          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="GUÍAS"/>
+          <ScrollViewer>
+            <UniformGrid Columns="2">
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="track_new_ab"><StackPanel><TextBlock Classes="sico" Text="📏"/><TextBlock Classes="slbl" Text="Nueva A/B"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="track_new_curve"><StackPanel><TextBlock Classes="sico" Text="〰"/><TextBlock Classes="slbl" Text="Nueva curva"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="track_new_a"><StackPanel><TextBlock Classes="sico" Text="➕"/><TextBlock Classes="slbl" Text="Recta A+"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="pick"><StackPanel><TextBlock Classes="sico" Text="👆"/><TextBlock Classes="slbl" Text="Elegir guía"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tracks_off"><StackPanel><TextBlock Classes="sico" Text="🚫"/><TextBlock Classes="slbl" Text="Ocultar guías"/></StackPanel></Button>
+            </UniformGrid>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
     </Grid>
   </Border>
 </UserControl>

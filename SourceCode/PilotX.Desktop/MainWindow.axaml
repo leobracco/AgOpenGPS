@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctl="clr-namespace:PilotX.Desktop.Controls"
         xmlns:vw="clr-namespace:PilotX.Desktop.Views"
+        xmlns:bars="clr-namespace:PilotX.Cockpit.Bars.Views;assembly=PilotX.Cockpit.Bars"
         x:Class="PilotX.Desktop.MainWindow"
         Width="1280" Height="800"
         Background="{StaticResource PilotXBgDeep}"
@@ -457,6 +458,31 @@
                     IsVisible="False"
                     Click="OnMiniMapShow"
                     ToolTip.Tip="Mostrar mini-mapa"/>
+
+            <!-- =================== BARRAS COCKPIT (menús reutilizados de PilotX.Cockpit.Bars) =================== -->
+            <!--
+                Las 4 barras reales (superior/derecha/abajo/menú-izquierda) que
+                ya usa PilotX.Bars.Host sobre FormGPS, ahora embebidas como overlay
+                del mapa. Reemplazan el HudBar + BottomToolbar placeholder. Traen
+                crear A/B, curva, A+, piloto, secciones, etc. Los estilos globales
+                de BarStyles (Selector="Button"/"Image") van SCOPEADOS a este Grid
+                para no pisar el resto de la UI de PilotX.Desktop.
+            -->
+            <Grid Name="CockpitBarsHost" Grid.Row="2" IsVisible="False" ZIndex="50">
+                <Grid.Styles>
+                    <StyleInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarStyles.axaml"/>
+                </Grid.Styles>
+                <bars:BarraSuperior x:Name="BarSuperior"
+                                    VerticalAlignment="Top" HorizontalAlignment="Stretch" Height="46"/>
+                <bars:BarraAbajo    x:Name="BarAbajo"
+                                    VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="58"/>
+                <bars:BarraDerecha  x:Name="BarDerecha"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Width="58" Margin="0,0,0,58"/>
+                <bars:MenuIzquierda x:Name="MenuIzq"
+                                    HorizontalAlignment="Left" VerticalAlignment="Stretch"
+                                    Width="100" Margin="0,46,0,58"/>
+            </Grid>
 
             <!-- FAB X (modo full, ya que sin header no hay otra forma de cerrar) -->
             <Button x:Name="CloseButton"

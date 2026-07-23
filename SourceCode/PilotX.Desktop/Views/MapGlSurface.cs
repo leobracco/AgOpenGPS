@@ -145,6 +145,10 @@ public sealed class MapGlSurface : OpenGlControlBase
     private long _guidanceRevisionUploaded = -1;
     private string _guidanceMode = "Off";
     private GuidanceGeometrySnapshot? _pendingGuidance; // UI thread → render thread
+    // Copia CPU de los puntos de la línea activa: la necesitamos para calcular
+    // las guías paralelas vecinas (offset perpendicular por ancho de herramienta),
+    // como hace AgOpenGPS al llenar el lote de líneas de pasada.
+    private readonly List<GuidancePoint> _guidancePts = new List<GuidancePoint>();
 
     // Colores cockpit (RGBA 0..1). Identicos al Skia para paridad.
     private static readonly float[] ColBg            = { 0.055f, 0.078f, 0.063f, 1f }; // #0E1410
@@ -157,6 +161,9 @@ public sealed class MapGlSurface : OpenGlControlBase
     // verde) y coverage (verde semitransp). #4DD8FF — visible sobre fondo
     // oscuro y sobre la capa pintada.
     private static readonly float[] ColGuidance      = { 0.302f, 0.847f, 1.000f, 1f }; // #4DD8FF
+    // Guías paralelas vecinas: mismo cian pero tenue (alpha bajo) para que la
+    // línea activa resalte por encima. Se dibujan por debajo de la activa.
+    private static readonly float[] ColGuidancePar   = { 0.302f, 0.847f, 1.000f, 0.33f };
     // Tool / sections (Stage 4a). Las secciones se pintan como segmentos
     // gruesos (LineWidth lo controla el driver — algunos drivers lo
     // capean en 1.0, pero la barra es solo indicativa, no cubre area).
@@ -459,7 +466,10 @@ public sealed class MapGlSurface : OpenGlControlBase
             _pendingGuidance = null;
         }
         if (_guidanceVertexCount >= 2 && _guidanceMode != "Off")
-            DrawGuidance();
+        {
+            DrawGuidanceParallel();  // vecinas tenues, por debajo
+            DrawGuidance();          // línea activa brillante, por encima
+        }
 
         // --- Capa 3b: paths (youturn + recorded) -----------------------
         // Va despues de guidance: el giro de cabecera y el camino grabado
@@ -750,6 +760,10 @@ public sealed class MapGlSurface : OpenGlControlBase
         _guidanceVertexCount = n;
         _guidanceRevisionUploaded = snap.Revision;
 
+        // Copia CPU para las paralelas.
+        _guidancePts.Clear();
+        if (pts != null) _guidancePts.AddRange(pts);
+
         if (n < 2 || _guidanceMode == "Off")
         {
             // Nada que rendear — dejamos _guidanceVertexCount en 0 para
@@ -816,6 +830,87 @@ public sealed class MapGlSurface : OpenGlControlBase
         {
             _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
         }
+    }
+
+    // Guías paralelas vecinas: replican la línea activa desplazada ±k·ancho
+    // perpendicular, llenando el lote como hace AgOpenGPS. Se calculan en CPU
+    // desde _guidancePts + ToolWidth y se dibujan tenues por debajo de la activa.
+    // AB (2 puntos) → offset rígido perpendicular. Curva (polilínea) → cada
+    // vértice se desplaza por su normal local.
+    private void DrawGuidanceParallel()
+    {
+        if (_gl == null) return;
+        var snap = _snap;
+        double width = snap != null ? snap.ToolWidth : 0;
+        if (width < 0.05) return;                     // sin ancho no hay paso
+        int n = _guidancePts.Count;
+        if (n < 2) return;
+
+        // ¿Cuántas paralelas a cada lado? Cubrir la extensión del lote (o una
+        // ventana razonable si no hay bbox), cap defensivo.
+        double span = _hasBbox
+            ? Math.Max(_maxE - _minE, _maxN - _minN)
+            : 400.0;
+        int half = (int)Math.Ceiling(span / width) + 1;
+        half = Math.Clamp(half, 1, 60);
+
+        bool isAb = (_guidanceMode == "AB") || n == 2;
+
+        // UploadAndDraw sube al ARRAY_BUFFER bindeado: aseguramos el VBO
+        // dinámico (la capa previa pudo dejar bindeado otro). Las paralelas van
+        // con blend (alpha bajo).
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+        if (isAb)
+        {
+            var a = _guidancePts[0];
+            var b = _guidancePts[n - 1];
+            double dx = b.E - a.E, dy = b.N - a.N;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-6) { _gl.Disable(EnableCap.Blend); return; }
+            double px = -dy / len, py = dx / len;   // perpendicular unitaria
+
+            // Todas las paralelas (menos k=0, la activa) en un solo GL_LINES:
+            // 2 vértices por línea.
+            EnsureScratch(2 * half * 4);
+            int o = 0;
+            for (int k = -half; k <= half; k++)
+            {
+                if (k == 0) continue;
+                double ox = px * width * k, oy = py * width * k;
+                _scratch[o++] = (float)(a.E + ox); _scratch[o++] = (float)(a.N + oy);
+                _scratch[o++] = (float)(b.E + ox); _scratch[o++] = (float)(b.N + oy);
+            }
+            UploadAndDraw(PrimitiveType.Lines, o / 2, ColGuidancePar);
+        }
+        else
+        {
+            // Curva: normal local por vértice (perpendicular a la tangente).
+            for (int k = -half; k <= half; k++)
+            {
+                if (k == 0) continue;
+                EnsureScratch(n * 2);
+                int o = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    var p0 = _guidancePts[Math.Max(0, i - 1)];
+                    var p1 = _guidancePts[Math.Min(n - 1, i + 1)];
+                    double dx = p1.E - p0.E, dy = p1.N - p0.N;
+                    double len = Math.Sqrt(dx * dx + dy * dy);
+                    if (len < 1e-6) { dx = 1; dy = 0; len = 1; }
+                    double px = -dy / len, py = dx / len;
+                    var pi = _guidancePts[i];
+                    _scratch[o++] = (float)(pi.E + px * width * k);
+                    _scratch[o++] = (float)(pi.N + py * width * k);
+                }
+                UploadAndDraw(PrimitiveType.LineStrip, o / 2, ColGuidancePar);
+            }
+        }
+
+        _gl.Disable(EnableCap.Blend);
     }
 
     private void UploadTool(ToolGeometrySnapshot snap)

@@ -3,115 +3,300 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tracks</title>
+  <title>Guías · PilotX</title>
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
+    /* ===== Clon HTML de FormBuildTracks (AgOpenGPS 6.8.5) — wizard multi-panel
+       de creación/gestión de guías. Una "pantalla" visible a la vez; el
+       contenedor cambia de tamaño según el paso, igual que el form nativo.
+       Estilo con tokens --agp-* (tema claro Agro Parallel). ===== */
     html, body { margin: 0; padding: 0; height: 100%; background: var(--agp-bg); color: var(--agp-text); }
-    body { font-family: var(--agp-font-sans); display: flex; flex-direction: column; overflow: hidden; }
+    body { font-family: var(--agp-font-sans); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 
-    .tk-head { display: flex; align-items: center; gap: 8px; padding: clamp(3px,1vh,6px) 10px;
-      background: var(--agp-surface); border-bottom: 1px solid var(--agp-border); flex-shrink: 0; }
-    .tk-head .title { font-weight: var(--agp-fw-bold); font-size: 13px; flex: 1; }
+    /* Ventana del wizard (se re-dimensiona por pantalla activa vía data-screen). */
+    #tkWin {
+      background: var(--agp-surface); border: 1px solid var(--agp-border-strong);
+      border-radius: var(--agp-radius-md, 10px); box-shadow: 0 6px 24px rgba(16,22,18,.14);
+      display: flex; flex-direction: column; overflow: hidden;
+      width: 650px; height: 480px; transition: width .12s ease, height .12s ease;
+    }
+    #tkWin[data-screen="abline"], #tkWin[data-screen="aplus"],
+    #tkWin[data-screen="curve"], #tkWin[data-screen="name"],
+    #tkWin[data-screen="editname"], #tkWin[data-screen="kml"] { width: 300px; height: 380px; }
+    #tkWin[data-screen="pivot"] { width: 390px; height: 380px; }
+    #tkWin[data-screen="latlonplus"], #tkWin[data-screen="latlonlatlon"] { width: 390px; height: 470px; }
 
-    .tk-body { flex: 1; min-height: 0; display: flex; gap: clamp(4px,0.8vw,8px); padding: clamp(4px,1vh,8px); }
+    .tk-title { flex: 0 0 auto; padding: 7px 12px; font-weight: var(--agp-fw-bold); font-size: 14px;
+      background: var(--agp-surface-2, #EEF2EE); border-bottom: 1px solid var(--agp-border); }
 
-    .tk-map { flex: 1 1 auto; min-width: 0; background: var(--agp-surface);
-      border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
-      position: relative; overflow: hidden; }
-    #cvMap { width: 100%; height: 100%; display: block; touch-action: none; }
+    .tk-stage { flex: 1 1 auto; min-height: 0; position: relative; }
+    .screen { position: absolute; inset: 0; display: none; }
+    .screen.active { display: flex; }
 
-    .tk-mid { flex: 0 0 clamp(200px,26vw,280px); display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+    /* Botones de acción con ícono (transparentes, imagen centrada) como el nativo. */
+    .ibtn { background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
+      display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 4px;
+      touch-action: manipulation; user-select: none; }
+    .ibtn:hover { background: var(--agp-bg-soft, #EEF2EE); border-color: var(--agp-border-strong); }
+    .ibtn:active { transform: translateY(1px); }
+    .ibtn:disabled { opacity: .4; pointer-events: none; }
+    .ibtn img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+    .ibtn.plain { background: transparent; border-color: transparent; }
+    .ibtn.plain:hover { background: var(--agp-bg-soft, #EEF2EE); }
 
-    .tk-list { flex: 1 1 auto; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; }
+    /* ---------- panelMain: 3 columnas (izq acciones / lista / der orden) ---------- */
+    /* OJO: no poner `display` en el selector de id sin `.active`, porque un id
+       (#scMain) le gana en especificidad a `.screen{display:none}` y el panel
+       nunca se ocultaría (quedaría por detrás de las otras pantallas). */
+    #scMain { grid-template-columns: 84px 1fr 84px; gap: 6px; padding: 8px; }
+    #scMain.active { display: grid; }
+    .tk-colL, .tk-colR { display: flex; flex-direction: column; gap: 6px; }
+    .tk-colL .ibtn, .tk-colR .ibtn { height: 60px; }
 
-    .tk-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px;
+    .tk-list { border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm); background: var(--agp-surface);
+      overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+    .tk-row-item { display: flex; align-items: center; gap: 0; border-bottom: 1px solid var(--agp-border); min-height: 44px; }
+    .tk-row-item:last-child { border-bottom: 0; }
+    .tk-ico { flex: 0 0 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+    .tk-ico img { width: 30px; height: 26px; object-fit: contain; }
+    .tk-name { flex: 1 1 auto; text-align: left; padding: 0 10px; font-size: 18px; color: var(--agp-text);
+      background: #F0F8FF; border: 0; cursor: pointer; height: 44px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tk-name.sel { background: #ADD8E6; }
+    .tk-name.hidden { color: #9AA39A; }
+    .tk-vis { flex: 0 0 42px; height: 44px; border: 0; cursor: pointer; }
+    .tk-vis.on { background: #3FAE36; }
+    .tk-vis.off { background: #D0504A; }
+
+    /* ---------- sub-paneles centrados ---------- */
+    .pane { flex-direction: column; align-items: center; gap: 10px; padding: 12px; }
+    .pane .lbl { font-size: 13px; font-weight: var(--agp-fw-med, 600); color: var(--agp-text-muted); align-self: flex-start; }
+    .pane .row { display: flex; gap: 12px; width: 100%; justify-content: center; }
+    .pane .grow { flex: 1 1 auto; }
+    .pane .spacer { flex: 1 1 auto; }
+    .pane .big { width: 82px; height: 66px; }
+    .pane .med { width: 70px; height: 58px; }
+
+    /* NUD lat/lon/heading: campo readonly que abre teclado numérico. */
+    .nud { width: 100%; min-height: 46px; background: #F0F8FF; border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); font-family: var(--agp-font-mono); font-size: 22px; font-weight: 700;
+      text-align: center; color: var(--agp-text); cursor: pointer; }
+    .nud.cyan { background: #E0FFFF; }
+    .nud[readonly] { }
+
+    /* Nombre (textarea) */
+    .tk-nameinput { width: 100%; height: 76px; background: #E0FFFF; border: 1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); font-size: 15px; text-align: center; color: var(--agp-text);
+      resize: none; padding: 6px; }
+
+    /* Estado (curva) */
+    .tk-status { font-size: 13px; }
+    .tk-status .on { color: var(--agp-accent); font-weight: 700; }
+
+    /* Grid de elección de tipo (panelChoose) */
+    #scChoose { padding: 10px; }
+    .choose-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; align-content: start; }
+    .choose-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
       background: var(--agp-surface); border: 1px solid var(--agp-border); border-radius: var(--agp-radius-sm);
-      cursor: pointer; font-size: clamp(11px,2.2vh,13px); }
-    .tk-item.selected { background: #d0e8f0; border-color: var(--agp-accent); }
-    .tk-item .tk-vis { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; cursor: pointer; }
-    .tk-item .tk-vis.on { background: #4ABA3E; }
-    .tk-item .tk-vis.off { background: #c94040; }
-    .tk-item .tk-mode { font-family: var(--agp-font-mono); font-size: 10px; color: var(--agp-text-muted); flex-shrink: 0; width: 40px; text-align: center; }
-    .tk-item .tk-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tk-item .tk-active { font-size: 10px; color: var(--agp-accent); }
-
-    .tk-side { flex: 0 0 clamp(150px,20vw,200px); display: flex; flex-direction: column; gap: clamp(3px,0.8vh,6px); }
-
-    .btn { min-height: clamp(26px,5.5vh,38px); font-family: var(--agp-font-sans); font-size: clamp(10px,2vh,12px);
-      background: var(--agp-surface); color: var(--agp-text); border: 1px solid var(--agp-border);
-      border-radius: var(--agp-radius-sm); cursor: pointer; padding: 2px 6px; }
-    .btn:disabled { opacity: 0.45; cursor: default; }
-    .tk-accent { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
-    .tk-danger { background: #5a2c2c; color: #fff; border-color: #5a2c2c; }
-    .tk-row { display: flex; gap: clamp(3px,0.6vw,6px); }
-    .tk-row .btn { flex: 1 1 0; }
-    .tk-sep { border-top: 1px solid var(--agp-border); margin: 2px 0; }
-
-    .tk-input { display: none; gap: 4px; align-items: center; }
-    .tk-input.show { display: flex; }
-    .tk-input input { flex: 1; min-height: 28px; font-family: var(--agp-font-sans); font-size: 12px;
-      background: var(--agp-bg); color: var(--agp-text); border: 1px solid var(--agp-border);
-      border-radius: var(--agp-radius-sm); padding: 0 6px; }
+      padding: 8px 4px; touch-action: manipulation; }
+    .choose-btn:hover { background: var(--agp-bg-soft, #EEF2EE); border-color: var(--agp-accent); }
+    .choose-btn:active { transform: translateY(1px); }
+    .choose-btn img { width: 64px; height: 64px; object-fit: contain; }
+    .choose-btn span { font-size: 11px; font-weight: 600; color: var(--agp-text); text-align: center; }
+    #scChoose .choose-foot { margin-top: 10px; }
   </style>
 </head>
 <body>
-  <div class="tk-head">
-    <span class="title">Gestión de guías</span>
-  </div>
+  <div id="tkWin" data-screen="main">
+    <div class="tk-title" id="tkTitle">Guías</div>
+    <div class="tk-stage">
 
-  <div class="tk-body">
-    <div class="tk-map">
-      <canvas id="cvMap"></canvas>
-    </div>
+      <!-- ============ panelMain ============ -->
+      <div class="screen active" id="scMain" data-screen="main">
+        <div class="tk-colL">
+          <button class="ibtn" id="btnDelete"   title="Borrar guía"><img src="../img/tracks/Trash.png"></button>
+          <button class="ibtn" id="btnEditName" title="Renombrar"><img src="../img/tracks/FileEditName.png"></button>
+          <button class="ibtn" id="btnDuplicate" title="Duplicar"><img src="../img/tracks/FileCopy.png"></button>
+          <button class="ibtn" id="btnSwapAB"   title="Invertir A↔B"><img src="../img/tracks/ABSwapPoints.png"></button>
+          <button class="ibtn" id="btnCancel"   title="Cancelar (descartar)"><img src="../img/tracks/Cancel64.png"></button>
+        </div>
 
-    <div class="tk-mid">
-      <div class="tk-list" id="trackList"></div>
-      <div class="tk-row">
-        <button class="btn" id="btnMakeCurve">+ Curva</button>
-        <button class="btn" id="btnMakeAB">+ AB</button>
-        <button class="btn" id="btnMakeBndCurve">+ Contorno</button>
-      </div>
-      <div class="tk-row">
-        <button class="btn" id="btnExtendA">A +</button>
-        <button class="btn" id="btnExtendB">B +</button>
-        <button class="btn" id="btnCancelTouch">Descartar</button>
-      </div>
-      <div class="tk-sep" style="margin:2px 0;"></div>
-      <div style="font-size:10px;color:var(--agp-text-muted);">Grabar curva conduciendo:</div>
-      <div class="tk-row">
-        <button class="btn" id="btnRecA">● A</button>
-        <button class="btn" id="btnRecPause">⏸</button>
-        <button class="btn" id="btnRecB">■ B</button>
-        <button class="btn" id="btnRecCancel">✕</button>
-      </div>
-      <div style="font-size:10px;color:var(--agp-text-muted);" id="lblRecStatus"></div>
-    </div>
+        <div class="tk-list" id="trackList"></div>
 
-    <div class="tk-side">
-      <div class="tk-row">
-        <button class="btn" id="btnMoveUp">▲</button>
-        <button class="btn" id="btnMoveDn">▼</button>
-      </div>
-      <button class="btn" id="btnSwapAB">⇄ Swap A↔B</button>
-      <button class="btn" id="btnToggleAll">Mostrar/Ocultar todos</button>
-      <button class="btn" id="btnDuplicate">Duplicar</button>
-      <button class="btn" id="btnRename">Renombrar</button>
-      <button class="btn tk-danger" id="btnDelete">Borrar</button>
-
-      <div class="tk-sep"></div>
-
-      <div class="tk-input" id="inputPane">
-        <input id="inpName" type="text" placeholder="Nombre" />
-        <button class="btn tk-accent" id="btnInputOk">OK</button>
-        <button class="btn" id="btnInputCancel">✕</button>
+        <div class="tk-colR">
+          <button class="ibtn" id="btnMoveUp"  title="Subir"><img src="../img/tracks/UpArrow64.png"></button>
+          <button class="ibtn" id="btnMoveDn"  title="Bajar"><img src="../img/tracks/DnArrow64.png"></button>
+          <button class="ibtn" id="btnHideShow" title="Mostrar/ocultar todas"><img src="../img/tracks/ABLinesHideShow.png"></button>
+          <button class="ibtn" id="btnNewTrack" title="Nueva guía"><img src="../img/tracks/AddNew.png"></button>
+          <button class="ibtn" id="btnUse"     title="Usar guía seleccionada"><img src="../img/tracks/OK64.png"></button>
+        </div>
       </div>
 
-      <div style="margin-top:auto;"></div>
-      <div class="tk-row">
-        <button class="btn tk-danger" id="btnCancel">Cancelar</button>
-        <button class="btn tk-accent" id="btnUse">Usar</button>
+      <!-- ============ panelChoose ============ -->
+      <div class="screen" id="scChoose" data-screen="choose">
+        <div class="pane" style="padding:10px;">
+          <div class="choose-grid">
+            <button class="choose-btn" data-goto="pivotcircle"><img src="../img/tracks/ABPivotCircle.png"><span>Pivote (3 pts)</span></button>
+            <button class="choose-btn" data-goto="latlonlatlon"><img src="../img/tracks/ABLatLonLatLon.png"><span>Lat/Lon</span></button>
+            <button class="choose-btn" data-goto="aplus"><img src="../img/tracks/ABTrackAPlus.png"><span>A+</span></button>
+            <button class="choose-btn" id="btnKML"><img src="../img/tracks/BoundaryLoadFromGE.png"><span>KML</span></button>
+            <button class="choose-btn" data-goto="latlonplus"><img src="../img/tracks/ABLatLonHeading.png"><span>Lat/Lon +</span></button>
+            <button class="choose-btn" data-goto="abline"><img src="../img/tracks/ABTrackAB.png"><span>AB Line</span></button>
+            <button class="choose-btn" data-goto="pivot"><img src="../img/tracks/ABPivot.png"><span>Pivote</span></button>
+            <button class="choose-btn" data-goto="curve"><img src="../img/tracks/ABTrackCurve.png"><span>AB + Curva</span></button>
+            <div></div>
+          </div>
+          <div class="row choose-foot">
+            <button class="ibtn med" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          </div>
+        </div>
       </div>
+
+      <!-- ============ panelABLine ============ -->
+      <div class="screen pane" id="scABLine" data-screen="abline">
+        <div class="row">
+          <div class="lbl grow">AB Line</div>
+          <button class="ibtn med" id="btnRefSideAB" title="Lado de referencia"><img src="../img/tracks/BoundaryRight.png"></button>
+        </div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn big" id="btnALine" title="Fijar punto A"><img src="../img/tracks/LetterABlue.png"></button>
+          <button class="ibtn big" id="btnBLine" title="Fijar punto B" disabled><img src="../img/tracks/LetterBBlue.png"></button>
+        </div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn big" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <button class="ibtn big" id="btnEnterAB" disabled><img src="../img/tracks/OK64.png"></button>
+        </div>
+      </div>
+
+      <!-- ============ panelAPlus ============ -->
+      <div class="screen pane" id="scAPlus" data-screen="aplus">
+        <div class="row">
+          <div class="lbl grow">A+</div>
+          <button class="ibtn med" id="btnRefSideAPlus" title="Lado de referencia"><img src="../img/tracks/BoundaryRight.png"></button>
+          <button class="ibtn med" id="btnAPlusSetA" title="Fijar punto A"><img src="../img/tracks/LetterABlue.png"></button>
+        </div>
+        <div class="lbl">Rumbo (°)</div>
+        <input class="nud cyan" id="nudHeadingAPlus" readonly value="0" data-min="0" data-max="360" data-dec="4">
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn big" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <button class="ibtn big" id="btnEnterAPlus"><img src="../img/tracks/OK64.png"></button>
+        </div>
+      </div>
+
+      <!-- ============ panelCurve ============ -->
+      <div class="screen pane" id="scCurve" data-screen="curve">
+        <div class="row">
+          <div class="lbl grow" id="lblCurveTitle">Curva</div>
+          <button class="ibtn med" id="btnRefSideCurve" title="Lado de referencia"><img src="../img/tracks/BoundaryRight.png"></button>
+        </div>
+        <div class="row">
+          <button class="ibtn big" id="btnACurve" title="Iniciar grabación / agregar punto"><img src="../img/tracks/LetterABlue.png"></button>
+          <button class="ibtn big" id="btnPausePlay" title="Pausa/Reanudar" disabled><img src="../img/tracks/boundaryPause.png"></button>
+        </div>
+        <div class="tk-status"><span>Estado: </span><span class="on" id="lblCurveExists">&gt; OFF &lt;</span></div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn big" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <button class="ibtn big" id="btnEnterCurve"><img src="../img/tracks/OK64.png"></button>
+        </div>
+      </div>
+
+      <!-- ============ panelPivot ============ -->
+      <div class="screen pane" id="scPivot" data-screen="pivot">
+        <div class="row"><div class="lbl grow">Latitud centro (±90)</div>
+          <button class="ibtn med" id="btnFillPivot" title="Usar posición GPS actual"><img src="../img/tracks/ConS_ImplementAntenna.png"></button>
+        </div>
+        <input class="nud" id="nudLatPivot" readonly data-min="-90" data-max="90" data-dec="7">
+        <div class="lbl">Longitud centro (±180)</div>
+        <input class="nud" id="nudLonPivot" readonly data-min="-180" data-max="180" data-dec="7">
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn med" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <div class="grow"></div>
+          <button class="ibtn big" id="btnEnterPivot"><img src="../img/tracks/OK64.png"></button>
+        </div>
+      </div>
+
+      <!-- ============ panelLatLonPlus ============ -->
+      <div class="screen pane" id="scLatLonPlus" data-screen="latlonplus">
+        <div class="row"><div class="lbl grow">Latitud A (±90)</div>
+          <button class="ibtn med" id="btnFillLatLonPlus" title="Usar posición GPS actual"><img src="../img/tracks/ConS_ImplementAntenna.png"></button>
+        </div>
+        <input class="nud" id="nudLatPlus" readonly data-min="-90" data-max="90" data-dec="7">
+        <div class="lbl">Longitud A (±180)</div>
+        <input class="nud" id="nudLonPlus" readonly data-min="-180" data-max="180" data-dec="7">
+        <div class="lbl">Rumbo (°)</div>
+        <input class="nud" id="nudHeadingPlus" readonly value="0" data-min="0" data-max="360" data-dec="4">
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn med" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <div class="grow"></div>
+          <button class="ibtn big" id="btnEnterLatLonPlus"><img src="../img/tracks/OK64.png"></button>
+        </div>
+      </div>
+
+      <!-- ============ panelLatLonLatLon ============ -->
+      <div class="screen pane" id="scLatLonLatLon" data-screen="latlonlatlon">
+        <div class="row"><div class="lbl grow">A — Latitud (±90)</div>
+          <button class="ibtn med" id="btnFillA" title="Usar GPS en A"><img src="../img/tracks/ConS_ImplementAntenna.png"></button>
+        </div>
+        <input class="nud" id="nudLatA" readonly data-min="-90" data-max="90" data-dec="7">
+        <div class="lbl">A — Longitud (±180)</div>
+        <input class="nud" id="nudLonA" readonly data-min="-180" data-max="180" data-dec="7">
+        <div class="row"><div class="lbl grow">B — Latitud (±90)</div>
+          <button class="ibtn med" id="btnFillB" title="Usar GPS en B"><img src="../img/tracks/ConS_ImplementAntenna.png"></button>
+        </div>
+        <input class="nud" id="nudLatB" readonly data-min="-90" data-max="90" data-dec="7">
+        <div class="lbl">B — Longitud (±180)</div>
+        <input class="nud" id="nudLonB" readonly data-min="-180" data-max="180" data-dec="7">
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn med" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <div class="grow"></div>
+          <button class="ibtn big" id="btnEnterLatLonLatLon"><img src="../img/tracks/OK64.png"></button>
+        </div>
+      </div>
+
+      <!-- ============ panelName ============ -->
+      <div class="screen pane" id="scName" data-screen="name">
+        <div class="lbl">Nombre de la guía</div>
+        <textarea class="tk-nameinput" id="txtName" maxlength="100"></textarea>
+        <div class="row">
+          <button class="ibtn med" id="btnAddTime" title="Agregar hora"><img src="../img/tracks/JobNameTime.png"></button>
+        </div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn big" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <button class="ibtn big" id="btnAddName"><img src="../img/tracks/OK64.png"></button>
+        </div>
+      </div>
+
+      <!-- ============ panelEditName ============ -->
+      <div class="screen pane" id="scEditName" data-screen="editname">
+        <div class="lbl">Editar nombre</div>
+        <textarea class="tk-nameinput" id="txtEditName" maxlength="100"></textarea>
+        <div class="row">
+          <button class="ibtn med" id="btnAddTimeEdit" title="Agregar hora"><img src="../img/tracks/JobNameTime.png"></button>
+        </div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn big" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <button class="ibtn big" id="btnSaveEditName"><img src="../img/tracks/OK64.png"></button>
+        </div>
+      </div>
+
+      <!-- ============ panelKML ============ -->
+      <div class="screen pane" id="scKML" data-screen="kml">
+        <div class="lbl">Importar KML…</div>
+        <div class="spacer"></div>
+        <div class="row">
+          <button class="ibtn big" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+        </div>
+      </div>
+
     </div>
   </div>
 
