@@ -56,8 +56,8 @@ namespace PilotX.GuidanceEngine.Adapters
                 bool cu = _host.CurveField != null && _host.CurveField.isCurveValid;
                 bool ct = _host.Ct != null && _host.Ct.isContourBtnOn;
 
-                if (ab) { snap.Mode = "AB"; snap.IsLineSet = true; }
-                else if (cu) { snap.Mode = "Curve"; snap.IsLineSet = true; }
+                if (ab) { snap.Mode = "AB"; snap.IsLineSet = true; snap.HowManyPathsAway = _host.ABLineField.howManyPathsAway; }
+                else if (cu) { snap.Mode = "Curve"; snap.IsLineSet = true; snap.HowManyPathsAway = _host.CurveField.howManyPathsAway; }
                 else if (ct) { snap.Mode = "Contour"; snap.IsLineSet = true; }
                 else { snap.Mode = "Off"; snap.IsLineSet = false; }
             }

@@ -47,6 +47,9 @@ public sealed class GuidanceGeometrySnapshot
     // signo = lado. NaN si no hay guía activa.
     [JsonIgnore] public double XteMeters { get; set; } = double.NaN;
     [JsonIgnore] public bool   IsLineSet { get; set; }
+    // Índice de paralela (howManyPathsAway): 0 inicial, - izq, + der. Viene de
+    // /api/aog/guidance (no de /geometry). int.MinValue = sin dato.
+    [JsonIgnore] public int    PathsAway { get; set; } = int.MinValue;
 }
 
 public sealed class GuidanceGeometryResponse
@@ -59,8 +62,9 @@ public sealed class GuidanceGeometryResponse
 // /api/aog/guidance — snapshot de guiado con el XTE.
 public sealed class GuidanceInfoSnapshot
 {
-    [JsonPropertyName("xte_meters")]  public double XteMeters { get; set; }
-    [JsonPropertyName("is_line_set")] public bool   IsLineSet { get; set; }
+    [JsonPropertyName("xte_meters")]          public double XteMeters { get; set; }
+    [JsonPropertyName("is_line_set")]         public bool   IsLineSet { get; set; }
+    [JsonPropertyName("how_many_paths_away")] public int    PathsAway { get; set; }
 }
 
 public sealed class GuidanceInfoResponse
@@ -116,6 +120,7 @@ public sealed class GuidanceGeometryClient
                     {
                         dto.Snapshot.XteMeters = info.Snapshot.IsLineSet ? info.Snapshot.XteMeters : double.NaN;
                         dto.Snapshot.IsLineSet = info.Snapshot.IsLineSet;
+                        dto.Snapshot.PathsAway = info.Snapshot.IsLineSet ? info.Snapshot.PathsAway : int.MinValue;
                     }
                 }
             }

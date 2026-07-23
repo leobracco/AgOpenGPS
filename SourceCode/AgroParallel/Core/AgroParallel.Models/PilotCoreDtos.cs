@@ -170,6 +170,10 @@ namespace AgroParallel.Models
 
         /// <summary>Punto LookAhead actual (donde está mirando la lógica de seguimiento). null si no aplica.</summary>
         public FieldPoint LookAhead { get; set; }
+
+        /// <summary>Índice de la guía paralela actual respecto de la de referencia
+        /// (howManyPathsAway): 0 = la inicial, negativo = izquierda, positivo = derecha.</summary>
+        public int HowManyPathsAway { get; set; }
     }
 
     // ---------------------------------------------------------------------

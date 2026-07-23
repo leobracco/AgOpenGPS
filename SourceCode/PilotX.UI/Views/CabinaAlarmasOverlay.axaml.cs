@@ -188,11 +188,13 @@ public partial class CabinaAlarmasOverlay : UserControl
     // 880 Hz / 600 ms — mismo tono que el JS legacy (oscilador square @ 880).
     private static void PlayBeep()
     {
-        if (!OperatingSystem.IsWindows()) return;
         try
         {
             Task.Run(() =>
             {
+                // Guard dentro del lambda para que el analizador de plataforma
+                // (CA1416) vea que Console.Beep solo corre en Windows.
+                if (!OperatingSystem.IsWindows()) return;
                 try { Console.Beep(880, 600); }
                 catch { /* silent: PC sin beeper o headless */ }
             });

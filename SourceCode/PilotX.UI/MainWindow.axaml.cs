@@ -87,6 +87,14 @@ public partial class MainWindow : Window
     // HUD
     private TextBlock _hudSpeed;
     private TextBlock _hudHeading;
+    private TextBlock? _hudTrack;
+    // Debug de rumbos: rumbo del tractor y de la guía activa (grados 0=N, CW),
+    // para ver a qué guía apunta y cuánto desvía. NaN = sin dato.
+    private double _lastTractorHeadingDeg = double.NaN;
+    private double _lastGuideHeadingDeg = double.NaN;
+    // Índice de la guía paralela respecto de la de referencia (howManyPathsAway):
+    // 0 = la inicial, negativo = izquierda, positivo = derecha. NaN = sin guía.
+    private double _lastPathsAway = double.NaN;
     private TextBlock _hudArea;
     private TextBlock _hudStatusText;
     private Ellipse   _hudStatusDot;
@@ -232,6 +240,7 @@ public partial class MainWindow : Window
 
         _hudSpeed        = this.FindControl<TextBlock>("HudSpeed");
         _hudHeading      = this.FindControl<TextBlock>("HudHeading");
+        _hudTrack        = this.FindControl<TextBlock>("HudTrack");
         _hudArea         = this.FindControl<TextBlock>("HudArea");
         _hudStatusText   = this.FindControl<TextBlock>("HudStatusText");
         _hudStatusDot    = this.FindControl<Ellipse>("HudStatusDot");
@@ -446,6 +455,10 @@ public partial class MainWindow : Window
             _guidancePoller = new GuidanceGeometryPoller(gg, snap =>
             {
                 _mapHost?.OnGuidance(snap);
+                // Rumbo de la guía activa = dirección A→B de la polyline (0=N, CW).
+                _lastGuideHeadingDeg = ComputeGuideHeadingDeg(snap);
+                _lastPathsAway = (snap.PathsAway == int.MinValue) ? double.NaN : snap.PathsAway;
+                UpdateHeadingDebug();
             }, periodMs: 1000);
             _guidancePoller.Start();
             Closed += (_, _) => _guidancePoller?.Stop();
@@ -1438,6 +1451,56 @@ public partial class MainWindow : Window
         Closed += (_, _) => { try { _trackCts?.Cancel(); _trackHttp?.Dispose(); } catch { } };
     }
 
+    // Rumbo de la guía activa a partir de la polyline A→B (grados, 0=N, CW).
+    private static double ComputeGuideHeadingDeg(GuidanceGeometrySnapshot? snap)
+    {
+        var pts = snap?.Points;
+        if (pts == null || pts.Count < 2) return double.NaN;
+        var a = pts[0];
+        var b = pts[pts.Count - 1];
+        double dE = b.E - a.E, dN = b.N - a.N;
+        if (Math.Abs(dE) < 1e-9 && Math.Abs(dN) < 1e-9) return double.NaN;
+        double deg = Math.Atan2(dE, dN) * 180.0 / Math.PI; // atan2(E,N) => 0=N, CW
+        if (deg < 0) deg += 360.0;
+        return deg;
+    }
+
+    // Refresca el chip central del HUD con el debug de rumbos + índice de paralela.
+    // Formato: "T 123°  ·  G 125°  ·  Δ +2°  ·  ‖ -1 izq"
+    private void UpdateHeadingDebug()
+    {
+        if (_hudTrack == null) return;
+        bool hasT = !double.IsNaN(_lastTractorHeadingDeg);
+        bool hasG = !double.IsNaN(_lastGuideHeadingDeg);
+
+        if (!hasG)
+        {
+            _hudTrack.Text = hasT ? "sin guía" : "";
+            return;
+        }
+
+        string s = hasT
+            ? $"T {_lastTractorHeadingDeg:0}°  ·  G {_lastGuideHeadingDeg:0}°"
+            : $"G {_lastGuideHeadingDeg:0}°";
+
+        if (hasT)
+        {
+            double d = _lastGuideHeadingDeg - _lastTractorHeadingDeg;
+            while (d > 180) d -= 360;
+            while (d < -180) d += 360;
+            s += $"  ·  Δ {d:+0;-0;0}°";
+        }
+
+        if (!double.IsNaN(_lastPathsAway))
+        {
+            int n = (int)_lastPathsAway;
+            string lr = n < 0 ? " izq" : n > 0 ? " der" : "";
+            s += $"  ·  ‖ {n}{lr}";
+        }
+
+        _hudTrack.Text = s;
+    }
+
     private void SetupCockpitBars()
     {
         if (_cockpitBarsHost == null) return;
@@ -1697,6 +1760,8 @@ public partial class MainWindow : Window
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;
             if (deg < 0) deg += 360.0;
             if (_hudHeading != null) _hudHeading.Text = deg.ToString("0", CultureInfo.InvariantCulture);
+            _lastTractorHeadingDeg = deg;
+            UpdateHeadingDebug();
             if (_hudArea != null)
             {
                 double ha = s.ActualAreaCoveredM2 / 10000.0;
