@@ -933,19 +933,19 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void DrawGuidanceParallel()
     {
         if (_gl == null) return;
-        // Solo dibujar paralelas cuando hay lote (bbox): ahí acotan al lote y
-        // tienen sentido. Sin lote (grid infinito) serían un choclo de líneas
-        // densas sobre toda la pantalla.
-        if (!_hasBbox) return;
+        // Se dibuja cuando hay guía activa (lo garantiza el caller: mode!=Off y
+        // >=2 puntos). La cantidad de paralelas cubre el lote si hay lindero, o
+        // un rango razonable alrededor del tractor si el lote es nuevo/sin
+        // lindero — así las paralelas aparecen apenas se crea la guía.
         var snap = _snap;
         double width = snap != null ? snap.ToolWidth : 0;
         if (width < 0.05) return;                     // sin ancho no hay paso
         int n = _guidancePts.Count;
         if (n < 2) return;
 
-        // ¿Cuántas paralelas a cada lado? Cubrir la extensión del lote, cap
+        // Extensión: el lote si hay lindero, si no ~300 m alrededor. Cap
         // defensivo (evita miles de líneas si el ancho es chico).
-        double span = Math.Max(_maxE - _minE, _maxN - _minN);
+        double span = _hasBbox ? Math.Max(_maxE - _minE, _maxN - _minN) : 300.0;
         int half = (int)Math.Ceiling(span / width) + 1;
         half = Math.Clamp(half, 1, 40);
 
