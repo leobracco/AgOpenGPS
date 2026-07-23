@@ -100,21 +100,21 @@ namespace AgOpenGPS
             }
 
             // Crear + activar una AB en la posición actual del tractor. Equivale
-            // a FormBuildTracks.btnEnter_AB (agrega un CTrk AB, setea Trk.idx,
-            // nudge a la referencia por ancho/2 + offset). El loop de autosteer
-            // (CAutoSteerUpdater) valida la línea solo (BuildCurrentABLineList).
-            // "track_new_ab" es el comando que manda el menú Guías; "track_ab_here"
-            // permite un heading explícito ("track_ab_here_<grados>").
-            // STOPGAP: android reemplaza esto con el ITrackBuilderService completo.
+            // a FormBuildTracks.btnEnter_AB / TrkBuilder_CreateABFromPivot
+            // (GuidanceEngineHost.TrackBuilder.cs, ítem 2 del PEDIDO taller —
+            // reemplaza el viejo stopgap ad-hoc que vivía acá). "track_new_ab"
+            // es el comando que manda el menú Guías; "track_ab_here" permite un
+            // heading explícito ("track_ab_here_<grados>").
             if (cmd == "track_new_ab" || cmd == "track_ab_here" || cmd.StartsWith("track_ab_here_"))
             {
-                double headingRad = fixHeading;
+                double headingDeg = fixHeading * 180.0 / Math.PI;
                 if (cmd.StartsWith("track_ab_here_") &&
                     double.TryParse(cmd.Substring("track_ab_here_".Length), NumberStyles.Any, CultureInfo.InvariantCulture, out double deg))
                 {
-                    headingRad = deg * Math.PI / 180.0;
+                    headingDeg = deg;
                 }
-                return CreateAbAtPivot(headingRad);
+                TrkBuilder_CreateABFromPivot(headingDeg, null);
+                return true;
             }
 
             switch (cmd)
@@ -394,32 +394,5 @@ namespace AgOpenGPS
             return nextMode;
         }
 
-        // Crea una guía AB anclada en el pivote actual con el rumbo dado y la
-        // deja activa (Trk.idx). El loop de guiado la valida en el próximo fix.
-        private bool CreateAbAtPivot(double headingRad)
-        {
-            var t = new CTrk
-            {
-                mode = TrackMode.AB,
-                heading = headingRad,
-                isVisible = true,
-                name = "AB " + Math.Round(headingRad * 180.0 / Math.PI, 1).ToString(CultureInfo.InvariantCulture) + "°",
-                ptA = new vec2(pivotAxlePos.easting, pivotAxlePos.northing),
-                ptB = new vec2(
-                    pivotAxlePos.easting + Math.Sin(headingRad) * 100.0,
-                    pivotAxlePos.northing + Math.Cos(headingRad) * 100.0)
-            };
-            Trk.gArr.Add(t);
-            Trk.idx = Trk.gArr.Count - 1;
-
-            // Nudge a la línea de referencia = ancho/2 - solape/2 + offset,
-            // mismo criterio que btnEnter_AB (lado derecho por defecto).
-            double dist = (Tool.width - Tool.overlap) * 0.5 + Tool.offset;
-            Trk.NudgeRefABLine(dist);
-
-            ABLineField.isABValid = false; // fuerza rebuild en el próximo fix
-            Log.EventWriter($"GuidanceEngine: AB creada en pivote, heading={Math.Round(headingRad * 180 / Math.PI, 1)}°, idx={Trk.idx}");
-            return true;
-        }
     }
 }

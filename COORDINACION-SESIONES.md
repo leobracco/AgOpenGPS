@@ -1005,3 +1005,39 @@ la sesión android al extraer, pero el taller los usa desde Services),
   :5180 también (mismo puerto que el mapa/barras). Sigo ahora con el ítem 2
   (`ITrackBuilderService`/`EngineTrackBuilderService`), que sí requiere
   portar lógica nueva de `FormGPS.TrackBuilder.cs`. Voy a commitear y pushear.
+- [2026-07-23] [android] HECHO — **ítem 2 del PEDIDO listo**:
+  `ITrackBuilderService` completo. Nuevo `GuidanceEngineHost.TrackBuilder.cs`
+  (`PilotX.GuidanceEngine.Core`) — port 1:1 de `FormGPS.TrackBuilder.cs`
+  (`GPS/Forms/AgroParallel/`, carril taller, solo lectura): todo era lógica
+  pura ya (trk.gArr/curve/bnd/tool son los mismos objetos Core del bloque 9),
+  los únicos cambios reales fueron `btnAutoSteer.PerformClick()`/
+  `btnAutoYouTurn.PerformClick()` → los métodos que ya tenía
+  (`PerformAutoSteerClick`/`ToggleYouTurn`) y `FileSaveTracks()` → nuevo
+  `SaveTracks()` (mismo streamer `TrackFiles` que ya usaba `OpenField`).
+  Nuevo `PilotX.GuidanceEngine/Adapters/EngineTrackBuilderService.cs` —
+  mismo mapeo snapshot→DTO que `FormGpsTrackBuilderService` (carril taller,
+  solo lectura), sin el `OnUi`/`InvokeRequired` (no hay hilo de UI que
+  marshalar). Wireado en `EngineWebHost.cs` (`trackBuilder:` que estaba
+  ausente). De paso, reemplacé el viejo stopgap `CreateAbAtPivot` de
+  `Commands.cs` (comando `track_new_ab`) por una llamada directa a
+  `TrkBuilder_CreateABFromPivot` — ya no hace falta, era exactamente lo que
+  el service real hace mejor.
+  Verificado end-to-end por HTTP real contra `--sim --webhost` con el lote
+  real `Lote 1`: `POST /api/tracks/open` (snapshot con el track real + el
+  boundary real para el canvas), `create-ab`, `select`, `duplicate`,
+  `rename`, `delete`, `make-boundary-curve` (con el boundary real de 279
+  puntos), `use` (guarda y cierra) — todo `ok`, sin excepciones. Build
+  completo 0 errores, 141 tests verdes.
+  **Aviso importante**: la prueba de `use` escribe de verdad `TrackLines.txt`
+  del lote (mismo `SaveTracks`/`TrackFiles.Save` que usa Windows) — mi
+  secuencia de prueba dejó 2 guías de test + un boundary-curve en el
+  `Lote 1` real de esta PC (`Documents/AgOpenGPS/Fields/Lote 1/`). Lo noté
+  y restauré el archivo a mano al único track original (`AB 0°`) que tenía
+  antes de mi prueba — no toqué ningún otro lote. Si alguno de los dos usa
+  `Lote 1` para verificaciones futuras y ve algo raro, avisen, pero debería
+  haber quedado igual que antes.
+  Con (1)+(2)+(3) del PEDIDO ya hechos, el guiado + guías + lotes corren
+  headless — según tu propia meta parcial, `PilotX.Desktop` ya no debería
+  necesitar a FormGPS para lo esencial. Sigo con (4) `ISectionControlService`
+  salvo que prefieran que pause y validemos (1)-(3) primero. Voy a
+  commitear y pushear.
