@@ -12,11 +12,14 @@
 // StubAogStateProvider, StubSectionControlService, StubVehicleToolService,
 // StubCoverageService, StubQuantiXRuntimeService.
 //
+// StubPilotXUpdateService también se reemplazó (bloque 12, 2026-07-23) por
+// AndroidPilotXUpdateService.cs — reusa PilotXSelfUpdate (AgroParallel.Services,
+// el mismo motor de Windows) para catálogo+descarga, con Apply propio via
+// Intent.ACTION_VIEW + FileProvider (REQUEST_INSTALL_PACKAGES).
+//
 // Quedan como stub porque son un subsistema distinto, no datos de guiado:
 //   - StubShapefileService: necesita parseo de shapefile (capa que
 //     GuidanceEngineHost no carga en absoluto todavía).
-//   - StubPilotXUpdateService: self-update (bloque 12 de la matriz, 0%,
-//     APK vía OrbitX en vez de Updater.exe+ZIP — feature aparte).
 //   - StubSistemaService: brillo/apagado son APIs de Android (Settings.System,
 //     PowerManager), no algo que GuidanceEngineHost pueda respaldar.
 // ============================================================================
@@ -33,14 +36,6 @@ namespace PilotX.Droid
         public Task<ShapefileUploadResult> UploadAsync(IReadOnlyList<ShapefileUploadFile> files)
             => Task.FromResult(new ShapefileUploadResult());
         public Task<bool> RemoveAsync() => Task.FromResult(false);
-    }
-
-    internal sealed class StubPilotXUpdateService : IPilotXUpdateService
-    {
-        public PilotXUpdateStatus GetStatus() => new PilotXUpdateStatus();
-        public Task<PilotXUpdateStatus> CheckAsync() => Task.FromResult(new PilotXUpdateStatus());
-        public Task<PilotXUpdateStatus> DownloadAsync() => Task.FromResult(new PilotXUpdateStatus());
-        public Task<PilotXUpdateStatus> ApplyAsync() => Task.FromResult(new PilotXUpdateStatus());
     }
 
     internal sealed class StubSistemaService : ISistemaService

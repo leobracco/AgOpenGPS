@@ -44,4 +44,11 @@
                   Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- FileProvider (self-update, bloque 12): expone el APK bajado como
+         content:// para el Intent de instalación (Android 7+ no acepta
+         file://). -->
+    <PackageReference Include="Xamarin.AndroidX.Core" Version="1.12.0.2" />
+  </ItemGroup>
+
 </Project>

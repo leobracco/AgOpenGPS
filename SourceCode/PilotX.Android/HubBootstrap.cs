@@ -24,6 +24,7 @@ namespace PilotX.Droid
         private static NodoRegistryService s_nodos;
         private static FlowXBridge s_flowxBridge;
         private static PilotXCore.GuidanceEngineHost s_guidance;
+        private static AndroidPilotXUpdateService s_pilotxUpdate;
 
         public static bool IsRunning { get { lock (s_lock) return s_host != null; } }
         public static string Url { get { lock (s_lock) return s_host?.Url; } }
@@ -72,6 +73,8 @@ namespace PilotX.Droid
                 var vehicleTool = new GuidanceEngineVehicleToolService(s_guidance);
                 var coverage = new GuidanceEngineCoverageService(s_guidance);
                 var quantixRuntime = new GuidanceEngineQuantiXRuntimeService(state);
+                var pilotxUpdate = new AndroidPilotXUpdateService(dataDir);
+                s_pilotxUpdate = pilotxUpdate;
 
                 var vistaxCfg = new VistaXConfigService();
                 var insumosCat = new InsumoCatalogService();
@@ -105,7 +108,7 @@ namespace PilotX.Droid
                     sectionsCore,
                     quantixRuntime,
                     guidanceCalc,
-                    new StubPilotXUpdateService(),
+                    pilotxUpdate,
                     flowxCfg,
                     flowxLive,
                     stormxCfg,
@@ -138,10 +141,12 @@ namespace PilotX.Droid
                 try { s_flowxBridge?.Stop(); s_flowxBridge?.Dispose(); } catch { }
                 try { s_host?.Stop(); } catch { }
                 try { s_guidance?.Stop(); } catch { }
+                try { s_pilotxUpdate?.Dispose(); } catch { }
                 try { s_nodos?.Stop(); } catch { }
                 try { s_broker?.StopAsync().GetAwaiter().GetResult(); } catch { }
                 s_flowxBridge = null;
                 s_guidance = null;
+                s_pilotxUpdate = null;
                 s_host = null;
                 s_nodos = null;
                 s_broker = null;

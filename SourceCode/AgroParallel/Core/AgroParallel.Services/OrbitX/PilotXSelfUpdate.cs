@@ -42,7 +42,13 @@ namespace AgroParallel.OrbitX
 {
     public static class PilotXSelfUpdate
     {
-        private const string PRODUCT = "PilotX";
+        // Producto por defecto (PilotX Windows). Check/Download aceptan un
+        // "product" explícito para reusar este mismo motor desde otras
+        // plataformas (ej. Android, catálogo "PilotXAndroid") sin duplicar
+        // la lógica de catálogo+descarga+SHA256. ApplyAsync() NO se
+        // generaliza: es intrínsecamente Windows (spawnea el Updater.exe
+        // externo) — cada plataforma implementa su propio Apply.
+        private const string DefaultProduct = "PilotX";
 
         /// <summary>
         /// Se dispara cuando ApplyAsync lanzó el Updater y el host debe cerrarse
@@ -63,6 +69,32 @@ namespace AgroParallel.OrbitX
         public static PilotXUpdateStatus Snapshot()
         {
             lock (_lock) return Clone(_status);
+        }
+
+        /// <summary>
+        /// Corrige la versión actual detectada. Pensado para hosts donde
+        /// DetectCurrentVersion() (AssemblyInformationalVersion) no refleja
+        /// la versión real — ej. Android, donde la versión visible al
+        /// usuario es PackageManager.GetPackageInfo(...).VersionName, no el
+        /// atributo del assembly .NET. Llamar una sola vez al arrancar,
+        /// antes de cualquier Check/Download. No-op si version es vacío.
+        /// </summary>
+        public static void SetCurrentVersion(string version)
+        {
+            if (string.IsNullOrWhiteSpace(version)) return;
+            Update(s => s.CurrentVersion = version);
+        }
+
+        /// <summary>
+        /// Marca la fase como Applying sin pasar por ApplyAsync() (que es
+        /// intrínsecamente Windows — spawnea el Updater.exe externo). Otras
+        /// plataformas con su propio mecanismo de instalación (ej. Android,
+        /// que dispara el instalador del sistema via Intent) llaman esto
+        /// para que el status refleje que ya se disparó la instalación.
+        /// </summary>
+        public static void MarkApplying()
+        {
+            Update(s => s.Phase = PilotXUpdatePhase.Applying);
         }
 
         private static void Update(Action<PilotXUpdateStatus> mut)
@@ -142,15 +174,19 @@ namespace AgroParallel.OrbitX
         }
 
         // ── Check ──────────────────────────────────────────────────────────
-        // Pide el catálogo OTA filtrado por PilotX y elige la mayor versión semver.
-        public static async Task<PilotXUpdateStatus> CheckAsync(HttpClient http, OrbitXConfig cfg)
+        // Pide el catálogo OTA filtrado por <product> y elige la mayor versión
+        // semver. product/stagingRoot/payloadFileName tienen defaults que
+        // reproducen el comportamiento Windows exacto de antes (sin cambios
+        // para FormGpsPilotXUpdateService, que sigue llamando con 2 args).
+        public static async Task<PilotXUpdateStatus> CheckAsync(HttpClient http, OrbitXConfig cfg,
+            string product = DefaultProduct, string stagingRoot = null, string payloadFileName = "payload.zip")
         {
             Update(s => { s.Phase = PilotXUpdatePhase.Checking; s.LastError = null; });
             try
             {
                 RequireAuth(cfg);
 
-                string url = cfg.ServerUrl.TrimEnd('/') + "/api/ota/catalogo?producto=" + Uri.EscapeDataString(PRODUCT);
+                string url = cfg.ServerUrl.TrimEnd('/') + "/api/ota/catalogo?producto=" + Uri.EscapeDataString(product);
                 using (var req = new HttpRequestMessage(HttpMethod.Get, url))
                 {
                     req.Headers.Add("X-Device-ID", cfg.DeviceId);
@@ -179,7 +215,7 @@ namespace AgroParallel.OrbitX
                         foreach (var it in list)
                         {
                             if (it == null || string.IsNullOrEmpty(it.version)) continue;
-                            if (!string.Equals(it.producto, PRODUCT, StringComparison.OrdinalIgnoreCase)) continue;
+                            if (!string.Equals(it.producto, product, StringComparison.OrdinalIgnoreCase)) continue;
                             if (latest == null || CompareSemver(it.version, latest.version) > 0) latest = it;
                         }
 
@@ -199,8 +235,8 @@ namespace AgroParallel.OrbitX
                             return Snapshot();
                         }
 
-                        bool newer = CompareSemver(latest.version, DetectCurrentVersion()) > 0;
-                        bool staged = File.Exists(StagingZip(latest.version));
+                        bool newer = CompareSemver(latest.version, Snapshot().CurrentVersion) > 0;
+                        bool staged = File.Exists(Path.Combine(stagingRoot ?? StagingRoot(), latest.version, payloadFileName));
 
                         Update(s =>
                         {
@@ -225,9 +261,11 @@ namespace AgroParallel.OrbitX
         }
 
         // ── Download ───────────────────────────────────────────────────────
-        // Baja el ZIP de PilotX desde OrbitX (device-auth) a staging y verifica
-        // SHA256 contra el hash del catálogo.
-        public static async Task<PilotXUpdateStatus> DownloadAsync(HttpClient http, OrbitXConfig cfg)
+        // Baja el payload de <product> desde OrbitX (device-auth) a staging y
+        // verifica SHA256 contra el hash del catálogo. Defaults reproducen el
+        // comportamiento Windows exacto (payload.zip bajo StagingRoot()).
+        public static async Task<PilotXUpdateStatus> DownloadAsync(HttpClient http, OrbitXConfig cfg,
+            string product = DefaultProduct, string stagingRoot = null, string payloadFileName = "payload.zip")
         {
             string version, expectedHash;
             lock (_lock)
@@ -255,13 +293,14 @@ namespace AgroParallel.OrbitX
 
             try
             {
-                Directory.CreateDirectory(StagingDir(version));
-                string zip = StagingZip(version);
+                string dirVer = Path.Combine(stagingRoot ?? StagingRoot(), version);
+                Directory.CreateDirectory(dirVer);
+                string zip = Path.Combine(dirVer, payloadFileName);
                 string tmp = zip + ".part";
                 if (File.Exists(tmp)) File.Delete(tmp);
 
                 string zipUrl = cfg.ServerUrl.TrimEnd('/') + "/api/ota/firmware/"
-                              + Uri.EscapeDataString(PRODUCT) + "/" + Uri.EscapeDataString(version);
+                              + Uri.EscapeDataString(product) + "/" + Uri.EscapeDataString(version);
                 using (var req = new HttpRequestMessage(HttpMethod.Get, zipUrl))
                 {
                     req.Headers.Add("X-Device-ID", cfg.DeviceId);

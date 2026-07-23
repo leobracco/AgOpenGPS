@@ -32,7 +32,7 @@ la sesión android al extraer, pero el taller los usa desde Services),
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | Migración VistaX nativo → Hub (gap grande de faltantes) | wwwroot/pages/vistax*.html, js/vistax*.js, AgroParallel.Services VistaX* |
-| android | Bloque 14 al ~90% (7 de 9 stubs Fase 1 ya reales, ver bitácora de hoy — con autorización directa del usuario para tocar carril PilotX.Android). Sin nada EN CURSO ahora mismo | `SourceCode/PilotX.GuidanceEngine/*`, `SourceCode/PilotX.GuidanceEngine.Core/*`, `SourceCode/PilotX.Android/*` (puntual, hoy) |
+| android | Bloque 12 (self-update Android) al ~75%, ver bitácora de hoy — con autorización directa del usuario, toca `AgroParallel.Services/OrbitX/PilotXSelfUpdate.cs` (parametrización aditiva) y `PilotX.Android/*`. Sin nada EN CURSO ahora mismo | `AgroParallel.Services/OrbitX/PilotXSelfUpdate.cs`, `SourceCode/PilotX.Android/*` (puntual, hoy) |
 
 ## Bitácora (append-only)
 
@@ -783,3 +783,57 @@ la sesión android al extraer, pero el taller los usa desde Services),
   fuente de PGN real todavía (falta CoreX/serial USB-OTG, hardware
   pendiente). Voy a rebuildear todo y correr los tests antes de pushear,
   para confirmar que el merge quedó sano.
+- [2026-07-23] [android] AVISO (**toqué `AgroParallel.Services/OrbitX/
+  PilotXSelfUpdate.cs`, carril taller** — con autorización directa del
+  usuario para arrancar el bloque 12/self-update; cambio puramente
+  aditivo, no debería afectar el flujo Windows). El usuario pidió
+  arrancar bloque 12 (self-update, 0%, el único bloque sin empezar).
+  Investigué primero: `PilotXSelfUpdate` (motor del auto-update, ya
+  portable/netstandard2.0) ya hace TODO el trabajo pesado — catálogo OTA
+  device-auth, descarga con progreso, verificación SHA256 — y solo
+  `ApplyAsync()` es intrínsecamente Windows (spawnea `AgroParallel.Updater.exe`).
+  En vez de duplicar ~150 líneas para Android, parametricé
+  `CheckAsync`/`DownloadAsync` con `product`/`stagingRoot`/`payloadFileName`
+  (defaults = comportamiento Windows exacto, cero cambio para
+  `FormGpsPilotXUpdateService` que sigue llamando con 2 args) y agregué 2
+  métodos nuevos: `SetCurrentVersion(string)` (para que Android corrija la
+  versión detectada — `PackageManager.VersionName`, no
+  `AssemblyInformationalVersion`) y `MarkApplying()` (para que Android
+  refleje en el status que ya disparó su propio mecanismo de instalación,
+  sin necesitar acceso al `Update()` privado). `ApplyAsync()` quedó sin
+  tocar.
+  Nuevo `SourceCode/PilotX.Android/AndroidPilotXUpdateService.cs`: usa
+  producto de catálogo **`PilotXAndroid`** (distinto de `PilotX`, para no
+  chocar con el ZIP de Windows) y descarga a `Context.FilesDir/Updates/
+  <version>/payload.apk`. `Apply()` dispara el instalador del sistema via
+  `Intent.ACTION_VIEW` sobre un `content://` (`FileProvider` +
+  `REQUEST_INSTALL_PACKAGES`) — sin MDM/device-owner no hay silent-install,
+  el usuario confirma en un diálogo nativo. Agregué `AndroidManifest.xml`
+  (permiso + `<provider>`) y `Resources/xml/file_paths.xml` (primera vez
+  que este proyecto tiene una carpeta `Resources/` — antes era 100% código,
+  cero recursos Android nativos). Reemplacé `StubPilotXUpdateService` en
+  `HubBootstrap.cs` (borrado de `Fase1Stubs.cs`, ya no se usaba).
+  Verificado en runtime en el emulador: `HubBootstrap.Start()` sin
+  excepciones con el manifest/provider nuevo; `GET /api/pilotx/update/status`
+  devuelve `current_version:"1.0.23"` real (confirma que
+  `PackageManager.GetPackageInfo` + `SetCurrentVersion` funcionan, no es
+  el default del stub); `POST /api/pilotx/update/check` devuelve
+  correctamente `"Tractor no vinculado a OrbitX"` (mismo guard
+  `RequireAuth` que ya usa Windows) sin crashear — es el comportamiento
+  esperado ya que este dispositivo no tiene DeviceId/DeviceToken. Build
+  completo `AgOpenGPS.sln` + `PilotX.Android.csproj` + `build.ps1` 0
+  errores, 141 tests verdes.
+  **Falta para cerrar el bloque al 100%** (documentado en la matriz,
+  pedido explícito al usuario): dar de alta el producto `PilotXAndroid`
+  en el panel de OrbitX y subir un APK de prueba para poder verificar
+  Check→Download→Apply contra un catálogo real (hoy solo se probó el
+  camino "no vinculado"), y probar el diálogo de instalación real en un
+  dispositivo. También dejo anotado (no lo toqué, es carril taller):
+  `actualizar.js` asume que el server se reinicia solo tras Apply —en
+  Android el proceso sigue vivo mientras el usuario ve el diálogo del
+  instalador, así que el polling "esperando que vuelva" no tiene mucho
+  sentido ahí; no es un bug, es una UX a pulir más adelante si les
+  parece. Avisen si `PilotXSelfUpdate.cs` tenía algo en curso de su lado
+  — el cambio es aditivo (2 métodos nuevos + params opcionales con
+  default = comportamiento viejo), no debería pisar nada. Voy a
+  commitear y pushear.
