@@ -101,12 +101,55 @@ namespace PilotX.GuidanceEngine.Adapters
             return Task.FromResult(true);
         }
 
-        // Crear/borrar/importar lotes todavía no están portados al guidance
-        // engine headless (necesitan el flujo completo de FileCreateField +
-        // los demás FileCreate* de SaveOpen.Designer.cs) — mismo comportamiento
-        // que el stub que reemplazan (false), no una regresión.
+        // Crear lote nuevo headless: crea el directorio + Field.txt con el
+        // origen = posición GPS actual, y lo abre. Mismo flujo que
+        // FormGpsLotesService.CreateFieldAsync / FormGPS.FileCreateField, pero
+        // sin WinForms (usa FieldPlaneFiles.Save + GuidanceEngineHost.OpenField).
+        public Task<bool> CreateFieldAsync(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);
+            string clean = CleanName(name);
+            if (string.IsNullOrEmpty(clean)) return Task.FromResult(false);
+
+            string root = RegistrySettings.fieldsDirectory;
+            if (string.IsNullOrEmpty(root)) return Task.FromResult(false);
+            string dir = Path.Combine(root, clean);
+            if (Directory.Exists(dir)) return Task.FromResult(false);
+
+            try
+            {
+                // Cerrar el lote actual (si hay) antes de crear el nuevo.
+                if (_host.IsJobStarted) _host.CloseField();
+
+                Directory.CreateDirectory(dir);
+
+                // Field.txt con el origen del plano local = lat/lon actual del GPS.
+                var origin = _host.AppModelField.CurrentLatLon;
+                AgOpenGPS.IO.FieldPlaneFiles.Save(dir, DateTime.Now, origin);
+
+                // Abrir el lote recién creado (define plano local, IsJobStarted=true).
+                return Task.FromResult(_host.OpenField(clean));
+            }
+            catch
+            {
+                // Limpieza best-effort si quedó a medio crear.
+                try { if (Directory.Exists(dir) && Directory.GetFiles(dir).Length == 0) Directory.Delete(dir); } catch { }
+                return Task.FromResult(false);
+            }
+        }
+
+        // Saca caracteres inválidos de nombre de carpeta (igual criterio que
+        // FormGpsLotesService: no permitir path chars raros).
+        private static string CleanName(string name)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            var sb = new System.Text.StringBuilder(name.Length);
+            foreach (char c in name)
+                if (Array.IndexOf(invalid, c) < 0) sb.Append(c);
+            return sb.ToString().Trim();
+        }
+
         public Task<bool> DeleteFieldAsync(string name) => Task.FromResult(false);
-        public Task<bool> CreateFieldAsync(string name) => Task.FromResult(false);
         public Task<bool> CreateFromExistingAsync(string templateName, string newName,
                                                   bool copyApplied, bool copyFlags,
                                                   bool copyGuidance, bool copyHeadland)
