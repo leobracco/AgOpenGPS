@@ -4,25 +4,22 @@
              IsHitTestVisible="True"
              Background="Transparent">
     <!--
-        Banner de cabina - overlay top-bleed (no oculta el mapa).
-        Reemplazo nativo de pages/cabina-alarmas.html. Polling 2s contra
-        /api/nodos/unified, filtra `del_implemento_activo && !online` y
-        muestra banner rojo pulsante con la lista. Beep one-shot por UID
-        nuevo (Console.Beep async, respetando silenciado de 10 min).
-
-        ZIndex alto + VerticalAlignment=Top: el overlay se acopla arriba
-        del area de contenido (Grid.Row=2) y se ve por encima del mapa /
-        FieldData / Sistema / etc. Solo cubre la franja superior.
+        Aviso cabin-critical COMPACTO: nodos del implemento activo offline.
+        Chip chico arriba a la derecha (NO tapa el mapa), con X para ocultar.
+        Polling 2s /api/nodos/unified. Beep one-shot por UID nuevo. La X
+        descarta el chip hasta que entre un nodo nuevo en alarma (code-behind).
     -->
     <Border Name="AlertRoot"
             VerticalAlignment="Top"
-            HorizontalAlignment="Stretch"
+            HorizontalAlignment="Right"
             IsVisible="False"
-            BorderThickness="0,0,0,2"
+            Margin="0,56,10,0"
+            MaxWidth="380"
+            CornerRadius="10"
+            BorderThickness="1"
             BorderBrush="#5B0F0F"
-            BoxShadow="0 4 14 0 #66000000"
-            MinHeight="64"
-            Padding="18,14,18,14">
+            BoxShadow="0 3 10 0 #55000000"
+            Padding="10,7,8,7">
         <Border.Background>
             <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
                 <GradientStop Offset="0" Color="#C92D2D"/>
@@ -30,47 +27,64 @@
             </LinearGradientBrush>
         </Border.Background>
 
-        <Grid ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Center">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto" VerticalAlignment="Center">
 
             <!-- Icono warning -->
             <TextBlock Grid.Column="0"
                        Text="⚠"
-                       FontSize="28"
+                       FontSize="18"
                        Foreground="White"
                        VerticalAlignment="Center"
-                       Margin="0,0,14,0"/>
+                       Margin="0,0,8,0"/>
 
-            <!-- Cuerpo: titulo + lista de nodos -->
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+            <!-- Cuerpo: titulo corto + lista (compacta) -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
                 <TextBlock Name="TituloText"
-                           Text="Nodos del implemento offline"
-                           FontSize="18"
+                           Text="Implemento offline"
+                           FontSize="12"
                            FontWeight="Bold"
                            Foreground="White"/>
                 <TextBlock Name="ListaText"
                            Text=""
-                           FontSize="16"
-                           FontWeight="Medium"
+                           FontSize="11"
                            Foreground="White"
-                           Opacity="0.95"
+                           Opacity="0.92"
                            TextWrapping="Wrap"/>
             </StackPanel>
 
-            <!-- Boton silenciar 10 min - tactil 44x44 minimo -->
+            <!-- Silenciar beep (compacto, ícono campana) -->
             <Button Grid.Column="2"
                     Name="BtnSilenciar"
-                    Content="Silenciar 10 min"
+                    Content="🔕"
                     Click="OnSilenciarClick"
-                    MinHeight="44"
-                    Padding="18,8,18,8"
-                    Margin="14,0,0,0"
-                    FontSize="15"
-                    FontWeight="SemiBold"
+                    ToolTip.Tip="Silenciar 10 min"
+                    Width="30" Height="30"
+                    Padding="0"
+                    Margin="6,0,0,0"
+                    FontSize="14"
                     Foreground="White"
-                    Background="#33FFFFFF"
-                    BorderBrush="#8CFFFFFF"
-                    BorderThickness="1.5"
-                    CornerRadius="8"
+                    Background="#2EFFFFFF"
+                    BorderBrush="#7CFFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="7"
+                    VerticalAlignment="Center"/>
+
+            <!-- Ocultar (X) -->
+            <Button Grid.Column="3"
+                    Name="BtnOcultar"
+                    Content="✕"
+                    Click="OnOcultarClick"
+                    ToolTip.Tip="Ocultar"
+                    Width="30" Height="30"
+                    Padding="0"
+                    Margin="4,0,0,0"
+                    FontSize="13"
+                    FontWeight="Bold"
+                    Foreground="White"
+                    Background="#2EFFFFFF"
+                    BorderBrush="#7CFFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="7"
                     VerticalAlignment="Center"/>
         </Grid>
     </Border>

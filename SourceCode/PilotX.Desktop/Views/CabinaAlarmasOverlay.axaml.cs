@@ -44,6 +44,11 @@ public partial class CabinaAlarmasOverlay : UserControl
     private readonly HashSet<string> _alertedUids = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _silencedUntilUtc = DateTime.MinValue;
 
+    // Descarte con la X: mientras el conjunto de UIDs offline no crezca, el chip
+    // queda oculto. Si entra un UID nuevo (no descartado), reaparece.
+    private readonly HashSet<string> _dismissedUids = new(StringComparer.OrdinalIgnoreCase);
+    private bool _dismissed;
+
     public CabinaAlarmasOverlay()
     {
         InitializeComponent();
@@ -105,13 +110,28 @@ public partial class CabinaAlarmasOverlay : UserControl
         if (offlines.Count == 0)
         {
             _alertedUids.Clear();
+            _dismissedUids.Clear();
+            _dismissed = false;
             _alertRoot.IsVisible = false;
             return;
         }
 
+        // UIDs offline actuales.
+        var offUids = new HashSet<string>(
+            offlines.Select(n => n.Uid ?? "").Where(u => !string.IsNullOrEmpty(u)),
+            StringComparer.OrdinalIgnoreCase);
+
+        // Si estaba descartado y NO entró ningún UID nuevo, seguir oculto.
+        if (_dismissed)
+        {
+            bool hayNuevoNoDescartado = offUids.Any(u => !_dismissedUids.Contains(u));
+            if (!hayNuevoNoDescartado) { _alertRoot.IsVisible = false; return; }
+            _dismissed = false; // reapareció por un nodo nuevo
+        }
+
         // Render lista — alias o uid + tipo entre parentesis.
         var slug = string.IsNullOrEmpty(data.ImplementoSlug) ? "" : " — " + data.ImplementoSlug;
-        _tituloText.Text = "Nodos del implemento offline" + slug;
+        _tituloText.Text = "Implemento offline" + slug;
 
         var sb = new StringBuilder();
         for (int i = 0; i < offlines.Count; i++)
@@ -148,9 +168,18 @@ public partial class CabinaAlarmasOverlay : UserControl
     private void OnSilenciarClick(object? sender, RoutedEventArgs e)
     {
         _silencedUntilUtc = DateTime.UtcNow.AddMinutes(10);
-        // El banner sigue visible. Si entra un UID nuevo despues del fin del
+        // El chip sigue visible. Si entra un UID nuevo despues del fin del
         // silenciado, vuelve a beepear.
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Cabina-alarmas silenciada 10 min");
+    }
+
+    // Ocultar (X): descarta los UIDs offline actuales y esconde el chip. Vuelve
+    // a aparecer solo si entra un nodo nuevo en alarma (uno no descartado).
+    private void OnOcultarClick(object? sender, RoutedEventArgs e)
+    {
+        _dismissed = true;
+        foreach (var uid in _alertedUids) _dismissedUids.Add(uid);
+        if (_alertRoot != null) _alertRoot.IsVisible = false;
     }
 
     // Console.Beep funciona en Windows .NET; corre en background para no bloquear UI.
