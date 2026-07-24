@@ -1375,6 +1375,107 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Herramientas/Tools, Herramientas de lote) con ítems+submenús, y el toolbar por zonas
   (Guiado/Secciones/Vista/Lote). Base para armar los menús HTML como eran antes.
   Aparte: Codex ya no trabaja → carril C (HTML) colapsado en L en el inventario.
+- [2026-07-24] [android] HECHO — subí el port Android (S1, mapa nativo Avalonia)
+  a la tablet física (Lenovo TB125FU). Instala y arranca sin excepciones —
+  **confirmado visualmente** (captura de pantalla): barras del cockpit + menú
+  Navegación/Config/Herramientas/Lote/Guías/Dirección/CoreX renderizando de
+  verdad, no WebView. GL ES funciona en hardware real, no solo emulador.
+  **Bug encontrado y arreglado (mi carril)**: `GuidanceEngineLotesService`
+  (`PilotX.Android/GuidanceEngineServices.cs`) — una copia DISTINTA de
+  `EngineLotesService` (la que sí arreglaste vos en `ff717eb1`) que Android usa
+  en vez de la tuya. Nunca recibió tu fix de `CreateFieldAsync` → crear lote
+  desde la tablet daba `{"ok":false}` silencioso. Porté el mismo fix (crear
+  dir + `FieldPlaneFiles.Save` con origen GPS actual + `OpenField`). Dejo
+  anotado para el futuro: son 2 `ILotesService` con la misma lógica
+  duplicada (Desktop/consola vs Android) — candidato a unificar en algún
+  momento, no urgente.
+  **Verificado con datos reales de tu CoreX** (la misma fuente de red de
+  ayer): `fix_quality:8`, posición real, `POST /api/lotes/create` → `ok:true`,
+  `is_job_started:true`. Gotcha de entorno (no es bug): la tablet había
+  cambiado de red WiFi (a `192.168.0.x`, distinta de la PC en `192.168.1.x`)
+  — nada llegaba hasta que el usuario la reconectó a la misma red.
+  **Pendiente/hallazgo para vos (carril mapa/cámara)**: con lote creado y
+  posición real fluyendo, el área del mapa queda completamente negra en la
+  tablet — no se ve el tractor. Confirmé que los datos son correctos
+  (`pivot_easting`/`pivot_northing` cambiando, `/api/aog/state` bien), así
+  que sospecho que es la cámara/zoom inicial de `MapGlSurface` en el head
+  Android (quizás asume algo que no aplica en single-view, o necesita un
+  reset explícito). No lo toqué — no es mi lado del port. Build completo
+  0 errores, 141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] DIAGNÓSTICO completo del mapa negro en tablet física
+  (tu carril, `MapGlSurface.cs` — pido perdón por tocarlo, pero era necesario
+  agregar instrumentación para no seguir adivinando a ciegas; los cambios son
+  SOLO diagnóstico, no tocan lógica de dibujo real). Investigué con un agente
+  + instrumentación real en el dispositivo, y esto es lo que encontré,
+  **descartando causas por orden**:
+  1. Cámara/zoom: descartado — `ComputeBaseProjection` centra en el pivote
+     con `scale=8.0` fijo sin depender de ningún evento de resize/input.
+  2. Bounds 0x0: descartado — confirmado `bounds=1333x773` real en el primer
+     render.
+  3. Shader/contexto GL: descartado — agregué logging real (antes solo había
+     `Debug.WriteLine`, que en Android **no llega a ningún lado ni en Debug**
+     porque no hay `TraceListener` registrado — lo cambié a `Console.Error`,
+     que sí se redirige a logcat). Resultado: `GL context: OpenGL ES 3.0`,
+     `program=3`, `glGetError=NoError` — el shader compila y linkea perfecto.
+  4. **El render SÍ funciona internamente** — agregué `glReadPixels` sobre
+     el pixel central antes y después de dibujar. Resultado real capturado:
+     pixel post-clear `(0,0,0,255)` → post-draw `(28,31,28,23)` (el color
+     EXACTO del grid) cuando no hay tractor, y `(74,186,62,255)` (verde del
+     tractor) apenas hay `snap` con posición real. **El framebuffer de GL
+     tiene el contenido correcto.**
+  5. **Pero nunca llega a la pantalla** — confirmé con captura de `adb
+     screencap` (negro) Y le pregunté al usuario que mire la tablet físicamente
+     en persona (también negro) — no es un problema de mi herramienta de
+     captura, el contenido correcto nunca se composita en el buffer visible.
+  **Conclusión con evidencia, no corazonada**: esto es el patrón conocido de
+  Avalonia.Android — `OpenGlControlBase` en Android está respaldado por una
+  superficie nativa (`SurfaceView`/`TextureView`) con reglas de Z-order
+  particulares ("las vistas nativas siempre se renderizan encima del
+  contenido Avalonia, no se puede superponer contenido Avalonia sobre una
+  vista nativa" — doc oficial de Avalonia). `SurfaceView` específicamente
+  "perfora un agujero" en la ventana host (queda negro por default) que
+  depende de la composición correcta del compositor de Android para mostrar
+  el contenido real — si esa composición falla o el z-order con el resto de
+  Avalonia (las barras del cockpit SÍ se ven, con `ZIndex=50` sobre
+  `MapHost`) queda mal resuelto en este dispositivo/versión de
+  `Avalonia.Android` (11.2.3), el resultado es exactamente esto: contenido
+  GL correcto que nunca sale a pantalla. Hay reportes de esto en el repo de
+  Avalonia (issues #11788, #17034, #5452 — ninguno con fix oficial
+  documentado, uno cerrado "not planned").
+  **No es un bug de lógica de dibujo, ni de datos, ni del engine** — es
+  integración de plataforma Android (tu carril S1). Dejé la instrumentación
+  (`Console.Error.WriteLine` + `glReadPixels`, gated a los primeros 3 frames)
+  en `MapGlSurface.cs` por si sirve para seguir. Sugerencias para probar de
+  tu lado: forzar `TextureView` en vez de `SurfaceView` si Avalonia.Android
+  lo permite configurar, revisar si hay una versión más nueva de
+  `Avalonia.Android` con fix, o probar si el problema persiste en un
+  dispositivo/emulador distinto (para descartar que sea específico de esta
+  Lenovo TB125FU / GPU MediaTek). Build completo 0 errores, 141 tests
+  verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (toqué `PilotX.Cockpit.Bars/Views/
+  MenuIzquierda.axaml` — con pedido directo del usuario en la conversación,
+  no es mi carril habitual). El usuario pidió implementar el menú
+  reconstruido en `docs/menus-viejos.html`. Antes de escribir nada comparé
+  ítem por ítem contra lo que ya existía: **la gran mayoría ya estaba
+  hecha** — vos ya armaste 6 submenús (Navegación/Config/Herramientas/
+  Lote/Herr. lote/Guías) con ~40 ítems reales, todos con el
+  `CommandParameter` correcto. Encontré y corregí un error mío: había
+  contado "Boundary Tool" como faltante, pero es el mismo `herr_limites`
+  que ya está en Herramientas ("Herram. límites") con otro nombre — no lo
+  toqué.
+  **2 huecos reales agregados** (solo el botón + `CommandParameter`, sin
+  tocar `RouteCockpitCommand` que es tu archivo):
+  - `atajos` (Config) — "HotKeys"/`Form_Keys` del menú viejo. Sin pantalla
+    nativa ni HTML todavía — cae al backend como comando desconocido
+    (`unknown`) hasta que decidan si vale la pena en una UI táctil sin
+    teclado físico.
+  - `ruta_grabada` (Herr. lote) — "Recorded Path". Ya existe
+    `pages/recpath.html` + `RecPathController` real (`AgpWebHost`) — **te
+    falta sumar la navegación** `"ruta_grabada" => "pages/recpath.html"`
+    en tu diccionario de `RouteCockpitCommand` (mismo patrón que
+    `"tram_crear" => "pages/tramline.html"`) para que el botón haga algo.
+  Build completo (Desktop + Android APK) 0 errores, 141 tests verdes.
+  Voy a commitear y pushear.
 - [2026-07-24] [taller] HECHO — barra IZQUIERDA clon fiel del `panelLeft` de
   AOG 6.8.5 pusheada (`36b157f7`): `menu-izquierda.html` + `menu-izquierda.js`
   + 35 iconos reales del 6.8.5 en `wwwroot/img/menu/`. Orden real (Navegación,
@@ -1420,3 +1521,133 @@ la sesión android al extraer, pero el taller los usa desde Services),
   vivir en el engine de una (es tu carril); lo dejé como stopgap para desbloquear
   la prueba del mapa con simulador externo. Setup de arranque correcto de
   PilotX.Desktop = `PilotX.GuidanceEngine.exe --webhost --corex` (NO el WinForms legacy).
+- [2026-07-24] [android] HECHO — mergeé tu barra izquierda nueva (clon fiel del
+  panelLeft de AOG 6.8.5, `36b157f7`/`e9f576e1`/`ac8a4ea2`) — conflicto en
+  `MenuIzquierda.axaml` (yo había agregado `atajos`/`ruta_grabada` con emoji a
+  la versión vieja) resuelto tomando tu versión: ya tenías ambos ítems con
+  los iconos reales (`hotkeys` con `ConD_KeyBoard.png`, `ruta_grabada` con
+  `RecPath.png`) — mi versión quedó redundante, la descarté.
+  **Respondiendo a tu PEDIDO ("arrancá por el menú izquierdo, cablealos en
+  ExecuteCommand")**: repasé tu lista completa de `cmd` contra
+  `GuidanceEngineHost.Commands.cs`. La mayoría (`direccion/corex/config_form/
+  todos_ajustes/directorios/datos_gps/colores/colores_sec/asistente_direccion/
+  grafico_*/chequeo_roll/herr_limites/visor_eventos/suavizar_ab/webcam/
+  corregir_pos/lote_*/lindero/cabecera*/tram_crear/tram_multi/bandera_latlon/
+  ruta_grabada/importar_guias/v2d/v3d/norte2d/tilt_*/grilla/dia_noche/
+  brillo_*`) son navegación pura o ya la resuelve tu `RouteCockpitCommand`
+  local — no tocan el engine. `lote_cerrar` ya estaba (alias de `job_close`,
+  bloque 14). Los únicos 2 genuinamente sin cablear en el engine:
+  - **`borrar_contornos`** — `Ct.stripList/ptList/ctList.Clear()` +
+    `contourSaveList.Clear()` (copia de `deleteContourPathsToolStripMenuItem_Click`).
+  - **`borrar_aplicado`** — el más grande: mismo guard que el original
+    (`isJobStarted` + `autoBtnState`/`manualBtnState` en `Off` — si no,
+    `unknown` en vez de ejecutar a medias), limpia secciones/zonas, contorno,
+    `Fd.workedAreaTotal*`/`distanceUser`, `TriStripField[*].patchList/
+    triangleList`, `patchSaveList`, `workedTracks` de cada track, y
+    persiste con `ContourFiles.CreateFile` (mismo streamer portable que ya
+    usa `OpenField`/`SaveTracks`).
+  `hotkeys` sigue sin backend (no hay `Form_Keys` nativo ni HTML) — cae
+  como `unknown`, es esperado hasta que decidan si vale la pena en una UI
+  táctil.
+  Verificado en runtime real contra `--sim --webhost` con un **lote
+  descartable** creado y borrado para la prueba (no toqué `Lote 1` esta
+  vez): `borrar_contornos`→`ok`, `borrar_aplicado`→`ok` con guard OFF,
+  →`unknown` con `sec_auto` ON (bloqueó como el original), →`ok` de nuevo
+  al apagarlo. `Contour.txt` se reescribió correctamente. Build completo
+  0 errores, 141 tests verdes. Con esto el menú izquierdo debería estar
+  100% cableado contra el engine. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (toqué `MenuIzquierda.axaml`/`.ViewModel` de
+  nuevo — pedido directo del usuario, no mi carril habitual) — 3 cambios de
+  estética que pidió:
+  1. Iconos del menú principal más separados entre sí: `Spacing` de la
+     `StackPanel` de 5 → 14.
+  2. Ítems de los submenús más juntos: `Margin` de `.sbtn` de 2 → 1.
+  3. **Menú plegable/desplegable** para no ocupar lugar del mapa: nuevo
+     `IsCollapsed`/`ToggleCollapsedCommand` en `MenuIzquierdaViewModel`, un
+     handle angosto (`‹`/`›`) siempre visible en una columna nueva a la
+     izquierda del ícono (`Grid ColumnDefinitions="Auto,84,*"`), que oculta
+     toda la columna de iconos + cualquier submenú abierto cuando se
+     colapsa. Actualicé el ancho externo del control en **los dos hosts**
+     (`MainView.axaml.cs` Android y `MainWindow.axaml.cs`, ambos en
+     `PilotX.UI` — están duplicados, mismo patrón `MenuIzqNarrow/Expanded`):
+     agregué un 3er ancho `MenuIzqCollapsed=32` y escucho también
+     `IsCollapsed` además de `OpenSubmenu`.
+  Verificado en la tablet física (Lenovo TB125FU) con capturas: iconos
+  separados, submenú con ítems juntos, colapsa a la pestaña angosta y
+  vuelve a expandir correctamente, sin excepciones. Build completo
+  0 errores, 141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (mismo carril, seguimiento del cambio
+  anterior) — el usuario reportó 3 problemas visuales tras el cambio de
+  estética y los 3 quedaron resueltos y verificados con capturas en la
+  tablet:
+  1. **Labels del menú principal cortadas** (`Navegaci`/`Herramienta`/
+     `Configuraci` sin la última letra) cuando no hay submenú abierto:
+     la columna de iconos medía 84px pero el `TextBlock` de `.mlbl` no
+     wrappeaba (default `TextWrapping=NoWrap`, corta en vez de hacer
+     ellipsis). Agregué `TextWrapping="Wrap"` a `.mlbl` y ensanché la
+     columna a 92px (`ColumnDefinitions="Auto,92,*"`).
+  2. **Submenús con mucho espacio vertical entre filas**: cada
+     `<UniformGrid Columns="2">` de submenú no tenía `VerticalAlignment`
+     propio, así que heredaba el `Stretch` del contenedor padre y
+     repartía todo el alto disponible entre las pocas filas reales.
+     Agregué `VerticalAlignment="Top"` a las 5 `UniformGrid` de submenú
+     — ahora las filas quedan pegadas arriba, sin aire de más.
+  3. **Marco superior tapado por la barra de estado de Android**: el
+     theme ya pedía `windowFullscreen=true` pero eso no alcanza en
+     API 30+ (Android 11+) — las banderas viejas de `SystemUiVisibility`
+     están deprecadas y el fabricante las ignora silenciosamente (probé
+     esa vía primero, no funcionó en el Lenovo con Android 13/API 33).
+     Reescribí `HideSystemBars()` en `MainActivity.cs` para usar
+     `Window.SetDecorFitsSystemWindows(false)` +
+     `Window.InsetsController.Hide(WindowInsets.Type.SystemBars())` en
+     API 30+, con el fallback viejo de `SystemUiVisibility` para
+     API 28/29 (mínimo del proyecto). Se reaplica en
+     `OnWindowFocusChanged` por si el sistema saca el modo inmersivo al
+     volver de otra app (ej. al minimizar).
+  Verificado en la tablet física (Lenovo TB125FU, Android 13/API 33) con
+  capturas: labels completas, submenú de "Herramientas" con filas
+  compactas arriba, marco superior (`AGRO PARALLEL`/`TRABAJO`/`GPS`/
+  `LOTE`/`SISTEMA`/controles de ventana) totalmente visible sin la barra
+  de estado encima, sin excepciones en logcat. Build completo 0 errores,
+  141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (mismo carril, 2 ajustes más sobre
+  `MenuIzquierda.axaml`) — el usuario reportó que el botón LOTE se veía
+  "seleccionado siempre" y que quería los botones del menú principal más
+  separados usando todo el alto disponible de la barra:
+  1. **LOTE con verde permanente**: la clase `.mbtn.lote` forzaba
+     `Background`/`BorderBrush` verdes fijos (para imitar el `btnJobMenu`
+     de AOG, que es un indicador de "hay lote cargado", no de selección),
+     pero visualmente se confundía con el estado `.active` que usan los
+     demás botones (solo verde cuando su submenú está abierto). Saqué el
+     color fijo de `.mbtn.lote` — ahora solo tiene `MinHeight=78` (más
+     grande, jerarquía visual) y sigue el mismo `Classes.active` que el
+     resto: blanco en reposo, verde solo con el submenú "lote" abierto.
+  2. **Botones bunched arriba, hueco vacío abajo**: la columna principal
+     era un `StackPanel Spacing="14"` — el spacing es un gap fijo, no
+     reparte el resto del alto disponible. La reemplacé por un `Grid
+     RowDefinitions="*,*,*,*,*,*,*"` (una fila por botón) y agregué
+     `VerticalAlignment="Center"` a `Button.mbtn`: cada botón mantiene su
+     tamaño natural pero centrado en su fila "*", así el espacio extra se
+     reparte parejo entre los 7 y ocupan toda la barra en vez de dejar
+     hueco al final.
+  Verificado en la tablet física con captura: LOTE en blanco normal (solo
+  más grande) hasta que se abre su submenú, y los 7 botones distribuidos
+  en todo el alto de la columna. Build completo 0 errores, 141 tests
+  verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (mismo carril, `MenuIzquierda.axaml.cs`) —
+  el usuario reportó que al tocar un ítem DENTRO de un submenú (ej.
+  "Brillo +") el submenú se cerraba solo, obligando a reabrirlo para
+  cada toque siguiente (molesto para acciones que se repiten, como
+  subir/bajar brillo o tilt varias veces seguidas). Causa: el handler
+  `OnAnyButtonClick` (auto-cierre del submenú al ejecutar una acción,
+  agregado junto con el menú colapsable) cerraba `OpenSubmenu` ante
+  CUALQUIER click que no fuera el toggle de la columna principal —
+  incluía tanto los botones de acción del submenú (`.sbtn`) como
+  Dirección/CoreX. Fix: excluí los botones `.sbtn` de esa condición —
+  ahora el auto-cierre solo aplica a acciones de la columna principal
+  (Dirección/CoreX); los ítems de un submenú abierto quedan disponibles
+  para tocarse repetidas veces sin perder el contexto.
+  Verificado en la tablet física: abrí "Navegación", toqué "Brillo +"
+  dos veces seguidas y el submenú siguió abierto en ambos toques (antes
+  volvía al menú principal en el primero). Build completo 0 errores,
+  141 tests verdes. Voy a commitear y pushear.

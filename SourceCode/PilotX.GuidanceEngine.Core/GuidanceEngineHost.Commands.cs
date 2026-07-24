@@ -22,6 +22,7 @@ using System.Net.Sockets;
 using System.Threading.Tasks;
 using AgLibrary.Logging;
 using AgOpenGPS.Core.Models;
+using AgOpenGPS.IO;
 
 namespace AgOpenGPS
 {
@@ -227,6 +228,15 @@ namespace AgOpenGPS
                 case "tram_vista":
                     CycleTramDisplayMode();
                     return true;
+                case "borrar_contornos":
+                    // deleteContourPathsToolStripMenuItem_Click (Controls.Designer.cs).
+                    Ct.stripList?.Clear();
+                    Ct.ptList?.Clear();
+                    Ct.ctList?.Clear();
+                    contourSaveList?.Clear();
+                    return true;
+                case "borrar_aplicado":
+                    return DeleteApplied();
                 default:
                     return false;
             }
@@ -277,6 +287,49 @@ namespace AgOpenGPS
                 if (Tool.zoneRanges[z] != 0)
                     for (int i = Tool.zoneRanges[z - 1]; i < Tool.zoneRanges[z]; i++) Sections[i].sectionBtnState = state;
             }
+        }
+
+        // toolStripAreYouSure_Click (Controls.Designer.cs) — borra TODO lo
+        // aplicado (contornos + cobertura). Destructivo: mismo guard que el
+        // original (solo con lote abierto y master auto/manual apagados —
+        // sin eso, FormGPS tampoco mostraba el diálogo de confirmación).
+        // Acá no hay diálogo (headless, el caller ya confirmó); si el guard
+        // no se cumple, "unknown" (false) en vez de ejecutar a medias.
+        private bool DeleteApplied()
+        {
+            if (!IsJobStarted || autoBtnState != btnStates.Off || manualBtnState != btnStates.Off)
+                return false;
+
+            SetAllSectionsState(btnStates.Off);
+            manualBtnState = btnStates.Off;
+            autoBtnState = btnStates.Off;
+
+            Ct.StopContourLine();
+            Ct.ResetContour();
+            Fd.workedAreaTotal = 0;
+            Fd.workedAreaTotalUser = 0;
+            Fd.distanceUser = 0;
+
+            for (int j = 0; j < TriStripField.Count; j++)
+            {
+                TriStripField[j].patchList?.Clear();
+                TriStripField[j].triangleList?.Clear();
+            }
+            patchSaveList?.Clear();
+
+            foreach (var t in Trk.gArr) t.workedTracks.Clear();
+
+            try
+            {
+                string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
+                ContourFiles.CreateFile(dir);
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: borrar_aplicado ContourFiles.CreateFile: " + ex.Message);
+            }
+
+            return true;
         }
 
         // btnContour_Click (Controls.Designer.cs), sin imagen de botón. El

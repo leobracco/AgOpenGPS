@@ -225,13 +225,54 @@ namespace PilotX.Droid
             return Task.FromResult(true);
         }
 
-        // Crear/borrar/importar lotes todavia no estan portados al guidance
-        // engine headless (necesitan el flujo completo de FileCreateField +
-        // los demas FileCreate* de SaveOpen.Designer.cs, ver GPS/Forms/
-        // SaveOpen.Designer.cs) — mismo comportamiento que el stub que
-        // reemplazan (false), no una regresion.
+        // Crear lote nuevo headless: crea el directorio + Field.txt con el
+        // origen = posicion GPS actual, y lo abre. Port del fix del taller
+        // en EngineLotesService.cs (PilotX.GuidanceEngine/Adapters, carril
+        // Desktop/consola) — esta clase es la copia que usa Android y no
+        // habia recibido el mismo fix (dos ILotesService distintos con la
+        // misma logica, ver COORDINACION-SESIONES.md).
+        public Task<bool> CreateFieldAsync(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);
+            string clean = CleanFieldName(name);
+            if (string.IsNullOrEmpty(clean)) return Task.FromResult(false);
+
+            string root = PilotXCore.RegistrySettings.fieldsDirectory;
+            if (string.IsNullOrEmpty(root)) return Task.FromResult(false);
+            string dir = Path.Combine(root, clean);
+            if (Directory.Exists(dir)) return Task.FromResult(false);
+
+            try
+            {
+                if (_engine.IsJobStarted) _engine.CloseField();
+
+                Directory.CreateDirectory(dir);
+
+                var origin = _engine.AppModelField.CurrentLatLon;
+                PilotXCore.IO.FieldPlaneFiles.Save(dir, DateTime.Now, origin);
+
+                return Task.FromResult(_engine.OpenField(clean));
+            }
+            catch
+            {
+                try { if (Directory.Exists(dir) && Directory.GetFiles(dir).Length == 0) Directory.Delete(dir); } catch { }
+                return Task.FromResult(false);
+            }
+        }
+
+        private static string CleanFieldName(string name)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            var sb = new System.Text.StringBuilder(name.Length);
+            foreach (char c in name)
+                if (Array.IndexOf(invalid, c) < 0) sb.Append(c);
+            return sb.ToString().Trim();
+        }
+
+        // Borrar/importar lotes todavia no estan portados al guidance engine
+        // headless (necesitan el flujo completo de SaveOpen.Designer.cs) —
+        // mismo comportamiento que el stub que reemplazan, no una regresion.
         public Task<bool> DeleteFieldAsync(string name) => Task.FromResult(false);
-        public Task<bool> CreateFieldAsync(string name) => Task.FromResult(false);
         public Task<bool> CreateFromExistingAsync(string templateName, string newName,
                                                   bool copyApplied, bool copyFlags,
                                                   bool copyGuidance, bool copyHeadland)

@@ -55,6 +55,52 @@ namespace PilotX.Droid
 
             // Monitor de cabina: pantalla siempre encendida.
             Window?.AddFlags(WindowManagerFlags.KeepScreenOn);
+
+            HideSystemBars();
+        }
+
+        // El theme ya pide windowFullscreen, pero eso solo no basta: la barra de
+        // estado seguía dibujándose ENCIMA del contenido (tapaba el marco
+        // superior de BarraSuperior) en vez de ocultarse. En API 30+ (Android 11+)
+        // las banderas viejas de SystemUiVisibility están deprecadas y muchos
+        // fabricantes ya las ignoran silenciosamente — hace falta el
+        // WindowInsetsController nativo. Se mantiene el fallback viejo para
+        // API 28/29 (el mínimo del proyecto).
+        private void HideSystemBars()
+        {
+            if (Window == null) return;
+
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.R)
+            {
+                Window.SetDecorFitsSystemWindows(false);
+                var controller = Window.InsetsController;
+                if (controller != null)
+                {
+                    controller.Hide(WindowInsets.Type.SystemBars());
+                    controller.SystemBarsBehavior = (int)WindowInsetsControllerBehavior.ShowTransientBarsBySwipe;
+                }
+            }
+            else
+            {
+                if (Window.DecorView == null) return;
+#pragma warning disable CA1422 // SystemUiVisibility obsoleto desde API 30 — rama explícita para API < 30
+                Window.DecorView.SystemUiVisibility = (StatusBarVisibility)(
+                    SystemUiFlags.LayoutStable
+                    | SystemUiFlags.LayoutHideNavigation
+                    | SystemUiFlags.LayoutFullscreen
+                    | SystemUiFlags.HideNavigation
+                    | SystemUiFlags.Fullscreen
+                    | SystemUiFlags.ImmersiveSticky);
+#pragma warning restore CA1422
+            }
+        }
+
+        public override void OnWindowFocusChanged(bool hasFocus)
+        {
+            base.OnWindowFocusChanged(hasFocus);
+            // El sistema puede sacar el modo inmersivo (ej. al volver de otra
+            // app); reaplicar cuando la ventana vuelve a tener foco.
+            if (hasFocus) HideSystemBars();
         }
     }
 }
