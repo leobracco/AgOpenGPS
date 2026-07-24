@@ -1367,3 +1367,11 @@ la sesión android al extraer, pero el taller los usa desde Services),
   (badges S / L+S): boundary/headland/tram builders, secciones individuales/zonas, banderas,
   ruta grabada, hyd-lift, import tracks, ISOBUS, snap/nudge, simulador por API. Arranquemos
   a tachar por el grupo que quieras.
+- [2026-07-24] [taller] CORRECCIÓN — el catálogo anterior mezclaba iconos rebrandeados
+  (btnImages_pilotx) con los viejos → REMOVIDO (`docs/catalogo-iconos.html`). Nuevo
+  **`docs/menus-viejos.html`** (226 KB, abrir en navegador): reconstrucción FIEL de los
+  menús viejos reales de **AgOpenGPS 6.8.5** (SourceCode pristino) con sus **iconos
+  verdaderos** (GPS/btnImages) y su función real. Trae los 3 dropdowns (Configuración,
+  Herramientas/Tools, Herramientas de lote) con ítems+submenús, y el toolbar por zonas
+  (Guiado/Secciones/Vista/Lote). Base para armar los menús HTML como eran antes.
+  Aparte: Codex ya no trabaja → carril C (HTML) colapsado en L en el inventario.

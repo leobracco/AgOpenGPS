@@ -5,10 +5,13 @@
 > después **mejorar**, y por último **sumar lo nuevo**.
 >
 > **Leyenda estado:** ✅ hecho en la UI nueva · 🟡 parcial/por validar · ❌ falta · — n/a
-> **Carril:** **L** = Leonardo (UI nativa Avalonia: botón/pantalla/overlay/mapa) ·
-> **S** = Santiago (engine/back-end: comando ExecuteCommand, /api, servicios) ·
-> **C** = HTML del Hub (Codex/existente, se abre por WebView).
-> Muchos ítems son **L+S** (UI + el dato/comando que la alimenta).
+> **Carril (2 carriles):** **L** = Leonardo (UI nativa Avalonia: botón/pantalla/overlay/mapa
+> + el HTML del Hub que ya existe, montarlo por WebView y retocarlo) · **S** = Santiago
+> (engine/back-end: comando ExecuteCommand, /api, servicios). Muchos ítems son **L+S**.
+>
+> **Nota 2026-07-24: Codex ya no trabaja.** El carril **C** (HTML del Hub) se **colapsó en L** —
+> las pantallas HTML ya están hechas; lo que queda (cablearlas por WebView + ajustes) es de Leonardo.
+> Un `(C)` en la columna Estado solo indica "es pantalla HTML", no un carril.
 >
 > El estado es una **primera pasada** — lo refinamos juntos ítem por ítem.
 
@@ -104,13 +107,13 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Menú de lote (btnJobMenu) | JobActive | Continuar/crear/abrir/borrar lote | 🟡 | L+S |
 | Autosteer ON/OFF (btnAutoSteer) | AutoSteerOn/Off | Engancha/desengancha el piloto (bloquea sobre velocidad máx) | ✅ | L+S |
 | Config autoguiado (btnAutoSteerConfig) | AutoSteerConf | Abre FormSteer (config dirección); texto = ángulo actual | 🟡 (C) | L+S |
-| Datos GPS (btnGPSData) | GPSQuality | Abre datos-gps.html (calidad antena) | 🟡 | L+C |
-| Datos del lote (btnFieldStats) | FieldStats | Abre datos-lote.html (stats del lote) | 🟡 | L+C |
+| Datos GPS (btnGPSData) | GPSQuality | Abre datos-gps.html (calidad antena) | 🟡 | L |
+| Datos del lote (btnFieldStats) | FieldStats | Abre datos-lote.html (stats del lote) | 🟡 | L |
 | Estado de carga (btnChargeStatus) | ChargeIndicator | Indicador batería/carga (no interactivo; color verde OK / rojo alerta) | ❌ | L |
 | CoreX/AgIO (btnStartAgIO) | AgIO | Lanza CoreX.exe + abre su dashboard | 🟡 | L+S |
-| Engranaje/Ajustes (dropDown1) | Settings48 | Menú config (config/steer/todos/dir/gps/colores) | 🟡 | L+C |
-| Tools/Funciones especiales (dropDown4) | SpecialFunctions | Menú de herramientas/diagnóstico (SIEMPRE activo) | 🟡 | L+C |
-| Herramientas de lote (FieldTools) | FieldTools | Menú del lote (off sin lote) | 🟡 | L+C |
+| Engranaje/Ajustes (dropDown1) | Settings48 | Menú config (config/steer/todos/dir/gps/colores) | 🟡 | L |
+| Tools/Funciones especiales (dropDown4) | SpecialFunctions | Menú de herramientas/diagnóstico (SIEMPRE activo) | 🟡 | L |
+| Herramientas de lote (FieldTools) | FieldTools | Menú del lote (off sin lote) | 🟡 | L |
 | Minimizar/Maximizar/Cerrar | WindowMin/Max/Close | Acciones de ventana | ✅ | L |
 
 ## 2) Guiado — guías/tracks
@@ -175,7 +178,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Bandera (btnFlag) | FlagGrn | Deja bandera en la posición actual | ❌ | L+S |
 | Bandera lat/lon (flagByLatLon) | FlagRed | Bandera por coordenadas (banderas.html) | ❌ (C) | L+S |
 | Borrar aplicado (deleteApplied) | TrashApplied | Borra cobertura/contornos + resetea área | ❌ | L+S |
-| Color mapeo (btnChangeMappingColor) | MappingOn | Color de la cobertura de secciones | ❌ | L+C |
+| Color mapeo (btnChangeMappingColor) | MappingOn | Color de la cobertura de secciones | ❌ | L |
 | Rumbo herramienta (btnResetToolHeading) | ResetTool | Endereza el implemento al rumbo GPS | ❌ | L+S |
 | Ruta grabada (Go/Stop/Record/Pick/Resume/SwapAB) | RecPath/Play | Grabar/reproducir recorridos | ❌ | L+S |
 | Importar tracks (copyTracks) | FileNew | Importa guías de otro lote | ❌ | S |
@@ -198,29 +201,29 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 
 | Grupo | Qué hace | Estado | Carril |
 |---|---|---|---|
-| **Vehículo** (Tipo/Dimensiones/Antena/Guiado) | config.html solapas de vehículo | 🟡 (C) | C+L(WebView)+S |
-| **Implemento** (Tipo/Enganche/Offset/Pivot/Secciones/Switches/Ajustes) | config.html solapas de herramienta | 🟡 (C) | C+L+S |
-| **Fuentes datos** (Rumbo/Roll/Módulo máquina/Relés) | config.html solapas de fuentes | 🟡 (C) | C+L+S |
-| **U-Turn / Display / Botones / Tram / Resumen** | config.html solapas varias | 🟡 (C) | C+L+S |
-| **Dirección/Autosteer** (FormSteer) | Config del autoguiado | 🟡 (C) | C+L+S |
-| **Todos los ajustes** (ajustes-todos.html) | Volcado solo-lectura | 🟡 (C) | C+L |
-| **Colores** (colores.html) | Colores marco/campo/texto día-noche | 🟡 (C) | C+L |
-| **Colores secciones** (colores-secciones.html) | 16 colores de sección + multicolor | 🟡 (C) | C+L |
-| **Perfiles** (nuevo/cargar, perfiles.html) | Gestión de perfiles de máquina | 🟡 (C) | C+L+S |
+| **Vehículo** (Tipo/Dimensiones/Antena/Guiado) | config.html solapas de vehículo | 🟡 (C) | L+S |
+| **Implemento** (Tipo/Enganche/Offset/Pivot/Secciones/Switches/Ajustes) | config.html solapas de herramienta | 🟡 (C) | L+S |
+| **Fuentes datos** (Rumbo/Roll/Módulo máquina/Relés) | config.html solapas de fuentes | 🟡 (C) | L+S |
+| **U-Turn / Display / Botones / Tram / Resumen** | config.html solapas varias | 🟡 (C) | L+S |
+| **Dirección/Autosteer** (FormSteer) | Config del autoguiado | 🟡 (C) | L+S |
+| **Todos los ajustes** (ajustes-todos.html) | Volcado solo-lectura | 🟡 (C) | L |
+| **Colores** (colores.html) | Colores marco/campo/texto día-noche | 🟡 (C) | L |
+| **Colores secciones** (colores-secciones.html) | 16 colores de sección + multicolor | 🟡 (C) | L |
+| **Perfiles** (nuevo/cargar, perfiles.html) | Gestión de perfiles de máquina | 🟡 (C) | L+S |
 | **Directorios** | Carpeta de trabajo (lotes/vehículos) | 🟡 | L+S |
 
 ## 8) Diagnóstico
 
 | Botón | Qué hace | Estado | Carril |
 |---|---|---|---|
-| Datos GPS (datos-gps.html) | Datos crudos del GPS | 🟡 (C) | L+C |
-| Asistente dirección (FormSteerWiz) | Calibración paso a paso del autosteer | ❌ (C) | C+L+S |
-| Gráfico dirección (grafico-direccion.html) | Ángulo real vs seteado en vivo | 🟡 (C) | C+L+S |
-| Gráfico rumbo (grafico-rumbo.html) | GPS vs IMU corregido | 🟡 (C) | C+L+S |
-| Gráfico XTE (grafico-xte.html) | Error de guiado en vivo | 🟡 (C) | C+L+S |
-| Chequeo roll (grafico-correccion.html) | Corrección roll IMU vs deriva GPS | 🟡 (C) | C+L+S |
-| Corregir posición (corregir-posicion.html) | Corrimiento de deriva GPS | ❌ (C) | C+L+S |
-| Visor eventos (eventos.html) | Registro de eventos solo-lectura | 🟡 (C) | C+L |
+| Datos GPS (datos-gps.html) | Datos crudos del GPS | 🟡 (C) | L |
+| Asistente dirección (FormSteerWiz) | Calibración paso a paso del autosteer | ❌ (C) | L+S |
+| Gráfico dirección (grafico-direccion.html) | Ángulo real vs seteado en vivo | 🟡 (C) | L+S |
+| Gráfico rumbo (grafico-rumbo.html) | GPS vs IMU corregido | 🟡 (C) | L+S |
+| Gráfico XTE (grafico-xte.html) | Error de guiado en vivo | 🟡 (C) | L+S |
+| Chequeo roll (grafico-correccion.html) | Corrección roll IMU vs deriva GPS | 🟡 (C) | L+S |
+| Corregir posición (corregir-posicion.html) | Corrimiento de deriva GPS | ❌ (C) | L+S |
+| Visor eventos (eventos.html) | Registro de eventos solo-lectura | 🟡 (C) | L |
 | Webcam/Cámaras (camaras.html) | Cámaras Hikvision RTSP | ✅ (overlay nativo) | L+S |
 
 ## 9) Agro Parallel / productos X-*
@@ -238,7 +241,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Botón | Qué hace | Estado | Carril |
 |---|---|---|---|
 | Simulador SÍ/NO | Enciende/apaga el sim de GPS | 🟡 (engine --sim) | L+S |
-| Coordenadas sim (sim-coords.html) | Reubica el sim a lat/lon | ❌ (C) | C+L+S |
+| Coordenadas sim (sim-coords.html) | Reubica el sim a lat/lon | ❌ (C) | L+S |
 | Reset / Reversa / Velocidad 0 / Ángulo 0 | Controles del simulador | ❌ | L+S |
 
 ## 11) Sistema
@@ -247,7 +250,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 |---|---|---|---|
 | Minimizar/Maximizar | Acciones de ventana | ✅ | L |
 | Modo kiosko | Pantalla completa + oculta ventana | 🟡 | L |
-| Ayuda (ayuda.html) | Utilidades del Hub + Acerca de | 🟡 (C) | L+C |
+| Ayuda (ayuda.html) | Utilidades del Hub + Acerca de | 🟡 (C) | L |
 | Reset de fábrica | Restablece toda la config (confirmación) | ❌ | L+S |
 | Apagar (btnShutdown) | Cierra PilotX | ✅ | L |
 
