@@ -14,6 +14,40 @@
 
 ---
 
+## ✅ VERIFICADO (2026-07-24) — Acciones de la pantalla del piloto (barra derecha + abajo)
+
+> Primer grupo recorrido ítem por ítem: los botones que hacen **acciones mientras el
+> piloto está activo**. Se cruzó el `CommandParameter` real de las barras contra el
+> `switch` de `GuidanceEngineHost.Commands.cs` (handlers leídos: son reales, no stubs).
+> **Casi todos están implementados en el engine.** Solo faltan 3 comandos.
+
+| Botón | cmd | Engine | Estado | Carril pendiente |
+|---|---|---|---|---|
+| AutoSteer (enganchar) | `autosteer` | `PerformAutoSteerClick` | ✅ probado | — |
+| AutoTrack (más cercana) | `autotrack` | toggle + auto-nearest | ✅ probado | — |
+| Guía ‹ / › | `track_prev/next` | `CycleTrack` | ✅ probado | — |
+| Elegir guía | `pick` | `SelectTrack` | ✅ | — |
+| Secc. Auto | `sec_auto` | `SectionMasterAuto` | ✅ (pinta cobertura) | — |
+| Secc. Manual | `sec_manual` | `SectionMasterManual` | 🟡 real, validar en mapa | L (validar) |
+| Contorno | `contour` | `ToggleContour` | 🟡 real, validar | L (validar) |
+| Bloqueo contorno | `contour_lock` | `SetLockToLine` | 🟡 real, validar | L (validar) |
+| U-Turn | `uturn` | `ToggleYouTurn` | 🟡 real (req. boundary+track) | L (validar) |
+| Centrar guía (snap) | `center` | `Trk.SnapToPivot` | 🟡 real, validar | L (validar) |
+| Mover ‹ / › (nudge) | `nudge_left/right` | `Trk.NudgeTrack` | 🟡 real, validar | L (validar) |
+| U-Turn skips | `uturn_skips` | `CycleYouTurnSkip` | 🟡 real | L (validar) |
+| Cabecera on/off | `cabecera_onoff` | `ToggleHeadland` | 🟡 real | L (validar) |
+| Cabecera secciones | `cabecera_secciones` | toggle | 🟡 real | L (validar) |
+| Hidráulico | `hidraulico` | `ToggleHydraulicLift` | 🟡 real | L (validar) |
+| Rumbo herramienta | `reset_herramienta` | `ResetToolHeading` | 🟡 real | L (validar) |
+| Tram vista | `tram_vista` | `CycleTramDisplayMode` | 🟡 real | L (validar) |
+| **ISOBUS** | `isobus` | ❌ no está | ❌ falta | **S** (comando + estado ISOBUS) |
+| **Bandera** | `bandera` | ❌ no está | ❌ falta | **S** (registrar flag + /api) · **L** (dibujar en mapa) |
+| **Color mapeo** | `mapeo_color` | ❌ no está | ❌ falta | **L** (color de cobertura, sin engine) |
+
+**Balance:** 5 ✅ · 12 🟡 (handler real, falta validar el efecto en el mapa) · 3 ❌ (`isobus`, `bandera`, `mapeo_color`).
+
+---
+
 ## 1) Barra superior / estado
 
 | Botón (original) | Icono | Qué hace | Estado | Carril |
