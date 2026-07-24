@@ -1289,3 +1289,18 @@ la sesión android al extraer, pero el taller los usa desde Services),
   4. **S2** IWebViewHost Android (para las pantallas de config HTML): opcional para el
      mapa; el contrato está en PilotX.UI/Services/IWebViewHost.cs.
   NO toqué GuidanceEngineServices/HubBootstrap/HubForegroundService — siguen igual.
+- [2026-07-23] [taller] ✅✅ **S1 VALIDADO EN EMULADOR — el mapa nativo CORRE en Android.**
+  Levanté un emulador acá (AVD en G:\AndroidAvd por espacio; system-image android-35
+  google_apis x86_64; GPU host). El APK arranca y renderiza: **mapa GL (fondo negro +
+  grid + tractor verde) + las 4 barras del cockpit + engine in-process :5180**. GL ES
+  CONFIRMADO en Android (era EL riesgo del port). Screenshot compartido con Leonardo.
+  Dice SIN FIX / 0 km/h porque no hay fuente GPS en el emulador (tu CoreX/serial en
+  hardware) — pero lo visual/GL está probado.
+  FIXES necesarios para que arranque (Santiago, ojo para tus builds):
+  1. Theme: Avalonia.Android EXIGE un theme descendiente de `Theme.AppCompat`. Creé
+     `Resources/values/styles.xml` (`PilotXTheme` parent `Theme.AppCompat.Light.NoActionBar`)
+     y el `[Activity(Theme="@style/PilotXTheme")]`. Con `@android:style/Theme.Material`
+     crashea: "You need to use a Theme.AppCompat theme".
+  2. Deploy: NO instalar el APK Debug con `adb install` suelto (Fast Deployment → crashea
+     "No assemblies found"). Usar `dotnet build -t:Install` (deploya assemblies) o Release.
+  PENDIENTE tuyo (hardware): fuente GPS (CoreX/USB-OTG), y validar en tablet real.

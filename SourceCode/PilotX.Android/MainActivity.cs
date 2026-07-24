@@ -26,7 +26,7 @@ namespace PilotX.Droid
     [Activity(
         Label = "PilotX",
         MainLauncher = true,
-        Theme = "@android:style/Theme.Material.Light.NoActionBar",
+        Theme = "@style/PilotXTheme",
         ConfigurationChanges = Android.Content.PM.ConfigChanges.Orientation
                              | Android.Content.PM.ConfigChanges.ScreenSize
                              | Android.Content.PM.ConfigChanges.KeyboardHidden
