@@ -1631,11 +1631,16 @@ public partial class MainWindow : Window
                 OpenDialogPage("pages/tracks.html", "Guías", 680, 520);
                 return true;
 
-            // Menú de lote (FormJob) → ventana chica
+            // Menú de lote (FormJob) → ventana chica. El submenú LOTE de la barra
+            // izquierda hace deep-link a la sub-pantalla vía ?do= (ver lote.js).
             case "lote_menu":
+                OpenDialogPage("pages/lote.html", "Lote", 670, 610); return true;
             case "lote_continuar":
-                OpenDialogPage("pages/lote.html", "Lote", 670, 610);
-                return true;
+                OpenDialogPage("pages/lote.html?do=continuar", "Lote", 670, 610); return true;
+            case "lote_nuevo":
+                OpenDialogPage("pages/lote.html?do=nuevo", "Nuevo lote", 670, 610); return true;
+            case "lote_kml":
+                OpenDialogPage("pages/lote.html?do=kml", "Lote desde KML", 670, 610); return true;
         }
 
         // ---- Comandos que abren una página HTML del Hub en el WebView ----
@@ -1659,8 +1664,6 @@ public partial class MainWindow : Window
             "suavizar_ab"       => "pages/suavizar-ab.html",
             "corregir_pos"      => "pages/corregir-posicion.html",
             "visor_eventos"     => "pages/eventos.html",
-            "lote_menu"         => "pages/lote.html",
-            "lote_continuar"    => "pages/lote.html",
             "bandera"           => "pages/banderas.html",
             "bandera_latlon"    => "pages/banderas.html",
             "lindero"           => "pages/contorno.html",
