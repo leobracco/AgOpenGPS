@@ -1634,3 +1634,20 @@ la sesión android al extraer, pero el taller los usa desde Services),
   más grande) hasta que se abre su submenú, y los 7 botones distribuidos
   en todo el alto de la columna. Build completo 0 errores, 141 tests
   verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (mismo carril, `MenuIzquierda.axaml.cs`) —
+  el usuario reportó que al tocar un ítem DENTRO de un submenú (ej.
+  "Brillo +") el submenú se cerraba solo, obligando a reabrirlo para
+  cada toque siguiente (molesto para acciones que se repiten, como
+  subir/bajar brillo o tilt varias veces seguidas). Causa: el handler
+  `OnAnyButtonClick` (auto-cierre del submenú al ejecutar una acción,
+  agregado junto con el menú colapsable) cerraba `OpenSubmenu` ante
+  CUALQUIER click que no fuera el toggle de la columna principal —
+  incluía tanto los botones de acción del submenú (`.sbtn`) como
+  Dirección/CoreX. Fix: excluí los botones `.sbtn` de esa condición —
+  ahora el auto-cierre solo aplica a acciones de la columna principal
+  (Dirección/CoreX); los ítems de un submenú abierto quedan disponibles
+  para tocarse repetidas veces sin perder el contexto.
+  Verificado en la tablet física: abrí "Navegación", toqué "Brillo +"
+  dos veces seguidas y el submenú siguió abierto en ambos toques (antes
+  volvía al menú principal en el primero). Build completo 0 errores,
+  141 tests verdes. Voy a commitear y pushear.
