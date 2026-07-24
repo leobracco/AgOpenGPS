@@ -275,57 +275,57 @@
   <div id="layout">
     <nav id="menu">
       <div class="grupo">Guiado</div>
-      <button type="button" data-tab="gain"><img src="../img/steer/Sf_GainTab.png" alt="" />Ganancias</button>
+      <button type="button" data-tab="gain"><img src="../img/steer/Sf_GainTab.png" alt="" />Respuesta (Ganancias)</button>
       <button type="button" data-tab="steer"><img src="../img/steer/Sf_SteerTab.png" alt="" />Dirección</button>
-      <button type="button" data-tab="pp"><img src="../img/steer/Sf_PP.png" alt="" />Pure Pursuit</button>
-      <button type="button" data-tab="stan"><img src="../img/steer/Sf_Stanley.png" alt="" />Stanley</button>
-      <button type="button" data-tab="ppadv"><img src="../img/config/ConS_ModulesSteer.png" alt="" />PP Avanzado</button>
-      <div class="grupo">Módulo</div>
+      <button type="button" data-tab="pp"><img src="../img/steer/Sf_PP.png" alt="" />Modo suave (Pure Pursuit)</button>
+      <button type="button" data-tab="stan"><img src="../img/steer/Sf_Stanley.png" alt="" />Modo firme (Stanley)</button>
+      <button type="button" data-tab="ppadv"><img src="../img/config/ConS_ModulesSteer.png" alt="" />Avanzado (PP Avanzado)</button>
+      <div class="grupo">Equipo</div>
       <button type="button" data-tab="sensors"><img src="../img/steer/ConSt_TurnSensor.png" alt="" />Sensores</button>
-      <button type="button" data-tab="config"><img src="../img/config/ConS_ModulesMachine.png" alt="" />Módulo</button>
+      <button type="button" data-tab="config"><img src="../img/config/ConS_ModulesMachine.png" alt="" />Placa (Módulo)</button>
       <button type="button" data-tab="settings"><img src="../img/config/ConS_ImplementSettings.png" alt="" />Ajustes</button>
       <button type="button" data-tab="alarm"><img src="../img/steer/con_VehicleFunctionSpeedLimit.png" alt="" />Velocidad</button>
-      <button type="button" data-tab="online"><img src="../img/steer/ConV_LineWith.png" alt="" />En la línea</button>
+      <button type="button" data-tab="online"><img src="../img/steer/ConV_LineWith.png" alt="" />Barra guía (On the line)</button>
     </nav>
 
     <main id="main">
       <!-- ================= Ganancias (P / PWM) ================= -->
       <section data-tab="gain">
         <div class="carta">
-          <h2>Ganancias del motor</h2>
+          <h2>Respuesta del volante (Ganancias)</h2>
 
           <div class="sctl">
             <img class="sdiag" src="../img/steer/ganacia_proporcional.png" alt="" />
             <div class="sbody">
-              <div class="stop"><span class="slbl">Ganancia Proporcional (P)</span>
+              <div class="stop"><span class="slbl">Fuerza de corrección (Ganancia P)</span>
                 <span class="sval" data-for="proportionalGain">4</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="proportionalGain" data-dir="-1">−</button>
                 <input type="range" data-key="proportionalGain" min="1" max="200" step="1" value="4" data-no-keyboard />
                 <button type="button" class="sbtn" data-nudge="proportionalGain" data-dir="1">+</button>
               </div>
-              <div class="shint">Más alto = respuesta más agresiva del volante.</div>
+              <div class="shint">Más alto = el volante corrige más fuerte.</div>
             </div>
           </div>
 
           <div class="sctl">
             <img class="sdiag" src="../img/steer/pwm_minimo.png" alt="" />
             <div class="sbody">
-              <div class="stop"><span class="slbl">Mínimo para mover (PWM mín)</span>
+              <div class="stop"><span class="slbl">Fuerza mínima para mover (PWM mín)</span>
                 <span class="sval" data-for="minPWM">10</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="minPWM" data-dir="-1">−</button>
                 <input type="range" data-key="minPWM" min="0" max="200" step="1" value="10" data-no-keyboard />
                 <button type="button" class="sbtn" data-nudge="minPWM" data-dir="1">+</button>
               </div>
-              <div class="shint">PWM mínimo que empieza a girar el volante.</div>
+              <div class="shint">La señal mínima que hace arrancar el volante.</div>
             </div>
           </div>
 
           <div class="sctl">
             <img class="sdiag" src="../img/steer/pwm_maximo.png" alt="" />
             <div class="sbody">
-              <div class="stop"><span class="slbl">Límite máximo (PWM alto)</span>
+              <div class="stop"><span class="slbl">Fuerza máxima (PWM alto)</span>
                 <span class="sval" data-for="highSteerPWM">50</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="highSteerPWM" data-dir="-1">−</button>
@@ -337,7 +337,7 @@
         </div>
       </section>
 
-      <!-- ================= Dirección (WAS / Ackermann / ángulo máx) ================= -->
+      <!-- ================= Dirección (WAS / Compensación de geometría / ángulo máx) ================= -->
       <section data-tab="steer">
         <div class="carta">
           <h2>Ángulo de dirección</h2>
@@ -351,13 +351,13 @@
           </p>
           <div class="nudfila">
             <button type="button" class="btnZero" id="btnZeroWas" title="Poner el WAS en cero"><img src="../img/steer/SteerZero.png" alt="0" /></button>
-            <span class="unidad">Poner WAS en cero</span>
+            <span class="unidad">Poner el sensor de ángulo en cero (WAS zero)</span>
           </div>
 
           <div class="sctl">
             <img class="sdiag" src="../img/steer/ConSt_InvertWAS.png" alt="" />
             <div class="sbody">
-              <div class="stop"><span class="slbl">Offset del WAS</span>
+              <div class="stop"><span class="slbl">Ajuste del cero del sensor (WAS offset)</span>
                 <span class="sval" data-for="wasOffset">0</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="wasOffset" data-dir="-1">−</button>
@@ -369,7 +369,7 @@
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Cuentas por grado</span>
+              <div class="stop"><span class="slbl">Cuentas por grado (counts/deg)</span>
                 <span class="sval" data-for="countsPerDegree">20</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="countsPerDegree" data-dir="-1">−</button>
@@ -381,7 +381,7 @@
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Ackermann</span>
+              <div class="stop"><span class="slbl">Compensación de geometría (Ackermann)</span>
                 <span class="sval" data-for="ackerman">100<span class="u">%</span></span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="ackerman" data-dir="-1">−</button>
@@ -394,7 +394,7 @@
           <div class="sctl">
             <img class="sdiag" src="../img/steer/ConV_MaxAutoSteer.png" alt="" />
             <div class="sbody">
-              <div class="stop"><span class="slbl">Ángulo máximo</span>
+              <div class="stop"><span class="slbl">Ángulo máximo de giro (Max angle)</span>
                 <span class="sval" data-for="maxSteerAngle">40<span class="u">°</span></span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="maxSteerAngle" data-dir="-1">−</button>
@@ -409,12 +409,12 @@
       <!-- ================= Pure Pursuit ================= -->
       <section data-tab="pp">
         <div class="carta">
-          <h2 class="pp">Pure Pursuit</h2>
+          <h2 class="pp">Modo suave (Pure Pursuit)</h2>
           <img class="tab-hero" src="../img/steer/Sf_PP.png" alt="Diagrama Pure Pursuit" />
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Respuesta de dirección (Look Ahead)</span>
+              <div class="stop"><span class="slbl">Qué tan adelante mira (Look Ahead)</span>
                 <span class="sval" data-for="holdLookAhead">2.5<span class="u">s</span></span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="holdLookAhead" data-dir="-1">−</button>
@@ -427,14 +427,14 @@
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Integral</span>
+              <div class="stop"><span class="slbl">Corrección de desvío (Integral)</span>
                 <span class="sval" data-for="integralPP">20<span class="u">%</span></span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="integralPP" data-dir="-1">−</button>
                 <input type="range" data-key="integralPP" min="0" max="100" step="1" value="20" data-no-keyboard />
                 <button type="button" class="sbtn" data-nudge="integralPP" data-dir="1">+</button>
               </div>
-              <div class="shint">Corrige lentamente el error de trayecto (cross-track).</div>
+              <div class="shint">Corrige de a poco el desvío que queda respecto de la línea.</div>
             </div>
           </div>
         </div>
@@ -443,12 +443,12 @@
       <!-- ================= Stanley ================= -->
       <section data-tab="stan">
         <div class="carta">
-          <h2 class="stan">Ganancias Stanley</h2>
+          <h2 class="stan">Modo firme (Stanley)</h2>
           <img class="tab-hero" src="../img/steer/Sf_Stanley.png" alt="Diagrama Stanley" />
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Distancia (cross-track)</span>
+              <div class="stop"><span class="slbl">Corrección por distancia (cross-track)</span>
                 <span class="sval" data-for="stanleyGain">1.0</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="stanleyGain" data-dir="-1">−</button>
@@ -460,7 +460,7 @@
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Rumbo (heading error)</span>
+              <div class="stop"><span class="slbl">Corrección por rumbo (heading error)</span>
                 <span class="sval" data-for="headingErrorGain">1.0</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="headingErrorGain" data-dir="-1">−</button>
@@ -472,7 +472,7 @@
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Integral</span>
+              <div class="stop"><span class="slbl">Corrección de desvío (Integral)</span>
                 <span class="sval" data-for="integralStanley">0<span class="u">%</span></span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="integralStanley" data-dir="-1">−</button>
@@ -487,12 +487,12 @@
       <!-- ================= PP Avanzado ================= -->
       <section data-tab="ppadv">
         <div class="carta">
-          <h2>Pure Pursuit avanzado</h2>
+          <h2>Ajustes avanzados (PP Avanzado)</h2>
 
           <div class="sctl">
             <img class="sdiag" src="../img/steer/ConV_GuidanceLookAhead.png" alt="" />
             <div class="sbody">
-              <div class="stop"><span class="slbl">Factor de velocidad (Look Ahead Mult)</span>
+              <div class="stop"><span class="slbl">Anticipación según la velocidad (Look Ahead Mult)</span>
                 <span class="sval" data-for="lookAheadMult">0.6</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="lookAheadMult" data-dir="-1">−</button>
@@ -505,20 +505,20 @@
           <div class="sctl">
             <img class="sdiag" src="../img/steer/ConV_SnapDistance.png" alt="" />
             <div class="sbody">
-              <div class="stop"><span class="slbl">Factor de captura (Acquire)</span>
+              <div class="stop"><span class="slbl">Rapidez para volver a la línea (Acquire)</span>
                 <span class="sval" data-for="acquireFactor">0.75</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="acquireFactor" data-dir="-1">−</button>
                 <input type="range" data-key="acquireFactor" min="20" max="300" step="1" value="75" data-scale="0.01" data-dec="2" data-no-keyboard />
                 <button type="button" class="sbtn" data-nudge="acquireFactor" data-dir="1">+</button>
               </div>
-              <div class="shint">Acquire = Factor × Look Ahead.</div>
+              <div class="shint">Qué tan rápido busca volver a la línea.</div>
             </div>
           </div>
         </div>
 
         <div class="carta">
-          <h2>Zona muerta (Dead Zone)</h2>
+          <h2>Zona muerta</h2>
           <div class="nudfila">
             <label for="deadZoneHeading">Rumbo (grados)</label>
             <input class="nud" id="deadZoneHeading" data-key="deadZoneHeading" type="number" inputmode="decimal" min="0.1" max="5" step="0.1" value="1.0" />
@@ -537,7 +537,7 @@
         <div class="carta">
           <h2>Sensor de giro</h2>
           <div class="togglesGrid" style="margin-bottom:12px">
-            <div class="chkimg" data-key="encoder"><img src="../img/steer/ConSt_TurnSensor.png" alt="" /><span class="cap">Encoder / Cuentas</span></div>
+            <div class="chkimg" data-key="encoder"><img src="../img/steer/ConSt_TurnSensor.png" alt="" /><span class="cap">Encoder del motor</span></div>
             <div class="chkimg" data-key="pressureSensor"><img src="../img/steer/ConSt_TurnSensorPressure.png" alt="" /><span class="cap">Presión</span></div>
             <div class="chkimg" data-key="currentSensor"><img src="../img/steer/ConSt_TurnSensorCurrent.png" alt="" /><span class="cap">Corriente</span></div>
           </div>
@@ -566,33 +566,33 @@
       <!-- ================= Módulo (pines / inversiones / drivers) ================= -->
       <section data-tab="config">
         <div class="carta">
-          <h2>Inversiones y módulo</h2>
+          <h2>Placa y conexiones (Módulo)</h2>
           <div class="togglesGrid" style="margin-bottom:14px">
             <div class="chkimg" data-key="danfoss"><img src="../img/steer/ConSt_Danfoss.png" alt="" /><span class="cap">Danfoss</span></div>
-            <div class="chkimg" data-key="invertWas"><img src="../img/steer/ConSt_InvertWAS.png" alt="" /><span class="cap">Invertir WAS</span></div>
+            <div class="chkimg" data-key="invertWas"><img src="../img/steer/ConSt_InvertWAS.png" alt="" /><span class="cap">Invertir sensor de ángulo (WAS)</span></div>
             <div class="chkimg" data-key="invertSteer"><img src="../img/steer/ConSt_InvertDirection.png" alt="" /><span class="cap">Invertir motor</span></div>
             <div class="chkimg" data-key="invertRelays"><img src="../img/steer/ConSt_InvertRelay.png" alt="" /><span class="cap">Invertir relés</span></div>
           </div>
 
           <div class="seg-field">
-            <span class="lbl">Driver de motor</span>
+            <span class="lbl">Tipo de driver del motor</span>
             <div class="seg" data-seg="motorDrive">
               <button type="button" class="seg-btn on" data-val="Cytron">Cytron</button>
               <button type="button" class="seg-btn" data-val="IBT2">IBT2</button>
             </div>
           </div>
           <div class="seg-field">
-            <span class="lbl">Conversor A2D</span>
+            <span class="lbl">Tipo de conversor de señal (A2D)</span>
             <div class="seg" data-seg="convType">
               <button type="button" class="seg-btn on" data-val="Single">Simple</button>
               <button type="button" class="seg-btn" data-val="Differential">Diferencial</button>
             </div>
           </div>
           <div class="seg-field">
-            <span class="lbl">Habilitación de dirección (Steer Enable)</span>
+            <span class="lbl">Cómo se activa el piloto (Steer Enable)</span>
             <div class="seg" data-seg="steerEnable">
               <button type="button" class="seg-btn on" data-val="None">Ninguno</button>
-              <button type="button" class="seg-btn" data-val="Switch">Switch</button>
+              <button type="button" class="seg-btn" data-val="Switch">Interruptor</button>
               <button type="button" class="seg-btn" data-val="Button">Botón</button>
             </div>
           </div>
@@ -614,7 +614,7 @@
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Compensación de giro en U (U-Turn)</span>
+              <div class="stop"><span class="slbl">Ajuste del giro en U (U-Turn)</span>
                 <span class="sval" data-for="uTurnComp">-5</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="uTurnComp" data-dir="-1">−</button>
@@ -627,7 +627,7 @@
 
           <div class="sctl">
             <div class="sbody">
-              <div class="stop"><span class="slbl">Grados por grado de inclinación (Side Hill)</span>
+              <div class="stop"><span class="slbl">Corrección en pendiente (Side Hill)</span>
                 <span class="sval" data-for="sideHillComp">5</span></div>
               <div class="sslider">
                 <button type="button" class="sbtn" data-nudge="sideHillComp" data-dir="-1">−</button>
@@ -641,13 +641,13 @@
         <div class="carta">
           <h2>Modo y reversa</h2>
           <div class="togglesGrid">
-            <div class="chkimg" data-key="stanleyPure"><img src="../img/steer/ModeStanley.png" alt="" /><span class="cap">Modo Stanley / Pure Pursuit</span></div>
+            <div class="chkimg" data-key="stanleyPure"><img src="../img/steer/ModeStanley.png" alt="" /><span class="cap">Modo firme / suave</span></div>
             <div class="chkimg" data-key="steerInReverse"><img src="../img/steer/ConV_RevSteer.png" alt="" /><span class="cap">Dirigir en retroceso</span></div>
           </div>
         </div>
 
         <div class="carta">
-          <h2>Smart WAS</h2>
+          <h2>Cero automático del sensor (Smart WAS)</h2>
           <div class="nudfila" style="margin-bottom:0">
             <button type="button" class="btnZero" id="btnSmartZeroWas" title="Cero automático del WAS"><img src="../img/steer/ST_SmartWAS.png" alt="" /></button>
             <span class="unidad">Cero automático · <b id="smartStatus">Listo · Muestras: 0 · Confianza: 0%</b></span>
@@ -658,11 +658,11 @@
       <!-- ================= Velocidad / alarmas ================= -->
       <section data-tab="alarm">
         <div class="carta">
-          <h2>Límites de velocidad de dirección</h2>
+          <h2>Límites de velocidad</h2>
 
           <div class="numfila">
             <img class="numdiag" src="../img/steer/con_VehicleFunctionSpeedLimit.png" alt="" />
-            <div class="numbody"><div class="lbl">Límite de funciones (giros manuales)</div><div class="sub">Velocidad máxima para funciones de guiado</div></div>
+            <div class="numbody"><div class="lbl">Velocidad máx. para giros manuales</div><div class="sub">Velocidad máxima para funciones de guiado</div></div>
             <input id="guidanceSpeedLimit" data-key="guidanceSpeedLimit" type="number" inputmode="numeric" min="2" max="20" step="1" value="7" />
             <span class="unidad">km/h</span>
           </div>
