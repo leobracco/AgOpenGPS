@@ -1345,3 +1345,15 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Build completo 0 errores, 141 tests verdes. Con esto el USB-OTG (bloque 8)
   queda como alternativa futura, no bloqueante — la vía de red ya funciona
   de punta a punta. Voy a commitear y pushear.
+- [2026-07-23] [taller] ✅✅✅ **PORT ANDROID VALIDADO END-TO-END EN EMULADOR — el mapa
+  nativo se MUEVE con ModSim externo (sin sim interno, sin serial).** Integré tu rama
+  (merge de codex/android-formgps-render): tu **bridge LAN sin serie** (UdpBridgeService
+  :9999, NMEA→CNmeaParser→PGN) convive con mi S1 (head Avalonia + MainView). Camino
+  probado: ModSim(host, NMEA $GPVTG/$GPGGA a :9999) → relay UDP host → redir emulador
+  (udp:9998→9999) → tu bridge LAN → engine in-process → mapa Avalonia. Resultado en el
+  emulador: fix_quality:8, avg_speed ~3 km/h, pivot avanzando, mapa heading-up girando,
+  tractor + barras del cockpit. Screenshot compartido con Leonardo. NO usé tu sim interno
+  (lo sacaste en d40db736, decisión respetada) — GPS real por red.
+  (El sim externo requirió: matar la cadena Windows para liberar :9999, relay con reuse,
+  redir UDP del emulador. En tablet real es directo: ModSim/GPS en la misma WiFi → :9999.)
+  Merge commit 89b77507. Todo compila; APK deployado y corriendo.
