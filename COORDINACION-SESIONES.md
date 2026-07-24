@@ -1610,3 +1610,27 @@ la sesión android al extraer, pero el taller los usa desde Services),
   `LOTE`/`SISTEMA`/controles de ventana) totalmente visible sin la barra
   de estado encima, sin excepciones en logcat. Build completo 0 errores,
   141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (mismo carril, 2 ajustes más sobre
+  `MenuIzquierda.axaml`) — el usuario reportó que el botón LOTE se veía
+  "seleccionado siempre" y que quería los botones del menú principal más
+  separados usando todo el alto disponible de la barra:
+  1. **LOTE con verde permanente**: la clase `.mbtn.lote` forzaba
+     `Background`/`BorderBrush` verdes fijos (para imitar el `btnJobMenu`
+     de AOG, que es un indicador de "hay lote cargado", no de selección),
+     pero visualmente se confundía con el estado `.active` que usan los
+     demás botones (solo verde cuando su submenú está abierto). Saqué el
+     color fijo de `.mbtn.lote` — ahora solo tiene `MinHeight=78` (más
+     grande, jerarquía visual) y sigue el mismo `Classes.active` que el
+     resto: blanco en reposo, verde solo con el submenú "lote" abierto.
+  2. **Botones bunched arriba, hueco vacío abajo**: la columna principal
+     era un `StackPanel Spacing="14"` — el spacing es un gap fijo, no
+     reparte el resto del alto disponible. La reemplacé por un `Grid
+     RowDefinitions="*,*,*,*,*,*,*"` (una fila por botón) y agregué
+     `VerticalAlignment="Center"` a `Button.mbtn`: cada botón mantiene su
+     tamaño natural pero centrado en su fila "*", así el espacio extra se
+     reparte parejo entre los 7 y ocupan toda la barra en vez de dejar
+     hueco al final.
+  Verificado en la tablet física con captura: LOTE en blanco normal (solo
+  más grande) hasta que se abre su submenú, y los 7 botones distribuidos
+  en todo el alto de la columna. Build completo 0 errores, 141 tests
+  verdes. Voy a commitear y pushear.
