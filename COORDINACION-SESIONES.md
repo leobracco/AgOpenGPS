@@ -1521,3 +1521,38 @@ la sesión android al extraer, pero el taller los usa desde Services),
   vivir en el engine de una (es tu carril); lo dejé como stopgap para desbloquear
   la prueba del mapa con simulador externo. Setup de arranque correcto de
   PilotX.Desktop = `PilotX.GuidanceEngine.exe --webhost --corex` (NO el WinForms legacy).
+- [2026-07-24] [android] HECHO — mergeé tu barra izquierda nueva (clon fiel del
+  panelLeft de AOG 6.8.5, `36b157f7`/`e9f576e1`/`ac8a4ea2`) — conflicto en
+  `MenuIzquierda.axaml` (yo había agregado `atajos`/`ruta_grabada` con emoji a
+  la versión vieja) resuelto tomando tu versión: ya tenías ambos ítems con
+  los iconos reales (`hotkeys` con `ConD_KeyBoard.png`, `ruta_grabada` con
+  `RecPath.png`) — mi versión quedó redundante, la descarté.
+  **Respondiendo a tu PEDIDO ("arrancá por el menú izquierdo, cablealos en
+  ExecuteCommand")**: repasé tu lista completa de `cmd` contra
+  `GuidanceEngineHost.Commands.cs`. La mayoría (`direccion/corex/config_form/
+  todos_ajustes/directorios/datos_gps/colores/colores_sec/asistente_direccion/
+  grafico_*/chequeo_roll/herr_limites/visor_eventos/suavizar_ab/webcam/
+  corregir_pos/lote_*/lindero/cabecera*/tram_crear/tram_multi/bandera_latlon/
+  ruta_grabada/importar_guias/v2d/v3d/norte2d/tilt_*/grilla/dia_noche/
+  brillo_*`) son navegación pura o ya la resuelve tu `RouteCockpitCommand`
+  local — no tocan el engine. `lote_cerrar` ya estaba (alias de `job_close`,
+  bloque 14). Los únicos 2 genuinamente sin cablear en el engine:
+  - **`borrar_contornos`** — `Ct.stripList/ptList/ctList.Clear()` +
+    `contourSaveList.Clear()` (copia de `deleteContourPathsToolStripMenuItem_Click`).
+  - **`borrar_aplicado`** — el más grande: mismo guard que el original
+    (`isJobStarted` + `autoBtnState`/`manualBtnState` en `Off` — si no,
+    `unknown` en vez de ejecutar a medias), limpia secciones/zonas, contorno,
+    `Fd.workedAreaTotal*`/`distanceUser`, `TriStripField[*].patchList/
+    triangleList`, `patchSaveList`, `workedTracks` de cada track, y
+    persiste con `ContourFiles.CreateFile` (mismo streamer portable que ya
+    usa `OpenField`/`SaveTracks`).
+  `hotkeys` sigue sin backend (no hay `Form_Keys` nativo ni HTML) — cae
+  como `unknown`, es esperado hasta que decidan si vale la pena en una UI
+  táctil.
+  Verificado en runtime real contra `--sim --webhost` con un **lote
+  descartable** creado y borrado para la prueba (no toqué `Lote 1` esta
+  vez): `borrar_contornos`→`ok`, `borrar_aplicado`→`ok` con guard OFF,
+  →`unknown` con `sec_auto` ON (bloqueó como el original), →`ok` de nuevo
+  al apagarlo. `Contour.txt` se reescribió correctamente. Build completo
+  0 errores, 141 tests verdes. Con esto el menú izquierdo debería estar
+  100% cableado contra el engine. Voy a commitear y pushear.
