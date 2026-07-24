@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dirección · Agro Parallel</title>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* ---------- Tabs (mismo mecanismo que corex-ecu.html) ---------- */
+    .tabs { display:flex; gap:6px; margin: var(--agp-sp-3) 0; flex-wrap:wrap; }
+    .tab-btn {
+      min-height: 42px; padding: 8px 14px;
+      border: 1px solid var(--agp-border);
+      background: var(--agp-surface);
+      color: var(--agp-text);
+      border-radius: var(--agp-radius-md);
+      cursor: pointer;
+      font-weight: var(--agp-fw-medium);
+      font-size: var(--agp-fs-sm);
+    }
+    .tab-btn.active {
+      background: var(--agp-accent-soft);
+      border-color: var(--agp-accent);
+      color: var(--agp-text);
+    }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+
+    /* ---------- Tira de lecturas live (read-only) ---------- */
+    .live-strip {
+      display:grid; grid-template-columns: repeat(4, 1fr);
+      gap: var(--agp-sp-2); margin-bottom: var(--agp-sp-3);
+    }
+    .live-tile {
+      background: var(--agp-surface); border:1px solid var(--agp-border);
+      border-radius: var(--agp-radius-md); padding: 8px 12px;
+    }
+    .live-tile .lbl {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: .5px;
+    }
+    .live-tile .val {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-xl);
+      font-weight: var(--agp-fw-bold); color: var(--agp-text); line-height: 1.1;
+    }
+
+    /* ---------- Control (slider) ---------- */
+    .ctl {
+      padding: 10px 12px; border-bottom: 1px solid var(--agp-border);
+    }
+    .ctl:last-child { border-bottom: none; }
+    .ctl-head {
+      display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    }
+    .ctl-head label { font-weight: var(--agp-fw-medium); color: var(--agp-text); }
+    .ctl-val {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-lg);
+      font-weight: var(--agp-fw-bold); color: var(--agp-text);
+      min-width: 72px; text-align:right;
+    }
+    .ctl-val .unit { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); font-weight: var(--agp-fw-regular); }
+    .ctl-slider { display:flex; align-items:center; gap:8px; margin-top:6px; }
+    .ctl-slider input[type=range] { flex:1; height: 34px; accent-color: var(--agp-accent); }
+    .nudge {
+      flex-shrink:0; width:40px; height:40px; border-radius: var(--agp-radius-md);
+      border:1px solid var(--agp-border); background: var(--agp-surface);
+      color: var(--agp-text); font-size: 14px; cursor:pointer; line-height:1;
+    }
+    .nudge:active { background: var(--agp-accent-soft); border-color: var(--agp-accent); }
+    .ctl-hint { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 4px; }
+
+    /* ---------- Campo numérico (nud) ---------- */
+    .num-row {
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding: 10px 12px; border-bottom: 1px solid var(--agp-border);
+    }
+    .num-row:last-child { border-bottom:none; }
+    .num-row .nr-label { font-weight: var(--agp-fw-medium); }
+    .num-row .nr-hint { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top:2px; }
+    .num-row input[type=number] {
+      width: 120px; min-height: 44px; text-align:right;
+      background: var(--agp-surface); border:1px solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); color: var(--agp-text);
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-md); padding: 4px 10px;
+    }
+    .num-row input[type=number]:focus { outline: 2px solid var(--agp-accent); }
+    .num-suffix { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+
+    /* ---------- Checkbox / toggle rows ---------- */
+    .chk-row {
+      display:flex; align-items:center; gap:12px;
+      padding: 10px 12px; border-bottom: 1px solid var(--agp-border);
+      cursor:pointer; user-select:none;
+    }
+    .chk-row:last-child { border-bottom:none; }
+    .chk-box {
+      flex-shrink:0; width:26px; height:26px; border-radius: var(--agp-radius-sm);
+      border:1px solid var(--agp-border-strong); background: var(--agp-surface);
+      display:flex; align-items:center; justify-content:center;
+      font-weight: var(--agp-fw-bold); color: transparent;
+    }
+    .chk-row.on .chk-box {
+      background: var(--agp-accent-soft); border-color: var(--agp-accent);
+      color: var(--agp-accent);
+    }
+    .chk-main { flex:1; }
+    .chk-main .chk-label { font-weight: var(--agp-fw-medium); }
+    .chk-main .chk-hint { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top:2px; }
+
+    /* ---------- Selector segmentado (combos del original) ---------- */
+    .seg { display:inline-flex; gap:6px; }
+    .seg-btn {
+      min-height: 40px; padding: 6px 16px; border-radius: var(--agp-radius-md);
+      border:1px solid var(--agp-border); background: var(--agp-surface);
+      color: var(--agp-text); cursor:pointer; font-weight: var(--agp-fw-medium);
+    }
+    .seg-btn.on {
+      background: var(--agp-accent-soft); border-color: var(--agp-accent);
+      box-shadow: 0 0 0 1px var(--agp-accent) inset;
+    }
+    .opt-row {
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding: 10px 12px; border-bottom:1px solid var(--agp-border);
+    }
+    .opt-row:last-child { border-bottom:none; }
+
+    /* ---------- Barras de ángulo (read-only) ---------- */
+    .angle-bars { display:flex; align-items:center; gap:4px; margin-top: var(--agp-sp-2); }
+    .angle-bars .bar {
+      height: 22px; background: var(--agp-surface-3); border-radius: var(--agp-radius-sm);
+      flex:1; overflow:hidden; position:relative;
+    }
+    .angle-bars .bar .fill { position:absolute; top:0; bottom:0; background: var(--agp-accent); width:0%; }
+    .angle-bars .bar.left .fill { right:0; }
+    .angle-bars .bar.right .fill { left:0; }
+    .angle-bars .mid { width:2px; height:26px; background: var(--agp-border-strong); }
+
+    /* ---------- Barra de guardado flotante ---------- */
+    .save-bar {
+      position: sticky; bottom: 0; margin-top: var(--agp-sp-4);
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      padding: 12px; background: var(--agp-surface);
+      border:1px solid var(--agp-border); border-radius: var(--agp-radius-lg);
+      box-shadow: var(--agp-shadow-md);
+    }
+    .btn-primary {
+      min-height: 48px; padding: 10px 22px; border-radius: var(--agp-radius-md);
+      background: var(--agp-accent); color:#fff; border:1px solid var(--agp-accent-press);
+      font-weight: var(--agp-fw-bold); cursor:pointer; font-size: var(--agp-fs-md);
+    }
+    .btn-primary:hover { background: var(--agp-accent-hover); }
+    .btn-ghost {
+      min-height: 48px; padding: 10px 18px; border-radius: var(--agp-radius-md);
+      background: var(--agp-surface); color: var(--agp-text);
+      border:1px solid var(--agp-border-strong); font-weight: var(--agp-fw-medium); cursor:pointer;
+    }
+    .btn-ghost:hover { background: var(--agp-bg-soft); }
+    .save-msg { color: var(--agp-text-muted); font-size: var(--agp-fs-sm); }
+
+    .card h3.sec { margin: 4px 0 8px; font-size: var(--agp-fs-sm); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: .5px; }
+    .two-col { display:grid; grid-template-columns: 1fr 1fr; gap: var(--agp-sp-3); }
+    @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } .live-strip { grid-template-columns: repeat(2,1fr); } }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="direccion"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Dirección</h1>
+        <div class="subtitle">AutoSteer · configuración del módulo de guiado (CoreX)</div>
+      </div>
+      <span class="pill idle" id="okPill"><span class="dot"></span> Sin conexión</span>
+    </div>
+
+    <!-- ============ Lecturas en vivo (read-only) ============ -->
+    <div class="live-strip">
+      <div class="live-tile"><div class="lbl">Ángulo fijado</div><div class="val" id="liveSet">—</div></div>
+      <div class="live-tile"><div class="lbl">Ángulo real</div><div class="val" id="liveAct">—</div></div>
+      <div class="live-tile"><div class="lbl">Error</div><div class="val" id="liveErr">—</div></div>
+      <div class="live-tile"><div class="lbl">PWM</div><div class="val" id="livePwm">—</div></div>
+    </div>
+
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-tab="gain">Ganancias</button>
+      <button type="button" class="tab-btn" data-tab="steer">Dirección</button>
+      <button type="button" class="tab-btn" data-tab="pp">Pure Pursuit</button>
+      <button type="button" class="tab-btn" data-tab="stan">Stanley</button>
+      <button type="button" class="tab-btn" data-tab="ppadv">PP Avanzado</button>
+      <button type="button" class="tab-btn" data-tab="sensors">Sensores</button>
+      <button type="button" class="tab-btn" data-tab="config">Módulo</button>
+      <button type="button" class="tab-btn" data-tab="settings">Ajustes</button>
+      <button type="button" class="tab-btn" data-tab="alarm">Alarma</button>
+      <button type="button" class="tab-btn" data-tab="online">En la línea</button>
+    </div>
+
+    <!-- ============ GANANCIAS ============ -->
+    <section class="tab-pane active" data-tab="gain">
+      <div class="card">
+        <div class="ctl">
+          <div class="ctl-head"><label>Ganancia proporcional (P)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="proportionalGain">50</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="proportionalGain" data-dir="-1">▼</button>
+            <input type="range" data-key="proportionalGain" min="1" max="200" value="50" step="1">
+            <button type="button" class="nudge" data-nudge="proportionalGain" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Cuánto corrige el motor por cada grado de error. Más alto = respuesta más agresiva.</div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Mínimo para mover (PWM mín.)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="minPWM">10</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="minPWM" data-dir="-1">▼</button>
+            <input type="range" data-key="minPWM" min="0" max="200" value="10" step="1">
+            <button type="button" class="nudge" data-nudge="minPWM" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">PWM mínimo para vencer la fricción y que el volante empiece a girar.</div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Límite máximo (PWM alto)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="highPWM">180</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="highPWM" data-dir="-1">▼</button>
+            <input type="range" data-key="highPWM" min="20" max="255" value="180" step="1">
+            <button type="button" class="nudge" data-nudge="highPWM" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Tope de PWM que se le entrega al motor de dirección.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DIRECCIÓN ============ -->
+    <section class="tab-pane" data-tab="steer">
+      <div class="two-col">
+        <div class="card">
+          <div class="ctl">
+            <div class="ctl-head"><label>Ángulo máximo de dirección</label>
+              <div class="ctl-val"><span class="slider-val" data-for="maxSteerAngle">45</span><span class="unit"> °</span></div></div>
+            <div class="ctl-slider">
+              <button type="button" class="nudge" data-nudge="maxSteerAngle" data-dir="-1">▼</button>
+              <input type="range" data-key="maxSteerAngle" min="10" max="80" value="45" step="1">
+              <button type="button" class="nudge" data-nudge="maxSteerAngle" data-dir="1">▲</button>
+            </div>
+            <div class="ctl-hint">Máximo giro que la rueda directriz puede alcanzar.</div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-head"><label>Ackerman</label>
+              <div class="ctl-val"><span class="slider-val" data-for="ackerman">100</span><span class="unit"> %</span></div></div>
+            <div class="ctl-slider">
+              <button type="button" class="nudge" data-nudge="ackerman" data-dir="-1">▼</button>
+              <input type="range" data-key="ackerman" min="1" max="200" value="100" step="1">
+              <button type="button" class="nudge" data-nudge="ackerman" data-dir="1">▲</button>
+            </div>
+            <div class="ctl-hint">Corrección de geometría Ackerman entre rueda interna y externa.</div>
+          </div>
+          <div class="ctl">
+            <div class="ctl-head"><label>Cuentas por grado</label>
+              <div class="ctl-val"><span class="slider-val" data-for="countsPerDegree">110</span></div></div>
+            <div class="ctl-slider">
+              <button type="button" class="nudge" data-nudge="countsPerDegree" data-dir="-1">▼</button>
+              <input type="range" data-key="countsPerDegree" min="1" max="255" value="110" step="1">
+              <button type="button" class="nudge" data-nudge="countsPerDegree" data-dir="1">▲</button>
+            </div>
+            <div class="ctl-hint">Cuentas del sensor de ángulo (WAS) por grado de giro.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ctl">
+            <div class="ctl-head"><label>Offset del WAS</label>
+              <div class="ctl-val"><span class="slider-val" data-for="wasOffset">0</span></div></div>
+            <div class="ctl-slider">
+              <button type="button" class="nudge" data-nudge="wasOffset" data-dir="-1">▼</button>
+              <input type="range" data-key="wasOffset" min="-4000" max="4000" value="0" step="1">
+              <button type="button" class="nudge" data-nudge="wasOffset" data-dir="1">▲</button>
+            </div>
+            <div class="ctl-hint">Corrección de cero del sensor de ángulo. Ángulo de cero:
+              <strong id="wasZeroAngle" style="color:var(--agp-text)">0.00</strong> °</div>
+          </div>
+          <div class="opt-row">
+            <div>
+              <div class="chk-label" style="font-weight:var(--agp-fw-medium)">Poner el WAS en cero</div>
+              <div class="nr-hint">Captura el ángulo actual como cero. La rueda debe estar derecha.</div>
+            </div>
+            <button type="button" class="btn-ghost" id="btnZeroWas">Cero WAS</button>
+          </div>
+
+          <div style="padding: 10px 12px;">
+            <h3 class="sec">Ángulo real de dirección</h3>
+            <div class="angle-bars">
+              <div class="bar left"><div class="fill" id="barLeft"></div></div>
+              <div class="mid"></div>
+              <div class="bar right"><div class="fill" id="barRight"></div></div>
+            </div>
+            <div class="ctl-head" style="margin-top:8px">
+              <span class="nr-hint">Ángulo actual</span>
+              <div class="ctl-val" id="steerAngleActual">— °</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Smart WAS + arco de calibración -->
+      <div class="two-col" style="margin-top: var(--agp-sp-3)">
+        <div class="card">
+          <h3 class="sec">Calibración Smart WAS</h3>
+          <div class="row"><span>Muestras</span><strong id="smartSamples" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Confianza</span><strong id="smartConfidence" style="color:var(--agp-text)">—</strong></div>
+          <div class="row"><span>Estado</span><strong id="smartStatus" style="color:var(--agp-text)">Detenido</strong></div>
+          <button type="button" class="btn-ghost" id="btnSmartZero" style="margin-top:10px" disabled>Aplicar offset recomendado</button>
+        </div>
+        <div class="card">
+          <h3 class="sec">Sacar diámetro de giro (arco)</h3>
+          <div class="row"><span>Diámetro</span><strong id="arcDiameter" style="color:var(--agp-text)">0.0 m</strong></div>
+          <div class="row"><span>Ángulo calculado</span><strong id="arcAngle" style="color:var(--agp-text)">0.0 °</strong></div>
+          <button type="button" class="btn-ghost" id="btnArc" style="margin-top:10px">Iniciar arco</button>
+          <div class="nr-hint" style="margin-top:8px">Con el tractor girando parejo, mide el diámetro y estima el ángulo real.</div>
+        </div>
+      </div>
+
+      <!-- Manejo libre (free drive) -->
+      <div class="card" style="margin-top: var(--agp-sp-3)">
+        <h3 class="sec">Manejo libre (free drive)</h3>
+        <div class="opt-row">
+          <div>
+            <div class="chk-label" style="font-weight:var(--agp-fw-medium)">Habilitar manejo libre</div>
+            <div class="nr-hint">Mueve el motor a mano para verificar respuesta. Se apaga al salir.</div>
+          </div>
+          <div class="seg">
+            <button type="button" class="nudge" id="btnFreeDown" style="width:52px" disabled>◀</button>
+            <button type="button" class="btn-ghost" id="btnFreeDrive">Libre: OFF</button>
+            <button type="button" class="nudge" id="btnFreeUp" style="width:52px" disabled>▶</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PURE PURSUIT ============ -->
+    <section class="tab-pane" data-tab="pp">
+      <div class="card">
+        <h3 class="sec">Respuesta de dirección (rápido ◀ ─ ▶ lento)</h3>
+        <div class="ctl">
+          <div class="ctl-head"><label>Anticipación (Look Ahead)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="lookAheadHold">2.5</span><span class="unit"> s</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="lookAheadHold" data-dir="-1">▼</button>
+            <input type="range" data-key="lookAheadHold" min="10" max="70" value="25" step="1" data-scale="0.1" data-dec="1">
+            <button type="button" class="nudge" data-nudge="lookAheadHold" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Qué tan adelante mira el punto objetivo. Menor = más agresivo (rápido).</div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Integral</label>
+            <div class="ctl-val"><span class="slider-val" data-for="purePursuitIntegral">20</span><span class="unit"> %</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="purePursuitIntegral" data-dir="-1">▼</button>
+            <input type="range" data-key="purePursuitIntegral" min="0" max="100" value="20" step="1">
+            <button type="button" class="nudge" data-nudge="purePursuitIntegral" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Aumenta lentamente el ángulo para reducir el error de vía (cross-track).</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ STANLEY ============ -->
+    <section class="tab-pane" data-tab="stan">
+      <div class="card">
+        <h3 class="sec">Ganancias Stanley</h3>
+        <div class="ctl">
+          <div class="ctl-head"><label>Agresividad (distancia)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="stanleyGain">1.0</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="stanleyGain" data-dir="-1">▼</button>
+            <input type="range" data-key="stanleyGain" min="1" max="40" value="10" step="1" data-scale="0.1" data-dec="1">
+            <button type="button" class="nudge" data-nudge="stanleyGain" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Ganancia por error de distancia a la línea (cross-track).</div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Reducción de sobrepaso (rumbo)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="headingErrorGain">1.0</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="headingErrorGain" data-dir="-1">▼</button>
+            <input type="range" data-key="headingErrorGain" min="1" max="15" value="10" step="1" data-scale="0.1" data-dec="1">
+            <button type="button" class="nudge" data-nudge="headingErrorGain" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Ganancia por error de rumbo. Más alto amortigua el sobrepaso.</div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Integral</label>
+            <div class="ctl-val"><span class="slider-val" data-for="stanleyIntegral">5</span><span class="unit"> %</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="stanleyIntegral" data-dir="-1">▼</button>
+            <input type="range" data-key="stanleyIntegral" min="0" max="100" value="5" step="1">
+            <button type="button" class="nudge" data-nudge="stanleyIntegral" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Corrección integral sobre líneas AB.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PP AVANZADO ============ -->
+    <section class="tab-pane" data-tab="ppadv">
+      <div class="card">
+        <div class="ctl">
+          <div class="ctl-head"><label>Multiplicador de anticipación</label>
+            <div class="ctl-val"><span class="slider-val" data-for="lookAheadMult">1.5</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="lookAheadMult" data-dir="-1">▼</button>
+            <input type="range" data-key="lookAheadMult" min="5" max="60" value="15" step="1" data-scale="0.1" data-dec="1">
+            <button type="button" class="nudge" data-nudge="lookAheadMult" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Escala la distancia de anticipación con la velocidad.</div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Factor de captura (Acquire)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="acquireFactor">0.75</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="acquireFactor" data-dir="-1">▼</button>
+            <input type="range" data-key="acquireFactor" min="20" max="300" value="75" step="1" data-scale="0.01" data-dec="2">
+            <button type="button" class="nudge" data-nudge="acquireFactor" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Acquire = Factor × Anticipación. Qué tan rápido engancha la línea.</div>
+        </div>
+        <div class="num-row">
+          <div>
+            <div class="nr-label">Retardo de zona muerta (On Delay)</div>
+            <div class="nr-hint">Retraso antes de aplicar corrección al salir de la zona muerta.</div>
+          </div>
+          <div><input type="number" data-key="deadZoneDelay" min="1" max="10" step="1" value="1"></div>
+        </div>
+        <div class="num-row">
+          <div>
+            <div class="nr-label">Zona muerta de rumbo</div>
+            <div class="nr-hint">Umbral de rumbo dentro del cual no se corrige.</div>
+          </div>
+          <div><input type="number" data-key="deadZoneHeading" min="0.1" max="5" step="0.1" value="1.0"><span class="num-suffix"> °</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SENSORES ============ -->
+    <section class="tab-pane" data-tab="sensors">
+      <div class="card">
+        <h3 class="sec">Sensor de giro (turn sensor)</h3>
+        <div class="chk-row" data-key="encoder">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Encoder</div>
+            <div class="chk-hint">Cuenta pulsos de un encoder en la columna de dirección.</div></div>
+        </div>
+        <div class="chk-row" data-key="pressureSensor">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Sensor de presión</div>
+            <div class="chk-hint">Detecta intervención manual por presión hidráulica.</div></div>
+        </div>
+        <div class="chk-row" data-key="currentSensor">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Sensor de corriente</div>
+            <div class="chk-hint">Detecta intervención manual por corriente del motor.</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: var(--agp-sp-3)">
+        <div class="num-row">
+          <div>
+            <div class="nr-label">Cuentas máximas (encoder)</div>
+            <div class="nr-hint">Pulsos que apagan el guiado al detectar giro manual.</div>
+          </div>
+          <div><input type="number" data-key="maxCounts" min="1" max="255" step="1" value="15"></div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Apagar en % (presión / corriente)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="sensorOff">3</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="sensorOff" data-dir="-1">▼</button>
+            <input type="range" data-key="sensorOff" min="0" max="255" value="3" step="1">
+            <button type="button" class="nudge" data-nudge="sensorOff" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Umbral (0–255) al que se corta el guiado. Lectura viva:
+            <strong id="sensorLive" style="color:var(--agp-text)">—</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MÓDULO (config) ============ -->
+    <section class="tab-pane" data-tab="config">
+      <div class="card">
+        <h3 class="sec">Inversiones</h3>
+        <div class="chk-row" data-key="invertWas">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Invertir WAS</div>
+            <div class="chk-hint">Invierte el sentido del sensor de ángulo de rueda.</div></div>
+        </div>
+        <div class="chk-row" data-key="invertMotor">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Invertir motor</div>
+            <div class="chk-hint">Invierte el sentido de giro del motor de dirección.</div></div>
+        </div>
+        <div class="chk-row" data-key="invertRelays">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Invertir relés</div>
+            <div class="chk-hint">Invierte la convención de los relés de secciones.</div></div>
+        </div>
+        <div class="chk-row" data-key="danfoss">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Danfoss</div>
+            <div class="chk-hint">Válvula proporcional Danfoss (PVE).</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: var(--agp-sp-3)">
+        <h3 class="sec">Convenciones del módulo</h3>
+        <div class="opt-row">
+          <div class="nr-label">Convención de relés</div>
+          <div class="seg" data-seg="relayConvention">
+            <button type="button" class="seg-btn on" data-val="Differential">Diferencial</button>
+            <button type="button" class="seg-btn" data-val="Single">Simple</button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <div class="nr-label">Driver del motor</div>
+          <div class="seg" data-seg="motorDrive">
+            <button type="button" class="seg-btn on" data-val="IBT2">IBT2</button>
+            <button type="button" class="seg-btn" data-val="Cytron">Cytron</button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <div class="nr-label">Habilitación de dirección</div>
+          <div class="seg" data-seg="steerEnable">
+            <button type="button" class="seg-btn on" data-val="None">Ninguno</button>
+            <button type="button" class="seg-btn" data-val="Switch">Interruptor</button>
+            <button type="button" class="seg-btn" data-val="Button">Botón</button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <div class="nr-label">Eje de la IMU</div>
+          <div class="seg" data-seg="imuAxis">
+            <button type="button" class="seg-btn on" data-val="X">X</button>
+            <button type="button" class="seg-btn" data-val="Y">Y</button>
+          </div>
+        </div>
+        <div class="nr-hint" style="padding: 8px 12px">
+          Interruptor: mantiene el guiado mientras esté activado. Botón: alterna el guiado con un pulso.
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ AJUSTES ============ -->
+    <section class="tab-pane" data-tab="settings">
+      <div class="card">
+        <div class="opt-row">
+          <div class="nr-label">Modo de guiado</div>
+          <div class="seg" data-seg="steerMode">
+            <button type="button" class="seg-btn on" data-val="PurePursuit">Pure Pursuit</button>
+            <button type="button" class="seg-btn" data-val="Stanley">Stanley</button>
+          </div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Compensación de cabecera (U-turn)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="uTurnCompensation">-5</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="uTurnCompensation" data-dir="-1">▼</button>
+            <input type="range" data-key="uTurnCompensation" min="2" max="20" value="5" step="1" data-display="minus10">
+            <button type="button" class="nudge" data-nudge="uTurnCompensation" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Ajuste fino del enganche a la línea saliendo de la maniobra en U.</div>
+        </div>
+        <div class="ctl">
+          <div class="ctl-head"><label>Compensación de ladera (Side Hill)</label>
+            <div class="ctl-val"><span class="slider-val" data-for="sideHillComp">0.05</span><span class="unit"> °</span></div></div>
+          <div class="ctl-slider">
+            <button type="button" class="nudge" data-nudge="sideHillComp" data-dir="-1">▼</button>
+            <input type="range" data-key="sideHillComp" min="0" max="100" value="5" step="1" data-scale="0.01" data-dec="2">
+            <button type="button" class="nudge" data-nudge="sideHillComp" data-dir="1">▲</button>
+          </div>
+          <div class="ctl-hint">Corrige la deriva lateral trabajando en pendiente.</div>
+        </div>
+        <div class="chk-row" data-key="steerInReverse">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Dirigir en retroceso</div>
+            <div class="chk-hint">Permite que el autosteer trabaje yendo marcha atrás.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ALARMA ============ -->
+    <section class="tab-pane" data-tab="alarm">
+      <div class="card">
+        <h3 class="sec">Límites de velocidad</h3>
+        <div class="num-row">
+          <div><div class="nr-label">Velocidad mínima de dirección</div>
+            <div class="nr-hint">Debajo de esta velocidad el autosteer no engancha.</div></div>
+          <div><input type="number" data-key="minSteerSpeed" min="0" max="10" step="0.1" value="0"><span class="num-suffix"> km/h</span></div>
+        </div>
+        <div class="num-row">
+          <div><div class="nr-label">Velocidad máxima de dirección</div>
+            <div class="nr-hint">Por encima de esta velocidad el autosteer se desengancha.</div></div>
+          <div><input type="number" data-key="maxSteerSpeed" min="0" max="50" step="0.1" value="15"><span class="num-suffix"> km/h</span></div>
+        </div>
+        <div class="num-row">
+          <div><div class="nr-label">Límite de velocidad de funciones</div>
+            <div class="nr-hint">Tope para maniobras automáticas (U-turn, etc.).</div></div>
+          <div><input type="number" data-key="functionSpeedLimit" min="0" max="20" step="0.1" value="12"><span class="num-suffix"> km/h</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ EN LA LÍNEA ============ -->
+    <section class="tab-pane" data-tab="online">
+      <div class="card">
+        <h3 class="sec">Barra de guía</h3>
+        <div class="opt-row">
+          <div class="nr-label">Tipo de barra</div>
+          <div class="seg" data-seg="guidanceBar">
+            <button type="button" class="seg-btn on" data-val="LightBar">Barra de luces</button>
+            <button type="button" class="seg-btn" data-val="SteerBar">Barra de dirección</button>
+          </div>
+        </div>
+        <div class="chk-row" data-key="displayLightbar">
+          <div class="chk-box">✓</div>
+          <div class="chk-main"><div class="chk-label">Mostrar barra de luces</div>
+            <div class="chk-hint">Muestra la barra de guía sobre la pantalla principal.</div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: var(--agp-sp-3)">
+        <h3 class="sec">Ajustes de línea</h3>
+        <div class="num-row">
+          <div><div class="nr-label">Distancia de enganche (nudge/snap)</div>
+            <div class="nr-hint">Distancia al mover la línea de guía de un toque.</div></div>
+          <div><input type="number" data-key="snapDistance" min="0" max="1000" step="1" value="20"><span class="num-suffix"> cm</span></div>
+        </div>
+        <div class="num-row">
+          <div><div class="nr-label">Anticipación de guía (look-ahead)</div>
+            <div class="nr-hint">Tiempo de anticipación de la próxima línea.</div></div>
+          <div><input type="number" data-key="guidanceLookAhead" min="1" max="10" step="0.1" value="1.5"><span class="num-suffix"> s</span></div>
+        </div>
+        <div class="num-row">
+          <div><div class="nr-label">Ancho de línea</div>
+            <div class="nr-hint">Grosor de la línea de guía dibujada.</div></div>
+          <div><input type="number" data-key="lineWidth" min="1" max="8" step="1" value="2"><span class="num-suffix"> px</span></div>
+        </div>
+        <div class="num-row">
+          <div><div class="nr-label">cm por pixel (barra de luces)</div>
+            <div class="nr-hint">Escala del error mostrado en la barra de luces.</div></div>
+          <div><input type="number" data-key="cmPerPixel" min="2" max="20" step="1" value="5"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Guardar ============ -->
+    <div class="save-bar">
+      <button type="button" class="btn-primary" id="btnSave">Enviar y guardar</button>
+      <button type="button" class="btn-ghost" id="btnReset">Restablecer valores</button>
+      <span class="save-msg" id="saveMsg"></span>
+    </div>
+  </main>
+
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/modal.js"></script>
+  <script src="../js/direccion.js"></script>
+</body>
+</html>

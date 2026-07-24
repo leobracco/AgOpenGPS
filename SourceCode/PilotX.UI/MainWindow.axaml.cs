@@ -1661,9 +1661,10 @@ public partial class MainWindow : Window
         string page = cmd switch
         {
             "config_form"       => "pages/config.html",
-            // Dirección = config del autoguiado (PWM, WAS, ángulo de giro,
-            // calibración): la página del CoreX-ECU con sus tabs.
-            "direccion"         => "pages/corex-ecu.html",
+            // Dirección = clon HTML del FormSteer de AOG (config del autoguiado:
+            // ganancias/PWM, WAS, ángulo de giro, Pure Pursuit/Stanley, sensores,
+            // módulo). btnAutoSteerConfig → FormSteer en el original.
+            "direccion"         => "pages/direccion.html",
             "todos_ajustes"     => "pages/ajustes-todos.html",
             "colores"           => "pages/colores.html",
             "colores_sec"       => "pages/colores-secciones.html",
