@@ -87,6 +87,7 @@
       <Setter Property="Foreground" Value="#101612"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
       <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="Margin" Value="0,2,0,0"/>
     </Style>
     <Style Selector="TextBlock.slbl">
@@ -130,7 +131,7 @@
   </UserControl.Styles>
 
   <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,1,0" Padding="6">
-    <Grid ColumnDefinitions="Auto,84,*">
+    <Grid ColumnDefinitions="Auto,92,*">
 
       <!-- ===== handle de plegado: siempre visible, incluso con el menú
            colapsado (única forma de volver a desplegarlo) ===== -->
@@ -188,7 +189,7 @@
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="NAVEGACIÓN"/>
           <ScrollViewer>
-            <UniformGrid Columns="2">
+            <UniformGrid Columns="2" VerticalAlignment="Top">
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="v2d"><StackPanel><Image Classes="sico" Source="/Assets/menu/Camera2D64.png"/><TextBlock Classes="slbl" Text="2D"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="v3d"><StackPanel><Image Classes="sico" Source="/Assets/menu/Camera3D64.png"/><TextBlock Classes="slbl" Text="3D"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="norte2d"><StackPanel><Image Classes="sico" Source="/Assets/menu/CameraNorth2D.png"/><TextBlock Classes="slbl" Text="Norte 2D"/></StackPanel></Button>
@@ -209,7 +210,7 @@
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERRAMIENTAS"/>
           <ScrollViewer>
-            <UniformGrid Columns="2">
+            <UniformGrid Columns="2" VerticalAlignment="Top">
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="asistente_direccion"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOn.png"/><TextBlock Classes="slbl" Text="Asist. dirección"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_direccion"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOn.png"/><TextBlock Classes="slbl" Text="Gráfico dirección"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_rumbo"><StackPanel><Image Classes="sico" Source="/Assets/menu/ConS_SourcesHeading.png"/><TextBlock Classes="slbl" Text="Gráfico rumbo"/></StackPanel></Button>
@@ -232,7 +233,7 @@
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="CONFIGURACIÓN"/>
           <ScrollViewer>
-            <UniformGrid Columns="2">
+            <UniformGrid Columns="2" VerticalAlignment="Top">
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="config_form"><StackPanel><Image Classes="sico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="slbl" Text="Configuración"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="direccion"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOff.png"/><TextBlock Classes="slbl" Text="Auto Steer"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="todos_ajustes"><StackPanel><Image Classes="sico" Source="/Assets/menu/ScreenShot.png"/><TextBlock Classes="slbl" Text="Ver ajustes"/></StackPanel></Button>
@@ -252,7 +253,7 @@
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="LOTE"/>
           <ScrollViewer>
-            <UniformGrid Columns="2">
+            <UniformGrid Columns="2" VerticalAlignment="Top">
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_continuar"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Continuar"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_menu"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Abrir"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_nuevo"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileNew.png"/><TextBlock Classes="slbl" Text="Nuevo"/></StackPanel></Button>
@@ -269,7 +270,7 @@
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERR. LOTE"/>
           <ScrollViewer>
-            <UniformGrid Columns="2">
+            <UniformGrid Columns="2" VerticalAlignment="Top">
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lindero"><StackPanel><Image Classes="sico" Source="/Assets/menu/Boundary.png"/><TextBlock Classes="slbl" Text="Lindero"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="cabecera"><StackPanel><Image Classes="sico" Source="/Assets/menu/HeadlandBuild.png"/><TextBlock Classes="slbl" Text="Cabecera"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="cabecera_avanzada"><StackPanel><Image Classes="sico" Source="/Assets/menu/Headache.png"/><TextBlock Classes="slbl" Text="Cabecera (Build)"/></StackPanel></Button>

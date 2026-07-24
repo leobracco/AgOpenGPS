@@ -1576,3 +1576,37 @@ la sesión android al extraer, pero el taller los usa desde Services),
   separados, submenú con ítems juntos, colapsa a la pestaña angosta y
   vuelve a expandir correctamente, sin excepciones. Build completo
   0 errores, 141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (mismo carril, seguimiento del cambio
+  anterior) — el usuario reportó 3 problemas visuales tras el cambio de
+  estética y los 3 quedaron resueltos y verificados con capturas en la
+  tablet:
+  1. **Labels del menú principal cortadas** (`Navegaci`/`Herramienta`/
+     `Configuraci` sin la última letra) cuando no hay submenú abierto:
+     la columna de iconos medía 84px pero el `TextBlock` de `.mlbl` no
+     wrappeaba (default `TextWrapping=NoWrap`, corta en vez de hacer
+     ellipsis). Agregué `TextWrapping="Wrap"` a `.mlbl` y ensanché la
+     columna a 92px (`ColumnDefinitions="Auto,92,*"`).
+  2. **Submenús con mucho espacio vertical entre filas**: cada
+     `<UniformGrid Columns="2">` de submenú no tenía `VerticalAlignment`
+     propio, así que heredaba el `Stretch` del contenedor padre y
+     repartía todo el alto disponible entre las pocas filas reales.
+     Agregué `VerticalAlignment="Top"` a las 5 `UniformGrid` de submenú
+     — ahora las filas quedan pegadas arriba, sin aire de más.
+  3. **Marco superior tapado por la barra de estado de Android**: el
+     theme ya pedía `windowFullscreen=true` pero eso no alcanza en
+     API 30+ (Android 11+) — las banderas viejas de `SystemUiVisibility`
+     están deprecadas y el fabricante las ignora silenciosamente (probé
+     esa vía primero, no funcionó en el Lenovo con Android 13/API 33).
+     Reescribí `HideSystemBars()` en `MainActivity.cs` para usar
+     `Window.SetDecorFitsSystemWindows(false)` +
+     `Window.InsetsController.Hide(WindowInsets.Type.SystemBars())` en
+     API 30+, con el fallback viejo de `SystemUiVisibility` para
+     API 28/29 (mínimo del proyecto). Se reaplica en
+     `OnWindowFocusChanged` por si el sistema saca el modo inmersivo al
+     volver de otra app (ej. al minimizar).
+  Verificado en la tablet física (Lenovo TB125FU, Android 13/API 33) con
+  capturas: labels completas, submenú de "Herramientas" con filas
+  compactas arriba, marco superior (`AGRO PARALLEL`/`TRABAJO`/`GPS`/
+  `LOTE`/`SISTEMA`/controles de ventana) totalmente visible sin la barra
+  de estado encima, sin excepciones en logcat. Build completo 0 errores,
+  141 tests verdes. Voy a commitear y pushear.

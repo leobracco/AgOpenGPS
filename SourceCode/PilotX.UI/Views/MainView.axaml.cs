@@ -55,9 +55,9 @@ namespace PilotX.Desktop.Views
         private double _lastPathsAway = double.NaN;
         private double _lastXteMeters = double.NaN;
 
-        private const double MenuIzqCollapsed = 32;
-        private const double MenuIzqNarrow = 100;
-        private const double MenuIzqExpanded = 272;
+        private const double MenuIzqCollapsed = 40;
+        private const double MenuIzqNarrow = 140;
+        private const double MenuIzqExpanded = 316;
 
         private readonly List<Action> _cleanup = new List<Action>();
         private bool _started;

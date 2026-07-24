@@ -69,9 +69,9 @@ public partial class MainWindow : Window
     private BarraDerechaViewModel? _vmDer;
     private BarraAbajoViewModel? _vmAba;
     private MenuIzquierdaViewModel? _vmIzq;
-    private const double MenuIzqCollapsed = 32;
-    private const double MenuIzqNarrow = 100;
-    private const double MenuIzqExpanded = 272;
+    private const double MenuIzqCollapsed = 40;
+    private const double MenuIzqNarrow = 140;
+    private const double MenuIzqExpanded = 316;
 
     // WebView lazy: se instancia on-demand y se dispone al cerrar la pantalla.
     private Panel?   _webViewSlot;

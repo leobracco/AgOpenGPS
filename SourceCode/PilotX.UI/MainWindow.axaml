@@ -481,7 +481,7 @@
                                     Width="58" Margin="0,0,0,58"/>
                 <bars:MenuIzquierda x:Name="MenuIzq"
                                     HorizontalAlignment="Left" VerticalAlignment="Stretch"
-                                    Width="100" Margin="0,46,0,58"/>
+                                    Width="140" Margin="0,46,0,58"/>
             </Grid>
 
             <!-- =========== Panel de creación de guía A/B (en el mapa) =========== -->
