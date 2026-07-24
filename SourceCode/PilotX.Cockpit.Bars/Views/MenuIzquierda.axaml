@@ -60,7 +60,7 @@
       <Setter Property="CornerRadius" Value="9"/>
       <Setter Property="MinHeight" Value="48"/>
       <Setter Property="Padding" Value="2"/>
-      <Setter Property="Margin" Value="2"/>
+      <Setter Property="Margin" Value="1"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
       <Setter Property="HorizontalContentAlignment" Value="Center"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -104,13 +104,49 @@
       <Setter Property="Foreground" Value="#6F786F"/>
       <Setter Property="Margin" Value="2,0,0,6"/>
     </Style>
+
+    <!-- Handle de plegado/despliegue: pestaña angosta siempre visible, para
+         que el operario pueda sacar el menú de encima del mapa sin perder
+         acceso a él. -->
+    <Style Selector="Button.collapseToggle">
+      <Setter Property="Background" Value="#F0F4F0"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+      <Setter Property="Width" Value="26"/>
+      <Setter Property="MinHeight" Value="52"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.collapseToggle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E4EBE4"/>
+    </Style>
+    <Style Selector="TextBlock.collapseGlyph">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Foreground" Value="#4A5A4A"/>
+    </Style>
   </UserControl.Styles>
 
   <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,1,0" Padding="6">
-    <Grid ColumnDefinitions="84,*">
+    <Grid ColumnDefinitions="Auto,84,*">
 
-      <!-- ===== columna principal: orden real del panelLeft de AOG ===== -->
-      <StackPanel Grid.Column="0" Orientation="Vertical" Spacing="5" Margin="0,0,8,0">
+      <!-- ===== handle de plegado: siempre visible, incluso con el menú
+           colapsado (única forma de volver a desplegarlo) ===== -->
+      <Button Grid.Column="0" Classes="collapseToggle" Margin="0,0,6,0"
+              Command="{Binding ToggleCollapsedCommand}">
+        <Panel>
+          <TextBlock Classes="collapseGlyph" Text="›" IsVisible="{Binding IsCollapsed}"/>
+          <TextBlock Classes="collapseGlyph" Text="‹" IsVisible="{Binding !IsCollapsed}"/>
+        </Panel>
+      </Button>
+
+      <!-- ===== columna principal: orden real del panelLeft de AOG. Oculta
+           por completo (junto con cualquier submenú abierto) cuando el
+           menú está plegado — así no ocupa nada del mapa. ===== -->
+      <StackPanel Grid.Column="1" IsVisible="{Binding !IsCollapsed}"
+                  Orientation="Vertical" Spacing="14" Margin="0,0,8,0">
         <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion">
@@ -147,7 +183,7 @@
       <!-- ===== submenús (contenido e iconos verdaderos del 6.8.5) ===== -->
 
       <!-- Navegación (panelNavigation de AOG) -->
-      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
               IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="NAVEGACIÓN"/>
@@ -168,7 +204,7 @@
       </Border>
 
       <!-- Herramientas (dropdown Tools de AOG, Wizards/Charts aplanados) -->
-      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
               IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERRAMIENTAS"/>
@@ -191,7 +227,7 @@
       </Border>
 
       <!-- Configuración (dropdown Settings de AOG) -->
-      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
               IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="CONFIGURACIÓN"/>
@@ -211,7 +247,7 @@
       </Border>
 
       <!-- LOTE (btnJobMenu de AOG) -->
-      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
               IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="LOTE"/>
@@ -228,7 +264,7 @@
       </Border>
 
       <!-- Herr. lote (dropdown Field Tools de AOG) -->
-      <Border Grid.Column="1" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
+      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
               IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}">
         <DockPanel>
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERR. LOTE"/>

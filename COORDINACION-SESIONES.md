@@ -1556,3 +1556,23 @@ la sesión android al extraer, pero el taller los usa desde Services),
   al apagarlo. `Contour.txt` se reescribió correctamente. Build completo
   0 errores, 141 tests verdes. Con esto el menú izquierdo debería estar
   100% cableado contra el engine. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (toqué `MenuIzquierda.axaml`/`.ViewModel` de
+  nuevo — pedido directo del usuario, no mi carril habitual) — 3 cambios de
+  estética que pidió:
+  1. Iconos del menú principal más separados entre sí: `Spacing` de la
+     `StackPanel` de 5 → 14.
+  2. Ítems de los submenús más juntos: `Margin` de `.sbtn` de 2 → 1.
+  3. **Menú plegable/desplegable** para no ocupar lugar del mapa: nuevo
+     `IsCollapsed`/`ToggleCollapsedCommand` en `MenuIzquierdaViewModel`, un
+     handle angosto (`‹`/`›`) siempre visible en una columna nueva a la
+     izquierda del ícono (`Grid ColumnDefinitions="Auto,84,*"`), que oculta
+     toda la columna de iconos + cualquier submenú abierto cuando se
+     colapsa. Actualicé el ancho externo del control en **los dos hosts**
+     (`MainView.axaml.cs` Android y `MainWindow.axaml.cs`, ambos en
+     `PilotX.UI` — están duplicados, mismo patrón `MenuIzqNarrow/Expanded`):
+     agregué un 3er ancho `MenuIzqCollapsed=32` y escucho también
+     `IsCollapsed` además de `OpenSubmenu`.
+  Verificado en la tablet física (Lenovo TB125FU) con capturas: iconos
+  separados, submenú con ítems juntos, colapsa a la pestaña angosta y
+  vuelve a expandir correctamente, sin excepciones. Build completo
+  0 errores, 141 tests verdes. Voy a commitear y pushear.

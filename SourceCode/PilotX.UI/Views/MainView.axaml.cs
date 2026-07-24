@@ -55,6 +55,7 @@ namespace PilotX.Desktop.Views
         private double _lastPathsAway = double.NaN;
         private double _lastXteMeters = double.NaN;
 
+        private const double MenuIzqCollapsed = 32;
         private const double MenuIzqNarrow = 100;
         private const double MenuIzqExpanded = 272;
 
@@ -160,8 +161,13 @@ namespace PilotX.Desktop.Views
 
             _vmIzq.PropertyChanged += (_, e) =>
             {
-                if (e.PropertyName == nameof(MenuIzquierdaViewModel.OpenSubmenu) && _menuIzq != null)
-                    _menuIzq.Width = _vmIzq!.OpenSubmenu != null ? MenuIzqExpanded : MenuIzqNarrow;
+                if (_menuIzq == null) return;
+                if (e.PropertyName == nameof(MenuIzquierdaViewModel.OpenSubmenu)
+                    || e.PropertyName == nameof(MenuIzquierdaViewModel.IsCollapsed))
+                {
+                    _menuIzq.Width = _vmIzq!.IsCollapsed ? MenuIzqCollapsed
+                        : (_vmIzq.OpenSubmenu != null ? MenuIzqExpanded : MenuIzqNarrow);
+                }
             };
 
             _cockpitPoller = new CockpitStateClient(origin, intervalMs: 250);
