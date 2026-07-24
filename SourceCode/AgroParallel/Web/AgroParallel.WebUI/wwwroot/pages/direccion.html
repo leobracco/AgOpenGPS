@@ -233,6 +233,42 @@
     }
 
     .smart-status { font-size: 12px; color: var(--gris); margin-top: 6px; }
+
+    /* === Vista SIN iconos (para evaluar el layout pelado) === */
+    #menu button img { display: none; }
+    .tab-hero,
+    .sctl .sdiag,
+    .numfila .numdiag,
+    .chkimg img,
+    .seg.seg-img .seg-btn img,
+    .btnZero img,
+    #btnGuardarFloat img { display: none; }
+    /* compensaciones cuando se ocultan las imágenes */
+    #menu button { padding-left: 12px; }
+    .chkimg { min-height: 44px; justify-content: center; }
+    .btnZero { display: none; }   /* el "0" quedaría vacío; se oculta el botón */
+
+    /* === Compacto (achicar un poco, sobre todo para la pantalla del taller) === */
+    #main { padding: 8px; }
+    .carta { padding: 10px; margin-bottom: 8px; }
+    .carta h2 { font-size: 14px; margin-bottom: 8px; }
+    #menu { width: 166px; }
+    #menu button { min-height: 40px; font-size: 12px; }
+    #menu .grupo { padding: 8px 8px 3px; font-size: 10px; }
+    .sctl { padding: 8px 10px; margin-bottom: 8px; }
+    .sctl .slbl { font-size: 13px; }
+    .sval { font-size: 20px; min-width: 60px; }
+    .sval .u { font-size: 12px; }
+    .sbtn { width: 38px; height: 38px; font-size: 19px; }
+    .sslider input[type="range"] { min-height: 32px; }
+    .shint, .sends { font-size: 11px; }
+    .nud { width: 110px; min-height: 42px; font-size: 18px; }
+    .nudfila label { min-width: 130px; font-size: 13px; }
+    .numfila .numbody .lbl { font-size: 13px; }
+    .seg-btn { min-height: 40px; font-size: 13px; padding: 6px 12px; }
+    #btnGuardarFloat { width: 82px; right: 16px; bottom: 46px; }
+    #btnGuardarFloat img { width: 44px; height: 44px; }
+    #footer { padding: 6px 10px; font-size: 12px; }
   </style>
 </head>
 <body>
