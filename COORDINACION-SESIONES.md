@@ -1357,3 +1357,13 @@ la sesión android al extraer, pero el taller los usa desde Services),
   (El sim externo requirió: matar la cadena Windows para liberar :9999, relay con reuse,
   redir UDP del emulador. En tablet real es directo: ModSim/GPS en la misma WiFi → :9999.)
   Merge commit 89b77507. Todo compila; APK deployado y corriendo.
+- [2026-07-24] [taller] Para SANTIAGO — **catálogo visual de iconos** en
+  `docs/catalogo-iconos.html` (abrir en el navegador; autocontenido, 2.3 MB con los
+  252 iconos embebidos en base64). Muestra CADA icono de la UI vieja (AOG/FormGPS) con:
+  preview real, función/menú que abre, estado (hecho/parcial/falta), CARRIL (L=Leonardo
+  UI / S=Santiago engine / C=HTML) y, si abre submenú, sus iconos anidados. Buscador +
+  filtros por estado. Los datos salen del inventario verificado (`docs/INVENTARIO-UI-ICONOS.md`)
+  tras 2 pasadas de auditoría adversarial. Úsalo para ver de un vistazo QUÉ te toca a vos
+  (badges S / L+S): boundary/headland/tram builders, secciones individuales/zonas, banderas,
+  ruta grabada, hyd-lift, import tracks, ISOBUS, snap/nudge, simulador por API. Arranquemos
+  a tachar por el grupo que quieras.
