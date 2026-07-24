@@ -21,15 +21,20 @@
   // --------------------------------------------------------------------------
   // Tabs (mismo mecanismo que corex-ecu.js)
   // --------------------------------------------------------------------------
+  // El FormSteer original tiene DOS TabControl lado a lado (guiado/ganancias a la
+  // izquierda, settings del módulo a la derecha). Cada `.tabgroup` es un control de
+  // tabs independiente: los clicks solo afectan a los botones/paneles de su grupo.
   function initTabs() {
-    document.querySelectorAll('.tab-btn').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var tab = b.getAttribute('data-tab');
-        document.querySelectorAll('.tab-btn').forEach(function (x) {
-          x.classList.toggle('active', x === b);
-        });
-        document.querySelectorAll('.tab-pane').forEach(function (p) {
-          p.classList.toggle('active', p.getAttribute('data-tab') === tab);
+    document.querySelectorAll('.tabgroup').forEach(function (group) {
+      var btns = group.querySelectorAll(':scope > .steer-tabs .tab-btn');
+      var panes = group.querySelectorAll(':scope > .tab-pane');
+      btns.forEach(function (b) {
+        b.addEventListener('click', function () {
+          var tab = b.getAttribute('data-tab');
+          btns.forEach(function (x) { x.classList.toggle('active', x === b); });
+          panes.forEach(function (p) {
+            p.classList.toggle('active', p.getAttribute('data-tab') === tab);
+          });
         });
       });
     });
@@ -58,7 +63,21 @@
   function updateSliderLabel(range) {
     var key = range.getAttribute('data-key');
     var out = document.querySelector('.slider-val[data-for="' + key + '"]');
-    if (out) out.textContent = fmtSlider(range);
+    if (out) {
+      // Preservar el sufijo de unidad (<span class="u">) si el display lo tiene.
+      var unit = out.querySelector('.u');
+      out.textContent = fmtSlider(range);
+      if (unit) out.appendChild(unit);
+    }
+    // El slider de sensores muestra su lectura como porcentaje 0..255 → 0..100 %.
+    if (key === 'sensorLimit') {
+      var pct = document.getElementById('lblSensorPct');
+      if (pct) {
+        var u = pct.querySelector('.u');
+        pct.textContent = Math.round(parseFloat(range.value) / 255 * 100);
+        if (u) pct.appendChild(u);
+      }
+    }
     // Recalcular el ángulo de cero del WAS cuando cambia offset o cuentas/grado.
     if (key === 'wasOffset' || key === 'countsPerDegree') updateWasZeroAngle();
   }
@@ -265,15 +284,21 @@
   // --------------------------------------------------------------------------
   // Botones auxiliares (free drive / arco) — solo estado visual en paso 1.
   // --------------------------------------------------------------------------
+  // Cambia el texto de un botón con ícono (imgbtn) sin borrar su <img>.
+  function setBtnLabel(btn, text) {
+    if (!btn) return;
+    var span = btn.querySelector('span');
+    if (span) span.textContent = text; else btn.textContent = text;
+  }
+
   function initAuxButtons() {
     var freeOn = false;
     var btnFree = $('btnFreeDrive'), up = $('btnFreeUp'), down = $('btnFreeDown');
     if (btnFree) {
       btnFree.addEventListener('click', function () {
         freeOn = !freeOn;
-        btnFree.textContent = 'Libre: ' + (freeOn ? 'ON' : 'OFF');
-        btnFree.classList.toggle('btn-primary', freeOn);
-        btnFree.classList.toggle('btn-ghost', !freeOn);
+        setBtnLabel(btnFree, 'Libre: ' + (freeOn ? 'ON' : 'OFF'));
+        btnFree.classList.toggle('on', freeOn);
         if (up) up.disabled = !freeOn;
         if (down) down.disabled = !freeOn;
       });
@@ -283,11 +308,24 @@
     if (btnArc) {
       btnArc.addEventListener('click', function () {
         arcOn = !arcOn;
-        btnArc.textContent = arcOn ? 'Detener arco' : 'Iniciar arco';
+        setBtnLabel(btnArc, arcOn ? 'Detener arco' : 'Iniciar arco');
+        btnArc.classList.toggle('on', arcOn);
       });
     }
     var btnZero = $('btnZeroWas');
     if (btnZero) btnZero.addEventListener('click', zeroWas);
+    var btnSmart = $('btnSmartZeroWas');
+    if (btnSmart) btnSmart.addEventListener('click', zeroWas);
+
+    var btnWizard = $('btnSteerWizard');
+    if (btnWizard) btnWizard.addEventListener('click', function () {
+      $('saveMsg').textContent = 'El asistente de dirección se abre desde PilotX.';
+    });
+
+    var btnClose = $('btnClose');
+    if (btnClose) btnClose.addEventListener('click', function () {
+      saveConfig();
+    });
 
     var btnReset = $('btnReset');
     if (btnReset) {
