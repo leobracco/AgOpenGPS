@@ -57,6 +57,18 @@
       box-shadow: inset 0 -3px 0 var(--green);
     }
     .mbtn.flash { border-color: var(--green); box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
+    /* Botón LOTE: grande y verde, como el btnJobMenu (JobActive) de AOG —
+       la puerta de entrada (sin lote abierto el resto no hace nada). */
+    .mbtn.lote {
+      flex: 1.6 1 0;
+      background: linear-gradient(180deg, #55C646, #3DAF35);
+      border-color: var(--green-dark);
+      color: #08120a;
+    }
+    .mbtn.lote img { width: 38px; height: 38px; }
+    .mbtn.lote span { font-size: 12px; font-weight: 800; }
+    .mbtn.lote:hover { background: linear-gradient(180deg, #5FCE50, #43B93A); }
+    .angle { font-size: 9px; font-weight: 800; color: var(--green-dark); }
 
     /* submenú (columna derecha) */
     .sub {
@@ -94,6 +106,7 @@
       touch-action: manipulation;
     }
     .sbtn .ico { font-size: 17px; line-height: 1; }
+    .sbtn img { width: 26px; height: 26px; object-fit: contain; }
     .sbtn:hover { background: var(--surface-soft); border-color: var(--line-strong); }
     .sbtn:active { background: var(--green-soft); transform: translateY(1px); }
     .sbtn.flash { border-color: var(--green); box-shadow: 0 0 0 2px rgba(74,186,62,0.35); }
@@ -103,24 +116,26 @@
   <div class="wrap">
     <!-- columna principal: mismo orden e íconos que el panelLeft nativo.
          data-cmd = acción directa; data-sub = abre submenú HTML -->
+    <!-- Orden IDÉNTICO al panelLeft de AOG 6.8.5:
+         Navegación · Herramientas · Configuración · LOTE (grande) · Herr. lote · Dirección · CoreX -->
     <div class="col" id="mainCol">
       <button type="button" class="mbtn" data-sub="navegacion">
         <img src="../img/menu/NavigationSettings.png" alt=""><span>Navegación</span>
       </button>
-      <button type="button" class="mbtn" data-sub="config">
-        <img src="../img/menu/Settings48.png" alt=""><span>Config</span>
-      </button>
       <button type="button" class="mbtn" data-sub="herramientas">
         <img src="../img/menu/SpecialFunctions.png" alt=""><span>Herramientas</span>
       </button>
-      <button type="button" class="mbtn" data-sub="lote">
-        <img src="../img/menu/JobActive.png" alt=""><span>Lote</span>
+      <button type="button" class="mbtn" data-sub="config">
+        <img src="../img/menu/Settings48.png" alt=""><span>Configuración</span>
+      </button>
+      <button type="button" class="mbtn lote" data-sub="lote">
+        <img src="../img/menu/JobActive.png" alt=""><span>LOTE</span>
       </button>
       <button type="button" class="mbtn" data-sub="herrlote">
         <img src="../img/menu/FieldTools.png" alt=""><span>Herr. lote</span>
       </button>
       <button type="button" class="mbtn" data-cmd="direccion">
-        <img src="../img/menu/AutoSteerConf.png" alt=""><span>Dirección</span>
+        <img src="../img/menu/AutoSteerConf.png" alt=""><span>Dirección</span><span class="angle" id="steerAngle"></span>
       </button>
       <button type="button" class="mbtn" data-cmd="corex">
         <img src="../img/menu/CoreX.png" alt=""><span>CoreX</span>
@@ -133,6 +148,6 @@
       <div class="items" id="subItems"></div>
     </div>
   </div>
-  <script src="../js/menu-izquierda.js?v=4"></script>
+  <script src="../js/menu-izquierda.js?v=5"></script>
 </body>
 </html>
