@@ -169,6 +169,10 @@
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="perfil_cargar"><StackPanel><TextBlock Classes="sico" Text="📂"/><TextBlock Classes="slbl" Text="Cargar perfil"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="directorios"><StackPanel><TextBlock Classes="sico" Text="🗂"/><TextBlock Classes="slbl" Text="Directorios"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="ayuda"><StackPanel><TextBlock Classes="sico" Text="❓"/><TextBlock Classes="slbl" Text="Ayuda"/></StackPanel></Button>
+              <!-- HotKeys (Form_Keys en el menú viejo, docs/menus-viejos.html) — sin
+                   pantalla nativa ni HTML todavía; cae al backend (unknown/false)
+                   hasta que se decida si vale la pena en una UI táctil sin teclado. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="atajos"><StackPanel><TextBlock Classes="sico" Text="⌨"/><TextBlock Classes="slbl" Text="Atajos"/></StackPanel></Button>
             </UniformGrid>
           </ScrollViewer>
         </DockPanel>
@@ -231,6 +235,11 @@
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="importar_guias"><StackPanel><TextBlock Classes="sico" Text="📥"/><TextBlock Classes="slbl" Text="Importar guías"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tram_crear"><StackPanel><TextBlock Classes="sico" Text="🛤"/><TextBlock Classes="slbl" Text="Tram crear"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tram_vista"><StackPanel><TextBlock Classes="sico" Text="👁"/><TextBlock Classes="slbl" Text="Tram vista"/></StackPanel></Button>
+              <!-- Recorded Path (docs/menus-viejos.html) — ya existe
+                   pages/recpath.html + RecPathController real (AgpWebHost);
+                   falta que RouteCockpitCommand (carril taller) sume la
+                   navegación "ruta_grabada" -> "pages/recpath.html". -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="ruta_grabada"><StackPanel><TextBlock Classes="sico" Text="🛣"/><TextBlock Classes="slbl" Text="Ruta grabada"/></StackPanel></Button>
             </UniformGrid>
           </ScrollViewer>
         </DockPanel>

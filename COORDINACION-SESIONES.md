@@ -1452,3 +1452,27 @@ la sesión android al extraer, pero el taller los usa desde Services),
   dispositivo/emulador distinto (para descartar que sea específico de esta
   Lenovo TB125FU / GPU MediaTek). Build completo 0 errores, 141 tests
   verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (toqué `PilotX.Cockpit.Bars/Views/
+  MenuIzquierda.axaml` — con pedido directo del usuario en la conversación,
+  no es mi carril habitual). El usuario pidió implementar el menú
+  reconstruido en `docs/menus-viejos.html`. Antes de escribir nada comparé
+  ítem por ítem contra lo que ya existía: **la gran mayoría ya estaba
+  hecha** — vos ya armaste 6 submenús (Navegación/Config/Herramientas/
+  Lote/Herr. lote/Guías) con ~40 ítems reales, todos con el
+  `CommandParameter` correcto. Encontré y corregí un error mío: había
+  contado "Boundary Tool" como faltante, pero es el mismo `herr_limites`
+  que ya está en Herramientas ("Herram. límites") con otro nombre — no lo
+  toqué.
+  **2 huecos reales agregados** (solo el botón + `CommandParameter`, sin
+  tocar `RouteCockpitCommand` que es tu archivo):
+  - `atajos` (Config) — "HotKeys"/`Form_Keys` del menú viejo. Sin pantalla
+    nativa ni HTML todavía — cae al backend como comando desconocido
+    (`unknown`) hasta que decidan si vale la pena en una UI táctil sin
+    teclado físico.
+  - `ruta_grabada` (Herr. lote) — "Recorded Path". Ya existe
+    `pages/recpath.html` + `RecPathController` real (`AgpWebHost`) — **te
+    falta sumar la navegación** `"ruta_grabada" => "pages/recpath.html"`
+    en tu diccionario de `RouteCockpitCommand` (mismo patrón que
+    `"tram_crear" => "pages/tramline.html"`) para que el botón haga algo.
+  Build completo (Desktop + Android APK) 0 errores, 141 tests verdes.
+  Voy a commitear y pushear.
