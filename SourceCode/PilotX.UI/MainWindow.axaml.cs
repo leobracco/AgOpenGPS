@@ -1613,10 +1613,14 @@ public partial class MainWindow : Window
             // ---- Info de lote/GPS → ventana chica cerrable (HTML) ----
             case "datos_gps":  OpenDialogPage("pages/datos-gps.html",  "Datos GPS",       760, 560); return true;
             case "lote_datos": OpenDialogPage("pages/datos-lote.html", "Datos del lote",  760, 560); return true;
-            // ---- Paneles nativos grandes (Hub / CoreX / Cámaras) ----
+            // ---- Paneles nativos grandes (Hub / Cámaras) ----
             case "hub":        ShowHub();      return true;
-            case "corex":      ShowCoreXEcu(); return true;
             case "webcam":     ShowCamaras();  return true;
+            // CoreX del menú izquierdo → vista de SISTEMA (estado/conexiones de
+            // módulos GPS/IMU/Steer/Machine), no el ECU. El ECU se accede desde
+            // ahí (o por corex_ecu / OnRequestConfigurar → corex-ecu.html).
+            case "corex":      NavigateTo("pages/estado-modulos.html"); return true;
+            case "corex_ecu":  ShowCoreXEcu(); return true;
 
             // ---- Nueva A/B → flujo en el mapa (toco A, manejo, toco B) ----
             case "track_new_ab":
