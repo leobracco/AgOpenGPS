@@ -1,0 +1,185 @@
+# Inventario de iconos/botones originales (AOG/FormGPS) → migración a UI nativa Avalonia
+
+> Documento de trabajo **sesión ⇄ sesión**. Cataloga TODOS los iconos/botones de la UI
+> original (WinForms FormGPS) y qué hace cada uno, para ir **tachando hecho/falta**,
+> después **mejorar**, y por último **sumar lo nuevo**.
+>
+> **Leyenda estado:** ✅ hecho en la UI nueva · 🟡 parcial/por validar · ❌ falta · — n/a
+> **Carril:** **L** = Leonardo (UI nativa Avalonia: botón/pantalla/overlay/mapa) ·
+> **S** = Santiago (engine/back-end: comando ExecuteCommand, /api, servicios) ·
+> **C** = HTML del Hub (Codex/existente, se abre por WebView).
+> Muchos ítems son **L+S** (UI + el dato/comando que la alimenta).
+>
+> El estado es una **primera pasada** — lo refinamos juntos ítem por ítem.
+
+---
+
+## 1) Barra superior / estado
+
+| Botón (original) | Icono | Qué hace | Estado | Carril |
+|---|---|---|---|---|
+| Nombre del lote (label) | — | Muestra el lote abierto; toque pausa/reanuda el rotado de info | 🟡 | L |
+| Menú de lote (btnJobMenu) | JobActive | Continuar/crear/abrir/borrar lote | 🟡 | L+S |
+| Autosteer ON/OFF (btnAutoSteer) | AutoSteerOn/Off | Engancha/desengancha el piloto (bloquea sobre velocidad máx) | ✅ | L+S |
+| Config autoguiado (btnAutoSteerConfig) | AutoSteerConf | Abre FormSteer (config dirección); texto = ángulo actual | 🟡 (C) | L+S |
+| Datos GPS (btnGPSData) | GPSQuality | Abre datos-gps.html (calidad antena) | 🟡 | L+C |
+| Datos del lote (btnFieldStats) | FieldStats | Abre datos-lote.html (stats del lote) | 🟡 | L+C |
+| CoreX/AgIO (btnStartAgIO) | AgIO | Lanza CoreX.exe + abre su dashboard | 🟡 | L+S |
+| Engranaje/Ajustes (dropDown1) | Settings48 | Menú config (config/steer/todos/dir/gps/colores) | 🟡 | L+C |
+| Tools/Funciones especiales (dropDown4) | SpecialFunctions | Menú de herramientas/diagnóstico (SIEMPRE activo) | 🟡 | L+C |
+| Herramientas de lote (FieldTools) | FieldTools | Menú del lote (off sin lote) | 🟡 | L+C |
+| Minimizar/Maximizar/Cerrar | WindowMin/Max/Close | Acciones de ventana | ✅ | L |
+
+## 2) Guiado — guías/tracks
+
+| Botón | Icono | Qué hace | Estado | Carril |
+|---|---|---|---|---|
+| Nueva A/B (btnPlusAB / track_new_ab) | AddNew/ABTrackAB | Crea línea A/B nueva | ✅ (flujo A→B en mapa) | L+S |
+| Nueva A+ (track_new_a) | APlusPlusA | Crea guía paralela desplazada (A+) | 🟡 | L+S |
+| Nueva curva (track_new_curve) | ABTrackCurve | Crea A/B curva | ❌ | L+S |
+| Dibujar AB (btnABDraw) | ABDraw | Dibuja AB tocando puntos en el mapa | 🟡 | L+S |
+| Construir tracks (btnBuildTracks) | ABTracks | Editor de tracks (tracks.html) | 🟡 (C) | L+S |
+| Elegir guía (btnTrack) | TrackOn | Lista para elegir la guía activa | ✅ | L+S |
+| Guía siguiente (btnCycleLines) | ABLineCycle | Cicla al track siguiente | ✅ | L+S |
+| Guía anterior (btnCycleLinesBk) | ABLineCycleBk | Cicla al track anterior | ✅ | L+S |
+| Auto-track (btnAutoTrack) | AutoTrack On/Off | Selección automática del track más cercano | ✅ | L+S |
+| Apagar tracks (btnTracksOff) | SwitchOff | Desactiva el track activo (idx=-1) | ✅ | L+S |
+| Snap a pivote (btnSnapToPivot) | SnapToPivot | Snap del track al pivote del vehículo | ❌ | L+S |
+| Nudge izq/der (btnAdjLeft/Right) | SnapLeft/Right | Mueve el track un paso izq/der | ❌ | L+S |
+| Mover guía (btnNudge) | ABSnapNudgeMenu | Menú mover guía (mover-guia.html) | 🟡 (C) | L+S |
+| Nudge referencia (btnRefNudge) | ABSnapNudgeMenuRef | Mueve la línea de referencia | ❌ | L+S |
+| Contorno ON/OFF (btnContour) | ContourOn/Off | Guiado por contorno (seguir lo aplicado) | 🟡 | L+S |
+| Bloqueo contorno (btnContourLock) | ColorLocked | Fija el contorno a la línea actual | ❌ | L+S |
+| Suavizar AB (SmoothAB) | ABSmooth | Suaviza la curva AB (suavizar-ab.html) | ❌ (C) | L+S |
+| Importar guías (copyTracks) | FileNew | Importa tracks de otro lote (FormCopyTracks) | ❌ | S |
+| Índice/total (lblNumCu) | — | Muestra "idx/total" de tracks | ✅ | L |
+
+## 3) Guiado — operación (piloto)
+
+| Botón | Icono | Qué hace | Estado | Carril |
+|---|---|---|---|---|
+| U-Turn auto (btnAutoYouTurn) | Youturn/No | Giro de cabecera automático (requiere boundary+track) | 🟡 | L+S |
+| Modo salto surcos (btnYouSkipEnable) | YouSkip* | Cicla Normal→Alternado→Ignorar trabajados | ❌ | L+S |
+| Cant. surcos a saltar (cboxpRowWidth) | — | Cuántos surcos saltar en el giro | ❌ | L+S |
+| Auto-snap a pivote (cboxAutoSnapToPivot) | AutoSteerSnapToPivot | Al enganchar, el track salta al pivote | ❌ | L+S |
+| Levante hidráulico (btnHydLift) | HydraulicLift On/Off | Activa/desactiva el levante del implemento | ❌ | L+S |
+
+## 4) Secciones (barra inferior)
+
+| Botón | Icono | Qué hace | Estado | Carril |
+|---|---|---|---|---|
+| Master AUTO (btnSectionMasterAuto) | SectionMasterOn/Off | Control automático de todas las secciones | ✅ (pinta cobertura) | L+S |
+| Master MANUAL (btnSectionMasterManual) | ManualOn/Off | Todas las secciones On/Off a mano | 🟡 | L+S |
+| Secciones individuales 1..16 | — (numeradas) | Cicla cada sección Off→Auto→On | ❌ | L+S |
+| Zonas 1..8 | — (numeradas) | Cicla un grupo de secciones | ❌ | L+S |
+| Corte en cabecera (cboxIsSectionControlled) | HeadlandSection On/Off | Apaga secciones al entrar en cabecera | ❌ | L+S |
+| Secciones ISOBUS (btnIsobusSectionControl) | IsobusSectionControl | Control de secciones por ISOBUS | ❌ | L+S |
+| Velocidad (lblSpeed) | — | Velocidad actual (solo texto) | ✅ | L |
+
+## 5) Lote / campo
+
+| Botón | Icono | Qué hace | Estado | Carril |
+|---|---|---|---|---|
+| Continuar/Abrir/Cerrar lote | — | Reabrir último / selector / cerrar (JobClose) | 🟡 | L+S |
+| Lindero/Boundary (boundaries) | Boundary | Crear/reproducir contorno (contorno.html) | ❌ (C) | L+S |
+| Herram. límites (boundaryTool) | BoundaryRecordTool | Límite por implemento (FormBndTool) | ❌ | L+S |
+| Cabecera/Headland (headland) | HeadlandOn | Construir/editar cabecera (cabecera.html) | ❌ (C) | L+S |
+| Cabecera avanzada (headlandBuild) | Headache | Cabecera por líneas (cabecera-lineas.html) | ❌ (C) | L+S |
+| Cabecera SÍ/NO (btnHeadlandOnOff) | HeadlandOn/Off | Activa/desactiva el corte por cabecera | ❌ | L+S |
+| TramLines crear (tramLinesMenuField) | TramAll | Editor de tramlines (tramline.html) | 🟡 (C) | L+S |
+| Tram vista (btnTramDisplayMode) | Tram* | Cicla modo de visualización de tram | 🟡 | L+S |
+| Bandera (btnFlag) | FlagGrn | Deja bandera en la posición actual | ❌ | L+S |
+| Bandera lat/lon (flagByLatLon) | FlagRed | Bandera por coordenadas (banderas.html) | ❌ (C) | L+S |
+| Borrar aplicado (deleteApplied) | TrashApplied | Borra cobertura/contornos + resetea área | ❌ | L+S |
+| Color mapeo (btnChangeMappingColor) | MappingOn | Color de la cobertura de secciones | ❌ | L+C |
+| Rumbo herramienta (btnResetToolHeading) | ResetTool | Endereza el implemento al rumbo GPS | ❌ | L+S |
+| Ruta grabada (Go/Stop/Record/Pick/Resume/SwapAB) | RecPath/Play | Grabar/reproducir recorridos | ❌ | L+S |
+| Importar tracks (copyTracks) | FileNew | Importa guías de otro lote | ❌ | S |
+
+## 6) Vista / cámara (panel navegación)
+
+| Botón | Icono | Qué hace | Estado | Carril |
+|---|---|---|---|---|
+| Navegación (btnNavigationSettings) | NavigationSettings | Abre/cierra el panel de cámara/mapa | ❌ | L |
+| Inclinar +/− (btnTiltUp/Dn) | TiltUp/Down | Pitch de cámara (2D↔3D) | ❌ | L |
+| Vista 2D (btn2D) | Camera2D64 | Cenital siguiendo al tractor | 🟡 (hoy heading-up) | L |
+| Vista 3D (btn3D) | Camera3D64 | Perspectiva siguiendo al tractor | ❌ | L |
+| Norte-2D (btnN2D) | CameraNorth2D | Cenital norte-arriba (no rota) | ❌ | L |
+| Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | 🟡 (grid fijo) | L |
+| Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ❌ | L |
+| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | ❌ | L |
+| Hz/PPS (lblHz) | — | Frecuencia GPS (solo texto) | 🟡 | L |
+
+## 7) Configuración (mayormente HTML por WebView)
+
+| Grupo | Qué hace | Estado | Carril |
+|---|---|---|---|
+| **Vehículo** (Tipo/Dimensiones/Antena/Guiado) | config.html solapas de vehículo | 🟡 (C) | C+L(WebView)+S |
+| **Implemento** (Tipo/Enganche/Offset/Pivot/Secciones/Switches/Ajustes) | config.html solapas de herramienta | 🟡 (C) | C+L+S |
+| **Fuentes datos** (Rumbo/Roll/Módulo máquina/Relés) | config.html solapas de fuentes | 🟡 (C) | C+L+S |
+| **U-Turn / Display / Botones / Tram / Resumen** | config.html solapas varias | 🟡 (C) | C+L+S |
+| **Dirección/Autosteer** (FormSteer) | Config del autoguiado | 🟡 (C) | C+L+S |
+| **Todos los ajustes** (ajustes-todos.html) | Volcado solo-lectura | 🟡 (C) | C+L |
+| **Colores** (colores.html) | Colores marco/campo/texto día-noche | 🟡 (C) | C+L |
+| **Colores secciones** (colores-secciones.html) | 16 colores de sección + multicolor | 🟡 (C) | C+L |
+| **Perfiles** (nuevo/cargar, perfiles.html) | Gestión de perfiles de máquina | 🟡 (C) | C+L+S |
+| **Directorios** | Carpeta de trabajo (lotes/vehículos) | 🟡 | L+S |
+
+## 8) Diagnóstico
+
+| Botón | Qué hace | Estado | Carril |
+|---|---|---|---|
+| Datos GPS (datos-gps.html) | Datos crudos del GPS | 🟡 (C) | L+C |
+| Asistente dirección (FormSteerWiz) | Calibración paso a paso del autosteer | ❌ (C) | C+L+S |
+| Gráfico dirección (grafico-direccion.html) | Ángulo real vs seteado en vivo | 🟡 (C) | C+L+S |
+| Gráfico rumbo (grafico-rumbo.html) | GPS vs IMU corregido | 🟡 (C) | C+L+S |
+| Gráfico XTE (grafico-xte.html) | Error de guiado en vivo | 🟡 (C) | C+L+S |
+| Chequeo roll (grafico-correccion.html) | Corrección roll IMU vs deriva GPS | 🟡 (C) | C+L+S |
+| Corregir posición (corregir-posicion.html) | Corrimiento de deriva GPS | ❌ (C) | C+L+S |
+| Visor eventos (eventos.html) | Registro de eventos solo-lectura | 🟡 (C) | C+L |
+| Webcam/Cámaras (camaras.html) | Cámaras Hikvision RTSP | ✅ (overlay nativo) | L+S |
+
+## 9) Agro Parallel / productos X-*
+
+| Botón | Qué hace | Estado | Carril |
+|---|---|---|---|
+| Hub Agro Parallel | Abre el Hub como widget flotante | ✅ (nativo) | L |
+| CoreX (dashboard) | Dashboard de CoreX/AgIO | 🟡 | L+S |
+| Cámaras (widget) | Vista solo-cámaras | ✅ (nativo) | L |
+| VistaX · Semilla/Máquina/Densidad | Overlays de siembra VistaX | ✅ (overlays nativos) | L+S |
+| Barras HTML ⇄ nativas | Alterna barras nativas/HTML | ✅ (barras nativas) | L |
+
+## 10) Simulador
+
+| Botón | Qué hace | Estado | Carril |
+|---|---|---|---|
+| Simulador SÍ/NO | Enciende/apaga el sim de GPS | 🟡 (engine --sim) | L+S |
+| Coordenadas sim (sim-coords.html) | Reubica el sim a lat/lon | ❌ (C) | C+L+S |
+| Reset / Reversa / Velocidad 0 / Ángulo 0 | Controles del simulador | ❌ | L+S |
+
+## 11) Sistema
+
+| Botón | Qué hace | Estado | Carril |
+|---|---|---|---|
+| Minimizar/Maximizar | Acciones de ventana | ✅ | L |
+| Modo kiosko | Pantalla completa + oculta ventana | 🟡 | L |
+| Ayuda (ayuda.html) | Utilidades del Hub + Acerca de | 🟡 (C) | L+C |
+| Reset de fábrica | Restablece toda la config (confirmación) | ❌ | L+S |
+| Apagar (btnShutdown) | Cierra PilotX | ✅ | L |
+
+---
+
+## Resumen de reparto (para arrancar)
+
+- **Leonardo (UI nativa):** las botoneras del cockpit ya traen guiado/secciones/tracks;
+  **falta**: nudge/snap izq-der, contour-lock, youskip, secciones individuales/zonas,
+  controles de cámara (2D/3D/N-2D/tilt/día-noche/brillo/grilla), banderas, ruta grabada,
+  y montar los diálogos HTML por WebView (config/diagnóstico) en ventana chica.
+- **Santiago (engine):** los comandos/servicios detrás — snap/nudge de track, youskip,
+  secciones individuales/zonas, boundary/headland/tram builders, banderas, ruta grabada,
+  hyd-lift, import tracks, reset-tool-heading, controles del simulador por API.
+- **Codex (HTML):** las pantallas de config/diagnóstico ya existen; solo hay que
+  cablearlas por el WebView (L) + su controller/servicio (S).
+
+> Próximo paso: recorrer ítem por ítem y **tachar** (✅) lo que confirmemos hecho, marcar
+> ❌ lo que falta, y asignar dueño final L/S. Después: mejorar. Por último: sumar lo nuevo.
