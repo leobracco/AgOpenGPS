@@ -744,7 +744,16 @@ public partial class MainWindow : Window
         int api = url.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
         string origin = api >= 0 ? url.Substring(0, api) : url;
         string full = origin + "/" + relativePath.TrimStart('/');
+        OpenDialogUrl(full, title, w, h);
+    }
 
+    /// <summary>
+    /// Abre una URL ABSOLUTA (ej. el dashboard de CoreX en http://127.0.0.1:5181/)
+    /// en una ventana chica cerrable, igual que OpenDialogPage pero sin componer
+    /// la URL contra el origin del Hub (:5180).
+    /// </summary>
+    private void OpenDialogUrl(string full, string title, double w, double h)
+    {
         try
         {
             if (_dialogWin != null)
@@ -1620,7 +1629,7 @@ public partial class MainWindow : Window
             // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por
             // CoreX (CoreXWebHost), NO en el Hub :5180. El ECU de autosteer queda
             // en 'corex_ecu'.
-            case "corex":      ShowWebView("http://127.0.0.1:5181/", showBackButton: true); return true;
+            case "corex":      OpenDialogUrl("http://127.0.0.1:5181/", "CoreX", 1000, 720); return true;
             case "corex_ecu":  ShowCoreXEcu(); return true;
 
             // ---- Nueva A/B → flujo en el mapa (toco A, manejo, toco B) ----
