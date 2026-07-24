@@ -4,10 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dirección · Agro Parallel</title>
+  <script>
+    // Standalone (fuera del Hub): sin sidebar, la config ocupa toda la ventana.
+    // Se marca acá en el <head> para evitar el flash del sidebar al cargar.
+    document.documentElement.classList.add('widget-mode');
+  </script>
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../layout.css" />
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
+    /* ---------- Standalone: ocultar sidebar del Hub, ancho completo ---------- */
+    html.widget-mode aside.sidebar { display: none; }
+    html.widget-mode body { grid-template-columns: 1fr; }
+
     /* ---------- Tabs (mismo mecanismo que corex-ecu.html) ---------- */
     .tabs { display:flex; gap:6px; margin: var(--agp-sp-3) 0; flex-wrap:wrap; }
     .tab-btn {

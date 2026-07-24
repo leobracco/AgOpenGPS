@@ -1661,16 +1661,16 @@ public partial class MainWindow : Window
                 OpenDialogPage("pages/lote.html?do=nuevo", "Nuevo lote", 670, 610); return true;
             case "lote_kml":
                 OpenDialogPage("pages/lote.html?do=kml", "Lote desde KML", 670, 610); return true;
+
+            // Dirección (FormSteer) → ventana propia más grande (10 tabs).
+            case "direccion":
+                OpenDialogPage("pages/direccion.html", "Dirección — Autoguiado", 1040, 780); return true;
         }
 
         // ---- Comandos que abren una página HTML del Hub en el WebView ----
         string page = cmd switch
         {
             "config_form"       => "pages/config.html",
-            // Dirección = clon HTML del FormSteer de AOG (config del autoguiado:
-            // ganancias/PWM, WAS, ángulo de giro, Pure Pursuit/Stanley, sensores,
-            // módulo). btnAutoSteerConfig → FormSteer en el original.
-            "direccion"         => "pages/direccion.html",
             "todos_ajustes"     => "pages/ajustes-todos.html",
             "colores"           => "pages/colores.html",
             "colores_sec"       => "pages/colores-secciones.html",
