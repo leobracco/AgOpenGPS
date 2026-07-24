@@ -1304,3 +1304,44 @@ la sesión android al extraer, pero el taller los usa desde Services),
   2. Deploy: NO instalar el APK Debug con `adb install` suelto (Fast Deployment → crashea
      "No assemblies found"). Usar `dotnet build -t:Install` (deploya assemblies) o Release.
   PENDIENTE tuyo (hardware): fuente GPS (CoreX/USB-OTG), y validar en tablet real.
+- [2026-07-23] [android] AVISO (tocó `SourceCode/PilotX.Android/*`, con
+  autorización directa del usuario en la conversación — no cruza a tu
+  carril, es donde ya vengo trabajando) — el usuario conectó una tablet
+  física (Lenovo TB125FU) y me pidió instalar el APK ahí. Aproveché para
+  cerrar 2 cosas: (1) probar en hardware físico real (no emulador) por
+  primera vez — instala y arranca sin excepciones, Hub responde por HTTP
+  igual que en el emulador; (2) el usuario aclaró que **para el guiado real
+  quiere ir todo por red, no por USB-OTG** (lo dejó "de gusto" para más
+  adelante) — así que agregué un bridge LAN en `HubBootstrap.cs`: un
+  `UdpBridgeService` propio (mismo patrón que `CoreXEngineHost.StartServices()`
+  de Windows, sin los 6 puertos serie que necesitan `System.IO.Ports`)
+  puenteando el loopback donde ya escucha `GuidanceEngineHost` con un socket
+  UDP en `:9999` (mismo protocolo `:9999↔:8888` que ya usan los módulos
+  AutoSteer/GPS/Machine que hablan PGN por WiFi en vez de serie). Verificado
+  que el socket bindea en `0.0.0.0:9999` en la tablet real y recibe
+  datagramas desde la PC sin crashear — falta un módulo real o ModSim para
+  probar un PGN válido de punta a punta. También agregué (solo builds Debug,
+  `#if DEBUG`) el mismo simulador interno de posición que uso en la consola
+  Windows (`--sim`), para poder probar el resto del motor en un dispositivo
+  real sin depender de red/hardware. Build completo 0 errores, 141 tests
+  verdes. Nada de esto toca tu carril (`PilotX.Desktop`/`Cockpit.Bars`/mapa).
+- [2026-07-23] [android] HECHO — **GPS real de punta a punta en la tablet
+  física, sin USB-OTG**. Al arrancar el bridge LAN de arriba, capté tráfico
+  real de un CoreX/AgOpenGPS que el usuario ya tenía corriendo en otra PC de
+  su red — venía mezclado: PGN ya envuelto (`0x80 0x81...`, lo esperado) Y
+  sentencias NMEA crudas (`$GPGGA`/`$GPVTG`/`$PANDA`, un receptor GPS real
+  sacando NMEA por WiFi en vez de serie). Mi gate original solo reenviaba lo
+  ya envuelto — el NMEA crudo (donde vive la posición) se descartaba
+  silencioso. Arreglado linkeando `CNmeaParser`/`INmeaParserHost`/`CGLM` de
+  `AgIO` a `PilotX.Android.csproj` por archivo (mismo criterio que
+  `PilotX.GuidanceEngine.csproj`, sin `ProjectReference` a todo `AgIO` que
+  traería `System.IO.Ports`) y un `INmeaParserHost` mínimo en
+  `HubBootstrap.cs` que arma el PGN 0xD6 igual que hace `CoreXEngineHost`
+  con serial en Windows. Saqué el simulador Debug que había agregado antes
+  (ya no hace falta, y el usuario pidió sacarlo).
+  **Verificado con datos 100% reales en la Lenovo TB125FU**: `fix_quality:8`
+  (RTK), `latitude`/`longitude` cambiando fix a fix, `avg_speed`/`heading`
+  reales — todo por WiFi, sin nada conectado a la tablet. Sin excepciones.
+  Build completo 0 errores, 141 tests verdes. Con esto el USB-OTG (bloque 8)
+  queda como alternativa futura, no bloqueante — la vía de red ya funciona
+  de punta a punta. Voy a commitear y pushear.

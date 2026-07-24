@@ -47,6 +47,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- CNmeaParser/INmeaParserHost (AgIO) para el bridge LAN sin serie
+         (HubBootstrap.cs): mismo criterio que PilotX.GuidanceEngine.csproj
+         (linkear por archivo en vez de ProjectReference a todo AgIO.csproj,
+         que necesita System.IO.Ports/WinForms) — permite parsear NMEA crudo
+         ($GPGGA/$GPVTG/$PANDA) que llegue por WiFi y armar el PGN 0xD6 que
+         espera GuidanceEngineHost, sin arrastrar nada de eso a Android. -->
+    <Compile Include="..\AgIO\Source\Classes\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
+    <Compile Include="..\AgIO\Source\Classes\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
+    <Compile Include="..\AgIO\Source\Classes\CGLM.cs" Link="AgIO\CGLM.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Todo el Hub HTML viaja como assets y se extrae a files/wwwroot en el
          primer arranque (el WebHost sirve desde disco). -->
     <AndroidAsset Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\**\*"

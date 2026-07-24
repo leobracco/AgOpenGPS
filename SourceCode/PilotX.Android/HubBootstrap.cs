@@ -25,6 +25,23 @@ namespace PilotX.Droid
         private static FlowXBridge s_flowxBridge;
         private static PilotXCore.GuidanceEngineHost s_guidance;
         private static AndroidPilotXUpdateService s_pilotxUpdate;
+        private static UdpBridgeService s_lanBridge;
+        private static AgIO.CNmeaParser s_nmeaParser;
+        private static readonly System.Net.IPEndPoint s_epModule =
+            new System.Net.IPEndPoint(System.Net.IPAddress.Parse("255.255.255.255"), 8888);
+
+        // Host mínimo de CNmeaParser (AgIO) para el bridge LAN: arma el PGN
+        // 0xD6 a partir de $GPGGA/$GPVTG/$PANDA crudo que llegue por WiFi
+        // (mismo formato que CoreXEngineHost.SpGPS.OnDataReceived en Windows,
+        // pero la fuente acá es un receptor GPS en red en vez de serie) y lo
+        // manda al loopback donde ya escucha GuidanceEngineHost.
+        private sealed class LanNmeaHost : AgIO.INmeaParserHost
+        {
+            public bool IsGpsSentencesOn => false;
+            public bool IsLogMonitorOn => false;
+            public void AppendLogMonitor(string text) { }
+            public void SendNmeaPgn(byte[] pgn) => s_lanBridge?.SendToLoopback(pgn);
+        }
 
         public static bool IsRunning { get { lock (s_lock) return s_host != null; } }
         public static string Url { get { lock (s_lock) return s_host?.Url; } }
@@ -58,14 +75,44 @@ namespace PilotX.Droid
                 // Guidance engine headless (bloque 14) — reemplaza los stubs de
                 // guiado/lotes/estado/cobertura/secciones/vehiculo-tool/QuantiX
                 // runtime por implementaciones reales (GuidanceEngineServices.cs +
-                // GuidanceEngineStateServices.cs). Sin fix GPS real todavia
-                // (necesita CoreX/serial por USB-OTG, bloque 8 pendiente de
-                // hardware): Start() solo deja el loopback UDP escuchando, sin
-                // nada que le mande PGN por ahora.
+                // GuidanceEngineStateServices.cs). Start() deja el loopback UDP
+                // escuchando (:15555); el bridge LAN de abajo es lo que le puede
+                // mandar PGN real sin serie/USB-OTG.
                 var guidanceBaseDir = new DirectoryInfo(Path.Combine(dataDir, "GuidanceEngine"));
                 if (!guidanceBaseDir.Exists) guidanceBaseDir.Create();
                 s_guidance = new PilotXCore.GuidanceEngineHost(guidanceBaseDir);
                 s_guidance.Start();
+
+                // Bridge LAN de "CoreX" sin serie/USB-OTG: mismo patrón que
+                // CoreXEngineHost.StartServices()/ReceiveFromLoopBack/ReceiveFromUdp
+                // (PilotX.GuidanceEngine, Windows) pero sin los 6 puertos serie —
+                // esos necesitan System.IO.Ports (NETSDK1047 en net9.0-android, ver
+                // header de PilotX.GuidanceEngine.Core). Dos tipos de tráfico por
+                // :9999: (a) PGN ya envuelto (0x80 0x81...) de módulos WiFi tipo
+                // AutoSteer ECU, se reenvía tal cual; (b) NMEA crudo ($GPGGA/$GPVTG/
+                // $PANDA) de un receptor GPS que saca NMEA por WiFi en vez de serie
+                // — se parsea con CNmeaParser (mismo que usa CoreXEngineHost con
+                // SpGPS.OnDataReceived) para armar el PGN 0xD6 que espera el motor.
+                s_nmeaParser = new AgIO.CNmeaParser(new LanNmeaHost());
+                s_lanBridge = new UdpBridgeService();
+                s_lanBridge.OnLoopbackReceived += (data, ep) => s_lanBridge.SendUdpTo(data, s_epModule);
+                s_lanBridge.OnUdpReceived += (data, ep) =>
+                {
+                    if (data == null || data.Length < 4) return;
+
+                    if (data[0] == 0x80 && data[1] == 0x81)
+                    {
+                        s_lanBridge.SendToLoopback(data);
+                    }
+                    else if (data[0] == (byte)'$')
+                    {
+                        try { s_nmeaParser.ParseIncoming(System.Text.Encoding.ASCII.GetString(data)); }
+                        catch (Exception ex) { Android.Util.Log.Warn("PilotX", "LAN NMEA parse: " + ex.Message); }
+                    }
+                };
+                s_lanBridge.StartLoopback("127.0.0.1", 17777, 15555);
+                s_lanBridge.StartUdp(9999);
+
                 var guidanceCalc = new GuidanceEngineGuidanceCalculator(s_guidance);
                 var lotes = new GuidanceEngineLotesService(s_guidance);
                 var state = new GuidanceEngineStateProvider(s_guidance);
@@ -140,6 +187,9 @@ namespace PilotX.Droid
             {
                 try { s_flowxBridge?.Stop(); s_flowxBridge?.Dispose(); } catch { }
                 try { s_host?.Stop(); } catch { }
+                try { s_lanBridge?.Stop(); } catch { }
+                s_lanBridge = null;
+                s_nmeaParser = null;
                 try { s_guidance?.Stop(); } catch { }
                 try { s_pilotxUpdate?.Dispose(); } catch { }
                 try { s_nodos?.Stop(); } catch { }
