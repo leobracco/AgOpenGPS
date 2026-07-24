@@ -35,6 +35,15 @@
          queda para cuando haya USB-OTG (UsbSerialForAndroid, bloque 8
          matriz). -->
     <ProjectReference Include="..\PilotX.GuidanceEngine.Core\PilotX.GuidanceEngine.Core.csproj" />
+    <!-- UI nativa Avalonia compartida (App + MainView + mapa GL + barras). Trae
+         Avalonia core + Silk.NET.OpenGL + PilotX.Cockpit.Bars. Es el mapa nativo
+         que reemplaza al WebView del Hub (S1 del port Android). -->
+    <ProjectReference Include="..\PilotX.UI\PilotX.UI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Backend Avalonia para Android (hostea App/MainView en la Activity). -->
+    <PackageReference Include="Avalonia.Android" Version="11.2.3" />
   </ItemGroup>
 
   <ItemGroup>

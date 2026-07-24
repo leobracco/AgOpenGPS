@@ -1,17 +1,25 @@
 // ============================================================================
-// MainActivity.cs
-// Shell del Hub: un WebView pantalla completa contra 127.0.0.1:5180.
-// El WebHost + broker corren en HubForegroundService para sobrevivir a la
-// Activity (bloque 7 matriz Android — Fase 1, Hub sin guiado).
-// Las páginas usan window.chrome.webview con guardas try/catch, así que en
-// Android (donde no existe) degradan solas; el puente JS nativo llega después.
+// MainActivity.cs — head Avalonia del mapa NATIVO en Android (S1 del port).
+//
+// Reemplaza el WebView del Hub (ahora HubActivity, secundaria) por la UI nativa
+// Avalonia compartida: hostea PilotX.Desktop.App, que en el single-view lifetime
+// de Android monta PilotX.Desktop.Views.MainView (mapa GL + barras del cockpit +
+// pollers live contra 127.0.0.1:5180).
+//
+// El engine + WebHost + broker corren in-process en HubForegroundService (mismo
+// que la Fase 1), arrancado acá antes de la UI. MainView poolea :5180; sus
+// pollers reintentan mientras el WebHost termina de levantar (~1-2 s).
+//
+// GPS real: todavía sin fuente (necesita CoreX por USB-OTG, bloque 8). El mapa
+// renderiza contra el engine igual; con un fix real (o el sim) se mueve el tractor.
 // ============================================================================
 
 using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Views;
-using Android.Webkit;
+using Avalonia;
+using Avalonia.Android;
 
 namespace PilotX.Droid
 {
@@ -21,64 +29,32 @@ namespace PilotX.Droid
         Theme = "@android:style/Theme.Material.Light.NoActionBar",
         ConfigurationChanges = Android.Content.PM.ConfigChanges.Orientation
                              | Android.Content.PM.ConfigChanges.ScreenSize
-                             | Android.Content.PM.ConfigChanges.KeyboardHidden,
+                             | Android.Content.PM.ConfigChanges.KeyboardHidden
+                             | Android.Content.PM.ConfigChanges.UiMode,
         ScreenOrientation = Android.Content.PM.ScreenOrientation.Landscape)]
-    public class MainActivity : Activity
+    public class MainActivity : AvaloniaMainActivity<PilotX.Desktop.App>
     {
-        private WebView _webView;
+        protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)
+        {
+            return base.CustomizeAppBuilder(builder)
+                .WithInterFont();
+        }
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
-            base.OnCreate(savedInstanceState);
-
-            // Servicio en foreground: broker + WebHost viven ahí.
+            // Engine + WebHost + broker (:5180) en foreground ANTES de la UI. Los
+            // pollers de MainView reintentan hasta que responda, así no importa
+            // que la Activity arranque unos ms antes que el WebHost.
             var svc = new Intent(this, typeof(HubForegroundService));
             if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
                 StartForegroundService(svc);
             else
                 StartService(svc);
 
-            _webView = new WebView(this);
-            _webView.Settings.JavaScriptEnabled = true;
-            _webView.Settings.DomStorageEnabled = true;
-            _webView.Settings.MediaPlaybackRequiresUserGesture = false;
-            _webView.SetWebViewClient(new HubWebViewClient());
-            SetContentView(_webView);
+            base.OnCreate(savedInstanceState);
 
-            // Pantalla siempre encendida: es un monitor de cabina.
-            Window.AddFlags(WindowManagerFlags.KeepScreenOn);
-
-            LoadWhenReady();
-        }
-
-        // El WebHost puede tardar 1-2 s en levantar; reintenta hasta que
-        // responda en vez de mostrar el error de conexión del WebView.
-        private void LoadWhenReady(int attempt = 0)
-        {
-            if (HubBootstrap.IsRunning || attempt >= 40)
-            {
-                _webView.LoadUrl("http://127.0.0.1:5180/");
-                return;
-            }
-            new Handler(Looper.MainLooper).PostDelayed(() => LoadWhenReady(attempt + 1), 250);
-        }
-
-        public override void OnBackPressed()
-        {
-            if (_webView != null && _webView.CanGoBack()) _webView.GoBack();
-            else base.OnBackPressed();
-        }
-
-        private sealed class HubWebViewClient : WebViewClient
-        {
-            public override bool ShouldOverrideUrlLoading(WebView view, IWebResourceRequest request)
-            {
-                // Todo el Hub es loopback; no abrir nada afuera.
-                var url = request?.Url?.ToString() ?? "";
-                if (url.StartsWith("http://127.0.0.1") || url.StartsWith("http://localhost"))
-                    return false;
-                return true;
-            }
+            // Monitor de cabina: pantalla siempre encendida.
+            Window?.AddFlags(WindowManagerFlags.KeepScreenOn);
         }
     }
 }

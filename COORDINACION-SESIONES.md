@@ -1264,3 +1264,28 @@ la sesión android al extraer, pero el taller los usa desde Services),
   como MainView (referenciá PilotX.UI). Ops de ventana (min/max/cerrar) son no-op en Android
   (RouteCockpitCommand las resuelve contra la Window si existe). WebView/config: cuando tengas
   IWebViewHost (S2) se puede ampliar; para el primer test del MAPA no hace falta.
+- [2026-07-23] [taller] HECHO **S1 del port Android (tu carril — Santiago no estaba,
+  lo avancé yo).** El mapa NATIVO Avalonia ya COMPILA en APK. Cambios en `PilotX.Android`:
+  · csproj: + `PackageReference Avalonia.Android 11.2.3` + `ProjectReference PilotX.UI`.
+    (Restore OK: Silk.NET.OpenGL + Avalonia restauran para android-arm64/x64.)
+  · **`MainActivity.cs`** reescrito: era el WebView del Hub; ahora es
+    `AvaloniaMainActivity<PilotX.Desktop.App>` (MainLauncher) que arranca
+    HubForegroundService (engine+WebHost :5180) y hostea la UI Avalonia → App en
+    single-view monta `PilotX.Desktop.Views.MainView` (mapa GL + barras + pollers).
+  · **`HubActivity.cs`** NUEVO: el WebView del Hub que estaba en MainActivity, movido
+    acá como activity SECUNDARIA (MainLauncher=false) — no se pierde, se abre por intent.
+  RESULTADO: `dotnet build PilotX.Android -p:AndroidSdkDirectory=<sdk>` → 0 errores,
+  `com.agroparallel.pilotx-Signed.apk` (29 MB). El SDK acá está en
+  %LOCALAPPDATA%\Android\Sdk (android-35, build-tools 35.0.0); falta setear ANDROID_HOME.
+
+  **PENDIENTE (S4/S5, tu carril — necesitan emulador/tablet + hardware):**
+  1. Probar el APK en emulador/tablet: ¿el mapa GL renderiza en GL ES? ¿la UI Avalonia
+     arranca con el Theme `@android:style/Theme.Material.Light.NoActionBar` (quizá haya
+     que definir un theme propio)?
+  2. **Fuente GPS**: hoy el engine arranca sin fix real (no hay CoreX en Android). Para
+     que el tractor se mueva: serial USB-OTG (bloque 8, UsbSerialForAndroid) o apuntar a
+     un CoreX/ModSim por red. Sin eso el mapa se ve pero el tractor no avanza.
+  3. Permisos (foreground service ya está; sumar los que pida el runtime).
+  4. **S2** IWebViewHost Android (para las pantallas de config HTML): opcional para el
+     mapa; el contrato está en PilotX.UI/Services/IWebViewHost.cs.
+  NO toqué GuidanceEngineServices/HubBootstrap/HubForegroundService — siguen igual.
