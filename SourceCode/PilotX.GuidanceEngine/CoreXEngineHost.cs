@@ -158,11 +158,29 @@ namespace AgIO
             }
         }
 
-        // módulos por red (LAN) en vez de serie: llega un PGN de vuelta -> va al loopback.
+        // módulos por red (LAN) en vez de serie. Dos tipos de tráfico por :9999:
+        //  (a) PGN ya envuelto (0x80 0x81...) de módulos WiFi tipo AutoSteer ECU
+        //      -> se reenvía tal cual al loopback.
+        //  (b) NMEA crudo ($GPGGA/$GPVTG/$PANDA) de un GPS/simulador (ModSim) que
+        //      saca NMEA por UDP en vez de serie -> se parsea con el MISMO
+        //      CNmeaParser del path serie (arma el PGN 0xD6 via
+        //      INmeaParserHost.SendNmeaPgn -> loopback). Sin esto el motor recibe
+        //      texto que no entiende y la velocidad/posición quedan en cero.
+        //  [stopgap Leonardo 2026-07-24, avisado a Santi: mismo patrón que el
+        //   bridge LAN de Android en HubBootstrap.OnUdpReceived]
         private void ReceiveFromUdp(byte[] data, IPEndPoint remoteEp)
         {
-            if (data.Length < 4 || data[0] != 0x80 || data[1] != 0x81) return;
-            UdpBridge.SendToLoopback(data);
+            if (data == null || data.Length < 4) return;
+
+            if (data[0] == 0x80 && data[1] == 0x81)
+            {
+                UdpBridge.SendToLoopback(data);
+            }
+            else if (data[0] == (byte)'$')
+            {
+                try { Nmea.ParseIncoming(System.Text.Encoding.ASCII.GetString(data)); }
+                catch (Exception ex) { Log.EventWriter("CoreXEngine: LAN NMEA parse: " + ex.Message); }
+            }
         }
 
         // ---- INmeaParserHost ----

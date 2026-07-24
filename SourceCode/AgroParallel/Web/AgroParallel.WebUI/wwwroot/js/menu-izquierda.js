@@ -11,79 +11,80 @@
   var COLLAPSED = { w: 94, h: 560 };
   var EXPANDED = { w: 384, h: 560 };
 
-  // submenús: espejo de los desplegables/paneles nativos de cada ítem
+  // submenús: espejo EXACTO de los desplegables nativos de AOG 6.8.5, con sus
+  // iconos verdaderos (img = PNG real en ../img/menu/) y el mismo orden/etiquetas.
   var SUBMENUS = {
+    // panelNavigation de AOG (cámara/vista). mantener:true = queda abierto.
     navegacion: {
       titulo: 'Navegación',
-      // como el panel nativo: queda abierto para tocar varias veces
-      // (2D↔3D, brillo +/-, inclinar) — se cierra tocando el ítem de nuevo
       mantener: true,
       items: [
-        { ico: '▱', label: '2D', cmd: 'v2d' },
-        { ico: '⛰', label: '3D', cmd: 'v3d' },
-        { ico: '🧭', label: 'Norte 2D', cmd: 'norte2d' },
-        { ico: '▦', label: 'Grilla', cmd: 'grilla' },
-        { ico: '🌗', label: 'Día / Noche', cmd: 'dia_noche' },
-        { ico: '🔆', label: 'Brillo +', cmd: 'brillo_up' },
-        { ico: '🔅', label: 'Brillo −', cmd: 'brillo_dn' },
-        { ico: '⬢', label: 'Hub', cmd: 'hub' },
-        { ico: '⚙', label: 'Panel nativo', cmd: 'navegacion' }
+        { img: 'Camera2D64.png', label: '2D', cmd: 'v2d' },
+        { img: 'Camera3D64.png', label: '3D', cmd: 'v3d' },
+        { img: 'CameraNorth2D.png', label: 'Norte 2D', cmd: 'norte2d' },
+        { img: 'TiltUp.png', label: 'Inclinar +', cmd: 'tilt_up' },
+        { img: 'TiltDown.png', label: 'Inclinar −', cmd: 'tilt_dn' },
+        { img: 'GridRotate.png', label: 'Grilla', cmd: 'grilla' },
+        { img: 'WindowNightMode.png', label: 'Día / Noche', cmd: 'dia_noche' },
+        { img: 'BrightnessUp.png', label: 'Brillo +', cmd: 'brillo_up' },
+        { img: 'BrightnessDn.png', label: 'Brillo −', cmd: 'brillo_dn' }
       ]
     },
+    // dropdown "Settings" (toolStripDropDownButton1) de AOG
     config: {
-      titulo: 'Config',
+      titulo: 'Configuración',
       items: [
-        { ico: '🚜', label: 'Configuración', cmd: 'config_form' },
-        { ico: '🎯', label: 'Dirección', cmd: 'direccion' },
-        { ico: '🗒', label: 'Todos los ajustes', cmd: 'todos_ajustes' },
-        { ico: '🎨', label: 'Colores', cmd: 'colores' },
-        { ico: '🟩', label: 'Colores secciones', cmd: 'colores_sec' },
-        { ico: '📡', label: 'Datos GPS', cmd: 'datos_gps' },
-        { ico: '➕', label: 'Perfil nuevo', cmd: 'perfil_nuevo' },
-        { ico: '📂', label: 'Cargar perfil', cmd: 'perfil_cargar' },
-        { ico: '🗂', label: 'Directorios', cmd: 'directorios' },
-        { ico: '❓', label: 'Ayuda', cmd: 'ayuda' }
+        { img: 'Settings48.png', label: 'Configuración', cmd: 'config_form' },
+        { img: 'AutoSteerOff.png', label: 'Auto Steer', cmd: 'direccion' },
+        { img: 'ScreenShot.png', label: 'Ver todos los ajustes', cmd: 'todos_ajustes' },
+        { img: 'FileOpen.png', label: 'Directorios', cmd: 'directorios' },
+        { img: 'GPSQuality.png', label: 'Datos GPS', cmd: 'datos_gps' },
+        { img: 'ColourPick.png', label: 'Colores', cmd: 'colores' },
+        { img: 'SectionMapping.png', label: 'Colores secciones', cmd: 'colores_sec' },
+        { img: 'ConD_KeyBoard.png', label: 'Atajos', cmd: 'hotkeys' }
       ]
     },
+    // dropdown "Tools" (toolStripDropDownButton4) de AOG (Wizards/Charts aplanados)
     herramientas: {
       titulo: 'Herramientas',
       items: [
-        { ico: '🪄', label: 'Asistente dirección', cmd: 'asistente_direccion' },
-        { ico: '📈', label: 'Gráfico dirección', cmd: 'grafico_direccion' },
-        { ico: '🧭', label: 'Gráfico rumbo', cmd: 'grafico_rumbo' },
-        { ico: '📉', label: 'Gráfico XTE', cmd: 'grafico_xte' },
-        { ico: '⚖', label: 'Chequeo roll', cmd: 'chequeo_roll' },
-        { ico: '⬠', label: 'Herram. límites', cmd: 'herr_limites' },
-        { ico: '〰', label: 'Suavizar AB', cmd: 'suavizar_ab' },
-        { ico: '🗑', label: 'Borrar contornos', cmd: 'borrar_contornos' },
-        { ico: '📍', label: 'Corregir posición', cmd: 'corregir_pos' },
-        { ico: '📜', label: 'Visor eventos', cmd: 'visor_eventos' },
-        { ico: '📷', label: 'Webcam', cmd: 'webcam' }
+        { img: 'AutoSteerOn.png', label: 'Asist. dirección', cmd: 'asistente_direccion' },
+        { img: 'AutoSteerOn.png', label: 'Gráfico dirección', cmd: 'grafico_direccion' },
+        { img: 'ConS_SourcesHeading.png', label: 'Gráfico rumbo', cmd: 'grafico_rumbo' },
+        { img: 'AutoManualIsAuto.png', label: 'Gráfico XTE', cmd: 'grafico_xte' },
+        { img: 'ConS_SourcesRoll.png', label: 'Corrección roll', cmd: 'chequeo_roll' },
+        { img: 'Boundary.png', label: 'Herram. límites', cmd: 'herr_limites' },
+        { img: 'ABTracks.png', label: 'Visor eventos', cmd: 'visor_eventos' },
+        { img: 'ABSmooth.png', label: 'Suavizar AB', cmd: 'suavizar_ab' },
+        { img: 'TrashContourRef.png', label: 'Ocultar contornos', cmd: 'borrar_contornos' },
+        { img: 'Webcam.png', label: 'Webcam', cmd: 'webcam' },
+        { img: 'YouTurnReverse.png', label: 'Corregir posición', cmd: 'corregir_pos' }
       ]
     },
+    // btnJobMenu (JobActive) de AOG: abrir/crear/continuar/cerrar lote
     lote: {
       titulo: 'Lote',
       items: [
-        { ico: '▶', label: 'Continuar lote', cmd: 'lote_continuar' },
-        { ico: '🗂', label: 'Abrir / nuevo', cmd: 'lote_menu' },
-        { ico: '✖', label: 'Cerrar lote', cmd: 'lote_cerrar' },
-        { ico: '📊', label: 'Datos lote', cmd: 'lote_datos' },
-        { ico: '🚩', label: 'Bandera', cmd: 'bandera' },
-        { ico: '📌', label: 'Bandera lat/lon', cmd: 'bandera_latlon' },
-        { ico: '🗑', label: 'Borrar aplicado', cmd: 'borrar_aplicado' },
-        { ico: '🎨', label: 'Color mapeo', cmd: 'mapeo_color' }
+        { img: 'FileOpen.png', label: 'Continuar', cmd: 'lote_continuar' },
+        { img: 'FileOpen.png', label: 'Abrir', cmd: 'lote_menu' },
+        { img: 'FileNew.png', label: 'Nuevo', cmd: 'lote_nuevo' },
+        { img: 'FileNew.png', label: 'Nuevo desde KML', cmd: 'lote_kml' },
+        { img: 'SwitchOff.png', label: 'Cerrar', cmd: 'lote_cerrar' }
       ]
     },
+    // dropdown "Field Tools" (toolStripBtnFieldTools) de AOG
     herrlote: {
       titulo: 'Herr. lote',
       items: [
-        { ico: '⬠', label: 'Lindero', cmd: 'lindero' },
-        { ico: '⛶', label: 'Cabecera', cmd: 'cabecera' },
-        { ico: '⛶', label: 'Cabecera avanzada', cmd: 'cabecera_avanzada' },
-        { ico: '🔛', label: 'Cabecera SÍ/NO', cmd: 'cabecera_onoff' },
-        { ico: '📥', label: 'Importar guías', cmd: 'importar_guias' },
-        { ico: '🛤', label: 'Tram crear', cmd: 'tram_crear' },
-        { ico: '👁', label: 'Tram vista', cmd: 'tram_vista' }
+        { img: 'Boundary.png', label: 'Lindero', cmd: 'lindero' },
+        { img: 'HeadlandBuild.png', label: 'Cabecera', cmd: 'cabecera' },
+        { img: 'Headache.png', label: 'Cabecera (Build)', cmd: 'cabecera_avanzada' },
+        { img: 'TramAll.png', label: 'Tramlines', cmd: 'tram_crear' },
+        { img: 'TramMulti.png', label: 'Tramlines multi', cmd: 'tram_multi' },
+        { img: 'TrashApplied.png', label: 'Borrar aplicado', cmd: 'borrar_aplicado' },
+        { img: 'FlagRed.png', label: 'Bandera lat/lon', cmd: 'bandera_latlon' },
+        { img: 'RecPath.png', label: 'Ruta grabada', cmd: 'ruta_grabada' },
+        { img: 'FileNew.png', label: 'Importar guías', cmd: 'importar_guias' }
       ]
     }
   };
@@ -137,7 +138,10 @@
       var d = document.createElement('button');
       d.type = 'button';
       d.className = 'sbtn';
-      d.innerHTML = '<span class="ico">' + it.ico + '</span><span>' + it.label + '</span>';
+      var icoHtml = it.img
+        ? '<img src="../img/menu/' + it.img + '" alt="">'
+        : '<span class="ico">' + (it.ico || '') + '</span>';
+      d.innerHTML = icoHtml + '<span>' + it.label + '</span>';
       d.addEventListener('click', function () {
         send(it.cmd, d);
         // submenús "mantener" (Navegación) quedan abiertos para tocar varias

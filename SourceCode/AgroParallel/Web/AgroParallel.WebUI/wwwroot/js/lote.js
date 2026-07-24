@@ -124,4 +124,15 @@
   }
 
   loadCurrent();
+
+  // Deep-link desde el submenú LOTE de la barra izquierda
+  // (?do=nuevo|abrir|kml|continuar): abre directo la sub-pantalla o dispara la
+  // acción, sin pasar por el menú principal. Sin query param = menú normal.
+  try {
+    var doParam = new URLSearchParams(location.search).get('do');
+    if (doParam === 'nuevo') { $('inpNewName').value = ''; show('new'); }
+    else if (doParam === 'abrir') { show('open'); }
+    else if (doParam === 'kml') { $('btnFromKML').click(); }
+    else if (doParam === 'continuar') { $('btnResume').click(); }
+  } catch (e) { /* sin URLSearchParams o query vacío: menú normal */ }
 })();

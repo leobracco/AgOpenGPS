@@ -1476,3 +1476,48 @@ la sesión android al extraer, pero el taller los usa desde Services),
     `"tram_crear" => "pages/tramline.html"`) para que el botón haga algo.
   Build completo (Desktop + Android APK) 0 errores, 141 tests verdes.
   Voy a commitear y pushear.
+- [2026-07-24] [taller] HECHO — barra IZQUIERDA clon fiel del `panelLeft` de
+  AOG 6.8.5 pusheada (`36b157f7`): `menu-izquierda.html` + `menu-izquierda.js`
+  + 35 iconos reales del 6.8.5 en `wwwroot/img/menu/`. Orden real (Navegación,
+  Herramientas, Configuración, LOTE grande, Herr. lote, Dirección, CoreX),
+  submenús con ítems e iconos verdaderos. **Santi — para chequear los botones**:
+  el bar hace `POST /api/aog/guidance/command {cmd}`. Los `cmd` que manda (los
+  que falten en `ExecuteCommand` hay que cablearlos):
+  · directos: `direccion`, `corex`
+  · navegacion: `v2d v3d norte2d tilt_up tilt_dn grilla dia_noche brillo_up brillo_dn`
+  · config: `config_form direccion todos_ajustes directorios datos_gps colores colores_sec hotkeys`
+  · herramientas: `asistente_direccion grafico_direccion grafico_rumbo grafico_xte chequeo_roll herr_limites visor_eventos suavizar_ab borrar_contornos webcam corregir_pos`
+  · lote: `lote_continuar lote_menu lote_nuevo lote_kml lote_cerrar`
+  · herrlote: `lindero cabecera cabecera_avanzada tram_crear tram_multi borrar_aplicado bandera_latlon ruta_grabada importar_guias`
+  · + `paneles_keepalive` (heartbeat de auto-ocultado).
+  Es UI pura (mi carril), no toqué el engine. Sigo con barra-superior/derecha/abajo
+  (paso 1 visual) y después paso 2 = cablear funciones + paso 3 = enganchar los HTML.
+- [2026-07-24] [taller] HECHO + PEDIDO — barra IZQUIERDA nativa (Avalonia)
+  clonada en PilotX.Desktop y pusheada (`e9f576e1`): control
+  `PilotX.Cockpit.Bars/Views/MenuIzquierda.axaml` reescrito = espejo fiel del
+  `panelLeft` de AOG (orden real, LOTE grande verde, submenús con iconos
+  verdaderos del 6.8.5 en `Assets/menu/`, sin "Guías"). Buildeó limpio y se ve
+  en la app nativa. **Santi — ARRANCÁ POR EL MENÚ IZQUIERDO**: los botones ya
+  mandan `POST /api/aog/guidance/command {cmd}` pero el engine (:5180) no
+  responde a varios de esos `cmd`. Cablealos en `ExecuteCommand`
+  (`GuidanceEngineHost.Commands.cs`). Lista completa de `cmd` del menú izquierdo
+  (misma que dejé antes para el bar HTML):
+  · directos: `direccion`, `corex`
+  · navegacion: `v2d v3d norte2d tilt_up tilt_dn grilla dia_noche brillo_up brillo_dn`
+  · config: `config_form direccion todos_ajustes directorios datos_gps colores colores_sec hotkeys`
+  · herramientas: `asistente_direccion grafico_direccion grafico_rumbo grafico_xte chequeo_roll herr_limites visor_eventos suavizar_ab borrar_contornos webcam corregir_pos`
+  · lote: `lote_continuar lote_menu lote_nuevo lote_kml lote_cerrar`
+  · herrlote: `lindero cabecera cabecera_avanzada tram_crear tram_multi borrar_aplicado bandera_latlon ruta_grabada importar_guias`
+  Prioridad = el submenú **LOTE** (`lote_continuar/lote_menu/lote_nuevo/lote_kml/lote_cerrar`)
+  porque es la puerta de entrada (sin lote abierto el resto no opera). Yo sigo con
+  las barras de arriba/derecha/abajo en nativo (mi carril, no toco el engine).
+- [2026-07-24] [taller] HECHO (stopgap engine, AVISADO) — `CoreXEngineHost.ReceiveFromUdp`
+  descartaba el NMEA crudo del bridge LAN (:9999): solo aceptaba PGN `0x80 0x81`.
+  ModSim externo manda `$GPGGA/$GPVTG` por UDP → se caía → `avg_speed/heading/fix`
+  en cero, el mapa no se movía en PilotX.Desktop. Lo arreglé igual que el bridge
+  de Android (`HubBootstrap.OnUdpReceived`): si empieza con `$`, parsear con el
+  `Nmea` (CNmeaParser) que ya existe para el path serie. Verificado: tras el fix
+  `avg_speed` sube y `fix_quality=8`. **Santi**: si querés unificar, esto debería
+  vivir en el engine de una (es tu carril); lo dejé como stopgap para desbloquear
+  la prueba del mapa con simulador externo. Setup de arranque correcto de
+  PilotX.Desktop = `PilotX.GuidanceEngine.exe --webhost --corex` (NO el WinForms legacy).
