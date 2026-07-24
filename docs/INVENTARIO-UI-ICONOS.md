@@ -48,6 +48,51 @@
 
 ---
 
+## 🔍 CORRECCIONES DE AUDITORÍA (2026-07-24) — errores del primer catálogo
+
+> Segunda pasada adversarial (verificadores independientes vs la fuente). El catálogo salió
+> **mayormente fiel**, pero con estos errores reales:
+
+**Botón que FALTÓ (agregar):**
+- `btnChargeStatus` — indicador de **carga/batería** (cluster superior derecho, junto a Datos GPS).
+  No interactivo; icono `ChargeIndicator.png`, color verde OK / rojo alerta según carga.
+
+**Filas INVENTADAS (borrar del catálogo crudo — no existen):**
+- `track_new_a / track_new_ab / track_new_curve` como "OpenBuildTracksPanel(btnzAPlus/btnzABLine/btnzABCurve)"
+  en el menú flotante: **fabricadas**. `OpenBuildTracksPanel` no existe; `btnzAPlus/btnzABLine/btnzABCurve`
+  son botones INTERNOS de `FormBuildTracks`, no ítems del menú flotante. El flotante solo tiene "Crear guías"
+  (`btnBuildTracks`). *(Nota: los comandos `track_new_ab/a/curve` SÍ existen en las BARRAS nuevas — pero como
+  comandos de la UI Avalonia, no como estos ítems del menú flotante viejo.)*
+
+**Funciones/iconos MAL descritos:**
+- `lblHz` — NO es "Hz + PPS". Muestra **Hz + tiempo de frame (ms) + calidad de fix** (ej `5.0 ~ 12.3 RTK Fix`).
+- `btnPlusAB` — icono real `AddNew` (no ABTrackA+); abre **ab-rapido.html (QuickAB)** = AB rápido por posición/rumbo,
+  NO "una paralela desplazada".
+- `btnTracksOff` — icono real `SwitchOff`; **deselecciona la guía activa** (`trk.idx=-1`), NO "oculta guías".
+- `btnCycleLinesBk` — comportamiento **dual**: con contorno activo hace `SetLockToLine` (bloquea, NO cicla);
+  solo cicla a la guía anterior con el contorno apagado.
+- `btnContourLock` — iconos reales `ColorLocked/ColorUnlocked` (estaba como placeholder).
+- `btnYouSkipEnable` — cicla **3 modos** (Normal→Alternado→Ignorar trabajados), no un on/off.
+- `btnResumePath` — NO reanuda; **cicla el estilo de reanudado** (Último punto→Más cercano→Desde el inicio).
+- `btnResetSteerAngle` — sin icono, es texto `>0<` (no `SteerZero.png`).
+- `btnPathGoStop` / `btnPathRecordStop` — iconos reales `boundaryPlay`/`BoundaryRecord` (no RecPath/Play).
+
+**Ubicaciones mal agrupadas** (el catálogo puso en "barra inferior" cosas que están en otra zona):
+- `btnSectionMasterAuto/Manual/Isobus` → **columna derecha** (panelRight). `lblSpeed` → **arriba a la derecha**
+  (panelControlBox). Solo los botones individuales de sección/zona están realmente abajo.
+
+**Duplicaciones** (no son errores, pero conviene saberlo): la región "Menús" del catálogo crudo **repite** casi todos
+los botones de Guiado/Vista/Secciones/Barra-superior, porque el menú flotante los espeja. En este doc consolidado ya
+están deduplicados.
+
+**Sin re-verificar:** las solapas de Config (vehículo/implemento/fuentes) — el verificador falló 2 veces por tamaño;
+son solapas reales de `config.html`/`FormConfig`, se asumen OK.
+
+**Confirmado correcto:** secciones 1..16 + zonas 1..8 (ciclan Off→Auto→On, colores rojo/verde/ámbar), panel de
+navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiado.
+
+---
+
 ## 1) Barra superior / estado
 
 | Botón (original) | Icono | Qué hace | Estado | Carril |
@@ -58,6 +103,7 @@
 | Config autoguiado (btnAutoSteerConfig) | AutoSteerConf | Abre FormSteer (config dirección); texto = ángulo actual | 🟡 (C) | L+S |
 | Datos GPS (btnGPSData) | GPSQuality | Abre datos-gps.html (calidad antena) | 🟡 | L+C |
 | Datos del lote (btnFieldStats) | FieldStats | Abre datos-lote.html (stats del lote) | 🟡 | L+C |
+| Estado de carga (btnChargeStatus) | ChargeIndicator | Indicador batería/carga (no interactivo; color verde OK / rojo alerta) | ❌ | L |
 | CoreX/AgIO (btnStartAgIO) | AgIO | Lanza CoreX.exe + abre su dashboard | 🟡 | L+S |
 | Engranaje/Ajustes (dropDown1) | Settings48 | Menú config (config/steer/todos/dir/gps/colores) | 🟡 | L+C |
 | Tools/Funciones especiales (dropDown4) | SpecialFunctions | Menú de herramientas/diagnóstico (SIEMPRE activo) | 🟡 | L+C |
@@ -68,7 +114,8 @@
 
 | Botón | Icono | Qué hace | Estado | Carril |
 |---|---|---|---|---|
-| Nueva A/B (btnPlusAB / track_new_ab) | AddNew/ABTrackAB | Crea línea A/B nueva | ✅ (flujo A→B en mapa) | L+S |
+| Nueva A/B en mapa (track_new_ab) | ABTrackAB | Flujo A→B: marca A, maneja, marca B | ✅ | L+S |
+| AB rápido (btnPlusAB) | AddNew | Abre ab-rapido.html (QuickAB): AB por posición/rumbo actual | 🟡 (C) | L+S |
 | Nueva A+ (track_new_a) | APlusPlusA | Crea guía paralela desplazada (A+) | 🟡 | L+S |
 | Nueva curva (track_new_curve) | ABTrackCurve | Crea A/B curva | ❌ | L+S |
 | Dibujar AB (btnABDraw) | ABDraw | Dibuja AB tocando puntos en el mapa | 🟡 | L+S |
@@ -142,7 +189,7 @@
 | Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | 🟡 (grid fijo) | L |
 | Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ❌ | L |
 | Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | ❌ | L |
-| Hz/PPS (lblHz) | — | Frecuencia GPS (solo texto) | 🟡 | L |
+| Hz+frame+fix (lblHz) | — | Frecuencia GPS (Hz) + tiempo de frame (ms) + calidad de fix (NO es PPS) | 🟡 | L |
 
 ## 7) Configuración (mayormente HTML por WebView)
 
