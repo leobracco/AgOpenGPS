@@ -1616,10 +1616,11 @@ public partial class MainWindow : Window
             // ---- Paneles nativos grandes (Hub / Cámaras) ----
             case "hub":        ShowHub();      return true;
             case "webcam":     ShowCamaras();  return true;
-            // CoreX del menú izquierdo → vista de SISTEMA (estado/conexiones de
-            // módulos GPS/IMU/Steer/Machine), no el ECU. El ECU se accede desde
-            // ahí (o por corex_ecu / OnRequestConfigurar → corex-ecu.html).
-            case "corex":      NavigateTo("pages/estado-modulos.html"); return true;
+            // CoreX del menú izquierdo → dashboard de CoreX (config del sistema:
+            // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por
+            // CoreX (CoreXWebHost), NO en el Hub :5180. El ECU de autosteer queda
+            // en 'corex_ecu'.
+            case "corex":      ShowWebView("http://127.0.0.1:5181/", showBackButton: true); return true;
             case "corex_ecu":  ShowCoreXEcu(); return true;
 
             // ---- Nueva A/B → flujo en el mapa (toco A, manejo, toco B) ----
