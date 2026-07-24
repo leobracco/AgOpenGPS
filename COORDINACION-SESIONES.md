@@ -1651,3 +1651,14 @@ la sesión android al extraer, pero el taller los usa desde Services),
   dos veces seguidas y el submenú siguió abierto en ambos toques (antes
   volvía al menú principal en el primero). Build completo 0 errores,
   141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [taller] HECHO (stopgap engine, AVISADO) — `SteerConfigController`
+  (`/api/steer/config` GET/POST + `/api/steer/zero-was`) para que la pantalla
+  Dirección (clon HTML de FormSteer, `direccion.html`) pueda GRABAR. Por ahora
+  persiste el objeto de config TAL CUAL a `steer-config.json` en ConfigRoot y lo
+  devuelve (verificado el ciclo grabar→releer). **Santi**: falta lo REAL de tu
+  carril — mapear las claves de la UI a `Settings.Default.setAS_*` (proportionalGain→
+  setAS_Kp, minPWM→setAS_lowSteerPWM, highSteerPWM→setAS_highSteerPWM, ackerman→
+  setAS_ackerman, countsPerDegree→setAS_countsPerDegree, wasOffset→setAS_wasOffset,
+  etc.) + `Settings.Save()` + enviar el PGN 252 (steer settings) al módulo de
+  dirección. Cuando esté, este controller debería leer/escribir esos settings en
+  vez del blob JSON.
