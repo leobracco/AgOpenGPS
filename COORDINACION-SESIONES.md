@@ -1410,3 +1410,13 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Prioridad = el submenú **LOTE** (`lote_continuar/lote_menu/lote_nuevo/lote_kml/lote_cerrar`)
   porque es la puerta de entrada (sin lote abierto el resto no opera). Yo sigo con
   las barras de arriba/derecha/abajo en nativo (mi carril, no toco el engine).
+- [2026-07-24] [taller] HECHO (stopgap engine, AVISADO) — `CoreXEngineHost.ReceiveFromUdp`
+  descartaba el NMEA crudo del bridge LAN (:9999): solo aceptaba PGN `0x80 0x81`.
+  ModSim externo manda `$GPGGA/$GPVTG` por UDP → se caía → `avg_speed/heading/fix`
+  en cero, el mapa no se movía en PilotX.Desktop. Lo arreglé igual que el bridge
+  de Android (`HubBootstrap.OnUdpReceived`): si empieza con `$`, parsear con el
+  `Nmea` (CNmeaParser) que ya existe para el path serie. Verificado: tras el fix
+  `avg_speed` sube y `fix_quality=8`. **Santi**: si querés unificar, esto debería
+  vivir en el engine de una (es tu carril); lo dejé como stopgap para desbloquear
+  la prueba del mapa con simulador externo. Setup de arranque correcto de
+  PilotX.Desktop = `PilotX.GuidanceEngine.exe --webhost --corex` (NO el WinForms legacy).
