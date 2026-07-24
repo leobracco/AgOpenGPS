@@ -1391,3 +1391,22 @@ la sesión android al extraer, pero el taller los usa desde Services),
   · + `paneles_keepalive` (heartbeat de auto-ocultado).
   Es UI pura (mi carril), no toqué el engine. Sigo con barra-superior/derecha/abajo
   (paso 1 visual) y después paso 2 = cablear funciones + paso 3 = enganchar los HTML.
+- [2026-07-24] [taller] HECHO + PEDIDO — barra IZQUIERDA nativa (Avalonia)
+  clonada en PilotX.Desktop y pusheada (`e9f576e1`): control
+  `PilotX.Cockpit.Bars/Views/MenuIzquierda.axaml` reescrito = espejo fiel del
+  `panelLeft` de AOG (orden real, LOTE grande verde, submenús con iconos
+  verdaderos del 6.8.5 en `Assets/menu/`, sin "Guías"). Buildeó limpio y se ve
+  en la app nativa. **Santi — ARRANCÁ POR EL MENÚ IZQUIERDO**: los botones ya
+  mandan `POST /api/aog/guidance/command {cmd}` pero el engine (:5180) no
+  responde a varios de esos `cmd`. Cablealos en `ExecuteCommand`
+  (`GuidanceEngineHost.Commands.cs`). Lista completa de `cmd` del menú izquierdo
+  (misma que dejé antes para el bar HTML):
+  · directos: `direccion`, `corex`
+  · navegacion: `v2d v3d norte2d tilt_up tilt_dn grilla dia_noche brillo_up brillo_dn`
+  · config: `config_form direccion todos_ajustes directorios datos_gps colores colores_sec hotkeys`
+  · herramientas: `asistente_direccion grafico_direccion grafico_rumbo grafico_xte chequeo_roll herr_limites visor_eventos suavizar_ab borrar_contornos webcam corregir_pos`
+  · lote: `lote_continuar lote_menu lote_nuevo lote_kml lote_cerrar`
+  · herrlote: `lindero cabecera cabecera_avanzada tram_crear tram_multi borrar_aplicado bandera_latlon ruta_grabada importar_guias`
+  Prioridad = el submenú **LOTE** (`lote_continuar/lote_menu/lote_nuevo/lote_kml/lote_cerrar`)
+  porque es la puerta de entrada (sin lote abierto el resto no opera). Yo sigo con
+  las barras de arriba/derecha/abajo en nativo (mi carril, no toco el engine).
