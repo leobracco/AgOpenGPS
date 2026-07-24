@@ -292,6 +292,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new FirmwaresController())
                  .WithController(() => new BotoneraController())
                  .WithController(() => new ConfiguracionController())
+                 .WithController(() => new SteerConfigController())
                  .WithController(() => new SectionXController(_sectionxCfg))
                  .WithController(() => new CamarasController(_camarasCfg));
                 if (_vistaxCfg != null || _vistaxLive != null)
