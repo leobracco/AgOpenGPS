@@ -247,6 +247,15 @@
     #menu button { padding-left: 12px; }
     .chkimg { min-height: 44px; justify-content: center; }
     .btnZero { display: none; }   /* el "0" quedaría vacío; se oculta el botón */
+    /* Botón de texto para poner el sensor de ángulo en cero (reemplaza el icono) */
+    .btnZeroWas {
+      min-height: 46px; padding: 8px 18px; border: 1px solid var(--verde);
+      border-radius: 10px; background: #eaf6e8; color: #1c5e18;
+      font: 700 14px "Segoe UI", Roboto, sans-serif; cursor: pointer;
+      touch-action: manipulation;
+    }
+    .btnZeroWas:active { background: #d8efd4; transform: scale(0.98); }
+    .btnZeroWas .tec { font-weight: 400; color: var(--gris); }
 
     /* === Compacto (achicar un poco, sobre todo para la pantalla del taller) === */
     #main { padding: 8px; }
@@ -350,8 +359,9 @@
             Cero del WAS · ángulo calculado: <b id="wasZeroAngle">0.00</b>°
           </p>
           <div class="nudfila">
-            <button type="button" class="btnZero" id="btnZeroWas" title="Poner el WAS en cero"><img src="../img/steer/SteerZero.png" alt="0" /></button>
-            <span class="unidad">Poner el sensor de ángulo en cero (WAS zero)</span>
+            <button type="button" class="btnZeroWas" id="btnZeroWas" title="Poner el sensor de ángulo en cero">
+              ⭕ Poner el sensor de ángulo en cero <span class="tec">(WAS zero)</span>
+            </button>
           </div>
 
           <div class="sctl">
