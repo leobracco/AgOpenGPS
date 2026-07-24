@@ -85,8 +85,11 @@
 los botones de Guiado/Vista/Secciones/Barra-superior, porque el menú flotante los espeja. En este doc consolidado ya
 están deduplicados.
 
-**Sin re-verificar:** las solapas de Config (vehículo/implemento/fuentes) — el verificador falló 2 veces por tamaño;
-son solapas reales de `config.html`/`FormConfig`, se asumen OK.
+**Solapas de Config — VERIFICADO OK (2026-07-24):** las 20 solapas (vehículo Tipo/Dimensiones/Antena/Guiado,
+implemento Tipo/Enganche/Offset/Pivot/Secciones/Switches/Ajustes, fuentes Rumbo/Roll/Módulo/Relés, +
+Resumen/U-Turn/Display/Botones/Tram) EXISTEN como `TabPage` reales en `FormConfig.Designer.cs` (60 TabPages en
+`Settings/*.Designer.cs`). El menú flotante las abre con `FloatMenuOpenConfig("tabX")` — el catálogo las describió
+bien. Sin errores ni faltantes en este sub-grupo.
 
 **Confirmado correcto:** secciones 1..16 + zonas 1..8 (ciclan Off→Auto→On, colores rojo/verde/ámbar), panel de
 navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiado.
