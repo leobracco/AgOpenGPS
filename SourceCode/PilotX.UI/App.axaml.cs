@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using PilotX.Desktop.Services;
@@ -8,6 +9,12 @@ namespace PilotX.Desktop;
 
 public partial class App : Application
 {
+    // --singleview: en Desktop monta la vista portable (Views.MainView) dentro de
+    // una Window, igual que la montará el head Android (ISingleViewApplicationLifetime).
+    // Sirve para probar la pantalla Android-ready sin una tablet. Default false
+    // (Desktop usa MainWindow, con todos los overlays/diálogos).
+    public static bool UseSingleView { get; set; } = false;
+
     // Backend de WebView inyectado por el head (Desktop = WebView.Avalonia,
     // Android = WebView nativo). La UI compartida NO depende de ningún paquete
     // WebView; si es null, las pantallas HTML no portadas no abren (el mapa y
@@ -50,7 +57,27 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow();
+            if (UseSingleView)
+            {
+                // Vista portable montada en una Window borderless-maximizada (mismo
+                // control que usará Android). Prueba de la pantalla Android-ready.
+                desktop.MainWindow = new Window
+                {
+                    Title = "PilotX",
+                    SystemDecorations = SystemDecorations.None,
+                    WindowState = WindowState.Maximized,
+                    Content = new Views.MainView(),
+                };
+            }
+            else
+            {
+                desktop.MainWindow = new MainWindow();
+            }
+        }
+        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
+        {
+            // Android / single-view: la vista portable es la raíz.
+            singleView.MainView = new Views.MainView();
         }
         base.OnFrameworkInitializationCompleted();
     }

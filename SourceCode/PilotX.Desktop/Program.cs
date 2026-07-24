@@ -79,6 +79,12 @@ internal static class Program
                 var v = a.Substring("--gl=".Length).Trim().ToLowerInvariant();
                 App.UseGl = v == "on" || v == "1" || v == "true" || v == "yes";
             }
+            else if (a.Equals("--singleview", StringComparison.OrdinalIgnoreCase))
+            {
+                // Prueba en Desktop de la vista portable (Views.MainView) que usará
+                // el head Android. Monta MainView en una Window en vez de MainWindow.
+                App.UseSingleView = true;
+            }
         }
         if (string.IsNullOrEmpty(page)) App.TargetUrl = baseUrl;
         else App.TargetUrl = baseUrl.TrimEnd('/') + "/" + page.TrimStart('/');

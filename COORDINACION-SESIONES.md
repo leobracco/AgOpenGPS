@@ -1251,3 +1251,16 @@ la sesión android al extraer, pero el taller los usa desde Services),
   AddSectionOrPathPoints ya corre vía TheRest() — solo falta que existan tiras con
   isDrawing=true. Archivos: CSectionCalculator.cs, ISectionsHost.cs,
   GuidanceEngineHost.Sections.cs, GuidanceEngineHost.cs.
+- [2026-07-23] [taller] HECHO **L5 del port Android** (aditivo, sin tocar MainWindow).
+  Nuevo **`PilotX.UI/Views/MainView.axaml(.cs)`**: UserControl portable = pantalla LIVE
+  (MapPanel + las 4 barras del cockpit + pollers HUD/coverage/guidance/tool/tram/paths
+  + CockpitStateClient + debug rumbo/‖/cm), reusando los MISMOS servicios cliente.
+  NO trae overlays/diálogos/WebView (escritorio o IWebViewHost) → es el MVP de guiado.
+  `App.OnFrameworkInitializationCompleted` ahora maneja los DOS lifetimes:
+  · Desktop (IClassicDesktop) → MainWindow (default) o MainView-en-Window si `--singleview`.
+  · **Android (ISingleViewApplicationLifetime) → `singleView.MainView = new Views.MainView()`**.
+  Verificado en Desktop con `--singleview`: MainView levanta, 14 conexiones a :5180, mapa+barras.
+  **SANTIAGO (S1):** tu head `PilotX.Android.App` ya puede montar `PilotX.Desktop.Views.MainView`
+  como MainView (referenciá PilotX.UI). Ops de ventana (min/max/cerrar) son no-op en Android
+  (RouteCockpitCommand las resuelve contra la Window si existe). WebView/config: cuando tengas
+  IWebViewHost (S2) se puede ampliar; para el primer test del MAPA no hace falta.
