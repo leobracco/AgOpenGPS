@@ -1375,3 +1375,19 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Herramientas/Tools, Herramientas de lote) con ítems+submenús, y el toolbar por zonas
   (Guiado/Secciones/Vista/Lote). Base para armar los menús HTML como eran antes.
   Aparte: Codex ya no trabaja → carril C (HTML) colapsado en L en el inventario.
+- [2026-07-24] [taller] HECHO — barra IZQUIERDA clon fiel del `panelLeft` de
+  AOG 6.8.5 pusheada (`36b157f7`): `menu-izquierda.html` + `menu-izquierda.js`
+  + 35 iconos reales del 6.8.5 en `wwwroot/img/menu/`. Orden real (Navegación,
+  Herramientas, Configuración, LOTE grande, Herr. lote, Dirección, CoreX),
+  submenús con ítems e iconos verdaderos. **Santi — para chequear los botones**:
+  el bar hace `POST /api/aog/guidance/command {cmd}`. Los `cmd` que manda (los
+  que falten en `ExecuteCommand` hay que cablearlos):
+  · directos: `direccion`, `corex`
+  · navegacion: `v2d v3d norte2d tilt_up tilt_dn grilla dia_noche brillo_up brillo_dn`
+  · config: `config_form direccion todos_ajustes directorios datos_gps colores colores_sec hotkeys`
+  · herramientas: `asistente_direccion grafico_direccion grafico_rumbo grafico_xte chequeo_roll herr_limites visor_eventos suavizar_ab borrar_contornos webcam corregir_pos`
+  · lote: `lote_continuar lote_menu lote_nuevo lote_kml lote_cerrar`
+  · herrlote: `lindero cabecera cabecera_avanzada tram_crear tram_multi borrar_aplicado bandera_latlon ruta_grabada importar_guias`
+  · + `paneles_keepalive` (heartbeat de auto-ocultado).
+  Es UI pura (mi carril), no toqué el engine. Sigo con barra-superior/derecha/abajo
+  (paso 1 visual) y después paso 2 = cablear funciones + paso 3 = enganchar los HTML.
