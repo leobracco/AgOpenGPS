@@ -222,6 +222,12 @@ namespace AgOpenGPS
 
             if (IsJobStarted)
             {
+                // Control de secciones + cobertura (crea/gestiona las tiras CPatches
+                // que AddSectionOrPathPoints va llenando de triángulos). Corre después
+                // del pipeline de posición y antes de enviar los PGN, porque
+                // BuildMachineByte (dentro) puebla los bytes de sección de P239/P229.
+                SectionControlToUpdate();
+
                 P239Field.pgn[P239Field.geoStop] = Mc.isOutOfBounds ? (byte)1 : (byte)0;
                 SendPgnToLoop(P239Field.pgn);
                 SendPgnToLoop(P229Field.pgn);
