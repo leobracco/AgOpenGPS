@@ -155,7 +155,16 @@
     .btnEnviar:active { background: #e6ede5; }
 
     /* ================= adaptaciones del steer sobre el sistema de config ================= */
-    /* control de slider con número grande + diagrama al costado */
+    /* Ilustración del tab (Sf_GainTab/Sf_SteerTab/Sf_PP/Sf_Stanley): en el
+       FormSteer original es el BackgroundImage del TabPage (UNA sola, no un
+       icono por control). Va una vez como encabezado, tipo el diagrama del
+       tractor en la tab Antena de config.html. */
+    .tab-hero {
+      display: block; margin: 2px auto 14px;
+      max-width: 240px; max-height: 190px; width: 100%; object-fit: contain;
+    }
+    /* control de slider con número grande (sin icono repetido salvo que tenga
+       diagrama propio real) */
     .sctl {
       display: flex; gap: 14px; align-items: center;
       background: var(--carta); border: 1px solid var(--borde);
@@ -248,9 +257,9 @@
       <section data-tab="gain">
         <div class="carta">
           <h2>Ganancias del motor</h2>
+          <img class="tab-hero" src="../img/steer/Sf_GainTab.png" alt="Diagrama de ganancias" />
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_GainTab.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Ganancia Proporcional (P)</span>
                 <span class="sval" data-for="proportionalGain">4</span></div>
@@ -264,7 +273,6 @@
           </div>
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_GainTab.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Mínimo para mover (PWM mín)</span>
                 <span class="sval" data-for="minPWM">10</span></div>
@@ -278,7 +286,6 @@
           </div>
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_GainTab.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Límite máximo (PWM alto)</span>
                 <span class="sval" data-for="highSteerPWM">50</span></div>
@@ -323,7 +330,6 @@
           </div>
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_SteerTab.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Cuentas por grado</span>
                 <span class="sval" data-for="countsPerDegree">20</span></div>
@@ -336,7 +342,6 @@
           </div>
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_SteerTab.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Ackermann</span>
                 <span class="sval" data-for="ackerman">100<span class="u">%</span></span></div>
@@ -367,9 +372,9 @@
       <section data-tab="pp">
         <div class="carta">
           <h2 class="pp">Pure Pursuit</h2>
+          <img class="tab-hero" src="../img/steer/Sf_PP.png" alt="Diagrama Pure Pursuit" />
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_PP.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Respuesta de dirección (Look Ahead)</span>
                 <span class="sval" data-for="holdLookAhead">2.5<span class="u">s</span></span></div>
@@ -383,7 +388,6 @@
           </div>
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_PP.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Integral</span>
                 <span class="sval" data-for="integralPP">20<span class="u">%</span></span></div>
@@ -402,9 +406,9 @@
       <section data-tab="stan">
         <div class="carta">
           <h2 class="stan">Ganancias Stanley</h2>
+          <img class="tab-hero" src="../img/steer/Sf_Stanley.png" alt="Diagrama Stanley" />
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_Stanley.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Distancia (cross-track)</span>
                 <span class="sval" data-for="stanleyGain">1.0</span></div>
@@ -417,7 +421,6 @@
           </div>
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_Stanley.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Rumbo (heading error)</span>
                 <span class="sval" data-for="headingErrorGain">1.0</span></div>
@@ -430,7 +433,6 @@
           </div>
 
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/Sf_Stanley.png" alt="" />
             <div class="sbody">
               <div class="stop"><span class="slbl">Integral</span>
                 <span class="sval" data-for="integralStanley">0<span class="u">%</span></span></div>

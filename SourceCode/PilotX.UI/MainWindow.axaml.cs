@@ -1665,7 +1665,7 @@ public partial class MainWindow : Window
             // Dirección (FormSteer) → ventana propia más grande. ?v= evita que
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
-                OpenDialogPage("pages/direccion.html?v=4", "Dirección — Autoguiado", 1040, 780); return true;
+                OpenDialogPage("pages/direccion.html?v=5", "Dirección — Autoguiado", 1040, 780); return true;
         }
 
         // ---- Comandos que abren una página HTML del Hub en el WebView ----
