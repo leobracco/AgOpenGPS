@@ -1651,3 +1651,22 @@ la sesión android al extraer, pero el taller los usa desde Services),
   dos veces seguidas y el submenú siguió abierto en ambos toques (antes
   volvía al menú principal en el primero). Build completo 0 errores,
   141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (mismo carril, `MenuIzquierdaViewModel.cs`/
+  `.axaml.cs`) — pedido del usuario: que el menú se repliegue solo
+  ("se guarde") tras 1 minuto de inactividad, para no quedar tapando el
+  mapa si el operario se olvida de cerrarlo. Agregué un
+  `DispatcherTimer` (`InactivityTimeout = 1 min`) en el ViewModel:
+  arranca al construirse, se reinicia con `NotifyActivity()` en cada
+  toque dentro del menú (llamado desde `OnAnyButtonClick` del
+  code-behind, que ya intercepta todos los clicks) y en
+  `ToggleSubmenuCommand`, y si dispara sin que el menú se haya vuelto a
+  tocar, colapsa (`OpenSubmenu = null; IsCollapsed = true`) igual que si
+  el operario hubiera tocado el handle `‹`. `ToggleCollapsedCommand`
+  maneja el timer directamente (lo para al colapsar manual, lo reinicia
+  al expandir) para no depender del orden de eventos con
+  `OnAnyButtonClick`. Si ya está colapsado, `NotifyActivity`/el tick no
+  hacen nada (no hay para qué reiniciar un timer que no importa).
+  Verificado en la tablet física: dejé el menú expandido sin tocar nada
+  ~65s y se replegó solo a la pestaña angosta; el toggle manual `‹`/`›`
+  lo vuelve a expandir sin problema. Build completo 0 errores, 141 tests
+  verdes. Voy a commitear y pushear.
