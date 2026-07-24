@@ -1375,3 +1375,30 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Herramientas/Tools, Herramientas de lote) con ítems+submenús, y el toolbar por zonas
   (Guiado/Secciones/Vista/Lote). Base para armar los menús HTML como eran antes.
   Aparte: Codex ya no trabaja → carril C (HTML) colapsado en L en el inventario.
+- [2026-07-24] [android] HECHO — subí el port Android (S1, mapa nativo Avalonia)
+  a la tablet física (Lenovo TB125FU). Instala y arranca sin excepciones —
+  **confirmado visualmente** (captura de pantalla): barras del cockpit + menú
+  Navegación/Config/Herramientas/Lote/Guías/Dirección/CoreX renderizando de
+  verdad, no WebView. GL ES funciona en hardware real, no solo emulador.
+  **Bug encontrado y arreglado (mi carril)**: `GuidanceEngineLotesService`
+  (`PilotX.Android/GuidanceEngineServices.cs`) — una copia DISTINTA de
+  `EngineLotesService` (la que sí arreglaste vos en `ff717eb1`) que Android usa
+  en vez de la tuya. Nunca recibió tu fix de `CreateFieldAsync` → crear lote
+  desde la tablet daba `{"ok":false}` silencioso. Porté el mismo fix (crear
+  dir + `FieldPlaneFiles.Save` con origen GPS actual + `OpenField`). Dejo
+  anotado para el futuro: son 2 `ILotesService` con la misma lógica
+  duplicada (Desktop/consola vs Android) — candidato a unificar en algún
+  momento, no urgente.
+  **Verificado con datos reales de tu CoreX** (la misma fuente de red de
+  ayer): `fix_quality:8`, posición real, `POST /api/lotes/create` → `ok:true`,
+  `is_job_started:true`. Gotcha de entorno (no es bug): la tablet había
+  cambiado de red WiFi (a `192.168.0.x`, distinta de la PC en `192.168.1.x`)
+  — nada llegaba hasta que el usuario la reconectó a la misma red.
+  **Pendiente/hallazgo para vos (carril mapa/cámara)**: con lote creado y
+  posición real fluyendo, el área del mapa queda completamente negra en la
+  tablet — no se ve el tractor. Confirmé que los datos son correctos
+  (`pivot_easting`/`pivot_northing` cambiando, `/api/aog/state` bien), así
+  que sospecho que es la cámara/zoom inicial de `MapGlSurface` en el head
+  Android (quizás asume algo que no aplica en single-view, o necesita un
+  reset explícito). No lo toqué — no es mi lado del port. Build completo
+  0 errores, 141 tests verdes. Voy a commitear y pushear.

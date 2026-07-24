@@ -40,7 +40,11 @@ namespace PilotX.Droid
             public bool IsGpsSentencesOn => false;
             public bool IsLogMonitorOn => false;
             public void AppendLogMonitor(string text) { }
-            public void SendNmeaPgn(byte[] pgn) => s_lanBridge?.SendToLoopback(pgn);
+            public void SendNmeaPgn(byte[] pgn)
+            {
+                Android.Util.Log.Info("PilotX", "LAN NMEA -> PGN 0xD6 armado, " + (pgn?.Length ?? 0) + " bytes, enviando a loopback");
+                s_lanBridge?.SendToLoopback(pgn);
+            }
         }
 
         public static bool IsRunning { get { lock (s_lock) return s_host != null; } }
@@ -106,7 +110,9 @@ namespace PilotX.Droid
                     }
                     else if (data[0] == (byte)'$')
                     {
-                        try { s_nmeaParser.ParseIncoming(System.Text.Encoding.ASCII.GetString(data)); }
+                        string txt = System.Text.Encoding.ASCII.GetString(data);
+                        Android.Util.Log.Info("PilotX", "LAN NMEA <- [" + txt.Replace("\r", "\\r").Replace("\n", "\\n") + "]");
+                        try { s_nmeaParser.ParseIncoming(txt); }
                         catch (Exception ex) { Android.Util.Log.Warn("PilotX", "LAN NMEA parse: " + ex.Message); }
                     }
                 };
