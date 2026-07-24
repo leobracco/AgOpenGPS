@@ -61,6 +61,7 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     // ---- estado GL (creado en OnOpenGlInit, render thread) -------------
     private GL? _gl;
+    private bool _initFailed;
     private uint _program;
     private int _uMvp;
     private int _uColor;
@@ -326,13 +327,30 @@ public sealed class MapGlSurface : OpenGlControlBase
         // call la primera vez que se usa.
         _gl = GL.GetApi(name => glInterface.GetProcAddress(name));
 
-        // Contexto ES (ANGLE en Windows) vs desktop GL -> preludio de shader
-        // distinto. Sin esto, en un contexto ES el shader 330 core no compila
-        // y el mapa queda negro.
+        // Contexto ES (ANGLE en Windows, GLES nativo en Android) vs desktop
+        // GL -> preludio de shader distinto. Sin esto, en un contexto ES el
+        // shader 330 core no compila y el mapa queda negro.
         bool es = GlVersion.Type == Avalonia.OpenGL.GlProfileType.OpenGLES;
-        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] GL context: "
+        // Console.Error (no Debug.WriteLine): en Android sin listener de
+        // Trace registrado, Debug.WriteLine no llega a ningún lado incluso
+        // en builds Debug — Console SÍ se redirige a logcat.
+        Console.Error.WriteLine("[MapGlSurface] GL context: "
             + (es ? "OpenGL ES" : "desktop GL") + " " + GlVersion.Major + "." + GlVersion.Minor);
-        _program = CompileProgram(_gl, BuildVertSrc(es), BuildFragSrc(es));
+        try
+        {
+            _program = CompileProgram(_gl, BuildVertSrc(es), BuildFragSrc(es));
+        }
+        catch (Exception ex)
+        {
+            // Sin esto: _gl ya quedó no-null (asignado arriba) pero _program
+            // queda en 0 -> OnOpenGlRender seguía intentando dibujar con un
+            // programa inválido, sin excepción visible, mapa negro para
+            // siempre. _initFailed hace que OnOpenGlRender corte apenas esto
+            // pase, y el error queda en logcat (adb logcat, tag ".NET"/stderr).
+            Console.Error.WriteLine("[MapGlSurface] FALLÓ compilar/linkear shaders: " + ex);
+            _initFailed = true;
+            return;
+        }
         _uMvp   = _gl.GetUniformLocation(_program, "uMvp");
         _uColor = _gl.GetUniformLocation(_program, "uColor");
 
@@ -378,7 +396,8 @@ public sealed class MapGlSurface : OpenGlControlBase
         _pathsVbo = _gl.GenBuffer();
         _pathsVboCapacityFloats = 0;
 
-        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] MapGlSurface: GL init OK");
+        var glErr = _gl.GetError();
+        Console.Error.WriteLine("[MapGlSurface] GL init OK (glGetError=" + glErr + ")");
     }
 
     protected override void OnOpenGlDeinit(GlInterface glInterface)
@@ -397,14 +416,16 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] MapGlSurface deinit: " + ex.Message);
+            Console.Error.WriteLine("[MapGlSurface] deinit: " + ex.Message);
         }
         _gl = null;
     }
 
+    private bool _loggedFirstRender;
+
     protected override void OnOpenGlRender(GlInterface glInterface, int fb)
     {
-        if (_gl == null) return;
+        if (_gl == null || _initFailed) return;
         var sz = Bounds.Size;
         int wPx = (int)Math.Max(1, sz.Width);
         int hPx = (int)Math.Max(1, sz.Height);
@@ -413,9 +434,19 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.ClearColor(ColBg[0], ColBg[1], ColBg[2], ColBg[3]);
         _gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
+        bool diag = _diagFrames < 3;
+        if (diag) LogPixel("post-clear", wPx / 2, hPx / 2);
+
         _gl.UseProgram(_program);
         _gl.BindVertexArray(_vao);
         _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+
+        if (!_loggedFirstRender)
+        {
+            _loggedFirstRender = true;
+            Console.Error.WriteLine("[MapGlSurface] primer render: bounds=" + wPx + "x" + hPx
+                + " program=" + _program + " glGetError=" + _gl.GetError());
+        }
 
         // MVP: ortho 2D mapeando el bbox del lote (o un default centrado)
         // al rect del control con padding. Y-up para que North apunte
@@ -566,8 +597,29 @@ public sealed class MapGlSurface : OpenGlControlBase
         // --- Capa 5: lightbar (XTE) en espacio-pantalla, sobre todo ----
         DrawLightbar();
 
+        if (diag)
+        {
+            LogPixel("post-draw", wPx / 2, hPx / 2);
+            Console.Error.WriteLine("[MapGlSurface] diag frame " + _diagFrames + ": hasBbox=" + _hasBbox
+                + " snap=" + (_snap != null) + " pivotE=" + (_snap?.PivotEasting ?? 0)
+                + " pivotN=" + (_snap?.PivotNorthing ?? 0) + " headingUp=" + _headingUp
+                + " guidanceVerts=" + _guidanceVertexCount);
+            _diagFrames++;
+        }
+
         _gl.BindVertexArray(0);
         _gl.UseProgram(0);
+    }
+
+    private int _diagFrames;
+
+    private unsafe void LogPixel(string tag, int px, int py)
+    {
+        if (_gl == null) return;
+        var buf = stackalloc byte[4];
+        _gl.ReadPixels(px, py, 1, 1, GLEnum.Rgba, GLEnum.UnsignedByte, buf);
+        Console.Error.WriteLine("[MapGlSurface] pixel(" + tag + ") @(" + px + "," + py + ") = "
+            + buf[0] + "," + buf[1] + "," + buf[2] + "," + buf[3]);
     }
 
     // ---- Creación de AB en el mapa (API pública, la llama MainWindow) ----

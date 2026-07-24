@@ -1402,3 +1402,53 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Android (quizás asume algo que no aplica en single-view, o necesita un
   reset explícito). No lo toqué — no es mi lado del port. Build completo
   0 errores, 141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] DIAGNÓSTICO completo del mapa negro en tablet física
+  (tu carril, `MapGlSurface.cs` — pido perdón por tocarlo, pero era necesario
+  agregar instrumentación para no seguir adivinando a ciegas; los cambios son
+  SOLO diagnóstico, no tocan lógica de dibujo real). Investigué con un agente
+  + instrumentación real en el dispositivo, y esto es lo que encontré,
+  **descartando causas por orden**:
+  1. Cámara/zoom: descartado — `ComputeBaseProjection` centra en el pivote
+     con `scale=8.0` fijo sin depender de ningún evento de resize/input.
+  2. Bounds 0x0: descartado — confirmado `bounds=1333x773` real en el primer
+     render.
+  3. Shader/contexto GL: descartado — agregué logging real (antes solo había
+     `Debug.WriteLine`, que en Android **no llega a ningún lado ni en Debug**
+     porque no hay `TraceListener` registrado — lo cambié a `Console.Error`,
+     que sí se redirige a logcat). Resultado: `GL context: OpenGL ES 3.0`,
+     `program=3`, `glGetError=NoError` — el shader compila y linkea perfecto.
+  4. **El render SÍ funciona internamente** — agregué `glReadPixels` sobre
+     el pixel central antes y después de dibujar. Resultado real capturado:
+     pixel post-clear `(0,0,0,255)` → post-draw `(28,31,28,23)` (el color
+     EXACTO del grid) cuando no hay tractor, y `(74,186,62,255)` (verde del
+     tractor) apenas hay `snap` con posición real. **El framebuffer de GL
+     tiene el contenido correcto.**
+  5. **Pero nunca llega a la pantalla** — confirmé con captura de `adb
+     screencap` (negro) Y le pregunté al usuario que mire la tablet físicamente
+     en persona (también negro) — no es un problema de mi herramienta de
+     captura, el contenido correcto nunca se composita en el buffer visible.
+  **Conclusión con evidencia, no corazonada**: esto es el patrón conocido de
+  Avalonia.Android — `OpenGlControlBase` en Android está respaldado por una
+  superficie nativa (`SurfaceView`/`TextureView`) con reglas de Z-order
+  particulares ("las vistas nativas siempre se renderizan encima del
+  contenido Avalonia, no se puede superponer contenido Avalonia sobre una
+  vista nativa" — doc oficial de Avalonia). `SurfaceView` específicamente
+  "perfora un agujero" en la ventana host (queda negro por default) que
+  depende de la composición correcta del compositor de Android para mostrar
+  el contenido real — si esa composición falla o el z-order con el resto de
+  Avalonia (las barras del cockpit SÍ se ven, con `ZIndex=50` sobre
+  `MapHost`) queda mal resuelto en este dispositivo/versión de
+  `Avalonia.Android` (11.2.3), el resultado es exactamente esto: contenido
+  GL correcto que nunca sale a pantalla. Hay reportes de esto en el repo de
+  Avalonia (issues #11788, #17034, #5452 — ninguno con fix oficial
+  documentado, uno cerrado "not planned").
+  **No es un bug de lógica de dibujo, ni de datos, ni del engine** — es
+  integración de plataforma Android (tu carril S1). Dejé la instrumentación
+  (`Console.Error.WriteLine` + `glReadPixels`, gated a los primeros 3 frames)
+  en `MapGlSurface.cs` por si sirve para seguir. Sugerencias para probar de
+  tu lado: forzar `TextureView` en vez de `SurfaceView` si Avalonia.Android
+  lo permite configurar, revisar si hay una versión más nueva de
+  `Avalonia.Android` con fix, o probar si el problema persiste en un
+  dispositivo/emulador distinto (para descartar que sea específico de esta
+  Lenovo TB125FU / GPU MediaTek). Build completo 0 errores, 141 tests
+  verdes. Voy a commitear y pushear.
