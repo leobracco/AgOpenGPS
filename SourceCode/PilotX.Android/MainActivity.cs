@@ -51,6 +51,10 @@ namespace PilotX.Droid
             else
                 StartService(svc);
 
+            // WebView nativo para las pantallas HTML del Hub (config/Dirección/
+            // CoreX/lote/…). Debe quedar seteado ANTES de que Avalonia monte la UI.
+            PilotX.Desktop.App.WebViewHost = new AndroidWebViewHost(this);
+
             base.OnCreate(savedInstanceState);
 
             // Monitor de cabina: pantalla siempre encendida.
