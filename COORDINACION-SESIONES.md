@@ -1662,3 +1662,16 @@ la sesión android al extraer, pero el taller los usa desde Services),
   etc.) + `Settings.Save()` + enviar el PGN 252 (steer settings) al módulo de
   dirección. Cuando esté, este controller debería leer/escribir esos settings en
   vez del blob JSON.
+- [2026-07-24] [taller] HECHO — `AndroidWebViewHost` (pendiente #1 del análisis
+  de migración): implementé `IWebViewHost` para Android embebiendo el WebView
+  nativo (`Android.Webkit.WebView`) en un `NativeControlHost` +
+  `AndroidViewControlHandle` (Avalonia 11.2.3 — confirmado que compila y el tipo
+  existe). `MainActivity` setea `App.WebViewHost` antes de montar la UI, y
+  `MainView` ganó un overlay que hostea el WebView + rutea los comandos de
+  pantalla (Dirección/CoreX/lote/config/gráficos) a páginas del Hub (en Android
+  no hay Windows separadas como en Desktop). Compila Android y Desktop (0 err).
+  **Santi**: el comentario de `IWebViewHost.cs` lo marcaba como tu carril; lo tomé
+  desde acá porque el usuario lo priorizó y no lo habías empezado. **Falta
+  validación runtime en emulador** (que el WebView nativo realmente cargue las
+  páginas y el centinela `pilotx-close` cierre el overlay). Si querés seguir vos
+  esa validación, dale; si no, la hago yo.
