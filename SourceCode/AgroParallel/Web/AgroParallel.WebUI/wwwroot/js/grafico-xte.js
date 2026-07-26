@@ -100,6 +100,15 @@
       var he = Number(d.heading_error_deg) || 0;
       var xt = Number(d.xte_cm) || 0;
 
+      // El motor devuelve el XTE crudo del guiado (mismo valor que graficaba
+      // la ventana nativa). Cuando el tractor no está sobre ninguna guía, ese
+      // valor no es un error de guiado sino una distancia enorme (sentinel):
+      // se acota para que no destruya la escala del gráfico, igual que la
+      // ventana vieja, que tenía escala fija y simplemente lo recortaba.
+      var XTE_MAX_CM = 5120;
+      if (xt > XTE_MAX_CM) xt = XTE_MAX_CM;
+      else if (xt < -XTE_MAX_CM) xt = -XTE_MAX_CM;
+
       heErr.push(he); if (heErr.length > MAX_POINTS) heErr.shift();
       xte.push(xt);   if (xte.length > MAX_POINTS)   xte.shift();
 

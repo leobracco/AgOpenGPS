@@ -1715,3 +1715,28 @@ la sesión android al extraer, pero el taller los usa desde Services),
   corriendo, no lo maté). 141 tests verdes. `node --check direccion.js` OK.
   **Falta (hardware)**: confirmar contra un módulo de dirección real que el 252/251
   llega y que el cero del WAS mueve el ángulo — sin gear no se puede validar.
+- [2026-07-26] [taller] HECHO — **gráficos de diagnóstico en vivo contra el motor
+  headless** (eran 4 stubs vacíos en `EngineStateProvider`, o sea las páginas
+  `grafico-*.html` dibujaban una línea plana en cero cuando el backend es el
+  engine). Port 1:1 de `FormGpsStateProvider`, leyendo el mismo modelo Core que
+  el motor ya orquesta:
+  · `graph-xte` ← `Vehicle.modeActualXTE`/`modeActualHeadingError`
+  · `graph-heading` ← `gpsHeading`/`imuCorrected` (rad→°)
+  · `graph-steer` ← `Mc.actualSteerAngleChart`/`guidanceLineSteerAngle` (×0.01)
+  · `graph-correction` ← `correctionDistanceGraph`/`uncorrectedEastingGraph`/
+    `Pn.fix.easting` + roll del IMU (centinela 88888 = sin IMU)
+  De paso, dos más de la misma lista de huecos: `shift-pos` (deriva real desde
+  `AppModelField.SharedFieldProperties.DriftCompensation`; `offsets_on` queda en
+  false — ese toggle todavía no está en `ExecuteCommand`) y `sim-coords`
+  (lat/lon del sim + estado). Siguen en stub, a propósito: `all-settings`,
+  colores y shapefile.
+  Verificado en runtime (`--sim --webhost`): con el lote **La Paloma** abierto y
+  guía elegida, `graph-steer` da `actual=30 / set=-30..-11` y `graph-xte`
+  `heading_error=-50° / xte=605cm`, moviéndose muestra a muestra; `graph-heading`
+  arranca vivo sin lote (341°/11°). Lote cerrado después, archivos del lote con
+  la fecha intacta (no se tocó nada).
+  **Hallazgo**: el XTE crudo alterna entre valores reales y un centinela enorme
+  (7.5e8 cm) cuando el tractor no está sobre la guía — es el mismo valor que
+  comía la ventana nativa, que tenía escala fija y lo recortaba sola. Acoté a
+  ±5120 cm en `grafico-xte.js` (capa cliente, aplica a los dos backends) en vez
+  de tocar la semántica del motor.
