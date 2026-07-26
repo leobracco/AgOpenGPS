@@ -1675,3 +1675,10 @@ la sesión android al extraer, pero el taller los usa desde Services),
   validación runtime en emulador** (que el WebView nativo realmente cargue las
   páginas y el centinela `pilotx-close` cierre el overlay). Si querés seguir vos
   esa validación, dale; si no, la hago yo.
+- [2026-07-24] [taller] HECHO — `AndroidWebViewHost` **validado en emulador**:
+  tocar Dirección abre `direccion.html` en el WebView nativo embebido (overlay de
+  MainView), el engine in-process sirve la página, `/api/steer/config` responde
+  ("Configuración cargada") y Cerrar cierra el overlay. Round-trip completo. El
+  404 inicial era `ExtractWwwroot` cacheando el wwwroot por versionCode (ver
+  reference_android_emulator_deploy). Mejora pendiente (para Santi o quien siga):
+  marker de wwwroot por hash en Debug para no tener que desinstalar al iterar.
