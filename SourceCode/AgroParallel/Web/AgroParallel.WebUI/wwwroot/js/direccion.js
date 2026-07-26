@@ -152,6 +152,30 @@
   // --------------------------------------------------------------------------
   // Serialización de todos los controles → objeto de config (camelCase)
   // --------------------------------------------------------------------------
+  // El markup usa data-key camelCase; el wire del backend es snake_case
+  // (convención AgpJson/AgpControllerBase). Conversión mecánica en los dos
+  // sentidos, sin tabla: proportionalGain ⇄ proportional_gain.
+  // Las siglas (PWM, PP) no sobreviven la conversión mecánica de vuelta:
+  // min_pwm → "minPwm" ≠ data-key "minPWM". Se listan a mano las 3 que hay.
+  var KEY_ALIAS = { min_pwm: 'minPWM', high_steer_pwm: 'highSteerPWM', integral_pp: 'integralPP' };
+
+  function toSnake(k) {
+    return k
+      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')     // minSteerSpeed → min_Steer_Speed
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')  // PWMValue → PWM_Value
+      .toLowerCase();                             // minPWM → min_pwm
+  }
+
+  function snakeToCamelKeys(obj) {
+    var out = {};
+    Object.keys(obj || {}).forEach(function (k) {
+      var camel = KEY_ALIAS[k] ||
+        k.replace(/_([a-z])/g, function (m, c) { return c.toUpperCase(); });
+      out[camel] = obj[k];
+    });
+    return out;
+  }
+
   function collectConfig() {
     var cfg = {};
     document.querySelectorAll('input[type=range][data-key]').forEach(function (r) {
@@ -166,12 +190,17 @@
     document.querySelectorAll('.seg[data-seg]').forEach(function (grp) {
       cfg[grp.getAttribute('data-seg')] = getSeg(grp.getAttribute('data-seg'));
     });
-    return cfg;
+    // camelCase (markup) → snake_case (wire)
+    var wire = {};
+    Object.keys(cfg).forEach(function (k) { wire[toSnake(k)] = cfg[k]; });
+    return wire;
   }
 
   // Aplica un objeto de config (parcial) a los controles. Ignora claves ausentes.
-  function applyConfig(cfg) {
-    if (!cfg || typeof cfg !== 'object') return;
+  // Acepta el wire snake_case del backend (lo pasa a camelCase de los data-key).
+  function applyConfig(raw) {
+    if (!raw || typeof raw !== 'object') return;
+    var cfg = snakeToCamelKeys(raw);
     document.querySelectorAll('input[type=range][data-key]').forEach(function (r) {
       var k = r.getAttribute('data-key');
       if (cfg[k] !== undefined && cfg[k] !== null && !isNaN(cfg[k])) {
@@ -246,6 +275,12 @@
     fetch('/api/steer/zero-was', { method: 'POST' })
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function (j) {
+        if (j && j.ok === false) {
+          setEstado(j.error === 'fuera-de-rango'
+            ? 'No se puede poner en cero: el ángulo actual se va de rango (revisá el montaje del sensor).'
+            : 'No se pudo poner el WAS en cero (' + (j.error || 'sin módulo') + ')', 'err');
+          return;
+        }
         if (j && typeof j.was_offset !== 'undefined') {
           var r = document.querySelector('input[data-key="wasOffset"]');
           if (r) { r.value = j.was_offset; updateSliderLabel(r); }

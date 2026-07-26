@@ -64,6 +64,13 @@ namespace AgOpenGPS
             var trackBuilder = new EngineTrackBuilderService(_host);
             var trackList = new EngineTrackListService(_host);
             var sectionsCore = new EngineSectionControlService(_host);
+            // Config de dirección: implementación compartida con FormGPS (archivo
+            // linkeado). El engine no tiene hilo de UI, así que SendSettings va
+            // directo; el ángulo vivo del WAS sale del CModuleComm del host.
+            var steerConfig = new AgroParallel.Adapters.SteerConfigService(
+                _host.Vehicle,
+                () => _host.Mc.actualSteerAngleDegrees,
+                () => _host.SettingsSender.SendSettings());
 
             _web = new AgpWebHost(
                 state,                 // requerido
@@ -96,7 +103,8 @@ namespace AgOpenGPS
                 tram: tram,
                 paths: paths,
                 trackBuilder: trackBuilder,
-                trackList: trackList);
+                trackList: trackList,
+                steerConfig: steerConfig);
 
             _web.Start();
         }

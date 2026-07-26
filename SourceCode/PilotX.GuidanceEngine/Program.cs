@@ -44,6 +44,17 @@ namespace AgOpenGPS
             // net9.0 puro (guard #if NETFRAMEWORK || WINDOWS en RegistrySettings.cs).
             RegistrySettings.Load();
 
+            // El perfil de vehículo (Vehicles\<nombre>.XML) trae TODA la config
+            // real del operario: geometría, antena, ganancias de dirección,
+            // secciones. Sin este Load el motor headless corría siempre con los
+            // valores por defecto del código y ningún Save() persistía
+            // (vehicleFileName vacío → CSettings.Save() es no-op). Mismo Load que
+            // hace PilotX/FormGPS al arrancar.
+            var vehLoad = AgOpenGPS.Properties.Settings.Default.Load();
+            Console.WriteLine("Perfil de vehículo: "
+                + (string.IsNullOrEmpty(RegistrySettings.vehicleFileName) ? "(ninguno)" : RegistrySettings.vehicleFileName)
+                + " → " + vehLoad);
+
             Console.WriteLine("PilotX.GuidanceEngine — bloque 14, guidance engine headless");
             Console.WriteLine("Base directory: " + baseDir.FullName);
             Console.WriteLine("Fields directory: " + RegistrySettings.fieldsDirectory);

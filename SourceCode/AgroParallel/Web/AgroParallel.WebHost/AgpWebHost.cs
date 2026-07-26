@@ -44,6 +44,7 @@ namespace AgroParallel.WebHost
         // guidance/toolGeometry/tram: inyectado por FormGPS, no auto-instanciado
         // (necesita la referencia real al form vivo).
         private readonly IImuCalibracionService _imuCalibracion;
+        private readonly ISteerConfigService _steerConfig;
         // Lista de guías (AB/curvas) del lote activo (FormGPS.trk.gArr). Mismo
         // criterio: inyectado por FormGPS, no auto-instanciado.
         private readonly ITrackListService _trackList;
@@ -169,7 +170,8 @@ namespace AgroParallel.WebHost
                           ITramLineService tramLine = null,
                           ITrackBuilderService trackBuilder = null,
                           IRecPathService recPath = null,
-                          IPathsGeometryCalculator paths = null)
+                          IPathsGeometryCalculator paths = null,
+                          ISteerConfigService steerConfig = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
             _sistema = sistema;         // nullable
@@ -189,6 +191,7 @@ namespace AgroParallel.WebHost
             _quantixRuntime = quantixRuntime; // nullable
             _guidance = guidance;             // nullable
             _imuCalibracion = imuCalibracion; // nullable
+            _steerConfig = steerConfig;       // nullable
             _trackList = trackList;           // nullable
             _perfiles = perfiles;             // nullable
             _configVehiculo = configVehiculo; // nullable
@@ -292,7 +295,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new FirmwaresController())
                  .WithController(() => new BotoneraController())
                  .WithController(() => new ConfiguracionController())
-                 .WithController(() => new SteerConfigController())
+                 .WithController(() => new SteerConfigController(_steerConfig))
                  .WithController(() => new SectionXController(_sectionxCfg))
                  .WithController(() => new CamarasController(_camarasCfg));
                 if (_vistaxCfg != null || _vistaxLive != null)

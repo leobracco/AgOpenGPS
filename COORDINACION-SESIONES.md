@@ -1682,3 +1682,36 @@ la sesión android al extraer, pero el taller los usa desde Services),
   404 inicial era `ExtractWwwroot` cacheando el wwwroot por versionCode (ver
   reference_android_emulator_deploy). Mejora pendiente (para Santi o quien siga):
   marker de wwwroot por hash en Debug para no tener que desinstalar al iterar.
+- [2026-07-26] [taller] HECHO — **`/api/steer/config` REAL** (cierra el stopgap del
+  2026-07-24 que guardaba un blob JSON y no configuraba nada). Ahora la pantalla
+  Dirección lee/escribe los settings de verdad y manda los **PGN 252/251** al módulo.
+  · `SteerConfigDto`/`SteerZeroWasResult` (AgroParallel.Models) + `ISteerConfigService`
+    (Services.Abstractions) — wire **snake_case**; `direccion.js` convierte
+    camelCase(data-key)⇄snake mecánicamente (3 alias a mano: PWM/PP).
+  · **`SourceCode/AgroParallel/Adapters/SteerConfigService.cs`** — implementación
+    ÚNICA compartida por link (`<Compile Include>`) entre `AgOpenGPS.csproj` y
+    `PilotX.GuidanceEngine.csproj`, para no duplicar el port del FormSteer.
+    Port 1:1: mismas escalas (x10/x100), bits de `setArdSteer_setting0/1`,
+    `lowSteerPWM = highSteerPWM/3`, exclusión encoder/presión/corriente, tope
+    ±3900 del cero de WAS. Lo del host entra por delegados (WAS vivo, SendSettings
+    marshalado, campos vivos que no viven en CVehicle).
+  · Cableado en los dos backends: `EngineWebHost` (motor headless) y `FormGPS.cs`
+    (legacy). El controller degrada al blob viejo si no hay servicio (Hub Android).
+  **AVISO (toqué el engine — carril Santi, 1 línea en `Program.cs`)**: el motor
+  headless **nunca llamaba `Settings.Default.Load()`** — corría siempre con los
+  valores por defecto del código y `Save()` era no-op (`vehicleFileName` vacío).
+  Agregado el Load + un print del perfil. Afecta a TODO, no solo dirección
+  (geometría, antena, secciones también salían por defecto). Si querés moverlo a
+  otro lado del arranque, dale.
+  Verificado en runtime real (`--sim --webhost`, perfil descartable copiado de
+  `test.XML`, borrado después — no se tocó ningún perfil real): GET trae los valores
+  reales del perfil (Kp=31, was=19, cpd=124, Button); POST→`ok:true`; el XML queda
+  con `setting0=195` (invertWAS+invertRelés+Button+encoder) y `setting1=9`
+  (danfoss+eje Y), `Kp=77`, `lowPWM=70` (=210/3), `maxPulse=21` (gana encoder),
+  `deadZoneHeading=20` (0.2°×100), `sideHillComp=0.07`; **sobrevive el reinicio**
+  del motor. `zero-was` responde ok con el ángulo vivo (0 sin módulo real).
+  Build: `PilotX.GuidanceEngine` y `AgOpenGPS.csproj` (EXE completo) 0 errores/0
+  warnings; solución completa OK salvo el copy de `PilotX.Desktop` (estaba
+  corriendo, no lo maté). 141 tests verdes. `node --check direccion.js` OK.
+  **Falta (hardware)**: confirmar contra un módulo de dirección real que el 252/251
+  llega y que el cero del WAS mueve el ángulo — sin gear no se puede validar.

@@ -1,23 +1,25 @@
 // ============================================================================
 // SteerConfigController.cs
 //
-// Config del autoguiado (FormSteer) para la página direccion.html:
-//   GET  /api/steer/config    → devuelve el config guardado (o {} si no hay)
-//   POST /api/steer/config    → persiste el objeto de config recibido
-//   POST /api/steer/zero-was  → pone el WAS en cero (stopgap)
+// Config del autoguiado (port del FormSteer nativo) para la página
+// direccion.html:
+//   GET  /api/steer/config    → SteerConfigDto leído de los settings reales
+//   POST /api/steer/config    → persiste + aplica + manda PGN 252/251 al módulo
+//   POST /api/steer/zero-was  → cero del sensor de ángulo (WAS) con lectura viva
 //
-// STOPGAP (Leonardo, carril UI — avisado a Santi): persiste el objeto TAL CUAL
-// lo manda la UI a un JSON en ConfigRoot, para que el operario pueda verificar
-// que cada campo se graba y persiste al reabrir. El mapeo REAL a
-// Settings.Default.setAS_* (Kp/lowSteerPWM/highSteerPWM/countsPerDegree/…) y el
-// envío del PGN 252 al módulo de dirección es carril de Santi (engine): cuando
-// esté, este controller debería leer/escribir esos settings en vez del blob.
+// La lógica real vive en ISteerConfigService (implementación compartida
+// AgroParallel.Adapters.SteerConfigService, la usan tanto FormGPS como el motor
+// headless). Si el host no inyecta el servicio — caso del Hub Android, que hoy
+// no tiene módulo de dirección — se cae al comportamiento viejo: persistir el
+// objeto TAL CUAL a un JSON en ConfigRoot, para que la pantalla siga guardando
+// y releyendo sin romperse.
 // ============================================================================
 
 using AgroParallel.Common;
+using AgroParallel.Models;
+using AgroParallel.Services.Abstractions;
 using EmbedIO;
 using EmbedIO.Routing;
-using EmbedIO.WebApi;
 using System;
 using System.IO;
 using System.Text;
@@ -29,6 +31,13 @@ namespace AgroParallel.WebHost.Controllers
     {
         // Cap defensivo: el config son unos KB; 512 KB frena un POST gigante.
         private const long MaxBytes = 512L * 1024;
+
+        private readonly ISteerConfigService _svc;
+
+        public SteerConfigController(ISteerConfigService svc = null)
+        {
+            _svc = svc;
+        }
 
         private static string FilePath
         {
@@ -44,6 +53,13 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Get, "/steer/config")]
         public async Task Get()
         {
+            if (_svc != null)
+            {
+                await WriteJsonAsync(_svc.Get()).ConfigureAwait(false);
+                return;
+            }
+
+            // ---- fallback sin servicio: devolver el blob guardado tal cual ----
             try
             {
                 if (File.Exists(FilePath))
@@ -53,8 +69,6 @@ namespace AgroParallel.WebHost.Controllers
                     HttpContext.Response.ContentType = "application/json";
                     HttpContext.Response.Headers["Cache-Control"] = "no-store";
                     HttpContext.Response.ContentLength64 = bytes.Length;
-                    // serialización especial a propósito: se devuelve el JSON tal
-                    // cual se guardó (mismas claves camelCase que espera la UI).
                     await HttpContext.Response.OutputStream
                         .WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
                     return;
@@ -68,6 +82,31 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Post, "/steer/config")]
         public async Task Post()
         {
+            if (_svc != null)
+            {
+                SteerConfigDto cfg;
+                try { cfg = await ReadJsonBodyAsync<SteerConfigDto>().ConfigureAwait(false); }
+                catch { await WriteJsonAsync(new { ok = false, error = "bad-json" }).ConfigureAwait(false); return; }
+
+                if (cfg == null)
+                {
+                    await WriteJsonAsync(new { ok = false, error = "bad-json" }).ConfigureAwait(false);
+                    return;
+                }
+
+                try
+                {
+                    bool ok = _svc.Save(cfg);
+                    await WriteJsonAsync(new { ok }).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    await WriteJsonAsync(new { ok = false, error = ex.Message }).ConfigureAwait(false);
+                }
+                return;
+            }
+
+            // ---- fallback sin servicio: guardar el body crudo ----
             string body;
             try
             {
@@ -112,8 +151,15 @@ namespace AgroParallel.WebHost.Controllers
         [Route(HttpVerbs.Post, "/steer/zero-was")]
         public Task ZeroWas()
         {
-            // Stopgap: el cero real del WAS lo hace el módulo/engine (carril Santi).
-            return WriteJsonAsync(new { ok = true });
+            if (_svc == null)
+            {
+                // Sin módulo de dirección detrás: la UI ya trata ok=false como
+                // "módulo offline" y deja el slider como estaba.
+                return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
+            }
+
+            try { return WriteJsonAsync(_svc.ZeroWas()); }
+            catch (Exception ex) { return WriteJsonAsync(new { ok = false, error = ex.Message }); }
         }
     }
 }
