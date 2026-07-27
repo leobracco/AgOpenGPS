@@ -110,6 +110,16 @@ namespace PilotX.GuidanceEngine.Adapters
                     snap.RowSkipsWidth = _host.Yt.rowSkipsWidth;
                 }
 
+                // Geometría del vehículo + dirección: el mapa dibuja el cuerpo a
+                // escala real y las ruedas delanteras giradas aparte (el arte del
+                // tractor no las trae, justamente porque giran).
+                if (_host.Vehicle != null)
+                {
+                    snap.Wheelbase = _host.Vehicle.VehicleConfig.Wheelbase;
+                    snap.TrackWidth = _host.Vehicle.VehicleConfig.TrackWidth;
+                }
+                if (_host.Mc != null) snap.SteerAngleDeg = _host.Mc.actualSteerAngleDegrees;
+
                 snap.ToolEasting = _host.toolPos.easting;
                 snap.ToolNorthing = _host.toolPos.northing;
                 snap.ToolHeading = _host.toolPos.heading;

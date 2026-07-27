@@ -15,5 +15,15 @@ namespace AgroParallel.Common
     public static class AgpPaths
     {
         public static string ConfigRoot { get; set; } = AppDomain.CurrentDomain.BaseDirectory;
+
+        /// <summary>
+        /// Carpeta wwwroot REAL que está sirviendo el web host, resuelta al
+        /// arrancar (la setea AgpWebHost). Los controllers que necesitan leer
+        /// archivos servidos —el catálogo de sprites de vehículo, por ejemplo—
+        /// tienen que usar esto y NO armar la ruta desde BaseDirectory: cuando
+        /// el motor corre desde una subcarpeta (&lt;install&gt;\Engine\) esa ruta no
+        /// existe y el catálogo sale VACÍO sin ningún error visible.
+        /// </summary>
+        public static string WwwRoot { get; set; }
     }
 }

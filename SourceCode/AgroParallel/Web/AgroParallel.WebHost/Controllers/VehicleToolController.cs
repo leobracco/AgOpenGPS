@@ -89,9 +89,16 @@ namespace AgroParallel.WebHost.Controllers
             var sprites = new System.Collections.Generic.List<object>();
             try
             {
-                string dir = System.IO.Path.Combine(
-                    AppDomain.CurrentDomain.BaseDirectory,
-                    "AgroParallel", "wwwroot", "img", "vehiculos");
+                // Del wwwroot REAL que resolvió el host, no de BaseDirectory:
+                // con el motor corriendo desde <install>\Engine\ esa ruta no
+                // existe y el catálogo salía vacío sin ningún error visible.
+                string raiz = AgroParallel.Common.AgpPaths.WwwRoot;
+                if (string.IsNullOrEmpty(raiz))
+                {
+                    raiz = System.IO.Path.Combine(
+                        AppDomain.CurrentDomain.BaseDirectory, "AgroParallel", "wwwroot");
+                }
+                string dir = System.IO.Path.Combine(raiz, "img", "vehiculos");
                 if (System.IO.Directory.Exists(dir))
                 {
                     var ti = System.Globalization.CultureInfo.CurrentCulture.TextInfo;

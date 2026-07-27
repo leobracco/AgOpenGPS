@@ -2143,7 +2143,6 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   bajada "TECNOLOGÍA QUE GUÍA TU CAMPO" no se lee — si se quiere, conviene un
   recorte al emblema PX solo para los tamaños chicos.
   Paquete regenerado: **PilotX_v1.0.24.zip**, build 0 errores, 156 tests verdes.
-
 - [2026-07-27] [android] HECHO — controles de cámara/vista del menú Navegación
   (`v2d/v3d/norte2d/tilt_up/tilt_dn/grilla/dia_noche/brillo_up/brillo_dn`, 9
   íconos) **verificados por EFECTO, no por botón**, corriendo el stack Desktop
@@ -2213,3 +2212,110 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   ítem en `docs/INVENTARIO-UI-ICONOS.md` en 🟡 (no ✅) hasta que el backend
   responda de verdad. Build completo 0 errores, sigo con el resto del
   inventario mientras tanto.
+- [2026-07-27] [taller] HECHO (carril Santiago, avisado) — menú izquierdo, 2
+  pedidos del usuario:
+  · **"Configuración" va DIRECTO** a la pantalla de config (`config_form`), sin
+    submenú intermedio. Se eliminó el bloque del submenú entero.
+    **OJO**: con eso quedaron sin entrada en el menú izquierdo `todos_ajustes`,
+    `directorios`, `datos_gps`, `colores`, `colores_sec` y `hotkeys`. "Auto
+    Steer" no se pierde: tiene su propio botón "Dirección" en la columna
+    principal, y "Datos GPS" está en la barra superior. Si alguno de los otros
+    hace falta, hay que reubicarlo (Herramientas es el lugar natural).
+  · **Menú lateral SIN íconos**: se sacaron los 7 `Image.mico` de la columna
+    principal. Como la etiqueta pasó a ser lo único que identifica al botón, se
+    agrandó la tipografía (9,5 → 13; LOTE 11,5 → 15) para que se lea desde el
+    asiento. Los submenús conservan sus íconos (`sico`) — si también los querés
+    sin íconos, avisá.
+- [2026-07-27] [taller] HECHO — **íconos de marca recortados al emblema**. Los
+  `.ico` anteriores usaban el logo completo y a 16-32 px el texto quedaba en una
+  mancha ilegible. Ahora el `.ico` lleva SOLO el emblema (PX / CX), detectado por
+  análisis de píxeles (primera banda horizontal con tinta, cortando en el hueco
+  que la separa de la palabra) — nada a ojo. Script en scratchpad; el recorte se
+  hace sobre el bbox ANTES de centrar, si no, al ser el emblema más ancho que
+  alto, sobra alto en el lienzo cuadrado y se cuela la palabra de abajo.
+  Paquete: **PilotX_v1.0.24.zip** (SHA BF693F63…), build 0 errores, 156 tests.
+- [2026-07-27] [taller] HECHO (carril Santiago, avisado) — menú izquierdo:
+  **que no se corten las palabras + minimalista**.
+  · Tipografía a **10 px con `TextWrapping=NoWrap`**. No fue a ojo: se midió el
+    ancho real de cada etiqueta — la columna deja ~80 px útiles y
+    "Configuración" mide 93 px a 13, 86 a 12, 79 a 11 y 72 a 10. A 13 se partía
+    en dos renglones; a 10 entra entera con aire. LOTE queda en 14 (es la palabra
+    más corta, entra holgada).
+  · **Sin recuadro por botón**: `Background`/`BorderBrush` transparentes. Siete
+    tarjetas con borde apiladas hacían mucho ruido al lado del mapa; ahora el
+    botón se distingue por el espaciado y solo se pinta en hover o cuando está
+    activo (verde del design system).
+  Paquete regenerado (SHA BCBD6D6E…), 19 tests del cockpit verdes, build 0
+  errores. **Si en la pantalla de 10" 10 px queda chico, la salida es ensanchar
+  la columna (92 → 110 en `MenuIzquierda.axaml` y `MenuIzqNarrow` 140 → 158 en
+  los dos hosts de `PilotX.UI`), no volver a cortar las palabras.**
+- [2026-07-27] [taller] HECHO — **el mapa dibuja el vehículo elegido en vez del
+  triángulo**, y **el catálogo de vehículos estaba saliendo vacío**.
+  · **Bug**: `/api/vehicle/sprites` devolvía `sprites: []` con 7 PNG presentes.
+    Armaba la ruta desde `BaseDirectory + AgroParallel/wwwroot/img/vehiculos`, y
+    con el motor corriendo desde `<install>\Engine\` esa carpeta no existe — misma
+    familia que el 404 del wwwroot de ayer. Se expuso `AgpPaths.WwwRoot` (lo setea
+    `AgpWebHost` con la carpeta REAL que resolvió) y el controller lo usa. Ahora
+    lista los 4 vehículos con tipo y marca.
+  · **Sprite en el mapa**: `MapGlSurface` no tenía NADA de texturas (0 usos de
+    `Texture`/`sampler2D`), el tractor era un triángulo dibujado a mano. Se agregó
+    un segundo programa GL con `sampler2D` (aparte del de color plano a propósito:
+    unificarlos metía un branch por fragmento en todo lo que se dibuja, que es la
+    parte cara del frame), subida de textura con CLAMP_TO_EDGE y un quad orientado
+    por rumbo. Tamaño REAL en metros (2,6 m de ancho, alto por aspecto de la
+    imagen) con piso de 26 px para que no desaparezca al alejar el zoom.
+  · `VehicleSpriteClient` (PilotX.UI/Services): lee `activo` de la API, **prefiere
+    la variante `.mapa`** (el arte trae `rigido_pauny.mapa.png`, vista cenital sin
+    ruedas), descarga, decodifica con Avalonia y **deshace el premultiplicado**
+    (si no, los bordes del sprite salen oscurecidos sobre el mapa). Reintenta cada
+    5 s, así cambiar de vehículo en Configuración se ve sin reiniciar.
+  · **Fallback en cada paso**: sin sprite elegido, si falla la descarga, si no
+    compila el shader o si falla la subida a GPU → se dibuja el triángulo de
+    siempre. El mapa nunca queda sin marcador de posición.
+  Verificado: catálogo con 4 vehículos, `rigido_pauny.mapa.png` se sirve (200),
+  GL init OK sin errores de sprite. Build 0 errores/0 warnings, 156 tests verdes,
+  paquete regenerado (SHA 88E00AE5…).
+- [2026-07-27] [taller] HECHO — tractor PilotX propio. El usuario sobrescribió
+  `SourceCode/GPS/ResourcesBrands/Brands/Tractor/TractorAoG.png` con el arte
+  PilotX (vista cenital, blanco con logo).
+  **OJO con dónde vive cada imagen** (esto confundió y vale anotarlo):
+  · `GPS/ResourcesBrands/Brands/{Tractor,Harvester,Articulated,Brand}/` son los
+    vehículos ORIGINALES de AOG (14 tractores, 5 cosechadoras, 6 articulados en
+    2 piezas + 17 logos, incluido `BrandTriangleVehicle.png`). Están EMBEBIDOS
+    como recurso del exe WinForms (`BrandImages.resx` + `Classes/Brands.cs`) →
+    los usa el PilotX viejo, **no** el mapa Avalonia.
+  · `AgroParallel.WebUI/wwwroot/img/vehiculos/` es lo que ve el mapa nuevo
+    (convención `tipo_marca[_modelo].png`, variante `.mapa` para la vista
+    cenital sin ruedas).
+  Por eso, además de recompilar, se copió el arte a
+  `wwwroot/img/vehiculos/rigido_pilotx.png` — así entra al catálogo, viaja en el
+  ZIP y lo dibuja el mapa. Verificado: catálogo con 5 vehículos, `activo` =
+  `rigido_pilotx.png`, sin errores de sprite en el log del renderer.
+  Paquete: PilotX_v1.0.24.zip (SHA 824357CC…).
+  **Pendiente sugerido**: pasar las otras 13 marcas de AOG a
+  `wwwroot/img/vehiculos/` con la misma convención, y enganchar la selección de
+  tipo+marca de Configuración para que elija el sprite sola (hoy hay que
+  elegir el archivo).
+- [2026-07-27] [taller] HECHO — **ruedas delanteras del tractor, giradas por la
+  dirección**. El usuario avisó que el arte no las trae *a propósito*: en AOG el
+  cuerpo y las ruedas delanteras son sprites SEPARADOS, y las ruedas se dibujan
+  rotadas por el ángulo de dirección. Se replicó la geometría exacta del nativo
+  (`GuidanceDrawExtensions.DrawVehicle` + `AckermannAngles`):
+  · El origen del vehículo es el **eje trasero** (pivote). El cuerpo va centrado
+    en `(0, wheelbase/2)` con medias-medidas `(trackWidth, wheelbase)` —
+    `centerToU1V1` del original es MEDIA medida, no medida entera.
+  · Las ruedas van en `(±trackWidth/2, wheelbase)` (eje delantero), con
+    medias-medidas `(trackWidth/2, 0.75·wheelbase)`, cada una girada por SU
+    ángulo de Ackermann (la interna gira 1,25× más que la externa, copia exacta).
+  · Textura: `z_FrontWheels.png` del proyecto WinForms, copiada a
+    `wwwroot/img/vehiculos/rueda.png` (se baja una sola vez, no cambia con el
+    vehículo).
+  · `AogStateSnapshot` suma **`wheelbase`, `track_width` y `steer_angle_deg`**
+    (los llenan los dos providers) — antes el mapa dibujaba con un ancho fijo de
+    2,6 m inventado; ahora usa la geometría real del perfil.
+  Verificado: snapshot con `wheelbase:3.3`, `track_width:1.9`, `steer_angle_deg`;
+  `rueda.png` se sirve (200); sin errores de sprite en el renderer. Build 0
+  errores, tests verdes, paquete SHA 79899000…
+  **Nota**: el mapa ya no usa un tamaño inventado, así que si el vehículo se ve
+  chico/grande hay que corregir **Entre ejes / Trocha** en Configuración, que es
+  lo correcto.

@@ -115,6 +115,15 @@ namespace AgroParallel.Adapters
                     snap.RowSkipsWidth = _form.yt.rowSkipsWidth;
                 }
 
+                // Geometría del vehículo + dirección, para que el mapa dibuje el
+                // cuerpo a escala real y las ruedas delanteras giradas aparte.
+                if (_form.vehicle != null)
+                {
+                    snap.Wheelbase = _form.vehicle.VehicleConfig.Wheelbase;
+                    snap.TrackWidth = _form.vehicle.VehicleConfig.TrackWidth;
+                }
+                if (_form.mc != null) snap.SteerAngleDeg = _form.mc.actualSteerAngleDegrees;
+
                 snap.ToolEasting = _form.toolPos.easting;
                 snap.ToolNorthing = _form.toolPos.northing;
                 snap.ToolHeading = _form.toolPos.heading;

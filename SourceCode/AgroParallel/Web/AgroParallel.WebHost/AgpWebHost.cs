@@ -246,6 +246,10 @@ namespace AgroParallel.WebHost
             // desincronizadas). Si nadie la pasa, se auto-instancia.
             _implemento = implemento ?? new ImplementoService(_vistaxCfg, _vehicleTool, _quantixCfg, _sectionxCfg);
             _wwwroot = wwwroot;
+            // Publicado para los controllers que leen archivos servidos (catálogo
+            // de sprites): armar esa ruta desde BaseDirectory falla cuando el
+            // motor corre desde <install>\Engine\.
+            AgroParallel.Common.AgpPaths.WwwRoot = wwwroot;
             _port = port;
             // Url publica: la usa el WebView2 del Hub WinForms (loopback, no requiere LAN).
             Url = "http://127.0.0.1:" + port + "/";

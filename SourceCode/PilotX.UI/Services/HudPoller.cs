@@ -44,6 +44,14 @@ public sealed class HudSnapshot
     public double PivotNorthing { get; set; }
     public double ToolWidth { get; set; }
 
+    /// <summary>Distancia entre ejes (m) — tamaño del vehículo en el mapa.</summary>
+    public double Wheelbase { get; set; }
+    /// <summary>Trocha (m) — ancho del vehículo en el mapa.</summary>
+    public double TrackWidth { get; set; }
+    /// <summary>Ángulo del sensor de dirección (grados). El mapa gira con esto
+    /// las ruedas delanteras, que se dibujan aparte del cuerpo.</summary>
+    public double SteerAngleDeg { get; set; }
+
     // Primer ring = contorno exterior; rings siguientes = islas/drive-thru.
     public List<List<FieldPoint>>? Boundaries { get; set; }
 
