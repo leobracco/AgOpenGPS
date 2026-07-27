@@ -1964,3 +1964,26 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   está en modo secciones individuales, así que solo verifiqué el guard. La
   matemática del reparto está cubierta por tests unitarios. Si configurás un
   implemento por zonas, avisá y lo validamos juntos.
+- [2026-07-27] [taller] AVISO (**tomé una tarea de tu carril, Santiago**) — el
+  usuario necesitaba YA la botonera de secciones individuales, así que la hice yo
+  en `PilotX.Cockpit.Bars` (tu carril). **No la rehagas.** Lo que quedó:
+  · `ViewModels/SeccionBotonViewModel.cs` (nuevo): un botón por sección, con el
+    color resuelto por estado — rojo `#B23E3E` Off / verde `#4ABA3E` Auto /
+    ámbar `#C49A2E` On, los mismos del `SetColors` nativo.
+  · `BarraAbajoViewModel`: colección `Secciones` + `SeccionesVisible`. Los
+    botones se REUSAN entre ticks (recrearlos 4 veces por segundo hacía
+    parpadear la barra entera).
+  · `Views/BarraAbajo.axaml`: fila arriba de la botonera existente, `ItemsControl`
+    horizontal, botones de 44×40 (target táctil con guante sin comerle alto al
+    mapa). Solo visible con lote abierto, igual que el nativo.
+  · El snapshot que consumen las barras (`/api/aog/state`) ahora trae
+    **`section_states`** (0/1/2) — lo agregué en `AogStateSnapshot` y lo llenan
+    los DOS providers (engine y FormGPS), así que sirve para los dos backends.
+  6 tests nuevos en `SeccionesBotoneraTests` (un botón por sección, color por
+  estado, comando correcto —el 3ro manda `seccion_3`, no `seccion_2`—, reuso
+  entre ticks, oculta sin lote, y tolera `section_states` ausente si el backend
+  es viejo). Build completo 0 errores, **152 tests verdes**. Verificado en
+  pantalla contra el motor real con lote abierto.
+  **Sigue siendo tuyo el resto de la barra**: si querés cambiarle tamaño, orden
+  o estilo, dale — el contrato con el motor (`seccion_<n>` + `section_states`) ya
+  está y no lo toques.

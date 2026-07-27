@@ -129,12 +129,16 @@ namespace PilotX.GuidanceEngine.Adapters
                     if (n > 0 && _host.Sections != null)
                     {
                         var arr = new bool[n];
+                        var estados = new int[n];
                         var pos = new List<SectionExtent>(n);
                         var speeds = new double[n];
                         for (int i = 0; i < n && i < _host.Sections.Length; i++)
                         {
                             var sec = _host.Sections[i];
                             arr[i] = sec != null && sec.sectionOnRequest;
+                            // 0=Off, 1=Auto, 2=On: lo que eligió el operario, que
+                            // es distinto de si la sección aplica ahora.
+                            estados[i] = sec == null ? 0 : (int)sec.sectionBtnState;
                             if (sec != null)
                             {
                                 pos.Add(new SectionExtent(i, sec.positionLeft, sec.positionRight));
@@ -142,6 +146,7 @@ namespace PilotX.GuidanceEngine.Adapters
                             }
                         }
                         snap.SectionOnRequest = arr;
+                        snap.SectionStates = estados;
                         snap.SectionPositions = pos;
                         snap.SectionSpeedsKmh = speeds;
                     }

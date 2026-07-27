@@ -10,6 +10,34 @@
   </UserControl.Resources>
 
   <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="0,1,0,0" Padding="3">
+   <StackPanel Orientation="Vertical" Spacing="3">
+
+    <!-- Botonera de secciones individuales: una por sección del implemento.
+         Cada toque cicla Off (rojo) → Auto (verde) → On (ámbar), igual que los
+         btnSectionXMan del nativo. Solo con lote abierto: sin lote el control
+         de secciones no aplica. -->
+    <ItemsControl ItemsSource="{Binding Secciones}" IsVisible="{Binding SeccionesVisible}"
+                  HorizontalAlignment="Center">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" Spacing="3"/>
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="vm:SeccionBotonViewModel">
+          <!-- 44px: target táctil cómodo con guante, sin comerle alto al mapa -->
+          <Button Width="44" Height="40" Padding="0" CornerRadius="4"
+                  Background="{Binding Color}" BorderBrush="#C5CFC5" BorderThickness="1"
+                  Command="{Binding $parent[ItemsControl].((vm:BarraAbajoViewModel)DataContext).SendCommand}"
+                  CommandParameter="{Binding Comando}">
+            <TextBlock Text="{Binding Texto}" FontSize="16" FontWeight="SemiBold"
+                       Foreground="#14181B"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
     <!-- orden visual izq->der; a la derecha "elegir guía" (como el nativo RTL) -->
     <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
       <ComboBox x:Name="SkipsCombo" IsVisible="{Binding SkipsVisible}" VerticalAlignment="Center"
@@ -58,5 +86,6 @@
         <Image Source="/Assets/barra-abajo/TrackOn.png"/>
       </Button>
     </StackPanel>
+   </StackPanel>
   </Border>
 </UserControl>

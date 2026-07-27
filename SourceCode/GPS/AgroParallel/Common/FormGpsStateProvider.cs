@@ -136,10 +136,14 @@ namespace AgroParallel.Adapters
                         var arr = new bool[n];
                         var pos = new List<SectionExtent>(n);
                         var speeds = new double[n];
+                        var estados = new int[n];
                         for (int i = 0; i < n && i < _form.section.Length; i++)
                         {
                             var sec = _form.section[i];
                             arr[i] = sec != null && sec.sectionOnRequest;
+                            // 0=Off, 1=Auto, 2=On: lo que eligió el operario, que
+                            // es distinto de si la sección aplica ahora.
+                            estados[i] = sec == null ? 0 : (int)sec.sectionBtnState;
                             if (sec != null)
                             {
                                 pos.Add(new SectionExtent(i, sec.positionLeft, sec.positionRight));
@@ -148,6 +152,7 @@ namespace AgroParallel.Adapters
                             }
                         }
                         snap.SectionOnRequest = arr;
+                        snap.SectionStates = estados;
                         snap.SectionPositions = pos;
                         snap.SectionSpeedsKmh = speeds;
                     }

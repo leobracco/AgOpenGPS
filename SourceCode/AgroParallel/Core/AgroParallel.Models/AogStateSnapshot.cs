@@ -169,6 +169,13 @@ namespace AgroParallel.Models
         // sectionOnRequest por índice [0..NumSections-1].
         public bool[] SectionOnRequest { get; set; }
 
+        /// <summary>Estado del BOTÓN de cada sección: 0=Off, 1=Auto, 2=On (mismo
+        /// orden que btnStates). Distinto de SectionOnRequest, que es si la
+        /// sección aplica AHORA: acá va lo que eligió el operario. La botonera
+        /// necesita los 3 estados para pintar rojo/verde/ámbar como el nativo —
+        /// con SectionOnRequest sola, Auto y On se ven idénticos.</summary>
+        public int[] SectionStates { get; set; }
+
         /// <summary>Ancho de la herramienta en metros (tool.width).</summary>
         public double ToolWidth { get; set; }
 

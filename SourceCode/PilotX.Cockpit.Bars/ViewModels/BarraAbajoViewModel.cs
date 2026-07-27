@@ -43,8 +43,15 @@ public sealed partial class BarraAbajoViewModel : BarViewModelBase
     [ObservableProperty] private bool _skipsVisible;
     [ObservableProperty] private int _skipsValue = 1;
 
+    // Botonera de secciones individuales (espejo de los btnSectionXMan nativos).
+    // Cada botón cicla Off → Auto → On mandando "seccion_<n>" al motor.
+    public System.Collections.ObjectModel.ObservableCollection<SeccionBotonViewModel> Secciones { get; }
+        = new();
+    [ObservableProperty] private bool _seccionesVisible;
+
     public override void Apply(CockpitSnapshot s)
     {
+        AplicarSecciones(s);
         bool hayGuia = s.TrackIdx > -1;
         bool hayHdl = s.HasHeadland;
 
@@ -68,5 +75,36 @@ public sealed partial class BarraAbajoViewModel : BarViewModelBase
         YouSkipImg = B + (s.YouSkipMode switch { 1 => "YouSkipOn.png", 2 => "YouSkipWorkedTracks.png", _ => "YouSkipOff.png" });
         SkipsVisible = hayGuia;
         SkipsValue = s.RowSkipsWidth;
+    }
+
+    /// <summary>
+    /// Arma/actualiza los botones de sección. Sin lote abierto no se muestran:
+    /// el control de secciones no aplica (misma regla que el nativo, donde
+    /// isJobStarted es la compuerta de todo el control de secciones).
+    ///
+    /// Los botones se REUSAN entre ticks: recrear la lista 4 veces por segundo
+    /// haría parpadear la barra entera.
+    /// </summary>
+    private void AplicarSecciones(CockpitSnapshot s)
+    {
+        int n = s.NumSections;
+        if (n < 0) n = 0;
+        if (n > 16) n = 16;   // el nativo tiene 16 botones como máximo
+
+        SeccionesVisible = s.IsJobStarted && n > 0;
+
+        if (Secciones.Count != n)
+        {
+            Secciones.Clear();
+            for (int i = 1; i <= n; i++) Secciones.Add(new SeccionBotonViewModel(i));
+        }
+
+        var estados = s.SectionStates;
+        for (int i = 0; i < Secciones.Count; i++)
+        {
+            // Backend sin section_states (o array corto): todo Off, sin romper.
+            int e = (estados != null && i < estados.Length) ? estados[i] : 0;
+            Secciones[i].SetEstado(e);
+        }
     }
 }
