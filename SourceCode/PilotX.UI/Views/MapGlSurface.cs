@@ -69,6 +69,22 @@ public sealed class MapGlSurface : OpenGlControlBase
     private uint _vbo;
     private int _vboCapacityFloats;
 
+    // ---- sprite del vehículo (reemplaza al triángulo) -------------------
+    // El triángulo es el fallback: si no hay sprite elegido, no se pudo bajar
+    // o falla la subida a GPU, se sigue dibujando el triángulo. Nunca se queda
+    // el mapa sin marcador de posición.
+    private uint _texProgram;
+    private int _uTexMvp;
+    private uint _texVbo;
+    private uint _vehicleTex;
+    private bool _vehicleTexReady;
+    private double _vehicleAspect = 1.0;   // alto/ancho de la imagen
+    // Pixeles pendientes de subir a GPU (se cargan desde el hilo de UI y se
+    // suben en el próximo frame, que es donde hay contexto GL válido).
+    private readonly float[] _mvpCache = new float[16];
+    private byte[]? _pendingTexRgba;
+    private int _pendingTexW, _pendingTexH;
+
     // Buffer CPU reutilizable. Se vuelca a _vbo en cada render que vea
     // un snapshot nuevo. No se aloca por frame.
     private float[] _scratch = new float[1024];
@@ -216,6 +232,46 @@ public sealed class MapGlSurface : OpenGlControlBase
         "out vec4 FragColor;\n" +
         "void main(){ FragColor = uColor; }\n";
 
+    // Shader con textura, para el sprite del vehículo. Va aparte del de color
+    // plano: mezclarlos obligaría a un branch por fragmento en TODO lo que se
+    // dibuja (cobertura, guías, lindero), que es la parte cara del frame.
+    private static string BuildTexVertSrc(bool es) =>
+        (es ? "#version 300 es\n" : "#version 330 core\n") +
+        "layout (location = 0) in vec2 aPos;\n" +
+        "layout (location = 1) in vec2 aUv;\n" +
+        "uniform mat4 uMvp;\n" +
+        "out vec2 vUv;\n" +
+        "void main(){ vUv = aUv; gl_Position = uMvp * vec4(aPos, 0.0, 1.0); }\n";
+
+    private static string BuildTexFragSrc(bool es) =>
+        (es ? "#version 300 es\nprecision mediump float;\n" : "#version 330 core\n") +
+        "in vec2 vUv;\n" +
+        "uniform sampler2D uTex;\n" +
+        "out vec4 FragColor;\n" +
+        "void main(){ vec4 c = texture(uTex, vUv); if (c.a < 0.02) discard; FragColor = c; }\n";
+
+    /// <summary>
+    /// Carga el sprite del vehículo (RGBA sin premultiplicar). Se llama desde
+    /// el hilo de UI; la subida real a GPU ocurre en el próximo frame, que es
+    /// donde hay contexto GL. Pasar null vuelve al triángulo.
+    /// </summary>
+    public void SetVehicleSprite(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingTexRgba = null;
+            _vehicleTexReady = false;
+        }
+        else
+        {
+            _pendingTexRgba = rgba;
+            _pendingTexW = width;
+            _pendingTexH = height;
+            _vehicleAspect = (double)height / width;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
     /// <summary>
     /// Push de snapshot desde UI thread (HudPoller). Marca dirty y pide
     /// un frame nuevo; el render real ocurre en thread GL.
@@ -353,6 +409,20 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         _uMvp   = _gl.GetUniformLocation(_program, "uMvp");
         _uColor = _gl.GetUniformLocation(_program, "uColor");
+
+        // Programa con textura para el sprite del vehículo. Si falla, NO se
+        // aborta el init: el mapa sigue andando con el triángulo de siempre.
+        try
+        {
+            _texProgram = CompileProgram(_gl, BuildTexVertSrc(es), BuildTexFragSrc(es));
+            _uTexMvp = _gl.GetUniformLocation(_texProgram, "uMvp");
+            _texVbo = _gl.GenBuffer();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] sin sprite de vehículo (shader): " + ex.Message);
+            _texProgram = 0;
+        }
 
         _vao = _gl.GenVertexArray();
         _vbo = _gl.GenBuffer();
@@ -494,6 +564,9 @@ public sealed class MapGlSurface : OpenGlControlBase
             fixed (float* p = mvp)
                 _gl.UniformMatrix4(_uMvp, 1, false, p);
         }
+        // Copia para el shader del sprite del vehículo, que usa su propio
+        // programa y necesita la MISMA transformación.
+        for (int i = 0; i < 16; i++) _mvpCache[i] = mvp[i];
 
         // --- Capa 1: world grid ----------------------------------------
         // Lineas cada 10m alrededor del centro de bbox. Si no hay bbox
@@ -1453,9 +1526,137 @@ public sealed class MapGlSurface : OpenGlControlBase
         UploadAndDraw(PrimitiveType.LineLoop, n, color);
     }
 
+    /// <summary>Sube a GPU el sprite pendiente. Se llama desde el hilo GL.</summary>
+    private void SubirSpritePendiente()
+    {
+        if (_gl == null || _texProgram == 0) return;
+        var px = _pendingTexRgba;
+        if (px == null) return;
+        _pendingTexRgba = null;
+
+        try
+        {
+            if (_vehicleTex == 0) _vehicleTex = _gl.GenTexture();
+            _gl.BindTexture(TextureTarget.Texture2D, _vehicleTex);
+            unsafe
+            {
+                fixed (byte* p = px)
+                {
+                    _gl.TexImage2D(TextureTarget.Texture2D, 0, (int)InternalFormat.Rgba,
+                        (uint)_pendingTexW, (uint)_pendingTexH, 0,
+                        PixelFormat.Rgba, PixelType.UnsignedByte, p);
+                }
+            }
+            // CLAMP: sin esto, el filtrado del borde repite el lado opuesto y
+            // aparece una franja del otro extremo del tractor.
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)GLEnum.ClampToEdge);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)GLEnum.ClampToEdge);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)GLEnum.Linear);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)GLEnum.Linear);
+            _vehicleTexReady = true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] no se pudo subir el sprite: " + ex.Message);
+            _vehicleTexReady = false;
+        }
+    }
+
+    /// <summary>
+    /// Dibuja el sprite del vehículo orientado por rumbo. Devuelve false si no
+    /// hay textura lista, para que el llamador caiga al triángulo.
+    /// </summary>
+    private bool DrawTractorSprite(double e, double n, double headingRad, double scale)
+    {
+        if (_gl == null || _texProgram == 0 || !_vehicleTexReady) return false;
+
+        // Tamaño REAL en metros (como el nativo: el vehículo crece y se achica
+        // con el zoom), pero con un piso en píxeles para que no desaparezca al
+        // alejarse mucho.
+        const double anchoMetros = 2.6;             // ancho típico de tractor
+        double anchoMundo = anchoMetros;
+        double minPx = 26.0;
+        if (anchoMundo * scale < minPx) anchoMundo = minPx / scale;
+        double altoMundo = anchoMundo * _vehicleAspect;
+
+        double s = Math.Sin(headingRad), c = Math.Cos(headingRad);
+        // Mitades en ejes local: X = través (derecha), Y = avance (adelante).
+        double hx = anchoMundo * 0.5, hy = altoMundo * 0.5;
+
+        // Rotación al mundo, mismo criterio que el triángulo: heading 0 = Norte.
+        (double X, double Y) Rot(double lx, double ly)
+            => (e + (lx * c + ly * s), n + (lx * (-s) + ly * c));
+
+        var p0 = Rot(-hx, -hy);   // atrás-izq
+        var p1 = Rot( hx, -hy);   // atrás-der
+        var p2 = Rot( hx,  hy);   // adelante-der
+        var p3 = Rot(-hx,  hy);   // adelante-izq
+
+        // Dos triángulos, con UV. V invertida: la imagen tiene el origen arriba
+        // y el mundo es Y-up; sin invertir, el tractor se dibuja para atrás.
+        float[] v =
+        {
+            (float)p0.X, (float)p0.Y, 0f, 1f,
+            (float)p1.X, (float)p1.Y, 1f, 1f,
+            (float)p2.X, (float)p2.Y, 1f, 0f,
+
+            (float)p0.X, (float)p0.Y, 0f, 1f,
+            (float)p2.X, (float)p2.Y, 1f, 0f,
+            (float)p3.X, (float)p3.Y, 0f, 0f,
+        };
+
+        try
+        {
+            _gl.UseProgram(_texProgram);
+            unsafe
+            {
+                fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
+            }
+
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _texVbo);
+            unsafe
+            {
+                fixed (float* p = v)
+                {
+                    _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                        (nuint)(v.Length * sizeof(float)), p, BufferUsageARB.StreamDraw);
+                }
+                _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)0);
+                _gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+            }
+            _gl.EnableVertexAttribArray(0);
+            _gl.EnableVertexAttribArray(1);
+
+            _gl.ActiveTexture(TextureUnit.Texture0);
+            _gl.BindTexture(TextureTarget.Texture2D, _vehicleTex);
+            _gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
+
+            // Dejar el estado como lo espera el resto del frame: atributo 1
+            // apagado y el VBO/programa de color plano de vuelta.
+            _gl.DisableVertexAttribArray(1);
+            _gl.UseProgram(_program);
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+            unsafe
+            {
+                _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] fallo dibujando el sprite: " + ex.Message);
+            _vehicleTexReady = false;   // no reintentar cada frame
+            return false;
+        }
+    }
+
     private void DrawTractor(double e, double n, double headingRad, double scale)
     {
         if (_gl == null) return;
+
+        SubirSpritePendiente();
+        // Con sprite cargado se dibuja el vehículo; si no, el triángulo.
+        if (DrawTractorSprite(e, n, headingRad, scale)) return;
         // Tamano del triangulo en pixeles -> convertir a coords mundo
         // dividiendo por scale (px / (px/m) = m).
         double sizePx = 12 * 1.8; // idem Skia (scaleFactor 1.8)

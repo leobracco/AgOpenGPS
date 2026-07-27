@@ -16,6 +16,7 @@
 
 using System;
 using System.Globalization;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
@@ -25,6 +26,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using System.Net.Http;
+using PilotX.UI.Services;
 using PilotX.Cockpit.Bars.Services;
 using PilotX.Cockpit.Bars.ViewModels;
 using PilotX.Cockpit.Bars.Views;
@@ -477,6 +479,12 @@ public partial class MainWindow : Window
 
             // Tool / sections (Stage 4a). 4 Hz porque los puntos siguen
             // al tractor; sin revision-cache, cada poll va al render.
+            // Sprite del vehículo elegido en Configuración: si hay uno, el mapa
+            // dibuja el tractor en vez del triángulo. Se recarga cada 5 s para
+            // que el cambio se vea sin reiniciar (es una acción poco frecuente,
+            // no vale la pena un canal dedicado).
+            _ = CargarSpriteVehiculoAsync(DeriveOrigin(App.TargetUrl));
+
             var tg = new ToolGeometryClient(DeriveOrigin(App.TargetUrl));
             _toolPoller = new ToolGeometryPoller(tg, snap =>
             {
@@ -600,6 +608,40 @@ public partial class MainWindow : Window
         {
             try { _webView.OpenDevTools(); }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] DevTools error: " + ex.Message); }
+        }
+    }
+
+    /// <summary>
+    /// Trae el sprite del vehículo activo y se lo pasa al mapa. Reintenta cada
+    /// 5 s: así, cuando el operario elige otro vehículo en Configuración, el
+    /// mapa lo cambia solo. Si no hay sprite o falla, el mapa sigue con el
+    /// triángulo — nunca queda sin marcador de posición.
+    /// </summary>
+    private async Task CargarSpriteVehiculoAsync(string origin)
+    {
+        var cli = new VehicleSpriteClient(origin);
+        string? ultimo = null;
+        while (true)
+        {
+            try
+            {
+                var sp = await cli.GetActivoAsync().ConfigureAwait(false);
+                string? actual = sp?.Archivo;
+                if (actual != ultimo)
+                {
+                    ultimo = actual;
+                    var mapa = _mapHost;
+                    if (mapa != null)
+                    {
+                        if (sp != null) mapa.SetVehicleSprite(sp.Rgba, sp.Width, sp.Height);
+                        else mapa.SetVehicleSprite(null, 0, 0);
+                    }
+                }
+            }
+            catch { /* que el loop no muera nunca por un error puntual */ }
+
+            try { await Task.Delay(5000).ConfigureAwait(false); }
+            catch { return; }
         }
     }
 

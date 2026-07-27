@@ -79,6 +79,15 @@ public sealed class MapPanel : Grid
     }
 
     /// <summary>
+    /// Sprite del vehículo elegido en Configuración. Solo lo dibuja el renderer
+    /// GL; con --gl=off (Skia) es no-op y se sigue viendo el triángulo.
+    /// </summary>
+    public void SetVehicleSprite(byte[]? rgba, int width, int height)
+    {
+        _gl?.SetVehicleSprite(rgba, width, height);
+    }
+
+    /// <summary>
     /// Push de la polyline de guidance (Stage 3, AB/Curve/Contour).
     /// Ambas surfaces pintan la linea cian — Skia con StreamGeometry
     /// (paridad parcial para que --gl=off no pierda referencia visual).

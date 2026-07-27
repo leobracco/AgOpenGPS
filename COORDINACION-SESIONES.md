@@ -2138,3 +2138,29 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   errores. **Si en la pantalla de 10" 10 px queda chico, la salida es ensanchar
   la columna (92 → 110 en `MenuIzquierda.axaml` y `MenuIzqNarrow` 140 → 158 en
   los dos hosts de `PilotX.UI`), no volver a cortar las palabras.**
+- [2026-07-27] [taller] HECHO — **el mapa dibuja el vehículo elegido en vez del
+  triángulo**, y **el catálogo de vehículos estaba saliendo vacío**.
+  · **Bug**: `/api/vehicle/sprites` devolvía `sprites: []` con 7 PNG presentes.
+    Armaba la ruta desde `BaseDirectory + AgroParallel/wwwroot/img/vehiculos`, y
+    con el motor corriendo desde `<install>\Engine\` esa carpeta no existe — misma
+    familia que el 404 del wwwroot de ayer. Se expuso `AgpPaths.WwwRoot` (lo setea
+    `AgpWebHost` con la carpeta REAL que resolvió) y el controller lo usa. Ahora
+    lista los 4 vehículos con tipo y marca.
+  · **Sprite en el mapa**: `MapGlSurface` no tenía NADA de texturas (0 usos de
+    `Texture`/`sampler2D`), el tractor era un triángulo dibujado a mano. Se agregó
+    un segundo programa GL con `sampler2D` (aparte del de color plano a propósito:
+    unificarlos metía un branch por fragmento en todo lo que se dibuja, que es la
+    parte cara del frame), subida de textura con CLAMP_TO_EDGE y un quad orientado
+    por rumbo. Tamaño REAL en metros (2,6 m de ancho, alto por aspecto de la
+    imagen) con piso de 26 px para que no desaparezca al alejar el zoom.
+  · `VehicleSpriteClient` (PilotX.UI/Services): lee `activo` de la API, **prefiere
+    la variante `.mapa`** (el arte trae `rigido_pauny.mapa.png`, vista cenital sin
+    ruedas), descarga, decodifica con Avalonia y **deshace el premultiplicado**
+    (si no, los bordes del sprite salen oscurecidos sobre el mapa). Reintenta cada
+    5 s, así cambiar de vehículo en Configuración se ve sin reiniciar.
+  · **Fallback en cada paso**: sin sprite elegido, si falla la descarga, si no
+    compila el shader o si falla la subida a GPU → se dibuja el triángulo de
+    siempre. El mapa nunca queda sin marcador de posición.
+  Verificado: catálogo con 4 vehículos, `rigido_pauny.mapa.png` se sirve (200),
+  GL init OK sin errores de sprite. Build 0 errores/0 warnings, 156 tests verdes,
+  paquete regenerado (SHA 88E00AE5…).
