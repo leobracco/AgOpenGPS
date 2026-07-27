@@ -2208,3 +2208,25 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **Nota**: el mapa ya no usa un tamaño inventado, así que si el vehículo se ve
   chico/grande hay que corregir **Entre ejes / Trocha** en Configuración, que es
   lo correcto.
+- [2026-07-27] [taller] HECHO — **el implemento se dibuja con su imagen real en
+  vez de la barra de secciones**. El usuario pasó `Diseño/PilotX/sembradora.png`
+  (vista cenital, con transparencia).
+  · Se preparó a `wwwroot/img/implementos/sembradora.png` (recorte del margen
+    vacío; el arte ya venía con alfa, 64 % del lienzo transparente).
+  · `MapGlSurface.SetImplementSprite` + `DrawImplementoSprite`: se dibuja en la
+    posición y rumbo de la **HERRAMIENTA** (`tool_easting/northing/heading`), NO
+    en los del tractor — el implemento va rezagado y en curva apunta distinto.
+    Ancho = `tool_width` real; largo por el aspecto de la imagen. Se ubica con la
+    BARRA sobre el punto de herramienta y la lanza hacia adelante.
+  · **Reemplaza** la barra de colores: `DrawTool` no se llama cuando hay sprite.
+    Se dibuja ANTES del tractor, así el tractor tapa el enganche (correcto).
+  · `HudSnapshot` suma `tool_easting/northing/heading` (ya estaban en
+    `AogStateSnapshot`, faltaban del lado UI).
+  Fallback: sin imagen, o si falla la descarga/subida, vuelve la barra de
+  secciones. Verificado: `sembradora.png` se sirve (200), snapshot con
+  pos/rumbo de herramienta, sin errores en el renderer. Build 0 errores.
+  **Pendiente**: hoy el archivo va por convención de nombre fija
+  (`sembradora.png`); falta un selector de implemento como el de vehículo.
+  **Ojo**: al quitar la barra se pierde el color por sección (rojo/verde/ámbar)
+  sobre el mapa — el estado sigue estando en la botonera de abajo. Si en cabina
+  hace falta verlo en el mapa, se puede dibujar una franja fina bajo el sprite.

@@ -622,11 +622,13 @@ public partial class MainWindow : Window
         var cli = new VehicleSpriteClient(origin);
         string? ultimo = null;
         bool ruedaLista = false;
+        bool implementoListo = false;
         while (true)
         {
             try
             {
-                // Rueda delantera: una sola vez, no cambia con el vehículo.
+                // Rueda delantera e implemento: una sola vez, no cambian con el
+                // vehículo elegido.
                 if (!ruedaLista)
                 {
                     var rueda = await cli.GetRuedaAsync().ConfigureAwait(false);
@@ -634,6 +636,15 @@ public partial class MainWindow : Window
                     {
                         _mapHost?.SetWheelSprite(rueda.Rgba, rueda.Width, rueda.Height);
                         ruedaLista = true;
+                    }
+                }
+                if (!implementoListo)
+                {
+                    var impl = await cli.GetImplementoAsync().ConfigureAwait(false);
+                    if (impl != null)
+                    {
+                        _mapHost?.SetImplementSprite(impl.Rgba, impl.Width, impl.Height);
+                        implementoListo = true;
                     }
                 }
                 var sp = await cli.GetActivoAsync().ConfigureAwait(false);

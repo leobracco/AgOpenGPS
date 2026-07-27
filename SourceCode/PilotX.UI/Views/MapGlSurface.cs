@@ -90,6 +90,12 @@ public sealed class MapGlSurface : OpenGlControlBase
     private byte[]? _pendingWheelRgba;
     private int _pendingWheelW, _pendingWheelH;
 
+    private uint _implementoTex;
+    private bool _implementoTexReady;
+    private double _implementoAspect = 1.0;
+    private byte[]? _pendingImplRgba;
+    private int _pendingImplW, _pendingImplH;
+
     // Buffer CPU reutilizable. Se vuelca a _vbo en cada render que vea
     // un snapshot nuevo. No se aloca por frame.
     private float[] _scratch = new float[1024];
@@ -282,6 +288,29 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// una girada por su ángulo de Ackermann: por eso el arte del tractor no
     /// trae ruedas delanteras dibujadas.
     /// </summary>
+    /// <summary>
+    /// Sprite del implemento (sembradora, pulverizadora…). Se dibuja en la
+    /// posición y rumbo de la HERRAMIENTA —que no es la del tractor: el
+    /// implemento va rezagado y en curva apunta distinto— y a lo ancho real del
+    /// implemento configurado.
+    /// </summary>
+    public void SetImplementSprite(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingImplRgba = null;
+            _implementoTexReady = false;
+        }
+        else
+        {
+            _pendingImplRgba = rgba;
+            _pendingImplW = width;
+            _pendingImplH = height;
+            _implementoAspect = (double)height / width;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
     public void SetWheelSprite(byte[]? rgba, int width, int height)
     {
         if (rgba == null || width <= 0 || height <= 0)
@@ -667,7 +696,10 @@ public sealed class MapGlSurface : OpenGlControlBase
             _pendingTool = null;
             UploadTool(_toolSnap);
         }
-        if (_toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
+        // La barra de secciones solo se dibuja si NO hay sprite de implemento:
+        // con el dibujo real de la máquina, la barra de colores encima sobra.
+        if (!_implementoTexReady
+            && _toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
             DrawTool(_toolSnap);
 
         var snap = _snap;
@@ -685,7 +717,11 @@ public sealed class MapGlSurface : OpenGlControlBase
                 }
             }
 
-            // --- Capa 4: tractor ---------------------------------------
+            // --- Capa 4: implemento y tractor ---------------------------
+            // El implemento va PRIMERO: el tractor lo tapa parcialmente en la
+            // zona del enganche, que es lo correcto visualmente.
+            SubirSpritePendiente();
+            DrawImplementoSprite();
             DrawTractor(snap.PivotEasting, snap.PivotNorthing, snap.Heading, scale);
         }
 
@@ -1571,6 +1607,52 @@ public sealed class MapGlSurface : OpenGlControlBase
             _pendingWheelRgba = null;
             if (_wheelTex == 0) _wheelTex = _gl.GenTexture();
             _wheelTexReady = SubirTextura(_wheelTex, px, _pendingWheelW, _pendingWheelH, "rueda");
+        }
+
+        if (_pendingImplRgba != null)
+        {
+            var px = _pendingImplRgba;
+            _pendingImplRgba = null;
+            if (_implementoTex == 0) _implementoTex = _gl.GenTexture();
+            _implementoTexReady = SubirTextura(_implementoTex, px, _pendingImplW, _pendingImplH, "implemento");
+        }
+    }
+
+    /// <summary>
+    /// Dibuja el implemento en la posición/rumbo de la herramienta, a lo ancho
+    /// real configurado. Se ubica de modo que la BARRA (el borde trasero de la
+    /// imagen, donde van los cuerpos de siembra) quede sobre el punto de la
+    /// herramienta, y la lanza salga hacia adelante, buscando al tractor.
+    /// Devuelve false si no hay textura: entonces el mapa sigue con las barras
+    /// de sección de siempre.
+    /// </summary>
+    private bool DrawImplementoSprite()
+    {
+        if (_gl == null || _texProgram == 0 || !_implementoTexReady) return false;
+        var snap = _snap;
+        if (snap == null) return false;
+
+        double ancho = snap.ToolWidth;
+        if (ancho <= 0.2) return false;          // sin implemento configurado
+        double largo = ancho * _implementoAspect;
+
+        try
+        {
+            _gl.UseProgram(_texProgram);
+            unsafe
+            {
+                fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
+            }
+            // Centro medio largo adelante del punto de herramienta.
+            DrawQuadTex(_implementoTex, snap.ToolEasting, snap.ToolNorthing, snap.ToolHeading,
+                        0, largo * 0.5, ancho * 0.5, largo * 0.5, 0);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] fallo dibujando el implemento: " + ex.Message);
+            _implementoTexReady = false;
+            return false;
         }
     }
 
