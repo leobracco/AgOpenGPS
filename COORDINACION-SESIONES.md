@@ -2164,3 +2164,24 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Verificado: catálogo con 4 vehículos, `rigido_pauny.mapa.png` se sirve (200),
   GL init OK sin errores de sprite. Build 0 errores/0 warnings, 156 tests verdes,
   paquete regenerado (SHA 88E00AE5…).
+- [2026-07-27] [taller] HECHO — tractor PilotX propio. El usuario sobrescribió
+  `SourceCode/GPS/ResourcesBrands/Brands/Tractor/TractorAoG.png` con el arte
+  PilotX (vista cenital, blanco con logo).
+  **OJO con dónde vive cada imagen** (esto confundió y vale anotarlo):
+  · `GPS/ResourcesBrands/Brands/{Tractor,Harvester,Articulated,Brand}/` son los
+    vehículos ORIGINALES de AOG (14 tractores, 5 cosechadoras, 6 articulados en
+    2 piezas + 17 logos, incluido `BrandTriangleVehicle.png`). Están EMBEBIDOS
+    como recurso del exe WinForms (`BrandImages.resx` + `Classes/Brands.cs`) →
+    los usa el PilotX viejo, **no** el mapa Avalonia.
+  · `AgroParallel.WebUI/wwwroot/img/vehiculos/` es lo que ve el mapa nuevo
+    (convención `tipo_marca[_modelo].png`, variante `.mapa` para la vista
+    cenital sin ruedas).
+  Por eso, además de recompilar, se copió el arte a
+  `wwwroot/img/vehiculos/rigido_pilotx.png` — así entra al catálogo, viaja en el
+  ZIP y lo dibuja el mapa. Verificado: catálogo con 5 vehículos, `activo` =
+  `rigido_pilotx.png`, sin errores de sprite en el log del renderer.
+  Paquete: PilotX_v1.0.24.zip (SHA 824357CC…).
+  **Pendiente sugerido**: pasar las otras 13 marcas de AOG a
+  `wwwroot/img/vehiculos/` con la misma convención, y enganchar la selección de
+  tipo+marca de Configuración para que elija el sprite sola (hoy hay que
+  elegir el archivo).
