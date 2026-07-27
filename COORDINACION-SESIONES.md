@@ -1812,3 +1812,12 @@ la sesión android al extraer, pero el taller los usa desde Services),
   arreglamos en los pollers — o sea que **hoy el panel de siembra se congela solo**
   y parece problema de nodos. Va primero porque si no, las pruebas de QX/VX del
   día 2 dan falsos negativos.
+- [2026-07-27] [taller] AVISO — corrección al plan de 3 días: se agregó **P0**
+  (primera tarea, antes que todo). Motivo: `build.ps1` publica el `PilotX.exe`
+  **WinForms** + BarsHost y **NO empaqueta `PilotX.Desktop` ni
+  `PilotX.GuidanceEngine`** — o sea que lo que hoy se instala en la cabina es el
+  viejo. Si el cierre es "Windows sobre Avalonia", el paquete tiene que llevar el
+  stack nuevo (cadena `CoreX → engine --webhost → PilotX.Desktop`) y hay que
+  probarlo EN LA PANTALLA el día 1, no el día 3. Si P0 falla, se frena el plan y
+  se replantea alcance. Ojo también con que `Engine\aog_settings.json` viaje con
+  el `vehicle_file_name` real: sin eso el motor corre con geometría por defecto.

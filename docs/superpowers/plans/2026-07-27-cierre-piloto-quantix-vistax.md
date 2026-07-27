@@ -78,6 +78,62 @@ El objetivo del día 1 es **confiabilidad**: hoy hay dos clases de bug que hacen
 parecer roto lo que funciona (datos congelados, comandos que no existen). Sin
 esto, cualquier prueba de QuantiX/VistaX del día 2 va a dar falsos negativos.
 
+## P0 — Que la pantalla arranque el stack Avalonia (Leonardo) · PRIMERO, 2 h
+
+**Esto va antes que todo lo demás y es el mayor riesgo del plan.** Hoy
+`build.ps1` publica el `PilotX.exe` **WinForms** + `BarsHost`, y **no empaqueta
+`PilotX.Desktop` ni `PilotX.GuidanceEngine`**. O sea: lo que se instala en la
+cabina sigue siendo el viejo. Si el cierre es "Windows sobre Avalonia", el
+paquete tiene que llevar el stack nuevo — y hay que probarlo en la pantalla
+**el día 1**, no el día 3, para tener margen si falla.
+
+**Archivos:**
+- Modificar: `build.ps1`
+- Revisar: `PilotX-KioskSetup` (qué ejecutable lanza al arrancar)
+
+**Cadena de arranque objetivo:** `CoreX.exe` → `PilotX.GuidanceEngine.exe --webhost`
+→ `PilotX.Desktop.exe`. (El engine sin `--corex`: CoreX ya provee broker y bridge;
+con `--corex` chocan en el 1883.)
+
+- [ ] **Paso 1: publicar los dos que faltan**
+
+En `build.ps1`, junto al publish de `PilotX.Bars.Host`:
+
+```powershell
+dotnet publish "$root\SourceCode\PilotX.GuidanceEngine\PilotX.GuidanceEngine.csproj" `
+    -c Release -r win-x64 --self-contained false `
+    -p:PublishReadyToRun=true -o "$OutDir\Engine" $verArg
+
+dotnet publish "$root\SourceCode\PilotX.Desktop\PilotX.Desktop.csproj" `
+    -c Release -r win-x64 --self-contained false `
+    -p:PublishReadyToRun=true -o "$OutDir\Desktop" $verArg
+```
+
+- [ ] **Paso 2: el perfil de vehículo tiene que viajar**
+
+Verificar que `Engine\aog_settings.json` queda con el `vehicle_file_name` real.
+**Sin eso el motor corre con la geometría por defecto** (antena, ancho, ganancias)
+y el guiado sale mal de una forma difícil de diagnosticar. El engine ahora lo
+avisa en consola: `Perfil de vehículo: <nombre> → Ok` vs `(ninguno) MissingFile`.
+
+- [ ] **Paso 3: decidir qué lanza el kiosco**
+
+Elegir explícitamente: ¿la pantalla arranca el stack Avalonia o sigue con el
+WinForms? **Es decisión de Leonardo, no la tomo yo** — pero el plan asume Avalonia.
+Dejar el WinForms instalado como salida de emergencia hasta que T2 pase.
+
+- [ ] **Paso 4: prueba en la pantalla de la cabina (el paso que importa)**
+
+Instalar y arrancar la cadena completa **en la pantalla**, no en la PC de
+desarrollo. Recordar: VC++ redist obligatorio; si hay WebView de por medio, exige
+sesión física con doble clic.
+**Criterio de aceptación:** PilotX.Desktop abre, el mapa dibuja y la barra
+superior muestra velocidad real. Si esto no pasa el día 1, **se frena el plan y
+se replantea el alcance** — no tiene sentido cerrar features sobre una base que
+no arranca donde tiene que arrancar.
+
+- [ ] **Paso 5: commit**
+
 ## L1 — Matar el `catch` que congela los paneles (Leonardo) · 45 min
 
 Mismo bug que ya se arregló en los 7 pollers de datos en vivo (commit `045dbcfd`):
@@ -351,6 +407,8 @@ Correr este guion completo **sin tocar código**, anotando cada desvío:
 
 | Riesgo | Señal temprana | Plan B |
 |---|---|---|
+| **La pantalla no arranca el stack Avalonia** (riesgo #1) | P0 falla el día 1 | Frenar el plan y replantear alcance. No cerrar features sobre una base que no arranca donde tiene que arrancar |
+| El WinForms sigue siendo lo instalado y nadie lo nota | T3 "anda" pero es el viejo | Verificar siempre por el proceso (`PilotX.Desktop.exe`), no por "se ve parecido" |
 | Los comandos de secciones tocan más lógica de la esperada | S1 pasa de medio día | Cerrar solo secciones individuales, dejar zonas para después |
 | No hay nodo QuantiX/VistaX físico para probar | Día 2 a la mañana | Simular por MQTT (ya está el patrón); marcar explícitamente qué quedó sin hardware |
 | Aparece otro bug de datos congelados | Un panel se clava en T2 | Buscar primero el patrón del `catch`: es el sospechoso #1 |
