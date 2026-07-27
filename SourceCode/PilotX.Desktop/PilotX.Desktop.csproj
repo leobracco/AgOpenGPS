@@ -27,6 +27,10 @@
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Icono de marca PilotX (Diseño/PilotX/PilotX.png, generado
+         multi-resolución 16→256 para que se vea bien en barra de tareas,
+         alt-tab y acceso directo). -->
+    <ApplicationIcon>PilotX.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <RootNamespace>PilotX.Desktop</RootNamespace>
     <AssemblyName>PilotX.Desktop</AssemblyName>

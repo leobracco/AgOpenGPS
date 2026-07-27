@@ -10,7 +10,8 @@
          (modo demonio: la única UI es la web en :5181). -->
     <PlatformTarget>x64</PlatformTarget>
     <PublishDir>..\..\..\AgOpenGPS\</PublishDir>
-    <ApplicationIcon>AgIO_ico.ico</ApplicationIcon>
+    <!-- Icono de marca CoreX (Diseño/PilotX/CoreX.png, generado multi-resolución). -->
+    <ApplicationIcon>CoreX.ico</ApplicationIcon>
     <UseWindowsForms>true</UseWindowsForms>
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>

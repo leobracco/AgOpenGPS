@@ -2074,3 +2074,30 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   `Screen.Bounds` (físicos, no `WorkingArea`) convertidos a DIPs con
   `Screen.Scaling`. El doble clic en el header sigue alternando pantalla completa
   ↔ ventana de 1280×800.
+- [2026-07-27] [taller] HECHO — **la pantalla de Configuración andaba rota entera**
+  ("Sin conexión: Unexpected token '<', "<html><hea"..."). El error era un `fetch`
+  recibiendo la página HTML de 404 de EmbedIO en vez de JSON: **`/api/aog/config`
+  daba 404** (y `/api/aog/imu` también). Faltaban DOS servicios más en el motor.
+  Portados desde el lado WinForms (solo existían ahí, no había versión Android):
+  · **`EngineConfigVehiculoService`** (1050 líneas) ← `FormGpsConfigService`. De
+    las 132 referencias a `_form`, casi todas eran objetos Core que el motor ya
+    tiene (`tool/vehicle/ahrs/mc/yt/tram/pn/ABLine/bnd/autoBtnState`) o llamadas
+    reales (`SectionSetPosition/CalcWidths/CalcMulti`, `SendPgnToLoop`,
+    `BuildTurnLines`, masters de sección → `ExecuteCommand`). Lo único sin
+    equivalente headless: texturas del tractor, sonidos y los espejos runtime de
+    flags de display — el setting SÍ se guarda, solo no se mantiene copia en
+    memoria (el motor no dibuja). `LoadSettings()` → `AplicarGeometriaDeSecciones()`.
+  · **`EngineImuCalibracionService`** ← `FormGpsImuCalibracionService` (era casi
+    todo `ahrs`, portable directo; se sacó el marshalling a hilo de UI).
+  Los 5 endpoints de la pantalla ahora dan **200**: `/api/aog/config`,
+  `/api/tool`, `/api/vehicle`, `/api/vehicle-tool`, `/api/aog/imu`.
+  Snapshot verificado con datos reales del perfil (`perfil_activo: test`,
+  wheelbase 3.3, 14 secciones de 2 m, `zone_ranges`, relés, switches).
+- [2026-07-27] [taller] HECHO — **íconos de marca** (los dejó el usuario en
+  `Diseño/PilotX/`): se generaron `.ico` multi-resolución (16/24/32/48/64/128/256,
+  PNG embebido) y se cablearon como `ApplicationIcon`:
+  `SourceCode/PilotX.Desktop/PilotX.ico` y `SourceCode/AgIO/Source/CoreX.ico`.
+  Verificado que quedan embebidos en los .exe del paquete. **Nota**: a 16 px el
+  bajada "TECNOLOGÍA QUE GUÍA TU CAMPO" no se lee — si se quiere, conviene un
+  recorte al emblema PX solo para los tamaños chicos.
+  Paquete regenerado: **PilotX_v1.0.24.zip**, build 0 errores, 156 tests verdes.
