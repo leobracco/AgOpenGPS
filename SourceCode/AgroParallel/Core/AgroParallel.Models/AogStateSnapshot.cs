@@ -176,6 +176,18 @@ namespace AgroParallel.Models
         /// con SectionOnRequest sola, Auto y On se ven idénticos.</summary>
         public int[] SectionStates { get; set; }
 
+        /// <summary>True si el implemento está configurado por secciones
+        /// individuales (≤16, cada una con su ancho); false si está por ZONAS
+        /// (≤8 grupos de secciones iguales). Determina qué botonera mostrar y qué
+        /// comando mandar: <c>seccion_&lt;n&gt;</c> vs <c>zona_&lt;n&gt;</c>.</summary>
+        public bool IsSectionsNotZones { get; set; }
+
+        /// <summary>Corte de cada zona (zoneRanges 1..8): hasta qué número de
+        /// sección llega. 0 = zona inexistente. Vacío en modo secciones. La zona 1
+        /// va de la sección 1 a ZoneRanges[0]; la zona N, de ZoneRanges[N-2]+1 a
+        /// ZoneRanges[N-1].</summary>
+        public int[] ZoneRanges { get; set; }
+
         /// <summary>Ancho de la herramienta en metros (tool.width).</summary>
         public double ToolWidth { get; set; }
 

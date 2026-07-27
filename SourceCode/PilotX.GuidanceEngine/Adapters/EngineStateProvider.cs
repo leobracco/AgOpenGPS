@@ -126,6 +126,14 @@ namespace PilotX.GuidanceEngine.Adapters
                     snap.NumSections = n;
                     snap.ToolWidth = _host.Tool.width;
                     snap.ToolOffset = _host.Tool.offset;
+                    snap.IsSectionsNotZones = _host.Tool.isSectionsNotZones;
+                    if (!_host.Tool.isSectionsNotZones && _host.Tool.zoneRanges != null)
+                    {
+                        // zoneRanges[0] no se usa; se expone 1..8 tal cual.
+                        var z = new int[8];
+                        for (int i = 1; i <= 8 && i < _host.Tool.zoneRanges.Length; i++) z[i - 1] = _host.Tool.zoneRanges[i];
+                        snap.ZoneRanges = z;
+                    }
                     if (n > 0 && _host.Sections != null)
                     {
                         var arr = new bool[n];

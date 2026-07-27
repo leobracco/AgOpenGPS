@@ -1987,3 +1987,29 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **Sigue siendo tuyo el resto de la barra**: si querés cambiarle tamaño, orden
   o estilo, dale — el contrato con el motor (`seccion_<n>` + `section_states`) ya
   está y no lo toques.
+- [2026-07-27] [taller] HECHO — botonera de secciones: **soporte de los DOS
+  modos** (individuales / zonas) + **mapa más fluido**. Sigue siendo carril de
+  Santiago, aviso para que no lo rehaga.
+  · **Zonas**: el implemento puede estar por secciones individuales (≤16) o por
+    ZONAS (≤8 grupos). La primera versión mostraba siempre secciones sueltas —
+    en modo zonas eso está mal: el operario toca la zona y se mueve el grupo.
+    Ahora la botonera lee `is_sections_not_zones` y arma botones de zona que
+    mandan `zona_<n>`, con el color de la ÚLTIMA sección de la zona (de donde lo
+    lee el handler nativo). Sin `zone_ranges` no muestra nada, en vez de ofrecer
+    botones que no harían lo que el operario espera.
+  · `AogStateSnapshot` (y los dos providers, engine + FormGPS) suman
+    `is_sections_not_zones` y `zone_ranges`.
+  · **Fluidez del mapeo** (pedido del usuario): los datos llegan en 2-4 ms
+    (cobertura 15 KB, estado 22 KB en localhost) pero la UI los pedía lento.
+    Subido: HUD/tractor 250→**100 ms**, cobertura 350→**125 ms**, geometría de
+    herramienta 250→**100 ms**. Ahora acompaña los ~10 fixes/s del GPS en vez de
+    ir a 3-4 Hz. El poller ya salteaba el redibujo si no cambió `revision`.
+  4 tests de zonas nuevos (botón por zona y no por sección, color desde la última
+  sección, ignora zonas en 0, y no rompe sin rangos) → **19 en Bars, 156 en
+  total**. Build 0 errores/0 warnings, publicado a `Build\` y verificado en
+  pantalla.
+  **OJO para el futuro (escala)**: `/api/aog/coverage` manda la cobertura
+  COMPLETA en cada tick. Hoy son 15 KB con 2.900 m² trabajados; en un lote de
+  50 ha eso se va a varios MB por request, y a 8 req/s no cierra. La solución es
+  incremental (`?since=<rev>` devolviendo solo los triángulos nuevos). No es
+  urgente en banco, sí lo va a ser en campo.

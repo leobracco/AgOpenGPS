@@ -16,12 +16,14 @@ public sealed partial class SeccionBotonViewModel : ObservableObject
     /// motor es "seccion_&lt;Numero&gt;".</summary>
     public int Numero { get; }
 
+    /// <summary>Comando que se manda al motor: <c>seccion_&lt;n&gt;</c> en modo
+    /// secciones individuales, <c>zona_&lt;n&gt;</c> en modo zonas.</summary>
     public string Comando { get; }
 
-    public SeccionBotonViewModel(int numero)
+    public SeccionBotonViewModel(int numero, string? comando = null)
     {
         Numero = numero;
-        Comando = "seccion_" + numero;
+        Comando = comando ?? ("seccion_" + numero);
         Texto = numero.ToString();
     }
 

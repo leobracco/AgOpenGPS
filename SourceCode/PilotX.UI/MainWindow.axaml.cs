@@ -408,7 +408,7 @@ public partial class MainWindow : Window
 
         if (App.WindowMode != "float")
         {
-            _hudPoller = new HudPoller(baseUrl: DeriveOrigin(App.TargetUrl), intervalMs: 250);
+            _hudPoller = new HudPoller(baseUrl: DeriveOrigin(App.TargetUrl), intervalMs: 100);
             _hudPoller.SnapshotReceived += OnHudSnapshot;
             _hudPoller.PollFailed       += OnHudPollFailed;
             _hudPoller.Start();
@@ -434,7 +434,7 @@ public partial class MainWindow : Window
                 _coveragePoller = new CoveragePoller(cov, snap =>
                 {
                     _mapHost?.OnCoverage(snap);
-                }, periodMs: 350);
+                }, periodMs: 125);
                 _coveragePoller.Start();
                 Closed += (_, _) => _coveragePoller?.Stop();
 
@@ -473,7 +473,7 @@ public partial class MainWindow : Window
             _toolPoller = new ToolGeometryPoller(tg, snap =>
             {
                 _mapHost?.OnTool(snap);
-            }, periodMs: 250);
+            }, periodMs: 100);
             _toolPoller.Start();
             Closed += (_, _) => _toolPoller?.Stop();
 

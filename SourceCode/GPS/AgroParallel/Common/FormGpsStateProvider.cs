@@ -131,6 +131,14 @@ namespace AgroParallel.Adapters
                     snap.NumSections = n;
                     snap.ToolWidth = _form.tool.width;
                     snap.ToolOffset = _form.tool.offset;
+                    snap.IsSectionsNotZones = _form.tool.isSectionsNotZones;
+                    if (!_form.tool.isSectionsNotZones && _form.tool.zoneRanges != null)
+                    {
+                        // zoneRanges[0] no se usa; se expone 1..8 tal cual.
+                        var z = new int[8];
+                        for (int i = 1; i <= 8 && i < _form.tool.zoneRanges.Length; i++) z[i - 1] = _form.tool.zoneRanges[i];
+                        snap.ZoneRanges = z;
+                    }
                     if (n > 0 && _form.section != null)
                     {
                         var arr = new bool[n];
