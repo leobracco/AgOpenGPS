@@ -1796,3 +1796,19 @@ la sesión android al extraer, pero el taller los usa desde Services),
   `PilotX.UI/Views/*` (Camaras/CoreXEcu/FlowX/Nodos/QuantiX/SectionX/StormX/
   VistaX/Actualizar). No los toqué en este commit para no mezclar; mismo patrón
   de fix, conviene una pasada dedicada.
+- [2026-07-27] [taller] PLAN — **cierre piloto + QuantiX + VistaX en 3 días**:
+  `docs/superpowers/plans/2026-07-27-cierre-piloto-quantix-vistax.md`.
+  **Santiago: tus tareas son S1 (día 1, comandos de secciones individuales/zonas
+  + bandera/snap/youskip/hyd-lift), S2 (día 2 AM, cadena de dosis QuantiX con
+  tests de borde) y S3 (día 2 PM, alarmas VistaX).** Leonardo va por L1-L4 (UI).
+  Día 3 es de a dos: suite de regresión + guion de prueba de campo simulada +
+  instalación en la pantalla.
+  Aviso de alcance: el "100%" del plan NO es el inventario completo — quedan
+  explícitamente afuera los constructores (lindero/cabecera/tram), ruta grabada,
+  ISOBUS, import de guías y los controles de cámara 3D. Está la lista en el doc;
+  si algo de eso es imprescindible, hay que sacar otra cosa a cambio.
+  Hallazgo que motiva la tarea L1: `QuantiXPanel`/`VistaXPanel` (y 7 paneles más)
+  tienen el mismo `catch (OperationCanceledException) { return; }` fatal que ya
+  arreglamos en los pollers — o sea que **hoy el panel de siembra se congela solo**
+  y parece problema de nodos. Va primero porque si no, las pruebas de QX/VX del
+  día 2 dan falsos negativos.
