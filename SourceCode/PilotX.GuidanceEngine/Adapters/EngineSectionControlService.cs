@@ -32,6 +32,8 @@ namespace PilotX.GuidanceEngine.Adapters
             {
                 NumSections = 0,
                 OnRequest = new bool[0],
+                SectionStates = new int[0],
+                ZoneRanges = new int[0],
                 IsAuto = false,
                 IsManualOn = false
             };
@@ -42,12 +44,30 @@ namespace PilotX.GuidanceEngine.Adapters
             if (n > 0 && _host.Sections != null)
             {
                 var arr = new bool[n];
+                var estados = new int[n];
                 for (int i = 0; i < n && i < _host.Sections.Length; i++)
                 {
                     var sec = _host.Sections[i];
                     arr[i] = sec != null && sec.sectionOnRequest;
+                    // 0=Off, 1=Auto, 2=On. Sin esto la UI no puede distinguir
+                    // "Auto" de "On" (los dos dan OnRequest=true al aplicar) y no
+                    // puede pintar los 3 colores del nativo.
+                    estados[i] = sec == null ? 0 : (int)sec.sectionBtnState;
                 }
                 snap.OnRequest = arr;
+                snap.SectionStates = estados;
+            }
+
+            if (_host.Tool != null)
+            {
+                snap.IsSectionsNotZones = _host.Tool.isSectionsNotZones;
+                if (!_host.Tool.isSectionsNotZones && _host.Tool.zoneRanges != null)
+                {
+                    // zoneRanges[0] no se usa; se expone 1..8 tal cual.
+                    var z = new int[8];
+                    for (int i = 1; i <= 8 && i < _host.Tool.zoneRanges.Length; i++) z[i - 1] = _host.Tool.zoneRanges[i];
+                    snap.ZoneRanges = z;
+                }
             }
 
             snap.IsAuto = _host.autoBtnState == btnStates.Auto;

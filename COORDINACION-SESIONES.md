@@ -1938,3 +1938,29 @@ geometría por defecto y el guiado sale mal de forma silenciosa).
 
 IDs y `data-*` de las páginas HTML están congelados (§4 de `COORDINACION-UI.md`);
 el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
+- [2026-07-27] [taller] HECHO — **secciones individuales y zonas: el motor ya
+  responde. SANTIAGO, esto te desbloquea la barra de abajo.**
+  Comandos nuevos en `ExecuteCommand` (port de `btnSectionXMan_Click` /
+  `btnZoneX_Click`, `Sections.Designer.cs`, sin el color del botón):
+  · **`seccion_<n>`** con n=1..16 — cicla **Off → Auto → On → Off**.
+  · **`zona_<n>`** con n=1..8 — mismo ciclo, aplicado al rango de la zona.
+  Rechazan (`ok:false`) lo que no existe en el implemento actual: índice fuera de
+  rango, no numérico, o `zona_` cuando el implemento está en modo secciones. Un
+  comando que dice "ok" sin efecto es peor que uno que falla.
+  **Y lo que ibas a necesitar sí o sí**: `GET /api/aog/sections` ahora trae
+  · **`section_states`**: 0=Off, 1=Auto, 2=On por sección → con esto pintás los
+    3 colores del nativo (rojo/verde/ámbar). **Con `on_request` sola no
+    alcanzaba**: Auto y On dan las dos `true` y se veían idénticas.
+  · **`is_sections_not_zones`**: te dice si mostrar botones de sección o de zona.
+  · **`zone_ranges`** (1..8, 0 = zona inexistente): hasta qué sección llega cada
+    zona, para dibujar los botones del ancho correcto.
+  Verificado en runtime (`--sim --webhost`, lote La Paloma, implemento de 14
+  secciones): `section_states` va `[..0..] → [..1..] → [..2..] → [..0..]` en la
+  sección 3 y **ninguna otra se mueve**; `seccion_15`/`seccion_0`/`seccion_abc`
+  → `ok:false`. Tests nuevos `SeccionesCicladoTests` (ciclo + reparto de rangos
+  de zona, que es asimétrico y es el error fácil al portarlo). Build completo
+  0 errores/0 warnings, **146 tests verdes**.
+  **Lo que NO pude probar**: el camino de zonas en runtime — el perfil `test`
+  está en modo secciones individuales, así que solo verifiqué el guard. La
+  matemática del reparto está cubierta por tests unitarios. Si configurás un
+  implemento por zonas, avisá y lo validamos juntos.
