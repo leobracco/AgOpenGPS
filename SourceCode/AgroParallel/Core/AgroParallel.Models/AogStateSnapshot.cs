@@ -191,6 +191,19 @@ namespace AgroParallel.Models
         /// <summary>Ancho de la herramienta en metros (tool.width).</summary>
         public double ToolWidth { get; set; }
 
+        /// <summary>Distancia entre ejes (m). La necesita el mapa para dibujar el
+        /// vehículo a escala real y ubicar el eje delantero.</summary>
+        public double Wheelbase { get; set; }
+
+        /// <summary>Trocha (m): ancho entre ruedas. Junto con Wheelbase define el
+        /// tamaño del sprite del vehículo, igual que el renderer nativo.</summary>
+        public double TrackWidth { get; set; }
+
+        /// <summary>Ángulo real del sensor de dirección (grados, + = derecha).
+        /// Con esto el mapa gira las ruedas delanteras: el arte del tractor NO
+        /// las trae dibujadas justamente porque se dibujan aparte y giran.</summary>
+        public double SteerAngleDeg { get; set; }
+
         /// <summary>Offset lateral de la herramienta respecto al centro (tool.offset, metros).</summary>
         public double ToolOffset { get; set; }
 

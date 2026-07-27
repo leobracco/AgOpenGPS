@@ -621,10 +621,21 @@ public partial class MainWindow : Window
     {
         var cli = new VehicleSpriteClient(origin);
         string? ultimo = null;
+        bool ruedaLista = false;
         while (true)
         {
             try
             {
+                // Rueda delantera: una sola vez, no cambia con el vehículo.
+                if (!ruedaLista)
+                {
+                    var rueda = await cli.GetRuedaAsync().ConfigureAwait(false);
+                    if (rueda != null)
+                    {
+                        _mapHost?.SetWheelSprite(rueda.Rgba, rueda.Width, rueda.Height);
+                        ruedaLista = true;
+                    }
+                }
                 var sp = await cli.GetActivoAsync().ConfigureAwait(false);
                 string? actual = sp?.Archivo;
                 if (actual != ultimo)

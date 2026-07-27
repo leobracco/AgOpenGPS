@@ -85,6 +85,11 @@ public sealed class MapGlSurface : OpenGlControlBase
     private byte[]? _pendingTexRgba;
     private int _pendingTexW, _pendingTexH;
 
+    private uint _wheelTex;
+    private bool _wheelTexReady;
+    private byte[]? _pendingWheelRgba;
+    private int _pendingWheelW, _pendingWheelH;
+
     // Buffer CPU reutilizable. Se vuelca a _vbo en cada render que vea
     // un snapshot nuevo. No se aloca por frame.
     private float[] _scratch = new float[1024];
@@ -268,6 +273,27 @@ public sealed class MapGlSurface : OpenGlControlBase
             _pendingTexW = width;
             _pendingTexH = height;
             _vehicleAspect = (double)height / width;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Textura de la rueda delantera. Se dibuja DOS veces (una por lado), cada
+    /// una girada por su ángulo de Ackermann: por eso el arte del tractor no
+    /// trae ruedas delanteras dibujadas.
+    /// </summary>
+    public void SetWheelSprite(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingWheelRgba = null;
+            _wheelTexReady = false;
+        }
+        else
+        {
+            _pendingWheelRgba = rgba;
+            _pendingWheelW = width;
+            _pendingWheelH = height;
         }
         Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
     }
@@ -1526,40 +1552,123 @@ public sealed class MapGlSurface : OpenGlControlBase
         UploadAndDraw(PrimitiveType.LineLoop, n, color);
     }
 
-    /// <summary>Sube a GPU el sprite pendiente. Se llama desde el hilo GL.</summary>
+    /// <summary>Sube a GPU los sprites pendientes. Se llama desde el hilo GL.</summary>
     private void SubirSpritePendiente()
     {
         if (_gl == null || _texProgram == 0) return;
-        var px = _pendingTexRgba;
-        if (px == null) return;
-        _pendingTexRgba = null;
 
+        if (_pendingTexRgba != null)
+        {
+            var px = _pendingTexRgba;
+            _pendingTexRgba = null;
+            if (_vehicleTex == 0) _vehicleTex = _gl.GenTexture();
+            _vehicleTexReady = SubirTextura(_vehicleTex, px, _pendingTexW, _pendingTexH, "vehículo");
+        }
+
+        if (_pendingWheelRgba != null)
+        {
+            var px = _pendingWheelRgba;
+            _pendingWheelRgba = null;
+            if (_wheelTex == 0) _wheelTex = _gl.GenTexture();
+            _wheelTexReady = SubirTextura(_wheelTex, px, _pendingWheelW, _pendingWheelH, "rueda");
+        }
+    }
+
+    private bool SubirTextura(uint tex, byte[] px, int w, int h, string que)
+    {
         try
         {
-            if (_vehicleTex == 0) _vehicleTex = _gl.GenTexture();
-            _gl.BindTexture(TextureTarget.Texture2D, _vehicleTex);
+            _gl!.BindTexture(TextureTarget.Texture2D, tex);
             unsafe
             {
                 fixed (byte* p = px)
                 {
                     _gl.TexImage2D(TextureTarget.Texture2D, 0, (int)InternalFormat.Rgba,
-                        (uint)_pendingTexW, (uint)_pendingTexH, 0,
-                        PixelFormat.Rgba, PixelType.UnsignedByte, p);
+                        (uint)w, (uint)h, 0, PixelFormat.Rgba, PixelType.UnsignedByte, p);
                 }
             }
             // CLAMP: sin esto, el filtrado del borde repite el lado opuesto y
-            // aparece una franja del otro extremo del tractor.
+            // aparece una franja del otro extremo del sprite.
             _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)GLEnum.ClampToEdge);
             _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)GLEnum.ClampToEdge);
             _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)GLEnum.Linear);
             _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)GLEnum.Linear);
-            _vehicleTexReady = true;
+            return true;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine("[MapGlSurface] no se pudo subir el sprite: " + ex.Message);
-            _vehicleTexReady = false;
+            Console.Error.WriteLine("[MapGlSurface] no se pudo subir el sprite de " + que + ": " + ex.Message);
+            return false;
         }
+    }
+
+    /// <summary>
+    /// Ángulos de Ackermann: la rueda interna gira más que la externa. Copia
+    /// exacta de AckermannAngles (AgOpenGPS.Core/DrawLib), para que el vehículo
+    /// se vea igual que en el renderer nativo.
+    /// </summary>
+    private static void Ackermann(double anguloRueda, out double izq, out double der)
+    {
+        izq = anguloRueda;
+        der = anguloRueda;
+        if (anguloRueda > 0.0) izq *= 1.25;
+        else der *= 1.25;
+    }
+
+    /// <summary>
+    /// Dibuja un quad texturado en coords de vehículo (X = derecha, Y = avance),
+    /// rotado por rumbo y opcionalmente por un giro propio (ruedas).
+    /// cx/cy son el centro en coords locales; hx/hy las MEDIAS medidas — mismo
+    /// criterio que el centerToU1V1 del renderer nativo.
+    /// </summary>
+    private void DrawQuadTex(uint tex, double e, double n, double headingRad,
+                             double cx, double cy, double hx, double hy, double giroRad)
+    {
+        if (_gl == null) return;
+
+        double sg = Math.Sin(giroRad), cg = Math.Cos(giroRad);
+        double sh = Math.Sin(headingRad), ch = Math.Cos(headingRad);
+
+        // local -> (giro propio) -> (rumbo) -> mundo
+        (double X, double Y) A(double lx, double ly)
+        {
+            double rx = lx * cg - ly * sg;
+            double ry = lx * sg + ly * cg;
+            rx += cx; ry += cy;
+            return (e + (rx * ch + ry * sh), n + (rx * (-sh) + ry * ch));
+        }
+
+        var p0 = A(-hx, -hy);
+        var p1 = A( hx, -hy);
+        var p2 = A( hx,  hy);
+        var p3 = A(-hx,  hy);
+
+        float[] v =
+        {
+            (float)p0.X, (float)p0.Y, 0f, 1f,
+            (float)p1.X, (float)p1.Y, 1f, 1f,
+            (float)p2.X, (float)p2.Y, 1f, 0f,
+            (float)p0.X, (float)p0.Y, 0f, 1f,
+            (float)p2.X, (float)p2.Y, 1f, 0f,
+            (float)p3.X, (float)p3.Y, 0f, 0f,
+        };
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _texVbo);
+        unsafe
+        {
+            fixed (float* p = v)
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(v.Length * sizeof(float)), p, BufferUsageARB.StreamDraw);
+            }
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)0);
+            _gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+        }
+        _gl.EnableVertexAttribArray(0);
+        _gl.EnableVertexAttribArray(1);
+        _gl.ActiveTexture(TextureUnit.Texture0);
+        _gl.BindTexture(TextureTarget.Texture2D, tex);
+        _gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
     }
 
     /// <summary>
@@ -1570,40 +1679,21 @@ public sealed class MapGlSurface : OpenGlControlBase
     {
         if (_gl == null || _texProgram == 0 || !_vehicleTexReady) return false;
 
-        // Tamaño REAL en metros (como el nativo: el vehículo crece y se achica
-        // con el zoom), pero con un piso en píxeles para que no desaparezca al
-        // alejarse mucho.
-        const double anchoMetros = 2.6;             // ancho típico de tractor
-        double anchoMundo = anchoMetros;
+        // Geometría IDÉNTICA al renderer nativo (GuidanceDrawExtensions):
+        // el origen es el eje TRASERO (pivote), el cuerpo va centrado medio
+        // wheelbase adelante y las ruedas delanteras en el eje delantero.
+        // Las medidas son medias-medidas (centerToU1V1 del original).
+        var snap = _snap;
+        double wb = snap?.Wheelbase ?? 0;
+        double tw = snap?.TrackWidth ?? 0;
+        if (wb <= 0.1) wb = 3.3;    // perfil sin cargar: valores típicos
+        if (tw <= 0.1) tw = 1.9;
+
+        // Piso en píxeles: sin esto el vehículo desaparece al alejar el zoom.
         double minPx = 26.0;
-        if (anchoMundo * scale < minPx) anchoMundo = minPx / scale;
-        double altoMundo = anchoMundo * _vehicleAspect;
-
-        double s = Math.Sin(headingRad), c = Math.Cos(headingRad);
-        // Mitades en ejes local: X = través (derecha), Y = avance (adelante).
-        double hx = anchoMundo * 0.5, hy = altoMundo * 0.5;
-
-        // Rotación al mundo, mismo criterio que el triángulo: heading 0 = Norte.
-        (double X, double Y) Rot(double lx, double ly)
-            => (e + (lx * c + ly * s), n + (lx * (-s) + ly * c));
-
-        var p0 = Rot(-hx, -hy);   // atrás-izq
-        var p1 = Rot( hx, -hy);   // atrás-der
-        var p2 = Rot( hx,  hy);   // adelante-der
-        var p3 = Rot(-hx,  hy);   // adelante-izq
-
-        // Dos triángulos, con UV. V invertida: la imagen tiene el origen arriba
-        // y el mundo es Y-up; sin invertir, el tractor se dibuja para atrás.
-        float[] v =
-        {
-            (float)p0.X, (float)p0.Y, 0f, 1f,
-            (float)p1.X, (float)p1.Y, 1f, 1f,
-            (float)p2.X, (float)p2.Y, 1f, 0f,
-
-            (float)p0.X, (float)p0.Y, 0f, 1f,
-            (float)p2.X, (float)p2.Y, 1f, 0f,
-            (float)p3.X, (float)p3.Y, 0f, 0f,
-        };
+        double anchoPx = (2 * tw) * scale;
+        double k = anchoPx < minPx ? minPx / anchoPx : 1.0;
+        wb *= k; tw *= k;
 
         try
         {
@@ -1613,23 +1703,21 @@ public sealed class MapGlSurface : OpenGlControlBase
                 fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
             }
 
-            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _texVbo);
-            unsafe
-            {
-                fixed (float* p = v)
-                {
-                    _gl.BufferData(BufferTargetARB.ArrayBuffer,
-                        (nuint)(v.Length * sizeof(float)), p, BufferUsageARB.StreamDraw);
-                }
-                _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)0);
-                _gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)(sizeof(float) * 2));
-            }
-            _gl.EnableVertexAttribArray(0);
-            _gl.EnableVertexAttribArray(1);
+            // Cuerpo: centro (0, wb/2), medias medidas (tw, wb).
+            DrawQuadTex(_vehicleTex, e, n, headingRad, 0, wb * 0.5, tw, wb, 0);
 
-            _gl.ActiveTexture(TextureUnit.Texture0);
-            _gl.BindTexture(TextureTarget.Texture2D, _vehicleTex);
-            _gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
+            // Ruedas delanteras: una por lado sobre el eje delantero (y = wb),
+            // cada una girada por SU ángulo de Ackermann. El ángulo va negado
+            // igual que en el nativo (ahí entra como -steerAngle).
+            if (_wheelTexReady)
+            {
+                Ackermann(-(snap?.SteerAngleDeg ?? 0), out double izqDeg, out double derDeg);
+                double izq = izqDeg * Math.PI / 180.0;
+                double der = derDeg * Math.PI / 180.0;
+                double whx = tw * 0.5, why = wb * 0.75;
+                DrawQuadTex(_wheelTex, e, n, headingRad,  tw * 0.5, wb, whx, why, der);
+                DrawQuadTex(_wheelTex, e, n, headingRad, -tw * 0.5, wb, whx, why, izq);
+            }
 
             // Dejar el estado como lo espera el resto del frame: atributo 1
             // apagado y el VBO/programa de color plano de vuelta.

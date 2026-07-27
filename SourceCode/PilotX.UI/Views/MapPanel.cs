@@ -87,6 +87,12 @@ public sealed class MapPanel : Grid
         _gl?.SetVehicleSprite(rgba, width, height);
     }
 
+    /// <summary>Textura de la rueda delantera (se dibuja girada por direccion).</summary>
+    public void SetWheelSprite(byte[]? rgba, int width, int height)
+    {
+        _gl?.SetWheelSprite(rgba, width, height);
+    }
+
     /// <summary>
     /// Push de la polyline de guidance (Stage 3, AB/Curve/Contour).
     /// Ambas surfaces pintan la linea cian — Skia con StreamGeometry

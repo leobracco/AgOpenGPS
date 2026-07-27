@@ -62,41 +62,55 @@ public sealed class VehicleSpriteClient
                        ?? await BajarAsync(archivo, ct).ConfigureAwait(false);
             if (png == null) return null;
 
-            using var ms = new MemoryStream(png);
-            using var bmp = new Bitmap(ms);
-            int w = bmp.PixelSize.Width, h = bmp.PixelSize.Height;
-            if (w <= 0 || h <= 0) return null;
-
-            // Avalonia entrega BGRA premultiplicado; GL espera RGBA recto.
-            int stride = w * 4;
-            var buf = new byte[stride * h];
-            var handle = System.Runtime.InteropServices.GCHandle.Alloc(buf, System.Runtime.InteropServices.GCHandleType.Pinned);
-            try
-            {
-                bmp.CopyPixels(new PixelRect(0, 0, w, h), handle.AddrOfPinnedObject(), buf.Length, stride);
-            }
-            finally { handle.Free(); }
-
-            for (int i = 0; i < buf.Length; i += 4)
-            {
-                byte b = buf[i], g = buf[i + 1], r = buf[i + 2], a = buf[i + 3];
-                if (a != 0 && a != 255)
-                {
-                    // Deshacer el premultiplicado: si no, los bordes del sprite
-                    // salen oscurecidos sobre el mapa.
-                    r = (byte)Math.Min(255, r * 255 / a);
-                    g = (byte)Math.Min(255, g * 255 / a);
-                    b = (byte)Math.Min(255, b * 255 / a);
-                }
-                buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
-            }
-
-            return new Sprite { Rgba = buf, Width = w, Height = h, Archivo = archivo };
+            return Decodificar(png, archivo);
         }
         catch
         {
             return null;   // sin sprite: el mapa dibuja el triángulo
         }
+    }
+
+    /// <summary>
+    /// Textura de la rueda delantera (rueda.png). Se dibuja aparte del cuerpo
+    /// y girada por el ángulo de dirección — por eso el arte del tractor no
+    /// trae ruedas delanteras.
+    /// </summary>
+    public async Task<Sprite?> GetRuedaAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            byte[]? png = await BajarAsync("rueda.png", ct).ConfigureAwait(false);
+            if (png == null) return null;
+            return Decodificar(png, "rueda.png");
+        }
+        catch { return null; }
+    }
+
+    private static Sprite? Decodificar(byte[] png, string archivo)
+    {
+        using var ms = new MemoryStream(png);
+        using var bmp = new Bitmap(ms);
+        int w = bmp.PixelSize.Width, h = bmp.PixelSize.Height;
+        if (w <= 0 || h <= 0) return null;
+
+        int stride = w * 4;
+        var buf = new byte[stride * h];
+        var handle = System.Runtime.InteropServices.GCHandle.Alloc(buf, System.Runtime.InteropServices.GCHandleType.Pinned);
+        try { bmp.CopyPixels(new PixelRect(0, 0, w, h), handle.AddrOfPinnedObject(), buf.Length, stride); }
+        finally { handle.Free(); }
+
+        for (int i = 0; i < buf.Length; i += 4)
+        {
+            byte b = buf[i], g = buf[i + 1], r = buf[i + 2], a = buf[i + 3];
+            if (a != 0 && a != 255)
+            {
+                r = (byte)Math.Min(255, r * 255 / a);
+                g = (byte)Math.Min(255, g * 255 / a);
+                b = (byte)Math.Min(255, b * 255 / a);
+            }
+            buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
+        }
+        return new Sprite { Rgba = buf, Width = w, Height = h, Archivo = archivo };
     }
 
     private async Task<byte[]?> BajarAsync(string archivo, CancellationToken ct)

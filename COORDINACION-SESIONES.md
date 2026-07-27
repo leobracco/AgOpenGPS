@@ -2185,3 +2185,26 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   `wwwroot/img/vehiculos/` con la misma convención, y enganchar la selección de
   tipo+marca de Configuración para que elija el sprite sola (hoy hay que
   elegir el archivo).
+- [2026-07-27] [taller] HECHO — **ruedas delanteras del tractor, giradas por la
+  dirección**. El usuario avisó que el arte no las trae *a propósito*: en AOG el
+  cuerpo y las ruedas delanteras son sprites SEPARADOS, y las ruedas se dibujan
+  rotadas por el ángulo de dirección. Se replicó la geometría exacta del nativo
+  (`GuidanceDrawExtensions.DrawVehicle` + `AckermannAngles`):
+  · El origen del vehículo es el **eje trasero** (pivote). El cuerpo va centrado
+    en `(0, wheelbase/2)` con medias-medidas `(trackWidth, wheelbase)` —
+    `centerToU1V1` del original es MEDIA medida, no medida entera.
+  · Las ruedas van en `(±trackWidth/2, wheelbase)` (eje delantero), con
+    medias-medidas `(trackWidth/2, 0.75·wheelbase)`, cada una girada por SU
+    ángulo de Ackermann (la interna gira 1,25× más que la externa, copia exacta).
+  · Textura: `z_FrontWheels.png` del proyecto WinForms, copiada a
+    `wwwroot/img/vehiculos/rueda.png` (se baja una sola vez, no cambia con el
+    vehículo).
+  · `AogStateSnapshot` suma **`wheelbase`, `track_width` y `steer_angle_deg`**
+    (los llenan los dos providers) — antes el mapa dibujaba con un ancho fijo de
+    2,6 m inventado; ahora usa la geometría real del perfil.
+  Verificado: snapshot con `wheelbase:3.3`, `track_width:1.9`, `steer_angle_deg`;
+  `rueda.png` se sirve (200); sin errores de sprite en el renderer. Build 0
+  errores, tests verdes, paquete SHA 79899000…
+  **Nota**: el mapa ya no usa un tamaño inventado, así que si el vehículo se ve
+  chico/grande hay que corregir **Entre ejes / Trocha** en Configuración, que es
+  lo correcto.
