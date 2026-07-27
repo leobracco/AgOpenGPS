@@ -13,11 +13,14 @@
        Dirección, CoreX), submenús con los iconos verdaderos del 6.8.5 y sus ítems
        reales. Estilos scopeados a este control para no chocar con BarStyles global. -->
   <UserControl.Styles>
+    <!-- Minimalista: sin recuadro por botón. Siete tarjetas con borde apiladas
+         hacían mucho ruido visual al lado del mapa; el botón se distingue por el
+         espaciado y solo se pinta cuando está activo o bajo el dedo. -->
     <Style Selector="Button.mbtn">
-      <Setter Property="Background" Value="#FFFFFF"/>
-      <Setter Property="BorderBrush" Value="#D9E0D9"/>
-      <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CornerRadius" Value="8"/>
       <Setter Property="Padding" Value="2"/>
       <Setter Property="MinHeight" Value="52"/>
       <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -44,9 +47,11 @@
       <Setter Property="Width" Value="36"/>
       <Setter Property="Height" Value="36"/>
     </Style>
+    <!-- LOTE puede ir más grande: es la palabra más corta del menú y entra
+         holgada aunque no se corte nada. -->
     <Style Selector="Button.mbtn.lote TextBlock.mlbl">
       <Setter Property="Foreground" Value="#08120A"/>
-      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontSize" Value="14"/>
       <Setter Property="FontWeight" Value="Bold"/>
     </Style>
 
@@ -78,17 +83,19 @@
       <Setter Property="Height" Value="24"/>
       <Setter Property="Stretch" Value="Uniform"/>
     </Style>
-    <!-- Menú sin íconos (pedido del usuario): la etiqueta es lo único que
-         identifica al botón, así que se agranda para que se lea de un vistazo
-         desde el asiento. Antes competía con un ícono de 28 px. -->
+    <!-- Menú sin íconos: la etiqueta es lo único que identifica al botón.
+         NoWrap + 10 px porque las palabras NO se tienen que cortar: la columna
+         deja ~80 px útiles y la etiqueta más larga ("Configuración") mide 93 px
+         a 13, 86 a 12 y 72 a 10 — medido, no estimado. -->
     <Style Selector="TextBlock.mlbl">
-      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontSize" Value="10"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="#101612"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
       <Setter Property="TextAlignment" Value="Center"/>
-      <Setter Property="TextWrapping" Value="Wrap"/>
-      <Setter Property="Margin" Value="0,2,0,0"/>
+      <Setter Property="TextWrapping" Value="NoWrap"/>
+      <Setter Property="TextTrimming" Value="None"/>
+      <Setter Property="Margin" Value="0"/>
     </Style>
     <Style Selector="TextBlock.slbl">
       <Setter Property="FontSize" Value="9"/>

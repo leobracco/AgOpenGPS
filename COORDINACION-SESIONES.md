@@ -2123,3 +2123,18 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   hace sobre el bbox ANTES de centrar, si no, al ser el emblema más ancho que
   alto, sobra alto en el lienzo cuadrado y se cuela la palabra de abajo.
   Paquete: **PilotX_v1.0.24.zip** (SHA BF693F63…), build 0 errores, 156 tests.
+- [2026-07-27] [taller] HECHO (carril Santiago, avisado) — menú izquierdo:
+  **que no se corten las palabras + minimalista**.
+  · Tipografía a **10 px con `TextWrapping=NoWrap`**. No fue a ojo: se midió el
+    ancho real de cada etiqueta — la columna deja ~80 px útiles y
+    "Configuración" mide 93 px a 13, 86 a 12, 79 a 11 y 72 a 10. A 13 se partía
+    en dos renglones; a 10 entra entera con aire. LOTE queda en 14 (es la palabra
+    más corta, entra holgada).
+  · **Sin recuadro por botón**: `Background`/`BorderBrush` transparentes. Siete
+    tarjetas con borde apiladas hacían mucho ruido al lado del mapa; ahora el
+    botón se distingue por el espaciado y solo se pinta en hover o cuando está
+    activo (verde del design system).
+  Paquete regenerado (SHA BCBD6D6E…), 19 tests del cockpit verdes, build 0
+  errores. **Si en la pantalla de 10" 10 px queda chico, la salida es ensanchar
+  la columna (92 → 110 en `MenuIzquierda.axaml` y `MenuIzqNarrow` 140 → 158 en
+  los dos hosts de `PilotX.UI`), no volver a cortar las palabras.**
