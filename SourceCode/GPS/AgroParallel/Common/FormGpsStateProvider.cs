@@ -131,15 +131,27 @@ namespace AgroParallel.Adapters
                     snap.NumSections = n;
                     snap.ToolWidth = _form.tool.width;
                     snap.ToolOffset = _form.tool.offset;
+                    snap.IsSectionsNotZones = _form.tool.isSectionsNotZones;
+                    if (!_form.tool.isSectionsNotZones && _form.tool.zoneRanges != null)
+                    {
+                        // zoneRanges[0] no se usa; se expone 1..8 tal cual.
+                        var z = new int[8];
+                        for (int i = 1; i <= 8 && i < _form.tool.zoneRanges.Length; i++) z[i - 1] = _form.tool.zoneRanges[i];
+                        snap.ZoneRanges = z;
+                    }
                     if (n > 0 && _form.section != null)
                     {
                         var arr = new bool[n];
                         var pos = new List<SectionExtent>(n);
                         var speeds = new double[n];
+                        var estados = new int[n];
                         for (int i = 0; i < n && i < _form.section.Length; i++)
                         {
                             var sec = _form.section[i];
                             arr[i] = sec != null && sec.sectionOnRequest;
+                            // 0=Off, 1=Auto, 2=On: lo que eligió el operario, que
+                            // es distinto de si la sección aplica ahora.
+                            estados[i] = sec == null ? 0 : (int)sec.sectionBtnState;
                             if (sec != null)
                             {
                                 pos.Add(new SectionExtent(i, sec.positionLeft, sec.positionRight));
@@ -148,6 +160,7 @@ namespace AgroParallel.Adapters
                             }
                         }
                         snap.SectionOnRequest = arr;
+                        snap.SectionStates = estados;
                         snap.SectionPositions = pos;
                         snap.SectionSpeedsKmh = speeds;
                     }

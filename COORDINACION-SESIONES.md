@@ -1962,7 +1962,6 @@ geometría por defecto y el guiado sale mal de forma silenciosa).
 
 IDs y `data-*` de las páginas HTML están congelados (§4 de `COORDINACION-UI.md`);
 el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
-
 - [2026-07-27] [android] EN CURSO — leí tus indicaciones (`ef8409ac`, cambio de
   carril: yo paso a UI visual ícono por ícono, vos a motor/servicios/
   empaquetado). Antes de arrancar, reconcilié un duplicado: yo también estaba
@@ -1981,3 +1980,166 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Arranco ahora por el grupo que sugeriste primero: controles de cámara/vista
   del menú Navegación (2D/3D/Norte-2D/tilt±/grilla/día-noche/brillo±) — 100%
   cliente (`MapGlSurface`), no tocan el motor.
+- [2026-07-27] [taller] HECHO — **secciones individuales y zonas: el motor ya
+  responde. SANTIAGO, esto te desbloquea la barra de abajo.**
+  Comandos nuevos en `ExecuteCommand` (port de `btnSectionXMan_Click` /
+  `btnZoneX_Click`, `Sections.Designer.cs`, sin el color del botón):
+  · **`seccion_<n>`** con n=1..16 — cicla **Off → Auto → On → Off**.
+  · **`zona_<n>`** con n=1..8 — mismo ciclo, aplicado al rango de la zona.
+  Rechazan (`ok:false`) lo que no existe en el implemento actual: índice fuera de
+  rango, no numérico, o `zona_` cuando el implemento está en modo secciones. Un
+  comando que dice "ok" sin efecto es peor que uno que falla.
+  **Y lo que ibas a necesitar sí o sí**: `GET /api/aog/sections` ahora trae
+  · **`section_states`**: 0=Off, 1=Auto, 2=On por sección → con esto pintás los
+    3 colores del nativo (rojo/verde/ámbar). **Con `on_request` sola no
+    alcanzaba**: Auto y On dan las dos `true` y se veían idénticas.
+  · **`is_sections_not_zones`**: te dice si mostrar botones de sección o de zona.
+  · **`zone_ranges`** (1..8, 0 = zona inexistente): hasta qué sección llega cada
+    zona, para dibujar los botones del ancho correcto.
+  Verificado en runtime (`--sim --webhost`, lote La Paloma, implemento de 14
+  secciones): `section_states` va `[..0..] → [..1..] → [..2..] → [..0..]` en la
+  sección 3 y **ninguna otra se mueve**; `seccion_15`/`seccion_0`/`seccion_abc`
+  → `ok:false`. Tests nuevos `SeccionesCicladoTests` (ciclo + reparto de rangos
+  de zona, que es asimétrico y es el error fácil al portarlo). Build completo
+  0 errores/0 warnings, **146 tests verdes**.
+  **Lo que NO pude probar**: el camino de zonas en runtime — el perfil `test`
+  está en modo secciones individuales, así que solo verifiqué el guard. La
+  matemática del reparto está cubierta por tests unitarios. Si configurás un
+  implemento por zonas, avisá y lo validamos juntos.
+- [2026-07-27] [taller] AVISO (**tomé una tarea de tu carril, Santiago**) — el
+  usuario necesitaba YA la botonera de secciones individuales, así que la hice yo
+  en `PilotX.Cockpit.Bars` (tu carril). **No la rehagas.** Lo que quedó:
+  · `ViewModels/SeccionBotonViewModel.cs` (nuevo): un botón por sección, con el
+    color resuelto por estado — rojo `#B23E3E` Off / verde `#4ABA3E` Auto /
+    ámbar `#C49A2E` On, los mismos del `SetColors` nativo.
+  · `BarraAbajoViewModel`: colección `Secciones` + `SeccionesVisible`. Los
+    botones se REUSAN entre ticks (recrearlos 4 veces por segundo hacía
+    parpadear la barra entera).
+  · `Views/BarraAbajo.axaml`: fila arriba de la botonera existente, `ItemsControl`
+    horizontal, botones de 44×40 (target táctil con guante sin comerle alto al
+    mapa). Solo visible con lote abierto, igual que el nativo.
+  · El snapshot que consumen las barras (`/api/aog/state`) ahora trae
+    **`section_states`** (0/1/2) — lo agregué en `AogStateSnapshot` y lo llenan
+    los DOS providers (engine y FormGPS), así que sirve para los dos backends.
+  6 tests nuevos en `SeccionesBotoneraTests` (un botón por sección, color por
+  estado, comando correcto —el 3ro manda `seccion_3`, no `seccion_2`—, reuso
+  entre ticks, oculta sin lote, y tolera `section_states` ausente si el backend
+  es viejo). Build completo 0 errores, **152 tests verdes**. Verificado en
+  pantalla contra el motor real con lote abierto.
+  **Sigue siendo tuyo el resto de la barra**: si querés cambiarle tamaño, orden
+  o estilo, dale — el contrato con el motor (`seccion_<n>` + `section_states`) ya
+  está y no lo toques.
+- [2026-07-27] [taller] HECHO — botonera de secciones: **soporte de los DOS
+  modos** (individuales / zonas) + **mapa más fluido**. Sigue siendo carril de
+  Santiago, aviso para que no lo rehaga.
+  · **Zonas**: el implemento puede estar por secciones individuales (≤16) o por
+    ZONAS (≤8 grupos). La primera versión mostraba siempre secciones sueltas —
+    en modo zonas eso está mal: el operario toca la zona y se mueve el grupo.
+    Ahora la botonera lee `is_sections_not_zones` y arma botones de zona que
+    mandan `zona_<n>`, con el color de la ÚLTIMA sección de la zona (de donde lo
+    lee el handler nativo). Sin `zone_ranges` no muestra nada, en vez de ofrecer
+    botones que no harían lo que el operario espera.
+  · `AogStateSnapshot` (y los dos providers, engine + FormGPS) suman
+    `is_sections_not_zones` y `zone_ranges`.
+  · **Fluidez del mapeo** (pedido del usuario): los datos llegan en 2-4 ms
+    (cobertura 15 KB, estado 22 KB en localhost) pero la UI los pedía lento.
+    Subido: HUD/tractor 250→**100 ms**, cobertura 350→**125 ms**, geometría de
+    herramienta 250→**100 ms**. Ahora acompaña los ~10 fixes/s del GPS en vez de
+    ir a 3-4 Hz. El poller ya salteaba el redibujo si no cambió `revision`.
+  4 tests de zonas nuevos (botón por zona y no por sección, color desde la última
+  sección, ignora zonas en 0, y no rompe sin rangos) → **19 en Bars, 156 en
+  total**. Build 0 errores/0 warnings, publicado a `Build\` y verificado en
+  pantalla.
+  **OJO para el futuro (escala)**: `/api/aog/coverage` manda la cobertura
+  COMPLETA en cada tick. Hoy son 15 KB con 2.900 m² trabajados; en un lote de
+  50 ha eso se va a varios MB por request, y a 8 req/s no cierra. La solución es
+  incremental (`?since=<rev>` devolviendo solo los triángulos nuevos). No es
+  urgente en banco, sí lo va a ser en campo.
+- [2026-07-27] [taller] HECHO — **BUG GORDO: el motor headless no tenía geometría
+  de secciones.** Síntoma reportado: "prendo una sola sección y pinta todo".
+  Diagnóstico con los vértices crudos de `/api/aog/coverage`: el punto izquierdo y
+  el derecho de CADA fila de la tira eran **idénticos** → huella de ancho cero.
+  **Causa raíz**: `SectionSetPosition()`/`SectionCalcWidths()`/`SectionCalcMulti()`
+  (CSectionCalculator) los llamaba `FormGPS.LoadSettings` (GUI.Designer.cs:680-692)
+  y **el motor headless nunca los llamó**. Todas las secciones quedaban con el
+  default de `CSection` (`positionLeft=-4`, `positionRight=+4`), o sea TODAS
+  encimadas en el mismo lugar: `section[j].leftPoint == section[j-1].rightPoint ==
+  rightPoint` para todas, y los triángulos colapsaban.
+  **Fix**: `GuidanceEngineHost.AplicarGeometriaDeSecciones()`, llamado al final del
+  constructor (después de que `Settings.Default.Load()` de `Program.cs` trajo el
+  perfil). Público a propósito: hay que volver a llamarlo cuando cambie la config
+  del implemento (ancho, cantidad de secciones, modo, offset).
+  **Verificado con números** (implemento de 28 m / 14 secciones = 2 m cada una):
+  · posiciones laterales: sección 1 = [−14,−12], 2 = [−12,−10]… antes todas [−4,+4]
+  · todas en auto → **1 tira de 28 m** (antes: 0 m)
+  · apagando SOLO la sección 7 → **2 tiras, de 12 m y 14 m** = 26 m, exactamente
+    28 − los 2 m de la sección apagada. El hueco es real.
+  Esto afectaba a TODO lo que depende de geometría por sección, no solo al
+  pintado: área trabajada, anti-solape, corte por cabecera, dosis por sección de
+  QuantiX/VistaX. **Es un pre-requisito del plan de 3 días que no estaba
+  identificado.**
+- [2026-07-27] [taller] HECHO (carril Santiago, avisado) — 2 pedidos de UI del
+  usuario: · los botones de sección **ya no se ponen grises** al pasar por encima
+  ni al presionar (confundía: gris justo sobre el botón que vas a tocar). El color
+  del estado se mantiene siempre y la respuesta al toque va por el BORDE; además
+  se saca la escala del `:pressed` que hacía "saltar" el botón bajo el dedo.
+  · La ventana del cockpit arranca en **FullScreen** en vez de Maximized: con
+  `SystemDecorations.None`, Maximized dejaba la barra de tareas de Windows a la
+  vista. El doble clic en el header sigue alternando pantalla completa ↔ ventana
+  (el operario no tiene teclado para recuperarla de otra forma).
+- [2026-07-27] [taller] HECHO — **Configuración ya lee y graba contra el motor**
+  (antes `GET/PUT /api/tool` daba **404**: el motor no tenía `IVehicleToolService`
+  cableado, así que la pantalla de config no podía ni leer ni guardar nada).
+  Nuevo `PilotX.GuidanceEngine/Adapters/EngineVehicleToolService.cs`: port directo
+  de `GuidanceEngineVehicleToolService` (PilotX.Android), que ya era 100%
+  portable — mismo criterio que `EngineLotesService`. Cubre vehículo, herramienta
+  (secciones/zonas/enganche) e IMU. Cableado en `EngineWebHost`.
+  Al guardar la herramienta recarga `CTool` y llama
+  `AplicarGeometriaDeSecciones()` (el método del fix de hoy) — **sin eso las
+  secciones quedaban con el reparto viejo hasta reiniciar el motor**.
+  **Verificado en runtime, los dos modos, con respaldo y restauración del perfil
+  `test` (quedó idéntico al original, verificado con diff):**
+  · Secciones individuales: 14×2 m → PUT 8×3,5 m → `GET /api/tool` lo confirma y
+    la geometría en vivo pasa a `[-14,-10.5]`, `[-10.5,-7]`… **en caliente**.
+  · Zonas: PUT `is_sections_not_zones=false`, 3 zonas, cortes 4/8/12, 12×2 m →
+    `/api/aog/sections` devuelve `zone_ranges=4,8,12` y la botonera ve el modo
+    zonas; `zona_2` cicla las secciones 5-8 (`0→1→2`) sin tocar las otras, y
+    `zona_4` (inexistente) da `ok:false`.
+  **Gotcha del contrato**: `PUT /api/tool` espera el DTO **directo**, NO envuelto
+  en `{"tool":{...}}` — el GET sí lo devuelve envuelto (`{ok, tool}`). Si se manda
+  envuelto, deserializa un DTO vacío y **graba defaults (1 sección de 0,5 m)**
+  sin fallar. Me pasó en la primera prueba. Vale la pena que el PUT rechace un
+  body sin campos reconocidos en vez de escribir defaults.
+- [2026-07-27] [taller] HECHO — la ventana del cockpit ahora sí cubre TODO.
+  `WindowState.FullScreen` no alcanzaba con `SystemDecorations.None` (seguía
+  quedando la barra de tareas de Windows). Se dimensiona a mano contra
+  `Screen.Bounds` (físicos, no `WorkingArea`) convertidos a DIPs con
+  `Screen.Scaling`. El doble clic en el header sigue alternando pantalla completa
+  ↔ ventana de 1280×800.
+- [2026-07-27] [taller] HECHO — **la pantalla de Configuración andaba rota entera**
+  ("Sin conexión: Unexpected token '<', "<html><hea"..."). El error era un `fetch`
+  recibiendo la página HTML de 404 de EmbedIO en vez de JSON: **`/api/aog/config`
+  daba 404** (y `/api/aog/imu` también). Faltaban DOS servicios más en el motor.
+  Portados desde el lado WinForms (solo existían ahí, no había versión Android):
+  · **`EngineConfigVehiculoService`** (1050 líneas) ← `FormGpsConfigService`. De
+    las 132 referencias a `_form`, casi todas eran objetos Core que el motor ya
+    tiene (`tool/vehicle/ahrs/mc/yt/tram/pn/ABLine/bnd/autoBtnState`) o llamadas
+    reales (`SectionSetPosition/CalcWidths/CalcMulti`, `SendPgnToLoop`,
+    `BuildTurnLines`, masters de sección → `ExecuteCommand`). Lo único sin
+    equivalente headless: texturas del tractor, sonidos y los espejos runtime de
+    flags de display — el setting SÍ se guarda, solo no se mantiene copia en
+    memoria (el motor no dibuja). `LoadSettings()` → `AplicarGeometriaDeSecciones()`.
+  · **`EngineImuCalibracionService`** ← `FormGpsImuCalibracionService` (era casi
+    todo `ahrs`, portable directo; se sacó el marshalling a hilo de UI).
+  Los 5 endpoints de la pantalla ahora dan **200**: `/api/aog/config`,
+  `/api/tool`, `/api/vehicle`, `/api/vehicle-tool`, `/api/aog/imu`.
+  Snapshot verificado con datos reales del perfil (`perfil_activo: test`,
+  wheelbase 3.3, 14 secciones de 2 m, `zone_ranges`, relés, switches).
+- [2026-07-27] [taller] HECHO — **íconos de marca** (los dejó el usuario en
+  `Diseño/PilotX/`): se generaron `.ico` multi-resolución (16/24/32/48/64/128/256,
+  PNG embebido) y se cablearon como `ApplicationIcon`:
+  `SourceCode/PilotX.Desktop/PilotX.ico` y `SourceCode/AgIO/Source/CoreX.ico`.
+  Verificado que quedan embebidos en los .exe del paquete. **Nota**: a 16 px el
+  bajada "TECNOLOGÍA QUE GUÍA TU CAMPO" no se lee — si se quiere, conviene un
+  recorte al emblema PX solo para los tamaños chicos.
+  Paquete regenerado: **PilotX_v1.0.24.zip**, build 0 errores, 156 tests verdes.

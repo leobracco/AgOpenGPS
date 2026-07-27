@@ -108,6 +108,40 @@ namespace AgOpenGPS
             PgnReceiverField = new PgnReceiver(this);
 
             headingFromSource = "Fix";
+
+            AplicarGeometriaDeSecciones();
+        }
+
+        /// <summary>
+        /// Reparte el ancho del implemento entre las secciones (posición lateral
+        /// izquierda/derecha de cada una). Es lo que hacía
+        /// <c>FormGPS.LoadSettings</c> (GUI.Designer.cs) al arrancar y el motor
+        /// headless NO estaba haciendo.
+        ///
+        /// Sin esto, todas las secciones se quedan con el default de
+        /// <c>CSection</c> (positionLeft=-4 / positionRight=+4): quedan TODAS
+        /// encimadas en el mismo lugar, los bordes de la tira de cobertura
+        /// colapsan en un punto y la huella sale de ancho CERO. Síntoma en
+        /// cabina: "prendo una sección y pinta cualquier cosa".
+        ///
+        /// Hay que volver a llamarlo cada vez que cambie la config del implemento
+        /// (ancho, cantidad de secciones, modo secciones/zonas u offset).
+        /// </summary>
+        public void AplicarGeometriaDeSecciones()
+        {
+            try
+            {
+                if (Tool.isSectionsNotZones)
+                {
+                    SectionCalculator.SectionSetPosition();
+                    SectionCalculator.SectionCalcWidths();
+                }
+                else
+                {
+                    SectionCalculator.SectionCalcMulti();
+                }
+            }
+            catch { /* config incompleta: mejor seguir que no arrancar */ }
         }
 
         // ---- arranque/parada del socket loopback (equivalente a

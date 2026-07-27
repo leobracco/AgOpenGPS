@@ -126,6 +126,27 @@ namespace AgOpenGPS
                 return true;
             }
 
+            // Secciones individuales (1..16) y zonas (1..8). Port de
+            // btnSectionXMan_Click / btnZoneX_Click (Sections.Designer.cs) sin el
+            // color del botón. Ciclan Off → Auto → On → Off. Son imprescindibles
+            // para sembrar: levantar un cuerpo en una punta, cortar media barra
+            // en una cuña. Se rechazan (false → "unknown") los índices que no
+            // existen en el implemento actual, en vez de aceptarlos y no hacer
+            // nada — un comando que dice "ok" sin efecto es peor que uno que falla.
+            if (cmd.StartsWith("seccion_") &&
+                int.TryParse(cmd.Substring("seccion_".Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out int secN))
+            {
+                if (secN < 1 || secN > 16 || secN > Tool.numOfSections) return false;
+                Sections[secN - 1].sectionBtnState = GetNextSectionState(Sections[secN - 1].sectionBtnState);
+                return true;
+            }
+
+            if (cmd.StartsWith("zona_") &&
+                int.TryParse(cmd.Substring("zona_".Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out int zonaN))
+            {
+                return ToggleZone(zonaN);
+            }
+
             switch (cmd)
             {
                 case "autosteer":
@@ -258,6 +279,36 @@ namespace AgOpenGPS
             manualBtnState = manualBtnState == btnStates.Off ? btnStates.On : btnStates.Off;
             if (manualBtnState == btnStates.On) MarkAsWorkedTrack();
             SetAllSectionsState(manualBtnState);
+        }
+
+        // GetNextState (Sections.Designer.cs): Off → Auto → On → Off.
+        private static btnStates GetNextSectionState(btnStates state)
+        {
+            if (state == btnStates.Off) return btnStates.Auto;
+            if (state == btnStates.Auto) return btnStates.On;
+            if (state == btnStates.On) return btnStates.Off;
+            return btnStates.Off;
+        }
+
+        // btnZoneX_Click + IndividualZoneAndButtonToState (Sections.Designer.cs).
+        // El estado nuevo sale de la ÚLTIMA sección de la zona
+        // (zoneRanges[zona]-1) y se aplica a todo el rango. Ojo con el reparto:
+        // la zona 1 arranca en 0 y el resto en zoneRanges[zona-1] — es asimétrico
+        // a propósito (ver SeccionesCicladoTests).
+        private bool ToggleZone(int zona)
+        {
+            if (zona < 1 || zona > 8) return false;
+            if (Tool.isSectionsNotZones) return false;   // el implemento está en modo secciones
+            if (Tool.zoneRanges[zona] <= 0) return false; // esa zona no existe
+
+            int inicio = zona == 1 ? 0 : Tool.zoneRanges[zona - 1];
+            int fin = Tool.zoneRanges[zona];
+            if (fin > 16) fin = 16;
+            if (inicio < 0 || inicio >= fin) return false;
+
+            btnStates nuevo = GetNextSectionState(Sections[fin - 1].sectionBtnState);
+            for (int i = inicio; i < fin; i++) Sections[i].sectionBtnState = nuevo;
+            return true;
         }
 
         // MarkAsWorkedTrack (Sections.Designer.cs) — pura, sin UI.

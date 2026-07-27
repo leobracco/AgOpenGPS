@@ -70,6 +70,22 @@ namespace AgroParallel.Models
         /// expone el resultado. Cuando movamos la lógica al Core, esta interfaz
         /// ya está en su lugar.</summary>
         public bool[] OnRequest { get; set; }
+        /// <summary>Estado del BOTÓN de cada sección, por índice: 0=Off, 1=Auto,
+        /// 2=On (mismo orden que btnStates). No es lo mismo que OnRequest: eso es
+        /// la decisión de si la sección aplica AHORA; esto es lo que eligió el
+        /// operario. La UI necesita los 3 estados para pintar rojo/verde/ámbar
+        /// como el nativo — con OnRequest sola, "Auto" y "On" se ven idénticos.</summary>
+        public int[] SectionStates { get; set; }
+
+        /// <summary>True si el implemento está configurado por secciones
+        /// individuales; false si está por zonas (habilita los comandos
+        /// <c>zona_&lt;n&gt;</c> en vez de <c>seccion_&lt;n&gt;</c>).</summary>
+        public bool IsSectionsNotZones { get; set; }
+
+        /// <summary>Corte de cada zona (índices 1..8 de zoneRanges): hasta qué
+        /// número de sección llega. 0 = zona inexistente. Vacío en modo secciones.</summary>
+        public int[] ZoneRanges { get; set; }
+
         /// <summary>True si el master de secciones está en modo automático.</summary>
         public bool IsAuto { get; set; }
         /// <summary>True si todas las secciones están forzadas ON por master manual.</summary>

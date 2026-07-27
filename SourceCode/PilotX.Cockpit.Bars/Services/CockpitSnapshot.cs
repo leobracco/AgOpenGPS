@@ -19,6 +19,20 @@ public sealed class CockpitSnapshot
     [JsonPropertyName("is_auto_steer_on")]    public bool IsAutoSteerOn { get; set; }
     [JsonPropertyName("is_auto_snap_to_pivot")] public bool IsAutoSnapToPivot { get; set; }
     [JsonPropertyName("is_you_turn_on")]      public bool IsYouTurnOn { get; set; }
+    [JsonPropertyName("num_sections")] public int NumSections { get; set; }
+
+    /// <summary>Estado del botón de cada sección: 0=Off, 1=Auto, 2=On. Puede
+    /// venir null si el backend es viejo — la botonera lo tolera.</summary>
+    [JsonPropertyName("section_states")] public int[]? SectionStates { get; set; }
+
+    /// <summary>True = implemento por secciones individuales; false = por zonas.
+    /// Determina qué botonera mostrar y qué comando manda cada botón.</summary>
+    [JsonPropertyName("is_sections_not_zones")] public bool IsSectionsNotZones { get; set; }
+
+    /// <summary>Corte de cada zona (1..8); 0 = zona inexistente. Null/vacío en
+    /// modo secciones.</summary>
+    [JsonPropertyName("zone_ranges")] public int[]? ZoneRanges { get; set; }
+
     [JsonPropertyName("is_section_auto_on")]  public bool IsSectionAutoOn { get; set; }
     [JsonPropertyName("is_section_manual_on")] public bool IsSectionManualOn { get; set; }
     [JsonPropertyName("isobus_alive")]        public bool IsobusAlive { get; set; }

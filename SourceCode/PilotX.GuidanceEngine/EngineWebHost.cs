@@ -80,6 +80,14 @@ namespace AgOpenGPS
             var trackBuilder = new EngineTrackBuilderService(_host);
             var trackList = new EngineTrackListService(_host);
             var sectionsCore = new EngineSectionControlService(_host);
+            // Config de vehículo/herramienta/IMU: es lo que hace andar la pantalla
+            // de Configuración. Al guardar la herramienta recalcula la geometría
+            // de secciones, si no la huella queda con el reparto viejo.
+            var vehicleTool = new EngineVehicleToolService(_host);
+            // Pantalla de Configuración (config.html) y calibración de IMU:
+            // ambas daban 404 contra el motor.
+            var configVehiculo = new EngineConfigVehiculoService(_host);
+            var imuCalibracion = new EngineImuCalibracionService(_host);
             // Config de dirección: implementación compartida con FormGPS (archivo
             // linkeado). El engine no tiene hilo de UI, así que SendSettings va
             // directo; el ángulo vivo del WAS sale del CModuleComm del host.
@@ -100,7 +108,7 @@ namespace AgOpenGPS
                 vistaxLive: null,
                 debug: null,
                 lotes: lotes,
-                vehicleTool: null,
+                vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,
                 sectionsCore: sectionsCore,
@@ -120,7 +128,9 @@ namespace AgOpenGPS
                 paths: paths,
                 trackBuilder: trackBuilder,
                 trackList: trackList,
-                steerConfig: steerConfig);
+                steerConfig: steerConfig,
+                configVehiculo: configVehiculo,
+                imuCalibracion: imuCalibracion);
 
             _web.Start();
         }

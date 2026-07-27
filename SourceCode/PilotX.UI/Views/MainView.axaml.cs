@@ -115,7 +115,7 @@ namespace PilotX.Desktop.Views
             SetupCockpitBars(origin);
 
             // HUD (velocidad/heading/estado) → mapa + rumbo del tractor.
-            _hudPoller = new HudPoller(baseUrl: origin, intervalMs: 250);
+            _hudPoller = new HudPoller(baseUrl: origin, intervalMs: 100);
             _hudPoller.SnapshotReceived += OnHudSnapshot;
             _hudPoller.Start();
             _cleanup.Add(() => _hudPoller?.Dispose());
@@ -123,7 +123,7 @@ namespace PilotX.Desktop.Views
             if (App.UseGl)
             {
                 var cov = new CoverageClient(origin);
-                _coveragePoller = new CoveragePoller(cov, snap => _mapHost?.OnCoverage(snap), periodMs: 350);
+                _coveragePoller = new CoveragePoller(cov, snap => _mapHost?.OnCoverage(snap), periodMs: 125);
                 _coveragePoller.Start();
                 _cleanup.Add(() => _coveragePoller?.Stop());
 
@@ -146,7 +146,7 @@ namespace PilotX.Desktop.Views
             _cleanup.Add(() => _guidancePoller?.Stop());
 
             var tg = new ToolGeometryClient(origin);
-            _toolPoller = new ToolGeometryPoller(tg, snap => _mapHost?.OnTool(snap), periodMs: 250);
+            _toolPoller = new ToolGeometryPoller(tg, snap => _mapHost?.OnTool(snap), periodMs: 100);
             _toolPoller.Start();
             _cleanup.Add(() => _toolPoller?.Stop());
 

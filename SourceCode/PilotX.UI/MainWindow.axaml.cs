@@ -384,7 +384,15 @@ public partial class MainWindow : Window
             // El WebView NO se crea hasta que el operario navegue a una
             // pantalla del Hub (Settings/FieldTools/Tools).
             SystemDecorations = SystemDecorations.None;
-            WindowState = WindowState.Maximized;
+            // El cockpit tiene que ocupar TODA la pantalla de la cabina.
+            // Ni Maximized ni FullScreen alcanzan con SystemDecorations.None:
+            // Maximized respeta el área de trabajo (deja la barra de tareas de
+            // Windows a la vista) y FullScreen, sin decoraciones, en Windows no
+            // llega a cubrirla. Se dimensiona a mano contra los bounds FÍSICOS
+            // de la pantalla (Screen.Bounds, no WorkingArea), convertidos a DIPs
+            // con el factor de escala del monitor.
+            WindowState = WindowState.Normal;
+            AjustarAPantallaCompleta();
             if (_rootBorder != null)
             {
                 _rootBorder.CornerRadius = new global::Avalonia.CornerRadius(0);
@@ -408,7 +416,7 @@ public partial class MainWindow : Window
 
         if (App.WindowMode != "float")
         {
-            _hudPoller = new HudPoller(baseUrl: DeriveOrigin(App.TargetUrl), intervalMs: 250);
+            _hudPoller = new HudPoller(baseUrl: DeriveOrigin(App.TargetUrl), intervalMs: 100);
             _hudPoller.SnapshotReceived += OnHudSnapshot;
             _hudPoller.PollFailed       += OnHudPollFailed;
             _hudPoller.Start();
@@ -434,7 +442,7 @@ public partial class MainWindow : Window
                 _coveragePoller = new CoveragePoller(cov, snap =>
                 {
                     _mapHost?.OnCoverage(snap);
-                }, periodMs: 350);
+                }, periodMs: 125);
                 _coveragePoller.Start();
                 Closed += (_, _) => _coveragePoller?.Stop();
 
@@ -473,7 +481,7 @@ public partial class MainWindow : Window
             _toolPoller = new ToolGeometryPoller(tg, snap =>
             {
                 _mapHost?.OnTool(snap);
-            }, periodMs: 250);
+            }, periodMs: 100);
             _toolPoller.Start();
             Closed += (_, _) => _toolPoller?.Stop();
 
@@ -595,15 +603,44 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Deja la ventana cubriendo la pantalla entera, barra de tareas incluida.
+    /// Se usa en vez de WindowState.FullScreen porque con SystemDecorations.None
+    /// ese estado no cubre la barra de tareas en Windows.
+    /// </summary>
+    private void AjustarAPantallaCompleta()
+    {
+        try
+        {
+            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+            if (screen == null) return;
+
+            var b = screen.Bounds;                       // píxeles físicos
+            double escala = screen.Scaling <= 0 ? 1.0 : screen.Scaling;
+
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Position = new global::Avalonia.PixelPoint(b.X, b.Y);
+            Width  = b.Width  / escala;                  // Width/Height van en DIPs
+            Height = b.Height / escala;
+            Topmost = false;                             // que no tape diálogos del sistema
+        }
+        catch { /* si falla, queda el tamaño del XAML */ }
+    }
+
     private void OnHeaderPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             if (e.ClickCount == 2)
             {
-                WindowState = WindowState == WindowState.Maximized
-                    ? WindowState.Normal
-                    : WindowState.Maximized;
+                // Doble clic en el header: alterna pantalla completa ↔ ventana.
+                // Es la única salida para el operario, que no tiene teclado.
+                if (Width >= (Screens.Primary?.Bounds.Width ?? 0) / (Screens.Primary?.Scaling ?? 1) - 1)
+                {
+                    Width = 1280; Height = 800;
+                    Position = new global::Avalonia.PixelPoint(80, 60);
+                }
+                else AjustarAPantallaCompleta();
                 return;
             }
             BeginMoveDrag(e);

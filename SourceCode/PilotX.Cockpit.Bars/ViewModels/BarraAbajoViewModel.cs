@@ -43,8 +43,15 @@ public sealed partial class BarraAbajoViewModel : BarViewModelBase
     [ObservableProperty] private bool _skipsVisible;
     [ObservableProperty] private int _skipsValue = 1;
 
+    // Botonera de secciones individuales (espejo de los btnSectionXMan nativos).
+    // Cada botón cicla Off → Auto → On mandando "seccion_<n>" al motor.
+    public System.Collections.ObjectModel.ObservableCollection<SeccionBotonViewModel> Secciones { get; }
+        = new();
+    [ObservableProperty] private bool _seccionesVisible;
+
     public override void Apply(CockpitSnapshot s)
     {
+        AplicarSecciones(s);
         bool hayGuia = s.TrackIdx > -1;
         bool hayHdl = s.HasHeadland;
 
@@ -68,5 +75,78 @@ public sealed partial class BarraAbajoViewModel : BarViewModelBase
         YouSkipImg = B + (s.YouSkipMode switch { 1 => "YouSkipOn.png", 2 => "YouSkipWorkedTracks.png", _ => "YouSkipOff.png" });
         SkipsVisible = hayGuia;
         SkipsValue = s.RowSkipsWidth;
+    }
+
+    /// <summary>
+    /// Arma/actualiza los botones de sección. Sin lote abierto no se muestran:
+    /// el control de secciones no aplica (misma regla que el nativo, donde
+    /// isJobStarted es la compuerta de todo el control de secciones).
+    ///
+    /// Los botones se REUSAN entre ticks: recrear la lista 4 veces por segundo
+    /// haría parpadear la barra entera.
+    /// </summary>
+    private void AplicarSecciones(CockpitSnapshot s)
+    {
+        if (s.IsSectionsNotZones) AplicarModoSecciones(s);
+        else AplicarModoZonas(s);
+    }
+
+    /// <summary>Un botón por sección (≤16), comando <c>seccion_&lt;n&gt;</c>.</summary>
+    private void AplicarModoSecciones(CockpitSnapshot s)
+    {
+        int n = s.NumSections;
+        if (n < 0) n = 0;
+        if (n > 16) n = 16;   // el nativo tiene 16 botones como máximo
+
+        Reconstruir(n, i => new SeccionBotonViewModel(i));
+        SeccionesVisible = s.IsJobStarted && n > 0;
+
+        var estados = s.SectionStates;
+        for (int i = 0; i < Secciones.Count; i++)
+        {
+            // Backend sin section_states (o array corto): todo Off, sin romper.
+            Secciones[i].SetEstado(EstadoDe(estados, i));
+        }
+    }
+
+    /// <summary>
+    /// Un botón por ZONA (≤8), comando <c>zona_&lt;n&gt;</c>. El color sale de la
+    /// ÚLTIMA sección de la zona, que es de donde lo lee el handler nativo
+    /// (<c>section[zoneRanges[zona]-1]</c>): todas las secciones de una zona se
+    /// mueven juntas, así que cualquiera sirve, pero se respeta la del nativo
+    /// para no divergir si alguna vez quedan desparejas.
+    /// </summary>
+    private void AplicarModoZonas(CockpitSnapshot s)
+    {
+        var rangos = s.ZoneRanges;
+        // Modo zonas declarado pero sin rangos (backend viejo): mejor no mostrar
+        // nada que ofrecer botones que no van a hacer lo que el operario espera.
+        int zonas = 0;
+        if (rangos != null)
+            for (int i = 0; i < rangos.Length && i < 8 && rangos[i] > 0; i++) zonas++;
+
+        Reconstruir(zonas, i => new SeccionBotonViewModel(i, "zona_" + i));
+        SeccionesVisible = s.IsJobStarted && zonas > 0;
+
+        if (rangos == null) return;   // sin rangos no hay botones que pintar
+
+        var estados = s.SectionStates;
+        for (int z = 0; z < Secciones.Count && z < rangos.Length; z++)
+        {
+            int ultimaSeccion = rangos[z] - 1;   // rangos[z] = corte de la zona z+1
+            Secciones[z].SetEstado(EstadoDe(estados, ultimaSeccion));
+        }
+    }
+
+    private static int EstadoDe(int[]? estados, int idx)
+        => (estados != null && idx >= 0 && idx < estados.Length) ? estados[idx] : 0;
+
+    /// <summary>Rearma la lista solo si cambió la cantidad: recrearla en cada
+    /// tick haría parpadear la barra 8 veces por segundo.</summary>
+    private void Reconstruir(int cantidad, System.Func<int, SeccionBotonViewModel> crear)
+    {
+        if (Secciones.Count == cantidad) return;
+        Secciones.Clear();
+        for (int i = 1; i <= cantidad; i++) Secciones.Add(crear(i));
     }
 }
