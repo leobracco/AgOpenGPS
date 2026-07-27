@@ -882,6 +882,19 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Sistema open (nativo, no WebView)");
     }
 
+    // Brillo +/− del menú Navegación: mismo SistemaClient que usa el panel
+    // Sistema, lazy-init igual que ShowSistema (cero costo si nunca se toca
+    // ni brillo ni Sistema). Si la PC no soporta brillo (GetBrightnessAsync
+    // devuelve -1), no hace nada — no hay feedback visual posible ahí.
+    private async void AdjustBrightness(int delta)
+    {
+        if (_sistemaClient == null)
+            _sistemaClient = new SistemaClient(DeriveOrigin(App.TargetUrl));
+        int cur = await _sistemaClient.GetBrightnessAsync().ConfigureAwait(true);
+        if (cur < 0) return;
+        await _sistemaClient.SetBrightnessAsync(cur + delta).ConfigureAwait(true);
+    }
+
     private void CloseSistema()
     {
         if (_sistemaHost == null) return;
@@ -1666,6 +1679,24 @@ public partial class MainWindow : Window
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
                 OpenDialogPage("pages/direccion.html?v=9", "Dirección — Autoguiado", 1040, 780); return true;
+
+            // ---- Controles de cámara/vista (menú Navegación) — 100% cliente
+            // (MapGlSurface), no tocan el motor. Equivalentes a
+            // camera.PitchInDegrees/FollowDirectionHint del legacy. ----
+            case "v2d":     _mapHost?.SetHeadingUp(true);  _mapHost?.SetPitchDeg(0);   return true;
+            case "v3d":     _mapHost?.SetHeadingUp(true);  _mapHost?.SetPitchDeg(-65); return true;
+            case "norte2d": _mapHost?.SetHeadingUp(false); _mapHost?.SetPitchDeg(0);   return true;
+            case "tilt_up": _mapHost?.TiltBy(+5); return true;
+            case "tilt_dn": _mapHost?.TiltBy(-5); return true;
+            case "grilla":  _mapHost?.ToggleGrid(); return true;
+            case "dia_noche": _mapHost?.ToggleDayNight(); return true;
+
+            // Brillo de PANTALLA (no del render) — mismo mecanismo que el
+            // panel Sistema (SistemaClient/api/sistema/brillo). No hay
+            // control de brillo en el shader; esto es fiel al legacy
+            // (displayBrightness/CBrightness también era de sistema, no del mapa).
+            case "brillo_up": AdjustBrightness(+10); return true;
+            case "brillo_dn": AdjustBrightness(-10); return true;
         }
 
         // ---- Comandos que abren una página HTML del Hub en el WebView ----

@@ -156,6 +156,27 @@ public sealed class MapGlSurface : OpenGlControlBase
     // operario). North-up = false.
     private bool _headingUp = true;
 
+    // Pitch de cámara (grados, 0..-70): 0 = 2D top-down (comportamiento
+    // original), negativo = vista "3D" inclinada. Equivalente a
+    // camera.PitchInDegrees del legacy (btn2D/btn3D/btnTiltUp/btnTiltDn).
+    // Se aplica como un squish del eje "adelante" (v, tras rotar por
+    // heading) + un corrimiento hacia abajo en clip-space — NO es
+    // perspectiva real con punto de fuga (el pipeline es ortográfico puro,
+    // ver cabecera del archivo), pero es un efecto visual genuino: el mundo
+    // se ve achatado/inclinado y el tractor se corre hacia abajo, dejando
+    // ver más "adelante" en la parte superior, como una cámara chase-cam.
+    private double _pitchDeg;
+
+    // Grilla visible (botón "Grilla" del menú Navegación). Default on
+    // (comportamiento actual, sin regresión).
+    private bool _gridOn = true;
+
+    // Día/Noche: paleta alternativa de fondo+grilla del mapa. Default false
+    // (la paleta oscura actual, pensada para cabina de noche). Acota el
+    // efecto al MAPA nada más — el chrome de las barras (PilotXTheme) no
+    // cambia, eso queda fuera de alcance de este ciclo.
+    private bool _isDay;
+
     // Cross-track error (m) para el lightbar. NaN = sin guía activa (no dibuja).
     private double _xte = double.NaN;
 
@@ -171,6 +192,11 @@ public sealed class MapGlSurface : OpenGlControlBase
     // Grilla apenas perceptible (gris muy oscuro, alpha bajo) para no confundirse
     // con las guías cian; el fondo queda esencialmente negro.
     private static readonly float[] ColGrid          = { 0.11f, 0.12f, 0.11f, 0.09f };
+    // Paleta "Día" (dia_noche): fondo gris claro + grilla oscura, para uso
+    // diurno con sol directo sobre la pantalla (mismo criterio que el
+    // isDay del legacy, acá acotado al fondo/grilla del mapa GL).
+    private static readonly float[] ColBgDay         = { 0.72f, 0.75f, 0.71f, 1f };
+    private static readonly float[] ColGridDay       = { 0.35f, 0.38f, 0.35f, 0.30f };
     private static readonly float[] ColBoundary      = { 0.357f, 0.784f, 0.314f, 1f }; // #5BC850
     private static readonly float[] ColIslandStroke  = { 0.561f, 0.627f, 0.573f, 1f }; // #8FA092
     private static readonly float[] ColTractor       = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E
@@ -431,7 +457,8 @@ public sealed class MapGlSurface : OpenGlControlBase
         int hPx = (int)Math.Max(1, sz.Height);
 
         _gl.Viewport(0, 0, (uint)wPx, (uint)hPx);
-        _gl.ClearColor(ColBg[0], ColBg[1], ColBg[2], ColBg[3]);
+        float[] bg = _isDay ? ColBgDay : ColBg;
+        _gl.ClearColor(bg[0], bg[1], bg[2], bg[3]);
         _gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
         bool diag = _diagFrames < 3;
@@ -473,15 +500,22 @@ public sealed class MapGlSurface : OpenGlControlBase
         // uniforme (sx/sy sólo corrigen aspecto), así un círculo del mundo se ve
         // como círculo en pantalla, sólo rotado. Con alpha=0 queda igual que antes.
         //   clip.x = sx[cosα(x-cx) - sinα(y-cy)]
-        //   clip.y = sy[sinα(x-cx) + cosα(y-cy)]
+        //   clip.y = sy[sinα(x-cx) + cosα(y-cy)] · cosT + yShift   (T = pitch)
+        // Pitch (vista 3D): "squish" del eje v (adelante, tras rotar por
+        // heading) por cos(T) + corrimiento hacia abajo en clip-space por
+        // sin(T) — ver comentario de _pitchDeg. Con T=0 (2D) se cancela y
+        // queda EXACTAMENTE la fórmula ortográfica original.
         float sx = (float)(scale * 2.0 / wPx);
         float sy = (float)(scale * 2.0 / hPx);
         float ca = (float)Math.Cos(alpha);
         float sa = (float)Math.Sin(alpha);
-        float m00 = sx * ca,  m10 = sy * sa;      // columna 0 (x)
-        float m01 = -sx * sa, m11 = sy * ca;      // columna 1 (y)
+        double tiltRad = Math.Abs(_pitchDeg) * Math.PI / 180.0;
+        float cosT = (float)Math.Cos(tiltRad);
+        float sinT = (float)Math.Sin(tiltRad);
+        float m00 = sx * ca,          m10 = sy * sa * cosT;      // columna 0 (x)
+        float m01 = -sx * sa,         m11 = sy * ca * cosT;      // columna 1 (y)
         float tx = (float)(-(sx * (ca * cxBbox - sa * cyBbox)));
-        float ty = (float)(-(sy * (sa * cxBbox + ca * cyBbox)));
+        float ty = (float)(-(sy * (sa * cxBbox + ca * cyBbox)) * cosT - sinT * 0.5f);
         Span<float> mvp = stackalloc float[16]
         {
             m00, m10, 0, 0,
@@ -500,7 +534,8 @@ public sealed class MapGlSurface : OpenGlControlBase
         // (idle / sin lote), usar un grid arbitrario alrededor del 0,0
         // mundo (el tractor aparecera ahi cuando llegue snapshot con
         // PivotEasting/PivotNorthing).
-        DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, ColGrid);
+        if (_gridOn)
+            DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, _isDay ? ColGridDay : ColGrid);
 
         // --- Capa 2: coverage (worked area) ----------------------------
         // Si hay snapshot pendiente con revision nueva, reuploadeamos el
@@ -738,6 +773,41 @@ public sealed class MapGlSurface : OpenGlControlBase
         _userZoom = 1.0; _userPanX = 0; _userPanY = 0;
         RequestNextFrameRendering();
     }
+
+    // ---- cámara: vista (menú Navegación — 2D/3D/Norte 2D/tilt/grilla/día-noche) --
+
+    /// <summary>Heading-up (mapa rota con el rumbo) vs north-up (norte fijo arriba).</summary>
+    public void SetHeadingUp(bool v)
+    {
+        _headingUp = v;
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>Pitch de cámara en grados, clamp 0 (2D)..-70 (máx. inclinación).</summary>
+    public void SetPitchDeg(double deg)
+    {
+        _pitchDeg = Math.Clamp(deg, -70.0, 0.0);
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>Ajusta el pitch actual +delta (tilt_up/tilt_dn del menú).</summary>
+    public void TiltBy(double deltaDeg) => SetPitchDeg(_pitchDeg + deltaDeg);
+
+    public void SetGridOn(bool v)
+    {
+        _gridOn = v;
+        RequestNextFrameRendering();
+    }
+
+    public void ToggleGrid() => SetGridOn(!_gridOn);
+
+    public void SetDayMode(bool day)
+    {
+        _isDay = day;
+        RequestNextFrameRendering();
+    }
+
+    public void ToggleDayNight() => SetDayMode(!_isDay);
 
     // ---- helpers de render --------------------------------------------
 
