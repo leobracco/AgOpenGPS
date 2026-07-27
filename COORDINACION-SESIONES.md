@@ -2045,3 +2045,32 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   `SystemDecorations.None`, Maximized dejaba la barra de tareas de Windows a la
   vista. El doble clic en el header sigue alternando pantalla completa ↔ ventana
   (el operario no tiene teclado para recuperarla de otra forma).
+- [2026-07-27] [taller] HECHO — **Configuración ya lee y graba contra el motor**
+  (antes `GET/PUT /api/tool` daba **404**: el motor no tenía `IVehicleToolService`
+  cableado, así que la pantalla de config no podía ni leer ni guardar nada).
+  Nuevo `PilotX.GuidanceEngine/Adapters/EngineVehicleToolService.cs`: port directo
+  de `GuidanceEngineVehicleToolService` (PilotX.Android), que ya era 100%
+  portable — mismo criterio que `EngineLotesService`. Cubre vehículo, herramienta
+  (secciones/zonas/enganche) e IMU. Cableado en `EngineWebHost`.
+  Al guardar la herramienta recarga `CTool` y llama
+  `AplicarGeometriaDeSecciones()` (el método del fix de hoy) — **sin eso las
+  secciones quedaban con el reparto viejo hasta reiniciar el motor**.
+  **Verificado en runtime, los dos modos, con respaldo y restauración del perfil
+  `test` (quedó idéntico al original, verificado con diff):**
+  · Secciones individuales: 14×2 m → PUT 8×3,5 m → `GET /api/tool` lo confirma y
+    la geometría en vivo pasa a `[-14,-10.5]`, `[-10.5,-7]`… **en caliente**.
+  · Zonas: PUT `is_sections_not_zones=false`, 3 zonas, cortes 4/8/12, 12×2 m →
+    `/api/aog/sections` devuelve `zone_ranges=4,8,12` y la botonera ve el modo
+    zonas; `zona_2` cicla las secciones 5-8 (`0→1→2`) sin tocar las otras, y
+    `zona_4` (inexistente) da `ok:false`.
+  **Gotcha del contrato**: `PUT /api/tool` espera el DTO **directo**, NO envuelto
+  en `{"tool":{...}}` — el GET sí lo devuelve envuelto (`{ok, tool}`). Si se manda
+  envuelto, deserializa un DTO vacío y **graba defaults (1 sección de 0,5 m)**
+  sin fallar. Me pasó en la primera prueba. Vale la pena que el PUT rechace un
+  body sin campos reconocidos en vez de escribir defaults.
+- [2026-07-27] [taller] HECHO — la ventana del cockpit ahora sí cubre TODO.
+  `WindowState.FullScreen` no alcanzaba con `SystemDecorations.None` (seguía
+  quedando la barra de tareas de Windows). Se dimensiona a mano contra
+  `Screen.Bounds` (físicos, no `WorkingArea`) convertidos a DIPs con
+  `Screen.Scaling`. El doble clic en el header sigue alternando pantalla completa
+  ↔ ventana de 1280×800.

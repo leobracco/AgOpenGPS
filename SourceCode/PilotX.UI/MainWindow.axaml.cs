@@ -384,13 +384,15 @@ public partial class MainWindow : Window
             // El WebView NO se crea hasta que el operario navegue a una
             // pantalla del Hub (Settings/FieldTools/Tools).
             SystemDecorations = SystemDecorations.None;
-            // FullScreen y no Maximized: en la pantalla de la cabina el cockpit
-            // tiene que ocupar TODO. Maximized deja la barra de tareas de Windows
-            // visible y, sin decoraciones, a veces ni siquiera se expande al alto
-            // completo. El operario no tiene teclado para recuperar la ventana:
-            // el doble clic en el header (OnHeaderPressed) sigue alternando
-            // pantalla completa ↔ ventana por si hace falta.
-            WindowState = WindowState.FullScreen;
+            // El cockpit tiene que ocupar TODA la pantalla de la cabina.
+            // Ni Maximized ni FullScreen alcanzan con SystemDecorations.None:
+            // Maximized respeta el área de trabajo (deja la barra de tareas de
+            // Windows a la vista) y FullScreen, sin decoraciones, en Windows no
+            // llega a cubrirla. Se dimensiona a mano contra los bounds FÍSICOS
+            // de la pantalla (Screen.Bounds, no WorkingArea), convertidos a DIPs
+            // con el factor de escala del monitor.
+            WindowState = WindowState.Normal;
+            AjustarAPantallaCompleta();
             if (_rootBorder != null)
             {
                 _rootBorder.CornerRadius = new global::Avalonia.CornerRadius(0);
@@ -601,16 +603,44 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Deja la ventana cubriendo la pantalla entera, barra de tareas incluida.
+    /// Se usa en vez de WindowState.FullScreen porque con SystemDecorations.None
+    /// ese estado no cubre la barra de tareas en Windows.
+    /// </summary>
+    private void AjustarAPantallaCompleta()
+    {
+        try
+        {
+            var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+            if (screen == null) return;
+
+            var b = screen.Bounds;                       // píxeles físicos
+            double escala = screen.Scaling <= 0 ? 1.0 : screen.Scaling;
+
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Position = new global::Avalonia.PixelPoint(b.X, b.Y);
+            Width  = b.Width  / escala;                  // Width/Height van en DIPs
+            Height = b.Height / escala;
+            Topmost = false;                             // que no tape diálogos del sistema
+        }
+        catch { /* si falla, queda el tamaño del XAML */ }
+    }
+
     private void OnHeaderPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
             if (e.ClickCount == 2)
             {
-                // Salida/entrada de pantalla completa por doble clic en el header.
-                WindowState = WindowState == WindowState.Normal
-                    ? WindowState.FullScreen
-                    : WindowState.Normal;
+                // Doble clic en el header: alterna pantalla completa ↔ ventana.
+                // Es la única salida para el operario, que no tiene teclado.
+                if (Width >= (Screens.Primary?.Bounds.Width ?? 0) / (Screens.Primary?.Scaling ?? 1) - 1)
+                {
+                    Width = 1280; Height = 800;
+                    Position = new global::Avalonia.PixelPoint(80, 60);
+                }
+                else AjustarAPantallaCompleta();
                 return;
             }
             BeginMoveDrag(e);
