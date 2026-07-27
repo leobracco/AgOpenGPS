@@ -1842,3 +1842,99 @@ la sesión android al extraer, pero el taller los usa desde Services),
   142 tests verdes. **Falta de P0: paso 3 (decidir si el kiosco lanza Avalonia o
   sigue con WinForms — decisión de Leonardo) y paso 4 (instalar y correr en la
   pantalla de la cabina).**
+
+---
+
+## 📋 SANTIAGO — ARRANCÁ ACÁ (2026-07-27) · cerrar Windows, parte visual, ícono por ícono
+
+**Cambia el reparto respecto del plan de ayer.** Decisión de Leonardo:
+**vos tomás el carril VISUAL sobre Windows** y vas **ícono por ícono**. Leonardo
+se queda con motor, servicios y empaquetado.
+
+| | **SANTIAGO (vos)** | **LEONARDO** |
+|---|---|---|
+| **Carril** | UI nativa Avalonia + páginas HTML | Motor, servicios, empaquetado |
+| **Tus archivos** | `SourceCode/PilotX.UI/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` | `PilotX.GuidanceEngine*`, `AgroParallel.Services/*`, `AgOpenGPS.Core/*`, `build.ps1` |
+| **NO toques** | el motor ni los servicios: si te falta un comando, **PEDIDO** acá | tu UI |
+
+### Qué significa "ícono por ícono"
+
+La fuente de verdad es **`docs/INVENTARIO-UI-ICONOS.md`** — están TODOS los
+botones de la UI vieja con su función real, su estado (✅ / 🟡 / ❌) y el carril.
+Complemento visual: **`docs/menus-viejos.html`** (abrilo en el navegador, es la
+reconstrucción fiel de los menús de AOG 6.8.5 con los íconos verdaderos).
+
+Para **cada** ícono, este ciclo:
+
+1. **Buscalo en el inventario** y leé qué hace de verdad. Ojo: hay funciones mal
+   descritas en el catálogo viejo, la sección "CORRECCIONES DE AUDITORÍA" las
+   lista (ej. `btnTracksOff` NO oculta guías: deselecciona la guía activa).
+2. **Fijate si el motor ya responde ese comando**:
+   `grep -n "\"<cmd>\"" SourceCode/PilotX.GuidanceEngine.Core/GuidanceEngineHost.Commands.cs`
+   · Si está → implementás el botón y listo.
+   · Si NO está → **PEDIDO en esta bitácora** y seguís con otro ícono. **No lo
+     implementes vos en el motor**, nos pisamos.
+3. **Implementá el botón** en la barra/panel que corresponda, con el ícono real
+   (`PilotX.Cockpit.Bars/Assets/menu/` ya tiene los 35 del 6.8.5).
+4. **Verificá el EFECTO, no el botón.** El criterio nunca es "se pone verde": es
+   que pase la cosa. Sección apagada = deja de pintar cobertura en el mapa.
+   Contorno = cambia el guiado. Bandera = aparece en el mapa.
+5. **Tachá el ícono en el inventario** (✅) en el mismo commit.
+6. **Commit chico**, uno por ícono o por grupo chico. Prefijo `ui(<pantalla>):`.
+
+### Por dónde empezar (sugerencia, ordenada por valor)
+
+1. **Los 3 ❌ que ya identificamos como puros de UI**: `mapeo_color` (color de
+   cobertura, no necesita motor).
+2. **Controles de cámara/vista**: 2D / 3D / Norte-2D / tilt ± / grilla /
+   día-noche / brillo ±. Son 100% cliente (`MapGlSurface`), no tocan el motor.
+   Hoy el mapa es heading-up fijo con grilla fija.
+3. **Barra de abajo**: fila de secciones individuales 1..16 y zonas 1..8. Ojo:
+   el comando del motor **todavía no existe** → dejá PEDIDO y hacé el markup
+   mientras tanto si querés, pero no lo des por cerrado.
+4. Después seguí por los 🟡 del inventario: tienen handler real en el motor pero
+   **nunca se validó el efecto en el mapa** (son 12). Validarlos y tacharlos vale
+   tanto como implementar nuevos.
+
+### Cómo levantar el stack para probar
+
+```
+Build\CoreX.exe
+Build\Engine\PilotX.GuidanceEngine.exe --webhost      (SIN --corex: choca en 1883)
+Build\Desktop\PilotX.Desktop.exe
+```
+Y `Build\ModSim.exe` para simular GPS. **Verificá siempre por el proceso**
+(`PilotX.Desktop.exe` en el administrador de tareas), no por "se ve parecido":
+la UI vieja WinForms y la nueva se parecen lo suficiente como para perder horas
+probando la equivocada.
+
+Al arrancar, el motor loguea dos líneas que te van a ahorrar tiempo:
+`wwwroot: <ruta>` (si no lo encuentra, TODA página del Hub da 404) y
+`Perfil de vehículo: <nombre> → Ok` (si dice `(ninguno) MissingFile`, corre con
+geometría por defecto y el guiado sale mal de forma silenciosa).
+
+### Trampas conocidas (te ahorran medio día cada una)
+
+- **`catch (OperationCanceledException) { return; }` en un loop de polling.**
+  `HttpClient.Timeout` NO lanza `TimeoutException`: lanza `TaskCanceledException`,
+  que hereda de `OperationCanceledException`. Si ese catch envuelve la llamada
+  HTTP, **un solo request lento mata el loop PARA SIEMPRE** y el panel queda
+  congelado en sus defaults con la API perfectamente viva (fue exactamente el
+  bug de "Android no toma la velocidad"). Guard correcto:
+  `catch (OperationCanceledException) when (ct.IsCancellationRequested)`.
+  **Estado real (verificado hoy): los 7 pollers ya están arreglados y los
+  paneles de `Views/*` NO tienen el bug** — ahí el catch envuelve solo al
+  `Task.Delay(…, ct)` (correcto) y el HTTP lo captura cada cliente con su propio
+  `catch { return null; }`. O sea: no hay nada que arreglar acá, pero si escribís
+  un loop nuevo, no repitas el patrón.
+- **Truco de diagnóstico**: si dudás si un panel está congelado o mostrando
+  ceros, sacá dos capturas separadas y comparalas — si son idénticas byte a byte,
+  está congelado, no es el dato.
+- **Nunca alta manual de nodos** en UI: solo descubrimiento MQTT.
+- **Unidades al operario**: kg/ha, sem/m, sem/ha, rpm. **Nunca PPS.**
+- **Branding** en textos nuevos: PilotX / Agro Parallel / CoreX.
+
+### Contrato que no se rompe
+
+IDs y `data-*` de las páginas HTML están congelados (§4 de `COORDINACION-UI.md`);
+el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.

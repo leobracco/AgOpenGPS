@@ -60,12 +60,33 @@ otros.
 
 ## Reparto de carriles
 
-| | **LEONARDO** (esta PC) | **SANTIAGO** (otra PC) |
+> **CAMBIO 2026-07-27 (decisión de Leonardo):** se invirtieron los carriles.
+> Santiago toma la parte **visual** sobre Windows e itera **ícono por ícono**
+> contra `docs/INVENTARIO-UI-ICONOS.md`; Leonardo toma motor, servicios y
+> empaquetado. Las indicaciones completas para Santiago están en
+> `COORDINACION-SESIONES.md` (sección "SANTIAGO — ARRANCÁ ACÁ").
+
+| | **SANTIAGO** (otra PC) | **LEONARDO** (esta PC) |
 |---|---|---|
-| **Rol** | UI Avalonia + páginas HTML del Hub | Engine + servicios + comandos |
-| **Archivos** | `PilotX.UI/*`, `PilotX.Cockpit.Bars/*`, `wwwroot/*` | `PilotX.GuidanceEngine/*`, `PilotX.GuidanceEngine.Core/*`, `AgroParallel.Services/*` |
-| **NO toca** | `PilotX.GuidanceEngine*`, `AgOpenGPS.Core/Classes/` | `PilotX.UI/*`, `PilotX.Cockpit.Bars/*`, `wwwroot/*` |
-| **Verifica con** | pantalla + capturas | `curl` a `:5180` + tests |
+| **Rol** | UI Avalonia + páginas HTML, ícono por ícono | Engine + servicios + comandos + empaquetado |
+| **Archivos** | `PilotX.UI/*`, `PilotX.Cockpit.Bars/*`, `wwwroot/*` | `PilotX.GuidanceEngine*/*`, `AgroParallel.Services/*`, `AgOpenGPS.Core/*`, `build.ps1` |
+| **NO toca** | `PilotX.GuidanceEngine*`, `AgroParallel.Services/*`, `build.ps1` | `PilotX.UI/*`, `PilotX.Cockpit.Bars/*` |
+| **Verifica con** | pantalla + capturas (el EFECTO, no el botón) | `curl` a `:5180` + tests |
+
+**Consecuencia en las tareas de abajo:** las L* (UI) pasan a Santiago y las S*
+(motor) a Leonardo.
+
+> **L1 SE CANCELA — la premisa era falsa (verificado 2026-07-27).** Di por
+> sentado que los 9 paneles de `Views/*` tenían el mismo `catch` fatal que los
+> pollers. **No lo tienen:** ahí el `catch (OperationCanceledException)` envuelve
+> solo al `Task.Delay(…, ct)` (que únicamente lanza si la cancelación es real) y
+> la llamada HTTP vive dentro de `TickAsync` → cada cliente
+> (`QuantiXClient`, `VistaXClient`, …) la captura con su propio
+> `catch { return null; }` y el tick siguiente reintenta. Comprobado en los 9
+> clientes: todos capturan por método. **No hay nada que arreglar.** Lección para
+> el resto del plan: el patrón `catch (OperationCanceledException) { return; }`
+> solo es fatal **si envuelve la llamada HTTP** — hay que mirar qué envuelve
+> antes de tocarlo.
 
 **Punto de encuentro diario:** al terminar el día, cada uno deja su entrada en
 `COORDINACION-SESIONES.md` y pushea. El del otro lado hace merge al arrancar.
