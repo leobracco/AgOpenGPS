@@ -45,9 +45,23 @@
 | Tram vista | `tram_vista` | `CycleTramDisplayMode` | 🟡 real | L (validar) |
 | **ISOBUS** | `isobus` | ❌ no está | ❌ falta | **S** (comando + estado ISOBUS) |
 | **Bandera** | `bandera` | ❌ no está | ❌ falta | **S** (registrar flag + /api) · **L** (dibujar en mapa) |
-| **Color mapeo** | `mapeo_color` | ❌ no está | ❌ falta | **L** (color de cobertura, sin engine) |
+| **Color mapeo** | `mapeo_color` | ❌ no está | 🟡 abre `colores-secciones.html`, pero sin efecto en el mapa (ver nota) | **S** (propagar color al snapshot de cobertura) |
 
-**Balance:** 5 ✅ · 12 🟡 (handler real, falta validar el efecto en el mapa) · 3 ❌ (`isobus`, `bandera`, `mapeo_color`).
+**Balance:** 5 ✅ · 13 🟡 (12 handler real por validar en el mapa + `mapeo_color`
+sin efecto por hueco de motor) · 2 ❌ (`isobus`, `bandera`).
+
+**`mapeo_color` (2026-07-27):** el ícono YA abre `colores-secciones.html`
+(reutiliza la pantalla multicolor por sección, más completa que el
+color-picker único del legacy `btnChangeMappingColor`/`FormColorPicker`) —
+eso es lo mío y está hecho. Pero cambiar el color ahí no pinta nada distinto
+en el mapa: ni `FormGpsCoverageService.GetSnapshot()` (WinForms) ni el
+adapter del motor headless propagan color al `CoverageSnapshot` — hoy
+`MapGlSurface.DrawCoverage()` pinta TODA la cobertura de un verde fijo
+(75,166,63,140) sin leer `sectionColorDay` ni `tool.secColors`/
+`isMultiColoredSections`. PEDIDO para Leonardo en `COORDINACION-SESIONES.md`
+(carril motor): propagar color (único o por sección) al snapshot; del lado
+mío falta que `DrawCoverage` deje de usar un `Uniform4` global y pinte por
+sección — lo hago apenas el snapshot traiga el dato.
 
 ---
 

@@ -2319,3 +2319,27 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **Nota**: el mapa ya no usa un tamaño inventado, así que si el vehículo se ve
   chico/grande hay que corregir **Entre ejes / Trocha** en Configuración, que es
   lo correcto.
+
+- [2026-07-27] [android] PEDIDO — reviso `mapeo_color` (btnChangeMappingColor)
+  del menú Navegación. Lo mío ya está: el comando abre
+  `pages/colores-secciones.html` (reutiliza la pantalla multicolor por
+  sección — más completa que el color-picker único del legacy, que solo
+  cambiaba `sectionColorDay`). Pero **cambiar cualquier color ahí no tiene
+  efecto en el mapa**: ni `FormGpsCoverageService.GetSnapshot()`
+  (`SourceCode/GPS/AgroParallel/Common/FormGpsCoverageService.cs:29-76`,
+  descarta explícitamente el color del header de `patchList[k][0]`) ni tu
+  adapter del motor headless (no lo encontré, asumo que tampoco) propagan
+  color al `CoverageSnapshot` que consume `MapGlSurface.DrawCoverage()`
+  (`SourceCode/PilotX.UI/Views/MapGlSurface.cs:995-1111`) — hoy pinta TODA
+  la cobertura con un único `Uniform4` fijo verde (75,166,63,140), ignorando
+  `sectionColorDay`/`tool.secColors`/`isMultiColoredSections` por completo.
+  **PEDIDO**: que el snapshot de cobertura (los dos backends, WinForms y
+  motor) traiga el color real — mínimo un color único (`sectionColorDay`),
+  ideal color por sección si `isMultiColoredSections` está prendido (mismo
+  patrón que ya tenés en `AogStateSnapshot` con `section_states`/
+  `zone_ranges`). Del lado mío falta que `DrawCoverage` deje de usar un solo
+  `Uniform4` y pinte por sección — lo hago apenas el snapshot traiga el dato,
+  no antes (no tiene sentido tocar el shader sin la fuente real). Marqué
+  `mapeo_color` 🟡 en el inventario (no ❌: el ícono SÍ hace algo real, solo
+  que ese algo todavía no pinta el mapa) y sigo con los 12 🟡 de "validar en
+  el mapa" (cockpit derecha/abajo) mientras tanto.
