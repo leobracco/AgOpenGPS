@@ -279,14 +279,20 @@ namespace PilotX.Desktop.Views
             return false;
         }
 
-        // Brillo +/− del menú Navegación: lazy-init igual que MainWindow. Si
-        // la PC/tablet no soporta brillo (GetBrightnessAsync -1), no hace nada.
+        // Brillo +/− del menú Navegación: lazy-init igual que MainWindow.
+        // cur=-1 puede ser hardware sin soporte O el backend sin
+        // ISistemaService cableado (hoy PilotX.GuidanceEngine --webhost pasa
+        // sistema:null — PEDIDO a Leonardo en COORDINACION-SESIONES).
         private async void AdjustBrightness(int delta)
         {
             if (_sistemaClient == null)
                 _sistemaClient = new SistemaClient(DeriveOrigin(App.TargetUrl));
             int cur = await _sistemaClient.GetBrightnessAsync().ConfigureAwait(true);
-            if (cur < 0) return;
+            if (cur < 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[PilotX] Brillo: sin soporte (backend o hardware) — api/sistema/brillo devolvió -1");
+                return;
+            }
             await _sistemaClient.SetBrightnessAsync(cur + delta).ConfigureAwait(true);
         }
 

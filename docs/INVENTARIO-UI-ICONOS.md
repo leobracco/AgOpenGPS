@@ -194,7 +194,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Norte-2D (btnN2D) | CameraNorth2D | Cenital norte-arriba (no rota) | ✅ | L |
 | Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | ✅ (on/off simple, sin el diálogo de alineación del legacy) | L |
 | Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ✅ (solo el mapa; el chrome de las barras no cambia) | L |
-| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | ✅ (SistemaClient, mismo mecanismo del panel Sistema) | L |
+| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | 🟡 (UI cableada contra SistemaClient; el motor `--webhost` no tiene `ISistemaService` → PEDIDO a Leonardo) | L+S |
 | Hz+frame+fix (lblHz) | — | Frecuencia GPS (Hz) + tiempo de frame (ms) + calidad de fix (NO es PPS) | 🟡 | L |
 
 ## 7) Configuración (mayormente HTML por WebView)

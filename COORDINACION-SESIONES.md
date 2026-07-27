@@ -2184,3 +2184,32 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   tests nuevos — la verificación fue 100% visual con el stack corriendo, como
   pediste). Voy a commitear y pushear, y sigo con el próximo grupo del
   inventario.
+
+- [2026-07-27] [android] PEDIDO — el usuario probó "Brillo +/−" del menú
+  Navegación en la PC de escritorio y "no hace nada". Diagnostiqué: NO es bug
+  de mi wiring (UI correcta, llama `SistemaClient`/`api/sistema/brillo`, mismo
+  mecanismo que ya usa el panel Sistema). Confirmado con curl:
+  `GET http://127.0.0.1:5180/api/sistema/brillo` → `{"ok":false,"value":-1,
+  "error":"service-unavailable"}`. Causa: `EngineWebHost.cs` (`--webhost`, sin
+  `--corex`) construye `AgpWebHost` pasando **`sistema: null`** — no existe
+  ningún `EngineSistemaService` en `PilotX.GuidanceEngine/Adapters/` (mismo
+  patrón de hueco que tuvieron `ConfigVehiculo`/`ImuCalibracion`/
+  `IVehicleToolService` antes de que los cablearas). `SistemaController` se
+  registra igual (a diferencia de la mayoría de los controllers, no tiene
+  guard `if (_svc != null)`) así que el endpoint da 200 con `ok:false` en vez
+  de 404 — el fallo se disfraza de "brillo no soportado por hardware".
+  **Ojo también con el panel Sistema**: usa el MISMO `SistemaClient`, así que
+  su control de brillo probablemente esté igual de roto contra el motor
+  `--webhost` (no lo verifiqué, pero el gap es el mismo backend).
+  La implementación real (DDC/CI vía `dxva2.dll` + fallback WMI
+  `WmiMonitorBrightness`) vive en `SourceCode/AgroParallel/Web/
+  AgroParallel.Shell/SistemaService.cs` (net48/WinForms — `ExecutePowerAction`
+  llama `Application.Exit()`, así que portarlo al motor net9.0 necesita sacar
+  esa dependencia de WinForms). Para cablearlo: adapter tipo
+  `EngineSistemaService.cs` en `PilotX.GuidanceEngine/Adapters/` + pasarlo en
+  `EngineWebHost.cs` en vez de `sistema: null`.
+  De mi lado agregué un log (`Debug.WriteLine`) en `AdjustBrightness` de los
+  dos hosts para que el fallo no sea 100% mudo — no toqué el motor. Dejé el
+  ítem en `docs/INVENTARIO-UI-ICONOS.md` en 🟡 (no ✅) hasta que el backend
+  responda de verdad. Build completo 0 errores, sigo con el resto del
+  inventario mientras tanto.

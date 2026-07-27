@@ -921,14 +921,21 @@ public partial class MainWindow : Window
 
     // Brillo +/− del menú Navegación: mismo SistemaClient que usa el panel
     // Sistema, lazy-init igual que ShowSistema (cero costo si nunca se toca
-    // ni brillo ni Sistema). Si la PC no soporta brillo (GetBrightnessAsync
-    // devuelve -1), no hace nada — no hay feedback visual posible ahí.
+    // ni brillo ni Sistema). cur=-1 puede ser hardware sin soporte (DDC/CI o
+    // WMI no disponibles) O el backend sin ISistemaService cableado (hoy
+    // PilotX.GuidanceEngine --webhost pasa sistema:null → api/sistema/brillo
+    // responde siempre ok:false — PEDIDO a Leonardo en COORDINACION-SESIONES,
+    // no es un bug de este wiring). El log deja rastro en vez de fallar mudo.
     private async void AdjustBrightness(int delta)
     {
         if (_sistemaClient == null)
             _sistemaClient = new SistemaClient(DeriveOrigin(App.TargetUrl));
         int cur = await _sistemaClient.GetBrightnessAsync().ConfigureAwait(true);
-        if (cur < 0) return;
+        if (cur < 0)
+        {
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Brillo: sin soporte (backend o hardware) — api/sistema/brillo devolvió -1");
+            return;
+        }
         await _sistemaClient.SetBrightnessAsync(cur + delta).ConfigureAwait(true);
     }
 
