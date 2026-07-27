@@ -46,7 +46,7 @@
     </Style>
     <Style Selector="Button.mbtn.lote TextBlock.mlbl">
       <Setter Property="Foreground" Value="#08120A"/>
-      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="FontSize" Value="15"/>
       <Setter Property="FontWeight" Value="Bold"/>
     </Style>
 
@@ -78,8 +78,11 @@
       <Setter Property="Height" Value="24"/>
       <Setter Property="Stretch" Value="Uniform"/>
     </Style>
+    <!-- Menú sin íconos (pedido del usuario): la etiqueta es lo único que
+         identifica al botón, así que se agranda para que se lea de un vistazo
+         desde el asiento. Antes competía con un ícono de 28 px. -->
     <Style Selector="TextBlock.mlbl">
-      <Setter Property="FontSize" Value="9.5"/>
+      <Setter Property="FontSize" Value="13"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Foreground" Value="#101612"/>
       <Setter Property="HorizontalAlignment" Value="Center"/>
@@ -152,33 +155,36 @@
         <Button Grid.Row="0" Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion">
-          <StackPanel><Image Classes="mico" Source="/Assets/menu/NavigationSettings.png"/><TextBlock Classes="mlbl" Text="Navegación"/></StackPanel>
+          <StackPanel><TextBlock Classes="mlbl" Text="Navegación"/></StackPanel>
         </Button>
         <Button Grid.Row="1" Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="herramientas">
-          <StackPanel><Image Classes="mico" Source="/Assets/menu/SpecialFunctions.png"/><TextBlock Classes="mlbl" Text="Herramientas"/></StackPanel>
+          <StackPanel><TextBlock Classes="mlbl" Text="Herramientas"/></StackPanel>
         </Button>
+        <!-- Configuración va DIRECTO a la pantalla de config: es la que se usa
+             todo el tiempo y no vale la pena un submenú intermedio. El resto de
+             lo que colgaba de acá (colores, directorios, atajos, ver ajustes)
+             sigue estando en Herramientas y en la propia pantalla. -->
         <Button Grid.Row="2" Classes="mbtn"
-                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}"
-                Command="{Binding ToggleSubmenuCommand}" CommandParameter="config">
-          <StackPanel><Image Classes="mico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="mlbl" Text="Configuración"/></StackPanel>
+                Command="{Binding SendCommand}" CommandParameter="config_form">
+          <StackPanel><TextBlock Classes="mlbl" Text="Configuración"/></StackPanel>
         </Button>
         <Button Grid.Row="3" Classes="mbtn lote"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="lote">
-          <StackPanel><Image Classes="mico" Source="/Assets/menu/JobActive.png"/><TextBlock Classes="mlbl" Text="LOTE"/></StackPanel>
+          <StackPanel><TextBlock Classes="mlbl" Text="LOTE"/></StackPanel>
         </Button>
         <Button Grid.Row="4" Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="herrlote">
-          <StackPanel><Image Classes="mico" Source="/Assets/menu/FieldTools.png"/><TextBlock Classes="mlbl" Text="Herr. lote"/></StackPanel>
+          <StackPanel><TextBlock Classes="mlbl" Text="Herr. lote"/></StackPanel>
         </Button>
         <Button Grid.Row="5" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="direccion">
-          <StackPanel><Image Classes="mico" Source="/Assets/menu/AutoSteerConf.png"/><TextBlock Classes="mlbl" Text="Dirección"/></StackPanel>
+          <StackPanel><TextBlock Classes="mlbl" Text="Dirección"/></StackPanel>
         </Button>
         <Button Grid.Row="6" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
-          <StackPanel><Image Classes="mico" Source="/Assets/menu/CoreX.png"/><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
+          <StackPanel><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
         </Button>
       </Grid>
 
@@ -228,25 +234,6 @@
         </DockPanel>
       </Border>
 
-      <!-- Configuración (dropdown Settings de AOG) -->
-      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
-              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=config}">
-        <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="CONFIGURACIÓN"/>
-          <ScrollViewer>
-            <UniformGrid Columns="2" VerticalAlignment="Top">
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="config_form"><StackPanel><Image Classes="sico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="slbl" Text="Configuración"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="direccion"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOff.png"/><TextBlock Classes="slbl" Text="Auto Steer"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="todos_ajustes"><StackPanel><Image Classes="sico" Source="/Assets/menu/ScreenShot.png"/><TextBlock Classes="slbl" Text="Ver ajustes"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="directorios"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Directorios"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="datos_gps"><StackPanel><Image Classes="sico" Source="/Assets/menu/GPSQuality.png"/><TextBlock Classes="slbl" Text="Datos GPS"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="colores"><StackPanel><Image Classes="sico" Source="/Assets/menu/ColourPick.png"/><TextBlock Classes="slbl" Text="Colores"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="colores_sec"><StackPanel><Image Classes="sico" Source="/Assets/menu/SectionMapping.png"/><TextBlock Classes="slbl" Text="Colores secciones"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="hotkeys"><StackPanel><Image Classes="sico" Source="/Assets/menu/ConD_KeyBoard.png"/><TextBlock Classes="slbl" Text="Atajos"/></StackPanel></Button>
-            </UniformGrid>
-          </ScrollViewer>
-        </DockPanel>
-      </Border>
 
       <!-- LOTE (btnJobMenu de AOG) -->
       <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"

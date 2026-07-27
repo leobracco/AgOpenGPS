@@ -2101,3 +2101,25 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   bajada "TECNOLOGÍA QUE GUÍA TU CAMPO" no se lee — si se quiere, conviene un
   recorte al emblema PX solo para los tamaños chicos.
   Paquete regenerado: **PilotX_v1.0.24.zip**, build 0 errores, 156 tests verdes.
+- [2026-07-27] [taller] HECHO (carril Santiago, avisado) — menú izquierdo, 2
+  pedidos del usuario:
+  · **"Configuración" va DIRECTO** a la pantalla de config (`config_form`), sin
+    submenú intermedio. Se eliminó el bloque del submenú entero.
+    **OJO**: con eso quedaron sin entrada en el menú izquierdo `todos_ajustes`,
+    `directorios`, `datos_gps`, `colores`, `colores_sec` y `hotkeys`. "Auto
+    Steer" no se pierde: tiene su propio botón "Dirección" en la columna
+    principal, y "Datos GPS" está en la barra superior. Si alguno de los otros
+    hace falta, hay que reubicarlo (Herramientas es el lugar natural).
+  · **Menú lateral SIN íconos**: se sacaron los 7 `Image.mico` de la columna
+    principal. Como la etiqueta pasó a ser lo único que identifica al botón, se
+    agrandó la tipografía (9,5 → 13; LOTE 11,5 → 15) para que se lea desde el
+    asiento. Los submenús conservan sus íconos (`sico`) — si también los querés
+    sin íconos, avisá.
+- [2026-07-27] [taller] HECHO — **íconos de marca recortados al emblema**. Los
+  `.ico` anteriores usaban el logo completo y a 16-32 px el texto quedaba en una
+  mancha ilegible. Ahora el `.ico` lleva SOLO el emblema (PX / CX), detectado por
+  análisis de píxeles (primera banda horizontal con tinta, cortando en el hueco
+  que la separa de la palabra) — nada a ojo. Script en scratchpad; el recorte se
+  hace sobre el bbox ANTES de centrar, si no, al ser el emblema más ancho que
+  alto, sobra alto en el lienzo cuadrado y se cuela la palabra de abajo.
+  Paquete: **PilotX_v1.0.24.zip** (SHA BF693F63…), build 0 errores, 156 tests.
