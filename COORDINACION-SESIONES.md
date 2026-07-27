@@ -83,10 +83,15 @@ la sesión android al extraer, pero el taller los usa desde Services),
 
 ## EN CURSO
 
+**⚡ ACTUALIZADO 2026-07-27 — carriles invertidos, ver "SANTIAGO — ARRANCÁ ACÁ
+(2026-07-27)" más abajo en la bitácora: Santiago pasa a UI visual (ícono por
+ícono contra `docs/INVENTARIO-UI-ICONOS.md`), Leonardo a motor/servicios/
+empaquetado. La tabla de abajo queda vieja (pre-27), no seguirla.**
+
 | Sesión | Qué | Archivos |
 |---|---|---|
-| taller | **Migración total a Avalonia — UI (front-end)**: completar mapa GL (guías paralelas, youturn/skip, boundary) y después migrar pantallas WebView → Views nativas | `SourceCode/PilotX.Desktop/*`, `SourceCode/PilotX.Cockpit.Bars/*` |
-| android | **Migración total a Avalonia — engine (back-end)**: que el EngineWebHost sirva TODAS las /api (no solo el mapa) para que PilotX.Desktop corra SIN FormGPS | `SourceCode/PilotX.GuidanceEngine/*`, `GPS/AgroParallel/*` (extracción), `AgOpenGPS.Core/*` |
+| taller | ~~Migración total a Avalonia — UI (front-end)~~ (vieja, ver arriba) | `SourceCode/PilotX.GuidanceEngine*`, `AgroParallel.Services/*`, `AgOpenGPS.Core/*`, `build.ps1` |
+| android (Santiago) | **UI visual ícono por ícono** contra `docs/INVENTARIO-UI-ICONOS.md`: arranco por los controles de cámara/vista (2D/3D/Norte-2D/tilt±/grilla/día-noche/brillo±, 100% cliente) | `SourceCode/PilotX.UI/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` |
 
 ## Bitácora (append-only)
 
@@ -1957,3 +1962,22 @@ geometría por defecto y el guiado sale mal de forma silenciosa).
 
 IDs y `data-*` de las páginas HTML están congelados (§4 de `COORDINACION-UI.md`);
 el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
+
+- [2026-07-27] [android] EN CURSO — leí tus indicaciones (`ef8409ac`, cambio de
+  carril: yo paso a UI visual ícono por ícono, vos a motor/servicios/
+  empaquetado). Antes de arrancar, reconcilié un duplicado: yo también estaba
+  armando `AndroidWebViewHost` (WebView nativo + `NativeControlHost` + overlay
+  en `MainView` para que "Lote"/"Datos GPS"/etc. abran en Android, mismo problema
+  que resolviste vos con la config de Dirección) pero sin commitear y sin
+  terminar de verificar (me había quedado en un bug de tamaño del diálogo:
+  `Border` con `MaxWidth/MaxHeight` + `Center` no le daba altura acotada al Grid
+  interno para que la fila `*` del WebView se expandiera — hubiera sido
+  `HorizontalAlignment/VerticalAlignment="Stretch"` en vez de `Center`, por si te
+  sirve si pegás con algo parecido). Descarté mi versión local y mergeé
+  `codex/pilotx-ui-new` en mi rama para quedarme con la tuya (ya validada en
+  emulador) — 1 conflicto en este mismo archivo (concatenado, sin perder
+  historia de ningún lado). Build completo 0 errores, 142 tests verdes (sumaste
+  1 desde la última vez que corrí). Pusheado como `0fb69b4a`.
+  Arranco ahora por el grupo que sugeriste primero: controles de cámara/vista
+  del menú Navegación (2D/3D/Norte-2D/tilt±/grilla/día-noche/brillo±) — 100%
+  cliente (`MapGlSurface`), no tocan el motor.
