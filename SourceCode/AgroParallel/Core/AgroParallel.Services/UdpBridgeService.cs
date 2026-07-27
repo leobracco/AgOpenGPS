@@ -49,6 +49,16 @@ namespace AgroParallel.Services
             {
                 _udpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
+                // Puerto COMPARTIDO a propósito: acá entra el broadcast de los
+                // módulos (GPS/dirección/máquina) y más de un proceso de la PC
+                // necesita esa misma copia — el caso concreto es el relay que
+                // mete el GPS adentro del emulador Android (tools\
+                // emulador-gps-relay.ps1), que está detrás del NAT de QEMU y no
+                // ve el broadcast de la LAN. Sin esto Windows rechaza el
+                // segundo bind con WSAEACCES y había que matar la cadena entera
+                // para poder probar en el emulador.
+                _udpSocket.ExclusiveAddressUse = false;
+                _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 _udpSocket.Bind(new IPEndPoint(IPAddress.Any, listenPort));
                 _udpSocket.BeginReceiveFrom(_bufferUdp, 0, _bufferUdp.Length, SocketFlags.None,
                     ref _epUdp, UdpReceiveCallback, null);

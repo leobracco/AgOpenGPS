@@ -1740,3 +1740,30 @@ la sesión android al extraer, pero el taller los usa desde Services),
   comía la ventana nativa, que tenía escala fija y lo recortaba sola. Acoté a
   ±5120 cm en `grafico-xte.js` (capa cliente, aplica a los dos backends) en vez
   de tocar la semántica del motor.
+- [2026-07-27] [taller] HECHO — **"en el emulador Android no toma la velocidad"**:
+  diagnosticado y resuelto. **NO era bug de la app.** Evidencia recogida en cada
+  borde: el socket del bridge estaba bien bindeado adentro (`/proc/net/udp` →
+  `00000000:270F`), pero con `rx_queue 0` y **cero líneas "LAN NMEA" en logcat**:
+  no entraba ni un datagrama. Inyectando NMEA a mano por el redir
+  (`127.0.0.1:9998`) la app tomó todo al toque (`avg_speed`, `fix_quality:4`,
+  lat/lon) → el código Android estaba OK.
+  **Causa raíz**: el emulador vive detrás del NAT de QEMU y NO ve el broadcast
+  UDP de la LAN; la única entrada es el redir `udp:9998→9999`, y **nadie
+  reenviaba nada ahí**. Además no se podía levantar un relay porque
+  `UdpBridgeService.StartUdp` bindeaba el `:9999` **sin `ReuseAddress`** →
+  Windows rechazaba cualquier segundo listener con WSAEACCES (por eso en la
+  sesión del 2026-07-23 hubo que "matar la cadena Windows para liberar :9999").
+  **Fix** (mi carril, `AgroParallel.Services/UdpBridgeService.cs`):
+  `ExclusiveAddressUse=false` + `ReuseAddress` en el socket de broadcast — que
+  es lo correcto para un listener de broadcast igual. Ahora CoreX y el relay
+  conviven y **PilotX.Desktop y el emulador reciben el GPS al mismo tiempo**.
+  **Herramienta nueva**: `tools\emulador-gps-relay.ps1` (documenta el redir,
+  avisa si falta, cuenta NMEA vs PGN reenviados). OJO: el .ps1 va con **BOM
+  UTF-8** o PowerShell 5.1 lo lee como ANSI y los acentos rompen el parseo.
+  Verificado con ModSim real: relay reenviando (479 NMEA / 21 PGN en 15 s) y en
+  el emulador `avg_speed = 2.2224` km/h — **idéntico al `$GPVTG,...,2.2224,K`
+  de la fuente** — con lat/lon avanzando muestra a muestra. Build completo
+  0 errores/0 warnings, 141 tests verdes.
+  Nota para el que siga: el relay tiene que correr en una terminal propia; si lo
+  lanzás como Job de PowerShell se muere junto con esa sesión (me pasó, y el
+  síntoma es exactamente el original: valores congelados en el último dato).
