@@ -132,7 +132,7 @@ public sealed class HudPoller : IDisposable
                 var snap = JsonSerializer.Deserialize<HudSnapshot>(json, _jsonOpts);
                 if (snap != null) SnapshotReceived?.Invoke(snap);
             }
-            catch (OperationCanceledException) { return; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex)
             {
                 PollFailed?.Invoke(ex);

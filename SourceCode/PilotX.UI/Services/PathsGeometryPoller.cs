@@ -63,7 +63,7 @@ public sealed class PathsGeometryPoller
                     Dispatcher.UIThread.Post(() => _onSnapshot(snap));
                 }
             }
-            catch (OperationCanceledException) { return; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] PathsGeometryPoller: " + ex.Message);

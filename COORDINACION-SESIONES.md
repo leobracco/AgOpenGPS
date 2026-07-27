@@ -1767,3 +1767,32 @@ la sesión android al extraer, pero el taller los usa desde Services),
   Nota para el que siga: el relay tiene que correr en una terminal propia; si lo
   lanzás como Job de PowerShell se muere junto con esa sesión (me pasó, y el
   síntoma es exactamente el original: valores congelados en el último dato).
+- [2026-07-27] [taller] HECHO — **segunda causa del "en Android no toma la
+  velocidad": el polling de la UI se moría al primer timeout.** Después de
+  resolver que no llegaba GPS al emulador (entrada anterior), la barra SEGUÍA
+  en "0,0 KM/H / SIN FIX" con la API del propio proceso devolviendo
+  `avg_speed:2.2224` y `fix_quality:8`.
+  Evidencia que lo destrabó: dos capturas separadas 10 s **byte a byte
+  idénticas** (la UI no repintaba), pero al tocar un botón repintaba perfecto
+  → no era render ni deadlock. Y el reloj de la barra marcaba **12:57 con el
+  dispositivo en 04:2x**: `FechaText` se setea en cada `Apply()`, así que el
+  último `Apply` había sido horas antes → **el poller estaba muerto**.
+  **Causa raíz**: `HttpClient.Timeout` NO lanza `TimeoutException` sino
+  `TaskCanceledException`, que hereda de `OperationCanceledException` — y los
+  loops hacían `catch (OperationCanceledException) { return; }`. O sea: UN
+  request lento (trivial en el emulador, o mientras el web host levanta) mataba
+  el polling **para siempre**. En Desktop casi no pasaba porque la máquina es
+  rápida y el host ya está arriba — de ahí que el síntoma fuera solo en Android.
+  **Fix**: `when (ct.IsCancellationRequested)` en los 7 loops de datos en vivo
+  (`CockpitStateClient` + Hud/Coverage/GuidanceGeometry/Paths/ToolGeometry/
+  TramGeometry). Solo se sale si nos pidieron parar de verdad; un timeout
+  reintenta. Test de regresión nuevo: `CockpitStateClientResilienceTests`
+  (servidor TcpListener que cuelga el primer request más allá del timeout;
+  falla antes del fix, pasa después) → **142 tests verdes**.
+  Verificado en el emulador con APK redeployado y ModSim real: barra en
+  **2,2 KM/H** (igual que la fuente), señal **SIMULADOR**, reloj corriendo y
+  pantalla cambiando entre capturas. Build completo 0 errores/0 warnings.
+  **Pendiente relacionado**: el mismo `catch` fatal está en ~10 paneles de
+  `PilotX.UI/Views/*` (Camaras/CoreXEcu/FlowX/Nodos/QuantiX/SectionX/StormX/
+  VistaX/Actualizar). No los toqué en este commit para no mezclar; mismo patrón
+  de fix, conviene una pasada dedicada.

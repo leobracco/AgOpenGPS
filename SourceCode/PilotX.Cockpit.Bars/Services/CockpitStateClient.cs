@@ -50,7 +50,13 @@ public sealed class CockpitStateClient : IDisposable
                 var snap = Parse(json);
                 if (snap != null) SnapshotReceived?.Invoke(snap);
             }
-            catch (OperationCanceledException) { return; }
+            // OJO con el guard: HttpClient.Timeout NO lanza TimeoutException,
+            // lanza TaskCanceledException (hereda de OperationCanceledException).
+            // Sin el "when", un solo request lento — trivial en el emulador o
+            // mientras el web host todavía levanta — mataba el polling PARA
+            // SIEMPRE y la barra se quedaba en "0,0 / SIN FIX" con la API viva.
+            // Solo salimos si nos pidieron parar de verdad; un timeout reintenta.
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex) { PollFailed?.Invoke(ex); }
 
             try { await Task.Delay(_interval, ct).ConfigureAwait(false); }
