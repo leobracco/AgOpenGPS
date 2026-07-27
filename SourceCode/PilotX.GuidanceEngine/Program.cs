@@ -42,6 +42,23 @@ namespace AgOpenGPS
             // o DataRootOverride en Android) — necesario para poder abrir un lote real
             // por nombre (comando "job_start_<lote>"). No toca Windows Registry en
             // net9.0 puro (guard #if NETFRAMEWORK || WINDOWS en RegistrySettings.cs).
+            // En el paquete el motor vive en <install>\Engine\, pero la config de
+            // arranque (aog_settings.json: carpeta de trabajo, perfil de vehículo,
+            // idioma) es de la INSTALACIÓN y vive un nivel arriba — el ZIP de
+            // release no la incluye a propósito, para no pisar la del cliente al
+            // actualizar. Sin esto el motor arrancaría sin perfil y correría con
+            // la geometría por defecto (antena/ancho/ganancias), que es un error
+            // silencioso y difícil de diagnosticar en cabina.
+            var parentCfg = Path.Combine(
+                Path.GetDirectoryName(AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar)) ?? "",
+                "aog_settings.json");
+            if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "aog_settings.json"))
+                && File.Exists(parentCfg))
+            {
+                RegistrySettings.AppBasePath = Path.GetDirectoryName(parentCfg);
+                Console.WriteLine("Config de arranque heredada de la instalación: " + parentCfg);
+            }
+
             RegistrySettings.Load();
 
             // El perfil de vehículo (Vehicles\<nombre>.XML) trae TODA la config

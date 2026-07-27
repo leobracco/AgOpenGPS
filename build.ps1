@@ -58,6 +58,26 @@ dotnet publish "$root\SourceCode\PilotX.Bars.Host\PilotX.Bars.Host.csproj" `
     -p:PublishReadyToRun=true -o "$OutDir\BarsHost" $verArg
 if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.Bars.Host FAILED" -ForegroundColor Red; exit 1 }
 
+# --- Stack Avalonia (el que reemplaza al WinForms en la cabina) --------------
+# PilotX.GuidanceEngine: motor de guiado headless + API :5180. Es el backend de
+# PilotX.Desktop. Se lanza SIN --corex (CoreX.exe ya provee broker MQTT y bridge
+# UDP; con --corex chocan en el 1883). Lee su perfil de vehiculo del
+# aog_settings.json de la instalacion, un nivel arriba de esta carpeta.
+Write-Host "`n=== Publish PilotX.GuidanceEngine ($Config) ===" -ForegroundColor Cyan
+dotnet publish "$root\SourceCode\PilotX.GuidanceEngine\PilotX.GuidanceEngine.csproj" `
+    -c $Config -r win-x64 --self-contained true `
+    -p:PublishReadyToRun=true -o "$OutDir\Engine" $verArg
+if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.GuidanceEngine FAILED" -ForegroundColor Red; exit 1 }
+
+# PilotX.Desktop: la UI Avalonia nativa (mapa GL + barras + pantallas). Igual que
+# BarsHost, self-contained: la pantalla de la cabina no tiene runtime .NET 9 y no
+# queremos que el arranque dependa de instalarlo.
+Write-Host "`n=== Publish PilotX.Desktop ($Config) ===" -ForegroundColor Cyan
+dotnet publish "$root\SourceCode\PilotX.Desktop\PilotX.Desktop.csproj" `
+    -c $Config -r win-x64 --self-contained true `
+    -p:PublishReadyToRun=true -o "$OutDir\Desktop" $verArg
+if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.Desktop FAILED" -ForegroundColor Red; exit 1 }
+
 # Crear directorio de salida
 if (!(Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
 

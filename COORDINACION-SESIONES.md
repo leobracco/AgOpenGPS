@@ -1821,3 +1821,24 @@ la sesión android al extraer, pero el taller los usa desde Services),
   probarlo EN LA PANTALLA el día 1, no el día 3. Si P0 falla, se frena el plan y
   se replantea alcance. Ojo también con que `Engine\aog_settings.json` viaje con
   el `vehicle_file_name` real: sin eso el motor corre con geometría por defecto.
+- [2026-07-27] [taller] HECHO — **P0 pasos 1-2: el paquete ya lleva el stack
+  Avalonia.** `build.ps1` publica ahora `Build\Engine\` (PilotX.GuidanceEngine)
+  y `Build\Desktop\` (PilotX.Desktop), los dos self-contained win-x64 (la pantalla
+  no tiene runtime .NET 9 y no queremos que el arranque dependa de instalarlo,
+  mismo criterio que BarsHost). Verificado en el ZIP v1.0.24: 235 entradas en
+  `Engine/` + 250 en `Desktop/`, y **`aog_settings.json` NO viaja** (sigue siendo
+  config del cliente, no se pisa al actualizar).
+  Para que eso último funcione, el motor ahora hereda la config de arranque de la
+  instalación: si no hay `aog_settings.json` junto al exe pero sí un nivel arriba,
+  usa ese (`RegistrySettings.AppBasePath`). **AVISO Santiago: toqué
+  `PilotX.GuidanceEngine/Program.cs` de nuevo** (aditivo, 8 líneas, mismo bloque
+  del `Settings.Default.Load()` de ayer). Sin esto el motor en `Engine\` arrancaba
+  sin perfil y corría con geometría por defecto.
+  Verificado arrancando la cadena REAL desde `Build\`: CoreX → engine `--webhost`
+  → PilotX.Desktop. El engine loguea `Config de arranque heredada de la
+  instalación: ...\Build\aog_settings.json` + `Perfil de vehículo: test  Ok`, los
+  4 procesos quedan vivos y `/api/aog/state` responde con `fix_quality:8`.
+  (avg_speed 0 porque ModSim estaba parado, no es falla del stack.)
+  142 tests verdes. **Falta de P0: paso 3 (decidir si el kiosco lanza Avalonia o
+  sigue con WinForms — decisión de Leonardo) y paso 4 (instalar y correr en la
+  pantalla de la cabina).**
