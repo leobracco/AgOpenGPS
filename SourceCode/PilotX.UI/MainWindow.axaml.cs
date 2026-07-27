@@ -745,7 +745,16 @@ public partial class MainWindow : Window
         int api = url.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
         string origin = api >= 0 ? url.Substring(0, api) : url;
         string full = origin + "/" + relativePath.TrimStart('/');
+        OpenDialogUrl(full, title, w, h);
+    }
 
+    /// <summary>
+    /// Abre una URL ABSOLUTA (ej. el dashboard de CoreX en http://127.0.0.1:5181/)
+    /// en una ventana chica cerrable, igual que OpenDialogPage pero sin componer
+    /// la URL contra el origin del Hub (:5180).
+    /// </summary>
+    private void OpenDialogUrl(string full, string title, double w, double h)
+    {
         try
         {
             if (_dialogWin != null)
@@ -1619,10 +1628,15 @@ public partial class MainWindow : Window
             // ---- Info de lote/GPS → ventana chica cerrable (HTML) ----
             case "datos_gps":  OpenDialogPage("pages/datos-gps.html",  "Datos GPS",       760, 560); return true;
             case "lote_datos": OpenDialogPage("pages/datos-lote.html", "Datos del lote",  760, 560); return true;
-            // ---- Paneles nativos grandes (Hub / CoreX / Cámaras) ----
+            // ---- Paneles nativos grandes (Hub / Cámaras) ----
             case "hub":        ShowHub();      return true;
-            case "corex":      ShowCoreXEcu(); return true;
             case "webcam":     ShowCamaras();  return true;
+            // CoreX del menú izquierdo → dashboard de CoreX (config del sistema:
+            // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por
+            // CoreX (CoreXWebHost), NO en el Hub :5180. El ECU de autosteer queda
+            // en 'corex_ecu'.
+            case "corex":      OpenDialogUrl("http://127.0.0.1:5181/", "CoreX", 1000, 720); return true;
+            case "corex_ecu":  ShowCoreXEcu(); return true;
 
             // ---- Nueva A/B → flujo en el mapa (toco A, manejo, toco B) ----
             case "track_new_ab":
@@ -1647,13 +1661,17 @@ public partial class MainWindow : Window
                 OpenDialogPage("pages/lote.html?do=nuevo", "Nuevo lote", 670, 610); return true;
             case "lote_kml":
                 OpenDialogPage("pages/lote.html?do=kml", "Lote desde KML", 670, 610); return true;
+
+            // Dirección (FormSteer) → ventana propia más grande. ?v= evita que
+            // el WebView2 sirva una versión cacheada vieja de la página.
+            case "direccion":
+                OpenDialogPage("pages/direccion.html?v=9", "Dirección — Autoguiado", 1040, 780); return true;
         }
 
         // ---- Comandos que abren una página HTML del Hub en el WebView ----
         string page = cmd switch
         {
             "config_form"       => "pages/config.html",
-            "direccion"         => "pages/config.html",
             "todos_ajustes"     => "pages/ajustes-todos.html",
             "colores"           => "pages/colores.html",
             "colores_sec"       => "pages/colores-secciones.html",

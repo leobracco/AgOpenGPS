@@ -66,7 +66,7 @@ public sealed class GuidanceGeometryPoller
                     Dispatcher.UIThread.Post(() => _onSnapshot(snap));
                 }
             }
-            catch (OperationCanceledException) { return; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] GuidanceGeometryPoller: " + ex.Message);

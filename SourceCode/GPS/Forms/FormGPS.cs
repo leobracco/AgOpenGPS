@@ -642,6 +642,32 @@ namespace AgOpenGPS
                 var guidance = new global::AgroParallel.Adapters.FormGpsGuidanceCalculator(this);
                 var imuCalibracion = new global::AgroParallel.Adapters.FormGpsImuCalibracionService(this);
                 var trackList = new global::AgroParallel.Adapters.FormGpsTrackListService(this);
+                // Config de dirección (pantalla Dirección del Hub): el mapeo
+                // settings↔DTO + PGN 252/251 es compartido con el motor headless
+                // (archivo linkeado). Acá solo se le pasa lo propio de este host:
+                // el WAS vivo, el envío marshalado al hilo de UI y los campos
+                // vivos que no viven en CVehicle.
+                var steerConfig = new global::AgroParallel.Adapters.SteerConfigService(
+                    vehicle,
+                    () => mc.actualSteerAngleDegrees,
+                    () =>
+                    {
+                        try
+                        {
+                            if (IsDisposed || !IsHandleCreated) return;
+                            BeginInvoke(new Action(() => { try { SendSettings(); } catch { } }));
+                        }
+                        catch { }
+                    },
+                    cfg =>
+                    {
+                        var s = Properties.Settings.Default;
+                        isStanleyUsed = s.setVehicle_isStanleyUsed;
+                        isLightbarOn = s.setMenu_isLightbarOn;
+                        isLightBarNotSteerBar = s.setMenu_isLightbarNotSteerBar;
+                        guidanceLookAheadTime = s.setAS_guidanceLookAheadTime;
+                        lightbarCmPerPixel = s.setDisplay_lightbarCmPerPixel;
+                    });
                 var perfiles = new global::AgroParallel.Adapters.FormGpsPerfilService(this);
                 var configVehiculo = new global::AgroParallel.Adapters.FormGpsConfigService(this);
                 var headlandEdit = new global::AgroParallel.Adapters.FormGpsHeadlandEditService(this);
@@ -694,7 +720,8 @@ namespace AgOpenGPS
                     tramLine: tramLine,
                     trackBuilder: trackBuilder,
                     recPath: recPathSvc,
-                    paths: paths);
+                    paths: paths,
+                    steerConfig: steerConfig);
             }
             catch (Exception ex)
             {

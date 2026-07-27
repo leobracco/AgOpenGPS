@@ -33,6 +33,12 @@ namespace PilotX.Desktop.Views
         private BarraAbajo? _barAbajo;
         private MenuIzquierda? _menuIzq;
 
+        // Overlay del WebView (pantallas HTML del Hub en single-view Android).
+        private Grid? _webOverlay;
+        private Panel? _webSlot;
+        private TextBlock? _webTitle;
+        private IWebViewHandle? _webView;
+
         private BarraSuperiorViewModel? _vmSup;
         private BarraDerechaViewModel? _vmDer;
         private BarraAbajoViewModel? _vmAba;
@@ -71,6 +77,12 @@ namespace PilotX.Desktop.Views
             _barDerecha  = this.FindControl<BarraDerecha>("BarDerecha");
             _barAbajo    = this.FindControl<BarraAbajo>("BarAbajo");
             _menuIzq     = this.FindControl<MenuIzquierda>("MenuIzq");
+
+            _webOverlay  = this.FindControl<Grid>("WebOverlay");
+            _webSlot     = this.FindControl<Panel>("WebSlot");
+            _webTitle    = this.FindControl<TextBlock>("WebTitle");
+            var webClose = this.FindControl<Button>("WebClose");
+            if (webClose != null) webClose.Click += (_, _) => CloseWeb();
 
             // El wiring de red arranca cuando la vista entra al árbol visual (una
             // sola vez), para que Android/Desktop la instancien sin efectos de red
@@ -197,8 +209,95 @@ namespace PilotX.Desktop.Views
                         w.WindowState = w.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
                     return true;
                 case "apagar": w?.Close(); return true;
+
+                // CoreX de sistema: dashboard en :5181 (cada pantalla su propio CoreX).
+                case "corex":     OpenUrl("http://127.0.0.1:5181/", "CoreX"); return true;
+                case "corex_ecu": OpenPage("pages/corex-ecu.html", "CoreX-ECU"); return true;
+                case "direccion": OpenPage("pages/direccion.html", "Dirección"); return true;
+                case "lote_menu":      OpenPage("pages/lote.html", "Lote"); return true;
+                case "lote_continuar": OpenPage("pages/lote.html?do=continuar", "Lote"); return true;
+                case "lote_nuevo":     OpenPage("pages/lote.html?do=nuevo", "Nuevo lote"); return true;
+                case "lote_kml":       OpenPage("pages/lote.html?do=kml", "Lote desde KML"); return true;
+                case "lote_datos":     OpenPage("pages/datos-lote.html", "Datos del lote"); return true;
+                case "datos_gps":      OpenPage("pages/datos-gps.html", "Datos GPS"); return true;
+                case "hub":            OpenPage("pages/hub.html", "Hub"); return true;
+                case "webcam":         OpenPage("pages/camaras.html", "Cámaras"); return true;
             }
+
+            // Comandos que abren una página HTML del Hub (config/gráficos/lote-tools/…).
+            string? page = cmd switch
+            {
+                "config_form"       => "pages/config.html",
+                "todos_ajustes"     => "pages/ajustes-todos.html",
+                "colores"           => "pages/colores.html",
+                "colores_sec"       => "pages/colores-secciones.html",
+                "mapeo_color"       => "pages/colores-secciones.html",
+                "perfil_nuevo"      => "pages/perfiles.html",
+                "perfil_cargar"     => "pages/perfiles.html",
+                "perfil_gestion"    => "pages/perfiles.html",
+                "directorios"       => "pages/config.html",
+                "ayuda"             => "pages/ayuda.html",
+                "grafico_direccion" => "pages/grafico-direccion.html",
+                "grafico_rumbo"     => "pages/grafico-rumbo.html",
+                "grafico_xte"       => "pages/grafico-xte.html",
+                "chequeo_roll"      => "pages/grafico-correccion.html",
+                "suavizar_ab"       => "pages/suavizar-ab.html",
+                "corregir_pos"      => "pages/corregir-posicion.html",
+                "visor_eventos"     => "pages/eventos.html",
+                "bandera"           => "pages/banderas.html",
+                "bandera_latlon"    => "pages/banderas.html",
+                "lindero"           => "pages/contorno.html",
+                "cabecera"          => "pages/cabecera.html",
+                "cabecera_avanzada" => "pages/cabecera-lineas.html",
+                "tram_crear"        => "pages/tramline.html",
+                "importar_guias"    => "pages/tracks.html",
+                "pick"              => "pages/tracks.html",
+                "sim_coords"        => "pages/sim-coords.html",
+                "asistente_direccion" => "pages/config.html",
+                "herr_limites"      => "pages/contorno.html",
+                _ => null
+            };
+            if (page != null) { OpenPage(page, "PilotX"); return true; }
+
+            // Resto → backend de guiado por HTTP.
             return false;
+        }
+
+        // Abre una página HTML del Hub (relativa al origin del engine) en el overlay.
+        private void OpenPage(string relativePath, string title)
+        {
+            string url = PilotX.Desktop.App.TargetUrl?.TrimEnd('/') ?? "http://127.0.0.1:5180";
+            int api = url.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
+            string origin = api >= 0 ? url.Substring(0, api) : url;
+            OpenUrl(origin + "/" + relativePath.TrimStart('/'), title);
+        }
+
+        // Abre una URL absoluta en el overlay (ej. dashboard CoreX :5181).
+        private void OpenUrl(string full, string title)
+        {
+            if (PilotX.Desktop.App.WebViewHost == null || _webSlot == null || _webOverlay == null)
+                return;
+            CloseWeb();  // suelta cualquier web view previo
+            _webView = PilotX.Desktop.App.WebViewHost.Create(OnWebNavigated);
+            _webSlot.Children.Add(_webView.Control);
+            if (_webTitle != null) _webTitle.Text = title;
+            _webView.Navigate(full);
+            _webOverlay.IsVisible = true;
+        }
+
+        // La página pide cerrarse navegando a la URL centinela pilotx-close.
+        private void OnWebNavigated(string url)
+        {
+            if ((url ?? string.Empty).IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
+                Dispatcher.UIThread.Post(CloseWeb);
+        }
+
+        private void CloseWeb()
+        {
+            if (_webOverlay != null) _webOverlay.IsVisible = false;
+            try { _webView?.Release(); } catch { /* best-effort */ }
+            if (_webSlot != null) _webSlot.Children.Clear();
+            _webView = null;
         }
 
         private void OnHudSnapshot(HudSnapshot s)

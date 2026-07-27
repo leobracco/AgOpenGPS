@@ -84,6 +84,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Config de dirección (ISteerConfigService): mapeo settings↔DTO + PGN
+         252/251, port del FormSteer nativo. Archivo compartido por link con
+         PilotX.GuidanceEngine (motor headless) para no duplicar el mapeo. -->
+    <Compile Include="..\AgroParallel\Adapters\SteerConfigService.cs" Link="AgroParallel\SteerConfigService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- AgroParallel Fase B: copiar wwwroot al output como AgroParallel\wwwroot\ -->
     <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\**\*.*" LinkBase="AgroParallel\wwwroot">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

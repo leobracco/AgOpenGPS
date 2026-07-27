@@ -1670,3 +1670,290 @@ la sesión android al extraer, pero el taller los usa desde Services),
   ~65s y se replegó solo a la pestaña angosta; el toggle manual `‹`/`›`
   lo vuelve a expandir sin problema. Build completo 0 errores, 141 tests
   verdes. Voy a commitear y pushear.
+- [2026-07-24] [taller] HECHO (stopgap engine, AVISADO) — `SteerConfigController`
+  (`/api/steer/config` GET/POST + `/api/steer/zero-was`) para que la pantalla
+  Dirección (clon HTML de FormSteer, `direccion.html`) pueda GRABAR. Por ahora
+  persiste el objeto de config TAL CUAL a `steer-config.json` en ConfigRoot y lo
+  devuelve (verificado el ciclo grabar→releer). **Santi**: falta lo REAL de tu
+  carril — mapear las claves de la UI a `Settings.Default.setAS_*` (proportionalGain→
+  setAS_Kp, minPWM→setAS_lowSteerPWM, highSteerPWM→setAS_highSteerPWM, ackerman→
+  setAS_ackerman, countsPerDegree→setAS_countsPerDegree, wasOffset→setAS_wasOffset,
+  etc.) + `Settings.Save()` + enviar el PGN 252 (steer settings) al módulo de
+  dirección. Cuando esté, este controller debería leer/escribir esos settings en
+  vez del blob JSON.
+- [2026-07-24] [taller] HECHO — `AndroidWebViewHost` (pendiente #1 del análisis
+  de migración): implementé `IWebViewHost` para Android embebiendo el WebView
+  nativo (`Android.Webkit.WebView`) en un `NativeControlHost` +
+  `AndroidViewControlHandle` (Avalonia 11.2.3 — confirmado que compila y el tipo
+  existe). `MainActivity` setea `App.WebViewHost` antes de montar la UI, y
+  `MainView` ganó un overlay que hostea el WebView + rutea los comandos de
+  pantalla (Dirección/CoreX/lote/config/gráficos) a páginas del Hub (en Android
+  no hay Windows separadas como en Desktop). Compila Android y Desktop (0 err).
+  **Santi**: el comentario de `IWebViewHost.cs` lo marcaba como tu carril; lo tomé
+  desde acá porque el usuario lo priorizó y no lo habías empezado. **Falta
+  validación runtime en emulador** (que el WebView nativo realmente cargue las
+  páginas y el centinela `pilotx-close` cierre el overlay). Si querés seguir vos
+  esa validación, dale; si no, la hago yo.
+- [2026-07-24] [taller] HECHO — `AndroidWebViewHost` **validado en emulador**:
+  tocar Dirección abre `direccion.html` en el WebView nativo embebido (overlay de
+  MainView), el engine in-process sirve la página, `/api/steer/config` responde
+  ("Configuración cargada") y Cerrar cierra el overlay. Round-trip completo. El
+  404 inicial era `ExtractWwwroot` cacheando el wwwroot por versionCode (ver
+  reference_android_emulator_deploy). Mejora pendiente (para Santi o quien siga):
+  marker de wwwroot por hash en Debug para no tener que desinstalar al iterar.
+- [2026-07-26] [taller] HECHO — **`/api/steer/config` REAL** (cierra el stopgap del
+  2026-07-24 que guardaba un blob JSON y no configuraba nada). Ahora la pantalla
+  Dirección lee/escribe los settings de verdad y manda los **PGN 252/251** al módulo.
+  · `SteerConfigDto`/`SteerZeroWasResult` (AgroParallel.Models) + `ISteerConfigService`
+    (Services.Abstractions) — wire **snake_case**; `direccion.js` convierte
+    camelCase(data-key)⇄snake mecánicamente (3 alias a mano: PWM/PP).
+  · **`SourceCode/AgroParallel/Adapters/SteerConfigService.cs`** — implementación
+    ÚNICA compartida por link (`<Compile Include>`) entre `AgOpenGPS.csproj` y
+    `PilotX.GuidanceEngine.csproj`, para no duplicar el port del FormSteer.
+    Port 1:1: mismas escalas (x10/x100), bits de `setArdSteer_setting0/1`,
+    `lowSteerPWM = highSteerPWM/3`, exclusión encoder/presión/corriente, tope
+    ±3900 del cero de WAS. Lo del host entra por delegados (WAS vivo, SendSettings
+    marshalado, campos vivos que no viven en CVehicle).
+  · Cableado en los dos backends: `EngineWebHost` (motor headless) y `FormGPS.cs`
+    (legacy). El controller degrada al blob viejo si no hay servicio (Hub Android).
+  **AVISO (toqué el engine — carril Santi, 1 línea en `Program.cs`)**: el motor
+  headless **nunca llamaba `Settings.Default.Load()`** — corría siempre con los
+  valores por defecto del código y `Save()` era no-op (`vehicleFileName` vacío).
+  Agregado el Load + un print del perfil. Afecta a TODO, no solo dirección
+  (geometría, antena, secciones también salían por defecto). Si querés moverlo a
+  otro lado del arranque, dale.
+  Verificado en runtime real (`--sim --webhost`, perfil descartable copiado de
+  `test.XML`, borrado después — no se tocó ningún perfil real): GET trae los valores
+  reales del perfil (Kp=31, was=19, cpd=124, Button); POST→`ok:true`; el XML queda
+  con `setting0=195` (invertWAS+invertRelés+Button+encoder) y `setting1=9`
+  (danfoss+eje Y), `Kp=77`, `lowPWM=70` (=210/3), `maxPulse=21` (gana encoder),
+  `deadZoneHeading=20` (0.2°×100), `sideHillComp=0.07`; **sobrevive el reinicio**
+  del motor. `zero-was` responde ok con el ángulo vivo (0 sin módulo real).
+  Build: `PilotX.GuidanceEngine` y `AgOpenGPS.csproj` (EXE completo) 0 errores/0
+  warnings; solución completa OK salvo el copy de `PilotX.Desktop` (estaba
+  corriendo, no lo maté). 141 tests verdes. `node --check direccion.js` OK.
+  **Falta (hardware)**: confirmar contra un módulo de dirección real que el 252/251
+  llega y que el cero del WAS mueve el ángulo — sin gear no se puede validar.
+- [2026-07-26] [taller] HECHO — **gráficos de diagnóstico en vivo contra el motor
+  headless** (eran 4 stubs vacíos en `EngineStateProvider`, o sea las páginas
+  `grafico-*.html` dibujaban una línea plana en cero cuando el backend es el
+  engine). Port 1:1 de `FormGpsStateProvider`, leyendo el mismo modelo Core que
+  el motor ya orquesta:
+  · `graph-xte` ← `Vehicle.modeActualXTE`/`modeActualHeadingError`
+  · `graph-heading` ← `gpsHeading`/`imuCorrected` (rad→°)
+  · `graph-steer` ← `Mc.actualSteerAngleChart`/`guidanceLineSteerAngle` (×0.01)
+  · `graph-correction` ← `correctionDistanceGraph`/`uncorrectedEastingGraph`/
+    `Pn.fix.easting` + roll del IMU (centinela 88888 = sin IMU)
+  De paso, dos más de la misma lista de huecos: `shift-pos` (deriva real desde
+  `AppModelField.SharedFieldProperties.DriftCompensation`; `offsets_on` queda en
+  false — ese toggle todavía no está en `ExecuteCommand`) y `sim-coords`
+  (lat/lon del sim + estado). Siguen en stub, a propósito: `all-settings`,
+  colores y shapefile.
+  Verificado en runtime (`--sim --webhost`): con el lote **La Paloma** abierto y
+  guía elegida, `graph-steer` da `actual=30 / set=-30..-11` y `graph-xte`
+  `heading_error=-50° / xte=605cm`, moviéndose muestra a muestra; `graph-heading`
+  arranca vivo sin lote (341°/11°). Lote cerrado después, archivos del lote con
+  la fecha intacta (no se tocó nada).
+  **Hallazgo**: el XTE crudo alterna entre valores reales y un centinela enorme
+  (7.5e8 cm) cuando el tractor no está sobre la guía — es el mismo valor que
+  comía la ventana nativa, que tenía escala fija y lo recortaba sola. Acoté a
+  ±5120 cm en `grafico-xte.js` (capa cliente, aplica a los dos backends) en vez
+  de tocar la semántica del motor.
+- [2026-07-27] [taller] HECHO — **"en el emulador Android no toma la velocidad"**:
+  diagnosticado y resuelto. **NO era bug de la app.** Evidencia recogida en cada
+  borde: el socket del bridge estaba bien bindeado adentro (`/proc/net/udp` →
+  `00000000:270F`), pero con `rx_queue 0` y **cero líneas "LAN NMEA" en logcat**:
+  no entraba ni un datagrama. Inyectando NMEA a mano por el redir
+  (`127.0.0.1:9998`) la app tomó todo al toque (`avg_speed`, `fix_quality:4`,
+  lat/lon) → el código Android estaba OK.
+  **Causa raíz**: el emulador vive detrás del NAT de QEMU y NO ve el broadcast
+  UDP de la LAN; la única entrada es el redir `udp:9998→9999`, y **nadie
+  reenviaba nada ahí**. Además no se podía levantar un relay porque
+  `UdpBridgeService.StartUdp` bindeaba el `:9999` **sin `ReuseAddress`** →
+  Windows rechazaba cualquier segundo listener con WSAEACCES (por eso en la
+  sesión del 2026-07-23 hubo que "matar la cadena Windows para liberar :9999").
+  **Fix** (mi carril, `AgroParallel.Services/UdpBridgeService.cs`):
+  `ExclusiveAddressUse=false` + `ReuseAddress` en el socket de broadcast — que
+  es lo correcto para un listener de broadcast igual. Ahora CoreX y el relay
+  conviven y **PilotX.Desktop y el emulador reciben el GPS al mismo tiempo**.
+  **Herramienta nueva**: `tools\emulador-gps-relay.ps1` (documenta el redir,
+  avisa si falta, cuenta NMEA vs PGN reenviados). OJO: el .ps1 va con **BOM
+  UTF-8** o PowerShell 5.1 lo lee como ANSI y los acentos rompen el parseo.
+  Verificado con ModSim real: relay reenviando (479 NMEA / 21 PGN en 15 s) y en
+  el emulador `avg_speed = 2.2224` km/h — **idéntico al `$GPVTG,...,2.2224,K`
+  de la fuente** — con lat/lon avanzando muestra a muestra. Build completo
+  0 errores/0 warnings, 141 tests verdes.
+  Nota para el que siga: el relay tiene que correr en una terminal propia; si lo
+  lanzás como Job de PowerShell se muere junto con esa sesión (me pasó, y el
+  síntoma es exactamente el original: valores congelados en el último dato).
+- [2026-07-27] [taller] HECHO — **segunda causa del "en Android no toma la
+  velocidad": el polling de la UI se moría al primer timeout.** Después de
+  resolver que no llegaba GPS al emulador (entrada anterior), la barra SEGUÍA
+  en "0,0 KM/H / SIN FIX" con la API del propio proceso devolviendo
+  `avg_speed:2.2224` y `fix_quality:8`.
+  Evidencia que lo destrabó: dos capturas separadas 10 s **byte a byte
+  idénticas** (la UI no repintaba), pero al tocar un botón repintaba perfecto
+  → no era render ni deadlock. Y el reloj de la barra marcaba **12:57 con el
+  dispositivo en 04:2x**: `FechaText` se setea en cada `Apply()`, así que el
+  último `Apply` había sido horas antes → **el poller estaba muerto**.
+  **Causa raíz**: `HttpClient.Timeout` NO lanza `TimeoutException` sino
+  `TaskCanceledException`, que hereda de `OperationCanceledException` — y los
+  loops hacían `catch (OperationCanceledException) { return; }`. O sea: UN
+  request lento (trivial en el emulador, o mientras el web host levanta) mataba
+  el polling **para siempre**. En Desktop casi no pasaba porque la máquina es
+  rápida y el host ya está arriba — de ahí que el síntoma fuera solo en Android.
+  **Fix**: `when (ct.IsCancellationRequested)` en los 7 loops de datos en vivo
+  (`CockpitStateClient` + Hud/Coverage/GuidanceGeometry/Paths/ToolGeometry/
+  TramGeometry). Solo se sale si nos pidieron parar de verdad; un timeout
+  reintenta. Test de regresión nuevo: `CockpitStateClientResilienceTests`
+  (servidor TcpListener que cuelga el primer request más allá del timeout;
+  falla antes del fix, pasa después) → **142 tests verdes**.
+  Verificado en el emulador con APK redeployado y ModSim real: barra en
+  **2,2 KM/H** (igual que la fuente), señal **SIMULADOR**, reloj corriendo y
+  pantalla cambiando entre capturas. Build completo 0 errores/0 warnings.
+  **Pendiente relacionado**: el mismo `catch` fatal está en ~10 paneles de
+  `PilotX.UI/Views/*` (Camaras/CoreXEcu/FlowX/Nodos/QuantiX/SectionX/StormX/
+  VistaX/Actualizar). No los toqué en este commit para no mezclar; mismo patrón
+  de fix, conviene una pasada dedicada.
+- [2026-07-27] [taller] PLAN — **cierre piloto + QuantiX + VistaX en 3 días**:
+  `docs/superpowers/plans/2026-07-27-cierre-piloto-quantix-vistax.md`.
+  **Santiago: tus tareas son S1 (día 1, comandos de secciones individuales/zonas
+  + bandera/snap/youskip/hyd-lift), S2 (día 2 AM, cadena de dosis QuantiX con
+  tests de borde) y S3 (día 2 PM, alarmas VistaX).** Leonardo va por L1-L4 (UI).
+  Día 3 es de a dos: suite de regresión + guion de prueba de campo simulada +
+  instalación en la pantalla.
+  Aviso de alcance: el "100%" del plan NO es el inventario completo — quedan
+  explícitamente afuera los constructores (lindero/cabecera/tram), ruta grabada,
+  ISOBUS, import de guías y los controles de cámara 3D. Está la lista en el doc;
+  si algo de eso es imprescindible, hay que sacar otra cosa a cambio.
+  Hallazgo que motiva la tarea L1: `QuantiXPanel`/`VistaXPanel` (y 7 paneles más)
+  tienen el mismo `catch (OperationCanceledException) { return; }` fatal que ya
+  arreglamos en los pollers — o sea que **hoy el panel de siembra se congela solo**
+  y parece problema de nodos. Va primero porque si no, las pruebas de QX/VX del
+  día 2 dan falsos negativos.
+- [2026-07-27] [taller] AVISO — corrección al plan de 3 días: se agregó **P0**
+  (primera tarea, antes que todo). Motivo: `build.ps1` publica el `PilotX.exe`
+  **WinForms** + BarsHost y **NO empaqueta `PilotX.Desktop` ni
+  `PilotX.GuidanceEngine`** — o sea que lo que hoy se instala en la cabina es el
+  viejo. Si el cierre es "Windows sobre Avalonia", el paquete tiene que llevar el
+  stack nuevo (cadena `CoreX → engine --webhost → PilotX.Desktop`) y hay que
+  probarlo EN LA PANTALLA el día 1, no el día 3. Si P0 falla, se frena el plan y
+  se replantea alcance. Ojo también con que `Engine\aog_settings.json` viaje con
+  el `vehicle_file_name` real: sin eso el motor corre con geometría por defecto.
+- [2026-07-27] [taller] HECHO — **P0 pasos 1-2: el paquete ya lleva el stack
+  Avalonia.** `build.ps1` publica ahora `Build\Engine\` (PilotX.GuidanceEngine)
+  y `Build\Desktop\` (PilotX.Desktop), los dos self-contained win-x64 (la pantalla
+  no tiene runtime .NET 9 y no queremos que el arranque dependa de instalarlo,
+  mismo criterio que BarsHost). Verificado en el ZIP v1.0.24: 235 entradas en
+  `Engine/` + 250 en `Desktop/`, y **`aog_settings.json` NO viaja** (sigue siendo
+  config del cliente, no se pisa al actualizar).
+  Para que eso último funcione, el motor ahora hereda la config de arranque de la
+  instalación: si no hay `aog_settings.json` junto al exe pero sí un nivel arriba,
+  usa ese (`RegistrySettings.AppBasePath`). **AVISO Santiago: toqué
+  `PilotX.GuidanceEngine/Program.cs` de nuevo** (aditivo, 8 líneas, mismo bloque
+  del `Settings.Default.Load()` de ayer). Sin esto el motor en `Engine\` arrancaba
+  sin perfil y corría con geometría por defecto.
+  Verificado arrancando la cadena REAL desde `Build\`: CoreX → engine `--webhost`
+  → PilotX.Desktop. El engine loguea `Config de arranque heredada de la
+  instalación: ...\Build\aog_settings.json` + `Perfil de vehículo: test  Ok`, los
+  4 procesos quedan vivos y `/api/aog/state` responde con `fix_quality:8`.
+  (avg_speed 0 porque ModSim estaba parado, no es falla del stack.)
+  142 tests verdes. **Falta de P0: paso 3 (decidir si el kiosco lanza Avalonia o
+  sigue con WinForms — decisión de Leonardo) y paso 4 (instalar y correr en la
+  pantalla de la cabina).**
+
+---
+
+## 📋 SANTIAGO — ARRANCÁ ACÁ (2026-07-27) · cerrar Windows, parte visual, ícono por ícono
+
+**Cambia el reparto respecto del plan de ayer.** Decisión de Leonardo:
+**vos tomás el carril VISUAL sobre Windows** y vas **ícono por ícono**. Leonardo
+se queda con motor, servicios y empaquetado.
+
+| | **SANTIAGO (vos)** | **LEONARDO** |
+|---|---|---|
+| **Carril** | UI nativa Avalonia + páginas HTML | Motor, servicios, empaquetado |
+| **Tus archivos** | `SourceCode/PilotX.UI/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` | `PilotX.GuidanceEngine*`, `AgroParallel.Services/*`, `AgOpenGPS.Core/*`, `build.ps1` |
+| **NO toques** | el motor ni los servicios: si te falta un comando, **PEDIDO** acá | tu UI |
+
+### Qué significa "ícono por ícono"
+
+La fuente de verdad es **`docs/INVENTARIO-UI-ICONOS.md`** — están TODOS los
+botones de la UI vieja con su función real, su estado (✅ / 🟡 / ❌) y el carril.
+Complemento visual: **`docs/menus-viejos.html`** (abrilo en el navegador, es la
+reconstrucción fiel de los menús de AOG 6.8.5 con los íconos verdaderos).
+
+Para **cada** ícono, este ciclo:
+
+1. **Buscalo en el inventario** y leé qué hace de verdad. Ojo: hay funciones mal
+   descritas en el catálogo viejo, la sección "CORRECCIONES DE AUDITORÍA" las
+   lista (ej. `btnTracksOff` NO oculta guías: deselecciona la guía activa).
+2. **Fijate si el motor ya responde ese comando**:
+   `grep -n "\"<cmd>\"" SourceCode/PilotX.GuidanceEngine.Core/GuidanceEngineHost.Commands.cs`
+   · Si está → implementás el botón y listo.
+   · Si NO está → **PEDIDO en esta bitácora** y seguís con otro ícono. **No lo
+     implementes vos en el motor**, nos pisamos.
+3. **Implementá el botón** en la barra/panel que corresponda, con el ícono real
+   (`PilotX.Cockpit.Bars/Assets/menu/` ya tiene los 35 del 6.8.5).
+4. **Verificá el EFECTO, no el botón.** El criterio nunca es "se pone verde": es
+   que pase la cosa. Sección apagada = deja de pintar cobertura en el mapa.
+   Contorno = cambia el guiado. Bandera = aparece en el mapa.
+5. **Tachá el ícono en el inventario** (✅) en el mismo commit.
+6. **Commit chico**, uno por ícono o por grupo chico. Prefijo `ui(<pantalla>):`.
+
+### Por dónde empezar (sugerencia, ordenada por valor)
+
+1. **Los 3 ❌ que ya identificamos como puros de UI**: `mapeo_color` (color de
+   cobertura, no necesita motor).
+2. **Controles de cámara/vista**: 2D / 3D / Norte-2D / tilt ± / grilla /
+   día-noche / brillo ±. Son 100% cliente (`MapGlSurface`), no tocan el motor.
+   Hoy el mapa es heading-up fijo con grilla fija.
+3. **Barra de abajo**: fila de secciones individuales 1..16 y zonas 1..8. Ojo:
+   el comando del motor **todavía no existe** → dejá PEDIDO y hacé el markup
+   mientras tanto si querés, pero no lo des por cerrado.
+4. Después seguí por los 🟡 del inventario: tienen handler real en el motor pero
+   **nunca se validó el efecto en el mapa** (son 12). Validarlos y tacharlos vale
+   tanto como implementar nuevos.
+
+### Cómo levantar el stack para probar
+
+```
+Build\CoreX.exe
+Build\Engine\PilotX.GuidanceEngine.exe --webhost      (SIN --corex: choca en 1883)
+Build\Desktop\PilotX.Desktop.exe
+```
+Y `Build\ModSim.exe` para simular GPS. **Verificá siempre por el proceso**
+(`PilotX.Desktop.exe` en el administrador de tareas), no por "se ve parecido":
+la UI vieja WinForms y la nueva se parecen lo suficiente como para perder horas
+probando la equivocada.
+
+Al arrancar, el motor loguea dos líneas que te van a ahorrar tiempo:
+`wwwroot: <ruta>` (si no lo encuentra, TODA página del Hub da 404) y
+`Perfil de vehículo: <nombre> → Ok` (si dice `(ninguno) MissingFile`, corre con
+geometría por defecto y el guiado sale mal de forma silenciosa).
+
+### Trampas conocidas (te ahorran medio día cada una)
+
+- **`catch (OperationCanceledException) { return; }` en un loop de polling.**
+  `HttpClient.Timeout` NO lanza `TimeoutException`: lanza `TaskCanceledException`,
+  que hereda de `OperationCanceledException`. Si ese catch envuelve la llamada
+  HTTP, **un solo request lento mata el loop PARA SIEMPRE** y el panel queda
+  congelado en sus defaults con la API perfectamente viva (fue exactamente el
+  bug de "Android no toma la velocidad"). Guard correcto:
+  `catch (OperationCanceledException) when (ct.IsCancellationRequested)`.
+  **Estado real (verificado hoy): los 7 pollers ya están arreglados y los
+  paneles de `Views/*` NO tienen el bug** — ahí el catch envuelve solo al
+  `Task.Delay(…, ct)` (correcto) y el HTTP lo captura cada cliente con su propio
+  `catch { return null; }`. O sea: no hay nada que arreglar acá, pero si escribís
+  un loop nuevo, no repitas el patrón.
+- **Truco de diagnóstico**: si dudás si un panel está congelado o mostrando
+  ceros, sacá dos capturas separadas y comparalas — si son idénticas byte a byte,
+  está congelado, no es el dato.
+- **Nunca alta manual de nodos** en UI: solo descubrimiento MQTT.
+- **Unidades al operario**: kg/ha, sem/m, sem/ha, rpm. **Nunca PPS.**
+- **Branding** en textos nuevos: PilotX / Agro Parallel / CoreX.
+
+### Contrato que no se rompe
+
+IDs y `data-*` de las páginas HTML están congelados (§4 de `COORDINACION-UI.md`);
+el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.

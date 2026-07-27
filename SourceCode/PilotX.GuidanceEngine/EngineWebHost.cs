@@ -29,12 +29,28 @@ namespace AgOpenGPS
             var baseDir = AppContext.BaseDirectory;
             string[] candidates =
             {
+                // INSTALADO: el motor vive en <install>\Engine\ y el wwwroot lo
+                // deja el paquete en <install>\AgroParallel\wwwroot (hermano de
+                // Engine\). Va PRIMERO porque es el layout de la cabina; sin esto
+                // las pantallas HTML del Hub daban 404 al abrirlas desde
+                // PilotX.Desktop (Dirección, config, gráficos…).
+                Path.GetFullPath(Path.Combine(baseDir, "..", "AgroParallel", "wwwroot")),
+                // DESARROLLO: corriendo desde SourceCode\...\bin\<cfg>\net9.0.
                 Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "AgroParallel", "Web", "AgroParallel.WebUI", "wwwroot")),
                 Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "Build", "AgroParallel", "wwwroot")),
                 Path.GetFullPath(Path.Combine(baseDir, "wwwroot")),
             };
             foreach (var c in candidates)
-                if (Directory.Exists(c)) return c;
+                if (Directory.Exists(c))
+                {
+                    Console.WriteLine("wwwroot: " + c);
+                    return c;
+                }
+
+            // Sin wwwroot la API sigue andando pero TODA página del Hub da 404 —
+            // avisarlo fuerte, que es exactamente el síntoma que se ve en cabina.
+            Console.Error.WriteLine("wwwroot NO ENCONTRADO — las páginas del Hub van a dar 404. Buscado en:");
+            foreach (var c in candidates) Console.Error.WriteLine("  " + c);
             return null;
         }
 
@@ -64,6 +80,13 @@ namespace AgOpenGPS
             var trackBuilder = new EngineTrackBuilderService(_host);
             var trackList = new EngineTrackListService(_host);
             var sectionsCore = new EngineSectionControlService(_host);
+            // Config de dirección: implementación compartida con FormGPS (archivo
+            // linkeado). El engine no tiene hilo de UI, así que SendSettings va
+            // directo; el ángulo vivo del WAS sale del CModuleComm del host.
+            var steerConfig = new AgroParallel.Adapters.SteerConfigService(
+                _host.Vehicle,
+                () => _host.Mc.actualSteerAngleDegrees,
+                () => _host.SettingsSender.SendSettings());
 
             _web = new AgpWebHost(
                 state,                 // requerido
@@ -96,7 +119,8 @@ namespace AgOpenGPS
                 tram: tram,
                 paths: paths,
                 trackBuilder: trackBuilder,
-                trackList: trackList);
+                trackList: trackList,
+                steerConfig: steerConfig);
 
             _web.Start();
         }

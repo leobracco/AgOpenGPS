@@ -236,12 +236,118 @@ namespace PilotX.GuidanceEngine.Adapters
         public EventLogSnapshot GetEventLog()
             => new EventLogSnapshot { File = "", History = "", Session = "" };
 
-        public XteGraphSample GetXteGraphSample() => new XteGraphSample();
-        public HeadingGraphSample GetHeadingGraphSample() => new HeadingGraphSample();
-        public SteerGraphSample GetSteerGraphSample() => new SteerGraphSample();
-        public CorrectionGraphSample GetCorrectionGraphSample() => new CorrectionGraphSample();
-        public ShiftPosSnapshot GetShiftPos() => new ShiftPosSnapshot();
-        public SimCoordsSnapshot GetSimCoords() => new SimCoordsSnapshot();
+        // ---- Gráficos de diagnóstico en vivo ----
+        // Ya NO son stubs: los 4 valores viven en el modelo Core que el motor
+        // orquesta (CVehicle / CModuleComm / CAHRS / los campos de rumbo del
+        // host), así que se leen igual que en FormGpsStateProvider. Son las
+        // herramientas para calibrar la dirección: sin esto, las páginas
+        // grafico-*.html dibujan una línea plana en cero.
+
+        public XteGraphSample GetXteGraphSample()
+        {
+            var s = new XteGraphSample();
+            try
+            {
+                if (_host.Vehicle != null)
+                {
+                    // Mismos valores que graficaba FormGraphXTE.DrawChart().
+                    s.HeadingErrorDeg = System.Math.Round(_host.Vehicle.modeActualHeadingError, 1);
+                    s.XteCm = System.Math.Round(_host.Vehicle.modeActualXTE * 100.0, 0);
+                }
+            }
+            catch { /* defensivo: 0 si el guiado no está listo */ }
+            return s;
+        }
+
+        public HeadingGraphSample GetHeadingGraphSample()
+        {
+            var s = new HeadingGraphSample();
+            try
+            {
+                // Rumbo en radianes → grados, igual que FormGraphHeading.
+                s.GpsHeadingDeg = System.Math.Round(glm.toDegrees(_host.gpsHeading), 1);
+                s.ImuHeadingDeg = System.Math.Round(glm.toDegrees(_host.imuCorrected), 1);
+            }
+            catch { /* defensivo: 0 si la fusión de rumbo no está lista */ }
+            return s;
+        }
+
+        public SteerGraphSample GetSteerGraphSample()
+        {
+            var s = new SteerGraphSample();
+            try
+            {
+                if (_host.Mc != null)
+                {
+                    // Unidades de chart (×100) → grados, igual que FormGraphSteer.
+                    s.ActualSteerDeg = System.Math.Round(_host.Mc.actualSteerAngleChart * 0.01, 1);
+                    s.SetSteerDeg = System.Math.Round(_host.guidanceLineSteerAngle * 0.01, 1);
+                }
+            }
+            catch { /* defensivo: 0 si la dirección no está lista */ }
+            return s;
+        }
+
+        public CorrectionGraphSample GetCorrectionGraphSample()
+        {
+            var s = new CorrectionGraphSample();
+            try
+            {
+                // Mismos valores crudos que mostraba FormCorrection (m).
+                s.CorrectionDistance = System.Math.Round(_host.correctionDistanceGraph, 3);
+                s.UncorrectedEasting = System.Math.Round(_host.uncorrectedEastingGraph, 3);
+                if (_host.Pn != null)
+                    s.Easting = System.Math.Round(_host.Pn.fix.easting, 3);
+
+                // Roll del IMU: 88888 = sin IMU (mismo criterio que RollInDegrees).
+                if (_host.Ahrs != null && _host.Ahrs.imuRoll != 88888)
+                {
+                    s.RollPresent = true;
+                    s.RollDegrees = System.Math.Round(_host.Ahrs.imuRoll, 1);
+                }
+            }
+            catch { /* defensivo: 0 / sin-roll si el GPS/IMU no está listo */ }
+            return s;
+        }
+
+        public ShiftPosSnapshot GetShiftPos()
+        {
+            var s = new ShiftPosSnapshot();
+            try
+            {
+                var props = _host.AppModelField?.SharedFieldProperties;
+                if (props != null)
+                {
+                    // GeoDelta es struct: nunca null. Igual que FormShiftPos (m → cm).
+                    var d = props.DriftCompensation;
+                    s.NorthCm = System.Math.Round(d.NorthingDelta * 100.0, 0);
+                    s.EastCm = System.Math.Round(d.EastingDelta * 100.0, 0);
+                    // OffsetsOn queda en false: el flag lo togglean los comandos
+                    // "offsets_on"/"offsets_off", que todavía no están en el
+                    // ExecuteCommand del motor. La deriva (los 2 valores de
+                    // arriba) sí es real y es lo que muestra la pantalla.
+                    s.OffsetsOn = false;
+                }
+            }
+            catch { /* defensivo: 0/off si el modelo de campo no está listo */ }
+            return s;
+        }
+
+        public SimCoordsSnapshot GetSimCoords()
+        {
+            var s = new SimCoordsSnapshot();
+            try
+            {
+                // Mismo origen que FormSimCoords_Load: la lat/lon guardada del sim.
+                var cfg = global::AgOpenGPS.Properties.Settings.Default;
+                s.Latitude = cfg.setGPS_SimLatitude;
+                s.Longitude = cfg.setGPS_SimLongitude;
+                s.SimOn = _host.isSimTimerEnabled;
+                s.JobStarted = _host.IsJobStarted;
+            }
+            catch { /* defensivo: snapshot vacío si los settings no cargaron */ }
+            return s;
+        }
 
         public SectionColorsSnapshot GetSectionColors()
         {
