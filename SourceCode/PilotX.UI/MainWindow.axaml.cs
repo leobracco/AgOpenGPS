@@ -384,7 +384,13 @@ public partial class MainWindow : Window
             // El WebView NO se crea hasta que el operario navegue a una
             // pantalla del Hub (Settings/FieldTools/Tools).
             SystemDecorations = SystemDecorations.None;
-            WindowState = WindowState.Maximized;
+            // FullScreen y no Maximized: en la pantalla de la cabina el cockpit
+            // tiene que ocupar TODO. Maximized deja la barra de tareas de Windows
+            // visible y, sin decoraciones, a veces ni siquiera se expande al alto
+            // completo. El operario no tiene teclado para recuperar la ventana:
+            // el doble clic en el header (OnHeaderPressed) sigue alternando
+            // pantalla completa ↔ ventana por si hace falta.
+            WindowState = WindowState.FullScreen;
             if (_rootBorder != null)
             {
                 _rootBorder.CornerRadius = new global::Avalonia.CornerRadius(0);
@@ -601,9 +607,10 @@ public partial class MainWindow : Window
         {
             if (e.ClickCount == 2)
             {
-                WindowState = WindowState == WindowState.Maximized
-                    ? WindowState.Normal
-                    : WindowState.Maximized;
+                // Salida/entrada de pantalla completa por doble clic en el header.
+                WindowState = WindowState == WindowState.Normal
+                    ? WindowState.FullScreen
+                    : WindowState.Normal;
                 return;
             }
             BeginMoveDrag(e);

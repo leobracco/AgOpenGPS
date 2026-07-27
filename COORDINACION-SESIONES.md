@@ -2013,3 +2013,35 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   50 ha eso se va a varios MB por request, y a 8 req/s no cierra. La solución es
   incremental (`?since=<rev>` devolviendo solo los triángulos nuevos). No es
   urgente en banco, sí lo va a ser en campo.
+- [2026-07-27] [taller] HECHO — **BUG GORDO: el motor headless no tenía geometría
+  de secciones.** Síntoma reportado: "prendo una sola sección y pinta todo".
+  Diagnóstico con los vértices crudos de `/api/aog/coverage`: el punto izquierdo y
+  el derecho de CADA fila de la tira eran **idénticos** → huella de ancho cero.
+  **Causa raíz**: `SectionSetPosition()`/`SectionCalcWidths()`/`SectionCalcMulti()`
+  (CSectionCalculator) los llamaba `FormGPS.LoadSettings` (GUI.Designer.cs:680-692)
+  y **el motor headless nunca los llamó**. Todas las secciones quedaban con el
+  default de `CSection` (`positionLeft=-4`, `positionRight=+4`), o sea TODAS
+  encimadas en el mismo lugar: `section[j].leftPoint == section[j-1].rightPoint ==
+  rightPoint` para todas, y los triángulos colapsaban.
+  **Fix**: `GuidanceEngineHost.AplicarGeometriaDeSecciones()`, llamado al final del
+  constructor (después de que `Settings.Default.Load()` de `Program.cs` trajo el
+  perfil). Público a propósito: hay que volver a llamarlo cuando cambie la config
+  del implemento (ancho, cantidad de secciones, modo, offset).
+  **Verificado con números** (implemento de 28 m / 14 secciones = 2 m cada una):
+  · posiciones laterales: sección 1 = [−14,−12], 2 = [−12,−10]… antes todas [−4,+4]
+  · todas en auto → **1 tira de 28 m** (antes: 0 m)
+  · apagando SOLO la sección 7 → **2 tiras, de 12 m y 14 m** = 26 m, exactamente
+    28 − los 2 m de la sección apagada. El hueco es real.
+  Esto afectaba a TODO lo que depende de geometría por sección, no solo al
+  pintado: área trabajada, anti-solape, corte por cabecera, dosis por sección de
+  QuantiX/VistaX. **Es un pre-requisito del plan de 3 días que no estaba
+  identificado.**
+- [2026-07-27] [taller] HECHO (carril Santiago, avisado) — 2 pedidos de UI del
+  usuario: · los botones de sección **ya no se ponen grises** al pasar por encima
+  ni al presionar (confundía: gris justo sobre el botón que vas a tocar). El color
+  del estado se mantiene siempre y la respuesta al toque va por el BORDE; además
+  se saca la escala del `:pressed` que hacía "saltar" el botón bajo el dedo.
+  · La ventana del cockpit arranca en **FullScreen** en vez de Maximized: con
+  `SystemDecorations.None`, Maximized dejaba la barra de tareas de Windows a la
+  vista. El doble clic en el header sigue alternando pantalla completa ↔ ventana
+  (el operario no tiene teclado para recuperarla de otra forma).
