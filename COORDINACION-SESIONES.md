@@ -2143,3 +2143,44 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   bajada "TECNOLOGÍA QUE GUÍA TU CAMPO" no se lee — si se quiere, conviene un
   recorte al emblema PX solo para los tamaños chicos.
   Paquete regenerado: **PilotX_v1.0.24.zip**, build 0 errores, 156 tests verdes.
+
+- [2026-07-27] [android] HECHO — controles de cámara/vista del menú Navegación
+  (`v2d/v3d/norte2d/tilt_up/tilt_dn/grilla/dia_noche/brillo_up/brillo_dn`, 9
+  íconos) **verificados por EFECTO, no por botón**, corriendo el stack Desktop
+  local (`CoreX.exe` + `PilotX.GuidanceEngine.exe --webhost` + `ModSim.exe` +
+  `PilotX.Desktop.exe`) y automatizando clicks reales (mouse_event por
+  coordenadas de pantalla + capturas) en vez de solo leer código:
+  · **2D/3D/Norte 2D**: `MapGlSurface` no tenía pitch de cámara (pipeline 100%
+    ortográfico, ver cabecera del archivo) ni setter público de heading-up.
+    Agregué `SetHeadingUp`/`SetPitchDeg`/`TiltBy` + un "squish" del eje
+    adelante (cos del pitch) más un corrimiento en clip-space (sin del pitch) —
+    **no es perspectiva real con punto de fuga**, pero es un efecto genuino:
+    en pitch=0 la fórmula se reduce EXACTO a la original (sin regresión), y en
+    3D (-65°) la grilla se ve claramente achatada/inclinada con el tractor
+    corrido hacia abajo, estilo chase-cam. Capturas: grid rotado normal (2D) →
+    grid achatado+tractor abajo (3D) → grid sin rotar, tractor apuntando al
+    heading real (Norte 2D) → vuelta exacta a 2D.
+  · **Grilla**: no existía toggle (se dibujaba siempre). `_gridOn` +
+    gating de `DrawGrid`. Capturas: grilla desaparece/reaparece.
+  · **Día/Noche**: paleta clara alternativa (`ColBgDay`/`ColGridDay`) SOLO
+    para el mapa — el chrome de las barras no cambia, queda fuera de alcance
+    de este ciclo. Captura: fondo pasa de negro a gris claro con grilla oscura.
+  · **Brillo +/−**: NO es brillo del render (no hay canal de brightness en el
+    shader) — reusa `SistemaClient`/`api/sistema/brillo`, el mismo mecanismo
+    que ya usa el panel Sistema (fiel al legacy: `CBrightness` tampoco tocaba
+    el mapa, era brillo de pantalla). Sin regresión visible por screenshot
+    (es brillo de monitor), verificado que no rompe nada (proceso responsive
+    tras el click).
+  Wiring en `RouteCockpitCommand` de **los dos hosts** (`MainWindow.axaml.cs`
+  Desktop y `MainView.axaml.cs` Android/shared) — mismo patrón que ya usan
+  para lote/dirección/etc. `MapPanel` gana los pass-through (no-op en la
+  surface Skia legacy, mismo criterio que `BeginAbCreation`).
+  Tiqueado en `docs/INVENTARIO-UI-ICONOS.md` (sección 6, Vista/cámara): los 8
+  íconos + el botón "Navegación" en sí, todos ✅.
+  2 merges de tu rama en el medio (tomé tu `AndroidWebViewHost` validado en vez
+  de mi versión sin terminar, y después tu botonera de secciones/zonas +
+  servicios de config del motor) — sin conflicto real en código, solo en esta
+  bitácora (concatenado). Build completo 0 errores, 156 tests verdes (no sumé
+  tests nuevos — la verificación fue 100% visual con el stack corriendo, como
+  pediste). Voy a commitear y pushear, y sigo con el próximo grupo del
+  inventario.

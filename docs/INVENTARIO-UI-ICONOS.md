@@ -187,14 +187,14 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 
 | Botón | Icono | Qué hace | Estado | Carril |
 |---|---|---|---|---|
-| Navegación (btnNavigationSettings) | NavigationSettings | Abre/cierra el panel de cámara/mapa | ❌ | L |
-| Inclinar +/− (btnTiltUp/Dn) | TiltUp/Down | Pitch de cámara (2D↔3D) | ❌ | L |
-| Vista 2D (btn2D) | Camera2D64 | Cenital siguiendo al tractor | 🟡 (hoy heading-up) | L |
-| Vista 3D (btn3D) | Camera3D64 | Perspectiva siguiendo al tractor | ❌ | L |
-| Norte-2D (btnN2D) | CameraNorth2D | Cenital norte-arriba (no rota) | ❌ | L |
-| Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | 🟡 (grid fijo) | L |
-| Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ❌ | L |
-| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | ❌ | L |
+| Navegación (btnNavigationSettings) | NavigationSettings | Abre/cierra el panel de cámara/mapa | ✅ | L |
+| Inclinar +/− (btnTiltUp/Dn) | TiltUp/Down | Pitch de cámara (2D↔3D) | ✅ (squish+shift, no perspectiva real) | L |
+| Vista 2D (btn2D) | Camera2D64 | Cenital siguiendo al tractor | ✅ | L |
+| Vista 3D (btn3D) | Camera3D64 | Perspectiva siguiendo al tractor | ✅ (squish+shift, no perspectiva real) | L |
+| Norte-2D (btnN2D) | CameraNorth2D | Cenital norte-arriba (no rota) | ✅ | L |
+| Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | ✅ (on/off simple, sin el diálogo de alineación del legacy) | L |
+| Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ✅ (solo el mapa; el chrome de las barras no cambia) | L |
+| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | ✅ (SistemaClient, mismo mecanismo del panel Sistema) | L |
 | Hz+frame+fix (lblHz) | — | Frecuencia GPS (Hz) + tiempo de frame (ms) + calidad de fix (NO es PPS) | 🟡 | L |
 
 ## 7) Configuración (mayormente HTML por WebView)
@@ -260,8 +260,9 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 
 - **Leonardo (UI nativa):** las botoneras del cockpit ya traen guiado/secciones/tracks;
   **falta**: nudge/snap izq-der, contour-lock, youskip, secciones individuales/zonas,
-  controles de cámara (2D/3D/N-2D/tilt/día-noche/brillo/grilla), banderas, ruta grabada,
-  y montar los diálogos HTML por WebView (config/diagnóstico) en ventana chica.
+  banderas, ruta grabada, y montar los diálogos HTML por WebView (config/diagnóstico) en
+  ventana chica. **Hecho:** controles de cámara (2D/3D/N-2D/tilt/día-noche/brillo/grilla,
+  2026-07-27).
 - **Santiago (engine):** los comandos/servicios detrás — snap/nudge de track, youskip,
   secciones individuales/zonas, boundary/headland/tram builders, banderas, ruta grabada,
   hyd-lift, import tracks, reset-tool-heading, controles del simulador por API.
