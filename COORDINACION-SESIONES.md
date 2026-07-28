@@ -2547,3 +2547,43 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   esquivar al mini-mapa.
   Verificado en pantalla: la esquina quedó limpia y el widget entero a la vista.
   208 tests verdes, paquete SHA 3D602316…
+- [2026-07-28] [taller] HECHO — **objetivo INDIVIDUAL por motor en el overlay
+  de QuantiX** (pedido del usuario). Antes el overlay solo tenía el AUTO/MAN
+  global y unos − / + que movían la dosis de todos los motores juntos. Eso
+  sirve con un solo producto, pero **con una tolva de semilla y otra de
+  fertilizante poner las dos en el mismo número no tiene sentido.**
+  Ahora cada fila trae lo suyo: botón de modo (AUTO verde / MAN ámbar, alterna
+  con un toque) y − / + que solo se habilitan en MAN — en AUTO manda el mapa de
+  prescripción y tocarlos no haría nada. Van contra
+  `POST /api/widget-quantix/manual` (por uid + índice de motor), que ya existía
+  para el widget HTML.
+  Los botones globales de arriba quedan como atajo "todos a la vez", y se
+  ocultan cuando hay un solo motor: ahí la fila ya trae sus propios − / + y
+  repetirlos es ruido en una pantalla donde el lugar es escaso.
+  Dos cosas que se vieron al probarlo en pantalla y se corrigieron:
+  · **los dos motores se llamaban igual** ("Producto 1" en las dos tolvas) y no
+    había forma de saber a cuál se le estaba tocando la dosis. Con más de un
+    nodo la fila ahora dice "Tolva 1 · Producto 1".
+  · **22,5 kg/ha se mostraba como "22"**. El paso en ese rango es de 0,5, así
+    que el operario tocaba + y veía saltar el número sin entender por qué.
+    Ahora si el valor tiene fracción se muestra el decimal.
+  **Verificado tocando el botón de verdad en la pantalla**, no solo por API:
+  el + de la fila de Tolva 1 la subió de 22,5 a 23 y **Tolva 2 no se movió**,
+  siguió en AUTO.
+- [2026-07-28] [taller] HECHO — **BUG GORDO encontrado de paso: `build.ps1` le
+  pisaba la configuración al operario en CADA compilada.**
+  Salió a la luz porque un cambio que hice por API desaparecía después de
+  compilar. `Copy-Item "$aogBin\*"` copiaba el bin del source entero sobre
+  `Build\`, y ese bin acumula los `.json` de runtime de haber corrido PilotX
+  desde el IDE: `quantiX_motores.json`, `vistaX.json`, `overlayPrefs.json`,
+  perfil, nodos… O sea que **cada build revertía motores, dosis y
+  calibraciones a las del desarrollador, sin ningún aviso** — con archivos de
+  mayo, además. Explica cosas raras del tipo "esto lo configuré y se volvió
+  atrás".
+  El empaquetado del ZIP ya se cuidaba de esto (excluye los .json de la raíz
+  justamente para no pisarle la config a una pantalla en uso); lo que no se
+  cuidaba era la copia a `Build\`. Ahora aplica el mismo criterio: los .json
+  legítimos del release viven en subdirectorios (wwwroot, runtimes), nunca en
+  la raíz.
+  **Verificado**: escribí una config, compilé, y sobrevivió. Antes se perdía.
+  208 tests verdes, paquete SHA 7D86424B…

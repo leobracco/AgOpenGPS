@@ -264,9 +264,25 @@ public sealed class QuantiXMapOverlay : Border
 
     // ---------- Render ------------------------------------------------------
 
-    private List<QxWidgetMotor> MotoresVisibles()
+    /// <summary>Un motor con el nodo al que pertenece: el comando por motor
+    /// necesita el UID, y la lista plana lo perdía.</summary>
+    private readonly struct MotorRef
     {
-        var lista = new List<QxWidgetMotor>();
+        public readonly string? Uid;
+        /// <summary>Nombre del nodo (la tolva). Con dos tolvas los motores se
+        /// llaman igual — "Producto 1" y "Producto 1" — y sin esto el operario
+        /// no sabe a cuál le está tocando la dosis.</summary>
+        public readonly string? NodoNombre;
+        public readonly QxWidgetMotor Motor;
+        public MotorRef(string? uid, string? nodoNombre, QxWidgetMotor motor)
+        {
+            Uid = uid; NodoNombre = nodoNombre; Motor = motor;
+        }
+    }
+
+    private List<MotorRef> MotoresVisibles()
+    {
+        var lista = new List<MotorRef>();
         var nodos = _estado?.Nodos;
         if (nodos == null) return lista;
         foreach (var n in nodos)
@@ -278,7 +294,7 @@ public sealed class QuantiXMapOverlay : Border
                 // usando: mostrarlo llena el overlay de ceros y tapa el mapa.
                 if (m == null) continue;
                 if (!m.Activo && m.Objetivo <= 0 && !m.ManualMode) continue;
-                lista.Add(m);
+                lista.Add(new MotorRef(n.Uid, n.Nombre, m));
             }
         }
         return lista;
@@ -317,22 +333,25 @@ public sealed class QuantiXMapOverlay : Border
 
         foreach (var m in motores) _filas.Children.Add(FilaMotor(m));
 
-        // MAN/AUTO y los pasos son globales, así que solo tienen sentido si
-        // todos los motores están en el mismo modo y la misma unidad.
+        // Los botones de arriba son el atajo "todos a la vez": solo sirve si el
+        // equipo lleva un único producto. Con una tolva de semilla y otra de
+        // fertilizante, cada motor se maneja por su cuenta en su propia fila.
         bool todosMan = true, mismaUnidad = true;
-        string? unidad = motores[0].Unidad;
-        double dosisUniforme = motores[0].ManualDosis;
+        string? unidad = motores[0].Motor.Unidad;
+        double dosisUniforme = motores[0].Motor.ManualDosis;
         bool dosisIgual = true;
-        foreach (var m in motores)
+        foreach (var r in motores)
         {
-            if (!m.ManualMode) todosMan = false;
-            if (!string.Equals(m.Unidad, unidad, StringComparison.OrdinalIgnoreCase)) mismaUnidad = false;
-            if (Math.Abs(m.ManualDosis - dosisUniforme) > 0.001) dosisIgual = false;
+            if (!r.Motor.ManualMode) todosMan = false;
+            if (!string.Equals(r.Motor.Unidad, unidad, StringComparison.OrdinalIgnoreCase)) mismaUnidad = false;
+            if (Math.Abs(r.Motor.ManualDosis - dosisUniforme) > 0.001) dosisIgual = false;
         }
 
         PintarModo(todosMan);
-        _ctlManual.IsVisible = todosMan;
-        bool puedePasar = todosMan && mismaUnidad && dosisIgual;
+        // Con un solo motor la fila ya trae sus propios − / +: repetirlos
+        // arriba es ruido en una pantalla donde el lugar es escaso.
+        bool puedePasar = todosMan && mismaUnidad && dosisIgual && motores.Count > 1;
+        _ctlManual.IsVisible = puedePasar;
         _btnMas.IsEnabled = puedePasar;
         _btnMenos.IsEnabled = puedePasar;
         _dosisManual.Text = puedePasar
@@ -348,8 +367,10 @@ public sealed class QuantiXMapOverlay : Border
         _btnAuto.Foreground = manual ? TextoMid : new SolidColorBrush(Color.Parse("#101612"));
     }
 
-    private Control FilaMotor(QxWidgetMotor m)
+    private Control FilaMotor(MotorRef r)
     {
+        var m = r.Motor;
+
         // Color por desvío contra el objetivo: es lo que hace mirar el widget.
         IBrush color = TextoHi;
         if (m.Objetivo > 0)
@@ -362,11 +383,12 @@ public sealed class QuantiXMapOverlay : Border
         var g = new Grid();
         g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
         g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
 
         var izq = new StackPanel { Spacing = 1 };
         izq.Children.Add(new TextBlock
         {
-            Text = m.Nombre ?? ("M" + m.Idx.ToString(CultureInfo.InvariantCulture)),
+            Text = NombreDeFila(r),
             Foreground = TextoDim,
             FontSize = 10,
             FontWeight = FontWeight.SemiBold,
@@ -392,7 +414,9 @@ public sealed class QuantiXMapOverlay : Border
         Grid.SetColumn(izq, 0);
         g.Children.Add(izq);
 
-        var der = new StackPanel { Spacing = 1, HorizontalAlignment = HorizontalAlignment.Right };
+        var der = new StackPanel { Spacing = 1, HorizontalAlignment = HorizontalAlignment.Right,
+                                   VerticalAlignment = VerticalAlignment.Center,
+                                   Margin = new Thickness(0, 0, 8, 0) };
         der.Children.Add(new TextBlock
         {
             Text = "obj " + WidgetQuantiXClient.FormatoDosis(m.Objetivo, m.Unidad),
@@ -412,6 +436,46 @@ public sealed class QuantiXMapOverlay : Border
         Grid.SetColumn(der, 1);
         g.Children.Add(der);
 
+        // Controles PROPIOS del motor: cada tolva lleva su producto y su dosis.
+        // El modo se alterna con un toque; los − / + solo se habilitan en MAN
+        // (en AUTO manda el mapa de prescripción y tocarlos no haría nada).
+        var ctl = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+
+        var btnModo = new Button
+        {
+            Content = m.ManualMode ? "MAN" : "AUTO",
+            FontSize = 11,
+            FontWeight = FontWeight.SemiBold,
+            Width = 52,
+            Height = 40,
+            Padding = new Thickness(0),
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Background = m.ManualMode ? Ambar : Acento,
+            Foreground = new SolidColorBrush(Color.Parse("#101612")),
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(6),
+        };
+        btnModo.Click += async (_, __) => await CambiarModoMotor(r);
+        ctl.Children.Add(btnModo);
+
+        var menos = BotonPasoChico("−");
+        var mas   = BotonPasoChico("+");
+        menos.IsEnabled = m.ManualMode;
+        mas.IsEnabled   = m.ManualMode;
+        menos.Click += async (_, __) => await PasoMotor(r, -1);
+        mas.Click   += async (_, __) => await PasoMotor(r, +1);
+        ctl.Children.Add(menos);
+        ctl.Children.Add(mas);
+
+        Grid.SetColumn(ctl, 2);
+        g.Children.Add(ctl);
+
         return new Border
         {
             Background = BgFila,
@@ -420,6 +484,36 @@ public sealed class QuantiXMapOverlay : Border
             Child = g,
         };
     }
+
+    /// <summary>Cómo se identifica la fila. Con una sola tolva alcanza el
+    /// nombre del motor; con varias hay que decir de qué tolva es, porque los
+    /// motores suelen llamarse igual en las dos.</summary>
+    private string NombreDeFila(MotorRef r)
+    {
+        string motor = r.Motor.Nombre ?? ("M" + r.Motor.Idx.ToString(CultureInfo.InvariantCulture));
+        int nodos = _estado?.Nodos?.Count ?? 0;
+        if (nodos <= 1 || string.IsNullOrEmpty(r.NodoNombre)) return motor;
+        return r.NodoNombre + " · " + motor;
+    }
+
+    // 40 px de alto: entra en la fila del motor y se sigue pudiendo tocar con
+    // guante. Los de arriba (globales) son un poco más grandes.
+    private static Button BotonPasoChico(string texto) => new Button
+    {
+        Content = texto,
+        FontSize = 18,
+        FontWeight = FontWeight.Bold,
+        Width = 40,
+        Height = 40,
+        Padding = new Thickness(0),
+        HorizontalContentAlignment = HorizontalAlignment.Center,
+        VerticalContentAlignment = VerticalAlignment.Center,
+        Background = BgPanel,
+        Foreground = TextoHi,
+        BorderBrush = Borde,
+        BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(6),
+    };
 
     // ---------- Comandos ----------------------------------------------------
 
@@ -431,7 +525,7 @@ public sealed class QuantiXMapOverlay : Border
         double dosis = 0;
         var motores = MotoresVisibles();
         if (manual && motores.Count > 0)
-            dosis = motores[0].ManualDosis > 0 ? motores[0].ManualDosis : motores[0].Objetivo;
+            dosis = ObjetivoDePartida(motores[0].Motor);
 
         await _client.SetManualAllAsync(manual, dosis).ConfigureAwait(false);
         await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
@@ -443,11 +537,38 @@ public sealed class QuantiXMapOverlay : Border
         var motores = MotoresVisibles();
         if (motores.Count == 0) return;
 
-        double actual = motores[0].ManualDosis;
-        double siguiente = Math.Max(0, actual + dir * WidgetQuantiXClient.PasoDosis(actual));
-        siguiente = Math.Round(siguiente * 10) / 10.0;
-
-        await _client.SetManualAllAsync(true, siguiente).ConfigureAwait(false);
+        double actual = motores[0].Motor.ManualDosis;
+        await _client.SetManualAllAsync(true, Siguiente(actual, dir)).ConfigureAwait(false);
         await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+    }
+
+    // ---- Por motor ---------------------------------------------------------
+
+    private async Task CambiarModoMotor(MotorRef r)
+    {
+        if (_client == null) return;
+        bool manual = !r.Motor.ManualMode;
+        double dosis = manual ? ObjetivoDePartida(r.Motor) : 0;
+        await _client.SetManualAsync(r.Uid, r.Motor.Idx, manual, dosis).ConfigureAwait(false);
+        await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private async Task PasoMotor(MotorRef r, int dir)
+    {
+        if (_client == null) return;
+        double actual = r.Motor.ManualDosis > 0 ? r.Motor.ManualDosis : r.Motor.Objetivo;
+        await _client.SetManualAsync(r.Uid, r.Motor.Idx, true, Siguiente(actual, dir)).ConfigureAwait(false);
+        await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>Con qué dosis entra en manual: la última que se dejó a mano, o
+    /// la que está aplicando ahora. Nunca 0 — eso frenaría la máquina de golpe.</summary>
+    private static double ObjetivoDePartida(QxWidgetMotor m)
+        => m.ManualDosis > 0 ? m.ManualDosis : m.Objetivo;
+
+    private static double Siguiente(double actual, int dir)
+    {
+        double v = Math.Max(0, actual + dir * WidgetQuantiXClient.PasoDosis(actual));
+        return Math.Round(v * 10) / 10.0;
     }
 }

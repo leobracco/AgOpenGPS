@@ -87,9 +87,26 @@ public sealed class WidgetQuantiXClient
         catch { return null; }
     }
 
-    /// <summary>MAN/AUTO + dosis para todos los motores a la vez. Es lo que se
-    /// usa desde la cabina: el operario corrige la dosis del equipo, no
-    /// motor por motor.</summary>
+    /// <summary>MAN/AUTO + objetivo de UN motor. Cada tolva lleva su producto y
+    /// su dosis: poner todos en el mismo número no sirve cuando uno tira
+    /// semilla y el otro fertilizante.</summary>
+    public async Task<bool> SetManualAsync(string? uid, int motorIdx, bool manual, double dosis,
+                                           CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(uid)) return false;
+        try
+        {
+            var body = JsonSerializer.Serialize(new { uid, motor_idx = motorIdx, manual, dosis });
+            using var content = new StringContent(body, Encoding.UTF8, "application/json");
+            using var resp = await _http.PostAsync(_baseUrl + "api/widget-quantix/manual", content, ct)
+                                        .ConfigureAwait(false);
+            return resp.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>MAN/AUTO + dosis para todos los motores a la vez. Atajo para
+    /// cuando el equipo lleva un solo producto.</summary>
     public async Task<bool> SetManualAllAsync(bool manual, double dosis, CancellationToken ct = default)
     {
         try
@@ -120,7 +137,12 @@ public sealed class WidgetQuantiXClient
     {
         bool semillas = string.Equals(unidad, "sem_m", StringComparison.OrdinalIgnoreCase);
         double v = Math.Abs(valor);
-        int dec = semillas || v < 10 ? 1 : 0;
+        // Con dosis grandes el decimal es ruido, PERO si el valor tiene
+        // fracción hay que mostrarla: el paso en 22,5 kg/ha es de 0,5, y
+        // redondear a "22" hace que el operario toque + y vea saltar el número
+        // sin entender por qué.
+        bool tieneFraccion = Math.Abs(v - Math.Round(v)) > 0.001;
+        int dec = (semillas || v < 10 || tieneFraccion) ? 1 : 0;
         return valor.ToString("F" + dec.ToString(System.Globalization.CultureInfo.InvariantCulture),
                               System.Globalization.CultureInfo.InvariantCulture);
     }
