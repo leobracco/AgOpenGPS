@@ -55,8 +55,18 @@ namespace AgOpenGPS
             if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "aog_settings.json"))
                 && File.Exists(parentCfg))
             {
-                RegistrySettings.AppBasePath = Path.GetDirectoryName(parentCfg);
+                var raizInstalacion = Path.GetDirectoryName(parentCfg);
+                RegistrySettings.AppBasePath = raizInstalacion;
                 Console.WriteLine("Config de arranque heredada de la instalación: " + parentCfg);
+
+                // MISMO razonamiento para las configs de los productos X-*
+                // (vistaX.json, quantiX_motores.json, nodos.json, implementos\…):
+                // por defecto se guardan junto al exe, o sea en <install>\Engine\,
+                // mientras PilotX las lee en <install>\. Quedaban DOS juegos de
+                // configuración: el operario configuraba un implemento desde el
+                // motor y PilotX seguía con el viejo, sin ningún error visible.
+                AgroParallel.Common.AgpPaths.ConfigRoot = raizInstalacion;
+                Console.WriteLine("Configs de productos X-*: " + raizInstalacion);
             }
 
             RegistrySettings.Load();

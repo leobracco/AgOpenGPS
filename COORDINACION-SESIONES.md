@@ -2359,3 +2359,60 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
     de densidad.
   167 → **182 tests verdes**, build 0 errores, paquete `PilotX_v1.0.24.zip`
   SHA BB8171DC…
+- [2026-07-28] [taller] HECHO — **el motor headless no servía NINGÚN producto
+  X-*: QuantiX, VistaX, FlowX y los nodos daban 404** contra PilotX.Desktop.
+  (Toqué `PilotX.GuidanceEngine/EngineWebHost.cs` — **carril tuyo, Santiago**;
+  aviso abajo qué quedó y qué falta.)
+  Salió a la luz verificando en vivo la alarma de VistaX: `/api/vistax/live`
+  → 404. El motor instanciaba solo lo que el mapa necesita y pasaba `null`
+  en todo el resto; los controllers se registran `if (svc != null)`, así que
+  quedaban afuera **sin ningún error visible**. Con PilotX.Desktop hablándole
+  al motor, eso es: paneles de QuantiX/VistaX vacíos y nodos en cero.
+  Ahora `EngineWebHost` arma el mismo bloque que el host WinForms y el head
+  Android: `NodoRegistryService` (MQTT), vistaX cfg+live, quantiX cfg+runtime,
+  flowX/stormX/lineX, sectionX, orbitX, cámaras, insumos, implemento central
+  (UNA instancia compartida) y el `FlowXBridge` atado al ciclo de vida.
+  **Verificado en vivo** contra `Build\Engine\`: `/api/vistax/live`,
+  `/api/quantix/runtime`, `/api/nodos` (`broker_connected: true`),
+  `/api/flowx/live` e `/api/implemento` responden 200.
+  Queda pendiente en tu carril: `sistema` (brillo/apagado) sigue en null —
+  la implementación es net48 + WinForms (dxva2/WMI) y no porta; hay que
+  escribir una net9 para que la página Sistema del Hub ande contra el motor.
+- [2026-07-28] [taller] HECHO — **el motor y PilotX usaban DOS juegos de
+  configuración distintos**. `AgpPaths.ConfigRoot` es el directorio del exe:
+  el motor vive en `<install>\Engine\`, así que se creaba su propio
+  `vistaX.json`, `flowX.json`, `nodos.json`, `implementos\`… mientras PilotX
+  leía los de `<install>\`. El operario configuraba un implemento desde el
+  motor y PilotX seguía con el viejo — sin error, sin aviso.
+  Encontrado comparando los archivos: `Build\flowX.json` tenía el nodo real
+  con su calibración y `Build\Engine\flowX.json` estaba vacío.
+  Fix en `Program.cs`, al lado de la herencia de `aog_settings.json` (mismo
+  criterio, mismo lugar): si el motor corre en una subcarpeta y la raíz de la
+  instalación tiene la config, `ConfigRoot` apunta ahí. Borradas las copias
+  vacías que había generado. **Verificado**: ahora `/api/flowx/config`
+  devuelve el nodo real y `/api/implemento` apunta a `Build\implementos`.
+- [2026-07-28] [taller] HECHO — **QuantiX: lo que el widget MUESTRA no era lo
+  que el motor HACÍA** (tarea L3 del plan de 3 días).
+  El runtime que alimenta el panel estaba copiado y pegado tres veces (host
+  WinForms, head Android, y en el motor ni existía) y las copias se habían
+  desincronizado del bridge que comanda de verdad:
+  · **la dosis fija le ganaba al mapa**, al revés que el bridge ("mapa manda").
+    Con prescripción cargada, el panel mostraba 150 kg/ha y la máquina tiraba
+    200. El número que el operario usa para decidir estaba mal.
+  · **las sembradoras se calculaban con la fórmula de kg/ha**: para un motor
+    en sem/m el objetivo y el techo mostrados no tenían relación con lo que
+    giraba el motor (34 pps reales vs 420 mostrados: dos órdenes de magnitud).
+  Ahora hay **una sola** implementación: `QxRuntimeBuilder` (función pura),
+  apoyada en las MISMAS piezas que el bridge — `QxDoseResolver` para la dosis
+  y `QxPulseCalculator` para los pulsos. `QuantiXRuntimeService` es la cáscara
+  que la conecta al estado, y la usan tanto el motor como el host WinForms
+  (`FormGpsQuantiXRuntimeService` quedó delegando).
+  **16 tests nuevos**, incluido uno que compara el pps del panel contra el del
+  calculador del bridge: si vuelven a separarse, falla.
+  Además el techo de dosis ahora devuelve **-1 = "no sé"** (motor sin calibrar,
+  tractor parado) en vez de 0: un cero ahí es mentira, la UI muestra guión.
+  **Santiago:** la copia de `PilotX.Android/GuidanceEngineStateServices.cs`
+  (`GuidanceEngineQuantiXRuntimeService`) sigue con los dos bugs — es tu
+  archivo y no lo toqué para no pisarte. Reemplazala por
+  `new QuantiXRuntimeService(state)` cuando pases por ahí.
+  182 → **198 tests verdes**, build 0 errores, paquete SHA 3ECB90ED…

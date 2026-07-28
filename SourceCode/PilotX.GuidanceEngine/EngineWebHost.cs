@@ -14,6 +14,8 @@
 
 using System;
 using System.IO;
+using AgroParallel.FlowX;
+using AgroParallel.Services;
 using AgroParallel.WebHost;
 using PilotX.GuidanceEngine.Adapters;
 
@@ -56,12 +58,23 @@ namespace AgOpenGPS
 
         private readonly GuidanceEngineHost _host;
         private readonly int _port;
+        private readonly string _brokerHost;
+        private readonly int _brokerPort;
         private AgpWebHost _web;
+        private NodoRegistryService _nodos;
+        private FlowXBridge _flowxBridge;
 
-        public EngineWebHost(GuidanceEngineHost host, int port = 5180)
+        /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
+        /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
+        public NodoRegistryService Nodos => _nodos;
+
+        public EngineWebHost(GuidanceEngineHost host, int port = 5180,
+            string brokerHost = "127.0.0.1", int brokerPort = 1883)
         {
             _host = host;
             _port = port;
+            _brokerHost = brokerHost;
+            _brokerPort = brokerPort;
         }
 
         public string Url => _web?.Url;
@@ -96,35 +109,70 @@ namespace AgOpenGPS
                 () => _host.Mc.actualSteerAngleDegrees,
                 () => _host.SettingsSender.SendSettings());
 
+            // ── Productos X-* ────────────────────────────────────────────────
+            // Sin esto el motor headless servía el mapa pero NADA de QuantiX,
+            // VistaX, FlowX ni nodos: contra PilotX.Desktop esas pantallas daban
+            // 404 y el operario veía paneles vacíos. Mismo bloque que arma el
+            // host WinForms (AgpWebHostBootstrap) y el head Android.
+            _nodos = new NodoRegistryService();
+            try { _nodos.Start(_brokerHost, _brokerPort); }
+            catch (Exception ex)
+            {
+                // El registro de nodos es por MQTT: si el broker no está, los
+                // paneles quedan sin nodos pero el guiado tiene que seguir.
+                Console.Error.WriteLine("[Engine] NodoRegistry: " + ex.Message);
+            }
+
+            var vistaxCfg = new VistaXConfigService();
+            var insumosCat = new InsumoCatalogService();
+            var sectionxCfg = new SectionXConfigService();
+            var orbitxCfg = new OrbitXConfigService();
+            var quantixCfg = new QuantiXConfigService(_nodos);
+            // UNA sola instancia de implemento compartida: si el live de VistaX
+            // arma la suya, el overlay muestra geometría vieja hasta reiniciar.
+            var implemento = new ImplementoService(vistaxCfg, vehicleTool, quantixCfg, sectionxCfg);
+            var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento);
+            var quantixRuntime = new QuantiXRuntimeService(state);
+            var flowxCfg = new FlowXConfigService();
+            var flowxLive = new FlowXLiveService(_nodos, flowxCfg);
+            var stormxCfg = new StormXConfigService();
+            var stormxLive = new StormXLiveService(_nodos, stormxCfg);
+            var linexCfg = new LineXConfigService();
+            var linexLive = new LineXLiveService(_nodos, linexCfg);
+
+            // sistema (brillo/apagado) queda en null: la implementación es net48
+            // + WinForms (dxva2/WMI) y no porta al motor headless. Pendiente:
+            // versión net9 para que la página Sistema del Hub ande contra él.
             _web = new AgpWebHost(
                 state,                 // requerido
                 sistema: null,
-                nodos: null,
-                orbitxCfg: null,
-                sectionxCfg: null,
-                camarasCfg: null,
-                quantixCfg: null,
-                vistaxCfg: null,
-                vistaxLive: null,
-                debug: null,
+                nodos: _nodos,
+                orbitxCfg: orbitxCfg,
+                sectionxCfg: sectionxCfg,
+                camarasCfg: new CamarasConfigService(),
+                quantixCfg: quantixCfg,
+                vistaxCfg: vistaxCfg,
+                vistaxLive: vistaxLive,
+                debug: new DebugLogService(),
                 lotes: lotes,
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,
                 sectionsCore: sectionsCore,
-                quantixRuntime: null,
+                quantixRuntime: quantixRuntime,
                 guidance: guidance,
                 pilotxUpdate: null,
-                flowxCfg: null,
-                flowxLive: null,
-                stormxCfg: null,
-                stormxLive: null,
-                linexCfg: null,
-                linexLive: null,
+                flowxCfg: flowxCfg,
+                flowxLive: flowxLive,
+                stormxCfg: stormxCfg,
+                stormxLive: stormxLive,
+                linexCfg: linexCfg,
+                linexLive: linexLive,
                 wwwroot: ResolveWwwroot(),
                 port: _port,
                 toolGeometry: toolGeom,
                 tram: tram,
+                implemento: implemento,
                 paths: paths,
                 trackBuilder: trackBuilder,
                 trackList: trackList,
@@ -133,12 +181,29 @@ namespace AgOpenGPS
                 imuCalibracion: imuCalibracion);
 
             _web.Start();
+
+            // FlowX comanda la válvula de dosificación líquida: va atado al
+            // ciclo de vida del host. Si flowX.json está vacío o deshabilitado,
+            // sale en silencio.
+            try
+            {
+                _flowxBridge = new FlowXBridge(state, FlowXConfig.Load());
+                _ = _flowxBridge.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] FlowXBridge: " + ex.Message);
+            }
         }
 
         public void Stop()
         {
+            try { _flowxBridge?.Stop(); _flowxBridge?.Dispose(); } catch { }
+            _flowxBridge = null;
             try { _web?.Stop(); } catch { }
             _web = null;
+            try { _nodos?.Dispose(); } catch { }
+            _nodos = null;
         }
     }
 }
