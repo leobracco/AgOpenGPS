@@ -58,7 +58,8 @@ posición, sim-coords.
 
 ## Brechas reales (emitido por la UI y sin respuesta en ningún lado)
 
-Son **~30**, y se agrupan en 4 familias:
+Son **~24** (eran ~30 en la primera medición: la familia "Lote" resultó un falso
+positivo, ver abajo), y se agrupan en 4 familias:
 
 ### 1. Cámara y vista — 9 · *puro cliente, no necesita motor*
 `v2d`, `v3d`, `norte2d`, `tilt_up`, `tilt_dn`, `grilla`, `dia_noche`,
@@ -66,11 +67,24 @@ Son **~30**, y se agrupan en 4 familias:
 > Hoy el mapa es heading-up fijo con grilla fija. Es trabajo de `MapGlSurface`
 > solo; el 6.8.5 los tiene todos.
 
-### 2. Lote — 6 · *el submenú abre pero los ítems no hacen nada*
-`lote_menu`, `lote_nuevo`, `lote_continuar`, `lote_kml`, `lote_datos`, `lote`
-> **La más urgente**: sin lote no opera nada. Hoy se abre por API
-> (`POST /api/lotes/open`), pero desde la UI el submenú de LOTE no funciona.
-> El backend YA está (`EngineLotesService`): falta solo cablear los botones.
+### 2. ~~Lote — 6~~ · **CORREGIDO: era un falso positivo de la medición**
+> Al ir a cablearlo se comprobó que **ya estaba ruteado**: `lote_menu`,
+> `lote_continuar`, `lote_nuevo` y `lote_kml` abren `pages/lote.html` (con
+> deep-link `?do=`) desde `MainWindow.RouteCockpitCommand`, y `lote_datos` abre
+> `datos-lote.html`. El cruce automático no los vio porque están en un `switch`
+> con `case`, y el grep buscaba la forma de expresión `"x" => …`.
+>
+> Lo que sí faltaba era del lado del MOTOR, y se implementó el 2026-07-27:
+> `DeleteFieldAsync` (con negativa a borrar el lote abierto) y
+> `CreateFromExistingAsync` (port 1:1 del nativo). Verificado por HTTP.
+>
+> **Sigue sin andar a propósito**: `import-kml` / `import-isoxml`, porque en el
+> nativo abren un diálogo de archivo de WinForms y la API todavía no recibe una
+> ruta. Devuelven `false` en vez de fingir que importaron.
+>
+> **Lección de método**: medir por grep sobre una sola forma sintáctica
+> sobrestima las brechas. Los números de este documento son un punto de partida
+> para ir a mirar, no un veredicto.
 
 ### 3. Ventana y sistema — 6
 `minimizar`, `maximizar`, `apagar`, `kiosco`, `reset_all`, `simulador`
@@ -114,10 +128,13 @@ contra el motor real.
 
 **Las brechas se concentran en dos lugares**, y ninguna es de guiado:
 
-1. **La entrada al trabajo** (submenú LOTE) — el backend está, falta el cableado
-   de UI. Es lo primero a cerrar porque bloquea todo lo demás.
-2. **Vista/cámara y ruta grabada** — el 6.8.5 las tiene completas y nosotros no.
-   La cámara es puro cliente; ruta grabada es un subsistema entero.
+1. **Vista y cámara** (9 comandos) — 2D/3D/Norte/tilt/grilla/día-noche/brillo.
+   Es puro cliente (`MapGlSurface`), no toca el motor. El 6.8.5 los tiene todos.
+2. **Ruta grabada** — un subsistema entero: 5 botones más toda la máquina de
+   grabación y reproducción.
+
+(La "entrada al trabajo" —el submenú LOTE— figuraba acá en la primera medición y
+resultó ser un falso positivo: ya estaba cableada.)
 
 **Lo que no conviene medir por cantidad de botones**: el 6.8.5 tiene 426
 handlers, pero ~350 son de las ventanas de configuración, que en PilotX
