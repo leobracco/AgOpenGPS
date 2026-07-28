@@ -2308,3 +2308,27 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
     Parado no hay nada que interpolar y no tiene sentido quemar GPU en la cabina
     — se respeta el criterio original de "render solo cuando hay dato nuevo".
   Build 0 errores, paquete SHA BF566579…
+- [2026-07-28] [taller] HECHO — **QuantiX: la cadena de dosis quedó testeada**
+  (tarea S2 del plan de 3 días).
+  El cálculo dosis→pps vivía embebido en el tick de `QuantiXMotorBridge`,
+  mezclado con MQTT, historial de posición y logging: **imposible de testear**.
+  Se extrajo a `QxPulseCalculator` (función PURA, `AgroParallel.Services/QuantiX/`)
+  y **el bridge ahora la usa** — no es código muerto al lado del que corre. El
+  cálculo de RPM también quedó unificado ahí (estaba duplicado en el log).
+  **11 tests nuevos de los casos que rompen en campo**, no de los felices:
+  · tractor parado → motor quieto; casi parado (0,4 km/h) tampoco, pero a
+    0,6 sí. El piso existe porque la dosis por hectárea tiende a infinito
+    cuando la velocidad tiende a cero: sin él, **el motor se embala con el
+    tractor detenido**.
+  · sección cerrada → motor quieto aunque el tractor avance.
+  · **sin calibración cargada → motor quieto** (ni gramos/pulso ni
+    semillas/vuelta). Era el caso silencioso: antes devolvía 0 por casualidad
+    del `if`, ahora es una decisión explícita y fijada por test.
+  · las cuentas: 6 sem/m con 12 surcos a 7,2 km/h = 34,56 pps; 150 kg/ha a 28 m
+    y 7,2 km/h = 420 pps (verificadas a mano contra la fórmula).
+  · al doble de velocidad, el doble de pulsos (la dosis/ha se mantiene).
+  · cambiar de insumo (otra calibración) cambia los pulsos en proporción.
+  · **rpm es lo que se muestra al operario, nunca pps** — hay test que lo fija.
+  Criterio de seguridad que quedó explícito en el código: **ante duda, motor
+  quieto**; es preferible no sembrar a sembrar cualquier cosa.
+  156 → **167 tests verdes**, build 0 errores.
