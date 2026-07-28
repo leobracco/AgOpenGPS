@@ -317,6 +317,11 @@ namespace AgroParallel.Adapters
             return tcs.Task;
         }
 
+        /// <summary>Import por ruta (sin dialogo): en el host WinForms se sigue
+        /// usando el dialogo nativo; esta variante la resuelve el motor headless,
+        /// que es el backend de PilotX.Desktop.</summary>
+        public Task<bool> ImportKmlAsync(string nombre, string rutaArchivo) => Task.FromResult(false);
+
         public Task<bool> ImportKmlAsync() => ImportNativeAsync(kml: true);
 
         public Task<bool> ImportIsoXmlAsync() => ImportNativeAsync(kml: false);

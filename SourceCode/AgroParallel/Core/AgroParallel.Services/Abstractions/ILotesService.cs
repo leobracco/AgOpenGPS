@@ -46,6 +46,16 @@ namespace AgroParallel.Services.Abstractions
         /// <summary>Import de lote desde KML — abre el diálogo nativo (ex FormFieldKML).</summary>
         Task<bool> ImportKmlAsync();
 
+        /// <summary>
+        /// Importa un KML SIN diálogo nativo: crea el lote <paramref name="nombre"/>
+        /// tomando como origen del plano local la primera coordenada del archivo
+        /// y carga el polígono como lindero exterior.
+        /// <paramref name="rutaArchivo"/> es una ruta local del equipo; para
+        /// subida por HTTP el controller guarda el archivo en temporal y pasa
+        /// esa ruta, así los dos caminos usan el mismo código.
+        /// </summary>
+        Task<bool> ImportKmlAsync(string nombre, string rutaArchivo);
+
         /// <summary>Import de lote desde ISO-XML — abre el diálogo nativo (ex FormFieldIsoXml).</summary>
         Task<bool> ImportIsoXmlAsync();
     }

@@ -278,6 +278,8 @@ namespace PilotX.Droid
                                                   bool copyGuidance, bool copyHeadland)
             => Task.FromResult(false);
         public Task<bool> ImportKmlAsync() => Task.FromResult(false);
+        // Import por ruta: pendiente en Android (necesita el picker del sistema).
+        public Task<bool> ImportKmlAsync(string nombre, string rutaArchivo) => Task.FromResult(false);
         public Task<bool> ImportIsoXmlAsync() => Task.FromResult(false);
 
         // Shoelace sobre Boundary.txt — copiado de FormGpsLotesService (mismo

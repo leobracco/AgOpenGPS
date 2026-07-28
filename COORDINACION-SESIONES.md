@@ -2267,3 +2267,27 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **Sigue sin andar a propósito**: `import-kml` e `import-isoxml` — en el nativo
   abren un diálogo de archivo WinForms y la API todavía no recibe la ruta. Se
   devuelve `false` en vez de fingir que importó.
+- [2026-07-27] [taller] HECHO — **import de KML por las dos vías: ruta local y
+  subida HTTP**. Port de `FormFieldKML` (FindLatLon + CreateNewField +
+  LoadKMLBoundary) al motor, sin diálogo de archivo.
+  · `POST /api/lotes/import-kml?name=<lote>&path=C:\ruta\campo.kml` → ruta local.
+  · `POST /api/lotes/import-kml?name=<lote>` con el KML **en el cuerpo** → subida.
+    La subida se guarda en un temporal y se pasa por la MISMA función que la
+    ruta local: un solo camino que mantener y probar. El temporal se borra
+    siempre (el lote ya guardó su `Boundary.txt`).
+    Cap de 16 MB (un KML de lote son KB) y borrado en `finally`.
+  · Sin ruta ni cuerpo, cae al diálogo nativo (solo aplica al host WinForms).
+  **Decisión que importa**: el ORIGEN del plano local sale de la PRIMERA
+  coordenada del KML, no del GPS actual — si se usara el GPS, un lote importado
+  desde la oficina quedaría con el origen a cientos de km y las coordenadas
+  locales darían números absurdos.
+  Parseo por texto y no XML, igual que el nativo: los KML de las apps de campo
+  vienen con namespaces raros y un parser estricto los rechaza. Ojo que KML es
+  **lon,lat** (al revés de lo habitual).
+  **Verificado con un KML de prueba de 176 × 167 m**: por ruta → `ok:true`, lote
+  creado y abierto; por HTTP → idem; los dos con `has_boundary:true` y
+  **`area_ha: 2.9`**, que coincide con la geometría real (2,94 ha) — o sea que la
+  conversión WGS84 → plano local está bien, no solo "no falló". Lotes de prueba
+  borrados. Build 0 errores, tests verdes, paquete SHA 4A38B666…
+  **Falta**: ISO-XML sigue en `false` (no se portó su parser); y Android tiene la
+  firma nueva devolviendo false hasta que se enganche el picker del sistema.

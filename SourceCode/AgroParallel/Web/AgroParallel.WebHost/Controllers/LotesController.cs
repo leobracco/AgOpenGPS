@@ -89,11 +89,79 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         // Imports nativos (diálogos WinForms) — ex FormJob KML / ISO-XML.
+        /// <summary>
+        /// Import de KML por DOS vías, según lo que traiga el request:
+        ///   · Ruta local:  `?name=Lote&amp;path=C:\ruta\campo.kml`
+        ///   · Subida HTTP: `?name=Lote` + el KML como cuerpo del POST
+        ///     (`Content-Type: application/vnd.google-earth.kml+xml` o texto).
+        /// La subida se guarda en un temporal y se pasa por la MISMA ruta de
+        /// código que el archivo local: un solo camino que mantener y probar.
+        /// Sin ninguno de los dos, cae al diálogo nativo (host WinForms).
+        /// </summary>
         [Route(HttpVerbs.Post, "/lotes/import-kml")]
-        public async Task ImportKml()
+        public async Task ImportKml([QueryField] string name, [QueryField] string path)
         {
-            bool ok = _lotes != null && await _lotes.ImportKmlAsync();
-            await WriteJsonAsync(new { ok });
+            if (_lotes == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+
+            // 1) Ruta local en el equipo.
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                if (!File.Exists(path))
+                {
+                    await WriteJsonAsync(new { ok = false, error = "archivo-no-encontrado" });
+                    return;
+                }
+                bool okPath = await _lotes.ImportKmlAsync(name, path);
+                await WriteJsonAsync(new { ok = okPath });
+                return;
+            }
+
+            // 2) Subida por HTTP: el KML viene en el cuerpo.
+            string temp = null;
+            try
+            {
+                using (var input = HttpContext.Request.InputStream)
+                using (var buf = new MemoryStream())
+                {
+                    byte[] chunk = new byte[64 * 1024];
+                    int n; long total = 0;
+                    while ((n = await input.ReadAsync(chunk, 0, chunk.Length).ConfigureAwait(false)) > 0)
+                    {
+                        total += n;
+                        // Cap defensivo: un KML de lote son KB, no MB.
+                        if (total > 16L * 1024 * 1024)
+                        {
+                            await WriteJsonAsync(new { ok = false, error = "archivo-demasiado-grande" });
+                            return;
+                        }
+                        await buf.WriteAsync(chunk, 0, n).ConfigureAwait(false);
+                    }
+
+                    if (buf.Length == 0)
+                    {
+                        // Ni ruta ni cuerpo: diálogo nativo (solo host WinForms).
+                        bool okDialogo = await _lotes.ImportKmlAsync();
+                        await WriteJsonAsync(new { ok = okDialogo });
+                        return;
+                    }
+
+                    temp = Path.Combine(Path.GetTempPath(),
+                        "pilotx-import-" + System.Guid.NewGuid().ToString("N") + ".kml");
+                    File.WriteAllBytes(temp, buf.ToArray());
+                }
+
+                bool okSubida = await _lotes.ImportKmlAsync(name, temp);
+                await WriteJsonAsync(new { ok = okSubida });
+            }
+            catch (System.Exception ex)
+            {
+                await WriteJsonAsync(new { ok = false, error = ex.Message });
+            }
+            finally
+            {
+                // El temporal no queda: el lote ya guardó su propio Boundary.txt.
+                try { if (temp != null && File.Exists(temp)) File.Delete(temp); } catch { }
+            }
         }
 
         [Route(HttpVerbs.Post, "/lotes/import-isoxml")]
