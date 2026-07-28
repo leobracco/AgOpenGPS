@@ -2332,3 +2332,30 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Criterio de seguridad que quedó explícito en el código: **ante duda, motor
   quieto**; es preferible no sembrar a sembrar cualquier cosa.
   156 → **167 tests verdes**, build 0 errores.
+- [2026-07-28] [taller] HECHO — **VistaX: la alarma por surco quedó testeada y
+  con una sola fuente de verdad** (tarea S3 del plan de 3 días).
+  Es la decisión que el operario ve como un cuadrito de color y la que lo hace
+  frenar el tractor. Vivía embebida en el tick de `VistaXLiveService`, mezclada
+  con MQTT, catálogo de insumos, máquina de siembra y estado de secciones:
+  correcta, pero imposible de testear. Se extrajo a `VxSurcoEvaluator`
+  (función PURA, `AgroParallel.Services/VistaX/`) y **el service la usa en los
+  dos caminos** — el que no depende de umbrales y el que sí — así el overlay
+  nativo y el snapshot HTTP del Hub leen la misma verdad.
+  **El ORDEN de las reglas es contrato, no detalle**: sección cortada gana
+  sobre silenciado, y silenciado sobre sin-datos. Si se invierte, **cada
+  cabecera dispara una alarma por cuerpo levantado** y el operario apaga la
+  alarma y deja de mirarla.
+  **15 tests nuevos de los casos que importan en campo:**
+  · **bajada tapada** (hay telemetría pero no caen semillas) → alarma. Es la
+    que más plata salva: un surco tapado es un surco perdido.
+  · sección cortada con 0 semillas → gris, NO alarma (es la cabecera).
+  · **sensor mudo mientras se siembra ES alarma**, no un gris neutro (nodo
+    caído / cable cortado); con el tractor parado, informativo.
+  · **exceso se marca pero NO alarma**: sembrar de más no es falla productiva,
+    frenar el tractor por eso sería peor que seguir.
+  · turbina/rotación sin objetivo propio no se compara contra densidad de
+    siembra (daría falsas alarmas todo el tiempo).
+  · tolva vacía → alarma; el resto de los sensores on/off no usan umbrales
+    de densidad.
+  167 → **182 tests verdes**, build 0 errores, paquete `PilotX_v1.0.24.zip`
+  SHA BB8171DC…
