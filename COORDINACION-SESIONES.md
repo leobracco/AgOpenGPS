@@ -2587,3 +2587,33 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   la raíz.
   **Verificado**: escribí una config, compilé, y sobrevivió. Antes se perdía.
   208 tests verdes, paquete SHA 7D86424B…
+- [2026-07-28] [taller] HECHO — **sacado el cuadriculado de fondo del mapa**
+  (pedido del usuario: "no sirve para nada, quizá consuma menos"). Tenía razón
+  en las dos cosas: no marcaba referencias del lote ni distancias que se usen
+  manejando, y se redibujaba ENTERO en cada frame — a 60 fps con el tractor en
+  movimiento son cientos de líneas por segundo para nada.
+  Queda comentada la llamada, no borrado el método `DrawGrid`: si algún día se
+  quiere colgar de un toggle, está.
+  Verificado en pantalla: el mapa quedó negro limpio con el tractor y la
+  sembradora, y la cobertura pintada se sigue viendo igual.
+- [2026-07-28] [taller] SIN RESOLVER — **el usuario reportó "desapareció el
+  tractor"** y la pantalla estaba efectivamente en negro, sin tractor NI
+  cuadriculado (o sea: el mapa no dibujaba NADA, no era un problema del
+  sprite). Al reiniciar PilotX.Desktop volvió todo.
+  Lo que sí se pudo descartar con evidencia, para el que lo agarre:
+  · **el motor estaba vivo**: en esa misma pantalla el overlay de QuantiX
+    mostraba datos frescos y la barra superior también (velocidad, XTE,
+    hectáreas). O sea NO era el backend caído.
+  · **los pollers están bien escritos**: `HudPoller` y los de geometría
+    reintentan siempre; solo cortan si se cancela de verdad
+    (`when (ct.IsCancellationRequested)`). No es el bug de
+    "HttpClient.Timeout mata el polling" que ya nos mordió en Android.
+  · el log de diagnóstico del `MapGlSurface` en un arranque sano muestra el
+    render funcionando (el pixel del centro pasa de negro a claro cada frame).
+  Queda la hipótesis sin confirmar de que el mapa dejó de PEDIR frames (si no
+  se ejecuta ningún frame no hay ni grilla, que era justo el síntoma), o que
+  el control quedó oculto. **No lo pude reproducir**: pasó mientras yo estaba
+  matando y relanzando el motor para compilar, así que puede estar
+  relacionado con que el backend se caiga y vuelva con la UI abierta.
+  Si vuelve a pasar: NO reiniciar de una, mirar primero si la barra superior
+  sigue viva (eso separa "backend caído" de "mapa colgado").

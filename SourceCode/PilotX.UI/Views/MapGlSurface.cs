@@ -683,12 +683,14 @@ public sealed class MapGlSurface : OpenGlControlBase
         // programa y necesita la MISMA transformación.
         for (int i = 0; i < 16; i++) _mvpCache[i] = mvp[i];
 
-        // --- Capa 1: world grid ----------------------------------------
-        // Lineas cada 10m alrededor del centro de bbox. Si no hay bbox
-        // (idle / sin lote), usar un grid arbitrario alrededor del 0,0
-        // mundo (el tractor aparecera ahi cuando llegue snapshot con
-        // PivotEasting/PivotNorthing).
-        DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, ColGrid);
+        // --- Capa 1: world grid — DESACTIVADA (2026-07-28, pedido usuario) --
+        // El cuadriculado de fondo no le decía nada al operario: no marca
+        // referencias del lote ni distancias que se usen manejando, y se
+        // redibujaba entero en CADA frame (a 60 fps con el tractor en
+        // movimiento son cientos de líneas por segundo para nada).
+        // El método DrawGrid queda para poder volver a colgarlo de un toggle
+        // si algún día hace falta.
+        //DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, ColGrid);
 
         // --- Capa 2: coverage (worked area) ----------------------------
         // Si hay snapshot pendiente con revision nueva, reuploadeamos el
