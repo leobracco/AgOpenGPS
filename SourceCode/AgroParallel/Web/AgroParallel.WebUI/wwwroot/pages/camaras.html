@@ -74,6 +74,10 @@
     .cfg-row input[type=text], .cfg-row input[type=password], .cfg-row input[type=number] { width:100%; }
     .cfg-row input[type=checkbox] { width:18px; height:18px; }
   </style>
+  <!-- Embebido dentro de config.html: sin esto se ve una barra lateral adentro
+       de otra, con navegación duplicada. Mismo patrón que el resto de módulos. -->
+  <script>if(location.search.indexOf('widget=1')!==-1)document.documentElement.classList.add('widget-mode');</script>
+  <style>html.widget-mode body{grid-template-columns:1fr}html.widget-mode aside.sidebar{display:none}</style>
 </head>
 <body>
   <aside class="sidebar" data-active="camaras"></aside>

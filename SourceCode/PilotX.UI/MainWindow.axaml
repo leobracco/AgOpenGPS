@@ -468,20 +468,37 @@
                 de BarStyles (Selector="Button"/"Image") van SCOPEADOS a este Grid
                 para no pisar el resto de la UI de PilotX.Desktop.
             -->
+            <!--
+                Filas Auto/*/Auto en vez de altos fijos + márgenes que los
+                repitan: la barra de abajo crece cuando aparece la botonera de
+                secciones y se achica cuando no hay lote, sin que nadie tenga
+                que acordarse de actualizar tres números. Con el alto fijo en 58
+                la segunda fila de la barra (donde vive el botón que abre los
+                productos X-*) quedaba CORTADA fuera de la pantalla: el operario
+                no tenía forma de llegar a QuantiX ni a VistaX.
+                La fila del medio queda transparente — el mapa se ve por atrás.
+            -->
             <Grid Name="CockpitBarsHost" Grid.Row="2" IsVisible="False" ZIndex="50">
                 <Grid.Styles>
                     <StyleInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarStyles.axaml"/>
                 </Grid.Styles>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
                 <bars:BarraSuperior x:Name="BarSuperior"
-                                    VerticalAlignment="Top" HorizontalAlignment="Stretch" Height="46"/>
-                <bars:BarraAbajo    x:Name="BarAbajo"
-                                    VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="58"/>
-                <bars:BarraDerecha  x:Name="BarDerecha"
-                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                    Width="58" Margin="0,0,0,58"/>
+                                    Grid.Row="0" HorizontalAlignment="Stretch" Height="46"/>
                 <bars:MenuIzquierda x:Name="MenuIzq"
+                                    Grid.Row="1"
                                     HorizontalAlignment="Left" VerticalAlignment="Stretch"
-                                    Width="140" Margin="0,46,0,58"/>
+                                    Width="140"/>
+                <bars:BarraDerecha  x:Name="BarDerecha"
+                                    Grid.Row="1"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Width="58"/>
+                <bars:BarraAbajo    x:Name="BarAbajo"
+                                    Grid.Row="2" HorizontalAlignment="Stretch"/>
             </Grid>
 
             <!-- =========== Panel de creación de guía A/B (en el mapa) =========== -->

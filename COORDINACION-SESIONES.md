@@ -2444,3 +2444,41 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **Falta validarlo con un nodo real**: acá no hay hardware QuantiX conectado,
   así que el panel se ve con 0 nodos. Santiago, si tenés el nodo en el banco,
   esto es lo primero para mirar.
+- [2026-07-28] [taller] HECHO — **no había forma de llegar a QuantiX ni a VistaX
+  desde la pantalla principal.** Reportado por el usuario ("no tengo manera de
+  lanzar el overlay de quantix"). Eran DOS causas encadenadas:
+  1. **La barra de abajo estaba cortada.** Al agregar la botonera de secciones
+     (commit de ayer) la barra pasó a tener dos filas, pero `MainWindow.axaml`
+     le fijaba `Height="58"` y los márgenes de las otras barras repetían ese
+     número. La segunda fila —la de los botones— quedaba FUERA de la pantalla.
+     Ahora el host usa filas `Auto/*/Auto`: la barra crece cuando aparece la
+     botonera y se achica cuando no hay lote, sin tres números que mantener
+     sincronizados a mano. Verificado por captura: antes se veía media fila
+     de íconos contra el borde, ahora se ve entera.
+  2. **El menú de productos X-\* quedó huérfano.** Vivía en el botón `[T]` de
+     una toolbar propia de PilotX.Desktop que fue reemplazada por las barras
+     del cockpit. El menú izquierdo (Navegación / Herramientas / Configuración /
+     LOTE / Herr. lote / Dirección / CoreX) no tenía NINGUNA entrada a QuantiX,
+     VistaX, FlowX ni al Hub.
+  Solución (decisión del usuario): **el Hub va adentro de `config.html`**, que
+  ya tenía embebidos los módulos X-* desde el 2026-07-20. Configuración sigue
+  siendo la puerta única y conserva todo lo suyo (vehículo, implemento,
+  secciones, GPS/IMU). Se agregaron al grupo Módulos: **Hub, Nodos y Cámaras**
+  — los tres que faltaban. Con el Hub adentro vuelven los toggles de widgets
+  sobre el mapa, que era lo que el usuario buscaba.
+  Detalles que salieron al probarlo en pantalla:
+  · `hub.html`, `nodos.html` y `camaras.html` no soportaban `?widget=1`, así
+    que embebidas mostraban una barra lateral adentro de otra.
+  · el botón flotante **Guardar tapaba el toggle del overlay de FlowX**. Ahora
+    se oculta mientras se ve un módulo: ahí no guarda nada, cada módulo guarda
+    lo suyo.
+  Verificado en pantalla, no sólo por código: Configuración abre, el grupo
+  MÓDULOS lista los 9, el Hub carga embebido con KPIs en vivo y los tres
+  toggles visibles. Paquete SHA 5466ABA1…
+  **OJO — hueco real que queda:** los toggles escriben `overlayPrefs.json` y
+  **el único que dibuja esos widgets sobre el mapa es FormGPS** (la UI WinForms
+  vieja). En PilotX.Desktop no hay nada que los renderice: `PilotX.UI` sólo
+  tiene el cliente HTTP y los toggles. O sea que en el stack Avalonia el toggle
+  hoy no prende ningún overlay sobre el mapa. Lo que SÍ funciona es el panel
+  de QuantiX a pantalla completa. Portar el widget al mapa GL nativo queda
+  pendiente y no está estimado.
