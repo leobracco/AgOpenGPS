@@ -2245,3 +2245,25 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
     **LOTE (6 — la más urgente: el backend está, falta cablear los botones)**,
     ventana/sistema (6) y funciones ausentes (9, con `ruta_grabada` como la más
     grande: 5 botones + toda la máquina de grabación).
+- [2026-07-27] [taller] HECHO + **CORRECCIÓN a la comparación vs 6.8.5**. Al ir a
+  cablear el submenú LOTE resultó que **ya estaba ruteado**: los comandos
+  `lote_menu/continuar/nuevo/kml` abren `pages/lote.html` (con deep-link `?do=`)
+  desde `MainWindow.RouteCockpitCommand`. Mi cruce automático no los detectó
+  porque están en un `switch` con `case`, y yo había grepeado la forma
+  `"x" => …` de expresión. **La brecha de LOTE en el doc estaba sobrestimada** —
+  ya lo corregí en `docs/2026-07-27-comparacion-vs-685.md`.
+  Lo que SÍ faltaba del lado del motor y se implementó ahora:
+  · **`DeleteFieldAsync`** — borra la carpeta del lote, y **se niega a borrar el
+    lote ABIERTO** (hay que cerrarlo antes).
+  · **`CreateFromExistingAsync`** — port 1:1 de `FormGPS.Lotes_CreateFromExisting`
+    (era I/O de archivos puro, nada de WinForms): copia el ORIGEN del plano local
+    del template —clave para que las coordenadas guardadas sigan siendo
+    válidas— y, según los flags, lindero / aplicado / banderas / guías / cabecera.
+  Verificado por HTTP contra el motor real: crear desde `La Paloma` → `ok:true`,
+  queda abierto, con `Boundary.txt` + `TrackLines.txt` copiados y `Sections.txt`/
+  `Contour.txt` vacíos (applied=false); borrar con el lote abierto → `ok:false`;
+  cerrar y borrar → `ok:true` y la carpeta desaparece. Lotes de prueba
+  eliminados, no quedó basura.
+  **Sigue sin andar a propósito**: `import-kml` e `import-isoxml` — en el nativo
+  abren un diálogo de archivo WinForms y la API todavía no recibe la ruta. Se
+  devuelve `false` en vez de fingir que importó.

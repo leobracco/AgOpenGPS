@@ -149,11 +149,141 @@ namespace PilotX.GuidanceEngine.Adapters
             return sb.ToString().Trim();
         }
 
-        public Task<bool> DeleteFieldAsync(string name) => Task.FromResult(false);
+        /// <summary>
+        /// Borra la carpeta del lote. Se niega a borrar el lote ABIERTO: hay que
+        /// cerrarlo antes, si no se estaría borrando el piso mientras se trabaja.
+        /// </summary>
+        public Task<bool> DeleteFieldAsync(string name)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);
+                string root = RegistrySettings.fieldsDirectory;
+                string dir = Path.Combine(root, name);
+                if (!Directory.Exists(dir)) return Task.FromResult(false);
+                if (_host.IsJobStarted &&
+                    string.Equals(_host.currentFieldDirectory, name, StringComparison.OrdinalIgnoreCase))
+                    return Task.FromResult(false);
+                Directory.Delete(dir, true);
+                return Task.FromResult(true);
+            }
+            catch { return Task.FromResult(false); }
+        }
+
+        /// <summary>
+        /// Lote nuevo a partir de otro: copia el ORIGEN del plano local (para que
+        /// las coordenadas guardadas sigan siendo válidas) y, según lo pedido, el
+        /// lindero, lo aplicado, las banderas, las guías y la cabecera.
+        /// Port 1:1 de FormGPS.Lotes_CreateFromExisting — es I/O de archivos puro,
+        /// no había nada de WinForms adentro.
+        /// </summary>
         public Task<bool> CreateFromExistingAsync(string templateName, string newName,
                                                   bool copyApplied, bool copyFlags,
                                                   bool copyGuidance, bool copyHeadland)
-            => Task.FromResult(false);
+        {
+            if (string.IsNullOrWhiteSpace(templateName) || string.IsNullOrWhiteSpace(newName))
+                return Task.FromResult(false);
+            string clean = CleanName(newName);
+            if (string.IsNullOrEmpty(clean)) return Task.FromResult(false);
+
+            string root = RegistrySettings.fieldsDirectory;
+            string templateDir = Path.Combine(root, templateName);
+            string templateField = Path.Combine(templateDir, "Field.txt");
+            if (!File.Exists(templateField)) return Task.FromResult(false);
+
+            string newDir = Path.Combine(root, clean);
+            if (Directory.Exists(newDir)) return Task.FromResult(false);
+
+            string offsets, convergence, startFix;
+            try
+            {
+                using (var reader = new StreamReader(templateField))
+                {
+                    reader.ReadLine(); reader.ReadLine(); reader.ReadLine(); reader.ReadLine();
+                    offsets = reader.ReadLine();
+                    reader.ReadLine();
+                    convergence = reader.ReadLine();
+                    reader.ReadLine();
+                    startFix = reader.ReadLine();
+                }
+                if (offsets == null || convergence == null || startFix == null)
+                    return Task.FromResult(false);
+            }
+            catch { return Task.FromResult(false); }
+
+            try
+            {
+                if (_host.IsJobStarted) _host.CloseField();
+                Directory.CreateDirectory(newDir);
+
+                using (var writer = new StreamWriter(Path.Combine(newDir, "Field.txt")))
+                {
+                    writer.WriteLine(DateTime.Now.ToString("yyyy-MMMM-dd hh:mm:ss tt", CultureInfo.InvariantCulture));
+                    writer.WriteLine("$FieldDir");
+                    writer.WriteLine("FromExisting");
+                    writer.WriteLine("$Offsets");
+                    writer.WriteLine(offsets);
+                    writer.WriteLine("$Convergence");
+                    writer.WriteLine(convergence);
+                    writer.WriteLine("StartFix");
+                    writer.WriteLine(startFix);
+                }
+
+                void CopyIfExists(string file)
+                {
+                    string src = Path.Combine(templateDir, file);
+                    if (File.Exists(src)) File.Copy(src, Path.Combine(newDir, file));
+                }
+
+                if (copyApplied)
+                {
+                    CopyIfExists("Contour.txt");
+                    CopyIfExists("Sections.txt");
+                }
+                else
+                {
+                    File.WriteAllText(Path.Combine(newDir, "Sections.txt"), "");
+                    File.WriteAllLines(Path.Combine(newDir, "Contour.txt"), new[] { "$Contour" });
+                }
+
+                CopyIfExists("BackPic.txt");
+                CopyIfExists("BackPic.png");
+                CopyIfExists("Boundary.txt");
+                CopyIfExists("Elevation.txt");
+
+                if (File.Exists(Path.Combine(templateDir, "Headlines.txt"))) CopyIfExists("Headlines.txt");
+                else File.WriteAllLines(Path.Combine(newDir, "Headlines.txt"), new[] { "$Headlines" });
+
+                if (copyFlags) CopyIfExists("Flags.txt");
+                else File.WriteAllLines(Path.Combine(newDir, "Flags.txt"), new[] { "$Flags", "0" });
+
+                if (copyGuidance)
+                {
+                    CopyIfExists("ABLines.txt");
+                    CopyIfExists("RecPath.txt");
+                    CopyIfExists("CurveLines.txt");
+                    CopyIfExists("Tram.txt");
+                    CopyIfExists("TrackLines.txt");
+                }
+                else
+                {
+                    File.WriteAllLines(Path.Combine(newDir, "RecPath.txt"), new[] { "$RecPath", "0" });
+                }
+
+                if (copyHeadland) CopyIfExists("Headland.txt");
+
+                return Task.FromResult(_host.OpenField(clean));
+            }
+            catch
+            {
+                return Task.FromResult(false);
+            }
+        }
+
+        // Import KML / ISO-XML: en el nativo abren un diálogo de archivo de
+        // WinForms (FormFieldKML / FormFieldISOXML). Headless no hay diálogo, y
+        // la API todavía no recibe la ruta del archivo, así que se devuelve
+        // false a propósito en vez de fingir que importó.
         public Task<bool> ImportKmlAsync() => Task.FromResult(false);
         public Task<bool> ImportIsoXmlAsync() => Task.FromResult(false);
 
