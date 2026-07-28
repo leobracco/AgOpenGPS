@@ -119,6 +119,7 @@ namespace AgroParallel.QuantiX
                 Nombre = motor.Nombre,
                 Habilitado = tieneCortes || motor.DosisFija > 0 || !string.IsNullOrEmpty(motor.CampoDosis),
                 DosisObjetivo = dosis,
+                UnidadDosis = esSemillas ? "sem_m" : "kg_ha",
                 TargetPps = pps,
                 TargetRpm = QxPulseCalculator.Rpm(pps, motor.DientesEngranaje),
                 MaxHz = maxHz,

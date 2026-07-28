@@ -139,6 +139,17 @@ namespace AgroParallel.Services.Tests
                 "-1 es 'no se': la UI muestra un guion, un cero seria mentira");
         }
 
+        [Test]
+        public void Se_reporta_la_unidad_para_que_la_UI_no_rotule_mal()
+        {
+            // Mostrar "kg/ha" en una sembradora configurada en sem/m es un
+            // error que el operario no tiene forma de detectar mirando.
+            Assert.That(QxRuntimeBuilder.Build(Sembradora(6), Ctx(8)).Motores[0].UnidadDosis,
+                Is.EqualTo("sem_m"));
+            Assert.That(QxRuntimeBuilder.Build(Fertilizadora(150), Ctx(8)).Motores[0].UnidadDosis,
+                Is.EqualTo("kg_ha"));
+        }
+
         // ---- Techo operativo -------------------------------------------------
 
         [Test]

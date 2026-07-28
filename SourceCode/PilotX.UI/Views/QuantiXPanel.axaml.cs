@@ -5,10 +5,17 @@
 // renderMotorCard del JS:
 //   - Pill estado por motor (en setpoint / ajustando / fuera de setpoint /
 //     sin telemetria) segun delta% real-target y staleness (lastSeenUtc > 3s)
-//   - Bigtext PPS real (con color por delta) + Objetivo
+//   - Bigtext DOSIS aplicada (color por delta) + dosis objetivo, en las
+//     unidades del operario (kg/ha o sem/m)
+//   - RPM real vs objetivo — lo que se mira para saber si el motor responde
 //   - Gauge horizontal 0..150% con marker al 100% (target)
 //   - PWM como barra + "X / 4095 · Y%"
-//   - KV: RPM, Pulsos, edad lectura
+//   - KV: Pulsos, edad lectura
+//
+// El pps NO se muestra: es una unidad interna del firmware. El operario piensa
+// en dosis y en rpm. Por eso el panel cruza /api/quantix/live (telemetria del
+// firmware) con /api/quantix/runtime (lo que la PC esta pidiendo, ya en las
+// unidades del operario).
 //
 // El editor (Motores CRUD, Shape upload, PID live-tune, Calibracion, Prueba)
 // sigue en HTML — el boton Configurar dispara OnRequestConfigurar.
@@ -34,6 +41,7 @@ public partial class QuantiXPanel : UserControl
     private QuantiXClient? _client;
     private CancellationTokenSource? _cts;
     private QuantiXLiveSnapshot? _live;
+    private QuantiXRuntimeSnapshotDto? _runtime;
 
     private const double FRESH_MS = 3000.0;
 
@@ -93,6 +101,10 @@ public partial class QuantiXPanel : UserControl
         {
             var snap = await _client.GetLiveAsync(ct).ConfigureAwait(false);
             _live = snap; // null si fallo: se renderiza como "sin datos"
+            // El objetivo cambia lento (mapa/velocidad) pero se pide en el
+            // mismo tick para que dosis y telemetria sean del mismo instante:
+            // si se desfasan, el delta% parpadea en cada curva.
+            _runtime = await _client.GetRuntimeAsync(ct).ConfigureAwait(false);
         }
         await Dispatcher.UIThread.InvokeAsync(Render);
     }
@@ -198,7 +210,7 @@ public partial class QuantiXPanel : UserControl
             motors.Sort((a, b) => a.Id.CompareTo(b.Id));
             var wrap = new WrapPanel { Orientation = global::Avalonia.Layout.Orientation.Horizontal };
             foreach (var m in motors)
-                wrap.Children.Add(BuildMotorCard(online, m));
+                wrap.Children.Add(BuildMotorCard(online, m, BuscarRuntime(n.Uid, m.Id)));
             sp.Children.Add(wrap);
         }
 
@@ -214,8 +226,35 @@ public partial class QuantiXPanel : UserControl
         };
     }
 
-    private Control BuildMotorCard(bool nodoOnline, QuantiXMotorLive m)
+    /// <summary>Objetivo de este motor segun la PC. null si el motor no esta
+    /// en la config (nodo descubierto pero todavia no configurado).</summary>
+    private QuantiXMotorRuntimeDto? BuscarRuntime(string? uid, int motorId)
     {
+        var lista = _runtime?.Motores;
+        if (lista == null || string.IsNullOrEmpty(uid)) return null;
+        foreach (var r in lista)
+        {
+            if (r.MotorIndex == motorId &&
+                string.Equals(r.NodoUid, uid, StringComparison.OrdinalIgnoreCase))
+                return r;
+        }
+        return null;
+    }
+
+    /// <summary>Dosis con su unidad, como la lee el operario.</summary>
+    private static string FormatoDosis(double valor, string? unidad)
+    {
+        if (valor < 0) return "--";
+        bool semillas = string.Equals(unidad, "sem_m", StringComparison.OrdinalIgnoreCase);
+        return semillas
+            ? valor.ToString("0.0", CultureInfo.InvariantCulture) + " sem/m"
+            : valor.ToString("0", CultureInfo.InvariantCulture) + " kg/ha";
+    }
+
+    private Control BuildMotorCard(bool nodoOnline, QuantiXMotorLive m, QuantiXMotorRuntimeDto? rt)
+    {
+        // El delta se calcula sobre los pulsos porque es la magnitud que el
+        // firmware controla — pero NO se muestra: lo que se ve es dosis y rpm.
         double target = m.PpsTarget;
         double real   = m.PpsReal;
         int    pwm    = m.Pwm;
@@ -277,18 +316,27 @@ public partial class QuantiXPanel : UserControl
 
         sp.Children.Add(headG);
 
-        // Readouts: PPS real (grande, color por delta) + Objetivo
+        // Readouts: DOSIS aplicada (grande, color por delta) + dosis objetivo.
+        // La aplicada se deriva del objetivo por la proporcion de pulsos que el
+        // motor esta entregando de verdad: si el motor se queda corto, el
+        // numero grande baja y se pone en rojo. Sin objetivo cargado (motor sin
+        // configurar) se muestra "--": inventar un cero seria mentir.
+        double dosisObjetivo = rt?.DosisObjetivo ?? -1;
+        double dosisAplicada = (rt != null && dosisObjetivo > 0 && target > 0)
+            ? dosisObjetivo * (real / target)
+            : -1;
+
         var readG = new Grid();
         readG.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
         readG.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
 
         var realSp = new StackPanel { Spacing = 2 };
-        realSp.Children.Add(new TextBlock { Text = "PPS real", Foreground = _textDim, FontSize = 10, FontWeight = FontWeight.SemiBold });
+        realSp.Children.Add(new TextBlock { Text = "Aplicando", Foreground = _textDim, FontSize = 10, FontWeight = FontWeight.SemiBold });
         realSp.Children.Add(new TextBlock
         {
-            Text       = real.ToString("0.0", CultureInfo.InvariantCulture),
+            Text       = FormatoDosis(dosisAplicada, rt?.UnidadDosis),
             Foreground = mainBrush,
-            FontSize   = 32,
+            FontSize   = 26,
             FontWeight = FontWeight.Bold,
             FontFamily = new FontFamily("Consolas, Courier New, monospace"),
         });
@@ -299,9 +347,9 @@ public partial class QuantiXPanel : UserControl
         tgtSp.Children.Add(new TextBlock { Text = "Objetivo", Foreground = _textDim, FontSize = 10, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Right });
         tgtSp.Children.Add(new TextBlock
         {
-            Text       = target.ToString("0.0", CultureInfo.InvariantCulture),
+            Text       = FormatoDosis(dosisObjetivo, rt?.UnidadDosis),
             Foreground = _textHi,
-            FontSize   = 32,
+            FontSize   = 26,
             FontWeight = FontWeight.Bold,
             FontFamily = new FontFamily("Consolas, Courier New, monospace"),
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -310,6 +358,43 @@ public partial class QuantiXPanel : UserControl
         readG.Children.Add(tgtSp);
 
         sp.Children.Add(readG);
+
+        // RPM real vs objetivo: es lo que se mira para saber si el motor
+        // responde (embrague patinando, producto trabado, motor al tope).
+        var rpmG = new Grid();
+        rpmG.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+        rpmG.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+
+        var rpmSp = new StackPanel { Spacing = 2 };
+        rpmSp.Children.Add(new TextBlock { Text = "RPM", Foreground = _textDim, FontSize = 10, FontWeight = FontWeight.SemiBold });
+        rpmSp.Children.Add(new TextBlock
+        {
+            Text       = m.Rpm.ToString(CultureInfo.InvariantCulture),
+            Foreground = _textMid,
+            FontSize   = 18,
+            FontWeight = FontWeight.SemiBold,
+            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
+        });
+        Grid.SetColumn(rpmSp, 0);
+        rpmG.Children.Add(rpmSp);
+
+        var rpmTgtSp = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Right };
+        rpmTgtSp.Children.Add(new TextBlock { Text = "RPM objetivo", Foreground = _textDim, FontSize = 10, FontWeight = FontWeight.SemiBold, HorizontalAlignment = HorizontalAlignment.Right });
+        rpmTgtSp.Children.Add(new TextBlock
+        {
+            Text       = rt != null
+                ? rt.TargetRpm.ToString("0", CultureInfo.InvariantCulture)
+                : "--",
+            Foreground = _textMid,
+            FontSize   = 18,
+            FontWeight = FontWeight.SemiBold,
+            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
+            HorizontalAlignment = HorizontalAlignment.Right,
+        });
+        Grid.SetColumn(rpmTgtSp, 1);
+        rpmG.Children.Add(rpmTgtSp);
+
+        sp.Children.Add(rpmG);
 
         // Gauge real/target (0..150%, marker visual del target al 100%)
         sp.Children.Add(BuildGauge(fillFrac, markerFrac, mainBrush, target > 0));
@@ -341,7 +426,10 @@ public partial class QuantiXPanel : UserControl
         kv.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         kv.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
 
-        AddKv(kv, 0, 0, "RPM", m.Rpm.ToString(CultureInfo.InvariantCulture));
+        // Techo de dosis a la velocidad actual: responde "hasta donde puedo
+        // acelerar sin quedarme corto". -1 = desconocido (sin calibrar o parado).
+        double techo = rt?.MaxDoseAtCurrentSpeed ?? -1;
+        AddKv(kv, 0, 0, "Maximo hoy", FormatoDosis(techo, rt?.UnidadDosis));
         AddKv(kv, 0, 2, "Pulsos", m.Pulsos.ToString("#,0", CultureInfo.InvariantCulture));
         double ageSec = AgeMs(m.LastSeenUtc) / 1000.0;
         AddKv(kv, 1, 0, "Visto", (stale ? "! " : "") + ageSec.ToString("0.0", CultureInfo.InvariantCulture) + "s");

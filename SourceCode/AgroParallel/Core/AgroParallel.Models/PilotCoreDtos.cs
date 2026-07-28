@@ -109,6 +109,12 @@ namespace AgroParallel.Models
         /// CampoDosis o shape global según el orden de prioridad del bridge.</summary>
         public double DosisObjetivo { get; set; }
 
+        /// <summary>Unidad en la que está expresada la dosis: "kg_ha" o "sem_m".
+        /// La UI la necesita para rotular: mostrar kg/ha en una sembradora
+        /// configurada en semillas por metro es un error que el operario no
+        /// tiene forma de detectar.</summary>
+        public string UnidadDosis { get; set; }
+
         /// <summary>Pulsos por segundo objetivo (lo que el bridge publica a MQTT).</summary>
         public double TargetPps { get; set; }
         /// <summary>RPM equivalente al targetPps con DientesEngranaje.</summary>

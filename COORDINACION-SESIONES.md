@@ -2416,3 +2416,31 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   archivo y no lo toqué para no pisarte. Reemplazala por
   `new QuantiXRuntimeService(state)` cuando pases por ahí.
   182 → **198 tests verdes**, build 0 errores, paquete SHA 3ECB90ED…
+- [2026-07-28] [taller] HECHO — **el panel nativo de QuantiX le mostraba PPS al
+  operario** (cierre de L3). El número grande de cada motor era "PPS real", y
+  el objetivo al lado también en pps. El pps es una unidad interna del firmware:
+  no le dice nada a quien maneja, y encima tapaba lo único que importa mirar.
+  Ahora la tarjeta muestra, en este orden:
+  · **Aplicando** (número grande, color por desvío) y **Objetivo**, los dos en
+    las unidades del operario — kg/ha o sem/m según cómo esté configurado el
+    motor. La dosis aplicada se deriva de la proporción de pulsos que el motor
+    entrega de verdad: si se queda corto, el número baja y se pone rojo.
+  · **RPM real vs RPM objetivo** — es lo que se mira para saber si el motor
+    responde (embrague patinando, producto trabado, motor al tope).
+  · **Máximo hoy**: el techo de dosis a la velocidad actual, que responde
+    "hasta dónde puedo acelerar sin quedarme corto".
+  · PWM y pulsos quedan como diagnóstico, abajo.
+  Sin objetivo cargado se muestra **"--", no cero**: un cero se lee como "el
+  motor no está haciendo nada", que es una falla distinta.
+  Para esto el panel cruza `/api/quantix/live` (telemetría del firmware) con
+  `/api/quantix/runtime` (lo que la PC está pidiendo) en el MISMO tick — si se
+  desfasan, el desvío parpadea en cada curva. Se agregó `unidad_dosis` al
+  runtime: sin eso el panel rotularía kg/ha en una sembradora en sem/m, un
+  error que el operario no tiene forma de detectar mirando.
+  **4 tests nuevos**, 3 de ellos del contrato del cable: si alguien renombra un
+  campo del JSON el panel no rompe, muestra guiones — que en cabina se lee como
+  "el motor está parado". Ahora falla el test en vez de mentirle al operario.
+  198 → **202 tests verdes**, paquete SHA FAC0DC19…
+  **Falta validarlo con un nodo real**: acá no hay hardware QuantiX conectado,
+  así que el panel se ve con 0 nodos. Santiago, si tenés el nodo en el banco,
+  esto es lo primero para mirar.
