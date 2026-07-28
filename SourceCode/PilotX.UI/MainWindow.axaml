@@ -229,6 +229,23 @@
             -->
             <vw:MapPanel x:Name="MapHost" Grid.Row="2"/>
 
+            <!-- =================== WIDGETS SOBRE EL MAPA =================== -->
+            <!--
+                Overlays que acompañan la labor SIN tapar el mapa: se ven
+                mientras se trabaja y el operario los acomoda arrastrándolos.
+                Canvas porque la posición es libre y se persiste en
+                overlayPrefs.json (las mismas coords que usa la app WinForms).
+
+                Va declarado DESPUÉS del mapa y ANTES de los paneles a propósito,
+                sin ZIndex: así queda sobre el mapa, cualquier panel que se abra
+                lo tapa, y las barras del cockpit (ZIndex 50) siguen arriba de
+                todo. Sin Background para no interceptar el pan/zoom del mapa —
+                solo sus hijos son tocables.
+            -->
+            <Canvas Name="MapOverlaysHost" Grid.Row="2" IsVisible="False">
+                <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
+            </Canvas>
+
             <!-- =================== FIELD DATA (overlay nativo) =================== -->
             <!--
                 Reemplazo nativo de pages/datos-lote.html. Se muestra cuando

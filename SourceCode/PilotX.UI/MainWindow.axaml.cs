@@ -16,6 +16,7 @@
 
 using System;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -177,6 +178,15 @@ public partial class MainWindow : Window
     private QuantiXPanel? _quantiXHost;
     private QuantiXClient? _quantiXClient;
 
+    // Widgets SOBRE el mapa (los que el operario prende desde el Hub). Viven
+    // en un Canvas encima del mapa y se arrastran a mano; la posición se
+    // guarda en overlayPrefs.json, el mismo archivo que usa la app WinForms.
+    // (_overlaysClient se comparte con el Hub nativo — es el mismo /api/overlays)
+    private Canvas? _mapOverlaysHost;
+    private QuantiXMapOverlay? _qxMapOverlay;
+    private WidgetQuantiXClient? _qxWidgetClient;
+    private System.Threading.CancellationTokenSource? _overlayPrefsCts;
+
     // VistaX nativo (Monitor tab live-only). SPM por surco, badges por estado,
     // trenes con tubitos (semilla/ferti) y barras (otros sensores). Tabs de
     // Insumo & calibracion / Implemento / Nodos / Config siguen en HTML
@@ -272,6 +282,8 @@ public partial class MainWindow : Window
         _nodosHost         = this.FindControl<NodosPanel>("NodosHost");
         _actualizarHost    = this.FindControl<ActualizarPanel>("ActualizarHost");
         _camarasHost       = this.FindControl<CamarasPanel>("CamarasHost");
+        _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
+        _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
 
         if (_camarasHost != null)
         {
@@ -407,6 +419,9 @@ public partial class MainWindow : Window
             if (_bottomToolbar != null) _bottomToolbar.IsVisible = false;
             if (_cockpitBarsHost != null) _cockpitBarsHost.IsVisible = true;
             SetupCockpitBars();
+            // Widgets sobre el mapa: solo en modo cockpit, que es cuando hay
+            // labor. En modo ventana el mapa es chico y taparlo no sirve.
+            SetupMapOverlays();
             // La FAB roja de cerrar app queda OCULTA: la barra superior ya trae
             // su ✕ (apagar). Esa X grande se confundía con "cerrar la pantalla"
             // y terminaba cerrando toda la app.
@@ -1654,6 +1669,91 @@ public partial class MainWindow : Window
 
         if (_hudTrack != null) _hudTrack.Text = s;      // HUD nativo (oculto, por si se muestra)
         if (_vmSup != null) _vmSup.DebugText = s;       // barra visible del cockpit
+    }
+
+    // ---------- Widgets sobre el mapa --------------------------------------
+    //
+    // El toggle vive en el Hub y se persiste en overlayPrefs.json. La app
+    // WinForms relee ese archivo cada 250 ms; acá se consulta por HTTP con la
+    // misma idea: el operario prende el widget desde el Hub y aparece sin
+    // reiniciar nada.
+    private void SetupMapOverlays()
+    {
+        if (_mapOverlaysHost == null || _qxMapOverlay == null) return;
+        if (_overlayPrefsCts != null) return;   // ya montado
+
+        string baseUrl = DeriveOrigin(App.TargetUrl);
+        _qxWidgetClient = new WidgetQuantiXClient(baseUrl);
+        // Mismo cliente que usa el Hub: /api/overlays es una sola preferencia.
+        _overlaysClient ??= new OverlaysClient(baseUrl);
+
+        _mapOverlaysHost.IsVisible = true;
+        UbicarOverlayQx(-1, -1);   // rincón por defecto hasta que llegue la preferencia
+
+        // Al soltarlo se guarda dónde quedó. El POST hace merge, así que esto
+        // no pisa los toggles ni la posición de los otros widgets.
+        _qxMapOverlay.OnMovido = pt =>
+        {
+            var c = _overlaysClient;
+            if (c == null) return;
+            _ = c.SavePosQxAsync((int)Math.Round(pt.X), (int)Math.Round(pt.Y));
+        };
+
+        _overlayPrefsCts = new CancellationTokenSource();
+        _ = SeguirPreferenciasOverlaysAsync(_overlayPrefsCts.Token);
+    }
+
+    private void UbicarOverlayQx(int x, int y)
+    {
+        if (_qxMapOverlay == null || _mapOverlaysHost == null) return;
+        if (x >= 0 && y >= 0)
+        {
+            Canvas.SetLeft(_qxMapOverlay, x);
+            Canvas.SetTop(_qxMapOverlay, y);
+            return;
+        }
+        // Default: abajo a la izquierda, pero corrido a la derecha del
+        // mini-mapa (que ocupa ese rincón) y del menú lateral, y arriba de la
+        // barra inferior. El centro queda libre para el tractor.
+        Canvas.SetLeft(_qxMapOverlay, 275);
+        double alto = _mapOverlaysHost.Bounds.Height;
+        Canvas.SetTop(_qxMapOverlay, alto > 260 ? alto - 235 : 40);
+    }
+
+    private async Task SeguirPreferenciasOverlaysAsync(CancellationToken ct)
+    {
+        bool primera = true;
+        while (!ct.IsCancellationRequested)
+        {
+            OverlayPrefs? prefs = null;
+            try { prefs = _overlaysClient == null ? null : await _overlaysClient.GetAsync(ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+            catch { prefs = null; }
+
+            if (prefs != null)
+            {
+                bool posicionar = primera;   // la posición guardada se aplica al montar
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_qxMapOverlay == null) return;
+                    if (posicionar) UbicarOverlayQx(prefs.QxX, prefs.QxY);
+
+                    bool mostrar = prefs.QxOverlay;
+                    if (mostrar != _qxMapOverlay.IsVisible)
+                    {
+                        _qxMapOverlay.IsVisible = mostrar;
+                        // El polling del widget solo corre mientras se ve: si no,
+                        // son dos requests por segundo por nada.
+                        if (mostrar && _qxWidgetClient != null) _qxMapOverlay.Attach(_qxWidgetClient);
+                        else _qxMapOverlay.Detach();
+                    }
+                });
+                primera = false;
+            }
+
+            try { await Task.Delay(TimeSpan.FromMilliseconds(1000), ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
+        }
     }
 
     private void SetupCockpitBars()

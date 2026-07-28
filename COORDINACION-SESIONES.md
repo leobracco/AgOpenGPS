@@ -2482,3 +2482,50 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   hoy no prende ningún overlay sobre el mapa. Lo que SÍ funciona es el panel
   de QuantiX a pantalla completa. Portar el widget al mapa GL nativo queda
   pendiente y no está estimado.
+- [2026-07-28] [taller] HECHO — **el overlay de QuantiX sobre el mapa ahora
+  existe en PilotX.Desktop.** Hasta hoy solo vivía en la app WinForms (un
+  WebView2 flotante con `widget-quantix.html`): en Avalonia el toggle del Hub
+  escribía la preferencia y no aparecía nada, porque no había quien lo dibujara.
+  **Va NATIVO, no WebView.** El overlay está encima del mapa todo lo que dura la
+  labor; un WebView permanente ahí come memoria, tapa el mapa con una superficie
+  opaca y además es Windows-only — habría que rehacerlo para Android.
+  Qué muestra, en orden de lo que importa manejando:
+  · la **dosis que está aplicando**, grande, y con color según se aleje del
+    objetivo (verde ≤5%, ámbar ≤15%, rojo arriba de eso);
+  · el objetivo y las rpm del motor;
+  · **AUTO / MAN**, y en MAN los botones − / + para corregir sobre la marcha,
+    con el mismo paso escalonado que el widget HTML (0,1 con dosis chicas,
+    10 con dosis grandes: de a 0,1 en 300 kg/ha es inusable con guante).
+  Botones de 48 px — se tienen que poder tocar con el tractor moviéndose.
+  Unidades del operario (kg/ha o sem/m). El pps no aparece.
+  Se arrastra con el dedo y **la posición se guarda** en el mismo
+  `overlayPrefs.json` que usa la app WinForms, así que las dos coinciden.
+  Detalles de integración:
+  · va en un `Canvas` declarado entre el mapa y los paneles, SIN ZIndex: así
+    queda sobre el mapa, cualquier panel que se abra lo tapa, y las barras del
+    cockpit siguen arriba de todo. Sin `Background` para no comerse el pan/zoom
+    del mapa — solo el widget es tocable.
+  · el polling (2 Hz) corre **solo mientras el widget se ve**.
+  · un toque sobre − / + / AUTO / MAN es un comando, no un arrastre.
+  **Verificado en pantalla y punta a punta**, capturando la ventana sin robarle
+  el foco al usuario: aparece con los datos reales del nodo configurado
+  (obj 301 kg/ha), el toggle del Hub lo prende y lo apaga en caliente sin
+  reiniciar, y al reiniciar PilotX vuelve exactamente a la posición guardada.
+  Paquete SHA CFC4EA27…
+- [2026-07-28] [taller] HECHO — **bug encontrado de paso: tocar un toggle en el
+  Hub borraba la posición de TODOS los widgets.** `POST /api/overlays`
+  reemplazaba el objeto entero, y el Hub manda únicamente los tres flags: todo
+  lo que no venía en el body volvía a su default. El operario acomodaba el
+  widget en la pantalla, tocaba un toggle y lo perdía. Se veía en los datos:
+  `vx_strip_x/y/w/h` y `vx_stats_*` tenían posiciones reales que se hubieran
+  ido a -1 en el próximo toggle.
+  Ahora el POST hace **merge**: se aplican solo los campos presentes. Ausente =
+  no tocar; presente con su valor por defecto SÍ se aplica (poder resetear a
+  -1 es una decisión explícita del cliente, y distinguir eso es justo lo que un
+  `Deserialize<T>` plano no puede hacer). Si el body no trae ningún campo
+  reconocido no se guarda nada, en vez de pisar la config buena con defaults.
+  Vive en `AgpJsonMerge` (genérico, respeta `[JsonPropertyName]`) — sirve para
+  los otros POST de config que tengan el mismo problema. **6 tests.**
+  Verificado contra el server: guardé una posición, mandé el body del Hub con
+  solo los flags, y la posición sobrevivió.
+  202 → **208 tests verdes**.
