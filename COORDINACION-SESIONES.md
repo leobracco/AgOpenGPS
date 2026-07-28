@@ -2230,3 +2230,18 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **Ojo**: al quitar la barra se pierde el color por sección (rojo/verde/ámbar)
   sobre el mapa — el estado sigue estando en la botonera de abajo. Si en cabina
   hace falta verlo en el mapa, se puede dibujar una franja fina bajo el sprite.
+- [2026-07-27] [taller] HECHO — **comparación funcional PilotX vs AOG 6.8.5**:
+  `docs/2026-07-27-comparacion-vs-685.md`. Medida contra el baseline pristino
+  (`G:\agroparallel\productos\AgOpenGPS\Software\App_PC\AgOpenGPS-6.8.5\`)
+  extrayendo los handlers reales y cruzándolos con los comandos del motor y con
+  los que la UI resuelve local. Resumen:
+  · 6.8.5: 58 botones de pantalla principal, 19 ítems de menú, 426 handlers
+    totales (pero ~350 son ventanas de config, que en PilotX ya son pantallas
+    del Hub — comparar 426 vs 29 sería engañoso).
+  · PilotX: 29 comandos en el motor + 29 resueltos por la UI, de 82 emitidos.
+  · **En guiado y secciones estamos a la par o mejor** (y con cosas que el 6.8.5
+    no tiene: sprites a escala con Ackermann, zonas en la misma botonera, Hub).
+  · **~30 brechas reales**, en 4 familias: cámara/vista (9, puro cliente),
+    **LOTE (6 — la más urgente: el backend está, falta cablear los botones)**,
+    ventana/sistema (6) y funciones ausentes (9, con `ruta_grabada` como la más
+    grande: 5 botones + toda la máquina de grabación).
