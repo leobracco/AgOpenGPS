@@ -2291,3 +2291,20 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   borrados. Build 0 errores, tests verdes, paquete SHA 4A38B666…
   **Falta**: ISO-XML sigue en `false` (no se portó su parser); y Android tiene la
   firma nueva devolviendo false hasta que se enganche el picker del sistema.
+- [2026-07-28] [taller] HECHO — **mapa fluido: interpolación entre fixes**.
+  Reporte del usuario: "va todo entrecortado". Medido primero: la cobertura NO
+  era (9,9 KB en 2 ms). La causa es de fondo — `MapGlSurface` dibujaba **solo
+  cuando llegaba un dato**, o sea a ~10 fps (la tasa del GPS), y en modo
+  heading-up gira el mundo entero, que es donde más se nota.
+  · Entre fix y fix el tractor se avanza por **estima** (velocidad × tiempo sobre
+    el rumbo) y se pide frame a **~60 Hz** con un `DispatcherTimer`.
+  · **La cámara usa la posición interpolada**, no la del último fix: si la cámara
+    salta de fix en fix, salta TODO el mundo con ella — es lo que más se veía.
+  · El implemento se interpola igual: si avanzara a saltos mientras el tractor va
+    suave, se vería como si se desenganchara y volviera.
+  · **Tope de extrapolación 0,30 s**: pasado eso se queda en el último fix. Si se
+    corta el GPS, el tractor se frena en pantalla en vez de seguir viajando solo.
+  · **El tick solo corre con el tractor en movimiento** (`avg_speed > 0,2`).
+    Parado no hay nada que interpolar y no tiene sentido quemar GPU en la cabina
+    — se respeta el criterio original de "render solo cuando hay dato nuevo".
+  Build 0 errores, paquete SHA BF566579…
