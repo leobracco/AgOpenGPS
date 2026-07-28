@@ -2529,3 +2529,21 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Verificado contra el server: guardé una posición, mandé el body del Hub con
   solo los flags, y la posición sobrevivió.
   202 → **208 tests verdes**.
+- [2026-07-28] [taller] HECHO — **sacado el mini-mapa de la esquina inferior
+  izquierda** (pedido del usuario). Era un thumbnail nativo del lote + tractor
+  que se había hecho como primer paso de render Avalonia, cuando el mapa
+  principal todavía era el WebView del Hub. Con el mapa GL nativo a pantalla
+  completa mostraba lo mismo dos veces, y encima ocupaba justo el rincón donde
+  van los widgets de los productos: en la primera prueba tapaba el overlay de
+  QuantiX.
+  Se quitó el bloque del `MainWindow.axaml` (el mini-mapa, su botón "x" de
+  ocultar y el pin `[M]` que lo reabría — dejar el pin habría sido un botón
+  huérfano) y las referencias del code-behind, incluido el push del snapshot
+  que lo redibujaba en cada frame.
+  **El control `MiniMapView` NO se borró**: sigue en `Controls/` por si se lo
+  quiere colgar en otro lado.
+  Como el rincón quedó libre, el overlay de QuantiX vuelve a su posición
+  natural pegado al menú lateral (155 px) en vez del corrimiento que tenía para
+  esquivar al mini-mapa.
+  Verificado en pantalla: la esquina quedó limpia y el widget entero a la vista.
+  208 tests verdes, paquete SHA 3D602316…

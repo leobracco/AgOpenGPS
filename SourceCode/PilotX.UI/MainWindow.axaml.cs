@@ -138,10 +138,9 @@ public partial class MainWindow : Window
     private Button? _btnSettings;
     private Button? _btnFieldTools;
 
-    // Mini-mapa cockpit (overlay esquina inf. izq.) + pin para reabrirlo.
-    private MiniMapView? _miniMap;
-    private Border?      _miniMapWrap;
-    private Button?      _miniMapShow;
+    // El mini-mapa de la esquina inferior izquierda se sacó (2026-07-28): con el
+    // mapa nativo a pantalla completa no aportaba y le comía lugar a los widgets
+    // de los productos. MiniMapView sigue existiendo por si vuelve en otro lado.
 
     // Field data nativo (overlay que reemplaza datos-lote.html en el flujo
     // de FieldTools). Es un UserControl Avalonia, NO un WebView.
@@ -263,10 +262,6 @@ public partial class MainWindow : Window
 
         _btnSettings     = this.FindControl<Button>("BtnSettings");
         _btnFieldTools   = this.FindControl<Button>("BtnFieldTools");
-
-        _miniMap         = this.FindControl<MiniMapView>("MiniMap");
-        _miniMapWrap     = this.FindControl<Border>("MiniMapWrap");
-        _miniMapShow     = this.FindControl<Button>("MiniMapShow");
 
         _fieldDataHost   = this.FindControl<FieldDataPanel>("FieldDataHost");
         _sistemaHost     = this.FindControl<SistemaPanel>("SistemaHost");
@@ -427,8 +422,6 @@ public partial class MainWindow : Window
             // y terminaba cerrando toda la app.
             var closeBtn = this.FindControl<Button>("CloseButton");
             if (closeBtn != null) closeBtn.IsVisible = false;
-            if (_miniMapWrap != null) _miniMapWrap.IsVisible = true;
-            if (_miniMapShow != null) _miniMapShow.IsVisible = false;
         }
 
         if (App.WindowMode != "float")
@@ -1712,10 +1705,10 @@ public partial class MainWindow : Window
             Canvas.SetTop(_qxMapOverlay, y);
             return;
         }
-        // Default: abajo a la izquierda, pero corrido a la derecha del
-        // mini-mapa (que ocupa ese rincón) y del menú lateral, y arriba de la
-        // barra inferior. El centro queda libre para el tractor.
-        Canvas.SetLeft(_qxMapOverlay, 275);
+        // Default: abajo a la izquierda, al lado del menú lateral (140 px) y
+        // arriba de la barra inferior. El centro queda libre para el tractor.
+        // Ese rincón lo ocupaba el mini-mapa, que se sacó.
+        Canvas.SetLeft(_qxMapOverlay, 155);
         double alto = _mapOverlaysHost.Bounds.Height;
         Canvas.SetTop(_qxMapOverlay, alto > 260 ? alto - 235 : 40);
     }
@@ -2047,9 +2040,8 @@ public partial class MainWindow : Window
             if (_btnSettings   != null) _btnSettings.IsEnabled   = hasGpsFix;
             if (_btnFieldTools != null) _btnFieldTools.IsEnabled = s.IsJobStarted;
 
-            // Push al render nativo: mapa principal + mini-mapa (si visible).
+            // Push al render nativo del mapa principal.
             _mapHost?.OnSnapshot(s);
-            _miniMap?.OnSnapshot(s);
             // Push tambien al overlay nativo si esta abierto: refresca KPIs.
             if (_fieldDataHost != null && _fieldDataHost.IsVisible)
                 _fieldDataHost.OnSnapshot(s);
@@ -2169,20 +2161,6 @@ public partial class MainWindow : Window
         // la URL. Show con back button = true: el operario ve la flecha "<-"
         // arriba a la izq. para volver al mapa.
         ShowWebView(full, showBackButton: true);
-    }
-
-    // ---------- Mini-mapa show/hide ---------------------------------------
-
-    private void OnMiniMapHide(object? sender, RoutedEventArgs e)
-    {
-        if (_miniMapWrap != null) _miniMapWrap.IsVisible = false;
-        if (_miniMapShow != null) _miniMapShow.IsVisible = true;
-    }
-
-    private void OnMiniMapShow(object? sender, RoutedEventArgs e)
-    {
-        if (_miniMapWrap != null) _miniMapWrap.IsVisible = true;
-        if (_miniMapShow != null) _miniMapShow.IsVisible = false;
     }
 
     private static string DeriveSubtitleFromUrl(string url)
