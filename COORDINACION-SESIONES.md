@@ -2773,3 +2773,20 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   actualizado (esos 5 ítems pasan a "—"). Verificado en pantalla: el
   submenú Navegación se ve bien con los 3 botones que quedan. Build 0
   errores, 208 tests verdes.
+
+- [2026-07-29] [android] HECHO — cerré mi propio PEDIDO de Brillo +/− (el
+  usuario pidió que se arreglara, no que se esperara). El fix es
+  `EngineSistemaService.cs` nuevo en `PilotX.GuidanceEngine/Adapters/`: port
+  directo de `AgroParallel.Shell/SistemaService.cs` (DDC/CI vía `dxva2.dll` +
+  fallback WMI `WmiMonitorBrightness`/`WmiSetBrightness`) sacándole la única
+  dependencia real de WinForms (`ExecutePowerAction/ExitApp` usaba
+  `Application.Exit()`; en el motor headless hace `Environment.Exit(0)`).
+  Agregado `PackageReference System.Management` al csproj (WMI). Cableado en
+  `EngineWebHost.cs` en vez de `sistema: null`.
+  **Verificado real, no solo por código**: `GET api/sistema/brillo` pasó de
+  `ok:false,value:-1` a `ok:true,value:100`; `POST ...?value=50` → `GET`
+  confirma 50; y tocando el botón "Brillo −" de verdad en la pantalla
+  (captura) el valor bajó de 100 a 80 (el paso de `AdjustBrightness`).
+  Brillo restaurado a 100 al terminar. Esto también debería destrabar el
+  brillo del panel Sistema (mismo `SistemaClient`/backend). Inventario
+  actualizado a ✅. Build completo 0 errores, 208 tests verdes.

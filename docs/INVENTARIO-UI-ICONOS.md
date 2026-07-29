@@ -208,7 +208,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Norte-2D (btnN2D) | CameraNorth2D | Cenital norte-arriba (no rota) | — (ídem, sacado 2026-07-29) | L |
 | Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | — (2026-07-28: el cuadriculado de fondo se sacó del mapa a pedido del usuario — no marcaba referencias y se redibujaba entero cada frame. Botón retirado del menú; `DrawGrid`/`_gridOn` quedan vivos en `MapGlSurface` por si algún día se vuelve a colgar de un toggle) | L |
 | Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ✅ (solo el mapa; el chrome de las barras no cambia) | L |
-| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | 🟡 (UI cableada contra SistemaClient; el motor `--webhost` no tiene `ISistemaService` → PEDIDO a Leonardo) | L+S |
+| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | ✅ (2026-07-29: `EngineSistemaService` — DDC/CI + fallback WMI, port net9 sin WinForms; probado real, sube/baja el brillo del monitor) | L+S |
 | Hz+frame+fix (lblHz) | — | Frecuencia GPS (Hz) + tiempo de frame (ms) + calidad de fix (NO es PPS) | 🟡 | L |
 
 ## 7) Configuración (mayormente HTML por WebView)

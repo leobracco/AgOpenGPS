@@ -140,12 +140,14 @@ namespace AgOpenGPS
             var linexCfg = new LineXConfigService();
             var linexLive = new LineXLiveService(_nodos, linexCfg);
 
-            // sistema (brillo/apagado) queda en null: la implementación es net48
-            // + WinForms (dxva2/WMI) y no porta al motor headless. Pendiente:
-            // versión net9 para que la página Sistema del Hub ande contra él.
+            // Brillo/apagado: port net9 de AgroParallel.Shell/SistemaService.cs
+            // (mismo DDC/CI + fallback WMI, sin la dependencia de WinForms que
+            // tenía el original). Sin esto api/sistema/brillo devolvía siempre
+            // ok:false,value:-1 contra el motor headless.
+            var sistema = new EngineSistemaService();
             _web = new AgpWebHost(
                 state,                 // requerido
-                sistema: null,
+                sistema: sistema,
                 nodos: _nodos,
                 orbitxCfg: orbitxCfg,
                 sectionxCfg: sectionxCfg,
