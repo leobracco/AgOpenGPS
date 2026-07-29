@@ -241,6 +241,13 @@ public partial class MainWindow : Window
         _rootBorder      = this.FindControl<Border>("RootBorder");
 
         _mapHost         = this.FindControl<MapPanel>("MapHost");
+        // Cualquier pantalla que tape el mapa (WebView del Hub o panel nativo)
+        // lo oculta con IsVisible=false. Enganchándonos ahí frenamos también los
+        // pollers, sin tener que tocar los ~14 lugares que lo ocultan.
+        // El evento acelera la reacción; la corrección de fondo la hace
+        // ReconciliarMapa desde el HUD, que no depende de que llegue.
+        if (_mapHost != null)
+            _mapHost.VisibilidadCambiada += _ => ReconciliarMapa();
         _abCreatePanel   = this.FindControl<Border>("AbCreatePanel");
         _abCreateHint    = this.FindControl<TextBlock>("AbCreateHint");
         _abCreateMark    = this.FindControl<Button>("AbCreateMark");
@@ -432,6 +439,12 @@ public partial class MainWindow : Window
             _hudPoller.Start();
             Closed += (_, _) => _hudPoller?.Dispose();
 
+            // Prewarm del WebView, en cuanto la UI queda ociosa: que el costo de
+            // levantar Chromium lo pague el arranque y no el operario la primera
+            // vez que abre Configuración. Prioridad Background para no competir
+            // con el primer render del mapa.
+            Dispatcher.UIThread.Post(PrecalentarWebView, DispatcherPriority.Background);
+
             // Al abrir un lote que ya tiene guías, activar la primera visible si
             // no hay ninguna activa: así las guías aparecen en el mapa apenas se
             // abre el lote y se cambian con los botones de ciclado ‹ ›.
@@ -446,13 +459,20 @@ public partial class MainWindow : Window
                 var cov = new CoverageClient(DeriveOrigin(App.TargetUrl));
                 // 350ms (~3 Hz): la cobertura se pinta continuamente detrás del
                 // tractor, así que a 1 Hz la huella aparecía con ~1s de retraso
-                // ("arranca a pintar más tarde"). En localhost el fetch+deserialize
-                // del snapshot es barato. Revision-cache evita re-subir el VBO si
-                // no cambió. (Incremental /coverage?since=<rev> queda para futuro.)
+                // ("arranca a pintar más tarde"). Revision-cache evita re-subir el
+                // VBO si no cambió. (Incremental /coverage?since=<rev> queda para
+                // futuro.)
+                //
+                // NO bajar de acá: el endpoint devuelve el snapshot COMPLETO, que
+                // crece con el area trabajada (248 KB al rato, ~3 MB en jornada de
+                // 8 h). Cada poll es un fetch + deserialize de todo eso; a 125 ms
+                // el descarte generado alcanzaba para disparar Gen2 seguido y el
+                // mapa tironeaba cada pocos segundos. Si hace falta más frecuencia,
+                // el camino es el incremental, no subir la cadencia.
                 _coveragePoller = new CoveragePoller(cov, snap =>
                 {
                     _mapHost?.OnCoverage(snap);
-                }, periodMs: 125);
+                }, periodMs: 350);
                 _coveragePoller.Start();
                 Closed += (_, _) => _coveragePoller?.Stop();
 
@@ -728,9 +748,139 @@ public partial class MainWindow : Window
     // el GC libera Chromium en el proximo ciclo. Esto cumple la directiva
     // "el WebView no es residente durante el guiado".
 
+    // ---- pausa del mapa mientras otra pantalla lo tapa --------------------
+    //
+    // Abrir Configuración (o cualquier página del Hub) levanta WebView2, que es
+    // un árbol de procesos Chromium entero. Si en ese mismo momento seguimos
+    // pidiendo frames del mapa a 30 Hz y bajando el snapshot de cobertura —que
+    // crece con el área trabajada, de 248 KB a ~3 MB— la máquina de la cabina se
+    // arrastra justo en el arranque de la pantalla nueva.
+    //
+    // Se paran solo los pollers que alimentan ÚNICAMENTE al mapa. El HudPoller
+    // sigue: es barato (2,5 KB) y lo consume también la barra de estado.
+    // Estado deseado del mapa. Se compara contra la visibilidad real en cada
+    // snapshot del HUD (ver ReconciliarMapa): si alguna transición se pierde, la
+    // siguiente vuelta lo corrige sola.
+    private bool _mapaCorriendo = true;
+
+    /// <summary>
+    /// Lleva el mapa al estado que le corresponde según esté tapado o no.
+    ///
+    /// Existe porque la primera versión de esto reaccionaba SOLO al evento de
+    /// cambio de visibilidad. Con eso, perder un único evento dejaba el mapa
+    /// pausado para siempre: sin frames, con los pollers frenados y sin nada que
+    /// lo devolviera a la normalidad — el mapa quedaba congelado mostrando una
+    /// escena vieja mientras la barra de arriba seguía actualizándose (el HUD
+    /// nunca se pausa), que es justo el síntoma más confuso posible.
+    ///
+    /// Ahora el estado deseado se reafirma continuamente en vez de depender de
+    /// los flancos. Es barato: se llama a 10 Hz y no hace nada si ya coincide.
+    /// </summary>
+    private void ReconciliarMapa()
+    {
+        bool debeCorrer = _mapHost != null && _mapHost.IsVisible;
+        if (debeCorrer == _mapaCorriendo) return;
+
+        _mapaCorriendo = debeCorrer;
+        if (debeCorrer) ReanudarMapa();
+        else PausarMapa();
+    }
+
+    private void PausarMapa()
+    {
+        _mapaCorriendo = false;
+        _mapHost?.Pausar();
+        _coveragePoller?.Stop();
+        _toolPoller?.Stop();
+        _guidancePoller?.Stop();
+        _tramPoller?.Stop();
+        _pathsPoller?.Stop();
+    }
+
+    private void ReanudarMapa()
+    {
+        _mapaCorriendo = true;
+        _coveragePoller?.Start();
+        _toolPoller?.Start();
+        _guidancePoller?.Start();
+        _tramPoller?.Start();
+        _pathsPoller?.Start();
+        _mapHost?.Reanudar();
+    }
+
+    // ---- prewarm del WebView ---------------------------------------------
+    //
+    // Levantar el motor del web view (proceso hijo + entorno) es lo más caro del
+    // ciclo, y con el reciclado ya solo se paga UNA vez por corrida — pero esa
+    // vez le tocaba al operario, la primera que abría Configuración. Acá se paga
+    // durante el arranque, que es cuando nadie está esperando.
+    //
+    // El control es un NativeControlHost: recién crea la ventana nativa cuando
+    // está adjunto al árbol Y con un tamaño real. Con IsVisible=false eso no
+    // pasa y el prewarm no calentaría nada. Y no sirve dejarlo visible con
+    // Opacity=0, porque el web view pinta por airspace ignorando la opacidad y
+    // taparía el mapa. Por eso se lo deja visible pero de 1×1 px en un rincón el
+    // tiempo que tarda en levantar, y después se oculta.
+    private bool _webViewPrecalentando;
+
+    private void PrecalentarWebView()
+    {
+        if (_webView != null || _webViewSlot == null || App.WebViewHost == null) return;
+        try
+        {
+            _webView = App.WebViewHost.Create(OnWebViewNavigated);
+            _webViewSlot.Children.Add(_webView.Control);
+
+            _webViewPrecalentando = true;
+            _webViewSlot.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            _webViewSlot.VerticalAlignment   = Avalonia.Layout.VerticalAlignment.Top;
+            _webViewSlot.Width  = 1;
+            _webViewSlot.Height = 1;
+            _webViewSlot.IsHitTestVisible = false;
+            _webViewSlot.IsVisible = true;
+            _webView.Navigate("about:blank");
+
+            // Plazo generoso: no sabemos cuánto tarda en levantar en la máquina
+            // de la cabina, y quedarse 1×1 de más no molesta a nadie.
+            DispatcherTimer.RunOnce(TerminarPrecalentado, TimeSpan.FromSeconds(6),
+                                    DispatcherPriority.Background);
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] WebView prewarm iniciado");
+        }
+        catch (Exception ex)
+        {
+            // Si falla, no se pierde nada: sigue el camino lazy de siempre.
+            _webViewPrecalentando = false;
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] WebView prewarm error: " + ex.Message);
+        }
+    }
+
+    /// <summary>Devuelve el slot a tamaño completo. Se llama al terminar el
+    /// prewarm y antes de mostrar cualquier pantalla real.</summary>
+    private void RestaurarSlotWebView()
+    {
+        if (_webViewSlot == null) return;
+        _webViewPrecalentando = false;
+        _webViewSlot.Width  = double.NaN;
+        _webViewSlot.Height = double.NaN;
+        _webViewSlot.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+        _webViewSlot.VerticalAlignment   = Avalonia.Layout.VerticalAlignment.Stretch;
+        _webViewSlot.IsHitTestVisible = true;
+    }
+
+    private void TerminarPrecalentado()
+    {
+        if (!_webViewPrecalentando) return;   // ya abrió una pantalla de verdad
+        RestaurarSlotWebView();
+        if (_webViewSlot != null) _webViewSlot.IsVisible = false;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] WebView prewarm listo");
+    }
+
     private void ShowWebView(string url, bool showBackButton)
     {
         if (_webViewSlot == null) return;
+        // Si estábamos en pleno prewarm, el slot está en 1×1: devolverlo a
+        // tamaño completo antes de mostrar nada.
+        RestaurarSlotWebView();
         // Si algun overlay nativo estaba abierto, lo cierro: solo un overlay
         // a la vez para no apilar costos de input/render.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible)
@@ -802,6 +952,9 @@ public partial class MainWindow : Window
                 _webView = App.WebViewHost.Create(OnWebViewNavigated);
                 _webViewSlot.Children.Add(_webView.Control);
             }
+            // Pausar ANTES de navegar: la subida de WebView2 es el pico de costo
+            // y es cuando más se nota tener el mapa compitiendo por CPU.
+            PausarMapa();
             _webView.Navigate(url);
             _webViewSlot.IsVisible = true;
             if (_mapHost != null) _mapHost.IsVisible = false;
@@ -821,21 +974,26 @@ public partial class MainWindow : Window
         {
             if (_webView != null)
             {
-                // Release() desengancha el evento y navega a about:blank: libera
-                // el contenido y reduce el working set del proceso hijo antes de
-                // que el GC finalice la referencia.
-                _webViewSlot?.Children.Remove(_webView.Control);
-                _webView.Release();
-                // El control y su proceso subyacente se liberan cuando el GC
-                // finaliza la referencia. Workstation GC + nullification
-                // explícita habilita ese ciclo. Forzamos GC en el próximo idle
-                // para no esperar al ciclo natural.
-                _webView = null;
-                GC.Collect(2, GCCollectionMode.Optimized, blocking: false);
+                // NO se destruye: se recicla. Antes se hacía Dispose en cada
+                // cierre, así que CADA apertura de pantalla volvía a levantar el
+                // árbol de procesos Chromium desde cero — que es el grueso de lo
+                // que se sentía como "abrir Configuración tarda".
+                //
+                // Navegar a about:blank libera el contenido de la página (imágenes,
+                // JS, DOM) y baja el working set del proceso hijo, que era el
+                // objetivo real del Dispose. El proceso queda vivo y listo, así la
+                // próxima apertura es inmediata. Blank() y NO Release(): este
+                // último desengancha NavigationCompleted y dejaría el handle sordo
+                // al centinela pilotx-close en la apertura siguiente.
+                _webView.Blank();
             }
             if (_webViewSlot != null) _webViewSlot.IsVisible = false;
             if (_webViewBack != null) _webViewBack.IsVisible = false;
-            if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+            if (_mapHost != null && App.WindowMode != "float")
+            {
+                _mapHost.IsVisible = true;
+                ReanudarMapa();
+            }
             System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] WebView disposed -> back to native");
         }
         catch (Exception ex)
@@ -862,6 +1020,29 @@ public partial class MainWindow : Window
     /// en una ventana chica cerrable, igual que OpenDialogPage pero sin componer
     /// la URL contra el origin del Hub (:5180).
     /// </summary>
+    // ---- cierre del diálogo de LOTE por cambio de lote ---------------------
+    //
+    // La página cierra su ventana navegando a la URL centinela "pilotx-close",
+    // pero en el WebView del diálogo esa navegación NO se produce (el log de
+    // NavigationCompleted solo muestra lote.html, nunca el centinela), así que
+    // la ventana quedaba abierta tapando el mapa después de abrir el lote.
+    //
+    // En vez de seguir peleando con la navegación, se usa una señal que el host
+    // ya tiene y es la que de verdad importa: el lote activo del HUD. Cuando
+    // cambia, el trabajo que motivó abrir esta ventana ya está hecho y la
+    // ventana sobra. Funciona igual para abrir, continuar, crear y cerrar lote.
+    private bool _dialogEsLote;
+    private string? _loteAlAbrirDialogo;
+    private string? _lastFieldDir;
+
+    private void CerrarDialogoSiCambioElLote(string? loteActual)
+    {
+        if (!_dialogEsLote || _dialogWin == null) return;
+        if (string.Equals(loteActual ?? "", _loteAlAbrirDialogo ?? "", StringComparison.OrdinalIgnoreCase)) return;
+        _loteAlAbrirDialogo = loteActual;
+        CerrarDialogo();
+    }
+
     private void OpenDialogUrl(string full, string title, double w, double h)
     {
         try
@@ -876,6 +1057,8 @@ public partial class MainWindow : Window
 
             // Sin backend WebView no se puede abrir la página HTML en diálogo.
             if (App.WebViewHost == null) return;
+            _dialogEsLote = full.IndexOf("lote.html", StringComparison.OrdinalIgnoreCase) >= 0;
+            _loteAlAbrirDialogo = _lastFieldDir;
             _dialogWebView = App.WebViewHost.Create(OnDialogNavigated);
             _dialogWebView.Navigate(full);
 
@@ -907,8 +1090,29 @@ public partial class MainWindow : Window
     // La página del diálogo pide cerrar navegando a la URL centinela.
     private void OnDialogNavigated(string url)
     {
-        if ((url ?? string.Empty).IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
-            _dialogWin?.Close();
+        var u = url ?? string.Empty;
+        Console.Error.WriteLine("[Dialogo] navegado -> " + u);
+        if (u.IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            Console.Error.WriteLine("[Dialogo] centinela detectado, cerrando");
+            CerrarDialogo();
+        }
+    }
+
+    /// <summary>
+    /// Cierra la ventana de diálogo y deja la barra izquierda plegada.
+    ///
+    /// No es cosmético: cerrar solo el submenú dejaba igual la barra abierta a
+    /// 316 px tapando el mapa, justo cuando el operario quiere ver el lote que
+    /// acaba de abrir. Se pliega entera (submenú + barra) para devolver la
+    /// pantalla al mapa, que es a lo que se vino.
+    /// </summary>
+    private void CerrarDialogo()
+    {
+        try { _dialogWin?.Close(); } catch { }
+        if (_vmIzq == null) return;
+        _vmIzq.OpenSubmenu = null;
+        _vmIzq.IsCollapsed = true;
     }
 
     /// <summary>
@@ -1802,8 +2006,16 @@ public partial class MainWindow : Window
             if (e.PropertyName == nameof(MenuIzquierdaViewModel.OpenSubmenu)
                 || e.PropertyName == nameof(MenuIzquierdaViewModel.IsCollapsed))
             {
-                _menuIzq.Width = _vmIzq!.IsCollapsed ? MenuIzqCollapsed
-                    : (_vmIzq.OpenSubmenu != null ? MenuIzqExpanded : MenuIzqNarrow);
+                // El ancho NO cambia al abrir un submenú, solo al plegar.
+                //
+                // Antes se ensanchaba de 140 a 316 px en el momento del toque, y
+                // ese re-layout en medio del gesto hacía que el botón de plegado
+                // quedara bajo el dedo y se comiera el "soltar": un solo toque
+                // abría el submenú, lo cerraba y encima plegaba el menú. Para el
+                // operario era "no puedo abrir el lote".
+                // Ahora la columna del submenú ya está reservada y solo se
+                // muestra u oculta su contenido: nada se mueve bajo el dedo.
+                _menuIzq.Width = _vmIzq!.IsCollapsed ? MenuIzqCollapsed : MenuIzqExpanded;
             }
         };
 
@@ -1876,6 +2088,12 @@ public partial class MainWindow : Window
             case "lote_kml":
                 OpenDialogPage("pages/lote.html?do=kml", "Lote desde KML", 670, 610); return true;
 
+            // Cerrar lote. Sin este case el comando caía al motor de guiado, que
+            // espera "job_close" y no conoce "lote_cerrar": el botón no hacía
+            // absolutamente nada y no quedaba ni un error en ningún lado.
+            case "lote_cerrar":
+                CerrarLote(); return true;
+
             // Dirección (FormSteer) → ventana propia más grande. ?v= evita que
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
@@ -1945,6 +2163,30 @@ public partial class MainWindow : Window
         // Resto → backend de guiado (autosteer, sec_*, uturn, contour, track_*,
         // tracks_off, lote_cerrar, borrar_*, cabecera_onoff, tram_vista, vistas…).
         return false;
+    }
+
+    /// <summary>
+    /// Cierra el lote activo. Es la misma llamada que hace el botón "Cerrar" de
+    /// la pantalla de lote; acá se expone para el submenú de la barra izquierda,
+    /// que hasta ahora mandaba el comando al motor de guiado y se perdía.
+    /// </summary>
+    private async void CerrarLote()
+    {
+        // Plegar primero: el cierre puede tardar (guarda cobertura y lote) y el
+        // menú no tiene por qué quedarse abierto esperando.
+        if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+        try
+        {
+            var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var url = DeriveOrigin(App.TargetUrl).TrimEnd('/');
+            using var resp = await http.PostAsync(url + "/api/lotes/close", null).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                Console.Error.WriteLine("[Lote] cerrar devolvió " + (int)resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[Lote] no se pudo cerrar: " + ex.Message);
+        }
     }
 
     // ---- Creación de guía A/B en el mapa (toco A, manejo, toco B) ----
@@ -2059,6 +2301,11 @@ public partial class MainWindow : Window
         _lastPivotN = s.PivotNorthing;
         Dispatcher.UIThread.Post(() =>
         {
+            // El HUD llega siempre (nunca se pausa), así que es el mejor lugar
+            // para reafirmar el estado del mapa y que no quede trabado.
+            ReconciliarMapa();
+            _lastFieldDir = s.CurrentFieldDirectory;
+            CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;
             if (deg < 0) deg += 360.0;

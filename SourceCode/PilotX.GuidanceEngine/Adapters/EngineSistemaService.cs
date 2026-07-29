@@ -18,10 +18,16 @@ using System;
 using System.Diagnostics;
 using System.Management;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using AgroParallel.Services.Abstractions;
 
 namespace PilotX.GuidanceEngine.Adapters
 {
+    // DDC/CI (dxva2.dll) + WMI (root\WMI): 100% Windows, igual que el resto del
+    // motor en la práctica (CoreX/dxva2/System.IO.Ports ya son Windows-only sin
+    // declararlo — acá se declara explícito porque System.Management SÍ trae
+    // los atributos [SupportedOSPlatform] que el analizador chequea).
+    [SupportedOSPlatform("windows")]
     public sealed class EngineSistemaService : ISistemaService
     {
         // ===== DDC/CI =====

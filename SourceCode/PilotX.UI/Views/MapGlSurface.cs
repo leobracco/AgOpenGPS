@@ -1,4 +1,4 @@
-// MapGlSurface.cs
+﻿// MapGlSurface.cs
 //
 // Stage 1 de la migracion OpenGL del mapa de guiado. Reemplaza el render
 // Skia 2D de MapSkiaSurface por un pipeline GL real basado en Avalonia
@@ -155,8 +155,8 @@ public sealed class MapGlSurface : OpenGlControlBase
     // (manual ON). El tractor + boundary se renderean encima.
     // Sin revision-cache porque los puntos cambian cada frame; el batch
     // es chico (max ~16 secciones × 2 puntos × 2 floats = 64 floats).
-    private uint _toolVbo;
-    private int _toolVboCapacityFloats;
+    // (Sin VBO propio: las secciones se arman como quads en el scratch por
+    // frame. Son ~16 y el batch es de 8 floats cada una.)
     private ToolGeometrySnapshot? _pendingTool;
     private ToolGeometrySnapshot? _toolSnap;
 
@@ -177,6 +177,22 @@ public sealed class MapGlSurface : OpenGlControlBase
     // las guías paralelas vecinas (offset perpendicular por ancho de herramienta),
     // como hace AgOpenGPS al llenar el lote de líneas de pasada.
     private readonly List<GuidancePoint> _guidancePts = new List<GuidancePoint>();
+
+    // ---- guías paralelas: VBO cacheado ---------------------------------
+    // Las paralelas son función de (puntos de la línea, ancho de herramienta,
+    // extensión del lote). Nada de eso cambia por frame: la geometría llega a
+    // 1 Hz y el ancho solo al reconfigurar el implemento. Antes se recalculaban
+    // enteras en CPU y se resubían a GPU en CADA frame — en modo curva son hasta
+    // 81 offsets × N puntos con una raíz por punto y 81 BufferSubData, 60 veces
+    // por segundo. Ahora se construyen una vez en este VBO y el frame solo emite
+    // los draws. _parDirty se marca cuando cambia alguna de las tres entradas.
+    private uint _parVbo;
+    private int _parVboCapacityFloats;
+    private readonly List<(int Start, int Count)> _parRanges = new();
+    private bool _parIsLines;       // AB -> un unico GL_LINES; curva -> N LINE_STRIP
+    private bool _parDirty = true;
+    private double _parWidthUsed = -1;
+    private double _parSpanUsed = -1;
 
     // Modo seguimiento heading-up: mapa centrado en el tractor y rotado por el
     // rumbo (tractor siempre apuntando arriba). Default on (lo que pidió el
@@ -238,9 +254,18 @@ public sealed class MapGlSurface : OpenGlControlBase
     // Tool / sections (Stage 4a). Las secciones se pintan como segmentos
     // gruesos (LineWidth lo controla el driver — algunos drivers lo
     // capean en 1.0, pero la barra es solo indicativa, no cubre area).
-    private static readonly float[] ColToolOff       = { 0.561f, 0.627f, 0.573f, 1f }; // #8FA092 gris (off)
+    // Sección cortada (apagada por el operario). Antes era #8FA092, un verde
+    // grisáceo desaturado: sobre el fondo oscuro y al lado del verde de
+    // "aplicando" no se leía como apagada — el operario lo describía como
+    // "verde/marrón clarito". Cortada tiene que gritar, y el color de cortar es
+    // el rojo.
+    private static readonly float[] ColToolOff       = { 0.929f, 0.282f, 0.282f, 1f }; // #ED4848 rojo (cortada)
     private static readonly float[] ColToolAutoOn    = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E verde (auto + mapping)
-    private static readonly float[] ColToolAutoOff   = { 0.929f, 0.282f, 0.282f, 1f }; // #ED4848 rojo (auto + NO mapping)
+    // Auto pero denegada (lindero/cabecera). Pasa a naranja porque el rojo se lo
+    // quedó "cortada por el operario": si las dos fueran rojas, el operario no
+    // podría distinguir lo que apagó él de lo que le apagó el sistema, que es
+    // justo lo que necesita saber cuando algo no siembra y no entiende por qué.
+    private static readonly float[] ColToolAutoOff   = { 0.910f, 0.447f, 0.110f, 1f }; // #E8721C naranja (auto + NO mapping)
     private static readonly float[] ColToolManual    = { 0.973f, 0.808f, 0.247f, 1f }; // #F8CE3F amarillo (manual on)
     // Tram lines (Stage 4b). Tono claro semitransparente para no competir
     // con guidance cian ni con boundary verde. Coincide con el render
@@ -363,6 +388,9 @@ public sealed class MapGlSurface : OpenGlControlBase
         _desdeFix.Restart();          // reloj para interpolar entre fixes
         InvalidateBboxIfChanged(snap);
         AjustarTickSuavizado(snap);
+        // Con el mapa tapado por una pantalla, el HUD sigue llegando (lo consume
+        // la barra de arriba) pero no hay nada que redibujar acá.
+        if (_pausado) return;
         // RequestNextFrameRendering: API de OpenGlControlBase para
         // forzar un repaint sin tick continuo. No quemamos GPU en
         // idle: render solo cuando hay snapshot nuevo.
@@ -385,16 +413,60 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// frena en pantalla en vez de seguir viajando solo.</summary>
     private const double MaxExtrapolacionSeg = 0.30;
 
+    // Pausa del render. Cuando una pantalla (Configuración, Hub, cualquier
+    // producto X-*) tapa el mapa, seguir pidiendo frames a 30 Hz de un control
+    // invisible es trabajo tirado — y es justo el momento en que WebView2 está
+    // levantando su árbol de procesos Chromium y necesita la CPU.
+    private bool _pausado;
+
+    /// <summary>Frena el tick de suavizado. Idempotente.</summary>
+    public void Pausar()
+    {
+        _pausado = true;
+        if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
+    }
+
+    /// <summary>Reanuda el render. El tick vuelve solo con el próximo snapshot
+    /// si el tractor está en movimiento.</summary>
+    public void Reanudar()
+    {
+        if (!_pausado) return;
+        _pausado = false;
+        // Redibujar YA: al volver del menú el mapa tiene que estar al día, no
+        // esperar al próximo fix.
+        _renderPosInit = false;   // sin esto el filtro "viaja" desde la posición vieja
+        RequestNextFrameRendering();
+    }
+
     private void AjustarTickSuavizado(HudSnapshot snap)
     {
+        if (_pausado)
+        {
+            if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
+            return;
+        }
         bool enMovimiento = snap != null && snap.AvgSpeed > 0.2;
         if (enMovimiento)
         {
             if (_tickSuave == null)
             {
+                // 30 fps, NO 60. A velocidad de trabajo el tractor avanza ~6 cm
+                // por frame a 30 fps: pedir 60 no aporta nada visible y duplica
+                // el trabajo de render, que en la Intel UHD de la cabina es
+                // headroom que se necesita para otra cosa.
+                //
+                // 30 y no 25: la pantalla es de 60 Hz. 60/30 = 2 exacto, así que
+                // cada frame vive exactamente 2 refrescos y la cadencia queda
+                // pareja. A 25 fps la división da 2,4 y los frames alternan
+                // 2-2-3-2-2-3 refrescos — ese patrón irregular se ve peor que la
+                // diferencia de 5 fps. Lo que molesta al ojo es la varianza, no
+                // el promedio.
+                //
+                // El suavizado de posición (TauSuavizadoSeg) es independiente del
+                // framerate, así que bajar la cadencia no lo afecta.
                 _tickSuave = new DispatcherTimer(DispatcherPriority.Render)
                 {
-                    Interval = TimeSpan.FromMilliseconds(16)   // ~60 fps
+                    Interval = TimeSpan.FromMilliseconds(33)   // ~30 fps
                 };
                 _tickSuave.Tick += (_, _) => RequestNextFrameRendering();
             }
@@ -407,10 +479,11 @@ public sealed class MapGlSurface : OpenGlControlBase
     }
 
     /// <summary>
-    /// Posición del tractor interpolada al instante actual. Devuelve el fix tal
-    /// cual si está parado o si pasó demasiado desde el último dato.
+    /// Posición OBJETIVO del tractor: el último fix llevado al instante actual por
+    /// estima. Devuelve el fix tal cual si está parado o si pasó demasiado desde el
+    /// último dato.
     /// </summary>
-    private (double e, double n) PosicionInterpolada(HudSnapshot snap)
+    private (double e, double n) PosicionObjetivo(HudSnapshot snap)
     {
         double e = snap.PivotEasting, n = snap.PivotNorthing;
         double vms = snap.AvgSpeed / 3.6;                 // km/h → m/s
@@ -422,6 +495,79 @@ public sealed class MapGlSurface : OpenGlControlBase
         // Mismo criterio de ejes que el resto del mapa: rumbo 0 = Norte.
         double d = vms * dt;
         return (e + Math.Sin(snap.Heading) * d, n + Math.Cos(snap.Heading) * d);
+    }
+
+    // ---- posición de render suavizada ----------------------------------
+    // La estima sola producía el efecto "goma": entre fixes el tractor avanzaba
+    // extrapolado, y al llegar el fix siguiente la posición SALTABA al valor real
+    // (adelante o atrás según cuánto se pasó la estima). Con un fix cada ~100 ms
+    // eso es un escalón 10 veces por segundo, y en heading-up el escalón lo da el
+    // mundo entero, que es donde más se nota.
+    //
+    // Ahora la posición dibujada persigue al objetivo con un filtro exponencial:
+    // el escalón se reparte en unas decenas de ms en vez de aplicarse de golpe.
+    private double _renderE, _renderN;
+    private double _renderToolE, _renderToolN;
+    private bool _renderPosInit;
+    private readonly System.Diagnostics.Stopwatch _relojFrame = System.Diagnostics.Stopwatch.StartNew();
+
+    /// <summary>Constante de tiempo del suavizado. Corta a propósito: alcanza para
+    /// tapar el escalón del fix sin que el tractor se sienta "arrastrado".</summary>
+    private const double TauSuavizadoSeg = 0.08;
+
+    /// <summary>Salto que NO se interpola (cambio de lote, GPS recuperado,
+    /// teleport del simulador): ahí conviene ir directo y no viajar por el mapa.</summary>
+    private const double SaltoDirectoM = 25.0;
+
+    /// <summary>
+    /// Avanza la posición suavizada hacia el objetivo. Se llama UNA vez por frame
+    /// (la cámara y el tractor leen el mismo resultado; llamarla dos veces haría
+    /// avanzar el filtro doble y el suavizado quedaría dependiente del framerate).
+    /// </summary>
+    private void ActualizarPosicionRender(HudSnapshot snap)
+    {
+        var (te, tn) = PosicionObjetivo(snap);
+
+        // Herramienta: mismo tratamiento, con su propia posición y rumbo. Si el
+        // tractor va suave y el implemento a saltos, se ve como si se
+        // desenganchara y volviera.
+        double toE = snap.ToolEasting, toN = snap.ToolNorthing;
+        double vms = snap.AvgSpeed / 3.6;
+        double dtFix = _desdeFix.Elapsed.TotalSeconds;
+        if (vms > 0.05 && dtFix > 0 && dtFix <= MaxExtrapolacionSeg)
+        {
+            double d = vms * dtFix;
+            toE += Math.Sin(snap.ToolHeading) * d;
+            toN += Math.Cos(snap.ToolHeading) * d;
+        }
+
+        double dtFrame = _relojFrame.Elapsed.TotalSeconds;
+        _relojFrame.Restart();
+
+        if (!_renderPosInit)
+        {
+            _renderE = te; _renderN = tn;
+            _renderToolE = toE; _renderToolN = toN;
+            _renderPosInit = true;
+            return;
+        }
+
+        double dx = te - _renderE, dy = tn - _renderN;
+        if (dx * dx + dy * dy > SaltoDirectoM * SaltoDirectoM)
+        {
+            _renderE = te; _renderN = tn;
+            _renderToolE = toE; _renderToolN = toN;
+            return;
+        }
+
+        // Exponencial independiente del framerate: con dt chico el paso es chico,
+        // con dt grande el paso es grande, y el resultado no cambia si el mapa
+        // corre a 30 o a 60 fps.
+        double a = 1.0 - Math.Exp(-Math.Max(dtFrame, 0.0) / TauSuavizadoSeg);
+        _renderE += dx * a;
+        _renderN += dy * a;
+        _renderToolE += (toE - _renderToolE) * a;
+        _renderToolN += (toN - _renderToolN) * a;
     }
 
     /// <summary>
@@ -586,11 +732,14 @@ public sealed class MapGlSurface : OpenGlControlBase
         _guidanceVbo = _gl.GenBuffer();
         _guidanceVboCapacityFloats = 0;
 
-        // VBO de tool (Stage 4a). DYNAMIC_DRAW: se reescribe cada frame
-        // que llega snapshot nuevo (4 Hz), con todos los segmentos
-        // empacados. El draw real va en 3-4 batches por color.
-        _toolVbo = _gl.GenBuffer();
-        _toolVboCapacityFloats = 0;
+        // VBO de guías paralelas. STATIC_DRAW: se reconstruye solo cuando
+        // cambia la línea, el ancho de herramienta o la extensión del lote.
+        _parVbo = _gl.GenBuffer();
+        _parVboCapacityFloats = 0;
+        _parDirty = true;
+
+        // (Las secciones ya no tienen VBO propio: DrawTool arma los quads en el
+        // scratch por frame, que es lo que permite darles grosor real.)
 
         // VBO de tram (Stage 4b). STATIC_DRAW: solo cambia al regenerar
         // tram (cambio passes/ancho/displayMode). Concatena lineas + outer
@@ -606,6 +755,8 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         var glErr = _gl.GetError();
         Console.Error.WriteLine("[MapGlSurface] GL init OK (glGetError=" + glErr + ")");
+
+        Dispatcher.UIThread.Post(ArrancarLatido, DispatcherPriority.Background);
     }
 
     protected override void OnOpenGlDeinit(GlInterface glInterface)
@@ -616,7 +767,7 @@ public sealed class MapGlSurface : OpenGlControlBase
             _gl.DeleteBuffer(_vbo);
             _gl.DeleteBuffer(_coverageVbo);
             _gl.DeleteBuffer(_guidanceVbo);
-            _gl.DeleteBuffer(_toolVbo);
+            _gl.DeleteBuffer(_parVbo);
             _gl.DeleteBuffer(_tramVbo);
             _gl.DeleteBuffer(_pathsVbo);
             _gl.DeleteVertexArray(_vao);
@@ -643,6 +794,8 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.ClearColor(bg[0], bg[1], bg[2], bg[3]);
         _gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
+        _framesDesdeLatido++;
+        FramesRenderizados++;
         bool diag = _diagFrames < 3;
         if (diag) LogPixel("post-clear", wPx / 2, hPx / 2);
 
@@ -670,14 +823,15 @@ public sealed class MapGlSurface : OpenGlControlBase
         // se apaga el modo o si todavía no hay posición.
         double alpha = 0.0;
         var followSnap = _snap;
+        // Una sola actualización del filtro por frame, antes de cualquier uso.
+        if (followSnap != null) ActualizarPosicionRender(followSnap);
         if (_headingUp && followSnap != null &&
             (followSnap.PivotEasting != 0 || followSnap.PivotNorthing != 0))
         {
-            // Posición interpolada, no la del último fix: si la cámara salta de
+            // Posición suavizada, no la del último fix: si la cámara salta de
             // fix en fix, TODO el mundo salta con ella y es lo que más se nota.
-            var (ce, cn) = PosicionInterpolada(followSnap);
-            cxBbox = ce;
-            cyBbox = cn;
+            cxBbox = _renderE;
+            cyBbox = _renderN;
             alpha = followSnap.Heading;   // rad; rotar el mundo por el rumbo
         }
 
@@ -690,6 +844,8 @@ public sealed class MapGlSurface : OpenGlControlBase
         // heading) por cos(T) + corrimiento hacia abajo en clip-space por
         // sin(T) — ver comentario de _pitchDeg. Con T=0 (2D) se cancela y
         // queda EXACTAMENTE la fórmula ortográfica original.
+        _ultCamX = cxBbox; _ultCamY = cyBbox; _ultEscala = scale;
+
         float sx = (float)(scale * 2.0 / wPx);
         float sy = (float)(scale * 2.0 / hPx);
         float ca = (float)Math.Cos(alpha);
@@ -792,13 +948,15 @@ public sealed class MapGlSurface : OpenGlControlBase
         {
             _toolSnap = _pendingTool;
             _pendingTool = null;
-            UploadTool(_toolSnap);
+            // Ya no se sube a un VBO propio: DrawTool arma los quads por frame
+            // con el scratch. Son ~16 secciones, nada.
         }
-        // La barra de secciones solo se dibuja si NO hay sprite de implemento:
-        // con el dibujo real de la máquina, la barra de colores encima sobra.
-        if (!_implementoTexReady
-            && _toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
-            DrawTool(_toolSnap);
+        // La barra de secciones va SIEMPRE. Antes se ocultaba cuando había sprite
+        // de implemento cargado (`!_implementoTexReady`); como el sprite quedó
+        // desactivado (ver Capa 4), esa condición dejaría el mapa sin barra y sin
+        // máquina.
+        if (_toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
+            DrawTool(_toolSnap, scale);
 
         var snap = _snap;
         if (snap != null)
@@ -819,14 +977,24 @@ public sealed class MapGlSurface : OpenGlControlBase
             // El implemento va PRIMERO: el tractor lo tapa parcialmente en la
             // zona del enganche, que es lo correcto visualmente.
             SubirSpritePendiente();
-            DrawImplementoSprite();
-            var (te, tn) = PosicionInterpolada(snap);
-            DrawTractor(te, tn, snap.Heading, scale);
+            // --- sprite del implemento — DESACTIVADO (2026-07-28, pedido usuario) ---
+            // Dibujado al ancho real (4,16 m) quedaba feo: el tractor tiene piso de
+            // 26 px (ver minPx en DrawTractorSprite) y el implemento no, así que al
+            // alejar el zoom el tractor se plantaba en su tamaño mínimo mientras la
+            // sembradora se seguía achicando, y los dos quedaban descalzados.
+            // Vuelve la barra de secciones de colores, que además dice más (estado
+            // por sección) que el dibujo de la máquina.
+            // El método queda por si se lo quiere recolgar con el piso de píxeles
+            // corregido.
+            //DrawImplementoSprite();
+            DrawTractor(_renderE, _renderN, snap.Heading, scale);
         }
 
         // --- Capa 4b: creación de AB (marcador A + línea pendiente A→tractor) ---
+        // Usa la posición suavizada, la misma con la que se dibujó el tractor: con
+        // el fix crudo la línea pendiente no terminaba donde se ve la máquina.
         if (_abCreating && _abHasA && snap != null)
-            DrawAbCreation(snap.PivotEasting, snap.PivotNorthing, scale);
+            DrawAbCreation(_renderE, _renderN, scale);
 
         // --- Capa 5: lightbar (XTE) en espacio-pantalla, sobre todo ----
         DrawLightbar();
@@ -846,6 +1014,64 @@ public sealed class MapGlSurface : OpenGlControlBase
     }
 
     private int _diagFrames;
+
+    // ---- latido de diagnóstico -----------------------------------------
+    // El mapa se congeló dos veces (2026-07-29) sin dejar rastro: el log de
+    // arranque se corta a los 3 frames y despues no se sabe mas nada, asi que
+    // cuando pasa no hay con que distinguir "dejo de renderizar" de "renderiza
+    // pero con datos viejos" ni de "se trabo el hilo de UI".
+    //
+    // Esto emite una linea cada 5 s con lo minimo para separar esos casos. Si
+    // las lineas DEJAN de salir, el que se trabo es el hilo de UI (el timer
+    // corre ahi). Si salen con fps=0, se dejo de pedir frames. Si salen con
+    // fps>0 pero el fix no envejece, el que murio es el poller del HUD.
+    /// <summary>
+    /// Frames dibujados desde que existe este control. Monotónico. Lo usa el
+    /// watchdog de MapPanel para detectar que el contexto GL se murió: si esto
+    /// no avanza mientras el mapa está a la vista y llegan datos, no hay render.
+    /// </summary>
+    public int FramesRenderizados { get; private set; }
+
+    // Última cámara efectiva, para el latido: si el tractor "desaparece" hay que
+    // poder distinguir "no se dibuja" de "se dibuja fuera de la vista".
+    private double _ultCamX, _ultCamY, _ultEscala;
+
+    private int _framesDesdeLatido;
+    private DispatcherTimer? _latido;
+    private readonly System.Diagnostics.Stopwatch _relojLatido = System.Diagnostics.Stopwatch.StartNew();
+
+    private void ArrancarLatido()
+    {
+        if (_latido != null) return;
+        _latido = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _latido.Tick += (_, _) =>
+        {
+            double seg = _relojLatido.Elapsed.TotalSeconds;
+            if (seg <= 0) return;
+            double fps = _framesDesdeLatido / seg;
+            _framesDesdeLatido = 0;
+            _relojLatido.Restart();
+
+            var s = _snap;
+            Console.Error.WriteLine(string.Format(
+                "[MapGlSurface] latido fps={0:F1} pausado={1} tick={2} edadFix={3:F1}s vel={4:F1} " +
+                "| tractor=({5:F1},{6:F1}) camara=({7:F1},{8:F1}) esc={9:F2} zoom={10:F2} pan=({11:F1},{12:F1}) " +
+                "hdgUp={13} sprite={14} bbox={15}",
+                fps,
+                _pausado,
+                _tickSuave != null && _tickSuave.IsEnabled,
+                _desdeFix.Elapsed.TotalSeconds,
+                s != null ? s.AvgSpeed : -1,
+                _renderE, _renderN,
+                _ultCamX, _ultCamY, _ultEscala,
+                _userZoom, _userPanX, _userPanY,
+                _headingUp, _vehicleTexReady, _hasBbox));
+        };
+        _latido.Start();
+    }
 
     private unsafe void LogPixel(string tag, int px, int py)
     {
@@ -1021,6 +1247,10 @@ public sealed class MapGlSurface : OpenGlControlBase
         _lastEffectiveScale = scale;
     }
 
+    /// <summary>Píxeles por metro cuando el lote no tiene lindero del que sacar
+    /// encuadre. Subir = más cerca.</summary>
+    private const double EscalaSinLoteM = 20.0;
+
     private void ComputeBaseProjection(int wPx, int hPx, out double cx, out double cy, out double scale)
     {
         // Padding fijo (40px) idem MapSkiaSurface para que el toggle
@@ -1039,15 +1269,19 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         // Sin bbox: si hay snapshot con posicion, centramos en el
         // tractor con una escala generica (1 px = 0.1m).
+        // Sin lindero: centrado en el tractor. 8 px/m mostraba 240 m de ancho en
+        // una pantalla de 1920 — un lote vacío a esa escala es una pantalla
+        // negra con una mancha en el medio. 20 px/m deja ~96 m de ancho, que es
+        // lo que sirve para manejar.
         var s = _snap;
         if (s != null && (s.PivotEasting != 0 || s.PivotNorthing != 0))
         {
             cx = s.PivotEasting;
             cy = s.PivotNorthing;
-            scale = 8.0;
+            scale = EscalaSinLoteM;
             return;
         }
-        cx = 0; cy = 0; scale = 8.0;
+        cx = 0; cy = 0; scale = EscalaSinLoteM;
     }
 
     private void DrawGrid(double cx, double cy, int wPx, int hPx, double scale, float[] color)
@@ -1219,9 +1453,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         _guidanceVertexCount = n;
         _guidanceRevisionUploaded = snap.Revision;
 
-        // Copia CPU para las paralelas.
+        // Copia CPU para las paralelas. Cambió la línea -> hay que reconstruir
+        // el VBO de paralelas (que si no se reusa tal cual entre frames).
         _guidancePts.Clear();
         if (pts != null) _guidancePts.AddRange(pts);
+        _parDirty = true;
 
         if (n < 2 || _guidanceMode == "Off")
         {
@@ -1296,6 +1532,87 @@ public sealed class MapGlSurface : OpenGlControlBase
     // desde _guidancePts + ToolWidth y se dibujan tenues por debajo de la activa.
     // AB (2 puntos) → offset rígido perpendicular. Curva (polilínea) → cada
     // vértice se desplaza por su normal local.
+    /// <summary>
+    /// Reconstruye el VBO de guías paralelas. Solo corre cuando cambió la línea,
+    /// el ancho de herramienta o la extensión del lote — NO por frame.
+    /// </summary>
+    private void RebuildGuidanceParallel(double width, double span)
+    {
+        if (_gl == null) return;
+        _parRanges.Clear();
+        _parIsLines = false;
+
+        int n = _guidancePts.Count;
+        // Cap defensivo (evita miles de líneas si el ancho es chico).
+        int half = (int)Math.Ceiling(span / width) + 1;
+        half = Math.Clamp(half, 1, 40);
+
+        bool isAb = (_guidanceMode == "AB") || n == 2;
+        int writeIdx = 0;
+        int vertexCursor = 0;
+
+        if (isAb)
+        {
+            var a = _guidancePts[0];
+            var b = _guidancePts[n - 1];
+            double dx = b.E - a.E, dy = b.N - a.N;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-6) return;
+            double px = -dy / len, py = dx / len;   // perpendicular unitaria
+
+            // Todas las paralelas (menos k=0, la activa) en un solo GL_LINES:
+            // 2 vértices por línea.
+            EnsureScratch(2 * half * 4);
+            for (int k = -half; k <= half; k++)
+            {
+                if (k == 0) continue;
+                double ox = px * width * k, oy = py * width * k;
+                _scratch[writeIdx++] = (float)(a.E + ox); _scratch[writeIdx++] = (float)(a.N + oy);
+                _scratch[writeIdx++] = (float)(b.E + ox); _scratch[writeIdx++] = (float)(b.N + oy);
+            }
+            _parIsLines = true;
+            _parRanges.Add((0, writeIdx / 2));
+        }
+        else
+        {
+            // Curva: normal local por vértice (perpendicular a la tangente).
+            // Todas las paralelas van concatenadas; cada una con su rango.
+            EnsureScratch(2 * half * n * 2);
+            for (int k = -half; k <= half; k++)
+            {
+                if (k == 0) continue;
+                for (int i = 0; i < n; i++)
+                {
+                    var p0 = _guidancePts[Math.Max(0, i - 1)];
+                    var p1 = _guidancePts[Math.Min(n - 1, i + 1)];
+                    double dx = p1.E - p0.E, dy = p1.N - p0.N;
+                    double len = Math.Sqrt(dx * dx + dy * dy);
+                    if (len < 1e-6) { dx = 1; dy = 0; len = 1; }
+                    double px = -dy / len, py = dx / len;
+                    var pi = _guidancePts[i];
+                    _scratch[writeIdx++] = (float)(pi.E + px * width * k);
+                    _scratch[writeIdx++] = (float)(pi.N + py * width * k);
+                }
+                _parRanges.Add((vertexCursor, n));
+                vertexCursor += n;
+            }
+        }
+
+        if (writeIdx == 0) return;
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _parVbo);
+        unsafe
+        {
+            fixed (float* p = _scratch)
+            {
+                _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                    (nuint)(writeIdx * sizeof(float)), p, BufferUsageARB.StaticDraw);
+            }
+        }
+        _parVboCapacityFloats = writeIdx;
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+    }
+
     private void DrawGuidanceParallel()
     {
         if (_gl == null) return;
@@ -1306,158 +1623,96 @@ public sealed class MapGlSurface : OpenGlControlBase
         var snap = _snap;
         double width = snap != null ? snap.ToolWidth : 0;
         if (width < 0.05) return;                     // sin ancho no hay paso
-        int n = _guidancePts.Count;
-        if (n < 2) return;
+        if (_guidancePts.Count < 2) return;
 
-        // Extensión: el lote si hay lindero, si no ~300 m alrededor. Cap
-        // defensivo (evita miles de líneas si el ancho es chico).
+        // Extensión: el lote si hay lindero, si no ~300 m alrededor.
         double span = _hasBbox ? Math.Max(_maxE - _minE, _maxN - _minN) : 300.0;
-        int half = (int)Math.Ceiling(span / width) + 1;
-        half = Math.Clamp(half, 1, 40);
 
-        bool isAb = (_guidanceMode == "AB") || n == 2;
+        // Reconstruir SOLO si cambió alguna entrada. En steady-state esto no
+        // corre nunca y el frame se va en los DrawArrays de abajo.
+        if (_parDirty || width != _parWidthUsed || span != _parSpanUsed)
+        {
+            RebuildGuidanceParallel(width, span);
+            _parWidthUsed = width;
+            _parSpanUsed = span;
+            _parDirty = false;
+        }
+        if (_parRanges.Count == 0) return;
 
-        // UploadAndDraw sube al ARRAY_BUFFER bindeado: aseguramos el VBO
-        // dinámico (la capa previa pudo dejar bindeado otro). Las paralelas van
-        // con blend (alpha bajo).
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
-        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
         _gl.Enable(EnableCap.Blend);
         _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _parVbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
+        _gl.Uniform4(_uColor, ColGuidancePar[0], ColGuidancePar[1], ColGuidancePar[2], ColGuidancePar[3]);
 
-        if (isAb)
+        if (_parIsLines)
         {
-            var a = _guidancePts[0];
-            var b = _guidancePts[n - 1];
-            double dx = b.E - a.E, dy = b.N - a.N;
-            double len = Math.Sqrt(dx * dx + dy * dy);
-            if (len < 1e-6) { _gl.Disable(EnableCap.Blend); return; }
-            double px = -dy / len, py = dx / len;   // perpendicular unitaria
-
-            // Todas las paralelas (menos k=0, la activa) en un solo GL_LINES:
-            // 2 vértices por línea.
-            EnsureScratch(2 * half * 4);
-            int o = 0;
-            for (int k = -half; k <= half; k++)
-            {
-                if (k == 0) continue;
-                double ox = px * width * k, oy = py * width * k;
-                _scratch[o++] = (float)(a.E + ox); _scratch[o++] = (float)(a.N + oy);
-                _scratch[o++] = (float)(b.E + ox); _scratch[o++] = (float)(b.N + oy);
-            }
-            UploadAndDraw(PrimitiveType.Lines, o / 2, ColGuidancePar);
+            var r = _parRanges[0];
+            _gl.DrawArrays(PrimitiveType.Lines, r.Start, (uint)r.Count);
         }
         else
         {
-            // Curva: normal local por vértice (perpendicular a la tangente).
-            for (int k = -half; k <= half; k++)
+            for (int i = 0; i < _parRanges.Count; i++)
             {
-                if (k == 0) continue;
-                EnsureScratch(n * 2);
-                int o = 0;
-                for (int i = 0; i < n; i++)
-                {
-                    var p0 = _guidancePts[Math.Max(0, i - 1)];
-                    var p1 = _guidancePts[Math.Min(n - 1, i + 1)];
-                    double dx = p1.E - p0.E, dy = p1.N - p0.N;
-                    double len = Math.Sqrt(dx * dx + dy * dy);
-                    if (len < 1e-6) { dx = 1; dy = 0; len = 1; }
-                    double px = -dy / len, py = dx / len;
-                    var pi = _guidancePts[i];
-                    _scratch[o++] = (float)(pi.E + px * width * k);
-                    _scratch[o++] = (float)(pi.N + py * width * k);
-                }
-                UploadAndDraw(PrimitiveType.LineStrip, o / 2, ColGuidancePar);
+                var r = _parRanges[i];
+                _gl.DrawArrays(PrimitiveType.LineStrip, r.Start, (uint)r.Count);
             }
         }
 
         _gl.Disable(EnableCap.Blend);
-    }
-
-    private void UploadTool(ToolGeometrySnapshot snap)
-    {
-        if (_gl == null) return;
-        if (snap.Sections == null || snap.Sections.Count == 0 || !snap.IsValid) return;
-
-        int n = snap.Sections.Count;
-        // 2 vertices por seccion (Left, Right) * 2 floats por vertice.
-        int needFloats = n * 4;
-        EnsureScratch(needFloats);
-        for (int i = 0; i < n; i++)
-        {
-            var s = snap.Sections[i];
-            int o = i * 4;
-            _scratch[o    ] = (float)s.LeftE;
-            _scratch[o + 1] = (float)s.LeftN;
-            _scratch[o + 2] = (float)s.RightE;
-            _scratch[o + 3] = (float)s.RightN;
-        }
-
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _toolVbo);
-        if (_toolVboCapacityFloats < needFloats)
-        {
-            int cap = Math.Max(_toolVboCapacityFloats, 64);
-            while (cap < needFloats) cap *= 2;
-            _toolVboCapacityFloats = cap;
-            unsafe
-            {
-                _gl.BufferData(BufferTargetARB.ArrayBuffer,
-                    (nuint)(cap * sizeof(float)),
-                    (void*)0,
-                    BufferUsageARB.DynamicDraw);
-            }
-        }
-        unsafe
-        {
-            fixed (float* p = _scratch)
-            {
-                _gl.BufferSubData(BufferTargetARB.ArrayBuffer,
-                    0,
-                    (nuint)(needFloats * sizeof(float)),
-                    p);
-            }
-        }
-        // Volver al VBO dinamico para que el resto del render siga.
         _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
     }
 
-    private void DrawTool(ToolGeometrySnapshot snap)
+    /// <summary>
+    /// Grosor de la barra de secciones, en píxeles de pantalla. Va en píxeles y
+    /// no en metros a propósito: es un indicador de estado, no una medida del
+    /// terreno, así que tiene que verse igual de bien con el zoom cerca o lejos.
+    /// </summary>
+    private const double GrosorBarraSeccionesPx = 7.0;
+
+    private void DrawTool(ToolGeometrySnapshot snap, double scale)
     {
         if (_gl == null) return;
-        // El layout en _toolVbo es: seccion i -> (Left.E, Left.N, Right.E, Right.N)
-        // en offset i*4 floats = i*2 vertices. DrawArrays(Lines, start=i*2, count=2)
-        // dibuja un segmento por call. Batch por color para minimizar
-        // cambios de uniform: agrupamos las secciones por estado y emitimos
-        // un draw por color que use DrawArraysIndirect... no, mantengamoslo
-        // simple: 1 segmento = 1 DrawArrays. N max es ~16 sections; 16
-        // draws/frame es nada.
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _toolVbo);
+
+        // Se dibuja con QUADS y no con GL_LINES. LineWidth lo capea el driver:
+        // en core profile y en GL ES —que es lo que Avalonia negocia en Windows,
+        // y lo que corre la placa de la cabina— el máximo suele ser 1.0, así que
+        // pedir 3 px daba una línea de 1 px igual y el grosor no se podía tocar.
+        // Con dos triángulos por sección el ancho es nuestro y se ve de verdad.
+        double grosorMundo = GrosorBarraSeccionesPx / Math.Max(scale, 1e-6);
+        double medio = grosorMundo * 0.5;
+
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
         unsafe
         {
             _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
         }
 
-        // Lineas gruesas para que se vean a varios zooms. Algunos drivers
-        // (especialmente core profile) capean line width en 1.0 — no es
-        // critico: el segmento sigue ahi, solo mas finito. En Stage 4
-        // refinado podemos cambiar a quads triangulados con ancho real.
-        _gl.LineWidth(3.0f);
-
+        // Un draw por sección: N max ~16, y así cada una conserva su color de
+        // estado sin tener que reordenar nada.
         var sections = snap.Sections;
         for (int i = 0; i < sections!.Count; i++)
         {
             var s = sections[i];
-            float[] col = SectionColor(s);
-            _gl.Uniform4(_uColor, col[0], col[1], col[2], col[3]);
-            _gl.DrawArrays(PrimitiveType.Lines, i * 2, 2);
-        }
 
-        _gl.LineWidth(1.0f);
+            double dx = s.RightE - s.LeftE;
+            double dy = s.RightN - s.LeftN;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-6) continue;      // sección de ancho cero
 
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
-        unsafe
-        {
-            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+            // Perpendicular unitaria × medio grosor: engrosa la barra hacia
+            // adelante y hacia atrás de la herramienta.
+            double px = -dy / len * medio;
+            double py = dx / len * medio;
+
+            EnsureScratch(8);
+            _scratch[0] = (float)(s.LeftE  + px); _scratch[1] = (float)(s.LeftN  + py);
+            _scratch[2] = (float)(s.LeftE  - px); _scratch[3] = (float)(s.LeftN  - py);
+            _scratch[4] = (float)(s.RightE + px); _scratch[5] = (float)(s.RightN + py);
+            _scratch[6] = (float)(s.RightE - px); _scratch[7] = (float)(s.RightN - py);
+
+            UploadAndDraw(PrimitiveType.TriangleStrip, 4, SectionColor(s));
         }
     }
 
@@ -1777,18 +2032,11 @@ public sealed class MapGlSurface : OpenGlControlBase
             {
                 fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
             }
-            // Interpolado igual que el tractor: si el implemento avanza a
-            // saltos mientras el tractor va suave, se ve como si se
-            // desenganchara y volviera.
-            double vms = snap.AvgSpeed / 3.6;
-            double dt = _desdeFix.Elapsed.TotalSeconds;
-            double te = snap.ToolEasting, tn = snap.ToolNorthing;
-            if (vms > 0.05 && dt > 0 && dt <= MaxExtrapolacionSeg)
-            {
-                double d = vms * dt;
-                te += Math.Sin(snap.ToolHeading) * d;
-                tn += Math.Cos(snap.ToolHeading) * d;
-            }
+            // Posición suavizada de la herramienta (la calcula
+            // ActualizarPosicionRender junto con la del tractor, con el mismo
+            // filtro): si el implemento avanza a saltos mientras el tractor va
+            // suave, se ve como si se desenganchara y volviera.
+            double te = _renderToolE, tn = _renderToolN;
 
             // Centro medio largo adelante del punto de herramienta.
             DrawQuadTex(_implementoTex, te, tn, snap.ToolHeading,
@@ -1919,7 +2167,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (tw <= 0.1) tw = 1.9;
 
         // Piso en píxeles: sin esto el vehículo desaparece al alejar el zoom.
-        double minPx = 26.0;
+        // Estaba en 26 px, que con la escala por defecto (sin lindero) dejaba un
+        // tractor de ~30 px en una pantalla de 1920 — técnicamente dibujado pero
+        // imposible de encontrar sobre un fondo vacío. El operario lo reportó
+        // como "se fue el tractor".
+        double minPx = 70.0;
         double anchoPx = (2 * tw) * scale;
         double k = anchoPx < minPx ? minPx / anchoPx : 1.0;
         wb *= k; tw *= k;

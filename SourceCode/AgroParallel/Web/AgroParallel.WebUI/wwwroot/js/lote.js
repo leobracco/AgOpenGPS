@@ -40,6 +40,26 @@
   async function jget(url) { try { var r = await fetch(url, { cache: 'no-store' }); return await r.json(); } catch (e) { return null; } }
   async function jpost(url) { try { var r = await fetch(url, { method: 'POST' }); return await r.json ? await r.json() : null; } catch (e) { return null; } }
 
+  // Abrir un lote y volver al mapa SIN esperar.
+  //
+  // Antes se hacía `await jpost(open)` y recién después se cerraba la ventana:
+  // como abrir un lote carga lindero, cobertura y guías, la pantalla de LOTE se
+  // quedaba ahí parada varios segundos, sin decir nada, y el operario no sabía
+  // si había registrado el toque. Ahora se cierra en el acto y el lote termina
+  // de cargar contra el mapa, que es donde se ve el progreso de verdad.
+  //
+  // keepalive es lo que hace que esto funcione: al navegar a la URL centinela
+  // el WebView descarga la página, y un fetch normal se cancelaría a mitad —
+  // el lote quedaría a medio abrir. Con keepalive el pedido sobrevive a la
+  // descarga de la página.
+  function abrirLoteYCerrar(nombre) {
+    try {
+      fetch('/api/lotes/open?name=' + encodeURIComponent(nombre),
+            { method: 'POST', keepalive: true });
+    } catch (e) { /* si falla el disparo, el lote no abre y se ve en el mapa */ }
+    closeWin();
+  }
+
   // ---- estado inicial: lote actual → habilita/deshabilita Cerrar/Continuar ----
   async function loadCurrent() {
     var c = await jget('/api/lotes/current');
@@ -73,10 +93,7 @@
       it.className = 'lt-item';
       it.innerHTML = '<span class="nm"></span><span class="meta">' + area + '</span>';
       it.querySelector('.nm').textContent = name;
-      it.onclick = async function () {
-        await jpost('/api/lotes/open?name=' + encodeURIComponent(name));
-        closeWin();
-      };
+      it.onclick = function () { abrirLoteYCerrar(name); };
       listEl.appendChild(it);
     });
   }
@@ -85,16 +102,15 @@
   $('btnClose').onclick = async function () { await jpost('/api/lotes/close'); closeWin(); };
   $('btnOpen').onclick = function () { show('open'); };
   $('btnNew').onclick = function () { $('inpNewName').value = ''; show('new'); };
-  $('btnResume').onclick = async function () {
+  $('btnResume').onclick = function () {
     // Continuar: abrir el último lote. El backend resuelve "Resume".
-    await jpost('/api/lotes/open?name=' + encodeURIComponent(current || '__resume__'));
-    closeWin();
+    abrirLoteYCerrar(current || '__resume__');
   };
   $('btnDriveIn').onclick = async function () {
     // Entrar al lote: abrir el más cercano a la posición GPS actual.
     var arr = await jget('/api/lotes?near=1');
     var lotes = Array.isArray(arr) ? arr : (arr && arr.lotes) || [];
-    if (lotes.length) { await jpost('/api/lotes/open?name=' + encodeURIComponent(lotes[0].name || lotes[0])); closeWin(); }
+    if (lotes.length) { abrirLoteYCerrar(lotes[0].name || lotes[0]); }
     else { show('open'); } // sin cercanos → mostrar lista
   };
   $('btnFromExisting').onclick = async function () { await fetch('/api/lotes/from-existing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); closeWin(); };

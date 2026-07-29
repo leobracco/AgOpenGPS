@@ -21,6 +21,7 @@
 
 using System;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
@@ -32,13 +33,53 @@ namespace PilotX.Desktop.Views;
 public sealed class MapPanel : Grid
 {
     private readonly MapSkiaSurface? _skia;
-    private readonly MapGlSurface? _gl;
+    private MapGlSurface? _gl;
+
+    // ---- watchdog del contexto GL --------------------------------------
+    //
+    // Observado en cabina (2026-07-29): el mapa se queda congelado y NO vuelve
+    // nunca. El latido de MapGlSurface lo dejó claro — fps=0 con pausado=False,
+    // el tick corriendo, los fixes llegando frescos y el hilo de UI vivo: o sea
+    // RequestNextFrameRendering se llama y Avalonia jamás invoca OnOpenGlRender.
+    // Traer la ventana al frente tampoco lo revive.
+    //
+    // Es pérdida del contexto GL (ANGLE/D3D pierde el device por suspensión,
+    // reset de driver o cambio de pantalla) que OpenGlControlBase de Avalonia
+    // 11.2.3 no recupera solo. AgOpenWeb llegó a la misma conclusión por otro
+    // camino y por eso mantiene su render 2D como baseline indefinido.
+    //
+    // Acá se detecta y se REHACE la surface: un control nuevo fuerza un
+    // OnOpenGlInit nuevo y con eso un contexto nuevo. La cobertura, las guías y
+    // el resto vuelven solos con el próximo poll; los sprites hay que
+    // reaplicarlos, por eso se guardan.
+    private DispatcherTimer? _watchdog;
+    private int _ultimoFrameVisto = -1;
+    private int _strikes;
+    private int _resurrecciones;
+
+    /// <summary>Ciclos sin un solo frame antes de dar el contexto por muerto.
+    /// Tres a 4 s da ~12 s de gracia: suficiente para no confundirlo con una
+    /// pausa legítima o un hipo del compositor.</summary>
+    private const int StrikesParaRehacer = 3;
+
+    /// <summary>Tope de intentos. Si con esto no revive, el problema es otro y
+    /// seguir recreando controles solo agrega ruido.</summary>
+    private const int MaxResurrecciones = 5;
+
+    // Últimos sprites empujados, para poder reaplicarlos a la surface nueva.
+    private byte[]? _spVeh; private int _spVehW, _spVehH;
+    private byte[]? _spRueda; private int _spRuedaW, _spRuedaH;
+    private byte[]? _spImpl; private int _spImplW, _spImplH;
+    private HudSnapshot? _ultimoSnap;
 
     // Estado del pan (arrastre). El input del mapa se maneja ACÁ (en el Grid
     // contenedor) porque OpenGlControlBase no recibe eventos de puntero de
     // forma confiable; con Background=Transparent el Grid sí los recibe.
     private bool _isPanning;
     private Avalonia.Point _lastPointer;
+
+    /// <summary>Se dispara cuando el mapa se tapa (false) o vuelve (true).</summary>
+    public event Action<bool>? VisibilidadCambiada;
 
     public MapPanel()
     {
@@ -48,6 +89,7 @@ public sealed class MapPanel : Grid
             _gl = new MapGlSurface();
             Children.Add(_gl);
             System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] MapPanel -> GL surface");
+            ArrancarWatchdog();
         }
         else
         {
@@ -63,8 +105,99 @@ public sealed class MapPanel : Grid
     /// </summary>
     public void OnSnapshot(HudSnapshot snap)
     {
+        // Misma red de seguridad que ReconciliarMapa en MainWindow, pero para la
+        // surface: si el mapa está a la vista no puede quedar pausado, se haya
+        // perdido el evento de visibilidad que se haya perdido. Reanudar() no
+        // hace nada si ya está corriendo.
+        if (IsVisible) _gl?.Reanudar();
+
+        _ultimoSnap = snap;
         _skia?.OnSnapshot(snap);
         _gl?.OnSnapshot(snap);
+    }
+
+    // ---- watchdog -------------------------------------------------------
+
+    private void ArrancarWatchdog()
+    {
+        if (_watchdog != null) return;
+        _watchdog = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(4)
+        };
+        _watchdog.Tick += (_, _) => Vigilar();
+        _watchdog.Start();
+    }
+
+    private void Vigilar()
+    {
+        var gl = _gl;
+        if (gl == null) return;
+
+        // Solo cuenta como falla si el mapa DEBERÍA estar dibujando: visible,
+        // sin pausa y con datos llegando. Si no, que no haya frames es lo
+        // correcto y no hay nada que arreglar.
+        if (!IsVisible || _ultimoSnap == null)
+        {
+            _ultimoFrameVisto = gl.FramesRenderizados;
+            _strikes = 0;
+            return;
+        }
+
+        int frames = gl.FramesRenderizados;
+        if (frames != _ultimoFrameVisto)
+        {
+            _ultimoFrameVisto = frames;
+            _strikes = 0;
+            return;
+        }
+
+        _strikes++;
+        if (_strikes < StrikesParaRehacer) return;
+
+        _strikes = 0;
+        if (_resurrecciones >= MaxResurrecciones)
+        {
+            Console.Error.WriteLine(
+                "[MapPanel] el contexto GL sigue muerto tras " + MaxResurrecciones +
+                " intentos; se deja de reintentar (arrancar con --gl=off usa el render Skia).");
+            _watchdog?.Stop();
+            return;
+        }
+
+        _resurrecciones++;
+        Console.Error.WriteLine("[MapPanel] contexto GL sin frames: rehaciendo la surface (intento "
+                                + _resurrecciones + ")");
+        RehacerSurface();
+    }
+
+    /// <summary>
+    /// Tira la surface muerta y monta una nueva. El control nuevo dispara su
+    /// propio OnOpenGlInit, que es lo único que consigue un contexto GL nuevo.
+    /// </summary>
+    private void RehacerSurface()
+    {
+        var vieja = _gl;
+        try
+        {
+            if (vieja != null) Children.Remove(vieja);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapPanel] no se pudo sacar la surface vieja: " + ex.Message);
+        }
+
+        var nueva = new MapGlSurface();
+        _gl = nueva;
+        Children.Add(nueva);
+        _ultimoFrameVisto = -1;
+
+        // Reaplicar lo que no vuelve solo. La cobertura, las guías, el tram y
+        // los caminos los reenvían sus pollers en el próximo ciclo.
+        if (_spVeh != null) nueva.SetVehicleSprite(_spVeh, _spVehW, _spVehH);
+        if (_spRueda != null) nueva.SetWheelSprite(_spRueda, _spRuedaW, _spRuedaH);
+        if (_spImpl != null) nueva.SetImplementSprite(_spImpl, _spImplW, _spImplH);
+        if (_ultimoSnap != null) nueva.OnSnapshot(_ultimoSnap);
     }
 
     /// <summary>
@@ -84,18 +217,21 @@ public sealed class MapPanel : Grid
     /// </summary>
     public void SetVehicleSprite(byte[]? rgba, int width, int height)
     {
+        _spVeh = rgba; _spVehW = width; _spVehH = height;
         _gl?.SetVehicleSprite(rgba, width, height);
     }
 
     /// <summary>Textura de la rueda delantera (se dibuja girada por direccion).</summary>
     public void SetWheelSprite(byte[]? rgba, int width, int height)
     {
+        _spRueda = rgba; _spRuedaW = width; _spRuedaH = height;
         _gl?.SetWheelSprite(rgba, width, height);
     }
 
     /// <summary>Sprite del implemento (sembradora, etc.).</summary>
     public void SetImplementSprite(byte[]? rgba, int width, int height)
     {
+        _spImpl = rgba; _spImplW = width; _spImplH = height;
         _gl?.SetImplementSprite(rgba, width, height);
     }
 
@@ -118,6 +254,36 @@ public sealed class MapPanel : Grid
     {
         _gl?.OnTool(snap);
         _skia?.OnTool(snap);
+    }
+
+    /// <summary>
+    /// Frena el render del mapa mientras otra pantalla lo tapa. La surface Skia
+    /// no tiene tick propio (redibuja por snapshot), así que solo aplica a GL.
+    /// </summary>
+    public void Pausar() => _gl?.Pausar();
+
+    /// <summary>Reanuda el render al volver al mapa.</summary>
+    public void Reanudar() => _gl?.Reanudar();
+
+    /// <summary>
+    /// El mapa se pausa solo cuando lo tapan. Va acá y no en cada pantalla que
+    /// lo oculta porque son ~14 lugares que hacen `_mapHost.IsVisible = false`:
+    /// atarlo a la propiedad cubre todos, incluidos los que se agreguen después,
+    /// sin depender de que alguien se acuerde de llamar a Pausar().
+    /// </summary>
+    protected override void OnPropertyChanged(Avalonia.AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsVisibleProperty)
+        {
+            // La propiedad ya está actualizada cuando llega esta notificación.
+            bool visible = IsVisible;
+            if (visible) Reanudar();
+            else Pausar();
+            // El dueño (MainWindow) usa esto para frenar además los pollers que
+            // solo alimentan al mapa; desde acá no los conocemos.
+            VisibilidadCambiada?.Invoke(visible);
+        }
     }
 
     // ---- Creación de AB en el mapa (toco A, manejo, toco B) ----

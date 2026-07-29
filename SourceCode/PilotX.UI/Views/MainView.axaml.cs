@@ -123,7 +123,11 @@ namespace PilotX.Desktop.Views
             if (App.UseGl)
             {
                 var cov = new CoverageClient(origin);
-                _coveragePoller = new CoveragePoller(cov, snap => _mapHost?.OnCoverage(snap), periodMs: 125);
+                // 350ms: el endpoint devuelve el snapshot COMPLETO y crece con el
+                // area trabajada (~3 MB en jornada de 8 h). Ver la nota larga en
+                // MainWindow.axaml.cs — a 125 ms el descarte por poll hacia que el
+                // mapa tironeara cada pocos segundos.
+                _coveragePoller = new CoveragePoller(cov, snap => _mapHost?.OnCoverage(snap), periodMs: 350);
                 _coveragePoller.Start();
                 _cleanup.Add(() => _coveragePoller?.Stop());
 

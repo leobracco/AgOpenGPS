@@ -144,7 +144,9 @@ namespace AgOpenGPS
             // (mismo DDC/CI + fallback WMI, sin la dependencia de WinForms que
             // tenía el original). Sin esto api/sistema/brillo devolvía siempre
             // ok:false,value:-1 contra el motor headless.
+#pragma warning disable CA1416 // el motor solo corre en Windows (CoreX/dxva2/System.IO.Ports ya lo asumen sin declararlo)
             var sistema = new EngineSistemaService();
+#pragma warning restore CA1416
             _web = new AgpWebHost(
                 state,                 // requerido
                 sistema: sistema,
@@ -157,6 +159,9 @@ namespace AgOpenGPS
                 vistaxLive: vistaxLive,
                 debug: new DebugLogService(),
                 lotes: lotes,
+                // Sin esto PerfilesController no se registra y /api/aog/perfiles
+                // da 404: la pantalla de perfiles del Hub no lista nada.
+                perfiles: new EnginePerfilService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,

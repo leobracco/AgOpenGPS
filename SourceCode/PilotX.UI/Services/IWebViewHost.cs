@@ -46,8 +46,19 @@ namespace PilotX.Desktop.Services
         void Navigate(string url);
 
         /// <summary>
+        /// Vacía la página (navega a about:blank) PERO deja el handle vivo y
+        /// reutilizable: los eventos siguen enganchados y el proceso del web view
+        /// queda listo para la próxima apertura.
+        ///
+        /// Es lo que se usa al cerrar una pantalla. Destruir el web view en cada
+        /// cierre obligaba a levantar todo el motor de nuevo en la apertura
+        /// siguiente, que es de lejos el costo más caro del ciclo.
+        /// </summary>
+        void Blank();
+
+        /// <summary>
         /// Libera el contenido (navega a about:blank y desengancha eventos).
-        /// Tras llamarlo, el handle no se reutiliza.
+        /// Tras llamarlo, el handle no se reutiliza. Solo para teardown real.
         /// </summary>
         void Release();
 

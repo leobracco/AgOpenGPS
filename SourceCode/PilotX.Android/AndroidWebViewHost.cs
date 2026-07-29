@@ -110,6 +110,8 @@ namespace PilotX.Droid
 
             public Control Control => _ctrl;
             public void Navigate(string url) => _ctrl.Load(url);
+            /// <summary>Vacía la página dejando el handle reutilizable.</summary>
+            public void Blank() { try { _ctrl.Load("about:blank"); } catch { /* best-effort */ } }
             public void Release() { try { _ctrl.Load("about:blank"); } catch { /* best-effort */ } }
             public void OpenDevTools() { /* no-op en Android (usar chrome://inspect en debug) */ }
         }

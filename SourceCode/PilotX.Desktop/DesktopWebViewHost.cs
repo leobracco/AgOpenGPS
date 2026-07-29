@@ -37,6 +37,13 @@ namespace PilotX.Desktop
                 try { _wv.Url = new Uri(url); } catch { }
             }
 
+            /// <summary>Vacía la página sin desenganchar nada: el handle sigue
+            /// vivo y el proceso WebView2 queda caliente para la próxima.</summary>
+            public void Blank()
+            {
+                try { _wv.Url = new Uri("about:blank"); } catch { }
+            }
+
             public void Release()
             {
                 try

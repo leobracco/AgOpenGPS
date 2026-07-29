@@ -28,6 +28,13 @@ namespace AgOpenGPS
         // crean/cierran tiras.
         private ulong lastSectionNumber = 0;
 
+        /// <summary>
+        /// Corte por área ya trabajada. null (el default) = como siempre: en Auto
+        /// la sección va encendida. Lo inyecta el proyecto de afuera; ver
+        /// IAntiSolapeSecciones para por qué la dependencia va en ese sentido.
+        /// </summary>
+        public IAntiSolapeSecciones AntiSolape;
+
         // Llamar en CADA fix con lote abierto (desde UpdateFixPosition), después
         // del pipeline de posición (que ya corrió AddSectionOrPathPoints) y antes
         // de enviar P239/P229 (BuildMachineByte puebla sus bytes de sección).
@@ -38,7 +45,12 @@ namespace AgOpenGPS
             var triStrip = TriStripField;
             double slowCut = Vehicle.slowSpeedCutoff;
 
-            // ---- 1) Decisión on/off por sección (MVP sin píxeles) ----
+            // Poner al día la cobertura conocida ANTES de decidir, así el corte
+            // usa lo que se pintó en este mismo fix y no lo del anterior.
+            bool antiSolape = AntiSolape != null && AntiSolape.Habilitado;
+            if (antiSolape) AntiSolape.Sincronizar();
+
+            // ---- 1) Decisión on/off por sección ----
             for (int j = 0; j < tool.numOfSections; j++)
             {
                 // Off, muy lento, o yendo para atrás.
@@ -64,8 +76,21 @@ namespace AgOpenGPS
                     continue;
                 }
 
-                // Auto: MVP sin anti-overlap por píxeles → requerida ON.
+                // Auto. Sin anti-solape enchufado, la sección va encendida (que
+                // era todo el comportamiento del MVP). Con anti-solape, decide
+                // cuánto de su ancho cae sobre lo ya trabajado.
                 section[j].isSectionRequiredOn = true;
+                if (antiSolape)
+                {
+                    section[j].isSectionRequiredOn = AntiSolape.SeccionRequeridaOn(
+                        section[j].leftPoint.easting,
+                        section[j].leftPoint.northing,
+                        section[j].rightPoint.easting,
+                        section[j].rightPoint.northing,
+                        toolPivotPos.heading,
+                        avgSpeed,
+                        section[j].isSectionOn);
+                }
 
                 // Fuera de boundary → off. Sin boundary, isInBoundary queda true
                 // (default) y no se apaga.
