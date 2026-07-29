@@ -66,6 +66,12 @@ public sealed class MapPanel : Grid
     /// </summary>
     public void OnSnapshot(HudSnapshot snap)
     {
+        // Misma red de seguridad que ReconciliarMapa en MainWindow, pero para la
+        // surface: si el mapa está a la vista no puede quedar pausado, se haya
+        // perdido el evento de visibilidad que se haya perdido. Reanudar() no
+        // hace nada si ya está corriendo.
+        if (IsVisible) _gl?.Reanudar();
+
         _skia?.OnSnapshot(snap);
         _gl?.OnSnapshot(snap);
     }

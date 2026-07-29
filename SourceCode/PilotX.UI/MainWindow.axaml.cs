@@ -244,11 +244,10 @@ public partial class MainWindow : Window
         // Cualquier pantalla que tape el mapa (WebView del Hub o panel nativo)
         // lo oculta con IsVisible=false. Enganchándonos ahí frenamos también los
         // pollers, sin tener que tocar los ~14 lugares que lo ocultan.
+        // El evento acelera la reacción; la corrección de fondo la hace
+        // ReconciliarMapa desde el HUD, que no depende de que llegue.
         if (_mapHost != null)
-            _mapHost.VisibilidadCambiada += visible =>
-            {
-                if (visible) ReanudarMapa(); else PausarMapa();
-            };
+            _mapHost.VisibilidadCambiada += _ => ReconciliarMapa();
         _abCreatePanel   = this.FindControl<Border>("AbCreatePanel");
         _abCreateHint    = this.FindControl<TextBlock>("AbCreateHint");
         _abCreateMark    = this.FindControl<Button>("AbCreateMark");
@@ -759,8 +758,37 @@ public partial class MainWindow : Window
     //
     // Se paran solo los pollers que alimentan ÚNICAMENTE al mapa. El HudPoller
     // sigue: es barato (2,5 KB) y lo consume también la barra de estado.
+    // Estado deseado del mapa. Se compara contra la visibilidad real en cada
+    // snapshot del HUD (ver ReconciliarMapa): si alguna transición se pierde, la
+    // siguiente vuelta lo corrige sola.
+    private bool _mapaCorriendo = true;
+
+    /// <summary>
+    /// Lleva el mapa al estado que le corresponde según esté tapado o no.
+    ///
+    /// Existe porque la primera versión de esto reaccionaba SOLO al evento de
+    /// cambio de visibilidad. Con eso, perder un único evento dejaba el mapa
+    /// pausado para siempre: sin frames, con los pollers frenados y sin nada que
+    /// lo devolviera a la normalidad — el mapa quedaba congelado mostrando una
+    /// escena vieja mientras la barra de arriba seguía actualizándose (el HUD
+    /// nunca se pausa), que es justo el síntoma más confuso posible.
+    ///
+    /// Ahora el estado deseado se reafirma continuamente en vez de depender de
+    /// los flancos. Es barato: se llama a 10 Hz y no hace nada si ya coincide.
+    /// </summary>
+    private void ReconciliarMapa()
+    {
+        bool debeCorrer = _mapHost != null && _mapHost.IsVisible;
+        if (debeCorrer == _mapaCorriendo) return;
+
+        _mapaCorriendo = debeCorrer;
+        if (debeCorrer) ReanudarMapa();
+        else PausarMapa();
+    }
+
     private void PausarMapa()
     {
+        _mapaCorriendo = false;
         _mapHost?.Pausar();
         _coveragePoller?.Stop();
         _toolPoller?.Stop();
@@ -771,6 +799,7 @@ public partial class MainWindow : Window
 
     private void ReanudarMapa()
     {
+        _mapaCorriendo = true;
         _coveragePoller?.Start();
         _toolPoller?.Start();
         _guidancePoller?.Start();
@@ -2158,6 +2187,9 @@ public partial class MainWindow : Window
         _lastPivotN = s.PivotNorthing;
         Dispatcher.UIThread.Post(() =>
         {
+            // El HUD llega siempre (nunca se pausa), así que es el mejor lugar
+            // para reafirmar el estado del mapa y que no quede trabado.
+            ReconciliarMapa();
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;
             if (deg < 0) deg += 360.0;
