@@ -1020,6 +1020,29 @@ public partial class MainWindow : Window
     /// en una ventana chica cerrable, igual que OpenDialogPage pero sin componer
     /// la URL contra el origin del Hub (:5180).
     /// </summary>
+    // ---- cierre del diálogo de LOTE por cambio de lote ---------------------
+    //
+    // La página cierra su ventana navegando a la URL centinela "pilotx-close",
+    // pero en el WebView del diálogo esa navegación NO se produce (el log de
+    // NavigationCompleted solo muestra lote.html, nunca el centinela), así que
+    // la ventana quedaba abierta tapando el mapa después de abrir el lote.
+    //
+    // En vez de seguir peleando con la navegación, se usa una señal que el host
+    // ya tiene y es la que de verdad importa: el lote activo del HUD. Cuando
+    // cambia, el trabajo que motivó abrir esta ventana ya está hecho y la
+    // ventana sobra. Funciona igual para abrir, continuar, crear y cerrar lote.
+    private bool _dialogEsLote;
+    private string? _loteAlAbrirDialogo;
+    private string? _lastFieldDir;
+
+    private void CerrarDialogoSiCambioElLote(string? loteActual)
+    {
+        if (!_dialogEsLote || _dialogWin == null) return;
+        if (string.Equals(loteActual ?? "", _loteAlAbrirDialogo ?? "", StringComparison.OrdinalIgnoreCase)) return;
+        _loteAlAbrirDialogo = loteActual;
+        CerrarDialogo();
+    }
+
     private void OpenDialogUrl(string full, string title, double w, double h)
     {
         try
@@ -1034,6 +1057,8 @@ public partial class MainWindow : Window
 
             // Sin backend WebView no se puede abrir la página HTML en diálogo.
             if (App.WebViewHost == null) return;
+            _dialogEsLote = full.IndexOf("lote.html", StringComparison.OrdinalIgnoreCase) >= 0;
+            _loteAlAbrirDialogo = _lastFieldDir;
             _dialogWebView = App.WebViewHost.Create(OnDialogNavigated);
             _dialogWebView.Navigate(full);
 
@@ -1065,8 +1090,29 @@ public partial class MainWindow : Window
     // La página del diálogo pide cerrar navegando a la URL centinela.
     private void OnDialogNavigated(string url)
     {
-        if ((url ?? string.Empty).IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
-            _dialogWin?.Close();
+        var u = url ?? string.Empty;
+        Console.Error.WriteLine("[Dialogo] navegado -> " + u);
+        if (u.IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            Console.Error.WriteLine("[Dialogo] centinela detectado, cerrando");
+            CerrarDialogo();
+        }
+    }
+
+    /// <summary>
+    /// Cierra la ventana de diálogo y deja la barra izquierda plegada.
+    ///
+    /// No es cosmético: cerrar solo el submenú dejaba igual la barra abierta a
+    /// 316 px tapando el mapa, justo cuando el operario quiere ver el lote que
+    /// acaba de abrir. Se pliega entera (submenú + barra) para devolver la
+    /// pantalla al mapa, que es a lo que se vino.
+    /// </summary>
+    private void CerrarDialogo()
+    {
+        try { _dialogWin?.Close(); } catch { }
+        if (_vmIzq == null) return;
+        _vmIzq.OpenSubmenu = null;
+        _vmIzq.IsCollapsed = true;
     }
 
     /// <summary>
@@ -2022,6 +2068,12 @@ public partial class MainWindow : Window
             case "lote_kml":
                 OpenDialogPage("pages/lote.html?do=kml", "Lote desde KML", 670, 610); return true;
 
+            // Cerrar lote. Sin este case el comando caía al motor de guiado, que
+            // espera "job_close" y no conoce "lote_cerrar": el botón no hacía
+            // absolutamente nada y no quedaba ni un error en ningún lado.
+            case "lote_cerrar":
+                CerrarLote(); return true;
+
             // Dirección (FormSteer) → ventana propia más grande. ?v= evita que
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
@@ -2073,6 +2125,30 @@ public partial class MainWindow : Window
         // Resto → backend de guiado (autosteer, sec_*, uturn, contour, track_*,
         // tracks_off, lote_cerrar, borrar_*, cabecera_onoff, tram_vista, vistas…).
         return false;
+    }
+
+    /// <summary>
+    /// Cierra el lote activo. Es la misma llamada que hace el botón "Cerrar" de
+    /// la pantalla de lote; acá se expone para el submenú de la barra izquierda,
+    /// que hasta ahora mandaba el comando al motor de guiado y se perdía.
+    /// </summary>
+    private async void CerrarLote()
+    {
+        // Plegar primero: el cierre puede tardar (guarda cobertura y lote) y el
+        // menú no tiene por qué quedarse abierto esperando.
+        if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+        try
+        {
+            var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var url = DeriveOrigin(App.TargetUrl).TrimEnd('/');
+            using var resp = await http.PostAsync(url + "/api/lotes/close", null).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                Console.Error.WriteLine("[Lote] cerrar devolvió " + (int)resp.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[Lote] no se pudo cerrar: " + ex.Message);
+        }
     }
 
     // ---- Creación de guía A/B en el mapa (toco A, manejo, toco B) ----
@@ -2190,6 +2266,8 @@ public partial class MainWindow : Window
             // El HUD llega siempre (nunca se pausa), así que es el mejor lugar
             // para reafirmar el estado del mapa y que no quede trabado.
             ReconciliarMapa();
+            _lastFieldDir = s.CurrentFieldDirectory;
+            CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;
             if (deg < 0) deg += 360.0;
