@@ -231,7 +231,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Botón | Qué hace | Estado | Carril |
 |---|---|---|---|
 | Datos GPS (datos-gps.html) | Datos crudos del GPS | 🟡 (C) | L |
-| Asistente dirección (FormSteerWiz) | Calibración paso a paso del autosteer | ❌ (C) | L+S |
+| Asistente dirección (FormSteerWiz) | Calibración paso a paso del autosteer | — (2026-07-29: botón "Asist. dirección" sacado del menú Herramientas a pedido del usuario — apuntaba a `config.html` genérico, no al wizard real, que nunca se construyó) | L+S |
 | Gráfico dirección (grafico-direccion.html) | Ángulo real vs seteado en vivo | 🟡 (C) | L+S |
 | Gráfico rumbo (grafico-rumbo.html) | GPS vs IMU corregido | 🟡 (C) | L+S |
 | Gráfico XTE (grafico-xte.html) | Error de guiado en vivo | 🟡 (C) | L+S |

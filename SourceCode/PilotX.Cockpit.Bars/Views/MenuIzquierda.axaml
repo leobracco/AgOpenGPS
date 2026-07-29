@@ -230,7 +230,7 @@
           <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERRAMIENTAS"/>
           <ScrollViewer>
             <UniformGrid Columns="2" VerticalAlignment="Top">
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="asistente_direccion"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOn.png"/><TextBlock Classes="slbl" Text="Asist. dirección"/></StackPanel></Button>
+              <!-- "Asist. dirección" sacado (2026-07-29, pedido del usuario). -->
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_direccion"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoSteerOn.png"/><TextBlock Classes="slbl" Text="Gráfico dirección"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_rumbo"><StackPanel><Image Classes="sico" Source="/Assets/menu/ConS_SourcesHeading.png"/><TextBlock Classes="slbl" Text="Gráfico rumbo"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grafico_xte"><StackPanel><Image Classes="sico" Source="/Assets/menu/AutoManualIsAuto.png"/><TextBlock Classes="slbl" Text="Gráfico XTE"/></StackPanel></Button>

@@ -2790,3 +2790,10 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Brillo restaurado a 100 al terminar. Esto también debería destrabar el
   brillo del panel Sistema (mismo `SistemaClient`/backend). Inventario
   actualizado a ✅. Build completo 0 errores, 208 tests verdes.
+
+- [2026-07-29] [android] HECHO — pedido del usuario: sacar "Asist. dirección"
+  del menú Herramientas. Apuntaba a `config.html` genérico, no al wizard real
+  (FormSteerWiz) que nunca se construyó — quedaba redundante con
+  Configuración. Inventario actualizado. Verificado en pantalla: el submenú
+  Herramientas arranca con "Gráfico dirección", sin huecos. Build 0 errores,
+  208 tests verdes.
