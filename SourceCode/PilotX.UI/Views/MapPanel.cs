@@ -40,6 +40,9 @@ public sealed class MapPanel : Grid
     private bool _isPanning;
     private Avalonia.Point _lastPointer;
 
+    /// <summary>Se dispara cuando el mapa se tapa (false) o vuelve (true).</summary>
+    public event Action<bool>? VisibilidadCambiada;
+
     public MapPanel()
     {
         Background = Avalonia.Media.Brushes.Transparent;
@@ -118,6 +121,36 @@ public sealed class MapPanel : Grid
     {
         _gl?.OnTool(snap);
         _skia?.OnTool(snap);
+    }
+
+    /// <summary>
+    /// Frena el render del mapa mientras otra pantalla lo tapa. La surface Skia
+    /// no tiene tick propio (redibuja por snapshot), así que solo aplica a GL.
+    /// </summary>
+    public void Pausar() => _gl?.Pausar();
+
+    /// <summary>Reanuda el render al volver al mapa.</summary>
+    public void Reanudar() => _gl?.Reanudar();
+
+    /// <summary>
+    /// El mapa se pausa solo cuando lo tapan. Va acá y no en cada pantalla que
+    /// lo oculta porque son ~14 lugares que hacen `_mapHost.IsVisible = false`:
+    /// atarlo a la propiedad cubre todos, incluidos los que se agreguen después,
+    /// sin depender de que alguien se acuerde de llamar a Pausar().
+    /// </summary>
+    protected override void OnPropertyChanged(Avalonia.AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsVisibleProperty)
+        {
+            // La propiedad ya está actualizada cuando llega esta notificación.
+            bool visible = IsVisible;
+            if (visible) Reanudar();
+            else Pausar();
+            // El dueño (MainWindow) usa esto para frenar además los pollers que
+            // solo alimentan al mapa; desde acá no los conocemos.
+            VisibilidadCambiada?.Invoke(visible);
+        }
     }
 
     // ---- Creación de AB en el mapa (toco A, manejo, toco B) ----

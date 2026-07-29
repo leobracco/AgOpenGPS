@@ -44,7 +44,12 @@ namespace PilotX.Desktop.Services;
 
 // Nombres C# PascalCase; SnakeCaseLower del _jsonOpts los mapea al
 // snake_case del servidor (field_directory, etc.).
-public sealed class CoverageVertex
+// STRUCT, no class: en una jornada larga el snapshot trae ~100k vertices. Como
+// clase, cada poll creaba 100k objetos en el heap que morian al siguiente poll —
+// a 8 Hz eso es basura suficiente para disparar colecciones Gen2 seguido, y cada
+// Gen2 frena el hilo de UI (el tironeo periodico del mapa). Como struct, la lista
+// es UN solo array contiguo: cero objetos por vertice.
+public struct CoverageVertex
 {
     public double E { get; set; }
     public double N { get; set; }
@@ -111,10 +116,19 @@ public sealed class CoverageClient
     {
         try
         {
-            using var resp = await _http.GetAsync(_baseUrl + "api/aog/coverage", ct).ConfigureAwait(false);
+            // ResponseHeadersRead + deserializar del STREAM, no de un string.
+            // ReadAsStringAsync materializaba el payload entero (248 KB hoy, ~3 MB
+            // en jornada larga) en un unico string. Todo lo que pasa de 85 KB cae
+            // en el Large Object Heap, que solo se libera en colecciones Gen2 y no
+            // se compacta: a 8 Hz eso era un goteo constante de pausas del hilo de
+            // UI. Deserializando del stream el payload se consume por buffers
+            // chicos reutilizados y nunca se aloca el string completo.
+            using var resp = await _http.GetAsync(_baseUrl + "api/aog/coverage",
+                HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode) return null;
-            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            var dto = JsonSerializer.Deserialize<CoverageResponse>(json, _jsonOpts);
+            using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            var dto = await JsonSerializer.DeserializeAsync<CoverageResponse>(stream, _jsonOpts, ct)
+                                          .ConfigureAwait(false);
             if (dto == null || !dto.Ok) return null;
             return dto.Snapshot;
         }
