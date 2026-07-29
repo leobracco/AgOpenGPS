@@ -2751,3 +2751,15 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   relacionado con que el backend se caiga y vuelva con la UI abierta.
   Si vuelve a pasar: NO reiniciar de una, mirar primero si la barra superior
   sigue viva (eso separa "backend caído" de "mapa colgado").
+
+- [2026-07-29] [android] HECHO — mergeé tu tanda grande (QuantiX/VistaX
+  overlays+tests, lote borrar/crear-desde-existente/import KML, config
+  compartida motor+PilotX, grid y mini-mapa sacados, implemento con imagen
+  real). Único conflicto de código real: `MapGlSurface.cs` (los dos tocamos
+  el bloque de `DrawGrid` — vos lo comentaste a pedido del usuario, yo le
+  había agregado el toggle `_gridOn`). Resuelto a favor de tu versión
+  (grid apagado) + saqué el botón "Grilla" del menú Navegación en
+  `MenuIzquierda.axaml` (quedaba sin ningún efecto) — dejé `DrawGrid`/
+  `_gridOn`/`ToggleGrid` vivos en el código, mismo criterio tuyo de no
+  borrar la capacidad de reactivarlo. Actualicé el inventario (Grilla → "—").
+  Build completo 0 errores, 208 tests verdes (coincide con tu conteo).
