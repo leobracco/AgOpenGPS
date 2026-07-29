@@ -813,6 +813,8 @@ public sealed class MapGlSurface : OpenGlControlBase
         // como círculo en pantalla, sólo rotado. Con alpha=0 queda igual que antes.
         //   clip.x = sx[cosα(x-cx) - sinα(y-cy)]
         //   clip.y = sy[sinα(x-cx) + cosα(y-cy)]
+        _ultCamX = cxBbox; _ultCamY = cyBbox; _ultEscala = scale;
+
         float sx = (float)(scale * 2.0 / wPx);
         float sy = (float)(scale * 2.0 / hPx);
         float ca = (float)Math.Cos(alpha);
@@ -994,6 +996,10 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public int FramesRenderizados { get; private set; }
 
+    // Última cámara efectiva, para el latido: si el tractor "desaparece" hay que
+    // poder distinguir "no se dibuja" de "se dibuja fuera de la vista".
+    private double _ultCamX, _ultCamY, _ultEscala;
+
     private int _framesDesdeLatido;
     private DispatcherTimer? _latido;
     private readonly System.Diagnostics.Stopwatch _relojLatido = System.Diagnostics.Stopwatch.StartNew();
@@ -1015,12 +1021,18 @@ public sealed class MapGlSurface : OpenGlControlBase
 
             var s = _snap;
             Console.Error.WriteLine(string.Format(
-                "[MapGlSurface] latido fps={0:F1} pausado={1} tick={2} edadFix={3:F1}s vel={4:F1}",
+                "[MapGlSurface] latido fps={0:F1} pausado={1} tick={2} edadFix={3:F1}s vel={4:F1} " +
+                "| tractor=({5:F1},{6:F1}) camara=({7:F1},{8:F1}) esc={9:F2} zoom={10:F2} pan=({11:F1},{12:F1}) " +
+                "hdgUp={13} sprite={14} bbox={15}",
                 fps,
                 _pausado,
                 _tickSuave != null && _tickSuave.IsEnabled,
                 _desdeFix.Elapsed.TotalSeconds,
-                s != null ? s.AvgSpeed : -1));
+                s != null ? s.AvgSpeed : -1,
+                _renderE, _renderN,
+                _ultCamX, _ultCamY, _ultEscala,
+                _userZoom, _userPanX, _userPanY,
+                _headingUp, _vehicleTexReady, _hasBbox));
         };
         _latido.Start();
     }
@@ -1164,6 +1176,10 @@ public sealed class MapGlSurface : OpenGlControlBase
         _lastEffectiveScale = scale;
     }
 
+    /// <summary>Píxeles por metro cuando el lote no tiene lindero del que sacar
+    /// encuadre. Subir = más cerca.</summary>
+    private const double EscalaSinLoteM = 20.0;
+
     private void ComputeBaseProjection(int wPx, int hPx, out double cx, out double cy, out double scale)
     {
         // Padding fijo (40px) idem MapSkiaSurface para que el toggle
@@ -1182,15 +1198,19 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         // Sin bbox: si hay snapshot con posicion, centramos en el
         // tractor con una escala generica (1 px = 0.1m).
+        // Sin lindero: centrado en el tractor. 8 px/m mostraba 240 m de ancho en
+        // una pantalla de 1920 — un lote vacío a esa escala es una pantalla
+        // negra con una mancha en el medio. 20 px/m deja ~96 m de ancho, que es
+        // lo que sirve para manejar.
         var s = _snap;
         if (s != null && (s.PivotEasting != 0 || s.PivotNorthing != 0))
         {
             cx = s.PivotEasting;
             cy = s.PivotNorthing;
-            scale = 8.0;
+            scale = EscalaSinLoteM;
             return;
         }
-        cx = 0; cy = 0; scale = 8.0;
+        cx = 0; cy = 0; scale = EscalaSinLoteM;
     }
 
     private void DrawGrid(double cx, double cy, int wPx, int hPx, double scale, float[] color)
@@ -2076,7 +2096,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (tw <= 0.1) tw = 1.9;
 
         // Piso en píxeles: sin esto el vehículo desaparece al alejar el zoom.
-        double minPx = 26.0;
+        // Estaba en 26 px, que con la escala por defecto (sin lindero) dejaba un
+        // tractor de ~30 px en una pantalla de 1920 — técnicamente dibujado pero
+        // imposible de encontrar sobre un fondo vacío. El operario lo reportó
+        // como "se fue el tractor".
+        double minPx = 70.0;
         double anchoPx = (2 * tw) * scale;
         double k = anchoPx < minPx ? minPx / anchoPx : 1.0;
         wb *= k; tw *= k;

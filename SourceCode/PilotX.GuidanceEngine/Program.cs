@@ -96,7 +96,11 @@ namespace AgOpenGPS
             // Se engancha siempre, pero solo actúa con Habilitado=true: así se
             // puede prender sin recompilar y, sobre todo, apagar en el lote si
             // se porta mal.
-            var antiSolape = new AntiSolapeSecciones(host) { Habilitado = useAntiSolape };
+            var antiSolape = new AntiSolapeSecciones(host)
+            {
+                Habilitado = useAntiSolape,
+                Diagnostico = Array.IndexOf(args, "--antisolape-debug") >= 0,
+            };
             host.AntiSolape = antiSolape;
             Console.WriteLine("Anti-solape de secciones: " + (useAntiSolape ? "ACTIVO (--antisolape)" : "apagado"));
 

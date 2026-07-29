@@ -266,6 +266,55 @@ namespace AgroParallel.Services.Tests
             Assert.That(idx.CantidadTriangulos, Is.EqualTo(0));
         }
 
+        // ---- el caso que importa: no verse a uno mismo ---------------------
+
+        [Test]
+        public void PasadaRecta_LaSeccionNoDetectaSuPropiaPintura()
+        {
+            // Reproduce lo que hace el motor de verdad: en cada fix la sección
+            // pinta un cuadrilátero DETRÁS suyo (de la posición anterior a la
+            // actual) y acto seguido se pregunta si tiene que seguir encendida.
+            //
+            // Si la consulta llegara a ver esa pintura recién puesta, la sección
+            // se apagaría sola en cuanto arranca — y como apagada ya no pinta,
+            // quedaría trepidando. Este test fija que eso NO pase.
+            var idx = new CoverageIndex();
+            double ancho = 4.0, medioAncho = ancho / 2;
+            double paso = 0.6;            // ~6,7 km/h a 10 Hz
+            double lookAhead = 0.93;      // el mismo que usa el motor en cabina
+
+            double n = 0;
+            for (int fix = 0; fix < 200; fix++)
+            {
+                // 1) Pintar el tramo recién recorrido (de n a n+paso).
+                idx.AgregarTriangulo(-medioAncho, n, medioAncho, n, -medioAncho, n + paso);
+                idx.AgregarTriangulo(medioAncho, n, medioAncho, n + paso, -medioAncho, n + paso);
+                n += paso;
+
+                // 2) Decidir, desde la posición nueva, mirando hacia adelante.
+                var r = idx.Consultar(0, n, 0, medioAncho, lookAhead);
+
+                Assert.That(r.HasAnyOverlap, Is.False,
+                    string.Format("fix {0}: la sección se está viendo a sí misma (solape {1:P0})",
+                        fix, r.CoveragePercent));
+            }
+        }
+
+        [Test]
+        public void PasadaDeAlLado_SiSeDetecta()
+        {
+            // Contraparte del anterior: si la pintura es de una pasada VECINA,
+            // tiene que detectarse. Si no, el test de arriba se podría estar
+            // pasando simplemente porque nunca detecta nada.
+            var idx = new CoverageIndex();
+            Pasada(idx, ejeE: 0, ancho: 4, largo: 200);
+
+            // Segunda pasada exactamente encima de la primera.
+            var r = idx.Consultar(0, 100, 0, medioAncho: 2, umbralY: 0.93);
+
+            Assert.That(r.IsFullyCovered, Is.True, "pisar la pasada anterior SÍ tiene que verse");
+        }
+
         // ---- escala --------------------------------------------------------
 
         [Test]

@@ -41,6 +41,11 @@ namespace PilotX.GuidanceEngine
         /// </summary>
         public bool Habilitado { get; set; }
 
+        /// <summary>Log de una de cada 40 decisiones, para diagnosticar en cabina.</summary>
+        public bool Diagnostico { get; set; }
+
+        private int _llamadas;
+
         public AntiSolapeSecciones(GuidanceEngineHost host, double tamCeldaM = 4.0)
         {
             _host = host;
@@ -157,10 +162,23 @@ namespace PilotX.GuidanceEngine
             var solapeEncendido = _indice.Consultar(
                 centroE, centroN, heading, medioAncho, ms * segEncender);
 
-            return SolapeEvaluator.RequeridaOn(SolapeEvaluator.ConDefaults(
+            bool on = SolapeEvaluator.RequeridaOn(SolapeEvaluator.ConDefaults(
                 solapeApagado.CoveragePercent,
                 solapeEncendido.CoveragePercent,
                 estabaEncendida));
+
+            if (Diagnostico && ++_llamadas % 40 == 0)
+            {
+                Console.Error.WriteLine(string.Format(
+                    "[AntiSolape] tri={0} centro=({1:F1},{2:F1}) hdg={3:F2} medioAncho={4:F2} " +
+                    "lookOff={5:F2}m lookOn={6:F2}m solapeOff={7:F3} solapeOn={8:F3} -> {9}",
+                    _indice.CantidadTriangulos, centroE, centroN, heading, medioAncho,
+                    ms * segApagar, ms * segEncender,
+                    solapeApagado.CoveragePercent, solapeEncendido.CoveragePercent,
+                    on ? "ON" : "OFF"));
+            }
+
+            return on;
         }
     }
 }
