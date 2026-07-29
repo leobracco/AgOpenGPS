@@ -2797,3 +2797,32 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Configuración. Inventario actualizado. Verificado en pantalla: el submenú
   Herramientas arranca con "Gráfico dirección", sin huecos. Build 0 errores,
   208 tests verdes.
+
+- [2026-07-29] [android] HECHO — el usuario arrancó a revisar menú por menú.
+  Dos hallazgos en Configuración:
+  1. **`config.html` tenía mojibake generalizado** (doble codificación UTF-8 →
+     Windows-1252 → UTF-8 de nuevo): "VehÃ­culo" en vez de "Vehículo",
+     "ConfiguraciÃ³n" en vez de "Configuración", y así en **91 ocurrencias**
+     (tildes, «», °, ±, ×, —, –, …) más 2 emojis rotos (WiFi 📶, Eventos 📜).
+     Aislado a este archivo — barrí el resto de `wwwroot` y no aparece en
+     ningún otro. Reemplazo carácter por carácter (14 secuencias distintas),
+     no un round-trip de `iconv` completo porque el archivo tiene un emoji
+     real (⚠) mezclado que un iconv ciego rompe. Verificado en pantalla:
+     "Perfil: Rastra... las configuraciones del vehículo se agrupan en
+     «perfiles»..." ya se lee bien.
+  2. **Cambiar "Tipo" a Cosechadora en "Tipo y marca" no mueve nada en el
+     mapa — PEDIDO/hallazgo, no lo cableé todavía (el usuario prefirió
+     esperar el arte).** Son DOS sistemas de vehículo sin conectar:
+     · `vconfig` (esta pestaña) guarda `vehicle_type`/marca vía
+       `guardar('vehiculo', {...})` — solo alimenta la vista previa de esta
+       misma pantalla (imagen de marca del catálogo legacy
+       `img/config/brands/`).
+     · El sprite que dibuja `MapGlSurface` sale de un catálogo TOTALMENTE
+       distinto (`api/vehicle/sprite`, `wwwroot/img/vehiculos/`,
+       `setBrand_VehiculoCustom`) — es el que usé para poner el tractor
+       PilotX blanco.
+     Nunca se cablearon entre sí, y además **hoy no existe ninguna imagen de
+     cosechadora** en `wwwroot/img/vehiculos/` (solo rígido/articulado/2
+     pulverizadoras) — aunque conectara los sistemas, no habría con qué
+     dibujarla. El usuario decidió esperar el arte antes de tocar el
+     cableado. Build 0 errores, 261 tests verdes.

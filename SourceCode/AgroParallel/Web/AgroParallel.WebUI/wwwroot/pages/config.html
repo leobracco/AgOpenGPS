@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ConfiguraciÃ³n Â· PilotX</title>
+  <title>Configuración · PilotX</title>
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
-    /* ConfiguraciÃ³n del vehÃ­culo/implemento â€” rÃ©plica HTML de FormConfig.
-       NavegaciÃ³n por menÃº lateral (como el original: tabs ocultas + botonera).
-       Deep-link: ?tab=vconfig | vdimensions | vantenna | summary | â€¦
-       Guardado: rÃ©plica del Leave nativo â€” al salir de una secciÃ³n con cambios
+    /* Configuración del vehículo/implemento — réplica HTML de FormConfig.
+       Navegación por menú lateral (como el original: tabs ocultas + botonera).
+       Deep-link: ?tab=vconfig | vdimensions | vantenna | summary | …
+       Guardado: réplica del Leave nativo — al salir de una sección con cambios
        se postea a /api/aog/config/{seccion}. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -29,7 +29,7 @@
     }
     #layout { flex: 1; min-height: 0; display: flex; }
 
-    /* ---- menÃº lateral ---- */
+    /* ---- menú lateral ---- */
     #menu {
       width: 190px; flex: none; overflow-y: auto;
       background: var(--carta); border-right: 1px solid var(--borde);
@@ -57,7 +57,7 @@
     #main { flex: 1; min-width: 0; overflow-y: auto; padding: 12px; }
     section[data-tab] { display: none; }
     section[data-tab].activa { display: block; }
-    /* con un mÃ³dulo embebido, el Ã¡rea principal va sin padding para que el
+    /* con un módulo embebido, el área principal va sin padding para que el
        iframe llene y no scrollee doble */
     #main:has(section[data-tab="modulo"].activa) { padding: 0; overflow: hidden; }
     .carta {
@@ -67,7 +67,7 @@
     .carta h2 { font-size: 15px; margin-bottom: 10px; }
     .nota { font-size: 12px; color: var(--gris); }
 
-    /* ---- footer comÃºn (rÃ©plica del footer de FormConfig) ---- */
+    /* ---- footer común (réplica del footer de FormConfig) ---- */
     #footer {
       flex: none; display: flex; align-items: center; gap: 14px;
       padding: 8px 12px; background: var(--carta);
@@ -78,7 +78,7 @@
     #estado.err { color: var(--rojo); font-weight: 600; }
     #estado.ok { color: #2e8b25; font-weight: 600; }
 
-    /* botÃ³n Guardar flotante con estados (neutro / .dirty / .ok) */
+    /* botón Guardar flotante con estados (neutro / .dirty / .ok) */
     #btnGuardarFloat {
       position: fixed; right: 22px; bottom: 56px; z-index: 50;
       width: 96px; padding: 8px 6px 6px;
@@ -92,7 +92,7 @@
     #btnGuardarFloat img { width: 56px; height: 56px; filter: grayscale(1); opacity: 0.45; }
     #btnGuardarCap { font-size: 12px; color: var(--gris, #535E54); }
 
-    /* hay cambios sin guardar: Ã­cono pleno + pulso + aviso */
+    /* hay cambios sin guardar: ícono pleno + pulso + aviso */
     #btnGuardarFloat.dirty { border-color: var(--verde, #4ABA3E); animation: pulsoGuardar 1.2s ease-in-out infinite; }
     #btnGuardarFloat.dirty img { filter: none; opacity: 1; }
     #btnGuardarFloat.dirty #btnGuardarCap { color: var(--verde, #4ABA3E); font-weight: 700; }
@@ -101,7 +101,7 @@
       50% { box-shadow: 0 0 0 6px rgba(74, 186, 62, 0.35); }
     }
 
-    /* reciÃ©n guardado: tilde verde (el JS cambia la imagen a OK64) */
+    /* recién guardado: tilde verde (el JS cambia la imagen a OK64) */
     #btnGuardarFloat.ok { border-color: var(--verde, #4ABA3E); }
     #btnGuardarFloat.ok img { filter: none; opacity: 1; }
     #btnGuardarFloat.ok #btnGuardarCap { color: #2e8b25; font-weight: 700; }
@@ -114,7 +114,7 @@
     .sumgrid .k { color: var(--gris); font-weight: 600; }
     .sumgrid .v { font-weight: 700; font-size: 16px; }
 
-    /* ---- radios con imagen (tipo vehÃ­culo / marcas / antena) ---- */
+    /* ---- radios con imagen (tipo vehículo / marcas / antena) ---- */
     .radios { display: flex; flex-wrap: wrap; gap: 8px; }
     .radioimg {
       border: 2px solid var(--borde); border-radius: 10px; background: #fff;
@@ -129,7 +129,7 @@
     .radioimg.marca img { width: 56px; height: 56px; }
     .radioimg.ant img { width: 64px; height: 70px; }
 
-    /* ---- preview vehÃ­culo con opacidad ---- */
+    /* ---- preview vehículo con opacidad ---- */
     #vprevWrap {
       width: 220px; height: 220px; border: 1px solid var(--borde); border-radius: 10px;
       background: url('../img/config/VehicleOpacity.png') center / cover;
@@ -144,7 +144,7 @@
     .opacidadFila button img { width: 40px; height: 40px; }
     #lblOpacidad { font: 700 18px "Segoe UI", Roboto, sans-serif; min-width: 64px; text-align: center; }
 
-    /* ---- inputs numÃ©ricos estilo NUD ---- */
+    /* ---- inputs numéricos estilo NUD ---- */
     .nudfila { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
     .nudfila label { font: 600 14px "Segoe UI", Roboto, sans-serif; min-width: 150px; }
     .nud {
@@ -183,7 +183,7 @@
     }
     .timingCol img { width: 200px; height: 253px; object-fit: contain; }
 
-    /* ---- tanda 3: secciones / switches / relay / mÃ¡quina ---- */
+    /* ---- tanda 3: secciones / switches / relay / máquina ---- */
     .secGrilla {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
       gap: 8px;
@@ -226,7 +226,7 @@
   <div id="layout">
     <nav id="menu">
       <button type="button" data-tab="summary"><img loading="lazy" src="../img/config/Con_VehicleMenu.png" alt="" />Resumen</button>
-      <div class="grupo">VehÃ­culo</div>
+      <div class="grupo">Vehículo</div>
       <button type="button" data-tab="vconfig"><img loading="lazy" src="../img/config/ConS_VehicleConfig.png" alt="" />Tipo y marca</button>
       <button type="button" data-tab="vdimensions"><img loading="lazy" src="../img/config/RadiusWheelBase.png" alt="" />Dimensiones</button>
       <button type="button" data-tab="vantenna"><img loading="lazy" src="../img/config/ConS_ImplementAntenna.png" alt="" />Antena</button>
@@ -240,7 +240,7 @@
       <button type="button" data-tab="tsections"><img loading="lazy" src="../img/config/ConS_ImplementSection.png" alt="" />Secciones</button>
       <button type="button" data-tab="tswitches"><img loading="lazy" src="../img/config/ConS_ImplementSwitch.png" alt="" />Switches</button>
       <button type="button" data-tab="relay"><img loading="lazy" src="../img/config/ConS_Pins.png" alt="" />Pines relay</button>
-      <button type="button" data-tab="amachine"><img loading="lazy" src="../img/config/ConS_ModulesMachine.png" alt="" />MÃ¡quina</button>
+      <button type="button" data-tab="amachine"><img loading="lazy" src="../img/config/ConS_ModulesMachine.png" alt="" />Máquina</button>
       <div class="grupo">GPS / IMU</div>
       <button type="button" data-tab="heading"><img loading="lazy" src="../img/config/ConS_SourcesHeading.png" alt="" />Rumbo</button>
       <button type="button" data-tab="roll"><img loading="lazy" src="../img/config/ConS_SourcesRoll.png" alt="" />Rolido</button>
@@ -249,14 +249,14 @@
       <button type="button" data-tab="tram"><img loading="lazy" src="../img/config/Con_TramMenu.png" alt="" />Tram</button>
       <button type="button" data-tab="display"><img loading="lazy" src="../img/config/Con_Display.png" alt="" />Display</button>
       <button type="button" data-tab="botones"><img loading="lazy" src="../img/config/Con_FeatureMenu.png" alt="" />Botones</button>
-      <!-- MÃ³dulos X-*: se muestran EMBEBIDOS (iframe en modo widget, sin su
+      <!-- Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget, sin su
            propia sidebar) dentro de config.html, para no salir de la config
            ni cambiar de estilo (pedido usuario 2026-07-20).
-           El Hub tambiÃ©n vive acÃ¡ adentro (pedido usuario 2026-07-28): es la
-           Ãºnica pantalla que prende y apaga los widgets que se ven sobre el
-           mapa, y no tenÃ­a ninguna puerta desde que las barras del cockpit
-           reemplazaron a la toolbar que lo abrÃ­a. -->
-      <div class="grupo">MÃ³dulos</div>
+           El Hub también vive acá adentro (pedido usuario 2026-07-28): es la
+           única pantalla que prende y apaga los widgets que se ven sobre el
+           mapa, y no tenía ninguna puerta desde que las barras del cockpit
+           reemplazaron a la toolbar que lo abría. -->
+      <div class="grupo">Módulos</div>
       <button type="button" data-mod="hub.html"><img loading="lazy" src="../img/icons/existing/agp-hub.png" alt="" />Hub</button>
       <button type="button" data-mod="quantix.html"><img loading="lazy" src="../img/icons/existing/agp-quantix.png" alt="" />QuantiX</button>
       <button type="button" data-mod="vistax.html"><img loading="lazy" src="../img/icons/existing/agp-vistax.png" alt="" />VistaX</button>
@@ -264,27 +264,27 @@
       <button type="button" data-mod="sectionx.html"><img loading="lazy" src="../img/icons/existing/agp-sectionx.png" alt="" />SectionX</button>
       <button type="button" data-mod="linex.html"><img loading="lazy" src="../img/icons/existing/agp-linex.png" alt="" />LineX</button>
       <button type="button" data-mod="stormx.html"><img loading="lazy" src="../img/icons/existing/agp-stormx.png" alt="" />StormX</button>
-      <!-- Nodos y CÃ¡maras faltaban: eran los dos accesos del Hub que no se
-           habÃ­an migrado acÃ¡, y sin ellos no hay forma de ver quÃ© nodos
-           aparecieron por MQTT ni de configurar las cÃ¡maras. -->
+      <!-- Nodos y Cámaras faltaban: eran los dos accesos del Hub que no se
+           habían migrado acá, y sin ellos no hay forma de ver qué nodos
+           aparecieron por MQTT ni de configurar las cámaras. -->
       <button type="button" data-mod="nodos.html"><img loading="lazy" src="../img/icons/existing/agp-nodos.png" alt="" />Nodos</button>
-      <button type="button" data-mod="camaras.html"><img loading="lazy" src="../img/icons/existing/agp-camaras.png" alt="" />CÃ¡maras</button>
-      <!-- Campo: mismo embebido que MÃ³dulos (migrado del Hub 2026-07-20). -->
+      <button type="button" data-mod="camaras.html"><img loading="lazy" src="../img/icons/existing/agp-camaras.png" alt="" />Cámaras</button>
+      <!-- Campo: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
       <div class="grupo">Campo</div>
       <button type="button" data-mod="insumos.html"><img loading="lazy" src="../img/icons/existing/agp-insumos.png" alt="" />Insumos</button>
       <button type="button" data-mod="mapas.html"><img loading="lazy" src="../img/icons/existing/agp-mapas.png" alt="" />Mapas</button>
       <button type="button" data-mod="prescripciones.html"><img loading="lazy" src="../img/icons/existing/agp-prescripciones.png" alt="" />Prescripciones</button>
-      <!-- Cloud: mismo embebido que MÃ³dulos (migrado del Hub 2026-07-20). -->
+      <!-- Cloud: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
       <div class="grupo">Cloud</div>
       <button type="button" data-mod="orbitx.html"><img loading="lazy" src="../img/icons/existing/agp-orbitx.png" alt="" />OrbitX</button>
       <button type="button" data-mod="firmwares.html"><img loading="lazy" src="../img/icons/existing/agp-firmwares.png" alt="" />Firmwares</button>
       <button type="button" data-mod="actualizar.html"><img loading="lazy" src="../img/icons/existing/agp-actualizar.png" alt="" />Actualizar</button>
       <button type="button" data-mod="pwa-qr.html"><img loading="lazy" src="../img/icons/existing/agp-pwa-qr.png" alt="" />Conectar celular</button>
-      <!-- Mantenimiento: WiFi de Windows (acciÃ³n nativa) + sistema/eventos/debug. -->
+      <!-- Mantenimiento: WiFi de Windows (acción nativa) + sistema/eventos/debug. -->
       <div class="grupo">Mantenimiento</div>
-      <button type="button" data-action="wifi"><span class="ico-emoji">ðŸ“¶</span>WiFi de Windows</button>
+      <button type="button" data-action="wifi"><span class="ico-emoji">📶</span>WiFi de Windows</button>
       <button type="button" data-mod="sistema.html"><img loading="lazy" src="../img/icons/existing/agp-sistema.png" alt="" />Sistema</button>
-      <button type="button" data-mod="eventos.html"><span class="ico-emoji">ðŸ“œ</span>Eventos</button>
+      <button type="button" data-mod="eventos.html"><span class="ico-emoji">📜</span>Eventos</button>
       <button type="button" data-mod="debug.html"><img loading="lazy" src="../img/icons/existing/agp-debug.png" alt="" />Debug</button>
     </nav>
 
@@ -292,28 +292,28 @@
       <!-- ================= Resumen ================= -->
       <section data-tab="summary">
         <div class="carta">
-          <h2 id="sumPerfil">Perfil: â€”</h2>
+          <h2 id="sumPerfil">Perfil: —</h2>
           <p class="nota" style="margin-bottom:12px">
-            Las configuraciones del vehÃ­culo se agrupan en Â«perfilesÂ» â€” se crean
-            y cargan desde la pÃ¡gina <b>Perfiles</b>.
+            Las configuraciones del vehículo se agrupan en «perfiles» — se crean
+            y cargan desde la página <b>Perfiles</b>.
           </p>
           <div class="sumgrid">
-            <span class="k">Unidades:</span>      <span class="v" id="sumUnidades">â€”</span>
-            <span class="k">Ancho:</span>          <span class="v" id="sumAncho">â€”</span>
-            <span class="k">Secciones:</span>      <span class="v" id="sumSecciones">â€”</span>
-            <span class="k">Offset:</span>         <span class="v" id="sumOffset">â€”</span>
-            <span class="k">Overlap:</span>        <span class="v" id="sumOverlap">â€”</span>
-            <span class="k">Lookahead:</span>      <span class="v" id="sumLookahead">â€”</span>
-            <span class="k">Ancho tram:</span>     <span class="v" id="sumTram">â€”</span>
-            <span class="k">Entre ejes:</span>     <span class="v" id="sumWheelbase">â€”</span>
+            <span class="k">Unidades:</span>      <span class="v" id="sumUnidades">—</span>
+            <span class="k">Ancho:</span>          <span class="v" id="sumAncho">—</span>
+            <span class="k">Secciones:</span>      <span class="v" id="sumSecciones">—</span>
+            <span class="k">Offset:</span>         <span class="v" id="sumOffset">—</span>
+            <span class="k">Overlap:</span>        <span class="v" id="sumOverlap">—</span>
+            <span class="k">Lookahead:</span>      <span class="v" id="sumLookahead">—</span>
+            <span class="k">Ancho tram:</span>     <span class="v" id="sumTram">—</span>
+            <span class="k">Entre ejes:</span>     <span class="v" id="sumWheelbase">—</span>
           </div>
         </div>
       </section>
 
-      <!-- ================= VehÃ­culo: tipo y marca ================= -->
+      <!-- ================= Vehículo: tipo y marca ================= -->
       <section data-tab="vconfig">
         <div class="carta">
-          <h2>Tipo de vehÃ­culo</h2>
+          <h2>Tipo de vehículo</h2>
           <div class="radios" id="vTipos">
             <div class="radioimg tipo" data-tipo="0"><img loading="lazy" src="../img/config/vehiclePageTractor.png" alt="" /><span class="cap">Tractor</span></div>
             <div class="radioimg tipo" data-tipo="1"><img loading="lazy" src="../img/config/vehiclePageHarvester.png" alt="" /><span class="cap">Cosechadora</span></div>
@@ -340,17 +340,17 @@
                   <span id="lblOpacidad">100%</span>
                   <button type="button" id="btnOpacUp"><img loading="lazy" src="../img/config/UpArrow64.png" alt="+" /></button>
                 </div>
-                <p class="nota" style="margin-top:8px">Opacidad del dibujo en el mapa (20â€“100%).</p>
+                <p class="nota" style="margin-top:8px">Opacidad del dibujo en el mapa (20–100%).</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ================= VehÃ­culo: dimensiones ================= -->
+      <!-- ================= Vehículo: dimensiones ================= -->
       <section data-tab="vdimensions">
         <div class="carta">
-          <h2>Dimensiones del vehÃ­culo</h2>
+          <h2>Dimensiones del vehículo</h2>
           <img loading="lazy" class="diagrama" id="dimImg" src="../img/config/RadiusWheelBase.png" alt="" />
           <div class="nudfila">
             <label for="nudWheelbase">Entre ejes</label>
@@ -368,17 +368,17 @@
             <span class="unidad" data-unidad></span>
           </div>
           <p class="nota" id="notaHitchOculto" hidden>
-            El largo de enganche no aplica con implemento fijo o frontal â€” se
-            configura en la pestaÃ±a Distancias del implemento.
+            El largo de enganche no aplica con implemento fijo o frontal — se
+            configura en la pestaña Distancias del implemento.
           </p>
         </div>
       </section>
 
-      <!-- ================= VehÃ­culo: antena ================= -->
+      <!-- ================= Vehículo: antena ================= -->
       <section data-tab="vantenna">
         <div class="dosCol">
           <div class="carta">
-            <h2>PosiciÃ³n de antena</h2>
+            <h2>Posición de antena</h2>
             <img loading="lazy" class="diagrama" id="antImg" src="../img/config/AntennaTractor.png" alt="" />
           </div>
           <div class="carta">
@@ -403,7 +403,7 @@
               <div class="radioimg ant" data-lado="centro"><img loading="lazy" src="../img/config/AntennaNoOffset.png" alt="" /><span class="cap">Centro</span></div>
               <div class="radioimg ant" data-lado="der"><img loading="lazy" src="../img/config/AntennaRightOffset.png" alt="" /><span class="cap">Derecha</span></div>
             </div>
-            <p class="nota" style="margin-top:10px">** Antena dual: la posiciÃ³n va a la derecha.</p>
+            <p class="nota" style="margin-top:10px">** Antena dual: la posición va a la derecha.</p>
           </div>
         </div>
       </section>
@@ -412,7 +412,7 @@
       <section data-tab="tconfig">
         <div class="carta">
           <h2>Estilo de enganche</h2>
-          <!-- rÃ©plica tabTConfig: 4 radios imagen; Harvester los oculta -->
+          <!-- réplica tabTConfig: 4 radios imagen; Harvester los oculta -->
           <div class="radios" id="tcRadios">
             <div class="radioimg estilo" data-estilo="rear"><img loading="lazy" src="../img/config/ToolChkRear.png" alt="" /><span class="cap">Fijo trasero</span></div>
             <div class="radioimg estilo" data-estilo="tbt"><img loading="lazy" src="../img/config/ToolChkTBT.png" alt="" /><span class="cap">Tanque intermedio (TBT)</span></div>
@@ -421,7 +421,7 @@
           </div>
           <div id="tcHarvester" hidden>
             <img loading="lazy" class="diagrama" src="../img/config/vehiclePageHarvester.png" alt="" />
-            <p class="nota">La cosechadora usa siempre implemento frontal â€” no hay nada que elegir.</p>
+            <p class="nota">La cosechadora usa siempre implemento frontal — no hay nada que elegir.</p>
           </div>
         </div>
       </section>
@@ -483,10 +483,10 @@
       <section data-tab="toolpivot">
         <div class="carta">
           <h2>Distancia rueda / pivote del implemento</h2>
-          <!-- âš ï¸ cruce de imÃ¡genes intencional del original: behind usa â€¦OffsetNeg -->
+          <!-- âš ï¸ cruce de imágenes intencional del original: behind usa …OffsetNeg -->
           <div class="radios" id="tpLados">
             <div class="radioimg dircol" data-pivote="ahead"><img loading="lazy" src="../img/config/ToolHitchPivotOffsetPos.png" alt="" /><span class="cap">Adelante</span></div>
-            <div class="radioimg dircol" data-pivote="behind"><img loading="lazy" src="../img/config/ToolHitchPivotOffsetNeg.png" alt="" /><span class="cap">DetrÃ¡s</span></div>
+            <div class="radioimg dircol" data-pivote="behind"><img loading="lazy" src="../img/config/ToolHitchPivotOffsetNeg.png" alt="" /><span class="cap">Detrás</span></div>
           </div>
           <div class="nudfila" style="margin-top:12px">
             <button type="button" class="btnZero" id="btnZeroPivot"><img loading="lazy" src="../img/config/SteerZero.png" alt="0" /></button>
@@ -499,7 +499,7 @@
       <!-- ================= Implemento: timing look-ahead ================= -->
       <section data-tab="tsettings">
         <div class="carta">
-          <h2>Tiempos de anticipaciÃ³n de secciones</h2>
+          <h2>Tiempos de anticipación de secciones</h2>
           <div class="timingCols">
             <div class="timingCol">
               <img loading="lazy" src="../img/config/SectionOnLookAhead.gif" alt="" />
@@ -518,8 +518,8 @@
             </div>
           </div>
           <p class="nota" style="margin-top:10px">
-            Â«ApagadoÂ» y Â«RetardoÂ» son excluyentes: al usar uno el otro vuelve a 0.
-            El apagado no puede superar 0.8 Ã— encendido.
+            «Apagado» y «Retardo» son excluyentes: al usar uno el otro vuelve a 0.
+            El apagado no puede superar 0.8 × encendido.
           </p>
         </div>
       </section>
@@ -528,15 +528,15 @@
         <div class="carta">
           <h2>Modo de secciones</h2>
           <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
-            <!-- rÃ©plica cboxIsUnique: checked = zonas (simÃ©trico) -->
+            <!-- réplica cboxIsUnique: checked = zonas (simétrico) -->
             <div class="chkimg" id="secModo">
               <img loading="lazy" id="secModoImg" src="../img/config/ConT_Asymmetric.png" alt="" />
               <span class="cap" id="secModoCap">Secciones individuales</span>
             </div>
             <p class="nota" style="max-width:420px">
               <b>Individuales:</b> hasta 16 secciones, cada una con su ancho.<br />
-              <b>SimÃ©tricas (zonas):</b> hasta 64 secciones del mismo ancho,
-              agrupadas en 2â€“8 zonas.
+              <b>Simétricas (zonas):</b> hasta 64 secciones del mismo ancho,
+              agrupadas en 2–8 zonas.
             </p>
           </div>
         </div>
@@ -556,13 +556,13 @@
           </p>
           <div id="secGrilla" class="secGrilla"></div>
           <p style="margin-top:10px; font-weight:700">
-            Ancho total: <span id="secTotal">â€”</span>
+            Ancho total: <span id="secTotal">—</span>
           </p>
         </div>
 
         <!-- modo zonas -->
         <div class="carta" id="secCartaZonas">
-          <h2>Secciones simÃ©tricas</h2>
+          <h2>Secciones simétricas</h2>
           <div class="nudfila">
             <label for="nudNumSectionsMulti">Secciones</label>
             <input class="nud" id="nudNumSectionsMulti" type="text" inputmode="numeric" />
@@ -571,13 +571,13 @@
               <option>2</option><option>3</option><option>4</option><option>5</option>
               <option>6</option><option>7</option><option>8</option>
             </select>
-            <label for="nudWidthMulti" style="min-width:auto">Ancho de secciÃ³n</label>
+            <label for="nudWidthMulti" style="min-width:auto">Ancho de sección</label>
             <input class="nud" id="nudWidthMulti" type="text" inputmode="numeric" />
             <span class="unidad" data-unidad></span>
           </div>
           <div id="zonasGrilla" class="secGrilla"></div>
           <p style="margin-top:10px; font-weight:700">
-            Ancho total: <span id="secTotalZonas">â€”</span>
+            Ancho total: <span id="secTotalZonas">—</span>
           </p>
         </div>
 
@@ -596,7 +596,7 @@
                 <span class="unidad" id="secCutoffUnidad">km/h</span>
               </div>
               <div class="nudfila">
-                <label for="nudMinCoverage">Cobertura mÃ­nima</label>
+                <label for="nudMinCoverage">Cobertura mínima</label>
                 <input class="nud" id="nudMinCoverage" type="text" inputmode="numeric" />
                 <span class="unidad">%</span>
               </div>
@@ -618,7 +618,7 @@
             </div>
           </div>
           <div class="carta">
-            <h2>Switch de direcciÃ³n</h2>
+            <h2>Switch de dirección</h2>
             <div class="swCol" id="swSteer">
               <div class="chkimg sw" id="swSteerOn"><img loading="lazy" src="../img/config/AutoSteerOff.png" alt="" /><span class="cap">Activar</span></div>
               <div class="chkimg sw" id="swSteerManual"><img loading="lazy" src="../img/config/ManualOff.png" alt="" /><span class="cap">Secciones: Manual</span></div>
@@ -631,26 +631,26 @@
       <!-- ================= Pines relay (tabRelay) ================= -->
       <section data-tab="relay">
         <div class="carta">
-          <h2>Pines del mÃ³dulo de mÃ¡quina</h2>
+          <h2>Pines del módulo de máquina</h2>
           <p class="nota" style="margin-bottom:10px">
-            Los cambios se aplican reciÃ©n al tocar <b>Enviar + Guardar</b> â€”
-            salir de la pestaÃ±a sin enviar los descarta (igual que el original).
+            Los cambios se aplican recién al tocar <b>Enviar + Guardar</b> —
+            salir de la pestaña sin enviar los descarta (igual que el original).
           </p>
           <div id="relayGrilla" class="relayGrilla"></div>
           <div class="nudfila" style="margin-top:14px">
             <button type="button" class="btnZero" id="btnRelayDefault" title="Config por defecto"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
-            <button type="button" class="btnZero" id="btnRelayNone" title="Todos sin funciÃ³n"><img loading="lazy" src="../img/config/back-button.png" alt="" /></button>
+            <button type="button" class="btnZero" id="btnRelayNone" title="Todos sin función"><img loading="lazy" src="../img/config/back-button.png" alt="" /></button>
             <button type="button" class="btnEnviar" id="btnRelaySend"><img loading="lazy" src="../img/config/ToolAcceptChange.png" alt="" />Enviar + Guardar</button>
             <img loading="lazy" id="relayPendiente" src="../img/config/ConSt_Mandatory.png" alt="" style="height:44px" hidden />
           </div>
         </div>
       </section>
 
-      <!-- ================= MÃ¡quina (tabAMachine) ================= -->
+      <!-- ================= Máquina (tabAMachine) ================= -->
       <section data-tab="amachine">
         <div class="dosCol">
           <div class="carta">
-            <h2>Levante hidrÃ¡ulico</h2>
+            <h2>Levante hidráulico</h2>
             <div class="chkimg sw" id="maHydOn" style="margin-bottom:12px">
               <img loading="lazy" id="maHydOnImg" src="../img/config/SwitchOff.png" alt="" />
               <span class="cap">Habilitar levante</span>
@@ -668,16 +668,16 @@
               <span class="unidad">s</span>
             </div>
             <div class="nudfila">
-              <label for="nudHydLookAhead">AnticipaciÃ³n del levante</label>
+              <label for="nudHydLookAhead">Anticipación del levante</label>
               <input class="nud" id="nudHydLookAhead" type="text" inputmode="numeric" />
               <span class="unidad">s</span>
             </div>
           </div>
           <div class="carta">
-            <h2>MÃ³dulo</h2>
+            <h2>Módulo</h2>
             <div class="chkimg sw" id="maInvert" style="margin-bottom:12px">
               <img loading="lazy" src="../img/config/ConSt_InvertRelay.png" alt="" />
-              <span class="cap">Invertir relÃ©s</span>
+              <span class="cap">Invertir relés</span>
             </div>
             <div class="nudfila">
               <label for="nudUser1">Usuario 1</label>
@@ -727,7 +727,7 @@
                 <div class="nudfila">
                   <label for="nudDualHeadingOffset">Offset de rumbo</label>
                   <input class="nud" id="nudDualHeadingOffset" type="text" inputmode="numeric" />
-                  <span class="unidad">Â°</span>
+                  <span class="unidad">°</span>
                 </div>
                 <div class="nudfila">
                   <label for="nudDualReverseDistance">Distancia de reversa</label>
@@ -739,7 +739,7 @@
                   <span class="cap">Auto Dual â†” Fix</span>
                 </div>
                 <div class="nudfila">
-                  <label for="nudAutoSwitchSpeed">Velocidad de conmutaciÃ³n</label>
+                  <label for="nudAutoSwitchSpeed">Velocidad de conmutación</label>
                   <input class="nud" id="nudAutoSwitchSpeed" type="text" inputmode="numeric" />
                   <span class="unidad" id="hdSwitchUnidad">km/h</span>
                 </div>
@@ -750,7 +750,7 @@
             <h2>Antena simple (Fix)</h2>
             <div class="chkimg sw" id="hdMinStep" style="margin-bottom:8px">
               <img loading="lazy" src="../img/config/ConS_SourceFix.png" alt="" style="height:44px" />
-              <span class="cap" id="hdMinStepCap">Paso mÃ­nimo: 5 cm</span>
+              <span class="cap" id="hdMinStepCap">Paso mínimo: 5 cm</span>
             </div>
             <p class="nota" style="margin-bottom:12px">Distancia de rumbo: <b id="hdStepDist">50 cm</b></p>
             <div class="nudfila">
@@ -758,11 +758,11 @@
               <input type="range" id="hsbarFusion" min="5" max="60" step="1" style="flex:1" data-no-keyboard />
               <span class="unidad">GPS</span>
             </div>
-            <p class="nota">FusiÃ³n: <b id="lblFusionIMU">70%</b> IMU / <b id="lblFusion">30%</b> GPS
+            <p class="nota">Fusión: <b id="lblFusionIMU">70%</b> IMU / <b id="lblFusion">30%</b> GPS
               &nbsp;(por defecto: 70% IMU)</p>
             <div class="chkimg sw" id="hdReverse" style="margin-top:10px">
               <img loading="lazy" src="../img/config/YouTurnReverse.png" alt="" style="height:44px" />
-              <span class="cap">DetecciÃ³n de reversa</span>
+              <span class="cap">Detección de reversa</span>
             </div>
           </div>
         </div>
@@ -795,11 +795,11 @@
             <div style="display:flex; gap:10px; flex-wrap:wrap">
               <button type="button" class="btnZero" id="btnRollZero" title="Poner el rolido actual como cero"><img loading="lazy" src="../img/config/ConDa_RollSetZero.png" alt="" /></button>
               <button type="button" class="btnZero" id="btnRollRemove" title="Quitar offset"><img loading="lazy" src="../img/config/ConDa_RemoveOffset.png" alt="" /></button>
-              <button type="button" class="btnZero" id="btnRollUp" title="+0.1Â°"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
-              <button type="button" class="btnZero" id="btnRollDown" title="âˆ’0.1Â°"><img loading="lazy" src="../img/config/DnArrow64.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnRollUp" title="+0.1°"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
+              <button type="button" class="btnZero" id="btnRollDown" title="âˆ’0.1°"><img loading="lazy" src="../img/config/DnArrow64.png" alt="" /></button>
               <button type="button" class="btnZero" id="btnResetImu" title="Reiniciar IMU"><img loading="lazy" src="../img/config/ConDa_ResetIMU.png" alt="" /></button>
             </div>
-            <p class="nota" style="margin-top:8px">Cero actual Â· flechas Â±0.1Â° Â· el Ãºltimo botÃ³n reinicia la IMU.</p>
+            <p class="nota" style="margin-top:8px">Cero actual · flechas ±0.1° · el último botón reinicia la IMU.</p>
             <div class="chkimg sw" id="rollInvert" style="margin-top:12px">
               <img loading="lazy" src="../img/config/ConDa_InvertRoll.png" alt="" style="height:44px" />
               <span class="cap">Invertir rolido</span>
@@ -821,7 +821,7 @@
       <section data-tab="uturn">
         <div class="dosCol">
           <div class="carta">
-            <h2>GeometrÃ­a del giro</h2>
+            <h2>Geometría del giro</h2>
             <div class="nudfila">
               <img loading="lazy" src="../img/config/ConU_UturnRadius.png" alt="" style="height:64px" />
               <label for="nudUturnRadius" style="min-width:auto">Radio</label>
@@ -830,27 +830,27 @@
             </div>
             <div class="nudfila">
               <img loading="lazy" src="../img/config/ConU_UturnDistance.png" alt="" style="height:64px" />
-              <label for="nudUturnDistance" style="min-width:auto">Distancia al lÃ­mite</label>
+              <label for="nudUturnDistance" style="min-width:auto">Distancia al límite</label>
               <input class="nud" id="nudUturnDistance" type="text" inputmode="numeric" />
               <span class="unidad" id="utUnidad2">m</span>
             </div>
           </div>
           <div class="carta">
-            <h2>Suavizado y extensiÃ³n</h2>
+            <h2>Suavizado y extensión</h2>
             <div class="nudfila">
               <img loading="lazy" src="../img/config/ConU_UturnSmooth.png" alt="" style="height:64px" />
               <button type="button" class="btnZero" id="btnSmoothDn"><img loading="lazy" src="../img/config/DnArrow64.png" alt="" /></button>
               <b id="utSmoothLbl" style="min-width:52px; text-align:center; font-size:22px">14</b>
               <button type="button" class="btnZero" id="btnSmoothUp"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
             </div>
-            <p class="nota" style="margin-bottom:12px">Suavizado: usar 3 o 4 Ã— radio.</p>
+            <p class="nota" style="margin-bottom:12px">Suavizado: usar 3 o 4 × radio.</p>
             <div class="nudfila">
               <img loading="lazy" src="../img/config/ConU_UturnLength.png" alt="" style="height:64px" />
               <button type="button" class="btnZero" id="btnExtDn"><img loading="lazy" src="../img/config/DnArrow64.png" alt="" /></button>
               <b id="utExtLbl" style="min-width:52px; text-align:center; font-size:22px">20 m</b>
               <button type="button" class="btnZero" id="btnExtUp"><img loading="lazy" src="../img/config/UpArrow64.png" alt="" /></button>
             </div>
-            <p class="nota">ExtensiÃ³n: usar 2 o 3 Ã— radio.</p>
+            <p class="nota">Extensión: usar 2 o 3 × radio.</p>
           </div>
         </div>
       </section>
@@ -885,23 +885,23 @@
         <div class="carta">
           <h2>Elementos en pantalla</h2>
           <div class="togglesGrid" id="dispGrilla">
-            <div class="chkimg" data-k="polygons"><img loading="lazy" src="../img/config/ConD_Poligons.png" alt="" /><span class="cap">PolÃ­gonos</span></div>
-            <div class="chkimg" data-k="speedo"><img loading="lazy" src="../img/config/ConD_Speedometer.png" alt="" /><span class="cap">VelocÃ­metro</span></div>
+            <div class="chkimg" data-k="polygons"><img loading="lazy" src="../img/config/ConD_Poligons.png" alt="" /><span class="cap">Polígonos</span></div>
+            <div class="chkimg" data-k="speedo"><img loading="lazy" src="../img/config/ConD_Speedometer.png" alt="" /><span class="cap">Velocímetro</span></div>
             <div class="chkimg" data-k="keyboard"><img loading="lazy" src="../img/config/ConD_KeyBoard.png" alt="" /><span class="cap">Teclado</span></div>
             <div class="chkimg" data-k="brightness"><img loading="lazy" src="../img/config/BrightnessUp.png" alt="" /><span class="cap">Brillo</span></div>
             <div class="chkimg" data-k="svenn_arrow"><img loading="lazy" src="../img/config/SvennArrow.png" alt="" /><span class="cap">Flecha Svenn</span></div>
             <div class="chkimg" data-k="start_full_screen"><img loading="lazy" src="../img/config/ConD_FullScreenBegin.png" alt="" /><span class="cap">Iniciar pantalla completa</span></div>
-            <div class="chkimg" data-k="log_elevation"><img loading="lazy" src="../img/config/ConD_LogElevation.png" alt="" /><span class="cap">Registrar elevaciÃ³n</span></div>
+            <div class="chkimg" data-k="log_elevation"><img loading="lazy" src="../img/config/ConD_LogElevation.png" alt="" /><span class="cap">Registrar elevación</span></div>
             <div class="chkimg" data-k="floor"><img loading="lazy" src="../img/config/ConD_FloorTexture.png" alt="" /><span class="cap">Textura de piso</span></div>
             <div class="chkimg" data-k="grid"><img loading="lazy" src="../img/config/ConD_Grid.png" alt="" /><span class="cap">Grilla</span></div>
-            <div class="chkimg" data-k="extra_guides"><img loading="lazy" src="../img/config/ConD_ExtraGuides.png" alt="" /><span class="cap">GuÃ­as extra</span></div>
-            <div class="chkimg" data-k="direction_markers"><img loading="lazy" src="../img/config/ConD_DirectionMarker.png" alt="" /><span class="cap">Marcas de direcciÃ³n</span></div>
-            <div class="chkimg" data-k="section_lines"><img loading="lazy" src="../img/config/ConD_SectionHighlights.png" alt="" /><span class="cap">LÃ­neas de secciÃ³n</span></div>
+            <div class="chkimg" data-k="extra_guides"><img loading="lazy" src="../img/config/ConD_ExtraGuides.png" alt="" /><span class="cap">Guías extra</span></div>
+            <div class="chkimg" data-k="direction_markers"><img loading="lazy" src="../img/config/ConD_DirectionMarker.png" alt="" /><span class="cap">Marcas de dirección</span></div>
+            <div class="chkimg" data-k="section_lines"><img loading="lazy" src="../img/config/ConD_SectionHighlights.png" alt="" /><span class="cap">Líneas de sección</span></div>
             <div class="chkimg" data-k="headland_distance"><img loading="lazy" src="../img/config/HeadlandDistance.png" alt="" /><span class="cap">Distancia a cabecera</span></div>
-            <div class="chkimg" data-k="line_smooth"><img loading="lazy" src="../img/config/ConD_LineSmooth.png" alt="" /><span class="cap">Suavizado de lÃ­neas</span></div>
+            <div class="chkimg" data-k="line_smooth"><img loading="lazy" src="../img/config/ConD_LineSmooth.png" alt="" /><span class="cap">Suavizado de líneas</span></div>
           </div>
           <div class="nudfila" style="margin-top:14px">
-            <label for="nudNumGuideLines">Cantidad de lÃ­neas guÃ­a</label>
+            <label for="nudNumGuideLines">Cantidad de líneas guía</label>
             <input class="nud" id="nudNumGuideLines" type="text" inputmode="numeric" />
           </div>
         </div>
@@ -909,13 +909,13 @@
           <h2>Unidades</h2>
           <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
             <div class="radioimg dircol" id="rbMetric">
-              <img loading="lazy" src="../img/config/ConD_Metric.png" alt="" /><span class="cap">MÃ©trico</span>
+              <img loading="lazy" src="../img/config/ConD_Metric.png" alt="" /><span class="cap">Métrico</span>
             </div>
             <div class="radioimg dircol" id="rbImperial">
               <img loading="lazy" src="../img/config/ConD_Imperial.png" alt="" /><span class="cap">Imperial</span>
             </div>
             <p class="nota" style="max-width:360px">
-              Cambiar las unidades guarda todo y recarga la configuraciÃ³n
+              Cambiar las unidades guarda todo y recarga la configuración
               (igual que el original, que cierra la ventana).
             </p>
           </div>
@@ -926,27 +926,27 @@
       <section data-tab="botones">
         <div class="dosCol">
           <div class="carta">
-            <h2>MenÃº de campo</h2>
+            <h2>Menú de campo</h2>
             <div class="togglesGrid">
               <div class="chkimg" data-k="feature_tram"><img loading="lazy" src="../img/config/TramAll.png" alt="" /><span class="cap">Trochas</span></div>
               <div class="chkimg" data-k="feature_headland"><img loading="lazy" src="../img/config/HeadlandOn.png" alt="" /><span class="cap">Cabeceras</span></div>
-              <div class="chkimg" data-k="feature_boundary"><img loading="lazy" src="../img/config/Boundary.png" alt="" /><span class="cap">LÃ­mites</span></div>
+              <div class="chkimg" data-k="feature_boundary"><img loading="lazy" src="../img/config/Boundary.png" alt="" /><span class="cap">Límites</span></div>
               <div class="chkimg" data-k="feature_rec_path"><img loading="lazy" src="../img/config/RecPath.png" alt="" /><span class="cap">Camino grabado</span></div>
             </div>
           </div>
           <div class="carta">
-            <h2>MenÃº de herramientas</h2>
+            <h2>Menú de herramientas</h2>
             <div class="togglesGrid">
               <div class="chkimg" data-k="feature_ab_smooth"><img loading="lazy" src="../img/config/ABSmooth.png" alt="" /><span class="cap">Suavizar AB</span></div>
               <div class="chkimg" data-k="feature_hide_contour"><img loading="lazy" src="../img/config/Trash.png" alt="" /><span class="cap">Borrar contorno</span></div>
-              <div class="chkimg" data-k="feature_webcam"><img loading="lazy" src="../img/config/Webcam.png" alt="" /><span class="cap">CÃ¡mara web</span></div>
-              <div class="chkimg" data-k="feature_offset_fix"><img loading="lazy" src="../img/config/YouTurnReverse.png" alt="" /><span class="cap">CorrecciÃ³n de offset</span></div>
+              <div class="chkimg" data-k="feature_webcam"><img loading="lazy" src="../img/config/Webcam.png" alt="" /><span class="cap">Cámara web</span></div>
+              <div class="chkimg" data-k="feature_offset_fix"><img loading="lazy" src="../img/config/YouTurnReverse.png" alt="" /><span class="cap">Corrección de offset</span></div>
             </div>
           </div>
         </div>
         <div class="dosCol">
           <div class="carta">
-            <h2>MenÃº inferior</h2>
+            <h2>Menú inferior</h2>
             <div class="togglesGrid">
               <div class="chkimg" data-k="feature_uturn"><img loading="lazy" src="../img/config/z_TurnManual.png" alt="" /><span class="cap">U-Turn</span></div>
               <div class="chkimg" data-k="feature_lateral"><img loading="lazy" src="../img/config/z_LateralManual.png" alt="" /><span class="cap">Lateral</span></div>
@@ -966,34 +966,34 @@
         <div class="carta">
           <h2>Sistema</h2>
           <div class="togglesGrid">
-            <div class="chkimg" data-k="shutdown_no_power"><img loading="lazy" src="../img/config/ChargingNo.png" alt="" /><span class="cap">Apagar sin alimentaciÃ³n</span></div>
-            <div class="chkimg" data-k="auto_start_corex"><img loading="lazy" src="../img/config/AgIO.png" alt="" /><span class="cap">CoreX: inicio automÃ¡tico</span></div>
-            <div class="chkimg" data-k="auto_off_corex"><img loading="lazy" src="../img/config/AgIO.png" alt="" /><span class="cap">CoreX: cierre automÃ¡tico</span></div>
+            <div class="chkimg" data-k="shutdown_no_power"><img loading="lazy" src="../img/config/ChargingNo.png" alt="" /><span class="cap">Apagar sin alimentación</span></div>
+            <div class="chkimg" data-k="auto_start_corex"><img loading="lazy" src="../img/config/AgIO.png" alt="" /><span class="cap">CoreX: inicio automático</span></div>
+            <div class="chkimg" data-k="auto_off_corex"><img loading="lazy" src="../img/config/AgIO.png" alt="" /><span class="cap">CoreX: cierre automático</span></div>
             <div class="chkimg" data-k="hardware_messages"><img loading="lazy" src="../img/config/HardwareMessage.png" alt="" /><span class="cap">Mensajes de hardware</span></div>
           </div>
         </div>
       </section>
 
-      <!-- MÃ³dulo embebido: el iframe carga la pÃ¡gina del producto en modo
-           widget (sin su sidebar). El menÃº de config queda a la izquierda. -->
+      <!-- Módulo embebido: el iframe carga la página del producto en modo
+           widget (sin su sidebar). El menú de config queda a la izquierda. -->
       <section data-tab="modulo" style="padding:0; height:100%">
-        <iframe id="modIframe" title="MÃ³dulo" style="width:100%; height:100%; border:0; display:block; background:var(--agp-bg)"></iframe>
+        <iframe id="modIframe" title="Módulo" style="width:100%; height:100%; border:0; display:block; background:var(--agp-bg)"></iframe>
       </section>
     </main>
   </div>
 
-  <!-- botÃ³n Guardar flotante, visible en todas las solapas.
-       Estados: (neutro) sin cambios Â· .dirty hay cambios sin guardar (pulso
-       verde + aviso) Â· .ok reciÃ©n guardado (tilde verde, 1.5s) -->
+  <!-- botón Guardar flotante, visible en todas las solapas.
+       Estados: (neutro) sin cambios · .dirty hay cambios sin guardar (pulso
+       verde + aviso) · .ok recién guardado (tilde verde, 1.5s) -->
   <button type="button" id="btnGuardarFloat" title="Guardar">
     <img loading="lazy" id="btnGuardarImg" src="../img/config/FileSave.png" alt="Guardar" />
     <span id="btnGuardarCap">Sin cambios</span>
   </button>
 
   <div id="footer">
-    <span class="dato" id="ftPerfil">Perfil: <b>â€”</b></span>
-    <span class="dato" id="ftAncho">Ancho: <b>â€”</b></span>
-    <span class="dato" id="ftUnidades">Unidades: <b>â€”</b></span>
+    <span class="dato" id="ftPerfil">Perfil: <b>—</b></span>
+    <span class="dato" id="ftAncho">Ancho: <b>—</b></span>
+    <span class="dato" id="ftUnidades">Unidades: <b>—</b></span>
     <span id="estado"></span>
   </div>
 
