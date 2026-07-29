@@ -155,6 +155,9 @@ namespace AgOpenGPS
                 vistaxLive: vistaxLive,
                 debug: new DebugLogService(),
                 lotes: lotes,
+                // Sin esto PerfilesController no se registra y /api/aog/perfiles
+                // da 404: la pantalla de perfiles del Hub no lista nada.
+                perfiles: new EnginePerfilService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,
