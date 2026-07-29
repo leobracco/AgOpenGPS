@@ -768,6 +768,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
         _framesDesdeLatido++;
+        FramesRenderizados++;
         bool diag = _diagFrames < 3;
         if (diag) LogPixel("post-clear", wPx / 2, hPx / 2);
 
@@ -986,6 +987,13 @@ public sealed class MapGlSurface : OpenGlControlBase
     // las lineas DEJAN de salir, el que se trabo es el hilo de UI (el timer
     // corre ahi). Si salen con fps=0, se dejo de pedir frames. Si salen con
     // fps>0 pero el fix no envejece, el que murio es el poller del HUD.
+    /// <summary>
+    /// Frames dibujados desde que existe este control. Monotónico. Lo usa el
+    /// watchdog de MapPanel para detectar que el contexto GL se murió: si esto
+    /// no avanza mientras el mapa está a la vista y llegan datos, no hay render.
+    /// </summary>
+    public int FramesRenderizados { get; private set; }
+
     private int _framesDesdeLatido;
     private DispatcherTimer? _latido;
     private readonly System.Diagnostics.Stopwatch _relojLatido = System.Diagnostics.Stopwatch.StartNew();
