@@ -2763,3 +2763,13 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   `_gridOn`/`ToggleGrid` vivos en el código, mismo criterio tuyo de no
   borrar la capacidad de reactivarlo. Actualicé el inventario (Grilla → "—").
   Build completo 0 errores, 208 tests verdes (coincide con tu conteo).
+
+- [2026-07-29] [android] HECHO — pedido del usuario: sacar del menú
+  Navegación los botones "2D", "3D", "Inclinar +", "Inclinar −" y "Norte 2D".
+  Quedan solo Día/Noche y Brillo +/−. Mismo criterio que "Grilla"
+  (2026-07-28): no borré `SetHeadingUp`/`SetPitchDeg`/`TiltBy` de
+  `MapGlSurface`/`MapPanel` ni el wiring en `RouteCockpitCommand` — queda
+  la capacidad viva por si se cuelga de otro lado más adelante. Inventario
+  actualizado (esos 5 ítems pasan a "—"). Verificado en pantalla: el
+  submenú Navegación se ve bien con los 3 botones que quedan. Build 0
+  errores, 208 tests verdes.
