@@ -8,6 +8,9 @@ public sealed class CockpitSnapshot
 {
     // Barra superior
     [JsonPropertyName("is_job_started")]      public bool IsJobStarted { get; set; }
+    /// <summary>Carpeta del lote abierto. La barra superior muestra este nombre
+    /// para que el operario sepa de un vistazo sobre qué lote está trabajando.</summary>
+    [JsonPropertyName("current_field_directory")] public string? CurrentFieldDirectory { get; set; }
     [JsonPropertyName("avg_speed")]           public double AvgSpeed { get; set; }   // km/h
     [JsonPropertyName("heading")]             public double Heading { get; set; }    // rad
     [JsonPropertyName("fix_quality")]         public int FixQuality { get; set; }    // 4=RTK FIJO,5=FLOAT,2=DGPS,1=GPS,8=SIM
