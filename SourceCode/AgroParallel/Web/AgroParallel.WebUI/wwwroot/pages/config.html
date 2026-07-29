@@ -251,14 +251,24 @@
       <button type="button" data-tab="botones"><img src="../img/config/Con_FeatureMenu.png" alt="" />Botones</button>
       <!-- Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget, sin su
            propia sidebar) dentro de config.html, para no salir de la config
-           ni cambiar de estilo (pedido usuario 2026-07-20). -->
+           ni cambiar de estilo (pedido usuario 2026-07-20).
+           El Hub también vive acá adentro (pedido usuario 2026-07-28): es la
+           única pantalla que prende y apaga los widgets que se ven sobre el
+           mapa, y no tenía ninguna puerta desde que las barras del cockpit
+           reemplazaron a la toolbar que lo abría. -->
       <div class="grupo">Módulos</div>
+      <button type="button" data-mod="hub.html"><img src="../img/icons/existing/agp-hub.png" alt="" />Hub</button>
       <button type="button" data-mod="quantix.html"><img src="../img/icons/existing/agp-quantix.png" alt="" />QuantiX</button>
       <button type="button" data-mod="vistax.html"><img src="../img/icons/existing/agp-vistax.png" alt="" />VistaX</button>
       <button type="button" data-mod="flowx.html"><img src="../img/icons/existing/agp-flowx.png" alt="" />FlowX</button>
       <button type="button" data-mod="sectionx.html"><img src="../img/icons/existing/agp-sectionx.png" alt="" />SectionX</button>
       <button type="button" data-mod="linex.html"><img src="../img/icons/existing/agp-linex.png" alt="" />LineX</button>
       <button type="button" data-mod="stormx.html"><img src="../img/icons/existing/agp-stormx.png" alt="" />StormX</button>
+      <!-- Nodos y Cámaras faltaban: eran los dos accesos del Hub que no se
+           habían migrado acá, y sin ellos no hay forma de ver qué nodos
+           aparecieron por MQTT ni de configurar las cámaras. -->
+      <button type="button" data-mod="nodos.html"><img src="../img/icons/existing/agp-nodos.png" alt="" />Nodos</button>
+      <button type="button" data-mod="camaras.html"><img src="../img/icons/existing/agp-camaras.png" alt="" />Cámaras</button>
       <!-- Campo: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
       <div class="grupo">Campo</div>
       <button type="button" data-mod="insumos.html"><img src="../img/icons/existing/agp-insumos.png" alt="" />Insumos</button>

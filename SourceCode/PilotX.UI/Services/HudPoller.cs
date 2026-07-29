@@ -44,6 +44,13 @@ public sealed class HudSnapshot
     public double PivotNorthing { get; set; }
     public double ToolWidth { get; set; }
 
+    /// <summary>Posición y rumbo de la HERRAMIENTA (no del tractor: el
+    /// implemento va rezagado y en curva apunta distinto). El mapa dibuja ahí
+    /// el sprite del implemento.</summary>
+    public double ToolEasting { get; set; }
+    public double ToolNorthing { get; set; }
+    public double ToolHeading { get; set; }
+
     /// <summary>Distancia entre ejes (m) — tamaño del vehículo en el mapa.</summary>
     public double Wheelbase { get; set; }
     /// <summary>Trocha (m) — ancho del vehículo en el mapa.</summary>

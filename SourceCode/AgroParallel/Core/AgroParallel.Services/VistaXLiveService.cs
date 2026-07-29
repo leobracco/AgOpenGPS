@@ -26,6 +26,7 @@ using System.Text.Json;
 using System.Threading;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
+using AgroParallel.VistaX;
 
 namespace AgroParallel.Services
 {
@@ -446,54 +447,32 @@ namespace AgroParallel.Services
                         bool esState = VistaXSensorTypes.IsState(sc.Tipo);
                         bool esSiembra = string.Equals(sc.Tipo, VistaXSensorTypes.Semilla, StringComparison.OrdinalIgnoreCase) ||
                                          string.Equals(sc.Tipo, VistaXSensorTypes.Fertilizante, StringComparison.OrdinalIgnoreCase);
-                        if (seccionOff)
+                        // Los casos que NO dependen de umbrales se resuelven en
+                        // VxSurcoEvaluator (función pura, con tests de borde:
+                        // cabecera, sensor mudo, silenciado, tolva vacía). Acá
+                        // solo se arman los datos de entrada. Los umbrales de
+                        // densidad necesitan el catálogo de insumos, así que se
+                        // calculan abajo y se evalúan en la misma función.
+                        bool resueltoSinUmbrales =
+                            seccionOff || sc.Muted || stale || esState || (!esSiembra && sc.Objetivo <= 0);
+
+                        if (resueltoSinUmbrales)
                         {
-                            // Prioridad por encima de mute/no-data: el operario decidió
-                            // (manual o auto) que esta franja no siembra ahora.
-                            surco.Estado = "seccion-off";
-                        }
-                        else if (sc.Muted)
-                        {
-                            // Sensor silenciado por config: no dispara alarma, no cuenta como falla.
-                            // Igual reportamos la lectura para que la UI pueda mostrarla en gris.
-                            surco.Estado = "muted";
-                        }
-                        else if (stale)
-                        {
-                            surco.Estado = "no-data";
-                            // Monitoreo activo + sensor de siembra sin telemetría =
-                            // falla productiva (nodo caído / cable cortado / no cae
-                            // semilla). Espejo de EvaluarAlarmasPorTimeout del
-                            // SeedMonitor nativo: "no llegan datos" mientras se
-                            // siembra ES una alarma, no un gris neutro.
-                            if (_siembra.Activo && esSiembra)
+                            var ev = VxSurcoEvaluator.Evaluar(new VxSurcoInput
                             {
-                                surco.Alerta = true;
-                            }
-                        }
-                        else if (esState)
-                        {
-                            // Sensores on/off (bajada/tolva/presión/final de carrera):
-                            // los umbrales de densidad NO aplican. La única alarma
-                            // productiva es tolva vacía (valor=1 → sin insumo).
-                            if (string.Equals(sc.Tipo, VistaXSensorTypes.TolvaVacia, StringComparison.OrdinalIgnoreCase) &&
-                                surco.Valor >= 0.5)
-                            {
-                                surco.Estado = "alerta";
-                                surco.Alerta = true;
-                            }
-                            else
-                            {
-                                surco.Estado = "ok";
-                            }
-                        }
-                        else if (!esSiembra && sc.Objetivo <= 0)
-                        {
-                            // Pulse no-siembra (turbina/rotación) SIN objetivo propio:
-                            // informativo — el objetivo del tren es densidad de siembra
-                            // y compararlo contra RPM genera falsas alarmas. Con
-                            // sc.Objetivo > 0 (setpoint del operario) sí se evalúa abajo.
-                            surco.Estado = "ok";
+                                SeccionCortada = seccionOff,
+                                Silenciado = sc.Muted,
+                                SinDatos = stale,
+                                EsSiembra = esSiembra,
+                                EsEstado = esState,
+                                EsTolvaVacia = string.Equals(sc.Tipo, VistaXSensorTypes.TolvaVacia,
+                                                             StringComparison.OrdinalIgnoreCase),
+                                Valor = surco.Valor,
+                                SembrandoActivo = _siembra.Activo,
+                                ObjetivoSpm = sc.Objetivo,
+                            });
+                            surco.Estado = ev.Estado;
+                            surco.Alerta = ev.Alerta;
                         }
                         else
                         {
@@ -516,30 +495,20 @@ namespace AgroParallel.Services
                             }
                             catch { /* catálogo inválido → fallback ya seteado */ }
 
-                            if (objMin <= 0)
+                            // Misma función que arriba, ahora con los umbrales ya
+                            // resueltos: una sola fuente de verdad para el estado
+                            // del surco, la que está cubierta por tests.
+                            var ev = VxSurcoEvaluator.Evaluar(new VxSurcoInput
                             {
-                                surco.Estado = "ok";
-                            }
-                            else if (surco.Spm <= 0.5)
-                            {
-                                // Sensor reportando telemetría pero sin pulsos = bajada bloqueada.
-                                surco.Estado = "tapado";
-                                surco.Alerta = true;
-                            }
-                            else if (surco.Spm < lo)
-                            {
-                                surco.Estado = "bajo";
-                                surco.Alerta = true;
-                            }
-                            else if (surco.Spm > hi)
-                            {
-                                // Exceso: en general no es falla productiva, pero la UI lo marca en azul.
-                                surco.Estado = "exceso";
-                            }
-                            else
-                            {
-                                surco.Estado = "ok";
-                            }
+                                EsSiembra = esSiembra,
+                                SembrandoActivo = _siembra.Activo,
+                                Spm = surco.Spm,
+                                ObjetivoSpm = objMin,
+                                LimiteBajo = lo,
+                                LimiteAlto = hi,
+                            });
+                            surco.Estado = ev.Estado;
+                            surco.Alerta = ev.Alerta;
                         }
                         tl.Surcos.Add(surco);
                     }

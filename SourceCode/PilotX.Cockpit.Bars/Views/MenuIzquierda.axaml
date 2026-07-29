@@ -209,7 +209,11 @@
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="norte2d"><StackPanel><Image Classes="sico" Source="/Assets/menu/CameraNorth2D.png"/><TextBlock Classes="slbl" Text="Norte 2D"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tilt_up"><StackPanel><Image Classes="sico" Source="/Assets/menu/TiltUp.png"/><TextBlock Classes="slbl" Text="Inclinar +"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tilt_dn"><StackPanel><Image Classes="sico" Source="/Assets/menu/TiltDown.png"/><TextBlock Classes="slbl" Text="Inclinar −"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="grilla"><StackPanel><Image Classes="sico" Source="/Assets/menu/GridRotate.png"/><TextBlock Classes="slbl" Text="Grilla"/></StackPanel></Button>
+              <!-- "Grilla" sacado (2026-07-28): el cuadriculado de fondo se
+                   quitó del mapa a pedido del usuario (no marcaba referencias
+                   y se redibujaba entero cada frame) — el botón quedaba sin
+                   ningún efecto. DrawGrid/_gridOn siguen vivos en MapGlSurface
+                   por si algún día hace falta volver a colgarlo de un toggle. -->
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="dia_noche"><StackPanel><Image Classes="sico" Source="/Assets/menu/WindowNightMode.png"/><TextBlock Classes="slbl" Text="Día / Noche"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_up"><StackPanel><Image Classes="sico" Source="/Assets/menu/BrightnessUp.png"/><TextBlock Classes="slbl" Text="Brillo +"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="brillo_dn"><StackPanel><Image Classes="sico" Source="/Assets/menu/BrightnessDn.png"/><TextBlock Classes="slbl" Text="Brillo −"/></StackPanel></Button>

@@ -265,40 +265,26 @@ namespace AgroParallel.QuantiX
                             StringComparison.OrdinalIgnoreCase);
 
                         // PPS (pulsos por segundo para el motor) según la unidad de dosis.
-                        double pps = 0;
-                        double velocidadMs = velMotorKmh / 3.6;
-                        if (seccionOn && dosisEfectiva > 0 && velMotorKmh > 0.5)
+                        // El cálculo vive en QxPulseCalculator (función pura, con
+                        // tests de borde: parado, sección cerrada, sin calibrar).
+                        // Acá SOLO se arman los datos de entrada.
+                        double pps = QxPulseCalculator.Pps(new QxPulseInput
                         {
-                            if (esSemillas)
-                            {
-                                // sem/m: dosis = semillas por metro de surco.
-                                //   surcos = cortes del motor (eje solidario: planta todos juntos).
-                                //   semillas/seg = dosis × vel_m/s × surcos
-                                //   semillas_por_pulso = semillas_vuelta / pulsos_por_vuelta (dientes)
-                                //   pps = semillas/seg / semillas_por_pulso
-                                int surcos = tieneCortes ? motor.Cortes.Count : 1;
-                                int ppvSem = motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 24;
-                                double semPorPulso = motor.SemillasVuelta > 0 ? motor.SemillasVuelta / ppvSem : 0;
-                                if (semPorPulso > 0)
-                                {
-                                    double semillasPorSeg = dosisEfectiva * velocidadMs * surcos;
-                                    pps = semillasPorSeg / semPorPulso;
-                                }
-                            }
-                            else if (motor.MeterCal > 0)
-                            {
-                                // kg/ha: producto_g_por_seg = dosis × 1000 × ancho × vel / 10000
-                                //        pps = producto_g_por_seg / meterCal (gramos por pulso)
-                                double productoGramosPorSeg = (dosisEfectiva * 1000.0 * anchoActivo * velocidadMs) / 10000.0;
-                                pps = productoGramosPorSeg / motor.MeterCal;
-                            }
-                        }
+                            Dosis = dosisEfectiva,
+                            VelocidadKmh = velMotorKmh,
+                            SeccionOn = seccionOn,
+                            EsSemillas = esSemillas,
+                            AnchoM = anchoActivo,
+                            MeterCal = motor.MeterCal,
+                            Surcos = tieneCortes ? motor.Cortes.Count : 1,
+                            SemillasVuelta = motor.SemillasVuelta,
+                            DientesEngranaje = motor.DientesEngranaje,
+                        });
 
                         // Log detallado por motor cada 5 segundos.
                         if (MessagesSent % 25 == 0 && mi == 0)
                         {
-                            int ppr = motor.DientesEngranaje > 0 ? motor.DientesEngranaje : 24;
-                            double rpmTarget = ppr > 0 ? pps * 60.0 / ppr : 0;
+                            double rpmTarget = QxPulseCalculator.Rpm(pps, motor.DientesEngranaje);
                             if (esSemillas)
                             {
                                 int surcos = tieneCortes ? motor.Cortes.Count : 1;

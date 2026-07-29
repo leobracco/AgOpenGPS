@@ -2319,7 +2319,6 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **Nota**: el mapa ya no usa un tamaño inventado, así que si el vehículo se ve
   chico/grande hay que corregir **Entre ejes / Trocha** en Configuración, que es
   lo correcto.
-
 - [2026-07-27] [android] PEDIDO — reviso `mapeo_color` (btnChangeMappingColor)
   del menú Navegación. Lo mío ya está: el comando abre
   `pages/colores-secciones.html` (reutiliza la pantalla multicolor por
@@ -2343,3 +2342,412 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   `mapeo_color` 🟡 en el inventario (no ❌: el ícono SÍ hace algo real, solo
   que ese algo todavía no pinta el mapa) y sigo con los 12 🟡 de "validar en
   el mapa" (cockpit derecha/abajo) mientras tanto.
+- [2026-07-27] [taller] HECHO — **el implemento se dibuja con su imagen real en
+  vez de la barra de secciones**. El usuario pasó `Diseño/PilotX/sembradora.png`
+  (vista cenital, con transparencia).
+  · Se preparó a `wwwroot/img/implementos/sembradora.png` (recorte del margen
+    vacío; el arte ya venía con alfa, 64 % del lienzo transparente).
+  · `MapGlSurface.SetImplementSprite` + `DrawImplementoSprite`: se dibuja en la
+    posición y rumbo de la **HERRAMIENTA** (`tool_easting/northing/heading`), NO
+    en los del tractor — el implemento va rezagado y en curva apunta distinto.
+    Ancho = `tool_width` real; largo por el aspecto de la imagen. Se ubica con la
+    BARRA sobre el punto de herramienta y la lanza hacia adelante.
+  · **Reemplaza** la barra de colores: `DrawTool` no se llama cuando hay sprite.
+    Se dibuja ANTES del tractor, así el tractor tapa el enganche (correcto).
+  · `HudSnapshot` suma `tool_easting/northing/heading` (ya estaban en
+    `AogStateSnapshot`, faltaban del lado UI).
+  Fallback: sin imagen, o si falla la descarga/subida, vuelve la barra de
+  secciones. Verificado: `sembradora.png` se sirve (200), snapshot con
+  pos/rumbo de herramienta, sin errores en el renderer. Build 0 errores.
+  **Pendiente**: hoy el archivo va por convención de nombre fija
+  (`sembradora.png`); falta un selector de implemento como el de vehículo.
+  **Ojo**: al quitar la barra se pierde el color por sección (rojo/verde/ámbar)
+  sobre el mapa — el estado sigue estando en la botonera de abajo. Si en cabina
+  hace falta verlo en el mapa, se puede dibujar una franja fina bajo el sprite.
+- [2026-07-27] [taller] HECHO — **comparación funcional PilotX vs AOG 6.8.5**:
+  `docs/2026-07-27-comparacion-vs-685.md`. Medida contra el baseline pristino
+  (`G:\agroparallel\productos\AgOpenGPS\Software\App_PC\AgOpenGPS-6.8.5\`)
+  extrayendo los handlers reales y cruzándolos con los comandos del motor y con
+  los que la UI resuelve local. Resumen:
+  · 6.8.5: 58 botones de pantalla principal, 19 ítems de menú, 426 handlers
+    totales (pero ~350 son ventanas de config, que en PilotX ya son pantallas
+    del Hub — comparar 426 vs 29 sería engañoso).
+  · PilotX: 29 comandos en el motor + 29 resueltos por la UI, de 82 emitidos.
+  · **En guiado y secciones estamos a la par o mejor** (y con cosas que el 6.8.5
+    no tiene: sprites a escala con Ackermann, zonas en la misma botonera, Hub).
+  · **~30 brechas reales**, en 4 familias: cámara/vista (9, puro cliente),
+    **LOTE (6 — la más urgente: el backend está, falta cablear los botones)**,
+    ventana/sistema (6) y funciones ausentes (9, con `ruta_grabada` como la más
+    grande: 5 botones + toda la máquina de grabación).
+- [2026-07-27] [taller] HECHO + **CORRECCIÓN a la comparación vs 6.8.5**. Al ir a
+  cablear el submenú LOTE resultó que **ya estaba ruteado**: los comandos
+  `lote_menu/continuar/nuevo/kml` abren `pages/lote.html` (con deep-link `?do=`)
+  desde `MainWindow.RouteCockpitCommand`. Mi cruce automático no los detectó
+  porque están en un `switch` con `case`, y yo había grepeado la forma
+  `"x" => …` de expresión. **La brecha de LOTE en el doc estaba sobrestimada** —
+  ya lo corregí en `docs/2026-07-27-comparacion-vs-685.md`.
+  Lo que SÍ faltaba del lado del motor y se implementó ahora:
+  · **`DeleteFieldAsync`** — borra la carpeta del lote, y **se niega a borrar el
+    lote ABIERTO** (hay que cerrarlo antes).
+  · **`CreateFromExistingAsync`** — port 1:1 de `FormGPS.Lotes_CreateFromExisting`
+    (era I/O de archivos puro, nada de WinForms): copia el ORIGEN del plano local
+    del template —clave para que las coordenadas guardadas sigan siendo
+    válidas— y, según los flags, lindero / aplicado / banderas / guías / cabecera.
+  Verificado por HTTP contra el motor real: crear desde `La Paloma` → `ok:true`,
+  queda abierto, con `Boundary.txt` + `TrackLines.txt` copiados y `Sections.txt`/
+  `Contour.txt` vacíos (applied=false); borrar con el lote abierto → `ok:false`;
+  cerrar y borrar → `ok:true` y la carpeta desaparece. Lotes de prueba
+  eliminados, no quedó basura.
+  **Sigue sin andar a propósito**: `import-kml` e `import-isoxml` — en el nativo
+  abren un diálogo de archivo WinForms y la API todavía no recibe la ruta. Se
+  devuelve `false` en vez de fingir que importó.
+- [2026-07-27] [taller] HECHO — **import de KML por las dos vías: ruta local y
+  subida HTTP**. Port de `FormFieldKML` (FindLatLon + CreateNewField +
+  LoadKMLBoundary) al motor, sin diálogo de archivo.
+  · `POST /api/lotes/import-kml?name=<lote>&path=C:\ruta\campo.kml` → ruta local.
+  · `POST /api/lotes/import-kml?name=<lote>` con el KML **en el cuerpo** → subida.
+    La subida se guarda en un temporal y se pasa por la MISMA función que la
+    ruta local: un solo camino que mantener y probar. El temporal se borra
+    siempre (el lote ya guardó su `Boundary.txt`).
+    Cap de 16 MB (un KML de lote son KB) y borrado en `finally`.
+  · Sin ruta ni cuerpo, cae al diálogo nativo (solo aplica al host WinForms).
+  **Decisión que importa**: el ORIGEN del plano local sale de la PRIMERA
+  coordenada del KML, no del GPS actual — si se usara el GPS, un lote importado
+  desde la oficina quedaría con el origen a cientos de km y las coordenadas
+  locales darían números absurdos.
+  Parseo por texto y no XML, igual que el nativo: los KML de las apps de campo
+  vienen con namespaces raros y un parser estricto los rechaza. Ojo que KML es
+  **lon,lat** (al revés de lo habitual).
+  **Verificado con un KML de prueba de 176 × 167 m**: por ruta → `ok:true`, lote
+  creado y abierto; por HTTP → idem; los dos con `has_boundary:true` y
+  **`area_ha: 2.9`**, que coincide con la geometría real (2,94 ha) — o sea que la
+  conversión WGS84 → plano local está bien, no solo "no falló". Lotes de prueba
+  borrados. Build 0 errores, tests verdes, paquete SHA 4A38B666…
+  **Falta**: ISO-XML sigue en `false` (no se portó su parser); y Android tiene la
+  firma nueva devolviendo false hasta que se enganche el picker del sistema.
+- [2026-07-28] [taller] HECHO — **mapa fluido: interpolación entre fixes**.
+  Reporte del usuario: "va todo entrecortado". Medido primero: la cobertura NO
+  era (9,9 KB en 2 ms). La causa es de fondo — `MapGlSurface` dibujaba **solo
+  cuando llegaba un dato**, o sea a ~10 fps (la tasa del GPS), y en modo
+  heading-up gira el mundo entero, que es donde más se nota.
+  · Entre fix y fix el tractor se avanza por **estima** (velocidad × tiempo sobre
+    el rumbo) y se pide frame a **~60 Hz** con un `DispatcherTimer`.
+  · **La cámara usa la posición interpolada**, no la del último fix: si la cámara
+    salta de fix en fix, salta TODO el mundo con ella — es lo que más se veía.
+  · El implemento se interpola igual: si avanzara a saltos mientras el tractor va
+    suave, se vería como si se desenganchara y volviera.
+  · **Tope de extrapolación 0,30 s**: pasado eso se queda en el último fix. Si se
+    corta el GPS, el tractor se frena en pantalla en vez de seguir viajando solo.
+  · **El tick solo corre con el tractor en movimiento** (`avg_speed > 0,2`).
+    Parado no hay nada que interpolar y no tiene sentido quemar GPU en la cabina
+    — se respeta el criterio original de "render solo cuando hay dato nuevo".
+  Build 0 errores, paquete SHA BF566579…
+- [2026-07-28] [taller] HECHO — **QuantiX: la cadena de dosis quedó testeada**
+  (tarea S2 del plan de 3 días).
+  El cálculo dosis→pps vivía embebido en el tick de `QuantiXMotorBridge`,
+  mezclado con MQTT, historial de posición y logging: **imposible de testear**.
+  Se extrajo a `QxPulseCalculator` (función PURA, `AgroParallel.Services/QuantiX/`)
+  y **el bridge ahora la usa** — no es código muerto al lado del que corre. El
+  cálculo de RPM también quedó unificado ahí (estaba duplicado en el log).
+  **11 tests nuevos de los casos que rompen en campo**, no de los felices:
+  · tractor parado → motor quieto; casi parado (0,4 km/h) tampoco, pero a
+    0,6 sí. El piso existe porque la dosis por hectárea tiende a infinito
+    cuando la velocidad tiende a cero: sin él, **el motor se embala con el
+    tractor detenido**.
+  · sección cerrada → motor quieto aunque el tractor avance.
+  · **sin calibración cargada → motor quieto** (ni gramos/pulso ni
+    semillas/vuelta). Era el caso silencioso: antes devolvía 0 por casualidad
+    del `if`, ahora es una decisión explícita y fijada por test.
+  · las cuentas: 6 sem/m con 12 surcos a 7,2 km/h = 34,56 pps; 150 kg/ha a 28 m
+    y 7,2 km/h = 420 pps (verificadas a mano contra la fórmula).
+  · al doble de velocidad, el doble de pulsos (la dosis/ha se mantiene).
+  · cambiar de insumo (otra calibración) cambia los pulsos en proporción.
+  · **rpm es lo que se muestra al operario, nunca pps** — hay test que lo fija.
+  Criterio de seguridad que quedó explícito en el código: **ante duda, motor
+  quieto**; es preferible no sembrar a sembrar cualquier cosa.
+  156 → **167 tests verdes**, build 0 errores.
+- [2026-07-28] [taller] HECHO — **VistaX: la alarma por surco quedó testeada y
+  con una sola fuente de verdad** (tarea S3 del plan de 3 días).
+  Es la decisión que el operario ve como un cuadrito de color y la que lo hace
+  frenar el tractor. Vivía embebida en el tick de `VistaXLiveService`, mezclada
+  con MQTT, catálogo de insumos, máquina de siembra y estado de secciones:
+  correcta, pero imposible de testear. Se extrajo a `VxSurcoEvaluator`
+  (función PURA, `AgroParallel.Services/VistaX/`) y **el service la usa en los
+  dos caminos** — el que no depende de umbrales y el que sí — así el overlay
+  nativo y el snapshot HTTP del Hub leen la misma verdad.
+  **El ORDEN de las reglas es contrato, no detalle**: sección cortada gana
+  sobre silenciado, y silenciado sobre sin-datos. Si se invierte, **cada
+  cabecera dispara una alarma por cuerpo levantado** y el operario apaga la
+  alarma y deja de mirarla.
+  **15 tests nuevos de los casos que importan en campo:**
+  · **bajada tapada** (hay telemetría pero no caen semillas) → alarma. Es la
+    que más plata salva: un surco tapado es un surco perdido.
+  · sección cortada con 0 semillas → gris, NO alarma (es la cabecera).
+  · **sensor mudo mientras se siembra ES alarma**, no un gris neutro (nodo
+    caído / cable cortado); con el tractor parado, informativo.
+  · **exceso se marca pero NO alarma**: sembrar de más no es falla productiva,
+    frenar el tractor por eso sería peor que seguir.
+  · turbina/rotación sin objetivo propio no se compara contra densidad de
+    siembra (daría falsas alarmas todo el tiempo).
+  · tolva vacía → alarma; el resto de los sensores on/off no usan umbrales
+    de densidad.
+  167 → **182 tests verdes**, build 0 errores, paquete `PilotX_v1.0.24.zip`
+  SHA BB8171DC…
+- [2026-07-28] [taller] HECHO — **el motor headless no servía NINGÚN producto
+  X-*: QuantiX, VistaX, FlowX y los nodos daban 404** contra PilotX.Desktop.
+  (Toqué `PilotX.GuidanceEngine/EngineWebHost.cs` — **carril tuyo, Santiago**;
+  aviso abajo qué quedó y qué falta.)
+  Salió a la luz verificando en vivo la alarma de VistaX: `/api/vistax/live`
+  → 404. El motor instanciaba solo lo que el mapa necesita y pasaba `null`
+  en todo el resto; los controllers se registran `if (svc != null)`, así que
+  quedaban afuera **sin ningún error visible**. Con PilotX.Desktop hablándole
+  al motor, eso es: paneles de QuantiX/VistaX vacíos y nodos en cero.
+  Ahora `EngineWebHost` arma el mismo bloque que el host WinForms y el head
+  Android: `NodoRegistryService` (MQTT), vistaX cfg+live, quantiX cfg+runtime,
+  flowX/stormX/lineX, sectionX, orbitX, cámaras, insumos, implemento central
+  (UNA instancia compartida) y el `FlowXBridge` atado al ciclo de vida.
+  **Verificado en vivo** contra `Build\Engine\`: `/api/vistax/live`,
+  `/api/quantix/runtime`, `/api/nodos` (`broker_connected: true`),
+  `/api/flowx/live` e `/api/implemento` responden 200.
+  Queda pendiente en tu carril: `sistema` (brillo/apagado) sigue en null —
+  la implementación es net48 + WinForms (dxva2/WMI) y no porta; hay que
+  escribir una net9 para que la página Sistema del Hub ande contra el motor.
+- [2026-07-28] [taller] HECHO — **el motor y PilotX usaban DOS juegos de
+  configuración distintos**. `AgpPaths.ConfigRoot` es el directorio del exe:
+  el motor vive en `<install>\Engine\`, así que se creaba su propio
+  `vistaX.json`, `flowX.json`, `nodos.json`, `implementos\`… mientras PilotX
+  leía los de `<install>\`. El operario configuraba un implemento desde el
+  motor y PilotX seguía con el viejo — sin error, sin aviso.
+  Encontrado comparando los archivos: `Build\flowX.json` tenía el nodo real
+  con su calibración y `Build\Engine\flowX.json` estaba vacío.
+  Fix en `Program.cs`, al lado de la herencia de `aog_settings.json` (mismo
+  criterio, mismo lugar): si el motor corre en una subcarpeta y la raíz de la
+  instalación tiene la config, `ConfigRoot` apunta ahí. Borradas las copias
+  vacías que había generado. **Verificado**: ahora `/api/flowx/config`
+  devuelve el nodo real y `/api/implemento` apunta a `Build\implementos`.
+- [2026-07-28] [taller] HECHO — **QuantiX: lo que el widget MUESTRA no era lo
+  que el motor HACÍA** (tarea L3 del plan de 3 días).
+  El runtime que alimenta el panel estaba copiado y pegado tres veces (host
+  WinForms, head Android, y en el motor ni existía) y las copias se habían
+  desincronizado del bridge que comanda de verdad:
+  · **la dosis fija le ganaba al mapa**, al revés que el bridge ("mapa manda").
+    Con prescripción cargada, el panel mostraba 150 kg/ha y la máquina tiraba
+    200. El número que el operario usa para decidir estaba mal.
+  · **las sembradoras se calculaban con la fórmula de kg/ha**: para un motor
+    en sem/m el objetivo y el techo mostrados no tenían relación con lo que
+    giraba el motor (34 pps reales vs 420 mostrados: dos órdenes de magnitud).
+  Ahora hay **una sola** implementación: `QxRuntimeBuilder` (función pura),
+  apoyada en las MISMAS piezas que el bridge — `QxDoseResolver` para la dosis
+  y `QxPulseCalculator` para los pulsos. `QuantiXRuntimeService` es la cáscara
+  que la conecta al estado, y la usan tanto el motor como el host WinForms
+  (`FormGpsQuantiXRuntimeService` quedó delegando).
+  **16 tests nuevos**, incluido uno que compara el pps del panel contra el del
+  calculador del bridge: si vuelven a separarse, falla.
+  Además el techo de dosis ahora devuelve **-1 = "no sé"** (motor sin calibrar,
+  tractor parado) en vez de 0: un cero ahí es mentira, la UI muestra guión.
+  **Santiago:** la copia de `PilotX.Android/GuidanceEngineStateServices.cs`
+  (`GuidanceEngineQuantiXRuntimeService`) sigue con los dos bugs — es tu
+  archivo y no lo toqué para no pisarte. Reemplazala por
+  `new QuantiXRuntimeService(state)` cuando pases por ahí.
+  182 → **198 tests verdes**, build 0 errores, paquete SHA 3ECB90ED…
+- [2026-07-28] [taller] HECHO — **el panel nativo de QuantiX le mostraba PPS al
+  operario** (cierre de L3). El número grande de cada motor era "PPS real", y
+  el objetivo al lado también en pps. El pps es una unidad interna del firmware:
+  no le dice nada a quien maneja, y encima tapaba lo único que importa mirar.
+  Ahora la tarjeta muestra, en este orden:
+  · **Aplicando** (número grande, color por desvío) y **Objetivo**, los dos en
+    las unidades del operario — kg/ha o sem/m según cómo esté configurado el
+    motor. La dosis aplicada se deriva de la proporción de pulsos que el motor
+    entrega de verdad: si se queda corto, el número baja y se pone rojo.
+  · **RPM real vs RPM objetivo** — es lo que se mira para saber si el motor
+    responde (embrague patinando, producto trabado, motor al tope).
+  · **Máximo hoy**: el techo de dosis a la velocidad actual, que responde
+    "hasta dónde puedo acelerar sin quedarme corto".
+  · PWM y pulsos quedan como diagnóstico, abajo.
+  Sin objetivo cargado se muestra **"--", no cero**: un cero se lee como "el
+  motor no está haciendo nada", que es una falla distinta.
+  Para esto el panel cruza `/api/quantix/live` (telemetría del firmware) con
+  `/api/quantix/runtime` (lo que la PC está pidiendo) en el MISMO tick — si se
+  desfasan, el desvío parpadea en cada curva. Se agregó `unidad_dosis` al
+  runtime: sin eso el panel rotularía kg/ha en una sembradora en sem/m, un
+  error que el operario no tiene forma de detectar mirando.
+  **4 tests nuevos**, 3 de ellos del contrato del cable: si alguien renombra un
+  campo del JSON el panel no rompe, muestra guiones — que en cabina se lee como
+  "el motor está parado". Ahora falla el test en vez de mentirle al operario.
+  198 → **202 tests verdes**, paquete SHA FAC0DC19…
+  **Falta validarlo con un nodo real**: acá no hay hardware QuantiX conectado,
+  así que el panel se ve con 0 nodos. Santiago, si tenés el nodo en el banco,
+  esto es lo primero para mirar.
+- [2026-07-28] [taller] HECHO — **no había forma de llegar a QuantiX ni a VistaX
+  desde la pantalla principal.** Reportado por el usuario ("no tengo manera de
+  lanzar el overlay de quantix"). Eran DOS causas encadenadas:
+  1. **La barra de abajo estaba cortada.** Al agregar la botonera de secciones
+     (commit de ayer) la barra pasó a tener dos filas, pero `MainWindow.axaml`
+     le fijaba `Height="58"` y los márgenes de las otras barras repetían ese
+     número. La segunda fila —la de los botones— quedaba FUERA de la pantalla.
+     Ahora el host usa filas `Auto/*/Auto`: la barra crece cuando aparece la
+     botonera y se achica cuando no hay lote, sin tres números que mantener
+     sincronizados a mano. Verificado por captura: antes se veía media fila
+     de íconos contra el borde, ahora se ve entera.
+  2. **El menú de productos X-\* quedó huérfano.** Vivía en el botón `[T]` de
+     una toolbar propia de PilotX.Desktop que fue reemplazada por las barras
+     del cockpit. El menú izquierdo (Navegación / Herramientas / Configuración /
+     LOTE / Herr. lote / Dirección / CoreX) no tenía NINGUNA entrada a QuantiX,
+     VistaX, FlowX ni al Hub.
+  Solución (decisión del usuario): **el Hub va adentro de `config.html`**, que
+  ya tenía embebidos los módulos X-* desde el 2026-07-20. Configuración sigue
+  siendo la puerta única y conserva todo lo suyo (vehículo, implemento,
+  secciones, GPS/IMU). Se agregaron al grupo Módulos: **Hub, Nodos y Cámaras**
+  — los tres que faltaban. Con el Hub adentro vuelven los toggles de widgets
+  sobre el mapa, que era lo que el usuario buscaba.
+  Detalles que salieron al probarlo en pantalla:
+  · `hub.html`, `nodos.html` y `camaras.html` no soportaban `?widget=1`, así
+    que embebidas mostraban una barra lateral adentro de otra.
+  · el botón flotante **Guardar tapaba el toggle del overlay de FlowX**. Ahora
+    se oculta mientras se ve un módulo: ahí no guarda nada, cada módulo guarda
+    lo suyo.
+  Verificado en pantalla, no sólo por código: Configuración abre, el grupo
+  MÓDULOS lista los 9, el Hub carga embebido con KPIs en vivo y los tres
+  toggles visibles. Paquete SHA 5466ABA1…
+  **OJO — hueco real que queda:** los toggles escriben `overlayPrefs.json` y
+  **el único que dibuja esos widgets sobre el mapa es FormGPS** (la UI WinForms
+  vieja). En PilotX.Desktop no hay nada que los renderice: `PilotX.UI` sólo
+  tiene el cliente HTTP y los toggles. O sea que en el stack Avalonia el toggle
+  hoy no prende ningún overlay sobre el mapa. Lo que SÍ funciona es el panel
+  de QuantiX a pantalla completa. Portar el widget al mapa GL nativo queda
+  pendiente y no está estimado.
+- [2026-07-28] [taller] HECHO — **el overlay de QuantiX sobre el mapa ahora
+  existe en PilotX.Desktop.** Hasta hoy solo vivía en la app WinForms (un
+  WebView2 flotante con `widget-quantix.html`): en Avalonia el toggle del Hub
+  escribía la preferencia y no aparecía nada, porque no había quien lo dibujara.
+  **Va NATIVO, no WebView.** El overlay está encima del mapa todo lo que dura la
+  labor; un WebView permanente ahí come memoria, tapa el mapa con una superficie
+  opaca y además es Windows-only — habría que rehacerlo para Android.
+  Qué muestra, en orden de lo que importa manejando:
+  · la **dosis que está aplicando**, grande, y con color según se aleje del
+    objetivo (verde ≤5%, ámbar ≤15%, rojo arriba de eso);
+  · el objetivo y las rpm del motor;
+  · **AUTO / MAN**, y en MAN los botones − / + para corregir sobre la marcha,
+    con el mismo paso escalonado que el widget HTML (0,1 con dosis chicas,
+    10 con dosis grandes: de a 0,1 en 300 kg/ha es inusable con guante).
+  Botones de 48 px — se tienen que poder tocar con el tractor moviéndose.
+  Unidades del operario (kg/ha o sem/m). El pps no aparece.
+  Se arrastra con el dedo y **la posición se guarda** en el mismo
+  `overlayPrefs.json` que usa la app WinForms, así que las dos coinciden.
+  Detalles de integración:
+  · va en un `Canvas` declarado entre el mapa y los paneles, SIN ZIndex: así
+    queda sobre el mapa, cualquier panel que se abra lo tapa, y las barras del
+    cockpit siguen arriba de todo. Sin `Background` para no comerse el pan/zoom
+    del mapa — solo el widget es tocable.
+  · el polling (2 Hz) corre **solo mientras el widget se ve**.
+  · un toque sobre − / + / AUTO / MAN es un comando, no un arrastre.
+  **Verificado en pantalla y punta a punta**, capturando la ventana sin robarle
+  el foco al usuario: aparece con los datos reales del nodo configurado
+  (obj 301 kg/ha), el toggle del Hub lo prende y lo apaga en caliente sin
+  reiniciar, y al reiniciar PilotX vuelve exactamente a la posición guardada.
+  Paquete SHA CFC4EA27…
+- [2026-07-28] [taller] HECHO — **bug encontrado de paso: tocar un toggle en el
+  Hub borraba la posición de TODOS los widgets.** `POST /api/overlays`
+  reemplazaba el objeto entero, y el Hub manda únicamente los tres flags: todo
+  lo que no venía en el body volvía a su default. El operario acomodaba el
+  widget en la pantalla, tocaba un toggle y lo perdía. Se veía en los datos:
+  `vx_strip_x/y/w/h` y `vx_stats_*` tenían posiciones reales que se hubieran
+  ido a -1 en el próximo toggle.
+  Ahora el POST hace **merge**: se aplican solo los campos presentes. Ausente =
+  no tocar; presente con su valor por defecto SÍ se aplica (poder resetear a
+  -1 es una decisión explícita del cliente, y distinguir eso es justo lo que un
+  `Deserialize<T>` plano no puede hacer). Si el body no trae ningún campo
+  reconocido no se guarda nada, en vez de pisar la config buena con defaults.
+  Vive en `AgpJsonMerge` (genérico, respeta `[JsonPropertyName]`) — sirve para
+  los otros POST de config que tengan el mismo problema. **6 tests.**
+  Verificado contra el server: guardé una posición, mandé el body del Hub con
+  solo los flags, y la posición sobrevivió.
+  202 → **208 tests verdes**.
+- [2026-07-28] [taller] HECHO — **sacado el mini-mapa de la esquina inferior
+  izquierda** (pedido del usuario). Era un thumbnail nativo del lote + tractor
+  que se había hecho como primer paso de render Avalonia, cuando el mapa
+  principal todavía era el WebView del Hub. Con el mapa GL nativo a pantalla
+  completa mostraba lo mismo dos veces, y encima ocupaba justo el rincón donde
+  van los widgets de los productos: en la primera prueba tapaba el overlay de
+  QuantiX.
+  Se quitó el bloque del `MainWindow.axaml` (el mini-mapa, su botón "x" de
+  ocultar y el pin `[M]` que lo reabría — dejar el pin habría sido un botón
+  huérfano) y las referencias del code-behind, incluido el push del snapshot
+  que lo redibujaba en cada frame.
+  **El control `MiniMapView` NO se borró**: sigue en `Controls/` por si se lo
+  quiere colgar en otro lado.
+  Como el rincón quedó libre, el overlay de QuantiX vuelve a su posición
+  natural pegado al menú lateral (155 px) en vez del corrimiento que tenía para
+  esquivar al mini-mapa.
+  Verificado en pantalla: la esquina quedó limpia y el widget entero a la vista.
+  208 tests verdes, paquete SHA 3D602316…
+- [2026-07-28] [taller] HECHO — **objetivo INDIVIDUAL por motor en el overlay
+  de QuantiX** (pedido del usuario). Antes el overlay solo tenía el AUTO/MAN
+  global y unos − / + que movían la dosis de todos los motores juntos. Eso
+  sirve con un solo producto, pero **con una tolva de semilla y otra de
+  fertilizante poner las dos en el mismo número no tiene sentido.**
+  Ahora cada fila trae lo suyo: botón de modo (AUTO verde / MAN ámbar, alterna
+  con un toque) y − / + que solo se habilitan en MAN — en AUTO manda el mapa de
+  prescripción y tocarlos no haría nada. Van contra
+  `POST /api/widget-quantix/manual` (por uid + índice de motor), que ya existía
+  para el widget HTML.
+  Los botones globales de arriba quedan como atajo "todos a la vez", y se
+  ocultan cuando hay un solo motor: ahí la fila ya trae sus propios − / + y
+  repetirlos es ruido en una pantalla donde el lugar es escaso.
+  Dos cosas que se vieron al probarlo en pantalla y se corrigieron:
+  · **los dos motores se llamaban igual** ("Producto 1" en las dos tolvas) y no
+    había forma de saber a cuál se le estaba tocando la dosis. Con más de un
+    nodo la fila ahora dice "Tolva 1 · Producto 1".
+  · **22,5 kg/ha se mostraba como "22"**. El paso en ese rango es de 0,5, así
+    que el operario tocaba + y veía saltar el número sin entender por qué.
+    Ahora si el valor tiene fracción se muestra el decimal.
+  **Verificado tocando el botón de verdad en la pantalla**, no solo por API:
+  el + de la fila de Tolva 1 la subió de 22,5 a 23 y **Tolva 2 no se movió**,
+  siguió en AUTO.
+- [2026-07-28] [taller] HECHO — **BUG GORDO encontrado de paso: `build.ps1` le
+  pisaba la configuración al operario en CADA compilada.**
+  Salió a la luz porque un cambio que hice por API desaparecía después de
+  compilar. `Copy-Item "$aogBin\*"` copiaba el bin del source entero sobre
+  `Build\`, y ese bin acumula los `.json` de runtime de haber corrido PilotX
+  desde el IDE: `quantiX_motores.json`, `vistaX.json`, `overlayPrefs.json`,
+  perfil, nodos… O sea que **cada build revertía motores, dosis y
+  calibraciones a las del desarrollador, sin ningún aviso** — con archivos de
+  mayo, además. Explica cosas raras del tipo "esto lo configuré y se volvió
+  atrás".
+  El empaquetado del ZIP ya se cuidaba de esto (excluye los .json de la raíz
+  justamente para no pisarle la config a una pantalla en uso); lo que no se
+  cuidaba era la copia a `Build\`. Ahora aplica el mismo criterio: los .json
+  legítimos del release viven en subdirectorios (wwwroot, runtimes), nunca en
+  la raíz.
+  **Verificado**: escribí una config, compilé, y sobrevivió. Antes se perdía.
+  208 tests verdes, paquete SHA 7D86424B…
+- [2026-07-28] [taller] HECHO — **sacado el cuadriculado de fondo del mapa**
+  (pedido del usuario: "no sirve para nada, quizá consuma menos"). Tenía razón
+  en las dos cosas: no marcaba referencias del lote ni distancias que se usen
+  manejando, y se redibujaba ENTERO en cada frame — a 60 fps con el tractor en
+  movimiento son cientos de líneas por segundo para nada.
+  Queda comentada la llamada, no borrado el método `DrawGrid`: si algún día se
+  quiere colgar de un toggle, está.
+  Verificado en pantalla: el mapa quedó negro limpio con el tractor y la
+  sembradora, y la cobertura pintada se sigue viendo igual.
+- [2026-07-28] [taller] SIN RESOLVER — **el usuario reportó "desapareció el
+  tractor"** y la pantalla estaba efectivamente en negro, sin tractor NI
+  cuadriculado (o sea: el mapa no dibujaba NADA, no era un problema del
+  sprite). Al reiniciar PilotX.Desktop volvió todo.
+  Lo que sí se pudo descartar con evidencia, para el que lo agarre:
+  · **el motor estaba vivo**: en esa misma pantalla el overlay de QuantiX
+    mostraba datos frescos y la barra superior también (velocidad, XTE,
+    hectáreas). O sea NO era el backend caído.
+  · **los pollers están bien escritos**: `HudPoller` y los de geometría
+    reintentan siempre; solo cortan si se cancela de verdad
+    (`when (ct.IsCancellationRequested)`). No es el bug de
+    "HttpClient.Timeout mata el polling" que ya nos mordió en Android.
+  · el log de diagnóstico del `MapGlSurface` en un arranque sano muestra el
+    render funcionando (el pixel del centro pasa de negro a claro cada frame).
+  Queda la hipótesis sin confirmar de que el mapa dejó de PEDIR frames (si no
+  se ejecuta ningún frame no hay ni grilla, que era justo el síntoma), o que
+  el control quedó oculto. **No lo pude reproducir**: pasó mientras yo estaba
+  matando y relanzando el motor para compilar, así que puede estar
+  relacionado con que el backend se caiga y vuelva con la UI abierta.
+  Si vuelve a pasar: NO reiniciar de una, mirar primero si la barra superior
+  sigue viva (eso separa "backend caído" de "mapa colgado").

@@ -206,7 +206,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Vista 2D (btn2D) | Camera2D64 | Cenital siguiendo al tractor | ✅ | L |
 | Vista 3D (btn3D) | Camera3D64 | Perspectiva siguiendo al tractor | ✅ (squish+shift, no perspectiva real) | L |
 | Norte-2D (btnN2D) | CameraNorth2D | Cenital norte-arriba (no rota) | ✅ | L |
-| Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | ✅ (on/off simple, sin el diálogo de alineación del legacy) | L |
+| Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | — (2026-07-28: el cuadriculado de fondo se sacó del mapa a pedido del usuario — no marcaba referencias y se redibujaba entero cada frame. Botón retirado del menú; `DrawGrid`/`_gridOn` quedan vivos en `MapGlSurface` por si algún día se vuelve a colgar de un toggle) | L |
 | Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ✅ (solo el mapa; el chrome de las barras no cambia) | L |
 | Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | 🟡 (UI cableada contra SistemaClient; el motor `--webhost` no tiene `ISistemaService` → PEDIDO a Leonardo) | L+S |
 | Hz+frame+fix (lblHz) | — | Frecuencia GPS (Hz) + tiempo de frame (ms) + calidad de fix (NO es PPS) | 🟡 | L |

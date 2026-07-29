@@ -16,6 +16,7 @@
 
 using System;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -137,10 +138,9 @@ public partial class MainWindow : Window
     private Button? _btnSettings;
     private Button? _btnFieldTools;
 
-    // Mini-mapa cockpit (overlay esquina inf. izq.) + pin para reabrirlo.
-    private MiniMapView? _miniMap;
-    private Border?      _miniMapWrap;
-    private Button?      _miniMapShow;
+    // El mini-mapa de la esquina inferior izquierda se sacó (2026-07-28): con el
+    // mapa nativo a pantalla completa no aportaba y le comía lugar a los widgets
+    // de los productos. MiniMapView sigue existiendo por si vuelve en otro lado.
 
     // Field data nativo (overlay que reemplaza datos-lote.html en el flujo
     // de FieldTools). Es un UserControl Avalonia, NO un WebView.
@@ -176,6 +176,15 @@ public partial class MainWindow : Window
     // Calibracion / Prueba siguen en HTML (lazy WebView via "Configurar").
     private QuantiXPanel? _quantiXHost;
     private QuantiXClient? _quantiXClient;
+
+    // Widgets SOBRE el mapa (los que el operario prende desde el Hub). Viven
+    // en un Canvas encima del mapa y se arrastran a mano; la posición se
+    // guarda en overlayPrefs.json, el mismo archivo que usa la app WinForms.
+    // (_overlaysClient se comparte con el Hub nativo — es el mismo /api/overlays)
+    private Canvas? _mapOverlaysHost;
+    private QuantiXMapOverlay? _qxMapOverlay;
+    private WidgetQuantiXClient? _qxWidgetClient;
+    private System.Threading.CancellationTokenSource? _overlayPrefsCts;
 
     // VistaX nativo (Monitor tab live-only). SPM por surco, badges por estado,
     // trenes con tubitos (semilla/ferti) y barras (otros sensores). Tabs de
@@ -254,10 +263,6 @@ public partial class MainWindow : Window
         _btnSettings     = this.FindControl<Button>("BtnSettings");
         _btnFieldTools   = this.FindControl<Button>("BtnFieldTools");
 
-        _miniMap         = this.FindControl<MiniMapView>("MiniMap");
-        _miniMapWrap     = this.FindControl<Border>("MiniMapWrap");
-        _miniMapShow     = this.FindControl<Button>("MiniMapShow");
-
         _fieldDataHost   = this.FindControl<FieldDataPanel>("FieldDataHost");
         _sistemaHost     = this.FindControl<SistemaPanel>("SistemaHost");
         _gpsDataHost     = this.FindControl<GpsDataPanel>("GpsDataHost");
@@ -272,6 +277,8 @@ public partial class MainWindow : Window
         _nodosHost         = this.FindControl<NodosPanel>("NodosHost");
         _actualizarHost    = this.FindControl<ActualizarPanel>("ActualizarHost");
         _camarasHost       = this.FindControl<CamarasPanel>("CamarasHost");
+        _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
+        _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
 
         if (_camarasHost != null)
         {
@@ -407,13 +414,14 @@ public partial class MainWindow : Window
             if (_bottomToolbar != null) _bottomToolbar.IsVisible = false;
             if (_cockpitBarsHost != null) _cockpitBarsHost.IsVisible = true;
             SetupCockpitBars();
+            // Widgets sobre el mapa: solo en modo cockpit, que es cuando hay
+            // labor. En modo ventana el mapa es chico y taparlo no sirve.
+            SetupMapOverlays();
             // La FAB roja de cerrar app queda OCULTA: la barra superior ya trae
             // su ✕ (apagar). Esa X grande se confundía con "cerrar la pantalla"
             // y terminaba cerrando toda la app.
             var closeBtn = this.FindControl<Button>("CloseButton");
             if (closeBtn != null) closeBtn.IsVisible = false;
-            if (_miniMapWrap != null) _miniMapWrap.IsVisible = true;
-            if (_miniMapShow != null) _miniMapShow.IsVisible = false;
         }
 
         if (App.WindowMode != "float")
@@ -622,11 +630,13 @@ public partial class MainWindow : Window
         var cli = new VehicleSpriteClient(origin);
         string? ultimo = null;
         bool ruedaLista = false;
+        bool implementoListo = false;
         while (true)
         {
             try
             {
-                // Rueda delantera: una sola vez, no cambia con el vehículo.
+                // Rueda delantera e implemento: una sola vez, no cambian con el
+                // vehículo elegido.
                 if (!ruedaLista)
                 {
                     var rueda = await cli.GetRuedaAsync().ConfigureAwait(false);
@@ -634,6 +644,15 @@ public partial class MainWindow : Window
                     {
                         _mapHost?.SetWheelSprite(rueda.Rgba, rueda.Width, rueda.Height);
                         ruedaLista = true;
+                    }
+                }
+                if (!implementoListo)
+                {
+                    var impl = await cli.GetImplementoAsync().ConfigureAwait(false);
+                    if (impl != null)
+                    {
+                        _mapHost?.SetImplementSprite(impl.Rgba, impl.Width, impl.Height);
+                        implementoListo = true;
                     }
                 }
                 var sp = await cli.GetActivoAsync().ConfigureAwait(false);
@@ -1665,6 +1684,91 @@ public partial class MainWindow : Window
         if (_vmSup != null) _vmSup.DebugText = s;       // barra visible del cockpit
     }
 
+    // ---------- Widgets sobre el mapa --------------------------------------
+    //
+    // El toggle vive en el Hub y se persiste en overlayPrefs.json. La app
+    // WinForms relee ese archivo cada 250 ms; acá se consulta por HTTP con la
+    // misma idea: el operario prende el widget desde el Hub y aparece sin
+    // reiniciar nada.
+    private void SetupMapOverlays()
+    {
+        if (_mapOverlaysHost == null || _qxMapOverlay == null) return;
+        if (_overlayPrefsCts != null) return;   // ya montado
+
+        string baseUrl = DeriveOrigin(App.TargetUrl);
+        _qxWidgetClient = new WidgetQuantiXClient(baseUrl);
+        // Mismo cliente que usa el Hub: /api/overlays es una sola preferencia.
+        _overlaysClient ??= new OverlaysClient(baseUrl);
+
+        _mapOverlaysHost.IsVisible = true;
+        UbicarOverlayQx(-1, -1);   // rincón por defecto hasta que llegue la preferencia
+
+        // Al soltarlo se guarda dónde quedó. El POST hace merge, así que esto
+        // no pisa los toggles ni la posición de los otros widgets.
+        _qxMapOverlay.OnMovido = pt =>
+        {
+            var c = _overlaysClient;
+            if (c == null) return;
+            _ = c.SavePosQxAsync((int)Math.Round(pt.X), (int)Math.Round(pt.Y));
+        };
+
+        _overlayPrefsCts = new CancellationTokenSource();
+        _ = SeguirPreferenciasOverlaysAsync(_overlayPrefsCts.Token);
+    }
+
+    private void UbicarOverlayQx(int x, int y)
+    {
+        if (_qxMapOverlay == null || _mapOverlaysHost == null) return;
+        if (x >= 0 && y >= 0)
+        {
+            Canvas.SetLeft(_qxMapOverlay, x);
+            Canvas.SetTop(_qxMapOverlay, y);
+            return;
+        }
+        // Default: abajo a la izquierda, al lado del menú lateral (140 px) y
+        // arriba de la barra inferior. El centro queda libre para el tractor.
+        // Ese rincón lo ocupaba el mini-mapa, que se sacó.
+        Canvas.SetLeft(_qxMapOverlay, 155);
+        double alto = _mapOverlaysHost.Bounds.Height;
+        Canvas.SetTop(_qxMapOverlay, alto > 260 ? alto - 235 : 40);
+    }
+
+    private async Task SeguirPreferenciasOverlaysAsync(CancellationToken ct)
+    {
+        bool primera = true;
+        while (!ct.IsCancellationRequested)
+        {
+            OverlayPrefs? prefs = null;
+            try { prefs = _overlaysClient == null ? null : await _overlaysClient.GetAsync(ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+            catch { prefs = null; }
+
+            if (prefs != null)
+            {
+                bool posicionar = primera;   // la posición guardada se aplica al montar
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_qxMapOverlay == null) return;
+                    if (posicionar) UbicarOverlayQx(prefs.QxX, prefs.QxY);
+
+                    bool mostrar = prefs.QxOverlay;
+                    if (mostrar != _qxMapOverlay.IsVisible)
+                    {
+                        _qxMapOverlay.IsVisible = mostrar;
+                        // El polling del widget solo corre mientras se ve: si no,
+                        // son dos requests por segundo por nada.
+                        if (mostrar && _qxWidgetClient != null) _qxMapOverlay.Attach(_qxWidgetClient);
+                        else _qxMapOverlay.Detach();
+                    }
+                });
+                primera = false;
+            }
+
+            try { await Task.Delay(TimeSpan.FromMilliseconds(1000), ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { return; }
+        }
+    }
+
     private void SetupCockpitBars()
     {
         if (_cockpitBarsHost == null) return;
@@ -1974,9 +2078,8 @@ public partial class MainWindow : Window
             if (_btnSettings   != null) _btnSettings.IsEnabled   = hasGpsFix;
             if (_btnFieldTools != null) _btnFieldTools.IsEnabled = s.IsJobStarted;
 
-            // Push al render nativo: mapa principal + mini-mapa (si visible).
+            // Push al render nativo del mapa principal.
             _mapHost?.OnSnapshot(s);
-            _miniMap?.OnSnapshot(s);
             // Push tambien al overlay nativo si esta abierto: refresca KPIs.
             if (_fieldDataHost != null && _fieldDataHost.IsVisible)
                 _fieldDataHost.OnSnapshot(s);
@@ -2096,20 +2199,6 @@ public partial class MainWindow : Window
         // la URL. Show con back button = true: el operario ve la flecha "<-"
         // arriba a la izq. para volver al mapa.
         ShowWebView(full, showBackButton: true);
-    }
-
-    // ---------- Mini-mapa show/hide ---------------------------------------
-
-    private void OnMiniMapHide(object? sender, RoutedEventArgs e)
-    {
-        if (_miniMapWrap != null) _miniMapWrap.IsVisible = false;
-        if (_miniMapShow != null) _miniMapShow.IsVisible = true;
-    }
-
-    private void OnMiniMapShow(object? sender, RoutedEventArgs e)
-    {
-        if (_miniMapWrap != null) _miniMapWrap.IsVisible = true;
-        if (_miniMapShow != null) _miniMapShow.IsVisible = false;
     }
 
     private static string DeriveSubtitleFromUrl(string url)

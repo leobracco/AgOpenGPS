@@ -31,15 +31,32 @@ namespace AgroParallel.WebHost.Controllers
             return WriteJsonAsync(dto);
         }
 
+        // MERGE, no reemplazo: se aplican solo los campos presentes en el body.
+        // El Hub manda únicamente los tres flags, y con el reemplazo entero eso
+        // reseteaba a -1 todas las posiciones de los widgets — el operario
+        // acomodaba el overlay en la pantalla, tocaba un toggle y lo perdía.
         [Route(HttpVerbs.Post, "/overlays")]
         public async Task Save()
         {
-            OverlayPrefsDto dto = null;
-            try { dto = await ReadJsonBodyAsync<OverlayPrefsDto>(); }
-            catch { dto = null; }
-            if (dto == null) { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
+            string body;
+            try { body = await ReadBodyAsync(); }
+            catch { body = null; }
+
+            var dto = OverlayPrefsService.Instance.Load();
+            int aplicados;
+            try { aplicados = AgpJsonMerge.Apply(dto, body); }
+            catch { aplicados = 0; }
+
+            if (aplicados == 0)
+            {
+                // Ningún campo reconocido: no se guarda nada. Guardar acá sería
+                // pisar la config buena con los defaults del DTO.
+                await WriteJsonAsync(new { ok = false, error = "invalid-body" });
+                return;
+            }
+
             OverlayPrefsService.Instance.Save(dto);
-            await WriteJsonAsync(new { ok = true });
+            await WriteJsonAsync(new { ok = true, aplicados });
         }
     }
 }

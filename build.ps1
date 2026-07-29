@@ -82,10 +82,22 @@ if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.Desktop FAILED" -ForegroundColor R
 if (!(Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
 
 # Copiar AgOpenGPS (tiene mas archivos, va primero)
+#
+# OJO con los .json de la RAIZ: el bin del source acumula configuraciones de
+# runtime por haber corrido PilotX desde el IDE (quantiX_motores.json,
+# vistaX.json, perfil, overlays...). Copiarlos le PISA al operario la config
+# de su Build\ en CADA compilada — motores, dosis y calibraciones vueltas a
+# las del desarrollador, sin ningun aviso. Mismo criterio que ya usaba el
+# empaquetado del ZIP mas abajo: los .json legitimos del release viven en
+# subdirectorios (wwwroot, runtimes), nunca en la raiz.
 $aogBin = "$root\SourceCode\GPS\bin\$Config\win-x64"
 if (Test-Path $aogBin) {
     Write-Host "`nCopiando AgOpenGPS..." -ForegroundColor Yellow
-    Copy-Item "$aogBin\*" -Destination $OutDir -Recurse -Force
+    Get-ChildItem $aogBin -Force | Where-Object {
+        -not ($_.PSIsContainer -eq $false -and $_.Extension.ToLower() -eq '.json')
+    } | ForEach-Object {
+        Copy-Item $_.FullName -Destination $OutDir -Recurse -Force
+    }
 }
 
 # Copiar PilotX-KioskSetup.exe (utility para configurar kiosko en tractor)

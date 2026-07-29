@@ -90,6 +90,12 @@ public sealed class MapGlSurface : OpenGlControlBase
     private byte[]? _pendingWheelRgba;
     private int _pendingWheelW, _pendingWheelH;
 
+    private uint _implementoTex;
+    private bool _implementoTexReady;
+    private double _implementoAspect = 1.0;
+    private byte[]? _pendingImplRgba;
+    private int _pendingImplW, _pendingImplH;
+
     // Buffer CPU reutilizable. Se vuelca a _vbo en cada render que vea
     // un snapshot nuevo. No se aloca por frame.
     private float[] _scratch = new float[1024];
@@ -308,6 +314,29 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// una girada por su ángulo de Ackermann: por eso el arte del tractor no
     /// trae ruedas delanteras dibujadas.
     /// </summary>
+    /// <summary>
+    /// Sprite del implemento (sembradora, pulverizadora…). Se dibuja en la
+    /// posición y rumbo de la HERRAMIENTA —que no es la del tractor: el
+    /// implemento va rezagado y en curva apunta distinto— y a lo ancho real del
+    /// implemento configurado.
+    /// </summary>
+    public void SetImplementSprite(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingImplRgba = null;
+            _implementoTexReady = false;
+        }
+        else
+        {
+            _pendingImplRgba = rgba;
+            _pendingImplW = width;
+            _pendingImplH = height;
+            _implementoAspect = (double)height / width;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
     public void SetWheelSprite(byte[]? rgba, int width, int height)
     {
         if (rgba == null || width <= 0 || height <= 0)
@@ -331,11 +360,68 @@ public sealed class MapGlSurface : OpenGlControlBase
     public void OnSnapshot(HudSnapshot snap)
     {
         _snap = snap;
+        _desdeFix.Restart();          // reloj para interpolar entre fixes
         InvalidateBboxIfChanged(snap);
+        AjustarTickSuavizado(snap);
         // RequestNextFrameRendering: API de OpenGlControlBase para
         // forzar un repaint sin tick continuo. No quemamos GPU en
         // idle: render solo cuando hay snapshot nuevo.
         Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    // ---- suavizado del movimiento --------------------------------------
+    // El GPS entrega ~10 fixes/s. Si el mapa dibuja SOLO cuando llega un fix,
+    // se ve a 10 fps: entrecortado, sobre todo en modo heading-up donde gira
+    // el mundo entero. Entre fix y fix se avanza el tractor por estima
+    // (velocidad × tiempo sobre el rumbo actual) y se pide frame a ~60 Hz.
+    //
+    // El tick SOLO corre con el tractor en movimiento: parado no hay nada que
+    // interpolar y no tiene sentido quemar GPU en la cabina.
+    private readonly System.Diagnostics.Stopwatch _desdeFix = System.Diagnostics.Stopwatch.StartNew();
+    private DispatcherTimer? _tickSuave;
+
+    /// <summary>Tope de extrapolación: más allá de esto se prefiere quedarse
+    /// quieto antes que inventar posición. Si el GPS se corta, el tractor se
+    /// frena en pantalla en vez de seguir viajando solo.</summary>
+    private const double MaxExtrapolacionSeg = 0.30;
+
+    private void AjustarTickSuavizado(HudSnapshot snap)
+    {
+        bool enMovimiento = snap != null && snap.AvgSpeed > 0.2;
+        if (enMovimiento)
+        {
+            if (_tickSuave == null)
+            {
+                _tickSuave = new DispatcherTimer(DispatcherPriority.Render)
+                {
+                    Interval = TimeSpan.FromMilliseconds(16)   // ~60 fps
+                };
+                _tickSuave.Tick += (_, _) => RequestNextFrameRendering();
+            }
+            if (!_tickSuave.IsEnabled) _tickSuave.Start();
+        }
+        else if (_tickSuave != null && _tickSuave.IsEnabled)
+        {
+            _tickSuave.Stop();
+        }
+    }
+
+    /// <summary>
+    /// Posición del tractor interpolada al instante actual. Devuelve el fix tal
+    /// cual si está parado o si pasó demasiado desde el último dato.
+    /// </summary>
+    private (double e, double n) PosicionInterpolada(HudSnapshot snap)
+    {
+        double e = snap.PivotEasting, n = snap.PivotNorthing;
+        double vms = snap.AvgSpeed / 3.6;                 // km/h → m/s
+        if (vms <= 0.05) return (e, n);
+
+        double dt = _desdeFix.Elapsed.TotalSeconds;
+        if (dt <= 0 || dt > MaxExtrapolacionSeg) return (e, n);
+
+        // Mismo criterio de ejes que el resto del mapa: rumbo 0 = Norte.
+        double d = vms * dt;
+        return (e + Math.Sin(snap.Heading) * d, n + Math.Cos(snap.Heading) * d);
     }
 
     /// <summary>
@@ -587,8 +673,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (_headingUp && followSnap != null &&
             (followSnap.PivotEasting != 0 || followSnap.PivotNorthing != 0))
         {
-            cxBbox = followSnap.PivotEasting;
-            cyBbox = followSnap.PivotNorthing;
+            // Posición interpolada, no la del último fix: si la cámara salta de
+            // fix en fix, TODO el mundo salta con ella y es lo que más se nota.
+            var (ce, cn) = PosicionInterpolada(followSnap);
+            cxBbox = ce;
+            cyBbox = cn;
             alpha = followSnap.Heading;   // rad; rotar el mundo por el rumbo
         }
 
@@ -628,13 +717,16 @@ public sealed class MapGlSurface : OpenGlControlBase
         // programa y necesita la MISMA transformación.
         for (int i = 0; i < 16; i++) _mvpCache[i] = mvp[i];
 
-        // --- Capa 1: world grid ----------------------------------------
-        // Lineas cada 10m alrededor del centro de bbox. Si no hay bbox
-        // (idle / sin lote), usar un grid arbitrario alrededor del 0,0
-        // mundo (el tractor aparecera ahi cuando llegue snapshot con
-        // PivotEasting/PivotNorthing).
-        if (_gridOn)
-            DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, _isDay ? ColGridDay : ColGrid);
+        // --- Capa 1: world grid — DESACTIVADA (2026-07-28, pedido usuario) --
+        // El cuadriculado de fondo no le decía nada al operario: no marca
+        // referencias del lote ni distancias que se usen manejando, y se
+        // redibujaba entero en CADA frame (a 60 fps con el tractor en
+        // movimiento son cientos de líneas por segundo para nada).
+        // El método DrawGrid + _gridOn quedan (no se borra el toggle) por si
+        // hace falta volver a colgarlo — ver MenuIzquierda: el botón "Grilla"
+        // se sacó del menú porque hoy no tiene ningún efecto.
+        //if (_gridOn)
+        //    DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, _isDay ? ColGridDay : ColGrid);
 
         // --- Capa 2: coverage (worked area) ----------------------------
         // Si hay snapshot pendiente con revision nueva, reuploadeamos el
@@ -702,7 +794,10 @@ public sealed class MapGlSurface : OpenGlControlBase
             _pendingTool = null;
             UploadTool(_toolSnap);
         }
-        if (_toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
+        // La barra de secciones solo se dibuja si NO hay sprite de implemento:
+        // con el dibujo real de la máquina, la barra de colores encima sobra.
+        if (!_implementoTexReady
+            && _toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
             DrawTool(_toolSnap);
 
         var snap = _snap;
@@ -720,8 +815,13 @@ public sealed class MapGlSurface : OpenGlControlBase
                 }
             }
 
-            // --- Capa 4: tractor ---------------------------------------
-            DrawTractor(snap.PivotEasting, snap.PivotNorthing, snap.Heading, scale);
+            // --- Capa 4: implemento y tractor ---------------------------
+            // El implemento va PRIMERO: el tractor lo tapa parcialmente en la
+            // zona del enganche, que es lo correcto visualmente.
+            SubirSpritePendiente();
+            DrawImplementoSprite();
+            var (te, tn) = PosicionInterpolada(snap);
+            DrawTractor(te, tn, snap.Heading, scale);
         }
 
         // --- Capa 4b: creación de AB (marcador A + línea pendiente A→tractor) ---
@@ -1641,6 +1741,65 @@ public sealed class MapGlSurface : OpenGlControlBase
             _pendingWheelRgba = null;
             if (_wheelTex == 0) _wheelTex = _gl.GenTexture();
             _wheelTexReady = SubirTextura(_wheelTex, px, _pendingWheelW, _pendingWheelH, "rueda");
+        }
+
+        if (_pendingImplRgba != null)
+        {
+            var px = _pendingImplRgba;
+            _pendingImplRgba = null;
+            if (_implementoTex == 0) _implementoTex = _gl.GenTexture();
+            _implementoTexReady = SubirTextura(_implementoTex, px, _pendingImplW, _pendingImplH, "implemento");
+        }
+    }
+
+    /// <summary>
+    /// Dibuja el implemento en la posición/rumbo de la herramienta, a lo ancho
+    /// real configurado. Se ubica de modo que la BARRA (el borde trasero de la
+    /// imagen, donde van los cuerpos de siembra) quede sobre el punto de la
+    /// herramienta, y la lanza salga hacia adelante, buscando al tractor.
+    /// Devuelve false si no hay textura: entonces el mapa sigue con las barras
+    /// de sección de siempre.
+    /// </summary>
+    private bool DrawImplementoSprite()
+    {
+        if (_gl == null || _texProgram == 0 || !_implementoTexReady) return false;
+        var snap = _snap;
+        if (snap == null) return false;
+
+        double ancho = snap.ToolWidth;
+        if (ancho <= 0.2) return false;          // sin implemento configurado
+        double largo = ancho * _implementoAspect;
+
+        try
+        {
+            _gl.UseProgram(_texProgram);
+            unsafe
+            {
+                fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
+            }
+            // Interpolado igual que el tractor: si el implemento avanza a
+            // saltos mientras el tractor va suave, se ve como si se
+            // desenganchara y volviera.
+            double vms = snap.AvgSpeed / 3.6;
+            double dt = _desdeFix.Elapsed.TotalSeconds;
+            double te = snap.ToolEasting, tn = snap.ToolNorthing;
+            if (vms > 0.05 && dt > 0 && dt <= MaxExtrapolacionSeg)
+            {
+                double d = vms * dt;
+                te += Math.Sin(snap.ToolHeading) * d;
+                tn += Math.Cos(snap.ToolHeading) * d;
+            }
+
+            // Centro medio largo adelante del punto de herramienta.
+            DrawQuadTex(_implementoTex, te, tn, snap.ToolHeading,
+                        0, largo * 0.5, ancho * 0.5, largo * 0.5, 0);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[MapGlSurface] fallo dibujando el implemento: " + ex.Message);
+            _implementoTexReady = false;
+            return false;
         }
     }
 

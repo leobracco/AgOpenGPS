@@ -229,6 +229,23 @@
             -->
             <vw:MapPanel x:Name="MapHost" Grid.Row="2"/>
 
+            <!-- =================== WIDGETS SOBRE EL MAPA =================== -->
+            <!--
+                Overlays que acompañan la labor SIN tapar el mapa: se ven
+                mientras se trabaja y el operario los acomoda arrastrándolos.
+                Canvas porque la posición es libre y se persiste en
+                overlayPrefs.json (las mismas coords que usa la app WinForms).
+
+                Va declarado DESPUÉS del mapa y ANTES de los paneles a propósito,
+                sin ZIndex: así queda sobre el mapa, cualquier panel que se abra
+                lo tapa, y las barras del cockpit (ZIndex 50) siguen arriba de
+                todo. Sin Background para no interceptar el pan/zoom del mapa —
+                solo sus hijos son tocables.
+            -->
+            <Canvas Name="MapOverlaysHost" Grid.Row="2" IsVisible="False">
+                <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
+            </Canvas>
+
             <!-- =================== FIELD DATA (overlay nativo) =================== -->
             <!--
                 Reemplazo nativo de pages/datos-lote.html. Se muestra cuando
@@ -389,75 +406,12 @@
                     Click="OnBackClick"
                     ToolTip.Tip="Volver al mapa"/>
 
-            <!-- ============ MINI-MAPA (modo full, esquina inf. izq.) ============ -->
-            <!--
-                Primer paso de render nativo Avalonia: el outline del lote
-                activo + sprite del tractor, dibujados con DrawingContext.
-                Mientras no migremos el OpenGL completo, este thumbnail da
-                feedback espacial encima del WebView (que muestra el Hub).
-            -->
-            <Border Name="MiniMapWrap"
-                    Grid.Row="2"
-                    Width="240" Height="180"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Bottom"
-                    Margin="14,0,0,14"
-                    Background="{StaticResource PilotXBgMid}"
-                    BorderBrush="{StaticResource PilotXBorderHigh}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    IsVisible="False"
-                    BoxShadow="0 4 12 0 #80000000">
-                <Grid>
-                    <ctl:MiniMapView Name="MiniMap"/>
-                    <!-- Label esquina sup. izq. del mini-mapa -->
-                    <Border Background="{StaticResource PilotXBgDeep}"
-                            CornerRadius="4"
-                            Padding="6,2"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Top"
-                            Margin="6">
-                        <TextBlock Text="MAPA"
-                                   Foreground="{StaticResource PilotXTextDim}"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"/>
-                    </Border>
-                    <!-- Boton X chiquito para ocultar el mini-mapa -->
-                    <Button Name="MiniMapHide"
-                            Content="x"
-                            Width="22" Height="22"
-                            FontSize="11"
-                            Padding="0"
-                            Background="{StaticResource PilotXBgDeep}"
-                            Foreground="{StaticResource PilotXTextMid}"
-                            BorderBrush="{StaticResource PilotXBorder}"
-                            BorderThickness="1"
-                            CornerRadius="11"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Top"
-                            Margin="0,6,6,0"
-                            Click="OnMiniMapHide"
-                            ToolTip.Tip="Ocultar mini-mapa"/>
-                </Grid>
-            </Border>
+            <!-- El mini-mapa de la esquina inferior izquierda se sacó a pedido
+                 del usuario (2026-07-28): con el mapa nativo a pantalla completa
+                 no aportaba nada y le comía lugar a los widgets de los productos.
+                 El control MiniMapView sigue existiendo por si se lo quiere
+                 volver a colgar en otro lado. -->
 
-            <!-- Pin para reabrir el mini-mapa cuando esta oculto -->
-            <Button Name="MiniMapShow"
-                    Grid.Row="2"
-                    Content="[M]"
-                    Width="44" Height="44"
-                    FontSize="12"
-                    Background="{StaticResource PilotXBgMid}"
-                    Foreground="{StaticResource PilotXTextMid}"
-                    BorderBrush="{StaticResource PilotXBorderHigh}"
-                    BorderThickness="1"
-                    CornerRadius="22"
-                    HorizontalAlignment="Left"
-                    VerticalAlignment="Bottom"
-                    Margin="14,0,0,14"
-                    IsVisible="False"
-                    Click="OnMiniMapShow"
-                    ToolTip.Tip="Mostrar mini-mapa"/>
 
             <!-- =================== BARRAS COCKPIT (menús reutilizados de PilotX.Cockpit.Bars) =================== -->
             <!--
@@ -468,20 +422,37 @@
                 de BarStyles (Selector="Button"/"Image") van SCOPEADOS a este Grid
                 para no pisar el resto de la UI de PilotX.Desktop.
             -->
+            <!--
+                Filas Auto/*/Auto en vez de altos fijos + márgenes que los
+                repitan: la barra de abajo crece cuando aparece la botonera de
+                secciones y se achica cuando no hay lote, sin que nadie tenga
+                que acordarse de actualizar tres números. Con el alto fijo en 58
+                la segunda fila de la barra (donde vive el botón que abre los
+                productos X-*) quedaba CORTADA fuera de la pantalla: el operario
+                no tenía forma de llegar a QuantiX ni a VistaX.
+                La fila del medio queda transparente — el mapa se ve por atrás.
+            -->
             <Grid Name="CockpitBarsHost" Grid.Row="2" IsVisible="False" ZIndex="50">
                 <Grid.Styles>
                     <StyleInclude Source="avares://PilotX.Cockpit.Bars/Theme/BarStyles.axaml"/>
                 </Grid.Styles>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
                 <bars:BarraSuperior x:Name="BarSuperior"
-                                    VerticalAlignment="Top" HorizontalAlignment="Stretch" Height="46"/>
-                <bars:BarraAbajo    x:Name="BarAbajo"
-                                    VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Height="58"/>
-                <bars:BarraDerecha  x:Name="BarDerecha"
-                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                    Width="58" Margin="0,0,0,58"/>
+                                    Grid.Row="0" HorizontalAlignment="Stretch" Height="46"/>
                 <bars:MenuIzquierda x:Name="MenuIzq"
+                                    Grid.Row="1"
                                     HorizontalAlignment="Left" VerticalAlignment="Stretch"
-                                    Width="140" Margin="0,46,0,58"/>
+                                    Width="140"/>
+                <bars:BarraDerecha  x:Name="BarDerecha"
+                                    Grid.Row="1"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Width="58"/>
+                <bars:BarraAbajo    x:Name="BarAbajo"
+                                    Grid.Row="2" HorizontalAlignment="Stretch"/>
             </Grid>
 
             <!-- =========== Panel de creación de guía A/B (en el mapa) =========== -->

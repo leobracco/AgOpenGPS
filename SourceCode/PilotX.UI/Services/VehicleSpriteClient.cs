@@ -86,6 +86,23 @@ public sealed class VehicleSpriteClient
         catch { return null; }
     }
 
+    /// <summary>
+    /// Sprite del implemento (sembradora, pulverizadora…). Por ahora va por
+    /// convención de nombre en /img/implementos/; cuando haya selector de
+    /// implemento se elegirá igual que el vehículo.
+    /// </summary>
+    public async Task<Sprite?> GetImplementoAsync(string archivo = "sembradora.png", CancellationToken ct = default)
+    {
+        try
+        {
+            using var resp = await _http.GetAsync(_baseUrl + "img/implementos/" + archivo, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return null;
+            var png = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            return Decodificar(png, archivo);
+        }
+        catch { return null; }
+    }
+
     private static Sprite? Decodificar(byte[] png, string archivo)
     {
         using var ms = new MemoryStream(png);

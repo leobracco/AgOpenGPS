@@ -93,6 +93,12 @@ public sealed class MapPanel : Grid
         _gl?.SetWheelSprite(rgba, width, height);
     }
 
+    /// <summary>Sprite del implemento (sembradora, etc.).</summary>
+    public void SetImplementSprite(byte[]? rgba, int width, int height)
+    {
+        _gl?.SetImplementSprite(rgba, width, height);
+    }
+
     /// <summary>
     /// Push de la polyline de guidance (Stage 3, AB/Curve/Contour).
     /// Ambas surfaces pintan la linea cian — Skia con StreamGeometry

@@ -23,6 +23,20 @@ public sealed class OverlayPrefs
     [JsonPropertyName("qx_overlay")] public bool QxOverlay { get; set; } = true;
     [JsonPropertyName("vx_overlay")] public bool VxOverlay { get; set; } = true;
     [JsonPropertyName("fx_overlay")] public bool FxOverlay { get; set; } = true;
+
+    // Posición donde el operario dejó el overlay. -1 = nunca lo movió, va a su
+    // rincón por defecto. El POST del server hace merge, así que mandar solo
+    // estos dos campos no pisa los flags ni las posiciones de los otros widgets.
+    [JsonPropertyName("qx_x")] public int QxX { get; set; } = -1;
+    [JsonPropertyName("qx_y")] public int QxY { get; set; } = -1;
+}
+
+/// <summary>Solo la posición de QuantiX, para guardarla sin arrastrar el resto
+/// del objeto (el server aplica únicamente los campos que llegan).</summary>
+public sealed class OverlayPosQx
+{
+    [JsonPropertyName("qx_x")] public int QxX { get; set; }
+    [JsonPropertyName("qx_y")] public int QxY { get; set; }
 }
 
 public sealed class OverlaysClient
@@ -57,10 +71,17 @@ public sealed class OverlaysClient
     }
 
     public async Task<bool> SaveAsync(OverlayPrefs prefs, CancellationToken ct = default)
+        => await PostAsync(prefs, ct).ConfigureAwait(false);
+
+    /// <summary>Guarda dónde quedó el overlay de QuantiX después de moverlo.</summary>
+    public async Task<bool> SavePosQxAsync(int x, int y, CancellationToken ct = default)
+        => await PostAsync(new OverlayPosQx { QxX = x, QxY = y }, ct).ConfigureAwait(false);
+
+    private async Task<bool> PostAsync<T>(T payload, CancellationToken ct)
     {
         try
         {
-            var body = JsonSerializer.Serialize(prefs, _jsonOpts);
+            var body = JsonSerializer.Serialize(payload, _jsonOpts);
             using var content = new StringContent(body, Encoding.UTF8, "application/json");
             using var resp = await _http.PostAsync(_baseUrl + "api/overlays", content, ct).ConfigureAwait(false);
             return resp.IsSuccessStatusCode;

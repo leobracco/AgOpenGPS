@@ -1363,6 +1363,9 @@
       history.replaceState(null, '', url.toString());
     } catch (e) { /* file:// etc. */ }
     tabs[id].enter();
+    // Volviendo de un módulo embebido a una pestaña de config, el botón
+    // flotante de guardar tiene que reaparecer.
+    mostrarGuardar(true);
     // si el leave no guardó nada (sin cambios, o relay que descarta) el
     // botón flotante vuelve a "Sin cambios"; si guardó, guardar() ya puso
     // el tilde y no lo pisamos.
@@ -1388,6 +1391,10 @@
         var fr = document.getElementById('modIframe');
         var url = b.dataset.mod + (b.dataset.mod.indexOf('?') < 0 ? '?widget=1' : '&widget=1');
         if (fr.getAttribute('src') !== url) fr.setAttribute('src', url);
+        // El botón flotante Guardar es de la config del vehículo; dentro de un
+        // módulo no guarda nada y encima tapa los controles del iframe (tapaba
+        // el toggle del overlay de FlowX en el Hub). Cada módulo guarda lo suyo.
+        mostrarGuardar(false);
         document.querySelectorAll('#menu button').forEach(function (x) {
           x.classList.toggle('sel', x === b);
         });
@@ -1409,6 +1416,12 @@
   var btnGImg = document.getElementById('btnGuardarImg');
   var btnGCap = document.getElementById('btnGuardarCap');
   var btnGTimer = null;
+
+  // Declaración (no expresión) para que se pueda llamar desde irATab y desde el
+  // listener del menú, que están escritos más arriba en el archivo.
+  function mostrarGuardar(visible) {
+    try { btnG.style.display = visible ? '' : 'none'; } catch (e) { /* aún no montado */ }
+  }
 
   function marcarSucio() {
     if (btnGTimer) { clearTimeout(btnGTimer); btnGTimer = null; }
