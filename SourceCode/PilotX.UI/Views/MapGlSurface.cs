@@ -1,4 +1,4 @@
-// MapGlSurface.cs
+﻿// MapGlSurface.cs
 //
 // Stage 1 de la migracion OpenGL del mapa de guiado. Reemplaza el render
 // Skia 2D de MapSkiaSurface por un pipeline GL real basado en Avalonia
@@ -155,8 +155,8 @@ public sealed class MapGlSurface : OpenGlControlBase
     // (manual ON). El tractor + boundary se renderean encima.
     // Sin revision-cache porque los puntos cambian cada frame; el batch
     // es chico (max ~16 secciones × 2 puntos × 2 floats = 64 floats).
-    private uint _toolVbo;
-    private int _toolVboCapacityFloats;
+    // (Sin VBO propio: las secciones se arman como quads en el scratch por
+    // frame. Son ~16 y el batch es de 8 floats cada una.)
     private ToolGeometrySnapshot? _pendingTool;
     private ToolGeometrySnapshot? _toolSnap;
 
@@ -228,9 +228,18 @@ public sealed class MapGlSurface : OpenGlControlBase
     // Tool / sections (Stage 4a). Las secciones se pintan como segmentos
     // gruesos (LineWidth lo controla el driver — algunos drivers lo
     // capean en 1.0, pero la barra es solo indicativa, no cubre area).
-    private static readonly float[] ColToolOff       = { 0.561f, 0.627f, 0.573f, 1f }; // #8FA092 gris (off)
+    // Sección cortada (apagada por el operario). Antes era #8FA092, un verde
+    // grisáceo desaturado: sobre el fondo oscuro y al lado del verde de
+    // "aplicando" no se leía como apagada — el operario lo describía como
+    // "verde/marrón clarito". Cortada tiene que gritar, y el color de cortar es
+    // el rojo.
+    private static readonly float[] ColToolOff       = { 0.929f, 0.282f, 0.282f, 1f }; // #ED4848 rojo (cortada)
     private static readonly float[] ColToolAutoOn    = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E verde (auto + mapping)
-    private static readonly float[] ColToolAutoOff   = { 0.929f, 0.282f, 0.282f, 1f }; // #ED4848 rojo (auto + NO mapping)
+    // Auto pero denegada (lindero/cabecera). Pasa a naranja porque el rojo se lo
+    // quedó "cortada por el operario": si las dos fueran rojas, el operario no
+    // podría distinguir lo que apagó él de lo que le apagó el sistema, que es
+    // justo lo que necesita saber cuando algo no siembra y no entiende por qué.
+    private static readonly float[] ColToolAutoOff   = { 0.910f, 0.447f, 0.110f, 1f }; // #E8721C naranja (auto + NO mapping)
     private static readonly float[] ColToolManual    = { 0.973f, 0.808f, 0.247f, 1f }; // #F8CE3F amarillo (manual on)
     // Tram lines (Stage 4b). Tono claro semitransparente para no competir
     // con guidance cian ni con boundary verde. Coincide con el render
@@ -703,11 +712,8 @@ public sealed class MapGlSurface : OpenGlControlBase
         _parVboCapacityFloats = 0;
         _parDirty = true;
 
-        // VBO de tool (Stage 4a). DYNAMIC_DRAW: se reescribe cada frame
-        // que llega snapshot nuevo (4 Hz), con todos los segmentos
-        // empacados. El draw real va en 3-4 batches por color.
-        _toolVbo = _gl.GenBuffer();
-        _toolVboCapacityFloats = 0;
+        // (Las secciones ya no tienen VBO propio: DrawTool arma los quads en el
+        // scratch por frame, que es lo que permite darles grosor real.)
 
         // VBO de tram (Stage 4b). STATIC_DRAW: solo cambia al regenerar
         // tram (cambio passes/ancho/displayMode). Concatena lineas + outer
@@ -723,6 +729,8 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         var glErr = _gl.GetError();
         Console.Error.WriteLine("[MapGlSurface] GL init OK (glGetError=" + glErr + ")");
+
+        Dispatcher.UIThread.Post(ArrancarLatido, DispatcherPriority.Background);
     }
 
     protected override void OnOpenGlDeinit(GlInterface glInterface)
@@ -734,7 +742,6 @@ public sealed class MapGlSurface : OpenGlControlBase
             _gl.DeleteBuffer(_coverageVbo);
             _gl.DeleteBuffer(_guidanceVbo);
             _gl.DeleteBuffer(_parVbo);
-            _gl.DeleteBuffer(_toolVbo);
             _gl.DeleteBuffer(_tramVbo);
             _gl.DeleteBuffer(_pathsVbo);
             _gl.DeleteVertexArray(_vao);
@@ -760,6 +767,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.ClearColor(ColBg[0], ColBg[1], ColBg[2], ColBg[3]);
         _gl.Clear((uint)ClearBufferMask.ColorBufferBit);
 
+        _framesDesdeLatido++;
         bool diag = _diagFrames < 3;
         if (diag) LogPixel("post-clear", wPx / 2, hPx / 2);
 
@@ -901,14 +909,15 @@ public sealed class MapGlSurface : OpenGlControlBase
         {
             _toolSnap = _pendingTool;
             _pendingTool = null;
-            UploadTool(_toolSnap);
+            // Ya no se sube a un VBO propio: DrawTool arma los quads por frame
+            // con el scratch. Son ~16 secciones, nada.
         }
         // La barra de secciones va SIEMPRE. Antes se ocultaba cuando había sprite
         // de implemento cargado (`!_implementoTexReady`); como el sprite quedó
         // desactivado (ver Capa 4), esa condición dejaría el mapa sin barra y sin
         // máquina.
         if (_toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
-            DrawTool(_toolSnap);
+            DrawTool(_toolSnap, scale);
 
         var snap = _snap;
         if (snap != null)
@@ -966,6 +975,47 @@ public sealed class MapGlSurface : OpenGlControlBase
     }
 
     private int _diagFrames;
+
+    // ---- latido de diagnóstico -----------------------------------------
+    // El mapa se congeló dos veces (2026-07-29) sin dejar rastro: el log de
+    // arranque se corta a los 3 frames y despues no se sabe mas nada, asi que
+    // cuando pasa no hay con que distinguir "dejo de renderizar" de "renderiza
+    // pero con datos viejos" ni de "se trabo el hilo de UI".
+    //
+    // Esto emite una linea cada 5 s con lo minimo para separar esos casos. Si
+    // las lineas DEJAN de salir, el que se trabo es el hilo de UI (el timer
+    // corre ahi). Si salen con fps=0, se dejo de pedir frames. Si salen con
+    // fps>0 pero el fix no envejece, el que murio es el poller del HUD.
+    private int _framesDesdeLatido;
+    private DispatcherTimer? _latido;
+    private readonly System.Diagnostics.Stopwatch _relojLatido = System.Diagnostics.Stopwatch.StartNew();
+
+    private void ArrancarLatido()
+    {
+        if (_latido != null) return;
+        _latido = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _latido.Tick += (_, _) =>
+        {
+            double seg = _relojLatido.Elapsed.TotalSeconds;
+            if (seg <= 0) return;
+            double fps = _framesDesdeLatido / seg;
+            _framesDesdeLatido = 0;
+            _relojLatido.Restart();
+
+            var s = _snap;
+            Console.Error.WriteLine(string.Format(
+                "[MapGlSurface] latido fps={0:F1} pausado={1} tick={2} edadFix={3:F1}s vel={4:F1}",
+                fps,
+                _pausado,
+                _tickSuave != null && _tickSuave.IsEnabled,
+                _desdeFix.Elapsed.TotalSeconds,
+                s != null ? s.AvgSpeed : -1));
+        };
+        _latido.Start();
+    }
 
     private unsafe void LogPixel(string tag, int px, int py)
     {
@@ -1515,90 +1565,55 @@ public sealed class MapGlSurface : OpenGlControlBase
         unsafe { _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0); }
     }
 
-    private void UploadTool(ToolGeometrySnapshot snap)
+    /// <summary>
+    /// Grosor de la barra de secciones, en píxeles de pantalla. Va en píxeles y
+    /// no en metros a propósito: es un indicador de estado, no una medida del
+    /// terreno, así que tiene que verse igual de bien con el zoom cerca o lejos.
+    /// </summary>
+    private const double GrosorBarraSeccionesPx = 7.0;
+
+    private void DrawTool(ToolGeometrySnapshot snap, double scale)
     {
         if (_gl == null) return;
-        if (snap.Sections == null || snap.Sections.Count == 0 || !snap.IsValid) return;
 
-        int n = snap.Sections.Count;
-        // 2 vertices por seccion (Left, Right) * 2 floats por vertice.
-        int needFloats = n * 4;
-        EnsureScratch(needFloats);
-        for (int i = 0; i < n; i++)
-        {
-            var s = snap.Sections[i];
-            int o = i * 4;
-            _scratch[o    ] = (float)s.LeftE;
-            _scratch[o + 1] = (float)s.LeftN;
-            _scratch[o + 2] = (float)s.RightE;
-            _scratch[o + 3] = (float)s.RightN;
-        }
+        // Se dibuja con QUADS y no con GL_LINES. LineWidth lo capea el driver:
+        // en core profile y en GL ES —que es lo que Avalonia negocia en Windows,
+        // y lo que corre la placa de la cabina— el máximo suele ser 1.0, así que
+        // pedir 3 px daba una línea de 1 px igual y el grosor no se podía tocar.
+        // Con dos triángulos por sección el ancho es nuestro y se ve de verdad.
+        double grosorMundo = GrosorBarraSeccionesPx / Math.Max(scale, 1e-6);
+        double medio = grosorMundo * 0.5;
 
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _toolVbo);
-        if (_toolVboCapacityFloats < needFloats)
-        {
-            int cap = Math.Max(_toolVboCapacityFloats, 64);
-            while (cap < needFloats) cap *= 2;
-            _toolVboCapacityFloats = cap;
-            unsafe
-            {
-                _gl.BufferData(BufferTargetARB.ArrayBuffer,
-                    (nuint)(cap * sizeof(float)),
-                    (void*)0,
-                    BufferUsageARB.DynamicDraw);
-            }
-        }
-        unsafe
-        {
-            fixed (float* p = _scratch)
-            {
-                _gl.BufferSubData(BufferTargetARB.ArrayBuffer,
-                    0,
-                    (nuint)(needFloats * sizeof(float)),
-                    p);
-            }
-        }
-        // Volver al VBO dinamico para que el resto del render siga.
         _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
-    }
-
-    private void DrawTool(ToolGeometrySnapshot snap)
-    {
-        if (_gl == null) return;
-        // El layout en _toolVbo es: seccion i -> (Left.E, Left.N, Right.E, Right.N)
-        // en offset i*4 floats = i*2 vertices. DrawArrays(Lines, start=i*2, count=2)
-        // dibuja un segmento por call. Batch por color para minimizar
-        // cambios de uniform: agrupamos las secciones por estado y emitimos
-        // un draw por color que use DrawArraysIndirect... no, mantengamoslo
-        // simple: 1 segmento = 1 DrawArrays. N max es ~16 sections; 16
-        // draws/frame es nada.
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _toolVbo);
         unsafe
         {
             _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
         }
 
-        // Lineas gruesas para que se vean a varios zooms. Algunos drivers
-        // (especialmente core profile) capean line width en 1.0 — no es
-        // critico: el segmento sigue ahi, solo mas finito. En Stage 4
-        // refinado podemos cambiar a quads triangulados con ancho real.
-        _gl.LineWidth(3.0f);
-
+        // Un draw por sección: N max ~16, y así cada una conserva su color de
+        // estado sin tener que reordenar nada.
         var sections = snap.Sections;
         for (int i = 0; i < sections!.Count; i++)
         {
             var s = sections[i];
-            float[] col = SectionColor(s);
-            _gl.Uniform4(_uColor, col[0], col[1], col[2], col[3]);
-            _gl.DrawArrays(PrimitiveType.Lines, i * 2, 2);
-        }
 
-        _gl.LineWidth(1.0f);
+            double dx = s.RightE - s.LeftE;
+            double dy = s.RightN - s.LeftN;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-6) continue;      // sección de ancho cero
 
-        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
-        unsafe
-        {
-            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+            // Perpendicular unitaria × medio grosor: engrosa la barra hacia
+            // adelante y hacia atrás de la herramienta.
+            double px = -dy / len * medio;
+            double py = dx / len * medio;
+
+            EnsureScratch(8);
+            _scratch[0] = (float)(s.LeftE  + px); _scratch[1] = (float)(s.LeftN  + py);
+            _scratch[2] = (float)(s.LeftE  - px); _scratch[3] = (float)(s.LeftN  - py);
+            _scratch[4] = (float)(s.RightE + px); _scratch[5] = (float)(s.RightN + py);
+            _scratch[6] = (float)(s.RightE - px); _scratch[7] = (float)(s.RightN - py);
+
+            UploadAndDraw(PrimitiveType.TriangleStrip, 4, SectionColor(s));
         }
     }
 
