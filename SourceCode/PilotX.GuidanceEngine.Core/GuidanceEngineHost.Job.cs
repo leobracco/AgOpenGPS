@@ -83,6 +83,25 @@ namespace AgOpenGPS
             Bnd.bndList.Clear();
             Trk.gArr.Clear();
             Trk.idx = -1;
+
+            // Soltar la cobertura dibujada. Sin esto el lindero y las guías se
+            // iban pero la pintura quedaba en pantalla: /api/aog/coverage seguía
+            // devolviendo los parches del lote anterior y el mapa los mostraba
+            // sobre un lote que ya no estaba abierto — y peor, se mezclaba con
+            // lo del lote siguiente.
+            //
+            // Es SOLO memoria: no se toca ningún archivo ni se resetea el área
+            // trabajada. Para borrar lo aplicado de verdad está el comando
+            // dedicado, que además reescribe los archivos del lote.
+            //
+            // patchSaveList NO se limpia a propósito: ahí quedan los parches que
+            // esperan bajar a disco, y vaciarlo perdería cobertura ya trabajada.
+            for (int j = 0; j < TriStripField.Count; j++)
+            {
+                TriStripField[j]?.patchList?.Clear();
+                TriStripField[j]?.triangleList?.Clear();
+            }
+
             currentFieldDirectory = "";
             displayFieldName = "";
             string msg = $"GuidanceEngine: lote cerrado (IsJobStarted={IsJobStarted})";

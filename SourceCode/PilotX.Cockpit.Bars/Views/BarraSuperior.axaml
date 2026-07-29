@@ -125,7 +125,7 @@
             <TextBlock Text="GPS" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Classes="tab" Content="LOTE" IsEnabled="{Binding LoteEnabled}"
+        <Button Classes="tab" Content="{Binding LoteText}" IsEnabled="{Binding LoteEnabled}"
                 Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
         <Button Classes="tab" Content="SISTEMA">
           <Button.Flyout>

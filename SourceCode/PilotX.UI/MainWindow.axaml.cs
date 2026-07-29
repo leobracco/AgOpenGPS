@@ -1088,15 +1088,16 @@ public partial class MainWindow : Window
     }
 
     // La página del diálogo pide cerrar navegando a la URL centinela.
+    //
+    // OJO: en el WebView del diálogo esta navegación NO se produce — se verificó
+    // con un log en NavigationCompleted y solo aparece la página en sí, nunca el
+    // centinela. Por eso el cierre real lo maneja CerrarDialogoSiCambioElLote,
+    // que mira el lote activo del HUD. Esto queda porque no molesta y sí anda en
+    // el WebView principal, pero NO se puede confiar en ello acá.
     private void OnDialogNavigated(string url)
     {
-        var u = url ?? string.Empty;
-        Console.Error.WriteLine("[Dialogo] navegado -> " + u);
-        if (u.IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
-        {
-            Console.Error.WriteLine("[Dialogo] centinela detectado, cerrando");
+        if ((url ?? string.Empty).IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
             CerrarDialogo();
-        }
     }
 
     /// <summary>
