@@ -62,6 +62,9 @@
     <Compile Include="..\AgIO\Source\Classes\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
     <Compile Include="..\AgIO\Source\Classes\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
     <Compile Include="..\AgIO\Source\Classes\CGLM.cs" Link="AgIO\CGLM.cs" />
+    <!-- Mapeo TramSnapshot->DTO: MISMO archivo que compila AgOpenGPS.csproj,
+         para que las dos pantallas de tramlines dibujen igual. -->
+    <Compile Include="..\AgroParallel\Adapters\TramLineMapper.cs" Link="AgroParallel\TramLineMapper.cs" />
     <!-- Config de dirección (ISteerConfigService): mapeo settings↔DTO + PGN
          252/251. Mismo archivo que compila AgOpenGPS.csproj (FormGPS) para no
          duplicar el port del FormSteer nativo en dos lados. -->

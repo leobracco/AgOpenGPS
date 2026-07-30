@@ -255,6 +255,60 @@ namespace AgOpenGPS
             }
         }
 
+        /// <summary>
+        /// Baja las tramlines a Tram.txt. El editor las guarda en el acto: se
+        /// arman una vez por lote y rehacerlas cuesta volver a marcar pasadas.
+        /// </summary>
+        public void GuardarTram()
+        {
+            if (string.IsNullOrEmpty(currentFieldDirectory)) return;
+            try
+            {
+                string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
+                if (Directory.Exists(dir))
+                    TramFiles.Save(dir, Tram.tramBndOuterArr, Tram.tramBndInnerArr, Tram.tramList);
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: no se pudo guardar Tram.txt: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Diagonal aproximada del lote. Las tramlines se dibujan más largas que
+        /// el lote y después se recortan contra el contorno, así que si esto sale
+        /// corto las líneas no llegan al lindero.
+        ///
+        /// Se calcula del bounding box del contorno; sin contorno se devuelve un
+        /// valor amplio en vez de cero, que dejaría las tramlines en nada.
+        /// </summary>
+        public double MaxDistanciaLote
+        {
+            get
+            {
+                try
+                {
+                    if (Bnd?.bndList == null || Bnd.bndList.Count == 0) return 2000.0;
+                    var f = Bnd.bndList[0].fenceLine;
+                    if (f == null || f.Count == 0) return 2000.0;
+
+                    double minE = double.MaxValue, maxE = double.MinValue;
+                    double minN = double.MaxValue, maxN = double.MinValue;
+                    for (int i = 0; i < f.Count; i++)
+                    {
+                        if (f[i].easting < minE) minE = f[i].easting;
+                        if (f[i].easting > maxE) maxE = f[i].easting;
+                        if (f[i].northing < minN) minN = f[i].northing;
+                        if (f[i].northing > maxN) maxN = f[i].northing;
+                    }
+                    double dx = maxE - minE, dy = maxN - minN;
+                    double diag = Math.Sqrt(dx * dx + dy * dy);
+                    return diag > 1 ? diag : 2000.0;
+                }
+                catch { return 2000.0; }
+            }
+        }
+
         public void GuardarLinderos()
         {
             if (string.IsNullOrEmpty(currentFieldDirectory)) return;

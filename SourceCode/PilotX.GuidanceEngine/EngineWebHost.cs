@@ -177,6 +177,10 @@ namespace AgOpenGPS
                 // marca líneas A/B sobre el borde y arma la cabecera con los
                 // cruces. Es lo que sirve en lotes que no son un rectángulo.
                 cabeceraLineas: new EngineCabeceraLineasService(_host),
+                // Tramlines: las huellas por donde pasa el pulverizador
+                // después. Sin esto /api/tramlines daba 404 y quedaban 5 íconos
+                // muertos en el tablero de cierre.
+                tramLine: new EngineTramLineService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,
