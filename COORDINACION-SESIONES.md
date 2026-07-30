@@ -81,6 +81,35 @@ Zona gris (avisar antes): `GPS/AgroParallel/*` (partials adapter — los crea
 la sesión android al extraer, pero el taller los usa desde Services),
 `AgOpenGPS.Core/` (android extrae clases hacia ahí; taller no toca Classes/).
 
+## 🔴 SANTI — BAJATE `codex/pilotx-ui-new` ANTES DE SEGUIR (2026-07-30)
+
+`git pull` / merge de `codex/pilotx-ui-new` hasta `8a2c552e`. Te toqué un
+archivo tuyo y hay una regla nueva del usuario que cambia criterios de diseño.
+
+**REGLA DEL USUARIO (Leonardo, 2026-07-30): EL MAPA SIEMPRE TIENE QUE VERSE.**
+
+Textual: *"Siempre importa ver el mapa"*. Ninguna pantalla, diálogo ni panel
+puede apagar el mapa, ocultarlo (`IsVisible=false`) ni pausarlo como forma de
+resolver un conflicto de render. Es la pantalla de una cabina en movimiento: el
+operario maneja mientras opera la UI, y sin mapa se queda sin saber dónde está,
+qué pintó y dónde va la guía.
+
+**Qué implica para tu `41dc967c`:** apagar el mapa mientras hay diálogo abierto
+queda descartado como estrategia general. Hoy lo dejé con una excepción
+(`mapaVivo` en `OpenDialogUrl`, hoy solo contorno) porque revertirlo entero te
+devuelve el diálogo en blanco, pero **la excepción es la dirección correcta, no
+el default**: hay que ir a que ningún diálogo apague el mapa.
+
+**Y esto contesta tu PEDIDO del bug de diálogos en blanco:** si el mapa no se
+puede apagar, entonces el WebView2 en `Window` separada no puede seguir
+compitiendo con él — o sea, tu recomendación (embeber los diálogos en la
+MainWindow, con chrome propio en Avalonia, en vez de `Window` de SO) es el
+camino. **Dale para adelante.** Dos condiciones al pasarlo a embebido:
+1. El tamaño por página tiene que sobrevivir: contorno abre a 380x460 y el
+   resto a 820x600 (está en `MainWindow.axaml.cs`). El de contorno es chico a
+   propósito, para ver los puntos del lindero mientras se graba.
+2. Cuando esté embebido, sacá la excepción `mapaVivo`: deja de hacer falta.
+
 ## EN CURSO
 
 **⚡ ACTUALIZADO 2026-07-27 — carriles invertidos, ver "SANTIAGO — ARRANCÁ ACÁ
@@ -91,7 +120,7 @@ empaquetado. La tabla de abajo queda vieja (pre-27), no seguirla.**
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | ~~Migración total a Avalonia — UI (front-end)~~ (vieja, ver arriba) | `SourceCode/PilotX.GuidanceEngine*`, `AgroParallel.Services/*`, `AgOpenGPS.Core/*`, `build.ps1` |
-| android (Santiago) | **UI visual ícono por ícono** contra `docs/INVENTARIO-UI-ICONOS.md`. ⚠️ **PEDIDO abierto para Leonardo** (ver bitácora 2026-07-30): diálogos (Lote/Configuración) en blanco intermitente, misma familia que el "SIN RESOLVER" del 28 — necesito tu ok para el rediseño (embeber en vez de `Window` separada) antes de tocarlo. | `SourceCode/PilotX.UI/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` |
+| android (Santiago) | **UI visual ícono por ícono** contra `docs/INVENTARIO-UI-ICONOS.md`. ✅ **PEDIDO de diálogos CONTESTADO (2026-07-30, ver bloque rojo arriba): tenés el OK para embeber los diálogos** en la MainWindow en vez de `Window` de SO. Lo destraba la regla nueva "el mapa siempre tiene que verse": si el mapa no se puede apagar, el WebView2 en ventana separada no puede seguir compitiendo. Respetá el tamaño por página y sacá `mapaVivo` cuando esté. | `SourceCode/PilotX.UI/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` |
 
 ## Bitácora (append-only)
 
@@ -2977,6 +3006,26 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   vértice. Antes grabar era a ciegas: el único signo era un contador.
   Si tocás `HudSnapshot`, acordate que la política es `SnakeCaseLower` en los
   dos lados, así que el campo mapea solo.
+
+- [2026-07-30] [taller] OJO SANTI — te toqué tu fix de diálogos, y quiero que
+  sepas exactamente qué y por qué.
+  Tu `41dc967c` apaga el mapa (`PausarMapa()` + `_mapHost.IsVisible = false`)
+  mientras hay diálogo abierto. El razonamiento es correcto y el diagnóstico
+  también: el mapa GL y el WebView2 en Window separada se pelean el compositor
+  y el diálogo pierde.
+  Pero chocó de frente con algo que hice el mismo día sin saber lo tuyo: la
+  ventana de contorno pasó a 380x460 **justamente para poder mirar el mapa
+  mientras se graba el lindero** (el mapa ahora dibuja los puntos en curso).
+  Con tu cambio, abrir contorno deja la pantalla en negro — sin tractor, sin
+  lindero, sin nada. El usuario lo reportó apenas lo vio.
+  Lo resolví con una excepción, NO revirtiendo: `OpenDialogUrl` toma
+  `mapaVivo` (default false, o sea tu comportamiento para todos los demás) y
+  contorno lo pasa en true. Ahí el mapa gana la prioridad y se acepta el riesgo
+  de que ese diálogo parpadee: sin mapa, ese diálogo no sirve para nada.
+  Si mañana aparece otro diálogo que se abra PARA mirar el mapa, es una línea.
+  Y esto refuerza lo que ya pediste: si los diálogos pasaran a embebido en la
+  MainWindow, no habría que elegir entre el mapa y el diálogo — dejarían de
+  competir. Sigue esperando decisión de Leonardo.
 
 - [2026-07-30] [android] GRACIAS por la respuesta y CONFIRMACIÓN — el usuario
   (Leonardo) siguió probando el menú LOTE ítem por ítem y reportó que "Nuevo
