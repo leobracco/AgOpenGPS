@@ -147,9 +147,78 @@ namespace AgOpenGPS
         // ---- arranque/parada del socket loopback (equivalente a
         // StartLoopbackServer/ReceiveAppData de UDPComm.Designer.cs, sin el
         // BeginInvoke a hilo de UI — acá no hay hilo de UI). ----
+        /// <summary>
+        /// Pasa los ajustes de guiado del perfil del vehículo a los campos que
+        /// usa el pipeline. FormGPS lo hace en LoadSettings (GUI.Designer.cs);
+        /// el motor NO lo hacía, así que corría con los valores por defecto del
+        /// código aunque el perfil dijera otra cosa.
+        ///
+        /// El más caro era guidanceLookAheadTime: quedaba en 2,0 s contra 1,5 s
+        /// configurado, o sea que el punto de anticipación iba un 33% más
+        /// adelante de lo pedido. Con pasadas de 4 m ese metro extra alcanza
+        /// para que el cálculo de "en qué pasada estoy" caiga en la de al lado
+        /// al entrar en ángulo — y el operario ve que el piloto no agarra la
+        /// línea más cercana.
+        ///
+        /// Es un error silencioso: no falla nada, solo guía distinto de lo
+        /// configurado. Mismo criterio que el Load del perfil en Program.cs.
+        /// </summary>
+        private void CargarAjustesDeGuiado()
+        {
+            var s = AgOpenGPS.Properties.Settings.Default;
+
+            guidanceLookAheadTime = s.setAS_guidanceLookAheadTime;
+            isSteerInReverse = s.setAS_isSteerInReverse;
+            Gyd.sideHillCompFactor = s.setAS_sideHillComp;
+
+            // Invalidar guías para que se recalculen con los valores nuevos:
+            // si el ancho o el offset cambiaron, la línea vieja quedó mal.
+            ABLineField.isABValid = false;
+            CurveField.isCurveValid = false;
+
+            Log.EventWriter($"GuidanceEngine: ajustes de guiado del perfil — " +
+                $"lookAhead={guidanceLookAheadTime:F2}s, reversa={isSteerInReverse}, " +
+                $"sideHill={Gyd.sideHillCompFactor:F2}");
+        }
+
+        /// <summary>
+        /// "Enganchar al pivote": al prender el piloto, corre la guía activa
+        /// para que pase por donde está el tractor, una sola vez por enganche.
+        ///
+        /// En FormGPS esto NO vive en el guiado: está adentro del código que
+        /// DIBUJA el indicador de estado del piloto (OpenGL.Designer.cs ~1815),
+        /// mezclado con el GL.Color4 del semáforo. Como el motor headless no
+        /// dibuja, el comportamiento se perdía entero y sin dejar rastro.
+        ///
+        /// isAutoSnapped es el que hace que sea UNA vez y no en cada fix: si se
+        /// llamara siempre, la guía perseguiría al tractor y no habría guía.
+        /// Se rearma al soltar el piloto o al tomar el volante.
+        /// </summary>
+        private void EngancharGuiaAlPivote()
+        {
+            if (Mc.steerSwitchHigh)          // el operario tomó el volante
+            {
+                Trk.isAutoSnapped = false;
+            }
+            else if (isBtnAutoSteerOn)
+            {
+                if (Trk.isAutoSnapToPivot && !Trk.isAutoSnapped)
+                {
+                    Trk.SnapToPivot();
+                    Trk.isAutoSnapped = true;
+                    Log.EventWriter("GuidanceEngine: guia enganchada al pivote al prender el piloto");
+                }
+            }
+            else
+            {
+                Trk.isAutoSnapped = false;
+            }
+        }
+
         public void Start()
         {
             if (_running) return;
+            CargarAjustesDeGuiado();
             _loopBackSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _loopBackSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
             _loopBackSocket.Bind(new IPEndPoint(IPAddress.Loopback, 15555));
@@ -253,6 +322,7 @@ namespace AgOpenGPS
             AutoSteerUpdater.SendCorrectedPositionPgn();
             AutoSteerUpdater.BuildAndSendAutoSteerPgn();
             YouTurnUpdater.UpdateYouTurnState();
+            EngancharGuiaAlPivote();
 
             if (IsJobStarted)
             {
