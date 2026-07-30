@@ -2159,15 +2159,19 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (wb <= 0.1) wb = 3.3;    // perfil sin cargar: valores típicos
         if (tw <= 0.1) tw = 1.9;
 
-        // Piso en píxeles: sin esto el vehículo desaparece al alejar el zoom.
-        // Estaba en 26 px, que con la escala por defecto (sin lindero) dejaba un
-        // tractor de ~30 px en una pantalla de 1920 — técnicamente dibujado pero
-        // imposible de encontrar sobre un fondo vacío. El operario lo reportó
-        // como "se fue el tractor".
-        double minPx = 70.0;
-        double anchoPx = (2 * tw) * scale;
-        double k = anchoPx < minPx ? minPx / anchoPx : 1.0;
-        wb *= k; tw *= k;
+        // ESCALA REAL: el tractor mide lo que mide, y nada más.
+        //
+        // Acá había un piso de 70 px que lo inflaba cuando quedaba chico. Con la
+        // escala por defecto (5,3 px/m) eso lo dibujaba 3,5 VECES más grande que
+        // su tamaño real, y todo lo demás del mapa sí va a escala: el ancho de
+        // labor, la barra de secciones, las guías, el lindero. El resultado era
+        // un tractor montado sobre una máquina que no era la suya — y sobre esa
+        // relación el operario juzga si va bien parado respecto de la guía.
+        //
+        // El piso existía por un motivo real: al alejar el zoom el vehículo se
+        // pierde ("se fue el tractor"). Pero la respuesta a eso no es mentir con
+        // el tamaño. La resuelve DrawTractor sumando un marcador de tamaño fijo
+        // cuando el vehículo queda muy chico: un símbolo, no la máquina.
 
         try
         {
@@ -2212,13 +2216,32 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
     }
 
+    /// <summary>
+    /// Ancho del vehículo en píxeles por debajo del cual, además del vehículo a
+    /// escala, se dibuja el marcador de posición de tamaño fijo. 28 px es donde
+    /// un tractor deja de distinguirse de una mancha sobre fondo vacío.
+    /// </summary>
+    private const double UmbralMarcadorPx = 28.0;
+
     private void DrawTractor(double e, double n, double headingRad, double scale)
     {
         if (_gl == null) return;
 
         SubirSpritePendiente();
-        // Con sprite cargado se dibuja el vehículo; si no, el triángulo.
-        if (DrawTractorSprite(e, n, headingRad, scale)) return;
+
+        // Con sprite cargado se dibuja el vehículo a ESCALA REAL. Si a esa
+        // escala queda de pocos píxeles no se lo agranda —eso rompería la
+        // proporción contra el ancho de labor, las guías y el lote— sino que se
+        // le suma encima el marcador de posición, que es de tamaño fijo y se
+        // lee como símbolo.
+        if (DrawTractorSprite(e, n, headingRad, scale))
+        {
+            double twReal = _snap?.TrackWidth ?? 0;
+            if (twReal <= 0.1) twReal = 1.9;
+            if ((2 * twReal) * scale >= UmbralMarcadorPx) return;
+            // cae al marcador, dibujado encima del vehículo chiquito
+        }
+
         // Tamano del triangulo en pixeles -> convertir a coords mundo
         // dividiendo por scale (px / (px/m) = m).
         double sizePx = 12 * 1.8; // idem Skia (scaleFactor 1.8)
