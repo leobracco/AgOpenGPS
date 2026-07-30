@@ -1013,7 +1013,114 @@ public partial class MainWindow : Window
         int api = url.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
         string origin = api >= 0 ? url.Substring(0, api) : url;
         string full = origin + "/" + relativePath.TrimStart('/');
-        OpenDialogUrl(full, title, w, h, mapaVivo);
+
+        // ?widget=1 — la misma página, pero SIN la navegación del Hub. Abierta
+        // desde el menú de PilotX el operario no vino a navegar: vino a hacer
+        // una cosa y volver al lote. Esa barra lateral se come entre 150 y 240
+        // px de ancho de una ventana que queremos lo más chica posible, porque
+        // el mapa tiene que seguir viéndose.
+        full += (full.IndexOf('?') >= 0 ? "&" : "?") + "widget=1";
+
+        var (aw, ah) = TamanoDialogo(relativePath, w, h);
+        OpenDialogUrl(full, title, aw, ah, mapaVivo);
+    }
+
+    /// <summary>
+    /// Recorta el tamaño pedido al área de trabajo real de la pantalla donde
+    /// está PilotX. Devuelve como máximo el 85% del ancho y el 80% del alto:
+    /// el diálogo tiene que entrar entero Y dejar mapa visible alrededor.
+    /// Si por lo que sea no se puede leer la pantalla, se devuelve lo pedido.
+    /// </summary>
+    private (double W, double H) AjustarAPantalla(double w, double h)
+    {
+        try
+        {
+            var pantalla = Screens?.ScreenFromWindow(this) ?? Screens?.Primary;
+            if (pantalla == null) return (w, h);
+
+            // WorkingArea viene en píxeles físicos; las medidas de la Window son
+            // unidades lógicas. Sin dividir por Scaling, en una pantalla a 150%
+            // el techo quedaría un 50% más grande de lo que se ve.
+            double esc = pantalla.Scaling <= 0 ? 1.0 : pantalla.Scaling;
+            double maxW = pantalla.WorkingArea.Width / esc * 0.85;
+            double maxH = pantalla.WorkingArea.Height / esc * 0.80;
+
+            return (Math.Min(w, maxW), Math.Min(h, maxH));
+        }
+        catch
+        {
+            // Nunca impedir que se abra el diálogo por no poder medir la pantalla.
+            return (w, h);
+        }
+    }
+
+    /// <summary>
+    /// Tamaño de la ventana-diálogo según la página. Centralizado acá y no en
+    /// cada llamada: es UNA decisión de producto ("la ventana más chica que
+    /// deje operar") y repartida por los call sites se desincroniza sola.
+    ///
+    /// Sin la barra lateral del Hub (ver ?widget=1) estas páginas necesitan
+    /// bastante menos ancho del que tenían: el default histórico era 820x600
+    /// para todo, midiera lo que midiera el contenido.
+    ///
+    /// Lo que NO está en la tabla conserva el tamaño que le pasa el llamador.
+    /// Prefiero dejar grande algo que no medí antes que dejar al operario con
+    /// una pantalla recortada en la cabina.
+    /// </summary>
+    private static (double W, double H) TamanoDialogo(string relativePath, double wDefault, double hDefault)
+    {
+        string p = relativePath ?? "";
+        int q = p.IndexOf('?');
+        if (q >= 0) p = p.Substring(0, q);
+        int barra = p.LastIndexOf('/');
+        if (barra >= 0) p = p.Substring(barra + 1);
+        p = p.ToLowerInvariant();
+
+        switch (p)
+        {
+            // Contorno es el más chico de todos: es el que se abre PARA mirar el
+            // mapa, así que cada píxel suyo es mapa tapado.
+            //
+            // 290 de alto no aprieta nada. Todo el CSS de estas páginas está
+            // clampeado contra vh, y los botones tocan su piso (28 px) en cuanto
+            // la ventana baja de ~370 de alto — o sea que entre 370 y 290 no se
+            // achica NADA, solo se saca aire muerto. La vista de grabación
+            // necesita ~150 px de contenido (cabecera + puntos/ha + fila de
+            // grabar + "Ajustes" plegado + pie); en 290 sobran ~120.
+            case "contorno.html":
+                return (330, 290);
+
+            // Una sola acción y volver al lote. Son widgets, no pantallas.
+            case "banderas.html":
+            case "sim-coords.html":
+            case "suavizar-ab.html":
+            case "corregir-posicion.html":
+            case "tramline.html":
+            case "cabecera.html":
+                return (350, 340);
+
+            // Listas / selección: necesitan alto para ver varias filas, no ancho.
+            case "colores.html":
+            case "colores-secciones.html":
+            case "perfiles.html":
+            case "cabecera-lineas.html":
+            case "ayuda.html":
+            case "eventos.html":
+            case "ajustes-todos.html":
+            case "tracks.html":
+                return (460, 470);
+
+            // Gráficos: acá el ancho SÍ es información (es el eje del tiempo),
+            // así que se les da ancho y se les saca alto.
+            case "grafico-direccion.html":
+            case "grafico-rumbo.html":
+            case "grafico-xte.html":
+            case "grafico-correccion.html":
+                return (560, 370);
+
+            default:
+                return (wDefault, hDefault);
+        }
     }
 
     /// <summary>
@@ -1090,11 +1197,20 @@ public partial class MainWindow : Window
             // Navigate (ver PrecalentarWebView + ShowWebView).
             _dialogWebView = App.WebViewHost.Create(OnDialogNavigated);
 
+            // Los tamaños de TamanoDialogo son un TECHO medido contra el
+            // contenido, no una promesa sobre la pantalla. La de la cabina es de
+            // 10" (1080x720) y hay perfiles todavía más chicos: un diálogo más
+            // grande que la pantalla deja botones fuera de alcance, sin barra de
+            // título para moverlo con el dedo. Se recorta contra el área real de
+            // trabajo, dejando un margen para que se siga viendo mapa alrededor
+            // — que es la regla: el mapa siempre tiene que verse.
+            var (w2, h2) = AjustarAPantalla(w, h);
+
             _dialogWin = new Window
             {
                 Title = title,
-                Width = w,
-                Height = h,
+                Width = w2,
+                Height = h2,
                 CanResize = true,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 SystemDecorations = SystemDecorations.Full,
@@ -2191,17 +2307,16 @@ public partial class MainWindow : Window
             // cerrable (con barra de título + X), no a pantalla completa —
             // así ninguna se confunde con el cierre de la app.
             //
-            // Contorno va MÁS chica que el resto: mientras se graba el lindero
-            // lo que hay que mirar es el mapa, no el panel. 820x600 tapaba media
-            // pantalla para mostrar dos números y tres botones.
+            // El tamaño lo decide TamanoDialogo por página: 820x600 para todo,
+            // midiera lo que midiera el contenido, era media pantalla tapada.
+            // El 820x600 queda solo como red para las páginas sin medir.
             //
-            // Y va con el mapa VIVO. Los demás diálogos lo apagan para no pelear
-            // con el WebView2 por el compositor, pero éste se abre justamente
-            // para ver los puntos del lindero mientras se manejan: apagárselo lo
-            // deja en negro y lo vuelve inútil.
+            // Contorno además va con el mapa VIVO. Los demás diálogos lo apagan
+            // para no pelear con el WebView2 por el compositor, pero éste se
+            // abre justamente para ver los puntos del lindero mientras se
+            // maneja: apagárselo lo deja en negro y lo vuelve inútil.
             bool esContorno = page == "pages/contorno.html";
-            var (w, h) = esContorno ? (380.0, 460.0) : (820.0, 600.0);
-            OpenDialogPage(page, TitleForCommand(cmd), w, h, mapaVivo: esContorno);
+            OpenDialogPage(page, TitleForCommand(cmd), 820, 600, mapaVivo: esContorno);
             return true;
         }
 
