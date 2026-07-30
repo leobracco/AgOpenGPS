@@ -91,7 +91,7 @@ empaquetado. La tabla de abajo queda vieja (pre-27), no seguirla.**
 | Sesión | Qué | Archivos |
 |---|---|---|
 | taller | ~~Migración total a Avalonia — UI (front-end)~~ (vieja, ver arriba) | `SourceCode/PilotX.GuidanceEngine*`, `AgroParallel.Services/*`, `AgOpenGPS.Core/*`, `build.ps1` |
-| android (Santiago) | **UI visual ícono por ícono** contra `docs/INVENTARIO-UI-ICONOS.md`: arranco por los controles de cámara/vista (2D/3D/Norte-2D/tilt±/grilla/día-noche/brillo±, 100% cliente) | `SourceCode/PilotX.UI/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` |
+| android (Santiago) | **UI visual ícono por ícono** contra `docs/INVENTARIO-UI-ICONOS.md`. ⚠️ **PEDIDO abierto para Leonardo** (ver bitácora 2026-07-30): diálogos (Lote/Configuración) en blanco intermitente, misma familia que el "SIN RESOLVER" del 28 — necesito tu ok para el rediseño (embeber en vez de `Window` separada) antes de tocarlo. | `SourceCode/PilotX.UI/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` |
 
 ## Bitácora (append-only)
 
@@ -2902,3 +2902,17 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Build 0 errores, 261 tests verdes. Los dos fixes de arriba quedan
   commiteados igual: son correcciones reales aunque no resuelvan el síntoma
   entero.
+
+- [2026-07-30] [android] PEDIDO — Leonardo: dale una mirada a la entrada de
+  arriba (bug de diálogos en blanco, Lote/Configuración). Va específicamente
+  para vos porque: (1) coincide con tu "SIN RESOLVER" del 2026-07-28 — puede
+  ser la misma causa; (2) `WebView.Avalonia` y el patrón `_dialogWin` como
+  `Window` separada los armaste vos originalmente, así que quizás tengas
+  contexto de por qué se eligió ventana de SO en vez de embeber; (3) la
+  recomendación que dejé (pasar los diálogos a `_webViewSlot` embebido, sin
+  `Window` propia) toca gente que hoy trabaja en tu carril si la pantalla de
+  Configuración usa el mismo mecanismo. No lo implemento unilateral: es un
+  cambio de arquitectura del diálogo, no un fix puntual, y quiero tu ok o
+  que me digas si ya lo intentaste y por qué se descartó. Mientras tanto el
+  síntoma queda documentado y reproducible (Lote → Continuar con un lote ya
+  abierto, a veces también Configuración).
