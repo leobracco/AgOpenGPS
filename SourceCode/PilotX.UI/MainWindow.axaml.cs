@@ -1047,6 +1047,24 @@ public partial class MainWindow : Window
     {
         try
         {
+            // El mapa GL sigue "visible" (IsVisible=true) detrás de la ventana
+            // chica del diálogo — no es OTRA pantalla que lo tape, es una Window
+            // separada. PausarMapa() solo no alcanza: cada snapshot del HUD
+            // (HudPoller, 10 Hz) pasa por MapPanel.OnSnapshot, que tiene su
+            // propia red de seguridad "if (IsVisible) _gl?.Reanudar()" — como acá
+            // IsVisible sigue en true, esa red deshacía la pausa en menos de
+            // 100ms y el mapa seguía pidiendo frames GL en paralelo al WebView2
+            // del diálogo. Con los dos compitiendo por el compositor, el diálogo
+            // pierde la carrera y queda en blanco (a veces desde el primer
+            // frame, a veces a los pocos segundos según cuándo ganaba el
+            // próximo Reanudar) — mismo síntoma que la barra de arriba viva y el
+            // mapa muerto que ya diagnosticaste el 2026-07-28, pero al revés.
+            // Poniendo IsVisible=false (igual que ShowWebView con la pantalla
+            // embebida) esa red de seguridad queda inerte y la pausa se sostiene
+            // mientras el diálogo está abierto.
+            PausarMapa();
+            if (_mapHost != null) _mapHost.IsVisible = false;
+
             if (_dialogWin != null)
             {
                 // ya abierta → traer al frente y navegar
@@ -1056,11 +1074,23 @@ public partial class MainWindow : Window
             }
 
             // Sin backend WebView no se puede abrir la página HTML en diálogo.
-            if (App.WebViewHost == null) return;
+            if (App.WebViewHost == null)
+            {
+                if (_mapHost != null) _mapHost.IsVisible = true;
+                ReanudarMapa();
+                return;
+            }
             _dialogEsLote = full.IndexOf("lote.html", StringComparison.OrdinalIgnoreCase) >= 0;
             _loteAlAbrirDialogo = _lastFieldDir;
+            // Crear el control y montarlo (Content) ANTES de navegar: WebView.Avalonia
+            // arma el CoreWebView2Controller contra el HWND del control ya adjunto al
+            // árbol visual. Navegar antes de que la Window exista/se muestre le pedía
+            // al control una navegación sin handle nativo todavía — quedaba en blanco
+            // (a veces desde el primer frame, a veces a los pocos segundos, según
+            // cuándo terminaba de inicializar el WebView2 de fondo). Mismo orden que
+            // ya usa el WebView principal: Control attachado y visible ANTES de
+            // Navigate (ver PrecalentarWebView + ShowWebView).
             _dialogWebView = App.WebViewHost.Create(OnDialogNavigated);
-            _dialogWebView.Navigate(full);
 
             _dialogWin = new Window
             {
@@ -1078,12 +1108,17 @@ public partial class MainWindow : Window
                 try { _dialogWebView?.Release(); } catch { }
                 _dialogWebView = null;
                 _dialogWin = null;
+                if (_mapHost != null) _mapHost.IsVisible = true;
+                ReanudarMapa();
             };
             _dialogWin.Show(this);
+            _dialogWebView.Navigate(full);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] OpenDialogPage error: " + ex.Message);
+            if (_mapHost != null) _mapHost.IsVisible = true;
+            ReanudarMapa();
         }
     }
 

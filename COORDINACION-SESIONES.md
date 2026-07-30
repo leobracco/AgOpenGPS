@@ -2826,3 +2826,79 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
      pulverizadoras) — aunque conectara los sistemas, no habría con qué
      dibujarla. El usuario decidió esperar el arte antes de tocar el
      cableado. Build 0 errores, 261 tests verdes.
+
+- [2026-07-29] [android] EN CURSO — el usuario reportó "pantalla blanca" al ir
+  a Lote > Continuar con un lote ya abierto. Reproduje en vivo, pero es **más
+  profundo de lo que sonaba**: no es un bug de `lote.js`, es un problema del
+  **WebView de los diálogos (`_dialogWin`/`_dialogWebView` en
+  `MainWindow.axaml.cs`) que pierde el contenido renderizado**, y afecta a
+  MÁS de una pantalla:
+  · Abrí "Lote" (`lote_menu`) con un lote real abierto (`Giro en Cabecera`) →
+    el diálogo aparece **totalmente en blanco** desde el primer frame, sin
+    ni un botón. Esperé varios segundos, sigue blanco (descarté que sea
+    arranque en frío del WebView2).
+  · Cerré ese diálogo y abrí "Configuración" en el MISMO proceso (para
+    descartar "primer diálogo de la sesión") → esta vez sí se vio bien un
+    momento (menú lateral con íconos, "Perfil: Rastra..." con datos reales
+    — confirma que `api/aog/config` responde perfecto, 5ms, con datos). Pero
+    **a los pocos segundos, sin ninguna interacción, el mismo diálogo quedó
+    en blanco también** — desapareció hasta el menú lateral estático.
+  · Mientras tanto la barra superior seguía viva (reloj corriendo, "GIRO EN
+    CABECERA" visible, velocidad, QuantiX widget con datos) — **no es un
+    crash del backend ni de toda la app**, es puntual del control WebView
+    de esos diálogos.
+  Coincide con tu hallazgo "SIN RESOLVER" del 2026-07-28 (pantalla que se
+  pone en negro con todo lo demás vivo) — probablemente la MISMA familia de
+  bug (WebView.Avalonia/compositing en una `Window` secundaria), no algo
+  específico de `lote.html`.
+  Descarté como causa: (a) reuso de instancia entre diálogos — no aplica,
+  `_dialogWin.Closed` llama `.Release()` y anula `_dialogWebView`/`_dialogWin`,
+  así que cada apertura crea un WebView2 nuevo; (b) el backend — todos los
+  endpoints responden rápido y bien vía curl mientras el diálogo está en
+  blanco. Sospecho algo del lado de la ventana secundaria (`_dialogWin`,
+  `WindowStartupLocation.CenterOwner`) o del propio paquete comunitario
+  `WebView.Avalonia` (no es first-party) perdiendo el buffer compuesto,
+  similar a como el mapa GL a veces "deja de pedir frames".
+  **No parcheé nada todavía** — no quiero tocar a ciegas un bug de
+  renderizado que puede tener la misma causa que el tuyo. Sigo indagando;
+  si tenés alguna pista de tu investigación del 28 (algo que hayas visto en
+  el log de diagnóstico que sacaste en `5e99b079`), avisame.
+
+- [2026-07-30] [android] SEGUIMIENTO del bug de arriba — encontré y arreglé DOS
+  causas reales, pero el bug de fondo **sigue sin resolverse del todo**.
+  Ambas arregladas en `OpenDialogUrl` (`MainWindow.axaml.cs`):
+  · **Orden Navigate/attach**: `_dialogWebView.Navigate(full)` se llamaba
+    ANTES de crear la `Window` y de `.Show()` — o sea, antes de que el
+    control tuviera HWND propio. Reordené a Create → Show → Navigate (mismo
+    orden que ya usa el WebView principal vía `PrecalentarWebView`). Con esto
+    LOGRÉ que el diálogo "Lote" abriera con contenido real (ISO-XML, Cerrar
+    lote, Entrar al lote, Continuar…) al menos una vez, cosa que antes nunca
+    pasaba.
+  · **Mapa no pausado de verdad**: `PausarMapa()` no alcanzaba porque
+    `MapPanel.OnSnapshot` tiene su propia red de seguridad
+    (`if (IsVisible) _gl?.Reanudar()`) que, al llegar cada snapshot del HUD
+    (10 Hz), deshacía la pausa en <100ms — `_mapHost.IsVisible` nunca pasaba
+    a `false` para un diálogo en `Window` separada. Agregué
+    `_mapHost.IsVisible = false/true` al abrir/cerrar el diálogo (restaurado
+    en los 3 puntos de salida: reuso, sin backend, catch).
+  Con los dos fixes: **igual sigue apareciendo en blanco de forma
+  intermitente** (a veces blanco desde el frame 1, a veces pasa por negro
+  antes del blanco, a veces — raro — renderiza bien y se queda). Probé
+  también sacar el prewarm del WebView principal (`PrecalentarWebView`) por
+  si competía por el mismo user-data-folder de WebView2 con el diálogo — sin
+  el prewarm el problema seguía igual, así que lo descarté y lo dejé
+  reactivado (no tocar, es real para el cold-start de Configuración).
+  Conclusión: es la MISMA familia de bug que tu "SIN RESOLVER" del
+  2026-07-28 — un problema de compositing/airspace de WebView2 alojado en
+  una `Window` Avalonia SEPARADA (no embebida), aparentemente del propio
+  paquete comunitario `WebView.Avalonia` 11.0.0.1, no resoluble con parches
+  desde afuera. **Recomendación** (no implementada, para decidir juntos):
+  dejar de abrir estos diálogos como `Window` de SO separada y en cambio
+  embeberlos en el `_webViewSlot` de la MISMA MainWindow —igual que hace
+  `ShowWebView`, que jamás mostró este síntoma en toda la sesión— con un
+  chrome propio (mini-titlebar + X) dibujado en Avalonia en vez de
+  `SystemDecorations.Full`. Es más cambio, pero saca de la ecuación al
+  WebView2-en-ventana-secundaria que es donde está el problema.
+  Build 0 errores, 261 tests verdes. Los dos fixes de arriba quedan
+  commiteados igual: son correcciones reales aunque no resuelvan el síntoma
+  entero.
