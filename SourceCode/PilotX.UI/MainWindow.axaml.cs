@@ -1026,6 +1026,35 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
+    /// Recorta el tamaño pedido al área de trabajo real de la pantalla donde
+    /// está PilotX. Devuelve como máximo el 85% del ancho y el 80% del alto:
+    /// el diálogo tiene que entrar entero Y dejar mapa visible alrededor.
+    /// Si por lo que sea no se puede leer la pantalla, se devuelve lo pedido.
+    /// </summary>
+    private (double W, double H) AjustarAPantalla(double w, double h)
+    {
+        try
+        {
+            var pantalla = Screens?.ScreenFromWindow(this) ?? Screens?.Primary;
+            if (pantalla == null) return (w, h);
+
+            // WorkingArea viene en píxeles físicos; las medidas de la Window son
+            // unidades lógicas. Sin dividir por Scaling, en una pantalla a 150%
+            // el techo quedaría un 50% más grande de lo que se ve.
+            double esc = pantalla.Scaling <= 0 ? 1.0 : pantalla.Scaling;
+            double maxW = pantalla.WorkingArea.Width / esc * 0.85;
+            double maxH = pantalla.WorkingArea.Height / esc * 0.80;
+
+            return (Math.Min(w, maxW), Math.Min(h, maxH));
+        }
+        catch
+        {
+            // Nunca impedir que se abra el diálogo por no poder medir la pantalla.
+            return (w, h);
+        }
+    }
+
+    /// <summary>
     /// Tamaño de la ventana-diálogo según la página. Centralizado acá y no en
     /// cada llamada: es UNA decisión de producto ("la ventana más chica que
     /// deje operar") y repartida por los call sites se desincroniza sola.
@@ -1049,15 +1078,26 @@ public partial class MainWindow : Window
 
         switch (p)
         {
-            // Una sola acción y volver al lote. Son widgets, no pantallas.
+            // Contorno es el más chico de todos: es el que se abre PARA mirar el
+            // mapa, así que cada píxel suyo es mapa tapado.
+            //
+            // 290 de alto no aprieta nada. Todo el CSS de estas páginas está
+            // clampeado contra vh, y los botones tocan su piso (28 px) en cuanto
+            // la ventana baja de ~370 de alto — o sea que entre 370 y 290 no se
+            // achica NADA, solo se saca aire muerto. La vista de grabación
+            // necesita ~150 px de contenido (cabecera + puntos/ha + fila de
+            // grabar + "Ajustes" plegado + pie); en 290 sobran ~120.
             case "contorno.html":
+                return (330, 290);
+
+            // Una sola acción y volver al lote. Son widgets, no pantallas.
             case "banderas.html":
             case "sim-coords.html":
             case "suavizar-ab.html":
             case "corregir-posicion.html":
             case "tramline.html":
             case "cabecera.html":
-                return (380, 460);
+                return (350, 340);
 
             // Listas / selección: necesitan alto para ver varias filas, no ancho.
             case "colores.html":
@@ -1068,7 +1108,7 @@ public partial class MainWindow : Window
             case "eventos.html":
             case "ajustes-todos.html":
             case "tracks.html":
-                return (500, 540);
+                return (460, 470);
 
             // Gráficos: acá el ancho SÍ es información (es el eje del tiempo),
             // así que se les da ancho y se les saca alto.
@@ -1076,7 +1116,7 @@ public partial class MainWindow : Window
             case "grafico-rumbo.html":
             case "grafico-xte.html":
             case "grafico-correccion.html":
-                return (620, 430);
+                return (560, 370);
 
             default:
                 return (wDefault, hDefault);
@@ -1180,11 +1220,20 @@ public partial class MainWindow : Window
             // Navigate (ver PrecalentarWebView + ShowWebView).
             _dialogWebView = App.WebViewHost.Create(OnDialogNavigated);
 
+            // Los tamaños de TamanoDialogo son un TECHO medido contra el
+            // contenido, no una promesa sobre la pantalla. La de la cabina es de
+            // 10" (1080x720) y hay perfiles todavía más chicos: un diálogo más
+            // grande que la pantalla deja botones fuera de alcance, sin barra de
+            // título para moverlo con el dedo. Se recorta contra el área real de
+            // trabajo, dejando un margen para que se siga viendo mapa alrededor
+            // — que es la regla: el mapa siempre tiene que verse.
+            var (w2, h2) = AjustarAPantalla(w, h);
+
             _dialogWin = new Window
             {
                 Title = title,
-                Width = w,
-                Height = h,
+                Width = w2,
+                Height = h2,
                 CanResize = true,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
                 SystemDecorations = SystemDecorations.Full,
