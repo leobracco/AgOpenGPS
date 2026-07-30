@@ -83,10 +83,13 @@
       <Setter Property="Height" Value="24"/>
       <Setter Property="Stretch" Value="Uniform"/>
     </Style>
-    <!-- Menú sin íconos: la etiqueta es lo único que identifica al botón.
-         NoWrap + 10 px porque las palabras NO se tienen que cortar: la columna
-         deja ~80 px útiles y la etiqueta más larga ("Configuración") mide 93 px
-         a 13, 86 a 12 y 72 a 10 — medido, no estimado. -->
+    <!-- Ícono arriba + etiqueta abajo: el ícono es el que se reconoce de lejos
+         (son los mismos PNG del 6.8.5, lo que el operario ya venía usando) y la
+         palabra confirma. La etiqueta NO se toca al agregarlos: sigue en
+         NoWrap 10 px porque las palabras no se tienen que cortar — la columna
+         deja ~80 px útiles y la más larga ("Configuración") mide 93 px a 13,
+         86 a 12 y 72 a 10 — medido, no estimado. Vertical: 28 de ícono + 2 de
+         aire + ~14 de línea = 44 dentro de los 52 de MinHeight. -->
     <Style Selector="TextBlock.mlbl">
       <Setter Property="FontSize" Value="10"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
@@ -95,7 +98,7 @@
       <Setter Property="TextAlignment" Value="Center"/>
       <Setter Property="TextWrapping" Value="NoWrap"/>
       <Setter Property="TextTrimming" Value="None"/>
-      <Setter Property="Margin" Value="0"/>
+      <Setter Property="Margin" Value="0,2,0,0"/>
     </Style>
     <Style Selector="TextBlock.slbl">
       <Setter Property="FontSize" Value="9"/>
@@ -137,8 +140,17 @@
     </Style>
   </UserControl.Styles>
 
-  <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,1,0" Padding="6">
+  <!-- El control mide SIEMPRE lo mismo (la columna del submenú ya está
+       reservada): así abrir un submenú no re-acomoda nada bajo el dedo. El
+       fondo blanco lo pone un Border interno que cubre solo el handle y la
+       columna de botones — el resto queda transparente y deja ver el mapa. -->
+  <Border Background="Transparent" Padding="6">
     <Grid ColumnDefinitions="Auto,92,*">
+
+      <!-- Fondo de la barra propiamente dicha (handle + botones). -->
+      <Border Grid.Column="0" Grid.ColumnSpan="2"
+              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,1,0"
+              Margin="-6,-6,0,-6"/>
 
       <!-- ===== handle de plegado: siempre visible, incluso con el menú
            colapsado (única forma de volver a desplegarlo) ===== -->
@@ -162,12 +174,12 @@
         <Button Grid.Row="0" Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion">
-          <StackPanel><TextBlock Classes="mlbl" Text="Navegación"/></StackPanel>
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/NavigationSettings.png"/><TextBlock Classes="mlbl" Text="Navegación"/></StackPanel>
         </Button>
         <Button Grid.Row="1" Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="herramientas">
-          <StackPanel><TextBlock Classes="mlbl" Text="Herramientas"/></StackPanel>
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/SpecialFunctions.png"/><TextBlock Classes="mlbl" Text="Herramientas"/></StackPanel>
         </Button>
         <!-- Configuración va DIRECTO a la pantalla de config: es la que se usa
              todo el tiempo y no vale la pena un submenú intermedio. El resto de
@@ -175,23 +187,23 @@
              sigue estando en Herramientas y en la propia pantalla. -->
         <Button Grid.Row="2" Classes="mbtn"
                 Command="{Binding SendCommand}" CommandParameter="config_form">
-          <StackPanel><TextBlock Classes="mlbl" Text="Configuración"/></StackPanel>
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="mlbl" Text="Configuración"/></StackPanel>
         </Button>
         <Button Grid.Row="3" Classes="mbtn lote"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="lote">
-          <StackPanel><TextBlock Classes="mlbl" Text="LOTE"/></StackPanel>
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/JobActive.png"/><TextBlock Classes="mlbl" Text="LOTE"/></StackPanel>
         </Button>
         <Button Grid.Row="4" Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="herrlote">
-          <StackPanel><TextBlock Classes="mlbl" Text="Herr. lote"/></StackPanel>
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/FieldTools.png"/><TextBlock Classes="mlbl" Text="Herr. lote"/></StackPanel>
         </Button>
         <Button Grid.Row="5" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="direccion">
-          <StackPanel><TextBlock Classes="mlbl" Text="Dirección"/></StackPanel>
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/AutoSteerConf.png"/><TextBlock Classes="mlbl" Text="Dirección"/></StackPanel>
         </Button>
         <Button Grid.Row="6" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
-          <StackPanel><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
+          <StackPanel><Image Classes="mico" Source="/Assets/menu/CoreX.png"/><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
         </Button>
       </Grid>
 

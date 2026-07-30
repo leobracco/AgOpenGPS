@@ -1,0 +1,286 @@
+// ============================================================================
+// EngineContornoService.cs — contorno (lindero) para el motor headless.
+//
+// ContornoController se registra solo `if (_contorno != null)` y EngineWebHost
+// nunca inyectaba el servicio: contra PilotX.Desktop /api/contorno daba 404 y
+// la pantalla mostraba "Sin conexion con PilotX". Misma clase de hueco que
+// banderas y perfiles.
+//
+// Port de FormGPS.Contorno (partial del WinForms) sin UI. La grabacion
+// manejando NO se reimplementa: los puntos los agrega solo CPositionUpdater
+// (AgOpenGPS.Core) cuando Bnd.isOkToAddPoints y el tractor avanzo mas de 1 m —
+// el mismo codigo que corre bajo FormGPS. Aca solo se prenden/apagan las
+// banderas de estado que ese loop mira.
+//
+// Diferencia con el gemelo de FormGPS: los cuatro caminos que abren ventana
+// nativa (KML, Google Earth, mapa satelital, desde tracks) devuelven error
+// explicito en vez de fingir. Grabar manejando —que es como se hace el lindero
+// en el lote— anda completo.
+// ============================================================================
+
+using System;
+using AgLibrary.Logging;
+using AgOpenGPS.Core.Models;
+using AgroParallel.Models;
+using AgroParallel.Services.Abstractions;
+
+namespace PilotX.GuidanceEngine.Adapters
+{
+    using AgOpenGPS;
+
+    public sealed class EngineContornoService : IContornoService
+    {
+        private readonly GuidanceEngineHost _host;
+
+        public EngineContornoService(GuidanceEngineHost host) { _host = host; }
+
+        // ---- estado --------------------------------------------------------
+
+        private ContornoStateDto Estado(string error = null)
+        {
+            var dto = new ContornoStateDto
+            {
+                Ok = error == null,
+                JobStarted = _host.IsJobStarted,
+                ToolWidth = _host.Tool.width,
+                Recording = _host.Bnd.isBndBeingMade,
+                Error = error,
+            };
+
+            for (int i = 0; i < _host.Bnd.bndList.Count; i++)
+            {
+                // Igual que FormBoundary.UpdateChart: el exterior nunca es
+                // drive-thru (por definicion, es el limite del lote).
+                if (i == 0) _host.Bnd.bndList[i].isDriveThru = false;
+
+                dto.Boundaries.Add(new ContornoInfo
+                {
+                    Index = i,
+                    IsOuter = i == 0,
+                    AreaHa = Math.Round(_host.Bnd.bndList[i].area * 0.0001, 3),
+                    IsDriveThru = _host.Bnd.bndList[i].isDriveThru,
+                    Points = _host.Bnd.bndList[i].fenceLine.Count,
+                });
+            }
+            return dto;
+        }
+
+        public ContornoStateDto GetState() => Estado();
+
+        // ---- lista ---------------------------------------------------------
+
+        public ContornoStateDto SetDriveThru(int index, bool value)
+        {
+            if (index > 0 && index < _host.Bnd.bndList.Count)
+            {
+                _host.Bnd.bndList[index].isDriveThru = value;
+                _host.Bnd.BuildTurnLines();
+                _host.GuardarLinderos();
+            }
+            return Estado();
+        }
+
+        public ContornoStateDto Delete(int index)
+        {
+            if (index < 0 || index >= _host.Bnd.bndList.Count)
+                return Estado("indice-invalido");
+
+            // El exterior solo se puede borrar si es el unico que queda: sin
+            // limite exterior los internos no tienen contra que recortarse.
+            if (index == 0 && _host.Bnd.bndList.Count > 1)
+                return Estado("borrar-internos-primero");
+
+            _host.Bnd.bndList[index].hdLine?.Clear();
+            _host.Bnd.bndList.RemoveAt(index);
+
+            _host.GuardarLinderos();
+            _host.Fd.UpdateFieldBoundaryGUIAreas();
+            _host.Bnd.BuildTurnLines();
+            return Estado();
+        }
+
+        public ContornoStateDto DeleteAll()
+        {
+            _host.Bnd.bndList.Clear();
+            _host.GuardarLinderos();
+            _host.Fd.UpdateFieldBoundaryGUIAreas();
+            _host.Bnd.BuildTurnLines();
+            return Estado();
+        }
+
+        // ---- grabacion manejando -------------------------------------------
+
+        private ContornoRecordDto Rec(string error = null)
+        {
+            // Area shoelace de lo que se lleva recorrido, para que el operario
+            // vea crecer la hectarea mientras da la vuelta.
+            var pts = _host.Bnd.bndBeingMadePts;
+            int n = pts.Count;
+            double area = 0;
+            if (n > 0)
+            {
+                int j = n - 1;
+                for (int i = 0; i < n; j = i++)
+                {
+                    area += (pts[j].easting + pts[i].easting)
+                          * (pts[j].northing - pts[i].northing);
+                }
+                area = Math.Abs(area / 2);
+            }
+
+            return new ContornoRecordDto
+            {
+                Ok = error == null,
+                Active = _host.Bnd.isBndBeingMade,
+                Paused = !_host.Bnd.isOkToAddPoints,
+                Points = n,
+                AreaHa = Math.Round(area * 0.0001, 2),
+                OffsetCm = Math.Round(_host.Bnd.createBndOffset * 100.0),
+                RightSide = _host.Bnd.isDrawRightSide,
+                AtPivot = _host.Bnd.isDrawAtPivot,
+                SectionRec = _host.Bnd.isRecBoundaryWhenSectionOn,
+                Error = error,
+            };
+        }
+
+        public ContornoRecordDto RecordStatus() => Rec();
+
+        public ContornoRecordDto RecordStart()
+        {
+            if (!_host.IsJobStarted) return Rec("sin-lote");
+
+            // Sin ancho de herramienta el offset lateral es cero y el lindero
+            // saldria por el eje del tractor en vez de por el borde del apero.
+            if (_host.Tool.width < 0.2)
+            {
+                Log.EventWriter("GuidanceEngine: contorno, herramienta demasiado angosta");
+                return Rec("herramienta-angosta");
+            }
+
+            _host.Bnd.bndBeingMadePts.Clear();
+            _host.Bnd.createBndOffset = _host.Tool.width * 0.5;
+            _host.Bnd.isDrawAtPivot = AgOpenGPS.Properties.Settings.Default.setBnd_isDrawPivot;
+            _host.Bnd.isBndBeingMade = true;
+
+            // Arranca EN PAUSA, igual que el player nativo: el operario tiene
+            // que ubicarse en el borde antes de que empiece a tomar puntos.
+            _host.Bnd.isOkToAddPoints = false;
+            return Rec();
+        }
+
+        public ContornoRecordDto RecordSet(double? offsetCm, bool? rightSide, bool? atPivot, bool? sectionRec)
+        {
+            if (offsetCm.HasValue)
+            {
+                double cm = offsetCm.Value;
+                if (cm < 0) cm = 0;
+                if (cm > 4999) cm = 4999;   // mismo tope que el nud metrico
+                _host.Bnd.createBndOffset = cm * 0.01;
+            }
+            if (rightSide.HasValue) _host.Bnd.isDrawRightSide = rightSide.Value;
+            if (atPivot.HasValue)
+            {
+                _host.Bnd.isDrawAtPivot = atPivot.Value;
+                AgOpenGPS.Properties.Settings.Default.setBnd_isDrawPivot = atPivot.Value;
+            }
+            if (sectionRec.HasValue) _host.Bnd.isRecBoundaryWhenSectionOn = sectionRec.Value;
+            return Rec();
+        }
+
+        public ContornoRecordDto RecordPause()
+        {
+            if (!_host.Bnd.isBndBeingMade) return Rec("sin-grabacion");
+            _host.Bnd.isOkToAddPoints = !_host.Bnd.isOkToAddPoints;
+            return Rec();
+        }
+
+        public ContornoRecordDto RecordAddPoint()
+        {
+            if (!_host.Bnd.isBndBeingMade) return Rec("sin-grabacion");
+
+            // Punto manual: solo tiene sentido en pausa. Se prende la bandera
+            // el tiempo justo para que el updater tome UN punto y se apaga.
+            if (!_host.Bnd.isOkToAddPoints)
+            {
+                _host.Bnd.isOkToAddPoints = true;
+                _host.PositionUpdater.AddBoundaryPoint();
+                _host.Bnd.isOkToAddPoints = false;
+            }
+            return Rec();
+        }
+
+        public ContornoRecordDto RecordUndo()
+        {
+            int n = _host.Bnd.bndBeingMadePts.Count;
+            if (n > 0) _host.Bnd.bndBeingMadePts.RemoveAt(n - 1);
+            return Rec();
+        }
+
+        public ContornoRecordDto RecordRestart()
+        {
+            _host.Bnd.bndBeingMadePts?.Clear();
+            return Rec();
+        }
+
+        public ContornoRecordDto RecordSave()
+        {
+            if (!_host.Bnd.isBndBeingMade) return Rec("sin-grabacion");
+
+            string error = null;
+            if (_host.Bnd.bndBeingMadePts.Count > 2)
+            {
+                var nuevo = new CBoundaryList();
+                for (int i = 0; i < _host.Bnd.bndBeingMadePts.Count; i++)
+                    nuevo.fenceLine.Add(_host.Bnd.bndBeingMadePts[i]);
+
+                nuevo.CalculateFenceArea(_host.Bnd.bndList.Count);
+                nuevo.FixFenceLine(_host.Bnd.bndList.Count);
+                _host.Bnd.bndList.Add(nuevo);
+
+                _host.Fd.UpdateFieldBoundaryGUIAreas();
+                _host.GuardarLinderos();
+                _host.Bnd.BuildTurnLines();
+
+                Log.EventWriter("GuidanceEngine: contorno grabado, area ha: "
+                    + (nuevo.area * 0.0001).ToString("0.00",
+                        System.Globalization.CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                // Con 2 puntos o menos no hay poligono que cerrar. Se avisa y
+                // NO se descarta lo grabado hasta que el operario decida.
+                error = "pocos-puntos";
+                _host.Bnd.isOkToAddPoints = false;
+                return Rec(error);
+            }
+
+            _host.Bnd.isOkToAddPoints = false;
+            _host.Bnd.isBndBeingMade = false;
+            _host.Bnd.bndBeingMadePts.Clear();
+            return Rec(error);
+        }
+
+        public ContornoRecordDto RecordCancel()
+        {
+            _host.Bnd.isOkToAddPoints = false;
+            _host.Bnd.isBndBeingMade = false;
+            _host.Bnd.bndBeingMadePts.Clear();
+            return Rec();
+        }
+
+        // ---- lo que necesita ventana nativa --------------------------------
+        //
+        // Los cuatro abren un dialogo o un form de WinForms (OpenFileDialog,
+        // Process.Start, FormMap, FormBuildBoundaryFromTracks). En el motor
+        // headless no hay donde mostrarlos, asi que se dice explicitamente:
+        // devolver Ok y no hacer nada seria peor.
+
+        public ContornoStateDto ImportKml(bool multi) => Estado("no-disponible-sin-ui");
+
+        public ContornoStateDto OpenGoogleEarth() => Estado("no-disponible-sin-ui");
+
+        public ContornoStateDto OpenMapa() => Estado("no-disponible-sin-ui");
+
+        public ContornoStateDto BuildFromTracks() => Estado("no-disponible-sin-ui");
+    }
+}

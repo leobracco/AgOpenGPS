@@ -76,6 +76,12 @@ namespace AgOpenGPS
 
             RegistrySettings.Load();
 
+            // Despues de Load: es Load quien define la ruta del archivo de log
+            // (via Log.CheckLogSize). Antes de esto el motor no tenia manejador
+            // de errores NI bajaba su log a disco: todo lo que logueaba quedaba
+            // en un StringBuilder que moria con el proceso.
+            CrashLog.Instalar();
+
             // El perfil de vehículo (Vehicles\<nombre>.XML) trae TODA la config
             // real del operario: geometría, antena, ganancias de dirección,
             // secciones. Sin este Load el motor headless corría siempre con los

@@ -446,7 +446,7 @@
                 <bars:MenuIzquierda x:Name="MenuIzq"
                                     Grid.Row="1"
                                     HorizontalAlignment="Left" VerticalAlignment="Stretch"
-                                    Width="140"/>
+                                    Width="316"/>
                 <bars:BarraDerecha  x:Name="BarDerecha"
                                     Grid.Row="1"
                                     HorizontalAlignment="Right" VerticalAlignment="Bottom"

@@ -162,6 +162,13 @@ namespace AgOpenGPS
                 // Sin esto PerfilesController no se registra y /api/aog/perfiles
                 // da 404: la pantalla de perfiles del Hub no lista nada.
                 perfiles: new EnginePerfilService(_host),
+                // Sin esto FlagsController no se registra y /api/flags da 404:
+                // la pantalla de banderas no funciona en el stack Avalonia.
+                flags: new EngineFlagsService(_host),
+                // Sin esto ContornoController no se registra y /api/contorno da
+                // 404: la pantalla de contorno decía "Sin conexión con PilotX" y
+                // no se podía hacer el lindero manejando.
+                contorno: new EngineContornoService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,

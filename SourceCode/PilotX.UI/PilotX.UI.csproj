@@ -52,4 +52,21 @@
     <ProjectReference Include="..\PilotX.Cockpit.Bars\PilotX.Cockpit.Bars.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      AgpErrorMapper ENLAZADO, no por referencia de proyecto.
+
+      El mapeo excepción → código AGP-* tiene que ser el MISMO en todos lados:
+      si el shell inventara sus propios códigos, el número que el operario nos
+      pasa por teléfono no significaría lo mismo según de dónde salió.
+
+      Pero AgroParallel.Services arrastra MQTTnet, NetTopologySuite y
+      System.Text.Json, y no tiene sentido cargarle todo eso al shell por un
+      archivo que solo usa System. Enlazar el .cs deja una sola fuente de
+      verdad sin las dependencias.
+    -->
+    <Compile Include="..\AgroParallel\Core\AgroParallel.Services\AgpErrorMapper.cs"
+             Link="Servicios\AgpErrorMapper.cs" />
+  </ItemGroup>
+
 </Project>

@@ -35,6 +35,12 @@ internal static class Program
         // posible en Main para que el numero refleje wall-clock desde el
         // doble click hasta el primer render HTML. MainWindow lo lee en
         // NavigationCompleted y lo imprime a stdout.
+        // ANTES que nada: sin esto, cualquier excepción no atendida le tira al
+        // operario el cartel de Windows ("dejó de funcionar / ver detalles"),
+        // que en la cabina no le sirve a nadie y termina en cerrar y perder la
+        // jornada. Ver CrashHandler.
+        CrashHandler.Instalar();
+
         App.ColdStart = Stopwatch.StartNew();
         // Inyectar el backend de WebView del head Desktop (WebView.Avalonia).
         // La UI compartida (PilotX.UI) solo conoce IWebViewHost.
