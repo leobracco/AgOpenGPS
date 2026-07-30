@@ -1013,7 +1013,74 @@ public partial class MainWindow : Window
         int api = url.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
         string origin = api >= 0 ? url.Substring(0, api) : url;
         string full = origin + "/" + relativePath.TrimStart('/');
-        OpenDialogUrl(full, title, w, h, mapaVivo);
+
+        // ?widget=1 — la misma página, pero SIN la navegación del Hub. Abierta
+        // desde el menú de PilotX el operario no vino a navegar: vino a hacer
+        // una cosa y volver al lote. Esa barra lateral se come entre 150 y 240
+        // px de ancho de una ventana que queremos lo más chica posible, porque
+        // el mapa tiene que seguir viéndose.
+        full += (full.IndexOf('?') >= 0 ? "&" : "?") + "widget=1";
+
+        var (aw, ah) = TamanoDialogo(relativePath, w, h);
+        OpenDialogUrl(full, title, aw, ah, mapaVivo);
+    }
+
+    /// <summary>
+    /// Tamaño de la ventana-diálogo según la página. Centralizado acá y no en
+    /// cada llamada: es UNA decisión de producto ("la ventana más chica que
+    /// deje operar") y repartida por los call sites se desincroniza sola.
+    ///
+    /// Sin la barra lateral del Hub (ver ?widget=1) estas páginas necesitan
+    /// bastante menos ancho del que tenían: el default histórico era 820x600
+    /// para todo, midiera lo que midiera el contenido.
+    ///
+    /// Lo que NO está en la tabla conserva el tamaño que le pasa el llamador.
+    /// Prefiero dejar grande algo que no medí antes que dejar al operario con
+    /// una pantalla recortada en la cabina.
+    /// </summary>
+    private static (double W, double H) TamanoDialogo(string relativePath, double wDefault, double hDefault)
+    {
+        string p = relativePath ?? "";
+        int q = p.IndexOf('?');
+        if (q >= 0) p = p.Substring(0, q);
+        int barra = p.LastIndexOf('/');
+        if (barra >= 0) p = p.Substring(barra + 1);
+        p = p.ToLowerInvariant();
+
+        switch (p)
+        {
+            // Una sola acción y volver al lote. Son widgets, no pantallas.
+            case "contorno.html":
+            case "banderas.html":
+            case "sim-coords.html":
+            case "suavizar-ab.html":
+            case "corregir-posicion.html":
+            case "tramline.html":
+            case "cabecera.html":
+                return (380, 460);
+
+            // Listas / selección: necesitan alto para ver varias filas, no ancho.
+            case "colores.html":
+            case "colores-secciones.html":
+            case "perfiles.html":
+            case "cabecera-lineas.html":
+            case "ayuda.html":
+            case "eventos.html":
+            case "ajustes-todos.html":
+            case "tracks.html":
+                return (500, 540);
+
+            // Gráficos: acá el ancho SÍ es información (es el eje del tiempo),
+            // así que se les da ancho y se les saca alto.
+            case "grafico-direccion.html":
+            case "grafico-rumbo.html":
+            case "grafico-xte.html":
+            case "grafico-correccion.html":
+                return (620, 430);
+
+            default:
+                return (wDefault, hDefault);
+        }
     }
 
     /// <summary>
@@ -2214,17 +2281,16 @@ public partial class MainWindow : Window
             // cerrable (con barra de título + X), no a pantalla completa —
             // así ninguna se confunde con el cierre de la app.
             //
-            // Contorno va MÁS chica que el resto: mientras se graba el lindero
-            // lo que hay que mirar es el mapa, no el panel. 820x600 tapaba media
-            // pantalla para mostrar dos números y tres botones.
+            // El tamaño lo decide TamanoDialogo por página: 820x600 para todo,
+            // midiera lo que midiera el contenido, era media pantalla tapada.
+            // El 820x600 queda solo como red para las páginas sin medir.
             //
-            // Y va con el mapa VIVO. Los demás diálogos lo apagan para no pelear
-            // con el WebView2 por el compositor, pero éste se abre justamente
-            // para ver los puntos del lindero mientras se manejan: apagárselo lo
-            // deja en negro y lo vuelve inútil.
+            // Contorno además va con el mapa VIVO. Los demás diálogos lo apagan
+            // para no pelear con el WebView2 por el compositor, pero éste se
+            // abre justamente para ver los puntos del lindero mientras se
+            // maneja: apagárselo lo deja en negro y lo vuelve inútil.
             bool esContorno = page == "pages/contorno.html";
-            var (w, h) = esContorno ? (380.0, 460.0) : (820.0, 600.0);
-            OpenDialogPage(page, TitleForCommand(cmd), w, h, mapaVivo: esContorno);
+            OpenDialogPage(page, TitleForCommand(cmd), 820, 600, mapaVivo: esContorno);
             return true;
         }
 

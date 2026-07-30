@@ -1006,3 +1006,13 @@ textarea,
     padding: 10px;
   }
 }
+
+/* ── Modo widget: la pagina abierta desde PilotX, no desde el Hub ──────────
+   PilotX abre estas mismas paginas como ventana chica sobre el mapa. Ahi la
+   navegacion del Hub no sirve —el operario vino a hacer UNA cosa y volver al
+   lote— y se come entre 150 y 240 px de ancho de una ventana que queremos lo
+   mas chica posible, porque el mapa tiene que seguir viendose.
+   La clase la pone widget-mode.js leyendo ?widget=1. Gana por especificidad
+   sobre las media queries de arriba, asi que no depende del orden.           */
+html.widget-mode body { grid-template-columns: 1fr; }
+html.widget-mode aside.sidebar { display: none; }
