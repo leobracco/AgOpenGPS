@@ -188,6 +188,36 @@ namespace AgOpenGPS
         // perimetro cuesta una vuelta completa al lote. Que un corte de luz se
         // lleve eso no va.
 
+        // ---- cabecera ------------------------------------------------------
+        //
+        // El motor leia Headland.txt (HeadlandFiles.AttachLoad) pero no tenia
+        // como construir ni guardar una cabecera: el editor vivia dentro de
+        // FormGPS. Con HeadlandEditor extraido a Core, el motor necesita las dos
+        // piezas que el editor le pide: un CHeadLine de trabajo y el guardado.
+
+        /// <summary>Lista de trabajo del editor de cabecera (desList/idx).
+        /// Equivale al `hdl` de FormGPS.</summary>
+        public readonly CHeadLine Hdl = new CHeadLine();
+
+        /// <summary>
+        /// Baja la cabecera a Headland.txt. Se llama en el acto ante cada cambio
+        /// del editor: construir la cabecera es trabajo del operario sobre el
+        /// mapa y no se pierde por cerrar mal.
+        /// </summary>
+        public void GuardarCabecera()
+        {
+            if (string.IsNullOrEmpty(currentFieldDirectory)) return;
+            try
+            {
+                string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
+                if (Directory.Exists(dir)) HeadlandFiles.Save(dir, Bnd.bndList);
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: no se pudo guardar Headland.txt: " + ex.Message);
+            }
+        }
+
         public void GuardarLinderos()
         {
             if (string.IsNullOrEmpty(currentFieldDirectory)) return;
