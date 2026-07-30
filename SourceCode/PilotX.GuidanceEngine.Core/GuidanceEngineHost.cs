@@ -181,6 +181,39 @@ namespace AgOpenGPS
                 $"sideHill={Gyd.sideHillCompFactor:F2}");
         }
 
+        private readonly System.Diagnostics.Stopwatch _relojSegundo = System.Diagnostics.Stopwatch.StartNew();
+
+        /// <summary>
+        /// Contadores de UN SEGUNDO. Réplica del bloque `if (oneSecondCounter >= 4)`
+        /// de AOG 6.8.5 (GUI.Designer.cs:285-298), quedándose SOLO con lo que es
+        /// lógica y descartando lo que ahí mismo actualiza etiquetas.
+        ///
+        /// El problema: en 6.8.5 estos dos contadores los incrementa el tick de
+        /// la GUI de WinForms. El motor headless no tiene GUI, así que nunca
+        /// incrementaban y las dos funciones que dependen de ellos quedaban
+        /// muertas sin dar ningún error:
+        ///
+        ///   · trk.autoTrack3SecTimer — la rutina que elige la guía MÁS CERCANA
+        ///     (CAutoSteerUpdater.cs:61) corre solo si este contador llegó a 1.
+        ///     Nunca llegaba, así que al prender el piloto se enganchaba a la
+        ///     guía que estuviera seleccionada, no a la de al lado del tractor.
+        ///     Es exactamente el sintoma reportado desde la cabina.
+        ///   · vehicle.deadZoneDelayCounter — la zona muerta de la dirección
+        ///     (CAutoSteerUpdater.cs:177) nunca superaba su umbral.
+        ///
+        /// Se usa reloj de pared y no un conteo de fixes: los fixes llegan a
+        /// ~10 Hz pero el ritmo depende del GPS, y "3 segundos" tiene que ser
+        /// tres segundos de verdad.
+        /// </summary>
+        private void TickDeUnSegundo()
+        {
+            if (_relojSegundo.ElapsedMilliseconds < 1000) return;
+            _relojSegundo.Restart();
+
+            Trk.autoTrack3SecTimer++;
+            Vehicle.deadZoneDelayCounter++;
+        }
+
         /// <summary>
         /// "Enganchar al pivote": al prender el piloto, corre la guía activa
         /// para que pase por donde está el tractor, una sola vez por enganche.
@@ -321,6 +354,7 @@ namespace AgOpenGPS
             HeadingUpdater.UpdateHeading();
             AutoSteerUpdater.SendCorrectedPositionPgn();
             AutoSteerUpdater.BuildAndSendAutoSteerPgn();
+            TickDeUnSegundo();
             YouTurnUpdater.UpdateYouTurnState();
             EngancharGuiaAlPivote();
 
