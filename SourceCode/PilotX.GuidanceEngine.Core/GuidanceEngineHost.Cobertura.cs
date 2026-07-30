@@ -150,8 +150,44 @@ namespace AgOpenGPS
         // (falta la lista de parches pendientes que usa el WinForms).
         // ====================================================================
 
+        // ---- banderas ------------------------------------------------------
+        //
+        // Son dato del OPERARIO: marca una piedra, un pozo, un alambrado caído.
+        // Perderlas no es perder una config, es perder lo que vio en el lote.
+        // Por eso se guardan en el acto ante cada cambio y no cada 30 s como la
+        // cobertura: son pocas y cada una costó una vuelta.
+
+        /// <summary>Banderas del lote abierto.</summary>
+        public readonly List<CFlag> FlagPts = new List<CFlag>();
+
+        /// <summary>Bandera seleccionada (1-based, 0 = ninguna).</summary>
+        public int FlagPicked { get; set; }
+
+        public void GuardarBanderas()
+        {
+            if (string.IsNullOrEmpty(currentFieldDirectory)) return;
+            try
+            {
+                string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
+                if (Directory.Exists(dir)) FlagsFiles.Save(dir, FlagPts);
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: no se pudo guardar Flags.txt: " + ex.Message);
+            }
+        }
+
         private void CargarRestoDelLote(string dir)
         {
+            FlagPicked = 0;
+            FlagPts.Clear();
+            try
+            {
+                var banderas = FlagsFiles.Load(dir);
+                if (banderas != null) FlagPts.AddRange(banderas);
+            }
+            catch (Exception ex) { Log.EventWriter("GuidanceEngine: Flags.txt: " + ex.Message); }
+
             // Cabecera: se engancha sobre los linderos ya cargados, asi que
             // tiene que ir DESPUES de BoundaryFiles.Load.
             try { HeadlandFiles.AttachLoad(dir, Bnd.bndList); }
@@ -181,7 +217,7 @@ namespace AgOpenGPS
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: RecPath.txt: " + ex.Message); }
 
             Log.EventWriter($"GuidanceEngine: lote cargado (cabecera en {Bnd.bndList.Count} linderos, " +
-                            $"tram={Tram.tramList.Count}, recpath={RecPath.recList.Count})");
+                            $"tram={Tram.tramList.Count}, recpath={RecPath.recList.Count}, banderas={FlagPts.Count})");
         }
 
         /// <summary>Baja cabecera, tram y camino grabado. Se llama al cerrar.</summary>
@@ -199,6 +235,10 @@ namespace AgOpenGPS
 
             try { RecPathFiles.Save(dir, RecPath.recList); }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: no se pudo guardar RecPath.txt: " + ex.Message); }
+
+            // Las banderas ya se guardan en cada cambio, pero por si acaso: que
+            // cerrar el lote nunca sea el momento en que se pierden.
+            GuardarBanderas();
         }
     }
 }
