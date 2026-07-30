@@ -2916,3 +2916,64 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   que me digas si ya lo intentaste y por qué se descartó. Mientras tanto el
   síntoma queda documentado y reproducible (Lote → Continuar con un lote ya
   abierto, a veces también Configuración).
+
+- [2026-07-30] [taller] HECHO — contorno (lindero) andando en el motor headless.
+  `/api/contorno` daba 404: `ContornoController` se registra solo si hay
+  `IContornoService` y `EngineWebHost` nunca lo inyectaba — la pantalla decía
+  "Sin conexión con PilotX". Tercera vez el mismo hueco (perfiles, banderas,
+  contorno): **si agregás un servicio nuevo al Hub, fijate que el motor lo
+  inyecte, no alcanza con que exista el controller.**
+  Debajo había algo peor: el motor cargaba linderos (`BoundaryFiles.Load`) pero
+  no existía **una sola** llamada a `BoundaryFiles.Save` en todo el engine. Aun
+  con la API arriba, la vuelta al lote se perdía al cerrar. Ahora se guarda en
+  el acto ante cada cambio (no cada 30 s como la cobertura: recorrer el
+  perímetro cuesta una vuelta entera).
+  Verificado por el usuario en vivo: 503 puntos, 2,884 ha, Boundary.txt de
+  12.946 bytes, y el lindero vuelve al reabrir.
+  KML / Google Earth / mapa satelital / desde-tracks devuelven
+  `no-disponible-sin-ui` (abren ventana WinForms). Los bajé de `en_prueba` a
+  `sin_probar` en el tablero de cierre: figuraban como probados y no pueden
+  funcionar en este stack.
+
+- [2026-07-30] [taller] HECHO — banderas en el motor (`EngineFlagsService`).
+  Mismo hueco: `/api/flags` daba 404. Se guardan en el acto; probado que la
+  bandera vuelve al reabrir el lote con la distancia recalculada.
+
+- [2026-07-30] [taller] HECHO — el tractor va a ESCALA REAL en el mapa.
+  `DrawTractorSprite` tenía un piso de 70 px: con la escala por defecto
+  (5,3 px/m) dibujaba el tractor **3,5 veces más grande** que su tamaño real,
+  mientras el ancho de labor, la barra de secciones, las guías y el lindero sí
+  iban a escala. Ahora el vehículo mide lo que mide y, cuando su ancho baja de
+  28 px, se le suma encima el marcador de posición de tamaño fijo (el triángulo
+  que ya existía sin sprite): símbolo, no geometría.
+  **Santi, esto te habilita algo tuyo**: la razón por la que el sprite del
+  implemento quedó desactivado era justamente ese descalce (el tractor se
+  plantaba en su mínimo y la sembradora se seguía achicando). Esa causa ya no
+  existe; recolgarlo hoy es descomentar `DrawImplementoSprite()`. Sigue apagado
+  porque el usuario prefirió la barra de secciones, no por el bug.
+
+- [2026-07-30] [taller] RESPUESTA al PEDIDO de diálogos en blanco — **tenés
+  evidencia a favor y no la sabías.** El 2026-07-28, en este carril, probé con
+  logging que el centinela `pilotx-close` NO funciona en los WebView de
+  diálogo: la navegación a esa URL nunca se produce (el log de
+  NavigationCompleted solo muestra `lote.html`, jamás el centinela), así que la
+  ventana quedaba abierta tapando el mapa. Lo resolví por afuera, con una señal
+  del host (cambio de lote del HUD), no arreglando la navegación.
+  O sea: **el WebView2 en ventana secundaria ya demostró antes que se comporta
+  distinto del embebido**, en otro síntoma y por otro camino. Tu hipótesis
+  (sacar la `Window` de SO de la ecuación) coincide con lo único que en este
+  carril funcionó de verdad.
+  Sobre el "¿por qué se eligió ventana de SO?": no fue una decisión de
+  arquitectura pensada, fue lo que había. Por mí, dale — pero es cambio de
+  arquitectura y lo decide Leonardo, no yo. Si da el ok, ojo con una cosa: hoy
+  el diálogo de contorno abre a 380x460 y el resto a 820x600 (lo agregué hoy en
+  `MainWindow.axaml.cs`); si pasás a embebido, ese tamaño por página tiene que
+  sobrevivir, porque el widget de contorno chico es para poder mirar el mapa
+  mientras se graba.
+
+- [2026-07-30] [taller] HECHO — el mapa muestra los puntos mientras se graba el
+  lindero. El motor publica `boundary_being_made` en `/api/aog/state` (sin
+  decimar) y el mapa lo dibuja como tira abierta ámbar + punto blanco por
+  vértice. Antes grabar era a ciegas: el único signo era un contador.
+  Si tocás `HudSnapshot`, acordate que la política es `SnakeCaseLower` en los
+  dos lados, así que el campo mapea solo.

@@ -990,14 +990,16 @@ public sealed class MapGlSurface : OpenGlControlBase
             // zona del enganche, que es lo correcto visualmente.
             SubirSpritePendiente();
             // --- sprite del implemento — DESACTIVADO (2026-07-28, pedido usuario) ---
-            // Dibujado al ancho real (4,16 m) quedaba feo: el tractor tiene piso de
-            // 26 px (ver minPx en DrawTractorSprite) y el implemento no, así que al
-            // alejar el zoom el tractor se plantaba en su tamaño mínimo mientras la
-            // sembradora se seguía achicando, y los dos quedaban descalzados.
-            // Vuelve la barra de secciones de colores, que además dice más (estado
-            // por sección) que el dibujo de la máquina.
-            // El método queda por si se lo quiere recolgar con el piso de píxeles
-            // corregido.
+            // Dibujado al ancho real (4,16 m) quedaba feo porque el tractor tenía
+            // piso de píxeles y el implemento no: al alejar el zoom el tractor se
+            // plantaba en su tamaño mínimo mientras la sembradora se seguía
+            // achicando, y los dos quedaban descalzados.
+            //
+            // Esa causa YA NO EXISTE: el tractor pasó a escala real (2026-07-30,
+            // ver DrawTractorSprite), así que ahora los dos se achicarían juntos.
+            // Sigue apagado porque además se pidió la barra de secciones, que dice
+            // más (estado por sección) que el dibujo de la máquina. Recolgarlo hoy
+            // es descomentar la línea de abajo.
             //DrawImplementoSprite();
             DrawTractor(_renderE, _renderN, snap.Heading, scale);
         }
