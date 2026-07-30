@@ -46,11 +46,36 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     [ObservableProperty] private bool _numCuVisible;
     [ObservableProperty] private string _numCuText = "";
 
-    // Giro manual (←/→) y salto de guías. Solo con el giro automático ACTIVO:
-    // sin eso no hay a dónde girar y serían botones muertos ocupando barra.
+    // Giro manual (↰/↱) y selector de salto del giro. Solo con el giro
+    // automático ACTIVO: sin eso no hay a dónde girar y serían controles
+    // muertos ocupando barra.
     [ObservableProperty] private bool _giroManualVisible;
-    [ObservableProperty] private string _skipImg = D + "YouSkipOff.png";
-    [ObservableProperty] private string _skipText = "";
+
+    // Saltear guía (⇤/⇥): correrse a la guía de al lado siguiendo para
+    // adelante. NO depende del giro automático — alcanza con tener una guía.
+    [ObservableProperty] private bool _lateralVisible;
+
+    /// <summary>0..9, para el desplegable.</summary>
+    public int[] SaltosPosibles { get; } = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+
+    private int _saltoDelGiro = 1;
+    private bool _aplicandoSnapshot;
+
+    /// <summary>
+    /// Guías que saltea el giro. El setter manda el comando al motor, salvo
+    /// cuando el valor viene del snapshot: sin ese guard, cada refresco del HUD
+    /// reenviaría el comando 10 veces por segundo.
+    /// </summary>
+    public int SaltoDelGiro
+    {
+        get => _saltoDelGiro;
+        set
+        {
+            if (!SetProperty(ref _saltoDelGiro, value)) return;
+            if (_aplicandoSnapshot) return;
+            _ = Send("uturn_skip_" + value);
+        }
+    }
 
     public override void Apply(CockpitSnapshot s)
     {
@@ -83,11 +108,14 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
         NumCuText = NumCuVisible ? $"{s.TrackIdx + 1}/{s.TracksTotal}" : "";
 
         GiroManualVisible = UturnVisible && s.IsYouTurnOn;
-        SkipImg = D + (s.YouTurnSkipMode == "ignora_trabajadas" ? "YouSkipWorkedTracks.png"
-                     : s.YouTurnSkipMode == "alternado" ? "YouSkipOn.png"
-                     : "YouSkipOff.png");
-        // El número va escrito: cuántas guías saltea decide por dónde sigue la
-        // máquina, y en el original solo se distinguía por el ícono.
-        SkipText = s.YouTurnSkipWidth > 1 ? s.YouTurnSkipWidth.ToString() : "";
+
+        // Saltear guía solo necesita una guía: es ir derecho corriéndose de
+        // línea, no tiene nada que ver con el giro en cabecera.
+        LateralVisible = hayGuia && !contour;
+
+        // Se refleja lo que dice el motor sin re-disparar el comando.
+        _aplicandoSnapshot = true;
+        SaltoDelGiro = s.YouTurnSkipWidth;
+        _aplicandoSnapshot = false;
     }
 }

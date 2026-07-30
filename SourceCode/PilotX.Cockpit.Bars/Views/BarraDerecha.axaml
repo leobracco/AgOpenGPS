@@ -59,16 +59,34 @@
         </Button>
       </StackPanel>
 
-      <!-- Cuántas guías saltea el giro. El número va escrito: "saltea 2" es un
-           dato que decide por dónde sigue la máquina, no un modo escondido. -->
-      <Button IsVisible="{Binding GiroManualVisible}" Command="{Binding SendCommand}"
-              CommandParameter="uturn_skips" ToolTip.Tip="Guías que saltea el giro">
-        <StackPanel>
-          <Image Source="{Binding SkipImg, Converter={StaticResource Asset}}"/>
-          <TextBlock Text="{Binding SkipText}" FontSize="10" FontWeight="Bold"
-                     Foreground="#101612" HorizontalAlignment="Center"/>
-        </StackPanel>
-      </Button>
+      <!-- SALTEAR GUÍA: te corrés a la guía de al lado y seguís PARA ADELANTE,
+           sin dar la vuelta. Es lo que se usa para esquivar un pozo o retomar
+           donde quedaste. No depende del giro automático —por eso no comparte
+           visibilidad con los botones de arriba—: alcanza con tener una guía. -->
+      <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center"
+                  IsVisible="{Binding LateralVisible}">
+        <Button Command="{Binding SendCommand}" CommandParameter="lateral_izq"
+                Width="24" Padding="0" ToolTip.Tip="Saltear a la guía de la izquierda">
+          <TextBlock Text="⇤" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Button>
+        <Button Command="{Binding SendCommand}" CommandParameter="lateral_der"
+                Width="24" Padding="0" ToolTip.Tip="Saltear a la guía de la derecha">
+          <TextBlock Text="⇥" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Button>
+      </StackPanel>
+
+      <!-- Cuántas guías saltea EL GIRO. Es un número que se elige, no un modo
+           que cicla: "salteo 2" es una decisión concreta y buscarla ciclando un
+           botón mientras se llega a la cabecera no sirve. -->
+      <StackPanel IsVisible="{Binding GiroManualVisible}" HorizontalAlignment="Center">
+        <TextBlock Text="saltea" FontSize="9" Foreground="#535E54"
+                   HorizontalAlignment="Center"/>
+        <ComboBox ItemsSource="{Binding SaltosPosibles}"
+                  SelectedItem="{Binding SaltoDelGiro}"
+                  Width="46" MinHeight="28" Padding="4,0" FontSize="13"
+                  HorizontalAlignment="Center"
+                  ToolTip.Tip="Guías que saltea el giro en cabecera"/>
+      </StackPanel>
       <Button IsEnabled="{Binding PilotoEnabled}" Command="{Binding SendCommand}" CommandParameter="autosteer">
         <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}"/>
       </Button>

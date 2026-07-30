@@ -197,6 +197,8 @@ namespace AgOpenGPS
                 // barra del cockpit los muestre como lo que son.
                 case "uturn_manual_izq":
                     return GiroManual(false);
+                case var s when s.StartsWith("uturn_skip_"):
+                    return FijarSaltoDelGiro(s.Substring("uturn_skip_".Length));
                 case "uturn_manual_der":
                     return GiroManual(true);
                 case "lateral_izq":
@@ -458,6 +460,46 @@ namespace AgOpenGPS
             Yt.isYouTurnTriggered = true;
             Yt.BuildManualYouTurn(haciaLaDerecha, true);
             Log.EventWriter("GuidanceEngine: giro manual a la " + (haciaLaDerecha ? "derecha" : "izquierda"));
+            return true;
+        }
+
+        /// <summary>
+        /// Cuántas guías saltea el giro en cabecera, de 0 a 9. Es un NÚMERO que
+        /// el operario elige, no un modo que cicla: con 12 m de ancho y una
+        /// sembradora que necesita dos pasadas de margen, "salteo 2" es una
+        /// decisión concreta y tenerla que buscar ciclando un botón mientras se
+        /// llega a la cabecera no sirve.
+        ///
+        /// 0 y 1 son lo mismo en la práctica (va a la guía de al lado) y apagan
+        /// el modo alternado; de 2 para arriba se prende, que es lo que el
+        /// alternado necesita para tener sentido.
+        /// </summary>
+        private bool FijarSaltoDelGiro(string valor)
+        {
+            if (!int.TryParse(valor, out int n)) return false;
+            if (n < 0 || n > 9) return false;
+
+            Yt.rowSkipsWidth = n < 1 ? 1 : n;
+            AgOpenGPS.Properties.Settings.Default.set_youSkipWidth = Yt.rowSkipsWidth;
+            AgOpenGPS.Properties.Settings.Default.Save();
+
+            if (Yt.rowSkipsWidth < 2)
+            {
+                Yt.skipMode = SkipMode.Normal;
+            }
+            else if (Yt.skipMode == SkipMode.Normal)
+            {
+                Yt.skipMode = SkipMode.Alternative;
+                Yt.Set_Alternate_skips();
+            }
+            else if (Yt.skipMode == SkipMode.Alternative)
+            {
+                // Recalcular el patrón con el ancho nuevo.
+                Yt.Set_Alternate_skips();
+            }
+
+            Yt.ResetCreatedYouTurn();
+            Log.EventWriter($"GuidanceEngine: el giro saltea {Yt.rowSkipsWidth} guia(s), modo {Yt.skipMode}");
             return true;
         }
 
