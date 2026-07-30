@@ -141,6 +141,53 @@ namespace AgroParallel.Services
                 return new AgpError("AGP-NET-001", "Falla de red al contactar el servicio.", technical);
             }
 
+            // ---- Fallas del sistema -------------------------------------------
+            //
+            // Estas caían todas en AGP-SYS-009, o sea que el operario reportaba
+            // "salió un error" y no había forma de saber por dónde arrancar.
+            // Separar los tipos más comunes de .NET le da a soporte un punto de
+            // partida sin tener que pedirle el detalle técnico al operario.
+            switch (rootTypeName)
+            {
+                case "IndexOutOfRangeException":
+                case "ArgumentOutOfRangeException":
+                    return new AgpError("AGP-SYS-001",
+                        "Un valor quedó fuera de rango. Suele ser una configuración con un número que el equipo no esperaba (ancho, secciones, offsets).",
+                        technical);
+
+                case "NullReferenceException":
+                    return new AgpError("AGP-SYS-002",
+                        "Faltaba un dato que el programa daba por hecho. Suele pasar con un lote o un perfil a medio cargar.",
+                        technical);
+
+                case "FileNotFoundException":
+                case "DirectoryNotFoundException":
+                    return new AgpError("AGP-SYS-003",
+                        "No se encontró un archivo o carpeta que hacía falta. Revisá que el lote y el perfil de vehículo existan.",
+                        technical);
+
+                case "UnauthorizedAccessException":
+                    return new AgpError("AGP-SYS-004",
+                        "Windows no dejó leer o escribir un archivo. Puede ser permisos, o el archivo abierto en otro programa.",
+                        technical);
+
+                case "IOException":
+                    return new AgpError("AGP-SYS-005",
+                        "Falló una lectura o escritura en disco. Si es en la pantalla de la cabina, revisá el espacio libre.",
+                        technical);
+
+                case "FormatException":
+                case "OverflowException":
+                    return new AgpError("AGP-SYS-006",
+                        "Un número vino con un formato que el equipo no pudo interpretar. Suele ser una config cargada a mano.",
+                        technical);
+
+                case "InvalidOperationException":
+                    return new AgpError("AGP-SYS-007",
+                        "Se intentó una acción en un momento en que no correspondía. Probá cerrar el lote y volver a abrirlo.",
+                        technical);
+            }
+
             return new AgpError("AGP-SYS-009", "Algo salió mal. El equipo de soporte puede ayudarte con el código de error.", technical);
         }
 

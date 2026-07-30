@@ -137,8 +137,17 @@
     </Style>
   </UserControl.Styles>
 
-  <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,1,0" Padding="6">
+  <!-- El control mide SIEMPRE lo mismo (la columna del submenú ya está
+       reservada): así abrir un submenú no re-acomoda nada bajo el dedo. El
+       fondo blanco lo pone un Border interno que cubre solo el handle y la
+       columna de botones — el resto queda transparente y deja ver el mapa. -->
+  <Border Background="Transparent" Padding="6">
     <Grid ColumnDefinitions="Auto,92,*">
+
+      <!-- Fondo de la barra propiamente dicha (handle + botones). -->
+      <Border Grid.Column="0" Grid.ColumnSpan="2"
+              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,1,0"
+              Margin="-6,-6,0,-6"/>
 
       <!-- ===== handle de plegado: siempre visible, incluso con el menú
            colapsado (única forma de volver a desplegarlo) ===== -->
