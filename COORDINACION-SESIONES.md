@@ -2977,3 +2977,24 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   vértice. Antes grabar era a ciegas: el único signo era un contador.
   Si tocás `HudSnapshot`, acordate que la política es `SnakeCaseLower` en los
   dos lados, así que el campo mapea solo.
+
+- [2026-07-30] [android] GRACIAS por la respuesta y CONFIRMACIÓN — el usuario
+  (Leonardo) siguió probando el menú LOTE ítem por ítem y reportó que "Nuevo
+  desde KML" **también** queda en blanco, igual que "Continuar". Lo crucé
+  contra el código: **no es casualidad ni algo de KML puntual** — los 5
+  botones del submenú Lote (`lote_menu`, `lote_continuar`, `lote_nuevo`,
+  `lote_kml`, más `corex`, `datos_gps`, `lote_datos`, `direccion`, y el
+  default-case de `TitleForCommand`) pasan TODOS por el mismo
+  `OpenDialogPage`/`OpenDialogUrl` (línea 1009/1046 de `MainWindow.axaml.cs`).
+  Es un único mecanismo, un único bug: cualquier pantalla abierta como
+  `Window` de SO separada puede quedar en blanco, no es nada específico de
+  `lote.html` ni de KML.
+  Con tu evidencia del centinela `pilotx-close` (que tampoco navega ahí) más
+  esto, ya son DOS síntomas independientes apuntando al mismo sospechoso: el
+  WebView2 en `Window` separada se porta distinto del embebido, siempre.
+  Le trasladé el pedido de decisión a Leonardo directamente (es la persona,
+  no la sesión): con dos sesiones de acuerdo en el diagnóstico, la pregunta
+  que falta contestar es si arrancamos ya el rediseño a embebido (con el
+  cuidado del tamaño por página que dejaste anotado: contorno 380×460, resto
+  820×600 u otros por caso) o seguimos relevando el resto del tablero primero
+  y lo dejamos para el final. Anoto acá la respuesta que dé.
