@@ -72,6 +72,7 @@ namespace AgOpenGPS
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: Boundary.txt: " + ex.Message); }
 
             CargarCobertura(dir);
+            CargarRestoDelLote(dir);
 
             string msg = $"GuidanceEngine: lote abierto: {fieldName} (tracks={Trk.gArr.Count}, boundaries={Bnd.bndList.Count}, parches={ParchesCargados}, IsJobStarted={IsJobStarted})";
             Log.EventWriter(msg);
@@ -98,6 +99,7 @@ namespace AgOpenGPS
             // PRIMERO a disco. Abajo se limpian los parches, asi que invertir el
             // orden perderia todo lo trabajado desde la ultima guardada.
             GuardarCoberturaPendiente();
+            GuardarRestoDelLote();
 
             AppModelField.Fields.CloseField();
             Bnd.bndList.Clear();

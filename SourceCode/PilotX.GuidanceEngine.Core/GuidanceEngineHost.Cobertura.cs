@@ -130,5 +130,75 @@ namespace AgOpenGPS
             _fixesDesdeGuardada = 0;
             GuardarCoberturaPendiente();
         }
+
+        // ====================================================================
+        // Resto de los datos del lote: cabecera, tram y camino grabado.
+        //
+        // Misma clase de hueco que la cobertura: el WinForms los guarda y lee,
+        // el motor headless no los tocaba. Al reabrir el lote aparecian vacios
+        // y el operario tenia que rehacerlos. La cabecera es la peor de las
+        // tres: sin ella el corte automatico en cabecera deja de funcionar.
+        //
+        // A diferencia de la cobertura, estos NO van en el guardado periodico:
+        // se configuran una vez y no crecen mientras se trabaja, asi que
+        // reescribir sus archivos cada 30 s solo desgastaria la memoria de la
+        // pantalla. Se guardan al cerrar el lote. La contra: un corte de luz
+        // pierde lo que se haya configurado en esa sesion.
+        //
+        // Quedan afuera todavia: Flags.txt (el motor no tiene lista de
+        // banderas), Headlines.txt (sin contenedor de CHeadPath) y Contour.txt
+        // (falta la lista de parches pendientes que usa el WinForms).
+        // ====================================================================
+
+        private void CargarRestoDelLote(string dir)
+        {
+            // Cabecera: se engancha sobre los linderos ya cargados, asi que
+            // tiene que ir DESPUES de BoundaryFiles.Load.
+            try { HeadlandFiles.AttachLoad(dir, Bnd.bndList); }
+            catch (Exception ex) { Log.EventWriter("GuidanceEngine: Headland.txt: " + ex.Message); }
+
+            try
+            {
+                var t = TramFiles.Load(dir);
+                if (t != null)
+                {
+                    Tram.tramBndOuterArr.Clear();
+                    Tram.tramBndOuterArr.AddRange(t.Outer);
+                    Tram.tramBndInnerArr.Clear();
+                    Tram.tramBndInnerArr.AddRange(t.Inner);
+                    Tram.tramList.Clear();
+                    Tram.tramList.AddRange(t.Lines);
+                }
+            }
+            catch (Exception ex) { Log.EventWriter("GuidanceEngine: Tram.txt: " + ex.Message); }
+
+            try
+            {
+                var rec = RecPathFiles.Load(dir);
+                RecPath.recList.Clear();
+                if (rec != null) RecPath.recList.AddRange(rec);
+            }
+            catch (Exception ex) { Log.EventWriter("GuidanceEngine: RecPath.txt: " + ex.Message); }
+
+            Log.EventWriter($"GuidanceEngine: lote cargado (cabecera en {Bnd.bndList.Count} linderos, " +
+                            $"tram={Tram.tramList.Count}, recpath={RecPath.recList.Count})");
+        }
+
+        /// <summary>Baja cabecera, tram y camino grabado. Se llama al cerrar.</summary>
+        public void GuardarRestoDelLote()
+        {
+            if (string.IsNullOrEmpty(currentFieldDirectory)) return;
+            string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
+            if (!Directory.Exists(dir)) return;
+
+            try { HeadlandFiles.Save(dir, Bnd.bndList); }
+            catch (Exception ex) { Log.EventWriter("GuidanceEngine: no se pudo guardar Headland.txt: " + ex.Message); }
+
+            try { TramFiles.Save(dir, Tram.tramBndOuterArr, Tram.tramBndInnerArr, Tram.tramList); }
+            catch (Exception ex) { Log.EventWriter("GuidanceEngine: no se pudo guardar Tram.txt: " + ex.Message); }
+
+            try { RecPathFiles.Save(dir, RecPath.recList); }
+            catch (Exception ex) { Log.EventWriter("GuidanceEngine: no se pudo guardar RecPath.txt: " + ex.Message); }
+        }
     }
 }
