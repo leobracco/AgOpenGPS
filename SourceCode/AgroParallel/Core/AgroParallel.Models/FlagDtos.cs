@@ -25,6 +25,12 @@ namespace AgroParallel.Models
 
         /// <summary>Distancia actual del tractor a la bandera, en metros.</summary>
         public double DistanceM { get; set; }
+
+        /// <summary>Coordenadas en el plano local del lote (mismo sistema que
+        /// guías/lindero/cobertura). El mapa GL no puede dibujar con Lat/Lon
+        /// directo: necesita esto para ubicar la bandera junto a todo lo demás.</summary>
+        public double Easting { get; set; }
+        public double Northing { get; set; }
     }
 
     /// <summary>Estado completo del widget de banderas.</summary>

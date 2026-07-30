@@ -133,6 +133,11 @@ public partial class MainWindow : Window
     // generar un giro o grabar. Revision-cache filtra snapshots iguales.
     // Solo con UseGl=on.
     private PathsGeometryPoller? _pathsPoller;
+    // Banderas del operario (piedra, pozo, alambrado caído...). Cadencia baja
+    // (2 s, ver FlagsPoller) — no hay urgencia de tiempo real como con la
+    // posición del tractor. Solo con UseGl=on, igual que el resto de esta capa
+    // (MapSkiaSurface no tiene DrawFlags).
+    private FlagsPoller? _flagsPoller;
 
     // Toolbar inferior (state-aware).
     private Button? _btnSettings;
@@ -486,6 +491,18 @@ public partial class MainWindow : Window
                 }, periodMs: 1000);
                 _pathsPoller.Start();
                 Closed += (_, _) => _pathsPoller?.Stop();
+
+                // Banderas: el widget banderas.html ya las crea/edita contra
+                // el motor; sin esto el mapa nunca mostraba lo que se cargaba
+                // ahí. 2 s de cadencia (ver FlagsPoller), especifico de GL
+                // (como coverage/paths).
+                var fc = new FlagsClient(DeriveOrigin(App.TargetUrl));
+                _flagsPoller = new FlagsPoller(fc, flags =>
+                {
+                    _mapHost?.OnFlags(flags);
+                }, periodMs: 2000);
+                _flagsPoller.Start();
+                Closed += (_, _) => _flagsPoller?.Stop();
             }
 
             // Stages 3/4: pollers de guidance/tool/tram. Corren tanto
@@ -795,6 +812,7 @@ public partial class MainWindow : Window
         _guidancePoller?.Stop();
         _tramPoller?.Stop();
         _pathsPoller?.Stop();
+        _flagsPoller?.Stop();
     }
 
     private void ReanudarMapa()
@@ -805,6 +823,7 @@ public partial class MainWindow : Window
         _guidancePoller?.Start();
         _tramPoller?.Start();
         _pathsPoller?.Start();
+        _flagsPoller?.Start();
         _mapHost?.Reanudar();
     }
 

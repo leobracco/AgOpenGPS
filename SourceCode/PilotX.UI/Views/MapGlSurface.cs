@@ -148,6 +148,12 @@ public sealed class MapGlSurface : OpenGlControlBase
     private long _pathsRevisionUploaded = -1;
     private PathsGeometrySnapshot? _pendingPaths;
 
+    // ---- banderas ---------------------------------------------------------
+    // Lista chica (pocas docenas como mucho): sin VBO propio, se arma el
+    // quad/triángulo por bandera con el scratch y se sube por frame — igual
+    // que el marcador del tractor y el indicador de XTE.
+    private List<FlagPoint> _flags = new();
+
     // ---- tool / sections (Stage 4a) ------------------------------------
     // Cada seccion = un segmento Left↔Right en coords mundo. Coloreamos
     // segun estado: gris (off), verde (auto + mapping), rojo (auto + NO
@@ -249,6 +255,12 @@ public sealed class MapGlSurface : OpenGlControlBase
     private static readonly float[] ColIslandStroke  = { 0.561f, 0.627f, 0.573f, 1f }; // #8FA092
     private static readonly float[] ColTractor       = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E
     private static readonly float[] ColTractorEdge   = { 0.063f, 0.086f, 0.071f, 1f }; // #101612
+    // Banderas (marca del operario: piedra, pozo, alambrado caído...). Mismo
+    // código de color que banderas.html: 0 rojo, 1 verde, 2 amarillo.
+    private static readonly float[] ColBanderaRoja     = { 0.831f, 0.180f, 0.180f, 1f }; // #D42E2E
+    private static readonly float[] ColBanderaVerde    = { 0.204f, 0.702f, 0.235f, 1f }; // #34B33C
+    private static readonly float[] ColBanderaAmarilla = { 0.949f, 0.784f, 0.196f, 1f }; // #F2C832
+    private static readonly float[] ColBanderaAsta     = { 0.063f, 0.086f, 0.071f, 1f }; // #101612 (idem borde tractor)
     // Guidance line: cian brillante para contrastar con boundary (#5BC850
     // verde) y coverage (verde semitransp). #4DD8FF — visible sobre fondo
     // oscuro y sobre la capa pintada.
@@ -626,6 +638,17 @@ public sealed class MapGlSurface : OpenGlControlBase
     }
 
     /// <summary>
+    /// Push de banderas desde UI thread (FlagsPoller). El poller ya filtra
+    /// por hash — acá solo se guarda la lista (se redibuja entera cada frame,
+    /// son pocas) y se pide un frame nuevo.
+    /// </summary>
+    public void OnFlags(List<FlagPoint> flags)
+    {
+        _flags = flags ?? new List<FlagPoint>();
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
     /// Push de geometria de guidance desde UI thread (GuidanceGeometryPoller).
     /// El poller ya filtra por revision; aca solo guardamos pendiente y
     /// disparamos un frame nuevo. Si el modo viene "Off" igual aplicamos
@@ -984,6 +1007,13 @@ public sealed class MapGlSurface : OpenGlControlBase
             // viejo que pase por al lado.
             if (snap.BoundaryBeingMade != null && snap.BoundaryBeingMade.Count > 0)
                 DrawLinderoEnCurso(snap.BoundaryBeingMade, scale);
+
+            // --- Capa 3c: banderas del operario -----------------------------
+            // Van después del lindero y antes del tractor: son referencias
+            // fijas del lote (piedra, pozo...) que el tractor puede tapar al
+            // pasar por encima, pero nunca al revés.
+            if (_flags.Count > 0)
+                DrawFlags(scale);
 
             // --- Capa 4: implemento y tractor ---------------------------
             // El implemento va PRIMERO: el tractor lo tapa parcialmente en la
@@ -2304,16 +2334,16 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         // Con sprite cargado se dibuja el vehículo a ESCALA REAL. Si a esa
         // escala queda de pocos píxeles no se lo agranda —eso rompería la
-        // proporción contra el ancho de labor, las guías y el lote— sino que se
-        // le suma encima el marcador de posición, que es de tamaño fijo y se
-        // lee como símbolo.
-        if (DrawTractorSprite(e, n, headingRad, scale))
-        {
-            double twReal = _snap?.TrackWidth ?? 0;
-            if (twReal <= 0.1) twReal = 1.9;
-            if ((2 * twReal) * scale >= UmbralMarcadorPx) return;
-            // cae al marcador, dibujado encima del vehículo chiquito
-        }
+        // proporción contra el ancho de labor, las guías y el lote— pero
+        // TAMPOCO se le suma el marcador encima: mostrar sprite y triángulo
+        // juntos se ve como dos vehículos superpuestos, no como un símbolo.
+        // Por debajo del umbral el marcador REEMPLAZA al sprite (uno u otro,
+        // nunca los dos), así el vehículo se sigue viendo al alejar el zoom
+        // sin duplicarse.
+        double twReal = _snap?.TrackWidth ?? 0;
+        if (twReal <= 0.1) twReal = 1.9;
+        bool grandeParaSprite = (2 * twReal) * scale >= UmbralMarcadorPx;
+        if (grandeParaSprite && DrawTractorSprite(e, n, headingRad, scale)) return;
 
         // Tamano del triangulo en pixeles -> convertir a coords mundo
         // dividiendo por scale (px / (px/m) = m).
@@ -2341,6 +2371,49 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         // Borde oscuro (line loop) por encima.
         UploadAndDraw(PrimitiveType.LineLoop, 3, ColTractorEdge);
+    }
+
+    /// <summary>
+    /// Dibuja las banderas del operario: asta vertical de tamaño fijo en
+    /// píxeles (no se achica con el zoom, si no a cierta distancia son un
+    /// punto invisible) + gallardete triangular en la punta, coloreado según
+    /// <c>FlagPoint.Color</c> (0 rojo, 1 verde, 2 amarillo — mismo código que
+    /// banderas.html).
+    /// </summary>
+    private void DrawFlags(double scale)
+    {
+        if (_gl == null) return;
+
+        const double astaPx = 22;
+        const double banderaPx = 14;
+        double astaWorld = astaPx / scale;
+        double banderaWorld = banderaPx / scale;
+
+        foreach (var f in _flags)
+        {
+            double baseE = f.Easting, baseN = f.Northing;
+            double topN = baseN + astaWorld;
+
+            // Asta.
+            EnsureScratch(4);
+            _scratch[0] = (float)baseE; _scratch[1] = (float)baseN;
+            _scratch[2] = (float)baseE; _scratch[3] = (float)topN;
+            UploadAndDraw(PrimitiveType.Lines, 2, ColBanderaAsta);
+
+            // Gallardete: triángulo colgando a la derecha de la punta del asta.
+            float[] col = f.Color switch
+            {
+                1 => ColBanderaVerde,
+                2 => ColBanderaAmarilla,
+                _ => ColBanderaRoja,
+            };
+            EnsureScratch(6);
+            _scratch[0] = (float)baseE;                    _scratch[1] = (float)topN;
+            _scratch[2] = (float)baseE;                    _scratch[3] = (float)(topN - banderaWorld * 0.6);
+            _scratch[4] = (float)(baseE + banderaWorld);    _scratch[5] = (float)(topN - banderaWorld * 0.3);
+            UploadAndDraw(PrimitiveType.Triangles, 3, col);
+            UploadAndDraw(PrimitiveType.LineLoop, 3, ColBanderaAsta);
+        }
     }
 
     private void EnsureScratch(int neededFloats)

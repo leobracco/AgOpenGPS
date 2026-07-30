@@ -311,6 +311,15 @@ public sealed class MapPanel : Grid
         _gl?.OnPaths(snap);
     }
 
+    /// <summary>
+    /// Push de banderas del operario. Especifico de GL — la surface Skia
+    /// legacy no las pinta.
+    /// </summary>
+    public void OnFlags(System.Collections.Generic.List<FlagPoint> flags)
+    {
+        _gl?.OnFlags(flags);
+    }
+
     // ---- vista de cámara (menú Navegación): 2D/3D/Norte 2D/tilt/grilla/día-noche.
     // No-op en la surface Skia legacy (_gl==null) — mismo criterio que
     // BeginAbCreation/OnCoverage/etc.
