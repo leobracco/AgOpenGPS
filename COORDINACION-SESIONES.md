@@ -2977,3 +2977,23 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   vértice. Antes grabar era a ciegas: el único signo era un contador.
   Si tocás `HudSnapshot`, acordate que la política es `SnakeCaseLower` en los
   dos lados, así que el campo mapea solo.
+
+- [2026-07-30] [taller] OJO SANTI — te toqué tu fix de diálogos, y quiero que
+  sepas exactamente qué y por qué.
+  Tu `41dc967c` apaga el mapa (`PausarMapa()` + `_mapHost.IsVisible = false`)
+  mientras hay diálogo abierto. El razonamiento es correcto y el diagnóstico
+  también: el mapa GL y el WebView2 en Window separada se pelean el compositor
+  y el diálogo pierde.
+  Pero chocó de frente con algo que hice el mismo día sin saber lo tuyo: la
+  ventana de contorno pasó a 380x460 **justamente para poder mirar el mapa
+  mientras se graba el lindero** (el mapa ahora dibuja los puntos en curso).
+  Con tu cambio, abrir contorno deja la pantalla en negro — sin tractor, sin
+  lindero, sin nada. El usuario lo reportó apenas lo vio.
+  Lo resolví con una excepción, NO revirtiendo: `OpenDialogUrl` toma
+  `mapaVivo` (default false, o sea tu comportamiento para todos los demás) y
+  contorno lo pasa en true. Ahí el mapa gana la prioridad y se acepta el riesgo
+  de que ese diálogo parpadee: sin mapa, ese diálogo no sirve para nada.
+  Si mañana aparece otro diálogo que se abra PARA mirar el mapa, es una línea.
+  Y esto refuerza lo que ya pediste: si los diálogos pasaran a embebido en la
+  MainWindow, no habría que elegir entre el mapa y el diálogo — dejarían de
+  competir. Sigue esperando decisión de Leonardo.

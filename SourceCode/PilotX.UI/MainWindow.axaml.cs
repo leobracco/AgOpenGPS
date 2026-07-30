@@ -1006,13 +1006,14 @@ public partial class MainWindow : Window
 
     // Abre una página del Hub como VENTANA CHIQUITA separada (diálogo), igual
     // que el form nativo equivalente. Reusa la misma si ya está abierta.
-    private void OpenDialogPage(string relativePath, string title, double w, double h)
+    private void OpenDialogPage(string relativePath, string title, double w, double h,
+                                bool mapaVivo = false)
     {
         string url = App.TargetUrl.TrimEnd('/');
         int api = url.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
         string origin = api >= 0 ? url.Substring(0, api) : url;
         string full = origin + "/" + relativePath.TrimStart('/');
-        OpenDialogUrl(full, title, w, h);
+        OpenDialogUrl(full, title, w, h, mapaVivo);
     }
 
     /// <summary>
@@ -1043,7 +1044,8 @@ public partial class MainWindow : Window
         CerrarDialogo();
     }
 
-    private void OpenDialogUrl(string full, string title, double w, double h)
+    private void OpenDialogUrl(string full, string title, double w, double h,
+                               bool mapaVivo = false)
     {
         try
         {
@@ -1062,8 +1064,27 @@ public partial class MainWindow : Window
             // Poniendo IsVisible=false (igual que ShowWebView con la pantalla
             // embebida) esa red de seguridad queda inerte y la pausa se sostiene
             // mientras el diálogo está abierto.
-            PausarMapa();
-            if (_mapHost != null) _mapHost.IsVisible = false;
+            //
+            // mapaVivo: EXCEPCIÓN para los diálogos que se abren PARA mirar el
+            // mapa. El de contorno es chico (380x460) justamente para poder ver
+            // los puntos del lindero mientras se graba; apagarle el mapa deja la
+            // pantalla en negro y saca de la cabina lo único que se estaba
+            // mirando. Ahí el mapa gana la prioridad y el riesgo de que el
+            // diálogo parpadee se acepta a cambio: sin mapa ese diálogo no
+            // sirve para nada.
+            if (mapaVivo)
+            {
+                // Puede venir de un diálogo anterior que SÍ lo apagó (se reusa
+                // la misma Window), así que se enciende explícitamente en vez de
+                // asumir que estaba prendido.
+                if (_mapHost != null) _mapHost.IsVisible = true;
+                ReanudarMapa();
+            }
+            else
+            {
+                PausarMapa();
+                if (_mapHost != null) _mapHost.IsVisible = false;
+            }
 
             if (_dialogWin != null)
             {
@@ -2196,8 +2217,14 @@ public partial class MainWindow : Window
             // Contorno va MÁS chica que el resto: mientras se graba el lindero
             // lo que hay que mirar es el mapa, no el panel. 820x600 tapaba media
             // pantalla para mostrar dos números y tres botones.
-            var (w, h) = page == "pages/contorno.html" ? (380.0, 460.0) : (820.0, 600.0);
-            OpenDialogPage(page, TitleForCommand(cmd), w, h);
+            //
+            // Y va con el mapa VIVO. Los demás diálogos lo apagan para no pelear
+            // con el WebView2 por el compositor, pero éste se abre justamente
+            // para ver los puntos del lindero mientras se manejan: apagárselo lo
+            // deja en negro y lo vuelve inútil.
+            bool esContorno = page == "pages/contorno.html";
+            var (w, h) = esContorno ? (380.0, 460.0) : (820.0, 600.0);
+            OpenDialogPage(page, TitleForCommand(cmd), w, h, mapaVivo: esContorno);
             return true;
         }
 
