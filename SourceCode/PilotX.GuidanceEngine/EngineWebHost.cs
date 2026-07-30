@@ -190,6 +190,8 @@ namespace AgOpenGPS
                 // Mover guía: correr la activa de a pasos o la referencia (que
                 // corre el patrón entero). Destraba 13 íconos del tablero.
                 nudge: new EngineNudgeService(_host),
+                // Caminos grabados (.rec): listar, cargar, borrar y nombrar.
+                recPath: new EngineRecPathService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,

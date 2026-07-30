@@ -34,12 +34,12 @@ AgOpenGPS-6.8.5\` (el original limpio, mejor fuente que nuestro fork).
 | Servicio | Líneas | Deps UI | Íconos que destraba | Estado |
 |---|---:|---:|---|---|
 | ~~CabeceraLineas~~ | 633 | 0 | HeadlandSlice | ✅ `fdb0a38e` |
-| TramLine | 584 | 0 | TramAll, TramMulti, TramOff, TramOuter | ⬜ |
-| TramSimple | 234 | 1 | Con_TramMenu, ConT_* (5) | ⬜ |
-| QuickAb | 394 | 7 | ABLatLonHeading, ABLatLonLatLon | ⬜ |
-| Shapefile | 215 | 0 | (export de lote) | ⬜ |
-| Nudge | 181 | 1 | ABSnapNudgeMenu, ABSnapNudgeMenuRef, SnapLeftHalf, SnapRightHalf | ⬜ |
-| RecPath | 108 | 0 | RecPath | ⬜ |
+| ~~TramLine~~ | 584 | 0 | TramAll, TramMulti, TramOff, TramOuter | ✅ `42451234` |
+| ~~QuickAb~~ | 394 | 3 | ABLatLonHeading, ABLatLonLatLon | ✅ `b85780c1` |
+| ~~TramSimple~~ | 234 | 1 | Con_TramMenu, ConT_* (5) | ✅ `3ea51f21` |
+| ~~Nudge~~ | 181 | 1 | ABSnapNudgeMenu, ABSnapNudgeMenuRef, SnapLeftHalf, SnapRightHalf | ✅ `3ea51f21` |
+| ~~RecPath~~ | 108 | 1 | RecPath | ✅ (este commit) |
+| Shapefile | 215 | — | (overlay de lote) | ⚠️ NO es solo un servicio: la carga termina en `shapefileLayer`, una capa de DIBUJO del mapa WinForms. El mapa de PilotX.Desktop no tiene capa de shapefile — portar el upload solo guardaría el archivo sin mostrarlo. Va como función de mapa, no acá. |
 
 ## Botones que la UI manda y no atiende nadie
 
