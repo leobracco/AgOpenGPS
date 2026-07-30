@@ -177,6 +177,31 @@ namespace AgOpenGPS
             }
         }
 
+        // ---- linderos ------------------------------------------------------
+        //
+        // El motor CARGABA linderos (BoundaryFiles.Load en Job.cs) pero no
+        // existia una sola llamada a BoundaryFiles.Save en todo el engine: se
+        // podia grabar un contorno manejando la vuelta entera del lote y al
+        // cerrar no quedaba nada. Misma clase de hueco que la cobertura.
+        //
+        // Se guarda EN EL ACTO ante cada cambio, no cada 30 s: recorrer el
+        // perimetro cuesta una vuelta completa al lote. Que un corte de luz se
+        // lleve eso no va.
+
+        public void GuardarLinderos()
+        {
+            if (string.IsNullOrEmpty(currentFieldDirectory)) return;
+            try
+            {
+                string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
+                if (Directory.Exists(dir)) BoundaryFiles.Save(dir, Bnd.bndList);
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: no se pudo guardar Boundary.txt: " + ex.Message);
+            }
+        }
+
         private void CargarRestoDelLote(string dir)
         {
             FlagPicked = 0;
@@ -236,9 +261,10 @@ namespace AgOpenGPS
             try { RecPathFiles.Save(dir, RecPath.recList); }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: no se pudo guardar RecPath.txt: " + ex.Message); }
 
-            // Las banderas ya se guardan en cada cambio, pero por si acaso: que
-            // cerrar el lote nunca sea el momento en que se pierden.
+            // Banderas y linderos ya se guardan en cada cambio, pero por si
+            // acaso: que cerrar el lote nunca sea el momento en que se pierden.
             GuardarBanderas();
+            GuardarLinderos();
         }
     }
 }
