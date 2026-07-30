@@ -188,6 +188,16 @@ namespace PilotX.GuidanceEngine.Adapters
                         snap.Boundaries = bnds;
                         snap.Headlands = hdls;
 
+                        // Lindero en curso: se manda SIN decimar. Los puntos ya
+                        // vienen cada ~1 m del updater, y el operario los mira
+                        // justamente para saber que esta grabando — decimarlos
+                        // seria borrar la evidencia que pidio ver.
+                        snap.BoundaryBeingMade =
+                            (_host.Bnd.isBndBeingMade && _host.Bnd.bndBeingMadePts != null
+                                                      && _host.Bnd.bndBeingMadePts.Count > 0)
+                            ? DecimateVec3(_host.Bnd.bndBeingMadePts, 0.0)
+                            : null;
+
                         if (_host.Bnd.bndList.Count > 0)
                         {
                             double areaM2 = _host.Bnd.bndList[0].area;

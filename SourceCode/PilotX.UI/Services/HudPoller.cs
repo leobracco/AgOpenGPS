@@ -62,6 +62,11 @@ public sealed class HudSnapshot
     // Primer ring = contorno exterior; rings siguientes = islas/drive-thru.
     public List<List<FieldPoint>>? Boundaries { get; set; }
 
+    /// <summary>Lindero que se está grabando manejando, todavía sin cerrar.
+    /// null cuando no hay grabación. Va aparte de <see cref="Boundaries"/>:
+    /// es una tira abierta que crece, no un anillo confirmado.</summary>
+    public List<FieldPoint>? BoundaryBeingMade { get; set; }
+
     // ---- Datos del lote (consumidos por FieldDataPanel nativo) ----------
     public string? CurrentFieldDirectory { get; set; }
     public int NumSections { get; set; }

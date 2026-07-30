@@ -215,6 +215,11 @@ public sealed class MapGlSurface : OpenGlControlBase
     // con las guías cian; el fondo queda esencialmente negro.
     private static readonly float[] ColGrid          = { 0.11f, 0.12f, 0.11f, 0.09f };
     private static readonly float[] ColBoundary      = { 0.357f, 0.784f, 0.314f, 1f }; // #5BC850
+    // Lindero que se está grabando: ámbar, NO el verde del lindero confirmado.
+    // El operario tiene que poder distinguir de un vistazo lo que ya está de lo
+    // que todavía está tomando, porque sobre eso decide si sigue dando la vuelta.
+    private static readonly float[] ColLinderoRec    = { 1.000f, 0.760f, 0.294f, 1f }; // #FFC24B ámbar
+    private static readonly float[] ColLinderoRecPto = { 1.000f, 1.000f, 1.000f, 1f }; // blanco: el punto pinchado
     private static readonly float[] ColIslandStroke  = { 0.561f, 0.627f, 0.573f, 1f }; // #8FA092
     private static readonly float[] ColTractor       = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E
     private static readonly float[] ColTractorEdge   = { 0.063f, 0.086f, 0.071f, 1f }; // #101612
@@ -936,6 +941,13 @@ public sealed class MapGlSurface : OpenGlControlBase
                     DrawRing(ring, col);
                 }
             }
+
+            // --- Capa 3b: lindero que se está grabando manejando ----------
+            // Va DESPUÉS de los linderos confirmados: mientras se graba es lo
+            // más importante de la pantalla y no lo puede tapar un lindero
+            // viejo que pase por al lado.
+            if (snap.BoundaryBeingMade != null && snap.BoundaryBeingMade.Count > 0)
+                DrawLinderoEnCurso(snap.BoundaryBeingMade, scale);
 
             // --- Capa 4: implemento y tractor ---------------------------
             // El implemento va PRIMERO: el tractor lo tapa parcialmente en la
@@ -1890,6 +1902,58 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (s.BtnState == 2) return s.IsOn ? ColToolManual : ColToolOff;
         // btn=Auto
         return s.IsMapping ? ColToolAutoOn : ColToolAutoOff;
+    }
+
+    /// <summary>Diámetro en píxeles del punto grabado. Fijo en pantalla: los
+    /// puntos tienen que verse igual de lejos que de cerca, porque son la señal
+    /// de que el sistema está tomando datos.</summary>
+    private const double PuntoLinderoPx = 5.0;
+
+    /// <summary>
+    /// Lindero en grabación: tira ABIERTA + un punto por vértice.
+    ///
+    /// Abierta a propósito — cerrarla dibujaría un lado que el operario todavía
+    /// no recorrió, y eso es justo lo que está decidiendo mientras maneja.
+    ///
+    /// Los puntos van marcados uno por uno y no alcanza con la línea: una línea
+    /// sola no distingue "estoy grabando" de "esto ya estaba". El punto que
+    /// aparece cada ~1 m es la confirmación de que entró.
+    /// </summary>
+    private void DrawLinderoEnCurso(List<FieldPoint> pts, double scale)
+    {
+        if (_gl == null) return;
+        int n = pts.Count;
+        if (n == 0) return;
+
+        // 1) la tira recorrida
+        if (n >= 2)
+        {
+            EnsureScratch(n * 2);
+            for (int i = 0; i < n; i++)
+            {
+                _scratch[i * 2]     = (float)pts[i].E;
+                _scratch[i * 2 + 1] = (float)pts[i].N;
+            }
+            UploadAndDraw(PrimitiveType.LineStrip, n, ColLinderoRec);
+        }
+
+        // 2) los puntos. Un quad por vértice, TODOS en un solo draw call: con
+        //    500 puntos, una llamada por punto se comería el frame.
+        double medio = (PuntoLinderoPx / Math.Max(scale, 1e-6)) * 0.5;
+        EnsureScratch(n * 12);
+        int k = 0;
+        for (int i = 0; i < n; i++)
+        {
+            float izq = (float)(pts[i].E - medio), der = (float)(pts[i].E + medio);
+            float aba = (float)(pts[i].N - medio), arr = (float)(pts[i].N + medio);
+            _scratch[k++] = izq; _scratch[k++] = aba;
+            _scratch[k++] = der; _scratch[k++] = aba;
+            _scratch[k++] = der; _scratch[k++] = arr;
+            _scratch[k++] = izq; _scratch[k++] = aba;
+            _scratch[k++] = der; _scratch[k++] = arr;
+            _scratch[k++] = izq; _scratch[k++] = arr;
+        }
+        UploadAndDraw(PrimitiveType.Triangles, n * 6, ColLinderoRecPto);
     }
 
     private void DrawRing(List<FieldPoint> ring, float[] color)

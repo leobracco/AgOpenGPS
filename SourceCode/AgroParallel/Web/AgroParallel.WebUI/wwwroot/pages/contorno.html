@@ -128,6 +128,17 @@
     .rec-stat .l { font-size: clamp(9px, 2vh, 11px); color: var(--agp-text-muted); }
     .rec-opt-row { display: flex; gap: clamp(4px, 1vw, 8px); align-items: center; }
     .rec-opt-row .btn { flex: 1 1 0; }
+    /* Ajustes plegados: presentes pero fuera del camino. */
+    .rec-adv { flex-shrink: 0; }
+    .rec-adv > summary {
+      cursor: pointer; list-style: none;
+      font-size: clamp(10px, 2.2vh, 12px); color: var(--agp-text-muted);
+      padding: 4px 2px;
+    }
+    .rec-adv > summary::-webkit-details-marker { display: none; }
+    .rec-adv > summary::before { content: "▸ "; }
+    .rec-adv[open] > summary::before { content: "▾ "; }
+    .rec-adv .rec-opt-row { margin-top: 4px; }
     .rec-off-input {
       flex: 1 1 auto; min-height: clamp(28px, 7.5vh, 44px);
       font-family: var(--agp-font-mono); font-size: clamp(12px, 2.6vh, 15px);
@@ -153,52 +164,47 @@
         <div class="bd-empty" id="emptyMsg">El lote no tiene contorno todavía.</div>
       </div>
       <div class="bd-actions">
-        <button class="btn bd-danger" id="btnDelete">🗑 Borrar</button>
-        <button class="btn bd-accent" id="btnCreate">➕ Crear</button>
+        <button class="btn bd-danger" id="btnDelete">Borrar</button>
+        <button class="btn bd-accent" id="btnCreate">Crear manejando</button>
       </div>
     </div>
 
-    <!-- ── Vista crear ── -->
-    <div id="paneChoose" class="bd-pane hiddenTab">
-      <div class="bd-label">¿Cómo querés crear el contorno?</div>
-      <button class="btn bd-accent" id="btnDrive">🚜 Manejando el borde</button>
-      <button class="btn" id="btnMapa">🗺 Dibujar sobre el mapa</button>
-      <button class="btn" id="btnFromTracks">📐 Desde guías del lote</button>
-      <div class="bd-actions">
-        <button class="btn" id="btnKmlOne">KML (uno)</button>
-        <button class="btn" id="btnKmlMulti">KML (todos)</button>
-      </div>
-      <button class="btn" id="btnGoogleEarth">🌍 Ver en Google Earth</button>
-      <div class="bd-actions" style="margin-top:auto;">
-        <button class="btn" id="btnBackChoose">Volver</button>
-      </div>
-    </div>
-
-    <!-- ── Vista grabación manejando ── -->
+    <!-- ── Vista grabación manejando ──
+         "Crear" entra DIRECTO acá. Antes había una pantalla intermedia con
+         cinco formas de crear el contorno (KML, Google Earth, dibujar sobre el
+         mapa, desde guías); las otras cuatro abren ventana de WinForms y contra
+         el motor headless devuelven "no-disponible-sin-ui", así que eran un
+         menú de cuatro callejones sin salida y un camino bueno. -->
     <div id="paneRec" class="bd-pane hiddenTab">
       <div class="rec-stats">
         <div class="rec-stat"><div class="v" id="recPts">0</div><div class="l">puntos</div></div>
         <div class="rec-stat"><div class="v" id="recArea">0.00</div><div class="l">ha</div></div>
       </div>
       <div class="rec-opt-row">
-        <span class="bd-label">Offset</span>
-        <input id="inpOffset" class="rec-off-input" type="text" inputmode="numeric" />
-        <span class="bd-label">cm</span>
-        <button class="btn" id="btnSide">Derecha</button>
+        <button class="btn bd-accent" id="btnRecPause">Grabar</button>
+        <button class="btn" id="btnAddPoint">Punto</button>
+        <button class="btn" id="btnUndo">Deshacer</button>
       </div>
-      <div class="rec-opt-row">
-        <button class="btn" id="btnAtPivot">Antena</button>
-        <button class="btn" id="btnSectionRec">Solo con secciones: No</button>
-      </div>
-      <div class="rec-opt-row">
-        <button class="btn bd-accent" id="btnRecPause">⏺ Grabar</button>
-        <button class="btn" id="btnAddPoint">➕ Punto</button>
-        <button class="btn" id="btnUndo">↩</button>
-      </div>
+      <!-- Ajustes del trazado: se tocan una vez al empezar y no se miran más,
+           así que van abajo y chicos, sin robarle lugar a puntos/ha ni a los
+           botones de grabar. -->
+      <details class="rec-adv">
+        <summary>Ajustes</summary>
+        <div class="rec-opt-row">
+          <span class="bd-label">Offset</span>
+          <input id="inpOffset" class="rec-off-input" type="text" inputmode="numeric" />
+          <span class="bd-label">cm</span>
+          <button class="btn" id="btnSide">Derecha</button>
+        </div>
+        <div class="rec-opt-row">
+          <button class="btn" id="btnAtPivot">Antena</button>
+          <button class="btn" id="btnSectionRec">Solo con secciones: No</button>
+        </div>
+      </details>
       <div class="bd-actions" style="margin-top:auto;">
         <button class="btn" id="btnRestart">Reiniciar</button>
-        <button class="btn bd-danger" id="btnCancelRec">✖ Cancelar</button>
-        <button class="btn bd-accent" id="btnSaveRec">✔ Terminar</button>
+        <button class="btn bd-danger" id="btnCancelRec">Cancelar</button>
+        <button class="btn bd-accent" id="btnSaveRec">Terminar</button>
       </div>
     </div>
   </div>

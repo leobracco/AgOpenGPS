@@ -2119,7 +2119,12 @@ public partial class MainWindow : Window
             // Todas las pantallas de config/info abren como VENTANA CHICA
             // cerrable (con barra de título + X), no a pantalla completa —
             // así ninguna se confunde con el cierre de la app.
-            OpenDialogPage(page, TitleForCommand(cmd), 820, 600);
+            //
+            // Contorno va MÁS chica que el resto: mientras se graba el lindero
+            // lo que hay que mirar es el mapa, no el panel. 820x600 tapaba media
+            // pantalla para mostrar dos números y tres botones.
+            var (w, h) = page == "pages/contorno.html" ? (380.0, 460.0) : (820.0, 600.0);
+            OpenDialogPage(page, TitleForCommand(cmd), w, h);
             return true;
         }
 

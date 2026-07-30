@@ -266,6 +266,17 @@ namespace AgroParallel.Models
         /// <summary>Cabeceras (headland offset). Una por boundary; puede estar vacía.</summary>
         public List<List<FieldPoint>> Headlands { get; set; }
 
+        /// <summary>
+        /// Lindero que se está grabando MANEJANDO, punto por punto, todavía sin
+        /// cerrar ni guardar. null cuando no hay grabación en curso.
+        ///
+        /// Va aparte de <see cref="Boundaries"/> a propósito: eso son linderos
+        /// confirmados y el mapa los cierra (LineLoop). Este es una tira abierta
+        /// que crece — mostrarlo cerrado dibujaría un lado que el operario
+        /// todavía no recorrió, y sobre eso se decide dónde cortar.
+        /// </summary>
+        public List<FieldPoint> BoundaryBeingMade { get; set; }
+
         /// <summary>Track de guía actualmente activo (AB line / curve / pivot). null si no hay.</summary>
         public TrackInfo ActiveTrack { get; set; }
 

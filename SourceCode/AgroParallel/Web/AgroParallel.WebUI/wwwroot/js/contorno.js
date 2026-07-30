@@ -1,12 +1,18 @@
 // ============================================================================
 // contorno.js
 // Reemplazo HTML de FormBoundary + FormBoundaryPlayer: lista de contornos con
-// drive-thru y borrado, creación por manejo/KML/Google Earth/mapa/desde guías,
-// y grabación manejando con stats live (puntos/ha) + offset/lado/antena.
+// drive-thru y borrado, y grabación manejando con stats live (puntos/ha) +
+// offset/lado/antena.
+//
+// DOS vistas, no tres. La intermedia ("¿cómo querés crear el contorno?") tenía
+// cinco opciones de las cuales cuatro (KML, Google Earth, dibujar sobre el
+// mapa, desde guías) abren ventana de WinForms y contra el motor headless
+// devuelven "no-disponible-sin-ui". Crear entra directo a grabar; los otros
+// caminos siguen existiendo en la API por si vuelve un host con UI nativa.
+//
 //   GET  /api/contorno/state           (poll 500 ms en vista lista)
 //   GET  /api/contorno/record/status   (poll 500 ms en vista grabación)
-//   POST /api/contorno/{drive-thru,delete,delete-all,import-kml,google-earth,
-//         mapa,from-tracks,record/*}
+//   POST /api/contorno/{drive-thru,delete,delete-all,record/*}
 // Confirmaciones destructivas: doble tap (el botón pasa a "¿Seguro?").
 // Al cerrar la ventana con grabación activa → record/cancel (sendBeacon),
 // igual que abandonar el player nativo sin guardar.
@@ -20,15 +26,14 @@
   function $(id) { return document.getElementById(id); }
 
   var statePill = $('statePill'), warnBox = $('warnBox');
-  var paneList = $('paneList'), paneChoose = $('paneChoose'), paneRec = $('paneRec');
+  var paneList = $('paneList'), paneRec = $('paneRec');
   var bndList = $('bndList'), emptyMsg = $('emptyMsg');
   var inpOffset = $('inpOffset');
 
-  var view = 'list';        // list | choose | rec
+  var view = 'list';        // list | rec
   var selected = -1;        // índice de contorno seleccionado
   var closed = false;
   var lastRec = null;
-  var busy = false;         // no pisar la vista mientras corre un diálogo nativo
 
   // Doble-tap de confirmación: {btnId: timeoutHandle}
   var confirms = {};
@@ -72,7 +77,6 @@
   function show(v) {
     view = v;
     paneList.classList.toggle('hiddenTab', v !== 'list');
-    paneChoose.classList.toggle('hiddenTab', v !== 'choose');
     paneRec.classList.toggle('hiddenTab', v !== 'rec');
   }
 
@@ -139,38 +143,20 @@
   }
 
   $('btnDelete').addEventListener('click', async function () {
-    if (!askConfirm(this, '🗑 Borrar')) return;
+    if (!askConfirm(this, 'Borrar')) return;
     var s = await post('/delete', { index: selected });
     selected = -1;
     renderState(s);
   });
 
-  $('btnCreate').addEventListener('click', function () { show('choose'); });
-
-  // ── Vista crear ────────────────────────────────────────────────────────────
-
-  $('btnBackChoose').addEventListener('click', function () { show('list'); });
-
-  $('btnDrive').addEventListener('click', async function () {
+  // Crear = arrancar a grabar manejando, sin pantalla intermedia: es el unico
+  // de los cinco metodos que funciona contra el motor headless (los otros
+  // cuatro abren ventana de WinForms).
+  $('btnCreate').addEventListener('click', async function () {
     var r = await post('/record/start');
     if (r && r.ok !== false && !r.error) { renderRec(r); show('rec'); }
     else warn(friendly(r && r.error));
   });
-
-  async function nativeAction(path, body) {
-    // Diálogo/form nativo del lado PilotX: bloquear el poll mientras corre.
-    busy = true;
-    var s = await post(path, body);
-    busy = false;
-    if (s && !s.error) show('list');
-    renderState(s);
-  }
-
-  $('btnKmlOne').addEventListener('click', function () { nativeAction('/import-kml', { multi: false }); });
-  $('btnKmlMulti').addEventListener('click', function () { nativeAction('/import-kml', { multi: true }); });
-  $('btnGoogleEarth').addEventListener('click', function () { nativeAction('/google-earth'); });
-  $('btnMapa').addEventListener('click', function () { nativeAction('/mapa'); });
-  $('btnFromTracks').addEventListener('click', function () { nativeAction('/from-tracks'); });
 
   // ── Vista grabación ────────────────────────────────────────────────────────
 
@@ -193,7 +179,7 @@
     $('btnSectionRec').textContent = 'Solo con secciones: ' + (r.section_rec ? 'Sí' : 'No');
 
     var rec = !r.paused;
-    $('btnRecPause').textContent = rec ? '⏸ Pausa' : '⏺ Grabar';
+    $('btnRecPause').textContent = rec ? 'Pausa' : 'Grabar';
     // Punto manual y deshacer solo en pausa (regla del player nativo).
     $('btnAddPoint').disabled = rec;
     $('btnUndo').disabled = rec;
@@ -228,13 +214,13 @@
     renderRec(await post('/record/restart'));
   });
   $('btnCancelRec').addEventListener('click', async function () {
-    if (!askConfirm(this, '✖ Cancelar')) return;
+    if (!askConfirm(this, 'Cancelar')) return;
     await post('/record/cancel');
     show('list');
     renderState(await get('/state'));
   });
   $('btnSaveRec').addEventListener('click', async function () {
-    if (!askConfirm(this, '✔ Terminar')) return;
+    if (!askConfirm(this, 'Terminar')) return;
     var r = await post('/record/save');
     if (r && r.error) { renderRec(r); return; }
     show('list');
@@ -261,7 +247,6 @@
     else renderState(s);
 
     setInterval(async function () {
-      if (busy) return;
       if (view === 'rec') renderRec(await get('/record/status'));
       else if (view === 'list') renderState(await get('/state'));
     }, 500);
