@@ -184,6 +184,12 @@ namespace AgOpenGPS
                 // AB rápido: crear una guía manejando (curva, AB o A+), sin
                 // pasar por la pantalla de guías.
                 quickAb: new EngineQuickAbService(_host),
+                // Panel simple de tram (el del menú de config): genera las
+                // huellas desde la guía activa con pasadas configurables.
+                tramSimple: new EngineTramSimpleService(_host),
+                // Mover guía: correr la activa de a pasos o la referencia (que
+                // corre el patrón entero). Destraba 13 íconos del tablero.
+                nudge: new EngineNudgeService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,
