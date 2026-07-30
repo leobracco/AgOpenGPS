@@ -624,7 +624,7 @@ namespace AgOpenGPS
 
         // Equivalente a FormGPS.FileSaveTracks (SaveOpen.Designer.cs) — mismo
         // streamer portable ya usado por OpenField (TrackFiles.Load).
-        private void SaveTracks()
+        public void SaveTracks()
         {
             if (!IsJobStarted) return;
             try

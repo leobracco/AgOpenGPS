@@ -31,7 +31,7 @@ namespace AgroParallel.Adapters
             catch { return fallback; }
         }
 
-        private static QuickAbStateDto Map(FormGPS.QuickAbSnapshot s)
+        private static QuickAbStateDto Map(QuickAbEditor.QuickAbSnapshot s)
         {
             if (s == null) return new QuickAbStateDto { Ok = false, Error = "no-state" };
             return new QuickAbStateDto

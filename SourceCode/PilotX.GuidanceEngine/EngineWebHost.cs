@@ -181,6 +181,9 @@ namespace AgOpenGPS
                 // después. Sin esto /api/tramlines daba 404 y quedaban 5 íconos
                 // muertos en el tablero de cierre.
                 tramLine: new EngineTramLineService(_host),
+                // AB rápido: crear una guía manejando (curva, AB o A+), sin
+                // pasar por la pantalla de guías.
+                quickAb: new EngineQuickAbService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,
