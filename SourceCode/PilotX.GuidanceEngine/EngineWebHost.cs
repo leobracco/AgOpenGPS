@@ -173,6 +173,10 @@ namespace AgOpenGPS
                 // 404: la pantalla Cabecera no puede construir nada, y sin
                 // cabecera no hay corte automático de secciones en el borde.
                 headlandEdit: new EngineHeadlandEditService(_host),
+                // Cabecera por líneas (el hermano complicado de la anterior):
+                // marca líneas A/B sobre el borde y arma la cabecera con los
+                // cruces. Es lo que sirve en lotes que no son un rectángulo.
+                cabeceraLineas: new EngineCabeceraLineasService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,

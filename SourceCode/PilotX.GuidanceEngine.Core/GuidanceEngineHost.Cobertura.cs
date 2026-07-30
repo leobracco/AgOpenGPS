@@ -218,6 +218,43 @@ namespace AgOpenGPS
             }
         }
 
+        /// <summary>
+        /// Baja las líneas de cabecera a Headlines.txt. Son las líneas A/B que
+        /// el operario marcó sobre el borde; la cabecera se arma con los cruces
+        /// entre ellas, así que sin esto se pierde el trabajo de trazarlas.
+        /// </summary>
+        public void GuardarLineasDeCabecera()
+        {
+            if (string.IsNullOrEmpty(currentFieldDirectory)) return;
+            try
+            {
+                string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
+                if (Directory.Exists(dir)) HeadlinesFiles.Save(dir, Hdl.tracksArr);
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: no se pudo guardar Headlines.txt: " + ex.Message);
+            }
+        }
+
+        /// <summary>Lee Headlines.txt. Un archivo faltante no es error: el lote
+        /// puede no tener líneas trazadas todavía.</summary>
+        public void CargarLineasDeCabecera()
+        {
+            Hdl.tracksArr.Clear();
+            if (string.IsNullOrEmpty(currentFieldDirectory)) return;
+            try
+            {
+                string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
+                var lineas = HeadlinesFiles.Load(dir);
+                if (lineas != null) Hdl.tracksArr.AddRange(lineas);
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: Headlines.txt: " + ex.Message);
+            }
+        }
+
         public void GuardarLinderos()
         {
             if (string.IsNullOrEmpty(currentFieldDirectory)) return;
@@ -247,6 +284,9 @@ namespace AgOpenGPS
             // tiene que ir DESPUES de BoundaryFiles.Load.
             try { HeadlandFiles.AttachLoad(dir, Bnd.bndList); }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: Headland.txt: " + ex.Message); }
+
+            // Lineas de cabecera (las A/B trazadas sobre el borde).
+            CargarLineasDeCabecera();
 
             try
             {
