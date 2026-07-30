@@ -71,7 +71,9 @@ namespace AgOpenGPS
             }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: Boundary.txt: " + ex.Message); }
 
-            string msg = $"GuidanceEngine: lote abierto: {fieldName} (tracks={Trk.gArr.Count}, boundaries={Bnd.bndList.Count}, IsJobStarted={IsJobStarted})";
+            CargarCobertura(dir);
+
+            string msg = $"GuidanceEngine: lote abierto: {fieldName} (tracks={Trk.gArr.Count}, boundaries={Bnd.bndList.Count}, parches={ParchesCargados}, IsJobStarted={IsJobStarted})";
             Log.EventWriter(msg);
             Console.WriteLine(msg);
             return true;
@@ -79,6 +81,24 @@ namespace AgOpenGPS
 
         public void CloseField()
         {
+            // Cerrar el mapeo de las tiras que estan pintando ANTES de guardar.
+            //
+            // patchSaveList solo se llena cuando un parche se corta a los 61
+            // triangulos; el parche que se esta dibujando en ese momento no esta
+            // ahi. TurnMappingOff() es justo lo que lo empuja a la cola (ver
+            // CPatches.TurnMappingOff). Sin esto, cerrar el lote guardaba los
+            // parches viejos y perdia el ultimo tramo sembrado — verificado:
+            // Sections.txt no se creaba con una sola pasada corta.
+            for (int j = 0; j < TriStripField.Count; j++)
+            {
+                if (TriStripField[j] != null && TriStripField[j].isDrawing)
+                    TriStripField[j].TurnMappingOff();
+            }
+
+            // PRIMERO a disco. Abajo se limpian los parches, asi que invertir el
+            // orden perderia todo lo trabajado desde la ultima guardada.
+            GuardarCoberturaPendiente();
+
             AppModelField.Fields.CloseField();
             Bnd.bndList.Clear();
             Trk.gArr.Clear();

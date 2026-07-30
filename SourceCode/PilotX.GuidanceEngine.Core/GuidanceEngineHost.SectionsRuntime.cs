@@ -264,6 +264,12 @@ namespace AgOpenGPS
 
             // ---- 4) Bytes de sección a los módulos (P254/P239/P229) ----
             SectionCalculator.BuildMachineByte();
+
+            // ---- 5) Bajar cobertura a disco cada tanto ----
+            // Va acá porque es el único lugar que corre una vez por fix con lote
+            // abierto. Sin esto la cobertura solo vive en RAM y se pierde al
+            // cerrar el lote o el proceso.
+            TickGuardadoCobertura();
         }
     }
 }
