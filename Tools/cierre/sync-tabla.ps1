@@ -52,6 +52,12 @@ try {
   # Se junta por estado: un commit puede cerrar unos y marcar otros en prueba.
   $porEstado = @{}
   foreach ($linea in ($mensaje -split "`r?`n")) {
+    # Las lineas con "->" son documentacion, no declaraciones. Sin esto, el
+    # commit que documenta la sintaxis se marca a si mismo: paso en el primer
+    # commit del hook, que cerro ABDraw y Boundary porque estaban en los
+    # ejemplos del propio mensaje.
+    if ($linea -match '->') { continue }
+
     $m = [regex]::Match($linea, '^\s*(cierra|cierro|closes|prueba|probando|roto|fuera)\s*:\s*(.+)$',
                         [Text.RegularExpressions.RegexOptions]::IgnoreCase)
     if (-not $m.Success) { continue }
