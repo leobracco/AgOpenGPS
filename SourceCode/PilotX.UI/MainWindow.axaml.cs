@@ -1047,6 +1047,24 @@ public partial class MainWindow : Window
     {
         try
         {
+            // El mapa GL sigue "visible" (IsVisible=true) detrás de la ventana
+            // chica del diálogo — no es OTRA pantalla que lo tape, es una Window
+            // separada. PausarMapa() solo no alcanza: cada snapshot del HUD
+            // (HudPoller, 10 Hz) pasa por MapPanel.OnSnapshot, que tiene su
+            // propia red de seguridad "if (IsVisible) _gl?.Reanudar()" — como acá
+            // IsVisible sigue en true, esa red deshacía la pausa en menos de
+            // 100ms y el mapa seguía pidiendo frames GL en paralelo al WebView2
+            // del diálogo. Con los dos compitiendo por el compositor, el diálogo
+            // pierde la carrera y queda en blanco (a veces desde el primer
+            // frame, a veces a los pocos segundos según cuándo ganaba el
+            // próximo Reanudar) — mismo síntoma que la barra de arriba viva y el
+            // mapa muerto que ya diagnosticaste el 2026-07-28, pero al revés.
+            // Poniendo IsVisible=false (igual que ShowWebView con la pantalla
+            // embebida) esa red de seguridad queda inerte y la pausa se sostiene
+            // mientras el diálogo está abierto.
+            PausarMapa();
+            if (_mapHost != null) _mapHost.IsVisible = false;
+
             if (_dialogWin != null)
             {
                 // ya abierta → traer al frente y navegar
@@ -1056,11 +1074,23 @@ public partial class MainWindow : Window
             }
 
             // Sin backend WebView no se puede abrir la página HTML en diálogo.
-            if (App.WebViewHost == null) return;
+            if (App.WebViewHost == null)
+            {
+                if (_mapHost != null) _mapHost.IsVisible = true;
+                ReanudarMapa();
+                return;
+            }
             _dialogEsLote = full.IndexOf("lote.html", StringComparison.OrdinalIgnoreCase) >= 0;
             _loteAlAbrirDialogo = _lastFieldDir;
+            // Crear el control y montarlo (Content) ANTES de navegar: WebView.Avalonia
+            // arma el CoreWebView2Controller contra el HWND del control ya adjunto al
+            // árbol visual. Navegar antes de que la Window exista/se muestre le pedía
+            // al control una navegación sin handle nativo todavía — quedaba en blanco
+            // (a veces desde el primer frame, a veces a los pocos segundos, según
+            // cuándo terminaba de inicializar el WebView2 de fondo). Mismo orden que
+            // ya usa el WebView principal: Control attachado y visible ANTES de
+            // Navigate (ver PrecalentarWebView + ShowWebView).
             _dialogWebView = App.WebViewHost.Create(OnDialogNavigated);
-            _dialogWebView.Navigate(full);
 
             _dialogWin = new Window
             {
@@ -1078,12 +1108,17 @@ public partial class MainWindow : Window
                 try { _dialogWebView?.Release(); } catch { }
                 _dialogWebView = null;
                 _dialogWin = null;
+                if (_mapHost != null) _mapHost.IsVisible = true;
+                ReanudarMapa();
             };
             _dialogWin.Show(this);
+            _dialogWebView.Navigate(full);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] OpenDialogPage error: " + ex.Message);
+            if (_mapHost != null) _mapHost.IsVisible = true;
+            ReanudarMapa();
         }
     }
 
@@ -1194,6 +1229,26 @@ public partial class MainWindow : Window
         if (_mapHost != null) _mapHost.IsVisible = false;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Sistema open (nativo, no WebView)");
+    }
+
+    // Brillo +/− del menú Navegación: mismo SistemaClient que usa el panel
+    // Sistema, lazy-init igual que ShowSistema (cero costo si nunca se toca
+    // ni brillo ni Sistema). cur=-1 puede ser hardware sin soporte (DDC/CI o
+    // WMI no disponibles) O el backend sin ISistemaService cableado (hoy
+    // PilotX.GuidanceEngine --webhost pasa sistema:null → api/sistema/brillo
+    // responde siempre ok:false — PEDIDO a Leonardo en COORDINACION-SESIONES,
+    // no es un bug de este wiring). El log deja rastro en vez de fallar mudo.
+    private async void AdjustBrightness(int delta)
+    {
+        if (_sistemaClient == null)
+            _sistemaClient = new SistemaClient(DeriveOrigin(App.TargetUrl));
+        int cur = await _sistemaClient.GetBrightnessAsync().ConfigureAwait(true);
+        if (cur < 0)
+        {
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Brillo: sin soporte (backend o hardware) — api/sistema/brillo devolvió -1");
+            return;
+        }
+        await _sistemaClient.SetBrightnessAsync(cur + delta).ConfigureAwait(true);
     }
 
     private void CloseSistema()
@@ -2079,6 +2134,24 @@ public partial class MainWindow : Window
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
                 OpenDialogPage("pages/direccion.html?v=9", "Dirección — Autoguiado", 1040, 780); return true;
+
+            // ---- Controles de cámara/vista (menú Navegación) — 100% cliente
+            // (MapGlSurface), no tocan el motor. Equivalentes a
+            // camera.PitchInDegrees/FollowDirectionHint del legacy. ----
+            case "v2d":     _mapHost?.SetHeadingUp(true);  _mapHost?.SetPitchDeg(0);   return true;
+            case "v3d":     _mapHost?.SetHeadingUp(true);  _mapHost?.SetPitchDeg(-65); return true;
+            case "norte2d": _mapHost?.SetHeadingUp(false); _mapHost?.SetPitchDeg(0);   return true;
+            case "tilt_up": _mapHost?.TiltBy(+5); return true;
+            case "tilt_dn": _mapHost?.TiltBy(-5); return true;
+            case "grilla":  _mapHost?.ToggleGrid(); return true;
+            case "dia_noche": _mapHost?.ToggleDayNight(); return true;
+
+            // Brillo de PANTALLA (no del render) — mismo mecanismo que el
+            // panel Sistema (SistemaClient/api/sistema/brillo). No hay
+            // control de brillo en el shader; esto es fiel al legacy
+            // (displayBrightness/CBrightness también era de sistema, no del mapa).
+            case "brillo_up": AdjustBrightness(+10); return true;
+            case "brillo_dn": AdjustBrightness(-10); return true;
         }
 
         // ---- Comandos que abren una página HTML del Hub en el WebView ----

@@ -24,6 +24,7 @@ public partial class MenuIzquierda : UserControl
     private void OnAnyButtonClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not MenuIzquierdaViewModel vm) return;
+        vm.NotifyActivity(); // cualquier toque reinicia el auto-repliegue por inactividad
         if (e.Source is Button b
             && !ReferenceEquals(b.Command, vm.ToggleSubmenuCommand)
             && !b.Classes.Contains("sbtn"))

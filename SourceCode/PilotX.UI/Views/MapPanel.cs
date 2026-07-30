@@ -311,6 +311,15 @@ public sealed class MapPanel : Grid
         _gl?.OnPaths(snap);
     }
 
+    // ---- vista de cámara (menú Navegación): 2D/3D/Norte 2D/tilt/grilla/día-noche.
+    // No-op en la surface Skia legacy (_gl==null) — mismo criterio que
+    // BeginAbCreation/OnCoverage/etc.
+    public void SetHeadingUp(bool v) => _gl?.SetHeadingUp(v);
+    public void SetPitchDeg(double deg) => _gl?.SetPitchDeg(deg);
+    public void TiltBy(double deltaDeg) => _gl?.TiltBy(deltaDeg);
+    public void ToggleGrid() => _gl?.ToggleGrid();
+    public void ToggleDayNight() => _gl?.ToggleDayNight();
+
     // ---- input de cámara: zoom (rueda) / pan (arrastre) / reset (2 clicks) --
 
     protected override void OnPointerWheelChanged(Avalonia.Input.PointerWheelEventArgs e)

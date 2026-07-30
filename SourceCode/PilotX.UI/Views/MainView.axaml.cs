@@ -38,6 +38,7 @@ namespace PilotX.Desktop.Views
         private Panel? _webSlot;
         private TextBlock? _webTitle;
         private IWebViewHandle? _webView;
+        private SistemaClient? _sistemaClient; // lazy, solo para brillo_up/brillo_dn
 
         private BarraSuperiorViewModel? _vmSup;
         private BarraDerechaViewModel? _vmDer;
@@ -226,6 +227,21 @@ namespace PilotX.Desktop.Views
                 case "datos_gps":      OpenPage("pages/datos-gps.html", "Datos GPS"); return true;
                 case "hub":            OpenPage("pages/hub.html", "Hub"); return true;
                 case "webcam":         OpenPage("pages/camaras.html", "Cámaras"); return true;
+
+                // ---- Controles de cámara/vista (menú Navegación) — 100%
+                // cliente (MapGlSurface), no tocan el motor. ----
+                case "v2d":     _mapHost?.SetHeadingUp(true);  _mapHost?.SetPitchDeg(0);   return true;
+                case "v3d":     _mapHost?.SetHeadingUp(true);  _mapHost?.SetPitchDeg(-65); return true;
+                case "norte2d": _mapHost?.SetHeadingUp(false); _mapHost?.SetPitchDeg(0);   return true;
+                case "tilt_up": _mapHost?.TiltBy(+5); return true;
+                case "tilt_dn": _mapHost?.TiltBy(-5); return true;
+                case "grilla":  _mapHost?.ToggleGrid(); return true;
+                case "dia_noche": _mapHost?.ToggleDayNight(); return true;
+
+                // Brillo de PANTALLA (no del render) — mismo SistemaClient
+                // que MainWindow.
+                case "brillo_up": AdjustBrightness(+10); return true;
+                case "brillo_dn": AdjustBrightness(-10); return true;
             }
 
             // Comandos que abren una página HTML del Hub (config/gráficos/lote-tools/…).
@@ -265,6 +281,23 @@ namespace PilotX.Desktop.Views
 
             // Resto → backend de guiado por HTTP.
             return false;
+        }
+
+        // Brillo +/− del menú Navegación: lazy-init igual que MainWindow.
+        // cur=-1 puede ser hardware sin soporte O el backend sin
+        // ISistemaService cableado (hoy PilotX.GuidanceEngine --webhost pasa
+        // sistema:null — PEDIDO a Leonardo en COORDINACION-SESIONES).
+        private async void AdjustBrightness(int delta)
+        {
+            if (_sistemaClient == null)
+                _sistemaClient = new SistemaClient(DeriveOrigin(App.TargetUrl));
+            int cur = await _sistemaClient.GetBrightnessAsync().ConfigureAwait(true);
+            if (cur < 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[PilotX] Brillo: sin soporte (backend o hardware) — api/sistema/brillo devolvió -1");
+                return;
+            }
+            await _sistemaClient.SetBrightnessAsync(cur + delta).ConfigureAwait(true);
         }
 
         // Abre una página HTML del Hub (relativa al origin del engine) en el overlay.

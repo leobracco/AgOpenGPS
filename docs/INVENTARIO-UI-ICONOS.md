@@ -45,9 +45,23 @@
 | Tram vista | `tram_vista` | `CycleTramDisplayMode` | 🟡 real | L (validar) |
 | **ISOBUS** | `isobus` | ❌ no está | ❌ falta | **S** (comando + estado ISOBUS) |
 | **Bandera** | `bandera` | ❌ no está | ❌ falta | **S** (registrar flag + /api) · **L** (dibujar en mapa) |
-| **Color mapeo** | `mapeo_color` | ❌ no está | ❌ falta | **L** (color de cobertura, sin engine) |
+| **Color mapeo** | `mapeo_color` | ❌ no está | 🟡 abre `colores-secciones.html`, pero sin efecto en el mapa (ver nota) | **S** (propagar color al snapshot de cobertura) |
 
-**Balance:** 5 ✅ · 12 🟡 (handler real, falta validar el efecto en el mapa) · 3 ❌ (`isobus`, `bandera`, `mapeo_color`).
+**Balance:** 5 ✅ · 13 🟡 (12 handler real por validar en el mapa + `mapeo_color`
+sin efecto por hueco de motor) · 2 ❌ (`isobus`, `bandera`).
+
+**`mapeo_color` (2026-07-27):** el ícono YA abre `colores-secciones.html`
+(reutiliza la pantalla multicolor por sección, más completa que el
+color-picker único del legacy `btnChangeMappingColor`/`FormColorPicker`) —
+eso es lo mío y está hecho. Pero cambiar el color ahí no pinta nada distinto
+en el mapa: ni `FormGpsCoverageService.GetSnapshot()` (WinForms) ni el
+adapter del motor headless propagan color al `CoverageSnapshot` — hoy
+`MapGlSurface.DrawCoverage()` pinta TODA la cobertura de un verde fijo
+(75,166,63,140) sin leer `sectionColorDay` ni `tool.secColors`/
+`isMultiColoredSections`. PEDIDO para Leonardo en `COORDINACION-SESIONES.md`
+(carril motor): propagar color (único o por sección) al snapshot; del lado
+mío falta que `DrawCoverage` deje de usar un `Uniform4` global y pinte por
+sección — lo hago apenas el snapshot traiga el dato.
 
 ---
 
@@ -187,14 +201,14 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 
 | Botón | Icono | Qué hace | Estado | Carril |
 |---|---|---|---|---|
-| Navegación (btnNavigationSettings) | NavigationSettings | Abre/cierra el panel de cámara/mapa | ❌ | L |
-| Inclinar +/− (btnTiltUp/Dn) | TiltUp/Down | Pitch de cámara (2D↔3D) | ❌ | L |
-| Vista 2D (btn2D) | Camera2D64 | Cenital siguiendo al tractor | 🟡 (hoy heading-up) | L |
-| Vista 3D (btn3D) | Camera3D64 | Perspectiva siguiendo al tractor | ❌ | L |
-| Norte-2D (btnN2D) | CameraNorth2D | Cenital norte-arriba (no rota) | ❌ | L |
-| Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | 🟡 (grid fijo) | L |
-| Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ❌ | L |
-| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | ❌ | L |
+| Navegación (btnNavigationSettings) | NavigationSettings | Abre/cierra el panel de cámara/mapa | ✅ | L |
+| Inclinar +/− (btnTiltUp/Dn) | TiltUp/Down | Pitch de cámara (2D↔3D) | — (2026-07-29: sacado del menú a pedido del usuario. `SetPitchDeg`/`TiltBy` quedan vivos en `MapGlSurface`/`MapPanel` + el wiring en `RouteCockpitCommand`) | L |
+| Vista 2D (btn2D) | Camera2D64 | Cenital siguiendo al tractor | — (ídem, sacado 2026-07-29) | L |
+| Vista 3D (btn3D) | Camera3D64 | Perspectiva siguiendo al tractor | — (ídem, sacado 2026-07-29) | L |
+| Norte-2D (btnN2D) | CameraNorth2D | Cenital norte-arriba (no rota) | — (ídem, sacado 2026-07-29) | L |
+| Grilla (btnGrid) | GridRotate | Muestra/oculta/configura la grilla | — (2026-07-28: el cuadriculado de fondo se sacó del mapa a pedido del usuario — no marcaba referencias y se redibujaba entero cada frame. Botón retirado del menú; `DrawGrid`/`_gridOn` quedan vivos en `MapGlSurface` por si algún día se vuelve a colgar de un toggle) | L |
+| Día/Noche (btnDayNightMode) | WindowNightMode | Alterna paleta día/noche | ✅ (solo el mapa; el chrome de las barras no cambia) | L |
+| Brillo +/− (btnBrightnessUp/Dn) | BrightnessUp/Dn | Brillo de pantalla | ✅ (2026-07-29: `EngineSistemaService` — DDC/CI + fallback WMI, port net9 sin WinForms; probado real, sube/baja el brillo del monitor) | L+S |
 | Hz+frame+fix (lblHz) | — | Frecuencia GPS (Hz) + tiempo de frame (ms) + calidad de fix (NO es PPS) | 🟡 | L |
 
 ## 7) Configuración (mayormente HTML por WebView)
@@ -217,7 +231,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Botón | Qué hace | Estado | Carril |
 |---|---|---|---|
 | Datos GPS (datos-gps.html) | Datos crudos del GPS | 🟡 (C) | L |
-| Asistente dirección (FormSteerWiz) | Calibración paso a paso del autosteer | ❌ (C) | L+S |
+| Asistente dirección (FormSteerWiz) | Calibración paso a paso del autosteer | — (2026-07-29: botón "Asist. dirección" sacado del menú Herramientas a pedido del usuario — apuntaba a `config.html` genérico, no al wizard real, que nunca se construyó) | L+S |
 | Gráfico dirección (grafico-direccion.html) | Ángulo real vs seteado en vivo | 🟡 (C) | L+S |
 | Gráfico rumbo (grafico-rumbo.html) | GPS vs IMU corregido | 🟡 (C) | L+S |
 | Gráfico XTE (grafico-xte.html) | Error de guiado en vivo | 🟡 (C) | L+S |
@@ -260,8 +274,9 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 
 - **Leonardo (UI nativa):** las botoneras del cockpit ya traen guiado/secciones/tracks;
   **falta**: nudge/snap izq-der, contour-lock, youskip, secciones individuales/zonas,
-  controles de cámara (2D/3D/N-2D/tilt/día-noche/brillo/grilla), banderas, ruta grabada,
-  y montar los diálogos HTML por WebView (config/diagnóstico) en ventana chica.
+  banderas, ruta grabada, y montar los diálogos HTML por WebView (config/diagnóstico) en
+  ventana chica. **Hecho:** controles de cámara (2D/3D/N-2D/tilt/día-noche/brillo/grilla,
+  2026-07-27).
 - **Santiago (engine):** los comandos/servicios detrás — snap/nudge de track, youskip,
   secciones individuales/zonas, boundary/headland/tram builders, banderas, ruta grabada,
   hyd-lift, import tracks, reset-tool-heading, controles del simulador por API.

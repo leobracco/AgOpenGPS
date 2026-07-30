@@ -83,10 +83,15 @@ la sesión android al extraer, pero el taller los usa desde Services),
 
 ## EN CURSO
 
+**⚡ ACTUALIZADO 2026-07-27 — carriles invertidos, ver "SANTIAGO — ARRANCÁ ACÁ
+(2026-07-27)" más abajo en la bitácora: Santiago pasa a UI visual (ícono por
+ícono contra `docs/INVENTARIO-UI-ICONOS.md`), Leonardo a motor/servicios/
+empaquetado. La tabla de abajo queda vieja (pre-27), no seguirla.**
+
 | Sesión | Qué | Archivos |
 |---|---|---|
-| taller | **Migración total a Avalonia — UI (front-end)**: completar mapa GL (guías paralelas, youturn/skip, boundary) y después migrar pantallas WebView → Views nativas | `SourceCode/PilotX.Desktop/*`, `SourceCode/PilotX.Cockpit.Bars/*` |
-| android | **Migración total a Avalonia — engine (back-end)**: que el EngineWebHost sirva TODAS las /api (no solo el mapa) para que PilotX.Desktop corra SIN FormGPS | `SourceCode/PilotX.GuidanceEngine/*`, `GPS/AgroParallel/*` (extracción), `AgOpenGPS.Core/*` |
+| taller | ~~Migración total a Avalonia — UI (front-end)~~ (vieja, ver arriba) | `SourceCode/PilotX.GuidanceEngine*`, `AgroParallel.Services/*`, `AgOpenGPS.Core/*`, `build.ps1` |
+| android (Santiago) | **UI visual ícono por ícono** contra `docs/INVENTARIO-UI-ICONOS.md`. ⚠️ **PEDIDO abierto para Leonardo** (ver bitácora 2026-07-30): diálogos (Lote/Configuración) en blanco intermitente, misma familia que el "SIN RESOLVER" del 28 — necesito tu ok para el rediseño (embeber en vez de `Window` separada) antes de tocarlo. | `SourceCode/PilotX.UI/*`, `SourceCode/PilotX.Cockpit.Bars/*`, `wwwroot/*` |
 
 ## Bitácora (append-only)
 
@@ -1651,6 +1656,25 @@ la sesión android al extraer, pero el taller los usa desde Services),
   dos veces seguidas y el submenú siguió abierto en ambos toques (antes
   volvía al menú principal en el primero). Build completo 0 errores,
   141 tests verdes. Voy a commitear y pushear.
+- [2026-07-24] [android] AVISO (mismo carril, `MenuIzquierdaViewModel.cs`/
+  `.axaml.cs`) — pedido del usuario: que el menú se repliegue solo
+  ("se guarde") tras 1 minuto de inactividad, para no quedar tapando el
+  mapa si el operario se olvida de cerrarlo. Agregué un
+  `DispatcherTimer` (`InactivityTimeout = 1 min`) en el ViewModel:
+  arranca al construirse, se reinicia con `NotifyActivity()` en cada
+  toque dentro del menú (llamado desde `OnAnyButtonClick` del
+  code-behind, que ya intercepta todos los clicks) y en
+  `ToggleSubmenuCommand`, y si dispara sin que el menú se haya vuelto a
+  tocar, colapsa (`OpenSubmenu = null; IsCollapsed = true`) igual que si
+  el operario hubiera tocado el handle `‹`. `ToggleCollapsedCommand`
+  maneja el timer directamente (lo para al colapsar manual, lo reinicia
+  al expandir) para no depender del orden de eventos con
+  `OnAnyButtonClick`. Si ya está colapsado, `NotifyActivity`/el tick no
+  hacen nada (no hay para qué reiniciar un timer que no importa).
+  Verificado en la tablet física: dejé el menú expandido sin tocar nada
+  ~65s y se replegó solo a la pestaña angosta; el toggle manual `‹`/`›`
+  lo vuelve a expandir sin problema. Build completo 0 errores, 141 tests
+  verdes. Voy a commitear y pushear.
 - [2026-07-24] [taller] HECHO (stopgap engine, AVISADO) — `SteerConfigController`
   (`/api/steer/config` GET/POST + `/api/steer/zero-was`) para que la pantalla
   Dirección (clon HTML de FormSteer, `direccion.html`) pueda GRABAR. Por ahora
@@ -1938,6 +1962,24 @@ geometría por defecto y el guiado sale mal de forma silenciosa).
 
 IDs y `data-*` de las páginas HTML están congelados (§4 de `COORDINACION-UI.md`);
 el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
+- [2026-07-27] [android] EN CURSO — leí tus indicaciones (`ef8409ac`, cambio de
+  carril: yo paso a UI visual ícono por ícono, vos a motor/servicios/
+  empaquetado). Antes de arrancar, reconcilié un duplicado: yo también estaba
+  armando `AndroidWebViewHost` (WebView nativo + `NativeControlHost` + overlay
+  en `MainView` para que "Lote"/"Datos GPS"/etc. abran en Android, mismo problema
+  que resolviste vos con la config de Dirección) pero sin commitear y sin
+  terminar de verificar (me había quedado en un bug de tamaño del diálogo:
+  `Border` con `MaxWidth/MaxHeight` + `Center` no le daba altura acotada al Grid
+  interno para que la fila `*` del WebView se expandiera — hubiera sido
+  `HorizontalAlignment/VerticalAlignment="Stretch"` en vez de `Center`, por si te
+  sirve si pegás con algo parecido). Descarté mi versión local y mergeé
+  `codex/pilotx-ui-new` en mi rama para quedarme con la tuya (ya validada en
+  emulador) — 1 conflicto en este mismo archivo (concatenado, sin perder
+  historia de ningún lado). Build completo 0 errores, 142 tests verdes (sumaste
+  1 desde la última vez que corrí). Pusheado como `0fb69b4a`.
+  Arranco ahora por el grupo que sugeriste primero: controles de cámara/vista
+  del menú Navegación (2D/3D/Norte-2D/tilt±/grilla/día-noche/brillo±) — 100%
+  cliente (`MapGlSurface`), no tocan el motor.
 - [2026-07-27] [taller] HECHO — **secciones individuales y zonas: el motor ya
   responde. SANTIAGO, esto te desbloquea la barra de abajo.**
   Comandos nuevos en `ExecuteCommand` (port de `btnSectionXMan_Click` /
@@ -2101,6 +2143,75 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   bajada "TECNOLOGÍA QUE GUÍA TU CAMPO" no se lee — si se quiere, conviene un
   recorte al emblema PX solo para los tamaños chicos.
   Paquete regenerado: **PilotX_v1.0.24.zip**, build 0 errores, 156 tests verdes.
+- [2026-07-27] [android] HECHO — controles de cámara/vista del menú Navegación
+  (`v2d/v3d/norte2d/tilt_up/tilt_dn/grilla/dia_noche/brillo_up/brillo_dn`, 9
+  íconos) **verificados por EFECTO, no por botón**, corriendo el stack Desktop
+  local (`CoreX.exe` + `PilotX.GuidanceEngine.exe --webhost` + `ModSim.exe` +
+  `PilotX.Desktop.exe`) y automatizando clicks reales (mouse_event por
+  coordenadas de pantalla + capturas) en vez de solo leer código:
+  · **2D/3D/Norte 2D**: `MapGlSurface` no tenía pitch de cámara (pipeline 100%
+    ortográfico, ver cabecera del archivo) ni setter público de heading-up.
+    Agregué `SetHeadingUp`/`SetPitchDeg`/`TiltBy` + un "squish" del eje
+    adelante (cos del pitch) más un corrimiento en clip-space (sin del pitch) —
+    **no es perspectiva real con punto de fuga**, pero es un efecto genuino:
+    en pitch=0 la fórmula se reduce EXACTO a la original (sin regresión), y en
+    3D (-65°) la grilla se ve claramente achatada/inclinada con el tractor
+    corrido hacia abajo, estilo chase-cam. Capturas: grid rotado normal (2D) →
+    grid achatado+tractor abajo (3D) → grid sin rotar, tractor apuntando al
+    heading real (Norte 2D) → vuelta exacta a 2D.
+  · **Grilla**: no existía toggle (se dibujaba siempre). `_gridOn` +
+    gating de `DrawGrid`. Capturas: grilla desaparece/reaparece.
+  · **Día/Noche**: paleta clara alternativa (`ColBgDay`/`ColGridDay`) SOLO
+    para el mapa — el chrome de las barras no cambia, queda fuera de alcance
+    de este ciclo. Captura: fondo pasa de negro a gris claro con grilla oscura.
+  · **Brillo +/−**: NO es brillo del render (no hay canal de brightness en el
+    shader) — reusa `SistemaClient`/`api/sistema/brillo`, el mismo mecanismo
+    que ya usa el panel Sistema (fiel al legacy: `CBrightness` tampoco tocaba
+    el mapa, era brillo de pantalla). Sin regresión visible por screenshot
+    (es brillo de monitor), verificado que no rompe nada (proceso responsive
+    tras el click).
+  Wiring en `RouteCockpitCommand` de **los dos hosts** (`MainWindow.axaml.cs`
+  Desktop y `MainView.axaml.cs` Android/shared) — mismo patrón que ya usan
+  para lote/dirección/etc. `MapPanel` gana los pass-through (no-op en la
+  surface Skia legacy, mismo criterio que `BeginAbCreation`).
+  Tiqueado en `docs/INVENTARIO-UI-ICONOS.md` (sección 6, Vista/cámara): los 8
+  íconos + el botón "Navegación" en sí, todos ✅.
+  2 merges de tu rama en el medio (tomé tu `AndroidWebViewHost` validado en vez
+  de mi versión sin terminar, y después tu botonera de secciones/zonas +
+  servicios de config del motor) — sin conflicto real en código, solo en esta
+  bitácora (concatenado). Build completo 0 errores, 156 tests verdes (no sumé
+  tests nuevos — la verificación fue 100% visual con el stack corriendo, como
+  pediste). Voy a commitear y pushear, y sigo con el próximo grupo del
+  inventario.
+
+- [2026-07-27] [android] PEDIDO — el usuario probó "Brillo +/−" del menú
+  Navegación en la PC de escritorio y "no hace nada". Diagnostiqué: NO es bug
+  de mi wiring (UI correcta, llama `SistemaClient`/`api/sistema/brillo`, mismo
+  mecanismo que ya usa el panel Sistema). Confirmado con curl:
+  `GET http://127.0.0.1:5180/api/sistema/brillo` → `{"ok":false,"value":-1,
+  "error":"service-unavailable"}`. Causa: `EngineWebHost.cs` (`--webhost`, sin
+  `--corex`) construye `AgpWebHost` pasando **`sistema: null`** — no existe
+  ningún `EngineSistemaService` en `PilotX.GuidanceEngine/Adapters/` (mismo
+  patrón de hueco que tuvieron `ConfigVehiculo`/`ImuCalibracion`/
+  `IVehicleToolService` antes de que los cablearas). `SistemaController` se
+  registra igual (a diferencia de la mayoría de los controllers, no tiene
+  guard `if (_svc != null)`) así que el endpoint da 200 con `ok:false` en vez
+  de 404 — el fallo se disfraza de "brillo no soportado por hardware".
+  **Ojo también con el panel Sistema**: usa el MISMO `SistemaClient`, así que
+  su control de brillo probablemente esté igual de roto contra el motor
+  `--webhost` (no lo verifiqué, pero el gap es el mismo backend).
+  La implementación real (DDC/CI vía `dxva2.dll` + fallback WMI
+  `WmiMonitorBrightness`) vive en `SourceCode/AgroParallel/Web/
+  AgroParallel.Shell/SistemaService.cs` (net48/WinForms — `ExecutePowerAction`
+  llama `Application.Exit()`, así que portarlo al motor net9.0 necesita sacar
+  esa dependencia de WinForms). Para cablearlo: adapter tipo
+  `EngineSistemaService.cs` en `PilotX.GuidanceEngine/Adapters/` + pasarlo en
+  `EngineWebHost.cs` en vez de `sistema: null`.
+  De mi lado agregué un log (`Debug.WriteLine`) en `AdjustBrightness` de los
+  dos hosts para que el fallo no sea 100% mudo — no toqué el motor. Dejé el
+  ítem en `docs/INVENTARIO-UI-ICONOS.md` en 🟡 (no ✅) hasta que el backend
+  responda de verdad. Build completo 0 errores, sigo con el resto del
+  inventario mientras tanto.
 - [2026-07-27] [taller] HECHO (carril Santiago, avisado) — menú izquierdo, 2
   pedidos del usuario:
   · **"Configuración" va DIRECTO** a la pantalla de config (`config_form`), sin
@@ -2208,6 +2319,29 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **Nota**: el mapa ya no usa un tamaño inventado, así que si el vehículo se ve
   chico/grande hay que corregir **Entre ejes / Trocha** en Configuración, que es
   lo correcto.
+- [2026-07-27] [android] PEDIDO — reviso `mapeo_color` (btnChangeMappingColor)
+  del menú Navegación. Lo mío ya está: el comando abre
+  `pages/colores-secciones.html` (reutiliza la pantalla multicolor por
+  sección — más completa que el color-picker único del legacy, que solo
+  cambiaba `sectionColorDay`). Pero **cambiar cualquier color ahí no tiene
+  efecto en el mapa**: ni `FormGpsCoverageService.GetSnapshot()`
+  (`SourceCode/GPS/AgroParallel/Common/FormGpsCoverageService.cs:29-76`,
+  descarta explícitamente el color del header de `patchList[k][0]`) ni tu
+  adapter del motor headless (no lo encontré, asumo que tampoco) propagan
+  color al `CoverageSnapshot` que consume `MapGlSurface.DrawCoverage()`
+  (`SourceCode/PilotX.UI/Views/MapGlSurface.cs:995-1111`) — hoy pinta TODA
+  la cobertura con un único `Uniform4` fijo verde (75,166,63,140), ignorando
+  `sectionColorDay`/`tool.secColors`/`isMultiColoredSections` por completo.
+  **PEDIDO**: que el snapshot de cobertura (los dos backends, WinForms y
+  motor) traiga el color real — mínimo un color único (`sectionColorDay`),
+  ideal color por sección si `isMultiColoredSections` está prendido (mismo
+  patrón que ya tenés en `AogStateSnapshot` con `section_states`/
+  `zone_ranges`). Del lado mío falta que `DrawCoverage` deje de usar un solo
+  `Uniform4` y pinte por sección — lo hago apenas el snapshot traiga el dato,
+  no antes (no tiene sentido tocar el shader sin la fuente real). Marqué
+  `mapeo_color` 🟡 en el inventario (no ❌: el ícono SÍ hace algo real, solo
+  que ese algo todavía no pinta el mapa) y sigo con los 12 🟡 de "validar en
+  el mapa" (cockpit derecha/abajo) mientras tanto.
 - [2026-07-27] [taller] HECHO — **el implemento se dibuja con su imagen real en
   vez de la barra de secciones**. El usuario pasó `Diseño/PilotX/sembradora.png`
   (vista cenital, con transparencia).
@@ -2617,3 +2751,168 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   relacionado con que el backend se caiga y vuelva con la UI abierta.
   Si vuelve a pasar: NO reiniciar de una, mirar primero si la barra superior
   sigue viva (eso separa "backend caído" de "mapa colgado").
+
+- [2026-07-29] [android] HECHO — mergeé tu tanda grande (QuantiX/VistaX
+  overlays+tests, lote borrar/crear-desde-existente/import KML, config
+  compartida motor+PilotX, grid y mini-mapa sacados, implemento con imagen
+  real). Único conflicto de código real: `MapGlSurface.cs` (los dos tocamos
+  el bloque de `DrawGrid` — vos lo comentaste a pedido del usuario, yo le
+  había agregado el toggle `_gridOn`). Resuelto a favor de tu versión
+  (grid apagado) + saqué el botón "Grilla" del menú Navegación en
+  `MenuIzquierda.axaml` (quedaba sin ningún efecto) — dejé `DrawGrid`/
+  `_gridOn`/`ToggleGrid` vivos en el código, mismo criterio tuyo de no
+  borrar la capacidad de reactivarlo. Actualicé el inventario (Grilla → "—").
+  Build completo 0 errores, 208 tests verdes (coincide con tu conteo).
+
+- [2026-07-29] [android] HECHO — pedido del usuario: sacar del menú
+  Navegación los botones "2D", "3D", "Inclinar +", "Inclinar −" y "Norte 2D".
+  Quedan solo Día/Noche y Brillo +/−. Mismo criterio que "Grilla"
+  (2026-07-28): no borré `SetHeadingUp`/`SetPitchDeg`/`TiltBy` de
+  `MapGlSurface`/`MapPanel` ni el wiring en `RouteCockpitCommand` — queda
+  la capacidad viva por si se cuelga de otro lado más adelante. Inventario
+  actualizado (esos 5 ítems pasan a "—"). Verificado en pantalla: el
+  submenú Navegación se ve bien con los 3 botones que quedan. Build 0
+  errores, 208 tests verdes.
+
+- [2026-07-29] [android] HECHO — cerré mi propio PEDIDO de Brillo +/− (el
+  usuario pidió que se arreglara, no que se esperara). El fix es
+  `EngineSistemaService.cs` nuevo en `PilotX.GuidanceEngine/Adapters/`: port
+  directo de `AgroParallel.Shell/SistemaService.cs` (DDC/CI vía `dxva2.dll` +
+  fallback WMI `WmiMonitorBrightness`/`WmiSetBrightness`) sacándole la única
+  dependencia real de WinForms (`ExecutePowerAction/ExitApp` usaba
+  `Application.Exit()`; en el motor headless hace `Environment.Exit(0)`).
+  Agregado `PackageReference System.Management` al csproj (WMI). Cableado en
+  `EngineWebHost.cs` en vez de `sistema: null`.
+  **Verificado real, no solo por código**: `GET api/sistema/brillo` pasó de
+  `ok:false,value:-1` a `ok:true,value:100`; `POST ...?value=50` → `GET`
+  confirma 50; y tocando el botón "Brillo −" de verdad en la pantalla
+  (captura) el valor bajó de 100 a 80 (el paso de `AdjustBrightness`).
+  Brillo restaurado a 100 al terminar. Esto también debería destrabar el
+  brillo del panel Sistema (mismo `SistemaClient`/backend). Inventario
+  actualizado a ✅. Build completo 0 errores, 208 tests verdes.
+
+- [2026-07-29] [android] HECHO — pedido del usuario: sacar "Asist. dirección"
+  del menú Herramientas. Apuntaba a `config.html` genérico, no al wizard real
+  (FormSteerWiz) que nunca se construyó — quedaba redundante con
+  Configuración. Inventario actualizado. Verificado en pantalla: el submenú
+  Herramientas arranca con "Gráfico dirección", sin huecos. Build 0 errores,
+  208 tests verdes.
+
+- [2026-07-29] [android] HECHO — el usuario arrancó a revisar menú por menú.
+  Dos hallazgos en Configuración:
+  1. **`config.html` tenía mojibake generalizado** (doble codificación UTF-8 →
+     Windows-1252 → UTF-8 de nuevo): "VehÃ­culo" en vez de "Vehículo",
+     "ConfiguraciÃ³n" en vez de "Configuración", y así en **91 ocurrencias**
+     (tildes, «», °, ±, ×, —, –, …) más 2 emojis rotos (WiFi 📶, Eventos 📜).
+     Aislado a este archivo — barrí el resto de `wwwroot` y no aparece en
+     ningún otro. Reemplazo carácter por carácter (14 secuencias distintas),
+     no un round-trip de `iconv` completo porque el archivo tiene un emoji
+     real (⚠) mezclado que un iconv ciego rompe. Verificado en pantalla:
+     "Perfil: Rastra... las configuraciones del vehículo se agrupan en
+     «perfiles»..." ya se lee bien.
+  2. **Cambiar "Tipo" a Cosechadora en "Tipo y marca" no mueve nada en el
+     mapa — PEDIDO/hallazgo, no lo cableé todavía (el usuario prefirió
+     esperar el arte).** Son DOS sistemas de vehículo sin conectar:
+     · `vconfig` (esta pestaña) guarda `vehicle_type`/marca vía
+       `guardar('vehiculo', {...})` — solo alimenta la vista previa de esta
+       misma pantalla (imagen de marca del catálogo legacy
+       `img/config/brands/`).
+     · El sprite que dibuja `MapGlSurface` sale de un catálogo TOTALMENTE
+       distinto (`api/vehicle/sprite`, `wwwroot/img/vehiculos/`,
+       `setBrand_VehiculoCustom`) — es el que usé para poner el tractor
+       PilotX blanco.
+     Nunca se cablearon entre sí, y además **hoy no existe ninguna imagen de
+     cosechadora** en `wwwroot/img/vehiculos/` (solo rígido/articulado/2
+     pulverizadoras) — aunque conectara los sistemas, no habría con qué
+     dibujarla. El usuario decidió esperar el arte antes de tocar el
+     cableado. Build 0 errores, 261 tests verdes.
+
+- [2026-07-29] [android] EN CURSO — el usuario reportó "pantalla blanca" al ir
+  a Lote > Continuar con un lote ya abierto. Reproduje en vivo, pero es **más
+  profundo de lo que sonaba**: no es un bug de `lote.js`, es un problema del
+  **WebView de los diálogos (`_dialogWin`/`_dialogWebView` en
+  `MainWindow.axaml.cs`) que pierde el contenido renderizado**, y afecta a
+  MÁS de una pantalla:
+  · Abrí "Lote" (`lote_menu`) con un lote real abierto (`Giro en Cabecera`) →
+    el diálogo aparece **totalmente en blanco** desde el primer frame, sin
+    ni un botón. Esperé varios segundos, sigue blanco (descarté que sea
+    arranque en frío del WebView2).
+  · Cerré ese diálogo y abrí "Configuración" en el MISMO proceso (para
+    descartar "primer diálogo de la sesión") → esta vez sí se vio bien un
+    momento (menú lateral con íconos, "Perfil: Rastra..." con datos reales
+    — confirma que `api/aog/config` responde perfecto, 5ms, con datos). Pero
+    **a los pocos segundos, sin ninguna interacción, el mismo diálogo quedó
+    en blanco también** — desapareció hasta el menú lateral estático.
+  · Mientras tanto la barra superior seguía viva (reloj corriendo, "GIRO EN
+    CABECERA" visible, velocidad, QuantiX widget con datos) — **no es un
+    crash del backend ni de toda la app**, es puntual del control WebView
+    de esos diálogos.
+  Coincide con tu hallazgo "SIN RESOLVER" del 2026-07-28 (pantalla que se
+  pone en negro con todo lo demás vivo) — probablemente la MISMA familia de
+  bug (WebView.Avalonia/compositing en una `Window` secundaria), no algo
+  específico de `lote.html`.
+  Descarté como causa: (a) reuso de instancia entre diálogos — no aplica,
+  `_dialogWin.Closed` llama `.Release()` y anula `_dialogWebView`/`_dialogWin`,
+  así que cada apertura crea un WebView2 nuevo; (b) el backend — todos los
+  endpoints responden rápido y bien vía curl mientras el diálogo está en
+  blanco. Sospecho algo del lado de la ventana secundaria (`_dialogWin`,
+  `WindowStartupLocation.CenterOwner`) o del propio paquete comunitario
+  `WebView.Avalonia` (no es first-party) perdiendo el buffer compuesto,
+  similar a como el mapa GL a veces "deja de pedir frames".
+  **No parcheé nada todavía** — no quiero tocar a ciegas un bug de
+  renderizado que puede tener la misma causa que el tuyo. Sigo indagando;
+  si tenés alguna pista de tu investigación del 28 (algo que hayas visto en
+  el log de diagnóstico que sacaste en `5e99b079`), avisame.
+
+- [2026-07-30] [android] SEGUIMIENTO del bug de arriba — encontré y arreglé DOS
+  causas reales, pero el bug de fondo **sigue sin resolverse del todo**.
+  Ambas arregladas en `OpenDialogUrl` (`MainWindow.axaml.cs`):
+  · **Orden Navigate/attach**: `_dialogWebView.Navigate(full)` se llamaba
+    ANTES de crear la `Window` y de `.Show()` — o sea, antes de que el
+    control tuviera HWND propio. Reordené a Create → Show → Navigate (mismo
+    orden que ya usa el WebView principal vía `PrecalentarWebView`). Con esto
+    LOGRÉ que el diálogo "Lote" abriera con contenido real (ISO-XML, Cerrar
+    lote, Entrar al lote, Continuar…) al menos una vez, cosa que antes nunca
+    pasaba.
+  · **Mapa no pausado de verdad**: `PausarMapa()` no alcanzaba porque
+    `MapPanel.OnSnapshot` tiene su propia red de seguridad
+    (`if (IsVisible) _gl?.Reanudar()`) que, al llegar cada snapshot del HUD
+    (10 Hz), deshacía la pausa en <100ms — `_mapHost.IsVisible` nunca pasaba
+    a `false` para un diálogo en `Window` separada. Agregué
+    `_mapHost.IsVisible = false/true` al abrir/cerrar el diálogo (restaurado
+    en los 3 puntos de salida: reuso, sin backend, catch).
+  Con los dos fixes: **igual sigue apareciendo en blanco de forma
+  intermitente** (a veces blanco desde el frame 1, a veces pasa por negro
+  antes del blanco, a veces — raro — renderiza bien y se queda). Probé
+  también sacar el prewarm del WebView principal (`PrecalentarWebView`) por
+  si competía por el mismo user-data-folder de WebView2 con el diálogo — sin
+  el prewarm el problema seguía igual, así que lo descarté y lo dejé
+  reactivado (no tocar, es real para el cold-start de Configuración).
+  Conclusión: es la MISMA familia de bug que tu "SIN RESOLVER" del
+  2026-07-28 — un problema de compositing/airspace de WebView2 alojado en
+  una `Window` Avalonia SEPARADA (no embebida), aparentemente del propio
+  paquete comunitario `WebView.Avalonia` 11.0.0.1, no resoluble con parches
+  desde afuera. **Recomendación** (no implementada, para decidir juntos):
+  dejar de abrir estos diálogos como `Window` de SO separada y en cambio
+  embeberlos en el `_webViewSlot` de la MISMA MainWindow —igual que hace
+  `ShowWebView`, que jamás mostró este síntoma en toda la sesión— con un
+  chrome propio (mini-titlebar + X) dibujado en Avalonia en vez de
+  `SystemDecorations.Full`. Es más cambio, pero saca de la ecuación al
+  WebView2-en-ventana-secundaria que es donde está el problema.
+  Build 0 errores, 261 tests verdes. Los dos fixes de arriba quedan
+  commiteados igual: son correcciones reales aunque no resuelvan el síntoma
+  entero.
+
+- [2026-07-30] [android] PEDIDO — Leonardo: dale una mirada a la entrada de
+  arriba (bug de diálogos en blanco, Lote/Configuración). Va específicamente
+  para vos porque: (1) coincide con tu "SIN RESOLVER" del 2026-07-28 — puede
+  ser la misma causa; (2) `WebView.Avalonia` y el patrón `_dialogWin` como
+  `Window` separada los armaste vos originalmente, así que quizás tengas
+  contexto de por qué se eligió ventana de SO en vez de embeber; (3) la
+  recomendación que dejé (pasar los diálogos a `_webViewSlot` embebido, sin
+  `Window` propia) toca gente que hoy trabaja en tu carril si la pantalla de
+  Configuración usa el mismo mecanismo. No lo implemento unilateral: es un
+  cambio de arquitectura del diálogo, no un fix puntual, y quiero tu ok o
+  que me digas si ya lo intentaste y por qué se descartó. Mientras tanto el
+  síntoma queda documentado y reproducible (Lote → Continuar con un lote ya
+  abierto, a veces también Configuración).

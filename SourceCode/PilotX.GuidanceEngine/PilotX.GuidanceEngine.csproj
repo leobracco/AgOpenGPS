@@ -48,6 +48,9 @@
          -windows): CoreXEngineHost lo necesita para los 6 puertos serie
          reales (GPS/GPS2/RTCM/IMU/Steer/Machine). -->
     <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+    <!-- EngineSistemaService: brillo de pantalla vía WMI (root\WMI,
+         WmiMonitorBrightness) — fallback si el monitor no soporta DDC/CI. -->
+    <PackageReference Include="System.Management" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
