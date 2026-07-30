@@ -62,7 +62,18 @@ try {
                         [Text.RegularExpressions.RegexOptions]::IgnoreCase)
     if (-not $m.Success) { continue }
     $estado = $mapa[$m.Groups[1].Value.ToLowerInvariant()]
-    $nombres = @($m.Groups[2].Value -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+
+    # Cada nombre tiene que parecer un identificador de icono o control.
+    #
+    # Sin esto, cualquier frase que arranque con una de las palabras clave
+    # dispara el marcado: paso de verdad con la linea "Prueba: abrir y cerrar
+    # el lote crea Headland.txt...", que era la descripcion del test. No hizo
+    # dano porque no encontro nada, pero un dia va a coincidir con algo.
+    $nombres = @(
+      $m.Groups[2].Value -split ',' |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -match '^[A-Za-z][A-Za-z0-9_+\-]{1,39}$' }
+    )
     if (-not $nombres) { continue }
     if (-not $porEstado.ContainsKey($estado)) { $porEstado[$estado] = @() }
     $porEstado[$estado] += $nombres
