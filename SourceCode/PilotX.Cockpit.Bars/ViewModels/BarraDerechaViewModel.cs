@@ -46,6 +46,37 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     [ObservableProperty] private bool _numCuVisible;
     [ObservableProperty] private string _numCuText = "";
 
+    // Giro manual (↰/↱) y selector de salto del giro. Solo con el giro
+    // automático ACTIVO: sin eso no hay a dónde girar y serían controles
+    // muertos ocupando barra.
+    [ObservableProperty] private bool _giroManualVisible;
+
+    // Saltear guía (⇤/⇥): correrse a la guía de al lado siguiendo para
+    // adelante. NO depende del giro automático — alcanza con tener una guía.
+    [ObservableProperty] private bool _lateralVisible;
+
+    /// <summary>0..9, para el desplegable.</summary>
+    public int[] SaltosPosibles { get; } = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+
+    private int _saltoDelGiro = 1;
+    private bool _aplicandoSnapshot;
+
+    /// <summary>
+    /// Guías que saltea el giro. El setter manda el comando al motor, salvo
+    /// cuando el valor viene del snapshot: sin ese guard, cada refresco del HUD
+    /// reenviaría el comando 10 veces por segundo.
+    /// </summary>
+    public int SaltoDelGiro
+    {
+        get => _saltoDelGiro;
+        set
+        {
+            if (!SetProperty(ref _saltoDelGiro, value)) return;
+            if (_aplicandoSnapshot) return;
+            _ = Send("uturn_skip_" + value);
+        }
+    }
+
     public override void Apply(CockpitSnapshot s)
     {
         bool hayGuia = s.TrackIdx > -1;
@@ -75,5 +106,16 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
 
         NumCuVisible = hayGuia && s.TracksTotal > 0 && !contour;
         NumCuText = NumCuVisible ? $"{s.TrackIdx + 1}/{s.TracksTotal}" : "";
+
+        GiroManualVisible = UturnVisible && s.IsYouTurnOn;
+
+        // Saltear guía solo necesita una guía: es ir derecho corriéndose de
+        // línea, no tiene nada que ver con el giro en cabecera.
+        LateralVisible = hayGuia && !contour;
+
+        // Se refleja lo que dice el motor sin re-disparar el comando.
+        _aplicandoSnapshot = true;
+        SaltoDelGiro = s.YouTurnSkipWidth;
+        _aplicandoSnapshot = false;
     }
 }

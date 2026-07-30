@@ -110,6 +110,89 @@ camino. **Dale para adelante.** Dos condiciones al pasarlo a embebido:
    propósito, para ver los puntos del lindero mientras se graba.
 2. Cuando esté embebido, sacá la excepción `mapaVivo`: deja de hacer falta.
 
+## 🔴 SANTI — SEGUNDO PULL DEL 2026-07-30 (hasta `5eda4628`)
+
+Cinco commits mas desde el aviso anterior. **Entre a tu carril en tres lugares**
+y quiero que lo sepas explicito, no que lo descubras en un merge.
+
+### 1. Toque `PilotX.Cockpit.Bars` (tu carril de UI visual)
+
+`BarraDerecha.axaml` + `BarraDerechaViewModel.cs` + `CockpitSnapshot.cs`, y
+copie 5 PNG del 6.8.5 a `Assets/barra-derecha/`.
+
+Motivo: el usuario pidio giro manual y salto de guias EN PANTALLA. Buscando el
+original descubri que en AOG 6.8.5 **el giro manual no tiene boton**: son zonas
+invisibles del mapa (`GUI.Designer.cs` ~1345-1420), dos rectangulos de 100 px a
+los costados del centro que hay que acertar a ciegas manejando. Agregue:
+* par de botones ↰ / ↱ (giro manual a cada lado, y cancelan si ya hay uno),
+* boton de salto con el icono original **y el numero escrito** — cuantas guias
+  saltea decide por donde sigue la maquina y en el original solo se distinguia
+  por el icono.
+
+Visibles solo con el giro automatico activo. **Si el diseno no te cierra,
+cambialo sin preguntar** — la logica del motor ya esta y es independiente de
+como se vea.
+
+### 2. Toque `wwwroot` (tu carril)
+
+`js/widget-mode.js` (nuevo, compartido) + dos reglas en `layout.css` + una linea
+`<script>` en el `<head>` de **15 paginas**.
+
+Motivo: las ventanas-dialogo abrian todas a 820x600 y 15 de ellas traian ademas
+la barra lateral del Hub, que reserva entre 150 y 240 px. Abierta desde el menu
+de PilotX esa navegacion no sirve: el operario vino a hacer una cosa y volver al
+lote. El mecanismo `widget-mode` ya existia pero estaba **copiado a mano en tres
+paginas**; lo pase a archivo compartido. Si agregas una pagina nueva que se abra
+como dialogo, ponele el `<script src="../js/widget-mode.js"></script>` en el
+`<head>` y listo.
+
+Tamano por pagina ahora lo decide `TamanoDialogo()` en `MainWindow.axaml.cs`
+(380x460 widgets, 500x540 listas, 620x430 graficos, contorno 330x290) y se
+recorta contra la pantalla real (85% ancho / 80% alto, dividiendo por Scaling).
+Lo que no esta en la tabla conserva su tamano: no medi `direccion`, `lote`,
+`config` ni `CoreX` y prefiero dejarlos grandes antes que recortar a ciegas.
+
+### 3. Toque `FormGPS.HeadlandEdit.cs` — LEER ESTO ANTES DE TOCAR CABECERA
+
+`/api/headland` daba 404 (cuarto caso del mismo hueco: perfiles, banderas,
+contorno, cabecera). La geometria del editor estaba en `partial class FormGPS`,
+asi que **solo existia bajo WinForms** — pero no tenia UNA sola dependencia de
+WinForms: 738 lineas de geometria pura.
+
+**La movi tal cual a `AgOpenGPS.Core/Classes/HeadlandEditor.cs` y FormGPS ahora
+DELEGA.** No hay dos copias: los dos stacks corren el mismo algoritmo. Si
+manana hay que tocar el offset o el corte de cabecera, se toca **en el Core**,
+no en el partial. Si lo tocas en el partial no vas a estar tocando nada.
+
+Verificado: build a 4,16 m genera la cabecera, `Headland.txt` 20.229 bytes, y al
+cerrar/reabrir vuelven los 786 puntos. Compilan los dos stacks — **compile
+`AgOpenGPS.csproj` a proposito** porque el WinForms es lo que corre hoy en
+produccion. Ojo con una: ese proyecto es **C# 7.3**, no acepta `??=`.
+
+### 4. Motor (mi carril, para que lo sepas)
+
+* Comandos nuevos: `uturn_manual_izq`, `uturn_manual_der`, `lateral_izq`,
+  `lateral_der`. Respetan el limite de velocidad de funciones y devuelven false
+  si no se pudo, en vez de fallar callados.
+* `/api/aog/state` suma diagnostico del giro: `is_out_of_bounds`,
+  `cross_track_error_m`, `you_turn_phase`, `boundary_geometry_ok`,
+  `is_you_turn_triggered`, `you_turn_skip_width`, `you_turn_skip_mode`.
+* El mapa dibuja el lindero en curso mientras se graba
+  (`boundary_being_made`, tira abierta ambar + punto blanco por vertice).
+* El tractor pasa a **escala real**: tenia un piso de 70 px que lo dibujaba 3,5
+  VECES mas grande de lo que es. Eso habilita recolgar el sprite del implemento
+  si queres — la causa por la que estaba apagado era ese descalce.
+
+### 5. Hallazgo que te puede ahorrar una tarde
+
+Si el giro en cabecera "no anda", mira primero `boundary_geometry_ok`. Un lote
+con linderos internos **mas grandes que el exterior** da area negativa y el
+pivote queda "dentro de una isla" en casi todo el lote: el giro nunca se arma y
+el corte por lindero queda al reves. Paso en el lote de prueba (2,88 ha exterior
+con dos "islas" de 5,25 y 4,63). Ahora al guardar un contorno asi la pantalla
+avisa, pero no bloquea.
+
+
 ## EN CURSO
 
 **⚡ ACTUALIZADO 2026-07-27 — carriles invertidos, ver "SANTIAGO — ARRANCÁ ACÁ

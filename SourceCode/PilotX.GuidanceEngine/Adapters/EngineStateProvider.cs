@@ -72,7 +72,22 @@ namespace PilotX.GuidanceEngine.Adapters
                         snap.TracksVisible = vis;
                     }
                 }
-                if (_host.Yt != null) snap.IsYouTurnOn = _host.Yt.isYouTurnBtnOn;
+                if (_host.Yt != null)
+                {
+                    snap.IsYouTurnOn = _host.Yt.isYouTurnBtnOn;
+                    snap.YouTurnPhase = _host.Yt.youTurnPhase;
+                    snap.IsYouTurnTriggered = _host.Yt.isYouTurnTriggered;
+                    snap.YouTurnSkipWidth = _host.Yt.rowSkipsWidth;
+                    snap.YouTurnSkipMode =
+                        _host.Yt.skipMode == SkipMode.Alternative ? "alternado"
+                        : _host.Yt.skipMode == SkipMode.IgnoreWorkedTracks ? "ignora_trabajadas"
+                        : "normal";
+                }
+                // Diagnostico del giro: sin esto, "no gira" se ve igual esté el
+                // tractor fuera del lote, desviado, o con el lote roto.
+                if (_host.Mc != null) snap.IsOutOfBounds = _host.Mc.isOutOfBounds;
+                // crossTrackError viene en MILIMETROS en el host (int).
+                snap.CrossTrackErrorM = _host.crossTrackError / 1000.0;
                 if (_host.Ct != null)
                 {
                     snap.IsContourOn = _host.Ct.isContourBtnOn;
@@ -204,7 +219,17 @@ namespace PilotX.GuidanceEngine.Adapters
                             for (int i = 1; i < _host.Bnd.bndList.Count; i++)
                                 areaM2 -= _host.Bnd.bndList[i].area;
                             snap.BoundaryAreaM2 = areaM2;
+
+                            // Area neta negativa = hay linderos "internos" mas
+                            // grandes que el exterior. Es geometricamente
+                            // imposible como isla, y deja el giro en cabecera y
+                            // el corte por lindero sin poder funcionar: el
+                            // pivote queda "dentro de una isla" en casi todo el
+                            // lote. Se detecta aca porque es lo unico que mira
+                            // TODOS los linderos juntos.
+                            snap.BoundaryGeometryOk = areaM2 > 0;
                         }
+                        else snap.BoundaryGeometryOk = true;
                     }
 
                     if (_host.Trk != null && _host.Trk.gArr != null && _host.Trk.idx >= 0 && _host.Trk.idx < _host.Trk.gArr.Count)

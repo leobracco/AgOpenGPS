@@ -169,6 +169,10 @@ namespace AgOpenGPS
                 // 404: la pantalla de contorno decía "Sin conexión con PilotX" y
                 // no se podía hacer el lindero manejando.
                 contorno: new EngineContornoService(_host),
+                // Sin esto HeadlandController no se registra y /api/headland da
+                // 404: la pantalla Cabecera no puede construir nada, y sin
+                // cabecera no hay corte automático de secciones en el borde.
+                headlandEdit: new EngineHeadlandEditService(_host),
                 vehicleTool: vehicleTool,
                 shapefile: null,
                 coverage: coverage,

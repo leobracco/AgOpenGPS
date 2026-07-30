@@ -49,6 +49,7 @@
       case 'herramienta-angosta': return 'El implemento es demasiado angosto.';
       case 'borrar-internos-primero': return 'Borrá primero los contornos internos.';
       case 'pocos-puntos': return 'Muy pocos puntos: manejá el borde antes de terminar.';
+      case 'interno-mas-grande': return 'OJO: este contorno es MÁS GRANDE que el exterior. Así el lote queda con área negativa y el giro en cabecera no va a funcionar. Borralo o borrá el exterior.';
       case 'kml-invalido': return 'No se pudo leer el KML.';
       case 'google-earth-error': return 'No se pudo abrir Google Earth.';
       case 'sin-grabacion': return 'No hay grabación en curso.';

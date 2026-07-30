@@ -41,6 +41,52 @@
       <Button IsVisible="{Binding UturnVisible}" Command="{Binding SendCommand}" CommandParameter="uturn">
         <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
       </Button>
+
+      <!-- Giro MANUAL y salto de guía. En AOG 6.8.5 esto no tiene botón: son
+           zonas invisibles del mapa que hay que acertar a ciegas mientras se
+           maneja. Acá se muestran, que es de lo que se trata una cabina.
+           Solo aparecen con el giro automático activo: sin eso no hay a dónde
+           girar y serían dos botones muertos ocupando barra. -->
+      <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center"
+                  IsVisible="{Binding GiroManualVisible}">
+        <Button Command="{Binding SendCommand}" CommandParameter="uturn_manual_izq"
+                Width="24" Padding="0" ToolTip.Tip="Girar ahora a la izquierda">
+          <TextBlock Text="↰" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Button>
+        <Button Command="{Binding SendCommand}" CommandParameter="uturn_manual_der"
+                Width="24" Padding="0" ToolTip.Tip="Girar ahora a la derecha">
+          <TextBlock Text="↱" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Button>
+      </StackPanel>
+
+      <!-- SALTEAR GUÍA: te corrés a la guía de al lado y seguís PARA ADELANTE,
+           sin dar la vuelta. Es lo que se usa para esquivar un pozo o retomar
+           donde quedaste. No depende del giro automático —por eso no comparte
+           visibilidad con los botones de arriba—: alcanza con tener una guía. -->
+      <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center"
+                  IsVisible="{Binding LateralVisible}">
+        <Button Command="{Binding SendCommand}" CommandParameter="lateral_izq"
+                Width="24" Padding="0" ToolTip.Tip="Saltear a la guía de la izquierda">
+          <TextBlock Text="⇤" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Button>
+        <Button Command="{Binding SendCommand}" CommandParameter="lateral_der"
+                Width="24" Padding="0" ToolTip.Tip="Saltear a la guía de la derecha">
+          <TextBlock Text="⇥" FontSize="15" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Button>
+      </StackPanel>
+
+      <!-- Cuántas guías saltea EL GIRO. Es un número que se elige, no un modo
+           que cicla: "salteo 2" es una decisión concreta y buscarla ciclando un
+           botón mientras se llega a la cabecera no sirve. -->
+      <StackPanel IsVisible="{Binding GiroManualVisible}" HorizontalAlignment="Center">
+        <TextBlock Text="saltea" FontSize="9" Foreground="#535E54"
+                   HorizontalAlignment="Center"/>
+        <ComboBox ItemsSource="{Binding SaltosPosibles}"
+                  SelectedItem="{Binding SaltoDelGiro}"
+                  Width="46" MinHeight="28" Padding="4,0" FontSize="13"
+                  HorizontalAlignment="Center"
+                  ToolTip.Tip="Guías que saltea el giro en cabecera"/>
+      </StackPanel>
       <Button IsEnabled="{Binding PilotoEnabled}" Command="{Binding SendCommand}" CommandParameter="autosteer">
         <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}"/>
       </Button>

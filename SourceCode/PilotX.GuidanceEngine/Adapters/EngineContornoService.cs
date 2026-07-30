@@ -244,6 +244,25 @@ namespace PilotX.GuidanceEngine.Adapters
                 Log.EventWriter("GuidanceEngine: contorno grabado, area ha: "
                     + (nuevo.area * 0.0001).ToString("0.00",
                         System.Globalization.CultureInfo.InvariantCulture));
+
+                // El lindero 0 es el LIMITE del lote; del 1 en adelante son
+                // islas adentro. Una isla mas grande que el exterior es
+                // geometricamente imposible, y el efecto no se ve al guardarla:
+                // el area del lote pasa a ser negativa y el pivote queda
+                // "dentro de una isla" en casi todo el lote, asi que el giro en
+                // cabecera nunca se arma y el corte por lindero queda al reves.
+                // Paso de verdad en cabina y costo una jornada de no entender
+                // por que no giraba.
+                //
+                // No se bloquea el guardado —el operario acaba de recorrer el
+                // perimetro y esos puntos no se tiran— pero se avisa fuerte.
+                int idx = _host.Bnd.bndList.Count - 1;
+                if (idx > 0 && nuevo.area > _host.Bnd.bndList[0].area)
+                {
+                    Log.EventWriter("GuidanceEngine: OJO, el lindero interno "
+                        + idx + " es MAS GRANDE que el exterior — el lote queda con area negativa");
+                    error = "interno-mas-grande";
+                }
             }
             else
             {

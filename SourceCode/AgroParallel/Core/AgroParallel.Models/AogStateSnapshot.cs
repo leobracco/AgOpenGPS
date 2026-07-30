@@ -280,6 +280,40 @@ namespace AgroParallel.Models
         /// <summary>Track de guía actualmente activo (AB line / curve / pivot). null si no hay.</summary>
         public TrackInfo ActiveTrack { get; set; }
 
+        // ---- Por qué el giro en cabecera no arranca ------------------------
+        //
+        // El U-turn se arma solo si el pivote está DENTRO del área de giro y el
+        // error de track es chico. Cuando no gira, sin estos campos no hay forma
+        // de saber si es porque el tractor está fuera del lote, porque el lote
+        // tiene la geometría rota o porque va muy desviado — desde la UI se veía
+        // igual que "no anda". Son diagnóstico, no control.
+
+        /// <summary>El pivote quedó fuera del lindero (o fuera del área de giro
+        /// con el U-turn activo). Con esto en true el giro NO se va a armar.</summary>
+        public bool IsOutOfBounds { get; set; }
+
+        /// <summary>Desvío respecto de la guía, en metros. Por encima de ~1 km
+        /// el updater descarta el giro en curso y vuelve a empezar.</summary>
+        public double CrossTrackErrorM { get; set; }
+
+        /// <summary>Fase interna del U-turn (10 = camino ya construido).</summary>
+        public int YouTurnPhase { get; set; }
+
+        /// <summary>Hay un giro disparado ahora mismo. El botón de giro manual
+        /// pasa a "cancelar" con esto en true.</summary>
+        public bool IsYouTurnTriggered { get; set; }
+
+        /// <summary>Cuántas guías saltea el giro. 1 = va a la de al lado.</summary>
+        public int YouTurnSkipWidth { get; set; }
+
+        /// <summary>Modo de salteo: "normal", "alternado" o "ignora_trabajadas".</summary>
+        public string YouTurnSkipMode { get; set; }
+
+        /// <summary>Área NETA del lote: exterior menos islas. Si sale negativa,
+        /// hay linderos "internos" más grandes que el exterior y la geometría no
+        /// cierra — el giro y el corte por lindero no pueden funcionar.</summary>
+        public bool BoundaryGeometryOk { get; set; }
+
         // ---- Áreas trabajadas (m²) ------------------------------------------
         // Provenientes de CFieldData. Diferencia entre las dos:
         //   - WorkedAreaTotalM2 cuenta cada paso por sección como área trabajada
