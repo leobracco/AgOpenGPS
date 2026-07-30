@@ -47,7 +47,7 @@ namespace AgroParallel.Adapters
         private static TramLineStateDto Fail(string err = "ui-error")
             => new TramLineStateDto { Ok = false, Error = err };
 
-        private TramLineStateDto Map(FormGPS.TramSnapshot snap)
+        private TramLineStateDto Map(TramLineEditor.TramSnapshot snap)
         {
             var dto = new TramLineStateDto
             {
