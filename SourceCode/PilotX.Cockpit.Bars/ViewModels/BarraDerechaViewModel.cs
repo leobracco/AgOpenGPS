@@ -46,6 +46,12 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     [ObservableProperty] private bool _numCuVisible;
     [ObservableProperty] private string _numCuText = "";
 
+    // Giro manual (←/→) y salto de guías. Solo con el giro automático ACTIVO:
+    // sin eso no hay a dónde girar y serían botones muertos ocupando barra.
+    [ObservableProperty] private bool _giroManualVisible;
+    [ObservableProperty] private string _skipImg = D + "YouSkipOff.png";
+    [ObservableProperty] private string _skipText = "";
+
     public override void Apply(CockpitSnapshot s)
     {
         bool hayGuia = s.TrackIdx > -1;
@@ -75,5 +81,13 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
 
         NumCuVisible = hayGuia && s.TracksTotal > 0 && !contour;
         NumCuText = NumCuVisible ? $"{s.TrackIdx + 1}/{s.TracksTotal}" : "";
+
+        GiroManualVisible = UturnVisible && s.IsYouTurnOn;
+        SkipImg = D + (s.YouTurnSkipMode == "ignora_trabajadas" ? "YouSkipWorkedTracks.png"
+                     : s.YouTurnSkipMode == "alternado" ? "YouSkipOn.png"
+                     : "YouSkipOff.png");
+        // El número va escrito: cuántas guías saltea decide por dónde sigue la
+        // máquina, y en el original solo se distinguía por el ícono.
+        SkipText = s.YouTurnSkipWidth > 1 ? s.YouTurnSkipWidth.ToString() : "";
     }
 }

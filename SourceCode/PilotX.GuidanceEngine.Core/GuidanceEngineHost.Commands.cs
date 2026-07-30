@@ -190,6 +190,19 @@ namespace AgOpenGPS
                 case "uturn_skips":
                     CycleYouTurnSkip();
                     return true;
+
+                // Giro manual y salto de guía. En FormGPS NO tienen botón: son
+                // zonas invisibles del mapa (GUI.Designer.cs ~1345-1420) que hay
+                // que acertar a ciegas. Acá se exponen como comandos para que la
+                // barra del cockpit los muestre como lo que son.
+                case "uturn_manual_izq":
+                    return GiroManual(false);
+                case "uturn_manual_der":
+                    return GiroManual(true);
+                case "lateral_izq":
+                    return SaltoLateral(false);
+                case "lateral_der":
+                    return SaltoLateral(true);
                 case "center":
                     // btnSnapToPivot_Click
                     Trk.SnapToPivot();
@@ -412,6 +425,61 @@ namespace AgOpenGPS
                 if (isBtnAutoSteerOn) ((IAutoSteerHost)this).PerformAutoSteerClick();
             }
             Log.EventWriter("GuidanceEngine: contour " + (Ct.isContourBtnOn ? "ON" : "OFF"));
+        }
+
+        /// <summary>
+        /// Giro manual: dispara el U-turn hacia el lado pedido sin esperar a que
+        /// el automático lo decida. Si ya hay uno en curso, lo CANCELA — mismo
+        /// botón para armar y para abortar, igual que el original.
+        ///
+        /// Respeta el límite de velocidad de funciones: un giro disparado a
+        /// velocidad de transporte es una máquina cruzándose sola. Devuelve
+        /// false si no se pudo (sin guía, o yendo muy rápido), para que la barra
+        /// pueda avisar en vez de quedarse muda.
+        /// </summary>
+        private bool GiroManual(bool haciaLaDerecha)
+        {
+            if (Trk.idx < 0) return false;              // sin guía no hay a dónde girar
+            if (!Yt.isYouTurnBtnOn) return false;       // el giro automático tiene que estar activo
+
+            if (Yt.isYouTurnTriggered)
+            {
+                Yt.ResetYouTurn();
+                Log.EventWriter("GuidanceEngine: giro manual cancelado");
+                return true;
+            }
+
+            if (Vehicle.functionSpeedLimit <= avgSpeed)
+            {
+                Log.EventWriter($"GuidanceEngine: giro manual rechazado, {avgSpeed:F1} km/h supera el limite de {Vehicle.functionSpeedLimit:F1}");
+                return false;
+            }
+
+            Yt.isYouTurnTriggered = true;
+            Yt.BuildManualYouTurn(haciaLaDerecha, true);
+            Log.EventWriter("GuidanceEngine: giro manual a la " + (haciaLaDerecha ? "derecha" : "izquierda"));
+            return true;
+        }
+
+        /// <summary>
+        /// Salto lateral: corre el guiado UNA pasada al costado sin dar la
+        /// vuelta. Es lo que se usa para saltear una guía (esquivar un pozo,
+        /// retomar donde quedó) sin tener que rehacer la línea.
+        /// </summary>
+        private bool SaltoLateral(bool haciaLaDerecha)
+        {
+            if (Trk.idx < 0) return false;
+
+            if (Vehicle.functionSpeedLimit <= avgSpeed)
+            {
+                Log.EventWriter($"GuidanceEngine: salto lateral rechazado, {avgSpeed:F1} km/h supera el limite de {Vehicle.functionSpeedLimit:F1}");
+                return false;
+            }
+
+            Yt.BuildManualYouLateral(haciaLaDerecha);
+            Yt.ResetYouTurn();
+            Log.EventWriter("GuidanceEngine: salto lateral a la " + (haciaLaDerecha ? "derecha" : "izquierda"));
+            return true;
         }
 
         // btnYouSkipEnable_Click (Controls.Designer.cs), sin imagen de botón.

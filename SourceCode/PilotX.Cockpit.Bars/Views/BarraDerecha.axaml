@@ -41,6 +41,34 @@
       <Button IsVisible="{Binding UturnVisible}" Command="{Binding SendCommand}" CommandParameter="uturn">
         <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
       </Button>
+
+      <!-- Giro MANUAL y salto de guía. En AOG 6.8.5 esto no tiene botón: son
+           zonas invisibles del mapa que hay que acertar a ciegas mientras se
+           maneja. Acá se muestran, que es de lo que se trata una cabina.
+           Solo aparecen con el giro automático activo: sin eso no hay a dónde
+           girar y serían dos botones muertos ocupando barra. -->
+      <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center"
+                  IsVisible="{Binding GiroManualVisible}">
+        <Button Command="{Binding SendCommand}" CommandParameter="uturn_manual_izq"
+                Width="24" Padding="0" ToolTip.Tip="Girar ahora a la izquierda">
+          <TextBlock Text="↰" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Button>
+        <Button Command="{Binding SendCommand}" CommandParameter="uturn_manual_der"
+                Width="24" Padding="0" ToolTip.Tip="Girar ahora a la derecha">
+          <TextBlock Text="↱" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+        </Button>
+      </StackPanel>
+
+      <!-- Cuántas guías saltea el giro. El número va escrito: "saltea 2" es un
+           dato que decide por dónde sigue la máquina, no un modo escondido. -->
+      <Button IsVisible="{Binding GiroManualVisible}" Command="{Binding SendCommand}"
+              CommandParameter="uturn_skips" ToolTip.Tip="Guías que saltea el giro">
+        <StackPanel>
+          <Image Source="{Binding SkipImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Text="{Binding SkipText}" FontSize="10" FontWeight="Bold"
+                     Foreground="#101612" HorizontalAlignment="Center"/>
+        </StackPanel>
+      </Button>
       <Button IsEnabled="{Binding PilotoEnabled}" Command="{Binding SendCommand}" CommandParameter="autosteer">
         <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}"/>
       </Button>

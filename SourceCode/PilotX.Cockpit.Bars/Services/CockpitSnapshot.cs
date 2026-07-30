@@ -22,6 +22,8 @@ public sealed class CockpitSnapshot
     [JsonPropertyName("is_auto_steer_on")]    public bool IsAutoSteerOn { get; set; }
     [JsonPropertyName("is_auto_snap_to_pivot")] public bool IsAutoSnapToPivot { get; set; }
     [JsonPropertyName("is_you_turn_on")]      public bool IsYouTurnOn { get; set; }
+    [JsonPropertyName("you_turn_skip_width")] public int YouTurnSkipWidth { get; set; }
+    [JsonPropertyName("you_turn_skip_mode")]  public string YouTurnSkipMode { get; set; }
     [JsonPropertyName("num_sections")] public int NumSections { get; set; }
 
     /// <summary>Estado del botón de cada sección: 0=Off, 1=Auto, 2=On. Puede

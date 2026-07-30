@@ -299,6 +299,16 @@ namespace AgroParallel.Models
         /// <summary>Fase interna del U-turn (10 = camino ya construido).</summary>
         public int YouTurnPhase { get; set; }
 
+        /// <summary>Hay un giro disparado ahora mismo. El botón de giro manual
+        /// pasa a "cancelar" con esto en true.</summary>
+        public bool IsYouTurnTriggered { get; set; }
+
+        /// <summary>Cuántas guías saltea el giro. 1 = va a la de al lado.</summary>
+        public int YouTurnSkipWidth { get; set; }
+
+        /// <summary>Modo de salteo: "normal", "alternado" o "ignora_trabajadas".</summary>
+        public string YouTurnSkipMode { get; set; }
+
         /// <summary>Área NETA del lote: exterior menos islas. Si sale negativa,
         /// hay linderos "internos" más grandes que el exterior y la geometría no
         /// cierra — el giro y el corte por lindero no pueden funcionar.</summary>

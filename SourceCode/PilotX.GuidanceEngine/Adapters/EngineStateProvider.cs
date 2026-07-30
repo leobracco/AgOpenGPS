@@ -76,6 +76,12 @@ namespace PilotX.GuidanceEngine.Adapters
                 {
                     snap.IsYouTurnOn = _host.Yt.isYouTurnBtnOn;
                     snap.YouTurnPhase = _host.Yt.youTurnPhase;
+                    snap.IsYouTurnTriggered = _host.Yt.isYouTurnTriggered;
+                    snap.YouTurnSkipWidth = _host.Yt.rowSkipsWidth;
+                    snap.YouTurnSkipMode =
+                        _host.Yt.skipMode == SkipMode.Alternative ? "alternado"
+                        : _host.Yt.skipMode == SkipMode.IgnoreWorkedTracks ? "ignora_trabajadas"
+                        : "normal";
                 }
                 // Diagnostico del giro: sin esto, "no gira" se ve igual esté el
                 // tractor fuera del lote, desviado, o con el lote roto.
