@@ -477,7 +477,11 @@ namespace AgOpenGPS
         private bool GiroManual(bool haciaLaDerecha)
         {
             if (Trk.idx < 0) return false;              // sin guía no hay a dónde girar
-            if (!Yt.isYouTurnBtnOn) return false;       // el giro automático tiene que estar activo
+            // NO exige el U-turn automático: el giro manual es justamente para
+            // girar cuando el automático no está armado. El nativo tampoco lo
+            // pedía (las zonas del mapa solo miraban el feature-flag isUTurnOn
+            // de settings, no yt.isYouTurnBtnOn) — el guard que había acá era
+            // un exceso del port (aclarado por el usuario 2026-07-31).
 
             if (Yt.isYouTurnTriggered)
             {
