@@ -109,7 +109,13 @@ public sealed class ShapeGeometryPoller : IDisposable
                     else
                     {
                         var wire = JsonSerializer.Deserialize<WireSnapshot>(json, JsonOpts);
-                        string key = wire == null ? "" : $"{wire.SourceToken}|{wire.Count}|{wire.StyleField}";
+                        // La clave de cache incluye GEOMETRÍA (primer vértice y
+                        // total de puntos), no solo nombre/cantidad/campo: subir
+                        // un shape corregido con el mismo nombre es un caso real
+                        // (pasó con el de prueba, desalineado y resubido) y con
+                        // la clave vieja el mapa se quedaba dibujando las zonas
+                        // anteriores sin ningún error a la vista.
+                        string key = wire == null ? "" : ClaveDe(wire);
                         if (wire != null && key != _lastKey)
                         {
                             _lastKey = key;
@@ -124,6 +130,27 @@ public sealed class ShapeGeometryPoller : IDisposable
             try { await Task.Delay(1000, _cts.Token).ConfigureAwait(false); }
             catch (OperationCanceledException) { return; }
         }
+    }
+
+    private static string ClaveDe(WireSnapshot wire)
+    {
+        int puntos = 0;
+        double e0 = 0, n0 = 0;
+        if (wire.Polygons != null)
+        {
+            foreach (var p in wire.Polygons)
+            {
+                if (p.Rings == null) continue;
+                foreach (var r in p.Rings) puntos += r?.Length ?? 0;
+            }
+            var pri = wire.Polygons.Count > 0 ? wire.Polygons[0].Rings : null;
+            if (pri != null && pri.Count > 0 && pri[0] != null && pri[0].Length >= 2)
+            {
+                e0 = pri[0][0];
+                n0 = pri[0][1];
+            }
+        }
+        return $"{wire.SourceToken}|{wire.Count}|{wire.StyleField}|{puntos}|{e0:F1}|{n0:F1}";
     }
 
     private static ShapeMapSnapshot Convertir(WireSnapshot wire)
