@@ -2429,6 +2429,21 @@ public sealed class MapGlSurface : OpenGlControlBase
             _floorTexReady = false;
             Console.Error.WriteLine("[MapGlSurface] piso: " + ex.Message);
         }
+        finally
+        {
+            // Dejar el estado como lo espera el RESTO del frame (mismo cierre
+            // que DrawTractorSprite): atributo 1 apagado y el programa de color
+            // plano de vuelta. El piso corre PRIMERO — sin esto, coverage,
+            // guías y tractor se dibujaban con el programa de texturas: el
+            // tractor invisible y la cobertura sampleando el piso.
+            _gl.DisableVertexAttribArray(1);
+            _gl.UseProgram(_program);
+            _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+            unsafe
+            {
+                _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+            }
+        }
     }
 
     /// <summary>
