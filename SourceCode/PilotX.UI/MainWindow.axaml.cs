@@ -92,6 +92,14 @@ public partial class MainWindow : Window
     private TextBlock _hudSpeed;
     private TextBlock _hudHeading;
     private TextBlock? _hudTrack;
+
+    // Cluster del piloto (giro / salteo / distancia a la línea, arriba-centro
+    // del mapa con el piloto activo).
+    private Border? _pilotoCluster;
+    private Button? _pcGiroIzq, _pcGiroDer, _pcSkipMenos, _pcSkipMas;
+    private TextBlock? _pcXte, _pcXteFlecha, _pcXteUnidad, _pcSkip;
+    private int _pcSalteadas;          // lo que muestra el cluster (0..9)
+    private bool _pcUturnOn;
     // Debug de rumbos: rumbo del tractor y de la guía activa (grados 0=N, CW),
     // para ver a qué guía apunta y cuánto desvía. NaN = sin dato.
     private double _lastTractorHeadingDeg = double.NaN;
@@ -270,6 +278,21 @@ public partial class MainWindow : Window
         _hudSpeed        = this.FindControl<TextBlock>("HudSpeed");
         _hudHeading      = this.FindControl<TextBlock>("HudHeading");
         _hudTrack        = this.FindControl<TextBlock>("HudTrack");
+
+        // Cluster del piloto: giro / salteo / distancia a la línea.
+        _pilotoCluster = this.FindControl<Border>("PilotoCluster");
+        _pcGiroIzq     = this.FindControl<Button>("PcGiroIzq");
+        _pcGiroDer     = this.FindControl<Button>("PcGiroDer");
+        _pcSkipMenos   = this.FindControl<Button>("PcSkipMenos");
+        _pcSkipMas     = this.FindControl<Button>("PcSkipMas");
+        _pcXte         = this.FindControl<TextBlock>("PcXte");
+        _pcXteFlecha   = this.FindControl<TextBlock>("PcXteFlecha");
+        _pcXteUnidad   = this.FindControl<TextBlock>("PcXteUnidad");
+        _pcSkip        = this.FindControl<TextBlock>("PcSkip");
+        if (_pcGiroIzq != null) _pcGiroIzq.Click += (_, _) => _ = MandarComandoPiloto("uturn_manual_izq");
+        if (_pcGiroDer != null) _pcGiroDer.Click += (_, _) => _ = MandarComandoPiloto("uturn_manual_der");
+        if (_pcSkipMenos != null) _pcSkipMenos.Click += (_, _) => _ = CambiarSalteo(-1);
+        if (_pcSkipMas != null) _pcSkipMas.Click += (_, _) => _ = CambiarSalteo(+1);
         _hudArea         = this.FindControl<TextBlock>("HudArea");
         _hudStatusText   = this.FindControl<TextBlock>("HudStatusText");
         _hudStatusDot    = this.FindControl<Ellipse>("HudStatusDot");
@@ -531,7 +554,10 @@ public partial class MainWindow : Window
                 _lastPathsAway = (snap.PathsAway == int.MinValue) ? double.NaN : snap.PathsAway;
                 _lastXteMeters = snap.XteMeters; // NaN si no hay guía
                 UpdateHeadingDebug();
-            }, periodMs: 1000);
+            // 250 ms (era 1000): el XTE de este poller alimenta la distancia a
+            // la línea del cluster del piloto — a 1 Hz el número parecía
+            // clavado. La geometría igual solo se re-sube si cambió (revision).
+            }, periodMs: 250);
             _guidancePoller.Start();
             Closed += (_, _) => _guidancePoller?.Stop();
 
@@ -2446,6 +2472,107 @@ public partial class MainWindow : Window
             "El panel aparece cuando CoreX corre como programa aparte (CoreX.exe).");
     }
 
+    // ---- Cluster del piloto ------------------------------------------------
+    //
+    // Comandos del cluster (giro manual / salteo). Van por el mismo canal que
+    // las barras si está armado; si no (modo ventana sin cockpit), POST directo.
+    private async Task MandarComandoPiloto(string cmd)
+    {
+        try
+        {
+            if (_cockpitCmd != null) { await _cockpitCmd.SendAsync(cmd); return; }
+            var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            var url = DeriveOrigin(App.TargetUrl).TrimEnd('/');
+            using var body = new System.Net.Http.StringContent(
+                "{\"cmd\":\"" + cmd + "\"}", System.Text.Encoding.UTF8, "application/json");
+            using var _ = await http.PostAsync(url + "/api/aog/guidance/command", body);
+        }
+        catch (Exception ex) { Console.Error.WriteLine("[Piloto] " + cmd + ": " + ex.Message); }
+    }
+
+    private Task CambiarSalteo(int delta)
+    {
+        int n = Math.Clamp(_pcSalteadas + delta, 0, 9);
+        if (n == _pcSalteadas) return Task.CompletedTask;
+        // Optimista: el snapshot lo confirma en el próximo poll (100 ms).
+        _pcSalteadas = n;
+        if (_pcSkip != null) _pcSkip.Text = n.ToString(CultureInfo.InvariantCulture);
+        return MandarComandoPiloto("uturn_skip_" + n);
+    }
+
+    /// <summary>Refresca el cluster desde el HUD (10 Hz). La DISTANCIA se ve
+    /// siempre que haya guía; giro y salteo aparecen con el piloto activo (y
+    /// se habilitan con el U-turn prendido, que es lo que el motor exige).</summary>
+    private void ActualizarClusterPiloto(HudSnapshot s)
+    {
+        if (_pilotoCluster == null) return;
+
+        // Hay guía = el poller de guidance trae XTE (NaN sin guía activa).
+        bool hayGuia = !double.IsNaN(_lastXteMeters);
+        bool visible = s.IsJobStarted && hayGuia;
+        _pilotoCluster.IsVisible = visible;
+        // El cluster tapa la franja del lightbar GL y muestra el mismo dato:
+        // uno de los dos, nunca ambos.
+        _mapHost?.SetLightbarVisible(!visible);
+        if (!visible) return;
+
+        // Giro y salteo: solo con el piloto puesto.
+        bool piloto = s.IsAutoSteerOn;
+        if (_pcGiroIzq != null) _pcGiroIzq.IsVisible = piloto;
+        if (_pcGiroDer != null) _pcGiroDer.IsVisible = piloto;
+        var grupoSalteo = this.FindControl<StackPanel>("PcGrupoSalteo");
+        if (grupoSalteo != null) grupoSalteo.IsVisible = piloto;
+
+        // El motor rechaza el giro manual sin U-turn activo: atenuados si no,
+        // para que se vea que existen y qué falta para usarlos.
+        _pcUturnOn = s.IsYouTurnOn;
+        if (_pcGiroIzq != null) _pcGiroIzq.IsEnabled = _pcUturnOn;
+        if (_pcGiroDer != null) _pcGiroDer.IsEnabled = _pcUturnOn;
+        if (_pcSkipMenos != null) _pcSkipMenos.IsEnabled = _pcUturnOn;
+        if (_pcSkipMas != null) _pcSkipMas.IsEnabled = _pcUturnOn;
+
+        // Salteo mostrado en guías SALTEADAS (0 = contigua); el motor habla en
+        // ancho (width = salteadas + 1). Igual que el selector de la barra.
+        int salteadas = Math.Clamp(s.YouTurnSkipWidth - 1, 0, 9);
+        if (salteadas != _pcSalteadas)
+        {
+            _pcSalteadas = salteadas;
+            if (_pcSkip != null) _pcSkip.Text = salteadas.ToString(CultureInfo.InvariantCulture);
+        }
+
+        // Distancia a la línea. El XTE fino viene del poller de guidance
+        // (_lastXteMeters); el del HUD (CrossTrackErrorM) es respaldo.
+        double xte = !double.IsNaN(_lastXteMeters) ? _lastXteMeters : s.CrossTrackErrorM;
+        if (double.IsNaN(xte))
+        {
+            if (_pcXte != null) _pcXte.Text = "—";
+            if (_pcXteFlecha != null) _pcXteFlecha.Text = "";
+            return;
+        }
+
+        double cm = Math.Abs(xte) * 100.0;
+        if (_pcXte != null && _pcXteUnidad != null)
+        {
+            if (cm < 100)
+            {
+                _pcXte.Text = cm.ToString("0", CultureInfo.InvariantCulture);
+                _pcXteUnidad.Text = "cm";
+            }
+            else
+            {
+                _pcXte.Text = (cm / 100.0).ToString("0.0", CultureInfo.InvariantCulture);
+                _pcXteUnidad.Text = "m";
+            }
+            // Mismos umbrales que el lightbar: verde centrado, amarillo, rojo.
+            var brush = cm < 5 ? "#4ABA3E" : (cm < 20 ? "#D9A916" : "#ED4848");
+            _pcXte.Foreground = new global::Avalonia.Media.SolidColorBrush(
+                global::Avalonia.Media.Color.Parse(brush));
+        }
+        // Flecha hacia dónde corregir: lado OPUESTO al desvío (criterio lightbar).
+        if (_pcXteFlecha != null)
+            _pcXteFlecha.Text = cm < 2 ? "" : (xte > 0 ? "◀" : "▶");
+    }
+
     // ---- Modo kiosco ↔ ventana --------------------------------------------
     //
     // El cockpit arranca borderless a pantalla completa (AjustarAPantallaCompleta).
@@ -2788,6 +2915,7 @@ public partial class MainWindow : Window
             _lastFieldDir = s.CurrentFieldDirectory;
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);
+            ActualizarClusterPiloto(s);
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;
             if (deg < 0) deg += 360.0;
             if (_hudHeading != null) _hudHeading.Text = deg.ToString("0", CultureInfo.InvariantCulture);

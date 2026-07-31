@@ -244,6 +244,12 @@ public sealed class MapGlSurface : OpenGlControlBase
     // Cross-track error (m) para el lightbar. NaN = sin guía activa (no dibuja).
     private double _xte = double.NaN;
 
+    // El cluster del piloto (overlay Avalonia arriba-centro) muestra el XTE en
+    // número y tapa justo la franja del lightbar: cuando está visible, el
+    // lightbar GL se apaga para no asomar por los bordes contando lo mismo.
+    private volatile bool _lightbarOn = true;
+    public void SetLightbarVisible(bool visible) => _lightbarOn = visible;
+
     // Creación de AB en el mapa (toco A, manejo, toco B): mientras _abCreating,
     // se dibuja el marcador del punto A y una línea pendiente A→tractor, para
     // que el operario vea la guía formándose de A hasta B.
@@ -1235,7 +1241,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     // como overlay fijo (no rota con el mapa).
     private void DrawLightbar()
     {
-        if (_gl == null || double.IsNaN(_xte)) return;
+        if (_gl == null || double.IsNaN(_xte) || !_lightbarOn) return;
 
         // MVP identidad → vértices en NDC [-1,1].
         Span<float> idm = stackalloc float[16] { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 };

@@ -1,10 +1,14 @@
 // GuidanceGeometryPoller.cs
 //
-// Poller dedicado para /api/aog/guidance/geometry. Cadencia 1 Hz: la
-// geometria solo cambia al redefinir la linea (AB nueva, curva trazada,
-// modo Off↔Curve...). El campo `revision` del snapshot permite saltar
-// el callback cuando no hubo cambio, asi el render solo se actualiza
-// cuando realmente paso algo.
+// Poller dedicado para /api/aog/guidance/geometry (+ el XTE de
+// /api/aog/guidance en el mismo viaje). El callback corre en CADA poll:
+// la GEOMETRIA solo cambia al redefinir la linea, pero el XTE cambia
+// siempre que el tractor se mueve — y alimenta la distancia a la linea
+// del cluster del piloto y el lightbar. El filtrado por `revision` para
+// no re-subir la geometria al GPU lo hace el consumidor
+// (MapGlSurface.OnGuidance guarda el XTE y recien despues corta por
+// revision). Antes el filtro estaba ACA y el XTE quedaba clavado en el
+// ultimo valor hasta que alguien tocara la guia.
 //
 // Solo se instancia cuando App.UseGl == true (igual que CoveragePoller).
 // El MapSkiaSurface legacy no pinta la linea de guidance todavia —
@@ -27,7 +31,6 @@ public sealed class GuidanceGeometryPoller
     private readonly int _periodMs;
     private CancellationTokenSource? _cts;
     private Task? _loop;
-    private long _lastRevision = -1;
 
     public GuidanceGeometryPoller(GuidanceGeometryClient client, Action<GuidanceGeometrySnapshot> onSnapshot, int periodMs = 1000)
     {
@@ -60,11 +63,8 @@ public sealed class GuidanceGeometryPoller
             try
             {
                 var snap = await _client.GetSnapshotAsync(ct).ConfigureAwait(false);
-                if (snap != null && snap.Revision != _lastRevision)
-                {
-                    _lastRevision = snap.Revision;
+                if (snap != null)
                     Dispatcher.UIThread.Post(() => _onSnapshot(snap));
-                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex)
