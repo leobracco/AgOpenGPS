@@ -204,6 +204,15 @@
     unitLabel.textContent = units;
     chkSection.checked = !!s.is_section_controlled;
 
+    // Distancia precargada con el ancho de herramienta: arrancaba en 0 y
+    // "Construir" con 0 hacía una cabecera de cero metros — sin error y sin
+    // nada visible, "no la crea". Solo se precarga si el campo sigue en 0/
+    // vacío (no pisar lo que el operario ya tipeó).
+    if (toolWidthM > 0 && !(parseFloat(inpDist.value) > 0)) {
+      var disp0 = units === 'ft' ? toolWidthM * 3.28084 : toolWidthM;
+      inpDist.value = (Math.round(disp0 * 10) / 10).toString();
+    }
+
     if (s.error) {
       warnBox.textContent = friendly(s.error);
       warnBox.classList.add('show');
@@ -269,7 +278,18 @@
 
   btnBuild.addEventListener('click', async function () {
     var d = distVal();
-    if (d < 0) d = 0;
+    // Construir con 0 es una cabecera de cero metros: nada visible y ningún
+    // error. Fallback al ancho de herramienta; sin herramienta, avisar.
+    if (!(d > 0)) {
+      if (toolWidthM > 0) {
+        d = toolWidthM;
+        var disp = units === 'ft' ? d * 3.28084 : d;
+        inpDist.value = (Math.round(disp * 10) / 10).toString();
+      } else {
+        setStatus('poné una distancia en metros primero');
+        return;
+      }
+    }
     setStatus('construyendo…');
     applyResult(await post('/build', { distance: d }));
   });

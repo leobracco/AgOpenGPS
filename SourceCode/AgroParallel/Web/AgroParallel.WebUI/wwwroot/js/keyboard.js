@@ -5,6 +5,35 @@
 // inicialización manual: incluir este script + keyboard.css en el <head> y
 // el teclado aparece al tocar cualquier campo editable.
 //
+// BONUS anti page-zoom (2026-07-31): este archivo lo cargan ~47 páginas del
+// Hub, así que también mata acá el ZOOM DE PÁGINA del WebView (ctrl+rueda y
+// pinch del navegador). En cabina el pinch tiene que zoomear EL MAPA de la
+// página (canvas con su propio handler), no agrandar toda la pantalla — el
+// operario quedaba con la página gigante sin forma obvia de volver.
+(function () {
+  'use strict';
+  // ctrl+rueda = zoom del navegador → bloqueado (la rueda sola sigue siendo
+  // scroll/zoom-de-canvas según la página).
+  document.addEventListener('wheel', function (ev) {
+    if (ev.ctrlKey) ev.preventDefault();
+  }, { passive: false });
+  // ctrl +/- y ctrl+0 (por si hay teclado físico conectado en el taller).
+  document.addEventListener('keydown', function (ev) {
+    if (ev.ctrlKey && (ev.key === '+' || ev.key === '-' || ev.key === '=' || ev.key === '0'))
+      ev.preventDefault();
+  });
+  // Viewport: pinch de página deshabilitado. Se inyecta acá para no tocar
+  // los 47 <meta> uno por uno; si la página ya trae maximum-scale, se pisa
+  // con el mismo valor y no cambia nada.
+  var meta = document.querySelector('meta[name="viewport"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'viewport';
+    document.head.appendChild(meta);
+  }
+  meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+})();
+//
 // Layouts: qwerty-es (con ñ y acentos por long-press), numeric, symbols.
 // Tipos de input → layout sugerido:
 //   type="number" / inputmode="numeric"   → numeric

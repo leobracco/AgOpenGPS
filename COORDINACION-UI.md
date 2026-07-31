@@ -1662,3 +1662,12 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   markup porque no existe en el original (el JS lo tolera). El JS ahora maneja
   DOS grupos de tabs independientes (?tab= y ?tab2=). Codex: si la retocás,
   la geometría es la del FormSteer WinForms — no volver al menú lateral.
+- [2026-07-31] [Claude] **Anti page-zoom global en `keyboard.js`** (pedido del
+  usuario en la pantalla Cabecera): el pinch/ctrl+rueda del WebView agrandaba
+  la PÁGINA entera en vez de zoomear el mapa de la página. keyboard.js (lo
+  cargan ~47 páginas) ahora bloquea ctrl+rueda / ctrl+± y fuerza el viewport
+  a maximum-scale=1 user-scalable=no. Los canvas con zoom propio (cabecera,
+  cabecera-líneas, contorno) siguen manejando su pinch como siempre. En
+  `cabecera.js`: la distancia se precarga con el ancho de herramienta y
+  "Construir" con 0 cae al ancho (antes construía una cabecera de 0 m sin
+  error — "no la crea").
