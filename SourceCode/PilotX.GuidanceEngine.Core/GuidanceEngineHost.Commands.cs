@@ -100,6 +100,32 @@ namespace AgOpenGPS
                 return OpenField(raw.Substring("job_start_".Length));
             }
 
+            // sim_coords_{lat}_{lon}: reubica el simulador a esa coordenada
+            // (teletransporte). Port de GUI.FloatingMenu.cs — reemplaza el OK de
+            // FormSimCoords. Mismos guards que el original: sin lote abierto (la
+            // guía/cobertura ya calculada quedaría referida a un origen que
+            // dejó de tener sentido) y con el simulador prendido (mover la
+            // posición de un fix GPS real sería falsificarlo). Sin esto la
+            // pantalla sim-coords.html llamaba a un comando que no existía acá
+            // — silencioso, "ok:false" sin explicación — y el simulador quedaba
+            // parado donde lo dejó la última sesión, casi siempre AFUERA del
+            // lote que se abre después: con el pivote fuera del lindero el giro
+            // de cabecera nunca arma (IsPointInsideTurnArea siempre negativo).
+            if (cmd.StartsWith("sim_coords_"))
+            {
+                if (IsJobStarted || !isSimTimerEnabled) return false;
+                string rest = cmd.Substring("sim_coords_".Length);
+                string[] parts = rest.Split('_');
+                if (parts.Length != 2) return false;
+                var styles = NumberStyles.Float | NumberStyles.AllowLeadingSign;
+                if (!double.TryParse(parts[0], styles, CultureInfo.InvariantCulture, out double lat) ||
+                    !double.TryParse(parts[1], styles, CultureInfo.InvariantCulture, out double lon))
+                    return false;
+                if (lat < -90.0 || lat > 90.0 || lon < -180.0 || lon > 180.0) return false;
+                Pn.DefineLocalPlane(new Wgs84(lat, lon), true);
+                return true;
+            }
+
             // Crear + activar una AB en la posición actual del tractor. Equivale
             // a FormBuildTracks.btnEnter_AB / TrkBuilder_CreateABFromPivot
             // (GuidanceEngineHost.TrackBuilder.cs, ítem 2 del PEDIDO taller —
