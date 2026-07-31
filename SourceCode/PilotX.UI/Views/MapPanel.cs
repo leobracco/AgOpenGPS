@@ -199,6 +199,7 @@ public sealed class MapPanel : Grid
         if (_spRueda != null) nueva.SetWheelSprite(_spRueda, _spRuedaW, _spRuedaH);
         if (_spImpl != null) nueva.SetImplementSprite(_spImpl, _spImplW, _spImplH);
         if (_spPiso != null) nueva.SetFloorTexture(_spPiso, _spPisoW, _spPisoH);
+        nueva.SetLightbarVisible(_lightbarOn);
         if (_ultimoSnap != null) nueva.OnSnapshot(_ultimoSnap);
         // La prescripción NO vuelve sola: su poller solo re-empuja cuando la
         // clave cambia, y recrear la surface no cambia ninguna clave. Sin esto,
@@ -251,6 +252,15 @@ public sealed class MapPanel : Grid
         _spPiso = rgba; _spPisoW = width; _spPisoH = height;
         _gl?.SetFloorTexture(rgba, width, height);
     }
+
+    /// <summary>Prende/apaga el lightbar GL (lo apaga el cluster del piloto,
+    /// que muestra el mismo XTE en número justo en esa franja).</summary>
+    public void SetLightbarVisible(bool visible)
+    {
+        _lightbarOn = visible;
+        _gl?.SetLightbarVisible(visible);
+    }
+    private bool _lightbarOn = true;
 
     /// <summary>
     /// Push de la polyline de guidance (Stage 3, AB/Curve/Contour).

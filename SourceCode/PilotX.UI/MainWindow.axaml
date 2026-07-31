@@ -246,6 +246,66 @@
                 <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
             </Canvas>
 
+            <!-- =================== CLUSTER DEL PILOTO =================== -->
+            <!--
+                Arriba-centro del mapa (debajo de la barra superior del
+                cockpit, que mide 52px y tiene ZIndex 50 — por eso el margen):
+                · DISTANCIA a la línea: visible siempre que haya guía.
+                · GIRO manual (↰/↱) y SALTEO: aparecen al activar el piloto.
+            -->
+            <Border Name="PilotoCluster" Grid.Row="2" IsVisible="False"
+                    VerticalAlignment="Top" HorizontalAlignment="Center"
+                    Margin="0,64,0,0"
+                    Background="#F2FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                    CornerRadius="12" Padding="10,6">
+                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <Button Name="PcGiroIzq" Width="64" Height="56" Padding="0" IsVisible="False"
+                            ToolTip.Tip="Girar ahora a la izquierda">
+                        <TextBlock Text="↰" FontSize="30" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
+
+                    <!-- Distancia a la línea: el número que se mira todo el tiempo.
+                         El triangulito indica hacia dónde corregir (lado opuesto
+                         al desvío, mismo criterio que el lightbar). -->
+                    <StackPanel VerticalAlignment="Center" MinWidth="120">
+                        <TextBlock Text="A LA LÍNEA" FontSize="10" Foreground="#535E54"
+                                   HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                            <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="PcXte" Text="—" FontSize="30" FontWeight="Bold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#535E54"
+                                       VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->
+                    <StackPanel Name="PcGrupoSalteo" VerticalAlignment="Center" IsVisible="False">
+                        <TextBlock Text="SALTEA" FontSize="10" Foreground="#535E54"
+                                   HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                            <Button Name="PcSkipMenos" Width="40" Height="44" Padding="0" FontSize="20"
+                                    Content="−" ToolTip.Tip="Saltear una guía menos"/>
+                            <Border Width="44" Height="44" Background="#EAF6E8"
+                                    BorderBrush="#4ABA3E" BorderThickness="1" CornerRadius="8">
+                                <TextBlock Name="PcSkip" Text="0" FontSize="24" FontWeight="Bold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <Button Name="PcSkipMas" Width="40" Height="44" Padding="0" FontSize="20"
+                                    Content="+" ToolTip.Tip="Saltear una guía más"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button Name="PcGiroDer" Width="64" Height="56" Padding="0" IsVisible="False"
+                            ToolTip.Tip="Girar ahora a la derecha">
+                        <TextBlock Text="↱" FontSize="30" FontWeight="Bold"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+
             <!-- =================== FIELD DATA (overlay nativo) =================== -->
             <!--
                 Reemplazo nativo de pages/datos-lote.html. Se muestra cuando

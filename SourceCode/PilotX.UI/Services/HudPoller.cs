@@ -38,6 +38,17 @@ public sealed class HudSnapshot
     public double WorkedAreaTotalM2 { get; set; }
     public double ActualAreaCoveredM2 { get; set; }
 
+    // ---- Cluster del piloto (arriba-centro del mapa) --------------------
+    // Con el piloto activo, la pantalla principal muestra giro / salteo /
+    // distancia a la línea. Vienen del MISMO /api/aog/state que el resto.
+    public bool IsAutoSteerOn { get; set; }
+    public bool IsYouTurnOn { get; set; }
+    /// <summary>Ancho del salto del giro en guías (1 = contigua). El menú
+    /// muestra guías SALTEADAS = ancho − 1.</summary>
+    public int YouTurnSkipWidth { get; set; }
+    /// <summary>Desvío respecto de la guía (m). 0 exacto suele ser "sin guía".</summary>
+    public double CrossTrackErrorM { get; set; }
+
     // ---- Campos para el mini-mapa cockpit -------------------------------
     // En metros locales, mismo frame de coordenadas que las boundaries.
     public double PivotEasting { get; set; }
