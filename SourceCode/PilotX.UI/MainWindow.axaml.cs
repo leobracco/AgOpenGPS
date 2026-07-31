@@ -2262,9 +2262,11 @@ public partial class MainWindow : Window
             case "webcam":     ShowCamaras();  return true;
             // CoreX del menú izquierdo → dashboard de CoreX (config del sistema:
             // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por
-            // CoreX (CoreXWebHost), NO en el Hub :5180. El ECU de autosteer queda
-            // en 'corex_ecu'.
-            case "corex":      OpenDialogUrl("http://127.0.0.1:5181/", "CoreX", 1000, 720); return true;
+            // CoreX.exe (CoreXWebHost), NO en el Hub :5180. Con CoreX EMBEBIDO
+            // en el motor (--corex) ese dashboard no existe todavía: se avisa
+            // en criollo en vez de abrir un WebView contra un puerto muerto.
+            // El ECU de autosteer queda en 'corex_ecu'.
+            case "corex":      _ = AbrirCoreXAsync(); return true;
             case "corex_ecu":  ShowCoreXEcu(); return true;
 
             // ---- Nueva A/B → flujo en el mapa (toco A, manejo, toco B) ----
@@ -2405,6 +2407,36 @@ public partial class MainWindow : Window
         {
             Console.Error.WriteLine("[Lote] no se pudo cerrar: " + ex.Message);
         }
+    }
+
+    // ---- Botón CoreX ------------------------------------------------------
+    //
+    // El dashboard de CoreX (:5181) lo sirve CoreX.exe. Con CoreX embebido en
+    // el motor (--corex) los servicios corren pero el panel no existe: se
+    // chequea el puerto ANTES de abrir la ventana, y si no contesta se explica
+    // qué pasa en vez de mostrar el error crudo del WebView.
+    private async Task AbrirCoreXAsync()
+    {
+        bool vivo = false;
+        try
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromMilliseconds(900) };
+            using var resp = await http.GetAsync("http://127.0.0.1:5181/");
+            vivo = resp.IsSuccessStatusCode;
+        }
+        catch { /* nadie escucha en 5181 */ }
+
+        if (vivo)
+        {
+            OpenDialogUrl("http://127.0.0.1:5181/", "CoreX", 1000, 720);
+            return;
+        }
+
+        await MostrarAvisoAsync("Panel de CoreX no disponible",
+            "CoreX está corriendo INTEGRADO en el motor de PilotX (broker MQTT, " +
+            "bridge de red y puertos serie andan), pero en este modo el panel " +
+            "todavía no existe.\n\n" +
+            "El panel aparece cuando CoreX corre como programa aparte (CoreX.exe).");
     }
 
     // ---- Modo kiosco ↔ ventana --------------------------------------------
