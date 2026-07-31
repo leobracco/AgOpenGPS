@@ -285,9 +285,13 @@
                         <!-- Estado del giro en cabecera (réplica 6.8.5): la
                              distancia al punto de giro cuando está armado,
                              "GIRANDO" en violeta durante el giro, aviso si el
-                             camino cae fuera del lote. -->
+                             camino cae fuera del lote. TOCARLO invierte el
+                             lado del giro armado (SwapDirection del nativo);
+                             girando, lo aborta. -->
                         <TextBlock Name="PcGiroInfo" Text="" FontSize="12" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" IsVisible="False"/>
+                                   HorizontalAlignment="Center" IsVisible="False"
+                                   Cursor="Hand"
+                                   ToolTip.Tip="Tocá para cambiar el lado del giro"/>
                     </StackPanel>
 
                     <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->

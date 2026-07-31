@@ -293,6 +293,9 @@ public partial class MainWindow : Window
         _pcGiroInfo    = this.FindControl<TextBlock>("PcGiroInfo");
         if (_pcGiroIzq != null) _pcGiroIzq.Click += (_, _) => _ = MandarComandoPiloto("uturn_manual_izq");
         if (_pcGiroDer != null) _pcGiroDer.Click += (_, _) => _ = MandarComandoPiloto("uturn_manual_der");
+        // Tocar el aviso del giro ("giro ↱ en N m") invierte el lado del giro
+        // armado; "GIRANDO" lo aborta. Réplica del SwapDirection nativo.
+        if (_pcGiroInfo != null) _pcGiroInfo.PointerPressed += (_, _) => _ = MandarComandoPiloto("uturn_swap");
         if (_pcSkipMenos != null) _pcSkipMenos.Click += (_, _) => _ = CambiarSalteo(-1);
         if (_pcSkipMas != null) _pcSkipMas.Click += (_, _) => _ = CambiarSalteo(+1);
         _hudArea         = this.FindControl<TextBlock>("HudArea");
