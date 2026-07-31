@@ -99,7 +99,6 @@ public partial class MainWindow : Window
     private Button? _pcGiroIzq, _pcGiroDer, _pcSkipMenos, _pcSkipMas;
     private TextBlock? _pcXte, _pcXteFlecha, _pcXteUnidad, _pcSkip;
     private int _pcSalteadas;          // lo que muestra el cluster (0..9)
-    private bool _pcUturnOn;
     // Debug de rumbos: rumbo del tractor y de la guía activa (grados 0=N, CW),
     // para ver a qué guía apunta y cuánto desvía. NaN = sin dato.
     private double _lastTractorHeadingDeg = double.NaN;
@@ -2508,28 +2507,30 @@ public partial class MainWindow : Window
         if (_pilotoCluster == null) return;
 
         // Hay guía = el poller de guidance trae XTE (NaN sin guía activa).
+        // Con eso ALCANZA: exigir además lote abierto escondía el cluster en
+        // estados válidos (el motor mantiene la guía aunque el lote se cierre,
+        // y el operario espera seguir viendo la distancia).
         bool hayGuia = !double.IsNaN(_lastXteMeters);
-        bool visible = s.IsJobStarted && hayGuia;
+        bool visible = hayGuia;
         _pilotoCluster.IsVisible = visible;
         // El cluster tapa la franja del lightbar GL y muestra el mismo dato:
         // uno de los dos, nunca ambos.
         _mapHost?.SetLightbarVisible(!visible);
         if (!visible) return;
 
-        // Giro y salteo: solo con el piloto puesto.
-        bool piloto = s.IsAutoSteerOn;
-        if (_pcGiroIzq != null) _pcGiroIzq.IsVisible = piloto;
-        if (_pcGiroDer != null) _pcGiroDer.IsVisible = piloto;
+        // Giro manual y salteo: aparecen CON LINDERO (el giro en cabecera se
+        // hace contra el borde del lote; sin lindero no hay cabecera). Las
+        // flechas son el giro MANUAL: siempre operativas — no dependen del
+        // U-turn automático, que tiene su propio botón en la barra derecha
+        // (aclarado por el usuario 2026-07-31). La velocidad la valida el
+        // motor al recibir el comando.
+        bool giroVisible = s.HasBoundary;
+        if (_pcGiroIzq != null) { _pcGiroIzq.IsVisible = giroVisible; _pcGiroIzq.IsEnabled = true; }
+        if (_pcGiroDer != null) { _pcGiroDer.IsVisible = giroVisible; _pcGiroDer.IsEnabled = true; }
         var grupoSalteo = this.FindControl<StackPanel>("PcGrupoSalteo");
-        if (grupoSalteo != null) grupoSalteo.IsVisible = piloto;
-
-        // El motor rechaza el giro manual sin U-turn activo: atenuados si no,
-        // para que se vea que existen y qué falta para usarlos.
-        _pcUturnOn = s.IsYouTurnOn;
-        if (_pcGiroIzq != null) _pcGiroIzq.IsEnabled = _pcUturnOn;
-        if (_pcGiroDer != null) _pcGiroDer.IsEnabled = _pcUturnOn;
-        if (_pcSkipMenos != null) _pcSkipMenos.IsEnabled = _pcUturnOn;
-        if (_pcSkipMas != null) _pcSkipMas.IsEnabled = _pcUturnOn;
+        if (grupoSalteo != null) grupoSalteo.IsVisible = giroVisible;
+        if (_pcSkipMenos != null) _pcSkipMenos.IsEnabled = true;
+        if (_pcSkipMas != null) _pcSkipMas.IsEnabled = true;
 
         // Salteo mostrado en guías SALTEADAS (0 = contigua); el motor habla en
         // ancho (width = salteadas + 1). Igual que el selector de la barra.

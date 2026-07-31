@@ -43,6 +43,7 @@ public sealed class HudSnapshot
     // distancia a la línea. Vienen del MISMO /api/aog/state que el resto.
     public bool IsAutoSteerOn { get; set; }
     public bool IsYouTurnOn { get; set; }
+    public bool HasBoundary { get; set; }
     /// <summary>Ancho del salto del giro en guías (1 = contigua). El menú
     /// muestra guías SALTEADAS = ancho − 1.</summary>
     public int YouTurnSkipWidth { get; set; }
