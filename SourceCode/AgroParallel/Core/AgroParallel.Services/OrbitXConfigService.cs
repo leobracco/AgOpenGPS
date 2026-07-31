@@ -87,13 +87,33 @@ namespace AgroParallel.Services
             return new OrbitXStatus
             {
                 Enabled = cfg.Enabled,
-                CloudConnected = false, // se actualiza vía TestConnectionAsync
+                CloudConnected = IsRecentSync(cfg.LastSync, cfg.SyncIntervalSec),
                 LastError = _lastError,
                 LastSync = cfg.LastSync,
                 FilesSynced = cfg.FilesSynced,
                 EstabSlug = cfg.EstabSlug,
                 DeviceId = cfg.DeviceId
             };
+        }
+
+        // El heartbeat de verdad lo hace OrbitXSync (clase aparte, sin
+        // referencia acá — Load()/Save() solo tocan orbitX.json). Antes acá
+        // CloudConnected quedaba SIEMPRE en false, comentado "se actualiza vía
+        // TestConnectionAsync" — pero TestConnectionAsync nunca escribe nada
+        // que este método lea: el dispositivo podía estar sincronizando bien
+        // (LastSync avanzando en el archivo) y la pantalla igual mostraba "—"
+        // para siempre. Ahora se infiere del propio LastSync que OrbitXSync ya
+        // persiste tras cada ciclo (SaveRuntimeFields): si el último sync fue
+        // hace menos de 3 intervalos, el heartbeat está vivo. 3x en vez de 1x
+        // para no titilar a "desconectado" por un solo ciclo lento/perdido.
+        private static bool IsRecentSync(string lastSyncIso, int syncIntervalSec)
+        {
+            if (string.IsNullOrEmpty(lastSyncIso)) return false;
+            if (!DateTimeOffset.TryParse(lastSyncIso, null,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var last))
+                return false;
+            int intervalSec = syncIntervalSec > 0 ? syncIntervalSec : 30;
+            return (DateTimeOffset.UtcNow - last.ToUniversalTime()).TotalSeconds < intervalSec * 3;
         }
 
         public async Task<bool> TestConnectionAsync()
