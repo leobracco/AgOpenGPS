@@ -65,6 +65,12 @@ namespace AgroParallel.Models
         [JsonPropertyName("dientes_engranaje")]
         public int DientesEngranaje { get; set; } = 20;
 
+        /// <summary>Filtro antirrebote del ISR del nodo (µs mínimos entre
+        /// pulsos). El default 2000 sirve para sensores inductivos de pocos
+        /// pulsos/vuelta; con encoders de 600 ppr (LPD3806) usar ~100.</summary>
+        [JsonPropertyName("pulse_min")]
+        public int PulseMin { get; set; } = 2000;
+
         [JsonPropertyName("motor_type")]
         public int MotorType { get; set; }
 

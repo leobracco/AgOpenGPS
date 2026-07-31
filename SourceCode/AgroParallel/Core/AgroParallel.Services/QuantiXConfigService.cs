@@ -237,6 +237,7 @@ namespace AgroParallel.Services
                 // nombre viejo que el nodo nunca miró — el ppr quedaba en 24).
                 sb.Append(",\"pulses_per_rev\":").Append(m.DientesEngranaje);
                 sb.Append(",\"deadband\":").Append(m.Deadband);
+                sb.Append(",\"pulse_min\":").Append(m.PulseMin);
                 sb.Append(",\"max_integral\":").Append(m.MaxIntegral.ToString(ci));
                 sb.Append(",\"motor_type\":").Append(m.MotorType);
                 sb.Append('}');
