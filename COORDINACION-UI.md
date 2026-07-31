@@ -1643,3 +1643,11 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   pantalla, esos IDs quedan congelados: los usa la lógica que decide si el
   módulo mueve el volante. Copié 4 PNG a `img/steer/` (SteerDriveOn, SteerLeft,
   SteerRight, WizSteerDot) para cuando vuelvan los iconos.
+- [2026-07-30] [Claude] **Import KML en `contorno.html`.** Sumé una fila
+  `bd-actions` a la vista lista (IDs nuevos congelados: `btnKmlImport`,
+  `btnKmlAdd`, `kmlFile`) + su lógica en `js/contorno.js`. Sin CSS nuevo:
+  reusa `.btn`/`.bd-actions` de la página. "Importar KML" reemplaza todo el
+  contorno (doble-tap `¿Seguro?` si había algo); "Agregar desde KML" suma el
+  primer polígono como exclusión. El file picker es el del WebView (mismo
+  patrón que firmwares.html). Endpoint: POST
+  /api/contorno/import-kml-upload?multi=0|1 con el KML crudo de body.

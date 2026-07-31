@@ -84,9 +84,20 @@ Verificado cruzando `CommandParameter` de las barras contra el vocabulario de
   endpoints contra el motor real + la tarjeta en pantalla. **Falta en cabina**:
   que el volante se mueva de verdad y que los candados 2 y 3 corten — los dos
   descuentan en el camino del PGN, que sin GPS/sim no corre.
-- ⬜ **Importar KML / Google Earth / desde tracks** (3 íconos) — hoy devuelven
-  `no-disponible-sin-ui` porque abren diálogo nativo de archivo. Necesitan que
-  la pantalla suba el archivo, no que el motor abra un explorador.
+- 🟡 **Importar KML** — HECHO el upload sin diálogo nativo, verificado
+  end-to-end (pantalla + motor real). Parseo compartido en
+  `AgOpenGPS.Core/IO/KmlBoundaryReader.cs`; `ImportKmlUpload` en
+  `IContornoService` con impl en los dos hosts; endpoint
+  `POST /api/contorno/import-kml-upload?multi=` (body = KML crudo); en
+  `contorno.html` dos botones: "Importar KML" (multi, reemplaza TODO con
+  doble-tap de confirmación si había algo) y "Agregar desde KML" (suma el
+  primer polígono como exclusión). El import de LOTE desde KML ya estaba
+  (`/api/lotes/import-kml` con upload). Trampa conocida: el binder de EmbedIO
+  revienta la conexión con `?multi=1` a un parámetro bool — va string y se
+  parsea a mano.
+- ⬜ **Google Earth / desde tracks** (2 íconos) — siguen `no-disponible-sin-ui`.
+  Google Earth no existe en la pantalla del tractor (era "exportar KML y abrir
+  GE"); "desde tracks" necesita su propia pantalla (FormBuildBoundaryFromTracks).
 
 ## Lo que NO bloquea retirar WinForms
 

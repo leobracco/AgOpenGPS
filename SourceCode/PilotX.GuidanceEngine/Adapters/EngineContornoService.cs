@@ -108,6 +108,56 @@ namespace PilotX.GuidanceEngine.Adapters
             return Estado();
         }
 
+        // ---- import de KML por upload --------------------------------------
+        //
+        // El unico de los cuatro caminos "con ventana nativa" que SI tiene
+        // sentido headless: la pantalla sube el contenido del archivo y aca se
+        // arma el lindero, sin dialogo de por medio. Los polígonos llegan en
+        // WGS84 y se convierten al plano local del lote ABIERTO (por eso exige
+        // lote: sin plano local no hay a que convertir).
+        public ContornoStateDto ImportKmlUpload(string kmlContenido, bool multi)
+        {
+            if (!_host.IsJobStarted) return Estado("sin-lote");
+
+            try
+            {
+                var anillos = AgOpenGPS.IO.KmlBoundaryReader.ReadRings(kmlContenido);
+                if (anillos.Count == 0) return Estado("kml-invalido");
+
+                // multi reemplaza TODO (la pantalla ya confirmo); single agrega
+                // el primer poligono a lo que hay — igual que los dos botones
+                // del FormBoundary nativo.
+                if (multi) _host.Bnd.bndList.Clear();
+                else if (anillos.Count > 1) anillos.RemoveRange(1, anillos.Count - 1);
+
+                foreach (var anillo in anillos)
+                {
+                    var linde = new CBoundaryList();
+                    foreach (var p in anillo)
+                    {
+                        var geo = _host.AppModelField.LocalPlane.ConvertWgs84ToGeoCoord(p);
+                        linde.fenceLine.Add(new vec3(geo));
+                    }
+                    // Horario exterior / antihorario interiores + cierre de la
+                    // linea: mismas dos llamadas que el nativo y que el import
+                    // de lote.
+                    linde.CalculateFenceArea(_host.Bnd.bndList.Count);
+                    linde.FixFenceLine(_host.Bnd.bndList.Count);
+                    _host.Bnd.bndList.Add(linde);
+                }
+
+                _host.GuardarLinderos();
+                _host.Fd.UpdateFieldBoundaryGUIAreas();
+                _host.Bnd.BuildTurnLines();
+                return Estado();
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: contorno import KML: " + ex.Message);
+                return Estado("kml-error: " + ex.Message);
+            }
+        }
+
         // ---- grabacion manejando -------------------------------------------
 
         private ContornoRecordDto Rec(string error = null)

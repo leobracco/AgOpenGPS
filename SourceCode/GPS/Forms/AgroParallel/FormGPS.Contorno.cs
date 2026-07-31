@@ -192,6 +192,49 @@ namespace AgOpenGPS
             return Contorno_Snapshot(error);
         }
 
+        // Import de KML SIN diálogo: la pantalla sube el contenido del archivo.
+        // Mismo comportamiento que el gemelo del motor headless
+        // (EngineContornoService.ImportKmlUpload): multi reemplaza todo, single
+        // agrega el primer polígono. El parseo vive en Core (KmlBoundaryReader).
+        internal ContornoSnapshot Contorno_ImportKmlTexto(string kmlContenido, bool multi)
+        {
+            if (!isJobStarted) return Contorno_Snapshot("sin-lote");
+
+            try
+            {
+                var anillos = AgOpenGPS.IO.KmlBoundaryReader.ReadRings(kmlContenido);
+                if (anillos.Count == 0) return Contorno_Snapshot("kml-invalido");
+
+                if (multi) bnd.bndList.Clear();
+                else if (anillos.Count > 1) anillos.RemoveRange(1, anillos.Count - 1);
+
+                foreach (var anillo in anillos)
+                {
+                    CBoundaryList New = new CBoundaryList();
+                    foreach (var p in anillo)
+                    {
+                        GeoCoord geoCoord = AppModel.LocalPlane.ConvertWgs84ToGeoCoord(p);
+                        New.fenceLine.Add(new vec3(geoCoord));
+                    }
+                    New.CalculateFenceArea(bnd.bndList.Count);
+                    New.FixFenceLine(bnd.bndList.Count);
+                    bnd.bndList.Add(New);
+                }
+
+                FileSaveBoundary();
+                fd.UpdateFieldBoundaryGUIAreas();
+                bnd.BuildTurnLines();
+                btnABDraw.Visible = true;
+                bnd.isOkToAddPoints = false;
+                return Contorno_Snapshot();
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("Contorno import KML (upload) " + ex);
+                return Contorno_Snapshot("kml-error: " + ex.Message);
+            }
+        }
+
         // Réplica de btnOpenGoogleEarth_Click.
         internal ContornoSnapshot Contorno_OpenGoogleEarth()
         {
