@@ -212,6 +212,15 @@ namespace AgOpenGPS
 
             Trk.autoTrack3SecTimer++;
             Vehicle.deadZoneDelayCounter++;
+
+            // En FormGPS este contador sube 4 veces por segundo en el TICK DE LA
+            // GUI (GUI.Designer.cs:385). CreateABOmegaTurn/WideTurn no arman el
+            // giro hasta que llega a 4 ("wait 1.5 seconds" tras completar uno):
+            // acá quedaba clavado en 0 y el U-turn automático NUNCA se armaba —
+            // phase 0 eterno, sin error. +4 por segundo replica la cadencia
+            // (granularidad 1 s en vez de 250 ms: la espera post-giro queda en
+            // 1-2 s, igual de inofensiva). Cap para no desbordar en una jornada.
+            if (makeUTurnCounter < 100000) makeUTurnCounter += 4;
         }
 
         /// <summary>

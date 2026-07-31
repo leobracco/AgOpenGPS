@@ -250,6 +250,17 @@ public sealed class MapGlSurface : OpenGlControlBase
     private volatile bool _lightbarOn = true;
     public void SetLightbarVisible(bool visible) => _lightbarOn = visible;
 
+    // ---- U-turn (réplica 6.8.5) -----------------------------------------
+    // Camino del giro en cabecera, actualizado en cada poll de guidance.
+    // Colores del DrawYouTurn original: verde armado, rojo salmón fuera de
+    // límites, violeta girando.
+    private float[]? _ytPts;
+    private bool _ytTriggered, _ytOutOfBounds, _ytArmed;
+    private static readonly float[] ColYtArmed     = { 0.395f, 0.925f, 0.300f, 0.95f };
+    private static readonly float[] ColYtOut       = { 0.9495f, 0.395f, 0.325f, 0.95f };
+    private static readonly float[] ColYtTriggered = { 0.95f, 0.50f, 0.95f, 0.95f };
+    private static readonly float[] ColYtBuilding  = { 0.97f, 0.635f, 0.40f, 0.85f };   // en construcción (naranja 6.8.5 del botón)
+
     // Creación de AB en el mapa (toco A, manejo, toco B): mientras _abCreating,
     // se dibuja el marcador del punto A y una línea pendiente A→tractor, para
     // que el operario vea la guía formándose de A hasta B.
@@ -704,9 +715,32 @@ public sealed class MapGlSurface : OpenGlControlBase
         // El XTE cambia en cada poll aunque la geometría (revision) no —
         // se guarda siempre para que el lightbar refleje el desvío en vivo.
         _xte = snap.XteMeters;
+
+        // Camino del U-turn (réplica 6.8.5): también vive fuera del corte por
+        // revision — se re-arma con el tractor andando. Copia a float[] acá
+        // (hilo UI) para que el hilo GL solo lo suba.
+        var yt = snap.YouTurn;
+        if (yt?.Points != null && yt.Points.Count > 2)
+        {
+            var pts = new float[yt.Points.Count * 2];
+            for (int i = 0; i < yt.Points.Count; i++)
+            {
+                pts[i * 2] = (float)yt.Points[i].E;
+                pts[i * 2 + 1] = (float)yt.Points[i].N;
+            }
+            _ytPts = pts;
+            _ytTriggered = yt.Triggered;
+            _ytOutOfBounds = yt.OutOfBounds;
+            _ytArmed = yt.Phase == 10;
+        }
+        else
+        {
+            _ytPts = null;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+
         if (snap.Revision == _guidanceRevisionUploaded) return;
         _pendingGuidance = snap;
-        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
     }
 
     private void InvalidateBboxIfChanged(HudSnapshot snap)
@@ -1023,6 +1057,10 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         if (_pathsYouTurnCount > 0 || _pathsRecordedCount > 0)
             DrawPaths();
+
+        // U-turn en vivo (250 ms, con estado): réplica del DrawYouTurn 6.8.5.
+        if (_ytPts != null)
+            DrawYouTurnPath();
 
         // --- Capa 3b: tool / sections (Stage 4a) -----------------------
         // Va despues de guidance y antes del boundary: las secciones son
@@ -1983,7 +2021,10 @@ public sealed class MapGlSurface : OpenGlControlBase
         _pathsYouTurnStart = 0; _pathsYouTurnCount = 0;
         _pathsRecordedStart = 0; _pathsRecordedCount = 0;
 
-        int ytN = (snap.YouTurn != null && snap.YouTurn.Count >= 2) ? snap.YouTurn.Count : 0;
+        // El U-turn dejó de dibujarse desde esta capa (1 Hz + cache por
+        // revision): ahora viene VIVO en el snapshot de guidance (250 ms, con
+        // fase/estado) y lo dibuja DrawYouTurnPath con los colores del 6.8.5.
+        int ytN = 0;
         int recN = (snap.Recorded != null && snap.Recorded.Count >= 2) ? snap.Recorded.Count : 0;
         int totalVerts = ytN + recN;
         if (totalVerts == 0) return; // nada que renderear, dejamos VBO como estaba
@@ -2035,6 +2076,43 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         _pathsVboCapacityFloats = needFloats;
         _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+    }
+
+    /// <summary>
+    /// Camino del U-turn con la semántica de colores del 6.8.5 (DrawYouTurn,
+    /// GuidanceDrawExtensions.cs): violeta girando, rojo salmón si el camino
+    /// se sale del área de giro, verde armado y esperando, naranja mientras
+    /// se construye. Línea gruesa en vez del punteado del original — misma
+    /// información, mejor legibilidad sobre el piso texturado.
+    /// </summary>
+    private void DrawYouTurnPath()
+    {
+        var pts = _ytPts;
+        if (_gl == null || pts == null || pts.Length < 6) return;
+
+        float[] col = _ytTriggered ? ColYtTriggered
+                    : _ytOutOfBounds ? ColYtOut
+                    : _ytArmed ? ColYtArmed
+                    : ColYtBuilding;
+
+        int floats = pts.Length;
+        EnsureScratch(floats);
+        Array.Copy(pts, _scratch, floats);
+
+        // UploadAndDraw escribe en el VBO BINDEADO: volver al general (DrawPaths
+        // acaba de dejar el suyo) o el camino pisaría el buffer de paths.
+        _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _vbo);
+        unsafe
+        {
+            _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, (void*)0);
+        }
+
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        _gl.LineWidth(4.0f);
+        UploadAndDraw(PrimitiveType.LineStrip, floats / 2, col);
+        _gl.LineWidth(1.0f);
+        _gl.Disable(EnableCap.Blend);
     }
 
     private void DrawPaths()

@@ -50,6 +50,18 @@ namespace AgOpenGPS
                             {
                                 yt.ResetCreatedYouTurn();
                             }
+                            // Sin guía activa no hay giro que armar. En WinForms
+                            // este estado no se da (la UI apaga el botón antes),
+                            // pero en el motor headless hay una carrera real al
+                            // cambiar de lote: el U-turn quedaba prendido un par
+                            // de ticks con TrackIdx=-1 y esto indexaba fuera de
+                            // rango, tirando el fix entero por el catch del loop
+                            // UDP ("error de recepción UDP: Index was out of
+                            // range", visto contra el motor real 2026-07-31).
+                            else if (mf.TrackIdx < 0 || mf.TrackIdx >= mf.Tracks.Count)
+                            {
+                                yt.ResetCreatedYouTurn();
+                            }
                             else
                             {
                                 if (mf.Tracks[mf.TrackIdx].mode == TrackMode.AB)
