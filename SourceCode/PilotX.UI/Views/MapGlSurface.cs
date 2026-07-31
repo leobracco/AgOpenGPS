@@ -1089,6 +1089,19 @@ public sealed class MapGlSurface : OpenGlControlBase
                 _ultCamX, _ultCamY, _ultEscala,
                 _userZoom, _userPanX, _userPanY,
                 _headingUp, _vehicleTexReady, _hasBbox));
+
+            // Prescripción: cuántas zonas llegaron y cuántos vértices de fill
+            // tienen. Si "tris" da 0 con zonas > 0, el fondo de color no puede
+            // dibujarse por más que el contorno sí — que es exactamente el
+            // síntoma que se reportó desde cabina y sin este número era a ciegas.
+            var sh = _shapeSnap;
+            if (sh != null)
+            {
+                int tris = 0;
+                foreach (var p in sh.Polygons) tris += p.TriVerts.Length / 2;
+                Console.Error.WriteLine(
+                    $"[MapGlSurface] shape: zonas={sh.Polygons.Count} verticesFill={tris} campo={sh.StyleField}");
+            }
         };
         _latido.Start();
     }

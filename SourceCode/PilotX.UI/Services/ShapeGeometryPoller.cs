@@ -167,9 +167,14 @@ public sealed class ShapeGeometryPoller : IDisposable
         foreach (var p in wire.Polygons)
         {
             if (p.Rings == null || p.Rings.Count == 0) continue;
+            // Piso de alpha para el FILL: el .shp trae ~30% y sobre el fondo
+            // oscuro del mapa eso no se distingue — probado en cabina ("no veo
+            // fondo"). 55% mantiene legible lo que pasa por arriba (cobertura,
+            // lindero, tractor) pero deja la zona claramente pintada.
+            float alpha = Math.Max(p.A / 255f, 0.55f);
             var poly = new ShapeMapPolygon
             {
-                Rgba = new[] { p.R / 255f, p.G / 255f, p.B / 255f, p.A / 255f },
+                Rgba = new[] { p.R / 255f, p.G / 255f, p.B / 255f, alpha },
             };
 
             foreach (var ring in p.Rings)
