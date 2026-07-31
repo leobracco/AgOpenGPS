@@ -183,6 +183,15 @@ namespace AgOpenGPS
 
         private readonly System.Diagnostics.Stopwatch _relojSegundo = System.Diagnostics.Stopwatch.StartNew();
 
+        // Reloj desde el arranque para secondsSinceStart. En FormGPS ese campo
+        // lo actualiza el TICK DE LA GUI (GUI.Designer.cs:390): acá quedaba
+        // clavado en 0 y BuildCurrentABLineList/BuildCurveCurrentList nunca
+        // re-elegían la PARALELA más cercana con el piloto apagado (su gate es
+        // "pasaron 0.66 s desde el último pick") — la línea activa quedaba
+        // congelada donde se construyó y el tractor se alejaba de ella. Tercer
+        // contador de la misma familia (autoTrack3SecTimer, makeUTurnCounter).
+        private readonly System.Diagnostics.Stopwatch _relojArranque = System.Diagnostics.Stopwatch.StartNew();
+
         /// <summary>
         /// Contadores de UN SEGUNDO. Réplica del bloque `if (oneSecondCounter >= 4)`
         /// de AOG 6.8.5 (GUI.Designer.cs:285-298), quedándose SOLO con lo que es
@@ -363,6 +372,7 @@ namespace AgOpenGPS
             HeadingUpdater.UpdateHeading();
             AutoSteerUpdater.SendCorrectedPositionPgn();
             AutoSteerUpdater.BuildAndSendAutoSteerPgn();
+            secondsSinceStart = _relojArranque.Elapsed.TotalSeconds;
             TickDeUnSegundo();
             YouTurnUpdater.UpdateYouTurnState();
             EngancharGuiaAlPivote();
