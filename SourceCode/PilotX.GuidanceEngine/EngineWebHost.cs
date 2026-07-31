@@ -258,6 +258,9 @@ namespace AgOpenGPS
             {
                 _orbitxSync = new AgroParallel.OrbitX.OrbitXSync(
                     state, AgroParallel.OrbitX.OrbitXConfig.Load());
+                // Lotes del cloud: el KML se importa con los writers del motor
+                // (crear/actualizar el lindero SIN abrir el lote).
+                _orbitxSync.ImportarLoteDesdeKml = lotes.CrearLoteDesdeKmlSinAbrir;
                 _orbitxSync.Start();
             }
             catch (Exception ex)
@@ -282,6 +285,7 @@ namespace AgOpenGPS
 
                     try { _orbitxSync?.Dispose(); } catch { }
                     _orbitxSync = new AgroParallel.OrbitX.OrbitXSync(state, cfg);
+                    _orbitxSync.ImportarLoteDesdeKml = lotes.CrearLoteDesdeKmlSinAbrir;
                     _orbitxSync.Start();
                     Console.WriteLine("[Engine] OrbitXSync (re)arrancado: la vinculación apareció en orbitX.json.");
                 }

@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
+using AgLibrary.Logging;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
 
@@ -349,6 +350,74 @@ namespace PilotX.GuidanceEngine.Adapters
             {
                 try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch { }
                 return Task.FromResult(false);
+            }
+        }
+
+        /// <summary>
+        /// Crea (o actualiza el lindero de) un lote desde un KML SIN abrirlo —
+        /// para los lotes que llegan del cloud por el sync de OrbitX: el
+        /// operario puede estar trabajando en otro lote y el sync no puede
+        /// cambiarle el campo abierto. El Field.txt/Boundary.txt del server no
+        /// se usan (formato server-side incompatible con los readers del
+        /// motor): acá se reconstruyen con los writers PROPIOS a partir del
+        /// boundary.kml, que es soberano.
+        ///
+        /// Lote nuevo → Field.txt con origen en el primer punto + Boundary.
+        /// Lote existente → se conserva SU origen (pisarlo desfasaría guías y
+        /// cobertura ya locales) y solo se reemplaza el lindero, convertido al
+        /// plano existente. Lote ABIERTO → false (el caller avisa).
+        /// </summary>
+        public bool CrearLoteDesdeKmlSinAbrir(string nombre, string kmlContenido)
+        {
+            try
+            {
+                string clean = CleanName(nombre);
+                if (string.IsNullOrEmpty(clean)) return false;
+                if (_host.IsJobStarted &&
+                    string.Equals(_host.currentFieldDirectory, clean, StringComparison.OrdinalIgnoreCase))
+                    return false;   // abierto: no pisar bajo los pies del operario
+
+                var anillos = AgOpenGPS.IO.KmlBoundaryReader.ReadRings(kmlContenido);
+                if (anillos.Count == 0 || anillos[0].Count < 3) return false;
+
+                string root = RegistrySettings.fieldsDirectory;
+                if (string.IsNullOrEmpty(root)) return false;
+                string dir = Path.Combine(root, clean);
+
+                AgOpenGPS.Core.Models.Wgs84 origen;
+                if (Directory.Exists(dir) && File.Exists(Path.Combine(dir, "Field.txt")))
+                {
+                    origen = AgOpenGPS.IO.FieldPlaneFiles.LoadOrigin(dir);
+                }
+                else
+                {
+                    Directory.CreateDirectory(dir);
+                    origen = anillos[0][0];
+                    AgOpenGPS.IO.FieldPlaneFiles.Save(dir, DateTime.Now, origen);
+                }
+
+                var plano = new AgOpenGPS.Core.Models.LocalPlane(
+                    origen, new AgOpenGPS.Core.Models.SharedFieldProperties());
+
+                var lista = new List<CBoundaryList>();
+                foreach (var anillo in anillos)
+                {
+                    var linde = new CBoundaryList();
+                    foreach (var p in anillo)
+                        linde.fenceLine.Add(new vec3(plano.ConvertWgs84ToGeoCoord(p)));
+                    linde.CalculateFenceArea(lista.Count);
+                    linde.FixFenceLine(lista.Count);
+                    lista.Add(linde);
+                }
+
+                AgOpenGPS.IO.BoundaryFiles.Save(dir, lista);
+                Log.EventWriter($"GuidanceEngine: lote '{clean}' desde OrbitX ({lista.Count} anillos, sin abrir)");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: lote desde OrbitX fallo: " + ex.Message);
+                return false;
             }
         }
 

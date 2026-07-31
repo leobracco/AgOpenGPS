@@ -744,6 +744,12 @@ namespace AgroParallel.OrbitX
         /// Boundary con lo que tiene en memoria y el archivo bajado se
         /// perdería en silencio.
         /// </summary>
+        /// <summary>Importador de lote desde KML que inyecta el HOST (el motor
+        /// implementa crear/actualizar el lote SIN abrirlo, con sus writers).
+        /// (nombreLote, contenidoKml) → ok. Sin esto los lotes del cloud solo
+        /// dejan el .kml crudo en el directorio del lote.</summary>
+        public Func<string, string, bool> ImportarLoteDesdeKml;
+
         private bool GuardarArchivoDeLote(string rutaRel, string contenido)
         {
             try
@@ -773,6 +779,7 @@ namespace AgroParallel.OrbitX
                     return false;
                 }
                 string lote = partes[0];
+                string archivo = partes[partes.Length - 1];
 
                 if (!string.IsNullOrEmpty(snap.CurrentFieldDirectory) &&
                     string.Equals(snap.CurrentFieldDirectory, lote, StringComparison.OrdinalIgnoreCase))
@@ -782,11 +789,33 @@ namespace AgroParallel.OrbitX
                     return false;
                 }
 
-                string destino = Path.Combine(fieldsDir, rel.Replace('/', Path.DirectorySeparatorChar));
-                Directory.CreateDirectory(Path.GetDirectoryName(destino));
-                File.WriteAllText(destino, contenido);
-                FilesSynced++;
-                Trace("[LOTE] OK → " + destino + " (" + contenido.Length + " bytes)");
+                // El boundary.kml es SOBERANO: el motor reconstruye Field.txt y
+                // Boundary.txt con sus propios writers (los del server tienen
+                // otro formato — lat/lon crudos y sin línea de fecha — y los
+                // readers del motor no los digieren: el lote "no abría").
+                if (archivo.EndsWith(".kml", StringComparison.OrdinalIgnoreCase))
+                {
+                    var importar = ImportarLoteDesdeKml;
+                    if (importar != null)
+                    {
+                        bool ok = importar(lote, contenido);
+                        Trace(ok
+                            ? "[LOTE] '" + lote + "' importado desde el KML del cloud (lindero listo)"
+                            : "[LOTE] no se pudo importar '" + lote + "' desde el KML");
+                        if (!ok) return false;
+                    }
+                    // El .kml crudo se guarda igual, como referencia/backup.
+                    string destinoKml = Path.Combine(fieldsDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                    Directory.CreateDirectory(Path.GetDirectoryName(destinoKml));
+                    File.WriteAllText(destinoKml, contenido);
+                    FilesSynced++;
+                    return true;
+                }
+
+                // Field.txt / Boundary.txt del server: formato incompatible con
+                // los readers del motor — NO se escriben (el import del KML los
+                // genera bien). Se acepta el pendiente para que no re-encole.
+                Trace("[LOTE] '" + archivo + "' del server ignorado (el KML manda; formato server-side no compatible)");
                 return true;
             }
             catch (Exception ex)
