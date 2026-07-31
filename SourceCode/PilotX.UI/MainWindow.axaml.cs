@@ -2300,7 +2300,8 @@ public partial class MainWindow : Window
             // Dirección (FormSteer) → ventana propia más grande. ?v= evita que
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
-                OpenDialogPage("pages/direccion.html?v=9", "Dirección — Autoguiado", 1040, 780); return true;
+                // v=10: layout FormSteer clásico (dos columnas, 2026-07-31).
+                OpenDialogPage("pages/direccion.html?v=10", "Dirección — Autoguiado", 1040, 780); return true;
 
             // ---- Controles de cámara/vista (menú Navegación) — 100% cliente
             // (MapGlSurface), no tocan el motor. Equivalentes a

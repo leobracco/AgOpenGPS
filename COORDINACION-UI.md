@@ -1651,3 +1651,14 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   primer polígono como exclusión. El file picker es el del WebView (mismo
   patrón que firmwares.html). Endpoint: POST
   /api/contorno/import-kml-upload?multi=0|1 con el KML crudo de body.
+- [2026-07-31] [Claude] **direccion.html re-maquetada al layout del FormSteer
+  ORIGINAL** (pedido del usuario: "igual al original, después lo vamos
+  cambiando"). Dos columnas como la ventana nativa expandida: izquierda =
+  tabs de guiado (pp/stan/steer/ppadv/gain, #menu) + panel Set/Actual/Error
+  EN VIVO (graph-steer a 5 Hz, ids nuevos liveSet/liveAct/liveErr) + manejo
+  libre; derecha = tabs del módulo (sensors/config/settings/alarm/online,
+  #menu2 NUEVO) + Reset + Guardar. TODOS los data-key/data-seg/ids del
+  contrato se conservaron; smartWas (btnSmartZeroWas/smartStatus) SALIÓ del
+  markup porque no existe en el original (el JS lo tolera). El JS ahora maneja
+  DOS grupos de tabs independientes (?tab= y ?tab2=). Codex: si la retocás,
+  la geometría es la del FormSteer WinForms — no volver al menú lateral.

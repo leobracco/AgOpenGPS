@@ -1,7 +1,10 @@
 // ============================================================================
 // direccion.js — Configuración de AutoSteer (FormSteer) para el Hub de PilotX.
-// Mismo sistema de diseño e interacción que config.js: menú lateral de tabs,
-// teclado virtual, botón Guardar flotante con estados (dirty / ok) y deep-link.
+// El markup replica el LAYOUT del FormSteer WinForms original (pedido
+// 2026-07-31): dos columnas con dos grupos de tabs independientes (#menu =
+// guiado, #menu2 = módulo), panel Set/Actual/Error en vivo (graph-steer) y el
+// manejo libre abajo a la izquierda. Teclado virtual, botón Guardar con
+// estados (dirty / ok) y deep-link ?tab= / ?tab2=.
 //
 // A diferencia de config.js (que guarda por sección al salir de cada tab), acá
 // toda la config de dirección se maneja como UN solo objeto y se persiste
@@ -24,7 +27,6 @@
   function $(id) { return document.getElementById(id); }
 
   var estado = $('estado');
-  var tabActual = null;
 
   function setEstado(msg, cls) {
     if (!estado) return;
@@ -444,31 +446,80 @@
   }
 
   // --------------------------------------------------------------------------
-  // Navegación por menú lateral (réplica del patrón de config.js)
+  // Tabs en DOS grupos independientes, como los dos TabControl del FormSteer
+  // original: #menu (guiado, izquierda) y #menu2 (módulo, derecha). Cada grupo
+  // tiene su tab activo propio; los dos paneles se ven a la vez.
+  // Deep-link: ?tab= para la izquierda, ?tab2= para la derecha.
   // --------------------------------------------------------------------------
-  function irATab(id) {
-    var sec = document.querySelector('section[data-tab="' + id + '"]');
-    if (!sec) { id = 'gain'; }
-    if (tabActual === id) return;
-    tabActual = id;
-    document.querySelectorAll('#menu button').forEach(function (b) {
+  var GRUPOS = {
+    izq: { menu: 'menu',  def: 'pp',      param: 'tab'  },
+    der: { menu: 'menu2', def: 'sensors', param: 'tab2' }
+  };
+
+  function irATab(grupo, id) {
+    var g = GRUPOS[grupo];
+    if (!g) return;
+    var sec = document.querySelector('section[data-group="' + grupo + '"][data-tab="' + id + '"]');
+    if (!sec) { id = g.def; }
+    document.querySelectorAll('#' + g.menu + ' button').forEach(function (b) {
       b.classList.toggle('sel', b.dataset.tab === id);
     });
-    document.querySelectorAll('section[data-tab]').forEach(function (s) {
+    document.querySelectorAll('section[data-group="' + grupo + '"]').forEach(function (s) {
       s.classList.toggle('activa', s.dataset.tab === id);
     });
     try {
       var url = new URL(window.location.href);
-      url.searchParams.set('tab', id);
+      url.searchParams.set(g.param, id);
       history.replaceState(null, '', url.toString());
     } catch (e) { /* file:// etc. */ }
-    $('main').scrollTop = 0;
   }
 
   function initTabs() {
-    document.querySelectorAll('#menu button').forEach(function (b) {
-      b.addEventListener('click', function () { irATab(b.dataset.tab); });
+    Object.keys(GRUPOS).forEach(function (grupo) {
+      var g = GRUPOS[grupo];
+      document.querySelectorAll('#' + g.menu + ' button').forEach(function (b) {
+        b.addEventListener('click', function () { irATab(grupo, b.dataset.tab); });
+      });
     });
+  }
+
+  // --------------------------------------------------------------------------
+  // Ángulo en vivo (panel Set/Actual/Error del FormSteer + barra del tab
+  // Dirección). Misma fuente que el gráfico: GET /api/aog/graph-steer a 5 Hz.
+  // Si el motor no contesta, los tres quedan en "—" — nunca números viejos.
+  // --------------------------------------------------------------------------
+  function initLiveAngle() {
+    var elSet = $('liveSet'), elAct = $('liveAct'), elErr = $('liveErr');
+    if (!elSet && !elAct) return;
+
+    function pinta(set, act) {
+      var ok = typeof set === 'number' && typeof act === 'number';
+      if (elSet) elSet.textContent = ok ? set.toFixed(1) : '—';
+      if (elAct) elAct.textContent = ok ? act.toFixed(1) : '—';
+      if (elErr) elErr.textContent = ok ? (set - act).toFixed(1) : '—';
+
+      // Barra de ángulo real del tab Dirección (pbar del original): el fondo
+      // de escala es el ángulo máximo configurado en su slider.
+      var l = $('angleFillLeft'), r = $('angleFillRight');
+      if (l && r) {
+        var maxR = document.querySelector('input[data-key="maxSteerAngle"]');
+        var max = maxR ? (parseFloat(maxR.value) || 40) : 40;
+        var pct = ok ? Math.min(100, Math.abs(act) / max * 100) : 0;
+        l.style.width = (ok && act < 0) ? pct + '%' : '0';
+        r.style.width = (ok && act >= 0) ? pct + '%' : '0';
+      }
+    }
+
+    setInterval(function () {
+      if (document.visibilityState === 'hidden') return;
+      fetch('/api/aog/graph-steer', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (j && typeof j.actual_steer_deg === 'number') pinta(j.set_steer_deg, j.actual_steer_deg);
+          else pinta(null, null);
+        })
+        .catch(function () { pinta(null, null); });
+    }, 200);
   }
 
   // --------------------------------------------------------------------------
@@ -508,9 +559,10 @@
 
   function initSaveButton() {
     // Los inputs numéricos también marcan sucio (los sliders/toggles/segmentados
-    // llaman a marcarSucio() en sus propios handlers).
-    var main = $('main');
-    main.addEventListener('input', function (ev) {
+    // llaman a marcarSucio() en sus propios handlers). Se escucha en #layout,
+    // que envuelve las dos columnas del layout FormSteer.
+    var raiz = $('layout') || document.body;
+    raiz.addEventListener('input', function (ev) {
       if (ev.target && ev.target.matches('input[type=number]')) marcarSucio();
     });
     btnG.addEventListener('click', function () { saveConfig(); });
@@ -551,8 +603,10 @@
     initSaveButton();
     initAuxButtons();
     initFreeDrive();
-    var tab = new URLSearchParams(window.location.search).get('tab') || 'gain';
-    irATab(tab);
+    initLiveAngle();
+    var q = new URLSearchParams(window.location.search);
+    irATab('izq', q.get('tab') || GRUPOS.izq.def);
+    irATab('der', q.get('tab2') || GRUPOS.der.def);
     loadConfig();
   });
 })();
