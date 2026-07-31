@@ -73,6 +73,11 @@
     var deviceToken     = cfg.device_token;
     var syncIntervalSec = cfg.sync_interval_sec;
     var enabled         = cfg.enabled;
+    // La tab Prescripciones menciona esta cadencia (mismo heartbeat que
+    // descarga las prescripciones pendientes) — se actualiza acá para no
+    // dejarla en un "30" fijo si el operario cambió el intervalo.
+    var prescIntervalEl = document.getElementById('prescIntervalSec');
+    if (prescIntervalEl && syncIntervalSec) prescIntervalEl.textContent = syncIntervalSec;
     var syncAOG         = cfg.sync_aog;
     var syncVistaX      = cfg.sync_vistax;
     var syncQuantiX     = cfg.sync_quantix;
