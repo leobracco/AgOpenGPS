@@ -2512,8 +2512,11 @@ public partial class MainWindow : Window
         if (_pilotoCluster == null) return;
 
         // Hay guía = el poller de guidance trae XTE (NaN sin guía activa).
+        // Con eso ALCANZA: exigir además lote abierto escondía el cluster en
+        // estados válidos (el motor mantiene la guía aunque el lote se cierre,
+        // y el operario espera seguir viendo la distancia).
         bool hayGuia = !double.IsNaN(_lastXteMeters);
-        bool visible = s.IsJobStarted && hayGuia;
+        bool visible = hayGuia;
         _pilotoCluster.IsVisible = visible;
         // El cluster tapa la franja del lightbar GL y muestra el mismo dato:
         // uno de los dos, nunca ambos.
