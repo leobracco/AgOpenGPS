@@ -253,10 +253,13 @@
                 · DISTANCIA a la línea: visible siempre que haya guía.
                 · GIRO manual (↰/↱) y SALTEO: aparecen al activar el piloto.
             -->
+            <!-- Fondo OSCURO translúcido (pedido del usuario): sobre el piso
+                 texturado el panel blanco lavaba los textos; en oscuro el
+                 número de distancia, el GIRANDO y las flechas resaltan. -->
             <Border Name="PilotoCluster" Grid.Row="2" IsVisible="False"
                     VerticalAlignment="Top" HorizontalAlignment="Center"
                     Margin="0,64,0,0"
-                    Background="#F2FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                    Background="#D9101612" BorderBrush="#66FFFFFF" BorderThickness="1"
                     CornerRadius="12" Padding="10,6">
                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <Button Name="PcGiroIzq" Width="64" Height="56" Padding="0" IsVisible="False"
@@ -269,14 +272,14 @@
                          El triangulito indica hacia dónde corregir (lado opuesto
                          al desvío, mismo criterio que el lightbar). -->
                     <StackPanel VerticalAlignment="Center" MinWidth="120">
-                        <TextBlock Text="A LA LÍNEA" FontSize="10" Foreground="#535E54"
+                        <TextBlock Text="A LA LÍNEA" FontSize="10" Foreground="#C5CFC5"
                                    HorizontalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                            <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold"
+                            <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold" Foreground="#F5F7F4"
                                        VerticalAlignment="Center"/>
-                            <TextBlock Name="PcXte" Text="—" FontSize="30" FontWeight="Bold"
+                            <TextBlock Name="PcXte" Text="—" FontSize="30" FontWeight="Bold" Foreground="#F5F7F4"
                                        VerticalAlignment="Center"/>
-                            <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#535E54"
+                            <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#C5CFC5"
                                        VerticalAlignment="Bottom" Margin="0,0,0,4"/>
                         </StackPanel>
                         <!-- Estado del giro en cabecera (réplica 6.8.5): la
@@ -289,7 +292,7 @@
 
                     <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->
                     <StackPanel Name="PcGrupoSalteo" VerticalAlignment="Center" IsVisible="False">
-                        <TextBlock Text="SALTEA" FontSize="10" Foreground="#535E54"
+                        <TextBlock Text="SALTEA" FontSize="10" Foreground="#C5CFC5"
                                    HorizontalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
                             <Button Name="PcSkipMenos" Width="40" Height="44" Padding="0" FontSize="20"
