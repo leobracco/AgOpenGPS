@@ -311,6 +311,15 @@ public sealed class MapPanel : Grid
         _gl?.OnPaths(snap);
     }
 
+    /// <summary>
+    /// Push de la prescripción (.shp): zonas con color por dosis. Específico
+    /// de GL. null = se descargó el shape.
+    /// </summary>
+    public void OnShape(ShapeMapSnapshot? snap)
+    {
+        _gl?.OnShape(snap);
+    }
+
     // ---- vista de cámara (menú Navegación): 2D/3D/Norte 2D/tilt/grilla/día-noche.
     // No-op en la surface Skia legacy (_gl==null) — mismo criterio que
     // BeginAbCreation/OnCoverage/etc.

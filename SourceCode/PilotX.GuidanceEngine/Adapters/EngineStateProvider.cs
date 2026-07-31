@@ -83,6 +83,21 @@ namespace PilotX.GuidanceEngine.Adapters
                         : _host.Yt.skipMode == SkipMode.IgnoreWorkedTracks ? "ignora_trabajadas"
                         : "normal";
                 }
+                // Prescripción: dosis en la posición actual. Se muestrea acá
+                // porque el state se lee a ~10 Hz — el mismo ritmo al que la
+                // dosis tiene sentido — y así QuantiX/FlowX la ven sin que el
+                // host tenga que conocer la capa.
+                if (Shape != null)
+                {
+                    Shape.MuestrearPosicion(_host.pivotAxlePos.easting, _host.pivotAxlePos.northing);
+                    var capa = Shape.Capa;
+                    if (capa != null && !capa.IsEmpty)
+                    {
+                        snap.ShapeCurrentDose = capa.CurrentDose;
+                        snap.ShapeIsInside = capa.CurrentInside;
+                    }
+                }
+
                 // Diagnostico del giro: sin esto, "no gira" se ve igual esté el
                 // tractor fuera del lote, desviado, o con el lote roto.
                 if (_host.Mc != null) snap.IsOutOfBounds = _host.Mc.isOutOfBounds;
@@ -429,8 +444,79 @@ namespace PilotX.GuidanceEngine.Adapters
             };
         }
 
-        public double GetShapeFieldDose(string fieldName) => 0;
-        public ShapeSnapshot GetShape() => null;
-        public ShapeFieldsSnapshot GetShapeFields() => new ShapeFieldsSnapshot();
+        // ---- prescripción (.shp) -------------------------------------------
+        //
+        // Antes esto eran stubs (dose 0, shape null): QuantiX y FlowX contra el
+        // motor dosificaban con CERO y el mapa no tenía qué dibujar. La capa la
+        // administra EngineShapeService; acá solo se consulta.
+
+        /// <summary>Lo setea EngineWebHost al armar los servicios: comparten la
+        /// MISMA capa que el upload y la carga automática.</summary>
+        public EngineShapeService Shape { get; set; }
+
+        public double GetShapeFieldDose(string fieldName)
+        {
+            try
+            {
+                var layer = Shape?.Capa;
+                if (layer == null || layer.IsEmpty || layer.CurrentPolygonIndex < 0) return 0;
+                double v;
+                return layer.TryGetPolygonNumeric(layer.CurrentPolygonIndex, fieldName, out v) ? v : 0;
+            }
+            catch { return 0; }
+        }
+
+        public ShapeSnapshot GetShape()
+        {
+            try
+            {
+                var layer = Shape?.Capa;
+                if (layer == null || layer.IsEmpty) return null;
+
+                layer.EnsureProjected(_host.AppModelField.LocalPlane);
+                var polys = layer.ExportPolygonsLocal();
+                if (polys == null) return null;
+
+                return new ShapeSnapshot
+                {
+                    SourceToken = layer.Source ?? string.Empty,
+                    Count = polys.Count,
+                    StyleField = layer.StyleField,
+                    StyleMin = layer.StyleMin,
+                    StyleMax = layer.StyleMax,
+                    Polygons = polys,
+                };
+            }
+            catch { return null; }
+        }
+
+        public ShapeFieldsSnapshot GetShapeFields()
+        {
+            var snap = new ShapeFieldsSnapshot();
+            try
+            {
+                var layer = Shape?.Capa;
+                if (layer == null || layer.IsEmpty) return snap;
+                snap.SourceToken = layer.Source ?? string.Empty;
+                var names = layer.FieldNames;
+                if (names == null) return snap;
+                for (int i = 0; i < names.Count; i++)
+                {
+                    var fi = new ShapeFieldInfo { Name = names[i] };
+                    double min, max;
+                    int count;
+                    if (layer.TryGetFieldStats(names[i], out min, out max, out count))
+                    {
+                        fi.Numeric = true;
+                        fi.Min = min;
+                        fi.Max = max;
+                        fi.Count = count;
+                    }
+                    snap.Fields.Add(fi);
+                }
+            }
+            catch { }
+            return snap;
+        }
     }
 }

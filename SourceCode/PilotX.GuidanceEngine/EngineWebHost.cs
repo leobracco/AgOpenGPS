@@ -84,6 +84,12 @@ namespace AgOpenGPS
             if (_web != null) return;
 
             var state = new EngineStateProvider(_host);
+            // Prescripción (.shp): upload + carga automática + dosis por
+            // posición. El state y el controller comparten LA MISMA capa —
+            // dos instancias significarían que el mapa dibuja un shape y
+            // QuantiX dosifica con otro.
+            var shape = new EngineShapeService(_host);
+            state.Shape = shape;
             var coverage = new EngineCoverageService(_host);
             var guidance = new EngineGuidanceCalculator(_host);
             var toolGeom = new EngineToolGeometryCalculator(_host);
@@ -193,7 +199,7 @@ namespace AgOpenGPS
                 // Caminos grabados (.rec): listar, cargar, borrar y nombrar.
                 recPath: new EngineRecPathService(_host),
                 vehicleTool: vehicleTool,
-                shapefile: null,
+                shapefile: shape,
                 coverage: coverage,
                 sectionsCore: sectionsCore,
                 quantixRuntime: quantixRuntime,

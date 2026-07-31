@@ -133,6 +133,9 @@ public partial class MainWindow : Window
     // generar un giro o grabar. Revision-cache filtra snapshots iguales.
     // Solo con UseGl=on.
     private PathsGeometryPoller? _pathsPoller;
+    // Prescripción (.shp): zonas con color por dosis sobre el mapa. 1 Hz
+    // filtrado por source_token. Solo con UseGl=on.
+    private ShapeGeometryPoller? _shapePoller;
 
     // Toolbar inferior (state-aware).
     private Button? _btnSettings;
@@ -486,6 +489,16 @@ public partial class MainWindow : Window
                 }, periodMs: 1000);
                 _pathsPoller.Start();
                 Closed += (_, _) => _pathsPoller?.Stop();
+
+                // Prescripción (.shp): zonas con color por dosis, base de
+                // QuantiX/FlowX. 1 Hz filtrado por source_token — solo cambia
+                // al subir otro shape o cambiar el campo de dosis. La
+                // triangulación corre en el hilo del poller, no en el GL.
+                _shapePoller = new ShapeGeometryPoller(DeriveOrigin(App.TargetUrl), snap =>
+                {
+                    _mapHost?.OnShape(snap);
+                });
+                Closed += (_, _) => _shapePoller?.Dispose();
             }
 
             // Stages 3/4: pollers de guidance/tool/tram. Corren tanto

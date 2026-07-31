@@ -65,6 +65,10 @@
     <!-- Mapeo TramSnapshot->DTO: MISMO archivo que compila AgOpenGPS.csproj,
          para que las dos pantallas de tramlines dibujen igual. -->
     <Compile Include="..\AgroParallel\Adapters\TramLineMapper.cs" Link="AgroParallel\TramLineMapper.cs" />
+    <!-- Capa de prescripcion (.shp): geometria + dosis por posicion. La usa
+         el motor para QuantiX/FlowX y para servir /api/aog/shape al mapa. -->
+    <Compile Include="..\AgroParallel\Adapters\ShapefileLayer.cs" Link="AgroParallel\ShapefileLayer.cs" />
+    <Compile Include="..\GPS\AgroParallel\Common\EarClipper.cs" Link="AgroParallel\EarClipper.cs" />
     <!-- Config de dirección (ISteerConfigService): mapeo settings↔DTO + PGN
          252/251. Mismo archivo que compila AgOpenGPS.csproj (FormGPS) para no
          duplicar el port del FormSteer nativo en dos lados. -->
