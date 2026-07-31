@@ -170,6 +170,31 @@ namespace AgroParallel.Models
         /// toggle, AB redefinida, curva nueva). El cliente usa este numero
         /// para evitar re-upload del VBO cuando no cambio nada.</summary>
         public long Revision { get; set; }
+
+        /// <summary>Camino del giro en cabecera (réplica del DrawYouTurn de
+        /// 6.8.5). Va FUERA de la firma de Revision: el camino se re-arma
+        /// seguido y el cliente lo consume en cada poll, como el XTE. null si
+        /// no hay giro armado ni en curso.</summary>
+        public YouTurnPathDto YouTurn { get; set; }
+    }
+
+    /// <summary>Estado + puntos del U-turn para el mapa y el cluster del
+    /// piloto. Colores del 6.8.5: verde armado (phase 10, dentro de límites),
+    /// rojo salmón fuera de límites, violeta girando (triggered).</summary>
+    public sealed class YouTurnPathDto
+    {
+        public List<FieldPoint> Points { get; set; }
+        /// <summary>Fase de construcción; 10 = camino completo y esperando.</summary>
+        public int Phase { get; set; }
+        /// <summary>El giro está EJECUTÁNDOSE ahora.</summary>
+        public bool Triggered { get; set; }
+        /// <summary>El camino se sale del área de giro: no se va a disparar.</summary>
+        public bool OutOfBounds { get; set; }
+        /// <summary>Hacia dónde dobla el próximo giro.</summary>
+        public bool TurnLeft { get; set; }
+        /// <summary>Distancia del pivote al inicio del camino (m); −1 sin dato.
+        /// El trigger automático salta a ≤1 m (CYouTurnUpdater).</summary>
+        public double DistanceM { get; set; } = -1;
     }
 
     public sealed class GuidanceSnapshot

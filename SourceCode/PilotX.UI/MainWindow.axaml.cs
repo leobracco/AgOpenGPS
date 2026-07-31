@@ -99,6 +99,8 @@ public partial class MainWindow : Window
     private Button? _pcGiroIzq, _pcGiroDer, _pcSkipMenos, _pcSkipMas;
     private TextBlock? _pcXte, _pcXteFlecha, _pcXteUnidad, _pcSkip;
     private int _pcSalteadas;          // lo que muestra el cluster (0..9)
+    private TextBlock? _pcGiroInfo;
+    private YouTurnPath? _lastYt;      // estado del U-turn (del poller de guidance)
     // Debug de rumbos: rumbo del tractor y de la guía activa (grados 0=N, CW),
     // para ver a qué guía apunta y cuánto desvía. NaN = sin dato.
     private double _lastTractorHeadingDeg = double.NaN;
@@ -283,6 +285,7 @@ public partial class MainWindow : Window
         _pcXteFlecha   = this.FindControl<TextBlock>("PcXteFlecha");
         _pcXteUnidad   = this.FindControl<TextBlock>("PcXteUnidad");
         _pcSkip        = this.FindControl<TextBlock>("PcSkip");
+        _pcGiroInfo    = this.FindControl<TextBlock>("PcGiroInfo");
         if (_pcGiroIzq != null) _pcGiroIzq.Click += (_, _) => _ = MandarComandoPiloto("uturn_manual_izq");
         if (_pcGiroDer != null) _pcGiroDer.Click += (_, _) => _ = MandarComandoPiloto("uturn_manual_der");
         if (_pcSkipMenos != null) _pcSkipMenos.Click += (_, _) => _ = CambiarSalteo(-1);
@@ -535,6 +538,8 @@ public partial class MainWindow : Window
                 _lastGuideHeadingDeg = ComputeGuideHeadingDeg(snap);
                 _lastPathsAway = (snap.PathsAway == int.MinValue) ? double.NaN : snap.PathsAway;
                 _lastXteMeters = snap.XteMeters; // NaN si no hay guía
+                // Estado del U-turn (réplica 6.8.5) para el cluster del piloto.
+                _lastYt = snap.YouTurn;
                 UpdateHeadingDebug();
             // 250 ms (era 1000): el XTE de este poller alimenta la distancia a
             // la línea del cluster del piloto — a 1 Hz el número parecía
@@ -2535,6 +2540,45 @@ public partial class MainWindow : Window
         if (grupoSalteo != null) grupoSalteo.IsVisible = giroVisible;
         if (_pcSkipMenos != null) _pcSkipMenos.IsEnabled = true;
         if (_pcSkipMas != null) _pcSkipMas.IsEnabled = true;
+
+        // Estado del giro en cabecera (réplica 6.8.5: el número junto al botón
+        // Turn del nativo). Armado y esperando → distancia al punto de giro en
+        // verde (o rojo si el camino cae fuera del área de giro); girando →
+        // "GIRANDO" violeta como el camino en el mapa.
+        if (_pcGiroInfo != null)
+        {
+            var yt = _lastYt;
+            if (yt == null || !giroVisible)
+            {
+                _pcGiroInfo.IsVisible = false;
+            }
+            else if (yt.Triggered)
+            {
+                _pcGiroInfo.IsVisible = true;
+                _pcGiroInfo.Text = "GIRANDO " + (yt.TurnLeft ? "↰" : "↱");
+                _pcGiroInfo.Foreground = new global::Avalonia.Media.SolidColorBrush(
+                    global::Avalonia.Media.Color.Parse("#C24FC2"));
+            }
+            else if (yt.Phase == 10 && yt.OutOfBounds)
+            {
+                _pcGiroInfo.IsVisible = true;
+                _pcGiroInfo.Text = "giro fuera del lote";
+                _pcGiroInfo.Foreground = new global::Avalonia.Media.SolidColorBrush(
+                    global::Avalonia.Media.Color.Parse("#ED4848"));
+            }
+            else if (yt.Phase == 10 && yt.DistanceM >= 0)
+            {
+                _pcGiroInfo.IsVisible = true;
+                _pcGiroInfo.Text = "giro " + (yt.TurnLeft ? "↰" : "↱") + " en " +
+                    yt.DistanceM.ToString("0", CultureInfo.InvariantCulture) + " m";
+                _pcGiroInfo.Foreground = new global::Avalonia.Media.SolidColorBrush(
+                    global::Avalonia.Media.Color.Parse("#2F8A27"));
+            }
+            else
+            {
+                _pcGiroInfo.IsVisible = false;
+            }
+        }
 
         // Salteo mostrado en guías SALTEADAS (0 = contigua); el motor habla en
         // ancho (width = salteadas + 1). Igual que el selector de la barra.

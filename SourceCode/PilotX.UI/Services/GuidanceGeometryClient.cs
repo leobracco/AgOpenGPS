@@ -36,11 +36,25 @@ public sealed class GuidancePoint
     [JsonPropertyName("n")] public double N { get; set; }
 }
 
+/// <summary>Camino del U-turn (réplica 6.8.5): verde armado, rojo fuera de
+/// límites, violeta girando. Se consume en cada poll, fuera del corte por
+/// revision (el camino se re-arma con el tractor andando).</summary>
+public sealed class YouTurnPath
+{
+    [JsonPropertyName("points")]        public List<GuidancePoint>? Points { get; set; }
+    [JsonPropertyName("phase")]         public int    Phase       { get; set; }
+    [JsonPropertyName("triggered")]     public bool   Triggered   { get; set; }
+    [JsonPropertyName("out_of_bounds")] public bool   OutOfBounds { get; set; }
+    [JsonPropertyName("turn_left")]     public bool   TurnLeft    { get; set; }
+    [JsonPropertyName("distance_m")]    public double DistanceM   { get; set; } = -1;
+}
+
 public sealed class GuidanceGeometrySnapshot
 {
     [JsonPropertyName("mode")]     public string?              Mode     { get; set; } = "Off";
     [JsonPropertyName("points")]   public List<GuidancePoint>? Points   { get; set; }
     [JsonPropertyName("revision")] public long                 Revision { get; set; }
+    [JsonPropertyName("you_turn")] public YouTurnPath?         YouTurn  { get; set; }
 
     // Info de desvío para el lightbar (se completa desde /api/aog/guidance,
     // no viene en /geometry). XteMeters: distancia lateral a la línea (m);

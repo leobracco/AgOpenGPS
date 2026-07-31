@@ -139,6 +139,27 @@ namespace PilotX.GuidanceEngine.Adapters
                     _lastKey = key;
                 }
                 geom.Revision = _revision;
+
+                // ---- U-turn (réplica 6.8.5) --------------------------------
+                // FUERA de la firma de revisión a propósito: el camino se
+                // re-arma con el tractor andando y el cliente lo consume en
+                // cada poll (como el XTE), no solo cuando cambia la guía.
+                var yt = _host.Yt;
+                if (yt != null && yt.ytList != null && yt.ytList.Count > 2)
+                {
+                    var dto = new YouTurnPathDto
+                    {
+                        Points = new List<FieldPoint>(yt.ytList.Count),
+                        Phase = yt.youTurnPhase,
+                        Triggered = yt.isYouTurnTriggered,
+                        OutOfBounds = yt.isOutOfBounds,
+                        TurnLeft = yt.isTurnLeft,
+                        DistanceM = _host.distancePivotToTurnLine,
+                    };
+                    for (int i = 0; i < yt.ytList.Count; i++)
+                        dto.Points.Add(new FieldPoint(yt.ytList[i].easting, yt.ytList[i].northing));
+                    geom.YouTurn = dto;
+                }
             }
             catch
             {

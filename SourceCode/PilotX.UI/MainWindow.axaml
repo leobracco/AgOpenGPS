@@ -279,6 +279,12 @@
                             <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#535E54"
                                        VerticalAlignment="Bottom" Margin="0,0,0,4"/>
                         </StackPanel>
+                        <!-- Estado del giro en cabecera (réplica 6.8.5): la
+                             distancia al punto de giro cuando está armado,
+                             "GIRANDO" en violeta durante el giro, aviso si el
+                             camino cae fuera del lote. -->
+                        <TextBlock Name="PcGiroInfo" Text="" FontSize="12" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" IsVisible="False"/>
                     </StackPanel>
 
                     <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->
