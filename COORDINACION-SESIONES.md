@@ -3203,3 +3203,20 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Hub (Configuración → Cloud → OrbitX) confirma "● Cloud conectado" +
   "Tractor vinculado ✓ activo" + "Estado conexión: OK".
   Build 0 errores, 289 tests verdes.
+
+- [2026-07-31] [android] HECHO — Leonardo (usuario) reportó "mandé una
+  prescripción desde la web de OrbitX y no aparece". Con el `OrbitXSync`
+  ya vivo (fix de arriba) fui a `orbitx_sync.log`
+  (`PilotX.GuidanceEngine/bin/.../orbitx_sync.log`, diagnóstico ya
+  instrumentado con `[PRESC]`) y la bajada funcionaba perfecto: descargó
+  "La Paloa 2.geojson" al toque de que apareció pendiente en el server, y
+  `/api/prescripciones/list` la sirve bien (campos semilla/ferti_linea/
+  ferti_costado). El bug real: el usuario estaba mirando la tab
+  "Prescripciones" DENTRO de la pantalla OrbitX, que es un mock placeholder
+  ("Próximamente…") de cuando la feature todavía no existía — la pantalla
+  REAL y funcional (Configuración → Campo → Prescripciones, misma API)
+  vive aparte en el sidebar y siempre anduvo bien.
+  Reemplacé el placeholder por un link a la pantalla real en vez de
+  duplicar la lista ahí (una sola UI). Verificado en vivo con captura:
+  "Abrir Prescripciones" navega ahí y muestra "La Paloa 2" lista para
+  activar. Build 0 errores, 289 tests verdes.
