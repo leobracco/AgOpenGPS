@@ -2102,7 +2102,19 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
 
         _gl.Disable(EnableCap.Blend);
+
+        // Diagnostico temporal "no se ve el shape": pixel del centro y error GL
+        // justo despues de dibujar las zonas, una vez por ~4 s.
+        if (++_shapeDiagFrames >= 120)
+        {
+            _shapeDiagFrames = 0;
+            var err = _gl.GetError();
+            Console.Error.WriteLine("[MapGlSurface] shape-draw err=" + err);
+            LogPixel("post-shape", 960, 540);
+        }
     }
+
+    private int _shapeDiagFrames;
 
     private void DrawRing(List<FieldPoint> ring, float[] color)
     {
