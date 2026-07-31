@@ -44,14 +44,26 @@ AgOpenGPS-6.8.5\` (el original limpio, mejor fuente que nuestro fork).
 ## Botones que la UI manda y no atiende nadie
 
 Verificado cruzando `CommandParameter` de las barras contra el vocabulario de
-`ExecuteCommand` y el ruteo de `MainWindow`. Hoy no hacen absolutamente nada:
+`ExecuteCommand` y el ruteo de `MainWindow`. **Los 6 atendidos** (commit de
+2026-07-30, falta el toque manual en pantalla salvo donde se indica):
 
-- ⬜ `isobus`
-- ⬜ `kiosco`
-- ⬜ `simulador`
-- ⬜ `reset_all`
-- ⬜ `ruta_grabada` (queda cubierto al portar RecPath)
-- ⬜ `tram_multi` (queda cubierto al portar TramLine)
+- ✅ `isobus` — motor: `Isobus.RequestSectionControlEnabled(!enabled)` (port de
+  `btnIsobusSC_Click`). Es un REQUEST por PGN: el estado real vuelve del monitor
+  en `isobus_on`. Verificado el comando por HTTP; el efecto necesita un monitor
+  ISOBUS real.
+- ✅ `kiosco` — MainWindow: toggle pantalla completa ↔ ventana con bordes
+  (para taller/escritorio; la cabina ya arranca a pantalla completa).
+- ✅ `simulador` — MainWindow: abre/cierra **ModSim.exe** (el sim de este stack
+  es ese proceso externo; el interno del motor no aplica). Busca el exe al lado
+  del deploy (`Build\ModSim.exe`).
+- ✅ `reset_all` — confirmación nativa en MainWindow (botón rojo) → comando al
+  motor: `RegistrySettings.Reset()` + **el motor sale** (si siguiera vivo, su
+  config en memoria podría re-guardar lo borrado). Guard verificado en vivo:
+  con lote abierto rechaza y no borra; sin lote borra y sale (probado, sin
+  querer, contra el motor real).
+- ✅ `ruta_grabada` → ventana-diálogo `pages/recpath.html` (el servicio ya
+  estaba portado; faltaba el ruteo).
+- ✅ `tram_multi` → ventana-diálogo `pages/tramlines.html` (ídem).
 
 ## Funciones sin equivalente todavía
 

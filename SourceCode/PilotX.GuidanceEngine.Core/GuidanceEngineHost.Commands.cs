@@ -252,6 +252,33 @@ namespace AgOpenGPS
                 case "hidraulico":
                     ToggleHydraulicLift();
                     return true;
+                case "isobus":
+                    // btnIsobusSC_Click: pedirle al monitor ISOBUS que prenda o
+                    // apague su control de secciones. Es un REQUEST por PGN: el
+                    // estado real vuelve del monitor y lo refleja el snapshot
+                    // (isobus_on), no este toggle.
+                    Isobus.RequestSectionControlEnabled(!Isobus.SectionControlEnabled);
+                    return true;
+                case "reset_all":
+                    // resetALLToolStripMenuItem_Click sin el diálogo (la
+                    // confirmación la pone la pantalla ANTES de mandar esto).
+                    // Mismo guard que el nativo: con lote abierto no se resetea
+                    // nada — cerrarlo primero.
+                    //
+                    // Después de borrar, el motor SALE: su config sigue viva en
+                    // memoria y cualquier Save() posterior resucitaría lo
+                    // borrado. El delay deja salir la respuesta HTTP; la
+                    // pantalla avisa que hay que reiniciar (el launcher de
+                    // cabina levanta todo de vuelta al reiniciar la pantalla).
+                    if (IsJobStarted) return false;
+                    RegistrySettings.Reset();
+                    Log.EventWriter("GuidanceEngine: reset de fabrica (reset_all) — el motor sale para no re-guardar la config vieja");
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(700).ConfigureAwait(false);
+                        Environment.Exit(0);
+                    });
+                    return true;
                 case "cabecera_onoff":
                     ToggleHeadland();
                     return true;

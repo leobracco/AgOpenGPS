@@ -1121,6 +1121,8 @@ public partial class MainWindow : Window
             case "eventos.html":
             case "ajustes-todos.html":
             case "tracks.html":
+            case "recpath.html":
+            case "tramlines.html":
                 return (460, 470);
 
             // Gráficos: acá el ancho SÍ es información (es el eje del tiempo),
@@ -2237,6 +2239,21 @@ public partial class MainWindow : Window
                 return true;
             case "apagar": Close(); return true;
 
+            // Modo kiosco ↔ ventana. El cockpit ya arranca a pantalla completa,
+            // así que este toggle sirve para lo contrario: achicarlo a una
+            // ventana con bordes cuando se trabaja en el taller o el escritorio,
+            // y volver a la pantalla completa de cabina.
+            case "kiosco": ToggleKiosco(); return true;
+
+            // El "simulador" de este stack es ModSim.exe, un proceso EXTERNO que
+            // manda NMEA por UDP (el sim interno del motor no aplica: la
+            // posición viene de afuera). El toggle lo abre o lo cierra.
+            case "simulador": ToggleModSim(); return true;
+
+            // Reset de fábrica: confirmación nativa acá; el borrado real lo hace
+            // el motor (comando reset_all) y después hay que reiniciar.
+            case "reset_all": _ = ConfirmarResetAllAsync(); return true;
+
             // ---- Info de lote/GPS → ventana chica cerrable (HTML) ----
             case "datos_gps":  OpenDialogPage("pages/datos-gps.html",  "Datos GPS",       760, 560); return true;
             case "lote_datos": OpenDialogPage("pages/datos-lote.html", "Datos del lote",  760, 560); return true;
@@ -2335,6 +2352,10 @@ public partial class MainWindow : Window
             "sim_coords"        => "pages/sim-coords.html",
             "asistente_direccion" => "pages/config.html",
             "herr_limites"      => "pages/contorno.html",
+            // Los dos servicios ya están portados al motor (EngineRecPathService
+            // y EngineTramLineService): solo faltaba rutear el botón a su página.
+            "ruta_grabada"      => "pages/recpath.html",
+            "tram_multi"        => "pages/tramlines.html",
             _ => null
         };
         if (page != null)
@@ -2383,6 +2404,228 @@ public partial class MainWindow : Window
         {
             Console.Error.WriteLine("[Lote] no se pudo cerrar: " + ex.Message);
         }
+    }
+
+    // ---- Modo kiosco ↔ ventana --------------------------------------------
+    //
+    // El cockpit arranca borderless a pantalla completa (AjustarAPantallaCompleta).
+    // Este toggle lo achica a una ventana normal CON decoraciones —para taller y
+    // escritorio, donde vivir a pantalla completa molesta— y lo devuelve.
+    private bool _modoVentana;
+
+    private void ToggleKiosco()
+    {
+        try
+        {
+            if (_modoVentana)
+            {
+                // → volver a la pantalla completa de cabina
+                SystemDecorations = SystemDecorations.None;
+                WindowState = WindowState.Normal;
+                AjustarAPantallaCompleta();
+                _modoVentana = false;
+            }
+            else
+            {
+                // → ventana con bordes, movible y redimensionable
+                SystemDecorations = SystemDecorations.Full;
+                WindowState = WindowState.Normal;
+                CanResize = true;
+                Width = 1080;
+                Height = 720;
+                _modoVentana = true;
+            }
+        }
+        catch (Exception ex) { Console.Error.WriteLine("[Kiosco] " + ex.Message); }
+    }
+
+    // ---- Simulador (ModSim.exe) -------------------------------------------
+    //
+    // En este stack no hay sim interno: la posición viene de ModSim.exe, un
+    // proceso aparte que manda NMEA por UDP (su config vive en %LOCALAPPDATA%\
+    // ModSim). "Simulador" acá significa abrir o cerrar ESE proceso.
+    private void ToggleModSim()
+    {
+        try
+        {
+            var corriendo = System.Diagnostics.Process.GetProcessesByName("ModSim");
+            if (corriendo.Length > 0)
+            {
+                foreach (var p in corriendo)
+                {
+                    // Primero el cierre prolijo (es una app con ventana y guarda
+                    // su config al salir); si no responde, abajo.
+                    try { if (!p.CloseMainWindow()) p.Kill(); }
+                    catch { try { p.Kill(); } catch { } }
+                    finally { p.Dispose(); }
+                }
+                return;
+            }
+
+            string exe = BuscarModSim();
+            if (exe == null)
+            {
+                Console.Error.WriteLine("[Sim] ModSim.exe no está junto al programa");
+                return;
+            }
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = exe,
+                UseShellExecute = true,
+                WorkingDirectory = System.IO.Path.GetDirectoryName(exe) ?? "",
+            });
+        }
+        catch (Exception ex) { Console.Error.WriteLine("[Sim] " + ex.Message); }
+    }
+
+    private static string? BuscarModSim()
+    {
+        // Deploy real: Build\Desktop\PilotX.Desktop.exe con Build\ModSim.exe al
+        // lado del árbol. En dev (bin\Debug) se prueban las mismas alturas.
+        string baseDir = AppContext.BaseDirectory;
+        foreach (string rel in new[] { "ModSim.exe", @"..\ModSim.exe", @"..\..\ModSim.exe" })
+        {
+            try
+            {
+                string full = System.IO.Path.GetFullPath(System.IO.Path.Combine(baseDir, rel));
+                if (System.IO.File.Exists(full)) return full;
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    // ---- Reset de fábrica (reset_all) -------------------------------------
+    //
+    // La confirmación es nativa y DOBLE-paso implícito: el diálogo explica que
+    // borra TODA la configuración y que la app se cierra. El borrado real lo
+    // hace el motor (comando reset_all, que además rechaza con lote abierto);
+    // acá solo se confirma, se manda y se cierra para que el reinicio traiga
+    // los defaults.
+    private async Task ConfirmarResetAllAsync()
+    {
+        bool ok = await MostrarConfirmacionAsync(
+            "Restablecer TODO",
+            "Se borra TODA la configuración (vehículo, implemento, dirección, " +
+            "pantalla) y PilotX se cierra. Los lotes NO se tocan.\n\n" +
+            "Al volver a abrir, arranca con los valores de fábrica.");
+        if (!ok) return;
+
+        try
+        {
+            var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var url = DeriveOrigin(App.TargetUrl).TrimEnd('/');
+            using var body = new System.Net.Http.StringContent(
+                "{\"cmd\":\"reset_all\"}", System.Text.Encoding.UTF8, "application/json");
+            using var resp = await http.PostAsync(url + "/api/aog/guidance/command", body);
+            string json = await resp.Content.ReadAsStringAsync();
+
+            if (!json.Contains("\"ok\":true"))
+            {
+                // Única causa esperable de rechazo: lote abierto (mismo guard
+                // que el nativo). Avisar en vez de cerrar sin haber borrado.
+                await MostrarAvisoAsync("No se pudo restablecer",
+                    "Cerrá el lote primero y volvé a intentar.");
+                return;
+            }
+
+            await MostrarAvisoAsync("Listo",
+                "Configuración borrada. PilotX se cierra ahora: reiniciá la " +
+                "pantalla (o volvé a abrir PilotX) y arranca con los valores " +
+                "de fábrica.");
+            Close();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[ResetAll] " + ex.Message);
+            await MostrarAvisoAsync("No se pudo restablecer",
+                "Sin conexión con el motor de PilotX. Detalle: " + ex.Message);
+        }
+    }
+
+    /// <summary>Diálogo nativo de confirmación (dos botones grandes, para
+    /// guantes). Devuelve true solo si el operario tocó el botón rojo.</summary>
+    private async Task<bool> MostrarConfirmacionAsync(string titulo, string mensaje)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        var win = ArmarDialogoBase(titulo, mensaje, out var fila);
+
+        var btnNo = BotonDialogo("Cancelar", "#FFFFFF", "#101612");
+        btnNo.Click += (_, _) => { tcs.TrySetResult(false); win.Close(); };
+        var btnSi = BotonDialogo("Borrar todo", "#ED4848", "#FFFFFF");
+        btnSi.Click += (_, _) => { tcs.TrySetResult(true); win.Close(); };
+        fila.Children.Add(btnNo);
+        fila.Children.Add(btnSi);
+
+        win.Closed += (_, _) => tcs.TrySetResult(false);
+        await win.ShowDialog(this);
+        return await tcs.Task;
+    }
+
+    private async Task MostrarAvisoAsync(string titulo, string mensaje)
+    {
+        var win = ArmarDialogoBase(titulo, mensaje, out var fila);
+        var btn = BotonDialogo("Entendido", "#4ABA3E", "#FFFFFF");
+        btn.Click += (_, _) => win.Close();
+        fila.Children.Add(btn);
+        await win.ShowDialog(this);
+    }
+
+    private static Window ArmarDialogoBase(string titulo, string mensaje,
+                                           out global::Avalonia.Controls.StackPanel filaBotones)
+    {
+        var stack = new global::Avalonia.Controls.StackPanel { Spacing = 12 };
+        stack.Children.Add(new global::Avalonia.Controls.TextBlock
+        {
+            Text = titulo,
+            FontSize = 22,
+            FontWeight = global::Avalonia.Media.FontWeight.Bold,
+            TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+        });
+        stack.Children.Add(new global::Avalonia.Controls.TextBlock
+        {
+            Text = mensaje,
+            FontSize = 15,
+            TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+        });
+        filaBotones = new global::Avalonia.Controls.StackPanel
+        {
+            Orientation = global::Avalonia.Layout.Orientation.Horizontal,
+            Spacing = 12,
+            HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Right,
+            Margin = new global::Avalonia.Thickness(0, 8, 0, 0),
+        };
+        stack.Children.Add(filaBotones);
+
+        return new Window
+        {
+            Title = titulo,
+            SizeToContent = global::Avalonia.Controls.SizeToContent.Height,
+            Width = 460,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize = false,
+            Background = global::Avalonia.Media.Brushes.White,
+            Content = new global::Avalonia.Controls.Border
+            {
+                Padding = new global::Avalonia.Thickness(20),
+                Child = stack,
+            },
+        };
+    }
+
+    private static global::Avalonia.Controls.Button BotonDialogo(string texto, string fondo, string texto2)
+    {
+        return new global::Avalonia.Controls.Button
+        {
+            Content = texto,
+            FontSize = 16,
+            Padding = new global::Avalonia.Thickness(22, 12),
+            Background = new global::Avalonia.Media.SolidColorBrush(
+                global::Avalonia.Media.Color.Parse(fondo)),
+            Foreground = new global::Avalonia.Media.SolidColorBrush(
+                global::Avalonia.Media.Color.Parse(texto2)),
+            CornerRadius = new global::Avalonia.CornerRadius(8),
+        };
     }
 
     // ---- Creación de guía A/B en el mapa (toco A, manejo, toco B) ----
@@ -2486,6 +2729,8 @@ public partial class MainWindow : Window
         "cabecera_avanzada" => "Cabecera avanzada",
         "tram_crear"        => "Tramline",
         "sim_coords"        => "Coordenadas simulador",
+        "ruta_grabada"      => "Rutas grabadas",
+        "tram_multi"        => "Tramlines",
         _ => "PilotX"
     };
 
