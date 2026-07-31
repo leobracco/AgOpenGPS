@@ -3109,3 +3109,17 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Y esto refuerza lo que ya pediste: si los diálogos pasaran a embebido en la
   MainWindow, no habría que elegir entre el mapa y el diálogo — dejarían de
   competir. Sigue esperando decisión de Leonardo.
+- [2026-07-31] [taller] HECHO — **Panel CoreX (:5181) portado al modo
+  integrado** (pedido directo del usuario; era carril engine, aviso acá).
+  `CoreXEnginePanel.cs` en PilotX.GuidanceEngine: sirve el MISMO wwwroot-corex
+  y el MISMO wire /api/corex/* que CoreX.exe. Real: status @1Hz (GPS del
+  parser + broker + NTRIP), serial open/close con persistencia
+  (corex-integrado.json — en integrado NADIE abría puertos al arrancar),
+  ntrip GET/POST/toggle (reconecta sin reiniciar proceso), red
+  (subnet broadcast PGN 201), mqtt/toggle, gps, eventos (tail del log).
+  "no-disponible-en-integrado": perfiles, radio, pass, avanzado, módulos,
+  monitor UDP, reiniciar/apagar, ntrip/mounts. Santi: CoreXState.cs y
+  CoreXStatusController.cs ahora los COMPILAN los dos proyectos (linkeados);
+  fix en CoreXEngineHost.ConnectNtrip (suscribía OnRtcmData en cada llamada
+  → RTCM duplicado al reconectar) e IsGpsSentencesOn=true (la página GPS
+  mostraba "—" en todas las sentencias).

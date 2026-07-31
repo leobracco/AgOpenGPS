@@ -62,6 +62,11 @@
     <Compile Include="..\AgIO\Source\Classes\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
     <Compile Include="..\AgIO\Source\Classes\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
     <Compile Include="..\AgIO\Source\Classes\CGLM.cs" Link="AgIO\CGLM.cs" />
+    <!-- Panel CoreX integrado (:5181): el snapshot y su controller de status
+         son puros (no tocan FormLoop), se comparten con CoreX.exe para que
+         /api/corex/status sirva el MISMO wire en los dos modos. -->
+    <Compile Include="..\AgIO\Source\Classes\CoreXState.cs" Link="AgIO\CoreXState.cs" />
+    <Compile Include="..\AgIO\Source\Web\CoreXStatusController.cs" Link="AgIO\CoreXStatusController.cs" />
     <!-- Mapeo TramSnapshot->DTO: MISMO archivo que compila AgOpenGPS.csproj,
          para que las dos pantallas de tramlines dibujen igual. -->
     <Compile Include="..\AgroParallel\Adapters\TramLineMapper.cs" Link="AgroParallel\TramLineMapper.cs" />

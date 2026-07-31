@@ -138,6 +138,15 @@ namespace AgOpenGPS
                     Console.WriteLine($"MQTT cmd \"{cmd}\" -> {(ok ? "ok" : "unknown")}");
                 });
                 Console.WriteLine("Comandos por MQTT en topico agp/aog/guidance/command.");
+
+                // Panel web de CoreX en modo integrado: mismo dashboard y mismo
+                // wire que CoreX.exe (:5181). Además aplica la config guardada
+                // (puertos serie / NTRIP): sin esto, en integrado nadie abría
+                // los puertos al arrancar.
+                var panel = new global::AgIO.CoreXEnginePanel(coreX);
+                panel.ApplyConfig();
+                panel.Start();
+                Console.WriteLine("Panel CoreX integrado en http://127.0.0.1:5181 (config: corex-integrado.json).");
             }
 
             Timer simTimer = null;
