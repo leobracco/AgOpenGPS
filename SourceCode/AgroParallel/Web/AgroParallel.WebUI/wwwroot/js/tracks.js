@@ -78,16 +78,22 @@
         ico.innerHTML = '<img src="../img/tracks/' + iconFor(t.mode) + '">';
 
         var name = document.createElement('button');
-        name.className = 'tk-name' + (idx === state.selected_idx ? ' sel' : '') + (t.visible ? '' : ' hidden');
+        // El wire es snake_case (AgpJson): la API manda "is_visible", no
+        // "visible". Con el nombre viejo t.visible daba siempre undefined
+        // (falsy) - la guía quedaba con la clase "hidden" puesta SIEMPRE y
+        // el guard de abajo bloqueaba el click para cualquier guía, visible
+        // o no. Por eso "seleccionar una guía existente no dejaba": no era
+        // un problema de visibilidad real, el campo nunca se leía.
+        name.className = 'tk-name' + (idx === state.selected_idx ? ' sel' : '') + (t.is_visible ? '' : ' hidden');
         name.textContent = t.name || ('Guía ' + (idx + 1));
         name.onclick = async function () {
-          if (!t.visible) return; // el nativo solo selecciona guías visibles
+          if (!t.is_visible) return; // el nativo solo selecciona guías visibles
           state = await apiPost('/select', { index: idx }) || state;
           refreshList();
         };
 
         var vis = document.createElement('button');
-        vis.className = 'tk-vis ' + (t.visible ? 'on' : 'off');
+        vis.className = 'tk-vis ' + (t.is_visible ? 'on' : 'off');
         vis.onclick = async function () {
           state = await apiPost('/toggle-visibility', { index: idx }) || state;
           refreshList();
