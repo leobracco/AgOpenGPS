@@ -85,13 +85,21 @@ namespace AgIO
 
         // NTRIP: instanciado pero NO conectado hasta que haya credenciales de
         // caster reales (no hay ninguna disponible en este entorno de prueba).
+        private bool _rtcmHooked;
+
         public void ConnectNtrip(NtripConfig config, Func<NtripGpsData> gpsFeedback)
         {
-            Ntrip.OnRtcmData += rtcm =>
+            // Suscribir UNA sola vez: el panel puede reconectar cada vez que se
+            // guarda la config y cada += duplicaría el RTCM hacia el GPS.
+            if (!_rtcmHooked)
             {
-                if (SpRtcm.IsOpen) SpRtcm.Write(rtcm, 0, rtcm.Length);
-                else if (SpGPS.IsOpen) SpGPS.Write(rtcm, 0, rtcm.Length);
-            };
+                _rtcmHooked = true;
+                Ntrip.OnRtcmData += rtcm =>
+                {
+                    if (SpRtcm.IsOpen) SpRtcm.Write(rtcm, 0, rtcm.Length);
+                    else if (SpGPS.IsOpen) SpGPS.Write(rtcm, 0, rtcm.Length);
+                };
+            }
             Ntrip.Connect(config, gpsFeedback);
         }
 
@@ -184,10 +192,26 @@ namespace AgIO
         }
 
         // ---- INmeaParserHost ----
-        bool INmeaParserHost.IsGpsSentencesOn => false;
+        // true: sin esto el parser no guarda las sentencias crudas y la página
+        // GPS del panel (:5181) muestra "—" en todas. Es solo retener el último
+        // string de cada tipo — costo despreciable, siempre prendido.
+        bool INmeaParserHost.IsGpsSentencesOn => true;
         bool INmeaParserHost.IsLogMonitorOn => false;
         void INmeaParserHost.AppendLogMonitor(string text) { }
-        void INmeaParserHost.SendNmeaPgn(byte[] pgn) => UdpBridge.SendToLoopback(pgn);
+        void INmeaParserHost.SendNmeaPgn(byte[] pgn)
+        {
+            // Latido del GPS para el panel (:5181): cada PGN de posición que
+            // sale del parser es prueba de que está entrando NMEA.
+            _lastNmeaUtc = DateTime.UtcNow;
+            UdpBridge.SendToLoopback(pgn);
+        }
+
+        private DateTime _lastNmeaUtc = DateTime.MinValue;
+
+        /// <summary>Segundos desde el último NMEA parseado; −1 si nunca llegó.
+        /// El panel lo usa para el "GPS vivo" del dashboard.</summary>
+        public double NmeaAliveSec =>
+            _lastNmeaUtc == DateTime.MinValue ? -1 : (DateTime.UtcNow - _lastNmeaUtc).TotalSeconds;
 
         // ---- apertura de los 6 puertos (mismo patrón que SerialComm.Designer.cs) ----
         public void OpenGPSPort(string portName, int baudRate)

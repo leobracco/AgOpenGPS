@@ -70,6 +70,7 @@ public sealed class MapPanel : Grid
     private byte[]? _spVeh; private int _spVehW, _spVehH;
     private byte[]? _spRueda; private int _spRuedaW, _spRuedaH;
     private byte[]? _spImpl; private int _spImplW, _spImplH;
+    private byte[]? _spPiso; private int _spPisoW, _spPisoH;
     private HudSnapshot? _ultimoSnap;
 
     // Estado del pan (arrastre). El input del mapa se maneja ACÁ (en el Grid
@@ -197,6 +198,7 @@ public sealed class MapPanel : Grid
         if (_spVeh != null) nueva.SetVehicleSprite(_spVeh, _spVehW, _spVehH);
         if (_spRueda != null) nueva.SetWheelSprite(_spRueda, _spRuedaW, _spRuedaH);
         if (_spImpl != null) nueva.SetImplementSprite(_spImpl, _spImplW, _spImplH);
+        if (_spPiso != null) nueva.SetFloorTexture(_spPiso, _spPisoW, _spPisoH);
         if (_ultimoSnap != null) nueva.OnSnapshot(_ultimoSnap);
         // La prescripción NO vuelve sola: su poller solo re-empuja cuando la
         // clave cambia, y recrear la surface no cambia ninguna clave. Sin esto,
@@ -239,6 +241,15 @@ public sealed class MapPanel : Grid
     {
         _spImpl = rgba; _spImplW = width; _spImplH = height;
         _gl?.SetImplementSprite(rgba, width, height);
+    }
+
+    /// <summary>Textura del piso (fondo del mapa, tileada en mundo). Cacheada
+    /// acá como los sprites: el watchdog GL recrea la surface y toda capa que
+    /// no se re-aplique desaparece sin error.</summary>
+    public void SetFloorTexture(byte[]? rgba, int width, int height)
+    {
+        _spPiso = rgba; _spPisoW = width; _spPisoH = height;
+        _gl?.SetFloorTexture(rgba, width, height);
     }
 
     /// <summary>

@@ -3160,3 +3160,46 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   simulador" cuando el simulador de verdad vive en otro proceso — mi guard
   actual no cubre ese caso.
   Build 0 errores, 289 tests verdes (incluye tests nuevos tuyos, +17).
+
+- [2026-07-31] [taller] HECHO — **Panel CoreX (:5181) portado al modo
+  integrado** (pedido directo del usuario; era carril engine, aviso acá).
+  `CoreXEnginePanel.cs` en PilotX.GuidanceEngine: sirve el MISMO wwwroot-corex
+  y el MISMO wire /api/corex/* que CoreX.exe. Real: status @1Hz (GPS del
+  parser + broker + NTRIP), serial open/close con persistencia
+  (corex-integrado.json — en integrado NADIE abría puertos al arrancar),
+  ntrip GET/POST/toggle (reconecta sin reiniciar proceso), red
+  (subnet broadcast PGN 201), mqtt/toggle, gps, eventos (tail del log).
+  "no-disponible-en-integrado": perfiles, radio, pass, avanzado, módulos,
+  monitor UDP, reiniciar/apagar, ntrip/mounts. Santi: CoreXState.cs y
+  CoreXStatusController.cs ahora los COMPILAN los dos proyectos (linkeados);
+  fix en CoreXEngineHost.ConnectNtrip (suscribía OnRtcmData en cada llamada
+  → RTCM duplicado al reconectar) e IsGpsSentencesOn=true (la página GPS
+  mostraba "—" en todas las sentencias).
+
+- [2026-07-31] [android] HECHO — Leonardo (usuario) reportó "el dispositivo
+  está conectado a OrbitX pero no lo veo, antes sí se veía" (pantalla
+  OrbitX del Hub, confirmado por él). Quinto hueco de la misma familia
+  (perfiles/banderas/contorno/cabecera): `EngineWebHost.cs` instanciaba
+  `OrbitXConfigService` (lee/escribe orbitX.json + prueba `/health`
+  puntual) pero nunca `OrbitXSync`, que es la clase que manda el heartbeat
+  periódico de verdad + auto-registro + firmware mirror. FormGPS sí la
+  instancia en su `Load()`. El dispositivo ya estaba vinculado (token/
+  estab_slug de una sesión FormGPS anterior — de ahí "antes sí se veía")
+  pero corriendo sobre el motor headless nunca volvía a latir. Portado
+  igual que `FlowXBridge` (mismo `IAogStateProvider`).
+  Encontré un segundo bug al verificar: `OrbitXConfigService.GetStatus()`
+  devolvía `CloudConnected=false` SIEMPRE, hardcodeado, con un comentario
+  que decía "se actualiza vía TestConnectionAsync" — pero ese método no
+  escribe nada que `GetStatus()` lea. El dispositivo podía estar
+  sincronizando perfecto (LastSync avanzando en disco) y la pantalla
+  igual mostraba "—" para siempre — este bug es PREVIO al motor headless
+  (existe desde que se escribió la clase, no es cosa mía ni tuya), así
+  que probablemente también afecta al Hub corriendo contra FormGPS. Lo
+  infiero ahora de `LastSync`: si el último sync fue hace menos de 3
+  intervalos configurados, el heartbeat está vivo.
+  Verificado en vivo, los dos: `/api/orbitx/status` pasó de
+  `cloud_connected:false` con `last_sync` vacío a `cloud_connected:true`
+  con `last_sync` fresco y `files_synced` avanzando; pantalla OrbitX del
+  Hub (Configuración → Cloud → OrbitX) confirma "● Cloud conectado" +
+  "Tractor vinculado ✓ activo" + "Estado conexión: OK".
+  Build 0 errores, 289 tests verdes.

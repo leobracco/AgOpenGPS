@@ -87,6 +87,23 @@ public sealed class VehicleSpriteClient
     }
 
     /// <summary>
+    /// Textura del PISO del mapa (img/mapa/suelo.png — el z_Floor del legacy,
+    /// reemplazable por branding sin recompilar). Se tilea en mundo; si no
+    /// está, el mapa queda con el fondo liso de siempre.
+    /// </summary>
+    public async Task<Sprite?> GetSueloAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var resp = await _http.GetAsync(_baseUrl + "img/mapa/suelo.png", ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return null;
+            var png = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            return Decodificar(png, "suelo.png");
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
     /// Sprite del implemento (sembradora, pulverizadora…). Por ahora va por
     /// convención de nombre en /img/implementos/; cuando haya selector de
     /// implemento se elegirá igual que el vehículo.
