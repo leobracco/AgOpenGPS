@@ -667,7 +667,10 @@ namespace AgOpenGPS
                         isLightBarNotSteerBar = s.setMenu_isLightbarNotSteerBar;
                         guidanceLookAheadTime = s.setAS_guidanceLookAheadTime;
                         lightbarCmPerPixel = s.setDisplay_lightbarCmPerPixel;
-                    });
+                    },
+                    // Velocidad viva: el manejo libre no se deja prender con el
+                    // tractor andando, y sin este delegado falla cerrado.
+                    () => avgSpeed);
                 var perfiles = new global::AgroParallel.Adapters.FormGpsPerfilService(this);
                 var configVehiculo = new global::AgroParallel.Adapters.FormGpsConfigService(this);
                 var headlandEdit = new global::AgroParallel.Adapters.FormGpsHeadlandEditService(this);

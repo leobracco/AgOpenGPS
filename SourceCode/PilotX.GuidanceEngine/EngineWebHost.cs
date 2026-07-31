@@ -110,10 +110,15 @@ namespace AgOpenGPS
             // Config de dirección: implementación compartida con FormGPS (archivo
             // linkeado). El engine no tiene hilo de UI, así que SendSettings va
             // directo; el ángulo vivo del WAS sale del CModuleComm del host.
+            // La velocidad es para el manejo libre: sin ella el servicio falla
+            // cerrado y no deja prenderlo (mover el volante sin guía con el
+            // tractor andando no puede depender de "no sé a qué velocidad va").
             var steerConfig = new AgroParallel.Adapters.SteerConfigService(
                 _host.Vehicle,
                 () => _host.Mc.actualSteerAngleDegrees,
-                () => _host.SettingsSender.SendSettings());
+                () => _host.SettingsSender.SendSettings(),
+                applyLive: null,
+                avgSpeed: () => _host.avgSpeed);
 
             // ── Productos X-* ────────────────────────────────────────────────
             // Sin esto el motor headless servía el mapa pero NADA de QuantiX,

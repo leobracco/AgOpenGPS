@@ -18,6 +18,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AgOpenGPS.Core\AgOpenGPS.Core.csproj" />
+    <!-- ISteerConfigService, para poder compilar acá el adapter linkeado -->
+    <ProjectReference Include="..\AgroParallel\Core\AgroParallel.Services\AgroParallel.Services.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Mismo criterio que AgOpenGPS.csproj y PilotX.GuidanceEngine.csproj: el
+         adapter se COMPILA linkeado, no se referencia. Sirve para testear el
+         manejo libre (free drive), que decide si el módulo mueve el volante. -->
+    <Compile Include="..\AgroParallel\Adapters\SteerConfigService.cs" Link="Adapters\SteerConfigService.cs" />
   </ItemGroup>
 
 </Project>

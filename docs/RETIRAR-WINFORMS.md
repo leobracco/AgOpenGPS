@@ -55,10 +55,23 @@ Verificado cruzando `CommandParameter` de las barras contra el vocabulario de
 
 ## Funciones sin equivalente todavía
 
-- ⬜ **Free Drive** (5 íconos: SteerDriveOn/Off, SteerLeft/Right, WizSteerDot) —
-  mover la dirección a mano sin guía. Toca el camino del PGN de autosteer, o sea
-  que es lo más delicado de la lista: hay que hacerlo con el mismo cuidado que
-  el giro manual (límite de velocidad, guard explícito).
+- 🟡 **Free Drive** (5 íconos: SteerDriveOn/Off, SteerLeft/Right, WizSteerDot) —
+  mover la dirección a mano sin guía. HECHO, falta cabina. Vive en el servicio
+  compartido (`AgroParallel/Adapters/SteerConfigService.cs`, lo comen los dos
+  hosts) + `/api/steer/freedrive[/angle|/zero]` + tarjeta en la tab Dirección
+  del Hub. Tres candados, porque es lo único de esa pantalla que mueve el
+  volante de verdad:
+  1. no se deja prender por encima del límite de velocidad de guiado — ni con
+     el host sin informar velocidad (falla cerrado);
+  2. `CAutoSteerUpdater` lo apaga solo si el tractor arranca (corre en cada
+     PGN, cubre los dos stacks y también al FormSteer nativo);
+  3. watchdog de latido: prendido desde una pantalla remota, si esa pantalla
+     deja de consultar (~3 s) se apaga. Lo prendido desde el FormSteer nativo
+     queda exento (`freeDriveWatchdog = −1`).
+  Verificado: 16 tests (`AgOpenGPS.Core.Tests/FreeDriveTests.cs`) y los 4
+  endpoints contra el motor real + la tarjeta en pantalla. **Falta en cabina**:
+  que el volante se mueva de verdad y que los candados 2 y 3 corten — los dos
+  descuentan en el camino del PGN, que sin GPS/sim no corre.
 - ⬜ **Importar KML / Google Earth / desde tracks** (3 íconos) — hoy devuelven
   `no-disponible-sin-ui` porque abren diálogo nativo de archivo. Necesitan que
   la pantalla suba el archivo, no que el motor abra un explorador.

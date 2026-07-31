@@ -9,6 +9,9 @@
 //   · GET  /api/steer/config    → popula los controles (si 404, quedan defaults)
 //   · POST /api/steer/config    → guarda el objeto serializado
 //   · POST /api/steer/zero-was  → pone el WAS en cero
+//   · /api/steer/freedrive[/angle|/zero] → manejo libre (mueve el volante sin
+//     guía; el motor lo rechaza en movimiento y lo apaga solo si el tractor
+//     arranca, así que la pantalla relee el estado en vez de suponerlo)
 // Todos los fetch van en try/catch: si el endpoint no existe, la página sigue
 // andando con los valores por defecto.
 //
@@ -293,6 +296,154 @@
   }
 
   // --------------------------------------------------------------------------
+  // Manejo libre (free drive)
+  //
+  // Prendido, el módulo mueve el volante con el ángulo que fija el operario, sin
+  // guía. El motor no lo deja prender con el tractor andando y lo APAGA SOLO si
+  // arranca, así que la pantalla no puede quedarse con su idea del estado: se
+  // relee del backend después de cada acción y en un latido mientras está
+  // prendido. Lo que se muestra es siempre lo que contestó el motor.
+  //   GET  /api/steer/freedrive
+  //   POST /api/steer/freedrive        {on}
+  //   POST /api/steer/freedrive/angle  {dir:-1|1}
+  //   POST /api/steer/freedrive/zero
+  // --------------------------------------------------------------------------
+  var fdEstadoPrevio = false;
+  var fdTimer = null;
+
+  function fdMotivo(j) {
+    var vel = (j && typeof j.speed === 'number') ? j.speed.toFixed(1) : '?';
+    var lim = (j && typeof j.speed_limit === 'number') ? j.speed_limit.toFixed(1) : '?';
+    switch (j && j.error) {
+      case 'velocidad':
+        return 'No se puede prender: el tractor va a ' + vel + ' km/h (límite ' + lim + ' km/h).';
+      case 'sin-velocidad':
+        return 'No se puede prender: PilotX no está informando velocidad.';
+      case 'apagado':
+        return 'Prendé el manejo libre antes de mover el ángulo.';
+      case 'service-unavailable':
+        return 'Sin módulo de dirección conectado.';
+      case 'bad-json':
+      case 'error-interno':
+        return 'No se pudo completar la acción (AGP-SYS-009).';
+      default:
+        return null;
+    }
+  }
+
+  function fdRender(j) {
+    var btn = $('fdBtn');
+    if (!btn) return;
+
+    var on = !!(j && j.on);
+    var ang = (j && typeof j.angle === 'number') ? j.angle : 0;
+
+    btn.classList.toggle('on', on);
+    var img = $('fdBtnImg');
+    if (img) img.src = '../img/steer/SteerDrive' + (on ? 'On' : 'Off') + '.png';
+    var cap = $('fdBtnCap');
+    if (cap) cap.textContent = on ? 'Prendido' : 'Apagado';
+
+    var out = $('fdAngle');
+    if (out) {
+      var u = out.querySelector('.u');
+      out.textContent = (ang > 0 ? '+' : '') + ang.toFixed(0);
+      if (u) out.appendChild(u);
+    }
+
+    ['fdLeft', 'fdRight', 'fdDot'].forEach(function (id) {
+      var b = $(id);
+      if (b) b.disabled = !on;
+    });
+
+    var nota = $('fdNota');
+    if (nota) {
+      var motivo = fdMotivo(j);
+      // Se apagó solo entre dos latidos: el motivo es el watchdog de velocidad.
+      if (!motivo && fdEstadoPrevio && !on) {
+        motivo = 'Se apagó solo: el tractor superó el límite de velocidad de guiado.';
+      }
+      nota.textContent = motivo ||
+        'Con el tractor parado. Se apaga solo por encima del límite de velocidad de guiado.';
+      nota.className = motivo ? 'nota err' : 'nota';
+    }
+
+    fdEstadoPrevio = on;
+    fdLatido(on);
+  }
+
+  // Latido: rápido mientras está prendido (para ver el apagado automático),
+  // parado cuando no lo está — no tiene sentido machacar el motor apagado.
+  function fdLatido(on) {
+    if (on && !fdTimer) {
+      fdTimer = setInterval(fdPoll, 700);
+    } else if (!on && fdTimer) {
+      clearInterval(fdTimer);
+      fdTimer = null;
+    }
+  }
+
+  function fdPoll() {
+    fetch('/api/steer/freedrive', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) fdRender(j); })
+      .catch(function () { /* motor caído: se deja lo último mostrado */ });
+  }
+
+  function fdPost(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (j) { fdRender(j); return j; })
+      .catch(function (e) {
+        var nota = $('fdNota');
+        if (nota) {
+          nota.textContent = 'Sin conexión con PilotX [' + e + '] — el manejo libre no responde.';
+          nota.className = 'nota err';
+        }
+        return null;
+      });
+  }
+
+  function initFreeDrive() {
+    var btn = $('fdBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+      fdPost('/api/steer/freedrive', { on: !btn.classList.contains('on') });
+    });
+    var l = $('fdLeft');
+    if (l) l.addEventListener('click', function () { fdPost('/api/steer/freedrive/angle', { dir: -1 }); });
+    var r = $('fdRight');
+    if (r) r.addEventListener('click', function () { fdPost('/api/steer/freedrive/angle', { dir: 1 }); });
+    var d = $('fdDot');
+    if (d) d.addEventListener('click', function () { fdPost('/api/steer/freedrive/zero', {}); });
+
+    // Salir de la pantalla con el volante bajo control manual sería dejar una
+    // función viva sin nadie mirándola: se apaga al ocultarse o cerrarse.
+    function apagar() {
+      if (!fdEstadoPrevio) return;
+      try {
+        var body = JSON.stringify({ on: false });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/steer/freedrive', new Blob([body], { type: 'application/json' }));
+        } else {
+          fdPost('/api/steer/freedrive', { on: false });
+        }
+      } catch (e) { /* último recurso: el watchdog del motor */ }
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') apagar();
+    });
+    window.addEventListener('pagehide', apagar);
+
+    fdPoll();
+  }
+
+  // --------------------------------------------------------------------------
   // Navegación por menú lateral (réplica del patrón de config.js)
   // --------------------------------------------------------------------------
   function irATab(id) {
@@ -399,6 +550,7 @@
     initSegments();
     initSaveButton();
     initAuxButtons();
+    initFreeDrive();
     var tab = new URLSearchParams(window.location.search).get('tab') || 'gain';
     irATab(tab);
     loadConfig();

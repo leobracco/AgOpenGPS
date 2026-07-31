@@ -6,6 +6,10 @@
 //   GET  /api/steer/config    → SteerConfigDto leído de los settings reales
 //   POST /api/steer/config    → persiste + aplica + manda PGN 252/251 al módulo
 //   POST /api/steer/zero-was  → cero del sensor de ángulo (WAS) con lectura viva
+//   GET  /api/steer/freedrive       → estado del manejo libre
+//   POST /api/steer/freedrive       → prender/apagar (rechaza prender en movimiento)
+//   POST /api/steer/freedrive/angle → correr el ángulo un grado (dir −1/+1)
+//   POST /api/steer/freedrive/zero  → alternar 0° ↔ 5°
 //
 // La lógica real vive en ISteerConfigService (implementación compartida
 // AgroParallel.Adapters.SteerConfigService, la usan tanto FormGPS como el motor
@@ -23,6 +27,7 @@ using EmbedIO.Routing;
 using System;
 using System.IO;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace AgroParallel.WebHost.Controllers
@@ -160,6 +165,82 @@ namespace AgroParallel.WebHost.Controllers
 
             try { return WriteJsonAsync(_svc.ZeroWas()); }
             catch (Exception ex) { return WriteJsonAsync(new { ok = false, error = ex.Message }); }
+        }
+
+        // --------------------------------------------------------------------
+        // Manejo libre (free drive)
+        //
+        // Sin servicio detrás NO se inventa un estado prendido: se devuelve
+        // ok=false / on=false. Un "ok" de mentira acá dejaría al operario
+        // creyendo que el volante va a responder.
+        // --------------------------------------------------------------------
+        private Task FreeDrive(Func<FreeDriveStateDto> accion)
+        {
+            if (_svc == null)
+                return WriteJsonAsync(new { ok = false, on = false, error = "service-unavailable" });
+
+            try { return WriteJsonAsync(accion()); }
+            catch (Exception ex) { return WriteJsonAsync(new { ok = false, on = false, error = ex.Message }); }
+        }
+
+        [Route(HttpVerbs.Get, "/steer/freedrive")]
+        public Task FreeDriveGet() => FreeDrive(() => _svc.GetFreeDrive());
+
+        [Route(HttpVerbs.Post, "/steer/freedrive")]
+        public async Task FreeDrivePost()
+        {
+            if (_svc == null)
+            {
+                await WriteJsonAsync(new { ok = false, on = false, error = "service-unavailable" }).ConfigureAwait(false);
+                return;
+            }
+
+            FreeDriveRequest req;
+            try { req = await ReadJsonBodyAsync<FreeDriveRequest>().ConfigureAwait(false); }
+            catch { req = null; }
+
+            if (req == null)
+            {
+                await WriteJsonAsync(new { ok = false, on = false, error = "bad-json" }).ConfigureAwait(false);
+                return;
+            }
+
+            try { await WriteJsonAsync(_svc.SetFreeDrive(req.On)).ConfigureAwait(false); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, on = false, error = ex.Message }).ConfigureAwait(false); }
+        }
+
+        [Route(HttpVerbs.Post, "/steer/freedrive/angle")]
+        public async Task FreeDriveAngle()
+        {
+            if (_svc == null)
+            {
+                await WriteJsonAsync(new { ok = false, on = false, error = "service-unavailable" }).ConfigureAwait(false);
+                return;
+            }
+
+            FreeDriveRequest req;
+            try { req = await ReadJsonBodyAsync<FreeDriveRequest>().ConfigureAwait(false); }
+            catch { req = null; }
+
+            if (req == null)
+            {
+                await WriteJsonAsync(new { ok = false, on = false, error = "bad-json" }).ConfigureAwait(false);
+                return;
+            }
+
+            try { await WriteJsonAsync(_svc.NudgeFreeDrive(req.Dir)).ConfigureAwait(false); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, on = false, error = ex.Message }).ConfigureAwait(false); }
+        }
+
+        [Route(HttpVerbs.Post, "/steer/freedrive/zero")]
+        public Task FreeDriveZero() => FreeDrive(() => _svc.ToggleFreeDriveZero());
+
+        /// <summary>Body de los POST del manejo libre: prender/apagar y correr
+        /// el ángulo un grado (dir −1/+1).</summary>
+        private sealed class FreeDriveRequest
+        {
+            [JsonPropertyName("on")] public bool On { get; set; }
+            [JsonPropertyName("dir")] public int Dir { get; set; }
         }
     }
 }

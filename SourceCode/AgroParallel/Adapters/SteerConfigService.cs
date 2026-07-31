@@ -24,6 +24,7 @@
 //                               (lightbar, ancho de línea, snap distance…)
 // ============================================================================
 
+using AgLibrary.Logging;
 using AgOpenGPS;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
@@ -37,21 +38,29 @@ namespace AgroParallel.Adapters
         // montado, no un cero legítimo (btnZeroWAS_Click).
         private const int WasOffsetLimit = 3900;
 
+        // Tope duro del manejo libre, el mismo del FormSteer nativo
+        // (btnSteerAngleUp/Down_MouseDown). Se cruza con el ángulo máximo del
+        // vehículo: manda el más chico de los dos.
+        private const double FreeDriveMaxAngle = 40.0;
+
         private readonly CVehicle _vehicle;
         private readonly Func<double> _actualSteerAngleDegrees;
         private readonly Action _sendSettings;
         private readonly Action<SteerConfigDto> _applyLive;
+        private readonly Func<double> _avgSpeed;
 
         public SteerConfigService(
             CVehicle vehicle,
             Func<double> actualSteerAngleDegrees,
             Action sendSettings,
-            Action<SteerConfigDto> applyLive = null)
+            Action<SteerConfigDto> applyLive = null,
+            Func<double> avgSpeed = null)
         {
             _vehicle = vehicle;
             _actualSteerAngleDegrees = actualSteerAngleDegrees;
             _sendSettings = sendSettings;
             _applyLive = applyLive;
+            _avgSpeed = avgSpeed;
         }
 
         // Nombre completo a propósito: este archivo lo compilan dos proyectos
@@ -241,6 +250,145 @@ namespace AgroParallel.Adapters
             _sendSettings?.Invoke();
 
             return new SteerZeroWasResult { Ok = true, WasOffset = offset, SteerAngle = angle };
+        }
+
+        // --------------------------------------------------------------------
+        // Manejo libre (port del bloque "Free Drive" de FormSteer.cs)
+        //
+        // Prendido, el PGN 254 sale con status=1 y el ángulo que fija el
+        // operario (CAutoSteerUpdater, rama "Drive button is on"): el módulo
+        // mueve el volante SIN guía y sin importar dónde esté el tractor. Es
+        // para probar la dirección PARADO — de ahí los dos candados:
+        //
+        //   1. acá, al prender: se rechaza por encima del límite de velocidad
+        //      de funciones de guiado (el mismo que usa el giro manual), y se
+        //      rechaza también si el host no sabe informar velocidad — sin
+        //      velocidad no hay forma de saber si el tractor está quieto, y
+        //      "no sé" tiene que fallar cerrado, no abierto;
+        //   2. en CAutoSteerUpdater, en cada PGN: si el tractor arranca con el
+        //      manejo libre prendido, se apaga solo. Ese es el candado que
+        //      importa — este de acá solo cubre el momento del click.
+        // --------------------------------------------------------------------
+        // Latidos de gracia del watchdog: el PGN 254 sale a ~10 Hz y la pantalla
+        // consulta cada 700 ms, así que 30 (≈3 s) aguanta un hipo de red sin
+        // apagar nada, y corta rápido si la pantalla desapareció de verdad.
+        private const int FreeDriveLatidos = 30;
+
+        public FreeDriveStateDto GetFreeDrive()
+        {
+            // Consultar ES el latido: la pantalla que muestra el manejo libre
+            // relee el estado mientras está prendido.
+            Latir();
+            return Estado(true, null);
+        }
+
+        /// <summary>Recarga el watchdog del manejo libre. Solo cuenta con el
+        /// modo prendido: apagado no hay nada que vigilar.</summary>
+        private void Latir()
+        {
+            if (_vehicle != null && _vehicle.isInFreeDriveMode)
+                _vehicle.freeDriveWatchdog = FreeDriveLatidos;
+        }
+
+        public FreeDriveStateDto SetFreeDrive(bool on)
+        {
+            if (_vehicle == null) return Estado(false, "error-interno");
+
+            if (!on)
+            {
+                // Apagar SIEMPRE vale: es la salida de emergencia.
+                _vehicle.isInFreeDriveMode = false;
+                _vehicle.driveFreeSteerAngle = 0;
+                _vehicle.freeDriveWatchdog = -1;
+                return Estado(true, null);
+            }
+
+            if (_avgSpeed == null)
+            {
+                Log.EventWriter("Manejo libre rechazado: el host no informa velocidad");
+                return Estado(false, "sin-velocidad");
+            }
+
+            double speed = Math.Abs(_avgSpeed());
+            double limit = LimiteVelocidad;
+            if (speed >= limit)
+            {
+                Log.EventWriter($"Manejo libre rechazado: {speed:F1} km/h supera el limite de {limit:F1}");
+                return Estado(false, "velocidad");
+            }
+
+            _vehicle.isInFreeDriveMode = true;
+            _vehicle.driveFreeSteerAngle = 0;
+            // Prendido desde una pantalla remota: entra al watchdog. Si esa
+            // pantalla deja de latir, el motor lo apaga.
+            _vehicle.freeDriveWatchdog = FreeDriveLatidos;
+            Log.EventWriter("Manejo libre prendido");
+            return Estado(true, null);
+        }
+
+        public FreeDriveStateDto NudgeFreeDrive(int dir)
+        {
+            if (_vehicle == null) return Estado(false, "error-interno");
+            // Sin el modo prendido el ángulo no va a ningún lado (el PGN lo
+            // ignora): aceptarlo sería decir "ok" sin efecto.
+            if (!_vehicle.isInFreeDriveMode) return Estado(false, "apagado");
+            if (dir == 0) return Estado(true, null);
+
+            double max = MaxAngulo;
+            double v = _vehicle.driveFreeSteerAngle + (dir > 0 ? 1 : -1);
+            if (v > max) v = max;
+            else if (v < -max) v = -max;
+            _vehicle.driveFreeSteerAngle = v;
+            Latir();
+            return Estado(true, null);
+        }
+
+        public FreeDriveStateDto ToggleFreeDriveZero()
+        {
+            if (_vehicle == null) return Estado(false, "error-interno");
+            if (!_vehicle.isInFreeDriveMode) return Estado(false, "apagado");
+
+            // btnFreeDriveZero_Click: 0 ↔ 5°.
+            _vehicle.driveFreeSteerAngle = _vehicle.driveFreeSteerAngle == 0 ? 5 : 0;
+            Latir();
+            return Estado(true, null);
+        }
+
+        private double LimiteVelocidad
+        {
+            get
+            {
+                double lim = _vehicle != null ? _vehicle.functionSpeedLimit : 0;
+                // El vehículo recién construido puede tener 0 hasta que se
+                // aplica la config; ahí manda el setting.
+                if (lim <= 0) lim = S.setAS_functionSpeedLimit;
+                return lim > 0 ? lim : 1.0;
+            }
+        }
+
+        private double MaxAngulo
+        {
+            get
+            {
+                double max = _vehicle != null ? _vehicle.maxSteerAngle : 0;
+                if (max <= 0) max = S.setVehicle_maxSteerAngle;
+                if (max <= 0 || max > FreeDriveMaxAngle) max = FreeDriveMaxAngle;
+                return max;
+            }
+        }
+
+        private FreeDriveStateDto Estado(bool ok, string error)
+        {
+            return new FreeDriveStateDto
+            {
+                Ok = ok,
+                Error = error,
+                On = _vehicle != null && _vehicle.isInFreeDriveMode,
+                Angle = _vehicle != null ? _vehicle.driveFreeSteerAngle : 0,
+                MaxAngle = MaxAngulo,
+                Speed = _avgSpeed != null ? Math.Abs(_avgSpeed()) : 0,
+                SpeedLimit = LimiteVelocidad,
+            };
         }
 
         // --------------------------------------------------------------------

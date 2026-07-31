@@ -190,6 +190,40 @@
     .sends { display: flex; justify-content: space-between; font-size: 12px; color: var(--gris); margin-top: 4px; }
     .shint { font-size: 12px; color: var(--gris); margin-top: 6px; }
 
+    /* ---- manejo libre (free drive) ----
+       Mismo lenguaje que el resto de la pantalla: tarjeta blanca compacta, el
+       verde solo como estado prendido. El botón de encendido es más grande
+       que los demás a propósito: es el único de esta pantalla que mueve el
+       volante de verdad. */
+    .fdfila { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .fdpower {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 2px;
+      min-width: 96px; padding: 8px 10px;
+      border: 2px solid var(--borde); border-radius: 12px; background: #fff;
+      cursor: pointer; touch-action: manipulation;
+    }
+    .fdpower img { width: 48px; height: 48px; object-fit: contain; pointer-events: none; }
+    .fdpower .cap { font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .fdpower.on { border-color: var(--verde); background: #eaf6e8; }
+    .fdpower.on .cap { color: var(--texto); }
+    .fdmandos { display: flex; align-items: center; gap: 10px; }
+    .fdarrow {
+      width: 56px; height: 56px; flex: none; border: 1px solid var(--borde);
+      border-radius: 10px; background: #fff; cursor: pointer; touch-action: manipulation;
+    }
+    .fdarrow img { width: 40px; height: 40px; object-fit: contain; pointer-events: none; }
+    /* El texto del botón solo aparece cuando el icono está oculto (vista pelada),
+       igual que hace el "cero del WAS" con su botón de texto. */
+    .fdarrow .cap { display: none; font: 700 15px "Segoe UI", Roboto, sans-serif; }
+    .fdarrow:active { background: #e6ede5; }
+    .fdarrow[disabled], #fdDot[disabled] { opacity: .35; cursor: default; }
+    .fdang {
+      font: 700 30px "Segoe UI", Roboto, sans-serif; min-width: 84px;
+      text-align: center; line-height: 1;
+    }
+    .fdang .u { font-size: 15px; font-weight: 600; color: var(--gris); }
+    #fdNota.err { color: var(--rojo); font-weight: 600; }
+
     /* barra de ángulo real de dirección (indicador) */
     .anglebar {
       display: flex; height: 16px; background: #fff; border: 1px solid var(--borde);
@@ -242,11 +276,16 @@
     .chkimg img,
     .seg.seg-img .seg-btn img,
     .btnZero img,
+    .fdpower img,
+    .fdarrow img,
     #btnGuardarFloat img { display: none; }
     /* compensaciones cuando se ocultan las imágenes */
     #menu button { padding-left: 12px; }
     .chkimg { min-height: 44px; justify-content: center; }
     .btnZero { display: none; }   /* el "0" quedaría vacío; se oculta el botón */
+    /* El manejo libre NO se oculta sin iconos: sus botones llevan texto propio. */
+    .fdarrow .cap { display: inline; }
+    .fdpower { min-height: 56px; justify-content: center; }
     /* Botón de texto para poner el sensor de ángulo en cero (reemplaza el icono) */
     .btnZeroWas {
       min-height: 46px; padding: 8px 18px; border: 1px solid var(--verde);
@@ -413,6 +452,33 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- ---- Manejo libre (free drive) ---------------------------------
+             Mueve el volante sin guía, para probar sentido de giro y sensor
+             con el tractor PARADO. No se deja prender en movimiento y se
+             apaga solo si el tractor arranca. -->
+        <div class="carta">
+          <h2>Manejo libre · probar la dirección</h2>
+          <div class="fdfila">
+            <button type="button" class="fdpower" id="fdBtn" title="Prender / apagar el manejo libre">
+              <img id="fdBtnImg" src="../img/steer/SteerDriveOff.png" alt="" />
+              <span class="cap" id="fdBtnCap">Apagado</span>
+            </button>
+            <div class="fdmandos">
+              <button type="button" class="fdarrow" id="fdLeft" title="Un grado a la izquierda" disabled>
+                <img src="../img/steer/SteerLeft.png" alt="" /><span class="cap">−1°</span>
+              </button>
+              <span class="fdang" id="fdAngle">0<span class="u">°</span></span>
+              <button type="button" class="fdarrow" id="fdRight" title="Un grado a la derecha" disabled>
+                <img src="../img/steer/SteerRight.png" alt="" /><span class="cap">+1°</span>
+              </button>
+              <button type="button" class="btnZeroWas" id="fdDot" title="Alternar entre 0° y 5°" disabled>
+                0° ↔ 5°
+              </button>
+            </div>
+          </div>
+          <p class="nota" id="fdNota">Con el tractor parado. Se apaga solo por encima del límite de velocidad de guiado.</p>
         </div>
       </section>
 

@@ -37,6 +37,15 @@ namespace AgOpenGPS
         //the trackbar angle for free drive
         public double driveFreeSteerAngle = 0;
 
+        // Latidos que le quedan al manejo libre antes de apagarse solo.
+        // −1 = sin watchdog (lo prendió el FormSteer nativo, que vive mientras
+        // la ventana está abierta). ≥0 = lo prendió una pantalla remota (el Hub
+        // por /api/steer/freedrive): esa pantalla puede desaparecer de golpe —
+        // WebView cerrado, PilotX caído — y el volante NO puede quedar bajo
+        // control de nadie. Cada consulta de la pantalla lo recarga;
+        // CAutoSteerUpdater lo descuenta en cada PGN.
+        public int freeDriveWatchdog = -1;
+
         public double modeXTE, modeActualXTE = 0, modeActualHeadingError = 0;
         public int modeTime = 0;
 
