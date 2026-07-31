@@ -65,6 +65,8 @@ namespace AgOpenGPS
         private FlowXBridge _flowxBridge;
         private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
         private System.Threading.Timer _orbitxRetry;
+        private AgroParallel.QuantiX.QuantiXMotorBridge _quantixBridge;
+        private System.Threading.Timer _quantixRetry;
 
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
@@ -268,6 +270,30 @@ namespace AgOpenGPS
                 Console.Error.WriteLine("[Engine] OrbitXSync: " + ex.Message);
             }
 
+            // Bridge de motores QuantiX: el que PUBLICA los targets de dosis a
+            // los nodos por MQTT. En FormGPS lo instancia el Load() del form —
+            // acá no lo arrancaba nadie: el nodo conectaba, mandaba telemetría
+            // y esperaba órdenes que nunca llegaban ("veo el nodo pero no
+            // gira"). Vigilante cada 30 s (primer tick al toque): arranca el
+            // bridge en cuanto haya nodos configurados (el auto-registro por
+            // announcement puede llegar DESPUÉS del arranque del motor).
+            _quantixRetry = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    if (_quantixBridge != null && _quantixBridge.IsRunning) return;
+                    if (AgroParallel.QuantiX.MotoresConfig.Load().Nodos.Count == 0) return;
+
+                    _quantixBridge = new AgroParallel.QuantiX.QuantiXMotorBridge(state, _nodos, new PrescripcionService());
+                    _ = _quantixBridge.StartAsync();
+                    Console.WriteLine("[Engine] QuantiXMotorBridge arrancado: hay nodos configurados.");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("[Engine] QuantiX bridge: " + ex.Message);
+                }
+            }, null, 2000, 30000);
+
             // Vigilante de la vinculación: si el sync no corre (arrancó con
             // enabled=false o sin token — el caso REAL: el motor arranca sin
             // vincular y el operario vincula DESPUÉS desde la pantalla OrbitX,
@@ -303,6 +329,10 @@ namespace AgOpenGPS
             // Antes de _web?.Stop(): orbitX.json no se puede escribir mientras
             // el guardado del lote está en curso (mismo motivo que FormGPS.cs
             // para su propio orbitXSync.Stop() en el shutdown).
+            try { _quantixRetry?.Dispose(); } catch { }
+            _quantixRetry = null;
+            try { _quantixBridge?.Stop(); } catch { }
+            _quantixBridge = null;
             try { _orbitxRetry?.Dispose(); } catch { }
             _orbitxRetry = null;
             try { _orbitxSync?.Dispose(); } catch { }
