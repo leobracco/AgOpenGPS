@@ -690,6 +690,23 @@ namespace AgroParallel.OrbitX
                         continue;
                     }
 
+                    // El endpoint de pendientes entrega TODOS los
+                    // aog_descarga_pendiente del device, no solo prescripciones:
+                    // los LOTES creados en OrbitX (dibujar contorno + "enviar a
+                    // PilotX") llegan por acá como Fields/<lote>/Field.txt,
+                    // Boundary.txt y boundary.kml. Antes todo se guardaba como
+                    // prescripción (.geojson en data/prescripciones) y encima se
+                    // marcaba entregado: el lote del cloud se PERDÍA en una
+                    // carpeta equivocada.
+                    string rutaRel = item.TryGetProperty("ruta_rel", out var rr) ? (rr.GetString() ?? "") : "";
+                    if (rutaRel.StartsWith("Fields/", StringComparison.OrdinalIgnoreCase) ||
+                        rutaRel.StartsWith("Fields\\", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (GuardarArchivoDeLote(rutaRel, contenido)) descargadas++;
+                        else errores++;
+                        continue;
+                    }
+
                     string dir = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "data", "prescripciones");
                     if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
@@ -716,6 +733,67 @@ namespace AgroParallel.OrbitX
         {
             if (string.IsNullOrEmpty(s)) return "";
             return s.Length <= max ? s : s.Substring(0, max) + "…";
+        }
+
+        /// <summary>
+        /// Archivo de LOTE bajado del cloud (Fields/&lt;lote&gt;/Field.txt,
+        /// Boundary.txt, boundary.kml — los genera "crear lote" en OrbitX).
+        /// Se escribe directo en el directorio de lotes del tractor: el lote
+        /// queda listo para abrir desde la pantalla Lote. Si ese lote está
+        /// ABIERTO ahora, se saltea con aviso — el cierre del lote pisa el
+        /// Boundary con lo que tiene en memoria y el archivo bajado se
+        /// perdería en silencio.
+        /// </summary>
+        private bool GuardarArchivoDeLote(string rutaRel, string contenido)
+        {
+            try
+            {
+                var snap = _state.GetSnapshot();
+                string fieldsDir = snap?.FieldsDirectory;
+                if (string.IsNullOrEmpty(fieldsDir))
+                {
+                    Trace("[LOTE] sin fields_directory en el state — no sé dónde guardar " + rutaRel);
+                    return false;
+                }
+
+                // Sanitizar: nada de ".." ni rutas absolutas dentro de ruta_rel.
+                string rel = rutaRel.Replace('\\', '/');
+                if (rel.Contains("..") || Path.IsPathRooted(rel))
+                {
+                    Trace("[LOTE] ruta_rel sospechosa, descartada: " + rutaRel);
+                    return false;
+                }
+                // Sacar el prefijo "Fields/": el resto es <lote>/<archivo>.
+                rel = rel.Substring("Fields/".Length);
+
+                string[] partes = rel.Split('/');
+                if (partes.Length < 2)
+                {
+                    Trace("[LOTE] ruta_rel sin lote/archivo: " + rutaRel);
+                    return false;
+                }
+                string lote = partes[0];
+
+                if (!string.IsNullOrEmpty(snap.CurrentFieldDirectory) &&
+                    string.Equals(snap.CurrentFieldDirectory, lote, StringComparison.OrdinalIgnoreCase))
+                {
+                    Trace("[LOTE] '" + lote + "' está ABIERTO en el tractor: no piso sus archivos. " +
+                          "Cerralo y mandalo de nuevo desde OrbitX.");
+                    return false;
+                }
+
+                string destino = Path.Combine(fieldsDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(destino));
+                File.WriteAllText(destino, contenido);
+                FilesSynced++;
+                Trace("[LOTE] OK → " + destino + " (" + contenido.Length + " bytes)");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Trace("[LOTE] EX " + rutaRel + ": " + ex.Message);
+                return false;
+            }
         }
 
         private async Task SendTracking()
