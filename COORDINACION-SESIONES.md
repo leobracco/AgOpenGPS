@@ -3220,3 +3220,21 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   duplicar la lista ahí (una sola UI). Verificado en vivo con captura:
   "Abrir Prescripciones" navega ahí y muestra "La Paloa 2" lista para
   activar. Build 0 errores, 289 tests verdes.
+
+- [2026-07-31] [android] HECHO — Leonardo (usuario) reportó "si quiero
+  seleccionar una guía existente no me deja" (pantalla Guías, ícono
+  TrackOn de la barra de abajo, `tracks.html`). Verificado con curl que
+  `/api/tracks/select` funciona perfecto en el backend (`selected_idx`
+  cambia bien) — el bug estaba en `tracks.js`: leía `t.visible`, pero el
+  wire es snake_case (AgpJson) y la API manda `is_visible`. `t.visible`
+  daba siempre `undefined` → falsy, así que TODAS las guías quedaban con
+  la clase "hidden" puesta (texto grisado), el cuadrado de visibilidad
+  siempre rojo/"off", y el click en el nombre para seleccionar hacía
+  early-return SIEMPRE ("el nativo solo selecciona guías visibles") —
+  sin importar si la guía era visible de verdad. No era un problema de
+  "guías existentes" específicamente: no se podía seleccionar NINGUNA
+  guía, nunca, desde que se escribió este archivo.
+  Reproducido y confirmado antes/después con curl (`selected_idx` no
+  cambiaba con el click en pantalla antes del fix, cambiaba bien
+  después) + captura (cuadrado pasó de rojo a verde). Build 0 errores,
+  289 tests verdes.
