@@ -64,6 +64,7 @@ namespace AgOpenGPS
         private NodoRegistryService _nodos;
         private FlowXBridge _flowxBridge;
         private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
+        private System.Threading.Timer _orbitxRetry;
 
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
@@ -263,6 +264,32 @@ namespace AgOpenGPS
             {
                 Console.Error.WriteLine("[Engine] OrbitXSync: " + ex.Message);
             }
+
+            // Vigilante de la vinculación: si el sync no corre (arrancó con
+            // enabled=false o sin token — el caso REAL: el motor arranca sin
+            // vincular y el operario vincula DESPUÉS desde la pantalla OrbitX,
+            // que solo escribe orbitX.json), recargar la config cada 30 s y
+            // arrancarlo apenas esté habilitada. Sin esto la vinculación no
+            // hacía nada hasta reiniciar el motor: heartbeat muerto y las
+            // prescripciones del cloud sin bajar, con todo "conectado".
+            _orbitxRetry = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    if (_orbitxSync != null && _orbitxSync.IsRunning) return;
+                    var cfg = AgroParallel.OrbitX.OrbitXConfig.Load();
+                    if (!cfg.Enabled || string.IsNullOrEmpty(cfg.DeviceToken)) return;
+
+                    try { _orbitxSync?.Dispose(); } catch { }
+                    _orbitxSync = new AgroParallel.OrbitX.OrbitXSync(state, cfg);
+                    _orbitxSync.Start();
+                    Console.WriteLine("[Engine] OrbitXSync (re)arrancado: la vinculación apareció en orbitX.json.");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("[Engine] OrbitXSync retry: " + ex.Message);
+                }
+            }, null, 30000, 30000);
         }
 
         public void Stop()
@@ -272,6 +299,8 @@ namespace AgOpenGPS
             // Antes de _web?.Stop(): orbitX.json no se puede escribir mientras
             // el guardado del lote está en curso (mismo motivo que FormGPS.cs
             // para su propio orbitXSync.Stop() en el shutdown).
+            try { _orbitxRetry?.Dispose(); } catch { }
+            _orbitxRetry = null;
             try { _orbitxSync?.Dispose(); } catch { }
             _orbitxSync = null;
             try { _web?.Stop(); } catch { }
