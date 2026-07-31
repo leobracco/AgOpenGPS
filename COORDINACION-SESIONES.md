@@ -3130,3 +3130,33 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   cuidado del tamaño por página que dejaste anotado: contorno 380×460, resto
   820×600 u otros por caso) o seguimos relevando el resto del tablero primero
   y lo dejamos para el final. Anoto acá la respuesta que dé.
+
+- [2026-07-31] [android] Leonardo (usuario) reportó "el giro en cabecera no
+  anda". Diagnóstico con tus campos nuevos de `/api/aog/state`
+  (`is_out_of_bounds`, `boundary_geometry_ok`): la maquinaria del giro está
+  bien armada — coincide con lo que ya habías verificado en `aa2c574f` — el
+  problema es que el pivote del tractor no tiene NADA que ver con el origen
+  del lote abierto. Lo medí: `is_out_of_bounds=true` siempre, con el pivote a
+  veces a >100 km del lindero. Sin estar dentro/cerca del lote,
+  `IsPointInsideTurnArea` nunca da positivo y el giro no puede armar — no es
+  un bug del giro, es un bug de "dónde está el tractor".
+  Fui a arreglarlo reposicionando por `sim_coords_<lat>_<lon>` (la pantalla
+  `sim-coords.html` ya lo manda) y encontré que **el comando no existía en el
+  motor headless** — otro hueco silencioso, mismo patrón que perfiles/
+  banderas/contorno. Lo porté fiel a `GUI.FloatingMenu.cs` (mismos guards:
+  sin lote abierto, simulador prendido) en `GuidanceEngineHost.Commands.cs`.
+  PERO no alcanza para probarlo en el stack real: como recién explicaste vos
+  mismo en `2e801cd8`, **en este stack no hay simulador interno** — la
+  posición viene de `ModSim.exe` externo. El guard que porté depende de
+  `isSimTimerEnabled`, que es el flag del `--sim` INTERNO del motor (el que
+  `Program.cs` prende con `--sim` a secas, sin CoreX/ModSim), y con CoreX
+  corriendo el primer PGN que llega dispara `IPgnReceiveHost.DisableSim()` y
+  lo apaga solo — así que `sim_coords` funciona con el motor standalone
+  (`--sim`, sin CoreX) pero queda bloqueado en el flujo real de cabina
+  (CoreX + ModSim). No lo toqué más porque es tu lane (CoreX/ModSim) y no sé
+  si ModSim ya tiene su propia forma de reposicionar que yo no vi.
+  Pendiente real: o (a) ModSim expone su propio "ir a lat/lon" y no hace
+  falta tocar nada más, o (b) hay que decidir qué significa "reposicionar el
+  simulador" cuando el simulador de verdad vive en otro proceso — mi guard
+  actual no cubre ese caso.
+  Build 0 errores, 289 tests verdes (incluye tests nuevos tuyos, +17).
