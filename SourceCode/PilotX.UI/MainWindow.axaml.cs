@@ -664,10 +664,21 @@ public partial class MainWindow : Window
         string? ultimo = null;
         bool ruedaLista = false;
         bool implementoListo = false;
+        bool pisoListo = false;
         while (true)
         {
             try
             {
+                // Piso del mapa (fondo texturado): una sola vez.
+                if (!pisoListo)
+                {
+                    var piso = await cli.GetSueloAsync().ConfigureAwait(false);
+                    if (piso != null)
+                    {
+                        _mapHost?.SetFloorTexture(piso.Rgba, piso.Width, piso.Height);
+                        pisoListo = true;
+                    }
+                }
                 // Rueda delantera e implemento: una sola vez, no cambian con el
                 // vehículo elegido.
                 if (!ruedaLista)

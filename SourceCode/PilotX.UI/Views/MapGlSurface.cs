@@ -75,6 +75,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     // el mapa sin marcador de posición.
     private uint _texProgram;
     private int _uTexMvp;
+    private int _uTexTint;
     private uint _texVbo;
     private uint _vehicleTex;
     private bool _vehicleTexReady;
@@ -95,6 +96,20 @@ public sealed class MapGlSurface : OpenGlControlBase
     private double _implementoAspect = 1.0;
     private byte[]? _pendingImplRgba;
     private int _pendingImplW, _pendingImplH;
+
+    // ---- piso del mapa (fondo texturado) --------------------------------
+    // El z_Floor del legacy (o Branding suelo.png del wwwroot) tileado en
+    // coordenadas de mundo: al moverse el tractor la textura queda fija al
+    // suelo, como en AOG. Sin textura, el fondo sigue siendo el liso de
+    // siempre — la capa es opcional de punta a punta.
+    private uint _floorTex;
+    private bool _floorTexReady;
+    private byte[]? _pendingFloorRgba;
+    private int _pendingFloorW, _pendingFloorH;
+    // Un tile cada 50 m: con el z_Floor de 1024px queda ~5 cm/px, parecido a
+    // la escala visual del legacy. Si el branding trae otra textura, se ajusta
+    // acá y listo.
+    private const double FloorTileM = 50.0;
 
     // Buffer CPU reutilizable. Se vuelca a _vbo en cada render que vea
     // un snapshot nuevo. No se aloca por frame.
@@ -314,8 +329,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         (es ? "#version 300 es\nprecision mediump float;\n" : "#version 330 core\n") +
         "in vec2 vUv;\n" +
         "uniform sampler2D uTex;\n" +
+        // Tinte multiplicativo: blanco = textura tal cual (sprites); el piso
+        // lo usa para oscurecerse de noche sin duplicar la textura.
+        "uniform vec4 uTint;\n" +
         "out vec4 FragColor;\n" +
-        "void main(){ vec4 c = texture(uTex, vUv); if (c.a < 0.02) discard; FragColor = c; }\n";
+        "void main(){ vec4 c = texture(uTex, vUv) * uTint; if (c.a < 0.02) discard; FragColor = c; }\n";
 
     /// <summary>
     /// Carga el sprite del vehículo (RGBA sin premultiplicar). Se llama desde
@@ -335,6 +353,26 @@ public sealed class MapGlSurface : OpenGlControlBase
             _pendingTexW = width;
             _pendingTexH = height;
             _vehicleAspect = (double)height / width;
+        }
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Textura del piso (fondo del mapa, tileada en mundo). Pasar null la saca
+    /// y el fondo vuelve al color liso.
+    /// </summary>
+    public void SetFloorTexture(byte[]? rgba, int width, int height)
+    {
+        if (rgba == null || width <= 0 || height <= 0)
+        {
+            _pendingFloorRgba = null;
+            _floorTexReady = false;
+        }
+        else
+        {
+            _pendingFloorRgba = rgba;
+            _pendingFloorW = width;
+            _pendingFloorH = height;
         }
         Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
     }
@@ -705,7 +743,12 @@ public sealed class MapGlSurface : OpenGlControlBase
         {
             _texProgram = CompileProgram(_gl, BuildTexVertSrc(es), BuildTexFragSrc(es));
             _uTexMvp = _gl.GetUniformLocation(_texProgram, "uMvp");
+            _uTexTint = _gl.GetUniformLocation(_texProgram, "uTint");
             _texVbo = _gl.GenBuffer();
+            // Tint neutro de arranque: sin esto los sprites saldrían negros
+            // hasta el primer DrawFloor (uniform sin inicializar = 0).
+            _gl.UseProgram(_texProgram);
+            _gl.Uniform4(_uTexTint, 1f, 1f, 1f, 1f);
         }
         catch (Exception ex)
         {
@@ -877,6 +920,14 @@ public sealed class MapGlSurface : OpenGlControlBase
         // Copia para el shader del sprite del vehículo, que usa su propio
         // programa y necesita la MISMA transformación.
         for (int i = 0; i < 16; i++) _mvpCache[i] = mvp[i];
+
+        // --- Capa 0: piso texturado (fondo del mapa) -------------------
+        // El z_Floor tileado en mundo, como el legacy: la textura queda
+        // fija al suelo y el tractor pasa por encima. Va antes que TODO
+        // (coverage, guías, lindero pintan arriba). Si no hay textura, el
+        // clear color de siempre hace de fondo.
+        if (_floorTexReady)
+            DrawFloor(cxBbox, cyBbox, wPx, hPx, scale);
 
         // --- Capa 1: world grid — DESACTIVADA (2026-07-28, pedido usuario) --
         // El cuadriculado de fondo no le decía nada al operario: no marca
@@ -2158,6 +2209,15 @@ public sealed class MapGlSurface : OpenGlControlBase
             if (_implementoTex == 0) _implementoTex = _gl.GenTexture();
             _implementoTexReady = SubirTextura(_implementoTex, px, _pendingImplW, _pendingImplH, "implemento");
         }
+
+        if (_pendingFloorRgba != null)
+        {
+            var px = _pendingFloorRgba;
+            _pendingFloorRgba = null;
+            if (_floorTex == 0) _floorTex = _gl.GenTexture();
+            // REPEAT: el piso se tilea en mundo (los sprites van CLAMP).
+            _floorTexReady = SubirTextura(_floorTex, px, _pendingFloorW, _pendingFloorH, "piso", repeat: true);
+        }
     }
 
     /// <summary>
@@ -2204,7 +2264,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
     }
 
-    private bool SubirTextura(uint tex, byte[] px, int w, int h, string que)
+    private bool SubirTextura(uint tex, byte[] px, int w, int h, string que, bool repeat = false)
     {
         try
         {
@@ -2217,10 +2277,12 @@ public sealed class MapGlSurface : OpenGlControlBase
                         (uint)w, (uint)h, 0, PixelFormat.Rgba, PixelType.UnsignedByte, p);
                 }
             }
-            // CLAMP: sin esto, el filtrado del borde repite el lado opuesto y
-            // aparece una franja del otro extremo del sprite.
-            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)GLEnum.ClampToEdge);
-            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)GLEnum.ClampToEdge);
+            // Sprites van CLAMP: sin esto, el filtrado del borde repite el lado
+            // opuesto y aparece una franja del otro extremo. El PISO va REPEAT:
+            // se tilea en coordenadas de mundo.
+            int wrap = (int)(repeat ? GLEnum.Repeat : GLEnum.ClampToEdge);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, wrap);
+            _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, wrap);
             _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)GLEnum.Linear);
             _gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)GLEnum.Linear);
             return true;
@@ -2299,6 +2361,74 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.ActiveTexture(TextureUnit.Texture0);
         _gl.BindTexture(TextureTarget.Texture2D, tex);
         _gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
+    }
+
+    /// <summary>
+    /// Piso texturado: un quad axis-aligned en MUNDO que cubre lo visible con
+    /// margen (la vista puede estar rotada por heading-up), con UV = mundo /
+    /// FloorTileM para que la textura REPEAT quede clavada al suelo. De noche
+    /// se oscurece con uTint; el uniform vuelve a blanco al salir para que los
+    /// sprites no hereden el tinte.
+    /// </summary>
+    private void DrawFloor(double cx, double cy, int wPx, int hPx, double scale)
+    {
+        if (_gl == null || _texProgram == 0) return;
+
+        // Diagonal completa de la pantalla en metros: alcanza para cualquier
+        // rotación y para el pitch 3D, sin calcular el frustum exacto.
+        double half = Math.Sqrt((double)wPx * wPx + (double)hPx * hPx) / Math.Max(scale, 1e-6);
+
+        double x0 = cx - half, x1 = cx + half;
+        double y0 = cy - half, y1 = cy + half;
+        float u0 = (float)(x0 / FloorTileM), u1 = (float)(x1 / FloorTileM);
+        float v0 = (float)(y0 / FloorTileM), v1 = (float)(y1 / FloorTileM);
+
+        float[] v =
+        {
+            (float)x0, (float)y0, u0, v0,
+            (float)x1, (float)y0, u1, v0,
+            (float)x1, (float)y1, u1, v1,
+            (float)x0, (float)y0, u0, v0,
+            (float)x1, (float)y1, u1, v1,
+            (float)x0, (float)y1, u0, v1,
+        };
+
+        try
+        {
+            _gl.UseProgram(_texProgram);
+            unsafe
+            {
+                fixed (float* m = _mvpCache) _gl.UniformMatrix4(_uTexMvp, 1, false, m);
+                fixed (float* p = v)
+                {
+                    _gl.BindBuffer(BufferTargetARB.ArrayBuffer, _texVbo);
+                    _gl.BufferData(BufferTargetARB.ArrayBuffer,
+                        (nuint)(v.Length * sizeof(float)), p, BufferUsageARB.StreamDraw);
+                }
+                _gl.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)0);
+                _gl.VertexAttribPointer(1, 2, VertexAttribPointerType.Float, false, sizeof(float) * 4, (void*)(sizeof(float) * 2));
+            }
+            _gl.EnableVertexAttribArray(0);
+            _gl.EnableVertexAttribArray(1);
+            _gl.ActiveTexture(TextureUnit.Texture0);
+            _gl.BindTexture(TextureTarget.Texture2D, _floorTex);
+
+            // De día la textura va tal cual; de noche atenuada para que las
+            // capas brillantes (guía cian, lindero verde) sigan mandando.
+            if (_isDay) _gl.Uniform4(_uTexTint, 1f, 1f, 1f, 1f);
+            else _gl.Uniform4(_uTexTint, 0.38f, 0.38f, 0.36f, 1f);
+
+            _gl.DrawArrays(PrimitiveType.Triangles, 0, 6);
+
+            // Restaurar: los sprites usan el mismo programa y esperan blanco.
+            _gl.Uniform4(_uTexTint, 1f, 1f, 1f, 1f);
+        }
+        catch (Exception ex)
+        {
+            // Un piso que falla no puede voltear el frame: se apaga la capa.
+            _floorTexReady = false;
+            Console.Error.WriteLine("[MapGlSurface] piso: " + ex.Message);
+        }
     }
 
     /// <summary>
