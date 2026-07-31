@@ -158,4 +158,38 @@ namespace AgroParallel.Models
         /// <summary>Motivo cuando ok=false (ej. "fuera-de-rango").</summary>
         [JsonPropertyName("error")] public string Error { get; set; }
     }
+
+    /// <summary>
+    /// Estado del MANEJO LIBRE (free drive): mover la dirección a mano, sin guía,
+    /// para probar el sentido del motor y el sensor de ángulo con el tractor
+    /// detenido.
+    ///
+    /// Es lo más delicado de la pantalla: mientras está prendido, el PGN 254 sale
+    /// con status=1 y el ángulo que fija el operario — el módulo mueve el volante
+    /// aunque no haya línea. Por eso viaja siempre la velocidad y su límite: la
+    /// pantalla tiene que poder mostrar POR QUÉ se apagó solo.
+    /// </summary>
+    public sealed class FreeDriveStateDto
+    {
+        [JsonPropertyName("ok")] public bool Ok { get; set; }
+
+        /// <summary>Manejo libre prendido.</summary>
+        [JsonPropertyName("on")] public bool On { get; set; }
+
+        /// <summary>Ángulo pedido a las ruedas (°, negativo = izquierda).</summary>
+        [JsonPropertyName("angle")] public double Angle { get; set; }
+
+        /// <summary>Tope del ángulo que acepta el servicio (°).</summary>
+        [JsonPropertyName("max_angle")] public double MaxAngle { get; set; }
+
+        /// <summary>Velocidad actual del tractor (km/h).</summary>
+        [JsonPropertyName("speed")] public double Speed { get; set; }
+
+        /// <summary>Límite de velocidad para funciones de guiado (km/h).</summary>
+        [JsonPropertyName("speed_limit")] public double SpeedLimit { get; set; }
+
+        /// <summary>Motivo cuando ok=false: "velocidad" | "sin-velocidad" |
+        /// "apagado" | "error-interno".</summary>
+        [JsonPropertyName("error")] public string Error { get; set; }
+    }
 }

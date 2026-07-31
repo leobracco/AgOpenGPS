@@ -84,6 +84,12 @@ namespace AgOpenGPS
             if (_web != null) return;
 
             var state = new EngineStateProvider(_host);
+            // Prescripción (.shp): upload + carga automática + dosis por
+            // posición. El state y el controller comparten LA MISMA capa —
+            // dos instancias significarían que el mapa dibuja un shape y
+            // QuantiX dosifica con otro.
+            var shape = new EngineShapeService(_host);
+            state.Shape = shape;
             var coverage = new EngineCoverageService(_host);
             var guidance = new EngineGuidanceCalculator(_host);
             var toolGeom = new EngineToolGeometryCalculator(_host);
@@ -104,10 +110,15 @@ namespace AgOpenGPS
             // Config de dirección: implementación compartida con FormGPS (archivo
             // linkeado). El engine no tiene hilo de UI, así que SendSettings va
             // directo; el ángulo vivo del WAS sale del CModuleComm del host.
+            // La velocidad es para el manejo libre: sin ella el servicio falla
+            // cerrado y no deja prenderlo (mover el volante sin guía con el
+            // tractor andando no puede depender de "no sé a qué velocidad va").
             var steerConfig = new AgroParallel.Adapters.SteerConfigService(
                 _host.Vehicle,
                 () => _host.Mc.actualSteerAngleDegrees,
-                () => _host.SettingsSender.SendSettings());
+                () => _host.SettingsSender.SendSettings(),
+                applyLive: null,
+                avgSpeed: () => _host.avgSpeed);
 
             // ── Productos X-* ────────────────────────────────────────────────
             // Sin esto el motor headless servía el mapa pero NADA de QuantiX,
@@ -173,8 +184,27 @@ namespace AgOpenGPS
                 // 404: la pantalla Cabecera no puede construir nada, y sin
                 // cabecera no hay corte automático de secciones en el borde.
                 headlandEdit: new EngineHeadlandEditService(_host),
+                // Cabecera por líneas (el hermano complicado de la anterior):
+                // marca líneas A/B sobre el borde y arma la cabecera con los
+                // cruces. Es lo que sirve en lotes que no son un rectángulo.
+                cabeceraLineas: new EngineCabeceraLineasService(_host),
+                // Tramlines: las huellas por donde pasa el pulverizador
+                // después. Sin esto /api/tramlines daba 404 y quedaban 5 íconos
+                // muertos en el tablero de cierre.
+                tramLine: new EngineTramLineService(_host),
+                // AB rápido: crear una guía manejando (curva, AB o A+), sin
+                // pasar por la pantalla de guías.
+                quickAb: new EngineQuickAbService(_host),
+                // Panel simple de tram (el del menú de config): genera las
+                // huellas desde la guía activa con pasadas configurables.
+                tramSimple: new EngineTramSimpleService(_host),
+                // Mover guía: correr la activa de a pasos o la referencia (que
+                // corre el patrón entero). Destraba 13 íconos del tablero.
+                nudge: new EngineNudgeService(_host),
+                // Caminos grabados (.rec): listar, cargar, borrar y nombrar.
+                recPath: new EngineRecPathService(_host),
                 vehicleTool: vehicleTool,
-                shapefile: null,
+                shapefile: shape,
                 coverage: coverage,
                 sectionsCore: sectionsCore,
                 quantixRuntime: quantixRuntime,

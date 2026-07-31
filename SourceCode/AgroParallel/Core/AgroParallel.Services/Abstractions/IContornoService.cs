@@ -19,6 +19,13 @@ namespace AgroParallel.Services.Abstractions
 
         // Diálogos/forms nativos (bloquean en hilo UI).
         ContornoStateDto ImportKml(bool multi);
+
+        /// <summary>Import de KML SIN diálogo: la pantalla sube el contenido
+        /// del archivo (texto KML crudo). multi=false agrega el primer polígono
+        /// a la lista (p.ej. sumar una exclusión); multi=true reemplaza TODO
+        /// por los polígonos del KML — la confirmación de pisar lo existente
+        /// la pone la pantalla antes de llamar.</summary>
+        ContornoStateDto ImportKmlUpload(string kmlContenido, bool multi);
         ContornoStateDto OpenGoogleEarth();
         ContornoStateDto OpenMapa();        // FormMap: dibujar sobre satelital
         ContornoStateDto BuildFromTracks(); // FormBuildBoundaryFromTracks

@@ -67,6 +67,11 @@
     -->
     <Compile Include="..\AgroParallel\Core\AgroParallel.Services\AgpErrorMapper.cs"
              Link="Servicios\AgpErrorMapper.cs" />
+    <!-- Ear clipping para el fill de la prescripción (.shp) en el mapa GL: el
+         MISMO triangulador que usa el WinForms, así los dos mapas rellenan las
+         zonas idéntico. Es geometría pura (System.Drawing.PointF solamente). -->
+    <Compile Include="..\GPS\AgroParallel\Common\EarClipper.cs"
+             Link="Servicios\EarClipper.cs" />
   </ItemGroup>
 
 </Project>

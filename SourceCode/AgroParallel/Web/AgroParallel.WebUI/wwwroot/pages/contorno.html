@@ -167,6 +167,15 @@
         <button class="btn bd-danger" id="btnDelete">Borrar</button>
         <button class="btn bd-accent" id="btnCreate">Crear manejando</button>
       </div>
+      <!-- Import de KML sin diálogo nativo: el input file lo maneja el WebView
+           (mismo patrón que la carga de firmwares). "Importar" reemplaza TODO
+           el contorno por los polígonos del KML (con confirmación si había
+           algo); "Agregar" suma solo el primer polígono, para exclusiones. -->
+      <div class="bd-actions">
+        <button class="btn" id="btnKmlImport">Importar KML</button>
+        <button class="btn" id="btnKmlAdd">Agregar desde KML</button>
+        <input type="file" id="kmlFile" accept=".kml,application/vnd.google-earth.kml+xml" style="display:none" />
+      </div>
     </div>
 
     <!-- ── Vista grabación manejando ──

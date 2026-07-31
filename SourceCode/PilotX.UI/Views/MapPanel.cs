@@ -198,6 +198,12 @@ public sealed class MapPanel : Grid
         if (_spRueda != null) nueva.SetWheelSprite(_spRueda, _spRuedaW, _spRuedaH);
         if (_spImpl != null) nueva.SetImplementSprite(_spImpl, _spImplW, _spImplH);
         if (_ultimoSnap != null) nueva.OnSnapshot(_ultimoSnap);
+        // La prescripción NO vuelve sola: su poller solo re-empuja cuando la
+        // clave cambia, y recrear la surface no cambia ninguna clave. Sin esto,
+        // tras una recreación del GL el shape desaparecía del mapa sin error —
+        // fue exactamente el "no se ve nada" de cabina: el latido de la surface
+        // vieja seguía mostrando 3 zonas mientras la visible no tenía ninguna.
+        if (_ultimoShape != null) nueva.OnShape(_ultimoShape);
     }
 
     /// <summary>
@@ -319,6 +325,20 @@ public sealed class MapPanel : Grid
     {
         _gl?.OnFlags(flags);
     }
+
+    /// <summary>
+    /// Push de la prescripción (.shp): zonas con color por dosis. Específico
+    /// de GL. null = se descargó el shape.
+    /// </summary>
+    public void OnShape(ShapeMapSnapshot? snap)
+    {
+        _ultimoShape = snap;
+        _gl?.OnShape(snap);
+    }
+
+    // Última prescripción empujada, para reaplicarla si la surface se recrea.
+    private ShapeMapSnapshot? _ultimoShape;
+
 
     // ---- vista de cámara (menú Navegación): 2D/3D/Norte 2D/tilt/grilla/día-noche.
     // No-op en la surface Skia legacy (_gl==null) — mismo criterio que

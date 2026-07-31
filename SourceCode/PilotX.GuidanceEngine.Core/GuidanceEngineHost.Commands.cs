@@ -225,6 +225,14 @@ namespace AgOpenGPS
                     return GiroManual(false);
                 case var s when s.StartsWith("uturn_skip_"):
                     return FijarSaltoDelGiro(s.Substring("uturn_skip_".Length));
+                case var s when s.StartsWith("skips_"):
+                    // Combo de la barra de abajo (espejo del cboxpRowWidth
+                    // nativo): manda el ANCHO directo 1..10, no las salteadas.
+                    // Contra el motor era otro botón muerto: solo lo atendía
+                    // FormGPS (GUI.FloatingMenu.cs).
+                    return int.TryParse(s.Substring("skips_".Length), NumberStyles.Integer,
+                               CultureInfo.InvariantCulture, out int ancho)
+                           && AplicarAnchoDelSalto(ancho);
                 case "uturn_manual_der":
                     return GiroManual(true);
                 case "lateral_izq":
@@ -277,6 +285,33 @@ namespace AgOpenGPS
                     return true;
                 case "hidraulico":
                     ToggleHydraulicLift();
+                    return true;
+                case "isobus":
+                    // btnIsobusSC_Click: pedirle al monitor ISOBUS que prenda o
+                    // apague su control de secciones. Es un REQUEST por PGN: el
+                    // estado real vuelve del monitor y lo refleja el snapshot
+                    // (isobus_on), no este toggle.
+                    Isobus.RequestSectionControlEnabled(!Isobus.SectionControlEnabled);
+                    return true;
+                case "reset_all":
+                    // resetALLToolStripMenuItem_Click sin el diálogo (la
+                    // confirmación la pone la pantalla ANTES de mandar esto).
+                    // Mismo guard que el nativo: con lote abierto no se resetea
+                    // nada — cerrarlo primero.
+                    //
+                    // Después de borrar, el motor SALE: su config sigue viva en
+                    // memoria y cualquier Save() posterior resucitaría lo
+                    // borrado. El delay deja salir la respuesta HTTP; la
+                    // pantalla avisa que hay que reiniciar (el launcher de
+                    // cabina levanta todo de vuelta al reiniciar la pantalla).
+                    if (IsJobStarted) return false;
+                    RegistrySettings.Reset();
+                    Log.EventWriter("GuidanceEngine: reset de fabrica (reset_all) — el motor sale para no re-guardar la config vieja");
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(700).ConfigureAwait(false);
+                        Environment.Exit(0);
+                    });
                     return true;
                 case "cabecera_onoff":
                     ToggleHeadland();
@@ -490,22 +525,40 @@ namespace AgOpenGPS
         }
 
         /// <summary>
-        /// Cuántas guías saltea el giro en cabecera, de 0 a 9. Es un NÚMERO que
+        /// Cuántas guías SALTEA el giro en cabecera, de 0 a 9. Es un NÚMERO que
         /// el operario elige, no un modo que cicla: con 12 m de ancho y una
         /// sembradora que necesita dos pasadas de margen, "salteo 2" es una
         /// decisión concreta y tenerla que buscar ciclando un botón mientras se
         /// llega a la cabecera no sirve.
         ///
-        /// 0 y 1 son lo mismo en la práctica (va a la guía de al lado) y apagan
-        /// el modo alternado; de 2 para arriba se prende, que es lo que el
-        /// alternado necesita para tener sentido.
+        /// Semántica del menú: N = guías salteadas. 0 → va a la contigua,
+        /// 1 → saltea una, y así. Internamente rowSkipsWidth es el ANCHO del
+        /// movimiento en guías (1 = contigua, como el cboxpRowWidth nativo),
+        /// o sea width = N + 1. No confundir los dos números: acá entra lo que
+        /// muestra el menú, no el ancho.
+        ///
+        /// Con 0 (contigua) se apaga el modo alternado; salteando una o más se
+        /// prende, que es cuando el patrón alternado tiene sentido.
         /// </summary>
         private bool FijarSaltoDelGiro(string valor)
         {
             if (!int.TryParse(valor, out int n)) return false;
             if (n < 0 || n > 9) return false;
 
-            Yt.rowSkipsWidth = n < 1 ? 1 : n;
+            return AplicarAnchoDelSalto(n + 1);
+        }
+
+        /// <summary>
+        /// Fija el ancho del movimiento del giro EN GUÍAS (1..10, 1 = contigua).
+        /// Es el mismo campo que toca el menú de salteo, pero en la otra
+        /// convención: el combo de la barra de abajo (espejo del cboxpRowWidth
+        /// nativo) muestra 1..10 y manda "skips_N" con el ancho directo.
+        /// </summary>
+        private bool AplicarAnchoDelSalto(int width)
+        {
+            if (width < 1 || width > 10) return false;
+
+            Yt.rowSkipsWidth = width;
             AgOpenGPS.Properties.Settings.Default.set_youSkipWidth = Yt.rowSkipsWidth;
             AgOpenGPS.Properties.Settings.Default.Save();
 
@@ -525,7 +578,7 @@ namespace AgOpenGPS
             }
 
             Yt.ResetCreatedYouTurn();
-            Log.EventWriter($"GuidanceEngine: el giro saltea {Yt.rowSkipsWidth} guia(s), modo {Yt.skipMode}");
+            Log.EventWriter($"GuidanceEngine: el giro se mueve {Yt.rowSkipsWidth} guia(s) (saltea {Yt.rowSkipsWidth - 1}), modo {Yt.skipMode}");
             return true;
         }
 

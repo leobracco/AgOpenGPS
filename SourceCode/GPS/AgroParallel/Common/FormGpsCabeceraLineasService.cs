@@ -42,7 +42,7 @@ namespace AgroParallel.Adapters
             catch { /* best-effort */ }
         }
 
-        private static CabeceraLineasStateDto Map(FormGPS.CabLinSnapshot s)
+        private static CabeceraLineasStateDto Map(CabeceraLineasEditor.CabLinSnapshot s)
         {
             if (s == null) return new CabeceraLineasStateDto { Ok = false, Error = "no-state" };
             var dto = new CabeceraLineasStateDto

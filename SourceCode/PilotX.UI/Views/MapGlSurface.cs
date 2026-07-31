@@ -986,6 +986,12 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (_toolSnap != null && _toolSnap.IsValid && _toolSnap.Sections != null && _toolSnap.Sections.Count > 0)
             DrawTool(_toolSnap, scale);
 
+        // --- Capa 2c: prescripción (.shp) ------------------------------
+        // Va DEBAJO de los linderos y de la barra de secciones: es el fondo
+        // sobre el que se decide la dosis, no un adorno. El alpha viene en el
+        // color de cada zona (por dosis si hay campo elegido).
+        DrawShape();
+
         var snap = _snap;
         if (snap != null)
         {
@@ -1113,6 +1119,19 @@ public sealed class MapGlSurface : OpenGlControlBase
                 _ultCamX, _ultCamY, _ultEscala,
                 _userZoom, _userPanX, _userPanY,
                 _headingUp, _vehicleTexReady, _hasBbox));
+
+            // Prescripción: cuántas zonas llegaron y cuántos vértices de fill
+            // tienen. Si "tris" da 0 con zonas > 0, el fondo de color no puede
+            // dibujarse por más que el contorno sí — que es exactamente el
+            // síntoma que se reportó desde cabina y sin este número era a ciegas.
+            var sh = _shapeSnap;
+            if (sh != null)
+            {
+                int tris = 0;
+                foreach (var p in sh.Polygons) tris += p.TriVerts.Length / 2;
+                Console.Error.WriteLine(
+                    $"[MapGlSurface] shape: zonas={sh.Polygons.Count} verticesFill={tris} campo={sh.StyleField}");
+            }
         };
         _latido.Start();
     }
@@ -2058,6 +2077,74 @@ public sealed class MapGlSurface : OpenGlControlBase
         }
         UploadAndDraw(PrimitiveType.Triangles, n * 6, ColLinderoRecPto);
     }
+
+    // ---- prescripción (.shp) ----------------------------------------------
+
+    private volatile ShapeMapSnapshot? _shapeSnap;
+
+    /// <summary>Snapshot nuevo del poller (ya triangulado en su hilo).
+    /// null = se descargó el shape.</summary>
+    public void OnShape(ShapeMapSnapshot? snap)
+    {
+        _shapeSnap = snap;
+        RequestNextFrameRendering();
+    }
+
+    /// <summary>
+    /// Dibuja las zonas de la prescripción: fill triangulado por zona (color
+    /// por dosis) + contorno tenue. Los vértices ya vienen listos del poller;
+    /// acá solo se suben. Con blending: el shape es un fondo translúcido y lo
+    /// de arriba (cobertura, lindero, tractor) tiene que seguir leyéndose.
+    /// </summary>
+    private void DrawShape()
+    {
+        var shape = _shapeSnap;
+        if (_gl == null || shape == null || shape.Polygons.Count == 0) return;
+
+        _gl.Enable(EnableCap.Blend);
+        _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+
+        for (int p = 0; p < shape.Polygons.Count; p++)
+        {
+            var poly = shape.Polygons[p];
+
+            if (poly.TriVerts.Length >= 6)
+            {
+                int n = poly.TriVerts.Length / 2;
+                EnsureScratch(poly.TriVerts.Length);
+                Array.Copy(poly.TriVerts, _scratch, poly.TriVerts.Length);
+                UploadAndDraw(PrimitiveType.Triangles, n, poly.Rgba);
+            }
+
+            // Contorno de cada anillo (incluye agujeros, que el fill ignora):
+            // mismo color que el fill pero opaco, para que el borde de zona se
+            // distinga cuando dos dosis parecidas quedan pegadas.
+            for (int r = 0; r < poly.Rings.Count; r++)
+            {
+                var ring = poly.Rings[r];
+                int n = ring.Length / 2;
+                if (n < 3) continue;
+                EnsureScratch(ring.Length);
+                Array.Copy(ring, _scratch, ring.Length);
+                UploadAndDraw(PrimitiveType.LineLoop, n,
+                    new[] { poly.Rgba[0], poly.Rgba[1], poly.Rgba[2], 0.9f });
+            }
+        }
+
+        _gl.Disable(EnableCap.Blend);
+
+        // Diagnostico temporal "no se ve el shape": pixel del centro y error GL
+        // justo despues de dibujar las zonas, una vez por ~4 s.
+        if (++_shapeDiagFrames >= 120)
+        {
+            _shapeDiagFrames = 0;
+            var err = _gl.GetError();
+            Console.Error.WriteLine("[MapGlSurface] shape-draw err=" + err);
+            LogPixel("post-shape", 960, 540);
+        }
+    }
+
+    private int _shapeDiagFrames;
 
     private void DrawRing(List<FieldPoint> ring, float[] color)
     {

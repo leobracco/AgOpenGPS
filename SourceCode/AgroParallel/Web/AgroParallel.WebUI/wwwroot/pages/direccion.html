@@ -10,13 +10,24 @@
     document.documentElement.classList.add('widget-mode');
   </script>
   <link rel="stylesheet" href="../keyboard.css" />
+  <!-- ==========================================================================
+       direccion.html — Configuración de AutoSteer (réplica del FormSteer nativo).
+
+       LAYOUT = el FormSteer WinForms original (pedido 2026-07-31): dos columnas
+       visibles a la vez, como la ventana expandida 918x673.
+         · IZQUIERDA (tabControl1): 5 tabs de guiado — Modo suave (PP), Modo
+           firme (Stanley), Dirección (WAS), Avanzado (PP), Ganancias (PWM).
+           Debajo: panel de estado Set/Actual/Error (panel2) y el bloque de
+           MANEJO LIBRE (panel1: free drive).
+         · DERECHA (tabSteerSettings): 5 tabs del módulo — Sensores, Placa,
+           Ajustes, Velocidad, Barra guía. Debajo: Reset + Guardar/Enviar.
+
+       Los data-key / data-seg / ids son el CONTRATO con js/direccion.js: no
+       renombrar. La paleta es la clara de PilotX (no el gris WinForms), pero
+       la disposición y los controles son los del original.
+       ========================================================================== -->
   <style>
-    /* Configuración de AutoSteer (FormSteer) — mismo sistema de diseño que
-       config.html (menú lateral de iconos + secciones + botón Guardar flotante
-       + footer). Deep-link: ?tab=gain | steer | pp | stan | ppadv | sensors |
-       config | settings | alarm | online.
-       Guardado best-effort contra /api/steer/config (GET/POST) y /api/steer/zero-was. */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Segoe UI", Roboto, system-ui, sans-serif; }
     :root {
       --verde: #4ABA3E;
       --fondo: #F5F7F4;
@@ -28,328 +39,273 @@
     }
     html, body { height: 100%; }
     body {
-      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
       background: var(--fondo); color: var(--texto);
       display: flex; flex-direction: column; overflow: hidden;
     }
-    /* Standalone: ocultar el sidebar del Hub si esta página se embebe con layout.css. */
-    html.widget-mode aside.sidebar { display: none; }
 
-    #layout { flex: 1; min-height: 0; display: flex; }
+    /* ---- grilla general: 2 columnas como el FormSteer expandido ---- */
+    #layout { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 8px; }
+    #colIzq { flex: 0 0 44%; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    #colDer { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 
-    /* ---- menú lateral (idéntico a config.html) ---- */
-    #menu {
-      width: 190px; flex: none; overflow-y: auto;
-      background: var(--carta); border-right: 1px solid var(--borde);
-      padding: 8px 6px; display: flex; flex-direction: column; gap: 2px;
-    }
-    #menu .grupo {
-      font: 700 11px "Segoe UI", Roboto, sans-serif; color: var(--gris);
-      text-transform: uppercase; letter-spacing: 0.4px;
-      padding: 10px 8px 4px;
-    }
-    #menu button {
-      display: flex; align-items: center; gap: 8px;
-      min-height: 50px; padding: 4px 8px; width: 100%;
-      border: 0; border-radius: 8px; background: transparent;
-      font: 600 13px "Segoe UI", Roboto, sans-serif; color: var(--texto);
-      text-align: left; cursor: pointer; touch-action: manipulation;
+    /* ---- tab strips (réplica de los TabControl) ---- */
+    .tabstrip { display: flex; gap: 2px; flex: none; }
+    .tabstrip button {
+      flex: 1 1 0; min-height: 52px; padding: 4px 6px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+      border: 1px solid var(--borde); border-bottom: none;
+      border-radius: 8px 8px 0 0; background: #e9ede8;
+      font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris);
+      cursor: pointer; touch-action: manipulation;
       -webkit-user-select: none; user-select: none;
     }
-    /* 38px: las ilustraciones del steer (Sf_*, ConSt_*, ConV_*) son detalladas;
-       a 26px quedaban ilegibles. Este tamaño las hace reconocibles. */
-    #menu button img { width: 38px; height: 38px; object-fit: contain; flex: none; }
-    #menu button.sel { background: #eaf6e8; box-shadow: inset 3px 0 0 var(--verde); }
-    #menu button:active { background: #e6ede5; }
+    .tabstrip button img { width: 30px; height: 30px; object-fit: contain; }
+    .tabstrip button.sel { background: var(--carta); color: var(--texto); box-shadow: inset 0 3px 0 var(--verde); }
 
-    /* ---- panel principal ---- */
-    #main { flex: 1; min-width: 0; overflow-y: auto; padding: 12px; }
+    /* ---- panel del tab (la "página" del TabControl) ---- */
+    .tabpanel {
+      flex: 1; min-height: 0; overflow-y: auto;
+      background: var(--carta); border: 1px solid var(--borde);
+      border-radius: 0 0 10px 10px; padding: 10px;
+    }
     section[data-tab] { display: none; }
     section[data-tab].activa { display: block; }
-    .carta {
-      background: var(--carta); border: 1px solid var(--borde);
-      border-radius: 12px; padding: 14px; margin-bottom: 12px;
-    }
-    .carta h2 { font-size: 15px; margin-bottom: 10px; }
-    .carta h2.pp { color: #2e78b5; }
-    .carta h2.stan { color: #c76a26; }
-    .nota { font-size: 12px; color: var(--gris); }
 
-    /* ---- footer común (réplica del footer de config.html) ---- */
-    #footer {
-      flex: none; display: flex; align-items: center; gap: 14px;
-      padding: 8px 12px; background: var(--carta);
-      border-top: 1px solid var(--borde); font-size: 13px;
-    }
-    #footer .dato b { color: var(--verde); }
-    #estado { flex: 1; text-align: right; font-size: 13px; color: var(--gris); }
-    #estado.err { color: var(--rojo); font-weight: 600; }
-    #estado.ok { color: #2e8b25; font-weight: 600; }
+    /* ilustración del tab (BackgroundImage del TabPage original) */
+    .tab-hero { display: block; margin: 0 auto 10px; max-width: 210px; max-height: 150px; width: 100%; object-fit: contain; }
 
-    /* botón Guardar flotante con estados (neutro / .dirty / .ok) */
-    #btnGuardarFloat {
-      position: fixed; right: 22px; bottom: 56px; z-index: 50;
-      width: 96px; padding: 8px 6px 6px;
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
-      border: 1px solid var(--borde); border-radius: 16px;
-      background: var(--fondo);
-      box-shadow: 0 4px 14px rgba(16, 22, 18, 0.18);
-      cursor: pointer; font: inherit;
-    }
-    #btnGuardarFloat:active { transform: scale(0.96); }
-    #btnGuardarFloat img { width: 56px; height: 56px; filter: grayscale(1); opacity: 0.45; }
-    #btnGuardarCap { font-size: 12px; color: var(--gris); }
-    #btnGuardarFloat.dirty { border-color: var(--verde); animation: pulsoGuardar 1.2s ease-in-out infinite; }
-    #btnGuardarFloat.dirty img { filter: none; opacity: 1; }
-    #btnGuardarFloat.dirty #btnGuardarCap { color: var(--verde); font-weight: 700; }
-    @keyframes pulsoGuardar {
-      0%, 100% { box-shadow: 0 4px 14px rgba(16, 22, 18, 0.18); }
-      50% { box-shadow: 0 0 0 6px rgba(74, 186, 62, 0.35); }
-    }
-    #btnGuardarFloat.ok { border-color: var(--verde); }
-    #btnGuardarFloat.ok img { filter: none; opacity: 1; }
-    #btnGuardarFloat.ok #btnGuardarCap { color: #2e8b25; font-weight: 700; }
-
-    /* ---- inputs numéricos estilo NUD (idéntico a config.html) ---- */
-    .nudfila { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-    .nudfila label { font: 600 14px "Segoe UI", Roboto, sans-serif; min-width: 150px; }
-    .nud {
-      width: 130px; min-height: 52px; text-align: center;
-      font: 700 22px "Segoe UI", Roboto, sans-serif;
-      border: 1px solid var(--borde); border-radius: 10px; background: aliceblue;
-    }
-    .nud.invalido { border-color: var(--rojo); background: #fdf0ee; }
-    .unidad { font: 600 14px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
-    .diagrama { max-width: 100%; max-height: 300px; object-fit: contain; display: block; margin: 0 auto 12px; }
-    .dosCol { display: flex; gap: 14px; flex-wrap: wrap; }
-    .dosCol > div { flex: 1; min-width: 280px; }
-    input[type="range"] { min-height: 44px; accent-color: var(--verde); }
-
-    /* ---- tiles de checkbox con imagen (idéntico a config.html) ---- */
-    .togglesGrid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 10px;
-    }
-    .chkimg {
-      display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
-      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
-      padding: 6px; cursor: pointer; -webkit-user-select: none; user-select: none;
-      text-align: center;
-    }
-    .chkimg img { width: 64px; height: 64px; object-fit: contain; pointer-events: none; }
-    .chkimg .cap { font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
-    .chkimg.sel { border-color: var(--verde); background: #eaf6e8; }
-    .btnZero {
-      width: 56px; height: 56px; border: 1px solid var(--borde); border-radius: 10px;
-      background: #fff; cursor: pointer; touch-action: manipulation; flex: none;
-    }
-    .btnZero img { width: 40px; height: 40px; object-fit: contain; }
-    .btnEnviar {
-      display: inline-flex; align-items: center; gap: 8px;
-      min-height: 52px; padding: 6px 16px;
-      border: 1px solid var(--borde); border-radius: 10px; background: #fff;
-      font: 700 14px "Segoe UI", Roboto, sans-serif; color: var(--texto);
-      cursor: pointer; touch-action: manipulation;
-    }
-    .btnEnviar img { width: 36px; height: 36px; }
-    .btnEnviar:active { background: #e6ede5; }
-
-    /* ================= adaptaciones del steer sobre el sistema de config ================= */
-    /* Ilustración del tab (Sf_GainTab/Sf_SteerTab/Sf_PP/Sf_Stanley): en el
-       FormSteer original es el BackgroundImage del TabPage (UNA sola, no un
-       icono por control). Va una vez como encabezado, tipo el diagrama del
-       tractor en la tab Antena de config.html. */
-    .tab-hero {
-      display: block; margin: 2px auto 14px;
-      max-width: 240px; max-height: 190px; width: 100%; object-fit: contain;
-    }
-    /* control de slider con número grande (sin icono repetido salvo que tenga
-       diagrama propio real) */
-    .sctl {
-      display: flex; gap: 14px; align-items: center;
-      background: var(--carta); border: 1px solid var(--borde);
-      border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;
-    }
-    .sctl .sdiag { width: 92px; height: 64px; object-fit: contain; flex: none; }
-    .sctl .sbody { flex: 1; min-width: 0; }
-    .sctl .stop { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-    .sctl .slbl { font: 600 14px "Segoe UI", Roboto, sans-serif; }
-    .sval {
-      font: 700 26px "Segoe UI", Roboto, sans-serif; color: var(--texto);
-      min-width: 74px; text-align: right; line-height: 1;
-    }
-    .sval .u { font-size: 14px; font-weight: 600; color: var(--gris); }
-    .sslider { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    /* ---- slider horizontal con número (hsbar + lbl del original) ---- */
+    .sctl { margin-bottom: 10px; }
+    .sctl .stop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .sctl .slbl { font: 600 13px "Segoe UI", Roboto, sans-serif; }
+    .sval { font: 700 22px "Segoe UI", Roboto, sans-serif; min-width: 64px; text-align: right; line-height: 1; }
+    .sval .u { font-size: 13px; font-weight: 600; color: var(--gris); }
+    .sslider { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
     .sslider input[type="range"] { flex: 1; }
     .sbtn {
-      width: 46px; height: 46px; flex: none; border: 1px solid var(--borde);
-      border-radius: 10px; background: #fff; color: var(--texto);
-      font-size: 22px; line-height: 1; cursor: pointer; touch-action: manipulation;
+      width: 40px; height: 40px; flex: none; border: 1px solid var(--borde);
+      border-radius: 8px; background: #fff; color: var(--texto);
+      font-size: 19px; line-height: 1; cursor: pointer; touch-action: manipulation;
     }
     .sbtn:active { background: #e6ede5; }
-    .sends { display: flex; justify-content: space-between; font-size: 12px; color: var(--gris); margin-top: 4px; }
-    .shint { font-size: 12px; color: var(--gris); margin-top: 6px; }
+    .sends { display: flex; justify-content: space-between; font-size: 11px; color: var(--gris); margin-top: 2px; }
+    .nota { font-size: 12px; color: var(--gris); }
 
-    /* barra de ángulo real de dirección (indicador) */
+    /* ---- barra de ángulo real (pbarLeft/pbarRight del original) ---- */
     .anglebar {
-      display: flex; height: 16px; background: #fff; border: 1px solid var(--borde);
-      border-radius: 6px; overflow: hidden; margin-bottom: 12px;
+      display: flex; height: 14px; background: #fff; border: 1px solid var(--borde);
+      border-radius: 6px; overflow: hidden; margin-bottom: 8px;
     }
     .anglebar .half { flex: 1; display: flex; }
     .anglebar .half.left { justify-content: flex-end; }
     .anglebar .fill { background: var(--verde); }
-    .anglebar .mid { width: 2px; background: var(--gris); }
+    .anglebar .mid { width: 2px; background: var(--borde); }
 
-    /* segmentados (combos del original) */
-    .seg-field { margin-bottom: 12px; }
-    .seg-field > .lbl { display: block; font: 600 14px "Segoe UI", Roboto, sans-serif; margin-bottom: 6px; }
-    .seg {
-      display: inline-flex; border: 1px solid var(--borde); border-radius: 10px;
-      overflow: hidden; background: #fff; flex-wrap: wrap;
-    }
-    .seg-btn {
-      min-height: 48px; padding: 8px 18px; border: 0;
-      border-right: 1px solid var(--borde); background: #fff;
-      font: 700 15px "Segoe UI", Roboto, sans-serif; color: var(--texto);
-      cursor: pointer; touch-action: manipulation;
-    }
-    .seg-btn:last-child { border-right: 0; }
-    .seg-btn.on { background: #eaf6e8; color: #0a3a0a; box-shadow: inset 0 0 0 2px var(--verde); }
-    .seg.seg-img .seg-btn {
-      display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 14px;
-    }
-    .seg.seg-img .seg-btn img { width: 96px; height: 54px; object-fit: contain; pointer-events: none; }
-
-    /* fila numérica con diagrama pequeño a la izquierda */
-    .numfila { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-    .numfila .numdiag { width: 96px; height: 60px; object-fit: contain; flex: none; }
-    .numfila .numbody { flex: 1; min-width: 160px; }
-    .numfila .numbody .lbl { font: 600 14px "Segoe UI", Roboto, sans-serif; }
-    .numfila .numbody .sub { font-size: 12px; color: var(--gris); margin-top: 2px; }
-    .numfila input[type="number"] {
-      width: 130px; min-height: 52px; text-align: center;
-      font: 700 22px "Segoe UI", Roboto, sans-serif;
-      border: 1px solid var(--borde); border-radius: 10px; background: aliceblue;
-    }
-
-    .smart-status { font-size: 12px; color: var(--gris); margin-top: 6px; }
-
-    /* === Vista SIN iconos (para evaluar el layout pelado) === */
-    #menu button img { display: none; }
-    .tab-hero,
-    .sctl .sdiag,
-    .numfila .numdiag,
-    .chkimg img,
-    .seg.seg-img .seg-btn img,
-    .btnZero img,
-    #btnGuardarFloat img { display: none; }
-    /* compensaciones cuando se ocultan las imágenes */
-    #menu button { padding-left: 12px; }
-    .chkimg { min-height: 44px; justify-content: center; }
-    .btnZero { display: none; }   /* el "0" quedaría vacío; se oculta el botón */
-    /* Botón de texto para poner el sensor de ángulo en cero (reemplaza el icono) */
+    /* botón de texto para el cero del WAS (btnZeroWAS del original) */
     .btnZeroWas {
-      min-height: 46px; padding: 8px 18px; border: 1px solid var(--verde);
-      border-radius: 10px; background: #eaf6e8; color: #1c5e18;
-      font: 700 14px "Segoe UI", Roboto, sans-serif; cursor: pointer;
-      touch-action: manipulation;
+      width: 100%; min-height: 44px; padding: 8px 14px; border: 1px solid var(--verde);
+      border-radius: 8px; background: #eaf6e8; color: #1c5e18;
+      font: 700 13px "Segoe UI", Roboto, sans-serif; cursor: pointer;
+      touch-action: manipulation; margin-bottom: 8px;
     }
-    .btnZeroWas:active { background: #d8efd4; transform: scale(0.98); }
+    .btnZeroWas:active { background: #d8efd4; }
     .btnZeroWas .tec { font-weight: 400; color: var(--gris); }
 
-    /* === Compacto (achicar un poco, sobre todo para la pantalla del taller) === */
-    #main { padding: 8px; }
-    .carta { padding: 10px; margin-bottom: 8px; }
-    .carta h2 { font-size: 14px; margin-bottom: 8px; }
-    #menu { width: 166px; }
-    #menu button { min-height: 40px; font-size: 12px; }
-    #menu .grupo { padding: 8px 8px 3px; font-size: 10px; }
-    .sctl { padding: 8px 10px; margin-bottom: 8px; }
-    .sctl .slbl { font-size: 13px; }
-    .sval { font-size: 20px; min-width: 60px; }
-    .sval .u { font-size: 12px; }
-    .sbtn { width: 38px; height: 38px; font-size: 19px; }
-    .sslider input[type="range"] { min-height: 32px; }
-    .shint, .sends { font-size: 11px; }
-    .nud { width: 110px; min-height: 42px; font-size: 18px; }
-    .nudfila label { min-width: 130px; font-size: 13px; }
-    .numfila .numbody .lbl { font-size: 13px; }
-    .seg-btn { min-height: 40px; font-size: 13px; padding: 6px 12px; }
-    #btnGuardarFloat { width: 82px; right: 16px; bottom: 46px; }
-    #btnGuardarFloat img { width: 44px; height: 44px; }
-    #footer { padding: 6px 10px; font-size: 12px; }
+    /* ---- panel de estado Set / Actual / Error (panel2 del original) ---- */
+    #fsEstado {
+      flex: none; display: flex; gap: 6px;
+      background: var(--carta); border: 1px solid var(--borde); border-radius: 8px;
+      padding: 6px 10px;
+    }
+    #fsEstado .cell { flex: 1; text-align: center; }
+    #fsEstado .cap { font: 600 10px "Segoe UI", Roboto, sans-serif; color: var(--gris); text-transform: uppercase; letter-spacing: .4px; }
+    #fsEstado .val { font: 700 20px "Segoe UI", Roboto, sans-serif; line-height: 1.1; }
+    #fsEstado .val .u { font-size: 12px; color: var(--gris); }
+
+    /* ---- manejo libre (panel1 del original: free drive) ---- */
+    #fsFree {
+      flex: none; background: var(--carta); border: 1px solid var(--borde);
+      border-radius: 8px; padding: 8px 10px;
+    }
+    #fsFree h2 { font-size: 12px; color: var(--gris); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+    .fdfila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .fdpower {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
+      min-width: 78px; padding: 6px 8px;
+      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
+      cursor: pointer; touch-action: manipulation;
+    }
+    .fdpower img { width: 40px; height: 40px; object-fit: contain; pointer-events: none; }
+    .fdpower .cap { font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .fdpower.on { border-color: var(--verde); background: #eaf6e8; }
+    .fdpower.on .cap { color: var(--texto); }
+    .fdarrow {
+      width: 52px; height: 52px; flex: none; border: 1px solid var(--borde);
+      border-radius: 8px; background: #fff; cursor: pointer; touch-action: manipulation;
+    }
+    .fdarrow img { width: 38px; height: 38px; object-fit: contain; pointer-events: none; }
+    .fdarrow .cap { display: none; font: 700 14px "Segoe UI", Roboto, sans-serif; }
+    .fdarrow:active { background: #e6ede5; }
+    .fdarrow[disabled], #fdDot[disabled] { opacity: .35; cursor: default; }
+    .fdang { font: 700 26px "Segoe UI", Roboto, sans-serif; min-width: 70px; text-align: center; line-height: 1; }
+    .fdang .u { font-size: 14px; font-weight: 600; color: var(--gris); }
+    #fdDot {
+      min-height: 44px; padding: 6px 12px; border: 1px solid var(--borde);
+      border-radius: 8px; background: #fff; font: 700 13px "Segoe UI", Roboto, sans-serif;
+      cursor: pointer; touch-action: manipulation;
+    }
+    #fdDot:active { background: #e6ede5; }
+    .fdextra { display: flex; gap: 16px; margin-top: 6px; font-size: 12px; color: var(--gris); }
+    .fdextra b { color: var(--texto); }
+    #fdNota { margin-top: 4px; }
+    #fdNota.err { color: var(--rojo); font-weight: 600; }
+
+    /* ---- columna derecha: checks con imagen y segmentados ---- */
+    .togglesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .chkimg {
+      display: inline-flex; flex-direction: column; align-items: center; gap: 3px;
+      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
+      padding: 6px; cursor: pointer; -webkit-user-select: none; user-select: none;
+      text-align: center;
+    }
+    .chkimg img { width: 52px; height: 52px; object-fit: contain; pointer-events: none; }
+    .chkimg .cap { font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .chkimg.sel { border-color: var(--verde); background: #eaf6e8; }
+
+    .segrow { margin-bottom: 10px; }
+    .segrow .slbl { display: block; font: 600 12px "Segoe UI", Roboto, sans-serif; margin-bottom: 4px; }
+    .seg { display: flex; gap: 4px; }
+    .seg-btn {
+      flex: 1 1 0; min-height: 42px; padding: 4px 8px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1px solid var(--borde); border-radius: 8px; background: #fff;
+      font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris);
+      cursor: pointer; touch-action: manipulation;
+    }
+    .seg-btn img { width: 26px; height: 26px; object-fit: contain; }
+    .seg-btn.on { border-color: var(--verde); background: #eaf6e8; color: var(--texto); }
+
+    /* filas numéricas (nud del original) */
+    .numfila { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .numfila .numdiag { width: 64px; height: 44px; object-fit: contain; flex: none; }
+    .numfila .numbody { flex: 1; min-width: 0; }
+    .numfila .lbl { font: 600 13px "Segoe UI", Roboto, sans-serif; }
+    .numfila .sub { font-size: 11px; color: var(--gris); }
+    .numfila input[type="number"] {
+      width: 84px; min-height: 42px; text-align: right; font: 700 16px "Segoe UI", Roboto, sans-serif;
+      border: 1px solid var(--borde); border-radius: 8px; padding: 4px 8px; background: #fff;
+    }
+    .unidad { font: 600 13px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+
+    /* ---- pie derecho: Reset + Enviar (btnSendSteerConfigPGN del original) ---- */
+    #fsAcciones {
+      flex: none; display: flex; align-items: center; gap: 10px;
+      background: var(--carta); border: 1px solid var(--borde); border-radius: 8px;
+      padding: 8px 10px;
+    }
+    #estado { flex: 1; font-size: 12px; color: var(--gris); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #estado.ok { color: #1c5e18; }
+    #estado.err { color: var(--rojo); font-weight: 600; }
+    #ftModulo { font-size: 12px; color: var(--gris); flex: none; }
+    #btnReset {
+      flex: none; display: inline-flex; align-items: center; gap: 6px;
+      min-height: 48px; padding: 6px 12px;
+      border: 1px solid var(--borde); border-radius: 8px; background: #fff;
+      font: 600 13px "Segoe UI", Roboto, sans-serif; cursor: pointer; touch-action: manipulation;
+    }
+    #btnReset img { width: 28px; height: 28px; }
+    #btnGuardarFloat {
+      flex: none; display: inline-flex; align-items: center; gap: 8px;
+      min-height: 52px; padding: 6px 18px;
+      border: 1px solid var(--borde); border-radius: 10px; background: #fff;
+      font: 700 14px "Segoe UI", Roboto, sans-serif; color: var(--texto);
+      cursor: pointer; touch-action: manipulation;
+    }
+    #btnGuardarFloat img { width: 34px; height: 34px; }
+    #btnGuardarFloat.dirty { border-color: var(--verde); background: #eaf6e8; }
+    #btnGuardarFloat.ok { border-color: var(--verde); }
+
+    /* pantallas angostas: apilar columnas (la ventana chica del Hub) */
+    @media (max-width: 760px) {
+      #layout { flex-direction: column; overflow-y: auto; }
+      #colIzq { flex: none; }
+      #colDer { flex: none; }
+      .tabpanel { overflow: visible; }
+    }
   </style>
 </head>
 <body>
   <div id="layout">
-    <nav id="menu">
-      <div class="grupo">Guiado</div>
-      <button type="button" data-tab="gain"><img src="../img/steer/Sf_GainTab.png" alt="" />Respuesta (Ganancias)</button>
-      <button type="button" data-tab="steer"><img src="../img/steer/Sf_SteerTab.png" alt="" />Dirección</button>
-      <button type="button" data-tab="pp"><img src="../img/steer/Sf_PP.png" alt="" />Modo suave (Pure Pursuit)</button>
-      <button type="button" data-tab="stan"><img src="../img/steer/Sf_Stanley.png" alt="" />Modo firme (Stanley)</button>
-      <button type="button" data-tab="ppadv"><img src="../img/config/ConS_ModulesSteer.png" alt="" />Avanzado (PP Avanzado)</button>
-      <div class="grupo">Equipo</div>
-      <button type="button" data-tab="sensors"><img src="../img/steer/ConSt_TurnSensor.png" alt="" />Sensores</button>
-      <button type="button" data-tab="config"><img src="../img/config/ConS_ModulesMachine.png" alt="" />Placa (Módulo)</button>
-      <button type="button" data-tab="settings"><img src="../img/config/ConS_ImplementSettings.png" alt="" />Ajustes</button>
-      <button type="button" data-tab="alarm"><img src="../img/steer/con_VehicleFunctionSpeedLimit.png" alt="" />Velocidad</button>
-      <button type="button" data-tab="online"><img src="../img/steer/ConV_LineWith.png" alt="" />Barra guía (On the line)</button>
-    </nav>
 
-    <main id="main">
-      <!-- ================= Ganancias (P / PWM) ================= -->
-      <section data-tab="gain">
-        <div class="carta">
-          <h2>Respuesta del volante (Ganancias)</h2>
+    <!-- ═══════════ COLUMNA IZQUIERDA (tabControl1 del original) ═══════════ -->
+    <div id="colIzq">
+      <nav class="tabstrip" id="menu">
+        <button data-tab="pp"><img src="../img/steer/Sf_PP.png" alt="" /><span>Suave (PP)</span></button>
+        <button data-tab="stan"><img src="../img/steer/Sf_Stanley.png" alt="" /><span>Firme (Stanley)</span></button>
+        <button data-tab="steer"><img src="../img/steer/Sf_SteerTab.png" alt="" /><span>Dirección</span></button>
+        <button data-tab="ppadv"><img src="../img/steer/ConV_GuidanceLookAhead.png" alt="" /><span>Avanzado</span></button>
+        <button data-tab="gain"><img src="../img/steer/Sf_GainTab.png" alt="" /><span>Ganancias</span></button>
+      </nav>
+      <div class="tabpanel">
 
+        <!-- ── tabPP: Pure Pursuit ── -->
+        <section data-tab="pp" data-group="izq">
+          <img class="tab-hero" src="../img/steer/Sf_PP.png" alt="Diagrama Pure Pursuit" />
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/ganacia_proporcional.png" alt="" />
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Fuerza de corrección (Ganancia P)</span>
-                <span class="sval" data-for="proportionalGain">4</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="proportionalGain" data-dir="-1">−</button>
-                <input type="range" data-key="proportionalGain" min="1" max="200" step="1" value="4" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="proportionalGain" data-dir="1">+</button>
-              </div>
-              <div class="shint">Más alto = el volante corrige más fuerte.</div>
+            <div class="stop"><span class="slbl">Qué tan adelante mira (Look Ahead)</span>
+              <span class="sval" data-for="holdLookAhead">2.5<span class="u">s</span></span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="holdLookAhead" data-dir="-1">−</button>
+              <input type="range" data-key="holdLookAhead" min="10" max="70" step="1" value="25" data-scale="0.1" data-dec="1" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="holdLookAhead" data-dir="1">+</button>
+            </div>
+            <div class="sends"><span>Rápido</span><span>Lento</span></div>
+          </div>
+          <div class="sctl">
+            <div class="stop"><span class="slbl">Corrección de desvío (Integral)</span>
+              <span class="sval" data-for="integralPP">20<span class="u">%</span></span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="integralPP" data-dir="-1">−</button>
+              <input type="range" data-key="integralPP" min="0" max="100" step="1" value="20" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="integralPP" data-dir="1">+</button>
             </div>
           </div>
+        </section>
 
+        <!-- ── tabStan: Stanley ── -->
+        <section data-tab="stan" data-group="izq">
+          <img class="tab-hero" src="../img/steer/Sf_Stanley.png" alt="Diagrama Stanley" />
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/pwm_minimo.png" alt="" />
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Fuerza mínima para mover (PWM mín)</span>
-                <span class="sval" data-for="minPWM">10</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="minPWM" data-dir="-1">−</button>
-                <input type="range" data-key="minPWM" min="0" max="200" step="1" value="10" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="minPWM" data-dir="1">+</button>
-              </div>
-              <div class="shint">La señal mínima que hace arrancar el volante.</div>
+            <div class="stop"><span class="slbl">Corrección por distancia (cross-track)</span>
+              <span class="sval" data-for="stanleyGain">1.0</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="stanleyGain" data-dir="-1">−</button>
+              <input type="range" data-key="stanleyGain" min="1" max="40" step="1" value="10" data-scale="0.1" data-dec="1" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="stanleyGain" data-dir="1">+</button>
             </div>
           </div>
-
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/pwm_maximo.png" alt="" />
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Fuerza máxima (PWM alto)</span>
-                <span class="sval" data-for="highSteerPWM">50</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="highSteerPWM" data-dir="-1">−</button>
-                <input type="range" data-key="highSteerPWM" min="20" max="255" step="1" value="50" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="highSteerPWM" data-dir="1">+</button>
-              </div>
+            <div class="stop"><span class="slbl">Corrección por rumbo (heading)</span>
+              <span class="sval" data-for="headingErrorGain">1.0</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="headingErrorGain" data-dir="-1">−</button>
+              <input type="range" data-key="headingErrorGain" min="1" max="15" step="1" value="10" data-scale="0.1" data-dec="1" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="headingErrorGain" data-dir="1">+</button>
             </div>
           </div>
-        </div>
-      </section>
+          <div class="sctl">
+            <div class="stop"><span class="slbl">Corrección de desvío (Integral)</span>
+              <span class="sval" data-for="integralStanley">0<span class="u">%</span></span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="integralStanley" data-dir="-1">−</button>
+              <input type="range" data-key="integralStanley" min="0" max="100" step="1" value="0" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="integralStanley" data-dir="1">+</button>
+            </div>
+          </div>
+        </section>
 
-      <!-- ================= Dirección (WAS / Compensación de geometría / ángulo máx) ================= -->
-      <section data-tab="steer">
-        <div class="carta">
-          <h2>Ángulo de dirección</h2>
+        <!-- ── tabSteer: WAS / geometría (con la barra de ángulo real) ── -->
+        <section data-tab="steer" data-group="izq">
           <div class="anglebar">
             <div class="half left"><span class="fill" id="angleFillLeft" style="width:0%"></span></div>
             <div class="mid"></div>
@@ -358,379 +314,288 @@
           <p class="nota" style="margin-bottom:4px">
             Cero del WAS · ángulo calculado: <b id="wasZeroAngle">0.00</b>°
           </p>
-          <div class="nudfila">
-            <button type="button" class="btnZeroWas" id="btnZeroWas" title="Poner el sensor de ángulo en cero">
-              ⭕ Poner el sensor de ángulo en cero <span class="tec">(WAS zero)</span>
-            </button>
-          </div>
-
+          <button type="button" class="btnZeroWas" id="btnZeroWas" title="Poner el sensor de ángulo en cero">
+            ⭕ Poner el sensor de ángulo en cero <span class="tec">(WAS zero)</span>
+          </button>
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/ConSt_InvertWAS.png" alt="" />
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Ajuste del cero del sensor (WAS offset)</span>
-                <span class="sval" data-for="wasOffset">0</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="wasOffset" data-dir="-1">−</button>
-                <input type="range" data-key="wasOffset" min="-4000" max="4000" step="2" value="0" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="wasOffset" data-dir="1">+</button>
-              </div>
+            <div class="stop"><span class="slbl">Ajuste del cero del sensor (WAS offset)</span>
+              <span class="sval" data-for="wasOffset">0</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="wasOffset" data-dir="-1">−</button>
+              <input type="range" data-key="wasOffset" min="-4000" max="4000" step="2" value="0" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="wasOffset" data-dir="1">+</button>
             </div>
           </div>
-
           <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Cuentas por grado (counts/deg)</span>
-                <span class="sval" data-for="countsPerDegree">20</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="countsPerDegree" data-dir="-1">−</button>
-                <input type="range" data-key="countsPerDegree" min="1" max="255" step="1" value="20" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="countsPerDegree" data-dir="1">+</button>
-              </div>
+            <div class="stop"><span class="slbl">Cuentas por grado (counts/deg)</span>
+              <span class="sval" data-for="countsPerDegree">20</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="countsPerDegree" data-dir="-1">−</button>
+              <input type="range" data-key="countsPerDegree" min="1" max="255" step="1" value="20" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="countsPerDegree" data-dir="1">+</button>
             </div>
           </div>
-
           <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Compensación de geometría (Ackermann)</span>
-                <span class="sval" data-for="ackerman">100<span class="u">%</span></span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="ackerman" data-dir="-1">−</button>
-                <input type="range" data-key="ackerman" min="1" max="200" step="1" value="100" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="ackerman" data-dir="1">+</button>
-              </div>
+            <div class="stop"><span class="slbl">Compensación de geometría (Ackermann)</span>
+              <span class="sval" data-for="ackerman">100<span class="u">%</span></span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="ackerman" data-dir="-1">−</button>
+              <input type="range" data-key="ackerman" min="1" max="200" step="1" value="100" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="ackerman" data-dir="1">+</button>
             </div>
           </div>
-
           <div class="sctl">
-            <img class="sdiag" src="../img/steer/ConV_MaxAutoSteer.png" alt="" />
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Ángulo máximo de giro (Max angle)</span>
-                <span class="sval" data-for="maxSteerAngle">40<span class="u">°</span></span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="maxSteerAngle" data-dir="-1">−</button>
-                <input type="range" data-key="maxSteerAngle" min="10" max="80" step="1" value="40" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="maxSteerAngle" data-dir="1">+</button>
-              </div>
+            <div class="stop"><span class="slbl">Ángulo máximo de giro (Max angle)</span>
+              <span class="sval" data-for="maxSteerAngle">40<span class="u">°</span></span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="maxSteerAngle" data-dir="-1">−</button>
+              <input type="range" data-key="maxSteerAngle" min="10" max="80" step="1" value="40" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="maxSteerAngle" data-dir="1">+</button>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ================= Pure Pursuit ================= -->
-      <section data-tab="pp">
-        <div class="carta">
-          <h2 class="pp">Modo suave (Pure Pursuit)</h2>
-          <img class="tab-hero" src="../img/steer/Sf_PP.png" alt="Diagrama Pure Pursuit" />
-
+        <!-- ── tabPPAdv: avanzado PP + zona muerta ── -->
+        <section data-tab="ppadv" data-group="izq">
           <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Qué tan adelante mira (Look Ahead)</span>
-                <span class="sval" data-for="holdLookAhead">2.5<span class="u">s</span></span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="holdLookAhead" data-dir="-1">−</button>
-                <input type="range" data-key="holdLookAhead" min="10" max="70" step="1" value="25" data-scale="0.1" data-dec="1" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="holdLookAhead" data-dir="1">+</button>
-              </div>
-              <div class="sends"><span>Rápido</span><span>Lento</span></div>
+            <div class="stop"><span class="slbl">Multiplicador de distancia (Look Ahead)</span>
+              <span class="sval" data-for="lookAheadMult">0.6</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="lookAheadMult" data-dir="-1">−</button>
+              <input type="range" data-key="lookAheadMult" min="5" max="60" step="1" value="6" data-scale="0.1" data-dec="1" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="lookAheadMult" data-dir="1">+</button>
             </div>
           </div>
-
           <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Corrección de desvío (Integral)</span>
-                <span class="sval" data-for="integralPP">20<span class="u">%</span></span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="integralPP" data-dir="-1">−</button>
-                <input type="range" data-key="integralPP" min="0" max="100" step="1" value="20" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="integralPP" data-dir="1">+</button>
-              </div>
-              <div class="shint">Corrige de a poco el desvío que queda respecto de la línea.</div>
+            <div class="stop"><span class="slbl">Factor de enganche (Acquire)</span>
+              <span class="sval" data-for="acquireFactor">0.75</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="acquireFactor" data-dir="-1">−</button>
+              <input type="range" data-key="acquireFactor" min="20" max="300" step="1" value="75" data-scale="0.01" data-dec="2" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="acquireFactor" data-dir="1">+</button>
             </div>
+            <div class="sends"><span>Suave</span><span>Agresivo</span></div>
           </div>
-        </div>
-      </section>
-
-      <!-- ================= Stanley ================= -->
-      <section data-tab="stan">
-        <div class="carta">
-          <h2 class="stan">Modo firme (Stanley)</h2>
-          <img class="tab-hero" src="../img/steer/Sf_Stanley.png" alt="Diagrama Stanley" />
-
-          <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Corrección por distancia (cross-track)</span>
-                <span class="sval" data-for="stanleyGain">1.0</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="stanleyGain" data-dir="-1">−</button>
-                <input type="range" data-key="stanleyGain" min="1" max="40" step="1" value="10" data-scale="0.1" data-dec="1" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="stanleyGain" data-dir="1">+</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Corrección por rumbo (heading error)</span>
-                <span class="sval" data-for="headingErrorGain">1.0</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="headingErrorGain" data-dir="-1">−</button>
-                <input type="range" data-key="headingErrorGain" min="1" max="15" step="1" value="10" data-scale="0.1" data-dec="1" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="headingErrorGain" data-dir="1">+</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Corrección de desvío (Integral)</span>
-                <span class="sval" data-for="integralStanley">0<span class="u">%</span></span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="integralStanley" data-dir="-1">−</button>
-                <input type="range" data-key="integralStanley" min="0" max="100" step="1" value="0" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="integralStanley" data-dir="1">+</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ================= PP Avanzado ================= -->
-      <section data-tab="ppadv">
-        <div class="carta">
-          <h2>Ajustes avanzados (PP Avanzado)</h2>
-
-          <div class="sctl">
-            <img class="sdiag" src="../img/steer/ConV_GuidanceLookAhead.png" alt="" />
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Anticipación según la velocidad (Look Ahead Mult)</span>
-                <span class="sval" data-for="lookAheadMult">0.6</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="lookAheadMult" data-dir="-1">−</button>
-                <input type="range" data-key="lookAheadMult" min="5" max="60" step="1" value="6" data-scale="0.1" data-dec="1" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="lookAheadMult" data-dir="1">+</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="sctl">
-            <img class="sdiag" src="../img/steer/ConV_SnapDistance.png" alt="" />
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Rapidez para volver a la línea (Acquire)</span>
-                <span class="sval" data-for="acquireFactor">0.75</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="acquireFactor" data-dir="-1">−</button>
-                <input type="range" data-key="acquireFactor" min="20" max="300" step="1" value="75" data-scale="0.01" data-dec="2" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="acquireFactor" data-dir="1">+</button>
-              </div>
-              <div class="shint">Qué tan rápido busca volver a la línea.</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="carta">
-          <h2>Zona muerta</h2>
-          <div class="nudfila">
-            <label for="deadZoneHeading">Rumbo (grados)</label>
+          <div class="numfila">
+            <div class="numbody"><div class="lbl">Zona muerta (grados)</div><div class="sub">Error de rumbo que se tolera sin corregir</div></div>
             <input class="nud" id="deadZoneHeading" data-key="deadZoneHeading" type="number" inputmode="decimal" min="0.1" max="5" step="0.1" value="1.0" />
             <span class="unidad">°</span>
           </div>
-          <div class="nudfila">
-            <label for="deadZoneDelay">Retardo de encendido</label>
+          <div class="numfila">
+            <div class="numbody"><div class="lbl">Retardo de zona muerta</div><div class="sub">Cuánto espera antes de entrar en zona muerta</div></div>
             <input class="nud" id="deadZoneDelay" data-key="deadZoneDelay" type="number" inputmode="numeric" min="1" max="10" step="1" value="1" />
-            <span class="unidad">s</span>
+            <span class="unidad">ciclos</span>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ================= Sensores (turn sensor) ================= -->
-      <section data-tab="sensors">
-        <div class="carta">
-          <h2>Sensor de giro</h2>
-          <div class="togglesGrid" style="margin-bottom:12px">
+        <!-- ── tabGain: ganancias / PWM ── -->
+        <section data-tab="gain" data-group="izq">
+          <img class="tab-hero" src="../img/steer/Sf_GainTab.png" alt="" />
+          <div class="sctl">
+            <div class="stop"><span class="slbl">Fuerza de corrección (Ganancia P)</span>
+              <span class="sval" data-for="proportionalGain">4</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="proportionalGain" data-dir="-1">−</button>
+              <input type="range" data-key="proportionalGain" min="1" max="200" step="1" value="4" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="proportionalGain" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="sctl">
+            <div class="stop"><span class="slbl">Fuerza mínima para mover (PWM mín)</span>
+              <span class="sval" data-for="minPWM">10</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="minPWM" data-dir="-1">−</button>
+              <input type="range" data-key="minPWM" min="0" max="200" step="1" value="10" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="minPWM" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="sctl">
+            <div class="stop"><span class="slbl">Fuerza máxima (PWM alto)</span>
+              <span class="sval" data-for="highSteerPWM">50</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="highSteerPWM" data-dir="-1">−</button>
+              <input type="range" data-key="highSteerPWM" min="20" max="255" step="1" value="50" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="highSteerPWM" data-dir="1">+</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- panel2 del original: Set / Actual / Error, en vivo -->
+      <div id="fsEstado">
+        <div class="cell"><div class="cap">Seteado</div><div class="val"><span id="liveSet">—</span><span class="u">°</span></div></div>
+        <div class="cell"><div class="cap">Actual</div><div class="val"><span id="liveAct">—</span><span class="u">°</span></div></div>
+        <div class="cell"><div class="cap">Error</div><div class="val"><span id="liveErr">—</span><span class="u">°</span></div></div>
+      </div>
+
+      <!-- panel1 del original: manejo libre (free drive) -->
+      <div id="fsFree">
+        <h2>Manejo libre · probar la dirección</h2>
+        <div class="fdfila">
+          <button type="button" class="fdpower" id="fdBtn" title="Prender / apagar el manejo libre">
+            <img id="fdBtnImg" src="../img/steer/SteerDriveOff.png" alt="" />
+            <span class="cap" id="fdBtnCap">Apagado</span>
+          </button>
+          <button type="button" class="fdarrow" id="fdLeft" title="Un grado a la izquierda" disabled>
+            <img src="../img/steer/SteerLeft.png" alt="" /><span class="cap">−1°</span>
+          </button>
+          <span class="fdang" id="fdAngle">0<span class="u">°</span></span>
+          <button type="button" class="fdarrow" id="fdRight" title="Un grado a la derecha" disabled>
+            <img src="../img/steer/SteerRight.png" alt="" /><span class="cap">+1°</span>
+          </button>
+          <button type="button" id="fdDot" title="Alternar entre 0° y 5°" disabled>0° ↔ 5°</button>
+        </div>
+        <p class="nota" id="fdNota">Con el tractor parado. Se apaga solo por encima del límite de velocidad de guiado.</p>
+      </div>
+    </div>
+
+    <!-- ═══════════ COLUMNA DERECHA (tabSteerSettings del original) ═══════════ -->
+    <div id="colDer">
+      <nav class="tabstrip" id="menu2">
+        <button data-tab="sensors"><img src="../img/steer/ConSt_TurnSensor.png" alt="" /><span>Sensores</span></button>
+        <button data-tab="config"><img src="../img/steer/ConSt_Danfoss.png" alt="" /><span>Placa</span></button>
+        <button data-tab="settings"><img src="../img/steer/ModeStanley.png" alt="" /><span>Ajustes</span></button>
+        <button data-tab="alarm"><img src="../img/steer/ConV_MaxAutoSteer.png" alt="" /><span>Velocidad</span></button>
+        <button data-tab="online"><img src="../img/steer/ConD_LightBar.png" alt="" /><span>Barra guía</span></button>
+      </nav>
+      <div class="tabpanel">
+
+        <!-- ── tabSensors: sensor de fin de giro ── -->
+        <section data-tab="sensors" data-group="der">
+          <p class="nota" style="margin-bottom:8px">Sensor que corta el autosteer al agarrar el volante. Uno solo a la vez.</p>
+          <div class="togglesGrid">
             <div class="chkimg" data-key="encoder"><img src="../img/steer/ConSt_TurnSensor.png" alt="" /><span class="cap">Encoder del motor</span></div>
             <div class="chkimg" data-key="pressureSensor"><img src="../img/steer/ConSt_TurnSensorPressure.png" alt="" /><span class="cap">Presión</span></div>
             <div class="chkimg" data-key="currentSensor"><img src="../img/steer/ConSt_TurnSensorCurrent.png" alt="" /><span class="cap">Corriente</span></div>
           </div>
-          <p class="nota" style="margin-bottom:12px">Los tres tipos de sensor son excluyentes.</p>
-
-          <div class="nudfila">
-            <label for="maxCounts">Umbral (Max Counts)</label>
+          <div class="numfila">
+            <div class="numbody"><div class="lbl">Cuentas máximas (encoder)</div><div class="sub">Pulsos para cortar</div></div>
             <input class="nud" id="maxCounts" data-key="maxCounts" type="number" inputmode="numeric" min="1" max="255" step="1" value="15" />
-            <span class="unidad">punto de disparo</span>
           </div>
-
           <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Lectura del sensor</span>
-                <span class="sval" id="lblSensorPct">0<span class="u">%</span></span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="sensorLimit" data-dir="-1">−</button>
-                <input type="range" data-key="sensorLimit" min="0" max="255" step="1" value="0" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="sensorLimit" data-dir="1">+</button>
-              </div>
+            <div class="stop"><span class="slbl">Límite del sensor (presión/corriente)</span>
+              <span class="sval"><span id="lblSensorPct">0</span><span class="u">%</span></span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="sensorLimit" data-dir="-1">−</button>
+              <input type="range" data-key="sensorLimit" min="0" max="255" step="1" value="0" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="sensorLimit" data-dir="1">+</button>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ================= Módulo (pines / inversiones / drivers) ================= -->
-      <section data-tab="config">
-        <div class="carta">
-          <h2>Placa y conexiones (Módulo)</h2>
-          <div class="togglesGrid" style="margin-bottom:14px">
-            <div class="chkimg" data-key="danfoss"><img src="../img/steer/ConSt_Danfoss.png" alt="" /><span class="cap">Danfoss</span></div>
+        <!-- ── tabConfig: placa / cableado ── -->
+        <section data-tab="config" data-group="der">
+          <div class="togglesGrid">
             <div class="chkimg" data-key="invertWas"><img src="../img/steer/ConSt_InvertWAS.png" alt="" /><span class="cap">Invertir sensor de ángulo (WAS)</span></div>
             <div class="chkimg" data-key="invertSteer"><img src="../img/steer/ConSt_InvertDirection.png" alt="" /><span class="cap">Invertir motor</span></div>
             <div class="chkimg" data-key="invertRelays"><img src="../img/steer/ConSt_InvertRelay.png" alt="" /><span class="cap">Invertir relés</span></div>
+            <div class="chkimg" data-key="danfoss"><img src="../img/steer/ConSt_Danfoss.png" alt="" /><span class="cap">Danfoss</span></div>
           </div>
-
-          <div class="seg-field">
-            <span class="lbl">Tipo de driver del motor</span>
+          <div class="segrow"><span class="slbl">Driver del motor</span>
             <div class="seg" data-seg="motorDrive">
               <button type="button" class="seg-btn on" data-val="Cytron">Cytron</button>
               <button type="button" class="seg-btn" data-val="IBT2">IBT2</button>
             </div>
           </div>
-          <div class="seg-field">
-            <span class="lbl">Tipo de conversor de señal (A2D)</span>
+          <div class="segrow"><span class="slbl">Conversor A/D</span>
             <div class="seg" data-seg="convType">
               <button type="button" class="seg-btn on" data-val="Single">Simple</button>
               <button type="button" class="seg-btn" data-val="Differential">Diferencial</button>
             </div>
           </div>
-          <div class="seg-field">
-            <span class="lbl">Cómo se activa el piloto (Steer Enable)</span>
+          <div class="segrow"><span class="slbl">Activación del autosteer</span>
             <div class="seg" data-seg="steerEnable">
               <button type="button" class="seg-btn on" data-val="None">Ninguno</button>
               <button type="button" class="seg-btn" data-val="Switch">Interruptor</button>
               <button type="button" class="seg-btn" data-val="Button">Botón</button>
             </div>
           </div>
-          <div class="seg-field">
-            <span class="lbl">Eje IMU</span>
+          <div class="segrow"><span class="slbl">Eje del IMU</span>
             <div class="seg" data-seg="imuAxis">
               <button type="button" class="seg-btn on" data-val="X">X</button>
               <button type="button" class="seg-btn" data-val="Y">Y</button>
             </div>
           </div>
-          <p class="nota">Botón: presiona ON, presiona OFF. &nbsp;·&nbsp; Switch: presionado ON, soltado OFF.</p>
-        </div>
-      </section>
+          <p class="nota">Botón: presiona ON, presiona OFF. &nbsp;·&nbsp; Interruptor: presionado ON, soltado OFF.</p>
+        </section>
 
-      <!-- ================= Ajustes (U-turn / sidehill / modo / reversa / Smart WAS) ================= -->
-      <section data-tab="settings">
-        <div class="carta">
-          <h2>Ajustes de guiado</h2>
-
+        <!-- ── tabSettings: U-turn / pendiente / modo / reversa ── -->
+        <section data-tab="settings" data-group="der">
           <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Ajuste del giro en U (U-Turn)</span>
-                <span class="sval" data-for="uTurnComp">-5</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="uTurnComp" data-dir="-1">−</button>
-                <input type="range" data-key="uTurnComp" min="2" max="20" step="1" value="5" data-display="minus10" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="uTurnComp" data-dir="1">+</button>
-              </div>
-              <div class="sends"><span>Afuera</span><span>Adentro</span></div>
+            <div class="stop"><span class="slbl">Ajuste del giro en U (U-Turn)</span>
+              <span class="sval" data-for="uTurnComp">-5</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="uTurnComp" data-dir="-1">−</button>
+              <input type="range" data-key="uTurnComp" min="2" max="20" step="1" value="5" data-display="minus10" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="uTurnComp" data-dir="1">+</button>
+            </div>
+            <div class="sends"><span>Afuera</span><span>Adentro</span></div>
+          </div>
+          <div class="sctl">
+            <div class="stop"><span class="slbl">Corrección en pendiente (Side Hill)</span>
+              <span class="sval" data-for="sideHillComp">5</span></div>
+            <div class="sslider">
+              <button type="button" class="sbtn" data-nudge="sideHillComp" data-dir="-1">−</button>
+              <input type="range" data-key="sideHillComp" min="0" max="30" step="1" value="5" data-no-keyboard />
+              <button type="button" class="sbtn" data-nudge="sideHillComp" data-dir="1">+</button>
             </div>
           </div>
-
-          <div class="sctl">
-            <div class="sbody">
-              <div class="stop"><span class="slbl">Corrección en pendiente (Side Hill)</span>
-                <span class="sval" data-for="sideHillComp">5</span></div>
-              <div class="sslider">
-                <button type="button" class="sbtn" data-nudge="sideHillComp" data-dir="-1">−</button>
-                <input type="range" data-key="sideHillComp" min="0" max="30" step="1" value="5" data-no-keyboard />
-                <button type="button" class="sbtn" data-nudge="sideHillComp" data-dir="1">+</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="carta">
-          <h2>Modo y reversa</h2>
           <div class="togglesGrid">
             <div class="chkimg" data-key="stanleyPure"><img src="../img/steer/ModeStanley.png" alt="" /><span class="cap">Modo firme / suave</span></div>
             <div class="chkimg" data-key="steerInReverse"><img src="../img/steer/ConV_RevSteer.png" alt="" /><span class="cap">Dirigir en retroceso</span></div>
           </div>
-        </div>
+        </section>
 
-        <div class="carta">
-          <h2>Cero automático del sensor (Smart WAS)</h2>
-          <div class="nudfila" style="margin-bottom:0">
-            <button type="button" class="btnZero" id="btnSmartZeroWas" title="Cero automático del WAS"><img src="../img/steer/ST_SmartWAS.png" alt="" /></button>
-            <span class="unidad">Cero automático · <b id="smartStatus">Listo · Muestras: 0 · Confianza: 0%</b></span>
-          </div>
-        </div>
-      </section>
-
-      <!-- ================= Velocidad / alarmas ================= -->
-      <section data-tab="alarm">
-        <div class="carta">
-          <h2>Límites de velocidad</h2>
-
+        <!-- ── tabAlarm: límites de velocidad ── -->
+        <section data-tab="alarm" data-group="der">
           <div class="numfila">
             <img class="numdiag" src="../img/steer/con_VehicleFunctionSpeedLimit.png" alt="" />
             <div class="numbody"><div class="lbl">Velocidad máx. para giros manuales</div><div class="sub">Velocidad máxima para funciones de guiado</div></div>
             <input id="guidanceSpeedLimit" data-key="guidanceSpeedLimit" type="number" inputmode="numeric" min="2" max="20" step="1" value="7" />
             <span class="unidad">km/h</span>
           </div>
-
           <div class="numfila">
             <img class="numdiag" src="../img/steer/ConV_MinAutoSteer.png" alt="" />
             <div class="numbody"><div class="lbl">Velocidad mínima</div><div class="sub">AutoSteer se activa a partir de</div></div>
             <input id="minSteerSpeed" data-key="minSteerSpeed" type="number" inputmode="decimal" min="0.1" max="10" step="0.1" value="1.0" />
             <span class="unidad">km/h</span>
           </div>
-
-          <div class="numfila" style="margin-bottom:0">
+          <div class="numfila">
             <img class="numdiag" src="../img/steer/ConV_MaxAutoSteer.png" alt="" />
             <div class="numbody"><div class="lbl">Velocidad máxima</div><div class="sub">AutoSteer se desactiva por encima de</div></div>
             <input id="maxSteerSpeed" data-key="maxSteerSpeed" type="number" inputmode="numeric" min="1" max="50" step="1" value="12" />
             <span class="unidad">km/h</span>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ================= En la línea (line width / nudge / lookahead / cm px / barra) ================= -->
-      <section data-tab="online">
-        <div class="carta">
-          <h2>En la línea</h2>
-
+        <!-- ── tabOnTheLine: sobre la línea ── -->
+        <section data-tab="online" data-group="der">
           <div class="numfila">
             <img class="numdiag" src="../img/steer/ConV_LineWith.png" alt="" />
-            <div class="numbody"><div class="lbl">Ancho de línea</div></div>
+            <div class="numbody"><div class="lbl">Grosor de la línea</div></div>
             <input id="lineWidth" data-key="lineWidth" type="number" inputmode="numeric" min="1" max="8" step="1" value="1" />
             <span class="unidad">px</span>
           </div>
-
           <div class="numfila">
             <img class="numdiag" src="../img/steer/ConV_SnapDistance.png" alt="" />
-            <div class="numbody"><div class="lbl">Distancia de nudge (snap)</div></div>
+            <div class="numbody"><div class="lbl">Paso de mover guía (nudge)</div></div>
             <input id="snapDistance" data-key="snapDistance" type="number" inputmode="numeric" min="0" max="1000" step="1" value="499" />
             <span class="unidad">cm</span>
           </div>
-
           <div class="numfila">
             <img class="numdiag" src="../img/steer/ConV_GuidanceLookAhead.png" alt="" />
-            <div class="numbody"><div class="lbl">Búsqueda de próxima línea</div><div class="sub">Guidance look-ahead</div></div>
+            <div class="numbody"><div class="lbl">Anticipación del guiado</div></div>
             <input id="guidanceLookAhead" data-key="guidanceLookAhead" type="number" inputmode="decimal" min="0.1" max="10" step="0.1" value="1.0" />
             <span class="unidad">s</span>
           </div>
-
           <div class="numfila">
             <img class="numdiag" src="../img/steer/ConV_CmPixel.png" alt="" />
-            <div class="numbody"><div class="lbl">cm por píxel</div></div>
+            <div class="numbody"><div class="lbl">Sensibilidad de la barra</div><div class="sub">Centímetros por pixel</div></div>
             <input id="cmPerPixel" data-key="cmPerPixel" type="number" inputmode="numeric" min="2" max="20" step="1" value="3" />
-            <span class="unidad">cm</span>
+            <span class="unidad">cm/px</span>
           </div>
-        </div>
-
-        <div class="carta">
-          <h2>Barra de guiado</h2>
-          <div class="seg-field">
-            <div class="seg seg-img" data-seg="guidanceBar">
+          <div class="segrow"><span class="slbl">Tipo de barra de guiado</span>
+            <div class="seg" data-seg="guidanceBar">
               <button type="button" class="seg-btn on" data-val="lightbar"><img src="../img/steer/ConD_LightBar.png" alt="" /><span>Lightbar</span></button>
               <button type="button" class="seg-btn" data-val="steerbar"><img src="../img/steer/ConD_SteerBarBar.png" alt="" /><span>Steer Bar</span></button>
             </div>
@@ -738,26 +603,25 @@
           <div class="togglesGrid">
             <div class="chkimg" data-key="displayLightbar"><img src="../img/steer/SwitchOn.png" alt="" /><span class="cap">Mostrar barra en pantalla</span></div>
           </div>
-        </div>
-      </section>
-    </main>
-  </div>
+        </section>
+      </div>
 
-  <!-- botón Guardar flotante, visible en todas las solapas (dirty / ok) -->
-  <button type="button" id="btnGuardarFloat" title="Guardar">
-    <img id="btnGuardarImg" src="../img/config/FileSave.png" alt="Guardar" />
-    <span id="btnGuardarCap">Sin cambios</span>
-  </button>
-
-  <div id="footer">
-    <span class="dato" id="ftModulo">Módulo: <b id="ftModuloVal">—</b></span>
-    <button type="button" class="btnEnviar" id="btnReset" style="min-height:38px; padding:4px 12px">
-      <img src="../img/steer/Reset_Default.png" alt="" style="width:28px; height:28px" />Restablecer
-    </button>
-    <span id="estado"></span>
+      <!-- pie del original: Reset + Send&Save + estado -->
+      <div id="fsAcciones">
+        <span id="estado"></span>
+        <span id="ftModulo">Módulo: <b id="ftModuloVal">—</b></span>
+        <button type="button" id="btnReset" title="Volver a los valores por defecto">
+          <img src="../img/steer/Reset_Default.png" alt="" /><span>Reset</span>
+        </button>
+        <button type="button" id="btnGuardarFloat" title="Guardar y enviar al módulo de dirección">
+          <img id="btnGuardarImg" src="../img/config/FileSave.png" alt="" />
+          <span id="btnGuardarCap">Sin cambios</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="../js/keyboard.js"></script>
-  <script src="../js/direccion.js?v=3"></script>
+  <script src="../js/direccion.js?v=4"></script>
 </body>
 </html>

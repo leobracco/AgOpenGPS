@@ -88,6 +88,8 @@
          252/251, port del FormSteer nativo. Archivo compartido por link con
          PilotX.GuidanceEngine (motor headless) para no duplicar el mapeo. -->
     <Compile Include="..\AgroParallel\Adapters\SteerConfigService.cs" Link="AgroParallel\SteerConfigService.cs" />
+    <Compile Include="..\AgroParallel\Adapters\TramLineMapper.cs" Link="AgroParallel\TramLineMapper.cs" />
+    <Compile Include="..\AgroParallel\Adapters\ShapefileLayer.cs" Link="AgroParallel\ShapefileLayer.cs" />
   </ItemGroup>
 
   <ItemGroup>

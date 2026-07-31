@@ -1,7 +1,10 @@
 // ============================================================================
 // direccion.js — Configuración de AutoSteer (FormSteer) para el Hub de PilotX.
-// Mismo sistema de diseño e interacción que config.js: menú lateral de tabs,
-// teclado virtual, botón Guardar flotante con estados (dirty / ok) y deep-link.
+// El markup replica el LAYOUT del FormSteer WinForms original (pedido
+// 2026-07-31): dos columnas con dos grupos de tabs independientes (#menu =
+// guiado, #menu2 = módulo), panel Set/Actual/Error en vivo (graph-steer) y el
+// manejo libre abajo a la izquierda. Teclado virtual, botón Guardar con
+// estados (dirty / ok) y deep-link ?tab= / ?tab2=.
 //
 // A diferencia de config.js (que guarda por sección al salir de cada tab), acá
 // toda la config de dirección se maneja como UN solo objeto y se persiste
@@ -9,6 +12,9 @@
 //   · GET  /api/steer/config    → popula los controles (si 404, quedan defaults)
 //   · POST /api/steer/config    → guarda el objeto serializado
 //   · POST /api/steer/zero-was  → pone el WAS en cero
+//   · /api/steer/freedrive[/angle|/zero] → manejo libre (mueve el volante sin
+//     guía; el motor lo rechaza en movimiento y lo apaga solo si el tractor
+//     arranca, así que la pantalla relee el estado en vez de suponerlo)
 // Todos los fetch van en try/catch: si el endpoint no existe, la página sigue
 // andando con los valores por defecto.
 //
@@ -21,7 +27,6 @@
   function $(id) { return document.getElementById(id); }
 
   var estado = $('estado');
-  var tabActual = null;
 
   function setEstado(msg, cls) {
     if (!estado) return;
@@ -293,31 +298,228 @@
   }
 
   // --------------------------------------------------------------------------
-  // Navegación por menú lateral (réplica del patrón de config.js)
+  // Manejo libre (free drive)
+  //
+  // Prendido, el módulo mueve el volante con el ángulo que fija el operario, sin
+  // guía. El motor no lo deja prender con el tractor andando y lo APAGA SOLO si
+  // arranca, así que la pantalla no puede quedarse con su idea del estado: se
+  // relee del backend después de cada acción y en un latido mientras está
+  // prendido. Lo que se muestra es siempre lo que contestó el motor.
+  //   GET  /api/steer/freedrive
+  //   POST /api/steer/freedrive        {on}
+  //   POST /api/steer/freedrive/angle  {dir:-1|1}
+  //   POST /api/steer/freedrive/zero
   // --------------------------------------------------------------------------
-  function irATab(id) {
-    var sec = document.querySelector('section[data-tab="' + id + '"]');
-    if (!sec) { id = 'gain'; }
-    if (tabActual === id) return;
-    tabActual = id;
-    document.querySelectorAll('#menu button').forEach(function (b) {
+  var fdEstadoPrevio = false;
+  var fdTimer = null;
+
+  function fdMotivo(j) {
+    var vel = (j && typeof j.speed === 'number') ? j.speed.toFixed(1) : '?';
+    var lim = (j && typeof j.speed_limit === 'number') ? j.speed_limit.toFixed(1) : '?';
+    switch (j && j.error) {
+      case 'velocidad':
+        return 'No se puede prender: el tractor va a ' + vel + ' km/h (límite ' + lim + ' km/h).';
+      case 'sin-velocidad':
+        return 'No se puede prender: PilotX no está informando velocidad.';
+      case 'apagado':
+        return 'Prendé el manejo libre antes de mover el ángulo.';
+      case 'service-unavailable':
+        return 'Sin módulo de dirección conectado.';
+      case 'bad-json':
+      case 'error-interno':
+        return 'No se pudo completar la acción (AGP-SYS-009).';
+      default:
+        return null;
+    }
+  }
+
+  function fdRender(j) {
+    var btn = $('fdBtn');
+    if (!btn) return;
+
+    var on = !!(j && j.on);
+    var ang = (j && typeof j.angle === 'number') ? j.angle : 0;
+
+    btn.classList.toggle('on', on);
+    var img = $('fdBtnImg');
+    if (img) img.src = '../img/steer/SteerDrive' + (on ? 'On' : 'Off') + '.png';
+    var cap = $('fdBtnCap');
+    if (cap) cap.textContent = on ? 'Prendido' : 'Apagado';
+
+    var out = $('fdAngle');
+    if (out) {
+      var u = out.querySelector('.u');
+      out.textContent = (ang > 0 ? '+' : '') + ang.toFixed(0);
+      if (u) out.appendChild(u);
+    }
+
+    ['fdLeft', 'fdRight', 'fdDot'].forEach(function (id) {
+      var b = $(id);
+      if (b) b.disabled = !on;
+    });
+
+    var nota = $('fdNota');
+    if (nota) {
+      var motivo = fdMotivo(j);
+      // Se apagó solo entre dos latidos: el motivo es el watchdog de velocidad.
+      if (!motivo && fdEstadoPrevio && !on) {
+        motivo = 'Se apagó solo: el tractor superó el límite de velocidad de guiado.';
+      }
+      nota.textContent = motivo ||
+        'Con el tractor parado. Se apaga solo por encima del límite de velocidad de guiado.';
+      nota.className = motivo ? 'nota err' : 'nota';
+    }
+
+    fdEstadoPrevio = on;
+    fdLatido(on);
+  }
+
+  // Latido: rápido mientras está prendido (para ver el apagado automático),
+  // parado cuando no lo está — no tiene sentido machacar el motor apagado.
+  function fdLatido(on) {
+    if (on && !fdTimer) {
+      fdTimer = setInterval(fdPoll, 700);
+    } else if (!on && fdTimer) {
+      clearInterval(fdTimer);
+      fdTimer = null;
+    }
+  }
+
+  function fdPoll() {
+    fetch('/api/steer/freedrive', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) fdRender(j); })
+      .catch(function () { /* motor caído: se deja lo último mostrado */ });
+  }
+
+  function fdPost(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {})
+    })
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+      .then(function (j) { fdRender(j); return j; })
+      .catch(function (e) {
+        var nota = $('fdNota');
+        if (nota) {
+          nota.textContent = 'Sin conexión con PilotX [' + e + '] — el manejo libre no responde.';
+          nota.className = 'nota err';
+        }
+        return null;
+      });
+  }
+
+  function initFreeDrive() {
+    var btn = $('fdBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+      fdPost('/api/steer/freedrive', { on: !btn.classList.contains('on') });
+    });
+    var l = $('fdLeft');
+    if (l) l.addEventListener('click', function () { fdPost('/api/steer/freedrive/angle', { dir: -1 }); });
+    var r = $('fdRight');
+    if (r) r.addEventListener('click', function () { fdPost('/api/steer/freedrive/angle', { dir: 1 }); });
+    var d = $('fdDot');
+    if (d) d.addEventListener('click', function () { fdPost('/api/steer/freedrive/zero', {}); });
+
+    // Salir de la pantalla con el volante bajo control manual sería dejar una
+    // función viva sin nadie mirándola: se apaga al ocultarse o cerrarse.
+    function apagar() {
+      if (!fdEstadoPrevio) return;
+      try {
+        var body = JSON.stringify({ on: false });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/steer/freedrive', new Blob([body], { type: 'application/json' }));
+        } else {
+          fdPost('/api/steer/freedrive', { on: false });
+        }
+      } catch (e) { /* último recurso: el watchdog del motor */ }
+    }
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') apagar();
+    });
+    window.addEventListener('pagehide', apagar);
+
+    fdPoll();
+  }
+
+  // --------------------------------------------------------------------------
+  // Tabs en DOS grupos independientes, como los dos TabControl del FormSteer
+  // original: #menu (guiado, izquierda) y #menu2 (módulo, derecha). Cada grupo
+  // tiene su tab activo propio; los dos paneles se ven a la vez.
+  // Deep-link: ?tab= para la izquierda, ?tab2= para la derecha.
+  // --------------------------------------------------------------------------
+  var GRUPOS = {
+    izq: { menu: 'menu',  def: 'pp',      param: 'tab'  },
+    der: { menu: 'menu2', def: 'sensors', param: 'tab2' }
+  };
+
+  function irATab(grupo, id) {
+    var g = GRUPOS[grupo];
+    if (!g) return;
+    var sec = document.querySelector('section[data-group="' + grupo + '"][data-tab="' + id + '"]');
+    if (!sec) { id = g.def; }
+    document.querySelectorAll('#' + g.menu + ' button').forEach(function (b) {
       b.classList.toggle('sel', b.dataset.tab === id);
     });
-    document.querySelectorAll('section[data-tab]').forEach(function (s) {
+    document.querySelectorAll('section[data-group="' + grupo + '"]').forEach(function (s) {
       s.classList.toggle('activa', s.dataset.tab === id);
     });
     try {
       var url = new URL(window.location.href);
-      url.searchParams.set('tab', id);
+      url.searchParams.set(g.param, id);
       history.replaceState(null, '', url.toString());
     } catch (e) { /* file:// etc. */ }
-    $('main').scrollTop = 0;
   }
 
   function initTabs() {
-    document.querySelectorAll('#menu button').forEach(function (b) {
-      b.addEventListener('click', function () { irATab(b.dataset.tab); });
+    Object.keys(GRUPOS).forEach(function (grupo) {
+      var g = GRUPOS[grupo];
+      document.querySelectorAll('#' + g.menu + ' button').forEach(function (b) {
+        b.addEventListener('click', function () { irATab(grupo, b.dataset.tab); });
+      });
     });
+  }
+
+  // --------------------------------------------------------------------------
+  // Ángulo en vivo (panel Set/Actual/Error del FormSteer + barra del tab
+  // Dirección). Misma fuente que el gráfico: GET /api/aog/graph-steer a 5 Hz.
+  // Si el motor no contesta, los tres quedan en "—" — nunca números viejos.
+  // --------------------------------------------------------------------------
+  function initLiveAngle() {
+    var elSet = $('liveSet'), elAct = $('liveAct'), elErr = $('liveErr');
+    if (!elSet && !elAct) return;
+
+    function pinta(set, act) {
+      var ok = typeof set === 'number' && typeof act === 'number';
+      if (elSet) elSet.textContent = ok ? set.toFixed(1) : '—';
+      if (elAct) elAct.textContent = ok ? act.toFixed(1) : '—';
+      if (elErr) elErr.textContent = ok ? (set - act).toFixed(1) : '—';
+
+      // Barra de ángulo real del tab Dirección (pbar del original): el fondo
+      // de escala es el ángulo máximo configurado en su slider.
+      var l = $('angleFillLeft'), r = $('angleFillRight');
+      if (l && r) {
+        var maxR = document.querySelector('input[data-key="maxSteerAngle"]');
+        var max = maxR ? (parseFloat(maxR.value) || 40) : 40;
+        var pct = ok ? Math.min(100, Math.abs(act) / max * 100) : 0;
+        l.style.width = (ok && act < 0) ? pct + '%' : '0';
+        r.style.width = (ok && act >= 0) ? pct + '%' : '0';
+      }
+    }
+
+    setInterval(function () {
+      if (document.visibilityState === 'hidden') return;
+      fetch('/api/aog/graph-steer', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (j && typeof j.actual_steer_deg === 'number') pinta(j.set_steer_deg, j.actual_steer_deg);
+          else pinta(null, null);
+        })
+        .catch(function () { pinta(null, null); });
+    }, 200);
   }
 
   // --------------------------------------------------------------------------
@@ -357,9 +559,10 @@
 
   function initSaveButton() {
     // Los inputs numéricos también marcan sucio (los sliders/toggles/segmentados
-    // llaman a marcarSucio() en sus propios handlers).
-    var main = $('main');
-    main.addEventListener('input', function (ev) {
+    // llaman a marcarSucio() en sus propios handlers). Se escucha en #layout,
+    // que envuelve las dos columnas del layout FormSteer.
+    var raiz = $('layout') || document.body;
+    raiz.addEventListener('input', function (ev) {
       if (ev.target && ev.target.matches('input[type=number]')) marcarSucio();
     });
     btnG.addEventListener('click', function () { saveConfig(); });
@@ -399,8 +602,11 @@
     initSegments();
     initSaveButton();
     initAuxButtons();
-    var tab = new URLSearchParams(window.location.search).get('tab') || 'gain';
-    irATab(tab);
+    initFreeDrive();
+    initLiveAngle();
+    var q = new URLSearchParams(window.location.search);
+    irATab('izq', q.get('tab') || GRUPOS.izq.def);
+    irATab('der', q.get('tab2') || GRUPOS.der.def);
     loadConfig();
   });
 })();

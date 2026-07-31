@@ -58,13 +58,15 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     /// <summary>0..9, para el desplegable.</summary>
     public int[] SaltosPosibles { get; } = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
-    private int _saltoDelGiro = 1;
+    private int _saltoDelGiro;   // 0 = va a la contigua (el default del motor)
     private bool _aplicandoSnapshot;
 
     /// <summary>
-    /// Guías que saltea el giro. El setter manda el comando al motor, salvo
-    /// cuando el valor viene del snapshot: sin ese guard, cada refresco del HUD
-    /// reenviaría el comando 10 veces por segundo.
+    /// Guías que SALTEA el giro: 0 = va a la contigua, 1 = saltea una, etc.
+    /// (El motor trabaja en ancho = salteadas + 1; la conversión está en
+    /// Apply.) El setter manda el comando al motor, salvo cuando el valor
+    /// viene del snapshot: sin ese guard, cada refresco del HUD reenviaría el
+    /// comando 10 veces por segundo.
     /// </summary>
     public int SaltoDelGiro
     {
@@ -114,8 +116,11 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
         LateralVisible = hayGuia && !contour;
 
         // Se refleja lo que dice el motor sin re-disparar el comando.
+        // El motor habla en ANCHO (rowSkipsWidth, 1 = contigua); este menú
+        // muestra guías SALTEADAS (0 = contigua): display = ancho − 1.
         _aplicandoSnapshot = true;
-        SaltoDelGiro = s.YouTurnSkipWidth;
+        int salteadas = s.YouTurnSkipWidth - 1;
+        SaltoDelGiro = salteadas < 0 ? 0 : (salteadas > 9 ? 9 : salteadas);
         _aplicandoSnapshot = false;
     }
 }

@@ -31,7 +31,7 @@ namespace AgroParallel.Adapters
             catch { return fallback; }
         }
 
-        private static NudgeStateDto Map(FormGPS.NudgeStateSnapshot s)
+        private static NudgeStateDto Map(NudgeEditor.NudgeStateSnapshot s)
         {
             if (s == null) return new NudgeStateDto { Ok = false, Error = "no-state" };
             return new NudgeStateDto

@@ -1631,3 +1631,34 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   serial/ntrip/red/eventos/modulos/perfil) — gap 100% web cubierto;
   FormISOBUS sigue en duda de producto.
   PENDIENTE DECISION USUARIO: tramline vs tramlines (auditoria anterior).
+- [2026-07-30] [Claude] **Manejo libre (free drive) en `direccion.html`.** Sumé
+  una tarjeta al final de la tab `steer` (IDs nuevos, ninguno renombrado:
+  `fdBtn`, `fdBtnImg`, `fdBtnCap`, `fdLeft`, `fdRight`, `fdAngle`, `fdDot`,
+  `fdNota`) + su bloque CSS `.fd*` y la lógica en `js/direccion.js`
+  (`initFreeDrive`). Es el último ícono del FormSteer nativo que no tenía
+  equivalente web. Codex: la tarjeta está en el estilo de la página (tokens
+  locales `--verde/--borde/--gris`, como el resto del archivo), y respeta la
+  "vista SIN iconos" — los botones llevan texto propio que aparece cuando la
+  imagen se oculta, igual que hizo el botón de cero del WAS. Si rediseñás la
+  pantalla, esos IDs quedan congelados: los usa la lógica que decide si el
+  módulo mueve el volante. Copié 4 PNG a `img/steer/` (SteerDriveOn, SteerLeft,
+  SteerRight, WizSteerDot) para cuando vuelvan los iconos.
+- [2026-07-30] [Claude] **Import KML en `contorno.html`.** Sumé una fila
+  `bd-actions` a la vista lista (IDs nuevos congelados: `btnKmlImport`,
+  `btnKmlAdd`, `kmlFile`) + su lógica en `js/contorno.js`. Sin CSS nuevo:
+  reusa `.btn`/`.bd-actions` de la página. "Importar KML" reemplaza todo el
+  contorno (doble-tap `¿Seguro?` si había algo); "Agregar desde KML" suma el
+  primer polígono como exclusión. El file picker es el del WebView (mismo
+  patrón que firmwares.html). Endpoint: POST
+  /api/contorno/import-kml-upload?multi=0|1 con el KML crudo de body.
+- [2026-07-31] [Claude] **direccion.html re-maquetada al layout del FormSteer
+  ORIGINAL** (pedido del usuario: "igual al original, después lo vamos
+  cambiando"). Dos columnas como la ventana nativa expandida: izquierda =
+  tabs de guiado (pp/stan/steer/ppadv/gain, #menu) + panel Set/Actual/Error
+  EN VIVO (graph-steer a 5 Hz, ids nuevos liveSet/liveAct/liveErr) + manejo
+  libre; derecha = tabs del módulo (sensors/config/settings/alarm/online,
+  #menu2 NUEVO) + Reset + Guardar. TODOS los data-key/data-seg/ids del
+  contrato se conservaron; smartWas (btnSmartZeroWas/smartStatus) SALIÓ del
+  markup porque no existe en el original (el JS lo tolera). El JS ahora maneja
+  DOS grupos de tabs independientes (?tab= y ?tab2=). Codex: si la retocás,
+  la geometría es la del FormSteer WinForms — no volver al menú lateral.

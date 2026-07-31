@@ -31,7 +31,7 @@ namespace AgroParallel.Adapters
             catch { return fallback; }
         }
 
-        private static TramSimpleStateDto Map(FormGPS.TramSimpleStateSnapshot s)
+        private static TramSimpleStateDto Map(TramSimpleEditor.TramSimpleStateSnapshot s)
         {
             if (s == null) return new TramSimpleStateDto { Ok = false, Error = "no-state" };
             return new TramSimpleStateDto

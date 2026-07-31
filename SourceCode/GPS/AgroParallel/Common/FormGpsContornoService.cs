@@ -85,6 +85,8 @@ namespace AgroParallel.Adapters
         public ContornoStateDto Delete(int index) => OnUi(() => Map(_form.Contorno_Delete(index)), FailState());
         public ContornoStateDto DeleteAll() => OnUi(() => Map(_form.Contorno_DeleteAll()), FailState());
         public ContornoStateDto ImportKml(bool multi) => OnUi(() => Map(_form.Contorno_ImportKml(multi)), FailState());
+        public ContornoStateDto ImportKmlUpload(string kmlContenido, bool multi) =>
+            OnUi(() => Map(_form.Contorno_ImportKmlTexto(kmlContenido, multi)), FailState());
         public ContornoStateDto OpenGoogleEarth() => OnUi(() => Map(_form.Contorno_OpenGoogleEarth()), FailState());
         public ContornoStateDto OpenMapa() => OnUi(() => Map(_form.Contorno_OpenMapa()), FailState());
         public ContornoStateDto BuildFromTracks() => OnUi(() => Map(_form.Contorno_BuildFromTracks()), FailState());

@@ -5,6 +5,7 @@
 //   POST /api/contorno/delete     {index}        → borra uno (confirmado en UI)
 //   POST /api/contorno/delete-all                → borra todos
 //   POST /api/contorno/import-kml {multi}        → KML (diálogo nativo)
+//   POST /api/contorno/import-kml-upload?multi=  → KML subido (body = archivo)
 //   POST /api/contorno/google-earth              → KML posición actual + abrir
 //   POST /api/contorno/mapa                      → FormMap (dibujar satelital)
 //   POST /api/contorno/from-tracks               → FormBuildBoundaryFromTracks
@@ -75,6 +76,49 @@ namespace AgroParallel.WebHost.Controllers
             if (_svc == null) { await Unavailable(); return; }
             var body = await ReadBodyAsync<MultiBody>();
             await WriteJsonAsync(_svc.ImportKml(body != null && body.Multi));
+        }
+
+        // Import de KML SIN diálogo: la pantalla manda el archivo como body
+        // crudo (texto KML) + ?multi=1 para reemplazar todo. Un KML de lindero
+        // son KB; 8 MB frena un POST desubicado sin molestar a nadie real.
+        [Route(HttpVerbs.Post, "/contorno/import-kml-upload")]
+        public async Task PostImportKmlUpload([QueryField] string multi)
+        {
+            if (_svc == null) { await Unavailable(); return; }
+
+            // String a mano: el binder de EmbedIO revienta la CONEXIÓN entera
+            // (ni siquiera devuelve error) si le llega ?multi=1 a un bool.
+            bool esMulti = multi == "1" ||
+                           string.Equals(multi, "true", System.StringComparison.OrdinalIgnoreCase);
+
+            string kml;
+            try
+            {
+                using (var input = HttpContext.Request.InputStream)
+                using (var buf = new System.IO.MemoryStream())
+                {
+                    byte[] chunk = new byte[64 * 1024];
+                    int n; long total = 0;
+                    while ((n = await input.ReadAsync(chunk, 0, chunk.Length).ConfigureAwait(false)) > 0)
+                    {
+                        total += n;
+                        if (total > 8L * 1024 * 1024)
+                        {
+                            await WriteJsonAsync(new { ok = false, error = "archivo-demasiado-grande" });
+                            return;
+                        }
+                        await buf.WriteAsync(chunk, 0, n).ConfigureAwait(false);
+                    }
+                    kml = System.Text.Encoding.UTF8.GetString(buf.ToArray());
+                }
+            }
+            catch (System.Exception ex)
+            {
+                await WriteJsonAsync(new { ok = false, error = ex.Message });
+                return;
+            }
+
+            await WriteJsonAsync(_svc.ImportKmlUpload(kml, esMulti));
         }
 
         [Route(HttpVerbs.Post, "/contorno/google-earth")]

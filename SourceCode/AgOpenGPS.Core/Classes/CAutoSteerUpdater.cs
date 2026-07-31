@@ -91,6 +91,37 @@ namespace AgOpenGPS
             //if the whole path driving driving process is green
             if (mf.RecPath.isDrivingRecordedPath) mf.RecPath.UpdatePosition();
 
+            // Candado del manejo libre: prendido, el módulo recibe status=1 con
+            // un ángulo fijo puesto a mano, sin guía y sin mirar dónde está el
+            // tractor. Eso es para probar la dirección PARADO. Si el tractor
+            // arranca, se apaga solo acá — es el único punto por el que pasan
+            // TODOS los caminos que prenden el modo (pantalla Dirección del Hub,
+            // FormSteer nativo), y corre en cada PGN, no solo al clickear.
+            if (mf.Vehicle.isInFreeDriveMode &&
+                Math.Abs(mf.AvgSpeed) > mf.Vehicle.functionSpeedLimit)
+            {
+                mf.Vehicle.isInFreeDriveMode = false;
+                mf.Vehicle.driveFreeSteerAngle = 0;
+                mf.Vehicle.freeDriveWatchdog = -1;
+                Log.EventWriter("Manejo libre apagado solo: el tractor supero el limite de velocidad");
+            }
+
+            // Segundo candado: si lo prendió una pantalla remota (watchdog ≥0),
+            // esa pantalla tiene que seguir ahí. Cada consulta suya lo recarga;
+            // si deja de contestar —WebView cerrado de golpe, PilotX caído, red
+            // cortada— el volante deja de estar bajo control de nadie y el modo
+            // se apaga. Lo prendido desde el FormSteer nativo queda en −1 y no
+            // pasa por acá: esa ventana vive mientras el modo vive.
+            if (mf.Vehicle.isInFreeDriveMode && mf.Vehicle.freeDriveWatchdog >= 0)
+            {
+                if (--mf.Vehicle.freeDriveWatchdog < 0)
+                {
+                    mf.Vehicle.isInFreeDriveMode = false;
+                    mf.Vehicle.driveFreeSteerAngle = 0;
+                    Log.EventWriter("Manejo libre apagado solo: la pantalla dejo de responder");
+                }
+            }
+
             // If Drive button off - normal autosteer
             if (!mf.Vehicle.isInFreeDriveMode)
             {
