@@ -2523,13 +2523,14 @@ public partial class MainWindow : Window
         _mapHost?.SetLightbarVisible(!visible);
         if (!visible) return;
 
-        // Giro manual y salteo: aparecen CON LINDERO (el giro en cabecera se
-        // hace contra el borde del lote; sin lindero no hay cabecera). Las
-        // flechas son el giro MANUAL: siempre operativas — no dependen del
-        // U-turn automático, que tiene su propio botón en la barra derecha
-        // (aclarado por el usuario 2026-07-31). La velocidad la valida el
-        // motor al recibir el comando.
-        bool giroVisible = s.HasBoundary;
+        // Giro manual y salteo: SIEMPRE junto a la distancia (pedido del
+        // usuario 2026-07-31 — la versión condicionada al lindero los hacía
+        // desaparecer en lotes sin contorno y quedaba solo el número). Las
+        // flechas son el giro MANUAL, siempre operativas — no dependen del
+        // U-turn automático, que tiene su propio botón en la barra derecha.
+        // Los guards reales (guía, velocidad, lindero para armar el giro) los
+        // valida el motor al recibir el comando.
+        bool giroVisible = true;
         if (_pcGiroIzq != null) { _pcGiroIzq.IsVisible = giroVisible; _pcGiroIzq.IsEnabled = true; }
         if (_pcGiroDer != null) { _pcGiroDer.IsVisible = giroVisible; _pcGiroDer.IsEnabled = true; }
         var grupoSalteo = this.FindControl<StackPanel>("PcGrupoSalteo");
