@@ -44,6 +44,15 @@ namespace PilotX.GuidanceEngine.Adapters
         private ShapefileLayer _layer;
         private string _loadedForField;
 
+        // Puente prescripción-OrbitX → mapa: si el lote no tiene .shp, la capa
+        // se arma desde la prescripción ACTIVA (GeoJSON bajado del cloud). El
+        // service comparte estado estático con el del WebHost/bridge, así que
+        // esta instancia ve la misma activa que eligió la pantalla.
+        private readonly AgroParallel.Services.PrescripcionService _presc =
+            new AgroParallel.Services.PrescripcionService();
+        private string _prescKey;
+        private bool _layerEsPrescripcion;
+
         public EngineShapeService(GuidanceEngineHost host) { _host = host; }
 
         private string DirLote()
@@ -70,6 +79,33 @@ namespace PilotX.GuidanceEngine.Adapters
                     {
                         _loadedForField = field;
                         _layer = CargarDeDisco();
+                        _layerEsPrescripcion = false;
+                        _prescKey = null;
+                    }
+
+                    // Sin .shp propio del lote, la prescripción ACTIVA (GeoJSON
+                    // de OrbitX) se dibuja igual: el operario cargó una desde el
+                    // cloud y "aparece en PilotX pero no la veo en el lote" era
+                    // exactamente este hueco — dos circuitos (shp vs GeoJSON) y
+                    // el mapa solo miraba el primero. El .shp local, si existe,
+                    // sigue mandando.
+                    if (_layer == null || _layerEsPrescripcion)
+                    {
+                        var p = _presc.GetActive();
+                        string key = p == null ? null : p.Id + "|" + p.LoadedUtc + "|" + p.PropiedadDosis;
+                        if (key != _prescKey)
+                        {
+                            _prescKey = key;
+                            if (p == null)
+                            {
+                                if (_layerEsPrescripcion) { _layer = null; _layerEsPrescripcion = false; }
+                            }
+                            else
+                            {
+                                _layer = CargarDePrescripcion(p);
+                                _layerEsPrescripcion = _layer != null;
+                            }
+                        }
                     }
                     return _layer;
                 }
@@ -100,6 +136,55 @@ namespace PilotX.GuidanceEngine.Adapters
             catch (Exception ex)
             {
                 Log.EventWriter("GuidanceEngine: no se pudo cargar el shape: " + ex.Message);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Capa sintética desde la prescripción activa (GeoJSON de OrbitX):
+        /// cada feature se convierte en un polígono con su dosis ya resuelta
+        /// (PropiedadDosis) como único atributo, y se colorea por rango igual
+        /// que un .shp. El muestreo por posición (dosis para QuantiX/FlowX)
+        /// también sale de acá, así el mapa y el dosificador ven LO MISMO.
+        /// </summary>
+        private ShapefileLayer CargarDePrescripcion(PrescripcionDto p)
+        {
+            try
+            {
+                var result = new AgroParallel.Common.ShapefileReadResult();
+                result.DbfFieldNames.Add("DOSIS");
+
+                foreach (var f in p.Features)
+                {
+                    if (f?.Rings == null || f.Rings.Count == 0) continue;
+                    var poly = new AgroParallel.Common.ShapePolygon();
+                    foreach (var ring in f.Rings)
+                    {
+                        if (ring == null || ring.Count < 3) continue;
+                        var pts = new List<AgroParallel.Common.ShapeLatLon>(ring.Count);
+                        foreach (var xy in ring)
+                        {
+                            // GeoJSON: [lon, lat].
+                            if (xy == null || xy.Length < 2) continue;
+                            pts.Add(new AgroParallel.Common.ShapeLatLon { Lon = xy[0], Lat = xy[1] });
+                        }
+                        if (pts.Count >= 3) poly.Rings.Add(pts);
+                    }
+                    if (poly.Rings.Count == 0) continue;
+                    poly.Attributes["DOSIS"] = f.Dosis;
+                    result.Polygons.Add(poly);
+                }
+
+                if (result.Polygons.Count == 0) return null;
+
+                var layer = new ShapefileLayer(result, p.Nombre + " (OrbitX)");
+                layer.ApplyColorByField("DOSIS");
+                Log.EventWriter($"GuidanceEngine: prescripcion OrbitX en el mapa ({result.Polygons.Count} zonas, '{p.Nombre}', dosis por '{p.PropiedadDosis}')");
+                return layer;
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: no se pudo mapear la prescripcion activa: " + ex.Message);
                 return null;
             }
         }
