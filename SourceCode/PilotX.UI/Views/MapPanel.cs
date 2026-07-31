@@ -339,6 +339,15 @@ public sealed class MapPanel : Grid
     }
 
     /// <summary>
+    /// Push de banderas del operario. Especifico de GL — la surface Skia
+    /// legacy no las pinta.
+    /// </summary>
+    public void OnFlags(System.Collections.Generic.List<FlagPoint> flags)
+    {
+        _gl?.OnFlags(flags);
+    }
+
+    /// <summary>
     /// Push de la prescripción (.shp): zonas con color por dosis. Específico
     /// de GL. null = se descargó el shape.
     /// </summary>
@@ -350,6 +359,7 @@ public sealed class MapPanel : Grid
 
     // Última prescripción empujada, para reaplicarla si la surface se recrea.
     private ShapeMapSnapshot? _ultimoShape;
+
 
     // ---- vista de cámara (menú Navegación): 2D/3D/Norte 2D/tilt/grilla/día-noche.
     // No-op en la surface Skia legacy (_gl==null) — mismo criterio que

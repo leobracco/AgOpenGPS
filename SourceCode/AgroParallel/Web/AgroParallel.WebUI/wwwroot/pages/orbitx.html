@@ -167,10 +167,19 @@
       <p class="subtitle" style="margin-top:var(--agp-sp-3)">La gestión OTA todavía corre desde el shell legacy. Estamos migrando a la API.</p>
     </div>
 
-    <!-- PRESCRIPCIONES (placeholder) -->
+    <!-- PRESCRIPCIONES: la descarga/activación YA anda (OrbitXSync.CheckPrescriptions
+         + PrescripcionService), esta tab quedó de cuando todavía no existía. En vez
+         de duplicar la lista acá, se linkea a la pantalla real (misma API,
+         /api/prescripciones/*) para no tener dos UIs que se puedan desincronizar. -->
     <div class="pane" data-pane="presc">
-      <div class="card" style="text-align:center; color:var(--agp-text-muted)">
-        Próximamente — descarga y aplicación de prescripciones GeoJSON desde OrbitX cloud.
+      <div class="card" style="text-align:center">
+        <div style="color:var(--agp-text); margin-bottom:var(--agp-sp-3)">
+          Las prescripciones que llegan de OrbitX cloud se descargan solas
+          (heartbeat cada <span id="prescIntervalSec">30</span>s) y se activan
+          desde la pantalla <strong>Prescripciones</strong>, en el grupo
+          <strong>Campo</strong> del menú.
+        </div>
+        <a class="btn primary" href="prescripciones.html?widget=1">Abrir Prescripciones</a>
       </div>
     </div>
   </main>

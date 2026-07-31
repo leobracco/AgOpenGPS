@@ -64,6 +64,8 @@ namespace PilotX.GuidanceEngine.Adapters
                     Lat = f.latitude,
                     Lon = f.longitude,
                     DistanceM = Math.Sqrt(dx * dx + dy * dy),
+                    Easting = f.easting,
+                    Northing = f.northing,
                 });
             }
             return dto;

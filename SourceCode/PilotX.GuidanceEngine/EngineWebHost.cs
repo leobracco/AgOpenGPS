@@ -63,6 +63,7 @@ namespace AgOpenGPS
         private AgpWebHost _web;
         private NodoRegistryService _nodos;
         private FlowXBridge _flowxBridge;
+        private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
 
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
@@ -242,12 +243,37 @@ namespace AgOpenGPS
             {
                 Console.Error.WriteLine("[Engine] FlowXBridge: " + ex.Message);
             }
+
+            // OrbitXConfigService (arriba) solo lee/escribe orbitX.json y prueba
+            // /health una vez por click de "Probar conexión" — el heartbeat de
+            // verdad (sync periódico + auto-registro + firmware mirror :8088) lo
+            // hace ESTA clase (OrbitXSync), que FormGPS instancia en su Load()
+            // pero acá nunca se creaba. Con esto el motor headless nunca latía:
+            // el dispositivo quedaba vinculado (token/estab_slug ya en
+            // orbitX.json de una sesión FormGPS anterior) pero invisible en el
+            // dashboard cloud porque nadie mandaba el heartbeat. Mismo patrón
+            // que FlowXBridge: state ya es el IAogStateProvider que necesita.
+            try
+            {
+                _orbitxSync = new AgroParallel.OrbitX.OrbitXSync(
+                    state, AgroParallel.OrbitX.OrbitXConfig.Load());
+                _orbitxSync.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] OrbitXSync: " + ex.Message);
+            }
         }
 
         public void Stop()
         {
             try { _flowxBridge?.Stop(); _flowxBridge?.Dispose(); } catch { }
             _flowxBridge = null;
+            // Antes de _web?.Stop(): orbitX.json no se puede escribir mientras
+            // el guardado del lote está en curso (mismo motivo que FormGPS.cs
+            // para su propio orbitXSync.Stop() en el shutdown).
+            try { _orbitxSync?.Dispose(); } catch { }
+            _orbitxSync = null;
             try { _web?.Stop(); } catch { }
             _web = null;
             try { _nodos?.Dispose(); } catch { }

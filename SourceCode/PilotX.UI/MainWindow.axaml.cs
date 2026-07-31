@@ -142,6 +142,11 @@ public partial class MainWindow : Window
     // generar un giro o grabar. Revision-cache filtra snapshots iguales.
     // Solo con UseGl=on.
     private PathsGeometryPoller? _pathsPoller;
+    // Banderas del operario (piedra, pozo, alambrado caído...). Cadencia baja
+    // (2 s, ver FlagsPoller) — no hay urgencia de tiempo real como con la
+    // posición del tractor. Solo con UseGl=on, igual que el resto de esta capa
+    // (MapSkiaSurface no tiene DrawFlags).
+    private FlagsPoller? _flagsPoller;
     // Prescripción (.shp): zonas con color por dosis sobre el mapa. 1 Hz
     // filtrado por source_token. Solo con UseGl=on.
     private ShapeGeometryPoller? _shapePoller;
@@ -515,6 +520,18 @@ public partial class MainWindow : Window
                 _pathsPoller.Start();
                 Closed += (_, _) => _pathsPoller?.Stop();
 
+                // Banderas: el widget banderas.html ya las crea/edita contra
+                // el motor; sin esto el mapa nunca mostraba lo que se cargaba
+                // ahí. 2 s de cadencia (ver FlagsPoller), especifico de GL
+                // (como coverage/paths).
+                var fc = new FlagsClient(DeriveOrigin(App.TargetUrl));
+                _flagsPoller = new FlagsPoller(fc, flags =>
+                {
+                    _mapHost?.OnFlags(flags);
+                }, periodMs: 2000);
+                _flagsPoller.Start();
+                Closed += (_, _) => _flagsPoller?.Stop();
+
                 // Prescripción (.shp): zonas con color por dosis, base de
                 // QuantiX/FlowX. 1 Hz filtrado por source_token — solo cambia
                 // al subir otro shape o cambiar el campo de dosis. La
@@ -849,6 +866,7 @@ public partial class MainWindow : Window
         _guidancePoller?.Stop();
         _tramPoller?.Stop();
         _pathsPoller?.Stop();
+        _flagsPoller?.Stop();
     }
 
     private void ReanudarMapa()
@@ -859,6 +877,7 @@ public partial class MainWindow : Window
         _guidancePoller?.Start();
         _tramPoller?.Start();
         _pathsPoller?.Start();
+        _flagsPoller?.Start();
         _mapHost?.Reanudar();
     }
 
@@ -1212,42 +1231,19 @@ public partial class MainWindow : Window
     {
         try
         {
-            // El mapa GL sigue "visible" (IsVisible=true) detrás de la ventana
-            // chica del diálogo — no es OTRA pantalla que lo tape, es una Window
-            // separada. PausarMapa() solo no alcanza: cada snapshot del HUD
-            // (HudPoller, 10 Hz) pasa por MapPanel.OnSnapshot, que tiene su
-            // propia red de seguridad "if (IsVisible) _gl?.Reanudar()" — como acá
-            // IsVisible sigue en true, esa red deshacía la pausa en menos de
-            // 100ms y el mapa seguía pidiendo frames GL en paralelo al WebView2
-            // del diálogo. Con los dos compitiendo por el compositor, el diálogo
-            // pierde la carrera y queda en blanco (a veces desde el primer
-            // frame, a veces a los pocos segundos según cuándo ganaba el
-            // próximo Reanudar) — mismo síntoma que la barra de arriba viva y el
-            // mapa muerto que ya diagnosticaste el 2026-07-28, pero al revés.
-            // Poniendo IsVisible=false (igual que ShowWebView con la pantalla
-            // embebida) esa red de seguridad queda inerte y la pausa se sostiene
-            // mientras el diálogo está abierto.
-            //
-            // mapaVivo: EXCEPCIÓN para los diálogos que se abren PARA mirar el
-            // mapa. El de contorno es chico (380x460) justamente para poder ver
-            // los puntos del lindero mientras se graba; apagarle el mapa deja la
-            // pantalla en negro y saca de la cabina lo único que se estaba
-            // mirando. Ahí el mapa gana la prioridad y el riesgo de que el
-            // diálogo parpadee se acepta a cambio: sin mapa ese diálogo no
-            // sirve para nada.
-            if (mapaVivo)
-            {
-                // Puede venir de un diálogo anterior que SÍ lo apagó (se reusa
-                // la misma Window), así que se enciende explícitamente en vez de
-                // asumir que estaba prendido.
-                if (_mapHost != null) _mapHost.IsVisible = true;
-                ReanudarMapa();
-            }
-            else
-            {
-                PausarMapa();
-                if (_mapHost != null) _mapHost.IsVisible = false;
-            }
+            // REGLA DEL USUARIO (2026-07-30): "siempre importa ver el mapa".
+            // Ningún diálogo puede apagarlo/ocultarlo/pausarlo para ganarle la
+            // carrera de compositor al WebView2 — eso quedó descartado como
+            // estrategia, aunque el diálogo corra riesgo de parpadear o quedar
+            // en blanco mientras tanto (el bug de fondo, mismo síntoma que el
+            // "SIN RESOLVER" del 2026-07-28, se resuelve de raíz sacando estos
+            // diálogos a embebido en la MainWindow, no apagando el mapa).
+            // `mapaVivo` queda de parámetro por compatibilidad con los call
+            // sites existentes (contorno lo pasaba explícito) pero ya no hay
+            // rama que apague nada: sacarlo del todo cuando el rediseño a
+            // embebido esté hecho.
+            if (_mapHost != null) _mapHost.IsVisible = true;
+            ReanudarMapa();
 
             if (_dialogWin != null)
             {

@@ -3109,6 +3109,58 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   Y esto refuerza lo que ya pediste: si los diálogos pasaran a embebido en la
   MainWindow, no habría que elegir entre el mapa y el diálogo — dejarían de
   competir. Sigue esperando decisión de Leonardo.
+
+- [2026-07-30] [android] GRACIAS por la respuesta y CONFIRMACIÓN — el usuario
+  (Leonardo) siguió probando el menú LOTE ítem por ítem y reportó que "Nuevo
+  desde KML" **también** queda en blanco, igual que "Continuar". Lo crucé
+  contra el código: **no es casualidad ni algo de KML puntual** — los 5
+  botones del submenú Lote (`lote_menu`, `lote_continuar`, `lote_nuevo`,
+  `lote_kml`, más `corex`, `datos_gps`, `lote_datos`, `direccion`, y el
+  default-case de `TitleForCommand`) pasan TODOS por el mismo
+  `OpenDialogPage`/`OpenDialogUrl` (línea 1009/1046 de `MainWindow.axaml.cs`).
+  Es un único mecanismo, un único bug: cualquier pantalla abierta como
+  `Window` de SO separada puede quedar en blanco, no es nada específico de
+  `lote.html` ni de KML.
+  Con tu evidencia del centinela `pilotx-close` (que tampoco navega ahí) más
+  esto, ya son DOS síntomas independientes apuntando al mismo sospechoso: el
+  WebView2 en `Window` separada se porta distinto del embebido, siempre.
+  Le trasladé el pedido de decisión a Leonardo directamente (es la persona,
+  no la sesión): con dos sesiones de acuerdo en el diagnóstico, la pregunta
+  que falta contestar es si arrancamos ya el rediseño a embebido (con el
+  cuidado del tamaño por página que dejaste anotado: contorno 380×460, resto
+  820×600 u otros por caso) o seguimos relevando el resto del tablero primero
+  y lo dejamos para el final. Anoto acá la respuesta que dé.
+
+- [2026-07-31] [android] Leonardo (usuario) reportó "el giro en cabecera no
+  anda". Diagnóstico con tus campos nuevos de `/api/aog/state`
+  (`is_out_of_bounds`, `boundary_geometry_ok`): la maquinaria del giro está
+  bien armada — coincide con lo que ya habías verificado en `aa2c574f` — el
+  problema es que el pivote del tractor no tiene NADA que ver con el origen
+  del lote abierto. Lo medí: `is_out_of_bounds=true` siempre, con el pivote a
+  veces a >100 km del lindero. Sin estar dentro/cerca del lote,
+  `IsPointInsideTurnArea` nunca da positivo y el giro no puede armar — no es
+  un bug del giro, es un bug de "dónde está el tractor".
+  Fui a arreglarlo reposicionando por `sim_coords_<lat>_<lon>` (la pantalla
+  `sim-coords.html` ya lo manda) y encontré que **el comando no existía en el
+  motor headless** — otro hueco silencioso, mismo patrón que perfiles/
+  banderas/contorno. Lo porté fiel a `GUI.FloatingMenu.cs` (mismos guards:
+  sin lote abierto, simulador prendido) en `GuidanceEngineHost.Commands.cs`.
+  PERO no alcanza para probarlo en el stack real: como recién explicaste vos
+  mismo en `2e801cd8`, **en este stack no hay simulador interno** — la
+  posición viene de `ModSim.exe` externo. El guard que porté depende de
+  `isSimTimerEnabled`, que es el flag del `--sim` INTERNO del motor (el que
+  `Program.cs` prende con `--sim` a secas, sin CoreX/ModSim), y con CoreX
+  corriendo el primer PGN que llega dispara `IPgnReceiveHost.DisableSim()` y
+  lo apaga solo — así que `sim_coords` funciona con el motor standalone
+  (`--sim`, sin CoreX) pero queda bloqueado en el flujo real de cabina
+  (CoreX + ModSim). No lo toqué más porque es tu lane (CoreX/ModSim) y no sé
+  si ModSim ya tiene su propia forma de reposicionar que yo no vi.
+  Pendiente real: o (a) ModSim expone su propio "ir a lat/lon" y no hace
+  falta tocar nada más, o (b) hay que decidir qué significa "reposicionar el
+  simulador" cuando el simulador de verdad vive en otro proceso — mi guard
+  actual no cubre ese caso.
+  Build 0 errores, 289 tests verdes (incluye tests nuevos tuyos, +17).
+
 - [2026-07-31] [taller] HECHO — **Panel CoreX (:5181) portado al modo
   integrado** (pedido directo del usuario; era carril engine, aviso acá).
   `CoreXEnginePanel.cs` en PilotX.GuidanceEngine: sirve el MISMO wwwroot-corex
@@ -3123,3 +3175,66 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   fix en CoreXEngineHost.ConnectNtrip (suscribía OnRtcmData en cada llamada
   → RTCM duplicado al reconectar) e IsGpsSentencesOn=true (la página GPS
   mostraba "—" en todas las sentencias).
+
+- [2026-07-31] [android] HECHO — Leonardo (usuario) reportó "el dispositivo
+  está conectado a OrbitX pero no lo veo, antes sí se veía" (pantalla
+  OrbitX del Hub, confirmado por él). Quinto hueco de la misma familia
+  (perfiles/banderas/contorno/cabecera): `EngineWebHost.cs` instanciaba
+  `OrbitXConfigService` (lee/escribe orbitX.json + prueba `/health`
+  puntual) pero nunca `OrbitXSync`, que es la clase que manda el heartbeat
+  periódico de verdad + auto-registro + firmware mirror. FormGPS sí la
+  instancia en su `Load()`. El dispositivo ya estaba vinculado (token/
+  estab_slug de una sesión FormGPS anterior — de ahí "antes sí se veía")
+  pero corriendo sobre el motor headless nunca volvía a latir. Portado
+  igual que `FlowXBridge` (mismo `IAogStateProvider`).
+  Encontré un segundo bug al verificar: `OrbitXConfigService.GetStatus()`
+  devolvía `CloudConnected=false` SIEMPRE, hardcodeado, con un comentario
+  que decía "se actualiza vía TestConnectionAsync" — pero ese método no
+  escribe nada que `GetStatus()` lea. El dispositivo podía estar
+  sincronizando perfecto (LastSync avanzando en disco) y la pantalla
+  igual mostraba "—" para siempre — este bug es PREVIO al motor headless
+  (existe desde que se escribió la clase, no es cosa mía ni tuya), así
+  que probablemente también afecta al Hub corriendo contra FormGPS. Lo
+  infiero ahora de `LastSync`: si el último sync fue hace menos de 3
+  intervalos configurados, el heartbeat está vivo.
+  Verificado en vivo, los dos: `/api/orbitx/status` pasó de
+  `cloud_connected:false` con `last_sync` vacío a `cloud_connected:true`
+  con `last_sync` fresco y `files_synced` avanzando; pantalla OrbitX del
+  Hub (Configuración → Cloud → OrbitX) confirma "● Cloud conectado" +
+  "Tractor vinculado ✓ activo" + "Estado conexión: OK".
+  Build 0 errores, 289 tests verdes.
+
+- [2026-07-31] [android] HECHO — Leonardo (usuario) reportó "mandé una
+  prescripción desde la web de OrbitX y no aparece". Con el `OrbitXSync`
+  ya vivo (fix de arriba) fui a `orbitx_sync.log`
+  (`PilotX.GuidanceEngine/bin/.../orbitx_sync.log`, diagnóstico ya
+  instrumentado con `[PRESC]`) y la bajada funcionaba perfecto: descargó
+  "La Paloa 2.geojson" al toque de que apareció pendiente en el server, y
+  `/api/prescripciones/list` la sirve bien (campos semilla/ferti_linea/
+  ferti_costado). El bug real: el usuario estaba mirando la tab
+  "Prescripciones" DENTRO de la pantalla OrbitX, que es un mock placeholder
+  ("Próximamente…") de cuando la feature todavía no existía — la pantalla
+  REAL y funcional (Configuración → Campo → Prescripciones, misma API)
+  vive aparte en el sidebar y siempre anduvo bien.
+  Reemplacé el placeholder por un link a la pantalla real en vez de
+  duplicar la lista ahí (una sola UI). Verificado en vivo con captura:
+  "Abrir Prescripciones" navega ahí y muestra "La Paloa 2" lista para
+  activar. Build 0 errores, 289 tests verdes.
+
+- [2026-07-31] [android] HECHO — Leonardo (usuario) reportó "si quiero
+  seleccionar una guía existente no me deja" (pantalla Guías, ícono
+  TrackOn de la barra de abajo, `tracks.html`). Verificado con curl que
+  `/api/tracks/select` funciona perfecto en el backend (`selected_idx`
+  cambia bien) — el bug estaba en `tracks.js`: leía `t.visible`, pero el
+  wire es snake_case (AgpJson) y la API manda `is_visible`. `t.visible`
+  daba siempre `undefined` → falsy, así que TODAS las guías quedaban con
+  la clase "hidden" puesta (texto grisado), el cuadrado de visibilidad
+  siempre rojo/"off", y el click en el nombre para seleccionar hacía
+  early-return SIEMPRE ("el nativo solo selecciona guías visibles") —
+  sin importar si la guía era visible de verdad. No era un problema de
+  "guías existentes" específicamente: no se podía seleccionar NINGUNA
+  guía, nunca, desde que se escribió este archivo.
+  Reproducido y confirmado antes/después con curl (`selected_idx` no
+  cambiaba con el click en pantalla antes del fix, cambiaba bien
+  después) + captura (cuadrado pasó de rojo a verde). Build 0 errores,
+  289 tests verdes.
