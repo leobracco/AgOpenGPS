@@ -760,9 +760,12 @@
       var motors = n.motors_live || [];
       state.liveByUid[uid] = { online: !!n.online, motors: motors };
     }
-    if (state.activeTab === 'calibrar') updateCalibrarPulses();
-    if (state.activeTab === 'pid')      updatePidLive();
-    if (state.activeTab === 'prueba')   updatePruebaLive();
+    // Sin gate por state.activeTab: escribir unos textContent en tabs
+    // ocultas es gratis y el gate solo agregaba estados congelables. Cada
+    // updater aislado en try para que uno roto no mate a los siguientes.
+    try { updateCalibrarPulses(); } catch (_) {}
+    try { updatePidLive(); } catch (_) {}
+    try { updatePruebaLive(); } catch (_) {}
     // Siembra se re-renderiza con el estado AOG cacheado; el fetch de
     // /api/aog/state lo hace el loop de polling (1 vez por período, no
     // por cada push WS).
@@ -2222,7 +2225,17 @@
       ws.onopen = function () { liveWsOpen = true; lastWsMsgTs = Date.now(); };
       ws.onmessage = function (ev) {
         lastWsMsgTs = Date.now();
-        try { applyLive(JSON.parse(ev.data)); } catch (_) {}
+        // El hub puede mandar frames de TEXTO (saludo) o BINARIOS (broadcast
+        // con byte[]): en el browser los binarios llegan como Blob y
+        // JSON.parse(Blob) revienta silencioso — la causa histórica de las
+        // tabs congeladas en "—" con el overlay andando.
+        if (typeof ev.data === 'string') {
+          try { applyLive(JSON.parse(ev.data)); } catch (_) {}
+        } else if (ev.data && typeof ev.data.text === 'function') {
+          ev.data.text().then(function (t) {
+            try { applyLive(JSON.parse(t)); } catch (_) {}
+          }).catch(function () {});
+        }
       };
       ws.onclose = ws.onerror = function () {
         if (liveWs === ws) { liveWs = null; liveWsOpen = false; }
@@ -2260,9 +2273,18 @@
 
   (async function bootPoll() {
     connectLiveWs();
-    try { await pollLive(); } catch (_) {}
+    // schedulePoll ANTES del primer poll: si ese fetch inicial se cuelga
+    // (engine reiniciando, nodo reconectando) no puede matar el loop entero.
     schedulePoll();
+    try { await pollLive(); } catch (_) {}
   })();
+  // Latido de última línea: pase lo que pase con el WS o el scheduler, un
+  // poll HTTP cada 2 s mantiene la UI viva. Solo actúa si el WS está mudo.
+  setInterval(function () {
+    if (!document.hidden && Date.now() - lastWsMsgTs > 2000) {
+      try { pollLive().catch(function () {}); } catch (_) {}
+    }
+  }, 2000);
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
       if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
