@@ -2211,6 +2211,7 @@
   var pollTimer = null;
   var liveWs = null;
   var liveWsOpen = false;
+  var lastWsMsgTs = 0;
 
   function connectLiveWs() {
     if (liveWs || document.hidden || !('WebSocket' in window)) return;
@@ -2218,8 +2219,9 @@
       var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
       var ws = new WebSocket(proto + '//' + location.host + '/ws/quantix');
       liveWs = ws;
-      ws.onopen = function () { liveWsOpen = true; };
+      ws.onopen = function () { liveWsOpen = true; lastWsMsgTs = Date.now(); };
       ws.onmessage = function (ev) {
+        lastWsMsgTs = Date.now();
         try { applyLive(JSON.parse(ev.data)); } catch (_) {}
       };
       ws.onclose = ws.onerror = function () {
@@ -2237,12 +2239,21 @@
     if (document.hidden) { pollTimer = null; return; }
     var period = LIVE_TABS[state.activeTab] ? 500 : 2000;
     pollTimer = setTimeout(async function () {
-      // Con WS abierto, el live viene por push; solo falta el estado AOG
-      // que consume la tab Siembra.
+      // Con WS abierto Y FRESCO, el live viene por push; solo falta el estado
+      // AOG que consume la tab Siembra. "Fresco" = mandó algo hace <2,5 s: el
+      // hub broadcastea en serie y un cliente zombie (WebViews viejos) puede
+      // trabar el push para todos — si el WS enmudece, el poll HTTP cubre.
+      var wsFresco = liveWsOpen && (Date.now() - lastWsMsgTs) < 2500;
       try {
-        if (!liveWsOpen) await pollLive();
+        if (!wsFresco) await pollLive();
         else if (state.activeTab === 'siembra') await refreshAogLiveState();
       } catch (_) {}
+      // WS abierto pero mudo >10 s → reconectar (el server pudo purgar mal).
+      if (liveWsOpen && Date.now() - lastWsMsgTs > 10000 && liveWs) {
+        try { liveWs.close(); } catch (_) {}
+        liveWs = null; liveWsOpen = false;
+        connectLiveWs();
+      }
       schedulePoll();
     }, period);
   }

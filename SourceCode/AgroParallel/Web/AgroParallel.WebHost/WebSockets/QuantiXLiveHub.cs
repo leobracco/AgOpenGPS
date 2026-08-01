@@ -80,7 +80,19 @@ namespace AgroParallel.WebHost.WebSockets
                 _lastJson = json;
 
                 byte[] bytes = Encoding.UTF8.GetBytes(json);
-                _ = BroadcastAsync(bytes);
+                // NO usar BroadcastAsync: envía en serie y un cliente zombie
+                // (WebView que navegó sin cerrar) traba el push para TODOS —
+                // la UI queda congelada aunque el resto esté vivo. Un task por
+                // cliente, cada uno con su catch: el muerto muere solo.
+                foreach (var ctx in ActiveContexts)
+                {
+                    var c = ctx;
+                    _ = Task.Run(async () =>
+                    {
+                        try { await SendAsync(c, bytes).ConfigureAwait(false); }
+                        catch { }
+                    });
+                }
             }
             catch { }
         }
