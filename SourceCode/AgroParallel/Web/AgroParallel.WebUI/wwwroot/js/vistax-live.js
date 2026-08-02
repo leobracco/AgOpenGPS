@@ -84,9 +84,18 @@
     if (tipo === 'semilla')      tag = '<span class="tipo">S</span>';
     else if (tipo === 'fertilizante') tag = '<span class="tipo">F</span>';
     var title  = 'surco ' + bajada + ' · ' + (tipo || '?') + ' · ' + estado;
+    // Barra de NIVEL estilo monitor de siembra clásico (referencia de los
+    // competidores): el relleno de abajo hacia arriba es el ratio real vs
+    // objetivo, saturado en 100%. El color del chip sigue diciendo el estado.
+    var ratio = s.ratio_objetivo;
+    var fillPct = 0;
+    if (cls === 's-ok' || cls === 's-bajo' || cls === 's-exceso') {
+      fillPct = ratio == null ? 0 : Math.max(4, Math.min(100, Math.round(ratio * 100)));
+    }
     return '<div class="vx-chip ' + cls + '" title="' + esc(title) +
              '" data-uid="' + esc(uid) + '" data-cable="' + esc(cable) +
              '" data-bajada="' + esc(bajada) + '">' +
+             (fillPct > 0 ? '<i class="fill" style="height:' + fillPct + '%"></i>' : '') +
              '<span class="num">' + bajada + '</span>' + tag +
            '</div>';
   }

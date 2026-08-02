@@ -622,7 +622,12 @@ namespace AgroParallel.Services
                             double hi  = objMin * (1 + tol);
                             try
                             {
-                                var insumo = _insumos != null ? _insumos.GetActivo() : null;
+                                // Con el surco alimentado por un motor QuantiX
+                                // (objetivo dinámico) MANDA LA CONSIGNA: los
+                                // límites absolutos del insumo no aplican — si
+                                // la prescripción pide 2,3 sem/m, tirar 2,3 es
+                                // correcto aunque el insumo diga "mínimo 11".
+                                var insumo = (objDinamico <= 0 && _insumos != null) ? _insumos.GetActivo() : null;
                                 if (insumo != null)
                                 {
                                     if (insumo.DropMinSemM > 0) lo = insumo.DropMinSemM * metrosPorMinuto;

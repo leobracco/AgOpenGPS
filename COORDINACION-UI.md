@@ -1724,3 +1724,13 @@ reglas, cero cambios de IDs/estructura/JS (widget-quantix.js ya usaba
 `var(--…)` para los estados). Texto sobre accent pasó de #081008 a blanco
 (`--on-brand`), como .btn.primary. Queda igualado al lenguaje de
 vistax-live.html.
+
+### 2026-08-02 · Claude — franja VistaX mínima + barras de nivel + auto-mini cabecera
+`vistax-live.html/js`: los chips pasaron a BARRAS DE NIVEL (riel + `.fill` con
+el ratio real/objetivo, referencia de monitores clásicos de siembra) y hay
+media queries de densidad: ≤72 px alto esconde tipo y achica número; ≤46 px
+queda solo el color (modo LED). Host WinForms: strip default 5%/40-64 px,
+mínimo 26 px de contenido, DragBar 22→18. NUEVO en overlayPrefs:
+`vx_mini_cabecera_m` (default 25, 0=off) — FormGPS auto-minimiza la franja a
+44 px cerca de la cabecera (histéresis 5 m) y la restaura al alejarse.
+IDs/data-* intactos.

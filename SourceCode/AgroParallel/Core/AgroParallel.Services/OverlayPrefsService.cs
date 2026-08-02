@@ -45,6 +45,11 @@ namespace AgroParallel.Services
         [JsonPropertyName("vx_strip_w")] public int VxStripW { get; set; } = -1;
         [JsonPropertyName("vx_strip_h")] public int VxStripH { get; set; } = -1;
 
+        /// <summary>A cuántos metros de la cabecera la franja VistaX se
+        /// auto-minimiza a tira de LEDs (ahí el operario necesita el MAPA
+        /// para el giro, no los sensores). 0 = nunca minimizar sola.</summary>
+        [JsonPropertyName("vx_mini_cabecera_m")] public int VxMiniCabeceraM { get; set; } = 25;
+
         [JsonPropertyName("vx_stats_x")] public int VxStatsX { get; set; } = -1;
         [JsonPropertyName("vx_stats_y")] public int VxStatsY { get; set; } = -1;
         [JsonPropertyName("vx_stats_w")] public int VxStatsW { get; set; } = -1;

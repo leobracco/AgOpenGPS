@@ -106,9 +106,9 @@
          así todas las filas usan el mismo ancho de chip (sin esto un tren
          con 2 fertilizantes estiraba sus chips hasta max-width). */
       flex: 0 1 var(--vx-chip-w, 22px);
-      min-width: 18px;
+      min-width: 12px;
       max-width: 70px;
-      min-height: 30px;
+      min-height: 12px;
       position: relative;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -124,10 +124,45 @@
       font-size: 7px; font-weight: var(--agp-fw-bold);
       opacity: 0.55;
     }
-    .vx-chip.s-ok          { background: var(--vx-ok);     color: #0A1A06; border-color: var(--vx-ok); }
-    .vx-chip.s-bajo        { background: #4A2A2A;          color: #fff;    border-color: #6A3A3A; }
+
+    /* MODO MÍNIMO: la franja debe tapar lo menos posible del mapa. Cuando el
+       operario la achica (alto < 72 px), los chips pasan a "LEDs": sin letra
+       de tipo, número más chico, sin padding de sobra. Con < 46 px queda solo
+       el color — el detalle vive en el popup de todos modos. */
+    @media (max-height: 72px) {
+      .vx-strip { padding: 2px; gap: 2px; }
+      .vx-row { gap: 2px; }
+      .vx-chip { border-radius: 3px; }
+      .vx-chip .tipo { display: none; }
+      .vx-chip .num { font-size: 8px; }
+    }
+    @media (max-height: 46px) {
+      .vx-chip .num { display: none; }
+    }
+    /* Barra de NIVEL (referencia: monitores clásicos de siembra): en los
+       estados con dato, el chip es un riel oscuro y .fill sube desde abajo
+       con el ratio real/objetivo, del color del estado. Los estados sin dato
+       (tapado/no-data/muted/cortada) siguen siendo bloque sólido. */
+    .vx-chip .fill {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      border-radius: inherit;
+      z-index: 0;
+      transition: height 0.25s linear;
+    }
+    .vx-chip .num, .vx-chip .tipo { position: relative; z-index: 1; }
+
+    .vx-chip.s-ok, .vx-chip.s-bajo, .vx-chip.s-exceso {
+      background: var(--vx-no-data);
+      color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.55);
+    }
+    .vx-chip.s-ok          { border-color: var(--vx-ok); }
+    .vx-chip.s-ok .fill    { background: var(--vx-ok); }
+    .vx-chip.s-bajo        { border-color: #B5673A; }
+    .vx-chip.s-bajo .fill  { background: #B5673A; }
+    .vx-chip.s-exceso      { border-color: var(--vx-exceso-dark); }
+    .vx-chip.s-exceso .fill{ background: var(--vx-exceso); }
+
     .vx-chip.s-tapado      { background: var(--vx-tapado); color: #fff;    border-color: var(--vx-tapado-border); }
-    .vx-chip.s-exceso      { background: var(--vx-exceso); color: #fff;    border-color: var(--vx-exceso-dark); }
     .vx-chip.s-no-data     { background: var(--vx-no-data);color: var(--agp-text-muted); }
     .vx-chip.s-muted       { background: var(--vx-muted);  color: var(--agp-text-muted); border-style: dashed; }
     .vx-chip.s-seccion-off { background: #2A2A2A;          color: #888;    border: 1px dashed #555; }

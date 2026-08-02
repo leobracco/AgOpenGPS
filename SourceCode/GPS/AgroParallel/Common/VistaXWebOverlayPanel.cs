@@ -35,8 +35,10 @@ namespace AgroParallel.Common
     public sealed class VistaXWebOverlayPanel : UserControl
     {
         private const int GripSize = 16;
-        private const int DragBarHeight = 22;
-        private const int CloseBtnSize = 18;
+        // 18 y no 22: el overlay tapa mapa — cada píxel de chrome cuenta.
+        // Sigue agarrable con guante porque el drag toma toda la barra.
+        private const int DragBarHeight = 18;
+        private const int CloseBtnSize = 16;
 
         private readonly WebView2 _webView;
         private readonly Panel _dragBar;
@@ -78,9 +80,11 @@ namespace AgroParallel.Common
             var sep = pagePath.IndexOf('?') >= 0 ? "&" : "?";
             _url = hubBaseUrl.TrimEnd('/') + "/" + pagePath.TrimStart('/')
                  + sep + "_t=" + DateTime.UtcNow.Ticks;
+            // Piso de contenido 24 px (antes 60 duro): permite achicar el strip
+            // a una tira de LEDs. Cada página define su mínimo real por ctor.
             _minSize = new Size(
                 Math.Max(120, minSize.Width),
-                Math.Max(60 + DragBarHeight, minSize.Height + DragBarHeight));
+                Math.Max(24 + DragBarHeight, minSize.Height + DragBarHeight));
 
             Width = Math.Max(_minSize.Width, defaultSize.Width);
             Height = Math.Max(_minSize.Height, defaultSize.Height + DragBarHeight);
