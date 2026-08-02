@@ -190,7 +190,7 @@
 
   // Presentación SOLO LECTURA del tren de un cable (reemplaza el <select
   // data-cable-tren> editable de antes): se deriva del implemento central
-  // (sección → surco → tren; se configura en config-implemento.html, ver
+  // (sección → surco → tren; se configura en config.html (Configuración → Secciones), ver
   // el link "Editar en Implemento" arriba de esta pantalla). Fallback al
   // valor manual que ya tenía guardado el cable cuando el implemento no
   // tiene trenes reales (fase 1).

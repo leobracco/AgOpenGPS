@@ -309,7 +309,7 @@
     // Nota única (no una por motor): el tren de cada fila es solo-lectura,
     // derivado del implemento central — se configura en config-implemento.html.
     var html = '<div style="font-size:11px;color:var(--agp-text-muted);margin-bottom:6px">'
-      + 'Tren: derivado del implemento — <a href="config-implemento.html">configurar en Implemento</a></div>';
+      + 'Tren: derivado del implemento — <a href="config.html?tab=tsections">configurar en Configuración</a></div>';
     for (var i = 0; i < all.length; i++) {
       var m = all[i].motor;
       var sel = (i === state.brushMotor) ? ' sel' : '';

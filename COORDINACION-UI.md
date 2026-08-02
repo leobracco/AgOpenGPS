@@ -1698,3 +1698,12 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   quitar `qxTren`; sumar los `data-mf*`/`data-mot-*` de la tab Motores de
   QuantiX). Codex: la tira de trenes usa tokens `--agp-*` con 4 variables
   locales en `#cardTrenes`.
+- [2026-08-02] [Claude] **Configuración unificada en config.html** (pedido del
+  usuario): la card "Trenes de siembra" vive ahora en config.html → tab
+  Secciones (IDs congelados: `cartaTrenes`, `trnList`, `trnAdd`, `trnBrush`,
+  `trnStrip`, `trnMsg`, attrs `data-trn-nombre/dist/del`; clase `.btn` nueva en
+  esa página). Guarda con el botón flotante Guardar / leave de tab, DESPUÉS de
+  la geometría. `config-implemento.html` REDIRIGE a config.html?tab=tconfig
+  (salió del sidebar; entrada nueva `configuracion` → config.html). Los links
+  de sectionx/vistax/quantix/herramienta apuntan a config.html?tab=tsections.
+  Codex: no reintroducir editores de trenes fuera de config.html.

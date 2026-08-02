@@ -314,11 +314,15 @@
   </style>
 </head>
 <body>
-  <aside class="sidebar" data-active="config-implemento"></aside>
+  <!-- Esta pantalla se unificó en Configuración (config.html): mismo dato,
+       una sola ventana. Redirigimos ahí; el resto del markup queda para
+       poder volver atrás sin arqueología si hiciera falta. -->
+  <script>location.replace('config.html?tab=tconfig');</script>
+  <aside class="sidebar" data-active="configuracion"></aside>
   <main class="page">
     <div class="page-head">
-      <div><h1>Implemento PilotX</h1><div class="subtitle">Acople, enganche, desfase, secciones y anticipo del piloto</div></div>
-      <span class="pill" id="implStatus"><span class="dot"></span> Cargando…</span>
+      <div><h1>Implemento PilotX</h1><div class="subtitle">Esta pantalla se unificó en <a href="config.html">Configuración</a></div></div>
+      <span class="pill" id="implStatus"><span class="dot"></span> Redirigiendo…</span>
     </div>
 
     <!-- tabstrip -->
