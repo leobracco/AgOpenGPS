@@ -1715,3 +1715,12 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   #eef1ee disabled) para tokenizar a mano cuando pases por ahí — NO por
   matching de valor. También sumadas a config.html: sección Sonidos
   (sonidos.html embebida) y grupo Herramientas (calculadora/pid-lab/pwm-diag).
+
+### 2026-08-02 · Claude — widget-quantix.html a paleta clara por tokens
+`pages/widget-quantix.html` (overlay 220x240 sobre el mapa) abandonó el dark
+cockpit hardcodeado: importa theme.css y el `:root` local (`--bg-panel`,
+`--green`, `--brand`…) ahora RESUELVE a tokens agp con fallback — mismas
+reglas, cero cambios de IDs/estructura/JS (widget-quantix.js ya usaba
+`var(--…)` para los estados). Texto sobre accent pasó de #081008 a blanco
+(`--on-brand`), como .btn.primary. Queda igualado al lenguaje de
+vistax-live.html.

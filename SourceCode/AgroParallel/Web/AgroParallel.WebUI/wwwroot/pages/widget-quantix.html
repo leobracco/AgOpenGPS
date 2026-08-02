@@ -4,22 +4,26 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=220, initial-scale=1" />
   <title>QuantiX · widget</title>
+  <link rel="stylesheet" href="../theme.css" />
   <style>
     /* Widget overlay 220x240 sobre el OpenGL de PilotX — sin chrome de página.
-       Ajuste compacto: conserva estructura, IDs y comportamiento esperado del widget. */
+       Ajuste compacto: conserva estructura, IDs y comportamiento esperado del widget.
+       Paleta: mismo lenguaje claro que vistax-live — los nombres locales quedan
+       (mapean 1:1 sobre las reglas) pero los valores salen de los tokens agp. */
     :root {
-      --bg-panel: #121b24;
-      --bg-card: #17232f;
-      --bg-soft: #1d2a36;
-      --border: rgba(255,255,255,.10);
-      --text-main: #f4f7f9;
-      --text-muted: #91a2ae;
-      --green: #28d17c;
-      --amber: #ffb84d;
-      --red: #ff5b5b;
-      --idle: #5c6b76;
-      --brand: #4ABA3E;
-      --brand-2: #7ad364;
+      --bg-panel: var(--agp-surface, #FFFFFF);
+      --bg-card: var(--agp-surface-2, #F5F7F4);
+      --bg-soft: var(--agp-surface-3, #EDF1EC);
+      --border: var(--agp-border, #C5CFC5);
+      --text-main: var(--agp-text, #101612);
+      --text-muted: var(--agp-text-muted, #535E54);
+      --green: var(--agp-state-ok, #2E9E24);
+      --amber: var(--agp-state-warn, #E8A13C);
+      --red: var(--agp-danger, #C92D2D);
+      --idle: var(--agp-text-dim, #8A968B);
+      --brand: var(--agp-accent, #4ABA3E);
+      --brand-2: var(--agp-accent-hover, #3FA636);
+      --on-brand: #FFFFFF; /* texto sobre accent, como .btn.primary del Hub */
     }
 
     * { box-sizing: border-box; }
@@ -30,7 +34,7 @@
       width: 100%; height: 100%;
       background: transparent;
       color: var(--text-main);
-      font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-family: var(--agp-font-sans, system-ui, sans-serif);
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
@@ -39,8 +43,8 @@
     .quantix-widget {
       width: 100%; height: 100%;
       border-radius: 14px;
-      background: rgba(18, 27, 36, .96);
-      border: 1px solid rgba(255,255,255,.11);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
       overflow: hidden;
       display: flex; flex-direction: column;
     }
@@ -65,7 +69,7 @@
       display: flex; align-items: center; gap: 5px;
       height: 18px; padding: 0 6px; max-width: 106px;
       border-radius: 999px;
-      background: #0e161e; border: 1px solid var(--border);
+      background: var(--bg-soft); border: 1px solid var(--border);
       font-size: 9px; font-weight: 900;
       white-space: nowrap; overflow: hidden;
     }
@@ -77,7 +81,7 @@
       background: var(--idle);
     }
 
-    .dot.on { background: var(--brand); box-shadow: 0 0 10px rgba(74,186,62,.8); }
+    .dot.on { background: var(--brand); box-shadow: 0 0 6px rgba(74,186,62,.5); }
 
     .dose {
       margin-top: 4px;
@@ -113,7 +117,7 @@
     }
 
     .mode .tabs button.active {
-      color: #081008;
+      color: var(--on-brand);
       background: linear-gradient(135deg, var(--brand), var(--brand-2));
     }
 
@@ -127,7 +131,7 @@
 
     .manual button, .manual div {
       height: 24px; border-radius: 7px;
-      background: #0d151d; border: 1px solid var(--border);
+      background: var(--bg-card); border: 1px solid var(--border);
       color: var(--text-main);
       font-size: 8px; font-weight: 900;
       display: grid; place-items: center;
@@ -136,7 +140,7 @@
     }
 
     .manual button {
-      background: #263545; border: 0; cursor: pointer;
+      background: var(--bg-soft); border: 1px solid var(--border); cursor: pointer;
       font-size: 17px; line-height: 1; font-weight: 950;
       font-family: inherit; padding: 0;
     }
@@ -237,7 +241,7 @@
     }
     .f-man.manual {
       background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      border-color: transparent; color: #081008;
+      border-color: transparent; color: var(--on-brand);
     }
 
     /* Lo que está dosificando AHORA, bien grande. */
@@ -281,7 +285,7 @@
     .f-step.enabled { opacity: 1; }
     .f-step button {
       height: 24px; border-radius: 7px;
-      background: #263545; border: 0; cursor: pointer;
+      background: var(--bg-soft); border: 1px solid var(--border); cursor: pointer;
       color: var(--text-main);
       font-size: 16px; line-height: 1; font-weight: 950;
       font-family: inherit; padding: 0;
@@ -289,7 +293,7 @@
     }
     .f-step .f-dose {
       height: 24px; border-radius: 7px;
-      background: #0d151d; border: 1px solid var(--border);
+      background: var(--bg-card); border: 1px solid var(--border);
       color: var(--text-main);
       font-size: 10px; font-weight: 900;
       display: grid; place-items: center;
@@ -321,8 +325,8 @@
 
     /* Flash del borde cuando el foco salta solo a un motor en alarma. */
     @keyframes qxflash {
-      0%, 100% { border-color: rgba(255,255,255,.11); }
-      50% { border-color: var(--red); box-shadow: 0 0 8px rgba(255,91,91,.5); }
+      0%, 100% { border-color: var(--border); }
+      50% { border-color: var(--red); box-shadow: 0 0 8px rgba(201,45,45,.45); }
     }
     .quantix-widget.flash { animation: qxflash .5s 2; }
 
@@ -332,7 +336,7 @@
       padding: 4px 7px;
       border-top: 1px solid var(--border);
       display: flex; justify-content: space-between; align-items: center;
-      background: rgba(0,0,0,.13);
+      background: var(--bg-card);
       gap: 5px;
     }
 
@@ -340,7 +344,7 @@
       height: 18px; padding: 0 7px; border-radius: 999px;
       display: inline-flex; align-items: center;
       background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      color: #081008;
+      color: var(--on-brand);
       font-size: 8px; font-weight: 950; letter-spacing: .25px;
       white-space: nowrap;
       flex: none;
@@ -371,7 +375,7 @@
     /* ---- Modal de confirmación / acciones ---- */
     .modal-backdrop {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.6);
+      background: var(--agp-overlay, rgba(16,22,18,0.45));
       display: none;
       align-items: center; justify-content: center;
       z-index: 50;
@@ -385,7 +389,7 @@
       border-radius: 12px;
       padding: 10px;
       width: 178px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 24px rgba(16,22,18,0.18);
     }
 
     .modal h2 { font-size: 12px; margin: 0 0 5px 0; font-weight: 900; }
@@ -402,7 +406,7 @@
 
     .modal .btn.primary {
       background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      border-color: transparent; color: #081008;
+      border-color: transparent; color: var(--on-brand);
     }
 
     .modal .btn[hidden] { display: none; }
@@ -410,7 +414,7 @@
     /* ---- Keypad in-widget (el teclado global taparía los 240px) ---- */
     .keypad-backdrop {
       position: fixed; inset: 0;
-      background: rgba(8, 10, 12, 0.97);
+      background: var(--bg-panel);
       display: none; flex-direction: column;
       z-index: 100;
       padding: 6px;
@@ -458,7 +462,7 @@
       font-family: inherit;
     }
 
-    .keypad-grid .kp:active { background: #263545; }
+    .keypad-grid .kp:active { background: var(--agp-border-soft, #D8DFD8); }
     .keypad-grid .kp.del { color: var(--red); }
 
     .keypad-actions {
@@ -468,7 +472,7 @@
     .keypad-actions .kp { font-size: 12px; padding: 7px 0; }
     .keypad-actions .kp.ok {
       background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      border-color: transparent; color: #081008;
+      border-color: transparent; color: var(--on-brand);
     }
   </style>
 </head>
