@@ -35,7 +35,10 @@
     if (it.cultivo) parts.push(it.cultivo);
     if (it.tipo === 'semilla' && it.densidad_objetivo_sem_m)
       parts.push(it.densidad_objetivo_sem_m + ' sem/m');
-    if (it.dosis_kgha) parts.push(it.dosis_kgha + ' kg/ha');
+    if (it.dosis_kgha) {
+      var uni = { kg_ha: 'kg/ha', sem_ha: 'sem/ha', sem_m: 'sem/m' }[it.dosis_unidad] || 'kg/ha';
+      parts.push(it.dosis_kgha + ' ' + uni);
+    }
     if (it.dosis_lha) parts.push(it.dosis_lha + ' L/ha');
     return parts.join(' · ');
   }
@@ -161,6 +164,7 @@
       drop_min_sem_m: 0,
       drop_max_sem_m: 0,
       dosis_kgha: 0,
+      dosis_unidad: 'kg_ha',
       dosis_lha: 0,
       precio_usd_kg: 0,
       precio_usd_l: 0,
@@ -179,6 +183,7 @@
     $('fDropMin').value = draft.drop_min_sem_m || '';
     $('fDropMax').value = draft.drop_max_sem_m || '';
     $('fDosisKg').value = draft.dosis_kgha || '';
+    if ($('fDosisUnidad')) $('fDosisUnidad').value = draft.dosis_unidad || 'kg_ha';
     $('fPrecioKg').value = draft.precio_usd_kg || '';
     $('fDosisL').value = draft.dosis_lha || '';
     $('fPrecioL').value = draft.precio_usd_l || '';
@@ -245,6 +250,7 @@
     dto.drop_min_sem_m = num($('fDropMin').value);
     dto.drop_max_sem_m = num($('fDropMax').value);
     dto.dosis_kgha = num($('fDosisKg').value);
+    dto.dosis_unidad = $('fDosisUnidad') ? ($('fDosisUnidad').value || 'kg_ha') : 'kg_ha';
     dto.dosis_lha = num($('fDosisL').value);
     dto.precio_usd_kg = num($('fPrecioKg').value);
     dto.precio_usd_l = num($('fPrecioL').value);

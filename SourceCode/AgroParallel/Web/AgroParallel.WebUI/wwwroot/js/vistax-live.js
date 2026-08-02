@@ -155,15 +155,20 @@
       var semHa = (spm / 60.0 / vms) * 10000.0 / dist;
       html += '<div class="row"><span class="lbl">sem/ha</span><span>' + fmt(semHa, 0) + '</span></div>';
     }
-    // kg/ha estimado por REGLA DE TRES: la máquina fue calibrada para
-    // dosificar dosis_ref (kg/ha del insumo activo); el flujo promedio de la
-    // primera pasada estable quedó como spm_ref ≡ esa dosis. Proporcional:
+    // Dosis estimada por REGLA DE TRES: la máquina fue calibrada para
+    // dosificar dosis_ref (valor + UNIDAD del insumo activo); el flujo
+    // promedio de la primera pasada estable quedó como spm_ref ≡ esa dosis.
+    // Proporcional y agnóstico de unidad: el estimado sale en la unidad
+    // configurada en el insumo (la comparten QuantiX y VistaX).
     var spmRef   = (state.lastLive || {}).spm_ref || 0;
-    var dosisRef = (state.lastLive || {}).dosis_ref_kg_ha || (state.lastLive || {}).dosis_ref_kgha || 0;
+    var dosisRef = (state.lastLive || {}).dosis_ref_kg_ha || 0;
+    var UNIDADES = { kg_ha: 'kg/ha', sem_ha: 'sem/ha', sem_m: 'sem/m' };
+    var uniRef   = UNIDADES[(state.lastLive || {}).dosis_ref_unidad] || 'kg/ha';
     if (spmRef > 0 && dosisRef > 0 && spm != null) {
-      var kgha = spm / spmRef * dosisRef;
-      html += '<div class="row"><span class="lbl">kg/ha est.</span><span>' + fmt(kgha, 1) +
-              ' / ' + fmt(dosisRef, 1) + '</span></div>';
+      var dosisEst = spm / spmRef * dosisRef;
+      var dec = dosisRef >= 1000 ? 0 : 1;
+      html += '<div class="row"><span class="lbl">' + uniRef + ' est.</span><span>' +
+              fmt(dosisEst, dec) + ' / ' + fmt(dosisRef, dec) + '</span></div>';
     }
     if (pct != null) {
       var pctClamp = Math.max(0, Math.min(150, pct));

@@ -805,6 +805,8 @@ namespace AgroParallel.Services
             }
 
             snap.DosisRefKgHa = insumo?.DosisKgha ?? 0;
+            snap.DosisRefUnidad = string.IsNullOrEmpty(insumo?.DosisUnidad)
+                ? "kg_ha" : insumo.DosisUnidad;
 
             if (_spmRef <= 0)
             {
