@@ -73,8 +73,13 @@ namespace AgroParallel.Cut
 
             // Implemento central: fuente de verdad de a qué tren pertenece cada
             // surco. Si no hay provider o no resuelve trenes, queda null y cada
-            // cable cae a su fallback por nodo más abajo.
-            var impl = ImplementoProvider != null ? ImplementoProvider() : null;
+            // cable cae a su fallback por nodo más abajo. El provider puede tirar
+            // (IOException del disco, etc.): con el catch, este tick sigue con
+            // impl=null y cada cable cae a su fallback por nodo — mismo criterio
+            // que QuantiXMotorBridge.OnTick.
+            ImplementoDto impl = null;
+            try { if (ImplementoProvider != null) impl = ImplementoProvider(); }
+            catch { /* sin implemento este tick: fallback por nodo, el tick sigue */ }
 
             // Sección PilotX → números de surco que cubre. SeccionAOG numera SECCIONES;
             // TrenResolver espera SURCOS (SurcoDto.Numero) — son espacios distintos y

@@ -49,6 +49,15 @@ namespace AgroParallel.Services
         private ImplementoDto _cache;
         private string _cacheSlug;
 
+        // TTL del cache: GetImplemento() la llaman ahora los lazos de control
+        // (QuantiXMotorBridge 5 Hz, SectionXCutAdapter 10 Hz) — sin esto,
+        // EnsureBootstrapped()+GetActiveSlug() pegan contra disco (Directory.Exists/
+        // GetFiles/File.Exists/ReadAllText) en CADA tick. Con el cache vigente
+        // (< 1s) devolvemos sin tocar el filesystem; se renueva al recargar y se
+        // invalida (_cacheStamp = DateTime.MinValue) en cualquier escritura.
+        private DateTime _cacheStamp = DateTime.MinValue;
+        private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(1);
+
         // Lock global de escrituras a disco. Sin esto, dos requests concurrentes
         // que hacen Load → modify → Save (típico cuando dos pestañas del Hub
         // editan el mismo implemento, o cuando NodosController.Aceptar() corre
@@ -281,7 +290,7 @@ namespace AgroParallel.Services
                 {
                     var clean = Sanitize(dto);
                     WriteAtomic(FilePath(slug), JsonSerializer.Serialize(clean, WriteOpts));
-                    if (slug == _cacheSlug) _cache = clean;
+                    if (slug == _cacheSlug) { _cache = clean; _cacheStamp = DateTime.MinValue; }
                     SyncToolIfChanged(slug, clean);
                     return true;
                 }
@@ -314,7 +323,7 @@ namespace AgroParallel.Services
                     mutate(dto);
                     var clean = Sanitize(dto);
                     WriteAtomic(p, JsonSerializer.Serialize(clean, WriteOpts));
-                    if (slug == _cacheSlug) _cache = clean;
+                    if (slug == _cacheSlug) { _cache = clean; _cacheStamp = DateTime.MinValue; }
                     SyncToolIfChanged(slug, clean);
                     return clean;
                 }
@@ -346,6 +355,7 @@ namespace AgroParallel.Services
                     WriteAtomic(ActivePath(), slug);
                     _cache = null;
                     _cacheSlug = null;
+                    _cacheStamp = DateTime.MinValue;
                     return true;
                 }
                 catch (Exception ex)
@@ -375,8 +385,9 @@ namespace AgroParallel.Services
                         // Invalidar cache porque cambia el activo
                         _cache = null;
                         _cacheSlug = null;
+                        _cacheStamp = DateTime.MinValue;
                     }
-                    if (slug == _cacheSlug) { _cache = null; _cacheSlug = null; }
+                    if (slug == _cacheSlug) { _cache = null; _cacheSlug = null; _cacheStamp = DateTime.MinValue; }
                     return true;
                 }
                 catch (Exception ex)
@@ -401,17 +412,37 @@ namespace AgroParallel.Services
         // Compatibilidad legacy (consumidores VistaX/QuantiX/SectionX)
         // ----------------------------------------------------------------
 
+        /// <summary>
+        /// Implemento activo, cacheado con TTL de 1s. IMPORTANTE: la referencia
+        /// que devuelve es la MISMA instancia cacheada — es segura de leer
+        /// concurrentemente (QuantiXMotorBridge a 5 Hz, SectionXCutAdapter a
+        /// 10 Hz la enumeran en cada tick) SOLO PORQUE ningún caller la muta in
+        /// situ. Si necesitás editar el implemento, usá <see cref="Update"/> (RMW
+        /// atómico sobre una copia fresca) — nunca `GetImplemento().Campo = x`.
+        /// </summary>
         public ImplementoDto GetImplemento()
         {
+            // TTL: dentro de la ventana devolvemos sin tocar disco. Antes de esto,
+            // EnsureBootstrapped()+GetActiveSlug() pegaban contra el filesystem en
+            // CADA llamada — con los lazos de control llamando ~15/s eso era I/O
+            // de disco por tick.
+            if (_cache != null && (DateTime.UtcNow - _cacheStamp) < CacheTtl)
+                return _cache;
+
             EnsureBootstrapped();
             string slug = GetActiveSlug();
             if (string.IsNullOrEmpty(slug)) return new ImplementoDto { Nombre = "vacío" };
 
-            if (_cache != null && _cacheSlug == slug) return _cache;
+            if (_cache != null && _cacheSlug == slug)
+            {
+                _cacheStamp = DateTime.UtcNow;
+                return _cache;
+            }
 
             var dto = Load(slug) ?? new ImplementoDto { Nombre = slug };
             _cache = dto;
             _cacheSlug = slug;
+            _cacheStamp = DateTime.UtcNow;
             return _cache;
         }
 

@@ -248,7 +248,9 @@ namespace AgroParallel.Services
                     AgpLog.Warn("QuantiX", string.Format(
                         "M{0}: pulse_min {1}µs es muy alto para {2} ppr (techo de lectura {3} rpm) → se manda {4}µs",
                         mi, pulseMin, m.DientesEngranaje,
-                        (int)(60000000.0 / ((double)pulseMin * m.DientesEngranaje)), pulseMinTope));
+                        // DientesEngranaje == 0 daría Infinity en el log (división por cero).
+                        m.DientesEngranaje > 0 ? (int)(60000000.0 / ((double)pulseMin * m.DientesEngranaje)) : 0,
+                        pulseMinTope));
                     pulseMin = pulseMinTope;
                 }
                 sb.Append(",\"pulse_min\":").Append(pulseMin);

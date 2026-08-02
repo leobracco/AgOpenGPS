@@ -52,6 +52,22 @@
   var state = { impl: null };
   var brushTrenId = 1;        // tren que pinta el click en la tira de surcos
 
+  // Última asignación surco→tren "completa" y confirmada (pintada a mano o
+  // recién cargada del server). regenerarSurcosLocal() SIEMPRE reconstruye
+  // desde acá, nunca desde state.impl.surcos directamente: si numSections
+  // pasa por un valor chico intermedio mientras se retipea (ej. "1" al
+  // escribir "14"), state.impl.surcos se trunca transitoriamente pero la
+  // memoria conserva el mapeo completo — 14→1→14 recupera el original.
+  var surcosMemoria = [];
+
+  function actualizarMemoriaSurcos() {
+    surcosMemoria = (state.impl && state.impl.surcos)
+      ? state.impl.surcos.map(function (s) {
+          return { numero: s.numero, tren_id: s.tren_id, seccion_pilotx: s.seccion_pilotx };
+        })
+      : [];
+  }
+
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -355,9 +371,10 @@
   // Regenera surcos[] con el MISMO criterio que ImplementoSurcos.Regenerar en
   // el backend (Services.Common): conserva la asignación surco→tren por
   // índice y hereda el tren del último surco viejo para los que se agregan.
+  // Fuente: surcosMemoria (no state.impl.surcos) — ver comentario arriba.
   function regenerarSurcosLocal(n) {
     if (!state.impl || n < 1) return;
-    var viejos = state.impl.surcos || [];
+    var viejos = surcosMemoria.length > 0 ? surcosMemoria : (state.impl.surcos || []);
     var ultimoTren = 1;
     if (viejos.length > 0 && viejos[viejos.length - 1]) ultimoTren = viejos[viejos.length - 1].tren_id;
     var nuevos = [];
@@ -498,7 +515,7 @@
       c.addEventListener('click', function () {
         var surco = parseInt(c.dataset.surco, 10);
         var s = state.impl.surcos.filter(function (x) { return x.numero === surco; })[0];
-        if (s) { s.tren_id = brushTrenId; renderTrenStrip(); }
+        if (s) { s.tren_id = brushTrenId; actualizarMemoriaSurcos(); renderTrenStrip(); }
       });
     });
   }
@@ -536,6 +553,7 @@
       if (!state.impl.surcos) state.impl.surcos = [];
       ensureTrenes();
       renderTrenUI();
+      actualizarMemoriaSurcos();
     } catch (e) {
       var m = $('trenMsg');
       if (m) { m.className = 'send-msg err'; m.textContent = '✕ No se pudieron cargar los trenes: ' + e.message; }
@@ -768,7 +786,13 @@
   $('secMinus').addEventListener('click', function () { bumpSections(-1); });
   $('secPlus').addEventListener('click', function () { bumpSections(1); });
   $('numSections').addEventListener('input', function () {
+    // Solo redibujo en vivo mientras se tipea — NO tocar surcos[] acá: un
+    // valor intermedio de la escritura (ej. "1" al tipear "14") disparaba
+    // regenerarSurcosLocal(1) y truncaba la tira surco→tren (ver I2 del
+    // review final). El regenerado real va en 'change', al confirmar/blur.
     renderSecWidthInputs(); renderZoneInputs(); redrawSections();
+  });
+  $('numSections').addEventListener('change', function () {
     onNumSectionsChangedForTrenes();
   });
   $('btnSecWidthBulk').addEventListener('click', applyBulkWidth);

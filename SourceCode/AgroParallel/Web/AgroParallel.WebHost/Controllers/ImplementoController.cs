@@ -232,77 +232,89 @@ namespace AgroParallel.WebHost.Controllers
             var tpl = SembradorasCatalog.Find(marca, modelo);
             if (tpl == null) { await WriteJsonAsync(new { ok = false, error = "template-not-found" }); return; }
 
-            var dto = _svc.GetImplemento();
-            if (dto == null) dto = new ImplementoDto();
+            // RMW atómico vía Update — GetImplemento() devuelve la instancia
+            // CACHEADA que QuantiXMotorBridge (5 Hz) y SectionXCutAdapter (10 Hz)
+            // enumeran en paralelo; mutarla in situ (como antes) les puede volar
+            // un InvalidOperationException en pleno tick. Update() opera sobre
+            // una copia fresca leída de disco y sólo publica el resultado ya
+            // terminado (ver ImplementoService.Update).
+            _svc.GetImplemento(); // fuerza bootstrap/activo sin tocar el cache compartido
+            string slug = _svc.GetActiveSlug();
+            if (string.IsNullOrEmpty(slug)) { await WriteJsonAsync(new { ok = false, error = "no-active-implemento" }); return; }
 
-            // Mergea campos físicos + metadata. NO toca:
-            //  · Nombre del implemento (es del usuario)
-            //  · AnchoTotalM (lo decide el operario o sale de la geometría AOG)
-            //  · OverlapM / HitchLengthM / lookaheads (config de PilotX)
-            //  · Trenes / Surcos / Secciones (estructura ya armada)
-            dto.Categoria = "sembradora";
-            dto.Marca = tpl.Marca;
-            dto.Modelo = tpl.Modelo;
-            dto.TipoCultivo = tpl.TipoCultivo;
-            dto.TipoSiembra = tpl.TipoSiembra;
-            dto.TipoDosificador = tpl.TipoDosificador;
-            dto.NumeroTorres = tpl.NumeroTorres;
-            dto.TieneFertilizacion = tpl.TieneFertilizacion;
-            dto.TipoEstructura = tpl.TipoEstructura;
-            // Si el implemento está vacío (recién creado), también pre-llenamos
-            // las dimensiones físicas — si ya tiene surcos definidos no las pisamos.
-            bool implementoVacio = (dto.Surcos == null || dto.Surcos.Count == 0);
-            if (dto.NumeroSurcos <= 0)
-                dto.NumeroSurcos = tpl.NumeroSurcos;
-            if (dto.DistanciaEntreSurcosM <= 0)
-                dto.DistanciaEntreSurcosM = tpl.DistanciaEntreSurcosM;
-
-            // Si el implemento está vacío y el template define una estructura
-            // multi-tren (Tanzi 14500 = 2 trenes), creamos los trenes y
-            // distribuimos los surcos consecutivos: primera mitad → tren 1
-            // (delantero), segunda mitad → tren 2 (trasero). Convención
-            // validada en ConfigValidation.ValidarTrenes: "tren 1 = delantero,
-            // distancia 0". Ningún tren arranca con distancia inventada — todos
-            // en 0 hasta que el operario mida y cargue la distancia real; con
-            // todo en 0 la guarda de TrenResolver ("sin distancias reales")
-            // mantiene el fallback manual por nodo hasta ese momento.
-            if (implementoVacio && tpl.NumeroTrenes >= 2 && tpl.NumeroSurcos > 0)
+            ImplementoDto dto = _svc.Update(slug, d =>
             {
-                dto.Trenes = new List<TrenDto>();
-                for (int t = 1; t <= tpl.NumeroTrenes; t++)
+                // Mergea campos físicos + metadata. NO toca:
+                //  · Nombre del implemento (es del usuario)
+                //  · AnchoTotalM (lo decide el operario o sale de la geometría AOG)
+                //  · OverlapM / HitchLengthM / lookaheads (config de PilotX)
+                //  · Trenes / Surcos / Secciones (estructura ya armada, salvo abajo)
+                d.Categoria = "sembradora";
+                d.Marca = tpl.Marca;
+                d.Modelo = tpl.Modelo;
+                d.TipoCultivo = tpl.TipoCultivo;
+                d.TipoSiembra = tpl.TipoSiembra;
+                d.TipoDosificador = tpl.TipoDosificador;
+                d.NumeroTorres = tpl.NumeroTorres;
+                d.TieneFertilizacion = tpl.TieneFertilizacion;
+                d.TipoEstructura = tpl.TipoEstructura;
+                // Si el implemento está vacío (recién creado), también pre-llenamos
+                // las dimensiones físicas — si ya tiene surcos definidos no las pisamos.
+                bool implementoVacio = (d.Surcos == null || d.Surcos.Count == 0);
+                if (d.NumeroSurcos <= 0)
+                    d.NumeroSurcos = tpl.NumeroSurcos;
+                if (d.DistanciaEntreSurcosM <= 0)
+                    d.DistanciaEntreSurcosM = tpl.DistanciaEntreSurcosM;
+
+                // Si el implemento está vacío y el template define una estructura
+                // multi-tren (Tanzi 14500 = 2 trenes), creamos los trenes y
+                // distribuimos los surcos consecutivos: primera mitad → tren 1
+                // (delantero), segunda mitad → tren 2 (trasero). Convención
+                // validada en ConfigValidation.ValidarTrenes: "tren 1 = delantero,
+                // distancia 0". Ningún tren arranca con distancia inventada — todos
+                // en 0 hasta que el operario mida y cargue la distancia real; con
+                // todo en 0 la guarda de TrenResolver ("sin distancias reales")
+                // mantiene el fallback manual por nodo hasta ese momento.
+                if (implementoVacio && tpl.NumeroTrenes >= 2 && tpl.NumeroSurcos > 0)
                 {
-                    dto.Trenes.Add(new TrenDto
+                    var trenes = new List<TrenDto>();
+                    for (int t = 1; t <= tpl.NumeroTrenes; t++)
                     {
-                        Id = t,
-                        Nombre = tpl.NumeroTrenes == 2
-                            ? (t == 1 ? "Delantero" : "Trasero")
-                            : ("Tren " + t),
-                        DistanciaM = 0
-                    });
-                }
-                dto.Surcos = new List<SurcoDto>();
-                int surcosPorTren = tpl.NumeroSurcos / tpl.NumeroTrenes;
-                int sobran = tpl.NumeroSurcos - surcosPorTren * tpl.NumeroTrenes;
-                int numero = 1;
-                for (int t = 0; t < tpl.NumeroTrenes; t++)
-                {
-                    int cant = surcosPorTren + (t < sobran ? 1 : 0);
-                    int trenId = t + 1;
-                    for (int k = 0; k < cant; k++)
-                    {
-                        dto.Surcos.Add(new SurcoDto
+                        trenes.Add(new TrenDto
                         {
-                            Numero = numero++,
-                            TrenId = trenId,
-                            SeccionPilotX = 0
+                            Id = t,
+                            Nombre = tpl.NumeroTrenes == 2
+                                ? (t == 1 ? "Delantero" : "Trasero")
+                                : ("Tren " + t),
+                            DistanciaM = 0
                         });
                     }
+                    var surcos = new List<SurcoDto>();
+                    int surcosPorTren = tpl.NumeroSurcos / tpl.NumeroTrenes;
+                    int sobran = tpl.NumeroSurcos - surcosPorTren * tpl.NumeroTrenes;
+                    int numero = 1;
+                    for (int t = 0; t < tpl.NumeroTrenes; t++)
+                    {
+                        int cant = surcosPorTren + (t < sobran ? 1 : 0);
+                        int trenId = t + 1;
+                        for (int k = 0; k < cant; k++)
+                        {
+                            surcos.Add(new SurcoDto
+                            {
+                                Numero = numero++,
+                                TrenId = trenId,
+                                SeccionPilotX = 0
+                            });
+                        }
+                    }
+                    d.Trenes = trenes;
+                    d.Surcos = surcos;
+                    d.NumeroSurcos = tpl.NumeroSurcos;
                 }
-                dto.NumeroSurcos = tpl.NumeroSurcos;
-            }
+            });
 
-            bool ok = _svc.SaveImplemento(dto);
-            await WriteJsonAsync(new { ok = ok, slug = _svc.GetActiveSlug(), implemento = dto });
+            bool ok = dto != null;
+            await WriteJsonAsync(new { ok = ok, slug = slug, implemento = dto });
         }
 
         // ---- Catálogo de OTRA maquinaria (cosechadora/pulverizadora/fertilizadora) ----
@@ -341,36 +353,42 @@ namespace AgroParallel.WebHost.Controllers
             var tpl = MaquinasCatalog.Find(categoria, marca, modelo);
             if (tpl == null) { await WriteJsonAsync(new { ok = false, error = "template-not-found" }); return; }
 
-            var dto = _svc.GetImplemento();
-            if (dto == null) dto = new ImplementoDto();
+            // RMW atómico vía Update — mismo motivo que AplicarPlantilla: nunca
+            // mutar in situ la instancia cacheada que leen los lazos de corte/dosis.
+            _svc.GetImplemento(); // fuerza bootstrap/activo sin tocar el cache compartido
+            string slug = _svc.GetActiveSlug();
+            if (string.IsNullOrEmpty(slug)) { await WriteJsonAsync(new { ok = false, error = "no-active-implemento" }); return; }
 
-            // Identidad + ancho de labor (dato principal del catálogo de máquinas).
-            dto.Categoria = tpl.Categoria;
-            dto.Marca = tpl.Marca;
-            dto.Modelo = tpl.Modelo;
-            dto.AnchoTotalM = tpl.AnchoLaborM;
+            ImplementoDto dto = _svc.Update(slug, d =>
+            {
+                // Identidad + ancho de labor (dato principal del catálogo de máquinas).
+                d.Categoria = tpl.Categoria;
+                d.Marca = tpl.Marca;
+                d.Modelo = tpl.Modelo;
+                d.AnchoTotalM = tpl.AnchoLaborM;
 
-            // Las máquinas no sembradoras no tienen surcos/torres ni dosificador
-            // de siembra: limpiamos esa estructura para que la página no muestre
-            // datos de sembradora que no aplican.
-            dto.NumeroSurcos = 0;
-            dto.Surcos = new List<SurcoDto>();
-            dto.Trenes = new List<TrenDto> { new TrenDto { Id = 1, Nombre = "Tren único", DistanciaM = 0 } };
-            dto.NumeroTorres = 0;
-            dto.TipoCultivo = "";
-            dto.TipoSiembra = "";
-            dto.TipoDosificador = "";
-            dto.TipoEstructura = "";
-            dto.TieneFertilizacion = (tpl.Categoria == "fertilizadora");
+                // Las máquinas no sembradoras no tienen surcos/torres ni dosificador
+                // de siembra: limpiamos esa estructura para que la página no muestre
+                // datos de sembradora que no aplican.
+                d.NumeroSurcos = 0;
+                d.Surcos = new List<SurcoDto>();
+                d.Trenes = new List<TrenDto> { new TrenDto { Id = 1, Nombre = "Tren único", DistanciaM = 0 } };
+                d.NumeroTorres = 0;
+                d.TipoCultivo = "";
+                d.TipoSiembra = "";
+                d.TipoDosificador = "";
+                d.TipoEstructura = "";
+                d.TieneFertilizacion = (tpl.Categoria == "fertilizadora");
 
-            // Secciones: una por sección de corte del modelo (mínimo 1).
-            int n = tpl.NumeroSecciones > 0 ? tpl.NumeroSecciones : 1;
-            dto.Secciones = new List<SeccionDto>();
-            for (int i = 1; i <= n; i++)
-                dto.Secciones.Add(new SeccionDto { Id = i, Nombre = "Sección " + i });
+                // Secciones: una por sección de corte del modelo (mínimo 1).
+                int n = tpl.NumeroSecciones > 0 ? tpl.NumeroSecciones : 1;
+                d.Secciones = new List<SeccionDto>();
+                for (int i = 1; i <= n; i++)
+                    d.Secciones.Add(new SeccionDto { Id = i, Nombre = "Sección " + i });
+            });
 
-            bool ok = _svc.SaveImplemento(dto);
-            await WriteJsonAsync(new { ok = ok, slug = _svc.GetActiveSlug(), implemento = dto });
+            bool ok = dto != null;
+            await WriteJsonAsync(new { ok = ok, slug = slug, implemento = dto });
         }
 
         [Route(EmbedIO.HttpVerbs.Post, "/implementos/copiar")]

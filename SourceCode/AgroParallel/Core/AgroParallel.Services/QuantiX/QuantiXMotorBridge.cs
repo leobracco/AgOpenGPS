@@ -271,9 +271,14 @@ namespace AgroParallel.QuantiX
                         else
                         {
                             distMotor = (motor.Tren == 0) ? 0 : nodo.DistanciaEntreTrenes; // fallback fase 1
-                            if (motor.Tren != 0 && !_loggedFallbackNodo)
+                            // Antes esto solo logueaba con motor.Tren != 0 — un rig
+                            // todo-delantero (Tren == 0 en todos los motores) nunca
+                            // mostraba la fuente. Logueamos una vez pase lo que pase.
+                            if (!_loggedFallbackNodo)
                             {
-                                Log("trenes: fallback por nodo (implemento sin distancias)");
+                                Log(motor.Tren != 0
+                                    ? "trenes: fallback por nodo (implemento sin distancias)"
+                                    : "trenes: fallback por nodo (sin desfase: tren delantero)");
                                 _loggedFallbackNodo = true;
                             }
                         }

@@ -35,6 +35,9 @@ namespace AgroParallel.OrbitX
         private bool _syncInFlight;
         private bool _disposed;
         private readonly Queue<SyncItem> _queue = new Queue<SyncItem>();
+        // Tope de reintentos antes de descartar un ítem que el server rechaza
+        // siempre (4xx permanente) — sin esto bloqueaba la cola entera (head-of-line).
+        private const int MaxIntentosPorItem = 5;
 
         public bool IsRunning { get; private set; }
         public int FilesSynced { get; private set; }
@@ -64,6 +67,11 @@ namespace AgroParallel.OrbitX
             // Ruta local: hace falta para marcar el archivo como subido RECIÉN
             // cuando el server confirmó. Ver EnqueueIfChanged.
             public string LocalPath;
+            // Reintentos consecutivos fallidos. Un archivo que el server rechaza
+            // SIEMPRE (4xx permanente) bloqueaba la cola entera para siempre —
+            // ver SyncTick: a los 5 intentos se descarta (sin anotar hash, así
+            // que si el archivo cambia se re-encola solo).
+            public int Intentos;
         }
 
         // Extensiones que requieren transporte binario (Base64). El resto se
@@ -250,6 +258,13 @@ namespace AgroParallel.OrbitX
                 // ciclo — sin red, insistir con los demás solo suma timeouts.
                 // El próximo tick reintenta, y si el proceso se reinició, el
                 // hash sin anotar hace que se vuelva a encolar solo.
+                //
+                // Excepción: si el MISMO ítem ya falló MaxIntentosPorItem veces
+                // seguidas (rechazo permanente del server, ej. 4xx por archivo
+                // corrupto), cortar acá dejaría la cola entera bloqueada para
+                // siempre detrás de él (head-of-line). Lo descartamos SIN anotar
+                // el hash — si el archivo cambia más adelante, EnqueueIfChanged
+                // lo vuelve a encolar solo — y seguimos con el resto.
                 int subidos = 0;
                 while (_queue.Count > 0)
                 {
@@ -257,8 +272,16 @@ namespace AgroParallel.OrbitX
                     bool ok = await UploadFile(item);
                     if (!ok)
                     {
-                        Trace(string.Format("[AOG] PENDIENTE {0} ({1} bytes) — queda en cola ({2}): {3}",
-                            item.Nombre, item.TamanoBytes, _queue.Count, LastError ?? "sin respuesta"));
+                        item.Intentos++;
+                        if (item.Intentos >= MaxIntentosPorItem)
+                        {
+                            _queue.Dequeue();
+                            Trace(string.Format("[AOG] DESCARTADO tras {0} intentos: {1} ({2} bytes): {3}",
+                                item.Intentos, item.Nombre, item.TamanoBytes, LastError ?? "sin respuesta"));
+                            continue;
+                        }
+                        Trace(string.Format("[AOG] PENDIENTE {0} ({1} bytes) — queda en cola ({2}) intento {3}/{4}: {5}",
+                            item.Nombre, item.TamanoBytes, _queue.Count, item.Intentos, MaxIntentosPorItem, LastError ?? "sin respuesta"));
                         break;
                     }
                     _queue.Dequeue();
