@@ -983,6 +983,24 @@
     if (!isNaN(v)) sec.defWidth = Math.abs(v);
     sec.dirty = true;
   });
+  // Al CONFIRMAR el ancho (blur/enter, no por tecla — tipear "120" pasaría
+  // por "1"): pisa el ancho de TODAS las secciones y recalcula el total,
+  // igual que cuando se cambia la cantidad. Antes solo guardaba el default
+  // y las celdas quedaban con los anchos viejos hasta tocar la cantidad.
+  document.getElementById('nudDefaultWidth').addEventListener('change', function () {
+    var dw = leerNud(this, limDefWidth()[0], limDefWidth()[1]);
+    if (dw === null) return;
+    var wide = dw;
+    if (sec.num * wide > secCapDisp()) {
+      wide = snap.is_metric ? 99 : 19; // mismo clamp que el cambio de cantidad
+      setEstado('Demasiado ancho — anchos reseteados a ' + wide + ' ' + unidad(), 'err');
+      this.value = wide;
+    }
+    sec.defWidth = wide;
+    for (var i = 0; i < 16; i++) sec.widths[i] = wide;
+    sec.dirty = true;
+    secPintarInd();
+  });
   document.getElementById('nudNumSectionsMulti').addEventListener('change', function () {
     var v = parseInt(String(this.value).replace(',', '.'), 10);
     if (isNaN(v)) { this.classList.add('invalido'); return; }
