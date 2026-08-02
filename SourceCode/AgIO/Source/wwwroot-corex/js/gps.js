@@ -127,6 +127,65 @@
     box.innerHTML = html || 'esperando datos…';
   }
 
+  // ---- Simulador NMEA de salida (RS232) ----
+  function $id(i) { return document.getElementById(i); }
+
+  function simCfg() {
+    return {
+      port: ($id('simPort').value || '').trim(),
+      baud: parseInt($id('simBaud').value, 10) || 115200,
+      hz: parseFloat($id('simHz').value) || 10,
+      lat: parseFloat($id('simLat').value) || 0,
+      lon: parseFloat($id('simLon').value) || 0,
+      vel_kmh: parseFloat($id('simVel').value) || 0,
+      rumbo: parseFloat($id('simRumbo').value) || 0,
+      fix: parseInt($id('simFix').value, 10),
+      sats: parseInt($id('simSats').value, 10) || 12,
+      gga: $id('simGga').checked,
+      vtg: $id('simVtg').checked,
+      rmc: $id('simRmc').checked,
+      hdt: $id('simHdt').checked
+    };
+  }
+
+  function simPintar(e) {
+    var el = $id('simEstado');
+    if (!el || !e) return;
+    if (e.corriendo) {
+      el.textContent = 'emitiendo en ' + (e.config && e.config.port) + ' @ ' +
+        (e.config && e.config.hz) + ' Hz · ' + e.grupos + ' grupos · pos ' +
+        e.lat_actual + ', ' + e.lon_actual;
+    } else {
+      el.textContent = e.error ? ('detenido — ' + e.error) : 'detenido';
+    }
+  }
+
+  function simPost(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : '{}'
+    }).then(function (r) { return r.json(); })
+      .then(function (d) { simPintar(d.estado); })
+      .catch(function () {});
+  }
+
+  if ($id('simStart')) {
+    $id('simStart').addEventListener('click', function () {
+      simPost('/api/corex/nmea-sim/start', simCfg());
+    });
+    $id('simStop').addEventListener('click', function () {
+      simPost('/api/corex/nmea-sim/stop');
+    });
+    // Estado al cargar y refresco liviano del contador mientras emite.
+    setInterval(function () {
+      fetch('/api/corex/nmea-sim', { cache: 'no-store' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { simPintar(d.estado); })
+        .catch(function () {});
+    }, 2000);
+  }
+
   refresh();
   var interval = setInterval(refresh, 1000);
   window.addEventListener('pagehide', function () { clearInterval(interval); });
