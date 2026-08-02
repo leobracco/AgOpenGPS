@@ -787,6 +787,11 @@
           arr[s.numero - 1].tren_id = trn.pincel;
           trnActualizarMemoria(arr);
           trn.dirty = true; sec.dirty = true;
+          // Directo, no vía el detector delegado de #main: este handler
+          // re-dibuja la tira y cuando el click burbujea la celda ya no
+          // cuelga del DOM — el closest() del detector no la matchea y el
+          // botón Guardar no se enteraba del cambio.
+          marcarSucio();
           trnPintar();
         });
         strip.appendChild(c);
@@ -802,6 +807,7 @@
     trenes.forEach(function (t) { if (t.id > maxId) maxId = t.id; });
     trenes.push({ id: maxId + 1, nombre: trenes.length === 1 ? 'Trasero' : ('Tren ' + (maxId + 1)), distancia_m: 0 });
     trn.dirty = true; sec.dirty = true;
+    marcarSucio(); // directo: ver comentario en el click de la celda
     trnPintar();
   });
 
@@ -835,6 +841,7 @@
     trn.memoria.forEach(function (s) { if (s.tren_id === id) s.tren_id = 1; });
     if (trn.pincel === id) trn.pincel = 1;
     trn.dirty = true; sec.dirty = true;
+    marcarSucio(); // directo: el botón Quitar se re-dibuja en este mismo click
     trnPintar();
   });
 
