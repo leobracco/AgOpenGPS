@@ -552,6 +552,9 @@
       if (!state.impl.trenes) state.impl.trenes = [];
       if (!state.impl.surcos) state.impl.surcos = [];
       ensureTrenes();
+      // Lo que acaba de mandar el server ES la verdad: sin esto, "Recargar"
+      // reconstruía la tira desde la memoria local y descartaba lo del server.
+      surcosMemoria = [];
       renderTrenUI();
       actualizarMemoriaSurcos();
     } catch (e) {
