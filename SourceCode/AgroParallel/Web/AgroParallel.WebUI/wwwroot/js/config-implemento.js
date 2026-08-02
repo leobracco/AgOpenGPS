@@ -799,7 +799,11 @@
     onNumSectionsChangedForTrenes();
   });
   $('btnSecWidthBulk').addEventListener('click', applyBulkWidth);
-  $('btnAddTren').addEventListener('click', addTren);
+  // El editor de trenes se movió a Configuración → Secciones (config.html);
+  // esta página conserva la lógica con guards por si la card vuelve, pero el
+  // botón ya no existe en el markup.
+  var _btnAddTren = $('btnAddTren');
+  if (_btnAddTren) _btnAddTren.addEventListener('click', addTren);
 
   function bumpZones(d) {
     var inp = $('zoneCount');

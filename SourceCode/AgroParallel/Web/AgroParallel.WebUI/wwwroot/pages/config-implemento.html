@@ -566,21 +566,13 @@
       </div>
 
       <!-- ===== TRENES DE SIEMBRA ===== -->
+      <!-- Los trenes se EDITAN en Configuración → Secciones (config.html):
+           un solo editor, una sola verdad. Acá queda el aviso. -->
       <div class="card" id="cardTrenes" style="margin-top: var(--agp-sp-3)">
         <h3 style="margin-top:0">Trenes de siembra</h3>
-        <p class="hint">Para máquinas con tren delantero y trasero: cada surco pertenece a un
-        tren, y el trasero corta N metros después (sobre la misma pasada). Con un solo tren
-        esta sección no afecta nada.</p>
-        <div id="trenList"></div>
-        <div class="btn-row">
-          <button type="button" class="btn" id="btnAddTren">+ Agregar tren</button>
-        </div>
-        <div id="trenSurcos" style="margin-top: var(--agp-sp-3)">
-          <label>Qué surcos van en cada tren (tocá para pintar)</label>
-          <div id="trenBrush" class="btn-row"></div>
-          <div id="trenStrip" class="qx-strip"></div>
-        </div>
-        <span class="send-msg" id="trenMsg"></span>
+        <p class="hint" style="margin:0">Se configuran en
+          <a href="config.html">Configuración → Secciones</a>: ahí elegís los trenes,
+          la distancia del trasero y qué surco va en cada uno.</p>
       </div>
     </section>
 

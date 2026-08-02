@@ -176,6 +176,13 @@
       background: #fff; cursor: pointer; touch-action: manipulation; flex: none;
     }
     .btnZero img { width: 40px; height: 40px; object-fit: contain; }
+    /* Botón de texto genérico (trenes de siembra) — mismo lenguaje que btnZero */
+    .btn {
+      min-height: 44px; padding: 0 16px; border: 1px solid var(--borde);
+      border-radius: 10px; background: #fff; cursor: pointer;
+      touch-action: manipulation; font: 600 14px "Segoe UI", Roboto, sans-serif;
+      color: var(--gris);
+    }
     .timingCols { display: flex; gap: 14px; flex-wrap: wrap; }
     .timingCol {
       flex: 1; min-width: 200px; display: flex; flex-direction: column;
@@ -579,6 +586,27 @@
           <p style="margin-top:10px; font-weight:700">
             Ancho total: <span id="secTotalZonas">—</span>
           </p>
+        </div>
+
+        <!-- Trenes de siembra: qué surco corta con qué tren y a cuántos
+             metros va el trasero. Fuente ÚNICA de esta configuración
+             (config-implemento la muestra pero manda acá). -->
+        <div class="carta" id="cartaTrenes">
+          <h2>Trenes de siembra</h2>
+          <p class="nota">Para máquinas con tren delantero y trasero: cada surco
+          pertenece a un tren, y el trasero corta N metros después, sobre la misma
+          pasada. Con un solo tren esta parte no afecta nada.</p>
+          <div id="trnList"></div>
+          <div style="margin:8px 0">
+            <button type="button" class="btn" id="trnAdd">+ Agregar tren</button>
+          </div>
+          <div id="trnSurcos">
+            <p class="nota" style="margin-bottom:6px">Qué surcos van en cada tren
+            (elegí un tren y tocá los surcos):</p>
+            <div id="trnBrush" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px"></div>
+            <div id="trnStrip" class="secGrilla"></div>
+          </div>
+          <p id="trnMsg" class="nota"></p>
         </div>
 
         <div class="carta">
