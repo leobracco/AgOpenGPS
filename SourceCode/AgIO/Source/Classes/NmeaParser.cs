@@ -25,6 +25,12 @@ namespace AgIO
         private string[] words;
         private string nextNMEASentence = "";
 
+        /// <summary>Inventario de sentencias vistas: tipo ("GPGGA", "GNRMC"…)
+        /// → (última cruda, timestamp UTC). Concurrent porque lo escribe el
+        /// hilo de datos y lo lee el panel web.</summary>
+        public readonly System.Collections.Concurrent.ConcurrentDictionary<string, Tuple<string, DateTime>> SentenciasVistas =
+            new System.Collections.Concurrent.ConcurrentDictionary<string, Tuple<string, DateTime>>();
+
         private bool isNMEAToSend = false;
 
         private bool isSti035Available = false;
@@ -159,6 +165,16 @@ namespace AgIO
                 if (nextNMEASentence == null) break;
 
                 words = nextNMEASentence.Split(',');
+
+                // Inventario NMEA: TODA sentencia con checksum válido queda
+                // registrada (tipo → cruda + timestamp), incluidas las que el
+                // parser no consume (RMC, GSA, GSV, ZDA...). El panel GPS lo
+                // muestra como checklist de qué está mandando el receptor.
+                if (words.Length > 0 && words[0].Length > 1)
+                {
+                    string tipoVisto = words[0][0] == '$' ? words[0].Substring(1) : words[0];
+                    SentenciasVistas[tipoVisto] = Tuple.Create(nextNMEASentence, DateTime.UtcNow);
+                }
 
                 //if (isLogNMEA)
                 //{

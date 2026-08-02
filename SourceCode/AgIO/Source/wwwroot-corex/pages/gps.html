@@ -16,6 +16,21 @@
     .nmea-tag { color: var(--cx-muted); font-weight: 700; font-size: .82em; }
     .nmea-val { font-family: Consolas, monospace; font-size: .82em;
                 white-space: nowrap; overflow-x: auto; padding-bottom: 2px; }
+
+    /* Inventario NMEA: fila con estado ✔/⚠/✖ + tipo + edad + cruda */
+    .inv-row { display: grid; grid-template-columns: 26px 84px 64px 1fr; gap: 8px;
+               align-items: center; padding: 5px 0;
+               border-bottom: 1px solid var(--cx-line, #e4e8e2); }
+    .inv-row:last-of-type { border-bottom: none; }
+    .inv-est { font-weight: 900; text-align: center; }
+    .inv-est.ok    { color: #3FA636; }
+    .inv-est.stale { color: #C98A1E; }
+    .inv-est.never { color: var(--cx-muted); }
+    .inv-tag { font-weight: 700; font-size: .82em; }
+    .inv-row.never .inv-tag { color: var(--cx-muted); }
+    .inv-edad { color: var(--cx-muted); font-size: .78em; }
+    .inv-cruda { font-family: Consolas, monospace; font-size: .78em;
+                 white-space: nowrap; overflow-x: auto; color: var(--cx-muted); }
   </style>
 </head>
 <body>
@@ -83,6 +98,16 @@
         </section>
 
       </div>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <h3>Inventario NMEA (checklist)</h3>
+        <p class="cx-hint" style="margin: 0 0 10px;">
+          Qué sentencias está mandando el receptor: ✔ verde = llegando ahora,
+          ⚠ ámbar = dejó de llegar, ✖ gris = nunca vista. Incluye las que
+          PilotX no consume (RMC, GSA, GSV…).
+        </p>
+        <div id="nmeaInventario" class="cx-hint">esperando datos…</div>
+      </section>
 
       <section class="cx-panel" style="margin-top: 14px;">
         <h3>Sentencias NMEA</h3>

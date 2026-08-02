@@ -67,6 +67,8 @@
         setText('imuPitch', imu(g.imu_pitch));
         setText('imuYaw', imu(g.imu_yaw_rate, '°/s'));
 
+        renderInventario(g.nmea && g.nmea.vistas);
+
         var n = g.nmea;
         setNmea('nmeaGga', n && n.gga);
         setNmea('nmeaVtg', n && n.vtg);
@@ -78,6 +80,51 @@
         setNmea('nmeaKsxt', n && n.ksxt);
       })
       .catch(function () { /* offline: el próximo tick reintenta */ });
+  }
+
+  // ---- Inventario NMEA: checklist de qué sentencias manda el receptor ----
+  // Tipos que PilotX conoce/espera; lo que llegue fuera de esta lista (GSA,
+  // GSV, ZDA, TXT, propietarias...) se agrega solo, abajo.
+  var ESPERADAS = ['GPGGA', 'GPVTG', 'GPRMC', 'GPHDT', 'PANDA', 'PAOGI',
+                   'PTNL', 'GPHPD', 'KSXT'];
+  var FRESCA_S = 3;
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function invRow(tipo, vista) {
+    var cls, est;
+    if (!vista) { cls = 'never'; est = '✖'; }
+    else if (vista.edad_sec <= FRESCA_S) { cls = 'ok'; est = '✔'; }
+    else { cls = 'stale'; est = '⚠'; }
+    var edad = vista ? (vista.edad_sec <= FRESCA_S ? 'ahora' : vista.edad_sec + ' s') : '—';
+    return '<div class="inv-row ' + cls + '">' +
+           '<span class="inv-est ' + cls + '">' + est + '</span>' +
+           '<span class="inv-tag">' + esc(tipo) + '</span>' +
+           '<span class="inv-edad">' + esc(edad) + '</span>' +
+           '<span class="inv-cruda">' + esc(vista ? vista.cruda : '') + '</span>' +
+           '</div>';
+  }
+
+  function renderInventario(vistas) {
+    var box = document.getElementById('nmeaInventario');
+    if (!box) return;
+    var porTipo = {};
+    (vistas || []).forEach(function (v) {
+      // Normalizar talker: GNGGA/GLGGA cuentan como GPGGA de la lista.
+      porTipo[v.tipo] = v;
+      var m = v.tipo.match(/^G[A-Z](GGA|VTG|RMC|HDT)$/);
+      if (m && !porTipo['GP' + m[1]]) porTipo['GP' + m[1]] = v;
+    });
+    var html = '';
+    ESPERADAS.forEach(function (t) { html += invRow(t, porTipo[t]); });
+    (vistas || []).forEach(function (v) {
+      if (ESPERADAS.indexOf(v.tipo) === -1 &&
+          !/^G[A-Z](GGA|VTG|RMC|HDT)$/.test(v.tipo)) html += invRow(v.tipo, v);
+    });
+    box.innerHTML = html || 'esperando datos…';
   }
 
   refresh();

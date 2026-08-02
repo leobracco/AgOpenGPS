@@ -300,6 +300,26 @@ namespace AgIO
             }, null, 1000, 1000);
         }
 
+        /// <summary>Inventario NMEA para la checklist del panel GPS: toda
+        /// sentencia válida vista, con su edad — el operario "tilda" qué manda
+        /// el receptor (GGA sí, RMC no, etc.) sin adivinar.</summary>
+        private static System.Collections.Generic.List<CoreXNmeaVistaDto> ArmarInventarioNmea(CNmeaParser n)
+        {
+            var lista = new System.Collections.Generic.List<CoreXNmeaVistaDto>();
+            var ahora = DateTime.UtcNow;
+            foreach (var kv in n.SentenciasVistas)
+            {
+                lista.Add(new CoreXNmeaVistaDto
+                {
+                    Tipo = kv.Key,
+                    EdadSec = Math.Round((ahora - kv.Value.Item2).TotalSeconds, 1),
+                    Cruda = kv.Value.Item1
+                });
+            }
+            lista.Sort((a, b) => string.Compare(a.Tipo, b.Tipo, StringComparison.Ordinal));
+            return lista;
+        }
+
         private CoreXStatusDto ArmarSnapshot()
         {
             var n = _corex.Nmea;
@@ -339,6 +359,7 @@ namespace AgIO
                         Avr = n.avrSentence ?? "",
                         Hpd = n.hpdSentence ?? "",
                         Ksxt = n.ksxtSentence ?? "",
+                        Vistas = ArmarInventarioNmea(n),
                     },
                 },
                 Ntrip = new CoreXNtripDto
