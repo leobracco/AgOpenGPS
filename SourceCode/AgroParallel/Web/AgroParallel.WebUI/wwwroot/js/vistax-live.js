@@ -120,7 +120,10 @@
 
   function refreshDetail() {
     if (!state.detailFocus) return;
-    var s = findSurcoVivo(state.detailFocus.uid, state.detailFocus.cable);
+    // "cable" lo usa la fila Tren · Cable de abajo: viene del foco, no del
+    // surco (bug histórico: era una ReferenceError y el popup nunca abría).
+    var cable = state.detailFocus.cable;
+    var s = findSurcoVivo(state.detailFocus.uid, cable);
     var ttl = $('vxPopTtl'), body = $('vxPopBody');
     if (!s) {
       ttl.textContent = 'Surco';
@@ -145,6 +148,23 @@
     html += '<div class="row"><span class="lbl">Estado</span><span>' + esc(labelEstado(estado)) + '</span></div>';
     html += '<div class="row"><span class="lbl">sem/m</span><span>' + fmtSemM(spm, velLive) +
             (obj == null || obj <= 0 ? '' : ' / ' + fmtSemM(obj, velLive)) + '</span></div>';
+    // sem/ha desde sem/m y la distancia entre surcos del implemento central.
+    var dist = (state.lastLive || {}).distancia_entre_surcos || 0;
+    var vms = (velLive || 0) / 3.6;
+    if (dist > 0 && vms >= 0.14 && spm != null) {
+      var semHa = (spm / 60.0 / vms) * 10000.0 / dist;
+      html += '<div class="row"><span class="lbl">sem/ha</span><span>' + fmt(semHa, 0) + '</span></div>';
+    }
+    // kg/ha estimado por REGLA DE TRES: la máquina fue calibrada para
+    // dosificar dosis_ref (kg/ha del insumo activo); el flujo promedio de la
+    // primera pasada estable quedó como spm_ref ≡ esa dosis. Proporcional:
+    var spmRef   = (state.lastLive || {}).spm_ref || 0;
+    var dosisRef = (state.lastLive || {}).dosis_ref_kg_ha || (state.lastLive || {}).dosis_ref_kgha || 0;
+    if (spmRef > 0 && dosisRef > 0 && spm != null) {
+      var kgha = spm / spmRef * dosisRef;
+      html += '<div class="row"><span class="lbl">kg/ha est.</span><span>' + fmt(kgha, 1) +
+              ' / ' + fmt(dosisRef, 1) + '</span></div>';
+    }
     if (pct != null) {
       var pctClamp = Math.max(0, Math.min(150, pct));
       html += '<div class="row"><span class="lbl">% objetivo</span><span>' + pct + '%</span></div>';

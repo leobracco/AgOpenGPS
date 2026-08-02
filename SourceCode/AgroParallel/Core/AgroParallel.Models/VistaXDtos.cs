@@ -267,6 +267,18 @@ namespace AgroParallel.Models
         /// </summary>
         public double DistanciaEntreSurcos { get; set; } = 0.191;
 
+        /// <summary>Flujo de referencia (sem/min promedio de los surcos
+        /// sembrando) capturado automáticamente en la primera pasada estable.
+        /// Con <see cref="DosisRefKgHa"/> arma la regla de tres del kg/ha
+        /// estimado: kg/ha ≈ spm ÷ spm_ref × dosis_ref. 0 = aún sin capturar.</summary>
+        public double SpmRef { get; set; }
+
+        /// <summary>Dosis de referencia (kg/ha) contra la que se calibró la
+        /// máquina — sale del insumo activo (dosis_kgha). La sembradora
+        /// mecánica dosifica esto por su propia cinemática; el flujo del
+        /// sensor en la primera pasada equivale a esta dosis. 0 = sin dato.</summary>
+        public double DosisRefKgHa { get; set; }
+
         // ----- Layout torres (vista agrupada del overlay live) --------------
         // Se reflejan acá para que el cliente HTML pueda dibujar la vista
         // torres sin tener que pegarle a /api/vistax/implemento aparte.

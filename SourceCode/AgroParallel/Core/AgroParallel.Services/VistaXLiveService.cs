@@ -768,8 +768,66 @@ namespace AgroParallel.Services
                 snap.MonitoreoActivo = EvaluarSembrando(snap, now);
                 snap.Velocidad = _state != null ? LeerVelocidadSegura() : 0;
 
+                // ---- Regla de tres kg/ha (dosis por cinemática de la máquina) ----
+                // La sembradora mecánica dosifica los kg/ha para los que fue
+                // calibrada (dosis_kgha del insumo activo). El flujo promedio de
+                // la PRIMERA pasada estable se captura como referencia: ese
+                // flujo ≡ esa dosis; de ahí en más el kg/ha estimado de cada
+                // surco es proporcional (spm ÷ spm_ref × dosis_ref, lo saca el
+                // cliente). Si cambia el insumo activo, se recaptura.
+                CapturarFlujoDeReferencia(snap, now);
+
                 return snap;
             }
+        }
+
+        // ---- Captura del flujo de referencia (regla de tres kg/ha) ----------
+        private double _spmRef;
+        private string _refInsumoId = "";
+        private DateTime _refVentanaInicio;
+        private double _refAcum;
+        private int _refN;
+
+        private void CapturarFlujoDeReferencia(VistaXLiveSnapshotDto snap, DateTime now)
+        {
+            AgroParallel.Models.InsumoDto insumo = null;
+            try { insumo = _insumos?.GetActivo(); } catch { }
+            string id = insumo?.Id ?? "";
+
+            // Cambió el insumo activo → la dosis calibrada es otra: recapturar.
+            if (id != _refInsumoId)
+            {
+                _refInsumoId = id;
+                _spmRef = 0;
+                _refAcum = 0;
+                _refN = 0;
+                _refVentanaInicio = default(DateTime);
+            }
+
+            snap.DosisRefKgHa = insumo?.DosisKgha ?? 0;
+
+            if (_spmRef <= 0)
+            {
+                if (snap.MonitoreoActivo && snap.SpmPromedio > 0)
+                {
+                    if (_refVentanaInicio == default(DateTime)) _refVentanaInicio = now;
+                    _refAcum += snap.SpmPromedio;
+                    _refN++;
+                    // 10 s de siembra estable promediados = la referencia. Corto
+                    // para que el kg/ha aparezca temprano, largo para que un
+                    // arranque con baches no fije una referencia mentirosa.
+                    if ((now - _refVentanaInicio).TotalSeconds >= 10 && _refN >= 5)
+                        _spmRef = _refAcum / _refN;
+                }
+                else
+                {
+                    // Se cortó la siembra a mitad de captura: ventana de nuevo.
+                    _refVentanaInicio = default(DateTime);
+                    _refAcum = 0;
+                    _refN = 0;
+                }
+            }
+            snap.SpmRef = _spmRef > 0 ? Math.Round(_spmRef, 1) : 0;
         }
 
         // Lee AvgSpeed de PilotX defensivo: cualquier excepción del provider,
