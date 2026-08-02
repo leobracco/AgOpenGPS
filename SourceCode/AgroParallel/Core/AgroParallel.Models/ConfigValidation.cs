@@ -284,5 +284,40 @@ namespace AgroParallel.Models
             }
             return r;
         }
+
+        /// <summary>
+        /// Valida los trenes del implemento (rango de distancia, tren delantero
+        /// en 0, surcos sin tren huérfano). Son errores de REPORTE nomás: el
+        /// guardado del implemento no se bloquea por esto (criterio de la spec
+        /// de "implemento unificado" fase 1).
+        /// </summary>
+        public static ValidationResult ValidarTrenes(ImplementoDto imp)
+        {
+            var r = new ValidationResult();
+            if (imp == null) return r;
+
+            var trenes = imp.Trenes ?? new List<TrenDto>();
+            r.Requerir(trenes.Count <= 4, $"implemento: máximo 4 trenes, hay {trenes.Count}");
+
+            var ids = new HashSet<int>();
+            foreach (var t in trenes)
+            {
+                if (t == null) continue;
+                ids.Add(t.Id);
+                Rango(r, t.DistanciaM, 0, 20, $"tren {t.Id}: distancia");
+                if (t.Id == 1)
+                    r.Requerir(t.DistanciaM == 0, $"tren 1 (delantero) debe tener distancia 0: {t.DistanciaM}");
+            }
+
+            if (imp.Surcos != null && trenes.Count > 0)
+            {
+                foreach (var s in imp.Surcos)
+                {
+                    if (s == null) continue;
+                    r.Requerir(ids.Contains(s.TrenId), $"surco {s.Numero}: tren inexistente {s.TrenId}");
+                }
+            }
+            return r;
+        }
     }
 }

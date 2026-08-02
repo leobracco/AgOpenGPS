@@ -447,5 +447,36 @@ namespace AgroParallel.Services.Tests
             Assert.That(ConfigValidation.ValidarVistaXImplemento(null).Ok, Is.False);
             Assert.That(ConfigValidation.ValidarImplemento(null).Ok, Is.False);
         }
+
+        // ---------------- Trenes del implemento ----------------
+
+        [Test]
+        public void Trenes_DistanciaFueraDeRango_Falla()
+        {
+            var imp = new ImplementoDto();
+            imp.Trenes.Add(new TrenDto { Id = 1, DistanciaM = 0 });
+            imp.Trenes.Add(new TrenDto { Id = 2, DistanciaM = 25 }); // > 20
+            Assert.That(ConfigValidation.ValidarTrenes(imp).Ok, Is.False);
+        }
+
+        [Test]
+        public void Trenes_SurcoConTrenInexistente_Falla()
+        {
+            var imp = new ImplementoDto();
+            imp.Trenes.Add(new TrenDto { Id = 1, DistanciaM = 0 });
+            imp.Trenes.Add(new TrenDto { Id = 2, DistanciaM = 2 });
+            imp.Surcos.Add(new SurcoDto { Numero = 1, TrenId = 9 });
+            Assert.That(ConfigValidation.ValidarTrenes(imp).Ok, Is.False);
+        }
+
+        [Test]
+        public void Trenes_ConfigSana_Pasa()
+        {
+            var imp = new ImplementoDto();
+            imp.Trenes.Add(new TrenDto { Id = 1, DistanciaM = 0 });
+            imp.Trenes.Add(new TrenDto { Id = 2, DistanciaM = 2.5 });
+            imp.Surcos.Add(new SurcoDto { Numero = 1, TrenId = 2 });
+            Assert.That(ConfigValidation.ValidarTrenes(imp).Ok, Is.True);
+        }
     }
 }
