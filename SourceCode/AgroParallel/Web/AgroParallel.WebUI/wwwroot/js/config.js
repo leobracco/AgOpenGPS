@@ -853,6 +853,22 @@
       var surcos = trnSurcosActuales();
       trn.impl.surcos = surcos;
       trn.impl.numero_surcos = surcos.length;
+      // CLAVE: sincronizar también la lista de secciones del implemento.
+      // El backend deriva el Tool nativo del implemento activo con
+      // NumSections = secciones.Count — si acá viajaba la lista vieja (la de
+      // cuando se abrió la pestaña), guardar trenes PISABA la cantidad de
+      // secciones recién guardada ("puse 14, grabé y volvió a 3").
+      var secsSync = [];
+      for (var si = 1; si <= surcos.length; si++) {
+        var prev = (trn.impl.secciones || [])[si - 1] || {};
+        secsSync.push({
+          id: si,
+          nombre: prev.nombre || ('Sección ' + si),
+          lookahead_on: prev.lookahead_on || 0,
+          lookahead_off: prev.lookahead_off || 0
+        });
+      }
+      trn.impl.secciones = secsSync;
       var anchoM = sec.modo === 'ind'
         ? disp2m(secTotalInd())
         : sec.numMulti * sec.widthMulti;

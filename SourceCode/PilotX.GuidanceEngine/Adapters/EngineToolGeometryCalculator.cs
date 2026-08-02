@@ -50,6 +50,11 @@ namespace PilotX.GuidanceEngine.Adapters
         private double _distAcum;
         private double _prevCx, _prevCy;
         private bool _tienePrev;
+        // Dirección de avance unitaria (para desplazar el tren trasero en
+        // rígido). Se actualiza solo con pasos válidos: parado conserva la
+        // última conocida y la barra no salta.
+        private double _dirE, _dirN;
+        private bool _tieneDir;
         private const double MaxRingDist = 25.0;   // > tope de distancia de tren (20 m)
         private const int MaxRingCount = 300;
         private const double PasoMinimo = 0.02;    // parado no acumula muestras
@@ -143,13 +148,24 @@ namespace PilotX.GuidanceEngine.Adapters
                     sec.TrenId = tr.TrenId;
                     if (tr.DistanciaM <= 0.05) continue;
 
-                    var m = MuestraHaceMetros(tr.DistanciaM);
-                    if (m == null || sec.Index >= m.LE.Length) continue;
+                    // GEOMETRÍA: chasis rígido — el tren trasero va SIEMPRE
+                    // paralelo al delantero, desplazado hacia atrás a lo largo
+                    // de la dirección de avance. (La primera versión dibujaba
+                    // la barra histórica de hace N metros: en curva quedaba
+                    // girada respecto del implemento, y un doble tren rígido
+                    // no hace eso.)
+                    if (_tieneDir)
+                    {
+                        double dxAtras = -_dirE * tr.DistanciaM;
+                        double dyAtras = -_dirN * tr.DistanciaM;
+                        sec.LeftE += dxAtras; sec.LeftN += dyAtras;
+                        sec.RightE += dxAtras; sec.RightN += dyAtras;
+                    }
 
-                    sec.LeftE = m.LE[sec.Index];
-                    sec.LeftN = m.LN[sec.Index];
-                    sec.RightE = m.RE[sec.Index];
-                    sec.RightN = m.RN[sec.Index];
+                    // ESTADO: retardado de verdad — lo que la sección hacía
+                    // hace N metros (mismo criterio que el corte del fierro).
+                    var m = MuestraHaceMetros(tr.DistanciaM);
+                    if (m == null || sec.Index >= m.On.Length) continue;
                     sec.IsOn = m.On[sec.Index];
                     sec.IsMapping = m.Mapping[sec.Index];
                 }
@@ -168,10 +184,15 @@ namespace PilotX.GuidanceEngine.Adapters
 
             if (_tienePrev)
             {
-                double paso = Math.Sqrt((cx - _prevCx) * (cx - _prevCx) + (cy - _prevCy) * (cy - _prevCy));
+                double dx = cx - _prevCx, dy = cy - _prevCy;
+                double paso = Math.Sqrt(dx * dx + dy * dy);
                 if (paso < PasoMinimo) return;            // parado: no acumular
                 if (paso > PasoMaximo) { _ring.Clear(); _distAcum = 0; } // salto GPS: historia inválida
-                else _distAcum += paso;
+                else
+                {
+                    _distAcum += paso;
+                    _dirE = dx / paso; _dirN = dy / paso; _tieneDir = true;
+                }
             }
             _prevCx = cx; _prevCy = cy; _tienePrev = true;
 
