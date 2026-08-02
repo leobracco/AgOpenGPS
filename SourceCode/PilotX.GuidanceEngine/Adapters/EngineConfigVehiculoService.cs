@@ -336,6 +336,10 @@ namespace PilotX.GuidanceEngine.Adapters
                     if (r.Ok)
                     {
                         global::AgOpenGPS.Properties.Settings.Default.Save();
+                        // Settings.Save() es un NO-OP si no hay perfil de vehículo
+                        // elegido (vehicle_file_name vacío = caso normal headless).
+                        // Este es el que realmente baja la geometría a disco.
+                        ToolGeometryStore.Guardar();
                         _engine.AplicarGeometriaDeSecciones(); // headless: LoadSettings solo aportaba esto
                         Log.EventWriter("Config HTML: seccion '" + sec + "' guardada");
                     }

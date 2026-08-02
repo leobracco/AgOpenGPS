@@ -25,6 +25,7 @@ using System.Threading;
 using AgIO;
 using AgLibrary.Logging;
 using PilotX.GuidanceEngine;
+using PilotX.GuidanceEngine.Adapters;
 
 namespace AgOpenGPS
 {
@@ -97,6 +98,24 @@ namespace AgOpenGPS
             Console.WriteLine("Perfil de vehículo: "
                 + (string.IsNullOrEmpty(RegistrySettings.vehicleFileName) ? "(ninguno)" : RegistrySettings.vehicleFileName)
                 + " → " + vehLoad);
+
+            // Geometría del implemento guardada por el propio motor. VA ACÁ:
+            // después del Load del perfil (para pisarlo con lo último que
+            // configuró el operario) y ANTES de construir el host, que arma
+            // CTool/CVehicle y reparte el ancho entre las secciones leyendo
+            // estos mismos campos de Settings.
+            //
+            // Sin esto la config de secciones se perdía en cada arranque: el
+            // Save() de Settings es un no-op cuando no hay perfil de vehículo
+            // elegido (vehicle_file_name vacío, que es el caso normal del motor
+            // headless — el diálogo de perfiles es de FormGPS). El operario
+            // configuraba 14 secciones de 0,52 m, andaba en caliente, y al
+            // reiniciar el proceso volvía a los defaults del código: 3 × 4 m.
+            ToolGeometryStore.UsarCarpeta(baseDir.FullName);
+            bool geomCargada = ToolGeometryStore.Cargar();
+            Console.WriteLine("Geometría del implemento: "
+                + (geomCargada ? "de " + ToolGeometryStore.Ruta : "sin archivo propio, se usa el perfil/defaults")
+                + " → " + ToolGeometryStore.Resumen());
 
             Console.WriteLine("PilotX.GuidanceEngine — bloque 14, guidance engine headless");
             Console.WriteLine("Base directory: " + baseDir.FullName);

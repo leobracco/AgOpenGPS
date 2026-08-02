@@ -123,6 +123,9 @@ namespace PilotX.GuidanceEngine.Adapters
                 s.setVehicle_maxSteerAngle = ClampD(cfg.MaxSteerAngle, 5.0, 60.0);
                 s.setVehicle_slowSpeedCutoff = ClampD(cfg.SlowSpeedCutoff, 0.0, 10.0);
                 s.Save();
+                // slowSpeedCutoff viaja en el archivo del motor (mismo motivo
+                // que en SaveTool: s.Save() no persiste sin perfil elegido).
+                ToolGeometryStore.Guardar();
 
                 // Sin hilo de UI que marshalar: reload directo. Opacity/Color/
                 // IsImage no viven en el ctor (mismo gotcha que FormGPS) — se
@@ -224,6 +227,13 @@ namespace PilotX.GuidanceEngine.Adapters
                 s.setTool_isToolTBT = cfg.IsToolTBT && trailing;
                 s.setTool_isSectionOffWhenOut = cfg.IsSectionOffWhenOut;
                 s.Save();
+                // s.Save() es un NO-OP si no hay perfil de vehículo elegido
+                // (vehicle_file_name vacío = caso normal del motor headless).
+                // Sin esta línea la geometría del implemento que llega por
+                // PUT /api/tool — o por el write-back del implemento activo,
+                // ImplementoService.SyncToolIfChanged — vivía solo en RAM y se
+                // perdía al reiniciar el proceso.
+                ToolGeometryStore.Guardar();
 
                 // Sin las funciones de layout de botones (LineUpIndividualSectionBtns/
                 // LineUpAllZoneButtons, WinForms) ni FixSectionLooks: solo reload

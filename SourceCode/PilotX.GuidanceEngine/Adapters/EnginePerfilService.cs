@@ -232,6 +232,11 @@ namespace PilotX.GuidanceEngine.Adapters
             _host.Vehicle = new CVehicle(_host);
             _host.Tool = new CTool(_host);
             _host.AplicarGeometriaDeSecciones();
+            // El perfil recién activado manda: re-espejamos su geometría al
+            // archivo propio del motor para que el próximo arranque no la pise
+            // con la del perfil anterior (ToolGeometryStore se aplica DESPUÉS
+            // del Load del perfil en Program.cs).
+            ToolGeometryStore.Guardar();
             try { _host.SettingsSender.SendSettings(); } catch { /* sin módulos conectados */ }
         }
     }
