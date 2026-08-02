@@ -58,8 +58,19 @@ namespace AgIO
             SpIMU.OnDataReceived += bytes => ProcessPgnBytes(bytes, _pgnParserIMU);
             SpSteerModule.OnDataReceived += bytes => ProcessPgnBytes(bytes, _pgnParserSteer);
             SpMachineModule.OnDataReceived += bytes => ProcessPgnBytes(bytes, _pgnParserMachine);
-            SpGPS.OnDataReceived += bytes => Nmea.ParseIncoming(System.Text.Encoding.ASCII.GetString(bytes));
+            // RS232: los chunks llegan en el hilo del DataReceived del puerto.
+            // El MISMO CNmeaParser también lo alimenta el bridge LAN (:9999) en
+            // OTRO hilo — sin el lock, rawBuffer se corrompe si un GPS serie y
+            // uno LAN publican a la vez (sentencias cortadas, fixes perdidos).
+            SpGPS.OnDataReceived += bytes =>
+            {
+                lock (_nmeaLock) Nmea.ParseIncoming(System.Text.Encoding.ASCII.GetString(bytes));
+            };
         }
+
+        /// <summary>Serializa las DOS entradas NMEA (RS232 y LAN) sobre el
+        /// mismo parser — ver comentario en el handler del SpGPS.</summary>
+        private readonly object _nmeaLock = new object();
 
         private static void ProcessPgnBytes(byte[] bytes, PgnFrameParser parser)
         {
@@ -186,7 +197,10 @@ namespace AgIO
             }
             else if (data[0] == (byte)'$')
             {
-                try { Nmea.ParseIncoming(System.Text.Encoding.ASCII.GetString(data)); }
+                try
+                {
+                    lock (_nmeaLock) Nmea.ParseIncoming(System.Text.Encoding.ASCII.GetString(data));
+                }
                 catch (Exception ex) { Log.EventWriter("CoreXEngine: LAN NMEA parse: " + ex.Message); }
             }
         }
