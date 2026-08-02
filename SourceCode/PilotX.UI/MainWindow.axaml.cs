@@ -265,6 +265,12 @@ public partial class MainWindow : Window
         // ReconciliarMapa desde el HUD, que no depende de que llegue.
         if (_mapHost != null)
             _mapHost.VisibilidadCambiada += _ => ReconciliarMapa();
+
+        // Zoom táctil del mapa (+/−): la cabina no tiene rueda de mouse.
+        var btnZoomIn  = this.FindControl<Button>("BtnZoomIn");
+        var btnZoomOut = this.FindControl<Button>("BtnZoomOut");
+        if (btnZoomIn  != null) btnZoomIn.Click  += (_, _) => _mapHost?.ZoomIn();
+        if (btnZoomOut != null) btnZoomOut.Click += (_, _) => _mapHost?.ZoomOut();
         _abCreatePanel   = this.FindControl<Border>("AbCreatePanel");
         _abCreateHint    = this.FindControl<TextBlock>("AbCreateHint");
         _abCreateMark    = this.FindControl<Button>("AbCreateMark");

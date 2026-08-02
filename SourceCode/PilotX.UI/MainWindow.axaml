@@ -246,6 +246,25 @@
                 <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
             </Canvas>
 
+            <!-- Zoom del mapa: la cabina es táctil (sin rueda). Columna a la
+                 derecha, arriba de la barra derecha del cockpit para no
+                 pisarla. Sin Background en el StackPanel: solo los botones
+                 interceptan el toque. -->
+            <StackPanel Name="MapZoomHost" Grid.Row="2" Spacing="10"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,72,0">
+                <Button Name="BtnZoomIn" Content="+" Width="56" Height="56"
+                        FontSize="30" FontWeight="Bold"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Background="#D9FFFFFF" Foreground="#101612"
+                        BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
+                <Button Name="BtnZoomOut" Content="−" Width="56" Height="56"
+                        FontSize="30" FontWeight="Bold"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Background="#D9FFFFFF" Foreground="#101612"
+                        BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
+            </StackPanel>
+
             <!-- =================== CLUSTER DEL PILOTO =================== -->
             <!--
                 Arriba-centro del mapa (debajo de la barra superior del

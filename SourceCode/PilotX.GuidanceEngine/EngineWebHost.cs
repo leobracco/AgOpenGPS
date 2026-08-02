@@ -146,6 +146,9 @@ namespace AgOpenGPS
             // UNA sola instancia de implemento compartida: si el live de VistaX
             // arma la suya, el overlay muestra geometría vieja hasta reiniciar.
             var implemento = new ImplementoService(vistaxCfg, vehicleTool, quantixCfg, sectionxCfg);
+            // Trenes en el mapa: el calculator desplaza las secciones del tren
+            // trasero a su posición física real (barra de hace N metros).
+            toolGeom.ImplementoProvider = () => implemento.GetImplemento();
             var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento);
             var quantixRuntime = new QuantiXRuntimeService(state);
             var flowxCfg = new FlowXConfigService();

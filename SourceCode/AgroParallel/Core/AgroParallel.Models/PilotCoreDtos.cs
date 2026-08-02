@@ -250,6 +250,12 @@ namespace AgroParallel.Models
         public bool IsMapping { get; set; }
         /// <summary>Estado del boton del operario: 0=Off, 1=Auto, 2=On (manual).</summary>
         public int BtnState { get; set; }
+
+        /// <summary>Tren de siembra al que pertenece la seccion (1 = delantero).
+        /// Cuando es un tren trasero, Left/Right/IsOn/IsMapping ya vienen
+        /// RETRASADOS a la posicion real de ese tren (la barra de hace N metros),
+        /// asi el mapa lo dibuja donde esta fisicamente y con su estado real.</summary>
+        public int TrenId { get; set; } = 1;
     }
 
     /// <summary>Geometria del implemento (Stage 4a). Cambia cada frame que

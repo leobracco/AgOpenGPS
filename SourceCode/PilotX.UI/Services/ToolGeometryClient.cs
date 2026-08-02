@@ -44,6 +44,10 @@ public sealed class ToolSectionGeometry
     public bool   IsMapping { get; set; }
     /// <summary>0=Off, 1=Auto, 2=On (manual).</summary>
     public int    BtnState  { get; set; }
+    /// <summary>Tren de siembra (1 = delantero). Las secciones de trenes
+    /// traseros llegan con coords y estado YA retrasados a su posición física:
+    /// el mapa las dibuja tal cual y quedan las dos barras.</summary>
+    public int    TrenId    { get; set; } = 1;
 }
 
 public sealed class ToolGeometrySnapshot
