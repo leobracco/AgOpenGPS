@@ -67,5 +67,11 @@ Este repo maneja una máquina que siembra: un error cuesta plata en el lote.
   que algo funciona.
 - Lo que no se pudo verificar, decilo. No lo declares cerrado.
 - Los cambios que deciden si una sección aplica producto van **detrás de un
-  flag apagado por defecto** hasta validarse en lote real (ver
-  `--antisolape`).
+  flag apagado por defecto** hasta validarse en lote real. Una vez validados,
+  el flag pasa a default y queda la salida de emergencia para apagarlo en
+  cabina sin recompilar.
+- **Anti-solape: ya validado, ENCENDIDO por defecto** (2026-08-01). No sembrar
+  dos veces lo mismo es el comportamiento normal de la máquina; el manual/auto
+  lo maneja el operario con los botones de sección. Para apagarlo:
+  `PilotX.GuidanceEngine.exe --sin-antisolape`. El arranque loguea
+  "Anti-solape de secciones: ACTIVO".

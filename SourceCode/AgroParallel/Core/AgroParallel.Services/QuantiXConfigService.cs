@@ -237,7 +237,21 @@ namespace AgroParallel.Services
                 // nombre viejo que el nodo nunca miró — el ppr quedaba en 24).
                 sb.Append(",\"pulses_per_rev\":").Append(m.DientesEngranaje);
                 sb.Append(",\"deadband\":").Append(m.Deadband);
-                sb.Append(",\"pulse_min\":").Append(m.PulseMin);
+                // Un pulse_min demasiado grande para el PPR no satura la
+                // lectura: la parte al medio (el ISR cuenta uno de cada dos) y
+                // el nodo informa la mitad de las vueltas sin avisar. Lo
+                // clampeamos antes de mandarlo — más vale filtrar de menos.
+                int pulseMin = m.PulseMin;
+                int pulseMinTope = QxMotorConfigDto.PulseMinMaximo(m.DientesEngranaje);
+                if (pulseMin > pulseMinTope)
+                {
+                    AgpLog.Warn("QuantiX", string.Format(
+                        "M{0}: pulse_min {1}µs es muy alto para {2} ppr (techo de lectura {3} rpm) → se manda {4}µs",
+                        mi, pulseMin, m.DientesEngranaje,
+                        (int)(60000000.0 / ((double)pulseMin * m.DientesEngranaje)), pulseMinTope));
+                    pulseMin = pulseMinTope;
+                }
+                sb.Append(",\"pulse_min\":").Append(pulseMin);
                 sb.Append(",\"max_integral\":").Append(m.MaxIntegral.ToString(ci));
                 sb.Append(",\"motor_type\":").Append(m.MotorType);
                 sb.Append('}');

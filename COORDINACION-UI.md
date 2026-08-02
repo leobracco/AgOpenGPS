@@ -1671,3 +1671,30 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   `cabecera.js`: la distancia se precarga con el ancho de herramienta y
   "Construir" con 0 cae al ancho (antes construía una cabecera de 0 m sin
   error — "no la crea").
+- [2026-08-01] [Claude] **Página nueva `pages/pwm-diag.html` + `js/pwm-diag.js`**
+  (diagnóstico de banco, pedido del usuario): manda un PWM fijo a un motor
+  QuantiX por el mismo endpoint que la pestaña Prueba (`verb=test`) y muestra
+  lado a lado PWM pedido / PWM que el nodo aplicó / rpm / Hz del encoder, más
+  un barrido automático con tabla. Sirve para separar "el PWM no llega" de "el
+  motor no responde". Codex: markup propio con tokens `--agp-*`, sin clases
+  nuevas globales; los IDs `pd*` son contrato con pwm-diag.js.
+- [2026-08-01] [Claude] **Página nueva `pages/calculadora-siembra.html` +
+  `js/calculadora-siembra.js`** (pedido del usuario): 4 calculadoras de siembra
+  de gruesa según el doc INTA de distanciamiento — densidad↔sem/m↔distanciamiento,
+  evaluación a campo (fallas/duplicaciones/eventos corregidos), kg/ha↔sem/ha con
+  PMS, y rpm/Hz que va a pedir un motor QuantiX. Entrada nueva en el sidebar
+  (grupo Lote, id `calculadora-siembra`; sin PNG, cae al glifo como Eventos).
+  Codex: markup con tokens `--agp-*`, IDs `cs*`/`d*`/`c*`/`p*`/`m*` son contrato
+  con el JS.
+- [2026-08-01] [Claude] **Implemento unificado (fase 1)** — `config-implemento.html`
+  gana la card "Trenes de siembra" (IDs nuevos congelados: `cardTrenes`,
+  `trenList`, `btnAddTren`, `trenBrush`, `trenStrip` con celdas `data-surco`,
+  `trenMsg`; clases `trs-cell`, `tren-name-inp`, `tren-stepper`). El guardado es
+  dual: PUT /api/tool y después PUT /api/implemento. `herramienta.html` SALIÓ
+  del sidebar (banner de deprecación adentro; sectionx/vistax relinkean a
+  config-implemento). En `quantix.js`/`sectionx.js` el selector de tren por
+  motor/cable se reemplazó por texto derivado del implemento — la clase
+  `qxTren` y `data-cable-tren` YA NO EXISTEN (actualizar el registro §4:
+  quitar `qxTren`; sumar los `data-mf*`/`data-mot-*` de la tab Motores de
+  QuantiX). Codex: la tira de trenes usa tokens `--agp-*` con 4 variables
+  locales en `#cardTrenes`.

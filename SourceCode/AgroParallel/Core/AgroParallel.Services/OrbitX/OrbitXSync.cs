@@ -61,6 +61,9 @@ namespace AgroParallel.OrbitX
             public int TamanoBytes;
             public bool EsLote;
             public string LoteNombre;
+            // Ruta local: hace falta para marcar el archivo como subido RECIÉN
+            // cuando el server confirmó. Ver EnqueueIfChanged.
+            public string LocalPath;
         }
 
         // Extensiones que requieren transporte binario (Base64). El resto se
@@ -241,13 +244,34 @@ namespace AgroParallel.OrbitX
                 if (_cfg.SyncStormX) EnqueueStormXFiles();
                 if (_cfg.SyncAOG) EnqueueAOGFiles();
 
-                // Subir cola.
+                // Subir cola. Un archivo se da por sincronizado SOLO cuando el
+                // server contesta OK: recién ahí anotamos el hash. Si falla
+                // (sin WiFi en el lote), lo dejamos en la cola y cortamos el
+                // ciclo — sin red, insistir con los demás solo suma timeouts.
+                // El próximo tick reintenta, y si el proceso se reinició, el
+                // hash sin anotar hace que se vuelva a encolar solo.
+                int subidos = 0;
                 while (_queue.Count > 0)
                 {
-                    var item = _queue.Dequeue();
+                    var item = _queue.Peek();
                     bool ok = await UploadFile(item);
-                    if (ok) FilesSynced++;
+                    if (!ok)
+                    {
+                        Trace(string.Format("[AOG] PENDIENTE {0} ({1} bytes) — queda en cola ({2}): {3}",
+                            item.Nombre, item.TamanoBytes, _queue.Count, LastError ?? "sin respuesta"));
+                        break;
+                    }
+                    _queue.Dequeue();
+                    if (!string.IsNullOrEmpty(item.LocalPath))
+                        _lastHashes[item.LocalPath] = item.HashMd5;
+                    FilesSynced++;
+                    subidos++;
+                    Trace(string.Format("[AOG] OK {0} · {1} · {2} bytes{3}",
+                        item.Nombre, item.Subtipo, item.TamanoBytes,
+                        item.EsLote ? " · lote " + item.LoteNombre : ""));
                 }
+                if (subidos > 0)
+                    Trace(string.Format("[AOG] {0} archivo(s) subidos · {1} en cola", subidos, _queue.Count));
 
                 // Enviar posición del tractor (tracking).
                 await SendTracking();
@@ -334,17 +358,21 @@ namespace AgroParallel.OrbitX
                 string fieldDir = Path.Combine(fieldsRoot, fieldName);
                 if (!Directory.Exists(fieldDir)) return;
 
+                // "ablines.txt" es el nombre viejo; PilotX guarda las guías en
+                // TrackLines.txt y así ninguna línea de guiado llegaba al cloud.
+                // Contour.txt entra también: es trabajo del operario igual que
+                // el resto (Windows no distingue mayúsculas en File.Exists).
                 string[] aogFiles = new[] { "boundary.txt", "field.txt", "sections.txt",
-                    "headland.txt", "flags.txt", "recpath.txt", "ablines.txt" };
+                    "headland.txt", "flags.txt", "recpath.txt", "ablines.txt",
+                    "tracklines.txt", "contour.txt" };
 
                 foreach (var fn in aogFiles)
                 {
                     string path = Path.Combine(fieldDir, fn);
                     if (File.Exists(path))
                     {
-                        string subtipo = fn.Replace(".txt", "");
-                        EnqueueIfChanged(path, "aog/fields/" + fieldName + "/" + fn, subtipo, "aog",
-                            true, fieldName);
+                        EnqueueIfChanged(path, "aog/fields/" + fieldName + "/" + fn,
+                            SubtipoCloud(fn), "aog", true, fieldName);
                     }
                 }
 
@@ -372,6 +400,30 @@ namespace AgroParallel.OrbitX
             catch (Exception ex)
             {
                 AgpLog.Error("OrbitXSync", "encolar archivos de lote AOG", ex);
+            }
+        }
+
+        // Nombre de archivo → `subtipo` que espera el cloud.
+        //
+        // OrbitX clasifica cada archivo del lote por este campo (routes/aog.js:
+        // GET /lotes/:nombre y /lotes-mapa) y el parser arma los polígonos de
+        // cobertura solo si encuentra `sections_coverage` MÁS el `field_origin`
+        // (necesita el origen para pasar de metros a lat/lon). Acá se mandaba el
+        // nombre del archivo pelado ("sections", "field"), que no coincide con
+        // ninguno: el lote aparecía en el panel pero sin las pasadas, y todo
+        // caía en el cajón "otros". Lo mismo con las guías (`track_lines`).
+        private static string SubtipoCloud(string fileName)
+        {
+            switch (fileName.ToLowerInvariant())
+            {
+                case "field.txt":      return "field_origin";
+                case "sections.txt":   return "sections_coverage";
+                case "tracklines.txt": return "track_lines";
+                case "ablines.txt":    return "ab_line";
+                case "boundary.txt":   return "boundary";
+                case "headland.txt":   return "headland";
+                case "contour.txt":    return "contour";
+                default:               return fileName.Replace(".txt", "");
             }
         }
 
@@ -405,12 +457,23 @@ namespace AgroParallel.OrbitX
 
                 string prev;
                 if (_lastHashes.TryGetValue(localPath, out prev) && prev == hash)
-                    return; // Sin cambios — el hash es sobre bytes/texto, no se cruzan.
+                    return; // Ya CONFIRMADO por el server — el hash es sobre bytes/texto.
 
-                _lastHashes[localPath] = hash;
+                // El hash NO se anota acá: se anota cuando el server confirma
+                // (ver SyncTick). Anotarlo al encolar hacía que un archivo que
+                // fallaba al subir —sin WiFi en el lote, típico— quedara marcado
+                // como sincronizado y no se reintentara nunca más. El lindero y
+                // la cabecera se escriben UNA vez: si ese intento caía, esa
+                // versión no llegaba nunca al cloud.
+                foreach (var enCola in _queue)
+                {
+                    if (enCola.LocalPath == localPath && enCola.HashMd5 == hash)
+                        return; // ya está esperando su turno
+                }
 
                 _queue.Enqueue(new SyncItem
                 {
+                    LocalPath = localPath,
                     RutaRel = rutaRel,
                     Nombre = Path.GetFileName(localPath),
                     Subtipo = subtipo,

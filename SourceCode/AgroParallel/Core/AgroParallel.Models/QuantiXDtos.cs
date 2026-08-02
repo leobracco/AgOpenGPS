@@ -65,11 +65,55 @@ namespace AgroParallel.Models
         [JsonPropertyName("dientes_engranaje")]
         public int DientesEngranaje { get; set; } = 20;
 
+        /// <summary>Qué mide las vueltas del motor: "inductivo" (sensor de
+        /// pocos pulsos por vuelta, el clásico) o "encoder" (LPD3806 y
+        /// similares, cientos de pulsos por vuelta). Define el filtro
+        /// antirrebote y el PPR típico — ver <see cref="PulseMinPara"/>.</summary>
+        ///
+        /// Arranca en null a propósito: las configs viejas no traen el campo y
+        /// defaultearlas a "inductivo" etiquetaría mal a los motores que ya
+        /// tienen encoder. Con null la UI lo deduce del PPR guardado.
+        [JsonPropertyName("sensor_tipo")]
+        public string SensorTipo { get; set; }
+
         /// <summary>Filtro antirrebote del ISR del nodo (µs mínimos entre
         /// pulsos). El default 2000 sirve para sensores inductivos de pocos
         /// pulsos/vuelta; con encoders de 600 ppr (LPD3806) usar ~100.</summary>
         [JsonPropertyName("pulse_min")]
         public int PulseMin { get; set; } = 2000;
+
+        /// <summary>Filtro recomendado según el tipo de sensor.</summary>
+        public static int PulseMinPara(string sensorTipo)
+        {
+            return string.Equals(sensorTipo, "encoder", System.StringComparison.OrdinalIgnoreCase)
+                ? 100 : 2000;
+        }
+
+        /// <summary>PPR típico de cada tipo, para precargar el formulario.</summary>
+        public static int PprPara(string sensorTipo)
+        {
+            return string.Equals(sensorTipo, "encoder", System.StringComparison.OrdinalIgnoreCase)
+                ? 600 : 20;
+        }
+
+        /// <summary>Filtro máximo tolerable para un PPR dado.
+        ///
+        /// El ISR del nodo descarta cualquier pulso que llegue antes de
+        /// `pulse_min` µs del anterior, así que el filtro impone un techo de
+        /// lectura: 1e6/pulse_min pulsos por segundo. Pasado ese techo el nodo
+        /// no "se queda en el máximo": empieza a contar uno de cada dos y
+        /// reporta LA MITAD de las vueltas reales — el PID lee de menos y
+        /// dosifica de más, sin ningún error a la vista.
+        ///
+        /// Con 600 ppr y el default de 2000 µs el techo eran 50 rpm: arriba de
+        /// eso la lectura se partía al medio (medido en banco 2026-08-01).
+        /// Acá dejamos margen hasta 300 rpm de motor.</summary>
+        public static int PulseMinMaximo(int ppr)
+        {
+            if (ppr <= 0) return 2000;
+            int techo = 200000 / ppr;          // 1e6 / (ppr * 300rpm/60)
+            return techo < 20 ? 20 : techo;    // nunca menos de 20 µs
+        }
 
         [JsonPropertyName("motor_type")]
         public int MotorType { get; set; }

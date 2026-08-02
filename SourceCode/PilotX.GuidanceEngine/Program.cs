@@ -35,10 +35,15 @@ namespace AgOpenGPS
             bool useSim = Array.IndexOf(args, "--sim") >= 0;
             bool useCoreX = Array.IndexOf(args, "--corex") >= 0;
             bool useWebHost = Array.IndexOf(args, "--webhost") >= 0;
-            // Corte por área ya trabajada. APAGADO salvo que se pida: decide si
-            // una sección siembra o no, así que hasta validarlo en el lote el
-            // default tiene que ser no intervenir.
-            bool useAntiSolape = Array.IndexOf(args, "--antisolape") >= 0;
+            // Corte por área ya trabajada: ENCENDIDO por defecto. No sembrar dos
+            // veces lo mismo es el comportamiento normal de la máquina, no una
+            // opción de arranque — si el operario quiere aplicar sobre lo
+            // trabajado, para eso están los botones de sección (Off/Auto/On) en
+            // la pantalla. Nació apagado hasta validarlo en lote; validado en
+            // campo el 2026-08-01, pasa a default.
+            // `--sin-antisolape` queda como salida de emergencia para poder
+            // apagarlo en cabina sin recompilar si algún día se porta mal.
+            bool useAntiSolape = Array.IndexOf(args, "--sin-antisolape") < 0;
 
             var baseDir = new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "GuidanceEngineData"));
             if (!baseDir.Exists) baseDir.Create();
@@ -99,16 +104,15 @@ namespace AgOpenGPS
 
             var host = new GuidanceEngineHost(baseDir);
 
-            // Se engancha siempre, pero solo actúa con Habilitado=true: así se
-            // puede prender sin recompilar y, sobre todo, apagar en el lote si
-            // se porta mal.
+            // Se engancha siempre; Habilitado decide si interviene.
             var antiSolape = new AntiSolapeSecciones(host)
             {
                 Habilitado = useAntiSolape,
                 Diagnostico = Array.IndexOf(args, "--antisolape-debug") >= 0,
             };
             host.AntiSolape = antiSolape;
-            Console.WriteLine("Anti-solape de secciones: " + (useAntiSolape ? "ACTIVO (--antisolape)" : "apagado"));
+            Console.WriteLine("Anti-solape de secciones: " +
+                (useAntiSolape ? "ACTIVO" : "APAGADO por --sin-antisolape"));
 
             host.Start();
             Console.WriteLine("Escuchando PGN en 127.0.0.1:15555, respondiendo a 127.255.255.255:17777.");
