@@ -41,6 +41,10 @@ internal static class Program
         // jornada. Ver CrashHandler.
         CrashHandler.Instalar();
 
+        // Sink de audio Windows para las alarmas de cabina: el poller portable
+        // (PilotX.UI) entrega el WAV y este head lo toca con winmm.
+        PilotX.Desktop.Services.SoundAlarmPoller.WavSink = WinmmWavPlayer.Play;
+
         App.ColdStart = Stopwatch.StartNew();
         // Inyectar el backend de WebView del head Desktop (WebView.Avalonia).
         // La UI compartida (PilotX.UI) solo conoce IWebViewHost.

@@ -150,6 +150,7 @@ public partial class MainWindow : Window
     // Prescripción (.shp): zonas con color por dosis sobre el mapa. 1 Hz
     // filtrado por source_token. Solo con UseGl=on.
     private ShapeGeometryPoller? _shapePoller;
+    private SoundAlarmPoller? _soundPoller;
 
     // Toolbar inferior (state-aware).
     private Button? _btnSettings;
@@ -545,6 +546,12 @@ public partial class MainWindow : Window
                 // QuantiX/FlowX. 1 Hz filtrado por source_token — solo cambia
                 // al subir otro shape o cambiar el campo de dosis. La
                 // triangulación corre en el hilo del poller, no en el GL.
+                // Alarmas sonoras: pollea /api/sonidos/estado y toca el WAV por
+                // el sink que registró el head (Desktop: winmm). Sin sink, no
+                // suena — la pantalla Sonidos muestra las alarmas igual.
+                _soundPoller = new SoundAlarmPoller(DeriveOrigin(App.TargetUrl));
+                Closed += (_, _) => _soundPoller?.Dispose();
+
                 _shapePoller = new ShapeGeometryPoller(DeriveOrigin(App.TargetUrl), snap =>
                 {
                     _mapHost?.OnShape(snap);

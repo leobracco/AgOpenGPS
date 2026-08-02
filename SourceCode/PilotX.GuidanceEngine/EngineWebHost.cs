@@ -65,6 +65,7 @@ namespace AgOpenGPS
         private FlowXBridge _flowxBridge;
         private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
         private System.Threading.Timer _orbitxRetry;
+        private AgroParallel.Services.SonidosAlarmService _sonidos;
         private AgroParallel.QuantiX.QuantiXMotorBridge _quantixBridge;
         private System.Threading.Timer _quantixRetry;
 
@@ -234,6 +235,20 @@ namespace AgOpenGPS
                 steerConfig: steerConfig,
                 configVehiculo: configVehiculo,
                 imuCalibracion: imuCalibracion);
+
+            // Alarmas sonoras de cabina: detecta piloto/dosis/motor/tubo/tolva
+            // y publica disparos; los clientes (Desktop, pantalla Sonidos)
+            // consultan /api/sonidos/estado y suenan ellos.
+            try
+            {
+                _sonidos = new AgroParallel.Services.SonidosAlarmService(state, _nodos, vistaxLive);
+                _sonidos.Start();
+                _web.Sonidos = _sonidos;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] SonidosAlarm: " + ex.Message);
+            }
 
             _web.Start();
 
