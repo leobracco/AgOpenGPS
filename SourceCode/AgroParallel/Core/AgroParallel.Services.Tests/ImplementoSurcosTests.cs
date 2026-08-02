@@ -69,5 +69,54 @@ namespace AgroParallel.Services.Tests
             ImplementoSurcos.SincronizarSecciones(impl);
             Assert.Equal(2, impl.Secciones.Count);
         }
+
+        // El caso real: Secciones configuradas 14 × 0,52 m (Tool width 7,28)
+        // pero el implemento central guardado con los defaults del seed
+        // (28 m / 2 m). La geometría del Tool tiene que pisar SIEMPRE.
+        [Fact]
+        public void AplicarGeometriaDeTool_PisaAnchoYDistanciaConLoDeSecciones()
+        {
+            var impl = new ImplementoDto { NumeroSurcos = 14, AnchoTotalM = 28, DistanciaEntreSurcosM = 2 };
+            for (int i = 1; i <= 14; i++)
+                impl.Surcos.Add(new SurcoDto { Numero = i, TrenId = (i % 2) + 1, SeccionPilotX = i });
+            var tool = new ToolConfigDto { Width = 7.28, NumSections = 14 };
+
+            ImplementoSurcos.AplicarGeometriaDeTool(impl, tool);
+
+            Assert.Equal(7.28, impl.AnchoTotalM, 3);
+            Assert.Equal(0.52, impl.DistanciaEntreSurcosM, 3);
+            Assert.Equal(2, impl.Surcos[0].TrenId); // asignación de trenes intacta
+        }
+
+        [Fact]
+        public void AplicarGeometriaDeTool_AlineaCantidadDeSurcosConservandoTrenes()
+        {
+            var impl = new ImplementoDto { NumeroSurcos = 3, AnchoTotalM = 28 };
+            impl.Surcos.Add(new SurcoDto { Numero = 1, TrenId = 1, SeccionPilotX = 1 });
+            impl.Surcos.Add(new SurcoDto { Numero = 2, TrenId = 2, SeccionPilotX = 2 });
+            impl.Surcos.Add(new SurcoDto { Numero = 3, TrenId = 2, SeccionPilotX = 3 });
+            var tool = new ToolConfigDto { Width = 2.6, NumSections = 5 };
+
+            ImplementoSurcos.AplicarGeometriaDeTool(impl, tool);
+
+            Assert.Equal(5, impl.Surcos.Count);
+            Assert.Equal(5, impl.NumeroSurcos);
+            Assert.Equal(5, impl.Secciones.Count);
+            Assert.Equal(1, impl.Surcos[0].TrenId);           // conserva por índice
+            Assert.Equal(2, impl.Surcos[4].TrenId);           // nuevos heredan el último tren
+            Assert.Equal(0.52, impl.DistanciaEntreSurcosM, 3); // 2,6 / 5
+        }
+
+        [Fact]
+        public void AplicarGeometriaDeTool_SinToolOAnchoCero_NoTocaNada()
+        {
+            var impl = new ImplementoDto { NumeroSurcos = 14, AnchoTotalM = 7.28, DistanciaEntreSurcosM = 0.52 };
+            ImplementoSurcos.AplicarGeometriaDeTool(impl, null);
+            Assert.Equal(7.28, impl.AnchoTotalM, 3);
+
+            ImplementoSurcos.AplicarGeometriaDeTool(impl, new ToolConfigDto { Width = 0, NumSections = 0 });
+            Assert.Equal(7.28, impl.AnchoTotalM, 3);
+            Assert.Equal(0.52, impl.DistanciaEntreSurcosM, 3);
+        }
     }
 }

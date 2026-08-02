@@ -57,5 +57,39 @@ namespace AgroParallel.Services.Common
             }
             impl.Secciones = nuevas;
         }
+
+        /// <summary>
+        /// La geometría manda desde Secciones (Tool nativo): ancho de labor,
+        /// cantidad de secciones (= surcos) y distancia entre surcos NO son
+        /// editables en el implemento central — se derivan del Tool acá.
+        ///
+        /// Por qué existe: la pestaña Secciones guarda el Tool nativo, pero el
+        /// implemento central guardaba su propia copia del ancho. Si el cliente
+        /// no la sincronizaba (solo lo hacía al tocar trenes), quedaban 28 m en
+        /// el central contra 7,28 m reales en Secciones — y VistaX/QuantiX
+        /// mostraban/calculaban con el viejo. Aplicar esto en cada lectura y
+        /// antes de cada escritura hace imposible la divergencia: un PUT con
+        /// ancho viejo tampoco puede pisar lo configurado en Secciones.
+        /// </summary>
+        public static void AplicarGeometriaDeTool(ImplementoDto impl, ToolConfigDto tool)
+        {
+            if (impl == null || tool == null) return;
+
+            if (tool.NumSections >= 1 &&
+                (impl.Surcos == null || impl.Surcos.Count != tool.NumSections))
+            {
+                Regenerar(impl, tool.NumSections);
+            }
+            if (impl.Secciones == null || impl.Secciones.Count != impl.NumeroSurcos)
+                SincronizarSecciones(impl);
+
+            if (tool.Width > 0)
+            {
+                impl.AnchoTotalM = tool.Width;
+                int n = impl.Surcos != null && impl.Surcos.Count > 0
+                    ? impl.Surcos.Count : impl.NumeroSurcos;
+                if (n > 0) impl.DistanciaEntreSurcosM = tool.Width / n;
+            }
+        }
     }
 }
