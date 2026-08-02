@@ -30,6 +30,7 @@ namespace AgroParallel.Cut
         // que sí derivan del implemento y otros que caen al fallback por nodo.
         private bool _loggedDerivadoImplemento;
         private bool _loggedFallbackNodo;
+        private bool _loggedConflicto;
 
         public string Product { get { return "sectionx"; } }
         public int NodeCount { get { var c = _config; return c != null ? c.Nodos.Count : 0; } }
@@ -75,6 +76,23 @@ namespace AgroParallel.Cut
             // cable cae a su fallback por nodo más abajo.
             var impl = ImplementoProvider != null ? ImplementoProvider() : null;
 
+            // Sección PilotX → números de surco que cubre. SeccionAOG numera SECCIONES;
+            // TrenResolver espera SURCOS (SurcoDto.Numero) — son espacios distintos y
+            // pueden ser N surcos por sección (migración VistaX, asignación manual).
+            Dictionary<int, List<int>> surcosPorSeccion = null;
+            if (impl != null && impl.Surcos != null)
+            {
+                surcosPorSeccion = new Dictionary<int, List<int>>();
+                foreach (var s in impl.Surcos)
+                {
+                    if (s == null || s.SeccionPilotX < 1) continue;
+                    List<int> lista;
+                    if (!surcosPorSeccion.TryGetValue(s.SeccionPilotX, out lista))
+                        surcosPorSeccion[s.SeccionPilotX] = lista = new List<int>();
+                    lista.Add(s.Numero);
+                }
+            }
+
             // Cache de secciones "atrasadas" por distancia: varios cables/nodos
             // pueden compartir la misma distancia de tren; el cálculo (recorre el
             // historial) se hace una sola vez por distancia en este tick.
@@ -97,7 +115,9 @@ namespace AgroParallel.Cut
                     int secIdx = cable.SeccionAOG - 1;
 
                     double distCable;
-                    var tr = TrenResolver.Resolver(impl, new[] { cable.SeccionAOG });
+                    List<int> surcosCable = null;
+                    if (surcosPorSeccion != null) surcosPorSeccion.TryGetValue(cable.SeccionAOG, out surcosCable);
+                    var tr = TrenResolver.Resolver(impl, surcosCable);
                     if (tr != null)
                     {
                         distCable = tr.DistanciaM;
@@ -106,8 +126,11 @@ namespace AgroParallel.Cut
                             AgpLog.Info("SectionX", "trenes: derivados del implemento");
                             _loggedDerivadoImplemento = true;
                         }
-                        if (tr.Conflicto)
-                            AgpLog.Warn("SectionX", $"cable {cable.Cable} (nodo {nodo.Uid}): el surco {cable.SeccionAOG} da trenes en conflicto, se usa el del primer surco pedido");
+                        if (tr.Conflicto && !_loggedConflicto)
+                        {
+                            AgpLog.Warn("SectionX", $"cable {cable.Cable} (nodo {nodo.Uid}): la sección {cable.SeccionAOG} tiene surcos en trenes distintos, se usa el del primer surco pedido");
+                            _loggedConflicto = true;
+                        }
                     }
                     else
                     {
