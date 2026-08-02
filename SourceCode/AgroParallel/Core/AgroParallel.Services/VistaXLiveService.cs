@@ -41,6 +41,13 @@ namespace AgroParallel.Services
         // reguardar la pestaña VistaX. Si es null, se cae al comportamiento
         // legacy (geometría desde el vistaX implemento).
         private readonly IImplementoService _impCentral;
+        private readonly IQuantiXConfigService _quantixCfg;
+
+        // Objetivo dinámico por surco (sem/m que el motor QuantiX tiene mandado
+        // AHORA). Cache corto: GetSnapshot corre a UI-rate y la cuenta recorre
+        // config de motores + registry + implemento.
+        private System.Collections.Generic.Dictionary<int, double> _objDinPorSurco;
+        private DateTime _objDinStamp;
         // Opcional: si está presente, se consultan los bounds DropMin/DropMax del
         // insumo activo para definir "bajo"/"exceso" por surco. Si es null o el
         // insumo activo no tiene bounds seteados, se cae al cálculo legacy
@@ -142,9 +149,91 @@ namespace AgroParallel.Services
         }
 
         // ── Constructor ──────────────────────────────────────────────────────
+        // ── Objetivo dinámico (dosis variable QuantiX) ────────────────────────
+
+        private double ObjetivoDinamicoDeSurco(int surco)
+        {
+            if (surco <= 0) return 0;
+            var mapa = ArmarObjetivosDinamicos();
+            double v;
+            return mapa != null && mapa.TryGetValue(surco, out v) ? v : 0;
+        }
+
+        private System.Collections.Generic.Dictionary<int, double> ArmarObjetivosDinamicos()
+        {
+            if (_objDinPorSurco != null && (DateTime.UtcNow - _objDinStamp).TotalMilliseconds < 700)
+                return _objDinPorSurco;
+            _objDinStamp = DateTime.UtcNow;
+            var mapa = new System.Collections.Generic.Dictionary<int, double>();
+            _objDinPorSurco = mapa;
+            try
+            {
+                if (_quantixCfg == null) return mapa;
+                var cfg = _quantixCfg.GetMotores();
+                if (cfg == null || cfg.Nodos == null) return mapa;
+
+                var vivos = Registry != null ? Registry.GetAll() : null;
+                if (vivos == null) return mapa;
+
+                AgroParallel.Models.ImplementoDto central = null;
+                try { central = _impCentral?.GetImplemento(); } catch { }
+                var surcosPorSeccion = Common.SurcosPorSeccion.Construir(central);
+
+                double vel = 0;
+                try { vel = _state?.GetSnapshot()?.AvgSpeed ?? 0; } catch { }
+
+                foreach (var nodo in cfg.Nodos)
+                {
+                    if (nodo == null || nodo.Motores == null) continue;
+                    AgroParallel.Models.NodoStatus live = null;
+                    foreach (var v in vivos)
+                        if (v != null && string.Equals(v.Uid, nodo.Uid, StringComparison.OrdinalIgnoreCase))
+                        { live = v; break; }
+                    if (live == null || live.MotorsLive == null) continue;
+
+                    for (int mi = 0; mi < nodo.Motores.Length; mi++)
+                    {
+                        var m = nodo.Motores[mi];
+                        if (m == null) continue;
+                        if (!string.Equals(m.UnidadDosis, "sem_m", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        AgroParallel.Models.MotorLive ml = null;
+                        foreach (var x in live.MotorsLive)
+                            if (x != null && x.Id == mi) { ml = x; break; }
+                        if (ml == null) continue;
+
+                        // motor.Cortes numera SECCIONES PilotX (la lección de la
+                        // Task 4): expandir a surcos por el implemento central;
+                        // sin implemento con surcos, el corte se toma como surco
+                        // (sembradora 1 sección = 1 surco, que es lo común acá).
+                        var surcos = new System.Collections.Generic.List<int>();
+                        if (m.Cortes != null)
+                        {
+                            foreach (var c in m.Cortes)
+                            {
+                                System.Collections.Generic.List<int> ss = null;
+                                if (surcosPorSeccion != null) surcosPorSeccion.TryGetValue(c, out ss);
+                                if (ss != null) surcos.AddRange(ss);
+                                else surcos.Add(c);
+                            }
+                        }
+                        if (surcos.Count == 0) continue;
+
+                        double semM = VistaX.VxObjetivoDinamico.SemMetro(
+                            ml.PpsTarget, m.SemillasVuelta, m.DientesEngranaje, vel, surcos.Count);
+                        if (semM <= 0) continue;
+                        foreach (var s in surcos) mapa[s] = semM;
+                    }
+                }
+            }
+            catch { /* objetivo dinámico es best-effort: el fijo siempre queda */ }
+            return mapa;
+        }
+
         public VistaXLiveService(INodoRegistryService nodos, IVistaXConfigService cfgSvc,
             IInsumoCatalogService insumos = null, IAogStateProvider state = null,
-            ISectionControlService sections = null, IImplementoService impCentral = null)
+            ISectionControlService sections = null, IImplementoService impCentral = null,
+            IQuantiXConfigService quantixCfg = null)
             : base(nodos)
         {
             _cfgSvc = cfgSvc;
@@ -152,6 +241,7 @@ namespace AgroParallel.Services
             _state = state;
             _sections = sections;
             _impCentral = impCentral;
+            _quantixCfg = quantixCfg;
             Reload();
         }
 
@@ -411,10 +501,19 @@ namespace AgroParallel.Services
 
                         string key = (sc.Uid ?? "") + "#" + sc.Cable;
                         _readings.TryGetValue(key, out var r);
-                        // Per-sensor override (sc.Objetivo > 0): útil para los sensores "otros"
+        // Per-sensor override (sc.Objetivo > 0): útil para los sensores "otros"
                         // (turbina/tolva/bajada_herramienta) donde la UI muestra barras y el
                         // operario fija un setpoint distinto al de siembra. 0 = usar el del tren.
-                        double objMin = sc.Objetivo > 0 ? sc.Objetivo : tl.Objetivo;
+                        //
+                        // DOSIS VARIABLE: si el surco lo alimenta un motor QuantiX
+                        // con consigna viva, el objetivo es LO QUE EL MOTOR TIENE
+                        // MANDADO (prescripción + velocidad incluidas), no el fijo
+                        // del insumo — con shape a 2,3 sem/m y objetivo fijo 16,
+                        // era alarma perpetua contra un número que nadie pidió.
+                        // El override manual por sensor sigue mandando sobre todo.
+                        double objDinamico = ObjetivoDinamicoDeSurco(sc.SurcoDesde > 0 ? sc.SurcoDesde : sc.Bajada);
+                        double objMin = sc.Objetivo > 0 ? sc.Objetivo
+                            : (objDinamico > 0 ? objDinamico : tl.Objetivo);
                         var surco = new VistaXSurcoStateDto
                         {
                             Bajada = sc.Bajada,

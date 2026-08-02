@@ -150,7 +150,7 @@ namespace AgOpenGPS
             // Trenes en el mapa: el calculator desplaza las secciones del tren
             // trasero a su posición física real (barra de hace N metros).
             toolGeom.ImplementoProvider = () => implemento.GetImplemento();
-            var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento);
+            var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento, quantixCfg);
             var quantixRuntime = new QuantiXRuntimeService(state);
             var flowxCfg = new FlowXConfigService();
             var flowxLive = new FlowXLiveService(_nodos, flowxCfg);
