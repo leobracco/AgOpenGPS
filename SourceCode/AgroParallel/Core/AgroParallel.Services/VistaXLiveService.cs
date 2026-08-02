@@ -448,6 +448,21 @@ namespace AgroParallel.Services
                 }
                 catch { /* defensivo: no romper el snapshot por un fallo en sections */ }
 
+                // Surco → sección PilotX desde el implemento central: el sensor se
+                // mapea a un SURCO; la sección que lo corta se deriva sola de acá
+                // (una sección = un surco por spec, pero el central es la verdad).
+                // Sin esto, la supresión por sección cortada exigía cargar
+                // seccion_aog a mano en cada sensor — nadie lo hacía y el corte
+                // no suprimía la alarma de tubo.
+                Dictionary<int, int> surcoASeccion = null;
+                if (central?.Surcos != null && central.Surcos.Count > 0)
+                {
+                    surcoASeccion = new Dictionary<int, int>();
+                    foreach (var su in central.Surcos)
+                        if (su != null && su.Numero > 0 && su.SeccionPilotX > 0)
+                            surcoASeccion[su.Numero] = su.SeccionPilotX;
+                }
+
                 // Trenes: la ESTRUCTURA (id + nombre) sale del implemento central si
                 // está disponible; si no, del vistaX implemento legacy. Los OBJETIVOS
                 // por tren siguen siendo propios de VistaX (_imp.Setup), porque son
@@ -535,10 +550,18 @@ namespace AgroParallel.Services
                         // forzamos estado "seccion-off": gris, sin alarma, sin contar
                         // para SPM agregado. Cuando la sección vuelve ON, recupera
                         // automáticamente el estado real en el próximo tick.
-                        bool seccionOff = false;
-                        if (sc.SeccionAOG > 0 && secOn != null && sc.SeccionAOG <= secOn.Length)
+                        // Sección explícita del mapeo si la hay; si no, derivada
+                        // del surco vía el implemento central (surco→seccion_pilotx).
+                        int seccionDelSurco = sc.SeccionAOG;
+                        if (seccionDelSurco <= 0 && surcoASeccion != null)
                         {
-                            seccionOff = !secOn[sc.SeccionAOG - 1];
+                            int nroSurco = sc.SurcoDesde > 0 ? sc.SurcoDesde : sc.Bajada;
+                            surcoASeccion.TryGetValue(nroSurco, out seccionDelSurco);
+                        }
+                        bool seccionOff = false;
+                        if (seccionDelSurco > 0 && secOn != null && seccionDelSurco <= secOn.Length)
+                        {
+                            seccionOff = !secOn[seccionDelSurco - 1];
                         }
                         surco.SeccionCortada = seccionOff;
 
