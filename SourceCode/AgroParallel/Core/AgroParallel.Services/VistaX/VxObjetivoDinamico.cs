@@ -43,5 +43,21 @@ namespace AgroParallel.Services.VistaX
             double semPorSeg = ppsTarget * (semillasVuelta / ppr);
             return semPorSeg / (vMs * surcosDelMotor);
         }
+
+        /// <summary>
+        /// Objetivo en semillas POR MINUTO (spm) por surco — la unidad con la
+        /// que VistaXLiveService compara contra el Spm medido del sensor.
+        /// No depende de la velocidad: pps es "por segundo", así que
+        /// spm = pps × (sem/vta ÷ ppr) × 60 ÷ surcos. Devuelve 0 si el motor
+        /// no tiene consigna o no está calibrado (el llamador cae al fijo).
+        /// </summary>
+        public static double SemMinuto(double ppsTarget, double semillasVuelta,
+            double ppr, int surcosDelMotor)
+        {
+            if (ppsTarget <= 0.5) return 0;                   // motor sin consigna
+            if (semillasVuelta <= 0 || ppr <= 0) return 0;    // sin calibrar
+            if (surcosDelMotor < 1) surcosDelMotor = 1;
+            return ppsTarget * (semillasVuelta / ppr) * 60.0 / surcosDelMotor;
+        }
     }
 }

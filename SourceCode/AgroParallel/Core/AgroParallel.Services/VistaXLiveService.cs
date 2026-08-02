@@ -179,9 +179,6 @@ namespace AgroParallel.Services
                 try { central = _impCentral?.GetImplemento(); } catch { }
                 var surcosPorSeccion = Common.SurcosPorSeccion.Construir(central);
 
-                double vel = 0;
-                try { vel = _state?.GetSnapshot()?.AvgSpeed ?? 0; } catch { }
-
                 foreach (var nodo in cfg.Nodos)
                 {
                     if (nodo == null || nodo.Motores == null) continue;
@@ -219,10 +216,13 @@ namespace AgroParallel.Services
                         }
                         if (surcos.Count == 0) continue;
 
-                        double semM = VistaX.VxObjetivoDinamico.SemMetro(
-                            ml.PpsTarget, m.SemillasVuelta, m.DientesEngranaje, vel, surcos.Count);
-                        if (semM <= 0) continue;
-                        foreach (var s in surcos) mapa[s] = semM;
+                        // En sem/MIN: la unidad con la que abajo se compara el
+                        // Spm medido (ver comentario de bounds). No usa la
+                        // velocidad: consigna por segundo × 60.
+                        double spm = VistaX.VxObjetivoDinamico.SemMinuto(
+                            ml.PpsTarget, m.SemillasVuelta, m.DientesEngranaje, surcos.Count);
+                        if (spm <= 0) continue;
+                        foreach (var s in surcos) mapa[s] = spm;
                     }
                 }
             }
@@ -437,6 +437,13 @@ namespace AgroParallel.Services
                 int timeoutMs = _cfg?.SensorTimeoutMs > 0 ? _cfg.SensorTimeoutMs : 3000;
                 DateTime now = DateTime.UtcNow;
 
+                // Metros por minuto, para llevar los objetivos configurados en
+                // sem/m (insumo, tren, override del sensor) a la unidad del
+                // comparador: sem/MIN, la misma del Spm medido. Con el tractor
+                // parado da 0 → los estados se resuelven por la rama "sin
+                // umbrales" (sembrando apagado), nunca dividimos por esto.
+                double metrosPorMinuto = LeerVelocidadSegura() / 3.6 * 60.0;
+
                 // Snapshot de secciones AOG: lo consultamos UNA vez por tick.
                 // Si _sections es null o el array está vacío, todos los surcos
                 // se consideran "sección ON" (comportamiento legacy).
@@ -526,9 +533,15 @@ namespace AgroParallel.Services
                         // del insumo — con shape a 2,3 sem/m y objetivo fijo 16,
                         // era alarma perpetua contra un número que nadie pidió.
                         // El override manual por sensor sigue mandando sobre todo.
+                        // UNIDADES: el comparador trabaja en sem/MIN (el Spm del
+                        // sensor). El dinámico ya viene en sem/min (pps×60); los
+                        // objetivos CONFIGURADOS (override del sensor, tren) están
+                        // en sem/m → se convierten con la velocidad viva. Antes se
+                        // comparaba 16 sem/m contra ~360 sem/min y todo surco sano
+                        // quedaba en "exceso" perpetuo.
                         double objDinamico = ObjetivoDinamicoDeSurco(sc.SurcoDesde > 0 ? sc.SurcoDesde : sc.Bajada);
-                        double objMin = sc.Objetivo > 0 ? sc.Objetivo
-                            : (objDinamico > 0 ? objDinamico : tl.Objetivo);
+                        double objMin = sc.Objetivo > 0 ? sc.Objetivo * metrosPorMinuto
+                            : (objDinamico > 0 ? objDinamico : tl.Objetivo * metrosPorMinuto);
                         var surco = new VistaXSurcoStateDto
                         {
                             Bajada = sc.Bajada,
@@ -601,8 +614,9 @@ namespace AgroParallel.Services
                             // Bounds por insumo (Gap #2): si hay insumo activo con
                             // DropMin/DropMax > 0, usar esos sem/m absolutos. Si no,
                             // fallback al cálculo objMin * (1 ± tolerancia).
-                            // objMin acá está en sem/min, los bounds del insumo en
-                            // sem/m → convertimos sem/m * 60 = sem/min para comparar.
+                            // objMin acá está en sem/min; los bounds del insumo en
+                            // sem/m → a sem/min con la velocidad viva (el "×60" de
+                            // antes asumía 1 m/s clavado: solo era cierto a 3,6 km/h).
                             double tol = (_imp.Setup?.ToleranciaDesvio ?? 20) / 100.0;
                             double lo  = objMin * (1 - tol);
                             double hi  = objMin * (1 + tol);
@@ -611,8 +625,8 @@ namespace AgroParallel.Services
                                 var insumo = _insumos != null ? _insumos.GetActivo() : null;
                                 if (insumo != null)
                                 {
-                                    if (insumo.DropMinSemM > 0) lo = insumo.DropMinSemM * 60.0;
-                                    if (insumo.DropMaxSemM > 0) hi = insumo.DropMaxSemM * 60.0;
+                                    if (insumo.DropMinSemM > 0) lo = insumo.DropMinSemM * metrosPorMinuto;
+                                    if (insumo.DropMaxSemM > 0) hi = insumo.DropMaxSemM * metrosPorMinuto;
                                 }
                             }
                             catch { /* catálogo inválido → fallback ya seteado */ }
