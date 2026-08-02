@@ -16,6 +16,8 @@ using System.Text;
 using AgroParallel.Common;
 using AgroParallel.Models;
 using AgroParallel.SectionX;
+using AgroParallel.Services;
+using AgroParallel.Services.Common;
 
 namespace AgroParallel.Cut
 {
@@ -23,12 +25,31 @@ namespace AgroParallel.Cut
     {
         private SectionXConfig _config;
 
+        // "Una vez por arranque": evita spamear el log en cada tick (5-10 Hz).
+        // Son dos flags independientes porque un mismo rig puede tener cables
+        // que sí derivan del implemento y otros que caen al fallback por nodo.
+        private bool _loggedDerivadoImplemento;
+        private bool _loggedFallbackNodo;
+
         public string Product { get { return "sectionx"; } }
         public int NodeCount { get { var c = _config; return c != null ? c.Nodos.Count : 0; } }
+
+        /// <summary>Fuente del implemento central. Si está seteado y devuelve un
+        /// implemento con trenes útiles para el surco del cable, la distancia de
+        /// tren sale de ahí; si no, se cae al config viejo por nodo (cable.Tren +
+        /// nodo.DistanciaEntreTrenes) — bit a bit igual que antes de esto.</summary>
+        public Func<ImplementoDto> ImplementoProvider { get; set; }
 
         public SectionXCutAdapter()
         {
             Reload();
+        }
+
+        /// <summary>Seam de test: evita depender de SectionXConfig.Load() (disco).
+        /// No usar desde código de producción.</summary>
+        internal SectionXCutAdapter(SectionXConfig cfg)
+        {
+            _config = cfg ?? new SectionXConfig();
         }
 
         public void Reload()
@@ -49,27 +70,19 @@ namespace AgroParallel.Cut
             bool[] secAOG = snap.SectionOnRequest;
             if (secAOG == null) yield break;
 
-            // Cache de secciones del tren trasero por distancia: varios nodos pueden
-            // compartir DistanciaEntreTrenes; el cálculo (caro) se hace una vez por
-            // distancia en este tick.
+            // Implemento central: fuente de verdad de a qué tren pertenece cada
+            // surco. Si no hay provider o no resuelve trenes, queda null y cada
+            // cable cae a su fallback por nodo más abajo.
+            var impl = ImplementoProvider != null ? ImplementoProvider() : null;
+
+            // Cache de secciones "atrasadas" por distancia: varios cables/nodos
+            // pueden compartir la misma distancia de tren; el cálculo (recorre el
+            // historial) se hace una sola vez por distancia en este tick.
             Dictionary<double, bool[]> secTraseroCache = null;
 
             foreach (var nodo in cfg.Nodos)
             {
                 if (nodo == null || !nodo.Habilitado || string.IsNullOrEmpty(nodo.Uid)) continue;
-
-                bool[] secTrasero = secAOG;
-                if (nodo.DistanciaEntreTrenes > 0.05 && hist != null)
-                {
-                    if (secTraseroCache == null) secTraseroCache = new Dictionary<double, bool[]>();
-                    bool[] cached;
-                    if (!secTraseroCache.TryGetValue(nodo.DistanciaEntreTrenes, out cached))
-                    {
-                        cached = hist.GetSectionsAtDistanceBack(nodo.DistanciaEntreTrenes) ?? secAOG;
-                        secTraseroCache[nodo.DistanciaEntreTrenes] = cached;
-                    }
-                    secTrasero = cached;
-                }
 
                 // Armar los 16 bits de relay según el mapeo cable->seccion.
                 var bits = new bool[16];
@@ -82,7 +95,34 @@ namespace AgroParallel.Cut
                     if (cable.SeccionAOG < 1) continue;
 
                     int secIdx = cable.SeccionAOG - 1;
-                    bool[] fuente = (cable.Tren == 0) ? secAOG : secTrasero;
+
+                    double distCable;
+                    var tr = TrenResolver.Resolver(impl, new[] { cable.SeccionAOG });
+                    if (tr != null)
+                    {
+                        distCable = tr.DistanciaM;
+                        if (!_loggedDerivadoImplemento)
+                        {
+                            AgpLog.Info("SectionX", "trenes: derivados del implemento");
+                            _loggedDerivadoImplemento = true;
+                        }
+                        if (tr.Conflicto)
+                            AgpLog.Warn("SectionX", $"cable {cable.Cable} (nodo {nodo.Uid}): el surco {cable.SeccionAOG} da trenes en conflicto, se usa el del primer surco pedido");
+                    }
+                    else
+                    {
+                        // Fallback fase 1: config por nodo, como siempre.
+                        distCable = (cable.Tren == 0) ? 0 : nodo.DistanciaEntreTrenes;
+                        if (!_loggedFallbackNodo)
+                        {
+                            AgpLog.Info("SectionX", "trenes: fallback por nodo (sin implemento con trenes útiles)");
+                            _loggedFallbackNodo = true;
+                        }
+                    }
+
+                    bool[] fuente = distCable > 0.05
+                        ? ObtenerRetrasadas(hist, distCable, secAOG, ref secTraseroCache)
+                        : secAOG;
                     bits[cable.Cable - 1] = secIdx < fuente.Length && fuente[secIdx];
                 }
 
@@ -90,6 +130,22 @@ namespace AgroParallel.Cut
                 yield return new CutCommand(nodo.Uid, TopicFor(nodo.Uid),
                     BuildPayload(bits, width), BitsToInt(bits, width));
             }
+        }
+
+        /// <summary>Secciones del tren trasero a `distancia` metros atrás, con caché
+        /// por tick (varios cables pueden pedir la misma distancia). Nunca toca
+        /// PositionHistory.GetSectionsAtDistanceBack más de una vez por distancia.</summary>
+        private static bool[] ObtenerRetrasadas(PositionHistory hist, double distancia, bool[] secAOG, ref Dictionary<double, bool[]> cache)
+        {
+            if (hist == null) return secAOG;
+            if (cache == null) cache = new Dictionary<double, bool[]>();
+            bool[] cached;
+            if (!cache.TryGetValue(distancia, out cached))
+            {
+                cached = hist.GetSectionsAtDistanceBack(distancia) ?? secAOG;
+                cache[distancia] = cached;
+            }
+            return cached;
         }
 
         public IEnumerable<CutCommand> OffCommands()
