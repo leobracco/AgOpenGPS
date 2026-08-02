@@ -48,6 +48,16 @@
   var secWidthsCm = [];       // modo secciones: ancho por sección (cm), largo 16
   var zoneRanges = [];        // modo zonas: última sección de cada zona
 
+  // ---- implemento central (trenes + surcos, GET/PUT /api/implemento) ----
+  var state = { impl: null };
+  var brushTrenId = 1;        // tren que pinta el click en la tira de surcos
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
   // Sprite de vista lateral por estilo de acople (mismos PNG que WinForms).
   var HITCH_IMG = {
     rear: 'ToolHitchPageRear.png',
@@ -112,6 +122,7 @@
     renderSecWidthInputs();
     renderZoneInputs();
     redrawSections();
+    onNumSectionsChangedForTrenes();
   }
 
   // Grid de anchos individuales (modo secciones)
@@ -314,6 +325,216 @@
     $('secWidthTotal').textContent = tCm > 0 ? (tCm / 100).toFixed(2) : '—';
   }
 
+  // ============================ TRENES DE SIEMBRA ============================
+  // Paleta corta (máx. 4 trenes): tren 1 (Delantero) = acento verde; el resto
+  // usa los tonos "suaves" ya definidos en el design system (warn/danger) más
+  // un neutro, así no inventamos hex nuevo (ver #cardTrenes en el HTML).
+  var TREN_COLOR_VARS = [
+    { c: 'var(--tc1)', soft: 'var(--tc1-soft)' },
+    { c: 'var(--tc2)', soft: 'var(--tc2-soft)' },
+    { c: 'var(--tc3)', soft: 'var(--tc3-soft)' },
+    { c: 'var(--tc4)', soft: 'var(--tc4-soft)' }
+  ];
+  function trenColor(idx) { return TREN_COLOR_VARS[idx % TREN_COLOR_VARS.length]; }
+
+  function findTren(id) {
+    return (state.impl && state.impl.trenes || []).filter(function (t) { return t.id === id; })[0];
+  }
+
+  // El tren 1 (Delantero) siempre existe y con distancia fija 0 — misma
+  // convención que ConfigValidation.ValidarTrenes en el backend.
+  function ensureTrenes() {
+    if (!state.impl) return;
+    if (!state.impl.trenes || state.impl.trenes.length === 0) {
+      state.impl.trenes = [{ id: 1, nombre: 'Delantero', distancia_m: 0 }];
+    }
+    var t1 = findTren(1);
+    if (t1) t1.distancia_m = 0;
+  }
+
+  // Regenera surcos[] con el MISMO criterio que ImplementoSurcos.Regenerar en
+  // el backend (Services.Common): conserva la asignación surco→tren por
+  // índice y hereda el tren del último surco viejo para los que se agregan.
+  function regenerarSurcosLocal(n) {
+    if (!state.impl || n < 1) return;
+    var viejos = state.impl.surcos || [];
+    var ultimoTren = 1;
+    if (viejos.length > 0 && viejos[viejos.length - 1]) ultimoTren = viejos[viejos.length - 1].tren_id;
+    var nuevos = [];
+    for (var i = 1; i <= n; i++) {
+      var tren = (i <= viejos.length && viejos[i - 1]) ? viejos[i - 1].tren_id : ultimoTren;
+      if (tren < 1) tren = 1;
+      nuevos.push({ numero: i, tren_id: tren, seccion_pilotx: i });
+    }
+    state.impl.surcos = nuevos;
+    state.impl.numero_surcos = n;
+  }
+
+  function renderTrenList() {
+    var wrap = $('trenList');
+    if (!wrap || !state.impl) return;
+    var trenes = state.impl.trenes;
+    var parts = [];
+    trenes.forEach(function (t, idx) {
+      var cv = trenColor(idx);
+      var isFirst = t.id === 1;
+      parts.push(
+        '<div class="tren-row">' +
+          '<span class="tren-swatch" style="background:' + cv.soft + ';border-color:' + cv.c + '"></span>' +
+          '<input type="text" class="tren-name-inp" data-tren-id="' + t.id + '" maxlength="24" value="' + escapeHtml(t.nombre || '') + '">' +
+          '<div class="tren-stepper">' +
+            '<button type="button" class="tren-dist-minus" data-tren-id="' + t.id + '"' + (isFirst ? ' disabled' : '') + '>−</button>' +
+            '<input type="number" class="tren-dist-inp" data-tren-id="' + t.id + '" min="0" max="20" step="0.1" value="' + (t.distancia_m || 0) + '"' + (isFirst ? ' disabled' : '') + '>' +
+            '<span class="tren-unit">m</span>' +
+            '<button type="button" class="tren-dist-plus" data-tren-id="' + t.id + '"' + (isFirst ? ' disabled' : '') + '>+</button>' +
+          '</div>' +
+          (isFirst ? '' : '<button type="button" class="btn tren-del" data-tren-id="' + t.id + '" title="Eliminar tren">✕</button>') +
+        '</div>'
+      );
+    });
+    wrap.innerHTML = parts.join('');
+    wrap.querySelectorAll('.tren-name-inp').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        var t = findTren(parseInt(inp.dataset.trenId, 10));
+        if (t) t.nombre = inp.value.trim() || t.nombre;
+        renderTrenBrush();
+      });
+    });
+    wrap.querySelectorAll('.tren-dist-inp').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        setTrenDistancia(parseInt(inp.dataset.trenId, 10), parseFloat(inp.value));
+      });
+    });
+    wrap.querySelectorAll('.tren-dist-minus').forEach(function (b) {
+      b.addEventListener('click', function () { bumpTrenDist(parseInt(b.dataset.trenId, 10), -0.1); });
+    });
+    wrap.querySelectorAll('.tren-dist-plus').forEach(function (b) {
+      b.addEventListener('click', function () { bumpTrenDist(parseInt(b.dataset.trenId, 10), 0.1); });
+    });
+    wrap.querySelectorAll('.tren-del').forEach(function (b) {
+      b.addEventListener('click', function () { deleteTren(parseInt(b.dataset.trenId, 10)); });
+    });
+    var addBtn = $('btnAddTren');
+    if (addBtn) addBtn.disabled = trenes.length >= 4;
+  }
+
+  function setTrenDistancia(id, v) {
+    if (id === 1) return; // el delantero queda siempre en 0
+    var t = findTren(id);
+    if (!t) return;
+    if (!isFinite(v)) v = 0;
+    t.distancia_m = Math.max(0, Math.min(20, Math.round(v * 10) / 10));
+    renderTrenList();
+  }
+
+  function bumpTrenDist(id, delta) {
+    if (id === 1) return;
+    var t = findTren(id);
+    if (!t) return;
+    var v = (t.distancia_m || 0) + delta;
+    t.distancia_m = Math.max(0, Math.min(20, Math.round(v * 10) / 10));
+    renderTrenList();
+  }
+
+  // Al borrar un tren, sus surcos pasan al tren 1 (nunca quedan huérfanos).
+  function deleteTren(id) {
+    if (id === 1 || !state.impl) return;
+    state.impl.trenes = state.impl.trenes.filter(function (t) { return t.id !== id; });
+    (state.impl.surcos || []).forEach(function (s) { if (s.tren_id === id) s.tren_id = 1; });
+    if (brushTrenId === id) brushTrenId = 1;
+    renderTrenList();
+    renderTrenBrush();
+    renderTrenStrip();
+  }
+
+  function addTren() {
+    if (!state.impl) return;
+    ensureTrenes();
+    var trenes = state.impl.trenes;
+    if (trenes.length >= 4) return;
+    var usedIds = trenes.map(function (t) { return t.id; });
+    var nextId = 2;
+    while (usedIds.indexOf(nextId) >= 0) nextId++;
+    trenes.push({ id: nextId, nombre: nextId === 2 ? 'Trasero' : ('Tren ' + nextId), distancia_m: 0 });
+    renderTrenList();
+    renderTrenBrush();
+  }
+
+  function renderTrenBrush() {
+    var wrap = $('trenBrush');
+    if (!wrap || !state.impl) return;
+    var trenes = state.impl.trenes;
+    if (!trenes.some(function (t) { return t.id === brushTrenId; })) brushTrenId = trenes[0].id;
+    var parts = trenes.map(function (t, idx) {
+      var cv = trenColor(idx);
+      var active = t.id === brushTrenId;
+      return '<button type="button" class="btn tren-brush-btn' + (active ? ' primary' : '') + '" data-tren-id="' + t.id + '">' +
+        '<span class="tren-brush-dot" style="background:' + cv.c + '"></span>' + escapeHtml(t.nombre || ('Tren ' + t.id)) +
+        '</button>';
+    });
+    wrap.innerHTML = parts.join('');
+    wrap.querySelectorAll('.tren-brush-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        brushTrenId = parseInt(b.dataset.trenId, 10);
+        renderTrenBrush();
+      });
+    });
+  }
+
+  function renderTrenStrip() {
+    var wrap = $('trenStrip');
+    if (!wrap || !state.impl) return;
+    var n = getNumSections();
+    if (!state.impl.surcos || state.impl.surcos.length !== n) regenerarSurcosLocal(n);
+    var idxById = {};
+    state.impl.trenes.forEach(function (t, i) { idxById[t.id] = i; });
+    var parts = state.impl.surcos.map(function (s) {
+      var idx = idxById.hasOwnProperty(s.tren_id) ? idxById[s.tren_id] : 0;
+      var cv = trenColor(idx);
+      return '<div class="trs-cell" data-surco="' + s.numero + '" style="background:' + cv.soft + ';border-color:' + cv.c + '">' + s.numero + '</div>';
+    });
+    wrap.innerHTML = parts.join('');
+    wrap.querySelectorAll('.trs-cell').forEach(function (c) {
+      c.addEventListener('click', function () {
+        var surco = parseInt(c.dataset.surco, 10);
+        var s = state.impl.surcos.filter(function (x) { return x.numero === surco; })[0];
+        if (s) { s.tren_id = brushTrenId; renderTrenStrip(); }
+      });
+    });
+  }
+
+  // Al cambiar numSections (steppers o input directo) regeneramos la tira
+  // local con el mismo criterio que el backend, y volvemos a dibujar.
+  function onNumSectionsChangedForTrenes() {
+    if (!state.impl) return;
+    regenerarSurcosLocal(getNumSections());
+    renderTrenStrip();
+  }
+
+  function renderTrenUI() {
+    if (!state.impl) return;
+    regenerarSurcosLocal(getNumSections());
+    renderTrenList();
+    renderTrenBrush();
+    renderTrenStrip();
+  }
+
+  async function loadImplemento() {
+    try {
+      var res = await fetch('/api/implemento', { cache: 'no-store' });
+      var data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'GET /api/implemento falló');
+      state.impl = data.implemento || {};
+      if (!state.impl.trenes) state.impl.trenes = [];
+      if (!state.impl.surcos) state.impl.surcos = [];
+      ensureTrenes();
+      renderTrenUI();
+    } catch (e) {
+      var m = $('trenMsg');
+      if (m) { m.className = 'send-msg err'; m.textContent = '✕ No se pudieron cargar los trenes: ' + e.message; }
+    }
+  }
+
   // ---- form <-> DTO ----
   function fillForm(t) {
     if (!t) return;
@@ -435,7 +656,11 @@
     }
   }
 
-  async function save() {
+  // Guarda la geometría (/api/tool) y DESPUÉS el implemento central
+  // (/api/implemento, trenes + surcos + numero_surcos + distancia_entre_surcos_m).
+  // Si el segundo PUT falla, la geometría YA quedó guardada — no la revertimos,
+  // solo avisamos con un mensaje específico para que el operario reintente.
+  async function guardarTodo() {
     if (!zonesValid()) {
       var zErr = 'Las zonas deben ser crecientes: cada "hasta la sección" mayor que el de la zona anterior.';
       msg('err', '✕ ' + zErr);
@@ -443,24 +668,57 @@
       return;
     }
     msg('', 'Guardando…');
+    var cfg = readForm();
     try {
-      var cfg = readForm();
       var res = await fetch('/api/tool', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cfg)
       });
       var data = await res.json();
-      if (data.ok) {
-        msg('ok', '✓ Guardado y aplicado.');
-        toast('✓ Guardado y aplicado', 'ok');
-      } else {
+      if (!data.ok) {
         msg('err', '✕ ' + (data.error || 'no se pudo guardar'));
         toast(data.error || 'No se pudo guardar', 'bad');
+        return;
       }
     } catch (e) {
       msg('err', '✕ ' + e.message);
       toast('Error al guardar: ' + e.message, 'bad');
+      return;
+    }
+
+    if (!state.impl) {
+      // No hay implemento cargado (falló el GET inicial) — la geometría de
+      // PilotX quedó guardada igual; no hay nada más para mandar.
+      msg('ok', '✓ Guardado y aplicado.');
+      toast('✓ Guardado y aplicado', 'ok');
+      return;
+    }
+
+    regenerarSurcosLocal(cfg.numSections);
+    state.impl.numero_surcos = cfg.numSections;
+    state.impl.distancia_entre_surcos_m = cfg.numSections > 0
+      ? (cfg.width / cfg.numSections) : state.impl.distancia_entre_surcos_m;
+
+    try {
+      var res2 = await fetch('/api/implemento', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state.impl)
+      });
+      var data2 = await res2.json();
+      if (data2.ok) {
+        msg('ok', '✓ Guardado y aplicado.');
+        toast('✓ Guardado y aplicado', 'ok');
+      } else {
+        var eMsg = 'Geometría guardada, sembradora NO — reintentá' + (data2.error ? ' (' + data2.error + ')' : '');
+        msg('err', '✕ ' + eMsg);
+        toast(eMsg, 'bad', 4000);
+      }
+    } catch (e) {
+      var eMsg2 = 'Geometría guardada, sembradora NO — reintentá (' + e.message + ')';
+      msg('err', '✕ ' + eMsg2);
+      toast(eMsg2, 'bad', 4000);
     }
   }
 
@@ -498,13 +756,16 @@
     renderSecWidthInputs();
     renderZoneInputs();
     redrawSections();
+    onNumSectionsChangedForTrenes();
   }
   $('secMinus').addEventListener('click', function () { bumpSections(-1); });
   $('secPlus').addEventListener('click', function () { bumpSections(1); });
   $('numSections').addEventListener('input', function () {
     renderSecWidthInputs(); renderZoneInputs(); redrawSections();
+    onNumSectionsChangedForTrenes();
   });
   $('btnSecWidthBulk').addEventListener('click', applyBulkWidth);
+  $('btnAddTren').addEventListener('click', addTren);
 
   function bumpZones(d) {
     var inp = $('zoneCount');
@@ -518,8 +779,9 @@
   $('zoneCount').addEventListener('input', function () { renderZoneInputs(); redrawSections(); });
   $('sectionWidthMulti').addEventListener('input', redrawSections);
 
-  $('btnSaveImpl').addEventListener('click', save);
-  $('btnReloadImpl').addEventListener('click', function () { msg('', ''); load(); });
+  $('btnSaveImpl').addEventListener('click', guardarTodo);
+  $('btnReloadImpl').addEventListener('click', function () { msg('', ''); load(); loadImplemento(); });
 
   load();
+  loadImplemento();
 })();

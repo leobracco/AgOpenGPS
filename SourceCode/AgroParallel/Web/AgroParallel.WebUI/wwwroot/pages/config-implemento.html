@@ -142,6 +142,9 @@
     .msg.ok  { color: var(--agp-state-ok); }
     .msg.err { color: var(--agp-state-bad); }
     .help { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin-top: 2px; }
+    .send-msg { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); display: block; margin-top: var(--agp-sp-2); }
+    .send-msg.ok  { color: var(--agp-state-ok); }
+    .send-msg.err { color: var(--agp-state-bad); }
 
     /* toggle grande on/off */
     .big-toggle {
@@ -239,6 +242,75 @@
     #implToast.ok   { background: var(--agp-accent); }
     #implToast.bad  { background: #b3261e; }
     #implToast.warn { background: #b07900; }
+
+    /* ---- trenes: filas editables + pincel + tira surco→tren ---- */
+    #cardTrenes {
+      --tc1: var(--agp-accent);       --tc1-soft: var(--agp-accent-soft);
+      --tc2: var(--agp-warn);         --tc2-soft: var(--agp-warn-soft);
+      --tc3: var(--agp-danger);       --tc3-soft: var(--agp-danger-soft);
+      --tc4: var(--agp-text-muted);   --tc4-soft: var(--agp-surface-3);
+    }
+    .hint { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); margin: 0 0 var(--agp-sp-3) 0; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: var(--agp-sp-2); }
+
+    .tren-row {
+      display: flex; align-items: center; gap: var(--agp-sp-2); flex-wrap: wrap;
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+      background: var(--agp-bg-soft);
+      margin-bottom: var(--agp-sp-2);
+    }
+    .tren-swatch {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: var(--agp-border-w-2) solid var(--agp-border);
+      flex: 0 0 auto;
+    }
+    .tren-name-inp {
+      flex: 1 1 160px; min-width: 120px; min-height: var(--agp-touch-min);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: #fff; color: var(--agp-text);
+      font-weight: var(--agp-fw-semi); padding: 0 var(--agp-sp-2);
+    }
+    .tren-stepper { display: inline-flex; align-items: center; gap: 6px; }
+    .tren-stepper button {
+      width: 40px; height: 40px; font-size: 20px; font-weight: 700;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: var(--agp-surface); color: var(--agp-text);
+      cursor: pointer;
+    }
+    .tren-stepper button:disabled { opacity: 0.4; cursor: default; }
+    .tren-stepper input {
+      width: 64px; min-height: 40px; text-align: center;
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      background: #fff; color: var(--agp-text);
+    }
+    .tren-stepper input:disabled { opacity: 0.5; }
+    .tren-unit { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .tren-del {
+      color: var(--agp-danger); border-color: var(--agp-danger-soft);
+      min-height: var(--agp-touch-min); min-width: var(--agp-touch-min);
+    }
+
+    .tren-brush-btn { display: inline-flex; align-items: center; gap: 6px; }
+    .tren-brush-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+
+    .qx-strip {
+      display: flex; flex-wrap: wrap; gap: 4px;
+      margin-top: var(--agp-sp-2);
+    }
+    .qx-strip .trs-cell {
+      min-width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border: var(--agp-border-w-2) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm);
+      font-size: var(--agp-fs-xs); font-weight: 700; color: var(--agp-text);
+      cursor: pointer; user-select: none;
+    }
+    .qx-strip .trs-cell:active { transform: translateY(1px); }
   </style>
 </head>
 <body>
@@ -491,6 +563,24 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- ===== TRENES DE SIEMBRA ===== -->
+      <div class="card" id="cardTrenes" style="margin-top: var(--agp-sp-3)">
+        <h3 style="margin-top:0">Trenes de siembra</h3>
+        <p class="hint">Para máquinas con tren delantero y trasero: cada surco pertenece a un
+        tren, y el trasero corta N metros después (sobre la misma pasada). Con un solo tren
+        esta sección no afecta nada.</p>
+        <div id="trenList"></div>
+        <div class="btn-row">
+          <button type="button" class="btn" id="btnAddTren">+ Agregar tren</button>
+        </div>
+        <div id="trenSurcos" style="margin-top: var(--agp-sp-3)">
+          <label>Qué surcos van en cada tren (tocá para pintar)</label>
+          <div id="trenBrush" class="btn-row"></div>
+          <div id="trenStrip" class="qx-strip"></div>
+        </div>
+        <span class="send-msg" id="trenMsg"></span>
       </div>
     </section>
 

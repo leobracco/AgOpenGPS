@@ -67,13 +67,13 @@
     ]},
     { id: 'campo', label: 'Campo', items: [
       { id: 'insumos',  ico: '🌱', label: 'Insumos',  href: 'insumos.html' },
+      { id: 'calculadora-siembra', ico: '🧮', label: 'Calculadora', href: 'calculadora-siembra.html' },
       { id: 'mapas',    ico: '🗺',  label: 'Mapas',    href: 'mapas.html' },
       { id: 'prescripciones', ico: '⛗', label: 'Prescripciones', href: 'prescripciones.html' }
     ]},
     { id: 'config', label: 'Configuración', items: [
       { id: 'vehiculo', ico: '🚜', label: 'Vehículo', href: 'vehiculo.html' },
       { id: 'config-implemento', ico: '⚙', label: 'Implemento PilotX', href: 'config-implemento.html' },
-      { id: 'herramienta', ico: '⚙', label: 'Implemento', href: 'herramienta.html' },
       { id: 'calibracion-imu', ico: '⟲', label: 'Calibración IMU', href: 'calibracion-imu.html' },
       { id: 'setup',    ico: '🧭', label: 'Asistente', href: 'setup.html' },
       { id: 'sistema',  ico: '🖥', label: 'Sistema',  href: 'sistema.html' },
