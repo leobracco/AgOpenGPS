@@ -93,8 +93,30 @@ namespace PilotX.GuidanceEngine.Adapters
             return Path.Combine(root, _host.currentFieldDirectory);
         }
 
+        // "Continuar" de la UI manda __resume__: abrir el último lote usado.
+        // El último se persiste acá (ultimo_lote.txt en GuidanceEngineData)
+        // porque el motor headless no tiene el RegistrySettings de WinForms
+        // sincronizado — y sin esto "Continuar" sin lote abierto no hacía nada.
+        private static string UltimoLotePath()
+            => Path.Combine(AppContext.BaseDirectory, "GuidanceEngineData", "ultimo_lote.txt");
+
         public Task<bool> OpenFieldAsync(string name)
-            => Task.FromResult(_host.OpenField(name));
+        {
+            if (name == "__resume__" || string.IsNullOrWhiteSpace(name))
+            {
+                try { name = File.ReadAllText(UltimoLotePath()).Trim(); }
+                catch { return Task.FromResult(false); }   // nunca se abrió ninguno
+                if (string.IsNullOrWhiteSpace(name)) return Task.FromResult(false);
+            }
+
+            bool ok = _host.OpenField(name);
+            if (ok)
+            {
+                try { File.WriteAllText(UltimoLotePath(), name); }
+                catch { /* recordarlo es best-effort, no puede frenar el open */ }
+            }
+            return Task.FromResult(ok);
+        }
 
         public Task<bool> CloseFieldAsync()
         {

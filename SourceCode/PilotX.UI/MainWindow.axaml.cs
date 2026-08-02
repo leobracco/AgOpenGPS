@@ -2332,8 +2332,12 @@ public partial class MainWindow : Window
             // izquierda hace deep-link a la sub-pantalla vía ?do= (ver lote.js).
             case "lote_menu":
                 OpenDialogPage("pages/lote.html", "Lote", 670, 610); return true;
+            // Continuar NO abre ventana: acción directa (pedido del usuario —
+            // la ventana del diálogo quedaba en blanco porque el centinela de
+            // cierre no corre en diálogos, y encima acá no hay nada que elegir:
+            // es "abrí el último y listo"). El backend resuelve __resume__.
             case "lote_continuar":
-                OpenDialogPage("pages/lote.html?do=continuar", "Lote", 670, 610); return true;
+                ContinuarUltimoLote(); return true;
             case "lote_nuevo":
                 OpenDialogPage("pages/lote.html?do=nuevo", "Nuevo lote", 670, 610); return true;
             case "lote_kml":
@@ -2436,6 +2440,27 @@ public partial class MainWindow : Window
     /// la pantalla de lote; acá se expone para el submenú de la barra izquierda,
     /// que hasta ahora mandaba el comando al motor de guiado y se perdía.
     /// </summary>
+    // Continuar = abrir el último lote usado, sin ventanas: se pliega el menú
+    // y se dispara el open; el mapa reacciona solo vía el HUD (y el shape del
+    // lote, si lo usaba, lo recarga EngineShapeService al cambiar el field).
+    private async void ContinuarUltimoLote()
+    {
+        if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+        try
+        {
+            var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var url = DeriveOrigin(App.TargetUrl).TrimEnd('/');
+            using var resp = await http.PostAsync(url + "/api/lotes/open?name=__resume__", null).ConfigureAwait(false);
+            string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode || body.Contains("\"ok\":false") || body.Contains("\"ok\": false"))
+                Console.Error.WriteLine("[Lote] continuar: sin último lote para abrir (" + (int)resp.StatusCode + ")");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[Lote] no se pudo continuar: " + ex.Message);
+        }
+    }
+
     private async void CerrarLote()
     {
         // Plegar primero: el cierre puede tardar (guarda cobertura y lote) y el
