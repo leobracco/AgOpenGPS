@@ -67,8 +67,6 @@
     ]},
     { id: 'campo', label: 'Campo', items: [
       { id: 'insumos',  ico: '🌱', label: 'Insumos',  href: 'insumos.html' },
-      { id: 'calculadora-siembra', ico: '🧮', label: 'Calculadora', href: 'calculadora-siembra.html' },
-      { id: 'pid-lab', ico: '📈', label: 'Lab PID', href: 'pid-lab.html' },
       { id: 'mapas',    ico: '🗺',  label: 'Mapas',    href: 'mapas.html' },
       { id: 'prescripciones', ico: '⛗', label: 'Prescripciones', href: 'prescripciones.html' }
     ]},
