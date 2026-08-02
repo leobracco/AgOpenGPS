@@ -16,6 +16,14 @@
     if (n == null || isNaN(n)) return '—';
     return Number(n).toFixed(d == null ? 1 : d);
   }
+  // sem/min (wire) → sem/m (lo único que ve el operario). Con el tractor
+  // parado (< 0,5 km/h) no existe "semillas por metro": se muestra —.
+  function fmtSemM(spm, velKmh) {
+    if (spm == null || isNaN(spm)) return '—';
+    var vms = (velKmh || 0) / 3.6;
+    if (vms < 0.14) return '—';
+    return fmt(spm / 60.0 / vms, 1);
+  }
   function tipoOf(s) {
     return (s.tipo || '').toLowerCase();
   }
@@ -131,10 +139,12 @@
 
     ttl.textContent = 'Surco ' + bajada + (tipo ? ' · ' + tipo : '');
 
+    var velLive = (state.lastLive || {}).velocidad;
+
     var html = '';
     html += '<div class="row"><span class="lbl">Estado</span><span>' + esc(labelEstado(estado)) + '</span></div>';
-    html += '<div class="row"><span class="lbl">SPM</span><span>' + (spm == null ? '—' : fmt(spm, 0)) +
-            (obj == null ? '' : ' / ' + fmt(obj, 0)) + '</span></div>';
+    html += '<div class="row"><span class="lbl">sem/m</span><span>' + fmtSemM(spm, velLive) +
+            (obj == null || obj <= 0 ? '' : ' / ' + fmtSemM(obj, velLive)) + '</span></div>';
     if (pct != null) {
       var pctClamp = Math.max(0, Math.min(150, pct));
       html += '<div class="row"><span class="lbl">% objetivo</span><span>' + pct + '%</span></div>';
@@ -173,7 +183,9 @@
     var hasAlarm = live.has_alarm;
     var monAct   = live.monitoreo_activo;
 
-    $('vxSpm').textContent    = (spm == null) ? '—' : fmt(spm, 0);
+    // Al operario SIEMPRE sem/m (regla de unidades): el wire trae sem/min,
+    // se convierte con la velocidad viva. Parado no hay sem/m que valga: —.
+    $('vxSpm').textContent    = fmtSemM(spm, vel);
     $('vxFallas').textContent = fallas;
     $('vxVel').textContent    = (vel == null) ? '—' : fmt(vel, 1);
 
