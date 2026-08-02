@@ -244,6 +244,10 @@
             -->
             <Canvas Name="MapOverlaysHost" Grid.Row="2" IsVisible="False">
                 <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
+                <!-- Franja mínima VistaX: barritas de nivel por surco sobre el
+                     mapa; se auto-minimiza cerca de la cabecera. Toggle:
+                     vx_overlay de overlayPrefs (mismo que WinForms). -->
+                <vw:VistaXMapStrip x:Name="VxMapStrip" IsVisible="False"/>
             </Canvas>
 
             <!-- Zoom del mapa: la cabina es táctil (sin rueda). Columna a la

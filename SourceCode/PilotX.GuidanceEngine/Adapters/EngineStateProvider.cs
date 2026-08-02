@@ -43,6 +43,7 @@ namespace PilotX.GuidanceEngine.Adapters
                 snap.CurrentFieldDirectory = _host.currentFieldDirectory;
                 snap.FieldsDirectory = RegistrySettings.fieldsDirectory;
                 snap.AvgSpeed = _host.avgSpeed;
+                snap.DistanciaCabeceraM = _host.distancePivotToTurnLine;
                 snap.FixQuality = _host.Pn != null ? _host.Pn.fixQuality : 0;
                 snap.PowerOnline = false; // sin WinForms SystemInformation headless.
                 snap.Heading = _host.pivotAxlePos.heading;

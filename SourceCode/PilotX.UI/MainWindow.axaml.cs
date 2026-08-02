@@ -204,6 +204,11 @@ public partial class MainWindow : Window
     private WidgetQuantiXClient? _qxWidgetClient;
     private System.Threading.CancellationTokenSource? _overlayPrefsCts;
 
+    // Franja mínima VistaX sobre el mapa (barras de nivel por surco, auto-mini
+    // cerca de la cabecera). Comparte el toggle vx_overlay con WinForms.
+    private VistaXMapStrip? _vxMapStrip;
+    private VistaXClient? _vxStripClient;
+
     // VistaX nativo (Monitor tab live-only). SPM por surco, badges por estado,
     // trenes con tubitos (semilla/ferti) y barras (otros sensores). Tabs de
     // Insumo & calibracion / Implemento / Nodos / Config siguen en HTML
@@ -329,6 +334,7 @@ public partial class MainWindow : Window
         _camarasHost       = this.FindControl<CamarasPanel>("CamarasHost");
         _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
+        _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
 
         if (_camarasHost != null)
         {
@@ -2142,11 +2148,28 @@ public partial class MainWindow : Window
 
         string baseUrl = DeriveOrigin(App.TargetUrl);
         _qxWidgetClient = new WidgetQuantiXClient(baseUrl);
+        _vxStripClient = new VistaXClient(baseUrl);
         // Mismo cliente que usa el Hub: /api/overlays es una sola preferencia.
         _overlaysClient ??= new OverlaysClient(baseUrl);
 
         _mapOverlaysHost.IsVisible = true;
         UbicarOverlayQx(-1, -1);   // rincón por defecto hasta que llegue la preferencia
+
+        if (_vxMapStrip != null)
+        {
+            // Tocar la franja abre el panel VistaX completo.
+            _vxMapStrip.OnTap = () => ShowVistaX();
+            // Abajo al centro-izquierda, pegada al borde: reposicionar cuando
+            // cambie el tamaño del canvas o el alto de la franja (auto-mini).
+            _vxMapStrip.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == BoundsProperty) UbicarVxStrip();
+            };
+            _mapOverlaysHost.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == BoundsProperty) UbicarVxStrip();
+            };
+        }
 
         // Al soltarlo se guarda dónde quedó. El POST hace merge, así que esto
         // no pisa los toggles ni la posición de los otros widgets.
@@ -2178,6 +2201,21 @@ public partial class MainWindow : Window
         Canvas.SetTop(_qxMapOverlay, alto > 260 ? alto - 235 : 40);
     }
 
+    private void UbicarVxStrip()
+    {
+        if (_vxMapStrip == null || _mapOverlaysHost == null) return;
+        double hostH = _mapOverlaysHost.Bounds.Height;
+        double hostW = _mapOverlaysHost.Bounds.Width;
+        if (hostH < 60 || hostW < 200) return;
+        double w = double.IsNaN(_vxMapStrip.Width) ? 300 : _vxMapStrip.Width;
+        double h = double.IsNaN(_vxMapStrip.Height) ? 40 : _vxMapStrip.Height;
+        // Centrada abajo (corrida a la derecha del menú lateral de 140 px),
+        // pegada al borde inferior del mapa: borde fijo, crece hacia arriba.
+        double x = Math.Max(150, (hostW - w) / 2);
+        Canvas.SetLeft(_vxMapStrip, x);
+        Canvas.SetTop(_vxMapStrip, hostH - h - 4);
+    }
+
     private async Task SeguirPreferenciasOverlaysAsync(CancellationToken ct)
     {
         bool primera = true;
@@ -2204,6 +2242,22 @@ public partial class MainWindow : Window
                         // son dos requests por segundo por nada.
                         if (mostrar && _qxWidgetClient != null) _qxMapOverlay.Attach(_qxWidgetClient);
                         else _qxMapOverlay.Detach();
+                    }
+
+                    // Franja VistaX: mismo criterio (poll solo mientras se ve).
+                    if (_vxMapStrip != null)
+                    {
+                        bool mostrarVx = prefs.VxOverlay;
+                        if (mostrarVx != _vxMapStrip.IsVisible)
+                        {
+                            _vxMapStrip.IsVisible = mostrarVx;
+                            if (mostrarVx && _vxStripClient != null)
+                            {
+                                _vxMapStrip.Attach(_vxStripClient, DeriveOrigin(App.TargetUrl));
+                                UbicarVxStrip();
+                            }
+                            else _vxMapStrip.Detach();
+                        }
                     }
                 });
                 primera = false;
