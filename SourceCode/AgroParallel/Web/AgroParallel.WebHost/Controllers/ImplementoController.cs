@@ -130,6 +130,15 @@ namespace AgroParallel.WebHost.Controllers
                 await WriteErrorAsync(400, "AGP-CFG-001", "Config inválida", string.Join("; ", val.Errores));
                 return;
             }
+            // Defensa contra clientes viejos (ej. herramienta.js) que mandan
+            // surcos desalineados con numero_surcos: regeneramos 1:1 igual que
+            // hace la UI nueva, así el shape queda siempre consistente.
+            if (dto.Surcos == null || dto.Surcos.Count != dto.NumeroSurcos)
+                ImplementoSurcos.Regenerar(dto, dto.NumeroSurcos);
+            // Trenes: error de REPORTE nomás (ver ValidarTrenes) — no bloquea el guardado.
+            var valTrenes = ConfigValidation.ValidarTrenes(dto);
+            if (!valTrenes.Ok)
+                AgpLog.Warn("Implemento", "trenes inconsistentes al guardar: " + string.Join("; ", valTrenes.Errores));
             bool ok = _svc.Save(slug, dto);
             await WriteJsonAsync(new { ok = ok, slug = slug });
         }

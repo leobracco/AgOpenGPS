@@ -513,7 +513,14 @@
 
   function renderTrenUI() {
     if (!state.impl) return;
-    regenerarSurcosLocal(getNumSections());
+    // Defensa doble contra la carrera load()/loadImplemento(): si el input
+    // de secciones todavía no tiene valor (load() no terminó de llenarlo),
+    // getNumSections() colapsaría a 1 y regenerarSurcosLocal(1) pisaría los
+    // surcos reales. Usamos numero_surcos del DTO que sí llegó del backend.
+    var inpSec = $('numSections');
+    var n = (inpSec && inpSec.value) ? getNumSections()
+      : (num(state.impl.numero_surcos, 0) > 0 ? state.impl.numero_surcos : getNumSections());
+    regenerarSurcosLocal(n);
     renderTrenList();
     renderTrenBrush();
     renderTrenStrip();
@@ -780,8 +787,18 @@
   $('sectionWidthMulti').addEventListener('input', redrawSections);
 
   $('btnSaveImpl').addEventListener('click', guardarTodo);
-  $('btnReloadImpl').addEventListener('click', function () { msg('', ''); load(); loadImplemento(); });
+  $('btnReloadImpl').addEventListener('click', function () {
+    msg('', '');
+    (async function () { await load(); await loadImplemento(); })();
+  });
 
-  load();
-  loadImplemento();
+  // Secuenciado a propósito: loadImplemento() (renderTrenUI) lee
+  // getNumSections() del input #numSections, que recién se llena cuando
+  // load() (GET /api/tool) termina. Si corrieran en paralelo, una respuesta
+  // de /api/implemento adelantada a /api/tool encuentra el input vacío y
+  // colapsa surcos[] a 1 elemento — ver defensa extra en renderTrenUI().
+  (async function bootstrap() {
+    await load();
+    await loadImplemento();
+  })();
 })();
