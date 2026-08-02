@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Configuración · PilotX</title>
+  <!-- theme.css SOLO por los tokens --agp-* (la paleta local de abajo mapea a
+       ellos). El layout de esta página es propio y no usa layout.css. -->
+  <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
     /* Configuración del vehículo/implemento — réplica HTML de FormConfig.
@@ -12,18 +15,22 @@
        Guardado: réplica del Leave nativo — al salir de una sección con cambios
        se postea a /api/aog/config/{seccion}. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* Paleta local MAPEADA a los tokens del design system (theme.css se
+       importa abajo): así esta página y las embebidas (QuantiX, Sonidos,
+       Lab PID…) son UNA sola estética, sin reescribir los ~30 usos de
+       --verde/--gris/--borde que ya había. Unificación pedida 2026-08-02. */
     :root {
-      --verde: #4ABA3E;
-      --fondo: #F5F7F4;
-      --carta: #ffffff;
-      --borde: #C5CFC5;
-      --texto: #101612;
-      --gris: #535E54;
-      --rojo: #c0392b;
+      --verde: var(--agp-accent, #4ABA3E);
+      --fondo: var(--agp-bg, #F5F7F4);
+      --carta: var(--agp-surface, #ffffff);
+      --borde: var(--agp-border, #C5CFC5);
+      --texto: var(--agp-text, #101612);
+      --gris: var(--agp-text-muted, #535E54);
+      --rojo: var(--agp-state-bad, #c0392b);
     }
     html, body { height: 100%; }
     body {
-      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+      font-family: var(--agp-font-sans, "Segoe UI", Roboto, system-ui, sans-serif);
       background: var(--fondo); color: var(--texto);
       display: flex; flex-direction: column; overflow: hidden;
     }

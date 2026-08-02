@@ -1707,3 +1707,11 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   (salió del sidebar; entrada nueva `configuracion` → config.html). Los links
   de sectionx/vistax/quantix/herramienta apuntan a config.html?tab=tsections.
   Codex: no reintroducir editores de trenes fuera de config.html.
+- [2026-08-02] [Claude] **config.html mapeada a tokens --agp-*** (unificación de
+  estilos pedida por el usuario): la paleta local (--verde/--gris/--borde/…)
+  ahora RESUELVE a los tokens de theme.css (importado solo por los tokens; el
+  layout de la página sigue propio, sin layout.css). Cero cambios en los ~30
+  usos. Codex: quedan ~11 hex menores (#fff en inputs, #eaf6e8 del menú sel,
+  #eef1ee disabled) para tokenizar a mano cuando pases por ahí — NO por
+  matching de valor. También sumadas a config.html: sección Sonidos
+  (sonidos.html embebida) y grupo Herramientas (calculadora/pid-lab/pwm-diag).
