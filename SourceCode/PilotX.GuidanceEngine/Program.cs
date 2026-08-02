@@ -99,6 +99,42 @@ namespace AgOpenGPS
                 + (string.IsNullOrEmpty(RegistrySettings.vehicleFileName) ? "(ninguno)" : RegistrySettings.vehicleFileName)
                 + " → " + vehLoad);
 
+            // SIN PERFIL, NADA PERSISTE: Settings.Save() es un no-op con
+            // vehicleFileName vacío (guard en Settings.cs), y el motor headless
+            // arranca sin perfil porque el diálogo de elegirlo es de FormGPS.
+            // Consecuencia real: ganancias de dirección, antena, IMU, U-turn,
+            // relés y tram "se guardaban" y volvían a fábrica en cada arranque
+            // (a las secciones ya las salvaba tool.json). Acá el motor se crea
+            // su perfil por defecto — con nombre y activo, TODOS los Save()
+            // existentes empiezan a escribir el XML completo, que además queda
+            // exportable a otro tractor.
+            //
+            // Convivencia con la app WinForms (PilotX.exe): comparte el mismo
+            // aog_settings.json de la instalación, así que al abrir va a cargar
+            // este MISMO perfil — consistencia, no conflicto. Si algún día
+            // corren a la vez y ambos guardan, gana el último (igual que
+            // siempre fue entre pantallas); no corren a la vez en operación.
+            if (string.IsNullOrEmpty(RegistrySettings.vehicleFileName))
+            {
+                const string perfilDefault = "PilotX";
+                RegistrySettings.Save(RegKeys.vehicleFileName, perfilDefault);
+                string xmlPerfil = Path.Combine(RegistrySettings.vehiclesDirectory, perfilDefault + ".XML");
+                if (File.Exists(xmlPerfil))
+                {
+                    // Había un perfil PilotX de una corrida anterior (o de la
+                    // app WinForms): cargarlo — es la config real del operario.
+                    var r2 = AgOpenGPS.Properties.Settings.Default.Load();
+                    Console.WriteLine("Perfil por defecto ya existía: " + perfilDefault + " → " + r2);
+                }
+                else
+                {
+                    // Crearlo con la config actual (defaults + lo que ya haya
+                    // cargado tool.json más abajo lo pisa igual).
+                    AgOpenGPS.Properties.Settings.Default.Save();
+                    Console.WriteLine("Perfil por defecto creado: " + xmlPerfil);
+                }
+            }
+
             // Geometría del implemento guardada por el propio motor. VA ACÁ:
             // después del Load del perfil (para pisarlo con lo último que
             // configuró el operario) y ANTES de construir el host, que arma
