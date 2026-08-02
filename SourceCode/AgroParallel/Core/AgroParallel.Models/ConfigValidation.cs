@@ -303,6 +303,7 @@ namespace AgroParallel.Models
             foreach (var t in trenes)
             {
                 if (t == null) continue;
+                r.Requerir(!ids.Contains(t.Id), $"tren duplicado: id {t.Id}");
                 ids.Add(t.Id);
                 Rango(r, t.DistanciaM, 0, 20, $"tren {t.Id}: distancia");
                 if (t.Id == 1)

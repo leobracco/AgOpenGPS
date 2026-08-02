@@ -478,5 +478,15 @@ namespace AgroParallel.Services.Tests
             imp.Surcos.Add(new SurcoDto { Numero = 1, TrenId = 2 });
             Assert.That(ConfigValidation.ValidarTrenes(imp).Ok, Is.True);
         }
+
+        [Test]
+        public void Trenes_IdsDuplicados_Falla()
+        {
+            var imp = new ImplementoDto();
+            imp.Trenes.Add(new TrenDto { Id = 1, DistanciaM = 0 });
+            imp.Trenes.Add(new TrenDto { Id = 2, DistanciaM = 2 });
+            imp.Trenes.Add(new TrenDto { Id = 2, DistanciaM = 5 });
+            Assert.That(ConfigValidation.ValidarTrenes(imp).Ok, Is.False);
+        }
     }
 }
