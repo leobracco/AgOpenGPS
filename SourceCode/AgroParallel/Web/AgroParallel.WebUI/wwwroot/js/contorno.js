@@ -54,6 +54,9 @@
       case 'google-earth-error': return 'No se pudo abrir Google Earth.';
       case 'sin-grabacion': return 'No hay grabación en curso.';
       case 'indice-invalido': return 'Contorno inexistente.';
+      case 'se-necesitan-2-tracks': return 'Se necesitan al menos 2 guías en el lote (los lados del cerco).';
+      case 'sin-cerco-valido': return 'Las guías no cierran un polígono. Marcá los 4 lados del lote como guías y probá de nuevo.';
+      case 'cerco-aplicado-pero-no-guardado': return 'El cerco se armó pero no se pudo guardar en el lote — reintentá.';
       default: return err || '';
     }
   }
@@ -183,6 +186,18 @@
   $('btnKmlAdd').addEventListener('click', function () {
     kmlMulti = false;
     $('kmlFile').click();
+  });
+
+  // Cerco desde las guías del lote (port de BoundaryFromTracks de 6.8.5):
+  // el motor extiende las guías 50 m, las cruza y se queda con el polígono.
+  // Pisa el cerco existente → doble-tap de confirmación, como Importar KML.
+  $('btnFromTracks').addEventListener('click', async function () {
+    if (lastCount > 0 && !askConfirm(this, 'Cerco desde guías')) return;
+    var r = await post('/from-tracks');
+    if (!r) return;
+    if (r.ok === false || r.error) { warn(traducirError(r.error)); return; }
+    renderState(r);   // el estado ya trae el cerco nuevo en la lista
+    warn('');
   });
 
   $('kmlFile').addEventListener('change', function () {
