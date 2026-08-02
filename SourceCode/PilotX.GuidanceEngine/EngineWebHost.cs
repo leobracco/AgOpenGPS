@@ -285,6 +285,9 @@ namespace AgOpenGPS
                     if (AgroParallel.QuantiX.MotoresConfig.Load().Nodos.Count == 0) return;
 
                     _quantixBridge = new AgroParallel.QuantiX.QuantiXMotorBridge(state, _nodos, new PrescripcionService());
+                    // Tren del motor derivado del implemento central (Task 5),
+                    // con fallback al campo manual si no hay dato derivable.
+                    _quantixBridge.ImplementoProvider = () => implemento.GetImplemento();
                     _ = _quantixBridge.StartAsync();
                     Console.WriteLine("[Engine] QuantiXMotorBridge arrancado: hay nodos configurados.");
                 }

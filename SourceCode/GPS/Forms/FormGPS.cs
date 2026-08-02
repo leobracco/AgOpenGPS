@@ -939,11 +939,18 @@ namespace AgOpenGPS
                 // por su config y recarga cada 2 s. Despacha el corte de PilotX a los
                 // nodos SectionX (relays → agp/quantix/.../sections) y LineX (servo →
                 // agp/linex/.../sections) en un solo lugar.
+                var sectionXCutAdapter = new AgroParallel.Cut.SectionXCutAdapter
+                {
+                    // Tren derivado del implemento central (Task 5), con
+                    // fallback al config viejo por nodo si no hay dato
+                    // derivable — ver ImplementoProvider en el adapter.
+                    ImplementoProvider = () => global::AgroParallel.Shell.AgpWebHostBootstrap.Implemento?.GetImplemento()
+                };
                 cutDispatcher = new AgroParallel.Cut.CutDispatcher(
                     new AgroParallel.Adapters.FormGpsStateProvider(this),
                     new AgroParallel.Cut.ICutAdapter[]
                     {
-                        new AgroParallel.Cut.SectionXCutAdapter(),
+                        sectionXCutAdapter,
                         new AgroParallel.Cut.LineXCutAdapter()
                     });
                 _ = cutDispatcher.StartAsync();
@@ -1162,6 +1169,9 @@ namespace AgOpenGPS
                             new AgroParallel.Adapters.FormGpsStateProvider(this),
                             global::AgroParallel.Shell.AgpWebHostBootstrap.Nodos,
                             new AgroParallel.Services.PrescripcionService());
+                        // Tren del motor derivado del implemento central (Task 5),
+                        // con fallback al campo manual si no hay dato derivable.
+                        quantiXBridge.ImplementoProvider = () => global::AgroParallel.Shell.AgpWebHostBootstrap.Implemento?.GetImplemento();
                         _ = quantiXBridge.StartAsync();
                     }
                 }
@@ -4221,6 +4231,9 @@ namespace AgOpenGPS
                         new AgroParallel.Adapters.FormGpsStateProvider(this),
                         global::AgroParallel.Shell.AgpWebHostBootstrap.Nodos,
                         new AgroParallel.Services.PrescripcionService());
+                    // Tren del motor derivado del implemento central (Task 5),
+                    // con fallback al campo manual si no hay dato derivable.
+                    quantiXBridge.ImplementoProvider = () => global::AgroParallel.Shell.AgpWebHostBootstrap.Implemento?.GetImplemento();
                     _ = quantiXBridge.StartAsync();
                 }
 
