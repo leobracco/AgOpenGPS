@@ -44,7 +44,10 @@ namespace AgOpenGPS
         double ISimHost.Altitude { set => Pn.altitude = value; }
         int ISimHost.SatellitesTracked { set => Pn.satellitesTracked = value; }
         int ISimHost.SentenceCounter { set => sentenceCounter = (uint)value; }
-        void ISimHost.UpdateFixPosition() => UpdateFixPosition();
+        // Serializado: el timer del simulador es OTRO hilo que el UDP loopback;
+        // sin el lock compartido los dos entran juntos al pipeline de fix (ver
+        // _fixPipelineLock en ReceiveAppData).
+        void ISimHost.UpdateFixPosition() => ProcesarFixSerializado(UpdateFixPosition);
 
         // ---- IVehicleHost ----
         CModuleComm IVehicleHost.Mc => Mc;

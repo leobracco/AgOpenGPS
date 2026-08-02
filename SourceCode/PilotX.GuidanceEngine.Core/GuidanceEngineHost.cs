@@ -293,6 +293,26 @@ namespace AgOpenGPS
             _loopBackSocket = null;
         }
 
+        // Serializa el pipeline de fix. En FormGPS todos los PGN se procesan en
+        // el hilo de UI; acá ReceiveAppData re-arma el BeginReceiveFrom ANTES de
+        // procesar, así que ante una ráfaga (GGA+VTG del mismo fix, PGN de
+        // módulos) DOS hilos del pool entraban juntos a UpdateFixPosition →
+        // SectionControlToUpdate → AntiSolape.Sincronizar, y el Dictionary del
+        // CoverageIndex se corrompía ("A concurrent update was performed...").
+        // Con el índice corrupto CADA fix siguiente tiraba la excepción y las
+        // secciones quedaban CONGELADAS en su último estado — apagar el master
+        // manual no las apagaba. Todo lo que corre bajo ReceiveFromAgIO asume
+        // un solo hilo (Pn, heading, cobertura): este lock restituye el
+        // contrato del original.
+        private readonly object _fixPipelineLock = new object();
+
+        /// <summary>Entrada serializada al pipeline de fix (la usa también el
+        /// simulador, que llega por su propio timer y no por UDP).</summary>
+        internal void ProcesarFixSerializado(Action accion)
+        {
+            lock (_fixPipelineLock) accion();
+        }
+
         private void ReceiveAppData(IAsyncResult ar)
         {
             if (!_running) return;
@@ -305,11 +325,15 @@ namespace AgOpenGPS
                 _loopBackSocket.BeginReceiveFrom(_loopBuffer, 0, _loopBuffer.Length, SocketFlags.None,
                     ref _endPointLoopBack, ReceiveAppData, null);
 
-                PgnReceiverField.ReceiveFromAgIO(data);
+                lock (_fixPipelineLock) PgnReceiverField.ReceiveFromAgIO(data);
             }
             catch (Exception ex)
             {
-                Log.EventWriter("GuidanceEngine: error de recepción UDP: " + ex.Message);
+                // ToString y no Message: acá cae CUALQUIER excepción del pipeline
+                // de fix (NMEA→UpdateFixPosition→secciones). Sin el stack, un bug
+                // real (p.ej. colección corrupta) queda enterrado como una línea
+                // repetida 2000 veces y las secciones congeladas sin pista.
+                Log.EventWriter("GuidanceEngine: error de recepción UDP: " + ex);
             }
         }
 
