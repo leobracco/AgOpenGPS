@@ -382,7 +382,37 @@
     if (!monAct && motivo) {
       html += '<div class="warn">' + esc(motivo) + '</div>';
     }
+
+    // Referencia de la regla de tres de densidad: hoy se captura sola en la
+    // primera pasada estable, pero el operario puede pisarla a mano — "el
+    // flujo de AHORA equivale a la densidad configurada" — o volver al auto.
+    var spmRef   = live.spm_ref || 0;
+    var dosisRef = live.dosis_ref_kg_ha || 0;
+    var UNI = { kg_ha: 'kg/ha', sem_ha: 'sem/ha', sem_m: 'sem/m' };
+    var uniRef = UNI[live.dosis_ref_unidad] || 'kg/ha';
+    html += '<div class="row"><span class="lbl">Referencia densidad</span><span>' +
+            (dosisRef <= 0 ? 'sin insumo con densidad'
+              : (spmRef > 0 ? ('capturada ✓ (' + fmt(dosisRef, 1) + ' ' + uniRef + ')')
+                            : 'pendiente de captura…')) + '</span></div>';
+    if (dosisRef > 0) {
+      html += '<div class="vx-ref-btns">' +
+              '<button type="button" class="vx-diag-btn" data-refaccion="fijar">Fijar ahora (flujo actual = densidad)</button>' +
+              '<button type="button" class="vx-diag-btn" data-refaccion="auto">Re-capturar auto</button>' +
+              '</div>';
+    }
     body.innerHTML = html;
+  }
+
+  async function ajustarReferencia(accion) {
+    try {
+      var r = await fetch('/api/vistax/referencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: accion })
+      });
+      await r.json();
+      poll(); // refresca el snapshot (y con él, el modal) al toque
+    } catch (e) { /* sin conexión: el próximo poll lo muestra */ }
   }
 
   function start() {
@@ -398,6 +428,12 @@
     // Click en pill abre diagnóstico (por qué está detenido / activo).
     $('vxPill').addEventListener('click', openDiag);
     $('vxDiagX').addEventListener('click', closeDiag);
+    // Delegación: el body del modal se re-renderiza en cada poll, el listener
+    // vive en el contenedor que persiste.
+    $('vxDiagBody').addEventListener('click', function (ev) {
+      var a = ev.target.getAttribute && ev.target.getAttribute('data-refaccion');
+      if (a) ajustarReferencia(a);
+    });
     $('vxDiagBack').addEventListener('click', function (ev) {
       if (ev.target === $('vxDiagBack')) closeDiag();
     });

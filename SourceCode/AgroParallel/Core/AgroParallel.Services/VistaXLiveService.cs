@@ -832,6 +832,29 @@ namespace AgroParallel.Services
             snap.SpmRef = _spmRef > 0 ? Math.Round(_spmRef, 1) : 0;
         }
 
+        /// <summary>Ajuste MANUAL de la referencia (además de la captura
+        /// automática): "fijar" = el flujo de este instante equivale a la
+        /// densidad configurada; "auto" = borrar y recapturar solo.</summary>
+        public double AjustarReferenciaDensidad(string accion)
+        {
+            // El spm actual se calcula ANTES de tomar _lock (GetSnapshot ya
+            // lockea internamente).
+            double spmActual = 0;
+            try { spmActual = GetSnapshot()?.SpmPromedio ?? 0; } catch { }
+
+            lock (_lock)
+            {
+                _refVentanaInicio = default(DateTime);
+                _refAcum = 0;
+                _refN = 0;
+                bool fijar = string.Equals(accion, "fijar", StringComparison.OrdinalIgnoreCase);
+                // "fijar" sin flujo (parado / secciones cortadas) degrada a
+                // "auto": no hay un instante que fijar, mejor recapturar.
+                _spmRef = fijar && spmActual > 0 ? spmActual : 0;
+                return _spmRef;
+            }
+        }
+
         // Lee AvgSpeed de PilotX defensivo: cualquier excepción del provider,
         // NaN o ±Infinity → 0 (tractor "frenado"), nunca propagamos al snapshot.
         private double LeerVelocidadSegura()
