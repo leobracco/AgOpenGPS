@@ -167,8 +167,8 @@
     if (spmRef > 0 && dosisRef > 0 && spm != null) {
       var dosisEst = spm / spmRef * dosisRef;
       var dec = dosisRef >= 1000 ? 0 : 1;
-      html += '<div class="row"><span class="lbl">' + uniRef + ' est.</span><span>' +
-              fmt(dosisEst, dec) + ' / ' + fmt(dosisRef, dec) + '</span></div>';
+      html += '<div class="row"><span class="lbl">Densidad est.</span><span>' +
+              fmt(dosisEst, dec) + ' / ' + fmt(dosisRef, dec) + ' ' + uniRef + '</span></div>';
     }
     if (pct != null) {
       var pctClamp = Math.max(0, Math.min(150, pct));
