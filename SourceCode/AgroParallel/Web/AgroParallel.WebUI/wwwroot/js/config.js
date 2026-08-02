@@ -890,7 +890,10 @@
       trnCargar(); // trenes de siembra: fuente única, el implemento central
     },
     leave: function () {
-      if (!sec.dirty) return Promise.resolve(true);
+      // Los trenes pueden estar sucios aunque la geometría no (pintaste la
+      // tira sin tocar cantidades): guardarlos igual, y que el resultado
+      // mande — si fallan, el botón queda en dirty y se puede reintentar.
+      if (!sec.dirty) return trnGuardar();
       var cut = leerNudDec(document.getElementById('nudCutoff'), limCutoff()[0], limCutoff()[1]);
       var cov = leerNud(document.getElementById('nudMinCoverage'), 0, 100);
       if (cut === null || cov === null) { setEstado('Revisá los valores marcados en rojo', 'err'); return Promise.resolve(false); }
@@ -916,9 +919,12 @@
       }
       sec.dirty = false;
       // Primero la geometría (manda), después los trenes sobre esa cantidad.
+      // El resultado de los trenes también cuenta: si fallan, el botón no
+      // muestra "Guardado" y el reintento vuelve a intentarlos (la geometría
+      // ya quedó firme y sec.dirty=false evita re-guardarla).
       return guardar('secciones', body).then(function (ok) {
-        if (!ok) return false;
-        return trnGuardar().then(function () { return true; });
+        if (!ok) { sec.dirty = true; return false; }
+        return trnGuardar();
       });
     }
   };
@@ -1673,7 +1679,9 @@
   main.addEventListener('input', marcarSucio);
   main.addEventListener('change', marcarSucio);
   main.addEventListener('click', function (ev) {
-    if (ev.target.closest('.chkimg, .radioimg, #btnOpacUp, #btnOpacDn, #btnSmoothUp, #btnSmoothDn, #btnExtUp, #btnExtDn')) {
+    // Trenes: agregar/quitar y pintar la tira modifican datos → botón dirty.
+    // (Elegir el pincel no: no cambia nada hasta que se pinta.)
+    if (ev.target.closest('.chkimg, .radioimg, #btnOpacUp, #btnOpacDn, #btnSmoothUp, #btnSmoothDn, #btnExtUp, #btnExtDn, #trnAdd, [data-trn-del], #trnStrip .celda')) {
       marcarSucio();
     }
   });
