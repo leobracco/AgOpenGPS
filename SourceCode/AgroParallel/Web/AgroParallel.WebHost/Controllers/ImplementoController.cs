@@ -82,6 +82,10 @@ namespace AgroParallel.WebHost.Controllers
             // hace la UI nueva, así el shape queda siempre consistente.
             if (dto.Surcos == null || dto.Surcos.Count != dto.NumeroSurcos)
                 ImplementoSurcos.Regenerar(dto, dto.NumeroSurcos);
+            // Ídem con la lista de Secciones: el write-back central→Tool deriva
+            // NumSections de acá — desalineada, pisaba el guiado ("14 → 3").
+            if (dto.Secciones == null || dto.Secciones.Count != dto.NumeroSurcos)
+                ImplementoSurcos.SincronizarSecciones(dto);
             // Trenes: error de REPORTE nomás (ver ValidarTrenes) — no bloquea el guardado.
             var valTrenes = ConfigValidation.ValidarTrenes(dto);
             if (!valTrenes.Ok)
@@ -135,6 +139,10 @@ namespace AgroParallel.WebHost.Controllers
             // hace la UI nueva, así el shape queda siempre consistente.
             if (dto.Surcos == null || dto.Surcos.Count != dto.NumeroSurcos)
                 ImplementoSurcos.Regenerar(dto, dto.NumeroSurcos);
+            // Ídem con la lista de Secciones: el write-back central→Tool deriva
+            // NumSections de acá — desalineada, pisaba el guiado ("14 → 3").
+            if (dto.Secciones == null || dto.Secciones.Count != dto.NumeroSurcos)
+                ImplementoSurcos.SincronizarSecciones(dto);
             // Trenes: error de REPORTE nomás (ver ValidarTrenes) — no bloquea el guardado.
             var valTrenes = ConfigValidation.ValidarTrenes(dto);
             if (!valTrenes.Ok)

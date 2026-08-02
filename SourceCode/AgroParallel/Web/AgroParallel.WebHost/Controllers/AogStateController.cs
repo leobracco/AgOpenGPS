@@ -131,10 +131,17 @@ namespace AgroParallel.WebHost.Controllers
             return WriteJsonAsync(_state.GetDisplayColors());
         }
 
+        // ?token=<SourceToken conocido>: si el shape no cambió, respuesta de
+        // 40 bytes en vez del shapefile entero. El poller del mapa pega cada
+        // 1 s — sin esto bajaba y deserializaba TODOS los polígonos por tick,
+        // y el shape tardaba varios segundos en aparecer al abrir el lote.
         [Route(HttpVerbs.Get, "/aog/shape")]
-        public Task GetShape()
+        public Task GetShape([QueryField] string token)
         {
-            return WriteJsonAsync(_state.GetShape());
+            var snap = _state.GetShape();
+            if (snap != null && !string.IsNullOrEmpty(token) && token == snap.SourceToken)
+                return WriteJsonAsync(new { source_token = snap.SourceToken, unchanged = true });
+            return WriteJsonAsync(snap);
         }
 
         [Route(HttpVerbs.Get, "/aog/shape-fields")]

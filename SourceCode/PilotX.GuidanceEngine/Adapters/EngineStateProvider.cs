@@ -466,18 +466,29 @@ namespace PilotX.GuidanceEngine.Adapters
             catch { return 0; }
         }
 
+        // El snapshot del shape se CACHEA por instancia de capa: el poller del
+        // mapa pega cada 1 s, y armar ExportPolygonsLocal (todas las listas de
+        // vértices) en cada GET era CPU constante — y parte de los segundos que
+        // tardaba el shape en aparecer al abrir el lote.
+        private AgroParallel.Common.ShapefileLayer _shapeSnapCapa;
+        private ShapeSnapshot _shapeSnapCache;
+
         public ShapeSnapshot GetShape()
         {
             try
             {
                 var layer = Shape?.Capa;
-                if (layer == null || layer.IsEmpty) return null;
+                if (layer == null || layer.IsEmpty) { _shapeSnapCapa = null; _shapeSnapCache = null; return null; }
+
+                if (ReferenceEquals(layer, _shapeSnapCapa) && _shapeSnapCache != null)
+                    return _shapeSnapCache;
 
                 layer.EnsureProjected(_host.AppModelField.LocalPlane);
                 var polys = layer.ExportPolygonsLocal();
                 if (polys == null) return null;
 
-                return new ShapeSnapshot
+                _shapeSnapCapa = layer;
+                _shapeSnapCache = new ShapeSnapshot
                 {
                     SourceToken = layer.Source ?? string.Empty,
                     Count = polys.Count,
@@ -486,6 +497,7 @@ namespace PilotX.GuidanceEngine.Adapters
                     StyleMax = layer.StyleMax,
                     Polygons = polys,
                 };
+                return _shapeSnapCache;
             }
             catch { return null; }
         }

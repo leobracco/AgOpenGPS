@@ -42,5 +42,32 @@ namespace AgroParallel.Services.Tests
             Assert.Equal(3, impl.Surcos.Count);
             Assert.All(impl.Surcos, s => Assert.Equal(1, s.TrenId));
         }
+
+        // La lista de Secciones del implemento es de donde el write-back
+        // central→Tool deriva NumSections: un PUT con la lista vieja pisaba la
+        // cantidad de secciones recién configurada (pasó en el equipo real:
+        // "puse 14, reinicié y volvió a 3" — un restore por API mandó
+        // secciones=3 con numero_surcos=14).
+        [Fact]
+        public void SincronizarSecciones_RegeneraALaCantidadConservandoLookaheads()
+        {
+            var impl = new ImplementoDto { NumeroSurcos = 4 };
+            impl.Secciones.Add(new SeccionDto { Id = 1, Nombre = "Uno", LookaheadOn = 1.5, LookaheadOff = 0.5 });
+            impl.Secciones.Add(new SeccionDto { Id = 2, Nombre = "Dos" });
+            ImplementoSurcos.SincronizarSecciones(impl);
+            Assert.Equal(4, impl.Secciones.Count);
+            Assert.Equal(1.5, impl.Secciones[0].LookaheadOn, 3);   // conserva por índice
+            Assert.Equal("Dos", impl.Secciones[1].Nombre);
+            Assert.Equal(3, impl.Secciones[2].Id);                  // nuevos con id secuencial
+        }
+
+        [Fact]
+        public void SincronizarSecciones_Trunca()
+        {
+            var impl = new ImplementoDto { NumeroSurcos = 2 };
+            for (int i = 1; i <= 5; i++) impl.Secciones.Add(new SeccionDto { Id = i });
+            ImplementoSurcos.SincronizarSecciones(impl);
+            Assert.Equal(2, impl.Secciones.Count);
+        }
     }
 }
