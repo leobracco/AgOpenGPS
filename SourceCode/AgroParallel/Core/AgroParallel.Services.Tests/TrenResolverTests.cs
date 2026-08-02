@@ -56,6 +56,22 @@ namespace AgroParallel.Services.Tests
         }
 
         [Fact]
+        public void TrenesConDistanciaCero_DevuelveNull_ParaFallback()
+        {
+            // Simula el seed decorativo (ImplementoService.SeedFromLegacyServices):
+            // 2 trenes, ambos DistanciaM=0, surcos válidos repartidos entre ambos.
+            // Sin la guarda "sin distancias reales" esto resolvía tren+distancia 0
+            // y pisaba el fallback manual de una máquina configurada por nodo.
+            var impl = new ImplementoDto();
+            impl.Trenes.Add(new TrenDto { Id = 1, Nombre = "Delantero", DistanciaM = 0 });
+            impl.Trenes.Add(new TrenDto { Id = 2, Nombre = "Trasero", DistanciaM = 0 });
+            for (int i = 1; i <= 14; i++)
+                impl.Surcos.Add(new SurcoDto { Numero = i, TrenId = (i % 2 == 1) ? 1 : 2, SeccionPilotX = i });
+
+            Assert.Null(TrenResolver.Resolver(impl, new[] { 2, 4, 6 }));
+        }
+
+        [Fact]
         public void SurcosDesconocidos_SeIgnoran_TodosDesconocidosEsNull()
         {
             var impl = Impl2Trenes();

@@ -51,6 +51,12 @@ namespace AgroParallel.QuantiX
         // un motor queda mal configurado (surcos de trenes distintos).
         private bool _loggedTrenConflicto;
 
+        // "Una vez por arranque" (mismo patrón que SectionXCutAdapter): dos
+        // flags independientes porque un mismo rig puede tener motores que sí
+        // derivan del implemento y otros que caen al fallback por nodo.
+        private bool _loggedDerivadoImplemento;
+        private bool _loggedFallbackNodo;
+
         /// Retorna el PPS real del motor. Sale del registry, que ya parsea
         /// agp/quantix/{uid}/status_live en NodoStatus.MotorsLive — el bridge
         /// dejó de duplicar ese parseo con una suscripción propia.
@@ -216,20 +222,16 @@ namespace AgroParallel.QuantiX
                 // SectionXCutAdapter/Task 4), así que armamos el mapa
                 // sección->surcos una sola vez por tick antes de resolver cada
                 // motor, para no confundir los dos espacios de numeración.
-                var implCentral = ImplementoProvider != null ? ImplementoProvider() : null;
-                Dictionary<int, List<int>> surcosPorSeccion = null;
-                if (implCentral != null && implCentral.Surcos != null)
-                {
-                    surcosPorSeccion = new Dictionary<int, List<int>>();
-                    foreach (var s in implCentral.Surcos)
-                    {
-                        if (s == null || s.SeccionPilotX < 1) continue;
-                        List<int> lista;
-                        if (!surcosPorSeccion.TryGetValue(s.SeccionPilotX, out lista))
-                            surcosPorSeccion[s.SeccionPilotX] = lista = new List<int>();
-                        lista.Add(s.Numero);
-                    }
-                }
+                // El provider puede tirar (IOException del disco, etc.): si eso
+                // aborta el tick entero, TODOS los motores pierden su target este
+                // ciclo por un problema ajeno a ellos. Con el catch, este tick
+                // sigue con implCentral=null y cada motor cae a su fallback por
+                // nodo (mismo resultado que "provider no wireado").
+                ImplementoDto implCentral = null;
+                try { if (ImplementoProvider != null) implCentral = ImplementoProvider(); }
+                catch { /* sin implemento este tick: fallback por nodo, el tick sigue */ }
+
+                Dictionary<int, List<int>> surcosPorSeccion = SurcosPorSeccion.Construir(implCentral);
 
                 // Cache de secciones "atrasadas" por distancia: motores de
                 // distintos nodos pueden compartir la misma distancia de tren;
@@ -250,14 +252,30 @@ namespace AgroParallel.QuantiX
                         // manual de siempre si no hay dato derivable.
                         var surcosMotor = SurcosDeSecciones(motor.Cortes, surcosPorSeccion);
                         var trM = TrenResolver.Resolver(implCentral, surcosMotor);
-                        double distMotor = trM != null
-                            ? trM.DistanciaM
-                            : ((motor.Tren == 0) ? 0 : nodo.DistanciaEntreTrenes); // fallback fase 1
-                        if (trM != null && trM.Conflicto && !_loggedTrenConflicto)
+                        double distMotor;
+                        if (trM != null)
                         {
-                            Log(string.Format("  M{0} (nodo {1}): surcos de trenes distintos — usando tren {2}",
-                                mi, nodo.Uid, trM.TrenId));
-                            _loggedTrenConflicto = true;
+                            distMotor = trM.DistanciaM;
+                            if (!_loggedDerivadoImplemento)
+                            {
+                                Log("trenes: derivados del implemento");
+                                _loggedDerivadoImplemento = true;
+                            }
+                            if (trM.Conflicto && !_loggedTrenConflicto)
+                            {
+                                Log(string.Format("  M{0} (nodo {1}): surcos de trenes distintos — usando tren {2}",
+                                    mi, nodo.Uid, trM.TrenId));
+                                _loggedTrenConflicto = true;
+                            }
+                        }
+                        else
+                        {
+                            distMotor = (motor.Tren == 0) ? 0 : nodo.DistanciaEntreTrenes; // fallback fase 1
+                            if (motor.Tren != 0 && !_loggedFallbackNodo)
+                            {
+                                Log("trenes: fallback por nodo (implemento sin distancias)");
+                                _loggedFallbackNodo = true;
+                            }
                         }
 
                         // Fuente de secciones según la distancia de tren resuelta.

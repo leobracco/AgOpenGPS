@@ -241,9 +241,12 @@ namespace AgroParallel.WebHost.Controllers
             // Si el implemento está vacío y el template define una estructura
             // multi-tren (Tanzi 14500 = 2 trenes), creamos los trenes y
             // distribuimos los surcos consecutivos: primera mitad → tren 1
-            // (trasero), segunda mitad → tren 2 (delantero, distancia_m > 0).
-            // Esto coincide con la convención del visualizador y del mock Tanzi
-            // (numeración 1..N de atrás-izq hacia adelante-der).
+            // (delantero), segunda mitad → tren 2 (trasero). Convención
+            // validada en ConfigValidation.ValidarTrenes: "tren 1 = delantero,
+            // distancia 0". Ningún tren arranca con distancia inventada — todos
+            // en 0 hasta que el operario mida y cargue la distancia real; con
+            // todo en 0 la guarda de TrenResolver ("sin distancias reales")
+            // mantiene el fallback manual por nodo hasta ese momento.
             if (implementoVacio && tpl.NumeroTrenes >= 2 && tpl.NumeroSurcos > 0)
             {
                 dto.Trenes = new List<TrenDto>();
@@ -253,12 +256,9 @@ namespace AgroParallel.WebHost.Controllers
                     {
                         Id = t,
                         Nombre = tpl.NumeroTrenes == 2
-                            ? (t == 1 ? "Trasero" : "Delantero")
+                            ? (t == 1 ? "Delantero" : "Trasero")
                             : ("Tren " + t),
-                        // Distancia típica entre trenes en air-drill = ~0.7 m.
-                        // Tren 1 = referencia (0). El resto desplazados hacia atrás
-                        // siguiendo la convención (distancia_m > 0 = más cerca del tractor).
-                        DistanciaM = (t - 1) * 0.7
+                        DistanciaM = 0
                     });
                 }
                 dto.Surcos = new List<SurcoDto>();

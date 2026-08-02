@@ -31,6 +31,21 @@ namespace AgroParallel.Services.Common
         public static TrenResultado Resolver(ImplementoDto impl, IEnumerable<int> surcos)
         {
             if (impl == null || impl.Trenes == null || impl.Trenes.Count < 2) return null;
+
+            // Guarda "sin distancias reales": ImplementoService.SeedFromLegacyServices
+            // crea trenes decorativos (DistanciaM=0 en todos) para que la UI tenga
+            // algo que mostrar en un implemento recién creado. Sin esta guarda, ese
+            // seed pisaba el fallback manual de una máquina que ya andaba en banco
+            // (motor.Tren + DistanciaEntreTrenes por nodo) con "todos los trenes a
+            // distancia 0" — el peor resultado posible, no el mejor. Si NINGÚN tren
+            // declara una distancia real (>0.05 m), tratamos el implemento como
+            // "trenes sin configurar" y devolvemos null para que el consumidor use
+            // su fallback de siempre.
+            bool hayDistanciaReal = false;
+            foreach (var t in impl.Trenes)
+                if (t != null && t.DistanciaM > 0.05) { hayDistanciaReal = true; break; }
+            if (!hayDistanciaReal) return null;
+
             if (impl.Surcos == null || impl.Surcos.Count == 0 || surcos == null) return null;
 
             var trenPorSurco = new Dictionary<int, int>();

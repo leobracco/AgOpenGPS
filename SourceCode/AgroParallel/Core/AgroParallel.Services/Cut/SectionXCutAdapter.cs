@@ -79,19 +79,7 @@ namespace AgroParallel.Cut
             // Sección PilotX → números de surco que cubre. SeccionAOG numera SECCIONES;
             // TrenResolver espera SURCOS (SurcoDto.Numero) — son espacios distintos y
             // pueden ser N surcos por sección (migración VistaX, asignación manual).
-            Dictionary<int, List<int>> surcosPorSeccion = null;
-            if (impl != null && impl.Surcos != null)
-            {
-                surcosPorSeccion = new Dictionary<int, List<int>>();
-                foreach (var s in impl.Surcos)
-                {
-                    if (s == null || s.SeccionPilotX < 1) continue;
-                    List<int> lista;
-                    if (!surcosPorSeccion.TryGetValue(s.SeccionPilotX, out lista))
-                        surcosPorSeccion[s.SeccionPilotX] = lista = new List<int>();
-                    lista.Add(s.Numero);
-                }
-            }
+            Dictionary<int, List<int>> surcosPorSeccion = SurcosPorSeccion.Construir(impl);
 
             // Cache de secciones "atrasadas" por distancia: varios cables/nodos
             // pueden compartir la misma distancia de tren; el cálculo (recorre el
