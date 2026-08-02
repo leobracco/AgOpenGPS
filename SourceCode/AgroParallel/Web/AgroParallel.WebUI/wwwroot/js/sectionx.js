@@ -123,12 +123,59 @@
     renderJson();
   }
 
-  // Opciones del dropdown "Tren" para cada cable. Vienen del implemento central
-  // (Herramienta). El value es el LOCAL del nodo QuantiX (0 = primer motor del
-  // nodo, 1 = segundo) — el bridge espera 0/1. El label muestra el nombre del
-  // tren del central para que el operario identifique de qué tren físico está
-  // hablando. Si el central no se cargó, caemos a "Tren 1 / Tren 2".
-  function trenOpts(currentLocal) {
+  // Mapa sección PilotX → surcos físicos que la componen, según el implemento
+  // central. Espejo JS de SurcosPorSeccion.cs (backend).
+  function surcosPorSeccionMapa() {
+    var surcos = (implCentral && Array.isArray(implCentral.surcos)) ? implCentral.surcos : [];
+    var mapa = {};
+    surcos.forEach(function (s) {
+      var sec = s.seccion_pilotx | 0;
+      if (sec < 1) return;
+      if (!mapa[sec]) mapa[sec] = [];
+      mapa[sec].push(s.numero | 0);
+    });
+    return mapa;
+  }
+
+  // Mapa surco físico (numero) → id de tren, según el implemento central.
+  function trenPorSurcoMapa() {
+    var surcos = (implCentral && Array.isArray(implCentral.surcos)) ? implCentral.surcos : [];
+    var mapa = {};
+    surcos.forEach(function (s) { mapa[s.numero | 0] = s.tren_id | 0; });
+    return mapa;
+  }
+
+  // Deriva a qué tren pertenece una sección PilotX (espejo JS de
+  // TrenResolver.cs, backend): mismo criterio de "sin trenes reales" (ningún
+  // tren con distancia_m > 0.05) y mismo desempate en conflicto (gana el
+  // tren del primer surco). null = sin dato derivable → el caller usa el
+  // fallback manual del cable (fase 1, spec
+  // 2026-08-01-implemento-unificado-design.md).
+  function derivarTrenSeccion(sec) {
+    var ts = (implCentral && Array.isArray(implCentral.trenes)) ? implCentral.trenes : [];
+    if (ts.length < 2) return null;
+    var hayDistanciaReal = ts.some(function (t) { return (t.distancia_m || 0) > 0.05; });
+    if (!hayDistanciaReal) return null;
+
+    var surcos = surcosPorSeccionMapa()[sec] || [];
+    if (!surcos.length) return null;
+
+    var porSurco = trenPorSurcoMapa();
+    var trenId = null, conflicto = false;
+    surcos.forEach(function (n) {
+      if (!(n in porSurco)) return;
+      var tid = porSurco[n];
+      if (trenId === null) trenId = tid;
+      else if (tid !== trenId) conflicto = true;
+    });
+    if (trenId === null) return null;
+    var t = ts.filter(function (x) { return (x.id | 0) === trenId; })[0];
+    return { id: trenId, nombre: t ? (t.nombre || ('Tren ' + trenId)) : ('Tren ' + trenId), conflicto: conflicto };
+  }
+
+  // Nombre legible para el valor LOCAL (0/1) que tenía guardado el cable
+  // antes de que el tren pasara a derivarse — se usa solo de fallback.
+  function trenFallbackLabel(currentLocal) {
     var labels;
     if (implCentral && Array.isArray(implCentral.trenes) && implCentral.trenes.length > 0) {
       labels = implCentral.trenes.slice(0, 2).map(function (t) {
@@ -137,11 +184,29 @@
     } else {
       labels = ['Tren 1', 'Tren 2'];
     }
-    // Asegurar dos opciones aunque el central tenga 1 solo tren.
     while (labels.length < 2) labels.push('Tren ' + (labels.length + 1));
-    var cur = currentLocal | 0;
-    return '<option value="0"' + (cur === 0 ? ' selected' : '') + '>' + escapeHtml(labels[0]) + '</option>' +
-           '<option value="1"' + (cur === 1 ? ' selected' : '') + '>' + escapeHtml(labels[1]) + '</option>';
+    return labels[(currentLocal | 0) === 1 ? 1 : 0];
+  }
+
+  // Presentación SOLO LECTURA del tren de un cable (reemplaza el <select
+  // data-cable-tren> editable de antes): se deriva del implemento central
+  // (sección → surco → tren; se configura en config-implemento.html, ver
+  // el link "Editar en Implemento" arriba de esta pantalla). Fallback al
+  // valor manual que ya tenía guardado el cable cuando el implemento no
+  // tiene trenes reales (fase 1).
+  function cableTrenReadOnlyHtml(cableTren, sec) {
+    var d = derivarTrenSeccion(sec);
+    if (!d) {
+      return '<span style="font-size:11px;color:var(--agp-text-muted)" '
+        + 'title="El implemento no tiene trenes configurados: se usa el valor manual del nodo">'
+        + escapeHtml(trenFallbackLabel(cableTren)) + ' (manual)</span>';
+    }
+    if (d.conflicto) {
+      return '<span class="pill warn" style="font-size:10px;padding:1px 6px" '
+        + 'title="Los surcos de esta sección pertenecen a trenes distintos del implemento">⚠ mixto</span>';
+    }
+    return '<span style="font-size:11px;color:var(--agp-text)" title="Tren derivado del implemento">'
+      + escapeHtml(d.nombre) + '</span>';
   }
 
   function renderCables() {
@@ -160,7 +225,7 @@
       html += '<div class="cable-cell' + (on ? ' on' : '') + '" data-cable="' + i + '">' +
                 '<div class="cable-num">Surco ' + i + '</div>' +
                 '<input type="number" min="0" max="16" data-cable-sec="' + i + '" value="' + sec + '" title="Sección PilotX (0 = no asignado)">' +
-                '<select data-cable-tren="' + i + '" title="Tren">' + trenOpts(c.tren ?? 0) + '</select>' +
+                cableTrenReadOnlyHtml(c.tren ?? 0, sec) +
               '</div>';
     }
     html += '</div>';
@@ -203,13 +268,17 @@
       }
     });
 
-    // Surcos: reconstruir desde la grilla (1..SURCOS_POR_NODO)
+    // Surcos: reconstruir desde la grilla (1..SURCOS_POR_NODO). El tren ya
+    // no se edita acá (se deriva del implemento central, ver
+    // cableTrenReadOnlyHtml); conservamos el valor manual que ya tenía
+    // guardado el cable — sigue siendo el fallback fase 1 del bridge.
+    var oldByCable = {};
+    (n.cables || []).forEach(function (c) { oldByCable[c.cable] = c; });
     var cables = [];
     for (var i = 1; i <= SURCOS_POR_NODO; i++) {
-      var secEl  = cablesEl.querySelector('[data-cable-sec="' + i + '"]');
-      var trenEl = cablesEl.querySelector('[data-cable-tren="' + i + '"]');
+      var secEl = cablesEl.querySelector('[data-cable-sec="' + i + '"]');
       var sec = parseInt(secEl ? secEl.value : '0', 10) || 0;
-      var tren = parseInt(trenEl ? trenEl.value : '0', 10) || 0;
+      var tren = (oldByCable[i] && typeof oldByCable[i].tren === 'number') ? oldByCable[i].tren : 0;
       if (sec > 0) cables.push({ cable: i, seccionAOG: sec, tren: tren });
     }
     n.cables = cables;

@@ -202,20 +202,76 @@
     return Array.isArray(ts) ? ts : [];
   }
 
-  // <select> de tren para un motor. Solo se muestra si hay 2+ trenes definidos;
-  // con un solo tren no tiene sentido elegir. Setea motor.tren (0=delantero).
-  function trenSelectHtml(i, tren) {
+  // Mapa sección PilotX (motor.cortes) → surcos físicos que la componen, según
+  // el implemento central. Espejo JS de SurcosPorSeccion.cs (backend).
+  function surcosPorSeccionMapa() {
+    var surcos = (state.implCentral && Array.isArray(state.implCentral.surcos)) ? state.implCentral.surcos : [];
+    var mapa = {};
+    surcos.forEach(function (s) {
+      var sec = s.seccion_pilotx | 0;
+      if (sec < 1) return;
+      if (!mapa[sec]) mapa[sec] = [];
+      mapa[sec].push(s.numero | 0);
+    });
+    return mapa;
+  }
+
+  // Mapa surco físico (numero) → id de tren, según el implemento central.
+  function trenPorSurcoMapa() {
+    var surcos = (state.implCentral && Array.isArray(state.implCentral.surcos)) ? state.implCentral.surcos : [];
+    var mapa = {};
+    surcos.forEach(function (s) { mapa[s.numero | 0] = s.tren_id | 0; });
+    return mapa;
+  }
+
+  // Deriva a qué tren pertenece un motor a partir de los surcos que alimenta
+  // (motor.cortes → surcos → tren). Espejo JS de TrenResolver.cs (backend):
+  // mismo criterio de "sin trenes reales" (ningún tren con distancia_m > 0.05)
+  // y mismo desempate en conflicto (gana el tren del primer surco).
+  // Devuelve null cuando no hay dato derivable — el caller usa el fallback
+  // manual del nodo (fase 1, spec 2026-08-01-implemento-unificado-design.md).
+  function derivarTrenMotor(cortes) {
     var ts = trenesDisponibles();
-    if (ts.length < 2) return '';
-    var cur = tren | 0;
-    var opts = ts.map(function (t) {
-      var id = t.id | 0;
-      var nm = t.nombre || ('Tren ' + id);
-      return '<option value="' + id + '"' + (id === cur ? ' selected' : '') + '>'
-        + escapeHtml(nm) + '</option>';
-    }).join('');
-    return '<select class="qxTren" data-mi="' + i + '" title="Tren físico del motor">'
-      + opts + '</select>';
+    if (ts.length < 2) return null;
+    var hayDistanciaReal = ts.some(function (t) { return (t.distancia_m || 0) > 0.05; });
+    if (!hayDistanciaReal) return null;
+
+    var porSeccion = surcosPorSeccionMapa();
+    var surcos = [];
+    (cortes || []).forEach(function (sec) {
+      (porSeccion[sec] || []).forEach(function (n) { surcos.push(n); });
+    });
+    if (!surcos.length) return null;
+
+    var porSurco = trenPorSurcoMapa();
+    var trenId = null, conflicto = false;
+    surcos.forEach(function (n) {
+      if (!(n in porSurco)) return;
+      var tid = porSurco[n];
+      if (trenId === null) trenId = tid;
+      else if (tid !== trenId) conflicto = true;
+    });
+    if (trenId === null) return null;
+    var t = ts.filter(function (x) { return (x.id | 0) === trenId; })[0];
+    return { id: trenId, nombre: t ? (t.nombre || ('Tren ' + trenId)) : ('Tren ' + trenId), conflicto: conflicto };
+  }
+
+  // Presentación SOLO LECTURA del tren de un motor (reemplaza el <select>
+  // editable de antes): el tren ya no se elige acá, se deriva del implemento
+  // central y se configura en Implemento. Fallback al valor manual del nodo
+  // (m.tren) cuando el implemento no tiene trenes reales cargados (fase 1).
+  function trenReadOnlyHtml(tren, cortes) {
+    var d = derivarTrenMotor(cortes);
+    if (!d) {
+      return '<span class="pill" title="El implemento no tiene trenes configurados: se usa el valor manual del nodo">'
+        + 'Tren: <b>manual (nodo)</b></span>';
+    }
+    if (d.conflicto) {
+      return '<span class="pill warn" title="Los surcos de este motor pertenecen a trenes distintos del implemento — se usa el del primero">'
+        + '⚠ surcos de trenes distintos</span>';
+    }
+    return '<span class="pill" title="Tren derivado del implemento — se configura en Implemento">'
+      + 'Tren: <b>' + escapeHtml(d.nombre) + '</b></span>';
   }
 
   // <select> mapa/fija para un motor: "Dosis fija" + cada columna del shape.
@@ -250,7 +306,10 @@
     // Si estamos en vivo, delega al render live (se implementa en una tarea posterior).
     if (state.siembraEnMarcha && typeof renderMotorListLive === 'function') { renderMotorListLive(); return; }
 
-    var html = '';
+    // Nota única (no una por motor): el tren de cada fila es solo-lectura,
+    // derivado del implemento central — se configura en config-implemento.html.
+    var html = '<div style="font-size:11px;color:var(--agp-text-muted);margin-bottom:6px">'
+      + 'Tren: derivado del implemento — <a href="config-implemento.html">configurar en Implemento</a></div>';
     for (var i = 0; i < all.length; i++) {
       var m = all[i].motor;
       var sel = (i === state.brushMotor) ? ' sel' : '';
@@ -270,7 +329,7 @@
         + '<input class="qxNombre" type="text" data-mi="' + i + '" value="' + escapeHtml(nombreRaw)
         + '" title="Nombre del motor">'
         + '<span class="cnt">' + fmtCortes(m.cortes) + escapeHtml(nodoTag(all[i])) + '</span>'
-        + trenSelectHtml(i, m.tren)
+        + trenReadOnlyHtml(m.tren, m.cortes)
         + '<span class="dosebox"><input type="number" step="0.1" data-mi="' + i + '" '
         + 'class="qxDosisFija" value="' + dosis + '"> '
         + '<button class="uToggle" type="button" data-mi="' + i + '" title="Cambiar unidad (kg/ha ↔ sem/m)">'
@@ -289,8 +348,7 @@
         if (e.target && e.target.classList &&
             (e.target.classList.contains('qxDosisFija') || e.target.classList.contains('mdel') ||
              e.target.classList.contains('uToggle') || e.target.classList.contains('qxSemVuelta') ||
-             e.target.classList.contains('qxMapa') || e.target.classList.contains('qxNombre') ||
-             e.target.classList.contains('qxTren'))) return;
+             e.target.classList.contains('qxMapa') || e.target.classList.contains('qxNombre'))) return;
         state.brushMotor = parseInt(this.getAttribute('data-mi'), 10);
         updateBrushChip(); renderStrip(); renderMotorList();
       });
@@ -344,20 +402,9 @@
         }
       });
     }
-    // Tren físico del motor (0 = delantero). Afecta el timing de secciones del
-    // tren trasero en el bridge.
-    var trenes = el.querySelectorAll('.qxTren');
-    for (var tr = 0; tr < trenes.length; tr++) {
-      trenes[tr].addEventListener('change', function (e) {
-        e.stopPropagation();
-        var idx = parseInt(this.getAttribute('data-mi'), 10);
-        var entry = allMotors()[idx];
-        if (entry && entry.motor) {
-          entry.motor.tren = parseInt(this.value, 10) || 0;
-          state.dirty = true;
-        }
-      });
-    }
+    // Tren físico del motor: ya NO se edita acá (era <select class="qxTren">).
+    // Se muestra solo-lectura, derivado del implemento central — ver
+    // trenReadOnlyHtml()/derivarTrenMotor() más arriba.
     // Mapa/fija: vacío = dosis fija; nombre de columna = mapa del shapefile.
     var mapas = el.querySelectorAll('.qxMapa');
     for (var mp = 0; mp < mapas.length; mp++) {
@@ -625,12 +672,52 @@
     renderStrip(); renderMotorList();
   }
 
+  // El ancho de labor lo administra PilotX (/api/tool): el implemento Agro
+  // Parallel guarda una COPIA que nadie sincroniza. Esa copia alimentaba el
+  // cálculo de dosis en pantalla, así que un implemento cargado bien en PilotX
+  // (7,28 m = 14 surcos a 0,52) convivía con 4 m y 0,191 m acá y sem/ha salía
+  // 2,7 veces más alto. Tomamos el ancho de PilotX como fuente de verdad y, si
+  // hay cantidad de surcos, derivamos de ahí el espaciamiento real.
   async function loadImplCentral() {
     try {
       var r = await fetch('/api/implemento', { cache: 'no-store' });
       var d = await r.json();
       state.implCentral = (d && d.ok) ? d.implemento : null;
     } catch (e) { state.implCentral = null; }
+
+    if (!state.implCentral) return;
+
+    // La geometría sale de la CONFIGURACIÓN DE SECCIONES de PilotX y de ningún
+    // otro lado: ancho de labor, cantidad de surcos y distancia entre hileras.
+    // Una sección = un surco, que es como ya venía trabajando el planter de
+    // esta misma pantalla (la tira de surcos usa aogNumSections). Tener esos
+    // valores duplicados en el implemento Agro Parallel fue lo que hizo que
+    // sem/ha saliera 2,7 veces más alto con el implemento desfasado.
+    try {
+      var rt = await fetch('/api/tool', { cache: 'no-store' });
+      var dt = await rt.json();
+      var tool = (dt && dt.tool) || {};
+      var w = Number(tool.width) || 0;
+      var nSec = tool.numSections | 0;
+      state.anchoPilotX = w;
+      if (w > 0) {
+        state.implCentral.ancho_total_m = w;
+        if (nSec > 0) {
+          state.implCentral.numero_surcos = nSec;
+          state.implCentral.distancia_entre_surcos_m = w / nSec;
+        }
+      }
+    } catch (e) { state.anchoPilotX = 0; }
+  }
+
+  // Sin secciones configuradas no hay geometría de la que calcular dosis por
+  // hectárea. Se avisa; no se inventa un ancho por defecto.
+  function avisoAnchoDistinto() {
+    if (!state.implCentral) return '';
+    if (state.anchoPilotX > 0) return '';
+    return 'PilotX no tiene ancho de labor configurado. Cargalo en Implemento ' +
+      'PilotX (ancho y cantidad de secciones): de ahí salen los surcos, la ' +
+      'distancia entre hileras y la dosis por hectárea.';
   }
 
   async function loadAogSections() {
@@ -670,7 +757,7 @@
     document.querySelectorAll('.tab').forEach(function (t) {
       t.classList.toggle('active', t.getAttribute('data-tab') === name);
     });
-    ['Siembra', 'Shape', 'Pid', 'Calibrar', 'Prueba'].forEach(function (k) {
+    ['Siembra', 'Motores', 'Shape', 'Pid', 'Calibrar', 'Prueba'].forEach(function (k) {
       var el = $('tab' + k);
       if (el) el.style.display = (k.toLowerCase() === name) ? '' : 'none';
     });
@@ -680,6 +767,7 @@
       // por motor, y re-renderiza cuando llegan.
       if (!state.siembraEnMarcha) loadShapeFields().then(function () { renderSiembra(); });
     }
+    if (name === 'motores')  renderMotores();
     if (name === 'shape')    refreshShapeActive();
     if (name === 'pid')      renderPid();
     if (name === 'calibrar') renderCalibrar();
@@ -758,12 +846,13 @@
       var n = nodos[i];
       var uid = n.uid;
       var motors = n.motors_live || [];
-      state.liveByUid[uid] = { online: !!n.online, motors: motors };
+      state.liveByUid[uid] = { online: !!n.online, motors: motors, firmware: n.firmware || '' };
     }
     // Sin gate por state.activeTab: escribir unos textContent en tabs
     // ocultas es gratis y el gate solo agregaba estados congelables. Cada
     // updater aislado en try para que uno roto no mate a los siguientes.
     try { updateCalibrarPulses(); } catch (_) {}
+    try { updateMotoresEstado(); } catch (_) {}
     try { updatePidLive(); } catch (_) {}
     try { updatePruebaLive(); } catch (_) {}
     // Siembra se re-renderiza con el estado AOG cacheado; el fetch de
@@ -811,6 +900,7 @@
       unidad_dosis: 'kg_ha', semillas_vuelta: 0, campo_dosis: '',
       kp: 80, ki: 30, kd: 0, pwm_min: 600, pwm_max: 4095, meter_cal: 50,
       max_integral: 1200, deadband: 2, slew_rate: 40, dientes_engranaje: 20,
+      sensor_tipo: 'inductivo', pulse_min: 2000,
       motor_type: 0, max_hz: 40, ff_gain: 1.0, alpha: 0.4,
       slew_rate_per_sec: 5000, pid_time: 50,
       // cortes[] = surcos/secciones PilotX que alimenta este motor (se pintan
@@ -927,6 +1017,289 @@
   if (segP) segP.addEventListener('click', function () { setSiembraView('planter'); });
   var segT = document.getElementById('segTabla');
   if (segT) segT.addEventListener('click', function () { setSiembraView('tabla'); });
+
+  // ============================================================================
+  // MOTORES — config del fierro (sensor, motor, PWM, PID) en un solo lugar
+  // ============================================================================
+  //
+  // Antes esto estaba repartido: el PPR en Calibración, el PWM mínimo en Prueba,
+  // Kp/Ki/Kd y Max Hz en PID live, y el filtro del sensor en ningún lado (solo
+  // en el JSON). Para saber cómo estaba armado un motor había que recorrer tres
+  // pestañas. Acá va todo junto; las otras pestañas quedan para operar y medir.
+
+  // Tipo de sensor → filtro antirrebote del nodo y PPR típico.
+  //
+  // Importa más de lo que parece: el filtro le pone techo a lo que el nodo puede
+  // leer (1e6/pulse_min pulsos por segundo). Pasado ese techo NO se queda en el
+  // máximo — cuenta uno de cada dos y reporta la mitad de las vueltas. Con
+  // encoder de 600 ppr y el filtro de inductivo (2000 µs) el techo son 50 rpm:
+  // el motor gira a 67 y el nodo dice 33 (medido en banco, 2026-08-01).
+  var SENSORES = {
+    inductivo: { pulse_min: 2000, ppr: 20,  label: 'Inductivo (pocos pulsos)' },
+    encoder:   { pulse_min: 100,  ppr: 600, label: 'Encoder (cientos de pulsos)' }
+  };
+
+  function tipoSensorDe(m) {
+    if (m && m.sensor_tipo) return m.sensor_tipo;
+    // Config vieja sin el campo: lo deducimos del PPR guardado.
+    return (m && m.dientes_engranaje >= 100) ? 'encoder' : 'inductivo';
+  }
+
+  // Vueltas por minuto que el nodo puede llegar a leer con ese filtro y ese PPR.
+  function techoRpm(pulseMin, ppr) {
+    if (!pulseMin || !ppr) return 0;
+    return Math.round(60000000 / (pulseMin * ppr));
+  }
+
+  // Escribe un stepper de AGPSteps por código. OJO: el valor vive en un <input
+  // type="hidden"> y el número que se VE es un <span class="agp-step-val">. Si
+  // solo se toca el input, el operario no ve ningún cambio y parece que el
+  // control no anda — que es exactamente lo que pasó con el primer intento.
+  function setStepper(scope, campo, valor) {
+    var inp = scope.querySelector('[data-mf="' + campo + '"]');
+    if (!inp) return;
+    inp.value = valor;
+    var box = inp.closest('.agp-stepper');
+    var span = box && box.querySelector('.agp-step-val');
+    if (span) span.textContent = valor;
+  }
+
+  function readMf(scope, campo, fallback) {
+    var inp = scope.querySelector('[data-mf="' + campo + '"]');
+    if (!inp) return fallback;
+    var v = parseFloat(inp.value);
+    return isNaN(v) ? fallback : v;
+  }
+
+  function renderMotores() {
+    var listEl = $('motList');
+    var emptyEl = $('motEmpty');
+    if (!listEl) return;
+    var nodos = (state.motoresCfg.nodos || []).filter(function (n) { return n.uid; });
+    if (!nodos.length) {
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.style.display = '';
+      return;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    var html = '';
+    for (var i = 0; i < nodos.length; i++) {
+      var n = nodos[i];
+      var live = state.liveByUid[n.uid];
+      var fw = (live && live.firmware) ? (' · fw ' + escapeHtml(live.firmware)) : '';
+      html += '<div class="card" style="margin-bottom: var(--agp-sp-4)" data-uid="' + escapeHtml(n.uid) + '">' +
+        '<div class="node-head">' +
+          '<h3 style="margin:0">' + escapeHtml(n.nombre || 'Nodo') +
+            ' <span style="font-family: var(--agp-font-mono); color: var(--agp-text-muted); font-size: var(--agp-fs-sm); font-weight: normal">' +
+            escapeHtml(n.uid) + '<span data-mot-fw>' + fw + '</span></span></h3>' +
+          '<span class="pill ' + (live && live.online ? 'ok' : 'err') + '" data-mot-pill><span class="dot"></span> ' +
+            (live && live.online ? 'en línea' : 'fuera de línea') + '</span>' +
+        '</div>' +
+        '<div class="live-tune-grid">' +
+          motorCfgCard(n, 0) +
+          motorCfgCard(n, 1) +
+        '</div>' +
+      '</div>';
+    }
+    listEl.innerHTML = html;
+    if (window.AGPSteps) window.AGPSteps.bindSteppers(listEl);
+  }
+
+  function motorCfgCard(n, mi) {
+    var m = (n.motores && n.motores[mi]) || defaultMotor();
+    var tipo = tipoSensorDe(m);
+    var ppr = m.dientes_engranaje || SENSORES[tipo].ppr;
+    var pulseMin = m.pulse_min || SENSORES[tipo].pulse_min;
+    var esHid = (m.motor_type | 0) === 1;
+    var stepInt = function (campo, val, opts) {
+      opts = opts || {};
+      var attrs = 'data-mf="' + campo + '"';
+      if (window.AGPSteps) {
+        return window.AGPSteps.stepperHTML({
+          value: val, min: opts.min, max: opts.max, mode: 'int', step: opts.step || 1, attrs: attrs
+        });
+      }
+      return '<input type="number" ' + attrs + ' value="' + val + '">';
+    };
+    var stepPid = function (campo, val, mx) {
+      var attrs = 'data-mf="' + campo + '"';
+      if (window.AGPSteps) {
+        return window.AGPSteps.stepperHTML({ value: val, min: 0, max: mx, mode: 'pid', attrs: attrs });
+      }
+      return '<input type="number" ' + attrs + ' value="' + val + '">';
+    };
+
+    return '<div class="motor-cfg ' + (mi === 0 ? '' : 'm1') + '" data-mi="' + mi + '">' +
+      '<h4>M' + mi + ' — ' + escapeHtml(m.nombre || 'Motor') + '</h4>' +
+
+      // ── Sensor: qué cuenta las vueltas ──────────────────────────────────
+      '<div class="cfg-block"><span class="cfg-block-t">Sensor</span>' +
+        '<div class="fld-grid">' +
+          '<div class="field wide"><label>Tipo</label>' +
+            '<select data-mf="sensor_tipo">' +
+              '<option value="inductivo"' + (tipo === 'encoder' ? '' : ' selected') + '>' + SENSORES.inductivo.label + '</option>' +
+              '<option value="encoder"' + (tipo === 'encoder' ? ' selected' : '') + '>' + SENSORES.encoder.label + '</option>' +
+            '</select></div>' +
+          '<div class="field"><label>Pulsos por vuelta</label>' +
+            stepInt('dientes_engranaje', ppr, { min: 1, max: 4000, step: 1 }) + '</div>' +
+          '<div class="field"><label>Filtro antirrebote</label>' +
+            stepInt('pulse_min', pulseMin, { min: 20, max: 20000, step: 10 }) + '</div>' +
+        '</div>' +
+        '<div class="cfg-hint" data-mf-out="techo">Con este filtro el nodo lee hasta ' +
+          techoRpm(pulseMin, ppr) + ' rpm</div>' +
+      '</div>' +
+
+      // ── Motor: qué se está moviendo y con qué PWM ───────────────────────
+      '<div class="cfg-block"><span class="cfg-block-t">Motor</span>' +
+        '<div class="fld-grid">' +
+          '<div class="field wide"><label>Tipo</label>' +
+            '<select data-mf="motor_type">' +
+              '<option value="0"' + (esHid ? '' : ' selected') + '>Eléctrico</option>' +
+              '<option value="1"' + (esHid ? ' selected' : '') + '>Hidráulico</option>' +
+            '</select></div>' +
+          '<div class="field"><label>PWM mínimo</label>' +
+            stepInt('pwm_min', m.pwm_min || 600, { min: 0, max: 4095, step: 10 }) + '</div>' +
+          '<div class="field"><label>PWM máximo</label>' +
+            stepInt('pwm_max', m.pwm_max || 4095, { min: 0, max: 4095, step: 10 }) + '</div>' +
+        '</div>' +
+      '</div>' +
+
+      // ── PID: lo que usa el lazo para seguir la dosis ────────────────────
+      '<div class="cfg-block"><span class="cfg-block-t">PID</span>' +
+        '<div class="fld-grid">' +
+          '<div class="field"><label>Kp</label>' + stepPid('kp', m.kp || 0, 300) + '</div>' +
+          '<div class="field"><label>Ki</label>' + stepPid('ki', m.ki || 0, 200) + '</div>' +
+          '<div class="field"><label>Kd</label>' + stepPid('kd', m.kd || 0, 50) + '</div>' +
+        '</div>' +
+        '<div class="kv" style="margin-top: var(--agp-sp-2)">' +
+          '<div class="k">Tope del motor (Max Hz)</div>' +
+          '<div class="v"><span data-mf-out="max_hz">' + (m.max_hz || 0) + '</span> Hz' +
+            ' <span style="color:var(--agp-text-muted)">· <span data-mf-out="max_rpm">' +
+            Math.round(((m.max_hz || 0) * 60) / (ppr || 1)) + '</span> rpm</span></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="btn-row" style="margin-top: var(--agp-sp-3)">' +
+        '<button class="btn primary" data-mot-act="save" data-mi="' + mi + '">Guardar y enviar</button>' +
+        '<button class="btn" data-mot-act="maxhz" data-mi="' + mi + '" title="Gira el motor a PWM máximo 4 s y guarda el tope medido">⏱ Medir tope</button>' +
+        '<span class="send-msg" data-mot-msg="' + mi + '"></span>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // Cambiar el tipo de sensor precarga PPR y filtro típicos. No guarda solo:
+  // el operario confirma con "Guardar y enviar" (puede querer corregir el PPR).
+  var tabMotoresEl = document.getElementById('tabMotores');
+  if (tabMotoresEl) {
+    tabMotoresEl.addEventListener('change', function (ev) {
+      var sel = ev.target.closest('select[data-mf="sensor_tipo"]');
+      if (!sel) return;
+      var mc = sel.closest('.motor-cfg');
+      if (!mc) return;
+      var def = SENSORES[sel.value === 'encoder' ? 'encoder' : 'inductivo'];
+      setStepper(mc, 'dientes_engranaje', def.ppr);
+      setStepper(mc, 'pulse_min', def.pulse_min);
+      refrescarTecho(mc);
+    });
+
+    // El techo de lectura se recalcula al tocar PPR o filtro (los [−]/[+] de
+    // AGPSteps disparan 'input' sobre el hidden).
+    tabMotoresEl.addEventListener('input', function (ev) {
+      var inp = ev.target.closest('[data-mf="pulse_min"], [data-mf="dientes_engranaje"]');
+      if (!inp) return;
+      var mc = inp.closest('.motor-cfg');
+      if (mc) refrescarTecho(mc);
+    });
+
+    tabMotoresEl.addEventListener('click', async function (ev) {
+      var btn = ev.target.closest('button[data-mot-act]');
+      if (!btn) return;
+      var card = btn.closest('.card[data-uid]');
+      var mc = btn.closest('.motor-cfg');
+      var uid = card.getAttribute('data-uid');
+      var mi = parseInt(btn.getAttribute('data-mi'), 10);
+      var msgEl = mc.querySelector('span[data-mot-msg="' + mi + '"]');
+
+      if (btn.getAttribute('data-mot-act') === 'save') {
+        await guardarMotorCfg(uid, mi, mc, msgEl);
+      } else {
+        // Reusa la medición de la pestaña PID: gira a 4095 y guarda el pico.
+        await pidMaxHzHandler(uid, mi, mc, btn, msgEl);
+        var m2 = findMotor(uid, mi);
+        var out = mc.querySelector('[data-mf-out="max_hz"]');
+        var outR = mc.querySelector('[data-mf-out="max_rpm"]');
+        if (out && m2) out.textContent = m2.max_hz || 0;
+        if (outR && m2) {
+          var pprAct = readMf(mc, 'dientes_engranaje', m2.dientes_engranaje || 1);
+          outR.textContent = Math.round(((m2.max_hz || 0) * 60) / (pprAct || 1));
+        }
+      }
+    });
+  }
+
+  // El estado del nodo llega por WS después de dibujar las tarjetas: sin esto
+  // la pestaña se quedaba diciendo "fuera de línea" con el nodo andando.
+  function updateMotoresEstado() {
+    var listEl = $('motList');
+    if (!listEl) return;
+    listEl.querySelectorAll('.card[data-uid]').forEach(function (card) {
+      var live = state.liveByUid[card.getAttribute('data-uid')];
+      var pill = card.querySelector('[data-mot-pill]');
+      if (pill) {
+        pill.className = 'pill ' + (live && live.online ? 'ok' : 'err');
+        pill.innerHTML = '<span class="dot"></span> ' + (live && live.online ? 'en línea' : 'fuera de línea');
+      }
+      var fw = card.querySelector('[data-mot-fw]');
+      if (fw) fw.textContent = (live && live.firmware) ? (' · fw ' + live.firmware) : '';
+    });
+  }
+
+  function refrescarTecho(mc) {
+    var out = mc.querySelector('[data-mf-out="techo"]');
+    if (!out) return;
+    var pm = readMf(mc, 'pulse_min', 0);
+    var pr = readMf(mc, 'dientes_engranaje', 0);
+    var rpm = techoRpm(pm, pr);
+    out.textContent = 'Con este filtro el nodo lee hasta ' + rpm + ' rpm';
+    // Menos de 120 rpm de techo es sospechoso: arriba de ahí el nodo empieza a
+    // reportar la mitad de las vueltas sin avisar.
+    out.className = 'cfg-hint' + (rpm > 0 && rpm < 120 ? ' warn' : '');
+  }
+
+  async function guardarMotorCfg(uid, mi, mc, msgEl) {
+    var motor = findMotor(uid, mi);
+    if (!motor) { msgEl.textContent = '✕ no encuentro el motor'; msgEl.className = 'send-msg err'; return; }
+
+    var sel = mc.querySelector('select[data-mf="sensor_tipo"]');
+    var selMt = mc.querySelector('select[data-mf="motor_type"]');
+    motor.sensor_tipo = (sel && sel.value === 'encoder') ? 'encoder' : 'inductivo';
+    motor.motor_type = selMt ? (parseInt(selMt.value, 10) || 0) : 0;
+    motor.dientes_engranaje = readMf(mc, 'dientes_engranaje', motor.dientes_engranaje);
+    motor.pulse_min = readMf(mc, 'pulse_min', motor.pulse_min);
+    motor.pwm_min = readMf(mc, 'pwm_min', motor.pwm_min);
+    motor.pwm_max = readMf(mc, 'pwm_max', motor.pwm_max);
+    motor.kp = readMf(mc, 'kp', motor.kp);
+    motor.ki = readMf(mc, 'ki', motor.ki);
+    motor.kd = readMf(mc, 'kd', motor.kd);
+
+    msgEl.textContent = '… guardando'; msgEl.className = 'send-msg';
+    try {
+      await fetch('/api/quantix/motores', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state.motoresCfg)
+      });
+      var res = await fetch('/api/quantix/' + encodeURIComponent(uid) + '/send', { method: 'POST' });
+      var data = await res.json();
+      msgEl.textContent = data.ok
+        ? '✓ guardado y enviado al nodo'
+        : '✕ guardado, pero el nodo no contestó';
+      msgEl.className = 'send-msg ' + (data.ok ? 'ok' : 'err');
+    } catch (e) {
+      msgEl.textContent = '✕ ' + e.message;
+      msgEl.className = 'send-msg err';
+    }
+  }
 
   // ============================================================================
   // PID LIVE-TUNE
@@ -1103,9 +1476,9 @@
   }
 
   // ── Medir Max Hz ──────────────────────────────────────────────────────────
-  // Manda PWM=4095 (start), muestrea ppsReal cada 200ms durante 4s, manda
-  // PWM=0 (stop) y guarda el máximo como motor.max_hz en motores.json + push
-  // por MQTT /config.
+  // Sube el motor por rampa hasta PWM=4095, muestrea ppsReal cada 200ms
+  // durante 4s, manda PWM=0 (stop) y guarda el máximo como motor.max_hz en
+  // motores.json + push por MQTT /config.
   async function pidMaxHzHandler(uid, mi, mc, btn, msgEl) {
     if (btn.disabled) return;
     btn.disabled = true;
@@ -1114,17 +1487,51 @@
     msgEl.textContent = '… motor a PWM máximo 4s'; msgEl.className = 'send-msg';
 
     var peak = 0;
+    // El nodo publica el PWM que REALMENTE aplicó. Si algo se lo pisa (corte
+    // por sección, PID, watchdog), el pico de Hz sale bajo y guardarlo arruina
+    // el feedforward del PID. Por eso medimos también el PWM aplicado.
+    var pwmMax = 0, pwmMin = 4095, muestras = 0;
     try {
-      // Arrancar motor a PWM=4095
+      // ARRANQUE POR RAMPA — no saltar de 0 a 4095.
+      //
+      // Un motor parado al que se le tira el PWM máximo de golpe no arranca:
+      // se queda clavado. Medido en banco (2026-08-01, mismo motor, mismo
+      // mensaje MQTT, mismo PWM final):
+      //     salto directo a 4095 → 134 Hz (13 rpm)
+      //     rampa 600→4095       → 672 Hz (67 rpm)
+      // Por eso este botón venía guardando topes 5 veces más bajos que el
+      // real, y con ese max_hz el feedforward del PID arranca mal.
+      var cfgM = findMotor(uid, mi);
+      var pwmIni = Math.max(400, (cfgM && cfgM.pwm_min) || 600);
+      msgEl.textContent = '… subiendo el motor por rampa';
+      for (var p = pwmIni; p < 4095; p += 250) {
+        await sendTest(uid, mi, p);
+        await new Promise(function (r) { setTimeout(r, 250); });
+      }
       await sendTest(uid, mi, 4095);
+      msgEl.textContent = '… midiendo a PWM máximo';
 
-      // Muestrear ppsReal 20 veces * 200ms = 4s
+      // Muestrear ppsReal 20 veces * 200ms = 4s.
+      //
+      // Pedimos el live FRESCO en cada muestra en vez de leer state.liveByUid:
+      // esa caché se refresca cada 500-2000 ms según la pestaña (y con WS mudo,
+      // menos), así que muestrearla 20 veces devolvía 2 o 3 valores distintos —
+      // casi siempre del arranque del motor. Así medimos 133 Hz un motor que
+      // hace 695 (banco 2026-08-01).
       for (var k = 0; k < 20; k++) {
         await new Promise(function (r) { setTimeout(r, 200); });
-        var m = getLiveMotor(uid, mi);
+        var m = await fetchLiveMotor(uid, mi);
         if (m) {
           var pps = m.pps_real || 0;
           if (pps > peak) peak = pps;
+          // Las 2 primeras muestras son arranque: el nodo puede no haber
+          // procesado el start todavía.
+          if (k >= 2) {
+            var pw = m.pwm || 0;
+            if (pw > pwmMax) pwmMax = pw;
+            if (pw < pwmMin) pwmMin = pw;
+            muestras++;
+          }
         }
       }
     } finally {
@@ -1136,6 +1543,14 @@
 
     if (peak < 1) {
       msgEl.textContent = '✕ no se detectaron pulsos — revisá el sensor';
+      msgEl.className = 'send-msg err';
+      return;
+    }
+
+    // El nodo nunca sostuvo el PWM máximo: la medición no sirve, no la guardamos.
+    if (muestras > 0 && pwmMin < 3900) {
+      msgEl.textContent = '✕ el nodo no sostuvo el PWM: aplicó ' + pwmMin + '–' + pwmMax +
+        ' de 4095. No se guardó. Apagá la dosis/secciones y actualizá el firmware del nodo.';
       msgEl.className = 'send-msg err';
       return;
     }
@@ -1339,7 +1754,10 @@
 
   function calCard(n, mi) {
     var m = (n.motores && n.motores[mi]) || defaultMotor();
-    var ppr = m.dientes_engranaje || 20;
+    // El PPR y el sensor son config del fierro: se editan en la pestaña
+    // Motores. Acá se usan para la cuenta y se muestran, nada más — dos
+    // lugares editando lo mismo es como se llegó al lío anterior.
+    var ppr = m.dientes_engranaje || SENSORES[tipoSensorDe(m)].ppr;
     var pwmDef = Math.round(((m.pwm_min || 600) + (m.pwm_max || 4095)) / 2);
     var defaultVueltas = 10;
     var defaultSurcos = 6;
@@ -1361,14 +1779,16 @@
       '<div class="fld-grid" style="margin-top:0">' +
         '<div class="field"><label>Vueltas a girar</label>' +
           calIntStepper('vueltas', defaultVueltas, { min: 1, max: 100, step: 1 }) + '</div>' +
-        '<div class="field"><label>Pulsos por vuelta (PPR)</label>' +
-          calIntStepper('ppr', ppr, { min: 1, max: 4000, step: 1 }) + '</div>' +
         '<div class="field"><label>PWM</label>' +
           calIntStepper('pwm', pwmDef, { min: 0, max: 4095, step: 10 }) + '</div>' +
         '<div class="field"><label>Cantidad de surcos</label>' +
           calIntStepper('surcos', defaultSurcos, { min: 1, max: 20, step: 1 }) + '</div>' +
       '</div>' +
+      // PPR fijo: viene de Motores. Se muestra porque define la meta de pulsos.
+      '<input type="hidden" data-cal-f="ppr" value="' + ppr + '">' +
       '<div class="kv" style="margin-top: var(--agp-sp-2)">' +
+        '<div class="k">Pulsos por vuelta</div><div class="v">' + ppr +
+          ' <span style="color:var(--agp-text-muted)">· se configura en Motores</span></div>' +
         '<div class="k">Meta total</div><div class="v"><span data-cal="meta">' + metaIni + '</span> pulsos</div>' +
         '<div class="k">' + actualLbl + '</div><div class="v">' + actualVal + '</div>' +
       '</div>' +
@@ -1807,6 +2227,25 @@
     });
   }
 
+  // Live del motor pedido al server en el momento, sin pasar por la caché
+  // compartida. Para MEDIR (Max Hz, rampas) hay que usar este: la caché la
+  // refresca el loop de polling y muestrearla más rápido que eso devuelve el
+  // mismo valor repetido.
+  async function fetchLiveMotor(uid, mi) {
+    try {
+      var res = await fetch('/api/quantix/live', { cache: 'no-store' });
+      var data = await res.json();
+      var nodos = (data && data.nodos) || [];
+      for (var i = 0; i < nodos.length; i++) {
+        if (nodos[i].uid !== uid) continue;
+        var ms = nodos[i].motors_live || [];
+        for (var k = 0; k < ms.length; k++)
+          if ((ms[k].id | 0) === mi) return ms[k];
+      }
+    } catch (e) {}
+    return null;
+  }
+
   function getLiveMotor(uid, mi) {
     var live = state.liveByUid[uid];
     if (!live || !live.motors) return null;
@@ -2210,7 +2649,7 @@
   //   · El estado AOG (/api/aog/state para la tab Siembra) se sigue refrescando
   //     por polling aunque el WS esté abierto — no viaja por /ws/quantix.
   //   · Pestaña del WebView no visible → pausa total (WS cerrado + sin polls).
-  var LIVE_TABS = { siembra: 1, pid: 1, calibrar: 1, prueba: 1 };
+  var LIVE_TABS = { siembra: 1, motores: 1, pid: 1, calibrar: 1, prueba: 1 };
   var pollTimer = null;
   var liveWs = null;
   var liveWsOpen = false;
@@ -2259,7 +2698,13 @@
       var wsFresco = liveWsOpen && (Date.now() - lastWsMsgTs) < 2500;
       try {
         if (!wsFresco) await pollLive();
-        else if (state.activeTab === 'siembra') await refreshAogLiveState();
+        // La velocidad se refresca SIEMPRE, no solo en Siembra: sem/m, sem/ha y
+        // kg/ha se calculan dividiendo por la velocidad, así que una velocidad
+        // congelada da dosis inventadas en PID live, Calibración y Prueba. Con
+        // el WS fresco esta era la única tab que la actualizaba: yendo a
+        // 3,5 km/h con 5 km/h viejos en memoria, PID live mostraba 3,5 sem/m
+        // donde el overlay (que lee la velocidad real) mostraba 4,9.
+        await refreshAogLiveState();
       } catch (_) {}
       // WS abierto pero mudo >10 s → reconectar (el server pudo purgar mal).
       if (liveWsOpen && Date.now() - lastWsMsgTs > 10000 && liveWs) {
