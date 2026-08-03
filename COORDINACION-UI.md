@@ -1735,24 +1735,25 @@ mínimo 26 px de contenido, DragBar 22→18. NUEVO en overlayPrefs:
 44 px cerca de la cabecera (histéresis 5 m) y la restaura al alejarse.
 IDs/data-* intactos.
 
-### 2026-08-03 · Claude — tab Motores de QuantiX: tarjetas → TABLA
-`quantix.html` + `js/quantix.js` (a pedido del usuario). Los dos motores del
-nodo dejaron de ser tarjetas lado a lado y pasaron a una tabla con cabecera de
-dos niveles (grupo Sensor/Motor/PID + campo). Motivo: con varios nodos × 2
-motores, comparar PWM y PID en vertical es lo que se hace en la práctica.
+### 2026-08-03 · Claude — tab Motores de QuantiX: tarjetas → TABLA TRANSPUESTA
+`quantix.html` + `js/quantix.js` (a pedido del usuario). Los motores del nodo
+dejaron de ser tarjetas lado a lado. Primer intento fue tabla a lo ancho (un
+parámetro por columna): 12 columnas, 1560 px, scroll permanente en cabina. La
+versión que quedó está TRANSPUESTA: **cada motor es una columna y cada
+parámetro una fila**. Entra en 852 px sin scroll, y el ancho ahora crece con
+los motores del nodo, no con los parámetros.
 
 Detalles que importan si tocás esto:
-- La fila SIGUE siendo `.motor-cfg` con su `data-mi`: los handlers del tab la
-  buscan con `closest('.motor-cfg')`. Verificado en vivo que sensor_tipo,
-  los 7 steppers, save y maxhz siguen funcionando.
-- Se anula `#tabMotores .motor-cfg::before` (la barra de color de la tarjeta
-  cruzaba toda la fila); el color del motor ahora es el chip M0/M1.
-- Tabla de 1560 px: `.mcfg-scroll` da scroll horizontal y la columna Motor es
-  `position:sticky` para no perder de vista qué motor se está tocando.
-- Steppers compactos dentro de celda (40 px alto, botones de 38) — siguen
-  siendo tocables, pero los de 56 px del formulario no entraban.
-- `refrescarTecho()` ahora escribe el texto corto ('lee hasta N rpm'); la
-  frase larga quedó en el `title`. Si volvés al texto largo, la celda se
-  ensancha y rompe la compactación.
-- Los tabs PID live / Calibración / Prueba NO se tocaron: siguen con tarjetas,
-  que ahí es lo correcto (se mira un motor por vez).
+- Los campos de un motor YA NO están en un solo nodo del DOM. `motorScope()`
+  devuelve un objeto con querySelector/querySelectorAll acotado a las celdas
+  `.mcol[data-mi=N]`; los helpers (readMf, setStepper, refrescarTecho,
+  guardarMotorCfg) solo usaban querySelector, así que no se tocaron.
+- En los 3 handlers del tab, `closest('.motor-cfg')` pasó a `motorScopeDesde()`.
+  OJO: los tabs PID live / Calibración / Prueba SIGUEN con tarjetas y con
+  `closest('.motor-cfg')` — no unificar sin migrarlos también.
+- Verificado en vivo que el scope no se cruza: cambiar el sensor de M0 deja M1
+  intacto (ppr y techo).
+- La cantidad de motores es dinámica (`max(2, n.motores.length)`): el nodo de 7
+  canales entra solo, antes estaba hardcodeado en 2.
+- `refrescarTecho()` escribe texto corto ('lee hasta N rpm'); la frase larga
+  quedó en el `title`.
