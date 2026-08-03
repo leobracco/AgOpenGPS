@@ -1247,7 +1247,8 @@
     var fila = function (etiqueta, celda, clase) {
       var h = '<tr' + (clase ? ' class="' + clase + '"' : '') + '><th class="c-par">' + etiqueta + '</th>';
       for (var k = 0; k < ms.length; k++) {
-        h += '<td class="mcol" data-mi="' + k + '">' + celda(k, ms[k]) + '</td>';
+        var apagado = (ms[k].habilitado === false) ? ' mdis' : '';
+        h += '<td class="mcol' + apagado + '" data-mi="' + k + '">' + celda(k, ms[k]) + '</td>';
       }
       return h + '</tr>';
     };
@@ -1257,11 +1258,21 @@
 
     var html = '<table class="mcfg-table"><thead><tr><th class="c-par"></th>';
     for (i = 0; i < ms.length; i++) {
-      html += '<th class="mcol' + (i === 0 ? '' : ' m1') + '" data-mi="' + i + '">' +
+      html += '<th class="mcol' + (i === 0 ? '' : ' m1') +
+        (ms[i].habilitado === false ? ' mdis' : '') + '" data-mi="' + i + '">' +
         '<span class="mot-tag">M' + i + '</span>' +
         '<span class="mot-nom">' + escapeHtml(ms[i].nombre || 'Motor') + '</span></th>';
     }
     html += '</tr></thead><tbody>';
+
+    // Canal cableado o no. Un canal sin motor recibia consigna igual: el PID
+    // se saturaba contra la nada (PWM 4095 fijo) y el overlay se llenaba de
+    // ceros. Destildado, el bridge le manda pps=0 y no aparece en el overlay.
+    html += fila('Motor conectado', function (k, m) {
+      var hab = (m.habilitado !== false);
+      return '<label class="hab-cell"><input class="qxHabM" type="checkbox" data-mi="' + k + '"' +
+        (hab ? ' checked' : '') + '> <span>' + (hab ? 'Conectado' : 'Sin motor') + '</span></label>';
+    }, 'hab-row');
 
     // ── Sensor: qué cuenta las vueltas ────────────────────────────────────
     html += seccion('Sensor');
@@ -1330,6 +1341,26 @@
   var tabMotoresEl = document.getElementById('tabMotores');
   if (tabMotoresEl) {
     tabMotoresEl.addEventListener('change', function (ev) {
+      var hab = ev.target.closest('input.qxHabM');
+      if (hab) {
+        var card = hab.closest('.card[data-uid]');
+        var mot = findMotor(card.getAttribute('data-uid'), parseInt(hab.getAttribute('data-mi'), 10));
+        if (mot) {
+          mot.habilitado = hab.checked;
+          var txt = hab.parentNode.querySelector('span');
+          if (txt) txt.textContent = hab.checked ? 'Conectado' : 'Sin motor';
+          // Atenuar la COLUMNA entera: el canal sin motor sigue siendo
+          // editable, pero tiene que verse apagado de un vistazo.
+          var tabla = hab.closest('.mcfg-table');
+          if (tabla) {
+            var celdas = tabla.querySelectorAll('.mcol[data-mi="' + hab.getAttribute('data-mi') + '"]');
+            for (var c = 0; c < celdas.length; c++) celdas[c].classList.toggle('mdis', !hab.checked);
+          }
+          state.dirty = true;
+          guardarMotoresCfg();
+        }
+        return;
+      }
       var sel = ev.target.closest('select[data-mf="sensor_tipo"]');
       if (!sel) return;
       var mc = motorScopeDesde(sel);

@@ -88,10 +88,14 @@ namespace AgroParallel.WebHost.Controllers
 
                     var motoresOut = new List<object>();
                     int motCount = nodo.Motores != null ? nodo.Motores.Length : 0;
-                    for (int mi = 0; mi < motCount && mi < 2; mi++)
+                    // Sin tope de canales: un nodo puede llevar hasta 7 motores.
+                    for (int mi = 0; mi < motCount; mi++)
                     {
                         var motor = nodo.Motores[mi];
                         if (motor == null) continue;
+                        // Canal sin motor cableado: no va al overlay. Mostrarlo
+                        // llena la pantalla de ceros de algo que no existe.
+                        if (!motor.Habilitado) continue;
 
                         // Objetivo: del snapshot runtime (ya respeta ManualMode).
                         double objetivo = 0;
@@ -253,10 +257,12 @@ namespace AgroParallel.WebHost.Controllers
             {
                 if (nodo == null || !nodo.Habilitado || nodo.Motores == null) continue;
                 int motCount = nodo.Motores.Length;
-                for (int mi = 0; mi < motCount && mi < 2; mi++)
+                for (int mi = 0; mi < motCount; mi++)
                 {
                     var motor = nodo.Motores[mi];
                     if (motor == null) continue;
+                    // Un canal deshabilitado no se pasa a manual: no se dosifica.
+                    if (!motor.Habilitado) continue;
                     motor.ManualMode = req.Manual;
                     if (req.Manual)
                     {

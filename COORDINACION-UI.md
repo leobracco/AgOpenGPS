@@ -1757,3 +1757,19 @@ Detalles que importan si tocás esto:
   canales entra solo, antes estaba hardcodeado en 2.
 - `refrescarTecho()` escribe texto corto ('lee hasta N rpm'); la frase larga
   quedó en el `title`.
+
+### 2026-08-03 · Claude — QuantiX: motor conectado/desconectado + fin del tope de 2 canales
+`quantix.html/js` + `WidgetQuantiXController.cs`. El tab Motores tiene ahora
+una fila **Motor conectado** (checkbox por columna): al destildar se guarda
+`habilitado=false`, la columna entera se atenúa (el checkbox queda a opacidad
+plena para reconectarlo) y **el motor deja de aparecer en el overlay**.
+
+- El filtro vive en el backend del overlay (`/api/widget-quantix/state`), así
+  que vale para el overlay Avalonia y para el widget HTML por igual.
+- De paso se sacaron dos topes de 2 canales en ese controller (`mi < 2`): con
+  el nodo de 7 el overlay mostraba solo los dos primeros. Igual en la tabla del
+  Hub, que dibuja `max(2, n.motores.length)`.
+- La columna de parámetros es `position:sticky`: con 7 motores hay scroll
+  horizontal (1186 px) y sin eso se pierde de vista qué parámetro se toca.
+- Verificado en vivo el ciclo: habilitado → overlay muestra los 2; destildado →
+  muestra 1; y el checkbox de la UI persiste en la config.
