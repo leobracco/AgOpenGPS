@@ -130,6 +130,12 @@ namespace AgroParallel.Models
         [JsonPropertyName("slew_rate_per_sec")]
         public double SlewRatePerSec { get; set; } = 5000;
 
+        // Rampa de CONSIGNA en Hz/s (distinta del slew de PWM de arriba).
+        // El default histórico del firmware era 50, que a 455 pps tarda 9 s en
+        // llegar al target: la pasada arrancaba con ~35% menos de semilla.
+        [JsonPropertyName("target_slew_hz_per_sec")]
+        public double TargetSlewHzPerSec { get; set; } = 300;
+
         [JsonPropertyName("pid_time")]
         public int PIDTime { get; set; } = 50;
 

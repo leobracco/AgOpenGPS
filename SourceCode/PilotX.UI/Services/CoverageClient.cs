@@ -62,9 +62,11 @@ public sealed class CoverageStrip
 
 public sealed class CoverageSection
 {
-    public int                   Index   { get; set; }
-    public bool                  Enabled { get; set; }
-    public List<CoverageStrip>?  Strips  { get; set; }
+    public int                   Index     { get; set; }
+    public bool                  Enabled   { get; set; }
+    public List<CoverageStrip>?  Strips    { get; set; }
+    /// <summary>Incremental: la primera strip continúa este parche del cliente.</summary>
+    public int                   PatchBase { get; set; }
 }
 
 public sealed class CoverageSnapshot
@@ -76,6 +78,8 @@ public sealed class CoverageSnapshot
     public int                  B              { get; set; } = 63;
     public int                  A              { get; set; } = 140;
     public List<CoverageSection>? Sections    { get; set; }
+    /// <summary>true = reemplazar todo; false = payload incremental (append).</summary>
+    public bool                 Full           { get; set; } = true;
 }
 
 public sealed class CoverageResponse
@@ -111,8 +115,10 @@ public sealed class CoverageClient
                                                  : (baseUrl.EndsWith("/") ? baseUrl : baseUrl + "/");
     }
 
-    /// <summary>Trae el snapshot completo. Devuelve null en error (no tira).</summary>
-    public async Task<CoverageSnapshot?> GetSnapshotAsync(CancellationToken ct = default)
+    /// <summary>Trae el snapshot. Con <paramref name="cursor"/> ("j:p:v;...")
+    /// la respuesta es INCREMENTAL (Full=false): solo lo pintado desde
+    /// entonces. Devuelve null en error (no tira).</summary>
+    public async Task<CoverageSnapshot?> GetSnapshotAsync(CancellationToken ct = default, string? cursor = null)
     {
         try
         {
@@ -123,7 +129,9 @@ public sealed class CoverageClient
             // se compacta: a 8 Hz eso era un goteo constante de pausas del hilo de
             // UI. Deserializando del stream el payload se consume por buffers
             // chicos reutilizados y nunca se aloca el string completo.
-            using var resp = await _http.GetAsync(_baseUrl + "api/aog/coverage",
+            string url = _baseUrl + "api/aog/coverage"
+                + (string.IsNullOrEmpty(cursor) ? "" : "?cursor=" + Uri.EscapeDataString(cursor));
+            using var resp = await _http.GetAsync(url,
                 HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode) return null;
             using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);

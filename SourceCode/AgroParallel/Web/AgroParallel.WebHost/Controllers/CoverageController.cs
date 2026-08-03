@@ -26,9 +26,14 @@ namespace AgroParallel.WebHost.Controllers
         }
 
         [Route(HttpVerbs.Get, "/aog/coverage")]
-        public Task GetCoverage()
+        public Task GetCoverage([QueryField] string cursor)
         {
-            var snap = _coverage != null ? _coverage.GetSnapshot() : null;
+            // Con cursor ("j:p:v;...") la respuesta es INCREMENTAL: solo lo
+            // pintado desde entonces — pintado fluido a 3-5 Hz sin pagar el
+            // snapshot completo (MBs en jornadas largas) en cada poll.
+            var snap = _coverage != null
+                ? (string.IsNullOrEmpty(cursor) ? _coverage.GetSnapshot() : _coverage.GetSnapshot(cursor))
+                : null;
             return WriteJsonAsync(new { ok = true, snapshot = snap });
         }
 

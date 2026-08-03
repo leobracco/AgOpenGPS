@@ -120,6 +120,14 @@ namespace AgroParallel.Coverage
             double minN = Math.Min(an, Math.Min(bn, cn));
             double maxN = Math.Max(an, Math.Max(bn, cn));
 
+            // GUARDIA ANTI-VENENO: un triángulo de siembra real mide metros.
+            // Un bbox de cientos de metros es un vértice basura (header de
+            // color, fix sin origen, salto de posición) y registrarlo en la
+            // grilla crea MILLONES de celdas (una List<int> por celda): en el
+            // equipo real esto infló el proceso a >4 GB con 24,5 millones de
+            // listas y dejó el hilo del fix clavado en este for. Se descarta.
+            if (maxE - minE > 100.0 || maxN - minN > 100.0) return;
+
             int b = t * 4;
             _bbox[b] = minE; _bbox[b + 1] = minN; _bbox[b + 2] = maxE; _bbox[b + 3] = maxN;
 

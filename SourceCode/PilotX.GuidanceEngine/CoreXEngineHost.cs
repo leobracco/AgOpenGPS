@@ -193,13 +193,29 @@ namespace AgIO
 
             if (data[0] == 0x80 && data[1] == 0x81)
             {
-                UdpBridge.SendToLoopback(data);
+                // ANTI-ECO: los PGNs que ORIGINA el propio motor (posición
+                // corregida, autosteer data, secciones, settings) jamás pueden
+                // venir de un módulo — si llegan por la LAN son un eco (ModSim
+                // u otro relay reflejando el broadcast). Reinyectarlos armaba
+                // un lazo: eco de 0xD6 → UpdateFixPosition → 4 PGNs más →
+                // más eco… hasta GB de RAM. Se descartan acá.
+                byte pgn = data.Length > 3 ? data[3] : (byte)0;
+                bool esNuestro = pgn == 0xD6 || pgn == 0xFE || pgn == 0xEF ||
+                                 pgn == 0xE5 || pgn == 0xFC || pgn == 0xFB ||
+                                 pgn == 0xEE || pgn == 0xEC || pgn == 0xEB;
+                if (!esNuestro) UdpBridge.SendToLoopback(data);
             }
             else if (data[0] == (byte)'$')
             {
                 try
                 {
-                    lock (_nmeaLock) Nmea.ParseIncoming(System.Text.Encoding.ASCII.GetString(data));
+                    // TryEnter + descarte (ver GuidanceEngineHost): bajo flood
+                    // NMEA lo único que importa es la sentencia más nueva.
+                    if (System.Threading.Monitor.TryEnter(_nmeaLock))
+                    {
+                        try { Nmea.ParseIncoming(System.Text.Encoding.ASCII.GetString(data)); }
+                        finally { System.Threading.Monitor.Exit(_nmeaLock); }
+                    }
                 }
                 catch (Exception ex) { Log.EventWriter("CoreXEngine: LAN NMEA parse: " + ex.Message); }
             }

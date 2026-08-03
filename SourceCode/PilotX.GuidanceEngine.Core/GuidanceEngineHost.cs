@@ -325,7 +325,16 @@ namespace AgOpenGPS
                 _loopBackSocket.BeginReceiveFrom(_loopBuffer, 0, _loopBuffer.Length, SocketFlags.None,
                     ref _endPointLoopBack, ReceiveAppData, null);
 
-                lock (_fixPipelineLock) PgnReceiverField.ReceiveFromAgIO(data);
+                // TryEnter y DESCARTE, no lock: bajo una inundación UDP (eco,
+                // relay loco, ModSim reflejando) un lock convencional encolaba
+                // work-items sin límite (300+ hilos bloqueados, GB de byte[]).
+                // Con telemetría solo importa el dato MÁS NUEVO: si el pipeline
+                // está ocupado, este datagrama se tira y listo.
+                if (System.Threading.Monitor.TryEnter(_fixPipelineLock))
+                {
+                    try { PgnReceiverField.ReceiveFromAgIO(data); }
+                    finally { System.Threading.Monitor.Exit(_fixPipelineLock); }
+                }
             }
             catch (Exception ex)
             {

@@ -232,6 +232,9 @@ namespace AgroParallel.Services
                 sb.Append(",\"alpha\":").Append(m.Alpha.ToString(ci));
                 sb.Append(",\"pid_time\":").Append(m.PIDTime);
                 sb.Append(",\"slew_rate_per_sec\":").Append(m.SlewRatePerSec.ToString(ci));
+                // Rampa de consigna. Sin esta clave el nodo se queda con su
+                // default de 50 Hz/s y tarda ~9 s en alcanzar la dosis.
+                sb.Append(",\"target_slew_hz_per_sec\":").Append(m.TargetSlewHzPerSec.ToString(ci));
                 sb.Append(",\"dientes_engranaje\":").Append(m.DientesEngranaje);
                 // El firmware lee "pulses_per_rev" (dientes_engranaje era un
                 // nombre viejo que el nodo nunca miró — el ppr quedaba en 24).

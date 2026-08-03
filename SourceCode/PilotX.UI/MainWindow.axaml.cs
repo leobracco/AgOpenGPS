@@ -512,16 +512,14 @@ public partial class MainWindow : Window
                 // VBO si no cambió. (Incremental /coverage?since=<rev> queda para
                 // futuro.)
                 //
-                // NO bajar de acá: el endpoint devuelve el snapshot COMPLETO, que
-                // crece con el area trabajada (248 KB al rato, ~3 MB en jornada de
-                // 8 h). Cada poll es un fetch + deserialize de todo eso; a 125 ms
-                // el descarte generado alcanzaba para disparar Gen2 seguido y el
-                // mapa tironeaba cada pocos segundos. Si hace falta más frecuencia,
-                // el camino es el incremental, no subir la cadencia.
+                // Protocolo INCREMENTAL (cursor "j:p:v"): cada poll baja solo lo
+                // pintado desde el anterior — bytes, no el snapshot completo (que
+                // llegaba a ~3 MB en jornada de 8 h y hacía tironear el mapa aun a
+                // 350 ms por el GC). Con payloads chicos, 200 ms da pintado fluido.
                 _coveragePoller = new CoveragePoller(cov, snap =>
                 {
                     _mapHost?.OnCoverage(snap);
-                }, periodMs: 350);
+                }, periodMs: 200);
                 _coveragePoller.Start();
                 Closed += (_, _) => _coveragePoller?.Stop();
 

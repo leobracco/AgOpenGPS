@@ -103,6 +103,11 @@ namespace AgroParallel.QuantiX
         [JsonPropertyName("slew_rate_per_sec")]
         public double SlewRatePerSec { get; set; }
 
+        // Rampa de consigna Hz/segundo. Es la que fija cuánto tarda el motor en
+        // alcanzar la dosis al bajar el apero.
+        [JsonPropertyName("target_slew_hz_per_sec")]
+        public double TargetSlewHzPerSec { get; set; }
+
         // Intervalo PID en ms (50 eléctrico, 200 hidráulico)
         [JsonPropertyName("pid_time")]
         public int PIDTime { get; set; }
