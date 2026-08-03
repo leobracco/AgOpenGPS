@@ -45,6 +45,11 @@ internal static class Program
         // (PilotX.UI) entrega el WAV y este head lo toca con winmm.
         PilotX.Desktop.Services.SoundAlarmPoller.WavSink = WinmmWavPlayer.Play;
 
+        // Soporte remoto integrado: si el paquete trae RustDesk y no está
+        // instalado, la PRIMERA vez dispara el único UAC que existe (instala
+        // el servicio + clave desatendida) y nunca más. Cero instalación manual.
+        RustDeskIntegracion.AsegurarEnSegundoPlano();
+
         App.ColdStart = Stopwatch.StartNew();
         // Inyectar el backend de WebView del head Desktop (WebView.Avalonia).
         // La UI compartida (PilotX.UI) solo conoce IWebViewHost.
