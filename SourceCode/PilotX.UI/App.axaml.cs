@@ -72,6 +72,15 @@ public partial class App : Application
             else
             {
                 desktop.MainWindow = new MainWindow();
+
+                // Cerrar PilotX apaga TODO el stack: el Engine (guiado, broker
+                // MQTT :1883, API :5180) y el host de barras no deben quedar
+                // huérfanos consumiendo puertos y RAM — el operario cierra UNA
+                // ventana y la máquina queda limpia. Guardados críticos van por
+                // AtomicJson, así que el kill es tan seguro como un corte de luz
+                // (que la cabina ya tolera). Solo en modo pantalla completa: un
+                // widget flotante no es dueño del stack.
+                desktop.MainWindow.Closed += (_, _) => ApagarStackCompleto();
             }
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
@@ -80,5 +89,20 @@ public partial class App : Application
             singleView.MainView = new Views.MainView();
         }
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static void ApagarStackCompleto()
+    {
+        foreach (var nombre in new[] { "PilotX.GuidanceEngine", "PilotX.Bars.Host" })
+        {
+            try
+            {
+                foreach (var p in System.Diagnostics.Process.GetProcessesByName(nombre))
+                {
+                    try { p.Kill(); } catch { /* ya estaba muriendo */ }
+                }
+            }
+            catch { /* sin permisos/procesos: no bloquear el cierre */ }
+        }
     }
 }

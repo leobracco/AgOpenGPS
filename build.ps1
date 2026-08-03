@@ -179,8 +179,13 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem | Out-Null
 #  - todos los .json de config que viven en la RAÍZ del install dir
 #    (los .json legítimos del release están en subdirs: wwwroot, runtimes...)
 $skipDirs = @('Updates','Backups','WebView2Data','firmware-cache',
-              'data','implementos','Fields','Vehicles','Logs','Profiles')
+              'data','implementos','Fields','Vehicles','Logs','Profiles',
+              'PilotXDesktop')
 $skipExt  = @('.pdb','.bak','.log','.on')
+# Exes que NO viajan a una pantalla: ModSim (simulador de banco; con el CoreX
+# embebido del engine arma un lazo de eco UDP que infla el proceso a GBs) y
+# createdump (herramienta de debug de .NET, puro peso).
+$skipFiles = @('ModSim.exe','createdump.exe')
 $files = Get-ChildItem $OutDir -Recurse -File -Force | Where-Object {
     $rel   = $_.FullName.Substring($OutDir.Length + 1)
     $parts = $rel.Split([IO.Path]::DirectorySeparatorChar)
@@ -188,6 +193,7 @@ $files = Get-ChildItem $OutDir -Recurse -File -Force | Where-Object {
     (-not ($parts | Where-Object { $skipDirs -contains $_ })) -and
     ($skipExt -notcontains $_.Extension.ToLower()) -and
     (-not $esConfigRaiz) -and
+    ($skipFiles -notcontains $_.Name) -and
     ($_.Name -notlike '*.vshost.*') -and ($_.Name -ne 'updater.log')
 }
 
