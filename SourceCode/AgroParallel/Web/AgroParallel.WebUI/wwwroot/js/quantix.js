@@ -1121,7 +1121,7 @@
           '<button class="btn danger qxNodoDel" type="button" data-uid="' + escapeHtml(n.uid) +
             '" title="Sacar el nodo del perfil y borrar su configuración">Eliminar nodo</button>' +
         '</div>' +
-        '<div class="mcfg-scroll">' + motorCfgTabla(n) + '</div>' +
+        motorCfgUno(n) +
       '</div>';
     }
     listEl.innerHTML = html;
@@ -1177,6 +1177,127 @@
     } catch (e) { return false; }
   }
 
+  // ---------------------------------------------------------------------------
+  // Vista POR MOTOR (Motores, PID live, Calibración y Prueba)
+  //
+  // Mostrar todos los motores a la vez no escala: en tarjetas lado a lado hay
+  // que leer en zigzag, y puestos en tabla —cada motor una columna— con 7
+  // canales queda ilegible. Así que se muestra UNO, elegido con los chips de
+  // arriba, a ancho completo.
+  //
+  // Lo que se pierde al ver de a uno (comparar y repetir la misma config) lo
+  // cubre "Copiar a todos": se ajusta un motor, se prueba, y se replica.
+  // ---------------------------------------------------------------------------
+  // Motor elegido en cada pestaña. Son independientes a propósito: se puede
+  // estar afinando el PID del M1 y calibrando el M0.
+  // Los motores que hay que ofrecer: los que el nodo tenga configurados, con
+  // piso de 2 (un nodo recién dado de alta viene sin motores y hay que poder
+  // configurarlos igual). El nodo de 7 canales entra solo.
+  function motoresDelNodo(n) {
+    var cant = Math.max(2, (n.motores || []).length);
+    var ms = [];
+    for (var i = 0; i < cant; i++) ms.push((n.motores && n.motores[i]) || defaultMotor());
+    return ms;
+  }
+
+  var motorVista = { motores: 0, pid: 0, calibrar: 0, prueba: 0 };
+
+  function motorActivo(tab, ms) {
+    var i = motorVista[tab] | 0;
+    return (i >= 0 && i < ms.length) ? i : 0;
+  }
+
+  // Chips M0/M1/… + copiar. `tab` es la clave de motorVista.
+  function selectorMotores(tab, ms, activo) {
+    var h = '<div class="motor-sel" data-sel-tab="' + tab + '">';
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i];
+      var apagado = (m.habilitado === false) ? ' mdis' : '';
+      h += '<button type="button" class="motor-chip' + (i === activo ? ' on' : '') + apagado +
+        '" data-sel-mi="' + i + '"' +
+        (m.habilitado === false ? ' title="Canal sin motor conectado"' : '') + '>' +
+        '<span class="mot-tag">M' + i + '</span>' +
+        '<span class="mot-nom">' + escapeHtml(m.nombre || ('Motor ' + (i + 1))) + '</span>' +
+        '</button>';
+    }
+    // Sin al menos dos motores no hay a quién copiarle.
+    if (ms.length > 1) {
+      h += '<button type="button" class="btn copiar-todos" data-copiar-mi="' + activo + '"' +
+        ' title="Pone en TODOS los motores del nodo la misma configuración que este">' +
+        '⧉ Copiar a todos</button>';
+    }
+    return h + '</div>';
+  }
+
+  // Campos que se copian: los del fierro y el lazo. Quedan afuera el nombre,
+  // los surcos asignados y el habilitado — copiar eso pisaría el reparto de la
+  // sembradora y encendería canales sin motor.
+  var CAMPOS_COPIABLES = [
+    'sensor_tipo', 'dientes_engranaje', 'pulse_min', 'motor_type',
+    'pwm_min', 'pwm_max', 'kp', 'ki', 'kd', 'max_hz', 'ff_gain', 'alpha',
+    'pid_time', 'slew_rate_per_sec', 'target_slew_hz_per_sec',
+    'meter_cal', 'semillas_vuelta', 'unidad_dosis', 'dosis_fija', 'campo_dosis'
+  ];
+
+  function copiarConfigATodos(uid, miOrigen) {
+    var nodo = null;
+    var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
+    for (var i = 0; i < ns.length; i++) if (ns[i].uid === uid) { nodo = ns[i]; break; }
+    if (!nodo || !nodo.motores) return 0;
+    var src = nodo.motores[miOrigen];
+    if (!src) return 0;
+    var copiados = 0;
+    for (var k = 0; k < nodo.motores.length; k++) {
+      if (k === miOrigen) continue;
+      var dst = nodo.motores[k];
+      if (!dst) continue;
+      for (var c = 0; c < CAMPOS_COPIABLES.length; c++) {
+        var campo = CAMPOS_COPIABLES[c];
+        if (src[campo] !== undefined) dst[campo] = src[campo];
+      }
+      copiados++;
+    }
+    state.dirty = true;
+    return copiados;
+  }
+
+  // Un solo handler para los cuatro tabs: cambiar de motor y copiar.
+  document.addEventListener('click', async function (ev) {
+    var chip = ev.target.closest && ev.target.closest('.motor-chip');
+    if (chip) {
+      var cont = chip.closest('.motor-sel');
+      var tab = cont && cont.getAttribute('data-sel-tab');
+      if (!tab) return;
+      motorVista[tab] = parseInt(chip.getAttribute('data-sel-mi'), 10) || 0;
+      redibujarTab(tab);
+      return;
+    }
+    var btnCopiar = ev.target.closest && ev.target.closest('.copiar-todos');
+    if (btnCopiar) {
+      var card = btnCopiar.closest('.card[data-uid]');
+      var uid = card && card.getAttribute('data-uid');
+      var mi = parseInt(btnCopiar.getAttribute('data-copiar-mi'), 10) || 0;
+      if (!uid) return;
+      var nombre = 'M' + mi;
+      if (!confirm('¿Copiar la configuración de ' + nombre + ' a TODOS los motores de este nodo?\n\n' +
+                   'Se replican sensor, PWM, PID y calibración.\n' +
+                   'NO se tocan el nombre, los surcos asignados ni si el motor está conectado.')) return;
+      var n = copiarConfigATodos(uid, mi);
+      await guardarMotoresCfg();
+      var selTab = (btnCopiar.closest('.motor-sel') || {}).getAttribute
+        ? btnCopiar.closest('.motor-sel').getAttribute('data-sel-tab') : null;
+      if (selTab) redibujarTab(selTab);
+      alert('Copiado a ' + n + ' motor' + (n === 1 ? '' : 'es') + '.');
+    }
+  });
+
+  function redibujarTab(tab) {
+    if (tab === 'motores') renderMotores();
+    else if (tab === 'pid') renderPid();
+    else if (tab === 'calibrar') renderCalibrar();
+    else if (tab === 'prueba') renderPrueba();
+  }
+
   // Los campos de UN motor no viven en un solo nodo del DOM: la tabla está
   // TRANSPUESTA (parámetro = fila, motor = columna), así que las celdas de un
   // motor están repartidas por toda la tabla. Este objeto se comporta como el
@@ -1218,124 +1339,85 @@
   // pantalla de cabina. Así el ancho crece con los motores del nodo (2), no con
   // la cantidad de parámetros, y comparar el mismo ajuste entre motores es
   // leer una fila.
-  function motorCfgTabla(n) {
-    // Cuántos canales dibujar: los que el nodo tenga configurados, con un
-    // piso de 2 (un nodo recién dado de alta viene sin motores y hay que
-    // poder configurarlos). El nodo de 7 canales cae acá solo.
-    var cant = Math.max(2, (n.motores || []).length);
-    var ms = [], i;
-    for (i = 0; i < cant; i++) ms.push((n.motores && n.motores[i]) || defaultMotor());
-
-    var stepInt = function (mi, campo, val, opts) {
+  // Configuración del motor elegido, a ancho completo. Ver la nota de
+  // selectorMotores(): con varios canales, todos juntos no se leen.
+  function motorCfgUno(n) {
+    var ms = motoresDelNodo(n);
+    var mi = motorActivo('motores', ms);
+    var m = ms[mi];
+    var tipo = tipoSensorDe(m);
+    var ppr = m.dientes_engranaje || SENSORES[tipo].ppr;
+    var pulseMin = m.pulse_min || SENSORES[tipo].pulse_min;
+    var esHid = (m.motor_type | 0) === 1;
+    var hab = (m.habilitado !== false);
+    var stepInt = function (campo, val, opts) {
       opts = opts || {};
       var attrs = 'data-mf="' + campo + '"';
-      if (window.AGPSteps) {
-        return window.AGPSteps.stepperHTML({
-          value: val, min: opts.min, max: opts.max, mode: 'int', step: opts.step || 1, attrs: attrs
-        });
-      }
-      return '<input type="number" ' + attrs + ' value="' + val + '">';
+      return window.AGPSteps
+        ? window.AGPSteps.stepperHTML({ value: val, min: opts.min, max: opts.max, mode: 'int', step: opts.step || 1, attrs: attrs })
+        : '<input type="number" ' + attrs + ' value="' + val + '">';
     };
-    var stepPid = function (mi, campo, val, mx) {
+    var stepPid = function (campo, val, mx) {
       var attrs = 'data-mf="' + campo + '"';
-      if (window.AGPSteps) {
-        return window.AGPSteps.stepperHTML({ value: val, min: 0, max: mx, mode: 'pid', attrs: attrs });
-      }
-      return '<input type="number" ' + attrs + ' value="' + val + '">';
-    };
-    // Una fila = un parámetro; celda(mi, motor) devuelve el control de cada columna.
-    var fila = function (etiqueta, celda, clase) {
-      var h = '<tr' + (clase ? ' class="' + clase + '"' : '') + '><th class="c-par">' + etiqueta + '</th>';
-      for (var k = 0; k < ms.length; k++) {
-        var apagado = (ms[k].habilitado === false) ? ' mdis' : '';
-        h += '<td class="mcol' + apagado + '" data-mi="' + k + '">' + celda(k, ms[k]) + '</td>';
-      }
-      return h + '</tr>';
-    };
-    var seccion = function (titulo) {
-      return '<tr class="sec"><th colspan="' + (ms.length + 1) + '">' + titulo + '</th></tr>';
+      return window.AGPSteps
+        ? window.AGPSteps.stepperHTML({ value: val, min: 0, max: mx, mode: 'pid', attrs: attrs })
+        : '<input type="number" ' + attrs + ' value="' + val + '">';
     };
 
-    var html = '<table class="mcfg-table"><thead><tr><th class="c-par"></th>';
-    for (i = 0; i < ms.length; i++) {
-      html += '<th class="mcol' + (i === 0 ? '' : ' m1') +
-        (ms[i].habilitado === false ? ' mdis' : '') + '" data-mi="' + i + '">' +
-        '<span class="mot-tag">M' + i + '</span>' +
-        '<span class="mot-nom">' + escapeHtml(ms[i].nombre || 'Motor') + '</span></th>';
-    }
-    html += '</tr></thead><tbody>';
+    return selectorMotores('motores', ms, mi) +
+      '<div class="motor-cfg' + (hab ? '' : ' mdis') + '" data-mi="' + mi + '">' +
+        '<div class="mc-head">' +
+          '<label class="hab-cell"><input class="qxHabM" type="checkbox" data-mi="' + mi + '"' +
+            (hab ? ' checked' : '') + '> <span>' + (hab ? 'Motor conectado' : 'Sin motor') + '</span></label>' +
+          '<input class="qxNombre" type="text" data-mi="' + mi + '" value="' + escapeHtml(m.nombre || ('Motor ' + (mi + 1))) + '" title="Nombre del motor">' +
+        '</div>' +
 
-    // Canal cableado o no. Un canal sin motor recibia consigna igual: el PID
-    // se saturaba contra la nada (PWM 4095 fijo) y el overlay se llenaba de
-    // ceros. Destildado, el bridge le manda pps=0 y no aparece en el overlay.
-    html += fila('Motor conectado', function (k, m) {
-      var hab = (m.habilitado !== false);
-      return '<label class="hab-cell"><input class="qxHabM" type="checkbox" data-mi="' + k + '"' +
-        (hab ? ' checked' : '') + '> <span>' + (hab ? 'Conectado' : 'Sin motor') + '</span></label>';
-    }, 'hab-row');
+        '<div class="cfg-block"><span class="cfg-block-t">Sensor</span>' +
+          '<div class="fld-grid">' +
+            '<div class="field wide"><label>Tipo</label>' +
+              '<select data-mf="sensor_tipo">' +
+                '<option value="inductivo"' + (tipo === 'encoder' ? '' : ' selected') + '>' + SENSORES.inductivo.label + '</option>' +
+                '<option value="encoder"' + (tipo === 'encoder' ? ' selected' : '') + '>' + SENSORES.encoder.label + '</option>' +
+              '</select></div>' +
+            '<div class="field"><label>Pulsos por vuelta</label>' + stepInt('dientes_engranaje', ppr, { min: 1, max: 4000, step: 1 }) + '</div>' +
+            '<div class="field"><label>Filtro antirrebote</label>' + stepInt('pulse_min', pulseMin, { min: 20, max: 20000, step: 10 }) + '</div>' +
+          '</div>' +
+          '<div class="cfg-hint" data-mf-out="techo" title="Con este filtro el nodo lee hasta esta velocidad">lee hasta ' + techoRpm(pulseMin, ppr) + ' rpm</div>' +
+        '</div>' +
 
-    // ── Sensor: qué cuenta las vueltas ────────────────────────────────────
-    html += seccion('Sensor');
-    html += fila('Tipo', function (k, m) {
-      var tipo = tipoSensorDe(m);
-      return '<select data-mf="sensor_tipo">' +
-        '<option value="inductivo"' + (tipo === 'encoder' ? '' : ' selected') + '>' + SENSORES.inductivo.label + '</option>' +
-        '<option value="encoder"' + (tipo === 'encoder' ? ' selected' : '') + '>' + SENSORES.encoder.label + '</option>' +
-        '</select>';
-    });
-    html += fila('Pulsos por vuelta', function (k, m) {
-      var tipo = tipoSensorDe(m);
-      return stepInt(k, 'dientes_engranaje', m.dientes_engranaje || SENSORES[tipo].ppr, { min: 1, max: 4000, step: 1 });
-    });
-    html += fila('Filtro antirrebote', function (k, m) {
-      var tipo = tipoSensorDe(m);
-      var ppr = m.dientes_engranaje || SENSORES[tipo].ppr;
-      var pulseMin = m.pulse_min || SENSORES[tipo].pulse_min;
-      return stepInt(k, 'pulse_min', pulseMin, { min: 20, max: 20000, step: 10 }) +
-        '<div class="cfg-hint" data-mf-out="techo" title="Con este filtro el nodo lee hasta esta velocidad">lee hasta ' +
-        techoRpm(pulseMin, ppr) + ' rpm</div>';
-    });
+        '<div class="cfg-block"><span class="cfg-block-t">Motor</span>' +
+          '<div class="fld-grid">' +
+            '<div class="field wide"><label>Tipo</label>' +
+              '<select data-mf="motor_type">' +
+                '<option value="0"' + (esHid ? '' : ' selected') + '>Eléctrico</option>' +
+                '<option value="1"' + (esHid ? ' selected' : '') + '>Hidráulico</option>' +
+              '</select></div>' +
+            '<div class="field"><label>PWM mínimo</label>' + stepInt('pwm_min', m.pwm_min || 600, { min: 0, max: 4095, step: 10 }) + '</div>' +
+            '<div class="field"><label>PWM máximo</label>' + stepInt('pwm_max', m.pwm_max || 4095, { min: 0, max: 4095, step: 10 }) + '</div>' +
+          '</div>' +
+        '</div>' +
 
-    // ── Motor: qué se está moviendo y con qué PWM ─────────────────────────
-    html += seccion('Motor');
-    html += fila('Tipo', function (k, m) {
-      var esHid = (m.motor_type | 0) === 1;
-      return '<select data-mf="motor_type">' +
-        '<option value="0"' + (esHid ? '' : ' selected') + '>Eléctrico</option>' +
-        '<option value="1"' + (esHid ? ' selected' : '') + '>Hidráulico</option>' +
-        '</select>';
-    });
-    html += fila('PWM mínimo', function (k, m) {
-      return stepInt(k, 'pwm_min', m.pwm_min || 600, { min: 0, max: 4095, step: 10 });
-    });
-    html += fila('PWM máximo', function (k, m) {
-      return stepInt(k, 'pwm_max', m.pwm_max || 4095, { min: 0, max: 4095, step: 10 });
-    });
+        '<div class="cfg-block"><span class="cfg-block-t">PID</span>' +
+          '<div class="fld-grid">' +
+            '<div class="field"><label>Kp</label>' + stepPid('kp', m.kp || 0, 300) + '</div>' +
+            '<div class="field"><label>Ki</label>' + stepPid('ki', m.ki || 0, 200) + '</div>' +
+            '<div class="field"><label>Kd</label>' + stepPid('kd', m.kd || 0, 50) + '</div>' +
+          '</div>' +
+          '<div class="kv" style="margin-top: var(--agp-sp-2)">' +
+            '<div class="k">Tope del motor (Max Hz)</div>' +
+            '<div class="v"><span data-mf-out="max_hz">' + (m.max_hz || 0) + '</span> Hz' +
+              ' <span style="color:var(--agp-text-muted)">· <span data-mf-out="max_rpm">' +
+              Math.round(((m.max_hz || 0) * 60) / (ppr || 1)) + '</span> rpm</span></div>' +
+          '</div>' +
+        '</div>' +
 
-    // ── PID: lo que usa el lazo para seguir la dosis ──────────────────────
-    html += seccion('PID');
-    html += fila('Kp', function (k, m) { return stepPid(k, 'kp', m.kp || 0, 300); });
-    html += fila('Ki', function (k, m) { return stepPid(k, 'ki', m.ki || 0, 200); });
-    html += fila('Kd', function (k, m) { return stepPid(k, 'kd', m.kd || 0, 50); });
-
-    html += fila('Tope del motor', function (k, m) {
-      var tipo = tipoSensorDe(m);
-      var ppr = m.dientes_engranaje || SENSORES[tipo].ppr;
-      return '<span class="tope"><span data-mf-out="max_hz">' + (m.max_hz || 0) + '</span> Hz' +
-        ' · <span data-mf-out="max_rpm">' +
-        Math.round(((m.max_hz || 0) * 60) / (ppr || 1)) + '</span> rpm</span>';
-    }, 'tope-row');
-
-    html += fila('', function (k) {
-      return '<div class="btn-row">' +
-        '<button class="btn primary" data-mot-act="save" data-mi="' + k + '" title="Guardar la configuración y enviarla al nodo">Guardar y enviar</button>' +
-        '<button class="btn" data-mot-act="maxhz" data-mi="' + k + '" title="Gira el motor a PWM máximo 4 s y guarda el tope medido">⏱ Medir tope</button>' +
-        '<span class="send-msg" data-mot-msg="' + k + '"></span></div>';
-    }, 'acc-row');
-
-    return html + '</tbody></table>';
+        '<div class="btn-row" style="margin-top: var(--agp-sp-3)">' +
+          '<button class="btn primary" data-mot-act="save" data-mi="' + mi + '">Guardar y enviar</button>' +
+          '<button class="btn" data-mot-act="maxhz" data-mi="' + mi + '" title="Gira el motor a PWM máximo 4 s y guarda el tope medido">⏱ Medir tope</button>' +
+          '<span class="send-msg" data-mot-msg="' + mi + '"></span>' +
+        '</div>' +
+      '</div>';
   }
-
   // Cambiar el tipo de sensor precarga PPR y filtro típicos. No guarda solo:
   // el operario confirma con "Guardar y enviar" (puede querer corregir el PPR).
   var tabMotoresEl = document.getElementById('tabMotores');
@@ -1491,10 +1573,11 @@
           '<h3 style="margin:0">' + escapeHtml(n.nombre || 'Nodo') + ' <span style="font-family: var(--agp-font-mono); color: var(--agp-text-muted); font-size: var(--agp-fs-sm); font-weight: normal">' + escapeHtml(n.uid) + '</span></h3>' +
           '<span class="pill ' + (live && live.online ? 'ok' : 'err') + '"><span class="dot"></span> ' + (live && live.online ? 'online' : 'offline') + '</span>' +
         '</div>' +
-        '<div class="live-tune-grid">' +
-          pidTuneCard(n, 0) +
-          pidTuneCard(n, 1) +
-        '</div>' +
+        (function () {
+          var ms = motoresDelNodo(n);
+          var mi = motorActivo('pid', ms);
+          return selectorMotores('pid', ms, mi) + pidTuneCard(n, mi);
+        })() +
       '</div>';
     }
     listEl.innerHTML = html;
@@ -1880,10 +1963,11 @@
           'el motor gira hasta llegar a la meta de pulsos y para solo. 3) Pesá/contá el producto recolectado por surco. ' +
           '4) Apretá <strong>Calcular</strong>: promedia los surcos y calcula <code>MeterCal = pulsos / unidades</code>.' +
         '</p>' +
-        '<div class="live-tune-grid">' +
-          calCard(n, 0) +
-          calCard(n, 1) +
-        '</div>' +
+        (function () {
+          var ms = motoresDelNodo(n);
+          var mi = motorActivo('calibrar', ms);
+          return selectorMotores('calibrar', ms, mi) + calCard(n, mi);
+        })() +
       '</div>';
     }
     listEl.innerHTML = html;
@@ -2274,10 +2358,11 @@
       html += '<div class="card" style="margin-bottom: var(--agp-sp-4)" data-uid="' + escapeHtml(n.uid) + '">' +
         '<h3 style="margin-top:0">' + escapeHtml(n.nombre || 'Nodo') +
         ' <span style="font-family: var(--agp-font-mono); color: var(--agp-text-muted); font-size: var(--agp-fs-sm); font-weight: normal">' + escapeHtml(n.uid) + '</span></h3>' +
-        '<div class="live-tune-grid">' +
-          pruebaCard(n, 0) +
-          pruebaCard(n, 1) +
-        '</div>' +
+        (function () {
+          var ms = motoresDelNodo(n);
+          var mi = motorActivo('prueba', ms);
+          return selectorMotores('prueba', ms, mi) + pruebaCard(n, mi);
+        })() +
       '</div>';
     }
     listEl.innerHTML = html;

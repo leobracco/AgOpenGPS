@@ -1814,3 +1814,21 @@ abierto; tocar el título abierto lo cierra.
 - Títulos de 38 px de alto (tocables con guante) y chevron por CSS (`::after`).
 - Verificado en vivo: abrir uno cierra el anterior, navegar a un tab y abrir un
   módulo embebido siguen funcionando, y el grupo correcto queda abierto.
+
+### 2026-08-03 (tarde) · Claude — QuantiX: VISTA POR MOTOR en los cuatro tabs
+Reemplaza a la tabla transpuesta de la entrada anterior. La transpuesta resolvía
+el ancho con 2 motores, pero con 7 canales queda ilegible — decisión del
+usuario: **mostrar un motor por vez**.
+
+- Selector con **estilo pestaña** (`.motor-sel` / `.motor-chip`, mismo lenguaje
+  que los tabs de arriba) en Motores, PID live, Calibración y Prueba.
+- `motorVista` guarda el motor elegido **por pestaña**, a propósito: se puede
+  estar afinando el PID del M1 y calibrando el M0.
+- **⧉ Copiar a todos**: replica sensor, PWM, PID y calibración del motor activo
+  al resto del nodo. NO copia nombre, surcos asignados ni `habilitado` —
+  copiar eso pisaría el reparto de la sembradora y encendería canales sin
+  motor cableado. Verificado en vivo contra la API.
+- Las tarjetas de PID/Calibración/Prueba quedaron **como estaban**: siguen
+  usando `closest('.motor-cfg')` y ahora hay una sola por pantalla, así que no
+  hizo falta tocar sus handlers.
+- Los motores ofrecidos son `max(2, n.motores.length)`: el nodo de 7 entra solo.
