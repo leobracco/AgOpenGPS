@@ -214,8 +214,15 @@ namespace PilotX.Desktop
 
         private void Pulsar(string k)
         {
-            // SendInput escribe en la ventana enfocada: hay que asegurarse de
-            // que sea la del campo y no la del teclado.
+            // La tecla viaja por DOS caminos, a propósito:
+            //  · publicada en el engine → la página la aplica sobre el campo que
+            //    tenía, sin depender de quién tenga el foco de Windows (es lo
+            //    único que aguanta: el WebView pierde el foco interno al tocar
+            //    otra ventana);
+            //  · SendInput → para los campos NATIVOS de la pantalla, que no
+            //    pasan por ninguna página.
+            Publicar(k);
+
             TecladoWin32.DevolverFoco(_objetivo);
             switch (k)
             {
@@ -228,8 +235,33 @@ namespace PilotX.Desktop
             }
             var texto = (_mayus && k.Length == 1 && char.IsLetter(k[0])) ? k.ToUpperInvariant() : k;
             TecladoWin32.EscribirTexto(texto);
-            // Shift es de un solo uso, como en el teclado del celular.
             if (_mayus) { _mayus = false; Pintar(); }
+        }
+
+        // Los cambios de layout y de mayúsculas son cosa de esta ventana: no se
+        // publican, si no la página intentaría escribir '123' en el campo.
+        private static readonly System.Net.Http.HttpClient _http =
+            new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+
+        private void Publicar(string k)
+        {
+            if (k is "⇧" or "123" or "ABC") return;
+            string tecla = k switch
+            {
+                "⌫" => "back",
+                "⏎" => "enter",
+                "espacio" => " ",
+                _ => (_mayus && k.Length == 1 && char.IsLetter(k[0])) ? k.ToUpperInvariant() : k
+            };
+            try
+            {
+                var url = App.TargetUrl.TrimEnd('/') + "/api/teclado/tecla";
+                var cuerpo = new System.Net.Http.StringContent(
+                    "{\"tecla\":" + System.Text.Json.JsonSerializer.Serialize(tecla) + "}",
+                    System.Text.Encoding.UTF8, "application/json");
+                _ = _http.PostAsync(url, cuerpo);   // fire and forget: no bloquear el toque
+            }
+            catch { }
         }
     }
 }

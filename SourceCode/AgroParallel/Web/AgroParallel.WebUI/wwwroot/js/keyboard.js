@@ -333,7 +333,11 @@
   function consultarNativo() {
     return fetch('/api/teclado/estado')
       .then(function (r) { return r.json(); })
-      .then(function (r) { nativo.disponible = !!(r && r.nativo); nativo.consultado = true; })
+      .then(function (r) {
+        nativo.disponible = !!(r && r.nativo);
+        nativo.consultado = true;
+        if (nativo.disponible) escucharTeclasNativas();
+      })
       .catch(function () { nativo.consultado = true; });
   }
 
@@ -352,9 +356,46 @@
     return avisarHost('abrir', { numerico: numerico, titulo: titulo }).then(function (r) {
       nativo.consultado = true;
       nativo.disponible = !!(r && r.nativo);
+      if (nativo.disponible) escucharTeclasNativas();
       return nativo.disponible;
     });
   }
+
+  // Las teclas del teclado nativo llegan como DATO por el engine y se aplican
+  // acá sobre el campo que teníamos. Así el valor entra aunque el WebView haya
+  // perdido el foco al tocar la otra ventana, que es lo que rompía todo:
+  // SendInput necesita foco, esto no.
+  var teclasSeq = -1;
+  var teclasTimer = null;
+
+  function aplicarTeclaNativa(tecla) {
+    if (!state.target || tecla == null) return;
+    // Reenfocar es best-effort: si el WebView recuperó el foco, el cursor
+    // vuelve al campo; si no, igual se escribe abajo.
+    try { state.target.focus({ preventScroll: true }); } catch (_) {}
+    if (tecla === 'back') { backspace(); return; }
+    if (tecla === 'enter') { enterKey(); return; }
+    insertText(tecla);
+  }
+
+  function escucharTeclasNativas() {
+    if (teclasTimer) return;
+    teclasTimer = setInterval(function () {
+      if (!nativo.disponible || !state.target) return;
+      fetch('/api/teclado/teclas?desde=' + teclasSeq)
+        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          if (!r || !r.ok) return;
+          if (teclasSeq < 0) { teclasSeq = r.seq; return; }   // primera lectura: sincronizar
+          if (r.seq > teclasSeq && r.tecla != null) {
+            teclasSeq = r.seq;
+            aplicarTeclaNativa(r.tecla);
+          }
+        })
+        .catch(function () {});
+    }, 120);
+  }
+
   function show(target) {
     state.target = target;
     // Con teclado nativo la página NO dibuja nada y NO toca el layout:

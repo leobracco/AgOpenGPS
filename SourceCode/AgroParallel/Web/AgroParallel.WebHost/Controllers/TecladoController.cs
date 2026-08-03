@@ -20,6 +20,7 @@ using System;
 using System.Threading.Tasks;
 using EmbedIO;
 using EmbedIO.Routing;
+using EmbedIO.WebApi;
 
 namespace AgroParallel.WebHost.Controllers
 {
@@ -93,6 +94,44 @@ namespace AgroParallel.WebHost.Controllers
             lock (_lock)
             {
                 return WriteJsonAsync(new { ok = true, abierto = _abierto, numerico = _numerico, titulo = _titulo, seq = _seq });
+            }
+        }
+
+        // --- Teclas pulsadas -------------------------------------------------
+        // El teclado vive en otra ventana, así que mandar las teclas por
+        // SendInput obliga a que el campo conserve el foco de Windows — y eso
+        // no se sostiene: el WebView pierde el foco interno al tocar la otra
+        // ventana y el operario ve cómo se le va el cursor.
+        //
+        // Por eso la tecla viaja como DATO: el teclado la publica acá y la
+        // página la aplica sobre el campo que tenía, sin depender de quién
+        // tenga el foco.
+        private static readonly object _teclasLock = new object();
+        private static long _teclaSeq;
+        private static string _ultimaTecla = "";
+
+        public sealed class TeclaReq { public string tecla { get; set; } }
+
+        [Route(HttpVerbs.Post, "/teclado/tecla")]
+        public async Task Tecla()
+        {
+            var req = await ReadJsonBodyAsync<TeclaReq>();
+            lock (_teclasLock)
+            {
+                _ultimaTecla = req?.tecla ?? "";
+                _teclaSeq++;
+            }
+            await WriteJsonAsync(new { ok = true, seq = _teclaSeq });
+        }
+
+        /// <summary>La página pregunta si hay tecla nueva desde la que ya aplicó.</summary>
+        [Route(HttpVerbs.Get, "/teclado/teclas")]
+        public Task Teclas([QueryField] long desde)
+        {
+            lock (_teclasLock)
+            {
+                bool hay = _teclaSeq > desde;
+                return WriteJsonAsync(new { ok = true, seq = _teclaSeq, tecla = hay ? _ultimaTecla : null });
             }
         }
     }
