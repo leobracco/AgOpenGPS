@@ -146,5 +146,40 @@ namespace PilotX.Desktop
             if (GetForegroundWindow() == hWnd) return;   // ya está
             try { SetForegroundWindow(hWnd); } catch { }
         }
+
+        // --- Que el clic NO active la ventana ---------------------------------
+        // WS_EX_NOACTIVATE y Focusable=false ayudan, pero la palabra final la
+        // tiene Windows: cuando se toca una ventana manda WM_MOUSEACTIVATE
+        // preguntando qué hacer. Respondiendo MA_NOACTIVATE la ventana recibe
+        // el clic SIN activarse, y el campo que se está editando conserva el
+        // foco. Es lo que hacen los teclados en pantalla del sistema.
+        private const int GWLP_WNDPROC = -4;
+        private const uint WM_MOUSEACTIVATE = 0x0021;
+        private const int MA_NOACTIVATE = 3;
+
+        private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr CallWindowProc(IntPtr prev, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+        // Se guardan en estático a propósito: si el delegate lo recolecta el GC,
+        // Windows llama a un puntero muerto y la pantalla se cae.
+        private static IntPtr _wndProcAnterior;
+        private static WndProcDelegate _wndProcPropio;
+
+        public static void EvitarActivacionPorClic(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero || _wndProcPropio != null) return;
+            _wndProcPropio = (h, msg, w, l) =>
+            {
+                if (msg == WM_MOUSEACTIVATE) return (IntPtr)MA_NOACTIVATE;
+                return CallWindowProc(_wndProcAnterior, h, msg, w, l);
+            };
+            _wndProcAnterior = SetWindowLongPtr(hWnd, GWLP_WNDPROC,
+                Marshal.GetFunctionPointerForDelegate(_wndProcPropio));
+        }
     }
 }

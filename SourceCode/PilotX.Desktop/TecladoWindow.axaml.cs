@@ -60,7 +60,10 @@ namespace PilotX.Desktop
             Opened += (_, __) =>
             {
                 // Recién con el handle creado se puede marcar como no activable.
-                try { TecladoWin32.HacerNoActivable(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero); } catch { }
+                var hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+                try { TecladoWin32.HacerNoActivable(hwnd); } catch { }
+                // La que de verdad impide que el clic robe el foco.
+                try { TecladoWin32.EvitarActivacionPorClic(hwnd); } catch { }
                 UbicarAbajo();
             };
             var cerrar = this.FindControl<Button>("BtnCerrar");
@@ -178,6 +181,10 @@ namespace PilotX.Desktop
                 Content = MostrarEtiqueta(etiqueta),
                 Height = 48,
                 MinWidth = ancha ? 220 : (modificador ? 74 : 56),
+                // Sin Focusable=false, tocar una tecla la enfoca — y para
+                // enfocarse Avalonia activa su ventana, que es exactamente lo
+                // que le robaba el foco al campo que se estaba editando.
+                Focusable = false,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center,
                 FontSize = 18,

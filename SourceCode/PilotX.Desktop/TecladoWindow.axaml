@@ -9,6 +9,7 @@
         ShowInTaskbar="False"
         CanResize="False"
         Background="#F5F7F4"
+        Focusable="False"
         TransparencyLevelHint="None">
 
   <!-- Ventana propia y NO ACTIVABLE: el foco se queda en el campo que se está
@@ -27,8 +28,8 @@
         <TextBlock Grid.Column="0" Name="Titulo" Text="Teclado" VerticalAlignment="Center"
                    Foreground="#535E54" FontSize="13" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-          <Button Name="BtnNumeros" Content="123" Width="64" Height="34" Foreground="#101612" />
-          <Button Name="BtnCerrar" Content="✕" Width="52" Height="34" Foreground="#101612" />
+          <Button Name="BtnNumeros" Content="123" Width="64" Height="34" Foreground="#101612" Focusable="False" />
+          <Button Name="BtnCerrar" Content="✕" Width="52" Height="34" Foreground="#101612" Focusable="False" />
         </StackPanel>
       </Grid>
 
