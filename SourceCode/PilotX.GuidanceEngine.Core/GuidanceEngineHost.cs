@@ -392,6 +392,10 @@ namespace AgOpenGPS
 
             Pn.speed = Pn.vtgSpeed;
             Pn.AverageTheSpeed();
+            // Ultimo fix procesado: el state provider lo usa para NO retener una
+            // velocidad vieja si el GPS se corta (el HUD mostraba 3,5 km/h
+            // congelados para siempre, y QuantiX seguia dosificando con ella).
+            lastFixUtc = DateTime.UtcNow;
 
             HeadingUpdater.UpdateHeading();
             AutoSteerUpdater.SendCorrectedPositionPgn();
