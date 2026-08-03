@@ -658,6 +658,238 @@
       Math.round(m2disp(tot)) + ' ' + unidad() + '  (' + fmtMedium(tot) + ')';
   }
 
+  // ---- Trenes de siembra (fuente única: el implemento central) ---------------
+  //
+  // Vive en ESTA pantalla porque acá se configuran las secciones, y una
+  // sección = un surco. La distancia del tren trasero alimenta el corte
+  // retardado (GetSectionsAtDistanceBack) de QuantiX/SectionX.
+  var trn = {
+    impl: null,      // ImplementoDto del server (null = no cargó, no tocar)
+    memoria: [],     // última asignación completa surco→tren (sobrevive retipeos)
+    pincel: 1,
+    dirty: false
+  };
+  var TRN_COLORES = ['var(--verde)', '#E0A33E', '#5B8DD9', '#B06AC4'];
+
+  function trnCantidad() {
+    return sec.modo === 'ind' ? sec.num : sec.numMulti;
+  }
+
+  async function trnCargar() {
+    trn.impl = null;
+    try {
+      var r = await fetch('/api/implemento', { cache: 'no-store' });
+      var d = await r.json();
+      if (d && d.ok && d.implemento) {
+        trn.impl = d.implemento;
+        if (!trn.impl.trenes || !trn.impl.trenes.length)
+          trn.impl.trenes = [{ id: 1, nombre: 'Delantero', distancia_m: 0 }];
+        if (!trn.impl.surcos) trn.impl.surcos = [];
+        // La verdad del server pisa la memoria local (mismo criterio que el
+        // fix de "Recargar" en config-implemento).
+        trn.memoria = trn.impl.surcos.map(function (s) {
+          return { numero: s.numero, tren_id: s.tren_id || 1 };
+        });
+        trn.dirty = false;
+      }
+    } catch (e) { /* sin implemento: la carta avisa y no se guarda nada */ }
+    trnPintar();
+  }
+
+  // Regenera la tira a la cantidad actual de secciones conservando la
+  // asignación por índice desde la MEMORIA (no desde el array vivo, que un
+  // retipeo transitorio puede haber truncado). Espejo de ImplementoSurcos.
+  function trnSurcosActuales() {
+    var n = trnCantidad();
+    var out = [];
+    var ultimo = trn.memoria.length ? trn.memoria[trn.memoria.length - 1].tren_id : 1;
+    for (var i = 1; i <= n; i++) {
+      var t = (i <= trn.memoria.length) ? trn.memoria[i - 1].tren_id : ultimo;
+      if (!t || t < 1) t = 1;
+      out.push({ numero: i, tren_id: t, seccion_pilotx: i });
+    }
+    return out;
+  }
+
+  function trnActualizarMemoria(surcos) {
+    trn.memoria = surcos.map(function (s) { return { numero: s.numero, tren_id: s.tren_id }; });
+  }
+
+  function trnPintar() {
+    var list = document.getElementById('trnList');
+    var msg = document.getElementById('trnMsg');
+    if (!list) return;
+    if (!trn.impl) {
+      list.innerHTML = '';
+      document.getElementById('trnBrush').innerHTML = '';
+      document.getElementById('trnStrip').innerHTML = '';
+      msg.textContent = 'No se pudo cargar el implemento — los trenes no se pueden editar ahora.';
+      return;
+    }
+    msg.textContent = '';
+    var trenes = trn.impl.trenes;
+
+    // Lista de trenes: nombre + distancia (tren 1 fija en 0) + borrar.
+    list.innerHTML = '';
+    trenes.forEach(function (t, i) {
+      var fila = document.createElement('div');
+      fila.className = 'nudfila';
+      var esPrimero = t.id === 1;
+      fila.innerHTML =
+        '<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:' +
+          TRN_COLORES[i % TRN_COLORES.length] + '"></span>' +
+        '<input class="nud" type="text" style="width:160px" value="' +
+          String(t.nombre || ('Tren ' + t.id)).replace(/"/g, '&quot;') + '" data-trn-nombre="' + t.id + '">' +
+        '<label style="min-width:auto">corta</label>' +
+        (esPrimero
+          ? '<span class="unidad">al paso (0 m)</span>'
+          : '<input class="nud" type="text" inputmode="numeric" style="width:90px" value="' +
+              (Math.round((t.distancia_m || 0) * 100) / 100) + '" data-trn-dist="' + t.id + '">' +
+            '<span class="unidad">m después</span>' +
+            '<button type="button" class="btn" data-trn-del="' + t.id + '">Quitar</button>');
+      list.appendChild(fila);
+    });
+
+    // Pincel + tira de surcos.
+    var brush = document.getElementById('trnBrush');
+    brush.innerHTML = '';
+    if (trenes.length > 1) {
+      trenes.forEach(function (t, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn';
+        b.textContent = t.nombre || ('Tren ' + t.id);
+        b.style.borderColor = TRN_COLORES[i % TRN_COLORES.length];
+        if (trn.pincel === t.id) {
+          b.style.background = TRN_COLORES[i % TRN_COLORES.length];
+          b.style.color = '#fff';
+        }
+        b.addEventListener('click', function () { trn.pincel = t.id; trnPintar(); });
+        brush.appendChild(b);
+      });
+    }
+
+    var strip = document.getElementById('trnStrip');
+    strip.innerHTML = '';
+    document.getElementById('trnSurcos').style.display = trenes.length > 1 ? '' : 'none';
+    if (trenes.length > 1) {
+      var surcos = trnSurcosActuales();
+      surcos.forEach(function (s) {
+        var idx = 0;
+        for (var k = 0; k < trenes.length; k++) if (trenes[k].id === s.tren_id) { idx = k; break; }
+        var c = document.createElement('div');
+        c.className = 'celda';
+        c.innerHTML = '<span class="cap">' + s.numero + '</span>' +
+          '<div style="width:100%;min-height:44px;border-radius:6px;cursor:pointer;background:' +
+          TRN_COLORES[idx % TRN_COLORES.length] + '"></div>';
+        c.addEventListener('click', function () {
+          var arr = trnSurcosActuales();
+          arr[s.numero - 1].tren_id = trn.pincel;
+          trnActualizarMemoria(arr);
+          trn.dirty = true; sec.dirty = true;
+          // Directo, no vía el detector delegado de #main: este handler
+          // re-dibuja la tira y cuando el click burbujea la celda ya no
+          // cuelga del DOM — el closest() del detector no la matchea y el
+          // botón Guardar no se enteraba del cambio.
+          marcarSucio();
+          trnPintar();
+        });
+        strip.appendChild(c);
+      });
+    }
+  }
+
+  document.getElementById('trnAdd').addEventListener('click', function () {
+    if (!trn.impl) return;
+    var trenes = trn.impl.trenes;
+    if (trenes.length >= 4) { setEstado('Máximo 4 trenes', 'err'); return; }
+    var maxId = 0;
+    trenes.forEach(function (t) { if (t.id > maxId) maxId = t.id; });
+    trenes.push({ id: maxId + 1, nombre: trenes.length === 1 ? 'Trasero' : ('Tren ' + (maxId + 1)), distancia_m: 0 });
+    trn.dirty = true; sec.dirty = true;
+    marcarSucio(); // directo: ver comentario en el click de la celda
+    trnPintar();
+  });
+
+  document.getElementById('trnList').addEventListener('change', function (ev) {
+    if (!trn.impl) return;
+    var t = ev.target;
+    var idN = t.getAttribute('data-trn-nombre');
+    var idD = t.getAttribute('data-trn-dist');
+    if (idN) {
+      var tr1 = trn.impl.trenes.filter(function (x) { return x.id === parseInt(idN, 10); })[0];
+      if (tr1) { tr1.nombre = t.value.trim() || ('Tren ' + tr1.id); trn.dirty = true; sec.dirty = true; trnPintar(); }
+    } else if (idD) {
+      var tr2 = trn.impl.trenes.filter(function (x) { return x.id === parseInt(idD, 10); })[0];
+      if (tr2) {
+        var v = parseFloat(String(t.value).replace(',', '.'));
+        if (isNaN(v) || v < 0) v = 0;
+        if (v > 20) v = 20;
+        tr2.distancia_m = v;
+        trn.dirty = true; sec.dirty = true;
+        trnPintar();
+      }
+    }
+  });
+
+  document.getElementById('trnList').addEventListener('click', function (ev) {
+    var del = ev.target.getAttribute && ev.target.getAttribute('data-trn-del');
+    if (!del || !trn.impl) return;
+    var id = parseInt(del, 10);
+    trn.impl.trenes = trn.impl.trenes.filter(function (t) { return t.id !== id; });
+    // Sus surcos vuelven al tren 1 (memoria incluida, para que no reaparezcan).
+    trn.memoria.forEach(function (s) { if (s.tren_id === id) s.tren_id = 1; });
+    if (trn.pincel === id) trn.pincel = 1;
+    trn.dirty = true; sec.dirty = true;
+    marcarSucio(); // directo: el botón Quitar se re-dibuja en este mismo click
+    trnPintar();
+  });
+
+  // Guarda trenes + surcos en el implemento central. Se llama DESPUÉS de que
+  // el guardado de secciones salió bien (la cantidad final ya está firme).
+  async function trnGuardar() {
+    if (!trn.impl || !trn.dirty) return true;
+    try {
+      var surcos = trnSurcosActuales();
+      trn.impl.surcos = surcos;
+      trn.impl.numero_surcos = surcos.length;
+      // CLAVE: sincronizar también la lista de secciones del implemento.
+      // El backend deriva el Tool nativo del implemento activo con
+      // NumSections = secciones.Count — si acá viajaba la lista vieja (la de
+      // cuando se abrió la pestaña), guardar trenes PISABA la cantidad de
+      // secciones recién guardada ("puse 14, grabé y volvió a 3").
+      var secsSync = [];
+      for (var si = 1; si <= surcos.length; si++) {
+        var prev = (trn.impl.secciones || [])[si - 1] || {};
+        secsSync.push({
+          id: si,
+          nombre: prev.nombre || ('Sección ' + si),
+          lookahead_on: prev.lookahead_on || 0,
+          lookahead_off: prev.lookahead_off || 0
+        });
+      }
+      trn.impl.secciones = secsSync;
+      var anchoM = sec.modo === 'ind'
+        ? disp2m(secTotalInd())
+        : sec.numMulti * sec.widthMulti;
+      trn.impl.ancho_total_m = anchoM;
+      if (surcos.length > 0) trn.impl.distancia_entre_surcos_m = anchoM / surcos.length;
+      var r = await fetch('/api/implemento', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(trn.impl)
+      });
+      var d = await r.json();
+      if (!d.ok) { setEstado('Secciones guardadas, trenes NO: ' + (d.error || 'error'), 'err'); return false; }
+      trn.dirty = false;
+      trnActualizarMemoria(surcos);
+      return true;
+    } catch (e) {
+      setEstado('Secciones guardadas, trenes NO: ' + e.message, 'err');
+      return false;
+    }
+  }
+
   tabs.tsections = {
     enter: function () {
       // réplica del Enter nativo: con lote abierto apaga los masters Auto/Manual
@@ -678,9 +910,13 @@
       document.getElementById('nudMinCoverage').value = z.min_coverage;
       sec.dirty = false;
       secPintar();
+      trnCargar(); // trenes de siembra: fuente única, el implemento central
     },
     leave: function () {
-      if (!sec.dirty) return Promise.resolve(true);
+      // Los trenes pueden estar sucios aunque la geometría no (pintaste la
+      // tira sin tocar cantidades): guardarlos igual, y que el resultado
+      // mande — si fallan, el botón queda en dirty y se puede reintentar.
+      if (!sec.dirty) return trnGuardar();
       var cut = leerNudDec(document.getElementById('nudCutoff'), limCutoff()[0], limCutoff()[1]);
       var cov = leerNud(document.getElementById('nudMinCoverage'), 0, 100);
       if (cut === null || cov === null) { setEstado('Revisá los valores marcados en rojo', 'err'); return Promise.resolve(false); }
@@ -705,7 +941,14 @@
         body.zone_ranges = sec.ranges;
       }
       sec.dirty = false;
-      return guardar('secciones', body);
+      // Primero la geometría (manda), después los trenes sobre esa cantidad.
+      // El resultado de los trenes también cuenta: si fallan, el botón no
+      // muestra "Guardado" y el reintento vuelve a intentarlos (la geometría
+      // ya quedó firme y sec.dirty=false evita re-guardarla).
+      return guardar('secciones', body).then(function (ok) {
+        if (!ok) { sec.dirty = true; return false; }
+        return trnGuardar();
+      });
     }
   };
 
@@ -713,6 +956,7 @@
     sec.modo = sec.modo === 'ind' ? 'zonas' : 'ind';
     sec.dirty = true;
     secPintar();
+    trnPintar(); // el modo cambia la cantidad efectiva de surcos
   });
   document.getElementById('secBoundary').addEventListener('click', function () {
     sec.boundary = !sec.boundary;
@@ -732,11 +976,30 @@
     for (var i = 0; i < 16; i++) sec.widths[i] = wide;
     sec.dirty = true;
     secPintarInd();
+    trnPintar(); // la tira de trenes acompaña la cantidad (regenera desde memoria)
   });
   document.getElementById('nudDefaultWidth').addEventListener('input', function () {
     var v = parseFloat(String(this.value).replace(',', '.'));
     if (!isNaN(v)) sec.defWidth = Math.abs(v);
     sec.dirty = true;
+  });
+  // Al CONFIRMAR el ancho (blur/enter, no por tecla — tipear "120" pasaría
+  // por "1"): pisa el ancho de TODAS las secciones y recalcula el total,
+  // igual que cuando se cambia la cantidad. Antes solo guardaba el default
+  // y las celdas quedaban con los anchos viejos hasta tocar la cantidad.
+  document.getElementById('nudDefaultWidth').addEventListener('change', function () {
+    var dw = leerNud(this, limDefWidth()[0], limDefWidth()[1]);
+    if (dw === null) return;
+    var wide = dw;
+    if (sec.num * wide > secCapDisp()) {
+      wide = snap.is_metric ? 99 : 19; // mismo clamp que el cambio de cantidad
+      setEstado('Demasiado ancho — anchos reseteados a ' + wide + ' ' + unidad(), 'err');
+      this.value = wide;
+    }
+    sec.defWidth = wide;
+    for (var i = 0; i < 16; i++) sec.widths[i] = wide;
+    sec.dirty = true;
+    secPintarInd();
   });
   document.getElementById('nudNumSectionsMulti').addEventListener('change', function () {
     var v = parseInt(String(this.value).replace(',', '.'), 10);
@@ -752,6 +1015,7 @@
     sec.dirty = true;
     secZonasDefault();
     secPintarZonas();
+    trnPintar(); // ídem: la tira sigue a la cantidad en modo zonas
   });
   document.getElementById('selZonas').addEventListener('change', function () {
     var z = parseInt(this.value, 10);
@@ -1456,7 +1720,9 @@
   main.addEventListener('input', marcarSucio);
   main.addEventListener('change', marcarSucio);
   main.addEventListener('click', function (ev) {
-    if (ev.target.closest('.chkimg, .radioimg, #btnOpacUp, #btnOpacDn, #btnSmoothUp, #btnSmoothDn, #btnExtUp, #btnExtDn')) {
+    // Trenes: agregar/quitar y pintar la tira modifican datos → botón dirty.
+    // (Elegir el pincel no: no cambia nada hasta que se pinta.)
+    if (ev.target.closest('.chkimg, .radioimg, #btnOpacUp, #btnOpacDn, #btnSmoothUp, #btnSmoothDn, #btnExtUp, #btnExtDn, #trnAdd, [data-trn-del], #trnStrip .celda')) {
       marcarSucio();
     }
   });

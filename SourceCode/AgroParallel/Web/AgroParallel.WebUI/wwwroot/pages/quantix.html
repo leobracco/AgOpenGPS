@@ -81,6 +81,96 @@
     .motor-cfg.m1 { border-left-color: #E27A0F; }
     .motor-cfg h4 { margin: 0 0 var(--agp-sp-2) 0; }
 
+    /* ===== Tab MOTORES: los motores del nodo van en TABLA, no en tarjetas =====
+       Una fila por motor deja comparar PWM y PID de todos los motores en
+       vertical, que es como se ajustan en la práctica. Los otros tabs (PID,
+       Calibración, Prueba) siguen con tarjetas: ahí se mira un motor a la vez. */
+    #tabMotores .mcfg-scroll { overflow-x: auto; margin-top: var(--agp-sp-3); }
+    #tabMotores .mcfg-table {
+      width: 100%; border-collapse: collapse;
+      font-size: var(--agp-fs-sm);
+    }
+    #tabMotores .mcfg-table th {
+      background: var(--agp-bg-soft);
+      color: var(--agp-text-muted);
+      font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-medium);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      text-align: left; white-space: nowrap;
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+    }
+    /* Fila de grupos (Sensor / Motor / PID): separadores verticales para que se
+       vea dónde empieza y termina cada bloque. */
+    #tabMotores .mcfg-table tr.grp th { text-align: center; }
+    #tabMotores .mcfg-table tr.grp th[colspan],
+    #tabMotores .mcfg-table tr.sub th { border-left: var(--agp-border-w) solid var(--agp-border); }
+    #tabMotores .mcfg-table tr.grp th:first-child,
+    #tabMotores .mcfg-table tr.sub th:first-child { border-left: 0; }
+
+    /* La fila deja de ser tarjeta: sin padding/fondo propios, con la barra de
+       color del motor en la primera celda (M0 verde, M1 naranja). */
+    #tabMotores .mcfg-table tr.motor-cfg {
+      display: table-row;
+      background: transparent; border-radius: 0; padding: 0;
+      border-left: 0;
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+    }
+    #tabMotores .mcfg-table tr.motor-cfg:hover { background: var(--agp-bg-soft); }
+    /* La tarjeta marcaba el motor con una barra de color arriba (::before
+       absoluto). En una fila de tabla esa barra cruza todo el ancho: el color
+       ahora vive en el chip M0/M1 de la primera celda. */
+    #tabMotores .mcfg-table tr.motor-cfg::before { content: none; }
+    #tabMotores .mcfg-table td {
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      vertical-align: middle;
+      border-left: var(--agp-border-w) solid var(--agp-border);
+    }
+    #tabMotores .mcfg-table td:first-child { border-left: 0; }
+    /* La columna del motor es la etiqueta de la fila: angosta, a la izquierda y
+       PEGADA al borde — con 12 columnas hay scroll horizontal, y sin esto el
+       operario pierde de vista qué motor está tocando. */
+    #tabMotores .mcfg-table .c-mot {
+      white-space: nowrap; width: 1%; text-align: left;
+      position: sticky; left: 0; z-index: 2;
+      background: var(--agp-surface);
+      border-right: var(--agp-border-w) solid var(--agp-border);
+    }
+    #tabMotores .mcfg-table tr.motor-cfg:hover .c-mot { background: var(--agp-bg-soft); }
+    #tabMotores .mcfg-table th.c-mot { z-index: 3; background: var(--agp-bg-soft); }
+    #tabMotores .mcfg-table tr.grp th.c-mot,
+    #tabMotores .mcfg-table tr.sub th.c-mot { text-align: left; }
+    #tabMotores .mcfg-table .mot-tag {
+      display: inline-block; min-width: 30px;
+      padding: 2px 6px; margin-right: var(--agp-sp-2);
+      border-radius: var(--agp-radius-sm, 4px);
+      background: var(--agp-accent); color: #fff;
+      font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+      font-size: var(--agp-fs-xs); text-align: center;
+    }
+    #tabMotores .mcfg-table tr.m1 .mot-tag { background: #E27A0F; }
+    #tabMotores .mcfg-table .mot-nom { font-weight: var(--agp-fw-medium); }
+    #tabMotores .mcfg-table .c-tope { white-space: nowrap; text-align: right; }
+    #tabMotores .mcfg-table .c-tope .v {
+      display: block; font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+    }
+    #tabMotores .mcfg-table .c-tope .v2 {
+      display: block; font-family: var(--agp-font-mono);
+      color: var(--agp-text-muted); font-size: var(--agp-fs-xs);
+    }
+    #tabMotores .mcfg-table .c-acc { white-space: nowrap; }
+    #tabMotores .mcfg-table .c-acc .btn { display: block; width: 100%; margin-bottom: 4px; }
+    #tabMotores .mcfg-table .c-acc .send-msg { font-size: var(--agp-fs-xs); }
+    #tabMotores .mcfg-table select { width: 100%; min-width: 155px; }
+    #tabMotores .mcfg-table .cfg-hint {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      margin-top: 3px; white-space: nowrap; text-align: center;
+    }
+    /* Stepper compacto: en celda no entran los botones de 56px del formulario,
+       pero 40px sigue siendo tocable con el dedo. */
+    #tabMotores .mcfg-table .agp-stepper { height: 40px; min-width: 118px; }
+    #tabMotores .mcfg-table .agp-stepper .agp-step-btn { flex: 0 0 38px; font-size: 18px; }
+    #tabMotores .mcfg-table .agp-stepper .agp-step-val { font-size: var(--agp-fs-sm); }
+
     .fld-grid {
       display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: var(--agp-sp-2) var(--agp-sp-3);
@@ -301,6 +391,17 @@
     .mlist{margin-top:12px;display:flex;flex-direction:column;gap:6px}
     .mrow{display:flex;align-items:center;gap:10px;background:#121a14;border:1px solid var(--agp-border);border-radius:9px;padding:10px 11px}
     .mrow.sel{border-color:var(--agp-accent);box-shadow:0 0 0 1px var(--agp-accent) inset}
+    /* Canal sin motor cableado: se atenúa pero se sigue pudiendo editar y
+       volver a habilitar. El checkbox queda a opacidad plena para que se vea
+       que el control está vivo. */
+    .mrow.mdis{opacity:.45}
+    /* Nodo desactivado en el perfil: se atenúa la tarjeta entera menos la
+       cabecera, para poder volver a activarlo o eliminarlo. */
+    .card.node-dis .live-tune-grid{opacity:.45}
+    .node-head .qxNodoHab{width:17px;height:17px;flex:0 0 auto;accent-color:var(--agp-accent);cursor:pointer}
+    .node-head .qxNodoDel{margin-left:auto}
+    .mrow.mdis .qxHab{opacity:1}
+    .mrow .qxHab{width:17px;height:17px;flex:0 0 auto;accent-color:var(--agp-accent);cursor:pointer}
     .mrow .sw{width:16px;height:16px;border-radius:5px;flex:0 0 auto}
     .mrow .nm{width:90px;color:var(--agp-text);font-weight:700}
     .mrow .qxNombre{width:104px;flex:0 0 auto;background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:6px;color:var(--agp-text);font-weight:700;font-size:13px;padding:6px 7px}
@@ -411,20 +512,20 @@
     /* ===== QuantiX service panes: PID / Calibracion / Prueba ===== */
     .quantix-tabs .tab{min-height:40px;padding:0 var(--agp-sp-3);font-size:var(--agp-fs-sm)}
     #pidList,#calList,#prList{display:flex;flex-direction:column;gap:var(--agp-sp-3)}
-    #tabPid .card,#tabCalibrar .card,#tabPrueba .card{
+    #tabPid .card,#tabMotores .card,#tabCalibrar .card,#tabPrueba .card{
       margin-bottom:0!important;
       padding:var(--agp-sp-3);
       border-color:var(--agp-border);
       background:var(--agp-surface);
     }
-    #tabPid .card>h3,#tabCalibrar .card>h3,#tabPrueba .card>h3,
-    #tabPid .node-head{
+    #tabPid .card>h3,#tabMotores .card>h3,#tabCalibrar .card>h3,#tabPrueba .card>h3,
+    #tabPid .node-head,#tabMotores .node-head{
       min-height:38px;
       margin:0 0 var(--agp-sp-3)!important;
       padding:0 0 var(--agp-sp-2);
       border-bottom:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
     }
-    #tabPid .card>h3,#tabCalibrar .card>h3,#tabPrueba .card>h3{
+    #tabPid .card>h3,#tabMotores .card>h3,#tabCalibrar .card>h3,#tabPrueba .card>h3{
       display:flex;
       align-items:center;
       gap:var(--agp-sp-2);
@@ -433,7 +534,7 @@
       text-transform:none;
       letter-spacing:0;
     }
-    #tabPid .node-head h3{
+    #tabPid .node-head h3,#tabMotores .node-head h3{
       color:var(--agp-text-strong,var(--agp-text));
       font-size:var(--agp-fs-md);
       text-transform:none;
@@ -449,13 +550,13 @@
       font-size:var(--agp-fs-xs);
       line-height:1.35;
     }
-    #tabPid .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{
+    #tabPid .live-tune-grid,#tabMotores .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{
       display:grid;
       grid-template-columns:repeat(auto-fit,minmax(330px,1fr));
       gap:var(--agp-sp-3);
       align-items:start;
     }
-    #tabPid .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{
+    #tabPid .motor-cfg,#tabMotores .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{
       position:relative;
       padding:var(--agp-sp-3);
       border-left-width:1px;
@@ -463,7 +564,7 @@
       background:var(--agp-bg);
       box-shadow:none;
     }
-    #tabPid .motor-cfg::before,#tabCalibrar .motor-cfg::before,#tabPrueba .motor-cfg::before{
+    #tabPid .motor-cfg::before,#tabMotores .motor-cfg::before,#tabCalibrar .motor-cfg::before,#tabPrueba .motor-cfg::before{
       content:'';
       position:absolute;
       left:0;right:0;top:0;
@@ -472,8 +573,8 @@
       background:var(--agp-accent);
       opacity:.85;
     }
-    #tabPid .motor-cfg.m1::before,#tabCalibrar .motor-cfg.m1::before,#tabPrueba .motor-cfg.m1::before{background:#E0A33E}
-    #tabPid .motor-cfg h4,#tabCalibrar .motor-cfg h4,#tabPrueba .motor-cfg h4{
+    #tabPid .motor-cfg.m1::before,#tabMotores .motor-cfg.m1::before,#tabCalibrar .motor-cfg.m1::before,#tabPrueba .motor-cfg.m1::before{background:#E0A33E}
+    #tabPid .motor-cfg h4,#tabMotores .motor-cfg h4,#tabCalibrar .motor-cfg h4,#tabPrueba .motor-cfg h4{
       margin:0 0 var(--agp-sp-2)!important;
       padding-top:2px;
       color:var(--agp-text-strong,var(--agp-text));
@@ -487,7 +588,7 @@
       padding-top:var(--agp-sp-3);
       border-top:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
     }
-    #tabPid .kv,#tabCalibrar .kv,#tabPrueba .kv{
+    #tabPid .kv,#tabMotores .kv,#tabCalibrar .kv,#tabPrueba .kv{
       margin-top:0!important;
       padding:var(--agp-sp-2);
       border:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
@@ -497,63 +598,63 @@
       row-gap:4px;
       font-size:var(--agp-fs-xs);
     }
-    #tabPid .kv .k,#tabCalibrar .kv .k,#tabPrueba .kv .k{
+    #tabPid .kv .k,#tabMotores .kv .k,#tabCalibrar .kv .k,#tabPrueba .kv .k{
       color:#8F969B;
       font-size:10px;
       letter-spacing:.3px;
     }
-    #tabPid .kv .v,#tabCalibrar .kv .v,#tabPrueba .kv .v{
+    #tabPid .kv .v,#tabMotores .kv .v,#tabCalibrar .kv .v,#tabPrueba .kv .v{
       color:var(--agp-text-strong,var(--agp-text));
       font-size:var(--agp-fs-sm);
       font-weight:var(--agp-fw-bold);
       line-height:1.15;
     }
-    #tabPid .fld-grid,#tabCalibrar .fld-grid,#tabPrueba .fld-grid{
+    #tabPid .fld-grid,#tabMotores .fld-grid,#tabCalibrar .fld-grid,#tabPrueba .fld-grid{
       grid-template-columns:repeat(auto-fit,minmax(116px,1fr));
       gap:var(--agp-sp-2);
       margin-top:var(--agp-sp-2)!important;
     }
-    #tabPid .field,#tabCalibrar .field,#tabPrueba .field{gap:4px;margin:0}
-    #tabPid .field label,#tabCalibrar .field label,#tabPrueba .field label{
+    #tabPid .field,#tabMotores .field,#tabCalibrar .field,#tabPrueba .field{gap:4px;margin:0}
+    #tabPid .field label,#tabMotores .field label,#tabCalibrar .field label,#tabPrueba .field label{
       min-height:16px;
       font-size:10px;
       line-height:1.2;
       text-transform:uppercase;
       letter-spacing:.3px;
     }
-    #tabPid input,#tabCalibrar input,#tabPrueba input,
-    #tabPid select,#tabCalibrar select,#tabPrueba select{
+    #tabPid input,#tabMotores input,#tabCalibrar input,#tabPrueba input,
+    #tabPid select,#tabMotores select,#tabCalibrar select,#tabPrueba select{
       min-height:38px;
       height:38px;
       padding:0 var(--agp-sp-2);
       font-size:var(--agp-fs-sm);
       text-align:center;
     }
-    #tabPid .agp-stepper,#tabCalibrar .agp-stepper,#tabPrueba .agp-stepper{
+    #tabPid .agp-stepper,#tabMotores .agp-stepper,#tabCalibrar .agp-stepper,#tabPrueba .agp-stepper{
       height:40px;
       min-height:40px;
       border-radius:var(--agp-radius-sm);
     }
-    #tabPid .agp-stepper .agp-step-btn,#tabCalibrar .agp-stepper .agp-step-btn,#tabPrueba .agp-stepper .agp-step-btn{
+    #tabPid .agp-stepper .agp-step-btn,#tabMotores .agp-stepper .agp-step-btn,#tabCalibrar .agp-stepper .agp-step-btn,#tabPrueba .agp-stepper .agp-step-btn{
       flex-basis:42px;
       font-size:18px;
     }
-    #tabPid .agp-stepper .agp-step-val,#tabCalibrar .agp-stepper .agp-step-val,#tabPrueba .agp-stepper .agp-step-val{
+    #tabPid .agp-stepper .agp-step-val,#tabMotores .agp-stepper .agp-step-val,#tabCalibrar .agp-stepper .agp-step-val,#tabPrueba .agp-stepper .agp-step-val{
       font-size:var(--agp-fs-sm);
       font-weight:var(--agp-fw-bold);
     }
-    #tabPid .btn-row,#tabCalibrar .btn-row,#tabPrueba .btn-row{
+    #tabPid .btn-row,#tabMotores .btn-row,#tabCalibrar .btn-row,#tabPrueba .btn-row{
       gap:var(--agp-sp-2);
       margin-top:var(--agp-sp-2)!important;
       padding-top:var(--agp-sp-2);
       border-top:1px solid var(--agp-border-soft,rgba(255,255,255,.06));
     }
-    #tabPid .btn,#tabCalibrar .btn,#tabPrueba .btn{
+    #tabPid .btn,#tabMotores .btn,#tabCalibrar .btn,#tabPrueba .btn{
       min-height:38px;
       padding:0 var(--agp-sp-3);
       font-size:var(--agp-fs-sm);
     }
-    #tabPid .send-msg,#tabCalibrar .send-msg,#tabPrueba .send-msg{
+    #tabPid .send-msg,#tabMotores .send-msg,#tabCalibrar .send-msg,#tabPrueba .send-msg{
       flex:1 1 120px;
       justify-content:flex-end;
       min-height:38px;
@@ -574,15 +675,15 @@
     }
     @media (max-width:1100px),(max-height:820px){
       .quantix-tabs .tab{min-height:36px;padding:0 var(--agp-sp-2)}
-      #tabPid .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{
+      #tabPid .live-tune-grid,#tabMotores .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{
         grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
       }
-      #tabPid .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{padding:var(--agp-sp-2)}
-      #tabPid .btn,#tabCalibrar .btn,#tabPrueba .btn{min-height:36px}
+      #tabPid .motor-cfg,#tabMotores .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{padding:var(--agp-sp-2)}
+      #tabPid .btn,#tabMotores .btn,#tabCalibrar .btn,#tabPrueba .btn{min-height:36px}
     }
     @media (max-width:760px){
-      #tabPid .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{grid-template-columns:1fr}
-      #tabPid .send-msg,#tabCalibrar .send-msg,#tabPrueba .send-msg{
+      #tabPid .live-tune-grid,#tabMotores .live-tune-grid,#tabCalibrar .live-tune-grid,#tabPrueba .live-tune-grid{grid-template-columns:1fr}
+      #tabPid .send-msg,#tabMotores .send-msg,#tabCalibrar .send-msg,#tabPrueba .send-msg{
         flex-basis:100%;
         justify-content:flex-start;
         text-align:left;
@@ -669,14 +770,14 @@
     }
     .shape-icon{color:var(--agp-accent)}
     .shape-file-row .ext{background:var(--agp-accent)}
-    #tabPid .card,#tabCalibrar .card,#tabPrueba .card{background:#fff;border-color:var(--agp-border)}
-    #tabPid .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{background:#fff;border-color:var(--agp-border)}
-    #tabPid .kv,#tabCalibrar .kv,#tabPrueba .kv{
+    #tabPid .card,#tabMotores .card,#tabCalibrar .card,#tabPrueba .card{background:#fff;border-color:var(--agp-border)}
+    #tabPid .motor-cfg,#tabMotores .motor-cfg,#tabCalibrar .motor-cfg,#tabPrueba .motor-cfg{background:#fff;border-color:var(--agp-border)}
+    #tabPid .kv,#tabMotores .kv,#tabCalibrar .kv,#tabPrueba .kv{
       background:var(--agp-surface-2);
       border-color:var(--agp-border-soft);
     }
-    #tabPid .kv .k,#tabCalibrar .kv .k,#tabPrueba .kv .k{color:var(--agp-text-muted)}
-    #tabPid .kv .v,#tabCalibrar .kv .v,#tabPrueba .kv .v{color:var(--agp-text-strong)}
+    #tabPid .kv .k,#tabMotores .kv .k,#tabCalibrar .kv .k,#tabPrueba .kv .k{color:var(--agp-text-muted)}
+    #tabPid .kv .v,#tabMotores .kv .v,#tabCalibrar .kv .v,#tabPrueba .kv .v{color:var(--agp-text-strong)}
     #tabCalibrar .card>p{
       background:var(--agp-surface-2);
       border-color:var(--agp-border-soft);
@@ -831,48 +932,48 @@
       min-height:36px;
       padding:5px 8px;
     }
-    #tabPid .card,
+    #tabPid .card,#tabMotores .card,
     #tabCalibrar .card,
     #tabPrueba .card{
       padding:10px;
     }
-    #tabPid .live-tune-grid,
+    #tabPid .live-tune-grid,#tabMotores .live-tune-grid,
     #tabCalibrar .live-tune-grid,
     #tabPrueba .live-tune-grid{
       grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
       gap:8px;
     }
-    #tabPid .motor-cfg,
+    #tabPid .motor-cfg,#tabMotores .motor-cfg,
     #tabCalibrar .motor-cfg,
     #tabPrueba .motor-cfg{
       padding:9px;
       border-radius:7px;
     }
-    #tabPid .kv,
+    #tabPid .kv,#tabMotores .kv,
     #tabCalibrar .kv,
     #tabPrueba .kv{
       min-height:auto;
       padding:6px;
       row-gap:2px;
     }
-    #tabPid .kv .k,
+    #tabPid .kv .k,#tabMotores .kv .k,
     #tabCalibrar .kv .k,
     #tabPrueba .kv .k{
       font-size:10px;
     }
-    #tabPid .kv .v,
+    #tabPid .kv .v,#tabMotores .kv .v,
     #tabCalibrar .kv .v,
     #tabPrueba .kv .v{
       font-size:15px;
     }
-    #tabPid .fld-grid,
+    #tabPid .fld-grid,#tabMotores .fld-grid,
     #tabCalibrar .fld-grid,
     #tabPrueba .fld-grid{
       grid-template-columns:repeat(auto-fit,minmax(96px,1fr));
       gap:6px;
     }
-    #tabPid input,
-    #tabPid select,
+    #tabPid input,#tabMotores input,
+    #tabPid select,#tabMotores select,
     #tabCalibrar input,
     #tabCalibrar select,
     #tabPrueba input,
@@ -881,25 +982,25 @@
       height:32px;
       font-size:12px;
     }
-    #tabPid .agp-stepper,
+    #tabPid .agp-stepper,#tabMotores .agp-stepper,
     #tabCalibrar .agp-stepper,
     #tabPrueba .agp-stepper{
       min-height:34px;
       height:34px;
     }
-    #tabPid .agp-stepper .agp-step-btn,
+    #tabPid .agp-stepper .agp-step-btn,#tabMotores .agp-stepper .agp-step-btn,
     #tabCalibrar .agp-stepper .agp-step-btn,
     #tabPrueba .agp-stepper .agp-step-btn{
       flex-basis:34px;
     }
-    #tabPid .btn,
+    #tabPid .btn,#tabMotores .btn,
     #tabCalibrar .btn,
     #tabPrueba .btn{
       min-height:32px;
       padding:0 9px;
       font-size:12px;
     }
-    #tabPid .send-msg,
+    #tabPid .send-msg,#tabMotores .send-msg,
     #tabCalibrar .send-msg,
     #tabPrueba .send-msg{
       min-height:32px;
@@ -914,7 +1015,7 @@
         width:24px;
         height:32px;
       }
-      #tabPid .live-tune-grid,
+      #tabPid .live-tune-grid,#tabMotores .live-tune-grid,
       #tabCalibrar .live-tune-grid,
       #tabPrueba .live-tune-grid{
         grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
@@ -934,6 +1035,37 @@
         flex:1 1 auto;
       }
     }
+
+    /* ── Pestaña Motores: config del fierro agrupada en bloques ───────────── */
+    #tabMotores .hint{
+      color:var(--agp-text-muted);
+      font-size:var(--agp-fs-sm);
+      margin:0 0 var(--agp-sp-3);
+    }
+    #tabMotores .cfg-block{
+      margin-top:var(--agp-sp-3);
+      padding-top:var(--agp-sp-2);
+      border-top:1px solid var(--agp-border);
+    }
+    #tabMotores .cfg-block:first-of-type{border-top:0;padding-top:0;margin-top:var(--agp-sp-2)}
+    #tabMotores .cfg-block-t{
+      display:block;
+      font-size:var(--agp-fs-xs);
+      font-weight:var(--agp-fw-bold,600);
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      color:var(--agp-text-muted);
+      margin-bottom:var(--agp-sp-2);
+    }
+    #tabMotores .cfg-hint{
+      margin-top:var(--agp-sp-2);
+      font-size:var(--agp-fs-xs);
+      color:var(--agp-text-muted);
+    }
+    #tabMotores .cfg-hint.warn{color:var(--agp-state-warn);font-weight:var(--agp-fw-bold,600)}
+    /* El select de tipo va a lo ancho: "Encoder (cientos de pulsos)" no entra
+       en una columna de la grilla y se leía cortado. */
+    #tabMotores .field.wide{grid-column:1/-1}
   </style>
   <script>if(location.search.indexOf('widget=1')!==-1)document.documentElement.classList.add('widget-mode');</script>
   <style>html.widget-mode body{grid-template-columns:1fr}html.widget-mode aside.sidebar{display:none}</style>
@@ -948,10 +1080,25 @@
 
     <div class="tabs quantix-tabs" role="tablist" aria-label="Secciones de QuantiX">
       <button type="button" class="tab active" data-tab="siembra">Siembra</button>
+      <button type="button" class="tab" data-tab="motores">Motores</button>
       <button type="button" class="tab" data-tab="shape">Shape (dosis)</button>
       <button type="button" class="tab" data-tab="pid">PID live</button>
       <button type="button" class="tab" data-tab="calibrar">Calibración</button>
       <button type="button" class="tab" data-tab="prueba">Prueba</button>
+    </div>
+
+    <!-- ===== MOTORES (config del fierro: sensor, motor, PWM, PID) ===== -->
+    <div id="tabMotores" style="display:none">
+      <p class="hint">
+        Cómo está armado cada motor: qué sensor cuenta las vueltas, qué motor es y
+        entre qué PWM trabaja. Se guarda y se manda al nodo. Lo de medir vive en
+        Calibración y Prueba.
+      </p>
+      <div id="motList"></div>
+      <p id="motEmpty" class="hint" style="display:none">
+        No hay nodos QuantiX cargados todavía. Aparecen solos cuando el nodo se
+        anuncia por MQTT.
+      </p>
     </div>
 
     <!-- ===== SIEMBRA (config + monitor unificado) ===== -->
@@ -1066,6 +1213,6 @@
   <script src="../js/steps.js"></script>
   <script src="../js/qx-agro.js"></script>
   <script src="../js/modal.js"></script>
-  <script src="../js/quantix.js"></script>
+  <script src="../js/quantix.js?v=7"></script>
 </body>
 </html>

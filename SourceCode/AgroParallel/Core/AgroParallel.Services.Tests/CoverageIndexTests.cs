@@ -358,5 +358,23 @@ namespace AgroParallel.Services.Tests
                 idx.CantidadTriangulos, idx.CantidadCeldas, consultas,
                 sw.ElapsedMilliseconds, (double)sw.ElapsedMilliseconds / consultas));
         }
+    
+    // El caso que inflo el equipo real a >4 GB: UN triangulo con un vertice
+    // basura (bbox de km) registraba millones de celdas en la grilla. La
+    // guardia lo descarta entero y el indice queda usable.
+    [Test]
+    public void TrianguloConBboxAbsurdo_SeDescartaYNoRevientaLaGrilla()
+    {
+        var idx = new CoverageIndex();
+        // Triangulo veneno: 20 km de bbox (vertice sin origen / header).
+        idx.AgregarTriangulo(0, 0, 20000, 0, 20000, 20000);
+        Assert.That(idx.CantidadTriangulos, Is.EqualTo(0));
+
+        // Y uno sano despues sigue funcionando normal.
+        idx.AgregarTriangulo(0, 0, 3, 0, 0, 3);
+        Assert.That(idx.CantidadTriangulos, Is.EqualTo(1));
+        var r = idx.Consultar(1, 1, 0, 2);
+        Assert.That(r.CoveragePercent, Is.GreaterThan(0));
     }
+}
 }

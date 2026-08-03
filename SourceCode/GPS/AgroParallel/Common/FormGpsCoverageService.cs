@@ -75,6 +75,13 @@ namespace AgroParallel.Adapters
             return snap;
         }
 
+        public CoverageSnapshot GetSnapshot(string cursor)
+        {
+            // Sin incremental en el twin WinForms: el head que pinta fluido
+            // (PilotX.Desktop) habla con el engine. Contrato cumplido con full.
+            return GetSnapshot();
+        }
+
         public void Reset()
         {
             if (_form == null || _form.triStrip == null) return;

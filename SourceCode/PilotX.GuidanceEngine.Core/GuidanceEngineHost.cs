@@ -183,6 +183,15 @@ namespace AgOpenGPS
 
         private readonly System.Diagnostics.Stopwatch _relojSegundo = System.Diagnostics.Stopwatch.StartNew();
 
+        // Reloj desde el arranque para secondsSinceStart. En FormGPS ese campo
+        // lo actualiza el TICK DE LA GUI (GUI.Designer.cs:390): acá quedaba
+        // clavado en 0 y BuildCurrentABLineList/BuildCurveCurrentList nunca
+        // re-elegían la PARALELA más cercana con el piloto apagado (su gate es
+        // "pasaron 0.66 s desde el último pick") — la línea activa quedaba
+        // congelada donde se construyó y el tractor se alejaba de ella. Tercer
+        // contador de la misma familia (autoTrack3SecTimer, makeUTurnCounter).
+        private readonly System.Diagnostics.Stopwatch _relojArranque = System.Diagnostics.Stopwatch.StartNew();
+
         /// <summary>
         /// Contadores de UN SEGUNDO. Réplica del bloque `if (oneSecondCounter >= 4)`
         /// de AOG 6.8.5 (GUI.Designer.cs:285-298), quedándose SOLO con lo que es
@@ -284,6 +293,26 @@ namespace AgOpenGPS
             _loopBackSocket = null;
         }
 
+        // Serializa el pipeline de fix. En FormGPS todos los PGN se procesan en
+        // el hilo de UI; acá ReceiveAppData re-arma el BeginReceiveFrom ANTES de
+        // procesar, así que ante una ráfaga (GGA+VTG del mismo fix, PGN de
+        // módulos) DOS hilos del pool entraban juntos a UpdateFixPosition →
+        // SectionControlToUpdate → AntiSolape.Sincronizar, y el Dictionary del
+        // CoverageIndex se corrompía ("A concurrent update was performed...").
+        // Con el índice corrupto CADA fix siguiente tiraba la excepción y las
+        // secciones quedaban CONGELADAS en su último estado — apagar el master
+        // manual no las apagaba. Todo lo que corre bajo ReceiveFromAgIO asume
+        // un solo hilo (Pn, heading, cobertura): este lock restituye el
+        // contrato del original.
+        private readonly object _fixPipelineLock = new object();
+
+        /// <summary>Entrada serializada al pipeline de fix (la usa también el
+        /// simulador, que llega por su propio timer y no por UDP).</summary>
+        internal void ProcesarFixSerializado(Action accion)
+        {
+            lock (_fixPipelineLock) accion();
+        }
+
         private void ReceiveAppData(IAsyncResult ar)
         {
             if (!_running) return;
@@ -296,11 +325,24 @@ namespace AgOpenGPS
                 _loopBackSocket.BeginReceiveFrom(_loopBuffer, 0, _loopBuffer.Length, SocketFlags.None,
                     ref _endPointLoopBack, ReceiveAppData, null);
 
-                PgnReceiverField.ReceiveFromAgIO(data);
+                // TryEnter y DESCARTE, no lock: bajo una inundación UDP (eco,
+                // relay loco, ModSim reflejando) un lock convencional encolaba
+                // work-items sin límite (300+ hilos bloqueados, GB de byte[]).
+                // Con telemetría solo importa el dato MÁS NUEVO: si el pipeline
+                // está ocupado, este datagrama se tira y listo.
+                if (System.Threading.Monitor.TryEnter(_fixPipelineLock))
+                {
+                    try { PgnReceiverField.ReceiveFromAgIO(data); }
+                    finally { System.Threading.Monitor.Exit(_fixPipelineLock); }
+                }
             }
             catch (Exception ex)
             {
-                Log.EventWriter("GuidanceEngine: error de recepción UDP: " + ex.Message);
+                // ToString y no Message: acá cae CUALQUIER excepción del pipeline
+                // de fix (NMEA→UpdateFixPosition→secciones). Sin el stack, un bug
+                // real (p.ej. colección corrupta) queda enterrado como una línea
+                // repetida 2000 veces y las secciones congeladas sin pista.
+                Log.EventWriter("GuidanceEngine: error de recepción UDP: " + ex);
             }
         }
 
@@ -359,10 +401,15 @@ namespace AgOpenGPS
 
             Pn.speed = Pn.vtgSpeed;
             Pn.AverageTheSpeed();
+            // Ultimo fix procesado: el state provider lo usa para NO retener una
+            // velocidad vieja si el GPS se corta (el HUD mostraba 3,5 km/h
+            // congelados para siempre, y QuantiX seguia dosificando con ella).
+            lastFixUtc = DateTime.UtcNow;
 
             HeadingUpdater.UpdateHeading();
             AutoSteerUpdater.SendCorrectedPositionPgn();
             AutoSteerUpdater.BuildAndSendAutoSteerPgn();
+            secondsSinceStart = _relojArranque.Elapsed.TotalSeconds;
             TickDeUnSegundo();
             YouTurnUpdater.UpdateYouTurnState();
             EngancharGuiaAlPivote();

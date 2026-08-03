@@ -37,7 +37,7 @@ public sealed class VistaXSurcoLive
     [JsonPropertyName("estado")]        public string? Estado        { get; set; }
     [JsonPropertyName("spm")]           public double  Spm           { get; set; }
     [JsonPropertyName("objetivo")]      public double  Objetivo      { get; set; }
-    [JsonPropertyName("ratioObjetivo")] public double  RatioObjetivo { get; set; }
+    [JsonPropertyName("ratio_objetivo")] public double  RatioObjetivo { get; set; }
     [JsonPropertyName("uid")]           public string? Uid           { get; set; }
     [JsonPropertyName("cable")]         public int     Cable         { get; set; }
     [JsonPropertyName("muted")]         public bool    Muted         { get; set; }
@@ -55,21 +55,21 @@ public sealed class VistaXNodoLive
 {
     [JsonPropertyName("uid")]              public string? Uid              { get; set; }
     [JsonPropertyName("online")]           public bool    Online           { get; set; }
-    [JsonPropertyName("sensorsReporting")] public int     SensorsReporting { get; set; }
-    [JsonPropertyName("lastSeenIso")]      public string? LastSeenIso      { get; set; }
+    [JsonPropertyName("sensors_reporting")] public int     SensorsReporting { get; set; }
+    [JsonPropertyName("last_seen_iso")]      public string? LastSeenIso      { get; set; }
 }
 
 public sealed class VistaXLiveSnapshot
 {
     [JsonPropertyName("trenes")]           public List<VistaXTrenLive>? Trenes       { get; set; }
-    [JsonPropertyName("spmPromedio")]      public double? SpmPromedio                { get; set; }
-    [JsonPropertyName("surcosActivos")]    public int     SurcosActivos              { get; set; }
-    [JsonPropertyName("fallasActivas")]    public int     FallasActivas              { get; set; }
-    [JsonPropertyName("hasAlarm")]         public bool    HasAlarm                   { get; set; }
-    [JsonPropertyName("alarmMessage")]     public string? AlarmMessage               { get; set; }
-    [JsonPropertyName("nombreImplemento")] public string? NombreImplemento           { get; set; }
-    [JsonPropertyName("toleranciaDesvio")] public double? ToleranciaDesvio           { get; set; }
-    [JsonPropertyName("monitoreoActivo")]  public bool    MonitoreoActivo            { get; set; }
+    [JsonPropertyName("spm_promedio")]      public double? SpmPromedio                { get; set; }
+    [JsonPropertyName("surcos_activos")]    public int     SurcosActivos              { get; set; }
+    [JsonPropertyName("fallas_activas")]    public int     FallasActivas              { get; set; }
+    [JsonPropertyName("has_alarm")]         public bool    HasAlarm                   { get; set; }
+    [JsonPropertyName("alarm_message")]     public string? AlarmMessage               { get; set; }
+    [JsonPropertyName("nombre_implemento")] public string? NombreImplemento           { get; set; }
+    [JsonPropertyName("tolerancia_desvio")] public double? ToleranciaDesvio           { get; set; }
+    [JsonPropertyName("monitoreo_activo")]  public bool    MonitoreoActivo            { get; set; }
     [JsonPropertyName("nodos")]            public List<VistaXNodoLive>? Nodos        { get; set; }
 }
 

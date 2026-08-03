@@ -35,6 +35,9 @@ namespace AgroParallel.OrbitX
         private bool _syncInFlight;
         private bool _disposed;
         private readonly Queue<SyncItem> _queue = new Queue<SyncItem>();
+        // Tope de reintentos antes de descartar un ítem que el server rechaza
+        // siempre (4xx permanente) — sin esto bloqueaba la cola entera (head-of-line).
+        private const int MaxIntentosPorItem = 5;
 
         public bool IsRunning { get; private set; }
         public int FilesSynced { get; private set; }
@@ -61,6 +64,14 @@ namespace AgroParallel.OrbitX
             public int TamanoBytes;
             public bool EsLote;
             public string LoteNombre;
+            // Ruta local: hace falta para marcar el archivo como subido RECIÉN
+            // cuando el server confirmó. Ver EnqueueIfChanged.
+            public string LocalPath;
+            // Reintentos consecutivos fallidos. Un archivo que el server rechaza
+            // SIEMPRE (4xx permanente) bloqueaba la cola entera para siempre —
+            // ver SyncTick: a los 5 intentos se descarta (sin anotar hash, así
+            // que si el archivo cambia se re-encola solo).
+            public int Intentos;
         }
 
         // Extensiones que requieren transporte binario (Base64). El resto se
@@ -241,13 +252,49 @@ namespace AgroParallel.OrbitX
                 if (_cfg.SyncStormX) EnqueueStormXFiles();
                 if (_cfg.SyncAOG) EnqueueAOGFiles();
 
-                // Subir cola.
+                // Subir cola. Un archivo se da por sincronizado SOLO cuando el
+                // server contesta OK: recién ahí anotamos el hash. Si falla
+                // (sin WiFi en el lote), lo dejamos en la cola y cortamos el
+                // ciclo — sin red, insistir con los demás solo suma timeouts.
+                // El próximo tick reintenta, y si el proceso se reinició, el
+                // hash sin anotar hace que se vuelva a encolar solo.
+                //
+                // Excepción: si el MISMO ítem ya falló MaxIntentosPorItem veces
+                // seguidas (rechazo permanente del server, ej. 4xx por archivo
+                // corrupto), cortar acá dejaría la cola entera bloqueada para
+                // siempre detrás de él (head-of-line). Lo descartamos SIN anotar
+                // el hash — si el archivo cambia más adelante, EnqueueIfChanged
+                // lo vuelve a encolar solo — y seguimos con el resto.
+                int subidos = 0;
                 while (_queue.Count > 0)
                 {
-                    var item = _queue.Dequeue();
+                    var item = _queue.Peek();
                     bool ok = await UploadFile(item);
-                    if (ok) FilesSynced++;
+                    if (!ok)
+                    {
+                        item.Intentos++;
+                        if (item.Intentos >= MaxIntentosPorItem)
+                        {
+                            _queue.Dequeue();
+                            Trace(string.Format("[AOG] DESCARTADO tras {0} intentos: {1} ({2} bytes): {3}",
+                                item.Intentos, item.Nombre, item.TamanoBytes, LastError ?? "sin respuesta"));
+                            continue;
+                        }
+                        Trace(string.Format("[AOG] PENDIENTE {0} ({1} bytes) — queda en cola ({2}) intento {3}/{4}: {5}",
+                            item.Nombre, item.TamanoBytes, _queue.Count, item.Intentos, MaxIntentosPorItem, LastError ?? "sin respuesta"));
+                        break;
+                    }
+                    _queue.Dequeue();
+                    if (!string.IsNullOrEmpty(item.LocalPath))
+                        _lastHashes[item.LocalPath] = item.HashMd5;
+                    FilesSynced++;
+                    subidos++;
+                    Trace(string.Format("[AOG] OK {0} · {1} · {2} bytes{3}",
+                        item.Nombre, item.Subtipo, item.TamanoBytes,
+                        item.EsLote ? " · lote " + item.LoteNombre : ""));
                 }
+                if (subidos > 0)
+                    Trace(string.Format("[AOG] {0} archivo(s) subidos · {1} en cola", subidos, _queue.Count));
 
                 // Enviar posición del tractor (tracking).
                 await SendTracking();
@@ -334,17 +381,21 @@ namespace AgroParallel.OrbitX
                 string fieldDir = Path.Combine(fieldsRoot, fieldName);
                 if (!Directory.Exists(fieldDir)) return;
 
+                // "ablines.txt" es el nombre viejo; PilotX guarda las guías en
+                // TrackLines.txt y así ninguna línea de guiado llegaba al cloud.
+                // Contour.txt entra también: es trabajo del operario igual que
+                // el resto (Windows no distingue mayúsculas en File.Exists).
                 string[] aogFiles = new[] { "boundary.txt", "field.txt", "sections.txt",
-                    "headland.txt", "flags.txt", "recpath.txt", "ablines.txt" };
+                    "headland.txt", "flags.txt", "recpath.txt", "ablines.txt",
+                    "tracklines.txt", "contour.txt" };
 
                 foreach (var fn in aogFiles)
                 {
                     string path = Path.Combine(fieldDir, fn);
                     if (File.Exists(path))
                     {
-                        string subtipo = fn.Replace(".txt", "");
-                        EnqueueIfChanged(path, "aog/fields/" + fieldName + "/" + fn, subtipo, "aog",
-                            true, fieldName);
+                        EnqueueIfChanged(path, "aog/fields/" + fieldName + "/" + fn,
+                            SubtipoCloud(fn), "aog", true, fieldName);
                     }
                 }
 
@@ -372,6 +423,30 @@ namespace AgroParallel.OrbitX
             catch (Exception ex)
             {
                 AgpLog.Error("OrbitXSync", "encolar archivos de lote AOG", ex);
+            }
+        }
+
+        // Nombre de archivo → `subtipo` que espera el cloud.
+        //
+        // OrbitX clasifica cada archivo del lote por este campo (routes/aog.js:
+        // GET /lotes/:nombre y /lotes-mapa) y el parser arma los polígonos de
+        // cobertura solo si encuentra `sections_coverage` MÁS el `field_origin`
+        // (necesita el origen para pasar de metros a lat/lon). Acá se mandaba el
+        // nombre del archivo pelado ("sections", "field"), que no coincide con
+        // ninguno: el lote aparecía en el panel pero sin las pasadas, y todo
+        // caía en el cajón "otros". Lo mismo con las guías (`track_lines`).
+        private static string SubtipoCloud(string fileName)
+        {
+            switch (fileName.ToLowerInvariant())
+            {
+                case "field.txt":      return "field_origin";
+                case "sections.txt":   return "sections_coverage";
+                case "tracklines.txt": return "track_lines";
+                case "ablines.txt":    return "ab_line";
+                case "boundary.txt":   return "boundary";
+                case "headland.txt":   return "headland";
+                case "contour.txt":    return "contour";
+                default:               return fileName.Replace(".txt", "");
             }
         }
 
@@ -405,12 +480,23 @@ namespace AgroParallel.OrbitX
 
                 string prev;
                 if (_lastHashes.TryGetValue(localPath, out prev) && prev == hash)
-                    return; // Sin cambios — el hash es sobre bytes/texto, no se cruzan.
+                    return; // Ya CONFIRMADO por el server — el hash es sobre bytes/texto.
 
-                _lastHashes[localPath] = hash;
+                // El hash NO se anota acá: se anota cuando el server confirma
+                // (ver SyncTick). Anotarlo al encolar hacía que un archivo que
+                // fallaba al subir —sin WiFi en el lote, típico— quedara marcado
+                // como sincronizado y no se reintentara nunca más. El lindero y
+                // la cabecera se escriben UNA vez: si ese intento caía, esa
+                // versión no llegaba nunca al cloud.
+                foreach (var enCola in _queue)
+                {
+                    if (enCola.LocalPath == localPath && enCola.HashMd5 == hash)
+                        return; // ya está esperando su turno
+                }
 
                 _queue.Enqueue(new SyncItem
                 {
+                    LocalPath = localPath,
                     RutaRel = rutaRel,
                     Nombre = Path.GetFileName(localPath),
                     Subtipo = subtipo,
@@ -494,7 +580,11 @@ namespace AgroParallel.OrbitX
                     { "hostname", Environment.MachineName },
                     { "platform", "win32" },
                     { "version", "AgOpenGPS-AP" },
-                    { "aog_path", AppDomain.CurrentDomain.BaseDirectory }
+                    { "aog_path", AppDomain.CurrentDomain.BaseDirectory },
+                    // ID de RustDesk (soporte remoto): si está instalado se lee
+                    // una vez y viaja en el payload; el CRM lo muestra en la
+                    // ficha del cliente. Sin RustDesk va null — nada que instalar.
+                    { "rustdesk_id", LeerRustDeskId() }
                 };
                 string json = JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -530,6 +620,52 @@ namespace AgroParallel.OrbitX
             }
         }
 
+        // ── RustDesk (soporte remoto) ────────────────────────────────────────
+        // Lee el ID de RustDesk UNA vez por sesión ejecutando el cliente con
+        // --get-id (2 s de timeout, best-effort). Si RustDesk no está
+        // instalado o falla, devuelve null y el heartbeat lo reporta así:
+        // el CRM muestra "sin RustDesk" en vez de romper nada.
+        private static string _rustdeskId;
+        private static bool _rustdeskLeido;
+
+        private static string LeerRustDeskId()
+        {
+            if (_rustdeskLeido) return _rustdeskId;
+            _rustdeskLeido = true;
+            try
+            {
+                string exe = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    "RustDesk", "rustdesk.exe");
+                if (!System.IO.File.Exists(exe)) return null;
+
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = "--get-id",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true,
+                };
+                using (var p = System.Diagnostics.Process.Start(psi))
+                {
+                    if (p == null) return null;
+                    string salida = p.StandardOutput.ReadToEnd();
+                    if (!p.WaitForExit(2000)) { try { p.Kill(); } catch { } return null; }
+                    salida = (salida ?? "").Trim();
+                    // El ID es numérico (9-10 dígitos); cualquier otra cosa es
+                    // un error del cliente y no sirve para conectarse.
+                    if (salida.Length >= 6 && salida.Length <= 16 && long.TryParse(salida, out _))
+                        _rustdeskId = salida;
+                }
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "leyendo ID de RustDesk", ex);
+            }
+            return _rustdeskId;
+        }
+
         private async Task SendHeartbeat()
         {
             string url = (_cfg.ServerUrl ?? "").TrimEnd('/') + "/api/devices/heartbeat";
@@ -541,7 +677,11 @@ namespace AgroParallel.OrbitX
                     { "hostname", Environment.MachineName },
                     { "platform", "win32" },
                     { "version", "AgOpenGPS-AP" },
-                    { "aog_path", AppDomain.CurrentDomain.BaseDirectory }
+                    { "aog_path", AppDomain.CurrentDomain.BaseDirectory },
+                    // ID de RustDesk (soporte remoto): si está instalado se lee
+                    // una vez y viaja en el payload; el CRM lo muestra en la
+                    // ficha del cliente. Sin RustDesk va null — nada que instalar.
+                    { "rustdesk_id", LeerRustDeskId() }
                 };
 
                 string json = JsonSerializer.Serialize(payload);
@@ -690,6 +830,23 @@ namespace AgroParallel.OrbitX
                         continue;
                     }
 
+                    // El endpoint de pendientes entrega TODOS los
+                    // aog_descarga_pendiente del device, no solo prescripciones:
+                    // los LOTES creados en OrbitX (dibujar contorno + "enviar a
+                    // PilotX") llegan por acá como Fields/<lote>/Field.txt,
+                    // Boundary.txt y boundary.kml. Antes todo se guardaba como
+                    // prescripción (.geojson en data/prescripciones) y encima se
+                    // marcaba entregado: el lote del cloud se PERDÍA en una
+                    // carpeta equivocada.
+                    string rutaRel = item.TryGetProperty("ruta_rel", out var rr) ? (rr.GetString() ?? "") : "";
+                    if (rutaRel.StartsWith("Fields/", StringComparison.OrdinalIgnoreCase) ||
+                        rutaRel.StartsWith("Fields\\", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (GuardarArchivoDeLote(rutaRel, contenido)) descargadas++;
+                        else errores++;
+                        continue;
+                    }
+
                     string dir = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, "data", "prescripciones");
                     if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
@@ -716,6 +873,96 @@ namespace AgroParallel.OrbitX
         {
             if (string.IsNullOrEmpty(s)) return "";
             return s.Length <= max ? s : s.Substring(0, max) + "…";
+        }
+
+        /// <summary>
+        /// Archivo de LOTE bajado del cloud (Fields/&lt;lote&gt;/Field.txt,
+        /// Boundary.txt, boundary.kml — los genera "crear lote" en OrbitX).
+        /// Se escribe directo en el directorio de lotes del tractor: el lote
+        /// queda listo para abrir desde la pantalla Lote. Si ese lote está
+        /// ABIERTO ahora, se saltea con aviso — el cierre del lote pisa el
+        /// Boundary con lo que tiene en memoria y el archivo bajado se
+        /// perdería en silencio.
+        /// </summary>
+        /// <summary>Importador de lote desde KML que inyecta el HOST (el motor
+        /// implementa crear/actualizar el lote SIN abrirlo, con sus writers).
+        /// (nombreLote, contenidoKml) → ok. Sin esto los lotes del cloud solo
+        /// dejan el .kml crudo en el directorio del lote.</summary>
+        public Func<string, string, bool> ImportarLoteDesdeKml;
+
+        private bool GuardarArchivoDeLote(string rutaRel, string contenido)
+        {
+            try
+            {
+                var snap = _state.GetSnapshot();
+                string fieldsDir = snap?.FieldsDirectory;
+                if (string.IsNullOrEmpty(fieldsDir))
+                {
+                    Trace("[LOTE] sin fields_directory en el state — no sé dónde guardar " + rutaRel);
+                    return false;
+                }
+
+                // Sanitizar: nada de ".." ni rutas absolutas dentro de ruta_rel.
+                string rel = rutaRel.Replace('\\', '/');
+                if (rel.Contains("..") || Path.IsPathRooted(rel))
+                {
+                    Trace("[LOTE] ruta_rel sospechosa, descartada: " + rutaRel);
+                    return false;
+                }
+                // Sacar el prefijo "Fields/": el resto es <lote>/<archivo>.
+                rel = rel.Substring("Fields/".Length);
+
+                string[] partes = rel.Split('/');
+                if (partes.Length < 2)
+                {
+                    Trace("[LOTE] ruta_rel sin lote/archivo: " + rutaRel);
+                    return false;
+                }
+                string lote = partes[0];
+                string archivo = partes[partes.Length - 1];
+
+                if (!string.IsNullOrEmpty(snap.CurrentFieldDirectory) &&
+                    string.Equals(snap.CurrentFieldDirectory, lote, StringComparison.OrdinalIgnoreCase))
+                {
+                    Trace("[LOTE] '" + lote + "' está ABIERTO en el tractor: no piso sus archivos. " +
+                          "Cerralo y mandalo de nuevo desde OrbitX.");
+                    return false;
+                }
+
+                // El boundary.kml es SOBERANO: el motor reconstruye Field.txt y
+                // Boundary.txt con sus propios writers (los del server tienen
+                // otro formato — lat/lon crudos y sin línea de fecha — y los
+                // readers del motor no los digieren: el lote "no abría").
+                if (archivo.EndsWith(".kml", StringComparison.OrdinalIgnoreCase))
+                {
+                    var importar = ImportarLoteDesdeKml;
+                    if (importar != null)
+                    {
+                        bool ok = importar(lote, contenido);
+                        Trace(ok
+                            ? "[LOTE] '" + lote + "' importado desde el KML del cloud (lindero listo)"
+                            : "[LOTE] no se pudo importar '" + lote + "' desde el KML");
+                        if (!ok) return false;
+                    }
+                    // El .kml crudo se guarda igual, como referencia/backup.
+                    string destinoKml = Path.Combine(fieldsDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                    Directory.CreateDirectory(Path.GetDirectoryName(destinoKml));
+                    File.WriteAllText(destinoKml, contenido);
+                    FilesSynced++;
+                    return true;
+                }
+
+                // Field.txt / Boundary.txt del server: formato incompatible con
+                // los readers del motor — NO se escriben (el import del KML los
+                // genera bien). Se acepta el pendiente para que no re-encole.
+                Trace("[LOTE] '" + archivo + "' del server ignorado (el KML manda; formato server-side no compatible)");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Trace("[LOTE] EX " + rutaRel + ": " + ex.Message);
+                return false;
+            }
         }
 
         private async Task SendTracking()

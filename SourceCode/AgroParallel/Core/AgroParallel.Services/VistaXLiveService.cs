@@ -41,6 +41,13 @@ namespace AgroParallel.Services
         // reguardar la pestaña VistaX. Si es null, se cae al comportamiento
         // legacy (geometría desde el vistaX implemento).
         private readonly IImplementoService _impCentral;
+        private readonly IQuantiXConfigService _quantixCfg;
+
+        // Objetivo dinámico por surco (sem/m que el motor QuantiX tiene mandado
+        // AHORA). Cache corto: GetSnapshot corre a UI-rate y la cuenta recorre
+        // config de motores + registry + implemento.
+        private System.Collections.Generic.Dictionary<int, double> _objDinPorSurco;
+        private DateTime _objDinStamp;
         // Opcional: si está presente, se consultan los bounds DropMin/DropMax del
         // insumo activo para definir "bajo"/"exceso" por surco. Si es null o el
         // insumo activo no tiene bounds seteados, se cae al cálculo legacy
@@ -142,9 +149,91 @@ namespace AgroParallel.Services
         }
 
         // ── Constructor ──────────────────────────────────────────────────────
+        // ── Objetivo dinámico (dosis variable QuantiX) ────────────────────────
+
+        private double ObjetivoDinamicoDeSurco(int surco)
+        {
+            if (surco <= 0) return 0;
+            var mapa = ArmarObjetivosDinamicos();
+            double v;
+            return mapa != null && mapa.TryGetValue(surco, out v) ? v : 0;
+        }
+
+        private System.Collections.Generic.Dictionary<int, double> ArmarObjetivosDinamicos()
+        {
+            if (_objDinPorSurco != null && (DateTime.UtcNow - _objDinStamp).TotalMilliseconds < 700)
+                return _objDinPorSurco;
+            _objDinStamp = DateTime.UtcNow;
+            var mapa = new System.Collections.Generic.Dictionary<int, double>();
+            _objDinPorSurco = mapa;
+            try
+            {
+                if (_quantixCfg == null) return mapa;
+                var cfg = _quantixCfg.GetMotores();
+                if (cfg == null || cfg.Nodos == null) return mapa;
+
+                var vivos = Registry != null ? Registry.GetAll() : null;
+                if (vivos == null) return mapa;
+
+                AgroParallel.Models.ImplementoDto central = null;
+                try { central = _impCentral?.GetImplemento(); } catch { }
+                var surcosPorSeccion = Common.SurcosPorSeccion.Construir(central);
+
+                foreach (var nodo in cfg.Nodos)
+                {
+                    if (nodo == null || nodo.Motores == null) continue;
+                    AgroParallel.Models.NodoStatus live = null;
+                    foreach (var v in vivos)
+                        if (v != null && string.Equals(v.Uid, nodo.Uid, StringComparison.OrdinalIgnoreCase))
+                        { live = v; break; }
+                    if (live == null || live.MotorsLive == null) continue;
+
+                    for (int mi = 0; mi < nodo.Motores.Length; mi++)
+                    {
+                        var m = nodo.Motores[mi];
+                        if (m == null) continue;
+                        if (!string.Equals(m.UnidadDosis, "sem_m", StringComparison.OrdinalIgnoreCase)) continue;
+
+                        AgroParallel.Models.MotorLive ml = null;
+                        foreach (var x in live.MotorsLive)
+                            if (x != null && x.Id == mi) { ml = x; break; }
+                        if (ml == null) continue;
+
+                        // motor.Cortes numera SECCIONES PilotX (la lección de la
+                        // Task 4): expandir a surcos por el implemento central;
+                        // sin implemento con surcos, el corte se toma como surco
+                        // (sembradora 1 sección = 1 surco, que es lo común acá).
+                        var surcos = new System.Collections.Generic.List<int>();
+                        if (m.Cortes != null)
+                        {
+                            foreach (var c in m.Cortes)
+                            {
+                                System.Collections.Generic.List<int> ss = null;
+                                if (surcosPorSeccion != null) surcosPorSeccion.TryGetValue(c, out ss);
+                                if (ss != null) surcos.AddRange(ss);
+                                else surcos.Add(c);
+                            }
+                        }
+                        if (surcos.Count == 0) continue;
+
+                        // En sem/MIN: la unidad con la que abajo se compara el
+                        // Spm medido (ver comentario de bounds). No usa la
+                        // velocidad: consigna por segundo × 60.
+                        double spm = VistaX.VxObjetivoDinamico.SemMinuto(
+                            ml.PpsTarget, m.SemillasVuelta, m.DientesEngranaje, surcos.Count);
+                        if (spm <= 0) continue;
+                        foreach (var s in surcos) mapa[s] = spm;
+                    }
+                }
+            }
+            catch { /* objetivo dinámico es best-effort: el fijo siempre queda */ }
+            return mapa;
+        }
+
         public VistaXLiveService(INodoRegistryService nodos, IVistaXConfigService cfgSvc,
             IInsumoCatalogService insumos = null, IAogStateProvider state = null,
-            ISectionControlService sections = null, IImplementoService impCentral = null)
+            ISectionControlService sections = null, IImplementoService impCentral = null,
+            IQuantiXConfigService quantixCfg = null)
             : base(nodos)
         {
             _cfgSvc = cfgSvc;
@@ -152,6 +241,7 @@ namespace AgroParallel.Services
             _state = state;
             _sections = sections;
             _impCentral = impCentral;
+            _quantixCfg = quantixCfg;
             Reload();
         }
 
@@ -347,6 +437,13 @@ namespace AgroParallel.Services
                 int timeoutMs = _cfg?.SensorTimeoutMs > 0 ? _cfg.SensorTimeoutMs : 3000;
                 DateTime now = DateTime.UtcNow;
 
+                // Metros por minuto, para llevar los objetivos configurados en
+                // sem/m (insumo, tren, override del sensor) a la unidad del
+                // comparador: sem/MIN, la misma del Spm medido. Con el tractor
+                // parado da 0 → los estados se resuelven por la rama "sin
+                // umbrales" (sembrando apagado), nunca dividimos por esto.
+                double metrosPorMinuto = LeerVelocidadSegura() / 3.6 * 60.0;
+
                 // Snapshot de secciones AOG: lo consultamos UNA vez por tick.
                 // Si _sections es null o el array está vacío, todos los surcos
                 // se consideran "sección ON" (comportamiento legacy).
@@ -357,6 +454,21 @@ namespace AgroParallel.Services
                     if (secSnap?.OnRequest != null) secOn = secSnap.OnRequest;
                 }
                 catch { /* defensivo: no romper el snapshot por un fallo en sections */ }
+
+                // Surco → sección PilotX desde el implemento central: el sensor se
+                // mapea a un SURCO; la sección que lo corta se deriva sola de acá
+                // (una sección = un surco por spec, pero el central es la verdad).
+                // Sin esto, la supresión por sección cortada exigía cargar
+                // seccion_aog a mano en cada sensor — nadie lo hacía y el corte
+                // no suprimía la alarma de tubo.
+                Dictionary<int, int> surcoASeccion = null;
+                if (central?.Surcos != null && central.Surcos.Count > 0)
+                {
+                    surcoASeccion = new Dictionary<int, int>();
+                    foreach (var su in central.Surcos)
+                        if (su != null && su.Numero > 0 && su.SeccionPilotX > 0)
+                            surcoASeccion[su.Numero] = su.SeccionPilotX;
+                }
 
                 // Trenes: la ESTRUCTURA (id + nombre) sale del implemento central si
                 // está disponible; si no, del vistaX implemento legacy. Los OBJETIVOS
@@ -411,10 +523,25 @@ namespace AgroParallel.Services
 
                         string key = (sc.Uid ?? "") + "#" + sc.Cable;
                         _readings.TryGetValue(key, out var r);
-                        // Per-sensor override (sc.Objetivo > 0): útil para los sensores "otros"
+        // Per-sensor override (sc.Objetivo > 0): útil para los sensores "otros"
                         // (turbina/tolva/bajada_herramienta) donde la UI muestra barras y el
                         // operario fija un setpoint distinto al de siembra. 0 = usar el del tren.
-                        double objMin = sc.Objetivo > 0 ? sc.Objetivo : tl.Objetivo;
+                        //
+                        // DOSIS VARIABLE: si el surco lo alimenta un motor QuantiX
+                        // con consigna viva, el objetivo es LO QUE EL MOTOR TIENE
+                        // MANDADO (prescripción + velocidad incluidas), no el fijo
+                        // del insumo — con shape a 2,3 sem/m y objetivo fijo 16,
+                        // era alarma perpetua contra un número que nadie pidió.
+                        // El override manual por sensor sigue mandando sobre todo.
+                        // UNIDADES: el comparador trabaja en sem/MIN (el Spm del
+                        // sensor). El dinámico ya viene en sem/min (pps×60); los
+                        // objetivos CONFIGURADOS (override del sensor, tren) están
+                        // en sem/m → se convierten con la velocidad viva. Antes se
+                        // comparaba 16 sem/m contra ~360 sem/min y todo surco sano
+                        // quedaba en "exceso" perpetuo.
+                        double objDinamico = ObjetivoDinamicoDeSurco(sc.SurcoDesde > 0 ? sc.SurcoDesde : sc.Bajada);
+                        double objMin = sc.Objetivo > 0 ? sc.Objetivo * metrosPorMinuto
+                            : (objDinamico > 0 ? objDinamico : tl.Objetivo * metrosPorMinuto);
                         var surco = new VistaXSurcoStateDto
                         {
                             Bajada = sc.Bajada,
@@ -436,10 +563,18 @@ namespace AgroParallel.Services
                         // forzamos estado "seccion-off": gris, sin alarma, sin contar
                         // para SPM agregado. Cuando la sección vuelve ON, recupera
                         // automáticamente el estado real en el próximo tick.
-                        bool seccionOff = false;
-                        if (sc.SeccionAOG > 0 && secOn != null && sc.SeccionAOG <= secOn.Length)
+                        // Sección explícita del mapeo si la hay; si no, derivada
+                        // del surco vía el implemento central (surco→seccion_pilotx).
+                        int seccionDelSurco = sc.SeccionAOG;
+                        if (seccionDelSurco <= 0 && surcoASeccion != null)
                         {
-                            seccionOff = !secOn[sc.SeccionAOG - 1];
+                            int nroSurco = sc.SurcoDesde > 0 ? sc.SurcoDesde : sc.Bajada;
+                            surcoASeccion.TryGetValue(nroSurco, out seccionDelSurco);
+                        }
+                        bool seccionOff = false;
+                        if (seccionDelSurco > 0 && secOn != null && seccionDelSurco <= secOn.Length)
+                        {
+                            seccionOff = !secOn[seccionDelSurco - 1];
                         }
                         surco.SeccionCortada = seccionOff;
 
@@ -479,18 +614,24 @@ namespace AgroParallel.Services
                             // Bounds por insumo (Gap #2): si hay insumo activo con
                             // DropMin/DropMax > 0, usar esos sem/m absolutos. Si no,
                             // fallback al cálculo objMin * (1 ± tolerancia).
-                            // objMin acá está en sem/min, los bounds del insumo en
-                            // sem/m → convertimos sem/m * 60 = sem/min para comparar.
+                            // objMin acá está en sem/min; los bounds del insumo en
+                            // sem/m → a sem/min con la velocidad viva (el "×60" de
+                            // antes asumía 1 m/s clavado: solo era cierto a 3,6 km/h).
                             double tol = (_imp.Setup?.ToleranciaDesvio ?? 20) / 100.0;
                             double lo  = objMin * (1 - tol);
                             double hi  = objMin * (1 + tol);
                             try
                             {
-                                var insumo = _insumos != null ? _insumos.GetActivo() : null;
+                                // Con el surco alimentado por un motor QuantiX
+                                // (objetivo dinámico) MANDA LA CONSIGNA: los
+                                // límites absolutos del insumo no aplican — si
+                                // la prescripción pide 2,3 sem/m, tirar 2,3 es
+                                // correcto aunque el insumo diga "mínimo 11".
+                                var insumo = (objDinamico <= 0 && _insumos != null) ? _insumos.GetActivo() : null;
                                 if (insumo != null)
                                 {
-                                    if (insumo.DropMinSemM > 0) lo = insumo.DropMinSemM * 60.0;
-                                    if (insumo.DropMaxSemM > 0) hi = insumo.DropMaxSemM * 60.0;
+                                    if (insumo.DropMinSemM > 0) lo = insumo.DropMinSemM * metrosPorMinuto;
+                                    if (insumo.DropMaxSemM > 0) hi = insumo.DropMaxSemM * metrosPorMinuto;
                                 }
                             }
                             catch { /* catálogo inválido → fallback ya seteado */ }
@@ -632,7 +773,90 @@ namespace AgroParallel.Services
                 snap.MonitoreoActivo = EvaluarSembrando(snap, now);
                 snap.Velocidad = _state != null ? LeerVelocidadSegura() : 0;
 
+                // ---- Regla de tres kg/ha (dosis por cinemática de la máquina) ----
+                // La sembradora mecánica dosifica los kg/ha para los que fue
+                // calibrada (dosis_kgha del insumo activo). El flujo promedio de
+                // la PRIMERA pasada estable se captura como referencia: ese
+                // flujo ≡ esa dosis; de ahí en más el kg/ha estimado de cada
+                // surco es proporcional (spm ÷ spm_ref × dosis_ref, lo saca el
+                // cliente). Si cambia el insumo activo, se recaptura.
+                CapturarFlujoDeReferencia(snap, now);
+
                 return snap;
+            }
+        }
+
+        // ---- Captura del flujo de referencia (regla de tres kg/ha) ----------
+        private double _spmRef;
+        private string _refInsumoId = "";
+        private DateTime _refVentanaInicio;
+        private double _refAcum;
+        private int _refN;
+
+        private void CapturarFlujoDeReferencia(VistaXLiveSnapshotDto snap, DateTime now)
+        {
+            AgroParallel.Models.InsumoDto insumo = null;
+            try { insumo = _insumos?.GetActivo(); } catch { }
+            string id = insumo?.Id ?? "";
+
+            // Cambió el insumo activo → la dosis calibrada es otra: recapturar.
+            if (id != _refInsumoId)
+            {
+                _refInsumoId = id;
+                _spmRef = 0;
+                _refAcum = 0;
+                _refN = 0;
+                _refVentanaInicio = default(DateTime);
+            }
+
+            snap.DosisRefKgHa = insumo?.DosisKgha ?? 0;
+            snap.DosisRefUnidad = string.IsNullOrEmpty(insumo?.DosisUnidad)
+                ? "kg_ha" : insumo.DosisUnidad;
+
+            if (_spmRef <= 0)
+            {
+                if (snap.MonitoreoActivo && snap.SpmPromedio > 0)
+                {
+                    if (_refVentanaInicio == default(DateTime)) _refVentanaInicio = now;
+                    _refAcum += snap.SpmPromedio;
+                    _refN++;
+                    // 10 s de siembra estable promediados = la referencia. Corto
+                    // para que el kg/ha aparezca temprano, largo para que un
+                    // arranque con baches no fije una referencia mentirosa.
+                    if ((now - _refVentanaInicio).TotalSeconds >= 10 && _refN >= 5)
+                        _spmRef = _refAcum / _refN;
+                }
+                else
+                {
+                    // Se cortó la siembra a mitad de captura: ventana de nuevo.
+                    _refVentanaInicio = default(DateTime);
+                    _refAcum = 0;
+                    _refN = 0;
+                }
+            }
+            snap.SpmRef = _spmRef > 0 ? Math.Round(_spmRef, 1) : 0;
+        }
+
+        /// <summary>Ajuste MANUAL de la referencia (además de la captura
+        /// automática): "fijar" = el flujo de este instante equivale a la
+        /// densidad configurada; "auto" = borrar y recapturar solo.</summary>
+        public double AjustarReferenciaDensidad(string accion)
+        {
+            // El spm actual se calcula ANTES de tomar _lock (GetSnapshot ya
+            // lockea internamente).
+            double spmActual = 0;
+            try { spmActual = GetSnapshot()?.SpmPromedio ?? 0; } catch { }
+
+            lock (_lock)
+            {
+                _refVentanaInicio = default(DateTime);
+                _refAcum = 0;
+                _refN = 0;
+                bool fijar = string.Equals(accion, "fijar", StringComparison.OrdinalIgnoreCase);
+                // "fijar" sin flujo (parado / secciones cortadas) degrada a
+                // "auto": no hay un instante que fijar, mejor recapturar.
+                _spmRef = fijar && spmActual > 0 ? spmActual : 0;
+                return _spmRef;
             }
         }
 

@@ -79,8 +79,21 @@ namespace AgroParallel.WebHost.WebSockets
                 if (json == _lastJson) return;
                 _lastJson = json;
 
-                byte[] bytes = Encoding.UTF8.GetBytes(json);
-                _ = BroadcastAsync(bytes);
+                // NO usar BroadcastAsync(byte[]): además de enviar en serie
+                // (un cliente zombie traba el push para TODOS), el overload
+                // byte[] manda frames BINARIOS — el browser los entrega como
+                // Blob y JSON.parse(Blob) falla silencioso: las tabs live
+                // nunca procesaron un solo push. String overload = frame de
+                // texto. Un task por cliente con su catch: el muerto muere solo.
+                foreach (var ctx in ActiveContexts)
+                {
+                    var c = ctx;
+                    _ = Task.Run(async () =>
+                    {
+                        try { await SendAsync(c, json).ConfigureAwait(false); }
+                        catch { }
+                    });
+                }
             }
             catch { }
         }

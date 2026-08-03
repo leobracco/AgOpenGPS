@@ -16,6 +16,37 @@
     .nmea-tag { color: var(--cx-muted); font-weight: 700; font-size: .82em; }
     .nmea-val { font-family: Consolas, monospace; font-size: .82em;
                 white-space: nowrap; overflow-x: auto; padding-bottom: 2px; }
+
+    /* Inventario NMEA: fila con estado ✔/⚠/✖ + tipo + edad + cruda */
+    .inv-row { display: grid; grid-template-columns: 26px 84px 64px 1fr; gap: 8px;
+               align-items: center; padding: 5px 0;
+               border-bottom: 1px solid var(--cx-line, #e4e8e2); }
+    .inv-row:last-of-type { border-bottom: none; }
+    .inv-est { font-weight: 900; text-align: center; }
+    .inv-est.ok    { color: #3FA636; }
+    .inv-est.stale { color: #C98A1E; }
+    .inv-est.never { color: var(--cx-muted); }
+    .inv-tag { font-weight: 700; font-size: .82em; }
+    .inv-row.never .inv-tag { color: var(--cx-muted); }
+    .inv-edad { color: var(--cx-muted); font-size: .78em; }
+    .inv-cruda { font-family: Consolas, monospace; font-size: .78em;
+                 white-space: nowrap; overflow-x: auto; color: var(--cx-muted); }
+
+    /* Simulador NMEA de salida */
+    .sim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 8px 12px; margin-bottom: 8px; }
+    .sim-grid label { display: flex; flex-direction: column; gap: 3px;
+                      font-size: .8em; color: var(--cx-muted); font-weight: 700; }
+    .sim-grid input, .sim-grid select {
+      min-height: 32px; padding: 4px 8px; font-size: .95em;
+      border: 1px solid var(--cx-line, #d5dcd3); border-radius: 7px; }
+    .sim-chk { display: flex; gap: 16px; margin: 6px 0 10px; font-size: .85em; }
+    .sim-chk label { display: flex; align-items: center; gap: 5px; font-weight: 700; }
+    .sim-acciones { display: flex; align-items: center; gap: 10px; }
+    .cx-btn { min-height: 34px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+              border: 1px solid #3FA636; background: #4ABA3E; color: #fff;
+              font-weight: 700; font-size: .88em; }
+    .cx-btn.sec { background: #fff; color: #333; border-color: var(--cx-line, #d5dcd3); }
   </style>
 </head>
 <body>
@@ -83,6 +114,53 @@
         </section>
 
       </div>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <h3>Simulador NMEA (salida RS232)</h3>
+        <p class="cx-hint" style="margin: 0 0 10px;">
+          Emite GGA/VTG/RMC/HDT por un puerto serie con estos valores. La
+          posición avanza sola con la velocidad y el rumbo. Los cambios se
+          aplican en caliente con "Iniciar / aplicar".
+        </p>
+        <div class="sim-grid">
+          <label>Puerto <input id="simPort" type="text" placeholder="COM48" /></label>
+          <label>Baudios <input id="simBaud" type="number" value="115200" /></label>
+          <label>Frecuencia (Hz) <input id="simHz" type="number" value="10" min="1" max="20" /></label>
+          <label>Velocidad (km/h) <input id="simVel" type="number" value="3.5" step="0.1" /></label>
+          <label>Latitud <input id="simLat" type="number" value="53.4360564" step="0.000001" /></label>
+          <label>Longitud <input id="simLon" type="number" value="-111.160047" step="0.000001" /></label>
+          <label>Rumbo (°) <input id="simRumbo" type="number" value="0" min="0" max="359" /></label>
+          <label>Fix <select id="simFix">
+            <option value="4" selected>4 · RTK fix</option>
+            <option value="5">5 · RTK float</option>
+            <option value="2">2 · DGPS</option>
+            <option value="1">1 · GPS</option>
+            <option value="0">0 · sin fix</option>
+          </select></label>
+          <label>Satélites <input id="simSats" type="number" value="12" min="0" max="40" /></label>
+        </div>
+        <div class="sim-chk">
+          <label><input id="simGga" type="checkbox" checked /> GGA</label>
+          <label><input id="simVtg" type="checkbox" checked /> VTG</label>
+          <label><input id="simRmc" type="checkbox" checked /> RMC</label>
+          <label><input id="simHdt" type="checkbox" /> HDT</label>
+        </div>
+        <div class="sim-acciones">
+          <button id="simStart" class="cx-btn">Iniciar / aplicar</button>
+          <button id="simStop" class="cx-btn sec">Detener</button>
+          <span id="simEstado" class="cx-hint">detenido</span>
+        </div>
+      </section>
+
+      <section class="cx-panel" style="margin-top: 14px;">
+        <h3>Inventario NMEA (checklist)</h3>
+        <p class="cx-hint" style="margin: 0 0 10px;">
+          Qué sentencias está mandando el receptor: ✔ verde = llegando ahora,
+          ⚠ ámbar = dejó de llegar, ✖ gris = nunca vista. Incluye las que
+          PilotX no consume (RMC, GSA, GSV…).
+        </p>
+        <div id="nmeaInventario" class="cx-hint">esperando datos…</div>
+      </section>
 
       <section class="cx-panel" style="margin-top: 14px;">
         <h3>Sentencias NMEA</h3>

@@ -148,6 +148,37 @@
     }
   }
 
+  // El ancho de labor vive en PilotX (/api/tool). Acá se guardaba una copia que
+  // nadie actualizaba y que después el Hub usaba para calcular dosis: quedaba
+  // 4 m con la máquina en 7,28. La traemos de PilotX en cada carga y, si hay
+  // cantidad de surcos, recalculamos el espaciamiento (7,28/14 = 0,52).
+  // La geometría de la máquina se define UNA vez: en la configuración de
+  // secciones de PilotX. De ahí salen ancho de labor, cantidad de surcos
+  // (una sección = un surco) y distancia entre hileras. Esta pantalla no los
+  // edita ni los recalcula — solo los copia para dibujar y para que los
+  // consuma el resto. Tener copias editables acá fue lo que terminó
+  // alimentando el cálculo de dosis con un implemento desfasado.
+  async function syncAnchoDesdePilotX() {
+    if (!state.impl) return '';
+    try {
+      var r = await fetch('/api/tool', { cache: 'no-store' });
+      var d = await r.json();
+      var tool = (d && d.tool) || {};
+      var w = Number(tool.width) || 0;
+      var nSec = tool.numSections | 0;
+      if (!(w > 0)) {
+        return 'PilotX todavía no tiene ancho de labor configurado. Cargalo en ' +
+          'Implemento PilotX: de ahí salen los surcos y la distancia entre hileras.';
+      }
+      state.impl.ancho_total_m = w;
+      if (nSec > 0) {
+        state.impl.numero_surcos = nSec;
+        state.impl.distancia_entre_surcos_m = w / nSec;
+      }
+    } catch (e) {}
+    return '';
+  }
+
   function paintAll() {
     ensureImpl();
     var d = state.impl;
@@ -252,6 +283,16 @@
     var dIn = $('implDistSurcos');
     if (nIn) nIn.value = state.impl.numero_surcos || state.impl.surcos.length || 0;
     if (dIn) dIn.value = state.impl.distancia_entre_surcos_m;
+
+    // Surcos y distancia son espejo de las secciones de PilotX: se muestran
+    // pero no se editan acá, porque editarlos generaba dos verdades y la que
+    // se usaba para dosificar era la equivocada.
+    [nIn, dIn].forEach(function (inp) {
+      if (!inp) return;
+      inp.readOnly = true;
+      inp.title = 'Sale de la configuración de secciones en Implemento PilotX';
+      inp.style.opacity = '0.75';
+    });
 
     var tb = document.querySelector('#tblSurcos tbody'); if (!tb) return;
     while (tb.firstChild) tb.removeChild(tb.firstChild);
@@ -400,9 +441,10 @@
       }
       state.impl = data.implemento;
       state.dirty = false;
+      var aviso = await syncAnchoDesdePilotX();
       paintAll();
       pill('ok', 'OK · ' + (state.impl.nombre || state.activo));
-      msg('', '');
+      if (aviso) msg('err', '⚠ ' + aviso); else msg('', '');
     } catch (e) {
       pill('err', 'Error');
       msg('err', '✕ ' + e.message);

@@ -150,6 +150,7 @@ public partial class MainWindow : Window
     // Prescripción (.shp): zonas con color por dosis sobre el mapa. 1 Hz
     // filtrado por source_token. Solo con UseGl=on.
     private ShapeGeometryPoller? _shapePoller;
+    private SoundAlarmPoller? _soundPoller;
 
     // Toolbar inferior (state-aware).
     private Button? _btnSettings;
@@ -202,6 +203,11 @@ public partial class MainWindow : Window
     private QuantiXMapOverlay? _qxMapOverlay;
     private WidgetQuantiXClient? _qxWidgetClient;
     private System.Threading.CancellationTokenSource? _overlayPrefsCts;
+
+    // Franja mínima VistaX sobre el mapa (barras de nivel por surco, auto-mini
+    // cerca de la cabecera). Comparte el toggle vx_overlay con WinForms.
+    private VistaXMapStrip? _vxMapStrip;
+    private VistaXClient? _vxStripClient;
 
     // VistaX nativo (Monitor tab live-only). SPM por surco, badges por estado,
     // trenes con tubitos (semilla/ferti) y barras (otros sensores). Tabs de
@@ -265,6 +271,12 @@ public partial class MainWindow : Window
         // ReconciliarMapa desde el HUD, que no depende de que llegue.
         if (_mapHost != null)
             _mapHost.VisibilidadCambiada += _ => ReconciliarMapa();
+
+        // Zoom táctil del mapa (+/−): la cabina no tiene rueda de mouse.
+        var btnZoomIn  = this.FindControl<Button>("BtnZoomIn");
+        var btnZoomOut = this.FindControl<Button>("BtnZoomOut");
+        if (btnZoomIn  != null) btnZoomIn.Click  += (_, _) => _mapHost?.ZoomIn();
+        if (btnZoomOut != null) btnZoomOut.Click += (_, _) => _mapHost?.ZoomOut();
         _abCreatePanel   = this.FindControl<Border>("AbCreatePanel");
         _abCreateHint    = this.FindControl<TextBlock>("AbCreateHint");
         _abCreateMark    = this.FindControl<Button>("AbCreateMark");
@@ -293,6 +305,9 @@ public partial class MainWindow : Window
         _pcGiroInfo    = this.FindControl<TextBlock>("PcGiroInfo");
         if (_pcGiroIzq != null) _pcGiroIzq.Click += (_, _) => _ = MandarComandoPiloto("uturn_manual_izq");
         if (_pcGiroDer != null) _pcGiroDer.Click += (_, _) => _ = MandarComandoPiloto("uturn_manual_der");
+        // Tocar el aviso del giro ("giro ↱ en N m") invierte el lado del giro
+        // armado; "GIRANDO" lo aborta. Réplica del SwapDirection nativo.
+        if (_pcGiroInfo != null) _pcGiroInfo.PointerPressed += (_, _) => _ = MandarComandoPiloto("uturn_swap");
         if (_pcSkipMenos != null) _pcSkipMenos.Click += (_, _) => _ = CambiarSalteo(-1);
         if (_pcSkipMas != null) _pcSkipMas.Click += (_, _) => _ = CambiarSalteo(+1);
         _hudArea         = this.FindControl<TextBlock>("HudArea");
@@ -319,6 +334,7 @@ public partial class MainWindow : Window
         _camarasHost       = this.FindControl<CamarasPanel>("CamarasHost");
         _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
+        _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
 
         if (_camarasHost != null)
         {
@@ -496,16 +512,14 @@ public partial class MainWindow : Window
                 // VBO si no cambió. (Incremental /coverage?since=<rev> queda para
                 // futuro.)
                 //
-                // NO bajar de acá: el endpoint devuelve el snapshot COMPLETO, que
-                // crece con el area trabajada (248 KB al rato, ~3 MB en jornada de
-                // 8 h). Cada poll es un fetch + deserialize de todo eso; a 125 ms
-                // el descarte generado alcanzaba para disparar Gen2 seguido y el
-                // mapa tironeaba cada pocos segundos. Si hace falta más frecuencia,
-                // el camino es el incremental, no subir la cadencia.
+                // Protocolo INCREMENTAL (cursor "j:p:v"): cada poll baja solo lo
+                // pintado desde el anterior — bytes, no el snapshot completo (que
+                // llegaba a ~3 MB en jornada de 8 h y hacía tironear el mapa aun a
+                // 350 ms por el GC). Con payloads chicos, 200 ms da pintado fluido.
                 _coveragePoller = new CoveragePoller(cov, snap =>
                 {
                     _mapHost?.OnCoverage(snap);
-                }, periodMs: 350);
+                }, periodMs: 200);
                 _coveragePoller.Start();
                 Closed += (_, _) => _coveragePoller?.Stop();
 
@@ -536,6 +550,12 @@ public partial class MainWindow : Window
                 // QuantiX/FlowX. 1 Hz filtrado por source_token — solo cambia
                 // al subir otro shape o cambiar el campo de dosis. La
                 // triangulación corre en el hilo del poller, no en el GL.
+                // Alarmas sonoras: pollea /api/sonidos/estado y toca el WAV por
+                // el sink que registró el head (Desktop: winmm). Sin sink, no
+                // suena — la pantalla Sonidos muestra las alarmas igual.
+                _soundPoller = new SoundAlarmPoller(DeriveOrigin(App.TargetUrl));
+                Closed += (_, _) => _soundPoller?.Dispose();
+
                 _shapePoller = new ShapeGeometryPoller(DeriveOrigin(App.TargetUrl), snap =>
                 {
                     _mapHost?.OnShape(snap);
@@ -2126,11 +2146,28 @@ public partial class MainWindow : Window
 
         string baseUrl = DeriveOrigin(App.TargetUrl);
         _qxWidgetClient = new WidgetQuantiXClient(baseUrl);
+        _vxStripClient = new VistaXClient(baseUrl);
         // Mismo cliente que usa el Hub: /api/overlays es una sola preferencia.
         _overlaysClient ??= new OverlaysClient(baseUrl);
 
         _mapOverlaysHost.IsVisible = true;
         UbicarOverlayQx(-1, -1);   // rincón por defecto hasta que llegue la preferencia
+
+        if (_vxMapStrip != null)
+        {
+            // Tocar la franja abre el panel VistaX completo.
+            _vxMapStrip.OnTap = () => ShowVistaX();
+            // Abajo al centro-izquierda, pegada al borde: reposicionar cuando
+            // cambie el tamaño del canvas o el alto de la franja (auto-mini).
+            _vxMapStrip.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == BoundsProperty) UbicarVxStrip();
+            };
+            _mapOverlaysHost.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == BoundsProperty) UbicarVxStrip();
+            };
+        }
 
         // Al soltarlo se guarda dónde quedó. El POST hace merge, así que esto
         // no pisa los toggles ni la posición de los otros widgets.
@@ -2162,6 +2199,21 @@ public partial class MainWindow : Window
         Canvas.SetTop(_qxMapOverlay, alto > 260 ? alto - 235 : 40);
     }
 
+    private void UbicarVxStrip()
+    {
+        if (_vxMapStrip == null || _mapOverlaysHost == null) return;
+        double hostH = _mapOverlaysHost.Bounds.Height;
+        double hostW = _mapOverlaysHost.Bounds.Width;
+        if (hostH < 60 || hostW < 200) return;
+        double w = double.IsNaN(_vxMapStrip.Width) ? 300 : _vxMapStrip.Width;
+        double h = double.IsNaN(_vxMapStrip.Height) ? 40 : _vxMapStrip.Height;
+        // Centrada abajo (corrida a la derecha del menú lateral de 140 px),
+        // pegada al borde inferior del mapa: borde fijo, crece hacia arriba.
+        double x = Math.Max(150, (hostW - w) / 2);
+        Canvas.SetLeft(_vxMapStrip, x);
+        Canvas.SetTop(_vxMapStrip, hostH - h - 4);
+    }
+
     private async Task SeguirPreferenciasOverlaysAsync(CancellationToken ct)
     {
         bool primera = true;
@@ -2188,6 +2240,22 @@ public partial class MainWindow : Window
                         // son dos requests por segundo por nada.
                         if (mostrar && _qxWidgetClient != null) _qxMapOverlay.Attach(_qxWidgetClient);
                         else _qxMapOverlay.Detach();
+                    }
+
+                    // Franja VistaX: mismo criterio (poll solo mientras se ve).
+                    if (_vxMapStrip != null)
+                    {
+                        bool mostrarVx = prefs.VxOverlay;
+                        if (mostrarVx != _vxMapStrip.IsVisible)
+                        {
+                            _vxMapStrip.IsVisible = mostrarVx;
+                            if (mostrarVx && _vxStripClient != null)
+                            {
+                                _vxMapStrip.Attach(_vxStripClient, DeriveOrigin(App.TargetUrl));
+                                UbicarVxStrip();
+                            }
+                            else _vxMapStrip.Detach();
+                        }
                     }
                 });
                 primera = false;
@@ -2323,8 +2391,12 @@ public partial class MainWindow : Window
             // izquierda hace deep-link a la sub-pantalla vía ?do= (ver lote.js).
             case "lote_menu":
                 OpenDialogPage("pages/lote.html", "Lote", 670, 610); return true;
+            // Continuar NO abre ventana: acción directa (pedido del usuario —
+            // la ventana del diálogo quedaba en blanco porque el centinela de
+            // cierre no corre en diálogos, y encima acá no hay nada que elegir:
+            // es "abrí el último y listo"). El backend resuelve __resume__.
             case "lote_continuar":
-                OpenDialogPage("pages/lote.html?do=continuar", "Lote", 670, 610); return true;
+                ContinuarUltimoLote(); return true;
             case "lote_nuevo":
                 OpenDialogPage("pages/lote.html?do=nuevo", "Nuevo lote", 670, 610); return true;
             case "lote_kml":
@@ -2427,6 +2499,27 @@ public partial class MainWindow : Window
     /// la pantalla de lote; acá se expone para el submenú de la barra izquierda,
     /// que hasta ahora mandaba el comando al motor de guiado y se perdía.
     /// </summary>
+    // Continuar = abrir el último lote usado, sin ventanas: se pliega el menú
+    // y se dispara el open; el mapa reacciona solo vía el HUD (y el shape del
+    // lote, si lo usaba, lo recarga EngineShapeService al cambiar el field).
+    private async void ContinuarUltimoLote()
+    {
+        if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+        try
+        {
+            var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var url = DeriveOrigin(App.TargetUrl).TrimEnd('/');
+            using var resp = await http.PostAsync(url + "/api/lotes/open?name=__resume__", null).ConfigureAwait(false);
+            string body = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode || body.Contains("\"ok\":false") || body.Contains("\"ok\": false"))
+                Console.Error.WriteLine("[Lote] continuar: sin último lote para abrir (" + (int)resp.StatusCode + ")");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[Lote] no se pudo continuar: " + ex.Message);
+        }
+    }
+
     private async void CerrarLote()
     {
         // Plegar primero: el cierre puede tardar (guarda cobertura y lote) y el
@@ -2523,13 +2616,14 @@ public partial class MainWindow : Window
         _mapHost?.SetLightbarVisible(!visible);
         if (!visible) return;
 
-        // Giro manual y salteo: aparecen CON LINDERO (el giro en cabecera se
-        // hace contra el borde del lote; sin lindero no hay cabecera). Las
-        // flechas son el giro MANUAL: siempre operativas — no dependen del
-        // U-turn automático, que tiene su propio botón en la barra derecha
-        // (aclarado por el usuario 2026-07-31). La velocidad la valida el
-        // motor al recibir el comando.
-        bool giroVisible = s.HasBoundary;
+        // Giro manual y salteo: SIEMPRE junto a la distancia (pedido del
+        // usuario 2026-07-31 — la versión condicionada al lindero los hacía
+        // desaparecer en lotes sin contorno y quedaba solo el número). Las
+        // flechas son el giro MANUAL, siempre operativas — no dependen del
+        // U-turn automático, que tiene su propio botón en la barra derecha.
+        // Los guards reales (guía, velocidad, lindero para armar el giro) los
+        // valida el motor al recibir el comando.
+        bool giroVisible = true;
         if (_pcGiroIzq != null) { _pcGiroIzq.IsVisible = giroVisible; _pcGiroIzq.IsEnabled = true; }
         if (_pcGiroDer != null) { _pcGiroDer.IsVisible = giroVisible; _pcGiroDer.IsEnabled = true; }
         var grupoSalteo = this.FindControl<StackPanel>("PcGrupoSalteo");

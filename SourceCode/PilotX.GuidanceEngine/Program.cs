@@ -25,6 +25,7 @@ using System.Threading;
 using AgIO;
 using AgLibrary.Logging;
 using PilotX.GuidanceEngine;
+using PilotX.GuidanceEngine.Adapters;
 
 namespace AgOpenGPS
 {
@@ -35,10 +36,15 @@ namespace AgOpenGPS
             bool useSim = Array.IndexOf(args, "--sim") >= 0;
             bool useCoreX = Array.IndexOf(args, "--corex") >= 0;
             bool useWebHost = Array.IndexOf(args, "--webhost") >= 0;
-            // Corte por área ya trabajada. APAGADO salvo que se pida: decide si
-            // una sección siembra o no, así que hasta validarlo en el lote el
-            // default tiene que ser no intervenir.
-            bool useAntiSolape = Array.IndexOf(args, "--antisolape") >= 0;
+            // Corte por área ya trabajada: ENCENDIDO por defecto. No sembrar dos
+            // veces lo mismo es el comportamiento normal de la máquina, no una
+            // opción de arranque — si el operario quiere aplicar sobre lo
+            // trabajado, para eso están los botones de sección (Off/Auto/On) en
+            // la pantalla. Nació apagado hasta validarlo en lote; validado en
+            // campo el 2026-08-01, pasa a default.
+            // `--sin-antisolape` queda como salida de emergencia para poder
+            // apagarlo en cabina sin recompilar si algún día se porta mal.
+            bool useAntiSolape = Array.IndexOf(args, "--sin-antisolape") < 0;
 
             var baseDir = new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "GuidanceEngineData"));
             if (!baseDir.Exists) baseDir.Create();
@@ -93,22 +99,75 @@ namespace AgOpenGPS
                 + (string.IsNullOrEmpty(RegistrySettings.vehicleFileName) ? "(ninguno)" : RegistrySettings.vehicleFileName)
                 + " → " + vehLoad);
 
+            // SIN PERFIL, NADA PERSISTE: Settings.Save() es un no-op con
+            // vehicleFileName vacío (guard en Settings.cs), y el motor headless
+            // arranca sin perfil porque el diálogo de elegirlo es de FormGPS.
+            // Consecuencia real: ganancias de dirección, antena, IMU, U-turn,
+            // relés y tram "se guardaban" y volvían a fábrica en cada arranque
+            // (a las secciones ya las salvaba tool.json). Acá el motor se crea
+            // su perfil por defecto — con nombre y activo, TODOS los Save()
+            // existentes empiezan a escribir el XML completo, que además queda
+            // exportable a otro tractor.
+            //
+            // Convivencia con la app WinForms (PilotX.exe): comparte el mismo
+            // aog_settings.json de la instalación, así que al abrir va a cargar
+            // este MISMO perfil — consistencia, no conflicto. Si algún día
+            // corren a la vez y ambos guardan, gana el último (igual que
+            // siempre fue entre pantallas); no corren a la vez en operación.
+            if (string.IsNullOrEmpty(RegistrySettings.vehicleFileName))
+            {
+                const string perfilDefault = "PilotX";
+                RegistrySettings.Save(RegKeys.vehicleFileName, perfilDefault);
+                string xmlPerfil = Path.Combine(RegistrySettings.vehiclesDirectory, perfilDefault + ".XML");
+                if (File.Exists(xmlPerfil))
+                {
+                    // Había un perfil PilotX de una corrida anterior (o de la
+                    // app WinForms): cargarlo — es la config real del operario.
+                    var r2 = AgOpenGPS.Properties.Settings.Default.Load();
+                    Console.WriteLine("Perfil por defecto ya existía: " + perfilDefault + " → " + r2);
+                }
+                else
+                {
+                    // Crearlo con la config actual (defaults + lo que ya haya
+                    // cargado tool.json más abajo lo pisa igual).
+                    AgOpenGPS.Properties.Settings.Default.Save();
+                    Console.WriteLine("Perfil por defecto creado: " + xmlPerfil);
+                }
+            }
+
+            // Geometría del implemento guardada por el propio motor. VA ACÁ:
+            // después del Load del perfil (para pisarlo con lo último que
+            // configuró el operario) y ANTES de construir el host, que arma
+            // CTool/CVehicle y reparte el ancho entre las secciones leyendo
+            // estos mismos campos de Settings.
+            //
+            // Sin esto la config de secciones se perdía en cada arranque: el
+            // Save() de Settings es un no-op cuando no hay perfil de vehículo
+            // elegido (vehicle_file_name vacío, que es el caso normal del motor
+            // headless — el diálogo de perfiles es de FormGPS). El operario
+            // configuraba 14 secciones de 0,52 m, andaba en caliente, y al
+            // reiniciar el proceso volvía a los defaults del código: 3 × 4 m.
+            ToolGeometryStore.UsarCarpeta(baseDir.FullName);
+            bool geomCargada = ToolGeometryStore.Cargar();
+            Console.WriteLine("Geometría del implemento: "
+                + (geomCargada ? "de " + ToolGeometryStore.Ruta : "sin archivo propio, se usa el perfil/defaults")
+                + " → " + ToolGeometryStore.Resumen());
+
             Console.WriteLine("PilotX.GuidanceEngine — bloque 14, guidance engine headless");
             Console.WriteLine("Base directory: " + baseDir.FullName);
             Console.WriteLine("Fields directory: " + RegistrySettings.fieldsDirectory);
 
             var host = new GuidanceEngineHost(baseDir);
 
-            // Se engancha siempre, pero solo actúa con Habilitado=true: así se
-            // puede prender sin recompilar y, sobre todo, apagar en el lote si
-            // se porta mal.
+            // Se engancha siempre; Habilitado decide si interviene.
             var antiSolape = new AntiSolapeSecciones(host)
             {
                 Habilitado = useAntiSolape,
                 Diagnostico = Array.IndexOf(args, "--antisolape-debug") >= 0,
             };
             host.AntiSolape = antiSolape;
-            Console.WriteLine("Anti-solape de secciones: " + (useAntiSolape ? "ACTIVO (--antisolape)" : "apagado"));
+            Console.WriteLine("Anti-solape de secciones: " +
+                (useAntiSolape ? "ACTIVO" : "APAGADO por --sin-antisolape"));
 
             host.Start();
             Console.WriteLine("Escuchando PGN en 127.0.0.1:15555, respondiendo a 127.255.255.255:17777.");

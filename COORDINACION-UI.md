@@ -1662,3 +1662,97 @@ Formato: `[FECHA] [DE→A] PENDIENTE|HECHO — descripción`
   markup porque no existe en el original (el JS lo tolera). El JS ahora maneja
   DOS grupos de tabs independientes (?tab= y ?tab2=). Codex: si la retocás,
   la geometría es la del FormSteer WinForms — no volver al menú lateral.
+- [2026-07-31] [Claude] **Anti page-zoom global en `keyboard.js`** (pedido del
+  usuario en la pantalla Cabecera): el pinch/ctrl+rueda del WebView agrandaba
+  la PÁGINA entera en vez de zoomear el mapa de la página. keyboard.js (lo
+  cargan ~47 páginas) ahora bloquea ctrl+rueda / ctrl+± y fuerza el viewport
+  a maximum-scale=1 user-scalable=no. Los canvas con zoom propio (cabecera,
+  cabecera-líneas, contorno) siguen manejando su pinch como siempre. En
+  `cabecera.js`: la distancia se precarga con el ancho de herramienta y
+  "Construir" con 0 cae al ancho (antes construía una cabecera de 0 m sin
+  error — "no la crea").
+- [2026-08-01] [Claude] **Página nueva `pages/pwm-diag.html` + `js/pwm-diag.js`**
+  (diagnóstico de banco, pedido del usuario): manda un PWM fijo a un motor
+  QuantiX por el mismo endpoint que la pestaña Prueba (`verb=test`) y muestra
+  lado a lado PWM pedido / PWM que el nodo aplicó / rpm / Hz del encoder, más
+  un barrido automático con tabla. Sirve para separar "el PWM no llega" de "el
+  motor no responde". Codex: markup propio con tokens `--agp-*`, sin clases
+  nuevas globales; los IDs `pd*` son contrato con pwm-diag.js.
+- [2026-08-01] [Claude] **Página nueva `pages/calculadora-siembra.html` +
+  `js/calculadora-siembra.js`** (pedido del usuario): 4 calculadoras de siembra
+  de gruesa según el doc INTA de distanciamiento — densidad↔sem/m↔distanciamiento,
+  evaluación a campo (fallas/duplicaciones/eventos corregidos), kg/ha↔sem/ha con
+  PMS, y rpm/Hz que va a pedir un motor QuantiX. Entrada nueva en el sidebar
+  (grupo Lote, id `calculadora-siembra`; sin PNG, cae al glifo como Eventos).
+  Codex: markup con tokens `--agp-*`, IDs `cs*`/`d*`/`c*`/`p*`/`m*` son contrato
+  con el JS.
+- [2026-08-01] [Claude] **Implemento unificado (fase 1)** — `config-implemento.html`
+  gana la card "Trenes de siembra" (IDs nuevos congelados: `cardTrenes`,
+  `trenList`, `btnAddTren`, `trenBrush`, `trenStrip` con celdas `data-surco`,
+  `trenMsg`; clases `trs-cell`, `tren-name-inp`, `tren-stepper`). El guardado es
+  dual: PUT /api/tool y después PUT /api/implemento. `herramienta.html` SALIÓ
+  del sidebar (banner de deprecación adentro; sectionx/vistax relinkean a
+  config-implemento). En `quantix.js`/`sectionx.js` el selector de tren por
+  motor/cable se reemplazó por texto derivado del implemento — la clase
+  `qxTren` y `data-cable-tren` YA NO EXISTEN (actualizar el registro §4:
+  quitar `qxTren`; sumar los `data-mf*`/`data-mot-*` de la tab Motores de
+  QuantiX). Codex: la tira de trenes usa tokens `--agp-*` con 4 variables
+  locales en `#cardTrenes`.
+- [2026-08-02] [Claude] **Configuración unificada en config.html** (pedido del
+  usuario): la card "Trenes de siembra" vive ahora en config.html → tab
+  Secciones (IDs congelados: `cartaTrenes`, `trnList`, `trnAdd`, `trnBrush`,
+  `trnStrip`, `trnMsg`, attrs `data-trn-nombre/dist/del`; clase `.btn` nueva en
+  esa página). Guarda con el botón flotante Guardar / leave de tab, DESPUÉS de
+  la geometría. `config-implemento.html` REDIRIGE a config.html?tab=tconfig
+  (salió del sidebar; entrada nueva `configuracion` → config.html). Los links
+  de sectionx/vistax/quantix/herramienta apuntan a config.html?tab=tsections.
+  Codex: no reintroducir editores de trenes fuera de config.html.
+- [2026-08-02] [Claude] **config.html mapeada a tokens --agp-*** (unificación de
+  estilos pedida por el usuario): la paleta local (--verde/--gris/--borde/…)
+  ahora RESUELVE a los tokens de theme.css (importado solo por los tokens; el
+  layout de la página sigue propio, sin layout.css). Cero cambios en los ~30
+  usos. Codex: quedan ~11 hex menores (#fff en inputs, #eaf6e8 del menú sel,
+  #eef1ee disabled) para tokenizar a mano cuando pases por ahí — NO por
+  matching de valor. También sumadas a config.html: sección Sonidos
+  (sonidos.html embebida) y grupo Herramientas (calculadora/pid-lab/pwm-diag).
+
+### 2026-08-02 · Claude — widget-quantix.html a paleta clara por tokens
+`pages/widget-quantix.html` (overlay 220x240 sobre el mapa) abandonó el dark
+cockpit hardcodeado: importa theme.css y el `:root` local (`--bg-panel`,
+`--green`, `--brand`…) ahora RESUELVE a tokens agp con fallback — mismas
+reglas, cero cambios de IDs/estructura/JS (widget-quantix.js ya usaba
+`var(--…)` para los estados). Texto sobre accent pasó de #081008 a blanco
+(`--on-brand`), como .btn.primary. Queda igualado al lenguaje de
+vistax-live.html.
+
+### 2026-08-02 · Claude — franja VistaX mínima + barras de nivel + auto-mini cabecera
+`vistax-live.html/js`: los chips pasaron a BARRAS DE NIVEL (riel + `.fill` con
+el ratio real/objetivo, referencia de monitores clásicos de siembra) y hay
+media queries de densidad: ≤72 px alto esconde tipo y achica número; ≤46 px
+queda solo el color (modo LED). Host WinForms: strip default 5%/40-64 px,
+mínimo 26 px de contenido, DragBar 22→18. NUEVO en overlayPrefs:
+`vx_mini_cabecera_m` (default 25, 0=off) — FormGPS auto-minimiza la franja a
+44 px cerca de la cabecera (histéresis 5 m) y la restaura al alejarse.
+IDs/data-* intactos.
+
+### 2026-08-03 · Claude — tab Motores de QuantiX: tarjetas → TABLA
+`quantix.html` + `js/quantix.js` (a pedido del usuario). Los dos motores del
+nodo dejaron de ser tarjetas lado a lado y pasaron a una tabla con cabecera de
+dos niveles (grupo Sensor/Motor/PID + campo). Motivo: con varios nodos × 2
+motores, comparar PWM y PID en vertical es lo que se hace en la práctica.
+
+Detalles que importan si tocás esto:
+- La fila SIGUE siendo `.motor-cfg` con su `data-mi`: los handlers del tab la
+  buscan con `closest('.motor-cfg')`. Verificado en vivo que sensor_tipo,
+  los 7 steppers, save y maxhz siguen funcionando.
+- Se anula `#tabMotores .motor-cfg::before` (la barra de color de la tarjeta
+  cruzaba toda la fila); el color del motor ahora es el chip M0/M1.
+- Tabla de 1560 px: `.mcfg-scroll` da scroll horizontal y la columna Motor es
+  `position:sticky` para no perder de vista qué motor se está tocando.
+- Steppers compactos dentro de celda (40 px alto, botones de 38) — siguen
+  siendo tocables, pero los de 56 px del formulario no entraban.
+- `refrescarTecho()` ahora escribe el texto corto ('lee hasta N rpm'); la
+  frase larga quedó en el `title`. Si volvés al texto largo, la celda se
+  ensancha y rompe la compactación.
+- Los tabs PID live / Calibración / Prueba NO se tocaron: siguen con tarjetas,
+  que ahí es lo correcto (se mira un motor por vez).

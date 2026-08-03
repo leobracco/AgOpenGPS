@@ -111,6 +111,10 @@ namespace AgroParallel.WebHost
         // Auto-instanciado: el shell no necesita conocerlo.
         private readonly IImplementoService _implemento;
         private readonly string _wwwroot;
+
+        /// <summary>Detección de alarmas sonoras (opcional): lo setea el host
+        /// que lo tenga (Engine). Null = endpoints degradan a defaults.</summary>
+        public AgroParallel.Services.SonidosAlarmService Sonidos { get; set; }
         private readonly int _port;
         private WebServer _server;
         private CancellationTokenSource _cts;
@@ -295,6 +299,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new NodosController(_nodos, _nodosCurated, _otaCoord, _orbitxCfg, _implemento))
                  .WithController(() => new SetupController(_setupState, _nodos, _nodosCurated, _orbitxCfg))
                  .WithController(() => new QuantiXController(_nodos, _quantixCfg))
+                 .WithController(() => new SonidosController(Sonidos, _wwwroot))
                  .WithController(() => new OrbitXController(_orbitxCfg))
                  .WithController(() => new FirmwaresController())
                  .WithController(() => new BotoneraController())

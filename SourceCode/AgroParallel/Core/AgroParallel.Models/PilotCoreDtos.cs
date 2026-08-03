@@ -41,6 +41,12 @@ namespace AgroParallel.Models
         /// <summary>True si la sección está habilitada en el implemento.</summary>
         public bool Enabled { get; set; }
         public List<CoverageStrip> Strips { get; set; }
+
+        /// <summary>Solo en respuestas incrementales: índice de parche al que
+        /// corresponde la PRIMERA strip del payload. La primera strip CONTINÚA
+        /// ese parche del cliente (vértices nuevos); las siguientes son parches
+        /// completos desde PatchBase+1.</summary>
+        public int PatchBase { get; set; }
     }
 
     public sealed class CoverageSnapshot
@@ -56,6 +62,12 @@ namespace AgroParallel.Models
         public int B { get; set; } = 63;
         public int A { get; set; } = 140;
         public List<CoverageSection> Sections { get; set; }
+
+        /// <summary>true = snapshot COMPLETO (reemplazar todo). false = payload
+        /// incremental: Sections trae solo lo NUEVO desde el cursor del cliente
+        /// (las secciones sin novedades no viajan). Pintado fluido: a 3-5 Hz el
+        /// incremental pesa bytes; el completo pesaba MB y el mapa tironeaba.</summary>
+        public bool Full { get; set; } = true;
     }
 
     // ---------------------------------------------------------------------
@@ -250,6 +262,12 @@ namespace AgroParallel.Models
         public bool IsMapping { get; set; }
         /// <summary>Estado del boton del operario: 0=Off, 1=Auto, 2=On (manual).</summary>
         public int BtnState { get; set; }
+
+        /// <summary>Tren de siembra al que pertenece la seccion (1 = delantero).
+        /// Cuando es un tren trasero, Left/Right/IsOn/IsMapping ya vienen
+        /// RETRASADOS a la posicion real de ese tren (la barra de hace N metros),
+        /// asi el mapa lo dibuja donde esta fisicamente y con su estado real.</summary>
+        public int TrenId { get; set; } = 1;
     }
 
     /// <summary>Geometria del implemento (Stage 4a). Cambia cada frame que

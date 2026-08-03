@@ -244,7 +244,30 @@
             -->
             <Canvas Name="MapOverlaysHost" Grid.Row="2" IsVisible="False">
                 <vw:QuantiXMapOverlay x:Name="QxMapOverlay" IsVisible="False"/>
+                <!-- Franja mínima VistaX: barritas de nivel por surco sobre el
+                     mapa; se auto-minimiza cerca de la cabecera. Toggle:
+                     vx_overlay de overlayPrefs (mismo que WinForms). -->
+                <vw:VistaXMapStrip x:Name="VxMapStrip" IsVisible="False"/>
             </Canvas>
+
+            <!-- Zoom del mapa: la cabina es táctil (sin rueda). Columna a la
+                 derecha, arriba de la barra derecha del cockpit para no
+                 pisarla. Sin Background en el StackPanel: solo los botones
+                 interceptan el toque. -->
+            <StackPanel Name="MapZoomHost" Grid.Row="2" Spacing="10"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,72,0">
+                <Button Name="BtnZoomIn" Content="+" Width="56" Height="56"
+                        FontSize="30" FontWeight="Bold"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Background="#D9FFFFFF" Foreground="#101612"
+                        BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
+                <Button Name="BtnZoomOut" Content="−" Width="56" Height="56"
+                        FontSize="30" FontWeight="Bold"
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                        Background="#D9FFFFFF" Foreground="#101612"
+                        BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
+            </StackPanel>
 
             <!-- =================== CLUSTER DEL PILOTO =================== -->
             <!--
@@ -253,10 +276,13 @@
                 · DISTANCIA a la línea: visible siempre que haya guía.
                 · GIRO manual (↰/↱) y SALTEO: aparecen al activar el piloto.
             -->
+            <!-- Fondo OSCURO translúcido (pedido del usuario): sobre el piso
+                 texturado el panel blanco lavaba los textos; en oscuro el
+                 número de distancia, el GIRANDO y las flechas resaltan. -->
             <Border Name="PilotoCluster" Grid.Row="2" IsVisible="False"
                     VerticalAlignment="Top" HorizontalAlignment="Center"
                     Margin="0,64,0,0"
-                    Background="#F2FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                    Background="#D9101612" BorderBrush="#66FFFFFF" BorderThickness="1"
                     CornerRadius="12" Padding="10,6">
                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                     <Button Name="PcGiroIzq" Width="64" Height="56" Padding="0" IsVisible="False"
@@ -269,27 +295,31 @@
                          El triangulito indica hacia dónde corregir (lado opuesto
                          al desvío, mismo criterio que el lightbar). -->
                     <StackPanel VerticalAlignment="Center" MinWidth="120">
-                        <TextBlock Text="A LA LÍNEA" FontSize="10" Foreground="#535E54"
+                        <TextBlock Text="A LA LÍNEA" FontSize="10" Foreground="#C5CFC5"
                                    HorizontalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
-                            <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold"
+                            <TextBlock Name="PcXteFlecha" Text="" FontSize="22" FontWeight="Bold" Foreground="#F5F7F4"
                                        VerticalAlignment="Center"/>
-                            <TextBlock Name="PcXte" Text="—" FontSize="30" FontWeight="Bold"
+                            <TextBlock Name="PcXte" Text="—" FontSize="30" FontWeight="Bold" Foreground="#F5F7F4"
                                        VerticalAlignment="Center"/>
-                            <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#535E54"
+                            <TextBlock Name="PcXteUnidad" Text="cm" FontSize="13" Foreground="#C5CFC5"
                                        VerticalAlignment="Bottom" Margin="0,0,0,4"/>
                         </StackPanel>
                         <!-- Estado del giro en cabecera (réplica 6.8.5): la
                              distancia al punto de giro cuando está armado,
                              "GIRANDO" en violeta durante el giro, aviso si el
-                             camino cae fuera del lote. -->
+                             camino cae fuera del lote. TOCARLO invierte el
+                             lado del giro armado (SwapDirection del nativo);
+                             girando, lo aborta. -->
                         <TextBlock Name="PcGiroInfo" Text="" FontSize="12" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" IsVisible="False"/>
+                                   HorizontalAlignment="Center" IsVisible="False"
+                                   Cursor="Hand"
+                                   ToolTip.Tip="Tocá para cambiar el lado del giro"/>
                     </StackPanel>
 
                     <!-- Cuántas guías saltea el giro (0 = va a la contigua). -->
                     <StackPanel Name="PcGrupoSalteo" VerticalAlignment="Center" IsVisible="False">
-                        <TextBlock Text="SALTEA" FontSize="10" Foreground="#535E54"
+                        <TextBlock Text="SALTEA" FontSize="10" Foreground="#C5CFC5"
                                    HorizontalAlignment="Center"/>
                         <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
                             <Button Name="PcSkipMenos" Width="40" Height="44" Padding="0" FontSize="20"

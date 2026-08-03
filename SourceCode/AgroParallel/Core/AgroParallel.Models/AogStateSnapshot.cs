@@ -70,6 +70,11 @@ namespace AgroParallel.Models
         public string FieldsDirectory { get; set; }
 
         public double AvgSpeed { get; set; }      // km/h
+
+        /// <summary>Metros del pivote a la linea de giro (cabecera).
+        /// -2222 = sin linea de giro / sin dato. La usan los overlays para
+        /// auto-minimizarse cerca de la cabecera (ahi manda el mapa).</summary>
+        public double DistanciaCabeceraM { get; set; } = -2222;
         public double Heading { get; set; }       // rad
 
         /// <summary>Calidad de fix GPS (pn.fixQuality): 4=RTK fijo, 5=RTK float, 2=DGPS, otro=sin fix.</summary>

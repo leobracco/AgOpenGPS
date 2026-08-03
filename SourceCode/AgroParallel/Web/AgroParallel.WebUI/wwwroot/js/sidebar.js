@@ -72,8 +72,10 @@
     ]},
     { id: 'config', label: 'Configuración', items: [
       { id: 'vehiculo', ico: '🚜', label: 'Vehículo', href: 'vehiculo.html' },
-      { id: 'config-implemento', ico: '⚙', label: 'Implemento PilotX', href: 'config-implemento.html' },
-      { id: 'herramienta', ico: '⚙', label: 'Implemento', href: 'herramienta.html' },
+      // Configuración unificada: vehículo, implemento, secciones y trenes en
+      // UNA ventana (la misma que abre el engranaje del Desktop). Reemplaza a
+      // config-implemento.html y herramienta.html, que quedan como redirección.
+      { id: 'configuracion', ico: '⚙', label: 'Configuración', href: 'config.html' },
       { id: 'calibracion-imu', ico: '⟲', label: 'Calibración IMU', href: 'calibracion-imu.html' },
       { id: 'setup',    ico: '🧭', label: 'Asistente', href: 'setup.html' },
       { id: 'sistema',  ico: '🖥', label: 'Sistema',  href: 'sistema.html' },

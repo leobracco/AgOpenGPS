@@ -28,6 +28,7 @@ namespace AgroParallel.Shell
         private static IFlowXConfigService s_flowxCfg;
         private static ISectionXConfigService s_sectionxCfg;
         private static IOrbitXConfigService s_orbitxCfg;
+        private static IImplementoService s_implemento;
         private static string s_url;
 
         public static AgpWebHost Host { get { lock (s_lock) return s_host; } }
@@ -47,6 +48,14 @@ namespace AgroParallel.Shell
         // Misma idea para OrbitX: FormGPS se suscribe a ConfigSaved para relanzar
         // OrbitXSync en caliente cuando el operario activa/vincula desde la UI.
         public static IOrbitXConfigService OrbitXConfigSvc { get { lock (s_lock) return s_orbitxCfg; } }
+
+        // Implemento central compartido (Task 5): QuantiXMotorBridge y
+        // CutDispatcher/SectionXCutAdapter (ambos instanciados por FormGPS, no
+        // por el WebHost) lo usan para derivar el tren de cada motor/cable
+        // desde sus surcos, en vez del campo manual sectionx.json/quantiX_motores.json
+        // por nodo. Misma instancia que ya usa VistaXLiveService — sin esto
+        // habría una segunda copia con cache propia.
+        public static IImplementoService Implemento { get { lock (s_lock) return s_implemento; } }
 
         // Registry MQTT compartido: QuantiXMotorBridge (FormGPS) publica sus
         // targets por esta conexión en vez de abrir un IMqttClient propio.
@@ -174,6 +183,7 @@ namespace AgroParallel.Shell
                 s_flowxCfg = flowxCfg;
                 s_sectionxCfg = sectionxCfg;
                 s_orbitxCfg = orbitxCfg;
+                s_implemento = implemento;
 
                 // FlowXBridge: publica targets PC -> ESP. No depende del WebHost,
                 // pero el ciclo de vida queda atado al bootstrap para que arranque

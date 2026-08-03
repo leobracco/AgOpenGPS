@@ -72,10 +72,19 @@ namespace AgroParallel.Models
 
         // ---- QuantiX (semilla o fertilizante sólido) ------------------------
 
-        /// <summary>kg/ha o sem/ha — depende del contexto del cultivo. QuantiX
-        /// usa esto como DosisFija cuando el operario elige este insumo.</summary>
+        /// <summary>Valor de la dosis, en la unidad de <see cref="DosisUnidad"/>.
+        /// (El nombre del campo es legacy de cuando era solo kg/ha.) Dato
+        /// COMPARTIDO: QuantiX lo usa como dosis fija y VistaX como dosis de
+        /// referencia de la regla de tres.</summary>
         [JsonPropertyName("dosis_kgha")]
         public double DosisKgha { get; set; }
+
+        /// <summary>Unidad de la dosis: "kg_ha" (default), "sem_ha" o "sem_m".
+        /// Se configura una sola vez acá porque el dato es general — lo
+        /// consumen QuantiX (dosificación) y VistaX (monitoreo/estimación) y
+        /// cada uno muestra/calcula en esta unidad.</summary>
+        [JsonPropertyName("dosis_unidad")]
+        public string DosisUnidad { get; set; } = "kg_ha";
 
         // ---- FlowX (líquido pulverización) ----------------------------------
 

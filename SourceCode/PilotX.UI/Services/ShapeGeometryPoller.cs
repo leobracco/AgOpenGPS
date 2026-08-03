@@ -63,6 +63,9 @@ public sealed class ShapeGeometryPoller : IDisposable
         public double StyleMin { get; set; }
         public double StyleMax { get; set; }
         public List<WirePolygon>? Polygons { get; set; }
+        /// <summary>true = el server confirma que el shape es el mismo del
+        /// token enviado: respuesta corta, no viene ningún polígono.</summary>
+        public bool Unchanged { get; set; }
     }
 
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -76,6 +79,10 @@ public sealed class ShapeGeometryPoller : IDisposable
     private readonly CancellationTokenSource _cts = new();
 
     private string _lastKey = "";
+    // Último SourceToken aplicado: viaja como ?token= y el server contesta
+    // "unchanged" de 40 bytes en vez del shapefile entero (que bajábamos y
+    // deserializábamos ENTERO cada segundo aunque no cambiara nada).
+    private string _lastToken = "";
 
     public ShapeGeometryPoller(string baseUrl, Action<ShapeMapSnapshot?> onSnapshot)
     {
@@ -93,7 +100,9 @@ public sealed class ShapeGeometryPoller : IDisposable
         {
             try
             {
-                using var resp = await _http.GetAsync(_baseUrl + "api/aog/shape", _cts.Token).ConfigureAwait(false);
+                string url = _baseUrl + "api/aog/shape" +
+                    (string.IsNullOrEmpty(_lastToken) ? "" : "?token=" + Uri.EscapeDataString(_lastToken));
+                using var resp = await _http.GetAsync(url, _cts.Token).ConfigureAwait(false);
                 if (resp.IsSuccessStatusCode)
                 {
                     var json = await resp.Content.ReadAsStringAsync(_cts.Token).ConfigureAwait(false);
@@ -103,12 +112,21 @@ public sealed class ShapeGeometryPoller : IDisposable
                         if (_lastKey != "")
                         {
                             _lastKey = "";
+                            _lastToken = "";
                             _onSnapshot(null);
                         }
                     }
                     else
                     {
                         var wire = JsonSerializer.Deserialize<WireSnapshot>(json, JsonOpts);
+                        // Respuesta corta (?token= coincidió): mismo shape que
+                        // ya está aplicado, no vino ni un polígono — saltear.
+                        if (wire != null && wire.Unchanged)
+                        {
+                            // nada que hacer este tick
+                        }
+                        else
+                        {
                         // La clave de cache incluye GEOMETRÍA (primer vértice y
                         // total de puntos), no solo nombre/cantidad/campo: subir
                         // un shape corregido con el mismo nombre es un caso real
@@ -119,7 +137,9 @@ public sealed class ShapeGeometryPoller : IDisposable
                         if (wire != null && key != _lastKey)
                         {
                             _lastKey = key;
+                            _lastToken = wire.SourceToken ?? "";
                             _onSnapshot(Convertir(wire));
+                        }
                         }
                     }
                 }

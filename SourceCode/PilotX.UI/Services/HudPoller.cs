@@ -74,6 +74,11 @@ public sealed class HudSnapshot
     // Primer ring = contorno exterior; rings siguientes = islas/drive-thru.
     public List<List<FieldPoint>>? Boundaries { get; set; }
 
+    /// <summary>Línea de CABECERA por lindero (vacía si no se construyó).
+    /// El motor ya la servía (head_lands en el state) — la UI no la leía y la
+    /// cabecera construida no se veía en el mapa principal.</summary>
+    public List<List<FieldPoint>>? Headlands { get; set; }
+
     /// <summary>Lindero que se está grabando manejando, todavía sin cerrar.
     /// null cuando no hay grabación. Va aparte de <see cref="Boundaries"/>:
     /// es una tira abierta que crece, no un anillo confirmado.</summary>

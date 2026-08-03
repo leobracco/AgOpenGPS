@@ -19,6 +19,15 @@ namespace AgroParallel.Models
         [JsonPropertyName("nombre")]
         public string Nombre { get; set; } = "Motor";
 
+        // Un nodo tiene N canales de motor pero no siempre están todos cableados
+        // (el de 2 motores puede llevar uno solo; el de 7, los que hagan falta).
+        // Un canal sin motor recibía consigna igual y el PID se saturaba contra
+        // la nada: PWM 4095 permanente y telemetría basura. Deshabilitado se le
+        // publica pps=0/seccion_on=false, así queda en PWM 0 sin dejar de
+        // refrescar CommTime (que es lo que CheckRelays mira para no cortar).
+        [JsonPropertyName("habilitado")]
+        public bool Habilitado { get; set; } = true;
+
         [JsonPropertyName("dosis_fija")]
         public double DosisFija { get; set; }
 
@@ -65,6 +74,56 @@ namespace AgroParallel.Models
         [JsonPropertyName("dientes_engranaje")]
         public int DientesEngranaje { get; set; } = 20;
 
+        /// <summary>Qué mide las vueltas del motor: "inductivo" (sensor de
+        /// pocos pulsos por vuelta, el clásico) o "encoder" (LPD3806 y
+        /// similares, cientos de pulsos por vuelta). Define el filtro
+        /// antirrebote y el PPR típico — ver <see cref="PulseMinPara"/>.</summary>
+        ///
+        /// Arranca en null a propósito: las configs viejas no traen el campo y
+        /// defaultearlas a "inductivo" etiquetaría mal a los motores que ya
+        /// tienen encoder. Con null la UI lo deduce del PPR guardado.
+        [JsonPropertyName("sensor_tipo")]
+        public string SensorTipo { get; set; }
+
+        /// <summary>Filtro antirrebote del ISR del nodo (µs mínimos entre
+        /// pulsos). El default 2000 sirve para sensores inductivos de pocos
+        /// pulsos/vuelta; con encoders de 600 ppr (LPD3806) usar ~100.</summary>
+        [JsonPropertyName("pulse_min")]
+        public int PulseMin { get; set; } = 2000;
+
+        /// <summary>Filtro recomendado según el tipo de sensor.</summary>
+        public static int PulseMinPara(string sensorTipo)
+        {
+            return string.Equals(sensorTipo, "encoder", System.StringComparison.OrdinalIgnoreCase)
+                ? 100 : 2000;
+        }
+
+        /// <summary>PPR típico de cada tipo, para precargar el formulario.</summary>
+        public static int PprPara(string sensorTipo)
+        {
+            return string.Equals(sensorTipo, "encoder", System.StringComparison.OrdinalIgnoreCase)
+                ? 600 : 20;
+        }
+
+        /// <summary>Filtro máximo tolerable para un PPR dado.
+        ///
+        /// El ISR del nodo descarta cualquier pulso que llegue antes de
+        /// `pulse_min` µs del anterior, así que el filtro impone un techo de
+        /// lectura: 1e6/pulse_min pulsos por segundo. Pasado ese techo el nodo
+        /// no "se queda en el máximo": empieza a contar uno de cada dos y
+        /// reporta LA MITAD de las vueltas reales — el PID lee de menos y
+        /// dosifica de más, sin ningún error a la vista.
+        ///
+        /// Con 600 ppr y el default de 2000 µs el techo eran 50 rpm: arriba de
+        /// eso la lectura se partía al medio (medido en banco 2026-08-01).
+        /// Acá dejamos margen hasta 300 rpm de motor.</summary>
+        public static int PulseMinMaximo(int ppr)
+        {
+            if (ppr <= 0) return 2000;
+            int techo = 200000 / ppr;          // 1e6 / (ppr * 300rpm/60)
+            return techo < 20 ? 20 : techo;    // nunca menos de 20 µs
+        }
+
         [JsonPropertyName("motor_type")]
         public int MotorType { get; set; }
 
@@ -79,6 +138,12 @@ namespace AgroParallel.Models
 
         [JsonPropertyName("slew_rate_per_sec")]
         public double SlewRatePerSec { get; set; } = 5000;
+
+        // Rampa de CONSIGNA en Hz/s (distinta del slew de PWM de arriba).
+        // El default histórico del firmware era 50, que a 455 pps tarda 9 s en
+        // llegar al target: la pasada arrancaba con ~35% menos de semilla.
+        [JsonPropertyName("target_slew_hz_per_sec")]
+        public double TargetSlewHzPerSec { get; set; } = 300;
 
         [JsonPropertyName("pid_time")]
         public int PIDTime { get; set; } = 50;

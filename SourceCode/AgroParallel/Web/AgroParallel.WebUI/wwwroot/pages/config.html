@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Configuración · PilotX</title>
+  <!-- theme.css SOLO por los tokens --agp-* (la paleta local de abajo mapea a
+       ellos). El layout de esta página es propio y no usa layout.css. -->
+  <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
     /* Configuración del vehículo/implemento — réplica HTML de FormConfig.
@@ -12,18 +15,22 @@
        Guardado: réplica del Leave nativo — al salir de una sección con cambios
        se postea a /api/aog/config/{seccion}. */
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* Paleta local MAPEADA a los tokens del design system (theme.css se
+       importa abajo): así esta página y las embebidas (QuantiX, Sonidos,
+       Lab PID…) son UNA sola estética, sin reescribir los ~30 usos de
+       --verde/--gris/--borde que ya había. Unificación pedida 2026-08-02. */
     :root {
-      --verde: #4ABA3E;
-      --fondo: #F5F7F4;
-      --carta: #ffffff;
-      --borde: #C5CFC5;
-      --texto: #101612;
-      --gris: #535E54;
-      --rojo: #c0392b;
+      --verde: var(--agp-accent, #4ABA3E);
+      --fondo: var(--agp-bg, #F5F7F4);
+      --carta: var(--agp-surface, #ffffff);
+      --borde: var(--agp-border, #C5CFC5);
+      --texto: var(--agp-text, #101612);
+      --gris: var(--agp-text-muted, #535E54);
+      --rojo: var(--agp-state-bad, #c0392b);
     }
     html, body { height: 100%; }
     body {
-      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+      font-family: var(--agp-font-sans, "Segoe UI", Roboto, system-ui, sans-serif);
       background: var(--fondo); color: var(--texto);
       display: flex; flex-direction: column; overflow: hidden;
     }
@@ -176,6 +183,13 @@
       background: #fff; cursor: pointer; touch-action: manipulation; flex: none;
     }
     .btnZero img { width: 40px; height: 40px; object-fit: contain; }
+    /* Botón de texto genérico (trenes de siembra) — mismo lenguaje que btnZero */
+    .btn {
+      min-height: 44px; padding: 0 16px; border: 1px solid var(--borde);
+      border-radius: 10px; background: #fff; cursor: pointer;
+      touch-action: manipulation; font: 600 14px "Segoe UI", Roboto, sans-serif;
+      color: var(--gris);
+    }
     .timingCols { display: flex; gap: 14px; flex-wrap: wrap; }
     .timingCol {
       flex: 1; min-width: 200px; display: flex; flex-direction: column;
@@ -247,6 +261,7 @@
       <div class="grupo">Otros</div>
       <button type="button" data-tab="uturn"><img loading="lazy" src="../img/config/Con_UTurnMenu.png" alt="" />U-Turn</button>
       <button type="button" data-tab="tram"><img loading="lazy" src="../img/config/Con_TramMenu.png" alt="" />Tram</button>
+      <button type="button" data-mod="sonidos.html"><span class="ico-emoji">🔔</span>Sonidos</button>
       <button type="button" data-tab="display"><img loading="lazy" src="../img/config/Con_Display.png" alt="" />Display</button>
       <button type="button" data-tab="botones"><img loading="lazy" src="../img/config/Con_FeatureMenu.png" alt="" />Botones</button>
       <!-- Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget, sin su
@@ -274,6 +289,12 @@
       <button type="button" data-mod="insumos.html"><img loading="lazy" src="../img/icons/existing/agp-insumos.png" alt="" />Insumos</button>
       <button type="button" data-mod="mapas.html"><img loading="lazy" src="../img/icons/existing/agp-mapas.png" alt="" />Mapas</button>
       <button type="button" data-mod="prescripciones.html"><img loading="lazy" src="../img/icons/existing/agp-prescripciones.png" alt="" />Prescripciones</button>
+      <!-- Herramientas de campo/banco: mismo embebido que Módulos. Una sola
+           ventana para todo (pedido usuario 2026-08-02). -->
+      <div class="grupo">Herramientas</div>
+      <button type="button" data-mod="calculadora-siembra.html"><span class="ico-emoji">🧮</span>Calculadora</button>
+      <button type="button" data-mod="pid-lab.html"><span class="ico-emoji">📈</span>Lab PID</button>
+      <button type="button" data-mod="pwm-diag.html"><span class="ico-emoji">🔧</span>Diagnóstico PWM</button>
       <!-- Cloud: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
       <div class="grupo">Cloud</div>
       <button type="button" data-mod="orbitx.html"><img loading="lazy" src="../img/icons/existing/agp-orbitx.png" alt="" />OrbitX</button>
@@ -579,6 +600,27 @@
           <p style="margin-top:10px; font-weight:700">
             Ancho total: <span id="secTotalZonas">—</span>
           </p>
+        </div>
+
+        <!-- Trenes de siembra: qué surco corta con qué tren y a cuántos
+             metros va el trasero. Fuente ÚNICA de esta configuración
+             (config-implemento la muestra pero manda acá). -->
+        <div class="carta" id="cartaTrenes">
+          <h2>Trenes de siembra</h2>
+          <p class="nota">Para máquinas con tren delantero y trasero: cada surco
+          pertenece a un tren, y el trasero corta N metros después, sobre la misma
+          pasada. Con un solo tren esta parte no afecta nada.</p>
+          <div id="trnList"></div>
+          <div style="margin:8px 0">
+            <button type="button" class="btn" id="trnAdd">+ Agregar tren</button>
+          </div>
+          <div id="trnSurcos">
+            <p class="nota" style="margin-bottom:6px">Qué surcos van en cada tren
+            (elegí un tren y tocá los surcos):</p>
+            <div id="trnBrush" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px"></div>
+            <div id="trnStrip" class="secGrilla"></div>
+          </div>
+          <p id="trnMsg" class="nota"></p>
         </div>
 
         <div class="carta">

@@ -43,13 +43,6 @@ namespace PilotX.GuidanceEngine.Adapters
             try
             {
                 snap.IsAutoSteerOn = _host.isBtnAutoSteerOn;
-
-                short raw = _host.guidanceLineDistanceOff;
-                if (raw != 32000)
-                {
-                    snap.XteMeters = raw / 1000.0; // mm -> m
-                }
-
                 snap.SteerAngleCommandDeg = _host.guidanceLineSteerAngle / 100.0;
 
                 bool ab = _host.ABLineField != null && _host.ABLineField.isABValid;
@@ -60,6 +53,18 @@ namespace PilotX.GuidanceEngine.Adapters
                 else if (cu) { snap.Mode = "Curve"; snap.IsLineSet = true; snap.HowManyPathsAway = _host.CurveField.howManyPathsAway; }
                 else if (ct) { snap.Mode = "Contour"; snap.IsLineSet = true; }
                 else { snap.Mode = "Off"; snap.IsLineSet = false; }
+
+                // XTE: la distancia REAL a la línea actual (en m), que el
+                // guiado recalcula en CADA fix contra la PARALELA más cercana
+                // al pivote — con el piloto prendido o apagado. Antes salía de
+                // guidanceLineDistanceOff (el campo del PGN), que es un valor
+                // de PROTOCOLO pisado por sentinels de estado: 32000 "sin
+                // línea" y 32020 "autosteer apagado". El 32000 se filtraba,
+                // el 32020 NO → con el piloto apagado la pantalla mostraba
+                // "32.0 m" clavado en vez de la distancia a la guía.
+                if (ab) snap.XteMeters = _host.ABLineField.distanceFromCurrentLinePivot;
+                else if (cu) snap.XteMeters = _host.CurveField.distanceFromCurrentLinePivot;
+                else if (ct) snap.XteMeters = _host.Ct.distanceFromCurrentLinePivot;
             }
             catch
             {

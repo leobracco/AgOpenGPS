@@ -77,6 +77,19 @@ namespace AgIO
         public string Avr { get; set; } = "";
         public string Hpd { get; set; } = "";
         public string Ksxt { get; set; } = "";
+
+        /// <summary>Inventario completo: toda sentencia con checksum válido que
+        /// entró (también las no consumidas: RMC/GSA/GSV/ZDA…). null en hosts
+        /// que no lo llenan (AgIO WinForms legacy).</summary>
+        public System.Collections.Generic.List<CoreXNmeaVistaDto> Vistas { get; set; }
+    }
+
+    /// <summary>Una entrada del inventario NMEA del panel GPS.</summary>
+    public class CoreXNmeaVistaDto
+    {
+        public string Tipo { get; set; } = "";
+        public double EdadSec { get; set; }
+        public string Cruda { get; set; } = "";
     }
 
     public class CoreXNtripDto

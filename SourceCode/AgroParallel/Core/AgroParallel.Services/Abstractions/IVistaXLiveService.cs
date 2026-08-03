@@ -32,5 +32,14 @@ namespace AgroParallel.Services.Abstractions
         /// stop explícito del operario desde la UI).
         /// </summary>
         void ForzarMonitoreoManual(bool activo);
+
+        /// <summary>
+        /// Referencia de la regla de tres de densidad, a mano: "fijar" toma el
+        /// flujo ACTUAL como equivalente a la densidad configurada del insumo;
+        /// "auto" borra la referencia y deja que se recapture sola en la
+        /// próxima pasada estable. Devuelve el spm_ref resultante (0 = queda
+        /// pendiente de captura automática).
+        /// </summary>
+        double AjustarReferenciaDensidad(string accion);
     }
 }

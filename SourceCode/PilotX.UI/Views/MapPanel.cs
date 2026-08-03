@@ -372,6 +372,11 @@ public sealed class MapPanel : Grid
 
     // ---- input de cámara: zoom (rueda) / pan (arrastre) / reset (2 clicks) --
 
+    // Zoom para los botones +/− de pantalla: la cabina es táctil y no tiene
+    // rueda. Mismo paso que un tick de rueda para que se sienta igual.
+    public void ZoomIn() { _gl?.ZoomBy(1.25); }
+    public void ZoomOut() { _gl?.ZoomBy(1.0 / 1.25); }
+
     protected override void OnPointerWheelChanged(Avalonia.Input.PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);

@@ -221,6 +221,25 @@ namespace AgOpenGPS
                 // zonas invisibles del mapa (GUI.Designer.cs ~1345-1420) que hay
                 // que acertar a ciegas. Acá se exponen como comandos para que la
                 // barra del cockpit los muestre como lo que son.
+                case "uturn_swap":
+                    // SwapDirection (GUI.Designer.cs:1551): con el giro ARMADO
+                    // (no disparado) invierte el lado y tira el camino — el
+                    // updater lo re-arma solo hacia el otro lado en el próximo
+                    // fix. Con el giro EN CURSO, apaga el U-turn (abortar).
+                    if (!Yt.isYouTurnTriggered)
+                    {
+                        Yt.isTurnLeft = !Yt.isTurnLeft;
+                        Yt.ResetCreatedYouTurn();
+                        Yt.turnTooCloseTrigger = false;
+                        Yt.isTurnCreationTooClose = false;
+                        Log.EventWriter("GuidanceEngine: giro invertido, ahora hacia la " +
+                            (Yt.isTurnLeft ? "izquierda" : "derecha"));
+                    }
+                    else if (Yt.isYouTurnBtnOn)
+                    {
+                        ToggleYouTurn();
+                    }
+                    return true;
                 case "uturn_manual_izq":
                     return GiroManual(false);
                 case var s when s.StartsWith("uturn_skip_"):

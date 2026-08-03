@@ -50,6 +50,19 @@ namespace AgOpenGPS
             bool antiSolape = AntiSolape != null && AntiSolape.Habilitado;
             if (antiSolape) AntiSolape.Sincronizar();
 
+            // Dónde está la herramienta respecto de la CABECERA (CHead, Core):
+            // puebla Section[j].isLookOnInHeadland con los puntos lookahead de
+            // cada sección. En FormGPS esto corre en el DIBUJO (oglBack_Paint,
+            // OpenGL.Designer.cs:1022/1170) — como el motor no dibuja, no
+            // corría nunca y el corte por cabecera era letra muerta.
+            bool corteCabecera = Bnd.isHeadlandOn && Bnd.isSectionControlledByHeadland
+                && Bnd.bndList.Count > 0 && Bnd.bndList[0].hdLine.Count > 0;
+            if (corteCabecera)
+            {
+                Bnd.WhereAreToolCorners();
+                Bnd.WhereAreToolLookOnPoints();
+            }
+
             // ---- 1) Decisión on/off por sección ----
             for (int j = 0; j < tool.numOfSections; j++)
             {
@@ -101,6 +114,21 @@ namespace AgOpenGPS
                     section[j].sectionOnRequest = false;
                     section[j].sectionOffTimer = 0;
                     section[j].sectionOnTimer = 0;
+                    continue;
+                }
+
+                // Corte por CABECERA (geométrico): con "secciones controladas
+                // en cabecera" activo, la sección cuyos puntos lookahead
+                // cayeron enteros dentro de la franja de cabecera se apaga —
+                // pisarla es donde se dobla, no donde se dosifica. El
+                // refinamiento por píxeles del legacy (re-entrar si adelante
+                // hay área sin trabajar) necesita el rasterizador y queda
+                // diferido, igual que el anti-overlap por píxeles.
+                if (corteCabecera && section[j].isLookOnInHeadland)
+                {
+                    section[j].isSectionRequiredOn = false;
+                    section[j].sectionOffRequest = true;
+                    section[j].sectionOnRequest = false;
                     continue;
                 }
 

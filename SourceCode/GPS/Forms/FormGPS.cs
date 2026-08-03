@@ -939,11 +939,18 @@ namespace AgOpenGPS
                 // por su config y recarga cada 2 s. Despacha el corte de PilotX a los
                 // nodos SectionX (relays → agp/quantix/.../sections) y LineX (servo →
                 // agp/linex/.../sections) en un solo lugar.
+                var sectionXCutAdapter = new AgroParallel.Cut.SectionXCutAdapter
+                {
+                    // Tren derivado del implemento central (Task 5), con
+                    // fallback al config viejo por nodo si no hay dato
+                    // derivable — ver ImplementoProvider en el adapter.
+                    ImplementoProvider = () => global::AgroParallel.Shell.AgpWebHostBootstrap.Implemento?.GetImplemento()
+                };
                 cutDispatcher = new AgroParallel.Cut.CutDispatcher(
                     new AgroParallel.Adapters.FormGpsStateProvider(this),
                     new AgroParallel.Cut.ICutAdapter[]
                     {
-                        new AgroParallel.Cut.SectionXCutAdapter(),
+                        sectionXCutAdapter,
                         new AgroParallel.Cut.LineXCutAdapter()
                     });
                 _ = cutDispatcher.StartAsync();
@@ -1162,6 +1169,9 @@ namespace AgOpenGPS
                             new AgroParallel.Adapters.FormGpsStateProvider(this),
                             global::AgroParallel.Shell.AgpWebHostBootstrap.Nodos,
                             new AgroParallel.Services.PrescripcionService());
+                        // Tren del motor derivado del implemento central (Task 5),
+                        // con fallback al campo manual si no hay dato derivable.
+                        quantiXBridge.ImplementoProvider = () => global::AgroParallel.Shell.AgpWebHostBootstrap.Implemento?.GetImplemento();
                         _ = quantiXBridge.StartAsync();
                     }
                 }
@@ -2193,6 +2203,48 @@ namespace AgOpenGPS
         public bool UserWantsFXOverlay => _userWantsFXOverlay;
         public bool UserWantsVXOverlay => _userWantsVXOverlay;
 
+        // ---- Auto-mini de la franja VistaX cerca de la cabecera ----
+        // Sembrando en el medio del lote la franja puede estar grande (barras
+        // con nivel); al acercarse a la cabecera el operario necesita VER EL
+        // MAPA para el giro → la franja colapsa sola a tira de LEDs (el HTML
+        // se compacta por media query con el alto chico) y se restaura al
+        // alejarse. Histéresis de 5 m para no parpadear en el borde.
+        private bool _vxStripMini;
+        private int _vxStripAltoNormal;
+
+        private void AutoMiniStripCabecera(int umbralM)
+        {
+            if (vistaXStripHtml == null || !isJobStarted || umbralM <= 0)
+            {
+                _vxStripMini = false;
+                return;
+            }
+            double d = distancePivotToTurnLine;   // -2222 = sin línea de giro
+            bool cerca = d > 0 && d < umbralM;
+
+            if (!_vxStripMini && cerca)
+            {
+                _vxStripAltoNormal = vistaXStripHtml.Height;
+                // 44 px totales: barra de arrastre (18) + 26 de contenido → el
+                // HTML entra en modo LED (media query ≤46 px). El borde de
+                // ABAJO queda fijo: la franja se achica hacia abajo, no cuelga.
+                CambiarAltoStrip(44);
+                _vxStripMini = true;
+            }
+            else if (_vxStripMini && (!cerca && (d > umbralM + 5 || d <= 0)))
+            {
+                if (_vxStripAltoNormal > 44) CambiarAltoStrip(_vxStripAltoNormal);
+                _vxStripMini = false;
+            }
+        }
+
+        private void CambiarAltoStrip(int alto)
+        {
+            int bottom = vistaXStripHtml.Bottom;
+            vistaXStripHtml.Height = alto;
+            vistaXStripHtml.Top = bottom - vistaXStripHtml.Height;
+        }
+
         private void StartOverlayPrefsWatcher()
         {
             // Idempotente: si ya está, no duplicamos.
@@ -2241,6 +2293,8 @@ namespace AgOpenGPS
                     {
                         try { ToggleVistaX(); } catch { }
                     }
+
+                    try { AutoMiniStripCabecera(p.VxMiniCabeceraM); } catch { }
 
                     // Refresh incondicional del overlay FlowX a 4Hz. Antes el
                     // único refresh periódico colgaba del tail de
@@ -2564,7 +2618,10 @@ namespace AgOpenGPS
             //        no aguantan el 38% de alto anterior.
             int stripContentW = 80 + Math.Max(1, primaryCount) * 44 + 210;
             int defaultStripW = Clamp(stripContentW, 380, Math.Max(380, this.ClientSize.Width - 32));
-            int defaultStripH = Clamp((int)(this.ClientSize.Height * 0.07), 60, 96);
+            // Lo más chico posible: la franja es un indicador, no una pantalla.
+            // 5% del alto, techo 64 px — y el mínimo de abajo permite dejarla
+            // como una tira de LEDs (el HTML se compacta solo por media query).
+            int defaultStripH = Clamp((int)(this.ClientSize.Height * 0.05), 40, 64);
             int defaultStatsW = Clamp((int)(this.ClientSize.Width * 0.18), 220, 260);
             int defaultStatsH = Clamp((int)(this.ClientSize.Height * 0.32), 230, 300);
 
@@ -2583,7 +2640,7 @@ namespace AgOpenGPS
             vistaXStripHtml = new AgroParallel.Common.VistaXWebOverlayPanel(
                 baseUrl, "pages/vistax-live.html",
                 new System.Drawing.Size(stripW, stripH),
-                new System.Drawing.Size(360, 50),
+                new System.Drawing.Size(280, 26),
                 "VistaX · monitor");
             bool stripCustom = prefs.VxStripX >= 0 && prefs.VxStripY >= 0
                 && prefs.VxStripX < this.ClientSize.Width - 40
@@ -4221,6 +4278,9 @@ namespace AgOpenGPS
                         new AgroParallel.Adapters.FormGpsStateProvider(this),
                         global::AgroParallel.Shell.AgpWebHostBootstrap.Nodos,
                         new AgroParallel.Services.PrescripcionService());
+                    // Tren del motor derivado del implemento central (Task 5),
+                    // con fallback al campo manual si no hay dato derivable.
+                    quantiXBridge.ImplementoProvider = () => global::AgroParallel.Shell.AgpWebHostBootstrap.Implemento?.GetImplemento();
                     _ = quantiXBridge.StartAsync();
                 }
 

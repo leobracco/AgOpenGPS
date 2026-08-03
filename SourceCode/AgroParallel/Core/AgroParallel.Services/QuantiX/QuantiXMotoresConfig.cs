@@ -39,6 +39,10 @@ namespace AgroParallel.QuantiX
         [JsonPropertyName("semillas_vuelta")]
         public double SemillasVuelta { get; set; }
 
+        // Canal de motor cableado o no. Ver QxMotorConfigDto.Habilitado.
+        [JsonPropertyName("habilitado")]
+        public bool Habilitado { get; set; } = true;
+
         // Modo manual runtime (toggle MAN/AUTO en widget pantalla principal).
         // Si true, la dosis efectiva = ManualDosis (override total).
         [JsonPropertyName("manual_mode")]
@@ -102,6 +106,11 @@ namespace AgroParallel.QuantiX
         // Rampa PWM/segundo (independiente de PIDtime)
         [JsonPropertyName("slew_rate_per_sec")]
         public double SlewRatePerSec { get; set; }
+
+        // Rampa de consigna Hz/segundo. Es la que fija cuánto tarda el motor en
+        // alcanzar la dosis al bajar el apero.
+        [JsonPropertyName("target_slew_hz_per_sec")]
+        public double TargetSlewHzPerSec { get; set; } = 300;
 
         // Intervalo PID en ms (50 eléctrico, 200 hidráulico)
         [JsonPropertyName("pid_time")]

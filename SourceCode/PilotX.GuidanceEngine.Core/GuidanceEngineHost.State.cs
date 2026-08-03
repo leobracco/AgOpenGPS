@@ -69,6 +69,10 @@ namespace AgOpenGPS
         public double dualReverseDetectionDistance = 0.1;
 
         public double distancePivotToTurnLine = -2222;
+
+        /// <summary>UTC del ultimo fix GPS procesado (UpdateFixPosition).
+        /// default = nunca llego un fix.</summary>
+        public DateTime lastFixUtc;
         public double distanceToolToTurnLine = -2222;
         public int makeUTurnCounter;
 

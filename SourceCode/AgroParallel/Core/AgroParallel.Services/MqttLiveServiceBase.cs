@@ -35,6 +35,11 @@ namespace AgroParallel.Services
 
         private readonly INodoRegistryService _nodos;
 
+        /// <summary>El registry, para servicios derivados que además del MQTT
+        /// necesitan el estado vivo de los nodos (ej. VistaX leyendo el target
+        /// de los motores QuantiX para el objetivo dinámico).</summary>
+        protected INodoRegistryService Registry => _nodos;
+
         // ── Puntos de extensión ──────────────────────────────────────────────
 
         /// <summary>

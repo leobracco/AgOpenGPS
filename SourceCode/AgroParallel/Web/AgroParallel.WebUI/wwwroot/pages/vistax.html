@@ -414,9 +414,9 @@
       <div class="card" style="margin-bottom: var(--agp-sp-3); border-left: 3px solid var(--agp-accent);">
         <h3 style="margin-top:0">Geometría centralizada</h3>
         <p class="subtitle" style="margin: 0 0 var(--agp-sp-3) 0">
-          Ancho, número de surcos, trenes y secciones se editan una sola vez en la página
-          <a href="herramienta.html"><strong>Herramienta</strong></a>. VistaX, QuantiX y
-          SectionX leen de ahí. Acá solo aparecen como referencia.
+          Ancho, número de surcos, trenes y secciones se editan una sola vez en Implemento
+          PilotX (<a href="config.html?tab=tsections"><strong>Editar en Configuración</strong></a>).
+          VistaX, QuantiX y SectionX leen de ahí. Acá solo aparecen como referencia.
         </p>
         <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--agp-sp-3);">
           <div class="card" style="margin:0">
@@ -533,6 +533,16 @@
         <button class="btn primary" id="btnSaveConfig">Guardar config</button>
         <button class="btn" id="btnReloadConfig">Recargar</button>
         <span id="cfgStatus" class="subtitle"></span>
+      </div>
+
+      <!-- Descarga local de las sesiones del lote abierto: NDJSON + shapefiles
+           de puntos + heatmap, en un solo ZIP. El endpoint existía desde el
+           export a OrbitX pero ningún botón lo ofrecía — para llevarse los
+           datos en un pendrive sin internet, faltaba justo esto. -->
+      <h2>Datos del lote</h2>
+      <div class="btn-row">
+        <a class="btn" id="btnVxZip" href="/api/lotes/vistax-zip" download>⬇ Descargar sesiones del lote (ZIP)</a>
+        <span class="subtitle">NDJSON + shapefiles de puntos y heatmap del lote abierto.</span>
       </div>
     </section>
   </main>

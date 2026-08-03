@@ -64,6 +64,10 @@ namespace AgOpenGPS
         private NodoRegistryService _nodos;
         private FlowXBridge _flowxBridge;
         private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
+        private System.Threading.Timer _orbitxRetry;
+        private AgroParallel.Services.SonidosAlarmService _sonidos;
+        private AgroParallel.QuantiX.QuantiXMotorBridge _quantixBridge;
+        private System.Threading.Timer _quantixRetry;
 
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
@@ -143,7 +147,10 @@ namespace AgOpenGPS
             // UNA sola instancia de implemento compartida: si el live de VistaX
             // arma la suya, el overlay muestra geometría vieja hasta reiniciar.
             var implemento = new ImplementoService(vistaxCfg, vehicleTool, quantixCfg, sectionxCfg);
-            var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento);
+            // Trenes en el mapa: el calculator desplaza las secciones del tren
+            // trasero a su posición física real (barra de hace N metros).
+            toolGeom.ImplementoProvider = () => implemento.GetImplemento();
+            var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento, quantixCfg);
             var quantixRuntime = new QuantiXRuntimeService(state);
             var flowxCfg = new FlowXConfigService();
             var flowxLive = new FlowXLiveService(_nodos, flowxCfg);
@@ -229,6 +236,20 @@ namespace AgOpenGPS
                 configVehiculo: configVehiculo,
                 imuCalibracion: imuCalibracion);
 
+            // Alarmas sonoras de cabina: detecta piloto/dosis/motor/tubo/tolva
+            // y publica disparos; los clientes (Desktop, pantalla Sonidos)
+            // consultan /api/sonidos/estado y suenan ellos.
+            try
+            {
+                _sonidos = new AgroParallel.Services.SonidosAlarmService(state, _nodos, vistaxLive);
+                _sonidos.Start();
+                _web.Sonidos = _sonidos;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] SonidosAlarm: " + ex.Message);
+            }
+
             _web.Start();
 
             // FlowX comanda la válvula de dosificación líquida: va atado al
@@ -257,12 +278,69 @@ namespace AgOpenGPS
             {
                 _orbitxSync = new AgroParallel.OrbitX.OrbitXSync(
                     state, AgroParallel.OrbitX.OrbitXConfig.Load());
+                // Lotes del cloud: el KML se importa con los writers del motor
+                // (crear/actualizar el lindero SIN abrir el lote).
+                _orbitxSync.ImportarLoteDesdeKml = lotes.CrearLoteDesdeKmlSinAbrir;
                 _orbitxSync.Start();
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine("[Engine] OrbitXSync: " + ex.Message);
             }
+
+            // Bridge de motores QuantiX: el que PUBLICA los targets de dosis a
+            // los nodos por MQTT. En FormGPS lo instancia el Load() del form —
+            // acá no lo arrancaba nadie: el nodo conectaba, mandaba telemetría
+            // y esperaba órdenes que nunca llegaban ("veo el nodo pero no
+            // gira"). Vigilante cada 30 s (primer tick al toque): arranca el
+            // bridge en cuanto haya nodos configurados (el auto-registro por
+            // announcement puede llegar DESPUÉS del arranque del motor).
+            _quantixRetry = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    if (_quantixBridge != null && _quantixBridge.IsRunning) return;
+                    if (AgroParallel.QuantiX.MotoresConfig.Load().Nodos.Count == 0) return;
+
+                    _quantixBridge = new AgroParallel.QuantiX.QuantiXMotorBridge(state, _nodos, new PrescripcionService());
+                    // Tren del motor derivado del implemento central (Task 5),
+                    // con fallback al campo manual si no hay dato derivable.
+                    _quantixBridge.ImplementoProvider = () => implemento.GetImplemento();
+                    _ = _quantixBridge.StartAsync();
+                    Console.WriteLine("[Engine] QuantiXMotorBridge arrancado: hay nodos configurados.");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("[Engine] QuantiX bridge: " + ex.Message);
+                }
+            }, null, 2000, 30000);
+
+            // Vigilante de la vinculación: si el sync no corre (arrancó con
+            // enabled=false o sin token — el caso REAL: el motor arranca sin
+            // vincular y el operario vincula DESPUÉS desde la pantalla OrbitX,
+            // que solo escribe orbitX.json), recargar la config cada 30 s y
+            // arrancarlo apenas esté habilitada. Sin esto la vinculación no
+            // hacía nada hasta reiniciar el motor: heartbeat muerto y las
+            // prescripciones del cloud sin bajar, con todo "conectado".
+            _orbitxRetry = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    if (_orbitxSync != null && _orbitxSync.IsRunning) return;
+                    var cfg = AgroParallel.OrbitX.OrbitXConfig.Load();
+                    if (!cfg.Enabled || string.IsNullOrEmpty(cfg.DeviceToken)) return;
+
+                    try { _orbitxSync?.Dispose(); } catch { }
+                    _orbitxSync = new AgroParallel.OrbitX.OrbitXSync(state, cfg);
+                    _orbitxSync.ImportarLoteDesdeKml = lotes.CrearLoteDesdeKmlSinAbrir;
+                    _orbitxSync.Start();
+                    Console.WriteLine("[Engine] OrbitXSync (re)arrancado: la vinculación apareció en orbitX.json.");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("[Engine] OrbitXSync retry: " + ex.Message);
+                }
+            }, null, 30000, 30000);
         }
 
         public void Stop()
@@ -272,6 +350,12 @@ namespace AgOpenGPS
             // Antes de _web?.Stop(): orbitX.json no se puede escribir mientras
             // el guardado del lote está en curso (mismo motivo que FormGPS.cs
             // para su propio orbitXSync.Stop() en el shutdown).
+            try { _quantixRetry?.Dispose(); } catch { }
+            _quantixRetry = null;
+            try { _quantixBridge?.Stop(); } catch { }
+            _quantixBridge = null;
+            try { _orbitxRetry?.Dispose(); } catch { }
+            _orbitxRetry = null;
             try { _orbitxSync?.Dispose(); } catch { }
             _orbitxSync = null;
             try { _web?.Stop(); } catch { }

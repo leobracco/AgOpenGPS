@@ -232,7 +232,33 @@ namespace AgroParallel.Services
                 sb.Append(",\"alpha\":").Append(m.Alpha.ToString(ci));
                 sb.Append(",\"pid_time\":").Append(m.PIDTime);
                 sb.Append(",\"slew_rate_per_sec\":").Append(m.SlewRatePerSec.ToString(ci));
+                // Rampa de consigna. Sin esta clave el nodo se queda con su
+                // default de 50 Hz/s y tarda ~9 s en alcanzar la dosis.
+                sb.Append(",\"target_slew_hz_per_sec\":").Append(m.TargetSlewHzPerSec.ToString(ci));
                 sb.Append(",\"dientes_engranaje\":").Append(m.DientesEngranaje);
+                // El firmware lee "pulses_per_rev" (dientes_engranaje era un
+                // nombre viejo que el nodo nunca miró — el ppr quedaba en 24).
+                sb.Append(",\"pulses_per_rev\":").Append(m.DientesEngranaje);
+                sb.Append(",\"deadband\":").Append(m.Deadband);
+                // Un pulse_min demasiado grande para el PPR no satura la
+                // lectura: la parte al medio (el ISR cuenta uno de cada dos) y
+                // el nodo informa la mitad de las vueltas sin avisar. Lo
+                // clampeamos antes de mandarlo — más vale filtrar de menos.
+                int pulseMin = m.PulseMin;
+                int pulseMinTope = QxMotorConfigDto.PulseMinMaximo(m.DientesEngranaje);
+                if (pulseMin > pulseMinTope)
+                {
+                    AgpLog.Warn("QuantiX", string.Format(
+                        "M{0}: pulse_min {1}µs es muy alto para {2} ppr (techo de lectura {3} rpm) → se manda {4}µs",
+                        mi, pulseMin, m.DientesEngranaje,
+                        // DientesEngranaje == 0 daría Infinity en el log (división por cero).
+                        m.DientesEngranaje > 0 ? (int)(60000000.0 / ((double)pulseMin * m.DientesEngranaje)) : 0,
+                        pulseMinTope));
+                    pulseMin = pulseMinTope;
+                }
+                sb.Append(",\"pulse_min\":").Append(pulseMin);
+                sb.Append(",\"max_integral\":").Append(m.MaxIntegral.ToString(ci));
+                sb.Append(",\"motor_type\":").Append(m.MotorType);
                 sb.Append('}');
             }
             sb.Append("]}");

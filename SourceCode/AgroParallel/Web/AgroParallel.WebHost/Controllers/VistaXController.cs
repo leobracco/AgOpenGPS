@@ -194,6 +194,30 @@ namespace AgroParallel.WebHost.Controllers
             return WriteJsonAsync(new { ok = true });
         }
 
+        // Referencia de la regla de tres de densidad, a mano desde la UI:
+        //   POST /api/vistax/referencia { "accion": "fijar" | "auto" }
+        // "fijar" = flujo actual ≡ densidad configurada; "auto" = recapturar.
+        [Route(HttpVerbs.Post, "/vistax/referencia")]
+        public async Task PostReferencia()
+        {
+            if (_live == null)
+            {
+                await WriteJsonAsync(Unavailable());
+                return;
+            }
+            ReferenciaBody body;
+            try { body = await ReadJsonBodyAsync<ReferenciaBody>(); }
+            catch { await WriteJsonAsync(new { ok = false, error = "bad-json" }); return; }
+            double spmRef = _live.AjustarReferenciaDensidad(body?.Accion ?? "auto");
+            await WriteJsonAsync(new { ok = true, spm_ref = spmRef });
+        }
+
+        private sealed class ReferenciaBody
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("accion")]
+            public string Accion { get; set; }
+        }
+
         // Toggle de silenciado por sensor (uid + cable). Persiste en implemento.json
         // poniendo Muted en la entrada correspondiente de mapeo_sensores. La UI
         // usa esto desde el monitor o desde el widget del piloto.

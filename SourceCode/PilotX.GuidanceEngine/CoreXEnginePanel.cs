@@ -300,6 +300,26 @@ namespace AgIO
             }, null, 1000, 1000);
         }
 
+        /// <summary>Inventario NMEA para la checklist del panel GPS: toda
+        /// sentencia válida vista, con su edad — el operario "tilda" qué manda
+        /// el receptor (GGA sí, RMC no, etc.) sin adivinar.</summary>
+        private static System.Collections.Generic.List<CoreXNmeaVistaDto> ArmarInventarioNmea(CNmeaParser n)
+        {
+            var lista = new System.Collections.Generic.List<CoreXNmeaVistaDto>();
+            var ahora = DateTime.UtcNow;
+            foreach (var kv in n.SentenciasVistas)
+            {
+                lista.Add(new CoreXNmeaVistaDto
+                {
+                    Tipo = kv.Key,
+                    EdadSec = Math.Round((ahora - kv.Value.Item2).TotalSeconds, 1),
+                    Cruda = kv.Value.Item1
+                });
+            }
+            lista.Sort((a, b) => string.Compare(a.Tipo, b.Tipo, StringComparison.Ordinal));
+            return lista;
+        }
+
         private CoreXStatusDto ArmarSnapshot()
         {
             var n = _corex.Nmea;
@@ -339,6 +359,7 @@ namespace AgIO
                         Avr = n.avrSentence ?? "",
                         Hpd = n.hpdSentence ?? "",
                         Ksxt = n.ksxtSentence ?? "",
+                        Vistas = ArmarInventarioNmea(n),
                     },
                 },
                 Ntrip = new CoreXNtripDto
@@ -398,6 +419,32 @@ namespace AgIO
         {
             _panel = panel;
             _corex = corex;
+        }
+
+        // ── Simulador NMEA de SALIDA por RS232 ──────────────────────────────
+        // Emite GGA/VTG/RMC/HDT con valores y frecuencia configurables — la
+        // contracara del receptor, para probar entradas serie (esta PC u otro
+        // equipo por cable). Instancia única por proceso.
+        private static readonly NmeaSimulador _nmeaSim = new NmeaSimulador();
+
+        [Route(HttpVerbs.Get, "/corex/nmea-sim")]
+        public Task GetNmeaSim() => WriteJsonAsync(new { Ok = true, Estado = _nmeaSim.Estado() });
+
+        [Route(HttpVerbs.Post, "/corex/nmea-sim/start")]
+        public async Task StartNmeaSim()
+        {
+            NmeaSimuladorConfig cfg;
+            try { cfg = await ReadJsonBodyAsync<NmeaSimuladorConfig>().ConfigureAwait(false); }
+            catch { await WriteErrorAsync(400, "BAD_REQUEST", "JSON inválido").ConfigureAwait(false); return; }
+            bool ok = _nmeaSim.Start(cfg);
+            await WriteJsonAsync(new { Ok = ok, Estado = _nmeaSim.Estado() }).ConfigureAwait(false);
+        }
+
+        [Route(HttpVerbs.Post, "/corex/nmea-sim/stop")]
+        public Task StopNmeaSim()
+        {
+            _nmeaSim.Stop();
+            return WriteJsonAsync(new { Ok = true, Estado = _nmeaSim.Estado() });
         }
 
         [Route(HttpVerbs.Get, "/corex/config/serial")]

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Diagnóstico PWM · Agro Parallel</title>
+  <script src="../js/widget-mode.js"></script>
+  <link rel="stylesheet" href="../theme.css" />
+  <link rel="stylesheet" href="../layout.css" />
+  <link rel="stylesheet" href="../keyboard.css" />
+  <style>
+    /* Pantalla técnica de banco: densa, todo a la vista, sin scroll anidado.
+       Es diagnóstico — acá sí se muestran pulsos/PWM crudos. */
+    .pd-bar {
+      display: flex; flex-wrap: wrap; gap: var(--agp-sp-3);
+      align-items: flex-end; margin-bottom: var(--agp-sp-4);
+    }
+    .pd-bar .field { min-width: 190px; }
+    .pd-slider { width: 100%; height: var(--agp-touch-rec); }
+    .pd-steps { display: flex; flex-wrap: wrap; gap: var(--agp-sp-2); }
+    .pd-steps .btn { min-width: 74px; font-variant-numeric: tabular-nums; }
+    .pd-live { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--agp-sp-3); }
+    .pd-live .metric { font-size: var(--agp-fs-xl); font-variant-numeric: tabular-nums; }
+    .pd-live .card { padding: var(--agp-sp-3); }
+    .pd-live h3 { margin: 0 0 var(--agp-sp-1); }
+    table.pd-tabla { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    table.pd-tabla th, table.pd-tabla td {
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      border-bottom: 1px solid var(--agp-border);
+      text-align: right; font-size: var(--agp-fs-sm);
+    }
+    table.pd-tabla th:first-child, table.pd-tabla td:first-child { text-align: left; }
+    table.pd-tabla tr.best td { background: var(--agp-accent-soft); font-weight: var(--agp-fw-bold, 600); }
+    .pd-stop { background: var(--agp-state-bad); border-color: var(--agp-state-bad); color: #fff; }
+    .pd-nota { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: var(--agp-sp-2); }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" data-active="hub"></aside>
+  <main class="page">
+    <div class="page-head">
+      <div>
+        <h1>Diagnóstico PWM</h1>
+        <div class="subtitle">Manda un PWM fijo a un motor QuantiX y mirá las vueltas que da</div>
+      </div>
+      <span id="pdEstado" class="pill idle"><span class="dot"></span> <span id="pdEstadoText">Motor parado</span></span>
+    </div>
+
+    <div class="card">
+      <div class="pd-bar">
+        <div class="field">
+          <label for="pdNodo">Nodo</label>
+          <select id="pdNodo"></select>
+        </div>
+        <div class="field">
+          <label for="pdMotor">Motor</label>
+          <select id="pdMotor">
+            <option value="0">Motor 1</option>
+            <option value="1">Motor 2</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1 1 220px">
+          <label for="pdPwm">PWM (0–4095)</label>
+          <input type="number" id="pdPwm" min="0" max="4095" step="10" value="1500" />
+        </div>
+        <button class="btn primary" id="pdEnviar">Enviar PWM</button>
+        <button class="btn pd-stop" id="pdParar">PARAR</button>
+      </div>
+
+      <input type="range" class="pd-slider" id="pdSlider" min="0" max="4095" step="5" value="1500" />
+
+      <div class="pd-steps" style="margin-top: var(--agp-sp-3)">
+        <button class="btn" data-delta="-500">−500</button>
+        <button class="btn" data-delta="-100">−100</button>
+        <button class="btn" data-delta="100">+100</button>
+        <button class="btn" data-delta="500">+500</button>
+        <span style="flex:1"></span>
+        <button class="btn" data-set="600">600</button>
+        <button class="btn" data-set="1000">1000</button>
+        <button class="btn" data-set="1500">1500</button>
+        <button class="btn" data-set="2000">2000</button>
+        <button class="btn" data-set="2500">2500</button>
+        <button class="btn" data-set="3000">3000</button>
+        <button class="btn" data-set="3500">3500</button>
+        <button class="btn" data-set="4095">4095</button>
+      </div>
+      <div class="pd-nota">
+        El PWM sale al nodo por MQTT igual que la prueba del Hub:
+        <code>agp/quantix/&lt;nodo&gt;/test</code> → <code>{"cmd":"start","id":&lt;motor&gt;,"pwm":&lt;valor&gt;}</code>.
+        Mientras hay PWM manual el PID no toca el motor.
+      </div>
+    </div>
+
+    <h2 style="margin-top: var(--agp-sp-5)">En vivo</h2>
+    <div class="pd-live">
+      <div class="card">
+        <h3>PWM pedido</h3>
+        <div class="metric" id="pdKpiPedido">—</div>
+      </div>
+      <div class="card">
+        <h3>PWM que aplicó el nodo</h3>
+        <div class="metric" id="pdKpiAplicado">—</div>
+      </div>
+      <div class="card">
+        <h3>Vueltas</h3>
+        <div class="metric"><span id="pdKpiRpm">—</span><span class="unit">rpm</span></div>
+      </div>
+      <div class="card">
+        <h3>Pulsos del encoder</h3>
+        <div class="metric"><span id="pdKpiPps">—</span><span class="unit">Hz</span></div>
+      </div>
+    </div>
+
+    <h2 style="margin-top: var(--agp-sp-5)">Barrido</h2>
+    <div class="card">
+      <div class="pd-bar" style="margin-bottom: var(--agp-sp-3)">
+        <div class="field"><label for="pdDesde">Desde</label>
+          <input type="number" id="pdDesde" min="0" max="4095" step="50" value="500" /></div>
+        <div class="field"><label for="pdHasta">Hasta</label>
+          <input type="number" id="pdHasta" min="0" max="4095" step="50" value="4095" /></div>
+        <div class="field"><label for="pdPaso">Paso</label>
+          <input type="number" id="pdPaso" min="25" max="1000" step="25" value="250" /></div>
+        <div class="field"><label for="pdDwell">Segundos por escalón</label>
+          <input type="number" id="pdDwell" min="1" max="15" step="1" value="3" /></div>
+        <button class="btn primary" id="pdBarrer">Correr barrido</button>
+        <button class="btn" id="pdLimpiar">Limpiar tabla</button>
+      </div>
+      <table class="pd-tabla">
+        <thead>
+          <tr><th>PWM pedido</th><th>PWM nodo</th><th>rpm</th><th>Hz encoder</th></tr>
+        </thead>
+        <tbody id="pdTabla">
+          <tr><td colspan="4" style="text-align:center;color:var(--agp-text-muted)">Sin mediciones todavía</td></tr>
+        </tbody>
+      </table>
+      <div class="pd-nota">
+        Si las vueltas suben hasta el final, el motor da todo. Si se planchan o caen a partir
+        de cierto PWM, el motor deja de responder ahí — y el tope real es ese, no 4095.
+      </div>
+    </div>
+  </main>
+  <script src="../js/sidebar.js"></script>
+  <script src="../js/keyboard.js"></script>
+  <script src="../js/pwm-diag.js"></script>
+</body>
+</html>

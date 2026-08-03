@@ -279,6 +279,9 @@ public sealed class MapGlSurface : OpenGlControlBase
     private static readonly float[] ColBgDay         = { 0.72f, 0.75f, 0.71f, 1f };
     private static readonly float[] ColGridDay       = { 0.35f, 0.38f, 0.35f, 0.30f };
     private static readonly float[] ColBoundary      = { 0.357f, 0.784f, 0.314f, 1f }; // #5BC850
+    // Cabecera (hdLine): ámbar — distinta del lindero verde y de las guías
+    // cian; mismo criterio de color que el DrawHeadland del legacy.
+    private static readonly float[] ColHeadland      = { 0.960f, 0.820f, 0.290f, 0.95f }; // #F5D14A
     // Lindero que se está grabando: ámbar, NO el verde del lindero confirmado.
     // El operario tiene que poder distinguir de un vistazo lo que ya está de lo
     // que todavía está tomando, porque sobre eso decide si sigue dando la vuelta.
@@ -1099,6 +1102,22 @@ public sealed class MapGlSurface : OpenGlControlBase
                     if (ring == null || ring.Count < 2) continue;
                     var col = (i == 0) ? ColBoundary : ColIslandStroke;
                     DrawRing(ring, col);
+                }
+            }
+
+            // --- Capa 3a2: CABECERA (hdLine) ----------------------------
+            // Ámbar, entre el lindero y las guías: la franja entre esta línea
+            // y el lindero es donde se dobla — con "secciones controladas en
+            // cabecera" las secciones se apagan al pisarla. El motor ya la
+            // servía en el state; el mapa no la dibujaba y la cabecera
+            // construida "no se veía en el lote".
+            if (snap.Headlands != null)
+            {
+                for (int i = 0; i < snap.Headlands.Count; i++)
+                {
+                    var ring = snap.Headlands[i];
+                    if (ring == null || ring.Count < 2) continue;
+                    DrawRing(ring, ColHeadland);
                 }
             }
 

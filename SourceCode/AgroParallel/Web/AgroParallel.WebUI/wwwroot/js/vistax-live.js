@@ -16,6 +16,14 @@
     if (n == null || isNaN(n)) return '—';
     return Number(n).toFixed(d == null ? 1 : d);
   }
+  // sem/min (wire) → sem/m (lo único que ve el operario). Con el tractor
+  // parado (< 0,5 km/h) no existe "semillas por metro": se muestra —.
+  function fmtSemM(spm, velKmh) {
+    if (spm == null || isNaN(spm)) return '—';
+    var vms = (velKmh || 0) / 3.6;
+    if (vms < 0.14) return '—';
+    return fmt(spm / 60.0 / vms, 1);
+  }
   function tipoOf(s) {
     return (s.tipo || '').toLowerCase();
   }
@@ -76,9 +84,18 @@
     if (tipo === 'semilla')      tag = '<span class="tipo">S</span>';
     else if (tipo === 'fertilizante') tag = '<span class="tipo">F</span>';
     var title  = 'surco ' + bajada + ' · ' + (tipo || '?') + ' · ' + estado;
+    // Barra de NIVEL estilo monitor de siembra clásico (referencia de los
+    // competidores): el relleno de abajo hacia arriba es el ratio real vs
+    // objetivo, saturado en 100%. El color del chip sigue diciendo el estado.
+    var ratio = s.ratio_objetivo;
+    var fillPct = 0;
+    if (cls === 's-ok' || cls === 's-bajo' || cls === 's-exceso') {
+      fillPct = ratio == null ? 0 : Math.max(4, Math.min(100, Math.round(ratio * 100)));
+    }
     return '<div class="vx-chip ' + cls + '" title="' + esc(title) +
              '" data-uid="' + esc(uid) + '" data-cable="' + esc(cable) +
              '" data-bajada="' + esc(bajada) + '">' +
+             (fillPct > 0 ? '<i class="fill" style="height:' + fillPct + '%"></i>' : '') +
              '<span class="num">' + bajada + '</span>' + tag +
            '</div>';
   }
@@ -112,7 +129,10 @@
 
   function refreshDetail() {
     if (!state.detailFocus) return;
-    var s = findSurcoVivo(state.detailFocus.uid, state.detailFocus.cable);
+    // "cable" lo usa la fila Tren · Cable de abajo: viene del foco, no del
+    // surco (bug histórico: era una ReferenceError y el popup nunca abría).
+    var cable = state.detailFocus.cable;
+    var s = findSurcoVivo(state.detailFocus.uid, cable);
     var ttl = $('vxPopTtl'), body = $('vxPopBody');
     if (!s) {
       ttl.textContent = 'Surco';
@@ -131,10 +151,34 @@
 
     ttl.textContent = 'Surco ' + bajada + (tipo ? ' · ' + tipo : '');
 
+    var velLive = (state.lastLive || {}).velocidad;
+
     var html = '';
     html += '<div class="row"><span class="lbl">Estado</span><span>' + esc(labelEstado(estado)) + '</span></div>';
-    html += '<div class="row"><span class="lbl">SPM</span><span>' + (spm == null ? '—' : fmt(spm, 0)) +
-            (obj == null ? '' : ' / ' + fmt(obj, 0)) + '</span></div>';
+    html += '<div class="row"><span class="lbl">sem/m</span><span>' + fmtSemM(spm, velLive) +
+            (obj == null || obj <= 0 ? '' : ' / ' + fmtSemM(obj, velLive)) + '</span></div>';
+    // sem/ha desde sem/m y la distancia entre surcos del implemento central.
+    var dist = (state.lastLive || {}).distancia_entre_surcos || 0;
+    var vms = (velLive || 0) / 3.6;
+    if (dist > 0 && vms >= 0.14 && spm != null) {
+      var semHa = (spm / 60.0 / vms) * 10000.0 / dist;
+      html += '<div class="row"><span class="lbl">sem/ha</span><span>' + fmt(semHa, 0) + '</span></div>';
+    }
+    // Dosis estimada por REGLA DE TRES: la máquina fue calibrada para
+    // dosificar dosis_ref (valor + UNIDAD del insumo activo); el flujo
+    // promedio de la primera pasada estable quedó como spm_ref ≡ esa dosis.
+    // Proporcional y agnóstico de unidad: el estimado sale en la unidad
+    // configurada en el insumo (la comparten QuantiX y VistaX).
+    var spmRef   = (state.lastLive || {}).spm_ref || 0;
+    var dosisRef = (state.lastLive || {}).dosis_ref_kg_ha || 0;
+    var UNIDADES = { kg_ha: 'kg/ha', sem_ha: 'sem/ha', sem_m: 'sem/m' };
+    var uniRef   = UNIDADES[(state.lastLive || {}).dosis_ref_unidad] || 'kg/ha';
+    if (spmRef > 0 && dosisRef > 0 && spm != null) {
+      var dosisEst = spm / spmRef * dosisRef;
+      var dec = dosisRef >= 1000 ? 0 : 1;
+      html += '<div class="row"><span class="lbl">Densidad est.</span><span>' +
+              fmt(dosisEst, dec) + ' / ' + fmt(dosisRef, dec) + ' ' + uniRef + '</span></div>';
+    }
     if (pct != null) {
       var pctClamp = Math.max(0, Math.min(150, pct));
       html += '<div class="row"><span class="lbl">% objetivo</span><span>' + pct + '%</span></div>';
@@ -173,7 +217,9 @@
     var hasAlarm = live.has_alarm;
     var monAct   = live.monitoreo_activo;
 
-    $('vxSpm').textContent    = (spm == null) ? '—' : fmt(spm, 0);
+    // Al operario SIEMPRE sem/m (regla de unidades): el wire trae sem/min,
+    // se convierte con la velocidad viva. Parado no hay sem/m que valga: —.
+    $('vxSpm').textContent    = fmtSemM(spm, vel);
     $('vxFallas').textContent = fallas;
     $('vxVel').textContent    = (vel == null) ? '—' : fmt(vel, 1);
 
@@ -345,7 +391,37 @@
     if (!monAct && motivo) {
       html += '<div class="warn">' + esc(motivo) + '</div>';
     }
+
+    // Referencia de la regla de tres de densidad: hoy se captura sola en la
+    // primera pasada estable, pero el operario puede pisarla a mano — "el
+    // flujo de AHORA equivale a la densidad configurada" — o volver al auto.
+    var spmRef   = live.spm_ref || 0;
+    var dosisRef = live.dosis_ref_kg_ha || 0;
+    var UNI = { kg_ha: 'kg/ha', sem_ha: 'sem/ha', sem_m: 'sem/m' };
+    var uniRef = UNI[live.dosis_ref_unidad] || 'kg/ha';
+    html += '<div class="row"><span class="lbl">Referencia densidad</span><span>' +
+            (dosisRef <= 0 ? 'sin insumo con densidad'
+              : (spmRef > 0 ? ('capturada ✓ (' + fmt(dosisRef, 1) + ' ' + uniRef + ')')
+                            : 'pendiente de captura…')) + '</span></div>';
+    if (dosisRef > 0) {
+      html += '<div class="vx-ref-btns">' +
+              '<button type="button" class="vx-diag-btn" data-refaccion="fijar">Fijar ahora (flujo actual = densidad)</button>' +
+              '<button type="button" class="vx-diag-btn" data-refaccion="auto">Re-capturar auto</button>' +
+              '</div>';
+    }
     body.innerHTML = html;
+  }
+
+  async function ajustarReferencia(accion) {
+    try {
+      var r = await fetch('/api/vistax/referencia', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accion: accion })
+      });
+      await r.json();
+      poll(); // refresca el snapshot (y con él, el modal) al toque
+    } catch (e) { /* sin conexión: el próximo poll lo muestra */ }
   }
 
   function start() {
@@ -361,6 +437,12 @@
     // Click en pill abre diagnóstico (por qué está detenido / activo).
     $('vxPill').addEventListener('click', openDiag);
     $('vxDiagX').addEventListener('click', closeDiag);
+    // Delegación: el body del modal se re-renderiza en cada poll, el listener
+    // vive en el contenedor que persiste.
+    $('vxDiagBody').addEventListener('click', function (ev) {
+      var a = ev.target.getAttribute && ev.target.getAttribute('data-refaccion');
+      if (a) ajustarReferencia(a);
+    });
     $('vxDiagBack').addEventListener('click', function (ev) {
       if (ev.target === $('vxDiagBack')) closeDiag();
     });

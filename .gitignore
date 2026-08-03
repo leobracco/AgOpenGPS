@@ -508,3 +508,8 @@ tools/quantiX_motores.backup-*.json
 /Tools/*.backup-*.json
 /.agents/
 /.codex/
+
+# Artefactos de deploy (no son codigo)
+RustDesk-AgroParallel.zip
+PilotX-Taller-*.zip
+PilotX_v*.zip

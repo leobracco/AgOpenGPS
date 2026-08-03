@@ -9,6 +9,7 @@ using System.IO;
 using AgroParallel.Common;
 using AgroParallel.Models;
 using AgroParallel.Services.Abstractions;
+using AgroParallel.Services.Common;
 
 namespace AgroParallel.QuantiX
 {
@@ -37,6 +38,24 @@ namespace AgroParallel.QuantiX
         // Compartido con SectionXBridge: ambos usan el mismo PositionHistory
         // de AgroParallel.Common (mañana también LineX).
         private readonly PositionHistory _posHistory = new PositionHistory(Log);
+
+        // Implemento central (Task 5): fuente de verdad de a qué tren pertenece
+        // cada surco. Si está seteado y el implemento tiene trenes útiles para
+        // los surcos de un motor, la distancia de tren sale de ahí; si no, se
+        // cae al fallback manual de siempre (motor.Tren + nodo.DistanciaEntreTrenes)
+        // — bit a bit igual que antes de esto. null = comportamiento legacy puro
+        // (caller no lo cableó todavía).
+        public Func<ImplementoDto> ImplementoProvider { get; set; }
+
+        // "Una vez por arranque": evita spamear el log a tick rate (200ms) si
+        // un motor queda mal configurado (surcos de trenes distintos).
+        private bool _loggedTrenConflicto;
+
+        // "Una vez por arranque" (mismo patrón que SectionXCutAdapter): dos
+        // flags independientes porque un mismo rig puede tener motores que sí
+        // derivan del implemento y otros que caen al fallback por nodo.
+        private bool _loggedDerivadoImplemento;
+        private bool _loggedFallbackNodo;
 
         /// Retorna el PPS real del motor. Sale del registry, que ya parsea
         /// agp/quantix/{uid}/status_live en NodoStatus.MotorsLive — el bridge
@@ -197,26 +216,97 @@ namespace AgroParallel.QuantiX
                 if (velocidadKmh < 0.5) dosis = 0;
                 if (!inside) dosis = 0;
 
+                // Implemento central (Task 5): motor.Cortes son SECCIONES PilotX
+                // (1-based) que controla el motor — NO números de surco.
+                // TrenResolver espera SurcoDto.Numero (mismo espacio que
+                // SectionXCutAdapter/Task 4), así que armamos el mapa
+                // sección->surcos una sola vez por tick antes de resolver cada
+                // motor, para no confundir los dos espacios de numeración.
+                // El provider puede tirar (IOException del disco, etc.): si eso
+                // aborta el tick entero, TODOS los motores pierden su target este
+                // ciclo por un problema ajeno a ellos. Con el catch, este tick
+                // sigue con implCentral=null y cada motor cae a su fallback por
+                // nodo (mismo resultado que "provider no wireado").
+                ImplementoDto implCentral = null;
+                try { if (ImplementoProvider != null) implCentral = ImplementoProvider(); }
+                catch { /* sin implemento este tick: fallback por nodo, el tick sigue */ }
+
+                Dictionary<int, List<int>> surcosPorSeccion = SurcosPorSeccion.Construir(implCentral);
+
+                // Cache de secciones "atrasadas" por distancia: motores de
+                // distintos nodos pueden compartir la misma distancia de tren;
+                // el recorrido del historial se hace una sola vez por distancia
+                // en este tick (mismo patrón que SectionXCutAdapter).
+                Dictionary<double, bool[]> secRetrasadasCache = null;
+
                 foreach (var nodo in _motores.Nodos)
                 {
                     if (!nodo.Habilitado || string.IsNullOrEmpty(nodo.Uid)) continue;
-
-                    // Snapshot del tren trasero (puede ser null si todavía no
-                    // hay historial suficiente — los motores Tren=1 caen al
-                    // delantero hasta que el tractor avance lo suficiente).
-                    bool[] secTrasero = seccionesPilotX;
-                    if (nodo.DistanciaEntreTrenes > 0.05 && seccionesPilotX != null)
-                    {
-                        secTrasero = _posHistory.GetSectionsAtDistanceBack(nodo.DistanciaEntreTrenes)
-                            ?? seccionesPilotX;
-                    }
 
                     for (int mi = 0; mi < nodo.Motores.Length; mi++)
                     {
                         var motor = nodo.Motores[mi];
 
-                        // Fuente de secciones según tren físico del motor.
-                        bool[] secMotor = (motor.Tren == 0) ? seccionesPilotX : secTrasero;
+                        // Canal sin motor cableado: se le manda consigna nula en vez
+                        // de saltearlo. Saltearlo dejaría al nodo con el último target
+                        // vivo hasta que actúe su watchdog (3 s), y además CommTime
+                        // dejaría de refrescarse — CheckRelays corta todas las salidas
+                        // a los 4 s sin comunicación, incluidas las de los motores que
+                        // sí funcionan.
+                        if (!motor.Habilitado)
+                        {
+                            try
+                            {
+                                await _nodos.PublishAsync(
+                                    "agp/quantix/" + nodo.Uid + "/target",
+                                    "{\"id\":" + mi + ",\"pps\":0,\"seccion_on\":false}",
+                                    false);
+                                MessagesSent++;
+                            }
+                            catch { }
+                            continue;
+                        }
+
+                        // Tren del motor: derivado de sus surcos vía el
+                        // implemento central, con fallback EXACTO al campo
+                        // manual de siempre si no hay dato derivable.
+                        var surcosMotor = SurcosDeSecciones(motor.Cortes, surcosPorSeccion);
+                        var trM = TrenResolver.Resolver(implCentral, surcosMotor);
+                        double distMotor;
+                        if (trM != null)
+                        {
+                            distMotor = trM.DistanciaM;
+                            if (!_loggedDerivadoImplemento)
+                            {
+                                Log("trenes: derivados del implemento");
+                                _loggedDerivadoImplemento = true;
+                            }
+                            if (trM.Conflicto && !_loggedTrenConflicto)
+                            {
+                                Log(string.Format("  M{0} (nodo {1}): surcos de trenes distintos — usando tren {2}",
+                                    mi, nodo.Uid, trM.TrenId));
+                                _loggedTrenConflicto = true;
+                            }
+                        }
+                        else
+                        {
+                            distMotor = (motor.Tren == 0) ? 0 : nodo.DistanciaEntreTrenes; // fallback fase 1
+                            // Antes esto solo logueaba con motor.Tren != 0 — un rig
+                            // todo-delantero (Tren == 0 en todos los motores) nunca
+                            // mostraba la fuente. Logueamos una vez pase lo que pase.
+                            if (!_loggedFallbackNodo)
+                            {
+                                Log(motor.Tren != 0
+                                    ? "trenes: fallback por nodo (implemento sin distancias)"
+                                    : "trenes: fallback por nodo (sin desfase: tren delantero)");
+                                _loggedFallbackNodo = true;
+                            }
+                        }
+
+                        // Fuente de secciones según la distancia de tren resuelta.
+                        bool[] secMotor = seccionesPilotX;
+                        if (distMotor > 0.05 && seccionesPilotX != null)
+                            secMotor = ObtenerSeccionesRetrasadas(distMotor, seccionesPilotX, ref secRetrasadasCache);
 
                         // Velocidad real de este motor según las secciones que cubre.
                         // Captura el efecto de rotación en curvas (un motor en el
@@ -346,6 +436,40 @@ namespace AgroParallel.QuantiX
                 }
             }
             return count > 0 ? sum / count : avgSpeedKmh;
+        }
+
+        // motor.Cortes son SECCIONES PilotX (1-based) que controla el motor —
+        // TrenResolver espera números de SURCO (SurcoDto.Numero), un espacio
+        // distinto (puede haber N surcos por sección, migración VistaX típica).
+        // Devuelve la unión de surcos de todas las secciones del motor, o null
+        // si no hay mapa/cortes (el resolver hace fallback solo con null).
+        private static List<int> SurcosDeSecciones(IList<int> cortes, Dictionary<int, List<int>> surcosPorSeccion)
+        {
+            if (cortes == null || cortes.Count == 0 || surcosPorSeccion == null) return null;
+            List<int> surcos = null;
+            foreach (int seccion in cortes)
+            {
+                List<int> lista;
+                if (!surcosPorSeccion.TryGetValue(seccion, out lista)) continue;
+                if (surcos == null) surcos = new List<int>();
+                surcos.AddRange(lista);
+            }
+            return surcos;
+        }
+
+        // Secciones del tren retrasado a `distancia` metros, con caché por tick
+        // (varios motores pueden pedir la misma distancia; el recorrido del
+        // historial se hace una sola vez — mismo patrón que SectionXCutAdapter).
+        private bool[] ObtenerSeccionesRetrasadas(double distancia, bool[] fallback, ref Dictionary<double, bool[]> cache)
+        {
+            if (cache == null) cache = new Dictionary<double, bool[]>();
+            bool[] cached;
+            if (!cache.TryGetValue(distancia, out cached))
+            {
+                cached = _posHistory.GetSectionsAtDistanceBack(distancia) ?? fallback;
+                cache[distancia] = cached;
+            }
+            return cached;
         }
 
         public void Dispose()

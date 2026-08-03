@@ -339,10 +339,10 @@ namespace PilotX.GuidanceEngine.Adapters
 
         // ---- lo que necesita ventana nativa --------------------------------
         //
-        // Los cuatro abren un dialogo o un form de WinForms (OpenFileDialog,
-        // Process.Start, FormMap, FormBuildBoundaryFromTracks). En el motor
-        // headless no hay donde mostrarlos, asi que se dice explicitamente:
-        // devolver Ok y no hacer nada seria peor.
+        // Los tres abren un dialogo o un form de WinForms (OpenFileDialog,
+        // Process.Start, FormMap). En el motor headless no hay donde
+        // mostrarlos, asi que se dice explicitamente: devolver Ok y no hacer
+        // nada seria peor.
 
         public ContornoStateDto ImportKml(bool multi) => Estado("no-disponible-sin-ui");
 
@@ -350,6 +350,55 @@ namespace PilotX.GuidanceEngine.Adapters
 
         public ContornoStateDto OpenMapa() => Estado("no-disponible-sin-ui");
 
-        public ContornoStateDto BuildFromTracks() => Estado("no-disponible-sin-ui");
+        // ---- cerco desde los tracks ----------------------------------------
+        //
+        // Port headless de FormBuildBoundaryFromTracks: el algoritmo (extender
+        // tracks, intersectar, recortar segmentos y cerrar el poligono) vive en
+        // AgOpenGPS.Core/BoundaryBuilder y se usa tal cual. Lo que el form
+        // resolvia con checkboxes y ajustes a mano aca se resuelve como el
+        // boton "Autofind" del original: todos los tracks del lote, extendidos
+        // 50 m para garantizar las intersecciones. Mismo resultado final que
+        // Build + Save del form: bndList reemplazado + Boundary.txt escrito.
+        public ContornoStateDto BuildFromTracks()
+        {
+            if (!_host.IsJobStarted) return Estado("sin-lote");
+            try
+            {
+                var tracks = new System.Collections.Generic.List<CTrk>();
+                if (_host.Trk != null && _host.Trk.gArr != null)
+                    foreach (var t in _host.Trk.gArr)
+                        if (t != null) tracks.Add(t);
+                if (tracks.Count < 2) return Estado("se-necesitan-2-tracks");
+
+                var builder = new AgOpenGPS.Classes.BoundaryBuilder();
+                builder.SetTracks(tracks);
+                builder.ExtendAllTracks(50.0);   // el "Autofind" del form
+                builder.BuildSegments();
+
+                var pts = builder.BuildTrimmedBoundary();
+                var finalized = builder.FinalizedBoundary;
+                if (pts == null || pts.Count < 3 || finalized == null)
+                    return Estado("sin-cerco-valido");
+
+                // Igual que UpdateMainApplicationBoundary + SaveBoundary del form.
+                _host.Bnd.bndList.Clear();
+                _host.Bnd.bndList.Add(finalized);
+                _host.Bnd.BuildTurnLines();
+
+                string dir = System.IO.Path.Combine(
+                    RegistrySettings.fieldsDirectory, _host.currentFieldDirectory);
+                if (!builder.SaveToBoundaryFile(dir))
+                    return Estado("cerco-aplicado-pero-no-guardado");
+
+                Log.EventWriter("GuidanceEngine: cerco desde tracks — " +
+                    pts.Count + " puntos, " + tracks.Count + " tracks");
+                return Estado();
+            }
+            catch (Exception ex)
+            {
+                Log.EventWriter("GuidanceEngine: cerco desde tracks fallo: " + ex.Message);
+                return Estado("error: " + ex.Message);
+            }
+        }
     }
 }

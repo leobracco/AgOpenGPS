@@ -42,7 +42,14 @@ namespace PilotX.GuidanceEngine.Adapters
                 snap.IsJobStarted = _host.IsJobStarted;
                 snap.CurrentFieldDirectory = _host.currentFieldDirectory;
                 snap.FieldsDirectory = RegistrySettings.fieldsDirectory;
-                snap.AvgSpeed = _host.avgSpeed;
+                // GPS cortado (>3 s sin fix): velocidad CERO, no el ultimo valor
+                // retenido. Sin esto el HUD quedaba clavado en la velocidad vieja
+                // y los lazos que dosifican por velocidad seguian con un numero
+                // mentiroso. Fail-safe: sin GPS no se dosifica.
+                bool gpsVivo = _host.lastFixUtc != default(System.DateTime)
+                    && (System.DateTime.UtcNow - _host.lastFixUtc).TotalSeconds <= 3;
+                snap.AvgSpeed = gpsVivo ? _host.avgSpeed : 0;
+                snap.DistanciaCabeceraM = _host.distancePivotToTurnLine;
                 snap.FixQuality = _host.Pn != null ? _host.Pn.fixQuality : 0;
                 snap.PowerOnline = false; // sin WinForms SystemInformation headless.
                 snap.Heading = _host.pivotAxlePos.heading;
@@ -466,18 +473,29 @@ namespace PilotX.GuidanceEngine.Adapters
             catch { return 0; }
         }
 
+        // El snapshot del shape se CACHEA por instancia de capa: el poller del
+        // mapa pega cada 1 s, y armar ExportPolygonsLocal (todas las listas de
+        // vértices) en cada GET era CPU constante — y parte de los segundos que
+        // tardaba el shape en aparecer al abrir el lote.
+        private AgroParallel.Common.ShapefileLayer _shapeSnapCapa;
+        private ShapeSnapshot _shapeSnapCache;
+
         public ShapeSnapshot GetShape()
         {
             try
             {
                 var layer = Shape?.Capa;
-                if (layer == null || layer.IsEmpty) return null;
+                if (layer == null || layer.IsEmpty) { _shapeSnapCapa = null; _shapeSnapCache = null; return null; }
+
+                if (ReferenceEquals(layer, _shapeSnapCapa) && _shapeSnapCache != null)
+                    return _shapeSnapCache;
 
                 layer.EnsureProjected(_host.AppModelField.LocalPlane);
                 var polys = layer.ExportPolygonsLocal();
                 if (polys == null) return null;
 
-                return new ShapeSnapshot
+                _shapeSnapCapa = layer;
+                _shapeSnapCache = new ShapeSnapshot
                 {
                     SourceToken = layer.Source ?? string.Empty,
                     Count = polys.Count,
@@ -486,6 +504,7 @@ namespace PilotX.GuidanceEngine.Adapters
                     StyleMax = layer.StyleMax,
                     Polygons = polys,
                 };
+                return _shapeSnapCache;
             }
             catch { return null; }
         }
