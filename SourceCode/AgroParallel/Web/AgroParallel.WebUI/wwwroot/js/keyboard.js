@@ -317,8 +317,41 @@
     }
   }
 
+  // ---------- Teclado en ventana aparte ---------------------------------------
+  // Cuando PilotX está corriendo, el teclado NO se dibuja acá: vive en su
+  // propia ventana del shell, que no le come lugar a la página y sirve también
+  // para los campos de la pantalla nativa. La página sólo avisa por el engine
+  // que enfocaron (o dejaron) un campo.
+  //
+  // Si nadie contesta que hay teclado nativo — el Hub abierto desde el celular
+  // o desde un navegador común — se sigue usando el teclado HTML de siempre.
+  var nativo = { disponible: false, consultado: false };
+
+  function avisarHost(ruta, datos) {
+    return fetch('/api/teclado/' + ruta, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos || {})
+    }).then(function (r) { return r.json(); }).catch(function () { return null; });
+  }
+
+  // true si el teclado lo va a mostrar el shell (y esta página no dibuja nada).
+  function pedirTecladoNativo(target) {
+    var numerico = layoutFor(target) === 'numeric';
+    var titulo = (target && (target.placeholder || target.getAttribute('aria-label'))) || '';
+    return avisarHost('abrir', { numerico: numerico, titulo: titulo }).then(function (r) {
+      nativo.consultado = true;
+      nativo.disponible = !!(r && r.nativo);
+      return nativo.disponible;
+    });
+  }
   function show(target) {
     state.target = target;
+    // Con teclado nativo, la página no dibuja nada: sólo avisa.
+    pedirTecladoNativo(target).then(function (hayNativo) {
+      if (hayNativo && state.root) { state.root.classList.remove('open'); quitarEspacio(); }
+    });
+    if (nativo.disponible) { state.visible = true; return; }
     state.layout = layoutFor(target);
     state.shift = autoCapital(target);
     state.capsLock = false;
@@ -338,6 +371,7 @@
   function hide() {
     if (!state.visible) return;
     state.visible = false;
+    if (nativo.disponible) avisarHost('cerrar', {});
     if (state.root) state.root.classList.remove('open');
     quitarEspacio();
     if (state.target) {

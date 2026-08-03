@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="PilotX.Desktop.TecladoWindow"
+        Title="Teclado PilotX"
+        SizeToContent="WidthAndHeight"
+        SystemDecorations="None"
+        Topmost="True"
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        CanResize="False"
+        Background="#F5F7F4"
+        TransparencyLevelHint="None">
+
+  <!-- Ventana propia y NO ACTIVABLE: el foco se queda en el campo que se está
+       editando (ver TecladoWin32.HacerNoActivable) y las teclas se mandan con
+       SendInput a la ventana enfocada. Por eso el mismo teclado sirve para la
+       pantalla nativa y para las páginas del Hub. -->
+  <Border BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="10" Padding="8">
+    <DockPanel>
+
+      <!-- Barra: asa para mover + cerrar -->
+      <Grid DockPanel.Dock="Top" Margin="2,0,2,8" ColumnDefinitions="*,Auto" Name="Barra">
+        <TextBlock Grid.Column="0" Name="Titulo" Text="Teclado" VerticalAlignment="Center"
+                   Foreground="#535E54" FontSize="13" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+          <Button Name="BtnNumeros" Content="123" Width="64" Height="34" Foreground="#101612" />
+          <Button Name="BtnCerrar" Content="✕" Width="52" Height="34" Foreground="#101612" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Las filas de teclas se arman por código (TecladoWindow.axaml.cs):
+           el layout cambia entre letras y números. -->
+      <StackPanel Name="Filas" Spacing="6" />
+    </DockPanel>
+  </Border>
+</Window>

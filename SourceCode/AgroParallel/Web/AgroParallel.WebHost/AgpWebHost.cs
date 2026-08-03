@@ -302,6 +302,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new SonidosController(Sonidos, _wwwroot))
                  .WithController(() => new OrbitXController(_orbitxCfg))
                  .WithController(() => new FirmwaresController())
+                 .WithController(() => new TecladoController())
                  .WithController(() => new BotoneraController())
                  .WithController(() => new ConfiguracionController())
                  .WithController(() => new SteerConfigController(_steerConfig))
