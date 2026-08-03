@@ -1618,6 +1618,8 @@
     document.querySelectorAll('#menu button').forEach(function (b) {
       b.classList.toggle('sel', b.dataset.tab === id);
     });
+    // El menú es un acordeón: dejar abierto el grupo del tab activo.
+    try { if (window.AgpMenuAcordeon) window.AgpMenuAcordeon.abrirGrupoActivo(); } catch (e) { }
     document.querySelectorAll('section[data-tab]').forEach(function (s) {
       s.classList.toggle('activa', s.dataset.tab === id);
     });
@@ -1662,6 +1664,7 @@
         document.querySelectorAll('#menu button').forEach(function (x) {
           x.classList.toggle('sel', x === b);
         });
+        try { if (window.AgpMenuAcordeon) window.AgpMenuAcordeon.abrirGrupoActivo(); } catch (e) { }
         document.querySelectorAll('section[data-tab]').forEach(function (s) {
           s.classList.toggle('activa', s.dataset.tab === 'modulo');
         });
@@ -1670,6 +1673,79 @@
       irATab(b.dataset.tab);
     });
   });
+
+  // =============================================================================
+  // Menú lateral en ACORDEÓN (pedido usuario 2026-08-03)
+  //
+  // El menú listaba los ~40 accesos de corrido: para llegar a Mantenimiento
+  // había que scrollear todo. Ahora se ven los TÍTULOS de los grupos y sólo el
+  // grupo tocado queda abierto — al abrir uno se cierra el anterior.
+  //
+  // Se arma acá y no en el markup a propósito: los botones no se tocan (siguen
+  // con sus data-tab / data-mod y con los listeners ya enganchados, que viajan
+  // con el nodo al moverlo), así que un botón nuevo en el HTML entra solo al
+  // grupo que le corresponde sin que haya que acordarse de este archivo.
+  // =============================================================================
+  (function acordeonMenu() {
+    var menu = document.getElementById('menu');
+    if (!menu) return;
+    var titulos = Array.prototype.slice.call(menu.querySelectorAll('.grupo'));
+    if (!titulos.length) return;
+
+    // Cada título se lleva los botones que lo siguen hasta el próximo título.
+    titulos.forEach(function (t) {
+      var cuerpo = document.createElement('div');
+      cuerpo.className = 'grupo-cuerpo';
+      var n = t.nextSibling;
+      while (n && !(n.nodeType === 1 && n.classList.contains('grupo'))) {
+        var sig = n.nextSibling;
+        if (n.nodeType === 1) cuerpo.appendChild(n);
+        n = sig;
+      }
+      t.parentNode.insertBefore(cuerpo, t.nextSibling);
+      t.setAttribute('role', 'button');
+      t.setAttribute('tabindex', '0');
+      t.setAttribute('aria-expanded', 'false');
+      t.addEventListener('click', function () { alternar(t); });
+    });
+
+    function abrir(t) {
+      titulos.forEach(function (o) {
+        var abierto = (o === t);
+        o.classList.toggle('abierto', abierto);
+        o.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+        var c = o.nextElementSibling;
+        if (c && c.classList.contains('grupo-cuerpo')) c.classList.toggle('abierto', abierto);
+      });
+    }
+
+    function alternar(t) {
+      if (t.classList.contains('abierto')) {
+        // Volver a tocar el título abierto lo cierra: así se pueden ver todos
+        // los grupos de un vistazo sin tener que elegir uno.
+        t.classList.remove('abierto');
+        t.setAttribute('aria-expanded', 'false');
+        var c = t.nextElementSibling;
+        if (c && c.classList.contains('grupo-cuerpo')) c.classList.remove('abierto');
+        return;
+      }
+      abrir(t);
+    }
+
+    // Deja abierto el grupo del botón activo. Se llama al arrancar y cada vez
+    // que se cambia de pantalla, para que el menú no muestre abierto un grupo
+    // que no es donde está parado el operario.
+    function abrirGrupoActivo() {
+      var sel = menu.querySelector('button.sel');
+      if (!sel) return;
+      var cuerpo = sel.closest('.grupo-cuerpo');
+      if (!cuerpo) return;   // "Resumen" vive suelto arriba, sin grupo
+      var t = cuerpo.previousElementSibling;
+      if (t && t.classList.contains('grupo')) abrir(t);
+    }
+    window.AgpMenuAcordeon = { abrirGrupoActivo: abrirGrupoActivo };
+    abrirGrupoActivo();
+  })();
 
   // ---- botón Guardar flotante con estados -------------------------------------
   // neutro = sin cambios · .dirty = hay cambios sin guardar (pulso + aviso) ·

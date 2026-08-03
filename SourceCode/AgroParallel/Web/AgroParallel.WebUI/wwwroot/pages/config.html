@@ -42,11 +42,35 @@
       background: var(--carta); border-right: 1px solid var(--borde);
       padding: 8px 6px; display: flex; flex-direction: column; gap: 2px;
     }
+    /* Los títulos de grupo son el acordeón: tocás uno y se abre solo ese.
+       Antes el menú listaba los ~40 accesos de corrido y para llegar a
+       Mantenimiento había que scrollear todo. */
     #menu .grupo {
       font: 700 11px "Segoe UI", Roboto, sans-serif; color: var(--gris);
       text-transform: uppercase; letter-spacing: 0.4px;
-      padding: 10px 8px 4px;
+      padding: 10px 8px 10px;
+      display: flex; align-items: center; gap: 6px;
+      min-height: 38px;                  /* tocable con guante */
+      border-radius: 8px;
+      cursor: pointer; touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+      border-top: 1px solid var(--borde);
     }
+    #menu .grupo:first-of-type { border-top: 0; }
+    #menu .grupo:active { background: #e6ede5; }
+    #menu .grupo.abierto { color: var(--texto); }
+    /* Chevron: apunta a la derecha cerrado, abajo abierto. */
+    #menu .grupo::after {
+      content: ''; margin-left: auto; flex: none;
+      width: 6px; height: 6px;
+      border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg); transform-origin: center;
+      transition: transform 0.15s ease;
+      opacity: 0.7;
+    }
+    #menu .grupo.abierto::after { transform: rotate(45deg); }
+    #menu .grupo-cuerpo { display: none; flex-direction: column; gap: 2px; }
+    #menu .grupo-cuerpo.abierto { display: flex; }
     #menu button {
       display: flex; align-items: center; gap: 8px;
       min-height: 42px; padding: 4px 8px; width: 100%;

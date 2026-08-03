@@ -1798,3 +1798,19 @@ Qué cambió:
 Verificado en vivo el flujo completo: entrar al detalle conserva `&widget=1` y
 el sidebar queda en 0 px; el link 'Volver a Nodos' se reescribe solo; y abrir
 cualquiera de esas páginas fuera del Hub sigue mostrando el menú (172 px).
+
+### 2026-08-03 · Claude — menú de Configuración en ACORDEÓN
+`config.html` (CSS) + `js/config.js` (lógica). El menú listaba los ~40 accesos
+de corrido y para llegar a Mantenimiento había que scrollear todo. Ahora se ven
+los 10 títulos de grupo de una (sin scroll) y sólo el grupo tocado queda
+abierto; tocar el título abierto lo cierra.
+
+- **El markup del menú NO se tocó.** El acordeón se arma en runtime: cada
+  `.grupo` se lleva los botones que lo siguen a un `.grupo-cuerpo`. Los botones
+  conservan sus `data-tab`/`data-mod` y los listeners ya enganchados (viajan
+  con el nodo al moverlo). Un botón nuevo en el HTML entra solo a su grupo.
+- El grupo del botón activo se abre solo: `AgpMenuAcordeon.abrirGrupoActivo()`,
+  llamado desde `irATab()` y desde el handler de módulos embebidos.
+- Títulos de 38 px de alto (tocables con guante) y chevron por CSS (`::after`).
+- Verificado en vivo: abrir uno cierra el anterior, navegar a un tab y abrir un
+  módulo embebido siguen funcionando, y el grupo correcto queda abierto.
