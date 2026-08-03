@@ -41,15 +41,15 @@ public sealed class VistaXMapStrip : Control
     private static readonly HttpClient _http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
 
     // Paleta sincronizada con vistax-live.html / VistaXPanel.
-    private static readonly IBrush _riel     = new SolidColorBrush(Color.Parse("#2A332C"));
-    private static readonly IBrush _ok       = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush _bajo     = new SolidColorBrush(Color.Parse("#B5673A"));
-    private static readonly IBrush _exceso   = new SolidColorBrush(Color.Parse("#3E7DBA"));
-    private static readonly IBrush _tapado   = new SolidColorBrush(Color.Parse("#0D0D0D"));
-    private static readonly IBrush _noData   = new SolidColorBrush(Color.Parse("#3A423C"));
-    private static readonly IBrush _cortada  = new SolidColorBrush(Color.Parse("#23282456"));
-    private static readonly IBrush _fondo    = new SolidColorBrush(Color.Parse("#E6F5F7F4"));
-    private static readonly IBrush _texto    = new SolidColorBrush(Color.Parse("#535E54"));
+    private static readonly IBrush _riel     = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#2A332C"));
+    private static readonly IBrush _ok       = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#4ABA3E"));
+    private static readonly IBrush _bajo     = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#B5673A"));
+    private static readonly IBrush _exceso   = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#3E7DBA"));
+    private static readonly IBrush _tapado   = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#0D0D0D"));
+    private static readonly IBrush _noData   = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#3A423C"));
+    private static readonly IBrush _cortada  = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#23282456"));
+    private static readonly IBrush _fondo    = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#E6F5F7F4"));
+    private static readonly IBrush _texto    = new Avalonia.Media.Immutable.ImmutableSolidColorBrush(Color.Parse("#535E54"));
     private static readonly Typeface _tf     = new Typeface("Segoe UI", weight: FontWeight.Bold);
 
     private VistaXClient? _client;
