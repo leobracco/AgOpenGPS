@@ -81,6 +81,96 @@
     .motor-cfg.m1 { border-left-color: #E27A0F; }
     .motor-cfg h4 { margin: 0 0 var(--agp-sp-2) 0; }
 
+    /* ===== Tab MOTORES: los motores del nodo van en TABLA, no en tarjetas =====
+       Una fila por motor deja comparar PWM y PID de todos los motores en
+       vertical, que es como se ajustan en la práctica. Los otros tabs (PID,
+       Calibración, Prueba) siguen con tarjetas: ahí se mira un motor a la vez. */
+    #tabMotores .mcfg-scroll { overflow-x: auto; margin-top: var(--agp-sp-3); }
+    #tabMotores .mcfg-table {
+      width: 100%; border-collapse: collapse;
+      font-size: var(--agp-fs-sm);
+    }
+    #tabMotores .mcfg-table th {
+      background: var(--agp-bg-soft);
+      color: var(--agp-text-muted);
+      font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-medium);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      text-align: left; white-space: nowrap;
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+    }
+    /* Fila de grupos (Sensor / Motor / PID): separadores verticales para que se
+       vea dónde empieza y termina cada bloque. */
+    #tabMotores .mcfg-table tr.grp th { text-align: center; }
+    #tabMotores .mcfg-table tr.grp th[colspan],
+    #tabMotores .mcfg-table tr.sub th { border-left: var(--agp-border-w) solid var(--agp-border); }
+    #tabMotores .mcfg-table tr.grp th:first-child,
+    #tabMotores .mcfg-table tr.sub th:first-child { border-left: 0; }
+
+    /* La fila deja de ser tarjeta: sin padding/fondo propios, con la barra de
+       color del motor en la primera celda (M0 verde, M1 naranja). */
+    #tabMotores .mcfg-table tr.motor-cfg {
+      display: table-row;
+      background: transparent; border-radius: 0; padding: 0;
+      border-left: 0;
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+    }
+    #tabMotores .mcfg-table tr.motor-cfg:hover { background: var(--agp-bg-soft); }
+    /* La tarjeta marcaba el motor con una barra de color arriba (::before
+       absoluto). En una fila de tabla esa barra cruza todo el ancho: el color
+       ahora vive en el chip M0/M1 de la primera celda. */
+    #tabMotores .mcfg-table tr.motor-cfg::before { content: none; }
+    #tabMotores .mcfg-table td {
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      vertical-align: middle;
+      border-left: var(--agp-border-w) solid var(--agp-border);
+    }
+    #tabMotores .mcfg-table td:first-child { border-left: 0; }
+    /* La columna del motor es la etiqueta de la fila: angosta, a la izquierda y
+       PEGADA al borde — con 12 columnas hay scroll horizontal, y sin esto el
+       operario pierde de vista qué motor está tocando. */
+    #tabMotores .mcfg-table .c-mot {
+      white-space: nowrap; width: 1%; text-align: left;
+      position: sticky; left: 0; z-index: 2;
+      background: var(--agp-surface);
+      border-right: var(--agp-border-w) solid var(--agp-border);
+    }
+    #tabMotores .mcfg-table tr.motor-cfg:hover .c-mot { background: var(--agp-bg-soft); }
+    #tabMotores .mcfg-table th.c-mot { z-index: 3; background: var(--agp-bg-soft); }
+    #tabMotores .mcfg-table tr.grp th.c-mot,
+    #tabMotores .mcfg-table tr.sub th.c-mot { text-align: left; }
+    #tabMotores .mcfg-table .mot-tag {
+      display: inline-block; min-width: 30px;
+      padding: 2px 6px; margin-right: var(--agp-sp-2);
+      border-radius: var(--agp-radius-sm, 4px);
+      background: var(--agp-accent); color: #fff;
+      font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+      font-size: var(--agp-fs-xs); text-align: center;
+    }
+    #tabMotores .mcfg-table tr.m1 .mot-tag { background: #E27A0F; }
+    #tabMotores .mcfg-table .mot-nom { font-weight: var(--agp-fw-medium); }
+    #tabMotores .mcfg-table .c-tope { white-space: nowrap; text-align: right; }
+    #tabMotores .mcfg-table .c-tope .v {
+      display: block; font-family: var(--agp-font-mono); font-weight: var(--agp-fw-bold);
+    }
+    #tabMotores .mcfg-table .c-tope .v2 {
+      display: block; font-family: var(--agp-font-mono);
+      color: var(--agp-text-muted); font-size: var(--agp-fs-xs);
+    }
+    #tabMotores .mcfg-table .c-acc { white-space: nowrap; }
+    #tabMotores .mcfg-table .c-acc .btn { display: block; width: 100%; margin-bottom: 4px; }
+    #tabMotores .mcfg-table .c-acc .send-msg { font-size: var(--agp-fs-xs); }
+    #tabMotores .mcfg-table select { width: 100%; min-width: 155px; }
+    #tabMotores .mcfg-table .cfg-hint {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      margin-top: 3px; white-space: nowrap; text-align: center;
+    }
+    /* Stepper compacto: en celda no entran los botones de 56px del formulario,
+       pero 40px sigue siendo tocable con el dedo. */
+    #tabMotores .mcfg-table .agp-stepper { height: 40px; min-width: 118px; }
+    #tabMotores .mcfg-table .agp-stepper .agp-step-btn { flex: 0 0 38px; font-size: 18px; }
+    #tabMotores .mcfg-table .agp-stepper .agp-step-val { font-size: var(--agp-fs-sm); }
+
     .fld-grid {
       display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: var(--agp-sp-2) var(--agp-sp-3);

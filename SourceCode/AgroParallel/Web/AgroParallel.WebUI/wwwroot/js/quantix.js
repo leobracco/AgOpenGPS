@@ -1121,10 +1121,11 @@
           '<button class="btn danger qxNodoDel" type="button" data-uid="' + escapeHtml(n.uid) +
             '" title="Sacar el nodo del perfil y borrar su configuración">Eliminar nodo</button>' +
         '</div>' +
-        '<div class="live-tune-grid">' +
+        '<div class="mcfg-scroll"><table class="mcfg-table">' +
+          motorCfgThead() + '<tbody>' +
           motorCfgCard(n, 0) +
           motorCfgCard(n, 1) +
-        '</div>' +
+        '</tbody></table></div>' +
       '</div>';
     }
     listEl.innerHTML = html;
@@ -1180,6 +1181,29 @@
     } catch (e) { return false; }
   }
 
+  // Cabecera de la tabla de motores: dos niveles (bloque + campo) para que se
+  // entienda de qué es cada columna sin repetir "PWM" o "PID" en cada una.
+  function motorCfgThead() {
+    return '<thead>' +
+      '<tr class="grp">' +
+        '<th class="c-mot" rowspan="2">Motor</th>' +
+        '<th colspan="3">Sensor</th>' +
+        '<th colspan="3">Motor</th>' +
+        '<th colspan="3">PID</th>' +
+        '<th class="c-tope" rowspan="2">Tope</th>' +
+        '<th class="c-acc" rowspan="2"></th>' +
+      '</tr>' +
+      '<tr class="sub">' +
+        '<th>Tipo</th><th>Pulsos/vuelta</th><th>Filtro antirrebote</th>' +
+        '<th>Tipo</th><th>PWM mín</th><th>PWM máx</th>' +
+        '<th>Kp</th><th>Ki</th><th>Kd</th>' +
+      '</tr></thead>';
+  }
+
+  // Una FILA por motor (antes era una tarjeta). Con varios nodos × 2 motores,
+  // la grilla deja comparar PWM y PID de todos en vertical, que es como se
+  // ajusta en la práctica. Sigue siendo .motor-cfg: los handlers del tab la
+  // buscan con closest('.motor-cfg') y leen los data-mf de adentro.
   function motorCfgCard(n, mi) {
     var m = (n.motores && n.motores[mi]) || defaultMotor();
     var tipo = tipoSensorDe(m);
@@ -1204,62 +1228,43 @@
       return '<input type="number" ' + attrs + ' value="' + val + '">';
     };
 
-    return '<div class="motor-cfg ' + (mi === 0 ? '' : 'm1') + '" data-mi="' + mi + '">' +
-      '<h4>M' + mi + ' — ' + escapeHtml(m.nombre || 'Motor') + '</h4>' +
+    return '<tr class="motor-cfg ' + (mi === 0 ? '' : 'm1') + '" data-mi="' + mi + '">' +
+      '<td class="c-mot"><span class="mot-tag">M' + mi + '</span>' +
+        '<span class="mot-nom">' + escapeHtml(m.nombre || 'Motor') + '</span></td>' +
 
       // ── Sensor: qué cuenta las vueltas ──────────────────────────────────
-      '<div class="cfg-block"><span class="cfg-block-t">Sensor</span>' +
-        '<div class="fld-grid">' +
-          '<div class="field wide"><label>Tipo</label>' +
-            '<select data-mf="sensor_tipo">' +
-              '<option value="inductivo"' + (tipo === 'encoder' ? '' : ' selected') + '>' + SENSORES.inductivo.label + '</option>' +
-              '<option value="encoder"' + (tipo === 'encoder' ? ' selected' : '') + '>' + SENSORES.encoder.label + '</option>' +
-            '</select></div>' +
-          '<div class="field"><label>Pulsos por vuelta</label>' +
-            stepInt('dientes_engranaje', ppr, { min: 1, max: 4000, step: 1 }) + '</div>' +
-          '<div class="field"><label>Filtro antirrebote</label>' +
-            stepInt('pulse_min', pulseMin, { min: 20, max: 20000, step: 10 }) + '</div>' +
-        '</div>' +
-        '<div class="cfg-hint" data-mf-out="techo">Con este filtro el nodo lee hasta ' +
-          techoRpm(pulseMin, ppr) + ' rpm</div>' +
-      '</div>' +
+      '<td><select data-mf="sensor_tipo">' +
+          '<option value="inductivo"' + (tipo === 'encoder' ? '' : ' selected') + '>' + SENSORES.inductivo.label + '</option>' +
+          '<option value="encoder"' + (tipo === 'encoder' ? ' selected' : '') + '>' + SENSORES.encoder.label + '</option>' +
+        '</select></td>' +
+      '<td>' + stepInt('dientes_engranaje', ppr, { min: 1, max: 4000, step: 1 }) + '</td>' +
+      '<td>' + stepInt('pulse_min', pulseMin, { min: 20, max: 20000, step: 10 }) +
+        '<div class="cfg-hint" data-mf-out="techo" title="Con este filtro el nodo lee hasta esta velocidad">lee hasta ' +
+        techoRpm(pulseMin, ppr) + ' rpm</div></td>' +
 
       // ── Motor: qué se está moviendo y con qué PWM ───────────────────────
-      '<div class="cfg-block"><span class="cfg-block-t">Motor</span>' +
-        '<div class="fld-grid">' +
-          '<div class="field wide"><label>Tipo</label>' +
-            '<select data-mf="motor_type">' +
-              '<option value="0"' + (esHid ? '' : ' selected') + '>Eléctrico</option>' +
-              '<option value="1"' + (esHid ? ' selected' : '') + '>Hidráulico</option>' +
-            '</select></div>' +
-          '<div class="field"><label>PWM mínimo</label>' +
-            stepInt('pwm_min', m.pwm_min || 600, { min: 0, max: 4095, step: 10 }) + '</div>' +
-          '<div class="field"><label>PWM máximo</label>' +
-            stepInt('pwm_max', m.pwm_max || 4095, { min: 0, max: 4095, step: 10 }) + '</div>' +
-        '</div>' +
-      '</div>' +
+      '<td><select data-mf="motor_type">' +
+          '<option value="0"' + (esHid ? '' : ' selected') + '>Eléctrico</option>' +
+          '<option value="1"' + (esHid ? ' selected' : '') + '>Hidráulico</option>' +
+        '</select></td>' +
+      '<td>' + stepInt('pwm_min', m.pwm_min || 600, { min: 0, max: 4095, step: 10 }) + '</td>' +
+      '<td>' + stepInt('pwm_max', m.pwm_max || 4095, { min: 0, max: 4095, step: 10 }) + '</td>' +
 
       // ── PID: lo que usa el lazo para seguir la dosis ────────────────────
-      '<div class="cfg-block"><span class="cfg-block-t">PID</span>' +
-        '<div class="fld-grid">' +
-          '<div class="field"><label>Kp</label>' + stepPid('kp', m.kp || 0, 300) + '</div>' +
-          '<div class="field"><label>Ki</label>' + stepPid('ki', m.ki || 0, 200) + '</div>' +
-          '<div class="field"><label>Kd</label>' + stepPid('kd', m.kd || 0, 50) + '</div>' +
-        '</div>' +
-        '<div class="kv" style="margin-top: var(--agp-sp-2)">' +
-          '<div class="k">Tope del motor (Max Hz)</div>' +
-          '<div class="v"><span data-mf-out="max_hz">' + (m.max_hz || 0) + '</span> Hz' +
-            ' <span style="color:var(--agp-text-muted)">· <span data-mf-out="max_rpm">' +
-            Math.round(((m.max_hz || 0) * 60) / (ppr || 1)) + '</span> rpm</span></div>' +
-        '</div>' +
-      '</div>' +
+      '<td>' + stepPid('kp', m.kp || 0, 300) + '</td>' +
+      '<td>' + stepPid('ki', m.ki || 0, 200) + '</td>' +
+      '<td>' + stepPid('kd', m.kd || 0, 50) + '</td>' +
 
-      '<div class="btn-row" style="margin-top: var(--agp-sp-3)">' +
-        '<button class="btn primary" data-mot-act="save" data-mi="' + mi + '">Guardar y enviar</button>' +
-        '<button class="btn" data-mot-act="maxhz" data-mi="' + mi + '" title="Gira el motor a PWM máximo 4 s y guarda el tope medido">⏱ Medir tope</button>' +
+      '<td class="c-tope"><span class="v"><span data-mf-out="max_hz">' + (m.max_hz || 0) + '</span> Hz</span>' +
+        '<span class="v2"><span data-mf-out="max_rpm">' +
+        Math.round(((m.max_hz || 0) * 60) / (ppr || 1)) + '</span> rpm</span></td>' +
+
+      '<td class="c-acc">' +
+        '<button class="btn primary" data-mot-act="save" data-mi="' + mi + '" title="Guardar la configuracion y enviarla al nodo">Guardar</button>' +
+        '<button class="btn" data-mot-act="maxhz" data-mi="' + mi + '" title="Gira el motor a PWM máximo 4 s y guarda el tope medido">⏱ Tope</button>' +
         '<span class="send-msg" data-mot-msg="' + mi + '"></span>' +
-      '</div>' +
-    '</div>';
+      '</td>' +
+    '</tr>';
   }
 
   // Cambiar el tipo de sensor precarga PPR y filtro típicos. No guarda solo:
@@ -1335,7 +1340,9 @@
     var pm = readMf(mc, 'pulse_min', 0);
     var pr = readMf(mc, 'dientes_engranaje', 0);
     var rpm = techoRpm(pm, pr);
-    out.textContent = 'Con este filtro el nodo lee hasta ' + rpm + ' rpm';
+    // Texto corto: esto vive en una celda de la tabla de motores. La frase
+    // completa está en el title (se puso al construir la fila).
+    out.textContent = 'lee hasta ' + rpm + ' rpm';
     // Menos de 120 rpm de techo es sospechoso: arriba de ahí el nodo empieza a
     // reportar la mitad de las vueltas sin avisar.
     out.className = 'cfg-hint' + (rpm > 0 && rpm < 120 ? ' warn' : '');
