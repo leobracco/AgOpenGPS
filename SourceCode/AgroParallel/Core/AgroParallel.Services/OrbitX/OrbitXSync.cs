@@ -580,7 +580,11 @@ namespace AgroParallel.OrbitX
                     { "hostname", Environment.MachineName },
                     { "platform", "win32" },
                     { "version", "AgOpenGPS-AP" },
-                    { "aog_path", AppDomain.CurrentDomain.BaseDirectory }
+                    { "aog_path", AppDomain.CurrentDomain.BaseDirectory },
+                    // ID de RustDesk (soporte remoto): si está instalado se lee
+                    // una vez y viaja en el payload; el CRM lo muestra en la
+                    // ficha del cliente. Sin RustDesk va null — nada que instalar.
+                    { "rustdesk_id", LeerRustDeskId() }
                 };
                 string json = JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -616,6 +620,52 @@ namespace AgroParallel.OrbitX
             }
         }
 
+        // ── RustDesk (soporte remoto) ────────────────────────────────────────
+        // Lee el ID de RustDesk UNA vez por sesión ejecutando el cliente con
+        // --get-id (2 s de timeout, best-effort). Si RustDesk no está
+        // instalado o falla, devuelve null y el heartbeat lo reporta así:
+        // el CRM muestra "sin RustDesk" en vez de romper nada.
+        private static string _rustdeskId;
+        private static bool _rustdeskLeido;
+
+        private static string LeerRustDeskId()
+        {
+            if (_rustdeskLeido) return _rustdeskId;
+            _rustdeskLeido = true;
+            try
+            {
+                string exe = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    "RustDesk", "rustdesk.exe");
+                if (!System.IO.File.Exists(exe)) return null;
+
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = "--get-id",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true,
+                };
+                using (var p = System.Diagnostics.Process.Start(psi))
+                {
+                    if (p == null) return null;
+                    string salida = p.StandardOutput.ReadToEnd();
+                    if (!p.WaitForExit(2000)) { try { p.Kill(); } catch { } return null; }
+                    salida = (salida ?? "").Trim();
+                    // El ID es numérico (9-10 dígitos); cualquier otra cosa es
+                    // un error del cliente y no sirve para conectarse.
+                    if (salida.Length >= 6 && salida.Length <= 16 && long.TryParse(salida, out _))
+                        _rustdeskId = salida;
+                }
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "leyendo ID de RustDesk", ex);
+            }
+            return _rustdeskId;
+        }
+
         private async Task SendHeartbeat()
         {
             string url = (_cfg.ServerUrl ?? "").TrimEnd('/') + "/api/devices/heartbeat";
@@ -627,7 +677,11 @@ namespace AgroParallel.OrbitX
                     { "hostname", Environment.MachineName },
                     { "platform", "win32" },
                     { "version", "AgOpenGPS-AP" },
-                    { "aog_path", AppDomain.CurrentDomain.BaseDirectory }
+                    { "aog_path", AppDomain.CurrentDomain.BaseDirectory },
+                    // ID de RustDesk (soporte remoto): si está instalado se lee
+                    // una vez y viaja en el payload; el CRM lo muestra en la
+                    // ficha del cliente. Sin RustDesk va null — nada que instalar.
+                    { "rustdesk_id", LeerRustDeskId() }
                 };
 
                 string json = JsonSerializer.Serialize(payload);
