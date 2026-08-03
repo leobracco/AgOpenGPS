@@ -19,6 +19,15 @@ namespace AgroParallel.Models
         [JsonPropertyName("nombre")]
         public string Nombre { get; set; } = "Motor";
 
+        // Un nodo tiene N canales de motor pero no siempre están todos cableados
+        // (el de 2 motores puede llevar uno solo; el de 7, los que hagan falta).
+        // Un canal sin motor recibía consigna igual y el PID se saturaba contra
+        // la nada: PWM 4095 permanente y telemetría basura. Deshabilitado se le
+        // publica pps=0/seccion_on=false, así queda en PWM 0 sin dejar de
+        // refrescar CommTime (que es lo que CheckRelays mira para no cortar).
+        [JsonPropertyName("habilitado")]
+        public bool Habilitado { get; set; } = true;
+
         [JsonPropertyName("dosis_fija")]
         public double DosisFija { get; set; }
 

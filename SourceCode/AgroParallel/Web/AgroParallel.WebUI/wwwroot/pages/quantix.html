@@ -301,6 +301,17 @@
     .mlist{margin-top:12px;display:flex;flex-direction:column;gap:6px}
     .mrow{display:flex;align-items:center;gap:10px;background:#121a14;border:1px solid var(--agp-border);border-radius:9px;padding:10px 11px}
     .mrow.sel{border-color:var(--agp-accent);box-shadow:0 0 0 1px var(--agp-accent) inset}
+    /* Canal sin motor cableado: se atenúa pero se sigue pudiendo editar y
+       volver a habilitar. El checkbox queda a opacidad plena para que se vea
+       que el control está vivo. */
+    .mrow.mdis{opacity:.45}
+    /* Nodo desactivado en el perfil: se atenúa la tarjeta entera menos la
+       cabecera, para poder volver a activarlo o eliminarlo. */
+    .card.node-dis .live-tune-grid{opacity:.45}
+    .node-head .qxNodoHab{width:17px;height:17px;flex:0 0 auto;accent-color:var(--agp-accent);cursor:pointer}
+    .node-head .qxNodoDel{margin-left:auto}
+    .mrow.mdis .qxHab{opacity:1}
+    .mrow .qxHab{width:17px;height:17px;flex:0 0 auto;accent-color:var(--agp-accent);cursor:pointer}
     .mrow .sw{width:16px;height:16px;border-radius:5px;flex:0 0 auto}
     .mrow .nm{width:90px;color:var(--agp-text);font-weight:700}
     .mrow .qxNombre{width:104px;flex:0 0 auto;background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:6px;color:var(--agp-text);font-weight:700;font-size:13px;padding:6px 7px}

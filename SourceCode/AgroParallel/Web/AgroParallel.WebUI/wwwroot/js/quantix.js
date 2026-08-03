@@ -324,8 +324,12 @@
            + '"> <span class="u">sem/vuelta</span></span>')
         : '';
       var nombreRaw = (m.nombre != null ? String(m.nombre) : ('Motor ' + (i + 1)));
-      html += '<div class="mrow' + sel + '" data-mi="' + i + '">'
+      // Canal sin motor cableado: se destildá y PilotX le manda consigna nula.
+      var hab = (m.habilitado !== false);
+      html += '<div class="mrow' + sel + (hab ? '' : ' mdis') + '" data-mi="' + i + '">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
+        + '<input class="qxHab" type="checkbox" data-mi="' + i + '"' + (hab ? ' checked' : '')
+        + ' title="Motor conectado. Destildado no recibe dosis.">'
         + '<input class="qxNombre" type="text" data-mi="' + i + '" value="' + escapeHtml(nombreRaw)
         + '" title="Nombre del motor">'
         + '<span class="cnt">' + fmtCortes(m.cortes) + escapeHtml(nodoTag(all[i])) + '</span>'
@@ -348,7 +352,8 @@
         if (e.target && e.target.classList &&
             (e.target.classList.contains('qxDosisFija') || e.target.classList.contains('mdel') ||
              e.target.classList.contains('uToggle') || e.target.classList.contains('qxSemVuelta') ||
-             e.target.classList.contains('qxMapa') || e.target.classList.contains('qxNombre'))) return;
+             e.target.classList.contains('qxMapa') || e.target.classList.contains('qxNombre') ||
+             e.target.classList.contains('qxHab'))) return;
         state.brushMotor = parseInt(this.getAttribute('data-mi'), 10);
         updateBrushChip(); renderStrip(); renderMotorList();
       });
@@ -399,6 +404,20 @@
           entry.motor.nombre = (this.value || '').trim() || ('Motor ' + (idx + 1));
           state.dirty = true;
           updateBrushChip();
+        }
+      });
+    }
+    // Habilitar/deshabilitar el canal. Re-renderiza para atenuar la fila.
+    var habs = el.querySelectorAll('.qxHab');
+    for (var hb = 0; hb < habs.length; hb++) {
+      habs[hb].addEventListener('click', function (e) { e.stopPropagation(); });
+      habs[hb].addEventListener('change', function () {
+        var idx = parseInt(this.getAttribute('data-mi'), 10);
+        var entry = allMotors()[idx];
+        if (entry && entry.motor) {
+          entry.motor.habilitado = this.checked;
+          state.dirty = true;
+          renderMotorList();
         }
       });
     }
@@ -902,7 +921,8 @@
       max_integral: 1200, deadband: 2, slew_rate: 40, dientes_engranaje: 20,
       sensor_tipo: 'inductivo', pulse_min: 2000,
       motor_type: 0, max_hz: 40, ff_gain: 1.0, alpha: 0.4,
-      slew_rate_per_sec: 5000, pid_time: 50,
+      habilitado: true,
+      slew_rate_per_sec: 5000, target_slew_hz_per_sec: 300, pid_time: 50,
       // cortes[] = surcos/secciones PilotX que alimenta este motor (se pintan
       // directo en la tira de surcos). Es lo que consume el bridge.
       cortes: [], tren: 0
@@ -1088,13 +1108,18 @@
       var n = nodos[i];
       var live = state.liveByUid[n.uid];
       var fw = (live && live.firmware) ? (' · fw ' + escapeHtml(live.firmware)) : '';
-      html += '<div class="card" style="margin-bottom: var(--agp-sp-4)" data-uid="' + escapeHtml(n.uid) + '">' +
+      var nHab = (n.habilitado !== false);
+      html += '<div class="card' + (nHab ? '' : ' node-dis') + '" style="margin-bottom: var(--agp-sp-4)" data-uid="' + escapeHtml(n.uid) + '">' +
         '<div class="node-head">' +
+          '<input class="qxNodoHab" type="checkbox" data-uid="' + escapeHtml(n.uid) + '"' + (nHab ? ' checked' : '') +
+            ' title="Nodo activo en este perfil. Destildado no recibe dosis ni config.">' +
           '<h3 style="margin:0">' + escapeHtml(n.nombre || 'Nodo') +
             ' <span style="font-family: var(--agp-font-mono); color: var(--agp-text-muted); font-size: var(--agp-fs-sm); font-weight: normal">' +
             escapeHtml(n.uid) + '<span data-mot-fw>' + fw + '</span></span></h3>' +
           '<span class="pill ' + (live && live.online ? 'ok' : 'err') + '" data-mot-pill><span class="dot"></span> ' +
             (live && live.online ? 'en línea' : 'fuera de línea') + '</span>' +
+          '<button class="btn danger qxNodoDel" type="button" data-uid="' + escapeHtml(n.uid) +
+            '" title="Sacar el nodo del perfil y borrar su configuración">Eliminar nodo</button>' +
         '</div>' +
         '<div class="live-tune-grid">' +
           motorCfgCard(n, 0) +
@@ -1104,6 +1129,55 @@
     }
     listEl.innerHTML = html;
     if (window.AGPSteps) window.AGPSteps.bindSteppers(listEl);
+
+    // Activar/desactivar el nodo en este perfil. Es reversible y NO borra nada:
+    // el bridge saltea los nodos con habilitado===false (ver allMotors()).
+    var nhabs = listEl.querySelectorAll('.qxNodoHab');
+    for (var nh = 0; nh < nhabs.length; nh++) {
+      nhabs[nh].addEventListener('change', function () {
+        var uid = this.getAttribute('data-uid');
+        var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
+        for (var j = 0; j < ns.length; j++) {
+          if (ns[j].uid === uid) { ns[j].habilitado = this.checked; break; }
+        }
+        state.dirty = true;
+        guardarMotoresCfg();
+      });
+    }
+
+    // Eliminar el nodo: lo saca del registro curado (y de la asignación del
+    // implemento activo, que lo hace el backend) y borra su config de motores.
+    var ndels = listEl.querySelectorAll('.qxNodoDel');
+    for (var nd = 0; nd < ndels.length; nd++) {
+      ndels[nd].addEventListener('click', async function () {
+        var uid = this.getAttribute('data-uid');
+        if (!confirm('¿Eliminar el nodo ' + uid + '?\n\nSe borra su configuración de motores y se lo saca del perfil. Si el nodo vuelve a anunciarse por MQTT va a reaparecer como pendiente.')) return;
+        this.disabled = true;
+        try {
+          await fetch('/api/nodos/' + encodeURIComponent(uid), { method: 'DELETE' });
+        } catch (e) { /* seguimos igual: la config local se limpia abajo */ }
+        var ns = (state.motoresCfg && state.motoresCfg.nodos) || [];
+        state.motoresCfg.nodos = ns.filter(function (x) { return x.uid !== uid; });
+        state.dirty = true;
+        await guardarMotoresCfg();
+        renderMotores();
+        renderMotorList();
+      });
+    }
+  }
+
+  // Persiste state.motoresCfg. Se usa desde los controles de nodo, que aplican
+  // al instante en vez de esperar al botón de guardar general.
+  async function guardarMotoresCfg() {
+    try {
+      var r = await fetch('/api/quantix/motores', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state.motoresCfg)
+      });
+      var d = await r.json();
+      if (d && d.ok) state.dirty = false;
+      return d && d.ok;
+    } catch (e) { return false; }
   }
 
   function motorCfgCard(n, mi) {
@@ -2178,6 +2252,8 @@
           '<input type="number" data-cal-f="pid_time" min="10" step="5" value="' + (m.pid_time || 50) + '"></div>' +
         '<div class="field"><label>Slew/s</label>' +
           '<input type="number" data-cal-f="slew_rate_per_sec" min="0" step="100" value="' + (m.slew_rate_per_sec || 0) + '"></div>' +
+        '<div class="field"><label>Rampa dosis (Hz/s)</label>' +
+          '<input type="number" data-cal-f="target_slew_hz_per_sec" min="0" step="25" value="' + (m.target_slew_hz_per_sec || 300) + '"></div>' +
       '</div>' +
       '<div class="btn-row">' +
         '<button class="btn primary" data-pr-act="cal-apply" data-mi="' + mi + '">Aplicar calibración</button>' +
@@ -2397,6 +2473,7 @@
       if (isNaN(mref2.alpha)) mref2.alpha = 0.4;
       mref2.pid_time = parseInt(mc.querySelector('input[data-cal-f="pid_time"]').value, 10) || 50;
       mref2.slew_rate_per_sec = parseInt(mc.querySelector('input[data-cal-f="slew_rate_per_sec"]').value, 10) || 0;
+      mref2.target_slew_hz_per_sec = parseInt(mc.querySelector('input[data-cal-f="target_slew_hz_per_sec"]').value, 10) || 300;
       try {
         var pr1 = await fetch('/api/quantix/motores', {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },

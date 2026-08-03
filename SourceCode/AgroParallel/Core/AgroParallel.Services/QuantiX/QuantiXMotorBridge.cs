@@ -247,6 +247,26 @@ namespace AgroParallel.QuantiX
                     {
                         var motor = nodo.Motores[mi];
 
+                        // Canal sin motor cableado: se le manda consigna nula en vez
+                        // de saltearlo. Saltearlo dejaría al nodo con el último target
+                        // vivo hasta que actúe su watchdog (3 s), y además CommTime
+                        // dejaría de refrescarse — CheckRelays corta todas las salidas
+                        // a los 4 s sin comunicación, incluidas las de los motores que
+                        // sí funcionan.
+                        if (!motor.Habilitado)
+                        {
+                            try
+                            {
+                                await _nodos.PublishAsync(
+                                    "agp/quantix/" + nodo.Uid + "/target",
+                                    "{\"id\":" + mi + ",\"pps\":0,\"seccion_on\":false}",
+                                    false);
+                                MessagesSent++;
+                            }
+                            catch { }
+                            continue;
+                        }
+
                         // Tren del motor: derivado de sus surcos vía el
                         // implemento central, con fallback EXACTO al campo
                         // manual de siempre si no hay dato derivable.
