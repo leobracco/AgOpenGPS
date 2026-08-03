@@ -85,8 +85,19 @@ namespace PilotX.Desktop
                         _ultimaSeq = seq;
                         await Dispatcher.UIThread.InvokeAsync(() =>
                         {
-                            if (abierto) TecladoWindow.Mostrar(numerico, titulo);
-                            else TecladoWindow.Ocultar();
+                            try
+                            {
+                                if (abierto) TecladoWindow.Mostrar(numerico, titulo);
+                                else TecladoWindow.Ocultar();
+                            }
+                            catch (Exception ex)
+                            {
+                                // Sin esto, un error al construir la ventana (un XAML
+                                // que no parsea, por ejemplo) se perdía y el síntoma
+                                // era "el teclado no aparece", sin ninguna pista.
+                                System.Diagnostics.Debug.WriteLine("[teclado] " + ex);
+                                Console.WriteLine("[teclado] no pude mostrar la ventana: " + ex.Message);
+                            }
                         });
                     }
                 }

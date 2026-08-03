@@ -19,7 +19,11 @@
     <DockPanel>
 
       <!-- Barra: asa para mover + cerrar -->
-      <Grid DockPanel.Dock="Top" Margin="2,0,2,8" ColumnDefinitions="*,Auto" Name="Barra">
+      <!-- Background="Transparent" NO es decorativo: un panel sin fondo no recibe
+           eventos de puntero, y sin esto la barra no se podía agarrar para
+           mover la ventana (los botones sí respondían porque tienen fondo). -->
+      <Grid DockPanel.Dock="Top" Margin="2,0,2,8" ColumnDefinitions="*,Auto" Name="Barra"
+            Background="Transparent" Height="36">
         <TextBlock Grid.Column="0" Name="Titulo" Text="Teclado" VerticalAlignment="Center"
                    Foreground="#535E54" FontSize="13" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">

@@ -31,8 +31,11 @@ namespace PilotX.Desktop
         private static TecladoWindow? _abierta;
         private bool _numerico;
         private bool _mayus;
-        private Point _agarre;
+        private PixelPoint _agarre;
         private bool _moviendo;
+        // Ventana que estaba adelante cuando se abrió el teclado: es la que
+        // tiene el campo. Se la trae de vuelta antes de cada tecla.
+        private static IntPtr _objetivo;
 
         private static readonly string[][] LETRAS =
         {
@@ -65,24 +68,36 @@ namespace PilotX.Desktop
             var nums = this.FindControl<Button>("BtnNumeros");
             if (nums != null) nums.Click += (_, __) => { _numerico = !_numerico; Pintar(); };
 
-            // La barra es el asa: arrastrar mueve la ventana.
+            // La barra es el asa. Se mueve con coordenadas de PANTALLA: con
+            // GetPosition(this) la referencia se mueve junto con la ventana y
+            // el arrastre se peleaba consigo mismo (la ventana no iba a ningún
+            // lado). BeginMoveDrag tampoco sirve acá: la ventana está marcada
+            // como no activable y el gestor de ventanas no le arranca el drag.
             var barra = this.FindControl<Grid>("Barra");
             if (barra != null)
             {
                 barra.PointerPressed += (s, e) =>
                 {
-                    _agarre = e.GetPosition(this);
+                    var p = e.GetPosition(this);
+                    _agarre = new PixelPoint((int)p.X, (int)p.Y);
                     _moviendo = true;
+                    e.Pointer.Capture(barra);
                 };
                 barra.PointerMoved += (s, e) =>
                 {
                     if (!_moviendo) return;
-                    var p = e.GetPosition(this);
-                    Position = new PixelPoint(
-                        Position.X + (int)(p.X - _agarre.X),
-                        Position.Y + (int)(p.Y - _agarre.Y));
+                    // OJO: hay que trabajar en coordenadas de PANTALLA. Con
+                    // GetPosition(this) el marco de referencia se mueve junto con
+                    // la ventana, así que el desplazamiento daba siempre ~0 y la
+                    // ventana no se movía nunca.
+                    var enPantalla = this.PointToScreen(e.GetPosition(this));
+                    Position = new PixelPoint(enPantalla.X - _agarre.X, enPantalla.Y - _agarre.Y);
                 };
-                barra.PointerReleased += (s, e) => _moviendo = false;
+                barra.PointerReleased += (s, e) =>
+                {
+                    _moviendo = false;
+                    e.Pointer.Capture(null);
+                };
             }
             Pintar();
         }
@@ -92,6 +107,13 @@ namespace PilotX.Desktop
         /// <summary>Abre el teclado (o lo trae al frente si ya estaba).</summary>
         public static void Mostrar(bool numerico, string? titulo = null)
         {
+            // Antes de mostrar nada: la ventana de adelante ahora es la que
+            // tiene el campo enfocado. Si se capturara después, podría ser ya
+            // la del propio teclado.
+            var frente = TecladoWin32.GetForegroundWindow();
+            if (frente != IntPtr.Zero && (_abierta == null || frente != _abierta.TryGetPlatformHandle()?.Handle))
+                _objetivo = frente;
+
             if (_abierta == null)
             {
                 _abierta = new TecladoWindow();
@@ -185,6 +207,9 @@ namespace PilotX.Desktop
 
         private void Pulsar(string k)
         {
+            // SendInput escribe en la ventana enfocada: hay que asegurarse de
+            // que sea la del campo y no la del teclado.
+            TecladoWin32.DevolverFoco(_objetivo);
             switch (k)
             {
                 case "⌫": TecladoWin32.EscribirTeclaVirtual(TecladoWin32.VK_BACK); return;

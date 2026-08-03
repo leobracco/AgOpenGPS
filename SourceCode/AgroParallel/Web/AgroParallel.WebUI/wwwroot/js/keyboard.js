@@ -327,6 +327,16 @@
   // o desde un navegador común — se sigue usando el teclado HTML de siempre.
   var nativo = { disponible: false, consultado: false };
 
+  // Se consulta al cargar: si esperáramos al primer foco, esa primera vez
+  // la página ya habría reservado espacio y scrolleado (el contenido
+  // "saltaba y se achicaba" aunque el teclado fuera el de la ventana).
+  function consultarNativo() {
+    return fetch('/api/teclado/estado')
+      .then(function (r) { return r.json(); })
+      .then(function (r) { nativo.disponible = !!(r && r.nativo); nativo.consultado = true; })
+      .catch(function () { nativo.consultado = true; });
+  }
+
   function avisarHost(ruta, datos) {
     return fetch('/api/teclado/' + ruta, {
       method: 'POST',
@@ -347,9 +357,12 @@
   }
   function show(target) {
     state.target = target;
-    // Con teclado nativo, la página no dibuja nada: sólo avisa.
+    // Con teclado nativo la página NO dibuja nada y NO toca el layout:
+    // el teclado vive en otra ventana, así que no hay a quién hacerle lugar.
     pedirTecladoNativo(target).then(function (hayNativo) {
-      if (hayNativo && state.root) { state.root.classList.remove('open'); quitarEspacio(); }
+      if (!hayNativo || !state.root) return;
+      state.root.classList.remove('open');
+      quitarEspacio();
     });
     if (nativo.disponible) { state.visible = true; return; }
     state.layout = layoutFor(target);
@@ -737,6 +750,7 @@
     ensureRoot();
     bindRoot();
     bindDrag();
+    consultarNativo();
     restaurarPos();
     document.addEventListener('focusin', onFocusIn, true);
     document.addEventListener('mousedown', onPointerDown, true);

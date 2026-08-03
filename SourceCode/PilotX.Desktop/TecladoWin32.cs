@@ -123,5 +123,28 @@ namespace PilotX.Desktop
             int estilo = GetWindowLong(hWnd, GWL_EXSTYLE);
             SetWindowLong(hWnd, GWL_EXSTYLE, estilo | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
         }
+
+        // --- Devolver el foco antes de escribir ------------------------------
+        // WS_EX_NOACTIVATE evita que la ventana se active al tocarla, pero no
+        // alcanza: igual se veía perder el cursor del campo y las teclas no
+        // entraban. Así que además se guarda cuál era la ventana que estaba
+        // adelante cuando se abrió el teclado, y se la trae de vuelta justo
+        // antes de cada tecla — SendInput escribe en la que tiene el foco.
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindow(IntPtr hWnd);
+
+        /// <summary>Trae al frente la ventana que estaba editándose.</summary>
+        public static void DevolverFoco(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero || !IsWindow(hWnd)) return;
+            if (GetForegroundWindow() == hWnd) return;   // ya está
+            try { SetForegroundWindow(hWnd); } catch { }
+        }
     }
 }
