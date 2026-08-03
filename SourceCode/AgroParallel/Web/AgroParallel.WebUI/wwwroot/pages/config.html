@@ -288,8 +288,10 @@
       <button type="button" data-tab="uturn"><img loading="lazy" src="../img/config/Con_UTurnMenu.png" alt="" />U-Turn</button>
       <button type="button" data-tab="tram"><img loading="lazy" src="../img/config/Con_TramMenu.png" alt="" />Tram</button>
       <button type="button" data-mod="sonidos.html"><span class="ico-emoji">🔔</span>Sonidos</button>
-      <button type="button" data-tab="display"><img loading="lazy" src="../img/config/Con_Display.png" alt="" />Display</button>
-      <button type="button" data-tab="botones"><img loading="lazy" src="../img/config/Con_FeatureMenu.png" alt="" />Botones</button>
+      <!-- "Display" y "Botones" salieron del menú (pedido usuario 2026-08-03),
+           igual que "Pines relay". Las pantallas y su lógica siguen enteras: se
+           llega con ?tab=display y ?tab=botones. Para devolverlas al menú,
+           reponer sus botones acá. -->
       <!-- Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget, sin su
            propia sidebar) dentro de config.html, para no salir de la config
            ni cambiar de estilo (pedido usuario 2026-07-20).
