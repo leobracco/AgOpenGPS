@@ -1773,3 +1773,28 @@ plena para reconectarlo) y **el motor deja de aparecer en el overlay**.
   horizontal (1186 px) y sin eso se pierde de vista qué parámetro se toca.
 - Verificado en vivo el ciclo: habilitado → overlay muestra los 2; destildado →
   muestra 1; y el checkbox de la UI persiste en la config.
+
+### 2026-08-03 · Claude — el menú del Hub aparecía DENTRO del iframe (nodo-detalle)
+Bug reportado: entrar al detalle de un nodo (para actualizar firmware) mostraba
+el menú del Hub otra vez adentro, y desde ahí se podía seguir anidando.
+
+Causa: `config.html` embebe los módulos en un iframe con `?widget=1`, y ese
+parámetro es lo único que hace que `sidebar.js` no dibuje la barra. Al navegar
+desde `nodos.html` al detalle, el parámetro se perdía (`nodos.js` armaba la URL
+a mano) y encima `nodo-detalle.html` era la única página embebible que no tenía
+la detección de modo widget.
+
+Qué cambió:
+- `widget-mode.js` ahora **propaga** el modo: expone `AgpWidget.url()` y
+  reescribe al vuelo los `<a href>` internos. Fuera del modo widget devuelve
+  todo intacto, así el que llama no pregunta.
+- `nodo-detalle.html` carga `widget-mode.js` (antes no tenía nada).
+- `nodos.js` usa el helper en sus dos navegaciones (detalle y asistente).
+- **La detección estaba duplicada inline en 20 páginas** — esa duplicación es
+  la que dejó afuera a nodo-detalle. Todas unificadas al archivo compartido.
+  `direccion.html` NO se tocó: ahí el modo es incondicional a propósito
+  (standalone puro), no depende del query.
+
+Verificado en vivo el flujo completo: entrar al detalle conserva `&widget=1` y
+el sidebar queda en 0 px; el link 'Volver a Nodos' se reescribe solo; y abrir
+cualquiera de esas páginas fuera del Hub sigue mostrando el menú (172 px).
