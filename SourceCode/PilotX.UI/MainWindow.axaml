@@ -258,19 +258,19 @@
                   <StackPanel Orientation="Horizontal" Spacing="6">
                     <Button x:Name="BtnNudgeIzq" Width="64" Height="56" ToolTip.Tip="Corregir a la izquierda">
                       <StackPanel>
-                        <Image Source="/Assets/barra-abajo/SnapLeft.png" Height="26"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapLeft.png" Height="26"/>
                         <TextBlock Text="Izq" FontSize="10" Foreground="#535E54" HorizontalAlignment="Center"/>
                       </StackPanel>
                     </Button>
                     <Button x:Name="BtnNudgeCentro" Width="64" Height="56" ToolTip.Tip="Centrar sobre la línea">
                       <StackPanel>
-                        <Image Source="/Assets/barra-abajo/SnapToPivot.png" Height="26"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapToPivot.png" Height="26"/>
                         <TextBlock Text="Centrar" FontSize="10" Foreground="#535E54" HorizontalAlignment="Center"/>
                       </StackPanel>
                     </Button>
                     <Button x:Name="BtnNudgeDer" Width="64" Height="56" ToolTip.Tip="Corregir a la derecha">
                       <StackPanel>
-                        <Image Source="/Assets/barra-abajo/SnapRight.png" Height="26"/>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapRight.png" Height="26"/>
                         <TextBlock Text="Der" FontSize="10" Foreground="#535E54" HorizontalAlignment="Center"/>
                       </StackPanel>
                     </Button>
