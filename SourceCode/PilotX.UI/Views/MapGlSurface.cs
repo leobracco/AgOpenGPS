@@ -2323,6 +2323,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         {
             var px = _pendingTexRgba;
             _pendingTexRgba = null;
+            _ultimoTexRgba = px;          // por si hay que rehacerlo tras perder el contexto
             if (_vehicleTex == 0) _vehicleTex = _gl.GenTexture();
             _vehicleTexReady = SubirTextura(_vehicleTex, px, _pendingTexW, _pendingTexH, "vehículo");
         }
@@ -2331,6 +2332,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         {
             var px = _pendingWheelRgba;
             _pendingWheelRgba = null;
+            _ultimoWheelRgba = px;
             if (_wheelTex == 0) _wheelTex = _gl.GenTexture();
             _wheelTexReady = SubirTextura(_wheelTex, px, _pendingWheelW, _pendingWheelH, "rueda");
         }
@@ -2339,6 +2341,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         {
             var px = _pendingImplRgba;
             _pendingImplRgba = null;
+            _ultimoImplRgba = px;
             if (_implementoTex == 0) _implementoTex = _gl.GenTexture();
             _implementoTexReady = SubirTextura(_implementoTex, px, _pendingImplW, _pendingImplH, "implemento");
         }
@@ -2347,10 +2350,69 @@ public sealed class MapGlSurface : OpenGlControlBase
         {
             var px = _pendingFloorRgba;
             _pendingFloorRgba = null;
+            _ultimoFloorRgba = px;
             if (_floorTex == 0) _floorTex = _gl.GenTexture();
             // REPEAT: el piso se tilea en mundo (los sprites van CLAMP).
             _floorTexReady = SubirTextura(_floorTex, px, _pendingFloorW, _pendingFloorH, "piso", repeat: true);
         }
+    }
+
+    // Última copia subida de cada textura. Se guarda SOLO para poder rehacerla
+    // si se pierde el contexto GL: los píxeles llegan una vez desde el hilo de
+    // UI y el pendiente se consume, así que sin esto un TDR dejaba el mapa sin
+    // tractor, sin implemento y sin piso hasta reiniciar la app. Es la misma
+    // referencia que ya vino de arriba, no una copia.
+    private byte[]? _ultimoTexRgba;
+    private byte[]? _ultimoWheelRgba;
+    private byte[]? _ultimoImplRgba;
+    private byte[]? _ultimoFloorRgba;
+
+    /// <summary>
+    /// El contexto GL se murió (típicamente un TDR: Windows colgó y reseteó el
+    /// driver de video — Visor de eventos, "El controlador de pantalla dejó de
+    /// responder y se recuperó correctamente").
+    ///
+    /// OJO, la diferencia con OnOpenGlDeinit: acá NO se puede llamar a GL. El
+    /// contexto ya no existe; DeleteBuffer/DeleteProgram sobre handles muertos
+    /// fallan. Lo único correcto es SOLTAR los handles a cero y olvidar todo lo
+    /// que creíamos subido, para que Avalonia llame OnOpenGlInit sobre el
+    /// contexto nuevo y se reconstruya solo.
+    ///
+    /// Sin este override el control se quedaba con los handles muertos, el
+    /// compositor no podía importar más la imagen de GPU y el mapa quedaba
+    /// NEGRO para siempre, escribiendo ~70 KB/s de excepciones a disco.
+    /// </summary>
+    protected override void OnOpenGlLost()
+    {
+        _gl = null;
+        _initFailed = false;   // el contexto nuevo merece que se intente de nuevo
+
+        _program = 0; _vao = 0; _vbo = 0; _vboCapacityFloats = 0;
+        _texProgram = 0; _texVbo = 0;
+        _coverageVbo = 0; _guidanceVbo = 0; _parVbo = 0; _tramVbo = 0; _pathsVbo = 0;
+
+        // Las revisiones vuelven a -1 o la geometría no se re-sube: los VBO
+        // nuevos quedarían vacíos con el control creyendo que están al día.
+        _coverageRevisionUploaded = -1;
+        _tramRevisionUploaded = -1;
+        _pathsRevisionUploaded = -1;
+        _guidanceRevisionUploaded = -1;
+
+        // Texturas: soltar handles y re-encolar los píxeles guardados.
+        _vehicleTex = 0; _vehicleTexReady = false;
+        _wheelTex = 0; _wheelTexReady = false;
+        _implementoTex = 0; _implementoTexReady = false;
+        _floorTex = 0; _floorTexReady = false;
+        if (_ultimoTexRgba != null) _pendingTexRgba = _ultimoTexRgba;
+        if (_ultimoWheelRgba != null) _pendingWheelRgba = _ultimoWheelRgba;
+        if (_ultimoImplRgba != null) _pendingImplRgba = _ultimoImplRgba;
+        if (_ultimoFloorRgba != null) _pendingFloorRgba = _ultimoFloorRgba;
+
+        Console.Error.WriteLine("[MapGlSurface] contexto GL perdido: se sueltan "
+            + "los recursos y se reconstruye en el proximo init");
+
+        base.OnOpenGlLost();
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
     }
 
     /// <summary>

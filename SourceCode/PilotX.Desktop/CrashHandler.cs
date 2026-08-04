@@ -103,6 +103,40 @@ namespace PilotX.Desktop
 
                 lock (_candado)
                 {
+                    // Anti-tormenta. Una falla que se repite en el hilo de
+                    // render no llega de a una: un contexto GL perdido escribía
+                    // ~70 KB/s (medido: 413 KB en 6 s, 7.264 excepciones
+                    // idénticas) hasta llenarle el disco a la pantalla de
+                    // cabina. Repetida = se cuenta, no se reescribe.
+                    //
+                    // La firma es tipo + stack, NO el mensaje: dos fallas
+                    // distintas pueden compartir texto, y colapsarlas
+                    // escondería una de las dos.
+                    string firma = Firma(ex, err.Code, origen);
+                    if (firma == _ultimaFirma)
+                    {
+                        _repeticiones++;
+                        // Se avisa en 2, 10, 100, 1000… así queda constancia de
+                        // que sigue pasando sin escribir una entrada por vuelta.
+                        if (!EsHitoDeRepeticion(_repeticiones)) return err;
+                        RotarSiHaceFalta();
+                        File.AppendAllText(ArchivoLog,
+                            $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  [{err.Code}] " +
+                            $"...se repite, van {_repeticiones} veces seguidas " +
+                            "(mismo tipo y mismo stack)\r\n", Encoding.UTF8);
+                        return err;
+                    }
+
+                    if (_repeticiones > 1)
+                    {
+                        RotarSiHaceFalta();
+                        File.AppendAllText(ArchivoLog,
+                            $"  (la anterior se repitio {_repeticiones} veces)\r\n\r\n",
+                            Encoding.UTF8);
+                    }
+                    _ultimaFirma = firma;
+                    _repeticiones = 1;
+
                     RotarSiHaceFalta();
                     File.AppendAllText(ArchivoLog, sb.ToString(), Encoding.UTF8);
                 }
@@ -114,6 +148,45 @@ namespace PilotX.Desktop
             try { Console.Error.WriteLine($"[{err.Code}] {err.Friendly} ({origen}, fatal={fatal})"); } catch { }
 
             return err;
+        }
+
+        // ---- Anti-tormenta de errores repetidos ---------------------------
+        private static string _ultimaFirma;
+        private static long _repeticiones;
+
+        /// <summary>
+        /// Identidad de la falla: tipo + stack de toda la cadena, más el código
+        /// y el origen. El MENSAJE queda afuera a propósito — suele traer datos
+        /// variables (rutas, ids) que harían distinta cada repetición y el
+        /// dedup no agarraría nunca.
+        /// </summary>
+        private static string Firma(Exception ex, string codigo, string origen)
+        {
+            var sb = new StringBuilder(codigo).Append('|').Append(origen);
+            var e = ex;
+            int nivel = 0;
+            while (e != null && nivel < 8)
+            {
+                sb.Append('|').Append(e.GetType().FullName)
+                  .Append('#').Append(e.StackTrace ?? "");
+                e = e.InnerException;
+                nivel++;
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>2, 10, 100, 1000… — escala con la tormenta en vez de
+        /// escribir una línea por repetición.</summary>
+        private static bool EsHitoDeRepeticion(long n)
+        {
+            if (n == 2) return true;
+            long hito = 10;
+            while (hito <= n)
+            {
+                if (n == hito) return true;
+                hito *= 10;
+            }
+            return false;
         }
 
         /// <summary>
