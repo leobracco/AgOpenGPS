@@ -2230,11 +2230,12 @@ public partial class MainWindow : Window
         if (hostH < 80 || hostW < 200) return;
         double w = _nudgeOverlay.Bounds.Width > 0 ? _nudgeOverlay.Bounds.Width : 220;
         double h = _nudgeOverlay.Bounds.Height > 0 ? _nudgeOverlay.Bounds.Height : 70;
-        // Centrado respecto del mapa (corrido del menú lateral) y despegado del
-        // borde: abajo de todo están las secciones, que no hay que tapar.
+        // Centrado respecto del mapa (corrido del menú lateral) y BIEN despegado
+        // del borde inferior: el canvas se extiende por debajo de la barra de
+        // secciones, así que con poco margen el overlay quedaba cortado por ella.
         double x = Math.Max(150, (hostW - w) / 2);
         Canvas.SetLeft(_nudgeOverlay, x);
-        Canvas.SetTop(_nudgeOverlay, hostH - h - 12);
+        Canvas.SetTop(_nudgeOverlay, Math.Max(0, hostH - h - 96));
     }
 
     private void UbicarVxStrip()
