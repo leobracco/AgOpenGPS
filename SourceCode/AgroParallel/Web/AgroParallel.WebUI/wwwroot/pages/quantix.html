@@ -81,6 +81,22 @@
     .motor-cfg.m1 { border-left-color: #E27A0F; }
     .motor-cfg h4 { margin: 0 0 var(--agp-sp-2) 0; }
 
+    /* Vista previa de la capa de prescripción (tab Shape). Sin esto la tarjeta
+       decía que había una capa activa pero no se podía ver qué contenía. */
+    .shape-preview { margin-top: var(--agp-sp-3); }
+    .shape-preview svg {
+      display: block; width: 100%; max-height: 260px;
+      background: var(--agp-bg-soft);
+      border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-md);
+    }
+    .shape-preview-pie {
+      display: flex; flex-wrap: wrap; gap: var(--agp-sp-3);
+      margin-top: var(--agp-sp-2);
+      font-size: var(--agp-fs-sm); color: var(--agp-text-muted);
+    }
+    .shape-preview-pie b { color: var(--agp-text); font-family: var(--agp-font-mono); }
+
     /* ===== Selector de MOTOR (tabs Motores, PID live, Calibración, Prueba) =====
        Se muestra un motor por vez: todos juntos no se leen (en tarjetas hay que
        ir en zigzag, y en tabla con 7 canales queda ilegible). Estilo pestaña,

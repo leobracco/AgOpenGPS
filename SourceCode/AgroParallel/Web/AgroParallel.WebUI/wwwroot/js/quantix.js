@@ -2794,9 +2794,74 @@
           '<div class="lbl" style="font-size:var(--agp-fs-xs);color:var(--agp-text-muted);text-transform:uppercase">Columnas DBF</div>' +
           '<div class="shape-required-grid" style="margin:0">' + fieldsHtml + '</div>' +
         '</div>';
+      // La vista previa se agrega aparte: si falla, la ficha de arriba
+      // igual queda mostrando el archivo y las columnas.
+      try { box.innerHTML += await shapePreviewHtml(); } catch (e) { }
     } catch (e) {
       box.innerHTML = '<div class="subtitle">Error consultando PilotX: ' + e.message + '</div>';
     }
+  }
+
+
+  // Vista previa de la capa de prescripción. Antes la tarjeta sólo decía el
+  // nombre del archivo y las columnas: no había forma de ver QUÉ tiene la capa,
+  // y con un nombre parecido no se podía confirmar si era la del lote correcto.
+  // Se dibuja con la misma geometría y los mismos colores que usa el mapa.
+  async function shapePreviewHtml() {
+    var r = await fetch('/api/aog/shape', { cache: 'no-store' });
+    var d = await r.json();
+    var pol = (d && d.polygons) || [];
+    if (!pol.length) return '';
+
+    // Los anillos vienen como [x0,y0,x1,y1,…] en metros locales; se normalizan
+    // al viewBox conservando la proporción (si no, el lote sale deformado).
+    // OJO: rings es un array DE ANILLOS, y cada anillo es el plano
+    // [x0,y0,x1,y1,…]. Tratarlo como plano hacía que no entrara ningún punto y
+    // la vista previa saliera vacía sin decir nada.
+    var anillosDe = function (z) {
+      var rs = z.rings || [];
+      return (rs.length && Array.isArray(rs[0])) ? rs : [rs];
+    };
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    pol.forEach(function (z) {
+      anillosDe(z).forEach(function (a) {
+        for (var i = 0; i + 1 < a.length; i += 2) {
+          if (a[i] < minX) minX = a[i];
+          if (a[i] > maxX) maxX = a[i];
+          if (a[i + 1] < minY) minY = a[i + 1];
+          if (a[i + 1] > maxY) maxY = a[i + 1];
+        }
+      });
+    });
+    if (!isFinite(minX)) return '';
+    var anchoM = Math.max(1, maxX - minX), altoM = Math.max(1, maxY - minY);
+
+    var paths = pol.map(function (z) {
+      var col = 'rgba(' + (z.r | 0) + ',' + (z.g | 0) + ',' + (z.b | 0) + ',' +
+        ((z.a != null ? z.a : 255) / 255).toFixed(2) + ')';
+      return anillosDe(z).map(function (a) {
+        var pts = [];
+        for (var i = 0; i + 1 < a.length; i += 2) {
+          // El norte crece hacia arriba y la Y del SVG hacia abajo: se invierte.
+          pts.push((a[i] - minX).toFixed(1) + ',' + (maxY - a[i + 1]).toFixed(1));
+        }
+        if (pts.length < 3) return '';
+        return '<polygon points="' + pts.join(' ') + '" fill="' + col + '" stroke="#535E54" stroke-width="1" vector-effect="non-scaling-stroke"/>';
+      }).join('');
+    }).join('');
+
+    var rango = (d.style_min != null && d.style_max != null && d.style_min !== d.style_max)
+      ? ('<span class="u">' + d.style_min + ' – ' + d.style_max + '</span>')
+      : '';
+    return '<div class="shape-preview">' +
+      '<svg viewBox="0 0 ' + anchoM.toFixed(1) + ' ' + altoM.toFixed(1) + '" preserveAspectRatio="xMidYMid meet">' +
+        paths + '</svg>' +
+      '<div class="shape-preview-pie">' +
+        '<span>' + pol.length + ' zona' + (pol.length === 1 ? '' : 's') + '</span>' +
+        (d.style_field ? '<span>campo <b>' + escapeHtml(d.style_field) + '</b></span>' : '') +
+        (rango ? '<span>dosis ' + rango + '</span>' : '') +
+        '<span class="u">' + Math.round(anchoM) + ' × ' + Math.round(altoM) + ' m</span>' +
+      '</div></div>';
   }
 
   function shapeSetMsg(state, text) {
