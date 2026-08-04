@@ -122,28 +122,6 @@
         </StackPanel>
       </StackPanel>
 
-      <!-- Subidos desde la barra de abajo (pedido usuario 2026-08-04): guía de
-           por medio y los dos de corte por cabecera. Se usan a cada rato
-           durante la pasada, y abajo quedaban lejos de la vista. -->
-      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
-                  VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,8,0">
-        <Button Classes="tab" IsEnabled="{Binding YouSkipVisible}"
-                Command="{Binding SendCommand}" CommandParameter="uturn_skips"
-                ToolTip.Tip="Guía de por medio">
-          <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}" Height="26"/>
-        </Button>
-        <Button Classes="tab" IsEnabled="{Binding HeadlandVisible}"
-                Command="{Binding SendCommand}" CommandParameter="cabecera_secciones"
-                ToolTip.Tip="Corte por cabecera: secciones">
-          <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}" Height="26"/>
-        </Button>
-        <Button Classes="tab" IsEnabled="{Binding HeadlandVisible}"
-                Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"
-                ToolTip.Tip="Corte por cabecera: activar">
-          <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}" Height="26"/>
-        </Button>
-      </StackPanel>
-
       <!-- ===== tabs ===== -->
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
         <Button Classes="tab" Content="TRABAJO"
@@ -153,7 +131,28 @@
             <Ellipse Width="8" Height="8" VerticalAlignment="Center"
                      Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
             <TextBlock Text="GPS" VerticalAlignment="Center"/>
-          </StackPanel>
+            <!-- Subidos de la barra de abajo (pedido usuario 2026-08-04): guía de
+             por medio y los dos de corte por cabecera. Se usan a cada rato
+             durante la pasada y abajo quedaban lejos de la vista. Van DENTRO
+             de la fila de tabs: en su propio StackPanel quedaban en la misma
+             celda del Grid y no se veían. Siempre visibles, deshabilitados
+             cuando no aplican. -->
+        <Button Classes="tab" IsEnabled="{Binding YouSkipVisible}"
+                Command="{Binding SendCommand}" CommandParameter="uturn_skips"
+                ToolTip.Tip="Guía de por medio">
+          <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}" Height="24"/>
+        </Button>
+        <Button Classes="tab" IsEnabled="{Binding HeadlandVisible}"
+                Command="{Binding SendCommand}" CommandParameter="cabecera_secciones"
+                ToolTip.Tip="Corte por cabecera: secciones">
+          <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}" Height="24"/>
+        </Button>
+        <Button Classes="tab" IsEnabled="{Binding HeadlandVisible}"
+                Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"
+                ToolTip.Tip="Corte por cabecera: activar">
+          <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}" Height="24"/>
+        </Button>
+      </StackPanel>
         </Button>
         <Button Classes="tab" Content="{Binding LoteText}" IsEnabled="{Binding LoteEnabled}"
                 Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
