@@ -1,4 +1,7 @@
+using System;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using PilotX.Cockpit.Bars.Services;
 
 namespace PilotX.Cockpit.Bars.ViewModels;
@@ -11,7 +14,47 @@ namespace PilotX.Cockpit.Bars.ViewModels;
 /// </summary>
 public sealed partial class BarraDerechaViewModel : BarViewModelBase
 {
-    public BarraDerechaViewModel(GuidanceCommandClient cmd) : base(cmd) { }
+    // Auto-repliegue por inactividad, igual que el menú izquierdo: el operario
+    // no tiene por qué acordarse de cerrar la barra, y el mapa recupera el
+    // lugar solo. Mismo minuto que MenuIzquierdaViewModel — si las dos barras
+    // se replegaran con tiempos distintos parecería que una está fallada.
+    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromMinutes(1);
+    private readonly DispatcherTimer _inactivityTimer;
+
+    public BarraDerechaViewModel(GuidanceCommandClient cmd) : base(cmd)
+    {
+        _inactivityTimer = new DispatcherTimer { Interval = InactivityTimeout };
+        _inactivityTimer.Tick += (_, _) =>
+        {
+            _inactivityTimer.Stop();
+            if (IsCollapsed) return;
+            IsCollapsed = true;
+        };
+        _inactivityTimer.Start();
+    }
+
+    /// <summary>Barra plegada a la pestaña del handle, para no comerle lugar
+    /// al mapa. El handle queda SIEMPRE visible: es la única forma de
+    /// volver a desplegarla.</summary>
+    [ObservableProperty] private bool _isCollapsed;
+
+    [RelayCommand]
+    private void ToggleCollapsed()
+    {
+        IsCollapsed = !IsCollapsed;
+        _inactivityTimer.Stop();
+        if (!IsCollapsed) _inactivityTimer.Start();
+    }
+
+    /// <summary>La llama el code-behind ante CUALQUIER toque dentro de la
+    /// barra: así el minuto se cuenta desde el último toque, no desde que se
+    /// desplegó.</summary>
+    public void NotifyActivity()
+    {
+        if (IsCollapsed) return;
+        _inactivityTimer.Stop();
+        _inactivityTimer.Start();
+    }
 
     private const string D = "barra-derecha/";
     // Bajada de la barra de abajo: el color de la bandera es estado.

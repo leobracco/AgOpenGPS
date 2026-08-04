@@ -3,11 +3,18 @@
         xmlns:ctl="clr-namespace:PilotX.Desktop.Controls"
         xmlns:vw="clr-namespace:PilotX.Desktop.Views"
         xmlns:bars="clr-namespace:PilotX.Cockpit.Bars.Views;assembly=PilotX.Cockpit.Bars"
+        xmlns:barsvm="clr-namespace:PilotX.Cockpit.Bars.ViewModels;assembly=PilotX.Cockpit.Bars"
         x:Class="PilotX.Desktop.MainWindow"
         Width="1280" Height="800"
         Background="{StaticResource PilotXBgDeep}"
         TransparencyLevelHint="Transparent"
         Title="PilotX">
+    <!-- El mismo conversor de íconos que usan las barras del cockpit: los
+         botones del overlay de pasada muestran ESTADO (piloto on/off, manual
+         on/off), así que la imagen viene del ViewModel, no fija en el XAML. -->
+    <Window.Resources>
+        <bars:AssetImageConverter x:Key="Asset"/>
+    </Window.Resources>
     <!--
         Chrome cockpit:
          · En modo "full" (default): borderless maximizado, sin header,
@@ -248,54 +255,119 @@
                      mapa; se auto-minimiza cerca de la cabecera. Toggle:
                      vx_overlay de overlayPrefs (mismo que WinForms). -->
                 <vw:VistaXMapStrip x:Name="VxMapStrip" IsVisible="False"/>
-                <!-- Corrección lateral: flotante y centrado abajo, justo arriba
-                     de las secciones. Son tres botones que se tocan mirando la
-                     línea, no la barra lateral. Se muestra solo con guía activa
-                     (sin guía no hay a qué corregirse). -->
-                <Border x:Name="NudgeOverlay" IsVisible="False"
+                <!-- Overlay de la pasada: flotante y centrado abajo, justo
+                     arriba de las secciones. Lo que el operario toca MIRANDO la
+                     línea, no la barra lateral: corrección lateral (izq /
+                     centrar / der), piloto, giro y el manual/auto de secciones
+                     (pedido usuario 2026-08-04 — los cuatro bajaron de la barra
+                     derecha).
+
+                     Visible SIEMPRE, no solo con guía: lo que no aplica queda
+                     gris pero en su lugar. Es la misma convención de la barra
+                     derecha — el overlay no se mueve solo y el operario ve qué
+                     hay disponible. Si desapareciera con la guía, sin guía se
+                     quedaba sin manual/auto de secciones, que sí aplican.
+
+                     DataContext = BarraDerechaViewModel (lo asigna el
+                     code-behind): los íconos son ESTADO y los comandos son los
+                     mismos verbos que mandaba la barra. -->
+                <Border x:Name="NudgeOverlay" IsVisible="True"
+                        x:DataType="barsvm:BarraDerechaViewModel"
                         Background="#EEF5F7F4" BorderBrush="#C5CFC5" BorderThickness="1"
                         CornerRadius="10" Padding="6">
+                  <Border.Styles>
+                    <!-- Ícono apagado cuando el botón no aplica: sin esto se ven
+                         igual de vivos deshabilitados y el operario los toca
+                         esperando que hagan algo. -->
+                    <Style Selector="Button:disabled Image">
+                      <Setter Property="Opacity" Value="0.35"/>
+                    </Style>
+                    <Style Selector="TextBlock.cap">
+                      <Setter Property="FontSize" Value="10"/>
+                      <Setter Property="Foreground" Value="#535E54"/>
+                      <Setter Property="HorizontalAlignment" Value="Center"/>
+                    </Style>
+                    <Style Selector="Rectangle.sep">
+                      <Setter Property="Width" Value="1"/>
+                      <Setter Property="Fill" Value="#C5CFC5"/>
+                      <Setter Property="Margin" Value="2,4"/>
+                    </Style>
+                  </Border.Styles>
                   <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button x:Name="BtnNudgeIzq" Width="64" Height="56" ToolTip.Tip="Corregir a la izquierda">
+                    <!-- Corrección lateral: sin guía no hay a qué corregirse. -->
+                    <Button x:Name="BtnNudgeIzq" Width="64" Height="56"
+                            IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Corregir a la izquierda">
                       <StackPanel>
                         <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapLeft.png" Height="26"/>
-                        <TextBlock Text="Izq" FontSize="10" Foreground="#535E54" HorizontalAlignment="Center"/>
+                        <TextBlock Classes="cap" Text="Izq"/>
                       </StackPanel>
                     </Button>
-                    <Button x:Name="BtnNudgeCentro" Width="64" Height="56" ToolTip.Tip="Centrar sobre la línea">
+                    <Button x:Name="BtnNudgeCentro" Width="64" Height="56"
+                            IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Centrar sobre la línea">
                       <StackPanel>
                         <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapToPivot.png" Height="26"/>
-                        <TextBlock Text="Centrar" FontSize="10" Foreground="#535E54" HorizontalAlignment="Center"/>
+                        <TextBlock Classes="cap" Text="Centrar"/>
                       </StackPanel>
                     </Button>
-                    <Button x:Name="BtnNudgeDer" Width="64" Height="56" ToolTip.Tip="Corregir a la derecha">
+                    <Button x:Name="BtnNudgeDer" Width="64" Height="56"
+                            IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Corregir a la derecha">
                       <StackPanel>
                         <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/SnapRight.png" Height="26"/>
-                        <TextBlock Text="Der" FontSize="10" Foreground="#535E54" HorizontalAlignment="Center"/>
+                        <TextBlock Classes="cap" Text="Der"/>
+                      </StackPanel>
+                    </Button>
+
+                    <Rectangle Classes="sep"/>
+
+                    <!-- Piloto: habilitado con guía o contorno. -->
+                    <Button x:Name="BtnOvPiloto" Width="64" Height="56"
+                            IsEnabled="{Binding PilotoEnabled}"
+                            Command="{Binding SendCommand}" CommandParameter="autosteer"
+                            ToolTip.Tip="Piloto automático">
+                      <StackPanel>
+                        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Piloto"/>
+                      </StackPanel>
+                    </Button>
+                    <!-- Giro en cabecera: pide guía + lindero y sin contorno. -->
+                    <Button x:Name="BtnOvGiro" Width="64" Height="56"
+                            IsEnabled="{Binding UturnVisible}"
+                            Command="{Binding SendCommand}" CommandParameter="uturn"
+                            ToolTip.Tip="Giro automático en cabecera">
+                      <StackPanel>
+                        <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Giro"/>
+                      </StackPanel>
+                    </Button>
+
+                    <Rectangle Classes="sep"/>
+
+                    <!-- Secciones: siempre disponibles, con o sin guía. Más
+                         anchos que el resto porque "Automático" no entra en
+                         64 px y cortado no se lee. -->
+                    <Button x:Name="BtnOvSecManual" Width="80" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="sec_manual"
+                            ToolTip.Tip="Secciones en manual">
+                      <StackPanel>
+                        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Manual"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOvSecAuto" Width="80" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="sec_auto"
+                            ToolTip.Tip="Secciones en automático">
+                      <StackPanel>
+                        <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Automático"/>
                       </StackPanel>
                     </Button>
                   </StackPanel>
                 </Border>
             </Canvas>
 
-            <!-- Zoom del mapa: la cabina es táctil (sin rueda). Columna a la
-                 derecha, arriba de la barra derecha del cockpit para no
-                 pisarla. Sin Background en el StackPanel: solo los botones
-                 interceptan el toque. -->
-            <StackPanel Name="MapZoomHost" Grid.Row="2" Spacing="10"
-                        HorizontalAlignment="Right" VerticalAlignment="Center"
-                        Margin="0,0,72,0">
-                <Button Name="BtnZoomIn" Content="+" Width="56" Height="56"
-                        FontSize="30" FontWeight="Bold"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Background="#D9FFFFFF" Foreground="#101612"
-                        BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
-                <Button Name="BtnZoomOut" Content="−" Width="56" Height="56"
-                        FontSize="30" FontWeight="Bold"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                        Background="#D9FFFFFF" Foreground="#101612"
-                        BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
-            </StackPanel>
+            <!-- El zoom del mapa se mudó ARRIBA de la barra derecha del cockpit
+                 (ver CockpitBarsHost, más abajo): flotaba suelto sobre el mapa
+                 y tapaba lo que el operario estaba mirando. -->
 
             <!-- =================== CLUSTER DEL PILOTO =================== -->
             <!--
@@ -571,10 +643,31 @@
                                     Grid.Row="1"
                                     HorizontalAlignment="Left" VerticalAlignment="Stretch"
                                     Width="316"/>
-                <bars:BarraDerecha  x:Name="BarDerecha"
-                                    Grid.Row="1"
-                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                    Width="58"/>
+                <!-- Zoom + barra derecha en la MISMA columna, los dos colgando
+                     de abajo. Van en un solo StackPanel a propósito: la barra
+                     cambia de alto según cuántos botones apliquen en el momento,
+                     así que un margen fijo dejaría el zoom pisándola o flotando
+                     lejos. Apilados, el zoom queda siempre justo arriba.
+                     Sin Background: solo los botones interceptan el toque. -->
+                <!-- Sin Width fijo: la barra se pliega sola por inactividad y
+                     ahí mide solo el handle. Un ancho clavado dejaría 58 px de
+                     aire tapando el mapa justo cuando se replegó para liberarlo. -->
+                <StackPanel Grid.Row="1" Spacing="6"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                    <Button Name="BtnZoomIn" Content="+" Width="50" Height="50"
+                            HorizontalAlignment="Right" Margin="0,0,4,2"
+                            FontSize="26" FontWeight="Bold"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            Background="#D9FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
+                    <Button Name="BtnZoomOut" Content="−" Width="50" Height="50"
+                            HorizontalAlignment="Right" Margin="0,0,4,6"
+                            FontSize="26" FontWeight="Bold"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            Background="#D9FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
+                    <bars:BarraDerecha x:Name="BarDerecha" HorizontalAlignment="Right"/>
+                </StackPanel>
                 <bars:BarraAbajo    x:Name="BarAbajo"
                                     Grid.Row="2" HorizontalAlignment="Stretch"/>
             </Grid>
