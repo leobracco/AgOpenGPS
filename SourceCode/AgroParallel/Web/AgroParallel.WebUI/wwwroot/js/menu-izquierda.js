@@ -66,7 +66,7 @@
       titulo: 'Lote',
       items: [
         { img: 'FileOpen.png', label: 'Continuar', cmd: 'lote_continuar' },
-        { img: 'FileOpen.png', label: 'Abrir', cmd: 'lote_menu' },
+        { img: 'FileOpen.png', label: 'Abrir', cmd: 'lote_abrir' },
         { img: 'FileNew.png', label: 'Nuevo', cmd: 'lote_nuevo' },
         { img: 'FileNew.png', label: 'Nuevo desde KML', cmd: 'lote_kml' },
         { img: 'SwitchOff.png', label: 'Cerrar', cmd: 'lote_cerrar' }

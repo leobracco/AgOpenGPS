@@ -2397,6 +2397,11 @@ public partial class MainWindow : Window
             // es "abrí el último y listo"). El backend resuelve __resume__.
             case "lote_continuar":
                 ContinuarUltimoLote(); return true;
+            // "Abrir" va DERECHO al listado de lotes. Antes mandaba
+            // lote_menu, que abre el menú entero otra vez: el operario tocaba
+            // Abrir y le aparecía una ventana con Abrir/Nuevo/Continuar de nuevo.
+            case "lote_abrir":
+                OpenDialogPage("pages/lote.html?do=abrir", "Abrir lote", 670, 610); return true;
             case "lote_nuevo":
                 OpenDialogPage("pages/lote.html?do=nuevo", "Nuevo lote", 670, 610); return true;
             case "lote_kml":

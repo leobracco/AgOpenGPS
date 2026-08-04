@@ -221,6 +221,8 @@ namespace PilotX.Desktop.Views
                 case "direccion": OpenPage("pages/direccion.html", "Dirección"); return true;
                 case "lote_menu":      OpenPage("pages/lote.html", "Lote"); return true;
                 case "lote_continuar": OpenPage("pages/lote.html?do=continuar", "Lote"); return true;
+                // "Abrir" va derecho al listado (ver nota en MainWindow).
+                case "lote_abrir":     OpenPage("pages/lote.html?do=abrir", "Abrir lote"); return true;
                 case "lote_nuevo":     OpenPage("pages/lote.html?do=nuevo", "Nuevo lote"); return true;
                 case "lote_kml":       OpenPage("pages/lote.html?do=kml", "Lote desde KML"); return true;
                 case "lote_datos":     OpenPage("pages/datos-lote.html", "Datos del lote"); return true;
