@@ -23,11 +23,52 @@
     <Style Selector="Button:disabled Image">
       <Setter Property="Opacity" Value="0.35"/>
     </Style>
+
+    <!-- Handle de plegado. Mismo lenguaje que el del menú izquierdo para que
+         se lea como el mismo gesto, no como dos cosas distintas. -->
+    <Style Selector="Button.collapseToggle">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Width" Value="18"/>
+      <Setter Property="VerticalAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.collapseToggle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E2E7E2"/>
+    </Style>
+    <Style Selector="TextBlock.collapseGlyph">
+      <Setter Property="FontSize" Value="16"/>
+      <Setter Property="Foreground" Value="#535E54"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
   </UserControl.Styles>
 
   <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1,0,0,0" Padding="3">
-    <!-- orden visual arriba->abajo (numCu arriba, Piloto abajo, como el nativo) -->
-    <StackPanel Orientation="Vertical" Spacing="3">
+    <!-- Handle a la IZQUIERDA (el lado del mapa) y flechas espejadas respecto
+         del menú izquierdo: acá "‹" despliega y "›" repliega. Queda siempre
+         visible, incluso plegada — es la única forma de volver a abrirla. -->
+    <Grid ColumnDefinitions="Auto,*">
+      <Button Grid.Column="0" Classes="collapseToggle" Margin="0,0,3,0"
+              Command="{Binding ToggleCollapsedCommand}"
+              ToolTip.Tip="Mostrar/ocultar la barra">
+        <Panel>
+          <TextBlock Classes="collapseGlyph" Text="‹" IsVisible="{Binding IsCollapsed}"/>
+          <TextBlock Classes="collapseGlyph" Text="›" IsVisible="{Binding !IsCollapsed}"/>
+        </Panel>
+      </Button>
+
+    <!-- orden visual arriba->abajo (numCu arriba, Piloto abajo, como el nativo)
+
+         Width FIJO acá, no en el control entero: los botones tienen que medir
+         todos lo mismo (si no, "Cab. secc." ensancha más que "Tram" y la barra
+         queda dentada), pero el ancho tiene que DESAPARECER al plegarse. Poner
+         el ancho en el UserControl hacía una cosa o la otra, nunca las dos. -->
+    <StackPanel Grid.Column="1" Orientation="Vertical" Spacing="3"
+                Width="56" IsVisible="{Binding !IsCollapsed}">
       <TextBlock Text="{Binding NumCuText}" IsVisible="{Binding NumCuVisible}"
                  FontSize="14" FontWeight="Bold" Foreground="#101612"
                  HorizontalAlignment="Center" Margin="0,1"/>
@@ -67,24 +108,12 @@
           <TextBlock Classes="cap" Text="ISOBUS"/>
         </StackPanel>
       </Button>
-      <Button Command="{Binding SendCommand}" CommandParameter="sec_manual">
-        <StackPanel>
-          <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}"/>
-          <TextBlock Classes="cap" Text="Manual"/>
-        </StackPanel>
-      </Button>
-      <Button Command="{Binding SendCommand}" CommandParameter="sec_auto">
-        <StackPanel>
-          <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}"/>
-          <TextBlock Classes="cap" Text="Auto"/>
-        </StackPanel>
-      </Button>
-      <Button IsVisible="{Binding UturnVisible}" Command="{Binding SendCommand}" CommandParameter="uturn">
-        <StackPanel>
-          <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
-          <TextBlock Classes="cap" Text="Giro"/>
-        </StackPanel>
-      </Button>
+      <!-- Manual / Auto de secciones y Giro SE FUERON al overlay flotante de
+           la pasada (MainWindow: NudgeOverlay), junto a la corrección lateral
+           y al Piloto — pedido usuario 2026-08-04. Todo lo que se toca
+           mirando la línea quedó junto y al alcance; duplicarlo acá solo
+           robaba barra. Los bindings (SecManualImg, SecAutoImg, UturnVisible,
+           UturnImg) siguen vivos en el ViewModel: los consume el overlay. -->
 
       <!-- La corrección lateral (izq/der/centrar) se fue a un overlay
            flotante sobre el mapa, centrado arriba de las secciones: son tres
@@ -162,13 +191,9 @@
            PcGiroIzq/PcGiroDer/PcSkipMenos/PcSkipMas). Duplicados en la barra
            solo robaban lugar. Los bindings (GiroManualVisible, LateralVisible,
            SaltosPosibles, SaltoDelGiro) siguen vivos en el ViewModel por si
-           alguna vista los quiere. -->
-      <Button IsEnabled="{Binding PilotoEnabled}" Command="{Binding SendCommand}" CommandParameter="autosteer">
-        <StackPanel>
-          <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}"/>
-          <TextBlock Classes="cap" Text="Piloto"/>
-        </StackPanel>
-      </Button>
+           alguna vista los quiere. El Piloto también bajó de acá al overlay
+           flotante de la pasada (MainWindow: NudgeOverlay). -->
     </StackPanel>
+    </Grid>
   </Border>
 </UserControl>

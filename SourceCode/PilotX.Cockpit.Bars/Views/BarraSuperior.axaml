@@ -152,24 +152,21 @@
         </Button>
       </StackPanel>
 
-      <!-- ===== línea de guía (‹ nº ›) ===== -->
+      <!-- ===== ritmo de trabajo (ha/h) =====
+           Acá estaba el contador de guías ("‹ 1/2 ›"). Se fue por pedido del
+           usuario: qué guía se está siguiendo ya se ve en el mapa y en la barra
+           derecha, y el número solo no le decía nada al operario. El ritmo de
+           trabajo, en cambio, no estaba en ninguna pantalla.
+
+           Las flechas ‹ › de guía anterior/siguiente que vivían acá NO se
+           pierden: siguen en la barra derecha como "Guía ant." y "Guía sig.",
+           donde ya estaban duplicadas. -->
       <Border Grid.Column="3" VerticalAlignment="Center"
-              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="13"
-              Padding="5,0" IsVisible="{Binding LineVisible}">
-        <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-          <Button Classes="arrow" Content="‹" Command="{Binding SendCommand}" CommandParameter="track_prev"/>
-          <Border Height="32" MinWidth="52" CornerRadius="9" Padding="10,0"
-                  VerticalAlignment="Center">
-            <Border.Background>
-              <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                <GradientStop Offset="0" Color="#55C646"/>
-                <GradientStop Offset="1" Color="#3DAF35"/>
-              </LinearGradientBrush>
-            </Border.Background>
-            <TextBlock Text="{Binding LineBadge}" FontSize="16" FontWeight="Black" Foreground="#FFFFFF"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-          </Border>
-          <Button Classes="arrow" Content="›" Command="{Binding SendCommand}" CommandParameter="track_next"/>
+              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10"
+              Padding="12,2" MinWidth="76" IsVisible="{Binding HaHoraVisible}">
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock Classes="televal" Text="{Binding HaHoraText}"/>
+          <TextBlock Classes="telelbl" Text="HA/H"/>
         </StackPanel>
       </Border>
 

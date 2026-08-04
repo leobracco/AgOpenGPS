@@ -2104,13 +2104,10 @@ public partial class MainWindow : Window
         bool hasT = !double.IsNaN(_lastTractorHeadingDeg);
         bool hasG = !double.IsNaN(_lastGuideHeadingDeg);
 
-        // El overlay de corrección lateral solo tiene sentido con guía: es
-        // corregirse RESPECTO de la línea. Acá ya sabemos si hay.
-        if (_nudgeOverlay != null && _nudgeOverlay.IsVisible != hasG)
-        {
-            _nudgeOverlay.IsVisible = hasG;
-            if (hasG) UbicarNudgeOverlay();
-        }
+        // El overlay de la pasada NO se prende y apaga con la guía: queda fijo
+        // y cada botón se habilita solo (bindings del BarraDerechaViewModel).
+        // Antes aparecía/desaparecía y el operario perdía de vista el
+        // manual/auto de secciones, que aplica con o sin guía.
 
         string s;
         if (!hasG)
@@ -2186,6 +2183,18 @@ public partial class MainWindow : Window
                 if (e.Property == BoundsProperty) UbicarVxStrip();
                 if (e.Property == BoundsProperty) UbicarNudgeOverlay();
             };
+        }
+
+        // El overlay de la pasada arranca visible, así que hay que centrarlo
+        // apenas mide: su ancho depende de cuántos botones entraron y del
+        // largo de los títulos, no es fijo.
+        if (_nudgeOverlay != null)
+        {
+            _nudgeOverlay.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == BoundsProperty) UbicarNudgeOverlay();
+            };
+            UbicarNudgeOverlay();
         }
 
         // Al soltarlo se guarda dónde quedó. El POST hace merge, así que esto
@@ -2328,6 +2337,10 @@ public partial class MainWindow : Window
         if (_barDerecha  != null) _barDerecha.DataContext  = _vmDer;
         if (_barAbajo    != null) _barAbajo.DataContext    = _vmAba;
         if (_menuIzq     != null) _menuIzq.DataContext      = _vmIzq;
+        // El overlay de la pasada muestra los mismos estados que la barra
+        // derecha (piloto on/off, giro, manual/auto de secciones): comparte su
+        // ViewModel en vez de duplicar el snapshot.
+        if (_nudgeOverlay != null) _nudgeOverlay.DataContext = _vmDer;
 
         // Ensanchar/angostar el menú izquierdo al abrir/cerrar un submenú
         // (equivalente al resize de la ventana en el Host). Sin ancho extra el

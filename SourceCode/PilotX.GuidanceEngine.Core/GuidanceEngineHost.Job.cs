@@ -101,6 +101,31 @@ namespace AgOpenGPS
             GuardarCoberturaPendiente();
             GuardarRestoDelLote();
 
+            // Apagar el GUIADO, no solo soltar el lote.
+            //
+            // Cerrar limpiaba los datos del lote (guías, lindero, parches) pero
+            // dejaba prendido el guiado ACTIVO, que es estado aparte. Quedaba:
+            //   · el piloto ENGANCHADO sin lote — una máquina que sigue
+            //     corrigiendo la dirección sola contra una línea de un lote que
+            //     ya no está abierto;
+            //   · el giro automático armado;
+            //   · la línea AB/curva todavía válida, así que
+            //     /api/aog/guidance/geometry la seguía sirviendo y el mapa la
+            //     seguía dibujando aunque /api/aog/tracks devolviera vacío.
+            //
+            // Es la misma secuencia que usa ToggleContour al apagar contorno
+            // (Commands.cs), que es donde ya estaba resuelto cómo se deja el
+            // guiado en frío. El orden importa: primero soltar el piloto y
+            // recién después invalidar las líneas.
+            if (isBtnAutoSteerOn) ((IAutoSteerHost)this).PerformAutoSteerClick();
+            Yt.isYouTurnBtnOn = false;
+            Yt.ResetYouTurn();
+            if (ABLineField != null) ABLineField.isABValid = false;
+            if (CurveField != null) CurveField.isCurveValid = false;
+            Ct.isContourBtnOn = false;
+            Ct.isLocked = false;
+            Trk.isAutoTrack = false;
+
             AppModelField.Fields.CloseField();
             Bnd.bndList.Clear();
             Trk.gArr.Clear();

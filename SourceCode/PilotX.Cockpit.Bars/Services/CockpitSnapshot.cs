@@ -15,6 +15,8 @@ public sealed class CockpitSnapshot
     [JsonPropertyName("heading")]             public double Heading { get; set; }    // rad
     [JsonPropertyName("fix_quality")]         public int FixQuality { get; set; }    // 4=RTK FIJO,5=FLOAT,2=DGPS,1=GPS,8=SIM
     [JsonPropertyName("worked_area_total_m2")] public double WorkedAreaTotalM2 { get; set; }
+    /// <summary>Ancho de labor (m). Lo usa el ritmo ha/h de la barra superior.</summary>
+    [JsonPropertyName("tool_width")]          public double ToolWidth { get; set; }
     [JsonPropertyName("tracks_total")]        public int TracksTotal { get; set; }
     [JsonPropertyName("tracks_visible")]      public int TracksVisible { get; set; }
     [JsonPropertyName("track_idx")]           public int TrackIdx { get; set; }      // -1 = sin guía
