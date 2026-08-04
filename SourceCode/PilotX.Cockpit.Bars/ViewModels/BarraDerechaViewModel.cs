@@ -102,7 +102,9 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
         HydVisible = s.HasHydLift && s.HasHeadland;
         HydEnabled = s.IsHeadlandOn;
         HydImg = BAbajo + (s.IsHydLiftOn ? "HydraulicLiftOn.png" : "HydraulicLiftOff.png");
-        NudgeVisible = s.TrackIdx > -1 && s.IsNudgeOn;
+        // Con guía activa alcanza: exigir además IsNudgeOn (un modo que se
+        // prende en otro lado) los dejaba grises justo cuando hacían falta.
+        NudgeVisible = s.TrackIdx > -1;
 
         YouSkipVisible = s.TrackIdx > -1;   // hay guía activa
         YouSkipImg = BAbajo + (s.YouSkipMode switch { 1 => "YouSkipOn.png", 2 => "YouSkipWorkedTracks.png", _ => "YouSkipOff.png" });

@@ -32,34 +32,64 @@
                  FontSize="14" FontWeight="Bold" Foreground="#101612"
                  HorizontalAlignment="Center" Margin="0,1"/>
       <Button IsVisible="{Binding ContourLockVisible}" Command="{Binding SendCommand}" CommandParameter="contour_lock">
-        <Image Source="{Binding ContourLockImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding ContourLockImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Fijar cont."/>
+        </StackPanel>
       </Button>
       <Button Command="{Binding SendCommand}" CommandParameter="contour">
-        <Image Source="{Binding ContourImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding ContourImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Contorno"/>
+        </StackPanel>
       </Button>
       <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_next">
-        <Image Source="/Assets/barra-derecha/ABLineCycle.png"/>
+        <StackPanel>
+          <Image Source="/Assets/barra-derecha/ABLineCycle.png"/>
+          <TextBlock Classes="cap" Text="Guía sig."/>
+        </StackPanel>
       </Button>
       <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_prev">
-        <Image Source="/Assets/barra-derecha/ABLineCycleBk.png"/>
+        <StackPanel>
+          <Image Source="/Assets/barra-derecha/ABLineCycleBk.png"/>
+          <TextBlock Classes="cap" Text="Guía ant."/>
+        </StackPanel>
       </Button>
       <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="autotrack">
-        <Image Source="{Binding AutoTrackImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding AutoTrackImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Auto guía"/>
+        </StackPanel>
       </Button>
       <Button IsVisible="{Binding IsobusVisible}" Command="{Binding SendCommand}" CommandParameter="isobus">
-        <Image Source="{Binding IsobusImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding IsobusImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="ISOBUS"/>
+        </StackPanel>
       </Button>
       <Button Command="{Binding SendCommand}" CommandParameter="sec_manual">
-        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Manual"/>
+        </StackPanel>
       </Button>
       <Button Command="{Binding SendCommand}" CommandParameter="sec_auto">
-        <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding SecAutoImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Auto"/>
+        </StackPanel>
       </Button>
       <Button IsVisible="{Binding UturnVisible}" Command="{Binding SendCommand}" CommandParameter="uturn">
-        <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Giro"/>
+        </StackPanel>
       </Button>
 
-      <!-- Bajados de la barra de abajo (pedido usuario 2026-08-04). Allá
+      <!-- La corrección lateral (izq/der/centrar) se fue a un overlay
+           flotante sobre el mapa, centrado arriba de las secciones: son tres
+           botones que se usan juntos y mirando la línea, no la barra.
+           Bajados de la barra de abajo (pedido usuario 2026-08-04). Allá
            aparecían y desaparecían según el estado y nunca se sabía qué eran;
            acá van fijos y CON TÍTULO. Deshabilitados cuando no aplican. -->
       <Button IsEnabled="{Binding TramVisible}" Command="{Binding SendCommand}" CommandParameter="tram_vista">
@@ -75,24 +105,6 @@
           <TextBlock Classes="cap" Text="Hidráulico"/>
         </StackPanel>
       </Button>
-      <Button IsEnabled="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="nudge_left">
-        <StackPanel>
-          <Image Source="/Assets/barra-abajo/SnapLeft.png"/>
-          <TextBlock Classes="cap" Text="Corrige izq"/>
-        </StackPanel>
-      </Button>
-      <Button IsEnabled="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="nudge_right">
-        <StackPanel>
-          <Image Source="/Assets/barra-abajo/SnapRight.png"/>
-          <TextBlock Classes="cap" Text="Corrige der"/>
-        </StackPanel>
-      </Button>
-      <Button IsEnabled="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="center">
-        <StackPanel>
-          <Image Source="/Assets/barra-abajo/SnapToPivot.png"/>
-          <TextBlock Classes="cap" Text="Centrar"/>
-        </StackPanel>
-      </Button>
 
       <!-- Guía de por medio y los dos de corte por cabecera. Estuvieron un rato
            en la barra de arriba pero el usuario los quiso acá, con el resto de
@@ -101,15 +113,24 @@
            barra no se mueve sola y se ve qué hay disponible. -->
       <Button IsEnabled="{Binding YouSkipVisible}" Command="{Binding SendCommand}"
               CommandParameter="uturn_skips" ToolTip.Tip="Guía de por medio">
-        <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Por medio"/>
+        </StackPanel>
       </Button>
       <Button IsEnabled="{Binding HeadlandVisible}" Command="{Binding SendCommand}"
               CommandParameter="cabecera_secciones" ToolTip.Tip="Corte por cabecera: secciones">
-        <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Cab. secc."/>
+        </StackPanel>
       </Button>
       <Button IsEnabled="{Binding HeadlandVisible}" Command="{Binding SendCommand}"
               CommandParameter="cabecera_onoff" ToolTip.Tip="Corte por cabecera: activar">
-        <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Cabecera"/>
+        </StackPanel>
       </Button>
 
       <!-- Bajados de la barra de abajo (pedido usuario 2026-08-04): enderezar
@@ -117,13 +138,22 @@
            pasada, y acá quedan al alcance sin competir con las secciones. -->
       <Button Command="{Binding SendCommand}" CommandParameter="reset_herramienta"
               ToolTip.Tip="Enderezar implemento">
-        <Image Source="/Assets/barra-abajo/ResetTool.png"/>
+        <StackPanel>
+          <Image Source="/Assets/barra-abajo/ResetTool.png"/>
+          <TextBlock Classes="cap" Text="Enderezar"/>
+        </StackPanel>
       </Button>
       <Button Command="{Binding SendCommand}" CommandParameter="bandera" ToolTip.Tip="Bandera">
-        <Image Source="{Binding FlagImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding FlagImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Bandera"/>
+        </StackPanel>
       </Button>
       <Button Command="{Binding SendCommand}" CommandParameter="pick" ToolTip.Tip="Guías">
-        <Image Source="/Assets/barra-abajo/TrackOn.png"/>
+        <StackPanel>
+          <Image Source="/Assets/barra-abajo/TrackOn.png"/>
+          <TextBlock Classes="cap" Text="Guías"/>
+        </StackPanel>
       </Button>
 
       <!-- Giro manual (↰/↱), salteo de guía y cantidad de guías a saltear
@@ -134,7 +164,10 @@
            SaltosPosibles, SaltoDelGiro) siguen vivos en el ViewModel por si
            alguna vista los quiere. -->
       <Button IsEnabled="{Binding PilotoEnabled}" Command="{Binding SendCommand}" CommandParameter="autosteer">
-        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}"/>
+        <StackPanel>
+          <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Piloto"/>
+        </StackPanel>
       </Button>
     </StackPanel>
   </Border>
