@@ -7,8 +7,6 @@
              Height="52">
   <UserControl.Resources>
     <views:StringToBrushConverter x:Key="StringToBrush"/>
-    <!-- Los botones subidos de la barra de abajo traen su ícono por binding. -->
-    <views:AssetImageConverter x:Key="Asset"/>
   </UserControl.Resources>
 
   <!-- Estilos locales espejando barra-superior.html (.tab / .tele / .wbtn /
@@ -34,12 +32,6 @@
     <Style Selector="Button.tab:disabled /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="#FFFFFF"/>
       <Setter Property="TextBlock.Foreground" Value="#B5BDB5"/>
-    </Style>
-    <!-- Los botones subidos de la barra de abajo son ÍCONO, no texto: sin
-         esto se veían igual de vivos estando deshabilitados y el operario
-         los tocaba esperando que hicieran algo. -->
-    <Style Selector="Button.tab:disabled Image">
-      <Setter Property="Opacity" Value="0.35"/>
     </Style>
     <!-- Window button -->
     <Style Selector="Button.wbtn">
@@ -131,28 +123,7 @@
             <Ellipse Width="8" Height="8" VerticalAlignment="Center"
                      Fill="{Binding GpsDotColor, Converter={StaticResource StringToBrush}}"/>
             <TextBlock Text="GPS" VerticalAlignment="Center"/>
-            <!-- Subidos de la barra de abajo (pedido usuario 2026-08-04): guía de
-             por medio y los dos de corte por cabecera. Se usan a cada rato
-             durante la pasada y abajo quedaban lejos de la vista. Van DENTRO
-             de la fila de tabs: en su propio StackPanel quedaban en la misma
-             celda del Grid y no se veían. Siempre visibles, deshabilitados
-             cuando no aplican. -->
-        <Button Classes="tab" IsEnabled="{Binding YouSkipVisible}"
-                Command="{Binding SendCommand}" CommandParameter="uturn_skips"
-                ToolTip.Tip="Guía de por medio">
-          <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}" Height="24"/>
-        </Button>
-        <Button Classes="tab" IsEnabled="{Binding HeadlandVisible}"
-                Command="{Binding SendCommand}" CommandParameter="cabecera_secciones"
-                ToolTip.Tip="Corte por cabecera: secciones">
-          <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}" Height="24"/>
-        </Button>
-        <Button Classes="tab" IsEnabled="{Binding HeadlandVisible}"
-                Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"
-                ToolTip.Tip="Corte por cabecera: activar">
-          <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}" Height="24"/>
-        </Button>
-      </StackPanel>
+          </StackPanel>
         </Button>
         <Button Classes="tab" Content="{Binding LoteText}" IsEnabled="{Binding LoteEnabled}"
                 Command="{Binding SendCommand}" CommandParameter="lote_datos"/>

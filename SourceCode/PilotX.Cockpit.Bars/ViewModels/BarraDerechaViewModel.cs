@@ -15,6 +15,19 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
 
     private const string D = "barra-derecha/";
     // Bajada de la barra de abajo: el color de la bandera es estado.
+    // Bajados de la barra de abajo junto con sus botones: el ícono es estado.
+    private const string BAbajo = "barra-abajo/";
+    [ObservableProperty] private bool _tramVisible;
+    [ObservableProperty] private string _tramImg = BAbajo + "TramOff.png";
+    [ObservableProperty] private bool _hydVisible;
+    [ObservableProperty] private bool _hydEnabled;
+    [ObservableProperty] private string _hydImg = BAbajo + "HydraulicLiftOff.png";
+    [ObservableProperty] private bool _nudgeVisible;
+    [ObservableProperty] private bool _youSkipVisible;
+    [ObservableProperty] private string _youSkipImg = BAbajo + "YouSkipOff.png";
+    [ObservableProperty] private bool _headlandVisible;
+    [ObservableProperty] private string _headlandImg = BAbajo + "HeadlandOff.png";
+    [ObservableProperty] private string _hdlSecImg = BAbajo + "HeadlandSectionOff.png";
     [ObservableProperty] private string _flagImg = "barra-abajo/FlagRed.png";
 
 
@@ -84,6 +97,19 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
 
     public override void Apply(CockpitSnapshot s)
     {
+        TramVisible = s.HasTram;
+        TramImg = BAbajo + (s.TramDisplayMode switch { 1 => "TramAll.png", 2 => "TramLines.png", 3 => "TramOuter.png", _ => "TramOff.png" });
+        HydVisible = s.HasHydLift && s.HasHeadland;
+        HydEnabled = s.IsHeadlandOn;
+        HydImg = BAbajo + (s.IsHydLiftOn ? "HydraulicLiftOn.png" : "HydraulicLiftOff.png");
+        NudgeVisible = s.TrackIdx > -1 && s.IsNudgeOn;
+
+        YouSkipVisible = s.TrackIdx > -1;   // hay guía activa
+        YouSkipImg = BAbajo + (s.YouSkipMode switch { 1 => "YouSkipOn.png", 2 => "YouSkipWorkedTracks.png", _ => "YouSkipOff.png" });
+        HeadlandVisible = s.HasHeadland;
+        HeadlandImg = BAbajo + (s.IsHeadlandOn ? "HeadlandOn.png" : "HeadlandOff.png");
+        HdlSecImg = BAbajo + (s.IsSectionControlledByHeadland ? "HeadlandSectionOn.png" : "HeadlandSectionOff.png");
+
         FlagImg = "barra-abajo/" + (s.FlagColor switch { 1 => "FlagGrn.png", 2 => "FlagYel.png", _ => "FlagRed.png" });
 
         bool hayGuia = s.TrackIdx > -1;

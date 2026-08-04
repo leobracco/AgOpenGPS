@@ -6,14 +6,6 @@ namespace PilotX.Cockpit.Bars.ViewModels;
 public sealed partial class BarraSuperiorViewModel : BarViewModelBase
 {
     public BarraSuperiorViewModel(GuidanceCommandClient cmd) : base(cmd) { }
-    // Subidos de la barra de abajo: el ícono refleja el estado, así que hay
-    // que replicar los mismos bindings que tenía allá.
-    private const string BAbajo = "barra-abajo/";
-    [ObservableProperty] private bool _youSkipVisible;
-    [ObservableProperty] private string _youSkipImg = BAbajo + "YouSkipOff.png";
-    [ObservableProperty] private bool _headlandVisible;
-    [ObservableProperty] private string _headlandImg = BAbajo + "HeadlandOff.png";
-    [ObservableProperty] private string _hdlSecImg = BAbajo + "HeadlandSectionOff.png";
 
 
     [ObservableProperty] private string _speedText = "0,0";
@@ -35,11 +27,6 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
 
     public override void Apply(CockpitSnapshot s)
     {
-        YouSkipVisible = s.TrackIdx > -1;   // hay guía activa (igual criterio que la barra de abajo)
-        YouSkipImg = BAbajo + (s.YouSkipMode switch { 1 => "YouSkipOn.png", 2 => "YouSkipWorkedTracks.png", _ => "YouSkipOff.png" });
-        HeadlandVisible = s.HasHeadland;
-        HeadlandImg = BAbajo + (s.IsHeadlandOn ? "HeadlandOn.png" : "HeadlandOff.png");
-        HdlSecImg = BAbajo + (s.IsSectionControlledByHeadland ? "HeadlandSectionOn.png" : "HeadlandSectionOff.png");
 
         SpeedText = Coma(s.AvgSpeed, 1);
         HaText = Coma(s.WorkedAreaTotalM2 * 0.0001, 1);

@@ -8,6 +8,23 @@
     <views:AssetImageConverter x:Key="Asset"/>
   </UserControl.Resources>
 
+  <UserControl.Styles>
+    <!-- Botón con título: el ícono solo no alcanzaba para saber qué hacía
+         cada uno (pedido usuario 2026-08-04). -->
+    <Style Selector="TextBlock.cap">
+      <Setter Property="FontSize" Value="9"/>
+      <Setter Property="Foreground" Value="#535E54"/>
+      <Setter Property="HorizontalAlignment" Value="Center"/>
+      <Setter Property="TextAlignment" Value="Center"/>
+      <Setter Property="Margin" Value="0,1,0,0"/>
+    </Style>
+    <!-- Estos botones son ÍCONO: sin atenuarlo se ven igual de vivos estando
+         deshabilitados y el operario los toca esperando que hagan algo. -->
+    <Style Selector="Button:disabled Image">
+      <Setter Property="Opacity" Value="0.35"/>
+    </Style>
+  </UserControl.Styles>
+
   <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1,0,0,0" Padding="3">
     <!-- orden visual arriba->abajo (numCu arriba, Piloto abajo, como el nativo) -->
     <StackPanel Orientation="Vertical" Spacing="3">
@@ -40,6 +57,59 @@
       </Button>
       <Button IsVisible="{Binding UturnVisible}" Command="{Binding SendCommand}" CommandParameter="uturn">
         <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
+      </Button>
+
+      <!-- Bajados de la barra de abajo (pedido usuario 2026-08-04). Allá
+           aparecían y desaparecían según el estado y nunca se sabía qué eran;
+           acá van fijos y CON TÍTULO. Deshabilitados cuando no aplican. -->
+      <Button IsEnabled="{Binding TramVisible}" Command="{Binding SendCommand}" CommandParameter="tram_vista">
+        <StackPanel>
+          <Image Source="{Binding TramImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Tram"/>
+        </StackPanel>
+      </Button>
+      <Button IsEnabled="{Binding HydEnabled}" IsVisible="{Binding HydVisible}"
+              Command="{Binding SendCommand}" CommandParameter="hidraulico">
+        <StackPanel>
+          <Image Source="{Binding HydImg, Converter={StaticResource Asset}}"/>
+          <TextBlock Classes="cap" Text="Hidráulico"/>
+        </StackPanel>
+      </Button>
+      <Button IsEnabled="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="nudge_left">
+        <StackPanel>
+          <Image Source="/Assets/barra-abajo/SnapLeft.png"/>
+          <TextBlock Classes="cap" Text="Corrige izq"/>
+        </StackPanel>
+      </Button>
+      <Button IsEnabled="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="nudge_right">
+        <StackPanel>
+          <Image Source="/Assets/barra-abajo/SnapRight.png"/>
+          <TextBlock Classes="cap" Text="Corrige der"/>
+        </StackPanel>
+      </Button>
+      <Button IsEnabled="{Binding NudgeVisible}" Command="{Binding SendCommand}" CommandParameter="center">
+        <StackPanel>
+          <Image Source="/Assets/barra-abajo/SnapToPivot.png"/>
+          <TextBlock Classes="cap" Text="Centrar"/>
+        </StackPanel>
+      </Button>
+
+      <!-- Guía de por medio y los dos de corte por cabecera. Estuvieron un rato
+           en la barra de arriba pero el usuario los quiso acá, con el resto de
+           lo que se toca durante la pasada. Siempre visibles y deshabilitados
+           cuando no aplican (sin guía activa / sin cabecera), no ocultos: la
+           barra no se mueve sola y se ve qué hay disponible. -->
+      <Button IsEnabled="{Binding YouSkipVisible}" Command="{Binding SendCommand}"
+              CommandParameter="uturn_skips" ToolTip.Tip="Guía de por medio">
+        <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsEnabled="{Binding HeadlandVisible}" Command="{Binding SendCommand}"
+              CommandParameter="cabecera_secciones" ToolTip.Tip="Corte por cabecera: secciones">
+        <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button IsEnabled="{Binding HeadlandVisible}" Command="{Binding SendCommand}"
+              CommandParameter="cabecera_onoff" ToolTip.Tip="Corte por cabecera: activar">
+        <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}"/>
       </Button>
 
       <!-- Bajados de la barra de abajo (pedido usuario 2026-08-04): enderezar
