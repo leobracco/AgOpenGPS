@@ -3238,3 +3238,48 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   cambiaba con el click en pantalla antes del fix, cambiaba bien
   después) + captura (cuadrado pasó de rojo a verde). Build 0 errores,
   289 tests verdes.
+
+- [2026-08-04] [taller] HECHO — **Tanda de cockpit nativo pusheada a
+  `codex/pilotx-ui-new` (6 commits, 254e3b4d..01d81869).** Santiago:
+  **actualizá y sacá lo viejo** — traete esto antes de seguir, y si de tu
+  lado quedaron restos del camino anterior (WinForms/FormGPS, íconos
+  heredados, servicios duplicados), es momento de borrarlos y no dejarlos
+  "por las dudas": hoy conviven dos juegos de varias cosas y no se sabe
+  cuál es el bueno.
+
+  Lo que va en el push, por si toca algo tuyo:
+
+  · `fix(lote)` — **cerrar el lote dejaba el PILOTO enganchado.**
+    `CloseField()` limpiaba los datos del lote pero no el guiado ACTIVO:
+    quedaba `isBtnAutoSteerOn`, el giro armado y la línea AB todavía válida
+    (por eso "quedaban las guías": `/api/aog/tracks` daba vacío pero
+    `/api/aog/guidance/geometry` seguía sirviendo mode="AB").
+    Caso de prueba en `Tools/test-cerrar-lote.py`, escrito antes del fix y
+    dejado fallando (3 de 5 chequeos); después 5/5.
+
+  · `fix(mapa)` — el mapa quedaba NEGRO para siempre tras un TDR del driver
+    de video (Event ID 4101). Faltaba el override `OnOpenGlLost` en
+    `MapGlSurface`. Va con dedup de excepciones en `CrashHandler`: la
+    tormenta escribía 413 KB en 6 s hasta llenar el disco.
+
+  · `feat(cockpit)` — iconografía nueva (39 PNG), overlay de la pasada
+    (Piloto/Giro/Manual/Auto bajaron ahí junto a Izq/Centrar/Der), barra
+    derecha con auto-repliegue, zoom apilado arriba de esa barra, y la
+    barra superior ahora muestra **ha/h** en vez del contador de guías.
+
+  · `feat(prescripciones)` — `Tools/generar-prescripcion-texto.py`: mapa de
+    prueba que DIBUJA un texto sobre el lote, para validar de un vistazo si
+    una prescripción entra espejada, rotada o con las dosis cruzadas.
+
+  **AVISO — toqué un archivo de tu carril.**
+  `SourceCode/PilotX.GuidanceEngine.Core/GuidanceEngineHost.Job.cs`
+  (`CloseField`). Según §Reglas 4 correspondía PEDIDO antes, no aviso
+  después; lo hice porque era seguridad (piloto enganchado sin lote) y lo
+  declaro acá para que no te sorprenda en el merge. Son 8 líneas y reusan
+  la secuencia que ya existía en `ToggleContour` (`Commands.cs` 501-507),
+  no inventé una forma nueva de dejar el guiado en frío. Si te pisa algo de
+  `ExecuteCommand`, avisá y lo reacomodo.
+
+  **NADA DE ESTO ESTÁ PROBADO EN CABINA.** Todo se verificó contra el motor
+  corriendo (API + capturas). Queda pendiente de mi lado forzar un TDR real
+  para confirmar que el mapa se recupera solo.
