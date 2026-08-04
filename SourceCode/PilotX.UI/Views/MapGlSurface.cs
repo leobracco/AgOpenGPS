@@ -867,6 +867,38 @@ public sealed class MapGlSurface : OpenGlControlBase
         _pathsVbo = _gl.GenBuffer();
         _pathsVboCapacityFloats = 0;
 
+        // Timer queries para medir el tiempo REAL de GPU por frame (ver el
+        // bloque de medición más abajo). Si el driver no las soporta se sigue
+        // sin medir: es diagnóstico, nunca puede impedir que el mapa dibuje.
+        // OJO: no alcanza con crear las queries y mirar glGetError. Este
+        // contexto es OpenGL ES 3.0, donde glQueryCounter/GL_TIMESTAMP NO
+        // EXISTEN (son de GL desktop 3.3+ o de la extensión
+        // EXT_disjoint_timer_query). GenQuery pasa sin error igual, y recién al
+        // usar QueryCounter Silk.NET tira SymbolLoadingException — que en el
+        // hilo de render es excepción no atendida y se lleva puesta la app.
+        // Por eso se PRUEBA el símbolo de verdad, una vez, acá.
+        try
+        {
+            _qIni = new uint[RingQueries];
+            _qFin = new uint[RingQueries];
+            _qEnVuelo = new bool[RingQueries];
+            for (int i = 0; i < RingQueries; i++)
+            {
+                _qIni[i] = _gl.GenQuery();
+                _qFin[i] = _gl.GenQuery();
+            }
+            _gl.QueryCounter(_qIni[0], GLEnum.Timestamp);   // ← la prueba real
+            _gpuTimerOk = _gl.GetError() == GLEnum.NoError;
+            Console.Error.WriteLine("[MapGlSurface] medicion de GPU por frame: "
+                + (_gpuTimerOk ? "ACTIVA" : "no disponible (driver la rechaza)"));
+        }
+        catch (Exception ex)
+        {
+            _gpuTimerOk = false;
+            Console.Error.WriteLine("[MapGlSurface] sin medicion de GPU en este contexto ("
+                + ex.GetType().Name + "): " + ex.Message);
+        }
+
         var glErr = _gl.GetError();
         Console.Error.WriteLine("[MapGlSurface] GL init OK (glGetError=" + glErr + ")");
 
@@ -899,6 +931,10 @@ public sealed class MapGlSurface : OpenGlControlBase
     protected override void OnOpenGlRender(GlInterface glInterface, int fb)
     {
         if (_gl == null || _initFailed) return;
+
+        IniciarMedicionGpu();
+        (_swFrame ??= new System.Diagnostics.Stopwatch()).Restart();
+
         var sz = Bounds.Size;
         int wPx = (int)Math.Max(1, sz.Width);
         int hPx = (int)Math.Max(1, sz.Height);
@@ -1175,6 +1211,188 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         _gl.BindVertexArray(0);
         _gl.UseProgram(0);
+
+        // Tiempo de CPU dentro del render = lo que cuesta ENCOLAR. Se guarda el
+        // pico para contrastarlo con el de glFinish: si encolar es barato y
+        // glFinish caro, el cuello está en la GPU y no en nuestro código.
+        if (_swFrame != null)
+        {
+            _swFrame.Stop();
+            double cpu = _swFrame.Elapsed.TotalMilliseconds;
+            if (cpu > _cpuMax) _cpuMax = cpu;
+        }
+
+        CerrarMedicionGpu();   // timer queries (apagado en GLES 3.0)
+        MedirConFinish();      // plan B por muestreo
+    }
+
+    // ---- Medición de tiempo de GPU por frame ---------------------------
+    //
+    // POR QUÉ: esta máquina lleva 41 resets del driver de video (TDR, Event ID
+    // 4101), y Windows dispara el reset cuando una operación de GPU pasa de
+    // TdrDelay — 2 segundos por defecto, que es el valor acá. La pregunta que
+    // hay que contestar con números, no opinando, es si los frames del mapa se
+    // acercan a ese techo. Si un frame tarda segundos, PilotX está EMPUJANDO
+    // los TDR; si tarda milisegundos, es el driver/hardware y no nosotros.
+    //
+    // CÓMO, y acá está lo importante: se usan timer queries de GL
+    // (GL_TIMESTAMP, que devuelve NANOsegundos), NO un Stopwatch. Cronometrar
+    // alrededor de las llamadas de dibujo mide cuánto tarda en ENCOLAR, no en
+    // ejecutar: OpenGL es asíncrono y las llamadas vuelven enseguida.
+    //
+    // Y el resultado se lee SIEMPRE de un frame viejo, nunca del actual.
+    // Preguntar por el resultado del frame en curso obliga a la CPU a esperar a
+    // la GPU (pipeline stall): serializa el render, mete el hitch que estamos
+    // tratando de medir y, en el peor caso, ayuda a causar el TDR. Por eso hay
+    // un anillo de pares de queries y se cosecha solo lo que ya está listo
+    // (QueryResultAvailable), sin bloquear jamás.
+    private const int RingQueries = 4;
+    private uint[]? _qIni, _qFin;
+    private bool[]? _qEnVuelo;
+    private int _qSlot;
+    private bool _gpuTimerOk;
+    private double _msMin = double.MaxValue, _msMax, _msAcum;
+    private long _msMuestras;
+    private DateTime _ultimoResumenGpu = DateTime.UtcNow;
+    private static readonly TimeSpan ResumenCada = TimeSpan.FromSeconds(30);
+
+    // Los dos envoltorios van con try/catch y APAGAN la medición ante cualquier
+    // falla. Es diagnóstico: jamás puede tumbar el render. (Aprendido a la mala:
+    // sin esto, un símbolo GL ausente tiraba la app entera en el primer frame.)
+    private void IniciarMedicionGpu()
+    {
+        if (!_gpuTimerOk || _gl == null) return;
+        try
+        {
+            // Si el slot todavía está en vuelo, se cosecha antes de reusarlo.
+            if (_qEnVuelo![_qSlot]) CosecharSlot(_qSlot, forzar: false);
+            if (_qEnVuelo[_qSlot]) return;   // sigue sin estar listo: se saltea
+            _gl.QueryCounter(_qIni![_qSlot], GLEnum.Timestamp);
+        }
+        catch (Exception ex) { ApagarMedicionGpu(ex); }
+    }
+
+    private void CerrarMedicionGpu()
+    {
+        if (!_gpuTimerOk || _gl == null) return;
+        try
+        {
+            _gl.QueryCounter(_qFin![_qSlot], GLEnum.Timestamp);
+            _qEnVuelo![_qSlot] = true;
+            _qSlot = (_qSlot + 1) % RingQueries;
+
+            // Cosechar los que ya terminaron, sin esperar a ninguno.
+            for (int i = 0; i < RingQueries; i++)
+                if (_qEnVuelo[i]) CosecharSlot(i, forzar: false);
+
+            PublicarResumenGpu();
+        }
+        catch (Exception ex) { ApagarMedicionGpu(ex); }
+    }
+
+    private void ApagarMedicionGpu(Exception ex)
+    {
+        _gpuTimerOk = false;
+        _qIni = null; _qFin = null; _qEnVuelo = null; _qSlot = 0;
+        Console.Error.WriteLine("[MapGlSurface] medicion de GPU DESACTIVADA ("
+            + ex.GetType().Name + "): " + ex.Message);
+    }
+
+    // ---- Plan B: muestreo con glFinish ---------------------------------
+    //
+    // Este contexto es GLES 3.0 y no tiene timer queries, así que el camino de
+    // arriba queda apagado. Igual se puede medir el tiempo REAL de GPU:
+    // glFinish() no vuelve hasta que la GPU terminó todo lo encolado, así que
+    // cronometrar hasta ahí da el costo de verdad — no el de encolar.
+    //
+    // El precio es que glFinish SERIALIZA CPU y GPU: hacerlo en cada frame
+    // arruinaría el rendimiento que estamos tratando de medir (y en una UHD 630
+    // podría empeorar los TDR). Por eso se muestrea 1 de cada 30 frames: el
+    // costo se diluye y alcanza de sobra para saber si algún frame se acerca a
+    // los 2 s del TdrDelay.
+    //
+    // Se mide aparte el tiempo de CPU dentro del render (encolar) — si ese
+    // número es chico y el de glFinish es grande, el cuello está en la GPU.
+    private const int MuestrearCada = 30;
+    private long _framesParaMuestra;
+    private double _finMin = double.MaxValue, _finMax, _finAcum;
+    private long _finMuestras;
+    private double _cpuMax;
+    private System.Diagnostics.Stopwatch? _swFrame;
+
+    private void MedirConFinish()
+    {
+        if (_gl == null) return;
+        _framesParaMuestra++;
+        if (_framesParaMuestra % MuestrearCada != 0) return;
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try { _gl.Finish(); }
+        catch { return; }   // si falla, no se mide y listo
+        sw.Stop();
+
+        double ms = sw.Elapsed.TotalMilliseconds;
+        if (ms < _finMin) _finMin = ms;
+        if (ms > _finMax) _finMax = ms;
+        _finAcum += ms;
+        _finMuestras++;
+
+        if (ms >= 2000)
+            Console.Error.WriteLine($"[MapGlSurface] GPU {ms:N0} ms — SUPERA EL TdrDelay (2000 ms): esto dispara el reset del driver");
+        else if (ms >= 500)
+            Console.Error.WriteLine($"[MapGlSurface] GPU lenta: {ms:N0} ms en un frame");
+
+        if (_finMuestras > 0 && (DateTime.UtcNow - _ultimoResumenGpu) >= ResumenCada)
+        {
+            _ultimoResumenGpu = DateTime.UtcNow;
+            Console.Error.WriteLine(
+                $"[MapGlSurface] GPU real (glFinish, 1 de cada {MuestrearCada} frames) "
+                + $"ultimos {(int)ResumenCada.TotalSeconds}s: min {_finMin:N1} · prom "
+                + $"{(_finAcum / _finMuestras):N1} · MAX {_finMax:N1} ms  |  CPU en render MAX "
+                + $"{_cpuMax:N1} ms  |  TdrDelay = 2000 ms");
+            _finMin = double.MaxValue; _finMax = 0; _finAcum = 0; _finMuestras = 0; _cpuMax = 0;
+        }
+    }
+
+    private void CosecharSlot(int i, bool forzar)
+    {
+        if (_gl == null || !_qEnVuelo![i]) return;
+        if (!forzar)
+        {
+            _gl.GetQueryObject(_qFin![i], QueryObjectParameterName.QueryResultAvailable, out uint listo);
+            if (listo == 0) return;      // todavía trabajando: NO bloquear
+        }
+        _gl.GetQueryObject(_qIni![i], QueryObjectParameterName.QueryResult, out ulong t0);
+        _gl.GetQueryObject(_qFin![i], QueryObjectParameterName.QueryResult, out ulong t1);
+        _qEnVuelo[i] = false;
+        if (t1 <= t0) return;
+
+        double ms = (t1 - t0) / 1_000_000.0;   // GL_TIMESTAMP viene en ns
+        if (ms < _msMin) _msMin = ms;
+        if (ms > _msMax) _msMax = ms;
+        _msAcum += ms;
+        _msMuestras++;
+
+        // Umbrales atados al TdrDelay real de esta máquina (2 s). El aviso sale
+        // por consola y no por el log de errores a propósito: si un frame lento
+        // se repite, no queremos otra tormenta como la de las excepciones.
+        if (ms >= 2000)
+            Console.Error.WriteLine($"[MapGlSurface] FRAME SUPERA EL TdrDelay: {ms:N0} ms — esto DISPARA el reset del driver");
+        else if (ms >= 500)
+            Console.Error.WriteLine($"[MapGlSurface] frame lento: {ms:N0} ms");
+    }
+
+    private void PublicarResumenGpu()
+    {
+        if (_msMuestras == 0) return;
+        var ahora = DateTime.UtcNow;
+        if ((ahora - _ultimoResumenGpu) < ResumenCada) return;
+        _ultimoResumenGpu = ahora;
+        Console.Error.WriteLine(
+            $"[MapGlSurface] GPU/frame ultimos {(int)ResumenCada.TotalSeconds}s: "
+            + $"min {_msMin:N2} ms · prom {(_msAcum / _msMuestras):N2} ms · MAX {_msMax:N2} ms "
+            + $"({_msMuestras} frames medidos; TdrDelay = 2000 ms)");
+        _msMin = double.MaxValue; _msMax = 0; _msAcum = 0; _msMuestras = 0;
     }
 
     private int _diagFrames;
@@ -2389,6 +2607,8 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         _program = 0; _vao = 0; _vbo = 0; _vboCapacityFloats = 0;
         _texProgram = 0; _texVbo = 0;
+        // Las queries del medidor también mueren con el contexto.
+        _gpuTimerOk = false; _qIni = null; _qFin = null; _qEnVuelo = null; _qSlot = 0;
         _coverageVbo = 0; _guidanceVbo = 0; _parVbo = 0; _tramVbo = 0; _pathsVbo = 0;
 
         // Las revisiones vuelven a -1 o la geometría no se re-sube: los VBO
