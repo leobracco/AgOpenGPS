@@ -17,8 +17,12 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
     /// siempre "LOTE", que no informaba nada: con varios lotes parecidos el
     /// operario no tenía forma de confirmar cuál estaba trabajando.</summary>
     [ObservableProperty] private string _loteText = "SIN LOTE";
-    [ObservableProperty] private string _lineBadge = "";
-    [ObservableProperty] private bool _lineVisible;
+    /// <summary>Ritmo de trabajo en ha/h. Reemplaza al contador de guías
+    /// ("1/2"), que ocupaba el lugar central sin decirle nada útil al
+    /// operario: qué guía está siguiendo ya lo ve en el mapa y en la barra
+    /// derecha, mientras que a qué ritmo avanza no estaba en ningún lado.</summary>
+    [ObservableProperty] private string _haHoraText = "0,0";
+    [ObservableProperty] private bool _haHoraVisible;
     [ObservableProperty] private string _fechaText = "";
     // Debug de guiado (rumbo tractor/guía, Δ, índice de paralela, cm a la guía).
     // Lo compone MainWindow.UpdateHeadingDebug() (combina HUD + guidance poller)
@@ -45,8 +49,19 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
             8 => ("SIMULADOR", "#8FA092"),
             _ => ("SIN FIX",   "#E15A5A"),
         };
-        LineVisible = s.TrackIdx > -1 && s.TracksTotal > 0;
-        LineBadge = LineVisible ? $"{s.TrackIdx + 1}/{s.TracksTotal}" : "";
+        // Ritmo instantáneo: ancho de labor (m) x velocidad (km/h) x 0,1.
+        // Es la MISMA cuenta que AgOpenGPS ya usaba en CFieldData.
+        // WorkRateHectares — no se inventa una fórmula nueva para que los dos
+        // lugares no muestren números distintos del mismo trabajo.
+        //
+        // Es instantáneo a propósito, no un promedio de la jornada: sirve para
+        // decidir AHORA si conviene acelerar, que es cuando el operario mira.
+        //
+        // Solo con lote abierto y andando: parado da 0,0 y con el lote cerrado
+        // no significa nada, así que se oculta en vez de mostrar un cero fijo.
+        double haHora = s.ToolWidth * s.AvgSpeed * 0.1;
+        HaHoraVisible = s.IsJobStarted && s.ToolWidth > 0;
+        HaHoraText = HaHoraVisible ? Coma(haHora, 1) : "0,0";
         FechaText = System.DateTime.Now.ToString("HH:mm");
     }
 }
