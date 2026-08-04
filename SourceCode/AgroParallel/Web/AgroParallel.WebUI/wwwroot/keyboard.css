@@ -27,17 +27,57 @@
 }
 .agp-kbd.open { transform: translateY(0); }
 
+/* ---- Overlay movible --------------------------------------------------------
+   Pegado abajo y de ancho completo el teclado SIEMPRE tapa algo: en unas
+   pantallas los botones de guardar, en otras el campo que se está editando.
+   Agarrándolo de la barra de arriba se lo corre a donde moleste menos, y la
+   posición queda guardada. El botón ⇩ de la barra lo devuelve acá abajo. */
+.agp-kbd.flotante {
+  left: var(--kbd-x, 0);
+  top: var(--kbd-y, auto);
+  right: auto;
+  bottom: auto;
+  width: var(--kbd-w, auto);
+  border: 1px solid var(--agp-border, #2F3338);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transform: none;                 /* la posición la dan left/top */
+}
+/* Flotante no puede usar el deslizamiento de abajo para esconderse: si está
+   arriba, translateY(110%) lo deja a mitad de pantalla en vez de sacarlo. */
+.agp-kbd.flotante:not(.open) { opacity: 0; pointer-events: none; }
+.agp-kbd.flotante.open { opacity: 1; }
+.agp-kbd.arrastrando { transition: none; }   /* que siga al dedo sin lag */
+
 .agp-kbd-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 6px;
+  /* La barra es el asa: cursor de mover y sin gestos del navegador que
+     compitan con el arrastre táctil. */
+  cursor: move;
+  touch-action: none;
 }
+.agp-kbd-acciones { display: flex; align-items: center; gap: 6px; }
 .agp-kbd-hint {
   font-size: 13px;
   color: var(--agp-text-muted, #8A8F95);
   padding-left: 4px;
 }
+/* Mismo tamaño tocable que el de cerrar: viven pegados en la barra. */
+.agp-kbd-reset {
+  background: var(--agp-bg-soft, #1C1F22);
+  color: var(--agp-text, #DDE0E3);
+  border: 1px solid var(--agp-border, #2F3338);
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  width: 56px;
+  height: 36px;
+  cursor: pointer;
+}
+
 .agp-kbd-close {
   background: var(--agp-bg-soft, #1C1F22);
   color: var(--agp-text, #DDE0E3);

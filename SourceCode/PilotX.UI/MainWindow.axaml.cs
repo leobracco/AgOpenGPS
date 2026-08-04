@@ -335,6 +335,15 @@ public partial class MainWindow : Window
         _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
+        _nudgeOverlay      = this.FindControl<Border>("NudgeOverlay");
+        // Los tres de corrección lateral mandan el mismo comando que mandaban
+        // desde la barra; lo único que cambió es dónde están.
+        var bIzq = this.FindControl<Button>("BtnNudgeIzq");
+        var bCen = this.FindControl<Button>("BtnNudgeCentro");
+        var bDer = this.FindControl<Button>("BtnNudgeDer");
+        if (bIzq != null) bIzq.Click += (_, __) => { _ = _cockpitCmd?.SendAsync("nudge_left"); };
+        if (bCen != null) bCen.Click += (_, __) => { _ = _cockpitCmd?.SendAsync("center"); };
+        if (bDer != null) bDer.Click += (_, __) => { _ = _cockpitCmd?.SendAsync("nudge_right"); };
 
         if (_camarasHost != null)
         {
@@ -2095,6 +2104,14 @@ public partial class MainWindow : Window
         bool hasT = !double.IsNaN(_lastTractorHeadingDeg);
         bool hasG = !double.IsNaN(_lastGuideHeadingDeg);
 
+        // El overlay de corrección lateral solo tiene sentido con guía: es
+        // corregirse RESPECTO de la línea. Acá ya sabemos si hay.
+        if (_nudgeOverlay != null && _nudgeOverlay.IsVisible != hasG)
+        {
+            _nudgeOverlay.IsVisible = hasG;
+            if (hasG) UbicarNudgeOverlay();
+        }
+
         string s;
         if (!hasG)
         {
@@ -2162,10 +2179,12 @@ public partial class MainWindow : Window
             _vxMapStrip.PropertyChanged += (_, e) =>
             {
                 if (e.Property == BoundsProperty) UbicarVxStrip();
+                if (e.Property == BoundsProperty) UbicarNudgeOverlay();
             };
             _mapOverlaysHost.PropertyChanged += (_, e) =>
             {
                 if (e.Property == BoundsProperty) UbicarVxStrip();
+                if (e.Property == BoundsProperty) UbicarNudgeOverlay();
             };
         }
 
@@ -2197,6 +2216,26 @@ public partial class MainWindow : Window
         Canvas.SetLeft(_qxMapOverlay, 155);
         double alto = _mapOverlaysHost.Bounds.Height;
         Canvas.SetTop(_qxMapOverlay, alto > 260 ? alto - 235 : 40);
+    }
+
+    // Overlay de corrección lateral: flotante y centrado abajo, despegado del
+    // borde para no tapar la barra de secciones.
+    private Border? _nudgeOverlay;
+
+    private void UbicarNudgeOverlay()
+    {
+        if (_nudgeOverlay == null || _mapOverlaysHost == null) return;
+        double hostH = _mapOverlaysHost.Bounds.Height;
+        double hostW = _mapOverlaysHost.Bounds.Width;
+        if (hostH < 80 || hostW < 200) return;
+        double w = _nudgeOverlay.Bounds.Width > 0 ? _nudgeOverlay.Bounds.Width : 220;
+        double h = _nudgeOverlay.Bounds.Height > 0 ? _nudgeOverlay.Bounds.Height : 70;
+        // Centrado respecto del mapa (corrido del menú lateral) y BIEN despegado
+        // del borde inferior: el canvas se extiende por debajo de la barra de
+        // secciones, así que con poco margen el overlay quedaba cortado por ella.
+        double x = Math.Max(150, (hostW - w) / 2);
+        Canvas.SetLeft(_nudgeOverlay, x);
+        Canvas.SetTop(_nudgeOverlay, Math.Max(0, hostH - h - 96));
     }
 
     private void UbicarVxStrip()
@@ -2397,6 +2436,11 @@ public partial class MainWindow : Window
             // es "abrí el último y listo"). El backend resuelve __resume__.
             case "lote_continuar":
                 ContinuarUltimoLote(); return true;
+            // "Abrir" va DERECHO al listado de lotes. Antes mandaba
+            // lote_menu, que abre el menú entero otra vez: el operario tocaba
+            // Abrir y le aparecía una ventana con Abrir/Nuevo/Continuar de nuevo.
+            case "lote_abrir":
+                OpenDialogPage("pages/lote.html?do=abrir", "Abrir lote", 670, 610); return true;
             case "lote_nuevo":
                 OpenDialogPage("pages/lote.html?do=nuevo", "Nuevo lote", 670, 610); return true;
             case "lote_kml":

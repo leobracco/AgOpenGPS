@@ -7,6 +7,7 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
 {
     public BarraSuperiorViewModel(GuidanceCommandClient cmd) : base(cmd) { }
 
+
     [ObservableProperty] private string _speedText = "0,0";
     [ObservableProperty] private string _gpsText = "SIN FIX";
     [ObservableProperty] private string _gpsDotColor = "#E15A5A";
@@ -26,6 +27,7 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
 
     public override void Apply(CockpitSnapshot s)
     {
+
         SpeedText = Coma(s.AvgSpeed, 1);
         HaText = Coma(s.WorkedAreaTotalM2 * 0.0001, 1);
         LoteEnabled = s.IsJobStarted;

@@ -55,6 +55,14 @@ internal static class Program
         // La UI compartida (PilotX.UI) solo conoce IWebViewHost.
         App.WebViewHost = new DesktopWebViewHost();
         ParseArgs(args);
+
+        // Teclado en pantalla: vive en su PROPIA ventana, no dentro de la
+        // pagina. Este poller es el que la abre cuando alguien toca un campo
+        // (las paginas del Hub avisan por el engine) y el que le dice al
+        // engine que hay teclado nativo; si PilotX no esta corriendo, las
+        // paginas se dan cuenta y usan su teclado HTML.
+        try { new TecladoPoller(App.TargetUrl).Start(); } catch { }
+
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

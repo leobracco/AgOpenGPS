@@ -132,7 +132,11 @@
     lastShiftAt: 0,      // para detectar doble tap → caps lock
     longPressTimer: null,
     longPressKey: null,
-    suppressNextFocus: false
+    suppressNextFocus: false,
+    // Contenedor al que se le agregó espacio abajo para que el teclado no tape
+    // el campo, y su padding original para devolvérselo al cerrar.
+    padEl: null,
+    padPrev: ''
   };
 
   function enabled() {
@@ -178,7 +182,10 @@
     const html = [
       '<div class="agp-kbd-bar">',
       '  <span class="agp-kbd-hint">' + (state.target && state.target.placeholder ? esc(state.target.placeholder) : 'Teclado AgroParallel') + '</span>',
-      '  <button type="button" class="agp-kbd-close" data-action="close" aria-label="Cerrar teclado">▼</button>',
+      '  <span class="agp-kbd-acciones">',
+      '    <button type="button" class="agp-kbd-reset" data-action="reset-pos" title="Volver el teclado abajo" aria-label="Volver el teclado abajo">⇩</button>',
+      '    <button type="button" class="agp-kbd-close" data-action="close" aria-label="Cerrar teclado">▼</button>',
+      '  </span>',
       '</div>',
       '<div class="agp-kbd-grid agp-kbd-' + state.layout + (state.shift ? ' agp-kbd-shift' : '') + (state.capsLock ? ' agp-kbd-caps' : '') + '">'
     ];
@@ -219,48 +226,208 @@
   // Sin esto, el teclado tapa ~330px de la mitad inferior de cualquier
   // página del Hub y los inputs no se pueden centrar realmente con
   // scrollIntoView porque la página no tiene espacio para scrollear.
-  function applyBodyPadding() {
-    if (!state.root) return;
-    var prev = document.body.getAttribute('data-agp-prev-pb');
-    if (prev == null) {
-      document.body.setAttribute('data-agp-prev-pb', document.body.style.paddingBottom || '');
+  // ---------- Hacerle lugar al teclado ----------------------------------------
+  // El teclado vive en la misma ventana, así que SIEMPRE va a estar encima de
+  // algo: moverlo sólo cambia qué tapa. Lo que lo arregla de verdad es que el
+  // contenido le haga lugar, como en el celular — se le agrega abajo el alto
+  // que el teclado le come, y con eso el campo que se está editando siempre
+  // puede quedar a la vista.
+  //
+  // Antes esto se hacía sobre <body>, y en las pantallas del Hub no servía de
+  // nada: ahí el que scrollea es #main (overflow-y:auto), no el body, así que
+  // el padding no lo veía nadie y el campo seguía tapado.
+  function contenedorScrollable(el) {
+    var n = el && el.parentElement;
+    while (n && n !== document.body && n !== document.documentElement) {
+      var s = window.getComputedStyle(n);
+      // Alcanza con que PUEDA scrollear por CSS: no se le exige tener scroll
+      // ya, porque justamente el espacio que le agregamos es lo que se lo da.
+      // (Exigirlo mandaba el padding al <body>, que en el Hub no scrollea y
+      // por eso el campo seguía tapado.)
+      if (/(auto|scroll)/.test(s.overflowY)) return n;
+      n = n.parentElement;
     }
-    var h = state.root.offsetHeight || 320;
-    document.body.style.paddingBottom = (h + 16) + 'px';
+    return null;   // no hay: scrollea el documento
   }
-  function restoreBodyPadding() {
-    var prev = document.body.getAttribute('data-agp-prev-pb');
-    if (prev != null) {
-      document.body.style.paddingBottom = prev;
-      document.body.removeAttribute('data-agp-prev-pb');
+
+  // Dónde está (o va a estar) el teclado, SIN preguntarle al rect: mientras
+  // corre la animación de apertura el transform devuelve una posición
+  // intermedia, y con eso el cálculo del espacio daba cualquier cosa (llegó a
+  // reservar el alto entero de la ventana y a mandar el campo fuera de vista).
+  function cajaTeclado() {
+    var r = state.root;
+    if (!r) return null;
+    var h = r.offsetHeight || 320;
+    if (r.classList.contains('flotante')) {
+      var y = parseFloat(r.style.getPropertyValue('--kbd-y')) || 0;
+      return { top: y, bottom: y + h, height: h };
     }
+    return { top: window.innerHeight - h, bottom: window.innerHeight, height: h };
+  }
+  function aplicarEspacio() {
+    if (!state.root) return;
+    var cont = contenedorScrollable(state.target) || document.body;
+    var kb = cajaTeclado();
+    if (!kb) return;
+    // Cuánto del contenedor queda debajo del teclado: eso es lo que hay que
+    // compensar. Con el teclado movido a un costado o arriba, el solape es
+    // menor (o cero) y no se reserva de más.
+    var abajo = (cont === document.body)
+      ? window.innerHeight
+      : cont.getBoundingClientRect().bottom;
+    var solape = Math.max(0, abajo - kb.top);
+    if (solape <= 0) { quitarEspacio(); return; }
+
+    if (state.padEl && state.padEl !== cont) quitarEspacio();
+    if (state.padEl !== cont) {
+      state.padEl = cont;
+      state.padPrev = cont.style.paddingBottom || '';
+    }
+    cont.style.paddingBottom = (solape + 16) + 'px';
+  }
+
+  function quitarEspacio() {
+    if (!state.padEl) return;
+    state.padEl.style.paddingBottom = state.padPrev || '';
+    state.padEl = null;
+    state.padPrev = '';
+  }
+
+  // Deja el campo en la franja que el teclado NO tapa. scrollIntoView('center')
+  // no alcanza: el centro de la ventana puede caer justo detrás del teclado.
+  function traerAlaVista(target) {
+    if (!target || !state.root) return;
+    var kb = cajaTeclado();
+    if (!kb) return;
+    var r = target.getBoundingClientRect();
+    var margen = 12;
+    // Franja util: de arriba de todo hasta donde empieza el teclado (o desde
+    // donde termina, si el teclado quedó pegado arriba).
+    var libreTop = (kb.top <= 4) ? kb.bottom + margen : 0;
+    var libreBot = (kb.top <= 4) ? window.innerHeight : kb.top - margen;
+    if (r.top >= libreTop && r.bottom <= libreBot) return;   // ya se ve
+
+    var cont = contenedorScrollable(target);
+    var delta = (r.top < libreTop) ? (r.top - libreTop) : (r.bottom - libreBot);
+    try {
+      if (cont) cont.scrollBy({ top: delta, behavior: 'smooth' });
+      else window.scrollBy({ top: delta, behavior: 'smooth' });
+    } catch (_) {
+      if (cont) cont.scrollTop += delta; else window.scrollBy(0, delta);
+    }
+  }
+
+  // ---------- Teclado en ventana aparte ---------------------------------------
+  // Cuando PilotX está corriendo, el teclado NO se dibuja acá: vive en su
+  // propia ventana del shell, que no le come lugar a la página y sirve también
+  // para los campos de la pantalla nativa. La página sólo avisa por el engine
+  // que enfocaron (o dejaron) un campo.
+  //
+  // Si nadie contesta que hay teclado nativo — el Hub abierto desde el celular
+  // o desde un navegador común — se sigue usando el teclado HTML de siempre.
+  var nativo = { disponible: false, consultado: false };
+
+  // Se consulta al cargar: si esperáramos al primer foco, esa primera vez
+  // la página ya habría reservado espacio y scrolleado (el contenido
+  // "saltaba y se achicaba" aunque el teclado fuera el de la ventana).
+  function consultarNativo() {
+    return fetch('/api/teclado/estado')
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        nativo.disponible = !!(r && r.nativo);
+        nativo.consultado = true;
+        if (nativo.disponible) escucharTeclasNativas();
+      })
+      .catch(function () { nativo.consultado = true; });
+  }
+
+  function avisarHost(ruta, datos) {
+    return fetch('/api/teclado/' + ruta, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(datos || {})
+    }).then(function (r) { return r.json(); }).catch(function () { return null; });
+  }
+
+  // true si el teclado lo va a mostrar el shell (y esta página no dibuja nada).
+  function pedirTecladoNativo(target) {
+    var numerico = layoutFor(target) === 'numeric';
+    var titulo = (target && (target.placeholder || target.getAttribute('aria-label'))) || '';
+    return avisarHost('abrir', { numerico: numerico, titulo: titulo }).then(function (r) {
+      nativo.consultado = true;
+      nativo.disponible = !!(r && r.nativo);
+      if (nativo.disponible) escucharTeclasNativas();
+      return nativo.disponible;
+    });
+  }
+
+  // Las teclas del teclado nativo llegan como DATO por el engine y se aplican
+  // acá sobre el campo que teníamos. Así el valor entra aunque el WebView haya
+  // perdido el foco al tocar la otra ventana, que es lo que rompía todo:
+  // SendInput necesita foco, esto no.
+  var teclasSeq = -1;
+  var teclasTimer = null;
+
+  function aplicarTeclaNativa(tecla) {
+    if (!state.target || tecla == null) return;
+    // Reenfocar es best-effort: si el WebView recuperó el foco, el cursor
+    // vuelve al campo; si no, igual se escribe abajo.
+    try { state.target.focus({ preventScroll: true }); } catch (_) {}
+    if (tecla === 'back') { backspace(); return; }
+    if (tecla === 'enter') { enterKey(); return; }
+    insertText(tecla);
+  }
+
+  function escucharTeclasNativas() {
+    if (teclasTimer) return;
+    teclasTimer = setInterval(function () {
+      if (!nativo.disponible || !state.target) return;
+      fetch('/api/teclado/teclas?desde=' + teclasSeq)
+        .then(function (r) { return r.json(); })
+        .then(function (r) {
+          if (!r || !r.ok) return;
+          if (teclasSeq < 0) { teclasSeq = r.seq; return; }   // primera lectura: sincronizar
+          if (r.seq > teclasSeq && r.tecla != null) {
+            teclasSeq = r.seq;
+            aplicarTeclaNativa(r.tecla);
+          }
+        })
+        .catch(function () {});
+    }, 120);
   }
 
   function show(target) {
     state.target = target;
+    // Con teclado nativo la página NO dibuja nada y NO toca el layout:
+    // el teclado vive en otra ventana, así que no hay a quién hacerle lugar.
+    pedirTecladoNativo(target).then(function (hayNativo) {
+      if (!hayNativo || !state.root) return;
+      state.root.classList.remove('open');
+      quitarEspacio();
+    });
+    if (nativo.disponible) { state.visible = true; return; }
     state.layout = layoutFor(target);
     state.shift = autoCapital(target);
     state.capsLock = false;
     render();
     state.root.classList.add('open');
     state.visible = true;
-    // Reservar espacio en el body para que el input pueda quedar centrado
-    // realmente, no detrás del teclado.
-    applyBodyPadding();
+    // El contenido le hace lugar al teclado y el campo se trae a la franja
+    // que queda libre: si no, el operario escribe a ciegas.
+    aplicarEspacio();
     setTimeout(() => {
-      // El render del teclado puede tardar un frame; recalculamos por las dudas.
-      applyBodyPadding();
-      if (target && target.scrollIntoView) {
-        try { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
-      }
+      // El render del teclado puede tardar un frame: recalcular con el alto real.
+      aplicarEspacio();
+      traerAlaVista(target);
     }, 50);
   }
 
   function hide() {
     if (!state.visible) return;
     state.visible = false;
+    if (nativo.disponible) avisarHost('cerrar', {});
     if (state.root) state.root.classList.remove('open');
-    restoreBodyPadding();
+    quitarEspacio();
     if (state.target) {
       try { state.target.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
       state.target = null;
@@ -496,6 +663,8 @@
         // El long-press abrió un popup; el click base no inserta
         return;
       }
+      // El botón de reposición no escribe nada: mueve el teclado y sale.
+      if (e.target.closest('.agp-kbd-reset')) { resetPos(); return; }
       const btn = e.target.closest('.agp-key, .agp-kbd-close');
       if (!btn) return;
       const k = btn.getAttribute('data-key') || btn.getAttribute('data-action');
@@ -512,11 +681,118 @@
     r.addEventListener('pointercancel', cancelLongPress);
   }
 
+
+  // ---------- Arrastre ---------------------------------------------------------
+  // El teclado nace pegado abajo y de ancho completo, y ahí SIEMPRE tapa algo:
+  // en unas pantallas los botones de guardar, en otras el campo que se está
+  // editando. Agarrándolo de la barra de arriba se lo puede correr a donde
+  // moleste menos, y la posición queda guardada para la próxima.
+  var POS_KEY = 'agp_kbd_pos';
+  var drag = null;
+
+  function guardarPos(x, y, w) {
+    try { localStorage.setItem(POS_KEY, JSON.stringify({ x: x, y: y, w: w })); } catch (_) {}
+  }
+  function leerPos() {
+    try { return JSON.parse(localStorage.getItem(POS_KEY) || 'null'); } catch (_) { return null; }
+  }
+
+  // Nunca dejar el teclado fuera de la pantalla: si queda un borde afuera no
+  // hay forma de volver a agarrarlo. Se deja siempre visible la barra de arriba.
+  function acotar(x, y, w, h) {
+    var maxX = Math.max(0, window.innerWidth - w);
+    var maxY = Math.max(0, window.innerHeight - Math.min(h, 60));
+    return { x: Math.min(Math.max(0, x), maxX), y: Math.min(Math.max(0, y), maxY) };
+  }
+
+  function aplicarPos(x, y, w) {
+    var r = state.root;
+    if (!r) return;
+    r.classList.add('flotante');
+    r.style.setProperty('--kbd-x', x + 'px');
+    r.style.setProperty('--kbd-y', y + 'px');
+    r.style.setProperty('--kbd-w', w + 'px');
+  }
+
+  // Vuelve al lugar de fábrica: abajo, ancho completo.
+  function resetPos() {
+    var r = state.root;
+    if (!r) return;
+    r.classList.remove('flotante');
+    r.style.removeProperty('--kbd-x');
+    r.style.removeProperty('--kbd-y');
+    r.style.removeProperty('--kbd-w');
+    try { localStorage.removeItem(POS_KEY); } catch (_) {}
+  }
+
+  // Restaura la posición elegida por el operario, acotada a la ventana de ahora
+  // (la guardada puede ser de una resolución distinta).
+  function restaurarPos() {
+    var p = leerPos();
+    var r = state.root;
+    if (!p || !r) return;
+    var w = Math.min(p.w || r.offsetWidth, window.innerWidth);
+    var c = acotar(p.x, p.y, w, r.offsetHeight);
+    aplicarPos(c.x, c.y, w);
+  }
+
+  function onDragStart(e) {
+    var r = state.root;
+    if (!r) return;
+    // El asa es la barra de arriba, pero no sus botones.
+    var bar = e.target.closest ? e.target.closest('.agp-kbd-bar') : null;
+    if (!bar || e.target.closest('button')) return;
+    var caja = r.getBoundingClientRect();
+    // Al despegarse se achica: de ancho completo no se lo puede correr a un
+    // costado y seguiría tapando toda la franja. Con 720 px (o el 85% de la
+    // pantalla si es más chica) queda lugar para ver lo que está al lado.
+    var wNueva = Math.min(caja.width, 720, Math.round(window.innerWidth * 0.85));
+    // El punto de agarre se reescala para que el teclado no salte bajo el dedo.
+    var dx = (e.clientX - caja.left) * (wNueva / caja.width);
+    drag = { dx: dx, dy: e.clientY - caja.top, w: wNueva };
+    aplicarPos(e.clientX - dx, caja.top, wNueva);
+    r.classList.add('arrastrando');
+    try { bar.setPointerCapture(e.pointerId); } catch (_) {}
+    e.preventDefault();
+  }
+
+  function onDragMove(e) {
+    if (!drag || !state.root) return;
+    var r = state.root;
+    var c = acotar(e.clientX - drag.dx, e.clientY - drag.dy, drag.w, r.offsetHeight);
+    aplicarPos(c.x, c.y, drag.w);
+    e.preventDefault();
+  }
+
+  function onDragEnd() {
+    if (!drag || !state.root) return;
+    var caja = state.root.getBoundingClientRect();
+    guardarPos(caja.left, caja.top, caja.width);
+    state.root.classList.remove('arrastrando');
+    drag = null;
+  }
+
+  function bindDrag() {
+    var r = ensureRoot();
+    r.addEventListener('pointerdown', onDragStart);
+    r.addEventListener('pointermove', onDragMove);
+    r.addEventListener('pointerup', onDragEnd);
+    r.addEventListener('pointercancel', onDragEnd);
+    // Si cambia el tamaño de la ventana, volver a acotar (si no, el teclado
+    // puede quedar fuera de la pantalla y sin forma de recuperarlo).
+    window.addEventListener('resize', function () {
+      if (state.root && state.root.classList.contains('flotante')) restaurarPos();
+    });
+  }
+
   // ---------- Init ------------------------------------------------------------
   function init() {
     if (!enabled()) return;
     ensureRoot();
     bindRoot();
+    bindDrag();
+    consultarNativo();
+    restaurarPos();
     document.addEventListener('focusin', onFocusIn, true);
     document.addEventListener('mousedown', onPointerDown, true);
     document.addEventListener('touchstart', onPointerDown, { capture: true, passive: true });
@@ -538,6 +814,8 @@
     hide: hide,
     enable: function () { try { localStorage.setItem('agp_keyboard_enabled', '1'); } catch (_) {} init(); },
     disable: function () { try { localStorage.setItem('agp_keyboard_enabled', '0'); } catch (_) {} hide(); },
-    isEnabled: enabled
+    isEnabled: enabled,
+    // Devuelve el teclado a su lugar de fábrica (abajo, ancho completo).
+    resetPosicion: resetPos
   };
 })();

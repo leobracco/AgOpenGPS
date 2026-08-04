@@ -42,11 +42,35 @@
       background: var(--carta); border-right: 1px solid var(--borde);
       padding: 8px 6px; display: flex; flex-direction: column; gap: 2px;
     }
+    /* Los títulos de grupo son el acordeón: tocás uno y se abre solo ese.
+       Antes el menú listaba los ~40 accesos de corrido y para llegar a
+       Mantenimiento había que scrollear todo. */
     #menu .grupo {
       font: 700 11px "Segoe UI", Roboto, sans-serif; color: var(--gris);
       text-transform: uppercase; letter-spacing: 0.4px;
-      padding: 10px 8px 4px;
+      padding: 10px 8px 10px;
+      display: flex; align-items: center; gap: 6px;
+      min-height: 38px;                  /* tocable con guante */
+      border-radius: 8px;
+      cursor: pointer; touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+      border-top: 1px solid var(--borde);
     }
+    #menu .grupo:first-of-type { border-top: 0; }
+    #menu .grupo:active { background: #e6ede5; }
+    #menu .grupo.abierto { color: var(--texto); }
+    /* Chevron: apunta a la derecha cerrado, abajo abierto. */
+    #menu .grupo::after {
+      content: ''; margin-left: auto; flex: none;
+      width: 6px; height: 6px;
+      border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      transform: rotate(-45deg); transform-origin: center;
+      transition: transform 0.15s ease;
+      opacity: 0.7;
+    }
+    #menu .grupo.abierto::after { transform: rotate(45deg); }
+    #menu .grupo-cuerpo { display: none; flex-direction: column; gap: 2px; }
+    #menu .grupo-cuerpo.abierto { display: flex; }
     #menu button {
       display: flex; align-items: center; gap: 8px;
       min-height: 42px; padding: 4px 8px; width: 100%;
@@ -253,7 +277,9 @@
       <div class="grupo">Secciones</div>
       <button type="button" data-tab="tsections"><img loading="lazy" src="../img/config/ConS_ImplementSection.png" alt="" />Secciones</button>
       <button type="button" data-tab="tswitches"><img loading="lazy" src="../img/config/ConS_ImplementSwitch.png" alt="" />Switches</button>
-      <button type="button" data-tab="relay"><img loading="lazy" src="../img/config/ConS_Pins.png" alt="" />Pines relay</button>
+      <!-- "Pines relay" salió del menú (pedido usuario 2026-08-03). La pantalla
+           y su lógica siguen enteras: se llega con ?tab=relay. Para devolverla
+           al menú alcanza con reponer el botón acá. -->
       <button type="button" data-tab="amachine"><img loading="lazy" src="../img/config/ConS_ModulesMachine.png" alt="" />Máquina</button>
       <div class="grupo">GPS / IMU</div>
       <button type="button" data-tab="heading"><img loading="lazy" src="../img/config/ConS_SourcesHeading.png" alt="" />Rumbo</button>
@@ -262,8 +288,10 @@
       <button type="button" data-tab="uturn"><img loading="lazy" src="../img/config/Con_UTurnMenu.png" alt="" />U-Turn</button>
       <button type="button" data-tab="tram"><img loading="lazy" src="../img/config/Con_TramMenu.png" alt="" />Tram</button>
       <button type="button" data-mod="sonidos.html"><span class="ico-emoji">🔔</span>Sonidos</button>
-      <button type="button" data-tab="display"><img loading="lazy" src="../img/config/Con_Display.png" alt="" />Display</button>
-      <button type="button" data-tab="botones"><img loading="lazy" src="../img/config/Con_FeatureMenu.png" alt="" />Botones</button>
+      <!-- "Display" y "Botones" salieron del menú (pedido usuario 2026-08-03),
+           igual que "Pines relay". Las pantallas y su lógica siguen enteras: se
+           llega con ?tab=display y ?tab=botones. Para devolverlas al menú,
+           reponer sus botones acá. -->
       <!-- Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget, sin su
            propia sidebar) dentro de config.html, para no salir de la config
            ni cambiar de estilo (pedido usuario 2026-07-20).

@@ -1735,24 +1735,100 @@ mínimo 26 px de contenido, DragBar 22→18. NUEVO en overlayPrefs:
 44 px cerca de la cabecera (histéresis 5 m) y la restaura al alejarse.
 IDs/data-* intactos.
 
-### 2026-08-03 · Claude — tab Motores de QuantiX: tarjetas → TABLA
-`quantix.html` + `js/quantix.js` (a pedido del usuario). Los dos motores del
-nodo dejaron de ser tarjetas lado a lado y pasaron a una tabla con cabecera de
-dos niveles (grupo Sensor/Motor/PID + campo). Motivo: con varios nodos × 2
-motores, comparar PWM y PID en vertical es lo que se hace en la práctica.
+### 2026-08-03 · Claude — tab Motores de QuantiX: tarjetas → TABLA TRANSPUESTA
+`quantix.html` + `js/quantix.js` (a pedido del usuario). Los motores del nodo
+dejaron de ser tarjetas lado a lado. Primer intento fue tabla a lo ancho (un
+parámetro por columna): 12 columnas, 1560 px, scroll permanente en cabina. La
+versión que quedó está TRANSPUESTA: **cada motor es una columna y cada
+parámetro una fila**. Entra en 852 px sin scroll, y el ancho ahora crece con
+los motores del nodo, no con los parámetros.
 
 Detalles que importan si tocás esto:
-- La fila SIGUE siendo `.motor-cfg` con su `data-mi`: los handlers del tab la
-  buscan con `closest('.motor-cfg')`. Verificado en vivo que sensor_tipo,
-  los 7 steppers, save y maxhz siguen funcionando.
-- Se anula `#tabMotores .motor-cfg::before` (la barra de color de la tarjeta
-  cruzaba toda la fila); el color del motor ahora es el chip M0/M1.
-- Tabla de 1560 px: `.mcfg-scroll` da scroll horizontal y la columna Motor es
-  `position:sticky` para no perder de vista qué motor se está tocando.
-- Steppers compactos dentro de celda (40 px alto, botones de 38) — siguen
-  siendo tocables, pero los de 56 px del formulario no entraban.
-- `refrescarTecho()` ahora escribe el texto corto ('lee hasta N rpm'); la
-  frase larga quedó en el `title`. Si volvés al texto largo, la celda se
-  ensancha y rompe la compactación.
-- Los tabs PID live / Calibración / Prueba NO se tocaron: siguen con tarjetas,
-  que ahí es lo correcto (se mira un motor por vez).
+- Los campos de un motor YA NO están en un solo nodo del DOM. `motorScope()`
+  devuelve un objeto con querySelector/querySelectorAll acotado a las celdas
+  `.mcol[data-mi=N]`; los helpers (readMf, setStepper, refrescarTecho,
+  guardarMotorCfg) solo usaban querySelector, así que no se tocaron.
+- En los 3 handlers del tab, `closest('.motor-cfg')` pasó a `motorScopeDesde()`.
+  OJO: los tabs PID live / Calibración / Prueba SIGUEN con tarjetas y con
+  `closest('.motor-cfg')` — no unificar sin migrarlos también.
+- Verificado en vivo que el scope no se cruza: cambiar el sensor de M0 deja M1
+  intacto (ppr y techo).
+- La cantidad de motores es dinámica (`max(2, n.motores.length)`): el nodo de 7
+  canales entra solo, antes estaba hardcodeado en 2.
+- `refrescarTecho()` escribe texto corto ('lee hasta N rpm'); la frase larga
+  quedó en el `title`.
+
+### 2026-08-03 · Claude — QuantiX: motor conectado/desconectado + fin del tope de 2 canales
+`quantix.html/js` + `WidgetQuantiXController.cs`. El tab Motores tiene ahora
+una fila **Motor conectado** (checkbox por columna): al destildar se guarda
+`habilitado=false`, la columna entera se atenúa (el checkbox queda a opacidad
+plena para reconectarlo) y **el motor deja de aparecer en el overlay**.
+
+- El filtro vive en el backend del overlay (`/api/widget-quantix/state`), así
+  que vale para el overlay Avalonia y para el widget HTML por igual.
+- De paso se sacaron dos topes de 2 canales en ese controller (`mi < 2`): con
+  el nodo de 7 el overlay mostraba solo los dos primeros. Igual en la tabla del
+  Hub, que dibuja `max(2, n.motores.length)`.
+- La columna de parámetros es `position:sticky`: con 7 motores hay scroll
+  horizontal (1186 px) y sin eso se pierde de vista qué parámetro se toca.
+- Verificado en vivo el ciclo: habilitado → overlay muestra los 2; destildado →
+  muestra 1; y el checkbox de la UI persiste en la config.
+
+### 2026-08-03 · Claude — el menú del Hub aparecía DENTRO del iframe (nodo-detalle)
+Bug reportado: entrar al detalle de un nodo (para actualizar firmware) mostraba
+el menú del Hub otra vez adentro, y desde ahí se podía seguir anidando.
+
+Causa: `config.html` embebe los módulos en un iframe con `?widget=1`, y ese
+parámetro es lo único que hace que `sidebar.js` no dibuje la barra. Al navegar
+desde `nodos.html` al detalle, el parámetro se perdía (`nodos.js` armaba la URL
+a mano) y encima `nodo-detalle.html` era la única página embebible que no tenía
+la detección de modo widget.
+
+Qué cambió:
+- `widget-mode.js` ahora **propaga** el modo: expone `AgpWidget.url()` y
+  reescribe al vuelo los `<a href>` internos. Fuera del modo widget devuelve
+  todo intacto, así el que llama no pregunta.
+- `nodo-detalle.html` carga `widget-mode.js` (antes no tenía nada).
+- `nodos.js` usa el helper en sus dos navegaciones (detalle y asistente).
+- **La detección estaba duplicada inline en 20 páginas** — esa duplicación es
+  la que dejó afuera a nodo-detalle. Todas unificadas al archivo compartido.
+  `direccion.html` NO se tocó: ahí el modo es incondicional a propósito
+  (standalone puro), no depende del query.
+
+Verificado en vivo el flujo completo: entrar al detalle conserva `&widget=1` y
+el sidebar queda en 0 px; el link 'Volver a Nodos' se reescribe solo; y abrir
+cualquiera de esas páginas fuera del Hub sigue mostrando el menú (172 px).
+
+### 2026-08-03 · Claude — menú de Configuración en ACORDEÓN
+`config.html` (CSS) + `js/config.js` (lógica). El menú listaba los ~40 accesos
+de corrido y para llegar a Mantenimiento había que scrollear todo. Ahora se ven
+los 10 títulos de grupo de una (sin scroll) y sólo el grupo tocado queda
+abierto; tocar el título abierto lo cierra.
+
+- **El markup del menú NO se tocó.** El acordeón se arma en runtime: cada
+  `.grupo` se lleva los botones que lo siguen a un `.grupo-cuerpo`. Los botones
+  conservan sus `data-tab`/`data-mod` y los listeners ya enganchados (viajan
+  con el nodo al moverlo). Un botón nuevo en el HTML entra solo a su grupo.
+- El grupo del botón activo se abre solo: `AgpMenuAcordeon.abrirGrupoActivo()`,
+  llamado desde `irATab()` y desde el handler de módulos embebidos.
+- Títulos de 38 px de alto (tocables con guante) y chevron por CSS (`::after`).
+- Verificado en vivo: abrir uno cierra el anterior, navegar a un tab y abrir un
+  módulo embebido siguen funcionando, y el grupo correcto queda abierto.
+
+### 2026-08-03 (tarde) · Claude — QuantiX: VISTA POR MOTOR en los cuatro tabs
+Reemplaza a la tabla transpuesta de la entrada anterior. La transpuesta resolvía
+el ancho con 2 motores, pero con 7 canales queda ilegible — decisión del
+usuario: **mostrar un motor por vez**.
+
+- Selector con **estilo pestaña** (`.motor-sel` / `.motor-chip`, mismo lenguaje
+  que los tabs de arriba) en Motores, PID live, Calibración y Prueba.
+- `motorVista` guarda el motor elegido **por pestaña**, a propósito: se puede
+  estar afinando el PID del M1 y calibrando el M0.
+- **⧉ Copiar a todos**: replica sensor, PWM, PID y calibración del motor activo
+  al resto del nodo. NO copia nombre, surcos asignados ni `habilitado` —
+  copiar eso pisaría el reparto de la sembradora y encendería canales sin
+  motor cableado. Verificado en vivo contra la API.
+- Las tarjetas de PID/Calibración/Prueba quedaron **como estaban**: siguen
+  usando `closest('.motor-cfg')` y ahora hay una sola por pantalla, así que no
+  hizo falta tocar sus handlers.
+- Los motores ofrecidos son `max(2, n.motores.length)`: el nodo de 7 entra solo.

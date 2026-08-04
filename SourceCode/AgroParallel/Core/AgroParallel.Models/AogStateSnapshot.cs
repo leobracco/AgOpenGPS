@@ -365,6 +365,14 @@ namespace AgroParallel.Models
     {
         /// <summary>Identidad del shapefile cargado; el cliente dropea cache cuando cambia.</summary>
         public string SourceToken { get; set; }
+        /// <summary>
+        /// Revisión de la GEOMETRÍA proyectada. El SourceToken es el archivo, y
+        /// no alcanza: al abrir otro lote la misma capa se reproyecta a otro
+        /// origen y las coordenadas cambian enteras. Sin esto el server
+        /// contestaba "sin cambios" y el mapa seguía dibujando las zonas
+        /// corridas la diferencia entre los dos orígenes.
+        /// </summary>
+        public string GeomRev { get; set; }
         /// <summary>Cantidad de polígonos.</summary>
         public int Count { get; set; }
         /// <summary>Nombre del campo DBF usado para colorear (null = uniforme).</summary>

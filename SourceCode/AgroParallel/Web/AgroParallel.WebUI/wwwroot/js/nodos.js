@@ -327,8 +327,15 @@
     t.addEventListener('click', function () { setActiveTab(t.getAttribute('data-tab')); });
   });
 
+  // El Hub abre esta pagina EMBEBIDA en un iframe (config.html, ?widget=1). Si
+  // navegamos sin ese parametro, la pagina destino se cree a pantalla completa y
+  // dibuja el sidebar del Hub adentro del iframe: menu dentro del menu.
+  function irA(url) {
+    return (window.AgpWidget && window.AgpWidget.url) ? window.AgpWidget.url(url) : url;
+  }
+
   if (btnAsistente) {
-    btnAsistente.addEventListener('click', function () { window.location.href = 'setup.html'; });
+    btnAsistente.addEventListener('click', function () { window.location.href = irA('setup.html'); });
   }
 
   // Acciones por fila (delegación de eventos)
@@ -342,7 +349,7 @@
         var tr = e.target.closest && e.target.closest('tr[data-uid]');
         if (tr) {
           var uidRow = tr.getAttribute('data-uid');
-          if (uidRow) window.location.href = 'nodo-detalle.html?uid=' + encodeURIComponent(uidRow);
+          if (uidRow) window.location.href = irA('nodo-detalle.html?uid=' + encodeURIComponent(uidRow));
         }
         return;
       }
