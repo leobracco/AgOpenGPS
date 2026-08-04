@@ -14,6 +14,9 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     public BarraDerechaViewModel(GuidanceCommandClient cmd) : base(cmd) { }
 
     private const string D = "barra-derecha/";
+    // Bajada de la barra de abajo: el color de la bandera es estado.
+    [ObservableProperty] private string _flagImg = "barra-abajo/FlagRed.png";
+
 
     [ObservableProperty] private bool _noLoteVisible = true;
 
@@ -81,6 +84,8 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
 
     public override void Apply(CockpitSnapshot s)
     {
+        FlagImg = "barra-abajo/" + (s.FlagColor switch { 1 => "FlagGrn.png", 2 => "FlagYel.png", _ => "FlagRed.png" });
+
         bool hayGuia = s.TrackIdx > -1;
         bool contour = s.IsContourOn;
 

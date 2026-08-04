@@ -42,6 +42,20 @@
         <Image Source="{Binding UturnImg, Converter={StaticResource Asset}}"/>
       </Button>
 
+      <!-- Bajados de la barra de abajo (pedido usuario 2026-08-04): enderezar
+           implemento, bandera y crear guías. Son acciones puntuales, no de la
+           pasada, y acá quedan al alcance sin competir con las secciones. -->
+      <Button Command="{Binding SendCommand}" CommandParameter="reset_herramienta"
+              ToolTip.Tip="Enderezar implemento">
+        <Image Source="/Assets/barra-abajo/ResetTool.png"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="bandera" ToolTip.Tip="Bandera">
+        <Image Source="{Binding FlagImg, Converter={StaticResource Asset}}"/>
+      </Button>
+      <Button Command="{Binding SendCommand}" CommandParameter="pick" ToolTip.Tip="Guías">
+        <Image Source="/Assets/barra-abajo/TrackOn.png"/>
+      </Button>
+
       <!-- Giro manual (↰/↱), salteo de guía y cantidad de guías a saltear
            VIVÍAN acá; se quitaron a pedido del usuario porque ya están todos
            en el cluster del piloto (arriba-centro del mapa, MainWindow:
