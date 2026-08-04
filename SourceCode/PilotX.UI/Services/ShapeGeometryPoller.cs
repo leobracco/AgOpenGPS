@@ -19,6 +19,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -58,6 +59,9 @@ public sealed class ShapeGeometryPoller : IDisposable
     private sealed class WireSnapshot
     {
         public string? SourceToken { get; set; }
+        /// <summary>Revisión de la geometría proyectada (ver ShapeSnapshot.GeomRev).</summary>
+        [JsonPropertyName("geom_rev")]
+        public string? GeomRev { get; set; }
         public int Count { get; set; }
         public string? StyleField { get; set; }
         public double StyleMin { get; set; }
@@ -83,6 +87,8 @@ public sealed class ShapeGeometryPoller : IDisposable
     // "unchanged" de 40 bytes en vez del shapefile entero (que bajábamos y
     // deserializábamos ENTERO cada segundo aunque no cambiara nada).
     private string _lastToken = "";
+    // Revisión de la proyección ya aplicada; viaja como ?rev= (ver GeomRev).
+    private string _lastRev = "";
 
     public ShapeGeometryPoller(string baseUrl, Action<ShapeMapSnapshot?> onSnapshot)
     {
@@ -101,7 +107,8 @@ public sealed class ShapeGeometryPoller : IDisposable
             try
             {
                 string url = _baseUrl + "api/aog/shape" +
-                    (string.IsNullOrEmpty(_lastToken) ? "" : "?token=" + Uri.EscapeDataString(_lastToken));
+                    (string.IsNullOrEmpty(_lastToken) ? "" : "?token=" + Uri.EscapeDataString(_lastToken)
+                        + (string.IsNullOrEmpty(_lastRev) ? "" : "&rev=" + Uri.EscapeDataString(_lastRev)));
                 using var resp = await _http.GetAsync(url, _cts.Token).ConfigureAwait(false);
                 if (resp.IsSuccessStatusCode)
                 {
@@ -138,6 +145,7 @@ public sealed class ShapeGeometryPoller : IDisposable
                         {
                             _lastKey = key;
                             _lastToken = wire.SourceToken ?? "";
+                            _lastRev = wire.GeomRev ?? "";
                             _onSnapshot(Convertir(wire));
                         }
                         }

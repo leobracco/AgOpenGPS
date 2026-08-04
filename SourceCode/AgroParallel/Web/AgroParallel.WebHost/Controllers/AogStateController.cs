@@ -136,11 +136,16 @@ namespace AgroParallel.WebHost.Controllers
         // 1 s — sin esto bajaba y deserializaba TODOS los polígonos por tick,
         // y el shape tardaba varios segundos en aparecer al abrir el lote.
         [Route(HttpVerbs.Get, "/aog/shape")]
-        public Task GetShape([QueryField] string token)
+        public Task GetShape([QueryField] string token, [QueryField] string rev)
         {
             var snap = _state.GetShape();
-            if (snap != null && !string.IsNullOrEmpty(token) && token == snap.SourceToken)
-                return WriteJsonAsync(new { source_token = snap.SourceToken, unchanged = true });
+            // "Sin cambios" solo si coinciden el archivo Y la proyección: la
+            // misma capa en otro lote tiene el mismo token pero coordenadas
+            // distintas, y comparando solo el token el mapa se quedaba con las
+            // viejas (zonas corridas).
+            if (snap != null && !string.IsNullOrEmpty(token) && token == snap.SourceToken
+                && (string.IsNullOrEmpty(snap.GeomRev) || rev == snap.GeomRev))
+                return WriteJsonAsync(new { source_token = snap.SourceToken, geom_rev = snap.GeomRev, unchanged = true });
             return WriteJsonAsync(snap);
         }
 

@@ -479,6 +479,13 @@ namespace PilotX.GuidanceEngine.Adapters
         // tardaba el shape en aparecer al abrir el lote.
         private AgroParallel.Common.ShapefileLayer _shapeSnapCapa;
         private ShapeSnapshot _shapeSnapCache;
+        // Origen del plano local con el que se proyectó el snapshot cacheado.
+        // Sin esto, al abrir otro lote la capa se reproyecta (EnsureProjected
+        // compara el origen y rehace las coordenadas) pero el snapshot seguía
+        // siendo el viejo: el mapa dibujaba las zonas corridas justo la
+        // diferencia entre los dos orígenes.
+        private double _shapeSnapOriLat = double.NaN;
+        private double _shapeSnapOriLon = double.NaN;
 
         public ShapeSnapshot GetShape()
         {
@@ -487,17 +494,25 @@ namespace PilotX.GuidanceEngine.Adapters
                 var layer = Shape?.Capa;
                 if (layer == null || layer.IsEmpty) { _shapeSnapCapa = null; _shapeSnapCache = null; return null; }
 
-                if (ReferenceEquals(layer, _shapeSnapCapa) && _shapeSnapCache != null)
+                var plano = _host.AppModelField.LocalPlane;
+                var ori = plano.Origin;
+                if (ReferenceEquals(layer, _shapeSnapCapa) && _shapeSnapCache != null
+                    && ori.Latitude == _shapeSnapOriLat && ori.Longitude == _shapeSnapOriLon)
                     return _shapeSnapCache;
 
-                layer.EnsureProjected(_host.AppModelField.LocalPlane);
+                layer.EnsureProjected(plano);
                 var polys = layer.ExportPolygonsLocal();
                 if (polys == null) return null;
 
                 _shapeSnapCapa = layer;
+                _shapeSnapOriLat = ori.Latitude;
+                _shapeSnapOriLon = ori.Longitude;
                 _shapeSnapCache = new ShapeSnapshot
                 {
                     SourceToken = layer.Source ?? string.Empty,
+                    // Identifica la proyección: cambia sola al abrir otro lote.
+                    GeomRev = ori.Latitude.ToString("F7", System.Globalization.CultureInfo.InvariantCulture)
+                        + "," + ori.Longitude.ToString("F7", System.Globalization.CultureInfo.InvariantCulture),
                     Count = polys.Count,
                     StyleField = layer.StyleField,
                     StyleMin = layer.StyleMin,
