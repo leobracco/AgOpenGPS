@@ -494,6 +494,13 @@ namespace PilotX.GuidanceEngine.Adapters
                 var layer = Shape?.Capa;
                 if (layer == null || layer.IsEmpty) { _shapeSnapCapa = null; _shapeSnapCache = null; return null; }
 
+                // SIN LOTE ABIERTO no hay shape que mostrar: las coordenadas de la
+                // capa se calculan contra el origen del lote, así que sin lote no
+                // hay contra qué referirlas. Aparecía dibujada sobre un mapa vacío
+                // y después, al abrir el lote, saltaba a su lugar.
+                if (string.IsNullOrEmpty(_host?.currentFieldDirectory))
+                { _shapeSnapCache = null; return null; }
+
                 var plano = _host.AppModelField.LocalPlane;
                 var ori = plano.Origin;
                 if (ReferenceEquals(layer, _shapeSnapCapa) && _shapeSnapCache != null

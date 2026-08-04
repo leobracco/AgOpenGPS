@@ -267,7 +267,7 @@
           <ScrollViewer>
             <UniformGrid Columns="2" VerticalAlignment="Top">
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_continuar"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Continuar"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_menu"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Abrir"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_abrir"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileOpen.png"/><TextBlock Classes="slbl" Text="Abrir"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_nuevo"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileNew.png"/><TextBlock Classes="slbl" Text="Nuevo"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_kml"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileNew.png"/><TextBlock Classes="slbl" Text="Nuevo desde KML"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_cerrar"><StackPanel><Image Classes="sico" Source="/Assets/menu/SwitchOff.png"/><TextBlock Classes="slbl" Text="Cerrar"/></StackPanel></Button>
