@@ -353,6 +353,13 @@ namespace AgroParallel.Models
         public byte G { get; set; }
         public byte B { get; set; }
         public byte A { get; set; }
+        /// <summary>
+        /// Valor del campo de dosis (StyleField) de ESTE polígono, o null si la
+        /// capa no tiene campo numérico. Sin esto el cliente solo recibía el
+        /// color, y "tocar una zona para ver qué dosis trae" obligaba a
+        /// deshacer el gradiente — con el valor viaja el dato, no la pintura.
+        /// </summary>
+        public double? V { get; set; }
         public List<double[]> Rings { get; set; }
     }
 

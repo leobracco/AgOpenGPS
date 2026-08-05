@@ -459,6 +459,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnSnapshot(HudSnapshot snap)
     {
+        if (_apagada) return;
         _snap = snap;
         _desdeFix.Restart();          // reloj para interpolar entre fixes
         InvalidateBboxIfChanged(snap);
@@ -494,6 +495,17 @@ public sealed class MapGlSurface : OpenGlControlBase
     // levantando su árbol de procesos Chromium y necesita la CPU.
     private bool _pausado;
 
+    /// <summary>
+    /// Pide un frame desde afuera. RequestNextFrameRendering es protected en
+    /// OpenGlControlBase, y el watchdog de MapPanel necesita poder pedirlo al
+    /// intentar despertar al compositor sin destruir el contexto.
+    /// </summary>
+    public void PedirFrame()
+    {
+        if (_apagada) return;
+        RequestNextFrameRendering();
+    }
+
     /// <summary>Frena el tick de suavizado. Idempotente.</summary>
     public void Pausar()
     {
@@ -515,6 +527,11 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     private void AjustarTickSuavizado(HudSnapshot snap)
     {
+        if (_apagada)
+        {
+            if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
+            return;
+        }
         if (_pausado)
         {
             if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
@@ -651,6 +668,11 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnCoverage(CoverageSnapshot snap)
     {
+        // Diagnóstico --diag-sin-geometria: el encuadre al lote ocurre normal
+        // pero NINGUNA geometría pesada sube al GL (cobertura, tram, paths,
+        // guías, shape, boundary). Contraparte de --diag-sin-encuadre: entre
+        // los dos parten en mitades lo que pasa al abrir un lote.
+        if (App.DiagSinGeometria) return;
         if (snap == null) return;
         if (snap.Revision == _coverageRevisionUploaded) return;
         _pendingCoverage = snap;
@@ -676,6 +698,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnTram(TramGeometrySnapshot snap)
     {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
         if (snap == null) return;
         if (snap.Revision == _tramRevisionUploaded) return;
         _pendingTram = snap;
@@ -689,6 +712,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnPaths(PathsGeometrySnapshot snap)
     {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
         if (snap == null) return;
         if (snap.Revision == _pathsRevisionUploaded) return;
         _pendingPaths = snap;
@@ -714,6 +738,8 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnGuidance(GuidanceGeometrySnapshot snap)
     {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
+        if (App.DiagSinGuias) return;       // corte quirúrgico solo-guidance
         if (snap == null) return;
         // El XTE cambia en cada poll aunque la geometría (revision) no —
         // se guarda siempre para que el lightbar refleje el desvío en vivo.
@@ -748,6 +774,11 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     private void InvalidateBboxIfChanged(HudSnapshot snap)
     {
+        // Diagnóstico: con --diag-sin-encuadre la cámara NO refita al lote —
+        // se queda siguiendo al tractor a escala fija — pero la geometría sube
+        // y se dibuja normal. Si el congelamiento desaparece con esto, el
+        // disparador es el cambio de encuadre; si persiste, es la geometría.
+        if (App.DiagSinEncuadre) { _hasBbox = false; return; }
         var b = (snap.Boundaries != null && snap.Boundaries.Count > 0) ? snap.Boundaries[0] : null;
         if (b == null || b.Count < 3) { _hasBbox = false; return; }
         var first = b[0];
@@ -867,6 +898,38 @@ public sealed class MapGlSurface : OpenGlControlBase
         _pathsVbo = _gl.GenBuffer();
         _pathsVboCapacityFloats = 0;
 
+        // Timer queries para medir el tiempo REAL de GPU por frame (ver el
+        // bloque de medición más abajo). Si el driver no las soporta se sigue
+        // sin medir: es diagnóstico, nunca puede impedir que el mapa dibuje.
+        // OJO: no alcanza con crear las queries y mirar glGetError. Este
+        // contexto es OpenGL ES 3.0, donde glQueryCounter/GL_TIMESTAMP NO
+        // EXISTEN (son de GL desktop 3.3+ o de la extensión
+        // EXT_disjoint_timer_query). GenQuery pasa sin error igual, y recién al
+        // usar QueryCounter Silk.NET tira SymbolLoadingException — que en el
+        // hilo de render es excepción no atendida y se lleva puesta la app.
+        // Por eso se PRUEBA el símbolo de verdad, una vez, acá.
+        try
+        {
+            _qIni = new uint[RingQueries];
+            _qFin = new uint[RingQueries];
+            _qEnVuelo = new bool[RingQueries];
+            for (int i = 0; i < RingQueries; i++)
+            {
+                _qIni[i] = _gl.GenQuery();
+                _qFin[i] = _gl.GenQuery();
+            }
+            _gl.QueryCounter(_qIni[0], GLEnum.Timestamp);   // ← la prueba real
+            _gpuTimerOk = _gl.GetError() == GLEnum.NoError;
+            Console.Error.WriteLine("[MapGlSurface] medicion de GPU por frame: "
+                + (_gpuTimerOk ? "ACTIVA" : "no disponible (driver la rechaza)"));
+        }
+        catch (Exception ex)
+        {
+            _gpuTimerOk = false;
+            Console.Error.WriteLine("[MapGlSurface] sin medicion de GPU en este contexto ("
+                + ex.GetType().Name + "): " + ex.Message);
+        }
+
         var glErr = _gl.GetError();
         Console.Error.WriteLine("[MapGlSurface] GL init OK (glGetError=" + glErr + ")");
 
@@ -875,6 +938,12 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     protected override void OnOpenGlDeinit(GlInterface glInterface)
     {
+        // Este método era MUDO. Deja _gl en null, y a partir de ahí
+        // OnOpenGlRender se va en la primera línea sin decir nada: mapa negro,
+        // cero rastro. Si Avalonia lo llama sin volver a llamar OnOpenGlInit,
+        // esa es la explicación del negro permanente — hay que poder verlo.
+        Console.Error.WriteLine("[MapGlSurface] OnOpenGlDeinit: se sueltan los recursos GL"
+            + (_gl == null ? " (ya estaba sin contexto)" : ""));
         if (_gl == null) return;
         try
         {
@@ -886,6 +955,24 @@ public sealed class MapGlSurface : OpenGlControlBase
             _gl.DeleteBuffer(_pathsVbo);
             _gl.DeleteVertexArray(_vao);
             _gl.DeleteProgram(_program);
+
+            // Faltaban: el programa y el VBO de texturas, y las cuatro texturas
+            // de sprites. Se borraban los 6 buffers + VAO + programa y nada
+            // más, así que cada jubilación de surface dejaba 1 programa,
+            // 1 buffer y 4 texturas en el contexto. Con el watchdog reintentando
+            // sin tope (ver MapPanel) y una noche entera de corrida, eso se
+            // acumula sin techo — y el contexto GL es COMPARTIDO por el
+            // compositor, así que no se limpia solo al morir el control.
+            _gl.DeleteProgram(_texProgram);
+            _gl.DeleteBuffer(_texVbo);
+            if (_vehicleTex != 0) _gl.DeleteTexture(_vehicleTex);
+            if (_wheelTex != 0) _gl.DeleteTexture(_wheelTex);
+            if (_implementoTex != 0) _gl.DeleteTexture(_implementoTex);
+            if (_floorTex != 0) _gl.DeleteTexture(_floorTex);
+            _texProgram = 0; _texVbo = 0;
+            _vehicleTex = 0; _wheelTex = 0; _implementoTex = 0; _floorTex = 0;
+            _vehicleTexReady = false; _wheelTexReady = false;
+            _implementoTexReady = false; _floorTexReady = false;
         }
         catch (Exception ex)
         {
@@ -898,7 +985,19 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     protected override void OnOpenGlRender(GlInterface glInterface, int fb)
     {
-        if (_gl == null || _initFailed) return;
+        // El contador va ANTES de las salidas tempranas a propósito. Hasta acá
+        // el latido medía fps con _framesDesdeLatido, que se incrementa recién
+        // después del Clear: con eso "fps=0" tapaba dos casos MUY distintos —
+        // que Avalonia dejara de llamar este método, o que lo llamara y
+        // nosotros nos fuéramos en la primera línea. Diagnosticar el mapa negro
+        // sin poder separarlos es adivinar.
+        _entradasRender++;
+        if (_gl == null) { _salidasSinGl++; return; }
+        if (_initFailed) { _salidasInitFailed++; return; }
+
+        IniciarMedicionGpu();
+        (_swFrame ??= new System.Diagnostics.Stopwatch()).Restart();
+
         var sz = Bounds.Size;
         int wPx = (int)Math.Max(1, sz.Width);
         int hPx = (int)Math.Max(1, sz.Height);
@@ -1006,15 +1105,36 @@ public sealed class MapGlSurface : OpenGlControlBase
         //if (_gridOn)
         //    DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, _isDay ? ColGridDay : ColGrid);
 
+        // --- Presupuesto de subidas: UNA por frame ---------------------
+        //
+        // Al abrir un lote llegan coverage, tram, guidance y paths casi
+        // juntos, y hasta hoy se subían TODOS en el mismo frame. Esa ráfaga
+        // es el disparador del congelamiento del compositor, aislado con las
+        // corridas A/B/WGL del 2026-08-04 (20 ciclos de abrir/cerrar lote):
+        //
+        //   con ráfaga:               12 congelamientos (ANGLE) / 36 (WGL)
+        //   sin geometría:             0
+        //
+        // El backend no importa (WGL sin ANGLE congela MÁS): lo que rompe es
+        // el pico. Así que se sube de a UNA categoría por frame — el orden de
+        // los if da la prioridad — y si quedó algo pendiente se pide otro
+        // frame. A 30 fps las cuatro capas tardan ~130 ms en completarse, y
+        // el draw de cada capa sigue usando lo ya subido mientras tanto: no
+        // hay hueco visual, solo la capa nueva llegando un par de frames más
+        // tarde. (La idea del presupuesto por frame viene del fix de cobertura
+        // de AgOpenWeb, commit a4954836, adaptada de celdas a categorías.)
+        bool subioAlgo = false;
+
         // --- Capa 2: coverage (worked area) ----------------------------
         // Si hay snapshot pendiente con revision nueva, reuploadeamos el
         // VBO de coverage. El draw siempre va, aunque sea con los rangos
         // ya cargados de la pasada anterior — eso mantiene la capa
         // visible entre polls.
-        if (_pendingCoverage != null)
+        if (_pendingCoverage != null && !subioAlgo)
         {
             UploadCoverage(_pendingCoverage);
             _pendingCoverage = null;
+            subioAlgo = true;
         }
         if (_coverageRanges.Count > 0)
             DrawCoverage();
@@ -1023,10 +1143,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         // Va entre coverage y guidance: marcas de navegacion que deben
         // quedar visibles sobre lo pintado pero por debajo de la linea
         // activa de guidance (que es la referencia primaria del operario).
-        if (_pendingTram != null)
+        if (_pendingTram != null && !subioAlgo)
         {
             UploadTram(_pendingTram);
             _pendingTram = null;
+            subioAlgo = true;
         }
         if (_tramDisplayMode != "None" &&
             (_tramLineRanges.Count > 0 || _tramOuterCount > 0 || _tramInnerCount > 0))
@@ -1037,10 +1158,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         // el area pintada pero por debajo del contorno del lote (que es
         // referencia geometrica primaria). El boundary mantiene su color
         // fuerte para no perderse contra la linea cian.
-        if (_pendingGuidance != null)
+        if (_pendingGuidance != null && !subioAlgo)
         {
             UploadGuidance(_pendingGuidance);
             _pendingGuidance = null;
+            subioAlgo = true;
         }
         if (_guidanceVertexCount >= 2 && _guidanceMode != "Off")
         {
@@ -1053,10 +1175,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         // son marcas de navegacion que deben quedar visibles sobre la linea
         // activa. Colores fuertes distinguibles (youturn naranja, recorded
         // violeta). Revision-cache igual que tram.
-        if (_pendingPaths != null)
+        if (_pendingPaths != null && !subioAlgo)
         {
             UploadPaths(_pendingPaths);
             _pendingPaths = null;
+            subioAlgo = true;
         }
         if (_pathsYouTurnCount > 0 || _pathsRecordedCount > 0)
             DrawPaths();
@@ -1094,7 +1217,9 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (snap != null)
         {
             // --- Capa 3: boundaries ------------------------------------
-            if (snap.Boundaries != null)
+            // (el corte de --diag-sin-geometria incluye el lindero: son los
+            // DrawRing con más vértices del frame)
+            if (snap.Boundaries != null && !App.DiagSinGeometria && !App.DiagSinLindero)
             {
                 for (int i = 0; i < snap.Boundaries.Count; i++)
                 {
@@ -1111,7 +1236,7 @@ public sealed class MapGlSurface : OpenGlControlBase
             // cabecera" las secciones se apagan al pisarla. El motor ya la
             // servía en el state; el mapa no la dibujaba y la cabecera
             // construida "no se veía en el lote".
-            if (snap.Headlands != null)
+            if (snap.Headlands != null && !App.DiagSinLindero)
             {
                 for (int i = 0; i < snap.Headlands.Count; i++)
                 {
@@ -1175,6 +1300,199 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         _gl.BindVertexArray(0);
         _gl.UseProgram(0);
+
+        AnotarCajaNegra(wPx, hPx, scale);
+
+        // Si el presupuesto dejó subidas pendientes, pedir otro frame para
+        // drenarlas. Post al dispatcher (no directo): estamos DENTRO del
+        // render y el pedido es para el próximo ciclo del compositor.
+        if (_pendingCoverage != null || _pendingTram != null
+            || _pendingGuidance != null || _pendingPaths != null)
+        {
+            Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+        }
+
+        // Tiempo de CPU dentro del render = lo que cuesta ENCOLAR. Se guarda el
+        // pico para contrastarlo con el de glFinish: si encolar es barato y
+        // glFinish caro, el cuello está en la GPU y no en nuestro código.
+        if (_swFrame != null)
+        {
+            _swFrame.Stop();
+            double cpu = _swFrame.Elapsed.TotalMilliseconds;
+            if (cpu > _cpuMax) _cpuMax = cpu;
+        }
+
+        CerrarMedicionGpu();   // timer queries (apagado en GLES 3.0)
+        MedirConFinish();      // plan B por muestreo
+    }
+
+    // ---- Medición de tiempo de GPU por frame ---------------------------
+    //
+    // POR QUÉ: esta máquina lleva 41 resets del driver de video (TDR, Event ID
+    // 4101), y Windows dispara el reset cuando una operación de GPU pasa de
+    // TdrDelay — 2 segundos por defecto, que es el valor acá. La pregunta que
+    // hay que contestar con números, no opinando, es si los frames del mapa se
+    // acercan a ese techo. Si un frame tarda segundos, PilotX está EMPUJANDO
+    // los TDR; si tarda milisegundos, es el driver/hardware y no nosotros.
+    //
+    // CÓMO, y acá está lo importante: se usan timer queries de GL
+    // (GL_TIMESTAMP, que devuelve NANOsegundos), NO un Stopwatch. Cronometrar
+    // alrededor de las llamadas de dibujo mide cuánto tarda en ENCOLAR, no en
+    // ejecutar: OpenGL es asíncrono y las llamadas vuelven enseguida.
+    //
+    // Y el resultado se lee SIEMPRE de un frame viejo, nunca del actual.
+    // Preguntar por el resultado del frame en curso obliga a la CPU a esperar a
+    // la GPU (pipeline stall): serializa el render, mete el hitch que estamos
+    // tratando de medir y, en el peor caso, ayuda a causar el TDR. Por eso hay
+    // un anillo de pares de queries y se cosecha solo lo que ya está listo
+    // (QueryResultAvailable), sin bloquear jamás.
+    private const int RingQueries = 4;
+    private uint[]? _qIni, _qFin;
+    private bool[]? _qEnVuelo;
+    private int _qSlot;
+    private bool _gpuTimerOk;
+    private double _msMin = double.MaxValue, _msMax, _msAcum;
+    private long _msMuestras;
+    private DateTime _ultimoResumenGpu = DateTime.UtcNow;
+    private static readonly TimeSpan ResumenCada = TimeSpan.FromSeconds(30);
+
+    // Los dos envoltorios van con try/catch y APAGAN la medición ante cualquier
+    // falla. Es diagnóstico: jamás puede tumbar el render. (Aprendido a la mala:
+    // sin esto, un símbolo GL ausente tiraba la app entera en el primer frame.)
+    private void IniciarMedicionGpu()
+    {
+        if (!_gpuTimerOk || _gl == null) return;
+        try
+        {
+            // Si el slot todavía está en vuelo, se cosecha antes de reusarlo.
+            if (_qEnVuelo![_qSlot]) CosecharSlot(_qSlot, forzar: false);
+            if (_qEnVuelo[_qSlot]) return;   // sigue sin estar listo: se saltea
+            _gl.QueryCounter(_qIni![_qSlot], GLEnum.Timestamp);
+        }
+        catch (Exception ex) { ApagarMedicionGpu(ex); }
+    }
+
+    private void CerrarMedicionGpu()
+    {
+        if (!_gpuTimerOk || _gl == null) return;
+        try
+        {
+            _gl.QueryCounter(_qFin![_qSlot], GLEnum.Timestamp);
+            _qEnVuelo![_qSlot] = true;
+            _qSlot = (_qSlot + 1) % RingQueries;
+
+            // Cosechar los que ya terminaron, sin esperar a ninguno.
+            for (int i = 0; i < RingQueries; i++)
+                if (_qEnVuelo[i]) CosecharSlot(i, forzar: false);
+
+            PublicarResumenGpu();
+        }
+        catch (Exception ex) { ApagarMedicionGpu(ex); }
+    }
+
+    private void ApagarMedicionGpu(Exception ex)
+    {
+        _gpuTimerOk = false;
+        _qIni = null; _qFin = null; _qEnVuelo = null; _qSlot = 0;
+        Console.Error.WriteLine("[MapGlSurface] medicion de GPU DESACTIVADA ("
+            + ex.GetType().Name + "): " + ex.Message);
+    }
+
+    // ---- Plan B: muestreo con glFinish ---------------------------------
+    //
+    // Este contexto es GLES 3.0 y no tiene timer queries, así que el camino de
+    // arriba queda apagado. Igual se puede medir el tiempo REAL de GPU:
+    // glFinish() no vuelve hasta que la GPU terminó todo lo encolado, así que
+    // cronometrar hasta ahí da el costo de verdad — no el de encolar.
+    //
+    // El precio es que glFinish SERIALIZA CPU y GPU: hacerlo en cada frame
+    // arruinaría el rendimiento que estamos tratando de medir (y en una UHD 630
+    // podría empeorar los TDR). Por eso se muestrea 1 de cada 30 frames: el
+    // costo se diluye y alcanza de sobra para saber si algún frame se acerca a
+    // los 2 s del TdrDelay.
+    //
+    // Se mide aparte el tiempo de CPU dentro del render (encolar) — si ese
+    // número es chico y el de glFinish es grande, el cuello está en la GPU.
+    private const int MuestrearCada = 30;
+    private long _framesParaMuestra;
+    private double _finMin = double.MaxValue, _finMax, _finAcum;
+    private long _finMuestras;
+    private double _cpuMax;
+    private System.Diagnostics.Stopwatch? _swFrame;
+
+    private void MedirConFinish()
+    {
+        if (_gl == null) return;
+        _framesParaMuestra++;
+        if (_framesParaMuestra % MuestrearCada != 0) return;
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try { _gl.Finish(); }
+        catch { return; }   // si falla, no se mide y listo
+        sw.Stop();
+
+        double ms = sw.Elapsed.TotalMilliseconds;
+        if (ms < _finMin) _finMin = ms;
+        if (ms > _finMax) _finMax = ms;
+        _finAcum += ms;
+        _finMuestras++;
+
+        if (ms >= 2000)
+            Console.Error.WriteLine($"[MapGlSurface] GPU {ms:N0} ms — SUPERA EL TdrDelay (2000 ms): esto dispara el reset del driver");
+        else if (ms >= 500)
+            Console.Error.WriteLine($"[MapGlSurface] GPU lenta: {ms:N0} ms en un frame");
+
+        if (_finMuestras > 0 && (DateTime.UtcNow - _ultimoResumenGpu) >= ResumenCada)
+        {
+            _ultimoResumenGpu = DateTime.UtcNow;
+            Console.Error.WriteLine(
+                $"[MapGlSurface] GPU real (glFinish, 1 de cada {MuestrearCada} frames) "
+                + $"ultimos {(int)ResumenCada.TotalSeconds}s: min {_finMin:N1} · prom "
+                + $"{(_finAcum / _finMuestras):N1} · MAX {_finMax:N1} ms  |  CPU en render MAX "
+                + $"{_cpuMax:N1} ms  |  TdrDelay = 2000 ms");
+            _finMin = double.MaxValue; _finMax = 0; _finAcum = 0; _finMuestras = 0; _cpuMax = 0;
+        }
+    }
+
+    private void CosecharSlot(int i, bool forzar)
+    {
+        if (_gl == null || !_qEnVuelo![i]) return;
+        if (!forzar)
+        {
+            _gl.GetQueryObject(_qFin![i], QueryObjectParameterName.QueryResultAvailable, out uint listo);
+            if (listo == 0) return;      // todavía trabajando: NO bloquear
+        }
+        _gl.GetQueryObject(_qIni![i], QueryObjectParameterName.QueryResult, out ulong t0);
+        _gl.GetQueryObject(_qFin![i], QueryObjectParameterName.QueryResult, out ulong t1);
+        _qEnVuelo[i] = false;
+        if (t1 <= t0) return;
+
+        double ms = (t1 - t0) / 1_000_000.0;   // GL_TIMESTAMP viene en ns
+        if (ms < _msMin) _msMin = ms;
+        if (ms > _msMax) _msMax = ms;
+        _msAcum += ms;
+        _msMuestras++;
+
+        // Umbrales atados al TdrDelay real de esta máquina (2 s). El aviso sale
+        // por consola y no por el log de errores a propósito: si un frame lento
+        // se repite, no queremos otra tormenta como la de las excepciones.
+        if (ms >= 2000)
+            Console.Error.WriteLine($"[MapGlSurface] FRAME SUPERA EL TdrDelay: {ms:N0} ms — esto DISPARA el reset del driver");
+        else if (ms >= 500)
+            Console.Error.WriteLine($"[MapGlSurface] frame lento: {ms:N0} ms");
+    }
+
+    private void PublicarResumenGpu()
+    {
+        if (_msMuestras == 0) return;
+        var ahora = DateTime.UtcNow;
+        if ((ahora - _ultimoResumenGpu) < ResumenCada) return;
+        _ultimoResumenGpu = ahora;
+        Console.Error.WriteLine(
+            $"[MapGlSurface] GPU/frame ultimos {(int)ResumenCada.TotalSeconds}s: "
+            + $"min {_msMin:N2} ms · prom {(_msAcum / _msMuestras):N2} ms · MAX {_msMax:N2} ms "
+            + $"({_msMuestras} frames medidos; TdrDelay = 2000 ms)");
+        _msMin = double.MaxValue; _msMax = 0; _msAcum = 0; _msMuestras = 0;
     }
 
     private int _diagFrames;
@@ -1196,6 +1514,78 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public int FramesRenderizados { get; private set; }
 
+    /// <summary>
+    /// Rastro forense: qué subió al GL cada categoría y en qué frame, para
+    /// que el watchdog pueda decir QUÉ pasó justo antes de una muerte del
+    /// render. El time-slicing demostró que repartir las subidas no cura
+    /// (30 resurrecciones vs 12 del control): la hipótesis vigente es que
+    /// alguna subida concreta es la que mata, y esto la señala.
+    /// </summary>
+    private readonly System.Collections.Generic.Dictionary<string, int> _ultimaSubidaPorCategoria
+        = new System.Collections.Generic.Dictionary<string, int>();
+
+    /// <summary>Resumen "categoria@frame, …" de la última subida de cada
+    /// categoría, para el log del watchdog al morir el render.</summary>
+    public string UltimaSubida
+    {
+        get
+        {
+            if (_ultimaSubidaPorCategoria.Count == 0) return "(ninguna)";
+            var sb = new System.Text.StringBuilder();
+            foreach (var kv in _ultimaSubidaPorCategoria)
+            {
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append(kv.Key).Append("@f").Append(kv.Value);
+            }
+            return sb.ToString();
+        }
+    }
+
+    private void MarcarSubida(string que)
+        => _ultimaSubidaPorCategoria[que] = FramesRenderizados;
+
+    // ---- caja negra: los últimos 8 frames antes de una muerte ------------
+    //
+    // El rastro de subidas no alcanzó: hay muertes con la última subida 900
+    // frames atrás. Lo que falta ver es qué DIBUJÓ cada frame del final —
+    // conteos por capa, bounds, escala y el glGetError del cierre. Si el
+    // último frame de cada muerte comparte algo (un conteo que salta, un
+    // error GL, un bounds raro), ahí está el patrón que 8 corridas de
+    // eliminación no encontraron.
+    private readonly string[] _cajaNegra = new string[8];
+    private int _cajaNegraIdx;
+
+    private void AnotarCajaNegra(int wPx, int hPx, double escala)
+    {
+        var err = _gl != null ? _gl.GetError() : GLEnum.NoError;
+        _cajaNegra[_cajaNegraIdx] =
+            "f" + FramesRenderizados
+            + " " + wPx + "x" + hPx
+            + " esc=" + escala.ToString("F2")
+            + " cov=" + _coverageRanges.Count
+            + " gui=" + _guidanceVertexCount
+            + " yt=" + (_ytPts?.Length ?? 0) / 2
+            + " tram=" + _tramLineRanges.Count
+            + " paths=" + (_pathsYouTurnCount + _pathsRecordedCount)
+            + " shape=" + (_shapeSnap?.Polygons.Count ?? 0)
+            + " bordes=" + (_snap?.Boundaries?.Count ?? 0)
+            + " err=" + err;
+        _cajaNegraIdx = (_cajaNegraIdx + 1) % _cajaNegra.Length;
+    }
+
+    /// <summary>Vuelca la caja negra en orden cronológico (viejo → nuevo).</summary>
+    public string VolcarCajaNegra()
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < _cajaNegra.Length; i++)
+        {
+            var s = _cajaNegra[(_cajaNegraIdx + i) % _cajaNegra.Length];
+            if (s == null) continue;
+            sb.Append("\n    ").Append(s);
+        }
+        return sb.Length > 0 ? sb.ToString() : " (vacia)";
+    }
+
     // Última cámara efectiva, para el latido: si el tractor "desaparece" hay que
     // poder distinguir "no se dibuja" de "se dibuja fuera de la vista".
     private double _ultCamX, _ultCamY, _ultEscala;
@@ -1206,6 +1596,9 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     private void ArrancarLatido()
     {
+        // ArrancarLatido llega por Dispatcher.Post desde OnOpenGlInit: puede
+        // aterrizar DESPUÉS de que a esta surface la hayan jubilado.
+        if (_apagada) return;
         if (_latido != null) return;
         _latido = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -1223,7 +1616,8 @@ public sealed class MapGlSurface : OpenGlControlBase
             Console.Error.WriteLine(string.Format(
                 "[MapGlSurface] latido fps={0:F1} pausado={1} tick={2} edadFix={3:F1}s vel={4:F1} " +
                 "| tractor=({5:F1},{6:F1}) camara=({7:F1},{8:F1}) esc={9:F2} zoom={10:F2} pan=({11:F1},{12:F1}) " +
-                "hdgUp={13} sprite={14} bbox={15}",
+                "hdgUp={13} sprite={14} bbox={15} " +
+                "| render: entradas={16} sinGl={17} initFailed={18}",
                 fps,
                 _pausado,
                 _tickSuave != null && _tickSuave.IsEnabled,
@@ -1232,7 +1626,12 @@ public sealed class MapGlSurface : OpenGlControlBase
                 _renderE, _renderN,
                 _ultCamX, _ultCamY, _ultEscala,
                 _userZoom, _userPanX, _userPanY,
-                _headingUp, _vehicleTexReady, _hasBbox));
+                _headingUp, _vehicleTexReady, _hasBbox,
+                _entradasRender, _salidasSinGl, _salidasInitFailed));
+
+            // Se resetean por ventana igual que _framesDesdeLatido: lo que
+            // interesa es el ritmo de ESTOS 5 s, no un acumulado que crece.
+            _entradasRender = 0; _salidasSinGl = 0; _salidasInitFailed = 0;
 
             // Prescripción: cuántas zonas llegaron y cuántos vértices de fill
             // tienen. Si "tris" da 0 con zonas > 0, el fondo de color no puede
@@ -1248,6 +1647,72 @@ public sealed class MapGlSurface : OpenGlControlBase
             }
         };
         _latido.Start();
+    }
+
+    // ---- borde con Avalonia: entradas al render y árbol visual ----------
+    //
+    // Contadores del latido. La pregunta que tienen que contestar es una sola:
+    // cuando el mapa se congela, ¿Avalonia dejó de llamar OnOpenGlRender, o lo
+    // sigue llamando y salimos nosotros? Son dos bugs distintos en dos capas
+    // distintas y hasta ahora el log no los distinguía.
+    private long _entradasRender, _salidasSinGl, _salidasInitFailed;
+
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Console.Error.WriteLine("[MapGlSurface] enganchada al arbol visual");
+    }
+
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        // Avalonia dispara OnOpenGlDeinit cuando el control se va del árbol. Si
+        // el mapa se desprende solo (por un cambio de layout, una pantalla que
+        // lo tapa, un re-parent), el contexto se suelta y nadie lo vuelve a
+        // pedir. Ver esto en el log al mismo tiempo que el fps se cae es la
+        // diferencia entre saber y suponer.
+        Console.Error.WriteLine("[MapGlSurface] DESENGANCHADA del arbol visual");
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    // ---- jubilación de la surface --------------------------------------
+    //
+    // Cuando el watchdog de MapPanel da el contexto por muerto, saca este
+    // control del árbol y monta uno nuevo. Sacarlo del árbol NO alcanza: los
+    // dos DispatcherTimer siguen agendados en el dispatcher, que los mantiene
+    // vivos a ellos y al control entero. Medido con el latido (2026-08-04): la
+    // surface jubilada seguía imprimiendo "fps=0.0 ... tick=True" con edadFix
+    // creciendo (4,7 → 9,7 → 14,7 → 19,7 s) mientras la nueva iba a 29 fps.
+    //
+    // El caro NO es el latido de 5 s: es _tickSuave, que a 30 Hz sigue
+    // llamando RequestNextFrameRendering sobre un control que ya no está en el
+    // árbol. Cada resurrección deja otro para siempre, y en la tablet de
+    // cabina (4 GB, UHD 600) eso se acumula.
+    private bool _apagada;
+
+    /// <summary>
+    /// Jubila esta surface: frena sus timers y suelta lo grande. Idempotente.
+    /// Los recursos GL no se tocan acá — de eso se encarga OnOpenGlDeinit, que
+    /// Avalonia dispara al sacar el control del árbol y es el único lugar con
+    /// contexto GL válido para borrarlos.
+    /// </summary>
+    public void Apagar()
+    {
+        if (_apagada) return;
+        _apagada = true;
+
+        if (_tickSuave != null) { _tickSuave.Stop(); _tickSuave = null; }
+        if (_latido != null) { _latido.Stop(); _latido = null; }
+
+        // Sin esto la surface jubilada retiene la cobertura, las guías y los
+        // cuatro sprites en RGBA hasta que el GC la levante.
+        _snap = null;
+        _shapeSnap = null;
+        _ultimoTexRgba = null; _ultimoWheelRgba = null;
+        _ultimoImplRgba = null; _ultimoFloorRgba = null;
+        _pendingTexRgba = null; _pendingWheelRgba = null;
+        _pendingImplRgba = null; _pendingFloorRgba = null;
+
+        Console.Error.WriteLine("[MapGlSurface] surface jubilada: timers frenados");
     }
 
     private unsafe void LogPixel(string tag, int px, int py)
@@ -1506,6 +1971,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void UploadCoverage(CoverageSnapshot snap)
     {
         if (_gl == null) return;
+        MarcarSubida("coverage");
         _coverageRanges.Clear();
         // Color del snapshot a 0..1.
         _coverageR = snap.R / 255f;
@@ -1624,6 +2090,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void UploadGuidance(GuidanceGeometrySnapshot snap)
     {
         if (_gl == null) return;
+        MarcarSubida("guidance");
         _guidanceMode = snap.Mode ?? "Off";
         var pts = snap.Points;
         int n = (pts != null) ? pts.Count : 0;
@@ -1896,6 +2363,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void UploadTram(TramGeometrySnapshot snap)
     {
         if (_gl == null) return;
+        MarcarSubida("tram");
         _tramDisplayMode = snap.DisplayMode ?? "None";
         _tramRevisionUploaded = snap.Revision;
         _tramLineRanges.Clear();
@@ -2036,6 +2504,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void UploadPaths(PathsGeometrySnapshot snap)
     {
         if (_gl == null) return;
+        MarcarSubida("paths");
         _pathsRevisionUploaded = snap.Revision;
         _pathsYouTurnStart = 0; _pathsYouTurnCount = 0;
         _pathsRecordedStart = 0; _pathsRecordedCount = 0;
@@ -2240,8 +2709,14 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// null = se descargó el shape.</summary>
     public void OnShape(ShapeMapSnapshot? snap)
     {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
         _shapeSnap = snap;
-        RequestNextFrameRendering();
+        // Post al dispatcher como TODOS los demás OnX — este era el único que
+        // llamaba RequestNextFrameRendering directo. Si el que llama no está
+        // en el hilo UI, un pedido directo toca la maquinaria del compositor
+        // desde el hilo equivocado, y eso es corrupción silenciosa del estilo
+        // exacto que estamos cazando.
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -2258,6 +2733,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.Enable(EnableCap.Blend);
         _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
+        MarcarSubida("shape");   // sube TODOS los frames (scratch, no cachea)
         for (int p = 0; p < shape.Polygons.Count; p++)
         {
             var poly = shape.Polygons[p];
@@ -2389,6 +2865,8 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         _program = 0; _vao = 0; _vbo = 0; _vboCapacityFloats = 0;
         _texProgram = 0; _texVbo = 0;
+        // Las queries del medidor también mueren con el contexto.
+        _gpuTimerOk = false; _qIni = null; _qFin = null; _qEnVuelo = null; _qSlot = 0;
         _coverageVbo = 0; _guidanceVbo = 0; _parVbo = 0; _tramVbo = 0; _pathsVbo = 0;
 
         // Las revisiones vuelven a -1 o la geometría no se re-sube: los VBO

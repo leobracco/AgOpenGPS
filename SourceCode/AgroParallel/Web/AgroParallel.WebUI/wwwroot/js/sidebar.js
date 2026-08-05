@@ -67,8 +67,10 @@
     ]},
     { id: 'campo', label: 'Campo', items: [
       { id: 'insumos',  ico: '🌱', label: 'Insumos',  href: 'insumos.html' },
-      { id: 'mapas',    ico: '🗺',  label: 'Mapas',    href: 'mapas.html' },
-      { id: 'prescripciones', ico: '⛗', label: 'Prescripciones', href: 'prescripciones.html' }
+      { id: 'mapas',    ico: '🗺',  label: 'Mapas',    href: 'mapas.html' }
+      // Prescripciones se consolidó en QuantiX → Shape (dosis) (2026-08-05):
+      // subir, activar, vista previa y consulta de dosis viven ahí. La página
+      // prescripciones.html quedó como redirección para links guardados.
     ]},
     { id: 'config', label: 'Configuración', items: [
       { id: 'vehiculo', ico: '🚜', label: 'Vehículo', href: 'vehiculo.html' },

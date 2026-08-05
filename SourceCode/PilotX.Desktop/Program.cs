@@ -12,9 +12,11 @@
 //   --mode=full                     -> maximizada borderless (default, Hub principal)
 //   --title="Camaras"               -> titulo de la ventana (solo modo float)
 //   --width=800 --height=480        -> tamano inicial en modo float
-//   --gl=on|off                     -> usa render OpenGL del mapa (Stage 1
-//                                      de la migracion FormGPS -> Avalonia).
-//                                      Default off mientras estabilizamos.
+//   --gl=on|off                     -> render OpenGL del mapa. Default ON.
+//                                      --gl=off usa Skia, que dibuja MUCHO
+//                                      menos (sin zoom, cobertura, guías
+//                                      contiguas ni sprites): ver App.UseGl
+//                                      antes de mandárselo a alguien.
 
 using System;
 using System.Diagnostics;
@@ -41,6 +43,18 @@ internal static class Program
         // jornada. Ver CrashHandler.
         CrashHandler.Instalar();
 
+        // BuildAvaloniaApp llama .LogToTrace(), que manda los diagnósticos de
+        // Avalonia a System.Diagnostics.Trace. Sin un listener registrado, Trace
+        // los tira: veníamos corriendo con el log del framework apagado sin
+        // saberlo. Importa para el mapa negro — cuando el compositor no puede
+        // renderizar un control, se lo traga y lo reporta por acá, no por
+        // excepción (errores.log quedó en cero durante 5 congelamientos
+        // seguidos). Va a stderr, que es donde ya escribe el diagnóstico del
+        // mapa, así queda todo en la misma línea de tiempo.
+        System.Diagnostics.Trace.Listeners.Add(
+            new System.Diagnostics.TextWriterTraceListener(Console.Error));
+        System.Diagnostics.Trace.AutoFlush = true;
+
         // Sink de audio Windows para las alarmas de cabina: el poller portable
         // (PilotX.UI) entrega el WAV y este head lo toca con winmm.
         PilotX.Desktop.Services.SoundAlarmPoller.WavSink = WinmmWavPlayer.Play;
@@ -66,12 +80,34 @@ internal static class Program
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<App>()
+    /// <summary>Backend WGL en vez de ANGLE (--diag-wgl). Lo setea ParseArgs,
+    /// que corre ANTES de BuildAvaloniaApp en Main.</summary>
+    public static bool UsarWgl;
+
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        var b = AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .UseDesktopWebView()
             .WithInterFont()
             .LogToTrace();
+        if (UsarWgl)
+        {
+            // Sin ANGLE: contexto desktop GL directo contra el driver, sin
+            // puente D3D11 ni textura compartida con keyed mutex. Software
+            // queda de fallback por si el driver no da WGL utilizable.
+            b = b.With(new Win32PlatformOptions
+            {
+                RenderingMode = new[]
+                {
+                    Win32RenderingMode.Wgl,
+                    Win32RenderingMode.Software
+                }
+            });
+            Console.Error.WriteLine("[Program] DIAG: RenderingMode=WGL (sin ANGLE)");
+        }
+        return b;
+    }
 
     private static void ParseArgs(string[] args)
     {
@@ -101,6 +137,34 @@ internal static class Program
             {
                 var v = a.Substring("--gl=".Length).Trim().ToLowerInvariant();
                 App.UseGl = v == "on" || v == "1" || v == "true" || v == "yes";
+            }
+            // Interruptores de DIAGNÓSTICO del congelamiento al abrir lote.
+            // Apagados por default; sirven para partir en dos lo que pasa en
+            // ese instante y ver cuál de las dos mitades lo dispara.
+            else if (a.Equals("--diag-sin-encuadre", StringComparison.OrdinalIgnoreCase))
+            {
+                App.DiagSinEncuadre = true;
+            }
+            else if (a.Equals("--diag-sin-geometria", StringComparison.OrdinalIgnoreCase))
+            {
+                App.DiagSinGeometria = true;
+            }
+            // Experimento: backend WGL en vez de ANGLE. Sin ANGLE no hay puente
+            // D3D11 ni textura compartida con keyed mutex — si el congelamiento
+            // desaparece con esto, la causa vive en esa capa. Los shaders ya
+            // tienen preludio dual (300 es / 330 core por GlVersion.Type), así
+            // que el contexto desktop GL compila sin tocar nada más.
+            else if (a.Equals("--diag-wgl", StringComparison.OrdinalIgnoreCase))
+            {
+                UsarWgl = true;
+            }
+            else if (a.Equals("--diag-sin-lindero", StringComparison.OrdinalIgnoreCase))
+            {
+                App.DiagSinLindero = true;
+            }
+            else if (a.Equals("--diag-sin-guias", StringComparison.OrdinalIgnoreCase))
+            {
+                App.DiagSinGuias = true;
             }
             else if (a.Equals("--singleview", StringComparison.OrdinalIgnoreCase))
             {

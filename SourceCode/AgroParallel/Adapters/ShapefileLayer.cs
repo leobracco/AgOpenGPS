@@ -340,6 +340,18 @@ namespace AgroParallel.Common
                     ? _polyFillColors[p]
                     : FillColor;
 
+                // Valor de dosis del polígono (el dato detrás del color). Va
+                // al cliente para que la vista previa pueda contestar "¿qué
+                // dosis trae esta zona?" al tocarla, sin deshacer el gradiente.
+                double? v = null;
+                if (!string.IsNullOrEmpty(StyleField) && p < _polyAttrs.Count)
+                {
+                    object raw;
+                    double d;
+                    if (_polyAttrs[p].TryGetValue(StyleField, out raw) && TryToDouble(raw, out d))
+                        v = d;
+                }
+
                 var rings = new List<double[]>(poly.Count);
                 for (int r = 0; r < poly.Count; r++)
                 {
@@ -361,6 +373,7 @@ namespace AgroParallel.Common
                     G = c.G,
                     B = c.B,
                     A = c.A,
+                    V = v,
                     Rings = rings
                 });
             }

@@ -23,6 +23,7 @@
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -67,6 +68,47 @@ namespace PilotX.Desktop
                 Registrar(e.Exception, "tarea", fatal: false);
                 e.SetObserved();
             };
+
+            // ESPÍA de excepciones TRAGADAS. El mapa GL muere en silencio
+            // absoluto: cero excepciones en el log, cero eventos del driver,
+            // cero líneas de Avalonia con listener de Trace puesto. Si el
+            // compositor está atrapando una excepción interna y rindiéndose
+            // (dejar de llamar OnOpenGlRender para siempre ES rendirse), este
+            // hook la ve ANTES de cualquier catch — es el único punto que mira
+            // adentro del framework sin recompilarlo.
+            //
+            // El filtro es deliberadamente angosto: solo tipos/stacks con pinta
+            // de render (Avalonia/OpenGL/Composition/Skia/ANGLE/DXGI). Un
+            // FirstChance sin filtro loguea cada excepción atrapada del proceso
+            // entero — HttpClient tira TaskCanceled por diseño en cada timeout
+            // de polling y eso sería una tormenta que tapa lo que buscamos.
+            // Dedup por firma en ventana, reusando la misma maquinaria de
+            // Registrar (vía RegistrarTexto).
+            AppDomain.CurrentDomain.FirstChanceException += (_, e) =>
+            {
+                try
+                {
+                    var ex = e.Exception;
+                    if (ex == null) return;
+                    string tipo = ex.GetType().FullName ?? "";
+                    string stack = ex.StackTrace ?? "";
+                    bool esRender =
+                        tipo.Contains("Avalonia") || stack.Contains("Avalonia.Rendering")
+                        || stack.Contains("Avalonia.OpenGL") || stack.Contains("Composition")
+                        || tipo.Contains("OpenGl") || tipo.Contains("Skia")
+                        || stack.Contains("Skia") || stack.Contains("Angle")
+                        || tipo.Contains("Dxgi") || stack.Contains("Dxgi");
+                    if (!esRender) return;
+                    // Señal para el watchdog del mapa: la tormenta de
+                    // context-lost es el único síntoma observable de la
+                    // "composición muerta" (mapa negro con frames avanzando).
+                    if (tipo.Contains("ContextLost"))
+                        App.AnotarPerdidaDeContexto();
+                    RegistrarTexto("primera-chance (tragada rio abajo): " + tipo
+                        + " — " + ex.Message + "\n" + stack, "espia-render");
+                }
+                catch { /* el espía jamás puede romper nada */ }
+            };
         }
 
         /// <summary>
@@ -105,37 +147,40 @@ namespace PilotX.Desktop
                 {
                     // Anti-tormenta. Una falla que se repite en el hilo de
                     // render no llega de a una: un contexto GL perdido escribía
-                    // ~70 KB/s (medido: 413 KB en 6 s, 7.264 excepciones
-                    // idénticas) hasta llenarle el disco a la pantalla de
-                    // cabina. Repetida = se cuenta, no se reescribe.
+                    // ~70 KB/s hasta llenarle el disco a la pantalla de cabina.
                     //
                     // La firma es tipo + stack, NO el mensaje: dos fallas
-                    // distintas pueden compartir texto, y colapsarlas
-                    // escondería una de las dos.
+                    // distintas pueden compartir texto, y colapsarlas escondería
+                    // una de las dos.
+                    //
+                    // VENTANA de firmas, no "la última". La primera versión
+                    // comparaba solo contra la anterior y NO SIRVIÓ: la pérdida
+                    // de contexto tira DOS excepciones que se alternan
+                    // (CompositionImportedGpuImage.Import y
+                    // ServerCompositionDrawingSurface.UpdateWithKeyedMutex,
+                    // medido 672 y 671 en un mismo episodio). Con A,B,A,B la
+                    // firma nunca coincide con la de recién y se escribía todo
+                    // igual: 109 KB en 5 s. Con un diccionario por ventana, cada
+                    // firma distinta se escribe entera UNA vez por ventana y el
+                    // resto solo suma al contador.
                     string firma = Firma(ex, err.Code, origen);
-                    if (firma == _ultimaFirma)
+                    var ahora = DateTime.UtcNow;
+
+                    if ((ahora - _ventanaDesde) > VentanaDedup)
                     {
-                        _repeticiones++;
-                        // Se avisa en 2, 10, 100, 1000… así queda constancia de
-                        // que sigue pasando sin escribir una entrada por vuelta.
-                        if (!EsHitoDeRepeticion(_repeticiones)) return err;
-                        RotarSiHaceFalta();
-                        File.AppendAllText(ArchivoLog,
-                            $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  [{err.Code}] " +
-                            $"...se repite, van {_repeticiones} veces seguidas " +
-                            "(mismo tipo y mismo stack)\r\n", Encoding.UTF8);
-                        return err;
+                        VolcarResumenDeVentana();
+                        _firmasVentana.Clear();
+                        _ventanaDesde = ahora;
                     }
 
-                    if (_repeticiones > 1)
+                    if (_firmasVentana.TryGetValue(firma, out long vistas))
                     {
-                        RotarSiHaceFalta();
-                        File.AppendAllText(ArchivoLog,
-                            $"  (la anterior se repitio {_repeticiones} veces)\r\n\r\n",
-                            Encoding.UTF8);
+                        _firmasVentana[firma] = vistas + 1;
+                        return err;   // ya se escribió entera en esta ventana
                     }
-                    _ultimaFirma = firma;
-                    _repeticiones = 1;
+
+                    _firmasVentana[firma] = 1;
+                    _resumenPendiente = true;
 
                     RotarSiHaceFalta();
                     File.AppendAllText(ArchivoLog, sb.ToString(), Encoding.UTF8);
@@ -151,8 +196,88 @@ namespace PilotX.Desktop
         }
 
         // ---- Anti-tormenta de errores repetidos ---------------------------
-        private static string _ultimaFirma;
-        private static long _repeticiones;
+        //
+        // 30 s: corto para que una falla que sigue viva deje rastro periódico
+        // (no queda enterrada en un contador que nadie ve), y largo para que una
+        // tormenta de miles por minuto colapse a un par de líneas.
+        private static readonly TimeSpan VentanaDedup = TimeSpan.FromSeconds(30);
+        private static readonly Dictionary<string, long> _firmasVentana = new();
+        private static DateTime _ventanaDesde = DateTime.UtcNow;
+        private static bool _resumenPendiente;
+
+        /// <summary>
+        /// Registro liviano de texto ya armado (el espía de FirstChance), con
+        /// el mismo dedup por ventana que las excepciones de Registrar. Va al
+        /// MISMO log para que la línea de tiempo quede una sola.
+        /// </summary>
+        internal static void RegistrarTexto(string texto, string origen)
+        {
+            try
+            {
+                lock (_candado)
+                {
+                    // La firma son las primeras ~3 líneas (tipo + tope del
+                    // stack): suficiente identidad, y el resto suele variar.
+                    int corte = 0, saltos = 0;
+                    while (corte < texto.Length && saltos < 3)
+                    { if (texto[corte] == '\n') saltos++; corte++; }
+                    string firma = origen + "|" + texto.Substring(0, corte);
+
+                    var ahora = DateTime.UtcNow;
+                    if ((ahora - _ventanaDesde) > VentanaDedup)
+                    {
+                        VolcarResumenDeVentana();
+                        _firmasVentana.Clear();
+                        _ventanaDesde = ahora;
+                    }
+                    if (_firmasVentana.TryGetValue(firma, out long vistas))
+                    { _firmasVentana[firma] = vistas + 1; return; }
+                    _firmasVentana[firma] = 1;
+                    _resumenPendiente = true;
+
+                    RotarSiHaceFalta();
+                    File.AppendAllText(ArchivoLog,
+                        $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}  [{origen}]\r\n  "
+                        + texto.Replace("\n", "\n  ") + "\r\n\r\n", Encoding.UTF8);
+                }
+                Console.Error.WriteLine("[espia] " + texto.Split('\n')[0]);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Cierra la ventana: deja UNA línea con lo que se repitió y cuántas
+        /// veces. Sin esto el contador se perdería y el log diría que la falla
+        /// pasó una sola vez.
+        /// </summary>
+        private static void VolcarResumenDeVentana()
+        {
+            if (!_resumenPendiente) return;
+            _resumenPendiente = false;
+            try
+            {
+                var repetidas = new List<string>();
+                foreach (var kv in _firmasVentana)
+                {
+                    if (kv.Value <= 1) continue;
+                    // De la firma solo interesa el tipo de excepción; el stack
+                    // completo ya quedó escrito arriba, repetirlo no suma.
+                    string tipo = kv.Key;
+                    int corte = tipo.IndexOf('#');
+                    if (corte > 0) tipo = tipo.Substring(0, corte);
+                    repetidas.Add($"{tipo} x{kv.Value}");
+                }
+                if (repetidas.Count == 0) return;
+
+                RotarSiHaceFalta();
+                File.AppendAllText(ArchivoLog,
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  [resumen ultimos "
+                    + $"{(int)VentanaDedup.TotalSeconds}s] se repitieron: "
+                    + string.Join(" · ", repetidas) + "\r\n\r\n",
+                    Encoding.UTF8);
+            }
+            catch { /* el resumen es un lujo; nunca puede tumbar el handler */ }
+        }
 
         /// <summary>
         /// Identidad de la falla: tipo + stack de toda la cadena, más el código
@@ -173,20 +298,6 @@ namespace PilotX.Desktop
                 nivel++;
             }
             return sb.ToString();
-        }
-
-        /// <summary>2, 10, 100, 1000… — escala con la tormenta en vez de
-        /// escribir una línea por repetición.</summary>
-        private static bool EsHitoDeRepeticion(long n)
-        {
-            if (n == 2) return true;
-            long hito = 10;
-            while (hito <= n)
-            {
-                if (n == hito) return true;
-                hito *= 10;
-            }
-            return false;
         }
 
         /// <summary>

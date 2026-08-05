@@ -56,15 +56,51 @@ public sealed class MapPanel : Grid
     private int _ultimoFrameVisto = -1;
     private int _strikes;
     private int _resurrecciones;
+    /// <summary>Desde el último snapshot recibido. Ver MaxEdadSnap.</summary>
+    private readonly System.Diagnostics.Stopwatch _relojSnap =
+        System.Diagnostics.Stopwatch.StartNew();
 
-    /// <summary>Ciclos sin un solo frame antes de dar el contexto por muerto.
-    /// Tres a 4 s da ~12 s de gracia: suficiente para no confundirlo con una
-    /// pausa legítima o un hipo del compositor.</summary>
-    private const int StrikesParaRehacer = 3;
+    // Detección de "composición muerta" por tormenta de context-lost.
+    private long _perdidasVistas;
+    private DateTime _ultimaVentanaTormenta = DateTime.UtcNow;
+    private const long UmbralTormenta = 40;
 
-    /// <summary>Tope de intentos. Si con esto no revive, el problema es otro y
-    /// seguir recreando controles solo agrega ruido.</summary>
-    private const int MaxResurrecciones = 5;
+    /// <summary>
+    /// Ciclos sin un solo frame antes de dar el contexto por muerto. Con el
+    /// tick de 1 s, dos strikes son ~2 s de negro antes de reaccionar.
+    ///
+    /// Eran 3 strikes de 4 s = 12 s, y 12 segundos de pantalla negra en el
+    /// tractor no son un detalle: el operario asume que la app se colgó y la
+    /// mata. La demora nunca fue una restricción técnica, era este número.
+    ///
+    /// Bajarlo es seguro porque ahora Vigilar() exige además que los datos
+    /// estén FRESCOS (ver MaxEdadSnap): si el que se trabó es el poller y no
+    /// el render, que no haya frames es lo correcto y no cuenta como falla.
+    /// </summary>
+    private const int StrikesParaRehacer = 2;
+
+    /// <summary>
+    /// Si el último snapshot es más viejo que esto, el problema no es el mapa:
+    /// es que no están llegando datos. Sin este freno, con el tractor parado
+    /// (que apaga _tickSuave) un hipo del poller se veía igual que un contexto
+    /// muerto y disparaba una recreación al pedo — que cuesta su propio negro.
+    /// </summary>
+    private static readonly TimeSpan MaxEdadSnap = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// NO hay tope de intentos. Lo había (5) con la idea de que si no revive a
+    /// la quinta el problema es otro — cierto, el problema ES otro: Avalonia
+    /// deja de llamar OnOpenGlRender y el contexto GL es del compositor, no de
+    /// este control. Pero rendirse no arregla nada y sí empeora todo: medido el
+    /// 2026-08-04, a los 5 intentos el mapa quedaba NEGRO PARA SIEMPRE hasta
+    /// reiniciar PilotX a mano, y en cabina no hay quien haga eso.
+    ///
+    /// Reintentar siempre convierte eso en ~12 s de negro por episodio, porque
+    /// la surface nueva SÍ vuelve a dibujar (24-39 fps medidos). Con
+    /// StrikesParaRehacer el reintento ya viene espaciado ~12 s, así que aunque
+    /// falle siempre no hay bucle apretado.
+    /// </summary>
+    private const int MaxResurrecciones = int.MaxValue;
 
     // Últimos sprites empujados, para poder reaplicarlos a la surface nueva.
     private byte[]? _spVeh; private int _spVehW, _spVehH;
@@ -89,14 +125,22 @@ public sealed class MapPanel : Grid
         {
             _gl = new MapGlSurface();
             Children.Add(_gl);
-            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] MapPanel -> GL surface");
+            // Console.Error y no Debug.WriteLine: sin listener de Trace
+            // registrado, Debug.WriteLine no llega a ningún lado en Release y
+            // desde cabina no hay forma de saber qué render está corriendo.
+            // Importa: con Skia no se pinta la cobertura, y "no veo lo
+            // trabajado" se explica solo si esta línea está en el log.
+            Console.Error.WriteLine("[MapPanel] render del mapa: OpenGL (--gl=on)"
+                + (App.DiagSinEncuadre ? "  DIAG: SIN ENCUADRE" : "")
+                + (App.DiagSinGeometria ? "  DIAG: SIN GEOMETRIA" : ""));
             ArrancarWatchdog();
         }
         else
         {
             _skia = new MapSkiaSurface();
             Children.Add(_skia);
-            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] MapPanel -> Skia surface");
+            Console.Error.WriteLine("[MapPanel] render del mapa: Skia (default; "
+                + "GL con --gl=on). Sin cobertura triangulada.");
         }
     }
 
@@ -113,6 +157,7 @@ public sealed class MapPanel : Grid
         if (IsVisible) _gl?.Reanudar();
 
         _ultimoSnap = snap;
+        _relojSnap.Restart();       // frescura de los datos, para el watchdog
         _skia?.OnSnapshot(snap);
         _gl?.OnSnapshot(snap);
     }
@@ -124,7 +169,7 @@ public sealed class MapPanel : Grid
         if (_watchdog != null) return;
         _watchdog = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(4)
+            Interval = TimeSpan.FromSeconds(1)
         };
         _watchdog.Tick += (_, _) => Vigilar();
         _watchdog.Start();
@@ -135,14 +180,47 @@ public sealed class MapPanel : Grid
         var gl = _gl;
         if (gl == null) return;
 
+
         // Solo cuenta como falla si el mapa DEBERÍA estar dibujando: visible,
         // sin pausa y con datos llegando. Si no, que no haya frames es lo
         // correcto y no hay nada que arreglar.
-        if (!IsVisible || _ultimoSnap == null)
+        // Datos viejos = el que se trabó es el poller, no el render. Que no
+        // haya frames es lo correcto; recrear la surface acá sería cambiar un
+        // problema que no tenemos por un negro que sí cuesta.
+        if (!IsVisible || _ultimoSnap == null || _relojSnap.Elapsed > MaxEdadSnap)
         {
             _ultimoFrameVisto = gl.FramesRenderizados;
             _strikes = 0;
             return;
+        }
+
+        // ---- composición muerta (mapa negro CON frames avanzando) --------
+        //
+        // Tras un TDR el compositor puede quedar fallando la importación de
+        // la textura del mapa ~20/s durante horas: OnOpenGlRender sigue
+        // corriendo (los frames avanzan, el chequeo de abajo no salta) pero a
+        // la pantalla no llega nada. Visto en vivo el 2026-08-05 (04:02 a
+        // 06:49): telemetría fps=22, captura de pantalla en negro. La señal
+        // es el contador del espía de FirstChance: si acumula a ritmo de
+        // tormenta sostenida, la surface está dibujando a la nada y hay que
+        // recrearla. Umbral 40 en ~10 s (la tormenta real es ~200): un
+        // parpadeo aislado del driver mete 1-5 y no llega nunca.
+        long perdidas = App.PerdidasDeContexto;
+        if (_perdidasVistas == 0) _perdidasVistas = perdidas;
+        if (perdidas - _perdidasVistas >= UmbralTormenta)
+        {
+            _perdidasVistas = perdidas;
+            _resurrecciones++;
+            Console.Error.WriteLine("[MapPanel] TORMENTA de context-lost ("
+                + perdidas + " acumuladas): composicion muerta con frames avanzando — "
+                + "rehaciendo la surface (intento " + _resurrecciones + ")");
+            RehacerSurface();
+            return;
+        }
+        if ((DateTime.UtcNow - _ultimaVentanaTormenta) > TimeSpan.FromSeconds(10))
+        {
+            _ultimaVentanaTormenta = DateTime.UtcNow;
+            _perdidasVistas = perdidas;   // ventana deslizante de ~10 s
         }
 
         int frames = gl.FramesRenderizados;
@@ -157,6 +235,14 @@ public sealed class MapPanel : Grid
         if (_strikes < StrikesParaRehacer) return;
 
         _strikes = 0;
+
+        // NO hay escalón de "empujón" antes de recrear. Se probó (2026-08-04)
+        // despertar al compositor sin destruir el contexto, con cuatro
+        // variantes: InvalidateVisual, reasignar RenderTransform, pedir frame
+        // explícito y rebote de Opacity. Resultado: 29 intentos, 0 revividos.
+        // El compositor no está esperando una invalidación — dejó de atender a
+        // ESTE control, y lo único que consigue servicio es un control nuevo.
+        // Mantener el escalón solo alargaba cada apagón 1-2 s para nada.
         if (_resurrecciones >= MaxResurrecciones)
         {
             Console.Error.WriteLine(
@@ -167,8 +253,13 @@ public sealed class MapPanel : Grid
         }
 
         _resurrecciones++;
+        // El rastro forense es la clave: qué categoría subió al GL y en qué
+        // frame, contra el frame en el que murió. La subida cuyo frame quede
+        // pegado al último renderizado es la sospechosa.
         Console.Error.WriteLine("[MapPanel] contexto GL sin frames: rehaciendo la surface (intento "
-                                + _resurrecciones + ")");
+                                + _resurrecciones + "). Murio en f" + gl.FramesRenderizados
+                                + "; ultimas subidas: " + gl.UltimaSubida
+                                + "\n  caja negra (ultimos frames):" + gl.VolcarCajaNegra());
         RehacerSurface();
     }
 
@@ -181,7 +272,17 @@ public sealed class MapPanel : Grid
         var vieja = _gl;
         try
         {
-            if (vieja != null) Children.Remove(vieja);
+            // Apagar ANTES de sacarla del árbol. Remove() sola no la mata: sus
+            // dos DispatcherTimer siguen agendados y con ellos queda viva la
+            // surface entera — el _tickSuave de 30 Hz pidiendo frames de un
+            // control que ya no se dibuja. Se vio en el log del 2026-08-04:
+            // dos latidos alternados, el jubilado en fps=0 con edadFix
+            // creciendo. Con MaxResurrecciones=5 eso son hasta 5 zombis.
+            if (vieja != null)
+            {
+                vieja.Apagar();
+                Children.Remove(vieja);
+            }
         }
         catch (Exception ex)
         {

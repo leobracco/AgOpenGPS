@@ -787,7 +787,7 @@
       if (!state.siembraEnMarcha) loadShapeFields().then(function () { renderSiembra(); });
     }
     if (name === 'motores')  renderMotores();
-    if (name === 'shape')    refreshShapeActive();
+    if (name === 'shape')    { refreshShapeActive(); refreshShapeLib(); }
     if (name === 'pid')      renderPid();
     if (name === 'calibrar') renderCalibrar();
     if (name === 'prueba')   renderPrueba();
@@ -796,6 +796,18 @@
   document.querySelectorAll('.tab').forEach(function (t) {
     t.addEventListener('click', function () { showTab(t.getAttribute('data-tab')); });
   });
+
+  // Deep-link a un tab: quantix.html?tab=shape (lo usan los accesos de
+  // "Prescripciones" del sidebar Config y de OrbitX, consolidados acá el
+  // 2026-08-05 al retirar prescripciones.html). Solo tabs conocidos: un valor
+  // inventado en la URL no puede dejar la pantalla sin tab activo.
+  (function tabDesdeUrl() {
+    try {
+      var pedido = new URLSearchParams(location.search).get('tab');
+      if (pedido && document.querySelector('.tab[data-tab="' + pedido + '"]'))
+        showTab(pedido);
+    } catch (e) { /* URL rara: queda el tab default */ }
+  })();
 
   // ============================================================================
   // MONITOR
@@ -2796,7 +2808,10 @@
         '</div>';
       // La vista previa se agrega aparte: si falla, la ficha de arriba
       // igual queda mostrando el archivo y las columnas.
-      try { box.innerHTML += await shapePreviewHtml(); } catch (e) { }
+      try {
+        box.innerHTML += await shapePreviewHtml();
+        shapeBindTap();   // después de inyectar el SVG, no antes
+      } catch (e) { }
     } catch (e) {
       box.innerHTML = '<div class="subtitle">Error consultando PilotX: ' + e.message + '</div>';
     }
@@ -2836,6 +2851,13 @@
     if (!isFinite(minX)) return '';
     var anchoM = Math.max(1, maxX - minX), altoM = Math.max(1, maxY - minY);
 
+    // Estado para el toque-consulta (shapeBindTap resuelve el punto tocado
+    // contra estos mismos polígonos, en las mismas coordenadas locales).
+    shapeTap.pol = pol;
+    shapeTap.minX = minX;
+    shapeTap.maxY = maxY;
+    shapeTap.field = d.style_field || '';
+
     var paths = pol.map(function (z) {
       var col = 'rgba(' + (z.r | 0) + ',' + (z.g | 0) + ',' + (z.b | 0) + ',' +
         ((z.a != null ? z.a : 255) / 255).toFixed(2) + ')';
@@ -2861,7 +2883,169 @@
         (d.style_field ? '<span>campo <b>' + escapeHtml(d.style_field) + '</b></span>' : '') +
         (rango ? '<span>dosis ' + rango + '</span>' : '') +
         '<span class="u">' + Math.round(anchoM) + ' × ' + Math.round(altoM) + ' m</span>' +
+        '<span class="shape-tap-out chip" style="margin-left:auto">Tocá una zona para ver su dosis</span>' +
       '</div></div>';
+  }
+
+  // ============================================================================
+  // Biblioteca de prescripciones guardadas (data/prescripciones del motor).
+  // Se listaban en /api/prescripciones/list pero la UI no ofrecía activarlas:
+  // quedaban decorativas y "no había manera de indicar que las active en el
+  // mapa". Acá: fila por prescripción, chip ACTIVA, selector de campo de dosis
+  // (propiedades_candidatas) y botón Activar/Desactivar.
+  // ============================================================================
+
+  async function refreshShapeLib() {
+    var box = $sf('shapeLib');
+    if (!box) return;
+    try {
+      var r = await fetch('/api/prescripciones/list', { cache: 'no-store' });
+      var d = await r.json();
+      var items = (d && d.ok && Array.isArray(d.items)) ? d.items : [];
+      if (!items.length) {
+        box.innerHTML = '<div class="subtitle">No hay prescripciones guardadas. Subí un shapefile arriba, o llegan solas desde OrbitX.</div>';
+        return;
+      }
+      box.innerHTML = items.map(function (it) {
+        var props = Array.isArray(it.propiedades_candidatas) ? it.propiedades_candidatas : [];
+        var sel = props.length > 1
+          ? '<select class="qxLibProp" data-id="' + escapeHtml(it.id) + '" title="Campo de dosis">' +
+              props.map(function (p) { return '<option>' + escapeHtml(p) + '</option>'; }).join('') +
+            '</select>'
+          : '<span style="font-family:var(--agp-font-mono);color:var(--agp-text-muted)">' +
+              escapeHtml(props[0] || 'DOSIS') + '</span>';
+        var accion = it.activo
+          ? '<span class="chip ok">ACTIVA</span>' +
+            '<button class="btn qxLibOff" data-id="' + escapeHtml(it.id) + '">Quitar del mapa</button>'
+          : '<button class="btn primary qxLibOn" data-id="' + escapeHtml(it.id) + '">Activar en el mapa</button>';
+        var fecha = (it.fecha_mod_utc || '').substring(0, 10);
+        return '<div style="display:flex;align-items:center;gap:var(--agp-sp-3);' +
+               'padding:var(--agp-sp-2) 0;border-bottom:1px solid var(--agp-border)">' +
+                 '<div style="flex:1;min-width:0">' +
+                   '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(it.nombre || it.id) + '</div>' +
+                   '<div class="subtitle" style="margin:0">' + fecha + '</div>' +
+                 '</div>' + sel + accion +
+               '</div>';
+      }).join('');
+
+      box.querySelectorAll('.qxLibOn').forEach(function (b) {
+        b.addEventListener('click', function () { shapeLibActivar(b.dataset.id); });
+      });
+      box.querySelectorAll('.qxLibOff').forEach(function (b) {
+        b.addEventListener('click', shapeLibDesactivar);
+      });
+    } catch (e) {
+      box.innerHTML = '<div class="subtitle">Error consultando PilotX: ' + escapeHtml(e.message) + '</div>';
+    }
+  }
+
+  async function shapeLibActivar(id) {
+    var sel = document.querySelector('.qxLibProp[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+    var prop = sel ? sel.value : '';
+    try {
+      var r = await fetch('/api/prescripciones/activa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id, propiedad_dosis: prop })
+      });
+      var d = await r.json();
+      if (!d || !d.ok) { shapeSetMsg('err', 'No se pudo activar.'); return; }
+      shapeSetMsg('ok', 'Prescripción activa en el mapa.');
+    } catch (e) { shapeSetMsg('err', 'Error: ' + e.message); return; }
+    refreshShapeLib();
+    // El motor recarga la capa en su próximo ciclo; un refresh inmediato +
+    // otro diferido para cuando la geometría ya está proyectada.
+    refreshShapeActive();
+    setTimeout(refreshShapeActive, 2500);
+  }
+
+  async function shapeLibDesactivar() {
+    try { await fetch('/api/prescripciones/activa/clear', { method: 'POST' }); }
+    catch (e) { }
+    shapeSetMsg('', '');
+    refreshShapeLib();
+    refreshShapeActive();
+    setTimeout(refreshShapeActive, 2500);
+  }
+
+  // ============================================================================
+  // Tocar la vista previa → dosis de esa zona. Los polígonos ahora traen su
+  // valor de dosis ("v") además del color; con point-in-polygon local no hace
+  // falta georreferenciar el toque ni preguntarle al server.
+  // ============================================================================
+
+  // Estado del último preview dibujado (para resolver el toque).
+  var shapeTap = { pol: null, minX: 0, maxY: 0, field: '' };
+
+  function shapePuntoEnAnillo(a, x, y) {
+    // Ray casting sobre el anillo plano [x0,y0,x1,y1,…].
+    var dentro = false;
+    for (var i = 0, j = a.length - 2; i + 1 < a.length; j = i, i += 2) {
+      var xi = a[i], yi = a[i + 1], xj = a[j], yj = a[j + 1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+        dentro = !dentro;
+    }
+    return dentro;
+  }
+
+  function shapeDosisEn(x, y) {
+    var pol = shapeTap.pol || [];
+    // De atrás hacia adelante: el último dibujado queda arriba.
+    for (var p = pol.length - 1; p >= 0; p--) {
+      var rs = pol[p].rings || [];
+      rs = (rs.length && Array.isArray(rs[0])) ? rs : [rs];
+      // Even-odd con agujeros: cuenta cuántos anillos contienen el punto.
+      var cont = 0;
+      for (var r = 0; r < rs.length; r++)
+        if (shapePuntoEnAnillo(rs[r], x, y)) cont++;
+      if (cont % 2 === 1) return pol[p];
+    }
+    return null;
+  }
+
+  function shapeBindTap() {
+    var cont = document.querySelector('#shapeActive .shape-preview');
+    var svg = cont ? cont.querySelector('svg') : null;
+    var out = cont ? cont.querySelector('.shape-tap-out') : null;
+    if (!svg || !out) return;
+    svg.style.cursor = 'crosshair';
+    svg.addEventListener('click', function (ev) {
+      var pt = svg.createSVGPoint();
+      pt.x = ev.clientX; pt.y = ev.clientY;
+      var ctm = svg.getScreenCTM();
+      if (!ctm) return;
+      var p = pt.matrixTransform(ctm.inverse());
+      // Del viewBox (Y para abajo) a metros locales del lote.
+      var x = shapeTap.minX + p.x;
+      var y = shapeTap.maxY - p.y;
+      var z = shapeDosisEn(x, y);
+
+      // Marcador del toque (uno solo; el anterior se reemplaza).
+      var viejo = svg.querySelector('.shape-tap-marca');
+      if (viejo) viejo.remove();
+      var ns = 'http://www.w3.org/2000/svg';
+      var c = document.createElementNS(ns, 'circle');
+      c.setAttribute('class', 'shape-tap-marca');
+      c.setAttribute('cx', p.x); c.setAttribute('cy', p.y);
+      c.setAttribute('r', 6);
+      c.setAttribute('fill', 'none');
+      c.setAttribute('stroke', 'var(--agp-text)');
+      c.setAttribute('stroke-width', 2);
+      c.setAttribute('vector-effect', 'non-scaling-stroke');
+      svg.appendChild(c);
+
+      if (z && z.v != null) {
+        out.innerHTML = (shapeTap.field ? '<b>' + escapeHtml(shapeTap.field) + '</b>: ' : 'Dosis: ') +
+          '<b>' + z.v + '</b>';
+        out.className = 'shape-tap-out chip ok';
+      } else if (z) {
+        out.textContent = 'Zona sin valor de dosis';
+        out.className = 'shape-tap-out chip';
+      } else {
+        out.textContent = 'Fuera de las zonas';
+        out.className = 'shape-tap-out chip';
+      }
+    });
   }
 
   function shapeSetMsg(state, text) {

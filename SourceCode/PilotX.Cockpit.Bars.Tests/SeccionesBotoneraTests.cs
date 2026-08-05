@@ -47,9 +47,9 @@ public class SeccionesBotoneraTests
             SectionStates = new[] { 0, 1, 2 },
         });
 
-        Assert.That(vm.Secciones[0].Color, Is.EqualTo(SeccionBotonViewModel.ColorOff),  "Off = rojo");
+        Assert.That(vm.Secciones[0].Color, Is.EqualTo(SeccionBotonViewModel.ColorOff), "Off = rojo");
         Assert.That(vm.Secciones[1].Color, Is.EqualTo(SeccionBotonViewModel.ColorAuto), "Auto = verde");
-        Assert.That(vm.Secciones[2].Color, Is.EqualTo(SeccionBotonViewModel.ColorOn),   "On = ambar");
+        Assert.That(vm.Secciones[2].Color, Is.EqualTo(SeccionBotonViewModel.ColorOn), "On = ambar");
     }
 
     [Test]
@@ -128,8 +128,8 @@ public class SeccionesBotoneraTests
         });
 
         Assert.That(vm.Secciones[0].Color, Is.EqualTo(SeccionBotonViewModel.ColorAuto), "zona 1 (secs 1-4) en Auto");
-        Assert.That(vm.Secciones[1].Color, Is.EqualTo(SeccionBotonViewModel.ColorOff),  "zona 2 (secs 5-8) apagada");
-        Assert.That(vm.Secciones[2].Color, Is.EqualTo(SeccionBotonViewModel.ColorOn),   "zona 3 (secs 9-12) forzada");
+        Assert.That(vm.Secciones[1].Color, Is.EqualTo(SeccionBotonViewModel.ColorOff), "zona 2 (secs 5-8) apagada");
+        Assert.That(vm.Secciones[2].Color, Is.EqualTo(SeccionBotonViewModel.ColorOn), "zona 3 (secs 9-12) forzada");
     }
 
     [Test]
