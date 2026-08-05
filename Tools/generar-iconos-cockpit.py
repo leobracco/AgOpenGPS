@@ -97,6 +97,50 @@ MAPA = {
     # Botón "Guías" (abre el selector de líneas). Elección mía: el handoff no
     # dice a qué botón va cada archivo y `track-line` es el más literal.
     "track-line":           "barra-abajo/TrackOn.png",
+
+    # ---- Menú izquierdo (MenuIzquierda, íconos a 24 px) ----------------------
+    # El set de 197 traía diseño para casi todo el menú y nunca se había
+    # aplicado: seguía con los PNG heredados de AOG. Mapeo por FUNCIÓN del
+    # botón (verificada contra el CommandParameter y el label del axaml), no
+    # por parecido de nombre — dos trampas reales: AutoManualIsAuto.png es el
+    # botón "Gráfico XTE" (→ chart), y Headache.png es "Cabecera (Build)"
+    # avanzada (→ headland-menu), no el toggle de cabecera.
+    "ab-smooth":            "menu/ABSmooth.png",
+    "ab-track-ab":          "menu/ABTracks.png",
+    "chart":                "menu/AutoManualIsAuto.png",
+    "autosteer-config":     "menu/AutoSteerConf.png",
+    "autosteer-on@menu":    "menu/AutoSteerOn.png",
+    "boundary":             "menu/Boundary.png",
+    "brightness-down":      "menu/BrightnessDn.png",
+    "brightness-up":        "menu/BrightnessUp.png",
+    "field-tools":          "menu/FieldTools.png",
+    "file-new":             "menu/FileNew.png",
+    "file-open":            "menu/FileOpen.png",
+    "marca@menu":           "menu/FlagRed.png",
+    "headland-menu":        "menu/Headache.png",
+    "headland-build":       "menu/HeadlandBuild.png",
+    # El riel "LOTE" usaba job-active (tilde verde): decía "OK", no "lote".
+    # boundary-outer son dos cuadrados anidados = la parcela con su lindero —
+    # familia del "boundary" simple que usa el botón Lindero de adentro, y esa
+    # familiaridad es correcta: un lote ES su lindero. (El archivo se sigue
+    # llamando JobActive.png porque así lo bindea el axaml; renombrar el asset
+    # es cambio de XAML y va aparte si molesta.)
+    "boundary-outer":       "menu/JobActive.png",
+    "navigation-settings":  "menu/NavigationSettings.png",
+    "rec-path":             "menu/RecPath.png",
+    "settings":             "menu/Settings48.png",
+    "special-functions":    "menu/SpecialFunctions.png",
+    "switch-off":           "menu/SwitchOff.png",
+    "tram-lines@menu":      "menu/TramAll.png",
+    "tram-multi@menu":      "menu/TramMulti.png",
+    # Dos botones destructivos distintos, un solo dibujo de tacho en el set.
+    # Acá compartirlo NO esconde estado (son botones separados con label
+    # propio), a diferencia de los toggles de SIN_APLICAR.
+    "trash@applied":        "menu/TrashApplied.png",
+    "trash@contour":        "menu/TrashContourRef.png",
+    "webcam":               "menu/Webcam.png",
+    "window-night-mode":    "menu/WindowNightMode.png",
+    "youturn-reverse":      "menu/YouTurnReverse.png",
 }
 
 # Sustituciones de color por variante, para derivar un estado que el handoff no
@@ -121,6 +165,10 @@ SIN_APLICAR = {
 # Botones que el handoff no cubre.
 SIN_DISENO = [
     ("Piloto snap-to-pivot", "AutoSteerOffSnapToPivot / AutoSteerOnSnapToPivot"),
+    # Menú izquierdo — quedan con el PNG heredado hasta que diseño los mande:
+    ("CoreX (logo de producto)", "menu/CoreX.png"),
+    ("Fuente de rumbo",          "menu/ConS_SourcesHeading.png"),
+    ("Fuente de rolido",         "menu/ConS_SourcesRoll.png"),
 ]
 
 # Orden de la hoja de prueba: como salen en la barra.
