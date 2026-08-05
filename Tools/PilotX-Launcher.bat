@@ -23,10 +23,14 @@ set PILOTX_DIR=C:\PilotX
 set LOGDIR=%PILOTX_DIR%\logs
 set LOGFILE=%LOGDIR%\launcher.log
 
-:: La pantalla real es el shell Avalonia (PilotX.Desktop.exe); PilotX.exe
-:: (WinForms) queda de fallback para instalaciones viejas.
-set PILOTX_EXE=%PILOTX_DIR%\PilotX.Desktop.exe
+:: La pantalla real es el shell Avalonia (PilotX.Desktop.exe). Se prueban los
+:: DOS layouts: el nuevo con subcarpetas (C:\PilotX\Desktop\ + Engine\, el del
+:: taller y de deploy-taller.ps1) y el plano viejo. PilotX.exe (WinForms)
+:: queda de ultimo fallback para instalaciones viejas.
+set PILOTX_EXE=%PILOTX_DIR%\Desktop\PilotX.Desktop.exe
+if not exist "%PILOTX_EXE%" set PILOTX_EXE=%PILOTX_DIR%\PilotX.Desktop.exe
 if not exist "%PILOTX_EXE%" set PILOTX_EXE=%PILOTX_DIR%\PilotX.exe
+
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"
 
@@ -50,6 +54,19 @@ if not errorlevel 1 (
 cd /d "%PILOTX_DIR%"
 
 :lanzar
+:: El Engine primero, y DENTRO del bucle: si el motor muere a mitad de
+:: jornada, el proximo relanzamiento lo revive tambien. Sin motor la pantalla
+:: queda en negro con datos vencidos (medido 2026-08-05: edadFix creciendo,
+:: vel=-1) — supervisar solo la pantalla era supervisar la mitad del sistema.
+if exist "%PILOTX_DIR%\Engine\PilotX.GuidanceEngine.exe" (
+    tasklist /FI "IMAGENAME eq PilotX.GuidanceEngine.exe" 2>nul | find /I "PilotX.GuidanceEngine.exe" >nul
+    if errorlevel 1 (
+        echo [%date% %time%] Engine no corria: se levanta >> "%LOGFILE%"
+        start "PilotX Engine" /min "%PILOTX_DIR%\Engine\PilotX.GuidanceEngine.exe" --webhost --corex
+        timeout /t 6 /nobreak >nul
+    )
+)
+
 :: Epoch en segundos para medir cuanto vivio (parsear %TIME% en batch es
 :: fragil con configuraciones regionales; PowerShell no).
 for /f %%S in ('powershell -NoProfile -Command "[int][double]::Parse((Get-Date -UFormat %%s))"') do set T0=%%S
