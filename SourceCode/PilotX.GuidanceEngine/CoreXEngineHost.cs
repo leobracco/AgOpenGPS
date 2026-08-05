@@ -42,7 +42,55 @@ namespace AgIO
         public readonly IUdpBridgeService UdpBridge = new UdpBridgeService();
         public readonly INtripClientService Ntrip = new NtripClientService();
 
+        // OJO: 255.255.255.255 (broadcast LIMITADO) acá era una trampa: Windows
+        // lo despacha por UNA sola interfaz elegida por la tabla de rutas, y en
+        // una PC con adaptadores virtuales (QEMU/emulador, VPN) puede salir por
+        // el equivocado — los módulos de la LAN no reciben NADA, sin ningún
+        // error. AgIO nativo siempre usó broadcast DE SUBRED (x.y.z.255), que
+        // se enruta por la interfaz correcta; por eso "el otro andaba". Este
+        // endpoint queda de fallback si no se puede enumerar ninguna interfaz.
         public IPEndPoint EpModule = new IPEndPoint(IPAddress.Parse("255.255.255.255"), 8888);
+
+        /// <summary>
+        /// Endpoints de módulos: el broadcast dirigido (ip | ~máscara) de CADA
+        /// interfaz IPv4 real y activa. Multi-NIC seguro: se manda a todas.
+        /// Se recalcula por llamada — es barato (~µs) y la LAN del tractor
+        /// puede cambiar en caliente (WiFi que se cae, cable que entra).
+        /// </summary>
+        private System.Collections.Generic.List<IPEndPoint> EndpointsDeModulos()
+        {
+            var eps = new System.Collections.Generic.List<IPEndPoint>();
+            try
+            {
+                foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up) continue;
+                    if (ni.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Loopback) continue;
+                    foreach (var ua in ni.GetIPProperties().UnicastAddresses)
+                    {
+                        if (ua.Address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) continue;
+                        var ip = ua.Address.GetAddressBytes();
+                        var mask = ua.IPv4Mask?.GetAddressBytes();
+                        if (mask == null) continue;
+                        // 169.254.x.x (link-local sin DHCP) no lleva módulos.
+                        if (ip[0] == 169 && ip[1] == 254) continue;
+                        var bc = new byte[4];
+                        for (int i = 0; i < 4; i++) bc[i] = (byte)(ip[i] | ~mask[i]);
+                        eps.Add(new IPEndPoint(new IPAddress(bc), 8888));
+                    }
+                }
+            }
+            catch { }
+            if (eps.Count == 0) eps.Add(EpModule);   // fallback: mejor limitado que nada
+            return eps;
+        }
+
+        /// <summary>Manda un PGN a los módulos por TODAS las subredes reales.</summary>
+        private void EnviarAModulos(byte[] data)
+        {
+            foreach (var ep in EndpointsDeModulos())
+                UdpBridge.SendUdpTo(data, ep);
+        }
 
         private IMqttClient _cmdClient;
         private int _mqttPort;
@@ -102,10 +150,11 @@ namespace AgIO
             // como no-portado y este es el pedazo que faltaba.
             _helloTimer = new System.Threading.Timer(_ =>
             {
-                try { UdpBridge.SendUdpTo(HelloAgIO, EpModule); }
+                try { EnviarAModulos(HelloAgIO); }
                 catch { /* la LAN puede parpadear; el próximo tick reintenta */ }
             }, null, 1000, 1000);
-            Log.EventWriter("CoreXEngine: hello a modulos (PGN 200) cada 1 s hacia " + EpModule);
+            var listaEps = string.Join(", ", EndpointsDeModulos());
+            Log.EventWriter("CoreXEngine: hello a modulos (PGN 200) cada 1 s hacia [" + listaEps + "]");
         }
 
         /// <summary>Mismo frame que helloFromAgIO en AgIO/UDP.designer.cs.</summary>
@@ -170,7 +219,7 @@ namespace AgIO
         // CPgnRouter.RouteLoopbackPgn + ReceiveFromLoopBack de UDP.designer.cs) ----
         private void ReceiveFromLoopBack(byte[] data)
         {
-            UdpBridge.SendUdpTo(data, EpModule);
+            EnviarAModulos(data);
 
             if (data.Length < 4 || data[0] != 0x80 || data[1] != 0x81) return;
 

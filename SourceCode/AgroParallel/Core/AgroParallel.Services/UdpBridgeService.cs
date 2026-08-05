@@ -36,9 +36,8 @@ namespace AgroParallel.Services
                 _loopbackSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 _loopbackSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
                 _loopbackSocket.Bind(new IPEndPoint(IPAddress.Loopback, listenPort));
-                _loopbackSocket.BeginReceiveFrom(_bufferLoop, 0, _bufferLoop.Length, SocketFlags.None,
-                    ref _epLoopback, LoopbackReceiveCallback, null);
                 IsLoopbackConnected = true;
+                ArmarRecepcion(esLoopback: true);
             }
             catch { IsLoopbackConnected = false; }
         }
@@ -60,9 +59,8 @@ namespace AgroParallel.Services
                 _udpSocket.ExclusiveAddressUse = false;
                 _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 _udpSocket.Bind(new IPEndPoint(IPAddress.Any, listenPort));
-                _udpSocket.BeginReceiveFrom(_bufferUdp, 0, _bufferUdp.Length, SocketFlags.None,
-                    ref _epUdp, UdpReceiveCallback, null);
                 IsUdpConnected = true;
+                ArmarRecepcion(esLoopback: false);
             }
             catch { IsUdpConnected = false; }
         }
@@ -102,38 +100,114 @@ namespace AgroParallel.Services
         public void Dispose() => Stop();
 
         // ── Callbacks async ─────────────────────────────────────────────
+        //
+        // OJO — patrón anti-recursión, no simplificar al clásico
+        // "EndReceiveFrom + BeginReceiveFrom adentro del callback":
+        // en .NET moderno (net8/net9) BeginReceiveFrom completa
+        // SINCRÓNICAMENTE cuando ya hay un datagrama encolado, y en ese caso
+        // invoca el callback INLINE. Con tráfico sostenido (los PGN de guiado
+        // a 10 Hz apenas se activa el piloto) cada datagrama pendiente apila
+        // un frame más: LoopbackReceiveCallback → BeginReceiveFrom →
+        // LoopbackReceiveCallback → ... hasta StackOverflowException y proceso
+        // muerto sin log (así se moría el engine al activar el piloto,
+        // 2026-08-05). En net48 (AgIO original) el completado sincrónico casi
+        // no ocurre y por eso el patrón viejo sobrevivió años.
+        //
+        // La regla acá: el callback SOLO procesa completados asíncronos; los
+        // sincrónicos los drena el while de ArmarRecepcion en un stack plano.
         private void LoopbackReceiveCallback(IAsyncResult ar)
         {
-            try
-            {
-                int len = _loopbackSocket.EndReceiveFrom(ar, ref _epLoopback);
-                if (len > 0)
-                {
-                    var msg = new byte[len];
-                    Array.Copy(_bufferLoop, msg, len);
-                    OnLoopbackReceived?.Invoke(msg, _epLoopback as IPEndPoint);
-                }
-                _loopbackSocket.BeginReceiveFrom(_bufferLoop, 0, _bufferLoop.Length, SocketFlags.None,
-                    ref _epLoopback, LoopbackReceiveCallback, null);
-            }
-            catch { }
+            if (ar.CompletedSynchronously) return;   // lo drena ArmarRecepcion
+            if (ProcesarRecepcion(ar, esLoopback: true)) ArmarRecepcion(esLoopback: true);
         }
 
         private void UdpReceiveCallback(IAsyncResult ar)
         {
+            if (ar.CompletedSynchronously) return;   // lo drena ArmarRecepcion
+            if (ProcesarRecepcion(ar, esLoopback: false)) ArmarRecepcion(esLoopback: false);
+        }
+
+        /// <summary>
+        /// Arma el BeginReceiveFrom y drena en un while todos los completados
+        /// sincrónicos (stack plano). Sale cuando la operación queda pendiente
+        /// (la sigue el callback) o el socket se cerró.
+        /// </summary>
+        private void ArmarRecepcion(bool esLoopback)
+        {
+            while (true)
+            {
+                Socket s = esLoopback ? _loopbackSocket : _udpSocket;
+                if (s == null) return;
+                IAsyncResult ar;
+                try
+                {
+                    ar = esLoopback
+                        ? s.BeginReceiveFrom(_bufferLoop, 0, _bufferLoop.Length, SocketFlags.None,
+                            ref _epLoopback, LoopbackReceiveCallback, null)
+                        : s.BeginReceiveFrom(_bufferUdp, 0, _bufferUdp.Length, SocketFlags.None,
+                            ref _epUdp, UdpReceiveCallback, null);
+                }
+                catch (ObjectDisposedException) { return; }
+                catch
+                {
+                    // Socket en mal estado transitorio: reintentar en frío para
+                    // no quedar girando caliente ni matar la escucha para
+                    // siempre (el bug viejo: catch{} sin re-armar = bridge
+                    // sordo silencioso hasta reiniciar).
+                    bool capturado = esLoopback;
+                    System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                    {
+                        System.Threading.Thread.Sleep(100);
+                        ArmarRecepcion(capturado);
+                    });
+                    return;
+                }
+                if (!ar.CompletedSynchronously) return;  // sigue el callback
+                if (!ProcesarRecepcion(ar, esLoopback)) return;
+            }
+        }
+
+        /// <summary>Devuelve false solo si hay que dejar de escuchar (socket cerrado).</summary>
+        private bool ProcesarRecepcion(IAsyncResult ar, bool esLoopback)
+        {
+            Socket s = esLoopback ? _loopbackSocket : _udpSocket;
+            if (s == null) return false;
             try
             {
-                int len = _udpSocket.EndReceiveFrom(ar, ref _epUdp);
+                int len = esLoopback
+                    ? s.EndReceiveFrom(ar, ref _epLoopback)
+                    : s.EndReceiveFrom(ar, ref _epUdp);
                 if (len > 0)
                 {
-                    var msg = new byte[len];
-                    Array.Copy(_bufferUdp, msg, len);
-                    OnUdpReceived?.Invoke(msg, _epUdp as IPEndPoint);
+                    byte[] msg;
+                    IPEndPoint origen;
+                    if (esLoopback)
+                    {
+                        msg = new byte[len];
+                        Array.Copy(_bufferLoop, msg, len);
+                        origen = _epLoopback as IPEndPoint;
+                    }
+                    else
+                    {
+                        msg = new byte[len];
+                        Array.Copy(_bufferUdp, msg, len);
+                        origen = _epUdp as IPEndPoint;
+                    }
+                    try
+                    {
+                        if (esLoopback) OnLoopbackReceived?.Invoke(msg, origen);
+                        else OnUdpReceived?.Invoke(msg, origen);
+                    }
+                    catch { /* un handler roto no debe matar la escucha */ }
                 }
-                _udpSocket.BeginReceiveFrom(_bufferUdp, 0, _bufferUdp.Length, SocketFlags.None,
-                    ref _epUdp, UdpReceiveCallback, null);
+                return true;
             }
-            catch { }
+            catch (ObjectDisposedException) { return false; }
+            // SocketException acá es casi siempre WSAECONNRESET (10054): un
+            // ICMP port-unreachable de algún SendUdpTo a un destino apagado.
+            // Es ruido — hay que SEGUIR escuchando (el bug viejo moría acá).
+            catch (SocketException) { return true; }
+            catch { return true; }
         }
 
         private static void SendCallback(IAsyncResult ar)

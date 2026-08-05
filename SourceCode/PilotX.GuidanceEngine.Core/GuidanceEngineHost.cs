@@ -281,8 +281,7 @@ namespace AgOpenGPS
             // procesa posición real (el modo --sim no pasa por acá y por eso sí
             // andaba).
             PgnReceiverField.StartWatch();
-            _loopBackSocket.BeginReceiveFrom(_loopBuffer, 0, _loopBuffer.Length, SocketFlags.None,
-                ref _endPointLoopBack, ReceiveAppData, null);
+            ArmarRecepcionLoopback();
             Log.EventWriter("GuidanceEngine: UDP loopback escuchando en 127.0.0.1:15555");
         }
 
@@ -313,17 +312,59 @@ namespace AgOpenGPS
             lock (_fixPipelineLock) accion();
         }
 
+        // OJO — patrón anti-recursión (mismo arreglo que UdpBridgeService):
+        // en net9 BeginReceiveFrom completa SINCRÓNICO si ya hay datagrama
+        // encolado e invoca el callback INLINE. Re-armar adentro del callback
+        // apilaba un frame por datagrama pendiente → StackOverflowException y
+        // el engine muerto sin log al activar el piloto (2026-08-05). El
+        // callback solo atiende completados asíncronos; los sincrónicos los
+        // drena el while de ArmarRecepcionLoopback con stack plano.
         private void ReceiveAppData(IAsyncResult ar)
         {
-            if (!_running) return;
+            if (ar.CompletedSynchronously) return;   // lo drena ArmarRecepcionLoopback
+            if (ProcesarDatagrama(ar)) ArmarRecepcionLoopback();
+        }
+
+        internal void ArmarRecepcionLoopback()
+        {
+            while (_running)
+            {
+                var s = _loopBackSocket;
+                if (s == null) return;
+                IAsyncResult ar;
+                try
+                {
+                    ar = s.BeginReceiveFrom(_loopBuffer, 0, _loopBuffer.Length, SocketFlags.None,
+                        ref _endPointLoopBack, ReceiveAppData, null);
+                }
+                catch (ObjectDisposedException) { return; }
+                catch (Exception ex)
+                {
+                    Log.EventWriter("GuidanceEngine: error re-armando recepción UDP: " + ex);
+                    // Reintento en frío: no girar caliente ni quedar sordo.
+                    System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                    {
+                        System.Threading.Thread.Sleep(100);
+                        ArmarRecepcionLoopback();
+                    });
+                    return;
+                }
+                if (!ar.CompletedSynchronously) return;  // sigue el callback
+                if (!ProcesarDatagrama(ar)) return;
+            }
+        }
+
+        /// <summary>Devuelve false solo si hay que dejar de escuchar.</summary>
+        private bool ProcesarDatagrama(IAsyncResult ar)
+        {
+            if (!_running) return false;
+            var s = _loopBackSocket;
+            if (s == null) return false;
             try
             {
-                int len = _loopBackSocket.EndReceiveFrom(ar, ref _endPointLoopBack);
+                int len = s.EndReceiveFrom(ar, ref _endPointLoopBack);
                 byte[] data = new byte[len];
                 Array.Copy(_loopBuffer, data, len);
-
-                _loopBackSocket.BeginReceiveFrom(_loopBuffer, 0, _loopBuffer.Length, SocketFlags.None,
-                    ref _endPointLoopBack, ReceiveAppData, null);
 
                 // TryEnter y DESCARTE, no lock: bajo una inundación UDP (eco,
                 // relay loco, ModSim reflejando) un lock convencional encolaba
@@ -335,14 +376,19 @@ namespace AgOpenGPS
                     try { PgnReceiverField.ReceiveFromAgIO(data); }
                     finally { System.Threading.Monitor.Exit(_fixPipelineLock); }
                 }
+                return true;
             }
+            catch (ObjectDisposedException) { return false; }
             catch (Exception ex)
             {
                 // ToString y no Message: acá cae CUALQUIER excepción del pipeline
                 // de fix (NMEA→UpdateFixPosition→secciones). Sin el stack, un bug
                 // real (p.ej. colección corrupta) queda enterrado como una línea
                 // repetida 2000 veces y las secciones congeladas sin pista.
+                // SocketException también cae acá (10054 por ICMP de un destino
+                // apagado): es ruido, hay que seguir escuchando.
                 Log.EventWriter("GuidanceEngine: error de recepción UDP: " + ex);
+                return true;
             }
         }
 

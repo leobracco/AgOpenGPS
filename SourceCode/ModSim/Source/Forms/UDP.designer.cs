@@ -146,26 +146,62 @@ namespace ModSim
 
         private void ReceiveDataUDPAsync(IAsyncResult asyncResult)
         {
+            // OJO — el catch original NO re-armaba el BeginReceiveFrom: bastaba
+            // UNA excepción (el clásico WSAECONNRESET 10054, el ICMP
+            // port-unreachable que aparece cuando nuestro send a <IP>:9999 pega
+            // contra un PilotX caído) para que la recepción muriera en silencio
+            // y ModSim quedara SORDO para siempre — seguía mandando GPS pero no
+            // "veía" más nada de PilotX hasta reiniciar (2026-08-05).
+            // Regla: pase lo que pase, re-armar la escucha; solo cortar si el
+            // socket está cerrado de verdad.
+            int msgLen = 0;
             try
             {
-                // Receive all data
-                int msgLen = UDPSocket.EndReceiveFrom(asyncResult, ref endPointUDP);
-
-                byte[] localMsg = new byte[msgLen];
-                Array.Copy(buffer, localMsg, msgLen);
-
-                // Listen for more connections again...
-                UDPSocket.BeginReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref endPointUDP, 
-                    new AsyncCallback(ReceiveDataUDPAsync), null);
-
-                BeginInvoke((MethodInvoker)(() => ReceiveFromUDP(localMsg)));
-
+                msgLen = UDPSocket.EndReceiveFrom(asyncResult, ref endPointUDP);
             }
+            catch (ObjectDisposedException) { return; }   // socket cerrado: fin
             catch (Exception)
             {
-                //WriteErrorLog("UDP Recv data " + e.ToString());
-                //MessageBox.Show("ReceiveData Error: " + e.Message, "UDP Server", MessageBoxButtons.OK,
-                //MessageBoxIcon.Error);
+                // 10054 y afines: ruido de red, NO matar la escucha.
+                msgLen = 0;
+            }
+
+            byte[] localMsg = null;
+            if (msgLen > 0)
+            {
+                localMsg = new byte[msgLen];
+                Array.Copy(buffer, localMsg, msgLen);
+            }
+
+            // Listen for more connections again... SIEMPRE.
+            try
+            {
+                UDPSocket.BeginReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref endPointUDP,
+                    new AsyncCallback(ReceiveDataUDPAsync), null);
+            }
+            catch (ObjectDisposedException) { return; }
+            catch (Exception)
+            {
+                // Socket en mal estado transitorio: reintento en frío para no
+                // quedar sordo ni girar caliente.
+                var t = new System.Threading.Timer(_ =>
+                {
+                    try
+                    {
+                        UDPSocket.BeginReceiveFrom(buffer, 0, buffer.Length, SocketFlags.None, ref endPointUDP,
+                            new AsyncCallback(ReceiveDataUDPAsync), null);
+                    }
+                    catch { /* si sigue roto, quedó sordo igual que antes */ }
+                }, null, 200, System.Threading.Timeout.Infinite);
+            }
+
+            if (localMsg != null)
+            {
+                try
+                {
+                    BeginInvoke((MethodInvoker)(() => ReceiveFromUDP(localMsg)));
+                }
+                catch (Exception) { /* form cerrándose */ }
             }
         }
 

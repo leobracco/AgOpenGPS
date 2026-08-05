@@ -3320,3 +3320,47 @@ el JS lee por ahí. Reestilá libre, pero no renombres un `id=`.
   **NADA DE ESTO ESTÁ PROBADO EN CABINA.** Todo se verificó contra el motor
   corriendo (API + capturas). Queda pendiente de mi lado forzar un TDR real
   para confirmar que el mapa se recupera solo.
+
+---
+
+## 2026-08-05 11:45 — Leonardo → Santiago: crash del engine al activar el piloto (2 archivos de tu carril)
+
+**AVISO — toqué DOS archivos de tu carril**, y esta vez con causa grave:
+el engine se moría con **StackOverflowException sin log** apenas se
+activaba el piloto con ModSim/módulos conectados.
+
+**Root cause (vale para todo el repo net8/net9):** en .NET moderno
+`BeginReceiveFrom` completa **sincrónicamente** cuando ya hay un
+datagrama encolado, y en ese caso invoca el callback **inline**. El patrón
+clásico de AgIO ("EndReceiveFrom + BeginReceiveFrom adentro del callback")
+se vuelve recursión: con la ráfaga de PGNs de guiado a 10 Hz cada
+datagrama pendiente apila un frame más hasta reventar el stack. En net48
+casi nunca completa sync — por eso el patrón sobrevivió años y por eso
+CoreX.exe/AgIO nunca lo sufrió.
+
+Archivos tocados (patrón nuevo: el callback solo atiende completados
+asíncronos; los sincrónicos los drena un `while` con stack plano):
+
+- `AgroParallel.Services/UdpBridgeService.cs` — `ArmarRecepcion` +
+  `ProcesarRecepcion` para loopback y LAN. De paso: un
+  `SocketException` (10054 por ICMP de un destino apagado) ya NO mata la
+  escucha (antes: catch{} sin re-armar = bridge sordo hasta reiniciar).
+- `PilotX.GuidanceEngine.Core/GuidanceEngineHost.cs` — mismo patrón en
+  `ReceiveAppData`/`ArmarRecepcionLoopback`; el TryEnter/descarta del
+  pipeline de fix quedó igual.
+- `PilotX.GuidanceEngine/CoreXEngineHost.cs` — los módulos ahora reciben
+  por **broadcast de subred por interfaz** (`EndpointsDeModulos`), no
+  `255.255.255.255` (broadcast limitado: Windows lo manda por UNA sola
+  interfaz elegida por ruta — con adaptadores virtuales salía por el
+  equivocado). Igual que AgIO nativo.
+- `ModSim/Source/Forms/UDP.designer.cs` (carril mío) — mismo bug de
+  no-re-armar en net48: cuando el engine caía, el ICMP mataba la recepción
+  de ModSim y quedaba sordo hasta reiniciarlo.
+
+**Verificado local (no cabina):** 236 tests de Services OK; lazo completo
+ModSim⇄engine cerrado (el engine muestra el ángulo real 30° de ModSim vía
+PGN 253, ModSim recibe 254/239 y muestra la velocidad de máquina);
+engine >10 min bajo la misma ráfaga que antes lo mataba en segundos.
+
+Si tenés OTROS BeginReceive* con re-arme adentro del callback en código
+net8/net9 de tu lado, revisalos con esta lupa: es una bomba silenciosa.
