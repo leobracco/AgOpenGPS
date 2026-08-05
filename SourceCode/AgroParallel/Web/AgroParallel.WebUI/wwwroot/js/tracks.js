@@ -37,7 +37,7 @@
 
   // ---- navegación de pantallas ----
   var TITLES = {
-    main: 'Guías', choose: 'Nueva guía', abline: 'AB Line', aplus: 'A+',
+    main: 'Guías guardadas', choose: 'Guías', abline: 'AB Line', aplus: 'A+',
     curve: 'Curva', pivot: 'Pivote', latlonplus: 'Lat/Lon + Rumbo',
     latlonlatlon: 'Lat/Lon A–B', name: 'Nombre', editname: 'Editar nombre', kml: 'KML'
   };
@@ -119,7 +119,23 @@
   on('btnSwapAB', async function () { state = await apiPost('/swap-ab') || state; refreshList(); });
   var allVisible = true;
   on('btnHideShow', async function () { allVisible = !allVisible; state = await apiPost('/toggle-all', { visible: allVisible }) || state; refreshList(); });
-  on('btnNewTrack', function () { show('choose'); });
+  // El menú (choose) es la ENTRADA de la ventana (2026-08-05): AB / AB curva
+  // siempre; "Guías guardadas" solo si hay guías. Todo SPA (show()): en el
+  // WebView del diálogo las navegaciones de página NO llegan al host (mismo
+  // problema documentado del centinela pilotx-close), así que no hay resize
+  // nativo por paso — la ventana es de tamaño único y tkWin se acomoda.
+  var qs = new URLSearchParams(location.search);
+  var fromList = false;
+  function updateChoose() {
+    var b = document.getElementById('btnGoList');
+    if (b) b.style.display = (!fromList && state.tracks && state.tracks.length) ? '' : 'none';
+  }
+  on('btnGoList', function () { show('main'); });
+  on('btnChooseBack', function () {
+    if (fromList) { fromList = false; show('main'); }
+    else closeWidget();
+  });
+  on('btnNewTrack', function () { fromList = true; updateChoose(); show('choose'); });
   on('btnUse', async function () { await apiPost('/use'); closeWidget(); });
   on('btnCancel', async function () { await apiPost('/cancel'); closeWidget(); });
 
@@ -268,7 +284,12 @@
       } else if (pendingCreate.kind === 'duplicate') {
         state = await apiPost('/duplicate', { name: name }) || state;
       }
+      var creada = pendingCreate.kind === 'ab' || pendingCreate.kind === 'curve';
       pendingCreate = null;
+      // Guía nueva creada: ya se ve en el mapa — la ventana no tiene más nada
+      // que hacer, se cierra (pedido usuario 2026-08-05). Duplicar viene de la
+      // lista y vuelve a la lista.
+      if (creada) { closeWidget(); return; }
     }
     // reset botones AB
     ptA = ptB = null;
@@ -310,6 +331,13 @@
     })(nuds[k]);
   }
 
-  // Arranque
-  loadState();
+  // Arranque: la pantalla la decide ?screen= (navegación real entre pasos
+  // para que el host ajuste la ventana). Sin parámetro: el menú.
+  (async function () {
+    await loadState();
+    updateChoose();
+    var scr = qs.get('screen');
+    var valida = { main: 1, choose: 1, abline: 1, curve: 1 };
+    show(valida[scr] ? scr : 'choose');
+  })();
 })();

@@ -1211,9 +1211,15 @@ public partial class MainWindow : Window
             case "ayuda.html":
             case "eventos.html":
             case "ajustes-todos.html":
-            case "tracks.html":
             case "recpath.html":
             case "tramlines.html":
+                return (460, 470);
+
+            // Guías: tamaño ÚNICO que banca todas sus pantallas internas (el
+            // wizard tkWin se acomoda adentro). No hay resize por paso: las
+            // navegaciones de la página no llegan al host (ver
+            // OnDialogNavigated).
+            case "tracks.html":
                 return (460, 470);
 
             // Gráficos: acá el ancho SÍ es información (es el eje del tiempo),
@@ -1275,6 +1281,12 @@ public partial class MainWindow : Window
             // embebido esté hecho.
             if (_mapHost != null) _mapHost.IsVisible = true;
             ReanudarMapa();
+
+            // Estas flags valen también cuando el diálogo ya está abierto y
+            // solo se navega (el early-return de abajo): sin esto, pasar de
+            // otra página a Guías dejaba el cierre-por-guía-nueva apagado.
+            _dialogEsTracks = full.IndexOf("tracks.html", StringComparison.OrdinalIgnoreCase) >= 0;
+            _tracksAlAbrirDialogo = -1;   // el próximo HUD fija el piso
 
             if (_dialogWin != null)
             {
@@ -1351,8 +1363,40 @@ public partial class MainWindow : Window
     // el WebView principal, pero NO se puede confiar en ello acá.
     private void OnDialogNavigated(string url)
     {
+        // OJO: en este WebView SOLO llegan las navegaciones iniciadas por el
+        // host (Navigate). Las que inicia la página (location.href, el
+        // centinela pilotx-close) NO disparan este callback — verificado con
+        // el lote (2026-07) y de nuevo con Guías (2026-08-05). El cierre real
+        // va por señales del HUD: CerrarDialogoSiCambioElLote y
+        // CerrarDialogoSiHayGuiaNueva.
         if ((url ?? string.Empty).IndexOf("pilotx-close", StringComparison.OrdinalIgnoreCase) >= 0)
             CerrarDialogo();
+    }
+
+    // ---- cierre del diálogo de GUÍAS por guía nueva ------------------------
+    //
+    // Misma idea que el cierre por cambio de lote: la página no puede avisar
+    // (ver OnDialogNavigated), pero el host YA ve tracks_total en el HUD.
+    // Cuando sube con el diálogo de Guías abierto, la guía nueva quedó creada
+    // y dibujada en el mapa: la ventana ya hizo su trabajo, se cierra sola.
+    // Si baja (borraron una guía desde la lista), es el nuevo piso — sin esto,
+    // borrar y crear en la misma sesión no cerraría nunca.
+    private bool _dialogEsTracks;
+    private int _tracksAlAbrirDialogo = -1;
+
+    private void CerrarDialogoSiHayGuiaNueva(int tracksTotal)
+    {
+        if (!_dialogEsTracks || _dialogWin == null) return;
+        if (_tracksAlAbrirDialogo < 0 || tracksTotal < _tracksAlAbrirDialogo)
+        {
+            _tracksAlAbrirDialogo = tracksTotal;
+            return;
+        }
+        if (tracksTotal > _tracksAlAbrirDialogo)
+        {
+            _tracksAlAbrirDialogo = tracksTotal;
+            CerrarDialogo();
+        }
     }
 
     /// <summary>
@@ -3214,6 +3258,7 @@ public partial class MainWindow : Window
             ReconciliarMapa();
             _lastFieldDir = s.CurrentFieldDirectory;
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
+            CerrarDialogoSiHayGuiaNueva(s.TracksTotal);
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);
             ActualizarClusterPiloto(s);
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;

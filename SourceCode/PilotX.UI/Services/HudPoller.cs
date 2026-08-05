@@ -49,6 +49,10 @@ public sealed class HudSnapshot
     public int YouTurnSkipWidth { get; set; }
     /// <summary>Desvío respecto de la guía (m). 0 exacto suele ser "sin guía".</summary>
     public double CrossTrackErrorM { get; set; }
+    /// <summary>Cantidad de guías del lote (tracks_total). El host la usa para
+    /// cerrar el diálogo de Guías cuando aparece una nueva — la página no
+    /// puede avisar (ver OnDialogNavigated en MainWindow).</summary>
+    public int TracksTotal { get; set; }
 
     // ---- Campos para el mini-mapa cockpit -------------------------------
     // En metros locales, mismo frame de coordenadas que las boundaries.

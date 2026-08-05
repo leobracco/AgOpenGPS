@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Guías · PilotX</title>
+  <script src="../js/widget-mode.js"></script>
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../keyboard.css" />
   <style>
@@ -19,13 +20,25 @@
       background: var(--agp-surface); border: 1px solid var(--agp-border-strong);
       border-radius: var(--agp-radius-md, 10px); box-shadow: 0 6px 24px rgba(16,22,18,.14);
       display: flex; flex-direction: column; overflow: hidden;
-      width: 650px; height: 480px; transition: width .12s ease, height .12s ease;
+      width: 440px; height: 420px; transition: width .12s ease, height .12s ease;
     }
+    /* El menú de entrada son 3 botones: caja mínima. La ventana NATIVA se
+       ajusta por paso desde el host (ver OnDialogNavigated: los pasos navegan
+       de verdad con ?screen= y el host cambia el tamaño de la ventana). */
+    #tkWin[data-screen="choose"] { width: 340px; height: 220px; }
     #tkWin[data-screen="abline"], #tkWin[data-screen="aplus"],
     #tkWin[data-screen="curve"], #tkWin[data-screen="name"],
     #tkWin[data-screen="editname"], #tkWin[data-screen="kml"] { width: 300px; height: 380px; }
     #tkWin[data-screen="pivot"] { width: 390px; height: 380px; }
     #tkWin[data-screen="latlonplus"], #tkWin[data-screen="latlonlatlon"] { width: 390px; height: 470px; }
+
+    /* Abierta como diálogo de PilotX (?widget=1): la ventana nativa ya pone
+       título y marco — acá tkWin pierde el suyo (se veía "una ventana adentro
+       de otra", con dos títulos "Guías") y el fondo se unifica con la caja.
+       Conserva sus tamaños por paso: se acomoda centrada en la ventana. */
+    html.widget-mode body { background: var(--agp-surface); }
+    html.widget-mode #tkWin { border: 0; border-radius: 0; box-shadow: none; }
+    html.widget-mode .tk-title { display: none; }
 
     .tk-title { flex: 0 0 auto; padding: 7px 12px; font-weight: var(--agp-fw-bold); font-size: 14px;
       background: var(--agp-surface-2, #EEF2EE); border-bottom: 1px solid var(--agp-border); }
@@ -132,22 +145,21 @@
         </div>
       </div>
 
-      <!-- ============ panelChoose ============ -->
+      <!-- ============ panelChoose ============
+           MENÚ DE ENTRADA (2026-08-05, pedido usuario): al abrir Guías se ve
+           esto directo. Solo A/B y A/B curva; "Guías guardadas" aparece
+           únicamente si ya hay guías. Los otros modos (pivote, Lat/Lon, A+,
+           KML) salieron del menú — sus paneles y API siguen abajo por si
+           vuelven. -->
       <div class="screen" id="scChoose" data-screen="choose">
         <div class="pane" style="padding:10px;">
           <div class="choose-grid">
-            <button class="choose-btn" data-goto="pivotcircle"><img src="../img/tracks/ABPivotCircle.png"><span>Pivote (3 pts)</span></button>
-            <button class="choose-btn" data-goto="latlonlatlon"><img src="../img/tracks/ABLatLonLatLon.png"><span>Lat/Lon</span></button>
-            <button class="choose-btn" data-goto="aplus"><img src="../img/tracks/ABTrackAPlus.png"><span>A+</span></button>
-            <button class="choose-btn" id="btnKML"><img src="../img/tracks/BoundaryLoadFromGE.png"><span>KML</span></button>
-            <button class="choose-btn" data-goto="latlonplus"><img src="../img/tracks/ABLatLonHeading.png"><span>Lat/Lon +</span></button>
             <button class="choose-btn" data-goto="abline"><img src="../img/tracks/ABTrackAB.png"><span>AB Line</span></button>
-            <button class="choose-btn" data-goto="pivot"><img src="../img/tracks/ABPivot.png"><span>Pivote</span></button>
             <button class="choose-btn" data-goto="curve"><img src="../img/tracks/ABTrackCurve.png"><span>AB + Curva</span></button>
-            <div></div>
+            <button class="choose-btn" id="btnGoList" style="display:none"><img src="../img/tracks/ABLinesHideShow.png"><span>Guías guardadas</span></button>
           </div>
           <div class="row choose-foot">
-            <button class="ibtn med" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+            <button class="ibtn med" id="btnChooseBack"><img src="../img/tracks/Cancel64.png"></button>
           </div>
         </div>
       </div>
@@ -165,7 +177,7 @@
         </div>
         <div class="spacer"></div>
         <div class="row">
-          <button class="ibtn big" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <button class="ibtn big" data-goto="choose"><img src="../img/tracks/Cancel64.png"></button>
           <button class="ibtn big" id="btnEnterAB" disabled><img src="../img/tracks/OK64.png"></button>
         </div>
       </div>
@@ -199,7 +211,7 @@
         <div class="tk-status"><span>Estado: </span><span class="on" id="lblCurveExists">&gt; OFF &lt;</span></div>
         <div class="spacer"></div>
         <div class="row">
-          <button class="ibtn big" data-goto="main"><img src="../img/tracks/Cancel64.png"></button>
+          <button class="ibtn big" data-goto="choose"><img src="../img/tracks/Cancel64.png"></button>
           <button class="ibtn big" id="btnEnterCurve"><img src="../img/tracks/OK64.png"></button>
         </div>
       </div>
