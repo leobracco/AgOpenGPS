@@ -68,13 +68,25 @@ namespace AgOpenGPS
                 {
                     case 0xD6:
                         {
-                            if (udpWatch.ElapsedMilliseconds < UdpWatchLimit)
+                            // OJO: el rate-limit vale SOLO para el pipeline
+                            // (UpdateFixPosition), no para los campos. Cuando el
+                            // GPS manda GGA y PANDA a la vez, el parser arma DOS
+                            // D6 por fix y la velocidad viaja solo en uno (el
+                            // builder la "consume" con float.MaxValue): descartar
+                            // el segundo PGN ENTERO dejaba vtgSpeed clavada en 0
+                            // según el ORDEN de las sentencias — con ModSim 6.8.3
+                            // el piloto no tomaba la línea por el gate de
+                            // velocidad mínima (2026-08-05).
+                            bool correrPipeline = udpWatch.ElapsedMilliseconds >= UdpWatchLimit;
+                            if (!correrPipeline)
                             {
                                 MissedSentenceCount++;
-                                return;
                             }
-                            udpWatch.Reset();
-                            udpWatch.Start();
+                            else
+                            {
+                                udpWatch.Reset();
+                                udpWatch.Start();
+                            }
 
                             double Lon = BitConverter.ToDouble(data, 5);
                             double Lat = BitConverter.ToDouble(data, 13);
@@ -172,7 +184,7 @@ namespace AgOpenGPS
 
                                 mf.OnGpsSentenceReceived();
 
-                                mf.UpdateFixPosition();
+                                if (correrPipeline) mf.UpdateFixPosition();
                             }
                         }
                         break;
