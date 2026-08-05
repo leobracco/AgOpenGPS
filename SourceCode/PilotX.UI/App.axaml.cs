@@ -88,6 +88,37 @@ public partial class App : Application
     //     PilotX.Desktop.exe --gl=off     -> Skia, con todo lo que le falta
     public static bool UseGl { get; set; } = true;
 
+    // ---- interruptores de diagnóstico del congelamiento al abrir lote ----
+    //
+    // Al abrir un lote pasan DOS cosas a la vez y hay que saber cuál de las
+    // dos rompe el render:
+    //
+    //   · cambia el encuadre — la cámara pasa de seguir al tractor (escala 20)
+    //     a meter el lote entero (escala 1,06);
+    //   · llega de golpe la geometría — boundary, cobertura, guías, tram,
+    //     paths y el shape de prescripción, todo en pocos frames.
+    //
+    // Con --diag-sin-encuadre la cámara no se mueve pero la geometría sube.
+    // Con --diag-sin-geometria sube el encuadre pero no la geometría. Correr
+    // el script de 20 ciclos con cada uno dice cuál de las dos mitades es.
+    // Los dos apagados = comportamiento normal.
+    public static bool DiagSinEncuadre { get; set; }
+    public static bool DiagSinGeometria { get; set; }
+
+    // --diag-sin-lindero: todo activo MENOS el dibujo del boundary/cabecera
+    // (los DrawRing que streamean el anillo entero cada frame). La forense
+    // mostró muertes sin ninguna subida de categoría cerca (f903 con la última
+    // en f5), así que el sospechoso pasó a ser el streaming continuo grande —
+    // y ese es el lindero.
+    public static bool DiagSinLindero { get; set; }
+
+    // --diag-sin-guias: todo activo MENOS la rama guidance completa (subida
+    // de la línea AB/curva, sus draws, el XTE del lightbar y el camino de
+    // U-turn que streamea por frame). Guidance es la única categoría que
+    // re-sube repetidamente y su subida aparece a 2-16 frames de la muerte
+    // en 4 de 5 casos del rastro forense.
+    public static bool DiagSinGuias { get; set; }
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()

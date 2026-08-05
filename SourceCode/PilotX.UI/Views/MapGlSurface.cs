@@ -495,6 +495,17 @@ public sealed class MapGlSurface : OpenGlControlBase
     // levantando su árbol de procesos Chromium y necesita la CPU.
     private bool _pausado;
 
+    /// <summary>
+    /// Pide un frame desde afuera. RequestNextFrameRendering es protected en
+    /// OpenGlControlBase, y el watchdog de MapPanel necesita poder pedirlo al
+    /// intentar despertar al compositor sin destruir el contexto.
+    /// </summary>
+    public void PedirFrame()
+    {
+        if (_apagada) return;
+        RequestNextFrameRendering();
+    }
+
     /// <summary>Frena el tick de suavizado. Idempotente.</summary>
     public void Pausar()
     {
@@ -657,6 +668,11 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnCoverage(CoverageSnapshot snap)
     {
+        // Diagnóstico --diag-sin-geometria: el encuadre al lote ocurre normal
+        // pero NINGUNA geometría pesada sube al GL (cobertura, tram, paths,
+        // guías, shape, boundary). Contraparte de --diag-sin-encuadre: entre
+        // los dos parten en mitades lo que pasa al abrir un lote.
+        if (App.DiagSinGeometria) return;
         if (snap == null) return;
         if (snap.Revision == _coverageRevisionUploaded) return;
         _pendingCoverage = snap;
@@ -682,6 +698,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnTram(TramGeometrySnapshot snap)
     {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
         if (snap == null) return;
         if (snap.Revision == _tramRevisionUploaded) return;
         _pendingTram = snap;
@@ -695,6 +712,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnPaths(PathsGeometrySnapshot snap)
     {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
         if (snap == null) return;
         if (snap.Revision == _pathsRevisionUploaded) return;
         _pendingPaths = snap;
@@ -720,6 +738,8 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnGuidance(GuidanceGeometrySnapshot snap)
     {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
+        if (App.DiagSinGuias) return;       // corte quirúrgico solo-guidance
         if (snap == null) return;
         // El XTE cambia en cada poll aunque la geometría (revision) no —
         // se guarda siempre para que el lightbar refleje el desvío en vivo.
@@ -754,6 +774,11 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     private void InvalidateBboxIfChanged(HudSnapshot snap)
     {
+        // Diagnóstico: con --diag-sin-encuadre la cámara NO refita al lote —
+        // se queda siguiendo al tractor a escala fija — pero la geometría sube
+        // y se dibuja normal. Si el congelamiento desaparece con esto, el
+        // disparador es el cambio de encuadre; si persiste, es la geometría.
+        if (App.DiagSinEncuadre) { _hasBbox = false; return; }
         var b = (snap.Boundaries != null && snap.Boundaries.Count > 0) ? snap.Boundaries[0] : null;
         if (b == null || b.Count < 3) { _hasBbox = false; return; }
         var first = b[0];
@@ -1080,15 +1105,36 @@ public sealed class MapGlSurface : OpenGlControlBase
         //if (_gridOn)
         //    DrawGrid(cxBbox, cyBbox, wPx, hPx, scale, _isDay ? ColGridDay : ColGrid);
 
+        // --- Presupuesto de subidas: UNA por frame ---------------------
+        //
+        // Al abrir un lote llegan coverage, tram, guidance y paths casi
+        // juntos, y hasta hoy se subían TODOS en el mismo frame. Esa ráfaga
+        // es el disparador del congelamiento del compositor, aislado con las
+        // corridas A/B/WGL del 2026-08-04 (20 ciclos de abrir/cerrar lote):
+        //
+        //   con ráfaga:               12 congelamientos (ANGLE) / 36 (WGL)
+        //   sin geometría:             0
+        //
+        // El backend no importa (WGL sin ANGLE congela MÁS): lo que rompe es
+        // el pico. Así que se sube de a UNA categoría por frame — el orden de
+        // los if da la prioridad — y si quedó algo pendiente se pide otro
+        // frame. A 30 fps las cuatro capas tardan ~130 ms en completarse, y
+        // el draw de cada capa sigue usando lo ya subido mientras tanto: no
+        // hay hueco visual, solo la capa nueva llegando un par de frames más
+        // tarde. (La idea del presupuesto por frame viene del fix de cobertura
+        // de AgOpenWeb, commit a4954836, adaptada de celdas a categorías.)
+        bool subioAlgo = false;
+
         // --- Capa 2: coverage (worked area) ----------------------------
         // Si hay snapshot pendiente con revision nueva, reuploadeamos el
         // VBO de coverage. El draw siempre va, aunque sea con los rangos
         // ya cargados de la pasada anterior — eso mantiene la capa
         // visible entre polls.
-        if (_pendingCoverage != null)
+        if (_pendingCoverage != null && !subioAlgo)
         {
             UploadCoverage(_pendingCoverage);
             _pendingCoverage = null;
+            subioAlgo = true;
         }
         if (_coverageRanges.Count > 0)
             DrawCoverage();
@@ -1097,10 +1143,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         // Va entre coverage y guidance: marcas de navegacion que deben
         // quedar visibles sobre lo pintado pero por debajo de la linea
         // activa de guidance (que es la referencia primaria del operario).
-        if (_pendingTram != null)
+        if (_pendingTram != null && !subioAlgo)
         {
             UploadTram(_pendingTram);
             _pendingTram = null;
+            subioAlgo = true;
         }
         if (_tramDisplayMode != "None" &&
             (_tramLineRanges.Count > 0 || _tramOuterCount > 0 || _tramInnerCount > 0))
@@ -1111,10 +1158,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         // el area pintada pero por debajo del contorno del lote (que es
         // referencia geometrica primaria). El boundary mantiene su color
         // fuerte para no perderse contra la linea cian.
-        if (_pendingGuidance != null)
+        if (_pendingGuidance != null && !subioAlgo)
         {
             UploadGuidance(_pendingGuidance);
             _pendingGuidance = null;
+            subioAlgo = true;
         }
         if (_guidanceVertexCount >= 2 && _guidanceMode != "Off")
         {
@@ -1127,10 +1175,11 @@ public sealed class MapGlSurface : OpenGlControlBase
         // son marcas de navegacion que deben quedar visibles sobre la linea
         // activa. Colores fuertes distinguibles (youturn naranja, recorded
         // violeta). Revision-cache igual que tram.
-        if (_pendingPaths != null)
+        if (_pendingPaths != null && !subioAlgo)
         {
             UploadPaths(_pendingPaths);
             _pendingPaths = null;
+            subioAlgo = true;
         }
         if (_pathsYouTurnCount > 0 || _pathsRecordedCount > 0)
             DrawPaths();
@@ -1168,7 +1217,9 @@ public sealed class MapGlSurface : OpenGlControlBase
         if (snap != null)
         {
             // --- Capa 3: boundaries ------------------------------------
-            if (snap.Boundaries != null)
+            // (el corte de --diag-sin-geometria incluye el lindero: son los
+            // DrawRing con más vértices del frame)
+            if (snap.Boundaries != null && !App.DiagSinGeometria && !App.DiagSinLindero)
             {
                 for (int i = 0; i < snap.Boundaries.Count; i++)
                 {
@@ -1185,7 +1236,7 @@ public sealed class MapGlSurface : OpenGlControlBase
             // cabecera" las secciones se apagan al pisarla. El motor ya la
             // servía en el state; el mapa no la dibujaba y la cabecera
             // construida "no se veía en el lote".
-            if (snap.Headlands != null)
+            if (snap.Headlands != null && !App.DiagSinLindero)
             {
                 for (int i = 0; i < snap.Headlands.Count; i++)
                 {
@@ -1249,6 +1300,17 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         _gl.BindVertexArray(0);
         _gl.UseProgram(0);
+
+        AnotarCajaNegra(wPx, hPx, scale);
+
+        // Si el presupuesto dejó subidas pendientes, pedir otro frame para
+        // drenarlas. Post al dispatcher (no directo): estamos DENTRO del
+        // render y el pedido es para el próximo ciclo del compositor.
+        if (_pendingCoverage != null || _pendingTram != null
+            || _pendingGuidance != null || _pendingPaths != null)
+        {
+            Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+        }
 
         // Tiempo de CPU dentro del render = lo que cuesta ENCOLAR. Se guarda el
         // pico para contrastarlo con el de glFinish: si encolar es barato y
@@ -1451,6 +1513,78 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// no avanza mientras el mapa está a la vista y llegan datos, no hay render.
     /// </summary>
     public int FramesRenderizados { get; private set; }
+
+    /// <summary>
+    /// Rastro forense: qué subió al GL cada categoría y en qué frame, para
+    /// que el watchdog pueda decir QUÉ pasó justo antes de una muerte del
+    /// render. El time-slicing demostró que repartir las subidas no cura
+    /// (30 resurrecciones vs 12 del control): la hipótesis vigente es que
+    /// alguna subida concreta es la que mata, y esto la señala.
+    /// </summary>
+    private readonly System.Collections.Generic.Dictionary<string, int> _ultimaSubidaPorCategoria
+        = new System.Collections.Generic.Dictionary<string, int>();
+
+    /// <summary>Resumen "categoria@frame, …" de la última subida de cada
+    /// categoría, para el log del watchdog al morir el render.</summary>
+    public string UltimaSubida
+    {
+        get
+        {
+            if (_ultimaSubidaPorCategoria.Count == 0) return "(ninguna)";
+            var sb = new System.Text.StringBuilder();
+            foreach (var kv in _ultimaSubidaPorCategoria)
+            {
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append(kv.Key).Append("@f").Append(kv.Value);
+            }
+            return sb.ToString();
+        }
+    }
+
+    private void MarcarSubida(string que)
+        => _ultimaSubidaPorCategoria[que] = FramesRenderizados;
+
+    // ---- caja negra: los últimos 8 frames antes de una muerte ------------
+    //
+    // El rastro de subidas no alcanzó: hay muertes con la última subida 900
+    // frames atrás. Lo que falta ver es qué DIBUJÓ cada frame del final —
+    // conteos por capa, bounds, escala y el glGetError del cierre. Si el
+    // último frame de cada muerte comparte algo (un conteo que salta, un
+    // error GL, un bounds raro), ahí está el patrón que 8 corridas de
+    // eliminación no encontraron.
+    private readonly string[] _cajaNegra = new string[8];
+    private int _cajaNegraIdx;
+
+    private void AnotarCajaNegra(int wPx, int hPx, double escala)
+    {
+        var err = _gl != null ? _gl.GetError() : GLEnum.NoError;
+        _cajaNegra[_cajaNegraIdx] =
+            "f" + FramesRenderizados
+            + " " + wPx + "x" + hPx
+            + " esc=" + escala.ToString("F2")
+            + " cov=" + _coverageRanges.Count
+            + " gui=" + _guidanceVertexCount
+            + " yt=" + (_ytPts?.Length ?? 0) / 2
+            + " tram=" + _tramLineRanges.Count
+            + " paths=" + (_pathsYouTurnCount + _pathsRecordedCount)
+            + " shape=" + (_shapeSnap?.Polygons.Count ?? 0)
+            + " bordes=" + (_snap?.Boundaries?.Count ?? 0)
+            + " err=" + err;
+        _cajaNegraIdx = (_cajaNegraIdx + 1) % _cajaNegra.Length;
+    }
+
+    /// <summary>Vuelca la caja negra en orden cronológico (viejo → nuevo).</summary>
+    public string VolcarCajaNegra()
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < _cajaNegra.Length; i++)
+        {
+            var s = _cajaNegra[(_cajaNegraIdx + i) % _cajaNegra.Length];
+            if (s == null) continue;
+            sb.Append("\n    ").Append(s);
+        }
+        return sb.Length > 0 ? sb.ToString() : " (vacia)";
+    }
 
     // Última cámara efectiva, para el latido: si el tractor "desaparece" hay que
     // poder distinguir "no se dibuja" de "se dibuja fuera de la vista".
@@ -1837,6 +1971,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void UploadCoverage(CoverageSnapshot snap)
     {
         if (_gl == null) return;
+        MarcarSubida("coverage");
         _coverageRanges.Clear();
         // Color del snapshot a 0..1.
         _coverageR = snap.R / 255f;
@@ -1955,6 +2090,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void UploadGuidance(GuidanceGeometrySnapshot snap)
     {
         if (_gl == null) return;
+        MarcarSubida("guidance");
         _guidanceMode = snap.Mode ?? "Off";
         var pts = snap.Points;
         int n = (pts != null) ? pts.Count : 0;
@@ -2227,6 +2363,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void UploadTram(TramGeometrySnapshot snap)
     {
         if (_gl == null) return;
+        MarcarSubida("tram");
         _tramDisplayMode = snap.DisplayMode ?? "None";
         _tramRevisionUploaded = snap.Revision;
         _tramLineRanges.Clear();
@@ -2367,6 +2504,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     private void UploadPaths(PathsGeometrySnapshot snap)
     {
         if (_gl == null) return;
+        MarcarSubida("paths");
         _pathsRevisionUploaded = snap.Revision;
         _pathsYouTurnStart = 0; _pathsYouTurnCount = 0;
         _pathsRecordedStart = 0; _pathsRecordedCount = 0;
@@ -2571,8 +2709,14 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// null = se descargó el shape.</summary>
     public void OnShape(ShapeMapSnapshot? snap)
     {
+        if (App.DiagSinGeometria) return;   // ver OnCoverage
         _shapeSnap = snap;
-        RequestNextFrameRendering();
+        // Post al dispatcher como TODOS los demás OnX — este era el único que
+        // llamaba RequestNextFrameRendering directo. Si el que llama no está
+        // en el hilo UI, un pedido directo toca la maquinaria del compositor
+        // desde el hilo equivocado, y eso es corrupción silenciosa del estilo
+        // exacto que estamos cazando.
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -2589,6 +2733,7 @@ public sealed class MapGlSurface : OpenGlControlBase
         _gl.Enable(EnableCap.Blend);
         _gl.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
+        MarcarSubida("shape");   // sube TODOS los frames (scratch, no cachea)
         for (int p = 0; p < shape.Polygons.Count; p++)
         {
             var poly = shape.Polygons[p];

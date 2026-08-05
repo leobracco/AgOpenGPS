@@ -68,6 +68,42 @@ namespace PilotX.Desktop
                 Registrar(e.Exception, "tarea", fatal: false);
                 e.SetObserved();
             };
+
+            // ESPÍA de excepciones TRAGADAS. El mapa GL muere en silencio
+            // absoluto: cero excepciones en el log, cero eventos del driver,
+            // cero líneas de Avalonia con listener de Trace puesto. Si el
+            // compositor está atrapando una excepción interna y rindiéndose
+            // (dejar de llamar OnOpenGlRender para siempre ES rendirse), este
+            // hook la ve ANTES de cualquier catch — es el único punto que mira
+            // adentro del framework sin recompilarlo.
+            //
+            // El filtro es deliberadamente angosto: solo tipos/stacks con pinta
+            // de render (Avalonia/OpenGL/Composition/Skia/ANGLE/DXGI). Un
+            // FirstChance sin filtro loguea cada excepción atrapada del proceso
+            // entero — HttpClient tira TaskCanceled por diseño en cada timeout
+            // de polling y eso sería una tormenta que tapa lo que buscamos.
+            // Dedup por firma en ventana, reusando la misma maquinaria de
+            // Registrar (vía RegistrarTexto).
+            AppDomain.CurrentDomain.FirstChanceException += (_, e) =>
+            {
+                try
+                {
+                    var ex = e.Exception;
+                    if (ex == null) return;
+                    string tipo = ex.GetType().FullName ?? "";
+                    string stack = ex.StackTrace ?? "";
+                    bool esRender =
+                        tipo.Contains("Avalonia") || stack.Contains("Avalonia.Rendering")
+                        || stack.Contains("Avalonia.OpenGL") || stack.Contains("Composition")
+                        || tipo.Contains("OpenGl") || tipo.Contains("Skia")
+                        || stack.Contains("Skia") || stack.Contains("Angle")
+                        || tipo.Contains("Dxgi") || stack.Contains("Dxgi");
+                    if (!esRender) return;
+                    RegistrarTexto("primera-chance (tragada rio abajo): " + tipo
+                        + " — " + ex.Message + "\n" + stack, "espia-render");
+                }
+                catch { /* el espía jamás puede romper nada */ }
+            };
         }
 
         /// <summary>
@@ -163,6 +199,46 @@ namespace PilotX.Desktop
         private static readonly Dictionary<string, long> _firmasVentana = new();
         private static DateTime _ventanaDesde = DateTime.UtcNow;
         private static bool _resumenPendiente;
+
+        /// <summary>
+        /// Registro liviano de texto ya armado (el espía de FirstChance), con
+        /// el mismo dedup por ventana que las excepciones de Registrar. Va al
+        /// MISMO log para que la línea de tiempo quede una sola.
+        /// </summary>
+        internal static void RegistrarTexto(string texto, string origen)
+        {
+            try
+            {
+                lock (_candado)
+                {
+                    // La firma son las primeras ~3 líneas (tipo + tope del
+                    // stack): suficiente identidad, y el resto suele variar.
+                    int corte = 0, saltos = 0;
+                    while (corte < texto.Length && saltos < 3)
+                    { if (texto[corte] == '\n') saltos++; corte++; }
+                    string firma = origen + "|" + texto.Substring(0, corte);
+
+                    var ahora = DateTime.UtcNow;
+                    if ((ahora - _ventanaDesde) > VentanaDedup)
+                    {
+                        VolcarResumenDeVentana();
+                        _firmasVentana.Clear();
+                        _ventanaDesde = ahora;
+                    }
+                    if (_firmasVentana.TryGetValue(firma, out long vistas))
+                    { _firmasVentana[firma] = vistas + 1; return; }
+                    _firmasVentana[firma] = 1;
+                    _resumenPendiente = true;
+
+                    RotarSiHaceFalta();
+                    File.AppendAllText(ArchivoLog,
+                        $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}  [{origen}]\r\n  "
+                        + texto.Replace("\n", "\n  ") + "\r\n\r\n", Encoding.UTF8);
+                }
+                Console.Error.WriteLine("[espia] " + texto.Split('\n')[0]);
+            }
+            catch { }
+        }
 
         /// <summary>
         /// Cierra la ventana: deja UNA línea con lo que se repitió y cuántas

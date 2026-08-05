@@ -56,11 +56,31 @@ public sealed class MapPanel : Grid
     private int _ultimoFrameVisto = -1;
     private int _strikes;
     private int _resurrecciones;
+    /// <summary>Desde el último snapshot recibido. Ver MaxEdadSnap.</summary>
+    private readonly System.Diagnostics.Stopwatch _relojSnap =
+        System.Diagnostics.Stopwatch.StartNew();
 
-    /// <summary>Ciclos sin un solo frame antes de dar el contexto por muerto.
-    /// Tres a 4 s da ~12 s de gracia: suficiente para no confundirlo con una
-    /// pausa legítima o un hipo del compositor.</summary>
-    private const int StrikesParaRehacer = 3;
+    /// <summary>
+    /// Ciclos sin un solo frame antes de dar el contexto por muerto. Con el
+    /// tick de 1 s, dos strikes son ~2 s de negro antes de reaccionar.
+    ///
+    /// Eran 3 strikes de 4 s = 12 s, y 12 segundos de pantalla negra en el
+    /// tractor no son un detalle: el operario asume que la app se colgó y la
+    /// mata. La demora nunca fue una restricción técnica, era este número.
+    ///
+    /// Bajarlo es seguro porque ahora Vigilar() exige además que los datos
+    /// estén FRESCOS (ver MaxEdadSnap): si el que se trabó es el poller y no
+    /// el render, que no haya frames es lo correcto y no cuenta como falla.
+    /// </summary>
+    private const int StrikesParaRehacer = 2;
+
+    /// <summary>
+    /// Si el último snapshot es más viejo que esto, el problema no es el mapa:
+    /// es que no están llegando datos. Sin este freno, con el tractor parado
+    /// (que apaga _tickSuave) un hipo del poller se veía igual que un contexto
+    /// muerto y disparaba una recreación al pedo — que cuesta su propio negro.
+    /// </summary>
+    private static readonly TimeSpan MaxEdadSnap = TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// NO hay tope de intentos. Lo había (5) con la idea de que si no revive a
@@ -105,7 +125,9 @@ public sealed class MapPanel : Grid
             // desde cabina no hay forma de saber qué render está corriendo.
             // Importa: con Skia no se pinta la cobertura, y "no veo lo
             // trabajado" se explica solo si esta línea está en el log.
-            Console.Error.WriteLine("[MapPanel] render del mapa: OpenGL (--gl=on)");
+            Console.Error.WriteLine("[MapPanel] render del mapa: OpenGL (--gl=on)"
+                + (App.DiagSinEncuadre ? "  DIAG: SIN ENCUADRE" : "")
+                + (App.DiagSinGeometria ? "  DIAG: SIN GEOMETRIA" : ""));
             ArrancarWatchdog();
         }
         else
@@ -130,6 +152,7 @@ public sealed class MapPanel : Grid
         if (IsVisible) _gl?.Reanudar();
 
         _ultimoSnap = snap;
+        _relojSnap.Restart();       // frescura de los datos, para el watchdog
         _skia?.OnSnapshot(snap);
         _gl?.OnSnapshot(snap);
     }
@@ -141,7 +164,7 @@ public sealed class MapPanel : Grid
         if (_watchdog != null) return;
         _watchdog = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(4)
+            Interval = TimeSpan.FromSeconds(1)
         };
         _watchdog.Tick += (_, _) => Vigilar();
         _watchdog.Start();
@@ -152,10 +175,14 @@ public sealed class MapPanel : Grid
         var gl = _gl;
         if (gl == null) return;
 
+
         // Solo cuenta como falla si el mapa DEBERÍA estar dibujando: visible,
         // sin pausa y con datos llegando. Si no, que no haya frames es lo
         // correcto y no hay nada que arreglar.
-        if (!IsVisible || _ultimoSnap == null)
+        // Datos viejos = el que se trabó es el poller, no el render. Que no
+        // haya frames es lo correcto; recrear la surface acá sería cambiar un
+        // problema que no tenemos por un negro que sí cuesta.
+        if (!IsVisible || _ultimoSnap == null || _relojSnap.Elapsed > MaxEdadSnap)
         {
             _ultimoFrameVisto = gl.FramesRenderizados;
             _strikes = 0;
@@ -174,6 +201,14 @@ public sealed class MapPanel : Grid
         if (_strikes < StrikesParaRehacer) return;
 
         _strikes = 0;
+
+        // NO hay escalón de "empujón" antes de recrear. Se probó (2026-08-04)
+        // despertar al compositor sin destruir el contexto, con cuatro
+        // variantes: InvalidateVisual, reasignar RenderTransform, pedir frame
+        // explícito y rebote de Opacity. Resultado: 29 intentos, 0 revividos.
+        // El compositor no está esperando una invalidación — dejó de atender a
+        // ESTE control, y lo único que consigue servicio es un control nuevo.
+        // Mantener el escalón solo alargaba cada apagón 1-2 s para nada.
         if (_resurrecciones >= MaxResurrecciones)
         {
             Console.Error.WriteLine(
@@ -184,8 +219,13 @@ public sealed class MapPanel : Grid
         }
 
         _resurrecciones++;
+        // El rastro forense es la clave: qué categoría subió al GL y en qué
+        // frame, contra el frame en el que murió. La subida cuyo frame quede
+        // pegado al último renderizado es la sospechosa.
         Console.Error.WriteLine("[MapPanel] contexto GL sin frames: rehaciendo la surface (intento "
-                                + _resurrecciones + ")");
+                                + _resurrecciones + "). Murio en f" + gl.FramesRenderizados
+                                + "; ultimas subidas: " + gl.UltimaSubida
+                                + "\n  caja negra (ultimos frames):" + gl.VolcarCajaNegra());
         RehacerSurface();
     }
 

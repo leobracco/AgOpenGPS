@@ -80,12 +80,34 @@ internal static class Program
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<App>()
+    /// <summary>Backend WGL en vez de ANGLE (--diag-wgl). Lo setea ParseArgs,
+    /// que corre ANTES de BuildAvaloniaApp en Main.</summary>
+    public static bool UsarWgl;
+
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        var b = AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .UseDesktopWebView()
             .WithInterFont()
             .LogToTrace();
+        if (UsarWgl)
+        {
+            // Sin ANGLE: contexto desktop GL directo contra el driver, sin
+            // puente D3D11 ni textura compartida con keyed mutex. Software
+            // queda de fallback por si el driver no da WGL utilizable.
+            b = b.With(new Win32PlatformOptions
+            {
+                RenderingMode = new[]
+                {
+                    Win32RenderingMode.Wgl,
+                    Win32RenderingMode.Software
+                }
+            });
+            Console.Error.WriteLine("[Program] DIAG: RenderingMode=WGL (sin ANGLE)");
+        }
+        return b;
+    }
 
     private static void ParseArgs(string[] args)
     {
@@ -115,6 +137,34 @@ internal static class Program
             {
                 var v = a.Substring("--gl=".Length).Trim().ToLowerInvariant();
                 App.UseGl = v == "on" || v == "1" || v == "true" || v == "yes";
+            }
+            // Interruptores de DIAGNÓSTICO del congelamiento al abrir lote.
+            // Apagados por default; sirven para partir en dos lo que pasa en
+            // ese instante y ver cuál de las dos mitades lo dispara.
+            else if (a.Equals("--diag-sin-encuadre", StringComparison.OrdinalIgnoreCase))
+            {
+                App.DiagSinEncuadre = true;
+            }
+            else if (a.Equals("--diag-sin-geometria", StringComparison.OrdinalIgnoreCase))
+            {
+                App.DiagSinGeometria = true;
+            }
+            // Experimento: backend WGL en vez de ANGLE. Sin ANGLE no hay puente
+            // D3D11 ni textura compartida con keyed mutex — si el congelamiento
+            // desaparece con esto, la causa vive en esa capa. Los shaders ya
+            // tienen preludio dual (300 es / 330 core por GlVersion.Type), así
+            // que el contexto desktop GL compila sin tocar nada más.
+            else if (a.Equals("--diag-wgl", StringComparison.OrdinalIgnoreCase))
+            {
+                UsarWgl = true;
+            }
+            else if (a.Equals("--diag-sin-lindero", StringComparison.OrdinalIgnoreCase))
+            {
+                App.DiagSinLindero = true;
+            }
+            else if (a.Equals("--diag-sin-guias", StringComparison.OrdinalIgnoreCase))
+            {
+                App.DiagSinGuias = true;
             }
             else if (a.Equals("--singleview", StringComparison.OrdinalIgnoreCase))
             {
