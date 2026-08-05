@@ -92,7 +92,25 @@ namespace AgIO
             UdpBridge.OnUdpReceived += (data, ep) => ReceiveFromUdp(data, ep);
             UdpBridge.StartUdp(lanPort);
             Log.EventWriter("CoreXEngine: bridge LAN escuchando en :" + lanPort);
+
+            // Hello periódico a los módulos (PGN 200, 1 Hz) — los MISMOS bytes
+            // que manda AgIO nativo. Sin esto los módulos UDP (y ModSim, que
+            // los simula) escuchan silencio: nunca "ven" a PilotX, no arranca
+            // el handshake y no responden. Se notó al reemplazar el stack
+            // AgIO/CoreX.exe por el bridge integrado (reporte 2026-08-05:
+            // "el otro recibía mensajes de PilotX"): el hello estaba anotado
+            // como no-portado y este es el pedazo que faltaba.
+            _helloTimer = new System.Threading.Timer(_ =>
+            {
+                try { UdpBridge.SendUdpTo(HelloAgIO, EpModule); }
+                catch { /* la LAN puede parpadear; el próximo tick reintenta */ }
+            }, null, 1000, 1000);
+            Log.EventWriter("CoreXEngine: hello a modulos (PGN 200) cada 1 s hacia " + EpModule);
         }
+
+        /// <summary>Mismo frame que helloFromAgIO en AgIO/UDP.designer.cs.</summary>
+        private static readonly byte[] HelloAgIO = { 0x80, 0x81, 0x7F, 200, 3, 56, 0, 0, 0x47 };
+        private System.Threading.Timer _helloTimer;
 
         // NTRIP: instanciado pero NO conectado hasta que haya credenciales de
         // caster reales (no hay ninguna disponible en este entorno de prueba).
