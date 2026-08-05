@@ -2291,7 +2291,8 @@ public partial class MainWindow : Window
         // el lugar que tenía la barra de secciones, y las secciones flotan
         // arriba (SeccionesFloat). El 6 es solo aire contra el borde.
         Canvas.SetTop(_nudgeOverlay, Math.Max(0, hostH - h - 6));
-        // La barra QuantiX se apila sobre este overlay: reubicar juntas.
+        // El resto de la pila cuelga de esta posición: reubicar juntas.
+        UbicarVxStrip();
         UbicarQxBar();
     }
 
@@ -2309,21 +2310,39 @@ public partial class MainWindow : Window
         double w = _qxControlBar.Bounds.Width > 0 ? _qxControlBar.Bounds.Width : 430;
         double h = _qxControlBar.Bounds.Height > 0 ? _qxControlBar.Bounds.Height : 58;
 
-        // La pila de abajo hacia arriba es: pasada (borde) → secciones
-        // flotantes (si hay lote) → esta barra. Se apila sobre lo más alto
-        // que esté visible; las secciones tienen margen inferior 70, así que
-        // su tope en coordenadas del canvas es hostH - 70 - suAlto.
-        double nudgeTop = _nudgeOverlay != null && _nudgeOverlay.Bounds.Height > 0
-            ? Canvas.GetTop(_nudgeOverlay)
-            : hostH - 68;
-        if (double.IsNaN(nudgeTop)) nudgeTop = hostH - 68;
-        double baseTop = nudgeTop;
-        var secciones = this.FindControl<Border>("SeccionesFloat");
-        if (secciones != null && secciones.IsVisible && secciones.Bounds.Height > 0)
-            baseTop = Math.Min(baseTop, hostH - 96 - secciones.Bounds.Height);   // 96 = Margin del XAML
+        // Pila de abajo hacia arriba: pasada (borde) → secciones flotantes →
+        // franja VistaX (si está) → esta barra. Se apila sobre lo más alto.
+        double baseTop = TopeDePilaInferior();
+        if (_vxMapStrip != null && _vxMapStrip.IsVisible && _vxMapStrip.Bounds.Height > 0)
+        {
+            double vt = Canvas.GetTop(_vxMapStrip);
+            if (!double.IsNaN(vt)) baseTop = Math.Min(baseTop, vt);
+        }
 
         Canvas.SetLeft(_qxControlBar, Math.Max(150, (hostW - w) / 2));
         Canvas.SetTop(_qxControlBar, Math.Max(0, baseTop - h - 8));
+    }
+
+    /// <summary>
+    /// Tope actual de la pila de abajo (coordenadas del canvas): lo más alto
+    /// entre la barra de la pasada (pegada al borde desde el intercambio del
+    /// 2026-08-05) y las secciones flotantes. Todo lo que flote en esa zona se
+    /// apila SOBRE este valor — sin esto, la franja VistaX quedaba enterrada
+    /// bajo la pasada asomando como "un pedazo de sección" (reporte usuario).
+    /// </summary>
+    private double TopeDePilaInferior()
+    {
+        double hostH = _mapOverlaysHost?.Bounds.Height ?? 0;
+        double tope = hostH;
+        if (_nudgeOverlay != null && _nudgeOverlay.Bounds.Height > 0)
+        {
+            double t = Canvas.GetTop(_nudgeOverlay);
+            if (!double.IsNaN(t)) tope = Math.Min(tope, t);
+        }
+        var secciones = this.FindControl<Border>("SeccionesFloat");
+        if (secciones != null && secciones.IsVisible && secciones.Bounds.Height > 0)
+            tope = Math.Min(tope, hostH - 96 - secciones.Bounds.Height);   // 96 = Margin del XAML
+        return tope;
     }
 
     private void UbicarVxStrip()
@@ -2333,12 +2352,13 @@ public partial class MainWindow : Window
         double hostW = _mapOverlaysHost.Bounds.Width;
         if (hostH < 60 || hostW < 200) return;
         double w = double.IsNaN(_vxMapStrip.Width) ? 300 : _vxMapStrip.Width;
-        double h = double.IsNaN(_vxMapStrip.Height) ? 40 : _vxMapStrip.Height;
-        // Centrada abajo (corrida a la derecha del menú lateral de 140 px),
-        // pegada al borde inferior del mapa: borde fijo, crece hacia arriba.
+        double h = _vxMapStrip.Bounds.Height > 0 ? _vxMapStrip.Bounds.Height
+                 : (double.IsNaN(_vxMapStrip.Height) ? 40 : _vxMapStrip.Height);
         double x = Math.Max(150, (hostW - w) / 2);
         Canvas.SetLeft(_vxMapStrip, x);
-        Canvas.SetTop(_vxMapStrip, hostH - h - 4);
+        // Sobre la pila (pasada + secciones), no en el borde: ahí ahora vive
+        // la barra de la pasada y la enterraba.
+        Canvas.SetTop(_vxMapStrip, Math.Max(0, TopeDePilaInferior() - h - 6));
     }
 
     private async Task SeguirPreferenciasOverlaysAsync(CancellationToken ct)
