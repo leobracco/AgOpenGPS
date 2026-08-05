@@ -12,9 +12,11 @@
 //   --mode=full                     -> maximizada borderless (default, Hub principal)
 //   --title="Camaras"               -> titulo de la ventana (solo modo float)
 //   --width=800 --height=480        -> tamano inicial en modo float
-//   --gl=on|off                     -> usa render OpenGL del mapa (Stage 1
-//                                      de la migracion FormGPS -> Avalonia).
-//                                      Default off mientras estabilizamos.
+//   --gl=on|off                     -> render OpenGL del mapa. Default ON.
+//                                      --gl=off usa Skia, que dibuja MUCHO
+//                                      menos (sin zoom, cobertura, guías
+//                                      contiguas ni sprites): ver App.UseGl
+//                                      antes de mandárselo a alguien.
 
 using System;
 using System.Diagnostics;
@@ -40,6 +42,18 @@ internal static class Program
         // que en la cabina no le sirve a nadie y termina en cerrar y perder la
         // jornada. Ver CrashHandler.
         CrashHandler.Instalar();
+
+        // BuildAvaloniaApp llama .LogToTrace(), que manda los diagnósticos de
+        // Avalonia a System.Diagnostics.Trace. Sin un listener registrado, Trace
+        // los tira: veníamos corriendo con el log del framework apagado sin
+        // saberlo. Importa para el mapa negro — cuando el compositor no puede
+        // renderizar un control, se lo traga y lo reporta por acá, no por
+        // excepción (errores.log quedó en cero durante 5 congelamientos
+        // seguidos). Va a stderr, que es donde ya escribe el diagnóstico del
+        // mapa, así queda todo en la misma línea de tiempo.
+        System.Diagnostics.Trace.Listeners.Add(
+            new System.Diagnostics.TextWriterTraceListener(Console.Error));
+        System.Diagnostics.Trace.AutoFlush = true;
 
         // Sink de audio Windows para las alarmas de cabina: el poller portable
         // (PilotX.UI) entrega el WAV y este head lo toca con winmm.

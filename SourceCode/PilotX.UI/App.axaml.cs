@@ -43,12 +43,49 @@ public partial class App : Application
     public static int WindowWidth { get; set; } = 0;
     public static int WindowHeight { get; set; } = 0;
 
-    // Render del mapa de guiado. Cuando es true (DEFAULT desde Stage 7),
-    // MapPanel hostea MapGlSurface (Avalonia OpenGlControlBase +
-    // Silk.NET.OpenGL) con todas las capas (grid/coverage/guías/secciones/
-    // tram/paths) y cámara zoom+pan. Ya no requiere --gl=on. El Skia legacy
-    // (MapSkiaSurface) queda solo como escape hatch con --gl=off por si una
-    // GPU no arranca GL; se retira cuando GL esté probado en cabina.
+    // Render del mapa de guiado: GL por DEFAULT. Skia con --gl=off, y OJO con
+    // lo que Skia NO hace (ver abajo) antes de mandarlo a nadie.
+    //
+    // El 2026-08-04 se probó pasar el default a Skia como red de seguridad
+    // contra el mapa negro, y hubo que volver atrás el mismo día: en cabina
+    // "no hace zoom, no pinta, no veo las guías contiguas". Mirando qué
+    // reenvía MapPanel cuando _gl es null, todo esto queda en no-op:
+    //
+    //     ZoomIn/ZoomOut/rueda · OnCoverage (lo trabajado) · OnPaths (guías
+    //     contiguas) · OnShape (prescripción) · sprites de vehículo, rueda,
+    //     implemento y piso · OnFlags · lightbar · heading-up · grilla ·
+    //     día/noche · creación de línea AB
+    //
+    // Skia solo recibe OnSnapshot, OnGuidance, OnTool y OnTram. No es "GL sin
+    // cobertura": es un mapa al que le falta casi todo. Sirve para ver dónde
+    // está el tractor y nada más.
+    //
+    // El bug que motivó todo esto, medido con 20 ciclos de abrir/cerrar lote
+    // por API (~3,5 min, lo dispara siempre):
+    //
+    //   · 12 de 20 ciclos congelan la surface GL, con el mapa en negro en 23
+    //     de 42 latidos. (La primera medición dio "5 de 20" y era un PISO: el
+    //     watchdog se rendía a los 5 intentos y dejaba de contar.)
+    //   · en el congelamiento Avalonia DEJA DE LLAMAR OnOpenGlRender
+    //     (entradas=0 con el control enganchado al árbol y _tickSuave pidiendo
+    //     frame a 30 Hz) — no es que salgamos temprano nosotros;
+    //   · el watchdog de MapPanel rehace la surface y la nueva se muere igual,
+    //     porque el contexto GL es del compositor de Avalonia y está
+    //     compartido: un control nuevo NO trae contexto nuevo;
+    //   · a los 5 intentos el watchdog se rinde y el mapa queda negro hasta
+    //     reiniciar PilotX a mano.
+    //
+    // Todo eso SIN excepciones (errores.log no creció) y SIN TDR del driver.
+    // O sea que no hay nada que atrapar ni reintentar desde acá.
+    //
+    // Así que la convivencia con el bug es al revés: GL sigue de default y el
+    // watchdog de MapPanel ya no se rinde nunca (antes se plantaba a los 5
+    // intentos y ahí el mapa quedaba negro PARA SIEMPRE). Recrear la surface
+    // devuelve el render — medido, las surfaces nuevas dibujan a 24-39 fps —
+    // así que reintentar indefinidamente convierte "negro para siempre" en
+    // "negro unos 12 segundos". No es la cura, es el torniquete.
+    //
+    //     PilotX.Desktop.exe --gl=off     -> Skia, con todo lo que le falta
     public static bool UseGl { get; set; } = true;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);

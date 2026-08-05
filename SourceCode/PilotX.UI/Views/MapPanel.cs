@@ -62,9 +62,20 @@ public sealed class MapPanel : Grid
     /// pausa legítima o un hipo del compositor.</summary>
     private const int StrikesParaRehacer = 3;
 
-    /// <summary>Tope de intentos. Si con esto no revive, el problema es otro y
-    /// seguir recreando controles solo agrega ruido.</summary>
-    private const int MaxResurrecciones = 5;
+    /// <summary>
+    /// NO hay tope de intentos. Lo había (5) con la idea de que si no revive a
+    /// la quinta el problema es otro — cierto, el problema ES otro: Avalonia
+    /// deja de llamar OnOpenGlRender y el contexto GL es del compositor, no de
+    /// este control. Pero rendirse no arregla nada y sí empeora todo: medido el
+    /// 2026-08-04, a los 5 intentos el mapa quedaba NEGRO PARA SIEMPRE hasta
+    /// reiniciar PilotX a mano, y en cabina no hay quien haga eso.
+    ///
+    /// Reintentar siempre convierte eso en ~12 s de negro por episodio, porque
+    /// la surface nueva SÍ vuelve a dibujar (24-39 fps medidos). Con
+    /// StrikesParaRehacer el reintento ya viene espaciado ~12 s, así que aunque
+    /// falle siempre no hay bucle apretado.
+    /// </summary>
+    private const int MaxResurrecciones = int.MaxValue;
 
     // Últimos sprites empujados, para poder reaplicarlos a la surface nueva.
     private byte[]? _spVeh; private int _spVehW, _spVehH;
@@ -89,14 +100,20 @@ public sealed class MapPanel : Grid
         {
             _gl = new MapGlSurface();
             Children.Add(_gl);
-            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] MapPanel -> GL surface");
+            // Console.Error y no Debug.WriteLine: sin listener de Trace
+            // registrado, Debug.WriteLine no llega a ningún lado en Release y
+            // desde cabina no hay forma de saber qué render está corriendo.
+            // Importa: con Skia no se pinta la cobertura, y "no veo lo
+            // trabajado" se explica solo si esta línea está en el log.
+            Console.Error.WriteLine("[MapPanel] render del mapa: OpenGL (--gl=on)");
             ArrancarWatchdog();
         }
         else
         {
             _skia = new MapSkiaSurface();
             Children.Add(_skia);
-            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] MapPanel -> Skia surface");
+            Console.Error.WriteLine("[MapPanel] render del mapa: Skia (default; "
+                + "GL con --gl=on). Sin cobertura triangulada.");
         }
     }
 
@@ -181,7 +198,17 @@ public sealed class MapPanel : Grid
         var vieja = _gl;
         try
         {
-            if (vieja != null) Children.Remove(vieja);
+            // Apagar ANTES de sacarla del árbol. Remove() sola no la mata: sus
+            // dos DispatcherTimer siguen agendados y con ellos queda viva la
+            // surface entera — el _tickSuave de 30 Hz pidiendo frames de un
+            // control que ya no se dibuja. Se vio en el log del 2026-08-04:
+            // dos latidos alternados, el jubilado en fps=0 con edadFix
+            // creciendo. Con MaxResurrecciones=5 eso son hasta 5 zombis.
+            if (vieja != null)
+            {
+                vieja.Apagar();
+                Children.Remove(vieja);
+            }
         }
         catch (Exception ex)
         {

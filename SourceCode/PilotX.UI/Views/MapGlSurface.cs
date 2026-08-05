@@ -459,6 +459,7 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// </summary>
     public void OnSnapshot(HudSnapshot snap)
     {
+        if (_apagada) return;
         _snap = snap;
         _desdeFix.Restart();          // reloj para interpolar entre fixes
         InvalidateBboxIfChanged(snap);
@@ -515,6 +516,11 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     private void AjustarTickSuavizado(HudSnapshot snap)
     {
+        if (_apagada)
+        {
+            if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
+            return;
+        }
         if (_pausado)
         {
             if (_tickSuave != null && _tickSuave.IsEnabled) _tickSuave.Stop();
@@ -907,6 +913,12 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     protected override void OnOpenGlDeinit(GlInterface glInterface)
     {
+        // Este método era MUDO. Deja _gl en null, y a partir de ahí
+        // OnOpenGlRender se va en la primera línea sin decir nada: mapa negro,
+        // cero rastro. Si Avalonia lo llama sin volver a llamar OnOpenGlInit,
+        // esa es la explicación del negro permanente — hay que poder verlo.
+        Console.Error.WriteLine("[MapGlSurface] OnOpenGlDeinit: se sueltan los recursos GL"
+            + (_gl == null ? " (ya estaba sin contexto)" : ""));
         if (_gl == null) return;
         try
         {
@@ -918,6 +930,24 @@ public sealed class MapGlSurface : OpenGlControlBase
             _gl.DeleteBuffer(_pathsVbo);
             _gl.DeleteVertexArray(_vao);
             _gl.DeleteProgram(_program);
+
+            // Faltaban: el programa y el VBO de texturas, y las cuatro texturas
+            // de sprites. Se borraban los 6 buffers + VAO + programa y nada
+            // más, así que cada jubilación de surface dejaba 1 programa,
+            // 1 buffer y 4 texturas en el contexto. Con el watchdog reintentando
+            // sin tope (ver MapPanel) y una noche entera de corrida, eso se
+            // acumula sin techo — y el contexto GL es COMPARTIDO por el
+            // compositor, así que no se limpia solo al morir el control.
+            _gl.DeleteProgram(_texProgram);
+            _gl.DeleteBuffer(_texVbo);
+            if (_vehicleTex != 0) _gl.DeleteTexture(_vehicleTex);
+            if (_wheelTex != 0) _gl.DeleteTexture(_wheelTex);
+            if (_implementoTex != 0) _gl.DeleteTexture(_implementoTex);
+            if (_floorTex != 0) _gl.DeleteTexture(_floorTex);
+            _texProgram = 0; _texVbo = 0;
+            _vehicleTex = 0; _wheelTex = 0; _implementoTex = 0; _floorTex = 0;
+            _vehicleTexReady = false; _wheelTexReady = false;
+            _implementoTexReady = false; _floorTexReady = false;
         }
         catch (Exception ex)
         {
@@ -930,7 +960,15 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     protected override void OnOpenGlRender(GlInterface glInterface, int fb)
     {
-        if (_gl == null || _initFailed) return;
+        // El contador va ANTES de las salidas tempranas a propósito. Hasta acá
+        // el latido medía fps con _framesDesdeLatido, que se incrementa recién
+        // después del Clear: con eso "fps=0" tapaba dos casos MUY distintos —
+        // que Avalonia dejara de llamar este método, o que lo llamara y
+        // nosotros nos fuéramos en la primera línea. Diagnosticar el mapa negro
+        // sin poder separarlos es adivinar.
+        _entradasRender++;
+        if (_gl == null) { _salidasSinGl++; return; }
+        if (_initFailed) { _salidasInitFailed++; return; }
 
         IniciarMedicionGpu();
         (_swFrame ??= new System.Diagnostics.Stopwatch()).Restart();
@@ -1424,6 +1462,9 @@ public sealed class MapGlSurface : OpenGlControlBase
 
     private void ArrancarLatido()
     {
+        // ArrancarLatido llega por Dispatcher.Post desde OnOpenGlInit: puede
+        // aterrizar DESPUÉS de que a esta surface la hayan jubilado.
+        if (_apagada) return;
         if (_latido != null) return;
         _latido = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -1441,7 +1482,8 @@ public sealed class MapGlSurface : OpenGlControlBase
             Console.Error.WriteLine(string.Format(
                 "[MapGlSurface] latido fps={0:F1} pausado={1} tick={2} edadFix={3:F1}s vel={4:F1} " +
                 "| tractor=({5:F1},{6:F1}) camara=({7:F1},{8:F1}) esc={9:F2} zoom={10:F2} pan=({11:F1},{12:F1}) " +
-                "hdgUp={13} sprite={14} bbox={15}",
+                "hdgUp={13} sprite={14} bbox={15} " +
+                "| render: entradas={16} sinGl={17} initFailed={18}",
                 fps,
                 _pausado,
                 _tickSuave != null && _tickSuave.IsEnabled,
@@ -1450,7 +1492,12 @@ public sealed class MapGlSurface : OpenGlControlBase
                 _renderE, _renderN,
                 _ultCamX, _ultCamY, _ultEscala,
                 _userZoom, _userPanX, _userPanY,
-                _headingUp, _vehicleTexReady, _hasBbox));
+                _headingUp, _vehicleTexReady, _hasBbox,
+                _entradasRender, _salidasSinGl, _salidasInitFailed));
+
+            // Se resetean por ventana igual que _framesDesdeLatido: lo que
+            // interesa es el ritmo de ESTOS 5 s, no un acumulado que crece.
+            _entradasRender = 0; _salidasSinGl = 0; _salidasInitFailed = 0;
 
             // Prescripción: cuántas zonas llegaron y cuántos vértices de fill
             // tienen. Si "tris" da 0 con zonas > 0, el fondo de color no puede
@@ -1466,6 +1513,72 @@ public sealed class MapGlSurface : OpenGlControlBase
             }
         };
         _latido.Start();
+    }
+
+    // ---- borde con Avalonia: entradas al render y árbol visual ----------
+    //
+    // Contadores del latido. La pregunta que tienen que contestar es una sola:
+    // cuando el mapa se congela, ¿Avalonia dejó de llamar OnOpenGlRender, o lo
+    // sigue llamando y salimos nosotros? Son dos bugs distintos en dos capas
+    // distintas y hasta ahora el log no los distinguía.
+    private long _entradasRender, _salidasSinGl, _salidasInitFailed;
+
+    protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        Console.Error.WriteLine("[MapGlSurface] enganchada al arbol visual");
+    }
+
+    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    {
+        // Avalonia dispara OnOpenGlDeinit cuando el control se va del árbol. Si
+        // el mapa se desprende solo (por un cambio de layout, una pantalla que
+        // lo tapa, un re-parent), el contexto se suelta y nadie lo vuelve a
+        // pedir. Ver esto en el log al mismo tiempo que el fps se cae es la
+        // diferencia entre saber y suponer.
+        Console.Error.WriteLine("[MapGlSurface] DESENGANCHADA del arbol visual");
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    // ---- jubilación de la surface --------------------------------------
+    //
+    // Cuando el watchdog de MapPanel da el contexto por muerto, saca este
+    // control del árbol y monta uno nuevo. Sacarlo del árbol NO alcanza: los
+    // dos DispatcherTimer siguen agendados en el dispatcher, que los mantiene
+    // vivos a ellos y al control entero. Medido con el latido (2026-08-04): la
+    // surface jubilada seguía imprimiendo "fps=0.0 ... tick=True" con edadFix
+    // creciendo (4,7 → 9,7 → 14,7 → 19,7 s) mientras la nueva iba a 29 fps.
+    //
+    // El caro NO es el latido de 5 s: es _tickSuave, que a 30 Hz sigue
+    // llamando RequestNextFrameRendering sobre un control que ya no está en el
+    // árbol. Cada resurrección deja otro para siempre, y en la tablet de
+    // cabina (4 GB, UHD 600) eso se acumula.
+    private bool _apagada;
+
+    /// <summary>
+    /// Jubila esta surface: frena sus timers y suelta lo grande. Idempotente.
+    /// Los recursos GL no se tocan acá — de eso se encarga OnOpenGlDeinit, que
+    /// Avalonia dispara al sacar el control del árbol y es el único lugar con
+    /// contexto GL válido para borrarlos.
+    /// </summary>
+    public void Apagar()
+    {
+        if (_apagada) return;
+        _apagada = true;
+
+        if (_tickSuave != null) { _tickSuave.Stop(); _tickSuave = null; }
+        if (_latido != null) { _latido.Stop(); _latido = null; }
+
+        // Sin esto la surface jubilada retiene la cobertura, las guías y los
+        // cuatro sprites en RGBA hasta que el GC la levante.
+        _snap = null;
+        _shapeSnap = null;
+        _ultimoTexRgba = null; _ultimoWheelRgba = null;
+        _ultimoImplRgba = null; _ultimoFloorRgba = null;
+        _pendingTexRgba = null; _pendingWheelRgba = null;
+        _pendingImplRgba = null; _pendingFloorRgba = null;
+
+        Console.Error.WriteLine("[MapGlSurface] surface jubilada: timers frenados");
     }
 
     private unsafe void LogPixel(string tag, int px, int py)

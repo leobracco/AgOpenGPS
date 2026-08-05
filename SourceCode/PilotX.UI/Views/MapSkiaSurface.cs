@@ -38,6 +38,47 @@ public sealed class MapSkiaSurface : Control
     private ToolGeometrySnapshot? _tool;
     private TramGeometrySnapshot? _tram;
 
+    // ---- latido -----------------------------------------------------------
+    // Mismo latido que MapGlSurface. Sin esto, pasar el default a Skia sería a
+    // ciegas: "el mapa anda" no es una observación, es una impresión. Acá el
+    // equivalente de OnOpenGlRender es Render(DrawingContext) — si Avalonia
+    // dejara de llamarlo, el síntoma sería idéntico al del mapa GL congelado y
+    // hay que poder distinguirlo con un número.
+    private int _framesDesdeLatido;
+    private Avalonia.Threading.DispatcherTimer? _latido;
+    private readonly System.Diagnostics.Stopwatch _relojLatido =
+        System.Diagnostics.Stopwatch.StartNew();
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (_latido != null) return;
+        _latido = new Avalonia.Threading.DispatcherTimer(
+            Avalonia.Threading.DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _latido.Tick += (_, _) =>
+        {
+            double seg = _relojLatido.Elapsed.TotalSeconds;
+            if (seg <= 0) return;
+            double fps = _framesDesdeLatido / seg;
+            _framesDesdeLatido = 0;
+            _relojLatido.Restart();
+            var s = _snap;
+            Console.Error.WriteLine(string.Format(
+                "[MapSkiaSurface] latido fps={0:F1} vel={1:F1} bbox={2}",
+                fps, s != null ? s.AvgSpeed : -1, _hasBbox));
+        };
+        _latido.Start();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (_latido != null) { _latido.Stop(); _latido = null; }
+        base.OnDetachedFromVisualTree(e);
+    }
+
     // Bbox del boundary cacheado (idem MiniMapView).
     private double _minE, _maxE, _minN, _maxN;
     private bool _hasBbox;
@@ -118,6 +159,7 @@ public sealed class MapSkiaSurface : Control
 
     public override void Render(DrawingContext ctx)
     {
+        _framesDesdeLatido++;
         var rect = new Rect(Bounds.Size);
         ctx.FillRectangle(BgBrush, rect);
         DrawGrid(ctx, rect);
