@@ -797,6 +797,18 @@
     t.addEventListener('click', function () { showTab(t.getAttribute('data-tab')); });
   });
 
+  // Deep-link a un tab: quantix.html?tab=shape (lo usan los accesos de
+  // "Prescripciones" del sidebar Config y de OrbitX, consolidados acá el
+  // 2026-08-05 al retirar prescripciones.html). Solo tabs conocidos: un valor
+  // inventado en la URL no puede dejar la pantalla sin tab activo.
+  (function tabDesdeUrl() {
+    try {
+      var pedido = new URLSearchParams(location.search).get('tab');
+      if (pedido && document.querySelector('.tab[data-tab="' + pedido + '"]'))
+        showTab(pedido);
+    } catch (e) { /* URL rara: queda el tab default */ }
+  })();
+
   // ============================================================================
   // MONITOR
   // ============================================================================

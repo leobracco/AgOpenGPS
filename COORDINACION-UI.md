@@ -84,6 +84,13 @@ tabShape tabSiembra`
 `qxLibOn qxLibOff qxLibProp` (biblioteca de prescripciones); `shape-tap-out` y
 `shape-tap-marca` (consulta de dosis por toque en la vista previa)
 
+> Bitácora 2026-08-05b (Claude): **prescripciones.html RETIRADA** — quedó como
+> redirección a `quantix.html?tab=shape` (conserva `?widget=1`). Tener dos UIs
+> activando prescripciones era mantenimiento doble. Cambios: sidebar.js (Campo
+> queda Insumos+Mapas), config.html (botón Prescripciones → data-mod
+> quantix.html?tab=shape), orbitx.html (link idem), quantix.js soporta
+> deep-link `?tab=<nombre>` (solo tabs conocidos). Cache-bust a `?v=9`.
+
 > Bitácora 2026-08-05 (Claude, tab Shape): (1) tarjeta nueva "Prescripciones
 > guardadas" (`#shapeLib`) — lista `/api/prescripciones/list` con botón
 > Activar/Quitar y selector de campo de dosis; antes las prescripciones se
