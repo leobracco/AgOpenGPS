@@ -128,8 +128,12 @@ MAPA = {
     "boundary-outer":       "menu/JobActive.png",
     "navigation-settings":  "menu/NavigationSettings.png",
     "rec-path":             "menu/RecPath.png",
-    "settings":             "menu/Settings48.png",
-    "special-functions":    "menu/SpecialFunctions.png",
+    # `settings` del set ES un sol de rayos: va al riel "Pantalla" (ex
+    # Navegación: día/noche + brillo), donde el sol dice exactamente eso.
+    # Configuración usa los sliders de EXTRAS.
+    "settings":             "menu/Pantalla.png",
+    # special-functions (cruceta+plus) quedó desplazado del riel Herramientas
+    # por la caja de EXTRAS; no se mapea a ningún destino por ahora.
     "switch-off":           "menu/SwitchOff.png",
     "tram-lines@menu":      "menu/TramAll.png",
     "tram-multi@menu":      "menu/TramMulti.png",
@@ -147,6 +151,42 @@ MAPA = {
 # mandó — solo si el color sale de la paleta documentada. Vacío: el set grande
 # trae todos los estados dibujados y no hay que derivar nada.
 SUSTITUCIONES = {}
+
+# SVG propios en el LENGUAJE del handoff (48x48, trazo 2.4, #535E54, acento
+# #4ABA3E, puntas redondas) para glifos que el set no trae. PROVISORIOS: si
+# diseño manda el suyo, entra al MAPA y esto se borra.
+#
+# ajustes-sliders: el set no tiene engranaje clásico — su `settings` es un sol
+# de rayos (quedó para "Pantalla", donde el sol es correcto: brillo/día/noche)
+# y el engranaje chico de autosteer-config agrandado vuelve a ser un sol.
+# Sliders = metáfora universal de ajustes, inconfundible a 24 px.
+EXTRAS = {
+    "ajustes-sliders": (
+        "menu/Settings48.png",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" '
+        'viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="2.4" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<path d="M8 14 H40"/><circle cx="29" cy="14" r="4" fill="#F5F7F4"/>'
+        '<path d="M8 24 H40" stroke="#4ABA3E"/>'
+        '<circle cx="17" cy="24" r="4" stroke="#4ABA3E" fill="#F5F7F4"/>'
+        '<path d="M8 34 H40"/><circle cx="33" cy="34" r="4" fill="#F5F7F4"/>'
+        '</svg>'),
+
+    # caja-herramientas: el riel "Herramientas" usaba special-functions
+    # (cruceta con un +) que no dice "herramientas". El set tampoco trae caja
+    # (hay martillo suelto, carpeta y varita). Caja clásica: cuerpo, tapa,
+    # manija en arco (acento verde) y traba central.
+    "caja-herramientas": (
+        "menu/SpecialFunctions.png",
+        '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" '
+        'viewBox="0 0 48 48" fill="none" stroke="#535E54" stroke-width="2.4" '
+        'stroke-linecap="round" stroke-linejoin="round">'
+        '<rect x="8" y="19" width="32" height="19" rx="2.5"/>'
+        '<path d="M8 27 H40"/>'
+        '<path d="M18 19 v-3 a6 5 0 0 1 12 0 v3" stroke="#4ABA3E"/>'
+        '<path d="M21.5 27 v-3.5 h5 V27" stroke="#4ABA3E"/>'
+        '</svg>'),
+}
 
 # Íconos del handoff que NO se aplican todavía, y por qué. Se listan acá y no en
 # MAPA a propósito: aplicarlos ESCONDERÍA información que el operario hoy ve.
@@ -208,10 +248,17 @@ def main():
     from reportlab.graphics import renderPM
     from PIL import Image
 
+    # EXTRAS: mismos pasos que el MAPA pero el SVG viene inline, no del handoff.
+    for key, (destino, svg_inline) in EXTRAS.items():
+        ruta_svg = os.path.join(tmp, key + ".svg")
+        open(ruta_svg, "w", encoding="utf-8").write(svg_inline)
+
     hechos, faltan = [], []
-    for key, destino in MAPA.items():
+    entradas = list(MAPA.items()) + [(k, d) for k, (d, _) in EXTRAS.items()]
+    for key, destino in entradas:
         base = key.split("@")[0]
-        ruta_svg = os.path.join(origen, base + ".svg")
+        # Los EXTRAS ya quedaron escritos en tmp; el resto sale del handoff.
+        ruta_svg = os.path.join(tmp if base in EXTRAS else origen, base + ".svg")
         if not os.path.isfile(ruta_svg):
             faltan.append(base + ".svg")
             continue
