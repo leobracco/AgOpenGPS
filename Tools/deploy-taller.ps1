@@ -51,28 +51,36 @@ if (-not $Forzar) {
     } catch { }
 }
 
+if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
+New-Item -ItemType Directory -Force $tmp | Out-Null
+
 if (-not $SinPublish) {
-    Write-Host "== publish PilotX.Desktop ==" -ForegroundColor Cyan
+    # Publish a STAGING propio, nunca sobre Build\: el PilotX local corre
+    # desde Build\Desktop y publicar ahi con la app abierta se traba en locks
+    # de DLL (MSB3026 en bucle de reintentos — pasó 2026-08-05). El deploy no
+    # tiene por qué molestar a la instancia de desarrollo.
+    Write-Host "== publish PilotX.Desktop (staging) ==" -ForegroundColor Cyan
     dotnet publish "$root\SourceCode\PilotX.Desktop\PilotX.Desktop.csproj" `
         -c Release -r win-x64 --self-contained true `
-        -p:PublishReadyToRun=true -o "$root\Build\Desktop" -v q --nologo
+        -p:PublishReadyToRun=true -o "$tmp\Desktop" -v q --nologo
     if ($LASTEXITCODE -ne 0) { Write-Host "publish Desktop FALLO" -ForegroundColor Red; exit 1 }
     if ($ConEngine) {
-        Write-Host "== publish PilotX.GuidanceEngine ==" -ForegroundColor Cyan
+        Write-Host "== publish PilotX.GuidanceEngine (staging) ==" -ForegroundColor Cyan
         dotnet publish "$root\SourceCode\PilotX.GuidanceEngine\PilotX.GuidanceEngine.csproj" `
             -c Release -r win-x64 --self-contained true `
-            -p:PublishReadyToRun=true -o "$root\Build\Engine" -v q --nologo
+            -p:PublishReadyToRun=true -o "$tmp\Engine" -v q --nologo
         if ($LASTEXITCODE -ne 0) { Write-Host "publish Engine FALLO" -ForegroundColor Red; exit 1 }
+    }
+} else {
+    # -SinPublish: copiar lo ya publicado en Build\ (excluyendo el cache de
+    # WebView2, lockeado si la app corre, y los logs).
+    robocopy "$root\Build\Desktop" "$tmp\Desktop" /E /XD "PilotX.Desktop.exe.WebView2" "Logs" /XF "*.log" /NFL /NDL /NJH /NJS | Out-Null
+    if ($ConEngine) {
+        robocopy "$root\Build\Engine" "$tmp\Engine-src" /E /NFL /NDL /NJH /NJS | Out-Null
     }
 }
 
 Write-Host "== staging ==" -ForegroundColor Cyan
-if (Test-Path $tmp) { Remove-Item $tmp -Recurse -Force }
-New-Item -ItemType Directory -Force $tmp | Out-Null
-
-# Desktop: todo menos el cache de WebView2 (lockeado si PilotX corre local,
-# y es basura de runtime) y los logs.
-robocopy "$root\Build\Desktop" "$tmp\Desktop" /E /XD "PilotX.Desktop.exe.WebView2" "Logs" /XF "*.log" /NFL /NDL /NJH /NJS | Out-Null
 Compress-Archive -Path "$tmp\Desktop\*" -DestinationPath "$tmp\desktop.zip" -CompressionLevel Optimal
 
 # wwwroot del Hub: EL DEL SOURCE (fuente de verdad de la UI), completo.
@@ -81,12 +89,17 @@ Compress-Archive -Path "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\www
 if ($ConEngine) {
     # Engine: SOLO binarios. Dos pasadas: (1) todo menos json/log/datos,
     # (2) lista blanca de los json de runtime que si tienen que viajar.
-    robocopy "$root\Build\Engine" "$tmp\Engine" /E `
+    # El origen depende del camino: publish fresco ($tmp\Engine, que ya nace
+    # sin configs de usuario) o la copia de Build ($tmp\Engine-src, que los
+    # arrastra porque el runtime los escribe ahi). El filtro corre igual en
+    # ambos: mas vale filtrar de mas que clobberear la identidad del taller.
+    $engOrigen = if (Test-Path "$tmp\Engine-src") { "$tmp\Engine-src" } else { "$tmp\Engine" }
+    robocopy $engOrigen "$tmp\Engine-filtrado" /E `
         /XD "data" "GuidanceEngineData" "implementos" "firmware-cache" "AgroParallel" "logs" "Logs" `
         /XF "*.json" "*.log" /NFL /NDL /NJH /NJS | Out-Null
-    Copy-Item "$root\Build\Engine\*.deps.json" "$tmp\Engine\" -Force
-    Copy-Item "$root\Build\Engine\*.runtimeconfig.json" "$tmp\Engine\" -Force
-    Compress-Archive -Path "$tmp\Engine\*" -DestinationPath "$tmp\engine.zip" -CompressionLevel Optimal
+    Copy-Item "$engOrigen\*.deps.json" "$tmp\Engine-filtrado\" -Force
+    Copy-Item "$engOrigen\*.runtimeconfig.json" "$tmp\Engine-filtrado\" -Force
+    Compress-Archive -Path "$tmp\Engine-filtrado\*" -DestinationPath "$tmp\engine.zip" -CompressionLevel Optimal
 }
 
 Get-ChildItem "$tmp\*.zip" | ForEach-Object { Write-Host ("  {0}: {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) }
