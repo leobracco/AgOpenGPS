@@ -1921,29 +1921,52 @@ public partial class MainWindow : Window
     // necesita teclado virtual que aun no esta portado nativo - desde el panel
     // se abre con el boton "Configurar" (callback OnRequestConfigurar -> WebView).
 
+    // Ventana de Cámaras (nativa). Antes era overlay a PANTALLA COMPLETA que
+    // apagaba el mapa — dos strikes: violaba la regla "el mapa siempre se ve",
+    // y el día que el "<-" quedó enterrado bajo la barra del cockpit dejó al
+    // operario atrapado (2026-08-05). Ahora es una ventana como Datos del
+    // Lote: el mapa sigue vivo alrededor, y el cierre es la X nativa o el
+    // botón Cerrar del propio panel.
+    private Window? _camarasWin;
+
     private void ShowCamaras()
     {
-        if (_camarasHost == null) return;
-        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
-        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
-        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
-        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
-        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
-        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
-        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
-        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
-        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
-        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
-        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
-        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
-        if (_webView != null) CloseWebView();
+        if (_camarasWin != null) { _camarasWin.Activate(); return; }
         if (_camarasClient == null)
             _camarasClient = new CamarasClient(DeriveOrigin(App.TargetUrl));
-        _camarasHost.Attach(_camarasClient);
-        _camarasHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
-        if (_webViewBack != null) _webViewBack.IsVisible = true;
-        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Camaras open (nativo, no WebView)");
+
+        // Instancia PROPIA para la ventana (no el host embebido _camarasHost,
+        // que quedó sin usar en este flujo): reparentar un control vivo entre
+        // el grid y una Window es frágil en Avalonia, y el panel es barato de
+        // construir — lo caro (el cliente HTTP y su cache) se reusa.
+        var panel = new CamarasPanel();
+        panel.OnRequestConfigurar = () =>
+        {
+            try { _camarasWin?.Close(); } catch { }
+            NavigateTo("pages/camaras.html");
+        };
+        panel.OnRequestCerrar = () => { try { _camarasWin?.Close(); } catch { } };
+        panel.Attach(_camarasClient);
+
+        var (w, h) = AjustarAPantalla(1040, 680);
+        _camarasWin = new Window
+        {
+            Title = "Cámaras",
+            Width = w,
+            Height = h,
+            CanResize = true,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            SystemDecorations = SystemDecorations.Full,
+            ShowInTaskbar = false,
+            Content = panel
+        };
+        _camarasWin.Closed += (_, _) =>
+        {
+            try { panel.Detach(); } catch { }
+            _camarasWin = null;
+        };
+        _camarasWin.Show(this);
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Camaras open (ventana nativa, mapa vivo)");
     }
 
     private void CloseCamaras()
