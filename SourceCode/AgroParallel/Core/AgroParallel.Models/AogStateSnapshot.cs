@@ -360,6 +360,15 @@ namespace AgroParallel.Models
         /// deshacer el gradiente — con el valor viaja el dato, no la pintura.
         /// </summary>
         public double? V { get; set; }
+
+        /// <summary>
+        /// Índice del feature en el ARCHIVO geojson de la prescripción (atributo
+        /// FI), o null si la capa no viene de una prescripción. Es la identidad
+        /// que la edición de dosis por toque manda al server: el índice de
+        /// DIBUJO no sirve porque los MultiPolygon se parten en piezas y corren
+        /// la numeración (medido: 121 features → 217 polígonos dibujados).
+        /// </summary>
+        public int? Fi { get; set; }
         public List<double[]> Rings { get; set; }
     }
 

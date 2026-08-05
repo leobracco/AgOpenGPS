@@ -352,6 +352,17 @@ namespace AgroParallel.Common
                         v = d;
                 }
 
+                // FI: índice del feature de ARCHIVO (solo capas sintéticas de
+                // prescripción). Identidad para la edición de dosis por toque.
+                int? fi = null;
+                if (p < _polyAttrs.Count)
+                {
+                    object rawFi;
+                    double dFi;
+                    if (_polyAttrs[p].TryGetValue("FI", out rawFi) && TryToDouble(rawFi, out dFi) && dFi >= 0)
+                        fi = (int)dFi;
+                }
+
                 var rings = new List<double[]>(poly.Count);
                 for (int r = 0; r < poly.Count; r++)
                 {
@@ -374,6 +385,7 @@ namespace AgroParallel.Common
                     B = c.B,
                     A = c.A,
                     V = v,
+                    Fi = fi,
                     Rings = rings
                 });
             }

@@ -94,6 +94,33 @@ namespace AgroParallel.WebHost.Controllers
             return WriteJsonAsync(new { ok = true });
         }
 
+        // Edición de campo: cambiar la dosis de UNA zona desde el mini-mapa de
+        // QuantiX → Shape. Body snake_case: { id, zona, dosis }. La zona es el
+        // índice de feature del geojson — el mismo orden con el que el piloto
+        // dibuja los polígonos de /api/aog/shape, así el cliente puede mandar
+        // directamente el índice del polígono que el operario tocó.
+        [Route(HttpVerbs.Post, "/prescripciones/dosis-zona")]
+        public async Task SetZoneDose()
+        {
+            if (_svc == null) { await WriteJsonAsync(new { ok = false, error = "service-unavailable" }); return; }
+            string id = ""; int zona = -1; double dosis = double.NaN;
+            try
+            {
+                var body = await ReadBodyAsync();
+                using (var doc = JsonDocument.Parse(body))
+                {
+                    if (doc.RootElement.TryGetProperty("id", out var jId)) id = jId.GetString() ?? "";
+                    if (doc.RootElement.TryGetProperty("zona", out var jz) && jz.TryGetInt32(out var z)) zona = z;
+                    if (doc.RootElement.TryGetProperty("dosis", out var jd) && jd.ValueKind == JsonValueKind.Number)
+                        dosis = jd.GetDouble();
+                }
+            }
+            catch { await WriteJsonAsync(new { ok = false, error = "invalid-body" }); return; }
+
+            bool ok = _svc.SetZoneDose(id, zona, dosis);
+            await WriteJsonAsync(new { ok, id, zona, dosis });
+        }
+
         [Route(HttpVerbs.Get, "/prescripciones/dose")]
         public Task DoseAt()
         {

@@ -37,6 +37,15 @@ namespace AgroParallel.Models
         [JsonPropertyName("dosis")]
         public double Dosis { get; set; }
 
+        /// <summary>Índice del feature en el ARCHIVO geojson de origen. Un
+        /// MultiPolygon se parte en varios features del DTO y todos comparten
+        /// este índice — es la identidad que necesita la edición de dosis por
+        /// zona (SetZoneDose) para tocar el feature correcto. Sin esto, el
+        /// índice del polígono dibujado se corría respecto del archivo apenas
+        /// aparecía un MultiPolygon y se editaba LA ZONA EQUIVOCADA.</summary>
+        [JsonPropertyName("file_index")]
+        public int FileIndex { get; set; } = -1;
+
         /// <summary>Etiqueta opcional de la zona (ej: "Zona A · Alto"). Solo
         /// para UI/tooltip; el bridge no la consume.</summary>
         [JsonPropertyName("label")]

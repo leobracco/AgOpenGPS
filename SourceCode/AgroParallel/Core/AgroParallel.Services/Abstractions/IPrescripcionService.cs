@@ -42,5 +42,14 @@ namespace AgroParallel.Services.Abstractions
         /// de todos los features. Thread-safe (lectura concurrente desde el
         /// timer del bridge mientras la UI hace SetActive).</summary>
         double GetDoseAt(double lat, double lon);
+
+        /// <summary>Edición de campo: cambia la dosis de UNA zona (feature) de
+        /// una prescripción y la persiste al .geojson. Si es la activa, se
+        /// recarga al instante (LoadedUtc nuevo → el piloto la reproyecta y el
+        /// bridge dosifica con el valor nuevo). El índice de zona es el orden
+        /// de features del archivo — el mismo con el que el piloto dibuja.
+        /// Devuelve false si el id/zona no existen o el archivo no se puede
+        /// escribir.</summary>
+        bool SetZoneDose(string id, int zoneIndex, double dose);
     }
 }

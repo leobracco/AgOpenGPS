@@ -153,6 +153,11 @@ namespace PilotX.GuidanceEngine.Adapters
             {
                 var result = new AgroParallel.Common.ShapefileReadResult();
                 result.DbfFieldNames.Add("DOSIS");
+                // FI (índice del feature en el ARCHIVO geojson) viaja como
+                // ATRIBUTO por polígono pero NO como DbfFieldName: esa lista
+                // alimenta el dropdown de CampoDosis y ofrecer "FI" como campo
+                // de dosis sería un error esperando operario. La edición por
+                // toque lo lee de ShapePolygon.Fi igual.
 
                 foreach (var f in p.Features)
                 {
@@ -172,6 +177,7 @@ namespace PilotX.GuidanceEngine.Adapters
                     }
                     if (poly.Rings.Count == 0) continue;
                     poly.Attributes["DOSIS"] = f.Dosis;
+                    poly.Attributes["FI"] = f.FileIndex;
                     result.Polygons.Add(poly);
                 }
 

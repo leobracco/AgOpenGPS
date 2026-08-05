@@ -2857,6 +2857,20 @@
     shapeTap.minX = minX;
     shapeTap.maxY = maxY;
     shapeTap.field = d.style_field || '';
+    shapeTap.editIdx = -1;
+
+    // ¿La capa del piloto ES la prescripción activa? Solo entonces el toque
+    // permite EDITAR (el geojson es nuestro y el motor recarga solo). Un .shp
+    // subido a mano queda en consulta: editar un DBF es otra historia.
+    shapeTap.presc = null;
+    if ((d.source_token || '').indexOf('(OrbitX)') >= 0) {
+      try {
+        var ra = await fetch('/api/prescripciones/activa', { cache: 'no-store' });
+        var da = await ra.json();
+        if (da && da.ok && da.activa && da.activa.id)
+          shapeTap.presc = { id: da.activa.id, propiedad: da.activa.propiedad_dosis || '' };
+      } catch (e) { /* sin activa: queda solo-consulta */ }
+    }
 
     var paths = pol.map(function (z) {
       var col = 'rgba(' + (z.r | 0) + ',' + (z.g | 0) + ',' + (z.b | 0) + ',' +
@@ -2883,7 +2897,9 @@
         (d.style_field ? '<span>campo <b>' + escapeHtml(d.style_field) + '</b></span>' : '') +
         (rango ? '<span>dosis ' + rango + '</span>' : '') +
         '<span class="u">' + Math.round(anchoM) + ' × ' + Math.round(altoM) + ' m</span>' +
-        '<span class="shape-tap-out chip" style="margin-left:auto">Tocá una zona para ver su dosis</span>' +
+        '<span class="shape-tap-out chip" style="margin-left:auto">' +
+          (shapeTap.presc ? 'Tocá una zona para editar su dosis' : 'Tocá una zona para ver su dosis') +
+        '</span>' +
       '</div></div>';
   }
 
@@ -2975,7 +2991,10 @@
   // ============================================================================
 
   // Estado del último preview dibujado (para resolver el toque).
-  var shapeTap = { pol: null, minX: 0, maxY: 0, field: '' };
+  // presc: la prescripción ACTIVA {id, propiedad} cuando la capa del piloto
+  // es esa prescripción (source con "(OrbitX)") — en ese caso el toque no
+  // solo CONSULTA la dosis: permite EDITARLA y persistirla al geojson.
+  var shapeTap = { pol: null, minX: 0, maxY: 0, field: '', presc: null, editIdx: -1, editVal: 0 };
 
   function shapePuntoEnAnillo(a, x, y) {
     // Ray casting sobre el anillo plano [x0,y0,x1,y1,…].
@@ -2990,7 +3009,9 @@
 
   function shapeDosisEn(x, y) {
     var pol = shapeTap.pol || [];
-    // De atrás hacia adelante: el último dibujado queda arriba.
+    // De atrás hacia adelante: el último dibujado queda arriba. Devuelve
+    // también el ÍNDICE: es el número de zona (feature) que la edición manda
+    // al server — mismo orden del geojson.
     for (var p = pol.length - 1; p >= 0; p--) {
       var rs = pol[p].rings || [];
       rs = (rs.length && Array.isArray(rs[0])) ? rs : [rs];
@@ -2998,9 +3019,53 @@
       var cont = 0;
       for (var r = 0; r < rs.length; r++)
         if (shapePuntoEnAnillo(rs[r], x, y)) cont++;
-      if (cont % 2 === 1) return pol[p];
+      if (cont % 2 === 1) return { z: pol[p], idx: p };
     }
     return null;
+  }
+
+  // Paso de edición según magnitud: sem/m van en decimales, kg/ha en enteros.
+  function shapePasoEdicion(v) { return v < 10 ? 0.5 : v < 50 ? 1 : 5; }
+
+  function shapeRenderEditor(out) {
+    var v = shapeTap.editVal;
+    out.className = 'shape-tap-out';
+    out.innerHTML =
+      '<span style="display:inline-flex;align-items:center;gap:6px">' +
+        '<b>' + escapeHtml(shapeTap.field || 'DOSIS') + '</b>' +
+        '<button class="btn qxZonaMenos" style="min-height:34px;padding:0 12px">−</button>' +
+        '<b style="font-family:var(--agp-font-mono);min-width:44px;text-align:center">' + v + '</b>' +
+        '<button class="btn qxZonaMas" style="min-height:34px;padding:0 12px">+</button>' +
+        '<button class="btn primary qxZonaOk" style="min-height:34px;padding:0 14px">Aplicar</button>' +
+      '</span>';
+    out.querySelector('.qxZonaMenos').addEventListener('click', function (e) {
+      e.stopPropagation();
+      shapeTap.editVal = Math.max(0, Math.round((shapeTap.editVal - shapePasoEdicion(shapeTap.editVal)) * 10) / 10);
+      shapeRenderEditor(out);
+    });
+    out.querySelector('.qxZonaMas').addEventListener('click', function (e) {
+      e.stopPropagation();
+      shapeTap.editVal = Math.round((shapeTap.editVal + shapePasoEdicion(shapeTap.editVal)) * 10) / 10;
+      shapeRenderEditor(out);
+    });
+    out.querySelector('.qxZonaOk').addEventListener('click', async function (e) {
+      e.stopPropagation();
+      try {
+        var r = await fetch('/api/prescripciones/dosis-zona', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: shapeTap.presc.id, zona: shapeTap.editIdx, dosis: shapeTap.editVal })
+        });
+        var d = await r.json();
+        if (!d || !d.ok) { shapeSetMsg('err', 'No se pudo guardar la dosis.'); return; }
+        shapeSetMsg('ok', 'Zona ' + (shapeTap.editIdx + 1) + ' → ' + shapeTap.editVal + '. El mapa se actualiza solo.');
+      } catch (err) { shapeSetMsg('err', 'Error: ' + err.message); return; }
+      shapeTap.editIdx = -1;
+      // El motor recarga y reproyecta; refresh inmediato + diferido para ver
+      // el recoloreo (mismo patrón que activar).
+      refreshShapeActive();
+      setTimeout(refreshShapeActive, 2500);
+    });
   }
 
   function shapeBindTap() {
@@ -3018,7 +3083,8 @@
       // Del viewBox (Y para abajo) a metros locales del lote.
       var x = shapeTap.minX + p.x;
       var y = shapeTap.maxY - p.y;
-      var z = shapeDosisEn(x, y);
+      var hit = shapeDosisEn(x, y);
+      var z = hit && hit.z;
 
       // Marcador del toque (uno solo; el anterior se reemplaza).
       var viejo = svg.querySelector('.shape-tap-marca');
@@ -3034,7 +3100,15 @@
       c.setAttribute('vector-effect', 'non-scaling-stroke');
       svg.appendChild(c);
 
-      if (z && z.v != null) {
+      if (z && shapeTap.presc && z.fi != null) {
+        // Capa = prescripción activa: el toque abre el EDITOR de la zona.
+        // El índice que viaja al server es z.fi (feature del ARCHIVO), nunca
+        // el índice de dibujo: los MultiPolygon se parten en piezas y corren
+        // la numeración — con el índice de dibujo se editaba OTRA zona.
+        shapeTap.editIdx = z.fi;
+        shapeTap.editVal = z.v != null ? z.v : 0;
+        shapeRenderEditor(out);
+      } else if (z && z.v != null) {
         out.innerHTML = (shapeTap.field ? '<b>' + escapeHtml(shapeTap.field) + '</b>: ' : 'Dosis: ') +
           '<b>' + z.v + '</b>';
         out.className = 'shape-tap-out chip ok';
@@ -3042,6 +3116,7 @@
         out.textContent = 'Zona sin valor de dosis';
         out.className = 'shape-tap-out chip';
       } else {
+        shapeTap.editIdx = -1;
         out.textContent = 'Fuera de las zonas';
         out.className = 'shape-tap-out chip';
       }

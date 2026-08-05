@@ -259,8 +259,10 @@ namespace AgroParallel.Services
                         return null;
                     }
 
+                    int fileIdx = -1;
                     foreach (var feat in features.EnumerateArray())
                     {
+                        fileIdx++;
                         double dosis = 0;
                         string label = "";
 
@@ -297,6 +299,7 @@ namespace AgroParallel.Services
                             var f = ParsePolygon(coords, dosis, label);
                             if (f != null)
                             {
+                                f.FileIndex = fileIdx;
                                 dto.Features.Add(f);
                                 UpdateGlobalBBox(f, ref globalMinLon, ref globalMinLat, ref globalMaxLon, ref globalMaxLat);
                             }
@@ -309,6 +312,7 @@ namespace AgroParallel.Services
                                 var f = ParsePolygon(poly, dosis, label);
                                 if (f != null)
                                 {
+                                    f.FileIndex = fileIdx;
                                     dto.Features.Add(f);
                                     UpdateGlobalBBox(f, ref globalMinLon, ref globalMinLat, ref globalMaxLon, ref globalMaxLat);
                                 }
@@ -426,6 +430,62 @@ namespace AgroParallel.Services
                 if (intersect) inside = !inside;
             }
             return inside;
+        }
+
+        // -------------------- EDICIÓN --------------------
+
+        public bool SetZoneDose(string id, int zoneIndex, double dose)
+        {
+            if (string.IsNullOrEmpty(id) || zoneIndex < 0) return false;
+            if (double.IsNaN(dose) || double.IsInfinity(dose) || dose < 0) return false;
+
+            string path = FilenameFromId(id);
+            if (path == null || !File.Exists(path)) return false;
+
+            // Qué propiedad tocar: si la que se está editando es la ACTIVA, su
+            // propiedad de dosis ya está decidida; si no, misma heurística que
+            // SetActive (para poder corregir una prescripción antes de usarla).
+            var st = LoadState();
+            string prop = string.Equals(st.ActivoId, id, StringComparison.OrdinalIgnoreCase)
+                ? st.PropiedadDosis : null;
+            if (string.IsNullOrEmpty(prop))
+            {
+                var candidates = SniffCandidateProperties(path);
+                prop = candidates.Count > 0 ? candidates[0] : "DOSIS";
+            }
+
+            try
+            {
+                // JsonNode y no JsonDocument: hay que MUTAR una sola propiedad
+                // preservando el resto del archivo tal cual vino (el cloud lo
+                // puede haber generado con propiedades que este código no
+                // conoce y que no se pueden perder en la vuelta).
+                var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path));
+                var features = root?["features"] as System.Text.Json.Nodes.JsonArray;
+                if (features == null || zoneIndex >= features.Count) return false;
+
+                var props = features[zoneIndex]?["properties"] as System.Text.Json.Nodes.JsonObject;
+                if (props == null) return false;
+                props[prop] = Math.Round(dose, 3);
+
+                // Escritura atómica: archivo temporal + replace. Un corte de
+                // energía a mitad de un File.WriteAllText dejaría el geojson
+                // por la mitad y la prescripción entera inutilizable.
+                string tmp = path + ".tmp";
+                File.WriteAllText(tmp, root.ToJsonString(
+                    new JsonSerializerOptions { WriteIndented = false }));
+                File.Copy(tmp, path, overwrite: true);
+                File.Delete(tmp);
+            }
+            catch { return false; }
+
+            // Si es la activa, recargarla ya: LoadedUtc nuevo → el piloto la
+            // reproyecta (el shape del mapa cambia de color) y el bridge de
+            // QuantiX dosifica con el valor nuevo en su próximo tick.
+            if (string.Equals(st.ActivoId, id, StringComparison.OrdinalIgnoreCase))
+                SetActive(id, st.PropiedadDosis);
+
+            return true;
         }
     }
 }
