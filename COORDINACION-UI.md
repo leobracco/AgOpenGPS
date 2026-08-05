@@ -1851,3 +1851,125 @@ usuario: **mostrar un motor por vez**.
   usando `closest('.motor-cfg')` y ahora hay una sola por pantalla, así que no
   hizo falta tocar sus handlers.
 - Los motores ofrecidos son `max(2, n.motores.length)`: el nodo de 7 entra solo.
+
+### 2026-08-05 · Claude — cabecera.html: dos columnas SIEMPRE (mapa | datos)
+`pages/cabecera.html`, solo CSS embebido (a pedido del usuario). `.cab-wrap`
+tenía `flex-wrap: wrap`: en la ventana widget angosta la columna de controles
+se caía DEBAJO del canvas y quedaba una sola columna con scroll. Ahora:
+`html/body/.page` a 100vh (flex column), `.cab-wrap` `nowrap` + `flex:1` +
+`min-height:0`, canvas `flex:1 auto` con `min-width:0`, y `.cab-side` fija
+280 px (220 px bajo 700 px de ancho) con `overflow-y:auto` — si los botones no
+entran scrollea la columna de datos, el mapa nunca se mueve. Botones de 56→48
+px de alto (densidad). El warnBox dejó el hex oscuro `#5a2c2c` y pasó a
+superficie clara con borde `--agp-state-bad` (4 px izquierdo). IDs y `data-*`
+intactos; cabecera.js sin cambios (el resize ya lee getBoundingClientRect).
+Quedan `#fff` sobre accent en btnBuild/.cab-seg.on — no hay token on-accent en
+theme.css (mismo pendiente que otras páginas).
+
+Addendum (mismo día): `js/cabecera.js` — al agrandar la ventana el canvas
+crecía pero el dibujo quedaba en su escala vieja (área vacía alrededor). El
+listener de `window.resize` ahora invalida `view.fitted` y re-encuadra el lote
+al área nueva. Pan/zoom manual se pierde en el resize de ventana, a propósito.
+
+Addendum 2 (mismo día): cabecera.html REHECHA entera (pedido del usuario: mala
+estructura). La pila plana de 14 controles pasó a 3 tarjetas `.card` con
+título — **Construir** (distancia + usar ancho herr. + Construir primary +
+Reset), **Editar borde** (hint, seg curva/recta, filas etiquetadas "A − +" /
+"B − +" en vez de A+/A−/B+/B− sueltos, Cortar primary + Deshacer, Descartar
+ghost) y **Opciones** (toggle secciones 22px accent + Apagar) — con Salir
+suelto al pie. Todo con .btn/.card/.pill de layout.css y tokens; dos columnas
+y warn claro como en el addendum anterior. Los 20 IDs congelados verificados
+presentes contra el served HTML. cabecera.js sin cambios.
+
+Addendum 3 (mismo día): pasada de DENSIDAD en cabecera.html (feedback "todo muy
+grande"): h1→fs-lg, subtitle→fs-xs, page padding sp-3, input distancia 52→38px
+(fs-md mono), botones 46→38 y filas seg/AB/row 34px con fs-sm, títulos de card
+en fs-xs MAYÚSCULAS, columna 300→236px (204 bajo 700px), checkbox 18px, cards
+padding sp-2. Solo CSS embebido; IDs intactos.
+
+Addendum 4 (mismo día): la columna derecha no entraba a lo alto de la ventana.
+Menos FILAS, no solo px: A y B pasan a UNA fila (A − + · B − +), Cortar/
+Deshacer/Descartar en una fila de 3 (label "Descartar toque"→"Descartar"),
+botones 32px (filas 30px), input 32px, gaps internos sp-1, toggle 28px.
+~530px de alto total: entra sin scroll en la ventana widget. IDs intactos.
+
+Addendum 5 (mismo día): cabecera.html a CUATRO columnas (pedido usuario):
+mapa (flex 1) | Construir | Editar borde | Opciones — cada grupo `.card
+.cab-col` de 172px (148 bajo 980px), botones 34px de vuelta, A y B en filas
+propias otra vez, Cortar full-width, Salir abajo de Opciones con
+margin-top:auto. El alto sobra: nada scrollea. `.cab-side` eliminada del
+markup. IDs verificados contra el served HTML.
+
+Addendum 6 (mismo día): cabecera.js — (1) el tap en táctil casi nunca llegaba
+al backend: umbral de arrastre fijo en 6px; ahora 14px si pointerType=touch
+(6 se mantiene para mouse). (2) Feedback del flujo de corte: tras el primer
+toque válido el estado dice "punto A marcado — tocá el punto B", y con A–B
+"ajustá con ± y tocá Cortar" (antes el primer toque parecía no hacer nada).
+(3) setStatus ahora colorea el pill: ok verde para "cabecera activa", bad
+para "sin conexión", warn para "construyendo…", idle el resto — antes quedaba
+gris SIEMPRE. Patrón repetido en otras páginas (pill con texto "activa" en
+gris): pendiente pasada general.
+
+Addendum 7 (mismo día): "Editar borde" ELIMINADO de cabecera.html (pedido del
+usuario: cabecera simple y listo). OJO CODEX — IDs que DEJAN de existir en
+esta página: segCurve segLine btnAPlus btnAMinus btnBPlus btnBMinus btnClip
+btnUndo btnCancelTouch (borrarlos del registro de congelados de cabecera).
+Quedan: cvPreview inpDist unitLabel btnToolWidth btnBuild btnReset chkSection
+btnOff btnExit statusText warnBox. cabecera.js limpiado en consecuencia (sin
+listeners slice, el tap del canvas ya no postea /tap: preview con pan/zoom
+nomás). El backend /api/headland tap/extend/clip/undo queda vivo por si el
+recorte manual vuelve en otra forma. Layout ahora: mapa | Construir |
+Opciones (3 columnas).
+
+Addendum 8 (mismo día): íconos de la ventana Guías (pages/tracks.html) pasados
+a iconografía Agro Parallel. 30 PNG de wwwroot/img/tracks/ PISADOS con el mismo
+nombre de archivo (HTML/JS intactos), rasterizados del handoff
+Diseños/design_handoff_iconos_agro_parallel/icons a 128px trazo 2.8 con la
+técnica del pipeline cockpit (script: scratchpad/generar-iconos-tracks.py).
+Detalles: ABLatLonHeading y ABLatLonLatLon comparten lat-lon.svg (el label
+distingue); ConS_ImplementAntenna.png queda con el ícono viejo (sin diseño en
+el handoff). Desplegado a Build local y taller.
+
+Addendum 9 (mismo día): flujo de la ventana Guías (tracks.html/js) simplificado
+a pedido del usuario. La ventana abre DIRECTO en el menú (choose): [AB Line]
+[AB + Curva] y, solo si ya hay guías, [Guías guardadas] (id nuevo btnGoList).
+Pivote / Pivote 3pts / Lat-Lon / Lat-Lon+ / A+ / KML SALIERON del menú (sus
+paneles y rutas API siguen, inalcanzables). El "+" de la lista vuelve al mismo
+menú sin el botón de lista; el cancelar del menú (id nuevo btnChooseBack)
+cierra la ventana si es entrada o vuelve a la lista si venís del "+". Cancelar
+de AB/Curva ahora vuelve al menú (data-goto choose, antes main). IDs que
+desaparecen del markup: btnKML (su handler on() tolera null). Títulos: choose
+= "Guías", main = "Guías guardadas".
+
+Addendum 10 (mismo día): Guías — cerrar al crear + ventana ajustada por paso.
+(1) Crear AB o Curva (btnAddName) ahora CIERRA la ventana (la guía ya se ve en
+el mapa); Duplicar sigue volviendo a la lista. (2) NUEVO mecanismo de tamaño:
+los cambios de paso grandes navegan de verdad (`tracks.html?screen=X`, con
+data-nav en vez de data-goto para menú→abline/curve, cancelar→menú, y
+btnGoList/btnNewTrack por JS con &from=list) y MainWindow.OnDialogNavigated
+parsea ?screen= y redimensiona la ventana nativa: menú 370x280, abline/curve
+330x450, lista 460x470 (TamanoDialogo: tracks.html abre en 370x280). tkWin
+base 650x480→440x420 y choose 340x220. tracks.html ahora carga widget-mode.js
+(propaga widget=1 en esas navegaciones). OJO: requiere Desktop recompilado —
+deployado a Build local y taller 2026-08-05.
+
+Addendum 11 (mismo día): tracks.html en modo diálogo se veía como "ventana
+adentro de otra" (doble título/borde): la caja tkWin conserva su marco propio
+(título .tk-title + borde + sombra) y ahora la ventana nativa queda justa.
+Fix: con html.widget-mode, #tkWin pasa a 100%x100% sin borde/sombra y
+.tk-title se oculta (el título lo pone la ventana del sistema). tracks.html
+ahora carga widget-mode.js en el HEAD (antes del primer pintado). Dato
+operativo confirmado: el ENGINE cachea wwwroot en RAM — copiar archivos al
+taller sin reiniciar PilotX.GuidanceEngine sirve la versión vieja.
+
+Addendum 12 (mismo día, ANULA el mecanismo del Addendum 10): el cierre por
+centinela y el resize por ?screen= NO funcionan en el diálogo — confirmado en
+cabina: las navegaciones iniciadas por la página no llegan a
+NavigationCompleted (solo las del host). Queda: (1) cierre al crear guía por
+SEÑAL DEL HUD — HudSnapshot suma TracksTotal (tracks_total) y
+MainWindow.CerrarDialogoSiHayGuiaNueva cierra el diálogo de Guías cuando sube
+(baja = nuevo piso, borrar no rompe). Nota: duplicar también sube el total →
+también cierra (tradeoff aceptado). (2) tracks vuelve a SPA (data-goto;
+data-nav eliminado), ventana de tamaño único 460x470 y tkWin con marco
+suprimido en widget-mode (sin doble título; fondo unificado). El closeWidget()
+del JS queda por si otros hosts sí ven la navegación.
