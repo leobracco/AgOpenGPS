@@ -1164,8 +1164,21 @@
         </div>
       </div>
 
+      <!-- Biblioteca de prescripciones guardadas en PilotX: las subidas por
+           acá, por OrbitX o cargadas desde USB. Desde esta lista se ACTIVA la
+           que se quiere en el mapa (antes se listaban pero no había forma de
+           activarlas — quedaban decorativas). El contenido lo arma quantix.js
+           contra /api/prescripciones/list. -->
+      <div class="card" style="margin-top: var(--agp-sp-4)">
+        <h3 style="margin-top:0">Prescripciones guardadas</h3>
+        <div id="shapeLib">
+          <div class="subtitle">Cargando…</div>
+        </div>
+      </div>
+
       <div class="card" style="margin-top: var(--agp-sp-4)">
         <h3 style="margin-top:0">Capa activa</h3>
+        <p class="subtitle" style="margin-top:0">Tocá una zona de la vista previa para ver su dosis.</p>
         <div id="shapeActive">
           <div class="subtitle">Cargando…</div>
         </div>
@@ -1202,6 +1215,6 @@
   <script src="../js/steps.js"></script>
   <script src="../js/qx-agro.js"></script>
   <script src="../js/modal.js"></script>
-  <script src="../js/quantix.js?v=7"></script>
+  <script src="../js/quantix.js?v=8"></script>
 </body>
 </html>

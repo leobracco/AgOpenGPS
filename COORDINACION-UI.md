@@ -77,10 +77,22 @@ Comando para re-extraer de cualquier página:
 btnShapeRemove btnShapeUpload calEmpty calList mtMsg pidEmpty pidList
 planterCapL planterCapR prEmpty prList qxBrush qxModeLabel qxMotorList
 qxOrphanWarn qxStatus qxStrip qxTabla qxTools segPlanter segTabla shapeActive
-shapeDrop shapeFileList shapeFiles shapeMsg tabCalibrar tabPid tabPrueba tabShape
-tabSiembra`
-**data-*:** `data-tab data-view data-tren-act data-active`
-**clases generadas por JS:** `qxNombre qxMapa qxTren qxDosisFija` (inputs por motor)
+shapeDrop shapeFileList shapeFiles shapeLib shapeMsg tabCalibrar tabPid tabPrueba
+tabShape tabSiembra`
+**data-*:** `data-tab data-view data-tren-act data-active data-id data-mi`
+**clases generadas por JS:** `qxNombre qxMapa qxTren qxDosisFija` (inputs por motor);
+`qxLibOn qxLibOff qxLibProp` (biblioteca de prescripciones); `shape-tap-out` y
+`shape-tap-marca` (consulta de dosis por toque en la vista previa)
+
+> Bitácora 2026-08-05 (Claude, tab Shape): (1) tarjeta nueva "Prescripciones
+> guardadas" (`#shapeLib`) — lista `/api/prescripciones/list` con botón
+> Activar/Quitar y selector de campo de dosis; antes las prescripciones se
+> listaban pero no había forma de activarlas en el mapa. (2) La vista previa
+> de la capa activa ahora es consultable: tocar una zona muestra su dosis
+> (point-in-polygon client-side; los polígonos de `/api/aog/shape` traen el
+> valor nuevo `v`). Markup mínimo agregado por Claude en quantix.html (dos
+> tarjetas); estilos solo con tokens/clases existentes — si Codex quiere
+> re-estilar la lista, los hooks son las clases `qxLib*`.
 
 ### flowx.html
 `anchoHint aogNumSec btnAddProducto btnAnchoFromAog btnAutoAssign btnDeleteNodo
