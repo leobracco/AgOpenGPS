@@ -201,6 +201,7 @@ public partial class MainWindow : Window
     // (_overlaysClient se comparte con el Hub nativo — es el mismo /api/overlays)
     private Canvas? _mapOverlaysHost;
     private QuantiXMapOverlay? _qxMapOverlay;
+    private QuantiXControlBar? _qxControlBar;
     private WidgetQuantiXClient? _qxWidgetClient;
     private System.Threading.CancellationTokenSource? _overlayPrefsCts;
 
@@ -2191,6 +2192,21 @@ public partial class MainWindow : Window
         _mapOverlaysHost.IsVisible = true;
         UbicarOverlayQx(-1, -1);   // rincón por defecto hasta que llegue la preferencia
 
+        // Barra horizontal de control del motor QuantiX elegido (rediseño
+        // 2026-08-05): vive centrada arriba del overlay de la pasada — la
+        // zona de la mano — y la maneja el propio overlay (selección, datos y
+        // visibilidad). Acá solo se la monta en el canvas y se la ubica.
+        if (_qxControlBar == null)
+        {
+            _qxControlBar = new QuantiXControlBar();
+            _mapOverlaysHost.Children.Add(_qxControlBar);
+            _qxMapOverlay.Barra = _qxControlBar;
+            _qxControlBar.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == BoundsProperty || e.Property == IsVisibleProperty) UbicarQxBar();
+            };
+        }
+
         if (_vxMapStrip != null)
         {
             // Tocar la franja abre el panel VistaX completo.
@@ -2269,6 +2285,29 @@ public partial class MainWindow : Window
         double x = Math.Max(150, (hostW - w) / 2);
         Canvas.SetLeft(_nudgeOverlay, x);
         Canvas.SetTop(_nudgeOverlay, Math.Max(0, hostH - h - 96));
+        // La barra QuantiX se apila sobre este overlay: reubicar juntas.
+        UbicarQxBar();
+    }
+
+    /// <summary>
+    /// Barra de control del motor QuantiX elegido: centrada, apilada JUSTO
+    /// arriba del overlay de la pasada (que ya está arriba de las secciones).
+    /// Es la franja donde el operario ya opera mirando la línea.
+    /// </summary>
+    private void UbicarQxBar()
+    {
+        if (_qxControlBar == null || _mapOverlaysHost == null || !_qxControlBar.IsVisible) return;
+        double hostH = _mapOverlaysHost.Bounds.Height;
+        double hostW = _mapOverlaysHost.Bounds.Width;
+        if (hostH < 80 || hostW < 200) return;
+        double w = _qxControlBar.Bounds.Width > 0 ? _qxControlBar.Bounds.Width : 430;
+        double h = _qxControlBar.Bounds.Height > 0 ? _qxControlBar.Bounds.Height : 58;
+        double nudgeTop = _nudgeOverlay != null && _nudgeOverlay.Bounds.Height > 0
+            ? Canvas.GetTop(_nudgeOverlay)
+            : hostH - 166;
+        if (double.IsNaN(nudgeTop)) nudgeTop = hostH - 166;
+        Canvas.SetLeft(_qxControlBar, Math.Max(150, (hostW - w) / 2));
+        Canvas.SetTop(_qxControlBar, Math.Max(0, nudgeTop - h - 8));
     }
 
     private void UbicarVxStrip()

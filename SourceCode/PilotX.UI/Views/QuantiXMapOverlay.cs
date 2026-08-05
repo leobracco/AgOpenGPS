@@ -52,12 +52,30 @@ public sealed class QuantiXMapOverlay : Border
     private readonly TextBlock _titulo;
     private readonly Ellipse _puntoOnline;
     private readonly StackPanel _filas;
-    private readonly Button _btnAuto;
-    private readonly Button _btnMan;
-    private readonly Button _btnMenos;
-    private readonly Button _btnMas;
-    private readonly TextBlock _dosisManual;
-    private readonly StackPanel _ctlManual;
+
+    // Rediseño 2026-08-05 (pantalla del taller, 10" = tamaño real de trabajo):
+    // el overlay pasó a MONITOR compacto — lista vertical con real/objetivo de
+    // todos los motores, sin botones por fila. Los controles del motor elegido
+    // viven en la QuantiXControlBar horizontal (abajo, sobre la pasada); acá
+    // solo se marca la selección y se la alimenta en cada poll.
+    /// <summary>La barra horizontal de control. La monta MainWindow en el
+    /// canvas (la posición es suya); el overlay la alimenta y la muestra.</summary>
+    public QuantiXControlBar? Barra
+    {
+        get => _barra;
+        set
+        {
+            _barra = value;
+            if (_barra == null) return;
+            _barra.OnAuto = () => _ = ComandoSeleccion(manual: false);
+            _barra.OnMan = () => _ = ComandoSeleccion(manual: true);
+            _barra.OnPaso = dir => _ = PasoSeleccion(dir);
+            _barra.OnCerrar = Deseleccionar;
+        }
+    }
+    private QuantiXControlBar? _barra;
+    private string? _selUid;
+    private int _selIdx = -1;
 
     private WidgetQuantiXClient? _client;
     private CancellationTokenSource? _cts;
@@ -73,8 +91,9 @@ public sealed class QuantiXMapOverlay : Border
         BorderBrush = Borde;
         BorderThickness = new Thickness(1);
         CornerRadius = new CornerRadius(10);
-        Padding = new Thickness(12, 10, 12, 10);
-        MinWidth = 250;
+        Padding = new Thickness(10, 8, 10, 8);
+        // Monitor compacto: en la 10" del taller cada pixel de mapa cuenta.
+        MinWidth = 172;
         BoxShadow = BoxShadows.Parse("0 4 16 0 #90000000");
         // Arrastrable desde cualquier parte que no sea un boton.
         Cursor = new Cursor(StandardCursorType.SizeAll);
@@ -106,85 +125,15 @@ public sealed class QuantiXMapOverlay : Border
         Grid.SetColumn(headIzq, 0);
         head.Children.Add(headIzq);
 
-        var modos = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-        _btnAuto = BotonModo("AUTO");
-        _btnMan  = BotonModo("MAN");
-        _btnAuto.Click += async (_, __) => await CambiarModo(false);
-        _btnMan.Click   += async (_, __) => await CambiarModo(true);
-        modos.Children.Add(_btnAuto);
-        modos.Children.Add(_btnMan);
-        Grid.SetColumn(modos, 1);
-        head.Children.Add(modos);
-
         _raiz.Children.Add(head);
 
-        // ---- Filas por motor ----
-        _filas = new StackPanel { Spacing = 5 };
+        // ---- Filas por motor (solo lectura + tap para elegir) ----
+        _filas = new StackPanel { Spacing = 4 };
         _raiz.Children.Add(_filas);
-
-        // ---- Control manual (solo visible en MAN) ----
-        _ctlManual = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            IsVisible = false,
-        };
-        _btnMenos = BotonPaso("−");
-        _btnMas   = BotonPaso("+");
-        _dosisManual = new TextBlock
-        {
-            Text = "—",
-            Foreground = TextoHi,
-            FontSize = 18,
-            FontWeight = FontWeight.Bold,
-            MinWidth = 96,
-            TextAlignment = TextAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
-        };
-        _btnMenos.Click += async (_, __) => await Paso(-1);
-        _btnMas.Click   += async (_, __) => await Paso(+1);
-        _ctlManual.Children.Add(_btnMenos);
-        _ctlManual.Children.Add(_dosisManual);
-        _ctlManual.Children.Add(_btnMas);
-        _raiz.Children.Add(_ctlManual);
 
         Child = _raiz;
         HabilitarArrastre();
     }
-
-    private static Button BotonModo(string texto) => new Button
-    {
-        Content = texto,
-        FontSize = 11,
-        FontWeight = FontWeight.SemiBold,
-        Padding = new Thickness(10, 4),
-        MinHeight = 28,
-        Background = BgFila,
-        Foreground = TextoMid,
-        BorderBrush = Borde,
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(6),
-    };
-
-    // 48 px: se tiene que poder tocar con guante y el tractor moviendose.
-    private static Button BotonPaso(string texto) => new Button
-    {
-        Content = texto,
-        FontSize = 20,
-        FontWeight = FontWeight.Bold,
-        Width = 48,
-        Height = 44,
-        Padding = new Thickness(0),
-        HorizontalContentAlignment = HorizontalAlignment.Center,
-        VerticalContentAlignment = VerticalAlignment.Center,
-        Background = BgFila,
-        Foreground = TextoHi,
-        BorderBrush = Borde,
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(8),
-    };
 
     // ---------- Arrastre ----------------------------------------------------
 
@@ -237,6 +186,11 @@ public sealed class QuantiXMapOverlay : Border
     {
         try { _cts?.Cancel(); } catch { }
         _cts = null;
+        // Overlay apagado (toggle del Hub) = barra afuera también: una barra
+        // comandando motores sin su monitor a la vista es un control ciego.
+        _selUid = null;
+        _selIdx = -1;
+        if (_barra != null) _barra.IsVisible = false;
     }
 
     private async Task RunLoopAsync(CancellationToken ct)
@@ -326,52 +280,81 @@ public sealed class QuantiXMapOverlay : Border
                 Foreground = TextoDim,
                 FontSize = 12,
             });
-            _ctlManual.IsVisible = false;
-            PintarModo(false);
+            // Sin motores no hay nada que comandar: barra afuera.
+            _selUid = null;
+            _selIdx = -1;
+            if (_barra != null) _barra.IsVisible = false;
             return;
         }
 
         foreach (var m in motores) _filas.Children.Add(FilaMotor(m));
 
-        // Los botones de arriba son el atajo "todos a la vez": solo sirve si el
-        // equipo lleva un único producto. Con una tolva de semilla y otra de
-        // fertilizante, cada motor se maneja por su cuenta en su propia fila.
-        bool todosMan = true, mismaUnidad = true;
-        string? unidad = motores[0].Motor.Unidad;
-        double dosisUniforme = motores[0].Motor.ManualDosis;
-        bool dosisIgual = true;
-        foreach (var r in motores)
+        // Alimentar la barra horizontal con el estado FRESCO del seleccionado.
+        // Si el motor elegido desapareció (nodo offline, se reconfiguró la
+        // sembradora), la selección se suelta: una barra comandando un motor
+        // que ya no está es peor que ninguna barra.
+        if (_selIdx >= 0)
         {
-            if (!r.Motor.ManualMode) todosMan = false;
-            if (!string.Equals(r.Motor.Unidad, unidad, StringComparison.OrdinalIgnoreCase)) mismaUnidad = false;
-            if (Math.Abs(r.Motor.ManualDosis - dosisUniforme) > 0.001) dosisIgual = false;
+            var sel = BuscarSeleccion(motores);
+            // Limpieza directa y no Deseleccionar(): ese re-llama Render y
+            // estamos DENTRO de Render — un nivel de recursión gratis.
+            if (sel == null)
+            {
+                _selUid = null; _selIdx = -1;
+                if (_barra != null) _barra.IsVisible = false;
+            }
+            else if (_barra != null)
+            {
+                var m = sel.Value.Motor;
+                double dosis = m.ManualMode ? ObjetivoDePartida(m) : m.Objetivo;
+                _barra.Actualizar(
+                    NombreDeFila(sel.Value),
+                    m.ManualMode,
+                    WidgetQuantiXClient.FormatoDosis(dosis, m.Unidad),
+                    WidgetQuantiXClient.EtiquetaUnidad(m.Unidad));
+                _barra.IsVisible = true;
+            }
         }
-
-        PintarModo(todosMan);
-        // Con un solo motor la fila ya trae sus propios − / +: repetirlos
-        // arriba es ruido en una pantalla donde el lugar es escaso.
-        bool puedePasar = todosMan && mismaUnidad && dosisIgual && motores.Count > 1;
-        _ctlManual.IsVisible = puedePasar;
-        _btnMas.IsEnabled = puedePasar;
-        _btnMenos.IsEnabled = puedePasar;
-        _dosisManual.Text = puedePasar
-            ? WidgetQuantiXClient.FormatoDosis(dosisUniforme, unidad) + " " + WidgetQuantiXClient.EtiquetaUnidad(unidad)
-            : "varios";
     }
 
-    private void PintarModo(bool manual)
+    private MotorRef? BuscarSeleccion(List<MotorRef> motores)
     {
-        _btnMan.Background  = manual ? Acento : BgFila;
-        _btnMan.Foreground  = manual ? new SolidColorBrush(Color.Parse("#101612")) : TextoMid;
-        _btnAuto.Background = manual ? BgFila : Acento;
-        _btnAuto.Foreground = manual ? TextoMid : new SolidColorBrush(Color.Parse("#101612"));
+        foreach (var r in motores)
+            if (r.Motor.Idx == _selIdx && string.Equals(r.Uid, _selUid, StringComparison.OrdinalIgnoreCase))
+                return r;
+        return null;
     }
 
+    private void Seleccionar(MotorRef r)
+    {
+        // Tocar el mismo motor lo deselecciona: el toque es un toggle.
+        if (_selIdx == r.Motor.Idx && string.Equals(_selUid, r.Uid, StringComparison.OrdinalIgnoreCase))
+        {
+            Deseleccionar();
+            return;
+        }
+        _selUid = r.Uid;
+        _selIdx = r.Motor.Idx;
+        Render();
+    }
+
+    private void Deseleccionar()
+    {
+        _selUid = null;
+        _selIdx = -1;
+        if (_barra != null) _barra.IsVisible = false;
+        Render();
+    }
+
+    // Fila COMPACTA de monitoreo: una línea por motor, sin botones adentro.
+    // [• desvío] [nombre]        [real GRANDE] / [obj chico]  [MAN si aplica]
+    // Tocarla selecciona el motor y abre la barra horizontal con sus
+    // controles. El color del real es la alarma: verde ±5%, ámbar ±15%, rojo
+    // más allá — lo único que el ojo tiene que barrer mientras maneja.
     private Control FilaMotor(MotorRef r)
     {
         var m = r.Motor;
 
-        // Color por desvío contra el objetivo: es lo que hace mirar el widget.
         IBrush color = TextoHi;
         if (m.Objetivo > 0)
         {
@@ -380,109 +363,75 @@ public sealed class QuantiXMapOverlay : Border
         }
         if (!m.Activo) color = TextoDim;
 
-        var g = new Grid();
-        g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-        g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
-        g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        bool seleccionado = m.Idx == _selIdx
+            && string.Equals(r.Uid, _selUid, StringComparison.OrdinalIgnoreCase);
 
-        var izq = new StackPanel { Spacing = 1 };
-        izq.Children.Add(new TextBlock
+        var fila = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        fila.Children.Add(new Ellipse
+        {
+            Width = 8, Height = 8, Fill = color,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+        fila.Children.Add(new TextBlock
         {
             Text = NombreDeFila(r),
             Foreground = TextoDim,
             FontSize = 10,
-            FontWeight = FontWeight.SemiBold,
+            MinWidth = 46,
+            MaxWidth = 84,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
         });
-        var linea = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Bottom };
-        linea.Children.Add(new TextBlock
+        fila.Children.Add(new TextBlock
         {
             Text = WidgetQuantiXClient.FormatoDosis(m.Real, m.Unidad),
             Foreground = color,
-            FontSize = 24,
+            FontSize = 18,
             FontWeight = FontWeight.Bold,
             FontFamily = new FontFamily("Consolas, Courier New, monospace"),
+            VerticalAlignment = VerticalAlignment.Center,
         });
-        linea.Children.Add(new TextBlock
+        fila.Children.Add(new TextBlock
         {
-            Text = WidgetQuantiXClient.EtiquetaUnidad(m.Unidad),
-            Foreground = TextoDim,
-            FontSize = 11,
-            Margin = new Thickness(0, 0, 0, 3),
-            VerticalAlignment = VerticalAlignment.Bottom,
-        });
-        izq.Children.Add(linea);
-        Grid.SetColumn(izq, 0);
-        g.Children.Add(izq);
-
-        var der = new StackPanel { Spacing = 1, HorizontalAlignment = HorizontalAlignment.Right,
-                                   VerticalAlignment = VerticalAlignment.Center,
-                                   Margin = new Thickness(0, 0, 8, 0) };
-        der.Children.Add(new TextBlock
-        {
-            Text = "obj " + WidgetQuantiXClient.FormatoDosis(m.Objetivo, m.Unidad),
+            Text = "/ " + WidgetQuantiXClient.FormatoDosis(m.Objetivo, m.Unidad),
             Foreground = TextoMid,
             FontSize = 11,
-            HorizontalAlignment = HorizontalAlignment.Right,
             FontFamily = new FontFamily("Consolas, Courier New, monospace"),
-        });
-        der.Children.Add(new TextBlock
-        {
-            Text = m.Rpm.ToString(CultureInfo.InvariantCulture) + " rpm",
-            Foreground = TextoDim,
-            FontSize = 11,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
-        });
-        Grid.SetColumn(der, 1);
-        g.Children.Add(der);
-
-        // Controles PROPIOS del motor: cada tolva lleva su producto y su dosis.
-        // El modo se alterna con un toque; los − / + solo se habilitan en MAN
-        // (en AUTO manda el mapa de prescripción y tocarlos no haría nada).
-        var ctl = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 4,
             VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        var btnModo = new Button
+        });
+        if (m.ManualMode)
         {
-            Content = m.ManualMode ? "MAN" : "AUTO",
-            FontSize = 11,
-            FontWeight = FontWeight.SemiBold,
-            Width = 52,
-            Height = 40,
-            Padding = new Thickness(0),
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalContentAlignment = VerticalAlignment.Center,
-            Background = m.ManualMode ? Ambar : Acento,
-            Foreground = new SolidColorBrush(Color.Parse("#101612")),
-            BorderThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(6),
-        };
-        btnModo.Click += async (_, __) => await CambiarModoMotor(r);
-        ctl.Children.Add(btnModo);
+            fila.Children.Add(new TextBlock
+            {
+                Text = "MAN",
+                Foreground = Ambar,
+                FontSize = 9,
+                FontWeight = FontWeight.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+            });
+        }
 
-        var menos = BotonPasoChico("−");
-        var mas   = BotonPasoChico("+");
-        menos.IsEnabled = m.ManualMode;
-        mas.IsEnabled   = m.ManualMode;
-        menos.Click += async (_, __) => await PasoMotor(r, -1);
-        mas.Click   += async (_, __) => await PasoMotor(r, +1);
-        ctl.Children.Add(menos);
-        ctl.Children.Add(mas);
-
-        Grid.SetColumn(ctl, 2);
-        g.Children.Add(ctl);
-
-        return new Border
+        // Button y no Border: el arrastre del overlay ya ignora los toques
+        // sobre Button, así que elegir un motor no "agarra" el panel.
+        var btn = new Button
         {
-            Background = BgFila,
+            Background = seleccionado ? new SolidColorBrush(Color.Parse("#26404A34")) : BgFila,
+            BorderBrush = seleccionado ? Acento : Borde,
+            BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8, 5, 8, 5),
-            Child = g,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            MinHeight = 38,   // tocable con guante aun siendo compacta
+            Content = fila,
         };
+        btn.Click += (_, __) => Seleccionar(r);
+        return btn;
     }
 
     /// <summary>Cómo se identifica la fila. Con una sola tolva alcanza el
@@ -497,67 +446,33 @@ public sealed class QuantiXMapOverlay : Border
     }
 
     // 40 px de alto: entra en la fila del motor y se sigue pudiendo tocar con
-    // guante. Los de arriba (globales) son un poco más grandes.
-    private static Button BotonPasoChico(string texto) => new Button
-    {
-        Content = texto,
-        FontSize = 18,
-        FontWeight = FontWeight.Bold,
-        Width = 40,
-        Height = 40,
-        Padding = new Thickness(0),
-        HorizontalContentAlignment = HorizontalAlignment.Center,
-        VerticalContentAlignment = VerticalAlignment.Center,
-        Background = BgPanel,
-        Foreground = TextoHi,
-        BorderBrush = Borde,
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(6),
-    };
+    // ---------- Comandos (del motor SELECCIONADO, vía la barra) -------------
+    //
+    // La barra no conoce el estado: pide "modo" o "paso" y acá se resuelve
+    // contra la selección FRESCA del último poll — el MotorRef capturado al
+    // tocar la fila puede tener datos de hace varios segundos.
 
-    // ---------- Comandos ----------------------------------------------------
-
-    private async Task CambiarModo(bool manual)
+    private async Task ComandoSeleccion(bool manual)
     {
         if (_client == null) return;
+        var sel = BuscarSeleccion(MotoresVisibles());
+        if (sel == null) return;
+        var m = sel.Value.Motor;
         // Al pasar a manual se arranca desde lo que el motor ya tenía como
         // objetivo: si mandáramos 0, la máquina se frenaría de golpe.
-        double dosis = 0;
-        var motores = MotoresVisibles();
-        if (manual && motores.Count > 0)
-            dosis = ObjetivoDePartida(motores[0].Motor);
-
-        await _client.SetManualAllAsync(manual, dosis).ConfigureAwait(false);
+        double dosis = manual ? ObjetivoDePartida(m) : 0;
+        await _client.SetManualAsync(sel.Value.Uid, m.Idx, manual, dosis).ConfigureAwait(false);
         await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
     }
 
-    private async Task Paso(int dir)
+    private async Task PasoSeleccion(int dir)
     {
         if (_client == null) return;
-        var motores = MotoresVisibles();
-        if (motores.Count == 0) return;
-
-        double actual = motores[0].Motor.ManualDosis;
-        await _client.SetManualAllAsync(true, Siguiente(actual, dir)).ConfigureAwait(false);
-        await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
-    }
-
-    // ---- Por motor ---------------------------------------------------------
-
-    private async Task CambiarModoMotor(MotorRef r)
-    {
-        if (_client == null) return;
-        bool manual = !r.Motor.ManualMode;
-        double dosis = manual ? ObjetivoDePartida(r.Motor) : 0;
-        await _client.SetManualAsync(r.Uid, r.Motor.Idx, manual, dosis).ConfigureAwait(false);
-        await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
-    }
-
-    private async Task PasoMotor(MotorRef r, int dir)
-    {
-        if (_client == null) return;
-        double actual = r.Motor.ManualDosis > 0 ? r.Motor.ManualDosis : r.Motor.Objetivo;
-        await _client.SetManualAsync(r.Uid, r.Motor.Idx, true, Siguiente(actual, dir)).ConfigureAwait(false);
+        var sel = BuscarSeleccion(MotoresVisibles());
+        if (sel == null) return;
+        var m = sel.Value.Motor;
+        double actual = m.ManualDosis > 0 ? m.ManualDosis : m.Objetivo;
+        await _client.SetManualAsync(sel.Value.Uid, m.Idx, true, Siguiente(actual, dir)).ConfigureAwait(false);
         await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
     }
 
