@@ -17,10 +17,18 @@ namespace ModSim
         public bool isUDPNetworkConnected;
 
         //UDP Endpoints
+        //
+        // 4to octeto CONFIGURABLE (etIP_HostFour, default 255). Con 255 es el
+        // broadcast dirigido de siempre y TODAS las pantallas de la LAN comen
+        // los mismos PGN — con dos maquinas de prueba (dev + taller) era
+        // imposible controlar cada una por separado (reporte 2026-08-05).
+        // Con un octeto concreto va UNICAST a ESA maquina sola: un ModSim por
+        // pantalla, cada uno con su destino.
         public IPEndPoint epAgIO = new IPEndPoint(IPAddress.Parse(
                 Properties.Settings.Default.etIP_SubnetOne.ToString() + "." +
                 Properties.Settings.Default.etIP_SubnetTwo.ToString() + "." +
-                Properties.Settings.Default.etIP_SubnetThree.ToString() + ".255"), 9999);
+                Properties.Settings.Default.etIP_SubnetThree.ToString() + "." +
+                Properties.Settings.Default.etIP_HostFour.ToString()), 9999);
         
         // Data stream
         private byte[] buffer = new byte[1024];

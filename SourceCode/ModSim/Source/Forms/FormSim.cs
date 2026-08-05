@@ -39,6 +39,41 @@ namespace ModSim
             lblIPSet2.Text = Properties.Settings.Default.etIP_SubnetTwo.ToString();
             lblIPSet3.Text = Properties.Settings.Default.etIP_SubnetThree.ToString();
 
+            // 4to octeto del destino (255 = broadcast a toda la subred, como
+            // siempre; un numero concreto = unicast a ESA pantalla sola). Se
+            // agrega por codigo al lado de los 3 octetos para no tocar el
+            // Designer. Cambiarlo reconstruye el endpoint al instante: no hace
+            // falta reiniciar ModSim para apuntarle a otra maquina.
+            var nudHost4 = new NumericUpDown
+            {
+                Minimum = 1,
+                Maximum = 255,
+                Value = Properties.Settings.Default.etIP_HostFour,
+                Location = new System.Drawing.Point(lblIPSet3.Right + 6, lblIPSet3.Top - 3),
+                Width = 58,
+                Font = lblIPSet3.Font
+            };
+            var lblHost4 = new Label
+            {
+                Text = "(255 = todas)",
+                AutoSize = true,
+                BackColor = System.Drawing.Color.Transparent,
+                Location = new System.Drawing.Point(nudHost4.Right + 70, lblIPSet3.Top),
+                Font = lblIPSet3.Font
+            };
+            nudHost4.ValueChanged += (s2, e2) =>
+            {
+                Properties.Settings.Default.etIP_HostFour = (byte)nudHost4.Value;
+                Properties.Settings.Default.Save();
+                epAgIO = new IPEndPoint(IPAddress.Parse(
+                    Properties.Settings.Default.etIP_SubnetOne.ToString() + "." +
+                    Properties.Settings.Default.etIP_SubnetTwo.ToString() + "." +
+                    Properties.Settings.Default.etIP_SubnetThree.ToString() + "." +
+                    Properties.Settings.Default.etIP_HostFour.ToString()), 9999);
+            };
+            lblIPSet3.Parent.Controls.Add(nudHost4);
+            lblIPSet3.Parent.Controls.Add(lblHost4);
+
             lblScanReply.Text = "No";
 
             LoadUDPNetwork();
