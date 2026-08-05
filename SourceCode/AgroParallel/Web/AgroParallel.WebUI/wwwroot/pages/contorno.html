@@ -163,19 +163,13 @@
       <div class="bd-list" id="bndList">
         <div class="bd-empty" id="emptyMsg">El lote no tiene contorno todavía.</div>
       </div>
+      <!-- Importar KML / Agregar desde KML / Cerco desde guías SALIERON de la
+           pantalla (pedido usuario 2026-08-05): contorno simple, se crea
+           manejando y listo. El backend /import-kml-upload y /from-tracks
+           quedan vivos por si vuelven. -->
       <div class="bd-actions">
         <button class="btn bd-danger" id="btnDelete">Borrar</button>
         <button class="btn bd-accent" id="btnCreate">Crear manejando</button>
-      </div>
-      <!-- Import de KML sin diálogo nativo: el input file lo maneja el WebView
-           (mismo patrón que la carga de firmwares). "Importar" reemplaza TODO
-           el contorno por los polígonos del KML (con confirmación si había
-           algo); "Agregar" suma solo el primer polígono, para exclusiones. -->
-      <div class="bd-actions">
-        <button class="btn" id="btnKmlImport">Importar KML</button>
-        <button class="btn" id="btnKmlAdd">Agregar desde KML</button>
-        <button class="btn" id="btnFromTracks" title="Construye el cerco cruzando las guías del lote (los 4 lados tienen que estar marcados como guías)">Cerco desde guías</button>
-        <input type="file" id="kmlFile" accept=".kml,application/vnd.google-earth.kml+xml" style="display:none" />
       </div>
     </div>
 

@@ -144,10 +144,6 @@
     var canDelete = selected > 0 || (selected === 0 && items.length === 1);
     $('btnDelete').disabled = !canDelete;
     $('btnCreate').disabled = !s.job_started;
-    $('btnKmlImport').disabled = !s.job_started;
-    // Agregar suma un interior: sin exterior no tiene contra qué recortarse.
-    $('btnKmlAdd').disabled = !s.job_started || items.length === 0;
-    lastCount = items.length;
   }
 
   $('btnDelete').addEventListener('click', async function () {
@@ -166,64 +162,9 @@
     else warn(friendly(r && r.error));
   });
 
-  // ── Import de KML por upload ───────────────────────────────────────────────
-  //
-  // El input file lo abre el WebView (nada de diálogos WinForms del motor):
-  // se lee el archivo con FileReader y se POSTea el texto crudo a
-  // /import-kml-upload. multi=1 reemplaza TODO el contorno (con el doble-tap
-  // de confirmación de la página si había algo); multi=0 agrega el primer
-  // polígono como exclusión.
-  var lastCount = 0;      // contornos actuales (para saber si hay que confirmar)
-  var kmlMulti = true;    // qué botón disparó el file picker
-
-  $('btnKmlImport').addEventListener('click', function () {
-    // Pisar un contorno existente es destructivo: doble-tap como Borrar.
-    if (lastCount > 0 && !askConfirm(this, 'Importar KML')) return;
-    kmlMulti = true;
-    $('kmlFile').click();
-  });
-
-  $('btnKmlAdd').addEventListener('click', function () {
-    kmlMulti = false;
-    $('kmlFile').click();
-  });
-
-  // Cerco desde las guías del lote (port de BoundaryFromTracks de 6.8.5):
-  // el motor extiende las guías 50 m, las cruza y se queda con el polígono.
-  // Pisa el cerco existente → doble-tap de confirmación, como Importar KML.
-  $('btnFromTracks').addEventListener('click', async function () {
-    if (lastCount > 0 && !askConfirm(this, 'Cerco desde guías')) return;
-    var r = await post('/from-tracks');
-    if (!r) return;
-    if (r.ok === false || r.error) { warn(traducirError(r.error)); return; }
-    renderState(r);   // el estado ya trae el cerco nuevo en la lista
-    warn('');
-  });
-
-  $('kmlFile').addEventListener('change', function () {
-    var f = this.files && this.files[0];
-    this.value = '';                       // poder re-elegir el mismo archivo
-    if (!f) return;
-
-    var reader = new FileReader();
-    reader.onerror = function () { warn('No se pudo leer el archivo.'); };
-    reader.onload = async function () {
-      try {
-        var res = await fetch(API + '/import-kml-upload?multi=' + (kmlMulti ? '1' : '0'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/vnd.google-earth.kml+xml' },
-          body: reader.result
-        });
-        var s = res.ok ? await res.json() : null;
-        if (!s) { warn('Sin conexión con PilotX.'); return; }
-        renderState(s);
-        if (s.ok !== false && !s.error) warn('');   // limpio: el contorno ya se ve en la lista
-      } catch (e) {
-        warn('Sin conexión con PilotX.');
-      }
-    };
-    reader.readAsText(f);
-  });
+  // 2026-08-05: Importar KML, Agregar desde KML y Cerco desde guías SALIERON
+  // de la pantalla (pedido usuario: contorno simple, crear manejando y listo).
+  // El backend /import-kml-upload y /from-tracks quedan vivos por si vuelven.
 
   // ── Vista grabación ────────────────────────────────────────────────────────
 
