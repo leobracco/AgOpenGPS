@@ -147,9 +147,12 @@ Invoke-Command -Session $s -ScriptBlock {
     if (-not (Test-Path "C:\PilotX\lanzar-diag.bat")) {
         Set-Content "C:\PilotX\lanzar-diag.bat" "@echo off`r`ncd /d C:\PilotX`r`ntasklist | find /i `"PilotX.GuidanceEngine.exe`" >nul || start `"PilotX Engine`" /min C:\PilotX\Engine\PilotX.GuidanceEngine.exe --webhost --corex`r`ntimeout /t 6 /nobreak >nul`r`nC:\PilotX\Desktop\PilotX.Desktop.exe 2> C:\PilotX\logs\stderr-diag.log" -Encoding ascii
     }
+    # /rl LIMITED, nunca highest: WebView2 no lanza su proceso hijo bajo un
+    # proceso elevado — con la tarea elevada TODA pagina HTML (lote, cabecera,
+    # overlays) queda en negro aunque el server :5180 responda (2026-08-05).
     schtasks /query /tn "PilotX-Diag" >$null 2>&1
     if ($LASTEXITCODE -ne 0) {
-        schtasks /create /tn "PilotX-Diag" /tr "C:\PilotX\lanzar-diag.bat" /sc once /st 23:59 /it /f /rl highest | Out-Null
+        schtasks /create /tn "PilotX-Diag" /tr "C:\PilotX\lanzar-diag.bat" /sc once /st 23:59 /it /f /rl limited | Out-Null
     }
     schtasks /run /tn "PilotX-Diag" | Out-Null
     Start-Sleep -Seconds 15
