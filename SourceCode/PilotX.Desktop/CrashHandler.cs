@@ -99,6 +99,11 @@ namespace PilotX.Desktop
                         || stack.Contains("Skia") || stack.Contains("Angle")
                         || tipo.Contains("Dxgi") || stack.Contains("Dxgi");
                     if (!esRender) return;
+                    // Señal para el watchdog del mapa: la tormenta de
+                    // context-lost es el único síntoma observable de la
+                    // "composición muerta" (mapa negro con frames avanzando).
+                    if (tipo.Contains("ContextLost"))
+                        App.AnotarPerdidaDeContexto();
                     RegistrarTexto("primera-chance (tragada rio abajo): " + tipo
                         + " — " + ex.Message + "\n" + stack, "espia-render");
                 }

@@ -119,6 +119,25 @@ public partial class App : Application
     // en 4 de 5 casos del rastro forense.
     public static bool DiagSinGuias { get; set; }
 
+    // ---- señal de composición muerta -------------------------------------
+    //
+    // Contador de PlatformGraphicsContextLostException vistas por el espía de
+    // FirstChance (CrashHandler, en el head Desktop — por eso vive acá, en un
+    // ensamblado que ambos ven). Medido la madrugada del 2026-08-05: tras un
+    // TDR, el compositor puede quedar fallando la IMPORTACIÓN de la textura
+    // del mapa ~20 veces por segundo durante HORAS — el mapa "renderiza" a 22
+    // fps, la pantalla queda NEGRA, y el watchdog de frames no ve nada porque
+    // los frames avanzan. Captura de pantalla real lo confirmó: UI viva, mapa
+    // negro desde las 04:02. Minimizar/restaurar no lo cura.
+    //
+    // Este contador es la única señal observable de ese estado: si avanza a
+    // ritmo de tormenta mientras los frames también avanzan, la composición
+    // está muerta y hay que recrear la surface (MapPanel.Vigilar).
+    private static long _perdidasDeContexto;
+    public static long PerdidasDeContexto => System.Threading.Interlocked.Read(ref _perdidasDeContexto);
+    public static void AnotarPerdidaDeContexto()
+        => System.Threading.Interlocked.Increment(ref _perdidasDeContexto);
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()

@@ -60,6 +60,11 @@ public sealed class MapPanel : Grid
     private readonly System.Diagnostics.Stopwatch _relojSnap =
         System.Diagnostics.Stopwatch.StartNew();
 
+    // Detección de "composición muerta" por tormenta de context-lost.
+    private long _perdidasVistas;
+    private DateTime _ultimaVentanaTormenta = DateTime.UtcNow;
+    private const long UmbralTormenta = 40;
+
     /// <summary>
     /// Ciclos sin un solo frame antes de dar el contexto por muerto. Con el
     /// tick de 1 s, dos strikes son ~2 s de negro antes de reaccionar.
@@ -187,6 +192,35 @@ public sealed class MapPanel : Grid
             _ultimoFrameVisto = gl.FramesRenderizados;
             _strikes = 0;
             return;
+        }
+
+        // ---- composición muerta (mapa negro CON frames avanzando) --------
+        //
+        // Tras un TDR el compositor puede quedar fallando la importación de
+        // la textura del mapa ~20/s durante horas: OnOpenGlRender sigue
+        // corriendo (los frames avanzan, el chequeo de abajo no salta) pero a
+        // la pantalla no llega nada. Visto en vivo el 2026-08-05 (04:02 a
+        // 06:49): telemetría fps=22, captura de pantalla en negro. La señal
+        // es el contador del espía de FirstChance: si acumula a ritmo de
+        // tormenta sostenida, la surface está dibujando a la nada y hay que
+        // recrearla. Umbral 40 en ~10 s (la tormenta real es ~200): un
+        // parpadeo aislado del driver mete 1-5 y no llega nunca.
+        long perdidas = App.PerdidasDeContexto;
+        if (_perdidasVistas == 0) _perdidasVistas = perdidas;
+        if (perdidas - _perdidasVistas >= UmbralTormenta)
+        {
+            _perdidasVistas = perdidas;
+            _resurrecciones++;
+            Console.Error.WriteLine("[MapPanel] TORMENTA de context-lost ("
+                + perdidas + " acumuladas): composicion muerta con frames avanzando — "
+                + "rehaciendo la surface (intento " + _resurrecciones + ")");
+            RehacerSurface();
+            return;
+        }
+        if ((DateTime.UtcNow - _ultimaVentanaTormenta) > TimeSpan.FromSeconds(10))
+        {
+            _ultimaVentanaTormenta = DateTime.UtcNow;
+            _perdidasVistas = perdidas;   // ventana deslizante de ~10 s
         }
 
         int frames = gl.FramesRenderizados;
