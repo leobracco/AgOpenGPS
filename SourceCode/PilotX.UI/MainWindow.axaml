@@ -293,7 +293,46 @@
                       <Setter Property="Margin" Value="2,4"/>
                     </Style>
                   </Border.Styles>
+                  <!-- Orden (pedido usuario 2026-08-05): GEOMETRÍA a la
+                       izquierda (Guías, Lindero, Cabecera), CORRECCIÓN al
+                       centro (Izq · Centrar · Der, con Centrar al medio) y
+                       ACCIÓN a la derecha terminando en el Piloto en la punta
+                       (Giro, Automático, Manual, Piloto): lo que definís antes
+                       de arrancar a la izquierda, lo que tocás a cada rato a
+                       mano derecha. -->
                   <StackPanel Orientation="Horizontal" Spacing="6">
+                    <!-- Guías (selector de líneas): elegir la guía es parte
+                         del flujo de la pasada, no de la barra lateral. -->
+                    <Button x:Name="BtnOvGuias" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="pick"
+                            ToolTip.Tip="Guías">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/TrackOn.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Guías"/>
+                      </StackPanel>
+                    </Button>
+                    <!-- Lindero y Cabecera junto a Guías: los tres definen la
+                         GEOMETRÍA de la pasada — guía por dónde, lindero hasta
+                         dónde, cabecera dónde doblar. -->
+                    <Button x:Name="BtnOvLindero" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="lindero"
+                            ToolTip.Tip="Lindero del lote">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Boundary.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Lindero"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOvCabecera" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="cabecera"
+                            ToolTip.Tip="Cabecera">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/HeadlandBuild.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Cabecera"/>
+                      </StackPanel>
+                    </Button>
+
+                    <Rectangle Classes="sep"/>
+
                     <!-- Corrección lateral: sin guía no hay a qué corregirse. -->
                     <Button x:Name="BtnNudgeIzq" Width="64" Height="56"
                             IsEnabled="{Binding NudgeVisible}" ToolTip.Tip="Corregir a la izquierda">
@@ -319,16 +358,6 @@
 
                     <Rectangle Classes="sep"/>
 
-                    <!-- Piloto: habilitado con guía o contorno. -->
-                    <Button x:Name="BtnOvPiloto" Width="64" Height="56"
-                            IsEnabled="{Binding PilotoEnabled}"
-                            Command="{Binding SendCommand}" CommandParameter="autosteer"
-                            ToolTip.Tip="Piloto automático">
-                      <StackPanel>
-                        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}" Height="26"/>
-                        <TextBlock Classes="cap" Text="Piloto"/>
-                      </StackPanel>
-                    </Button>
                     <!-- Giro en cabecera: pide guía + lindero y sin contorno. -->
                     <Button x:Name="BtnOvGiro" Width="64" Height="56"
                             IsEnabled="{Binding UturnVisible}"
@@ -340,19 +369,9 @@
                       </StackPanel>
                     </Button>
 
-                    <Rectangle Classes="sep"/>
-
                     <!-- Secciones: siempre disponibles, con o sin guía. Más
                          anchos que el resto porque "Automático" no entra en
                          64 px y cortado no se lee. -->
-                    <Button x:Name="BtnOvSecManual" Width="80" Height="56"
-                            Command="{Binding SendCommand}" CommandParameter="sec_manual"
-                            ToolTip.Tip="Secciones en manual">
-                      <StackPanel>
-                        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}" Height="26"/>
-                        <TextBlock Classes="cap" Text="Manual"/>
-                      </StackPanel>
-                    </Button>
                     <Button x:Name="BtnOvSecAuto" Width="80" Height="56"
                             Command="{Binding SendCommand}" CommandParameter="sec_auto"
                             ToolTip.Tip="Secciones en automático">
@@ -361,39 +380,26 @@
                         <TextBlock Classes="cap" Text="Automático"/>
                       </StackPanel>
                     </Button>
+                    <Button x:Name="BtnOvSecManual" Width="80" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="sec_manual"
+                            ToolTip.Tip="Secciones en manual">
+                      <StackPanel>
+                        <Image Source="{Binding SecManualImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Manual"/>
+                      </StackPanel>
+                    </Button>
 
                     <Rectangle Classes="sep"/>
 
-                    <!-- Guías (selector de líneas): se mudó acá desde la barra
-                         derecha a pedido del usuario (2026-08-05) — elegir la
-                         guía es parte del flujo de la pasada, no de la barra
-                         lateral. Mismo comando "pick" del ViewModel. -->
-                    <Button x:Name="BtnOvGuias" Width="64" Height="56"
-                            Command="{Binding SendCommand}" CommandParameter="pick"
-                            ToolTip.Tip="Guías">
+                    <!-- Piloto EN LA PUNTA derecha: es el botón que más se
+                         toca, va donde la mano llega sin mirar. -->
+                    <Button x:Name="BtnOvPiloto" Width="64" Height="56"
+                            IsEnabled="{Binding PilotoEnabled}"
+                            Command="{Binding SendCommand}" CommandParameter="autosteer"
+                            ToolTip.Tip="Piloto automático">
                       <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/TrackOn.png" Height="26"/>
-                        <TextBlock Classes="cap" Text="Guías"/>
-                      </StackPanel>
-                    </Button>
-                    <!-- Lindero y Cabecera junto a Guías (pedido 2026-08-05):
-                         los tres definen la GEOMETRÍA de la pasada — guía por
-                         dónde, lindero hasta dónde, cabecera dónde doblar.
-                         Mismos comandos que el menú (abren sus diálogos). -->
-                    <Button x:Name="BtnOvLindero" Width="64" Height="56"
-                            Command="{Binding SendCommand}" CommandParameter="lindero"
-                            ToolTip.Tip="Lindero del lote">
-                      <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Boundary.png" Height="26"/>
-                        <TextBlock Classes="cap" Text="Lindero"/>
-                      </StackPanel>
-                    </Button>
-                    <Button x:Name="BtnOvCabecera" Width="64" Height="56"
-                            Command="{Binding SendCommand}" CommandParameter="cabecera"
-                            ToolTip.Tip="Cabecera">
-                      <StackPanel>
-                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/HeadlandBuild.png" Height="26"/>
-                        <TextBlock Classes="cap" Text="Cabecera"/>
+                        <Image Source="{Binding PilotoImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Piloto"/>
                       </StackPanel>
                     </Button>
                   </StackPanel>
