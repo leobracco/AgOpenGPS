@@ -345,6 +345,8 @@ public partial class MainWindow : Window
         if (bIzq != null) bIzq.Click += (_, __) => { _ = _cockpitCmd?.SendAsync("nudge_left"); };
         if (bCen != null) bCen.Click += (_, __) => { _ = _cockpitCmd?.SendAsync("center"); };
         if (bDer != null) bDer.Click += (_, __) => { _ = _cockpitCmd?.SendAsync("nudge_right"); };
+        // UbicarNudgeOverlay alinea el botón Centrar con el eje del tractor.
+        _btnNudgeCentro = bCen;
 
         if (_camarasHost != null)
         {
@@ -2314,6 +2316,7 @@ public partial class MainWindow : Window
     // Overlay de corrección lateral: flotante y centrado abajo, despegado del
     // borde para no tapar la barra de secciones.
     private Border? _nudgeOverlay;
+    private Button? _btnNudgeCentro;
 
     private void UbicarNudgeOverlay()
     {
@@ -2323,13 +2326,22 @@ public partial class MainWindow : Window
         if (hostH < 80 || hostW < 200) return;
         double w = _nudgeOverlay.Bounds.Width > 0 ? _nudgeOverlay.Bounds.Width : 220;
         double h = _nudgeOverlay.Bounds.Height > 0 ? _nudgeOverlay.Bounds.Height : 70;
-        // Centrado respecto del mapa (corrido del menú lateral) y BIEN despegado
-        // del borde inferior: el canvas se extiende por debajo de la barra de
-        // secciones, así que con poco margen el overlay quedaba cortado por ella.
-        // Centrada respecto de la PANTALLA (mismo eje que las secciones
-        // flotantes); el clamp de 150 solo protege del riel izquierdo en
-        // ventanas angostas.
-        double x = Math.Max(150, (hostW - w) / 2);
+        // La barra NO se centra por su caja: se corre para que el botón
+        // CENTRAR quede en el eje del tractor (centro de pantalla, que es
+        // donde la cámara clava al vehículo). Los grupos laterales son
+        // asimétricos (la derecha con Giro/Auto/Manual/Piloto es más ancha),
+        // así que centrar la caja dejaba "Centrar" corrido a la izquierda.
+        // El clamp de 150 protege del riel izquierdo; el de la derecha evita
+        // que la barra se salga en ventanas angostas (ahí se pierde la
+        // alineación exacta, pero la barra entra entera).
+        double x = (hostW - w) / 2;
+        var cen = _btnNudgeCentro;
+        if (cen != null && cen.Bounds.Width > 0)
+        {
+            var p = cen.TranslatePoint(new Point(cen.Bounds.Width / 2, 0), _nudgeOverlay);
+            if (p.HasValue) x = hostW / 2 - p.Value.X;
+        }
+        x = Math.Max(150, Math.Min(x, hostW - w - 6));
         Canvas.SetLeft(_nudgeOverlay, x);
         // Pegada al borde inferior (intercambio 2026-08-05): la pasada ocupa
         // el lugar que tenía la barra de secciones, y las secciones flotan
