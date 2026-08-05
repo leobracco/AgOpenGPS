@@ -376,6 +376,26 @@
                         <TextBlock Classes="cap" Text="Guías"/>
                       </StackPanel>
                     </Button>
+                    <!-- Lindero y Cabecera junto a Guías (pedido 2026-08-05):
+                         los tres definen la GEOMETRÍA de la pasada — guía por
+                         dónde, lindero hasta dónde, cabecera dónde doblar.
+                         Mismos comandos que el menú (abren sus diálogos). -->
+                    <Button x:Name="BtnOvLindero" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="lindero"
+                            ToolTip.Tip="Lindero del lote">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Boundary.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Lindero"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOvCabecera" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="cabecera"
+                            ToolTip.Tip="Cabecera">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/HeadlandBuild.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Cabecera"/>
+                      </StackPanel>
+                    </Button>
                   </StackPanel>
                 </Border>
             </Canvas>
@@ -689,8 +709,27 @@
                             BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
                     <bars:BarraDerecha x:Name="BarDerecha" HorizontalAlignment="Right"/>
                 </StackPanel>
-                <bars:BarraAbajo    x:Name="BarAbajo"
-                                    Grid.Row="2" HorizontalAlignment="Stretch"/>
+                <!-- Secciones FLOTANTES: intercambio con la barra de la pasada
+                     (pedido usuario 2026-08-05). Las secciones suben a flotar
+                     centradas (tarjeta redondeada) y la pasada baja pegada al
+                     borde inferior — ver UbicarNudgeOverlay. El margen inferior
+                     de 70 las deja apiladas JUSTO arriba de la pasada (56 de
+                     alto + 6 de borde + 8 de aire). Visibles solo con lote:
+                     el binding es el mismo SeccionesVisible del ViewModel. -->
+                <!-- Margin inferior 96 (era 70): más aire sobre la pasada, a
+                     pedido. Sin corrimiento izquierdo: centradas de verdad
+                     respecto de la pantalla, igual que la pasada — las dos
+                     barras comparten eje. Si se cambia el 96, actualizar la
+                     misma constante en UbicarQxBar. -->
+                <Border x:Name="SeccionesFloat" Grid.Row="1"
+                        x:DataType="barsvm:BarraAbajoViewModel"
+                        VerticalAlignment="Bottom" HorizontalAlignment="Center"
+                        Margin="0,0,0,96"
+                        Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1"
+                        CornerRadius="10" ClipToBounds="True"
+                        IsVisible="{Binding SeccionesVisible}">
+                    <bars:BarraAbajo x:Name="BarAbajo" HorizontalAlignment="Center"/>
+                </Border>
             </Grid>
 
             <!-- =========== Panel de creación de guía A/B (en el mapa) =========== -->

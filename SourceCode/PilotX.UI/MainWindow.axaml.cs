@@ -2282,9 +2282,15 @@ public partial class MainWindow : Window
         // Centrado respecto del mapa (corrido del menú lateral) y BIEN despegado
         // del borde inferior: el canvas se extiende por debajo de la barra de
         // secciones, así que con poco margen el overlay quedaba cortado por ella.
+        // Centrada respecto de la PANTALLA (mismo eje que las secciones
+        // flotantes); el clamp de 150 solo protege del riel izquierdo en
+        // ventanas angostas.
         double x = Math.Max(150, (hostW - w) / 2);
         Canvas.SetLeft(_nudgeOverlay, x);
-        Canvas.SetTop(_nudgeOverlay, Math.Max(0, hostH - h - 96));
+        // Pegada al borde inferior (intercambio 2026-08-05): la pasada ocupa
+        // el lugar que tenía la barra de secciones, y las secciones flotan
+        // arriba (SeccionesFloat). El 6 es solo aire contra el borde.
+        Canvas.SetTop(_nudgeOverlay, Math.Max(0, hostH - h - 6));
         // La barra QuantiX se apila sobre este overlay: reubicar juntas.
         UbicarQxBar();
     }
@@ -2302,12 +2308,22 @@ public partial class MainWindow : Window
         if (hostH < 80 || hostW < 200) return;
         double w = _qxControlBar.Bounds.Width > 0 ? _qxControlBar.Bounds.Width : 430;
         double h = _qxControlBar.Bounds.Height > 0 ? _qxControlBar.Bounds.Height : 58;
+
+        // La pila de abajo hacia arriba es: pasada (borde) → secciones
+        // flotantes (si hay lote) → esta barra. Se apila sobre lo más alto
+        // que esté visible; las secciones tienen margen inferior 70, así que
+        // su tope en coordenadas del canvas es hostH - 70 - suAlto.
         double nudgeTop = _nudgeOverlay != null && _nudgeOverlay.Bounds.Height > 0
             ? Canvas.GetTop(_nudgeOverlay)
-            : hostH - 166;
-        if (double.IsNaN(nudgeTop)) nudgeTop = hostH - 166;
+            : hostH - 68;
+        if (double.IsNaN(nudgeTop)) nudgeTop = hostH - 68;
+        double baseTop = nudgeTop;
+        var secciones = this.FindControl<Border>("SeccionesFloat");
+        if (secciones != null && secciones.IsVisible && secciones.Bounds.Height > 0)
+            baseTop = Math.Min(baseTop, hostH - 96 - secciones.Bounds.Height);   // 96 = Margin del XAML
+
         Canvas.SetLeft(_qxControlBar, Math.Max(150, (hostW - w) / 2));
-        Canvas.SetTop(_qxControlBar, Math.Max(0, nudgeTop - h - 8));
+        Canvas.SetTop(_qxControlBar, Math.Max(0, baseTop - h - 8));
     }
 
     private void UbicarVxStrip()
@@ -2398,6 +2414,11 @@ public partial class MainWindow : Window
 
         if (_barSuperior != null) _barSuperior.DataContext = _vmSup;
         if (_barDerecha  != null) _barDerecha.DataContext  = _vmDer;
+        // El wrapper flotante de las secciones necesita el MISMO ViewModel que
+        // BarraAbajo: su IsVisible se ata a SeccionesVisible (sin lote no hay
+        // secciones, y una tarjeta flotante vacía sería un pastillón fantasma).
+        var seccionesFloat = this.FindControl<Border>("SeccionesFloat");
+        if (seccionesFloat != null) seccionesFloat.DataContext = _vmAba;
         if (_barAbajo    != null) _barAbajo.DataContext    = _vmAba;
         if (_menuIzq     != null) _menuIzq.DataContext      = _vmIzq;
         // El overlay de la pasada muestra los mismos estados que la barra
