@@ -361,6 +361,21 @@
                         <TextBlock Classes="cap" Text="Automático"/>
                       </StackPanel>
                     </Button>
+
+                    <Rectangle Classes="sep"/>
+
+                    <!-- Guías (selector de líneas): se mudó acá desde la barra
+                         derecha a pedido del usuario (2026-08-05) — elegir la
+                         guía es parte del flujo de la pasada, no de la barra
+                         lateral. Mismo comando "pick" del ViewModel. -->
+                    <Button x:Name="BtnOvGuias" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="pick"
+                            ToolTip.Tip="Guías">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-abajo/TrackOn.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Guías"/>
+                      </StackPanel>
+                    </Button>
                   </StackPanel>
                 </Border>
             </Canvas>

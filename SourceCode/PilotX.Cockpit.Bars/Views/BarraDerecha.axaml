@@ -178,12 +178,10 @@
           <TextBlock Classes="cap" Text="Bandera"/>
         </StackPanel>
       </Button>
-      <Button Command="{Binding SendCommand}" CommandParameter="pick" ToolTip.Tip="Guías">
-        <StackPanel>
-          <Image Source="/Assets/barra-abajo/TrackOn.png"/>
-          <TextBlock Classes="cap" Text="Guías"/>
-        </StackPanel>
-      </Button>
+      <!-- "Guías" se mudó al overlay de la pasada (MainWindow, a la derecha
+           de Automático con separador; pedido usuario 2026-08-05): elegir la
+           guía es parte del flujo de la pasada. En el host WinForms (que no
+           tiene ese overlay) el selector sigue accesible por el menú. -->
 
       <!-- Giro manual (↰/↱), salteo de guía y cantidad de guías a saltear
            VIVÍAN acá; se quitaron a pedido del usuario porque ya están todos
