@@ -81,6 +81,43 @@ Zona gris (avisar antes): `GPS/AgroParallel/*` (partials adapter — los crea
 la sesión android al extraer, pero el taller los usa desde Services),
 `AgOpenGPS.Core/` (android extrae clases hacia ahí; taller no toca Classes/).
 
+## 🔴 SANTI — PULL del 2026-08-05 (hasta `adcfaab8`) · ModSim ahora puede ir UNICAST
+
+Tanda grande de mi lado (14 commits, detalle en la bitácora). Lo que te toca
+directo a vos:
+
+**1. ModSim — destino configurable (`adcfaab8`).** Toqué `SourceCode/ModSim/`
+(4 archivos). El `.255` del endpoint estaba hardcodeado: broadcast a toda la
+LAN, y con dos pantallas de prueba (mi dev + el taller 192.168.1.78) un solo
+ModSim manejaba las dos. Ahora hay un 4º octeto en la UI (default 255 = igual
+que siempre):
+
+  · `78` → unicast SOLO al taller
+  · subred `127.0.0` + host `1` → loopback, cero fuga a la LAN
+
+Si tenés simuladores corriendo en tu banco, poneles destino concreto así no
+nos pisamos las pantallas entre sesiones. El PGN 201 que aprende subred sigue
+tocando solo los 3 primeros octetos.
+
+**2. CAUSA RAÍZ del mapa negro encontrada y arreglada (`887a535d`).** No era
+el TDR: `OnShape` llamaba `RequestNextFrameRendering()` desde el threadpool
+(su poller es el único que no postea al hilo UI). REGLA NUEVA que te
+incumbe si tocás pollers: **todo callback que empuje al mapa va por
+`Dispatcher.UIThread.Post`** — el único que no cumplía costó un día entero de
+bisección. Verificado con 190 aperturas de lote en dos máquinas sin un solo
+congelamiento. Va con instrumentación permanente (espía de excepciones
+tragadas en CrashHandler, caja negra de frames, watchdog a 2 s sin tope).
+
+**3. Flujo nuevo local→taller.** El taller (192.168.1.78) es banco de pruebas
+oficial: `Tools/deploy-taller.ps1` (con `-ConEngine` si tocás DTOs). Se NIEGA
+a desplegar si hay un lote abierto allá — no le pises una prueba en curso.
+Lote de prueba: "Taller 100ha" (3 franjas DOSIS 4/5/6 sem/m).
+
+**4. De tu carril, tocado con aviso:** `AogStateSnapshot.cs` (`ShapePolygon.V`
+nuevo: valor de dosis por polígono en `/api/aog/shape`) y
+`ShapefileLayer.ExportPolygonsLocal` (lo llena). Aditivo, snake_case, sin
+romper contrato — el cliente viejo lo ignora.
+
 ## 🔴 SANTI — BAJATE `codex/pilotx-ui-new` ANTES DE SEGUIR (2026-07-30)
 
 `git pull` / merge de `codex/pilotx-ui-new` hasta `8a2c552e`. Te toqué un
