@@ -351,6 +351,7 @@ public partial class MainWindow : Window
             // WebView lazy para la tab Configuracion (formulario IP/usuario/
             // clave por camara — el live monitor ya esta nativo).
             _camarasHost.OnRequestConfigurar = () => NavigateTo("pages/camaras.html");
+            _camarasHost.OnRequestCerrar = CloseCamaras;
         }
 
         if (_nodosHost != null)
@@ -3247,6 +3248,14 @@ public partial class MainWindow : Window
     {
         var origin = DeriveOrigin(App.TargetUrl);
         var full   = origin + (relativePath ?? string.Empty).TrimStart('/');
+        // ?widget=1, igual que OpenDialogPage y por la misma doctrina: abierto
+        // desde PilotX el operario no vino a NAVEGAR el Hub, vino a hacer una
+        // cosa y volver al lote con la flecha "<-". Sin esto, cada "Configurar"
+        // de un panel nativo cargaba la página con la barra lateral del Hub
+        // entera — "se abrió el Hub como una ventana" (reporte 2026-08-05) —
+        // y desde esa barra se puede terminar en cualquier página, lejos del
+        // camino de vuelta.
+        full += (full.IndexOf('?') >= 0 ? "&" : "?") + "widget=1";
         // Lazy: si no hay WebView, lo crea; si ya hay uno abierto, solo cambia
         // la URL. Show con back button = true: el operario ve la flecha "<-"
         // arriba a la izq. para volver al mapa.

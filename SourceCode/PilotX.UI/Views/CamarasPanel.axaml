@@ -59,6 +59,21 @@
                         Foreground="{StaticResource PilotXBgDeep}"
                         FontWeight="SemiBold"
                         Click="OnConfigurarClick"/>
+
+                <!-- Cierre PROPIO del panel. Cámaras va a pantalla completa y
+                     el "<-" global quedó una vez enterrado bajo la barra del
+                     cockpit (2026-08-05): el operario quedó atrapado sin poder
+                     volver al mapa. Regla de producto: todo lo importante en
+                     botón visible — y salir de una pantalla ES importante. -->
+                <Button Name="BtnCerrar"
+                        Content="Cerrar"
+                        MinHeight="40"
+                        Padding="18,0,18,0"
+                        Background="{StaticResource PilotXBgHigh}"
+                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        BorderThickness="1"
+                        Foreground="{StaticResource PilotXTextHi}"
+                        Click="OnCerrarClick"/>
             </StackPanel>
         </Grid>
 

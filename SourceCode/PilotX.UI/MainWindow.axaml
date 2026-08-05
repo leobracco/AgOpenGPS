@@ -597,10 +597,16 @@
                     CornerRadius="24"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Top"
-                    Margin="14,12,0,0"
+                    Margin="14,64,0,0"
                     IsVisible="False"
                     Click="OnBackClick"
                     ToolTip.Tip="Volver al mapa"/>
+            <!-- Margin top 64 y no 12: la BarraSuperior del cockpit (52 px,
+                 declarada más abajo = dibuja ENCIMA) enterraba el botón en
+                 y=12..60. Con Cámaras a pantalla completa eso era quedar
+                 ATRAPADO: la pantalla tapaba todo y el único cierre estaba
+                 abajo de la barra (reporte de cabina 2026-08-05). -->
+
 
             <!-- El mini-mapa de la esquina inferior izquierda se sacó a pedido
                  del usuario (2026-07-28): con el mapa nativo a pantalla completa

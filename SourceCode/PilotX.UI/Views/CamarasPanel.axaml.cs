@@ -418,4 +418,12 @@ public partial class CamarasPanel : UserControl
     {
         OnRequestConfigurar?.Invoke();
     }
+
+    /// <summary>El host (MainWindow) decide cómo se cierra; el panel solo avisa.</summary>
+    public Action? OnRequestCerrar { get; set; }
+
+    private void OnCerrarClick(object? sender, RoutedEventArgs e)
+    {
+        OnRequestCerrar?.Invoke();
+    }
 }
