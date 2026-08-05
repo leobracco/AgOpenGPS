@@ -262,6 +262,20 @@ namespace AgOpenGPS
                     // btnSnapToPivot_Click
                     Trk.SnapToPivot();
                     return true;
+                case "reset_direccion":
+                    // En FormGPS es tocar el tractor en el mapa (GUI.Designer.cs
+                    // ~1500): resetea la dirección cuando quedó "en reversa".
+                    // Pasa con teleports del GPS (relanzar ModSim, mover la
+                    // antena, cambiar de lote): el salto dispara IsReverse, el
+                    // rumbo GPS queda invertido 180° y con IMU ($PANDA) el
+                    // offset re-converge tan lento (peso 0.02) que queda clavado
+                    // mirando al revés. Después del reset: avanzar >1,5 km/h en
+                    // línea recta para re-aprender el rumbo.
+                    Array.Clear(stepFixPts, 0, stepFixPts.Length);
+                    isFirstHeadingSet = false;
+                    isReverse = false;
+                    Log.EventWriter("GuidanceEngine: reset de dirección — avanzar >1,5 km/h para fijar rumbo");
+                    return true;
                 case "nudge_left":
                     // btnAdjLeft_Click
                     Trk.NudgeTrack(-AgOpenGPS.Properties.Settings.Default.setAS_snapDistance * 0.01);
