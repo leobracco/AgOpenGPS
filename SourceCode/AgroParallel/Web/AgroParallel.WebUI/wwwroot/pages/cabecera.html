@@ -12,38 +12,82 @@
     /* Cabecera (reemplazo del flujo Build Around de FormHeadLine): offsetea el
        contorno hacia adentro N unidades y guarda la cabecera. El canvas es
        preview read-only (pan con drag, zoom con rueda); la geometría corre en
-       C# (POST /api/headland/build). */
-    .cab-wrap { display: flex; gap: var(--agp-sp-4); align-items: stretch; margin-top: var(--agp-sp-3); flex-wrap: wrap; }
-    .cab-canvas-card {
-      flex: 1 1 520px; min-height: 420px;
+       C# (POST /api/headland/build).
+
+       Layout: dos columnas SIEMPRE — mapa a la izquierda ocupando todo el
+       espacio sobrante, controles a la derecha en columna fija scrolleable.
+       La página llena el alto de la ventana; el mapa nunca se cae abajo. */
+    html, body { height: 100%; }
+    .page { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: var(--agp-sp-3); }
+    .page-head { flex-shrink: 0; margin-bottom: 0; }
+    /* Ventana chica sobre el mapa: encabezado y tipografía compactos */
+    .page-head h1 { font-size: var(--agp-fs-lg); }
+    .page-head .subtitle { font-size: var(--agp-fs-xs); }
+
+    .cab-wrap {
+      display: flex; flex-wrap: nowrap; align-items: stretch;
+      gap: var(--agp-sp-2); margin-top: var(--agp-sp-2);
+      flex: 1 1 auto; min-height: 0;
+    }
+
+    /* ── Columna mapa ─────────────────────────────────────────────────── */
+    .cab-map {
+      flex: 1 1 auto; min-width: 0; min-height: 0;
       background: var(--agp-surface);
       border: var(--agp-border-w) solid var(--agp-border);
       border-radius: var(--agp-radius-md);
       padding: var(--agp-sp-2); position: relative;
     }
     #cvPreview { width: 100%; height: 100%; display: block; touch-action: none; }
-    .cab-side { flex: 0 0 300px; display: flex; flex-direction: column; gap: var(--agp-sp-3); }
-    .cab-side .btn { width: 100%; min-height: 56px; font-size: var(--agp-fs-md); }
-    .cab-dist { display: flex; align-items: center; gap: var(--agp-sp-2); }
+
+    /* ── Columnas de controles: CUATRO columnas totales ───────────────────
+       mapa | Construir | Opciones. Cada grupo es una columna angosta; el
+       alto sobra y nada scrollea. (Editar borde se sacó 2026-08-05.) */
+    .cab-col {
+      flex: 0 0 172px; min-height: 0;
+      display: flex; flex-direction: column; gap: var(--agp-sp-1);
+      padding: var(--agp-sp-2); overflow-y: auto;
+    }
+    @media (max-width: 980px) { .cab-col { flex-basis: 148px; } }
+
+    /* Títulos de grupo: chicos, en mayúsculas — jerarquía sin ocupar lugar */
+    .cab-col h3 {
+      margin: 0 0 2px 0; font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      text-transform: uppercase; letter-spacing: 0.6px;
+    }
+    .cab-col .btn { width: 100%; min-height: 34px; font-size: var(--agp-fs-sm); flex-shrink: 0; padding: 0 var(--agp-sp-2); }
+    .cab-col .btn-salir { margin-top: auto; }
+
+    /* Distancia: el dato central del flujo */
+    .cab-dist { display: flex; align-items: center; gap: var(--agp-sp-1); }
     .cab-dist input {
-      flex: 1 1 auto; font-family: var(--agp-font-mono); font-size: var(--agp-fs-lg);
-      text-align: right; padding: var(--agp-sp-2); min-height: 56px;
+      flex: 1 1 auto; min-width: 0; min-height: 32px;
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-md); text-align: right;
+      padding: 0 var(--agp-sp-2);
       border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-sm);
       background: var(--agp-surface); color: var(--agp-text);
     }
-    .cab-unit { font-family: var(--agp-font-mono); color: var(--agp-text-muted); min-width: 24px; }
-    #btnBuild { background: var(--agp-accent); color: #fff; border-color: var(--agp-accent); }
-    .cab-seg { display: flex; border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-sm); overflow: hidden; }
-    .cab-seg .btn { flex: 1 1 0; border: 0; border-radius: 0; min-height: 44px; }
-    .cab-seg .btn.on { background: var(--agp-accent); color: #fff; }
-    .cab-row { display: flex; gap: var(--agp-sp-2); }
-    .cab-row .btn { flex: 1 1 0; min-height: 44px; }
-    .cab-label { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); }
-    .cab-sep { border-top: var(--agp-border-w) solid var(--agp-border); margin: var(--agp-sp-1) 0; }
-    .cab-toggle { display: flex; align-items: center; justify-content: space-between; gap: var(--agp-sp-2); }
+    .cab-unit { font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm); color: var(--agp-text-muted); min-width: 18px; }
+
+    /* Toggle secciones */
+    .cab-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--agp-sp-2); min-height: 28px;
+      font-size: var(--agp-fs-xs); color: var(--agp-text);
+    }
+    .cab-toggle input {
+      width: 18px; height: 18px; flex-shrink: 0;
+      accent-color: var(--agp-accent);
+    }
+
+    /* Aviso sin contorno */
     .cab-warn {
-      display: none; background: #5a2c2c; color: #fff; border-radius: var(--agp-radius-sm);
-      padding: var(--agp-sp-3); font-size: var(--agp-fs-sm);
+      display: none; flex-shrink: 0;
+      background: var(--agp-surface); color: var(--agp-text);
+      border: var(--agp-border-w) solid var(--agp-state-bad); border-left-width: 4px;
+      border-radius: var(--agp-radius-sm);
+      padding: var(--agp-sp-2) var(--agp-sp-3); font-size: var(--agp-fs-sm);
+      margin-top: var(--agp-sp-2);
     }
     .cab-warn.show { display: block; }
   </style>
@@ -63,47 +107,30 @@
     <div id="warnBox" class="cab-warn">Primero creá un contorno del lote para poder construir la cabecera.</div>
 
     <div class="cab-wrap">
-      <div class="cab-canvas-card">
+      <div class="cab-map">
         <canvas id="cvPreview"></canvas>
       </div>
 
-      <div class="cab-side">
+      <section class="card cab-col">
+        <h3>Construir</h3>
         <div class="cab-dist">
           <input id="inpDist" type="text" inputmode="decimal" value="0" />
           <span class="cab-unit" id="unitLabel">m</span>
         </div>
-        <button class="btn" id="btnToolWidth">Usar ancho de herramienta</button>
-        <button class="btn" id="btnBuild">Construir cabecera</button>
-        <button class="btn" id="btnReset">Reset (= contorno)</button>
+        <button class="btn compact" id="btnToolWidth">Ancho de herramienta</button>
+        <button class="btn primary" id="btnBuild">Construir</button>
+        <button class="btn" id="btnReset">Reset al contorno</button>
+      </section>
 
-        <div class="cab-sep"></div>
-
-        <div class="cab-label">Editar borde: tocá A y B en el contorno para cortar la cabecera</div>
-        <div class="cab-seg">
-          <button class="btn on" id="segCurve">Curva</button>
-          <button class="btn" id="segLine">Recta</button>
-        </div>
-        <div class="cab-row">
-          <button class="btn" id="btnAPlus">A +</button>
-          <button class="btn" id="btnAMinus">A −</button>
-          <button class="btn" id="btnBPlus">B +</button>
-          <button class="btn" id="btnBMinus">B −</button>
-        </div>
-        <div class="cab-row">
-          <button class="btn" id="btnClip">✂ Cortar</button>
-          <button class="btn" id="btnUndo">Deshacer</button>
-        </div>
-        <button class="btn" id="btnCancelTouch">Descartar toque</button>
-
-        <div class="cab-sep"></div>
-
-        <div class="cab-toggle">
+      <section class="card cab-col">
+        <h3>Opciones</h3>
+        <label class="cab-toggle" for="chkSection">
           <span>Secciones controladas en cabecera</span>
           <input id="chkSection" type="checkbox" />
-        </div>
+        </label>
         <button class="btn" id="btnOff">Apagar cabecera</button>
-        <button class="btn" id="btnExit">Salir</button>
-      </div>
+        <button class="btn btn-salir" id="btnExit">Salir</button>
+      </section>
     </div>
   </main>
 

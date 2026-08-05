@@ -36,15 +36,10 @@
   var statusEl  = document.getElementById('statusText');
   var warnBox   = document.getElementById('warnBox');
 
-  var segCurve  = document.getElementById('segCurve');
-  var segLine   = document.getElementById('segLine');
-  var btnAPlus  = document.getElementById('btnAPlus');
-  var btnAMinus = document.getElementById('btnAMinus');
-  var btnBPlus  = document.getElementById('btnBPlus');
-  var btnBMinus = document.getElementById('btnBMinus');
-  var btnClip   = document.getElementById('btnClip');
-  var btnUndo   = document.getElementById('btnUndo');
-  var btnCancel = document.getElementById('btnCancelTouch');
+  // 2026-08-05: la edición de borde (slice A/B, curva/recta, cortar/deshacer)
+  // se SACÓ de la pantalla a pedido del usuario — cabecera simple: distancia,
+  // construir, apagar. El backend /tap /extend /clip /undo sigue vivo por si
+  // vuelve. El canvas quedó solo como preview con pan/zoom.
   var btnExit   = document.getElementById('btnExit');
 
   var fence = [];      // [[e,n], ...] contorno exterior (compat)
@@ -68,6 +63,16 @@
 
   function setStatus(txt) {
     statusEl.textContent = txt;
+    // El pill acompaña con color: verde activa, rojo sin conexión, ámbar
+    // trabajando, gris el resto. Antes quedaba SIEMPRE gris aunque dijera
+    // "cabecera activa".
+    var pill = statusEl.closest ? statusEl.closest('.pill') : null;
+    if (!pill) return;
+    pill.classList.remove('ok', 'warn', 'bad', 'idle');
+    if (txt === 'cabecera activa') pill.classList.add('ok');
+    else if (txt === 'sin conexión') pill.classList.add('bad');
+    else if (txt === 'construyendo…') pill.classList.add('warn');
+    else pill.classList.add('idle');
   }
 
   function friendly(code) {
@@ -229,12 +234,6 @@
   function setButtons(dis) {
     btnBuild.disabled = dis; btnWidth.disabled = dis;
     btnReset.disabled = dis; btnOff.disabled = dis;
-    var noSlice = dis || !slice.length;
-    btnAPlus.disabled = noSlice; btnAMinus.disabled = noSlice;
-    btnBPlus.disabled = noSlice; btnBMinus.disabled = noSlice;
-    btnClip.disabled = noSlice;
-    btnUndo.disabled = dis || !canUndo;
-    btnCancel.disabled = dis || (!slice.length && !aPoint);
   }
 
   async function post(path, body) {
@@ -308,37 +307,6 @@
     await post('/section-controlled', { on: chkSection.checked });
   });
 
-  // ── Controles slice ───────────────────────────────────────────────────────
-  function setMode(m) {
-    mode = m;
-    segCurve.classList.toggle('on', m === 'curve');
-    segLine.classList.toggle('on', m === 'ab');
-  }
-  segCurve.addEventListener('click', function () { setMode('curve'); });
-  segLine.addEventListener('click', function () { setMode('ab'); });
-
-  function bindExtend(btn, end, grow) {
-    btn.addEventListener('click', async function () {
-      applyState(await post('/extend', { end: end, grow: grow }), true);
-    });
-  }
-  bindExtend(btnAPlus, 'a', true);
-  bindExtend(btnAMinus, 'a', false);
-  bindExtend(btnBPlus, 'b', true);
-  bindExtend(btnBMinus, 'b', false);
-
-  btnClip.addEventListener('click', async function () {
-    applyState(await post('/clip', {}), true);
-  });
-
-  btnUndo.addEventListener('click', async function () {
-    applyState(await post('/undo', {}), true);
-  });
-
-  btnCancel.addEventListener('click', async function () {
-    applyState(await post('/cancel-touch', {}), true);
-  });
-
   function closeWidget() {
     if (closed) return;
     closed = true;
@@ -391,7 +359,12 @@
 
     if (drag) {
       var dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
-      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) moved = true;
+      // Umbral por tipo de puntero: un toque de dedo "tiembla" bastante más
+      // que un click de mouse. Con 6px fijos, en pantalla táctil casi todo
+      // toque se clasificaba como arrastre y el tap NUNCA llegaba al backend
+      // ("toco el contorno y no pasa nada").
+      var thr = ev.pointerType === 'touch' ? 14 : 6;
+      if (Math.abs(dx) > thr || Math.abs(dy) > thr) moved = true;
       view.ox = drag.ox + dx;
       view.oy = drag.oy + dy;
       draw();
@@ -403,11 +376,8 @@
     if (Object.keys(pointers).length < 2) pinch = null;
     if (Object.keys(pointers).length === 0) {
       var wasDrag = drag; drag = null;
-      if (isTap && wasDrag && !moved && hasBoundary) {
-        var r = cv.getBoundingClientRect();
-        var f = toField(ev.clientX - r.left, ev.clientY - r.top);
-        applyState(await post('/tap', { e: f.e, n: f.n, mode: mode, distance: distVal() }), true);
-      }
+      // Sin edición de borde el toque no hace nada: el canvas es solo
+      // preview (pan con drag, zoom con rueda/pinch).
     }
   }
 
@@ -426,7 +396,13 @@
     draw();
   }, { passive: false });
 
-  window.addEventListener('resize', resize);
+  // Al cambiar el tamaño de la ventana se RE-ENCUADRA el lote al área nueva.
+  // Sin esto el canvas crece pero view.scale/ox/oy quedan como estaban: el
+  // dibujo mantiene su tamaño viejo en px y el área alrededor queda vacía.
+  window.addEventListener('resize', function () {
+    view.fitted = false;
+    resize();
+  });
 
   // ── Arranque ──────────────────────────────────────────────────────────────
   (async function () {
