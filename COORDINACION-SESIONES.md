@@ -3364,3 +3364,42 @@ engine >10 min bajo la misma ráfaga que antes lo mataba en segundos.
 
 Si tenés OTROS BeginReceive* con re-arme adentro del callback en código
 net8/net9 de tu lado, revisalos con esta lupa: es una bomba silenciosa.
+
+## 2026-08-06 · Leonardo+Claude — AVISO A SANTI: el guiado del motor contra ModSim quedó ARREGLADO (tocamos tu carril)
+
+Síntoma de dos días: autosteer contra ModSim = círculos eternos ("agarra la
+línea y la suelta"). Santi estaba en otro tema y Leonardo pidió avanzar.
+Se compararon las cadenas contra el 6.8.5 original (dos auditorías con
+agente + mediciones de wire en vivo). CUATRO capas superpuestas, todas
+reales — por eso cada fix parcial "no andaba":
+
+1. **CAUSA RAÍZ (transporte)**: `CoreXEngineHost.EndpointsDeModulos()` se
+   llamaba POR PAQUETE y `GetAllNetworkInterfaces` cuesta decenas de ms en
+   Windows → el receptor del relay loopback→módulos quedaba bloqueado
+   enumerando placas el ~90% del tiempo y entregaba los PGN 254 a
+   3,3/s en ráfagas (el motor emite 9,2/s). ModSim aplicaba el volante a
+   borbotones con 2-6 s de retardo efectivo → ningún controlador converge.
+   Fix: cache de endpoints (2 s), como AgIO que computa su epModule UNA vez.
+2. **Controlador**: el motor corría SIEMPRE Stanley (`isStanleyUsed=true`
+   hardcodeado en State.cs, nunca pisado por el perfil); el 6.8.5 carga el
+   setting (default false = Pure Pursuit). Fix: `CargarAjustesDeGuiado()`
+   ahora carga `setVehicle_isStanleyUsed` y `setF_minHeadingStepDistance`.
+3. **Sordera de ModSim 6.8.3**: su recepción muere en silencio cuando el
+   engine se reinicia (catch{} sin re-armar). El ModSim del repo (fix de
+   ayer) se re-arma solo — usar ESE para el banco. Regla: ModSim se abre
+   SIEMPRE después del engine.
+4. **Higiene de sockets** (`UdpBridgeService`): SIO_UDP_CONNRESET apagado
+   (los ICMP de sends a subredes sin oyentes ensuciaban el socket),
+   socket TX dedicado para módulos (no compartir el de RX :9999),
+   `EndSendTo` (usaba EndSend cruzado), ReuseAddress en el loopback.
+   Además `EnviarAModulos` ahora manda datos SOLO a las subredes donde se
+   VIO tráfico de módulos (aprendidas del :9999, /24) + SIEMPRE el broadcast
+   de loopback 127.255.255.255:8888 (banco en una PC, como el 6.8.5); el
+   hello 200 sigue yendo a todas para descubrimiento.
+
+Validado en banco: enganche → XTE 1,38 → 0 monótona en ~25 s → clavado con
+comando ±0,2° (la referencia 6.8.3 da ±0,1°). Falta cabina real.
+Queda una traza CSV de diagnóstico por fix (logs/traza-guiado.csv, solo con
+piloto ON) — sacarla cuando el guiado quede validado en lote.
+Archivos del carril engine tocados: GuidanceEngineHost.cs (2 ajustes de
+perfil + traza), CoreXEngineHost.cs (endpoints/subredes), UdpBridgeService.cs.
