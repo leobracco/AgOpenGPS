@@ -1994,7 +1994,12 @@ public partial class MainWindow : Window
         panel.OnRequestConfigurar = () =>
         {
             try { _camarasWin?.Close(); } catch { }
-            NavigateTo("pages/camaras.html");
+            // A Configuración parado en el módulo Cámaras — MISMO destino que
+            // el panel embebido (_camarasHost). Este es el handler que se usa
+            // de verdad (la ventana nativa arma su CamarasPanel propio):
+            // el 2026-08-06 quedó desincronizado apuntando a camaras.html
+            // suelta y el operario caía en una página gigante sin salida.
+            NavigateTo("pages/config.html?mod=camaras.html");
         };
         panel.OnRequestCerrar = () => { try { _camarasWin?.Close(); } catch { } };
         panel.Attach(_camarasClient);
