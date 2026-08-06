@@ -330,6 +330,20 @@
                         <TextBlock Classes="cap" Text="Cabecera"/>
                       </StackPanel>
                     </Button>
+                    <!-- Activar/desactivar el corte por cabecera, al lado de
+                         donde se construye (pedido 2026-08-06). Es el mismo
+                         botón que vive en la barra derecha (mismo comando y
+                         mismo ícono de estado); allá queda también, para el
+                         que lo tiene de memoria. Gris sin cabecera hecha. -->
+                    <Button x:Name="BtnOvCabeceraOnOff" Width="64" Height="56"
+                            IsEnabled="{Binding HeadlandVisible}"
+                            Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"
+                            ToolTip.Tip="Corte por cabecera: activar">
+                      <StackPanel>
+                        <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}" Height="26"/>
+                        <TextBlock Classes="cap" Text="Activar"/>
+                      </StackPanel>
+                    </Button>
 
                     <Rectangle Classes="sep"/>
 
