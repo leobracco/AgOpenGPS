@@ -360,6 +360,11 @@ namespace AgroParallel.WebHost
                 // Banderas (pages/banderas.html) — FormFlags/FormEnterFlag.
                 if (_flags != null) m.WithController(() => new FlagsController(_flags));
 
+                // Canal página → host para la ventana que la contiene
+                // (cerrarse / redimensionarse). Sin servicio detrás: el estado
+                // vive en el propio controller y el shell lo lee del snapshot.
+                m.WithController(() => new VentanaController());
+
                 // Contorno (pages/contorno.html) — FormBoundary/FormBoundaryPlayer.
                 if (_contorno != null) m.WithController(() => new ContornoController(_contorno));
 

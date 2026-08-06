@@ -1225,12 +1225,10 @@ public partial class MainWindow : Window
             case "tramlines.html":
                 return (460, 470);
 
-            // Guías: tamaño ÚNICO que banca todas sus pantallas internas (el
-            // wizard tkWin se acomoda adentro). No hay resize por paso: las
-            // navegaciones de la página no llegan al host (ver
-            // OnDialogNavigated).
+            // Guías abre en el MENÚ (3 botones): ventana chica. Cada paso
+            // pide su tamaño por /api/ventana (ver AtenderPedidoDeVentana).
             case "tracks.html":
-                return (460, 470);
+                return (360, 300);
 
             // Gráficos: acá el ancho SÍ es información (es el eje del tiempo),
             // así que se les da ancho y se les saca alto.
@@ -1395,6 +1393,36 @@ public partial class MainWindow : Window
     private bool _dialogEsTracks;
     private int _tracksAlAbrirDialogo = -1;
     private int _trackIdxAlAbrirDialogo = int.MinValue;
+
+    // ---- canal página → host (VentanaController) ---------------------------
+    //
+    // La página POSTea a /api/ventana lo que quiere de SU ventana y llega acá
+    // con el snapshot del HUD. Es el canal que faltaba: el WebView del diálogo
+    // no entrega las navegaciones que inicia la página, así que el centinela
+    // "pilotx-close" nunca cerró nada (dejaba la ventana en blanco abierta) y
+    // cada pantalla se venía tapando con una señal indirecta distinta.
+    private long _ventanaSeqVista = -1;
+
+    private void AtenderPedidoDeVentana(HudSnapshot s)
+    {
+        if (s == null) return;
+        if (_ventanaSeqVista < 0) { _ventanaSeqVista = s.VentanaSeq; return; }  // piso al arrancar
+        if (s.VentanaSeq == _ventanaSeqVista) return;
+        _ventanaSeqVista = s.VentanaSeq;
+
+        if (s.VentanaCerrar)
+        {
+            CerrarDialogo();
+            return;
+        }
+
+        if (s.VentanaAncho > 0 && s.VentanaAlto > 0 && _dialogWin != null)
+        {
+            var (w, h) = AjustarAPantalla(s.VentanaAncho, s.VentanaAlto);
+            _dialogWin.Width = w;
+            _dialogWin.Height = h;
+        }
+    }
 
     private void CerrarDialogoSiHayGuiaNueva(int tracksTotal, int trackIdx)
     {
@@ -2693,7 +2721,9 @@ public partial class MainWindow : Window
             "perfil_cargar"     => "pages/perfiles.html",
             "perfil_gestion"    => "pages/perfiles.html",
             "directorios"       => "pages/config.html",
-            "ayuda"             => "pages/ayuda.html",
+            // Ayuda abre CONFIGURACIÓN parada en su módulo, no la página
+            // suelta (pedido 2026-08-06, mismo criterio que Cámaras).
+            "ayuda"             => "pages/config.html?mod=ayuda.html",
             "grafico_direccion" => "pages/grafico-direccion.html",
             "grafico_rumbo"     => "pages/grafico-rumbo.html",
             "grafico_xte"       => "pages/grafico-xte.html",
@@ -3302,6 +3332,7 @@ public partial class MainWindow : Window
             _lastFieldDir = s.CurrentFieldDirectory;
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             CerrarDialogoSiHayGuiaNueva(s.TracksTotal, s.TrackIdx);
+            AtenderPedidoDeVentana(s);
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);
             ActualizarClusterPiloto(s);
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;

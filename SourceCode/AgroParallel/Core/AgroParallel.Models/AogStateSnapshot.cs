@@ -172,6 +172,17 @@ namespace AgroParallel.Models
         public double AntennaEasting { get; set; }
         public double AntennaNorthing { get; set; }
 
+        // ---- pedido de la página sobre SU ventana (VentanaController) -------
+        // Canal página → host: el WebView del diálogo no tiene otro. El shell
+        // compara VentanaSeq contra el último visto y aplica lo que pidió.
+        /// <summary>Contador de pedidos; cambia = hay uno nuevo.</summary>
+        public long VentanaSeq { get; set; }
+        /// <summary>El pedido es "cerrame".</summary>
+        public bool VentanaCerrar { get; set; }
+        /// <summary>Tamaño pedido (0 = no cambiar).</summary>
+        public int VentanaAncho { get; set; }
+        public int VentanaAlto { get; set; }
+
         /// <summary>GOAL POINT del guiado ("a dónde mira" el pure pursuit):
         /// goalPointAB/goalPointCu según la guía activa. Solo válido con
         /// piloto/guía trabajando; 0/0 = no dibujar.</summary>

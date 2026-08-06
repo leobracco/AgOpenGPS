@@ -58,6 +58,16 @@ public sealed class HudSnapshot
     /// desde la lista (tilde verde).</summary>
     public int TrackIdx { get; set; } = -1;
 
+    // ---- pedido de la página sobre su ventana (canal página → host) -----
+    // Ver VentanaController: la página POSTea "cerrame"/"este tamaño" y
+    // llega acá con el snapshot, que es lo único que el shell consulta a
+    // 10 Hz. Reemplaza a las señales indirectas (cambió el lote, apareció
+    // una guía…) que fallaban en sus casos borde.
+    public long VentanaSeq { get; set; }
+    public bool VentanaCerrar { get; set; }
+    public int VentanaAncho { get; set; }
+    public int VentanaAlto { get; set; }
+
     // ---- Campos para el mini-mapa cockpit -------------------------------
     // En metros locales, mismo frame de coordenadas que las boundaries.
     public double PivotEasting { get; set; }

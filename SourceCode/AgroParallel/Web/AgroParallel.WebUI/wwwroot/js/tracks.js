@@ -48,6 +48,11 @@
     }
     win.setAttribute('data-screen', screen);
     title.textContent = TITLES[screen] || 'Guías';
+    // La ventana NATIVA se ajusta a lo que muestra cada paso (el menú de
+    // entrada es chico; la lista y los editores necesitan más).
+    if (screen === 'choose') pedirTamano(360, 300);
+    else if (screen === 'main') pedirTamano(470, 480);
+    else pedirTamano(340, 430);
     if (screen === 'main') refreshList();
   }
 
@@ -306,13 +311,28 @@
   // El host (PilotX.Desktop) abre esta página como ventana-diálogo hija y cierra
   // esa ventana cuando navegamos a la URL centinela "pilotx-close". Fallback a
   // window.close() para cuando corre como widget/pestaña suelta.
+  // Cierre de la ventana: se PIDE al host por /api/ventana (el canal que sí
+  // llega — las navegaciones de la página no las ve el WebView del diálogo, y
+  // el viejo centinela pilotx-close dejaba una ventana en blanco abierta).
+  // El fallback de navegación queda para el Hub embebido y Android.
   function closeWidget() {
-    try {
-      var origin = location.origin && location.origin !== 'null' ? location.origin : '';
-      location.href = origin + '/pages/pilotx-close.html';
-    } catch (e) {
-      try { window.close(); } catch (e2) {}
-    }
+    try { fetch('/api/ventana', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"cerrar":true}' }); }
+    catch (e) { /* sin API: queda el fallback */ }
+    setTimeout(function () {
+      try {
+        var origin = location.origin && location.origin !== 'null' ? location.origin : '';
+        location.href = origin + '/pages/pilotx-close.html';
+      } catch (e) {
+        try { window.close(); } catch (e2) {}
+      }
+    }, 400);
+  }
+
+  // Tamaño de la ventana por paso: el menú de entrada son 3 botones y la
+  // lista necesita alto. Se pide al host por el mismo canal.
+  function pedirTamano(w, h) {
+    try { fetch('/api/ventana', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ancho: w, alto: h }) }); }
+    catch (e) { }
   }
 
   // NUD: al tocar, abrir teclado numérico (keyboard.js) si está disponible

@@ -64,6 +64,13 @@ namespace PilotX.GuidanceEngine.Adapters
                     snap.AntennaNorthing = _host.Pn.fix.northing;
                 }
 
+                // Pedido de la página sobre su ventana (cerrar/redimensionar).
+                var vent = AgroParallel.WebHost.Controllers.VentanaController.Actual();
+                snap.VentanaSeq = vent.Seq;
+                snap.VentanaCerrar = vent.Cerrar;
+                snap.VentanaAncho = vent.Ancho;
+                snap.VentanaAlto = vent.Alto;
+
                 // GOAL POINT ("a dónde mira" el pure pursuit) de la guía que
                 // está trabajando: AB, curva o contorno — igual que el dibujo
                 // del original (OpenGL.Designer). Sin guía activa queda 0/0 y
