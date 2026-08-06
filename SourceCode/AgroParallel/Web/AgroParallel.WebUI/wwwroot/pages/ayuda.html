@@ -78,7 +78,15 @@
 
     /* ── Botonera ilustrada: el ícono REAL de la app + qué hace ─────────
        Es lo que convierte el manual en algo mirable: el operario reconoce
-       el dibujo que tiene en pantalla sin leer una palabra. */
+       el dibujo que tiene en pantalla sin leer una palabra.
+
+       Los íconos salen de img/cockpit/, que es una COPIA de
+       PilotX.Cockpit.Bars/Assets — la iconografía Agro Parallel que se ve
+       hoy en las barras. NO usar img/menu ni img/barra-* de wwwroot: son
+       los PNG viejos de AgOpenGPS (engranajes de colores) y el manual
+       mostraría botones que ya no existen. Si el pipeline de íconos
+       (Tools/generar-iconos-cockpit.py) regenera los Assets, re-copiar:
+       Assets\{menu,barra-abajo,barra-derecha} → wwwroot\img\cockpit\. */
     .btns { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--agp-sp-2); margin-bottom: var(--agp-sp-3); }
     .btn-i {
       display: flex; align-items: flex-start; gap: var(--agp-sp-2);
@@ -218,41 +226,41 @@
           <h3>Menú de la izquierda</h3>
           <p>Se despliega con la flecha del borde:</p>
           <div class="btns">
-            <div class="btn-i"><img src="../img/menu/NavigationSettings.png" alt=""><div class="tx"><div class="nm">Pantalla</div><div class="ds">Día/noche y brillo.</div></div></div>
-            <div class="btn-i"><img src="../img/menu/SpecialFunctions.png" alt=""><div class="tx"><div class="nm">Herramientas</div><div class="ds">Gráficos, webcam, utilidades.</div></div></div>
-            <div class="btn-i"><img src="../img/menu/Settings48.png" alt=""><div class="tx"><div class="nm">Configuración</div><div class="ds">Vehículo, implemento, módulos.</div></div></div>
-            <div class="btn-i"><img src="../img/menu/JobActive.png" alt=""><div class="tx"><div class="nm">LOTE</div><div class="ds">Abrir, nuevo, cerrar, borrar pintado.</div></div></div>
-            <div class="btn-i"><img src="../img/menu/AutoSteerConf.png" alt=""><div class="tx"><div class="nm">Dirección</div><div class="ds">Cómo responde el volante.</div></div></div>
-            <div class="btn-i"><img src="../img/menu/CoreX.png" alt=""><div class="tx"><div class="nm">CoreX</div><div class="ds">Estado del GPS y las conexiones.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/NavigationSettings.png" alt=""><div class="tx"><div class="nm">Pantalla</div><div class="ds">Día/noche y brillo.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/SpecialFunctions.png" alt=""><div class="tx"><div class="nm">Herramientas</div><div class="ds">Gráficos, webcam, utilidades.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/Settings48.png" alt=""><div class="tx"><div class="nm">Configuración</div><div class="ds">Vehículo, implemento, módulos.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/JobActive.png" alt=""><div class="tx"><div class="nm">LOTE</div><div class="ds">Abrir, nuevo, cerrar, borrar pintado.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/AutoSteerConf.png" alt=""><div class="tx"><div class="nm">Dirección</div><div class="ds">Cómo responde el volante.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/CoreX.png" alt=""><div class="tx"><div class="nm">CoreX</div><div class="ds">Estado del GPS y las conexiones.</div></div></div>
           </div>
 
           <h3>Barra de la pasada (abajo)</h3>
           <p>Es la que más se usa. Está ordenada por zonas: a la izquierda lo que definís <em>antes</em> de arrancar, al centro la corrección, y a la derecha lo que tocás todo el tiempo.</p>
           <div class="btns">
-            <div class="btn-i"><img src="../img/barra-abajo/TrackOn.png" alt=""><div class="tx"><div class="nm">Guías</div><div class="ds">Crear o elegir la línea.</div></div></div>
-            <div class="btn-i"><img src="../img/menu/Boundary.png" alt=""><div class="tx"><div class="nm">Lindero</div><div class="ds">Contorno del lote.</div></div></div>
-            <div class="btn-i"><img src="../img/menu/HeadlandBuild.png" alt=""><div class="tx"><div class="nm">Cabecera</div><div class="ds">Franja del borde para girar.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/SnapLeft.png" alt=""><div class="tx"><div class="nm">Izq</div><div class="ds">Corre la guía a la izquierda.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/SnapToPivot.png" alt=""><div class="tx"><div class="nm">Centrar</div><div class="ds">Trae la guía bajo el tractor.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/SnapRight.png" alt=""><div class="tx"><div class="nm">Der</div><div class="ds">Corre la guía a la derecha.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-derecha/YouTurn80.png" alt=""><div class="tx"><div class="nm">Giro</div><div class="ds">Da la vuelta solo en la cabecera.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-derecha/SectionMasterOn.png" alt=""><div class="tx"><div class="nm">Automático</div><div class="ds">Las secciones cortan solas.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-derecha/ManualOn.png" alt=""><div class="tx"><div class="nm">Manual</div><div class="ds">Todas abiertas hasta que apagues.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-derecha/AutoSteerOn.png" alt=""><div class="tx"><div class="nm">Piloto</div><div class="ds">Engancha el guiado. En la punta derecha.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/TrackOn.png" alt=""><div class="tx"><div class="nm">Guías</div><div class="ds">Crear o elegir la línea.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/Boundary.png" alt=""><div class="tx"><div class="nm">Lindero</div><div class="ds">Contorno del lote.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/menu/HeadlandBuild.png" alt=""><div class="tx"><div class="nm">Cabecera</div><div class="ds">Franja del borde para girar.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/SnapLeft.png" alt=""><div class="tx"><div class="nm">Izq</div><div class="ds">Corre la guía a la izquierda.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/SnapToPivot.png" alt=""><div class="tx"><div class="nm">Centrar</div><div class="ds">Trae la guía bajo el tractor.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/SnapRight.png" alt=""><div class="tx"><div class="nm">Der</div><div class="ds">Corre la guía a la derecha.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/YouTurn80.png" alt=""><div class="tx"><div class="nm">Giro</div><div class="ds">Da la vuelta solo en la cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/SectionMasterOn.png" alt=""><div class="tx"><div class="nm">Automático</div><div class="ds">Las secciones cortan solas.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/ManualOn.png" alt=""><div class="tx"><div class="nm">Manual</div><div class="ds">Todas abiertas hasta que apagues.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/AutoSteerOn.png" alt=""><div class="tx"><div class="nm">Piloto</div><div class="ds">Engancha el guiado. En la punta derecha.</div></div></div>
           </div>
 
           <h3>Barra de la derecha</h3>
           <p>Funciones de la pasada. Se pliega sola y se abre con su lengüeta.</p>
           <div class="btns">
-            <div class="btn-i"><img src="../img/barra-derecha/ABLineCycle.png" alt=""><div class="tx"><div class="nm">Guía sig. / ant.</div><div class="ds">Pasar a la línea de al lado.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-derecha/ContourOn.png" alt=""><div class="tx"><div class="nm">Contorno</div><div class="ds">Guía pegada a la pasada anterior, sin línea fija. Ver abajo.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-derecha/AutoTrack.png" alt=""><div class="tx"><div class="nm">Auto guía</div><div class="ds">Elige sola la guía más cercana.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/HeadlandOn.png" alt=""><div class="tx"><div class="nm">Cabecera on/off</div><div class="ds">Activa el corte por cabecera.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/TramAll.png" alt=""><div class="tx"><div class="nm">Tram</div><div class="ds">Huellas para el pulverizador.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/HydraulicLiftOn.png" alt=""><div class="tx"><div class="nm">Hidráulico</div><div class="ds">Sube/baja el implemento en cabecera.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/YouSkipOn.png" alt=""><div class="tx"><div class="nm">Por medio</div><div class="ds">Saltea pasadas al girar.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/ResetTool.png" alt=""><div class="tx"><div class="nm">Enderezar</div><div class="ds">Acomoda el implemento en el mapa.</div></div></div>
-            <div class="btn-i"><img src="../img/barra-abajo/FlagRed.png" alt=""><div class="tx"><div class="nm">Bandera</div><div class="ds">Marca un punto en el lote.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/ABLineCycle.png" alt=""><div class="tx"><div class="nm">Guía sig. / ant.</div><div class="ds">Pasar a la línea de al lado.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/ContourOn.png" alt=""><div class="tx"><div class="nm">Contorno</div><div class="ds">Guía pegada a la pasada anterior, sin línea fija. Ver abajo.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-derecha/AutoTrack.png" alt=""><div class="tx"><div class="nm">Auto guía</div><div class="ds">Elige sola la guía más cercana.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/HeadlandOn.png" alt=""><div class="tx"><div class="nm">Cabecera on/off</div><div class="ds">Activa el corte por cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/TramAll.png" alt=""><div class="tx"><div class="nm">Tram</div><div class="ds">Huellas para el pulverizador.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/HydraulicLiftOn.png" alt=""><div class="tx"><div class="nm">Hidráulico</div><div class="ds">Sube/baja el implemento en cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/YouSkipOn.png" alt=""><div class="tx"><div class="nm">Por medio</div><div class="ds">Saltea pasadas al girar.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/ResetTool.png" alt=""><div class="tx"><div class="nm">Enderezar</div><div class="ds">Acomoda el implemento en el mapa.</div></div></div>
+            <div class="btn-i"><img src="../img/cockpit/barra-abajo/FlagRed.png" alt=""><div class="tx"><div class="nm">Bandera</div><div class="ds">Marca un punto en el lote.</div></div></div>
           </div>
 
           <h3>Zoom</h3>
