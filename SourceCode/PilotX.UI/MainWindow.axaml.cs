@@ -339,6 +339,22 @@ public partial class MainWindow : Window
         _nudgeOverlay      = this.FindControl<Border>("NudgeOverlay");
         // Los tres de corrección lateral mandan el mismo comando que mandaban
         // desde la barra; lo único que cambió es dónde están.
+        // Menú SISTEMA (panel propio, ver MainWindow.axaml): los dos ítems
+        // mandan los mismos comandos que mandaba el flyout que no abría.
+        _sistemaMenu = this.FindControl<Border>("SistemaMenu");
+        var bSisPerf = this.FindControl<Button>("BtnSisPerfiles");
+        var bSisAyuda = this.FindControl<Button>("BtnSisAyuda");
+        if (bSisPerf != null) bSisPerf.Click += (_, __) =>
+        {
+            if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+            RouteCockpitCommand("perfil_gestion");
+        };
+        if (bSisAyuda != null) bSisAyuda.Click += (_, __) =>
+        {
+            if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+            RouteCockpitCommand("ayuda");
+        };
+
         var bIzq = this.FindControl<Button>("BtnNudgeIzq");
         var bCen = this.FindControl<Button>("BtnNudgeCentro");
         var bDer = this.FindControl<Button>("BtnNudgeDer");
@@ -1297,6 +1313,15 @@ public partial class MainWindow : Window
             _tracksAlAbrirDialogo = -1;                  // el próximo HUD fija el piso
             _trackIdxAlAbrirDialogo = int.MinValue;      // ídem para la guía activa
 
+            // ÍDEM para el lote, y por la misma razón: si la ventana ya estaba
+            // abierta en OTRA página (ej. Guías) y desde el menú se navega a
+            // lote.html, el early-return de abajo se saltaba estas dos líneas
+            // — el diálogo dejaba de estar marcado como "de lote" y abrir un
+            // lote ya no lo cerraba (reporte 2026-08-06: "hoy se cerraba,
+            // ahora queda abierta"). Marcar ANTES del early-return.
+            _dialogEsLote = full.IndexOf("lote.html", StringComparison.OrdinalIgnoreCase) >= 0;
+            _loteAlAbrirDialogo = _lastFieldDir;
+
             if (_dialogWin != null)
             {
                 // ya abierta → traer al frente y navegar
@@ -1312,8 +1337,6 @@ public partial class MainWindow : Window
                 ReanudarMapa();
                 return;
             }
-            _dialogEsLote = full.IndexOf("lote.html", StringComparison.OrdinalIgnoreCase) >= 0;
-            _loteAlAbrirDialogo = _lastFieldDir;
             // Crear el control y montarlo (Content) ANTES de navegar: WebView.Avalonia
             // arma el CoreWebView2Controller contra el HWND del control ya adjunto al
             // árbol visual. Navegar antes de que la Window exista/se muestre le pedía
@@ -2376,6 +2399,24 @@ public partial class MainWindow : Window
     // borde para no tapar la barra de secciones.
     private Border? _nudgeOverlay;
     private Button? _btnNudgeCentro;
+    private Border? _sistemaMenu;
+
+    /// <summary>Alinea el panel SISTEMA con el borde izquierdo de su botón.</summary>
+    private void UbicarSistemaMenu()
+    {
+        if (_sistemaMenu == null) return;
+        try
+        {
+            var barra = this.FindControl<PilotX.Cockpit.Bars.Views.BarraSuperior>("BarSuperior");
+            var btn = barra?.FindControl<Button>("BtnSistema");
+            if (btn == null || btn.Bounds.Width <= 0) return;
+            var p = btn.TranslatePoint(new Point(0, 0), this);
+            if (!p.HasValue) return;
+            double x = Math.Max(0, p.Value.X);
+            _sistemaMenu.Margin = new Thickness(x, 6, 0, 0);
+        }
+        catch { /* si no se puede medir, queda donde estaba */ }
+    }
 
     private void UbicarNudgeOverlay()
     {
@@ -2707,6 +2748,20 @@ public partial class MainWindow : Window
             // (displayBrightness/CBrightness también era de sistema, no del mapa).
             case "brillo_up": AdjustBrightness(+10); return true;
             case "brillo_dn": AdjustBrightness(-10); return true;
+
+            // Menú SISTEMA: panel propio en vez de Flyout (ver el XAML). Se
+            // coloca DEBAJO DEL BOTÓN, no en un lugar fijo: el botón se
+            // corre cuando cambia el nombre del lote (la pestaña de al lado
+            // mide distinto), y con margen clavado el panel aparecía lejos
+            // — "abajo de la hora y las Ha" (reporte 2026-08-06).
+            case "sistema_menu":
+                if (_sistemaMenu != null)
+                {
+                    bool mostrar = !_sistemaMenu.IsVisible;
+                    if (mostrar) UbicarSistemaMenu();
+                    _sistemaMenu.IsVisible = mostrar;
+                }
+                return true;
         }
 
         // ---- Comandos que abren una página HTML del Hub en el WebView ----

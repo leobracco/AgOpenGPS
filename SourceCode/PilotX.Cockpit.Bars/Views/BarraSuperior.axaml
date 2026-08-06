@@ -127,22 +127,26 @@
         </Button>
         <Button Classes="tab" Content="{Binding LoteText}" IsEnabled="{Binding LoteEnabled}"
                 Command="{Binding SendCommand}" CommandParameter="lote_datos"/>
-        <Button Classes="tab" Content="SISTEMA">
-          <Button.Flyout>
-            <MenuFlyout Placement="Bottom">
-              <!-- SISTEMA queda en DOS entradas (pedido usuario 2026-08-06):
-                   Perfiles y Ayuda. Idioma, Simulador, Coordenadas del
-                   simulador, Modo kiosco y Restablecer TODO salieron del menú
-                   — sus comandos (idioma_*, simulador, sim_coords, kiosco,
-                   reset_all) siguen cableados en RouteCockpitCommand por si
-                   se recuelgan en otro lado. -->
-              <MenuItem Header="Perfiles del vehículo" Command="{Binding SendCommand}" CommandParameter="perfil_gestion"/>
-              <!-- Ayuda abre la pantalla de Configuración parada en su módulo
-                   (config.html?mod=ayuda.html), no la página suelta. -->
-              <MenuItem Header="Ayuda"                 Command="{Binding SendCommand}" CommandParameter="ayuda"/>
-            </MenuFlyout>
-          </Button.Flyout>
-        </Button>
+        <!-- SISTEMA queda en DOS entradas (pedido usuario 2026-08-06):
+             Perfiles y Ayuda. Idioma, Simulador, Coordenadas del simulador,
+             Modo kiosco y Restablecer TODO salieron del menú — sus comandos
+             (idioma_*, simulador, sim_coords, kiosco, reset_all) siguen
+             cableados en RouteCockpitCommand por si se recuelgan en otro lado.
+             Ayuda abre la pantalla de Configuración parada en su módulo
+             (config.html?mod=ayuda.html), no la página suelta.
+
+             OJO: los comentarios van ACÁ AFUERA. Adentro del MenuFlyout
+             dejaban el menú sin abrir (reporte 2026-08-06: "hago click en
+             sistema y no abre", sin ninguna excepción en el log). -->
+        <!-- SIN Flyout: era el ÚNICO menú emergente de la app y no abría
+             (reporte 2026-08-06, sin excepción en el log — los popups de
+             Avalonia pelean con el mapa GL a pantalla completa). Ahora manda
+             un comando y MainWindow despliega un panel propio, el mismo
+             patrón que ya usa el menú izquierdo, que sí funciona — y encima
+             con botones grandes, que es lo que corresponde para tocar con
+             guantes. -->
+        <Button x:Name="BtnSistema" Classes="tab" Content="SISTEMA"
+                Command="{Binding SendCommand}" CommandParameter="sistema_menu"/>
       </StackPanel>
 
       <!-- ===== ritmo de trabajo (ha/h) =====
