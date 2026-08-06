@@ -8,10 +8,11 @@
     <views:StringEqualsConverter x:Key="StrEq"/>
   </UserControl.Resources>
 
-  <!-- Clon fiel del panelLeft de AOG 6.8.5 (espejo nativo de menu-izquierda.html):
-       orden real (Navegación, Herramientas, Configuración, LOTE grande, Herr. lote,
-       Dirección, CoreX), submenús con los iconos verdaderos del 6.8.5 y sus ítems
-       reales. Estilos scopeados a este control para no chocar con BarStyles global. -->
+  <!-- Clon del panelLeft de AOG 6.8.5 (espejo nativo de menu-izquierda.html):
+       Pantalla, Herramientas, Configuración, LOTE grande, Dirección, CoreX
+       ("Herr. lote" se eliminó 2026-08-06 — la geometría vive en la barra de
+       la pasada), submenús con los iconos del 6.8.5. Estilos scopeados a este
+       control para no chocar con BarStyles global. -->
   <UserControl.Styles>
     <!-- Minimalista: sin recuadro por botón. Siete tarjetas con borde apiladas
          hacían mucho ruido visual al lado del mapa; el botón se distingue por el
@@ -170,7 +171,7 @@
            vacío abajo; cada botón mantiene su tamaño natural (MinHeight)
            y queda centrado en su fila, generando espaciado parejo. ===== -->
       <Grid Grid.Column="1" IsVisible="{Binding !IsCollapsed}"
-            RowDefinitions="*,*,*,*,*,*,*" Margin="0,0,8,0">
+            RowDefinitions="*,*,*,*,*,*" Margin="0,0,8,0">
         <Button Grid.Row="0" Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion">
@@ -199,15 +200,15 @@
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="lote">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/JobActive.png"/><TextBlock Classes="mlbl" Text="LOTE"/></StackPanel>
         </Button>
-        <Button Grid.Row="4" Classes="mbtn"
-                Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}"
-                Command="{Binding ToggleSubmenuCommand}" CommandParameter="herrlote">
-          <StackPanel><Image Classes="mico" Source="/Assets/menu/FieldTools.png"/><TextBlock Classes="mlbl" Text="Herr. lote"/></StackPanel>
-        </Button>
-        <Button Grid.Row="5" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="direccion">
+        <!-- "Herr. lote" ELIMINADO del menú (pedido usuario 2026-08-06): la
+             geometría de la pasada (Guías/Lindero/Cabecera) ya vive en la
+             barra inferior. Su submenú se fue con él; los comandos
+             (tram_crear, ruta_grabada, importar_guias, etc.) siguen cableados
+             en RouteCockpitCommand por si vuelven a colgarse de algo. -->
+        <Button Grid.Row="4" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="direccion">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/AutoSteerConf.png"/><TextBlock Classes="mlbl" Text="Dirección"/></StackPanel>
         </Button>
-        <Button Grid.Row="6" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
+        <Button Grid.Row="5" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/CoreX.png"/><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
         </Button>
       </Grid>
@@ -281,26 +282,7 @@
         </DockPanel>
       </Border>
 
-      <!-- Herr. lote (dropdown Field Tools de AOG) -->
-      <Border Grid.Column="2" Background="#F7F9F7" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="12" Padding="10"
-              IsVisible="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herrlote}">
-        <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Classes="subtitle" Text="HERR. LOTE"/>
-          <ScrollViewer>
-            <UniformGrid Columns="2" VerticalAlignment="Top">
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lindero"><StackPanel><Image Classes="sico" Source="/Assets/menu/Boundary.png"/><TextBlock Classes="slbl" Text="Lindero"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="cabecera"><StackPanel><Image Classes="sico" Source="/Assets/menu/HeadlandBuild.png"/><TextBlock Classes="slbl" Text="Cabecera"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="cabecera_avanzada"><StackPanel><Image Classes="sico" Source="/Assets/menu/Headache.png"/><TextBlock Classes="slbl" Text="Cabecera (Build)"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tram_crear"><StackPanel><Image Classes="sico" Source="/Assets/menu/TramAll.png"/><TextBlock Classes="slbl" Text="Tramlines"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="tram_multi"><StackPanel><Image Classes="sico" Source="/Assets/menu/TramMulti.png"/><TextBlock Classes="slbl" Text="Tramlines multi"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="borrar_aplicado"><StackPanel><Image Classes="sico" Source="/Assets/menu/TrashApplied.png"/><TextBlock Classes="slbl" Text="Borrar aplicado"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="bandera_latlon"><StackPanel><Image Classes="sico" Source="/Assets/menu/FlagRed.png"/><TextBlock Classes="slbl" Text="Bandera lat/lon"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="ruta_grabada"><StackPanel><Image Classes="sico" Source="/Assets/menu/RecPath.png"/><TextBlock Classes="slbl" Text="Ruta grabada"/></StackPanel></Button>
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="importar_guias"><StackPanel><Image Classes="sico" Source="/Assets/menu/FileNew.png"/><TextBlock Classes="slbl" Text="Importar guías"/></StackPanel></Button>
-            </UniformGrid>
-          </ScrollViewer>
-        </DockPanel>
-      </Border>
+      <!-- El submenú "Herr. lote" se fue con su botón (2026-08-06). -->
     </Grid>
   </Border>
 </UserControl>
