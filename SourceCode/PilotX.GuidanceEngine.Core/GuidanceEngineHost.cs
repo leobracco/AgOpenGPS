@@ -171,6 +171,20 @@ namespace AgOpenGPS
             isSteerInReverse = s.setAS_isSteerInReverse;
             Gyd.sideHillCompFactor = s.setAS_sideHillComp;
 
+            // CONTROLADOR: isStanleyUsed nacía en `true` (State.cs:106) y nada
+            // lo pisaba — el motor guiaba SIEMPRE con Stanley mientras el 6.8.5
+            // (y nuestro WinForms) cargan el perfil, default false = Pure
+            // Pursuit. Confirmado por DOS comparaciones independientes
+            // (2026-08-06): Stanley sin tunear satura a ±30°, dispara falsa
+            // reversa, invierte el signo del error (CGuidance.cs:45) y mutea
+            // el PGN 254 → el círculo eterno contra ModSim.
+            isStanleyUsed = s.setVehicle_isStanleyUsed;
+
+            // Paridad con el 6.8.5: la base fix-to-fix del rumbo GPS quedaba
+            // en 1,0 m (default del código) vs 0,5 m del perfil — el doble de
+            // latencia de rumbo alimentando la fusión y el detector de reversa.
+            minHeadingStepDist = s.setF_minHeadingStepDistance;
+
             // Invalidar guías para que se recalculen con los valores nuevos:
             // si el ancho o el offset cambiaron, la línea vieja quedó mal.
             ABLineField.isABValid = false;
@@ -178,7 +192,9 @@ namespace AgOpenGPS
 
             Log.EventWriter($"GuidanceEngine: ajustes de guiado del perfil — " +
                 $"lookAhead={guidanceLookAheadTime:F2}s, reversa={isSteerInReverse}, " +
-                $"sideHill={Gyd.sideHillCompFactor:F2}");
+                $"sideHill={Gyd.sideHillCompFactor:F2}, " +
+                $"controlador={(isStanleyUsed ? "Stanley" : "PurePursuit")}, " +
+                $"minHeadingStep={minHeadingStepDist:F2}m");
         }
 
         private readonly System.Diagnostics.Stopwatch _relojSegundo = System.Diagnostics.Stopwatch.StartNew();
@@ -415,6 +431,50 @@ namespace AgOpenGPS
             try { _loopBackSocket?.EndSend(ar); } catch { }
         }
 
+        // ---- traza de guiado (diagnóstico círculos 2026-08-06) --------------
+        // Una línea CSV por fix con TODO lo que decide el volante. Es la
+        // radiografía que faltó todo el día: cuando el tractor toca la línea y
+        // se dispara, acá queda impreso QUÉ variable flipeó (lado, pasada,
+        // rumbo, goal point, reversa). Costo: un archivo de ~50 KB/min con
+        // piloto activo; no escribe nada con el piloto apagado. Sacarla cuando
+        // el guiado quede validado.
+        private System.IO.StreamWriter _traza;
+        private void TrazaGuiado()
+        {
+            try
+            {
+                if (!isBtnAutoSteerOn) return;
+                if (_traza == null)
+                {
+                    var dir = System.IO.Path.Combine(AppContext.BaseDirectory, "logs");
+                    System.IO.Directory.CreateDirectory(dir);
+                    _traza = new System.IO.StreamWriter(
+                        System.IO.Path.Combine(dir, "traza-guiado.csv"), append: false)
+                    { AutoFlush = true };
+                    _traza.WriteLine("hora,fixHeading_deg,gpsHeading_deg,imuCorr_deg,offsetIMU_deg," +
+                        "isReverse,sameWay,pasada,xte_pivot_m,steer_cmd_deg,status,goalDist_m,trackIdx,vel_kmh");
+                }
+                double imuC = Ahrs.imuHeading == 99999 ? -1 : Ahrs.imuHeading * 0.1;
+                _traza.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "{0:HH:mm:ss.fff},{1:F1},{2:F1},{3:F1},{4:F2},{5},{6},{7},{8:F3},{9:F2},{10},{11:F2},{12},{13:F2}",
+                    DateTime.Now,
+                    fixHeading * 57.29578,
+                    gpsHeading * 57.29578,
+                    imuC,
+                    imuGPS_Offset * 57.29578,
+                    isReverse ? 1 : 0,
+                    ABLineField.isHeadingSameWay ? 1 : 0,
+                    ABLineField.howManyPathsAway,
+                    ABLineField.distanceFromCurrentLinePivot,
+                    guidanceLineSteerAngle / 100.0,
+                    P254Field.pgn[P254Field.status],
+                    Vehicle.UpdateGoalPointDistance(),
+                    Trk.idx,
+                    avgSpeed));
+            }
+            catch { /* la traza jamás voltea el pipeline */ }
+        }
+
         // ---- pipeline por fix — equivalente a FormGPS.UpdateFixPosition()
         // (Position.designer.cs), pero sin las 2 líneas de refresh de GL
         // (oglBack/oglMain) ni el timer de frameTime, que son puro render. ----
@@ -455,6 +515,7 @@ namespace AgOpenGPS
             HeadingUpdater.UpdateHeading();
             AutoSteerUpdater.SendCorrectedPositionPgn();
             AutoSteerUpdater.BuildAndSendAutoSteerPgn();
+            TrazaGuiado();
             secondsSinceStart = _relojArranque.Elapsed.TotalSeconds;
             TickDeUnSegundo();
             YouTurnUpdater.UpdateYouTurnState();
