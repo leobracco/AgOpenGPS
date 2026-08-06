@@ -3222,11 +3222,22 @@ public sealed class MapGlSurface : OpenGlControlBase
     {
         if (_gl == null || snap == null) return;
 
+        // ANTI-VIBRACIÓN: el tractor se dibuja en la posición SUAVIZADA
+        // (_renderE/N, filtro + estima entre fixes) pero estos puntos vienen
+        // crudos a 10 Fix/s — dibujados tal cual tiemblan contra el mundo
+        // suave (reporte usuario 2026-08-06). Se dibujan como OFFSET respecto
+        // del pivote del MISMO snapshot, colgado de la posición suavizada:
+        // viajan rígidos con el tractor y el temblor desaparece.
+        double baseE = _renderPosInit ? _renderE : snap.PivotEasting;
+        double baseN = _renderPosInit ? _renderN : snap.PivotNorthing;
+
         if (snap.GoalEasting != 0 || snap.GoalNorthing != 0)
-            DrawDisco(snap.GoalEasting, snap.GoalNorthing, 5.5, scale, ColGoalPoint);
+            DrawDisco(baseE + (snap.GoalEasting - snap.PivotEasting),
+                      baseN + (snap.GoalNorthing - snap.PivotNorthing), 5.5, scale, ColGoalPoint);
 
         if (snap.AntennaEasting != 0 || snap.AntennaNorthing != 0)
-            DrawDisco(snap.AntennaEasting, snap.AntennaNorthing, 4.0, scale, ColAntena);
+            DrawDisco(baseE + (snap.AntennaEasting - snap.PivotEasting),
+                      baseN + (snap.AntennaNorthing - snap.PivotNorthing), 4.0, scale, ColAntena);
     }
 
     /// <summary>Disco relleno de radio fijo en píxeles con borde oscuro.</summary>
