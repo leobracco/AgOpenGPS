@@ -696,11 +696,14 @@
                      así que un margen fijo dejaría el zoom pisándola o flotando
                      lejos. Apilados, el zoom queda siempre justo arriba.
                      Sin Background: solo los botones interceptan el toque. -->
-                <!-- Sin Width fijo: la barra se pliega sola por inactividad y
-                     ahí mide solo el handle. Un ancho clavado dejaría 58 px de
-                     aire tapando el mapa justo cuando se replegó para liberarlo. -->
+                <!-- Zoom FIJO arriba a la derecha (pedido 2026-08-06): antes
+                     colgaba apilado sobre la barra derecha, que cambia de
+                     alto según cuántos botones apliquen — el + y − se movían
+                     con ella. Ahora quedan clavados bajo la barra superior,
+                     siempre en el mismo lugar. -->
                 <StackPanel Grid.Row="1" Spacing="6"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,10,0,0">
                     <Button Name="BtnZoomIn" Content="+" Width="50" Height="50"
                             HorizontalAlignment="Right" Margin="0,0,4,2"
                             FontSize="26" FontWeight="Bold"
@@ -713,8 +716,12 @@
                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                             Background="#D9FFFFFF" Foreground="#101612"
                             BorderBrush="#C5CFC5" BorderThickness="1" CornerRadius="12"/>
-                    <bars:BarraDerecha x:Name="BarDerecha" HorizontalAlignment="Right"/>
                 </StackPanel>
+                <!-- Sin Width fijo: la barra se pliega sola por inactividad y
+                     ahí mide solo el handle. Un ancho clavado dejaría 58 px de
+                     aire tapando el mapa justo cuando se replegó para liberarlo. -->
+                <bars:BarraDerecha x:Name="BarDerecha" Grid.Row="1"
+                                   HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
                 <!-- Secciones FLOTANTES: intercambio con la barra de la pasada
                      (pedido usuario 2026-08-05). Las secciones suben a flotar
                      centradas (tarjeta redondeada) y la pasada baja pegada al
