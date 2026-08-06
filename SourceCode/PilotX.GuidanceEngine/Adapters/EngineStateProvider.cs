@@ -56,6 +56,32 @@ namespace PilotX.GuidanceEngine.Adapters
                 snap.PivotEasting = _host.pivotAxlePos.easting;
                 snap.PivotNorthing = _host.pivotAxlePos.northing;
 
+                // Punto de la ANTENA (pn.fix): el original lo dibuja sobre el
+                // vehículo — distinto del pivote (queda antennaPivot adelante).
+                if (_host.Pn != null)
+                {
+                    snap.AntennaEasting = _host.Pn.fix.easting;
+                    snap.AntennaNorthing = _host.Pn.fix.northing;
+                }
+
+                // GOAL POINT ("a dónde mira" el pure pursuit) de la guía que
+                // está trabajando: AB, curva o contorno — igual que el dibujo
+                // del original (OpenGL.Designer). Sin guía activa queda 0/0 y
+                // el mapa no dibuja nada.
+                if (_host.Ct != null && _host.Ct.isContourBtnOn)
+                {
+                    snap.GoalEasting = _host.Ct.goalPointCT.easting;
+                    snap.GoalNorthing = _host.Ct.goalPointCT.northing;
+                }
+                else if (_host.Trk != null && _host.Trk.idx >= 0 && _host.Trk.gArr != null
+                         && _host.Trk.idx < _host.Trk.gArr.Count)
+                {
+                    bool esCurva = _host.Trk.gArr[_host.Trk.idx].mode == TrackMode.Curve;
+                    var gp = esCurva ? _host.CurveField.goalPointCu : _host.ABLineField.goalPointAB;
+                    snap.GoalEasting = gp.easting;
+                    snap.GoalNorthing = gp.northing;
+                }
+
                 if (_host.AppModelField != null)
                 {
                     snap.Latitude = _host.AppModelField.CurrentLatLon.Latitude;

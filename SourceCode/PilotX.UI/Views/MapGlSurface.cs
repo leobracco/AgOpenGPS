@@ -290,6 +290,10 @@ public sealed class MapGlSurface : OpenGlControlBase
     private static readonly float[] ColIslandStroke  = { 0.561f, 0.627f, 0.573f, 1f }; // #8FA092
     private static readonly float[] ColTractor       = { 0.290f, 0.729f, 0.243f, 1f }; // #4ABA3E
     private static readonly float[] ColTractorEdge   = { 0.063f, 0.086f, 0.071f, 1f }; // #101612
+    // Puntos de guiado (6.8.5 original): goal point naranja, antena celeste.
+    private static readonly float[] ColGoalPoint     = { 1.000f, 0.600f, 0.100f, 1f }; // #FF991A
+    private static readonly float[] ColAntena        = { 0.300f, 0.800f, 1.000f, 1f }; // #4DCCFF
+    private static readonly float[] ColPuntoBorde    = { 0.063f, 0.086f, 0.071f, 0.9f };
     // Banderas (marca del operario: piedra, pozo, alambrado caído...). Mismo
     // código de color que banderas.html: 0 rojo, 1 verde, 2 amarillo.
     private static readonly float[] ColBanderaRoja     = { 0.831f, 0.180f, 0.180f, 1f }; // #D42E2E
@@ -1277,6 +1281,12 @@ public sealed class MapGlSurface : OpenGlControlBase
             // es descomentar la línea de abajo.
             //DrawImplementoSprite();
             DrawTractor(_renderE, _renderN, snap.Heading, scale);
+
+            // Los dos puntos del 6.8.5 original (pedido 2026-08-06): el GOAL
+            // POINT del guiado ("a dónde mira" el pure pursuit, naranja) y el
+            // punto de la ANTENA GPS (celeste). Van DESPUÉS del tractor para
+            // que se vean encima del sprite.
+            DrawPuntosGuiado(snap, scale);
         }
 
         // --- Capa 4b: creación de AB (marcador A + línea pendiente A→tractor) ---
@@ -3200,6 +3210,51 @@ public sealed class MapGlSurface : OpenGlControlBase
     /// un tractor deja de distinguirse de una mancha sobre fondo vacío.
     /// </summary>
     private const double UmbralMarcadorPx = 28.0;
+
+    /// <summary>
+    /// Los dos puntos que dibuja el 6.8.5 original sobre el guiado: el GOAL
+    /// POINT (adónde "mira" el pure pursuit, naranja) y la ANTENA GPS
+    /// (celeste, sobre el vehículo — distinta del pivote). Tamaño fijo en
+    /// píxeles, como las banderas: son símbolos, no geometría del lote.
+    /// 0/0 = sin dato (sin guía trabajando / sin fix) → no se dibuja.
+    /// </summary>
+    private void DrawPuntosGuiado(HudSnapshot snap, double scale)
+    {
+        if (_gl == null || snap == null) return;
+
+        if (snap.GoalEasting != 0 || snap.GoalNorthing != 0)
+            DrawDisco(snap.GoalEasting, snap.GoalNorthing, 5.5, scale, ColGoalPoint);
+
+        if (snap.AntennaEasting != 0 || snap.AntennaNorthing != 0)
+            DrawDisco(snap.AntennaEasting, snap.AntennaNorthing, 4.0, scale, ColAntena);
+    }
+
+    /// <summary>Disco relleno de radio fijo en píxeles con borde oscuro.</summary>
+    private void DrawDisco(double e, double n, double radioPx, double scale, float[] color)
+    {
+        const int SEG = 14;
+        double r = radioPx / scale;
+
+        EnsureScratch((SEG + 2) * 2);
+        _scratch[0] = (float)e; _scratch[1] = (float)n;
+        for (int i = 0; i <= SEG; i++)
+        {
+            double a = i * (2.0 * Math.PI / SEG);
+            _scratch[(i + 1) * 2]     = (float)(e + Math.Cos(a) * r);
+            _scratch[(i + 1) * 2 + 1] = (float)(n + Math.Sin(a) * r);
+        }
+        UploadAndDraw(PrimitiveType.TriangleFan, SEG + 2, color);
+
+        // Borde: reusar el anillo (sin el centro) como line loop.
+        EnsureScratch(SEG * 2);
+        for (int i = 0; i < SEG; i++)
+        {
+            double a = i * (2.0 * Math.PI / SEG);
+            _scratch[i * 2]     = (float)(e + Math.Cos(a) * r);
+            _scratch[i * 2 + 1] = (float)(n + Math.Sin(a) * r);
+        }
+        UploadAndDraw(PrimitiveType.LineLoop, SEG, ColPuntoBorde);
+    }
 
     private void DrawTractor(double e, double n, double headingRad, double scale)
     {

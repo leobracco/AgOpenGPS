@@ -167,6 +167,17 @@ namespace AgroParallel.Models
         public double PivotEasting { get; set; }
         public double PivotNorthing { get; set; }
 
+        /// <summary>Posición de la ANTENA GPS (pn.fix), metros locales — el
+        /// original la dibuja como punto sobre el vehículo. 0/0 = sin dato.</summary>
+        public double AntennaEasting { get; set; }
+        public double AntennaNorthing { get; set; }
+
+        /// <summary>GOAL POINT del guiado ("a dónde mira" el pure pursuit):
+        /// goalPointAB/goalPointCu según la guía activa. Solo válido con
+        /// piloto/guía trabajando; 0/0 = no dibujar.</summary>
+        public double GoalEasting { get; set; }
+        public double GoalNorthing { get; set; }
+
         public double Latitude { get; set; }
         public double Longitude { get; set; }
 

@@ -60,6 +60,16 @@ public sealed class HudSnapshot
     public double PivotNorthing { get; set; }
     public double ToolWidth { get; set; }
 
+    /// <summary>Posición de la ANTENA GPS (punto sobre el vehículo, como en
+    /// el 6.8.5 original). 0/0 = sin dato, no dibujar.</summary>
+    public double AntennaEasting { get; set; }
+    public double AntennaNorthing { get; set; }
+
+    /// <summary>GOAL POINT del guiado ("a dónde mira" el pure pursuit).
+    /// 0/0 = sin guía trabajando, no dibujar.</summary>
+    public double GoalEasting { get; set; }
+    public double GoalNorthing { get; set; }
+
     /// <summary>Posición y rumbo de la HERRAMIENTA (no del tractor: el
     /// implemento va rezagado y en curva apunta distinto). El mapa dibuja ahí
     /// el sprite del implemento.</summary>
