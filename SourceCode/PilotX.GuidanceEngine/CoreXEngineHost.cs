@@ -57,8 +57,23 @@ namespace AgIO
         /// Se recalcula por llamada — es barato (~µs) y la LAN del tractor
         /// puede cambiar en caliente (WiFi que se cae, cable que entra).
         /// </summary>
+        // CACHE de endpoints (2 s): EndpointsDeModulos se llamaba POR PAQUETE
+        // y GetAllNetworkInterfaces cuesta decenas de ms en Windows (el
+        // comentario viejo decía "~µs": falso). A ~9 PGN/s el receptor del
+        // relay quedaba bloqueado enumerando placas el 90% del tiempo y
+        // drenaba 3,3 paquetes/s — ModSim recibía el volante a borbotones y
+        // el tractor no podía sostener la línea (medido 2026-08-06, y es LA
+        // diferencia estructural con AgIO 6.8.5, que computa su epModule UNA
+        // vez desde settings).
+        private System.Collections.Generic.List<IPEndPoint> _epsCache;
+        private DateTime _epsCacheAt = DateTime.MinValue;
+
         private System.Collections.Generic.List<IPEndPoint> EndpointsDeModulos()
         {
+            var cache = _epsCache;
+            if (cache != null && (DateTime.UtcNow - _epsCacheAt).TotalSeconds < 2.0)
+                return cache;
+
             var eps = new System.Collections.Generic.List<IPEndPoint>();
             try
             {
@@ -81,14 +96,81 @@ namespace AgIO
                 }
             }
             catch { }
-            if (eps.Count == 0) eps.Add(EpModule);   // fallback: mejor limitado que nada
+
+            // SIEMPRE también el broadcast de loopback 127.255.255.255:8888 —
+            // es como trabaja el banco 6.8.5 en una sola PC (AgIO y ModSim con
+            // subred 127.255.255): el lazo entero queda en loopback, sin tocar
+            // ninguna placa. Un sim/módulo local escuchando 0.0.0.0:8888 lo
+            // recibe por el camino más corto; en el tractor real no molesta
+            // (el loopback nunca sale de la máquina). Observación del usuario
+            // 2026-08-06: "la versión 6.8.5 usa 127.255".
+            eps.Add(new IPEndPoint(IPAddress.Parse("127.255.255.255"), 8888));
+
+            _epsCache = eps;
+            _epsCacheAt = DateTime.UtcNow;
             return eps;
         }
 
-        /// <summary>Manda un PGN a los módulos por TODAS las subredes reales.</summary>
+        // Subredes donde SE VIO tráfico de módulos (fuente del :9999), con
+        // fecha del último paquete. Con esto los PGN de datos salen SOLO
+        // adonde hay módulos de verdad — paridad con AgIO 6.8.5, que manda a
+        // UNA subred — en vez de a cada interfaz de la PC. Medido 2026-08-06:
+        // con Ethernet+WiFi salían 2 copias de cada 254 (~20 datagramas/s) y
+        // el ModSim local, que procesa la recepción en su hilo de UI, drenaba
+        // 3,3/s: el volante aplicaba 5-6 s DESPUÉS del comando y el tractor
+        // giraba en círculos con cualquier controlador. /24 asumido, igual
+        // que el broadcast de subred clásico.
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<uint, DateTime> _subredesConModulos
+            = new System.Collections.Concurrent.ConcurrentDictionary<uint, DateTime>();
+
+        private void AnotarSubredDeModulo(IPEndPoint remoteEp)
+        {
+            try
+            {
+                var b = remoteEp.Address.GetAddressBytes();
+                if (b.Length != 4) return;
+                if (b[0] == 169 && b[1] == 254) return;      // APIPA
+                // Fuente 127.x = el sim corre en modo loopback puro (subred
+                // 127.255.255, como el banco 6.8.5): su "subred" es el
+                // broadcast de loopback completo.
+                uint key = b[0] == 127
+                    ? 0x7FFFFFFFu                            // 127.255.255.255
+                    : (uint)((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | 255);
+                _subredesConModulos[key] = DateTime.UtcNow;
+            }
+            catch { }
+        }
+
+        private static uint ClaveSubred(IPEndPoint ep)
+        {
+            var b = ep.Address.GetAddressBytes();
+            return (uint)((b[0] << 24) | (b[1] << 16) | (b[2] << 8) | 255);
+        }
+
+        /// <summary>
+        /// Manda un PGN a los módulos. Datos: SOLO a las subredes donde se vio
+        /// tráfico de módulos en los últimos 2 min (si todavía no se vio nada,
+        /// a todas — descubrimiento inicial). El hello PGN 200 va SIEMPRE a
+        /// todas las subredes: es justamente el que descubre módulos nuevos.
+        /// </summary>
         private void EnviarAModulos(byte[] data)
         {
-            foreach (var ep in EndpointsDeModulos())
+            var eps = EndpointsDeModulos();
+
+            bool esHello = data.Length > 3 && data[3] == 200;
+            if (!esHello && _subredesConModulos.Count > 0)
+            {
+                var corte = DateTime.UtcNow.AddSeconds(-120);
+                var vivas = new System.Collections.Generic.List<IPEndPoint>();
+                foreach (var ep in eps)
+                {
+                    if (_subredesConModulos.TryGetValue(ClaveSubred(ep), out var visto) && visto > corte)
+                        vivas.Add(ep);
+                }
+                if (vivas.Count > 0) eps = vivas;
+            }
+
+            foreach (var ep in eps)
                 UdpBridge.SendUdpTo(data, ep);
         }
 
@@ -257,6 +339,10 @@ namespace AgIO
         private void ReceiveFromUdp(byte[] data, IPEndPoint remoteEp)
         {
             if (data == null || data.Length < 4) return;
+
+            // Acá "se aprende" dónde viven los módulos: cualquier tráfico
+            // entrante por :9999 marca su subred como viva (ver EnviarAModulos).
+            AnotarSubredDeModulo(remoteEp);
 
             if (data[0] == 0x80 && data[1] == 0x81)
             {

@@ -15,6 +15,15 @@ namespace AgroParallel.Services
     {
         private Socket _loopbackSocket;
         private Socket _udpSocket;
+        // Socket DEDICADO de transmisión hacia módulos (puerto efímero, sin
+        // bind explícito). Medido 2026-08-06: transmitiendo desde _udpSocket
+        // (el mismo que recibe todo el tráfico de :9999) los PGN salían en
+        // ráfagas con silencios de varios segundos — ModSim aplicaba el
+        // volante a borbotones y el tractor no podía sostener la línea. Un
+        // sender aparte, igual al de las pruebas manuales, entrega parejo a
+        // 10/s. Los módulos no contestan al puerto de origen (responden por
+        // broadcast a :9999), así que el puerto efímero no rompe nada.
+        private Socket _txSocket;
         private EndPoint _epLoopback = new IPEndPoint(IPAddress.Any, 0);
         private EndPoint _epUdp = new IPEndPoint(IPAddress.Any, 0);
         private IPEndPoint _epSendLoopback;
@@ -27,6 +36,28 @@ namespace AgroParallel.Services
         public event Action<byte[], IPEndPoint> OnLoopbackReceived;
         public event Action<byte[], IPEndPoint> OnUdpReceived;
 
+        /// <summary>
+        /// Apaga SIO_UDP_CONNRESET (ioctl 0x9800000C): en Windows, el ICMP
+        /// "port unreachable" de CUALQUIER send propio a un destino sin
+        /// oyente (ej. el hello de descubrimiento a subredes donde no hay
+        /// módulos) queda ENCOLADO como error en el socket y hace fallar
+        /// operaciones siguientes — medido 2026-08-06: los PGN 254 hacia
+        /// ModSim salían en ráfagas con silencios de 5 s (BeginSendTo
+        /// fallando mudo en el catch), el volante aplicaba a borbotones y el
+        /// tractor giraba en círculos. Con el ioctl apagado, esos ICMP se
+        /// descartan y el socket manda parejo. En no-Windows el ioctl no
+        /// existe: se ignora.
+        /// </summary>
+        private static void ApagarConnReset(Socket s)
+        {
+            try
+            {
+                const int SIO_UDP_CONNRESET = -1744830452; // 0x9800000C
+                s.IOControl(SIO_UDP_CONNRESET, new byte[] { 0 }, null);
+            }
+            catch { /* plataforma sin el ioctl (Linux/Android): no aplica */ }
+        }
+
         public void StartLoopback(string loopbackSendIp = "127.0.0.1",
                                   int listenPort = 17777, int sendPort = 15555)
         {
@@ -35,6 +66,14 @@ namespace AgroParallel.Services
             {
                 _loopbackSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 _loopbackSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
+                ApagarConnReset(_loopbackSocket);
+                // Mismo bind que AgIO 6.8.5 (UDP.Designer.cs:141): loopback
+                // específico. El cuello real de la recepción era el handler
+                // bloqueante (enumeración de NICs por paquete, ver
+                // CoreXEngineHost.EndpointsDeModulos), no el bind.
+                // ReuseAddress para convivir con sniffers de diagnóstico.
+                _loopbackSocket.ExclusiveAddressUse = false;
+                _loopbackSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 _loopbackSocket.Bind(new IPEndPoint(IPAddress.Loopback, listenPort));
                 IsLoopbackConnected = true;
                 ArmarRecepcion(esLoopback: true);
@@ -58,6 +97,7 @@ namespace AgroParallel.Services
                 // para poder probar en el emulador.
                 _udpSocket.ExclusiveAddressUse = false;
                 _udpSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                ApagarConnReset(_udpSocket);
                 _udpSocket.Bind(new IPEndPoint(IPAddress.Any, listenPort));
                 IsUdpConnected = true;
                 ArmarRecepcion(esLoopback: false);
@@ -69,8 +109,10 @@ namespace AgroParallel.Services
         {
             try { _loopbackSocket?.Close(); } catch { }
             try { _udpSocket?.Close(); } catch { }
+            try { _txSocket?.Close(); } catch { }
             _loopbackSocket = null;
             _udpSocket = null;
+            _txSocket = null;
             IsLoopbackConnected = false;
             IsUdpConnected = false;
         }
@@ -88,13 +130,27 @@ namespace AgroParallel.Services
 
         public void SendUdpTo(byte[] data, IPEndPoint endPoint)
         {
-            if (!IsUdpConnected || _udpSocket == null || data == null || data.Length == 0 || endPoint == null) return;
+            if (!IsUdpConnected || data == null || data.Length == 0 || endPoint == null) return;
             try
             {
-                _udpSocket.BeginSendTo(data, 0, data.Length, SocketFlags.None,
-                    endPoint, SendCallback, _udpSocket);
+                if (_txSocket == null)
+                {
+                    var tx = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                    tx.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
+                    ApagarConnReset(tx);
+                    _txSocket = tx;
+                }
+                _txSocket.BeginSendTo(data, 0, data.Length, SocketFlags.None,
+                    endPoint, SendCallback, _txSocket);
             }
-            catch { }
+            catch
+            {
+                // Un send que explotó puede dejar el socket inservible: se
+                // descarta y el próximo envío crea uno nuevo. Nunca frenar al
+                // que llama.
+                try { _txSocket?.Close(); } catch { }
+                _txSocket = null;
+            }
         }
 
         public void Dispose() => Stop();
@@ -212,7 +268,9 @@ namespace AgroParallel.Services
 
         private static void SendCallback(IAsyncResult ar)
         {
-            try { ((Socket)ar.AsyncState).EndSend(ar); } catch { }
+            // EndSendTo, no EndSend: los dos Begin de arriba son SendTo. El
+            // par cruzado tiraba excepción muda acá en cada envío.
+            try { ((Socket)ar.AsyncState).EndSendTo(ar); } catch { }
         }
     }
 }
