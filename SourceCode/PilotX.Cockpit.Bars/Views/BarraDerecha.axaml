@@ -72,18 +72,9 @@
       <TextBlock Text="{Binding NumCuText}" IsVisible="{Binding NumCuVisible}"
                  FontSize="14" FontWeight="Bold" Foreground="#101612"
                  HorizontalAlignment="Center" Margin="0,1"/>
-      <Button IsVisible="{Binding ContourLockVisible}" Command="{Binding SendCommand}" CommandParameter="contour_lock">
-        <StackPanel>
-          <Image Source="{Binding ContourLockImg, Converter={StaticResource Asset}}"/>
-          <TextBlock Classes="cap" Text="Fijar cont."/>
-        </StackPanel>
-      </Button>
-      <Button Command="{Binding SendCommand}" CommandParameter="contour">
-        <StackPanel>
-          <Image Source="{Binding ContourImg, Converter={StaticResource Asset}}"/>
-          <TextBlock Classes="cap" Text="Contorno"/>
-        </StackPanel>
-      </Button>
+      <!-- "Contorno" y "Fijar cont." SACADOS de la barra (pedido usuario
+           2026-08-06). Los comandos contour / contour_lock siguen cableados
+           en el motor por si el guiado por contorno vuelve a la UI. -->
       <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="track_next">
         <StackPanel>
           <Image Source="/Assets/barra-derecha/ABLineCycle.png"/>
@@ -121,12 +112,8 @@
            Bajados de la barra de abajo (pedido usuario 2026-08-04). Allá
            aparecían y desaparecían según el estado y nunca se sabía qué eran;
            acá van fijos y CON TÍTULO. Deshabilitados cuando no aplican. -->
-      <Button IsEnabled="{Binding TramVisible}" Command="{Binding SendCommand}" CommandParameter="tram_vista">
-        <StackPanel>
-          <Image Source="{Binding TramImg, Converter={StaticResource Asset}}"/>
-          <TextBlock Classes="cap" Text="Tram"/>
-        </StackPanel>
-      </Button>
+      <!-- "Tram" (vista de huellas) SACADO de la barra (pedido usuario
+           2026-08-06). El comando tram_vista sigue cableado. -->
       <Button IsEnabled="{Binding HydEnabled}" IsVisible="{Binding HydVisible}"
               Command="{Binding SendCommand}" CommandParameter="hidraulico">
         <StackPanel>

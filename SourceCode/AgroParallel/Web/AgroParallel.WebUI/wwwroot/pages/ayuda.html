@@ -224,6 +224,15 @@
             </tr>
           </table>
           <div class="clave">Solo el <strong>rojo</strong> impide trabajar: sin posición el piloto no engancha y varios botones quedan grises. Con naranja (señal libre) se trabaja normal; el verde es el plus de precisión del RTK.</div>
+
+          <h3>Por dónde entra el GPS</h3>
+          <p class="ruta"><b><img src="../img/cockpit/menu/CoreX.png" alt="">CoreX</b> <i>›</i> <b>Serial</b> <i>o</i> <b>GPS</b></p>
+          <p>La antena puede estar conectada de dos formas, y CoreX es el que las administra:</p>
+          <ul>
+            <li><strong>Por cable (serial)</strong> — la antena va a un puerto COM de la pantalla. Hay que elegir ese puerto y su velocidad en <strong>CoreX › Serial</strong>. Es lo más directo y no depende de la red.</li>
+            <li><strong>Por red</strong> — la antena o el módulo mandan la posición por la red de la máquina, sin cable a la pantalla.</li>
+          </ul>
+          <p>En <strong>CoreX › GPS</strong> se ve lo que está entrando en vivo: si ahí no llega nada, el problema es de la antena o del cable, no de PilotX.</p>
         </section>
 
         <section id="pantalla">
@@ -277,10 +286,8 @@
           <p>Funciones de la pasada. Se pliega sola y se abre con su lengüeta.</p>
           <div class="btns">
             <div class="btn-i"><img src="../img/cockpit/barra-derecha/ABLineCycle.png" alt=""><div class="tx"><div class="nm">Guía sig. / ant.</div><div class="ds">Pasar a la línea de al lado.</div></div></div>
-            <div class="btn-i"><img src="../img/cockpit/barra-derecha/ContourOn.png" alt=""><div class="tx"><div class="nm">Contorno</div><div class="ds">Guía pegada a la pasada anterior, sin línea fija. Ver abajo.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/barra-derecha/AutoTrack.png" alt=""><div class="tx"><div class="nm">Auto guía</div><div class="ds">Elige sola la guía más cercana.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/barra-abajo/HeadlandOn.png" alt=""><div class="tx"><div class="nm">Cabecera on/off</div><div class="ds">Activa el corte por cabecera.</div></div></div>
-            <div class="btn-i"><img src="../img/cockpit/barra-abajo/TramAll.png" alt=""><div class="tx"><div class="nm">Tram</div><div class="ds">Huellas para el pulverizador.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/barra-abajo/HydraulicLiftOn.png" alt=""><div class="tx"><div class="nm">Hidráulico</div><div class="ds">Sube/baja el implemento en cabecera.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/barra-abajo/YouSkipOn.png" alt=""><div class="tx"><div class="nm">Por medio</div><div class="ds">Saltea pasadas al girar.</div></div></div>
             <div class="btn-i"><img src="../img/cockpit/barra-abajo/ResetTool.png" alt=""><div class="tx"><div class="nm">Enderezar</div><div class="ds">Acomoda el implemento en el mapa.</div></div></div>
@@ -345,16 +352,6 @@
           <p>Si la guía quedó corrida respecto de lo sembrado: <strong>Izq</strong> y <strong>Der</strong> la mueven de a poco, y <strong>Centrar</strong> la lleva justo debajo del tractor.</p>
           <p>Para pasar de una guía a otra durante el trabajo usá <strong>Guía sig.</strong> / <strong>Guía ant.</strong> de la barra derecha.</p>
 
-          <h3>Contorno: guiado sin línea fija</h3>
-          <p class="ruta"><b>Barra derecha</b> <i>›</i> <b>Contorno</b></p>
-          <p>Las guías AB y curva son líneas <strong>fijas</strong>: se dibujan una vez y el piloto arma las pasadas paralelas a esa. <strong>Contorno es distinto</strong>: no hay línea guardada — el piloto se pega a la <em>última pasada que hiciste</em>, tomándola de lo que quedó pintado en el mapa.</p>
-          <p>Sirve para lotes de forma irregular, donde ninguna recta ni curva sirve para todo: bordeás una vez siguiendo el alambrado a mano, y de ahí en más el piloto va siguiendo esa forma vuelta tras vuelta, cerrándose hacia adentro.</p>
-          <ul>
-            <li><strong>Para usarlo</strong>: sembrá una vuelta con las secciones prendidas (así queda pintado) y después activá Contorno. El piloto engancha solo, sin elegir guía.</li>
-            <li><strong>Fijar cont.</strong> (botón de al lado) clava la referencia a la pasada actual, para que no salte a otra cercana.</li>
-            <li>Si no hay nada pintado alrededor, Contorno no tiene de dónde agarrarse y no engancha.</li>
-          </ul>
-          <div class="clave">En criollo: <strong>AB/curva</strong> = seguir una línea que vos definiste. <strong>Contorno</strong> = seguir la vuelta anterior, sea la forma que sea. Si el lote es rectangular, usá AB; si es irregular o vas bordeando, Contorno.</div>
         </section>
 
         <section id="lindero">
