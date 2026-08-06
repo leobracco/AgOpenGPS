@@ -1747,6 +1747,22 @@
     abrirGrupoActivo();
   })();
 
+  // ---- deep-link ?mod= --------------------------------------------------------
+  // Entrar a Configuración parado en un módulo: config.html?mod=camaras.html
+  // (lo usa el "Configurar" del panel nativo de Cámaras — antes abría
+  // camaras.html suelta en otra ventana, fuera del flujo de config). Se
+  // clickea el botón REAL del menú para reusar todo el camino existente
+  // (iframe embebido, .sel, ocultar Guardar) y se abre su grupo del acordeón.
+  (function deepLinkMod() {
+    var mod;
+    try { mod = new URLSearchParams(location.search).get('mod'); } catch (e) { return; }
+    if (!mod) return;
+    var btn = document.querySelector('#menu button[data-mod="' + mod + '"]');
+    if (!btn) return;
+    btn.click();
+    if (window.AgpMenuAcordeon) window.AgpMenuAcordeon.abrirGrupoActivo();
+  })();
+
   // ---- botón Guardar flotante con estados -------------------------------------
   // neutro = sin cambios · .dirty = hay cambios sin guardar (pulso + aviso) ·
   // .ok = recién guardado (tilde OK64, 1.5s). La detección de cambios es por

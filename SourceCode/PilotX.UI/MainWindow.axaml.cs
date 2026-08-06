@@ -353,7 +353,11 @@ public partial class MainWindow : Window
             // Boton "Configurar" del CamarasPanel: abre camaras.html en
             // WebView lazy para la tab Configuracion (formulario IP/usuario/
             // clave por camara — el live monitor ya esta nativo).
-            _camarasHost.OnRequestConfigurar = () => NavigateTo("pages/camaras.html");
+            // A Configuración parado en el módulo Cámaras (no a camaras.html
+            // suelta: abría "otra ventana más grande" fuera del flujo de
+            // config — reporte usuario 2026-08-06). El deep-link ?mod= lo
+            // resuelve config.js clickeando el botón real del menú.
+            _camarasHost.OnRequestConfigurar = () => NavigateTo("pages/config.html?mod=camaras.html");
             _camarasHost.OnRequestCerrar = CloseCamaras;
         }
 
