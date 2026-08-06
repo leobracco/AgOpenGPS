@@ -168,6 +168,13 @@ public partial class App : Application
                 // (que la cabina ya tolera). Solo en modo pantalla completa: un
                 // widget flotante no es dueño del stack.
                 desktop.MainWindow.Closed += (_, _) => ApagarStackCompleto();
+
+                // Y abrir PilotX lo ENCIENDE: los procesos van atados en los
+                // dos sentidos (pedido usuario 2026-08-06 — la pantalla
+                // arrancaba sola y quedaba con mapa negro y SIN FIX hasta que
+                // alguien lanzaba el Engine a mano; y si el Engine moría,
+                // nadie lo revivía).
+                SupervisarEngine();
             }
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleView)
@@ -178,8 +185,67 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    // ---- supervisor del Engine ---------------------------------------------
+    //
+    // PilotX es UN producto: abrir la pantalla levanta el motor y, si el motor
+    // muere (crash de proceso — pasó con un StackOverflow que no deja ni log),
+    // lo revive a los pocos segundos. Sin esto la pantalla quedaba viva con
+    // mapa negro y "SIN FIX" hasta que alguien lanzaba el exe a mano.
+    //
+    // Layout fijo del release: <install>\Desktop\PilotX.Desktop.exe y
+    // <install>\Engine\PilotX.GuidanceEngine.exe (Build\ local, C:\PilotX en
+    // cabina/taller). Si el exe hermano no existe (dev corriendo el Engine
+    // desde el IDE o suelto), el supervisor no hace nada.
+    //
+    // Flags: --webhost siempre; --corex solo si NO hay un CoreX.exe corriendo
+    // (con CoreX externo, el broker embebido chocaría en el :1883).
+    private static System.Threading.Timer? _engineWatchdog;
+    private static System.DateTime _ultimoLanzamientoEngine = System.DateTime.MinValue;
+
+    private static void SupervisarEngine()
+    {
+        string exe;
+        try
+        {
+            exe = System.IO.Path.GetFullPath(System.IO.Path.Combine(
+                System.AppContext.BaseDirectory, "..", "Engine", "PilotX.GuidanceEngine.exe"));
+        }
+        catch { return; }
+        if (!System.IO.File.Exists(exe)) return;   // layout dev: engine manual
+
+        void Revisar()
+        {
+            try
+            {
+                if (System.Diagnostics.Process.GetProcessesByName("PilotX.GuidanceEngine").Length > 0) return;
+                // Anti-tormenta: si lo acabamos de lanzar y murió al toque, no
+                // insistir a cada tick — 15 s de gracia entre intentos.
+                if ((System.DateTime.UtcNow - _ultimoLanzamientoEngine).TotalSeconds < 15) return;
+                _ultimoLanzamientoEngine = System.DateTime.UtcNow;
+
+                bool hayCoreX = System.Diagnostics.Process.GetProcessesByName("CoreX").Length > 0;
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exe,
+                    Arguments = hayCoreX ? "--webhost" : "--webhost --corex",
+                    WorkingDirectory = System.IO.Path.GetDirectoryName(exe)!,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                });
+            }
+            catch { /* sin permisos o carrera: el próximo tick reintenta */ }
+        }
+
+        Revisar();
+        _engineWatchdog = new System.Threading.Timer(_ => Revisar(), null,
+            System.TimeSpan.FromSeconds(5), System.TimeSpan.FromSeconds(5));
+    }
+
     private static void ApagarStackCompleto()
     {
+        // Primero dejar de vigilar: sin esto el watchdog podía relanzar el
+        // Engine en la ventana entre el kill y la salida del proceso.
+        try { _engineWatchdog?.Dispose(); _engineWatchdog = null; } catch { }
         foreach (var nombre in new[] { "PilotX.GuidanceEngine", "PilotX.Bars.Host" })
         {
             try

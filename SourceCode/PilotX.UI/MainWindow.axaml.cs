@@ -356,8 +356,12 @@ public partial class MainWindow : Window
             // A Configuración parado en el módulo Cámaras (no a camaras.html
             // suelta: abría "otra ventana más grande" fuera del flujo de
             // config — reporte usuario 2026-08-06). El deep-link ?mod= lo
-            // resuelve config.js clickeando el botón real del menú.
-            _camarasHost.OnRequestConfigurar = () => NavigateTo("pages/config.html?mod=camaras.html");
+            // resuelve config.js clickeando el botón real del menú. MISMA
+            // ventana-diálogo que el "Configuración" del menú (OpenDialogPage
+            // 820x600), NO NavigateTo: el WebView a pantalla completa era la
+            // "pantalla gigante" del segundo reporte.
+            _camarasHost.OnRequestConfigurar = () =>
+                OpenDialogPage("pages/config.html?mod=camaras.html", "Configuración", 820, 600);
             _camarasHost.OnRequestCerrar = CloseCamaras;
         }
 
@@ -1994,12 +1998,13 @@ public partial class MainWindow : Window
         panel.OnRequestConfigurar = () =>
         {
             try { _camarasWin?.Close(); } catch { }
-            // A Configuración parado en el módulo Cámaras — MISMO destino que
-            // el panel embebido (_camarasHost). Este es el handler que se usa
-            // de verdad (la ventana nativa arma su CamarasPanel propio):
-            // el 2026-08-06 quedó desincronizado apuntando a camaras.html
-            // suelta y el operario caía en una página gigante sin salida.
-            NavigateTo("pages/config.html?mod=camaras.html");
+            // A Configuración parado en el módulo Cámaras — este es el handler
+            // que se usa de verdad (la ventana nativa arma su CamarasPanel
+            // propio; quedó desincronizado dos veces el 2026-08-06: primero
+            // apuntando a camaras.html suelta, después vía NavigateTo a
+            // pantalla completa "gigante"). MISMA ventana-diálogo que el
+            // "Configuración" del menú.
+            OpenDialogPage("pages/config.html?mod=camaras.html", "Configuración", 820, 600);
         };
         panel.OnRequestCerrar = () => { try { _camarasWin?.Close(); } catch { } };
         panel.Attach(_camarasClient);
