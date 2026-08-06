@@ -3,155 +3,404 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ayuda · Agro Parallel</title>
+  <title>Ayuda · PilotX</title>
   <script src="../js/widget-mode.js"></script>
   <link rel="stylesheet" href="../theme.css" />
   <link rel="stylesheet" href="../layout.css" />
   <style>
-    /* Ayuda de PilotX (reemplazo del WinForms FormHelp). Contenido propio de
-       Agro Parallel: accesos a las utilidades internas del Hub + "Acerca de"
-       con la versión instalada (GET /api/pilotx/update/status). Sin links a
-       comunidades upstream de AgOpenGPS (branding PilotX). */
-    .help-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-      gap: var(--agp-sp-3); margin-top: var(--agp-sp-2);
-    }
-    a.help-card {
-      display: flex; align-items: flex-start; gap: var(--agp-sp-3);
-      text-decoration: none; color: inherit;
-      background: var(--agp-surface);
-      border: var(--agp-border-w) solid var(--agp-border);
-      border-radius: var(--agp-radius-md);
-      padding: var(--agp-sp-4);
-      transition: border-color var(--agp-dur-fast) var(--agp-ease),
-                  background var(--agp-dur-fast) var(--agp-ease);
-    }
-    a.help-card:hover, a.help-card:focus { border-color: var(--agp-accent); background: var(--agp-bg-soft); }
-    a.help-card .hc-ico { font-size: 26px; line-height: 1; flex: 0 0 auto; }
-    a.help-card .hc-title { font-size: var(--agp-fs-lg); color: var(--agp-text); font-weight: var(--agp-fw-bold); }
-    a.help-card .hc-desc { font-size: var(--agp-fs-sm); color: var(--agp-text-muted); margin-top: 2px; }
+    /* ============================================================================
+       Ayuda de PilotX — manual de cabina.
+       Dos columnas: índice pegajoso a la izquierda (táctil, sin depender de
+       teclado) y contenido a la derecha. Cada tema dice DÓNDE se hace la cosa
+       con una "ruta" (chips), que es lo que el operario necesita: no cómo
+       funciona por dentro, sino qué tocar y en qué orden.
+       Todo con tokens --agp-*; nada de hex sueltos salvo el blanco sobre acento.
+       ============================================================================ */
+    html, body { height: 100%; }
+    .page { display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; padding: var(--agp-sp-3); }
+    .page-head { flex-shrink: 0; margin-bottom: var(--agp-sp-2); }
+    .page-head h1 { font-size: var(--agp-fs-lg); }
+    .page-head .subtitle { font-size: var(--agp-fs-xs); }
 
-    .about {
-      max-width: 640px; margin-top: var(--agp-sp-4);
-      background: var(--agp-surface);
-      border: var(--agp-border-w) solid var(--agp-border);
-      border-radius: var(--agp-radius-md);
-      padding: var(--agp-sp-4) var(--agp-sp-5);
+    .ay-wrap { display: flex; gap: var(--agp-sp-3); flex: 1 1 auto; min-height: 0; }
+
+    /* ── Índice ───────────────────────────────────────────────────────── */
+    .ay-idx {
+      flex: 0 0 208px; overflow-y: auto; min-height: 0;
+      display: flex; flex-direction: column; gap: 2px;
+      padding-right: var(--agp-sp-1);
     }
-    .about .row-big {
-      display: flex; justify-content: space-between; align-items: baseline;
-      padding: var(--agp-sp-3) 0; border-bottom: 1px solid var(--agp-border);
-      font-size: var(--agp-fs-md);
+    .ay-idx a {
+      display: block; padding: 7px var(--agp-sp-2);
+      font-size: var(--agp-fs-sm); color: var(--agp-text); text-decoration: none;
+      border-radius: var(--agp-radius-sm); border: var(--agp-border-w) solid transparent;
     }
-    .about .row-big:last-child { border-bottom: 0; }
-    .about .row-big strong { font-size: var(--agp-fs-lg); color: var(--agp-text); font-variant-numeric: tabular-nums; }
+    .ay-idx a:hover { background: var(--agp-bg-soft); }
+    .ay-idx a.on { background: var(--agp-accent-soft); border-color: var(--agp-accent); font-weight: var(--agp-fw-semi); }
+    .ay-idx .ay-idx-tit {
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted); text-transform: uppercase;
+      letter-spacing: 0.6px; margin: var(--agp-sp-2) 0 2px var(--agp-sp-2);
+    }
+    @media (max-width: 760px) { .ay-idx { flex-basis: 150px; } }
+
+    /* ── Contenido ────────────────────────────────────────────────────── */
+    .ay-doc { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding-right: var(--agp-sp-2); }
+    .ay-doc section { margin-bottom: var(--agp-sp-5); scroll-margin-top: var(--agp-sp-2); }
+    .ay-doc h2 {
+      font-size: var(--agp-fs-md); font-weight: var(--agp-fw-semi); color: var(--agp-text);
+      margin: 0 0 var(--agp-sp-2) 0; padding-bottom: 4px;
+      border-bottom: var(--agp-border-w) solid var(--agp-border);
+    }
+    .ay-doc h3 {
+      font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-semi); color: var(--agp-text);
+      margin: var(--agp-sp-3) 0 var(--agp-sp-1) 0;
+    }
+    .ay-doc p, .ay-doc li { font-size: var(--agp-fs-sm); line-height: var(--agp-lh-normal, 1.5); color: var(--agp-text); }
+    .ay-doc p { margin: 0 0 var(--agp-sp-2) 0; }
+    .ay-doc ul, .ay-doc ol { margin: 0 0 var(--agp-sp-2) 0; padding-left: var(--agp-sp-4); }
+    .ay-doc li { margin-bottom: 3px; }
+    .ay-doc strong { font-weight: var(--agp-fw-semi); }
+
+    /* Ruta: "dónde se toca" — la información que más se busca. */
+    .ruta {
+      display: inline-flex; align-items: center; flex-wrap: wrap; gap: 4px;
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+      margin: 0 0 var(--agp-sp-2) 0;
+    }
+    .ruta b {
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); padding: 2px 7px;
+      color: var(--agp-text); font-weight: var(--agp-fw-medium);
+    }
+    .ruta i { font-style: normal; color: var(--agp-text-dim); }
+
+    .aviso {
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-state-warn);
+      border-left-width: 4px; border-radius: var(--agp-radius-sm);
+      padding: var(--agp-sp-2) var(--agp-sp-3); margin: 0 0 var(--agp-sp-2) 0;
+      font-size: var(--agp-fs-sm);
+    }
+    .clave {
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-accent);
+      border-left-width: 4px; border-radius: var(--agp-radius-sm);
+      padding: var(--agp-sp-2) var(--agp-sp-3); margin: 0 0 var(--agp-sp-2) 0;
+      font-size: var(--agp-fs-sm);
+    }
+
+    table.ay-tab { width: 100%; border-collapse: collapse; margin-bottom: var(--agp-sp-2); }
+    table.ay-tab th, table.ay-tab td {
+      text-align: left; font-size: var(--agp-fs-xs); padding: 5px var(--agp-sp-2);
+      border-bottom: var(--agp-border-w) solid var(--agp-border); vertical-align: top;
+    }
+    table.ay-tab th { color: var(--agp-text-muted); font-weight: var(--agp-fw-semi); }
+    table.ay-tab td code { font-family: var(--agp-font-mono); font-size: var(--agp-fs-xs); }
   </style>
 </head>
 <body>
-  <aside class="sidebar" data-active="ayuda"></aside>
+  <aside class="sidebar" data-active="hub"></aside>
 
   <main class="page">
     <div class="page-head">
       <div>
         <h1>Ayuda</h1>
-        <div class="subtitle">Guías rápidas, diagnóstico y datos del equipo</div>
+        <div class="subtitle">Cómo se hace cada cosa en PilotX · manual de cabina</div>
       </div>
     </div>
 
-    <h2>Puesta a punto</h2>
-    <div class="help-grid">
-      <a class="help-card" href="setup.html">
-        <span class="hc-ico">🧭</span>
-        <span>
-          <span class="hc-title">Asistente de configuración</span>
-          <span class="hc-desc">Paso a paso para dejar el tractor listo para trabajar</span>
-        </span>
-      </a>
-      <a class="help-card" href="vehiculo.html">
-        <span class="hc-ico">🚜</span>
-        <span>
-          <span class="hc-title">Vehículo</span>
-          <span class="hc-desc">Antena, geometría y parámetros del tractor</span>
-        </span>
-      </a>
-      <a class="help-card" href="calibracion-imu.html">
-        <span class="hc-ico">⟲</span>
-        <span>
-          <span class="hc-title">Calibración IMU</span>
-          <span class="hc-desc">Nivelar y orientar el sensor inercial</span>
-        </span>
-      </a>
-    </div>
+    <div class="ay-wrap">
+      <nav class="ay-idx" id="idx">
+        <div class="ay-idx-tit">Empezar</div>
+        <a href="#arranque">Encender y arrancar</a>
+        <a href="#pantalla">Partes de la pantalla</a>
+        <a href="#jornada">Una jornada, paso a paso</a>
 
-    <h2 style="margin-top: var(--agp-sp-6);">Diagnóstico</h2>
-    <div class="help-grid">
-      <a class="help-card" href="eventos.html">
-        <span class="hc-ico">📜</span>
-        <span>
-          <span class="hc-title">Eventos</span>
-          <span class="hc-desc">Registro de lo que pasó en la sesión y en disco</span>
-        </span>
-      </a>
-      <a class="help-card" href="debug.html">
-        <span class="hc-ico">🐞</span>
-        <span>
-          <span class="hc-title">Debug</span>
-          <span class="hc-desc">Datos técnicos crudos para resolver problemas</span>
-        </span>
-      </a>
-      <a class="help-card" href="sistema.html">
-        <span class="hc-ico">🖥</span>
-        <span>
-          <span class="hc-title">Sistema</span>
-          <span class="hc-desc">Estado de la PC, red y servicios de PilotX</span>
-        </span>
-      </a>
-    </div>
+        <div class="ay-idx-tit">Trabajo</div>
+        <a href="#lote">Lote</a>
+        <a href="#guias">Guías</a>
+        <a href="#lindero">Lindero y cabecera</a>
+        <a href="#piloto">Piloto automático</a>
+        <a href="#secciones">Secciones y pintado</a>
 
-    <h2 style="margin-top: var(--agp-sp-6);">Soporte y actualización</h2>
-    <div class="help-grid">
-      <a class="help-card" href="actualizar.html">
-        <span class="hc-ico">⤓</span>
-        <span>
-          <span class="hc-title">Actualizar PilotX</span>
-          <span class="hc-desc">Buscar, descargar e instalar la última versión</span>
-        </span>
-      </a>
-      <a class="help-card" href="pwa-qr.html">
-        <span class="hc-ico">▣</span>
-        <span>
-          <span class="hc-title">Conectar celular</span>
-          <span class="hc-desc">Abrir el panel desde el teléfono con un QR</span>
-        </span>
-      </a>
-      <a class="help-card" href="orbitx.html">
-        <span class="hc-ico">☁</span>
-        <span>
-          <span class="hc-title">OrbitX (nube)</span>
-          <span class="hc-desc">Vinculación con la nube y sincronización de lotes</span>
-        </span>
-      </a>
-    </div>
+        <div class="ay-idx-tit">Equipos</div>
+        <a href="#configuracion">Configuración</a>
+        <a href="#modulos">Nodos y productos X</a>
+        <a href="#camaras">Cámaras</a>
 
-    <h2 style="margin-top: var(--agp-sp-6);">Acerca de</h2>
-    <div class="about">
-      <div class="row-big">
-        <span>Aplicación</span>
-        <strong>PilotX · Agro Parallel</strong>
-      </div>
-      <div class="row-big">
-        <span>Versión instalada</span>
-        <strong id="aboutVersion">—</strong>
-      </div>
-      <div class="row-big">
-        <span>Equipo</span>
-        <strong id="aboutEquipo">—</strong>
+        <div class="ay-idx-tit">Datos</div>
+        <a href="#cloud">Nube y actualizaciones</a>
+        <a href="#simulador">Simulador (banco)</a>
+
+        <div class="ay-idx-tit">Si algo falla</div>
+        <a href="#problemas">Problemas frecuentes</a>
+        <a href="#errores">Códigos de error</a>
+      </nav>
+
+      <div class="ay-doc" id="doc">
+
+        <!-- ================= EMPEZAR ================= -->
+        <section id="arranque">
+          <h2>Encender y arrancar</h2>
+          <p>PilotX arranca solo con la pantalla. Si lo cerraste, abrilo desde el ícono del escritorio: levanta también el motor de guiado, no hace falta abrir nada más.</p>
+          <p>Antes de trabajar, mirá arriba a la izquierda: el punto de <strong>GPS</strong> tiene que estar en verde. Si dice <em>SIN FIX</em> o está en rojo, la antena todavía no tiene señal — esperá a cielo abierto unos segundos.</p>
+          <div class="clave">Con GPS en rojo el piloto no engancha y varios botones quedan grises. Es a propósito: sin posición no hay guiado posible.</div>
+        </section>
+
+        <section id="pantalla">
+          <h2>Partes de la pantalla</h2>
+          <h3>Barra de arriba</h3>
+          <p>Velocidad, señal de GPS, tiempo y hectáreas. Los botones: <strong>TRABAJO</strong>, <strong>GPS</strong>, el <strong>nombre del lote</strong> (abre sus datos) y <strong>SISTEMA</strong> (perfiles del vehículo y esta ayuda).</p>
+          <h3>Menú de la izquierda</h3>
+          <p>Se despliega con la flecha del borde. Tiene: <strong>Pantalla</strong> (día/noche y brillo), <strong>Herramientas</strong>, <strong>Configuración</strong>, <strong>LOTE</strong>, <strong>Dirección</strong> y <strong>CoreX</strong>.</p>
+          <h3>Barra de la pasada (abajo)</h3>
+          <p>Es la barra que más se usa, ordenada por zonas:</p>
+          <ul>
+            <li><strong>Izquierda</strong> — Guías, Lindero, Cabecera: lo que definís antes de arrancar.</li>
+            <li><strong>Centro</strong> — Izq / Centrar / Der: corregir la línea. El botón Centrar queda alineado con el tractor.</li>
+            <li><strong>Derecha</strong> — Giro, Automático, Manual y <strong>Piloto</strong> en la punta, que es el que más se toca.</li>
+          </ul>
+          <h3>Barra de la derecha</h3>
+          <p>Funciones de la pasada: contorno, guía siguiente/anterior, auto guía, tram, hidráulico, corte por cabecera, enderezar implemento y banderas. Se pliega sola; se abre con su lengüeta.</p>
+          <h3>Zoom</h3>
+          <p>Los botones <strong>+</strong> y <strong>−</strong> están fijos arriba a la derecha. También se puede acercar con dos dedos sobre el mapa.</p>
+          <h3>Puntos del mapa</h3>
+          <p>Sobre el tractor vas a ver dos puntos: el <strong>celeste</strong> es la antena GPS y el <strong>naranja</strong> es hacia dónde apunta el piloto. Si el naranja va sobre la línea, el guiado está trabajando bien.</p>
+        </section>
+
+        <section id="jornada">
+          <h2>Una jornada, paso a paso</h2>
+          <ol>
+            <li>Esperar el <strong>GPS en verde</strong>.</li>
+            <li><strong>Abrir el lote</strong> (o crearlo si es la primera vez).</li>
+            <li><strong>Elegir o crear la guía</strong> por donde vas a sembrar.</li>
+            <li>Si hace falta, marcar el <strong>lindero</strong> y construir la <strong>cabecera</strong>.</li>
+            <li>Poner las <strong>secciones en Automático</strong>.</li>
+            <li>Enganchar el <strong>Piloto</strong> y trabajar.</li>
+            <li>Al terminar: <strong>cerrar el lote</strong> (guarda todo y lo manda a la nube si está configurada).</li>
+          </ol>
+        </section>
+
+        <!-- ================= TRABAJO ================= -->
+        <section id="lote">
+          <h2>Lote</h2>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>LOTE</b></p>
+          <ul>
+            <li><strong>Continuar</strong> — vuelve al último lote trabajado.</li>
+            <li><strong>Abrir</strong> — lista de lotes guardados.</li>
+            <li><strong>Nuevo</strong> — crea uno en la posición actual.</li>
+            <li><strong>Borrar pintado</strong> — borra lo trabajado (lo verde del mapa) sin borrar el lote.</li>
+            <li><strong>Cerrar</strong> — termina la jornada y guarda.</li>
+          </ul>
+          <div class="aviso"><strong>Borrar pintado</strong> solo funciona con las secciones apagadas (ni Manual ni Automático). Es una protección: no se borra lo trabajado mientras la máquina está aplicando.</div>
+          <p>Para ver hectáreas, distancia y datos del lote abierto, tocá el <strong>nombre del lote</strong> en la barra de arriba.</p>
+        </section>
+
+        <section id="guias">
+          <h2>Guías</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Guías</b></p>
+          <p>Al abrir aparecen dos opciones para crear, y si el lote ya tiene guías, un botón para verlas:</p>
+          <h3>AB Line (recta)</h3>
+          <ol>
+            <li>Poné el tractor donde empieza la pasada y tocá <strong>A</strong>.</li>
+            <li>Manejá derecho hasta el otro extremo y tocá <strong>B</strong>.</li>
+            <li>Confirmá con el <strong>tilde verde</strong> y ponele nombre. La ventana se cierra sola y la guía queda en el mapa.</li>
+          </ol>
+          <h3>AB + Curva</h3>
+          <p>Igual, pero grabando el recorrido: tocá <strong>A</strong>, manejá la curva como querés que quede, y confirmá. Sirve para lotes con contornos irregulares.</p>
+          <h3>Guías guardadas</h3>
+          <p>Lista de las guías del lote. Tocá una y confirmá con el <strong>tilde verde</strong> para usarla. Desde ahí también podés borrarlas, renombrarlas, duplicarlas, invertir A↔B y ordenarlas.</p>
+          <h3>Corregir la línea</h3>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Izq</b> <b>Centrar</b> <b>Der</b></p>
+          <p>Si la guía quedó corrida respecto de lo sembrado: <strong>Izq</strong> y <strong>Der</strong> la mueven de a poco, y <strong>Centrar</strong> la lleva justo debajo del tractor.</p>
+          <p>Para pasar de una guía a otra durante el trabajo usá <strong>Guía sig.</strong> / <strong>Guía ant.</strong> de la barra derecha.</p>
+        </section>
+
+        <section id="lindero">
+          <h2>Lindero y cabecera</h2>
+          <h3>Lindero (contorno del lote)</h3>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Lindero</b></p>
+          <p>Se graba manejando el perímetro: tocá <strong>Crear manejando</strong>, dale <strong>Grabar</strong> y recorré el borde. Podés pausar, agregar un punto suelto y deshacer. Al final, <strong>Terminar</strong>.</p>
+          <p>En Ajustes de esa pantalla podés grabar con un <strong>offset</strong> (por ejemplo media máquina) y elegir de qué lado.</p>
+          <h3>Cabecera</h3>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Cabecera</b></p>
+          <p>La cabecera es la franja del borde donde el tractor da la vuelta. Se construye hacia adentro del lindero:</p>
+          <ol>
+            <li>Poné la <strong>distancia</strong> (viene cargada con el ancho de la máquina).</li>
+            <li>Tocá <strong>Construir</strong>: la vas a ver dibujada en el mapa.</li>
+            <li><strong>Reset al contorno</strong> la vuelve al borde; <strong>Apagar cabecera</strong> la desactiva sin borrarla.</li>
+          </ol>
+          <p>Con <strong>Secciones controladas en cabecera</strong> tildado, la máquina corta sola al entrar en esa franja.</p>
+          <div class="clave">La cabecera necesita lindero. Si no lo hiciste todavía, la pantalla te avisa.</div>
+        </section>
+
+        <section id="piloto">
+          <h2>Piloto automático</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Piloto</b> <i>(a la derecha del todo)</i></p>
+          <p>Para que enganche hacen falta tres cosas:</p>
+          <ul>
+            <li>GPS con señal,</li>
+            <li>lote abierto,</li>
+            <li>una guía elegida (o contorno activo).</li>
+          </ul>
+          <p>Si falta alguna, el botón queda gris. Al enganchar, el tractor busca la línea y se acomoda solo; en el mapa vas a ver el punto naranja tirando hacia la guía.</p>
+          <p>Para desenganchar, tocá <strong>Piloto</strong> de nuevo. <strong>Mover el volante también corta</strong> el guiado: es la salida de emergencia de siempre.</p>
+          <h3>Giro en la cabecera</h3>
+          <p>Con <strong>Giro</strong> activado, al llegar a la cabecera el tractor da la vuelta solo y engancha la pasada siguiente. Necesita guía y cabecera hechas. Para saltear pasadas usá <strong>Por medio</strong> en la barra derecha.</p>
+          <div class="aviso">El piloto guía la dirección; <strong>el operario sigue a cargo</strong>. Nunca dejes la máquina sola ni te bajes con el piloto enganchado.</div>
+        </section>
+
+        <section id="secciones">
+          <h2>Secciones y pintado</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Automático</b> / <b>Manual</b></p>
+          <ul>
+            <li><strong>Automático</strong> — la máquina abre y cierra sola: corta en lo ya sembrado, en la cabecera y fuera del lindero.</li>
+            <li><strong>Manual</strong> — quedan todas abiertas hasta que las apagues.</li>
+          </ul>
+          <p>Arriba de la barra hay una fila con cada sección, para abrir o cerrar de a una (por ejemplo levantar un cuerpo en una punta).</p>
+          <h3>Anti-solape</h3>
+          <p>PilotX no vuelve a sembrar lo ya sembrado: al pisar una pasada anterior, esas secciones cortan solas. Viene activado.</p>
+          <p>Lo trabajado se pinta de verde en el mapa. Para limpiarlo: <strong>LOTE › Borrar pintado</strong>.</p>
+        </section>
+
+        <!-- ================= EQUIPOS ================= -->
+        <section id="configuracion">
+          <h2>Configuración</h2>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Configuración</b></p>
+          <p>Todo lo del equipo vive acá, agrupado en el menú de la izquierda de esa pantalla:</p>
+          <table class="ay-tab">
+            <tr><th>Grupo</th><th>Para qué</th></tr>
+            <tr><td>Vehículo</td><td>Tipo y marca, dimensiones (distancia entre ejes, trocha) y posición de la antena.</td></tr>
+            <tr><td>Implemento</td><td>Enganche, distancias, offset lateral, pivote y tiempos de encendido/apagado.</td></tr>
+            <tr><td>Secciones</td><td>Cuántas hay y qué ancho tiene cada una, switches y máquina.</td></tr>
+            <tr><td>GPS / IMU</td><td>De dónde sale el rumbo y corrección de rolido.</td></tr>
+            <tr><td>Otros</td><td>Giro en cabecera (U-Turn), huellas (Tram) y sonidos.</td></tr>
+          </table>
+          <div class="clave">Las medidas del vehículo y del implemento son la base de todo: si están mal, la guía y el corte de secciones van a estar mal por más que el GPS sea perfecto.</div>
+          <p>La configuración de la <strong>dirección</strong> (cómo responde el volante) está aparte: <strong>Menú izquierdo › Dirección</strong>. Los perfiles del vehículo se guardan y se cambian desde <strong>SISTEMA › Perfiles del vehículo</strong>.</p>
+        </section>
+
+        <section id="modulos">
+          <h2>Nodos y productos X</h2>
+          <p class="ruta"><b>Configuración</b> <i>›</i> <b>Módulos</b></p>
+          <p>Los equipos Agro Parallel que hablan con la pantalla:</p>
+          <ul>
+            <li><strong>QuantiX</strong> — control de los motores de siembra (dosis, calibración, prescripciones).</li>
+            <li><strong>VistaX</strong> — monitoreo de siembra por surco.</li>
+            <li><strong>FlowX</strong> — dosificación líquida.</li>
+            <li><strong>SectionX</strong> — corte de secciones.</li>
+            <li><strong>StormX</strong> — estación meteorológica.</li>
+            <li><strong>Nodos</strong> — lista de todo lo conectado, con su estado y versión.</li>
+          </ul>
+          <div class="clave">Los nodos aparecen <strong>solos</strong> cuando se encienden y se conectan a la red de la máquina. No se agregan a mano.</div>
+          <p>Cada producto tiene su configuración en esta pantalla y un <strong>overlay</strong> que se prende o apaga sobre el mapa para verlo mientras trabajás.</p>
+          <p>En <strong>Campo</strong> están los <strong>insumos</strong> (semillas y fertilizantes), los <strong>mapas</strong> y las <strong>prescripciones</strong> (dosis variable por zona).</p>
+        </section>
+
+        <section id="camaras">
+          <h2>Cámaras</h2>
+          <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Herramientas</b> <i>›</i> <b>Webcam</b></p>
+          <p>Muestra hasta cuatro cámaras en 1×1, 2×1 o 2×2. Doble toque sobre una para agrandarla y volver.</p>
+          <p>Para cargar IP, usuario y clave de cada cámara: botón <strong>Configurar</strong>, que abre la pantalla de Configuración en el módulo Cámaras.</p>
+        </section>
+
+        <!-- ================= DATOS ================= -->
+        <section id="cloud">
+          <h2>Nube y actualizaciones</h2>
+          <p class="ruta"><b>Configuración</b> <i>›</i> <b>Cloud</b></p>
+          <ul>
+            <li><strong>OrbitX</strong> — vincula la pantalla con la cuenta del establecimiento. Con esto los lotes y lo trabajado suben solos cuando hay internet.</li>
+            <li><strong>Firmwares</strong> — actualizar los nodos (también desde un pendrive, sin internet).</li>
+            <li><strong>Actualizar</strong> — actualizar PilotX.</li>
+            <li><strong>Conectar celular</strong> — código QR para abrir el panel desde el teléfono, en la misma red.</li>
+          </ul>
+          <p>El trabajo se guarda en la pantalla aunque no haya internet; la nube es un respaldo que sincroniza cuando aparece señal.</p>
+        </section>
+
+        <section id="simulador">
+          <h2>Simulador (banco de pruebas)</h2>
+          <p>Para probar sin salir al lote se usa <strong>ModSim</strong>, que simula el GPS. Es una herramienta de taller, no de trabajo.</p>
+          <ol>
+            <li>Abrí <strong>PilotX primero</strong>.</li>
+            <li>Después abrí ModSim y ponele velocidad.</li>
+            <li>Trabajá como siempre: lote, guía, piloto.</li>
+          </ol>
+          <div class="aviso">El orden importa: si abrís ModSim antes que PilotX, el simulador queda "sordo" y el piloto parece no funcionar. Ante cualquier duda, cerrá ModSim y volvé a abrirlo con PilotX ya andando.</div>
+        </section>
+
+        <!-- ================= PROBLEMAS ================= -->
+        <section id="problemas">
+          <h2>Problemas frecuentes</h2>
+
+          <h3>El botón del piloto está gris</h3>
+          <p>Falta alguna de las tres condiciones: GPS con señal, lote abierto y guía elegida. Fijate cuál te falta y resolvé esa.</p>
+
+          <h3>El piloto no sigue la línea</h3>
+          <p>Revisá que la guía elegida sea la de la pasada que estás haciendo (a veces quedó otra activa) y que las medidas del vehículo estén bien cargadas. Si el tractor viene muy cruzado, enderezalo a mano unos metros y volvé a enganchar.</p>
+
+          <h3>Dice SIN FIX o el GPS está en rojo</h3>
+          <p>La antena no tiene señal: cielo tapado, cable flojo o la antena recién encendida. Si tarda mucho, revisá la conexión en <strong>Menú izquierdo › CoreX</strong>.</p>
+
+          <h3>Las secciones no cortan solas</h3>
+          <p>Tienen que estar en <strong>Automático</strong> (en Manual quedan siempre abiertas). Si tampoco cortan en la cabecera, fijate que esté tildado <strong>Secciones controladas en cabecera</strong>.</p>
+
+          <h3>Un nodo no aparece</h3>
+          <p>Los nodos aparecen solos al encenderse. Si falta uno: revisá que tenga corriente y que esté en la red de la máquina. En <strong>Configuración › Nodos</strong> se ve el último momento en que se lo escuchó.</p>
+
+          <h3>La pantalla quedó en negro o trabada</h3>
+          <p>Cerrá PilotX y volvé a abrirlo: al arrancar levanta todo el sistema de nuevo. Si el problema sigue, apagá y prendé la pantalla.</p>
+
+          <h3>Se cerró PilotX solo</h3>
+          <p>Vuelve a abrirse solo. El trabajo hecho no se pierde: se va guardando a medida que trabajás.</p>
+        </section>
+
+        <section id="errores">
+          <h2>Códigos de error</h2>
+          <p>Cuando algo falla, PilotX muestra un código corto junto al mensaje. Sirve para contarlo por teléfono sin describir toda la pantalla:</p>
+          <table class="ay-tab">
+            <tr><th>Código</th><th>Qué significa</th></tr>
+            <tr><td><code>AGP-MQTT-…</code></td><td>Problema hablando con los nodos (red de la máquina).</td></tr>
+            <tr><td><code>AGP-NET-…</code></td><td>Problema de red o de internet (nube).</td></tr>
+            <tr><td><code>AGP-SYS-…</code></td><td>Problema interno de la pantalla.</td></tr>
+          </table>
+          <p>El detalle técnico está siempre debajo del mensaje, desplegando <strong>Detalles</strong>. Si tenés que reportar algo, mandá el código y qué estabas haciendo.</p>
+          <p>Para soporte: <strong>Configuración › Mantenimiento › Sistema</strong> muestra versión y estado del equipo, y <strong>Eventos</strong> guarda lo que fue pasando.</p>
+        </section>
+
       </div>
     </div>
   </main>
 
-  <script src="../js/api.js"></script>
   <script src="../js/sidebar.js"></script>
-  <script src="../js/ayuda.js"></script>
+  <script>
+    // Índice: marca la sección visible y hace scroll suave. Todo táctil, sin
+    // atajos de teclado (el operario usa los dedos y guantes).
+    (function () {
+      var doc = document.getElementById('doc');
+      var idx = document.getElementById('idx');
+      if (!doc || !idx) return;
+      var links = Array.prototype.slice.call(idx.querySelectorAll('a'));
+
+      links.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          var s = document.querySelector(a.getAttribute('href'));
+          if (s) doc.scrollTo({ top: s.offsetTop - 8, behavior: 'smooth' });
+        });
+      });
+
+      // Resaltado por scroll: la sección cuyo tope pasó la marca de 1/3 de
+      // pantalla es la que se está leyendo.
+      function marcar() {
+        var y = doc.scrollTop + doc.clientHeight / 3;
+        var actual = links[0];
+        links.forEach(function (a) {
+          var s = document.querySelector(a.getAttribute('href'));
+          if (s && s.offsetTop <= y) actual = a;
+        });
+        links.forEach(function (a) { a.classList.toggle('on', a === actual); });
+      }
+      doc.addEventListener('scroll', marcar);
+      marcar();
+    })();
+  </script>
 </body>
 </html>

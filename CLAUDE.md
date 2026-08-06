@@ -59,6 +59,33 @@ historial global en el tablero).
 | `roto` | se probó y falla — estos bloquean el cierre |
 | `fuera` | no se usa más en PilotX, no entra en el alcance |
 
+## El manual se actualiza CON el cambio, no después
+
+`SourceCode/AgroParallel/Web/AgroParallel.WebUI/wwwroot/pages/ayuda.html` es el
+manual de cabina: dice **dónde se hace cada cosa** (rutas tipo
+`Barra de la pasada › Piloto`). Un manual que miente es peor que no tener
+manual — el operario toca donde dice y no está.
+
+**Regla: si un cambio mueve, agrega o saca algo que el operario ve, la ayuda se
+actualiza EN EL MISMO COMMIT.** No es tarea aparte ni "lo hacemos después".
+Dispara la regla cualquiera de estos:
+
+- mover un botón de barra/menú a otro lado (ej. Guías de la barra derecha a la
+  barra de la pasada, el zoom a la esquina),
+- sacar una entrada de menú (ej. "Herr. lote", "Nuevo desde KML", los ítems de
+  SISTEMA) — si la función desapareció de la UI, sale del manual,
+- agregar una pantalla o un flujo nuevo (ej. el menú de entrada de Guías),
+- cambiar un requisito o un guard que el operario sufre (ej. "Borrar pintado"
+  solo con secciones apagadas; el piloto pide GPS + lote + guía),
+- renombrar algo visible.
+
+Cómo mantenerla honesta: las rutas salen de la UI REAL
+(`PilotX.Cockpit.Bars/Views/*.axaml` para barras y menú, `MainWindow.axaml`
+para la barra de la pasada, `pages/config.html` para los módulos de
+Configuración). Antes de escribir una ruta, verificala en esos archivos — no
+de memoria. Si un commit toca UI y no toca `ayuda.html`, hay que poder
+justificar por qué (cambio interno que el operario no ve).
+
 ## Verificación antes de decir que algo anda
 
 Este repo maneja una máquina que siembra: un error cuesta plata en el lote.
