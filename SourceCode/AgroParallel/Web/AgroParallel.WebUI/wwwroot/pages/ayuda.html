@@ -68,11 +68,61 @@
       margin: 0 0 var(--agp-sp-2) 0;
     }
     .ruta b {
+      display: inline-flex; align-items: center; gap: 5px;
       background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-border);
       border-radius: var(--agp-radius-sm); padding: 2px 7px;
       color: var(--agp-text); font-weight: var(--agp-fw-medium);
     }
+    .ruta b img { width: 16px; height: 16px; object-fit: contain; }
     .ruta i { font-style: normal; color: var(--agp-text-dim); }
+
+    /* ── Botonera ilustrada: el ícono REAL de la app + qué hace ─────────
+       Es lo que convierte el manual en algo mirable: el operario reconoce
+       el dibujo que tiene en pantalla sin leer una palabra. */
+    .btns { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: var(--agp-sp-2); margin-bottom: var(--agp-sp-3); }
+    .btn-i {
+      display: flex; align-items: flex-start; gap: var(--agp-sp-2);
+      background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-border);
+      border-radius: var(--agp-radius-sm); padding: var(--agp-sp-2);
+    }
+    .btn-i img { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; }
+    .btn-i .tx { min-width: 0; }
+    .btn-i .nm { font-size: var(--agp-fs-sm); font-weight: var(--agp-fw-semi); color: var(--agp-text); }
+    .btn-i .ds { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); line-height: 1.35; }
+
+    /* Esquema de la pantalla: mapa de zonas, para ubicarse de un vistazo. */
+    .esq {
+      border: var(--agp-border-w) solid var(--agp-border); border-radius: var(--agp-radius-md);
+      overflow: hidden; margin-bottom: var(--agp-sp-3); background: var(--agp-bg-soft);
+    }
+    .esq .fila { display: flex; }
+    .esq .z {
+      flex: 1 1 0; padding: var(--agp-sp-2); text-align: center;
+      border: 1px dashed var(--agp-border-strong); margin: 3px;
+      border-radius: var(--agp-radius-sm); background: var(--agp-surface);
+    }
+    .esq .z .t { font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-semi); color: var(--agp-text); }
+    .esq .z .d { font-size: var(--agp-fs-xs); color: var(--agp-text-muted); }
+    .esq .z.centro { background: var(--agp-accent-soft); border-style: solid; border-color: var(--agp-accent); }
+    .esq .lat { flex: 0 0 88px; }
+    .esq .mapa { padding: var(--agp-sp-5) var(--agp-sp-2); }
+
+    /* Pasos numerados con aire, para flujos de campo. */
+    ol.pasos { list-style: none; padding: 0; counter-reset: p; }
+    ol.pasos li {
+      counter-increment: p; position: relative;
+      padding: 0 0 var(--agp-sp-2) 34px; margin: 0;
+    }
+    ol.pasos li::before {
+      content: counter(p); position: absolute; left: 0; top: 0;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--agp-accent); color: #fff;
+      font-size: var(--agp-fs-xs); font-weight: var(--agp-fw-bold);
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Puntito de color para explicar lo que se ve en el mapa. */
+    .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; border: 1px solid var(--agp-border-strong); }
 
     .aviso {
       background: var(--agp-surface); border: var(--agp-border-w) solid var(--agp-state-warn);
@@ -147,28 +197,78 @@
 
         <section id="pantalla">
           <h2>Partes de la pantalla</h2>
+
+          <div class="esq">
+            <div class="fila">
+              <div class="z"><div class="t">Barra de arriba</div><div class="d">velocidad · GPS · lote · SISTEMA</div></div>
+            </div>
+            <div class="fila">
+              <div class="z lat"><div class="t">Menú</div><div class="d">config y lote</div></div>
+              <div class="z mapa"><div class="t">MAPA</div><div class="d">el tractor, las guías y lo trabajado</div></div>
+              <div class="z lat"><div class="t">Zoom + barra</div><div class="d">arriba el zoom</div></div>
+            </div>
+            <div class="fila">
+              <div class="z centro"><div class="t">Barra de la pasada</div><div class="d">geometría · corrección · piloto</div></div>
+            </div>
+          </div>
+
           <h3>Barra de arriba</h3>
           <p>Velocidad, señal de GPS, tiempo y hectáreas. Los botones: <strong>TRABAJO</strong>, <strong>GPS</strong>, el <strong>nombre del lote</strong> (abre sus datos) y <strong>SISTEMA</strong> (perfiles del vehículo y esta ayuda).</p>
+
           <h3>Menú de la izquierda</h3>
-          <p>Se despliega con la flecha del borde. Tiene: <strong>Pantalla</strong> (día/noche y brillo), <strong>Herramientas</strong>, <strong>Configuración</strong>, <strong>LOTE</strong>, <strong>Dirección</strong> y <strong>CoreX</strong>.</p>
+          <p>Se despliega con la flecha del borde:</p>
+          <div class="btns">
+            <div class="btn-i"><img src="../img/menu/NavigationSettings.png" alt=""><div class="tx"><div class="nm">Pantalla</div><div class="ds">Día/noche y brillo.</div></div></div>
+            <div class="btn-i"><img src="../img/menu/SpecialFunctions.png" alt=""><div class="tx"><div class="nm">Herramientas</div><div class="ds">Gráficos, webcam, utilidades.</div></div></div>
+            <div class="btn-i"><img src="../img/menu/Settings48.png" alt=""><div class="tx"><div class="nm">Configuración</div><div class="ds">Vehículo, implemento, módulos.</div></div></div>
+            <div class="btn-i"><img src="../img/menu/JobActive.png" alt=""><div class="tx"><div class="nm">LOTE</div><div class="ds">Abrir, nuevo, cerrar, borrar pintado.</div></div></div>
+            <div class="btn-i"><img src="../img/menu/AutoSteerConf.png" alt=""><div class="tx"><div class="nm">Dirección</div><div class="ds">Cómo responde el volante.</div></div></div>
+            <div class="btn-i"><img src="../img/menu/CoreX.png" alt=""><div class="tx"><div class="nm">CoreX</div><div class="ds">Estado del GPS y las conexiones.</div></div></div>
+          </div>
+
           <h3>Barra de la pasada (abajo)</h3>
-          <p>Es la barra que más se usa, ordenada por zonas:</p>
-          <ul>
-            <li><strong>Izquierda</strong> — Guías, Lindero, Cabecera: lo que definís antes de arrancar.</li>
-            <li><strong>Centro</strong> — Izq / Centrar / Der: corregir la línea. El botón Centrar queda alineado con el tractor.</li>
-            <li><strong>Derecha</strong> — Giro, Automático, Manual y <strong>Piloto</strong> en la punta, que es el que más se toca.</li>
-          </ul>
+          <p>Es la que más se usa. Está ordenada por zonas: a la izquierda lo que definís <em>antes</em> de arrancar, al centro la corrección, y a la derecha lo que tocás todo el tiempo.</p>
+          <div class="btns">
+            <div class="btn-i"><img src="../img/barra-abajo/TrackOn.png" alt=""><div class="tx"><div class="nm">Guías</div><div class="ds">Crear o elegir la línea.</div></div></div>
+            <div class="btn-i"><img src="../img/menu/Boundary.png" alt=""><div class="tx"><div class="nm">Lindero</div><div class="ds">Contorno del lote.</div></div></div>
+            <div class="btn-i"><img src="../img/menu/HeadlandBuild.png" alt=""><div class="tx"><div class="nm">Cabecera</div><div class="ds">Franja del borde para girar.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/SnapLeft.png" alt=""><div class="tx"><div class="nm">Izq</div><div class="ds">Corre la guía a la izquierda.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/SnapToPivot.png" alt=""><div class="tx"><div class="nm">Centrar</div><div class="ds">Trae la guía bajo el tractor.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/SnapRight.png" alt=""><div class="tx"><div class="nm">Der</div><div class="ds">Corre la guía a la derecha.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-derecha/YouTurn80.png" alt=""><div class="tx"><div class="nm">Giro</div><div class="ds">Da la vuelta solo en la cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-derecha/SectionMasterOn.png" alt=""><div class="tx"><div class="nm">Automático</div><div class="ds">Las secciones cortan solas.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-derecha/ManualOn.png" alt=""><div class="tx"><div class="nm">Manual</div><div class="ds">Todas abiertas hasta que apagues.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-derecha/AutoSteerOn.png" alt=""><div class="tx"><div class="nm">Piloto</div><div class="ds">Engancha el guiado. En la punta derecha.</div></div></div>
+          </div>
+
           <h3>Barra de la derecha</h3>
-          <p>Funciones de la pasada: contorno, guía siguiente/anterior, auto guía, tram, hidráulico, corte por cabecera, enderezar implemento y banderas. Se pliega sola; se abre con su lengüeta.</p>
+          <p>Funciones de la pasada. Se pliega sola y se abre con su lengüeta.</p>
+          <div class="btns">
+            <div class="btn-i"><img src="../img/barra-derecha/ABLineCycle.png" alt=""><div class="tx"><div class="nm">Guía sig. / ant.</div><div class="ds">Pasar a la línea de al lado.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-derecha/ContourOn.png" alt=""><div class="tx"><div class="nm">Contorno</div><div class="ds">Guía pegada a la pasada anterior, sin línea fija. Ver abajo.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-derecha/AutoTrack.png" alt=""><div class="tx"><div class="nm">Auto guía</div><div class="ds">Elige sola la guía más cercana.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/HeadlandOn.png" alt=""><div class="tx"><div class="nm">Cabecera on/off</div><div class="ds">Activa el corte por cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/TramAll.png" alt=""><div class="tx"><div class="nm">Tram</div><div class="ds">Huellas para el pulverizador.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/HydraulicLiftOn.png" alt=""><div class="tx"><div class="nm">Hidráulico</div><div class="ds">Sube/baja el implemento en cabecera.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/YouSkipOn.png" alt=""><div class="tx"><div class="nm">Por medio</div><div class="ds">Saltea pasadas al girar.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/ResetTool.png" alt=""><div class="tx"><div class="nm">Enderezar</div><div class="ds">Acomoda el implemento en el mapa.</div></div></div>
+            <div class="btn-i"><img src="../img/barra-abajo/FlagRed.png" alt=""><div class="tx"><div class="nm">Bandera</div><div class="ds">Marca un punto en el lote.</div></div></div>
+          </div>
+
           <h3>Zoom</h3>
-          <p>Los botones <strong>+</strong> y <strong>−</strong> están fijos arriba a la derecha. También se puede acercar con dos dedos sobre el mapa.</p>
-          <h3>Puntos del mapa</h3>
-          <p>Sobre el tractor vas a ver dos puntos: el <strong>celeste</strong> es la antena GPS y el <strong>naranja</strong> es hacia dónde apunta el piloto. Si el naranja va sobre la línea, el guiado está trabajando bien.</p>
+          <p>Los botones <strong>+</strong> y <strong>−</strong> están fijos arriba a la derecha. También podés acercar con dos dedos sobre el mapa.</p>
+
+          <h3>Qué ves en el mapa</h3>
+          <ul>
+            <li><span class="dot" style="background:#4DCCFF"></span><strong>Punto celeste</strong> — la antena GPS, sobre el tractor.</li>
+            <li><span class="dot" style="background:#FF991A"></span><strong>Punto naranja</strong> — hacia dónde apunta el piloto. Si va sobre la línea, el guiado trabaja bien.</li>
+            <li><span class="dot" style="background:#4ABA3E"></span><strong>Verde</strong> — lo ya trabajado (el pintado).</li>
+          </ul>
         </section>
 
         <section id="jornada">
           <h2>Una jornada, paso a paso</h2>
-          <ol>
+          <ol class="pasos">
             <li>Esperar el <strong>GPS en verde</strong>.</li>
             <li><strong>Abrir el lote</strong> (o crearlo si es la primera vez).</li>
             <li><strong>Elegir o crear la guía</strong> por donde vas a sembrar.</li>
@@ -199,7 +299,7 @@
           <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Guías</b></p>
           <p>Al abrir aparecen dos opciones para crear, y si el lote ya tiene guías, un botón para verlas:</p>
           <h3>AB Line (recta)</h3>
-          <ol>
+          <ol class="pasos">
             <li>Poné el tractor donde empieza la pasada y tocá <strong>A</strong>.</li>
             <li>Manejá derecho hasta el otro extremo y tocá <strong>B</strong>.</li>
             <li>Confirmá con el <strong>tilde verde</strong> y ponele nombre. La ventana se cierra sola y la guía queda en el mapa.</li>
@@ -212,6 +312,17 @@
           <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Izq</b> <b>Centrar</b> <b>Der</b></p>
           <p>Si la guía quedó corrida respecto de lo sembrado: <strong>Izq</strong> y <strong>Der</strong> la mueven de a poco, y <strong>Centrar</strong> la lleva justo debajo del tractor.</p>
           <p>Para pasar de una guía a otra durante el trabajo usá <strong>Guía sig.</strong> / <strong>Guía ant.</strong> de la barra derecha.</p>
+
+          <h3>Contorno: guiado sin línea fija</h3>
+          <p class="ruta"><b>Barra derecha</b> <i>›</i> <b>Contorno</b></p>
+          <p>Las guías AB y curva son líneas <strong>fijas</strong>: se dibujan una vez y el piloto arma las pasadas paralelas a esa. <strong>Contorno es distinto</strong>: no hay línea guardada — el piloto se pega a la <em>última pasada que hiciste</em>, tomándola de lo que quedó pintado en el mapa.</p>
+          <p>Sirve para lotes de forma irregular, donde ninguna recta ni curva sirve para todo: bordeás una vez siguiendo el alambrado a mano, y de ahí en más el piloto va siguiendo esa forma vuelta tras vuelta, cerrándose hacia adentro.</p>
+          <ul>
+            <li><strong>Para usarlo</strong>: sembrá una vuelta con las secciones prendidas (así queda pintado) y después activá Contorno. El piloto engancha solo, sin elegir guía.</li>
+            <li><strong>Fijar cont.</strong> (botón de al lado) clava la referencia a la pasada actual, para que no salte a otra cercana.</li>
+            <li>Si no hay nada pintado alrededor, Contorno no tiene de dónde agarrarse y no engancha.</li>
+          </ul>
+          <div class="clave">En criollo: <strong>AB/curva</strong> = seguir una línea que vos definiste. <strong>Contorno</strong> = seguir la vuelta anterior, sea la forma que sea. Si el lote es rectangular, usá AB; si es irregular o vas bordeando, Contorno.</div>
         </section>
 
         <section id="lindero">
@@ -223,7 +334,7 @@
           <h3>Cabecera</h3>
           <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Cabecera</b></p>
           <p>La cabecera es la franja del borde donde el tractor da la vuelta. Se construye hacia adentro del lindero:</p>
-          <ol>
+          <ol class="pasos">
             <li>Poné la <strong>distancia</strong> (viene cargada con el ancho de la máquina).</li>
             <li>Tocá <strong>Construir</strong>: la vas a ver dibujada en el mapa.</li>
             <li><strong>Reset al contorno</strong> la vuelve al borde; <strong>Apagar cabecera</strong> la desactiva sin borrarla.</li>
@@ -318,7 +429,7 @@
         <section id="simulador">
           <h2>Simulador (banco de pruebas)</h2>
           <p>Para probar sin salir al lote se usa <strong>ModSim</strong>, que simula el GPS. Es una herramienta de taller, no de trabajo.</p>
-          <ol>
+          <ol class="pasos">
             <li>Abrí <strong>PilotX primero</strong>.</li>
             <li>Después abrí ModSim y ponele velocidad.</li>
             <li>Trabajá como siempre: lote, guía, piloto.</li>
