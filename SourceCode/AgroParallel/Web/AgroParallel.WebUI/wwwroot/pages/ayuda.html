@@ -199,8 +199,31 @@
         <section id="arranque">
           <h2>Encender y arrancar</h2>
           <p>PilotX arranca solo con la pantalla. Si lo cerraste, abrilo desde el ícono del escritorio: levanta también el motor de guiado, no hace falta abrir nada más.</p>
-          <p>Antes de trabajar, mirá arriba a la izquierda: el punto de <strong>GPS</strong> tiene que estar en verde. Si dice <em>SIN FIX</em> o está en rojo, la antena todavía no tiene señal — esperá a cielo abierto unos segundos.</p>
-          <div class="clave">Con GPS en rojo el piloto no engancha y varios botones quedan grises. Es a propósito: sin posición no hay guiado posible.</div>
+          <p>Antes de trabajar, mirá arriba a la izquierda el estado del <strong>GPS</strong>. El color dice qué señal tenés:</p>
+          <table class="ay-tab">
+            <tr><th>Color</th><th>Dice</th><th>Qué significa</th></tr>
+            <tr>
+              <td><span class="dot" style="background:#4ABA3E"></span>Verde</td>
+              <td>RTK FIJO</td>
+              <td>Corrección RTK enganchada: la mejor precisión, centímetros.</td>
+            </tr>
+            <tr>
+              <td><span class="dot" style="background:#E2B53E"></span>Naranja</td>
+              <td>GPS · DGPS · RTK FLOAT</td>
+              <td><strong>Señal libre</strong> — es el modo normal de trabajo en Spark. Se puede sembrar perfectamente; no es un error.</td>
+            </tr>
+            <tr>
+              <td><span class="dot" style="background:#8FA092"></span>Gris</td>
+              <td>SIMULADOR</td>
+              <td>La posición viene del simulador, no de la antena. Solo para probar en el taller.</td>
+            </tr>
+            <tr>
+              <td><span class="dot" style="background:#E15A5A"></span>Rojo</td>
+              <td>SIN FIX</td>
+              <td>La antena todavía no tiene señal. Esperá a cielo abierto unos segundos.</td>
+            </tr>
+          </table>
+          <div class="clave">Solo el <strong>rojo</strong> impide trabajar: sin posición el piloto no engancha y varios botones quedan grises. Con naranja (señal libre) se trabaja normal; el verde es el plus de precisión del RTK.</div>
         </section>
 
         <section id="pantalla">
@@ -459,6 +482,9 @@
 
           <h3>Dice SIN FIX o el GPS está en rojo</h3>
           <p>La antena no tiene señal: cielo tapado, cable flojo o la antena recién encendida. Si tarda mucho, revisá la conexión en <strong>Menú izquierdo › CoreX</strong>.</p>
+
+          <h3>El GPS está en naranja, ¿puedo trabajar?</h3>
+          <p><strong>Sí.</strong> Naranja es <strong>señal libre</strong>, el modo normal de Spark: hay posición y el piloto engancha sin problema. El verde (RTK fijo) es precisión extra, no un requisito para trabajar.</p>
 
           <h3>Las secciones no cortan solas</h3>
           <p>Tienen que estar en <strong>Automático</strong> (en Manual quedan siempre abiertas). Si tampoco cortan en la cabecera, fijate que esté tildado <strong>Secciones controladas en cabecera</strong>.</p>
