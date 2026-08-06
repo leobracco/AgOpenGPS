@@ -53,6 +53,10 @@ public sealed class HudSnapshot
     /// cerrar el diálogo de Guías cuando aparece una nueva — la página no
     /// puede avisar (ver OnDialogNavigated en MainWindow).</summary>
     public int TracksTotal { get; set; }
+    /// <summary>Guía activa (track_idx, -1 = ninguna). Misma función que
+    /// TracksTotal: cerrar el diálogo cuando el operario ELIGE una guía
+    /// desde la lista (tilde verde).</summary>
+    public int TrackIdx { get; set; } = -1;
 
     // ---- Campos para el mini-mapa cockpit -------------------------------
     // En metros locales, mismo frame de coordenadas que las boundaries.

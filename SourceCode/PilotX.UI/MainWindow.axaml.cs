@@ -1296,7 +1296,8 @@ public partial class MainWindow : Window
             // solo se navega (el early-return de abajo): sin esto, pasar de
             // otra página a Guías dejaba el cierre-por-guía-nueva apagado.
             _dialogEsTracks = full.IndexOf("tracks.html", StringComparison.OrdinalIgnoreCase) >= 0;
-            _tracksAlAbrirDialogo = -1;   // el próximo HUD fija el piso
+            _tracksAlAbrirDialogo = -1;                  // el próximo HUD fija el piso
+            _trackIdxAlAbrirDialogo = int.MinValue;      // ídem para la guía activa
 
             if (_dialogWin != null)
             {
@@ -1393,18 +1394,34 @@ public partial class MainWindow : Window
     // borrar y crear en la misma sesión no cerraría nunca.
     private bool _dialogEsTracks;
     private int _tracksAlAbrirDialogo = -1;
+    private int _trackIdxAlAbrirDialogo = int.MinValue;
 
-    private void CerrarDialogoSiHayGuiaNueva(int tracksTotal)
+    private void CerrarDialogoSiHayGuiaNueva(int tracksTotal, int trackIdx)
     {
         if (!_dialogEsTracks || _dialogWin == null) return;
+
+        // Primer HUD con el diálogo abierto: fija el piso, no cierra nada.
+        if (_trackIdxAlAbrirDialogo == int.MinValue) _trackIdxAlAbrirDialogo = trackIdx;
         if (_tracksAlAbrirDialogo < 0 || tracksTotal < _tracksAlAbrirDialogo)
         {
             _tracksAlAbrirDialogo = tracksTotal;
             return;
         }
+
+        // Guía NUEVA creada (el total sube)…
         if (tracksTotal > _tracksAlAbrirDialogo)
         {
             _tracksAlAbrirDialogo = tracksTotal;
+            CerrarDialogo();
+            return;
+        }
+
+        // …o guía ELEGIDA desde la lista con el tilde verde (cambia la
+        // activa). Mismo motivo que el resto: la página no puede avisar
+        // (ver OnDialogNavigated), pero el host ya ve track_idx en el HUD.
+        if (trackIdx != _trackIdxAlAbrirDialogo)
+        {
+            _trackIdxAlAbrirDialogo = trackIdx;
             CerrarDialogo();
         }
     }
@@ -3284,7 +3301,7 @@ public partial class MainWindow : Window
             ReconciliarMapa();
             _lastFieldDir = s.CurrentFieldDirectory;
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
-            CerrarDialogoSiHayGuiaNueva(s.TracksTotal);
+            CerrarDialogoSiHayGuiaNueva(s.TracksTotal, s.TrackIdx);
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);
             ActualizarClusterPiloto(s);
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;
