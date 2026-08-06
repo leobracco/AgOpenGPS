@@ -130,23 +130,16 @@
         <Button Classes="tab" Content="SISTEMA">
           <Button.Flyout>
             <MenuFlyout Placement="Bottom">
+              <!-- SISTEMA queda en DOS entradas (pedido usuario 2026-08-06):
+                   Perfiles y Ayuda. Idioma, Simulador, Coordenadas del
+                   simulador, Modo kiosco y Restablecer TODO salieron del menú
+                   — sus comandos (idioma_*, simulador, sim_coords, kiosco,
+                   reset_all) siguen cableados en RouteCockpitCommand por si
+                   se recuelgan en otro lado. -->
               <MenuItem Header="Perfiles del vehículo" Command="{Binding SendCommand}" CommandParameter="perfil_gestion"/>
-              <MenuItem Header="Idioma">
-                <MenuItem Header="Español"    Command="{Binding SendCommand}" CommandParameter="idioma_es"/>
-                <MenuItem Header="English"    Command="{Binding SendCommand}" CommandParameter="idioma_en"/>
-                <MenuItem Header="Português"  Command="{Binding SendCommand}" CommandParameter="idioma_pt"/>
-                <MenuItem Header="Français"   Command="{Binding SendCommand}" CommandParameter="idioma_fr"/>
-                <MenuItem Header="Deutsch"    Command="{Binding SendCommand}" CommandParameter="idioma_de"/>
-                <MenuItem Header="Italiano"   Command="{Binding SendCommand}" CommandParameter="idioma_it"/>
-                <MenuItem Header="Русский"    Command="{Binding SendCommand}" CommandParameter="idioma_ru"/>
-                <MenuItem Header="Українська" Command="{Binding SendCommand}" CommandParameter="idioma_uk"/>
-              </MenuItem>
-              <MenuItem Header="Simulador"                 Command="{Binding SendCommand}" CommandParameter="simulador"/>
-              <MenuItem Header="Coordenadas del simulador" Command="{Binding SendCommand}" CommandParameter="sim_coords"/>
-              <MenuItem Header="Modo kiosco (pantalla completa)" Command="{Binding SendCommand}" CommandParameter="kiosco"/>
-              <Separator/>
-              <MenuItem Header="Restablecer TODO" Command="{Binding SendCommand}" CommandParameter="reset_all"/>
-              <MenuItem Header="Ayuda"            Command="{Binding SendCommand}" CommandParameter="ayuda"/>
+              <!-- Ayuda abre la pantalla de Configuración parada en su módulo
+                   (config.html?mod=ayuda.html), no la página suelta. -->
+              <MenuItem Header="Ayuda"                 Command="{Binding SendCommand}" CommandParameter="ayuda"/>
             </MenuFlyout>
           </Button.Flyout>
         </Button>
