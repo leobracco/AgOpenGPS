@@ -39,9 +39,16 @@ public partial class CoreXEcuPanel : UserControl
     private CancellationTokenSource? _cts;
     private CoreXEcuStatus? _live;
 
-    public Action? OnRequestConfigurar { get; set; }
     /// <summary>El operario tocó la ✕ — el host cierra el panel flotante.</summary>
     public Action? OnRequestCerrar { get; set; }
+    /// <summary>Entró a la pestaña Configurar: el host monta un WebView en el
+    /// Panel recibido y navega a corex-ecu.html?widget=1.</summary>
+    public Action<Panel>? OnConfigOpen { get; set; }
+    /// <summary>Salió de la pestaña Configurar (o se cerró el panel): el host
+    /// destruye el WebView embebido.</summary>
+    public Action? OnConfigClose { get; set; }
+
+    private bool _configAbierta;
 
     // Paleta CLARA PilotX (misma que GuiasPanel/LotePanel): la card flota
     // sobre el mapa vivo, no es mas un takeover oscuro pantalla completa.
@@ -74,7 +81,55 @@ public partial class CoreXEcuPanel : UserControl
     {
         try { _cts?.Cancel(); } catch { }
         _cts = null;
+        // Si quedó en Configurar, bajar el WebView embebido y volver a la
+        // pestaña En vivo para la próxima apertura.
+        MostrarTab(config: false);
     }
+
+    // ---------- tabs -------------------------------------------------------
+
+    private static readonly IBrush _tabActivaBg    = new SolidColorBrush(Color.Parse("#FFFFFF"));
+    private static readonly IBrush _tabActivaBorde = new SolidColorBrush(Color.Parse("#4ABA3E"));
+
+    private void MostrarTab(bool config)
+    {
+        var live       = this.FindControl<ScrollViewer>("LiveRoot");
+        var configHost = this.FindControl<Panel>("ConfigHost");
+        var btnLive    = this.FindControl<Button>("BtnTabLive");
+        var btnConfig  = this.FindControl<Button>("BtnTabConfig");
+
+        if (live       != null) live.IsVisible       = !config;
+        if (configHost != null) configHost.IsVisible = config;
+
+        if (btnLive != null)
+        {
+            btnLive.Background  = config ? Brushes.Transparent : _tabActivaBg;
+            btnLive.BorderBrush = config ? Brushes.Transparent : _tabActivaBorde;
+            btnLive.Foreground  = config ? _textMid : _textHi;
+            btnLive.FontWeight  = config ? FontWeight.Normal : FontWeight.SemiBold;
+        }
+        if (btnConfig != null)
+        {
+            btnConfig.Background  = config ? _tabActivaBg : Brushes.Transparent;
+            btnConfig.BorderBrush = config ? _tabActivaBorde : Brushes.Transparent;
+            btnConfig.Foreground  = config ? _textHi : _textMid;
+            btnConfig.FontWeight  = config ? FontWeight.SemiBold : FontWeight.Normal;
+        }
+
+        if (config && !_configAbierta)
+        {
+            _configAbierta = true;
+            if (configHost != null) OnConfigOpen?.Invoke(configHost);
+        }
+        else if (!config && _configAbierta)
+        {
+            _configAbierta = false;
+            OnConfigClose?.Invoke();
+        }
+    }
+
+    private void OnTabLiveClick(object? sender, RoutedEventArgs e)   => MostrarTab(config: false);
+    private void OnTabConfigClick(object? sender, RoutedEventArgs e) => MostrarTab(config: true);
 
     private async Task RunLoopAsync(CancellationToken ct)
     {
@@ -373,11 +428,6 @@ public partial class CoreXEcuPanel : UserControl
             case "bno_was":  return "BNO RVC (yaw como WAS)";
             default:         return src!;
         }
-    }
-
-    private void OnConfigurarClick(object? sender, RoutedEventArgs e)
-    {
-        OnRequestConfigurar?.Invoke();
     }
 
     private void OnCerrarClick(object? sender, RoutedEventArgs e)

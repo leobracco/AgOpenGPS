@@ -514,12 +514,12 @@ public partial class MainWindow : Window
         }
         if (_coreXEcuHost != null)
         {
-            // Boton Configurar abre las tabs editor (Estado/checklist,
-            // Calibracion / motor manual + barrido PWM, Conexion con el ECU)
-            // en una ventana float CHICA solo con esa pagina (?widget=1 esconde
-            // el sidebar del Hub). Antes navegaba al takeover del Hub y en
-            // cabina se veia como "otra ventana gigante" (reporte 2026-08-07).
-            _coreXEcuHost.OnRequestConfigurar = () => AbrirWidgetFloat("pages/corex-ecu.html?widget=1", "CoreX-ECU", 920, 620);
+            // Pestaña Configurar DENTRO de la misma card (pedido 2026-08-07,
+            // "unifica"): un WebView propio embebido en el slot del panel con
+            // corex-ecu.html?widget=1 (sin sidebar del Hub). Se crea al entrar
+            // a la pestaña y se destruye al salir — ver AbrirEcuConfig.
+            _coreXEcuHost.OnConfigOpen  = slot => AbrirEcuConfig(slot);
+            _coreXEcuHost.OnConfigClose = () => CerrarEcuConfig();
             // La ✕ de la card flotante cierra el panel (el mapa ya esta vivo).
             _coreXEcuHost.OnRequestCerrar = () => CloseCoreXEcu();
         }
@@ -2203,31 +2203,47 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU closed");
     }
 
-    // Widget flotante: OTRO proceso PilotX.Desktop en --mode=float, mismo
-    // mecanismo que usa el shell WinForms para camaras. Ventana chica con
-    // chrome propio SOLO con esa pagina (la pagina esconde el sidebar del
-    // Hub con ?widget=1). Esta ventana no pierde nada: el mapa y el HUD
-    // siguen como estaban, y el widget se cierra con su propia X.
-    private void AbrirWidgetFloat(string page, string titulo, int ancho, int alto)
+    // WebView propio de la pestaña Configurar de CoreX-ECU. Vive DENTRO de
+    // la card (slot ConfigHost). NO se re-parenta el _webView global: sacar
+    // un NativeControlHost del arbol visual mata los procesos de Chromium.
+    // Se crea al entrar a la pestaña y se DESTRUYE al salir: la config del
+    // ECU es flujo de galpon, no de labor — no vale la pena tenerlo vivo.
+    private PilotX.Desktop.Services.IWebViewHandle? _ecuConfigWebView;
+
+    private void AbrirEcuConfig(Avalonia.Controls.Panel slot)
     {
+        if (App.WebViewHost == null) return;
         try
         {
-            var exe = Environment.ProcessPath;
-            if (string.IsNullOrEmpty(exe)) return;
-            var psi = new System.Diagnostics.ProcessStartInfo
+            if (_ecuConfigWebView == null)
             {
-                FileName = exe,
-                Arguments = "--page=" + page + " --mode=float --title=\"" + titulo + "\""
-                          + " --width=" + ancho.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                          + " --height=" + alto.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                UseShellExecute = false,
-                WorkingDirectory = System.IO.Path.GetDirectoryName(exe) ?? "",
-            };
-            System.Diagnostics.Process.Start(psi);
+                _ecuConfigWebView = App.WebViewHost.Create(_ => { });
+                slot.Children.Add(_ecuConfigWebView.Control);
+            }
+            var origin = DeriveOrigin(App.TargetUrl);
+            _ecuConfigWebView.Navigate(origin + "pages/corex-ecu.html?widget=1");
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU config tab (WebView embebido)");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] widget float fallo: " + ex.Message);
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU config open error: " + ex.Message);
+        }
+    }
+
+    private void CerrarEcuConfig()
+    {
+        if (_ecuConfigWebView == null) return;
+        try
+        {
+            var wv = _ecuConfigWebView;
+            _ecuConfigWebView = null;
+            if (wv.Control.Parent is Avalonia.Controls.Panel p) p.Children.Remove(wv.Control);
+            wv.Destroy();
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU config tab cerrada (WebView destruido)");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU config close error: " + ex.Message);
         }
     }
 
