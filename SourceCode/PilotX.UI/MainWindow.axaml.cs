@@ -359,6 +359,17 @@ public partial class MainWindow : Window
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
+
+        // Visor de IMU: arranca con la app (pedido 2026-08-07). Fuente = proxy
+        // corex-ecu; si no hay ECU se ve "sin ECU" en gris, que también es dato.
+        var imuHost = this.FindControl<ImuOverlay>("ImuHost");
+        if (imuHost != null && App.WindowMode != "float")
+        {
+            imuHost.Attach(
+                new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(3) },
+                DeriveOrigin(App.TargetUrl));
+            Closed += (_, _) => imuHost.Detach();
+        }
         _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");

@@ -794,6 +794,15 @@
                      aire tapando el mapa justo cuando se replegó para liberarlo. -->
                 <bars:BarraDerecha x:Name="BarDerecha" Grid.Row="1"
                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                <!-- Visor de IMU (pedido 2026-08-07, pruebas con ECU real):
+                     rumbo/rolido/cabeceo vivos del CoreX-ECU, arriba a la
+                     izquierda. Solo lectura, no intercepta toques. -->
+                <!-- Margen izquierdo 145: el riel del menú lateral (~130 px)
+                     queda por encima del mapa y tapaba el panel. -->
+                <vw:ImuOverlay x:Name="ImuHost" Grid.Row="1"
+                               HorizontalAlignment="Left" VerticalAlignment="Top"
+                               Margin="145,10,0,0"/>
+
                 <!-- Panel de GUÍAS nativo (14vo port, reemplaza tracks.html):
                      flota sobre el mapa VIVO — al grabar la curva se ve la
                      traza dibujándose detrás, cosa que la ventana HTML
