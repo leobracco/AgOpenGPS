@@ -3456,3 +3456,29 @@ perfil + traza), CoreXEngineHost.cs (endpoints/subredes), UdpBridgeService.cs.
   ahora también rasteriza a wwwroot (MAPA_WEB): 17 íconos de img/steer/ +
   FileSave pasados al estilo Agro Parallel desde el handoff. Los pictogramas
   técnicos ConSt_*/ConV_*/ConD_* no vinieron en el handoff y siguen AOG.
+
+## 2026-08-07 · Leonardo+Claude — CoreX-ECU real conectado: card unificada, firmware 1.00, encoder Keya probado
+
+Estado del día (todo pusheado en codex/pilotx-ui-new, a16573f4..a9d8db29):
+
+- **ECU real andando**: AIO Standard v4 (Teensy) en 192.168.5.126 con firmware
+  "CoreX-ECU 1.00" = oficial 27.04.2025 intacto + API web mínima (/api/status,
+  /api/reboot) + retry del BNO085. El firmware ahora tiene REPO GIT LOCAL en
+  `Productos\CoreX\Software\Firmware_Embebido\AIO_v4_CoreX_Web\` (sin remoto).
+  Decisión: NO se flashea más; todo lo demás viaja por PGN 251/252/254.
+- **UI unificada**: Herram. → CoreX-ECU = card flotante clara sobre el mapa
+  vivo con tabs "En vivo" (nativa, 2 Hz) y "Configurar" (corex-ecu.html
+  ?widget=1 embebida, WebView propio que se destruye al salir). El JS gatea
+  por versión de firmware: contra el 1.00 ya no tira AGP-NET-101/404.
+- **Encoder Keya como WAS probado en banco**: Placa → Conversor A/D
+  "Diferencial" + Keya detectado = encoder del motor como sensor de ángulo
+  (lógica nativa del firmware oficial). El lazo cierra (setpoint 5.0° →
+  clavado en 4.95°). GOTCHA: en Manejo Libre el engine manda 8.0 km/h FIJOS
+  (CAutoSteerUpdater, diseño AOG para mover parado) y eso activa la
+  auto-corrección encoder↔GPS del firmware → el motor "sigue y sigue"
+  despacito. En banco se apaga con Placa → "Invertir WAS" ON (en modo encoder
+  esa llave SOLO apaga el trim GPS, no invierte nada). En campo va OFF.
+- **Pendiente mañana**: cuentas por grado del encoder (tope a tope ÷ grados,
+  mirando "Encoder" en la card CAN Keya), D3 sentido motor con RTY, D4 PWM
+  mín, tablero D1-D10. Con Keya detectado sobran "Driver motor" y "Danfoss"
+  en Placa (anotado para ocultarlos).
