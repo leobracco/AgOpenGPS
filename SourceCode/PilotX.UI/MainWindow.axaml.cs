@@ -729,7 +729,11 @@ public partial class MainWindow : Window
             if (_cabinaAlarmasHost != null)
             {
                 _nodosClient = new NodosClient(DeriveOrigin(App.TargetUrl));
-                _cabinaAlarmasHost.Attach(_nodosClient);
+                // El mismo banner también avisa fallas de siembra por surco
+                // (VistaX): tapado / dosis no alcanzada / sin datos / tolva
+                // vacía (pedido 2026-08-07).
+                _cabinaAlarmasHost.Attach(_nodosClient,
+                    new VistaXClient(DeriveOrigin(App.TargetUrl)));
                 Closed += (_, _) => _cabinaAlarmasHost?.Detach();
             }
         }

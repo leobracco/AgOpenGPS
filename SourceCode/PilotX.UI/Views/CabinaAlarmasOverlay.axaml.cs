@@ -1,18 +1,24 @@
 // CabinaAlarmasOverlay.axaml.cs
 //
-// Banner cabin-critical: nodos del implemento ACTIVO que cayeron offline.
-// Reemplazo nativo de pages/cabina-alarmas.html. Vive arriba del mapa,
-// siempre polling cuando la app esta abierta (no requiere navegacion).
+// Banner cabin-critical arriba a la derecha. Dos fuentes (pedido 2026-08-07:
+// "el mismo modal del nodo desconectado debería marcar los errores de
+// VistaX — surco 1 tapado, surco 2 dosis no alcanzada"):
 //
-// Comportamiento:
-//   · Cada 2s GET /api/nodos/unified, filtra nodos
-//     `del_implemento_activo && !online`.
-//   · Si hay >=1, banner visible con la lista (alias o uid + tipo).
-//   · Beep 880 Hz one-shot SOLO cuando entra un UID nuevo en alarma.
-//   · "Silenciar 10 min" suspende los beeps pero NO oculta el banner
-//     (es informacion importante; vuelve a beepear si entra UID nuevo
-//     despues del fin del silenciado).
-//   · Cuando no hay nodos offline, se oculta.
+//   · NODOS: GET /api/nodos/unified cada 2s — nodos del implemento activo
+//     que cayeron offline.
+//   · VISTAX: GET /api/vistax/live en el mismo tick — surcos en falla
+//     PRODUCTIVA mientras se siembra: tapado / dosis no alcanzada / sin
+//     datos / tolva vacía. El exceso NO va al banner (de más siembra, no
+//     de menos — mismo criterio que VxSurcoEvaluator, que no lo marca
+//     como alerta). Solo con monitoreo activo: parado, todos los surcos
+//     darían "tapado" y el banner sería puro ruido.
+//
+// Comportamiento comun:
+//   · Beep 880 Hz one-shot SOLO cuando entra una alarma NUEVA (UID de
+//     nodo o surco+estado que no estaba).
+//   · "Silenciar 10 min" suspende los beeps pero NO oculta el banner.
+//   · La X descarta lo actual; reaparece solo si entra una alarma nueva.
+//   · Sin alarmas, se oculta.
 //
 // NO oculta el mapa ni interfiere con otros overlays — se acopla arriba
 // con ZIndex alto + VerticalAlignment=Top.
@@ -59,14 +65,18 @@ public partial class CabinaAlarmasOverlay : UserControl
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
+    private VistaXClient? _vxClient;
+
     /// <summary>
     /// Arranca el polling. Llamar desde MainWindow al iniciar la app.
     /// El overlay se gestiona solo despues de eso (mostrar/ocultar segun
-    /// haya nodos offline o no).
+    /// haya alarmas o no). <paramref name="vistax"/> es opcional: sin el,
+    /// el banner solo muestra nodos offline (comportamiento anterior).
     /// </summary>
-    public void Attach(NodosClient client)
+    public void Attach(NodosClient client, VistaXClient? vistax = null)
     {
         _client = client;
+        _vxClient = vistax;
         _pollCts?.Cancel();
         _pollCts = new CancellationTokenSource();
         _ = PollLoopAsync(_pollCts.Token);
@@ -89,25 +99,60 @@ public partial class CabinaAlarmasOverlay : UserControl
             while (!ct.IsCancellationRequested)
             {
                 var data = await _client.GetUnifiedAsync(ct).ConfigureAwait(false);
-                await Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(data));
+                VistaXLiveSnapshot? vx = null;
+                if (_vxClient != null)
+                    vx = await _vxClient.GetLiveAsync(ct).ConfigureAwait(false);
+                await Dispatcher.UIThread.InvokeAsync(() => ApplySnapshot(data, vx));
                 await Task.Delay(2000, ct).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) { /* normal al detach */ }
     }
 
-    private void ApplySnapshot(NodosUnifiedResponse? data)
+    /// <summary>Texto de operario para el estado de falla de un surco.
+    /// Devuelve null para los estados que NO van al banner.</summary>
+    private static string? TextoFalla(string? estado) => estado switch
+    {
+        "tapado"  => "tapado",
+        "bajo"    => "dosis no alcanzada",
+        "no-data" => "sin datos",
+        "alerta"  => "tolva vacía",
+        // "exceso" NO alarma: de más siembra, no de menos (VxSurcoEvaluator).
+        _ => null,
+    };
+
+    private void ApplySnapshot(NodosUnifiedResponse? data, VistaXLiveSnapshot? vx)
     {
         if (_alertRoot == null || _tituloText == null || _listaText == null) return;
 
-        if (data == null || !data.Ok || data.Nodos == null)
-            return; // tolerante — si el WebHost no esta, esperamos al proximo tick
+        // ---- fuente 1: nodos del implemento activo offline ------------------
+        var offlines = (data != null && data.Ok && data.Nodos != null)
+            ? data.Nodos.Where(n => n.DelImplementoActivo && !n.Online).ToList()
+            : new List<NodoUnified>();
 
-        var offlines = data.Nodos
-            .Where(n => n.DelImplementoActivo && !n.Online)
-            .ToList();
+        // ---- fuente 2: surcos VistaX en falla productiva ---------------------
+        // Solo con monitoreo activo: parado, cada surco daría "tapado" y el
+        // banner sería puro ruido. Clave = surco+estado, así un surco que pasa
+        // de "bajo" a "tapado" cuenta como alarma NUEVA (y beepea).
+        var fallas = new List<(string clave, string texto)>();
+        if (vx != null && vx.MonitoreoActivo && vx.Trenes != null)
+        {
+            foreach (var tren in vx.Trenes)
+            {
+                if (tren?.Surcos == null) continue;
+                foreach (var s in tren.Surcos)
+                {
+                    if (s == null || s.Muted) continue;
+                    var txt = TextoFalla(s.Estado);
+                    if (txt == null) continue;
+                    fallas.Add(($"vx:{s.Bajada}:{s.Estado}",
+                        PilotX.Cockpit.Bars.Traductor.T("Surco") + " " + s.Bajada + " " +
+                        PilotX.Cockpit.Bars.Traductor.T(txt)));
+                }
+            }
+        }
 
-        if (offlines.Count == 0)
+        if (offlines.Count == 0 && fallas.Count == 0)
         {
             _alertedUids.Clear();
             _dismissedUids.Clear();
@@ -116,52 +161,57 @@ public partial class CabinaAlarmasOverlay : UserControl
             return;
         }
 
-        // UIDs offline actuales.
-        var offUids = new HashSet<string>(
-            offlines.Select(n => n.Uid ?? "").Where(u => !string.IsNullOrEmpty(u)),
-            StringComparer.OrdinalIgnoreCase);
+        // Claves de alarma vigentes (uid de nodo + surco:estado de VistaX).
+        var claves = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var n in offlines)
+            if (!string.IsNullOrEmpty(n.Uid)) claves.Add(n.Uid!);
+        foreach (var f in fallas) claves.Add(f.clave);
 
-        // Si estaba descartado y NO entró ningún UID nuevo, seguir oculto.
+        // Si estaba descartado y NO entró ninguna alarma nueva, seguir oculto.
         if (_dismissed)
         {
-            bool hayNuevoNoDescartado = offUids.Any(u => !_dismissedUids.Contains(u));
-            if (!hayNuevoNoDescartado) { _alertRoot.IsVisible = false; return; }
-            _dismissed = false; // reapareció por un nodo nuevo
+            bool hayNuevaNoDescartada = claves.Any(c => !_dismissedUids.Contains(c));
+            if (!hayNuevaNoDescartada) { _alertRoot.IsVisible = false; return; }
+            _dismissed = false; // reapareció por una alarma nueva
         }
 
-        // Render lista — alias o uid + tipo entre parentesis.
-        var slug = string.IsNullOrEmpty(data.ImplementoSlug) ? "" : " — " + data.ImplementoSlug;
-        _tituloText.Text = "Implemento offline" + slug;
+        // ---- título + lista --------------------------------------------------
+        var t = PilotX.Cockpit.Bars.Traductor.T;
+        if (offlines.Count > 0 && fallas.Count > 0)
+            _tituloText.Text = t("Implemento offline") + " + " + t("fallas de siembra");
+        else if (offlines.Count > 0)
+        {
+            var slug = string.IsNullOrEmpty(data!.ImplementoSlug) ? "" : " — " + data.ImplementoSlug;
+            _tituloText.Text = t("Implemento offline") + slug;
+        }
+        else
+            _tituloText.Text = t("Fallas de siembra") + " — VistaX";
 
         var sb = new StringBuilder();
-        for (int i = 0; i < offlines.Count; i++)
+        foreach (var n in offlines)
         {
-            if (i > 0) sb.Append("    ");
-            var n = offlines[i];
+            if (sb.Length > 0) sb.Append("    ");
             var label = string.IsNullOrEmpty(n.Alias) ? (n.Uid ?? "") : n.Alias;
             sb.Append("• ").Append(label);
             if (!string.IsNullOrEmpty(n.Tipo))
                 sb.Append(' ').Append('(').Append(n.Tipo).Append(')');
         }
+        foreach (var f in fallas)
+        {
+            if (sb.Length > 0) sb.Append("    ");
+            sb.Append("• ").Append(f.texto);
+        }
         _listaText.Text = sb.ToString();
 
         _alertRoot.IsVisible = true;
 
-        // Beep one-shot por UID nuevo, respetando silenciado.
-        var vivos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        bool hayNuevos = false;
-        foreach (var n in offlines)
-        {
-            var uid = n.Uid ?? "";
-            if (string.IsNullOrEmpty(uid)) continue;
-            vivos.Add(uid);
-            if (!_alertedUids.Contains(uid)) hayNuevos = true;
-        }
-        // Limpiar UIDs que ya volvieron online (asi vuelven a beepear si recaen).
-        _alertedUids.RemoveWhere(k => !vivos.Contains(k));
-        foreach (var uid in vivos) _alertedUids.Add(uid);
+        // Beep one-shot por alarma nueva, respetando silenciado.
+        bool hayNuevas = claves.Any(c => !_alertedUids.Contains(c));
+        // Limpiar claves que ya se recuperaron (asi vuelven a beepear si recaen).
+        _alertedUids.RemoveWhere(k => !claves.Contains(k));
+        foreach (var c in claves) _alertedUids.Add(c);
 
-        if (hayNuevos && DateTime.UtcNow >= _silencedUntilUtc)
+        if (hayNuevas && DateTime.UtcNow >= _silencedUntilUtc)
             PlayBeep();
     }
 
