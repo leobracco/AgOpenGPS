@@ -63,6 +63,18 @@ namespace PilotX.Desktop.Services
         void Release();
 
         /// <summary>
+        /// Destruye el web view DE VERDAD: baja el motor y sus procesos hijos.
+        ///
+        /// Distinto de <see cref="Release"/>, que solo vacía la página y deja
+        /// todo levantado. Reciclar es lo correcto mientras el operario entra y
+        /// sale de pantallas, pero con el Hub cerrado durante horas de trabajo
+        /// —el caso normal— eso son ~260 MB de Chromium ocioso al 0% de CPU.
+        /// Tras llamarlo hay que crear un handle nuevo para volver a mostrar
+        /// una página; el costo de levantarlo se paga recién ahí.
+        /// </summary>
+        void Destroy();
+
+        /// <summary>
         /// Abre las herramientas de desarrollo del web view (F12). Hook de
         /// diagnóstico opcional: en plataformas que no lo soporten es un no-op.
         /// </summary>

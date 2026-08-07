@@ -574,6 +574,9 @@ public partial class MainWindow : Window
             // vez que abre Configuración. Prioridad Background para no competir
             // con el primer render del mapa.
             Dispatcher.UIThread.Post(PrecalentarWebView, DispatcherPriority.Background);
+            // …y el reloj que lo vuelve a bajar si nadie lo usa (ver
+            // LiberarWebViewSiEstaOcioso: son ~260 MB de Chromium ocioso).
+            ArmarLiberacionWebView();
 
             // Al abrir un lote que ya tiene guías, activar la primera visible si
             // no hay ninguna activa: así las guías aparecen en el mapa apenas se
@@ -1047,6 +1050,101 @@ public partial class MainWindow : Window
         RestaurarSlotWebView();
         if (_webViewSlot != null) _webViewSlot.IsVisible = false;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] WebView prewarm listo");
+        // Desde acá empieza a correr el reloj de inactividad: el prewarm dejó
+        // el motor levantado y nadie lo pidió todavía.
+        _webViewUsadoUtc = DateTime.UtcNow;
+    }
+
+    // ---- liberación del WebView por inactividad ---------------------------
+    //
+    // Al cerrar una pantalla el WebView se RECICLA (about:blank) en vez de
+    // destruirse, para que la próxima apertura sea inmediata. Eso está bien
+    // mientras el operario entra y sale del Hub — pero el uso real de la
+    // jornada es: configura al principio y después maneja horas con todo
+    // cerrado. Medido acá: 262 MB en 6 procesos de Chromium al 0% de CPU,
+    // sosteniendo una página en blanco.
+    //
+    // Así que se recicla mientras se lo está usando, y recién después de unos
+    // minutos quietos se baja del todo. La próxima apertura vuelve a pagar el
+    // arranque del motor, pero a esa altura ya no es "el operario esperando
+    // por algo que acaba de cerrar".
+    //
+    // El timer corre a 30 s: no hace falta más fino para un plazo de minutos,
+    // y en Background no compite con el render del mapa.
+    private DateTime _webViewUsadoUtc = DateTime.UtcNow;
+    private DispatcherTimer? _webViewOciosoTimer;
+
+    // Traza al archivo y NO Debug.WriteLine: en Release el compilador saca las
+    // llamadas a Debug.*, así que todo lo que se "loguea" así no existe
+    // justamente en la build que corre en la cabina.
+    private static void TrazaWebView(string msg)
+    {
+        try
+        {
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pilotx-webview.log"),
+                DateTime.Now.ToString("HH:mm:ss") + "  " + msg + Environment.NewLine);
+        }
+        catch { }
+    }
+
+    private void ArmarLiberacionWebView()
+    {
+        if (App.WebViewSiempre) { TrazaWebView("liberacion DESACTIVADA (--webview-siempre)"); return; }
+        TrazaWebView("liberacion armada, plazo " + App.WebViewOcioso.TotalMinutes.ToString("0.##") + " min");
+        _webViewOciosoTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(30)
+        };
+        _webViewOciosoTimer.Tick += (_, __) => LiberarWebViewSiEstaOcioso();
+        _webViewOciosoTimer.Start();
+        Closed += (_, _) => { try { _webViewOciosoTimer?.Stop(); } catch { } };
+    }
+
+    private void LiberarWebViewSiEstaOcioso()
+    {
+        try
+        {
+            if (_webView == null || _webViewSlot == null)
+            {
+                TrazaWebView("tick: nada que liberar (webView=" + (_webView == null ? "null" : "ok")
+                             + " slot=" + (_webViewSlot == null ? "null" : "ok") + ")");
+                return;
+            }
+
+            // Cualquiera de estas es "lo están usando": el reloj se reinicia y
+            // no se toca nada. Sobre todo la del diálogo — hay pantallas que
+            // abren en ventana aparte y el slot principal queda oculto, que
+            // desde acá se vería igual que "no lo usa nadie".
+            if (_webViewSlot.IsVisible || _dialogWebView != null || _dialogWin != null)
+            {
+                TrazaWebView("tick: en uso (slotVisible=" + _webViewSlot.IsVisible
+                             + " dlgWv=" + (_dialogWebView != null)
+                             + " dlgWin=" + (_dialogWin != null) + ")");
+                _webViewUsadoUtc = DateTime.UtcNow;
+                return;
+            }
+
+            var ocio = DateTime.UtcNow - _webViewUsadoUtc;
+            if (ocio < App.WebViewOcioso)
+            {
+                TrazaWebView("tick: ocioso hace " + ocio.TotalSeconds.ToString("0") + " s, falta");
+                return;
+            }
+            TrazaWebView("LIBERANDO tras " + ocio.TotalSeconds.ToString("0") + " s de ocio");
+
+            var wv = _webView;
+            _webView = null;                       // ShowWebView lo recrea solo
+            _webViewSlot.Children.Remove(wv.Control);
+            wv.Destroy();
+            TrazaWebView("WebView liberado (destruido y sacado del arbol)");
+        }
+        catch (Exception ex)
+        {
+            // Que no se pueda liberar no es motivo para voltear la pantalla:
+            // en el peor caso queda la memoria ocupada, como antes.
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] liberar WebView: " + ex.Message);
+        }
     }
 
     private void ShowWebView(string url, bool showBackButton)
@@ -1130,6 +1228,7 @@ public partial class MainWindow : Window
             // y es cuando más se nota tener el mapa compitiendo por CPU.
             PausarMapa();
             _webView.Navigate(url);
+            _webViewUsadoUtc = DateTime.UtcNow;   // reinicia el reloj de inactividad
             _webViewSlot.IsVisible = true;
             if (_mapHost != null) _mapHost.IsVisible = false;
             if (_webViewBack != null) _webViewBack.IsVisible = showBackButton;
@@ -1160,6 +1259,9 @@ public partial class MainWindow : Window
                 // último desengancha NavigationCompleted y dejaría el handle sordo
                 // al centinela pilotx-close en la apertura siguiente.
                 _webView.Blank();
+                // Recién acá arranca a contar la inactividad: mientras la
+                // pantalla estuvo abierta se lo estaba usando.
+                _webViewUsadoUtc = DateTime.UtcNow;
             }
             if (_webViewSlot != null) _webViewSlot.IsVisible = false;
             if (_webViewBack != null) _webViewBack.IsVisible = false;

@@ -113,6 +113,16 @@ namespace PilotX.Droid
             /// <summary>Vacía la página dejando el handle reutilizable.</summary>
             public void Blank() { try { _ctrl.Load("about:blank"); } catch { /* best-effort */ } }
             public void Release() { try { _ctrl.Load("about:blank"); } catch { /* best-effort */ } }
+            /// <summary>
+            /// Destruye el WebView de Android de verdad. Acá pesa todavía más
+            /// que en la PC: el sistema mata la app por memoria antes que en
+            /// Windows, y el WebView es lo más grande que sostiene.
+            /// </summary>
+            public void Destroy()
+            {
+                try { _ctrl.Load("about:blank"); } catch { /* best-effort */ }
+                try { (_ctrl as IDisposable)?.Dispose(); } catch { /* best-effort */ }
+            }
             public void OpenDevTools() { /* no-op en Android (usar chrome://inspect en debug) */ }
         }
     }

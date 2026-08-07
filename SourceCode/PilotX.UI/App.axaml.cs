@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using Avalonia;
 using Avalonia.Controls;
@@ -42,6 +43,25 @@ public partial class App : Application
     // Tamano inicial en modo float (en pixeles). 0 = usar default.
     public static int WindowWidth { get; set; } = 0;
     public static int WindowHeight { get; set; } = 0;
+
+    // ---- liberacion del WebView por inactividad ---------------------------
+    //
+    // El WebView se recicla al cerrar una pantalla (about:blank) para que la
+    // proxima apertura sea inmediata. Eso sirve mientras el operario entra y
+    // sale del Hub, pero el uso real es otro: configura al principio de la
+    // jornada y despues maneja horas con todo cerrado. Medido en la maquina:
+    // 262 MB en 6 procesos de Chromium al 0% de CPU, ocupados por una pagina
+    // en blanco.
+    //
+    // Pasado este tiempo sin usarse, se baja del todo. Volver a abrirlo cuesta
+    // lo que costaba la primera vez del dia; a cambio la jornada entera corre
+    // con esa memoria libre.
+    public static TimeSpan WebViewOcioso { get; set; } = TimeSpan.FromMinutes(3);
+
+    // Salida de emergencia: --webview-siempre deja el comportamiento viejo
+    // (nunca se destruye). Para la cabina donde recrearlo diera problemas, sin
+    // tener que recompilar.
+    public static bool WebViewSiempre { get; set; } = false;
 
     // Render del mapa de guiado: GL por DEFAULT. Skia con --gl=off, y OJO con
     // lo que Skia NO hace (ver abajo) antes de mandarlo a nadie.

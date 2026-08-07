@@ -138,6 +138,22 @@ internal static class Program
                 var v = a.Substring("--gl=".Length).Trim().ToLowerInvariant();
                 App.UseGl = v == "on" || v == "1" || v == "true" || v == "yes";
             }
+            // El WebView se baja solo tras unos minutos sin usarse (son ~260 MB
+            // de Chromium ocioso). Estos dos lo ajustan sin recompilar:
+            //   --webview-siempre        -> no bajarlo nunca (comportamiento viejo)
+            //   --webview-ocioso=<min>   -> cambiar el plazo; 0 = no bajarlo
+            else if (a.Equals("--webview-siempre", StringComparison.OrdinalIgnoreCase))
+                App.WebViewSiempre = true;
+            else if (a.StartsWith("--webview-ocioso=", StringComparison.OrdinalIgnoreCase))
+            {
+                if (double.TryParse(a.Substring("--webview-ocioso=".Length),
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out var min))
+                {
+                    if (min <= 0) App.WebViewSiempre = true;
+                    else App.WebViewOcioso = TimeSpan.FromMinutes(min);
+                }
+            }
             // Interruptores de DIAGNÓSTICO del congelamiento al abrir lote.
             // Apagados por default; sirven para partir en dos lo que pasa en
             // ese instante y ver cuál de las dos mitades lo dispara.
