@@ -480,6 +480,7 @@ public partial class MainWindow : Window
             _hubHost.OnRequestQuantix = () => ShowQuantiX();
             _hubHost.OnRequestVistax  = () => ShowVistaX();
             _hubHost.OnRequestNodos   = () => ShowNodos();
+            _hubHost.OnRequestCorexEcu = () => ShowCoreXEcu();
         }
 
         if (_flowXHost != null)

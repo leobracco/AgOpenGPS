@@ -68,6 +68,7 @@ public partial class HubPanel : UserControl
     public Action? OnRequestQuantix { get; set; }
     public Action? OnRequestVistax  { get; set; }
     public Action? OnRequestNodos   { get; set; }
+    public Action? OnRequestCorexEcu { get; set; }
 
     public HubPanel()
     {
@@ -398,4 +399,5 @@ public partial class HubPanel : UserControl
     private void OnGoQuantix(object? sender, RoutedEventArgs e) => OnRequestQuantix?.Invoke();
     private void OnGoVistax (object? sender, RoutedEventArgs e) => OnRequestVistax?.Invoke();
     private void OnGoNodos  (object? sender, RoutedEventArgs e) => OnRequestNodos?.Invoke();
+    private void OnGoCorexEcu(object? sender, RoutedEventArgs e) => OnRequestCorexEcu?.Invoke();
 }

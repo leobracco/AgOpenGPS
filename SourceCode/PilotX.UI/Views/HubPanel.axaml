@@ -311,6 +311,20 @@
                         BorderBrush="{StaticResource PilotXBorderHigh}"
                         BorderThickness="1"
                         CornerRadius="6"/>
+                <!-- CoreX-ECU: el comando corex_ecu existía pero NINGÚN botón
+                     lo disparaba desde el Hub nativo — quedó huérfano en el
+                     port (reporte 2026-08-07 probando el ECU real). -->
+                <Button Name="BtnGoCorexEcu"
+                        Content="CoreX-ECU"
+                        Click="OnGoCorexEcu"
+                        MinHeight="40"
+                        Padding="18,8,18,8"
+                        FontSize="14" FontWeight="SemiBold"
+                        Background="{StaticResource PilotXBgHigh}"
+                        Foreground="{StaticResource PilotXTextHi}"
+                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="6"/>
             </StackPanel>
 
         </StackPanel>
