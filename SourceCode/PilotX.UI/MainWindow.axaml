@@ -801,6 +801,11 @@
                 <vw:GuiasPanel x:Name="GuiasHost" Grid.Row="1"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
+                <!-- Menú de LOTE nativo (16vo port, reemplaza lote.html):
+                     abrir un lote se VE cargar en el mapa de atrás. -->
+                <vw:LotePanel x:Name="LoteHost" Grid.Row="1"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                 <!-- Panel de HERRAMIENTAS: se abre desde la barra de la pasada
                      y flota sobre el mapa (no es Flyout: los popups no se
                      dibujan sobre el mapa GL). Botones grandes en dos columnas

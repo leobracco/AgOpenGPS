@@ -256,6 +256,9 @@ public partial class MainWindow : Window
     // sigue para el Hub remoto/celular.
     private GuiasPanel? _guiasHost;
 
+    // Lote nativo (16vo port, ex lote.html). Mismo criterio.
+    private LotePanel? _loteHost;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -350,6 +353,12 @@ public partial class MainWindow : Window
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
         }
+        _loteHost = this.FindControl<LotePanel>("LoteHost");
+        if (_loteHost != null)
+            _loteHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
         _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
@@ -1753,6 +1762,7 @@ public partial class MainWindow : Window
     private void OnBackClick(object? sender, RoutedEventArgs e)
     {
         if (_guiasHost != null && _guiasHost.IsVisible) { _guiasHost.Cerrar(); return; }
+        if (_loteHost != null && _loteHost.IsVisible) { _loteHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -3165,23 +3175,20 @@ public partial class MainWindow : Window
                 AbrirGuias();
                 return true;
 
-            // Menú de lote (FormJob) → ventana chica. El submenú LOTE de la barra
-            // izquierda hace deep-link a la sub-pantalla vía ?do= (ver lote.js).
+            // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
+            // LOTE de la barra izquierda salta directo a su pantalla, igual
+            // que hacían los deep-links ?do= de lote.js.
             case "lote_menu":
-                OpenDialogPage("pages/lote.html", "Lote", 670, 610); return true;
-            // Continuar NO abre ventana: acción directa (pedido del usuario —
-            // la ventana del diálogo quedaba en blanco porque el centinela de
-            // cierre no corre en diálogos, y encima acá no hay nada que elegir:
-            // es "abrí el último y listo"). El backend resuelve __resume__.
+                AbrirLote("menu"); return true;
+            // Continuar NO abre panel: acción directa (pedido del usuario —
+            // acá no hay nada que elegir: es "abrí el último y listo"). El
+            // backend resuelve __resume__.
             case "lote_continuar":
                 ContinuarUltimoLote(); return true;
-            // "Abrir" va DERECHO al listado de lotes. Antes mandaba
-            // lote_menu, que abre el menú entero otra vez: el operario tocaba
-            // Abrir y le aparecía una ventana con Abrir/Nuevo/Continuar de nuevo.
             case "lote_abrir":
-                OpenDialogPage("pages/lote.html?do=abrir", "Abrir lote", 670, 610); return true;
+                AbrirLote("abrir"); return true;
             case "lote_nuevo":
-                OpenDialogPage("pages/lote.html?do=nuevo", "Nuevo lote", 670, 610); return true;
+                AbrirLote("nuevo"); return true;
             case "lote_kml":
                 OpenDialogPage("pages/lote.html?do=kml", "Lote desde KML", 670, 610); return true;
 
@@ -3753,10 +3760,24 @@ public partial class MainWindow : Window
     /// Abre el gestor de Guías nativo. El guard de lote es el mismo que tenía
     /// el diálogo HTML: sin lote no hay dónde guardar una guía.
     /// </summary>
+    /// <summary>Abre el menú de lote nativo en la pantalla pedida.</summary>
+    private void AbrirLote(string pantalla)
+    {
+        if (_loteHost == null) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        if (_guiasHttp == null)
+            _guiasHttp = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        _loteHost.Attach(_guiasHttp, DeriveOrigin(App.TargetUrl));
+        _loteHost.Abrir(pantalla);
+    }
+
     private void AbrirGuias()
     {
         if (_guiasHost == null) return;
         // Solo un panel a la vez sobre el mapa (mismo criterio que ShowSistema).
+        if (_loteHost != null && _loteHost.IsVisible) _loteHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
