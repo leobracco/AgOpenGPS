@@ -3403,3 +3403,47 @@ Queda una traza CSV de diagnóstico por fix (logs/traza-guiado.csv, solo con
 piloto ON) — sacarla cuando el guiado quede validado en lote.
 Archivos del carril engine tocados: GuidanceEngineHost.cs (2 ajustes de
 perfil + traza), CoreXEngineHost.cs (endpoints/subredes), UdpBridgeService.cs.
+
+- [2026-08-07] [taller] HECHO — jornada grande en codex/pilotx-ui-new (6 commits):
+  · Idiomas es/en/pt (c3ad9e55): diccionario wwwroot/idiomas.json con CLAVE =
+    texto castellano; Traductor.cs recorre el árbol Avalonia, i18n.js el DOM.
+    Selector en SISTEMA → Idioma. Si agregás texto visible NUEVO en código del
+    engine que viaje a UI, no hace falta nada; si agregás UI nativa, el texto
+    entra al JSON y listo.
+  · WebView2 se libera solo tras 3 min ocioso (dba750f8): eran 262 MB de
+    Chromium al 0% CPU sosteniendo about:blank. Flags --webview-siempre y
+    --webview-ocioso=<min> por si molesta.
+  · Guías y Lote NATIVOS (ea5bb503, 3ee5b483): tracks.html y lote.html ya no
+    se abren en el Desktop (siguen para Hub remoto). Van contra /api/tracks y
+    /api/lotes SIN cambios de contrato.
+  · PilotX vs AOG 6.8.3 medido: 877→534 MB (Hub cerrado). CPU no era problema.
+
+- [2026-08-07] [taller] PEDIDO→HECHO (carril engine, aviso) — toqué
+  GuidanceEngineHost.Cobertura.cs (dbb1af2c) por bug encontrado en circuito de
+  pruebas con lote real: (1) CargarCobertura abortaba MUDA con el engine recién
+  arrancado (TriStripField vacía hasta que una sección pinta) → reabrir tras
+  reiniciar mostraba 0 ha con Sections.txt de 1 MB en disco; ahora crea la
+  tira 0 si falta. (2) Sections.txt traía 138 vértices corruptos de un salto
+  de fix (coords a 3.000 km) → área de 255.000 ha y anti-solape viendo TODO
+  sembrado; ahora se sanean parches al CARGAR y al GUARDAR (umbral ±200 km).
+  PENDIENTE DE FONDO para tu carril: cortar el mapeo (TurnMappingOff) cuando
+  el fix salta, así el parche corrupto ni se arma en RAM. Santi: revisá si te
+  cierra el criterio del umbral y el corte por tramos.
+
+- [2026-08-07] [taller] CÓMO LANZAR BIEN el stack nuevo (para Santiago):
+  1. Compilar: `powershell -ExecutionPolicy Bypass -File build.ps1` en la raíz
+     (con PilotX CERRADO: si el engine corre, los DLL quedan lockeados y la
+     copia a Build\ falla en silencio — verificá timestamps si dudás).
+  2. Lanzar TODO: doble clic en `Build\Lanzar-PilotX.bat` (engine minimizado
+     + pantalla). A mano es: `Build\Engine\PilotX.GuidanceEngine.exe --webhost
+     --corex` → esperar ~6 s → `Build\Desktop\PilotX.Desktop.exe`.
+  3. ORDEN CON MODSIM: engine PRIMERO, ModSim DESPUÉS (el ModSim 6.8.3 se
+     queda sordo si el engine se reinicia abajo suyo; usar Build\ModSim.exe
+     que se rearma solo).
+  4. Trampas conocidas: netstat 5180 antes de culpar al engine (un python
+     colgado en 127.0.0.1:5180 le gana el bind); Build\PilotXDesktop\ es
+     basura vieja, la carpeta viva es Build\Desktop\; el idioma elegido
+     persiste en Documentos\AgOpenGPS\idioma.json.
+  5. Diagnóstico rápido: log de eventos en
+     Documentos\AgOpenGPS\Logs\AgOpenGPS_Events_Log.txt; traza del WebView en
+     %TEMP%\pilotx-webview.log; panel CoreX integrado en 127.0.0.1:5181.
