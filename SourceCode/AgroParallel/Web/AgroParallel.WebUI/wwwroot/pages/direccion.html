@@ -81,7 +81,22 @@
     .sval { font: 700 22px "Segoe UI", Roboto, sans-serif; min-width: 64px; text-align: right; line-height: 1; }
     .sval .u { font-size: 13px; font-weight: 600; color: var(--gris); }
     .sslider { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-    .sslider input[type="range"] { flex: 1; }
+    /* Sliders PARA GUANTES (pasada 2026-08-07, pruebas con ECU real): el
+       range default de Chromium tiene un pulgar de 10px — imposible de
+       agarrar en cabina. Pista más alta + pulgar de 26px + acento verde. */
+    .sslider input[type="range"] {
+      flex: 1; height: 34px; accent-color: var(--verde);
+      -webkit-appearance: none; appearance: none; background: transparent;
+    }
+    .sslider input[type="range"]::-webkit-slider-runnable-track {
+      height: 8px; border-radius: 4px; background: #DCE3DB;
+    }
+    .sslider input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 26px; height: 26px; margin-top: -9px;
+      border-radius: 50%; background: var(--verde);
+      border: 2px solid #fff; box-shadow: 0 1px 3px rgba(16,22,18,.35);
+    }
     .sbtn {
       width: 40px; height: 40px; flex: none; border: 1px solid var(--borde);
       border-radius: 8px; background: #fff; color: var(--texto);
@@ -119,7 +134,9 @@
     }
     #fsEstado .cell { flex: 1; text-align: center; }
     #fsEstado .cap { font: 600 10px "Segoe UI", Roboto, sans-serif; color: var(--gris); text-transform: uppercase; letter-spacing: .4px; }
-    #fsEstado .val { font: 700 20px "Segoe UI", Roboto, sans-serif; line-height: 1.1; }
+    /* tabular-nums: Set/Actual/Error refrescan varias veces por segundo y con
+       dígitos proporcionales los números "bailaban" de ancho. */
+    #fsEstado .val { font: 700 20px "Segoe UI", Roboto, sans-serif; line-height: 1.1; font-variant-numeric: tabular-nums; }
     #fsEstado .val .u { font-size: 12px; color: var(--gris); }
 
     /* ---- manejo libre (panel1 del original: free drive) ---- */
@@ -147,7 +164,7 @@
     .fdarrow .cap { display: none; font: 700 14px "Segoe UI", Roboto, sans-serif; }
     .fdarrow:active { background: #e6ede5; }
     .fdarrow[disabled], #fdDot[disabled] { opacity: .35; cursor: default; }
-    .fdang { font: 700 26px "Segoe UI", Roboto, sans-serif; min-width: 70px; text-align: center; line-height: 1; }
+    .fdang { font: 700 26px "Segoe UI", Roboto, sans-serif; min-width: 70px; text-align: center; line-height: 1; font-variant-numeric: tabular-nums; }
     .fdang .u { font-size: 14px; font-weight: 600; color: var(--gris); }
     #fdDot {
       min-height: 44px; padding: 6px 12px; border: 1px solid var(--borde);
@@ -222,7 +239,11 @@
       cursor: pointer; touch-action: manipulation;
     }
     #btnGuardarFloat img { width: 34px; height: 34px; }
-    #btnGuardarFloat.dirty { border-color: var(--verde); background: #eaf6e8; }
+    /* Guardar con cambios pendientes = PRIMARIO de verdad (verde pleno):
+       el borde verdecito de antes no se distinguía de un toggle prendido y
+       el operario no sabía si le faltaba guardar (pasada 2026-08-07). */
+    #btnGuardarFloat.dirty { border-color: var(--verde); background: var(--verde); color: #fff; }
+    #btnGuardarFloat.dirty img { filter: brightness(0) invert(1); }
     #btnGuardarFloat.ok { border-color: var(--verde); }
 
     /* pantallas angostas: apilar columnas (la ventana chica del Hub) */

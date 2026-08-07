@@ -3447,3 +3447,12 @@ perfil + traza), CoreXEngineHost.cs (endpoints/subredes), UdpBridgeService.cs.
   5. Diagnóstico rápido: log de eventos en
      Documentos\AgOpenGPS\Logs\AgOpenGPS_Events_Log.txt; traza del WebView en
      %TEMP%\pilotx-webview.log; panel CoreX integrado en 127.0.0.1:5181.
+
+- [2026-08-07] [taller] AVISO carril UI/Codex — pasada de diseño sobre
+  pages/direccion.html a pedido del usuario (preparando pruebas con CoreX ECU
+  real): sliders con pulgar de 26px para guantes, Guardar dirty en verde
+  pleno, tabular-nums en Set/Actual/Error y en el ángulo de manejo libre.
+  CSS solamente; IDs/data-* intactos. Además Tools/generar-iconos-cockpit.py
+  ahora también rasteriza a wwwroot (MAPA_WEB): 17 íconos de img/steer/ +
+  FileSave pasados al estilo Agro Parallel desde el handoff. Los pictogramas
+  técnicos ConSt_*/ConV_*/ConD_* no vinieron en el handoff y siguen AOG.

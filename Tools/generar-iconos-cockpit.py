@@ -147,6 +147,31 @@ MAPA = {
     "youturn-reverse":      "menu/YouTurnReverse.png",
 }
 
+# ---- Pantalla de DIRECCIÓN (direccion.html) ---------------------------------
+# Mismo pipeline, otro destino: wwwroot/img/steer (+ un FileSave en config).
+# Se aplicó el 2026-08-07 al preparar las pruebas con el CoreX ECU real.
+# Los pictogramas técnicos (ConSt_*/ConV_*/ConD_*, sensores, PWM, ganancias)
+# NO vinieron en el handoff y siguen con el bitmap heredado de AOG.
+MAPA_WEB = {
+    "steer-drive-off":      "img/steer/SteerDriveOff.png",
+    "steer-drive-on":       "img/steer/SteerDriveOn.png",
+    "steer-left":           "img/steer/SteerLeft.png",
+    "steer-right":          "img/steer/SteerRight.png",
+    "steer-zero":           "img/steer/SteerZero.png",
+    "switch-on":            "img/steer/SwitchOn.png",
+    "mode-stanley":         "img/steer/ModeStanley.png",
+    "mode-stanley@sf":      "img/steer/Sf_Stanley.png",
+    "mode-pure-pursuit":    "img/steer/Sf_PP.png",
+    "reset-default":        "img/steer/Reset_Default.png",
+    "arrow-left":           "img/steer/ArrowLeft.png",
+    "arrow-right":          "img/steer/ArrowRight.png",
+    "boundary-record":      "img/steer/BoundaryRecord.png",
+    "ok":                   "img/steer/OK64.png",
+    "wizard-wand":          "img/steer/WizardWand.png",
+    "wiz-steer-dot":        "img/steer/WizSteerDot.png",
+    "file-save@steer":      "img/config/FileSave.png",
+}
+
 # Sustituciones de color por variante, para derivar un estado que el handoff no
 # mandó — solo si el color sale de la paleta documentada. Vacío: el set grande
 # trae todos los estados dibujados y no hay que derivar nada.
@@ -253,9 +278,16 @@ def main():
         ruta_svg = os.path.join(tmp, key + ".svg")
         open(ruta_svg, "w", encoding="utf-8").write(svg_inline)
 
+    wwwroot = os.path.join(raiz, "SourceCode", "AgroParallel", "Web",
+                           "AgroParallel.WebUI", "wwwroot")
+
     hechos, faltan = [], []
-    entradas = list(MAPA.items()) + [(k, d) for k, (d, _) in EXTRAS.items()]
-    for key, destino in entradas:
+    # (key, destino, raiz_destino): los del cockpit van a Assets/, los de la
+    # pantalla de Dirección a wwwroot/. Mismo rasterizado para todos.
+    entradas = [(k, d, assets) for k, d in MAPA.items()]
+    entradas += [(k, d, assets) for k, (d, _) in EXTRAS.items()]
+    entradas += [(k, d, wwwroot) for k, d in MAPA_WEB.items()]
+    for key, destino, raiz_destino in entradas:
         base = key.split("@")[0]
         # Los EXTRAS ya quedaron escritos en tmp; el resto sale del handoff.
         ruta_svg = os.path.join(tmp if base in EXTRAS else origen, base + ".svg")
@@ -295,7 +327,7 @@ def main():
         im.save(png_tmp)
 
         if not args.hoja:
-            ruta_png = os.path.join(assets, destino.replace("/", os.sep))
+            ruta_png = os.path.join(raiz_destino, destino.replace("/", os.sep))
             os.makedirs(os.path.dirname(ruta_png), exist_ok=True)
             im.save(ruta_png)
             hechos.append((key, destino))
