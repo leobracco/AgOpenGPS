@@ -65,6 +65,12 @@ public sealed class CoreXEcuCan
 {
     [JsonPropertyName("keya_steer_enabled")] public bool    KeyaSteerEnabled { get; set; }
     [JsonPropertyName("keya_current_a")]     public double? KeyaCurrentA    { get; set; }
+    [JsonPropertyName("keya_detected")]      public bool    KeyaDetected    { get; set; }
+    [JsonPropertyName("keya_set_speed")]     public int?    KeyaSetSpeed    { get; set; }
+    [JsonPropertyName("keya_actual_speed")]  public int?    KeyaActualSpeed { get; set; }
+    // Encoder acumulado del Keya (ticks): la referencia para calibrar
+    // cuentas-por-grado (D5) contra el ángulo real de la rueda.
+    [JsonPropertyName("keya_position")]      public int?    KeyaPosition    { get; set; }
 }
 
 public sealed class CoreXEcuAutosteer

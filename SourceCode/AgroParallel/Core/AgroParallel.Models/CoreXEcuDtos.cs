@@ -116,6 +116,14 @@ namespace AgroParallel.Models
     {
         [JsonPropertyName("keya_steer_enabled")] public bool KeyaSteerEnabled { get; set; }
         [JsonPropertyName("keya_current_a")]     public double KeyaCurrentA { get; set; }
+        /// <summary>Heartbeat CAN del Keya visto (0x07000001).</summary>
+        [JsonPropertyName("keya_detected")]      public bool KeyaDetected { get; set; }
+        [JsonPropertyName("keya_set_speed")]     public int KeyaSetSpeed { get; set; }
+        [JsonPropertyName("keya_actual_speed")]  public int KeyaActualSpeed { get; set; }
+        /// <summary>Encoder acumulado del Keya (ticks) — la referencia para
+        /// calibrar cuentas-por-grado (D5) contra el ángulo real de rueda.</summary>
+        [JsonPropertyName("keya_position")]      public int KeyaPosition { get; set; }
+        [JsonPropertyName("keya_stale_ms")]      public long KeyaStaleMs { get; set; }
     }
 
     public sealed class CoreXEcuAutosteerDto

@@ -226,8 +226,12 @@ public partial class CoreXEcuPanel : UserControl
     {
         var rows = new List<(string K, string V, IBrush? Br)>
         {
+            ("Motor visto",  c == null ? "--" : YesNo(c.KeyaDetected), c == null ? null : (c.KeyaDetected ? _brushOk : _brushErr)),
             ("Steer enable", c == null ? "--" : YesNo(c.KeyaSteerEnabled), c == null ? null : (c.KeyaSteerEnabled ? _brushOk : _brushDim)),
             ("Corriente",    FmtNum(c?.KeyaCurrentA, 2) + " A", null),
+            ("Vel. pedida",  FmtInt(c?.KeyaSetSpeed), null),
+            ("Vel. real",    FmtInt(c?.KeyaActualSpeed), null),
+            ("Encoder",      FmtInt(c?.KeyaPosition) + " ticks", null),
         };
         return BuildCard("CAN Keya", rows);
     }
