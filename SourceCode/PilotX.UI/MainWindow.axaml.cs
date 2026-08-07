@@ -2630,8 +2630,11 @@ public partial class MainWindow : Window
 
         if (_vxMapStrip != null)
         {
-            // Tocar la franja FUERA de una barra: panel VistaX completo.
-            _vxMapStrip.OnTap = () => ShowVistaX();
+            // Tocar la franja FUERA de una barra: NADA (pedido 2026-08-07 —
+            // abría el panel VistaX a pantalla completa por un toque al gris,
+            // desproporcionado igual que lo del 2026-08-06 con las barras).
+            // El panel completo se abre desde el Hub o el menú, a propósito.
+            _vxMapStrip.OnTap = null;
             // Tocar UNA barra: ficha chica de ESE sensor (pedido 2026-08-06 —
             // abrir el panel entero para mirar un surco era desproporcionado).
             _vxMapStrip.OnTapSurco = s => MostrarFichaSurco(s);
