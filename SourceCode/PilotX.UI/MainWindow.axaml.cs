@@ -435,6 +435,10 @@ public partial class MainWindow : Window
         Herr("BtnHrEventos",  "visor_eventos");
         Herr("BtnHrGrafDir",  "grafico_direccion");
         Herr("BtnHrGrafXte",  "grafico_xte");
+        // Hub y CoreX-ECU: los comandos existían huérfanos, sin botón que los
+        // dispare (reporte 2026-08-07). La regla del proyecto los pone acá.
+        Herr("BtnHrHub",      "hub");
+        Herr("BtnHrCorexEcu", "corex_ecu");
 
         var bIzq = this.FindControl<Button>("BtnNudgeIzq");
         var bCen = this.FindControl<Button>("BtnNudgeCentro");

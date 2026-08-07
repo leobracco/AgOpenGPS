@@ -928,6 +928,22 @@
                           <TextBlock Text="Gráfico XTE"/>
                         </StackPanel>
                       </Button>
+                      <!-- Hub y CoreX-ECU: la regla del proyecto dice que los
+                           botones de productos X-* y el Hub van en Herramientas
+                           — pero los comandos habían quedado huérfanos, sin
+                           ningún botón que los dispare (reporte 2026-08-07). -->
+                      <Button x:Name="BtnHrHub" Classes="hr" ToolTip.Tip="Hub de productos Agro Parallel">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/JobActive.png"/>
+                          <TextBlock Text="Hub"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrCorexEcu" Classes="hr" ToolTip.Tip="Telemetría del ECU de dirección (Teensy)">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/CoreX.png"/>
+                          <TextBlock Text="CoreX-ECU"/>
+                        </StackPanel>
+                      </Button>
                     </UniformGrid>
                   </StackPanel>
                 </Border>
