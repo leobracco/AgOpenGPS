@@ -515,9 +515,11 @@ public partial class MainWindow : Window
         if (_coreXEcuHost != null)
         {
             // Boton Configurar abre las tabs editor (Estado/checklist,
-            // Calibracion / motor manual + barrido PWM, Conexion con Teensy)
+            // Calibracion / motor manual + barrido PWM, Conexion con el ECU)
             // en WebView lazy. NO se toca firmware.
             _coreXEcuHost.OnRequestConfigurar = () => NavigateTo("pages/corex-ecu.html");
+            // La ✕ de la card flotante cierra el panel (el mapa ya esta vivo).
+            _coreXEcuHost.OnRequestCerrar = () => CloseCoreXEcu();
         }
 
         if (_btnSettings   != null) _btnSettings.IsEnabled   = false;
@@ -2154,14 +2156,17 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] VistaX closed -> back to native map");
     }
 
-    // ----- CoreX-ECU (port #9): solo Live tab nativa (telemetria Teensy).
+    // ----- CoreX-ECU (port #9): solo Live tab nativa (telemetria del ECU).
     // Estado / Calibracion / Conexion siguen en HTML detras de "Configurar"
     // (pages/corex-ecu.html via OnRequestConfigurar -> WebView lazy).
+    // Card flotante sobre el mapa VIVO (mismo patron que Guias/Lote): antes
+    // era takeover pantalla completa oscuro y en cabina se veia como "una
+    // ventana gigante negra" (reporte 2026-08-07). El mapa nunca se apaga.
 
     private void ShowCoreXEcu()
     {
         if (_coreXEcuHost == null) return;
-        // Solo un overlay a la vez.
+        // Solo un overlay a la vez (y se restaura el mapa si otro lo tapaba).
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
@@ -2170,15 +2175,22 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        // Paneles que flotan sobre el mapa: uno a la vez, mismo criterio que AbrirGuias.
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
         if (_webView != null) CloseWebView();
+        // El mapa queda VIVO detras de la card (y se reenciende si un
+        // takeover previo lo habia apagado).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        bool webViewVisible = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisible) _webViewBack.IsVisible = false;
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_coreXEcuClient == null)
             _coreXEcuClient = new CoreXEcuClient(DeriveOrigin(App.TargetUrl));
         _coreXEcuHost.Attach(_coreXEcuClient);
         _coreXEcuHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
-        if (_webViewBack != null) _webViewBack.IsVisible = true;
-        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU open (nativo Live, no WebView)");
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU open (card flotante, mapa vivo)");
     }
 
     private void CloseCoreXEcu()
@@ -2186,11 +2198,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost == null) return;
         _coreXEcuHost.Detach();
         _coreXEcuHost.IsVisible = false;
-        bool webViewVisible = _webView != null && (_webViewSlot?.IsVisible ?? false);
-        if (_webViewBack != null && !webViewVisible)
-            _webViewBack.IsVisible = false;
-        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
-        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU closed -> back to native map");
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU closed");
     }
 
     // ----- Hub home (port #11): reemplazo nativo de pages/hub.html.

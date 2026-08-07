@@ -1,14 +1,16 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="PilotX.Desktop.Views.CoreXEcuPanel"
-             Background="{StaticResource PilotXBgDeep}">
+             x:Class="PilotX.Desktop.Views.CoreXEcuPanel">
     <!--
         CoreXEcuPanel - reemplazo nativo (Live tab only) de pages/corex-ecu.html.
 
-        Cabin-info (no cabin-critical estricta — el operario no la mira manejando,
-        pero es la referencia para diagnosticar al toque por que el guiado se
-        movio raro). Polling 2Hz contra /api/corex-ecu/status mientras esta
-        abierto. Cards: IMU, WAS, GPS, CAN Keya, Autosteer, Sistema.
+        Tarjeta FLOTANTE sobre el mapa vivo (mismo patron que GuiasPanel /
+        LotePanel): el mapa nunca se apaga, el panel es una card clara
+        compacta. Antes era un takeover pantalla completa oscuro y en cabina
+        se veia como "una ventana gigante negra" (reporte 2026-08-07).
+
+        Polling 2Hz contra /api/corex-ecu/status mientras esta abierto.
+        Cards: IMU, WAS, GPS, CAN Keya, Autosteer, Sistema.
 
         Las otras tabs (Estado / checklist, Calibracion / motor manual +
         barrido PWM Keya, Conexion / config con Teensy) NO estan portadas:
@@ -18,40 +20,47 @@
         Importante: NO se toca el firmware Teensy. Esto es solo la UI que lo
         observa via el Hub local.
     -->
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                  VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24,20,24,24" Spacing="14">
+    <Border Background="#FAFBFA"
+            BorderBrush="#C5CFC5"
+            BorderThickness="1"
+            CornerRadius="14"
+            Padding="14"
+            BoxShadow="0 8 26 0 #33101612"
+            Width="860" MaxHeight="620"
+            HorizontalAlignment="Center" VerticalAlignment="Center">
+        <DockPanel>
 
             <!-- ============ Header ============ -->
-            <Grid ColumnDefinitions="*,Auto,Auto">
-                <StackPanel Grid.Column="0" Spacing="2">
+            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto,Auto"
+                  Margin="4,0,0,10">
+                <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
                     <TextBlock Text="CoreX-ECU"
-                               Foreground="{StaticResource PilotXTextHi}"
-                               FontSize="22" FontWeight="SemiBold"/>
+                               Foreground="#101612"
+                               FontSize="16" FontWeight="Bold"/>
                     <TextBlock Name="SubtitleText"
-                               Text="Telemetria del autosteer (Teensy)"
-                               Foreground="{StaticResource PilotXTextDim}"
-                               FontSize="12"/>
+                               Text="Telemetria del autosteer"
+                               Foreground="#535E54"
+                               FontSize="11"/>
                 </StackPanel>
 
                 <!-- Pill: conexion con el ECU -->
                 <Border Grid.Column="1"
-                        Background="{StaticResource PilotXBgHigh}"
-                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        Background="#FFFFFF"
+                        BorderBrush="#C5CFC5"
                         BorderThickness="1"
                         CornerRadius="999"
-                        Padding="14,6,14,6"
+                        Padding="12,5,12,5"
                         Margin="0,0,8,0"
                         VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                         <Ellipse Name="EcuDot"
                                  Width="10" Height="10"
-                                 Fill="{StaticResource PilotXTextDim}"
+                                 Fill="#8A958B"
                                  VerticalAlignment="Center"/>
                         <TextBlock Name="EcuText"
                                    Text="sin datos"
-                                   Foreground="{StaticResource PilotXTextMid}"
-                                   FontSize="13"
+                                   Foreground="#535E54"
+                                   FontSize="12"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -60,36 +69,54 @@
                         Name="BtnConfigurar"
                         Content="Configurar"
                         Click="OnConfigurarClick"
-                        Background="{StaticResource PilotXBgHigh}"
-                        Foreground="{StaticResource PilotXTextHi}"
-                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        Background="#FFFFFF"
+                        Foreground="#101612"
+                        BorderBrush="#C5CFC5"
                         BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="14,6,14,6"
+                        CornerRadius="8"
+                        Padding="14,7,14,7"
+                        Margin="0,0,8,0"
                         VerticalAlignment="Center"
                         ToolTip.Tip="Abre Estado / Calibracion / Conexion en el Hub"/>
+
+                <Button Grid.Column="3"
+                        Name="BtnCerrar"
+                        Content="✕"
+                        Click="OnCerrarClick"
+                        Width="40" Height="40"
+                        FontSize="16"
+                        HorizontalContentAlignment="Center"
+                        VerticalContentAlignment="Center"
+                        Background="#FFFFFF"
+                        Foreground="#535E54"
+                        BorderBrush="#C5CFC5"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        VerticalAlignment="Center"/>
             </Grid>
 
             <!-- ============ Error chip (oculto si ok) ============ -->
-            <Border Name="ErrorChip"
-                    Background="#2A1010"
-                    BorderBrush="{StaticResource PilotXErr}"
+            <Border DockPanel.Dock="Top"
+                    Name="ErrorChip"
+                    Background="#FBECEC"
+                    BorderBrush="#D0504A"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Padding="14,10,14,10"
+                    Padding="12,8,12,8"
+                    Margin="0,0,0,10"
                     IsVisible="False">
                 <StackPanel Spacing="2">
                     <TextBlock Name="ErrorCode"
-                               Foreground="{StaticResource PilotXErr}"
+                               Foreground="#B33F3A"
                                FontSize="11"
                                FontWeight="SemiBold"
                                FontFamily="Consolas, Courier New, monospace"/>
                     <TextBlock Name="ErrorMsg"
-                               Foreground="{StaticResource PilotXTextHi}"
+                               Foreground="#101612"
                                FontSize="13"
                                TextWrapping="Wrap"/>
                     <TextBlock Name="ErrorTech"
-                               Foreground="{StaticResource PilotXTextDim}"
+                               Foreground="#535E54"
                                FontSize="10"
                                TextWrapping="Wrap"
                                FontFamily="Consolas, Courier New, monospace"/>
@@ -97,7 +124,10 @@
             </Border>
 
             <!-- ============ Grid de 6 cards ============ -->
-            <UniformGrid Name="CardsHost" Columns="3" Rows="2"/>
-        </StackPanel>
-    </ScrollViewer>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <UniformGrid Name="CardsHost" Columns="3"/>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
 </UserControl>

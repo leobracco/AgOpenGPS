@@ -40,17 +40,20 @@ public partial class CoreXEcuPanel : UserControl
     private CoreXEcuStatus? _live;
 
     public Action? OnRequestConfigurar { get; set; }
+    /// <summary>El operario tocó la ✕ — el host cierra el panel flotante.</summary>
+    public Action? OnRequestCerrar { get; set; }
 
-    private static readonly IBrush _brushOk      = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush _brushWarn    = new SolidColorBrush(Color.Parse("#E2B53E"));
-    private static readonly IBrush _brushErr     = new SolidColorBrush(Color.Parse("#E15A5A"));
-    private static readonly IBrush _brushDim     = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _textHi       = new SolidColorBrush(Color.Parse("#E2E7E2"));
-    private static readonly IBrush _textMid      = new SolidColorBrush(Color.Parse("#C5CFC5"));
-    private static readonly IBrush _textDim      = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _bgMid        = new SolidColorBrush(Color.Parse("#1A1F1B"));
-    private static readonly IBrush _bgHigh       = new SolidColorBrush(Color.Parse("#262C28"));
-    private static readonly IBrush _border       = new SolidColorBrush(Color.Parse("#2A332C"));
+    // Paleta CLARA PilotX (misma que GuiasPanel/LotePanel): la card flota
+    // sobre el mapa vivo, no es mas un takeover oscuro pantalla completa.
+    private static readonly IBrush _brushOk      = new SolidColorBrush(Color.Parse("#3D9A33"));
+    private static readonly IBrush _brushWarn    = new SolidColorBrush(Color.Parse("#B98A2E"));
+    private static readonly IBrush _brushErr     = new SolidColorBrush(Color.Parse("#D0504A"));
+    private static readonly IBrush _brushDim     = new SolidColorBrush(Color.Parse("#8A958B"));
+    private static readonly IBrush _textHi       = new SolidColorBrush(Color.Parse("#101612"));
+    private static readonly IBrush _textMid      = new SolidColorBrush(Color.Parse("#535E54"));
+    private static readonly IBrush _textDim      = new SolidColorBrush(Color.Parse("#7A857B"));
+    private static readonly IBrush _bgCard       = new SolidColorBrush(Color.Parse("#FFFFFF"));
+    private static readonly IBrush _border       = new SolidColorBrush(Color.Parse("#C5CFC5"));
 
     public CoreXEcuPanel()
     {
@@ -110,7 +113,7 @@ public partial class CoreXEcuPanel : UserControl
         // Subtitle: firmware + version si los devuelve
         if (subtitle != null)
         {
-            string sub = "Telemetria del autosteer (Teensy)";
+            string sub = "Telemetria del autosteer";
             if (s?.Ok == true && !string.IsNullOrEmpty(s.Firmware))
                 sub += "  ·  " + s.Firmware + (string.IsNullOrEmpty(s.Version) ? "" : (" " + s.Version));
             subtitle.Text = sub;
@@ -252,7 +255,7 @@ public partial class CoreXEcuPanel : UserControl
     {
         var rows = new List<(string K, string V, IBrush? Br)>
         {
-            ("IP del Teensy", s?.Ip ?? "--", null),
+            ("IP del ECU",    s?.Ip ?? "--", null),
             ("Ethernet",      s == null ? "--" : (s.Ethernet ? "Link up" : "Link down"),
                               s == null ? null : (s.Ethernet ? _brushOk : _brushErr)),
             ("Firmware",      string.IsNullOrEmpty(s?.Firmware) ? "--"
@@ -304,12 +307,12 @@ public partial class CoreXEcuPanel : UserControl
 
         return new Border
         {
-            Background      = _bgMid,
+            Background      = _bgCard,
             BorderBrush     = _border,
             BorderThickness = new global::Avalonia.Thickness(1),
             CornerRadius    = new global::Avalonia.CornerRadius(10),
-            Padding         = new global::Avalonia.Thickness(16, 12, 16, 14),
-            Margin          = new global::Avalonia.Thickness(0, 0, 12, 12),
+            Padding         = new global::Avalonia.Thickness(14, 10, 14, 12),
+            Margin          = new global::Avalonia.Thickness(0, 0, 10, 10),
             Child           = sp,
         };
     }
@@ -371,5 +374,10 @@ public partial class CoreXEcuPanel : UserControl
     private void OnConfigurarClick(object? sender, RoutedEventArgs e)
     {
         OnRequestConfigurar?.Invoke();
+    }
+
+    private void OnCerrarClick(object? sender, RoutedEventArgs e)
+    {
+        OnRequestCerrar?.Invoke();
     }
 }

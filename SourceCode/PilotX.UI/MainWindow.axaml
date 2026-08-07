@@ -578,16 +578,6 @@
             -->
             <vw:VistaXPanel x:Name="VistaXHost" Grid.Row="2" IsVisible="False"/>
 
-            <!--
-                CoreXEcuPanel — overlay nativo (9no port).
-                Reemplazo nativo PARCIAL (Live tab) de pages/corex-ecu.html:
-                telemetria del autosteer Teensy (IMU, WAS, GPS, CAN Keya,
-                Autosteer, Sistema). Las otras tabs (Estado/checklist,
-                Calibracion / motor manual + barrido PWM, Conexion con Teensy)
-                siguen en HTML via boton "Configurar". NO se toca firmware.
-            -->
-            <vw:CoreXEcuPanel x:Name="CoreXEcuHost" Grid.Row="2" IsVisible="False"/>
-
             <!-- =================== HUB (home nativo, 11vo port) =================== -->
             <!--
                 HubPanel - reemplazo nativo de pages/hub.html. KPIs del
@@ -814,6 +804,15 @@
                      abrir un lote se VE cargar en el mapa de atrás. -->
                 <vw:LotePanel x:Name="LoteHost" Grid.Row="1"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- CoreX-ECU (9no port, Live tab de pages\corex-ecu.html):
+                     telemetria del autosteer (IMU, WAS, GPS, CAN Keya,
+                     Autosteer, Sistema). Era un takeover pantalla completa
+                     oscuro ("ventana gigante negra", reporte 2026-08-07);
+                     ahora es una card clara flotante y el mapa sigue vivo
+                     detras. Las tabs editor siguen en HTML via "Configurar". -->
+                <vw:CoreXEcuPanel x:Name="CoreXEcuHost" Grid.Row="1" IsVisible="False"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
                 <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
                      secciones primero…"). Se va solo a los 4 s y no bloquea
