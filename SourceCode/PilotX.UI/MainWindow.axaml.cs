@@ -516,8 +516,10 @@ public partial class MainWindow : Window
         {
             // Boton Configurar abre las tabs editor (Estado/checklist,
             // Calibracion / motor manual + barrido PWM, Conexion con el ECU)
-            // en WebView lazy. NO se toca firmware.
-            _coreXEcuHost.OnRequestConfigurar = () => NavigateTo("pages/corex-ecu.html");
+            // en una ventana float CHICA solo con esa pagina (?widget=1 esconde
+            // el sidebar del Hub). Antes navegaba al takeover del Hub y en
+            // cabina se veia como "otra ventana gigante" (reporte 2026-08-07).
+            _coreXEcuHost.OnRequestConfigurar = () => AbrirWidgetFloat("pages/corex-ecu.html?widget=1", "CoreX-ECU", 920, 620);
             // La ✕ de la card flotante cierra el panel (el mapa ya esta vivo).
             _coreXEcuHost.OnRequestCerrar = () => CloseCoreXEcu();
         }
@@ -2199,6 +2201,34 @@ public partial class MainWindow : Window
         _coreXEcuHost.Detach();
         _coreXEcuHost.IsVisible = false;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] CoreX-ECU closed");
+    }
+
+    // Widget flotante: OTRO proceso PilotX.Desktop en --mode=float, mismo
+    // mecanismo que usa el shell WinForms para camaras. Ventana chica con
+    // chrome propio SOLO con esa pagina (la pagina esconde el sidebar del
+    // Hub con ?widget=1). Esta ventana no pierde nada: el mapa y el HUD
+    // siguen como estaban, y el widget se cierra con su propia X.
+    private void AbrirWidgetFloat(string page, string titulo, int ancho, int alto)
+    {
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe)) return;
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = exe,
+                Arguments = "--page=" + page + " --mode=float --title=\"" + titulo + "\""
+                          + " --width=" + ancho.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                          + " --height=" + alto.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                UseShellExecute = false,
+                WorkingDirectory = System.IO.Path.GetDirectoryName(exe) ?? "",
+            };
+            System.Diagnostics.Process.Start(psi);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] widget float fallo: " + ex.Message);
+        }
     }
 
     // ----- Hub home (port #11): reemplazo nativo de pages/hub.html.
