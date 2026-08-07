@@ -483,10 +483,17 @@ namespace AgOpenGPS
             {
                 string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
                 ContourFiles.CreateFile(dir);
+                // TAMBIÉN Sections.txt: el port original vaciaba solo la RAM y
+                // el contorno — el archivo de cobertura quedaba intacto, así
+                // que cerrar y reabrir el lote RESUCITABA todo lo borrado
+                // (circuito de pruebas 2026-08-07, paso 5). El WinForms sí lo
+                // vaciaba (FileCreateSections en toolStripAreYouSure_Click).
+                SectionsFiles.CreateEmpty(dir);
+                Log.EventWriter("GuidanceEngine: borrar_aplicado — cobertura y contorno vaciados (RAM + disco)");
             }
             catch (Exception ex)
             {
-                Log.EventWriter("GuidanceEngine: borrar_aplicado ContourFiles.CreateFile: " + ex.Message);
+                Log.EventWriter("GuidanceEngine: borrar_aplicado al vaciar archivos: " + ex.Message);
             }
 
             return true;

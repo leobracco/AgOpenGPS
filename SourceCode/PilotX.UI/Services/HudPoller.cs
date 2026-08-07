@@ -43,6 +43,10 @@ public sealed class HudSnapshot
     // distancia a la línea. Vienen del MISMO /api/aog/state que el resto.
     public bool IsAutoSteerOn { get; set; }
     public bool IsYouTurnOn { get; set; }
+    /// <summary>Secciones en automático / manual. El shell los usa para el
+    /// guard de "Borrar pintado" (avisar en vez de fallar mudo).</summary>
+    public bool IsSectionAutoOn { get; set; }
+    public bool IsSectionManualOn { get; set; }
     public bool HasBoundary { get; set; }
     /// <summary>Ancho del salto del giro en guías (1 = contigua). El menú
     /// muestra guías SALTEADAS = ancho − 1.</summary>

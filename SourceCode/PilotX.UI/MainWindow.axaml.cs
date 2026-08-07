@@ -1605,6 +1605,10 @@ public partial class MainWindow : Window
     // cada pantalla se venía tapando con una señal indirecta distinta.
     private long _ventanaSeqVista = -1;
 
+    // Estado vivo de secciones (auto o manual prendido). Lo refresca el HUD a
+    // 10 Hz; lo consulta el guard de "Borrar pintado".
+    private bool _seccionesActivas;
+
     // ---- idioma de la interfaz ---------------------------------------------
     //
     // El idioma se elige en el menú SISTEMA y también desde el Hub. Viaja en el
@@ -3198,6 +3202,21 @@ public partial class MainWindow : Window
             case "lote_cerrar":
                 CerrarLote(); return true;
 
+            // Borrar pintado: el guard del motor (secciones apagadas) devolvía
+            // false MUDO — el operario tocaba el botón con secciones activas y
+            // no pasaba nada, sin explicación (circuito de pruebas 2026-08-07).
+            // El aviso va acá, que es donde hay pantalla; el motor conserva su
+            // guard como última defensa.
+            case "borrar_aplicado":
+                if (_seccionesActivas)
+                {
+                    _ = MostrarAvisoAsync(
+                        PilotX.Cockpit.Bars.Traductor.T("Borrar pintado"),
+                        PilotX.Cockpit.Bars.Traductor.T("Apagá las secciones primero para poder borrar el pintado."));
+                    return true;
+                }
+                return false;   // secciones apagadas: sigue al motor, que borra
+
             // Dirección (FormSteer) → ventana propia más grande. ?v= evita que
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
@@ -3901,6 +3920,8 @@ public partial class MainWindow : Window
     {
         _lastPivotE = s.PivotEasting;
         _lastPivotN = s.PivotNorthing;
+        // Para el guard de "Borrar pintado" (se consulta al tocar el botón).
+        _seccionesActivas = s.IsSectionAutoOn || s.IsSectionManualOn;
         Dispatcher.UIThread.Post(() =>
         {
             // El HUD llega siempre (nunca se pausa), así que es el mejor lugar
