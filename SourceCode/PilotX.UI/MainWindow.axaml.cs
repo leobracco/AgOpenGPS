@@ -3718,6 +3718,12 @@ public partial class MainWindow : Window
     private static Window ArmarDialogoBase(string titulo, string mensaje,
                                            out global::Avalonia.Controls.StackPanel filaBotones)
     {
+        // Foreground EXPLÍCITO: el tema del cockpit pinta los TextBlock claros
+        // (para leerse sobre el mapa oscuro) y esta ventana es blanca — sin
+        // esto el aviso salía con el texto invisible: "salta una ventana pero
+        // no dice nada, solo el título y el botón" (reporte 2026-08-07).
+        var tinta = new global::Avalonia.Media.SolidColorBrush(
+            global::Avalonia.Media.Color.Parse("#101612"));
         var stack = new global::Avalonia.Controls.StackPanel { Spacing = 12 };
         stack.Children.Add(new global::Avalonia.Controls.TextBlock
         {
@@ -3725,12 +3731,14 @@ public partial class MainWindow : Window
             FontSize = 22,
             FontWeight = global::Avalonia.Media.FontWeight.Bold,
             TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+            Foreground = tinta,
         });
         stack.Children.Add(new global::Avalonia.Controls.TextBlock
         {
             Text = mensaje,
             FontSize = 15,
             TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+            Foreground = tinta,
         });
         filaBotones = new global::Avalonia.Controls.StackPanel
         {
