@@ -118,7 +118,26 @@
       });
   }
 
+  // -------- Gate por versión de firmware -----------------------------------
+  // El "CoreX-ECU 1.00" es el firmware oficial AIO v4 + API mínima: SOLO
+  // /api/status y /api/reboot. Params (v1.01+), motor manual (v1.09+),
+  // sweep PWM (v1.10+) y fuente WAS (v1.11+) no existen ahí — sin este gate
+  // cada intento pegaba un 404 contra el ECU y la UI mostraba
+  // "AGP-NET-101 · HTTP 404" (reporte 2026-08-07).
+  var fwVersion = '';
+  function fwAtLeast(min) {
+    if (!fwVersion) return false;
+    var a = String(fwVersion).split('.'), b = String(min).split('.');
+    for (var i = 0; i < Math.max(a.length, b.length); i++) {
+      var x = parseInt(a[i], 10) || 0, y = parseInt(b[i], 10) || 0;
+      if (x !== y) return x > y;
+    }
+    return true;
+  }
+  var FW_SOLO_ESTADO = 'Este firmware del ECU solo expone estado y reinicio por red.';
+
   function renderStatus(s) {
+    if (s && s.ok) fwVersion = s.version || '';
     if (!s || !s.ok) {
       setPill(false, 'ECU offline');
       showError(s && s.error_code, (s && s.error) || 'Sin respuesta del CoreX-ECU.', s && s.error_technical);
@@ -262,6 +281,10 @@
 
   // -------- Parámetros ----------------------------------------------------
   function loadParams() {
+    if (!fwAtLeast('1.01')) {
+      $('paramsMsg').textContent = FW_SOLO_ESTADO + ' Parámetros remotos requieren v1.01+.';
+      return;
+    }
     $('paramsMsg').textContent = 'Cargando…';
     setUpdatedPill('updAz', null);
     setUpdatedPill('updKeya', null);
@@ -358,6 +381,10 @@
   }
 
   function saveParams() {
+    if (!fwAtLeast('1.01')) {
+      $('paramsMsg').textContent = FW_SOLO_ESTADO + ' Parámetros remotos requieren v1.01+.';
+      return;
+    }
     var patch = buildParamsPatch();
     if (Object.keys(patch).length === 0) {
       $('paramsMsg').textContent = 'No hay cambios para guardar.';
@@ -388,6 +415,10 @@
 
   // -------- Acciones (zero + reboot) --------------------------------------
   function forceZero() {
+    if (!fwAtLeast('1.01')) {
+      $('zeroMsg').textContent = FW_SOLO_ESTADO + ' El cero se captura solo al arrancar (auto-zero del firmware).';
+      return;
+    }
     $('zeroMsg').textContent = 'Capturando centro…';
     fetch('/api/corex-ecu/zero', { method: 'POST' })
       .then(function (r) { return r.json(); })
@@ -531,6 +562,13 @@
           return;
         }
         // Propagar la preferencia al firmware via endpoint canónico v1.11+.
+        // Si el ECU corre el firmware mínimo (1.00, solo estado/reinicio) NO
+        // intentamos: pegaba 404 y ensuciaba el OK con "AGP-NET-101 · HTTP 404".
+        if (!fwAtLeast('1.11')) {
+          $('cfgMsg').textContent = 'OK · config guardada. ' + FW_SOLO_ESTADO +
+                                    ' (la fuente WAS se elige en el propio firmware).';
+          return;
+        }
         // El POST /api/wassrc cambia la fuente en caliente y persiste a EEPROM
         // del Teensy; si es ADS, además hace probe I²C y devuelve si el chip
         // contestó (ads_present + probed).
@@ -619,6 +657,11 @@
   }
 
   async function motorTest(pwm) {
+    if (!fwAtLeast('1.09')) {
+      $('motorStatus').textContent = FW_SOLO_ESTADO + ' Prueba de motor requiere v1.09+.';
+      stopHolding();
+      return;
+    }
     // Skip si todavía hay un request en vuelo — evita pile-up cuando la red
     // está lenta y el HOLD_MS dispara antes de que vuelva el ack del previo.
     if (motorTestInFlight) return;
@@ -645,6 +688,7 @@
   }
 
   function motorStopExplicit() {
+    if (!fwAtLeast('1.09')) return;   // firmware sin motor manual: nada que frenar
     fetch('/api/corex-ecu/motor/stop', { method: 'POST' })
       .then(function (r) { return r.json(); })
       .catch(function () { /* swallow */ });
@@ -791,6 +835,10 @@
   }
 
   async function startSweep() {
+    if (!fwAtLeast('1.10')) {
+      $('sweepMsg').textContent = FW_SOLO_ESTADO + ' Barrido PWM requiere v1.10+.';
+      return;
+    }
     var stepMs   = parseInt($('swStep').value, 10)   || 1500;
     var settleMs = parseInt($('swSettle').value, 10) || 400;
     $('sweepMsg').textContent = 'Iniciando barrido…';
