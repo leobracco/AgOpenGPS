@@ -3214,9 +3214,10 @@ public partial class MainWindow : Window
             case "borrar_aplicado":
                 if (_seccionesActivas)
                 {
-                    _ = MostrarAvisoAsync(
-                        PilotX.Cockpit.Bars.Traductor.T("Borrar pintado"),
-                        PilotX.Cockpit.Bars.Traductor.T("Apagá las secciones primero para poder borrar el pintado."));
+                    // Toast, NO modal: el aviso con ShowDialog trababa todos
+                    // los botones hasta tocar "Entendido" (reporte 2026-08-07).
+                    MostrarToast(PilotX.Cockpit.Bars.Traductor.T(
+                        "Apagá las secciones primero para poder borrar el pintado."));
                     return true;
                 }
                 return false;   // secciones apagadas: sigue al motor, que borra
@@ -3708,6 +3709,30 @@ public partial class MainWindow : Window
         win.Closed += (_, _) => tcs.TrySetResult(false);
         await win.ShowDialog(this);
         return await tcs.Task;
+    }
+
+    // ---- toast transitorio (no bloquea) ------------------------------------
+    //
+    // Para avisos que no piden decisión. IsHitTestVisible=false en el XAML:
+    // ni siquiera el propio toast intercepta toques. Se va solo a los 4 s;
+    // un aviso nuevo pisa al anterior y reinicia el reloj.
+    private DispatcherTimer? _toastTimer;
+
+    private void MostrarToast(string mensaje)
+    {
+        var borde = this.FindControl<Border>("ToastAviso");
+        var texto = this.FindControl<TextBlock>("ToastAvisoText");
+        if (borde == null || texto == null) return;
+        texto.Text = mensaje;
+        borde.IsVisible = true;
+        _toastTimer?.Stop();
+        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+        _toastTimer.Tick += (_, __) =>
+        {
+            _toastTimer?.Stop();
+            borde.IsVisible = false;
+        };
+        _toastTimer.Start();
     }
 
     private async Task MostrarAvisoAsync(string titulo, string mensaje)

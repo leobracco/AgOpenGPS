@@ -1,8 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="PilotX.Desktop.Views.CabinaAlarmasOverlay"
-             IsHitTestVisible="True"
-             Background="Transparent">
+             x:Class="PilotX.Desktop.Views.CabinaAlarmasOverlay">
+    <!-- SIN Background en el root: un fondo Transparent (no-null) hace
+         hit-testable TODA la superficie del control — la zona vacía
+         alrededor del chip comía los toques de lo que estuviera debajo.
+         Con null, solo el chip (que sí tiene fondo) recibe toques. -->
+
     <!--
         Aviso cabin-critical COMPACTO: nodos del implemento activo offline.
         Chip chico arriba a la derecha (NO tapa el mapa), con X para ocultar.

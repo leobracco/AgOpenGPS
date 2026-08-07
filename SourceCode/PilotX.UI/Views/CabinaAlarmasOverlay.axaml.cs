@@ -6,12 +6,12 @@
 //
 //   · NODOS: GET /api/nodos/unified cada 2s — nodos del implemento activo
 //     que cayeron offline.
-//   · VISTAX: GET /api/vistax/live en el mismo tick — surcos en falla
-//     PRODUCTIVA mientras se siembra: tapado / dosis no alcanzada / sin
-//     datos / tolva vacía. El exceso NO va al banner (de más siembra, no
-//     de menos — mismo criterio que VxSurcoEvaluator, que no lo marca
-//     como alerta). Solo con monitoreo activo: parado, todos los surcos
-//     darían "tapado" y el banner sería puro ruido.
+//   · VISTAX: GET /api/vistax/live en el mismo tick — surcos con falla
+//     mientras se siembra: tapado / dosis no alcanzada / sin datos /
+//     tolva vacía / exceso de dosis (el exceso entró por pedido del
+//     2026-08-07: sembrar de más es plata en semilla). Solo con
+//     monitoreo activo: parado, todos los surcos darían "tapado" y el
+//     banner sería puro ruido.
 //
 // Comportamiento comun:
 //   · Beep 880 Hz one-shot SOLO cuando entra una alarma NUEVA (UID de
@@ -117,7 +117,10 @@ public partial class CabinaAlarmasOverlay : UserControl
         "bajo"    => "dosis no alcanzada",
         "no-data" => "sin datos",
         "alerta"  => "tolva vacía",
-        // "exceso" NO alarma: de más siembra, no de menos (VxSurcoEvaluator).
+        // El exceso también va al banner (pedido 2026-08-07): sembrar de más
+        // es plata en semilla — el evaluator no lo cuenta como falla
+        // productiva (no frena nada), pero el operario quiere verlo.
+        "exceso"  => "exceso de dosis",
         _ => null,
     };
 

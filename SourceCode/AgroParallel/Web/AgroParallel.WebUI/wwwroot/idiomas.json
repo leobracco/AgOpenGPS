@@ -233,6 +233,7 @@
   "tapado": { "en": "blocked", "pt": "entupido" },
   "dosis no alcanzada": { "en": "rate not reached", "pt": "dose não atingida" },
   "tolva vacía": { "en": "hopper empty", "pt": "tolva vazia" },
+  "exceso de dosis": { "en": "rate exceeded", "pt": "dose excedida" },
   "Fallas de siembra": { "en": "Seeding faults", "pt": "Falhas de semeadura" },
   "fallas de siembra": { "en": "seeding faults", "pt": "falhas de semeadura" },
   "Borrar cobertura pintada": { "en": "Clear painted coverage", "pt": "Apagar cobertura pintada" },

@@ -806,6 +806,20 @@
                 <vw:LotePanel x:Name="LoteHost" Grid.Row="1"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
+                <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
+                     secciones primero…"). Se va solo a los 4 s y no bloquea
+                     NADA — el aviso modal (ShowDialog) trababa todos los
+                     botones y en cabina eso no va (reporte 2026-08-07). -->
+                <Border x:Name="ToastAviso" Grid.Row="1" IsVisible="False"
+                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Margin="0,64,0,0" MaxWidth="560"
+                        Background="#F2101612" CornerRadius="10"
+                        Padding="16,10" IsHitTestVisible="False">
+                    <TextBlock x:Name="ToastAvisoText" Foreground="White"
+                               FontSize="15" TextWrapping="Wrap"
+                               TextAlignment="Center"/>
+                </Border>
+
                 <!-- Panel de HERRAMIENTAS: se abre desde la barra de la pasada
                      y flota sobre el mapa (no es Flyout: los popups no se
                      dibujan sobre el mapa GL). Botones grandes en dos columnas
