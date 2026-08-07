@@ -44,6 +44,18 @@ namespace AgroParallel.Models
         [JsonPropertyName("campo_dosis")]
         public string CampoDosis { get; set; } = "";
 
+        // Modo manual runtime (toggle MAN/AUTO del widget en pantalla). Estos
+        // dos viven en el MISMO motores.json que escribe MotoresConfig: sin
+        // ellos acá, el DTO no solo no los veía (VistaX mostraba el objetivo
+        // del shape con QuantiX en MAN, reporte 2026-08-07) sino que
+        // SaveMotores reescribía el archivo SIN estos campos — guardar la
+        // config desde el Hub le borraba el modo manual al operario.
+        [JsonPropertyName("manual_mode")]
+        public bool ManualMode { get; set; }
+
+        [JsonPropertyName("manual_dosis")]
+        public double ManualDosis { get; set; }
+
         [JsonPropertyName("kp")]
         public double Kp { get; set; } = 80;
 

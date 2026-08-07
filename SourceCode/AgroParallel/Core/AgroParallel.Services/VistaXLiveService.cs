@@ -47,6 +47,11 @@ namespace AgroParallel.Services
         // AHORA). Cache corto: GetSnapshot corre a UI-rate y la cuenta recorre
         // config de motores + registry + implemento.
         private System.Collections.Generic.Dictionary<int, double> _objDinPorSurco;
+        // El mismo objetivo pero en sem/m (sin velocidad): es lo que se MUESTRA
+        // (encabezado del tren, ficha del surco). El de arriba está en sem/MIN
+        // porque compara contra el Spm del sensor; mostrar ese obligaba a estar
+        // en movimiento para saber el objetivo.
+        private System.Collections.Generic.Dictionary<int, double> _objDinSemM;
         private DateTime _objDinStamp;
         // Opcional: si está presente, se consultan los bounds DropMin/DropMax del
         // insumo activo para definir "bajo"/"exceso" por surco. Si es null o el
@@ -160,6 +165,16 @@ namespace AgroParallel.Services
             var mapa = ArmarObjetivosDinamicos();
             double v;
             return mapa != null && mapa.TryGetValue(surco, out v) ? v : 0;
+        }
+
+        /// <summary>Dosis buscada del surco en sem/m (para MOSTRAR). 0 = sin
+        /// motor QuantiX asignado o fuente en "manual".</summary>
+        private double ObjetivoSemMDeSurco(int surco)
+        {
+            if (surco <= 0) return 0;
+            ArmarObjetivosDinamicos();   // refresca los dos mapas juntos
+            double v;
+            return _objDinSemM != null && _objDinSemM.TryGetValue(surco, out v) ? v : 0;
         }
 
         // ── Prueba de siembra (contar semillas sobre N metros) ───────────────
@@ -366,7 +381,9 @@ namespace AgroParallel.Services
                 return _objDinPorSurco;
             _objDinStamp = DateTime.UtcNow;
             var mapa = new System.Collections.Generic.Dictionary<int, double>();
+            var mapaSemM = new System.Collections.Generic.Dictionary<int, double>();
             _objDinPorSurco = mapa;
+            _objDinSemM = mapaSemM;
             try
             {
                 // Fuente del objetivo (pedido 2026-08-06): "manual" ignora
@@ -389,7 +406,10 @@ namespace AgroParallel.Services
                 // manda esa dosis, igual que la consigna del motor).
                 double velKmh = LeerVelocidadSegura();
                 double metrosPorMinuto = velKmh * 1000.0 / 60.0;
-                if (metrosPorMinuto <= 0) return mapa;   // parado: sin sem/min posible
+                // OJO: parado NO se retorna — el mapa de sem/MIN queda vacío
+                // (sin velocidad no hay comparación posible), pero el de sem/m
+                // se arma igual: es lo que se MUESTRA como objetivo, y el
+                // operario lo mira justamente con la máquina parada.
                 double shapeDosis = 0;
                 bool usaShape = false;
                 try
@@ -454,21 +474,28 @@ namespace AgroParallel.Services
                         // dosificaba mal, el objetivo se movía con él y VistaX
                         // nunca marcaba desvío, que es justo para lo que está.
                         //
-                        // Dosis efectiva = la del shape si hay prescripción
-                        // activa bajo el tractor (misma fuente que usa el
-                        // bridge para mandar la consigna), si no la fija del
-                        // motor. Sale en sem/m y se pasa a sem/MIN, que es la
-                        // unidad con la que abajo se compara el Spm medido.
-                        double dosisSemM = m.DosisFija;
-                        if (usaShape && shapeDosis > 0) dosisSemM = shapeDosis;
+                        // La dosis se resuelve con QxDoseResolver — la MISMA
+                        // cascada Manual > Mapa > Fija que usa el bridge para
+                        // mandar la consigna al motor. Acá había una copia a
+                        // mano (Shape > Fija) que ignoraba el modo manual:
+                        // QuantiX en MAN con dosis 1,9 y VistaX seguía
+                        // mostrando el 6 del shape (reporte 2026-08-07).
+                        // Sale en sem/m y se pasa a sem/MIN, que es la unidad
+                        // con la que abajo se compara el Spm medido.
+                        double dosisSemM = AgroParallel.QuantiX.QxDoseResolver.Resolve(
+                            m.ManualMode, m.ManualDosis, m.DosisFija, m.CampoDosis,
+                            usaShape ? shapeDosis : 0,
+                            campo => { try { return _state?.GetShapeFieldDose(campo) ?? 0; } catch { return 0; } });
                         if (dosisSemM <= 0) continue;
 
                         // NO se reparte entre surcos: la dosis de siembra es
                         // POR SURCO (es por giro del dosificador). Un motor que
                         // sirve N surcos entrega N veces esa dosis, pero cada
                         // surco sigue esperando la misma.
+                        foreach (var s in surcos) mapaSemM[s] = dosisSemM;
+
                         double spm = dosisSemM * metrosPorMinuto;
-                        if (spm <= 0) continue;
+                        if (spm <= 0) continue;   // parado: solo el mapa de display
                         foreach (var s in surcos) mapa[s] = spm;
                     }
                 }
@@ -755,6 +782,10 @@ namespace AgroParallel.Services
                     }
                 }
 
+                // Trenes cuyo objetivo mostrado ya lo fijó la dosis de QuantiX
+                // (ver abajo): el primero que la tiene gana, el resto no pisa.
+                var trenesConObjetivoDinamico = new System.Collections.Generic.HashSet<int>();
+
                 if (_imp?.MapeoSensores != null)
                 {
                     foreach (var sc in _imp.MapeoSensores)
@@ -793,6 +824,19 @@ namespace AgroParallel.Services
                         double objDinamico = ObjetivoDinamicoDeSurco(sc.SurcoDesde > 0 ? sc.SurcoDesde : sc.Bajada);
                         double objMin = sc.Objetivo > 0 ? sc.Objetivo * metrosPorMinuto
                             : (objDinamico > 0 ? objDinamico : tl.Objetivo * metrosPorMinuto);
+
+                        // El OBJETIVO QUE SE MUESTRA en el encabezado del tren
+                        // sigue a la dosis efectiva de QuantiX (Manual > Mapa >
+                        // Fija). Antes quedaba clavado en el DensidadObjetivo de
+                        // la config de VistaX: QuantiX en MAN a 1,9 y el tren
+                        // seguía diciendo "objetivo 6" (reporte 2026-08-07). El
+                        // primer surco del tren con motor asignado fija el valor.
+                        double objSemMDin = ObjetivoSemMDeSurco(sc.SurcoDesde > 0 ? sc.SurcoDesde : sc.Bajada);
+                        if (objSemMDin > 0 && !trenesConObjetivoDinamico.Contains(trenId))
+                        {
+                            tl.Objetivo = Math.Round(objSemMDin, 2);
+                            trenesConObjetivoDinamico.Add(trenId);
+                        }
                         var surco = new VistaXSurcoStateDto
                         {
                             Bajada = sc.Bajada,
