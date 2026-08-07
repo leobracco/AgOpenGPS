@@ -44,6 +44,42 @@ namespace AgOpenGPS
         /// FormGPS.FileOpenField: todo entra en la tira 0 y se recalcula el area
         /// trabajada desde los triangulos.
         /// </summary>
+        // Un vertice mas alla de esto no es del lote: las coordenadas locales
+        // (metros desde el origen del campo) nunca pasan de unas decenas de km.
+        // En cabina aparecieron vertices en (-3.374.325, 10.183.037) — un salto
+        // de fix del GPS escrito a mitad de parche — y UN solo triangulo asi
+        // hace dos desastres: el area trabajada da millones de hectareas, y el
+        // anti-solape ve "sembrado" un triangulo que tapa el lote entero, asi
+        // que corta TODAS las secciones para siempre.
+        private const double CoordenadaMaxima = 200000.0;
+
+        private static bool VerticeSano(vec3 v) =>
+            Math.Abs(v.easting) < CoordenadaMaxima && Math.Abs(v.northing) < CoordenadaMaxima;
+
+        /// <summary>
+        /// Parte un parche en tramos contiguos de vertices sanos (cada tramo
+        /// conserva el header de color en [0]). Los vertices del salto de fix
+        /// se descartan y se corta ahi: dejar el hueco haria que el triangulo
+        /// puente entre los vecinos cruce el lote.
+        /// </summary>
+        private static List<List<vec3>> TramosSanos(IReadOnlyList<vec3> parche, ref int descartados)
+        {
+            var tramos = new List<List<vec3>>();
+            if (parche == null || parche.Count < 4) return tramos;
+
+            var tramo = new List<vec3> { parche[0] };
+            for (int j = 1; j <= parche.Count; j++)
+            {
+                bool corta = j == parche.Count || !VerticeSano(parche[j]);
+                if (!corta) { tramo.Add(parche[j]); continue; }
+                if (j < parche.Count) descartados++;
+
+                if (tramo.Count >= 4) tramos.Add(tramo);   // header + 3 = 1 triangulo
+                tramo = new List<vec3> { parche[0] };
+            }
+            return tramos;
+        }
+
         private void CargarCobertura(string dir)
         {
             ParchesCargados = 0;
@@ -51,28 +87,42 @@ namespace AgOpenGPS
             {
                 var parches = SectionsFiles.Load(dir);
                 if (parches == null || parches.Count == 0) return;
-                if (TriStripField.Count == 0 || TriStripField[0] == null) return;
+
+                // Con el motor RECIEN ARRANCADO la tira 0 todavia no existe
+                // (se crea la primera vez que una seccion pinta) y esto
+                // retornaba EN SILENCIO: reabrir un lote tras reiniciar
+                // PilotX mostraba 0 ha aunque Sections.txt tuviera 1 MB —
+                // exactamente el sintoma reportado en el circuito de pruebas
+                // (2026-08-07). Dentro de la misma corrida andaba porque la
+                // tira quedaba viva de la sesion anterior.
+                if (TriStripField.Count == 0)
+                    TriStripField.Add(new CPatches(this));
+                if (TriStripField[0] == null)
+                    TriStripField[0] = new CPatches(this);
 
                 var tira = TriStripField[0];
                 tira.patchList = new List<List<vec3>>();
                 Fd.workedAreaTotal = 0;
+                int verticesDescartados = 0;
 
                 foreach (var parche in parches)
                 {
-                    if (parche == null || parche.Count < 4) continue;
-                    tira.triangleList = new List<vec3>(parche);
-                    tira.patchList.Add(tira.triangleList);
-
-                    // parche[0] es el header de color, la geometria arranca en [1].
-                    int verts = parche.Count - 2;
-                    for (int j = 1; j < verts; j++)
+                    // parche[0] es el header de color; la geometria arranca en [1].
+                    foreach (var tramo in TramosSanos(parche, ref verticesDescartados))
                     {
-                        double t = parche[j].easting * (parche[j + 1].northing - parche[j + 2].northing)
-                                 + parche[j + 1].easting * (parche[j + 2].northing - parche[j].northing)
-                                 + parche[j + 2].easting * (parche[j].northing - parche[j + 1].northing);
-                        Fd.workedAreaTotal += Math.Abs(t * 0.5);
+                        tira.triangleList = tramo;
+                        tira.patchList.Add(tramo);
+
+                        int verts = tramo.Count - 2;
+                        for (int k = 1; k < verts; k++)
+                        {
+                            double t = tramo[k].easting * (tramo[k + 1].northing - tramo[k + 2].northing)
+                                     + tramo[k + 1].easting * (tramo[k + 2].northing - tramo[k].northing)
+                                     + tramo[k + 2].easting * (tramo[k].northing - tramo[k + 1].northing);
+                            Fd.workedAreaTotal += Math.Abs(t * 0.5);
+                        }
+                        ParchesCargados++;
                     }
-                    ParchesCargados++;
                 }
 
                 // Los parches que se acaban de leer YA estan en disco: si
@@ -81,7 +131,10 @@ namespace AgOpenGPS
                 patchSaveList?.Clear();
                 _fixesDesdeGuardada = 0;
 
-                Log.EventWriter($"GuidanceEngine: cobertura cargada ({ParchesCargados} parches, {Fd.workedAreaTotal:F0} m2)");
+                Log.EventWriter($"GuidanceEngine: cobertura cargada ({ParchesCargados} parches, {Fd.workedAreaTotal:F0} m2)"
+                    + (verticesDescartados > 0
+                        ? $" — {verticesDescartados} vertices corruptos descartados (salto de fix en una sesion anterior)"
+                        : ""));
             }
             catch (Exception ex)
             {
@@ -106,10 +159,20 @@ namespace AgOpenGPS
                 string dir = Path.Combine(RegistrySettings.fieldsDirectory, currentFieldDirectory);
                 if (!Directory.Exists(dir)) return;
 
-                int n = patchSaveList.Count;
-                SectionsFiles.Append(dir, patchSaveList);
+                // Sanear ANTES de escribir: si el GPS pego un salto mientras
+                // pintaba (ModSim reiniciado, fix perdido), el parche en RAM
+                // trae vertices a miles de km. Escribirlos deja el archivo
+                // envenenado para todas las aperturas futuras — es exactamente
+                // lo que se encontro en "las de atras" (2026-08-07).
+                int descartados = 0;
+                var sanos = new List<List<vec3>>();
+                foreach (var parche in patchSaveList)
+                    sanos.AddRange(TramosSanos(parche, ref descartados));
+
+                if (sanos.Count > 0) SectionsFiles.Append(dir, sanos);
                 patchSaveList.Clear();
-                Log.EventWriter($"GuidanceEngine: cobertura guardada ({n} parches)");
+                Log.EventWriter($"GuidanceEngine: cobertura guardada ({sanos.Count} parches)"
+                    + (descartados > 0 ? $" — {descartados} vertices corruptos NO escritos (salto de fix)" : ""));
             }
             catch (Exception ex)
             {
