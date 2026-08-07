@@ -74,6 +74,15 @@ namespace AgOpenGPS
             CargarCobertura(dir);
             CargarRestoDelLote(dir);
 
+            // El índice del ANTI-SOLAPE es una copia aparte de la cobertura
+            // (CoverageIndex, alimentado incremental por cursores). Sin este
+            // Reiniciar arrastraba lo del lote ANTERIOR — y tras un borrar
+            // pintado seguía cortando sobre cobertura fantasma: "la pintura no
+            // aparece pero las secciones se cortan igual" (reporte 2026-08-07).
+            // Reiniciar también resetea los cursores, así el próximo
+            // Sincronizar reconsume desde cero lo que CargarCobertura cargó.
+            AntiSolape?.Reiniciar();
+
             string msg = $"GuidanceEngine: lote abierto: {fieldName} (tracks={Trk.gArr.Count}, boundaries={Bnd.bndList.Count}, parches={ParchesCargados}, IsJobStarted={IsJobStarted})";
             Log.EventWriter(msg);
             Console.WriteLine(msg);
@@ -148,6 +157,11 @@ namespace AgOpenGPS
                 TriStripField[j]?.patchList?.Clear();
                 TriStripField[j]?.triangleList?.Clear();
             }
+
+            // El índice del anti-solape también: sin esto, sus cursores quedan
+            // apuntando más allá de las listas recién vaciadas y lo del próximo
+            // lote no se consumiría nunca (además de retener el área de este).
+            AntiSolape?.Reiniciar();
 
             currentFieldDirectory = "";
             displayFieldName = "";

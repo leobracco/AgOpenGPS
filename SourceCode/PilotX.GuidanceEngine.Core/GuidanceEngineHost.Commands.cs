@@ -477,6 +477,13 @@ namespace AgOpenGPS
             }
             patchSaveList?.Clear();
 
+            // Y el índice del anti-solape, que es una COPIA aparte de la
+            // cobertura: sin esto quedaba lleno de triángulos viejos y las
+            // secciones seguían cortando sobre pintura que ya no existía
+            // ("la pintura no aparece pero las secciones se cortan igual",
+            // reporte 2026-08-07 en el circuito de pruebas).
+            AntiSolape?.Reiniciar();
+
             foreach (var t in Trk.gArr) t.workedTracks.Clear();
 
             try
