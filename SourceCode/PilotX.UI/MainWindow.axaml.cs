@@ -251,6 +251,11 @@ public partial class MainWindow : Window
     private CamarasPanel? _camarasHost;
     private CamarasClient? _camarasClient;
 
+    // Guías nativo (15vo port). Reemplaza tracks.html en el flujo de labor:
+    // el único diálogo que despertaba Chromium MANEJANDO. La página HTML
+    // sigue para el Hub remoto/celular.
+    private GuiasPanel? _guiasHost;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -333,6 +338,18 @@ public partial class MainWindow : Window
         _nodosHost         = this.FindControl<NodosPanel>("NodosHost");
         _actualizarHost    = this.FindControl<ActualizarPanel>("ActualizarHost");
         _camarasHost       = this.FindControl<CamarasPanel>("CamarasHost");
+        // Guías nativo (14vo port): AB delega en el flujo del mapa que ya
+        // existía; curva y lista van contra /api/tracks igual que la página.
+        _guiasHost = this.FindControl<GuiasPanel>("GuiasHost");
+        if (_guiasHost != null)
+        {
+            _guiasHost.CrearAbPedido += StartAbCreate;
+            _guiasHost.Cerrado += () =>
+            {
+                // Igual que al cerrar el diálogo HTML: replegar el menú.
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+        }
         _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
@@ -1735,6 +1752,7 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnBackClick(object? sender, RoutedEventArgs e)
     {
+        if (_guiasHost != null && _guiasHost.IsVisible) { _guiasHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -3137,12 +3155,14 @@ public partial class MainWindow : Window
                 StartAbCreate();
                 return true;
 
-            // ---- Guías (curva/A+/elegir/importar) → ventana-diálogo HTML ----
+            // ---- Guías → panel NATIVO (15vo port). El diálogo HTML era el
+            // único de la labor que despertaba Chromium manejando; el panel
+            // además deja el mapa vivo detrás (se ve la curva grabándose).
             case "pick":
             case "importar_guias":
             case "track_new_curve":
             case "track_new_a":
-                OpenDialogPage("pages/tracks.html", "Guías", 680, 520);
+                AbrirGuias();
                 return true;
 
             // Menú de lote (FormJob) → ventana chica. El submenú LOTE de la barra
@@ -3250,8 +3270,9 @@ public partial class MainWindow : Window
             "cabecera"          => "pages/cabecera.html",
             "cabecera_avanzada" => "pages/cabecera-lineas.html",
             "tram_crear"        => "pages/tramline.html",
-            "importar_guias"    => "pages/tracks.html",
-            "pick"              => "pages/tracks.html",
+            // "pick"/"importar_guias" ya NO mapean acá: Guías es nativo (el
+            // case de arriba los agarra antes). tracks.html queda para el Hub
+            // remoto/celular, que no pasa por este switch.
             "sim_coords"        => "pages/sim-coords.html",
             "asistente_direccion" => "pages/config.html",
             "herr_limites"      => "pages/contorno.html",
@@ -3727,6 +3748,26 @@ public partial class MainWindow : Window
 
     // ---- Creación de guía A/B en el mapa (toco A, manejo, toco B) ----
     private bool _suppressAutoSelect;
+
+    /// <summary>
+    /// Abre el gestor de Guías nativo. El guard de lote es el mismo que tenía
+    /// el diálogo HTML: sin lote no hay dónde guardar una guía.
+    /// </summary>
+    private void AbrirGuias()
+    {
+        if (_guiasHost == null) return;
+        // Solo un panel a la vez sobre el mapa (mismo criterio que ShowSistema).
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        if (_guiasHttp == null)
+        {
+            _guiasHttp = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+            _guiasHost.Attach(_guiasHttp, DeriveOrigin(App.TargetUrl));
+        }
+        _guiasHost.Abrir();
+    }
+
+    private System.Net.Http.HttpClient? _guiasHttp;
 
     private void StartAbCreate()
     {

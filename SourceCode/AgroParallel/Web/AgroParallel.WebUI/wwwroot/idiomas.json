@@ -107,6 +107,10 @@
   "Importar KML…": { "en": "Import KML…", "pt": "Importar KML…" },
   "Mostrar/ocultar todas": { "en": "Show/hide all", "pt": "Mostrar/ocultar todas" },
   "Ubicá el tractor en el inicio y tocá A": { "en": "Place the tractor at the start and tap A", "pt": "Posicione o trator no início e toque em A" },
+  "No hay guías en el lote.": { "en": "No guidance lines in the field.", "pt": "Não há linhas de guia no talhão." },
+  "Tocá A al empezar la pasada": { "en": "Tap A at the start of the pass", "pt": "Toque em A ao começar a passada" },
+  "Grabando": { "en": "Recording", "pt": "Gravando" },
+  "Mostrar/ocultar": { "en": "Show/hide", "pt": "Mostrar/ocultar" },
 
   "Lindero": { "en": "Boundary", "pt": "Contorno" },
   "Lindero (contorno del lote)": { "en": "Boundary (field outline)", "pt": "Contorno (limite do talhão)" },
