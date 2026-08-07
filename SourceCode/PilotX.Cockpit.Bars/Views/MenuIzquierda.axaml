@@ -259,6 +259,10 @@
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="borrar_contornos"><StackPanel><Image Classes="sico" Source="/Assets/menu/TrashContourRef.png"/><TextBlock Classes="slbl" Text="Ocultar contornos"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="webcam"><StackPanel><Image Classes="sico" Source="/Assets/menu/Webcam.png"/><TextBlock Classes="slbl" Text="Webcam"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="corregir_pos"><StackPanel><Image Classes="sico" Source="/Assets/menu/YouTurnReverse.png"/><TextBlock Classes="slbl" Text="Corregir posición"/></StackPanel></Button>
+              <!-- Conteo de semillas: ventana propia (pedido 2026-08-06), no
+                   embebida en Configuración. Cuenta las semillas de cada surco
+                   sobre un tramo y dice cuál está bien y cuál no. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="conteo_semillas"><StackPanel><Image Classes="sico" Source="/Assets/menu/SectionMapping.png"/><TextBlock Classes="slbl" Text="Conteo de semillas"/></StackPanel></Button>
             </UniformGrid>
           </ScrollViewer>
         </DockPanel>

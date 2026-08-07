@@ -38,16 +38,20 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
         // El motor manda la carpeta del lote; puede venir vacía aunque el job
         // figure iniciado (por ejemplo justo mientras abre), así que manda el
         // nombre y no la bandera.
+        // Estos textos los escribe el ViewModel, no el XAML: el traductor que
+        // recorre el árbol los pisaría y el próximo Apply los volvería a poner
+        // en castellano. Se traducen acá, en el origen. El NOMBRE del lote
+        // nunca se traduce: es un dato que cargó el operario.
         var lote = (s.CurrentFieldDirectory ?? "").Trim();
-        LoteText = lote.Length > 0 ? lote.ToUpperInvariant() : "SIN LOTE";
+        LoteText = lote.Length > 0 ? lote.ToUpperInvariant() : Traductor.T("SIN LOTE");
         (GpsText, GpsDotColor) = s.FixQuality switch
         {
-            4 => ("RTK FIJO",  "#4ABA3E"),
+            4 => (Traductor.T("RTK FIJO"),  "#4ABA3E"),
             5 => ("RTK FLOAT", "#E2B53E"),
             2 => ("DGPS",      "#E2B53E"),
             1 => ("GPS",       "#E2B53E"),
-            8 => ("SIMULADOR", "#8FA092"),
-            _ => ("SIN FIX",   "#E15A5A"),
+            8 => (Traductor.T("SIMULADOR"), "#8FA092"),
+            _ => (Traductor.T("SIN FIX"),   "#E15A5A"),
         };
         // Ritmo instantáneo: ancho de labor (m) x velocidad (km/h) x 0,1.
         // Es la MISMA cuenta que AgOpenGPS ya usaba en CFieldData.

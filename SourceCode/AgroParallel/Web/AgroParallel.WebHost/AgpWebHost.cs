@@ -303,6 +303,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new OrbitXController(_orbitxCfg))
                  .WithController(() => new FirmwaresController())
                  .WithController(() => new TecladoController())
+                 .WithController(() => new IdiomaController())
                  .WithController(() => new BotoneraController())
                  .WithController(() => new ConfiguracionController())
                  .WithController(() => new SteerConfigController(_steerConfig))

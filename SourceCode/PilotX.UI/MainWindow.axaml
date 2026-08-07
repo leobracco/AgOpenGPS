@@ -405,6 +405,21 @@
 
                     <Rectangle Classes="sep"/>
 
+                    <!-- Herramientas: abre el panel de utilidades sin tener que
+                         desplegar el menú lateral (pedido 2026-08-06 — se usa
+                         desde la pantalla principal, manejando). Panel propio,
+                         NO Flyout (ver la nota del menú SISTEMA). -->
+                    <Button x:Name="BtnOvHerramientas" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="herramientas_menu"
+                            ToolTip.Tip="Herramientas">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/SpecialFunctions.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Herram."/>
+                      </StackPanel>
+                    </Button>
+
+                    <Rectangle Classes="sep"/>
+
                     <!-- Piloto EN LA PUNTA derecha: es el botón que más se
                          toca, va donde la mano llega sin mirar. -->
                     <Button x:Name="BtnOvPiloto" Width="64" Height="56"
@@ -720,6 +735,27 @@
                             HorizontalContentAlignment="Left" Padding="12,0"
                             Background="Transparent" BorderThickness="0"
                             Content="Ayuda"/>
+
+                    <!-- Idioma: despliega los tres in-place. Los nombres van
+                         SIEMPRE en su propio idioma (un brasilero busca
+                         "Português", no "Portugués"), así que estos tres
+                         textos son los únicos que el traductor no toca. -->
+                    <Rectangle Height="1" Fill="#E2E7E2" Margin="6,2"/>
+                    <Button x:Name="BtnSisIdioma" Height="46" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left" Padding="12,0"
+                            Background="Transparent" BorderThickness="0"
+                            Content="Idioma"/>
+                    <StackPanel x:Name="SisIdiomaLista" IsVisible="False" Spacing="2" Margin="10,0,0,0">
+                      <Button x:Name="BtnIdiomaEs" Height="42" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left" Padding="12,0"
+                              Background="Transparent" BorderThickness="0" Content="Español"/>
+                      <Button x:Name="BtnIdiomaEn" Height="42" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left" Padding="12,0"
+                              Background="Transparent" BorderThickness="0" Content="English"/>
+                      <Button x:Name="BtnIdiomaPt" Height="42" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Left" Padding="12,0"
+                              Background="Transparent" BorderThickness="0" Content="Português"/>
+                    </StackPanel>
                   </StackPanel>
                 </Border>
                 <bars:MenuIzquierda x:Name="MenuIzq"
@@ -758,6 +794,109 @@
                      aire tapando el mapa justo cuando se replegó para liberarlo. -->
                 <bars:BarraDerecha x:Name="BarDerecha" Grid.Row="1"
                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                <!-- Panel de HERRAMIENTAS: se abre desde la barra de la pasada
+                     y flota sobre el mapa (no es Flyout: los popups no se
+                     dibujan sobre el mapa GL). Botones grandes en dos columnas
+                     para tocar con guantes. Se ubica sobre su botón en
+                     UbicarHerramientasMenu. -->
+                <Border x:Name="HerramientasMenu" Grid.Row="1" IsVisible="False"
+                        HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                        Margin="0,0,0,120"
+                        Background="#FAFBFA" BorderBrush="#C5CFC5" BorderThickness="1"
+                        CornerRadius="14" Padding="10"
+                        BoxShadow="0 8 26 0 #33101612">
+                  <Border.Styles>
+                    <!-- Tarjeta por herramienta: ícono arriba, nombre abajo.
+                         Sin fondo hasta que el dedo la toca — la grilla se lee
+                         como una lista de íconos, no como un tablero de cajas. -->
+                    <Style Selector="Button.hr">
+                      <Setter Property="Width" Value="104"/>
+                      <Setter Property="Height" Value="86"/>
+                      <Setter Property="Margin" Value="3"/>
+                      <Setter Property="Padding" Value="0"/>
+                      <Setter Property="Background" Value="Transparent"/>
+                      <Setter Property="BorderBrush" Value="Transparent"/>
+                      <Setter Property="BorderThickness" Value="1"/>
+                      <Setter Property="CornerRadius" Value="10"/>
+                      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                      <Setter Property="VerticalContentAlignment" Value="Center"/>
+                    </Style>
+                    <Style Selector="Button.hr:pointerover">
+                      <Setter Property="Background" Value="#FFFFFF"/>
+                      <Setter Property="BorderBrush" Value="#4ABA3E"/>
+                    </Style>
+                    <Style Selector="Button.hr:pressed">
+                      <Setter Property="Background" Value="#EAF6E8"/>
+                    </Style>
+                    <Style Selector="Button.hr Image">
+                      <Setter Property="Height" Value="34"/>
+                      <Setter Property="Width" Value="34"/>
+                    </Style>
+                    <Style Selector="Button.hr TextBlock">
+                      <Setter Property="FontSize" Value="11"/>
+                      <Setter Property="Foreground" Value="#101612"/>
+                      <Setter Property="TextAlignment" Value="Center"/>
+                      <Setter Property="TextWrapping" Value="Wrap"/>
+                      <Setter Property="Margin" Value="0,5,0,0"/>
+                      <Setter Property="LineHeight" Value="13"/>
+                    </Style>
+                  </Border.Styles>
+                  <StackPanel Spacing="4">
+                    <TextBlock Text="HERRAMIENTAS" FontSize="10" FontWeight="Bold"
+                               Foreground="#747D75" Margin="6,2,0,4"/>
+                    <UniformGrid Columns="4">
+                      <Button x:Name="BtnHrConteo" Classes="hr" ToolTip.Tip="Contar semillas de cada surco en un tramo">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/SectionMapping.png"/>
+                          <TextBlock Text="Conteo de semillas"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrCalc" Classes="hr" ToolTip.Tip="Calculadora de siembra">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/AutoManualIsAuto.png"/>
+                          <TextBlock Text="Calculadora"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrWebcam" Classes="hr" ToolTip.Tip="Cámaras">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Webcam.png"/>
+                          <TextBlock Text="Cámaras"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrCorregir" Classes="hr" ToolTip.Tip="Corregir posición del tractor">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/YouTurnReverse.png"/>
+                          <TextBlock Text="Corregir posición"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrSuavizar" Classes="hr" ToolTip.Tip="Suavizar una guía curva">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/ABSmooth.png"/>
+                          <TextBlock Text="Suavizar AB"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrEventos" Classes="hr" ToolTip.Tip="Registro de eventos">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/ABTracks.png"/>
+                          <TextBlock Text="Eventos"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrGrafDir" Classes="hr" ToolTip.Tip="Gráfico de dirección">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/AutoSteerOn.png"/>
+                          <TextBlock Text="Gráfico dirección"/>
+                        </StackPanel>
+                      </Button>
+                      <Button x:Name="BtnHrGrafXte" Classes="hr" ToolTip.Tip="Gráfico de desvío a la línea">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/GPSQuality.png"/>
+                          <TextBlock Text="Gráfico XTE"/>
+                        </StackPanel>
+                      </Button>
+                    </UniformGrid>
+                  </StackPanel>
+                </Border>
+
                 <!-- Secciones FLOTANTES: intercambio con la barra de la pasada
                      (pedido usuario 2026-08-05). Las secciones suben a flotar
                      centradas (tarjeta redondeada) y la pasada baja pegada al

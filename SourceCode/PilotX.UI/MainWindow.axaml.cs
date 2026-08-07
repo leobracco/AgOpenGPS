@@ -355,6 +355,50 @@ public partial class MainWindow : Window
             RouteCockpitCommand("ayuda");
         };
 
+        // Idioma: despliega los tres in-place dentro del mismo panel.
+        _sisIdiomaLista = this.FindControl<StackPanel>("SisIdiomaLista");
+        var bSisIdioma = this.FindControl<Button>("BtnSisIdioma");
+        if (bSisIdioma != null) bSisIdioma.Click += (_, __) =>
+        {
+            if (_sisIdiomaLista != null) _sisIdiomaLista.IsVisible = !_sisIdiomaLista.IsVisible;
+        };
+        void Idi(string ctrl, string codigo)
+        {
+            var b = this.FindControl<Button>(ctrl);
+            if (b == null) return;
+            b.Click += async (_, __) =>
+            {
+                if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+                if (_sisIdiomaLista != null) _sisIdiomaLista.IsVisible = false;
+                await CambiarIdiomaAsync(codigo);
+            };
+        }
+        Idi("BtnIdiomaEs", "es");
+        Idi("BtnIdiomaEn", "en");
+        Idi("BtnIdiomaPt", "pt");
+
+        // Panel de Herramientas de la barra de la pasada: cada botón manda su
+        // comando y cierra el panel.
+        _herramientasMenu = this.FindControl<Border>("HerramientasMenu");
+        void Herr(string ctrl, string cmd)
+        {
+            var b = this.FindControl<Button>(ctrl);
+            if (b == null) return;
+            b.Click += (_, __) =>
+            {
+                if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+                RouteCockpitCommand(cmd);
+            };
+        }
+        Herr("BtnHrConteo",   "conteo_semillas");
+        Herr("BtnHrCalc",     "calculadora");
+        Herr("BtnHrWebcam",   "webcam");
+        Herr("BtnHrCorregir", "corregir_pos");
+        Herr("BtnHrSuavizar", "suavizar_ab");
+        Herr("BtnHrEventos",  "visor_eventos");
+        Herr("BtnHrGrafDir",  "grafico_direccion");
+        Herr("BtnHrGrafXte",  "grafico_xte");
+
         var bIzq = this.FindControl<Button>("BtnNudgeIzq");
         var bCen = this.FindControl<Button>("BtnNudgeCentro");
         var bDer = this.FindControl<Button>("BtnNudgeDer");
@@ -1246,6 +1290,13 @@ public partial class MainWindow : Window
             case "tracks.html":
                 return (360, 300);
 
+            // Conteo de semillas: tabla de 7 columnas (semillas, esperadas,
+            // logrado, objetivo, desvío, estado) con una fila por surco —
+            // necesita ancho para que no se apilen las columnas, y alto para
+            // ver varias líneas de siembra juntas.
+            case "vistax-prueba.html":
+                return (760, 560);
+
             // Gráficos: acá el ancho SÍ es información (es el eje del tiempo),
             // así que se les da ancho y se les saca alto.
             case "grafico-direccion.html":
@@ -1425,6 +1476,89 @@ public partial class MainWindow : Window
     // "pilotx-close" nunca cerró nada (dejaba la ventana en blanco abierta) y
     // cada pantalla se venía tapando con una señal indirecta distinta.
     private long _ventanaSeqVista = -1;
+
+    // ---- idioma de la interfaz ---------------------------------------------
+    //
+    // El idioma se elige en el menú SISTEMA y también desde el Hub. Viaja en el
+    // HUD (idioma + contador) para que un cambio hecho en CUALQUIER ventana
+    // llegue acá: sin eso, cambiar el idioma en una pantalla dejaba la otra en
+    // castellano hasta reiniciar.
+    //
+    // La traducción no reemplaza los textos del XAML: el Traductor recorre el
+    // árbol de controles y los cambia al vuelo, guardando el castellano
+    // original de cada uno. Ver PilotX.Cockpit.Bars/Traductor.cs.
+    private StackPanel? _sisIdiomaLista;
+    private long _idiomaSeqVisto = -1;
+
+    /// <summary>Guarda el idioma en el engine y lo aplica en pantalla.</summary>
+    private async Task CambiarIdiomaAsync(string codigo)
+    {
+        try
+        {
+            var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            var url = DeriveOrigin(App.TargetUrl).TrimEnd('/');
+            using var body = new System.Net.Http.StringContent(
+                "{\"idioma\":\"" + codigo + "\"}", System.Text.Encoding.UTF8, "application/json");
+            using var _ = await http.PostAsync(url + "/api/idioma", body);
+        }
+        catch (Exception ex) { Console.Error.WriteLine("[Idioma] guardar: " + ex.Message); }
+
+        await AplicarIdiomaAsync(codigo);
+    }
+
+    /// <summary>Traduce la pantalla al idioma pedido (sin tocar el engine).</summary>
+    private async Task AplicarIdiomaAsync(string codigo)
+    {
+        try
+        {
+            if (!PilotX.Cockpit.Bars.Traductor.HayDiccionario)
+            {
+                var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+                await PilotX.Cockpit.Bars.Traductor.CargarDiccionarioAsync(
+                    http, DeriveOrigin(App.TargetUrl));
+            }
+            if (PilotX.Cockpit.Bars.Traductor.CambiarIdioma(codigo))
+            {
+                PilotX.Cockpit.Bars.Traductor.Aplicar(this);
+                MarcarIdiomaActivo();
+            }
+        }
+        catch (Exception ex) { Console.Error.WriteLine("[Idioma] aplicar: " + ex.Message); }
+    }
+
+    // El idioma activo se marca con FONDO, no agregándole un tilde al texto:
+    // el Traductor guarda el Content original de cada botón y en la próxima
+    // pasada lo restauraría, borrando la marca.
+    private void MarcarIdiomaActivo()
+    {
+        void Pintar(string ctrl, string codigo)
+        {
+            var b = this.FindControl<Button>(ctrl);
+            if (b == null) return;
+            bool activo = PilotX.Cockpit.Bars.Traductor.Idioma == codigo;
+            b.Background = activo
+                ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#DCEFD8"))
+                : Avalonia.Media.Brushes.Transparent;
+            b.FontWeight = activo ? Avalonia.Media.FontWeight.Bold : Avalonia.Media.FontWeight.Normal;
+        }
+        Pintar("BtnIdiomaEs", "es");
+        Pintar("BtnIdiomaEn", "en");
+        Pintar("BtnIdiomaPt", "pt");
+    }
+
+    /// <summary>
+    /// Aplica el idioma que venga en el HUD. Cubre dos casos con el mismo
+    /// código: el arranque (la pantalla toma el idioma que quedó guardado) y
+    /// el cambio hecho desde otra ventana.
+    /// </summary>
+    private void AtenderIdioma(HudSnapshot s)
+    {
+        if (s == null) return;
+        string quiere = string.IsNullOrWhiteSpace(s.Idioma) ? "es" : s.Idioma;
+        if (_idiomaSeqVisto == s.IdiomaSeq && quiere == PilotX.Cockpit.Bars.Traductor.Idioma) return;
+        _idiomaSeqVisto = s.IdiomaSeq;
+        if (quiere != PilotX.Cockpit.Bars.Traductor.Idioma) _ = AplicarIdiomaAsync(quiere);
+    }
 
     private void AtenderPedidoDeVentana(HudSnapshot s)
     {
@@ -2265,7 +2399,12 @@ public partial class MainWindow : Window
         string s;
         if (!hasG)
         {
-            s = hasT ? $"T {_lastTractorHeadingDeg:0}°  ·  sin guía" : "";
+            // El texto se ARMA acá, así que el recorrido del árbol no lo puede
+            // traducir (nunca coincide entero con una entrada del diccionario):
+            // se traduce la parte de palabras y los números quedan como están.
+            s = hasT
+                ? $"T {_lastTractorHeadingDeg:0}°  ·  {PilotX.Cockpit.Bars.Traductor.T("sin guía")}"
+                : "";
         }
         else
         {
@@ -2335,10 +2474,29 @@ public partial class MainWindow : Window
             };
         }
 
+        // La franja de VistaX se apila SOBRE las secciones: cuando esa barra
+        // aparece, cambia de tamaño o se oculta (según haya lote), hay que
+        // recolocarla o queda tapada.
+        var seccionesFloat = this.FindControl<Border>("SeccionesFloat");
+        if (seccionesFloat != null)
+        {
+            seccionesFloat.PropertyChanged += (_, e) =>
+            {
+                if (e.Property == BoundsProperty || e.Property == IsVisibleProperty)
+                {
+                    UbicarVxStrip();
+                    UbicarQxBar();
+                }
+            };
+        }
+
         if (_vxMapStrip != null)
         {
-            // Tocar la franja abre el panel VistaX completo.
+            // Tocar la franja FUERA de una barra: panel VistaX completo.
             _vxMapStrip.OnTap = () => ShowVistaX();
+            // Tocar UNA barra: ficha chica de ESE sensor (pedido 2026-08-06 —
+            // abrir el panel entero para mirar un surco era desproporcionado).
+            _vxMapStrip.OnTapSurco = s => MostrarFichaSurco(s);
             // Abajo al centro-izquierda, pegada al borde: reposicionar cuando
             // cambie el tamaño del canvas o el alto de la franja (auto-mini).
             _vxMapStrip.PropertyChanged += (_, e) =>
@@ -2400,6 +2558,178 @@ public partial class MainWindow : Window
     private Border? _nudgeOverlay;
     private Button? _btnNudgeCentro;
     private Border? _sistemaMenu;
+    private Border? _herramientasMenu;
+
+    /// <summary>Deja el panel de Herramientas centrado sobre su botón de la
+    /// barra de la pasada (que se corre según qué botones apliquen).</summary>
+    private void UbicarHerramientasMenu()
+    {
+        if (_herramientasMenu == null) return;
+        try
+        {
+            var btn = this.FindControl<Button>("BtnOvHerramientas");
+            if (btn == null || btn.Bounds.Width <= 0) return;
+            var p = btn.TranslatePoint(new Point(btn.Bounds.Width / 2, 0), this);
+            if (!p.HasValue) return;
+
+            double ancho = _herramientasMenu.Bounds.Width > 0 ? _herramientasMenu.Bounds.Width : 460;
+            double x = p.Value.X - ancho / 2;
+            double maxX = Math.Max(0, Bounds.Width - ancho - 8);
+            x = Math.Max(8, Math.Min(x, maxX));
+
+            // Justo ARRIBA de la barra de la pasada, con aire.
+            double desdeAbajo = Math.Max(0, Bounds.Height - p.Value.Y) + 10;
+            _herramientasMenu.Margin = new Thickness(x, 0, 0, desdeAbajo);
+        }
+        catch { }
+    }
+
+    // ---- ficha chica de UN surco de VistaX --------------------------------
+    //
+    // Tocar una barra de la franja abría el panel VistaX entero ("una ventana
+    // gigante" para mirar un sensor). Esto muestra SOLO ese surco, en una
+    // ventana del tamaño de una tarjeta, y se refresca en vivo mientras esté
+    // abierta. Cerrar: el botón o la X.
+    private Window? _fichaSurcoWin;
+    private System.Threading.CancellationTokenSource? _fichaSurcoCts;
+
+    private void MostrarFichaSurco(Services.VistaXSurcoLive surco)
+    {
+        if (surco == null) return;
+        try
+        {
+            _fichaSurcoWin?.Close();
+
+            int bajada = surco.Bajada;
+            var titulo = new TextBlock
+            {
+                Text = "Surco " + bajada,
+                FontSize = 20,
+                FontWeight = Avalonia.Media.FontWeight.Bold,
+                Foreground = Avalonia.Media.Brushes.Black,
+            };
+            var estado = new TextBlock { FontSize = 14, Foreground = Avalonia.Media.Brushes.Black };
+            var spm = new TextBlock { FontSize = 30, FontWeight = Avalonia.Media.FontWeight.Bold, Foreground = Avalonia.Media.Brushes.Black };
+            var obj = new TextBlock { FontSize = 13, Foreground = Avalonia.Media.Brush.Parse("#535E54") };
+            var extra = new TextBlock { FontSize = 12, Foreground = Avalonia.Media.Brush.Parse("#535E54"), TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+            var cerrar = new Button
+            {
+                Content = "Cerrar",
+                Height = 42,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            };
+
+            var panel = new StackPanel { Spacing = 6, Margin = new Thickness(14) };
+            panel.Children.Add(titulo);
+            panel.Children.Add(estado);
+            panel.Children.Add(spm);
+            panel.Children.Add(obj);
+            panel.Children.Add(extra);
+            panel.Children.Add(cerrar);
+
+            var win = new Window
+            {
+                Title = "Surco " + bajada,
+                Width = 250,
+                Height = 260,
+                CanResize = false,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                SystemDecorations = SystemDecorations.Full,
+                ShowInTaskbar = false,
+                Background = Avalonia.Media.Brush.Parse("#F5F7F4"),
+                Content = panel,
+            };
+            _fichaSurcoWin = win;
+            cerrar.Click += (_, __) => { try { win.Close(); } catch { } };
+
+            // Todo en SEMILLAS POR METRO, que es como se piensa la siembra
+            // (regla del producto: unidades agronómicas al operario). El
+            // backend entrega sem/MINUTO, así que se divide por los metros por
+            // minuto de la velocidad actual. Mostrar objetivo en sem/min y
+            // medido en sem/m era comparar peras con manzanas (2026-08-06).
+            void Pintar(Services.VistaXSurcoLive s, double mMin)
+            {
+                string e = (s.Estado ?? "sin datos").ToLowerInvariant();
+                estado.Text = e switch
+                {
+                    "ok" => "Sembrando bien",
+                    "bajo" => "Por debajo del objetivo",
+                    "exceso" => "Por encima del objetivo",
+                    "tapado" => "TAPADO — no pasa semilla",
+                    "falla" => "FALLA",
+                    "seccion-off" => "Sección cortada",
+                    "no-data" or "idle" => "Sin datos",
+                    _ => e,
+                };
+
+                if (mMin > 1)
+                {
+                    spm.Text = (s.Spm / mMin).ToString("N1", CultureInfo.InvariantCulture) + " sem/m";
+                    obj.Text = s.Objetivo > 0
+                        ? "Objetivo: " + (s.Objetivo / mMin).ToString("N1", CultureInfo.InvariantCulture) + " sem/m"
+                        : "Objetivo: sin definir";
+                }
+                else
+                {
+                    // Parado no hay sem/m que valga (dividiría por cero): se
+                    // muestra el ritmo instantáneo, que es lo único real.
+                    spm.Text = s.Spm.ToString("N0", CultureInfo.InvariantCulture) + " sem/min";
+                    obj.Text = "detenido — sin sem/m";
+                }
+
+                // Sin sem/min: al operario no le dice nada (pedido 2026-08-06).
+                extra.Text = "Cable " + s.Cable + " · tren " + s.Tren
+                           + (string.IsNullOrEmpty(s.Tipo) ? "" : " · " + s.Tipo)
+                           + (s.Muted ? " · SILENCIADO" : "")
+                           + "\n" + (s.Uid ?? "");
+            }
+            Pintar(surco, 0);
+
+            // Refresco en vivo mientras la ficha esté abierta.
+            var cts = new System.Threading.CancellationTokenSource();
+            _fichaSurcoCts = cts;
+            win.Closed += (_, __) =>
+            {
+                try { cts.Cancel(); } catch { }
+                if (ReferenceEquals(_fichaSurcoWin, win)) _fichaSurcoWin = null;
+            };
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                // El mismo cliente que alimenta la franja (ya apunta al origen
+                // correcto); si por lo que sea no está, se crea uno propio.
+                var cli = _vxStripClient ?? new VistaXClient(DeriveOrigin(App.TargetUrl));
+                while (!cts.IsCancellationRequested && cli != null)
+                {
+                    try
+                    {
+                        var live = await cli.GetLiveAsync(cts.Token).ConfigureAwait(false);
+                        Services.VistaXSurcoLive? act = null;
+                        if (live?.Trenes != null)
+                            foreach (var t in live.Trenes)
+                                if (t?.Surcos != null)
+                                    foreach (var s in t.Surcos)
+                                        if (s != null && s.Bajada == bajada) { act = s; break; }
+                        if (act != null)
+                        {
+                            // Metros por minuto de la velocidad actual: con eso
+                            // se pasa de sem/min (lo que da el backend) a sem/m.
+                            double mMin = (live?.Velocidad ?? 0) * 1000.0 / 60.0;
+                            var actual = act;
+                            await Dispatcher.UIThread.InvokeAsync(() => Pintar(actual, mMin));
+                        }
+                    }
+                    catch (OperationCanceledException) { return; }
+                    catch { }
+                    try { await System.Threading.Tasks.Task.Delay(500, cts.Token).ConfigureAwait(false); }
+                    catch { return; }
+                }
+            });
+
+            win.Show(this);
+        }
+        catch { /* la ficha nunca puede voltear la pantalla principal */ }
+    }
 
     /// <summary>Alinea el panel SISTEMA con el borde izquierdo de su botón.</summary>
     private void UbicarSistemaMenu()
@@ -2495,9 +2825,23 @@ public partial class MainWindow : Window
             double t = Canvas.GetTop(_nudgeOverlay);
             if (!double.IsNaN(t)) tope = Math.Min(tope, t);
         }
+        // La barra de secciones NO vive en este canvas (está en el grid de las
+        // barras del cockpit, que arranca debajo de la barra superior), así que
+        // calcular su tope con constantes del XAML daba un valor corrido y la
+        // franja de VistaX terminaba ENTERRADA abajo de las secciones (reporte
+        // 2026-08-06). Se mide su posición real y se traduce a coordenadas de
+        // este canvas.
         var secciones = this.FindControl<Border>("SeccionesFloat");
         if (secciones != null && secciones.IsVisible && secciones.Bounds.Height > 0)
-            tope = Math.Min(tope, hostH - 96 - secciones.Bounds.Height);   // 96 = Margin del XAML
+        {
+            try
+            {
+                var p = secciones.TranslatePoint(new Point(0, 0), _mapOverlaysHost!);
+                if (p.HasValue) tope = Math.Min(tope, p.Value.Y);
+                else tope = Math.Min(tope, hostH - 96 - secciones.Bounds.Height);
+            }
+            catch { tope = Math.Min(tope, hostH - 96 - secciones.Bounds.Height); }
+        }
         return tope;
     }
 
@@ -2749,6 +3093,16 @@ public partial class MainWindow : Window
             case "brillo_up": AdjustBrightness(+10); return true;
             case "brillo_dn": AdjustBrightness(-10); return true;
 
+            // Panel de HERRAMIENTAS desde la barra de la pasada.
+            case "herramientas_menu":
+                if (_herramientasMenu != null)
+                {
+                    bool ver = !_herramientasMenu.IsVisible;
+                    if (ver) UbicarHerramientasMenu();
+                    _herramientasMenu.IsVisible = ver;
+                }
+                return true;
+
             // Menú SISTEMA: panel propio en vez de Flyout (ver el XAML). Se
             // coloca DEBAJO DEL BOTÓN, no en un lugar fijo: el botón se
             // corre cuando cambia el nombre del lote (la pestaña de al lado
@@ -2786,6 +3140,8 @@ public partial class MainWindow : Window
             "suavizar_ab"       => "pages/suavizar-ab.html",
             "corregir_pos"      => "pages/corregir-posicion.html",
             "visor_eventos"     => "pages/eventos.html",
+            "conteo_semillas"   => "pages/vistax-prueba.html",
+            "calculadora"       => "pages/calculadora-siembra.html",
             "bandera"           => "pages/banderas.html",
             "bandera_latlon"    => "pages/banderas.html",
             "lindero"           => "pages/contorno.html",
@@ -3362,6 +3718,8 @@ public partial class MainWindow : Window
         "suavizar_ab"       => "Suavizar AB",
         "corregir_pos"      => "Corregir posición",
         "visor_eventos"     => "Eventos",
+        "conteo_semillas"   => "Conteo de semillas",
+        "calculadora"       => "Calculadora de siembra",
         "bandera" or "bandera_latlon" => "Banderas",
         "lindero" or "herr_limites" => "Contorno",
         "cabecera"          => "Cabecera",
@@ -3388,6 +3746,7 @@ public partial class MainWindow : Window
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             CerrarDialogoSiHayGuiaNueva(s.TracksTotal, s.TrackIdx);
             AtenderPedidoDeVentana(s);
+            AtenderIdioma(s);
             if (_hudSpeed   != null) _hudSpeed.Text   = s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture);
             ActualizarClusterPiloto(s);
             double deg = (s.Heading * 180.0 / Math.PI) % 360.0;

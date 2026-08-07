@@ -438,7 +438,25 @@
         </div>
       </div>
 
-      <h2 style="margin-top:0">Parámetros VistaX</h2>
+      <h2 style="margin-top:0">Objetivo de siembra</h2>
+      <div class="form-grid">
+        <label>De dónde sale</label>
+        <select id="impObjFuente">
+          <option value="quantix">QuantiX — la dosis que manda al motor de cada surco</option>
+          <option value="manual">Manual — el valor de acá abajo, siempre</option>
+        </select>
+        <label>Objetivo propio (sem/m)</label>
+        <input id="impObjSemM" type="number" step="0.1" min="0" />
+      </div>
+      <p class="subtitle" style="margin-top: var(--agp-sp-2)">
+        Con <strong>QuantiX</strong>, cada surco se compara contra la dosis que QuantiX
+        le está mandando a su motor (la fija, o la del mapa de prescripción si hay uno
+        activo). Los surcos que <em>no</em> tengan motor asignado usan el objetivo propio.
+        Con <strong>Manual</strong> se compara todo contra el objetivo propio, aunque
+        haya QuantiX conectado.
+      </p>
+
+      <h2>Parámetros VistaX</h2>
       <div class="form-grid">
         <label>Tolerancia desvío (%)</label><input id="impTol" type="number" step="1" />
         <label>N° de torres</label><input id="impTorres" type="number" step="1" min="0" placeholder="0 = sin agrupar" />
@@ -553,5 +571,6 @@
   <script src="../js/vistax.js"></script>
   <script src="../js/modal.js"></script>
   <script src="../js/vistax-insumo.js"></script>
+  <script src="/js/i18n.js"></script>
 </body>
 </html>

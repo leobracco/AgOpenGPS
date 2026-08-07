@@ -95,6 +95,9 @@ namespace AgroParallel.Services
             // pulsos a 35 pps) que la cuantización mete ±12% de ruido → falsas
             // alarmas bajo/exceso. Con ventana de 1 s el error cae a ~±3%.
             public double WinAcum;      // acum al inicio de la ventana
+            /// <summary>Último acumulado crudo del firmware. Lo usa la PRUEBA
+            /// DE SIEMBRA para contar semillas entre dos puntos.</summary>
+            public double UltimoAcum;
             public DateTime WinTs;      // inicio de la ventana
             public bool HasAcum;
             // true si el sensor reporta modo "state" (on/off): SPM no aplica.
@@ -159,6 +162,204 @@ namespace AgroParallel.Services
             return mapa != null && mapa.TryGetValue(surco, out v) ? v : 0;
         }
 
+        // ── Prueba de siembra (contar semillas sobre N metros) ───────────────
+        //
+        // Se guarda el acumulado de cada cable al arrancar y se va sumando la
+        // distancia recorrida (integrada del pivote, así vale también en curva).
+        // Al llegar a la distancia pedida se congela: cada surco queda con lo
+        // que contó contra lo que debía sembrar.
+        private readonly object _pruebaLock = new object();
+        private bool _pruebaActiva, _pruebaTerminada;
+        private double _pruebaDistObjetivo, _pruebaDistRecorrida;
+        private DateTime _pruebaIniciada;
+        private double _pruebaLastE, _pruebaLastN;
+        private bool _pruebaTienePos;
+        private readonly System.Collections.Generic.Dictionary<string, double> _pruebaAcumInicial
+            = new System.Collections.Generic.Dictionary<string, double>();
+        private readonly System.Collections.Generic.Dictionary<string, double> _pruebaAcumFinal
+            = new System.Collections.Generic.Dictionary<string, double>();
+
+        /// <summary>Arranca una prueba nueva, o REANUDA la que estaba pausada
+        /// (si hay medición en curso y no se pidió otra distancia).</summary>
+        public void PruebaIniciar(double distanciaM)
+        {
+            if (distanciaM <= 0) distanciaM = 100;
+            lock (_pruebaLock)
+            {
+                bool reanudar = !_pruebaActiva && !_pruebaTerminada
+                                && _pruebaDistRecorrida > 0
+                                && Math.Abs(_pruebaDistObjetivo - distanciaM) < 0.01;
+                if (!reanudar)
+                {
+                    _pruebaAcumInicial.Clear();
+                    _pruebaAcumFinal.Clear();
+                    foreach (var kv in _readings)
+                    {
+                        _pruebaAcumInicial[kv.Key] = kv.Value.UltimoAcum;
+                        _pruebaAcumFinal[kv.Key] = kv.Value.UltimoAcum;
+                    }
+                    _pruebaDistObjetivo = distanciaM;
+                    _pruebaDistRecorrida = 0;
+                    _pruebaIniciada = DateTime.Now;
+                }
+                _pruebaActiva = true;
+                _pruebaTerminada = false;
+                _pruebaTienePos = false;
+            }
+        }
+
+        /// <summary>Pausa: deja de sumar metros y semillas, pero conserva lo
+        /// medido. Volver a iniciar REANUDA desde donde quedó.</summary>
+        public void PruebaCancelar()
+        {
+            lock (_pruebaLock)
+            {
+                _pruebaActiva = false;
+                _pruebaTienePos = false;   // al reanudar no cuenta el tramo parado
+            }
+        }
+
+        /// <summary>Borra la prueba: metros y contadores a cero.</summary>
+        public void PruebaReset()
+        {
+            lock (_pruebaLock)
+            {
+                _pruebaActiva = false;
+                _pruebaTerminada = false;
+                _pruebaDistRecorrida = 0;
+                _pruebaTienePos = false;
+                _pruebaAcumInicial.Clear();
+                _pruebaAcumFinal.Clear();
+                _pruebaIniciada = default(DateTime);
+            }
+        }
+
+        /// <summary>Avanza la prueba: suma distancia y refresca los contadores.
+        /// Se llama en cada snapshot (la UI pide 2 veces por segundo).</summary>
+        private void PruebaTick()
+        {
+            lock (_pruebaLock)
+            {
+                if (!_pruebaActiva) return;
+                try
+                {
+                    var snap = _state?.GetSnapshot();
+                    if (snap != null)
+                    {
+                        double e = snap.PivotEasting, n = snap.PivotNorthing;
+                        if (_pruebaTienePos)
+                        {
+                            double dx = e - _pruebaLastE, dy = n - _pruebaLastN;
+                            double d = Math.Sqrt(dx * dx + dy * dy);
+                            // Saltos grandes = teleport del simulador o fix nuevo:
+                            // no son metros sembrados.
+                            if (d > 0 && d < 25) _pruebaDistRecorrida += d;
+                        }
+                        _pruebaLastE = e; _pruebaLastN = n; _pruebaTienePos = true;
+                    }
+                }
+                catch { }
+
+                foreach (var kv in _readings)
+                {
+                    _pruebaAcumFinal[kv.Key] = kv.Value.UltimoAcum;
+                    if (!_pruebaAcumInicial.ContainsKey(kv.Key))
+                        _pruebaAcumInicial[kv.Key] = kv.Value.UltimoAcum;   // sensor que apareció después
+                }
+
+                if (_pruebaDistRecorrida >= _pruebaDistObjetivo)
+                {
+                    _pruebaActiva = false;
+                    _pruebaTerminada = true;
+                }
+            }
+        }
+
+        /// <summary>Surco (bajada) al que está mapeado un cable de un nodo.
+        /// 0 si ese cable no figura en el mapeo del implemento.</summary>
+        private int BajadaDeSensor(string uid, int cable)
+        {
+            try
+            {
+                if (_imp?.MapeoSensores == null) return 0;
+                foreach (var sc in _imp.MapeoSensores)
+                {
+                    if (sc == null || !sc.IsActive) continue;
+                    if (sc.Cable == cable &&
+                        string.Equals(sc.Uid ?? "", uid ?? "", StringComparison.OrdinalIgnoreCase))
+                        return sc.Bajada;
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        public VistaXPruebaDto PruebaEstado()
+        {
+            var dto = new VistaXPruebaDto();
+            var objetivos = ArmarObjetivosDinamicos();
+            double mMin = LeerVelocidadSegura() / 3.6 * 60.0;
+            double objManual = _imp?.Setup?.DensidadObjetivo ?? 0;
+            double tol = _imp?.Setup?.ToleranciaDesvio ?? 20;
+            if (tol <= 0) tol = 20;
+
+            lock (_pruebaLock)
+            {
+                dto.Activa = _pruebaActiva;
+                dto.Terminada = _pruebaTerminada;
+                dto.DistanciaObjetivoM = _pruebaDistObjetivo;
+                dto.DistanciaRecorridaM = Math.Round(_pruebaDistRecorrida, 1);
+                dto.ToleranciaPct = tol;
+                dto.IniciadaIso = _pruebaIniciada == default(DateTime) ? "" : _pruebaIniciada.ToString("O");
+
+                double dist = _pruebaDistRecorrida;
+                foreach (var kv in _pruebaAcumFinal)
+                {
+                    double ini = _pruebaAcumInicial.TryGetValue(kv.Key, out var v0) ? v0 : kv.Value;
+                    double cuenta = kv.Value - ini;
+                    if (cuenta < 0) cuenta = 0;      // el nodo se reinició en el medio
+
+                    Reading r;
+                    if (!_readings.TryGetValue(kv.Key, out r) || r == null) continue;
+                    if (r.IsState) continue;         // sensores on/off no cuentan semillas
+
+                    // A qué surco corresponde este cable (mapeo del implemento).
+                    int bajada = BajadaDeSensor(r.Uid, r.Cable);
+                    double objSemM = objManual;
+                    if (bajada > 0 && objetivos.TryGetValue(bajada, out var objSpm) && mMin > 0)
+                        objSemM = objSpm / mMin;     // el dinámico viene en sem/min
+
+                    var s = new VistaXPruebaSurcoDto
+                    {
+                        Bajada = bajada,
+                        Cable = r.Cable,
+                        Uid = r.Uid ?? "",
+                        Semillas = Math.Round(cuenta, 0),
+                        ObjetivoSemM = Math.Round(objSemM, 2),
+                        Esperadas = Math.Round(objSemM * dist, 0),
+                        SemM = dist > 0 ? Math.Round(cuenta / dist, 2) : 0,
+                    };
+                    if (dist <= 0 || cuenta <= 0)
+                    {
+                        s.Veredicto = "sin_datos";
+                    }
+                    else if (objSemM > 0)
+                    {
+                        s.DesvioPct = Math.Round((s.SemM - objSemM) / objSemM * 100.0, 1);
+                        s.Veredicto = Math.Abs(s.DesvioPct) <= tol ? "ok"
+                                    : (s.DesvioPct < 0 ? "bajo" : "exceso");
+                    }
+                    else
+                    {
+                        s.Veredicto = "sin_datos";   // sin objetivo no hay veredicto posible
+                    }
+                    dto.Surcos.Add(s);
+                }
+            }
+            dto.Surcos.Sort((a, b) => a.Bajada != b.Bajada ? a.Bajada.CompareTo(b.Bajada) : a.Cable.CompareTo(b.Cable));
+            return dto;
+        }
+
         private System.Collections.Generic.Dictionary<int, double> ArmarObjetivosDinamicos()
         {
             if (_objDinPorSurco != null && (DateTime.UtcNow - _objDinStamp).TotalMilliseconds < 700)
@@ -168,12 +369,39 @@ namespace AgroParallel.Services
             _objDinPorSurco = mapa;
             try
             {
+                // Fuente del objetivo (pedido 2026-08-06): "manual" ignora
+                // QuantiX y usa siempre el objetivo propio de VistaX
+                // (DensidadObjetivo). Con "quantix" (default) manda la dosis
+                // del motor y el propio queda de respaldo para los surcos sin
+                // motor asignado.
+                string fuente = (_imp?.Setup?.ObjetivoFuente ?? "quantix").Trim().ToLowerInvariant();
+                if (fuente == "manual") return mapa;
+
                 if (_quantixCfg == null) return mapa;
                 var cfg = _quantixCfg.GetMotores();
                 if (cfg == null || cfg.Nodos == null) return mapa;
 
                 var vivos = Registry != null ? Registry.GetAll() : null;
                 if (vivos == null) return mapa;
+
+                // Contexto para la dosis buscada: velocidad (para pasar sem/m a
+                // sem/min) y prescripción bajo el tractor (si hay shape activo,
+                // manda esa dosis, igual que la consigna del motor).
+                double velKmh = LeerVelocidadSegura();
+                double metrosPorMinuto = velKmh * 1000.0 / 60.0;
+                if (metrosPorMinuto <= 0) return mapa;   // parado: sin sem/min posible
+                double shapeDosis = 0;
+                bool usaShape = false;
+                try
+                {
+                    var snap = _state?.GetSnapshot();
+                    if (snap != null && snap.ShapeIsInside && snap.ShapeCurrentDose > 0)
+                    {
+                        shapeDosis = snap.ShapeCurrentDose;
+                        usaShape = true;
+                    }
+                }
+                catch { }
 
                 AgroParallel.Models.ImplementoDto central = null;
                 try { central = _impCentral?.GetImplemento(); } catch { }
@@ -216,11 +444,30 @@ namespace AgroParallel.Services
                         }
                         if (surcos.Count == 0) continue;
 
-                        // En sem/MIN: la unidad con la que abajo se compara el
-                        // Spm medido (ver comentario de bounds). No usa la
-                        // velocidad: consigna por segundo × 60.
-                        double spm = VistaX.VxObjetivoDinamico.SemMinuto(
-                            ml.PpsTarget, m.SemillasVuelta, m.DientesEngranaje, surcos.Count);
+                        // El objetivo del surco es la DOSIS QUE SE BUSCA, no lo
+                        // que el motor está entregando (pedido usuario
+                        // 2026-08-06: "debería ser 6.0, igual a las variables
+                        // frente al shape o al manual de QuantiX").
+                        //
+                        // Por qué importa: derivarlo del pps_target del motor
+                        // hacía que el objetivo SIGUIERA al motor — si el motor
+                        // dosificaba mal, el objetivo se movía con él y VistaX
+                        // nunca marcaba desvío, que es justo para lo que está.
+                        //
+                        // Dosis efectiva = la del shape si hay prescripción
+                        // activa bajo el tractor (misma fuente que usa el
+                        // bridge para mandar la consigna), si no la fija del
+                        // motor. Sale en sem/m y se pasa a sem/MIN, que es la
+                        // unidad con la que abajo se compara el Spm medido.
+                        double dosisSemM = m.DosisFija;
+                        if (usaShape && shapeDosis > 0) dosisSemM = shapeDosis;
+                        if (dosisSemM <= 0) continue;
+
+                        // NO se reparte entre surcos: la dosis de siembra es
+                        // POR SURCO (es por giro del dosificador). Un motor que
+                        // sirve N surcos entrega N veces esa dosis, pero cada
+                        // surco sigue esperando la misma.
+                        double spm = dosisSemM * metrosPorMinuto;
                         if (spm <= 0) continue;
                         foreach (var s in surcos) mapa[s] = spm;
                     }
@@ -375,6 +622,7 @@ namespace AgroParallel.Services
                             }
                         }
                         r.HasAcum = true;
+                        r.UltimoAcum = acum;   // para la prueba de siembra
                     }
                     else if (r.PrevTs != default(DateTime))
                     {
@@ -436,6 +684,9 @@ namespace AgroParallel.Services
                 };
                 int timeoutMs = _cfg?.SensorTimeoutMs > 0 ? _cfg.SensorTimeoutMs : 3000;
                 DateTime now = DateTime.UtcNow;
+
+                // Prueba de siembra: avanza con cada snapshot (la UI pide 2/s).
+                PruebaTick();
 
                 // Metros por minuto, para llevar los objetivos configurados en
                 // sem/m (insumo, tren, override del sensor) a la unidad del
@@ -551,6 +802,10 @@ namespace AgroParallel.Services
                             Cable = sc.Cable,
                             Valor = r?.LastValor ?? 0,
                             Spm = r?.Spm ?? 0,
+                            // Densidad real: sem/min ÷ metros por minuto. La
+                            // hace la PANTALLA porque es la única que conoce la
+                            // velocidad — el nodo solo cuenta sus pulsos.
+                            SemM = metrosPorMinuto > 0 ? (r?.Spm ?? 0) / metrosPorMinuto : 0,
                             Objetivo = objMin,
                             Muted = sc.Muted,
                             LastSeenIso = r != null && r.LastTs != default(DateTime)

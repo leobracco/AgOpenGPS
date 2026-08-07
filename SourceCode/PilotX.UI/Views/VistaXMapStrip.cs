@@ -31,10 +31,14 @@ namespace PilotX.Desktop.Views;
 
 public sealed class VistaXMapStrip : Control
 {
-    private const double AltoNormal = 40;
-    private const double AltoMini = 14;
-    private const double AnchoBarra = 13;
-    private const double GapBarra = 2;
+    // Tamaño de la franja. Subido 2026-08-06 ("está muy chico"): con 40 px de
+    // alto y barras de 13 no se leía el nivel de un vistazo desde el asiento,
+    // que es todo el punto del overlay. El modo mini (cerca de la cabecera)
+    // sigue siendo una tira de color.
+    private const double AltoNormal = 72;
+    private const double AltoMini = 20;
+    private const double AnchoBarra = 22;
+    private const double GapBarra = 3;
     private const int UmbralCabeceraM = 25;   // igual que vx_mini_cabecera_m WinForms
     private const int HisteresisM = 5;
 
@@ -58,14 +62,39 @@ public sealed class VistaXMapStrip : Control
     private bool _mini;
     private string _baseUrl = "http://127.0.0.1:5180/";
 
-    /// <summary>Tocar la franja abre el panel VistaX completo.</summary>
+    /// <summary>Tocar la franja FUERA de una barra abre el panel VistaX completo.</summary>
     public Action? OnTap { get; set; }
+
+    /// <summary>Tocar UNA barra: entrega el surco tocado para mostrar su ficha
+    /// chica. Abrir el panel entero para mirar un sensor era desproporcionado
+    /// — "una ventana gigante" (pedido 2026-08-06).</summary>
+    public Action<VistaXSurcoLive>? OnTapSurco { get; set; }
 
     public bool Mini => _mini;
 
     public VistaXMapStrip()
     {
-        PointerPressed += (_, e) => { OnTap?.Invoke(); e.Handled = true; };
+        PointerPressed += (_, e) =>
+        {
+            var s = SurcoEn(e.GetPosition(this).X);
+            if (s != null && OnTapSurco != null) OnTapSurco(s);
+            else OnTap?.Invoke();
+            e.Handled = true;
+        };
+    }
+
+    /// <summary>Surco cuya barra cae bajo esa X (misma geometría que Render).</summary>
+    private VistaXSurcoLive? SurcoEn(double x)
+    {
+        var surcos = SurcosPlanos();
+        if (surcos.Count == 0) return null;
+        double px = GapBarra + 4;
+        for (int i = 0; i < surcos.Count; i++)
+        {
+            if (x >= px && x <= px + AnchoBarra) return surcos[i];
+            px += AnchoBarra + GapBarra;
+        }
+        return null;
     }
 
     public void Attach(VistaXClient client, string baseUrl)

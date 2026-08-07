@@ -71,6 +71,13 @@ namespace PilotX.GuidanceEngine.Adapters
                 snap.VentanaAncho = vent.Ancho;
                 snap.VentanaAlto = vent.Alto;
 
+                // Idioma de la interfaz. Viaja en el HUD para que la pantalla
+                // se entere de un cambio hecho en OTRA ventana (el menú SISTEMA
+                // o el Hub) sin tener que consultar un endpoint aparte.
+                var idi = AgroParallel.WebHost.Controllers.IdiomaController.Actual();
+                snap.Idioma = idi.Idioma;
+                snap.IdiomaSeq = idi.Seq;
+
                 // GOAL POINT ("a dónde mira" el pure pursuit) de la guía que
                 // está trabajando: AB, curva o contorno — igual que el dibujo
                 // del original (OpenGL.Designer). Sin guía activa queda 0/0 y

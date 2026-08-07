@@ -47,9 +47,60 @@ namespace AgroParallel.Models
         public string LogOutputDrive { get; set; } = "";
     }
 
+    // ---------- Prueba de siembra (conteo sobre distancia) ----------
+    //
+    // "Poner a contar semillas en 100 metros, en todos los surcos, y mostrar
+    // cuál está bien y cuál mal" (pedido 2026-08-06). Es la herramienta de
+    // calibración real: se arranca, se maneja la distancia elegida y al final
+    // cada surco tiene su cuenta contra lo que debía sembrar.
+    public sealed class VistaXPruebaSurcoDto
+    {
+        public int Bajada { get; set; }
+        public int Cable { get; set; }
+        public string Uid { get; set; } = "";
+        /// <summary>Semillas contadas por el sensor en el tramo.</summary>
+        public double Semillas { get; set; }
+        /// <summary>Las que debía tirar: objetivo (sem/m) × distancia.</summary>
+        public double Esperadas { get; set; }
+        /// <summary>Densidad lograda en el tramo (sem/m).</summary>
+        public double SemM { get; set; }
+        /// <summary>Objetivo del surco (sem/m).</summary>
+        public double ObjetivoSemM { get; set; }
+        /// <summary>Desvío contra el objetivo, en % (+ = de más).</summary>
+        public double DesvioPct { get; set; }
+        /// <summary>"ok" | "bajo" | "exceso" | "sin_datos".</summary>
+        public string Veredicto { get; set; } = "sin_datos";
+    }
+
+    public sealed class VistaXPruebaDto
+    {
+        public bool Activa { get; set; }
+        public bool Terminada { get; set; }
+        public double DistanciaObjetivoM { get; set; }
+        public double DistanciaRecorridaM { get; set; }
+        /// <summary>Tolerancia usada para el veredicto (%).</summary>
+        public double ToleranciaPct { get; set; }
+        public string IniciadaIso { get; set; } = "";
+        public List<VistaXPruebaSurcoDto> Surcos { get; set; } = new List<VistaXPruebaSurcoDto>();
+    }
+
     // ---------- Implemento (perfil JSON completo) ----------
     public sealed class VistaXSetupDto
     {
+        /// <summary>
+        /// De dónde sale el objetivo contra el que VistaX compara lo sembrado:
+        ///   "quantix" (default) — la dosis que está mandando QuantiX al motor
+        ///     de ese surco (fija o del shape); si el surco no tiene motor,
+        ///     cae a DensidadObjetivo.
+        ///   "manual" — SIEMPRE DensidadObjetivo, aunque haya QuantiX.
+        /// Pedido 2026-08-06: poder decidir cuál manda.
+        /// </summary>
+        [JsonPropertyName("objetivo_fuente")]
+        public string ObjetivoFuente { get; set; } = "quantix";
+
+        /// <summary>Objetivo propio de VistaX (sem/m). Se usa con
+        /// ObjetivoFuente="manual", y como respaldo cuando el surco no tiene
+        /// motor de QuantiX asignado.</summary>
         [JsonPropertyName("densidad_objetivo")]
         public double DensidadObjetivo { get; set; } = 16;
 
@@ -209,10 +260,22 @@ namespace AgroParallel.Models
         public string Uid { get; set; } = "";
         /// <summary>Cable del nodo asignado a este surco.</summary>
         public int Cable { get; set; }
-        /// <summary>Última lectura cruda (sem/m, o valor del firmware).</summary>
+        /// <summary>
+        /// Lectura CRUDA del firmware: <b>pulsos por segundo</b>
+        /// (Network.cpp: <c>flujo_pps = pulsos*1000/deltaT</c>). NO son sem/m —
+        /// el nodo no conoce la velocidad y nunca calculó densidad. La página
+        /// lo mostraba como sem/m y por eso el promedio marcaba los Hz del
+        /// generador (2026-08-06). Para densidad usar <see cref="SemM"/>.
+        /// </summary>
         public double Valor { get; set; }
-        /// <summary>Semillas por minuto estimadas.</summary>
+        /// <summary>Semillas por minuto estimadas (derivada del acumulado).</summary>
         public double Spm { get; set; }
+        /// <summary>
+        /// SEMILLAS POR METRO: <c>Spm / (velocidad en m/min)</c>. Es la unidad
+        /// con la que se piensa la siembra y la que va a la pantalla. 0 con el
+        /// tractor detenido (no hay densidad posible sin avance).
+        /// </summary>
+        public double SemM { get; set; }
         /// <summary>Objetivo del tren (sem/min) — útil para pintar el ratio sin recalcular.</summary>
         public double Objetivo { get; set; }
         /// <summary>Ratio Spm/Objetivo. 1.0 = exacto, &lt;1 sub-objetivo, &gt;1 exceso. 0 = tapado.</summary>

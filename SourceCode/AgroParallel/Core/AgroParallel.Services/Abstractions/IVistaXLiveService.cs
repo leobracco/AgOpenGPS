@@ -41,5 +41,23 @@ namespace AgroParallel.Services.Abstractions
         /// pendiente de captura automática).
         /// </summary>
         double AjustarReferenciaDensidad(string accion);
+
+        // ---- Prueba de siembra (conteo sobre una distancia) ----------------
+        //
+        // Herramienta de calibración: contar semillas de TODOS los surcos a lo
+        // largo de N metros y decir cuál está bien y cuál no. Es lo que hoy se
+        // hace a mano con una bandeja abajo del cuerpo.
+
+        /// <summary>Arranca una prueba de N metros desde la posición actual.</summary>
+        void PruebaIniciar(double distanciaM);
+
+        /// <summary>Pausa la prueba (conserva lo medido; iniciar reanuda).</summary>
+        void PruebaCancelar();
+
+        /// <summary>Borra la prueba: metros y contadores a cero.</summary>
+        void PruebaReset();
+
+        /// <summary>Estado/resultados de la prueba. Nunca null.</summary>
+        VistaXPruebaDto PruebaEstado();
     }
 }

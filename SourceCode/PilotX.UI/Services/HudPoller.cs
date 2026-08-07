@@ -68,6 +68,13 @@ public sealed class HudSnapshot
     public int VentanaAncho { get; set; }
     public int VentanaAlto { get; set; }
 
+    // ---- idioma de la interfaz ------------------------------------------
+    // Se elige en el menú SISTEMA y también desde el Hub; el contador es lo
+    // que hace que la pantalla se retraduzca cuando el cambio vino de otra
+    // ventana.
+    public string Idioma { get; set; } = "es";
+    public long IdiomaSeq { get; set; }
+
     // ---- Campos para el mini-mapa cockpit -------------------------------
     // En metros locales, mismo frame de coordenadas que las boundaries.
     public double PivotEasting { get; set; }

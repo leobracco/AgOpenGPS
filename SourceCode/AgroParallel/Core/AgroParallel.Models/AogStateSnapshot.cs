@@ -183,6 +183,15 @@ namespace AgroParallel.Models
         public int VentanaAncho { get; set; }
         public int VentanaAlto { get; set; }
 
+        // ---- idioma de la interfaz (IdiomaController) -----------------------
+        // Viaja acá para que un cambio hecho en cualquier ventana llegue a
+        // todas: la pantalla compara IdiomaSeq contra el último visto y se
+        // vuelve a traducir sola.
+        /// <summary>"es" | "en" | "pt".</summary>
+        public string Idioma { get; set; } = "es";
+        /// <summary>Contador de cambios de idioma; cambia = retraducir.</summary>
+        public long IdiomaSeq { get; set; }
+
         /// <summary>GOAL POINT del guiado ("a dónde mira" el pure pursuit):
         /// goalPointAB/goalPointCu según la guía activa. Solo válido con
         /// piloto/guía trabajando; 0/0 = no dibujar.</summary>

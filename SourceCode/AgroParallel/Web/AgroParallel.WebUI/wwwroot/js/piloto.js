@@ -942,7 +942,7 @@
         var muted = !!s.muted;
         var uid = s.uid || '';
         var cable = s.cable != null ? s.cable : 0;
-        var valM = s.valor || 0; // sem/m
+        var valM = s.sem_m || 0; // sem/m real (`valor` es pps crudo del nodo)
         var tipo = String(s.tipo || 'semilla').toLowerCase();
         if (tipo === 'semilla' && valM > 0) { semMSum += valM; semMN++; }
         var semM = valM.toFixed(valM >= 100 ? 0 : 1);

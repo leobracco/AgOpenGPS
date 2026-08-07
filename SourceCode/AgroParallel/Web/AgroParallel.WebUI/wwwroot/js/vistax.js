@@ -148,7 +148,13 @@
         else if (st === 'seccion-off') secOffCount++;
         else ndCount++;
         var tipo = String(s.tipo || 'semilla').toLowerCase();
-        var valM = s.valor || 0;
+        // sem_m (lo calcula el backend con la velocidad), NO `valor`: ese
+        // campo es la lectura CRUDA del nodo en PULSOS POR SEGUNDO — el
+        // firmware no conoce la velocidad y nunca calculó densidad. Usarlo
+        // hacía que el promedio mostrara los Hz del sensor como si fueran
+        // sem/m (2026-08-06: un surco a 6,0 sem/m promediaba "4", que eran
+        // los 4 Hz del generador de prueba).
+        var valM = s.sem_m || 0;
         if (tipo === 'semilla' && valM > 0) { semMSum += valM; semMN++; }
       });
     });
@@ -281,9 +287,10 @@
   function renderSensorCell(s, objTren) {
     var st = (s.estado || 'no-data').toLowerCase();
     var b = s.bajada;
-    // Valor = lectura cruda del firmware en sem/m (densidad espacial, que es
-    // lo que ve el operario). Spm (sem/min) es interno; al usuario no le sirve.
-    var valM = s.valor || 0;
+    // sem_m = densidad real, la calcula el backend con la velocidad. OJO: el
+    // campo `valor` NO es sem/m, es la lectura cruda del nodo en pulsos por
+    // segundo (el firmware no conoce la velocidad).
+    var valM = s.sem_m || 0;
     var obj = s.objetivo || objTren || 0;
     var uid = s.uid || '';
     var cable = s.cable;
@@ -510,7 +517,7 @@
     var s = found.surco, t = found.tren;
     var st  = (s.estado || 'no-data').toLowerCase();
     var sp  = s.spm || 0;
-    var valM = s.valor || 0; // sem/m (lo que ve el operario)
+    var valM = s.sem_m || 0; // sem/m (lo que ve el operario). `valor` es pps crudo del nodo.
     var obj = s.objetivo || t.objetivo || 0;
     var ratio = obj > 0 ? Math.max(0, Math.min(1.5, sp / obj)) : 0;
     var pct = obj > 0 ? Math.round(sp / obj * 100) : null;
@@ -780,6 +787,12 @@
     // Único parámetro editable del VistaX a este nivel: tolerancia.
     $('impTol').value = setup.tolerancia_desvio ?? 0;
 
+    // Objetivo: de dónde sale (QuantiX / manual) y el valor propio.
+    if ((el = $('impObjFuente')))
+      el.value = (setup.objetivo_fuente === 'manual') ? 'manual' : 'quantix';
+    if ((el = $('impObjSemM')))
+      el.value = setup.densidad_objetivo ?? 0;
+
     // Torres (agrupado opcional). 0 = sin agrupar; vista_modo_default decide
     // qué muestra el overlay live por defecto. El operario puede cambiar
     // en runtime (la preferencia runtime vive en localStorage).
@@ -871,7 +884,15 @@
         // secciones_aog/ancho_implemento/torres) la ignora el backend: la manda
         // el central. Densidad / factor K viven en el catálogo de insumos;
         // preservamos lo que ya estaba en el DTO previo para no pisar nada.
-        densidad_objetivo: prevSetup.densidad_objetivo ?? 0,
+        // Objetivo propio de VistaX + de dónde sale (QuantiX o manual).
+        // Antes densidad_objetivo solo se preservaba (se editaba en Insumos);
+        // ahora es editable acá porque es la contracara del selector.
+        densidad_objetivo: (function () {
+          var v = $('impObjSemM');
+          var n = v ? parseFloat(v.value) : NaN;
+          return isNaN(n) ? (prevSetup.densidad_objetivo ?? 0) : n;
+        })(),
+        objetivo_fuente: (($('impObjFuente') && $('impObjFuente').value) === 'manual') ? 'manual' : 'quantix',
         tolerancia_desvio: parseFloat($('impTol').value || '0') || 0,
         factor_k_default: prevSetup.factor_k_default ?? 0,
         objetivos_tren: prevSetup.objetivos_tren || {},

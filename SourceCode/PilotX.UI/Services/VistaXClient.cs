@@ -70,6 +70,9 @@ public sealed class VistaXLiveSnapshot
     [JsonPropertyName("nombre_implemento")] public string? NombreImplemento           { get; set; }
     [JsonPropertyName("tolerancia_desvio")] public double? ToleranciaDesvio           { get; set; }
     [JsonPropertyName("monitoreo_activo")]  public bool    MonitoreoActivo            { get; set; }
+    /// <summary>km/h — necesaria para pasar de sem/min (lo que entrega el
+    /// backend) a SEM/M, que es como se piensa la siembra.</summary>
+    [JsonPropertyName("velocidad")]         public double  Velocidad                  { get; set; }
     [JsonPropertyName("nodos")]            public List<VistaXNodoLive>? Nodos        { get; set; }
 }
 

@@ -186,6 +186,50 @@ namespace AgroParallel.WebHost.Controllers
             return WriteJsonAsync(_live.GetSnapshot());
         }
 
+        // ---- Prueba de siembra: contar semillas sobre N metros -------------
+        //
+        //   POST /api/vistax/prueba/iniciar { "distancia_m": 100 }
+        //   POST /api/vistax/prueba/cancelar
+        //   GET  /api/vistax/prueba          → avance + resultado por surco
+        private sealed class PruebaBody
+        {
+            public double distancia_m { get; set; }
+        }
+
+        [Route(HttpVerbs.Post, "/vistax/prueba/iniciar")]
+        public async Task PruebaIniciar()
+        {
+            if (_live == null) { await WriteJsonAsync(Unavailable()); return; }
+            PruebaBody body = null;
+            try { body = await ReadJsonBodyAsync<PruebaBody>(); } catch { }
+            double d = body != null && body.distancia_m > 0 ? body.distancia_m : 100;
+            _live.PruebaIniciar(d);
+            await WriteJsonAsync(new { ok = true, distancia_m = d });
+        }
+
+        [Route(HttpVerbs.Post, "/vistax/prueba/cancelar")]
+        public Task PruebaCancelar()
+        {
+            if (_live == null) return WriteJsonAsync(Unavailable());
+            _live.PruebaCancelar();
+            return WriteJsonAsync(new { ok = true });
+        }
+
+        [Route(HttpVerbs.Post, "/vistax/prueba/reset")]
+        public Task PruebaReset()
+        {
+            if (_live == null) return WriteJsonAsync(Unavailable());
+            _live.PruebaReset();
+            return WriteJsonAsync(new { ok = true });
+        }
+
+        [Route(HttpVerbs.Get, "/vistax/prueba")]
+        public Task PruebaEstado()
+        {
+            if (_live == null) return WriteJsonAsync(Unavailable());
+            return WriteJsonAsync(_live.PruebaEstado());
+        }
+
         [Route(HttpVerbs.Post, "/vistax/reload")]
         public Task Reload()
         {

@@ -138,8 +138,14 @@ public partial class VistaXPanel : UserControl
             kpiSpm.Text = live?.SpmPromedio is double sp ? sp.ToString("0.0", CultureInfo.InvariantCulture) : "--";
         double objMax = 0;
         foreach (var tr in trenes) if (tr.Objetivo > objMax) objMax = tr.Objetivo;
+        // Objetivo en SEM/M, no sem/min (pedido 2026-08-06: sem/min no le sirve
+        // a nadie). El backend lo entrega por minuto; se divide por los metros
+        // por minuto de la velocidad actual.
+        double mMinKpi = (live?.Velocidad ?? 0) * 1000.0 / 60.0;
         if (kpiObj != null)
-            kpiObj.Text = objMax > 0 ? objMax.ToString("0", CultureInfo.InvariantCulture) + " sem/min" : "--";
+            kpiObj.Text = (objMax > 0 && mMinKpi > 1)
+                ? (objMax / mMinKpi).ToString("0.0", CultureInfo.InvariantCulture) + " sem/m"
+                : "--";
         if (kpiActivos != null) kpiActivos.Text = (live?.SurcosActivos ?? 0).ToString(CultureInfo.InvariantCulture);
         if (kpiFallas  != null) kpiFallas.Text  = (live?.FallasActivas ?? 0).ToString(CultureInfo.InvariantCulture);
         if (kpiImp     != null) kpiImp.Text     = impName;
