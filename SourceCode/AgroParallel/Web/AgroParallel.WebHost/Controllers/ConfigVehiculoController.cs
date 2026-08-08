@@ -56,6 +56,16 @@ namespace AgroParallel.WebHost.Controllers
             });
         }
 
+        // Catálogo de tractores AR para el selector Marca → Modelo de la
+        // pestaña "Tipo y marca". Estático y solo lectura: aplicarlo es un
+        // POST normal a /aog/config/{vehiculo,dimensiones,antena} desde el JS
+        // (bodies parciales) — el perfil sigue siendo el de siempre.
+        [Route(HttpVerbs.Get, "/aog/config/catalogo/tractores")]
+        public Task GetCatalogoTractores()
+        {
+            return WriteJsonAsync(new { ok = true, marcas = TractoresCatalog.Marcas() });
+        }
+
         [Route(HttpVerbs.Post, "/aog/config/rolido/accion")]
         public async Task PostRolidoAccion()
         {

@@ -375,6 +375,24 @@
           </div>
           <p class="nota" id="vNotaHarvester" hidden>La cosechadora fuerza el implemento a frontal.</p>
         </div>
+
+        <!-- Catálogo AR: pre-llena tipo + entre ejes (+ antena si hay dato)
+             del PERFIL ACTIVO por los endpoints de guardado de siempre.
+             No es una sección nueva: vive acá, en Tipo y marca. -->
+        <div class="carta" id="cartaCatalogoTractor">
+          <h2>Modelo (catálogo Argentina)</h2>
+          <div class="nudfila">
+            <label for="selTractorMarca">Marca</label>
+            <select class="nud" id="selTractorMarca"><option value="">—</option></select>
+          </div>
+          <div class="nudfila">
+            <label for="selTractorModelo">Modelo</label>
+            <select class="nud" id="selTractorModelo" disabled><option value="">—</option></select>
+          </div>
+          <p class="nota" id="tractorMedidas" hidden></p>
+          <button type="button" class="btnEnviar" id="btnAplicarTractor" disabled>Aplicar medidas al perfil</button>
+          <p class="nota">Medidas de folleto como punto de partida: verificá entre ejes, trocha y antena en el fierro antes de salir al lote.</p>
+        </div>
         <div class="dosCol">
           <div class="carta">
             <h2>Marca</h2>
