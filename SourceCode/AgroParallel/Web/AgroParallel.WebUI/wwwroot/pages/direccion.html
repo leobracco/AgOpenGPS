@@ -13,8 +13,8 @@
   <!-- ==========================================================================
        direccion.html — Configuración de AutoSteer (réplica del FormSteer nativo).
 
-       LAYOUT = el FormSteer WinForms original (pedido 2026-07-31): dos columnas
-       visibles a la vez, como la ventana expandida 918x673.
+       LAYOUT CABINA (2026-08-08): optimizado para F7N 10,1" 1280x800.
+       Una sola barra de navegación, un panel activo y barra inferior persistente.
          · IZQUIERDA (tabControl1): 5 tabs de guiado — Modo suave (PP), Modo
            firme (Stanley), Dirección (WAS), Avanzado (PP), Ganancias (PWM).
            Debajo: panel de estado Set/Actual/Error (panel2) y el bloque de
@@ -27,243 +27,538 @@
        la disposición y los controles son los del original.
        ========================================================================== -->
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Segoe UI", Roboto, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
     :root {
       --verde: #4ABA3E;
+      --verde-oscuro: #2f8e27;
+      --verde-suave: #EAF6E8;
       --fondo: #F5F7F4;
-      --carta: #ffffff;
+      --carta: #FFFFFF;
       --borde: #C5CFC5;
+      --borde-suave: #DDE4DC;
       --texto: #101612;
       --gris: #535E54;
-      --rojo: #c0392b;
+      --gris-suave: #E9EDE8;
+      --rojo: #C0392B;
+      --sombra: 0 5px 18px rgba(16, 22, 18, .10);
+      --touch: 48px;
     }
-    html, body { height: 100%; }
+
+    html, body { width: 100%; height: 100%; }
+    html { background: var(--fondo); }
     body {
-      background: var(--fondo); color: var(--texto);
-      display: flex; flex-direction: column; overflow: hidden;
+      margin: 0;
+      overflow: hidden;
+      background: var(--fondo);
+      color: var(--texto);
+      font-family: "Segoe UI", Roboto, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
-    /* ---- layout UNIFICADO (2026-08-08): una sola columna, un panel a la
-       vez. Antes eran 2 columnas con un panel cada una (réplica FormSteer)
-       y la ventana ocupaba el doble de ancho. Los wrappers #colIzq/#colDer
-       quedan en el DOM (JS y deep-links intactos) pero no maquetan. ---- */
-    #layout { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+    button, input { font: inherit; }
+    button {
+      color: inherit;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(74,186,62,.30);
+      outline-offset: 2px;
+    }
+
+    /* -----------------------------------------------------------------------
+       PILOTX CABINA · 1280x800
+       La pantalla F7N es ancha: usamos una sola barra de navegación y dejamos
+       el alto para los controles. Los ids/data-key originales se conservan.
+       ----------------------------------------------------------------------- */
+    #layout {
+      position: relative;
+      width: 100%; height: 100%; min-height: 0;
+      display: flex; flex-direction: column;
+      gap: 6px;
+      padding: 6px;
+      padding-bottom: max(6px, env(safe-area-inset-bottom));
+    }
     #colIzq, #colDer { display: contents; }
-    /* el tabpanel sin sección activa se esconde (hay dos en el DOM, uno por
-       grupo de tabs — solo maqueta el que tiene la sección elegida) */
-    .tabpanel:not(:has(section.activa)) { display: none; }
-    .tabpanel:has(section.activa) { flex: 1; min-height: 0; }
-    /* Set/Actual/Error y Manejo libre en UNA fila al pie */
-    #pieLive { display: flex; gap: 6px; flex: none; align-items: stretch; }
-    #pieLive #fsEstado { flex: 0 0 36%; }
-    #pieLive #fsFree { flex: 1; min-width: 0; }
 
-    /* ---- tab strips (réplica de los TabControl) ---- */
-    /* Tabs: la ventana es más chica pero el DEDO no — mínimo 58px de alto,
-       ícono 32 y letra legible (pasada UX 2026-08-08). */
-    .tabstrip { display: flex; gap: 2px; flex: none; }
+    /* Una sola fila con las 10 secciones. #menu y #menu2 siguen existiendo
+       para no romper direccion.js ni los deep-links. */
+    #tabNav {
+      flex: none;
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 4px;
+      min-height: 52px;
+    }
+    .tabstrip { display: contents; }
     .tabstrip button {
-      flex: 1 1 0; min-height: 58px; padding: 5px 6px;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-      border: 1px solid var(--borde); border-bottom: none;
-      border-radius: 8px 8px 0 0; background: #e9ede8;
-      font: 600 12.5px "Segoe UI", Roboto, sans-serif; color: var(--gris);
-      cursor: pointer; touch-action: manipulation;
-      -webkit-user-select: none; user-select: none;
+      min-width: 0; min-height: 52px;
+      padding: 4px 7px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1px solid var(--borde);
+      border-radius: 9px;
+      background: var(--gris-suave);
+      color: var(--gris);
+      font-size: 12px; font-weight: 700; line-height: 1.05;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
     }
-    .tabstrip button img { width: 32px; height: 32px; object-fit: contain; }
-    .tabstrip button.sel { background: var(--carta); color: var(--texto); box-shadow: inset 0 3px 0 var(--verde); }
+    .tabstrip button img {
+      width: 27px; height: 27px; flex: none;
+      object-fit: contain; pointer-events: none;
+    }
+    .tabstrip button span { overflow: hidden; text-overflow: ellipsis; }
+    .tabstrip button:active { transform: translateY(1px); background: #DFE6DE; }
+    .tabstrip button.sel {
+      background: var(--verde-suave);
+      color: var(--texto);
+      border-color: var(--verde);
+      box-shadow: inset 0 -4px 0 var(--verde);
+    }
+    /* separa visualmente Guiado (5) de Módulo (5) sin gastar otra fila */
+    #menu2 button:first-child { box-shadow: -4px 0 0 var(--fondo); }
+    #menu2 button:first-child.sel { box-shadow: -4px 0 0 var(--fondo), inset 0 -4px 0 var(--verde); }
 
-    /* ---- panel del tab (la "página" del TabControl) ---- */
+    /* Panel central: solo se renderiza el grupo que contiene la sección activa. */
     .tabpanel {
-      flex: 1; min-height: 0; overflow-y: auto;
-      background: var(--carta); border: 1px solid var(--borde);
-      border-radius: 0 0 10px 10px; padding: 10px;
+      display: none;
+      min-height: 0;
+      background: var(--carta);
+      border: 1px solid var(--borde);
+      border-radius: 11px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-gutter: stable;
+      padding: 11px 12px;
     }
-    section[data-tab] { display: none; }
+    .tabpanel.activo { display: block; flex: 1 1 auto; }
+    .tabpanel::-webkit-scrollbar { width: 10px; }
+    .tabpanel::-webkit-scrollbar-thumb { background: #C9D2C8; border: 2px solid #fff; border-radius: 8px; }
+
+    section[data-tab] { display: none; min-width: 0; }
     section[data-tab].activa { display: block; }
 
-    /* ilustración del tab (BackgroundImage del TabPage original) */
-    .tab-hero { display: block; margin: 0 auto 10px; max-width: 210px; max-height: 150px; width: 100%; object-fit: contain; }
+    /* La ilustración queda como referencia, pero no roba una franja de pantalla. */
+    /* Los diagramas grandes del FormSteer se ocultan en cabina: el icono de la
+       pestaña mantiene la referencia visual y recuperamos ~70-150 px de alto. */
+    .tab-hero { display: none; }
 
-    /* ---- slider horizontal con número (hsbar + lbl del original) ---- */
-    .sctl { margin-bottom: 10px; }
-    .sctl .stop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-    .sctl .slbl { font: 600 14px "Segoe UI", Roboto, sans-serif; }
-    .sval { font: 700 22px "Segoe UI", Roboto, sans-serif; min-width: 64px; text-align: right; line-height: 1; }
-    .sval .u { font-size: 13px; font-weight: 600; color: var(--gris); }
-    .sslider { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-    /* Sliders PARA GUANTES (pasada 2026-08-07, pruebas con ECU real): el
-       range default de Chromium tiene un pulgar de 10px — imposible de
-       agarrar en cabina. Pista más alta + pulgar de 26px + acento verde. */
+    /* -----------------------------------------------------------------------
+       CONTROLES DE AJUSTE
+       ----------------------------------------------------------------------- */
+    .sctl {
+      min-width: 0;
+      margin: 0;
+      padding: 9px 10px 7px;
+      border: 1px solid var(--borde-suave);
+      border-radius: 10px;
+      background: #FBFCFB;
+    }
+    .sctl .stop {
+      min-height: 24px;
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 8px;
+    }
+    .sctl .slbl { min-width: 0; font-size: 13px; font-weight: 650; line-height: 1.15; }
+    .sval {
+      flex: none; min-width: 56px;
+      text-align: right;
+      font-size: 21px; font-weight: 800; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .sval .u { margin-left: 2px; font-size: 12px; font-weight: 650; color: var(--gris); }
+    .sslider { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
     .sslider input[type="range"] {
-      flex: 1; height: 44px; accent-color: var(--verde);
-      -webkit-appearance: none; appearance: none; background: transparent;
+      flex: 1; min-width: 70px; height: 42px;
+      -webkit-appearance: none; appearance: none;
+      background: transparent;
+      accent-color: var(--verde);
+      touch-action: none;
     }
     .sslider input[type="range"]::-webkit-slider-runnable-track {
-      height: 10px; border-radius: 5px; background: #DCE3DB;
+      height: 10px; border-radius: 999px; background: #DCE3DB;
     }
     .sslider input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 32px; height: 32px; margin-top: -11px;
-      border-radius: 50%; background: var(--verde);
-      border: 2px solid #fff; box-shadow: 0 1px 3px rgba(16,22,18,.35);
+      border-radius: 50%;
+      background: var(--verde);
+      border: 2px solid #fff;
+      box-shadow: 0 1px 4px rgba(16,22,18,.35);
     }
     .sbtn {
-      width: 48px; height: 48px; flex: none; border: 1px solid var(--borde);
-      border-radius: 8px; background: #fff; color: var(--texto);
-      font-size: 22px; line-height: 1; cursor: pointer; touch-action: manipulation;
+      width: var(--touch); height: var(--touch); flex: none;
+      border: 1px solid var(--borde);
+      border-radius: 9px;
+      background: #fff;
+      font-size: 25px; font-weight: 500; line-height: 1;
+      cursor: pointer;
     }
-    .sbtn:active { background: #e6ede5; }
-    .sends { display: flex; justify-content: space-between; font-size: 12px; color: var(--gris); margin-top: 2px; }
-    .nota { font-size: 13px; color: var(--gris); }
+    .sbtn:active { background: var(--verde-suave); border-color: var(--verde); }
+    .sends {
+      display: flex; justify-content: space-between;
+      margin: -1px 55px 0;
+      color: var(--gris);
+      font-size: 11px; line-height: 1;
+    }
+    .nota { color: var(--gris); font-size: 12.5px; line-height: 1.3; }
 
-    /* ---- barra de ángulo real (pbarLeft/pbarRight del original) ---- */
+    /* Disposición por pantalla: más columnas, menos scroll vertical. */
+    section[data-tab="pp"].activa {
+      display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 14px;
+    }
+    section[data-tab="stan"].activa,
+    section[data-tab="gain"].activa {
+      display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px 12px;
+    }
+    section[data-tab="ppadv"].activa,
+    section[data-tab="settings"].activa,
+    section[data-tab="online"].activa,
+    section[data-tab="sensors"].activa,
+    section[data-tab="config"].activa {
+      display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 14px;
+      align-content: start;
+    }
+    section[data-tab="steer"].activa {
+      display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px 14px;
+      align-content: start;
+    }
+    section[data-tab="alarm"].activa {
+      display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px;
+      align-content: start;
+    }
+
+    section[data-tab="steer"] > .anglebar,
+    section[data-tab="steer"] > .nota,
+    section[data-tab="steer"] > .btnZeroWas,
+    section[data-tab="sensors"] > .nota,
+    section[data-tab="sensors"] > .togglesGrid,
+    section[data-tab="config"] > .togglesGrid,
+    section[data-tab="config"] > .nota,
+    section[data-tab="settings"] > .togglesGrid { grid-column: 1 / -1; }
+
+    /* -----------------------------------------------------------------------
+       WAS / BARRA DE ÁNGULO
+       ----------------------------------------------------------------------- */
     .anglebar {
-      display: flex; height: 14px; background: #fff; border: 1px solid var(--borde);
-      border-radius: 6px; overflow: hidden; margin-bottom: 8px;
+      display: flex; height: 16px;
+      background: #fff;
+      border: 1px solid var(--borde);
+      border-radius: 999px;
+      overflow: hidden;
     }
     .anglebar .half { flex: 1; display: flex; }
     .anglebar .half.left { justify-content: flex-end; }
-    .anglebar .fill { background: var(--verde); }
-    .anglebar .mid { width: 2px; background: var(--borde); }
-
-    /* botón de texto para el cero del WAS (btnZeroWAS del original) */
+    .anglebar .fill { background: var(--verde); transition: width .12s linear; }
+    .anglebar .mid { width: 3px; background: var(--texto); opacity: .45; }
     .btnZeroWas {
-      width: 100%; min-height: 52px; padding: 8px 14px; border: 1px solid var(--verde);
-      border-radius: 8px; background: #eaf6e8; color: #1c5e18;
-      font: 700 15px "Segoe UI", Roboto, sans-serif; cursor: pointer;
-      touch-action: manipulation; margin-bottom: 8px;
+      width: 100%; min-height: var(--touch);
+      padding: 7px 12px;
+      border: 1px solid var(--verde);
+      border-radius: 9px;
+      background: var(--verde-suave);
+      color: #1C5E18;
+      font-size: 14px; font-weight: 750;
+      cursor: pointer;
     }
-    .btnZeroWas:active { background: #d8efd4; }
-    .btnZeroWas .tec { font-weight: 400; color: var(--gris); }
+    .btnZeroWas:active { background: #D8EFD4; }
+    .btnZeroWas .tec { font-weight: 500; color: var(--gris); }
 
-    /* ---- panel de estado Set / Actual / Error (panel2 del original) ---- */
-    #fsEstado {
-      flex: none; display: flex; gap: 6px;
-      background: var(--carta); border: 1px solid var(--borde); border-radius: 8px;
-      padding: 6px 10px;
+    /* -----------------------------------------------------------------------
+       SELECTORES / TOGGLES
+       ----------------------------------------------------------------------- */
+    .togglesGrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(128px,1fr));
+      gap: 8px;
+      margin: 0;
     }
-    #fsEstado .cell { flex: 1; text-align: center; }
-    #fsEstado .cap { font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris); text-transform: uppercase; letter-spacing: .4px; }
-    /* tabular-nums: Set/Actual/Error refrescan varias veces por segundo y con
-       dígitos proporcionales los números "bailaban" de ancho. */
-    #fsEstado .val { font: 700 24px "Segoe UI", Roboto, sans-serif; line-height: 1.1; font-variant-numeric: tabular-nums; }
-    #fsEstado .val .u { font-size: 13px; color: var(--gris); }
-
-    /* ---- manejo libre (panel1 del original: free drive) ---- */
-    #fsFree {
-      flex: none; background: var(--carta); border: 1px solid var(--borde);
-      border-radius: 8px; padding: 8px 10px;
-    }
-    #fsFree h2 { font-size: 12px; color: var(--gris); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
-    .fdfila { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .fdpower {
-      display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
-      min-width: 78px; padding: 6px 8px;
-      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
-      cursor: pointer; touch-action: manipulation;
-    }
-    .fdpower img { width: 44px; height: 44px; object-fit: contain; pointer-events: none; }
-    .fdpower .cap { font: 600 12.5px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
-    .fdpower.on { border-color: var(--verde); background: #eaf6e8; }
-    .fdpower.on .cap { color: var(--texto); }
-    .fdarrow {
-      width: 58px; height: 58px; flex: none; border: 1px solid var(--borde);
-      border-radius: 8px; background: #fff; cursor: pointer; touch-action: manipulation;
-    }
-    .fdarrow img { width: 42px; height: 42px; object-fit: contain; pointer-events: none; }
-    .fdarrow .cap { display: none; font: 700 14px "Segoe UI", Roboto, sans-serif; }
-    .fdarrow:active { background: #e6ede5; }
-    .fdarrow[disabled], #fdDot[disabled] { opacity: .35; cursor: default; }
-    .fdang { font: 700 30px "Segoe UI", Roboto, sans-serif; min-width: 78px; text-align: center; line-height: 1; font-variant-numeric: tabular-nums; }
-    .fdang .u { font-size: 15px; font-weight: 600; color: var(--gris); }
-    #fdDot {
-      min-height: 52px; padding: 6px 14px; border: 1px solid var(--borde);
-      border-radius: 8px; background: #fff; font: 700 14px "Segoe UI", Roboto, sans-serif;
-      cursor: pointer; touch-action: manipulation;
-    }
-    #fdDot:active { background: #e6ede5; }
-    .fdextra { display: flex; gap: 16px; margin-top: 6px; font-size: 12px; color: var(--gris); }
-    .fdextra b { color: var(--texto); }
-    #fdNota { margin-top: 4px; }
-    #fdNota.err { color: var(--rojo); font-weight: 600; }
-
-    /* ---- columna derecha: checks con imagen y segmentados ---- */
-    .togglesGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin-bottom: 10px; }
     .chkimg {
-      display: inline-flex; flex-direction: column; align-items: center; gap: 3px;
-      border: 2px solid var(--borde); border-radius: 10px; background: #fff;
-      padding: 6px; cursor: pointer; -webkit-user-select: none; user-select: none;
-      text-align: center;
+      min-height: 64px;
+      display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+      gap: 8px;
+      padding: 7px 9px;
+      border: 2px solid var(--borde);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+      -webkit-user-select: none; user-select: none;
+      touch-action: manipulation;
     }
-    .chkimg img { width: 52px; height: 52px; object-fit: contain; pointer-events: none; }
-    .chkimg .cap { font: 600 12.5px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
-    .chkimg.sel { border-color: var(--verde); background: #eaf6e8; }
+    .chkimg img { width: 42px; height: 42px; flex: none; object-fit: contain; pointer-events: none; }
+    .chkimg .cap { color: var(--gris); font-size: 12.5px; font-weight: 650; line-height: 1.15; }
+    .chkimg.sel { border-color: var(--verde); background: var(--verde-suave); }
+    .chkimg.sel .cap { color: var(--texto); }
+    .chkimg:active { transform: translateY(1px); }
 
-    .segrow { margin-bottom: 10px; }
-    .segrow .slbl { display: block; font: 600 13px "Segoe UI", Roboto, sans-serif; margin-bottom: 4px; }
-    .seg { display: flex; gap: 4px; }
+    .segrow {
+      min-width: 0;
+      margin: 0;
+      padding: 8px 9px;
+      border: 1px solid var(--borde-suave);
+      border-radius: 10px;
+      background: #FBFCFB;
+    }
+    .segrow .slbl { display: block; margin-bottom: 5px; font-size: 12.5px; font-weight: 700; }
+    .seg { display: flex; gap: 5px; }
     .seg-btn {
-      flex: 1 1 0; min-height: 50px; padding: 4px 8px;
+      flex: 1 1 0; min-width: 0; min-height: var(--touch);
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      border: 1px solid var(--borde); border-radius: 8px; background: #fff;
-      font: 600 13px "Segoe UI", Roboto, sans-serif; color: var(--gris);
-      cursor: pointer; touch-action: manipulation;
+      padding: 4px 7px;
+      border: 1px solid var(--borde);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--gris);
+      font-size: 12.5px; font-weight: 700;
+      cursor: pointer;
     }
-    .seg-btn img { width: 28px; height: 28px; object-fit: contain; }
-    .seg-btn.on { border-color: var(--verde); background: #eaf6e8; color: var(--texto); }
+    .seg-btn img { width: 26px; height: 26px; object-fit: contain; }
+    .seg-btn.on { border-color: var(--verde); background: var(--verde-suave); color: var(--texto); }
+    .seg-btn:active { transform: translateY(1px); }
 
-    /* filas numéricas (nud del original) */
-    .numfila { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .numfila .numdiag { width: 64px; height: 44px; object-fit: contain; flex: none; }
+    /* -----------------------------------------------------------------------
+       FILAS NUMÉRICAS
+       ----------------------------------------------------------------------- */
+    .numfila {
+      min-width: 0; min-height: 66px;
+      display: flex; align-items: center; gap: 8px;
+      margin: 0;
+      padding: 7px 9px;
+      border: 1px solid var(--borde-suave);
+      border-radius: 10px;
+      background: #FBFCFB;
+    }
+    .numfila .numdiag { width: 42px; height: 42px; object-fit: contain; flex: none; }
     .numfila .numbody { flex: 1; min-width: 0; }
-    .numfila .lbl { font: 600 14px "Segoe UI", Roboto, sans-serif; }
-    .numfila .sub { font-size: 12px; color: var(--gris); }
+    .numfila .lbl { font-size: 13px; font-weight: 700; line-height: 1.15; }
+    .numfila .sub { margin-top: 2px; color: var(--gris); font-size: 11.5px; line-height: 1.15; }
     .numfila input[type="number"] {
-      width: 96px; min-height: 48px; text-align: right; font: 700 18px "Segoe UI", Roboto, sans-serif;
-      border: 1px solid var(--borde); border-radius: 8px; padding: 4px 8px; background: #fff;
+      width: 88px; min-width: 88px; min-height: var(--touch);
+      padding: 4px 7px;
+      border: 1px solid var(--borde);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--texto);
+      text-align: right;
+      font-size: 17px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
     }
-    .unidad { font: 600 13px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .unidad { min-width: max-content; color: var(--gris); font-size: 12px; font-weight: 650; }
 
-    /* ---- pie derecho: Reset + Enviar (btnSendSteerConfigPGN del original) ---- */
+    /* -----------------------------------------------------------------------
+       BARRA INFERIOR: telemetría + estado + acciones siempre visibles
+       ----------------------------------------------------------------------- */
     #fsAcciones {
-      flex: none; display: flex; align-items: center; gap: 10px;
-      background: var(--carta); border: 1px solid var(--borde); border-radius: 8px;
-      padding: 8px 10px;
+      flex: none;
+      min-height: 64px;
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 7px;
+      background: var(--carta);
+      border: 1px solid var(--borde);
+      border-radius: 11px;
+      box-shadow: 0 -2px 10px rgba(16,22,18,.04);
+      z-index: 31;
     }
-    #estado { flex: 1; font-size: 13px; color: var(--gris); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #estado.ok { color: #1c5e18; }
-    #estado.err { color: var(--rojo); font-weight: 600; }
-    #ftModulo { font-size: 12px; color: var(--gris); flex: none; }
-    #btnReset {
-      flex: none; display: inline-flex; align-items: center; gap: 6px;
-      min-height: 52px; padding: 6px 14px;
-      border: 1px solid var(--borde); border-radius: 8px; background: #fff;
-      font: 600 14px "Segoe UI", Roboto, sans-serif; cursor: pointer; touch-action: manipulation;
+    #fsEstado {
+      width: 270px; min-width: 270px; align-self: stretch;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+      padding: 3px;
+      background: var(--fondo);
+      border: 1px solid var(--borde-suave);
+      border-radius: 9px;
     }
-    #btnReset img { width: 30px; height: 30px; }
+    #fsEstado .cell {
+      min-width: 0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      border-radius: 6px;
+    }
+    #fsEstado .cell:nth-child(2) { background: #fff; }
+    #fsEstado .cap {
+      color: var(--gris);
+      font-size: 9.5px; font-weight: 750; line-height: 1;
+      text-transform: uppercase; letter-spacing: .35px;
+    }
+    #fsEstado .val {
+      margin-top: 2px;
+      font-size: 20px; font-weight: 850; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    #fsEstado .val .u { font-size: 11px; color: var(--gris); }
+
+    #estado {
+      flex: 1; min-width: 80px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      color: var(--gris);
+      font-size: 12px;
+    }
+    #estado.ok { color: #1C5E18; }
+    #estado.err { color: var(--rojo); font-weight: 700; }
+    #ftModulo { flex: none; color: var(--gris); font-size: 11.5px; white-space: nowrap; }
+
+    #btnFreeDrivePanel,
+    #btnReset,
     #btnGuardarFloat {
-      flex: none; display: inline-flex; align-items: center; gap: 8px;
-      min-height: 56px; padding: 6px 20px;
-      border: 1px solid var(--borde); border-radius: 10px; background: #fff;
-      font: 700 15px "Segoe UI", Roboto, sans-serif; color: var(--texto);
-      cursor: pointer; touch-action: manipulation;
+      flex: none; min-height: 50px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      border: 1px solid var(--borde);
+      border-radius: 9px;
+      background: #fff;
+      color: var(--texto);
+      font-size: 13px; font-weight: 750;
+      cursor: pointer;
+      white-space: nowrap;
     }
-    #btnGuardarFloat img { width: 34px; height: 34px; }
-    /* Guardar con cambios pendientes = PRIMARIO de verdad (verde pleno):
-       el borde verdecito de antes no se distinguía de un toggle prendido y
-       el operario no sabía si le faltaba guardar (pasada 2026-08-07). */
+    #btnFreeDrivePanel { padding: 5px 11px; }
+    #btnFreeDrivePanel .drive-glyph { font-size: 22px; line-height: 1; }
+    #btnFreeDrivePanel[aria-expanded="true"] { border-color: var(--verde); background: var(--verde-suave); }
+    #btnFreeDrivePanel.running { border-color: #D68A2B; background: #FFF4E8; color: #6E410D; }
+    #btnReset { width: 52px; padding: 4px; }
+    #btnReset img { width: 29px; height: 29px; }
+    #btnReset span { display: none; }
+    #btnGuardarFloat { min-width: 142px; padding: 5px 13px; }
+    #btnGuardarFloat img { width: 30px; height: 30px; }
     #btnGuardarFloat.dirty { border-color: var(--verde); background: var(--verde); color: #fff; }
     #btnGuardarFloat.dirty img { filter: brightness(0) invert(1); }
-    #btnGuardarFloat.ok { border-color: var(--verde); }
+    #btnGuardarFloat.ok { border-color: var(--verde); background: var(--verde-suave); }
+    #btnFreeDrivePanel:active, #btnReset:active, #btnGuardarFloat:active { transform: translateY(1px); }
 
-    /* pantallas angostas: el layout ya es una columna; solo scrollear y
-       apilar el pie (estado + manejo libre) */
+    /* -----------------------------------------------------------------------
+       MANEJO LIBRE: drawer. No ocupa pantalla mientras se configura.
+       Si está encendido, JS evita ocultarlo sin apagar primero el motor.
+       ----------------------------------------------------------------------- */
+    #freeScrim {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 20;
+      background: rgba(16,22,18,.18);
+      backdrop-filter: blur(1px);
+    }
+    #freeScrim.open { display: block; }
+    #fsFree {
+      display: none;
+      position: fixed;
+      left: 50%; bottom: 78px;
+      transform: translateX(-50%);
+      width: min(720px, calc(100vw - 24px));
+      z-index: 30;
+      padding: 10px 12px 11px;
+      background: var(--carta);
+      border: 1px solid var(--borde);
+      border-radius: 13px;
+      box-shadow: var(--sombra);
+    }
+    #fsFree.open { display: block; }
+    .free-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 8px;
+    }
+    #fsFree h2 {
+      flex: 1; margin: 0;
+      color: var(--texto);
+      font-size: 14px; font-weight: 800;
+    }
+    .free-safe {
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: #FFF4E8;
+      color: #7C4B12;
+      font-size: 11px; font-weight: 750;
+      white-space: nowrap;
+    }
+    #btnCloseFreeDrive {
+      width: 46px; height: 46px;
+      border: 1px solid var(--borde);
+      border-radius: 9px;
+      background: #fff;
+      font-size: 25px; line-height: 1;
+      cursor: pointer;
+    }
+    .fdfila { display: flex; align-items: center; justify-content: center; gap: 9px; flex-wrap: nowrap; }
+    .fdpower {
+      min-width: 88px; min-height: 62px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 5px 8px;
+      border: 2px solid var(--borde);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .fdpower img { width: 42px; height: 42px; object-fit: contain; pointer-events: none; }
+    .fdpower .cap { color: var(--gris); font-size: 12px; font-weight: 750; }
+    .fdpower.on { border-color: var(--verde); background: var(--verde-suave); }
+    .fdpower.on .cap { color: var(--texto); }
+    .fdarrow {
+      width: 58px; height: 58px; flex: none;
+      border: 1px solid var(--borde);
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .fdarrow img { width: 40px; height: 40px; object-fit: contain; pointer-events: none; }
+    .fdarrow .cap { display: none; }
+    .fdarrow:active, #fdDot:active { background: var(--verde-suave); border-color: var(--verde); }
+    .fdarrow[disabled], #fdDot[disabled] { opacity: .35; cursor: default; }
+    .fdang {
+      min-width: 82px;
+      text-align: center;
+      font-size: 31px; font-weight: 850; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .fdang .u { font-size: 14px; font-weight: 650; color: var(--gris); }
+    #fdDot {
+      min-height: 52px;
+      padding: 6px 12px;
+      border: 1px solid var(--borde);
+      border-radius: 9px;
+      background: #fff;
+      font-size: 13px; font-weight: 800;
+      cursor: pointer;
+    }
+    #fdNota { margin-top: 8px; text-align: center; }
+    #fdNota.err { color: var(--rojo); font-weight: 700; }
+
+    /* 1024x600 / ventanas más chicas: preserva blancos táctiles, sacrifica texto. */
+    @media (max-width: 1080px) {
+      #tabNav { overflow-x: auto; grid-template-columns: repeat(10, minmax(94px,1fr)); }
+      .tabstrip button { min-height: 50px; padding-inline: 5px; }
+      .tabstrip button img { width: 24px; height: 24px; }
+      #fsEstado { width: 240px; min-width: 240px; }
+      #estado { display: none; }
+      #btnFreeDrivePanel span:last-child { display: none; }
+      #btnFreeDrivePanel { width: 54px; padding: 4px; }
+    }
+
+    @media (max-height: 650px) {
+      #layout { gap: 4px; padding: 4px; }
+      #tabNav { min-height: 48px; }
+      .tabstrip button { min-height: 48px; }
+      .tabpanel { padding: 8px 9px; }
+      #fsAcciones { min-height: 58px; padding: 4px 6px; }
+      #btnFreeDrivePanel, #btnReset, #btnGuardarFloat { min-height: 48px; }
+      .tab-hero { display: none; }
+      section[data-tab="pp"].activa,
+      section[data-tab="stan"].activa,
+      section[data-tab="gain"].activa { padding: 0; }
+    }
+
     @media (max-width: 760px) {
-      #layout { overflow-y: auto; }
-      #pieLive { flex-direction: column; }
-      .tabpanel:has(section.activa) { flex: none; overflow: visible; }
+      body { overflow: auto; }
+      #layout { height: auto; min-height: 100%; overflow: visible; }
+      #tabNav { grid-template-columns: repeat(5, minmax(92px,1fr)); overflow-x: auto; }
+      .tabpanel.activo { flex: none; overflow: visible; }
+      section[data-tab].activa { display: block; padding: 0; }
+      section[data-tab].activa > * + * { margin-top: 8px; }
+      .tab-hero { display: none; }
+      #fsAcciones { position: sticky; bottom: 0; }
+      #fsEstado { width: 210px; min-width: 210px; }
+      #ftModulo { display: none; }
+      #btnGuardarFloat { min-width: 54px; width: 54px; padding: 4px; }
+      #btnGuardarFloat span { display: none; }
     }
   </style>
 </head>
@@ -272,11 +567,12 @@
 
     <!-- ═══════════ COLUMNA IZQUIERDA (tabControl1 del original) ═══════════ -->
     <div id="colIzq">
+      <div id="tabNav" aria-label="Configuración de dirección">
       <nav class="tabstrip" id="menu">
-        <button data-tab="pp"><img src="../img/steer/Sf_PP.png" alt="" /><span>Suave (PP)</span></button>
-        <button data-tab="stan"><img src="../img/steer/Sf_Stanley.png" alt="" /><span>Firme (Stanley)</span></button>
+        <button data-tab="pp" title="Guiado suave · Pure Pursuit"><img src="../img/steer/Sf_PP.png" alt="" /><span>Suave</span></button>
+        <button data-tab="stan" title="Guiado firme · Stanley"><img src="../img/steer/Sf_Stanley.png" alt="" /><span>Firme</span></button>
         <button data-tab="steer"><img src="../img/steer/Sf_SteerTab.png" alt="" /><span>Dirección</span></button>
-        <button data-tab="ppadv"><img src="../img/steer/ConV_GuidanceLookAhead.png" alt="" /><span>Avanzado</span></button>
+        <button data-tab="ppadv" title="Ajustes avanzados de guiado"><img src="../img/steer/ConV_GuidanceLookAhead.png" alt="" /><span>Avanzado</span></button>
         <button data-tab="gain"><img src="../img/steer/Sf_GainTab.png" alt="" /><span>Ganancias</span></button>
       </nav>
       <!-- Segundo grupo (módulo) MOVIDO acá arriba: las dos tiras juntas y
@@ -286,8 +582,9 @@
         <button data-tab="config"><img src="../img/steer/ConSt_Danfoss.png" alt="" /><span>Placa</span></button>
         <button data-tab="settings"><img src="../img/steer/ModeStanley.png" alt="" /><span>Ajustes</span></button>
         <button data-tab="alarm"><img src="../img/steer/ConV_MaxAutoSteer.png" alt="" /><span>Velocidad</span></button>
-        <button data-tab="online"><img src="../img/steer/ConD_LightBar.png" alt="" /><span>Barra guía</span></button>
+        <button data-tab="online" title="Barra de guiado"><img src="../img/steer/ConD_LightBar.png" alt="" /><span>Barra</span></button>
       </nav>
+      </div>
       <div class="tabpanel">
 
         <!-- ── tabPP: Pure Pursuit ── -->
@@ -618,38 +915,19 @@
         </section>
       </div>
 
-      <!-- Set/Actual/Error + Manejo libre en UNA fila, al pie de todo -->
-      <div id="pieLive">
-        <div id="fsEstado">
-          <div class="cell"><div class="cap">Seteado</div><div class="val"><span id="liveSet">—</span><span class="u">°</span></div></div>
+      <!-- Barra fija de cabina: telemetría + estado + acciones -->
+      <div id="fsAcciones">
+        <div id="fsEstado" aria-label="Ángulo de dirección en vivo">
+          <div class="cell"><div class="cap">Objetivo</div><div class="val"><span id="liveSet">—</span><span class="u">°</span></div></div>
           <div class="cell"><div class="cap">Actual</div><div class="val"><span id="liveAct">—</span><span class="u">°</span></div></div>
           <div class="cell"><div class="cap">Error</div><div class="val"><span id="liveErr">—</span><span class="u">°</span></div></div>
         </div>
-        <div id="fsFree">
-          <h2>Manejo libre · probar la dirección</h2>
-          <div class="fdfila">
-            <button type="button" class="fdpower" id="fdBtn" title="Prender / apagar el manejo libre">
-              <img id="fdBtnImg" src="../img/steer/SteerDriveOff.png" alt="" />
-              <span class="cap" id="fdBtnCap">Apagado</span>
-            </button>
-            <button type="button" class="fdarrow" id="fdLeft" title="Un grado a la izquierda" disabled>
-              <img src="../img/steer/SteerLeft.png" alt="" /><span class="cap">−1°</span>
-            </button>
-            <span class="fdang" id="fdAngle">0<span class="u">°</span></span>
-            <button type="button" class="fdarrow" id="fdRight" title="Un grado a la derecha" disabled>
-              <img src="../img/steer/SteerRight.png" alt="" /><span class="cap">+1°</span>
-            </button>
-            <button type="button" id="fdDot" title="Alternar entre 0° y 5°" disabled>0° ↔ 5°</button>
-          </div>
-          <p class="nota" id="fdNota">Con el tractor parado. Se apaga solo por encima del límite de velocidad de guiado.</p>
-        </div>
-      </div>
-
-      <!-- pie del original: Reset + Send&Save + estado -->
-      <div id="fsAcciones">
-        <span id="estado"></span>
+        <span id="estado" role="status" aria-live="polite"></span>
         <span id="ftModulo">Módulo: <b id="ftModuloVal">—</b></span>
-        <button type="button" id="btnReset" title="Volver a los valores por defecto">
+        <button type="button" id="btnFreeDrivePanel" aria-expanded="false" aria-controls="fsFree" title="Abrir prueba manual de la dirección">
+          <span class="drive-glyph" aria-hidden="true">↔</span><span>Prueba dirección</span>
+        </button>
+        <button type="button" id="btnReset" title="Volver a los valores por defecto" aria-label="Restablecer valores">
           <img src="../img/steer/Reset_Default.png" alt="" /><span>Reset</span>
         </button>
         <button type="button" id="btnGuardarFloat" title="Guardar y enviar al módulo de dirección">
@@ -657,11 +935,36 @@
           <span id="btnGuardarCap">Sin cambios</span>
         </button>
       </div>
+
+      <!-- Manejo libre como drawer: no consume alto durante la configuración -->
+      <div id="freeScrim" aria-hidden="true"></div>
+      <div id="fsFree" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="fdTitle">
+        <div class="free-head">
+          <h2 id="fdTitle">Manejo libre · probar la dirección</h2>
+          <span class="free-safe">Sólo con el tractor parado</span>
+          <button type="button" id="btnCloseFreeDrive" aria-label="Cerrar prueba de dirección">×</button>
+        </div>
+        <div class="fdfila">
+          <button type="button" class="fdpower" id="fdBtn" title="Prender / apagar el manejo libre">
+            <img id="fdBtnImg" src="../img/steer/SteerDriveOff.png" alt="" />
+            <span class="cap" id="fdBtnCap">Apagado</span>
+          </button>
+          <button type="button" class="fdarrow" id="fdLeft" title="Un grado a la izquierda" disabled>
+            <img src="../img/steer/SteerLeft.png" alt="" /><span class="cap">−1°</span>
+          </button>
+          <span class="fdang" id="fdAngle">0<span class="u">°</span></span>
+          <button type="button" class="fdarrow" id="fdRight" title="Un grado a la derecha" disabled>
+            <img src="../img/steer/SteerRight.png" alt="" /><span class="cap">+1°</span>
+          </button>
+          <button type="button" id="fdDot" title="Alternar entre 0° y 5°" disabled>0° ↔ 5°</button>
+        </div>
+        <p class="nota" id="fdNota">Con el tractor parado. Se apaga solo por encima del límite de velocidad de guiado.</p>
+      </div>
     </div>
   </div>
 
   <script src="../js/keyboard.js"></script>
-  <script src="../js/direccion.js?v=5"></script>
+  <script src="../js/direccion.js?v=7"></script>
   <script src="/js/i18n.js"></script>
 </body>
 </html>

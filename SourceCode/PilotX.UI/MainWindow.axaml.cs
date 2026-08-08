@@ -3299,9 +3299,10 @@ public partial class MainWindow : Window
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
                 // v=10: layout FormSteer clásico (dos columnas, 2026-07-31).
-                // v=12: layout unificado (una tira de tabs por grupo, UN panel a
-                // la vez) + pasada UX táctil: controles ≥48px, letra más grande.
-                OpenDialogPage("pages/direccion.html?v=12", "Dirección — Autoguiado", 720, 780); return true;
+                // v=13: layout cabina (direccion_mejorado de Diseño/): las 10
+                // tabs en UNA fila, un panel activo, barra fija abajo y manejo
+                // libre como drawer. Pensado ancho y bajo para la 10,1".
+                OpenDialogPage("pages/direccion.html?v=13", "Dirección — Autoguiado", 1020, 700); return true;
 
             // ---- Controles de cámara/vista (menú Navegación) — 100% cliente
             // (MapGlSurface), no tocan el motor. Equivalentes a
