@@ -74,8 +74,14 @@ public sealed class DireccionPanel : Border
     private readonly StackPanel _scGuiado;
     private readonly StackPanel _scModulo;
     private readonly StackPanel _scPantalla;
-    private readonly ScrollViewer _scAyuda;
     private readonly Dictionary<string, Button> _tabs = new();
+
+    // Ayuda contextual: banner bajo las tabs que muestra la explicación del
+    // control cuyo "?" se tocó. Nada de Flyouts (no se dibujan sobre el mapa
+    // GL): es un Border de la misma card, se cierra tocándolo.
+    private readonly Border _tip;
+    private readonly TextBlock _tipTitulo;
+    private readonly TextBlock _tipCuerpo;
 
     // Refresco de las filas construidas con los helpers genéricos: cada fila
     // registra cómo repintarse desde _cfg (PintarConfig las corre todas).
@@ -120,8 +126,8 @@ public sealed class DireccionPanel : Border
         Width = 560;
         IsVisible = false;
 
-        // ---------- header: título + Obj/Act/Err + Todo… + ✕ ----------
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"), Margin = new Thickness(4, 0, 0, 8) };
+        // ---------- header: título + Obj/Act/Err + ✕ ----------
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(4, 0, 0, 8) };
         var titulo = new TextBlock
         {
             Text = "Dirección", FontSize = 15, FontWeight = FontWeight.Bold,
@@ -139,21 +145,13 @@ public sealed class DireccionPanel : Border
         live.Children.Add(LiveCelda("ERR", _liveErr));
         Grid.SetColumn(live, 1);
 
-        var btnAyuda = BotonChico("?");
-        btnAyuda.Width = 44;
-        btnAyuda.FontSize = 16;
-        btnAyuda.Click += (_, _) => ToggleAyuda();
-        Grid.SetColumn(btnAyuda, 2);
-        btnAyuda.Margin = new Thickness(0, 0, 6, 0);
-
         var btnCerrar = BotonChico("✕");
         btnCerrar.Width = 44;
         btnCerrar.Click += (_, _) => Cerrar();
-        Grid.SetColumn(btnCerrar, 3);
+        Grid.SetColumn(btnCerrar, 2);
 
         header.Children.Add(titulo);
         header.Children.Add(live);
-        header.Children.Add(btnAyuda);
         header.Children.Add(btnCerrar);
 
         // ---------- tabs (2 filas de 3 — TODO el FormSteer vive acá) ----------
@@ -211,7 +209,8 @@ public sealed class DireccionPanel : Border
         };
 
         _scProbar = new StackPanel { Spacing = 4 };
-        _scProbar.Children.Add(SubTitulo("Manejo libre — flecha derecha = ruedas a la derecha"));
+        _scProbar.Children.Add(SubTituloAyuda("Manejo libre — flecha derecha = ruedas a la derecha",
+            "Prueba manual del motor, sin guía y con el tractor PARADO. Prender habilita las flechas: cada toque corre el objetivo 1° y el motor va hasta ahí y FRENA. 0↔5° salta el objetivo para ver la respuesta. Si en vez de frenar se va al tope, el sensor o el motor están invertidos (pestaña Sensor). Se apaga solo si el tractor arranca, y también al cerrar este panel."));
         _scProbar.Children.Add(fdFila);
         _scProbar.Children.Add(_fdNota);
 
@@ -226,7 +225,10 @@ public sealed class DireccionPanel : Border
 
         var filaCuentas = FilaNumerica("Cuentas por grado", _valCuentas,
             () => Nudge("counts_per_degree", -1, 1, 255),
-            () => Nudge("counts_per_degree", +1, 1, 255));
+            () => Nudge("counts_per_degree", +1, 1, 255),
+            "La escala del sensor: cuántas cuentas equivalen a 1° de rueda. Si el ángulo en pantalla " +
+            "exagera, subí el número; si se queda corto, bajalo. RTY: 59. Encoder: se mide de tope a tope. " +
+            "Interfiere en TODO el guiado — con la escala mal, el piloto gira de más o de menos.");
 
         var btnCero = new Button
         {
@@ -251,45 +253,88 @@ public sealed class DireccionPanel : Border
         invFila.Children.Add(Envolver(_tglInvMotor, 4, 0));
 
         _scSensor = new StackPanel { Spacing = 4, IsVisible = false };
-        _scSensor.Children.Add(SubTitulo("Qué sensor mide el ángulo de las ruedas"));
+        _scSensor.Children.Add(SubTituloAyuda("Qué sensor mide el ángulo de las ruedas",
+            "El piloto necesita el ángulo REAL de las ruedas. RTY = sensor en el eje (modo simple). Encoder del motor = cuenta las vueltas del Keya (modo diferencial); andando a más de 1,2 km/h se autocorrige contra el GPS. Es uno o el otro: al cambiar, poné en cero y recalibrá las cuentas."));
         _scSensor.Children.Add(segFila);
         _scSensor.Children.Add(filaCuentas);
-        _scSensor.Children.Add(btnCero);
-        _scSensor.Children.Add(invFila);
+        var filaCero = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        Grid.SetColumn(btnCero, 0);
+        var chipCero = ChipAyuda("Poner el sensor en cero",
+            "Con las ruedas BIEN derechas, fija el 0°. Hacelo después de cambiar de sensor, de tocar la " +
+            "mecánica, o si el tractor va derecho pero marca ángulo. Un cero corrido hace que el piloto " +
+            "siembre corrido de la línea.");
+        chipCero.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(chipCero, 1);
+        filaCero.Children.Add(btnCero);
+        filaCero.Children.Add(chipCero);
+        _scSensor.Children.Add(filaCero);
+        var filaInv = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        Grid.SetColumn(invFila, 0);
+        var chipInv = ChipAyuda("Invertir sensor / motor",
+            "Sensor invertido: girás a la derecha y el ángulo marca izquierda. Motor invertido: la flecha " +
+            "derecha mueve las ruedas a la izquierda. Con algo al revés el piloto EMPUJA para el lado " +
+            "equivocado y se va al tope. En modo encoder, Invertir sensor además apaga la corrección por " +
+            "GPS (útil en el banco de pruebas).");
+        chipInv.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(chipInv, 1);
+        filaInv.Children.Add(invFila);
+        filaInv.Children.Add(chipInv);
+        _scSensor.Children.Add(filaInv);
 
         // ---------- pantalla FUERZA ----------
         _scFuerza = new StackPanel { Spacing = 4, IsVisible = false };
         _scFuerza.Children.Add(SubTitulo("Fuerza del motor de dirección"));
         _scFuerza.Children.Add(FilaNumerica("Mínima para mover (PWM mín)", _valPwmMin,
-            () => Nudge("min_pwm", -1, 0, 255), () => Nudge("min_pwm", +1, 0, 255)));
+            () => Nudge("min_pwm", -1, 0, 255), () => Nudge("min_pwm", +1, 0, 255),
+            "La fuerza justa para que el motor ARRANQUE a moverse. Muy baja: se planta cerca del objetivo " +
+            "y nunca llega. Muy alta: tironea al centrar. Subila de a 1 hasta que arranque parejo."));
         _scFuerza.Children.Add(FilaNumerica("Máxima (PWM alto)", _valPwmAlto,
-            () => Nudge("high_steer_pwm", -5, 20, 255), () => Nudge("high_steer_pwm", +5, 20, 255)));
+            () => Nudge("high_steer_pwm", -5, 20, 255), () => Nudge("high_steer_pwm", +5, 20, 255),
+            "El tope de fuerza: limita qué tan violento puede girar el volante. Alto = correcciones " +
+            "bruscas; dejalo moderado hasta validar en el lote."));
         _scFuerza.Children.Add(FilaNumerica("Fuerza de corrección (Ganancia P)", _valGanP,
-            () => Nudge("proportional_gain", -5, 0, 200), () => Nudge("proportional_gain", +5, 0, 200)));
+            () => Nudge("proportional_gain", -5, 0, 200), () => Nudge("proportional_gain", +5, 0, 200),
+            "Cuánto empuja por cada grado de error. Alta: llega rápido pero puede pasarse y oscilar. " +
+            "Baja: anda dormido y deja error. Se afina mirando el salto 0↔5° de la pestaña Probar."));
 
         // ---------- pantalla GUIADO (PP + Stanley + general + avanzado) ----------
         // El wire guarda los ENTEROS crudos del slider original; la escala es
         // solo de display (hold_look_ahead=29 → 2,9 s). Igual que la página.
         _scGuiado = new StackPanel { Spacing = 2, IsVisible = false };
         _scGuiado.Children.Add(SubTitulo("Modo suave (Pure Pursuit)"));
-        _scGuiado.Children.Add(FilaAjuste("Qué tan adelante mira", "hold_look_ahead", 10, 70, 0.1, 1, "s"));
-        _scGuiado.Children.Add(FilaAjuste("Multiplicador por velocidad", "look_ahead_mult", 5, 60, 0.1, 1));
-        _scGuiado.Children.Add(FilaAjuste("Entrada a la línea", "acquire_factor", 20, 300, 0.01, 2));
-        _scGuiado.Children.Add(FilaAjuste("Integral (PP)", "integral_pp", 0, 100));
+        _scGuiado.Children.Add(FilaAjuste("Qué tan adelante mira", "hold_look_ahead", 10, 70, 0.1, 1, "s",
+            "Cuántos segundos adelante mira el modo suave para decidir el giro. Más = anda tranquilo y hace curvas amplias; menos = se pega a la línea pero puede serpentear."));
+        _scGuiado.Children.Add(FilaAjuste("Multiplicador por velocidad", "look_ahead_mult", 5, 60, 0.1, 1, "",
+            "Cuánto crece la mirada al aumentar la velocidad. Si a alta velocidad serpentea, subilo."));
+        _scGuiado.Children.Add(FilaAjuste("Entrada a la línea", "acquire_factor", 20, 300, 0.01, 2, "",
+            "Qué tan agresivo entra a la guía desde lejos. Alto = entra derecho y rápido; bajo = entra en una curva suave y larga."));
+        _scGuiado.Children.Add(FilaAjuste("Integral (PP)", "integral_pp", 0, 100, 1, 0, "",
+            "Corrige el error que queda pegado (viento, ladera, implemento que tira). Demasiado alto = balanceo lento de un lado al otro."));
         _scGuiado.Children.Add(SubTituloSep("Modo firme (Stanley)"));
-        _scGuiado.Children.Add(FilaAjuste("Ganancia Stanley", "stanley_gain", 1, 40, 0.1, 1));
-        _scGuiado.Children.Add(FilaAjuste("Ganancia de rumbo", "heading_error_gain", 1, 15, 0.1, 1));
-        _scGuiado.Children.Add(FilaAjuste("Integral (Stanley)", "integral_stanley", 0, 100));
-        _scGuiado.Children.Add(FilaToggle("Usar siempre Stanley (puro)", "stanley_pure"));
+        _scGuiado.Children.Add(FilaAjuste("Ganancia Stanley", "stanley_gain", 1, 40, 0.1, 1, "",
+            "Cuánto pesa la distancia a la línea en el modo firme. Alto = vuelve rápido pero puede ponerse nervioso."));
+        _scGuiado.Children.Add(FilaAjuste("Ganancia de rumbo", "heading_error_gain", 1, 15, 0.1, 1, "",
+            "Cuánto pesa el error de rumbo (apuntar torcido). Subilo si cruza la línea en ángulo en vez de enderezarse antes."));
+        _scGuiado.Children.Add(FilaAjuste("Integral (Stanley)", "integral_stanley", 0, 100, 1, 0, "",
+            "Igual que la integral de PP pero para el modo firme: mata el corrimiento constante."));
+        _scGuiado.Children.Add(FilaToggle("Usar siempre Stanley (puro)", "stanley_pure",
+            "Usa el modo firme también para entrar a la línea (sin la entrada suave de PP). Para implementos que exigen precisión desde el primer metro."));
         _scGuiado.Children.Add(SubTituloSep("General"));
-        _scGuiado.Children.Add(FilaAjuste("Ángulo máximo de giro", "max_steer_angle", 10, 80, 1, 0, "°"));
-        _scGuiado.Children.Add(FilaAjuste("Ackerman", "ackerman", 1, 200, 1, 0, "%"));
-        _scGuiado.Children.Add(FilaToggle("Guiar en marcha atrás", "steer_in_reverse"));
+        _scGuiado.Children.Add(FilaAjuste("Ángulo máximo de giro", "max_steer_angle", 10, 80, 1, 0, "°",
+            "Tope de giro que el piloto puede pedir. Ponelo igual al tope físico real de tus ruedas: más que eso, el motor empuja contra el tope mecánico."));
+        _scGuiado.Children.Add(FilaAjuste("Ackerman", "ackerman", 1, 200, 1, 0, "%",
+            "Compensa que la rueda de adentro gira más que la de afuera. 100% = geometría ideal. Ajustá si midiendo el mismo giro a izquierda y derecha el ángulo difiere."));
+        _scGuiado.Children.Add(FilaToggle("Guiar en marcha atrás", "steer_in_reverse",
+            "Permite que el piloto siga guiando en reversa (maniobras de cabecera). Ojo: el GPS detecta la reversa con menos certeza."));
         _scGuiado.Children.Add(SubTituloSep("Avanzado"));
-        _scGuiado.Children.Add(FilaAjusteD("Zona muerta de rumbo", "dead_zone_heading", 0.1, 0, 5, 1, "°"));
-        _scGuiado.Children.Add(FilaAjuste("Demora de zona muerta", "dead_zone_delay", 1, 50));
-        _scGuiado.Children.Add(FilaAjuste("Compensación en cabecera (U)", "u_turn_comp", 2, 20));
-        _scGuiado.Children.Add(FilaAjuste("Compensación de ladera", "side_hill_comp", 0, 30));
+        _scGuiado.Children.Add(FilaAjusteD("Zona muerta de rumbo", "dead_zone_heading", 0.1, 0, 5, 1, "°",
+            "Errores de rumbo más chicos que esto se ignoran: evita el zigzagueo fino cuando ya está arriba de la línea."));
+        _scGuiado.Children.Add(FilaAjuste("Demora de zona muerta", "dead_zone_delay", 1, 50, 1, 0, "",
+            "Cuántos ciclos espera antes de aplicar la zona muerta."));
+        _scGuiado.Children.Add(FilaAjuste("Compensación en cabecera (U)", "u_turn_comp", 2, 20, 1, 0, "",
+            "Cuánto anticipa el giro en la vuelta en U de la cabecera. Si la U queda abierta, subilo; si muerde la pasada, bajalo."));
+        _scGuiado.Children.Add(FilaAjuste("Compensación de ladera", "side_hill_comp", 0, 30, 1, 0, "",
+            "Usa el rolido del IMU para compensar la deriva cuesta abajo en laderas. 0 = apagado."));
 
         // ---------- pantalla MÓDULO (placa + corte por volante) ----------
         // Con el motor Keya por CAN, el driver PWM (Cytron/IBT2) y la válvula
@@ -299,70 +344,71 @@ public sealed class DireccionPanel : Border
         _scModulo = new StackPanel { Spacing = 2, IsVisible = false };
         _scModulo.Children.Add(SubTitulo("Placa de dirección"));
         _scModulo.Children.Add(FilaSeg("Activación del piloto", "steer_enable",
-            new[] { ("None", "Ninguno"), ("Switch", "Interruptor"), ("Button", "Botón") }));
+            new[] { ("None", "Ninguno"), ("Switch", "Interruptor"), ("Button", "Botón") },
+            "Cómo se prende el piloto desde el hardware: Interruptor físico (cerrado = ON), Botón " +
+            "(un toque prende, otro apaga) o Ninguno (solo desde la pantalla)."));
         _scModulo.Children.Add(FilaSeg("Eje del IMU", "imu_axis",
-            new[] { ("X", "X"), ("Y", "Y") }));
-        _scModulo.Children.Add(FilaToggle("Invertir relés", "invert_relays"));
-        _scModulo.Children.Add(SubTituloSep("Corte al agarrar el volante (uno solo)"));
+            new[] { ("X", "X"), ("Y", "Y") },
+            "En qué eje quedó montada la placa del IMU. Si el rolido aparece como cabeceo (o al " +
+            "revés), cambiá el eje."));
+        _scModulo.Children.Add(FilaToggle("Invertir relés", "invert_relays",
+            "Invierte la lógica de los relés de sección (activo-alto ↔ activo-bajo). Solo si el corte de secciones anda al revés."));
+        _scModulo.Children.Add(SubTituloAyuda("Corte al agarrar el volante (uno solo)",
+            "Tu seguridad: el sensor que APAGA el piloto cuando agarrás el volante. Encoder cuenta pulsos de giro; presión y corriente detectan el esfuerzo contra el motor. Uno solo a la vez. Probalo SIEMPRE antes de salir al lote.", sep: true));
         _scModulo.Children.Add(FilaSensoresCorte());
-        _scModulo.Children.Add(FilaAjuste("Cuentas máximas (encoder)", "max_counts", 1, 255));
-        _scModulo.Children.Add(FilaAjuste("Límite presión/corriente", "sensor_limit", 0, 255, 100.0 / 255, 0, "%"));
+        _scModulo.Children.Add(FilaAjuste("Cuentas máximas (encoder)", "max_counts", 1, 255, 1, 0, "",
+            "Pulsos del encoder para cortar: menos = corta con un toque más suave del volante."));
+        _scModulo.Children.Add(FilaAjuste("Límite presión/corriente", "sensor_limit", 0, 255, 100.0 / 255, 0, "%",
+            "Umbral del sensor de presión o corriente para cortar, en % del rango. Menos = más sensible al toque."));
 
         // ---------- pantalla PANTALLA (velocidades + barra guía) ----------
         _scPantalla = new StackPanel { Spacing = 2, IsVisible = false };
         _scPantalla.Children.Add(SubTitulo("Velocidades de guiado"));
-        _scPantalla.Children.Add(FilaAjusteD("Velocidad mínima", "min_steer_speed", 0.5, 0, 10, 1, "km/h"));
-        _scPantalla.Children.Add(FilaAjusteD("Velocidad máxima", "max_steer_speed", 1, 1, 40, 0, "km/h"));
-        _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 40, 0, "km/h"));
+        _scPantalla.Children.Add(FilaAjusteD("Velocidad mínima", "min_steer_speed", 0.5, 0, 10, 1, "km/h",
+            "Debajo de esto el piloto no engancha: evita volantazos con el tractor casi parado."));
+        _scPantalla.Children.Add(FilaAjusteD("Velocidad máxima", "max_steer_speed", 1, 1, 40, 0, "km/h",
+            "Arriba de esto el piloto se apaga solo, por seguridad."));
+        _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 40, 0, "km/h",
+            "Techo general de las funciones de guiado — incluye el manejo libre de la pestaña Probar."));
         _scPantalla.Children.Add(SubTituloSep("Barra de guiado"));
         _scPantalla.Children.Add(FilaSeg("Tipo de barra", "guidance_bar",
-            new[] { ("lightbar", "Lightbar"), ("steerbar", "Steer Bar") }));
-        _scPantalla.Children.Add(FilaToggle("Mostrar barra en pantalla", "display_lightbar"));
-        _scPantalla.Children.Add(FilaAjuste("Grosor de línea", "line_width", 1, 8, 1, 0, "px"));
-        _scPantalla.Children.Add(FilaAjusteD("Distancia de enganche", "snap_distance", 1, 1, 100, 0));
-        _scPantalla.Children.Add(FilaAjusteD("Mirada de la barra", "guidance_look_ahead", 0.1, 0.1, 5, 1, "s"));
-        _scPantalla.Children.Add(FilaAjuste("Sensibilidad de la barra", "cm_per_pixel", 2, 20, 1, 0, "cm/px"));
+            new[] { ("lightbar", "Lightbar"), ("steerbar", "Steer Bar") },
+            "Lightbar: luces de desvío clásicas (a cuántos cm estás de la línea). Steer Bar: muestra " +
+            "además el ángulo que el piloto está pidiendo."));
+        _scPantalla.Children.Add(FilaToggle("Mostrar barra en pantalla", "display_lightbar",
+            "Muestra u oculta la barra de guiado arriba del mapa."));
+        _scPantalla.Children.Add(FilaAjuste("Grosor de línea", "line_width", 1, 8, 1, 0, "px",
+            "Grosor de la línea de guiado dibujada en el mapa."));
+        _scPantalla.Children.Add(FilaAjusteD("Distancia de enganche", "snap_distance", 1, 1, 100, 0, "",
+            "A menos de esta distancia de la guía, el piloto la engancha de un salto."));
+        _scPantalla.Children.Add(FilaAjusteD("Mirada de la barra", "guidance_look_ahead", 0.1, 0.1, 5, 1, "s",
+            "Cuántos segundos adelante calcula la barra el desvío que muestra."));
+        _scPantalla.Children.Add(FilaAjuste("Sensibilidad de la barra", "cm_per_pixel", 2, 20, 1, 0, "cm/px",
+            "Cuántos cm de desvío representa cada pixel de la barra. Menos = barra más sensible."));
 
-        // ---------- pantalla AYUDA (botón "?" del header) ----------
-        // Ayuda en la MISMA card (nada de Flyouts: no se dibujan sobre el
-        // mapa GL). Una línea por botón, en criollo.
-        var ayudaLista = new StackPanel { Spacing = 6 };
-        foreach (var (term, desc) in new[]
+        // ---------- banner de ayuda contextual (los "?" de cada control) ----------
+        _tipTitulo = new TextBlock
         {
-            ("OBJ / ACT / ERR", "El ángulo pedido, el que mide el sensor y la diferencia. En vivo."),
-            ("Prender (Probar)", "Manejo libre: mover las ruedas sin guía, con el tractor parado. Se apaga solo si el tractor arranca."),
-            ("−1° / +1°", "Suma o resta un grado al objetivo. El motor va hasta ahí y FRENA."),
-            ("0↔5°", "Alterna el objetivo entre 0° y 5° — sirve para ver la respuesta de un salto."),
-            ("Sensor RTY / Encoder del motor", "Cuál sensor mide el ángulo de las ruedas: el RTY en el eje, o el encoder interno del motor Keya. Es uno o el otro."),
-            ("Cuentas por grado", "La escala del sensor: cuántas cuentas equivalen a 1° de rueda. RTY: 59. Encoder: se mide tope a tope."),
-            ("Poner en cero", "Con las ruedas bien derechas, le dice al sistema \"esto es 0°\"."),
-            ("Invertir sensor (WAS)", "Si girás a la derecha y el ángulo va para la izquierda, prendé esto. Con encoder también apaga la corrección por GPS (para el banco)."),
-            ("Invertir motor", "Si la flecha derecha mueve las ruedas a la izquierda, prendé esto."),
-            ("PWM mín", "La fuerza mínima para que el motor arranque sin quedarse clavado. Subir de a poco."),
-            ("PWM alto", "El tope de fuerza del motor. Moderado hasta probar en el lote."),
-            ("Ganancia P", "Qué tan fuerte corrige el error de ángulo. Mucho = nervioso, poco = vago."),
-            ("Guardar", "Manda TODO al módulo de dirección y queda grabado."),
-            ("Guiado", "Cómo sigue la línea: modo suave (PP), modo firme (Stanley), ángulo máximo, Ackerman y ajustes finos."),
-            ("Módulo", "La placa: driver del motor, cómo se activa el piloto, eje del IMU, y el corte al agarrar el volante."),
-            ("Pantalla", "Velocidades de guiado (mínima/máxima/límite) y la barra de guiado en pantalla."),
-        })
-        {
-            var fila = new StackPanel { Spacing = 1 };
-            fila.Children.Add(new TextBlock
-            {
-                Text = term, FontSize = 13, FontWeight = FontWeight.Bold, Foreground = Texto,
-            });
-            fila.Children.Add(new TextBlock
-            {
-                Text = desc, FontSize = 12.5, Foreground = TextoMuted, TextWrapping = TextWrapping.Wrap,
-            });
-            ayudaLista.Children.Add(fila);
-        }
-        _scAyuda = new ScrollViewer
-        {
-            Content = ayudaLista, MaxHeight = 340, IsVisible = false,
-            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            Text = "", FontSize = 13, FontWeight = FontWeight.Bold, Foreground = Texto,
         };
+        _tipCuerpo = new TextBlock
+        {
+            Text = "", FontSize = 12.5, Foreground = TextoMuted, TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 2, 0, 0),
+        };
+        var tipCont = new StackPanel();
+        tipCont.Children.Add(_tipTitulo);
+        tipCont.Children.Add(_tipCuerpo);
+        _tip = new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#FFF9E8")),
+            BorderBrush = Ambar, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 8, 10, 8),
+            Margin = new Thickness(0, 0, 0, 8), IsVisible = false,
+            Child = tipCont,
+        };
+        // tocar el banner lo cierra (y también tocar de nuevo el mismo "?")
+        _tip.PointerPressed += (_, _) => _tip.IsVisible = false;
 
         // ---------- pie: estado + Guardar ----------
         _estado = new TextBlock
@@ -393,7 +439,6 @@ public sealed class DireccionPanel : Border
         stage.Children.Add(_scGuiado);
         stage.Children.Add(_scModulo);
         stage.Children.Add(_scPantalla);
-        stage.Children.Add(_scAyuda);
         // Las pantallas largas (Guiado) scrollean adentro: la card no crece
         // más allá de lo que entra en la tablet de 10".
         var stageScroll = new ScrollViewer
@@ -405,6 +450,7 @@ public sealed class DireccionPanel : Border
         var root = new StackPanel();
         root.Children.Add(header);
         root.Children.Add(tabs);
+        root.Children.Add(_tip);
         root.Children.Add(stageScroll);
         root.Children.Add(pie);
         Child = root;
@@ -625,7 +671,7 @@ public sealed class DireccionPanel : Border
 
     private void MostrarTab(string id)
     {
-        _scAyuda.IsVisible = false;
+        _tip.IsVisible = false;
         _scProbar.IsVisible = id == "probar";
         _scSensor.IsVisible = id == "sensor";
         _scFuerza.IsVisible = id == "fuerza";
@@ -644,13 +690,6 @@ public sealed class DireccionPanel : Border
 
     private string _tabActual = "probar";
 
-    private void ToggleAyuda()
-    {
-        if (_scAyuda.IsVisible) { MostrarTab(_tabActual); return; }
-        _scProbar.IsVisible = _scSensor.IsVisible = _scFuerza.IsVisible = false;
-        _scGuiado.IsVisible = _scModulo.IsVisible = _scPantalla.IsVisible = false;
-        _scAyuda.IsVisible = true;
-    }
 
     // ---- edición de config ---------------------------------------------------
 
@@ -758,7 +797,8 @@ public sealed class DireccionPanel : Border
         return new Border { Child = c, Padding = new Thickness(izq, 0, der, 0), Background = Brushes.Transparent };
     }
 
-    private Control FilaNumerica(string etiqueta, TextBlock valor, Action menos, Action mas)
+    private Control FilaNumerica(string etiqueta, TextBlock valor, Action menos, Action mas,
+                                 string ayuda = null)
     {
         var fila = new Grid
         {
@@ -770,7 +810,18 @@ public sealed class DireccionPanel : Border
             Text = etiqueta, FontSize = 13.5, FontWeight = FontWeight.SemiBold,
             Foreground = Texto, VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap,
         };
-        Grid.SetColumn(lbl, 0);
+        Control cabecera = lbl;
+        if (ayuda != null)
+        {
+            var g = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            Grid.SetColumn(lbl, 0);
+            var chip = ChipAyuda(etiqueta, ayuda);
+            Grid.SetColumn(chip, 1);
+            g.Children.Add(lbl);
+            g.Children.Add(chip);
+            cabecera = g;
+        }
+        Grid.SetColumn(cabecera, 0);
 
         var bMenos = BotonChico("−");
         bMenos.Width = 52; bMenos.Height = 52; bMenos.FontSize = 22; bMenos.Foreground = Texto;
@@ -785,7 +836,7 @@ public sealed class DireccionPanel : Border
         bMas.Click += (_, _) => mas();
         Grid.SetColumn(bMas, 3);
 
-        fila.Children.Add(lbl);
+        fila.Children.Add(cabecera);
         fila.Children.Add(bMenos);
         fila.Children.Add(valor);
         fila.Children.Add(bMas);
@@ -805,12 +856,55 @@ public sealed class DireccionPanel : Border
         return tb;
     }
 
+    // ---- ayuda contextual ("?" al lado de cada control) -----------------------
+
+    private void MostrarAyuda(string titulo, string texto)
+    {
+        // tocar el mismo "?" con el tip abierto lo cierra
+        if (_tip.IsVisible && _tipTitulo.Text == titulo) { _tip.IsVisible = false; return; }
+        _tipTitulo.Text = titulo;
+        _tipCuerpo.Text = texto;
+        _tip.IsVisible = true;
+    }
+
+    private Button ChipAyuda(string titulo, string texto)
+    {
+        var b = new Button
+        {
+            Content = "?", Width = 34, Height = 34, FontSize = 14, FontWeight = FontWeight.Bold,
+            Background = BgCard, Foreground = TextoMuted,
+            BorderBrush = Borde, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(17), Padding = new Thickness(0),
+            Margin = new Thickness(6, 0, 0, 0),
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        b.Click += (_, _) => MostrarAyuda(titulo, texto);
+        return b;
+    }
+
+    /// <summary>Subtitulo de seccion con su "?" al lado.</summary>
+    private Control SubTituloAyuda(string t, string ayuda, bool sep = false)
+    {
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        var tb = sep ? SubTituloSep(t) : SubTitulo(t);
+        tb.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(tb, 0);
+        var chip = ChipAyuda(t, ayuda);
+        Grid.SetColumn(chip, 1);
+        g.Children.Add(tb);
+        g.Children.Add(chip);
+        return g;
+    }
+
     // ---- helpers genéricos de filas (registran su repintado en _refrescos) ----
 
     /// <summary>Fila de ajuste sobre un ENTERO crudo del wire, con escala solo
     /// de display (igual que los sliders del FormSteer: 29 → "2,9 s").</summary>
     private Control FilaAjuste(string etiqueta, string clave, int min, int max,
-                               double escala = 1, int dec = 0, string unidad = "")
+                               double escala = 1, int dec = 0, string unidad = "",
+                               string ayuda = null)
     {
         var val = Num("—");
         Action refrescar = () =>
@@ -822,12 +916,14 @@ public sealed class DireccionPanel : Border
         _refrescos.Add(refrescar);
         return FilaNumerica(etiqueta, val,
             () => { NudgeCrudo(clave, -1, min, max); refrescar(); MarcarSucio(); },
-            () => { NudgeCrudo(clave, +1, min, max); refrescar(); MarcarSucio(); });
+            () => { NudgeCrudo(clave, +1, min, max); refrescar(); MarcarSucio(); },
+            ayuda);
     }
 
     /// <summary>Fila de ajuste sobre un DOUBLE real del wire (km/h, segundos).</summary>
     private Control FilaAjusteD(string etiqueta, string clave, double paso,
-                                double min, double max, int dec, string unidad = "")
+                                double min, double max, int dec, string unidad = "",
+                                string ayuda = null)
     {
         var val = Num("—");
         Action refrescar = () =>
@@ -846,11 +942,11 @@ public sealed class DireccionPanel : Border
             refrescar();
             MarcarSucio();
         };
-        return FilaNumerica(etiqueta, val, () => mover(-paso), () => mover(+paso));
+        return FilaNumerica(etiqueta, val, () => mover(-paso), () => mover(+paso), ayuda);
     }
 
     /// <summary>Toggle de un bool del wire, ancho completo.</summary>
-    private Control FilaToggle(string etiqueta, string clave)
+    private Control FilaToggle(string etiqueta, string clave, string ayuda = null)
     {
         var b = BotonSeg(etiqueta);
         b.Margin = new Thickness(0, 6, 0, 0);
@@ -863,17 +959,38 @@ public sealed class DireccionPanel : Border
             refrescar();
             MarcarSucio();
         };
-        return b;
+        if (ayuda == null) return b;
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 6, 0, 0) };
+        b.Margin = new Thickness(0);
+        Grid.SetColumn(b, 0);
+        var chip = ChipAyuda(etiqueta, ayuda);
+        Grid.SetColumn(chip, 1);
+        g.Children.Add(b);
+        g.Children.Add(chip);
+        return g;
     }
 
     /// <summary>Segmentado de un string del wire (valor exacto que espera el módulo).</summary>
-    private Control FilaSeg(string etiqueta, string clave, (string Valor, string Texto)[] opciones)
+    private Control FilaSeg(string etiqueta, string clave, (string Valor, string Texto)[] opciones,
+                            string ayuda = null)
     {
         var cont = new StackPanel { Spacing = 4, Margin = new Thickness(0, 6, 0, 0) };
-        cont.Children.Add(new TextBlock
+        var lbl = new TextBlock
         {
             Text = etiqueta, FontSize = 13, FontWeight = FontWeight.SemiBold, Foreground = Texto,
-        });
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        if (ayuda != null)
+        {
+            var g = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            Grid.SetColumn(lbl, 0);
+            var chip = ChipAyuda(etiqueta, ayuda);
+            Grid.SetColumn(chip, 1);
+            g.Children.Add(lbl);
+            g.Children.Add(chip);
+            cont.Children.Add(g);
+        }
+        else cont.Children.Add(lbl);
         var fila = new UniformGrid { Columns = opciones.Length };
         var botones = new List<(string Valor, Button Btn)>();
         foreach (var (valor, texto) in opciones)
