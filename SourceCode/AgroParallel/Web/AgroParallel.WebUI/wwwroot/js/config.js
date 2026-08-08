@@ -165,8 +165,6 @@
 
   tabs.vconfig = {
     enter: function () {
-      // catálogo de tractores AR: se carga la primera vez que se entra acá
-      try { tractorCargarCatalogo(); } catch (e) { }
       var s = snap.vehiculo;
       v.tipo = s.vehicle_type;
       v.marcas[0] = s.tractor_brand;
@@ -204,86 +202,6 @@
   });
   document.getElementById('btnOpacUp').addEventListener('click', function () {
     v.opacity = Math.min(v.opacity + 20, 100); v.dirty = true; vPintar();
-  });
-
-  // =============================================================================
-  // Vehículo: catálogo de tractores AR (dentro de Tipo y marca — NO es tab nueva)
-  // Elegir marca→modelo y "Aplicar" pre-llena el PERFIL ACTIVO por los mismos
-  // endpoints de guardado (bodies parciales): tipo de vehículo + entre ejes
-  // (+ antena si el template trae dato). Después el operario ajusta a mano.
-  // =============================================================================
-  var catTractores = null;      // [{marca, modelos:[...]}] — se carga una vez
-  var tractorSel = null;        // template seleccionado
-
-  function tractorPintarMedidas() {
-    var p = document.getElementById('tractorMedidas');
-    var btn = document.getElementById('btnAplicarTractor');
-    if (!tractorSel) { p.hidden = true; btn.disabled = true; return; }
-    var t = tractorSel;
-    var partes = [];
-    partes.push(t.vehicle_type === 2 ? 'Articulado' : 'Dirección delantera');
-    if (t.wheelbase_m > 0) partes.push('entre ejes ' + fmtSmall(t.wheelbase_m));
-    if (t.track_width_m > 0) partes.push('trocha ' + fmtSmall(t.track_width_m));
-    if (t.antenna_height_m > 0) partes.push('antena ' + fmtSmall(t.antenna_height_m));
-    p.textContent = partes.join(' · ') + (t.descripcion ? ' — ' + t.descripcion : '');
-    p.hidden = false;
-    btn.disabled = false;
-  }
-
-  async function tractorCargarCatalogo() {
-    if (catTractores) return;
-    try {
-      var r = await api('/catalogo/tractores');
-      if (!r.ok || !r.marcas) return;
-      catTractores = r.marcas;
-      var selM = document.getElementById('selTractorMarca');
-      catTractores.forEach(function (m) {
-        var o = document.createElement('option');
-        o.value = m.marca; o.textContent = m.marca;
-        selM.appendChild(o);
-      });
-    } catch (e) { /* sin catálogo: la card queda inerte, config sigue */ }
-  }
-
-  document.getElementById('selTractorMarca').addEventListener('change', function () {
-    var selMo = document.getElementById('selTractorModelo');
-    selMo.innerHTML = '<option value="">—</option>';
-    tractorSel = null; tractorPintarMedidas();
-    var marca = this.value;
-    var m = (catTractores || []).filter(function (x) { return x.marca === marca; })[0];
-    selMo.disabled = !m;
-    if (!m) return;
-    m.modelos.forEach(function (t) {
-      var o = document.createElement('option');
-      o.value = t.modelo; o.textContent = t.modelo;
-      selMo.appendChild(o);
-    });
-  });
-
-  document.getElementById('selTractorModelo').addEventListener('change', function () {
-    var marca = document.getElementById('selTractorMarca').value;
-    var m = (catTractores || []).filter(function (x) { return x.marca === marca; })[0];
-    tractorSel = null;
-    if (m) m.modelos.forEach(function (t) {
-      if (t.modelo === document.getElementById('selTractorModelo').value) tractorSel = t;
-    });
-    tractorPintarMedidas();
-  });
-
-  document.getElementById('btnAplicarTractor').addEventListener('click', async function () {
-    if (!tractorSel) return;
-    var t = tractorSel;
-    // tipo de vehículo (0 tractor / 2 articulado) — body parcial
-    if (!await guardar('vehiculo', { vehicle_type: t.vehicle_type })) return;
-    // dimensiones: solo lo que el template trae con dato (0 = no pisar)
-    var dims = {};
-    if (t.wheelbase_m > 0) dims.wheelbase = t.wheelbase_m;
-    if (t.track_width_m > 0) dims.track_width = t.track_width_m;
-    if (Object.keys(dims).length && !await guardar('dimensiones', dims)) return;
-    if (t.antenna_height_m > 0 && !await guardar('antena', { antenna_height: t.antenna_height_m })) return;
-    setEstado('Medidas de ' + t.marca + ' ' + t.modelo + ' aplicadas al perfil ✔', 'ok');
-    // refrescar la tab visible con el snapshot nuevo (radios de tipo, etc.)
-    try { tabs.vconfig.enter(); } catch (e) { }
   });
 
   // =============================================================================
