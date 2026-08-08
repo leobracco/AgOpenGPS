@@ -461,26 +461,15 @@
     if (!g) return;
     var sec = document.querySelector('section[data-group="' + grupo + '"][data-tab="' + id + '"]');
     if (!sec) { id = g.def; }
-    // Layout unificado (2026-08-08): UN solo panel visible en toda la
-    // pantalla — elegir una tab apaga la del otro grupo también. Antes las
-    // dos columnas mostraban un panel cada una y la ventana ocupaba el doble.
-    document.querySelectorAll('#menu button, #menu2 button').forEach(function (b) {
-      b.classList.remove('sel');
-    });
-    document.querySelectorAll('section[data-group]').forEach(function (s) {
-      s.classList.remove('activa');
-    });
     document.querySelectorAll('#' + g.menu + ' button').forEach(function (b) {
       b.classList.toggle('sel', b.dataset.tab === id);
     });
-    var act = document.querySelector('section[data-group="' + grupo + '"][data-tab="' + id + '"]');
-    if (act) act.classList.add('activa');
+    document.querySelectorAll('section[data-group="' + grupo + '"]').forEach(function (s) {
+      s.classList.toggle('activa', s.dataset.tab === id);
+    });
     try {
       var url = new URL(window.location.href);
       url.searchParams.set(g.param, id);
-      // un solo panel activo → un solo deep-link: se borra el del otro grupo
-      var otro = grupo === 'izq' ? GRUPOS.der.param : GRUPOS.izq.param;
-      url.searchParams.delete(otro);
       history.replaceState(null, '', url.toString());
     } catch (e) { /* file:// etc. */ }
   }
@@ -616,10 +605,8 @@
     initFreeDrive();
     initLiveAngle();
     var q = new URLSearchParams(window.location.search);
-    // Un solo panel activo: ?tab2 (módulo) tiene prioridad si viene explícito,
-    // sino se abre el grupo de guiado (?tab o su default).
-    if (q.get('tab2')) irATab('der', q.get('tab2'));
-    else irATab('izq', q.get('tab') || GRUPOS.izq.def);
+    irATab('izq', q.get('tab') || GRUPOS.izq.def);
+    irATab('der', q.get('tab2') || GRUPOS.der.def);
     loadConfig();
   });
 })();
