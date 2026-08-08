@@ -258,6 +258,7 @@ public partial class MainWindow : Window
 
     // Lote nativo (16vo port, ex lote.html). Mismo criterio.
     private LotePanel? _loteHost;
+    private DireccionPanel? _direccionHost;
 
     public MainWindow()
     {
@@ -359,6 +360,19 @@ public partial class MainWindow : Window
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
+
+        // Dirección nativa (17vo port): panel chico sobre el mapa vivo. El
+        // botón "Todo…" abre la página HTML completa (PP/Stanley/avanzado).
+        _direccionHost = this.FindControl<DireccionPanel>("DireccionHost");
+        if (_direccionHost != null)
+        {
+            _direccionHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+            _direccionHost.TodoPedido += () =>
+                OpenDialogPage("pages/direccion.html?v=10", "Dirección — Autoguiado", 1040, 780);
+        }
 
         // Visor de IMU: arranca con la app (pedido 2026-08-07). Fuente = proxy
         // corex-ecu; si no hay ECU se ve "sin ECU" en gris, que también es dato.
@@ -3298,8 +3312,9 @@ public partial class MainWindow : Window
             // Dirección (FormSteer) → ventana propia más grande. ?v= evita que
             // el WebView2 sirva una versión cacheada vieja de la página.
             case "direccion":
-                // v=10: layout FormSteer clásico (dos columnas, 2026-07-31).
-                OpenDialogPage("pages/direccion.html?v=10", "Dirección — Autoguiado", 1040, 780); return true;
+                // Panel NATIVO chico (17vo port). La página HTML completa
+                // (dos columnas v=10) queda detrás del botón "Todo…".
+                AbrirDireccion(); return true;
 
             // ---- Controles de cámara/vista (menú Navegación) — 100% cliente
             // (MapGlSurface), no tocan el motor. Equivalentes a
@@ -3894,6 +3909,7 @@ public partial class MainWindow : Window
     {
         if (_loteHost == null) return;
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -3902,11 +3918,28 @@ public partial class MainWindow : Window
         _loteHost.Abrir(pantalla);
     }
 
+    // Dirección nativa: panel chico sobre el mapa vivo (mismo patrón Guías/Lote).
+    private void AbrirDireccion()
+    {
+        if (_direccionHost == null) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        if (_guiasHttp == null)
+        {
+            _guiasHttp = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        }
+        _direccionHost.Attach(_guiasHttp, DeriveOrigin(App.TargetUrl));
+        _direccionHost.Abrir();
+    }
+
     private void AbrirGuias()
     {
         if (_guiasHost == null) return;
         // Solo un panel a la vez sobre el mapa (mismo criterio que ShowSistema).
         if (_loteHost != null && _loteHost.IsVisible) _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)

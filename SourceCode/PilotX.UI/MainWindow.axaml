@@ -805,6 +805,12 @@
                 <vw:LotePanel x:Name="LoteHost" Grid.Row="1"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
+                <!-- DIRECCIÓN nativa (17vo port): panel CHICO con lo que se toca
+                     en cabina (probar motor, sensor de ángulo, fuerza). El resto
+                     de la config sigue en la página HTML detrás de "Todo…". -->
+                <vw:DireccionPanel x:Name="DireccionHost" Grid.Row="1"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                 <!-- CoreX-ECU (9no port, Live tab de pages\corex-ecu.html):
                      telemetria del autosteer (IMU, WAS, GPS, CAN Keya,
                      Autosteer, Sistema). Era un takeover pantalla completa
