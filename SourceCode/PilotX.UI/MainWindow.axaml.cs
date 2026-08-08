@@ -361,8 +361,9 @@ public partial class MainWindow : Window
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
 
-        // Dirección nativa (17vo port): panel chico sobre el mapa vivo. El
-        // botón "Todo…" abre la página HTML completa (PP/Stanley/avanzado).
+        // Dirección nativa (17vo port): panel chico sobre el mapa vivo con
+        // TODO el FormSteer (6 tabs). La página HTML queda solo para el Hub
+        // remoto — acá ya no se abre ningún WebView.
         _direccionHost = this.FindControl<DireccionPanel>("DireccionHost");
         if (_direccionHost != null)
         {
@@ -370,8 +371,6 @@ public partial class MainWindow : Window
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
-            _direccionHost.TodoPedido += () =>
-                OpenDialogPage("pages/direccion.html?v=10", "Dirección — Autoguiado", 1040, 780);
         }
 
         // Visor de IMU: arranca con la app (pedido 2026-08-07). Fuente = proxy

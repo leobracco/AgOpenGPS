@@ -55,8 +55,6 @@ public sealed class DireccionPanel : Border
 
     /// <summary>El operario cerró el panel.</summary>
     public event Action? Cerrado;
-    /// <summary>Pidió la pantalla completa HTML ("Todo…").</summary>
-    public event Action? TodoPedido;
 
     // ---- estado -------------------------------------------------------------
     private JsonObject? _cfg;           // config completa del GET (se reenvía entera)
@@ -73,8 +71,15 @@ public sealed class DireccionPanel : Border
     private readonly StackPanel _scProbar;
     private readonly StackPanel _scSensor;
     private readonly StackPanel _scFuerza;
+    private readonly StackPanel _scGuiado;
+    private readonly StackPanel _scModulo;
+    private readonly StackPanel _scPantalla;
     private readonly ScrollViewer _scAyuda;
     private readonly Dictionary<string, Button> _tabs = new();
+
+    // Refresco de las filas construidas con los helpers genéricos: cada fila
+    // registra cómo repintarse desde _cfg (PintarConfig las corre todas).
+    private readonly List<Action> _refrescos = new();
 
     // Probar
     private readonly Button _fdPower;
@@ -116,7 +121,7 @@ public sealed class DireccionPanel : Border
         IsVisible = false;
 
         // ---------- header: título + Obj/Act/Err + Todo… + ✕ ----------
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto"), Margin = new Thickness(4, 0, 0, 8) };
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"), Margin = new Thickness(4, 0, 0, 8) };
         var titulo = new TextBlock
         {
             Text = "Dirección", FontSize = 15, FontWeight = FontWeight.Bold,
@@ -141,32 +146,30 @@ public sealed class DireccionPanel : Border
         Grid.SetColumn(btnAyuda, 2);
         btnAyuda.Margin = new Thickness(0, 0, 6, 0);
 
-        var btnTodo = BotonChico("Todo…");
-        btnTodo.Click += (_, _) => TodoPedido?.Invoke();
-        Grid.SetColumn(btnTodo, 3);
-        btnTodo.Margin = new Thickness(0, 0, 6, 0);
-
         var btnCerrar = BotonChico("✕");
         btnCerrar.Width = 44;
         btnCerrar.Click += (_, _) => Cerrar();
-        Grid.SetColumn(btnCerrar, 4);
+        Grid.SetColumn(btnCerrar, 3);
 
         header.Children.Add(titulo);
         header.Children.Add(live);
         header.Children.Add(btnAyuda);
-        header.Children.Add(btnTodo);
         header.Children.Add(btnCerrar);
 
-        // ---------- tabs ----------
+        // ---------- tabs (2 filas de 3 — TODO el FormSteer vive acá) ----------
         var tabs = new UniformGrid { Columns = 3, Margin = new Thickness(0, 0, 0, 8) };
-        foreach (var (id, txt) in new[] { ("probar", "Probar"), ("sensor", "Sensor"), ("fuerza", "Fuerza") })
+        foreach (var (id, txt) in new[]
+        {
+            ("probar", "Probar"), ("sensor", "Sensor"), ("fuerza", "Fuerza"),
+            ("guiado", "Guiado"), ("modulo", "Módulo"), ("pantalla", "Pantalla"),
+        })
         {
             var b = new Button
             {
                 Content = txt, Height = 50, FontSize = 14, FontWeight = FontWeight.SemiBold,
                 Background = BgCard, Foreground = TextoMuted,
                 BorderBrush = Borde, BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 0, 4, 0),
+                CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 0, 4, 4),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Center,
             };
@@ -264,6 +267,61 @@ public sealed class DireccionPanel : Border
         _scFuerza.Children.Add(FilaNumerica("Fuerza de corrección (Ganancia P)", _valGanP,
             () => Nudge("proportional_gain", -5, 0, 200), () => Nudge("proportional_gain", +5, 0, 200)));
 
+        // ---------- pantalla GUIADO (PP + Stanley + general + avanzado) ----------
+        // El wire guarda los ENTEROS crudos del slider original; la escala es
+        // solo de display (hold_look_ahead=29 → 2,9 s). Igual que la página.
+        _scGuiado = new StackPanel { Spacing = 2, IsVisible = false };
+        _scGuiado.Children.Add(SubTitulo("Modo suave (Pure Pursuit)"));
+        _scGuiado.Children.Add(FilaAjuste("Qué tan adelante mira", "hold_look_ahead", 10, 70, 0.1, 1, "s"));
+        _scGuiado.Children.Add(FilaAjuste("Multiplicador por velocidad", "look_ahead_mult", 5, 60, 0.1, 1));
+        _scGuiado.Children.Add(FilaAjuste("Entrada a la línea", "acquire_factor", 20, 300, 0.01, 2));
+        _scGuiado.Children.Add(FilaAjuste("Integral (PP)", "integral_pp", 0, 100));
+        _scGuiado.Children.Add(SubTituloSep("Modo firme (Stanley)"));
+        _scGuiado.Children.Add(FilaAjuste("Ganancia Stanley", "stanley_gain", 1, 40, 0.1, 1));
+        _scGuiado.Children.Add(FilaAjuste("Ganancia de rumbo", "heading_error_gain", 1, 15, 0.1, 1));
+        _scGuiado.Children.Add(FilaAjuste("Integral (Stanley)", "integral_stanley", 0, 100));
+        _scGuiado.Children.Add(FilaToggle("Usar siempre Stanley (puro)", "stanley_pure"));
+        _scGuiado.Children.Add(SubTituloSep("General"));
+        _scGuiado.Children.Add(FilaAjuste("Ángulo máximo de giro", "max_steer_angle", 10, 80, 1, 0, "°"));
+        _scGuiado.Children.Add(FilaAjuste("Ackerman", "ackerman", 1, 200, 1, 0, "%"));
+        _scGuiado.Children.Add(FilaToggle("Guiar en marcha atrás", "steer_in_reverse"));
+        _scGuiado.Children.Add(SubTituloSep("Avanzado"));
+        _scGuiado.Children.Add(FilaAjusteD("Zona muerta de rumbo", "dead_zone_heading", 0.1, 0, 5, 1, "°"));
+        _scGuiado.Children.Add(FilaAjuste("Demora de zona muerta", "dead_zone_delay", 1, 50));
+        _scGuiado.Children.Add(FilaAjuste("Compensación en cabecera (U)", "u_turn_comp", 2, 20));
+        _scGuiado.Children.Add(FilaAjuste("Compensación de ladera", "side_hill_comp", 0, 30));
+
+        // ---------- pantalla MÓDULO (placa + corte por volante) ----------
+        _scModulo = new StackPanel { Spacing = 2, IsVisible = false };
+        _scModulo.Children.Add(SubTitulo("Placa de dirección"));
+        _scModulo.Children.Add(FilaSeg("Driver del motor", "motor_drive",
+            new[] { ("Cytron", "Cytron"), ("IBT2", "IBT2") }));
+        _scModulo.Children.Add(FilaSeg("Activación del piloto", "steer_enable",
+            new[] { ("None", "Ninguno"), ("Switch", "Interruptor"), ("Button", "Botón") }));
+        _scModulo.Children.Add(FilaSeg("Eje del IMU", "imu_axis",
+            new[] { ("X", "X"), ("Y", "Y") }));
+        _scModulo.Children.Add(FilaToggle("Válvula Danfoss", "danfoss"));
+        _scModulo.Children.Add(FilaToggle("Invertir relés", "invert_relays"));
+        _scModulo.Children.Add(SubTituloSep("Corte al agarrar el volante (uno solo)"));
+        _scModulo.Children.Add(FilaSensoresCorte());
+        _scModulo.Children.Add(FilaAjuste("Cuentas máximas (encoder)", "max_counts", 1, 255));
+        _scModulo.Children.Add(FilaAjuste("Límite presión/corriente", "sensor_limit", 0, 255, 100.0 / 255, 0, "%"));
+
+        // ---------- pantalla PANTALLA (velocidades + barra guía) ----------
+        _scPantalla = new StackPanel { Spacing = 2, IsVisible = false };
+        _scPantalla.Children.Add(SubTitulo("Velocidades de guiado"));
+        _scPantalla.Children.Add(FilaAjusteD("Velocidad mínima", "min_steer_speed", 0.5, 0, 10, 1, "km/h"));
+        _scPantalla.Children.Add(FilaAjusteD("Velocidad máxima", "max_steer_speed", 1, 1, 40, 0, "km/h"));
+        _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 40, 0, "km/h"));
+        _scPantalla.Children.Add(SubTituloSep("Barra de guiado"));
+        _scPantalla.Children.Add(FilaSeg("Tipo de barra", "guidance_bar",
+            new[] { ("lightbar", "Lightbar"), ("steerbar", "Steer Bar") }));
+        _scPantalla.Children.Add(FilaToggle("Mostrar barra en pantalla", "display_lightbar"));
+        _scPantalla.Children.Add(FilaAjuste("Grosor de línea", "line_width", 1, 8, 1, 0, "px"));
+        _scPantalla.Children.Add(FilaAjusteD("Distancia de enganche", "snap_distance", 1, 1, 100, 0));
+        _scPantalla.Children.Add(FilaAjusteD("Mirada de la barra", "guidance_look_ahead", 0.1, 0.1, 5, 1, "s"));
+        _scPantalla.Children.Add(FilaAjuste("Sensibilidad de la barra", "cm_per_pixel", 2, 20, 1, 0, "cm/px"));
+
         // ---------- pantalla AYUDA (botón "?" del header) ----------
         // Ayuda en la MISMA card (nada de Flyouts: no se dibujan sobre el
         // mapa GL). Una línea por botón, en criollo.
@@ -283,7 +341,9 @@ public sealed class DireccionPanel : Border
             ("PWM alto", "El tope de fuerza del motor. Moderado hasta probar en el lote."),
             ("Ganancia P", "Qué tan fuerte corrige el error de ángulo. Mucho = nervioso, poco = vago."),
             ("Guardar", "Manda TODO al módulo de dirección y queda grabado."),
-            ("Todo…", "Abre la pantalla completa (modos de guiado, avanzado, velocidades, barra guía)."),
+            ("Guiado", "Cómo sigue la línea: modo suave (PP), modo firme (Stanley), ángulo máximo, Ackerman y ajustes finos."),
+            ("Módulo", "La placa: driver del motor, cómo se activa el piloto, eje del IMU, y el corte al agarrar el volante."),
+            ("Pantalla", "Velocidades de guiado (mínima/máxima/límite) y la barra de guiado en pantalla."),
         })
         {
             var fila = new StackPanel { Spacing = 1 };
@@ -329,12 +389,22 @@ public sealed class DireccionPanel : Border
         stage.Children.Add(_scProbar);
         stage.Children.Add(_scSensor);
         stage.Children.Add(_scFuerza);
+        stage.Children.Add(_scGuiado);
+        stage.Children.Add(_scModulo);
+        stage.Children.Add(_scPantalla);
         stage.Children.Add(_scAyuda);
+        // Las pantallas largas (Guiado) scrollean adentro: la card no crece
+        // más allá de lo que entra en la tablet de 10".
+        var stageScroll = new ScrollViewer
+        {
+            Content = stage, MaxHeight = 420,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+        };
 
         var root = new StackPanel();
         root.Children.Add(header);
         root.Children.Add(tabs);
-        root.Children.Add(stage);
+        root.Children.Add(stageScroll);
         root.Children.Add(pie);
         Child = root;
 
@@ -540,6 +610,7 @@ public sealed class DireccionPanel : Border
         _valPwmMin.Text  = Entero("min_pwm").ToString(CultureInfo.InvariantCulture);
         _valPwmAlto.Text = Entero("high_steer_pwm").ToString(CultureInfo.InvariantCulture);
         _valGanP.Text    = Entero("proportional_gain").ToString(CultureInfo.InvariantCulture);
+        foreach (var r in _refrescos) r();
     }
 
     private void PintarGuardar()
@@ -557,6 +628,9 @@ public sealed class DireccionPanel : Border
         _scProbar.IsVisible = id == "probar";
         _scSensor.IsVisible = id == "sensor";
         _scFuerza.IsVisible = id == "fuerza";
+        _scGuiado.IsVisible = id == "guiado";
+        _scModulo.IsVisible = id == "modulo";
+        _scPantalla.IsVisible = id == "pantalla";
         foreach (var (k, b) in _tabs)
         {
             bool sel = k == id;
@@ -573,6 +647,7 @@ public sealed class DireccionPanel : Border
     {
         if (_scAyuda.IsVisible) { MostrarTab(_tabActual); return; }
         _scProbar.IsVisible = _scSensor.IsVisible = _scFuerza.IsVisible = false;
+        _scGuiado.IsVisible = _scModulo.IsVisible = _scPantalla.IsVisible = false;
         _scAyuda.IsVisible = true;
     }
 
@@ -721,4 +796,152 @@ public sealed class DireccionPanel : Border
         Text = t, FontSize = 12, FontWeight = FontWeight.Bold, Foreground = TextoMuted,
         Margin = new Thickness(2, 0, 0, 6),
     };
+
+    private TextBlock SubTituloSep(string t)
+    {
+        var tb = SubTitulo(t);
+        tb.Margin = new Thickness(2, 14, 0, 6);
+        return tb;
+    }
+
+    // ---- helpers genéricos de filas (registran su repintado en _refrescos) ----
+
+    /// <summary>Fila de ajuste sobre un ENTERO crudo del wire, con escala solo
+    /// de display (igual que los sliders del FormSteer: 29 → "2,9 s").</summary>
+    private Control FilaAjuste(string etiqueta, string clave, int min, int max,
+                               double escala = 1, int dec = 0, string unidad = "")
+    {
+        var val = Num("—");
+        Action refrescar = () =>
+        {
+            double v = Entero(clave) * escala;
+            val.Text = v.ToString("F" + dec.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
+                     + (unidad.Length > 0 ? " " + unidad : "");
+        };
+        _refrescos.Add(refrescar);
+        return FilaNumerica(etiqueta, val,
+            () => { NudgeCrudo(clave, -1, min, max); refrescar(); MarcarSucio(); },
+            () => { NudgeCrudo(clave, +1, min, max); refrescar(); MarcarSucio(); });
+    }
+
+    /// <summary>Fila de ajuste sobre un DOUBLE real del wire (km/h, segundos).</summary>
+    private Control FilaAjusteD(string etiqueta, string clave, double paso,
+                                double min, double max, int dec, string unidad = "")
+    {
+        var val = Num("—");
+        Action refrescar = () =>
+        {
+            val.Text = Doble(clave).ToString("F" + dec.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
+                     + (unidad.Length > 0 ? " " + unidad : "");
+        };
+        _refrescos.Add(refrescar);
+        Action<double> mover = d =>
+        {
+            if (_cfg == null) return;
+            double v = Math.Round(Doble(clave) + d, 2);
+            if (v < min) v = min;
+            if (v > max) v = max;
+            _cfg[clave] = v;
+            refrescar();
+            MarcarSucio();
+        };
+        return FilaNumerica(etiqueta, val, () => mover(-paso), () => mover(+paso));
+    }
+
+    /// <summary>Toggle de un bool del wire, ancho completo.</summary>
+    private Control FilaToggle(string etiqueta, string clave)
+    {
+        var b = BotonSeg(etiqueta);
+        b.Margin = new Thickness(0, 6, 0, 0);
+        Action refrescar = () => PintarToggle(b, Bool(clave));
+        _refrescos.Add(refrescar);
+        b.Click += (_, _) =>
+        {
+            if (_cfg == null) return;
+            _cfg[clave] = !Bool(clave);
+            refrescar();
+            MarcarSucio();
+        };
+        return b;
+    }
+
+    /// <summary>Segmentado de un string del wire (valor exacto que espera el módulo).</summary>
+    private Control FilaSeg(string etiqueta, string clave, (string Valor, string Texto)[] opciones)
+    {
+        var cont = new StackPanel { Spacing = 4, Margin = new Thickness(0, 6, 0, 0) };
+        cont.Children.Add(new TextBlock
+        {
+            Text = etiqueta, FontSize = 13, FontWeight = FontWeight.SemiBold, Foreground = Texto,
+        });
+        var fila = new UniformGrid { Columns = opciones.Length };
+        var botones = new List<(string Valor, Button Btn)>();
+        foreach (var (valor, texto) in opciones)
+        {
+            var b = BotonSeg(texto);
+            string mio = valor;
+            b.Click += (_, _) =>
+            {
+                if (_cfg == null) return;
+                _cfg[clave] = mio;
+                foreach (var (v2, b2) in botones) PintarToggle(b2, v2 == mio);
+                MarcarSucio();
+            };
+            botones.Add((valor, b));
+            fila.Children.Add(Envolver(b, 0, 4));
+        }
+        _refrescos.Add(() =>
+        {
+            var actual = Str(clave);
+            foreach (var (v2, b2) in botones)
+                PintarToggle(b2, string.Equals(v2, actual, StringComparison.OrdinalIgnoreCase));
+        });
+        cont.Children.Add(fila);
+        return cont;
+    }
+
+    /// <summary>Los 3 sensores de corte al agarrar el volante son EXCLUYENTES
+    /// (misma regla que la página y el FormSteer): prender uno apaga los otros.</summary>
+    private Control FilaSensoresCorte()
+    {
+        var claves = new[] { ("encoder", "Encoder"), ("pressure_sensor", "Presión"), ("current_sensor", "Corriente") };
+        var fila = new UniformGrid { Columns = 3, Margin = new Thickness(0, 4, 0, 0) };
+        var botones = new List<(string Clave, Button Btn)>();
+        foreach (var (clave, texto) in claves)
+        {
+            var b = BotonSeg(texto);
+            string mia = clave;
+            b.Click += (_, _) =>
+            {
+                if (_cfg == null) return;
+                bool nuevo = !Bool(mia);
+                _cfg[mia] = nuevo;
+                if (nuevo)
+                    foreach (var (c2, _) in botones)
+                        if (c2 != mia) _cfg[c2] = false;
+                foreach (var (c2, b2) in botones) PintarToggle(b2, Bool(c2));
+                MarcarSucio();
+            };
+            botones.Add((clave, b));
+            fila.Children.Add(Envolver(b, 0, 4));
+        }
+        _refrescos.Add(() => { foreach (var (c2, b2) in botones) PintarToggle(b2, Bool(c2)); });
+        return fila;
+    }
+
+    private void NudgeCrudo(string clave, int paso, int min, int max)
+    {
+        if (_cfg == null) return;
+        int v = Entero(clave) + paso;
+        if (v < min) v = min;
+        if (v > max) v = max;
+        _cfg[clave] = v;
+    }
+
+    private double Doble(string k)
+    {
+        var n = _cfg?[k];
+        if (n == null) return 0;
+        try { return n.GetValue<double>(); }
+        catch { try { return n.GetValue<int>(); } catch { return 0; } }
+    }
 }
