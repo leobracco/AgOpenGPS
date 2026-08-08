@@ -480,9 +480,13 @@ public sealed class DireccionPanel : Border
     {
         if (!IsVisible || _http == null) return;
         // Obj/Act/Err del header, siempre (misma fuente que el gráfico).
+        // SIN ConfigureAwait(false): el tick del DispatcherTimer corre en el
+        // hilo de UI y la continuación tiene que VOLVER ahí — tocar TextBlocks
+        // desde el pool mata el proceso entero (crash 2026-08-08, mismo caso
+        // que el RequestNextFrameRendering del mapa).
         try
         {
-            var body = await _http.GetStringAsync(_base + "/api/aog/graph-steer").ConfigureAwait(false);
+            var body = await _http.GetStringAsync(_base + "/api/aog/graph-steer");
             var j = JsonNode.Parse(body.TrimStart('﻿')) as JsonObject;
             double set = j?["set_steer_deg"]?.GetValue<double>() ?? double.NaN;
             double act = j?["actual_steer_deg"]?.GetValue<double>() ?? double.NaN;
