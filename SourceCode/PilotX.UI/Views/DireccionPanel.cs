@@ -94,8 +94,8 @@ public sealed class DireccionPanel : Border
     private readonly Button _fdCero;
     private readonly TextBlock _fdAngulo = new()
     {
-        Text = "0°", FontSize = 30, FontWeight = FontWeight.Bold, Foreground = Texto,
-        MinWidth = 86, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+        Text = "0°", FontSize = 26, FontWeight = FontWeight.Bold, Foreground = Texto,
+        MinWidth = 72, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
     };
     private readonly TextBlock _fdNota;
 
@@ -121,13 +121,13 @@ public sealed class DireccionPanel : Border
         BorderBrush = Borde;
         BorderThickness = new Thickness(1);
         CornerRadius = new CornerRadius(14);
-        Padding = new Thickness(12);
+        Padding = new Thickness(10);
         BoxShadow = BoxShadows.Parse("0 8 26 0 #33101612");
-        Width = 560;
+        Width = 470;
         IsVisible = false;
 
         // ---------- header: título + Obj/Act/Err + ✕ ----------
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(4, 0, 0, 8) };
+        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(2, 0, 0, 6) };
         var titulo = new TextBlock
         {
             Text = "Dirección", FontSize = 15, FontWeight = FontWeight.Bold,
@@ -155,7 +155,7 @@ public sealed class DireccionPanel : Border
         header.Children.Add(btnCerrar);
 
         // ---------- tabs (2 filas de 3 — TODO el FormSteer vive acá) ----------
-        var tabs = new UniformGrid { Columns = 3, Margin = new Thickness(0, 0, 0, 8) };
+        var tabs = new UniformGrid { Columns = 3, Margin = new Thickness(0, 0, 0, 4) };
         foreach (var (id, txt) in new[]
         {
             ("probar", "Probar"), ("sensor", "Sensor"), ("fuerza", "Fuerza"),
@@ -164,7 +164,7 @@ public sealed class DireccionPanel : Border
         {
             var b = new Button
             {
-                Content = txt, Height = 50, FontSize = 14, FontWeight = FontWeight.SemiBold,
+                Content = txt, Height = 46, FontSize = 13, FontWeight = FontWeight.SemiBold,
                 Background = BgCard, Foreground = TextoMuted,
                 BorderBrush = Borde, BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8), Margin = new Thickness(0, 0, 4, 4),
@@ -180,7 +180,7 @@ public sealed class DireccionPanel : Border
         // ---------- pantalla PROBAR ----------
         _fdPower = new Button
         {
-            Content = "Prender", Height = 58, MinWidth = 108, FontSize = 14, FontWeight = FontWeight.Bold,
+            Content = "Prender", Height = 54, MinWidth = 96, FontSize = 13.5, FontWeight = FontWeight.Bold,
             Background = BgCard, Foreground = Texto, BorderBrush = Borde, BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(10), HorizontalContentAlignment = HorizontalAlignment.Center,
         };
@@ -233,7 +233,7 @@ public sealed class DireccionPanel : Border
         var btnCero = new Button
         {
             Content = "⭕ Poner el sensor de ángulo en cero (ruedas derechas)",
-            Height = 52, FontSize = 13.5, FontWeight = FontWeight.SemiBold,
+            Height = 48, FontSize = 13, FontWeight = FontWeight.SemiBold,
             Background = new SolidColorBrush(Color.Parse("#EAF6E8")),
             Foreground = new SolidColorBrush(Color.Parse("#1C5E18")),
             BorderBrush = Verde, BorderThickness = new Thickness(1),
@@ -418,14 +418,14 @@ public sealed class DireccionPanel : Border
         };
         _btnGuardar = new Button
         {
-            Content = "Sin cambios", Height = 54, MinWidth = 150, FontSize = 14, FontWeight = FontWeight.Bold,
+            Content = "Sin cambios", Height = 50, MinWidth = 132, FontSize = 13.5, FontWeight = FontWeight.Bold,
             Background = BgCard, Foreground = Texto, BorderBrush = Borde, BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10), HorizontalContentAlignment = HorizontalAlignment.Center,
             IsEnabled = false,
         };
         _btnGuardar.Click += async (_, _) => await Guardar();
 
-        var pie = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 10, 0, 0) };
+        var pie = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 6, 0, 0) };
         Grid.SetColumn(_estado, 0);
         Grid.SetColumn(_btnGuardar, 1);
         pie.Children.Add(_estado);
@@ -443,7 +443,7 @@ public sealed class DireccionPanel : Border
         // más allá de lo que entra en la tablet de 10".
         var stageScroll = new ScrollViewer
         {
-            Content = stage, MaxHeight = 420,
+            Content = stage, MaxHeight = 392,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
         };
 
@@ -744,8 +744,8 @@ public sealed class DireccionPanel : Border
 
     private static TextBlock Num(string t) => new()
     {
-        Text = t, FontSize = 20, FontWeight = FontWeight.Bold, Foreground = Texto,
-        MinWidth = 64, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+        Text = t, FontSize = 18, FontWeight = FontWeight.Bold, Foreground = Texto,
+        MinWidth = 56, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
     };
 
     private static Control LiveCelda(string cap, TextBlock val)
@@ -771,7 +771,7 @@ public sealed class DireccionPanel : Border
 
     private static Button BotonFd(string txt) => new()
     {
-        Content = txt, Width = 58, Height = 58, FontSize = 15, FontWeight = FontWeight.Bold,
+        Content = txt, Width = 54, Height = 54, FontSize = 14.5, FontWeight = FontWeight.Bold,
         Background = BgCard, Foreground = Texto, BorderBrush = Borde, BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(8), HorizontalContentAlignment = HorizontalAlignment.Center,
         VerticalContentAlignment = VerticalAlignment.Center, IsEnabled = false,
@@ -779,7 +779,7 @@ public sealed class DireccionPanel : Border
 
     private static Button BotonSeg(string txt) => new()
     {
-        Content = txt, Height = 50, FontSize = 13, FontWeight = FontWeight.SemiBold,
+        Content = txt, Height = 46, FontSize = 12.5, FontWeight = FontWeight.SemiBold,
         Background = BgCard, Foreground = TextoMuted, BorderBrush = Borde, BorderThickness = new Thickness(2),
         CornerRadius = new CornerRadius(8), HorizontalAlignment = HorizontalAlignment.Stretch,
         HorizontalContentAlignment = HorizontalAlignment.Center,
@@ -803,7 +803,7 @@ public sealed class DireccionPanel : Border
         var fila = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto,Auto"),
-            Margin = new Thickness(0, 6, 0, 0),
+            Margin = new Thickness(0, 3, 0, 0),
         };
         var lbl = new TextBlock
         {
@@ -824,15 +824,15 @@ public sealed class DireccionPanel : Border
         Grid.SetColumn(cabecera, 0);
 
         var bMenos = BotonChico("−");
-        bMenos.Width = 52; bMenos.Height = 52; bMenos.FontSize = 22; bMenos.Foreground = Texto;
+        bMenos.Width = 48; bMenos.Height = 48; bMenos.FontSize = 21; bMenos.Foreground = Texto;
         bMenos.Click += (_, _) => menos();
         Grid.SetColumn(bMenos, 1);
 
-        valor.MinWidth = 72;
+        valor.MinWidth = 60;
         Grid.SetColumn(valor, 2);
 
         var bMas = BotonChico("+");
-        bMas.Width = 52; bMas.Height = 52; bMas.FontSize = 22; bMas.Foreground = Texto;
+        bMas.Width = 48; bMas.Height = 48; bMas.FontSize = 21; bMas.Foreground = Texto;
         bMas.Click += (_, _) => mas();
         Grid.SetColumn(bMas, 3);
 
@@ -845,14 +845,14 @@ public sealed class DireccionPanel : Border
 
     private TextBlock SubTitulo(string t) => new()
     {
-        Text = t, FontSize = 12, FontWeight = FontWeight.Bold, Foreground = TextoMuted,
-        Margin = new Thickness(2, 0, 0, 6),
+        Text = t, FontSize = 11.5, FontWeight = FontWeight.Bold, Foreground = TextoMuted,
+        Margin = new Thickness(2, 0, 0, 4),
     };
 
     private TextBlock SubTituloSep(string t)
     {
         var tb = SubTitulo(t);
-        tb.Margin = new Thickness(2, 14, 0, 6);
+        tb.Margin = new Thickness(2, 10, 0, 4);
         return tb;
     }
 
