@@ -59,19 +59,17 @@
     #pieLive #fsFree { flex: 1; min-width: 0; }
 
     /* ---- tab strips (réplica de los TabControl) ---- */
-    /* Tabs: la ventana es más chica pero el DEDO no — mínimo 58px de alto,
-       ícono 32 y letra legible (pasada UX 2026-08-08). */
     .tabstrip { display: flex; gap: 2px; flex: none; }
     .tabstrip button {
-      flex: 1 1 0; min-height: 58px; padding: 5px 6px;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+      flex: 1 1 0; min-height: 52px; padding: 4px 6px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
       border: 1px solid var(--borde); border-bottom: none;
       border-radius: 8px 8px 0 0; background: #e9ede8;
-      font: 600 12.5px "Segoe UI", Roboto, sans-serif; color: var(--gris);
+      font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris);
       cursor: pointer; touch-action: manipulation;
       -webkit-user-select: none; user-select: none;
     }
-    .tabstrip button img { width: 32px; height: 32px; object-fit: contain; }
+    .tabstrip button img { width: 30px; height: 30px; object-fit: contain; }
     .tabstrip button.sel { background: var(--carta); color: var(--texto); box-shadow: inset 0 3px 0 var(--verde); }
 
     /* ---- panel del tab (la "página" del TabControl) ---- */
@@ -89,7 +87,7 @@
     /* ---- slider horizontal con número (hsbar + lbl del original) ---- */
     .sctl { margin-bottom: 10px; }
     .sctl .stop { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-    .sctl .slbl { font: 600 14px "Segoe UI", Roboto, sans-serif; }
+    .sctl .slbl { font: 600 13px "Segoe UI", Roboto, sans-serif; }
     .sval { font: 700 22px "Segoe UI", Roboto, sans-serif; min-width: 64px; text-align: right; line-height: 1; }
     .sval .u { font-size: 13px; font-weight: 600; color: var(--gris); }
     .sslider { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
@@ -97,26 +95,26 @@
        range default de Chromium tiene un pulgar de 10px — imposible de
        agarrar en cabina. Pista más alta + pulgar de 26px + acento verde. */
     .sslider input[type="range"] {
-      flex: 1; height: 44px; accent-color: var(--verde);
+      flex: 1; height: 34px; accent-color: var(--verde);
       -webkit-appearance: none; appearance: none; background: transparent;
     }
     .sslider input[type="range"]::-webkit-slider-runnable-track {
-      height: 10px; border-radius: 5px; background: #DCE3DB;
+      height: 8px; border-radius: 4px; background: #DCE3DB;
     }
     .sslider input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
-      width: 32px; height: 32px; margin-top: -11px;
+      width: 26px; height: 26px; margin-top: -9px;
       border-radius: 50%; background: var(--verde);
       border: 2px solid #fff; box-shadow: 0 1px 3px rgba(16,22,18,.35);
     }
     .sbtn {
-      width: 48px; height: 48px; flex: none; border: 1px solid var(--borde);
+      width: 40px; height: 40px; flex: none; border: 1px solid var(--borde);
       border-radius: 8px; background: #fff; color: var(--texto);
-      font-size: 22px; line-height: 1; cursor: pointer; touch-action: manipulation;
+      font-size: 19px; line-height: 1; cursor: pointer; touch-action: manipulation;
     }
     .sbtn:active { background: #e6ede5; }
-    .sends { display: flex; justify-content: space-between; font-size: 12px; color: var(--gris); margin-top: 2px; }
-    .nota { font-size: 13px; color: var(--gris); }
+    .sends { display: flex; justify-content: space-between; font-size: 11px; color: var(--gris); margin-top: 2px; }
+    .nota { font-size: 12px; color: var(--gris); }
 
     /* ---- barra de ángulo real (pbarLeft/pbarRight del original) ---- */
     .anglebar {
@@ -130,9 +128,9 @@
 
     /* botón de texto para el cero del WAS (btnZeroWAS del original) */
     .btnZeroWas {
-      width: 100%; min-height: 52px; padding: 8px 14px; border: 1px solid var(--verde);
+      width: 100%; min-height: 44px; padding: 8px 14px; border: 1px solid var(--verde);
       border-radius: 8px; background: #eaf6e8; color: #1c5e18;
-      font: 700 15px "Segoe UI", Roboto, sans-serif; cursor: pointer;
+      font: 700 13px "Segoe UI", Roboto, sans-serif; cursor: pointer;
       touch-action: manipulation; margin-bottom: 8px;
     }
     .btnZeroWas:active { background: #d8efd4; }
@@ -145,11 +143,11 @@
       padding: 6px 10px;
     }
     #fsEstado .cell { flex: 1; text-align: center; }
-    #fsEstado .cap { font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris); text-transform: uppercase; letter-spacing: .4px; }
+    #fsEstado .cap { font: 600 10px "Segoe UI", Roboto, sans-serif; color: var(--gris); text-transform: uppercase; letter-spacing: .4px; }
     /* tabular-nums: Set/Actual/Error refrescan varias veces por segundo y con
        dígitos proporcionales los números "bailaban" de ancho. */
-    #fsEstado .val { font: 700 24px "Segoe UI", Roboto, sans-serif; line-height: 1.1; font-variant-numeric: tabular-nums; }
-    #fsEstado .val .u { font-size: 13px; color: var(--gris); }
+    #fsEstado .val { font: 700 20px "Segoe UI", Roboto, sans-serif; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    #fsEstado .val .u { font-size: 12px; color: var(--gris); }
 
     /* ---- manejo libre (panel1 del original: free drive) ---- */
     #fsFree {
@@ -164,23 +162,23 @@
       border: 2px solid var(--borde); border-radius: 10px; background: #fff;
       cursor: pointer; touch-action: manipulation;
     }
-    .fdpower img { width: 44px; height: 44px; object-fit: contain; pointer-events: none; }
-    .fdpower .cap { font: 600 12.5px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .fdpower img { width: 40px; height: 40px; object-fit: contain; pointer-events: none; }
+    .fdpower .cap { font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
     .fdpower.on { border-color: var(--verde); background: #eaf6e8; }
     .fdpower.on .cap { color: var(--texto); }
     .fdarrow {
-      width: 58px; height: 58px; flex: none; border: 1px solid var(--borde);
+      width: 52px; height: 52px; flex: none; border: 1px solid var(--borde);
       border-radius: 8px; background: #fff; cursor: pointer; touch-action: manipulation;
     }
-    .fdarrow img { width: 42px; height: 42px; object-fit: contain; pointer-events: none; }
+    .fdarrow img { width: 38px; height: 38px; object-fit: contain; pointer-events: none; }
     .fdarrow .cap { display: none; font: 700 14px "Segoe UI", Roboto, sans-serif; }
     .fdarrow:active { background: #e6ede5; }
     .fdarrow[disabled], #fdDot[disabled] { opacity: .35; cursor: default; }
-    .fdang { font: 700 30px "Segoe UI", Roboto, sans-serif; min-width: 78px; text-align: center; line-height: 1; font-variant-numeric: tabular-nums; }
-    .fdang .u { font-size: 15px; font-weight: 600; color: var(--gris); }
+    .fdang { font: 700 26px "Segoe UI", Roboto, sans-serif; min-width: 70px; text-align: center; line-height: 1; font-variant-numeric: tabular-nums; }
+    .fdang .u { font-size: 14px; font-weight: 600; color: var(--gris); }
     #fdDot {
-      min-height: 52px; padding: 6px 14px; border: 1px solid var(--borde);
-      border-radius: 8px; background: #fff; font: 700 14px "Segoe UI", Roboto, sans-serif;
+      min-height: 44px; padding: 6px 12px; border: 1px solid var(--borde);
+      border-radius: 8px; background: #fff; font: 700 13px "Segoe UI", Roboto, sans-serif;
       cursor: pointer; touch-action: manipulation;
     }
     #fdDot:active { background: #e6ede5; }
@@ -198,30 +196,30 @@
       text-align: center;
     }
     .chkimg img { width: 52px; height: 52px; object-fit: contain; pointer-events: none; }
-    .chkimg .cap { font: 600 12.5px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
+    .chkimg .cap { font: 600 11px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
     .chkimg.sel { border-color: var(--verde); background: #eaf6e8; }
 
     .segrow { margin-bottom: 10px; }
-    .segrow .slbl { display: block; font: 600 13px "Segoe UI", Roboto, sans-serif; margin-bottom: 4px; }
+    .segrow .slbl { display: block; font: 600 12px "Segoe UI", Roboto, sans-serif; margin-bottom: 4px; }
     .seg { display: flex; gap: 4px; }
     .seg-btn {
-      flex: 1 1 0; min-height: 50px; padding: 4px 8px;
+      flex: 1 1 0; min-height: 42px; padding: 4px 8px;
       display: inline-flex; align-items: center; justify-content: center; gap: 6px;
       border: 1px solid var(--borde); border-radius: 8px; background: #fff;
-      font: 600 13px "Segoe UI", Roboto, sans-serif; color: var(--gris);
+      font: 600 12px "Segoe UI", Roboto, sans-serif; color: var(--gris);
       cursor: pointer; touch-action: manipulation;
     }
-    .seg-btn img { width: 28px; height: 28px; object-fit: contain; }
+    .seg-btn img { width: 26px; height: 26px; object-fit: contain; }
     .seg-btn.on { border-color: var(--verde); background: #eaf6e8; color: var(--texto); }
 
     /* filas numéricas (nud del original) */
     .numfila { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .numfila .numdiag { width: 64px; height: 44px; object-fit: contain; flex: none; }
     .numfila .numbody { flex: 1; min-width: 0; }
-    .numfila .lbl { font: 600 14px "Segoe UI", Roboto, sans-serif; }
-    .numfila .sub { font-size: 12px; color: var(--gris); }
+    .numfila .lbl { font: 600 13px "Segoe UI", Roboto, sans-serif; }
+    .numfila .sub { font-size: 11px; color: var(--gris); }
     .numfila input[type="number"] {
-      width: 96px; min-height: 48px; text-align: right; font: 700 18px "Segoe UI", Roboto, sans-serif;
+      width: 84px; min-height: 42px; text-align: right; font: 700 16px "Segoe UI", Roboto, sans-serif;
       border: 1px solid var(--borde); border-radius: 8px; padding: 4px 8px; background: #fff;
     }
     .unidad { font: 600 13px "Segoe UI", Roboto, sans-serif; color: var(--gris); }
@@ -232,22 +230,22 @@
       background: var(--carta); border: 1px solid var(--borde); border-radius: 8px;
       padding: 8px 10px;
     }
-    #estado { flex: 1; font-size: 13px; color: var(--gris); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #estado { flex: 1; font-size: 12px; color: var(--gris); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #estado.ok { color: #1c5e18; }
     #estado.err { color: var(--rojo); font-weight: 600; }
     #ftModulo { font-size: 12px; color: var(--gris); flex: none; }
     #btnReset {
       flex: none; display: inline-flex; align-items: center; gap: 6px;
-      min-height: 52px; padding: 6px 14px;
+      min-height: 48px; padding: 6px 12px;
       border: 1px solid var(--borde); border-radius: 8px; background: #fff;
-      font: 600 14px "Segoe UI", Roboto, sans-serif; cursor: pointer; touch-action: manipulation;
+      font: 600 13px "Segoe UI", Roboto, sans-serif; cursor: pointer; touch-action: manipulation;
     }
-    #btnReset img { width: 30px; height: 30px; }
+    #btnReset img { width: 28px; height: 28px; }
     #btnGuardarFloat {
       flex: none; display: inline-flex; align-items: center; gap: 8px;
-      min-height: 56px; padding: 6px 20px;
+      min-height: 52px; padding: 6px 18px;
       border: 1px solid var(--borde); border-radius: 10px; background: #fff;
-      font: 700 15px "Segoe UI", Roboto, sans-serif; color: var(--texto);
+      font: 700 14px "Segoe UI", Roboto, sans-serif; color: var(--texto);
       cursor: pointer; touch-action: manipulation;
     }
     #btnGuardarFloat img { width: 34px; height: 34px; }
