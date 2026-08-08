@@ -43,10 +43,20 @@
       display: flex; flex-direction: column; overflow: hidden;
     }
 
-    /* ---- grilla general: 2 columnas como el FormSteer expandido ---- */
-    #layout { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 8px; }
-    #colIzq { flex: 0 0 44%; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-    #colDer { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    /* ---- layout UNIFICADO (2026-08-08): una sola columna, un panel a la
+       vez. Antes eran 2 columnas con un panel cada una (réplica FormSteer)
+       y la ventana ocupaba el doble de ancho. Los wrappers #colIzq/#colDer
+       quedan en el DOM (JS y deep-links intactos) pero no maquetan. ---- */
+    #layout { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+    #colIzq, #colDer { display: contents; }
+    /* el tabpanel sin sección activa se esconde (hay dos en el DOM, uno por
+       grupo de tabs — solo maqueta el que tiene la sección elegida) */
+    .tabpanel:not(:has(section.activa)) { display: none; }
+    .tabpanel:has(section.activa) { flex: 1; min-height: 0; }
+    /* Set/Actual/Error y Manejo libre en UNA fila al pie */
+    #pieLive { display: flex; gap: 6px; flex: none; align-items: stretch; }
+    #pieLive #fsEstado { flex: 0 0 36%; }
+    #pieLive #fsFree { flex: 1; min-width: 0; }
 
     /* ---- tab strips (réplica de los TabControl) ---- */
     .tabstrip { display: flex; gap: 2px; flex: none; }
@@ -246,12 +256,12 @@
     #btnGuardarFloat.dirty img { filter: brightness(0) invert(1); }
     #btnGuardarFloat.ok { border-color: var(--verde); }
 
-    /* pantallas angostas: apilar columnas (la ventana chica del Hub) */
+    /* pantallas angostas: el layout ya es una columna; solo scrollear y
+       apilar el pie (estado + manejo libre) */
     @media (max-width: 760px) {
-      #layout { flex-direction: column; overflow-y: auto; }
-      #colIzq { flex: none; }
-      #colDer { flex: none; }
-      .tabpanel { overflow: visible; }
+      #layout { overflow-y: auto; }
+      #pieLive { flex-direction: column; }
+      .tabpanel:has(section.activa) { flex: none; overflow: visible; }
     }
   </style>
 </head>
@@ -266,6 +276,15 @@
         <button data-tab="steer"><img src="../img/steer/Sf_SteerTab.png" alt="" /><span>Dirección</span></button>
         <button data-tab="ppadv"><img src="../img/steer/ConV_GuidanceLookAhead.png" alt="" /><span>Avanzado</span></button>
         <button data-tab="gain"><img src="../img/steer/Sf_GainTab.png" alt="" /><span>Ganancias</span></button>
+      </nav>
+      <!-- Segundo grupo (módulo) MOVIDO acá arriba: las dos tiras juntas y
+           un solo panel abajo (layout unificado 2026-08-08). -->
+      <nav class="tabstrip" id="menu2">
+        <button data-tab="sensors"><img src="../img/steer/ConSt_TurnSensor.png" alt="" /><span>Sensores</span></button>
+        <button data-tab="config"><img src="../img/steer/ConSt_Danfoss.png" alt="" /><span>Placa</span></button>
+        <button data-tab="settings"><img src="../img/steer/ModeStanley.png" alt="" /><span>Ajustes</span></button>
+        <button data-tab="alarm"><img src="../img/steer/ConV_MaxAutoSteer.png" alt="" /><span>Velocidad</span></button>
+        <button data-tab="online"><img src="../img/steer/ConD_LightBar.png" alt="" /><span>Barra guía</span></button>
       </nav>
       <div class="tabpanel">
 
@@ -442,43 +461,13 @@
         </section>
       </div>
 
-      <!-- panel2 del original: Set / Actual / Error, en vivo -->
-      <div id="fsEstado">
-        <div class="cell"><div class="cap">Seteado</div><div class="val"><span id="liveSet">—</span><span class="u">°</span></div></div>
-        <div class="cell"><div class="cap">Actual</div><div class="val"><span id="liveAct">—</span><span class="u">°</span></div></div>
-        <div class="cell"><div class="cap">Error</div><div class="val"><span id="liveErr">—</span><span class="u">°</span></div></div>
-      </div>
-
-      <!-- panel1 del original: manejo libre (free drive) -->
-      <div id="fsFree">
-        <h2>Manejo libre · probar la dirección</h2>
-        <div class="fdfila">
-          <button type="button" class="fdpower" id="fdBtn" title="Prender / apagar el manejo libre">
-            <img id="fdBtnImg" src="../img/steer/SteerDriveOff.png" alt="" />
-            <span class="cap" id="fdBtnCap">Apagado</span>
-          </button>
-          <button type="button" class="fdarrow" id="fdLeft" title="Un grado a la izquierda" disabled>
-            <img src="../img/steer/SteerLeft.png" alt="" /><span class="cap">−1°</span>
-          </button>
-          <span class="fdang" id="fdAngle">0<span class="u">°</span></span>
-          <button type="button" class="fdarrow" id="fdRight" title="Un grado a la derecha" disabled>
-            <img src="../img/steer/SteerRight.png" alt="" /><span class="cap">+1°</span>
-          </button>
-          <button type="button" id="fdDot" title="Alternar entre 0° y 5°" disabled>0° ↔ 5°</button>
-        </div>
-        <p class="nota" id="fdNota">Con el tractor parado. Se apaga solo por encima del límite de velocidad de guiado.</p>
-      </div>
+      <!-- Set/Actual/Error + Manejo libre: MOVIDOS al pie común #pieLive,
+           después del panel del grupo módulo (layout unificado 2026-08-08). -->
     </div>
 
-    <!-- ═══════════ COLUMNA DERECHA (tabSteerSettings del original) ═══════════ -->
+    <!-- ═══════════ Secciones del grupo módulo (su nav está arriba, junto al
+         de guiado — layout unificado 2026-08-08) ═══════════ -->
     <div id="colDer">
-      <nav class="tabstrip" id="menu2">
-        <button data-tab="sensors"><img src="../img/steer/ConSt_TurnSensor.png" alt="" /><span>Sensores</span></button>
-        <button data-tab="config"><img src="../img/steer/ConSt_Danfoss.png" alt="" /><span>Placa</span></button>
-        <button data-tab="settings"><img src="../img/steer/ModeStanley.png" alt="" /><span>Ajustes</span></button>
-        <button data-tab="alarm"><img src="../img/steer/ConV_MaxAutoSteer.png" alt="" /><span>Velocidad</span></button>
-        <button data-tab="online"><img src="../img/steer/ConD_LightBar.png" alt="" /><span>Barra guía</span></button>
-      </nav>
       <div class="tabpanel">
 
         <!-- ── tabSensors: sensor de fin de giro ── -->
@@ -627,6 +616,33 @@
         </section>
       </div>
 
+      <!-- Set/Actual/Error + Manejo libre en UNA fila, al pie de todo -->
+      <div id="pieLive">
+        <div id="fsEstado">
+          <div class="cell"><div class="cap">Seteado</div><div class="val"><span id="liveSet">—</span><span class="u">°</span></div></div>
+          <div class="cell"><div class="cap">Actual</div><div class="val"><span id="liveAct">—</span><span class="u">°</span></div></div>
+          <div class="cell"><div class="cap">Error</div><div class="val"><span id="liveErr">—</span><span class="u">°</span></div></div>
+        </div>
+        <div id="fsFree">
+          <h2>Manejo libre · probar la dirección</h2>
+          <div class="fdfila">
+            <button type="button" class="fdpower" id="fdBtn" title="Prender / apagar el manejo libre">
+              <img id="fdBtnImg" src="../img/steer/SteerDriveOff.png" alt="" />
+              <span class="cap" id="fdBtnCap">Apagado</span>
+            </button>
+            <button type="button" class="fdarrow" id="fdLeft" title="Un grado a la izquierda" disabled>
+              <img src="../img/steer/SteerLeft.png" alt="" /><span class="cap">−1°</span>
+            </button>
+            <span class="fdang" id="fdAngle">0<span class="u">°</span></span>
+            <button type="button" class="fdarrow" id="fdRight" title="Un grado a la derecha" disabled>
+              <img src="../img/steer/SteerRight.png" alt="" /><span class="cap">+1°</span>
+            </button>
+            <button type="button" id="fdDot" title="Alternar entre 0° y 5°" disabled>0° ↔ 5°</button>
+          </div>
+          <p class="nota" id="fdNota">Con el tractor parado. Se apaga solo por encima del límite de velocidad de guiado.</p>
+        </div>
+      </div>
+
       <!-- pie del original: Reset + Send&Save + estado -->
       <div id="fsAcciones">
         <span id="estado"></span>
@@ -643,7 +659,7 @@
   </div>
 
   <script src="../js/keyboard.js"></script>
-  <script src="../js/direccion.js?v=4"></script>
+  <script src="../js/direccion.js?v=5"></script>
   <script src="/js/i18n.js"></script>
 </body>
 </html>
