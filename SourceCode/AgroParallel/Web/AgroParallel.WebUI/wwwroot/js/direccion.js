@@ -358,12 +358,6 @@
       if (b) b.disabled = !on;
     });
 
-    // Botón "Prueba dirección" de la barra fija (layout cabina): ámbar
-    // mientras el motor está bajo control manual — se ve aunque el drawer
-    // esté cerrado.
-    var pill = $('btnFreeDrivePanel');
-    if (pill) pill.classList.toggle('running', on);
-
     var nota = $('fdNota');
     if (nota) {
       var motivo = fdMotivo(j);
@@ -448,47 +442,7 @@
     });
     window.addEventListener('pagehide', apagar);
 
-    initFreeDrawer();
     fdPoll();
-  }
-
-  // --------------------------------------------------------------------------
-  // Drawer del manejo libre (layout cabina, direccion_mejorado 2026-08-08):
-  // #fsFree ya no ocupa una franja fija — se abre desde "Prueba dirección" en
-  // la barra de abajo, con scrim. Cerrarlo con el motor prendido primero lo
-  // APAGA (nunca queda el volante bajo control manual sin nadie mirándolo).
-  // Con el markup viejo (sin drawer) los ids no existen y esto es un no-op.
-  // --------------------------------------------------------------------------
-  function initFreeDrawer() {
-    var pill = $('btnFreeDrivePanel');
-    var panel = $('fsFree');
-    var scrim = $('freeScrim');
-    var cerrarBtn = $('btnCloseFreeDrive');
-    if (!pill || !panel || !scrim) return;
-
-    function setAbierto(abierto) {
-      panel.classList.toggle('open', abierto);
-      scrim.classList.toggle('open', abierto);
-      panel.setAttribute('aria-hidden', abierto ? 'false' : 'true');
-      pill.setAttribute('aria-expanded', abierto ? 'true' : 'false');
-    }
-
-    function cerrar() {
-      if (fdEstadoPrevio) {
-        // Motor bajo control manual: apagar PRIMERO, cerrar cuando confirme.
-        fdPost('/api/steer/freedrive', { on: false })
-          .then(function () { setAbierto(false); });
-        return;
-      }
-      setAbierto(false);
-    }
-
-    pill.addEventListener('click', function () {
-      if (panel.classList.contains('open')) cerrar();
-      else { setAbierto(true); fdPoll(); }
-    });
-    if (cerrarBtn) cerrarBtn.addEventListener('click', cerrar);
-    scrim.addEventListener('click', cerrar);
   }
 
   // --------------------------------------------------------------------------
@@ -521,11 +475,6 @@
     });
     var act = document.querySelector('section[data-group="' + grupo + '"][data-tab="' + id + '"]');
     if (act) act.classList.add('activa');
-    // Layout cabina (direccion_mejorado): el .tabpanel se muestra con la
-    // clase .activo — solo maqueta el grupo que contiene la sección elegida.
-    document.querySelectorAll('.tabpanel').forEach(function (p) {
-      p.classList.toggle('activo', !!p.querySelector('section.activa'));
-    });
     try {
       var url = new URL(window.location.href);
       url.searchParams.set(g.param, id);
