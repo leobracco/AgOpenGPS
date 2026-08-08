@@ -39,6 +39,15 @@ namespace AgroParallel.QuantiX
         /// <summary>Dosis de un campo puntual del shapefile por nombre. Puede
         /// ser null: en ese caso los motores con CampoDosis caen al mapa global.</summary>
         public Func<string, double> CampoLookup;
+
+        /// <summary>Implemento central (surcos reales por sección). Puede ser
+        /// null: el ancho/surcos de cada motor cae al fallback proporcional.
+        /// MISMA fuente que usa el bridge — si difieren, el widget miente.</summary>
+        public ImplementoDto Implemento;
+
+        /// <summary>Secciones PilotX totales (fallback proporcional sin
+        /// implemento, igual que el bridge).</summary>
+        public int TotalSecciones;
     }
 
     public static class QxRuntimeBuilder
@@ -57,6 +66,9 @@ namespace AgroParallel.QuantiX
             };
             if (cfg == null || cfg.Nodos == null) return snap;
 
+            // Mapa sección→surcos UNA vez por snapshot, mismo helper que el bridge.
+            var surcosPorSeccion = Services.Common.SurcosPorSeccion.Construir(ctx.Implemento);
+
             foreach (var nodo in cfg.Nodos)
             {
                 if (nodo == null || !nodo.Habilitado || string.IsNullOrEmpty(nodo.Uid)) continue;
@@ -66,16 +78,34 @@ namespace AgroParallel.QuantiX
                 {
                     var motor = nodo.Motores[mi];
                     if (motor == null) continue;
-                    snap.Motores.Add(Motor(nodo.Uid, mi, motor, ctx));
+                    snap.Motores.Add(Motor(nodo.Uid, mi, motor, ctx, surcosPorSeccion));
                 }
             }
             return snap;
         }
 
-        private static QuantiXMotorRuntime Motor(string uid, int mi, QxMotorConfig motor, QxRuntimeContexto ctx)
+        private static QuantiXMotorRuntime Motor(string uid, int mi, QxMotorConfig motor, QxRuntimeContexto ctx,
+                                                 Dictionary<int, List<int>> surcosPorSeccion)
         {
+            // Surcos y ancho REALES del motor (fix 2026-08-08, QxAnchoMotor):
+            // misma resolución que el bridge — implemento central → proporcional
+            // a secciones → total. Sin esto el widget mostraba el objetivo de un
+            // motor de ancho completo para motores parciales.
             bool tieneCortes = motor.Cortes != null && motor.Cortes.Count > 0;
-            int surcos = tieneCortes ? motor.Cortes.Count : 1;
+            List<int> surcosMotor = null;
+            if (motor.Cortes != null && surcosPorSeccion != null)
+            {
+                foreach (int seccion in motor.Cortes)
+                {
+                    List<int> lista;
+                    if (!surcosPorSeccion.TryGetValue(seccion, out lista)) continue;
+                    if (surcosMotor == null) surcosMotor = new List<int>();
+                    surcosMotor.AddRange(lista);
+                }
+            }
+            int surcos = QxAnchoMotor.Surcos(motor.Cortes, surcosMotor);
+            double anchoMotor = QxAnchoMotor.Resolver(motor.Cortes, surcosMotor,
+                ctx.Implemento, ctx.TotalSecciones, ctx.AnchoTotalM);
             bool esSemillas = string.Equals(motor.UnidadDosis, "sem_m", StringComparison.OrdinalIgnoreCase);
 
             // MISMA cascada que el bridge (Manual > Mapa > Fija). Sin esto el
@@ -99,7 +129,7 @@ namespace AgroParallel.QuantiX
                 VelocidadKmh = ctx.VelocidadKmh,
                 SeccionOn = true,
                 EsSemillas = esSemillas,
-                AnchoM = ctx.AnchoTotalM,
+                AnchoM = anchoMotor,
                 MeterCal = motor.MeterCal,
                 Surcos = surcos,
                 SemillasVuelta = motor.SemillasVuelta,
@@ -126,8 +156,8 @@ namespace AgroParallel.QuantiX
                 MaxRpm = QxPulseCalculator.Rpm(maxHz, motor.DientesEngranaje),
                 MaxOutputPerSec = maxHz * porPulso,
                 MaxDoseAtCurrentSpeed = DosisMaxima(maxHz, porPulso, esSemillas,
-                                                    ctx.AnchoTotalM, surcos, ctx.VelocidadKmh),
-                MaxDoseCurve = Curva(maxHz, porPulso, esSemillas, ctx.AnchoTotalM, surcos),
+                                                    anchoMotor, surcos, ctx.VelocidadKmh),
+                MaxDoseCurve = Curva(maxHz, porPulso, esSemillas, anchoMotor, surcos),
             };
         }
 

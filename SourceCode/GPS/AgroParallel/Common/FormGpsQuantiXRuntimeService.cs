@@ -30,7 +30,11 @@ namespace AgroParallel.Adapters
         public FormGpsQuantiXRuntimeService(FormGPS form, IAogStateProvider state)
         {
             _form = form;
-            _inner = new QuantiXRuntimeService(state);
+            // cargarImplemento: la MISMA fuente que usa el bridge en este host
+            // (AgpWebHostBootstrap.Implemento) — ancho/surcos por motor iguales
+            // en el widget y en el motor.
+            _inner = new QuantiXRuntimeService(state,
+                cargarImplemento: () => global::AgroParallel.Shell.AgpWebHostBootstrap.Implemento?.GetImplemento());
         }
 
         public QuantiXRuntimeSnapshot GetSnapshot()

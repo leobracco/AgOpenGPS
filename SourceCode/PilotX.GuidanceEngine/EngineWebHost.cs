@@ -151,7 +151,10 @@ namespace AgOpenGPS
             // trasero a su posición física real (barra de hace N metros).
             toolGeom.ImplementoProvider = () => implemento.GetImplemento();
             var vistaxLive = new VistaXLiveService(_nodos, vistaxCfg, insumosCat, state, sectionsCore, implemento, quantixCfg);
-            var quantixRuntime = new QuantiXRuntimeService(state);
+            // cargarImplemento: misma instancia que usa el bridge — el widget
+            // calcula ancho/surcos por motor con los MISMOS datos que el motor.
+            var quantixRuntime = new QuantiXRuntimeService(state,
+                cargarImplemento: () => implemento.GetImplemento());
             var flowxCfg = new FlowXConfigService();
             var flowxLive = new FlowXLiveService(_nodos, flowxCfg);
             var stormxCfg = new StormXConfigService();

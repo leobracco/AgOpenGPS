@@ -350,7 +350,17 @@ namespace AgroParallel.QuantiX
                         if (!seccionOn && !tieneCortes && dosisEfectiva > 0 && velMotorKmh > 0.5)
                             seccionOn = true;
 
-                        double anchoActivo = seccionOn ? anchoTotal : 0;
+                        // Ancho y surcos REALES del motor (fix 2026-08-08, QxAnchoMotor):
+                        // antes kg/ha usaba SIEMPRE el ancho total (un motor con la
+                        // mitad de los surcos dosificaba al DOBLE) y sem/m contaba
+                        // las SECCIONES como surcos (4 secciones de 12 surcos = 12
+                        // veces de menos). El mejor dato gana: implemento central →
+                        // proporcional a secciones → ancho total (histórico).
+                        double anchoMotor = QxAnchoMotor.Resolver(
+                            motor.Cortes, surcosMotor, implCentral,
+                            numSecSnap > 0 ? numSecSnap : (seccionesPilotX != null ? seccionesPilotX.Length : 0),
+                            anchoTotal);
+                        double anchoActivo = seccionOn ? anchoMotor : 0;
                         bool esSemillas = string.Equals(motor.UnidadDosis, "sem_m",
                             StringComparison.OrdinalIgnoreCase);
 
@@ -366,7 +376,7 @@ namespace AgroParallel.QuantiX
                             EsSemillas = esSemillas,
                             AnchoM = anchoActivo,
                             MeterCal = motor.MeterCal,
-                            Surcos = tieneCortes ? motor.Cortes.Count : 1,
+                            Surcos = QxAnchoMotor.Surcos(motor.Cortes, surcosMotor),
                             SemillasVuelta = motor.SemillasVuelta,
                             DientesEngranaje = motor.DientesEngranaje,
                         });
@@ -377,7 +387,7 @@ namespace AgroParallel.QuantiX
                             double rpmTarget = QxPulseCalculator.Rpm(pps, motor.DientesEngranaje);
                             if (esSemillas)
                             {
-                                int surcos = tieneCortes ? motor.Cortes.Count : 1;
+                                int surcos = QxAnchoMotor.Surcos(motor.Cortes, surcosMotor);
                                 Log(string.Format("  M{0} dosis={1:F1}sem/m surcos={2} vel={3:F1}km/h sem/vuelta={4:F0} RPM={5:F0} pps={6:F1}",
                                     mi, dosisEfectiva, surcos, velMotorKmh, motor.SemillasVuelta, rpmTarget, pps));
                             }

@@ -18,13 +18,20 @@ namespace AgroParallel.Services
     {
         private readonly IAogStateProvider _state;
         private readonly Func<MotoresConfig> _cargarMotores;
+        private readonly Func<ImplementoDto> _cargarImplemento;
 
         /// <param name="cargarMotores">Cómo obtener la config de motores. Por
         /// defecto, el mismo archivo que lee el bridge (quantiX_motores.json).</param>
-        public QuantiXRuntimeService(IAogStateProvider state, Func<MotoresConfig> cargarMotores = null)
+        /// <param name="cargarImplemento">Cómo obtener el implemento central
+        /// (surcos por sección → ancho/surcos reales de cada motor). null =
+        /// sin implemento: el builder cae al fallback proporcional, igual que
+        /// el bridge sin ImplementoProvider.</param>
+        public QuantiXRuntimeService(IAogStateProvider state, Func<MotoresConfig> cargarMotores = null,
+                                     Func<ImplementoDto> cargarImplemento = null)
         {
             _state = state;
             _cargarMotores = cargarMotores ?? MotoresConfig.Load;
+            _cargarImplemento = cargarImplemento;
         }
 
         public QuantiXRuntimeSnapshot GetSnapshot()
@@ -45,7 +52,14 @@ namespace AgroParallel.Services
                     try { return _state != null ? _state.GetShapeFieldDose(campo) : 0; }
                     catch { return 0; }
                 },
+                TotalSecciones = aog != null ? aog.NumSections : 0,
             };
+            // Implemento central: misma fuente que el bridge. Si el provider
+            // tira, el snapshot sale igual con el fallback proporcional.
+            if (_cargarImplemento != null)
+            {
+                try { ctx.Implemento = _cargarImplemento(); } catch { }
+            }
 
             MotoresConfig cfg;
             try { cfg = _cargarMotores(); }
