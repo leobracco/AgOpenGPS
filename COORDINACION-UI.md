@@ -1973,11 +1973,3 @@ también cierra (tradeoff aceptado). (2) tracks vuelve a SPA (data-goto;
 data-nav eliminado), ventana de tamaño único 460x470 y tkWin con marco
 suprimido en widget-mode (sin doble título; fondo unificado). El closeWidget()
 del JS queda por si otros hosts sí ven la navegación.
-
-- [2026-08-08 · Claude] config.html (tab "Tipo y marca"): card nueva
-  `cartaCatalogoTractor` (selects `selTractorMarca`/`selTractorModelo`,
-  botón `btnAplicarTractor`, nota `tractorMedidas`). Lógica en config.js
-  (catálogo GET /aog/config/catalogo/tractores, aplicar = POSTs parciales
-  a vehiculo/dimensiones/antena). IDs nuevos congelados desde ya. Estilos:
-  reusé .carta/.nudfila/.nud/.btnEnviar/.nota — si Codex quiere pulir la
-  card, tocar solo presentación, no los IDs ni el flujo.
