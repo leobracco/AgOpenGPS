@@ -255,6 +255,9 @@
                      mapa; se auto-minimiza cerca de la cabecera. Toggle:
                      vx_overlay de overlayPrefs (mismo que WinForms). -->
                 <vw:VistaXMapStrip x:Name="VxMapStrip" IsVisible="False"/>
+                <!-- Overlay de PULVERIZACIÓN (FlowX + franja StormX si la
+                     estación móvil está conectada). Toggle: fx_overlay. -->
+                <vw:FlowXMapOverlay x:Name="FxMapOverlay" IsVisible="False"/>
                 <!-- Overlay de la pasada: flotante y centrado abajo, justo
                      arriba de las secciones. Lo que el operario toca MIRANDO la
                      línea, no la barra lateral: corrección lateral (izq /

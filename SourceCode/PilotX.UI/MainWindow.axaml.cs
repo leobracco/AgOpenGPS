@@ -201,6 +201,8 @@ public partial class MainWindow : Window
     // (_overlaysClient se comparte con el Hub nativo — es el mismo /api/overlays)
     private Canvas? _mapOverlaysHost;
     private QuantiXMapOverlay? _qxMapOverlay;
+    private FlowXMapOverlay? _fxMapOverlay;
+    private HttpClient? _fxOverlayHttp;
     private QuantiXControlBar? _qxControlBar;
     private WidgetQuantiXClient? _qxWidgetClient;
     private System.Threading.CancellationTokenSource? _overlayPrefsCts;
@@ -386,6 +388,7 @@ public partial class MainWindow : Window
         _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
+        _fxMapOverlay      = this.FindControl<FlowXMapOverlay>("FxMapOverlay");
         _nudgeOverlay      = this.FindControl<Border>("NudgeOverlay");
         // Los tres de corrección lateral mandan el mismo comando que mandaban
         // desde la barra; lo único que cambió es dónde están.
@@ -3085,6 +3088,18 @@ public partial class MainWindow : Window
         Canvas.SetTop(_vxMapStrip, Math.Max(0, TopeDePilaInferior() - h - 6));
     }
 
+    private void UbicarFxOverlay()
+    {
+        if (_fxMapOverlay == null || _mapOverlaysHost == null) return;
+        double hostW = _mapOverlaysHost.Bounds.Width;
+        if (hostW < 300) return;
+        double w = double.IsNaN(_fxMapOverlay.Width) ? 236 : _fxMapOverlay.Width;
+        // Arriba a la derecha, debajo de los botones de zoom (50+50+margenes):
+        // el centro del mapa (tractor) y la barra derecha quedan libres.
+        Canvas.SetLeft(_fxMapOverlay, Math.Max(150, hostW - w - 64));
+        Canvas.SetTop(_fxMapOverlay, 130);
+    }
+
     private async Task SeguirPreferenciasOverlaysAsync(CancellationToken ct)
     {
         bool primera = true;
@@ -3126,6 +3141,23 @@ public partial class MainWindow : Window
                                 UbicarVxStrip();
                             }
                             else _vxMapStrip.Detach();
+                        }
+                    }
+
+                    // Overlay FlowX (pulverización + StormX): mismo criterio.
+                    if (_fxMapOverlay != null)
+                    {
+                        bool mostrarFx = prefs.FxOverlay;
+                        if (mostrarFx != _fxMapOverlay.IsVisible)
+                        {
+                            _fxMapOverlay.IsVisible = mostrarFx;
+                            if (mostrarFx)
+                            {
+                                _fxOverlayHttp ??= new HttpClient { Timeout = TimeSpan.FromSeconds(4) };
+                                _fxMapOverlay.Attach(_fxOverlayHttp, DeriveOrigin(App.TargetUrl));
+                                UbicarFxOverlay();
+                            }
+                            else _fxMapOverlay.Detach();
                         }
                     }
                 });
