@@ -292,15 +292,16 @@ public sealed class DireccionPanel : Border
         _scGuiado.Children.Add(FilaAjuste("Compensación de ladera", "side_hill_comp", 0, 30));
 
         // ---------- pantalla MÓDULO (placa + corte por volante) ----------
+        // Con el motor Keya por CAN, el driver PWM (Cytron/IBT2) y la válvula
+        // Danfoss no aplican — quedan fuera de la UI a pedido (2026-08-08).
+        // Los valores siguen viajando intactos en el objeto de config: no se
+        // tocan, no se pierden.
         _scModulo = new StackPanel { Spacing = 2, IsVisible = false };
         _scModulo.Children.Add(SubTitulo("Placa de dirección"));
-        _scModulo.Children.Add(FilaSeg("Driver del motor", "motor_drive",
-            new[] { ("Cytron", "Cytron"), ("IBT2", "IBT2") }));
         _scModulo.Children.Add(FilaSeg("Activación del piloto", "steer_enable",
             new[] { ("None", "Ninguno"), ("Switch", "Interruptor"), ("Button", "Botón") }));
         _scModulo.Children.Add(FilaSeg("Eje del IMU", "imu_axis",
             new[] { ("X", "X"), ("Y", "Y") }));
-        _scModulo.Children.Add(FilaToggle("Válvula Danfoss", "danfoss"));
         _scModulo.Children.Add(FilaToggle("Invertir relés", "invert_relays"));
         _scModulo.Children.Add(SubTituloSep("Corte al agarrar el volante (uno solo)"));
         _scModulo.Children.Add(FilaSensoresCorte());
