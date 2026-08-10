@@ -39,6 +39,14 @@ namespace AgroParallel.QuantiX
         [JsonPropertyName("semillas_vuelta")]
         public double SemillasVuelta { get; set; }
 
+        // "placa" (placa neumática: sem/vuelta = alvéolos, se carga directo) o
+        // "calibrado" (rodillo u otro: sem/vuelta sale de calibrar por conteo).
+        // Duplicado del DTO a propósito: este POCO también ESCRIBE el archivo
+        // (widget MAN/AUTO) y sin el campo acá lo borraría al guardar — mismo
+        // caso que manual_mode/manual_dosis.
+        [JsonPropertyName("tipo_dosificacion")]
+        public string TipoDosificacion { get; set; }
+
         // Canal de motor cableado o no. Ver QxMotorConfigDto.Habilitado.
         [JsonPropertyName("habilitado")]
         public bool Habilitado { get; set; } = true;

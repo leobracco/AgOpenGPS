@@ -26,6 +26,10 @@ La página tiene 5 pestañas (`showTab`):
   - Color, nombre **editable inline** (`qxNombre`), surcos asignados (`fmtCortes`).
   - Selector de **tren físico** (`trenSelectHtml`) cuando el implemento define ≥2 trenes.
   - **Dosis fija** + toggle de unidad (`kg_ha` ↔ `sem_m`).
+  - En `sem_m`, selector de **tipo de dosificador** (`qxTipoDosif` →
+    `tipo_dosificacion`): **placa neumática** = el campo sem/vuelta se carga
+    directo como **alvéolos** de la placa; **a calibrar** (rodillo u otro) =
+    botón `qxIrCal` que salta a la pestaña Calibración (contar/pesar).
   - Selector **Mapa / Dosis fija** (`mapaSelectHtml`): elige columna de
     prescripción (`campo_dosis`) o deja dosis fija. Lista columnas con
     `shapeDoseFields` desde el shapefile activo.

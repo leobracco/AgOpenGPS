@@ -317,12 +317,28 @@
       var dosis = (typeof m.dosis_fija === 'number' ? m.dosis_fija : 0).toFixed(1);
       var esSem = (m.unidad_dosis === 'sem_m');
       var unidadLbl = esSem ? 'sem/m' : 'kg/ha';
-      // En sem/m hace falta la calibración: semillas por vuelta del dosificador.
-      var calBox = esSem
-        ? ('<span class="calbox"><input type="number" step="1" min="0" data-mi="' + i + '" '
-           + 'class="qxSemVuelta" value="' + (typeof m.semillas_vuelta === 'number' ? m.semillas_vuelta : 0)
-           + '"> <span class="u">sem/vuelta</span></span>')
-        : '';
+      // En sem/m hace falta saber cuánto entrega el dosificador por vuelta.
+      // Placa neumática: es un dato de chapa (alvéolos de la placa), se carga
+      // directo. Otro dosificador: sale de calibrar por conteo (pestaña
+      // Calibración). El selector guarda tipo_dosificacion por motor.
+      var calBox = '';
+      if (esSem) {
+        var tipoDosif = m.tipo_dosificacion || '';
+        var esPlaca = tipoDosif === 'placa';
+        calBox = '<select class="qxTipoDosif" data-mi="' + i + '" title="Cómo dosifica este motor">'
+          + '<option value=""' + (tipoDosif === '' ? ' selected' : '') + '>Dosificador…</option>'
+          + '<option value="placa"' + (esPlaca ? ' selected' : '') + '>Placa neumática</option>'
+          + '<option value="calibrado"' + (tipoDosif === 'calibrado' ? ' selected' : '') + '>A calibrar</option>'
+          + '</select>'
+          + '<span class="calbox"><input type="number" step="1" min="0" data-mi="' + i + '" '
+          + 'class="qxSemVuelta" value="' + (typeof m.semillas_vuelta === 'number' ? m.semillas_vuelta : 0) + '"'
+          + (esPlaca ? ' title="Alvéolos/agujeros de la placa = semillas que entrega por vuelta"' : '')
+          + '> <span class="u">' + (esPlaca ? 'alvéolos' : 'sem/vuelta') + '</span></span>'
+          + (tipoDosif === 'calibrado'
+             ? '<button class="qxIrCal" type="button" data-mi="' + i
+               + '" title="Contar semillas / pesar y calcular sem por vuelta">Calibrar →</button>'
+             : '');
+      }
       var nombreRaw = (m.nombre != null ? String(m.nombre) : ('Motor ' + (i + 1)));
       // Canal sin motor cableado: se destildá y PilotX le manda consigna nula.
       var hab = (m.habilitado !== false);
@@ -353,7 +369,8 @@
             (e.target.classList.contains('qxDosisFija') || e.target.classList.contains('mdel') ||
              e.target.classList.contains('uToggle') || e.target.classList.contains('qxSemVuelta') ||
              e.target.classList.contains('qxMapa') || e.target.classList.contains('qxNombre') ||
-             e.target.classList.contains('qxHab'))) return;
+             e.target.classList.contains('qxHab') || e.target.classList.contains('qxTipoDosif') ||
+             e.target.classList.contains('qxIrCal'))) return;
         state.brushMotor = parseInt(this.getAttribute('data-mi'), 10);
         updateBrushChip(); renderStrip(); renderMotorList();
       });
@@ -442,6 +459,7 @@
       });
     }
     // Calibración sem/m: semillas que entrega el dosificador por vuelta.
+    // Con placa neumática el mismo campo es "alvéolos" (dato de chapa).
     var sems = el.querySelectorAll('.qxSemVuelta');
     for (var s = 0; s < sems.length; s++) {
       sems[s].addEventListener('change', function () {
@@ -452,6 +470,32 @@
           state.dirty = true;
           renderMotorList();
         }
+      });
+    }
+    // Tipo de dosificador (placa neumática / a calibrar).
+    var tipos = el.querySelectorAll('.qxTipoDosif');
+    for (var td = 0; td < tipos.length; td++) {
+      ['pointerdown', 'mousedown', 'touchstart', 'click'].forEach(function (evName) {
+        tipos[td].addEventListener(evName, function (e) { e.stopPropagation(); });
+      });
+      tipos[td].addEventListener('change', function (e) {
+        e.stopPropagation();
+        var idx = parseInt(this.getAttribute('data-mi'), 10);
+        var entry = allMotors()[idx];
+        if (entry && entry.motor) {
+          entry.motor.tipo_dosificacion = this.value || '';
+          state.dirty = true;
+          renderMotorList();
+        }
+      });
+    }
+    // "Calibrar →" del dosificador a calibrar: salta a la pestaña Calibración
+    // (contar semillas / pesar con N pulsos y calcular sem por vuelta).
+    var irCals = el.querySelectorAll('.qxIrCal');
+    for (var ic = 0; ic < irCals.length; ic++) {
+      irCals[ic].addEventListener('click', function (e) {
+        e.stopPropagation();
+        showTab('calibrar');
       });
     }
   }
@@ -566,8 +610,16 @@
 
   // En marcha = job abierto en PilotX y hay telemetría live de algún nodo.
   function computeEnMarcha() {
+    // "En marcha" = sembrando de verdad: lote abierto + nodos vivos + la
+    // máquina AVANZANDO. Sin la condición de velocidad, tener el lote abierto
+    // con un nodo prendido bastaba para ocultar la toolbar de Configurar —
+    // en cabina parado (o en el banco) la opción de configurar la placa
+    // aparecía unos segundos al cargar la página y se iba sola cuando
+    // llegaba el primer live (reporte 2026-08-10). Parado se configura;
+    // en movimiento la pantalla pasa a solo-lectura como siempre.
     state.siembraEnMarcha = !!(state.aogJobStarted &&
-        state.liveByUid && Object.keys(state.liveByUid).length > 0);
+        state.liveByUid && Object.keys(state.liveByUid).length > 0 &&
+        (state.aogSpeed || 0) > 0.5);
   }
 
   function renderMotorListLive() {
@@ -1248,7 +1300,8 @@
     'sensor_tipo', 'dientes_engranaje', 'pulse_min', 'motor_type',
     'pwm_min', 'pwm_max', 'kp', 'ki', 'kd', 'max_hz', 'ff_gain', 'alpha',
     'pid_time', 'slew_rate_per_sec', 'target_slew_hz_per_sec',
-    'meter_cal', 'semillas_vuelta', 'unidad_dosis', 'dosis_fija', 'campo_dosis'
+    'meter_cal', 'semillas_vuelta', 'unidad_dosis', 'dosis_fija', 'campo_dosis',
+    'tipo_dosificacion'
   ];
 
   function copiarConfigATodos(uid, miOrigen) {

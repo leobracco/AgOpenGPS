@@ -1973,3 +1973,12 @@ también cierra (tradeoff aceptado). (2) tracks vuelve a SPA (data-goto;
 data-nav eliminado), ventana de tamaño único 460x470 y tkWin con marco
 suprimido en widget-mode (sin doble título; fondo unificado). El closeWidget()
 del JS queda por si otros hosts sí ven la navegación.
+- `[2026-08-10] [Claude]` quantix.html/js (tab Siembra, vista planter): (1) selector
+  nuevo `.qxTipoDosif` por motor sem/m ("Placa neumatica" / "A calibrar") + campo
+  `tipo_dosificacion` en el DTO/POCO (round-trip completo); con placa el input
+  `.qxSemVuelta` se etiqueta "alveolos" (mismo campo `semillas_vuelta`), con
+  "a calibrar" aparece boton `.qxIrCal` que salta al tab Calibracion. (2) Fix del
+  flicker "Configurar se va solo": `computeEnMarcha` ahora exige velocidad > 0.5
+  km/h ademas de lote+nodos — parado se configura, en movimiento sigue solo-lectura.
+  (3) CSS minimo de `.qxTipoDosif`/`.qxIrCal` espejo de `.qxMapa` (tokens, sin hex
+  nuevos). IDs existentes intactos; clases nuevas documentadas aca.

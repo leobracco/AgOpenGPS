@@ -41,6 +41,15 @@ namespace AgroParallel.Models
         [JsonPropertyName("semillas_vuelta")]
         public double SemillasVuelta { get; set; }
 
+        /// <summary>Cómo dosifica este motor (unidad sem_m): "placa" = placa
+        /// neumática monograno — semillas por vuelta = alvéolos de la placa,
+        /// se cargan directo sin calibrar; "calibrado" = rodillo/chevrón u
+        /// otro — semillas_vuelta sale de la calibración por conteo (pestaña
+        /// Calibración). null = config vieja sin el dato: la UI muestra el
+        /// campo genérico sem/vuelta, no se inventa un tipo.</summary>
+        [JsonPropertyName("tipo_dosificacion")]
+        public string TipoDosificacion { get; set; }
+
         [JsonPropertyName("campo_dosis")]
         public string CampoDosis { get; set; } = "";
 
