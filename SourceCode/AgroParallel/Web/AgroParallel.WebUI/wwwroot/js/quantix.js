@@ -311,8 +311,12 @@
 
     // Nota única (no una por motor): el tren de cada fila es solo-lectura,
     // derivado del implemento central — se configura en config-implemento.html.
+    // SIN link: esta página vive en un diálogo WebView de PilotX.Desktop y un
+    // <a> navega EL MISMO diálogo — la Configuración quedaba incrustada
+    // adentro del planter como un iframe (reporte 2026-08-10). Texto solo:
+    // Configuración se abre desde su propio botón de la barra.
     var html = '<div style="font-size:11px;color:var(--agp-text-muted);margin-bottom:6px">'
-      + 'Tren: derivado del implemento — <a href="config.html?tab=tsections">configurar en Configuración</a></div>';
+      + 'Tren: derivado del implemento — se configura en Configuración › Secciones</div>';
     for (var i = 0; i < all.length; i++) {
       var m = all[i].motor;
       var sel = (i === state.brushMotor) ? ' sel' : '';

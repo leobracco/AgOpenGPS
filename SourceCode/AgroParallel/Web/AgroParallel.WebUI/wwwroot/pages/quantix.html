@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>QuantiX · Agro Parallel</title>
+  <title>QuantiX Â· Agro Parallel</title>
   <link rel="stylesheet" href="../theme.css?v=agp-light-compact-20260627" />
   <link rel="stylesheet" href="../layout.css?v=agp-light-compact-20260627" />
   <link rel="stylesheet" href="../keyboard.css?v=agp-light-compact-20260627" />
@@ -81,8 +81,8 @@
     .motor-cfg.m1 { border-left-color: #E27A0F; }
     .motor-cfg h4 { margin: 0 0 var(--agp-sp-2) 0; }
 
-    /* Vista previa de la capa de prescripción (tab Shape). Sin esto la tarjeta
-       decía que había una capa activa pero no se podía ver qué contenía. */
+    /* Vista previa de la capa de prescripciÃ³n (tab Shape). Sin esto la tarjeta
+       decÃ­a que habÃ­a una capa activa pero no se podÃ­a ver quÃ© contenÃ­a. */
     .shape-preview { margin-top: var(--agp-sp-3); }
     .shape-preview svg {
       display: block; width: 100%; max-height: 260px;
@@ -97,9 +97,9 @@
     }
     .shape-preview-pie b { color: var(--agp-text); font-family: var(--agp-font-mono); }
 
-    /* ===== Selector de MOTOR (tabs Motores, PID live, Calibración, Prueba) =====
+    /* ===== Selector de MOTOR (tabs Motores, PID live, CalibraciÃ³n, Prueba) =====
        Se muestra un motor por vez: todos juntos no se leen (en tarjetas hay que
-       ir en zigzag, y en tabla con 7 canales queda ilegible). Estilo pestaña,
+       ir en zigzag, y en tabla con 7 canales queda ilegible). Estilo pestaÃ±a,
        igual que los tabs de arriba. */
     .motor-sel {
       display: flex; align-items: flex-end; gap: var(--agp-sp-2);
@@ -133,7 +133,7 @@
       font-size: var(--agp-fs-xs); text-align: center;
     }
     .motor-sel .motor-chip:not(.on) .mot-tag { background: var(--agp-text-dim, #9AA39B); }
-    /* Copiar queda a la derecha, separado de las pestañas. */
+    /* Copiar queda a la derecha, separado de las pestaÃ±as. */
     .motor-sel .copiar-todos { margin-left: auto; align-self: center; }
 
     /* Cabecera del motor: conectado + nombre. */
@@ -156,7 +156,7 @@
       border-radius: var(--agp-radius-md); color: var(--agp-text);
       font-weight: var(--agp-fw-medium); font-size: var(--agp-fs-md); padding: 0 var(--agp-sp-3);
     }
-    /* La fila ya no es tarjeta: se apaga lo que traía de .motor-cfg. */
+    /* La fila ya no es tarjeta: se apaga lo que traÃ­a de .motor-cfg. */
     #tabMotores .mcfg-table tr::before { content: none; }
 
 
@@ -186,9 +186,9 @@
     .fld-grid .field select:focus-visible {
       outline: 2px solid var(--agp-accent); outline-offset: 2px;
     }
-    /* Stepper táctil [−] valor [+] — reemplaza al slider porque el thumb del
-       slider es muy difícil de mover con el dedo en la pantalla del tractor.
-       Los dos botones miden 56×48 (≥ touch-min) y el readout está alineado al
+    /* Stepper tÃ¡ctil [âˆ’] valor [+] â€” reemplaza al slider porque el thumb del
+       slider es muy difÃ­cil de mover con el dedo en la pantalla del tractor.
+       Los dos botones miden 56Ã—48 (â‰¥ touch-min) y el readout estÃ¡ alineado al
        medio para que el operario vea el valor mientras toca. */
     .agp-stepper {
       display: flex; align-items: stretch; justify-content: stretch;
@@ -231,7 +231,7 @@
     .cortes-row input { flex: 1; }
 
     /* Secciones como chips de checkbox: toma NumSections del piloto y muestra
-       una grilla táctil. Cada chip ≥40px alto para dedo grueso. */
+       una grilla tÃ¡ctil. Cada chip â‰¥40px alto para dedo grueso. */
     .sec-row { margin-top: var(--agp-sp-3); }
     .sec-row-label {
       font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
@@ -380,11 +380,11 @@
     .mlist{margin-top:12px;display:flex;flex-direction:column;gap:6px}
     .mrow{display:flex;align-items:center;gap:10px;background:#121a14;border:1px solid var(--agp-border);border-radius:9px;padding:10px 11px}
     .mrow.sel{border-color:var(--agp-accent);box-shadow:0 0 0 1px var(--agp-accent) inset}
-    /* Canal sin motor cableado: se atenúa pero se sigue pudiendo editar y
+    /* Canal sin motor cableado: se atenÃºa pero se sigue pudiendo editar y
        volver a habilitar. El checkbox queda a opacidad plena para que se vea
-       que el control está vivo. */
+       que el control estÃ¡ vivo. */
     .mrow.mdis{opacity:.45}
-    /* Nodo desactivado en el perfil: se atenúa la tarjeta entera menos la
+    /* Nodo desactivado en el perfil: se atenÃºa la tarjeta entera menos la
        cabecera, para poder volver a activarlo o eliminarlo. */
     .card.node-dis .live-tune-grid{opacity:.45}
     .node-head .qxNodoHab{width:17px;height:17px;flex:0 0 auto;accent-color:var(--agp-accent);cursor:pointer}
@@ -411,7 +411,7 @@
     .eff.mapa{background:#13233a;color:#5fb0e0}.eff.fija{background:#2a2418;color:#e0a33e}
     .qxMapa{margin-left:6px;flex:0 0 auto;max-width:150px;height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);color:var(--agp-text);font-size:11px;padding:0 6px;cursor:pointer}
     .qxMapa:hover{border-color:var(--agp-accent)}
-    /* Tipo de dosificador (sem/m): placa neumática (alvéolos) o a calibrar */
+    /* Tipo de dosificador (sem/m): placa neumÃ¡tica (alvÃ©olos) o a calibrar */
     .qxTipoDosif{flex:0 0 auto;max-width:132px;height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);color:var(--agp-text);font-size:11px;padding:0 6px;cursor:pointer}
     .qxTipoDosif:hover{border-color:var(--agp-accent)}
     .qxIrCal{flex:0 0 auto;height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);color:var(--agp-accent);font-size:11px;font-weight:700;padding:0 8px;cursor:pointer}
@@ -1030,7 +1030,7 @@
       }
     }
 
-    /* ── Pestaña Motores: config del fierro agrupada en bloques ───────────── */
+    /* â”€â”€ PestaÃ±a Motores: config del fierro agrupada en bloques â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     #tabMotores .hint{
       color:var(--agp-text-muted);
       font-size:var(--agp-fs-sm);
@@ -1058,7 +1058,7 @@
     }
     #tabMotores .cfg-hint.warn{color:var(--agp-state-warn);font-weight:var(--agp-fw-bold,600)}
     /* El select de tipo va a lo ancho: "Encoder (cientos de pulsos)" no entra
-       en una columna de la grilla y se leía cortado. */
+       en una columna de la grilla y se leÃ­a cortado. */
     #tabMotores .field.wide{grid-column:1/-1}
   </style>
   <script src="../js/widget-mode.js"></script>
@@ -1068,8 +1068,8 @@
   <aside class="sidebar" data-active="quantix"></aside>
   <main class="page quantix-page">
     <div class="page-head">
-      <div><h1>QuantiX</h1><div class="subtitle">Siembra · N motores · dosis y corte por surco</div></div>
-      <span class="pill" id="qxStatus"><span class="dot"></span> Cargando…</span>
+      <div><h1>QuantiX</h1><div class="subtitle">Siembra Â· N motores Â· dosis y corte por surco</div></div>
+      <span class="pill" id="qxStatus"><span class="dot"></span> Cargandoâ€¦</span>
     </div>
 
     <div class="tabs quantix-tabs" role="tablist" aria-label="Secciones de QuantiX">
@@ -1077,20 +1077,20 @@
       <button type="button" class="tab" data-tab="motores">Motores</button>
       <button type="button" class="tab" data-tab="shape">Shape (dosis)</button>
       <button type="button" class="tab" data-tab="pid">PID live</button>
-      <button type="button" class="tab" data-tab="calibrar">Calibración</button>
+      <button type="button" class="tab" data-tab="calibrar">CalibraciÃ³n</button>
       <button type="button" class="tab" data-tab="prueba">Prueba</button>
     </div>
 
     <!-- ===== MOTORES (config del fierro: sensor, motor, PWM, PID) ===== -->
     <div id="tabMotores" style="display:none">
       <p class="hint">
-        Cómo está armado cada motor: qué sensor cuenta las vueltas, qué motor es y
-        entre qué PWM trabaja. Se guarda y se manda al nodo. Lo de medir vive en
-        Calibración y Prueba.
+        CÃ³mo estÃ¡ armado cada motor: quÃ© sensor cuenta las vueltas, quÃ© motor es y
+        entre quÃ© PWM trabaja. Se guarda y se manda al nodo. Lo de medir vive en
+        CalibraciÃ³n y Prueba.
       </p>
       <div id="motList"></div>
       <p id="motEmpty" class="hint" style="display:none">
-        No hay nodos QuantiX cargados todavía. Aparecen solos cuando el nodo se
+        No hay nodos QuantiX cargados todavÃ­a. Aparecen solos cuando el nodo se
         anuncia por MQTT.
       </p>
     </div>
@@ -1112,15 +1112,15 @@
         <!-- Tira de surcos (config + live, mismo objeto) -->
         <div class="planter-wrap">
           <div class="planter-cap">
-            <span id="planterCapL">Sembradora · color = motor</span>
-            <span id="planterCapR">tocá un surco para pintarlo con el motor activo</span>
+            <span id="planterCapL">Sembradora Â· color = motor</span>
+            <span id="planterCapR">tocÃ¡ un surco para pintarlo con el motor activo</span>
           </div>
           <div class="strip" id="qxStrip"></div>
         </div>
 
         <!-- Toolbar (solo en Configurar) -->
         <div class="qx-tools" id="qxTools">
-          <span class="brushchip" id="qxBrush"><span class="sw"></span>Pincel: —</span>
+          <span class="brushchip" id="qxBrush"><span class="sw"></span>Pincel: â€”</span>
           <button class="btn primary" id="btnAddMotor">+ Motor</button>
           <button class="btn" id="btnAutoReparto">Auto-repartir</button>
           <button class="btn warn" id="btnQuitarSurco">Quitar surco</button>
@@ -1144,19 +1144,19 @@
     <!-- ===== SHAPE (upload de shapefile para dosis variable) ===== -->
     <div id="tabShape" style="display:none">
       <div class="card">
-        <h3 style="margin-top:0">Subir shapefile de prescripción</h3>
+        <h3 style="margin-top:0">Subir shapefile de prescripciÃ³n</h3>
         <p style="color: var(--agp-text-muted); margin-top: 0">
-          Subí <strong>.shp + .shx + .dbf</strong> juntos (el .prj y .cpg son opcionales pero recomendados).
+          SubÃ­ <strong>.shp + .shx + .dbf</strong> juntos (el .prj y .cpg son opcionales pero recomendados).
           El piloto de PilotX carga la capa al lote actual y los motores QuantiX leen la
-          dosis por la columna DBF que elijas en <strong>Motores → CampoDosis</strong>.
+          dosis por la columna DBF que elijas en <strong>Motores â†’ CampoDosis</strong>.
         </p>
 
         <div id="shapeDrop" class="shape-drop">
           <div class="shape-drop-inner">
-            <div class="shape-icon">⤴</div>
+            <div class="shape-icon">â¤´</div>
             <div class="shape-drop-msg">
-              <strong>Arrastrá los archivos acá</strong>
-              <span>o tocá para elegirlos del explorador</span>
+              <strong>ArrastrÃ¡ los archivos acÃ¡</strong>
+              <span>o tocÃ¡ para elegirlos del explorador</span>
             </div>
             <input id="shapeFiles" type="file" accept=".shp,.shx,.dbf,.prj,.cpg" multiple
                    style="position:absolute;inset:0;opacity:0;cursor:pointer" />
@@ -1173,22 +1173,22 @@
       </div>
 
       <!-- Biblioteca de prescripciones guardadas en PilotX: las subidas por
-           acá, por OrbitX o cargadas desde USB. Desde esta lista se ACTIVA la
-           que se quiere en el mapa (antes se listaban pero no había forma de
-           activarlas — quedaban decorativas). El contenido lo arma quantix.js
+           acÃ¡, por OrbitX o cargadas desde USB. Desde esta lista se ACTIVA la
+           que se quiere en el mapa (antes se listaban pero no habÃ­a forma de
+           activarlas â€” quedaban decorativas). El contenido lo arma quantix.js
            contra /api/prescripciones/list. -->
       <div class="card" style="margin-top: var(--agp-sp-4)">
         <h3 style="margin-top:0">Prescripciones guardadas</h3>
         <div id="shapeLib">
-          <div class="subtitle">Cargando…</div>
+          <div class="subtitle">Cargandoâ€¦</div>
         </div>
       </div>
 
       <div class="card" style="margin-top: var(--agp-sp-4)">
         <h3 style="margin-top:0">Capa activa</h3>
-        <p class="subtitle" style="margin-top:0">Tocá una zona de la vista previa para ver su dosis.</p>
+        <p class="subtitle" style="margin-top:0">TocÃ¡ una zona de la vista previa para ver su dosis.</p>
         <div id="shapeActive">
-          <div class="subtitle">Cargando…</div>
+          <div class="subtitle">Cargandoâ€¦</div>
         </div>
       </div>
     </div>
@@ -1197,23 +1197,23 @@
     <div id="tabPid" style="display:none">
       <div id="pidList"></div>
       <div id="pidEmpty" class="card" style="display:none">
-        <div class="subtitle">Cargá primero los nodos en la pestaña <strong>Siembra</strong>.</div>
+        <div class="subtitle">CargÃ¡ primero los nodos en la pestaÃ±a <strong>Siembra</strong>.</div>
       </div>
     </div>
 
-    <!-- ===== CALIBRACIÓN ===== -->
+    <!-- ===== CALIBRACIÃ“N ===== -->
     <div id="tabCalibrar" style="display:none">
       <div id="calList"></div>
       <div id="calEmpty" class="card" style="display:none">
-        <div class="subtitle">Sin nodos para calibrar. Configurá primero en <strong>Siembra</strong>.</div>
+        <div class="subtitle">Sin nodos para calibrar. ConfigurÃ¡ primero en <strong>Siembra</strong>.</div>
       </div>
     </div>
 
-    <!-- ===== PRUEBA — herramientas de diagnóstico ===== -->
+    <!-- ===== PRUEBA â€” herramientas de diagnÃ³stico ===== -->
     <div id="tabPrueba" style="display:none">
       <div id="prList"></div>
       <div id="prEmpty" class="card" style="display:none">
-        <div class="subtitle">Sin nodos. Configurá primero en <strong>Siembra</strong>.</div>
+        <div class="subtitle">Sin nodos. ConfigurÃ¡ primero en <strong>Siembra</strong>.</div>
       </div>
     </div>
 
@@ -1223,7 +1223,7 @@
   <script src="../js/steps.js"></script>
   <script src="../js/qx-agro.js"></script>
   <script src="../js/modal.js"></script>
-  <script src="../js/quantix.js?v=12"></script>
+  <script src="../js/quantix.js?v=13"></script>
   <script src="/js/i18n.js"></script>
 </body>
 </html>
