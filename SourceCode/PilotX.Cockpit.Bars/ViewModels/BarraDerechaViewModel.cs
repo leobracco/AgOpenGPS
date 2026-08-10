@@ -84,6 +84,11 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     [ObservableProperty] private bool _uturnVisible;
     [ObservableProperty] private string _uturnImg = D + "YouTurnNo.png";
 
+    // Marcas de "Marcar giro" (turn_marks del HUD): controla la visibilidad
+    // del botón "Borrar" del overlay de la pasada — sin marcas no hay nada
+    // que borrar y el botón sería ruido.
+    [ObservableProperty] private bool _hayMarcasGiro;
+
     // Secciones auto/manual (siempre visibles)
     [ObservableProperty] private string _secAutoImg = D + "SectionMasterOff.png";
     [ObservableProperty] private string _secManualImg = D + "ManualOff.png";

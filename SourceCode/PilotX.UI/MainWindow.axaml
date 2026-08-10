@@ -314,6 +314,28 @@
                         <TextBlock Classes="cap" Text="Guías"/>
                       </StackPanel>
                     </Button>
+                    <!-- Marcar giro: el operario marca ACÁ dónde tiene que
+                         doblar el giro automático (línea perpendicular a la
+                         guía). Sin lindero es la única forma de que el U-turn
+                         funcione; con lindero acerca la cabecera. "Borrar"
+                         aparece solo cuando hay marcas puestas. -->
+                    <Button x:Name="BtnOvMarcarGiro" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="marcar_giro"
+                            ToolTip.Tip="Marcar giro: línea perpendicular a la guía acá, el giro automático dobla ahí">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-derecha/YouTurnU.png" Height="26"/>
+                        <TextBlock Classes="cap" Text="Marcar"/>
+                      </StackPanel>
+                    </Button>
+                    <Button x:Name="BtnOvBorrarMarcas" Width="64" Height="56"
+                            Command="{Binding SendCommand}" CommandParameter="giro_borrar_marcas"
+                            IsVisible="{Binding HayMarcasGiro}"
+                            ToolTip.Tip="Borrar las marcas de giro">
+                      <StackPanel>
+                        <Image Source="avares://PilotX.Cockpit.Bars/Assets/barra-derecha/YouTurnU.png" Height="26" Opacity="0.5"/>
+                        <TextBlock Classes="cap" Text="Borrar"/>
+                      </StackPanel>
+                    </Button>
                     <!-- Lindero y Cabecera junto a Guías: los tres definen la
                          GEOMETRÍA de la pasada — guía por dónde, lindero hasta
                          dónde, cabecera dónde doblar. -->

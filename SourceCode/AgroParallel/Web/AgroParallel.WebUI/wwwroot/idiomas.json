@@ -338,6 +338,22 @@
     "en": "Set A",
     "pt": "Marcar A"
   },
+  "Marcar": {
+    "en": "Mark",
+    "pt": "Marcar"
+  },
+  "Marca de giro puesta": {
+    "en": "Turn mark set",
+    "pt": "Marca de giro colocada"
+  },
+  "Marcar giro: línea perpendicular a la guía acá, el giro automático dobla ahí": {
+    "en": "Mark turn: a line perpendicular to the guidance line here, the auto U-turn turns there",
+    "pt": "Marcar giro: linha perpendicular à guia aqui, o giro automático vira ali"
+  },
+  "Borrar las marcas de giro": {
+    "en": "Delete the turn marks",
+    "pt": "Apagar as marcas de giro"
+  },
   "Fijar punto A": {
     "en": "Set point A",
     "pt": "Fixar ponto A"

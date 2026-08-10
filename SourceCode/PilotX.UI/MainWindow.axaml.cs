@@ -1660,6 +1660,11 @@ public partial class MainWindow : Window
     // 10 Hz; lo consulta el guard de "Borrar pintado".
     private bool _seccionesActivas;
 
+    // Cantidad de marcas de giro del snapshot anterior: si SUBE es que el
+    // operario acaba de marcar → toast de confirmación (el botón solo no da
+    // feedback y el operario duda si tocó bien).
+    private int _marcasGiroPrev;
+
     // ---- idioma de la interfaz ---------------------------------------------
     //
     // El idioma se elige en el menú SISTEMA y también desde el Hub. Viaja en el
@@ -4136,6 +4141,14 @@ public partial class MainWindow : Window
             UpdateStatusChip(connected: true, jobActive: s.IsJobStarted, hasGpsFix: hasGpsFix);
             if (_btnSettings   != null) _btnSettings.IsEnabled   = hasGpsFix;
             if (_btnFieldTools != null) _btnFieldTools.IsEnabled = s.IsJobStarted;
+
+            // Marcas de "Marcar giro": visibilidad del botón Borrar + toast de
+            // confirmación cuando el count sube (el operario acaba de marcar).
+            int marcasGiro = s.TurnMarks?.Count ?? 0;
+            if (_vmDer != null) _vmDer.HayMarcasGiro = marcasGiro > 0;
+            if (marcasGiro > _marcasGiroPrev)
+                MostrarToast(PilotX.Cockpit.Bars.Traductor.T("Marca de giro puesta"));
+            _marcasGiroPrev = marcasGiro;
 
             // Push al render nativo del mapa principal.
             _mapHost?.OnSnapshot(s);
