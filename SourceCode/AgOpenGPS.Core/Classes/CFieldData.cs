@@ -113,20 +113,27 @@ namespace AgOpenGPS
 
         public void UpdateFieldBoundaryGUIAreas()
         {
-            if (mf.BoundaryList.Count > 0)
-            {
-                areaOuterBoundary = mf.BoundaryList[0].area;
-                areaBoundaryOuterLessInner = areaOuterBoundary;
+            // El lindero virtual de "Marcar giro" no cuenta para el área del
+            // lote: es un rectángulo sintético solo para que el U-turn gire.
+            areaOuterBoundary = 0;
+            areaBoundaryOuterLessInner = 0;
+            bool esElPrimero = true;
 
-                for (int i = 1; i < mf.BoundaryList.Count; i++)
-                {
-                    areaBoundaryOuterLessInner -= mf.BoundaryList[i].area;
-                }
-            }
-            else
+            for (int i = 0; i < mf.BoundaryList.Count; i++)
             {
-                areaOuterBoundary = 0;
-                areaBoundaryOuterLessInner = 0;
+                var b = mf.BoundaryList[i];
+                if (b == null || b.isVirtualTurnBoundary) continue;
+
+                if (esElPrimero)
+                {
+                    areaOuterBoundary = b.area;
+                    areaBoundaryOuterLessInner = b.area;
+                    esElPrimero = false;
+                }
+                else
+                {
+                    areaBoundaryOuterLessInner -= b.area;
+                }
             }
             //if (mf.isMetric) mf.btnManualOffOn.Text = AreaBoundaryLessInnersHectares;
             //else mf.btnManualOffOn.Text = AreaBoundaryLessInnersAcres;

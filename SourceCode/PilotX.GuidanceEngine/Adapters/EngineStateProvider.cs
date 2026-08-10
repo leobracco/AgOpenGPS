@@ -258,7 +258,9 @@ namespace PilotX.GuidanceEngine.Adapters
                         var hdls = new List<List<FieldPoint>>();
                         foreach (var b in _host.Bnd.bndList)
                         {
-                            if (b == null) continue;
+                            // El lindero virtual de "Marcar giro" no se dibuja
+                            // como lindero: las marcas van por su propio canal.
+                            if (b == null || b.isVirtualTurnBoundary) continue;
                             bnds.Add(DecimateVec3(b.fenceLine, 0.5));
                             hdls.Add(DecimateVec3(b.hdLine, 0.5));
                         }
@@ -275,11 +277,19 @@ namespace PilotX.GuidanceEngine.Adapters
                             ? DecimateVec3(_host.Bnd.bndBeingMadePts, 0.0)
                             : null;
 
-                        if (_host.Bnd.bndList.Count > 0)
+                        // Área del lote SOLO con linderos reales: el rectángulo
+                        // virtual de "Marcar giro" mediría hectáreas que no
+                        // existen. El primer real es el exterior; el resto resta.
+                        double areaM2 = 0;
+                        bool hayLinderoReal = false;
+                        foreach (var b in _host.Bnd.bndList)
                         {
-                            double areaM2 = _host.Bnd.bndList[0].area;
-                            for (int i = 1; i < _host.Bnd.bndList.Count; i++)
-                                areaM2 -= _host.Bnd.bndList[i].area;
+                            if (b == null || b.isVirtualTurnBoundary) continue;
+                            if (!hayLinderoReal) { areaM2 = b.area; hayLinderoReal = true; }
+                            else areaM2 -= b.area;
+                        }
+                        if (hayLinderoReal)
+                        {
                             snap.BoundaryAreaM2 = areaM2;
 
                             // Area neta negativa = hay linderos "internos" mas

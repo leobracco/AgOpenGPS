@@ -12,6 +12,12 @@ namespace AgOpenGPS
         public List<vec3> hdLine = new List<vec3>(128);
         public List<vec3> turnLine = new List<vec3>(128);
 
+        // Lindero VIRTUAL de "Marcar giro" (rectángulo sintético o clon recortado):
+        // existe solo en memoria para que el U-turn tenga línea de giro. NUNCA se
+        // guarda a Boundary.txt, no aparece en el snapshot del mapa como lindero y
+        // no cuenta para el área del lote.
+        public bool isVirtualTurnBoundary = false;
+
         //constructor
         public CBoundaryList()
         {

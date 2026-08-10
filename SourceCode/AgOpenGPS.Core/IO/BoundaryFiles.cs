@@ -101,6 +101,21 @@ namespace AgOpenGPS.IO
 
         public static void Save(string fieldDirectory, IReadOnlyList<CBoundaryList> boundaries)
         {
+            // Los linderos VIRTUALES de "Marcar giro" viven solo en memoria:
+            // se filtran acá, en el único embudo de escritura, así ningún
+            // caller puede colarlos en Boundary.txt sin querer.
+            if (boundaries != null)
+            {
+                var reales = new List<CBoundaryList>(boundaries.Count);
+                for (int i = 0; i < boundaries.Count; i++)
+                {
+                    var bl = boundaries[i];
+                    if (bl != null && bl.isVirtualTurnBoundary) continue;
+                    reales.Add(bl);
+                }
+                boundaries = reales;
+            }
+
             var filename = Path.Combine(fieldDirectory, "Boundary.txt");
 
             using (var writer = new StreamWriter(filename, false))
