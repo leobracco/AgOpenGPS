@@ -341,12 +341,35 @@ namespace AgOpenGPS
             var fence = Bnd.bndList[0].fenceLine;
             if (fence == null || fence.Count < 3) return;
 
+            // Solo cuentan las marcas ADENTRO del lindero real. Una marca
+            // afuera no aporta nada (el lindero ya limita ahí) y peor: usada
+            // en el punto medio daba vuelta el lado a conservar y el recorte
+            // dejaba al tractor fuera del área de giro — "reabrí el lote y no
+            // volvió a girar" (banco 2026-08-10). Se ignoran con aviso; quedan
+            // guardadas y dibujadas por si el operario las quiere borrar.
+            var marcasUtiles = new List<TurnMark>();
+            foreach (var m in TurnMarks)
+            {
+                if (Bnd.bndList[0].fenceLineEar != null &&
+                    Bnd.bndList[0].fenceLineEar.IsPointInPolygon(new vec2(m.easting, m.northing)))
+                {
+                    marcasUtiles.Add(m);
+                }
+                else
+                {
+                    Log.EventWriter(string.Format(CultureInfo.InvariantCulture,
+                        "GuidanceEngine: marca de giro en ({0:F1}, {1:F1}) FUERA del lindero — ignorada (borrala y re-marca)",
+                        m.easting, m.northing));
+                }
+            }
+            if (marcasUtiles.Count == 0) { RecortarCabeceraConMarcas(new vec2(0, 0), marcasUtiles); return; }
+
             vec2 centroLote;
-            if (TurnMarks.Count >= 2)
+            if (marcasUtiles.Count >= 2)
             {
                 centroLote = new vec2(
-                    (TurnMarks[0].easting + TurnMarks[1].easting) / 2.0,
-                    (TurnMarks[0].northing + TurnMarks[1].northing) / 2.0);
+                    (marcasUtiles[0].easting + marcasUtiles[1].easting) / 2.0,
+                    (marcasUtiles[0].northing + marcasUtiles[1].northing) / 2.0);
             }
             else
             {
@@ -356,7 +379,7 @@ namespace AgOpenGPS
             }
 
             int marcasAplicadas = 0;
-            foreach (var m in TurnMarks)
+            foreach (var m in marcasUtiles)
             {
                 // La LÍNEA de la marca es perpendicular al rumbo de la guía.
                 var recortada = CTurnMarks.ClipRingWithHalfPlane(
@@ -399,7 +422,7 @@ namespace AgOpenGPS
             // Activar de siempre corta secciones al pisar la marca. La base se
             // captura UNA vez por lote para que re-marcar no recorte sobre lo
             // ya recortado y Borrar la restaure intacta.
-            RecortarCabeceraConMarcas(centroLote);
+            RecortarCabeceraConMarcas(centroLote, marcasUtiles);
         }
 
         // Base prístina de la hdLine del lote (como la dejó AttachLoad / el
@@ -408,7 +431,7 @@ namespace AgOpenGPS
 
         private void ResetCabeceraBaseDeMarcas() => _hdLineBaseLote = null;
 
-        private void RecortarCabeceraConMarcas(vec2 centroLote)
+        private void RecortarCabeceraConMarcas(vec2 centroLote, List<TurnMark> marcas)
         {
             var bnd0 = Bnd.bndList[0];
 
@@ -423,9 +446,10 @@ namespace AgOpenGPS
             }
 
             // Siempre desde la base: idempotente al re-marcar, y con la lista
-            // de marcas vacía esto RESTAURA la cabecera original (Borrar).
+            // de marcas vacía esto RESTAURA la cabecera original (Borrar, o
+            // todas las marcas descartadas por estar fuera del lindero).
             var hd = new List<vec3>(_hdLineBaseLote);
-            foreach (var m in TurnMarks)
+            foreach (var m in marcas)
             {
                 var recortada = CTurnMarks.ClipRingWithHalfPlane(
                     hd, new vec3(m.easting, m.northing, 0),
@@ -441,8 +465,8 @@ namespace AgOpenGPS
 
             bnd0.hdLine.Clear();
             bnd0.hdLine.AddRange(hd);
-            if (TurnMarks.Count > 0)
-                Log.EventWriter($"GuidanceEngine: cabecera del lote recortada con {TurnMarks.Count} marca(s) — activala con Cabecera si queres corte de secciones ahi");
+            if (marcas.Count > 0)
+                Log.EventWriter($"GuidanceEngine: cabecera del lote recortada con {marcas.Count} marca(s) — activala con Cabecera si queres corte de secciones ahi");
         }
     }
 }
