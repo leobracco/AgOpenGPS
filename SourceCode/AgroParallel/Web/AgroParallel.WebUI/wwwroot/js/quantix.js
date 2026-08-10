@@ -2372,11 +2372,15 @@
       });
       if (count === 0) { resEl.textContent = '✕ ingresá al menos un surco con valor > 0'; resEl.className = 'send-msg err'; return; }
 
-      // Pulsos totales: manda el campo "Pulsos de la corrida" (lo llena solo
-      // la corrida, y es editable — si la pantalla perdió el estado, el
-      // operario carga a mano el número del contador y calcula igual).
-      // Fallback al Δ trackeado por si el campo quedó vacío con corrida viva.
+      // Pulsos totales, en cascada: (1) el campo "Pulsos de la corrida"
+      // (auto-llenado por la corrida, editable a mano), (2) el Δ trackeado si
+      // hay corrida viva, (3) el CONTADOR del nodo — el número que el
+      // operario tiene a la vista en "Pulsos contados". El (3) existe porque
+      // en el banco es lo único que queda cuando la pantalla perdió el estado
+      // ("porque están los pulsos", reporte 2026-08-10) — pero es acumulado
+      // desde el encendido, así que se avisa en el resultado.
       var pulsosTot = readInt('pulsosrun', 0);
+      var fuenteContador = false;
       if (pulsosTot <= 0 && st.startPulsos != null) {
         var endP = st.endPulsos;
         if (endP == null) {
@@ -2391,9 +2395,27 @@
         if (endP != null) pulsosTot = endP - st.startPulsos;
       }
       if (pulsosTot <= 0) {
+        var liveT = state.liveByUid[uid];
+        if (liveT && liveT.motors) {
+          for (var tt = 0; tt < liveT.motors.length; tt++)
+            if ((liveT.motors[tt].id | 0) === mi)
+              pulsosTot = liveT.motors[tt].pulsos || 0;
+        }
+        if (pulsosTot > 0) {
+          fuenteContador = true;
+          // Que quede a la vista y editable para el próximo Calcular.
+          var runEl = mc.querySelector('input[data-cal-f="pulsosrun"]');
+          if (runEl) runEl.value = pulsosTot;
+        }
+      }
+      if (pulsosTot <= 0) {
         resEl.textContent = '✕ faltan los pulsos de la corrida: apretá Iniciar, o cargalos a mano en "Pulsos de la corrida".';
         resEl.className = 'send-msg err'; return;
       }
+      // Nota que se agrega al resultado cuando la fuente fue el contador.
+      var notaContador = fuenteContador
+        ? ' · ⚠ usé el contador total (' + pulsosTot + '): si tenía pulsos de antes de la corrida, Reset y repetí'
+        : '';
 
       var promedio = suma / count;
       var motorCal = findMotor(uid, mi);
@@ -2417,7 +2439,8 @@
         if (uppEl)    uppEl.textContent    = semPorPulso.toFixed(4) + ' sem/pulso';
         if (newcalEl) newcalEl.textContent = semVuelta.toFixed(2) + ' sem/vuelta';
         st.semVueltaCalc = semVuelta; st.meterCalCalc = null;
-        resEl.textContent = '✓ ' + semVuelta.toFixed(2) + ' sem/vuelta'; resEl.className = 'send-msg ok';
+        resEl.textContent = '✓ ' + semVuelta.toFixed(2) + ' sem/vuelta' + notaContador;
+        resEl.className = 'send-msg ok';
       } else {
         // Masa (kg/ha): meter_cal = pulsos por unidad (gramos) → lo que el bridge multiplica.
         var unidadesPorPulso = promedio / pulsosTot;
@@ -2426,7 +2449,8 @@
         if (uppEl)    uppEl.textContent    = unidadesPorPulso.toFixed(4) + ' u/pulso';
         if (newcalEl) newcalEl.textContent = meterCal.toFixed(4);
         st.meterCalCalc = meterCal; st.semVueltaCalc = null;
-        resEl.textContent = '✓ MeterCal = ' + meterCal.toFixed(4); resEl.className = 'send-msg ok';
+        resEl.textContent = '✓ MeterCal = ' + meterCal.toFixed(4) + notaContador;
+        resEl.className = 'send-msg ok';
       }
     } else if (act === 'apply') {
       var esSemApply = st && st.semVueltaCalc != null;
