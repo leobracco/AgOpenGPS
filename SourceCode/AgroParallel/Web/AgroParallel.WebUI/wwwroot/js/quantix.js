@@ -2181,6 +2181,15 @@
           '<input type="number" min="0" step="1" data-cal-f="pulsosrun" value="" placeholder="—" ' +
           'style="width:96px;background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:6px;color:var(--agp-text);padding:5px 7px;text-align:right"> ' +
           '<span style="color:var(--agp-text-muted);font-size:var(--agp-fs-sm)">se completa solo al Iniciar · editable</span></div>' +
+        // Para semilla las VUELTAS mandan la cuenta (sem/vuelta = semillas ÷
+        // vueltas): el firmware gira exactamente lo comandado, así que esto se
+        // precarga en Iniciar y no depende de la telemetría de pulsos.
+        (esSemCal
+          ? ('<div class="k">Vueltas de la corrida</div><div class="v">' +
+             '<input type="number" min="0" step="0.5" data-cal-f="vueltasrun" value="" placeholder="—" ' +
+             'style="width:96px;background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:6px;color:var(--agp-text);padding:5px 7px;text-align:right"> ' +
+             '<span style="color:var(--agp-text-muted);font-size:var(--agp-fs-sm)">las que giró la placa · manda esta cuenta</span></div>')
+          : '') +
         '<div class="k">Vueltas reales</div><div class="v" data-cal="vueltasReales">—</div>' +
         '<div class="k">PWM actual</div><div class="v" data-cal="pwmCur">—</div>' +
       '</div>' +
@@ -2318,6 +2327,12 @@
       st.startPulsos = pulNow; st.endPulsos = null;
       st.vueltas = vueltas; st.ppr = ppr; st.pwm = pwm; st.meta = meta;
 
+      // Precargar "Vueltas de la corrida" con lo comandado: el firmware gira
+      // hasta la meta y para solo, así que lo comandado ES lo girado. Si la
+      // corrida se corta a mano, el operario lo corrige en el campo.
+      var vueltasRunEl = mc.querySelector('input[data-cal-f="vueltasrun"]');
+      if (vueltasRunEl) vueltasRunEl.value = vueltas;
+
       msgEl.textContent = '… girando hasta ' + meta + ' pulsos (' + vueltas + ' vueltas)';
       msgEl.className = 'send-msg';
 
@@ -2355,6 +2370,7 @@
       if (msgEl) { msgEl.textContent = ''; msgEl.className = 'send-msg'; }
       if (resEl) { resEl.textContent = ''; resEl.className = 'send-msg'; }
       var deltaEl  = mc.querySelector('input[data-cal-f="pulsosrun"]'); if (deltaEl) deltaEl.value = '';
+      var vrunEl   = mc.querySelector('input[data-cal-f="vueltasrun"]'); if (vrunEl) vrunEl.value = '';
       var vueltasEl= mc.querySelector('[data-cal="vueltasReales"]'); if (vueltasEl)vueltasEl.textContent= '—';
       // Stop por las dudas que el motor todavía esté girando.
       try {
@@ -2380,7 +2396,6 @@
       // ("porque están los pulsos", reporte 2026-08-10) — pero es acumulado
       // desde el encendido, así que se avisa en el resultado.
       var pulsosTot = readInt('pulsosrun', 0);
-      var fuenteContador = false;
       if (pulsosTot <= 0 && st.startPulsos != null) {
         var endP = st.endPulsos;
         if (endP == null) {
@@ -2394,7 +2409,16 @@
         }
         if (endP != null) pulsosTot = endP - st.startPulsos;
       }
-      if (pulsosTot <= 0) {
+
+      var promedio = suma / count;
+      var motorCal = findMotor(uid, mi);
+      var esSemCal = motorCal && motorCal.unidad_dosis === 'sem_m';
+      var pprC = readInt('ppr', (motorCal && motorCal.dientes_engranaje) || 20);
+      var notaFuente = '';
+
+      // kg/ha necesita sí o sí los pulsos (MeterCal = pulsos/gramos). Como
+      // último recurso cae al contador acumulado del nodo, avisando.
+      if (!esSemCal && pulsosTot <= 0) {
         var liveT = state.liveByUid[uid];
         if (liveT && liveT.motors) {
           for (var tt = 0; tt < liveT.motors.length; tt++)
@@ -2402,25 +2426,16 @@
               pulsosTot = liveT.motors[tt].pulsos || 0;
         }
         if (pulsosTot > 0) {
-          fuenteContador = true;
+          notaFuente = ' · ⚠ usé el contador total (' + pulsosTot + '): si tenía pulsos de antes de la corrida, Reset y repetí';
           // Que quede a la vista y editable para el próximo Calcular.
           var runEl = mc.querySelector('input[data-cal-f="pulsosrun"]');
           if (runEl) runEl.value = pulsosTot;
         }
       }
-      if (pulsosTot <= 0) {
+      if (!esSemCal && pulsosTot <= 0) {
         resEl.textContent = '✕ faltan los pulsos de la corrida: apretá Iniciar, o cargalos a mano en "Pulsos de la corrida".';
         resEl.className = 'send-msg err'; return;
       }
-      // Nota que se agrega al resultado cuando la fuente fue el contador.
-      var notaContador = fuenteContador
-        ? ' · ⚠ usé el contador total (' + pulsosTot + '): si tenía pulsos de antes de la corrida, Reset y repetí'
-        : '';
-
-      var promedio = suma / count;
-      var motorCal = findMotor(uid, mi);
-      var esSemCal = motorCal && motorCal.unidad_dosis === 'sem_m';
-      var pprC = readInt('ppr', (motorCal && motorCal.dientes_engranaje) || 20);
 
       var promEl   = mc.querySelector('[data-cal="prom"]');
       var uppEl    = mc.querySelector('[data-cal="upp"]');
@@ -2429,17 +2444,34 @@
       var applyBtn2 = mc.querySelector('button[data-cal-act="apply"]'); if (applyBtn2) applyBtn2.disabled = false;
 
       if (esSemCal) {
-        // Semilla (sem/m): el motor giró pulsosTot pulsos = vueltasReales vueltas.
-        // promedio = semillas contadas por surco. semillas/vuelta = promedio / vueltas.
-        var vueltasReales = pprC > 0 ? (pulsosTot / pprC) : 0;
-        if (vueltasReales <= 0) { resEl.textContent = '✕ PPR inválido para calcular sem/vuelta'; resEl.className = 'send-msg err'; return; }
+        // Semilla (sem/m): sem/vuelta = semillas por surco ÷ vueltas giradas.
+        // Las VUELTAS mandan (campo "Vueltas de la corrida", precargado con lo
+        // comandado en Iniciar): el firmware gira hasta la meta y para solo,
+        // así que lo comandado ES lo girado. Derivarlas de la telemetría de
+        // pulsos daba cualquier cosa — en el banco el contador live casi no
+        // se movió durante la corrida (Δ=6 con PPR 600 → "0.01 vueltas" →
+        // 24.88 semillas dieron 2488 sem/vuelta, reporte 2026-08-10). Los
+        // pulsos quedan como fallback si el operario borró las vueltas.
+        var vueltasReales = 0;
+        var vrEl = mc.querySelector('input[data-cal-f="vueltasrun"]');
+        var vr = vrEl ? parseFloat(vrEl.value) : NaN;
+        if (!isNaN(vr) && vr > 0) vueltasReales = vr;
+        else if (pulsosTot > 0 && pprC > 0) {
+          vueltasReales = pulsosTot / pprC;
+          notaFuente = ' · ⚠ vueltas derivadas de los pulsos (' + pulsosTot + '/' + pprC + '): revisá que sean las de la corrida';
+        }
+        if (vueltasReales <= 0) {
+          resEl.textContent = '✕ cargá "Vueltas de la corrida" (cuántas vueltas dio la placa) y volvé a Calcular.';
+          resEl.className = 'send-msg err'; return;
+        }
         var semVuelta = promedio / vueltasReales;
         var semPorPulso = semVuelta / pprC;
         if (promEl)   promEl.textContent   = promedio.toFixed(1) + ' sem (' + count + ' surcos)';
         if (uppEl)    uppEl.textContent    = semPorPulso.toFixed(4) + ' sem/pulso';
         if (newcalEl) newcalEl.textContent = semVuelta.toFixed(2) + ' sem/vuelta';
         st.semVueltaCalc = semVuelta; st.meterCalCalc = null;
-        resEl.textContent = '✓ ' + semVuelta.toFixed(2) + ' sem/vuelta' + notaContador;
+        resEl.textContent = '✓ ' + semVuelta.toFixed(2) + ' sem/vuelta ('
+          + promedio.toFixed(1) + ' sem ÷ ' + vueltasReales + ' vueltas)' + notaFuente;
         resEl.className = 'send-msg ok';
       } else {
         // Masa (kg/ha): meter_cal = pulsos por unidad (gramos) → lo que el bridge multiplica.
@@ -2449,7 +2481,7 @@
         if (uppEl)    uppEl.textContent    = unidadesPorPulso.toFixed(4) + ' u/pulso';
         if (newcalEl) newcalEl.textContent = meterCal.toFixed(4);
         st.meterCalCalc = meterCal; st.semVueltaCalc = null;
-        resEl.textContent = '✓ MeterCal = ' + meterCal.toFixed(4) + notaContador;
+        resEl.textContent = '✓ MeterCal = ' + meterCal.toFixed(4) + notaFuente;
         resEl.className = 'send-msg ok';
       }
     } else if (act === 'apply') {
