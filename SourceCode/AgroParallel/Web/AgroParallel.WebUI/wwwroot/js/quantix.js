@@ -2169,9 +2169,18 @@
       '</div>' +
 
       // ── Estado en vivo (refrescado por updateCalibrarPulses) ────────────
+      // "Pulsos de la corrida" es un INPUT y no un display: se completa solo
+      // mientras la corrida está viva, pero si la pantalla se cerró en el
+      // medio (pesar/contar lleva minutos y el WebView se recicla) el estado
+      // JS se pierde y Calcular quedaba clavado en "apretá Iniciar primero"
+      // aunque el contador mostrara los pulsos (reporte 2026-08-10). Editable,
+      // el operario carga el número que ve y calcula igual.
       '<div class="kv" style="margin-top: var(--agp-sp-3)">' +
         '<div class="k">Pulsos contados</div><div class="v" data-cal="pulsos">—</div>' +
-        '<div class="k">Δ pulsos (desde Iniciar)</div><div class="v" data-cal="delta">—</div>' +
+        '<div class="k">Pulsos de la corrida</div><div class="v">' +
+          '<input type="number" min="0" step="1" data-cal-f="pulsosrun" value="" placeholder="—" ' +
+          'style="width:96px;background:var(--agp-bg-soft);border:1px solid var(--agp-border);border-radius:6px;color:var(--agp-text);padding:5px 7px;text-align:right"> ' +
+          '<span style="color:var(--agp-text-muted);font-size:var(--agp-fs-sm)">se completa solo al Iniciar · editable</span></div>' +
         '<div class="k">Vueltas reales</div><div class="v" data-cal="vueltasReales">—</div>' +
         '<div class="k">PWM actual</div><div class="v" data-cal="pwmCur">—</div>' +
       '</div>' +
@@ -2245,11 +2254,11 @@
         var pwEl = mc.querySelector('[data-cal="pwmCur"]');     if (pwEl) pwEl.textContent = pwmA + ' / 4095';
 
         var st = calState[uid] && calState[uid][mi];
-        var dEl  = mc.querySelector('[data-cal="delta"]');
+        var dEl  = mc.querySelector('input[data-cal-f="pulsosrun"]');
         var vEl  = mc.querySelector('[data-cal="vueltasReales"]');
         if (st && st.startPulsos != null) {
-          var delta = pul - st.startPulsos;
-          if (dEl) dEl.textContent = delta.toLocaleString();
+          var delta = (st.endPulsos != null ? st.endPulsos : pul) - st.startPulsos;
+          if (dEl) dEl.value = delta;
           if (vEl) vEl.textContent = (ppr > 0 ? (delta / ppr).toFixed(2) : '—');
           // El firmware gira hasta st.meta pulsos y frena solo. La telemetría no
           // expone un flag de calibración, así que detectamos la meta en el PC:
@@ -2261,8 +2270,12 @@
             if (msgEl) { msgEl.textContent = '✓ Meta alcanzada — pesá los surcos y apretá Calcular'; msgEl.className = 'send-msg ok'; }
           }
         } else {
-          if (dEl) dEl.textContent = '—';
-          if (vEl) vEl.textContent = '—';
+          // Sin corrida viva NO se toca el input: puede tener un valor que el
+          // operario cargó a mano tras perder el estado. Las vueltas reales se
+          // derivan de lo que haya escrito.
+          var manual = dEl ? parseInt(dEl.value, 10) : NaN;
+          if (vEl) vEl.textContent = (!isNaN(manual) && manual > 0 && ppr > 0)
+            ? (manual / ppr).toFixed(2) : '—';
         }
       });
     });
@@ -2341,7 +2354,7 @@
       var applyBtn = mc.querySelector('button[data-cal-act="apply"]'); if (applyBtn) applyBtn.disabled = true;
       if (msgEl) { msgEl.textContent = ''; msgEl.className = 'send-msg'; }
       if (resEl) { resEl.textContent = ''; resEl.className = 'send-msg'; }
-      var deltaEl  = mc.querySelector('[data-cal="delta"]');         if (deltaEl)  deltaEl.textContent  = '—';
+      var deltaEl  = mc.querySelector('input[data-cal-f="pulsosrun"]'); if (deltaEl) deltaEl.value = '';
       var vueltasEl= mc.querySelector('[data-cal="vueltasReales"]'); if (vueltasEl)vueltasEl.textContent= '—';
       // Stop por las dudas que el motor todavía esté girando.
       try {
@@ -2359,10 +2372,12 @@
       });
       if (count === 0) { resEl.textContent = '✕ ingresá al menos un surco con valor > 0'; resEl.className = 'send-msg err'; return; }
 
-      // Pulsos totales = Δ entre start y end. Si endPulsos no llegó (operario no
-      // detuvo o no esperó la meta), usamos el último pulso conocido.
-      var pulsosTot = 0;
-      if (st.startPulsos != null) {
+      // Pulsos totales: manda el campo "Pulsos de la corrida" (lo llena solo
+      // la corrida, y es editable — si la pantalla perdió el estado, el
+      // operario carga a mano el número del contador y calcula igual).
+      // Fallback al Δ trackeado por si el campo quedó vacío con corrida viva.
+      var pulsosTot = readInt('pulsosrun', 0);
+      if (pulsosTot <= 0 && st.startPulsos != null) {
         var endP = st.endPulsos;
         if (endP == null) {
           // Tomá el pulso actual del live.
@@ -2376,7 +2391,7 @@
         if (endP != null) pulsosTot = endP - st.startPulsos;
       }
       if (pulsosTot <= 0) {
-        resEl.textContent = '✕ no hay pulsos contados. Apretá Iniciar primero.';
+        resEl.textContent = '✕ faltan los pulsos de la corrida: apretá Iniciar, o cargalos a mano en "Pulsos de la corrida".';
         resEl.className = 'send-msg err'; return;
       }
 

@@ -1995,3 +1995,9 @@ del JS queda por si otros hosts sí ven la navegación.
   a `.mrow.cfg`). Tambien se quito el `<a>` de la nota "Tren: derivado del
   implemento" (navegaba el propio dialogo WebView, quedaba la Configuracion
   incrustada); queda texto. Bump quantix.js?v=14.
+- `[2026-08-10d] [Claude]` quantix.js (tab Calibracion): la fila "Δ pulsos (desde
+  Iniciar)" (`data-cal="delta"`, display) paso a INPUT editable "Pulsos de la
+  corrida" (`data-cal-f="pulsosrun"`) — se autocompleta durante la corrida y
+  Calcular lo usa como fuente; si la pantalla pierde el estado JS (WebView
+  reciclado mientras se pesa/cuenta), el operario carga el numero del contador
+  a mano y calcula igual. `data-cal="delta"` YA NO EXISTE. Bump quantix.js?v=15.
