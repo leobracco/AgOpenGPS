@@ -105,6 +105,10 @@ public sealed class DireccionPanel : Border
     private readonly TextBlock _valCuentas = Num("—");
     private readonly Button _tglInvWas;
     private readonly Button _tglInvMotor;
+    // vúmetro del ángulo en vivo (tocar la barra = poner en cero)
+    private readonly Border _wasFillIzq;
+    private readonly Border _wasFillDer;
+    private readonly TextBlock _wasAng;
 
     // Fuerza
     private readonly TextBlock _valPwmMin  = Num("—");
@@ -230,19 +234,60 @@ public sealed class DireccionPanel : Border
             "exagera, subí el número; si se queda corto, bajalo. RTY: 59. Encoder: se mide de tope a tope. " +
             "Interfiere en TODO el guiado — con la escala mal, el piloto gira de más o de menos.");
 
-        var btnCero = new Button
+        // Vúmetro horizontal del ángulo EN VIVO (pedido 2026-08-10): girás el
+        // volante y VES para dónde va la barra — si va al revés del volante,
+        // el WAS está invertido. Tocar la barra con las ruedas derechas = 0°.
+        _wasFillIzq = new Border
         {
-            Content = "⭕ Poner el sensor de ángulo en cero (ruedas derechas)",
-            Height = 48, FontSize = 13, FontWeight = FontWeight.SemiBold,
-            Background = new SolidColorBrush(Color.Parse("#EAF6E8")),
-            Foreground = new SolidColorBrush(Color.Parse("#1C5E18")),
-            BorderBrush = Verde, BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 6, 0, 0),
+            Background = Verde, CornerRadius = new CornerRadius(4, 0, 0, 4),
+            Width = 0, HorizontalAlignment = HorizontalAlignment.Right,
         };
-        btnCero.Click += async (_, _) => await ZeroWas();
+        _wasFillDer = new Border
+        {
+            Background = Verde, CornerRadius = new CornerRadius(0, 4, 4, 0),
+            Width = 0, HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        _wasAng = new TextBlock
+        {
+            Text = "—", FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Texto,
+            MinWidth = 64, TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center,
+        };
+        var mitadIzq = new Border
+        {
+            Child = _wasFillIzq, BorderBrush = Borde, BorderThickness = new Thickness(0, 0, 1, 0),
+            ClipToBounds = true,
+        };
+        var mitadDer = new Border { Child = _wasFillDer, ClipToBounds = true };
+        var barraGrid = new Grid();
+        barraGrid.ColumnDefinitions = new ColumnDefinitions("*,*");
+        Grid.SetColumn(mitadIzq, 0);
+        Grid.SetColumn(mitadDer, 1);
+        barraGrid.Children.Add(mitadIzq);
+        barraGrid.Children.Add(mitadDer);
+        var track = new Border
+        {
+            Child = barraGrid, Height = 34, Background = BgCard,
+            BorderBrush = Borde, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(6), ClipToBounds = true,
+            // toque = cero (el track entero es el objetivo, 34px + ancho total)
+        };
+        track.PointerPressed += async (_, _) => await ZeroWas();
+        var filaVu = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            Margin = new Thickness(0, 8, 0, 0),
+        };
+        Grid.SetColumn(track, 0);
+        _wasAng.Margin = new Thickness(8, 0, 0, 0);
+        Grid.SetColumn(_wasAng, 1);
+        filaVu.Children.Add(track);
+        filaVu.Children.Add(_wasAng);
+        var vuNota = new TextBlock
+        {
+            Text = "Girá a la DERECHA: la barra va a la derecha (si va al revés → Invertir sensor). Ruedas derechas + un toque en la barra = 0°.",
+            FontSize = 11.5, Foreground = TextoMuted, TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(2, 2, 0, 0),
+        };
 
         _tglInvWas   = BotonSeg("Invertir sensor (WAS)");
         _tglInvMotor = BotonSeg("Invertir motor");
@@ -257,17 +302,18 @@ public sealed class DireccionPanel : Border
             "El piloto necesita el ángulo REAL de las ruedas. RTY = sensor en el eje (modo simple). Encoder del motor = cuenta las vueltas del Keya (modo diferencial); andando a más de 1,2 km/h se autocorrige contra el GPS. Es uno o el otro: al cambiar, poné en cero y recalibrá las cuentas."));
         _scSensor.Children.Add(segFila);
         _scSensor.Children.Add(filaCuentas);
-        var filaCero = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        Grid.SetColumn(btnCero, 0);
-        var chipCero = ChipAyuda("Poner el sensor en cero",
-            "Con las ruedas BIEN derechas, fija el 0°. Hacelo después de cambiar de sensor, de tocar la " +
-            "mecánica, o si el tractor va derecho pero marca ángulo. Un cero corrido hace que el piloto " +
-            "siembre corrido de la línea.");
+        var chipCero = ChipAyuda("Vúmetro del ángulo y cero",
+            "La barra muestra el ángulo EN VIVO: girá el volante a la derecha y tiene que llenarse hacia " +
+            "la derecha — si va al revés, prendé Invertir sensor. Con las ruedas BIEN derechas, un toque " +
+            "en la barra fija el 0°. Un cero corrido hace que el piloto siembre corrido de la línea.");
         chipCero.VerticalAlignment = VerticalAlignment.Center;
+        var filaVuConChip = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        Grid.SetColumn(filaVu, 0);
         Grid.SetColumn(chipCero, 1);
-        filaCero.Children.Add(btnCero);
-        filaCero.Children.Add(chipCero);
-        _scSensor.Children.Add(filaCero);
+        filaVuConChip.Children.Add(filaVu);
+        filaVuConChip.Children.Add(chipCero);
+        _scSensor.Children.Add(filaVuConChip);
+        _scSensor.Children.Add(vuNota);
         var filaInv = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         Grid.SetColumn(invFila, 0);
         var chipInv = ChipAyuda("Invertir sensor / motor",
@@ -611,6 +657,7 @@ public sealed class DireccionPanel : Border
             _liveAct.Text = double.IsNaN(act) ? "—" : act.ToString("F1", CultureInfo.InvariantCulture) + "°";
             _liveErr.Text = (double.IsNaN(set) || double.IsNaN(act)) ? "—"
                 : (set - act).ToString("F1", CultureInfo.InvariantCulture) + "°";
+            ActualizarVuWas(act);
         }
         catch { _liveObj.Text = _liveAct.Text = _liveErr.Text = "—"; }
 
@@ -619,6 +666,23 @@ public sealed class DireccionPanel : Border
     }
 
     // ---- render ------------------------------------------------------------------
+
+    /// <summary>Vúmetro del ángulo en vivo (pestaña Sensor): la barra se llena
+    /// desde el centro hacia el lado del giro. Escala = ángulo máximo config.</summary>
+    private void ActualizarVuWas(double act)
+    {
+        if (_wasAng == null) return;
+        bool ok = !double.IsNaN(act);
+        _wasAng.Text = ok ? act.ToString("F1", CultureInfo.InvariantCulture) + "°" : "—";
+
+        double max = Entero("max_steer_angle");
+        if (max < 5) max = 40;
+        double mitadIzqW = (_wasFillIzq.Parent as Border)?.Bounds.Width ?? 0;
+        double mitadDerW = (_wasFillDer.Parent as Border)?.Bounds.Width ?? 0;
+        double pct = ok ? Math.Min(1.0, Math.Abs(act) / max) : 0;
+        _wasFillIzq.Width = (ok && act < -0.2) ? pct * mitadIzqW : 0;
+        _wasFillDer.Width = (ok && act > 0.2) ? pct * mitadDerW : 0;
+    }
 
     private void FdRender(JsonObject? j)
     {
