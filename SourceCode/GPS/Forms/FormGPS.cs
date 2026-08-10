@@ -1154,6 +1154,12 @@ namespace AgOpenGPS
             }
             // AGROPARALLEL_WEB_UI_END
 
+            // Quién sabe el lote abierto: PrescripcionService lo usa para atar
+            // la activa al lote al activarla y para NO dosificar con la
+            // prescripción de otro lote (mismo wiring que EngineWebHost).
+            AgroParallel.Services.PrescripcionService.LoteActualProvider =
+                () => isJobStarted ? currentFieldDirectory : "";
+
             // QUANTIX_MOD_START — Bridge de motores al inicio (no espera campo
             // abierto). Va después de EnsureStarted porque publica por la
             // conexión MQTT del NodoRegistry (Bootstrap.Nodos).

@@ -35,6 +35,33 @@ namespace AgOpenGPS
         /// </summary>
         public IAntiSolapeSecciones AntiSolape;
 
+        // Apagar TODO el estado de secciones: botones por sección (Auto/On),
+        // requests, timers y mapping. Es lo que FormGPS hace con
+        // AllSectionsAndButtonsToState(Off) al cerrar lote — acá OpenField solo
+        // reseteaba los maestros (manualBtnState/autoBtnState) y la decisión
+        // por sección usa sectionBtnState, así que un lote nuevo nacía con las
+        // secciones prendidas del anterior y, con velocidad, pintaba solo
+        // (reporte 2026-08-10: "test 123" nació con 55 m de franja pintada).
+        public void ApagarSecciones()
+        {
+            var section = Sections;
+            for (int j = 0; j < section.Length; j++)
+            {
+                if (section[j] == null) continue;
+                section[j].sectionBtnState = btnStates.Off;
+                section[j].isSectionRequiredOn = false;
+                section[j].sectionOnRequest = false;
+                section[j].sectionOffRequest = true;
+                section[j].isSectionOn = false;
+                section[j].isMappingOn = false;
+                section[j].sectionOnTimer = 0;
+                section[j].sectionOffTimer = 0;
+                section[j].mappingOnTimer = 0;
+                section[j].mappingOffTimer = 0;
+            }
+            lastSectionNumber = 0;
+        }
+
         // Llamar en CADA fix con lote abierto (desde UpdateFixPosition), después
         // del pipeline de posición (que ya corrió AddSectionOrPathPoints) y antes
         // de enviar P239/P229 (BuildMachineByte puebla sus bytes de sección).

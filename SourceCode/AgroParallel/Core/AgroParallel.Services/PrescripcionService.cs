@@ -44,6 +44,20 @@ namespace AgroParallel.Services
         {
             public string ActivoId { get; set; } = "";
             public string PropiedadDosis { get; set; } = "";
+            public string Lote { get; set; } = "";
+        }
+
+        /// <summary>Quién sabe qué lote está abierto. Lo setea el host (engine
+        /// o FormGPS) al arrancar; el service lo consulta al ACTIVAR (para atar
+        /// la prescripción al lote) y en cada lookup (para no dosificar con el
+        /// mapa de otro lote). null o "" = sin lote abierto. Estático por la
+        /// misma razón que _active: todas las instancias ven el mismo lote.</summary>
+        public static Func<string> LoteActualProvider;
+
+        private static string LoteActual()
+        {
+            try { return LoteActualProvider?.Invoke() ?? ""; }
+            catch { return ""; }
         }
 
         public PrescripcionService()
@@ -59,7 +73,11 @@ namespace AgroParallel.Services
             try
             {
                 var st = LoadState();
-                if (!string.IsNullOrEmpty(st.ActivoId)) SetActive(st.ActivoId, st.PropiedadDosis);
+                // El lote de activación viene del state persistido, NO del
+                // provider: al arranque no hay lote abierto todavía y re-atarla
+                // acá la dejaría sin lote para siempre.
+                if (!string.IsNullOrEmpty(st.ActivoId))
+                    SetActiveCore(st.ActivoId, st.PropiedadDosis, st.Lote ?? "");
             }
             catch { /* file corrupto: arrancamos sin activa */ }
         }
@@ -200,6 +218,9 @@ namespace AgroParallel.Services
         }
 
         public bool SetActive(string id, string propiedadDosis)
+            => SetActiveCore(id, propiedadDosis, LoteActual());
+
+        private bool SetActiveCore(string id, string propiedadDosis, string lote)
         {
             if (string.IsNullOrEmpty(id)) { ClearActive(); return true; }
             string path = FilenameFromId(id);
@@ -226,9 +247,10 @@ namespace AgroParallel.Services
 
             var parsed = ParseFile(path, id, propEff);
             if (parsed == null || parsed.Features.Count == 0) return false;
+            parsed.Lote = lote ?? "";
 
             lock (_swapLock) { _active = parsed; }
-            SaveState(new StateFileDto { ActivoId = id, PropiedadDosis = propEff ?? "" });
+            SaveState(new StateFileDto { ActivoId = id, PropiedadDosis = propEff ?? "", Lote = parsed.Lote });
             return true;
         }
 
@@ -377,12 +399,27 @@ namespace AgroParallel.Services
             if (f.MaxLat > maxLat) maxLat = f.MaxLat;
         }
 
+        /// <summary>true si la prescripción aplica en el lote abierto AHORA:
+        /// tiene lote asociado y coincide (case-insensitive) con el actual.
+        /// Sin lote asociado no aplica en ninguno — mejor no dosificar que
+        /// dosificar con el mapa de otro lote.</summary>
+        public static bool AplicaEnLoteActual(PrescripcionDto p)
+        {
+            if (p == null || string.IsNullOrEmpty(p.Lote)) return false;
+            string lote = LoteActual();
+            return !string.IsNullOrEmpty(lote)
+                && string.Equals(p.Lote, lote, StringComparison.OrdinalIgnoreCase);
+        }
+
         // -------------------- POINT-IN-POLYGON --------------------
         public double GetDoseAt(double lat, double lon)
         {
             PrescripcionDto active;
             lock (_swapLock) { active = _active; }
             if (active == null || active.Features.Count == 0) return 0;
+
+            // Atada a SU lote: con otro lote abierto (o ninguno) no dosifica.
+            if (!AplicaEnLoteActual(active)) return 0;
 
             // Fast reject por bounding box global.
             if (lon < active.MinLon || lon > active.MaxLon ||
@@ -482,8 +519,10 @@ namespace AgroParallel.Services
             // Si es la activa, recargarla ya: LoadedUtc nuevo → el piloto la
             // reproyecta (el shape del mapa cambia de color) y el bridge de
             // QuantiX dosifica con el valor nuevo en su próximo tick.
+            // PRESERVANDO el lote de activación: editar una dosis desde el Hub
+            // con otro lote abierto no puede re-atar la prescripción a ese lote.
             if (string.Equals(st.ActivoId, id, StringComparison.OrdinalIgnoreCase))
-                SetActive(id, st.PropiedadDosis);
+                SetActiveCore(id, st.PropiedadDosis, st.Lote ?? "");
 
             return true;
         }

@@ -92,7 +92,14 @@ namespace PilotX.GuidanceEngine.Adapters
                     if (_layer == null || _layerEsPrescripcion)
                     {
                         var p = _presc.GetActive();
-                        string key = p == null ? null : p.Id + "|" + p.LoadedUtc + "|" + p.PropiedadDosis;
+                        // Atada a SU lote: la activa de otro lote (o de ninguno)
+                        // no se dibuja acá — el reporte era "creé un lote nuevo
+                        // y levantó el shape de Las de atras". El lote actual
+                        // entra en la key para que abrir/cerrar lote re-evalúe.
+                        if (p != null && !AgroParallel.Services.PrescripcionService.AplicaEnLoteActual(p))
+                            p = null;
+                        string key = (p == null ? "sin-prescripcion" : p.Id + "|" + p.LoadedUtc + "|" + p.PropiedadDosis)
+                            + "@" + field;
                         if (key != _prescKey)
                         {
                             _prescKey = key;

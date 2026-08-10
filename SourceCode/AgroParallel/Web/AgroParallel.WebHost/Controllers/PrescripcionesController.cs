@@ -52,6 +52,7 @@ namespace AgroParallel.WebHost.Controllers
                 {
                     id = a.Id,
                     nombre = a.Nombre,
+                    lote = a.Lote,
                     propiedad_dosis = a.PropiedadDosis,
                     feature_count = a.FeatureCount,
                     min_lon = a.MinLon,

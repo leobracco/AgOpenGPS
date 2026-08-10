@@ -43,6 +43,15 @@ namespace AgOpenGPS
                 Log.EventWriter("GuidanceEngine: Field.txt invalido en " + fieldName + ": " + ex.Message);
                 return false;
             }
+
+            // Abrir SOBRE un lote abierto = cerrar bien el anterior primero
+            // (guarda su cobertura pendiente y limpia parches en memoria).
+            // Sin esto, CargarCobertura del lote nuevo hace early-return si no
+            // hay Sections.txt y las tiras del anterior quedan vivas — la
+            // pintura de un lote aparecía (y se guardaba) en el otro. Recién
+            // acá y no antes: si el open iba a fallar, el lote viejo sigue.
+            if (IsJobStarted) CloseField();
+
             Pn.DefineLocalPlane(origin, true);
 
             AppModelField.Fields.OpenField(new DirectoryInfo(dir));
@@ -51,6 +60,10 @@ namespace AgOpenGPS
             startCounter = 0;
             manualBtnState = btnStates.Off;
             autoBtnState = btnStates.Off;
+            // Los maestros no alcanzan: la decisión por sección usa
+            // sectionBtnState, que sobrevivía al cambio de lote — con
+            // velocidad, el lote nuevo arrancaba pintando solo.
+            ApagarSecciones();
             ABLineField.abHeading = 0.0;
 
             try
@@ -127,6 +140,11 @@ namespace AgOpenGPS
             // guiado en frío. El orden importa: primero soltar el piloto y
             // recién después invalidar las líneas.
             if (isBtnAutoSteerOn) ((IAutoSteerHost)this).PerformAutoSteerClick();
+            // Secciones a Off al cerrar, como AllSectionsAndButtonsToState(Off)
+            // en el JobClose de FormGPS. Los maestros también.
+            manualBtnState = btnStates.Off;
+            autoBtnState = btnStates.Off;
+            ApagarSecciones();
             Yt.isYouTurnBtnOn = false;
             Yt.ResetYouTurn();
             if (ABLineField != null) ABLineField.isABValid = false;

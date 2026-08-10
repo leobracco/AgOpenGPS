@@ -88,6 +88,13 @@ namespace AgOpenGPS
         {
             if (_web != null) return;
 
+            // Quién sabe el lote abierto: PrescripcionService lo usa para atar
+            // la activa al lote al activarla y para NO dibujar/dosificar la
+            // prescripción de otro lote (reporte 2026-08-10, lote nuevo con el
+            // shape de "Las de atras").
+            AgroParallel.Services.PrescripcionService.LoteActualProvider =
+                () => _host.IsJobStarted ? _host.currentFieldDirectory : "";
+
             var state = new EngineStateProvider(_host);
             // Prescripción (.shp): upload + carga automática + dosis por
             // posición. El state y el controller comparten LA MISMA capa —

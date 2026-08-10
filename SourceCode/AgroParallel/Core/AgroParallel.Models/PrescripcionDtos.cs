@@ -94,6 +94,14 @@ namespace AgroParallel.Models
         [JsonPropertyName("features")]
         public List<PrescripcionFeatureDto> Features { get; set; } = new List<PrescripcionFeatureDto>();
 
+        /// <summary>Lote (currentFieldDirectory) que estaba abierto cuando el
+        /// operario la activó. La prescripción SOLO se dibuja y dosifica en
+        /// ese lote: una activa de "Las de atras" no puede aparecer (ni peor,
+        /// dosificar) en un lote recién creado. Vacío = sin lote asociado →
+        /// no aplica en ninguno hasta re-activarla con su lote abierto.</summary>
+        [JsonPropertyName("lote")]
+        public string Lote { get; set; } = "";
+
         // ---- Resultado del lookup (no se persiste, lo arma el service) -----
         /// <summary>Cuándo se cargó (UTC ISO). Para invalidar cache si el
         /// archivo en disco cambia.</summary>
