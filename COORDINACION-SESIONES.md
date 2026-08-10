@@ -3482,3 +3482,30 @@ Estado del día (todo pusheado en codex/pilotx-ui-new, a16573f4..a9d8db29):
   mirando "Encoder" en la card CAN Keya), D3 sentido motor con RTY, D4 PWM
   mín, tablero D1-D10. Con Keya detectado sobran "Driver motor" y "Danfoss"
   en Placa (anotado para ocultarlos).
+
+## 2026-08-10 · Leonardo+Claude — Dirección nativa completa + rolido calibrado con GPS por la placa
+
+Resumen del finde (todo pusheado en codex/pilotx-ui-new hasta f72da5c0):
+
+- **Dirección 100% Avalonia (17vo port)**: panel de 470px anclado a la
+  izquierda con 6 tabs (Probar/Sensor/Fuerza/Guiado/Módulo/Pantalla), ayuda
+  contextual con "?" por control, vúmetro del WAS (tocar la barra = cero),
+  targets ≥44px. La página HTML queda solo para el Hub remoto. LECCIÓN:
+  el POST /api/steer/config NO es merge — siempre reenviar el objeto entero.
+- **Rolido calibrable a ojo**: tractor visto de atrás EN VIVO en Config →
+  GPS/IMU → Rolido (derecha = positivo), tocar el tractor = cero, invertir
+  aplica al toque. Fuente: graph-correction (roll del motor CON cero, no el
+  crudo de la ECU). Requiere GPS ENTRANDO POR LA PLACA: sin PANDA el motor
+  jamás recibe el roll (el 253 del firmware manda 8888 a propósito).
+- **Reset IMU analizado**: solo borra estado en la PC (centinelas), no toca
+  el BNO. Sin PANDA fluyendo deja "sin IMU" hasta reiniciar el motor.
+- **Overlay FlowX** (pulverización): l/ha grande + AUTO/MAN con ±l/min +
+  franja StormX si hay estación. Espera nodo real para banco.
+- **Tablero 15/8**: 51 anda / 66 fuera. Dirección: D1-D3, D5, D9 cerrados;
+  quedan D4 (PWM mín), D6 (corte volante), D7 (enganche con guía — ya
+  desbloqueada), D10.
+- **GPU nocturno**: monitor 15h sin flicker ni fugas tras reinicio; quedaron
+  sprites corruptos cosméticos a la mañana — driver igfx viejo sigue siendo
+  la causa de fondo (actualizar + vacuna de texturas en MapGlSurface).
+- Trampa repetida: los JS del Hub necesitan bump de ?v= — WebView2 cachea
+  aunque el engine sirva el nuevo (config.js pasó a v=2).
