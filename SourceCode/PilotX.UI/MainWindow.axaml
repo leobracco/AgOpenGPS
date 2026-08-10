@@ -796,6 +796,14 @@
                                HorizontalAlignment="Left" VerticalAlignment="Top"
                                Margin="145,10,0,0"/>
 
+                <!-- Tractor de rolido, mini, ABAJO A LA DERECHA (pedido
+                     2026-08-10): se inclina con el rolido que usa el guiado.
+                     Margen derecho 74 (libre de la barra derecha) y abajo 150
+                     (arriba de la pila pasada+secciones). Solo lectura. -->
+                <vw:TractorRolidoOverlay x:Name="TractorRolidoHost" Grid.Row="1"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                         Margin="0,0,74,150"/>
+
                 <!-- Panel de GUÍAS nativo (14vo port, reemplaza tracks.html):
                      flota sobre el mapa VIVO — al grabar la curva se ve la
                      traza dibujándose detrás, cosa que la ventana HTML

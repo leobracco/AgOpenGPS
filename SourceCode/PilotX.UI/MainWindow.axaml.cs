@@ -385,6 +385,17 @@ public partial class MainWindow : Window
                 DeriveOrigin(App.TargetUrl));
             Closed += (_, _) => imuHost.Detach();
         }
+
+        // Tractor de rolido (abajo a la derecha): mismo ciclo de vida que el
+        // visor IMU — arranca con la app y muere con la ventana.
+        var tractorRolido = this.FindControl<TractorRolidoOverlay>("TractorRolidoHost");
+        if (tractorRolido != null && App.WindowMode != "float")
+        {
+            tractorRolido.Attach(
+                new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(3) },
+                DeriveOrigin(App.TargetUrl));
+            Closed += (_, _) => tractorRolido.Detach();
+        }
         _mapOverlaysHost   = this.FindControl<Canvas>("MapOverlaysHost");
         _qxMapOverlay      = this.FindControl<QuantiXMapOverlay>("QxMapOverlay");
         _vxMapStrip        = this.FindControl<VistaXMapStrip>("VxMapStrip");
