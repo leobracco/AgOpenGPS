@@ -2,6 +2,7 @@
 // AgroParallel consumen. Producido por IAogStateProvider.
 
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace AgroParallel.Models
 {
@@ -28,6 +29,17 @@ namespace AgroParallel.Models
         public double N { get; set; }
         public FieldPoint() { }
         public FieldPoint(double e, double n) { E = e; N = n; }
+    }
+
+    /// <summary>
+    /// Marca de "Marcar giro": punto (metros locales) + rumbo de la guía al
+    /// momento de marcar (rad). El mapa dibuja la línea perpendicular ahí.
+    /// </summary>
+    public sealed class TurnMarkDto
+    {
+        [JsonPropertyName("e")] public double E { get; set; }
+        [JsonPropertyName("n")] public double N { get; set; }
+        [JsonPropertyName("heading")] public double Heading { get; set; }
     }
 
     /// <summary>Track activo (AB line / curve / pivote). null si no hay.</summary>
@@ -315,6 +327,11 @@ namespace AgroParallel.Models
 
         /// <summary>Track de guía actualmente activo (AB line / curve / pivot). null si no hay.</summary>
         public TrackInfo ActiveTrack { get; set; }
+
+        /// <summary>Marcas de "Marcar giro" (0..2) para que el mapa/HUD dibujen
+        /// las líneas de giro. Vacía si el lote no tiene marcas.</summary>
+        [JsonPropertyName("turn_marks")]
+        public List<TurnMarkDto> TurnMarks { get; set; } = new List<TurnMarkDto>();
 
         // ---- Por qué el giro en cabecera no arranca ------------------------
         //

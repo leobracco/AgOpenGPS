@@ -181,6 +181,14 @@ namespace AgOpenGPS
                 case "uturn":
                     ToggleYouTurn();
                     return true;
+                // "Marcar giro": el operario define con dos marcas dónde gira el
+                // U-turn sin recorrer el lindero (ver la spec
+                // docs/superpowers/specs/2026-08-10-marcar-giro-design.md).
+                case "marcar_giro":
+                    return MarcarGiroAca();
+                case "giro_borrar_marcas":
+                    BorrarMarcasGiro();
+                    return true;
                 case "pick":
                     SelectTrack();
                     return true;

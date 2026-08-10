@@ -304,6 +304,24 @@ namespace PilotX.GuidanceEngine.Adapters
                         else snap.BoundaryGeometryOk = true;
                     }
 
+                    // Marcas de "Marcar giro": van por su propio canal (no son
+                    // lindero) para que el mapa dibuje las líneas donde gira.
+                    if (_host.TurnMarks != null && _host.TurnMarks.Count > 0)
+                    {
+                        var marcas = new List<TurnMarkDto>(_host.TurnMarks.Count);
+                        foreach (var m in _host.TurnMarks)
+                        {
+                            if (m == null) continue;
+                            marcas.Add(new TurnMarkDto
+                            {
+                                E = m.easting,
+                                N = m.northing,
+                                Heading = m.heading
+                            });
+                        }
+                        snap.TurnMarks = marcas;
+                    }
+
                     if (_host.Trk != null && _host.Trk.gArr != null && _host.Trk.idx >= 0 && _host.Trk.idx < _host.Trk.gArr.Count)
                     {
                         var t = _host.Trk.gArr[_host.Trk.idx];
