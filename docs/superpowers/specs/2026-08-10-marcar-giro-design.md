@@ -41,8 +41,13 @@ distancia y skips de siempre).
   lindero real — no se puede girar afuera del lote).
 - **Sin marcas: cero cambio de comportamiento.** El camino nuevo no corre.
   Esta es la garantía de "no rompe nada".
-- La cabecera virtual NO controla secciones (eso sigue siendo de la cabecera
-  real / `isSectionControlledByHeadland`). Solo giro.
+- Como la marca entra como LINDERO virtual, las secciones también cortan
+  pasando la marca (mismo comportamiento que un lindero real). Coherente con
+  "se comporta como lindero". La cabecera de secciones real
+  (`isSectionControlledByHeadland`) no se toca.
+- El lindero virtual NUNCA se guarda en `Boundary.txt` ni se dibuja como
+  lindero (solo se dibujan las dos líneas marcadas). Un flag
+  `isVirtualTurnBoundary` lo excluye de guardado, snapshot y estadísticas.
 
 ## Persistencia
 
@@ -86,9 +91,8 @@ desde el mismo `GET` (misma fuente que el resto de la geometría de guiado).
 
 ## Carriles
 
-- **Motor (CYouTurn/Bnd, cabecera virtual, recorte)**: carril de Santiago →
-  dejar PEDIDO en `COORDINACION-SESIONES.md` apuntando a esta spec.
-- **UI + API + persistencia + mapa**: carril de Leonardo/Claude.
+Cambio 2026-08-10 (pedido de Leonardo): **todo por este carril** — motor, API,
+persistencia y UI. Sin PEDIDO a Santiago.
 
 ## Riesgos
 
