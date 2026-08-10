@@ -416,6 +416,12 @@
     .qxTipoDosif:hover{border-color:var(--agp-accent)}
     .qxIrCal{flex:0 0 auto;height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);color:var(--agp-accent);font-size:11px;font-weight:700;padding:0 8px;cursor:pointer}
     .qxIrCal:hover{border-color:var(--agp-accent)}
+    /* Motor en DOS renglones (solo la fila de CONFIG — la vista en vivo
+       sigue en una línea): arriba identidad + surcos, abajo dosificación.
+       En un solo renglón la fila obligaba a agrandar la ventana. */
+    .mrow.cfg{flex-direction:column;align-items:stretch;gap:7px}
+    .mrow-l1,.mrow-l2{display:flex;align-items:center;gap:10px}
+    .mrow-l2{padding-left:26px;flex-wrap:wrap;row-gap:6px}
     .pps{margin-left:auto;color:#9fb0a4;font-variant-numeric:tabular-nums}
     .rpm{margin-left:10px;color:#7e8a80;font-size:11px;font-variant-numeric:tabular-nums}
     .bar{width:80px;height:6px;background:var(--agp-bg-soft);border-radius:4px;overflow:hidden;margin-left:8px}
@@ -1223,7 +1229,7 @@
   <script src="../js/steps.js"></script>
   <script src="../js/qx-agro.js"></script>
   <script src="../js/modal.js"></script>
-  <script src="../js/quantix.js?v=13"></script>
+  <script src="../js/quantix.js?v=14"></script>
   <script src="/js/i18n.js"></script>
 </body>
 </html>

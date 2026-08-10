@@ -1988,3 +1988,10 @@ del JS queda por si otros hosts sí ven la navegación.
   push de telemetria ya NO re-renderizan la lista (cerraban el desplegable
   recien abierto a 2 Hz); en vivo se refresca como siempre y al cambiar de modo
   re-renderiza una vez. Bump quantix.js?v=12.
+- `[2026-08-10c] [Claude]` quantix.html/js: la fila de motor en modo config paso
+  a DOS renglones (`.mrow.cfg` con `.mrow-l1` identidad/surcos/tren/borrar y
+  `.mrow-l2` dosis/dosificador/mapa) — en una linea obligaba a agrandar la
+  ventana. La vista en vivo sigue en una linea (el layout columna esta scopeado
+  a `.mrow.cfg`). Tambien se quito el `<a>` de la nota "Tren: derivado del
+  implemento" (navegaba el propio dialogo WebView, quedaba la Configuracion
+  incrustada); queda texto. Bump quantix.js?v=14.

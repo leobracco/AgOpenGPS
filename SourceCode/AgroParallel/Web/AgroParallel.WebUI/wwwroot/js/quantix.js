@@ -349,7 +349,12 @@
       var nombreRaw = (m.nombre != null ? String(m.nombre) : ('Motor ' + (i + 1)));
       // Canal sin motor cableado: se destildá y PilotX le manda consigna nula.
       var hab = (m.habilitado !== false);
-      html += '<div class="mrow' + sel + (hab ? '' : ' mdis') + '" data-mi="' + i + '">'
+      // Dos renglones por motor: la fila única juntaba identidad + surcos +
+      // dosis + dosificador + mapa y obligaba a agrandar la ventana
+      // (reporte 2026-08-10). Arriba: quién es y qué surcos alimenta.
+      // Abajo: cómo dosifica. Todo visible, sin esconder nada atrás de tabs.
+      html += '<div class="mrow cfg' + sel + (hab ? '' : ' mdis') + '" data-mi="' + i + '">'
+        + '<div class="mrow-l1">'
         + '<span class="sw" style="background:' + motorColor(i) + '"></span>'
         + '<input class="qxHab" type="checkbox" data-mi="' + i + '"' + (hab ? ' checked' : '')
         + ' title="Motor conectado. Destildado no recibe dosis.">'
@@ -357,13 +362,16 @@
         + '" title="Nombre del motor">'
         + '<span class="cnt">' + fmtCortes(m.cortes) + escapeHtml(nodoTag(all[i])) + '</span>'
         + trenReadOnlyHtml(m.tren, m.cortes)
+        + '<button class="mdel" type="button" data-del="' + i + '" title="Borrar motor">×</button>'
+        + '</div>'
+        + '<div class="mrow-l2">'
         + '<span class="dosebox"><input type="number" step="0.1" data-mi="' + i + '" '
         + 'class="qxDosisFija" value="' + dosis + '"> '
         + '<button class="uToggle" type="button" data-mi="' + i + '" title="Cambiar unidad (kg/ha ↔ sem/m)">'
         + unidadLbl + '</button></span>'
         + calBox
         + mapaSelectHtml(i, m.campo_dosis)
-        + '<button class="mdel" type="button" data-del="' + i + '" title="Borrar motor">\u00D7</button>'
+        + '</div>'
         + '</div>';
     }
     el.innerHTML = html;
