@@ -1982,3 +1982,9 @@ del JS queda por si otros hosts sí ven la navegación.
   km/h ademas de lote+nodos — parado se configura, en movimiento sigue solo-lectura.
   (3) CSS minimo de `.qxTipoDosif`/`.qxIrCal` espejo de `.qxMapa` (tokens, sin hex
   nuevos). IDs existentes intactos; clases nuevas documentadas aca.
+- `[2026-08-10b] [Claude]` quantix.html/js: (1) boton nuevo `#qxBtnConfig` en
+  `.qx-head` — entra/sale de Configurar estando "en marcha" (el banco mete 1-2
+  km/h fantasma y el umbral de velocidad no alcanzaba). (2) En modo config los
+  push de telemetria ya NO re-renderizan la lista (cerraban el desplegable
+  recien abierto a 2 Hz); en vivo se refresca como siempre y al cambiar de modo
+  re-renderiza una vez. Bump quantix.js?v=12.

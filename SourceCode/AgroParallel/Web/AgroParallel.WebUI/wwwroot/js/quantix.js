@@ -60,6 +60,9 @@
   // --- Estado de la tira de surcos (Tarea 3-8) ---
   state.brushMotor = 0;          // índice del motor activo (pincel)
   state.siembraView = 'planter'; // 'planter' | 'tabla'
+  state.configForzado = false;   // operario forzó Configurar estando "en marcha"
+  state.enMarchaDetectada = false;
+  state._enMarchaPrev = null;    // para re-render único al cambiar de modo
 
   var MOTOR_COLORS = ['#4ABA3E', '#7F6BE0', '#E0A33E', '#3E9BE0', '#E06B8B', '#46C5B0'];
   function motorColor(idx) { return MOTOR_COLORS[idx % MOTOR_COLORS.length]; }
@@ -615,11 +618,18 @@
     // con un nodo prendido bastaba para ocultar la toolbar de Configurar —
     // en cabina parado (o en el banco) la opción de configurar la placa
     // aparecía unos segundos al cargar la página y se iba sola cuando
-    // llegaba el primer live (reporte 2026-08-10). Parado se configura;
-    // en movimiento la pantalla pasa a solo-lectura como siempre.
-    state.siembraEnMarcha = !!(state.aogJobStarted &&
+    // llegaba el primer live (reporte 2026-08-10).
+    state.enMarchaDetectada = !!(state.aogJobStarted &&
         state.liveByUid && Object.keys(state.liveByUid).length > 0 &&
         (state.aogSpeed || 0) > 0.5);
+    // El umbral de velocidad no alcanza en el banco: la placa GPS/ECU mete
+    // 1-2 km/h fantasma y la pantalla se iba sola a "En marcha" igual. El
+    // botón "Configurar" (qxBtnConfig) fuerza el modo config hasta que el
+    // operario vuelva a "En vivo" — configForzado es la palanca manual.
+    // Si la detección cae (paró de verdad / se fue el nodo), el forzado se
+    // suelta solo: que no quede pegado en config para la próxima pasada.
+    if (!state.enMarchaDetectada) state.configForzado = false;
+    state.siembraEnMarcha = state.enMarchaDetectada && !state.configForzado;
   }
 
   function renderMotorListLive() {
@@ -908,6 +918,13 @@
     var live = state.siembraEnMarcha;
     if (label) label.textContent = live ? 'En marcha' : 'Configurar';
     if (tools) tools.style.display = live ? 'none' : 'flex';
+    // Botón para entrar/salir de config estando "en marcha" (banco o parado
+    // con GPS ruidoso): visible solo cuando la detección automática da vivo.
+    var btnCfg = document.getElementById('qxBtnConfig');
+    if (btnCfg) {
+      btnCfg.style.display = state.enMarchaDetectada ? '' : 'none';
+      btnCfg.textContent = state.configForzado ? 'Volver a en vivo' : 'Configurar';
+    }
     if (capL) capL.textContent = live
       ? 'Sembradora en vivo \xb7 gris = surco cortado'
       : 'Sembradora \xb7 color = motor';
@@ -944,7 +961,15 @@
     if (state.activeTab === 'siembra') {
       computeEnMarcha();
       applyMarchaChrome();
-      renderSiembra();
+      // En vivo sí se refresca con cada push. En modo CONFIG no: el
+      // re-render a 2 Hz destruía el DOM abajo del dedo — un desplegable
+      // recién abierto (tipo de dosificador, mapa) se cerraba solo y los
+      // inputs perdían el foco (reporte 2026-08-10 "abre y se oculta
+      // rápido"). Al cambiar de modo se re-renderiza UNA vez.
+      if (state.siembraEnMarcha || state._enMarchaPrev !== state.siembraEnMarcha) {
+        renderSiembra();
+      }
+      state._enMarchaPrev = state.siembraEnMarcha;
     }
   }
 
@@ -1101,6 +1126,17 @@
   if (segP) segP.addEventListener('click', function () { setSiembraView('planter'); });
   var segT = document.getElementById('segTabla');
   if (segT) segT.addEventListener('click', function () { setSiembraView('tabla'); });
+
+  // Entrar/salir de Configurar estando "en marcha" — la palanca manual que
+  // le gana a la detección automática (ver computeEnMarcha).
+  var btnCfg = document.getElementById('qxBtnConfig');
+  if (btnCfg) btnCfg.addEventListener('click', function () {
+    state.configForzado = !state.configForzado;
+    computeEnMarcha();
+    applyMarchaChrome();
+    renderSiembra();
+    state._enMarchaPrev = state.siembraEnMarcha;
+  });
 
   // ============================================================================
   // MOTORES — config del fierro (sensor, motor, PWM, PID) en un solo lugar

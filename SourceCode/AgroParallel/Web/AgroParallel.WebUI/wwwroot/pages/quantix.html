@@ -1100,6 +1100,9 @@
       <div class="card">
         <div class="qx-head">
           <span class="qx-title" id="qxModeLabel">Configurar</span>
+          <!-- En marcha, entrar igual a configurar (banco / parado con GPS
+               ruidoso). Lo maneja quantix.js (applyMarchaChrome). -->
+          <button type="button" class="btn" id="qxBtnConfig" style="display:none">Configurar</button>
           <div class="seg">
             <button type="button" id="segPlanter" class="on" data-view="planter">Planter</button>
             <button type="button" id="segTabla" data-view="tabla">Tabla</button>
@@ -1220,7 +1223,7 @@
   <script src="../js/steps.js"></script>
   <script src="../js/qx-agro.js"></script>
   <script src="../js/modal.js"></script>
-  <script src="../js/quantix.js?v=11"></script>
+  <script src="../js/quantix.js?v=12"></script>
   <script src="/js/i18n.js"></script>
 </body>
 </html>
