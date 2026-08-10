@@ -2273,7 +2273,11 @@
           // expone un flag de calibración, así que detectamos la meta en el PC:
           // grabamos endPulsos cuando el Δ de pulsos alcanza el objetivo comandado
           // (vueltas*ppr, el mismo valor que se le mandó al nodo en 'start').
-          if (st.meta && st.endPulsos == null && delta >= st.meta) {
+          // El guard de 1.5 s evita "alcanzar la meta" con el contador viejo:
+          // entre el start y el reset del nodo, el live todavía trae el
+          // acumulado anterior (que puede superar la meta de una).
+          if (st.meta && st.endPulsos == null && delta >= st.meta &&
+              (!st.startTs || Date.now() - st.startTs > 1500)) {
             st.endPulsos = pul;
             var msgEl = mc.querySelector('span[data-cal-msg="' + mi + '"]');
             if (msgEl) { msgEl.textContent = '✓ Meta alcanzada — pesá los surcos y apretá Calcular'; msgEl.className = 'send-msg ok'; }
@@ -2317,14 +2321,14 @@
       var meta    = vueltas * ppr;
       if (meta <= 0) { msgEl.textContent = '✕ vueltas/PPR inválidos'; msgEl.className = 'send-msg err'; return; }
 
-      // Snapshot del contador actual antes de arrancar — Δ se calcula contra esto.
-      var live = state.liveByUid[uid]; var pulNow = 0;
-      if (live && live.motors) {
-        for (var k = 0; k < live.motors.length; k++)
-          if ((live.motors[k].id | 0) === mi)
-            pulNow = live.motors[k].pulsos || 0;
-      }
-      st.startPulsos = pulNow; st.endPulsos = null;
+      // OJO contrato firmware: en 'cal start' el nodo RESETEA su contador a 0
+      // (ResetPulseCounters, Rate.cpp — "TotalPulses ES el recorrido actual",
+      // Motor.cpp). Acá se snapshoteaba el contador PREVIO y se restaba: con
+      // 616 acumulados y una corrida de 600, el Δ daba 6 (reporte 2026-08-10).
+      // El punto de partida correcto es 0. startTs ignora la ventana en la que
+      // el live todavía trae el contador viejo (antes de que el nodo procese
+      // el start), para no "alcanzar la meta" con el valor pre-reset.
+      st.startPulsos = 0; st.endPulsos = null; st.startTs = Date.now();
       st.vueltas = vueltas; st.ppr = ppr; st.pwm = pwm; st.meta = meta;
 
       // Precargar "Vueltas de la corrida" con lo comandado: el firmware gira
