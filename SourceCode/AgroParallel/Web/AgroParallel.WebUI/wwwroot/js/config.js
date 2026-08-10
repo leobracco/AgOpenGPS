@@ -113,95 +113,60 @@
   };
 
   // =============================================================================
-  // Vehículo: tipo y marca (tabVConfig)
+  // Vehículo: tipo (tabVConfig) — reorganizado 2026-08-10.
+  // Cuatro opciones: Rígido / Articulado / Cosechadora / Pulverizadora.
+  // La pulverizadora ES un rígido para el motor (vehicle_type 0): la elección
+  // se recuerda en localStorage solo para que la UI la resalte. Sin marca ni
+  // imagen: el vehículo del mapa es SIEMPRE el triángulo verde
+  // (is_vehicle_image=false se fuerza en cada guardado).
   // =============================================================================
-  var MARCAS = {
-    0: ['AGOpenGPS', 'Case', 'Claas', 'Deutz', 'Fendt', 'JohnDeere', 'Kubota',
-        'Massey', 'NewHolland', 'Same', 'Steyr', 'Ursus', 'Valtra', 'JCB'],
-    1: ['AgOpenGPS', 'Case', 'Claas', 'JohnDeere', 'NewHolland'],
-    2: ['AgOpenGPS', 'Case', 'Challenger', 'JohnDeere', 'NewHolland', 'Holder']
-  };
-  var PREVIEW_DIR = { 0: 'Tractor/Tractor', 1: 'Harvester/Harvester', 2: 'Articulated/ArticulatedFront' };
+  var SUB_KEY = 'pilotx_vehiculo_sub';
+  var v = { tipo: 0, sub: 'rigido', dirty: false };
 
-  // nombre de archivo: AGOpenGPS/AgOpenGPS → AoG; en UI la marca genérica se
-  // muestra sin la palabra AgOpenGPS (branding PilotX).
-  function brandFile(nombre) { return /^AG?OpenGPS$/i.test(nombre) ? 'AoG' : nombre; }
-  function brandLabel(nombre) { return /^AG?OpenGPS$/i.test(nombre) ? 'Genérica' : nombre; }
-
-  var v = { tipo: 0, marcas: { 0: null, 1: null, 2: null }, isImage: true, opacity: 100, dirty: false };
-
-  function vMarcaActual() { return v.marcas[v.tipo] || MARCAS[v.tipo][0]; }
+  function vSubDesdeTipo(tipo) {
+    if (tipo === 1) return 'cosechadora';
+    if (tipo === 2) return 'articulado';
+    var guardado = null;
+    try { guardado = localStorage.getItem(SUB_KEY); } catch (e) { }
+    return guardado === 'pulverizadora' ? 'pulverizadora' : 'rigido';
+  }
 
   function vPintar() {
     document.querySelectorAll('#vTipos .radioimg').forEach(function (el) {
-      el.classList.toggle('sel', +el.dataset.tipo === v.tipo);
+      el.classList.toggle('sel', el.dataset.sub === v.sub);
     });
-    document.getElementById('vNotaHarvester').hidden = v.tipo !== 1;
-
-    var cont = document.getElementById('vMarcas');
-    cont.innerHTML = '';
-    MARCAS[v.tipo].forEach(function (m) {
-      var d = document.createElement('div');
-      d.className = 'radioimg marca' + (m === vMarcaActual() ? ' sel' : '');
-      d.innerHTML = '<img src="../img/config/brands/Brand/Brand' + brandFile(m) + '.png" alt="" />' +
-                    '<span class="cap"></span>';
-      d.querySelector('.cap').textContent = brandLabel(m);
-      d.addEventListener('click', function () {
-        v.marcas[v.tipo] = m; v.dirty = true; vPintar();
-      });
-      cont.appendChild(d);
-    });
-
-    var prev = document.getElementById('vprev');
-    if (v.isImage) {
-      prev.src = '../img/config/brands/' + PREVIEW_DIR[v.tipo] + brandFile(vMarcaActual()) + '.png';
-    } else {
-      prev.src = '../img/config/brands/Brand/BrandTriangleVehicle.png';
-    }
-    prev.style.opacity = (v.opacity / 100).toString();
-    document.getElementById('vSinImagen').classList.toggle('sel', !v.isImage);
-    document.getElementById('lblOpacidad').textContent = v.opacity + '%';
+    document.getElementById('vNotaHarvester').hidden = v.sub !== 'cosechadora';
+    var np = document.getElementById('vNotaPulv');
+    if (np) np.hidden = v.sub !== 'pulverizadora';
   }
 
   tabs.vconfig = {
     enter: function () {
       var s = snap.vehiculo;
       v.tipo = s.vehicle_type;
-      v.marcas[0] = s.tractor_brand;
-      v.marcas[1] = s.harvester_brand;
-      v.marcas[2] = s.articulated_brand;
-      v.isImage = s.is_vehicle_image;
-      v.opacity = s.opacity;
+      v.sub = vSubDesdeTipo(v.tipo);
       v.dirty = false;
       vPintar();
     },
     leave: function () {
       if (!v.dirty) return Promise.resolve(true);
       v.dirty = false;
+      try { localStorage.setItem(SUB_KEY, v.sub); } catch (e) { }
+      // body parcial: marcas y opacidad quedan como estén; sin imagen SIEMPRE
       return guardar('vehiculo', {
         vehicle_type: v.tipo,
-        tractor_brand: v.marcas[0],
-        harvester_brand: v.marcas[1],
-        articulated_brand: v.marcas[2],
-        is_vehicle_image: v.isImage,
-        opacity: v.opacity
+        is_vehicle_image: false
       });
     }
   };
 
   document.querySelectorAll('#vTipos .radioimg').forEach(function (el) {
     el.addEventListener('click', function () {
-      v.tipo = +el.dataset.tipo; v.dirty = true; vPintar();
+      v.tipo = +el.dataset.tipo;
+      v.sub = el.dataset.sub;
+      v.dirty = true;
+      vPintar();
     });
-  });
-  document.getElementById('vSinImagen').addEventListener('click', function () {
-    v.isImage = !v.isImage; v.dirty = true; vPintar();
-  });
-  document.getElementById('btnOpacDn').addEventListener('click', function () {
-    v.opacity = Math.max(v.opacity - 20, 20); v.dirty = true; vPintar();
-  });
-  document.getElementById('btnOpacUp').addEventListener('click', function () {
-    v.opacity = Math.min(v.opacity + 20, 100); v.dirty = true; vPintar();
   });
 
   // =============================================================================

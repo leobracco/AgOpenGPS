@@ -364,40 +364,24 @@
         </div>
       </section>
 
-      <!-- ================= Vehículo: tipo y marca ================= -->
+      <!-- ================= Vehículo: tipo ================= -->
+      <!-- Reorganizado 2026-08-10: SOLO el tipo — Rígido / Articulado /
+           Cosechadora / Pulverizadora (que por dentro es un rígido). Sin
+           marca ni imagen: el vehículo en el mapa es SIEMPRE el triángulo
+           verde. La elección "pulverizadora" se recuerda localmente (el
+           motor solo conoce 0/1/2). -->
       <section data-tab="vconfig">
         <div class="carta">
           <h2>Tipo de vehículo</h2>
           <div class="radios" id="vTipos">
-            <div class="radioimg tipo" data-tipo="0"><img loading="lazy" src="../img/config/vehiclePageTractor.png" alt="" /><span class="cap">Tractor</span></div>
-            <div class="radioimg tipo" data-tipo="1"><img loading="lazy" src="../img/config/vehiclePageHarvester.png" alt="" /><span class="cap">Cosechadora</span></div>
-            <div class="radioimg tipo" data-tipo="2"><img loading="lazy" src="../img/config/vehiclePageArticulated.png" alt="" /><span class="cap">Articulado</span></div>
+            <div class="radioimg tipo" data-tipo="0" data-sub="rigido"><img loading="lazy" src="../img/config/vehiclePageTractor.png" alt="" /><span class="cap">Rígido</span></div>
+            <div class="radioimg tipo" data-tipo="2" data-sub="articulado"><img loading="lazy" src="../img/config/vehiclePageArticulated.png" alt="" /><span class="cap">Articulado</span></div>
+            <div class="radioimg tipo" data-tipo="1" data-sub="cosechadora"><img loading="lazy" src="../img/config/vehiclePageHarvester.png" alt="" /><span class="cap">Cosechadora</span></div>
+            <div class="radioimg tipo" data-tipo="0" data-sub="pulverizadora"><img loading="lazy" src="../img/config/con_VehicleFunctionSpeedLimit.png" alt="" /><span class="cap">Pulverizadora</span></div>
           </div>
           <p class="nota" id="vNotaHarvester" hidden>La cosechadora fuerza el implemento a frontal.</p>
-        </div>
-        <div class="dosCol">
-          <div class="carta">
-            <h2>Marca</h2>
-            <div class="radios" id="vMarcas"></div>
-          </div>
-          <div class="carta">
-            <h2>Imagen</h2>
-            <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-start">
-              <div id="vprevWrap"><img loading="lazy" id="vprev" src="" alt="" /></div>
-              <div>
-                <div class="chkimg" id="vSinImagen">
-                  <img loading="lazy" src="../img/config/brands/Brand/BrandTriangleVehicle.png" alt="" />
-                  <span class="cap">Sin imagen</span>
-                </div>
-                <div class="opacidadFila">
-                  <button type="button" id="btnOpacDn"><img loading="lazy" src="../img/config/DnArrow64.png" alt="âˆ’" /></button>
-                  <span id="lblOpacidad">100%</span>
-                  <button type="button" id="btnOpacUp"><img loading="lazy" src="../img/config/UpArrow64.png" alt="+" /></button>
-                </div>
-                <p class="nota" style="margin-top:8px">Opacidad del dibujo en el mapa (20–100%).</p>
-              </div>
-            </div>
-          </div>
+          <p class="nota" id="vNotaPulv" hidden>La pulverizadora se comporta como un vehículo rígido.</p>
+          <p class="nota">El vehículo se dibuja en el mapa como el triángulo verde.</p>
         </div>
       </section>
 
@@ -1094,7 +1078,7 @@
   </div>
 
   <script src="../js/keyboard.js"></script>
-  <script src="../js/config.js?v=2"></script>
+  <script src="../js/config.js?v=3"></script>
   <script src="/js/i18n.js"></script>
 </body>
 </html>
