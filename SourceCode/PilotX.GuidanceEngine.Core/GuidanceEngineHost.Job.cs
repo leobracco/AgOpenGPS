@@ -84,17 +84,19 @@ namespace AgOpenGPS
             }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: Boundary.txt: " + ex.Message); }
 
-            // Marcas de "Marcar giro": DESPUÉS de los linderos porque la
-            // materialización recorta (o crea) la línea de giro que
-            // BuildTurnLines acaba de armar. El Clear va antes de cargar por
-            // si el lote nuevo no tiene TurnMarks.txt: sin él quedarían vivas
-            // las marcas del lote anterior.
-            TurnMarks.Clear();
-            CargarMarcasGiro(dir);
-            MaterializarMarcasGiro();
-
             CargarCobertura(dir);
             CargarRestoDelLote(dir);
+
+            // Marcas de "Marcar giro": DESPUÉS de linderos Y cabecera porque
+            // la materialización recorta la línea de giro que BuildTurnLines
+            // armó y también la hdLine que AttachLoad (CargarRestoDelLote)
+            // acaba de cargar — antes de eso el recorte de cabecera se pisaría.
+            // El Clear va antes de cargar por si el lote nuevo no tiene
+            // TurnMarks.txt: sin él quedarían vivas las marcas del anterior.
+            TurnMarks.Clear();
+            ResetCabeceraBaseDeMarcas();
+            CargarMarcasGiro(dir);
+            MaterializarMarcasGiro();
 
             // El índice del ANTI-SOLAPE es una copia aparte de la cobertura
             // (CoverageIndex, alimentado incremental por cursores). Sin este
@@ -167,6 +169,7 @@ namespace AgOpenGPS
             // Las marcas de giro son del lote que se está cerrando; el lindero
             // virtual que generaron ya se fue con el Clear de bndList.
             TurnMarks.Clear();
+            ResetCabeceraBaseDeMarcas();
             Trk.gArr.Clear();
             Trk.idx = -1;
 

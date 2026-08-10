@@ -391,6 +391,58 @@ namespace AgOpenGPS
             // pista. Que quede dicho en el log.
             if (marcasAplicadas > 0 && Bnd.IsPointInsideTurnArea(pivotAxlePos) == -1)
                 Log.EventWriter("GuidanceEngine: OJO — el tractor esta FUERA del area de giro que quedo tras el recorte; el U-turn no arma hasta entrar entre las marcas");
+
+            // 5) CABECERA desde las marcas (pedido 2026-08-10): lo de AFUERA de
+            // las marcas es cabecera. La hdLine base del lote (la que cargó
+            // AttachLoad, o el fence si el lote no tiene cabecera armada) se
+            // recorta con los mismos semiplanos — así el botón Cabecera ›
+            // Activar de siempre corta secciones al pisar la marca. La base se
+            // captura UNA vez por lote para que re-marcar no recorte sobre lo
+            // ya recortado y Borrar la restaure intacta.
+            RecortarCabeceraConMarcas(centroLote);
+        }
+
+        // Base prístina de la hdLine del lote (como la dejó AttachLoad / el
+        // constructor de cabecera). null = todavía no capturada.
+        private List<vec3> _hdLineBaseLote;
+
+        private void ResetCabeceraBaseDeMarcas() => _hdLineBaseLote = null;
+
+        private void RecortarCabeceraConMarcas(vec2 centroLote)
+        {
+            var bnd0 = Bnd.bndList[0];
+
+            // Capturar la base la primera vez: hdLine real si existe, si no el
+            // fence (cabecera "pegada al lindero", el recorte la separa solo en
+            // los extremos marcados).
+            if (_hdLineBaseLote == null)
+            {
+                var origen = (bnd0.hdLine != null && bnd0.hdLine.Count > 2)
+                    ? bnd0.hdLine : bnd0.fenceLine;
+                _hdLineBaseLote = new List<vec3>(origen);
+            }
+
+            // Siempre desde la base: idempotente al re-marcar, y con la lista
+            // de marcas vacía esto RESTAURA la cabecera original (Borrar).
+            var hd = new List<vec3>(_hdLineBaseLote);
+            foreach (var m in TurnMarks)
+            {
+                var recortada = CTurnMarks.ClipRingWithHalfPlane(
+                    hd, new vec3(m.easting, m.northing, 0),
+                    m.heading + glm.PIBy2, centroLote);
+                if (recortada.Count >= 4)
+                {
+                    // Sin el punto de cierre duplicado: hdLine es anillo abierto
+                    // como fenceLine (IsPointInPolygon cierra solo).
+                    recortada.RemoveAt(recortada.Count - 1);
+                    hd = recortada;
+                }
+            }
+
+            bnd0.hdLine.Clear();
+            bnd0.hdLine.AddRange(hd);
+            if (TurnMarks.Count > 0)
+                Log.EventWriter($"GuidanceEngine: cabecera del lote recortada con {TurnMarks.Count} marca(s) — activala con Cabecera si queres corte de secciones ahi");
         }
     }
 }
