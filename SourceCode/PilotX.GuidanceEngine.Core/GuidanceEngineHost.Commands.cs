@@ -149,6 +149,12 @@ namespace AgOpenGPS
                 // guía vieja en vez de la recién creada.
                 CurveField.isCurveValid = false;
                 ABLineField.isABValid = false;
+                // Y GUARDARLA: el alta rápida no pasa por TrkBuilder_CloseUse
+                // (que es quien salva) — la guía vivía solo en memoria y al
+                // reabrir el lote no estaba ("las guías guardadas deberían
+                // aparecer en el listado y no aparecen", banco 2026-08-10).
+                // Mismo criterio que FormQuickAB, que salva al crear.
+                SaveTracks();
                 return true;
             }
 

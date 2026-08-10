@@ -299,12 +299,36 @@ namespace AgOpenGPS
 
             if (!hayLinderoReal)
             {
-                // Con una sola marca no hay rectángulo que armar: recién con
-                // las dos hay lindero virtual. Mientras tanto la marca queda
-                // guardada y dibujada, esperando a su par.
-                if (TurnMarks.Count < 2) return;
+                if (TurnMarks.Count == 0) return;
 
-                var ring = CTurnMarks.BuildVirtualFence(TurnMarks[0], TurnMarks[1], MitadAnchoVirtualM);
+                // Con UNA marca también hay giro (pedido de banco 2026-08-10:
+                // "si activamos el giro y tenemos una línea adelante, tomarla
+                // como punto de giro"): el par que falta se inventa como una
+                // línea fantasma a 2 km DETRÁS de la marca, del lado donde está
+                // el tractor — el área de giro queda desde la marca hacia atrás
+                // y el U-turn arma al acercarse. Cuando el operario marca el
+                // segundo extremo, el rectángulo real la reemplaza.
+                TurnMark a = TurnMarks[0];
+                TurnMark b;
+                if (TurnMarks.Count >= 2)
+                {
+                    b = TurnMarks[1];
+                }
+                else
+                {
+                    double ux = Math.Sin(a.heading), uy = Math.Cos(a.heading);
+                    double sPivot = (pivotAxlePos.easting - a.easting) * ux
+                                  + (pivotAxlePos.northing - a.northing) * uy;
+                    double lado = sPivot >= 0 ? 1.0 : -1.0;
+                    b = new TurnMark
+                    {
+                        easting = a.easting + ux * lado * 2000.0,
+                        northing = a.northing + uy * lado * 2000.0,
+                        heading = a.heading,
+                    };
+                }
+
+                var ring = CTurnMarks.BuildVirtualFence(a, b, MitadAnchoVirtualM);
                 if (ring.Count < 4) return;
 
                 // Misma receta que grabar un contorno (EngineContornoService.
@@ -324,7 +348,9 @@ namespace AgOpenGPS
                 Fd.UpdateFieldBoundaryGUIAreas();
                 Bnd.BuildTurnLines();
 
-                Log.EventWriter("GuidanceEngine: cabecera virtual armada con las 2 marcas de giro (sin lindero real)");
+                Log.EventWriter(TurnMarks.Count >= 2
+                    ? "GuidanceEngine: cabecera virtual armada con las 2 marcas de giro (sin lindero real)"
+                    : "GuidanceEngine: cabecera virtual armada con 1 marca (giro adelante, fondo fantasma a 2 km)");
                 return;
             }
 
