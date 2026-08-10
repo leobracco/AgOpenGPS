@@ -374,10 +374,12 @@
         <div class="carta">
           <h2>Tipo de vehículo</h2>
           <div class="radios" id="vTipos">
-            <div class="radioimg tipo" data-tipo="0" data-sub="rigido"><img loading="lazy" src="../img/config/vehiclePageTractor.png" alt="" /><span class="cap">Rígido</span></div>
-            <div class="radioimg tipo" data-tipo="2" data-sub="articulado"><img loading="lazy" src="../img/config/vehiclePageArticulated.png" alt="" /><span class="cap">Articulado</span></div>
-            <div class="radioimg tipo" data-tipo="1" data-sub="cosechadora"><img loading="lazy" src="../img/config/vehiclePageHarvester.png" alt="" /><span class="cap">Cosechadora</span></div>
-            <div class="radioimg tipo" data-tipo="0" data-sub="pulverizadora"><img loading="lazy" src="../img/config/con_VehicleFunctionSpeedLimit.png" alt="" /><span class="cap">Pulverizadora</span></div>
+            <!-- Íconos del handoff Agro Parallel 2026-08-10 (SVG, lienzo 120×90).
+                 La pulverizadora tenía uno prestado (límite de velocidad). -->
+            <div class="radioimg tipo" data-tipo="0" data-sub="rigido"><img loading="lazy" src="../img/config/VehicleTractorRigid.svg" alt="" /><span class="cap">Rígido</span></div>
+            <div class="radioimg tipo" data-tipo="2" data-sub="articulado"><img loading="lazy" src="../img/config/VehicleTractorArticulated.svg" alt="" /><span class="cap">Articulado</span></div>
+            <div class="radioimg tipo" data-tipo="1" data-sub="cosechadora"><img loading="lazy" src="../img/config/VehicleHarvester.svg" alt="" /><span class="cap">Cosechadora</span></div>
+            <div class="radioimg tipo" data-tipo="0" data-sub="pulverizadora"><img loading="lazy" src="../img/config/VehicleSprayer.svg" alt="" /><span class="cap">Pulverizadora</span></div>
           </div>
           <p class="nota" id="vNotaHarvester" hidden>La cosechadora fuerza el implemento a frontal.</p>
           <p class="nota" id="vNotaPulv" hidden>La pulverizadora se comporta como un vehículo rígido.</p>
@@ -401,13 +403,13 @@
             <span class="unidad" data-unidad></span>
           </div>
           <div class="nudfila" id="filaHitch">
-            <label for="nudHitch">Largo de enganche</label>
+            <label for="nudHitch">Distancia del eje rígido al enganche</label>
             <input class="nud" id="nudHitch" type="text" inputmode="numeric" />
             <span class="unidad" data-unidad></span>
           </div>
           <p class="nota" id="notaHitchOculto" hidden>
-            El largo de enganche no aplica con implemento fijo o frontal — se
-            configura en la pestaña Distancias del implemento.
+            La distancia del eje rígido al enganche no aplica con implemento
+            fijo o frontal — se configura en la pestaña Distancias del implemento.
           </p>
         </div>
       </section>

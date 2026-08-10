@@ -1330,6 +1330,14 @@
     "en": "Hitch length",
     "pt": "Comprimento do engate"
   },
+  "Distancia del eje rígido al enganche": {
+    "en": "Fixed axle to hitch distance",
+    "pt": "Distância do eixo rígido ao engate"
+  },
+  "La distancia del eje rígido al enganche no aplica con implemento fijo o frontal — se configura en la pestaña Distancias del implemento.": {
+    "en": "The fixed axle to hitch distance does not apply with a fixed or front implement — it is set in the implement's Distances tab.",
+    "pt": "A distância do eixo rígido ao engate não se aplica com implemento fixo ou frontal — configura-se na aba Distâncias do implemento."
+  },
   "Distancias de enganche": {
     "en": "Hitch distances",
     "pt": "Distâncias do engate"
