@@ -84,6 +84,15 @@ namespace AgOpenGPS
             }
             catch (Exception ex) { Log.EventWriter("GuidanceEngine: Boundary.txt: " + ex.Message); }
 
+            // Marcas de "Marcar giro": DESPUÉS de los linderos porque la
+            // materialización recorta (o crea) la línea de giro que
+            // BuildTurnLines acaba de armar. El Clear va antes de cargar por
+            // si el lote nuevo no tiene TurnMarks.txt: sin él quedarían vivas
+            // las marcas del lote anterior.
+            TurnMarks.Clear();
+            CargarMarcasGiro(dir);
+            MaterializarMarcasGiro();
+
             CargarCobertura(dir);
             CargarRestoDelLote(dir);
 
@@ -155,6 +164,9 @@ namespace AgOpenGPS
 
             AppModelField.Fields.CloseField();
             Bnd.bndList.Clear();
+            // Las marcas de giro son del lote que se está cerrando; el lindero
+            // virtual que generaron ya se fue con el Clear de bndList.
+            TurnMarks.Clear();
             Trk.gArr.Clear();
             Trk.idx = -1;
 

@@ -60,6 +60,22 @@ namespace AgOpenGPS.IO
 
         public static void Save(string fieldDirectory, IReadOnlyList<CBoundaryList> boundaries)
         {
+            // Igual que BoundaryFiles.Save: el lindero VIRTUAL de "Marcar giro"
+            // no existe en disco. Sin este filtro, con el virtual apendeado se
+            // escribía una línea "0" extra en Headland.txt (inocuo pero sucio,
+            // y AttachLoad la habría atribuido a un lindero que no está).
+            if (boundaries != null)
+            {
+                var reales = new List<CBoundaryList>(boundaries.Count);
+                for (int i = 0; i < boundaries.Count; i++)
+                {
+                    var bl = boundaries[i];
+                    if (bl != null && bl.isVirtualTurnBoundary) continue;
+                    reales.Add(bl);
+                }
+                boundaries = reales;
+            }
+
             var filename = Path.Combine(fieldDirectory, "Headland.txt");
 
             using (var writer = new StreamWriter(filename, false))
