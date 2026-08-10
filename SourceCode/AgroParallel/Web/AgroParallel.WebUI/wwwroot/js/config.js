@@ -1366,33 +1366,33 @@
       imuPresente === false ? '***' : (Math.round(v * 100) / 100).toFixed(2);
   }
 
-  // Tractor de atrás EN VIVO (D9): pollea el rolido crudo del IMU del
-  // CoreX-ECU a 2 Hz mientras la pestaña Rolido está a la vista. El signo
-  // mostrado respeta el toggle "Invertir rolido" de esta misma pantalla, así
-  // el operario verifica al toque que el dibujo copie a la máquina.
+  // Tractor de atrás EN VIVO (D9): muestra el rolido QUE USA PILOTX
+  // (/api/aog/graph-correction → roll_degrees, con cero e inversión YA
+  // aplicados por el motor). Antes mostraba el crudo del ECU y "poner en
+  // cero" parecía no hacer nada: el cero es un offset del lado de PilotX,
+  // el crudo no cambia (reporte 2026-08-10). Con esta fuente, al tocar el
+  // cero el tractor se ENDEREZA — que es lo que el operario espera ver.
   var rollLiveTimer = null;
   function rollLivePoll() {
-    fetch('/api/corex-ecu/status', { cache: 'no-store' })
+    fetch('/api/aog/graph-correction', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (s) {
         var g = document.getElementById('rollTractorG');
         var v = document.getElementById('rollLiveVal');
         if (!g || !v) return;
-        var imu = (s && s.imu) || {};
-        if (!s || s.ok === false || !imu.present) {
+        if (!s || s.roll_present === false) {
           g.setAttribute('transform', 'rotate(0 115 88)');
           v.textContent = 'sin IMU';
           v.style.color = '#D0504A';
           return;
         }
-        var roll = +imu.roll_deg || 0;
-        if (rl.invert) roll = -roll;
+        var roll = +s.roll_degrees || 0;
         var ang = Math.max(-30, Math.min(30, roll));
         g.setAttribute('transform', 'rotate(' + ang.toFixed(1) + ' 115 88)');
         v.textContent = (roll > 0 ? '+' : '') + roll.toFixed(1) + '°';
         v.style.color = '';
       })
-      .catch(function () { /* ECU ocupada: queda el último cuadro */ });
+      .catch(function () { /* motor ocupado: queda el último cuadro */ });
   }
   function rollLiveStart() {
     if (rollLiveTimer) return;
@@ -1441,6 +1441,13 @@
     } catch (e) { setEstado('Sin conexión: ' + e.message, 'err'); }
   }
   document.getElementById('btnRollZero').addEventListener('click', function () { rollAccion('zero'); });
+  // Tocar el TRACTOR también pone el cero (con la máquina nivelada) — es el
+  // gesto natural: "está derecho, marcalo así" (pedido 2026-08-10).
+  var svgTractor = document.getElementById('rollTractorSvg');
+  if (svgTractor) {
+    svgTractor.style.cursor = 'pointer';
+    svgTractor.addEventListener('click', function () { rollAccion('zero'); });
+  }
   document.getElementById('btnRollRemove').addEventListener('click', function () { rollAccion('quitar'); });
   document.getElementById('btnRollUp').addEventListener('click', function () { rollAccion('subir'); });
   document.getElementById('btnRollDown').addEventListener('click', function () { rollAccion('bajar'); });
