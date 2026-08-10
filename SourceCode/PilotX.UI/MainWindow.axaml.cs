@@ -3994,7 +3994,11 @@ public partial class MainWindow : Window
             _guiasHttp = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(6) };
             _guiasHost.Attach(_guiasHttp, DeriveOrigin(App.TargetUrl));
         }
-        _guiasHost.Abrir();
+        // Directo al LISTADO cuando el lote ya tiene guías guardadas (pedido
+        // 2026-08-10: "las guías guardadas deberían aparecer en un listado
+        // cuando las hay"). Sin guías cae al menú de crear, como siempre; y
+        // desde la lista se vuelve al menú con "Nueva guía".
+        _guiasHost.Abrir(directoALista: true);
     }
 
     private System.Net.Http.HttpClient? _guiasHttp;
