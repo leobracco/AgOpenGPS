@@ -160,6 +160,29 @@ public sealed class MapPanel : Grid
         _relojSnap.Restart();       // frescura de los datos, para el watchdog
         _skia?.OnSnapshot(snap);
         _gl?.OnSnapshot(snap);
+        EmpujarMarcasGiro(_skia, _gl, snap);
+    }
+
+    /// <summary>
+    /// Marcas de "Marcar giro" (turn_marks del state) a la surface activa.
+    /// No hay cache propio: viajan DENTRO del HudSnapshot, así que las
+    /// re-empuja cada tick del HudPoller y RehacerSurface las recupera de
+    /// _ultimoSnap — a diferencia de _ultimoShape, que llega por otro poller.
+    /// </summary>
+    private static void EmpujarMarcasGiro(MapSkiaSurface? skia, MapGlSurface? gl, HudSnapshot snap)
+    {
+        var marcas = System.Array.Empty<(double e, double n, double heading)>();
+        if (snap.TurnMarks != null && snap.TurnMarks.Count > 0)
+        {
+            marcas = new (double, double, double)[snap.TurnMarks.Count];
+            for (int i = 0; i < snap.TurnMarks.Count; i++)
+            {
+                var m = snap.TurnMarks[i];
+                marcas[i] = (m.E, m.N, m.Heading);
+            }
+        }
+        skia?.SetTurnMarks(marcas);
+        gl?.SetTurnMarks(marcas);
     }
 
     // ---- watchdog -------------------------------------------------------
@@ -301,7 +324,14 @@ public sealed class MapPanel : Grid
         if (_spImpl != null) nueva.SetImplementSprite(_spImpl, _spImplW, _spImplH);
         if (_spPiso != null) nueva.SetFloorTexture(_spPiso, _spPisoW, _spPisoH);
         nueva.SetLightbarVisible(_lightbarOn);
-        if (_ultimoSnap != null) nueva.OnSnapshot(_ultimoSnap);
+        if (_ultimoSnap != null)
+        {
+            nueva.OnSnapshot(_ultimoSnap);
+            // Las marcas de giro viajan en el snapshot: no hace falta cache
+            // aparte, pero sí re-empujarlas ya — sin esto quedaban invisibles
+            // hasta el próximo tick del poller (~250 ms de línea faltante).
+            EmpujarMarcasGiro(null, nueva, _ultimoSnap);
+        }
         // La prescripción NO vuelve sola: su poller solo re-empuja cuando la
         // clave cambia, y recrear la surface no cambia ninguna clave. Sin esto,
         // tras una recreación del GL el shape desaparecía del mapa sin error —

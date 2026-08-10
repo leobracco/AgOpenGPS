@@ -38,6 +38,11 @@ public sealed class MapSkiaSurface : Control
     private ToolGeometrySnapshot? _tool;
     private TramGeometrySnapshot? _tram;
 
+    // Marcas de "Marcar giro" (0..2): cada una se dibuja como una línea de
+    // ±500 m perpendicular al rumbo de la guía, centrada en (e,n).
+    private IReadOnlyList<(double e, double n, double heading)> _turnMarks =
+        Array.Empty<(double, double, double)>();
+
     // ---- latido -----------------------------------------------------------
     // Mismo latido que MapGlSurface. Sin esto, pasar el default a Skia sería a
     // ciegas: "el mapa anda" no es una observación, es una impresión. Acá el
@@ -109,6 +114,10 @@ public sealed class MapSkiaSurface : Control
     private static readonly Pen TractorPen  = new Pen(TractorEdge, 1.5);
     private static readonly Pen GuidancePen = new Pen(GuidanceBrush, 2.0);
     private static readonly Pen TramPen     = new Pen(TramBrush, 2.0);
+    // Marcas de giro: mismo naranja #FF9E1B alpha 0.9 que ColTurnMark en GL,
+    // para que el toggle gl on/off no cambie la semántica visual.
+    private static readonly Pen TurnMarkPen = new Pen(
+        new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0x9E, 0x1B)), 2.5);
 
     public void OnSnapshot(HudSnapshot snap)
     {
@@ -132,6 +141,14 @@ public sealed class MapSkiaSurface : Control
     public void OnTram(TramGeometrySnapshot snap)
     {
         _tram = snap;
+        InvalidateVisual();
+    }
+
+    /// <summary>Push de las marcas de "Marcar giro" desde UI thread
+    /// (MapPanel las saca del mismo HudSnapshot del poller).</summary>
+    public void SetTurnMarks(IReadOnlyList<(double e, double n, double heading)> marks)
+    {
+        _turnMarks = marks ?? Array.Empty<(double, double, double)>();
         InvalidateVisual();
     }
 
@@ -245,6 +262,18 @@ public sealed class MapSkiaSurface : Control
                     pen:  i == 0 ? BoundaryPen : IslandPen,
                     fill: i > 0 ? IslandFill   : null);
             }
+        }
+
+        // Marcas de "Marcar giro": una línea de ±500 m perpendicular al rumbo
+        // de la guía por cada marca. heading AOG: 0 = norte, crece horario →
+        // perpendicular = (cos h, -sin h) en el plano E/N (idem MapGlSurface).
+        foreach (var m in _turnMarks)
+        {
+            const double half = 500.0;
+            double px = Math.Cos(m.heading), py = -Math.Sin(m.heading);
+            ctx.DrawLine(TurnMarkPen,
+                Project(m.e - px * half, m.n - py * half),
+                Project(m.e + px * half, m.n + py * half));
         }
 
         DrawTool(ctx, Project);

@@ -123,6 +123,11 @@ public sealed class HudSnapshot
     /// es una tira abierta que crece, no un anillo confirmado.</summary>
     public List<FieldPoint>? BoundaryBeingMade { get; set; }
 
+    /// <summary>Marcas de "Marcar giro" (turn_marks del state, 0..2). Cada una
+    /// es un punto (E,N) + el rumbo de la GUÍA al marcar; la línea que se
+    /// dibuja en el mapa es PERPENDICULAR a ese rumbo, centrada en el punto.</summary>
+    public List<TurnMarkPoint>? TurnMarks { get; set; }
+
     // ---- Datos del lote (consumidos por FieldDataPanel nativo) ----------
     public string? CurrentFieldDirectory { get; set; }
     public int NumSections { get; set; }
@@ -138,6 +143,16 @@ public sealed class FieldPoint
 {
     public double E { get; set; }
     public double N { get; set; }
+}
+
+/// <summary>Marca de giro: punto (E,N) en metros locales + rumbo de la guía
+/// (rad, 0 = norte, horario). Mismo mapeo snake_case que FieldPoint: la
+/// política SnakeCaseLower lleva E/N/Heading → e/n/heading del servidor.</summary>
+public sealed class TurnMarkPoint
+{
+    public double E { get; set; }
+    public double N { get; set; }
+    public double Heading { get; set; }
 }
 
 public sealed class HudPoller : IDisposable

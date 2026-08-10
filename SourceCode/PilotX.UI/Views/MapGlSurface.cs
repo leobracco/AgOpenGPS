@@ -169,6 +169,13 @@ public sealed class MapGlSurface : OpenGlControlBase
     // que el marcador del tractor y el indicador de XTE.
     private List<FlagPoint> _flags = new();
 
+    // ---- marcas de "Marcar giro" ---------------------------------------
+    // 0..2 marcas: cada una se dibuja como UNA línea perpendicular al rumbo
+    // de la guía, centrada en (e,n). Igual que las banderas: lista chica,
+    // se arma con el scratch y se sube por frame.
+    private IReadOnlyList<(double e, double n, double heading)> _turnMarks =
+        Array.Empty<(double, double, double)>();
+
     // ---- tool / sections (Stage 4a) ------------------------------------
     // Cada seccion = un segmento Left↔Right en coords mundo. Coloreamos
     // segun estado: gris (off), verde (auto + mapping), rojo (auto + NO
@@ -332,6 +339,9 @@ public sealed class MapGlSurface : OpenGlControlBase
     // (#B478FF).
     private static readonly float[] ColPathsYouTurn  = { 1.000f, 0.620f, 0.106f, 1f }; // #FF9E1B naranja
     private static readonly float[] ColPathsRecorded = { 0.706f, 0.470f, 1.000f, 1f }; // #B478FF violeta
+    // Marcas de "Marcar giro": misma familia naranja que el path del U-turn
+    // (las marcas dicen DÓNDE dobla, el path dice CÓMO dobla).
+    private static readonly float[] ColTurnMark      = { 1.000f, 0.620f, 0.106f, 0.9f }; // #FF9E1B alpha 0.9
 
     // Shaders: el MISMO cuerpo sirve para desktop GL 3.30 core y GL ES 3.00;
     // solo cambia el preludio (#version + precision). Avalonia en Windows
@@ -731,6 +741,18 @@ public sealed class MapGlSurface : OpenGlControlBase
     public void OnFlags(List<FlagPoint> flags)
     {
         _flags = flags ?? new List<FlagPoint>();
+        Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Push de las marcas de "Marcar giro" desde UI thread (MapPanel las saca
+    /// del mismo HudSnapshot del poller). Mismo patrón que OnFlags: guardar
+    /// la lista y pedir frame por el dispatcher — nunca cross-thread.
+    /// </summary>
+    public void SetTurnMarks(IReadOnlyList<(double e, double n, double heading)> marks)
+    {
+        if (_apagada) return;
+        _turnMarks = marks ?? Array.Empty<(double, double, double)>();
         Dispatcher.UIThread.Post(RequestNextFrameRendering, DispatcherPriority.Background);
     }
 
@@ -1256,6 +1278,14 @@ public sealed class MapGlSurface : OpenGlControlBase
             // viejo que pase por al lado.
             if (snap.BoundaryBeingMade != null && snap.BoundaryBeingMade.Count > 0)
                 DrawLinderoEnCurso(snap.BoundaryBeingMade, scale);
+
+            // --- Capa 3b2: marcas de "Marcar giro" -----------------------
+            // Cada marca es UNA línea de ±500 m PERPENDICULAR al rumbo de la
+            // guía, centrada en el punto marcado: ahí dobla el U-turn aunque
+            // el lote no tenga lindero. heading AOG: 0 = norte, crece horario
+            // → adelante = (sin h, cos h), perpendicular = (cos h, -sin h).
+            if (_turnMarks.Count > 0 && !App.DiagSinGeometria)
+                DrawTurnMarks();
 
             // --- Capa 3c: banderas del operario -----------------------------
             // Van después del lindero y antes del tractor: son referencias
@@ -2709,6 +2739,26 @@ public sealed class MapGlSurface : OpenGlControlBase
             _scratch[k++] = izq; _scratch[k++] = arr;
         }
         UploadAndDraw(PrimitiveType.Triangles, n * 6, ColLinderoRecPto);
+    }
+
+    /// <summary>
+    /// Marcas de "Marcar giro": un segmento por marca, extremos =
+    /// (e,n) ± 500 m en la perpendicular al heading de la guía. Mismo patrón
+    /// que DrawAbCreation: scratch + UploadAndDraw, sin glLineWidth (el ancho
+    /// default es el que usan lindero y AB — los drivers lo capean igual).
+    /// </summary>
+    private void DrawTurnMarks()
+    {
+        if (_gl == null) return;
+        const double half = 500.0; // media longitud de la línea (m)
+        foreach (var m in _turnMarks)
+        {
+            double px = Math.Cos(m.heading), py = -Math.Sin(m.heading);
+            EnsureScratch(4);
+            _scratch[0] = (float)(m.e - px * half); _scratch[1] = (float)(m.n - py * half);
+            _scratch[2] = (float)(m.e + px * half); _scratch[3] = (float)(m.n + py * half);
+            UploadAndDraw(PrimitiveType.Lines, 2, ColTurnMark);
+        }
     }
 
     // ---- prescripción (.shp) ----------------------------------------------
