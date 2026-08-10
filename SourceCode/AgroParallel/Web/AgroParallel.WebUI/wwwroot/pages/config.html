@@ -886,8 +886,29 @@
             </div>
           </div>
           <div class="carta">
-            <h2>Ayuda</h2>
-            <img loading="lazy" src="../img/config/ConD_RollHelper.png" alt="" style="max-width:100%" />
+            <!-- Tractor visto DE ATRÁS que copia el rolido del IMU en vivo
+                 (pedido 2026-08-10, prueba D9): la convención queda a la
+                 vista — inclinado a la DERECHA = POSITIVO. El giro del dibujo
+                 respeta el toggle "Invertir rolido" para verificarlo al toque. -->
+            <h2>Tractor visto de atrás (en vivo)</h2>
+            <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+              <svg id="rollTractorSvg" width="230" height="120" viewBox="0 0 230 120" style="flex:none">
+                <line x1="8" y1="98" x2="222" y2="98" stroke="#C5CFC5" stroke-width="1.5" stroke-dasharray="5 5"/>
+                <g id="rollTractorG" transform="rotate(0 115 88)">
+                  <rect x="64"  y="60" width="24" height="28" rx="4" fill="#101612"/>
+                  <rect x="142" y="60" width="24" height="28" rx="4" fill="#101612"/>
+                  <rect x="60"  y="50" width="110" height="15" rx="4" fill="#4ABA3E"/>
+                  <rect x="86"  y="16" width="58" height="38" rx="6" fill="#4ABA3E"/>
+                  <rect x="94"  y="22" width="42" height="18" rx="3" fill="#FFFFFF"/>
+                </g>
+              </svg>
+              <div>
+                <div style="font-size:11px; font-weight:700; color:#535E54; text-transform:uppercase; letter-spacing:.4px">Rolido en vivo</div>
+                <div id="rollLiveVal" style="font-size:32px; font-weight:800; font-variant-numeric:tabular-nums">—</div>
+                <div class="nota">− izquierda · derecha +</div>
+              </div>
+            </div>
+            <p class="nota" style="margin-top:8px">Inclinado a la <b>derecha</b> = número <b>positivo</b>. Si el dibujo se inclina al revés de la máquina, activá <b>Invertir rolido</b> (el dibujo lo refleja al toque). Con el tractor en piso nivelado, poné el cero.</p>
           </div>
         </div>
       </section>

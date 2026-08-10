@@ -110,10 +110,6 @@ public sealed class DireccionPanel : Border
     private readonly Border _wasFillDer;
     private readonly TextBlock _wasAng;
 
-    // tractor visto de atrás que se inclina con el rolido del IMU (D9):
-    // derecha abajo = POSITIVO. Vive en la pestaña Módulo, junto al eje X/Y.
-    private RotateTransform? _rollRot;
-    private TextBlock? _rollTxt;
 
     // Fuerza
     private readonly TextBlock _valPwmMin  = Num("—");
@@ -402,7 +398,6 @@ public sealed class DireccionPanel : Border
             new[] { ("X", "X"), ("Y", "Y") },
             "En qué eje quedó montada la placa del IMU. Si el rolido aparece como cabeceo (o al " +
             "revés), cambiá el eje."));
-        _scModulo.Children.Add(ArmarVisorRolido());
         _scModulo.Children.Add(FilaToggle("Invertir relés", "invert_relays",
             "Invierte la lógica de los relés de sección (activo-alto ↔ activo-bajo). Solo si el corte de secciones anda al revés."));
         _scModulo.Children.Add(SubTituloAyuda("Corte al agarrar el volante (uno solo)",
@@ -670,117 +665,9 @@ public sealed class DireccionPanel : Border
         // Estado del manejo libre mientras está prendido (ve el apagado solo).
         if (_fdOn) await FdRefrescar();
 
-        // Rolido del IMU para el tractorcito (solo con la pestaña Módulo a la
-        // vista — no vale la pena pegarle al proxy del ECU si no se ve).
-        if (_scModulo.IsVisible && _rollRot != null && _rollTxt != null)
-        {
-            try
-            {
-                var body = await _http.GetStringAsync(_base + "/api/corex-ecu/status");
-                var j = JsonNode.Parse(body.TrimStart('﻿')) as JsonObject;
-                var imu = j?["imu"] as JsonObject;
-                bool present = imu?["present"]?.GetValue<bool>() ?? false;
-                if (present)
-                {
-                    double roll = 0;
-                    try { roll = imu?["roll_deg"]?.GetValue<double>() ?? 0; } catch { }
-                    // derecha abajo = positivo → rotación horaria del dibujo
-                    _rollRot.Angle = Math.Max(-30, Math.Min(30, roll));
-                    _rollTxt.Text = (roll > 0 ? "+" : "") + roll.ToString("F1", CultureInfo.InvariantCulture) + "°";
-                    _rollTxt.Foreground = Texto;
-                }
-                else
-                {
-                    _rollRot.Angle = 0;
-                    _rollTxt.Text = "sin IMU";
-                    _rollTxt.Foreground = Rojo;
-                }
-            }
-            catch { /* ECU ocupada: queda el último valor */ }
-        }
     }
 
     // ---- render ------------------------------------------------------------------
-
-    /// <summary>Tractor visto DE ATRÁS que se inclina en vivo con el rolido
-    /// del IMU (D9). Convención a la vista: derecha abajo = POSITIVO. Si el
-    /// dibujo va al revés de la máquina, se cambia el eje X/Y acá arriba.</summary>
-    private Control ArmarVisorRolido()
-    {
-        // dibujo simple con shapes: piso de referencia + cuerpo + cabina + ruedas
-        var lienzo = new Canvas { Width = 220, Height = 104 };
-
-        var piso = new Avalonia.Controls.Shapes.Line
-        {
-            StartPoint = new Point(6, 88), EndPoint = new Point(214, 88),
-            Stroke = TextoMuted, StrokeThickness = 1,
-            StrokeDashArray = new Avalonia.Collections.AvaloniaList<double> { 4, 4 },
-        };
-        lienzo.Children.Add(piso);
-
-        var tractor = new Canvas { Width = 120, Height = 78 };
-        Canvas.SetLeft(tractor, 50);
-        Canvas.SetTop(tractor, 12);
-        _rollRot = new RotateTransform(0);
-        tractor.RenderTransform = _rollRot;
-        tractor.RenderTransformOrigin = new RelativePoint(0.5, 0.85, RelativeUnit.Relative);
-
-        void Rect(double x, double y, double w, double h, IBrush b, double rad = 3)
-        {
-            var r = new Avalonia.Controls.Shapes.Rectangle
-            {
-                Width = w, Height = h, Fill = b, RadiusX = rad, RadiusY = rad,
-            };
-            Canvas.SetLeft(r, x); Canvas.SetTop(r, y);
-            tractor.Children.Add(r);
-        }
-        Rect(14, 50, 22, 26, Texto, 4);        // rueda izquierda
-        Rect(84, 50, 22, 26, Texto, 4);        // rueda derecha
-        Rect(10, 40, 100, 14, Verde, 4);       // eje/cuerpo
-        Rect(34, 8, 52, 36, Verde, 6);         // cabina
-        Rect(42, 14, 36, 16, BgCard, 3);       // vidrio
-
-        lienzo.Children.Add(tractor);
-
-        _rollTxt = new TextBlock
-        {
-            Text = "—", FontSize = 18, FontWeight = FontWeight.Bold, Foreground = Texto,
-            MinWidth = 76, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        var fila = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), Margin = new Thickness(0, 6, 0, 0) };
-        var marco = new Border
-        {
-            Child = lienzo, Background = BgCard, BorderBrush = Borde,
-            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(4),
-        };
-        Grid.SetColumn(marco, 0);
-        var centro = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
-        centro.Children.Add(new TextBlock
-        {
-            Text = "ROLIDO (visto de atrás)", FontSize = 10.5, FontWeight = FontWeight.Bold,
-            Foreground = TextoMuted,
-        });
-        centro.Children.Add(_rollTxt);
-        centro.Children.Add(new TextBlock
-        {
-            Text = "− izquierda · derecha +", FontSize = 11, Foreground = TextoMuted,
-        });
-        Grid.SetColumn(centro, 1);
-        var chip = ChipAyuda("Rolido del IMU (tractor de atrás)",
-            "El dibujo copia EN VIVO lo que el IMU cree del tractor, visto desde atrás. La regla: " +
-            "inclinado a la DERECHA = número POSITIVO. Prueba: inclina la placa (o el tractor) a la " +
-            "derecha — el dibujo tiene que caer a la derecha y el valor ser positivo. Si va al revés " +
-            "o aparece como cabeceo, cambiá el eje X/Y de arriba y volvé a probar. El cero fino del " +
-            "rolido se hace en Configuración → Rolido (con el tractor en piso nivelado).");
-        chip.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(chip, 2);
-        fila.Children.Add(marco);
-        fila.Children.Add(centro);
-        fila.Children.Add(chip);
-        return fila;
-    }
 
     /// <summary>Vúmetro del ángulo en vivo (pestaña Sensor): la barra se llena
     /// desde el centro hacia el lado del giro. Escala = ángulo máximo config.</summary>

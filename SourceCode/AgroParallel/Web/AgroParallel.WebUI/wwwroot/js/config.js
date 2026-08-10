@@ -1366,6 +1366,46 @@
       imuPresente === false ? '***' : (Math.round(v * 100) / 100).toFixed(2);
   }
 
+  // Tractor de atrás EN VIVO (D9): pollea el rolido crudo del IMU del
+  // CoreX-ECU a 2 Hz mientras la pestaña Rolido está a la vista. El signo
+  // mostrado respeta el toggle "Invertir rolido" de esta misma pantalla, así
+  // el operario verifica al toque que el dibujo copie a la máquina.
+  var rollLiveTimer = null;
+  function rollLivePoll() {
+    fetch('/api/corex-ecu/status', { cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        var g = document.getElementById('rollTractorG');
+        var v = document.getElementById('rollLiveVal');
+        if (!g || !v) return;
+        var imu = (s && s.imu) || {};
+        if (!s || s.ok === false || !imu.present) {
+          g.setAttribute('transform', 'rotate(0 115 88)');
+          v.textContent = 'sin IMU';
+          v.style.color = '#D0504A';
+          return;
+        }
+        var roll = +imu.roll_deg || 0;
+        if (rl.invert) roll = -roll;
+        var ang = Math.max(-30, Math.min(30, roll));
+        g.setAttribute('transform', 'rotate(' + ang.toFixed(1) + ' 115 88)');
+        v.textContent = (roll > 0 ? '+' : '') + roll.toFixed(1) + '°';
+        v.style.color = '';
+      })
+      .catch(function () { /* ECU ocupada: queda el último cuadro */ });
+  }
+  function rollLiveStart() {
+    if (rollLiveTimer) return;
+    rollLivePoll();
+    rollLiveTimer = setInterval(function () {
+      if (document.visibilityState === 'hidden') return;
+      rollLivePoll();
+    }, 500);
+  }
+  function rollLiveStop() {
+    if (rollLiveTimer) { clearInterval(rollLiveTimer); rollLiveTimer = null; }
+  }
+
   tabs.roll = {
     enter: function () {
       var z = snap.rolido;
@@ -1375,8 +1415,10 @@
       document.getElementById('rollFilterPct').textContent = z.roll_filter + '%';
       document.getElementById('rollInvert').classList.toggle('sel', rl.invert);
       rl.dirty = false;
+      rollLiveStart();
     },
     leave: function () {
+      rollLiveStop();
       if (!rl.dirty) return Promise.resolve(true);
       rl.dirty = false;
       return guardar('rolido', {
