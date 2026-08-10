@@ -329,16 +329,31 @@ namespace AgOpenGPS
             }
 
             // 4) Con lindero real: la marca solo ACERCA la cabecera. Se recorta
-            // la turnLine del lindero 0 con el semiplano de cada marca,
-            // quedándose con el lado donde está el centro del lote (centroide
-            // del fence real: determinista, no depende de dónde esté parado el
-            // tractor al abrir el lote).
+            // la turnLine del lindero 0 con el semiplano de cada marca. El lado
+            // a conservar es EL DE ENTRE LAS MARCAS (punto medio): la zona de
+            // trabajo es lo que el operario acotó marcando los dos extremos.
+            // Con el centroide del lote esto fallaba en el banco (2026-08-10):
+            // dos marcas cercanas a un borde dejaban al tractor AFUERA del área
+            // de giro recortada — IsPointInsideTurnArea daba -1 y el U-turn no
+            // se armaba nunca ("llega a la línea y no dobla"). Con UNA sola
+            // marca no hay "entre": ahí sí vale el centroide del fence real
+            // (determinista, no depende de dónde esté parado el tractor).
             var fence = Bnd.bndList[0].fenceLine;
             if (fence == null || fence.Count < 3) return;
 
-            double ce = 0, cn = 0;
-            for (int i = 0; i < fence.Count; i++) { ce += fence[i].easting; cn += fence[i].northing; }
-            var centroLote = new vec2(ce / fence.Count, cn / fence.Count);
+            vec2 centroLote;
+            if (TurnMarks.Count >= 2)
+            {
+                centroLote = new vec2(
+                    (TurnMarks[0].easting + TurnMarks[1].easting) / 2.0,
+                    (TurnMarks[0].northing + TurnMarks[1].northing) / 2.0);
+            }
+            else
+            {
+                double ce = 0, cn = 0;
+                for (int i = 0; i < fence.Count; i++) { ce += fence[i].easting; cn += fence[i].northing; }
+                centroLote = new vec2(ce / fence.Count, cn / fence.Count);
+            }
 
             int marcasAplicadas = 0;
             foreach (var m in TurnMarks)
@@ -369,6 +384,13 @@ namespace AgOpenGPS
 
             if (marcasAplicadas > 0)
                 Log.EventWriter($"GuidanceEngine: linea de giro del lindero recortada con {marcasAplicadas} marca(s)");
+
+            // Diagnóstico de cabina: si el tractor quedó fuera del área de giro
+            // recién recortada, el updater del U-turn (IsPointInsideTurnArea)
+            // no va a armar NADA y "llega a la línea y no dobla" sin ninguna
+            // pista. Que quede dicho en el log.
+            if (marcasAplicadas > 0 && Bnd.IsPointInsideTurnArea(pivotAxlePos) == -1)
+                Log.EventWriter("GuidanceEngine: OJO — el tractor esta FUERA del area de giro que quedo tras el recorte; el U-turn no arma hasta entrar entre las marcas");
         }
     }
 }
