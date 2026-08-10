@@ -1454,8 +1454,16 @@
   document.getElementById('btnResetImu').addEventListener('click', function () { rollAccion('reset_imu'); });
   document.getElementById('rollInvert').addEventListener('click', function () {
     rl.invert = !rl.invert;
-    rl.dirty = true;
     document.getElementById('rollInvert').classList.toggle('sel', rl.invert);
+    // Se aplica AL TOQUE (no al salir de la tab): la calibración es visual —
+    // el operario invierte y mira el tractorcito; dejarlo "sucio" hasta
+    // Guardar rompía el flujo (reporte 2026-08-10). El filtro sigue con el
+    // guardado normal (no es interactivo).
+    rl.dirty = false;
+    guardar('rolido', {
+      roll_filter: +document.getElementById('hsbarRollFilter').value,
+      invert_roll: rl.invert
+    }, 'Rolido ' + (rl.invert ? 'invertido' : 'normal') + ' ✔');
   });
   document.getElementById('hsbarRollFilter').addEventListener('input', function () {
     rl.dirty = true;
