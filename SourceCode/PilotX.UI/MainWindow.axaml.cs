@@ -350,6 +350,7 @@ public partial class MainWindow : Window
         if (_guiasHost != null)
         {
             _guiasHost.CrearAbPedido += StartAbCreate;
+            _guiasHost.Aviso += MostrarToast;
             _guiasHost.Cerrado += () =>
             {
                 // Igual que al cerrar el diálogo HTML: replegar el menú.

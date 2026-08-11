@@ -62,6 +62,11 @@ public sealed class GuiasPanel : Border
 
     /// <summary>El operario cerró el panel (cualquier pantalla).</summary>
     public event Action? Cerrado;
+
+    /// <summary>Aviso corto para el operario (lo muestra MainWindow como
+    /// toast). Nació con el OK del listado: "no sé si hizo algo" era un
+    /// reporte de banco (2026-08-11).</summary>
+    public event Action<string>? Aviso;
     /// <summary>Eligió "AB": el host arranca el flujo nativo del mapa.</summary>
     public event Action? CrearAbPedido;
 
@@ -76,6 +81,7 @@ public sealed class GuiasPanel : Border
     {
         [JsonPropertyName("tracks")] public List<TrackDto>? Tracks { get; set; }
         [JsonPropertyName("selected_idx")] public int SelectedIdx { get; set; } = -1;
+        [JsonPropertyName("active_idx")] public int ActiveIdx { get; set; } = -1;
     }
 
     private EstadoDto _estado = new();
@@ -275,7 +281,33 @@ public sealed class GuiasPanel : Border
             RefrescarLista();
         }));
         colDer.Children.Add(BotonIcono("AddNew.png", "Nueva guía",             () => Mostrar("menu")));
-        colDer.Children.Add(BotonIcono("OK64.png",   "Usar guía seleccionada", async () => { await PostAsync("/use"); Cerrar(); }));
+        colDer.Children.Add(BotonIcono("OK64.png",   "Usar guía seleccionada", async () =>
+        {
+            if (!HayGuias)
+            {
+                // /use sin guías desactiva la guía y puede apagar el piloto:
+                // con la lista vacía el tilde no tiene nada que confirmar.
+                Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No hay guías para activar"));
+                return;
+            }
+            await PostAsync("/use");
+            // /use devuelve solo {ok} — refrescar el estado para saber QUÉ
+            // guía quedó activa y decírselo al operario: que el tilde nunca
+            // deje la duda de si hizo algo.
+            await CargarEstadoAsync();
+            var act = _estado.ActiveIdx;
+            var ts = _estado.Tracks;
+            if (act >= 0 && ts != null && act < ts.Count)
+            {
+                string n = string.IsNullOrWhiteSpace(ts[act].Name) ? ("Guía " + (act + 1)) : ts[act].Name!;
+                Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("Guía activada") + ": " + n);
+            }
+            else
+            {
+                Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No se pudo activar la guía"));
+            }
+            Cerrar();
+        }));
         Grid.SetColumn(colDer, 2);
 
         g.Children.Add(colIzq);

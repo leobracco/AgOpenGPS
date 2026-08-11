@@ -350,6 +350,18 @@
     "en": "Turn mark set · a mark from another guidance line was removed",
     "pt": "Marca de giro colocada · removida uma marca de outra guia"
   },
+  "Guía activada": {
+    "en": "Guidance line activated",
+    "pt": "Guia ativada"
+  },
+  "No hay guías para activar": {
+    "en": "No guidance lines to activate",
+    "pt": "Não há guias para ativar"
+  },
+  "No se pudo activar la guía": {
+    "en": "Could not activate the guidance line",
+    "pt": "Não foi possível ativar a guia"
+  },
   "Marcar giro: línea perpendicular a la guía acá, el giro automático dobla ahí": {
     "en": "Mark turn: a line perpendicular to the guidance line here, the auto U-turn turns there",
     "pt": "Marcar giro: linha perpendicular à guia aqui, o giro automático vira ali"

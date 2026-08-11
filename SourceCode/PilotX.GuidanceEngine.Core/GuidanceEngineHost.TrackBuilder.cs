@@ -225,47 +225,54 @@ namespace AgOpenGPS
         // ── Close Use ───────────────────────────────────────────────────
         public void TrkBuilder_CloseUse()
         {
-            CurveField.isCurveValid = false;
-            ABLineField.isABValid = false;
             CurveField.desList?.Clear();
 
             if (Yt.isYouTurnBtnOn) ToggleYouTurn();
 
             SaveTracks();
 
-            if (trkBuilderSelIdx > -1 && Trk.gArr.Count > 0
-                && trkBuilderSelIdx < Trk.gArr.Count
+            // Elegir el track destino y ASIGNAR Trk.idx ANTES de invalidar la
+            // línea. El orden viejo (invalidar → SaveTracks lento → recién ahí
+            // idx) dejaba una ventana en la que el pipeline de posición
+            // reconstruía la línea desde el track ANTERIOR y la marcaba válida
+            // — el OK del listado "no abría nada" aunque el índice cambiara
+            // después (banco 2026-08-11). CycleTrack, el camino que sí andaba,
+            // hace exactamente esto: primero idx, después invalidar.
+            int destino = -1;
+            if (trkBuilderSelIdx > -1 && trkBuilderSelIdx < Trk.gArr.Count
                 && Trk.gArr[trkBuilderSelIdx].isVisible)
             {
-                Trk.idx = trkBuilderSelIdx;
-                Yt.ResetYouTurn();
-            }
-            else if (Trk.gArr.Count > 0)
-            {
-                bool found = false;
-                for (int i = 0; i < Trk.gArr.Count; i++)
-                {
-                    if (Trk.gArr[i].isVisible)
-                    {
-                        Trk.idx = i;
-                        Yt.ResetYouTurn();
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    Trk.idx = -1;
-                    Yt.isYouTurnBtnOn = false;
-                    Yt.ResetYouTurn();
-                    if (isBtnAutoSteerOn) ((IAutoSteerHost)this).PerformAutoSteerClick();
-                }
+                destino = trkBuilderSelIdx;
             }
             else
             {
-                Trk.idx = -1;
+                // Sin selección: la primera guía visible. El tilde con el
+                // listado recién abierto tiene que activar ALGO, no cerrarse
+                // en silencio.
+                for (int i = 0; i < Trk.gArr.Count; i++)
+                {
+                    if (Trk.gArr[i].isVisible) { destino = i; break; }
+                }
+            }
+
+            Trk.idx = destino;
+            CurveField.isCurveValid = false;
+            ABLineField.isABValid = false;
+
+            if (destino > -1)
+            {
+                Yt.ResetYouTurn();
+                Log.EventWriter(string.Format(CultureInfo.InvariantCulture,
+                    "GuidanceEngine: tracks/use activo la guia [{0}] '{1}' (seleccion={2})",
+                    destino, Trk.gArr[destino].name, trkBuilderSelIdx));
+            }
+            else
+            {
                 Yt.isYouTurnBtnOn = false;
                 Yt.ResetYouTurn();
+                if (Trk.gArr.Count > 0 && isBtnAutoSteerOn)
+                    ((IAutoSteerHost)this).PerformAutoSteerClick();
+                Log.EventWriter("GuidanceEngine: tracks/use sin guia visible para activar — guia desactivada");
             }
 
             trkBuilderBackup.Clear();
