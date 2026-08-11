@@ -612,7 +612,12 @@
                 polling redundante del estado AOG: se consume el HUD que
                 ya viene.
             -->
-            <vw:HubPanel x:Name="HubHost" Grid.Row="2" IsVisible="False"/>
+            <!-- Card flotante centrada, mapa VIVO detrás (antes era takeover
+                 de pantalla completa con el mapa apagado: "página negra",
+                 reporte 2026-08-11 — misma cura que CoreX-ECU). -->
+            <vw:HubPanel x:Name="HubHost" Grid.Row="2" IsVisible="False"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         MaxWidth="860" MaxHeight="620"/>
 
             <!-- =================== NODOS (overlay nativo, 12vo port) =================== -->
             <!--

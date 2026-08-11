@@ -2309,9 +2309,11 @@ public partial class MainWindow : Window
             _overlaysClient = new OverlaysClient(DeriveOrigin(App.TargetUrl));
         _hubHost.Attach(_nodosClient, _overlaysClient);
         _hubHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
-        if (_webViewBack != null) _webViewBack.IsVisible = true;
-        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Hub open (nativo home, no WebView)");
+        // Tarjeta flotante sobre el mapa VIVO — misma cura que CoreX-ECU
+        // (reporte 2026-08-07 "ventana gigante negra"). Antes apagaba el mapa
+        // y prendía el fondo de respaldo: el operario veía "una página negra"
+        // (reporte 2026-08-11). Regla de la casa: el mapa siempre se ve.
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Hub open (card nativa sobre mapa vivo)");
     }
 
     private void CloseHub()

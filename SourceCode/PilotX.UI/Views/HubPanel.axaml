@@ -1,7 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="PilotX.Desktop.Views.HubPanel"
-             Background="{StaticResource PilotXBgDeep}">
+             x:Class="PilotX.Desktop.Views.HubPanel">
     <!--
         HubPanel - reemplazo nativo de pages/hub.html (home del Hub).
         KPIs (velocidad/rumbo/dosis/secciones/posicion/lote) se actualizan
@@ -10,7 +9,16 @@
         NodosClient). Los toggles de widgets QX/VX/FX hablan a
         /api/overlays (FormGPS los relee cada 250ms desde JSON y aplica
         en caliente).
+
+        Card flotante (no takeover): el fondo vive en este Border con
+        bordes redondeados, y el mapa sigue vivo detrás — antes el
+        Background iba en el UserControl a pantalla completa y con el
+        mapa apagado era "una página negra" (reporte 2026-08-11).
     -->
+    <Border Background="{StaticResource PilotXBgDeep}"
+            BorderBrush="{StaticResource PilotXBorderHigh}" BorderThickness="1"
+            CornerRadius="14" ClipToBounds="True"
+            BoxShadow="0 8 26 0 #33101612">
     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="24,20,24,24" Spacing="16">
@@ -329,4 +337,5 @@
 
         </StackPanel>
     </ScrollViewer>
+    </Border>
 </UserControl>
