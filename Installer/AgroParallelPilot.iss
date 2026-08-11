@@ -236,7 +236,7 @@ end;
 // que pueda tener locks sobre los .exe/.dll. Incluye:
 //   - PilotX.exe (UI principal)
 //   - CoreX.exe (broker MQTT embebido en puerto 1883)
-//   - GPS_Out.exe / ModSim.exe (utilidades)
+//   - ModSim.exe (utilidades)
 //   - node.exe (servidores legacy de VistaX/OrbitX-Sync)
 // Si node.exe esta corriendo otra cosa que no sea AgroParallel, igualmente lo
 // matamos solo si su path contiene "AgroParallel" o "vistax" o "orbitx".
@@ -247,7 +247,6 @@ var
 begin
   Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM PilotX.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM CoreX.exe /T',      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM GPS_Out.exe /T',   '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM ModSim.exe /T',    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   // Servidores Node legacy (VistaX server, OrbitX-Sync) - solo si su ventana
   // tiene "vistax", "orbitx" o "agro" en el titulo (evita matar otros node)
@@ -273,8 +272,7 @@ begin
     // Mismo cleanup en uninstall
     Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM PilotX.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM CoreX.exe /T',      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM GPS_Out.exe /T',   '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  end;
+    end;
 end;
 
 // ---------------------------------------------------------------------------

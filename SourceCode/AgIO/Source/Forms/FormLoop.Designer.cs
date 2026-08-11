@@ -92,7 +92,6 @@ namespace AgIO
             this.lblPingMachine = new System.Windows.Forms.Label();
             this.label11 = new System.Windows.Forms.Label();
             this.btnMinimizeMainForm = new System.Windows.Forms.Button();
-            this.btnGPS_Out = new System.Windows.Forms.Button();
             this.cboxIsSteerModule = new System.Windows.Forms.CheckBox();
             this.cboxIsIMUModule = new System.Windows.Forms.CheckBox();
             this.cboxIsMachineModule = new System.Windows.Forms.CheckBox();
@@ -837,25 +836,6 @@ namespace AgIO
             this.btnMinimizeMainForm.UseVisualStyleBackColor = false;
             this.btnMinimizeMainForm.Click += new System.EventHandler(this.btnMinimizeMainForm_Click);
             // 
-            // btnGPS_Out
-            // 
-            this.btnGPS_Out.BackColor = System.Drawing.Color.Transparent;
-            this.btnGPS_Out.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.btnGPS_Out.FlatAppearance.BorderColor = System.Drawing.SystemColors.HotTrack;
-            this.btnGPS_Out.FlatAppearance.BorderSize = 0;
-            this.btnGPS_Out.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnGPS_Out.Font = new System.Drawing.Font("Tahoma", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnGPS_Out.ForeColor = System.Drawing.Color.Black;
-            this.btnGPS_Out.Image = global::AgIO.Properties.Resources.GPS_Out;
-            this.btnGPS_Out.ImeMode = System.Windows.Forms.ImeMode.NoControl;
-            this.btnGPS_Out.Location = new System.Drawing.Point(474, 415);
-            this.btnGPS_Out.Margin = new System.Windows.Forms.Padding(4);
-            this.btnGPS_Out.Name = "btnGPS_Out";
-            this.btnGPS_Out.Size = new System.Drawing.Size(89, 65);
-            this.btnGPS_Out.TabIndex = 523;
-            this.btnGPS_Out.UseVisualStyleBackColor = false;
-            this.btnGPS_Out.Click += new System.EventHandler(this.btnGPS_Out_Click);
-            // 
             // cboxIsSteerModule
             // 
             this.cboxIsSteerModule.Appearance = System.Windows.Forms.Appearance.Button;
@@ -1135,7 +1115,6 @@ namespace AgIO
             this.Controls.Add(this.label11);
             this.Controls.Add(this.lblPingMachine);
             this.Controls.Add(this.lblPing);
-            this.Controls.Add(this.btnGPS_Out);
             this.Controls.Add(this.label7);
             this.Controls.Add(this.lblCount);
             this.Controls.Add(this.lblStationID);
@@ -1271,7 +1250,6 @@ namespace AgIO
         private System.Windows.Forms.ToolStripMenuItem toolStripEthernet;
         private System.Windows.Forms.ToolStripMenuItem toolStripSerialMonitor;
         private System.Windows.Forms.ToolStripMenuItem toolStripUDPMonitor;
-        private System.Windows.Forms.Button btnGPS_Out;
         private System.Windows.Forms.Label lblPing;
         private System.Windows.Forms.Label lblPingMachine;
         private System.Windows.Forms.Label label11;

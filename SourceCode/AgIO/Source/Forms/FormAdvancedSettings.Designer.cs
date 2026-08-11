@@ -29,7 +29,6 @@
         private void InitializeComponent()
         {
             this.cboxStartMinimized = new System.Windows.Forms.CheckBox();
-            this.cboxAutoRunGPS_Out = new System.Windows.Forms.CheckBox();
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.btnClose = new System.Windows.Forms.Button();
@@ -51,24 +50,6 @@
             this.cboxStartMinimized.TabIndex = 530;
             this.cboxStartMinimized.UseVisualStyleBackColor = false;
             this.cboxStartMinimized.CheckedChanged += new System.EventHandler(this.cboxStartMinimized_CheckedChanged);
-            // 
-            // cboxAutoRunGPS_Out
-            // 
-            this.cboxAutoRunGPS_Out.Appearance = System.Windows.Forms.Appearance.Button;
-            this.cboxAutoRunGPS_Out.BackColor = System.Drawing.Color.Transparent;
-            this.cboxAutoRunGPS_Out.CheckAlign = System.Drawing.ContentAlignment.MiddleRight;
-            this.cboxAutoRunGPS_Out.FlatAppearance.CheckedBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(180)))), ((int)(((byte)(255)))), ((int)(((byte)(180)))));
-            this.cboxAutoRunGPS_Out.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.cboxAutoRunGPS_Out.Font = new System.Drawing.Font("Tahoma", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.cboxAutoRunGPS_Out.Image = global::AgIO.Properties.Resources.GPS_Out;
-            this.cboxAutoRunGPS_Out.ImageAlign = System.Drawing.ContentAlignment.MiddleRight;
-            this.cboxAutoRunGPS_Out.Location = new System.Drawing.Point(12, 189);
-            this.cboxAutoRunGPS_Out.Name = "cboxAutoRunGPS_Out";
-            this.cboxAutoRunGPS_Out.Size = new System.Drawing.Size(143, 128);
-            this.cboxAutoRunGPS_Out.TabIndex = 529;
-            this.cboxAutoRunGPS_Out.Text = "Auto\r\nRun";
-            this.cboxAutoRunGPS_Out.UseVisualStyleBackColor = false;
-            this.cboxAutoRunGPS_Out.CheckedChanged += new System.EventHandler(this.cboxAutoRunGPS_Out_CheckedChanged);
             // 
             // label1
             // 
@@ -112,7 +93,6 @@
             this.Controls.Add(this.label2);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.cboxStartMinimized);
-            this.Controls.Add(this.cboxAutoRunGPS_Out);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.Fixed3D;
             this.MaximumSize = new System.Drawing.Size(466, 461);
             this.MinimumSize = new System.Drawing.Size(466, 461);
@@ -126,7 +106,6 @@
 
         #endregion
 
-        private System.Windows.Forms.CheckBox cboxAutoRunGPS_Out;
         private System.Windows.Forms.CheckBox cboxStartMinimized;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label2;

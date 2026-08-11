@@ -27,11 +27,6 @@ namespace AgIO
 
         #region Buttons
 
-        private void btnGPS_Out_Click(object sender, EventArgs e)
-        {
-            StartGPS_Out();
-        }
-
         private void btnSlide_Click(object sender, EventArgs e)
         {
             if (this.Width < 600)
@@ -471,35 +466,6 @@ namespace AgIO
                 {
                     TimedMessageBox(2000, "No File Found", "Can't Find PilotX");
                     Log.EventWriter("Can't Find PilotX - File Not Found");
-                }
-            }
-            else
-            {
-                //Set foreground window
-                ShowWindow(processName[0].MainWindowHandle, 9);
-                SetForegroundWindow(processName[0].MainWindowHandle);
-            }
-        }
-
-        private void StartGPS_Out()
-        {
-            Process[] processName = Process.GetProcessesByName("GPS_Out");
-            if (processName.Length == 0)
-            {
-                //Start application here
-                string strPath = Path.Combine(Application.StartupPath, "GPS_Out.exe");
-
-                try
-                {
-                    ProcessStartInfo processInfo = new ProcessStartInfo();
-                    processInfo.FileName = strPath;
-                    processInfo.WorkingDirectory = Path.GetDirectoryName(strPath);
-                    Process proc = Process.Start(processInfo);
-                }
-                catch
-                {
-                    TimedMessageBox(2000, "No File Found", "Can't Find GPS_Out");
-                    Log.EventWriter("No File Found, Can't Find GPS_Out");
                 }
             }
             else

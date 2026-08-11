@@ -356,7 +356,6 @@ namespace AgIO
                 var s = Properties.Settings.Default;
                 return new
                 {
-                    AutoGpsOut = s.setDisplay_isAutoRunGPS_Out,
                     StartMinimized = s.setDisplay_StartMinimized,
                 };
             }).ConfigureAwait(false);
@@ -379,7 +378,6 @@ namespace AgIO
             await _form.RunOnUiAsync<object>(() =>
             {
                 var s = Properties.Settings.Default;
-                s.setDisplay_isAutoRunGPS_Out = req.AutoGpsOut;
                 s.setDisplay_StartMinimized = req.StartMinimized;
                 s.Save();
                 return null;
@@ -657,7 +655,6 @@ namespace AgIO
     // ── DTO de ajustes avanzados ─────────────────────────────────────────────
     internal sealed class AvanzadoRequest
     {
-        [JsonPropertyName("auto_gps_out")] public bool AutoGpsOut { get; set; }
         [JsonPropertyName("start_minimized")] public bool StartMinimized { get; set; }
     }
 

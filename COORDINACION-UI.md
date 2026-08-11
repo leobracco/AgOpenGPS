@@ -2001,3 +2001,9 @@ del JS queda por si otros hosts sí ven la navegación.
   Calcular lo usa como fuente; si la pantalla pierde el estado JS (WebView
   reciclado mientras se pesa/cuenta), el operario carga el numero del contador
   a mano y calcula igual. `data-cal="delta"` YA NO EXISTE. Bump quantix.js?v=15.
+- `[2026-08-11] [Claude]` perfil.html (seccion "Sistema"): saque el toggle
+  `chk-auto-gpsout` ("Iniciar salida GPS automaticamente") porque GPS_Out.exe
+  se elimino del repo (proyecto muerto del AOG upstream, junto con AgDiag,
+  WpfApp y WpfViews). El endpoint `/api/corex/config/avanzado` ya no acepta ni
+  devuelve `auto_gps_out`; queda solo `start_minimized`. `chk-start-min` sigue
+  igual. perfil.js actualizado en el mismo commit.

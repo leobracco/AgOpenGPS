@@ -289,12 +289,6 @@ namespace AgIO
                     + "defecto. Crear o cargar un perfil desde la web (:5181).");
             }
 
-            if (Settings.Default.setDisplay_isAutoRunGPS_Out)
-            {
-                StartGPS_Out();
-                Log.EventWriter("Run GPS_Out");
-            }
-
             // MQTT Broker — arranca automáticamente.
             StartMqttBroker();
 
@@ -319,12 +313,6 @@ namespace AgIO
 
             // Cierra loopback + UDP LAN (servicio portable).
             udpBridge.Stop();
-
-            Process[] processName = Process.GetProcessesByName("GPS_Out");
-            if (processName.Length != 0)
-            {
-                processName[0].CloseMainWindow();
-            }
 
             // MQTT Broker shutdown.
             StopMqttBroker();

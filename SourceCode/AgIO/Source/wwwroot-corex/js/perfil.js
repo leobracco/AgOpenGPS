@@ -197,7 +197,6 @@
 
   function lockAvanzado(locked) {
     $('chk-start-min').disabled = locked;
-    $('chk-auto-gpsout').disabled = locked;
   }
 
   function loadAvanzado() {
@@ -205,7 +204,6 @@
       .then(function (r) { return r.json(); })
       .then(function (d) {
         $('chk-start-min').checked = !!d.start_minimized;
-        $('chk-auto-gpsout').checked = !!d.auto_gps_out;
         avanzadoLoaded = true;
         lockAvanzado(false);
       })
@@ -220,7 +218,6 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         start_minimized: $('chk-start-min').checked,
-        auto_gps_out: $('chk-auto-gpsout').checked,
       }),
     })
       .catch(function () {
@@ -240,7 +237,6 @@
     lockAvanzado(true);
     loadAvanzado();
     $('chk-start-min').addEventListener('change', saveAvanzado);
-    $('chk-auto-gpsout').addEventListener('change', saveAvanzado);
 
     // Ciclo de vida (modo demonio: CoreX no tiene ventana propia).
     $('btn-reiniciar').addEventListener('click', function () {
