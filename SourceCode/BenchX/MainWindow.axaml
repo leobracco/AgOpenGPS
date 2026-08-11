@@ -1,8 +1,229 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:BenchX"
         x:Class="BenchX.MainWindow"
+        x:DataType="local:MainViewModel"
         Title="BenchX — Agro Parallel"
-        Width="1080" Height="720"
+        Width="1180" Height="760" MinWidth="980" MinHeight="640"
         Background="{StaticResource FondoApp}">
-  <TextBlock Text="BenchX" Classes="valor" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+  <ScrollViewer>
+    <Grid ColumnDefinitions="7*,5*" Margin="16">
+
+      <!-- ============ Columna izquierda: Vehículo + GPS ============ -->
+      <StackPanel Grid.Column="0" Spacing="12">
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="VEHÍCULO SIMULADO"/>
+            <Grid ColumnDefinitions="150,*" RowDefinitions="Auto,Auto,Auto,Auto">
+
+              <Button Grid.Row="0" Grid.Column="0" Click="CeroVelocidad_Click"
+                      Background="Transparent" Padding="0" HorizontalAlignment="Left">
+                <StackPanel>
+                  <TextBlock Classes="valor" Text="{Binding VelocidadTexto}"/>
+                  <TextBlock Classes="dato" Text="{Binding MSegTexto}"/>
+                </StackPanel>
+              </Button>
+              <Slider Grid.Row="0" Grid.Column="1" Minimum="-20" Maximum="50"
+                      Value="{Binding VelocidadKmh}" TickFrequency="5" VerticalAlignment="Center"/>
+
+              <Button Grid.Row="1" Grid.Column="0" Click="CeroAngulo_Click" Margin="0,6,0,0"
+                      Background="Transparent" Padding="0" HorizontalAlignment="Left">
+                <StackPanel>
+                  <TextBlock Classes="valor" Text="{Binding AnguloTexto}"/>
+                  <TextBlock Classes="dato" Text="Dirección (WAS)"/>
+                </StackPanel>
+              </Button>
+              <Slider Grid.Row="1" Grid.Column="1" Minimum="-60" Maximum="60" Margin="0,6,0,0"
+                      Value="{Binding AnguloDireccion}" TickFrequency="10" VerticalAlignment="Center"/>
+
+              <Button Grid.Row="2" Grid.Column="0" Click="CeroRoll_Click" Margin="0,6,0,0"
+                      Background="Transparent" Padding="0" HorizontalAlignment="Left">
+                <StackPanel>
+                  <TextBlock Classes="valor" Text="{Binding RollTexto}"/>
+                  <TextBlock Classes="dato" Text="Roll"/>
+                </StackPanel>
+              </Button>
+              <Slider Grid.Row="2" Grid.Column="1" Minimum="-20" Maximum="20" Margin="0,6,0,0"
+                      Value="{Binding Roll}" TickFrequency="5" VerticalAlignment="Center"/>
+
+              <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                          Orientation="Horizontal" Spacing="24" Margin="0,14,0,0">
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Rumbo"/>
+                  <TextBlock Classes="datoValor" Text="{Binding RumboTexto}"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Latitud"/>
+                  <TextBlock Classes="datoValor" Text="{Binding LatActualTexto}"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Classes="dato" Text="Longitud"/>
+                  <TextBlock Classes="datoValor" Text="{Binding LonActualTexto}"/>
+                </StackPanel>
+              </StackPanel>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="16" Margin="0,12,0,0">
+              <ToggleSwitch OnContent="Switch trabajo" OffContent="Switch trabajo"
+                            IsChecked="{Binding SwitchTrabajo}"/>
+              <ToggleSwitch OnContent="Switch dirección" OffContent="Switch dirección"
+                            IsChecked="{Binding SwitchDireccion}"/>
+              <Button Content="Botón dirección (remoto)" Click="BotonDireccion_Click"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="GPS — SENTENCIAS NMEA"/>
+            <WrapPanel>
+              <WrapPanel.Styles>
+                <Style Selector="CheckBox">
+                  <Setter Property="Margin" Value="0,0,14,4"/>
+                </Style>
+              </WrapPanel.Styles>
+              <CheckBox Content="PANDA" IsChecked="{Binding Nda}"/>
+              <CheckBox Content="PAOGI" IsChecked="{Binding Ogi}"/>
+              <CheckBox Content="GGA" IsChecked="{Binding Gga}"/>
+              <CheckBox Content="VTG" IsChecked="{Binding Vtg}"/>
+              <CheckBox Content="RMC" IsChecked="{Binding Rmc}"/>
+              <CheckBox Content="HDT" IsChecked="{Binding Hdt}"/>
+              <CheckBox Content="AVR" IsChecked="{Binding Avr}"/>
+              <CheckBox Content="KSXT" IsChecked="{Binding Ksxt}"/>
+            </WrapPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
+              <StackPanel>
+                <TextBlock Classes="dato" Text="Latitud de arranque"/>
+                <TextBox Width="170" Text="{Binding LatInicial}"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Classes="dato" Text="Longitud de arranque"/>
+                <TextBox Width="170" Text="{Binding LonInicial}"/>
+              </StackPanel>
+              <Button Content="Guardar posición" VerticalAlignment="Bottom" Click="GuardarPosicion_Click"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="RED"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="IPs locales"/>
+              <TextBlock Grid.Row="0" Grid.Column="1" Classes="datoValor" Margin="16,0,0,0" Text="{Binding IpsLocales}"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Destino"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,4,0,0" Text="{Binding SubredTexto}"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Recibidos / Enviados"/>
+              <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,4,0,0">
+                <TextBlock Classes="datoValor" Text="{Binding RxTexto}"/>
+                <TextBlock Classes="dato" Text="/"/>
+                <TextBlock Classes="datoValor" Text="{Binding TxTexto}"/>
+              </StackPanel>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Scan de PilotX"/>
+              <Border Grid.Row="3" Grid.Column="1" Classes="badge" Classes.activo="{Binding ScanRespondido}"
+                      Margin="16,4,0,0" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding ScanTexto}"/>
+              </Border>
+            </Grid>
+            <Border Background="{StaticResource Alerta}" CornerRadius="6" Padding="10,6"
+                    Margin="0,8,0,0" IsVisible="{Binding !RedOk}">
+              <TextBlock Foreground="White" TextWrapping="Wrap" Text="{Binding ErrorRed}"/>
+            </Border>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!-- ============ Columna derecha: Dirección + Máquina ============ -->
+      <StackPanel Grid.Column="1" Spacing="12" Margin="12,0,0,0">
+
+        <Border Classes="card">
+          <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="titulo" Text="DIRECCIÓN (AUTOSTEER)"/>
+              <Border Grid.Column="1" Classes="badge" Classes.activo="{Binding GuiadoActivo}">
+                <TextBlock Text="{Binding GuiadoTexto}"/>
+              </Border>
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="Setpoint PilotX"/>
+              <TextBlock Grid.Row="0" Grid.Column="1" Classes="datoValor" Margin="16,0,0,0" Text="{Binding SetPointTexto}"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Velocidad según PilotX"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding VelPilotXTexto}"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Kp"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding KpTexto}"/>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="PWM alto / bajo / mín"/>
+              <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,3,0,0">
+                <TextBlock Classes="datoValor" Text="{Binding HighPwmTexto}"/>
+                <TextBlock Classes="dato" Text="/"/>
+                <TextBlock Classes="datoValor" Text="{Binding LowPwmTexto}"/>
+                <TextBlock Classes="dato" Text="/"/>
+                <TextBlock Classes="datoValor" Text="{Binding MinPwmTexto}"/>
+              </StackPanel>
+              <TextBlock Grid.Row="4" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Cuentas WAS / offset"/>
+              <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,3,0,0">
+                <TextBlock Classes="datoValor" Text="{Binding CountsTexto}"/>
+                <TextBlock Classes="dato" Text="/"/>
+                <TextBlock Classes="datoValor" Text="{Binding OffsetTexto}"/>
+              </StackPanel>
+              <TextBlock Grid.Row="5" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Ackerman"/>
+              <TextBlock Grid.Row="5" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding AckermanTexto}"/>
+              <TextBlock Grid.Row="6" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Config"/>
+              <TextBlock Grid.Row="6" Grid.Column="1" Classes="dato" TextWrapping="Wrap" Margin="16,3,0,0" Text="{Binding FlagsTexto}"/>
+            </Grid>
+            <StackPanel Margin="0,10,0,0">
+              <TextBlock Classes="dato" Text="Relés de dirección (1–16)"/>
+              <TextBlock Classes="puntos" Text="{Binding RelesDireccion}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="MÁQUINA / SECCIONES"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="Relés máquina (1–16)"/>
+              <TextBlock Grid.Row="0" Grid.Column="1" Classes="puntos" Margin="16,0,0,0" Text="{Binding RelesMaquina}"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="U-turn"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding UTurnTexto}"/>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Hidráulico"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding HydLiftTexto}"/>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Tram"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding TramTexto}"/>
+              <TextBlock Grid.Row="4" Grid.Column="0" Classes="dato" Margin="0,3,0,0" Text="Velocidad módulo"/>
+              <TextBlock Grid.Row="4" Grid.Column="1" Classes="datoValor" Margin="16,3,0,0" Text="{Binding VelMaquinaTexto}"/>
+            </Grid>
+            <TextBlock Classes="dato" Text="Zonas (1–8)" Margin="0,10,0,2"/>
+            <Grid ColumnDefinitions="Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+              <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                <TextBlock Classes="dato" Text="1"/><TextBlock Classes="puntos" Text="{Binding Zona1}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="24,0,0,0">
+                <TextBlock Classes="dato" Text="2"/><TextBlock Classes="puntos" Text="{Binding Zona2}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                <TextBlock Classes="dato" Text="3"/><TextBlock Classes="puntos" Text="{Binding Zona3}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="24,2,0,0">
+                <TextBlock Classes="dato" Text="4"/><TextBlock Classes="puntos" Text="{Binding Zona4}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                <TextBlock Classes="dato" Text="5"/><TextBlock Classes="puntos" Text="{Binding Zona5}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="24,2,0,0">
+                <TextBlock Classes="dato" Text="6"/><TextBlock Classes="puntos" Text="{Binding Zona6}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                <TextBlock Classes="dato" Text="7"/><TextBlock Classes="puntos" Text="{Binding Zona7}"/>
+              </StackPanel>
+              <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="24,2,0,0">
+                <TextBlock Classes="dato" Text="8"/><TextBlock Classes="puntos" Text="{Binding Zona8}"/>
+              </StackPanel>
+            </Grid>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </ScrollViewer>
 </Window>
