@@ -61,7 +61,10 @@ public class SimuladorVehiculoTests
         Assert.That(s.Estado.EW, Is.EqualTo('W'));
         // -32.99999... → grados -32, minutos ≈ -59.99946
         Assert.That(System.Math.Abs(s.Estado.LatNmea), Is.EqualTo(3259.99946).Within(0.001));
-        Assert.That(System.Math.Abs(s.Estado.LonNmea), Is.EqualTo(6000.0).Within(0.001));
+        // -60° exacto cae en el borde del grado: el roundtrip rad↔deg deja
+        // -59.999..., y el split entero de ModSim lo representa como
+        // 59°60.0' → 5960.0. Paridad con el original, no un bug.
+        Assert.That(System.Math.Abs(s.Estado.LonNmea), Is.EqualTo(5960.0).Within(0.001));
         Assert.That(s.Estado.RollDeg, Is.EqualTo(-2.5));
         Assert.That(s.Estado.RollImu, Is.EqualTo(-25));
         Assert.That(s.Estado.HeadingImu, Is.EqualTo(0));
