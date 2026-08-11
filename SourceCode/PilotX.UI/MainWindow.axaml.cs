@@ -375,16 +375,10 @@ public partial class MainWindow : Window
             };
         }
 
-        // Visor de IMU: arranca con la app (pedido 2026-08-07). Fuente = proxy
-        // corex-ecu; si no hay ECU se ve "sin ECU" en gris, que también es dato.
-        var imuHost = this.FindControl<ImuOverlay>("ImuHost");
-        if (imuHost != null && App.WindowMode != "float")
-        {
-            imuHost.Attach(
-                new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(3) },
-                DeriveOrigin(App.TargetUrl));
-            Closed += (_, _) => imuHost.Detach();
-        }
+        // El visor de IMU (rumbo/rolido/cabeceo, arriba a la izquierda) se
+        // sacó de la pantalla (pedido 2026-08-11). La telemetría completa del
+        // ECU queda en Herram. › CoreX-ECU; la clase ImuOverlay sigue en el
+        // repo por si se re-engancha.
 
         // Tractor de rolido (abajo a la derecha): mismo ciclo de vida que el
         // visor IMU — arranca con la app y muere con la ventana.
@@ -462,9 +456,8 @@ public partial class MainWindow : Window
         Herr("BtnHrEventos",  "visor_eventos");
         Herr("BtnHrGrafDir",  "grafico_direccion");
         Herr("BtnHrGrafXte",  "grafico_xte");
-        // Hub y CoreX-ECU: los comandos existían huérfanos, sin botón que los
-        // dispare (reporte 2026-08-07). La regla del proyecto los pone acá.
-        Herr("BtnHrHub",      "hub");
+        // El botón Hub se sacó del menú (pedido 2026-08-11); el comando "hub"
+        // y ShowHub() quedan por si se re-engancha desde otro lado.
         Herr("BtnHrCorexEcu", "corex_ecu");
 
         var bIzq = this.FindControl<Button>("BtnNudgeIzq");

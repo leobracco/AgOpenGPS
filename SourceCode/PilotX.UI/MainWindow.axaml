@@ -814,14 +814,11 @@
                      aire tapando el mapa justo cuando se replegó para liberarlo. -->
                 <bars:BarraDerecha x:Name="BarDerecha" Grid.Row="1"
                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
-                <!-- Visor de IMU (pedido 2026-08-07, pruebas con ECU real):
-                     rumbo/rolido/cabeceo vivos del CoreX-ECU, arriba a la
-                     izquierda. Solo lectura, no intercepta toques. -->
-                <!-- Margen izquierdo 145: el riel del menú lateral (~130 px)
-                     queda por encima del mapa y tapaba el panel. -->
-                <vw:ImuOverlay x:Name="ImuHost" Grid.Row="1"
-                               HorizontalAlignment="Left" VerticalAlignment="Top"
-                               Margin="145,10,0,0"/>
+                <!-- El visor de IMU (rumbo/rolido/cabeceo del ECU, arriba a la
+                     izquierda) se SACÓ (pedido 2026-08-11) — servía para las
+                     pruebas con ECU real del 07-08 y en labor tapaba mapa. La
+                     clase ImuOverlay queda por si se re-engancha; la telemetría
+                     completa vive en Herram. › CoreX-ECU. -->
 
                 <!-- Tractor de rolido, mini, ABAJO A LA DERECHA (pedido
                      2026-08-10): se inclina con el rolido que usa el guiado.
@@ -979,16 +976,12 @@
                           <TextBlock Text="Gráfico XTE"/>
                         </StackPanel>
                       </Button>
-                      <!-- Hub y CoreX-ECU: la regla del proyecto dice que los
-                           botones de productos X-* y el Hub van en Herramientas
-                           — pero los comandos habían quedado huérfanos, sin
-                           ningún botón que los dispare (reporte 2026-08-07). -->
-                      <Button x:Name="BtnHrHub" Classes="hr" ToolTip.Tip="Hub de productos Agro Parallel">
-                        <StackPanel>
-                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/JobActive.png"/>
-                          <TextBlock Text="Hub"/>
-                        </StackPanel>
-                      </Button>
+                      <!-- El botón Hub se SACÓ de acá (pedido 2026-08-11:
+                           "lleva a cualquier lado cada cosa que se toca") —
+                           cada producto ya tiene su botón directo en este menú
+                           y el home del Hub duplicaba navegación. El panel
+                           nativo (HubPanel/ShowHub) sigue existiendo por si se
+                           lo quiere re-enganchar. -->
                       <Button x:Name="BtnHrCorexEcu" Classes="hr" ToolTip.Tip="Telemetría del ECU de dirección (Teensy)">
                         <StackPanel>
                           <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/CoreX.png"/>
