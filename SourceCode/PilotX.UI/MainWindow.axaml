@@ -830,12 +830,14 @@
                      flota sobre el mapa VIVO — al grabar la curva se ve la
                      traza dibujándose detrás, cosa que la ventana HTML
                      tapaba. Y no despierta Chromium en plena labor. -->
-                <vw:GuiasPanel x:Name="GuiasHost" Grid.Row="1"
+                <!-- ZIndex 10: sobre la tira de secciones (misma regla que
+                     HerramientasMenu — lo abierto por el operario gana). -->
+                <vw:GuiasPanel x:Name="GuiasHost" Grid.Row="1" ZIndex="10"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
                 <!-- Menú de LOTE nativo (16vo port, reemplaza lote.html):
                      abrir un lote se VE cargar en el mapa de atrás. -->
-                <vw:LotePanel x:Name="LoteHost" Grid.Row="1"
+                <vw:LotePanel x:Name="LoteHost" Grid.Row="1" ZIndex="10"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
                 <!-- DIRECCIÓN nativa (17vo port): panel angosto ANCLADO A LA
@@ -873,8 +875,12 @@
                      y flota sobre el mapa (no es Flyout: los popups no se
                      dibujan sobre el mapa GL). Botones grandes en dos columnas
                      para tocar con guantes. Se ubica sobre su botón en
-                     UbicarHerramientasMenu. -->
+                     UbicarHerramientasMenu.
+                     ZIndex: los paneles que el operario ABRE van sobre la tira
+                     de secciones (SeccionesFloat, declarada después y por eso
+                     ganaba) — el menú quedaba tapado (reporte 2026-08-11). -->
                 <Border x:Name="HerramientasMenu" Grid.Row="1" IsVisible="False"
+                        ZIndex="10"
                         HorizontalAlignment="Left" VerticalAlignment="Bottom"
                         Margin="0,0,0,120"
                         Background="#FAFBFA" BorderBrush="#C5CFC5" BorderThickness="1"
