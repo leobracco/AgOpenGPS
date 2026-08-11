@@ -321,6 +321,7 @@ namespace PilotX.GuidanceEngine.Adapters
                         }
                         snap.TurnMarks = marcas;
                     }
+                    snap.TurnMarksDescartadas = _host.TurnMarksDescartadas;
 
                     if (_host.Trk != null && _host.Trk.gArr != null && _host.Trk.idx >= 0 && _host.Trk.idx < _host.Trk.gArr.Count)
                     {

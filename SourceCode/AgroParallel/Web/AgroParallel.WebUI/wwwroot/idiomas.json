@@ -346,6 +346,10 @@
     "en": "Turn mark set",
     "pt": "Marca de giro colocada"
   },
+  "Marca de giro puesta · se borró una marca de otra guía": {
+    "en": "Turn mark set · a mark from another guidance line was removed",
+    "pt": "Marca de giro colocada · removida uma marca de outra guia"
+  },
   "Marcar giro: línea perpendicular a la guía acá, el giro automático dobla ahí": {
     "en": "Mark turn: a line perpendicular to the guidance line here, the auto U-turn turns there",
     "pt": "Marcar giro: linha perpendicular à guia aqui, o giro automático vira ali"

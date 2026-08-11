@@ -1658,6 +1658,11 @@ public partial class MainWindow : Window
     // feedback y el operario duda si tocó bien).
     private int _marcasGiroPrev;
 
+    // Contador monótono del engine de marcas descartadas por ser de otra
+    // guía. -1 = todavía sin snapshot: el primer valor solo sincroniza, no
+    // avisa (el descarte pudo ser de una sesión anterior de la UI).
+    private int _marcasGiroDescartadasPrev = -1;
+
     // ---- idioma de la interfaz ---------------------------------------------
     //
     // El idioma se elige en el menú SISTEMA y también desde el Hub. Viaja en el
@@ -4143,10 +4148,18 @@ public partial class MainWindow : Window
 
             // Marcas de "Marcar giro": visibilidad del botón Borrar + toast de
             // confirmación cuando el count sube (el operario acaba de marcar).
+            // Si el engine además descartó una marca de OTRA guía (rumbo
+            // incompatible al re-marcar), el aviso lo dice explícito: nada se
+            // borra en silencio.
             int marcasGiro = s.TurnMarks?.Count ?? 0;
             if (_vmDer != null) _vmDer.HayMarcasGiro = marcasGiro > 0;
-            if (marcasGiro > _marcasGiroPrev)
+            bool descartoAjena = _marcasGiroDescartadasPrev >= 0
+                && s.TurnMarksDescartadas > _marcasGiroDescartadasPrev;
+            if (descartoAjena)
+                MostrarToast(PilotX.Cockpit.Bars.Traductor.T("Marca de giro puesta · se borró una marca de otra guía"));
+            else if (marcasGiro > _marcasGiroPrev)
                 MostrarToast(PilotX.Cockpit.Bars.Traductor.T("Marca de giro puesta"));
+            _marcasGiroDescartadasPrev = s.TurnMarksDescartadas;
             _marcasGiroPrev = marcasGiro;
 
             // Push al render nativo del mapa principal.

@@ -333,6 +333,12 @@ namespace AgroParallel.Models
         [JsonPropertyName("turn_marks")]
         public List<TurnMarkDto> TurnMarks { get; set; } = new List<TurnMarkDto>();
 
+        /// <summary>Total acumulado de marcas de giro descartadas por ser de
+        /// otra guía (el operario re-marcó con otro rumbo). Monótono: la UI
+        /// compara contra el snapshot anterior y avisa con un toast.</summary>
+        [JsonPropertyName("turn_marks_descartadas")]
+        public int TurnMarksDescartadas { get; set; }
+
         // ---- Por qué el giro en cabecera no arranca ------------------------
         //
         // El U-turn se arma solo si el pivote está DENTRO del área de giro y el

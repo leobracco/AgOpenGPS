@@ -128,6 +128,11 @@ public sealed class HudSnapshot
     /// dibuja en el mapa es PERPENDICULAR a ese rumbo, centrada en el punto.</summary>
     public List<TurnMarkPoint>? TurnMarks { get; set; }
 
+    /// <summary>Total acumulado (turn_marks_descartadas) de marcas de giro que
+    /// el engine descartó por ser de otra guía al re-marcar. Monótono: cuando
+    /// sube, la UI avisa con un toast — nada se borra en silencio.</summary>
+    public int TurnMarksDescartadas { get; set; }
+
     // ---- Datos del lote (consumidos por FieldDataPanel nativo) ----------
     public string? CurrentFieldDirectory { get; set; }
     public int NumSections { get; set; }

@@ -32,6 +32,11 @@ namespace AgOpenGPS
         /// su posición sobre el eje de avance de la guía.</summary>
         public readonly List<TurnMark> TurnMarks = new List<TurnMark>();
 
+        /// <summary>Total acumulado de marcas descartadas por ser de otra guía
+        /// (rumbo incompatible al re-marcar). Monótono: la UI detecta el salto
+        /// entre snapshots y avisa con un toast — nada se borra en silencio.</summary>
+        public int TurnMarksDescartadas { get; private set; }
+
         // Medio ancho del rectángulo virtual (m). 500 m para cada lado alcanza
         // para cualquier ancho de lote real; si la pasada se va más lejos que
         // eso de las marcas, el operario está en otro lote.
@@ -100,6 +105,25 @@ namespace AgOpenGPS
             }
 
             double rumbo = RumboDeGuiaActiva();
+
+            // Marcas de OTRA guía no ocupan lugar. Si quedaron de una sesión
+            // con rumbo incompatible, cada toque nuevo pisaba la marca FRESCA
+            // (la vieja suele estar lejos y "más cerca" nunca le toca) y el
+            // guard de rumbo de MaterializarMarcasGiro vetaba el circuito
+            // entero — el síntoma de cabina era "marco una línea y al marcar
+            // la otra se me borra la anterior". Marcar sobre ESTA guía es
+            // intención explícita del operario: las ajenas se descartan, y el
+            // contador deja que la UI avise qué se borró (nunca en silencio).
+            int descartadas = TurnMarks.RemoveAll(m =>
+                m == null || DiferenciaDeRumboModPi(m.heading, rumbo) > MaxDesvioRumboRad);
+            if (descartadas > 0)
+            {
+                TurnMarksDescartadas += descartadas;
+                Log.EventWriter(string.Format(CultureInfo.InvariantCulture,
+                    "GuidanceEngine: {0} marca(s) de giro de otra guia descartadas al re-marcar",
+                    descartadas));
+            }
+
             var marca = new TurnMark
             {
                 easting = pivotAxlePos.easting,
