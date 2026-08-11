@@ -80,7 +80,7 @@ public sealed class PgnProcessor
             }
             case 251: // flags de config
             {
-                if (data.Length < 9) break;
+                if (data.Length < 13) break;
                 int s0 = data[5];
                 InvertWas       = (byte)((s0 >> 0) & 1);
                 RelayActiveHigh = (byte)((s0 >> 1) & 1);

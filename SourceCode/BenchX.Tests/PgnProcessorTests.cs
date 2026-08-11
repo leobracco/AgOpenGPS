@@ -108,7 +108,7 @@ public class PgnProcessorTests
         // set0: invertWAS(b0)=1, relayHigh(b1)=0, motorDir(b2)=1, singleWAS(b3)=0,
         //       cytron(b4)=1, steerSwitch(b5)=0, steerButton(b6)=1, encoder(b7)=0 → 0b01010101
         // pulseMax=5, was_speed(ignorado)=0, set1: danfoss(b0)=1, presion(b1)=0, corriente(b2)=1, y-axis(b3)=0 → 0b0101
-        p.Procesar(Trama(251, 8, 0b01010101, 5, 0, 0b0101));
+        p.Procesar(Trama(251, 8, 0b01010101, 5, 0, 0b0101, 0, 0, 0, 0));
         Assert.That(p.InvertWas, Is.EqualTo(1));
         Assert.That(p.RelayActiveHigh, Is.EqualTo(0));
         Assert.That(p.MotorDir, Is.EqualTo(1));
