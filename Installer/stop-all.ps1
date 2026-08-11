@@ -22,7 +22,7 @@ function Stop-IfRunning($name) {
 Write-Host "=== Bajando procesos AgroParallel ===" -ForegroundColor Cyan
 
 # Procesos .NET de la suite
-foreach ($p in @("AgOpenGPS","AgIO","GPS_Out","AgDiag","ModSim","CoreX")) {
+foreach ($p in @("AgOpenGPS","AgIO","GPS_Out","ModSim","CoreX")) {
     Stop-IfRunning $p
 }
 

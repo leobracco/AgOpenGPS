@@ -73,16 +73,6 @@ namespace AgIO.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap AgDiag {
-            get {
-                object obj = ResourceManager.GetObject("AgDiag", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap AgIO_First {
             get {
                 object obj = ResourceManager.GetObject("AgIO_First", resourceCulture);

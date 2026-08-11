@@ -32,7 +32,7 @@ REM ----------------------------------------------------------------------
 echo [1/5] Matando procesos...
 REM AgOpenGPS.exe/AgIO.exe son los nombres viejos (ahora PilotX.exe/CoreX.exe);
 REM se matan como legacy. NO incluir CoreX.exe: es el nombre NUEVO de AgIO.
-for %%P in (AgOpenGPS.exe AgIO.exe GPS_Out.exe AgDiag.exe ModSim.exe) do (
+for %%P in (AgOpenGPS.exe AgIO.exe GPS_Out.exe ModSim.exe) do (
     taskkill /F /IM %%P /T 2>nul && echo   killed %%P || echo   %%P no estaba corriendo
 )
 

@@ -53,7 +53,6 @@ namespace AgIO
             this.toolStripLogViewer = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripUDPMonitor = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSerialMonitor = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripAgDiag = new System.Windows.Forms.ToolStripMenuItem();
             this.modSimToolStrip = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripEthernet = new System.Windows.Forms.ToolStripMenuItem();
             this.deviceManagerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -287,7 +286,6 @@ namespace AgIO
             this.toolStripLogViewer,
             this.toolStripUDPMonitor,
             this.toolStripSerialMonitor,
-            this.toolStripAgDiag,
             this.modSimToolStrip,
             this.toolStripEthernet,
             this.deviceManagerToolStripMenuItem,
@@ -343,15 +341,6 @@ namespace AgIO
             this.toolStripSerialMonitor.Size = new System.Drawing.Size(393, 70);
             this.toolStripSerialMonitor.Text = "Serial Monitor";
             this.toolStripSerialMonitor.Click += new System.EventHandler(this.toolStripSerialMonitor_Click);
-            // 
-            // toolStripAgDiag
-            // 
-            this.toolStripAgDiag.Font = new System.Drawing.Font("Tahoma", 20.25F, System.Drawing.FontStyle.Bold);
-            this.toolStripAgDiag.Image = global::AgIO.Properties.Resources.AgDiag;
-            this.toolStripAgDiag.Name = "toolStripAgDiag";
-            this.toolStripAgDiag.Size = new System.Drawing.Size(393, 70);
-            this.toolStripAgDiag.Text = "AgDiag";
-            this.toolStripAgDiag.Click += new System.EventHandler(this.toolStripAgDiag_Click);
             // 
             // modSimToolStrip
             // 
@@ -1289,7 +1278,6 @@ namespace AgIO
         private Button btnMinimizeMainForm;
         private ToolStripMenuItem modSimToolStrip;
         private ToolStripMenuItem toolStripLogViewer;
-        private ToolStripMenuItem toolStripAgDiag;
         private ToolStripMenuItem toolStripSettings;
         private ToolStripMenuItem deviceManagerToolStripMenuItem;
         private Button btnMQTT;
