@@ -141,12 +141,27 @@ public sealed class GuiasPanel : Border
     {
         _http = http;
         _base = baseUrl.TrimEnd('/');
+        TrazaGuias("Attach base=" + _base);
     }
 
     /// <summary>Abre el panel en el menú de entrada (o directo en la lista si se pide).</summary>
     public async void Abrir(bool directoALista = false)
     {
+        TrazaGuias("Abrir(directoALista=" + directoALista + ")");
         await CargarEstadoAsync();
+        // Reintento único: el estado a veces no carga en instancias largas
+        // (falla intermitente tragada por los catch — reporte 2026-08-11
+        // "toco Guías y no lista las guías") y sin él HayGuias da falso: el
+        // panel caía al menú de crear con el listado escondido, mientras el
+        // auto-select del mapa activaba una guía solo. Un retry a los 300 ms
+        // cubre el hipo; la traza (pilotx-guias.log) queda para la raíz.
+        if (!HayGuias)
+        {
+            await Task.Delay(300);
+            await CargarEstadoAsync();
+            TrazaGuias("Abrir: reintento de estado -> HayGuias=" + HayGuias);
+        }
+        TrazaGuias("Abrir -> HayGuias=" + HayGuias + " => " + (directoALista && HayGuias ? "lista" : "menu"));
         Mostrar(directoALista && HayGuias ? "lista" : "menu");
         IsVisible = true;
         // Los textos que arma este código (filas, estados) nacen en castellano;
@@ -156,6 +171,7 @@ public sealed class GuiasPanel : Border
 
     public void Cerrar()
     {
+        TrazaGuias("Cerrar()");
         PararTimerCurva();
         _ = TecladoAsync(false);
         IsVisible = false;
@@ -518,24 +534,41 @@ public sealed class GuiasPanel : Border
         {
             var nuevo = raiz.Deserialize<EstadoDto>();
             if (nuevo != null) _estado = nuevo;
+            TrazaGuias("estado aplicado: tracks=" + (_estado.Tracks?.Count ?? -1));
         }
-        catch { /* estado viejo queda; la próxima carga lo pisa */ }
+        catch (Exception ex) { TrazaGuias("Deserialize FALLO: " + ex); }
     }
 
     private async Task<JsonElement?> GetAsync(string ruta)
     {
-        if (_http == null) return null;
+        if (_http == null) { TrazaGuias("GET " + ruta + ": _http NULL (sin Attach)"); return null; }
         try
         {
             var json = await _http.GetStringAsync(_base + "/api/tracks" + ruta);
             return JsonDocument.Parse(json).RootElement.Clone();
         }
-        catch { return null; }
+        catch (Exception ex) { TrazaGuias("GET " + _base + "/api/tracks" + ruta + " FALLO: " + ex); return null; }
+    }
+
+    // Traza a archivo: los catch mudos de este panel se comieron un bug entero
+    // ("toco Guías y no lista las guías", 2026-08-11) — en Release no hay
+    // Debug.WriteLine y acá no llega ningún logger. Mismo criterio que la
+    // traza del WebView (%TEMP%\pilotx-webview.log).
+    private static void TrazaGuias(string msg)
+    {
+        try
+        {
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pilotx-guias.log"),
+                DateTime.Now.ToString("HH:mm:ss.fff ") + msg + Environment.NewLine);
+        }
+        catch { /* la traza nunca puede romper el panel */ }
     }
 
     private async Task PostAsync(string ruta, object? body = null)
     {
         if (_http == null) return;
+        TrazaGuias("POST " + ruta + " body=" + (body == null ? "{}" : JsonSerializer.Serialize(body)));
         try
         {
             using var contenido = new StringContent(
