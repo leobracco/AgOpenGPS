@@ -47,6 +47,9 @@ public class PgnProcessorTests
         Assert.That(r.Take(5), Is.EqualTo(new byte[] { 128, 129, 126, 253, 8 }));
         int sa = (short)(r[5] | (r[6] << 8));
         Assert.That(sa, Is.EqualTo(1234));                     // 12.34° * 100
+        // dummies históricos de heading/roll que PilotX espera ver
+        Assert.That((short)(r[7] | (r[8] << 8)), Is.EqualTo(9999));
+        Assert.That((short)(r[9] | (r[10] << 8)), Is.EqualTo(8888));
         Assert.That(r[11], Is.EqualTo(0b110));                 // remote<<2 | steer<<1 | work
         Assert.That(r[12], Is.EqualTo(44));                    // pwmDisplay fijo histórico
         AssertCrc(r);

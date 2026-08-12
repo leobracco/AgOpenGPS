@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     // PGN 201: la config ya quedó guardada; relanzar el proceso con la subred nueva.
     private void Reiniciar(string mensaje)
     {
+        Console.WriteLine(mensaje); // queda en la consola del proceso viejo; el reinicio es inmediato
         _vm.Cerrar();
         if (Environment.ProcessPath is { } exe)
             Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });

@@ -97,6 +97,11 @@ byte a byte, dummies históricos incluidos). Lo nuevo:
 - Sale a `Build\BenchX\BenchX.exe` vía build.ps1; excluido del ZIP de
   release igual que ModSim (lazo de eco con el CoreX embebido).
 - El PGN 201 (cambio de subred) sigue andando: guarda JSON y se relanza.
+- OJO pendiente compartido: `PilotX.UI/MainWindow.axaml.cs` conserva
+  `ToggleModSim`/`BuscarModSim` (case "simulador", ~3285 y ~3727) buscando
+  un `ModSim.exe` que ya no existe. Hoy está DORMIDO (el botón se descolgó
+  el 2026-08-06), pero si se recuelga lanza nada en silencio. Al recolgarlo:
+  apuntarlo a `Build\BenchX\BenchX.exe` o borrar el bloque.
 
 Si tenías algo a medias sobre ModSim, avisá y lo portamos a BenchX.
 
