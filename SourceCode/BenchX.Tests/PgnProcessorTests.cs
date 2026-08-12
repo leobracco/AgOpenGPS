@@ -178,4 +178,25 @@ public class PgnProcessorTests
         Assert.That(p.Procesar(new byte[] { 1, 2, 3 }).Respuestas, Is.Empty);
         Assert.That(p.Procesar(Trama(254, 8, 80)).Respuestas, Is.Empty); // payload corto → sin explotar
     }
+
+    [Test]
+    public void Solo_gps_no_responde_ningun_pgn_pero_sigue_parseando()
+    {
+        // Banco con ECU real: BenchX manda solo GPS; los módulos los contesta
+        // la ECU. Si BenchX contestara también, habría dos autosteer en la red.
+        var p = Proc();
+        p.SoloGps = true;
+
+        short sp = -500;
+        var r254 = p.Procesar(Trama(254, 8, 80, 0, 1, (byte)(sp & 0xFF), (byte)((sp >> 8) & 0xFF), 7, 0b101, 1, 0));
+        Assert.That(r254.Respuestas, Is.Empty);                          // sin 253
+        Assert.That(p.SteerAngleSetPoint, Is.EqualTo(-5.0).Within(1e-6)); // el estado sí llega (cinemática/UI)
+        Assert.That(p.GuidanceStatus, Is.EqualTo(1));
+
+        Assert.That(p.Procesar(Trama(200, 3, 56, 0, 0)).Respuestas, Is.Empty); // sin hellos
+
+        var r202 = p.Procesar(Trama(202, 3, 202, 202, 5));
+        Assert.That(r202.Respuestas, Is.Empty);          // sin scan reply
+        Assert.That(p.ScanRespondido, Is.False);         // no contestó: el badge no miente
+    }
 }

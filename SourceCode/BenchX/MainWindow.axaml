@@ -127,6 +127,12 @@
                 <TextBlock Text="{Binding ScanTexto}"/>
               </Border>
             </Grid>
+            <ToggleSwitch Margin="0,8,0,0"
+                          OnContent="Solo GPS — módulos los maneja la ECU real"
+                          OffContent="Solo GPS — módulos los maneja la ECU real"
+                          IsChecked="{Binding SoloGps}"/>
+            <TextBlock Classes="dato" TextWrapping="Wrap"
+                       Text="Prendido: BenchX no contesta PGN (ni 253, ni hellos, ni scan) — WAS, motor y switches los pone la ECU conectada."/>
             <Border Background="{StaticResource Alerta}" CornerRadius="6" Padding="10,6"
                     Margin="0,8,0,0" IsVisible="{Binding !RedOk}">
               <TextBlock Foreground="White" TextWrapping="Wrap" Text="{Binding ErrorRed}"/>

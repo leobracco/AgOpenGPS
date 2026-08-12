@@ -14,6 +14,12 @@ public sealed class PgnProcessor
     public int WorkSwitch = 1, SteerSwitch = 1, RemoteSwitch = 1; // activo-bajo, 1 = suelto
     public byte Subred1, Subred2, Subred3;
 
+    // Banco con ECU real: BenchX manda solo GPS y NO contesta ningún PGN
+    // (253/hellos/scan) — si contestara habría dos autosteer en la red y el
+    // WAS saltaría entre el simulado y el real. El parseo sigue vivo para la
+    // cinemática (setpoint del 254) y las cards de la UI.
+    public bool SoloGps;
+
     // --- recibido de PilotX (PGN 254 / 239 / 229) ---
     public byte GuidanceStatus;
     public double SteerAngleSetPoint;
@@ -63,7 +69,7 @@ public sealed class PgnProcessor
                     Xte = data[10];
                     Relay = data[11];
                     RelayHi = data[12];
-                    res.Respuestas.Add(ArmarPgn253());
+                    if (!SoloGps) res.Respuestas.Add(ArmarPgn253());
                     break;
                 }
             case 252: // settings PID
@@ -100,6 +106,7 @@ public sealed class PgnProcessor
                 }
             case 200: // hello de CoreX → contestan los 3 módulos simulados
                 {
+                    if (SoloGps) break;
                     int sa = (int)(SteerAngleActual * 100);
                     // El 71 final es el CRC congelado de ModSim (nunca lo recalculó): parity.
                     var steer = new byte[] { 128, 129, 126, 126, 5,
@@ -121,6 +128,7 @@ public sealed class PgnProcessor
                 }
             case 202: // scan → un reply por módulo (steer/machine/imu)
                 {
+                    if (SoloGps) break;
                     if (data.Length < 7) break;
                     if (data[4] == 3 && data[5] == 202 && data[6] == 202)
                     {

@@ -44,6 +44,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         Gga = _config.Gga; Vtg = _config.Vtg; Avr = _config.Avr; Hdt = _config.Hdt;
         Rmc = _config.Rmc; Ogi = _config.Ogi; Nda = _config.Nda; Ksxt = _config.Ksxt;
+        SoloGps = _config.SoloGps;
         LatInicial = _config.Latitud.ToString("N7", Inv);
         LonInicial = _config.Longitud.ToString("N7", Inv);
 
@@ -105,6 +106,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private bool _switchTrabajo, _switchDireccion;
     public bool SwitchTrabajo { get => _switchTrabajo; set { _switchTrabajo = value; _pgn.WorkSwitch = value ? 0 : 1; Notificar(); } }
     public bool SwitchDireccion { get => _switchDireccion; set { _switchDireccion = value; _pgn.SteerSwitch = value ? 0 : 1; Notificar(); } }
+
+    // Banco con ECU real: BenchX manda solo GPS, los módulos los contesta la ECU.
+    private bool _soloGps;
+    public bool SoloGps { get => _soloGps; set { _soloGps = value; _pgn.SoloGps = value; Notificar(); } }
     public void BotonDireccionRemoto() => _pgn.SteerSwitch = _pgn.SteerSwitch > 0 ? 0 : 1;
 
     // ------------------------- lecturas live -------------------------
@@ -250,6 +255,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _timer.Stop();
         _config.Gga = Gga; _config.Vtg = Vtg; _config.Avr = Avr; _config.Hdt = Hdt;
         _config.Rmc = Rmc; _config.Ogi = Ogi; _config.Nda = Nda; _config.Ksxt = Ksxt;
+        _config.SoloGps = SoloGps;
         try { _config.Guardar(_rutaConfig); } catch { }
         _link.Dispose();
     }
