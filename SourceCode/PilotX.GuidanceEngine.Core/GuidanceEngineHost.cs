@@ -89,6 +89,15 @@ namespace AgOpenGPS
             CurveField = new CABCurve(this);
             Tool = new CTool(this);
             Mc = new CModuleComm(this);
+            // Delegates del switch de trabajo/dirección remoto (PGN 253 byte 11).
+            // En FormGPS los cablean los botones (FormGPS.cs:565); acá van a los
+            // mismos handlers de comando. Sin esto, bajar la herramienta con el
+            // toggle del Hub prendido no prendía las secciones — el bit llegaba
+            // (PgnReceiver → workSwitchHigh) pero nadie lo convertía en acción
+            // (reporte de banco 2026-08-12, BenchX + firmware AiO).
+            Mc.ToggleSectionMasterManual = SectionMasterManual;
+            Mc.ToggleSectionMasterAuto = SectionMasterAuto;
+            Mc.ToggleAutoSteer = () => ((IAutoSteerHost)this).PerformAutoSteerClick();
             Yt = new CYouTurn(this);
             Ct = new CContour(this);
             RecPath = new CRecordedPath(this);

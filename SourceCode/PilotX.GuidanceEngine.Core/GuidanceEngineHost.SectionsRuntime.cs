@@ -223,6 +223,13 @@ namespace AgOpenGPS
                 }
             }
 
+            // Switch de trabajo / dirección remoto (mismo lugar y guardia que
+            // OpenGL.Designer.cs:1382-1384): convierte el bit del PGN 253 en
+            // el toggle de secciones o del piloto cuando el operario baja la
+            // herramienta o toca el switch físico.
+            if (Ahrs.isAutoSteerAuto || Mc.isRemoteWorkSystemOn)
+                Mc.CheckWorkAndSteerSwitch();
+
             // ---- 3) Cambio de estado on/off → crear/gestionar tiras (CPatches) ----
             ulong number = 0;
             for (int j = 0; j < tool.numOfSections; j++)
