@@ -138,12 +138,13 @@
                 </Style>
               </WrapPanel.Styles>
               <ToggleSwitch OnContent="GPS" OffContent="GPS" IsChecked="{Binding EmularGps}"/>
-              <ToggleSwitch OnContent="Dirección (WAS/motor)" OffContent="Dirección (WAS/motor)" IsChecked="{Binding EmularDireccion}"/>
+              <ToggleSwitch OnContent="WAS" OffContent="WAS" IsChecked="{Binding EmularWas}"/>
+              <ToggleSwitch OnContent="Motor" OffContent="Motor" IsChecked="{Binding EmularMotor}"/>
               <ToggleSwitch OnContent="Máquina" OffContent="Máquina" IsChecked="{Binding EmularMaquina}"/>
               <ToggleSwitch OnContent="IMU" OffContent="IMU" IsChecked="{Binding EmularImu}"/>
             </WrapPanel>
             <TextBlock Classes="dato" TextWrapping="Wrap"
-                       Text="Apagá el módulo que maneje la ECU real conectada al banco: BenchX deja de contestar sus PGN y la ECU queda como único dueño (ej. Dirección apagada = WAS, motor y switches reales)."/>
+                       Text="Apagá lo que maneje la ECU real del banco. WAS = contestar como módulo de dirección (PGN 253 y switches). Motor = que el tractor simulado siga solo la orden del piloto. IMU apagado también corta el rumbo/roll que viaja en el PANDA."/>
             <Border Background="{StaticResource Alerta}" CornerRadius="6" Padding="10,6"
                     Margin="0,8,0,0" IsVisible="{Binding !RedOk}">
               <TextBlock Foreground="White" TextWrapping="Wrap" Text="{Binding ErrorRed}"/>

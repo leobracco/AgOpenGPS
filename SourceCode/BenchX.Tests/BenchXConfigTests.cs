@@ -33,14 +33,15 @@ public class BenchXConfigTests
     [Test]
     public void Roundtrip_guardar_y_cargar()
     {
-        var c = new BenchXConfig { Subred1 = 192, Subred2 = 168, Subred3 = 5, Latitud = -33.5, Longitud = -60.1, Gga = true, Nda = false, EmularDireccion = false, EmularImu = false };
+        var c = new BenchXConfig { Subred1 = 192, Subred2 = 168, Subred3 = 5, Latitud = -33.5, Longitud = -60.1, Gga = true, Nda = false, EmularWas = false, EmularMotor = false, EmularImu = false };
         c.Guardar(Ruta);
         var c2 = BenchXConfig.Cargar(Ruta);
         Assert.That((c2.Subred1, c2.Subred2, c2.Subred3), Is.EqualTo(((byte)192, (byte)168, (byte)5)));
         Assert.That(c2.Latitud, Is.EqualTo(-33.5));
         Assert.That(c2.Gga, Is.True);
         Assert.That(c2.Nda, Is.False);
-        Assert.That(c2.EmularDireccion, Is.False);
+        Assert.That(c2.EmularWas, Is.False);
+        Assert.That(c2.EmularMotor, Is.False);
         Assert.That(c2.EmularMaquina, Is.True);   // default: emular todo
         Assert.That(c2.EmularImu, Is.False);
         Assert.That(c2.EmularGps, Is.True);

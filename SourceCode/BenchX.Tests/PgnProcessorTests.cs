@@ -180,12 +180,12 @@ public class PgnProcessorTests
     }
 
     [Test]
-    public void Direccion_apagada_no_responde_253_pero_sigue_parseando()
+    public void Was_apagado_no_responde_253_pero_sigue_parseando()
     {
-        // Banco con ECU real: si la ECU maneja el WAS/motor, BenchX no puede
+        // Banco con ECU real: si la ECU maneja el WAS, BenchX no puede
         // contestar 253 también — habría dos autosteer en la red.
         var p = Proc();
-        p.EmularDireccion = false;
+        p.EmularWas = false;
 
         short sp = -500;
         var r254 = p.Procesar(Trama(254, 8, 80, 0, 1, (byte)(sp & 0xFF), (byte)((sp >> 8) & 0xFF), 7, 0b101, 1, 0));
@@ -198,8 +198,8 @@ public class PgnProcessorTests
     public void Hellos_y_scan_solo_de_los_modulos_emulados()
     {
         var p = Proc();
-        p.EmularDireccion = false;   // la ECU real es el autosteer
-        p.EmularImu = false;         // y trae su IMU
+        p.EmularWas = false;   // la ECU real es el autosteer
+        p.EmularImu = false;   // y trae su IMU
 
         var hellos = p.Procesar(Trama(200, 3, 56, 0, 0));
         Assert.That(hellos.Respuestas, Has.Count.EqualTo(1));
@@ -215,7 +215,7 @@ public class PgnProcessorTests
     public void Todos_los_modulos_apagados_no_contesta_nada()
     {
         var p = Proc();
-        p.EmularDireccion = false; p.EmularMaquina = false; p.EmularImu = false;
+        p.EmularWas = false; p.EmularMaquina = false; p.EmularImu = false;
 
         Assert.That(p.Procesar(Trama(200, 3, 56, 0, 0)).Respuestas, Is.Empty);
         var scan = p.Procesar(Trama(202, 3, 202, 202, 5));

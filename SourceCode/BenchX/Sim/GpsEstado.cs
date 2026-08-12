@@ -13,4 +13,5 @@ public sealed class GpsEstado
     public double RollDeg;
     public double Altitude = 300;      // solo KSXT; GGA/OGI/NDA llevan el "1000" fijo histórico
     public int HeadingImu, RollImu;    // grados*10, para PANDA
+    public bool ImuValido = true;      // false = PANDA con 65535/32767 ("sin IMU", el engine los ignora)
 }

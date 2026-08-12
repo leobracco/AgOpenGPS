@@ -44,7 +44,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         Gga = _config.Gga; Vtg = _config.Vtg; Avr = _config.Avr; Hdt = _config.Hdt;
         Rmc = _config.Rmc; Ogi = _config.Ogi; Nda = _config.Nda; Ksxt = _config.Ksxt;
-        EmularGps = _config.EmularGps; EmularDireccion = _config.EmularDireccion;
+        EmularGps = _config.EmularGps; EmularWas = _config.EmularWas; EmularMotor = _config.EmularMotor;
         EmularMaquina = _config.EmularMaquina; EmularImu = _config.EmularImu;
         LatInicial = _config.Latitud.ToString("N7", Inv);
         LonInicial = _config.Longitud.ToString("N7", Inv);
@@ -109,9 +109,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool SwitchDireccion { get => _switchDireccion; set { _switchDireccion = value; _pgn.SteerSwitch = value ? 0 : 1; Notificar(); } }
 
     // Banco con ECU real: se apaga el módulo que maneje la ECU conectada.
-    private bool _emularGps = true, _emularDireccion = true, _emularMaquina = true, _emularImu = true;
+    private bool _emularGps = true, _emularWas = true, _emularMotor = true, _emularMaquina = true, _emularImu = true;
     public bool EmularGps { get => _emularGps; set { _emularGps = value; Notificar(); } }
-    public bool EmularDireccion { get => _emularDireccion; set { _emularDireccion = value; _pgn.EmularDireccion = value; Notificar(); } }
+    public bool EmularWas { get => _emularWas; set { _emularWas = value; _pgn.EmularWas = value; Notificar(); } }
+    public bool EmularMotor { get => _emularMotor; set { _emularMotor = value; Notificar(); } }
     public bool EmularMaquina { get => _emularMaquina; set { _emularMaquina = value; _pgn.EmularMaquina = value; Notificar(); } }
     public bool EmularImu { get => _emularImu; set { _emularImu = value; _pgn.EmularImu = value; Notificar(); } }
     public void BotonDireccionRemoto() => _pgn.SteerSwitch = _pgn.SteerSwitch > 0 ? 0 : 1;
@@ -163,8 +164,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void Tick()
     {
-        // Con guiado activo el volante lo maneja PilotX: el slider sigue al setpoint.
-        if (_pgn.GuidanceStatus != 0)
+        // Con guiado activo el volante lo maneja PilotX: el slider sigue al
+        // setpoint — ese es el "motor perfecto" simulado. Con Motor apagado
+        // (motor real en el banco) el ángulo queda en manos del slider.
+        if (_pgn.GuidanceStatus != 0 && EmularMotor)
             AnguloDireccion = _pgn.SteerAngleSetPoint;
 
         _sim.SpeedKmh = VelocidadKmh;
@@ -172,6 +175,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _sim.RollDeg = Roll;
         _sim.Estado.TimeNow = DateTime.UtcNow.ToString("HHmmss.fff,", Inv);
         _sim.Avanzar();
+        _sim.Estado.ImuValido = EmularImu; // IMU apagado → PANDA con campos neutros
         _pgn.SteerAngleActual = _sim.SteerAngleDeg;
 
         var g = _sim.Estado;
@@ -262,7 +266,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _timer.Stop();
         _config.Gga = Gga; _config.Vtg = Vtg; _config.Avr = Avr; _config.Hdt = Hdt;
         _config.Rmc = Rmc; _config.Ogi = Ogi; _config.Nda = Nda; _config.Ksxt = Ksxt;
-        _config.EmularGps = EmularGps; _config.EmularDireccion = EmularDireccion;
+        _config.EmularGps = EmularGps; _config.EmularWas = EmularWas; _config.EmularMotor = EmularMotor;
         _config.EmularMaquina = EmularMaquina; _config.EmularImu = EmularImu;
         try { _config.Guardar(_rutaConfig); } catch { }
         _link.Dispose();

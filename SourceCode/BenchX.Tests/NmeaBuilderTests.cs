@@ -98,6 +98,19 @@ public class NmeaBuilderTests
     }
 
     [Test]
+    public void Nda_sin_imu_manda_los_campos_neutros()
+    {
+        // IMU apagado (la ECU real trae el suyo): PANDA viaja con la
+        // convención "sin IMU" que el engine ignora — heading 65535 (ushort
+        // max), roll/pitch/yaw 32767 (short max).
+        var g = Fix();
+        g.ImuValido = false;
+        string s = NmeaBuilder.BuildNda(g);
+        Assert.That(s, Does.StartWith(
+            "$PANDA,123519.000,5323.1633840,N,11109.6028200,W,8,12,0.9,1000,3.2,4.5,65535,32767,32767,32767*"));
+    }
+
+    [Test]
     public void Lat_lon_sur_oeste_van_en_valor_absoluto()
     {
         var g = Fix();

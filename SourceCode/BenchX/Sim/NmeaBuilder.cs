@@ -91,9 +91,14 @@ public static class NmeaBuilder
           .Append(Lat(g)).Append(',').Append(g.NS).Append(',')
           .Append(LonCorto(g)).Append(',').Append(g.EW).Append(',')
           .Append("8,12,0.9,1000,3.2,")
-          .Append(g.SpeedKnots.ToString(Inv)).Append(',')
-          .Append(g.HeadingImu.ToString(Inv)).Append(',')
-          .Append(g.RollImu.ToString(Inv)).Append(",32,298*");
+          .Append(g.SpeedKnots.ToString(Inv)).Append(',');
+        if (g.ImuValido)
+            sb.Append(g.HeadingImu.ToString(Inv)).Append(',')
+              .Append(g.RollImu.ToString(Inv)).Append(",32,298*");
+        else
+            // Convención "sin IMU" del wire: 65535 (ushort max) y 32767
+            // (short max) — CoreX los pasa crudos y el engine los ignora.
+            sb.Append("65535,32767,32767,32767*");
         return Cerrar(sb);
     }
 

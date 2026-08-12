@@ -18,9 +18,9 @@ public sealed class PgnProcessor
     // (si BenchX contestara también, habría dos módulos iguales en la red y
     // p.ej. el WAS saltaría entre el simulado y el real). El parseo sigue
     // vivo siempre, para la cinemática (setpoint del 254) y las cards.
-    public bool EmularDireccion = true;   // autosteer: 253 + hello/scan 126 (WAS y motor viven acá)
-    public bool EmularMaquina = true;     // hello/scan 123
-    public bool EmularImu = true;         // hello/scan 121
+    public bool EmularWas = true;      // autosteer en el wire: 253 + hello/scan 126
+    public bool EmularMaquina = true;  // hello/scan 123
+    public bool EmularImu = true;      // hello/scan 121 (los campos IMU del PANDA los corta el ViewModel)
 
     // --- recibido de PilotX (PGN 254 / 239 / 229) ---
     public byte GuidanceStatus;
@@ -71,7 +71,7 @@ public sealed class PgnProcessor
                     Xte = data[10];
                     Relay = data[11];
                     RelayHi = data[12];
-                    if (EmularDireccion) res.Respuestas.Add(ArmarPgn253());
+                    if (EmularWas) res.Respuestas.Add(ArmarPgn253());
                     break;
                 }
             case 252: // settings PID
@@ -110,7 +110,7 @@ public sealed class PgnProcessor
                 {
                     int sa = (int)(SteerAngleActual * 100);
                     // El 71 final es el CRC congelado de ModSim (nunca lo recalculó): parity.
-                    if (EmularDireccion)
+                    if (EmularWas)
                         res.Respuestas.Add(new byte[] { 128, 129, 126, 126, 5,
                             unchecked((byte)sa), unchecked((byte)(sa >> 8)), 0, 0, (byte)SwitchByte(), 71 });
                     if (EmularMaquina)
@@ -132,7 +132,7 @@ public sealed class PgnProcessor
                     if (data.Length < 7) break;
                     if (data[4] == 3 && data[5] == 202 && data[6] == 202)
                     {
-                        if (EmularDireccion) res.Respuestas.Add(ArmarScanReply(126));
+                        if (EmularWas) res.Respuestas.Add(ArmarScanReply(126));
                         if (EmularMaquina) res.Respuestas.Add(ArmarScanReply(123));
                         if (EmularImu) res.Respuestas.Add(ArmarScanReply(121));
                         if (res.Respuestas.Count > 0) ScanRespondido = true;

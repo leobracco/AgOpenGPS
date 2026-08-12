@@ -24,10 +24,11 @@ public sealed class BenchXConfig
     public bool Ksxt { get; set; }
 
     // Qué emula BenchX en el banco. Se apaga lo que maneje la ECU real conectada.
-    public bool EmularGps { get; set; } = true;        // sentencias NMEA
-    public bool EmularDireccion { get; set; } = true;  // autosteer (WAS/motor): 253 + hello/scan
+    public bool EmularGps { get; set; } = true;      // sentencias NMEA
+    public bool EmularWas { get; set; } = true;      // módulo autosteer en el wire: 253 + hello/scan
+    public bool EmularMotor { get; set; } = true;    // cinemática sigue el setpoint (motor "perfecto")
     public bool EmularMaquina { get; set; } = true;
-    public bool EmularImu { get; set; } = true;
+    public bool EmularImu { get; set; } = true;      // hello/scan 121 + campos IMU del PANDA
 
     public static string RutaDefault => Path.Combine(AppContext.BaseDirectory, "benchx.json");
 
