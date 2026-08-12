@@ -263,6 +263,30 @@ namespace AgIO
                 {
                     if (SpRtcm.IsOpen) SpRtcm.Write(rtcm, 0, rtcm.Length);
                     else if (SpGPS.IsOpen) SpGPS.Write(rtcm, 0, rtcm.Length);
+
+                    // AiO por LAN: el firmware escucha RTCM en UDP 2233 y lo
+                    // vuelca al UART del receptor (zUdpNtrip → SerialGPS). Es
+                    // el "NTRIP por UDP" de AgIO que el integrado nunca portó:
+                    // con receptor real colgado de la ECU, las correcciones
+                    // morían en la PC (banco 2026-08-12). Va siempre que haya
+                    // NTRIP: un módulo sin GPS simplemente lo ignora.
+                    //
+                    // REBANADO obligatorio (mismo criterio que el packet_size
+                    // de AgIO): el chunk TCP del caster puede superar la MTU y
+                    // un datagrama fragmentado la Teensy lo descarta (además su
+                    // buffer NTRIP es de 1023 bytes). Con el chunk crudo el
+                    // receptor no veía NI UNA corrección: fix clavado en GPS 1
+                    // con age=0 aunque el caster bajara 1 kB/s.
+                    const int tamPaquete = 256;
+                    var eps2233 = EndpointsDeModulos();
+                    for (int off = 0; off < rtcm.Length; off += tamPaquete)
+                    {
+                        int n = Math.Min(tamPaquete, rtcm.Length - off);
+                        var pedazo = new byte[n];
+                        Array.Copy(rtcm, off, pedazo, 0, n);
+                        foreach (var ep in eps2233)
+                            UdpBridge.SendUdpTo(pedazo, new IPEndPoint(ep.Address, 2233));
+                    }
                 };
             }
             Ntrip.Connect(config, gpsFeedback);
