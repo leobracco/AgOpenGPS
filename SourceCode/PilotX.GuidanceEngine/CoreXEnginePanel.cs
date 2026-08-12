@@ -23,9 +23,12 @@
 // ============================================================================
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using AgLibrary.Logging;
 using AgroParallel.Services;
@@ -41,6 +44,21 @@ namespace AgIO
 {
     // ── DTOs del wire (mismo shape que CoreXConfigController de CoreX.exe;
     //    ese archivo no es linkeable porque depende de FormLoop) ─────────────
+    /// <summary>Mountpoint de la sourcetable del caster (mismo shape que el
+    /// MountDto de CoreX.exe; ntrip.js consume mount/identifier/format/
+    /// nav_system/country/distance_km vía snake_case de AgpJson).</summary>
+    public sealed class PanelMountDto
+    {
+        public string Mount { get; set; }
+        public string Identifier { get; set; }
+        public string Format { get; set; }
+        public string NavSystem { get; set; }
+        public string Country { get; set; }
+        public double Lat { get; set; }
+        public double Lon { get; set; }
+        public double DistanceKm { get; set; }
+    }
+
     public sealed class PanelNtripDto
     {
         [JsonPropertyName("is_on")] public bool IsOn { get; set; }
@@ -553,6 +571,132 @@ namespace AgIO
             await WriteJsonAsync(new { Ok = true, Restart = false }).ConfigureAwait(false);
         }
 
+        // ── GET /api/corex/ntrip/mounts?ip=..&port=.. ─────────────────────────
+        // Port 1:1 del CoreXConfigController de CoreX.exe (que no es linkeable
+        // por depender de FormLoop): baja la sourcetable del caster, filtra STR
+        // y devuelve los mountpoints ordenados por distancia a la posición
+        // actual. Era un stub "no-disponible-en-integrado" y la página NTRIP
+        // del Hub no listaba nada (reporte 2026-08-12).
+        [Route(HttpVerbs.Get, "/corex/ntrip/mounts")]
+        public async Task GetNtripMounts()
+        {
+            string ipStr = HttpContext.Request.QueryString["ip"];
+            string portStr = HttpContext.Request.QueryString["port"];
+
+            if (string.IsNullOrWhiteSpace(ipStr) || !int.TryParse(portStr, out int port)
+                || port < 1 || port > 65535)
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST",
+                    "Falta la IP/URL o el puerto del caster.").ConfigureAwait(false);
+                return;
+            }
+
+            // Resolver hostname → IPv4 si no es una IP literal.
+            IPAddress casterIp;
+            if (!IPAddress.TryParse(ipStr.Trim(), out casterIp))
+            {
+                try
+                {
+                    var addrs = await System.Net.Dns.GetHostAddressesAsync(ipStr.Trim())
+                        .ConfigureAwait(false);
+                    casterIp = addrs.FirstOrDefault(a =>
+                        a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+                }
+                catch { casterIp = null; }
+
+                if (casterIp == null)
+                {
+                    await WriteErrorAsync(400, "DNS",
+                        "No se pudo resolver la dirección del caster.").ConfigureAwait(false);
+                    return;
+                }
+            }
+
+            string page;
+            try
+            {
+                page = await FetchSourceTableAsync(casterIp, port).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await WriteErrorAsync(502, "CASTER",
+                    "No se pudo conectar al caster (revisá IP y puerto).", ex.Message)
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            // Posición actual para la distancia (0,0 = sin fix → sin distancia).
+            var gps = CoreXState.Instance.Snapshot().Gps;
+            double lat = gps?.Latitude ?? 0, lon = gps?.Longitude ?? 0;
+            bool hayFix = lat != 0 || lon != 0;
+
+            var mounts = new List<PanelMountDto>();
+            foreach (var line in page.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var f = line.Split(';');
+                if (f.Length < 11 || f[0] != "STR") continue;
+
+                double.TryParse(f[9].Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double mLat);
+                double.TryParse(f[10].Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double mLon);
+
+                double dist = -1;
+                if (hayFix && (mLat != 0 || mLon != 0))
+                    dist = glm.DistanceLonLat(mLon, mLat, lon, lat);
+
+                mounts.Add(new PanelMountDto
+                {
+                    Mount = f[1].Trim(),
+                    Identifier = f[2].Trim(),
+                    Format = f[3].Trim(),
+                    NavSystem = f[6].Trim(),
+                    Country = f[8].Trim(),
+                    Lat = mLat,
+                    Lon = mLon,
+                    DistanceKm = dist,
+                });
+            }
+
+            // Más cercano primero; sin distancia al final, por nombre.
+            mounts = mounts
+                .OrderBy(m => m.DistanceKm < 0 ? double.MaxValue : m.DistanceKm)
+                .ThenBy(m => m.Mount, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            await WriteJsonAsync(new { Ok = true, Count = mounts.Count, Mounts = mounts })
+                .ConfigureAwait(false);
+        }
+
+        // Baja la sourcetable cruda con timeouts (6 s conexión, 10 s total,
+        // tope 2 MB). Mismo request que CoreX.exe y que el form viejo.
+        private static async Task<string> FetchSourceTableAsync(IPAddress ip, int port)
+        {
+            using (var client = new System.Net.Sockets.TcpClient())
+            using (var cts = new System.Threading.CancellationTokenSource(10000))
+            {
+                var connect = client.ConnectAsync(ip, port);
+                if (await Task.WhenAny(connect, Task.Delay(6000)).ConfigureAwait(false) != connect)
+                    throw new TimeoutException("Timeout de conexión al caster.");
+                await connect.ConfigureAwait(false); // rethrow si falló
+
+                var stream = client.GetStream();
+                byte[] req = Encoding.ASCII.GetBytes(
+                    "GET / HTTP/1.0\r\nUser-Agent: NTRIP CoreX\r\nAccept: */*\r\nConnection: close\r\n\r\n");
+                await stream.WriteAsync(req, 0, req.Length, cts.Token).ConfigureAwait(false);
+
+                var sb = new StringBuilder();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = await stream.ReadAsync(buf, 0, buf.Length, cts.Token).ConfigureAwait(false)) > 0)
+                {
+                    sb.Append(Encoding.ASCII.GetString(buf, 0, n));
+                    if (sb.Length > 2 * 1024 * 1024) break;
+                }
+                return sb.ToString();
+            }
+        }
+
         [Route(HttpVerbs.Get, "/corex/config/red")]
         public Task GetRed()
         {
@@ -741,7 +885,6 @@ namespace AgIO
         [Route(HttpVerbs.Post, "/corex/config/avanzado")] public Task K() => No();
         [Route(HttpVerbs.Get, "/corex/config/modulos")] public Task L() => No();
         [Route(HttpVerbs.Post, "/corex/config/modulos")] public Task M() => No();
-        [Route(HttpVerbs.Get, "/corex/ntrip/mounts")] public Task N() => No();
         [Route(HttpVerbs.Get, "/corex/monitor/udp")] public Task O() => No();
         [Route(HttpVerbs.Post, "/corex/monitor/udp/flags")] public Task P() => No();
     }
