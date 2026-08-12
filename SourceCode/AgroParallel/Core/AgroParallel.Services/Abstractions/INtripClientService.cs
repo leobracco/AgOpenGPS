@@ -32,6 +32,10 @@ namespace AgroParallel.Services.Abstractions
         long TotalBytes { get; }
         string CasterIp { get; }
 
+        /// <summary>Tipos RTCM recibidos ("1074×123"), más frecuente primero.
+        /// Se resetea en cada Connect.</summary>
+        System.Collections.Generic.List<string> RtcmTypesSnapshot();
+
         // Conectar al caster (intento inmediato). gpsFeedback = callback que
         // devuelve lat/lon/alt/fix actuales para construir la GGA.
         // La reconexión/watchdog/GGA periódica las maneja SecondTick.

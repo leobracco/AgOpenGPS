@@ -99,6 +99,11 @@ namespace AgIO
         public bool Connecting { get; set; }
         public long KbTotal { get; set; }
         public string CasterIp { get; set; } = "";
+
+        /// <summary>Tipos RTCM recibidos ("1074×123"), más frecuente primero.
+        /// Vacío si el que publica no los rastrea (CoreX.exe todavía no).</summary>
+        public System.Collections.Generic.List<string> RtcmTypes { get; set; }
+            = new System.Collections.Generic.List<string>();
     }
 
     public class CoreXMqttDto

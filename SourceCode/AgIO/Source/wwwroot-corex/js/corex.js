@@ -42,6 +42,9 @@
         : n.required_on ? 'esperando' : 'apagado');
       setText('ntripKb', (n.kb_total != null ? n.kb_total : 0) + ' kB');
       setText('ntripCaster', n.caster_ip || '—');
+      // Tipos RTCM del caster ("1074×123"), los 6 más frecuentes.
+      setText('ntripRtcm', (n.rtcm_types && n.rtcm_types.length)
+        ? n.rtcm_types.slice(0, 6).join('  ') : '—');
 
       var m = d.mqtt || {};
       setDot('dotMqtt', !!m.running);

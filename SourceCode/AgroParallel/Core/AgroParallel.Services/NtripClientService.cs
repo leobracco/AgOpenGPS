@@ -35,6 +35,15 @@ namespace AgroParallel.Services
         public event Action<byte[]> OnRtcmData;
         public event Action OnGgaSent;
 
+        // Inventario de tipos RTCM recibidos — para que el operario VEA qué
+        // manda el caster (pedido de banco 2026-08-12: "estaría bueno ver qué
+        // tipo de paquetes recibimos").
+        private readonly RtcmTypeTracker _rtcm = new RtcmTypeTracker();
+
+        /// <summary>Tipos RTCM vistos, formateados "1074×123", más frecuente
+        /// primero. Se resetea en cada Connect.</summary>
+        public System.Collections.Generic.List<string> RtcmTypesSnapshot() => _rtcm.Snapshot();
+
         public void Connect(NtripConfig config, Func<NtripGpsData> gpsFeedback)
         {
             _config = config ?? throw new ArgumentNullException(nameof(config));
@@ -45,6 +54,7 @@ namespace AgroParallel.Services
             _ggaIntervalSec = config.SendGgaIntervalSec;
             _ggaTickCounter = 0;
             TotalBytes = 0;
+            _rtcm.Reset();
             IsConnected = false;
             IsConnecting = false;
 
@@ -155,6 +165,7 @@ namespace AgroParallel.Services
 
                     TotalBytes += n;
                     _watchdog = 0;
+                    _rtcm.Feed(data);
                     OnRtcmData?.Invoke(data);
 
                     _socket.BeginReceive(_recvBuffer, 0, _recvBuffer.Length, SocketFlags.None,
@@ -261,6 +272,83 @@ namespace AgroParallel.Services
             sb.Append(sum.ToString("X2"));
             sb.Append("\r\n");
             return sb.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Contador de tipos de mensaje RTCM3 sobre el stream del caster. Framing:
+    /// 0xD3, 6 bits reservados + 10 bits de largo, payload (el tipo son los
+    /// primeros 12 bits) y CRC de 3 bytes. El stream llega cortado en chunks
+    /// TCP arbitrarios, así que se acumula en un buffer propio y solo se
+    /// consume un frame cuando está completo. Sin verificación de CRC: es un
+    /// monitor de qué manda el caster, no un decodificador — un falso 0xD3 en
+    /// el peor caso cuenta un tipo fantasma una vez y se resincroniza solo.
+    /// </summary>
+    public sealed class RtcmTypeTracker
+    {
+        private readonly object _lock = new object();
+        private readonly System.Collections.Generic.Dictionary<int, long> _counts
+            = new System.Collections.Generic.Dictionary<int, long>();
+        private byte[] _buf = new byte[0];
+
+        // Un frame RTCM no supera 1023 de payload; 8 KB de resto acumulado sin
+        // frame válido = basura (caster contestando HTML, credencial mala): se
+        // tira y se resincroniza.
+        private const int MaxBuffer = 8192;
+
+        public void Reset()
+        {
+            lock (_lock) { _counts.Clear(); _buf = new byte[0]; }
+        }
+
+        public void Feed(byte[] data)
+        {
+            if (data == null || data.Length == 0) return;
+            lock (_lock)
+            {
+                var junto = new byte[_buf.Length + data.Length];
+                System.Array.Copy(_buf, junto, _buf.Length);
+                System.Array.Copy(data, 0, junto, _buf.Length, data.Length);
+
+                int i = 0;
+                while (junto.Length - i >= 6)
+                {
+                    if (junto[i] != 0xD3 || (junto[i + 1] & 0xFC) != 0)
+                    {
+                        i++;   // no es arranque de frame: resincronizar de a un byte
+                        continue;
+                    }
+                    int largo = ((junto[i + 1] & 0x03) << 8) | junto[i + 2];
+                    int frame = 3 + largo + 3;   // header + payload + CRC24
+                    if (junto.Length - i < frame) break;   // frame incompleto: esperar más datos
+
+                    if (largo >= 2)
+                    {
+                        int tipo = (junto[i + 3] << 4) | (junto[i + 4] >> 4);
+                        _counts.TryGetValue(tipo, out long c);
+                        _counts[tipo] = c + 1;
+                    }
+                    i += frame;
+                }
+
+                int resto = junto.Length - i;
+                if (resto > MaxBuffer) { _buf = new byte[0]; return; }
+                _buf = new byte[resto];
+                System.Array.Copy(junto, i, _buf, 0, resto);
+            }
+        }
+
+        /// <summary>"tipo×conteo", más frecuente primero.</summary>
+        public System.Collections.Generic.List<string> Snapshot()
+        {
+            lock (_lock)
+            {
+                var lista = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<int, long>>(_counts);
+                lista.Sort((a, b) => b.Value.CompareTo(a.Value));
+                var res = new System.Collections.Generic.List<string>(lista.Count);
+                foreach (var kv in lista) res.Add(kv.Key + "×" + kv.Value);
+                return res;
+            }
         }
     }
 }

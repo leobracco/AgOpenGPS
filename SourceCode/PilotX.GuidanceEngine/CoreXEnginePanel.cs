@@ -423,6 +423,7 @@ namespace AgIO
                     Connecting = _corex.Ntrip.IsConnecting,
                     KbTotal = _corex.Ntrip.TotalBytes / 1024,
                     CasterIp = _corex.Ntrip.CasterIp ?? "",
+                    RtcmTypes = _corex.Ntrip.RtcmTypesSnapshot(),
                 },
                 Mqtt = new CoreXMqttDto
                 {
