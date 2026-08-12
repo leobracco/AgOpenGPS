@@ -193,7 +193,7 @@ namespace AgIO
             AbrirCanal("steer", Config.Steer);
             AbrirCanal("machine", Config.Machine);
 
-            if (Config.NtripOn && !string.IsNullOrEmpty(Config.Ntrip?.CasterIp))
+            if (Config.NtripOn && NtripTieneCaster())
                 ConectarNtrip();
         }
 
@@ -240,12 +240,48 @@ namespace AgIO
             _ => null,
         };
 
+        /// <summary>¿Hay caster cargado (IP o URL)? Los guards de conexión usan
+        /// esto: antes pedían CasterIp y un caster cargado por hostname quedaba
+        /// "esperando" para siempre sin intentar conectar (banco 2026-08-12,
+        /// IGN por ntrip.ign.gob.ar).</summary>
+        public bool NtripTieneCaster() =>
+            !string.IsNullOrWhiteSpace(Config.Ntrip?.CasterIp)
+            || !string.IsNullOrWhiteSpace(Config.Ntrip?.CasterUrl);
+
         public void ConectarNtrip()
         {
             var d = Config.Ntrip;
+
+            // La página guarda lo que el operario tipeó: IP directa o hostname.
+            // El cliente quiere IP: resolver acá, con log si falla (sin esto el
+            // fallo era mudo y el estado quedaba en "esperando").
+            string ip = (d.CasterIp ?? "").Trim();
+            if (ip.Length == 0 && !string.IsNullOrWhiteSpace(d.CasterUrl))
+            {
+                try
+                {
+                    var addrs = System.Net.Dns.GetHostAddresses(d.CasterUrl.Trim());
+                    ip = addrs.FirstOrDefault(a =>
+                        a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString() ?? "";
+                }
+                catch (Exception ex)
+                {
+                    Log.EventWriter("CoreXEngine: NTRIP no pudo resolver '" + d.CasterUrl + "': " + ex.Message);
+                    return;
+                }
+            }
+            if (ip.Length == 0)
+            {
+                Log.EventWriter("CoreXEngine: NTRIP sin caster (ni IP ni URL) — no se conecta");
+                return;
+            }
+
+            Log.EventWriter("CoreXEngine: NTRIP conectando a " + ip + ":" +
+                (d.CasterPort > 0 ? d.CasterPort : 2101) + " /" + d.Mount);
+
             var cfg = new NtripConfig
             {
-                CasterIp = d.CasterIp,
+                CasterIp = ip,
                 CasterPort = d.CasterPort > 0 ? d.CasterPort : 2101,
                 Mount = d.Mount,
                 Username = d.UserName,
@@ -586,7 +622,8 @@ namespace AgIO
 
             // En integrado no hace falta reiniciar el proceso: se reconecta acá.
             _corex.Ntrip.Disconnect();
-            if (dto.IsOn && !string.IsNullOrEmpty(dto.CasterIp)) _panel.ConectarNtrip();
+            if (dto.IsOn && (!string.IsNullOrWhiteSpace(dto.CasterIp)
+                || !string.IsNullOrWhiteSpace(dto.CasterUrl))) _panel.ConectarNtrip();
 
             await WriteJsonAsync(new { Ok = true, Restart = false }).ConfigureAwait(false);
         }
@@ -824,7 +861,7 @@ namespace AgIO
             else
             {
                 _panel.Config.NtripOn = true;
-                if (!string.IsNullOrEmpty(_panel.Config.Ntrip?.CasterIp)) _panel.ConectarNtrip();
+                if (_panel.NtripTieneCaster()) _panel.ConectarNtrip();
             }
             _panel.Config.Save();
             return WriteJsonAsync(new { Ok = true });
