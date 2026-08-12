@@ -44,7 +44,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         Gga = _config.Gga; Vtg = _config.Vtg; Avr = _config.Avr; Hdt = _config.Hdt;
         Rmc = _config.Rmc; Ogi = _config.Ogi; Nda = _config.Nda; Ksxt = _config.Ksxt;
-        SoloGps = _config.SoloGps;
+        EmularGps = _config.EmularGps; EmularDireccion = _config.EmularDireccion;
+        EmularMaquina = _config.EmularMaquina; EmularImu = _config.EmularImu;
         LatInicial = _config.Latitud.ToString("N7", Inv);
         LonInicial = _config.Longitud.ToString("N7", Inv);
 
@@ -107,9 +108,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool SwitchTrabajo { get => _switchTrabajo; set { _switchTrabajo = value; _pgn.WorkSwitch = value ? 0 : 1; Notificar(); } }
     public bool SwitchDireccion { get => _switchDireccion; set { _switchDireccion = value; _pgn.SteerSwitch = value ? 0 : 1; Notificar(); } }
 
-    // Banco con ECU real: BenchX manda solo GPS, los módulos los contesta la ECU.
-    private bool _soloGps;
-    public bool SoloGps { get => _soloGps; set { _soloGps = value; _pgn.SoloGps = value; Notificar(); } }
+    // Banco con ECU real: se apaga el módulo que maneje la ECU conectada.
+    private bool _emularGps = true, _emularDireccion = true, _emularMaquina = true, _emularImu = true;
+    public bool EmularGps { get => _emularGps; set { _emularGps = value; Notificar(); } }
+    public bool EmularDireccion { get => _emularDireccion; set { _emularDireccion = value; _pgn.EmularDireccion = value; Notificar(); } }
+    public bool EmularMaquina { get => _emularMaquina; set { _emularMaquina = value; _pgn.EmularMaquina = value; Notificar(); } }
+    public bool EmularImu { get => _emularImu; set { _emularImu = value; _pgn.EmularImu = value; Notificar(); } }
     public void BotonDireccionRemoto() => _pgn.SteerSwitch = _pgn.SteerSwitch > 0 ? 0 : 1;
 
     // ------------------------- lecturas live -------------------------
@@ -171,14 +175,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _pgn.SteerAngleActual = _sim.SteerAngleDeg;
 
         var g = _sim.Estado;
-        if (Vtg) _link.Enviar(NmeaBuilder.BuildVtg(g));
-        if (Avr) _link.Enviar(NmeaBuilder.BuildAvr(g));
-        if (Hdt) _link.Enviar(NmeaBuilder.BuildHdt(g));
-        if (Gga) _link.Enviar(NmeaBuilder.BuildGga(g));
-        if (Rmc) _link.Enviar(NmeaBuilder.BuildRmc(g));
-        if (Ogi) _link.Enviar(NmeaBuilder.BuildOgi(g));
-        if (Nda) _link.Enviar(NmeaBuilder.BuildNda(g));
-        if (Ksxt) _link.Enviar(NmeaBuilder.BuildKsxt(g));
+        if (EmularGps)
+        {
+            if (Vtg) _link.Enviar(NmeaBuilder.BuildVtg(g));
+            if (Avr) _link.Enviar(NmeaBuilder.BuildAvr(g));
+            if (Hdt) _link.Enviar(NmeaBuilder.BuildHdt(g));
+            if (Gga) _link.Enviar(NmeaBuilder.BuildGga(g));
+            if (Rmc) _link.Enviar(NmeaBuilder.BuildRmc(g));
+            if (Ogi) _link.Enviar(NmeaBuilder.BuildOgi(g));
+            if (Nda) _link.Enviar(NmeaBuilder.BuildNda(g));
+            if (Ksxt) _link.Enviar(NmeaBuilder.BuildKsxt(g));
+        }
 
         RefrescarLecturas();
     }
@@ -255,7 +262,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _timer.Stop();
         _config.Gga = Gga; _config.Vtg = Vtg; _config.Avr = Avr; _config.Hdt = Hdt;
         _config.Rmc = Rmc; _config.Ogi = Ogi; _config.Nda = Nda; _config.Ksxt = Ksxt;
-        _config.SoloGps = SoloGps;
+        _config.EmularGps = EmularGps; _config.EmularDireccion = EmularDireccion;
+        _config.EmularMaquina = EmularMaquina; _config.EmularImu = EmularImu;
         try { _config.Guardar(_rutaConfig); } catch { }
         _link.Dispose();
     }

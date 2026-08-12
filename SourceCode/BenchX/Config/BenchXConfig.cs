@@ -22,7 +22,12 @@ public sealed class BenchXConfig
     public bool Ogi { get; set; }
     public bool Nda { get; set; } = true;      // PANDA: la que usa PilotX
     public bool Ksxt { get; set; }
-    public bool SoloGps { get; set; }          // banco con ECU real: no emular módulos
+
+    // Qué emula BenchX en el banco. Se apaga lo que maneje la ECU real conectada.
+    public bool EmularGps { get; set; } = true;        // sentencias NMEA
+    public bool EmularDireccion { get; set; } = true;  // autosteer (WAS/motor): 253 + hello/scan
+    public bool EmularMaquina { get; set; } = true;
+    public bool EmularImu { get; set; } = true;
 
     public static string RutaDefault => Path.Combine(AppContext.BaseDirectory, "benchx.json");
 

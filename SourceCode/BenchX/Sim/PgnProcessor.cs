@@ -14,11 +14,13 @@ public sealed class PgnProcessor
     public int WorkSwitch = 1, SteerSwitch = 1, RemoteSwitch = 1; // activo-bajo, 1 = suelto
     public byte Subred1, Subred2, Subred3;
 
-    // Banco con ECU real: BenchX manda solo GPS y NO contesta ningún PGN
-    // (253/hellos/scan) — si contestara habría dos autosteer en la red y el
-    // WAS saltaría entre el simulado y el real. El parseo sigue vivo para la
-    // cinemática (setpoint del 254) y las cards de la UI.
-    public bool SoloGps;
+    // Banco con ECU real: se apaga la emulación del módulo que maneje la ECU
+    // (si BenchX contestara también, habría dos módulos iguales en la red y
+    // p.ej. el WAS saltaría entre el simulado y el real). El parseo sigue
+    // vivo siempre, para la cinemática (setpoint del 254) y las cards.
+    public bool EmularDireccion = true;   // autosteer: 253 + hello/scan 126 (WAS y motor viven acá)
+    public bool EmularMaquina = true;     // hello/scan 123
+    public bool EmularImu = true;         // hello/scan 121
 
     // --- recibido de PilotX (PGN 254 / 239 / 229) ---
     public byte GuidanceStatus;
@@ -69,7 +71,7 @@ public sealed class PgnProcessor
                     Xte = data[10];
                     Relay = data[11];
                     RelayHi = data[12];
-                    if (!SoloGps) res.Respuestas.Add(ArmarPgn253());
+                    if (EmularDireccion) res.Respuestas.Add(ArmarPgn253());
                     break;
                 }
             case 252: // settings PID
@@ -104,19 +106,18 @@ public sealed class PgnProcessor
                     UseYAxis = (byte)((s1 >> 3) & 1);
                     break;
                 }
-            case 200: // hello de CoreX → contestan los 3 módulos simulados
+            case 200: // hello de CoreX → contesta cada módulo emulado
                 {
-                    if (SoloGps) break;
                     int sa = (int)(SteerAngleActual * 100);
                     // El 71 final es el CRC congelado de ModSim (nunca lo recalculó): parity.
-                    var steer = new byte[] { 128, 129, 126, 126, 5,
-                    unchecked((byte)sa), unchecked((byte)(sa >> 8)), 0, 0, (byte)SwitchByte(), 71 };
-                    var machine = new byte[] { 128, 129, 123, 123, 5,
-                    (byte)RelayLoM, (byte)RelayHiM, 0, 0, 0, 71 };
-                    var imu = new byte[] { 128, 129, 121, 121, 5, 0, 0, 0, 0, 0, 71 };
-                    res.Respuestas.Add(steer);
-                    res.Respuestas.Add(machine);
-                    res.Respuestas.Add(imu);
+                    if (EmularDireccion)
+                        res.Respuestas.Add(new byte[] { 128, 129, 126, 126, 5,
+                            unchecked((byte)sa), unchecked((byte)(sa >> 8)), 0, 0, (byte)SwitchByte(), 71 });
+                    if (EmularMaquina)
+                        res.Respuestas.Add(new byte[] { 128, 129, 123, 123, 5,
+                            (byte)RelayLoM, (byte)RelayHiM, 0, 0, 0, 71 });
+                    if (EmularImu)
+                        res.Respuestas.Add(new byte[] { 128, 129, 121, 121, 5, 0, 0, 0, 0, 0, 71 });
                     break;
                 }
             case 201: // cambio de subred
@@ -126,15 +127,15 @@ public sealed class PgnProcessor
                         res.NuevaSubred = (data[7], data[8], data[9]);
                     break;
                 }
-            case 202: // scan → un reply por módulo (steer/machine/imu)
+            case 202: // scan → un reply por cada módulo emulado
                 {
-                    if (SoloGps) break;
                     if (data.Length < 7) break;
                     if (data[4] == 3 && data[5] == 202 && data[6] == 202)
                     {
-                        ScanRespondido = true;
-                        foreach (byte modulo in new byte[] { 126, 123, 121 })
-                            res.Respuestas.Add(ArmarScanReply(modulo));
+                        if (EmularDireccion) res.Respuestas.Add(ArmarScanReply(126));
+                        if (EmularMaquina) res.Respuestas.Add(ArmarScanReply(123));
+                        if (EmularImu) res.Respuestas.Add(ArmarScanReply(121));
+                        if (res.Respuestas.Count > 0) ScanRespondido = true;
                     }
                     break;
                 }

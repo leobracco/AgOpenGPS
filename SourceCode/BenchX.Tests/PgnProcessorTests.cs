@@ -180,23 +180,46 @@ public class PgnProcessorTests
     }
 
     [Test]
-    public void Solo_gps_no_responde_ningun_pgn_pero_sigue_parseando()
+    public void Direccion_apagada_no_responde_253_pero_sigue_parseando()
     {
-        // Banco con ECU real: BenchX manda solo GPS; los módulos los contesta
-        // la ECU. Si BenchX contestara también, habría dos autosteer en la red.
+        // Banco con ECU real: si la ECU maneja el WAS/motor, BenchX no puede
+        // contestar 253 también — habría dos autosteer en la red.
         var p = Proc();
-        p.SoloGps = true;
+        p.EmularDireccion = false;
 
         short sp = -500;
         var r254 = p.Procesar(Trama(254, 8, 80, 0, 1, (byte)(sp & 0xFF), (byte)((sp >> 8) & 0xFF), 7, 0b101, 1, 0));
-        Assert.That(r254.Respuestas, Is.Empty);                          // sin 253
+        Assert.That(r254.Respuestas, Is.Empty);                           // sin 253
         Assert.That(p.SteerAngleSetPoint, Is.EqualTo(-5.0).Within(1e-6)); // el estado sí llega (cinemática/UI)
         Assert.That(p.GuidanceStatus, Is.EqualTo(1));
+    }
 
-        Assert.That(p.Procesar(Trama(200, 3, 56, 0, 0)).Respuestas, Is.Empty); // sin hellos
+    [Test]
+    public void Hellos_y_scan_solo_de_los_modulos_emulados()
+    {
+        var p = Proc();
+        p.EmularDireccion = false;   // la ECU real es el autosteer
+        p.EmularImu = false;         // y trae su IMU
 
-        var r202 = p.Procesar(Trama(202, 3, 202, 202, 5));
-        Assert.That(r202.Respuestas, Is.Empty);          // sin scan reply
-        Assert.That(p.ScanRespondido, Is.False);         // no contestó: el badge no miente
+        var hellos = p.Procesar(Trama(200, 3, 56, 0, 0));
+        Assert.That(hellos.Respuestas, Has.Count.EqualTo(1));
+        Assert.That(hellos.Respuestas[0][3], Is.EqualTo(123)); // solo máquina
+
+        var scan = p.Procesar(Trama(202, 3, 202, 202, 5));
+        Assert.That(scan.Respuestas, Has.Count.EqualTo(1));
+        Assert.That(scan.Respuestas[0][2], Is.EqualTo(123));
+        Assert.That(p.ScanRespondido, Is.True); // contestó como máquina
+    }
+
+    [Test]
+    public void Todos_los_modulos_apagados_no_contesta_nada()
+    {
+        var p = Proc();
+        p.EmularDireccion = false; p.EmularMaquina = false; p.EmularImu = false;
+
+        Assert.That(p.Procesar(Trama(200, 3, 56, 0, 0)).Respuestas, Is.Empty);
+        var scan = p.Procesar(Trama(202, 3, 202, 202, 5));
+        Assert.That(scan.Respuestas, Is.Empty);
+        Assert.That(p.ScanRespondido, Is.False); // no contestó: el badge no miente
     }
 }
