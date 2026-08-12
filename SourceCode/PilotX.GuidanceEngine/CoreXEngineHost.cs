@@ -239,6 +239,11 @@ namespace AgIO
             Log.EventWriter("CoreXEngine: hello a modulos (PGN 200) cada 1 s hacia [" + listaEps + "]");
         }
 
+        /// <summary>Último hello recibido de cada módulo (UTC). MinValue = nunca.</summary>
+        public DateTime LastSteerHelloUtc { get; private set; } = DateTime.MinValue;
+        public DateTime LastMachineHelloUtc { get; private set; } = DateTime.MinValue;
+        public DateTime LastImuHelloUtc { get; private set; } = DateTime.MinValue;
+
         /// <summary>Mismo frame que helloFromAgIO en AgIO/UDP.designer.cs.</summary>
         private static readonly byte[] HelloAgIO = { 0x80, 0x81, 0x7F, 200, 3, 56, 0, 0, 0x47 };
         private System.Threading.Timer _helloTimer;
@@ -346,6 +351,18 @@ namespace AgIO
 
             if (data[0] == 0x80 && data[1] == 0x81)
             {
+                // Hellos de módulos (126=steer, 123=machine, 121=IMU, largo 11
+                // — los mismos PGN que cuenta AgIO en UDP.designer.cs). Se
+                // anota la hora para que el panel muestre "módulo vivo": sin
+                // esto el ECU real contestaba y el snapshot lo daba todo en
+                // false (reporte de banco 2026-08-12, "no lo veo").
+                if (data.Length == 11)
+                {
+                    if (data[3] == 126) LastSteerHelloUtc = DateTime.UtcNow;
+                    else if (data[3] == 123) LastMachineHelloUtc = DateTime.UtcNow;
+                    else if (data[3] == 121) LastImuHelloUtc = DateTime.UtcNow;
+                }
+
                 // ANTI-ECO: los PGNs que ORIGINA el propio motor (posición
                 // corregida, autosteer data, secciones, settings) jamás pueden
                 // venir de un módulo — si llegan por la LAN son un eco (ModSim

@@ -396,10 +396,30 @@ namespace AgIO
                     Messages = broker?.MessagesTotal ?? 0,
                     RecentTopics = broker?.GetRecentTopics(20) ?? new System.Collections.Generic.List<string>(),
                 },
-                // Hello-tracking de módulos: no portado todavía al integrado.
-                Modules = new CoreXModulesDto(),
+                // Vivo = hello en los últimos 5 s (los módulos lo mandan a 1 Hz
+                // en respuesta al PGN 200). "Configured" en CoreX.exe sale de
+                // sus canales serie; en integrado el canal es la LAN, así que
+                // configurado == vivo.
+                Modules = ArmarModulos(),
             };
             return dto;
+        }
+
+        private CoreXModulesDto ArmarModulos()
+        {
+            var ahora = DateTime.UtcNow;
+            bool steer = (ahora - _corex.LastSteerHelloUtc).TotalSeconds < 5;
+            bool machine = (ahora - _corex.LastMachineHelloUtc).TotalSeconds < 5;
+            bool imu = (ahora - _corex.LastImuHelloUtc).TotalSeconds < 5;
+            return new CoreXModulesDto
+            {
+                SteerConfigured = steer,
+                SteerHello = steer,
+                MachineConfigured = machine,
+                MachineHello = machine,
+                ImuConfigured = imu,
+                ImuHello = imu,
+            };
         }
 
         private static string ResolveWwwrootCorex()
