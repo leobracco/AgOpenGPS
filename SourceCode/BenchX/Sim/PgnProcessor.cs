@@ -55,108 +55,108 @@ public sealed class PgnProcessor
         switch (data[3])
         {
             case 254: // datos de guiado a 10 Hz
-            {
-                if (data.Length < 13) break;
-                GpsSpeedPilotX = (data[5] | (data[6] << 8)) * 0.1;
-                GuidanceStatus = data[7];
-                SteerAngleSetPoint = (short)(data[8] | (data[9] << 8)) * 0.01;
-                Xte = data[10];
-                Relay = data[11];
-                RelayHi = data[12];
-                res.Respuestas.Add(ArmarPgn253());
-                break;
-            }
-            case 252: // settings PID
-            {
-                if (data.Length < 13) break;
-                Kp = data[5];
-                HighPwm = data[6];
-                MinPwm = data[8];
-                LowPwm = (byte)(MinPwm * 1.2f); // ModSim pisa el lowPWM recibido
-                SensorCounts = data[9];
-                WasOffset = data[10] | (data[11] << 8);
-                AckermanPct = data[12]; // se muestra *1 (el original guardaba *0.01 y mostraba *100)
-                break;
-            }
-            case 251: // flags de config
-            {
-                if (data.Length < 13) break;
-                int s0 = data[5];
-                InvertWas       = (byte)((s0 >> 0) & 1);
-                RelayActiveHigh = (byte)((s0 >> 1) & 1);
-                MotorDir        = (byte)((s0 >> 2) & 1);
-                SingleInputWas  = (byte)((s0 >> 3) & 1);
-                Cytron          = (byte)((s0 >> 4) & 1);
-                SteerSwitchCfg  = (byte)((s0 >> 5) & 1);
-                SteerButtonCfg  = (byte)((s0 >> 6) & 1);
-                ShaftEncoder    = (byte)((s0 >> 7) & 1);
-                PulseCountMax = data[6];
-                int s1 = data[8];
-                Danfoss        = (byte)((s1 >> 0) & 1);
-                PressureSensor = (byte)((s1 >> 1) & 1);
-                CurrentSensor  = (byte)((s1 >> 2) & 1);
-                UseYAxis       = (byte)((s1 >> 3) & 1);
-                break;
-            }
-            case 200: // hello de CoreX → contestan los 3 módulos simulados
-            {
-                int sa = (int)(SteerAngleActual * 100);
-                // El 71 final es el CRC congelado de ModSim (nunca lo recalculó): parity.
-                var steer = new byte[] { 128, 129, 126, 126, 5,
-                    unchecked((byte)sa), unchecked((byte)(sa >> 8)), 0, 0, (byte)SwitchByte(), 71 };
-                var machine = new byte[] { 128, 129, 123, 123, 5,
-                    (byte)RelayLoM, (byte)RelayHiM, 0, 0, 0, 71 };
-                var imu = new byte[] { 128, 129, 121, 121, 5, 0, 0, 0, 0, 0, 71 };
-                res.Respuestas.Add(steer);
-                res.Respuestas.Add(machine);
-                res.Respuestas.Add(imu);
-                break;
-            }
-            case 201: // cambio de subred
-            {
-                if (data.Length < 10) break;
-                if (data[4] == 5 && data[5] == 201 && data[6] == 201)
-                    res.NuevaSubred = (data[7], data[8], data[9]);
-                break;
-            }
-            case 202: // scan → un reply por módulo (steer/machine/imu)
-            {
-                if (data.Length < 7) break;
-                if (data[4] == 3 && data[5] == 202 && data[6] == 202)
                 {
-                    ScanRespondido = true;
-                    foreach (byte modulo in new byte[] { 126, 123, 121 })
-                        res.Respuestas.Add(ArmarScanReply(modulo));
+                    if (data.Length < 13) break;
+                    GpsSpeedPilotX = (data[5] | (data[6] << 8)) * 0.1;
+                    GuidanceStatus = data[7];
+                    SteerAngleSetPoint = (short)(data[8] | (data[9] << 8)) * 0.01;
+                    Xte = data[10];
+                    Relay = data[11];
+                    RelayHi = data[12];
+                    res.Respuestas.Add(ArmarPgn253());
+                    break;
                 }
-                break;
-            }
+            case 252: // settings PID
+                {
+                    if (data.Length < 13) break;
+                    Kp = data[5];
+                    HighPwm = data[6];
+                    MinPwm = data[8];
+                    LowPwm = (byte)(MinPwm * 1.2f); // ModSim pisa el lowPWM recibido
+                    SensorCounts = data[9];
+                    WasOffset = data[10] | (data[11] << 8);
+                    AckermanPct = data[12]; // se muestra *1 (el original guardaba *0.01 y mostraba *100)
+                    break;
+                }
+            case 251: // flags de config
+                {
+                    if (data.Length < 13) break;
+                    int s0 = data[5];
+                    InvertWas = (byte)((s0 >> 0) & 1);
+                    RelayActiveHigh = (byte)((s0 >> 1) & 1);
+                    MotorDir = (byte)((s0 >> 2) & 1);
+                    SingleInputWas = (byte)((s0 >> 3) & 1);
+                    Cytron = (byte)((s0 >> 4) & 1);
+                    SteerSwitchCfg = (byte)((s0 >> 5) & 1);
+                    SteerButtonCfg = (byte)((s0 >> 6) & 1);
+                    ShaftEncoder = (byte)((s0 >> 7) & 1);
+                    PulseCountMax = data[6];
+                    int s1 = data[8];
+                    Danfoss = (byte)((s1 >> 0) & 1);
+                    PressureSensor = (byte)((s1 >> 1) & 1);
+                    CurrentSensor = (byte)((s1 >> 2) & 1);
+                    UseYAxis = (byte)((s1 >> 3) & 1);
+                    break;
+                }
+            case 200: // hello de CoreX → contestan los 3 módulos simulados
+                {
+                    int sa = (int)(SteerAngleActual * 100);
+                    // El 71 final es el CRC congelado de ModSim (nunca lo recalculó): parity.
+                    var steer = new byte[] { 128, 129, 126, 126, 5,
+                    unchecked((byte)sa), unchecked((byte)(sa >> 8)), 0, 0, (byte)SwitchByte(), 71 };
+                    var machine = new byte[] { 128, 129, 123, 123, 5,
+                    (byte)RelayLoM, (byte)RelayHiM, 0, 0, 0, 71 };
+                    var imu = new byte[] { 128, 129, 121, 121, 5, 0, 0, 0, 0, 0, 71 };
+                    res.Respuestas.Add(steer);
+                    res.Respuestas.Add(machine);
+                    res.Respuestas.Add(imu);
+                    break;
+                }
+            case 201: // cambio de subred
+                {
+                    if (data.Length < 10) break;
+                    if (data[4] == 5 && data[5] == 201 && data[6] == 201)
+                        res.NuevaSubred = (data[7], data[8], data[9]);
+                    break;
+                }
+            case 202: // scan → un reply por módulo (steer/machine/imu)
+                {
+                    if (data.Length < 7) break;
+                    if (data[4] == 3 && data[5] == 202 && data[6] == 202)
+                    {
+                        ScanRespondido = true;
+                        foreach (byte modulo in new byte[] { 126, 123, 121 })
+                            res.Respuestas.Add(ArmarScanReply(modulo));
+                    }
+                    break;
+                }
             case 239: // datos de máquina
-            {
-                if (data.Length < 13) break;
-                UTurn = data[5];
-                GpsSpeedMaquina = data[6] * 0.1;
-                HydLift = data[7];
-                Tramline = data[8];
-                RelayLoM = data[11];
-                RelayHiM = data[12];
-                break;
-            }
+                {
+                    if (data.Length < 13) break;
+                    UTurn = data[5];
+                    GpsSpeedMaquina = data[6] * 0.1;
+                    HydLift = data[7];
+                    Tramline = data[8];
+                    RelayLoM = data[11];
+                    RelayHiM = data[12];
+                    break;
+                }
             case 229: // zonas de secciones
-            {
-                if (data.Length < 13) break;
-                for (int i = 0; i < 8; i++) Zonas[i] = data[5 + i];
-                break;
-            }
+                {
+                    if (data.Length < 13) break;
+                    for (int i = 0; i < 8; i++) Zonas[i] = data[5 + i];
+                    break;
+                }
             case 238: // config de máquina
-            {
-                if (data.Length < 13) break;
-                RaiseTime = data[5];
-                LowerTime = data[6];
-                EnableToolLift = data[7];
-                RelayActiveHighM = (byte)(data[8] & 1);
-                User1 = data[9]; User2 = data[10]; User3 = data[11]; User4 = data[12];
-                break;
-            }
+                {
+                    if (data.Length < 13) break;
+                    RaiseTime = data[5];
+                    LowerTime = data[6];
+                    EnableToolLift = data[7];
+                    RelayActiveHighM = (byte)(data[8] & 1);
+                    User1 = data[9]; User2 = data[10]; User3 = data[11]; User4 = data[12];
+                    break;
+                }
         }
         return res;
     }

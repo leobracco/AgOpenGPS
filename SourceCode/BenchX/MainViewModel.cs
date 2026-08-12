@@ -76,9 +76,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public void CeroAngulo() => AnguloDireccion = 0;
     public void CeroRoll() => Roll = 0;
 
-    public bool Gga { get; set; } public bool Vtg { get; set; } public bool Avr { get; set; }
-    public bool Hdt { get; set; } public bool Rmc { get; set; } public bool Ogi { get; set; }
-    public bool Nda { get; set; } public bool Ksxt { get; set; }
+    public bool Gga { get; set; }
+    public bool Vtg { get; set; }
+    public bool Avr { get; set; }
+    public bool Hdt { get; set; }
+    public bool Rmc { get; set; }
+    public bool Ogi { get; set; }
+    public bool Nda { get; set; }
+    public bool Ksxt { get; set; }
 
     private string _latInicial = "", _lonInicial = "";
     public string LatInicial { get => _latInicial; set { _latInicial = value; Notificar(); } }

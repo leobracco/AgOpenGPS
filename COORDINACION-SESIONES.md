@@ -81,6 +81,25 @@ Zona gris (avisar antes): `GPS/AgroParallel/*` (partials adapter — los crea
 la sesión android al extraer, pero el taller los usa desde Services),
 `AgOpenGPS.Core/` (android extrae clases hacia ahí; taller no toca Classes/).
 
+## 🔴 SANTI — PULL del 2026-08-11 · ModSim → BenchX (Avalonia)
+
+**ModSim WinForms se borró; el reemplazo es `SourceCode/BenchX/` (net9 +
+Avalonia, estilo Agro Parallel).** Mismo wire: escucha :8888, broadcast
+`<subred>.255:9999`, mismas sentencias NMEA y PGN (253/hellos/scan reply
+byte a byte, dummies históricos incluidos). Lo nuevo:
+
+- Config en `benchx.json` junto al exe (chau Properties.Settings y la
+  subred perdida de v1.0.25). Default de subred: **127.255.255** (banco).
+- La lógica quedó en clases puras con tests (`BenchX.Tests`, 32 verdes):
+  NmeaBuilder / SimuladorVehiculo / PgnProcessor / UdpLink.
+- La escucha UDP es inmortal (tu fix del 10054 viaja portado) y sin
+  BeginReceiveFrom (lección stack overflow net9).
+- Sale a `Build\BenchX\BenchX.exe` vía build.ps1; excluido del ZIP de
+  release igual que ModSim (lazo de eco con el CoreX embebido).
+- El PGN 201 (cambio de subred) sigue andando: guarda JSON y se relanza.
+
+Si tenías algo a medias sobre ModSim, avisá y lo portamos a BenchX.
+
 ## 🔴 SANTI — PULL del 2026-08-05 (hasta `adcfaab8`) · ModSim ahora puede ir UNICAST
 
 Tanda grande de mi lado (14 commits, detalle en la bitácora). Lo que te toca

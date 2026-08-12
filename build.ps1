@@ -42,11 +42,12 @@ Write-Host "`n=== Build AgroParallel.Updater ($Config) ===" -ForegroundColor Cya
 dotnet build "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\AgroParallel.Updater.csproj" -c $Config -v q
 if ($LASTEXITCODE -ne 0) { Write-Host "AgroParallel.Updater FAILED" -ForegroundColor Red; exit 1 }
 
-# ModSim: simulador de GPS/NMEA por UDP :8888 para probar guiado sin antena
-# real. Viaja en el paquete para que cada pantalla pueda simular en banco.
-Write-Host "`n=== Build ModSim ($Config) ===" -ForegroundColor Cyan
-dotnet build "$root\SourceCode\ModSim\Source\ModSim.csproj" -c $Config -v q $verArg
-if ($LASTEXITCODE -ne 0) { Write-Host "ModSim FAILED" -ForegroundColor Red; exit 1 }
+# BenchX: simulador de banco (ex ModSim) — GPS/NMEA + módulos por UDP :8888.
+# Se publica a Build\BenchX\ (framework-dependent net9); NO viaja en el ZIP
+# de release (ver $skipDirs): con el CoreX embebido arma un lazo de eco UDP.
+Write-Host "`n=== Publish BenchX ($Config) ===" -ForegroundColor Cyan
+dotnet publish "$root\SourceCode\BenchX\BenchX.csproj" -c $Config -o "$OutDir\BenchX" -v q $verArg
+if ($LASTEXITCODE -ne 0) { Write-Host "BenchX FAILED" -ForegroundColor Red; exit 1 }
 
 # PilotX.Bars.Host: proceso Avalonia standalone que dibuja las barras nativas
 # (reemplazo liviano de las barras WebView2). Se publica self-contained porque
@@ -137,15 +138,6 @@ if (Test-Path $updBin) {
     }
 }
 
-# Copiar ModSim (simulador GPS — lo lanza el operario a mano cuando prueba)
-$modSimBin = "$root\SourceCode\ModSim\Source\bin\$Config"
-if (Test-Path $modSimBin) {
-    Write-Host "Copiando ModSim..." -ForegroundColor Yellow
-    Get-ChildItem $modSimBin -File -Filter "ModSim.exe*" | ForEach-Object {
-        Copy-Item $_.FullName -Destination $OutDir -Force
-    }
-}
-
 Write-Host "`n=== Build OK === Output: $OutDir" -ForegroundColor Green
 Get-ChildItem $OutDir -Filter "*.exe" | ForEach-Object { Write-Host "  $_" -ForegroundColor White }
 
@@ -180,12 +172,12 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem | Out-Null
 #    (los .json legítimos del release están en subdirs: wwwroot, runtimes...)
 $skipDirs = @('Updates','Backups','WebView2Data','firmware-cache',
               'data','implementos','Fields','Vehicles','Logs','Profiles',
-              'PilotXDesktop')
+              'PilotXDesktop','BenchX')
 $skipExt  = @('.pdb','.bak','.log','.on')
-# Exes que NO viajan a una pantalla: ModSim (simulador de banco; con el CoreX
-# embebido del engine arma un lazo de eco UDP que infla el proceso a GBs) y
-# createdump (herramienta de debug de .NET, puro peso).
-$skipFiles = @('ModSim.exe','createdump.exe')
+# Exes que NO viajan a una pantalla: BenchX vía $skipDirs (simulador de banco;
+# con el CoreX embebido del engine arma un lazo de eco UDP que infla el proceso
+# a GBs) y createdump (herramienta de debug de .NET, puro peso).
+$skipFiles = @('createdump.exe')
 $files = Get-ChildItem $OutDir -Recurse -File -Force | Where-Object {
     $rel   = $_.FullName.Substring($OutDir.Length + 1)
     $parts = $rel.Split([IO.Path]::DirectorySeparatorChar)
