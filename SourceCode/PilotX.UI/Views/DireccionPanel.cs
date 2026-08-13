@@ -285,10 +285,26 @@ public sealed class DireccionPanel : Border
         filaVu.Children.Add(_wasAng);
         var vuNota = new TextBlock
         {
-            Text = "Girá a la DERECHA: la barra va a la derecha (si va al revés → Invertir sensor). Ruedas derechas + un toque en la barra = 0°.",
+            Text = "Girá a la DERECHA: la barra va a la derecha (si va al revés → Invertir sensor).",
             FontSize = 11.5, Foreground = TextoMuted, TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(2, 2, 0, 0),
         };
+
+        // Botón explícito de cero (pedido de banco 2026-08-13): el toque en la
+        // barra sigue andando como atajo, pero nadie lo descubre solo — la
+        // acción principal merece un botón que diga lo que hace.
+        var btnCeroWas = new Button
+        {
+            Content = "Poner en cero — con las ruedas derechas",
+            Height = 44, FontSize = 14, FontWeight = FontWeight.Bold,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            Background = BgCard, Foreground = Texto,
+            BorderBrush = Verde, BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(8),
+            Margin = new Thickness(0, 6, 0, 0),
+        };
+        btnCeroWas.Click += async (_, _) => await ZeroWas();
 
         _tglInvWas   = BotonSeg("Invertir sensor (WAS)");
         _tglInvMotor = BotonSeg("Invertir motor");
@@ -305,8 +321,8 @@ public sealed class DireccionPanel : Border
         _scSensor.Children.Add(filaCuentas);
         var chipCero = ChipAyuda("Vúmetro del ángulo y cero",
             "La barra muestra el ángulo EN VIVO: girá el volante a la derecha y tiene que llenarse hacia " +
-            "la derecha — si va al revés, prendé Invertir sensor. Con las ruedas BIEN derechas, un toque " +
-            "en la barra fija el 0°. Un cero corrido hace que el piloto siembre corrido de la línea.");
+            "la derecha — si va al revés, prendé Invertir sensor. Con las ruedas BIEN derechas, tocá " +
+            "Poner en cero. Un cero corrido hace que el piloto siembre corrido de la línea.");
         chipCero.VerticalAlignment = VerticalAlignment.Center;
         var filaVuConChip = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         Grid.SetColumn(filaVu, 0);
@@ -314,6 +330,7 @@ public sealed class DireccionPanel : Border
         filaVuConChip.Children.Add(filaVu);
         filaVuConChip.Children.Add(chipCero);
         _scSensor.Children.Add(filaVuConChip);
+        _scSensor.Children.Add(btnCeroWas);
         _scSensor.Children.Add(vuNota);
         var filaInv = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         Grid.SetColumn(invFila, 0);
