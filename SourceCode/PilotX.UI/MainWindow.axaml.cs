@@ -3008,19 +3008,39 @@ public partial class MainWindow : Window
         // El clamp de 150 protege del riel izquierdo; el de la derecha evita
         // que la barra se salga en ventanas angostas (ahí se pierde la
         // alineación exacta, pero la barra entra entera).
-        double x = (hostW - w) / 2;
+        // Pantalla angosta (taller 1024x768): si la barra no entra entre el
+        // riel izquierdo (150) y el borde, se ESCALA hacia abajo en vez de
+        // dejar que se corte por la derecha — a 1024 queda ~0.88, botones de
+        // ~56 px visuales, todavía tocables con guante. En pantallas grandes
+        // el factor es 1 y no cambia nada.
+        double disponible = hostW - 150 - 6;
+        double f = (disponible > 0 && w > disponible) ? disponible / w : 1.0;
+        if (f < 1.0)
+        {
+            _nudgeOverlay.RenderTransformOrigin =
+                new RelativePoint(0, 0, RelativeUnit.Relative);
+            _nudgeOverlay.RenderTransform = new Avalonia.Media.ScaleTransform(f, f);
+        }
+        else
+        {
+            _nudgeOverlay.RenderTransform = null;
+        }
+        double wf = w * f, hf = h * f;
+
+        double x = (hostW - wf) / 2;
         var cen = _btnNudgeCentro;
         if (cen != null && cen.Bounds.Width > 0)
         {
             var p = cen.TranslatePoint(new Point(cen.Bounds.Width / 2, 0), _nudgeOverlay);
-            if (p.HasValue) x = hostW / 2 - p.Value.X;
+            if (p.HasValue) x = hostW / 2 - p.Value.X * f;
         }
-        x = Math.Max(150, Math.Min(x, hostW - w - 6));
+        x = Math.Max(150, Math.Min(x, hostW - wf - 6));
         Canvas.SetLeft(_nudgeOverlay, x);
         // Pegada al borde inferior (intercambio 2026-08-05): la pasada ocupa
         // el lugar que tenía la barra de secciones, y las secciones flotan
-        // arriba (SeccionesFloat). El 6 es solo aire contra el borde.
-        Canvas.SetTop(_nudgeOverlay, Math.Max(0, hostH - h - 6));
+        // arriba (SeccionesFloat). El 6 es solo aire contra el borde. Con
+        // escala, la altura VISUAL es h*f (RenderTransform no cambia Bounds).
+        Canvas.SetTop(_nudgeOverlay, Math.Max(0, hostH - hf - 6));
         // El resto de la pila cuelga de esta posición: reubicar juntas.
         UbicarVxStrip();
         UbicarQxBar();
