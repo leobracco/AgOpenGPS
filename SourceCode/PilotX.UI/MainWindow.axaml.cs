@@ -3008,13 +3008,16 @@ public partial class MainWindow : Window
         // El clamp de 150 protege del riel izquierdo; el de la derecha evita
         // que la barra se salga en ventanas angostas (ahí se pierde la
         // alineación exacta, pero la barra entra entera).
-        // Pantalla angosta (taller 1024x768): si la barra no entra entre el
-        // riel izquierdo (150) y el borde, se ESCALA hacia abajo en vez de
-        // dejar que se corte por la derecha — a 1024 queda ~0.88, botones de
-        // ~56 px visuales, todavía tocables con guante. En pantallas grandes
-        // el factor es 1 y no cambia nada.
-        double disponible = hostW - 150 - 6;
-        double f = (disponible > 0 && w > disponible) ? disponible / w : 1.0;
+        // Pantalla angosta (taller 1024x768): si la barra no entra, se ESCALA
+        // hacia abajo (con un 0.88 extra pedido 2026-08-14: "un poco más
+        // chica") y se ARRIMA al borde izquierdo, pegada al riel plegado
+        // (~36 px + el chevrón) — así queda aire a la derecha para los toasts
+        // y el riel derecho. En pantallas grandes el factor es 1, la barra
+        // sigue centrada sobre el eje del tractor y nada cambia.
+        const double margenAngosto = 56;
+        double disponible = hostW - margenAngosto - 6;
+        bool angosta = disponible > 0 && w > disponible;
+        double f = angosta ? (disponible / w) * 0.88 : 1.0;
         if (f < 1.0)
         {
             _nudgeOverlay.RenderTransformOrigin =
@@ -3027,14 +3030,24 @@ public partial class MainWindow : Window
         }
         double wf = w * f, hf = h * f;
 
-        double x = (hostW - wf) / 2;
-        var cen = _btnNudgeCentro;
-        if (cen != null && cen.Bounds.Width > 0)
+        double x;
+        if (angosta)
         {
-            var p = cen.TranslatePoint(new Point(cen.Bounds.Width / 2, 0), _nudgeOverlay);
-            if (p.HasValue) x = hostW / 2 - p.Value.X * f;
+            // Angosta: alineada a la izquierda; centrar sobre el eje acá no
+            // aplica porque la barra ocupa casi todo el ancho igual.
+            x = margenAngosto;
         }
-        x = Math.Max(150, Math.Min(x, hostW - wf - 6));
+        else
+        {
+            x = (hostW - wf) / 2;
+            var cen = _btnNudgeCentro;
+            if (cen != null && cen.Bounds.Width > 0)
+            {
+                var p = cen.TranslatePoint(new Point(cen.Bounds.Width / 2, 0), _nudgeOverlay);
+                if (p.HasValue) x = hostW / 2 - p.Value.X * f;
+            }
+            x = Math.Max(150, Math.Min(x, hostW - wf - 6));
+        }
         Canvas.SetLeft(_nudgeOverlay, x);
         // Pegada al borde inferior (intercambio 2026-08-05): la pasada ocupa
         // el lugar que tenía la barra de secciones, y las secciones flotan
