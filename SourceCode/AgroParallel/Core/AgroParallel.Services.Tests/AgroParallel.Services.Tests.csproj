@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
@@ -28,8 +28,8 @@
     <ProjectReference Include="..\..\..\AgLibrary\AgLibrary.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\AgIO\Source\Classes\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
-    <Compile Include="..\..\..\AgIO\Source\Classes\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
-    <Compile Include="..\..\..\AgIO\Source\Classes\CGLM.cs" Link="AgIO\CGLM.cs" />
+    <Compile Include="..\..\..\CoreX.Shared\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
+    <Compile Include="..\..\..\CoreX.Shared\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
+    <Compile Include="..\..\..\CoreX.Shared\CGLM.cs" Link="AgIO\CGLM.cs" />
   </ItemGroup>
 </Project>

@@ -31,9 +31,10 @@ namespace AgroParallel.PilotX.KioskSetup
         private const string PasswordlessKey = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device";
 
         private static readonly string[] AogCandidates = {
-            @"C:\PilotX\PilotX.exe",
-            @"C:\Program Files\AgroParallel\PilotX\PilotX.exe",
-            @"C:\Program Files (x86)\AgroParallel\PilotX\PilotX.exe",
+            @"C:\PilotX\Desktop\PilotX.Desktop.exe",
+            @"C:\PilotX\PilotX.Desktop.exe",
+            @"C:\Program Files\AgroParallel\PilotX\Desktop\PilotX.Desktop.exe",
+            @"C:\Program Files (x86)\AgroParallel\PilotX\Desktop\PilotX.Desktop.exe",
         };
 
         private static int Main(string[] args)
@@ -213,7 +214,9 @@ namespace AgroParallel.PilotX.KioskSetup
                 if (File.Exists(explicitPath)) return explicitPath;
                 if (Directory.Exists(explicitPath))
                 {
-                    string c = Path.Combine(explicitPath, "PilotX.exe");
+                    string c = Path.Combine(explicitPath, "Desktop", "PilotX.Desktop.exe");
+                    if (File.Exists(c)) return c;
+                    c = Path.Combine(explicitPath, "PilotX.Desktop.exe");
                     if (File.Exists(c)) return c;
                 }
                 return null;
@@ -223,7 +226,9 @@ namespace AgroParallel.PilotX.KioskSetup
             try
             {
                 string here = Path.GetDirectoryName(typeof(Program).Assembly.Location);
-                string c = Path.Combine(here ?? "", "PilotX.exe");
+                string c = Path.Combine(here ?? "", "Desktop", "PilotX.Desktop.exe");
+                if (File.Exists(c)) return c;
+                c = Path.Combine(here ?? "", "PilotX.Desktop.exe");
                 if (File.Exists(c)) return c;
             }
             catch { }

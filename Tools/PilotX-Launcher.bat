@@ -25,11 +25,10 @@ set LOGFILE=%LOGDIR%\launcher.log
 
 :: La pantalla real es el shell Avalonia (PilotX.Desktop.exe). Se prueban los
 :: DOS layouts: el nuevo con subcarpetas (C:\PilotX\Desktop\ + Engine\, el del
-:: taller y de deploy-taller.ps1) y el plano viejo. PilotX.exe (WinForms)
-:: queda de ultimo fallback para instalaciones viejas.
+:: taller y de deploy-taller.ps1) y el plano viejo. El WinForms (PilotX.exe)
+:: se elimino del repo el 2026-08-14 y ya no se contempla.
 set PILOTX_EXE=%PILOTX_DIR%\Desktop\PilotX.Desktop.exe
 if not exist "%PILOTX_EXE%" set PILOTX_EXE=%PILOTX_DIR%\PilotX.Desktop.exe
-if not exist "%PILOTX_EXE%" set PILOTX_EXE=%PILOTX_DIR%\PilotX.exe
 
 
 if not exist "%LOGDIR%" mkdir "%LOGDIR%"

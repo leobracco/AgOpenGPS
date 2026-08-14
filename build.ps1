@@ -1,4 +1,7 @@
-# build.ps1 - Compila AgIO + AgOpenGPS en Release y copia todo a /Build
+# build.ps1 - Compila el stack PilotX (Desktop + Engine + BarsHost + tools)
+# y copia todo a /Build. El WinForms legacy (PilotX.exe) y AgIO (CoreX.exe)
+# se eliminaron del repo el 2026-08-14: el Engine trae el CoreX embebido
+# (broker MQTT, bridge UDP, NTRIP, seriales y panel :5181).
 param(
     [string]$Config = "Release",
     [string]$OutDir = "$PSScriptRoot\Build",
@@ -22,14 +25,6 @@ if (-not $Version) {
 }
 $verArg = "-p:Version=$Version"
 Write-Host "Stamping build con version: $Version" -ForegroundColor Cyan
-
-Write-Host "`n=== Build AgIO ($Config) ===" -ForegroundColor Cyan
-dotnet build "$root\SourceCode\AgIO\Source\AgIO.csproj" -c $Config -v q $verArg
-if ($LASTEXITCODE -ne 0) { Write-Host "AgIO FAILED" -ForegroundColor Red; exit 1 }
-
-Write-Host "`n=== Build AgOpenGPS ($Config) ===" -ForegroundColor Cyan
-dotnet build "$root\SourceCode\GPS\AgOpenGPS.csproj" -c $Config -v q $verArg
-if ($LASTEXITCODE -ne 0) { Write-Host "AgOpenGPS FAILED" -ForegroundColor Red; exit 1 }
 
 Write-Host "`n=== Build PilotX-KioskSetup ($Config) ===" -ForegroundColor Cyan
 dotnet build "$root\Tools\PilotX-KioskSetup\PilotX-KioskSetup.csproj" -c $Config -v q $verArg
@@ -61,9 +56,9 @@ if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.Bars.Host FAILED" -ForegroundColor
 
 # --- Stack Avalonia (el que reemplaza al WinForms en la cabina) --------------
 # PilotX.GuidanceEngine: motor de guiado headless + API :5180. Es el backend de
-# PilotX.Desktop. Se lanza SIN --corex (CoreX.exe ya provee broker MQTT y bridge
-# UDP; con --corex chocan en el 1883). Lee su perfil de vehiculo del
-# aog_settings.json de la instalacion, un nivel arriba de esta carpeta.
+# PilotX.Desktop. El Desktop lo lanza con --webhost --corex (CoreX embebido:
+# broker MQTT :1883, bridge UDP, NTRIP y panel :5181). Lee su perfil de
+# vehiculo del aog_settings.json de la instalacion, un nivel arriba.
 Write-Host "`n=== Publish PilotX.GuidanceEngine ($Config) ===" -ForegroundColor Cyan
 dotnet publish "$root\SourceCode\PilotX.GuidanceEngine\PilotX.GuidanceEngine.csproj" `
     -c $Config -r win-x64 --self-contained true `
@@ -82,50 +77,12 @@ if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.Desktop FAILED" -ForegroundColor R
 # Crear directorio de salida
 if (!(Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
 
-# Copiar AgOpenGPS (tiene mas archivos, va primero)
-#
-# OJO con los .json de la RAIZ: el bin del source acumula configuraciones de
-# runtime por haber corrido PilotX desde el IDE (quantiX_motores.json,
-# vistaX.json, perfil, overlays...). Copiarlos le PISA al operario la config
-# de su Build\ en CADA compilada — motores, dosis y calibraciones vueltas a
-# las del desarrollador, sin ningun aviso. Mismo criterio que ya usaba el
-# empaquetado del ZIP mas abajo: los .json legitimos del release viven en
-# subdirectorios (wwwroot, runtimes), nunca en la raiz.
-$aogBin = "$root\SourceCode\GPS\bin\$Config\win-x64"
-if (Test-Path $aogBin) {
-    Write-Host "`nCopiando AgOpenGPS..." -ForegroundColor Yellow
-    Get-ChildItem $aogBin -Force | Where-Object {
-        -not ($_.PSIsContainer -eq $false -and $_.Extension.ToLower() -eq '.json')
-    } | ForEach-Object {
-        Copy-Item $_.FullName -Destination $OutDir -Recurse -Force
-    }
-}
-
 # Copiar PilotX-KioskSetup.exe (utility para configurar kiosko en tractor)
 $kioskBin = "$root\Tools\PilotX-KioskSetup\bin\$Config\net48"
 if (Test-Path $kioskBin) {
     Write-Host "Copiando PilotX-KioskSetup..." -ForegroundColor Yellow
     Get-ChildItem $kioskBin -File -Filter "PilotX-KioskSetup.*" | ForEach-Object {
         Copy-Item $_.FullName -Destination $OutDir -Force
-    }
-}
-
-# Copiar AgIO encima (no sobreescribe DLLs comunes mas nuevas)
-$aioBin = "$root\SourceCode\AgIO\Source\bin\$Config"
-if (Test-Path $aioBin) {
-    Write-Host "Copiando AgIO..." -ForegroundColor Yellow
-    Get-ChildItem $aioBin -File | ForEach-Object {
-        $dest = Join-Path $OutDir $_.Name
-        # Solo copiar si no existe o es mas nuevo
-        if (!(Test-Path $dest) -or ($_.LastWriteTime -gt (Get-Item $dest).LastWriteTime)) {
-            Copy-Item $_.FullName -Destination $dest -Force
-        }
-    }
-    # Dashboard web de CoreX (:5181): CoreXWebHost sirve estaticos desde
-    # <exe>\wwwroot-corex; la copia plana de arriba no baja a subdirs.
-    $corexWww = Join-Path $aioBin "wwwroot-corex"
-    if (Test-Path $corexWww) {
-        Copy-Item $corexWww -Destination $OutDir -Recurse -Force
     }
 }
 

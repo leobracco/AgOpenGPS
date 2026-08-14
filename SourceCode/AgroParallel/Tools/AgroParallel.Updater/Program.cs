@@ -52,7 +52,7 @@ namespace AgroParallel.Updater
                 Console.Error.WriteLine("Faltan argumentos: --zip y --install son obligatorios.");
                 return 2;
             }
-            if (string.IsNullOrEmpty(exe)) exe = Path.Combine(install, "PilotX.exe");
+            if (string.IsNullOrEmpty(exe)) exe = Path.Combine(install, "Desktop", "PilotX.Desktop.exe");
 
             try { _logPath = Path.Combine(install, "AgroParallel", "Updates", "updater.log"); } catch { }
             Log("==== AgroParallel.Updater iniciando ====");

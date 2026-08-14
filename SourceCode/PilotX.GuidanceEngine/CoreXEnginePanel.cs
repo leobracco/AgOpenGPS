@@ -464,11 +464,12 @@ namespace AgIO
             var baseDir = AppContext.BaseDirectory;
             string[] candidates =
             {
-                // INSTALADO: Build\Engine\ + Build\wwwroot-corex (hermanos).
-                Path.GetFullPath(Path.Combine(baseDir, "..", "wwwroot-corex")),
-                // DESARROLLO: desde SourceCode\PilotX.GuidanceEngine\bin\<cfg>\net9.0.
-                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "AgIO", "Source", "wwwroot-corex")),
+                // Junto al exe: el csproj lo copia como Content (bin en dev,
+                // Engine\wwwroot-corex en el publish) — SIEMPRE el más nuevo.
                 Path.GetFullPath(Path.Combine(baseDir, "wwwroot-corex")),
+                // Fallback instalaciones viejas: Build\wwwroot-corex hermano
+                // (lo dejaba build.ps1 cuando el dashboard era de CoreX.exe).
+                Path.GetFullPath(Path.Combine(baseDir, "..", "wwwroot-corex")),
             };
             foreach (var c in candidates)
                 if (Directory.Exists(c)) return c;

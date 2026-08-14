@@ -3295,10 +3295,8 @@ public partial class MainWindow : Window
             case "hub":        ShowHub();      return true;
             case "webcam":     ShowCamaras();  return true;
             // CoreX del menú izquierdo → dashboard de CoreX (config del sistema:
-            // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por
-            // CoreX.exe (CoreXWebHost), NO en el Hub :5180. Con CoreX EMBEBIDO
-            // en el motor (--corex) ese dashboard no existe todavía: se avisa
-            // en criollo en vez de abrir un WebView contra un puerto muerto.
+            // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por el
+            // panel integrado del motor (CoreXEnginePanel), NO en el Hub :5180.
             // El ECU de autosteer queda en 'corex_ecu'.
             case "corex":      _ = AbrirCoreXAsync(); return true;
             case "corex_ecu":  ShowCoreXEcu(); return true;
@@ -3520,10 +3518,10 @@ public partial class MainWindow : Window
 
     // ---- Botón CoreX ------------------------------------------------------
     //
-    // El dashboard de CoreX (:5181) lo sirve CoreX.exe. Con CoreX embebido en
-    // el motor (--corex) los servicios corren pero el panel no existe: se
-    // chequea el puerto ANTES de abrir la ventana, y si no contesta se explica
-    // qué pasa en vez de mostrar el error crudo del WebView.
+    // El dashboard de CoreX (:5181) lo sirve el CoreXEnginePanel del motor.
+    // Se chequea el puerto ANTES de abrir la ventana (el motor pudo no haber
+    // levantado todavía) y si no contesta se explica qué pasa en vez de
+    // mostrar el error crudo del WebView.
     private async Task AbrirCoreXAsync()
     {
         bool vivo = false;
@@ -3542,10 +3540,9 @@ public partial class MainWindow : Window
         }
 
         await MostrarAvisoAsync("Panel de CoreX no disponible",
-            "CoreX está corriendo INTEGRADO en el motor de PilotX (broker MQTT, " +
-            "bridge de red y puertos serie andan), pero en este modo el panel " +
-            "todavía no existe.\n\n" +
-            "El panel aparece cuando CoreX corre como programa aparte (CoreX.exe).");
+            "El panel de CoreX lo sirve el motor de PilotX y ahora mismo no " +
+            "contesta. Si el motor está arrancando, esperá unos segundos y " +
+            "volvé a intentar.");
     }
 
     // ---- Cluster del piloto ------------------------------------------------
