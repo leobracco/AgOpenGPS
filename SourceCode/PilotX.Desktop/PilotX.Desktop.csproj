@@ -20,10 +20,10 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <!-- net9.0-windows: matchea el SDK del tractor (9.0.312) + WebView.Avalonia
-         (backend Desktop). La UI compartida es net9.0 puro; solo el head fija
-         plataforma. -->
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <!-- net9.0 puro (2026-08-14): el head también publica para linux-x64.
+         Lo Windows-only (teclado SendInput, winmm, RustDesk) queda detrás de
+         OperatingSystem.IsWindows(); WebView.Avalonia trae backend por OS. -->
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>

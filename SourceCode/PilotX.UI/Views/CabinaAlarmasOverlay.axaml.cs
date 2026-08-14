@@ -235,23 +235,75 @@ public partial class CabinaAlarmasOverlay : UserControl
         if (_alertRoot != null) _alertRoot.IsVisible = false;
     }
 
-    // Beep de alarma. Console.Beep SOLO existe en Windows (en Android/otros
-    // lanza PlatformNotSupported), así que se guarda por plataforma: en Android
-    // el aviso sonoro real lo hará el head vía su propio canal (pendiente).
-    // 880 Hz / 600 ms — mismo tono que el JS legacy (oscilador square @ 880).
+    // Beep de alarma. Console.Beep SOLO existe en Windows; en Linux se
+    // sintetiza el MISMO tono (square 880 Hz / 600 ms, como el JS legacy) a un
+    // WAV temporal una única vez y se toca con paplay/aplay. En Android el
+    // aviso sonoro real lo hará el head vía su propio canal (pendiente).
     private static void PlayBeep()
     {
         try
         {
             Task.Run(() =>
             {
-                // Guard dentro del lambda para que el analizador de plataforma
-                // (CA1416) vea que Console.Beep solo corre en Windows.
-                if (!OperatingSystem.IsWindows()) return;
-                try { Console.Beep(880, 600); }
-                catch { /* silent: PC sin beeper o headless */ }
+                // Guards dentro del lambda para que el analizador de plataforma
+                // (CA1416) vea en qué OS corre cada rama.
+                if (OperatingSystem.IsWindows())
+                {
+                    try { Console.Beep(880, 600); }
+                    catch { /* silent: PC sin beeper o headless */ }
+                }
+                else if (OperatingSystem.IsLinux())
+                {
+                    try { BeepLinux(); }
+                    catch { /* silent: sin paplay/aplay */ }
+                }
             });
         }
         catch { /* silent */ }
+    }
+
+    private static string? _beepWav;   // WAV sintetizado una sola vez por proceso
+
+    private static void BeepLinux()
+    {
+        if (_beepWav == null || !System.IO.File.Exists(_beepWav))
+        {
+            // WAV PCM 16-bit mono 8 kHz, onda cuadrada 880 Hz, 600 ms.
+            const int rate = 8000, ms = 600, hz = 880;
+            int n = rate * ms / 1000;
+            var pcm = new byte[n * 2];
+            int periodo = rate / hz;
+            for (int i = 0; i < n; i++)
+            {
+                short v = (short)((i % periodo) < periodo / 2 ? 12000 : -12000);
+                pcm[i * 2] = (byte)(v & 0xFF);
+                pcm[i * 2 + 1] = (byte)((v >> 8) & 0xFF);
+            }
+            string ruta = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "pilotx-beep.wav");
+            using (var fs = new System.IO.FileStream(ruta, System.IO.FileMode.Create))
+            using (var w = new System.IO.BinaryWriter(fs))
+            {
+                w.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+                w.Write(36 + pcm.Length);
+                w.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt "));
+                w.Write(16); w.Write((short)1); w.Write((short)1);
+                w.Write(rate); w.Write(rate * 2); w.Write((short)2); w.Write((short)16);
+                w.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+                w.Write(pcm.Length); w.Write(pcm);
+            }
+            _beepWav = ruta;
+        }
+
+        foreach (var player in new[] { "paplay", "aplay" })
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo(player, "\"" + _beepWav + "\"")
+                { UseShellExecute = false, CreateNoWindow = true };
+                System.Diagnostics.Process.Start(psi);
+                return;
+            }
+            catch { /* probar el siguiente */ }
+        }
     }
 }

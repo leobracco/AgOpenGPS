@@ -5,7 +5,8 @@
 param(
     [string]$Config = "Release",
     [string]$OutDir = "$PSScriptRoot\Build",
-    [string]$Version
+    [string]$Version,
+    [switch]$SinLinux    # saltear el paquete linux-x64 (ciclo rapido)
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,12 +33,12 @@ if ($LASTEXITCODE -ne 0) { Write-Host "PilotX-KioskSetup FAILED" -ForegroundColo
 
 # El Updater es el helper externo que aplica el ZIP de self-update en sitio.
 # Debe viajar en el paquete (PilotXSelfUpdate.ApplyAsync lo lanza desde el
-# install dir); sin él, la actualización OTA aborta con FileNotFoundException.
+# install dir); sin ÃƒÂ©l, la actualizaciÃƒÂ³n OTA aborta con FileNotFoundException.
 Write-Host "`n=== Build AgroParallel.Updater ($Config) ===" -ForegroundColor Cyan
 dotnet build "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\AgroParallel.Updater.csproj" -c $Config -v q
 if ($LASTEXITCODE -ne 0) { Write-Host "AgroParallel.Updater FAILED" -ForegroundColor Red; exit 1 }
 
-# BenchX: simulador de banco (ex ModSim) — GPS/NMEA + módulos por UDP :8888.
+# BenchX: simulador de banco (ex ModSim) Ã¢â‚¬â€ GPS/NMEA + mÃƒÂ³dulos por UDP :8888.
 # Se publica a Build\BenchX\ (framework-dependent net9); NO viaja en el ZIP
 # de release (ver $skipDirs): con el CoreX embebido arma un lazo de eco UDP.
 Write-Host "`n=== Publish BenchX ($Config) ===" -ForegroundColor Cyan
@@ -77,6 +78,16 @@ if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.Desktop FAILED" -ForegroundColor R
 # Crear directorio de salida
 if (!(Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir | Out-Null }
 
+# Hub wwwroot: la fuente de verdad es el source. Se ESPEJA a
+# Build\AgroParallel\wwwroot (el Engine lo sirve desde <install>\AgroParallel\
+# wwwroot). Antes lo arrastraba la copia del bin WinForms Ã¢â‚¬â€ eliminada
+# 2026-08-14 Ã¢â‚¬â€ y sin esta linea el ZIP viajaba con un Hub viejo.
+Write-Host "Copiando wwwroot del Hub..." -ForegroundColor Yellow
+robocopy "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\wwwroot" `
+    "$OutDir\AgroParallel\wwwroot" /MIR /NFL /NDL /NJH /NJS | Out-Null
+if ($LASTEXITCODE -ge 8) { Write-Host "wwwroot copy FAILED" -ForegroundColor Red; exit 1 }
+$global:LASTEXITCODE = 0
+
 # Copiar PilotX-KioskSetup.exe (utility para configurar kiosko en tractor)
 $kioskBin = "$root\Tools\PilotX-KioskSetup\bin\$Config\net48"
 if (Test-Path $kioskBin) {
@@ -86,7 +97,7 @@ if (Test-Path $kioskBin) {
     }
 }
 
-# Copiar AgroParallel.Updater (helper de self-update — lo lanza PilotXSelfUpdate)
+# Copiar AgroParallel.Updater (helper de self-update Ã¢â‚¬â€ lo lanza PilotXSelfUpdate)
 $updBin = "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\bin\$Config\win-x64"
 if (Test-Path $updBin) {
     Write-Host "Copiando AgroParallel.Updater..." -ForegroundColor Yellow
@@ -95,14 +106,53 @@ if (Test-Path $updBin) {
     }
 }
 
+# ----------------------------------------------------------------------------
+# Paquete LINUX (linux-x64, self-contained). Mismo layout que el de Windows:
+# Desktop/ Engine/ BarsHost/ AgroParallel/wwwroot + pilotx.sh. Sin ReadyToRun:
+# el crossgen cruzado WindowsÃ¢â€ â€™Linux alarga el build y no se validÃƒÂ³ en cabina.
+# Se saltea con -SinLinux (p. ej. para el ciclo rapido de taller).
+# ----------------------------------------------------------------------------
+if (-not $SinLinux) {
+    $linuxDir = "$OutDir\Linux"
+    Write-Host "`n=== Publish linux-x64 (Engine + BarsHost + Desktop + Updater) ===" -ForegroundColor Cyan
+    dotnet publish "$root\SourceCode\PilotX.GuidanceEngine\PilotX.GuidanceEngine.csproj" `
+        -c $Config -r linux-x64 --self-contained true -o "$linuxDir\Engine" -v q $verArg -p:PublishReadyToRun=false -p:PublishReadyToRunComposite=false
+    if ($LASTEXITCODE -ne 0) { Write-Host "Engine linux FAILED" -ForegroundColor Red; exit 1 }
+    dotnet publish "$root\SourceCode\PilotX.Bars.Host\PilotX.Bars.Host.csproj" `
+        -c $Config -r linux-x64 --self-contained true -o "$linuxDir\BarsHost" -v q $verArg -p:PublishReadyToRun=false -p:PublishReadyToRunComposite=false
+    if ($LASTEXITCODE -ne 0) { Write-Host "BarsHost linux FAILED" -ForegroundColor Red; exit 1 }
+    dotnet publish "$root\SourceCode\PilotX.Desktop\PilotX.Desktop.csproj" `
+        -c $Config -r linux-x64 --self-contained true -o "$linuxDir\Desktop" -v q $verArg -p:PublishReadyToRun=false -p:PublishReadyToRunComposite=false
+    if ($LASTEXITCODE -ne 0) { Write-Host "Desktop linux FAILED" -ForegroundColor Red; exit 1 }
+    dotnet publish "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\AgroParallel.Updater.csproj" -f net9.0 `
+        -c $Config -r linux-x64 --self-contained true -o "$linuxDir\Updater-tmp" -v q
+    if ($LASTEXITCODE -ne 0) { Write-Host "Updater linux FAILED" -ForegroundColor Red; exit 1 }
+    Get-ChildItem "$linuxDir\Updater-tmp" -File | Copy-Item -Destination $linuxDir -Force
+    Remove-Item "$linuxDir\Updater-tmp" -Recurse -Force
+
+    robocopy "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\wwwroot" `
+        "$linuxDir\AgroParallel\wwwroot" /MIR /NFL /NDL /NJH /NJS | Out-Null
+    $global:LASTEXITCODE = 0
+    Copy-Item "$root\Tools\linux\pilotx.sh" -Destination $linuxDir -Force
+    Copy-Item "$root\Tools\linux\README-linux.md" -Destination $linuxDir -Force
+
+    # tar.gz (bsdtar de Windows 10+): conserva el formato que Linux espera.
+    # Los permisos +x no viajan desde NTFS Ã¢â‚¬â€ pilotx.sh se los da al arrancar.
+    $tarPath = Join-Path $root ("PilotX_linux_v" + $Version + ".tar.gz")
+    if (Test-Path $tarPath) { Remove-Item $tarPath -Force }
+    tar -czf $tarPath -C $linuxDir .
+    if ($LASTEXITCODE -ne 0) { Write-Host "tar linux FAILED" -ForegroundColor Red; exit 1 }
+    Write-Host ("Linux: " + $tarPath) -ForegroundColor Green
+}
+
 Write-Host "`n=== Build OK === Output: $OutDir" -ForegroundColor Green
 Get-ChildItem $OutDir -Filter "*.exe" | ForEach-Object { Write-Host "  $_" -ForegroundColor White }
 
 # ----------------------------------------------------------------------------
 # Empaquetado para deploy: produce PilotX_v<version>.zip listo para
-#   (a) subir al panel OrbitX → /firmwares (producto = PilotX)  -> OTA cloud
+#   (a) subir al panel OrbitX Ã¢â€ â€™ /firmwares (producto = PilotX)  -> OTA cloud
 #   (b) copiar a USB y dejar que el Updater lo aplique en sitio
-# La raíz del ZIP corresponde al install dir del tractor (sin wrapper).
+# La raÃƒÂ­z del ZIP corresponde al install dir del tractor (sin wrapper).
 # Excluimos basura de build (.pdb, vshost) y subdirs de runtime (Updates/,
 # Backups/, WebView2Data/).
 #
@@ -119,19 +169,19 @@ if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 Add-Type -AssemblyName System.IO.Compression | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem | Out-Null
 
-# El paquete de release lleva SOLO binarios + estáticos (wwwroot). NUNCA
-# configuraciones de runtime: si el Build local acumuló configs por haber
-# corrido PilotX acá, extraerlos sobre una pantalla en uso le PISA la config
+# El paquete de release lleva SOLO binarios + estÃƒÂ¡ticos (wwwroot). NUNCA
+# configuraciones de runtime: si el Build local acumulÃƒÂ³ configs por haber
+# corrido PilotX acÃƒÂ¡, extraerlos sobre una pantalla en uso le PISA la config
 # del cliente (vistaX.json, perfil, overlays, etc.). Se excluyen:
 #  - dirs de datos/cache de runtime (firmware-cache, data, Fields, Logs...)
 #  - backups y logs (.bak, .log) y flags de runtime (.on, ej barras-html.on)
-#  - todos los .json de config que viven en la RAÍZ del install dir
-#    (los .json legítimos del release están en subdirs: wwwroot, runtimes...)
+#  - todos los .json de config que viven en la RAÃƒÂZ del install dir
+#    (los .json legÃƒÂ­timos del release estÃƒÂ¡n en subdirs: wwwroot, runtimes...)
 $skipDirs = @('Updates','Backups','WebView2Data','firmware-cache',
               'data','implementos','Fields','Vehicles','Logs','Profiles',
-              'PilotXDesktop','BenchX')
+              'PilotXDesktop','BenchX','Linux')
 $skipExt  = @('.pdb','.bak','.log','.on')
-# Exes que NO viajan a una pantalla: BenchX vía $skipDirs (simulador de banco;
+# Exes que NO viajan a una pantalla: BenchX vÃƒÂ­a $skipDirs (simulador de banco;
 # con el CoreX embebido del engine arma un lazo de eco UDP que infla el proceso
 # a GBs) y createdump (herramienta de debug de .NET, puro peso).
 $skipFiles = @('createdump.exe')

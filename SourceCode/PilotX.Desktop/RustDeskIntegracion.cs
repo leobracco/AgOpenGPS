@@ -31,6 +31,87 @@ public static class RustDeskIntegracion
 
     private static void Asegurar()
     {
+        if (OperatingSystem.IsWindows()) AsegurarWindows();
+        else if (OperatingSystem.IsLinux()) AsegurarLinux();
+    }
+
+    // ------------------------------------------------------------------ Linux
+    // Mismo contrato que en Windows: el paquete trae el cliente con el server
+    // y la clave pública en el NOMBRE del archivo (RustDesk/rustdesk-host=…,
+    // AppImage o binario) y la clave desatendida en RustDesk/clave.txt.
+    //  · rustdesk ya instalado en el sistema → solo asegurar la clave.
+    //  · empaquetado .deb → pkexec (el "UAC" de Linux) lo instala una vez.
+    //  · empaquetado AppImage/binario → chmod +x y corre portable en segundo
+    //    plano, con la config del nombre de archivo.
+    private static void AsegurarLinux()
+    {
+        try
+        {
+            string clave = null;
+            string dir = Path.Combine(AppContext.BaseDirectory, "RustDesk");
+            string claveTxt = Path.Combine(dir, "clave.txt");
+            if (File.Exists(claveTxt)) clave = File.ReadAllText(claveTxt).Trim();
+
+            if (File.Exists("/usr/bin/rustdesk"))
+            {
+                if (!string.IsNullOrEmpty(clave))
+                    RunLinux("/usr/bin/rustdesk", "--password", clave);
+                return;
+            }
+
+            if (!Directory.Exists(dir)) return;
+            string bundled = null;
+            foreach (var f in Directory.GetFiles(dir, "rustdesk-host=*"))
+            {
+                if (f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) continue;
+                bundled = f;
+                break;
+            }
+            string deb = null;
+            foreach (var f in Directory.GetFiles(dir, "*.deb")) { deb = f; break; }
+
+            if (deb != null)
+            {
+                // pkexec pide la única autorización que existe, primera vez.
+                RunLinux("pkexec", "apt-get", "install", "-y", deb);
+                if (File.Exists("/usr/bin/rustdesk") && !string.IsNullOrEmpty(clave))
+                    RunLinux("/usr/bin/rustdesk", "--password", clave);
+                return;
+            }
+
+            if (bundled != null)
+            {
+                RunLinux("chmod", "+x", bundled);
+                if (!string.IsNullOrEmpty(clave))
+                    RunLinux(bundled, "--password", clave);
+                // Portable en segundo plano: el nombre del archivo ES la config.
+                var psi = new System.Diagnostics.ProcessStartInfo(bundled)
+                { UseShellExecute = false, CreateNoWindow = true };
+                System.Diagnostics.Process.Start(psi);
+            }
+        }
+        catch
+        {
+            // Best-effort absoluto: el soporte remoto jamás frena la pantalla.
+        }
+    }
+
+    private static void RunLinux(string exe, params string[] args)
+    {
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo(exe)
+            { UseShellExecute = false, CreateNoWindow = true };
+            foreach (var a in args) psi.ArgumentList.Add(a);
+            using var p = System.Diagnostics.Process.Start(psi);
+            p?.WaitForExit(180000);
+        }
+        catch { }
+    }
+
+    // ---------------------------------------------------------------- Windows
+    private static void AsegurarWindows()
+    {
         try
         {
             string instalado = Path.Combine(

@@ -8,18 +8,26 @@
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net48</TargetFramework>
+    <!-- net48: el exe Windows de siempre (bin\Release\win-x64, framework-
+         dependent). net9.0: SOLO para el publish linux-x64 del paquete Linux
+         (2026-08-14) — el codigo es el mismo. -->
+    <TargetFrameworks>net48;net9.0</TargetFrameworks>
     <RootNamespace>AgroParallel.Updater</RootNamespace>
     <AssemblyName>AgroParallel.Updater</AssemblyName>
     <LangVersion>7.3</LangVersion>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishDir>..\..\..\..\AgOpenGPS\</PublishDir>
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!-- Solo net48 mantiene el layout historico (sin subcarpeta de TFM) que
+       build.ps1 copia; net9.0 va con TFM en el path para no pisarlo. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net48'">
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>

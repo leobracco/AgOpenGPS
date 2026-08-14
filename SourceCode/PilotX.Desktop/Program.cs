@@ -55,13 +55,16 @@ internal static class Program
             new System.Diagnostics.TextWriterTraceListener(Console.Error));
         System.Diagnostics.Trace.AutoFlush = true;
 
-        // Sink de audio Windows para las alarmas de cabina: el poller portable
-        // (PilotX.UI) entrega el WAV y este head lo toca con winmm.
-        PilotX.Desktop.Services.SoundAlarmPoller.WavSink = WinmmWavPlayer.Play;
+        // Sink de audio para las alarmas de cabina: el poller portable
+        // (PilotX.UI) entrega el WAV y el head lo toca con lo que haya —
+        // winmm en Windows, aplay/paplay en Linux.
+        PilotX.Desktop.Services.SoundAlarmPoller.WavSink =
+            OperatingSystem.IsWindows() ? WinmmWavPlayer.Play : LinuxWavPlayer.Play;
 
         // Soporte remoto integrado: si el paquete trae RustDesk y no está
-        // instalado, la PRIMERA vez dispara el único UAC que existe (instala
-        // el servicio + clave desatendida) y nunca más. Cero instalación manual.
+        // instalado, la PRIMERA vez dispara la única elevación que existe
+        // (UAC en Windows, pkexec en Linux) y nunca más. Cero instalación
+        // manual — la integración resuelve el OS adentro.
         RustDeskIntegracion.AsegurarEnSegundoPlano();
 
         App.ColdStart = Stopwatch.StartNew();

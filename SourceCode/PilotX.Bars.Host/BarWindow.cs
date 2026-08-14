@@ -35,7 +35,11 @@ public sealed class BarWindow : Window
         Opened += (_, _) =>
         {
             var h = TryGetPlatformHandle();
-            if (h != null) Win32NoActivate.Apply(h.Handle);
+            if (h != null)
+            {
+                if (System.OperatingSystem.IsWindows()) Win32NoActivate.Apply(h.Handle);
+                else if (System.OperatingSystem.IsLinux()) X11NoActivate.Apply(h.Handle);
+            }
             Reposition();
         };
     }

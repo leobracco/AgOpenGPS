@@ -169,12 +169,13 @@ namespace AgOpenGPS
             var linexCfg = new LineXConfigService();
             var linexLive = new LineXLiveService(_nodos, linexCfg);
 
-            // Brillo/apagado: port net9 de AgroParallel.Shell/SistemaService.cs
-            // (mismo DDC/CI + fallback WMI, sin la dependencia de WinForms que
-            // tenía el original). Sin esto api/sistema/brillo devolvía siempre
-            // ok:false,value:-1 contra el motor headless.
-#pragma warning disable CA1416 // el motor solo corre en Windows (CoreX/dxva2/System.IO.Ports ya lo asumen sin declararlo)
-            var sistema = new EngineSistemaService();
+            // Brillo/apagado por OS: Windows = DDC/CI (dxva2) + WMI; Linux =
+            // sysfs backlight + brightnessctl + ddcutil. Sin esto
+            // api/sistema/brillo devolvía siempre ok:false,value:-1.
+#pragma warning disable CA1416 // la rama Windows solo se instancia detrás del guard
+            AgroParallel.Services.Abstractions.ISistemaService sistema = OperatingSystem.IsWindows()
+                ? new EngineSistemaService()
+                : new EngineSistemaServiceLinux();
 #pragma warning restore CA1416
             _web = new AgpWebHost(
                 state,                 // requerido

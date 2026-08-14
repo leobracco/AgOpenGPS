@@ -59,11 +59,11 @@ namespace PilotX.Desktop
             InitializeComponent();
             Opened += (_, __) =>
             {
-                // Recién con el handle creado se puede marcar como no activable.
+                // Recién con el handle creado se puede marcar como no activable
+                // (Win32: WS_EX_NOACTIVATE + MA_NOACTIVATE; X11: input hint
+                // ICCCM en False — cada OS por su dispatcher).
                 var hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-                try { TecladoWin32.HacerNoActivable(hwnd); } catch { }
-                // La que de verdad impide que el clic robe el foco.
-                try { TecladoWin32.EvitarActivacionPorClic(hwnd); } catch { }
+                TecladoNativo.HacerNoActivable(hwnd);
                 UbicarAbajo();
             };
             var cerrar = this.FindControl<Button>("BtnCerrar");
@@ -112,8 +112,9 @@ namespace PilotX.Desktop
         {
             // Antes de mostrar nada: la ventana de adelante ahora es la que
             // tiene el campo enfocado. Si se capturara después, podría ser ya
-            // la del propio teclado.
-            var frente = TecladoWin32.GetForegroundWindow();
+            // la del propio teclado. (Windows: GetForegroundWindow; Linux:
+            // xdotool getactivewindow — mismo contrato.)
+            var frente = TecladoNativo.VentanaAlFrente();
             if (frente != IntPtr.Zero && (_abierta == null || frente != _abierta.TryGetPlatformHandle()?.Handle))
                 _objetivo = frente;
 
@@ -223,18 +224,25 @@ namespace PilotX.Desktop
             //    pasan por ninguna página.
             Publicar(k);
 
-            TecladoWin32.DevolverFoco(_objetivo);
+            // Estado local del teclado (mayús / layout): corre en cualquier OS.
             switch (k)
             {
-                case "⌫": TecladoWin32.EscribirTeclaVirtual(TecladoWin32.VK_BACK); return;
-                case "⏎": TecladoWin32.EscribirTeclaVirtual(TecladoWin32.VK_RETURN); return;
                 case "⇧": _mayus = !_mayus; Pintar(); return;
                 case "123": _numerico = true; Pintar(); return;
                 case "ABC": _numerico = false; Pintar(); return;
-                case "espacio": TecladoWin32.EscribirTexto(" "); return;
+            }
+
+            // Camino nativo (SendInput en Windows, xdotool/XTEST en Linux):
+            // escribe en los campos de la UI nativa, que no pasan por página.
+            TecladoNativo.DevolverFoco(_objetivo);
+            switch (k)
+            {
+                case "⌫": TecladoNativo.Backspace(_objetivo); return;
+                case "⏎": TecladoNativo.Enter(_objetivo); return;
+                case "espacio": TecladoNativo.EscribirTexto(_objetivo, " "); return;
             }
             var texto = (_mayus && k.Length == 1 && char.IsLetter(k[0])) ? k.ToUpperInvariant() : k;
-            TecladoWin32.EscribirTexto(texto);
+            TecladoNativo.EscribirTexto(_objetivo, texto);
             if (_mayus) { _mayus = false; Pintar(); }
         }
 

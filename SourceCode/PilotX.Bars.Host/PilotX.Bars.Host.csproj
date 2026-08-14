@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <!-- net9.0 puro (2026-08-14): publica también linux-x64; el no-activate
+         de las ventanas de barra resuelve por OS (Win32NoActivate/X11NoActivate). -->
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RootNamespace>PilotX.Bars.Host</RootNamespace>
     <AssemblyName>PilotX.Bars.Host</AssemblyName>
