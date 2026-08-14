@@ -9,11 +9,17 @@ public class NmeaBuilderTests
     private static GpsEstado Fix() => new()
     {
         TimeNow = "123519.000,",
-        LatNmea = 5323.1633840, NS = 'N',
-        LonNmea = 11109.6028200, EW = 'W',
-        Latitude = 53.4360564, Longitude = -111.160047,
-        HeadingDeg = 87.65432, SpeedKnots = 4.5, RollDeg = 1.5,
-        HeadingImu = 876, RollImu = 15,
+        LatNmea = 5323.1633840,
+        NS = 'N',
+        LonNmea = 11109.6028200,
+        EW = 'W',
+        Latitude = 53.4360564,
+        Longitude = -111.160047,
+        HeadingDeg = 87.65432,
+        SpeedKnots = 4.5,
+        RollDeg = 1.5,
+        HeadingImu = 876,
+        RollImu = 15,
     };
 
     // Recalcula el XOR entre '$' y '*' y lo compara con los 2 hex del final.

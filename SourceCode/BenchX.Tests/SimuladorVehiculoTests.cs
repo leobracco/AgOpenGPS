@@ -7,7 +7,9 @@ public class SimuladorVehiculoTests
 {
     private static SimuladorVehiculo Sim() => new()
     {
-        Latitude = -33.0, Longitude = -60.0, HeadingRad = 0.0,
+        Latitude = -33.0,
+        Longitude = -60.0,
+        HeadingRad = 0.0,
     };
 
     [Test]
