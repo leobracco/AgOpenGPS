@@ -144,14 +144,19 @@
   <!-- El control mide SIEMPRE lo mismo (la columna del submenú ya está
        reservada): así abrir un submenú no re-acomoda nada bajo el dedo. El
        fondo blanco lo pone un Border interno que cubre solo el handle y la
-       columna de botones — el resto queda transparente y deja ver el mapa. -->
-  <Border Background="Transparent" Padding="6">
+       columna de botones — el resto queda transparente y deja ver el mapa.
+
+       CENTRADO vertical, no estirado (pedido 2026-08-14): con los botones
+       repartidos a lo alto el menú llegaba hasta abajo y desplegado tapaba
+       la barra de la pasada. Ahora es un panel flotante a la altura del
+       chevrón (que ya vivía centrado) y abajo queda mapa libre. -->
+  <Border Background="Transparent" Padding="6" VerticalAlignment="Center">
     <Grid ColumnDefinitions="Auto,92,*">
 
       <!-- Fondo de la barra propiamente dicha (handle + botones). -->
       <Border Grid.Column="0" Grid.ColumnSpan="2"
-              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="0,0,1,0"
-              Margin="-6,-6,0,-6"/>
+              Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1"
+              CornerRadius="10" Margin="-6,-6,0,-6"/>
 
       <!-- ===== handle de plegado: siempre visible, incluso con el menú
            colapsado (única forma de volver a desplegarlo) ===== -->
@@ -165,14 +170,13 @@
 
       <!-- ===== columna principal: orden real del panelLeft de AOG. Oculta
            por completo (junto con cualquier submenú abierto) cuando el
-           menú está plegado — así no ocupa nada del mapa. Grid de filas
-           "*" (en vez de StackPanel) para que los botones se repartan en
-           TODO el alto disponible de la barra, no solo arriba con hueco
-           vacío abajo; cada botón mantiene su tamaño natural (MinHeight)
-           y queda centrado en su fila, generando espaciado parejo. ===== -->
-      <Grid Grid.Column="1" IsVisible="{Binding !IsCollapsed}"
-            RowDefinitions="*,*,*,*,*,*" Margin="0,0,8,0">
-        <Button Grid.Row="0" Classes="mbtn"
+           menú está plegado — así no ocupa nada del mapa. Pila COMPACTA
+           (pedido 2026-08-14): las filas "*" repartían los botones en todo
+           el alto y el menú llegaba hasta la barra de abajo; apilados con
+           poco aire el panel mide lo que miden los botones. ===== -->
+      <StackPanel Grid.Column="1" IsVisible="{Binding !IsCollapsed}"
+                  Orientation="Vertical" Spacing="2" Margin="0,0,8,0">
+        <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=navegacion}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="navegacion">
           <!-- "Pantalla" (ex "Navegación"): el grupo es día/noche + brillo,
@@ -182,7 +186,7 @@
                interno con el ViewModel, no texto visible. -->
           <StackPanel><Image Classes="mico" Source="/Assets/menu/Pantalla.png"/><TextBlock Classes="mlbl" Text="Pantalla"/></StackPanel>
         </Button>
-        <Button Grid.Row="1" Classes="mbtn"
+        <Button Classes="mbtn"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=herramientas}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="herramientas">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/SpecialFunctions.png"/><TextBlock Classes="mlbl" Text="Herramientas"/></StackPanel>
@@ -191,11 +195,11 @@
              todo el tiempo y no vale la pena un submenú intermedio. El resto de
              lo que colgaba de acá (colores, directorios, atajos, ver ajustes)
              sigue estando en Herramientas y en la propia pantalla. -->
-        <Button Grid.Row="2" Classes="mbtn"
+        <Button Classes="mbtn"
                 Command="{Binding SendCommand}" CommandParameter="config_form">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="mlbl" Text="Configuración"/></StackPanel>
         </Button>
-        <Button Grid.Row="3" Classes="mbtn lote"
+        <Button Classes="mbtn lote"
                 Classes.active="{Binding OpenSubmenu, Converter={StaticResource StrEq}, ConverterParameter=lote}"
                 Command="{Binding ToggleSubmenuCommand}" CommandParameter="lote">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/JobActive.png"/><TextBlock Classes="mlbl" Text="LOTE"/></StackPanel>
@@ -205,13 +209,13 @@
              barra inferior. Su submenú se fue con él; los comandos
              (tram_crear, ruta_grabada, importar_guias, etc.) siguen cableados
              en RouteCockpitCommand por si vuelven a colgarse de algo. -->
-        <Button Grid.Row="4" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="direccion">
+        <Button Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="direccion">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/AutoSteerConf.png"/><TextBlock Classes="mlbl" Text="Dirección"/></StackPanel>
         </Button>
-        <Button Grid.Row="5" Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
+        <Button Classes="mbtn" Command="{Binding SendCommand}" CommandParameter="corex">
           <StackPanel><Image Classes="mico" Source="/Assets/menu/CoreX.png"/><TextBlock Classes="mlbl" Text="CoreX"/></StackPanel>
         </Button>
-      </Grid>
+      </StackPanel>
 
       <!-- ===== submenús (contenido e iconos verdaderos del 6.8.5) ===== -->
 

@@ -47,7 +47,10 @@
     </Style>
   </UserControl.Styles>
 
-  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1,0,0,0" Padding="3">
+  <!-- Panel flotante redondeado, mismo lenguaje que el menú izquierdo
+       compactado (2026-08-14): antes era una franja de borde a borde. -->
+  <Border Background="#F5F7F4" BorderBrush="#C5CFC5" BorderThickness="1"
+          CornerRadius="10" Padding="3" Margin="0,0,4,0">
     <!-- Handle a la IZQUIERDA (el lado del mapa) y flechas espejadas respecto
          del menú izquierdo: acá "‹" despliega y "›" repliega. Queda siempre
          visible, incluso plegada — es la única forma de volver a abrirla. -->

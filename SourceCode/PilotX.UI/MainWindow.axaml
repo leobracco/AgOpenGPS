@@ -811,9 +811,12 @@
                 </StackPanel>
                 <!-- Sin Width fijo: la barra se pliega sola por inactividad y
                      ahí mide solo el handle. Un ancho clavado dejaría 58 px de
-                     aire tapando el mapa justo cuando se replegó para liberarlo. -->
+                     aire tapando el mapa justo cuando se replegó para liberarlo.
+                     CENTRADA vertical (pedido 2026-08-14, mismo criterio que el
+                     menú izquierdo): colgada de abajo llegaba hasta el borde y
+                     pisaba la zona de la barra de la pasada. -->
                 <bars:BarraDerecha x:Name="BarDerecha" Grid.Row="1"
-                                   HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 <!-- El visor de IMU (rumbo/rolido/cabeceo del ECU, arriba a la
                      izquierda) se SACÓ (pedido 2026-08-11) — servía para las
                      pruebas con ECU real del 07-08 y en labor tapaba mapa. La
