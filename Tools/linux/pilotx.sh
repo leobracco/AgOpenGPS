@@ -6,7 +6,9 @@
 # ============================================================================
 cd "$(dirname "$0")"
 
-chmod +x Engine/PilotX.GuidanceEngine Desktop/PilotX.Desktop 2>/dev/null
+mkdir -p logs
+chmod +x Engine/PilotX.GuidanceEngine Desktop/PilotX.Desktop \
+         BarsHost/PilotX.Bars.Host AgroParallel.Updater 2>/dev/null
 
 if ! pgrep -f "PilotX.GuidanceEngine" >/dev/null 2>&1; then
     nohup ./Engine/PilotX.GuidanceEngine --webhost --corex \
@@ -14,5 +16,4 @@ if ! pgrep -f "PilotX.GuidanceEngine" >/dev/null 2>&1; then
     sleep 6
 fi
 
-mkdir -p logs
 exec ./Desktop/PilotX.Desktop 2>logs/desktop-stderr.log
