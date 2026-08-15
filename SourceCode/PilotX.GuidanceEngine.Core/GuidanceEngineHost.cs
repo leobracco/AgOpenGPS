@@ -71,7 +71,14 @@ namespace AgOpenGPS
 
         // ---- red (mismo protocolo UDP loopback que FormGPS) ----
         private Socket _loopBackSocket;
-        private EndPoint _epAgIO = new IPEndPoint(IPAddress.Parse("127.255.255.255"), 17777);
+        // Windows: broadcast de loopback (127.255.255.255) — lo escuchan CoreX
+        // Y cualquier relay del banco a la vez, semántica histórica del wire.
+        // Linux: ese broadcast NO se entrega a sockets ligados a 127.0.0.1
+        // (medido con tcpdump en WSL 2026-08-15: los PGN de respuesta salían y
+        // nadie los recibía) — va unicast al mismo puerto.
+        private EndPoint _epAgIO = new IPEndPoint(
+            OperatingSystem.IsWindows() ? IPAddress.Parse("127.255.255.255") : IPAddress.Loopback,
+            17777);
         private EndPoint _endPointLoopBack = new IPEndPoint(IPAddress.Loopback, 0);
         private byte[] _loopBuffer = new byte[1024];
         private bool _running;

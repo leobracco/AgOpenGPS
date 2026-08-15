@@ -70,7 +70,11 @@ internal static class Program
         App.ColdStart = Stopwatch.StartNew();
         // Inyectar el backend de WebView del head Desktop (WebView.Avalonia).
         // La UI compartida (PilotX.UI) solo conoce IWebViewHost.
-        App.WebViewHost = new DesktopWebViewHost();
+        // PILOTX_SIN_WEBVIEW=1 — salida de emergencia (agregada al diagnosticar
+        // el port Linux): la pantalla nativa entera anda sin WebView, solo las
+        // páginas HTML del Hub quedan afuera. Las páginas avisan solas.
+        if (Environment.GetEnvironmentVariable("PILOTX_SIN_WEBVIEW") != "1")
+            App.WebViewHost = new DesktopWebViewHost();
         ParseArgs(args);
 
         // Teclado en pantalla: vive en su PROPIA ventana, no dentro de la

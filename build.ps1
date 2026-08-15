@@ -124,10 +124,12 @@ if (-not $SinLinux) {
     dotnet publish "$root\SourceCode\PilotX.Desktop\PilotX.Desktop.csproj" `
         -c $Config -r linux-x64 --self-contained true -o "$linuxDir\Desktop" -v q $verArg -p:PublishReadyToRun=false -p:PublishReadyToRunComposite=false
     if ($LASTEXITCODE -ne 0) { Write-Host "Desktop linux FAILED" -ForegroundColor Red; exit 1 }
+    # Single-file: un binario en la raiz del paquete (PilotXSelfUpdate lo busca
+    # como <install>/AgroParallel.Updater), sin desparramar el runtime.
     dotnet publish "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\AgroParallel.Updater.csproj" -f net9.0 `
-        -c $Config -r linux-x64 --self-contained true -o "$linuxDir\Updater-tmp" -v q
+        -c $Config -r linux-x64 --self-contained true -p:PublishSingleFile=true -o "$linuxDir\Updater-tmp" -v q
     if ($LASTEXITCODE -ne 0) { Write-Host "Updater linux FAILED" -ForegroundColor Red; exit 1 }
-    Get-ChildItem "$linuxDir\Updater-tmp" -File | Copy-Item -Destination $linuxDir -Force
+    Copy-Item "$linuxDir\Updater-tmp\AgroParallel.Updater" -Destination $linuxDir -Force
     Remove-Item "$linuxDir\Updater-tmp" -Recurse -Force
 
     robocopy "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\wwwroot" `

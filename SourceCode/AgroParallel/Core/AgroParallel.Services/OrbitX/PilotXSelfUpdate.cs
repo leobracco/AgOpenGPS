@@ -140,7 +140,10 @@ namespace AgroParallel.OrbitX
             => Path.Combine(StagingDir(version), "payload.zip");
 
         public static string UpdaterExe()
-            => Path.Combine(InstallDir(), "AgroParallel.Updater.exe");
+            => Path.Combine(InstallDir(),
+                System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                    System.Runtime.InteropServices.OSPlatform.Windows)
+                    ? "AgroParallel.Updater.exe" : "AgroParallel.Updater");
 
         public static string EntryExe()
         {
