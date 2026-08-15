@@ -177,9 +177,16 @@ namespace AgOpenGPS
                 ? new EngineSistemaService()
                 : new EngineSistemaServiceLinux();
 #pragma warning restore CA1416
+
+            // WiFi propio (página wifi.html del Hub): netsh en Windows, nmcli
+            // en Linux — el operario nunca ve el panel de red del SO.
+            AgroParallel.Services.Abstractions.IWifiService wifi = OperatingSystem.IsWindows()
+                ? new AgroParallel.Services.WifiServiceWindows()
+                : (AgroParallel.Services.Abstractions.IWifiService)new AgroParallel.Services.WifiServiceLinux();
             _web = new AgpWebHost(
                 state,                 // requerido
                 sistema: sistema,
+                wifi: wifi,
                 nodos: _nodos,
                 orbitxCfg: orbitxCfg,
                 sectionxCfg: sectionxCfg,

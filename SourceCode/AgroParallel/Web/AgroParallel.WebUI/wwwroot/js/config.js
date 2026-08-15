@@ -1663,15 +1663,10 @@
 
   document.querySelectorAll('#menu button').forEach(function (b) {
     b.addEventListener('click', function () {
-      // Acciones nativas (no navegan ni embeben): p.ej. WiFi de Windows, que
-      // el host WebView2 abre al recibir el postMessage.
-      if (b.dataset.action === 'wifi') {
-        try {
-          var wv = window.chrome && window.chrome.webview;
-          if (wv) wv.postMessage('open-wifi-settings');
-        } catch (e) { /* fuera de WebView2: no-op */ }
-        return;
-      }
+      // "WiFi de Windows" (postMessage open-wifi-settings) MURIÓ 2026-08-15:
+      // abría ms-settings — sin estado real de las redes, con el teclado del
+      // SO y roto en kiosko. Ahora WiFi es un módulo embebido más (wifi.html,
+      // data-mod), con API propia /api/red/wifi.
       // Módulos X-*: se muestran EMBEBIDOS (iframe en modo widget) dentro de
       // config, sin salir ni cambiar de estilo. Carga perezosa: el iframe solo
       // apunta a la página cuando se toca el módulo.

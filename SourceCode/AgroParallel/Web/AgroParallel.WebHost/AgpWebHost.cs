@@ -24,6 +24,7 @@ namespace AgroParallel.WebHost
     public sealed class AgpWebHost : IDisposable
     {
         private readonly IAogStateProvider _state;
+        private readonly IWifiService _wifi;
         private readonly ISistemaService _sistema;
         private readonly INodoRegistryService _nodos;
         private readonly IOrbitXConfigService _orbitxCfg;
@@ -175,9 +176,11 @@ namespace AgroParallel.WebHost
                           ITrackBuilderService trackBuilder = null,
                           IRecPathService recPath = null,
                           IPathsGeometryCalculator paths = null,
-                          ISteerConfigService steerConfig = null)
+                          ISteerConfigService steerConfig = null,
+                          IWifiService wifi = null)
         {
             _state = state ?? throw new ArgumentNullException(nameof(state));
+            _wifi = wifi;               // nullable
             _sistema = sistema;         // nullable
             _nodos = nodos;             // nullable
             _orbitxCfg = orbitxCfg;     // nullable
@@ -308,6 +311,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new ConfiguracionController())
                  .WithController(() => new SteerConfigController(_steerConfig))
                  .WithController(() => new SectionXController(_sectionxCfg))
+                 .WithController(() => new RedWifiController(_wifi))
                  .WithController(() => new CamarasController(_camarasCfg));
                 if (_vistaxCfg != null || _vistaxLive != null)
                     m.WithController(() => new VistaXController(_vistaxCfg, _vistaxLive, _vistaxCalib, _implemento));

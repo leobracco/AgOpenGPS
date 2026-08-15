@@ -2007,3 +2007,13 @@ del JS queda por si otros hosts sÃ­ ven la navegaciÃ³n.
   WpfApp y WpfViews). El endpoint `/api/corex/config/avanzado` ya no acepta ni
   devuelve `auto_gps_out`; queda solo `start_minimized`. `chk-start-min` sigue
   igual. perfil.js actualizado en el mismo commit.
+
+## 2026-08-15 — Claude: página nueva `pages/wifi.html` (Red WiFi propia)
+- Reemplaza el botón "WiFi de Windows" (`data-action="wifi"`, abría ms-settings)
+  por el módulo embebido `data-mod="wifi.html"` en Configuración › Mantenimiento.
+- Lógica: `js/wifi.js` + API nueva `/api/red/wifi*` (RedWifiController; netsh en
+  Windows, nmcli en Linux). IDs/data-*: `wfEstado`, `wfActualizar`, `wfLista`,
+  `wfCargando`, `wfClave`, `data-ssid`, `data-act=conectar|desconectar`,
+  `data-nivel` (barras señal) — quedan congelados.
+- Markup/CSS inicial funcional mío siguiendo theme.css; Codex puede restylear
+  libre mientras respete esos IDs.
