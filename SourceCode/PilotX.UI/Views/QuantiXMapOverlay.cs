@@ -158,8 +158,17 @@ public sealed class QuantiXMapOverlay : Border
                 Canvas.GetLeft(this) + (p.X - _origenPuntero.X),
                 Canvas.GetTop(this) + (p.Y - _origenPuntero.Y));
             if (double.IsNaN(nuevo.X) || double.IsNaN(nuevo.Y)) return;
-            Canvas.SetLeft(this, Math.Max(0, nuevo.X));
-            Canvas.SetTop(this, Math.Max(0, nuevo.Y));
+            // Clamp a los CUATRO bordes del canvas: sin el tope derecho/abajo
+            // el widget se podía arrastrar fuera de pantalla y "perderse"
+            // (pasaba en la pantalla del taller, 1024x768).
+            double maxX = double.MaxValue, maxY = double.MaxValue;
+            if (Parent is Control host && host.Bounds.Width > 0 && Bounds.Width > 0)
+            {
+                maxX = Math.Max(0, host.Bounds.Width - Bounds.Width);
+                maxY = Math.Max(0, host.Bounds.Height - Bounds.Height);
+            }
+            Canvas.SetLeft(this, Math.Min(Math.Max(0, nuevo.X), maxX));
+            Canvas.SetTop(this, Math.Min(Math.Max(0, nuevo.Y), maxY));
             _origenPuntero = p;
         };
         PointerReleased += (s, e) =>

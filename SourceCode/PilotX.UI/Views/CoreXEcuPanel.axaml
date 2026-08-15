@@ -27,8 +27,9 @@
             CornerRadius="14"
             Padding="14"
             BoxShadow="0 8 26 0 #33101612"
-            Width="920" MaxHeight="640"
-            HorizontalAlignment="Center" VerticalAlignment="Center">
+            MaxWidth="920" MaxHeight="640"
+            HorizontalAlignment="Stretch" VerticalAlignment="Center"
+            Margin="20,0">
         <DockPanel>
 
             <!-- ============ Header: titulo + tabs + pill + cerrar ============ -->

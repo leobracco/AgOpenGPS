@@ -2752,6 +2752,7 @@ public partial class MainWindow : Window
             {
                 if (e.Property == BoundsProperty) UbicarVxStrip();
                 if (e.Property == BoundsProperty) UbicarNudgeOverlay();
+                if (e.Property == BoundsProperty) ReclampOverlayQx();
             };
         }
 
@@ -2785,8 +2786,12 @@ public partial class MainWindow : Window
         if (_qxMapOverlay == null || _mapOverlaysHost == null) return;
         if (x >= 0 && y >= 0)
         {
-            Canvas.SetLeft(_qxMapOverlay, x);
-            Canvas.SetTop(_qxMapOverlay, y);
+            // La preferencia pudo guardarse en una pantalla MÁS GRANDE (o la
+            // ventana achicarse): sin clamp el widget quedaba fuera de la
+            // vista y el operario lo daba por desaparecido.
+            var (cx, cy) = ClampOverlayAlHost(_qxMapOverlay, x, y);
+            Canvas.SetLeft(_qxMapOverlay, cx);
+            Canvas.SetTop(_qxMapOverlay, cy);
             return;
         }
         // Default: abajo a la izquierda, al lado del menú lateral (140 px) y
@@ -2795,6 +2800,35 @@ public partial class MainWindow : Window
         Canvas.SetLeft(_qxMapOverlay, 155);
         double alto = _mapOverlaysHost.Bounds.Height;
         Canvas.SetTop(_qxMapOverlay, alto > 260 ? alto - 235 : 40);
+    }
+
+    /// <summary>Deja un widget flotante ENTERO adentro del canvas del mapa.
+    /// Si el host todavía no midió (arranque) devuelve la posición tal cual;
+    /// el re-clamp llega con el próximo cambio de Bounds del host.</summary>
+    private (double X, double Y) ClampOverlayAlHost(Control c, double x, double y)
+    {
+        double hostW = _mapOverlaysHost?.Bounds.Width ?? 0;
+        double hostH = _mapOverlaysHost?.Bounds.Height ?? 0;
+        if (hostW < 200 || hostH < 150) return (x, y);
+        double w = c.Bounds.Width > 0 ? c.Bounds.Width : 220;
+        double h = c.Bounds.Height > 0 ? c.Bounds.Height : 120;
+        return (Math.Max(0, Math.Min(x, hostW - w)),
+                Math.Max(0, Math.Min(y, hostH - h)));
+    }
+
+    /// <summary>Re-clamp del widget QuantiX cuando el canvas cambia de tamaño
+    /// (ventana más chica, pantalla distinta): lo trae de vuelta a la vista.</summary>
+    private void ReclampOverlayQx()
+    {
+        if (_qxMapOverlay == null || !_qxMapOverlay.IsVisible) return;
+        double x = Canvas.GetLeft(_qxMapOverlay), y = Canvas.GetTop(_qxMapOverlay);
+        if (double.IsNaN(x) || double.IsNaN(y)) return;
+        var (cx, cy) = ClampOverlayAlHost(_qxMapOverlay, x, y);
+        if (Math.Abs(cx - x) > 0.5 || Math.Abs(cy - y) > 0.5)
+        {
+            Canvas.SetLeft(_qxMapOverlay, cx);
+            Canvas.SetTop(_qxMapOverlay, cy);
+        }
     }
 
     // Overlay de corrección lateral: flotante y centrado abajo, despegado del
