@@ -7,6 +7,13 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
 {
     public BarraSuperiorViewModel(GuidanceCommandClient cmd) : base(cmd) { }
 
+    /// <summary>Modo kiosko (PILOTX_KIOSKO=1, lo setea la sesión de cabina):
+    /// los botones de ventana (−/☐/✕) desaparecen — el operario no puede
+    /// minimizar, restaurar ni cerrar PilotX. En escritorio quedan como
+    /// siempre.</summary>
+    public bool BotonesVentanaVisibles { get; } =
+        System.Environment.GetEnvironmentVariable("PILOTX_KIOSKO") != "1";
+
 
     [ObservableProperty] private string _speedText = "0,0";
     [ObservableProperty] private string _gpsText = "SIN FIX";

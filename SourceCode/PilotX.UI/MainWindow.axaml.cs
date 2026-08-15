@@ -268,6 +268,14 @@ public partial class MainWindow : Window
 
         Title = App.WindowTitle;
 
+        // Modo kiosko (PILOTX_KIOSKO=1, lo setea la sesión de cabina Linux):
+        // la ventana NO se puede cerrar — ni por el window manager (Alt-F4 de
+        // un WM ajeno, wmctrl), ni por Escape, ni por ningún Close() de UI.
+        // La única salida es apagar/reiniciar desde SISTEMA, que termina el
+        // proceso por ExecutePowerAction sin pasar por Closing.
+        if (Environment.GetEnvironmentVariable("PILOTX_KIOSKO") == "1")
+            Closing += (_, e) => e.Cancel = true;
+
         _headerBar       = this.FindControl<Border>("HeaderBar");
         _hudBar          = this.FindControl<Border>("HudBar");
         _bottomToolbar   = this.FindControl<Border>("BottomToolbar");

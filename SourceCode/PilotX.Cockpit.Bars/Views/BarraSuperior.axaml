@@ -205,7 +205,10 @@
         </Border>
       </StackPanel>
 
-      <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0,0,0">
+      <!-- En modo kiosko (PILOTX_KIOSKO=1) estos tres no existen: PilotX ES
+           la pantalla y no hay a dónde minimizar ni motivo para cerrarla. -->
+      <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="6,0,0,0"
+                  IsVisible="{Binding BotonesVentanaVisibles}">
         <Button Classes="wbtn" Content="–" Command="{Binding SendCommand}" CommandParameter="minimizar"/>
         <Button Classes="wbtn" Content="☐" Command="{Binding SendCommand}" CommandParameter="maximizar"/>
         <Button Classes="wbtn close" Content="✕" Command="{Binding SendCommand}" CommandParameter="apagar"/>

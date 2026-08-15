@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- openbox PELADO para el kiosko PilotX: un solo escritorio, CERO atajos de
+     teclado, CERO acciones de mouse sobre el fondo (sin menú de click
+     derecho). El operario no puede mover, cerrar ni minimizar nada por
+     accidente: openbox solo apila las ventanas de PilotX. -->
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <desktops><number>1</number></desktops>
+  <keyboard><!-- sin keybindings: ni Alt-Tab, ni Alt-F4 --></keyboard>
+  <mouse>
+    <context name="Desktop"><!-- sin acciones sobre el fondo --></context>
+    <context name="Root"><!-- sin menú de openbox --></context>
+  </mouse>
+  <applications>
+    <!-- Todo sin decoración: PilotX ya trae su propia barra superior. -->
+    <application class="*"><decor>no</decor></application>
+  </applications>
+</openbox_config>
