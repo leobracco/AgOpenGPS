@@ -4866,7 +4866,11 @@ public partial class MainWindow : Window
 
         var btnNo = BotonDialogo("Cancelar", "#FFFFFF", "#101612");
         btnNo.Click += (_, _) => { tcs.TrySetResult(false); win.Close(); };
-        var btnSi = BotonDialogo(textoSi, "#ED4848", "#FFFFFF");
+        // #C8332D y no #ED4848: blanco sobre aquel rojo daba 3,74:1 y este es
+        // el botón que ejecuta lo que no tiene vuelta atrás — tiene que leerse
+        // con sol de frente. Con #C8332D son 5,29:1 y sigue siendo el mismo
+        // rojo de peligro. (El #ED4848 se queda donde es relleno, no texto.)
+        var btnSi = BotonDialogo(textoSi, "#C8332D", "#FFFFFF");
         btnSi.Click += (_, _) => { tcs.TrySetResult(true); win.Close(); };
         fila.Children.Add(btnNo);
         fila.Children.Add(btnSi);
@@ -4965,6 +4969,12 @@ public partial class MainWindow : Window
         {
             Content = texto,
             FontSize = 16,
+            // 48 explícito: con el padding solo quedaba en ~43 px y estos dos
+            // botones deciden si se borra el trabajo o se apaga el guiado.
+            MinHeight = 48,
+            MinWidth = 120,
+            HorizontalContentAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalContentAlignment = global::Avalonia.Layout.VerticalAlignment.Center,
             Padding = new global::Avalonia.Thickness(22, 12),
             Background = new global::Avalonia.Media.SolidColorBrush(
                 global::Avalonia.Media.Color.Parse(fondo)),

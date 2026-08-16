@@ -96,16 +96,23 @@
                                FontSize="13" TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" Spacing="8"
                                 HorizontalAlignment="Right">
+                        <!-- Por acá pasan ahora las cuatro acciones que ponen
+                             el motor en marcha (Iniciar calibración, Medir
+                             tope, Medir Max Hz, Auto-Tune): tiene que ser
+                             tocable con guante y legible con sol. 42 → 48 px,
+                             y el verde de acento #4ABA3E con letras blancas
+                             daba 2,5:1 — pasa al verde de fondo #2F7A26
+                             (5,3:1), el mismo del botón Guardar. -->
                         <Button Name="BtnConfirmNo" Content="Cancelar"
                                 Click="OnConfirmNoClick"
                                 Background="#FFFFFF" Foreground="#101612"
                                 BorderBrush="#C5CFC5" BorderThickness="1"
-                                CornerRadius="8" MinHeight="42" Padding="16,8"/>
+                                CornerRadius="8" MinHeight="48" Padding="18,8"/>
                         <Button Name="BtnConfirmSi" Content="Aceptar"
                                 Click="OnConfirmSiClick"
-                                Background="#4ABA3E" Foreground="White"
-                                BorderBrush="#4ABA3E" BorderThickness="1"
-                                CornerRadius="8" MinHeight="42" Padding="16,8"
+                                Background="#2F7A26" Foreground="White"
+                                BorderBrush="#2F7A26" BorderThickness="1"
+                                CornerRadius="8" MinHeight="48" Padding="18,8"
                                 FontWeight="SemiBold"/>
                     </StackPanel>
                 </StackPanel>

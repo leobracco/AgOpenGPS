@@ -300,27 +300,40 @@
                          metros a 8 km/h sin mirar el lote.
 
                          Tres estados que se distinguen SIN interpretar:
-                         · PRENDIDO      → fondo verde de acento + texto blanco
+                         · PRENDIDO      → fondo verde oscuro + texto blanco
                          · APAGADO       → como estaba (superficie clara)
                          · NO APLICA     → ícono y palabra atenuados
-                         El verde queda de acento sobre un botón, que es su rol;
-                         no se pintan barras enteras. -->
+
+                         El fondo del prendido NO puede ser el verde de acento
+                         #4ABA3E: los PNG de "puesto" (AutoSteerOn, ManualOn,
+                         SectionMasterOn, HeadlandOn, YouTurn80…) están pintados
+                         EXACTAMENTE en #4ABA3E, así que el ícono desaparecía
+                         dentro del botón —contraste 1,00:1, medido— justo en el
+                         estado que se quería hacer evidente. Y la palabra en
+                         blanco sobre ese verde da 2,5:1: con sol de frente no se
+                         lee. Con #1E5E1A el ícono vuelve a recortarse (3,1:1) y
+                         la palabra da 7,9:1. El acento #4ABA3E se conserva para
+                         bordes, puntitos y barras, que es su rol en la paleta.
+                         Fondo oscuro sobre el mapa: es la excepción documentada
+                         de los flotantes, contraste contra el terreno. -->
                     <Style Selector="Button.on">
-                      <Setter Property="Background" Value="#4ABA3E"/>
-                      <Setter Property="BorderBrush" Value="#3A9430"/>
+                      <Setter Property="Background" Value="#1E5E1A"/>
+                      <Setter Property="BorderBrush" Value="#14400F"/>
                       <Setter Property="BorderThickness" Value="1"/>
                     </Style>
                     <Style Selector="Button.on /template/ ContentPresenter#PART_ContentPresenter">
-                      <Setter Property="Background" Value="#4ABA3E"/>
-                      <Setter Property="BorderBrush" Value="#3A9430"/>
+                      <Setter Property="Background" Value="#1E5E1A"/>
+                      <Setter Property="BorderBrush" Value="#14400F"/>
                     </Style>
+                    <!-- Hover y pressed van MÁS oscuros, nunca más claros: así
+                         el ícono verde nunca pierde contraste al tocarlo. -->
                     <Style Selector="Button.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                      <Setter Property="Background" Value="#42A937"/>
-                      <Setter Property="BorderBrush" Value="#3A9430"/>
+                      <Setter Property="Background" Value="#1A5216"/>
+                      <Setter Property="BorderBrush" Value="#14400F"/>
                     </Style>
                     <Style Selector="Button.on:pressed /template/ ContentPresenter#PART_ContentPresenter">
-                      <Setter Property="Background" Value="#3A9430"/>
-                      <Setter Property="BorderBrush" Value="#3A9430"/>
+                      <Setter Property="Background" Value="#143F11"/>
+                      <Setter Property="BorderBrush" Value="#14400F"/>
                     </Style>
                     <Style Selector="Button.on TextBlock.cap">
                       <Setter Property="Foreground" Value="#FFFFFF"/>

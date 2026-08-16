@@ -56,6 +56,10 @@ public sealed class GuiasPanel : Border
     private static readonly IBrush TextoMuted= new SolidColorBrush(Color.Parse("#535E54"));
     private static readonly IBrush Verde     = new SolidColorBrush(Color.Parse("#4ABA3E"));
     private static readonly IBrush Rojo      = new SolidColorBrush(Color.Parse("#D0504A"));
+    // Rojo para TEXTO chico. El #D0504A da 4,26:1 sobre blanco (medido) y se
+    // usa de relleno, donde alcanza; el "¿Seguro?" del borrado es texto de
+    // 12 px y al sol necesita más: #B33A34 da 5,88:1.
+    private static readonly IBrush RojoTexto = new SolidColorBrush(Color.Parse("#B33A34"));
 
     private HttpClient? _http;
     private string _base = "";
@@ -712,10 +716,10 @@ public sealed class GuiasPanel : Border
         _btnBorrar.Content = new TextBlock
         {
             Text = PilotX.Cockpit.Bars.Traductor.T("¿Seguro?"),
-            FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Rojo,
+            FontSize = 12, FontWeight = FontWeight.Bold, Foreground = RojoTexto,
             TextAlignment = TextAlignment.Center,
         };
-        _btnBorrar.BorderBrush = Rojo;
+        _btnBorrar.BorderBrush = RojoTexto;
         _btnBorrar.BorderThickness = new Thickness(2);
         Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("Se borra la guía") + " «" + nombre + "». " +
                       PilotX.Cockpit.Bars.Traductor.T("Tocá Borrar otra vez para confirmar."));

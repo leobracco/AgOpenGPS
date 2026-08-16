@@ -297,9 +297,9 @@ public sealed class DireccionPanel : Border
             Margin = new Thickness(2, 2, 0, 0),
         };
 
-        // Botón explícito de cero (pedido de banco 2026-08-13): el toque en la
-        // barra sigue andando como atajo, pero nadie lo descubre solo — la
-        // acción principal merece un botón que diga lo que hace.
+        // Botón explícito de cero (pedido de banco 2026-08-13). Es el ÚNICO
+        // camino: el atajo de tocar la barra se sacó porque un roce con guante
+        // en un camino de tierra clavaba el cero con las ruedas donde estuvieran.
         var btnCeroWas = new Button
         {
             Content = "Poner en cero — con las ruedas derechas",
