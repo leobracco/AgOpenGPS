@@ -16,11 +16,28 @@
 //     GUIADO y el corte de secciones. Los tres valores viven en
 //     Settings.setVehicle_toolLookAheadOn / _toolLookAheadOff / _toolOffDelay y
 //     además bajan a tool.json por ToolGeometryStore;
-//   · NO toca /api/implemento (surcos y semillas/ha de la pantalla de siembra):
-//     cambiar el timing acá no mueve nada de lo que muestra esa pantalla, y
-//     tampoco al revés (ImplementoDto no lleva copia del look-ahead, así que
-//     este es el ÚNICO lugar que los escribe — a diferencia de Pivote/Offset/
-//     Distancias, que el implemento central pisa en cada guardado suyo).
+//   · NO escribe en /api/implemento (surcos y semillas/ha de la pantalla de
+//     siembra): guardar acá no mueve nada de lo que muestra esa pantalla.
+//     ⚠️ PERO AL REVÉS SÍ PASA, y duele: el implemento central guarda su PROPIA
+//     copia de los tres tiempos (ImplementoDto.lookahead_on_s / lookahead_off_s
+//     / turn_off_delay_s), sembrada una sola vez en SeedFromLegacyServices.
+//     Cualquier guardado suyo — PUT /api/implemento, activar otro implemento,
+//     aplicar plantilla — pasa por ImplementoService.SyncToolIfChanged →
+//     MapToToolConfig → SaveTool y BAJA esa copia vieja al motor, pisando lo
+//     que se guardó acá. Es el mismo cuelgue que PivoteTab documenta para el
+//     pivote, con los mismos campos de MapToToolConfig.
+//     Verificado contra el motor real (banco, 2026-08-16):
+//       POST /api/aog/config/timing {4.3, 0, 1.9}          → ok, tool.json 4.3/0/1.9
+//       PUT /api/implemento con el MISMO objeto del GET     → ok (nada cambiado)
+//       GET /api/aog/config                                 → 1 / 0.5 / 0
+//     O sea: el operario ajusta el corte de secciones, después toca cualquier
+//     cosa en la pantalla de implemento y el look-ahead vuelve al valor viejo
+//     sin un solo aviso — franjas sin sembrar o doble siembra en cada cabecera.
+//     La página HTML sufre exactamente lo mismo: NO lo introdujo el porteo.
+//     Arreglarlo de verdad (write-back al implemento activo, o que
+//     MapToToolConfig deje de mandar los campos que el implemento no edita)
+//     toca contrato y se decide aparte:
+//     scratchpad/migracion/pendiente-config-tsettings.md
 //
 // Qué son los tres números, en criollo:
 //   · ENCENDIDO (s): con cuánta anticipación prende la sección ANTES de llegar
@@ -78,13 +95,18 @@
 //
 // ---------------------------------------------------------------------------
 // PERSISTENCIA — VERIFICADA CONTRA EL DISCO CON REINICIO DEL MOTOR
-// (2026-08-16): POST de valores distinguibles (on 3,4 / off 0 / delay 2,7) →
-// aparecieron en <Documentos>\AgOpenGPS\Vehicles\PilotX.XML
-// (setVehicle_toolLookAheadOn/_toolLookAheadOff/_toolOffDelay) y en tool.json
-// (look_ahead_on / look_ahead_off / turn_off_delay) → se MATÓ el motor
-// (taskkill) → arranque limpio → GET /api/aog/config devolvió los mismos tres
-// valores. Los tres campos persisten. Doble red: aunque Settings.Save() sea
-// no-op sin perfil, ToolGeometryStore.Guardar() los baja igual a tool.json.
+// (banco, 2026-08-16, reproducida en la revisión):
+//   POST {look_ahead_on 4.3, look_ahead_off 0, turn_off_delay 1.9} → ok
+//   GuidanceEngineData\tool.json                                   → 4.3 / 0 / 1.9
+//   Stop-Process del motor → arranque limpio → GET /api/aog/config → 4.3 / 0 / 1.9
+// LOS TRES CAMPOS PERSISTEN.
+// PERO LA RED ES UNA SOLA, NO DOS: quien persiste de verdad es tool.json vía
+// ToolGeometryStore.Guardar(). Settings.Save() es no-op sin perfil de vehículo
+// elegido — los <Documentos>\AgOpenGPS\Vehicles\*.XML del banco (tanzi, TRest)
+// quedaron con fecha de febrero/marzo, sin tocar, y NO existe ningún PilotX.XML
+// aunque perfil_activo diga "PilotX" (trampa conocida del repo, ver PivoteTab).
+// Si alguien saca ToolGeometryStore o le cambia la carpeta, esta pestaña pasa a
+// cantar un "Guardado ✔" que dura hasta el próximo arranque.
 // ============================================================================
 
 using System;
