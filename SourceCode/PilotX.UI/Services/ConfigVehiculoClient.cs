@@ -126,6 +126,30 @@ public sealed class ConfigSwitchesSec
     [JsonPropertyName("steer_manual_sections")] public bool SteerManualSections { get; set; }
 }
 
+/// <summary>
+/// Módulo de máquina: levante hidráulico + bytes de usuario. Es la sección que
+/// alimenta la pestaña "Máquina", la única (junto con Pines relay) que NO
+/// guarda al salir: se manda con "Enviar + Guardar" y sale como PGN 238.
+///   · invert_relays / hyd_on: bits 0 y 1 del byte `setArdMac_setting0`.
+///   · raise_time / lower_time: segundos, 1..255 — viajan crudos en el PGN.
+///   · hyd_lift_look_ahead: segundos, 1..20. NO viaja en el PGN: es config
+///     local del motor (_engine.Vehicle.hydLiftLookAheadTime).
+///   · user1..4: bytes crudos 0..255 que interpreta el firmware del módulo.
+///     No tienen unidad y no hay que inventarles una.
+/// </summary>
+public sealed class ConfigMaquinaSec
+{
+    [JsonPropertyName("invert_relays")]        public bool InvertRelays { get; set; }
+    [JsonPropertyName("hyd_on")]               public bool HydOn { get; set; }
+    [JsonPropertyName("raise_time")]           public int RaiseTime { get; set; }
+    [JsonPropertyName("lower_time")]           public int LowerTime { get; set; }
+    [JsonPropertyName("hyd_lift_look_ahead")]  public double HydLiftLookAhead { get; set; }
+    [JsonPropertyName("user1")]                public int User1 { get; set; }
+    [JsonPropertyName("user2")]                public int User2 { get; set; }
+    [JsonPropertyName("user3")]                public int User3 { get; set; }
+    [JsonPropertyName("user4")]                public int User4 { get; set; }
+}
+
 public sealed class ConfigTramSec
 {
     [JsonPropertyName("tram_width")]           public double? TramWidth { get; set; }
@@ -135,9 +159,9 @@ public sealed class ConfigTramSec
 
 /// <summary>
 /// Snapshot de GET /api/aog/config. Solo se declaran las secciones que ya
-/// consume alguna pestaña nativa; las que faltan (relay, máquina, rumbo,
-/// rolido, uturn, display, botones) se agregan cuando se porte su pestaña —
-/// el JSON extra se ignora sin romper nada.
+/// consume alguna pestaña nativa; las que faltan (relay, rumbo, rolido, uturn,
+/// display, botones) se agregan cuando se porte su pestaña — el JSON extra se
+/// ignora sin romper nada.
 /// </summary>
 public sealed class ConfigSnapshot
 {
@@ -155,6 +179,7 @@ public sealed class ConfigSnapshot
     [JsonPropertyName("timing")]      public ConfigTimingSec? Timing { get; set; }
     [JsonPropertyName("secciones")]   public ConfigSeccionesSec? Secciones { get; set; }
     [JsonPropertyName("switches")]    public ConfigSwitchesSec? Switches { get; set; }
+    [JsonPropertyName("maquina")]     public ConfigMaquinaSec? Maquina { get; set; }
     [JsonPropertyName("tram")]        public ConfigTramSec? Tram { get; set; }
 }
 

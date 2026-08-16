@@ -8,7 +8,10 @@
 // "Vehículo › Antena", "Implemento › Enganche", "Implemento › Distancias",
 // "Implemento › Offset", "Implemento › Pivote", "Implemento › Timing" y
 // "Secciones › Secciones" (esta última toca ADEMÁS el implemento central por
-// /api/implemento, para los trenes de siembra) y "Secciones › Switches".
+// /api/implemento, para los trenes de siembra), "Secciones › Switches" y
+// "Secciones › Máquina" (la única portada que NO guarda al salir: manda un PGN
+// 238 al módulo con su propio botón "Enviar + Guardar" y descarta si se cierra
+// sin enviar — ver la cabecera de MaquinaTab).
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -89,7 +92,7 @@ public partial class ConfigPanel : UserControl
 
         new CfgNav { Tab = "tsections",   Titulo = "Secciones",    Grupo = "Secciones",  Nativa = true  },
         new CfgNav { Tab = "tswitches",   Titulo = "Switches",     Grupo = "Secciones",  Nativa = true  },
-        new CfgNav { Tab = "amachine",    Titulo = "Máquina",      Grupo = "Secciones"                  },
+        new CfgNav { Tab = "amachine",    Titulo = "Máquina",      Grupo = "Secciones",  Nativa = true  },
 
         new CfgNav { Tab = "heading",     Titulo = "Rumbo",        Grupo = "GPS / IMU"                  },
         new CfgNav { Tab = "roll",        Titulo = "Rolido",       Grupo = "GPS / IMU"                  },
@@ -561,6 +564,11 @@ public partial class ConfigPanel : UserControl
         "tsettings" => new TimingTab(_ctx),
         "tsections" => new SeccionesTab(_ctx),
         "tswitches" => new SwitchesTab(_ctx),
+        // Máquina NO guarda al salir (TieneGuardar=false y su AlSalirAsync
+        // descarta): manda un PGN 238 al módulo y solo lo hace con su propio
+        // botón "Enviar + Guardar". Ver la cabecera de MaquinaTab antes de
+        // "emparejarla" con las hermanas.
+        "amachine" => new MaquinaTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 
