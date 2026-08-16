@@ -8,7 +8,7 @@
 // "Vehículo › Antena", "Implemento › Enganche", "Implemento › Distancias",
 // "Implemento › Offset", "Implemento › Pivote", "Implemento › Timing" y
 // "Secciones › Secciones" (esta última toca ADEMÁS el implemento central por
-// /api/implemento, para los trenes de siembra).
+// /api/implemento, para los trenes de siembra) y "Secciones › Switches".
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -88,7 +88,7 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "tsettings",   Titulo = "Timing",       Grupo = "Implemento", Nativa = true  },
 
         new CfgNav { Tab = "tsections",   Titulo = "Secciones",    Grupo = "Secciones",  Nativa = true  },
-        new CfgNav { Tab = "tswitches",   Titulo = "Switches",     Grupo = "Secciones"                  },
+        new CfgNav { Tab = "tswitches",   Titulo = "Switches",     Grupo = "Secciones",  Nativa = true  },
         new CfgNav { Tab = "amachine",    Titulo = "Máquina",      Grupo = "Secciones"                  },
 
         new CfgNav { Tab = "heading",     Titulo = "Rumbo",        Grupo = "GPS / IMU"                  },
@@ -560,6 +560,7 @@ public partial class ConfigPanel : UserControl
         "toolpivot" => new PivoteTab(_ctx),
         "tsettings" => new TimingTab(_ctx),
         "tsections" => new SeccionesTab(_ctx),
+        "tswitches" => new SwitchesTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 

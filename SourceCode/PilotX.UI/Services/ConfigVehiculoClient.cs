@@ -102,6 +102,30 @@ public sealed class ConfigSeccionesSec
     [JsonPropertyName("tool_width")]              public double? ToolWidth { get; set; }        // m
 }
 
+/// <summary>
+/// Switches físicos de trabajo y de dirección cableados al módulo de máquina
+/// (llegan por PGN; los interpreta CModuleComm.CheckWorkAndSteerSwitch).
+///   · work_enabled / steer_enabled: el motor escucha ese switch remoto.
+///   · work_active_low: contacto CERRADO = "trabajando" (default histórico
+///     true). Ojo con invertirlo: la comparación del motor es
+///     `workSwitchHigh != isWorkSwitchActiveLow`, así que darlo vuelta hace
+///     que la máquina aplique al revés del switch físico.
+///   · *_manual_sections: al activarse el switch las secciones pasan a master
+///     Manual (true) o Auto (false). Es un solo bool por par, nunca tri-estado.
+/// `is_remote_work_system_on` NO viaja: lo deriva el backend
+/// (work_enabled || steer_enabled).
+/// OJO: work_enabled y steer_enabled salen del RUNTIME (_engine.Mc.*), no de
+/// Settings — hay que pintar siempre lo que dice el GET.
+/// </summary>
+public sealed class ConfigSwitchesSec
+{
+    [JsonPropertyName("work_enabled")]          public bool WorkEnabled { get; set; }
+    [JsonPropertyName("work_active_low")]       public bool WorkActiveLow { get; set; }
+    [JsonPropertyName("work_manual_sections")]  public bool WorkManualSections { get; set; }
+    [JsonPropertyName("steer_enabled")]         public bool SteerEnabled { get; set; }
+    [JsonPropertyName("steer_manual_sections")] public bool SteerManualSections { get; set; }
+}
+
 public sealed class ConfigTramSec
 {
     [JsonPropertyName("tram_width")]           public double? TramWidth { get; set; }
@@ -111,9 +135,9 @@ public sealed class ConfigTramSec
 
 /// <summary>
 /// Snapshot de GET /api/aog/config. Solo se declaran las secciones que ya
-/// consume alguna pestaña nativa; las que faltan (switches, relay, máquina,
-/// rumbo, rolido, uturn, display, botones) se agregan cuando se porte su
-/// pestaña — el JSON extra se ignora sin romper nada.
+/// consume alguna pestaña nativa; las que faltan (relay, máquina, rumbo,
+/// rolido, uturn, display, botones) se agregan cuando se porte su pestaña —
+/// el JSON extra se ignora sin romper nada.
 /// </summary>
 public sealed class ConfigSnapshot
 {
@@ -130,6 +154,7 @@ public sealed class ConfigSnapshot
     [JsonPropertyName("offset")]      public ConfigOffsetSec? Offset { get; set; }
     [JsonPropertyName("timing")]      public ConfigTimingSec? Timing { get; set; }
     [JsonPropertyName("secciones")]   public ConfigSeccionesSec? Secciones { get; set; }
+    [JsonPropertyName("switches")]    public ConfigSwitchesSec? Switches { get; set; }
     [JsonPropertyName("tram")]        public ConfigTramSec? Tram { get; set; }
 }
 
