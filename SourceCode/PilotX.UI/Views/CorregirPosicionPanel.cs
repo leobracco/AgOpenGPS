@@ -108,6 +108,12 @@ public sealed class CorregirPosicionPanel : Border
     private bool _lastOk = true;     // para mover el pill solo en los flancos
     private bool _avisoRechazo;      // ya se avisó del rechazo (anti-lluvia de toasts)
     private bool _cerrada = true;    // el panel arranca cerrado
+    // Último estado del pill. Traductor.Aplicar() reescribe el texto que cacheó
+    // la primera vez ("—"), así que sin esto un cambio de idioma con el panel
+    // abierto dejaba el pill diciendo "—" con el motor contestando: el operario
+    // veía "no sé" justo cuando el número que tiene arriba SÍ está aplicado.
+    private string _pillTexto = "—";
+    private IBrush _pillColor = Dim;
 
     // ---- controles ----------------------------------------------------------
     private readonly Ellipse _pillDot;
@@ -275,7 +281,9 @@ public sealed class CorregirPosicionPanel : Border
         // DESPUÉS del Aplicar global de MainWindow y repinta lo vivo.
         Traductor.IdiomaCambio += () => Dispatcher.UIThread.Post(() =>
         {
-            if (!_cerrada) Render();
+            if (_cerrada) return;
+            Render();
+            SetPill(_pillTexto, _pillColor);   // el pill no lo repinta Render()
         });
     }
 
@@ -357,8 +365,8 @@ public sealed class CorregirPosicionPanel : Border
                 _lastOk = false;
                 return;
             }
-            _north = Clamp((int)Math.Round(d.NorthCm ?? 0));
-            _east = Clamp((int)Math.Round(d.EastCm ?? 0));
+            _north = ClampCm(d.NorthCm);
+            _east = ClampCm(d.EastCm);
             _offsets = d.OffsetsOn ?? false;
             SetPill("en vivo", Ok);
             _lastOk = true;
@@ -464,6 +472,8 @@ public sealed class CorregirPosicionPanel : Border
 
     private void SetPill(string texto, IBrush color)
     {
+        _pillTexto = texto;
+        _pillColor = color;
         _pillTxt.Text = Traductor.T(texto);
         _pillTxt.Foreground = ReferenceEquals(color, Ok) ? Texto : TextoMuted;
         _pillDot.Fill = color;
@@ -477,6 +487,25 @@ public sealed class CorregirPosicionPanel : Border
     // =========================================================================
 
     private static int Clamp(int v) => Math.Max(-Limite, Math.Min(Limite, v));
+
+    /// <summary>
+    /// cm del wire → entero de pantalla, con el mismo clamp y redondeo que
+    /// hacía loadState(). El clamp va ANTES del cast a int: castear un double
+    /// fuera del rango de int NO satura, devuelve int.MinValue — un north_cm
+    /// absurdamente POSITIVO terminaba pintado como −9999, o sea el signo dado
+    /// vuelta en la pantalla que corre la máquina. NaN → 0, igual que el
+    /// `Number(x) || 0` del JS.
+    /// </summary>
+    private static int ClampCm(double? cm)
+    {
+        double v = cm ?? 0;
+        if (double.IsNaN(v)) return 0;
+        if (v >= Limite) return Limite;
+        if (v <= -Limite) return -Limite;
+        // Math.Floor(v + 0.5) = el Math.round de JS (mitad hacia arriba);
+        // Math.Round de .NET es bancario y rompería la paridad en los .5.
+        return (int)Math.Floor(v + 0.5);
+    }
 
     private static TextBlock ValorEje(IBrush color) => new()
     {
