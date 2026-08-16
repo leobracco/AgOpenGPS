@@ -421,7 +421,10 @@ public sealed class DireccionPanel : Border
         _scGuiado.Children.Add(FilaAjuste("Compensación en cabecera (U)", "u_turn_comp", 2, 20, 1, 0, "",
             "Cuánto anticipa el giro en la vuelta en U de la cabecera. 0 = neutro; positivo si la U queda abierta, negativo si muerde la pasada.",
             offDisplay: -10));
-        _scGuiado.Children.Add(FilaAjuste("Compensación de ladera", "side_hill_comp", 0, 30, 1, 0, "",
+        // El wire guarda el entero crudo del slider (×0.01 al persistir): 15 son
+        // 0,15°, no "15" de nada. Mostrarlo crudo hacía creer que el número era
+        // grados — se muestra con la MISMA escala y unidad que el original.
+        _scGuiado.Children.Add(FilaAjuste("Compensación de ladera", "side_hill_comp", 0, 30, 0.01, 2, "°",
             "Usa el rolido del IMU para compensar la deriva cuesta abajo en laderas. 0 = apagado."));
 
         // ---------- pantalla MÓDULO (placa + corte por volante) ----------
@@ -456,7 +459,11 @@ public sealed class DireccionPanel : Border
             "Debajo de esto el piloto no engancha: evita volantazos con el tractor casi parado."));
         _scPantalla.Children.Add(FilaAjusteD("Velocidad máxima", "max_steer_speed", 1, 1, 40, 0, "km/h",
             "Arriba de esto el piloto se apaga solo, por seguridad."));
-        _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 40, 0, "km/h",
+        // Techo 20 km/h, el del original (nudGuidanceSpeedLimit 0..20). El panel
+        // permitía 40: es el límite que AUTORIZA el manejo libre, o sea el que
+        // decide a qué velocidad se puede mover el volante sin guía. Duplicarlo
+        // sin motivo aflojaba una guarda de seguridad, no un ajuste de gusto.
+        _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 20, 0, "km/h",
             "Techo general de las funciones de guiado — incluye el manejo libre de la pestaña Probar."));
         _scPantalla.Children.Add(SubTituloSep("Barra de guiado"));
         _scPantalla.Children.Add(FilaSeg("Tipo de barra", "guidance_bar",
@@ -602,6 +609,25 @@ public sealed class DireccionPanel : Border
     {
         // Nunca dejar el volante bajo control manual sin nadie mirándolo.
         if (_fdOn) _ = FdPost("/api/steer/freedrive", "{\"on\":false}");
+
+        // Cambios sin guardar: se GUARDAN al cerrar, no se tiran.
+        //
+        // Los dos predecesores hacían exactamente esto y el operario ya lo tiene
+        // aprendido: el FormSteer nativo guardaba en FormClosing y la página
+        // direccion.html auto-guardaba en `visibilitychange`. El panel, en
+        // cambio, descartaba en silencio — y el ✕ no es el único camino: abrir
+        // Guías o Lote también cierra este panel desde afuera (MainWindow), sin
+        // que el operario siquiera piense que está saliendo de Dirección. Diez
+        // toques de ajuste evaporados sin un cartel.
+        //
+        // Nada de diálogo modal: el panel no tiene ese patrón, y un "¿guardar?"
+        // que aparece cuando el cierre lo dispara OTRO panel no tiene a quién
+        // preguntarle. Se guarda y listo, en el mismo gesto que el apagado del
+        // manejo libre de arriba. Para tirar los cambios está "Descartar"
+        // (doble toque anti-roce), que es donde el gesto destructivo tiene que
+        // ser explícito.
+        if (_sucio && _cfg != null && _http != null) _ = Guardar();
+
         _timer?.Stop();
         IsVisible = false;
         Cerrado?.Invoke();
@@ -659,22 +685,83 @@ public sealed class DireccionPanel : Border
         }
     }
 
+    // ┌──────────────────────────────────────────────────────────────────────┐
+    // │ TRAMPA CONOCIDA — no reintroducir (auditoría de paridad 2026-08-15). │
+    // └──────────────────────────────────────────────────────────────────────┘
+    // El cero NO se calcula acá: lo hace el motor en SteerConfigService.ZeroWas(),
+    // con la fórmula del FormSteer original
+    //     was_offset += setAS_countsPerDegree × (−ángulo actual)
+    // y ese counts_per_degree es el PERSISTIDO en los settings, no el que el
+    // operario tiene en pantalla. La secuencia natural de calibración es
+    // justamente "cambio las cuentas por grado → pongo en cero": si se ceraba
+    // con la escala vieja, el cero salía corrido, y un cero corrido en el lote
+    // es sembrar corrido toda la jornada. Encima el CargarConfig() del final
+    // releía la config y le borraba la edición sin decir nada, así que el
+    // operario ni se enteraba de que su número no se había aplicado.
+    //
+    // Arreglo (el más simple que es correcto): con cambios pendientes se GUARDA
+    // primero — así el motor cera con exactamente lo que el operario está
+    // viendo — y recién ahí se cera. Si el guardado falla, no se cera nada: es
+    // preferible no cerar a cerar con la escala equivocada. Y el CargarConfig()
+    // del final ya no puede pisar nada, porque a esa altura no quedan ediciones.
+    //
+    // Si algún día el cero se calcula del lado de la UI o el endpoint acepta el
+    // counts_per_degree en el body, este guardado previo se puede sacar; hasta
+    // entonces, sacarlo reintroduce el bug.
     private async Task ZeroWas()
     {
         if (_http == null) return;
+
+        if (_sucio)
+        {
+            await Guardar();
+            if (_sucio)
+            {
+                // Guardar() ya dejó el motivo del fallo en _estado; se agrega la
+                // consecuencia, que es lo que le importa al que está calibrando.
+                _estado.Text = "NO se puso en cero: primero hay que guardar los cambios";
+                _estado.Foreground = Rojo;
+                return;
+            }
+        }
+
         try
         {
             var resp = await _http.PostAsync(_base + "/api/steer/zero-was",
                 new StringContent("{}", Encoding.UTF8, "application/json")).ConfigureAwait(false);
+            // El endpoint contesta 200 incluso cuando NO ceró (ok=false +
+            // motivo): mirar solo el código HTTP daba "Sensor en cero ✔" con el
+            // sensor sin cerar.
+            var cuerpo = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            JsonObject? j = null;
+            try { j = JsonNode.Parse(cuerpo.TrimStart('﻿')) as JsonObject; } catch { }
+            bool ok = resp.IsSuccessStatusCode && (j?["ok"]?.GetValue<bool>() ?? false);
+            string? motivo = j?["error"]?.GetValue<string>();
+
             await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                _estado.Text = resp.IsSuccessStatusCode ? "Sensor en cero ✔" : "No se pudo poner en cero";
-                _estado.Foreground = resp.IsSuccessStatusCode ? Verde : Rojo;
+                _estado.Text = ok ? "Sensor en cero ✔" : motivo switch
+                {
+                    // "Excessive Steer Angle" del FormSteer: más de ±3900 cuentas
+                    // de corrimiento no es un cero, es un sensor mal montado.
+                    "fuera-de-rango"      => "No se puso en cero: el ángulo es excesivo, revisá el montaje del sensor",
+                    "service-unavailable" => "Sin módulo de dirección conectado",
+                    _                     => "No se pudo poner en cero (AGP-SYS-009)",
+                };
+                _estado.Foreground = ok ? Verde : Rojo;
                 // el cero cambia was_offset en el módulo: releer para no pisarlo
+                // (seguro: arriba nos aseguramos de que no queden ediciones)
                 await CargarConfig();
             });
         }
-        catch { }
+        catch (Exception ex)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _estado.Text = "Sin conexión: " + ex.Message;
+                _estado.Foreground = Rojo;
+            });
+        }
     }
 
     private async Task FdPost(string path, string json)
