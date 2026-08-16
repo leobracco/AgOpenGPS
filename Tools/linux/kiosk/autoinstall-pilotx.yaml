@@ -1,0 +1,48 @@
+#cloud-config
+# ============================================================================
+# autoinstall-pilotx.yaml — instalación DESATENDIDA y MÍNIMA para una pantalla
+# PilotX (Ubuntu Server 24.04, instalador subiquity).
+#
+# Deja: base mínima sin escritorio + SSH + usuario pilotx (clave pilotx —
+# CAMBIARLA en producción) listo para correr Tools/linux/kiosk/
+# instalar-kiosko.sh, que agrega lightdm+openbox+deps y deja la máquina
+# booteando directo a PilotX.
+#
+# Uso en VM (VirtualBox):
+#   VBoxManage unattended install <vm> --iso=ubuntu-server.iso \
+#       --script-template=autoinstall-pilotx.yaml --user=pilotx --password=pilotx \
+#       --install-additions --start-vm=headless
+# Uso en pantalla real: USB con el ISO server + este archivo como user-data
+#   (ds=nocloud) — mismo resultado.
+# ============================================================================
+autoinstall:
+  version: 1
+  # Instalación mínima: server base SIN snaps ni extras.
+  source:
+    id: ubuntu-server-minimal
+    search_drivers: false
+  locale: es_AR.UTF-8
+  keyboard:
+    layout: latam
+  timezone: America/Argentina/Buenos_Aires
+  storage:
+    layout:
+      name: direct
+    swap:
+      size: 0
+  identity:
+    hostname: pilotx
+    username: pilotx
+    realname: PilotX
+    # "pilotx" (mkpasswd -m sha-512). En producción cambiar la clave.
+    password: "$6$EXm/ADIq9LLZZDUZ$ZiHspY3qTU7CMKAPbTo49/btBtsCQtB5d5I5sYB4tLKkdnJIl4wooTIQkxICzw0xSDJup297yVQJxG1DPncBO1"
+  ssh:
+    install-server: true
+    allow-pw: true
+  # Solo lo imprescindible acá; el resto lo instala instalar-kiosko.sh.
+  packages:
+    - sudo
+  late-commands:
+    # Serie + brillo + audio sin pedir permisos después.
+    - curtin in-target -- usermod -aG dialout,video,audio pilotx
+  shutdown: reboot
