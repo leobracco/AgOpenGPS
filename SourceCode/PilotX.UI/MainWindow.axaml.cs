@@ -311,6 +311,14 @@ public partial class MainWindow : Window
     private CorregirPosicionPanel? _corregirPosHost;
     private ShiftPosClient? _shiftPosClient;
 
+    // Rutas grabadas nativo, ex recpath.html (FormRecordPicker + FormRecordName):
+    // el operario elige el camino que la máquina repite sola, y si es el que
+    // quería se ve EN EL MAPA — que era justo lo que tapaba la ventana HTML.
+    // Card chica sobre el mapa vivo; la página HTML queda para el Hub
+    // remoto/celular/Android.
+    private RecPathPanel? _recPathHost;
+    private RecPathClient? _recPathClient;
+
     // Cabecera nativa, ex cabecera.html: el diálogo HTML tapaba y APAGABA el
     // mapa justo donde el operario quiere ver la franja dibujándose. Card chica
     // sobre el mapa vivo; la página HTML queda para el Hub remoto/celular.
@@ -563,6 +571,20 @@ public partial class MainWindow : Window
         {
             _corregirPosHost.Aviso += MostrarToast;
             _corregirPosHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+        }
+
+        // Rutas grabadas nativo (ex recpath.html). Acá tampoco hay nada que
+        // mandar en la bajada: cerrar NO descarta la grabación en memoria (igual
+        // que cerrar la ventana HTML). El único cuidado es el teclado nativo, y
+        // ese lo cierra el propio Cerrar() del panel.
+        _recPathHost = this.FindControl<RecPathPanel>("RecPathHost");
+        if (_recPathHost != null)
+        {
+            _recPathHost.Aviso += MostrarToast;
+            _recPathHost.Cerrado += () =>
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
@@ -2784,6 +2806,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_webView != null) CloseWebView();
         // El mapa queda VIVO detras de la card (y se reenciende si un
         // takeover previo lo habia apagado).
@@ -3121,6 +3144,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_sonidosClient == null)
             _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));
@@ -3177,6 +3201,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4214,6 +4239,15 @@ public partial class MainWindow : Window
                 AbrirCorregirPos();
                 return true;
 
+            // ---- Rutas grabadas → panel NATIVO. El operario elige el camino
+            // que la máquina va a repetir SOLA, y lo único que dice si eligió
+            // bien es verlo dibujado en el mapa: la ventana HTML se paraba
+            // encima. Este case tiene que quedar ANTES del switch de páginas —
+            // si no, "ruta_grabada" volvería a abrir Chromium.
+            case "ruta_grabada":
+                AbrirRutaGrabada();
+                return true;
+
             // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
             // LOTE de la barra izquierda salta directo a su pantalla, igual
             // que hacían los deep-links ?do= de lote.js.
@@ -4352,9 +4386,9 @@ public partial class MainWindow : Window
             // remoto/celular, que no pasa por este switch.
             "sim_coords"        => "pages/sim-coords.html",
             "asistente_direccion" => "pages/config.html",
-            // Los dos servicios ya están portados al motor (EngineRecPathService
-            // y EngineTramLineService): solo faltaba rutear el botón a su página.
-            "ruta_grabada"      => "pages/recpath.html",
+            // "ruta_grabada" ya NO mapea acá: Rutas grabadas es panel nativo (el
+            // case de arriba lo agarra antes). recpath.html queda para el Hub
+            // remoto/celular/Android, que no pasan por este switch.
             // "tram_multi" ya NO mapea acá: Tramlines (multi) es panel nativo
             // (el case de arriba lo agarra antes). tramlines.html queda para el
             // Hub remoto/celular/Android, que no pasan por este switch.
@@ -4878,6 +4912,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4905,6 +4940,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4941,6 +4977,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4983,6 +5020,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5078,6 +5116,49 @@ public partial class MainWindow : Window
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
     }
 
+    // Rutas grabadas nativo (ex recpath.html): la lista de .rec del lote — los
+    // caminos que el tractor puede repetir solo. La ventana HTML de 460x470
+    // despertaba Chromium en pleno lote y tapaba el mapa, que es donde se ve si
+    // la ruta cargada es la que se quería. Nada de reabrir: un segundo Abrir()
+    // volvería a pedir la lista y perdería la selección que el operario ya hizo.
+    //
+    // modoSalvar queda listo para cuando se recupere el botón de parar
+    // grabación (el ex btnPathRecordStop): hoy nadie lo dispara — el flujo
+    // "parar → nombrar" quedó huérfano desde que murieron las WinForms — pero
+    // el back (/api/recpath/save|discard) está vivo y probado.
+    private void AbrirRutaGrabada(bool modoSalvar = false)
+    {
+        if (_recPathHost == null) return;
+        if (_recPathHost.IsVisible) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        // Un solo overlay a la vez: si queda una card vieja visible, las dos se
+        // pisan sobre el mapa.
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB deja la curva suavizada dibujada en el mapa: su Cerrar()
+        // manda el cancel, si no la preview queda colgada abajo de esta card.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        // Este comando también nace en el menú del Hub (menu-izquierda.js), o
+        // sea con el WebView ocupando la pantalla: sin cerrarlo, la card nativa
+        // quedaría abajo y el operario vería que "no pasó nada".
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _recPathClient ??= new RecPathClient(DeriveOrigin(App.TargetUrl));
+        _recPathHost.Attach(_recPathClient);
+        _recPathHost.Abrir(modoSalvar);
+        // Card flotante: el mapa NUNCA se apaga — la ruta que se carga se ve
+        // dibujada ahí y no en ningún otro lado.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
     // Tramlines (multi) nativo, ex tramlines.html (FormTramLine): el
     // constructor de huellas por guía con el corte de 3 toques. Es una card con
     // lienzo propio (720x560, centrada) — el operario TOCA el dibujo para
@@ -5109,6 +5190,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5148,6 +5230,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -5194,6 +5277,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5227,6 +5311,7 @@ public partial class MainWindow : Window
         // Corregir posición está anclada en el MISMO lugar que estas cards:
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -5347,7 +5432,8 @@ public partial class MainWindow : Window
         "cabecera_avanzada" => "Cabecera avanzada",
         "tram_crear"        => "Tramline",
         "sim_coords"        => "Coordenadas simulador",
-        "ruta_grabada"      => "Rutas grabadas",
+        // "ruta_grabada" ya no llega acá: es panel nativo y no abre ninguna
+        // ventana con título (igual que "corregir_pos"/"suavizar_ab").
         // "tram_multi" ya no llega acá: es panel nativo y no abre ninguna
         // ventana con título (igual que "tram_crear"/"cabecera").
         _ => "PilotX"

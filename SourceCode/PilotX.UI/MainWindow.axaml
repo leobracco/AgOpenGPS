@@ -889,6 +889,16 @@
                                           HorizontalAlignment="Right" VerticalAlignment="Center"
                                           Margin="0,0,82,0"/>
 
+                <!-- RUTAS GRABADAS nativo (reemplaza pages/recpath.html, ex
+                     FormRecordPicker + FormRecordName): elegir el camino que la
+                     máquina va a repetir sola. La ventana HTML de 460x470 se
+                     paraba sobre el mapa, que es donde se ve si la ruta elegida
+                     es la que se quería. Card chica (420) CENTRADA: es una lista
+                     con selección, no un visor del tractor, y deja mapa a la
+                     vista por los cuatro costados en la pantalla de 10". -->
+                <vw:RecPathPanel x:Name="RecPathHost" Grid.Row="1" ZIndex="10"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                 <!-- CABECERA nativa (reemplaza pages/cabecera.html): el diálogo
                      HTML tapaba y APAGABA el mapa justo en la pantalla donde lo
                      único que importa es ver la franja verde dibujándose contra
