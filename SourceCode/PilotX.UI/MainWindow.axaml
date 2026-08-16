@@ -868,6 +868,16 @@
                                   HorizontalAlignment="Right" VerticalAlignment="Center"
                                   Margin="0,0,82,0"/>
 
+                <!-- CABECERA POR LÍNEAS nativa (reemplaza
+                     pages/cabecera-lineas.html): la cabecera de los lotes que
+                     no son un rectángulo. Trae su propio lienzo (se toca el
+                     contorno con el dedo), así que la card es más grande que
+                     las otras (640x490) pero sigue dejando mapa a la vista por
+                     los cuatro costados en la pantalla de 10". Va CENTRADA:
+                     es un editor, no un visor del tractor. -->
+                <vw:CabeceraLineasPanel x:Name="CabeceraLineasHost" Grid.Row="1" ZIndex="10"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                 <!-- DIRECCIÓN nativa (17vo port): panel angosto ANCLADO A LA
                      IZQUIERDA (después del riel del menú, ~130px): el centro y
                      la derecha del mapa quedan libres para ver el tractor

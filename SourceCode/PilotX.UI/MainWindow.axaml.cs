@@ -294,6 +294,13 @@ public partial class MainWindow : Window
     private CabeceraPanel? _cabeceraHost;
     private HeadlandClient? _cabeceraClient;
 
+    // Cabecera por líneas nativa, ex cabecera-lineas.html (FormHeadAche): el
+    // último diálogo del flujo de labor que despertaba Chromium encima del
+    // mapa. Card con lienzo propio; la página HTML queda para el Hub remoto/
+    // celular/Android.
+    private CabeceraLineasPanel? _cabLineasHost;
+    private CabeceraLineasClient? _cabLineasClient;
+
     // CONFIGURACIÓN nativa: shell del porteo de pages/config.html (menú lateral
     // por grupos + pestañas + footer). Hoy trae "Resumen"; las pestañas que
     // faltan y los módulos embebidos siguen abriéndose por WebView desde el
@@ -503,6 +510,20 @@ public partial class MainWindow : Window
             // sale con el proceso ya muriendo y la cabecera recién construida no
             // llega a guardarse.
             Closed += (_, _) => _cabeceraHost.DetachEnCierreDeApp();
+        }
+
+        // Cabecera por líneas nativa (ex cabecera-lineas.html). Mismo cuidado
+        // con el cierre: su /close guarda las líneas dibujadas y recalcula si
+        // la cabecera queda prendida — si la app se apaga con el panel abierto,
+        // ese POST se espera acotado en la bajada.
+        _cabLineasHost = this.FindControl<CabeceraLineasPanel>("CabeceraLineasHost");
+        if (_cabLineasHost != null)
+        {
+            _cabLineasHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+            Closed += (_, _) => _cabLineasHost.DetachEnCierreDeApp();
         }
 
         // El visor de IMU (rumbo/rolido/cabeceo, arriba a la izquierda) se
@@ -2042,6 +2063,7 @@ public partial class MainWindow : Window
         if (_loteHost != null && _loteHost.IsVisible) { _loteHost.Cerrar(); return; }
         if (_contornoHost != null && _contornoHost.IsVisible) { _contornoHost.Cerrar(); return; }
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) { _cabeceraHost.Cerrar(); return; }
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) { _cabLineasHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -2655,6 +2677,7 @@ public partial class MainWindow : Window
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // El mapa queda VIVO detras de la card (y se reenciende si un
         // takeover previo lo habia apagado).
@@ -2981,6 +3004,7 @@ public partial class MainWindow : Window
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
         if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_sonidosClient == null)
             _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));
@@ -3026,6 +3050,7 @@ public partial class MainWindow : Window
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
         if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4011,10 +4036,17 @@ public partial class MainWindow : Window
             // ---- Cabecera → panel NATIVO. El diálogo HTML no solo despertaba
             // Chromium en pleno lote: TAPABA el mapa, que es el único preview
             // que sirve (el canvas de la página era una maqueta del mismo lote).
-            // OJO: SOLO "cabecera". "cabecera_onoff" (prender/apagar el corte)
-            // sigue yendo al motor, y "cabecera_avanzada" sigue en HTML.
+            // OJO: "cabecera_onoff" (prender/apagar el corte) sigue yendo al
+            // motor — no abre pantalla.
             case "cabecera":
                 AbrirCabecera();
+                return true;
+
+            // ---- Cabecera por líneas (la "avanzada", ex FormHeadAche) →
+            // panel NATIVO. Era el último diálogo del flujo de labor que abría
+            // Chromium sobre el mapa, y el que más área de dibujo necesitaba.
+            case "cabecera_avanzada":
+                AbrirCabeceraLineas();
                 return true;
 
             // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
@@ -4140,7 +4172,9 @@ public partial class MainWindow : Window
             // "cabecera" ya NO mapea acá: es panel nativo (el case de arriba lo
             // agarra antes). cabecera.html queda para el Hub remoto/celular/
             // Android, que no pasan por este switch.
-            "cabecera_avanzada" => "pages/cabecera-lineas.html",
+            // "cabecera_avanzada" ya NO mapea acá: es panel nativo (el case de
+            // arriba lo agarra antes). cabecera-lineas.html queda para el Hub
+            // remoto/celular/Android, que no pasan por este switch.
             "tram_crear"        => "pages/tramline.html",
             // "pick"/"importar_guias" ya NO mapean acá: Guías es nativo (el
             // case de arriba los agarra antes). tracks.html queda para el Hub
@@ -4660,6 +4694,7 @@ public partial class MainWindow : Window
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4676,6 +4711,7 @@ public partial class MainWindow : Window
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4701,6 +4737,7 @@ public partial class MainWindow : Window
         // dibujaban una encima de la otra, y además su /close (que persiste la
         // cabecera) no salía nunca.
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4722,6 +4759,9 @@ public partial class MainWindow : Window
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        // La cabecera por líneas edita LO MISMO que esta card: con las dos
+        // abiertas quedarían dos sesiones sobre el mismo editor del motor.
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4733,6 +4773,34 @@ public partial class MainWindow : Window
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
     }
 
+    // Cabecera por líneas (la "avanzada", ex FormHeadAche) → panel NATIVO. Es
+    // la cabecera de los lotes que no son un rectángulo: se marcan líneas A/B
+    // sobre el contorno y se arma la cabecera con los cruces. La ventana HTML
+    // de 460x470 despertaba Chromium en pleno lote y encima dejaba el lienzo
+    // del tamaño de un sello; la card nativa tiene más área para el dedo y el
+    // mapa sigue vivo detrás.
+    private void AbrirCabeceraLineas()
+    {
+        if (_cabLineasHost == null) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
+        // con el WebView ocupando la pantalla: sin cerrarlo, la card nativa
+        // quedaría abajo y el operario vería que "no pasó nada".
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _cabLineasClient ??= new CabeceraLineasClient(DeriveOrigin(App.TargetUrl));
+        _cabLineasHost.Attach(_cabLineasClient);
+        _cabLineasHost.Abrir();
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
     private void AbrirGuias()
     {
         if (_guiasHost == null) return;
@@ -4741,6 +4809,7 @@ public partial class MainWindow : Window
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
