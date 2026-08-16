@@ -118,6 +118,8 @@ public sealed class DireccionPanel : Border
 
     // pie
     private readonly Button _btnGuardar;
+    private readonly Button _btnDescartar;
+    private bool _descartarArmado;
     private readonly TextBlock _estado;
 
     public DireccionPanel()
@@ -306,6 +308,26 @@ public sealed class DireccionPanel : Border
         };
         btnCeroWas.Click += async (_, _) => await ZeroWas();
 
+        // Ajuste fino del cero (hsbarWasOffset del FormSteer, ±4000 cuentas):
+        // el botón de arriba clava el cero de un saque; esto corre el cero de a
+        // pasitos cuando en el lote se ve que siembra corrido siempre para el
+        // mismo lado. Se muestra en GRADOS (offset ÷ cuentas/grado), igual que
+        // el lblSteerAngleSensorZero original. Paso 20 = LargeChange original.
+        var valCeroFino = Num("—");
+        Action refCeroFino = () =>
+        {
+            int cpd = Math.Max(1, Entero("counts_per_degree"));
+            double deg = Entero("was_offset") / (double)cpd;
+            valCeroFino.Text = deg.ToString("F2", CultureInfo.InvariantCulture) + "°";
+        };
+        _refrescos.Add(refCeroFino);
+        var filaCeroFino = FilaNumerica("Ajuste fino del cero", valCeroFino,
+            () => { NudgeCrudo("was_offset", -20, -4000, 4000); refCeroFino(); MarcarSucio(); },
+            () => { NudgeCrudo("was_offset", +20, -4000, 4000); refCeroFino(); MarcarSucio(); },
+            "Corre el cero del sensor de a poquito, en cuentas crudas (se muestra en grados). " +
+            "Usalo cuando el piloto siembra SIEMPRE corrido para el mismo lado: cada toque mueve " +
+            "el cero un poco hacia ese lado. Para el cero grueso usá el botón con las ruedas derechas.");
+
         _tglInvWas   = BotonSeg("Invertir sensor (WAS)");
         _tglInvMotor = BotonSeg("Invertir motor");
         _tglInvWas.Click   += (_, _) => { ToggleBool("invert_was", _tglInvWas); };
@@ -332,6 +354,7 @@ public sealed class DireccionPanel : Border
         _scSensor.Children.Add(filaVuConChip);
         _scSensor.Children.Add(btnCeroWas);
         _scSensor.Children.Add(vuNota);
+        _scSensor.Children.Add(filaCeroFino);
         var filaInv = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         Grid.SetColumn(invFila, 0);
         var chipInv = ChipAyuda("Invertir sensor / motor",
@@ -396,7 +419,8 @@ public sealed class DireccionPanel : Border
         _scGuiado.Children.Add(FilaAjuste("Demora de zona muerta", "dead_zone_delay", 1, 50, 1, 0, "",
             "Cuántos ciclos espera antes de aplicar la zona muerta."));
         _scGuiado.Children.Add(FilaAjuste("Compensación en cabecera (U)", "u_turn_comp", 2, 20, 1, 0, "",
-            "Cuánto anticipa el giro en la vuelta en U de la cabecera. Si la U queda abierta, subilo; si muerde la pasada, bajalo."));
+            "Cuánto anticipa el giro en la vuelta en U de la cabecera. 0 = neutro; positivo si la U queda abierta, negativo si muerde la pasada.",
+            offDisplay: -10));
         _scGuiado.Children.Add(FilaAjuste("Compensación de ladera", "side_hill_comp", 0, 30, 1, 0, "",
             "Usa el rolido del IMU para compensar la deriva cuesta abajo en laderas. 0 = apagado."));
 
@@ -489,10 +513,39 @@ public sealed class DireccionPanel : Border
         };
         _btnGuardar.Click += async (_, _) => await Guardar();
 
-        var pie = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 6, 0, 0) };
+        // "Restablecer" del original (btnReset del FormSteer / de la página):
+        // acá descarta lo tocado y relee lo que tiene el módulo. Dos toques a
+        // propósito — un roce no puede tirar diez ajustes a la basura.
+        _btnDescartar = new Button
+        {
+            Content = "Descartar", Height = 50, MinWidth = 104, FontSize = 13, FontWeight = FontWeight.SemiBold,
+            Background = BgCard, Foreground = TextoMuted, BorderBrush = Borde, BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(10), HorizontalContentAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 0, 8, 0), IsEnabled = false,
+        };
+        _btnDescartar.Click += async (_, _) =>
+        {
+            if (!_sucio) return;
+            if (!_descartarArmado)
+            {
+                _descartarArmado = true;
+                _btnDescartar.Content = "¿Descartar?";
+                _btnDescartar.Foreground = Rojo;
+                _btnDescartar.BorderBrush = Rojo;
+                return;
+            }
+            _descartarArmado = false;
+            await CargarConfig();
+            _estado.Text = "Cambios descartados — se releyó la config guardada";
+            _estado.Foreground = TextoMuted;
+        };
+
+        var pie = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Margin = new Thickness(0, 6, 0, 0) };
         Grid.SetColumn(_estado, 0);
-        Grid.SetColumn(_btnGuardar, 1);
+        Grid.SetColumn(_btnDescartar, 1);
+        Grid.SetColumn(_btnGuardar, 2);
         pie.Children.Add(_estado);
+        pie.Children.Add(_btnDescartar);
         pie.Children.Add(_btnGuardar);
 
         // ---------- árbol ----------
@@ -750,6 +803,14 @@ public sealed class DireccionPanel : Border
         _btnGuardar.Background = _sucio ? Verde : BgCard;
         _btnGuardar.Foreground = _sucio ? Brushes.White : Texto;
         _btnGuardar.BorderBrush = _sucio ? Verde : Borde;
+
+        // Descartar acompaña: solo tiene sentido con cambios sin guardar, y
+        // cualquier repintado lo desarma (un toque viejo no queda "cargado").
+        _descartarArmado = false;
+        _btnDescartar.IsEnabled = _sucio;
+        _btnDescartar.Content = "Descartar";
+        _btnDescartar.Foreground = _sucio ? Texto : TextoMuted;
+        _btnDescartar.BorderBrush = Borde;
     }
 
     private void MostrarTab(string id)
@@ -984,15 +1045,17 @@ public sealed class DireccionPanel : Border
     // ---- helpers genéricos de filas (registran su repintado en _refrescos) ----
 
     /// <summary>Fila de ajuste sobre un ENTERO crudo del wire, con escala solo
-    /// de display (igual que los sliders del FormSteer: 29 → "2,9 s").</summary>
+    /// de display (igual que los sliders del FormSteer: 29 → "2,9 s").
+    /// offDisplay corre el número mostrado sin tocar el wire (u_turn_comp
+    /// guarda 2..20 pero se muestra −8..+10, el "minus10" del original).</summary>
     private Control FilaAjuste(string etiqueta, string clave, int min, int max,
                                double escala = 1, int dec = 0, string unidad = "",
-                               string ayuda = null)
+                               string ayuda = null, double offDisplay = 0)
     {
         var val = Num("—");
         Action refrescar = () =>
         {
-            double v = Entero(clave) * escala;
+            double v = (Entero(clave) + offDisplay) * escala;
             val.Text = v.ToString("F" + dec.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture)
                      + (unidad.Length > 0 ? " " + unidad : "");
         };
