@@ -847,6 +847,17 @@
                 <vw:LotePanel x:Name="LoteHost" Grid.Row="1" ZIndex="10"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
+                <!-- CONTORNO nativo (reemplaza pages/contorno.html): era el
+                     ÚNICO diálogo que se abría con el mapa VIVO — se abre
+                     justamente PARA ver los puntos del lindero mientras se
+                     maneja. Card CHICA (340) anclada a la DERECHA y con margen
+                     82 para no pisar la barra derecha (56+18 de riel, mismo
+                     criterio que TractorRolidoOverlay): centrada taparía justo
+                     el tractor y la traza que el operario abre esto para ver. -->
+                <vw:ContornoPanel x:Name="ContornoHost" Grid.Row="1" ZIndex="10"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Margin="0,0,82,0"/>
+
                 <!-- DIRECCIÓN nativa (17vo port): panel angosto ANCLADO A LA
                      IZQUIERDA (después del riel del menú, ~130px): el centro y
                      la derecha del mapa quedan libres para ver el tractor

@@ -282,6 +282,12 @@ public partial class MainWindow : Window
     private LotePanel? _loteHost;
     private DireccionPanel? _direccionHost;
 
+    // Contorno (lindero) nativo, ex contorno.html: la ÚNICA página que se abría
+    // con el mapa vivo detrás. Card chica sobre el mapa; la página HTML queda
+    // para el Hub remoto/celular/Android.
+    private ContornoPanel? _contornoHost;
+    private ContornoClient? _contornoClient;
+
     // CONFIGURACIÓN nativa: shell del porteo de pages/config.html (menú lateral
     // por grupos + pestañas + footer). Hoy trae "Resumen"; las pestañas que
     // faltan y los módulos embebidos siguen abriéndose por WebView desde el
@@ -459,6 +465,19 @@ public partial class MainWindow : Window
         if (_direccionHost != null)
         {
             _direccionHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+        }
+
+        // Contorno nativo (ex contorno.html). El Aviso avisa por toast cuando
+        // el panel se cierra con la grabación del lindero todavía prendida: el
+        // pill "REC" vive adentro de la card y cerrada no se ve más.
+        _contornoHost = this.FindControl<ContornoPanel>("ContornoHost");
+        if (_contornoHost != null)
+        {
+            _contornoHost.Aviso += MostrarToast;
+            _contornoHost.Cerrado += () =>
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
@@ -1601,7 +1620,9 @@ public partial class MainWindow : Window
         switch (p)
         {
             // Contorno es el más chico de todos: es el que se abre PARA mirar el
-            // mapa, así que cada píxel suyo es mapa tapado.
+            // mapa, así que cada píxel suyo es mapa tapado. (En esta pantalla ya
+            // no se abre como ventana — es panel nativo; la medida queda por si
+            // algún camino vuelve a pedir la página.)
             //
             // 290 de alto no aprieta nada. Todo el CSS de estas páginas está
             // clampeado contra vh, y los botones tocan su piso (28 px) en cuanto
@@ -1698,10 +1719,10 @@ public partial class MainWindow : Window
             // en blanco mientras tanto (el bug de fondo, mismo síntoma que el
             // "SIN RESOLVER" del 2026-07-28, se resuelve de raíz sacando estos
             // diálogos a embebido en la MainWindow, no apagando el mapa).
-            // `mapaVivo` queda de parámetro por compatibilidad con los call
-            // sites existentes (contorno lo pasaba explícito) pero ya no hay
-            // rama que apague nada: sacarlo del todo cuando el rediseño a
-            // embebido esté hecho.
+            // `mapaVivo` quedó de parámetro por compatibilidad, pero desde que
+            // Contorno es panel nativo NINGÚN call site lo pasa en true (era el
+            // único) y no hay rama que apague nada. TODO: borrar el parámetro
+            // de OpenDialogUrl/OpenDialogPage cuando no queden diálogos HTML.
             if (_mapHost != null) _mapHost.IsVisible = true;
             ReanudarMapa();
 
@@ -1997,6 +2018,7 @@ public partial class MainWindow : Window
     {
         if (_guiasHost != null && _guiasHost.IsVisible) { _guiasHost.Cerrar(); return; }
         if (_loteHost != null && _loteHost.IsVisible) { _loteHost.Cerrar(); return; }
+        if (_contornoHost != null && _contornoHost.IsVisible) { _contornoHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -2608,6 +2630,7 @@ public partial class MainWindow : Window
         // Paneles que flotan sobre el mapa: uno a la vez, mismo criterio que AbrirGuias.
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_webView != null) CloseWebView();
         // El mapa queda VIVO detras de la card (y se reenciende si un
         // takeover previo lo habia apagado).
@@ -2932,6 +2955,7 @@ public partial class MainWindow : Window
         if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
         if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_sonidosClient == null)
             _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));
@@ -2975,6 +2999,7 @@ public partial class MainWindow : Window
         if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
         if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -3948,6 +3973,15 @@ public partial class MainWindow : Window
                 AbrirGuias();
                 return true;
 
+            // ---- Contorno (lindero) → panel NATIVO. Era el único diálogo que
+            // se abría con el mapa vivo detrás justamente porque se abre PARA
+            // mirarlo; ahora es una card chica sobre el mapa, sin Chromium.
+            // "lindero" = barra de la pasada; "herr_limites" = menú izquierda.
+            case "lindero":
+            case "herr_limites":
+                AbrirContorno();
+                return true;
+
             // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
             // LOTE de la barra izquierda salta directo a su pantalla, igual
             // que hacían los deep-links ?do= de lote.js.
@@ -4065,7 +4099,9 @@ public partial class MainWindow : Window
             "calculadora"       => "pages/calculadora-siembra.html",
             "bandera"           => "pages/banderas.html",
             "bandera_latlon"    => "pages/banderas.html",
-            "lindero"           => "pages/contorno.html",
+            // "lindero"/"herr_limites" ya NO mapean acá: Contorno es nativo (el
+            // case de arriba los agarra antes). contorno.html queda para el Hub
+            // remoto/celular/Android, que no pasan por este switch.
             "cabecera"          => "pages/cabecera.html",
             "cabecera_avanzada" => "pages/cabecera-lineas.html",
             "tram_crear"        => "pages/tramline.html",
@@ -4074,7 +4110,6 @@ public partial class MainWindow : Window
             // remoto/celular, que no pasa por este switch.
             "sim_coords"        => "pages/sim-coords.html",
             "asistente_direccion" => "pages/config.html",
-            "herr_limites"      => "pages/contorno.html",
             // Los dos servicios ya están portados al motor (EngineRecPathService
             // y EngineTramLineService): solo faltaba rutear el botón a su página.
             "ruta_grabada"      => "pages/recpath.html",
@@ -4091,12 +4126,9 @@ public partial class MainWindow : Window
             // midiera lo que midiera el contenido, era media pantalla tapada.
             // El 820x600 queda solo como red para las páginas sin medir.
             //
-            // Contorno además va con el mapa VIVO. Los demás diálogos lo apagan
-            // para no pelear con el WebView2 por el compositor, pero éste se
-            // abre justamente para ver los puntos del lindero mientras se
-            // maneja: apagárselo lo deja en negro y lo vuelve inútil.
-            bool esContorno = page == "pages/contorno.html";
-            OpenDialogPage(page, TitleForCommand(cmd), 820, 600, mapaVivo: esContorno);
+            // El `mapaVivo` que pasaba Contorno se fue con el port nativo: hoy
+            // NINGÚN call site lo pasa en true (ver la nota de OpenDialogUrl).
+            OpenDialogPage(page, TitleForCommand(cmd), 820, 600);
             return true;
         }
 
@@ -4589,6 +4621,7 @@ public partial class MainWindow : Window
         if (_loteHost == null) return;
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4603,6 +4636,7 @@ public partial class MainWindow : Window
         if (_direccionHost == null) return;
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4613,12 +4647,35 @@ public partial class MainWindow : Window
         _direccionHost.Abrir();
     }
 
+    // Contorno (lindero) nativo: card chica sobre el mapa vivo. OJO — cerrarlo
+    // NO cancela la grabación del lindero (ver la nota de ContornoPanel): si
+    // abrir otro panel la cancelara, el operario perdería la vuelta entera que
+    // acaba de manejar. Al reabrirlo, `state.recording` lo devuelve directo a
+    // la grabación.
+    private void AbrirContorno()
+    {
+        if (_contornoHost == null) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _contornoClient ??= new ContornoClient(DeriveOrigin(App.TargetUrl));
+        _contornoHost.Attach(_contornoClient);
+        _contornoHost.Abrir();
+        // Card flotante: el mapa NUNCA se apaga (y acá menos que nunca — esta
+        // pantalla se abre para mirarlo).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
     private void AbrirGuias()
     {
         if (_guiasHost == null) return;
         // Solo un panel a la vez sobre el mapa (mismo criterio que ShowSistema).
         if (_loteHost != null && _loteHost.IsVisible) _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4730,7 +4787,8 @@ public partial class MainWindow : Window
         "conteo_semillas"   => "Conteo de semillas",
         "calculadora"       => "Calculadora de siembra",
         "bandera" or "bandera_latlon" => "Banderas",
-        "lindero" or "herr_limites" => "Contorno",
+        // "lindero"/"herr_limites" ya no llegan acá: Contorno es panel nativo y
+        // no abre ninguna ventana con título.
         "cabecera"          => "Cabecera",
         "cabecera_avanzada" => "Cabecera avanzada",
         "tram_crear"        => "Tramline",
