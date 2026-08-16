@@ -36,6 +36,10 @@
 //     "no tocar", y mandarlos "por las dudas" re-normalizaría el signo de
 //     campos que el operario no tocó. Es una diferencia consciente con
 //     Dimensiones, que sí manda los tres.
+//   · Se guarda el modo QUE SE VE, no el que dice el último snapshot: el
+//     refresco de fondo puede cambiar el estilo abajo del dedo mientras el
+//     operario tipea (lo tocaron desde el celular) y ahí la fila en pantalla y
+//     la que el motor espera dejan de ser la misma. Ver AlSalirAsync.
 //   · El mínimo de arrastre/tanque NO es cero: 10 cm | 4 in. Un 0 tipeado se
 //     clampea solo (silencioso, igual que el original — sin diálogos).
 //   · Rangos: réplica de limDrawbar/limTrailingHitch de config.js — si alguien
@@ -188,7 +192,18 @@ public sealed class DistanciasTab : ConfigTab
         if (C.Client == null) { C.Estado?.Invoke("Sin conexión con PilotX", "err"); return false; }
         if (_guardando) return false;
 
-        string modo = ModoActual();
+        // El modo con el que se PINTÓ la pantalla, NO el que dice el snapshot de
+        // este instante. El refresco de fondo (3 s) puede haber traído otro
+        // estilo mientras el operario tipeaba —lo cambió desde el celular, o
+        // desde otra pantalla— y en ese caso Live() a propósito NO rearma la
+        // pestaña, para no borrarle lo escrito. Si acá se recalculara el modo,
+        // se validaría y se mandaría el campo de una fila que el operario NO
+        // tiene a la vista, con el valor viejo del snapshot, y lo que él tipeó
+        // se perdería sin decir nada: un número de geometría escrito sin que
+        // nadie lo haya confirmado. Se guarda lo que está EN PANTALLA.
+        // (En el HTML esta carrera no existe porque config.js no refresca el
+        // snapshot solo — releé únicamente al entrar y después de guardar.)
+        string modo = string.IsNullOrEmpty(_modoPintado) ? ModoActual() : _modoPintado;
 
         // Body PARCIAL: SOLO los campos visibles del modo, en metros y en
         // magnitud. Lo que no viaja, el motor no lo toca.
