@@ -35,20 +35,23 @@
 // dirty se limpia SOLO si el POST salió bien.
 //
 // ---------------------------------------------------------------------------
-// PERSISTENCIA — LEER ESTO ANTES DE PROMETERLE NADA AL OPERARIO (2026-08-16):
-// de los tres campos de esta pestaña, al motor headless le sobrevive al
-// reinicio UNO SOLO:
-//   · hitch_length  → SÍ persiste (ToolGeometryStore lo espeja en tool.json);
-//   · wheelbase     → NO persiste;
-//   · track_width   → NO persiste.
-// El motor los escribe en `Properties.Settings`, pero su `Save()` es un no-op
-// mientras no haya perfil de vehículo elegido (vehicle_file_name = "", el caso
-// normal headless) y `tool.json` solo espeja la geometría del IMPLEMENTO. En
-// caliente los dos andan (el guiado ya trabaja con los valores nuevos); al
-// reiniciar el motor vuelven a los del código. Es un agujero del back-end
-// (mismo que sufre la página HTML: NO lo introduce este porteo) y se arregla
-// agregando esos dos campos a ToolGeometryStore. Hasta entonces esta pestaña
-// no puede cantar "queda guardado para siempre" — y por eso no lo dice.
+// PERSISTENCIA — VERIFICADA CONTRA EL DISCO, no asumida (revisión 2026-08-16):
+// los TRES campos sobreviven al reinicio del motor headless, cada uno por su
+// camino:
+//   · hitch_length → tool.json (ToolGeometryStore espeja la geometría del
+//     implemento y se relee en el arranque, antes de armar CTool/CVehicle);
+//   · wheelbase y track_width → el perfil de vehículo
+//     <Documentos>\AgOpenGPS\Vehicles\<perfil>.XML, por el
+//     `Settings.Default.Save()` que dispara cada guardado de config.
+// La trampa conocida del repo ("Settings.Save() es no-op sin perfil") ya NO
+// aplica al motor: `Program.cs` se crea el perfil "PilotX" al arrancar si
+// RegistrySettings.vehicleFileName está vacío, así que siempre hay perfil
+// activo y el Save() escribe el XML completo (se comprobó con el motor de
+// banco: GET /api/aog/config → perfil_activo "PilotX", y el XML en disco con
+// setVehicle_wheelbase / setVehicle_trackWidth en los valores posteados).
+// Si alguna vez alguien saca ese bootstrap del perfil, wheelbase y track_width
+// vuelven a perderse en cada arranque (hitch_length no: lo salva tool.json) y
+// esta pestaña pasaría a cantar un "Guardado ✔" que dura hasta el reinicio.
 // ============================================================================
 
 using System;
@@ -147,6 +150,16 @@ public sealed class DimensionesTab : ConfigTab
         double? hi = LeerNud(_txtHitch,     LimHitch());
         if (wb == null || tr == null || hi == null)
         {
+            // Si el que quedó en rojo es el enganche y su fila está oculta, el
+            // operario leería "revisá lo rojo" sin ver NADA rojo en pantalla y
+            // el panel parecería trabado. Se destapa la fila para que el campo
+            // en falta esté a la vista (el valor lo cargó el snapshot: llegar
+            // acá significa que el motor mandó algo que no es número).
+            if (hi == null && _filaHitch != null && !_filaHitch.IsVisible)
+            {
+                _filaHitch.IsVisible = true;
+                if (_notaHitchOculto != null) _notaHitchOculto.IsVisible = false;
+            }
             C.Estado?.Invoke("Revisá los valores marcados en rojo", "err");
             return false;
         }
