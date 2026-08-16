@@ -40,7 +40,8 @@
 //   2. `sectionWidths`: SaveTool rellena con Width/N ⇒ guardar trenes en modo
 //      individuales UNIFORMIZA los anchos desiguales. Medido: 0,61 / 7×0,43 /
 //      0,61 + PUT ⇒ nueve secciones de 0,47. El ancho TOTAL y la cantidad se
-//      respetan; el reparto se pierde. Tampoco se arregla desde la UI.
+//      respetan; el reparto se pierde. Tampoco se arregla desde la UI, así que
+//      TAMBIÉN se avisa (mueve por dónde corta la máquina).
 //   3. `section_off_when_out`: el implemento tiene su propia copia y la baja al
 //      motor, deshaciendo lo que se acababa de guardar acá. ESTO SÍ se mitiga:
 //      el PUT sincroniza el flag con lo que el operario eligió en esta pantalla
@@ -48,7 +49,9 @@
 //      HTML, que se come el pisotón.
 // Mismo cuelgue que PivoteTab y TimingTab documentan para el pivote y los
 // look-ahead. Nota: sin trenes sucios NO hay PUT, así que 1 y 2 solo aparecen
-// cuando se tocan los trenes.
+// cuando se tocan los trenes. Y como 1 y 2 pisan lo que se ve en pantalla, tras
+// un PUT exitoso se RELEE el snapshot: si no, la pantalla seguiría mostrando
+// "zonas, 24 secciones" con el motor ya cortando en "individuales, 16".
 //
 // ⚠️ EL BUG "PUSE 14 Y VOLVIÓ A 3": el PUT del implemento tiene que
 // re-sincronizar la lista `secciones` Y `numero_surcos` a la cantidad recién
@@ -1278,8 +1281,40 @@ public sealed class SeccionesTab : ConfigTab
         // callado sería dejarlo sembrando con un modo de corte que él no eligió.
         if (_modo == "zonas")
             C.Aviso?.Invoke(T("Trenes guardados. Ojo: guardar el implemento deja el modo de secciones en «individuales» — revisalo antes de salir al lote."));
+        else if (AnchosDesiguales())
+        {
+            // Hermano del anterior y igual de caro: SaveTool rellena los anchos
+            // con Width/N cuando el DTO no trae sectionWidths (MapToToolConfig
+            // nunca los manda), así que guardar trenes EMPAREJA los anchos que
+            // el operario había puesto distintos. Las secciones dejan de
+            // empezar y terminar donde él las midió: eso mueve por dónde corta
+            // la máquina. Avisar es lo mínimo mientras el backend no lo arregle.
+            C.Aviso?.Invoke(T("Trenes guardados. Ojo: guardar el implemento empareja los anchos de las secciones — revisá las casillas antes de salir al lote."));
+        }
+
+        // El PUT acaba de PISAR geometría del guiado (modo y anchos, arriba).
+        // Sin releer, la pantalla se queda mostrando lo que el motor YA NO
+        // tiene: el operario vería "zonas, 24 secciones" con el motor cortando
+        // en "individuales, 16". Preferimos un GET de más antes que mentirle
+        // sobre cómo está partido el implemento.
+        if (C.RefrescarSnapshot != null)
+        {
+            try { await C.RefrescarSnapshot(CancellationToken.None).ConfigureAwait(true); }
+            catch (OperationCanceledException) { }
+            catch { }
+        }
 
         return true;
+    }
+
+    /// <summary>¿Las secciones activas del modo individuales tienen anchos
+    /// distintos entre sí? (1 mm de tolerancia: los viajes display→metros
+    /// dejan colas de redondeo que no son una diferencia real).</summary>
+    private bool AnchosDesiguales()
+    {
+        for (int i = 1; i < _num && i < _widths.Length; i++)
+            if (Math.Abs(_widths[i] - _widths[0]) > C.M2Disp(0.001)) return true;
+        return false;
     }
 
     // =======================================================================
