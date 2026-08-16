@@ -6,7 +6,9 @@
 // perfil/ancho/unidades, mensajes de estado, botón Guardar) y las pestañas ya
 // portadas — hoy "Resumen", "Vehículo › Tipo", "Vehículo › Dimensiones",
 // "Vehículo › Antena", "Implemento › Enganche", "Implemento › Distancias",
-// "Implemento › Offset", "Implemento › Pivote" e "Implemento › Timing".
+// "Implemento › Offset", "Implemento › Pivote", "Implemento › Timing" y
+// "Secciones › Secciones" (esta última toca ADEMÁS el implemento central por
+// /api/implemento, para los trenes de siembra).
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -85,7 +87,7 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "toolpivot",   Titulo = "Pivote",       Grupo = "Implemento", Nativa = true  },
         new CfgNav { Tab = "tsettings",   Titulo = "Timing",       Grupo = "Implemento", Nativa = true  },
 
-        new CfgNav { Tab = "tsections",   Titulo = "Secciones",    Grupo = "Secciones"                  },
+        new CfgNav { Tab = "tsections",   Titulo = "Secciones",    Grupo = "Secciones",  Nativa = true  },
         new CfgNav { Tab = "tswitches",   Titulo = "Switches",     Grupo = "Secciones"                  },
         new CfgNav { Tab = "amachine",    Titulo = "Máquina",      Grupo = "Secciones"                  },
 
@@ -150,6 +152,12 @@ public partial class ConfigPanel : UserControl
     public void Attach(ConfigVehiculoClient client, string? tab = null)
     {
         _ctx.Client = client;
+        // Cliente del implemento CENTRAL (/api/implemento): OTRA configuración,
+        // el mismo host. Hoy lo usa nada más que la carta de trenes de la
+        // pestaña Secciones, pero vive acá para que no haya dos clientes del
+        // mismo producto dando vueltas.
+        if (_ctx.Implemento == null && client != null)
+            _ctx.Implemento = new ImplementoClient(client.BaseUrl);
         string destino = EsNativa(tab) && !string.IsNullOrEmpty(tab) ? tab! : "summary";
 
         if (_cts != null)
@@ -551,6 +559,7 @@ public partial class ConfigPanel : UserControl
         "tooloffset" => new OffsetTab(_ctx),
         "toolpivot" => new PivoteTab(_ctx),
         "tsettings" => new TimingTab(_ctx),
+        "tsections" => new SeccionesTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 

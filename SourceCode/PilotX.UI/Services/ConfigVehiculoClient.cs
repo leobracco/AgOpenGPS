@@ -209,6 +209,17 @@ public sealed class ConfigVehiculoClient
         catch { return null; }
     }
 
+    /// <summary>
+    /// POST /api/aog/config/secciones/preparar — réplica del Enter nativo de la
+    /// pestaña Secciones: CON LOTE ABIERTO APAGA LOS MASTERS Auto/Manual de
+    /// sección. Es un efecto de lado REAL y buscado (editar la geometría con el
+    /// corte activo deja el aplicador en un estado raro), así que la pestaña lo
+    /// dispara al entrar igual que la página HTML.
+    /// Fire-and-forget: si falla no se avisa nada — no es un guardado.
+    /// </summary>
+    public Task<ConfigResultado?> PrepararSeccionesAsync(CancellationToken ct = default)
+        => GuardarAsync("secciones/preparar", new { }, ct);
+
     /// <summary>Teclado nativo de PilotX (misma señal HTTP que mandan las
     /// páginas del Hub). Catch mudo a propósito: sin teclado el campo se sigue
     /// pudiendo editar con uno físico.</summary>

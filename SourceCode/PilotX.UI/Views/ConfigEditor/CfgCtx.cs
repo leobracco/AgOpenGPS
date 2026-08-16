@@ -34,6 +34,12 @@ public sealed class CfgCtx
     /// <summary>Cliente HTTP (uno solo para toda la config).</summary>
     public ConfigVehiculoClient? Client;
 
+    /// <summary>Cliente del IMPLEMENTO CENTRAL (/api/implemento). Es OTRA
+    /// configuración, no la del guiado: surcos, trenes y metadata de catálogo.
+    /// Hoy lo usa nada más que la carta "Trenes de siembra" de la pestaña
+    /// Secciones — el shell lo crea con la misma base que Client.</summary>
+    public ImplementoClient? Implemento;
+
     /// <summary>Snapshot en memoria. null = el Hub no respondió.</summary>
     public ConfigSnapshot? Snap;
 
