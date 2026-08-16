@@ -272,9 +272,14 @@ public sealed class DireccionPanel : Border
             Child = barraGrid, Height = 34, Background = BgCard,
             BorderBrush = Borde, BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6), ClipToBounds = true,
-            // toque = cero (el track entero es el objetivo, 34px + ancho total)
+            // El vúmetro es SOLO LECTURA. Antes tocarlo ceraba el sensor: con
+            // guante y el tractor moviéndose, un roce sobre una barra de 34 px
+            // por todo el ancho del panel alcanzaba para correr el cero y dejar
+            // la dirección calibrada con un ángulo cualquiera. El cero se pone
+            // con el botón explícito de al lado ("Poner en cero", 0872393e),
+            // que además avisa si el ángulo es excesivo. NO volver a colgarle
+            // un PointerPressed a esta barra.
         };
-        track.PointerPressed += async (_, _) => await ZeroWas();
         var filaVu = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
