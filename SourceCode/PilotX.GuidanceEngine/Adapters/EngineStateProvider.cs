@@ -7,7 +7,7 @@
 //   · PowerStatus (WinForms SystemInformation)      -> PowerOnline = false
 //   · flagColor / isNudgeOn (estado de UI nativa)    -> 0 / false
 //   · Properties.Settings (proyecto GPS net48)       -> VehicleType/Brand fijos, HasHydLift=false
-//   · ShapefileLayerForAdapters (capa del mapa AOG)  -> sin dosis de shape
+//   · ShapefileLayerForAdapters (capa del mapa de PilotX)  -> sin dosis de shape
 //
 // Los ~14 métodos satélite (graphs, sim-coords, display-colors, event-log,
 // section-colors, shape) espejaban ventanas WinForms de PilotX que este

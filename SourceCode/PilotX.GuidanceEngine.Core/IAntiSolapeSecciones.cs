@@ -44,7 +44,7 @@ namespace AgOpenGPS
         /// ¿La sección tiene que quedar encendida?
         ///
         /// Los extremos van en coordenadas del mundo y <paramref name="heading"/>
-        /// en radianes con la convención de AOG (0 = Norte, horario).
+        /// en radianes con la convención de PilotX (0 = Norte, horario).
         /// <paramref name="estabaEncendida"/> es para la histéresis: sin eso, una
         /// sección que va rozando el borde de la pasada anterior prende y apaga
         /// varias veces por segundo.

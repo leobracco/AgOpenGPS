@@ -80,7 +80,7 @@ namespace AgIO
 
         /// <summary>Inventario completo: toda sentencia con checksum válido que
         /// entró (también las no consumidas: RMC/GSA/GSV/ZDA…). null en hosts
-        /// que no lo llenan (AgIO WinForms legacy).</summary>
+        /// que no lo llenan (CoreX WinForms legacy).</summary>
         public System.Collections.Generic.List<CoreXNmeaVistaDto> Vistas { get; set; }
     }
 

@@ -6,7 +6,7 @@
 // (PgnFrameParser, ya portable) y los 3 servicios de CoreX (MqttBrokerService/
 // UdpBridgeService/NtripClientService, ya portables desde bloque 8).
 //
-// Mismo protocolo loopback que el AgIO real: escucha en :17777, contesta a
+// Mismo protocolo loopback que el CoreX original: escucha en :17777, contesta a
 // :15555 — así convive en el mismo proceso que GuidanceEngineHost (que
 // escucha :15555 y contesta a :17777) sin que ninguno de los dos necesite
 // saber que el otro ya no es un .exe aparte.
@@ -46,7 +46,7 @@ namespace AgIO
         // lo despacha por UNA sola interfaz elegida por la tabla de rutas, y en
         // una PC con adaptadores virtuales (QEMU/emulador, VPN) puede salir por
         // el equivocado — los módulos de la LAN no reciben NADA, sin ningún
-        // error. AgIO nativo siempre usó broadcast DE SUBRED (x.y.z.255), que
+        // error. CoreX nativo siempre usó broadcast DE SUBRED (x.y.z.255), que
         // se enruta por la interfaz correcta; por eso "el otro andaba". Este
         // endpoint queda de fallback si no se puede enumerar ninguna interfaz.
         public IPEndPoint EpModule = new IPEndPoint(IPAddress.Parse("255.255.255.255"), 8888);
@@ -63,7 +63,7 @@ namespace AgIO
         // relay quedaba bloqueado enumerando placas el 90% del tiempo y
         // drenaba 3,3 paquetes/s — ModSim recibía el volante a borbotones y
         // el tractor no podía sostener la línea (medido 2026-08-06, y es LA
-        // diferencia estructural con AgIO 6.8.5, que computa su epModule UNA
+        // diferencia estructural con CoreX 6.8.5, que computa su epModule UNA
         // vez desde settings).
         private System.Collections.Generic.List<IPEndPoint> _epsCache;
         private DateTime _epsCacheAt = DateTime.MinValue;
@@ -98,7 +98,7 @@ namespace AgIO
             catch { }
 
             // SIEMPRE también el broadcast de loopback 127.255.255.255:8888 —
-            // es como trabaja el banco 6.8.5 en una sola PC (AgIO y ModSim con
+            // es como trabaja el banco 6.8.5 en una sola PC (CoreX y ModSim con
             // subred 127.255.255): el lazo entero queda en loopback, sin tocar
             // ninguna placa. Un sim/módulo local escuchando 0.0.0.0:8888 lo
             // recibe por el camino más corto; en el tractor real no molesta
@@ -113,7 +113,7 @@ namespace AgIO
 
         // Subredes donde SE VIO tráfico de módulos (fuente del :9999), con
         // fecha del último paquete. Con esto los PGN de datos salen SOLO
-        // adonde hay módulos de verdad — paridad con AgIO 6.8.5, que manda a
+        // adonde hay módulos de verdad — paridad con CoreX 6.8.5, que manda a
         // UNA subred — en vez de a cada interfaz de la PC. Medido 2026-08-06:
         // con Ethernet+WiFi salían 2 copias de cada 254 (~20 datagramas/s) y
         // el ModSim local, que procesa la recepción en su hilo de UI, drenaba
@@ -224,10 +224,10 @@ namespace AgIO
             Log.EventWriter("CoreXEngine: bridge LAN escuchando en :" + lanPort);
 
             // Hello periódico a los módulos (PGN 200, 1 Hz) — los MISMOS bytes
-            // que manda AgIO nativo. Sin esto los módulos UDP (y ModSim, que
+            // que manda CoreX nativo. Sin esto los módulos UDP (y ModSim, que
             // los simula) escuchan silencio: nunca "ven" a PilotX, no arranca
             // el handshake y no responden. Se notó al reemplazar el stack
-            // AgIO/CoreX.exe por el bridge integrado (reporte 2026-08-05:
+            // CoreX.exe por el bridge integrado (reporte 2026-08-05:
             // "el otro recibía mensajes de PilotX"): el hello estaba anotado
             // como no-portado y este es el pedazo que faltaba.
             _helloTimer = new System.Threading.Timer(_ =>
@@ -266,13 +266,13 @@ namespace AgIO
 
                     // AiO por LAN: el firmware escucha RTCM en UDP 2233 y lo
                     // vuelca al UART del receptor (zUdpNtrip → SerialGPS). Es
-                    // el "NTRIP por UDP" de AgIO que el integrado nunca portó:
+                    // el "NTRIP por UDP" de CoreX que el integrado nunca portó:
                     // con receptor real colgado de la ECU, las correcciones
                     // morían en la PC (banco 2026-08-12). Va siempre que haya
                     // NTRIP: un módulo sin GPS simplemente lo ignora.
                     //
                     // REBANADO obligatorio (mismo criterio que el packet_size
-                    // de AgIO): el chunk TCP del caster puede superar la MTU y
+                    // de CoreX): el chunk TCP del caster puede superar la MTU y
                     // un datagrama fragmentado la Teensy lo descarta (además su
                     // buffer NTRIP es de 1023 bytes). Con el chunk crudo el
                     // receptor no veía NI UNA corrección: fix clavado en GPS 1
@@ -376,7 +376,7 @@ namespace AgIO
             if (data[0] == 0x80 && data[1] == 0x81)
             {
                 // Hellos de módulos (126=steer, 123=machine, 121=IMU, largo 11
-                // — los mismos PGN que cuenta AgIO en UDP.designer.cs). Se
+                // — los mismos PGN que cuenta CoreX en UDP.designer.cs). Se
                 // anota la hora para que el panel muestre "módulo vivo": sin
                 // esto el ECU real contestaba y el snapshot lo daba todo en
                 // false (reporte de banco 2026-08-12, "no lo veo").

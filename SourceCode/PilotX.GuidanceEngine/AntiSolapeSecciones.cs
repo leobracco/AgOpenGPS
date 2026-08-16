@@ -113,7 +113,7 @@ namespace PilotX.GuidanceEngine
 
                     // El último parche es el que sigue creciendo: se deja el
                     // cursor ahí y se sigue la próxima vuelta. Los anteriores ya
-                    // están cerrados (AOG corta a los 61 triángulos y abre uno
+                    // están cerrados (PilotX corta a los 61 triángulos y abre uno
                     // nuevo sembrado con color + los dos últimos puntos).
                     if (p == parches.Count - 1) break;
 
@@ -149,7 +149,7 @@ namespace PilotX.GuidanceEngine
             double centroN = (izqN + derN) * 0.5;
 
             // Las distancias de anticipación salen de la MISMA configuración de
-            // look-ahead que ya usa AOG (segundos que tarda la máquina en abrir
+            // look-ahead que ya usa PilotX (segundos que tarda la máquina en abrir
             // y en cerrar), convertidos a metros por la velocidad. Así el corte
             // cae donde corresponde y no unos metros tarde.
             double ms = velocidadKmh / 3.6;

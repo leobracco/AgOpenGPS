@@ -15,7 +15,7 @@
 //     CoreX.exe guarda en sus Properties.Settings; acá no existen.
 //   · CoreXEnginePanel   — web server :5181 (static + API) y el publicador
 //     del snapshot @1 Hz hacia CoreXState (el mismo singleton que lee el
-//     CoreXStatusController linkeado de AgIO).
+//     CoreXStatusController linkeado de CoreX.Shared).
 //   · Controllers        — serial/ntrip/red/mqtt implementados de verdad;
 //     lo que no aplica al modo integrado (perfiles, radio, pass, avanzado,
 //     monitor UDP, reiniciar/apagar) contesta "no-disponible-en-integrado"

@@ -8,7 +8,7 @@
 //      nada mas.
 //
 //   2. Log.EventWriter escribe a un StringBuilder en memoria, y quien lo baja a
-//      disco es FileSaveSystemEvents() — que SOLO lo llamaban AgIO y FormGPS.
+//      disco es FileSaveSystemEvents() — que SOLO lo llamaban CoreX y FormGPS.
 //      El motor nunca lo llamaba, asi que todo lo que fue logueando (lote
 //      abierto, cobertura guardada, Sections.txt que no se pudo leer) se
 //      acumulaba sin escribirse nunca y moria con el proceso. Encima el buffer

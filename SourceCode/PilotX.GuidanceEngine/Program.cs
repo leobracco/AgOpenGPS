@@ -9,7 +9,7 @@
 //   --corex  arranca TAMBIÉN CoreXEngineHost en este mismo proceso: broker
 //            MQTT, bridge UDP (loopback + LAN), NTRIP y los 6 puertos serie
 //            reales (GPS/GPS2/RTCM/IMU/Steer/Machine) — el "otro lado" que
-//            hoy es AgIO/CoreX.exe aparte. Sin este flag, GuidanceEngineHost
+//            hoy es CoreX.exe aparte. Sin este flag, GuidanceEngineHost
 //            sigue escuchando en :15555 esperando un CoreX externo real
 //            (comportamiento ya validado antes). Con este flag TAMBIÉN se
 //            suscribe el comando de guiado (GuidanceEngineHost.ExecuteCommand)
