@@ -1,7 +1,7 @@
 // ============================================================================
 // herramienta.js — CRUD del catálogo de IMPLEMENTOS del Hub.
 //
-// Esta página NO toca la config nativa de PilotX/AOG (Tool/Vehicle). Edita
+// Esta página NO toca la config nativa de PilotX (Tool/Vehicle). Edita
 // SOLO los archivos data/implementos/<slug>.json del Hub. Los productos
 // X-* (VistaX, QuantiX, SectionX) leen del implemento ACTIVO via /api/implemento.
 //

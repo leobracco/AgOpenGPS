@@ -52,7 +52,7 @@ refresca cada 3 s.
 | GET | `/api/stormx/live` | telemetría por nodo |
 | GET | `/api/stormx/nodos` | descubrimiento LAN |
 
-## MQTT (vía CoreX/AgIO, prefijo `agp/storm/`)
+## MQTT (vía CoreX, prefijo `agp/storm/`)
 
 | Topic | Sentido |
 |---|---|

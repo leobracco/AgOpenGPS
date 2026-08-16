@@ -90,7 +90,7 @@ La página tiene 5 pestañas (`showTab`):
 | POST | `/api/quantix/{uid}/cmd?verb=…&retain=` | config / cmd / cal / test |
 | GET  | `/api/quantix/{uid}/autotune` | resultado de auto-tune |
 
-## MQTT (vía CoreX/AgIO, prefijo `agp/quantix/`)
+## MQTT (vía CoreX, prefijo `agp/quantix/`)
 
 | Topic | Sentido |
 |---|---|

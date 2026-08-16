@@ -967,7 +967,7 @@
     try { updateMotoresEstado(); } catch (_) {}
     try { updatePidLive(); } catch (_) {}
     try { updatePruebaLive(); } catch (_) {}
-    // Siembra se re-renderiza con el estado AOG cacheado; el fetch de
+    // Siembra se re-renderiza con el estado de PilotX cacheado; el fetch de
     // /api/aog/state lo hace el loop de polling (1 vez por período, no
     // por cada push WS).
     if (state.activeTab === 'siembra') {
@@ -3404,7 +3404,7 @@
   //   · Fallback HTTP: si el WS no abre / se cae, polling adaptativo:
   //       tabs "live" (monitor/pid/calibrar/prueba) → 500ms
   //       tabs "config" (motores/shape) → 2000ms (solo pill de "X nodos")
-  //   · El estado AOG (/api/aog/state para la tab Siembra) se sigue refrescando
+  //   · El estado de PilotX (/api/aog/state para la tab Siembra) se sigue refrescando
   //     por polling aunque el WS esté abierto — no viaja por /ws/quantix.
   //   · Pestaña del WebView no visible → pausa total (WS cerrado + sin polls).
   var LIVE_TABS = { siembra: 1, motores: 1, pid: 1, calibrar: 1, prueba: 1 };

@@ -30,7 +30,7 @@
   var cfg = null;
   var nodos = [];     // nodos LAN (registry MQTT)
   var live = null;
-  var aogSnap = null; // último snapshot AOG normalizado a camelCase
+  var aogSnap = null; // último snapshot de PilotX normalizado a camelCase
 
   // /api/aog/state serializa en snake_case (AgpJson).
   var DEFAULT_CORTES_PER_NODE = 7;
@@ -747,7 +747,7 @@
     n.productos = prods;
 
     // Cables: si el usuario cambió `nodoNumCortes`, re-asignamos automático
-    // contra las secciones AOG conocidas. Si la cantidad coincide con la actual,
+    // contra las secciones de PilotX conocidas. Si la cantidad coincide con la actual,
     // dejamos `n.cables` como está (preserva asignaciones manuales tras un
     // reload del editor en la misma sesión).
     if (nodoNumCortes) {
@@ -1050,7 +1050,7 @@
       commitEditorToCfg();
       var lanInfo = (nodos || []).find(function (n) { return n.uid === uid; });
       cfg.nodos = cfg.nodos || [];
-      // Cada nodo FlowX maneja 7 cortes (HW estándar). Si AOG ya reporta sus
+      // Cada nodo FlowX maneja 7 cortes (HW estándar). Si PilotX ya reporta sus
       // secciones, los asignamos al toque; si no, dejamos cables[] vacío y el
       // usuario asigna después con el botón.
       var nSec = getCurrentNumSecAog();

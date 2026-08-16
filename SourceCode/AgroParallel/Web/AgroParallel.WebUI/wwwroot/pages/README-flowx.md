@@ -84,7 +84,7 @@ persiste. Barra sticky con Recargar / Guardar.
 | POST | `/api/flowx/{uid}/caracterizar` | barrido PWM |
 | GET  | `/api/flowx/{uid}/{kind}` | resultado calibrar/autotune |
 
-## MQTT (vía CoreX/AgIO, prefijo `agp/flow/`)
+## MQTT (vía CoreX, prefijo `agp/flow/`)
 
 | Topic | Sentido |
 |---|---|
