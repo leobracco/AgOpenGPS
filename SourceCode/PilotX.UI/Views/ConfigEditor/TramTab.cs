@@ -272,6 +272,15 @@ public sealed class TramTab : ConfigTab
         {
             Children.Add(CfgUi.ChipError("Servicio de configuración no disponible", "AGP-NET-201"));
         }
+        else if (SinSeccion)
+        {
+            Children.Add(CfgUi.Carta(new TextBlock
+            {
+                Text = PilotX.Cockpit.Bars.Traductor.T(
+                    "El motor contestó sin los datos de trochas — no se puede editar sin saber qué tiene cargado."),
+                Foreground = CfgUi.Dim, FontSize = 12, TextWrapping = TextWrapping.Wrap,
+            }));
+        }
 
         Children.Add(CartaTrochas());
 
@@ -387,11 +396,17 @@ public sealed class TramTab : ConfigTab
     /// pestaña, igual que en el original.</summary>
     private Border FilaToggle(string icono, string caption, Action accion)
     {
+        // Alto FIJO y ancho libre (con tope), como el `style="height:44px"` del
+        // HTML: los dos PNG no tienen la misma proporción (160×160 y 274×224) y
+        // metidos en una caja cuadrada el apaisado bajaba a 36 px de alto —
+        // dos íconos de distinto tamaño uno arriba del otro en la misma carta.
+        // MaxWidth/MaxHeight EXPLÍCITOS igual: el Style de BarStyles.axaml
+        // limita TODA imagen de la ventana a 34 px y le gana al Height local.
         var img = new Image
         {
             Source = Icono(icono),
-            Width = 44, Height = 44,
-            MaxWidth = 44, MaxHeight = 44,
+            Height = 44,
+            MaxWidth = 56, MaxHeight = 44,
             Stretch = Stretch.Uniform,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -534,12 +549,21 @@ public sealed class TramTab : ConfigTab
         }
     }
 
+    /// <summary>
+    /// El snapshot llegó bien pero SIN la sección `tram`. Los dos toggles son
+    /// bool: sin sección quedarían pintados en "no" y el primer gesto del
+    /// operario postearía display_tram_control=false y outer_inverted=false
+    /// PISANDO lo que el motor tiene de verdad (el POST manda siempre los 3
+    /// campos). Con la sección ausente no se edita.
+    /// </summary>
+    private bool SinSeccion => !C.SinDatos && !C.ServicioCaido && C.Snap?.Tram == null;
+
     /// <summary>Sin snapshot no se sabe qué tiene el motor (ni en qué unidad) y
     /// el POST iría al mismo Hub que no contesta: editar a ciegas es peor que no
     /// poder editar.</summary>
-    private bool Editable() => !C.SinDatos && !C.ServicioCaido;
+    private bool Editable() => !C.SinDatos && !C.ServicioCaido && !SinSeccion;
 
-    private int EstadoActual() => C.SinDatos ? 0 : C.ServicioCaido ? 1 : 2;
+    private int EstadoActual() => C.SinDatos ? 0 : C.ServicioCaido ? 1 : SinSeccion ? 3 : 2;
 
     // =======================================================================
     //  Dibujos
