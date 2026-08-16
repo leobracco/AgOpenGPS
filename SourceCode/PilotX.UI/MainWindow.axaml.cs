@@ -2132,6 +2132,10 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) { _cabLineasHost.Cerrar(); return; }
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) { _tramSimpleHost.Cerrar(); return; }
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) { _tramMultiHost.Cerrar(); return; }
+        // Suavizar AB: sin esta línea la flecha "←" no cerraba la card (el
+        // operario la veía muerta) y encima quedaba la curva suavizada pintada
+        // en el mapa, porque el cancel sale recién en Cerrar().
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) { _suavizarAbHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -5004,6 +5008,10 @@ public partial class MainWindow : Window
         // preview dibujada en el mapa: sin cerrarla habría dos sesiones sobre
         // el editor del motor y huellas colgadas encima del preview de acá.
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        // Suavizar AB deja la curva suavizada dibujada en el mapa: sin su
+        // Cerrar() (que manda el cancel) la preview quedaría colgada abajo del
+        // lienzo de huellas, y encima quedarían dos cards abiertas a la vez.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5268,6 +5276,14 @@ public partial class MainWindow : Window
                 && !string.Equals(_lastFieldDir ?? "", s.CurrentFieldDirectory ?? "",
                                   StringComparison.OrdinalIgnoreCase))
                 _tramMultiHost.Cerrar();
+            // Suavizar AB trabaja sobre la curva AB del lote ACTIVO. Si el lote
+            // cambia con el panel abierto, la preview que quedó prendida es de
+            // una curva que ya no existe y "A archivo" escribiría sobre el lote
+            // nuevo. Se cierra, y el cierre manda el cancel.
+            if (_suavizarAbHost != null && _suavizarAbHost.IsVisible
+                && !string.Equals(_lastFieldDir ?? "", s.CurrentFieldDirectory ?? "",
+                                  StringComparison.OrdinalIgnoreCase))
+                _suavizarAbHost.Cerrar();
             _lastFieldDir = s.CurrentFieldDirectory;
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             CerrarDialogoSiHayGuiaNueva(s.TracksTotal, s.TrackIdx);
