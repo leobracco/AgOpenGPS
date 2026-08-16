@@ -24,7 +24,7 @@ namespace AgroParallel.Services.Tests
         /// <summary>
         /// Una pasada recta: banda de <paramref name="ancho"/> m centrada en
         /// <paramref name="ejeE"/>, desde northing 0 hasta <paramref name="largo"/>,
-        /// como tira de triángulos (igual que la pinta AOG).
+        /// como tira de triángulos (igual que la pinta PilotX).
         /// </summary>
         private static void Pasada(CoverageIndex idx, double ejeE, double ancho, double largo, double paso = 3.0)
         {
@@ -321,7 +321,7 @@ namespace AgroParallel.Services.Tests
         public void JornadaCompleta_ConsultaSigueSiendoBarata()
         {
             // ~8 h de trabajo: 50 pasadas de 4 m × 1000 m. Del orden de 100k
-            // vértices, que es lo que dice el propio código de AOG que deja una
+            // vértices, que es lo que dice el propio código de PilotX que deja una
             // jornada larga.
             var idx = new CoverageIndex(tamCeldaM: 4.0);
             for (int p = 0; p < 50; p++)

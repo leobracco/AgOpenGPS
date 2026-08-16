@@ -276,11 +276,11 @@ namespace AgroParallel.OrbitX
                         if (item.Intentos >= MaxIntentosPorItem)
                         {
                             _queue.Dequeue();
-                            Trace(string.Format("[AOG] DESCARTADO tras {0} intentos: {1} ({2} bytes): {3}",
+                            Trace(string.Format("[PilotX] DESCARTADO tras {0} intentos: {1} ({2} bytes): {3}",
                                 item.Intentos, item.Nombre, item.TamanoBytes, LastError ?? "sin respuesta"));
                             continue;
                         }
-                        Trace(string.Format("[AOG] PENDIENTE {0} ({1} bytes) — queda en cola ({2}) intento {3}/{4}: {5}",
+                        Trace(string.Format("[PilotX] PENDIENTE {0} ({1} bytes) — queda en cola ({2}) intento {3}/{4}: {5}",
                             item.Nombre, item.TamanoBytes, _queue.Count, item.Intentos, MaxIntentosPorItem, LastError ?? "sin respuesta"));
                         break;
                     }
@@ -289,12 +289,12 @@ namespace AgroParallel.OrbitX
                         _lastHashes[item.LocalPath] = item.HashMd5;
                     FilesSynced++;
                     subidos++;
-                    Trace(string.Format("[AOG] OK {0} · {1} · {2} bytes{3}",
+                    Trace(string.Format("[PilotX] OK {0} · {1} · {2} bytes{3}",
                         item.Nombre, item.Subtipo, item.TamanoBytes,
                         item.EsLote ? " · lote " + item.LoteNombre : ""));
                 }
                 if (subidos > 0)
-                    Trace(string.Format("[AOG] {0} archivo(s) subidos · {1} en cola", subidos, _queue.Count));
+                    Trace(string.Format("[PilotX] {0} archivo(s) subidos · {1} en cola", subidos, _queue.Count));
 
                 // Enviar posición del tractor (tracking).
                 await SendTracking();
@@ -422,7 +422,7 @@ namespace AgroParallel.OrbitX
             }
             catch (Exception ex)
             {
-                AgpLog.Error("OrbitXSync", "encolar archivos de lote AOG", ex);
+                AgpLog.Error("OrbitXSync", "encolar archivos de lote de PilotX", ex);
             }
         }
 

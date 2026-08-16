@@ -254,7 +254,7 @@ namespace AgroParallel.WebHost.Controllers
             {
                 // Mergea campos físicos + metadata. NO toca:
                 //  · Nombre del implemento (es del usuario)
-                //  · AnchoTotalM (lo decide el operario o sale de la geometría AOG)
+                //  · AnchoTotalM (lo decide el operario o sale de la geometría de PilotX)
                 //  · OverlapM / HitchLengthM / lookaheads (config de PilotX)
                 //  · Trenes / Surcos / Secciones (estructura ya armada, salvo abajo)
                 d.Categoria = "sembradora";

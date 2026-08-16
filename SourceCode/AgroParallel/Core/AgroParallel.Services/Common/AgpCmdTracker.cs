@@ -14,7 +14,7 @@
 //
 // El tracker NO conoce MQTT ni JSON. Es puro estado en memoria — el wiring
 // con NodoRegistryService.MessageReceived lo hace el caller. Esto lo hace
-// testeable y reusable entre AOG y otras herramientas.
+// testeable y reusable entre PilotX y otras herramientas.
 // ============================================================================
 
 using System;

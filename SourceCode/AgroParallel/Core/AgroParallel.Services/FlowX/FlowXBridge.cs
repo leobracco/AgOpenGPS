@@ -188,7 +188,7 @@ namespace AgroParallel.FlowX
 
                 // --- 1. Bits de cable (relay por corte) ---
                 // El usuario configura "N cortes"; cada corte = 1 cable físico del PCA9685.
-                // Varias secciones AOG pueden apuntar al mismo cable (corte agrupa secciones),
+                // Varias secciones de PilotX pueden apuntar al mismo cable (corte agrupa secciones),
                 // por eso usamos OR sobre bits[cable-1] y contamos cables únicos abiertos.
                 int maxCable = 0;
                 foreach (var c in nodo.Cables)

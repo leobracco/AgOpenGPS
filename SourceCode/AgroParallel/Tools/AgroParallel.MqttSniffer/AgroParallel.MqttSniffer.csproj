@@ -3,7 +3,7 @@
   <!--
     AgroParallel.MqttSniffer
     Herramienta de diagnóstico: se conecta al broker MQTT del ecosistema
-    (el broker embebido en AgIO, por default 127.0.0.1:1883) y vuelca todo
+    (el broker embebido en CoreX, por default 127.0.0.1:1883) y vuelca todo
     el tráfico al stdout con coloreado por producto + comandos interactivos
     (publish, subscribe, filter, stats).
     Uso típico:

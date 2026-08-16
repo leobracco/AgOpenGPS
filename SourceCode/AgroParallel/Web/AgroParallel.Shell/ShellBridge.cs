@@ -50,7 +50,7 @@ namespace AgroParallel.Shell
 
         // Abre el applet "Wi-Fi" nativo de Windows (Configuración → Red).
         // Caso de uso: el operario está en oficina y necesita conectarse a otra red
-        // (la del tractor), pero no puede tocar Windows porque AOG está fullscreen
+        // (la del tractor), pero no puede tocar Windows porque PilotX está fullscreen
         // tapando el systray. Este shortcut le abre el panel encima del Hub.
         // ms-settings:network-wifi requiere Windows 10+. Si falla (Windows viejo o
         // política), fallback a ncpa.cpl (panel de control clásico).

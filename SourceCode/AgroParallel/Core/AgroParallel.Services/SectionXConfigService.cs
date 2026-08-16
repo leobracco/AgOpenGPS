@@ -44,7 +44,7 @@ namespace AgroParallel.Services
             string path = Path.Combine(AgroParallel.Common.AgpPaths.ConfigRoot, FileName);
             AgroParallel.Common.AtomicJson.Write(path, JsonSerializer.Serialize(dto, WriteOpts));
             // Dispara después de persistir — FormGPS escucha y relanza el bridge
-            // para que /sections empiece a publicarse sin reiniciar AOG.
+            // para que /sections empiece a publicarse sin reiniciar PilotX.
             try { ConfigSaved?.Invoke(); } catch { /* swallow — no podemos romper el Save por un subscriber */ }
         }
     }

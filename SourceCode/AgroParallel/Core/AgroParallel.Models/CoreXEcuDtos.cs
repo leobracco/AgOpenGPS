@@ -130,7 +130,7 @@ namespace AgroParallel.Models
     {
         /// <summary>Loop del autosteer corriendo.</summary>
         [JsonPropertyName("running")]          public bool Running { get; set; }
-        /// <summary>AOG mandando PGN 254 con guidance ON (watchdog &lt; 100).</summary>
+        /// <summary>PilotX mandando PGN 254 con guidance ON (watchdog &lt; 100).</summary>
         [JsonPropertyName("guidance_active")]  public bool GuidanceActive { get; set; }
         /// <summary>Watchdog del PGN 254; ≥ 100 → motor desconectado.</summary>
         [JsonPropertyName("watchdog")]         public int Watchdog { get; set; }

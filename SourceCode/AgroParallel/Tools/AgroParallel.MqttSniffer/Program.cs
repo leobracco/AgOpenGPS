@@ -1,7 +1,7 @@
 // =============================================================================
 // AgroParallel.MqttSniffer
 // Herramienta de diagnóstico para el ecosistema Agro Parallel: se engancha al
-// broker MQTT (embebido en AgIO o cualquier broker compatible) y vuelca todo el
+// broker MQTT (embebido en CoreX o cualquier broker compatible) y vuelca todo el
 // tráfico con coloreado por producto + JSON pretty-print + comandos interactivos.
 //
 // Comandos en runtime (teclear y ENTER):

@@ -11,7 +11,7 @@
 // Diseño: el implemento es una colección de SURCOS (hileras). Cada surco
 // pertenece a un TREN y está cubierto por una SECCIÓN PilotX. El resto
 // del shape (overlap/hitch/lookahead) se mantiene compatible con la
-// ToolConfigDto AOG legacy para que el guiado nativo siga funcionando.
+// ToolConfigDto legacy de PilotX para que el guiado nativo siga funcionando.
 //
 // Snake_case en JsonPropertyName por consistencia con el resto del Core.
 // ============================================================================
@@ -116,7 +116,7 @@ namespace AgroParallel.Models
         [JsonPropertyName("nodos_uids")]
         public List<string> NodosUids { get; set; } = new List<string>();
 
-        // ----- Campos heredados de ToolConfigDto (AOG nativo) -----
+        // ----- Campos heredados de ToolConfigDto (PilotX nativo) -----
         // Estos se sincronizan con Properties.Settings via FormGpsVehicleToolService.
 
         [JsonPropertyName("overlap_m")]

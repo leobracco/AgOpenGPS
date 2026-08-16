@@ -2,7 +2,7 @@
 // ConfigVehiculoDtos.cs — DTOs de la página pages/config.html (réplica HTML de
 // FormConfig). Convenciones de wire (AgpJson → snake_case):
 //   · Distancias SIEMPRE en METROS (con signo cuando aplica), velocidades en
-//     km/h, tiempos en segundos — igual que los settings persistidos de AOG.
+//     km/h, tiempos en segundos — igual que los settings persistidos de PilotX.
 //     La conversión cm/in y m/ft la hace el JS según is_metric.
 //   · Signos: antenna_offset + = izquierda; hitch_length − = atrás;
 //     tool_offset + = derecha; tool_overlap + = overlap / − = gap;
@@ -210,7 +210,7 @@ namespace AgroParallel.Models
         public bool SoundTurn { get; set; }
         public bool SoundHydLift { get; set; }
         public bool SoundSections { get; set; }
-        // Sistema (branding: AgIO se muestra como CoreX)
+        // Sistema (el bridge de comunicaciones CoreX)
         public bool AutoStartCorex { get; set; }
         public bool AutoOffCorex { get; set; }
         public bool ShutdownNoPower { get; set; }

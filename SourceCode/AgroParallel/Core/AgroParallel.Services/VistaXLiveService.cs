@@ -64,8 +64,8 @@ namespace AgroParallel.Services
         // Si es null, MonitoreoActivo siempre vuelve false (UI gris).
         private readonly IAogStateProvider _state;
 
-        // Opcional: snapshot de secciones AOG (OnRequest[]). Habilita dos cosas:
-        //  1. MetodoInicio="pintando": MonitoreoActivo arranca cuando AOG pinta
+        // Opcional: snapshot de secciones de PilotX (OnRequest[]). Habilita dos cosas:
+        //  1. MetodoInicio="pintando": MonitoreoActivo arranca cuando PilotX pinta
         //     al menos una sección, en vez de detectar caída de semilla.
         //  2. Por surco: si SeccionAOG>0 y la sección está OFF, el surco queda
         //     en estado "seccion-off" (gris, no genera alarma, no cuenta SPM).
@@ -722,7 +722,7 @@ namespace AgroParallel.Services
                 // umbrales" (sembrando apagado), nunca dividimos por esto.
                 double metrosPorMinuto = LeerVelocidadSegura() / 3.6 * 60.0;
 
-                // Snapshot de secciones AOG: lo consultamos UNA vez por tick.
+                // Snapshot de secciones de PilotX: lo consultamos UNA vez por tick.
                 // Si _sections es null o el array está vacío, todos los surcos
                 // se consideran "sección ON" (comportamiento legacy).
                 bool[] secOn = null;
@@ -857,7 +857,7 @@ namespace AgroParallel.Services
                         };
                         surco.RatioObjetivo = (objMin > 0) ? surco.Spm / objMin : 0.0;
 
-                        // Si el surco está mapeado a una sección AOG y esa sección
+                        // Si el surco está mapeado a una sección de PilotX y esa sección
                         // está apagada (relay cerrado / fuera de boundary / master OFF),
                         // forzamos estado "seccion-off": gris, sin alarma, sin contar
                         // para SPM agregado. Cuando la sección vuelve ON, recupera

@@ -74,7 +74,7 @@ namespace AgroParallel.Services
                         // ConnectionRefused / HostUnreachable / NetworkUnreachable
                         case 10061: case 10065: case 10051:
                             return new AgpError("AGP-MQTT-001",
-                                "No se pudo contactar al broker MQTT. Verificá que CoreX (ex AgIO) esté abierto en la PC del tractor.",
+                                "No se pudo contactar al broker MQTT. Verificá que CoreX esté abierto en la PC del tractor.",
                                 technical);
                         // TimedOut
                         case 10060:
@@ -93,7 +93,7 @@ namespace AgroParallel.Services
                 if (lo.Contains("refused") || lo.Contains("no se puede establecer una conexión"))
                 {
                     return new AgpError("AGP-MQTT-001",
-                        "No se pudo contactar al broker MQTT. Verificá que CoreX (ex AgIO) esté abierto en la PC del tractor.",
+                        "No se pudo contactar al broker MQTT. Verificá que CoreX esté abierto en la PC del tractor.",
                         technical);
                 }
                 if (lo.Contains("timed out") || lo.Contains("timeout") || lo.Contains("se ha agotado"))

@@ -7,7 +7,7 @@
 // Flujo:
 //   1. Espera a que el proceso PID (PilotX) termine (max 60 s). Si no, lo mata.
 //   1b.Cierra el RESTO de procesos que corren desde el install dir (típicamente
-//      CoreX/AgIO). Comparten DLLs (AgLibrary.dll, etc.) con PilotX, así que si
+//      CoreX). Comparten DLLs (AgLibrary.dll, etc.) con PilotX, así que si
 //      siguen vivos mantienen esos archivos bloqueados y la extracción falla.
 //   2. Hace backup del install dir actual a <install>\AgroParallel\Backups\<ts>\
 //      (solo .exe + .dll + Branding\ + AgroParallel\wwwroot\, no Fields/).
@@ -155,7 +155,7 @@ namespace AgroParallel.Updater
         // Cierra todo proceso cuyo ejecutable vive dentro de install dir, salvo
         // el PID ya manejado (PilotX) y el propio Updater. Devuelve las rutas de
         // los exes cerrados para poder relanzarlos después. CloseMainWindow primero
-        // (cierre ordenado, p.ej. AgIO baja el broker), Kill como último recurso.
+        // (cierre ordenado, p.ej. CoreX baja el broker), Kill como último recurso.
         private static List<string> CloseInstallDirProcesses(string install, int skipPid)
         {
             var closed = new List<string>();

@@ -1,6 +1,6 @@
 // ============================================================================
 // CoreXBridgeController.cs
-// Endpoint REST del puente de estado hacia CoreX (AgIO, 127.0.0.1:5181):
+// Endpoint REST del puente de estado hacia CoreX (127.0.0.1:5181):
 //   GET /api/corex-bridge/status → CoreXBridgeStatusDto (proxy resumido)
 //
 // Consumido por la tira de estado minimalista de hub.html (pills CoreX,

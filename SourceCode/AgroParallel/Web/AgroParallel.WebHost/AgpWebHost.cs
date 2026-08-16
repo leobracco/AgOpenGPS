@@ -94,7 +94,7 @@ namespace AgroParallel.WebHost
         // (file-based, sin dependencias). Permite diagnóstico live + step-by-step
         // de boot + selector WAS (encoder Keya vs analógico) desde el Hub.
         private readonly ICoreXEcuService _corexEcu;
-        // CoreX (AgIO): puente de solo-lectura hacia el sidecar que corre en
+        // CoreX: puente de solo-lectura hacia el sidecar que corre en
         // 127.0.0.1:5181 y habla con GPS/IMU/Machine/Steer. Auto-instanciado
         // (puerto fijo, sin config). Alimenta la tira de estado de hub.html.
         private readonly ICoreXBridgeService _corexBridge;
@@ -345,7 +345,7 @@ namespace AgroParallel.WebHost
                 m.WithController(() => new OverlayPrefsController());
                 // CoreX-ECU: proxy al firmware Teensy de autosteer.
                 if (_corexEcu != null) m.WithController(() => new CoreXEcuController(_corexEcu));
-                // CoreX (AgIO): estado resumido de GPS/IMU/Machine/Steer para el Hub.
+                // CoreX: estado resumido de GPS/IMU/Machine/Steer para el Hub.
                 if (_corexBridge != null) m.WithController(() => new CoreXBridgeController(_corexBridge));
                 // Calibración de roll del IMU interno de PilotX (CAHRS/FormGPS.ahrs).
                 if (_imuCalibracion != null) m.WithController(() => new ImuCalibracionController(_imuCalibracion));

@@ -155,7 +155,7 @@ namespace AgroParallel.Services.Tests
             var cmds = new List<CutCommand>(adapter.ComputePublishes(snap, hist));
 
             Assert.That(cmds, Has.Count.EqualTo(1));
-            // Bits[0] = cable 1 = seccion AOG 2 (indice 1). Si hubiera ganado el
+            // Bits[0] = cable 1 = seccion 2 de PilotX (indice 1). Si hubiera ganado el
             // comportamiento viejo (cable.Tren=0 => SecB) esto daria 0.
             Assert.That(cmds[0].Bits[0], Is.EqualTo(1),
                 "el implemento (tren trasero, 2.5m) tiene que ganarle al cable.Tren=0 viejo");

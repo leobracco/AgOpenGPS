@@ -8,7 +8,7 @@
 //   implementos/<slug>.json     — un archivo por implemento
 //   implementos/_active.txt     — slug del implemento activo
 // Migración legacy: si no existe el directorio pero sí implemento.json (formato
-// viejo de un implemento único) o config legacy de VistaX/AOG, se siembra
+// viejo de un implemento único) o config legacy de VistaX/PilotX, se siembra
 // "default" en la primera llamada.
 // ============================================================================
 

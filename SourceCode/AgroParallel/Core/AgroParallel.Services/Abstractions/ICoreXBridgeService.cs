@@ -1,4 +1,4 @@
-// ICoreXBridgeService — puente de solo-lectura entre el Hub y CoreX (AgIO),
+// ICoreXBridgeService — puente de solo-lectura entre el Hub y CoreX,
 // el proceso sidecar que corre siempre en 127.0.0.1:5181 y habla con los
 // módulos físicos (GPS, IMU, Machine, Steer) por MQTT/serial. A diferencia de
 // ICoreXEcuService (firmware Teensy en una IP de LAN configurable), acá no

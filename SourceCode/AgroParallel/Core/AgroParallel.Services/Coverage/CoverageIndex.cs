@@ -83,7 +83,7 @@ namespace AgroParallel.Coverage
         /// Agrega una tira de triángulos (GL_TRIANGLE_STRIP): los vértices
         /// v0,v1,v2,v3… forman (v0,v1,v2), (v1,v2,v3), (v2,v3,v4)…
         ///
-        /// Los vértices tienen que venir SIN el header de color que AOG mete en
+        /// Los vértices tienen que venir SIN el header de color que PilotX mete en
         /// patchList[k][0] — el adaptador ya lo saltea.
         /// </summary>
         public void AgregarTira(IList<double> eastings, IList<double> northings)
@@ -155,7 +155,7 @@ namespace AgroParallel.Coverage
         /// <summary>
         /// Cuánto de la sección cae sobre área ya trabajada.
         ///
-        /// <paramref name="heading"/> en radianes, convención AOG (0 = Norte,
+        /// <paramref name="heading"/> en radianes, convención de PilotX (0 = Norte,
         /// horario). <paramref name="umbralY"/> es el look-ahead: 0 = la sección
         /// donde está ahora, positivo = metros adelante. Consultar varias
         /// distancias es barato: cambia solo este parámetro.

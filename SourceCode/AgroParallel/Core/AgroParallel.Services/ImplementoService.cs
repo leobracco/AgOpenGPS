@@ -5,8 +5,8 @@
 //   <BaseDir>/implementos/<slug>.json     — un archivo por implemento
 //   <BaseDir>/implementos/_active.txt     — slug del implemento activo
 //
-// IMPORTANTE: este servicio NO escribe en la config nativa del piloto AOG.
-// La página del Hub edita SOLO el implemento.json. Si AgValoniaGPS/AOG necesita
+// IMPORTANTE: este servicio NO escribe en la config nativa del piloto de PilotX.
+// La página del Hub edita SOLO el implemento.json. Si PilotX necesita
 // el ancho/secciones/lookahead, los lee con su propia config nativa (Vehículo
 // /Herramienta), independientemente de lo que vive acá.
 //
@@ -470,7 +470,7 @@ namespace AgroParallel.Services
         }
 
         // ----------------------------------------------------------------
-        // Write-back central → Registro nativo (ToolConfig de AOG)
+        // Write-back central → Registro nativo (ToolConfig de PilotX)
         // ----------------------------------------------------------------
         // "Central manda, Registro se deriva": el implemento central es el único
         // editor de geometría. Cada vez que se guarda el implemento ACTIVO, si

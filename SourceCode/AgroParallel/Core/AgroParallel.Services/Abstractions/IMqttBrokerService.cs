@@ -1,6 +1,6 @@
 // ============================================================================
 // IMqttBrokerService.cs — Broker MQTT embebido portable (netstandard2.0).
-// Extraído de CoreX/AgIO MQTT.Designer.cs para permitir que el broker corra
+// Extraído de CoreX (MQTT.Designer.cs) para permitir que el broker corra
 // en Android (Foreground Service) sin WinForms.
 // ============================================================================
 

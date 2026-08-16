@@ -28,7 +28,7 @@ namespace AgroParallel.Models
         public double AreaHa { get; set; }
 
         /// <summary>Hectáreas trabajadas (cobertura de Sections.txt). 0 si nada.
-        /// Mismo cálculo que AOG al abrir el lote (suma de triángulos).</summary>
+        /// Mismo cálculo que PilotX al abrir el lote (suma de triángulos).</summary>
         public double WorkedHa { get; set; }
 
         /// <summary>

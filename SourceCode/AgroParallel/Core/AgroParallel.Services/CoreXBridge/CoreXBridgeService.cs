@@ -1,4 +1,4 @@
-// CoreXBridgeService.cs — proxy HTTP delgado del Hub hacia CoreX (AgIO),
+// CoreXBridgeService.cs — proxy HTTP delgado del Hub hacia CoreX,
 // GET http://127.0.0.1:5181/api/corex/status. CoreX es un sidecar local de
 // puerto fijo (no hay IP/puerto que configurar como con CoreX-ECU), así que
 // el timeout es corto: si no contesta en ese lapso por loopback, no está

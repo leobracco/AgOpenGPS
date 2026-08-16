@@ -1,9 +1,9 @@
 // ImuCalibracionDtos.cs — snapshot de la calibración de roll del IMU interno
 // de PilotX (clase CAHRS / campo FormGPS.ahrs). No confundir con el IMU del
 // firmware CoreX-ECU (BNO085, filtro EMA en /api/corex-ecu/params) ni con el
-// IMU del módulo CoreX/AgIO (solo lectura, pill de presencia en el Hub) — este
+// IMU del módulo CoreX (solo lectura, pill de presencia en el Hub) — este
 // es el "Zero Roll" nativo que antes solo existía en la solapa Roll del
-// asistente de dirección de AgOpenGPS WinForms.
+// asistente de dirección de PilotX WinForms.
 
 using System.Text.Json.Serialization;
 

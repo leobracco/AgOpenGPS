@@ -1,4 +1,4 @@
-// CoreXBridgeDtos.cs — snapshot resumido de GET /api/corex/status (AgIO,
+// CoreXBridgeDtos.cs — snapshot resumido de GET /api/corex/status (CoreX,
 // servicio CoreX en 127.0.0.1:5181) para la tira de estado del Hub. Solo los
 // campos que necesitan las pills: si CoreX contestó, GPS vivo, y para
 // steer/machine/imu si el módulo está configurado y si mandó "hello" (nodo
