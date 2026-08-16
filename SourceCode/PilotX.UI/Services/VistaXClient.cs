@@ -4,15 +4,21 @@
 //   GET /api/vistax/live ->
 //     {
 //       trenes: [{
-//         tren, nombre, objetivo,
-//         surcos: [{ tren, bajada, tipo, estado, spm, objetivo,
-//                    ratioObjetivo, uid, cable, muted }]
+//         tren, nombre, objetivo (SEM/M),
+//         surcos: [{ tren, bajada, tipo, estado, spm (sem/min), sem_m,
+//                    objetivo (sem/min), ratio_objetivo, uid, cable, muted,
+//                    seccion_cortada, last_seen_iso }]
 //       }],
-//       spmPromedio, surcosActivos, fallasActivas,
-//       hasAlarm, alarmMessage,
-//       nombreImplemento, toleranciaDesvio, monitoreoActivo,
-//       nodos: [{ uid, online, sensorsReporting, lastSeenIso }]
+//       spm_promedio (sem/min), velocidad (km/h), distancia_entre_surcos (m),
+//       surcos_activos, fallas_activas, has_alarm, alarm_message,
+//       nombre_implemento, tolerancia_desvio, monitoreo_activo,
+//       nodos: [{ uid, online, sensors_reporting, last_seen_iso }]
 //     }
+//
+// UNIDADES (la trampa de este endpoint): el wire mezcla dos unidades. `spm` y
+// el `objetivo` del SURCO son por MINUTO — caudal, cambia con la velocidad. El
+// `objetivo` del TREN y `sem_m` son por METRO — densidad, es lo que el operario
+// decide y lo unico que se muestra (regla del repo: sem/m, sem/10m, sem/ha).
 //
 // Reemplaza al pollLive() de vistax.js.
 //
@@ -49,18 +55,37 @@ public sealed class VistaXSurcoLive
     [JsonPropertyName("bajada")]        public int     Bajada        { get; set; }
     [JsonPropertyName("tipo")]          public string? Tipo          { get; set; }
     [JsonPropertyName("estado")]        public string? Estado        { get; set; }
+    /// <summary>Lectura del sensor en SEM/MIN. Es un caudal: a 6 y a 9 km/h la
+    /// MISMA siembra da dos numeros distintos. NO se le muestra al operario como
+    /// dato principal — para eso esta <see cref="SemM"/>.</summary>
     [JsonPropertyName("spm")]           public double  Spm           { get; set; }
+    /// <summary>SEMILLAS POR METRO — el backend ya la calcula
+    /// (VistaXLiveService: spm / metros-por-minuto). Es la unidad con la que se
+    /// piensa la siembra y la que va a la pantalla. 0 con el tractor detenido:
+    /// sin avance no existe densidad.</summary>
+    [JsonPropertyName("sem_m")]         public double  SemM          { get; set; }
+    /// <summary>Objetivo del surco en SEM/MIN (el backend convierte el sem/m
+    /// configurado con la velocidad viva). Para pantalla se vuelve a sem/m.</summary>
     [JsonPropertyName("objetivo")]      public double  Objetivo      { get; set; }
     [JsonPropertyName("ratio_objetivo")] public double  RatioObjetivo { get; set; }
     [JsonPropertyName("uid")]           public string? Uid           { get; set; }
     [JsonPropertyName("cable")]         public int     Cable         { get; set; }
     [JsonPropertyName("muted")]         public bool    Muted         { get; set; }
+    /// <summary>La seccion de PilotX que alimenta este surco esta apagada
+    /// (cabecera, fuera de boundary, master OFF). No es falla del sensor.</summary>
+    [JsonPropertyName("seccion_cortada")] public bool  SeccionCortada { get; set; }
+    /// <summary>Timestamp ISO de la ultima telemetria del sensor (para "hace Ns").</summary>
+    [JsonPropertyName("last_seen_iso")]   public string? LastSeenIso  { get; set; }
 }
 
 public sealed class VistaXTrenLive
 {
     [JsonPropertyName("tren")]     public int     Tren     { get; set; }
     [JsonPropertyName("nombre")]   public string? Nombre   { get; set; }
+    /// <summary>OJO: el objetivo del TREN viene en SEM/M (sale de
+    /// setup.densidad_objetivo / objetivos_tren, o de la dosis viva de QuantiX).
+    /// El del SURCO, en cambio, viene en sem/min. No mezclar: dividir este por
+    /// la velocidad lo deja 100 veces mas chico.</summary>
     [JsonPropertyName("objetivo")] public double  Objetivo { get; set; }
     [JsonPropertyName("surcos")]   public List<VistaXSurcoLive>? Surcos { get; set; }
 }
@@ -87,6 +112,9 @@ public sealed class VistaXLiveSnapshot
     /// <summary>km/h — necesaria para pasar de sem/min (lo que entrega el
     /// backend) a SEM/M, que es como se piensa la siembra.</summary>
     [JsonPropertyName("velocidad")]         public double  Velocidad                  { get; set; }
+    /// <summary>Distancia entre surcos (m). Con ella y sem/m sale sem/ha:
+    /// sem/ha = sem/m · 10000 / distancia.</summary>
+    [JsonPropertyName("distancia_entre_surcos")] public double DistanciaEntreSurcos   { get; set; }
     [JsonPropertyName("nodos")]            public List<VistaXNodoLive>? Nodos        { get; set; }
 }
 

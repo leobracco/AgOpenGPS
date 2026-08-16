@@ -6,8 +6,12 @@
         VistaXPanel - reemplazo nativo (Monitor live-only) de pages/vistax.html.
 
         Cabin-critical: ver sensores por tren/surco (tubitos semilla/ferti +
-        barras turbina/tolva/etc.), spm promedio, surcos activos, fallas y
+        barras turbina/tolva/etc.), densidad promedio, surcos activos, fallas y
         alarma. Polling 2Hz contra /api/vistax/live mientras esta abierto.
+
+        UNIDADES: al operario SIEMPRE sem/m (densidad). El wire trae tambien
+        sem/min (caudal), que cambia con la marcha y hace ver "mas dosis"
+        cuando no cambio nada; queda como dato tecnico en el detalle.
 
         Comportamiento de pintado:
           · MonitoreoActivo=false (sembradora levantada o velocidad <1 km/h
@@ -16,7 +20,8 @@
             determina cuando se considera "sensando" via SeedMonitor.
           · MonitoreoActivo=true: cada sensor se pinta por su estado real.
           · Click sobre cualquier sensor abre el overlay de detalle con
-            UID/Tren/Bajada/Tipo/SPM/Objetivo/Ratio/Cable/Estado/Muted.
+            UID/Tren/Bajada/Tipo/sem-m/sem-ha/Objetivo/Ratio/Cable/Estado/
+            Muted/Seccion cortada/Ultima lectura.
 
         Las pantallas de configuracion (Insumo & calibracion, Implemento,
         Config) tambien son NATIVAS desde 2026-08-16: el boton "Configurar"
@@ -62,14 +67,16 @@
                     Padding="16,12,16,12">
                 <Grid ColumnDefinitions="*,*,*,*,*,Auto">
                     <StackPanel Grid.Column="0" Spacing="2">
-                        <TextBlock Text="SPM PROMEDIO" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                        <!-- Densidad, no caudal: sem/min cambiaba con la marcha
+                             y el operario leia "subio la dosis" sin tocar nada. -->
+                        <TextBlock Text="PROMEDIO sem/m" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
                         <TextBlock Name="KpiSpm" Text="--"
                                    Foreground="{StaticResource PilotXAccent}"
                                    FontSize="22" FontWeight="Bold"
                                    FontFamily="Consolas, Courier New, monospace"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="2">
-                        <TextBlock Text="OBJETIVO" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
+                        <TextBlock Text="OBJETIVO sem/m" Foreground="{StaticResource PilotXTextDim}" FontSize="10" FontWeight="SemiBold"/>
                         <TextBlock Name="KpiObj" Text="--"
                                    Foreground="{StaticResource PilotXTextHi}"
                                    FontSize="22" FontWeight="Bold"

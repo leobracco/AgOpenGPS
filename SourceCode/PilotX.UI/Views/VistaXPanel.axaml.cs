@@ -3,17 +3,22 @@
 // Reemplazo nativo (Monitor live-only) de pages/vistax.html. Consume el
 // /api/vistax/live a 2Hz mientras esta visible. Replica el flujo de
 // renderMonitor() del JS:
-//   - KPI strip: SPM promedio, objetivo (max entre trenes), surcos activos,
-//     fallas, implemento, chip alarma.
+//   - KPI strip: densidad promedio (sem/m), objetivo (max entre trenes, sem/m),
+//     surcos activos, fallas, implemento, chip alarma.
 //   - Badges por estado: OK / bajo / tapado / exceso / silenciado / sin datos.
 //   - Por cada tren: header con nombre + objetivo + dos sub-secciones:
-//       * "tubitos" (semilla + fertilizante) — sensores chicos con SPM grande
+//       * "tubitos" (semilla + fertilizante) — sensores chicos con sem/m grande
 //         y color por estado (ok / tapado / exceso / muted / bajo con gradiente
 //         por ratioObjetivo).
 //       * "barras" (turbina, tolva_*, bajada_herramienta, rotacion_eje, etc.)
 //         — fila horizontal con nombre/tipo + valor + barra de fill por ratio.
 //   - Grilla de nodos VistaX vistos via MQTT (online/offline + sensores
 //     reportando + edad).
+//
+// UNIDADES — la regla del repo: al operario SIEMPRE sem/m, sem/10m o sem/ha,
+// nunca un caudal. El wire manda `spm` (sem/MIN) y `sem_m` (sem/M): a 6 y a
+// 9 km/h la MISMA siembra da dos `spm` distintos. Se muestra `sem_m`; el
+// caudal queda rotulado como dato tecnico en el detalle del sensor.
 //
 // El editor (Insumo & calibracion, Implemento, Config global) es NATIVO desde
 // 2026-08-16: el boton Configurar dispara OnRequestConfigurar y el host abre
@@ -135,18 +140,22 @@ public partial class VistaXPanel : UserControl
             : "";
         if (subtitle != null) subtitle.Text = "Monitoreo de siembra · " + impName + tolStr;
 
-        // KPI strip
+        // KPI strip — todo en SEM/M (regla de unidades del repo).
+        double velKmh = live?.Velocidad ?? 0;
+        double vmsKpi = velKmh / 3.6;
+        // Promedio: el backend manda spm_promedio en sem/MIN; se pasa a sem/m
+        // con la velocidad viva. Parado no hay densidad que valga → "—".
         if (kpiSpm != null)
-            kpiSpm.Text = live?.SpmPromedio is double sp ? sp.ToString("0.0", CultureInfo.InvariantCulture) : "--";
+            kpiSpm.Text = (live?.SpmPromedio is double sp && vmsKpi >= VelMinMs)
+                ? (sp / 60.0 / vmsKpi).ToString("0.0", CultureInfo.InvariantCulture)
+                : "—";
         double objMax = 0;
         foreach (var tr in trenes) if (tr.Objetivo > objMax) objMax = tr.Objetivo;
-        // Objetivo en SEM/M, no sem/min (pedido 2026-08-06: sem/min no le sirve
-        // a nadie). El backend lo entrega por minuto; se divide por los metros
-        // por minuto de la velocidad actual.
-        double mMinKpi = (live?.Velocidad ?? 0) * 1000.0 / 60.0;
+        // El objetivo del TREN ya viene en sem/m: NO se divide por la velocidad.
+        // Se dividía, y a 6 km/h un objetivo de 16 sem/m se mostraba como 0,2.
         if (kpiObj != null)
-            kpiObj.Text = (objMax > 0 && mMinKpi > 1)
-                ? (objMax / mMinKpi).ToString("0.0", CultureInfo.InvariantCulture) + " sem/m"
+            kpiObj.Text = objMax > 0
+                ? objMax.ToString("0.0", CultureInfo.InvariantCulture)
                 : "--";
         if (kpiActivos != null) kpiActivos.Text = (live?.SurcosActivos ?? 0).ToString(CultureInfo.InvariantCulture);
         if (kpiFallas  != null) kpiFallas.Text  = (live?.FallasActivas ?? 0).ToString(CultureInfo.InvariantCulture);
@@ -225,7 +234,7 @@ public partial class VistaXPanel : UserControl
             {
                 if (emptyHint != null) emptyHint.IsVisible = false;
                 foreach (var tr in trenes)
-                    trenesHost.Children.Add(BuildTrenSection(tr, monActivo));
+                    trenesHost.Children.Add(BuildTrenSection(tr, monActivo, velKmh));
             }
         }
 
@@ -267,7 +276,7 @@ public partial class VistaXPanel : UserControl
         return b;
     }
 
-    private Control BuildTrenSection(VistaXTrenLive tr, bool monActivo)
+    private Control BuildTrenSection(VistaXTrenLive tr, bool monActivo, double velKmh)
     {
         var outer = new StackPanel { Spacing = 8 };
 
@@ -284,7 +293,8 @@ public partial class VistaXPanel : UserControl
         if (tr.Objetivo > 0)
             headSp.Children.Add(new TextBlock
             {
-                Text = "· objetivo " + tr.Objetivo.ToString("0", CultureInfo.InvariantCulture) + " sem/min",
+                // El objetivo del tren YA viene en sem/m: se rotulaba "sem/min".
+                Text = "· objetivo " + tr.Objetivo.ToString("0.0", CultureInfo.InvariantCulture) + " sem/m",
                 Foreground = _textDim,
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -319,7 +329,7 @@ public partial class VistaXPanel : UserControl
             foreach (var s in tubitos)
             {
                 var sensorClosure = s;
-                var cell = BuildSensorCell(sensorClosure, tr.Objetivo, monActivo);
+                var cell = BuildSensorCell(sensorClosure, tr.Objetivo, monActivo, velKmh);
                 cell.Cursor = new Cursor(StandardCursorType.Hand);
                 // Tapped es el evento "click/touch" de alto nivel de Avalonia:
                 // se dispara tras Pointer{Press,Release} en el mismo control
@@ -368,11 +378,13 @@ public partial class VistaXPanel : UserControl
         };
     }
 
-    private static Control BuildSensorCell(VistaXSurcoLive s, double objTren, bool monActivo)
+    private static Control BuildSensorCell(VistaXSurcoLive s, double objTren, bool monActivo, double velKmh)
     {
         var st = NormalizeEstado(s.Estado);
-        double sp = s.Spm;
-        double obj = s.Objetivo > 0 ? s.Objetivo : objTren;
+        // Densidad, no caudal: el número grande de la celda es SEM/M. Mostraba
+        // sem/min y la misma siembra "cambiaba de dosis" al cambiar la marcha.
+        double? semM   = SemMDe(s, velKmh);
+        double objSemM = ObjetivoSemM(s, objTren, velKmh);
 
         IBrush tubeBrush;
         string label;
@@ -415,14 +427,13 @@ public partial class VistaXPanel : UserControl
                 case "bajo":    label = "bajo objetivo"; labelBrush = _brushErr; break;
                 case "exceso":  label = "exceso";        labelBrush = _brushWarn; break;
                 case "muted":   label = "silenciado";    labelBrush = _textDim;  break;
-                case "ok":      label = "sem/min";       labelBrush = _brushOk;  break;
-                default:        label = "sem/min";       labelBrush = _textDim;  break;
+                case "ok":      label = "sem/m";         labelBrush = _brushOk;  break;
+                default:        label = "sem/m";         labelBrush = _textDim;  break;
             }
         }
 
-        string spmTxt = sp >= 100 ? sp.ToString("0", CultureInfo.InvariantCulture)
-                                  : sp.ToString("0.0", CultureInfo.InvariantCulture);
-        string objTxt = obj > 0 ? obj.ToString("0", CultureInfo.InvariantCulture) : "--";
+        string semMTxt = FmtSemM(semM);
+        string objTxt  = objSemM > 0 ? objSemM.ToString("0.0", CultureInfo.InvariantCulture) : "--";
 
         var sp1 = new StackPanel { Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
 
@@ -470,7 +481,7 @@ public partial class VistaXPanel : UserControl
         });
         sp1.Children.Add(new TextBlock
         {
-            Text = spmTxt,
+            Text = semMTxt,
             Foreground = _textHi,
             FontSize = 18,
             FontWeight = FontWeight.Bold,
@@ -686,6 +697,44 @@ public partial class VistaXPanel : UserControl
 
     // ---------- helpers -----------------------------------------------------
 
+    // ---------- unidades: al operario SIEMPRE sem/m --------------------------
+    //
+    // El wire de /api/vistax/live mezcla dos unidades y el monitor las mostraba
+    // como si fueran una sola:
+    //   · `spm` y el `objetivo` del SURCO están en sem/MIN (caudal). A 6 y a
+    //     9 km/h la misma siembra da dos números distintos y el operario lee
+    //     "subió la dosis" sin haber tocado nada.
+    //   · `sem_m` y el `objetivo` del TREN están en sem/M (densidad) — que es
+    //     lo que se decide y lo único que se muestra.
+    // Umbral 0,5 km/h = 0,1389 m/s: por debajo no existe "semillas por metro"
+    // (no hay avance), se muestra "—" en vez de un número inventado.
+    private const double VelMinMs = 0.14;
+
+    /// <summary>Densidad real del surco en sem/m. null = tractor detenido.</summary>
+    private static double? SemMDe(VistaXSurcoLive s, double velKmh)
+    {
+        double vms = velKmh / 3.6;
+        if (vms < VelMinMs) return null;
+        // El backend ya la calcula; el fallback cubre los surcos "(sin mapear)"
+        // del tren de diagnóstico, donde sem_m viene en 0 pero spm no.
+        if (s.SemM > 0) return s.SemM;
+        return s.Spm / 60.0 / vms;
+    }
+
+    /// <summary>Objetivo del surco en sem/m. Con el tractor parado el objetivo
+    /// por minuto vale 0, así que se cae al del tren — que ya es sem/m y no
+    /// depende de la velocidad.</summary>
+    private static double ObjetivoSemM(VistaXSurcoLive s, double objTrenSemM, double velKmh)
+    {
+        double vms = velKmh / 3.6;
+        if (s.Objetivo > 0 && vms >= VelMinMs) return s.Objetivo / 60.0 / vms;
+        return objTrenSemM;
+    }
+
+    /// <summary>Formato corto para densidades (siempre un decimal, "—" si null).</summary>
+    private static string FmtSemM(double? v) =>
+        v.HasValue ? v.Value.ToString("0.0", CultureInfo.InvariantCulture) : "—";
+
     private static string NormalizeEstado(string? raw)
     {
         var st = (raw ?? "no-data").ToLowerInvariant();
@@ -776,23 +825,50 @@ public partial class VistaXPanel : UserControl
             }
         }
 
-        double obj = s.Objetivo > 0 ? s.Objetivo : objTren;
-        double ratio = obj > 0 ? Math.Max(0.0, Math.Min(1.3, s.Spm / obj)) : 0.0;
+        double velKmh  = _live?.Velocidad ?? 0;
+        double? semM   = SemMDe(s, velKmh);
+        double objSemM = ObjetivoSemM(s, objTren, velKmh);
+        // El ratio se sigue calculando contra el objetivo POR MINUTO, que es la
+        // comparación que hace el backend (y la que decide el color/estado).
+        double objMin = s.Objetivo > 0 ? s.Objetivo : 0;
+        double ratio  = objMin > 0 ? Math.Max(0.0, Math.Min(1.3, s.Spm / objMin)) : 0.0;
 
         body.Children.Clear();
 
         // Estado grande
         body.Children.Add(BuildDetailRow("Estado", estadoLabel, estadoBrush, big: true));
 
-        // SPM real + Objetivo
-        string spmTxt = s.Spm.ToString(s.Spm >= 100 ? "0" : "0.0", CultureInfo.InvariantCulture);
-        body.Children.Add(BuildDetailRow("Lectura actual",
-            spmTxt + " sem/min",
-            monActivo ? _textHi : _textDim,
-            big: true));
-        body.Children.Add(BuildDetailRow("Objetivo",
-            (obj > 0 ? obj.ToString("0", CultureInfo.InvariantCulture) + " sem/min" : "—"),
-            _textHi));
+        // Densidad real + objetivo, ambos en SEM/M (la unidad de la siembra).
+        // Sólo para los sensores de siembra: en una turbina o una tolva "sem/m"
+        // no quiere decir nada, ahí el conteo por minuto ES el dato.
+        var tipoLow = (s.Tipo ?? "semilla").ToLowerInvariant();
+        bool esSiembra = tipoLow == "semilla" || tipoLow.StartsWith("ferti");
+        if (esSiembra)
+        {
+            body.Children.Add(BuildDetailRow("Densidad actual",
+                FmtSemM(semM) + " sem/m",
+                monActivo ? _textHi : _textDim,
+                big: true));
+            body.Children.Add(BuildDetailRow("Objetivo",
+                (objSemM > 0 ? objSemM.ToString("0.0", CultureInfo.InvariantCulture) + " sem/m" : "—"),
+                _textHi));
+            // sem/ha: sem/m · 10000 / distancia entre surcos.
+            double dist = _live?.DistanciaEntreSurcos ?? 0;
+            if (dist > 0 && semM.HasValue)
+                body.Children.Add(BuildDetailRow("Densidad (sem/ha)",
+                    (semM.Value * 10000.0 / dist).ToString("0", CultureInfo.InvariantCulture) + " sem/ha",
+                    _textMid));
+        }
+        else
+        {
+            body.Children.Add(BuildDetailRow("Lectura actual",
+                s.Spm.ToString(s.Spm >= 100 ? "0" : "0.0", CultureInfo.InvariantCulture) + " /min",
+                monActivo ? _textHi : _textDim,
+                big: true));
+            body.Children.Add(BuildDetailRow("Objetivo",
+                (objMin > 0 ? objMin.ToString("0", CultureInfo.InvariantCulture) + " /min" : "—"),
+                _textHi));
+        }
         // Barra ratio
         body.Children.Add(BuildBar(monActivo ? Math.Min(1.0, ratio) : 0, estadoBrush));
 
@@ -803,6 +879,17 @@ public partial class VistaXPanel : UserControl
         body.Children.Add(BuildDetailRow("Nodo UID", string.IsNullOrEmpty(s.Uid) ? "—" : s.Uid!, _textMid));
         body.Children.Add(BuildDetailRow("Silenciado", s.Muted ? "sí" : "no",
             s.Muted ? _brushMuted : _textMid));
+        // "Sección cortada" explica el gris sin que el operario salga a buscar
+        // una falla que no existe: la sección está apagada, no el sensor roto.
+        body.Children.Add(BuildDetailRow("Sección cortada", s.SeccionCortada ? "sí" : "no",
+            s.SeccionCortada ? _brushMuted : _textMid));
+        body.Children.Add(BuildDetailRow("Última lectura", AgeStr(s.LastSeenIso), _textMid));
+        // El caudal queda como dato TÉCNICO al pie, rotulado: sirve para el
+        // taller, no para decidir la dosis.
+        if (esSiembra)
+            body.Children.Add(BuildDetailRow("Caudal (técnico)",
+                s.Spm.ToString(s.Spm >= 100 ? "0" : "0.0", CultureInfo.InvariantCulture) + " sem/min",
+                _textDim));
 
         footer.Text = monActivo
             ? "Datos en vivo · /api/vistax/live · 2 Hz. Tocá fuera o presioná Esc para cerrar."
