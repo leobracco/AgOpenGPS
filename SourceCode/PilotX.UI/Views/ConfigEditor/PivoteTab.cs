@@ -15,9 +15,22 @@
 //   · esta pestaña habla con /api/aog/config — la de PilotX, la que usa el
 //     GUIADO y la geometría del implemento (trailingToolToPivotLength),
 //     respaldada por tool.json;
-//   · NO toca /api/implemento (surcos y semillas/ha de la pantalla de siembra).
-//     Son dos configuraciones distintas y NO están sincronizadas: mover el
-//     pivote acá no cambia nada de lo que muestra la pantalla de siembra.
+//   · NO toca /api/implemento (surcos y semillas/ha de la pantalla de siembra):
+//     mover el pivote acá no cambia nada de lo que muestra esa pantalla.
+//
+//   OJO — no son independientes, están enganchadas EN UN SENTIDO y en contra:
+//   el implemento central guarda su PROPIA copia del pivote
+//   (ImplementoDto.trailing_tool_to_pivot_m) y cualquier guardado suyo
+//   (PUT /api/implemento, activar otro implemento, aplicar plantilla) la baja
+//   al motor por ImplementoService.SyncToolIfChanged → MapToToolConfig →
+//   SaveTool. Como esa copia NO se actualiza cuando se guarda desde acá, el
+//   próximo guardado del implemento PISA lo que puso el operario en esta
+//   pestaña (verificado en banco 2026-08-16: pivote −0,50 m → PUT
+//   /api/implemento sin cambiar nada → tool.json volvió a 0). No es deuda de
+//   este porteo — la página HTML sufre exactamente lo mismo, y le pasa igual a
+//   Offset y a Distancias — pero mientras exista, "guardado" acá significa
+//   "hasta el próximo guardado del implemento". Anotado en
+//   scratchpad/migracion/pendiente-config-toolpivot.md.
 //
 // Qué es el número: la distancia entre la RUEDA del implemento de arrastre y su
 // PIVOTE (el punto que sigue al enganche). Con el signo el motor sabe de qué
