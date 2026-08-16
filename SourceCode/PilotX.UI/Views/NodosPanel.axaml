@@ -109,16 +109,20 @@
                 <!-- ============ Switch de pantalla: Lista / Diagnostico ============ -->
                 <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6"
                             Margin="4,0,0,10">
+                    <!-- MinHeight 40: son la navegacion principal del panel y se
+                         tocan con guante; sin esto quedaban en ~33 px. -->
                     <Button Name="BtnPantallaLista" Content="Lista"
                             Click="OnPantallaListaClick"
                             Background="#FFFFFF" Foreground="#101612"
                             BorderBrush="#4ABA3E" BorderThickness="0,0,0,3"
-                            CornerRadius="8" Padding="18,8,18,8" FontWeight="SemiBold"/>
+                            CornerRadius="8" MinHeight="40" Padding="18,0,18,0"
+                            VerticalContentAlignment="Center" FontWeight="SemiBold"/>
                     <Button Name="BtnPantallaDiag" Content="Diagnóstico"
                             Click="OnPantallaDiagClick"
                             Background="Transparent" Foreground="#535E54"
                             BorderBrush="Transparent" BorderThickness="0,0,0,3"
-                            CornerRadius="8" Padding="18,8,18,8"/>
+                            CornerRadius="8" MinHeight="40" Padding="18,0,18,0"
+                            VerticalContentAlignment="Center"/>
                 </StackPanel>
 
                 <!-- ============================ CUERPO ============================ -->

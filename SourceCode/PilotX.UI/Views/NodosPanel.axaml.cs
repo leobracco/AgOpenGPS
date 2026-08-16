@@ -29,6 +29,11 @@
 //
 // API: Attach(NodosClient) prende el polling (unified 3 s); Detach() lo apaga.
 // El diag se pollea a 2 s SOLO mientras su pantalla esta a la vista.
+//
+// OJO con el idioma: Traductor.Aplicar(this) se llama UNA vez, en el ctor. No
+// volver a llamarlo en los render — se guarda el primer texto de cada control y
+// despues lo reescribe, o sea que congelaria las pills y los contadores en el
+// valor del primer tick. Lo que escribe el codigo se traduce con T().
 
 using System;
 using System.Collections.Generic;
@@ -111,9 +116,22 @@ public partial class NodosPanel : UserControl
     // ---- modal interno -----------------------------------------------------
     private Action<string>? _modalOnOk;
 
+    /// <summary>Atajo al diccionario de idiomas.</summary>
+    private static string T(string texto) => PilotX.Cockpit.Bars.Traductor.T(texto);
+
     public NodosPanel()
     {
         InitializeComponent();
+        // El diccionario se aplica UNA SOLA VEZ, al construir. Traductor.Aplicar
+        // se guarda el texto que encuentra la primera vez en cada control y en
+        // TODAS las pasadas siguientes se lo vuelve a escribir encima: llamarlo
+        // al final de cada render congelaba las pills (online/offline, broker,
+        // implemento), los contadores de los tabs y el grid del diagnostico en
+        // el valor del primer tick, y hacia que el dialogo de "Eliminar nodo"
+        // mostrara el titulo y el mensaje del dialogo ANTERIOR (el operario leia
+        // "Aceptar nodo" mientras confirmaba un borrado). Todo texto que escribe
+        // el codigo pasa por T() en el punto donde se escribe.
+        PilotX.Cockpit.Bars.Traductor.Aplicar(this);
         PaintTabs();
         PaintPantalla();
 
@@ -232,14 +250,14 @@ public partial class NodosPanel : UserControl
         var brokerTxt = this.FindControl<TextBlock>("BrokerText");
         if (brokerTxt != null)
         {
-            brokerTxt.Text = conn ? "Broker conectado" : "Broker desconectado";
+            brokerTxt.Text = T(conn ? "Broker conectado" : "Broker desconectado");
             brokerTxt.Foreground = conn ? Texto : Err;
         }
 
         // ---- pill del implemento activo ----
         string slug = _last?.ImplementoSlug ?? "";
         SetTexto("ImplementoText", string.IsNullOrWhiteSpace(slug)
-            ? "Implemento: ninguno" : "Implemento: " + slug);
+            ? T("Implemento: ninguno") : T("Implemento:") + " " + slug);
 
         RenderBanner(nodos, slug);
 
@@ -275,12 +293,11 @@ public partial class NodosPanel : UserControl
         {
             filas.Children.Add(new TextBlock
             {
-                Text = "No hay nodos en esta vista.",
+                Text = T("No hay nodos en esta vista."),
                 Padding = new Thickness(14, 20, 14, 20),
                 Foreground = TextoDim,
                 FontSize = 13
             });
-            PilotX.Cockpit.Bars.Traductor.Aplicar(this);
             return;
         }
 
@@ -290,9 +307,6 @@ public partial class NodosPanel : UserControl
             filas.Children.Add(BuildRow(n, alt));
             alt = !alt;
         }
-        // Los textos armados en runtime (filas, botones) nacen en castellano;
-        // el diccionario los traduce igual que a los del XAML.
-        PilotX.Cockpit.Bars.Traductor.Aplicar(this);
     }
 
     private void RenderBanner(List<NodoUnified> nodos, string slug)
@@ -307,8 +321,8 @@ public partial class NodosPanel : UserControl
         if (caidos.Count == 0 || lista == null) return;
 
         SetTexto("AlertTitulo", string.IsNullOrWhiteSpace(slug)
-            ? "Nodos del implemento activo caídos"
-            : "Nodos del implemento activo caídos (" + slug + ")");
+            ? T("Nodos del implemento activo caídos")
+            : T("Nodos del implemento activo caídos") + " (" + slug + ")");
 
         lista.Children.Clear();
         foreach (var n in caidos)
@@ -318,8 +332,8 @@ public partial class NodosPanel : UserControl
                          : !string.IsNullOrWhiteSpace(n.Uid) ? n.Uid! : "?";
             if (!string.IsNullOrWhiteSpace(n.Tipo)) label += " · " + n.Tipo;
             label += string.IsNullOrWhiteSpace(n.LastSeenUtc)
-                ? " — nunca visto"
-                : " — última señal " + RelTime(n.LastSeenUtc);
+                ? " — " + T("nunca visto")
+                : " — " + T("última señal") + " " + RelTime(n.LastSeenUtc);
             lista.Children.Add(new TextBlock
             {
                 Text = label,
@@ -345,7 +359,7 @@ public partial class NodosPanel : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(10, 12, 4, 12)
         };
-        ToolTip.SetTip(dot, n.Online ? "En línea" : "Sin señal");
+        ToolTip.SetTip(dot, T(n.Online ? "En línea" : "Sin señal"));
         Grid.SetColumn(dot, 0);
         g.Children.Add(dot);
 
@@ -367,7 +381,7 @@ public partial class NodosPanel : UserControl
         if (n.SafeMode)
         {
             var safe = MakeBadge("SAFE", BadgeWarn);
-            ToolTip.SetTip(safe, "El nodo arrancó en modo seguro (se colgó varias veces)");
+            ToolTip.SetTip(safe, T("El nodo arrancó en modo seguro (se colgó varias veces)"));
             linea1.Children.Add(safe);
         }
         aliasBox.Children.Add(linea1);
@@ -451,7 +465,7 @@ public partial class NodosPanel : UserControl
             BorderThickness = new Thickness(0, 0, 0, 1),
             Cursor = new Cursor(StandardCursorType.Hand)
         };
-        ToolTip.SetTip(fila, "Ver el detalle del nodo");
+        ToolTip.SetTip(fila, T("Ver el detalle del nodo"));
         // Tocar la fila (fuera de los botones) abre el detalle del nodo.
         fila.Tapped += (_, e) =>
         {
@@ -494,7 +508,7 @@ public partial class NodosPanel : UserControl
     {
         var b = new Button
         {
-            Content = texto,
+            Content = T(texto),
             MinHeight = 40,
             Padding = new Thickness(12, 0, 12, 0),
             Margin = new Thickness(0, 3, 6, 3),
@@ -506,7 +520,7 @@ public partial class NodosPanel : UserControl
             FontSize = 12,
             VerticalContentAlignment = VerticalAlignment.Center
         };
-        ToolTip.SetTip(b, tip);
+        ToolTip.SetTip(b, T(tip));
         b.Click += (_, __) => accion();
         return b;
     }
@@ -518,13 +532,13 @@ public partial class NodosPanel : UserControl
         if (BootCrit.Contains(key))
         {
             var b = MakeBadge("⚠ " + key.ToUpperInvariant(), BadgeCrit);
-            ToolTip.SetTip(b, "Último reinicio: " + key + " (anormal — revisar)");
+            ToolTip.SetTip(b, T("Último reinicio:") + " " + key + " (" + T("anormal — revisar") + ")");
             return b;
         }
         if (BootWarn.Contains(key))
         {
             var b = MakeBadge(key.ToUpperInvariant(), BadgeWarn);
-            ToolTip.SetTip(b, "Último reinicio: " + key);
+            ToolTip.SetTip(b, T("Último reinicio:") + " " + key);
             return b;
         }
         return null;   // poweron / sw_reset / ext / deepsleep -> silencio
@@ -728,20 +742,20 @@ public partial class NodosPanel : UserControl
         if (resp == null)
         {
             if (dot != null) dot.Fill = Err;
-            if (txt != null) { txt.Text = "sin respuesta"; txt.Foreground = Err; }
+            if (txt != null) { txt.Text = T("sin respuesta"); txt.Foreground = Err; }
             return;
         }
         if (!resp.Ok || d == null)
         {
             if (dot != null) dot.Fill = Err;
-            if (txt != null) { txt.Text = "sin servicio"; txt.Foreground = Err; }
+            if (txt != null) { txt.Text = T("sin servicio"); txt.Foreground = Err; }
             return;
         }
 
         if (dot != null) dot.Fill = d.Connected ? Ok : Err;
         if (txt != null)
         {
-            txt.Text = d.Connected ? "CONECTADO" : "DESCONECTADO";
+            txt.Text = T(d.Connected ? "CONECTADO" : "DESCONECTADO");
             txt.Foreground = d.Connected ? Ok : Err;
         }
 
@@ -750,7 +764,7 @@ public partial class NodosPanel : UserControl
         SetTexto("DiagAttempts", d.ConnectAttempts.HasValue
             ? d.ConnectAttempts.Value.ToString(CultureInfo.InvariantCulture) : "—");
         SetTexto("DiagLastOk", string.IsNullOrWhiteSpace(d.LastConnectedUtc)
-            ? "— nunca —" : FechaLocal(d.LastConnectedUtc));
+            ? T("— nunca —") : FechaLocal(d.LastConnectedUtc));
         SetTexto("DiagCount", d.KnownNodesCount.ToString(CultureInfo.InvariantCulture));
         SetTexto("DiagSubs", (d.Subscriptions == null || d.Subscriptions.Count == 0)
             ? "—" : string.Join("   ", d.Subscriptions));
@@ -760,7 +774,7 @@ public partial class NodosPanel : UserControl
         if (d.RecentSeqGaps != null && d.RecentSeqGaps.Count > 0)
         {
             var g0 = d.RecentSeqGaps[0];
-            gaps += " · último: " + (g0.Uid ?? "?") + " (" +
+            gaps += " · " + T("último") + ": " + (g0.Uid ?? "?") + " (" +
                     g0.Missed.ToString(CultureInfo.InvariantCulture) + " msg, " + Hms(g0.TimestampUtc) + ")";
         }
         SetTexto("DiagGaps", gaps);
@@ -768,7 +782,7 @@ public partial class NodosPanel : UserControl
 
         var btnWild = this.FindControl<Button>("BtnWildcard");
         if (btnWild != null)
-            btnWild.Content = d.WildcardCaptureOn ? "Desactivar captura wildcard" : "Activar captura wildcard";
+            btnWild.Content = T(d.WildcardCaptureOn ? "Desactivar captura wildcard" : "Activar captura wildcard");
 
         // ---- caja de error: solo si hay error Y no esta conectado ----
         var box = this.FindControl<Border>("DiagErrorBox");
@@ -780,14 +794,14 @@ public partial class NodosPanel : UserControl
             SetTexto("DiagErrorCode", code);
             SetTexto("DiagErrorTs", Hms(d.LastErrorUtc));
             SetTexto("DiagErrorMsg", d.LastError ?? "");
-            SetTexto("DiagErrorAyuda", "Para soporte: dictá el código " + code + " por teléfono o WhatsApp.");
+            SetTexto("DiagErrorAyuda",
+                T("Para soporte: dictá el código") + " " + code + " " + T("por teléfono o WhatsApp."));
             var tech = this.FindControl<Expander>("DiagErrorTechBox");
             if (tech != null) tech.IsVisible = !string.IsNullOrWhiteSpace(d.LastErrorTechnical);
             SetTexto("DiagErrorTech", d.LastErrorTechnical ?? "");
         }
 
         RenderMsgLog(d);
-        PilotX.Cockpit.Bars.Traductor.Aplicar(this);
     }
 
     private void RenderMsgLog(NodoDiag d)
@@ -801,7 +815,7 @@ public partial class NodosPanel : UserControl
         {
             host.Children.Add(new TextBlock
             {
-                Text = "— sin mensajes aún —",
+                Text = T("— sin mensajes aún —"),
                 Foreground = TextoDim, FontSize = 11, FontFamily = Mono
             });
             return;
@@ -853,9 +867,9 @@ public partial class NodosPanel : UserControl
     {
         var b = sender as Button;
         if (_client == null) return;
-        if (b != null) { b.IsEnabled = false; b.Content = "Reconectando…"; }
+        if (b != null) { b.IsEnabled = false; b.Content = T("Reconectando…"); }
         var r = await _client.ReconnectAsync();
-        if (b != null) { b.IsEnabled = true; b.Content = "Reconectar al broker"; }
+        if (b != null) { b.IsEnabled = true; b.Content = T("Reconectar al broker"); }
         // El POST devuelve el diag nuevo: se aprovecha y no se pide de nuevo.
         if (r != null) RenderDiag(r);
         else await DiagTickAsync(_diagCts?.Token ?? CancellationToken.None);
@@ -888,8 +902,8 @@ public partial class NodosPanel : UserControl
 
     private void AbrirModalTexto(string titulo, string mensaje, string valorInicial, Func<string, Task> onOk)
     {
-        SetTexto("ModalTitulo", titulo);
-        SetTexto("ModalMensaje", mensaje);
+        SetTexto("ModalTitulo", T(titulo));
+        SetTexto("ModalMensaje", T(mensaje));
         var txt = this.FindControl<TextBox>("ModalTexto");
         if (txt != null)
         {
@@ -899,7 +913,7 @@ public partial class NodosPanel : UserControl
         var btnOk = this.FindControl<Button>("BtnModalConfirmar");
         if (btnOk != null)
         {
-            btnOk.Content = "Aceptar";
+            btnOk.Content = T("Aceptar");
             btnOk.Background = Verde;
         }
         _modalOnOk = valor =>
@@ -914,14 +928,14 @@ public partial class NodosPanel : UserControl
 
     private void AbrirModalConfirm(string titulo, string mensaje, string textoOk, bool destructivo, Func<Task> onOk)
     {
-        SetTexto("ModalTitulo", titulo);
-        SetTexto("ModalMensaje", mensaje);
+        SetTexto("ModalTitulo", T(titulo));
+        SetTexto("ModalMensaje", T(mensaje));
         var txt = this.FindControl<TextBox>("ModalTexto");
         if (txt != null) txt.IsVisible = false;
         var btnOk = this.FindControl<Button>("BtnModalConfirmar");
         if (btnOk != null)
         {
-            btnOk.Content = textoOk;
+            btnOk.Content = T(textoOk);
             btnOk.Background = destructivo ? Err : Verde;
         }
         _modalOnOk = ignorado => { _ = onOk(); };
@@ -932,7 +946,6 @@ public partial class NodosPanel : UserControl
     {
         var ov = this.FindControl<Border>("ModalOverlay");
         if (ov != null) ov.IsVisible = visible;
-        if (visible) PilotX.Cockpit.Bars.Traductor.Aplicar(this);
     }
 
     private void CerrarModal()
@@ -973,7 +986,7 @@ public partial class NodosPanel : UserControl
     private void SetTabLabel(string ctrl, string label, int count)
     {
         var btn = this.FindControl<Button>(ctrl);
-        if (btn != null) btn.Content = label + "  (" + count.ToString(CultureInfo.InvariantCulture) + ")";
+        if (btn != null) btn.Content = T(label) + "  (" + count.ToString(CultureInfo.InvariantCulture) + ")";
     }
 
     private void PaintTabs()
