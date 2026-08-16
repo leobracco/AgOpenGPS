@@ -88,6 +88,12 @@ public static class CfgUi
     public static readonly IBrush TextoMuted = new SolidColorBrush(Color.Parse("#535E54"));
     public static readonly IBrush TextoDim   = new SolidColorBrush(Color.Parse("#7A857B"));
     public static readonly IBrush Verde      = new SolidColorBrush(Color.Parse("#4ABA3E"));
+    // Verde de FONDO para texto blanco. El #4ABA3E de la paleta es acento —
+    // sirve para bordes, puntitos y barras, pero con letras blancas encima da
+    // 2,5:1 (medido), el peor contraste de la pantalla, y justo en el botón
+    // Guardar. Este tono oscuro da 5,3:1 y se sigue leyendo como "el verde de
+    // PilotX" con sol de frente. El acento no se cambia: se agrega el de fondo.
+    public static readonly IBrush VerdeFuerte = new SolidColorBrush(Color.Parse("#2F7A26"));
     public static readonly IBrush Ok         = new SolidColorBrush(Color.Parse("#3D9A33"));
     public static readonly IBrush Warn       = new SolidColorBrush(Color.Parse("#B98A2E"));
     public static readonly IBrush Err        = new SolidColorBrush(Color.Parse("#D0504A"));
@@ -113,9 +119,13 @@ public static class CfgUi
         Text = T(t), Foreground = TextoMuted, FontSize = 12, TextWrapping = TextWrapping.Wrap,
     };
 
+    /// <summary>La etiqueta de CADA campo de las 17 pestañas (la usan Campo(),
+    /// Bloque(), AgregarKv() y los títulos de la grilla de Módulos). Estaba en
+    /// 10 px #7A857B: 3,6:1 sobre las superficies claras — con sol el operario
+    /// veía el número pero no de qué era. 13 px #535E54 bold da 6,3:1.</summary>
     public static TextBlock Etiqueta(string t) => new TextBlock
     {
-        Text = T(t), Foreground = TextoDim, FontSize = 10, FontWeight = FontWeight.SemiBold,
+        Text = T(t), Foreground = TextoMuted, FontSize = 13, FontWeight = FontWeight.Bold,
     };
 
     public static TextBlock Valor(string t) => new TextBlock
@@ -184,7 +194,8 @@ public static class CfgUi
         while (kv.RowDefinitions.Count <= fila) kv.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         var k = new TextBlock
         {
-            Text = T(clave), Foreground = TextoDim, FontSize = 10, FontWeight = FontWeight.SemiBold,
+            // Las 8 claves del Resumen: mismo criterio de lectura que Etiqueta.
+            Text = T(clave), Foreground = TextoMuted, FontSize = 13, FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 5, 10, 5), VerticalAlignment = VerticalAlignment.Center,
         };
         var v = new TextBlock
@@ -206,14 +217,15 @@ public static class CfgUi
         var b = new Button
         {
             Content = T(txt),
-            MinHeight = 42, MinWidth = 44,
+            // 48 y no 42: con guante, abajo de 44 px no se acierta.
+            MinHeight = 48, MinWidth = 48,
             Padding = new Thickness(14, 8, 14, 8),
             CornerRadius = new CornerRadius(8),
             FontSize = 13,
             FontWeight = primario ? FontWeight.SemiBold : FontWeight.Normal,
-            Background = primario ? Verde : BgFila,
+            Background = primario ? VerdeFuerte : BgFila,
             Foreground = primario ? Brushes.White : (peligro ? Err : Texto),
-            BorderBrush = peligro ? Err : Borde,
+            BorderBrush = primario ? VerdeFuerte : (peligro ? Err : Borde),
             BorderThickness = new Thickness(1),
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
@@ -252,7 +264,7 @@ public static class CfgUi
     {
         var t = new TextBox
         {
-            Text = valor, Width = ancho, MinHeight = 42, FontSize = 14,
+            Text = valor, Width = ancho, MinHeight = 48, FontSize = 14,
             Background = BgFila, Foreground = Texto,
             BorderBrush = Borde, BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
@@ -266,13 +278,13 @@ public static class CfgUi
 
     public static CheckBox Check(string texto, bool valor) => new CheckBox
     {
-        Content = T(texto), IsChecked = valor, MinHeight = 40, FontSize = 13,
+        Content = T(texto), IsChecked = valor, MinHeight = 48, FontSize = 13,
         Foreground = Texto, VerticalAlignment = VerticalAlignment.Center,
     };
 
     public static ComboBox Combo(int seleccionado = 0) => new ComboBox
     {
-        MinHeight = 42, MinWidth = 150, FontSize = 13,
+        MinHeight = 48, MinWidth = 150, FontSize = 13,
         Background = BgFila, Foreground = Texto,
         BorderBrush = Borde, BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 6, 8, 6),

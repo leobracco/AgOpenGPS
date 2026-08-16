@@ -154,6 +154,9 @@ public static class VxUi
     public static readonly IBrush TextoMuted = new SolidColorBrush(Color.Parse("#535E54"));
     public static readonly IBrush TextoDim   = new SolidColorBrush(Color.Parse("#7A857B"));
     public static readonly IBrush Verde      = new SolidColorBrush(Color.Parse("#4ABA3E"));
+    // Verde de FONDO para texto blanco (el acento #4ABA3E con letras blancas
+    // encima da 2,5:1 medido y desaparece con sol). Este da 5,3:1.
+    public static readonly IBrush VerdeFuerte = new SolidColorBrush(Color.Parse("#2F7A26"));
     public static readonly IBrush Ok         = new SolidColorBrush(Color.Parse("#3D9A33"));
     public static readonly IBrush Warn       = new SolidColorBrush(Color.Parse("#B98A2E"));
     public static readonly IBrush Err        = new SolidColorBrush(Color.Parse("#D0504A"));
@@ -182,7 +185,9 @@ public static class VxUi
 
     public static TextBlock Etiqueta(string t) => new TextBlock
     {
-        Text = T(t), Foreground = TextoDim, FontSize = 10, FontWeight = FontWeight.SemiBold,
+        // 13 px #535E54 (6,3:1). En 10 px #7A857B daba 3,6:1: al sol se veía el
+        // número y no de qué era.
+        Text = T(t), Foreground = TextoMuted, FontSize = 13, FontWeight = FontWeight.Bold,
     };
 
     public static TextBlock Valor(string t) => new TextBlock
@@ -283,14 +288,15 @@ public static class VxUi
         var b = new Button
         {
             Content = T(txt),
-            MinHeight = 42, MinWidth = 44,
+            // 48 y no 42: con guante, abajo de 44 px no se acierta.
+            MinHeight = 48, MinWidth = 48,
             Padding = new Thickness(14, 8, 14, 8),
             CornerRadius = new CornerRadius(8),
             FontSize = 13,
             FontWeight = primario ? FontWeight.SemiBold : FontWeight.Normal,
-            Background = primario ? Verde : BgFila,
+            Background = primario ? VerdeFuerte : BgFila,
             Foreground = primario ? Brushes.White : (peligro ? Err : Texto),
-            BorderBrush = peligro ? Err : Borde,
+            BorderBrush = primario ? VerdeFuerte : (peligro ? Err : Borde),
             BorderThickness = new Thickness(1),
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
@@ -343,7 +349,7 @@ public static class VxUi
 
     public static ComboBox Combo(double minAncho = 160) => new ComboBox
     {
-        MinHeight = 42, MinWidth = minAncho, FontSize = 13,
+        MinHeight = 48, MinWidth = minAncho, FontSize = 13,
         Background = BgFila, Foreground = Texto,
         BorderBrush = Borde, BorderThickness = new Thickness(1),
         CornerRadius = new CornerRadius(8),
@@ -359,7 +365,7 @@ public static class VxUi
     {
         var t = new TextBox
         {
-            Text = valor, Width = ancho, MinHeight = 42, FontSize = 13,
+            Text = valor, Width = ancho, MinHeight = 48, FontSize = 13,
             Background = BgFila, Foreground = Texto,
             BorderBrush = Borde, BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
@@ -373,7 +379,7 @@ public static class VxUi
 
     public static CheckBox Check(string texto, bool valor) => new CheckBox
     {
-        Content = T(texto), IsChecked = valor, MinHeight = 40, FontSize = 13,
+        Content = T(texto), IsChecked = valor, MinHeight = 48, FontSize = 13,
         Foreground = Texto, VerticalAlignment = VerticalAlignment.Center,
     };
 

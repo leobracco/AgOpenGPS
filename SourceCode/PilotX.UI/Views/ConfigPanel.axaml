@@ -65,7 +65,7 @@
                             Click="OnCerrarClick"
                             Background="#FFFFFF" Foreground="#101612"
                             BorderBrush="#C5CFC5" BorderThickness="1"
-                            CornerRadius="8" Width="44" Height="42"
+                            CornerRadius="8" Width="48" Height="48"
                             FontSize="15"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
@@ -87,11 +87,17 @@
                                    Foreground="#535E54" FontSize="12"
                                    TextAlignment="Right" TextWrapping="NoWrap"
                                    Margin="12,0,12,0" VerticalAlignment="Center"/>
+                        <!-- Guardar: el botón que decide si el trabajo se guarda.
+                             Estaba blanco sobre el verde de acento #4ABA3E, que
+                             da 2,5:1 medido — con sol la palabra desaparecía
+                             justo en el control más importante de la pantalla.
+                             #2F7A26 da 5,3:1 y sigue siendo el verde de PilotX.
+                             48 px de alto: abajo de 44 no se acierta con guante. -->
                         <Button Grid.Column="2" Name="BtnGuardar" Content="Guardar"
                                 Click="OnGuardarClick" IsVisible="False"
-                                Background="#4ABA3E" Foreground="White"
-                                BorderBrush="#4ABA3E" BorderThickness="1"
-                                CornerRadius="8" MinHeight="42" Padding="18,8"
+                                Background="#2F7A26" Foreground="White"
+                                BorderBrush="#2F7A26" BorderThickness="1"
+                                CornerRadius="8" MinHeight="48" Padding="18,8"
                                 FontSize="13" FontWeight="SemiBold"/>
                     </Grid>
                 </Border>

@@ -3803,15 +3803,26 @@ public partial class MainWindow : Window
         // que la barra se salga en ventanas angostas (ahí se pierde la
         // alineación exacta, pero la barra entra entera).
         // Pantalla angosta (taller 1024x768): si la barra no entra, se ESCALA
-        // hacia abajo (con un 0.88 extra pedido 2026-08-14: "un poco más
-        // chica") y se ARRIMA al borde izquierdo, pegada al riel plegado
+        // hacia abajo y se ARRIMA al borde izquierdo, pegada al riel plegado
         // (~36 px + el chevrón) — así queda aire a la derecha para los toasts
         // y el riel derecho. En pantallas grandes el factor es 1, la barra
         // sigue centrada sobre el eje del tractor y nada cambia.
+        //
+        // El 0.88 EXTRA (pedido 2026-08-14, "un poco más chica") multiplicaba
+        // encima del factor que ya hace entrar la barra, y en 1024 el resultado
+        // era 0,85: botones de 47,7 px y TÍTULOS DE 8,5 px (con las marcas de
+        // giro puestas, 44,6 y 7,9). Con sol de frente y la máquina andando eso
+        // no se lee ni se acierta con guante. Se conserva la intención —la barra
+        // sigue más chica de lo que entra— pero con un piso: el factor nunca
+        // baja del que deja el título en 9,5 px, y nunca sube del que hace que
+        // la barra entre. En 1024 queda 0,95 ⇒ botones de 53 px y títulos de
+        // 9,5. Ningún botón se mueve de lugar: es la misma barra, escalada.
         const double margenAngosto = 56;
+        const double pisoLectura = 0.95;    // 9,5 px de título sobre los 10 nominales
         double disponible = hostW - margenAngosto - 6;
         bool angosta = disponible > 0 && w > disponible;
-        double f = angosta ? (disponible / w) * 0.88 : 1.0;
+        double entra = angosta ? disponible / w : 1.0;
+        double f = angosta ? Math.Min(entra, Math.Max(entra * 0.88, pisoLectura)) : 1.0;
         if (f < 1.0)
         {
             _nudgeOverlay.RenderTransformOrigin =

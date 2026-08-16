@@ -427,7 +427,11 @@ public sealed class SeccionesTab : ConfigTab
 
         // MaxWidth OBLIGATORIO: el TabHost cuelga de un ScrollViewer con scroll
         // horizontal; sin tope el StackPanel mide "infinito" y nada envuelve.
-        var raiz = new StackPanel { Spacing = 12, MaxWidth = 860 };
+        // 686 y no 860, como las hermanas (Rolido, Rumbo, Tram, Uturn): el área
+        // útil de la tarjeta es ~698 px (940 − 28 de padding − 196 del menú −
+        // márgenes), así que con 860 la grilla de 16 anchos envolvía a un ancho
+        // que no existe y la pestaña pedía arrastrar de costado en 1024.
+        var raiz = new StackPanel { Spacing = 12, MaxWidth = 686 };
 
         if (C.SinDatos)
         {
@@ -1142,7 +1146,11 @@ public sealed class SeccionesTab : ConfigTab
             b.BorderBrush = color;
             b.BorderThickness = new Thickness(2);
             b.Background = activo ? color : CfgUi.BgFila;
-            b.Foreground = activo ? Brushes.White : CfgUi.Texto;
+            // Texto SIEMPRE oscuro, también sobre el color del tren: en blanco
+            // los cuatro colores daban 2,2 a 3,7:1 (el naranja #E0A33E, 2,2) y
+            // el nombre del tren se borraba con sol. Con #101612 van de 5,0 a
+            // 8,3:1. Los colores no se tocan: son los mismos del celular.
+            b.Foreground = CfgUi.Texto;
             b.Margin = new Thickness(0, 0, 8, 8);
             _pincelHost.Children.Add(b);
         }
