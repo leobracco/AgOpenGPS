@@ -888,6 +888,16 @@
                 <vw:CabeceraLineasPanel x:Name="CabeceraLineasHost" Grid.Row="1" ZIndex="10"
                                         HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
+                <!-- TRAMLINES (multi) nativo (reemplaza pages/tramlines.html,
+                     ex FormTramLine): el constructor de huellas por guía, con
+                     el corte de 3 toques que se marca CON EL DEDO sobre el
+                     dibujo. La ventana HTML de 460x470 dejaba ese lienzo del
+                     tamaño de un sello y encima despertaba Chromium en pleno
+                     lote. Card 720x560 CENTRADA — es un editor, no un visor
+                     del tractor — y el mapa sigue a la vista alrededor. -->
+                <vw:TramMultiPanel x:Name="TramMultiHost" Grid.Row="1" ZIndex="10"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                 <!-- DIRECCIÓN nativa (17vo port): panel angosto ANCLADO A LA
                      IZQUIERDA (después del riel del menú, ~130px): el centro y
                      la derecha del mapa quedan libres para ver el tractor
