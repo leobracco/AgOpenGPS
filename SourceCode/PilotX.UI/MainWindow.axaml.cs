@@ -2822,6 +2822,12 @@ public partial class MainWindow : Window
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // Sonidos se dibuja ENCIMA de Guias/Lote/Direccion y quedan dos cards
+        // pisadas (mismo criterio que ShowCoreXEcu).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_sonidosClient == null)
             _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));

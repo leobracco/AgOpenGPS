@@ -326,6 +326,12 @@ public sealed class SonidosPanel : Border
                 var cfg = await cli.GetConfigAsync(ct).ConfigureAwait(false);
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    // El panel se cerró mientras la respuesta viajaba: si se
+                    // dejara entrar, _cfg volvería a quedar cargado después del
+                    // Detach que lo puso en null y la próxima apertura NO
+                    // relee la config — el Guardar siguiente mandaría una
+                    // config vieja y pisaría lo que tocó el celular.
+                    if (ct.IsCancellationRequested) return;
                     if (archivos == null || cfg == null) { PintarSinConexion(); return; }
                     _archivos = archivos;
                     _cfg = cfg;
@@ -337,6 +343,7 @@ public sealed class SonidosPanel : Border
             var estado = await cli.GetEstadoAsync(long.MaxValue, ct).ConfigureAwait(false);
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                if (ct.IsCancellationRequested) return;
                 PintarAlarmas(estado);
                 // Otro cliente (el celular) pudo mutear: el indicador lo sigue.
                 if (estado != null && _cfg != null &&
@@ -748,6 +755,11 @@ public sealed class SonidosPanel : Border
                     ? PilotX.Cockpit.Bars.Traductor.T("no se pudo subir") : r.Error));
             return;
         }
+
+        // Subir con un nombre que YA existía lo pisa en el server (sin aviso).
+        // Si no se tira el wav viejo del cache, el ▶ seguiría haciendo escuchar
+        // el sonido anterior y el operario creería que la subida no anduvo.
+        lock (_cacheWav) _cacheWav.Remove(r.Archivo ?? "");
 
         var archivos = await cli.GetArchivosAsync().ConfigureAwait(false);
         await Dispatcher.UIThread.InvokeAsync(() =>
