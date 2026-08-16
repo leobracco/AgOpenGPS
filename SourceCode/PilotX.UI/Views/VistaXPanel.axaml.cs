@@ -51,21 +51,29 @@ public partial class VistaXPanel : UserControl
     public Action? OnRequestConfigurar { get; set; }
 
     // ---------- palette (sincronizada con vistax.css) ----------
-    private static readonly IBrush _brushOk      = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush _brushWarn    = new SolidColorBrush(Color.Parse("#E2B53E"));
-    private static readonly IBrush _brushExceso  = new SolidColorBrush(Color.Parse("#6E2E0E"));
-    private static readonly IBrush _brushErr     = new SolidColorBrush(Color.Parse("#E15A5A"));
-    private static readonly IBrush _brushTapado  = new SolidColorBrush(Color.Parse("#1F0606")); // casi negro
-    private static readonly IBrush _brushMuted   = new SolidColorBrush(Color.Parse("#3E4A41"));
-    private static readonly IBrush _brushNoData  = new SolidColorBrush(Color.Parse("#222926"));
-    private static readonly IBrush _brushDim     = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _textHi       = new SolidColorBrush(Color.Parse("#E2E7E2"));
-    private static readonly IBrush _textMid      = new SolidColorBrush(Color.Parse("#C5CFC5"));
-    private static readonly IBrush _textDim      = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _bgMid        = new SolidColorBrush(Color.Parse("#1A1F1B"));
-    private static readonly IBrush _bgHigh       = new SolidColorBrush(Color.Parse("#262C28"));
-    private static readonly IBrush _border       = new SolidColorBrush(Color.Parse("#2A332C"));
-    private static readonly IBrush _gaugeBg      = new SolidColorBrush(Color.Parse("#2A332C"));
+    // Paleta CLARA de panel (tokens PilotXPanel* del theme). El semaforo va
+    // con los tonos oscuros de cada color: sobre fondo claro el verde de marca
+    // #4ABA3E da 2.5:1 y al sol no se lee. Medidos sobre blanco: verde 5.3:1,
+    // ambar 5.5:1, rojo 5.9:1, gris 4.5:1, texto 18.3:1.
+    private static readonly IBrush _brushOk      = new SolidColorBrush(Color.Parse("#2F7A26"));
+    private static readonly IBrush _brushWarn    = new SolidColorBrush(Color.Parse("#8A6100"));
+    private static readonly IBrush _brushExceso  = new SolidColorBrush(Color.Parse("#B85C00")); // naranja: se separa del ambar
+    private static readonly IBrush _brushErr     = new SolidColorBrush(Color.Parse("#C0261F"));
+    private static readonly IBrush _brushTapado  = new SolidColorBrush(Color.Parse("#3A1414")); // tubito casi negro = tapado
+    private static readonly IBrush _brushMuted   = new SolidColorBrush(Color.Parse("#9AA69C"));
+    private static readonly IBrush _brushNoData  = new SolidColorBrush(Color.Parse("#D2DAD1"));
+    private static readonly IBrush _brushDim     = new SolidColorBrush(Color.Parse("#6E7A70"));
+    private static readonly IBrush _textHi       = new SolidColorBrush(Color.Parse("#101612"));
+    private static readonly IBrush _textMid      = new SolidColorBrush(Color.Parse("#303B33"));
+    private static readonly IBrush _textDim      = new SolidColorBrush(Color.Parse("#535E54"));
+    private static readonly IBrush _bgMid        = new SolidColorBrush(Color.Parse("#FFFFFF"));
+    private static readonly IBrush _bgHigh       = new SolidColorBrush(Color.Parse("#F5F7F4"));
+    private static readonly IBrush _border       = new SolidColorBrush(Color.Parse("#C5CFC5"));
+    private static readonly IBrush _gaugeBg      = new SolidColorBrush(Color.Parse("#D3DCD2"));
+    // Chapita MUTE: cae encima del tubito, que puede quedar claro (sin datos) u
+    // oscuro (tapado). Pastilla oscura + texto blanco para que se lea siempre.
+    private static readonly IBrush _mutePillBg   = new SolidColorBrush(Color.Parse("#99101612"));
+    private static readonly IBrush _tubeBorder   = new SolidColorBrush(Color.Parse("#7F8A81"));
 
     public VistaXPanel()
     {
@@ -441,6 +449,10 @@ public partial class VistaXPanel : UserControl
         var tube = new Border
         {
             Background = tubeBrush,
+            // Contorno: sin el, el tubito "sin datos" (gris palido) se pierde
+            // contra la celda clara y parece que no hubiera sensor.
+            BorderBrush = _tubeBorder,
+            BorderThickness = new global::Avalonia.Thickness(1),
             Width = 56,
             Height = 28,
             CornerRadius = new global::Avalonia.CornerRadius(6),
@@ -452,14 +464,20 @@ public partial class VistaXPanel : UserControl
         if (s.Muted && monActivo)
         {
             // overlay "MUTE" leyenda chiquita
-            var muteTag = new TextBlock
+            var muteTag = new Border
             {
-                Text = "MUTE",
-                Foreground = Brushes.White,
-                FontSize = 9,
-                FontWeight = FontWeight.Bold,
+                Background   = _mutePillBg,
+                CornerRadius = new global::Avalonia.CornerRadius(4),
+                Padding      = new global::Avalonia.Thickness(4, 1, 4, 1),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
+                VerticalAlignment   = VerticalAlignment.Center,
+                Child = new TextBlock
+                {
+                    Text = "MUTE",
+                    Foreground = Brushes.White,
+                    FontSize = 9,
+                    FontWeight = FontWeight.Bold,
+                },
             };
             var g = new Grid();
             g.Children.Add(tube);

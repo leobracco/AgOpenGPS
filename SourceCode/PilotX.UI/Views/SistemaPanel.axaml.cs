@@ -38,8 +38,10 @@ public partial class SistemaPanel : UserControl
     private const int ArmTimeoutSeconds = 5;
 
     // Brushes para feedback visual del estado "armado".
-    private static readonly IBrush _armBg     = new SolidColorBrush(Color.Parse("#332016"));
-    private static readonly IBrush _idleBgMid = new SolidColorBrush(Color.Parse("#1A1F1B"));
+    // Armado ("tocá de nuevo para confirmar"): la tarjeta se tine de ambar
+    // suave. Texto oscuro encima, 16.3:1.
+    private static readonly IBrush _armBg     = new SolidColorBrush(Color.Parse("#FBF1DC"));
+    private static readonly IBrush _idleBgMid = new SolidColorBrush(Color.Parse("#FFFFFF"));
 
     public SistemaPanel()
     {

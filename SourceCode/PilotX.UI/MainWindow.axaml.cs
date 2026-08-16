@@ -2227,7 +2227,8 @@ public partial class MainWindow : Window
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_configHost != null && _configHost.IsVisible) { _configHost.Detach(); _configHost.IsVisible = false; }
         _fieldDataHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] FieldData open (nativo, no WebView)");
     }
@@ -2268,7 +2269,8 @@ public partial class MainWindow : Window
             _sistemaClient = new SistemaClient(DeriveOrigin(App.TargetUrl));
         _sistemaHost.Attach(_sistemaClient);
         _sistemaHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Sistema open (nativo, no WebView)");
     }
@@ -2330,7 +2332,8 @@ public partial class MainWindow : Window
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         _gpsDataHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] GpsData open (nativo, no WebView)");
     }
@@ -2375,7 +2378,8 @@ public partial class MainWindow : Window
             _stormXClient = new StormXClient(DeriveOrigin(App.TargetUrl));
         _stormXHost.Attach(_stormXClient);
         _stormXHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] StormX open (nativo, no WebView)");
     }
@@ -2426,7 +2430,8 @@ public partial class MainWindow : Window
             _flowXClient = new FlowXClient(DeriveOrigin(App.TargetUrl));
         _flowXHost.Attach(_flowXClient);
         _flowXHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] FlowX open (nativo live-only, no WebView)");
     }
@@ -2532,7 +2537,8 @@ public partial class MainWindow : Window
             _sectionXClient = new SectionXClient(DeriveOrigin(App.TargetUrl));
         _sectionXHost.Attach(_sectionXClient);
         _sectionXHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] SectionX open (nativo live-only, no WebView)");
     }
@@ -2581,7 +2587,8 @@ public partial class MainWindow : Window
             _quantiXClient = new QuantiXClient(DeriveOrigin(App.TargetUrl));
         _quantiXHost.Attach(_quantiXClient);
         _quantiXHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] QuantiX open (nativo Monitor, no WebView)");
     }
@@ -2693,7 +2700,8 @@ public partial class MainWindow : Window
             _vistaXClient = new VistaXClient(DeriveOrigin(App.TargetUrl));
         _vistaXHost.Attach(_vistaXClient);
         _vistaXHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] VistaX open (nativo Monitor, no WebView)");
     }
@@ -3013,7 +3021,8 @@ public partial class MainWindow : Window
             _updateClient = new UpdateClient(DeriveOrigin(App.TargetUrl));
         _actualizarHost.Attach(_updateClient);
         _actualizarHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Actualizar open (nativo, no WebView)");
     }

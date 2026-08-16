@@ -50,17 +50,24 @@ public partial class QuantiXPanel : UserControl
     // (QuantiXEditorPanel) cuando el operario pide "Configurar".
     public Action? OnRequestConfigurar { get; set; }
 
-    private static readonly IBrush _brushOk     = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush _brushWarn   = new SolidColorBrush(Color.Parse("#E2B53E"));
-    private static readonly IBrush _brushErr    = new SolidColorBrush(Color.Parse("#E15A5A"));
-    private static readonly IBrush _brushDim    = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _textHi      = new SolidColorBrush(Color.Parse("#E2E7E2"));
-    private static readonly IBrush _textDim     = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _textMid     = new SolidColorBrush(Color.Parse("#C5CFC5"));
-    private static readonly IBrush _bgMid       = new SolidColorBrush(Color.Parse("#13191A"));
-    private static readonly IBrush _bgHigh      = new SolidColorBrush(Color.Parse("#1B231E"));
-    private static readonly IBrush _border      = new SolidColorBrush(Color.Parse("#2A332C"));
-    private static readonly IBrush _gaugeBg     = new SolidColorBrush(Color.Parse("#2A332C"));
+    // Paleta CLARA de panel (tokens PilotXPanel* del theme). El semaforo va
+    // con los tonos oscuros de cada color: sobre fondo claro el verde de marca
+    // #4ABA3E da 2.5:1 y al sol no se lee. Medidos sobre blanco: verde 5.3:1,
+    // ambar 5.5:1, rojo 5.9:1, gris 4.5:1, texto 18.3:1.
+    private static readonly IBrush _brushOk     = new SolidColorBrush(Color.Parse("#2F7A26"));
+    private static readonly IBrush _brushWarn   = new SolidColorBrush(Color.Parse("#8A6100"));
+    private static readonly IBrush _brushErr    = new SolidColorBrush(Color.Parse("#C0261F"));
+    private static readonly IBrush _brushDim    = new SolidColorBrush(Color.Parse("#6E7A70"));
+    private static readonly IBrush _textHi      = new SolidColorBrush(Color.Parse("#101612"));
+    private static readonly IBrush _textDim     = new SolidColorBrush(Color.Parse("#535E54"));
+    private static readonly IBrush _textMid     = new SolidColorBrush(Color.Parse("#303B33"));
+    private static readonly IBrush _bgMid       = new SolidColorBrush(Color.Parse("#FFFFFF"));
+    private static readonly IBrush _bgHigh      = new SolidColorBrush(Color.Parse("#F5F7F4"));
+    private static readonly IBrush _border      = new SolidColorBrush(Color.Parse("#C5CFC5"));
+    private static readonly IBrush _gaugeBg     = new SolidColorBrush(Color.Parse("#D3DCD2"));
+    // Marca del objetivo sobre el gauge: raya oscura. Era blanca, y sobre riel
+    // claro desaparecia.
+    private static readonly IBrush _gaugeMark   = new SolidColorBrush(Color.Parse("#101612"));
 
     public QuantiXPanel()
     {
@@ -487,7 +494,7 @@ public partial class QuantiXPanel : UserControl
             mGrid.ColumnDefinitions.Add(new ColumnDefinition(new GridLength(1.0 - mSafe, GridUnitType.Star)));
             var marker = new Border
             {
-                Background = Brushes.White,
+                Background = _gaugeMark,
                 Width      = 2,
                 HorizontalAlignment = HorizontalAlignment.Right,
             };

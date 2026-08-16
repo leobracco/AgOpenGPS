@@ -34,15 +34,23 @@ public partial class FieldDataPanel : UserControl
     private HudSnapshot? _last;
 
     // Brushes para la pill de estado (mismo criterio que el HUD chip).
-    private static readonly IBrush _brushOk   = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush _brushWarn = new SolidColorBrush(Color.Parse("#E2B53E"));
-    private static readonly IBrush _brushErr  = new SolidColorBrush(Color.Parse("#E15A5A"));
-    private static readonly IBrush _brushDim  = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _activeBg  = new SolidColorBrush(Color.Parse("#262C28"));
-    private static readonly IBrush _activeBd  = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush _idleBd    = new SolidColorBrush(Color.Parse("#535E54"));
-    private static readonly IBrush _textHi    = new SolidColorBrush(Color.Parse("#E2E7E2"));
-    private static readonly IBrush _textMid   = new SolidColorBrush(Color.Parse("#C5CFC5"));
+    // Paleta CLARA de panel (tokens PilotXPanel* del theme). El semaforo va
+    // con los tonos oscuros de cada color: sobre fondo claro el verde de marca
+    // #4ABA3E da 2.5:1 y al sol no se lee. Medidos sobre blanco: verde 5.3:1,
+    // ambar 5.5:1, rojo 5.9:1, gris 4.5:1, texto 18.3:1.
+    private static readonly IBrush _brushOk   = new SolidColorBrush(Color.Parse("#2F7A26"));
+    private static readonly IBrush _brushWarn = new SolidColorBrush(Color.Parse("#8A6100"));
+    private static readonly IBrush _brushErr  = new SolidColorBrush(Color.Parse("#C0261F"));
+    private static readonly IBrush _brushDim  = new SolidColorBrush(Color.Parse("#6E7A70"));
+    // kg vs L: el elegido se pinta con verde suave y borde verde; el otro queda
+    // blanco con borde gris. Antes los dos tenian el MISMO fondo y solo cambiaba
+    // el borde — de un vistazo no se sabia cual estaba activo.
+    private static readonly IBrush _activeBg  = new SolidColorBrush(Color.Parse("#E8F4E5"));
+    private static readonly IBrush _idleBg    = new SolidColorBrush(Color.Parse("#FFFFFF"));
+    private static readonly IBrush _activeBd  = new SolidColorBrush(Color.Parse("#2F7A26"));
+    private static readonly IBrush _idleBd    = new SolidColorBrush(Color.Parse("#C5CFC5"));
+    private static readonly IBrush _textHi    = new SolidColorBrush(Color.Parse("#101612"));
+    private static readonly IBrush _textMid   = new SolidColorBrush(Color.Parse("#303B33"));
 
     public FieldDataPanel()
     {
@@ -195,13 +203,13 @@ public partial class FieldDataPanel : UserControl
         bool kg = _doseMode == "kg";
         if (btnKg != null)
         {
-            btnKg.Background  = kg ? _activeBg : _activeBg;
+            btnKg.Background  = kg ? _activeBg : _idleBg;
             btnKg.BorderBrush = kg ? _activeBd : _idleBd;
             btnKg.Foreground  = kg ? _textHi   : _textMid;
         }
         if (btnL != null)
         {
-            btnL.Background  = !kg ? _activeBg : _activeBg;
+            btnL.Background  = !kg ? _activeBg : _idleBg;
             btnL.BorderBrush = !kg ? _activeBd : _idleBd;
             btnL.Foreground  = !kg ? _textHi   : _textMid;
         }

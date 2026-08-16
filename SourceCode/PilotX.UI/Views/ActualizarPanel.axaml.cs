@@ -27,12 +27,17 @@ public partial class ActualizarPanel : UserControl
     private double _lastWidthScale = -1;
 
     // Brushes cacheados.
-    private static readonly IBrush BrushAccent = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush BrushWarn   = new SolidColorBrush(Color.Parse("#E2B53E"));
-    private static readonly IBrush BrushErr    = new SolidColorBrush(Color.Parse("#E15A5A"));
-    private static readonly IBrush BrushDim    = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush BrushHi     = new SolidColorBrush(Color.Parse("#E2E7E2"));
-    private static readonly IBrush BrushBgDeep = new SolidColorBrush(Color.Parse("#101612"));
+    // Paleta CLARA de panel (tokens PilotXPanel* del theme). El semaforo va
+    // con los tonos oscuros de cada color: sobre fondo claro el verde de marca
+    // #4ABA3E da 2.5:1 y al sol no se lee. Medidos sobre blanco: verde 5.3:1,
+    // ambar 5.5:1, rojo 5.9:1, gris 4.5:1, texto 18.3:1.
+    private static readonly IBrush BrushAccent = new SolidColorBrush(Color.Parse("#2F7A26"));
+    private static readonly IBrush BrushWarn   = new SolidColorBrush(Color.Parse("#8A6100"));
+    private static readonly IBrush BrushErr    = new SolidColorBrush(Color.Parse("#C0261F"));
+    private static readonly IBrush BrushDim    = new SolidColorBrush(Color.Parse("#6E7A70"));
+    private static readonly IBrush BrushHi     = new SolidColorBrush(Color.Parse("#101612"));
+    // Fondo de la pastilla de fase cuando no hay nada en curso.
+    private static readonly IBrush BrushBgDeep = new SolidColorBrush(Color.Parse("#EDF1EC"));
 
     public ActualizarPanel()
     {
@@ -95,15 +100,15 @@ public partial class ActualizarPanel : UserControl
             switch (st.Phase)
             {
                 case 1: case 3: case 5:
-                    phasePill.Background = new SolidColorBrush(Color.Parse("#1F4ABA3E"));
+                    phasePill.Background = new SolidColorBrush(Color.Parse("#E8F4E5"));
                     phaseText.Foreground = BrushAccent;
                     break;
                 case 2: case 4:
-                    phasePill.Background = new SolidColorBrush(Color.Parse("#1FE2B53E"));
+                    phasePill.Background = new SolidColorBrush(Color.Parse("#FBF1DC"));
                     phaseText.Foreground = BrushWarn;
                     break;
                 case 9:
-                    phasePill.Background = new SolidColorBrush(Color.Parse("#1FE15A5A"));
+                    phasePill.Background = new SolidColorBrush(Color.Parse("#FBE6E6"));
                     phaseText.Foreground = BrushErr;
                     break;
                 default:

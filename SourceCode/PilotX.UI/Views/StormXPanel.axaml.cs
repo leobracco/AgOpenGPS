@@ -28,10 +28,14 @@ public partial class StormXPanel : UserControl
     private DateTime _lastSampleUtc = DateTime.MinValue;
 
     // Brushes para la pill de estado y el verdict color.
-    private static readonly IBrush _brushOk   = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush _brushWarn = new SolidColorBrush(Color.Parse("#E2B53E"));
-    private static readonly IBrush _brushErr  = new SolidColorBrush(Color.Parse("#E15A5A"));
-    private static readonly IBrush _brushDim  = new SolidColorBrush(Color.Parse("#8FA092"));
+    // Paleta CLARA de panel (tokens PilotXPanel* del theme). El semaforo va
+    // con los tonos oscuros de cada color: sobre fondo claro el verde de marca
+    // #4ABA3E da 2.5:1 y al sol no se lee. Medidos sobre blanco: verde 5.3:1,
+    // ambar 5.5:1, rojo 5.9:1, gris 4.5:1, texto 18.3:1.
+    private static readonly IBrush _brushOk   = new SolidColorBrush(Color.Parse("#2F7A26"));
+    private static readonly IBrush _brushWarn = new SolidColorBrush(Color.Parse("#8A6100"));
+    private static readonly IBrush _brushErr  = new SolidColorBrush(Color.Parse("#C0261F"));
+    private static readonly IBrush _brushDim  = new SolidColorBrush(Color.Parse("#6E7A70"));
 
     public StormXPanel()
     {
@@ -193,7 +197,7 @@ public partial class StormXPanel : UserControl
             var name = new TextBlock
             {
                 Text = string.IsNullOrEmpty(n.Uid) ? "--" : n.Uid,
-                Foreground = new SolidColorBrush(Color.Parse("#E2E7E2")),
+                Foreground = new SolidColorBrush(Color.Parse("#101612")),
                 FontWeight = FontWeight.SemiBold,
                 FontSize = 13,
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center

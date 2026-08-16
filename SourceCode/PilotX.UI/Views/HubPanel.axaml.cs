@@ -48,16 +48,20 @@ public partial class HubPanel : UserControl
     private OverlayPrefs _overlayPrefs = new();
 
     // Brushes cacheados (mismo patron que los otros paneles).
-    private static readonly SolidColorBrush BrushOk      = new(Color.Parse("#4ABA3E"));
-    private static readonly SolidColorBrush BrushWarn    = new(Color.Parse("#E2B53E"));
-    private static readonly SolidColorBrush BrushErr     = new(Color.Parse("#E15A5A"));
-    private static readonly SolidColorBrush BrushDim     = new(Color.Parse("#8FA092"));
-    private static readonly SolidColorBrush BrushTextHi  = new(Color.Parse("#E2E7E2"));
-    private static readonly SolidColorBrush BrushTextMid = new(Color.Parse("#C5CFC5"));
-    private static readonly SolidColorBrush BrushBgHigh  = new(Color.Parse("#262C28"));
-    private static readonly SolidColorBrush BrushBgMid   = new(Color.Parse("#1A1F1B"));
-    private static readonly SolidColorBrush BrushBorder  = new(Color.Parse("#2A332C"));
-    private static readonly SolidColorBrush BrushBorderHigh = new(Color.Parse("#535E54"));
+    // Paleta CLARA de panel (tokens PilotXPanel* del theme). El semaforo va
+    // con los tonos oscuros de cada color: sobre fondo claro el verde de marca
+    // #4ABA3E da 2.5:1 y al sol no se lee. Medidos sobre blanco: verde 5.3:1,
+    // ambar 5.5:1, rojo 5.9:1, gris 4.5:1, texto 18.3:1.
+    private static readonly SolidColorBrush BrushOk      = new(Color.Parse("#2F7A26"));
+    private static readonly SolidColorBrush BrushWarn    = new(Color.Parse("#8A6100"));
+    private static readonly SolidColorBrush BrushErr     = new(Color.Parse("#C0261F"));
+    private static readonly SolidColorBrush BrushDim     = new(Color.Parse("#6E7A70"));
+    private static readonly SolidColorBrush BrushTextHi  = new(Color.Parse("#101612"));
+    private static readonly SolidColorBrush BrushTextMid = new(Color.Parse("#303B33"));
+    private static readonly SolidColorBrush BrushBgHigh  = new(Color.Parse("#EDF1EC"));
+    private static readonly SolidColorBrush BrushBgMid   = new(Color.Parse("#FFFFFF"));
+    private static readonly SolidColorBrush BrushBorder  = new(Color.Parse("#C5CFC5"));
+    private static readonly SolidColorBrush BrushBorderHigh = new(Color.Parse("#C5CFC5"));
     private static readonly SolidColorBrush BrushWhite   = new(Colors.White);
 
     /// <summary>
@@ -379,7 +383,9 @@ public partial class HubPanel : UserControl
     private static void PaintOverlayButton(Button? btn, bool on)
     {
         if (btn == null) return;
-        btn.Opacity = on ? 1.0 : 0.55;
+        // Apagado ya NO se atenua: sobre fondo claro, el 55% de opacidad dejaba
+        // el rotulo en 3.2:1 y al sol no se leia. El estado se distingue por el
+        // relleno (verde lleno = prendido, gris = apagado).
         btn.Background = on ? BrushOk : BrushBgHigh;
         btn.BorderBrush = on ? BrushOk : BrushBorderHigh;
         btn.Foreground = on ? BrushWhite : BrushTextMid;

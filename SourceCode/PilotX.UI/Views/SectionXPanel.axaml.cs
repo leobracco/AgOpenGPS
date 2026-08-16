@@ -33,14 +33,21 @@ public partial class SectionXPanel : UserControl
     // pagina del Hub cuando el operario pide "Configurar".
     public Action? OnRequestConfigurar { get; set; }
 
-    private static readonly IBrush _brushOk     = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush _brushWarn   = new SolidColorBrush(Color.Parse("#E2B53E"));
-    private static readonly IBrush _brushErr    = new SolidColorBrush(Color.Parse("#E15A5A"));
-    private static readonly IBrush _brushDim    = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _textHi      = new SolidColorBrush(Color.Parse("#E2E7E2"));
-    private static readonly IBrush _textDim     = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush _bgOff       = new SolidColorBrush(Color.Parse("#1B231E"));
-    private static readonly IBrush _borderOff   = new SolidColorBrush(Color.Parse("#2A332C"));
+    // Paleta CLARA de panel (tokens PilotXPanel* del theme). El semaforo va
+    // con los tonos oscuros de cada color: sobre fondo claro el verde de marca
+    // #4ABA3E da 2.5:1 y al sol no se lee. Medidos sobre blanco: verde 5.3:1,
+    // ambar 5.5:1, rojo 5.9:1, gris 4.5:1, texto 18.3:1.
+    private static readonly IBrush _brushOk     = new SolidColorBrush(Color.Parse("#2F7A26"));
+    private static readonly IBrush _brushWarn   = new SolidColorBrush(Color.Parse("#8A6100"));
+    private static readonly IBrush _brushErr    = new SolidColorBrush(Color.Parse("#C0261F"));
+    private static readonly IBrush _brushDim    = new SolidColorBrush(Color.Parse("#6E7A70"));
+    private static readonly IBrush _textHi      = new SolidColorBrush(Color.Parse("#101612"));
+    private static readonly IBrush _textDim     = new SolidColorBrush(Color.Parse("#535E54"));
+    private static readonly IBrush _bgOff       = new SolidColorBrush(Color.Parse("#EDF1EC"));
+    private static readonly IBrush _borderOff   = new SolidColorBrush(Color.Parse("#C5CFC5"));
+    // Seccion abierta: relleno verde de marca con texto OSCURO encima (7.3:1).
+    private static readonly IBrush _fillOpen    = new SolidColorBrush(Color.Parse("#4ABA3E"));
+    private static readonly IBrush _textOnFill  = new SolidColorBrush(Color.Parse("#101612"));
 
     public SectionXPanel()
     {
@@ -166,7 +173,7 @@ public partial class SectionXPanel : UserControl
     {
         var border = new Border
         {
-            Background     = open ? _brushOk    : _bgOff,
+            Background     = open ? _fillOpen   : _bgOff,
             BorderBrush    = open ? _brushOk    : _borderOff,
             BorderThickness = new global::Avalonia.Thickness(1),
             CornerRadius   = new global::Avalonia.CornerRadius(8),
@@ -182,7 +189,7 @@ public partial class SectionXPanel : UserControl
         sp.Children.Add(new TextBlock
         {
             Text          = "Sec " + number.ToString(CultureInfo.InvariantCulture),
-            Foreground    = open ? Brushes.White : _textDim,
+            Foreground    = open ? _textOnFill : _textDim,
             FontSize      = 11,
             FontWeight    = FontWeight.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -190,7 +197,7 @@ public partial class SectionXPanel : UserControl
         sp.Children.Add(new TextBlock
         {
             Text          = open ? "ABIERTA" : "cerrada",
-            Foreground    = open ? Brushes.White : _textDim,
+            Foreground    = open ? _textOnFill : _textDim,
             FontSize      = 13,
             FontWeight    = open ? FontWeight.Bold : FontWeight.Normal,
             HorizontalAlignment = HorizontalAlignment.Center,

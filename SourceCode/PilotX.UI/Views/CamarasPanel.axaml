@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="PilotX.Desktop.Views.CamarasPanel"
-             Background="{StaticResource PilotXBgDeep}">
+             Background="{StaticResource PilotXPanelBg}">
     <!--
         CamarasPanel — reemplazo nativo (parcial) de pages/camaras.html.
 
@@ -17,35 +17,38 @@
 
         Cadence: refrescoMs viene del /api/camaras/config (default 1000ms).
     -->
+    <!-- Variante Light: el cromo (cabecera, botones de layout) va claro;
+         el mosaico de video se queda oscuro a proposito. -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
     <Grid RowDefinitions="Auto,Auto,*">
 
         <!-- ============ Header ============ -->
         <Grid Grid.Row="0" Margin="24,20,24,0" ColumnDefinitions="*,Auto">
             <StackPanel Grid.Column="0" Spacing="2">
                 <TextBlock Text="Camaras"
-                           Foreground="{StaticResource PilotXTextHi}"
+                           Foreground="{StaticResource PilotXPanelText}"
                            FontSize="22"
                            FontWeight="SemiBold"/>
                 <TextBlock Name="Subtitle"
                            Text="Cargando..."
-                           Foreground="{StaticResource PilotXTextDim}"
+                           Foreground="{StaticResource PilotXPanelTextDim}"
                            FontSize="12"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <Border Background="{StaticResource PilotXBgHigh}"
-                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                <Border Background="{StaticResource PilotXPanelSurface2}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                         BorderThickness="1"
                         CornerRadius="999"
                         Padding="14,6,14,6">
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <Ellipse Name="StatusDot"
                                  Width="10" Height="10"
-                                 Fill="{StaticResource PilotXTextDim}"
+                                 Fill="{StaticResource PilotXPanelTextDim}"
                                  VerticalAlignment="Center"/>
                         <TextBlock Name="StatusText"
                                    Text="--"
-                                   Foreground="{StaticResource PilotXTextMid}"
+                                   Foreground="{StaticResource PilotXPanelTextMid}"
                                    FontSize="13"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
@@ -55,8 +58,8 @@
                         Content="Configurar"
                         MinHeight="40"
                         Padding="18,0,18,0"
-                        Background="{StaticResource PilotXAccent}"
-                        Foreground="{StaticResource PilotXBgDeep}"
+                        Background="{StaticResource PilotXPanelAccent}"
+                        Foreground="{StaticResource PilotXPanelText}"
                         FontWeight="SemiBold"
                         Click="OnConfigurarClick"/>
 
@@ -69,10 +72,10 @@
                         Content="Cerrar"
                         MinHeight="40"
                         Padding="18,0,18,0"
-                        Background="{StaticResource PilotXBgHigh}"
-                        BorderBrush="{StaticResource PilotXBorderHigh}"
+                        Background="{StaticResource PilotXPanelSurface2}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                         BorderThickness="1"
-                        Foreground="{StaticResource PilotXTextHi}"
+                        Foreground="{StaticResource PilotXPanelText}"
                         Click="OnCerrarClick"/>
             </StackPanel>
         </Grid>
@@ -83,7 +86,7 @@
             <Button Name="BtnLay2x1" Content="2x1" Tag="2x1" Click="OnLayoutClick" MinHeight="38" Padding="14,0"/>
             <Button Name="BtnLay2x2" Content="2x2" Tag="2x2" Click="OnLayoutClick" MinHeight="38" Padding="14,0"/>
             <TextBlock Text="Doble click en una camara para enfocarla o volver."
-                       Foreground="{StaticResource PilotXTextDim}"
+                       Foreground="{StaticResource PilotXPanelTextDim}"
                        FontSize="11"
                        VerticalAlignment="Center"
                        Margin="16,0,0,0"/>
@@ -92,8 +95,8 @@
         <!-- ============ Grid de camaras ============ -->
         <Border Grid.Row="2"
                 Margin="24,14,24,24"
-                Background="{StaticResource PilotXBgMid}"
-                BorderBrush="{StaticResource PilotXBorder}"
+                Background="{StaticResource PilotXPanelSurface}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="14,14,14,14">
@@ -103,7 +106,7 @@
                              IsVisible="False"/>
                 <TextBlock Name="EmptyMsg"
                            Text="No hay camaras activas configuradas. Tocá Configurar para activarlas."
-                           Foreground="{StaticResource PilotXTextDim}"
+                           Foreground="{StaticResource PilotXPanelTextDim}"
                            FontSize="13"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
@@ -114,4 +117,5 @@
             </Grid>
         </Border>
     </Grid>
+    </ThemeVariantScope>
 </UserControl>

@@ -39,16 +39,25 @@ public partial class CamarasPanel : UserControl
     private int _focusIdx = -1;        // idx absoluto (sobre _config.Camaras) cuando layout=1x1
 
     // Brushes cacheados.
-    private static readonly IBrush BrushOk      = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush BrushWarn    = new SolidColorBrush(Color.Parse("#E2B53E"));
-    private static readonly IBrush BrushErr     = new SolidColorBrush(Color.Parse("#E15A5A"));
-    private static readonly IBrush BrushDim     = new SolidColorBrush(Color.Parse("#8FA092"));
-    private static readonly IBrush BrushMid     = new SolidColorBrush(Color.Parse("#C5CFC5"));
-    private static readonly IBrush BrushHi      = new SolidColorBrush(Color.Parse("#E2E7E2"));
-    private static readonly IBrush BrushBgHigh  = new SolidColorBrush(Color.Parse("#1A2520"));
+    // Paleta CLARA de panel (tokens PilotXPanel* del theme). El semaforo va
+    // con los tonos oscuros de cada color: sobre fondo claro el verde de marca
+    // #4ABA3E da 2.5:1 y al sol no se lee. Medidos sobre blanco: verde 5.3:1,
+    // ambar 5.5:1, rojo 5.9:1, gris 4.5:1, texto 18.3:1.
+    private static readonly IBrush BrushOk      = new SolidColorBrush(Color.Parse("#2F7A26"));
+    private static readonly IBrush BrushWarn    = new SolidColorBrush(Color.Parse("#8A6100"));
+    private static readonly IBrush BrushErr     = new SolidColorBrush(Color.Parse("#C0261F"));
+    private static readonly IBrush BrushDim     = new SolidColorBrush(Color.Parse("#6E7A70"));
+    private static readonly IBrush BrushMid     = new SolidColorBrush(Color.Parse("#303B33"));
+    private static readonly IBrush BrushHi      = new SolidColorBrush(Color.Parse("#101612"));
+    private static readonly IBrush BrushBgHigh  = new SolidColorBrush(Color.Parse("#EDF1EC"));
     private static readonly IBrush BrushAccent  = new SolidColorBrush(Color.Parse("#4ABA3E"));
-    private static readonly IBrush BrushBorder  = new SolidColorBrush(Color.Parse("#26302A"));
+    private static readonly IBrush BrushBorder  = new SolidColorBrush(Color.Parse("#C5CFC5"));
+    // EXCEPCION deliberada: el mosaico de video se queda oscuro. La chapita con
+    // el nombre y el punto de estado van ENCIMA de la imagen de la camara, asi
+    // que usan los tonos claros del semaforo (los oscuros se pierden ahi).
     private static readonly IBrush BrushTileBg  = new SolidColorBrush(Color.Parse("#0E1612"));
+    private static readonly IBrush BrushOkVideo = new SolidColorBrush(Color.Parse("#4ABA3E"));
+    private static readonly IBrush BrushErrVideo= new SolidColorBrush(Color.Parse("#E15A5A"));
 
     public Action? OnRequestConfigurar { get; set; }
 
@@ -202,7 +211,7 @@ public partial class CamarasPanel : UserControl
                     new Ellipse
                     {
                         Width = 8, Height = 8,
-                        Fill = BrushOk,
+                        Fill = BrushOkVideo,
                         VerticalAlignment = VerticalAlignment.Center,
                         Name = "Dot_" + idx.ToString(CultureInfo.InvariantCulture)
                     },
@@ -336,7 +345,7 @@ public partial class CamarasPanel : UserControl
         {
             // Fallo. Marco el tile como errored.
             if (err != null) err.IsVisible = true;
-            if (dot != null) dot.Fill = BrushErr;
+            if (dot != null) dot.Fill = BrushErrVideo;
             img.Opacity = 0.15;
             return;
         }
@@ -348,13 +357,13 @@ public partial class CamarasPanel : UserControl
             img.Source = bmp;
             img.Opacity = 1.0;
             if (err != null) err.IsVisible = false;
-            if (dot != null) dot.Fill = BrushOk;
+            if (dot != null) dot.Fill = BrushOkVideo;
             if (ph  != null) ph.IsVisible = false;
         }
         catch
         {
             if (err != null) err.IsVisible = true;
-            if (dot != null) dot.Fill = BrushErr;
+            if (dot != null) dot.Fill = BrushErrVideo;
         }
     }
 
