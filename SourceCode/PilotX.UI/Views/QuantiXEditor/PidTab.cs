@@ -173,7 +173,10 @@ public sealed class PidTab : QxTab
     {
         QxUi.SetMsg(msg, "… enviando", "");
         var m = C.FindMotor(uid, mi);
-        if (m != null) { m.Kp = kp; m.Ki = ki; m.Kd = kd; }
+        // Aplicar PID es escribir de verdad sobre este motor: si era el
+        // placeholder de la UI, deja de serlo (si no, el guardado lo purga y
+        // los Kp/Ki/Kd se pierden sin avisar).
+        if (m != null) { QxEditorCtx.MarcarTocado(m); m.Kp = kp; m.Ki = ki; m.Kd = kd; }
 
         var r = await C.Client.PushPidAsync(uid, mi, kp, ki, kd).ConfigureAwait(true);
         QxUi.SetMsg(msg, r.Ok ? "✓ aplicado" : r.TextoError(), r.Ok ? "ok" : "err");

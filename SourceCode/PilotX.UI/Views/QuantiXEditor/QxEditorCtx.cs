@@ -176,6 +176,20 @@ public sealed class QxEditorCtx
         => m != null && m.EsPlaceholder && !m.Habilitado
            && (m.Cortes == null || m.Cortes.Count == 0);
 
+    /// <summary>El operario escribió algo REAL en este motor: midió el tope o
+    /// el PWM mínimo, aplicó PID, guardó la calibración. Si era el placeholder
+    /// de la UI deja de serlo y a partir de acá se persiste como cualquier
+    /// motor.
+    ///
+    /// Va en todo camino que ESCRIBE y después guarda. Sin esto la medición se
+    /// descartaba EN SILENCIO al persistir: la pantalla decía "✓ aplicado" y el
+    /// archivo (y el nodo, y OrbitX) no tenían nada — el mismo pecado que este
+    /// arreglo vino a cerrar, al revés.</summary>
+    public static void MarcarTocado(QxMotorConfig? m)
+    {
+        if (m != null) m.EsPlaceholder = false;
+    }
+
     public int MotorActivo(string tab, int cantidad)
     {
         int i = MotorVista.TryGetValue(tab, out var v) ? v : 0;

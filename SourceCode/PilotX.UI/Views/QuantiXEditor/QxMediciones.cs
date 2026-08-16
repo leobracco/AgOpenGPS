@@ -107,6 +107,10 @@ public static class QxMediciones
         var motor = C.FindMotor(uid, mi);
         if (motor != null)
         {
+            // El tope se midió contra el motor REAL: si era el placeholder de
+            // la UI deja de serlo, así el guardado no lo purga y la medición
+            // no se pierde después de decir "✓ aplicado".
+            QxEditorCtx.MarcarTocado(motor);
             motor.MaxHz = maxHz;
             await C.GuardarAsync(ct).ConfigureAwait(true);
             await C.Client.SendNodoAsync(uid, ct).ConfigureAwait(true);
@@ -199,6 +203,9 @@ public static class QxMediciones
         for (int k = 0; k < ms.Count; k++)
         {
             if (k == origen || ms[k] == null) continue;
+            // Copiarle el fierro es configurarlo: un placeholder que recibe la
+            // copia ya no es relleno de pantalla.
+            QxEditorCtx.MarcarTocado(ms[k]);
             ms[k].CopiarFierroDesde(src);
             copiados++;
         }

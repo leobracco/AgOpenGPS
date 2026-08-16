@@ -489,6 +489,10 @@ public sealed class CalibracionTab : QxTab
         var m = C.FindMotor(uid, mi);
         if (m == null) { QxUi.SetMsg(resMsg, "✕ no encuentro el motor", "err"); return; }
 
+        // Guardar una calibración es escribir de verdad sobre este motor: si
+        // era el placeholder de la UI deja de serlo, o el guardado lo purga y
+        // la calibración se pierde en silencio.
+        QxEditorCtx.MarcarTocado(m);
         if (esSem) m.SemillasVuelta = Math.Round(nuevo, 2);
         else m.MeterCal = Math.Round(nuevo, 4);
         if (ppr > 0) m.DientesEngranaje = ppr;

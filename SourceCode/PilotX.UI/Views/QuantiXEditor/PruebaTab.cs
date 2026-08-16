@@ -272,6 +272,8 @@ public sealed class PruebaTab : QxTab
                     var m = C.FindMotor(uid, mi);
                     if (m != null)
                     {
+                        // Medido contra el fierro: si era placeholder, ya no.
+                        QxEditorCtx.MarcarTocado(m);
                         m.PwmMin = pwm;
                         await C.GuardarAsync(CancellationToken.None).ConfigureAwait(true);
                         await C.Client.SendNodoAsync(uid, CancellationToken.None).ConfigureAwait(true);
@@ -311,6 +313,9 @@ public sealed class PruebaTab : QxTab
         if (m == null) { QxUi.SetMsg(msg, "✕ motor no encontrado", "err"); return; }
         QxUi.SetMsg(msg, "… enviando", "");
 
+        // Cargar la avanzada a mano cuenta como configurarlo: deja de ser el
+        // placeholder de la UI y pasa a guardarse.
+        QxEditorCtx.MarcarTocado(m);
         m.PwmMin = QxUi.LeerInt(tPwmMin, 0);
         m.PwmMax = QxUi.LeerInt(tPwmMax, 4095);
         m.MaxHz = QxUi.LeerDouble(tMaxHz, 0);
