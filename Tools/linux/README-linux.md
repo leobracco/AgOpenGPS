@@ -50,6 +50,21 @@ X-GNOME-Autostart-enabled=true
 EOF
 ```
 
+## Banco en VirtualBox
+
+Para probar el kiosko en una VM antes de la pantalla real:
+
+- Instalación desatendida: `kiosk/autoinstall-pilotx.yaml` sobre el ISO de
+  **Ubuntu Server** (el de escritorio ignora el autoinstall y bootea a la
+  sesión live).
+- **Gráfica: VBoxSVGA, no VMSVGA.** Con VMSVGA la VM se cuelga en "Begin:
+  Loading essential drivers" apenas se instala Xorg (el initramfs carga
+  `vmwgfx` y no arranca). Con `VBoxManage modifyvm <vm> --graphicscontroller
+  vboxsvga` bootea normal (medido 2026-08-15).
+- La ventana "separate" de VirtualBox no es necesaria: conviene `--type
+  headless` y entrar por SSH (port-forward), así el guest no depende del
+  visor.
+
 ## Notas
 
 - El broker MQTT vive en el Engine (`--corex`) — NO instalar Mosquitto.

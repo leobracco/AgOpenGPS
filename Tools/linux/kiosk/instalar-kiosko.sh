@@ -24,6 +24,15 @@ apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
     lightdm openbox unclutter xdotool x11-xserver-utils \
     pulseaudio-utils libwebkit2gtk-4.1-0 brightnessctl
+# El servidor X va EXPLICITO: sobre una base minima, --no-install-recommends
+# no arrastra xserver-xorg y lightdm muere en bucle con "Can't launch X server
+# X -core, not found in path" (medido en la VM de banco 2026-08-15). Los
+# drivers de video van los tres: vmware (VMSVGA de VirtualBox/VMware), fbdev y
+# vesa como red de seguridad en hardware de cabina desconocido.
+apt-get install -y -qq --no-install-recommends \
+    xserver-xorg-core xserver-xorg-input-libinput \
+    xserver-xorg-video-vmware xserver-xorg-video-fbdev xserver-xorg-video-vesa \
+    x11-xkb-utils xkb-data
 
 echo "== usuario pilotx =="
 id pilotx >/dev/null 2>&1 || useradd -m -s /bin/bash pilotx
