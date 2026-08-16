@@ -260,21 +260,35 @@ public partial class FlowXEditorPanel : UserControl
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            _ctx.Cfg = cfg ?? new FlowXConfig { Enabled = true, Nodos = new List<FlowXNodoConfig>() };
-            _ctx.Cfg.Nodos ??= new List<FlowXNodoConfig>();
+            // Si el GET falló, Cfg queda en NULL a propósito y NO se inventa una
+            // config vacía: el POST reemplaza el archivo entero, así que guardar
+            // sobre una config inventada borraría de disco los nodos, el PID y
+            // los cortes del operario. Igual que el JS, que hace "if (!cfg)
+            // return" en saveCfg().
+            _ctx.Cfg = cfg;
+            if (cfg != null) cfg.Nodos ??= new List<FlowXNodoConfig>();
             _ctx.Aog = aog;
             _ctx.Lan = lan;
             _ctx.SelectedProdIdx = 0;
             var nodos = _ctx.Nodos();
             _ctx.CurrentUid = nodos.Count > 0 ? nodos[0].Uid : null;
             if (cfg == null)
-                SetEstado(PilotX.Cockpit.Bars.Traductor.T("La pantalla no responde — no se pudo leer la configuración."), "err");
+                SetEstado(PilotX.Cockpit.Bars.Traductor.T(
+                    "No se pudo leer la configuración. Tocá Recargar antes de guardar."), "err");
         });
     }
 
     private async Task<bool> GuardarConfigAsync()
     {
-        if (_ctx.Client == null || _ctx.Cfg == null) return false;
+        if (_ctx.Client == null) return false;
+        if (_ctx.Cfg == null)
+        {
+            // Nunca se guarda sin haber leído antes: el POST pisa el archivo
+            // completo y la pantalla no tiene qué mandar.
+            SetEstado(PilotX.Cockpit.Bars.Traductor.T(
+                "No hay configuración leída. Tocá Recargar y volvé a intentar."), "err");
+            return false;
+        }
         SetEstado("Guardando…", "");
         var r = await _ctx.Client.SaveConfigAsync(_ctx.Cfg, _ctx.Ct).ConfigureAwait(true);
         if (r.Ok)
@@ -415,7 +429,15 @@ public partial class FlowXEditorPanel : UserControl
     private void OnImportarClick(object? s, RoutedEventArgs e)
     {
         var sel = this.FindControl<ComboBox>("LanSelect");
-        if (sel == null || _ctx.Cfg == null) return;
+        if (sel == null) return;
+        if (_ctx.Cfg == null)
+        {
+            // Sin config leída no se puede agregar: el alta se persiste con el
+            // POST del objeto entero y no hay objeto.
+            SetEstado(PilotX.Cockpit.Bars.Traductor.T(
+                "No hay configuración leída. Tocá Recargar y volvé a intentar."), "err");
+            return;
+        }
         int i = sel.SelectedIndex;
         if (i < 0 || i >= _uidsLan.Count) return;
         string uid = _uidsLan[i];
@@ -791,14 +813,21 @@ public partial class FlowXEditorPanel : UserControl
 
         CerrarPwm(pararMotor: true);
         RebuildTabActiva();
-        if (!neg) await GuardarConfigAsync().ConfigureAwait(true);
+        bool persistido = false;
+        if (!neg) persistido = await GuardarConfigAsync().ConfigureAwait(true);
 
+        // Si el POST no salió, se avisa: el bridge sigue reenviando el valor
+        // viejo en cada target (~200 ms) y termina pisando lo del nodo.
+        string donde = neg
+            ? PilotX.Cockpit.Bars.Traductor.T(" en el nodo.")
+            : persistido
+                ? PilotX.Cockpit.Bars.Traductor.T(" en el nodo y en la configuración.")
+                : PilotX.Cockpit.Bars.Traductor.T(
+                    " en el nodo, pero NO se pudo guardar la configuración: tocá Guardar.");
         await AlertarAsync("PWM mínimo guardado",
             PilotX.Cockpit.Bars.Traductor.T("Se guardó el PWM mínimo")
             + " (" + PilotX.Cockpit.Bars.Traductor.T(neg ? "cerrar" : "abrir") + ") = "
-            + mag.ToString(CultureInfo.InvariantCulture)
-            + (neg ? PilotX.Cockpit.Bars.Traductor.T(" en el nodo.")
-                   : PilotX.Cockpit.Bars.Traductor.T(" en el nodo y en la configuración."))).ConfigureAwait(true);
+            + mag.ToString(CultureInfo.InvariantCulture) + donde).ConfigureAwait(true);
     }
 
     // =======================================================================
