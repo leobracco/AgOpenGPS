@@ -4,7 +4,7 @@
 //
 // QUÉ QUEDÓ NATIVO: el contenedor entero (navegación, footer con
 // perfil/ancho/unidades, mensajes de estado, botón Guardar) y las pestañas ya
-// portadas — hoy "Resumen".
+// portadas — hoy "Resumen" y "Vehículo › Tipo".
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -70,7 +70,10 @@ public partial class ConfigPanel : UserControl
     {
         new CfgNav { Tab = "summary",     Titulo = "Resumen",      Grupo = "",           Nativa = true  },
 
-        new CfgNav { Tab = "vconfig",     Titulo = "Tipo y marca", Grupo = "Vehículo"                   },
+        // "Tipo", no "Tipo y marca": la elección de marca murió el 2026-08-10
+        // (el vehículo del mapa es siempre el triángulo verde). El HTML todavía
+        // arrastra el rótulo viejo en su menú; acá el nombre dice lo que hay.
+        new CfgNav { Tab = "vconfig",     Titulo = "Tipo",         Grupo = "Vehículo",   Nativa = true  },
         new CfgNav { Tab = "vdimensions", Titulo = "Dimensiones",  Grupo = "Vehículo"                   },
         new CfgNav { Tab = "vantenna",    Titulo = "Antena",       Grupo = "Vehículo"                   },
 
@@ -538,6 +541,7 @@ public partial class ConfigPanel : UserControl
     /// (y pone Nativa = true en NAV).</summary>
     private ConfigTab CrearTab(string tab) => tab switch
     {
+        "vconfig" => new VehiculoTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 

@@ -7,7 +7,7 @@
 
         QUÉ QUEDÓ NATIVO: el contenedor (navegación por grupos, footer con
         perfil/ancho/unidades, mensajes de estado, botón Guardar) y las
-        pestañas que ya se portaron — hoy "Resumen".
+        pestañas que ya se portaron — hoy "Resumen" y "Vehículo › Tipo".
         QUÉ SIGUE EN HTML: las pestañas todavía no portadas y los ~25 módulos
         embebidos (Hub, QuantiX, Cámaras, Cloud, Mantenimiento, Ayuda). Se
         abren por WebView desde este mismo menú, así que el operario llega a

@@ -48,6 +48,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Iconos propios de la UI (hoy: los 4 tipos de vehiculo de Configuracion,
+         rasterizados desde los SVG del handoff con
+         Tools/rasterizar-iconos-vehiculo.py). Los iconos de las barras del
+         cockpit siguen viviendo en PilotX.Cockpit.Bars/Assets. -->
+    <AvaloniaResource Include="Assets/**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Barras del cockpit (menÃºs superior/derecha/abajo/izquierda). -->
     <ProjectReference Include="..\PilotX.Cockpit.Bars\PilotX.Cockpit.Bars.csproj" />
   </ItemGroup>
