@@ -5,7 +5,7 @@
 // QUÉ QUEDÓ NATIVO: el contenedor entero (navegación, footer con
 // perfil/ancho/unidades, mensajes de estado, botón Guardar) y las pestañas ya
 // portadas — hoy "Resumen", "Vehículo › Tipo", "Vehículo › Dimensiones",
-// "Vehículo › Antena" e "Implemento › Enganche".
+// "Vehículo › Antena", "Implemento › Enganche" e "Implemento › Distancias".
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -79,7 +79,7 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "vantenna",    Titulo = "Antena",       Grupo = "Vehículo",   Nativa = true  },
 
         new CfgNav { Tab = "tconfig",     Titulo = "Enganche",     Grupo = "Implemento", Nativa = true  },
-        new CfgNav { Tab = "thitch",      Titulo = "Distancias",   Grupo = "Implemento"                 },
+        new CfgNav { Tab = "thitch",      Titulo = "Distancias",   Grupo = "Implemento", Nativa = true  },
         new CfgNav { Tab = "tooloffset",  Titulo = "Offset",       Grupo = "Implemento"                 },
         new CfgNav { Tab = "toolpivot",   Titulo = "Pivote",       Grupo = "Implemento"                 },
         new CfgNav { Tab = "tsettings",   Titulo = "Timing",       Grupo = "Implemento"                 },
@@ -546,6 +546,7 @@ public partial class ConfigPanel : UserControl
         "vdimensions" => new DimensionesTab(_ctx),
         "vantenna" => new AntenaTab(_ctx),
         "tconfig" => new EngancheTab(_ctx),
+        "thitch" => new DistanciasTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 
