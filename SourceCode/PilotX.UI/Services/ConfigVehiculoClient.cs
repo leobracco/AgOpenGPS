@@ -181,6 +181,26 @@ public sealed class ConfigRumboSec
     [JsonPropertyName("imu_present")]           public bool ImuPresent { get; set; }
 }
 
+/// <summary>
+/// Rolido de la IMU (pestaña "GPS / IMU › Rolido").
+///   · roll_zero: el CERO en grados (setIMU_rollZero). Es un offset del lado de
+///     PilotX, no algo que el ECU sepa.
+///   · roll_filter: posición de la BARRA 0..98, no el peso. El motor guarda
+///     `setIMU_rollFilter = barra × 0.01` y el snapshot devuelve
+///     `(int)(peso × 100)` — round-trip exacto.
+///   · imu_present / imu_roll: RUNTIME, no configuración. `imu_roll` vale
+///     88888 cuando NO hay dato: es un CENTINELA, no un ángulo. Formatearlo sin
+///     mirar imu_present pinta "+88888.0°" y vuelca el tractorcito.
+/// </summary>
+public sealed class ConfigRolidoSec
+{
+    [JsonPropertyName("roll_zero")]   public double RollZero { get; set; }
+    [JsonPropertyName("roll_filter")] public int RollFilter { get; set; }
+    [JsonPropertyName("invert_roll")] public bool InvertRoll { get; set; }
+    [JsonPropertyName("imu_present")] public bool ImuPresent { get; set; }
+    [JsonPropertyName("imu_roll")]    public double ImuRoll { get; set; }
+}
+
 public sealed class ConfigTramSec
 {
     [JsonPropertyName("tram_width")]           public double? TramWidth { get; set; }
@@ -190,7 +210,7 @@ public sealed class ConfigTramSec
 
 /// <summary>
 /// Snapshot de GET /api/aog/config. Solo se declaran las secciones que ya
-/// consume alguna pestaña nativa; las que faltan (relay, rolido, uturn,
+/// consume alguna pestaña nativa; las que faltan (relay, uturn,
 /// display, botones) se agregan cuando se porte su pestaña — el JSON extra se
 /// ignora sin romper nada.
 /// </summary>
@@ -212,7 +232,36 @@ public sealed class ConfigSnapshot
     [JsonPropertyName("switches")]    public ConfigSwitchesSec? Switches { get; set; }
     [JsonPropertyName("maquina")]     public ConfigMaquinaSec? Maquina { get; set; }
     [JsonPropertyName("rumbo")]       public ConfigRumboSec? Rumbo { get; set; }
+    [JsonPropertyName("rolido")]      public ConfigRolidoSec? Rolido { get; set; }
     [JsonPropertyName("tram")]        public ConfigTramSec? Tram { get; set; }
+}
+
+/// <summary>
+/// Respuesta de POST /api/aog/config/rolido/accion (las acciones inmediatas del
+/// cero: poner en cero, quitar offset, ±0,1°, reiniciar IMU). El backend YA
+/// aplicó y persistió cuando contesta ok:true — el panel no calcula nada, solo
+/// muestra lo que vuelve.
+/// `imu_roll` = 88888 cuando no hay dato (coherente con imu_present:false).
+/// </summary>
+public sealed class ConfigRolidoAccionResult
+{
+    [JsonPropertyName("ok")]          public bool Ok { get; set; }
+    [JsonPropertyName("error")]       public string? Error { get; set; }
+    [JsonPropertyName("roll_zero")]   public double RollZero { get; set; }
+    [JsonPropertyName("imu_roll")]    public double ImuRoll { get; set; }
+    [JsonPropertyName("imu_present")] public bool ImuPresent { get; set; }
+}
+
+/// <summary>
+/// Muestra en vivo de GET /api/aog/graph-correction. DTO mínimo: la pantalla de
+/// Rolido solo consume `roll_degrees` (rolido QUE USA PILOTX — cero e inversión
+/// ya aplicados por el motor) y `roll_present`. Los eastings del sample son del
+/// gráfico de chequeo de corrección, otra página.
+/// </summary>
+public sealed class CorrectionSample
+{
+    [JsonPropertyName("roll_degrees")] public double RollDegrees { get; set; }
+    [JsonPropertyName("roll_present")] public bool RollPresent { get; set; }
 }
 
 /// <summary>Respuesta de POST /api/aog/config/{seccion}.</summary>
@@ -301,6 +350,45 @@ public sealed class ConfigVehiculoClient
     /// </summary>
     public Task<ConfigResultado?> PrepararSeccionesAsync(CancellationToken ct = default)
         => GuardarAsync("secciones/preparar", new { }, ct);
+
+    /// <summary>
+    /// POST /api/aog/config/rolido/accion — acciones INMEDIATAS del cero de
+    /// rolido: "zero" | "quitar" | "subir" | "bajar" | "reset_imu". Aplican y
+    /// persisten al toque en el motor (no esperan a ningún botón Guardar).
+    /// null = no respondió; ok:false con error "sin-imu" cuando la acción
+    /// necesita dato de IMU y no lo hay.
+    /// </summary>
+    public async Task<ConfigRolidoAccionResult?> PostRolidoAccionAsync(string accion, CancellationToken ct = default)
+    {
+        try
+        {
+            string txt = JsonSerializer.Serialize(new { accion = accion ?? "" });
+            using var contenido = new StringContent(txt, Encoding.UTF8, "application/json");
+            using var resp = await _http.PostAsync(_baseUrl + "api/aog/config/rolido/accion", contenido, ct)
+                                        .ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return null;
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return JsonSerializer.Deserialize<ConfigRolidoAccionResult>(Limpio(json), _jsonOpts);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// GET /api/aog/graph-correction — la muestra en vivo del rolido (poll de la
+    /// pestaña Rolido, 500 ms). null = el motor no contestó: quien llama tiene
+    /// que CONSERVAR el último cuadro, no blanquear (un timeout no es "sin IMU").
+    /// </summary>
+    public async Task<CorrectionSample?> GetCorrectionAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var resp = await _http.GetAsync(_baseUrl + "api/aog/graph-correction", ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return null;
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return JsonSerializer.Deserialize<CorrectionSample>(Limpio(json), _jsonOpts);
+        }
+        catch { return null; }
+    }
 
     /// <summary>Teclado nativo de PilotX (misma señal HTTP que mandan las
     /// páginas del Hub). Catch mudo a propósito: sin teclado el campo se sigue

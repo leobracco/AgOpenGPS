@@ -13,7 +13,9 @@
 // 238 al módulo con su propio botón "Enviar + Guardar" y descarta si se cierra
 // sin enviar — ver la cabecera de MaquinaTab) y "GPS / IMU › Rumbo" (la única
 // con guardado MIXTO: el tipo de antena y el paso mínimo postean AL TOQUE, como
-// el original; el resto va por el botón Guardar — ver la cabecera de RumboTab).
+// el original; el resto va por el botón Guardar — ver la cabecera de RumboTab) y
+// "GPS / IMU › Rolido" (TRES semánticas de guardado a la vez y el único poll
+// propio del panel: el tractor en vivo a 500 ms — ver la cabecera de RolidoTab).
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -97,7 +99,7 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "amachine",    Titulo = "Máquina",      Grupo = "Secciones",  Nativa = true  },
 
         new CfgNav { Tab = "heading",     Titulo = "Rumbo",        Grupo = "GPS / IMU",  Nativa = true  },
-        new CfgNav { Tab = "roll",        Titulo = "Rolido",       Grupo = "GPS / IMU"                  },
+        new CfgNav { Tab = "roll",        Titulo = "Rolido",       Grupo = "GPS / IMU",  Nativa = true  },
 
         new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros"                      },
         new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros"                      },
@@ -576,6 +578,12 @@ public partial class ConfigPanel : UserControl
         // resto va por el botón Guardar. Ver la cabecera de RumboTab antes de
         // "emparejarla" con las hermanas.
         "heading" => new RumboTab(_ctx),
+        // Rolido mezcla TRES semánticas de guardado (también del original): las
+        // acciones del cero y el toggle "Invertir" postean AL TOQUE, y solo la
+        // barra de Filtro va por el botón Guardar. Además es la única con poll
+        // propio (500 ms, el tractor en vivo), que se para al salir. Ver la
+        // cabecera de RolidoTab antes de "emparejarla" con las hermanas.
+        "roll" => new RolidoTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 
