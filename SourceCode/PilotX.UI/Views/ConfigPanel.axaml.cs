@@ -21,9 +21,15 @@
 // y "Otros › Tram" (ancho de trocha + las dos preferencias de trochas; la
 // CONSTRUCCIÓN de las huellas sobre el lote sigue en pages/tramline(s).html —
 // ver la cabecera de TramTab).
+// y la fila «Módulos» del final, que ya NO es una puerta al menú HTML sino la
+// grilla nativa de módulos (ModulosTab): cada módulo abre su panel nativo si
+// existe, y solo los que todavía no están portados se muestran EMBEBIDOS en
+// esta misma tarjeta.
 // QUÉ SIGUE EN HTML: desde la ola 3c, NINGUNA fila del NAV — las 16 son
-// nativas. Lo único que sale al WebView es «Módulos y más…» (los módulos
-// embebidos) y las tres pestañas HUÉRFANAS de config.html —`relay`, `display`
+// nativas. Al WebView salen los módulos sin portar (LineX, Insumos, Mapas,
+// Calculadora, Lab PID, Diagnóstico PWM, OrbitX, Firmwares, Conectar celular,
+// Red WiFi, Eventos, Debug y Ayuda) y las tres pestañas HUÉRFANAS de
+// config.html —`relay`, `display`
 // y `botones`—, que no están en el NAV porque tampoco están en el menú del
 // HTML (las sacaron el 2026-08-03) y hoy NO las emite ningún botón ni ruta de
 // la UI. Ojo antes de darlas por muertas: `relay` es el mapa de pines que viaja
@@ -119,6 +125,11 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros",      Nativa = true  },
     };
 
+    /// <summary>Clave de la pestaña "Módulos" (la grilla nativa). No está en
+    /// NAV porque va abajo de todo, después del separador; el resto del shell
+    /// la trata como a cualquier pestaña nativa.</summary>
+    private const string TAB_MODULOS = "modulos";
+
     private readonly CfgCtx _ctx = new CfgCtx();
     private CancellationTokenSource? _cts;
 
@@ -146,6 +157,12 @@ public partial class ConfigPanel : UserControl
     /// los módulos). Recibe la ruta relativa; el host cierra este panel.</summary>
     public Action<string>? OnRequestHtml { get; set; }
 
+    /// <summary>La lista de módulos pide abrir un PANEL NATIVO por su clave
+    /// ("hub", "quantix", "nodos", …). Lo resuelve MainWindow: es el único que
+    /// conoce los paneles, y son de pantalla completa, así que al abrirse
+    /// cierran esta Configuración.</summary>
+    public Action<string>? OnRequestPanelNativo { get; set; }
+
     /// <summary>Aviso corto → toast del host. Nunca modal.</summary>
     public event Action<string>? Aviso;
 
@@ -157,6 +174,8 @@ public partial class ConfigPanel : UserControl
         _ctx.MarcarSucio = MarcarSucio;
         _ctx.RefrescarSnapshot = RefrescarSnapshotAsync;
         _ctx.AbrirHtml = r => OnRequestHtml?.Invoke(r);
+        _ctx.AbrirHtmlEmbebido = (r, t) => MostrarHtmlEmbebido(r, PilotX.Cockpit.Bars.Traductor.T(t));
+        _ctx.AbrirPanelNativo = c => OnRequestPanelNativo?.Invoke(c);
         ArmarMenu();
     }
 
@@ -167,6 +186,7 @@ public partial class ConfigPanel : UserControl
     public static bool EsNativa(string? tab)
     {
         if (string.IsNullOrEmpty(tab)) return true;          // sin ?tab= aterriza en Resumen
+        if (tab == TAB_MODULOS) return true;                 // la grilla de módulos
         foreach (var n in NAV) if (n.Tab == tab) return n.Nativa;
         return false;
     }
@@ -411,28 +431,19 @@ public partial class ConfigPanel : UserControl
             cuerpo.Children.Add(b);
         }
 
-        // Puerta al resto de la Configuración que sigue en HTML: módulos X-*,
-        // Hub, Campo, Herramientas, Cloud, Mantenimiento y Ayuda. Sin esto, el
-        // operario que entra al panel nativo perdería el acceso que hoy tiene.
+        // Puerta al resto de la Configuración: módulos X-*, Hub, Campo,
+        // Herramientas, Cloud, Mantenimiento y Ayuda. Antes esta fila decía
+        // "Módulos y más…" y abría pages/config.html en el WebView, o sea el
+        // MENÚ HTML de módulos — y desde ahí se abría la versión HTML de
+        // pantallas que ya son nativas (reporte 2026-08-16: puerta duplicada).
+        // Ahora es una pestaña nativa más (ModulosTab): la grilla de módulos.
         host.Children.Add(new Border
         {
             Height = 1, Background = CfgUi.BordeSuave, Margin = new Thickness(4, 10, 4, 8),
         });
-        var mas = new Button
-        {
-            Content = PilotX.Cockpit.Bars.Traductor.T("Módulos y más…"),
-            MinHeight = 44, Padding = new Thickness(10, 6, 10, 6),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            Background = Brushes.Transparent, Foreground = CfgUi.TextoMuted,
-            BorderThickness = new Thickness(0), CornerRadius = new CornerRadius(8),
-            FontSize = 13, Cursor = new Cursor(StandardCursorType.Hand),
-        };
-        // Embebido en ESTA tarjeta, no a pantalla completa: el operario mantiene
-        // el ✕ y el menú, y vuelve tocando cualquier pestaña.
-        mas.Click += (_, __) => MostrarHtmlEmbebido("pages/config.html",
-            PilotX.Cockpit.Bars.Traductor.T("Módulos"));
-        host.Children.Add(mas);
+        var bMods = BotonMenu(new CfgNav { Tab = TAB_MODULOS, Titulo = "Módulos", Nativa = true });
+        _btns[TAB_MODULOS] = bMods;
+        host.Children.Add(bMods);
 
         PintarMenu();
     }
@@ -512,7 +523,18 @@ public partial class ConfigPanel : UserControl
     private async Task IrATabAsync(string tab)
     {
         if (_navegando) return;
-        if (tab == _tabActiva) return;
+        if (tab == _tabActiva)
+        {
+            // Ya estamos parados en esa fila. Si lo que se ve es un módulo
+            // HTML embebido, este toque significa "volver": sin esto el
+            // operario que entró a Ayuda desde Módulos se quedaba adentro del
+            // WebView, porque la fila "Módulos" seguía siendo la activa.
+            if (!_htmlVisible) return;
+            _navegando = true;
+            try { await MostrarTabAsync(tab).ConfigureAwait(true); }
+            finally { _navegando = false; }
+            return;
+        }
         _navegando = true;
         try
         {
@@ -664,6 +686,7 @@ public partial class ConfigPanel : UserControl
 
     private static string TituloDe(string tab)
     {
+        if (tab == TAB_MODULOS) return "Módulos";
         foreach (var n in NAV) if (n.Tab == tab) return n.Titulo;
         return "Configuración";
     }
@@ -708,6 +731,9 @@ public partial class ConfigPanel : UserControl
         // construcción de las huellas sobre el lote: eso sigue en
         // pages/tramline.html y pages/tramlines.html. Ver la cabecera de TramTab.
         "tram" => new TramTab(_ctx),
+        // La grilla de módulos: abre paneles nativos por callback y lo que
+        // todavía es HTML lo muestra EMBEBIDO en esta misma tarjeta.
+        TAB_MODULOS => new ModulosTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 

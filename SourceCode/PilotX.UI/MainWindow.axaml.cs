@@ -395,6 +395,42 @@ public partial class MainWindow : Window
                 CloseConfig();
                 NavigateTo(ruta);
             };
+            // Grilla de módulos de la Configuración → PANEL NATIVO.
+            // Antes esa lista era el menú HTML de config.html y abría la
+            // versión web de pantallas que ya existen en Avalonia: dos puertas
+            // a la misma cosa, y la que veías dependía de por dónde entraras
+            // (reporte 2026-08-16). Acá vive el único mapeo clave→panel; si
+            // una clave no está, el módulo NO se ofrece nativo en la grilla.
+            // No se reusa RouteCockpitCommand a propósito: ese router decide
+            // qué comandos NO viajan al motor de guiado, y meterle claves de
+            // producto ("stormx", "sectionx") sería cambiarle el contrato.
+            _configHost.OnRequestPanelNativo = clave =>
+            {
+                switch (clave)
+                {
+                    // Los Show* de acá abajo YA cierran la Configuración
+                    // (todos la esconden en su bloque "solo un overlay a la
+                    // vez"), por eso no hace falta un CloseConfig previo.
+                    case "hub":            ShowHub();                  break;
+                    case "quantix":        ShowQuantiXEditor();        break;
+                    case "vistax":         ShowVistaXEditor();         break;
+                    case "flowx":          ShowFlowXEditor();          break;
+                    case "sectionx":       ShowSectionX();             break;
+                    case "stormx":         ShowStormX();               break;
+                    case "corex_ecu":      ShowCoreXEcu();             break;
+                    case "nodos":          ShowNodos();                break;
+                    case "prescripciones": ShowQuantiXEditor("shape"); break;
+                    case "actualizar":     ShowActualizar();           break;
+                    case "sistema":        ShowSistema();              break;
+                    case "sonidos":        ShowSonidos();              break;
+                    // Cámaras es VENTANA propia, no overlay: no esconde la
+                    // Configuración sola y quedaría abierta atrás.
+                    case "camaras":        CloseConfig(); ShowCamaras(); break;
+                    default:
+                        MostrarToast("Ese módulo todavía no tiene pantalla propia");
+                        break;
+                }
+            };
         }
         // Guías nativo (14vo port): AB delega en el flujo del mapa que ya
         // existía; curva y lista van contra /api/tracks igual que la página.

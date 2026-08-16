@@ -81,6 +81,18 @@ public sealed class CfgCtx
     /// "pages/config.html?tab=roll".</summary>
     public Action<string>? AbrirHtml;
 
+    /// <summary>Abre una página del Hub DENTRO de la tarjeta de Configuración
+    /// (ruta relativa, título del encabezado). Es lo que usa la lista de
+    /// módulos para lo que todavía NO tiene pantalla nativa: a pantalla
+    /// completa el operario se queda sin ✕ y sin menú.</summary>
+    public Action<string, string>? AbrirHtmlEmbebido;
+
+    /// <summary>Pide abrir un PANEL NATIVO del cockpit por su clave
+    /// ("hub", "quantix", "nodos", …). Lo resuelve MainWindow, que es el único
+    /// que conoce los paneles; esos paneles cierran la Configuración al
+    /// abrirse porque ocupan la pantalla.</summary>
+    public Action<string>? AbrirPanelNativo;
+
     /// <summary>
     /// El panel se está cerrando (Detach del shell). Lo tienen que mirar las
     /// pestañas que dejan algo corriendo de fondo ANTES de rearmarlo: el

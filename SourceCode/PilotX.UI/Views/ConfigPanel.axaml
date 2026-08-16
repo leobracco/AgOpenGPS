@@ -8,9 +8,14 @@
         QUÉ QUEDÓ NATIVO: el contenedor (navegación por grupos, footer con
         perfil/ancho/unidades, mensajes de estado, botón Guardar) y las
         pestañas que ya se portaron — hoy "Resumen" y "Vehículo › Tipo".
-        QUÉ SIGUE EN HTML: las pestañas todavía no portadas y los ~25 módulos
-        embebidos (Hub, QuantiX, Cámaras, Cloud, Mantenimiento, Ayuda). Se
-        abren por WebView desde este mismo menú, así que el operario llega a
+        La fila "Módulos" del final es la GRILLA NATIVA de módulos: los que ya
+        tienen pantalla propia (Hub, QuantiX, VistaX, FlowX, SectionX, StormX,
+        CoreX-ECU, Nodos, Cámaras, Prescripciones, Actualizar, Sistema,
+        Sonidos) abren su panel nativo.
+        QUÉ SIGUE EN HTML: las pestañas todavía no portadas y los módulos sin
+        panel nativo (LineX, Insumos, Mapas, Calculadora, Lab PID, Diagnóstico
+        PWM, OrbitX, Firmwares, Conectar celular, Red WiFi, Eventos, Debug,
+        Ayuda). Se abren EMBEBIDOS acá adentro, así que el operario llega a
         todo desde el mismo lugar de siempre. La página config.html NO se toca
         ni se borra: la usa la PWA del celular (strangler fig).
 
