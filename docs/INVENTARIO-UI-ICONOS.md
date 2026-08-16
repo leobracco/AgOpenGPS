@@ -124,7 +124,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Datos GPS (btnGPSData) | GPSQuality | Abre datos-gps.html (calidad antena) | 🟡 | L |
 | Datos del lote (btnFieldStats) | FieldStats | Abre datos-lote.html (stats del lote) | 🟡 | L |
 | Estado de carga (btnChargeStatus) | ChargeIndicator | Indicador batería/carga (no interactivo; color verde OK / rojo alerta) | ❌ | L |
-| CoreX/AgIO (btnStartAgIO) | AgIO | Lanza CoreX.exe + abre su dashboard | 🟡 | L+S |
+| CoreX (btnStartAgIO) | CoreX | Lanza CoreX.exe + abre su dashboard | 🟡 | L+S |
 | Engranaje/Ajustes (dropDown1) | Settings48 | Menú config (config/steer/todos/dir/gps/colores) | 🟡 | L |
 | Tools/Funciones especiales (dropDown4) | SpecialFunctions | Menú de herramientas/diagnóstico (SIEMPRE activo) | 🟡 | L |
 | Herramientas de lote (FieldTools) | FieldTools | Menú del lote (off sin lote) | 🟡 | L |
@@ -245,7 +245,7 @@ navegación/vista (11 controles, sin zoom), y el resto de las funciones de guiad
 | Botón | Qué hace | Estado | Carril |
 |---|---|---|---|
 | Hub Agro Parallel | Abre el Hub como widget flotante | ✅ (nativo) | L |
-| CoreX (dashboard) | Dashboard de CoreX/AgIO | 🟡 | L+S |
+| CoreX (dashboard) | Dashboard de CoreX | 🟡 | L+S |
 | Cámaras (widget) | Vista solo-cámaras | ✅ (nativo) | L |
 | VistaX · Semilla/Máquina/Densidad | Overlays de siembra VistaX | ✅ (overlays nativos) | L+S |
 | Barras HTML ⇄ nativas | Alterna barras nativas/HTML | ✅ (barras nativas) | L |

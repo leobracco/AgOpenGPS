@@ -16,7 +16,7 @@ Aclaraciones frecuentes:
   **Quantix2Motors** (nodo QuantiX), que además de los motores de dosis
   escucha el topic de secciones y comanda GPIO/PCA9685.
 - **No usa PGN**: aunque PilotX sigue emitiendo los PGN UDP clásicos de
-  AgOpenGPS (p_235/p_236 → CoreX por UDP :17777), SectionX no pasa por ahí.
+  PilotX (p_235/p_236 → CoreX por UDP :17777), SectionX no pasa por ahí.
   Lee el estado de secciones directo de la memoria de PilotX (mismo proceso),
   sin salto de red intermedio. Los PGN quedan como canal legacy paralelo para
   el hardware clásico vía CoreX.

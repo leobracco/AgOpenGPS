@@ -1,6 +1,6 @@
-# Flujo de conexión AOG ↔ QuantiX node — referencia de desarrollo
+# Flujo de conexión PilotX ↔ QuantiX node — referencia de desarrollo
 
-> Doc interno. **No** se sirve al operario. Vive en la raíz de AOG junto a los
+> Doc interno. **No** se sirve al operario. Vive en la raíz del repo junto a los
 > otros `CLAUDE_*.md`. Sirve para diagnosticar por qué un nodo “se cae”,
 > “responde pero no recibe” o “se ve en la lista pero está muerto”.
 
@@ -19,8 +19,8 @@ Para ver dosis en pantalla, las tres capas siguientes tienen que estar OK,
 | Capa | Quién la maneja | Falla típica |
 |---|---|---|
 | **WiFi STA** | firmware (`Network.cpp`) | SSID/pass mal · señal débil · router caído |
-| **MQTT connect al broker** | firmware (`MQTT_Custom.cpp::mqttReconnect`) | broker IP mal · AgIO con MQTT off · ClientID duplicado |
-| **Tráfico target↔status** | bridge AOG (`QuantiXMotorBridge`) ↔ firmware callback | bridge `IsRunning=false` · watchdog HW del nodo · suscripciones perdidas |
+| **MQTT connect al broker** | firmware (`MQTT_Custom.cpp::mqttReconnect`) | broker IP mal · CoreX con MQTT off · ClientID duplicado |
+| **Tráfico target↔status** | bridge de PilotX (`QuantiXMotorBridge`) ↔ firmware callback | bridge `IsRunning=false` · watchdog HW del nodo · suscripciones perdidas |
 
 Detalle por capa:
 
@@ -99,7 +99,7 @@ publish agp/quantix/<UID>/status_live
          meter_cal, calibrando, load_pct}
 ```
 
-Bridge en AOG: `OnStatusReceived` parsea, guarda `pps_real` en dict
+Bridge en PilotX: `OnStatusReceived` parsea, guarda `pps_real` en dict
 keyed por `uid-motorIdx`, actualiza “última señal”, dispara push a UI.
 
 ---
@@ -115,14 +115,14 @@ keyed por `uid-motorIdx`, actualiza “última señal”, dispara push a UI.
 | `mqttCallback()` | onMsg | despacha `/config`, `/target`, `/cmd`, `/test`, `/cal`, `/debug`, `/sections` a sus handlers. |
 | `sendMQTTStatus()` | ~100 ms | publica status_live por motor. |
 
-### PC / AOG
+### PC / PilotX
 
 | Proceso | Frecuencia | Responsabilidad |
 |---|---|---|
 | `QuantiXMotorBridge.OnTick` | 200 ms | publica target por motor. **Sólo corre si `IsRunning=true`**. |
 | `QuantiXMotorBridge.OnStatusReceived` | event-driven | parsea status_live, actualiza dict ppsReal y last-seen. |
 | `NodoRegistryService` | event-driven | suscripto a wildcard `agp/+/+/announcement`. Mantiene tabla de descubrimiento que alimenta `nodos.html`. |
-| Broker MQTT en AgIO/CoreX | always-on | MQTTnet en proc, puerto 1883. Lifecycle en `AgIO/.../Forms/MQTT.Designer.cs` (`Start/StopMqttBroker`) integrado en `FormLoop.cs`. |
+| Broker MQTT en CoreX | always-on | MQTTnet en proc, puerto 1883. Lifecycle en `AgIO/.../Forms/MQTT.Designer.cs` (`Start/StopMqttBroker`) integrado en `FormLoop.cs`. |
 
 ---
 
@@ -135,7 +135,7 @@ Esta es la tabla que más vale en diagnóstico: las combinaciones que producen
 |---|---|---|---|---|---|
 | ❌ off | — | — | — | **Apagado / fuera de LAN** | `Nodos`: Off-line (announcement retenido viejo). PilotX overlay en gris. |
 | AP fallback | — | — | — | **Modo configuración** | No aparece online. SSID `QX-XXXX…` visible desde celu. Fix: ir a `192.168.4.1`. |
-| ✅ | ❌ | — | — | **WiFi sí, broker no** | Diag MQTT: reintentos crecientes. `Nodos`: última señal congelada. Causa: broker AgIO apagado o IP mal en nodo. |
+| ✅ | ❌ | — | — | **WiFi sí, broker no** | Diag MQTT: reintentos crecientes. `Nodos`: última señal congelada. Causa: broker CoreX apagado o IP mal en nodo. |
 | ✅ | ✅ | ❌ | ✅ | **Nodo vivo, bridge dormido** | QuantiX page: RPM real pero `Target pps=0`. Causa: `Bridge.IsRunning=false`, motor desactivado en config, o sección no activa. |
 | ✅ | ✅ | ✅ | ❌ | **Recibe, no responde** | QuantiX page: target sube, RPM congelado o `—`. Última señal > 3 s. Causa: watchdog HW, **colisión de ClientID**, o nodo trabado. |
 | ✅ | ✅ | ✅ | ✅ | **OK pleno** | `Nodos`: Aceptado verde. QuantiX page actualizándose ~10 Hz. PilotX overlay chip verde. |
@@ -152,15 +152,15 @@ t=1.5s   [QX-A1B2…] client.connect(QX-A1B2…) → [broker] aceptado
 t=1.5s   [QX-A1B2…] subscribe agp/quantix/QX-A1B2…/{config,target,cmd,test,cal,debug,sections}
 t=1.6s   [QX-A1B2…] publish RETAINED agp/quantix/QX-A1B2…/announcement
 t=1.6s   [broker]   → entrega retained a suscriptores activos
-t=1.6s   [AOG/Hub]  NodoRegistryService: nuevo nodo QX-A1B2… (pendiente)
+t=1.6s   [PilotX/Hub]  NodoRegistryService: nuevo nodo QX-A1B2… (pendiente)
 t=1.7s   [QX-A1B2…] publish agp/quantix/QX-A1B2…/status_live #0 {rpm:0, pwm:0, …}
-t=1.7s   [AOG/Br]   OnStatusReceived → ppsReal["QX-A1B2…-0"]=0
-t=1.8s   [AOG/Br]   OnTick: publish agp/quantix/QX-A1B2…/target {id:0, pps:0, seccion_on:false}
+t=1.7s   [PilotX/Br]   OnStatusReceived → ppsReal["QX-A1B2…-0"]=0
+t=1.8s   [PilotX/Br]   OnTick: publish agp/quantix/QX-A1B2…/target {id:0, pps:0, seccion_on:false}
 …
-t=12.3s  [AOG]      operario activa siembra → seccion_on=true, pps=215
+t=12.3s  [PilotX]   operario activa siembra → seccion_on=true, pps=215
 t=12.3s  [QX-A1B2…] callback target #0 → TargetUPM=215, FlowEnabled=true
 t=12.5s  [QX-A1B2…] status_live #0 {rpm:1840, pwm:163, pps_real:208, calibrando:false}
-t=12.5s  [AOG/UI]   overlay PilotX → motor 0 verde, RPM 1840
+t=12.5s  [PilotX/UI]   overlay PilotX → motor 0 verde, RPM 1840
 ```
 
 ---
@@ -173,7 +173,7 @@ Tres causas que producen exactamente este patrón, en orden de probabilidad:
 
 ### 5.1 AP fallback “pegajoso” en el silencioso
 
-Si MQTT falló 10 veces seguidas (típico: AgIO reiniciado, broker tirado por
+Si MQTT falló 10 veces seguidas (típico: CoreX reiniciado, broker tirado por
 unos segundos), firmware entra en `WIFI_AP_STA` con grace period 5 min.
 Aunque el WiFi vuelva, el nodo se queda en AP hasta que pasen **5 min Y**
 `softAPgetStationNum()==0`. Si tu celu se conectó al AP a chequear, lo estás
@@ -221,7 +221,7 @@ confirmar que `obtenerUID()` está leyendo MAC real y no un fallback.
 ## 6 · Checklist de diagnóstico (orden estricto)
 
 1. **Broker vivo.** `Hub → Nodos → Diagnóstico MQTT` → debe decir
-   *conectado*. Si no, problema en AgIO/CoreX, no en los nodos.
+   *conectado*. Si no, problema en CoreX, no en los nodos.
 2. **Lista de nodos.** ¿Cuántos UIDs distintos? Confirmá que no haya dos
    iguales (colisión de ClientID).
 3. **Última señal por nodo.** Si crece para uno y se mantiene para otro,
@@ -259,7 +259,7 @@ Cosas que la UI **no** muestra hoy y vendría bien:
   `agp/<prod>/<UID>/announcement` vacío con flag retain, para limpiar
   fantasmas a demanda.
 - **Heartbeat del nodo silencioso al AP del PC**: si el nodo cae en AP
-  fallback, no hay forma de saberlo desde AOG. Posible: hacer un scan WiFi
+  fallback, no hay forma de saberlo desde PilotX. Posible: hacer un scan WiFi
   periódico desde una NIC dedicada del PC y reportar SSIDs `QX-/VX-` vistos.
 
 ---
