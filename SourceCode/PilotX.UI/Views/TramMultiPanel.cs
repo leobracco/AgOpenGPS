@@ -290,7 +290,9 @@ public sealed class TramMultiPanel : Border
         };
         _btnOuter = new Button
         {
-            Content = "No", Height = 34, MinWidth = 54, FontSize = 12, FontWeight = FontWeight.SemiBold,
+            // 40 de alto como todo lo que se toca en cabina (era 34: con guante
+            // y el tractor moviéndose, ese pill se erraba).
+            Content = "No", Height = 40, MinWidth = 56, FontSize = 12, FontWeight = FontWeight.SemiBold,
             CornerRadius = new CornerRadius(999), BorderThickness = new Thickness(1),
             Background = BgFila, Foreground = TextoMuted, BorderBrush = Borde,
             HorizontalContentAlignment = HorizontalAlignment.Center,
@@ -485,6 +487,14 @@ public sealed class TramMultiPanel : Border
         ResetVista();
         _lienzo.SetState(null, conservarVista: false);
         IsVisible = true;
+        // OJO CON EL ORDEN — Traductor.Aplicar CACHEA el texto de cada control
+        // la primera vez que lo ve y en CADA pasada siguiente le vuelve a
+        // escribir ESE texto. Por eso va ACÁ y una sola vez: traduce lo FIJO
+        // (títulos, etiquetas, botones) y lo VIVO (la guía elegida, pasadas,
+        // inicio, los tres anchos, la opacidad y el Sí/No del tram exterior) lo
+        // escribe Aplicar() DESPUÉS. Al revés, el panel abría mintiendo: la
+        // pasada de inicio clavada en 0 con el motor en 1, los anchos en "—" y
+        // el pill del tram exterior verde pero rotulado "No".
         Traductor.Aplicar(this);
 
         if (_cli == null) return;
@@ -493,7 +503,6 @@ public sealed class TramMultiPanel : Border
         // operario cerró la card (o la cerró otro panel), lo que vuelve se tira.
         if (!IsVisible || !_abierta) return;
         Aplicar(s, conservarVista: false);
-        Traductor.Aplicar(this);
     }
 
     /// <summary>
@@ -699,7 +708,10 @@ public sealed class TramMultiPanel : Border
         bool hayEstado = _st != null;
         int n = _st?.Tracks?.Count ?? 0;
 
-        _btnPrev.IsEnabled = _btnNext.IsEnabled = libre && n > 1;
+        // Con UNA sola guía ciclar igual sirve: Tram_CycleTrack limpia el
+        // preview y lo vuelve a construir, que es como el operario se saca de
+        // encima un corte mal marcado sin tener que cambiar de lado.
+        _btnPrev.IsEnabled = _btnNext.IsEnabled = libre && n > 0;
         _btnSwap.IsEnabled = libre && n > 0;
         _btnPassesDn.IsEnabled = _btnPassesUp.IsEnabled = libre && hayEstado;
         _btnStartDn.IsEnabled = _btnStartUp.IsEnabled = libre && hayEstado;
