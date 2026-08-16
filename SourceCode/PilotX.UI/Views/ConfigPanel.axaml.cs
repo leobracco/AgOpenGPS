@@ -554,6 +554,9 @@ public partial class ConfigPanel : UserControl
     private async void OnGuardarClick(object? s, RoutedEventArgs e)
     {
         if (!_tabs.TryGetValue(_tabActiva, out var t) || !t.TieneGuardar) return;
+        // Sin cambios no hay POST: el "Guardado ✔" de abajo sería mentira (es
+        // el quirk del botón flotante de config.html, que acá no se replica).
+        if (!t.HayCambios) { SetEstado("Sin cambios", ""); return; }
         SetEstado("Guardando…", "");
         bool ok;
         try { ok = await t.AlSalirAsync().ConfigureAwait(true); }

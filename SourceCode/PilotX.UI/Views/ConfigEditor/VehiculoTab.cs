@@ -107,6 +107,11 @@ public sealed class VehiculoTab : ConfigTab
     /// <summary>Tiene un campo (el tipo) y lo manda al motor ⇒ botón Guardar.</summary>
     public override bool TieneGuardar => true;
 
+    /// <summary>El shell pregunta esto antes de decir "Guardado ✔": si el
+    /// operario toca Guardar sin haber elegido otra cosa, no se manda nada al
+    /// motor y el footer tiene que decir "Sin cambios", no "Guardado".</summary>
+    public override bool HayCambios => _dirty;
+
     // =======================================================================
     //  Ciclo de vida (enter/leave de config.js)
     // =======================================================================
@@ -386,9 +391,21 @@ public sealed class VehiculoTab : ConfigTab
     //  Íconos
     // =======================================================================
 
+    /// <summary>Los 4 PNG se decodifican UNA vez y se comparten entre cards y
+    /// entre rebuilds. Cada uno es de 480×360 (≈700 kB en GPU/RAM) y Rebuild()
+    /// corre en cada entrada a la pestaña y cada vez que cambia el estado de
+    /// conexión: sin cache, un rato de red inestable deja decenas de bitmaps
+    /// sin liberar en una PC de cabina. Solo se toca desde el hilo de UI.</summary>
+    private static readonly Dictionary<string, Bitmap?> _iconos =
+        new Dictionary<string, Bitmap?>(StringComparer.Ordinal);
+
     private static Bitmap? Icono(string nombre)
     {
-        try { return new Bitmap(AssetLoader.Open(new Uri("avares://PilotX.UI/Assets/config/" + nombre))); }
-        catch { return null; }
+        if (_iconos.TryGetValue(nombre, out var cacheado)) return cacheado;
+        Bitmap? bmp;
+        try { bmp = new Bitmap(AssetLoader.Open(new Uri("avares://PilotX.UI/Assets/config/" + nombre))); }
+        catch { bmp = null; }   // falta el asset ⇒ card sin dibujo, nunca una excepción
+        _iconos[nombre] = bmp;
+        return bmp;
     }
 }

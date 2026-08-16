@@ -146,6 +146,26 @@
     "en": "Save",
     "pt": "Salvar"
   },
+  "Guardando…": {
+    "en": "Saving…",
+    "pt": "Salvando…"
+  },
+  "Guardado ✔": {
+    "en": "Saved ✔",
+    "pt": "Salvo ✔"
+  },
+  "Sin conexión con PilotX": {
+    "en": "No connection to PilotX",
+    "pt": "Sem conexão com o PilotX"
+  },
+  "Servicio de configuración no disponible": {
+    "en": "Configuration service unavailable",
+    "pt": "Serviço de configuração indisponível"
+  },
+  "PilotX no responde — todavía no llegaron los datos.": {
+    "en": "PilotX is not responding — no data yet.",
+    "pt": "O PilotX não responde — os dados ainda não chegaram."
+  },
   "Cancelar": {
     "en": "Cancel",
     "pt": "Cancelar"

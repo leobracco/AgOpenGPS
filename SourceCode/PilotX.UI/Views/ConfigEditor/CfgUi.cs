@@ -61,6 +61,14 @@ public abstract class ConfigTab : StackPanel
     /// </summary>
     public virtual bool TieneGuardar => false;
 
+    /// <summary>¿Hay algo sin guardar AHORA? El shell lo consulta antes de
+    /// cantar "Guardado ✔": tocar Guardar sin haber cambiado nada no manda
+    /// ningún POST, y decirle "guardado" al operario cuando no se guardó nada
+    /// es el mismo quirk del botón flotante de config.html que este porteo NO
+    /// replica (ver cabecera de ResumenTab). Default true = comportamiento de
+    /// siempre para las pestañas que no lleven la cuenta.</summary>
+    public virtual bool HayCambios => true;
+
     /// <summary>Refresco liviano por tick (solo labels vivos). Vacío por
     /// defecto: la config no es telemetría.</summary>
     public virtual void Live() { }
