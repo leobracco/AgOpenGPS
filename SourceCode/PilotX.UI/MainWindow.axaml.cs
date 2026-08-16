@@ -2561,6 +2561,10 @@ public partial class MainWindow : Window
         if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        // La Configuración es una card del MISMO ZIndex: si no se cierra queda
+        // abajo de la de CoreX-ECU (dos cards pisadas) y además sigue pidiendo
+        // el snapshot cada 3 s sin que nadie lo mire.
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         // Paneles que flotan sobre el mapa: uno a la vez, mismo criterio que AbrirGuias.
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
@@ -2758,6 +2762,9 @@ public partial class MainWindow : Window
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        // Actualizar APAGA el mapa: si la Configuración quedaba abierta, su card
+        // se dibujaba encima de la pantalla de actualización y seguía sondeando.
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         if (_updateClient == null)
             _updateClient = new UpdateClient(DeriveOrigin(App.TargetUrl));

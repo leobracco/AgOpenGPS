@@ -219,9 +219,13 @@ public partial class ConfigPanel : UserControl
     {
         if (_ctx.Client == null) return;
         var snap = await _ctx.Client.GetSnapshotAsync(ct).ConfigureAwait(false);
+        if (ct.IsCancellationRequested) return;
         // Un null (Hub caído) NO borra lo que ya se sabía: el panel sigue
-        // mostrando los últimos valores con el aviso de sin conexión, en vez
-        // de vaciarse a "—" con cada bache de red.
+        // mostrando los últimos valores CON el aviso de sin conexión (lo pinta
+        // PintarCabecera con RefrescoCaido), en vez de vaciarse a "—" con cada
+        // bache de red. Sin esa marca el panel mostraría números viejos con el
+        // punto en verde, como si fueran los de ahora.
+        _ctx.RefrescoCaido = snap == null && _ctx.Snap != null;
         if (snap != null || _ctx.Snap == null) _ctx.Snap = snap;
     }
 
@@ -250,7 +254,7 @@ public partial class ConfigPanel : UserControl
         if (string.IsNullOrWhiteSpace(perfil)) perfil = "—";
 
         IBrush color = _ctx.SinDatos ? CfgUi.Err
-                     : _ctx.ServicioCaido ? CfgUi.Warn
+                     : (_ctx.ServicioCaido || _ctx.RefrescoCaido) ? CfgUi.Warn
                      : CfgUi.Ok;
 
         if (dot != null) dot.Fill = color;
@@ -267,15 +271,42 @@ public partial class ConfigPanel : UserControl
         if (anc  != null) anc.Text  = PilotX.Cockpit.Bars.Traductor.T("Ancho") + ": " + ancho;
         if (uni  != null) uni.Text  = PilotX.Cockpit.Bars.Traductor.T("Unidades") + ": " + unidades;
 
-        // Los errores de carga se cuentan igual que en config.js.
+        // Los errores de carga se cuentan igual que en config.js. El mensaje se
+        // BORRA solo cuando la conexión vuelve: si no, el rojo queda pegado
+        // sobre valores que ya son buenos y el operario deja de creerle al
+        // footer. Solo se limpia el mensaje que puso este chequeo — un
+        // "Guardado ✔" de una pestaña no se pisa.
         if (_ctx.SinDatos)
+        {
             SetEstado("Sin conexión con PilotX", "err");
+            _estadoDeConexion = true;
+        }
         else if (_ctx.ServicioCaido)
+        {
             SetEstado("Servicio de configuración no disponible", "err");
+            _estadoDeConexion = true;
+        }
+        else if (_ctx.RefrescoCaido)
+        {
+            SetEstado("Sin conexión con PilotX — se muestra el último dato leído", "err");
+            _estadoDeConexion = true;
+        }
+        else if (_estadoDeConexion)
+        {
+            SetEstado("", "");
+            _estadoDeConexion = false;
+        }
     }
+
+    /// <summary>El mensaje del footer lo puso el chequeo de conexión (y por eso
+    /// se puede borrar cuando vuelve).</summary>
+    private bool _estadoDeConexion;
 
     private void SetEstado(string mensaje, string clase)
     {
+        // Cualquier mensaje que venga de una pestaña ("Guardado ✔") deja de ser
+        // del chequeo de conexión: el tick siguiente no lo tiene que borrar.
+        _estadoDeConexion = false;
         var lbl = this.FindControl<TextBlock>("EstadoText");
         if (lbl == null) return;
         lbl.Text = string.IsNullOrEmpty(mensaje) ? "" : PilotX.Cockpit.Bars.Traductor.T(mensaje);
@@ -476,15 +507,23 @@ public partial class ConfigPanel : UserControl
             host.Children.Add(vista);
         }
 
-        var sub = this.FindControl<TextBlock>("SubtituloText");
-        if (sub != null) sub.Text = PilotX.Cockpit.Bars.Traductor.T(TituloDe(tab));
-
         var btn = this.FindControl<Button>("BtnGuardar");
         if (btn != null) btn.IsVisible = vista.TieneGuardar;
 
-        SetEstado("", "");
         vista.Rebuild();
+
+        // Traductor.Aplicar CACHEA el texto original de cada control la primera
+        // vez que lo ve y en las pasadas siguientes vuelve a escribir ESE texto.
+        // Por eso todo lo que se pinta a mano (subtítulo, estado, footer) va
+        // DESPUÉS: si se pintara antes, el próximo cambio de pestaña restauraría
+        // el valor de la primera vez (el subtítulo se quedaría clavado en
+        // "Resumen" y el footer, con el ancho viejo).
         PilotX.Cockpit.Bars.Traductor.Aplicar(this);
+
+        var sub = this.FindControl<TextBlock>("SubtituloText");
+        if (sub != null) sub.Text = PilotX.Cockpit.Bars.Traductor.T(TituloDe(tab));
+
+        SetEstado("", "");
         try { await vista.AlEntrarAsync().ConfigureAwait(true); } catch { }
         PintarCabecera();
     }

@@ -44,6 +44,13 @@ public sealed class CfgCtx
 
     public bool SinDatos => Snap == null;
 
+    /// <summary>true = el último refresco no respondió pero seguimos mostrando
+    /// el snapshot anterior. NO es lo mismo que SinDatos: acá hay números en
+    /// pantalla, y el operario tiene que saber que son los últimos leídos y no
+    /// lo que el motor tiene AHORA (si alguien tocó el ancho en el celular
+    /// mientras el Hub estaba caído, lo que se ve quedó viejo).</summary>
+    public bool RefrescoCaido;
+
     public bool IsMetric => Snap?.IsMetric ?? true;
 
     // ---- enganches con el shell -------------------------------------------
