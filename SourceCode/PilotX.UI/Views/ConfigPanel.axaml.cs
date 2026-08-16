@@ -17,7 +17,10 @@
 // "GPS / IMU › Rolido" (TRES semánticas de guardado a la vez y el único poll
 // propio del panel: el tractor en vivo a 500 ms — ver la cabecera de RolidoTab)
 // y "Otros › U-Turn" (geometría del giro de cabecera; su POST reconstruye las
-// líneas de giro y descarta el U-turn ya dibujado — ver la cabecera de UturnTab).
+// líneas de giro y descarta el U-turn ya dibujado — ver la cabecera de UturnTab)
+// y "Otros › Tram" (ancho de trocha + las dos preferencias de trochas; la
+// CONSTRUCCIÓN de las huellas sobre el lote sigue en pages/tramline(s).html —
+// ver la cabecera de TramTab).
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -104,7 +107,7 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "roll",        Titulo = "Rolido",       Grupo = "GPS / IMU",  Nativa = true  },
 
         new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros",      Nativa = true  },
-        new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros"                      },
+        new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros",      Nativa = true  },
     };
 
     private readonly CfgCtx _ctx = new CfgCtx();
@@ -598,6 +601,11 @@ public partial class ConfigPanel : UserControl
         // de giro y DESCARTA el U-turn ya dibujado. Por eso su HayCambios es
         // estricto — sin cambios no se postea. Ver la cabecera de UturnTab.
         "uturn" => new UturnTab(_ctx),
+        // Tram guarda como las hermanas (botón Guardar / al salir). Es la
+        // geometría de las trochas (ancho + dos preferencias), NO la
+        // construcción de las huellas sobre el lote: eso sigue en
+        // pages/tramline.html y pages/tramlines.html. Ver la cabecera de TramTab.
+        "tram" => new TramTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 
