@@ -459,12 +459,14 @@ public sealed class DireccionPanel : Border
             "Debajo de esto el piloto no engancha: evita volantazos con el tractor casi parado."));
         _scPantalla.Children.Add(FilaAjusteD("Velocidad máxima", "max_steer_speed", 1, 1, 40, 0, "km/h",
             "Arriba de esto el piloto se apaga solo, por seguridad."));
-        // Techo 20 km/h, el del original (nudGuidanceSpeedLimit 0..20). El panel
-        // permitía 40: es el límite que AUTORIZA el manejo libre, o sea el que
-        // decide a qué velocidad se puede mover el volante sin guía. Duplicarlo
-        // sin motivo aflojaba una guarda de seguridad, no un ajuste de gusto.
-        _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 20, 0, "km/h",
-            "Techo general de las funciones de guiado — incluye el manejo libre de la pestaña Probar."));
+        // Rango hasta 40 km/h (pedido 2026-08-15): hay máquinas que trabajan a
+        // más de 35 —pulverizadoras autopropulsadas— y con el techo en 20 del
+        // original quedaban sin poder configurar su propio límite. El DEFAULT
+        // sigue siendo 20: es una guarda de seguridad (autoriza el manejo libre
+        // y las funciones de guiado), así que subirla es una decisión explícita
+        // del que configura la máquina, no algo que pase solo.
+        _scPantalla.Children.Add(FilaAjusteD("Límite de funciones de guiado", "guidance_speed_limit", 1, 1, 40, 0, "km/h",
+            "Techo general de las funciones de guiado — incluye el manejo libre de la pestaña Probar. Subilo solo si la máquina trabaja a esa velocidad."));
         _scPantalla.Children.Add(SubTituloSep("Barra de guiado"));
         _scPantalla.Children.Add(FilaSeg("Tipo de barra", "guidance_bar",
             new[] { ("lightbar", "Lightbar"), ("steerbar", "Steer Bar") },
