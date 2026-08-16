@@ -81,6 +81,16 @@ public sealed class CfgCtx
     /// "pages/config.html?tab=roll".</summary>
     public Action<string>? AbrirHtml;
 
+    /// <summary>
+    /// El panel se está cerrando (Detach del shell). Lo tienen que mirar las
+    /// pestañas que dejan algo corriendo de fondo ANTES de rearmarlo: el
+    /// AlSalirAsync del cierre es fire-and-forget, así que si su guardado falla
+    /// la pestaña reacciona con el panel ya oculto. Sin esta marca, el Rolido
+    /// volvía a levantar su poll de 500 ms contra el motor y quedaba un timer
+    /// huérfano hasta que alguien reabriera esa misma pestaña.
+    /// </summary>
+    public bool Cerrando;
+
     // ---- unidades ----------------------------------------------------------
 
     /// <summary>m → cm|in para EDITAR (factor 39.3701, como m2disp del JS).</summary>

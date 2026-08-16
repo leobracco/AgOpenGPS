@@ -316,10 +316,16 @@ public sealed class RolidoTab : ConfigTab
     //  Poll del tractor en vivo (rollLiveStart / rollLiveStop del HTML)
     // =======================================================================
 
-    /// <summary>Guard anti doble-start: cancela el anterior antes de arrancar.</summary>
+    /// <summary>Guard anti doble-start: cancela el anterior antes de arrancar.
+    /// Y NO arranca si el panel se está cerrando: el AlSalirAsync del Detach va
+    /// sin await, así que sus ramas de error (guardado fallido del filtro)
+    /// corren con la Configuración ya oculta. Sin este guard quedaba un poll
+    /// huérfano golpeando al motor 2 veces por segundo hasta que alguien
+    /// reabriera esta misma pestaña.</summary>
     private void ArrancarPoll()
     {
         PararPoll();
+        if (C.Cerrando) return;
         var cts = new CancellationTokenSource();
         _cts = cts;
         _ = PollAsync(cts.Token);

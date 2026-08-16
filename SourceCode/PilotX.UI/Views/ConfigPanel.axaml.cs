@@ -159,6 +159,9 @@ public partial class ConfigPanel : UserControl
     public void Attach(ConfigVehiculoClient client, string? tab = null)
     {
         _ctx.Client = client;
+        // Se vuelve a abrir: lo que se haya frenado por el cierre anterior
+        // (p. ej. el poll del tractor en vivo de Rolido) puede volver a andar.
+        _ctx.Cerrando = false;
         // Cliente del implemento CENTRAL (/api/implemento): OTRA configuración,
         // el mismo host. Hoy lo usa nada más que la carta de trenes de la
         // pestaña Secciones, pero vive acá para que no haya dos clientes del
@@ -183,6 +186,10 @@ public partial class ConfigPanel : UserControl
     /// HTML: la pestaña activa GUARDA lo que tenga pendiente antes de irse.</summary>
     public void Detach()
     {
+        // ANTES del AlSalirAsync, que va sin await: si su guardado falla, la
+        // pestaña se entera con el panel ya oculto y no tiene que rearmar nada
+        // de fondo (ver CfgCtx.Cerrando).
+        _ctx.Cerrando = true;
         try
         {
             if (_tabs.TryGetValue(_tabActiva, out var t)) _ = t.AlSalirAsync();
