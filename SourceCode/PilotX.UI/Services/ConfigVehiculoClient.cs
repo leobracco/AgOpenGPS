@@ -150,6 +150,37 @@ public sealed class ConfigMaquinaSec
     [JsonPropertyName("user4")]                public int User4 { get; set; }
 }
 
+/// <summary>
+/// Fuentes de rumbo (pestaña "GPS / IMU › Rumbo").
+///   · heading_source: "Fix" (antena simple, rumbo por movimiento) | "Dual"
+///     (dos antenas, rumbo real aunque el tractor esté parado).
+///   · min_gps_step: paso mínimo de rumbo — true = 1,0 m (se muestra "10 cm" de
+///     paso y "100 cm" de distancia de rumbo), false = 0,5 m ("5 cm" / "50 cm").
+///     Los rótulos NO son el valor: son la tabla fija del original.
+///   · fusion: posición de la BARRA 5..60, no el peso. El motor guarda
+///     `setIMU_fusionWeight2 = barra × 0.002` y el snapshot devuelve
+///     `(int)(peso × 500)` — round-trip exacto. Ojo: el número es el % GPS;
+///     el % IMU es 100 − v.
+///   · auto_switch_speed: SIEMPRE km/h en el wire, sea cual sea is_metric.
+///   · imu_present: RUNTIME (imuHeading != 99999), no es configuración — es lo
+///     que habilita el slider de fusión.
+/// </summary>
+public sealed class ConfigRumboSec
+{
+    [JsonPropertyName("heading_source")]        public string? HeadingSource { get; set; }
+    [JsonPropertyName("min_gps_step")]          public bool MinGpsStep { get; set; }
+    [JsonPropertyName("fusion")]                public int Fusion { get; set; }
+    [JsonPropertyName("is_rtk")]                public bool IsRtk { get; set; }
+    [JsonPropertyName("is_rtk_kill_autosteer")] public bool IsRtkKillAutosteer { get; set; }
+    [JsonPropertyName("jump_fix_distance")]     public int JumpFixDistance { get; set; }   // cm, 0 = off
+    [JsonPropertyName("dual_heading_offset")]   public double DualHeadingOffset { get; set; } // grados
+    [JsonPropertyName("dual_reverse_distance")] public double DualReverseDistance { get; set; } // m
+    [JsonPropertyName("reverse_on")]            public bool ReverseOn { get; set; }
+    [JsonPropertyName("auto_switch_dual_fix")]  public bool AutoSwitchDualFix { get; set; }
+    [JsonPropertyName("auto_switch_speed")]     public double AutoSwitchSpeed { get; set; } // km/h SIEMPRE
+    [JsonPropertyName("imu_present")]           public bool ImuPresent { get; set; }
+}
+
 public sealed class ConfigTramSec
 {
     [JsonPropertyName("tram_width")]           public double? TramWidth { get; set; }
@@ -159,7 +190,7 @@ public sealed class ConfigTramSec
 
 /// <summary>
 /// Snapshot de GET /api/aog/config. Solo se declaran las secciones que ya
-/// consume alguna pestaña nativa; las que faltan (relay, rumbo, rolido, uturn,
+/// consume alguna pestaña nativa; las que faltan (relay, rolido, uturn,
 /// display, botones) se agregan cuando se porte su pestaña — el JSON extra se
 /// ignora sin romper nada.
 /// </summary>
@@ -180,6 +211,7 @@ public sealed class ConfigSnapshot
     [JsonPropertyName("secciones")]   public ConfigSeccionesSec? Secciones { get; set; }
     [JsonPropertyName("switches")]    public ConfigSwitchesSec? Switches { get; set; }
     [JsonPropertyName("maquina")]     public ConfigMaquinaSec? Maquina { get; set; }
+    [JsonPropertyName("rumbo")]       public ConfigRumboSec? Rumbo { get; set; }
     [JsonPropertyName("tram")]        public ConfigTramSec? Tram { get; set; }
 }
 

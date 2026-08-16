@@ -11,7 +11,9 @@
 // /api/implemento, para los trenes de siembra), "Secciones › Switches" y
 // "Secciones › Máquina" (la única portada que NO guarda al salir: manda un PGN
 // 238 al módulo con su propio botón "Enviar + Guardar" y descarta si se cierra
-// sin enviar — ver la cabecera de MaquinaTab).
+// sin enviar — ver la cabecera de MaquinaTab) y "GPS / IMU › Rumbo" (la única
+// con guardado MIXTO: el tipo de antena y el paso mínimo postean AL TOQUE, como
+// el original; el resto va por el botón Guardar — ver la cabecera de RumboTab).
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -94,7 +96,7 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "tswitches",   Titulo = "Switches",     Grupo = "Secciones",  Nativa = true  },
         new CfgNav { Tab = "amachine",    Titulo = "Máquina",      Grupo = "Secciones",  Nativa = true  },
 
-        new CfgNav { Tab = "heading",     Titulo = "Rumbo",        Grupo = "GPS / IMU"                  },
+        new CfgNav { Tab = "heading",     Titulo = "Rumbo",        Grupo = "GPS / IMU",  Nativa = true  },
         new CfgNav { Tab = "roll",        Titulo = "Rolido",       Grupo = "GPS / IMU"                  },
 
         new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros"                      },
@@ -569,6 +571,11 @@ public partial class ConfigPanel : UserControl
         // botón "Enviar + Guardar". Ver la cabecera de MaquinaTab antes de
         // "emparejarla" con las hermanas.
         "amachine" => new MaquinaTab(_ctx),
+        // Rumbo mezcla dos semánticas de guardado a propósito (es la del
+        // original): el tipo de antena y el paso mínimo POSTEAN AL TOQUE, el
+        // resto va por el botón Guardar. Ver la cabecera de RumboTab antes de
+        // "emparejarla" con las hermanas.
+        "heading" => new RumboTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 
