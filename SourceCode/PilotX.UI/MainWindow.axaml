@@ -290,6 +290,59 @@
                       <Setter Property="Foreground" Value="#535E54"/>
                       <Setter Property="HorizontalAlignment" Value="Center"/>
                     </Style>
+
+                    <!-- ===== EL ESTADO SE VE EN EL BOTÓN, no en el dibujo =====
+                         Piloto, Automático, Manual, Giro y Activar (cabecera)
+                         cambiaban SOLO el PNG de 26 px: mismo fondo, mismo
+                         borde y misma palabra prendidos que apagados. "¿Está
+                         puesto el piloto?" es la pregunta que más se hace por
+                         pasada, y contestarla mirando el dibujito son casi 4
+                         metros a 8 km/h sin mirar el lote.
+
+                         Tres estados que se distinguen SIN interpretar:
+                         · PRENDIDO      → fondo verde de acento + texto blanco
+                         · APAGADO       → como estaba (superficie clara)
+                         · NO APLICA     → ícono y palabra atenuados
+                         El verde queda de acento sobre un botón, que es su rol;
+                         no se pintan barras enteras. -->
+                    <Style Selector="Button.on">
+                      <Setter Property="Background" Value="#4ABA3E"/>
+                      <Setter Property="BorderBrush" Value="#3A9430"/>
+                      <Setter Property="BorderThickness" Value="1"/>
+                    </Style>
+                    <Style Selector="Button.on /template/ ContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Background" Value="#4ABA3E"/>
+                      <Setter Property="BorderBrush" Value="#3A9430"/>
+                    </Style>
+                    <Style Selector="Button.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Background" Value="#42A937"/>
+                      <Setter Property="BorderBrush" Value="#3A9430"/>
+                    </Style>
+                    <Style Selector="Button.on:pressed /template/ ContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Background" Value="#3A9430"/>
+                      <Setter Property="BorderBrush" Value="#3A9430"/>
+                    </Style>
+                    <Style Selector="Button.on TextBlock.cap">
+                      <Setter Property="Foreground" Value="#FFFFFF"/>
+                      <Setter Property="FontWeight" Value="Bold"/>
+                    </Style>
+                    <!-- Deshabilitado tiene que seguir diferenciándose de
+                         apagado: hasta acá lo único atenuado era el ícono y la
+                         palabra quedaba igual de viva. -->
+                    <Style Selector="Button:disabled TextBlock.cap">
+                      <Setter Property="Foreground" Value="#A2ACA3"/>
+                    </Style>
+                    <!-- Prendido PERO sin poder tocarse (p. ej. el piloto queda
+                         puesto y se pierde la guía): verde apagado, para que no
+                         mienta ni parezca disponible. -->
+                    <Style Selector="Button.on:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                      <Setter Property="Background" Value="#BFDCBA"/>
+                      <Setter Property="BorderBrush" Value="#A9CCA3"/>
+                    </Style>
+                    <Style Selector="Button.on:disabled TextBlock.cap">
+                      <Setter Property="Foreground" Value="#516052"/>
+                    </Style>
+
                     <Style Selector="Rectangle.sep">
                       <Setter Property="Width" Value="1"/>
                       <Setter Property="Fill" Value="#C5CFC5"/>
@@ -362,6 +415,7 @@
                          que lo tiene de memoria. Gris sin cabecera hecha. -->
                     <Button x:Name="BtnOvCabeceraOnOff" Width="64" Height="56"
                             IsEnabled="{Binding HeadlandVisible}"
+                            Classes.on="{Binding HeadlandOn}"
                             Command="{Binding SendCommand}" CommandParameter="cabecera_onoff"
                             ToolTip.Tip="Corte por cabecera: activar">
                       <StackPanel>
@@ -400,6 +454,7 @@
                     <!-- Giro en cabecera: pide guía + lindero y sin contorno. -->
                     <Button x:Name="BtnOvGiro" Width="64" Height="56"
                             IsEnabled="{Binding UturnVisible}"
+                            Classes.on="{Binding UturnOn}"
                             Command="{Binding SendCommand}" CommandParameter="uturn"
                             ToolTip.Tip="Giro automático en cabecera">
                       <StackPanel>
@@ -412,6 +467,7 @@
                          anchos que el resto porque "Automático" no entra en
                          64 px y cortado no se lee. -->
                     <Button x:Name="BtnOvSecAuto" Width="80" Height="56"
+                            Classes.on="{Binding SecAutoOn}"
                             Command="{Binding SendCommand}" CommandParameter="sec_auto"
                             ToolTip.Tip="Secciones en automático">
                       <StackPanel>
@@ -420,6 +476,7 @@
                       </StackPanel>
                     </Button>
                     <Button x:Name="BtnOvSecManual" Width="80" Height="56"
+                            Classes.on="{Binding SecManualOn}"
                             Command="{Binding SendCommand}" CommandParameter="sec_manual"
                             ToolTip.Tip="Secciones en manual">
                       <StackPanel>
@@ -449,6 +506,7 @@
                          toca, va donde la mano llega sin mirar. -->
                     <Button x:Name="BtnOvPiloto" Width="64" Height="56"
                             IsEnabled="{Binding PilotoEnabled}"
+                            Classes.on="{Binding PilotoOn}"
                             Command="{Binding SendCommand}" CommandParameter="autosteer"
                             ToolTip.Tip="Piloto automático">
                       <StackPanel>

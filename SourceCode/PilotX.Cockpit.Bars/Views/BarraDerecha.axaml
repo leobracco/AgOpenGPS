@@ -24,6 +24,29 @@
       <Setter Property="Opacity" Value="0.35"/>
     </Style>
 
+    <!-- ===== EL ESTADO SE VE EN EL BOTÓN, no en el dibujo =====
+         Mismo criterio que el overlay de la pasada: prendido = fondo verde de
+         acento con la palabra en blanco. Antes el único cambio era el PNG de
+         26 px de adentro y había que mirarlo para saber si estaba puesto.
+         Deshabilitado sigue diferenciándose: BarStyles baja el botón entero a
+         0.4 de opacidad. -->
+    <Style Selector="Button.on">
+      <Setter Property="Background" Value="#4ABA3E"/>
+      <Setter Property="BorderBrush" Value="#3A9430"/>
+    </Style>
+    <Style Selector="Button.on /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#4ABA3E"/>
+      <Setter Property="BorderBrush" Value="#3A9430"/>
+    </Style>
+    <Style Selector="Button.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#42A937"/>
+      <Setter Property="BorderBrush" Value="#3A9430"/>
+    </Style>
+    <Style Selector="Button.on TextBlock.cap">
+      <Setter Property="Foreground" Value="#FFFFFF"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+    </Style>
+
     <!-- Handle de plegado. Mismo lenguaje que el del menú izquierdo para que
          se lea como el mismo gesto, no como dos cosas distintas. -->
     <Style Selector="Button.collapseToggle">
@@ -90,13 +113,15 @@
           <TextBlock Classes="cap" Text="Guía ant."/>
         </StackPanel>
       </Button>
-      <Button IsVisible="{Binding TrackNavVisible}" Command="{Binding SendCommand}" CommandParameter="autotrack">
+      <Button IsVisible="{Binding TrackNavVisible}" Classes.on="{Binding AutoTrackOn}"
+              Command="{Binding SendCommand}" CommandParameter="autotrack">
         <StackPanel>
           <Image Source="{Binding AutoTrackImg, Converter={StaticResource Asset}}"/>
           <TextBlock Classes="cap" Text="Auto guía"/>
         </StackPanel>
       </Button>
-      <Button IsVisible="{Binding IsobusVisible}" Command="{Binding SendCommand}" CommandParameter="isobus">
+      <Button IsVisible="{Binding IsobusVisible}" Classes.on="{Binding IsobusOn}"
+              Command="{Binding SendCommand}" CommandParameter="isobus">
         <StackPanel>
           <Image Source="{Binding IsobusImg, Converter={StaticResource Asset}}"/>
           <TextBlock Classes="cap" Text="ISOBUS"/>
@@ -118,6 +143,7 @@
       <!-- "Tram" (vista de huellas) SACADO de la barra (pedido usuario
            2026-08-06). El comando tram_vista sigue cableado. -->
       <Button IsEnabled="{Binding HydEnabled}" IsVisible="{Binding HydVisible}"
+              Classes.on="{Binding HydOn}"
               Command="{Binding SendCommand}" CommandParameter="hidraulico">
         <StackPanel>
           <Image Source="{Binding HydImg, Converter={StaticResource Asset}}"/>
@@ -130,21 +156,24 @@
            lo que se toca durante la pasada. Siempre visibles y deshabilitados
            cuando no aplican (sin guía activa / sin cabecera), no ocultos: la
            barra no se mueve sola y se ve qué hay disponible. -->
-      <Button IsEnabled="{Binding YouSkipVisible}" Command="{Binding SendCommand}"
+      <Button IsEnabled="{Binding YouSkipVisible}" Classes.on="{Binding YouSkipOn}"
+              Command="{Binding SendCommand}"
               CommandParameter="uturn_skips" ToolTip.Tip="Guía de por medio">
         <StackPanel>
           <Image Source="{Binding YouSkipImg, Converter={StaticResource Asset}}"/>
           <TextBlock Classes="cap" Text="Por medio"/>
         </StackPanel>
       </Button>
-      <Button IsEnabled="{Binding HeadlandVisible}" Command="{Binding SendCommand}"
+      <Button IsEnabled="{Binding HeadlandVisible}" Classes.on="{Binding HdlSecOn}"
+              Command="{Binding SendCommand}"
               CommandParameter="cabecera_secciones" ToolTip.Tip="Corte por cabecera: secciones">
         <StackPanel>
           <Image Source="{Binding HdlSecImg, Converter={StaticResource Asset}}"/>
           <TextBlock Classes="cap" Text="Cab. secc."/>
         </StackPanel>
       </Button>
-      <Button IsEnabled="{Binding HeadlandVisible}" Command="{Binding SendCommand}"
+      <Button IsEnabled="{Binding HeadlandVisible}" Classes.on="{Binding HeadlandOn}"
+              Command="{Binding SendCommand}"
               CommandParameter="cabecera_onoff" ToolTip.Tip="Corte por cabecera: activar">
         <StackPanel>
           <Image Source="{Binding HeadlandImg, Converter={StaticResource Asset}}"/>

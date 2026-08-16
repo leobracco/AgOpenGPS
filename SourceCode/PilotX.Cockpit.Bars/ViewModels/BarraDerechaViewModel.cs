@@ -60,16 +60,27 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     // Bajada de la barra de abajo: el color de la bandera es estado.
     // Bajados de la barra de abajo junto con sus botones: el ícono es estado.
     private const string BAbajo = "barra-abajo/";
+
+    // ---- ESTADO EN EL BOTÓN, no solo en el dibujo -----------------------
+    // Los "…On" son el MISMO booleano que elige la imagen; existen aparte
+    // para que la vista pueda pintar el BOTÓN entero (Classes.on) y no solo
+    // el PNG de 26 px de adentro. "¿Está puesto el piloto?" es la pregunta
+    // que más se hace por pasada: a 8 km/h, resolverla mirando el dibujito
+    // cuesta casi 4 metros sin mirar el lote.
     [ObservableProperty] private bool _tramVisible;
     [ObservableProperty] private string _tramImg = BAbajo + "TramOff.png";
     [ObservableProperty] private bool _hydVisible;
     [ObservableProperty] private bool _hydEnabled;
+    [ObservableProperty] private bool _hydOn;
     [ObservableProperty] private string _hydImg = BAbajo + "HydraulicLiftOff.png";
     [ObservableProperty] private bool _nudgeVisible;
     [ObservableProperty] private bool _youSkipVisible;
+    [ObservableProperty] private bool _youSkipOn;
     [ObservableProperty] private string _youSkipImg = BAbajo + "YouSkipOff.png";
     [ObservableProperty] private bool _headlandVisible;
+    [ObservableProperty] private bool _headlandOn;
     [ObservableProperty] private string _headlandImg = BAbajo + "HeadlandOff.png";
+    [ObservableProperty] private bool _hdlSecOn;
     [ObservableProperty] private string _hdlSecImg = BAbajo + "HeadlandSectionOff.png";
     [ObservableProperty] private string _flagImg = "barra-abajo/FlagRed.png";
 
@@ -79,9 +90,11 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     // Piloto (siempre visible; imagen on/off + snap-to-pivot; habilitado si hay guía o contorno)
     [ObservableProperty] private string _pilotoImg = D + "AutoSteerOff.png";
     [ObservableProperty] private bool _pilotoEnabled;
+    [ObservableProperty] private bool _pilotoOn;
 
     // U-turn (visible con guía + sin contorno + lindero)
     [ObservableProperty] private bool _uturnVisible;
+    [ObservableProperty] private bool _uturnOn;
     [ObservableProperty] private string _uturnImg = D + "YouTurnNo.png";
 
     // Marcas de "Marcar giro" (turn_marks del HUD): controla la visibilidad
@@ -90,15 +103,19 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
     [ObservableProperty] private bool _hayMarcasGiro;
 
     // Secciones auto/manual (siempre visibles)
+    [ObservableProperty] private bool _secAutoOn;
     [ObservableProperty] private string _secAutoImg = D + "SectionMasterOff.png";
+    [ObservableProperty] private bool _secManualOn;
     [ObservableProperty] private string _secManualImg = D + "ManualOff.png";
 
     // ISOBUS (visible con comunicación viva)
     [ObservableProperty] private bool _isobusVisible;
+    [ObservableProperty] private bool _isobusOn;
     [ObservableProperty] private string _isobusImg = D + "IsobusSectionControlOff.png";
 
     // AutoTrack + ciclado (visible con 2+ guías, guía activa, sin contorno)
     [ObservableProperty] private bool _trackNavVisible;
+    [ObservableProperty] private bool _autoTrackOn;
     [ObservableProperty] private string _autoTrackImg = D + "AutoTrackOff.png";
 
     // Contorno (siempre visible) + candado (visible con contorno activo)
@@ -149,15 +166,19 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
         TramImg = BAbajo + (s.TramDisplayMode switch { 1 => "TramAll.png", 2 => "TramLines.png", 3 => "TramOuter.png", _ => "TramOff.png" });
         HydVisible = s.HasHydLift && s.HasHeadland;
         HydEnabled = s.IsHeadlandOn;
+        HydOn = s.IsHydLiftOn;
         HydImg = BAbajo + (s.IsHydLiftOn ? "HydraulicLiftOn.png" : "HydraulicLiftOff.png");
         // Con guía activa alcanza: exigir además IsNudgeOn (un modo que se
         // prende en otro lado) los dejaba grises justo cuando hacían falta.
         NudgeVisible = s.TrackIdx > -1;
 
         YouSkipVisible = s.TrackIdx > -1;   // hay guía activa
+        YouSkipOn = s.YouSkipMode != 0;
         YouSkipImg = BAbajo + (s.YouSkipMode switch { 1 => "YouSkipOn.png", 2 => "YouSkipWorkedTracks.png", _ => "YouSkipOff.png" });
         HeadlandVisible = s.HasHeadland;
+        HeadlandOn = s.IsHeadlandOn;
         HeadlandImg = BAbajo + (s.IsHeadlandOn ? "HeadlandOn.png" : "HeadlandOff.png");
+        HdlSecOn = s.IsSectionControlledByHeadland;
         HdlSecImg = BAbajo + (s.IsSectionControlledByHeadland ? "HeadlandSectionOn.png" : "HeadlandSectionOff.png");
 
         FlagImg = "barra-abajo/" + (s.FlagColor switch { 1 => "FlagGrn.png", 2 => "FlagYel.png", _ => "FlagRed.png" });
@@ -167,20 +188,26 @@ public sealed partial class BarraDerechaViewModel : BarViewModelBase
 
         NoLoteVisible = !s.IsJobStarted;
 
+        PilotoOn = s.IsAutoSteerOn;
         PilotoImg = D + (s.IsAutoSteerOn ? "AutoSteerOn" : "AutoSteerOff")
                       + (s.IsAutoSnapToPivot ? "SnapToPivot" : "") + ".png";
         PilotoEnabled = hayGuia || contour;
 
         UturnVisible = hayGuia && !contour && s.HasBoundary;
+        UturnOn = s.IsYouTurnOn;
         UturnImg = D + (s.IsYouTurnOn ? "YouTurn80.png" : "YouTurnNo.png");
 
+        SecAutoOn = s.IsSectionAutoOn;
         SecAutoImg = D + (s.IsSectionAutoOn ? "SectionMasterOn.png" : "SectionMasterOff.png");
+        SecManualOn = s.IsSectionManualOn;
         SecManualImg = D + (s.IsSectionManualOn ? "ManualOn.png" : "ManualOff.png");
 
         IsobusVisible = s.IsobusAlive;
+        IsobusOn = s.IsobusOn;
         IsobusImg = D + (s.IsobusOn ? "IsobusSectionControlOn.png" : "IsobusSectionControlOff.png");
 
         TrackNavVisible = s.TracksVisible > 1 && hayGuia && !contour;
+        AutoTrackOn = s.IsAutoTrackOn;
         AutoTrackImg = D + (s.IsAutoTrackOn ? "AutoTrack.png" : "AutoTrackOff.png");
 
         ContourImg = D + (contour ? "ContourOn.png" : "ContourOff.png");
