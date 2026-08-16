@@ -260,7 +260,10 @@ public sealed class RumboTab : ConfigTab
     {
         if (!_dirty) return true;
         if (C.Client == null) { C.Estado?.Invoke("Sin conexión con PilotX", "err"); return false; }
-        if (_guardando) return false;
+        // POST en vuelo (el inmediato del tipo de antena o del paso mínimo):
+        // cancelar la navegación EN SILENCIO deja al operario tocando "Rolido"
+        // sin que pase nada y sin una sola línea que lo explique. Se avisa.
+        if (_guardando) { C.Estado?.Invoke("Esperá, se está guardando…", ""); return false; }
 
         double? off = LeerNudDec2(_txtOffset, LimOffset);
         double? rev = LeerNudDec2(_txtReversa, LimReversa);
@@ -835,6 +838,7 @@ public sealed class RumboTab : ConfigTab
                 C.Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No se pudo cambiar la fuente de rumbo"));
                 C.Estado?.Invoke("No se pudo cambiar la fuente de rumbo", "err");
             }
+            else await ResincronizarAsync().ConfigureAwait(true);
         }
         finally
         {
@@ -870,6 +874,7 @@ public sealed class RumboTab : ConfigTab
                 C.Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No se pudo cambiar el paso mínimo"));
                 C.Estado?.Invoke("No se pudo cambiar el paso mínimo", "err");
             }
+            else await ResincronizarAsync().ConfigureAwait(true);
         }
         finally
         {
@@ -877,6 +882,26 @@ public sealed class RumboTab : ConfigTab
             PintarPasoMinimo();
             Pintar();
         }
+    }
+
+    /// <summary>
+    /// Re-lee el snapshot después de un POST INMEDIATO que salió bien.
+    /// No es cosmético: el shell refresca cada 3 s y `Live()` compara el modelo
+    /// contra `C.Snap`. Si el GET del tick ya estaba en vuelo cuando el POST
+    /// terminó, ese GET vuelve con el valor VIEJO y `Live()` daría vuelta la
+    /// pantalla sola — el tile de antena volvería a "Fix" y con él toda la
+    /// cascada, tres segundos, sin que nadie haya tocado nada. Dejar `C.Snap`
+    /// alineado con lo que el motor acaba de aceptar cierra esa ventana.
+    /// Se llama con `_guardando` todavía en true, así el tick no se cuela en el
+    /// medio. NO toca el modelo local: puede haber ediciones sin guardar en los
+    /// numéricos y pisarlas sería perderle el trabajo al operario.
+    /// </summary>
+    private async Task ResincronizarAsync()
+    {
+        if (C.RefrescarSnapshot == null) return;
+        try { await C.RefrescarSnapshot(CancellationToken.None).ConfigureAwait(true); }
+        catch (OperationCanceledException) { }
+        catch { }
     }
 
     // =======================================================================
