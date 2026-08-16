@@ -178,9 +178,11 @@ public partial class MainWindow : Window
     private StormXPanel? _stormXHost;
     private StormXClient? _stormXClient;
 
-    // FlowX nativo (live-only). Reemplaza la parte cabin-critical de
-    // pages/flowx.html. El editor de config sigue en HTML (lazy WebView).
+    // FlowX nativo. El monitor (FlowXPanel) reemplaza la parte cabin-critical
+    // de pages/flowx.html y el EDITOR (FlowXEditorPanel) reemplaza el resto:
+    // desde 2026-08-16 FlowX no abre WebView para nada.
     private FlowXPanel? _flowXHost;
+    private FlowXEditorPanel? _flowXEditorHost;
     private FlowXClient? _flowXClient;
 
     // SectionX nativo (live-only). Chip de estado del bridge + grilla de
@@ -354,6 +356,7 @@ public partial class MainWindow : Window
         _gpsDataHost     = this.FindControl<GpsDataPanel>("GpsDataHost");
         _stormXHost      = this.FindControl<StormXPanel>("StormXHost");
         _flowXHost       = this.FindControl<FlowXPanel>("FlowXHost");
+        _flowXEditorHost = this.FindControl<FlowXEditorPanel>("FlowXEditorHost");
         _sectionXHost    = this.FindControl<SectionXPanel>("SectionXHost");
         _quantiXHost     = this.FindControl<QuantiXPanel>("QuantiXHost");
         _quantiXEditorHost = this.FindControl<QuantiXEditorPanel>("QuantiXEditorHost");
@@ -531,10 +534,18 @@ public partial class MainWindow : Window
 
         if (_flowXHost != null)
         {
-            // Callback del boton "Configurar" del overlay FlowX: abre el
-            // editor de config en WebView lazy (la edicion de productos/
-            // cables/PID sigue en HTML por ahora — solo el live es nativo).
-            _flowXHost.OnRequestConfigurar = () => NavigateTo("pages/flowx.html");
+            // Boton Configurar: abre el EDITOR NATIVO (Nodo activo, Reguladoras,
+            // Cortes, Electrovalvulas, Firmware, Nodos en red). Antes navegaba a
+            // pages/flowx.html y era el ultimo motivo por el que FlowX levantaba
+            // Chromium.
+            _flowXHost.OnRequestConfigurar = () => ShowFlowXEditor();
+        }
+        if (_flowXEditorHost != null)
+        {
+            _flowXEditorHost.OnRequestCerrar  = () => CloseFlowXEditor();
+            // "‹ Monitor" vuelve al panel live sin pasar por el mapa.
+            _flowXEditorHost.OnRequestMonitor = () => { CloseFlowXEditor(); ShowFlowX(); };
+            _flowXEditorHost.Aviso += MostrarToast;
         }
         if (_sectionXHost != null)
         {
@@ -856,6 +867,11 @@ public partial class MainWindow : Window
                 if (_flowXHost != null && _flowXHost.IsVisible)
                 {
                     CloseFlowX();
+                    return;
+                }
+                if (_flowXEditorHost != null && _flowXEditorHost.IsVisible)
+                {
+                    CloseFlowXEditor();
                     return;
                 }
                 if (_sectionXHost != null && _sectionXHost.IsVisible)
@@ -1284,6 +1300,11 @@ public partial class MainWindow : Window
         {
             _flowXHost.Detach();
             _flowXHost.IsVisible = false;
+        }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible)
+        {
+            _flowXEditorHost.Detach();
+            _flowXEditorHost.IsVisible = false;
         }
         if (_sectionXHost != null && _sectionXHost.IsVisible)
         {
@@ -1867,6 +1888,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
         if (_stormXHost    != null && _stormXHost.IsVisible)    { CloseStormX();    return; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { CloseFlowX();     return; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { CloseFlowXEditor(); return; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { CloseSectionX();  return; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { CloseQuantiX();   return; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { CloseQuantiXEditor(); return; }
@@ -1891,6 +1913,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost != null && _gpsDataHost.IsVisible) _gpsDataHost.IsVisible = false;
         if (_stormXHost != null && _stormXHost.IsVisible) { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost != null && _flowXHost.IsVisible) { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost != null && _sectionXHost.IsVisible) { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost != null && _quantiXHost.IsVisible) { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -1924,6 +1947,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost != null && _gpsDataHost.IsVisible) _gpsDataHost.IsVisible = false;
         if (_stormXHost != null && _stormXHost.IsVisible) { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost != null && _flowXHost.IsVisible) { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost != null && _sectionXHost.IsVisible) { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost != null && _quantiXHost.IsVisible) { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -1984,6 +2008,7 @@ public partial class MainWindow : Window
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -2022,6 +2047,7 @@ public partial class MainWindow : Window
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -2056,11 +2082,11 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] StormX closed -> back to native map");
     }
 
-    // ---------- FlowX overlay nativo (live-only, sin WebView) ------------
+    // ---------- FlowX overlay nativo (Monitor, sin WebView) --------------
     //
-    // Strangler fig: el live (caudal/PWM/PID + KPIs combinados con HUD) va
-    // nativo en cabina; el editor de productos/cables/PID sigue siendo
-    // pages/flowx.html y se abre vía OnRequestConfigurar (WebView lazy).
+    // El live (caudal/PWM/PID + KPIs combinados con el HUD) es lo cabin-
+    // critical. El resto (reguladoras, PID, cortes, firmware) tambien es
+    // nativo desde 2026-08-16: el boton Configurar abre FlowXEditorPanel.
 
     private void ShowFlowX()
     {
@@ -2074,6 +2100,7 @@ public partial class MainWindow : Window
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2104,6 +2131,59 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] FlowX closed -> back to native map");
     }
 
+    // ---------- FlowX EDITOR nativo (30mo port, sin WebView) ---------------
+    //
+    // Las pantallas que antes vivian en pages/flowx.html: Nodo activo (datos,
+    // ancho de barra, PID y actuador, calibrar / auto-tune / barrido / PWM
+    // manual), Reguladoras, Cortes y secciones, Electrovalvulas + sync al
+    // firmware, Firmware (OTA) y Nodos en red. Card clara flotante con el mapa
+    // VIVO detras.
+
+    private void ShowFlowXEditor()
+    {
+        if (_flowXEditorHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_webView != null) CloseWebView();
+
+        // Lazy init: es el MISMO cliente del monitor (stateless), se reusa.
+        _flowXClient ??= new FlowXClient(DeriveOrigin(App.TargetUrl));
+        _flowXEditorHost.Attach(_flowXClient);
+        _flowXEditorHost.IsVisible = true;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        // La flecha "volver" es del WebView: si venimos del monitor quedaba
+        // colgada sobre el mapa sin nada atras a lo que volver.
+        bool hayWebView = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !hayWebView) _webViewBack.IsVisible = false;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] FlowX editor open (nativo, no WebView)");
+    }
+
+    private void CloseFlowXEditor()
+    {
+        if (_flowXEditorHost == null) return;
+        // Detach manda parar la valvula si quedo girando con el buscador de
+        // PWM minimo abierto (el failsafe del firmware tarda 4 s).
+        _flowXEditorHost.Detach();
+        _flowXEditorHost.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] FlowX editor closed -> back to native map");
+    }
+
     // ---------- SectionX overlay nativo (live-only, sin WebView) ---------
     //
     // Strangler fig: chip de estado del bridge + grilla de secciones live
@@ -2119,6 +2199,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
@@ -2167,6 +2248,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
@@ -2213,6 +2295,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
@@ -2259,6 +2342,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -2310,6 +2394,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -2361,6 +2446,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -2449,6 +2535,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -2501,6 +2588,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -2547,6 +2635,7 @@ public partial class MainWindow : Window
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
@@ -3532,6 +3621,10 @@ public partial class MainWindow : Window
             // Editor de VistaX nativo (Insumo & calibracion / Implemento /
             // Config). El operario llega normalmente por VistaX → Configurar.
             case "vistax_editor":   ShowVistaXEditor();         return true;
+            // Editor de FlowX nativo (Nodo activo / Reguladoras / Cortes /
+            // Electrovalvulas / Firmware / Nodos). El operario llega
+            // normalmente por FlowX → Configurar.
+            case "flowx_editor":    ShowFlowXEditor();          return true;
             // CoreX del menú izquierdo → dashboard de CoreX (config del sistema:
             // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por el
             // panel integrado del motor (CoreXEnginePanel), NO en el Hub :5180.

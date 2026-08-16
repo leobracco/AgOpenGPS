@@ -567,12 +567,13 @@
             -->
             <vw:StormXPanel x:Name="StormXHost" Grid.Row="2" IsVisible="False"/>
 
-            <!-- =================== FLOWX (overlay nativo, live-only) =================== -->
+            <!-- =================== FLOWX (overlay nativo) =================== -->
             <!--
-                Reemplazo nativo PARCIAL de pages/flowx.html: KPIs cabin-
-                critical (caudal real, target, PWM, PID, secciones, savings).
-                El editor de config (productos/cables/PID) NO esta portado:
-                el boton "Configurar" abre el WebView lazy sobre flowx.html.
+                Monitor nativo de pages/flowx.html: KPIs cabin-critical (caudal
+                real, target, PWM, PID, secciones, ahorro por corte). El resto
+                (reguladoras / PID / cortes / firmware) vive en el
+                FlowXEditorPanel, tambien nativo, via el boton "Configurar" —
+                FlowX ya no abre WebView.
             -->
             <vw:FlowXPanel x:Name="FlowXHost" Grid.Row="2" IsVisible="False"/>
 
@@ -879,6 +880,16 @@
                 <vw:VistaXEditorPanel x:Name="VistaXEditorHost" Grid.Row="1" ZIndex="10"
                                       IsVisible="False"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- EDITOR de FlowX (30mo port): las pantallas que antes se
+                     abrian con "Configurar" sobre pages/flowx.html — Nodo
+                     activo, Reguladoras, Cortes, Electrovalvulas, Firmware y
+                     Nodos en red. Con esto FlowX ya no despierta Chromium para
+                     nada. Card clara flotante, mapa VIVO detras. La pagina HTML
+                     queda intacta para la PWA del celular. -->
+                <vw:FlowXEditorPanel x:Name="FlowXEditorHost" Grid.Row="1" ZIndex="10"
+                                     IsVisible="False"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
                 <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
                      secciones primero…"). Se va solo a los 4 s y no bloquea

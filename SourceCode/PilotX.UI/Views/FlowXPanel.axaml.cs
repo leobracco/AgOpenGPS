@@ -5,9 +5,9 @@
 //   - FlowXLive (broker MQTT a 1Hz): caudal real + PWM + estado PID
 //   - FlowXConfig (json cacheado): producto activo + ancho_barra + dosis
 //
-// El editor (productos / cables / PID) NO esta portado: el boton
-// "Configurar" abre el WebView lazy sobre pages/flowx.html. Strangler-fig
-// puro — al portar tablas dinamicas se elimina ese boton.
+// El editor (reguladoras / cortes / PID / firmware) TAMBIEN es nativo desde
+// 2026-08-16: el boton "Configurar" abre FlowXEditorPanel, no el WebView.
+// pages/flowx.html queda intacta para la PWA del celular.
 
 using System;
 using System.Collections.Generic;
@@ -32,8 +32,8 @@ public partial class FlowXPanel : UserControl
     private FlowXLiveSnapshot? _live;
     private HudSnapshot? _hud;
 
-    // Callback opcional para que MainWindow abra el WebView con la pagina
-    // del Hub cuando el operario pide "Configurar".
+    // Callback para que MainWindow abra el EDITOR NATIVO (FlowXEditorPanel)
+    // cuando el operario pide "Configurar".
     public Action? OnRequestConfigurar { get; set; }
 
     private static readonly IBrush _brushOk   = new SolidColorBrush(Color.Parse("#4ABA3E"));

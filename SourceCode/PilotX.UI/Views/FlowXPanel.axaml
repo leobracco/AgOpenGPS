@@ -11,9 +11,9 @@
           - FlowXLive (broker MQTT): caudal real + PWM + PID
           - FlowXConfig (json): producto activo + ancho_barra + dosis
 
-        El EDITOR DE CONFIG (productos / cables / PID) NO esta portado:
-        sigue en pages/flowx.html. El boton "Configurar" abre el WebView
-        lazy SOLO para esa pantalla — strangler-fig.
+        El EDITOR DE CONFIG (reguladoras / cortes / PID / firmware) tambien
+        es nativo: el boton "Configurar" abre FlowXEditorPanel. FlowX ya no
+        instancia el WebView; pages/flowx.html sigue viva para la PWA.
     -->
     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto">
@@ -52,9 +52,8 @@
                 </Border>
 
                 <!--
-                    Atajo al editor HTML del Hub para los flujos que todavia
-                    no estan portados (productos/PID/cables). Abre el WebView
-                    LAZY apenas se toca y lo cierra solo al volver atras.
+                    Atajo al editor NATIVO (FlowXEditorPanel): reguladoras,
+                    PID, cortes, electrovalvulas, firmware y nodos en red.
                 -->
                 <Button Grid.Column="2"
                         Name="BtnConfigurar"
@@ -67,7 +66,7 @@
                         CornerRadius="6"
                         Padding="14,6,14,6"
                         VerticalAlignment="Center"
-                        ToolTip.Tip="Abre el editor de config en el Hub (productos / cables / PID)"/>
+                        ToolTip.Tip="Abre el editor: reguladoras, PID, cortes, electrovalvulas y firmware"/>
             </Grid>
 
             <!-- ============ KPIs principales ============ -->
