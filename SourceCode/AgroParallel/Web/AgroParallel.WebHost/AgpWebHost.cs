@@ -389,6 +389,31 @@ namespace AgroParallel.WebHost
                 // vez (ETag → 304 si no cambió, sigue siendo rápido) y toma los
                 // archivos nuevos apenas se reinicia PilotX.
                 _server = _server.WithModule(new NoClientCacheModule());
+
+                // /sounds SIEMPRE sin caché de servidor, y ANTES del módulo de
+                // "/" (EmbedIO evalúa los módulos en orden de registro).
+                //
+                // El cache de estáticos de EmbedIO guarda el CONTENIDO en RAM y
+                // NO lo invalida cuando el archivo cambia en disco: ni por fecha
+                // ni por tamaño, y la query ?v= tampoco lo esquiva (banco
+                // 2026-08-16 con EmbedIO 3.5.2). Como los .wav pesan bastante
+                // menos que el techo del cache (256 KB), pisar un sonido con
+                // otro del mismo nombre seguía devolviendo el VIEJO hasta
+                // reiniciar PilotX — justo lo que el arreglo de la revisión de
+                // sonidos quería evitar: el operario elige un sonido que se
+                // distinga del ruido del tractor, prueba, escucha el de siempre
+                // y no sabe si la alarma quedó rota.
+                // Leer del disco acá no cuesta nada: son unos pocos KB y suenan
+                // de a una alarma por vez.
+                var dirSonidos = Path.Combine(_wwwroot, "sounds");
+                try { Directory.CreateDirectory(dirSonidos); } catch { }
+                if (Directory.Exists(dirSonidos))
+                {
+                    _server = _server.WithStaticFolder("/sounds", dirSonidos, false, m =>
+                    {
+                        m.WithContentCaching(false);
+                    });
+                }
 #if DEBUG
                 // DEV: sin cache. Cambios en wwwroot se ven sin recompilar.
                 _server = _server.WithStaticFolder("/", _wwwroot, false, m =>
