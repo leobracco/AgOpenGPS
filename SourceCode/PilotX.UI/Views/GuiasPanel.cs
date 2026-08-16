@@ -97,6 +97,15 @@ public sealed class GuiasPanel : Border
     private readonly StackPanel _listaFilas;
     private readonly Button _btnIrLista;
 
+    // Doble toque anti-roce del borrado (mismo gesto que el Lindero). El
+    // índice apuntado al ARMAR queda guardado: si la selección cambia entre
+    // los dos toques, el "¿Seguro?" pendiente borraría OTRA guía, así que se
+    // desarma en vez de ejecutar.
+    private Button? _btnBorrar;
+    private DispatcherTimer? _borrarTimer;
+    private object? _borrarContenido;
+    private int _selAlArmarBorrado = -1;
+
     // curva
     private readonly TextBlock _curvaEstado;
     private readonly Button _btnCurvaPausa;
@@ -179,6 +188,7 @@ public sealed class GuiasPanel : Border
     {
         TrazaGuias("Cerrar()");
         PararTimerCurva();
+        DesarmarBorrado();
         _ = TecladoAsync(false);
         IsVisible = false;
         Cerrado?.Invoke();
@@ -192,6 +202,8 @@ public sealed class GuiasPanel : Border
 
     private void Mostrar(string cual)
     {
+        // Cambiar de pantalla desarma cualquier "¿Seguro?" colgado.
+        DesarmarBorrado();
         _scMenu.IsVisible   = cual == "menu";
         _scLista.IsVisible  = cual == "lista";
         _scCurva.IsVisible  = cual == "curva";
@@ -251,7 +263,12 @@ public sealed class GuiasPanel : Border
         };
 
         var colIzq = new StackPanel { Spacing = 6, Margin = new Thickness(0, 0, 8, 0) };
-        colIzq.Children.Add(BotonIcono("Trash.png",        "Borrar guía",          async () => { await PostAsync("/delete"); RefrescarLista(); }));
+        // "Borrar guía" es el PRIMER botón de la columna, o sea donde cae el
+        // pulgar, y borraba a un toque una línea AB medida en el lote. Ahora
+        // pide dos toques, igual que Borrar/Cancelar/Terminar del Lindero: el
+        // primero dice qué guía se pierde y el botón queda en "¿Seguro?".
+        _btnBorrar = BotonIcono("Trash.png", "Borrar guía", () => _ = BorrarAsync());
+        colIzq.Children.Add(_btnBorrar);
         colIzq.Children.Add(BotonIcono("FileEditName.png", "Editar nombre",        () => AbrirNombre("rename")));
         colIzq.Children.Add(BotonIcono("FileCopy.png",     "Duplicar",             () => AbrirNombre("duplicate")));
         colIzq.Children.Add(BotonIcono("ABSwapPoints.png", "Invertir A↔B",         async () => { await PostAsync("/swap-ab"); RefrescarLista(); }));
@@ -318,6 +335,9 @@ public sealed class GuiasPanel : Border
 
     private void RefrescarLista()
     {
+        // Si el estado llegó con OTRA guía seleccionada, el "¿Seguro?" que
+        // estaba armado ya no apunta a lo que el operario leyó: se desarma.
+        if (_borrarTimer != null && _selAlArmarBorrado != _estado.SelectedIdx) DesarmarBorrado();
         _listaFilas.Children.Clear();
         var ts = _estado.Tracks;
         if (ts == null || ts.Count == 0)
@@ -364,6 +384,10 @@ public sealed class GuiasPanel : Border
             nombre.Click += async (_, __) =>
             {
                 if (!t.IsVisible) return;   // el nativo solo selecciona visibles
+                // Elegir otra fila desarma el "¿Seguro?" del borrado: si no,
+                // el segundo toque se llevaría una guía que ya no es la que
+                // se estaba mirando.
+                DesarmarBorrado();
                 await PostAsync("/select", new { index = idx });
                 RefrescarLista();
             };
@@ -642,6 +666,79 @@ public sealed class GuiasPanel : Border
                 new Uri("avares://PilotX.Cockpit.Bars/Assets/tracks/" + nombre)));
         }
         catch { return null; }
+    }
+
+    // =========================================================================
+    //  Borrado de guía: dos toques, y el primero dice qué se pierde
+    // =========================================================================
+
+    private async Task BorrarAsync()
+    {
+        if (_btnBorrar == null) return;
+
+        int sel = _estado.SelectedIdx;
+        var ts = _estado.Tracks;
+        if (ts == null || sel < 0 || sel >= ts.Count)
+        {
+            // Sin fila elegida no hay nada que confirmar: se dice qué falta en
+            // vez de mandar un /delete que el motor rebota en silencio.
+            DesarmarBorrado();
+            Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T(
+                "Tocá primero la guía que querés borrar."));
+            return;
+        }
+
+        string nombre = string.IsNullOrWhiteSpace(ts[sel].Name)
+                      ? ("Guía " + (sel + 1)) : ts[sel].Name!;
+
+        if (_borrarTimer != null)
+        {
+            // Segundo toque. Si la selección se movió, el "¿Seguro?" apuntaba a
+            // otra guía: se desarma y no se borra nada.
+            bool mismaGuia = _selAlArmarBorrado == sel;
+            DesarmarBorrado();
+            if (!mismaGuia) return;
+
+            await PostAsync("/delete");
+            await CargarEstadoAsync();
+            RefrescarLista();
+            Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("Guía borrada") + ": " + nombre);
+            return;
+        }
+
+        // Primer toque: arma y dice en criollo qué se va a perder.
+        _selAlArmarBorrado = sel;
+        _borrarContenido = _btnBorrar.Content;
+        _btnBorrar.Content = new TextBlock
+        {
+            Text = PilotX.Cockpit.Bars.Traductor.T("¿Seguro?"),
+            FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Rojo,
+            TextAlignment = TextAlignment.Center,
+        };
+        _btnBorrar.BorderBrush = Rojo;
+        _btnBorrar.BorderThickness = new Thickness(2);
+        Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("Se borra la guía") + " «" + nombre + "». " +
+                      PilotX.Cockpit.Bars.Traductor.T("Tocá Borrar otra vez para confirmar."));
+
+        _borrarTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+        _borrarTimer.Tick += (_, __) => DesarmarBorrado();
+        _borrarTimer.Start();
+    }
+
+    /// <summary>Vuelve el botón a su ícono y cancela el "¿Seguro?" pendiente.</summary>
+    private void DesarmarBorrado()
+    {
+        if (_borrarTimer != null)
+        {
+            try { _borrarTimer.Stop(); } catch { }
+            _borrarTimer = null;
+        }
+        _selAlArmarBorrado = -1;
+        if (_btnBorrar == null || _borrarContenido == null) return;
+        _btnBorrar.Content = _borrarContenido;
+        _btnBorrar.BorderBrush = Borde;
+        _btnBorrar.BorderThickness = new Thickness(1);
+        _borrarContenido = null;
     }
 
     private static Button BotonIcono(string icono, string tip, Action accion,

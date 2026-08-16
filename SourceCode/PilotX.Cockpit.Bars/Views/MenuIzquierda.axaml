@@ -289,7 +289,11 @@
                    borra la cobertura pintada/trabajada del lote. OJO: fiel al
                    6.8.5, solo borra con las secciones APAGADAS (ni Manual ni
                    Auto) — con secciones activas devuelve unknown. -->
-              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="borrar_aplicado"><StackPanel><Image Classes="sico" Source="/Assets/menu/TrashApplied.png"/><TextBlock Classes="slbl" Text="Borrar pintado"/></StackPanel></Button>
+              <!-- En rojo: es el ÚNICO del submenú que destruye trabajo hecho,
+                   y hasta ahora se veía igual que "Continuar" o "Abrir". El
+                   color no lo mueve de lugar; la confirmación la pide
+                   MainWindow antes de mandar el comando al motor. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="borrar_aplicado"><StackPanel><Image Classes="sico" Source="/Assets/menu/TrashApplied.png"/><TextBlock Classes="slbl" Foreground="#C84E48" Text="Borrar pintado"/></StackPanel></Button>
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="lote_cerrar"><StackPanel><Image Classes="sico" Source="/Assets/menu/SwitchOff.png"/><TextBlock Classes="slbl" Text="Cerrar"/></StackPanel></Button>
             </UniformGrid>
           </ScrollViewer>

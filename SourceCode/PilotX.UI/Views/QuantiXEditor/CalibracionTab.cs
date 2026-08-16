@@ -336,6 +336,17 @@ public sealed class CalibracionTab : QxTab
         int meta = vueltas * ppr;
         if (meta <= 0) { QxUi.SetMsg(msg, "✕ vueltas/PPR inválidos", "err"); return; }
 
+        // Arrancar la calibración hace DOS cosas sin vuelta atrás: pone en
+        // marcha el dosificador (con gente y manos cerca de la máquina) y, por
+        // contrato del firmware, el nodo resetea su contador — o sea que se
+        // borra la corrida que el operario venía pesando hace rato. A un toque
+        // era demasiado barato para lo que cuesta.
+        bool seguir = C.Confirmar == null || await C.Confirmar("Arrancar calibración",
+            "El motor va a girar " + vueltas + " vueltas y se borra la cuenta de la corrida "
+            + "anterior (si estabas pesando, perdés esa medición).\n\n"
+            + "Mirá que no haya nadie cerca del dosificador. ¿Arrancamos?").ConfigureAwait(true);
+        if (!seguir) return;
+
         var st = Estado(uid, mi);
         st.StartPulsos = 0;          // el nodo resetea su contador en 'cal start'
         st.EndPulsos = null;

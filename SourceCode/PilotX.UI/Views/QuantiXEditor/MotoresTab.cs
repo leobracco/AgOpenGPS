@@ -304,6 +304,16 @@ public sealed class MotoresTab : QxTab
     private async Task MedirTopeAsync(string uid, int mi, TextBlock msg, Button btn,
                                       TextBlock kvTope, AgpStepper stPpr)
     {
+        // Medir el tope arranca el motor por rampa hasta PWM MÁXIMO y lo deja
+        // 4 s ahí. El aviso vivía solo en el ToolTip, que con guantes en una
+        // pantalla táctil no existe: el operario tocaba y el dosificador
+        // arrancaba solo.
+        bool seguir = C.Confirmar == null || await C.Confirmar("Medir el tope del motor",
+            "El motor va a girar hasta el máximo durante unos 4 segundos para medir "
+            + "cuánto da.\n\nMirá que no haya nadie cerca del dosificador. ¿Arrancamos?")
+            .ConfigureAwait(true);
+        if (!seguir) return;
+
         _medicionCts?.Cancel();
         _medicionCts = new CancellationTokenSource();
         _uidGirando = uid; _miGirando = mi;

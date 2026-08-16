@@ -211,7 +211,13 @@
                   IsVisible="{Binding BotonesVentanaVisibles}">
         <Button Classes="wbtn" Content="–" Command="{Binding SendCommand}" CommandParameter="minimizar"/>
         <Button Classes="wbtn" Content="☐" Command="{Binding SendCommand}" CommandParameter="maximizar"/>
-        <Button Classes="wbtn close" Content="✕" Command="{Binding SendCommand}" CommandParameter="apagar"/>
+        <!-- El ✕ queda DONDE ESTABA (pegado al borde derecho, memoria
+             muscular): el margen extra empuja a – y ☐ hacia la izquierda, así
+             la separación entre "maximizar" y "cerrar" pasa de 4 a 18 px. Con
+             guantes y el tractor moviéndose, 4 px no alcanzan para no errarle
+             al botón que apaga el guiado. -->
+        <Button Classes="wbtn close" Content="✕" Margin="14,0,0,0"
+                Command="{Binding SendCommand}" CommandParameter="apagar"/>
       </StackPanel>
     </Grid>
   </Border>

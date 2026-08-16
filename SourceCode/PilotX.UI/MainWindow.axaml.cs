@@ -4098,7 +4098,11 @@ public partial class MainWindow : Window
             case "maximizar":
                 WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
                 return true;
-            case "apagar": Close(); return true;
+            // El ✕ apagaba PilotX A UN TOQUE, y vive a 4 px del de maximizar:
+            // un dedo enguantado que erra por medio centímetro dejaba al
+            // operario sin guiado, sin mapa y sin secciones en pleno lote.
+            // Ahora pregunta antes (mismo diálogo que el reset de fábrica).
+            case "apagar": _ = ConfirmarSalidaAsync(); return true;
 
             // Modo kiosco ↔ ventana. El cockpit ya arranca a pantalla completa,
             // así que este toggle sirve para lo contrario: achicarlo a una
@@ -4289,7 +4293,14 @@ public partial class MainWindow : Window
                         "Apagá las secciones primero para poder borrar el pintado."));
                     return true;
                 }
-                return false;   // secciones apagadas: sigue al motor, que borra
+                // Con las secciones apagadas ANTES caía derecho al motor, que
+                // borraba la cobertura del lote entero sin preguntar nada: un
+                // toque en un botón que se ve igual que "Continuar" y "Abrir",
+                // y toda la jornada pintada se iba. Ahora la confirmación es
+                // la que manda el comando (por eso devuelve true acá: el
+                // comando NO tiene que seguir de largo al motor).
+                _ = ConfirmarBorrarPintadoAsync();
+                return true;
 
             // Dirección (FormSteer) → ventana propia más grande. ?v= evita que
             // el WebView2 sirva una versión cacheada vieja de la página.
@@ -4773,16 +4784,78 @@ public partial class MainWindow : Window
         }
     }
 
+    // ---- Borrar pintado ----------------------------------------------------
+    //
+    // Lo que se pierde no tiene vuelta atrás: la cobertura trabajada del lote
+    // entero (lo verde del mapa) es el registro de por dónde ya pasó la
+    // máquina, y sin él el anti-solape deja de saber qué está sembrado. Por
+    // eso el primer toque dice QUÉ se pierde, con el nombre del lote adelante.
+    private async Task ConfirmarBorrarPintadoAsync()
+    {
+        string lote = (_vmSup?.LoteText ?? "").Trim();
+        bool hayNombre = lote.Length > 0 &&
+                         !lote.Equals("SIN LOTE", StringComparison.OrdinalIgnoreCase);
+
+        bool ok = await MostrarConfirmacionAsync(
+            "Borrar pintado",
+            "Se borra TODO lo trabajado" + (hayNombre ? " del lote " + lote : " del lote abierto") +
+            ": lo verde del mapa y las hectáreas hechas.\n\n" +
+            "El lote, las guías y el lindero NO se tocan. Lo pintado no se puede recuperar.",
+            "Borrar lo trabajado");
+        if (!ok) return;
+
+        // El comando va DERECHO al motor: mandarlo por _cockpitCmd volvería a
+        // entrar en RouteCockpitCommand y pediría confirmación otra vez.
+        await EnviarComandoAlMotorAsync("borrar_aplicado");
+    }
+
+    // ---- Cerrar PilotX -----------------------------------------------------
+    //
+    // Fuera del modo kiosco (taller y cualquier PC de escritorio) el ✕ de la
+    // barra superior mide 38x40 y está a 4 px del de maximizar: errarle es
+    // apagar el guiado en medio de la pasada. Se confirma; el mapa sigue
+    // vivo detrás del diálogo.
+    private async Task ConfirmarSalidaAsync()
+    {
+        bool ok = await MostrarConfirmacionAsync(
+            "Cerrar PilotX",
+            "Se apaga el guiado: se van el mapa, el piloto y el control de secciones.\n\n" +
+            "Si estás trabajando un lote, cerralo primero desde LOTE › Cerrar.",
+            "Cerrar PilotX");
+        if (ok) Close();
+    }
+
+    /// <summary>POST directo del comando al motor de guiado, salteando el
+    /// LocalHandler (que es quien nos trajo hasta acá).</summary>
+    private async Task EnviarComandoAlMotorAsync(string cmd)
+    {
+        try
+        {
+            var http = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            var url = DeriveOrigin(App.TargetUrl).TrimEnd('/');
+            using var body = new System.Net.Http.StringContent(
+                "{\"cmd\":\"" + cmd + "\"}", System.Text.Encoding.UTF8, "application/json");
+            using var _ = await http.PostAsync(url + "/api/aog/guidance/command", body);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine("[Comando] " + cmd + ": " + ex.Message);
+            MostrarToast(PilotX.Cockpit.Bars.Traductor.T(
+                "Sin conexión con el motor de PilotX: no se pudo hacer."));
+        }
+    }
+
     /// <summary>Diálogo nativo de confirmación (dos botones grandes, para
     /// guantes). Devuelve true solo si el operario tocó el botón rojo.</summary>
-    private async Task<bool> MostrarConfirmacionAsync(string titulo, string mensaje)
+    private async Task<bool> MostrarConfirmacionAsync(string titulo, string mensaje,
+                                                      string textoSi = "Borrar todo")
     {
         var tcs = new TaskCompletionSource<bool>();
         var win = ArmarDialogoBase(titulo, mensaje, out var fila);
 
         var btnNo = BotonDialogo("Cancelar", "#FFFFFF", "#101612");
         btnNo.Click += (_, _) => { tcs.TrySetResult(false); win.Close(); };
-        var btnSi = BotonDialogo("Borrar todo", "#ED4848", "#FFFFFF");
+        var btnSi = BotonDialogo(textoSi, "#ED4848", "#FFFFFF");
         btnSi.Click += (_, _) => { tcs.TrySetResult(true); win.Close(); };
         fila.Children.Add(btnNo);
         fila.Children.Add(btnSi);

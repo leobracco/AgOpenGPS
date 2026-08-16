@@ -186,6 +186,15 @@ public sealed class PidTab : QxTab
 
     private async Task MedirAsync(string uid, int mi, TextBlock msg, Button btn)
     {
+        // Igual que "Medir tope" de Motores: sube el motor a PWM máximo y lo
+        // sostiene 4 s. El aviso estaba solo en el ToolTip — inútil con
+        // guantes en táctil.
+        bool seguir = C.Confirmar == null || await C.Confirmar("Medir el máximo del motor",
+            "El motor va a girar hasta el máximo durante unos 4 segundos para medir "
+            + "su tope.\n\nMirá que no haya nadie cerca del dosificador. ¿Arrancamos?")
+            .ConfigureAwait(true);
+        if (!seguir) return;
+
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         _uidGirando = uid; _miGirando = mi;
@@ -200,6 +209,16 @@ public sealed class PidTab : QxTab
                                      AgpStepper stKp, AgpStepper stKi, AgpStepper stKd)
     {
         if (!btn.IsEnabled) return;
+
+        // El Auto-Tune sacude el motor con escalones de PWM hasta 50 s. Lo
+        // único que lo avisaba era el ToolTip ("Tarda hasta 50 s"), que en
+        // táctil no se ve nunca: un toque y el dosificador arrancaba solo.
+        bool seguir = C.Confirmar == null || await C.Confirmar("Arrancar el Auto-Tune",
+            "El motor va a arrancar y frenar solo, a fondo, hasta 50 segundos, "
+            + "para encontrar el ajuste del control.\n\n"
+            + "Mirá que no haya nadie cerca del dosificador. ¿Arrancamos?").ConfigureAwait(true);
+        if (!seguir) return;
+
         btn.IsEnabled = false;
         object? orig = btn.Content;
         btn.Content = PilotX.Cockpit.Bars.Traductor.T("⏳ Tuning…");
