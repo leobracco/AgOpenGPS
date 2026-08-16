@@ -2182,6 +2182,10 @@ public partial class MainWindow : Window
         // Corregir posición: sin esta línea la flecha "←" no cerraba la card y el
         // operario la veía muerta.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) { _corregirPosHost.Cerrar(); return; }
+        // Rutas grabadas: mismo motivo — sin esta línea la flecha "←" no cerraba
+        // la card y el operario la veía muerta con la lista de .rec parada
+        // arriba del mapa.
+        if (_recPathHost != null && _recPathHost.IsVisible) { _recPathHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -5060,6 +5064,7 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando también nace en el menú del Hub (menu-izquierda.js), o
@@ -5101,6 +5106,7 @@ public partial class MainWindow : Window
         // Cerrar() manda el cancel, o sea que sin esto la preview quedaría
         // colgada abajo de esta card.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando también nace en el menú del Hub (menu-izquierda.js), o
@@ -5485,6 +5491,17 @@ public partial class MainWindow : Window
                 && !string.Equals(_lastFieldDir ?? "", s.CurrentFieldDirectory ?? "",
                                   StringComparison.OrdinalIgnoreCase))
                 _corregirPosHost.Cerrar();
+            // Las rutas grabadas son .rec DEL LOTE, y el motor resuelve el nombre
+            // contra la carpeta del lote ACTIVO en el momento del POST
+            // (EngineRecPathService.DirLote()). Si el lote cambia con el panel
+            // abierto (lo puede cambiar el Hub del celular), la lista en pantalla
+            // es la del lote viejo pero "Usar" cargaría —y "Borrar" BORRARÍA— el
+            // homónimo del lote nuevo. Se cierra: la lista se vuelve a pedir en
+            // el próximo Abrir().
+            if (_recPathHost != null && _recPathHost.IsVisible
+                && !string.Equals(_lastFieldDir ?? "", s.CurrentFieldDirectory ?? "",
+                                  StringComparison.OrdinalIgnoreCase))
+                _recPathHost.Cerrar();
             _lastFieldDir = s.CurrentFieldDirectory;
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             CerrarDialogoSiHayGuiaNueva(s.TracksTotal, s.TrackIdx);

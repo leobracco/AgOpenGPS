@@ -223,8 +223,15 @@ public sealed class RecPathPanel : Border
         _scPicker.Children.Add(_msgVacio);
         _scPicker.Children.Add(_chipError);
         _scPicker.Children.Add(filaAcciones);
-        _scPicker.Children.Add(_confirmBorrar);
+        // OJO con el ORDEN: la fila de confirmación va DESPUÉS de "Apagar", no
+        // entre medio. Puesta entre medio, al aparecer empujaba "Apagar" hacia
+        // abajo y dejaba el botón "Sí, borrar" justo donde el dedo del operario
+        // ya estaba yendo a apagar la ruta: un toque a ciegas borraba el .rec
+        // (irreversible: hay que volver a manejar el camino entero) en vez de
+        // apagarlo (recuperable, el .rec sigue en el lote). Abajo del todo,
+        // ningún control destructivo aparece donde antes había otro.
         _scPicker.Children.Add(_btnApagar);
+        _scPicker.Children.Add(_confirmBorrar);
 
         // ================= PANTALLA SALVAR =================
         _txtNombre = new TextBox
