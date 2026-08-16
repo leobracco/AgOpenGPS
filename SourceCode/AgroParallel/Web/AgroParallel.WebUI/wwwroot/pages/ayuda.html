@@ -183,6 +183,7 @@
         <a href="#configuracion">Configuración</a>
         <a href="#modulos">Nodos y productos X</a>
         <a href="#camaras">Cámaras</a>
+        <a href="#sonidos">Sonidos</a>
 
         <div class="ay-idx-tit">Datos</div>
         <a href="#cloud">Nube y actualizaciones</a>
@@ -417,7 +418,7 @@
             <tr><td>Implemento</td><td>Enganche, distancias, offset lateral, pivote y tiempos de encendido/apagado.</td></tr>
             <tr><td>Secciones</td><td>Cuántas hay y qué ancho tiene cada una, switches y máquina.</td></tr>
             <tr><td>GPS / IMU</td><td>De dónde sale el rumbo y corrección de rolido.</td></tr>
-            <tr><td>Otros</td><td>Giro en cabecera (U-Turn), huellas (Tram) y sonidos.</td></tr>
+            <tr><td>Otros</td><td>Giro en cabecera (U-Turn) y huellas (Tram). Los avisos sonoros tienen su propio panel: <strong>Barra de la pasada › Herram. › Sonidos</strong>.</td></tr>
           </table>
           <div class="clave">Las medidas del vehículo y del implemento son la base de todo: si están mal, la guía y el corte de secciones van a estar mal por más que el GPS sea perfecto.</div>
           <p>La configuración de la <strong>dirección</strong> (cómo responde el volante) está aparte: <strong>Menú izquierdo › Dirección</strong> abre un panel con seis pestañas — <strong>Probar</strong> (manejo libre), <strong>Sensor</strong> (sensor de ángulo, cuentas, cero), <strong>Fuerza</strong> (PWM y ganancia), <strong>Guiado</strong> (modo suave/firme y ajustes finos), <strong>Módulo</strong> (placa y corte al agarrar el volante) y <strong>Pantalla</strong> (velocidades y barra de guiado) — con el ángulo Objetivo/Actual/Error en vivo arriba. El <strong>?</strong> explica cada botón. Abajo, <strong>Descartar</strong> (dos toques) vuelve a lo guardado y <strong>Guardar</strong> envía los cambios al módulo. Si cerrás el panel con cambios sin guardar, <strong>se guardan solos</strong> — para tirarlos hay que usar Descartar antes de salir. En <strong>Sensor</strong>, <strong>Poner en cero</strong> guarda primero lo que tengas editado (por ejemplo las cuentas por grado) y recién ahí cera: así el cero sale con la escala que estás viendo. Los perfiles del vehículo se guardan y se cambian desde <strong>SISTEMA › Perfiles del vehículo</strong>.</p>
@@ -478,6 +479,23 @@
           <p class="ruta"><b>Menú izquierdo</b> <i>›</i> <b>Herramientas</b> <i>›</i> <b>Webcam</b></p>
           <p>Muestra hasta cuatro cámaras en 1×1, 2×1 o 2×2. Doble toque sobre una para agrandarla y volver.</p>
           <p>Para cargar IP, usuario y clave de cada cámara: botón <strong>Configurar</strong>, que abre la pantalla de Configuración en el módulo Cámaras.</p>
+        </section>
+
+        <section id="sonidos">
+          <h2>Sonidos</h2>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b> <i>›</i> <b>Sonidos</b></p>
+          <p>Qué avisa la cabina, con qué sonido y cuándo. Arriba se ven las <strong>alarmas activas</strong> en ese momento; abajo, la lista de avisos: piloto activado y desactivado, dosis que no alcanza o se pasa, motor sin girar, tubo de bajada sin semilla y tolva sin semilla.</p>
+          <p>De cada aviso se elige:</p>
+          <ul>
+            <li>la <strong>casilla verde</strong> — si avisa o no (apagado, la fila se ve gris);</li>
+            <li>el <strong>sonido</strong> — se toca el nombre del archivo y se elige de la lista;</li>
+            <li><strong>▶</strong> — escuchar el sonido elegido ahí mismo;</li>
+            <li><strong>umbral ±</strong> (solo dosis) — a partir de qué desvío se considera alarma;</li>
+            <li><strong>sostenido</strong> — cuántos segundos tiene que mantenerse la falla antes de sonar (evita saltos por un bache);</li>
+            <li><strong>repetir</strong> — si sigue activa, cada cuántos segundos vuelve a sonar (0 = una sola vez).</li>
+          </ul>
+          <p><strong>Silenciar todo</strong> calla la cabina sin dejar de detectar: las alarmas se siguen viendo en pantalla. El botón queda rojo hasta que se lo vuelve a tocar. <strong>Subir sonido propio (.wav)</strong> agrega un sonido desde un pendrive.</p>
+          <div class="clave">Los cambios se aplican al tocar <strong>Guardar</strong>. Silenciar todo, en cambio, guarda solo (no hace falta confirmar).</div>
         </section>
 
         <!-- ================= DATOS ================= -->

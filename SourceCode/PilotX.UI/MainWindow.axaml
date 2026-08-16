@@ -893,6 +893,16 @@
                                      IsVisible="False"
                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
+                <!-- SONIDOS (port de pages/sonidos.html, completo): qué avisa
+                     la cabina, con qué sonido y cuándo. Incluye subir un .wav
+                     propio con el file-picker del sistema, así que no queda
+                     ningún camino a HTML — esta pantalla ya no despierta
+                     Chromium. Card clara flotante, mapa VIVO detrás; la página
+                     HTML queda intacta para la PWA del celular. -->
+                <vw:SonidosPanel x:Name="SonidosHost" Grid.Row="1" ZIndex="10"
+                                 IsVisible="False"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                 <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
                      secciones primero…"). Se va solo a los 4 s y no bloquea
                      NADA — el aviso modal (ShowDialog) trababa todos los
@@ -1016,6 +1026,15 @@
                            y el home del Hub duplicaba navegación. El panel
                            nativo (HubPanel/ShowHub) sigue existiendo por si se
                            lo quiere re-enganchar. -->
+                      <!-- Sonidos: antes vivía dentro de Configuración › Otros
+                           (página HTML). Ahora es panel nativo y entra acá,
+                           que es donde el operario busca las herramientas. -->
+                      <Button x:Name="BtnHrSonidos" Classes="hr" ToolTip.Tip="Alarmas sonoras: qué avisa la cabina y con qué sonido">
+                        <StackPanel>
+                          <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/Sonidos.png"/>
+                          <TextBlock Text="Sonidos"/>
+                        </StackPanel>
+                      </Button>
                       <Button x:Name="BtnHrCorexEcu" Classes="hr" ToolTip.Tip="Telemetría del ECU de dirección (Teensy)">
                         <StackPanel>
                           <Image Source="avares://PilotX.Cockpit.Bars/Assets/menu/CoreX.png"/>

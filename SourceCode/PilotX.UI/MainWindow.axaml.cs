@@ -266,6 +266,13 @@ public partial class MainWindow : Window
     private CamarasPanel? _camarasHost;
     private CamarasClient? _camarasClient;
 
+    // Sonidos nativo (port de pages/sonidos.html, COMPLETO). Config de las
+    // alarmas sonoras + activas + probar + subir un .wav propio: ya no queda
+    // nada de esta pantalla en HTML, asi que Sonidos no despierta Chromium.
+    // El que SUENA sigue siendo SoundAlarmPoller, aparte.
+    private SonidosPanel? _sonidosHost;
+    private SonidosClient? _sonidosClient;
+
     // Guías nativo (15vo port). Reemplaza tracks.html en el flujo de labor:
     // el único diálogo que despertaba Chromium MANEJANDO. La página HTML
     // sigue para el Hub remoto/celular.
@@ -368,6 +375,7 @@ public partial class MainWindow : Window
         _nodosHost         = this.FindControl<NodosPanel>("NodosHost");
         _actualizarHost    = this.FindControl<ActualizarPanel>("ActualizarHost");
         _camarasHost       = this.FindControl<CamarasPanel>("CamarasHost");
+        _sonidosHost       = this.FindControl<SonidosPanel>("SonidosHost");
         // Guías nativo (14vo port): AB delega en el flujo del mapa que ya
         // existía; curva y lista van contra /api/tracks igual que la página.
         _guiasHost = this.FindControl<GuiasPanel>("GuiasHost");
@@ -484,6 +492,10 @@ public partial class MainWindow : Window
         // El botón Hub se sacó del menú (pedido 2026-08-11); el comando "hub"
         // y ShowHub() quedan por si se re-engancha desde otro lado.
         Herr("BtnHrCorexEcu", "corex_ecu");
+        // Sonidos: antes se llegaba por Configuración › Otros › 🔔 Sonidos
+        // (pagina HTML dentro del WebView). Ahora es panel nativo y tiene su
+        // propio boton acá, que es donde el operario busca las herramientas.
+        Herr("BtnHrSonidos",  "sonidos");
 
         var bIzq = this.FindControl<Button>("BtnNudgeIzq");
         var bCen = this.FindControl<Button>("BtnNudgeCentro");
@@ -537,6 +549,15 @@ public partial class MainWindow : Window
                 }
             };
             _nodosHost.Aviso += MostrarToast;
+        }
+
+        if (_sonidosHost != null)
+        {
+            // El panel de Sonidos NO abre ninguna pagina: la subida del .wav
+            // propio usa el file-picker del sistema, asi que no hay boton
+            // "Configurar" que despierte el WebView.
+            _sonidosHost.OnRequestCerrar = () => CloseSonidos();
+            _sonidosHost.Aviso += MostrarToast;
         }
 
         if (_hubHost != null)
@@ -930,6 +951,11 @@ public partial class MainWindow : Window
                 if (_camarasHost != null && _camarasHost.IsVisible)
                 {
                     CloseCamaras();
+                    return;
+                }
+                if (_sonidosHost != null && _sonidosHost.IsVisible)
+                {
+                    CloseSonidos();
                     return;
                 }
                 if (_webView != null)
@@ -1917,6 +1943,7 @@ public partial class MainWindow : Window
         if (_nodosHost     != null && _nodosHost.IsVisible)     { CloseNodos();     return; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ CloseActualizar();return; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { CloseCamaras();  return; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { CloseSonidos();  return; }
         if (_webView != null) { CloseWebView(); return; }
     }
 
@@ -2035,6 +2062,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2074,6 +2102,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2123,6 +2152,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2174,6 +2204,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2225,6 +2256,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2272,6 +2304,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2320,6 +2353,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2368,6 +2402,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2420,6 +2455,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2562,6 +2598,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2615,6 +2652,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -2663,6 +2701,7 @@ public partial class MainWindow : Window
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         if (_updateClient == null)
             _updateClient = new UpdateClient(DeriveOrigin(App.TargetUrl));
@@ -2755,6 +2794,54 @@ public partial class MainWindow : Window
             _webViewBack.IsVisible = false;
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Camaras closed -> back to native map");
+    }
+
+    // ----- Sonidos overlay: reemplazo nativo COMPLETO de pages/sonidos.html.
+    // Config de eventos (habilitado/sonido/umbral/sostenido/repetir), mute,
+    // alarmas activas @2s, probar el wav por el sink de audio del head y subir
+    // un .wav propio con el file-picker del sistema. No queda ningun camino a
+    // HTML: esta pantalla ya no instancia Chromium.
+
+    private void ShowSonidos()
+    {
+        if (_sonidosHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_webView != null) CloseWebView();
+        if (_sonidosClient == null)
+            _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));
+        _sonidosHost.Attach(_sonidosClient);
+        _sonidosHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Sonidos open (nativo, no WebView)");
+    }
+
+    private void CloseSonidos()
+    {
+        if (_sonidosHost == null) return;
+        _sonidosHost.Detach();
+        _sonidosHost.IsVisible = false;
+        bool webViewVisibleSn = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleSn)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Sonidos closed -> back to native map");
     }
 
     private void OnWebViewNavigated(string url)
@@ -3637,6 +3724,10 @@ public partial class MainWindow : Window
             // llega por el HubPanel; el comando queda para engancharlo desde
             // una barra/menu sin volver a tocar el router.
             case "nodos":      ShowNodos();    return true;
+            // Sonidos nativo (alarmas de cabina): que avisa, con que sonido y
+            // cuando. Reemplaza pages/sonidos.html, que seguia siendo la unica
+            // via de configurarlas y levantaba Chromium para hacerlo.
+            case "sonidos":    ShowSonidos();  return true;
             // Editor de QuantiX nativo. "prescripciones" entra directo a la
             // tab Shape (el equivalente del viejo quantix.html?tab=shape).
             case "quantix_editor":  ShowQuantiXEditor();        return true;

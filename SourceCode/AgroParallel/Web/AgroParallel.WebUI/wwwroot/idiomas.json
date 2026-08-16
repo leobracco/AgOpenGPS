@@ -2777,5 +2777,129 @@
   "El vehículo se dibuja en el mapa como el triángulo verde.": {
     "en": "The vehicle is drawn on the map as the green triangle.",
     "pt": "O veículo é desenhado no mapa como o triângulo verde."
+  },
+  "Sonidos": {
+    "en": "Sounds",
+    "pt": "Sons"
+  },
+  "Qué avisa la cabina, con qué sonido y cuándo": {
+    "en": "What the cab warns about, with which sound and when",
+    "pt": "O que a cabine avisa, com qual som e quando"
+  },
+  "Silenciar todo": {
+    "en": "Mute all",
+    "pt": "Silenciar tudo"
+  },
+  "SILENCIADO — tocar para activar": {
+    "en": "MUTED — tap to turn on",
+    "pt": "SILENCIADO — toque para ativar"
+  },
+  "Sin alarmas activas.": {
+    "en": "No active alarms.",
+    "pt": "Sem alarmes ativos."
+  },
+  "EVENTOS": {
+    "en": "EVENTS",
+    "pt": "EVENTOS"
+  },
+  "No hay eventos configurables.": {
+    "en": "No configurable events.",
+    "pt": "Sem eventos configuráveis."
+  },
+  "Hub no responde": {
+    "en": "Hub not responding",
+    "pt": "Hub não responde"
+  },
+  "Avisar con este sonido": {
+    "en": "Warn with this sound",
+    "pt": "Avisar com este som"
+  },
+  "Probar el sonido": {
+    "en": "Test the sound",
+    "pt": "Testar o som"
+  },
+  "Elegí el sonido": {
+    "en": "Choose the sound",
+    "pt": "Escolha o som"
+  },
+  "(sin sonido)": {
+    "en": "(no sound)",
+    "pt": "(sem som)"
+  },
+  "(no está)": {
+    "en": "(missing)",
+    "pt": "(não existe)"
+  },
+  "No hay sonidos cargados.": {
+    "en": "No sounds loaded.",
+    "pt": "Nenhum som carregado."
+  },
+  "Subir sonido propio (.wav)": {
+    "en": "Upload your own sound (.wav)",
+    "pt": "Enviar som próprio (.wav)"
+  },
+  "Elegí un sonido .wav": {
+    "en": "Choose a .wav sound",
+    "pt": "Escolha um som .wav"
+  },
+  "guardado": {
+    "en": "saved",
+    "pt": "salvo"
+  },
+  "no se pudo guardar": {
+    "en": "could not save",
+    "pt": "não foi possível salvar"
+  },
+  "no se pudo subir": {
+    "en": "could not upload",
+    "pt": "não foi possível enviar"
+  },
+  "subido": {
+    "en": "uploaded",
+    "pt": "enviado"
+  },
+  "Elegí primero un sonido": {
+    "en": "Choose a sound first",
+    "pt": "Escolha um som primeiro"
+  },
+  "Este equipo no tiene salida de sonido configurada": {
+    "en": "This machine has no sound output configured",
+    "pt": "Este equipamento não tem saída de som configurada"
+  },
+  "No se pudo leer el sonido": {
+    "en": "Could not read the sound",
+    "pt": "Não foi possível ler o som"
+  },
+  "umbral ±": {
+    "en": "threshold ±",
+    "pt": "limiar ±"
+  },
+  "sostenido": {
+    "en": "sustained",
+    "pt": "sustentado"
+  },
+  "repetir": {
+    "en": "repeat",
+    "pt": "repetir"
+  },
+  "Umbral de dosis (%)": {
+    "en": "Rate threshold (%)",
+    "pt": "Limiar de dose (%)"
+  },
+  "Segundos sostenido": {
+    "en": "Sustained seconds",
+    "pt": "Segundos sustentado"
+  },
+  "Repetir cada (s)": {
+    "en": "Repeat every (s)",
+    "pt": "Repetir a cada (s)"
+  },
+  "Umbral: a partir de qué desvío se considera alarma (solo dosis). Sostenido: cuántos segundos debe mantenerse antes de sonar. Repetir: si sigue activa, vuelve a sonar cada tantos segundos (0 = una sola vez).": {
+    "en": "Threshold: how much deviation counts as an alarm (rate only). Sustained: how many seconds it must hold before sounding. Repeat: while still active, it sounds again every so many seconds (0 = only once).",
+    "pt": "Limiar: a partir de qual desvio se considera alarme (somente dose). Sustentado: quantos segundos deve se manter antes de tocar. Repetir: se continuar ativa, toca de novo a cada tantos segundos (0 = uma só vez)."
+  },
+  "Alarmas sonoras: qué avisa la cabina y con qué sonido": {
+    "en": "Sound alarms: what the cab warns about and with which sound",
+    "pt": "Alarmes sonoros: o que a cabine avisa e com qual som"
   }
 }
