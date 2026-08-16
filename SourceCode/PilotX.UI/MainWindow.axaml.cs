@@ -251,9 +251,9 @@ public partial class MainWindow : Window
     private HubPanel? _hubHost;
     private OverlaysClient? _overlaysClient;
 
-    // Nodos overlay (12vo port). Reemplazo nativo parcial de pages/nodos.html:
-    // tabs + tabla + banner alarma. Las acciones de curado (aceptar/ignorar/
-    // renombrar/restaurar) + diagnostico MQTT siguen en HTML via "Configurar".
+    // Nodos overlay (12vo port, cerrado). Reemplazo nativo de pages/nodos.html:
+    // tabs + tabla + banner + acciones de curado (aceptar/ignorar/renombrar/
+    // eliminar/pin) + diagnostico MQTT. Ya no abre la pagina en WebView.
     private NodosPanel? _nodosHost;
 
     // Actualizar overlay (13vo port). Reemplazo nativo de pages/actualizar.html:
@@ -513,12 +513,30 @@ public partial class MainWindow : Window
 
         if (_nodosHost != null)
         {
-            // El boton "Configurar" del NodosPanel abre nodos.html en WebView
-            // lazy para acceder a las acciones de curado (aceptar/ignorar/
-            // renombrar) + diagnostico MQTT (wildcard + msg log). En cabina
-            // tactil el monitor con tabs alcanza; las acciones admin van en
-            // HTML mientras no haya teclado virtual integrado.
-            _nodosHost.OnRequestConfigurar = () => NavigateTo("pages/nodos.html");
+            // El NodosPanel ya no abre nodos.html: las acciones de curado
+            // (aceptar/ignorar/renombrar/eliminar/pin del implemento) y el
+            // diagnostico MQTT (wildcard + log) son NATIVAS. Lo unico que
+            // sigue saliendo por WebView son las OTRAS paginas: el detalle
+            // del nodo y el asistente de primera vez.
+            _nodosHost.OnRequestCerrar = () => CloseNodos();
+            _nodosHost.OnRequestDetalle = uid =>
+                NavigateTo("pages/nodo-detalle.html?uid=" + Uri.EscapeDataString(uid ?? string.Empty));
+            _nodosHost.OnRequestAsistente = () => NavigateTo("pages/setup.html");
+            // "Configurar" de una fila abre el PANEL NATIVO del producto, no la
+            // pagina: si el nodo es un QuantiX, va al QuantiX de siempre.
+            _nodosHost.OnRequestConfigurarProducto = producto =>
+            {
+                switch (producto)
+                {
+                    case "quantix":  ShowQuantiX();  break;
+                    case "vistax":   ShowVistaX();   break;
+                    case "sectionx": ShowSectionX(); break;
+                    case "flowx":    ShowFlowX();    break;
+                    case "stormx":   ShowStormX();   break;
+                    default: MostrarToast("Todavía no hay pantalla para ese tipo de nodo"); break;
+                }
+            };
+            _nodosHost.Aviso += MostrarToast;
         }
 
         if (_hubHost != null)
@@ -2574,10 +2592,10 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Hub closed -> back to native map");
     }
 
-    // ----- Nodos overlay (port #12): reemplazo nativo (parcial) de pages/nodos.html.
-    // Live monitor: tabs + tabla + banner alarma offline-del-implemento. Las acciones
-    // de curado (aceptar/ignorar/renombrar/restaurar) y el diag MQTT (wildcard +
-    // msg log) siguen en HTML via WebView lazy.
+    // ----- Nodos overlay (port #12, CERRADO): reemplazo nativo de pages/nodos.html.
+    // Lista (tabs + tabla + banner + acciones de curado) y Diagnostico MQTT
+    // (wildcard + reconectar + log) son nativos. Solo salen por WebView las OTRAS
+    // paginas: detalle del nodo y asistente de primera vez.
 
     private void ShowNodos()
     {
@@ -2605,8 +2623,9 @@ public partial class MainWindow : Window
             _nodosClient = new NodosClient(DeriveOrigin(App.TargetUrl));
         _nodosHost.Attach(_nodosClient);
         _nodosHost.IsVisible = true;
-        if (_mapHost != null) _mapHost.IsVisible = false;
-        if (_webViewBack != null) _webViewBack.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga (apagarlo dejaba "una pagina
+        // negra" detras del panel — reporte 2026-08-11, misma cura que el Hub).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Nodos open (nativo, no WebView)");
     }
 
@@ -3614,6 +3633,10 @@ public partial class MainWindow : Window
             // ---- Paneles nativos grandes (Hub / Cámaras) ----
             case "hub":        ShowHub();      return true;
             case "webcam":     ShowCamaras();  return true;
+            // Nodos nativo (lista + curado + diagnostico MQTT). Hoy la entrada
+            // llega por el HubPanel; el comando queda para engancharlo desde
+            // una barra/menu sin volver a tocar el router.
+            case "nodos":      ShowNodos();    return true;
             // Editor de QuantiX nativo. "prescripciones" entra directo a la
             // tab Shape (el equivalente del viejo quantix.html?tab=shape).
             case "quantix_editor":  ShowQuantiXEditor();        return true;

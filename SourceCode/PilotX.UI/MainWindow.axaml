@@ -619,17 +619,19 @@
                          HorizontalAlignment="Center" VerticalAlignment="Center"
                          MaxWidth="860" MaxHeight="620"/>
 
-            <!-- =================== NODOS (overlay nativo, 12vo port) =================== -->
+            <!-- =================== NODOS (overlay nativo, 12vo port CERRADO) =================== -->
             <!--
-                NodosPanel - reemplazo nativo (parcial) de pages/nodos.html.
-                Live monitor: tabs + tabla + banner alarma offline-del-implemento.
-                Polling 3s a /api/nodos/unified. Las acciones de curado
-                (aceptar/ignorar/renombrar/restaurar) y el diagnostico MQTT
-                (wildcard + msg log) siguen en HTML via boton "Configurar".
+                NodosPanel - reemplazo nativo de pages/nodos.html. Card clara
+                flotante con el mapa VIVO detras. Pantalla Lista (tabs + tabla +
+                banner + acciones de curado, polling 3s a /api/nodos/unified) y
+                pantalla Diagnostico (polling 2s a /api/nodos/diagnostic solo
+                mientras se la mira). Ya NO abre la pagina en WebView: eso era
+                lo ultimo que despertaba Chromium desde este panel.
                 Por la doctrina "nodos solo se agregan automaticamente" no hay
                 un boton "Agregar" - cualquier alta sale del MQTT announcement.
             -->
-            <vw:NodosPanel x:Name="NodosHost" Grid.Row="2" IsVisible="False"/>
+            <vw:NodosPanel x:Name="NodosHost" Grid.Row="2" IsVisible="False"
+                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
 
             <!-- =================== ACTUALIZAR (overlay nativo, 13vo port) =================== -->
             <!--
