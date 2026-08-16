@@ -59,10 +59,18 @@
 //     (eso lo hacía LoadSettings de FormGPS). Resultado medido: se guardó
 //     `true`, el XML quedó en `True`, y tras reiniciar el motor el GET devuelve
 //     `false`. Para el operario el switch "se apagó solo".
-//     Peor todavía: `Mc.isWorkSwitchActiveLow` vuelve al default del
-//     constructor de CModuleComm (true) aunque Settings diga false, así que
-//     hasta el próximo guardado el motor interpreta el switch físico al revés
-//     de lo configurado.
+//   · CORRECCIÓN al comentario original de este porteo (revisión 2026-08-16):
+//     tras reiniciar el motor el switch físico NO queda invertido, queda
+//     INERTE. `Mc.isRemoteWorkSystemOn` también vuelve al false del constructor
+//     de CModuleComm y NADIE lo restaura (no hay una sola lectura de
+//     `setF_isRemoteWorkSystemOn` en todo el repo fuera de este guardado), y
+//     `CheckWorkAndSteerSwitch` entra al bloque de trabajo/dirección SOLO con
+//     `isRemoteWorkSystemOn` en true. O sea: hasta el próximo guardado, mover
+//     el switch de la cabina no hace nada — ni bien ni al revés. Lo mismo pasa
+//     con `Mc.isWorkSwitchActiveLow` / `isWorkSwitchManualSections`, que vuelven
+//     a los defaults aunque Settings diga otra cosa: quedan desalineados con lo
+//     que muestra el panel, pero no llegan a aplicarse porque el bloque está
+//     apagado. El primer POST de esta pestaña realinea los cinco de una.
 //     ES UN AGUJERO DEL MOTOR, NO DE ESTA PESTAÑA: la página HTML tiene
 //     exactamente el mismo comportamiento. El arreglo (aplicar esos Settings a
 //     `Mc` al arrancar) vive en PilotX.GuidanceEngine y NO se toca desde acá.
@@ -252,6 +260,12 @@ public sealed class SwitchesTab : ConfigTab
         {
             Children.Add(CfgUi.ChipError("Servicio de configuración no disponible", "AGP-NET-201"));
         }
+        else if (C.Snap?.Switches == null)
+        {
+            // El motor contestó ok pero sin la sección: se muestra lo último
+            // conocido y NO se deja tocar (ver Editable()).
+            Children.Add(CfgUi.ChipError("PilotX no informó la configuración de los switches", "AGP-NET-201"));
+        }
 
         // Las dos cartas al lado (el `.dosCol` del HTML). WrapPanel: si la
         // pantalla de 10" no da el ancho, la segunda baja sola.
@@ -428,10 +442,20 @@ public sealed class SwitchesTab : ConfigTab
     }
 
     /// <summary>Sin snapshot no se sabe qué tiene el motor y el POST iría al
-    /// mismo Hub que no contesta: tocar a ciegas es peor que no poder tocar.</summary>
-    private bool Editable() => !C.SinDatos && !C.ServicioCaido;
+    /// mismo Hub que no contesta: tocar a ciegas es peor que no poder tocar.
+    /// Sin la sección `switches` tampoco se toca: el modelo local arrancaría en
+    /// los defaults de C# (todo false) y el primer toque postearía
+    /// work_active_low = false, que en el motor vale TRUE por defecto — o sea,
+    /// daría vuelta la lectura del switch físico sin que nadie lo haya pedido.
+    /// El HTML directamente se rompe en ese caso (lee `snap.switches.…`) y no
+    /// llega a postear nada; acá se prefiere la fila muerta.</summary>
+    private bool Editable() => !C.SinDatos && !C.ServicioCaido && C.Snap?.Switches != null;
 
-    private int EstadoActual() => C.SinDatos ? 0 : C.ServicioCaido ? 1 : 2;
+    /// <summary>0 sin datos · 1 servicio caído · 2 respondió pero sin la sección
+    /// `switches` · 3 todo bien. El 2 es un estado propio para que el refresco de
+    /// fondo rearme la pestaña (y saque el chip) apenas la sección aparezca.</summary>
+    private int EstadoActual()
+        => C.SinDatos ? 0 : C.ServicioCaido ? 1 : C.Snap?.Switches == null ? 2 : 3;
 
     // =======================================================================
     //  Íconos
