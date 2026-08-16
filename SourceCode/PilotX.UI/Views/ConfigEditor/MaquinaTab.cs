@@ -472,8 +472,11 @@ public sealed class MaquinaTab : ConfigTab
         return fila;
     }
 
-    /// <summary>El `.nud` del CSS: 130 px, 22 px bold centrado, fondo aliceblue,
-    /// alto táctil de 52. Pide el teclado nativo al enfocarse.</summary>
+    /// <summary>El `.nud` del CSS: 22 px bold centrado, fondo aliceblue, alto
+    /// táctil de 52. Va 110 de ancho y no los 130 de las pestañas hermanas: acá
+    /// la fila lleva ADEMÁS el dibujo de 44 y la unidad, y con 130 no entra en
+    /// la carta de 340 (la unidad "s" se salía). Pide el teclado nativo al
+    /// enfocarse.</summary>
     private TextBox Nud(string titulo)
     {
         var t = new TextBox
@@ -553,7 +556,17 @@ public sealed class MaquinaTab : ConfigTab
     private async Task EnviarAsync()
     {
         if (_enviando) return;
-        if (!Editable()) return;
+        if (!Editable())
+        {
+            // Mudo NO: el botón puede quedar habilitado si el servicio se cayó
+            // mientras había cambios pendientes (Live() no rearma en ese caso,
+            // justamente para no pisarlos). Tocarlo y que no pase nada le hace
+            // creer al operario que el PGN salió.
+            C.Estado?.Invoke(C.SinDatos ? "Sin conexión con PilotX"
+                           : C.ServicioCaido ? "Servicio de configuración no disponible"
+                           : "PilotX no informó la configuración del módulo de máquina", "err");
+            return;
+        }
         if (C.Client == null) { C.Estado?.Invoke("Sin conexión con PilotX", "err"); return; }
 
         // Se validan LOS 7, aunque los del levante estén deshabilitados: el
@@ -621,9 +634,18 @@ public sealed class MaquinaTab : ConfigTab
                 catch (OperationCanceledException) { }
                 catch { }
             }
-            LeerDelSnapshot();
-            PintarValores();
-            RecalcularPendiente();
+            // Si el re-GET NO contestó, C.Snap sigue siendo el de ANTES del
+            // envío (el shell no borra el último snapshot bueno cuando el Hub
+            // no responde). Repintar con eso le dejaría al operario los valores
+            // VIEJOS abajo de un "Enviado al módulo ✔" — le diría que mandó 3 s
+            // cuando mandó 7. En ese caso se deja en pantalla lo que salió en el
+            // PGN y el pendiente apagado, que es la verdad.
+            if (!C.RefrescoCaido)
+            {
+                LeerDelSnapshot();
+                PintarValores();
+                RecalcularPendiente();
+            }
         }
         finally
         {
@@ -812,7 +834,14 @@ public sealed class MaquinaTab : ConfigTab
         foreach (var t in new[] { _txtRaise, _txtLower, _txtLookAhead })
         {
             if (t == null) continue;
-            Apagar(t, !(editable && _hydOn));
+            bool apagar = !(editable && _hydOn);
+            // Si el campo que se apaga TENÍA el foco hay que cerrarle el teclado
+            // a mano: Focusable=false no dispara LostFocus, así que el teclado
+            // nativo quedaba abierto encima de un campo que ya no acepta nada
+            // (el operario teclea y no pasa nada). Pasa siempre que se apaga el
+            // levante con el cursor adentro de un tiempo.
+            if (apagar && t.IsFocused) _ = C.Client?.TecladoAsync(false);
+            Apagar(t, apagar);
         }
         foreach (var t in new[] { _txtUser1, _txtUser2, _txtUser3, _txtUser4 })
         {
