@@ -645,7 +645,11 @@ public partial class MainWindow : Window
             // Los paneles no navegan solos: el catalogo de insumos y la
             // geometria del implemento son pantallas propias del Hub.
             _vistaXEditorHost.OnRequestAbrirInsumos       = () => NavigateTo("pages/insumos.html");
-            _vistaXEditorHost.OnRequestAbrirConfigCentral = () => NavigateTo("pages/config.html?tab=tsections");
+            // Secciones ES nativa desde la ola 3b: mandarla al WebView dejaba dos
+            // pantallas distintas para la MISMA config segun por donde se entrara
+            // (menu -> nativa, VistaX -> Chromium), con el riesgo de que una
+            // muestre lo que la otra ya cambio.
+            _vistaXEditorHost.OnRequestAbrirConfigCentral = () => { CloseVistaXEditor(); ShowConfig("tsections"); };
             _vistaXEditorHost.Aviso += MostrarToast;
         }
         if (_coreXEcuHost != null)
