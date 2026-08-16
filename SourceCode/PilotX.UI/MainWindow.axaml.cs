@@ -224,6 +224,12 @@ public partial class MainWindow : Window
     private VistaXPanel? _vistaXHost;
     private VistaXClient? _vistaXClient;
 
+    // EDITOR de VistaX, NATIVO desde 2026-08-16 (29no port): Insumo &
+    // calibracion, Implemento y Config. Antes "Configurar" navegaba a
+    // pages/vistax.html y era el ultimo motivo por el que VistaX levantaba
+    // Chromium. Reusa el MISMO VistaXClient del monitor (es stateless).
+    private VistaXEditorPanel? _vistaXEditorHost;
+
     // CoreX-ECU nativo (Live tab only). Telemetria del autosteer Teensy
     // (IMU, WAS, GPS, CAN Keya, Autosteer, Sistema). Las otras tabs
     // (Estado/checklist, Calibracion, Conexion con Teensy) siguen en HTML
@@ -352,6 +358,7 @@ public partial class MainWindow : Window
         _quantiXHost     = this.FindControl<QuantiXPanel>("QuantiXHost");
         _quantiXEditorHost = this.FindControl<QuantiXEditorPanel>("QuantiXEditorHost");
         _vistaXHost      = this.FindControl<VistaXPanel>("VistaXHost");
+        _vistaXEditorHost = this.FindControl<VistaXEditorPanel>("VistaXEditorHost");
         _coreXEcuHost    = this.FindControl<CoreXEcuPanel>("CoreXEcuHost");
         _cabinaAlarmasHost = this.FindControl<CabinaAlarmasOverlay>("CabinaAlarmasHost");
         _hubHost           = this.FindControl<HubPanel>("HubHost");
@@ -550,9 +557,21 @@ public partial class MainWindow : Window
         }
         if (_vistaXHost != null)
         {
-            // Boton Configurar abre las tabs editor (Insumo & calibracion,
-            // Implemento, Nodos, Config) en WebView lazy.
-            _vistaXHost.OnRequestConfigurar = () => NavigateTo("pages/vistax.html");
+            // Boton Configurar: abre el EDITOR NATIVO (Insumo & calibracion,
+            // Implemento, Config). Antes navegaba a pages/vistax.html y era el
+            // ultimo motivo por el que VistaX levantaba Chromium.
+            _vistaXHost.OnRequestConfigurar = () => ShowVistaXEditor();
+        }
+        if (_vistaXEditorHost != null)
+        {
+            _vistaXEditorHost.OnRequestCerrar  = () => CloseVistaXEditor();
+            // "‹ Monitor" vuelve al panel live sin pasar por el mapa.
+            _vistaXEditorHost.OnRequestMonitor = () => { CloseVistaXEditor(); ShowVistaX(); };
+            // Los paneles no navegan solos: el catalogo de insumos y la
+            // geometria del implemento son pantallas propias del Hub.
+            _vistaXEditorHost.OnRequestAbrirInsumos       = () => NavigateTo("pages/insumos.html");
+            _vistaXEditorHost.OnRequestAbrirConfigCentral = () => NavigateTo("pages/config.html?tab=tsections");
+            _vistaXEditorHost.Aviso += MostrarToast;
         }
         if (_coreXEcuHost != null)
         {
@@ -1851,6 +1870,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { CloseSectionX();  return; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { CloseQuantiX();   return; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { CloseQuantiXEditor(); return; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { CloseVistaXEditor(); return; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { CloseVistaX();    return; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { CloseCoreXEcu();  return; }
         if (_hubHost       != null && _hubHost.IsVisible)       { CloseHub();       return; }
@@ -1874,6 +1894,7 @@ public partial class MainWindow : Window
         if (_sectionXHost != null && _sectionXHost.IsVisible) { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost != null && _quantiXHost.IsVisible) { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost != null && _vistaXHost.IsVisible) { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         _fieldDataHost.IsVisible = true;
@@ -1906,6 +1927,7 @@ public partial class MainWindow : Window
         if (_sectionXHost != null && _sectionXHost.IsVisible) { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost != null && _quantiXHost.IsVisible) { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost != null && _vistaXHost.IsVisible) { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -1965,6 +1987,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2002,6 +2025,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2049,6 +2073,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2096,6 +2121,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2219,10 +2245,10 @@ public partial class MainWindow : Window
 
     // ---------- VistaX overlay nativo (Monitor live-only, sin WebView) ------
     //
-    // Strangler fig: la tab Monitor (SPM por surco + badges + trenes con
-    // tubitos semilla/ferti y barras de otros sensores) es la cabin-critical.
-    // Insumo & calibracion, Implemento, Nodos, Config siguen en HTML
-    // (pages/vistax.html via OnRequestConfigurar -> WebView lazy).
+    // La tab Monitor (SPM por surco + badges + trenes con tubitos semilla/ferti
+    // y barras de otros sensores) es la cabin-critical. El resto (Insumo &
+    // calibracion, Implemento, Config) tambien es nativo desde 2026-08-16: el
+    // boton Configurar abre VistaXEditorPanel, no el WebView.
 
     private void ShowVistaX()
     {
@@ -2236,6 +2262,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
@@ -2264,6 +2291,60 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] VistaX closed -> back to native map");
     }
 
+    // ---------- VistaX EDITOR nativo (29no port, sin WebView) --------------
+    //
+    // Las pantallas que antes vivian en pages/vistax.html: Insumo &
+    // calibracion (catalogo + ventana de captura de 5 s), Implemento (objetivo,
+    // parametros y mapeo de sensores) y Config (comportamiento del monitoreo +
+    // ZIP de sesiones del lote). Card clara flotante con el mapa VIVO detras.
+    //
+    // El tab "Nodos" de la pagina NO se replica: esa grilla ya esta en el
+    // monitor (VistaXPanel) y en el editor alcanza el desplegable de UID.
+
+    private void ShowVistaXEditor(string? tab = null)
+    {
+        if (_vistaXEditorHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_webView != null) CloseWebView();
+
+        // Lazy init: es el MISMO cliente del monitor (stateless), se reusa.
+        _vistaXClient ??= new VistaXClient(DeriveOrigin(App.TargetUrl));
+        _vistaXEditorHost.Attach(_vistaXClient, tab);
+        _vistaXEditorHost.IsVisible = true;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        // La flecha "volver" es del WebView: si venimos del monitor quedaba
+        // colgada sobre el mapa sin nada atras a lo que volver.
+        bool hayWebView = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !hayWebView) _webViewBack.IsVisible = false;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] VistaX editor open (nativo, no WebView)");
+    }
+
+    private void CloseVistaXEditor()
+    {
+        if (_vistaXEditorHost == null) return;
+        // Detach cancela una ventana de calibracion abierta: si no, el backend
+        // queda con la captura colgada y el proximo start puede fallar.
+        _vistaXEditorHost.Detach();
+        _vistaXEditorHost.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] VistaX editor closed -> back to native map");
+    }
+
     // ----- CoreX-ECU (port #9): solo Live tab nativa (telemetria del ECU).
     // Estado / Calibracion / Conexion siguen en HTML detras de "Configurar"
     // (pages/corex-ecu.html via OnRequestConfigurar -> WebView lazy).
@@ -2283,6 +2364,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         // Paneles que flotan sobre el mapa: uno a la vez, mismo criterio que AbrirGuias.
@@ -2370,6 +2452,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2421,6 +2504,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2466,6 +2550,7 @@ public partial class MainWindow : Window
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
         if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -3444,6 +3529,9 @@ public partial class MainWindow : Window
             // tab Shape (el equivalente del viejo quantix.html?tab=shape).
             case "quantix_editor":  ShowQuantiXEditor();        return true;
             case "prescripciones":  ShowQuantiXEditor("shape"); return true;
+            // Editor de VistaX nativo (Insumo & calibracion / Implemento /
+            // Config). El operario llega normalmente por VistaX → Configurar.
+            case "vistax_editor":   ShowVistaXEditor();         return true;
             // CoreX del menú izquierdo → dashboard de CoreX (config del sistema:
             // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por el
             // panel integrado del motor (CoreXEnginePanel), NO en el Hub :5180.

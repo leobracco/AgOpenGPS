@@ -871,6 +871,16 @@
                                        IsVisible="False"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
+                <!-- EDITOR de VistaX (29no port): las pantallas que antes se
+                     abrian con "Configurar" sobre pages/vistax.html — Insumo &
+                     calibracion, Implemento y Config. Con esto VistaX ya no
+                     despierta Chromium para nada. Card clara flotante, mapa
+                     VIVO detras. La pagina HTML queda intacta para la PWA del
+                     celular. -->
+                <vw:VistaXEditorPanel x:Name="VistaXEditorHost" Grid.Row="1" ZIndex="10"
+                                      IsVisible="False"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                 <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
                      secciones primero…"). Se va solo a los 4 s y no bloquea
                      NADA — el aviso modal (ShowDialog) trababa todos los

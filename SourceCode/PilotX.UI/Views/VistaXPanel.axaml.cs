@@ -15,8 +15,10 @@
 //   - Grilla de nodos VistaX vistos via MQTT (online/offline + sensores
 //     reportando + edad).
 //
-// El editor (Insumo & calibracion, Implemento, Nodos config, Config global)
-// sigue en HTML — el boton Configurar dispara OnRequestConfigurar.
+// El editor (Insumo & calibracion, Implemento, Config global) es NATIVO desde
+// 2026-08-16: el boton Configurar dispara OnRequestConfigurar y el host abre
+// VistaXEditorPanel — ya no se navega a pages/vistax.html ni se instancia el
+// WebView. La pagina HTML queda para la PWA del celular.
 
 using System;
 using System.Collections.Generic;

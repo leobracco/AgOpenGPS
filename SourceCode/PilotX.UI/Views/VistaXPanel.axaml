@@ -18,9 +18,10 @@
           · Click sobre cualquier sensor abre el overlay de detalle con
             UID/Tren/Bajada/Tipo/SPM/Objetivo/Ratio/Cable/Estado/Muted.
 
-        Las otras tabs (Insumo & calibracion, Implemento, Nodos, Config) NO
-        estan portadas: el boton "Configurar" abre el WebView lazy sobre
-        pages/vistax.html — esos flujos se editan en el galpon, no manejando.
+        Las pantallas de configuracion (Insumo & calibracion, Implemento,
+        Config) tambien son NATIVAS desde 2026-08-16: el boton "Configurar"
+        abre VistaXEditorPanel, no el WebView. La pagina pages/vistax.html
+        queda intacta para la PWA del celular.
     -->
     <Grid>
     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
@@ -50,7 +51,7 @@
                         CornerRadius="6"
                         Padding="14,6,14,6"
                         VerticalAlignment="Center"
-                        ToolTip.Tip="Abre Insumo / Implemento / Nodos / Config en el Hub"/>
+                        ToolTip.Tip="Insumo y calibración, Implemento y Config"/>
             </Grid>
 
             <!-- ============ KPI strip ============ -->
@@ -145,7 +146,7 @@
                        TextWrapping="Wrap"
                        IsVisible="True"/>
 
-            <TextBlock Text="El mapeo de sensores, calibración, alarmas e insumos se editan en el Hub (botón Configurar)."
+            <TextBlock Text="El mapeo de sensores, la calibración, las alarmas y el insumo se editan con el botón Configurar."
                        Foreground="{StaticResource PilotXTextDim}"
                        FontSize="11"
                        TextWrapping="Wrap"/>
