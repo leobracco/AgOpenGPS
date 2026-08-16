@@ -499,7 +499,10 @@ public partial class MainWindow : Window
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
-            Closed += (_, _) => _cabeceraHost.Detach();
+            // En la bajada el /close se ESPERA (acotado): un fire-and-forget acá
+            // sale con el proceso ya muriendo y la cabecera recién construida no
+            // llega a guardarse.
+            Closed += (_, _) => _cabeceraHost.DetachEnCierreDeApp();
         }
 
         // El visor de IMU (rumbo/rolido/cabeceo, arriba a la izquierda) se
@@ -4694,6 +4697,10 @@ public partial class MainWindow : Window
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        // Cabecera está anclada en el MISMO lugar que esta card: sin cerrarla se
+        // dibujaban una encima de la otra, y además su /close (que persiste la
+        // cabecera) no salía nunca.
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.

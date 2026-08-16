@@ -87,7 +87,6 @@ public sealed class CabeceraPanel : Border
     private HeadlandStateDto? _estado;
     private string _unidades = "m";
     private double _anchoHerrM;
-    private bool _sinConexion;
     private bool _construyendo;
     /// <summary>Flag idempotente del /close (el `closed` del JS).</summary>
     private bool _cerrada = true;
@@ -313,13 +312,19 @@ public sealed class CabeceraPanel : Border
     {
         _cerrada = false;          // el /close vuelve a estar pendiente
         _construyendo = false;
-        _sinConexion = false;
         _estado = null;
         _banner = "";
         Status("—", "idle");
-        Render();
         IsVisible = true;
+        // OJO CON EL ORDEN — Traductor.Aplicar CACHEA el texto de cada control
+        // la primera vez que lo ve y en cada pasada siguiente vuelve a escribir
+        // ESE texto. Va ACÁ, antes de pintar: traduce lo FIJO (títulos, botones)
+        // y lo vivo (pill, banner, unidad, Sí/No) lo escribe Render() DESPUÉS.
+        // Al revés — que fue como estuvo — el pill quedaba clavado en "—" y el
+        // banner salía como un cuadro rojo VACÍO: el operario veía que algo
+        // estaba mal y no de qué se trataba.
         Traductor.Aplicar(this);
+        Render();
 
         if (_cli == null) return;
         var s = await _cli.OpenAsync().ConfigureAwait(true);
@@ -353,6 +358,21 @@ public sealed class CabeceraPanel : Border
         // Fire-and-forget: el panel ya no está en pantalla, pero la persistencia
         // tiene que salir igual (el HTML usaba sendBeacon justamente por esto).
         _ = _cli?.CloseAsync();
+    }
+
+    /// <summary>
+    /// Cierre en la BAJADA de la app (el Closed de la ventana). Igual que
+    /// Detach() pero ESPERANDO al /close: fire-and-forget en el apagado es un
+    /// POST que sale cuando el proceso ya no existe, y ese POST es el que
+    /// suaviza y PERSISTE la cabecera recién construida. Se espera acotado
+    /// (800 ms): si el motor no contesta, la app igual se cierra.
+    /// </summary>
+    public void DetachEnCierreDeApp()
+    {
+        PararReintento();
+        if (_cerrada) return;
+        _cerrada = true;
+        try { _cli?.CloseAsync().Wait(TimeSpan.FromMilliseconds(800)); } catch { }
     }
 
     // Reintento suave del /open: la página no reintentaba nunca (se cerraba y
@@ -439,20 +459,32 @@ public sealed class CabeceraPanel : Border
 
     private async Task ToggleSeccionesAsync()
     {
-        if (_cli == null) return;
-        bool actual = _estado?.IsSectionControlled ?? false;
+        // Sin estado todavía no se sabe cómo está el flag: mandar el opuesto de
+        // un "No" supuesto lo dejaba prendido en el motor con la card diciendo
+        // "No" (el bool devuelto no tenía dónde guardarse).
+        if (_cli == null || _estado == null) return;
+        bool actual = _estado.IsSectionControlled;
         var r = await _cli.SetSectionControlledAsync(!actual).ConfigureAwait(true);
         if (r == null)
         {
-            // Sin respuesta el toggle NO se mueve: el HTML dejaba el tilde
-            // cambiado aunque el POST hubiera fallado (mentía).
-            _sinConexion = true;
+            // Sin respuesta el toggle NO se mueve (el HTML dejaba el tilde
+            // cambiado aunque el POST hubiera fallado: mentía) y ADEMÁS se
+            // avisa: un toggle que no se mueve y no dice nada se lee como
+            // "no anda el botón", y este decide si las secciones cortan.
+            Status("sin conexión", "bad");
+            _banner = Traductor.T("Sin conexión con PilotX.");
             Render();
             return;
         }
-        _sinConexion = false;
         // La verdad es el bool DEVUELTO, no el enviado.
-        if (_estado != null) _estado.IsSectionControlled = r.IsSectionControlled;
+        _estado.IsSectionControlled = r.IsSectionControlled;
+        // Volvió a haber línea: se repinta el estado real (si venía de un fallo,
+        // el pill se había quedado en "sin conexión").
+        Status(_estado.IsHeadlandOn ? "cabecera activa" : "sin cabecera",
+               _estado.IsHeadlandOn ? "ok" : "idle");
+        _banner = _estado.HasBoundary
+            ? ""
+            : Traductor.T("Primero creá un contorno del lote para poder construir la cabecera.");
         Render();
     }
 
@@ -464,7 +496,6 @@ public sealed class CabeceraPanel : Border
     {
         if (s == null)
         {
-            _sinConexion = true;
             _estado = null;
             Status("sin conexión", "bad");
             _banner = Traductor.T("Sin conexión con PilotX.");
@@ -479,7 +510,6 @@ public sealed class CabeceraPanel : Border
         // contorno" cuando el problema era otro.
         if (s.Error == "service-unavailable")
         {
-            _sinConexion = true;
             _estado = null;
             Status("sin conexión", "bad");
             _banner = Amigable("ui-error");
@@ -488,7 +518,6 @@ public sealed class CabeceraPanel : Border
             return;
         }
 
-        _sinConexion = false;
         PararReintento();
 
         if (!s.HasField)
@@ -522,13 +551,11 @@ public sealed class CabeceraPanel : Border
     {
         if (r == null)
         {
-            _sinConexion = true;
             Status("sin conexión", "bad");
             _banner = Traductor.T("Sin conexión con PilotX.");
             Render();
             return;
         }
-        _sinConexion = false;
         if (_estado != null) _estado.IsHeadlandOn = r.IsHeadlandOn;
         Status(r.IsHeadlandOn ? "cabecera activa" : "sin cabecera", r.IsHeadlandOn ? "ok" : "idle");
         _banner = (!r.Ok && !string.IsNullOrEmpty(r.Error)) ? Amigable(r.Error) : "";
@@ -570,16 +597,21 @@ public sealed class CabeceraPanel : Border
         _btnSecciones.BorderBrush = sec ? Verde : Borde;
 
         // ---- habilitación: sin contorno no hay nada que construir ----
-        bool hayContorno = !_sinConexion && (_estado?.HasField ?? false) && (_estado?.HasBoundary ?? false);
+        // La habilitación mira SOLO el estado conocido del lote, no el fallo de
+        // la última acción: un timeout suelto en Construir no puede dejar la
+        // card muerta (todo gris, sin reintento y sin poll) obligando a cerrar y
+        // volver a abrir. La página dejaba los botones vivos y se reintentaba.
+        bool hayContorno = (_estado?.HasField ?? false) && (_estado?.HasBoundary ?? false);
         _btnConstruir.IsEnabled = hayContorno && !_construyendo;
         _btnAncho.IsEnabled = hayContorno;
         _btnReset.IsEnabled = hayContorno;
         _btnApagar.IsEnabled = hayContorno;
-        // El toggle queda operable siempre (igual que el checkbox del HTML):
-        // es una preferencia de secciones, no depende de que haya cabecera.
-        _btnSecciones.IsEnabled = !_sinConexion;
-
-        Traductor.Aplicar(this);
+        // El toggle queda operable sin cabecera y sin lote (igual que el
+        // checkbox del HTML: es una preferencia de secciones), pero NO antes de
+        // saber cómo está: tocarlo a ciegas mandaba "on" y la card seguía
+        // mostrando "No" — mentir sobre si las secciones cortan en la cabecera
+        // se paga en el lote.
+        _btnSecciones.IsEnabled = _estado != null;
     }
 
     // =========================================================================

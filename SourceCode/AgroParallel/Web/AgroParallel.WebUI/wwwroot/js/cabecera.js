@@ -406,7 +406,11 @@
 
   // ── Arranque ──────────────────────────────────────────────────────────────
   (async function () {
-    setMode('curve');
+    // Acá se llamaba setMode('curve'), que se fue con la edición de borde el
+    // 2026-08-05: la función no existe más y el ReferenceError cortaba el
+    // arranque ANTES del /open. La página quedaba muda — sin precarga del
+    // ancho, sin unidad, sin el tilde de secciones y sin el aviso de "primero
+    // creá un contorno" — aunque los botones siguieran andando.
     var data = await post('/open', {});
     if (data) applyState(data);
     else {
