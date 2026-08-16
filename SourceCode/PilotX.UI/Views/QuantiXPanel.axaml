@@ -9,10 +9,10 @@
         de cada nodo QuantiX que este publicando telemetria. Se actualiza a 2Hz
         contra /api/quantix/live mientras esta abierto.
 
-        Las otras tabs del HTML (Motores CRUD, Shape upload, PID live-tune,
-        Calibracion, Prueba) NO estan portadas: el boton "Configurar" abre el
-        WebView lazy sobre pages/quantix.html — son flujos que se editan en el
-        galpon, no manejando.
+        Las otras tabs (Siembra, Motores, Shape, PID live, Calibracion,
+        Prueba) YA son nativas desde 2026-08-15: el boton "Configurar" abre
+        QuantiXEditorPanel, no el WebView. pages/quantix.html queda intacta
+        para la PWA del celular.
     -->
     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto">
@@ -62,7 +62,7 @@
                         CornerRadius="6"
                         Padding="14,6,14,6"
                         VerticalAlignment="Center"
-                        ToolTip.Tip="Abre Motores / Shape / PID / Calibracion / Prueba en el Hub"/>
+                        ToolTip.Tip="Abre Siembra / Motores / Shape / PID / Calibracion / Prueba"/>
             </Grid>
 
             <!-- ============ Lista de nodos (live) ============ -->
@@ -79,7 +79,7 @@
                        TextWrapping="Wrap"
                        IsVisible="True"/>
 
-            <TextBlock Text="El CRUD de motores, upload de shape de dosis, tuning PID, calibracion y pruebas se editan en el Hub (boton Configurar)."
+            <TextBlock Text="El reparto de surcos, la config de motores, el shape de dosis, el tuning PID, la calibracion y las pruebas estan en el boton Configurar."
                        Foreground="{StaticResource PilotXTextDim}"
                        FontSize="11"
                        TextWrapping="Wrap"/>

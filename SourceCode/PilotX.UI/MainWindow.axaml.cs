@@ -1,4 +1,4 @@
-// MainWindow.axaml.cs
+﻿// MainWindow.axaml.cs
 //
 // PIVOT (PilotX.Desktop): UI 100% nativa Avalonia. El WebView (Chromium/
 // Edge ~ 400MB residente) NO esta en el hot path. Centro de pantalla =
@@ -190,10 +190,15 @@ public partial class MainWindow : Window
     private SectionXClient? _sectionXClient;
 
     // QuantiX nativo (Monitor tab live-only). Ver dosis real/target + PWM +
-    // estado PID por motor. Tabs de Motores CRUD / Shape / PID-tune /
-    // Calibracion / Prueba siguen en HTML (lazy WebView via "Configurar").
+    // estado PID por motor.
     private QuantiXPanel? _quantiXHost;
     private QuantiXClient? _quantiXClient;
+
+    // EDITOR de QuantiX, NATIVO desde 2026-08-15 (18vo port): Siembra,
+    // Motores, Shape, PID live, Calibracion y Prueba. Antes "Configurar"
+    // navegaba a pages/quantix.html y eso despertaba Chromium entero.
+    private QuantiXEditorPanel? _quantiXEditorHost;
+    private QuantiXEditorClient? _quantiXEditorClient;
 
     // Widgets SOBRE el mapa (los que el operario prende desde el Hub). Viven
     // en un Canvas encima del mapa y se arrastran a mano; la posición se
@@ -345,6 +350,7 @@ public partial class MainWindow : Window
         _flowXHost       = this.FindControl<FlowXPanel>("FlowXHost");
         _sectionXHost    = this.FindControl<SectionXPanel>("SectionXHost");
         _quantiXHost     = this.FindControl<QuantiXPanel>("QuantiXHost");
+        _quantiXEditorHost = this.FindControl<QuantiXEditorPanel>("QuantiXEditorHost");
         _vistaXHost      = this.FindControl<VistaXPanel>("VistaXHost");
         _coreXEcuHost    = this.FindControl<CoreXEcuPanel>("CoreXEcuHost");
         _cabinaAlarmasHost = this.FindControl<CabinaAlarmasOverlay>("CabinaAlarmasHost");
@@ -531,9 +537,16 @@ public partial class MainWindow : Window
         }
         if (_quantiXHost != null)
         {
-            // Boton Configurar abre el resto de las tabs (Motores CRUD,
-            // Shape, PID live-tune, Calibracion, Prueba) en WebView lazy.
-            _quantiXHost.OnRequestConfigurar = () => NavigateTo("pages/quantix.html");
+            // Boton Configurar: abre el EDITOR NATIVO (Siembra, Motores,
+            // Shape, PID live, Calibracion, Prueba). Antes navegaba a
+            // pages/quantix.html y era el ultimo motivo por el que QuantiX
+            // levantaba Chromium.
+            _quantiXHost.OnRequestConfigurar = () => ShowQuantiXEditor();
+        }
+        if (_quantiXEditorHost != null)
+        {
+            _quantiXEditorHost.OnRequestCerrar = () => CloseQuantiXEditor();
+            _quantiXEditorHost.Aviso += MostrarToast;
         }
         if (_vistaXHost != null)
         {
@@ -1837,6 +1850,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { CloseFlowX();     return; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { CloseSectionX();  return; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { CloseQuantiX();   return; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { CloseQuantiXEditor(); return; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { CloseVistaX();    return; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { CloseCoreXEcu();  return; }
         if (_hubHost       != null && _hubHost.IsVisible)       { CloseHub();       return; }
@@ -1859,6 +1873,7 @@ public partial class MainWindow : Window
         if (_flowXHost != null && _flowXHost.IsVisible) { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost != null && _sectionXHost.IsVisible) { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost != null && _quantiXHost.IsVisible) { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost != null && _vistaXHost.IsVisible) { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         _fieldDataHost.IsVisible = true;
@@ -1890,6 +1905,7 @@ public partial class MainWindow : Window
         if (_flowXHost != null && _flowXHost.IsVisible) { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost != null && _sectionXHost.IsVisible) { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost != null && _quantiXHost.IsVisible) { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost != null && _vistaXHost.IsVisible) { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
@@ -1948,6 +1964,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -1984,6 +2001,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2030,6 +2048,7 @@ public partial class MainWindow : Window
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2076,6 +2095,7 @@ public partial class MainWindow : Window
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2107,10 +2127,10 @@ public partial class MainWindow : Window
 
     // ---------- QuantiX overlay nativo (Monitor live-only, sin WebView) -----
     //
-    // Strangler fig: la tab Monitor (ver dosis real/target + PWM + estado
-    // PID por motor) es la unica cabin-critical. CRUD de motores, upload de
-    // shape, PID live-tune, calibracion y prueba siguen en pages/quantix.html
-    // (via OnRequestConfigurar -> WebView lazy).
+    // La tab Monitor (dosis real/target + PWM + estado PID por motor) es la
+    // cabin-critical. El resto (Siembra, Motores, Shape, PID live-tune,
+    // calibracion y prueba) tambien es nativo desde 2026-08-15: el boton
+    // Configurar abre QuantiXEditorPanel, no el WebView.
 
     private void ShowQuantiX()
     {
@@ -2151,6 +2171,52 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] QuantiX closed -> back to native map");
     }
 
+    // ---------- QuantiX EDITOR nativo (18vo port, sin WebView) -------------
+    //
+    // Las 6 tabs que antes vivian en pages/quantix.html: Siembra (planter +
+    // reparto de surcos), Motores (sensor/PWM/PID), Shape (prescripciones),
+    // PID live, Calibracion y Prueba. Card clara flotante con el mapa VIVO
+    // detras. `tab` cubre los deep-links que en HTML eran ?tab=shape.
+
+    private void ShowQuantiXEditor(string? tab = null)
+    {
+        if (_quantiXEditorHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_webView != null) CloseWebView();
+
+        // Lazy init: el cliente se crea la primera vez y se reusa.
+        _quantiXEditorClient ??= new QuantiXEditorClient(DeriveOrigin(App.TargetUrl));
+        _quantiXEditorHost.Attach(_quantiXEditorClient, tab);
+        _quantiXEditorHost.IsVisible = true;
+        // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] QuantiX editor open (nativo, no WebView)");
+    }
+
+    private void CloseQuantiXEditor()
+    {
+        if (_quantiXEditorHost == null) return;
+        // Detach manda stop a cualquier motor girando (rampa / Max Hz /
+        // corrida de calibracion): verb=test no tiene meta propia.
+        _quantiXEditorHost.Detach();
+        _quantiXEditorHost.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] QuantiX editor closed -> back to native map");
+    }
+
     // ---------- VistaX overlay nativo (Monitor live-only, sin WebView) ------
     //
     // Strangler fig: la tab Monitor (SPM por surco + badges + trenes con
@@ -2169,6 +2235,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
@@ -2215,6 +2282,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
         // Paneles que flotan sobre el mapa: uno a la vez, mismo criterio que AbrirGuias.
@@ -2301,6 +2369,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2351,6 +2420,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -2395,6 +2465,7 @@ public partial class MainWindow : Window
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
         if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
         if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
@@ -3369,6 +3440,10 @@ public partial class MainWindow : Window
             // ---- Paneles nativos grandes (Hub / Cámaras) ----
             case "hub":        ShowHub();      return true;
             case "webcam":     ShowCamaras();  return true;
+            // Editor de QuantiX nativo. "prescripciones" entra directo a la
+            // tab Shape (el equivalente del viejo quantix.html?tab=shape).
+            case "quantix_editor":  ShowQuantiXEditor();        return true;
+            case "prescripciones":  ShowQuantiXEditor("shape"); return true;
             // CoreX del menú izquierdo → dashboard de CoreX (config del sistema:
             // Serial / NTRIP / Red-IP / Módulos). Vive en :5181, servido por el
             // panel integrado del motor (CoreXEnginePanel), NO en el Hub :5180.

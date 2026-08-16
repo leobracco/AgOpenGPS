@@ -17,8 +17,9 @@
 // firmware) con /api/quantix/runtime (lo que la PC esta pidiendo, ya en las
 // unidades del operario).
 //
-// El editor (Motores CRUD, Shape upload, PID live-tune, Calibracion, Prueba)
-// sigue en HTML — el boton Configurar dispara OnRequestConfigurar.
+// El editor (Siembra, Motores, Shape, PID live-tune, Calibracion, Prueba) es
+// NATIVO desde 2026-08-15 (QuantiXEditorPanel): el boton Configurar dispara
+// OnRequestConfigurar y el host abre ese panel, ya no el WebView.
 
 using System;
 using System.Collections.Generic;
@@ -45,8 +46,8 @@ public partial class QuantiXPanel : UserControl
 
     private const double FRESH_MS = 3000.0;
 
-    // Callback opcional para que MainWindow abra el WebView lazy con la
-    // pagina del Hub cuando el operario pide "Configurar".
+    // Callback opcional para que MainWindow abra el editor NATIVO
+    // (QuantiXEditorPanel) cuando el operario pide "Configurar".
     public Action? OnRequestConfigurar { get; set; }
 
     private static readonly IBrush _brushOk     = new SolidColorBrush(Color.Parse("#4ABA3E"));

@@ -586,10 +586,10 @@
             <vw:SectionXPanel x:Name="SectionXHost" Grid.Row="2" IsVisible="False"/>
 
             <!--
-                Reemplazo nativo PARCIAL (Monitor tab) de pages/quantix.html:
-                ver dosis real/objetivo + PWM + estado PID por motor. Otras
-                tabs (Motores CRUD, Shape, PID live-tune, Calibracion, Prueba)
-                siguen en HTML via boton "Configurar".
+                Reemplazo nativo (Monitor) de pages/quantix.html: ver dosis
+                real/objetivo + PWM + estado PID por motor. El resto de las
+                tabs vive en QuantiXEditorPanel (tambien nativo) via el boton
+                "Configurar" — QuantiX ya no abre WebView.
             -->
             <vw:QuantiXPanel x:Name="QuantiXHost" Grid.Row="2" IsVisible="False"/>
 
@@ -861,6 +861,15 @@
                      detras. Las tabs editor siguen en HTML via "Configurar". -->
                 <vw:CoreXEcuPanel x:Name="CoreXEcuHost" Grid.Row="1" IsVisible="False"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- EDITOR de QuantiX (18vo port): las 6 tabs que antes se
+                     abrian con "Configurar" sobre pages/quantix.html. Con
+                     esto QuantiX ya no despierta Chromium para nada. Card
+                     clara flotante, mapa VIVO detras. La pagina HTML queda
+                     intacta para la PWA del celular. -->
+                <vw:QuantiXEditorPanel x:Name="QuantiXEditorHost" Grid.Row="1" ZIndex="10"
+                                       IsVisible="False"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
 
                 <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
                      secciones primero…"). Se va solo a los 4 s y no bloquea

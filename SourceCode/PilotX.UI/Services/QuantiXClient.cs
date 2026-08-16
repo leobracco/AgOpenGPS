@@ -2,14 +2,14 @@
 //
 // Cliente HTTP minimo para el QuantiXController:
 //   GET /api/quantix/live -> { nodos: [{ uid, ip, firmware, online,
-//                                        motorsLive: [{ id, ppsTarget, ppsReal,
-//                                                       pwm, rpm, pulsos,
-//                                                       lastSeenUtc }] }] }
+//                                        motors_live: [{ id, pps_target, pps_real,
+//                                                        pwm, rpm, pulsos,
+//                                                        last_seen_utc }] }] }
 //
-// Reemplaza al pollLive() de quantix.js — pero SOLO para la tab Monitor que es
-// cabin-critical. Las otras tabs (Motores CRUD, Shape upload, PID live-tune,
-// Calibracion, Prueba) siguen en HTML — son flujos de configuracion/diagnostico
-// que el operario no toca manejando.
+// Reemplaza al pollLive() de quantix.js para la tab Monitor. El EDITOR (las
+// otras 6 tabs) tambien es nativo desde 2026-08-15 y tiene su propio cliente:
+// Services/QuantiXEditorClient.cs. La pagina pages/quantix.html queda intacta
+// para la PWA del celular.
 
 using System;
 using System.Collections.Generic;
@@ -23,13 +23,17 @@ namespace PilotX.Desktop.Services;
 
 public sealed class QuantiXMotorLive
 {
-    [JsonPropertyName("id")]          public int    Id          { get; set; }
-    [JsonPropertyName("ppsTarget")]   public double PpsTarget   { get; set; }
-    [JsonPropertyName("ppsReal")]     public double PpsReal     { get; set; }
-    [JsonPropertyName("pwm")]         public int    Pwm         { get; set; }
-    [JsonPropertyName("rpm")]         public int    Rpm         { get; set; }
-    [JsonPropertyName("pulsos")]      public long   Pulsos      { get; set; }
-    [JsonPropertyName("lastSeenUtc")] public string? LastSeenUtc { get; set; }
+    // OJO: el backend serializa con AgpJson → snake_case. Estos nombres
+    // estaban en camelCase y PropertyNameCaseInsensitive NO cubre underscores:
+    // pps_real/pps_target/last_seen_utc caían en cero EN SILENCIO y el monitor
+    // mostraba motores muertos sin ningún error (corregido 2026-08-15).
+    [JsonPropertyName("id")]            public int    Id          { get; set; }
+    [JsonPropertyName("pps_target")]    public double PpsTarget   { get; set; }
+    [JsonPropertyName("pps_real")]      public double PpsReal     { get; set; }
+    [JsonPropertyName("pwm")]           public int    Pwm         { get; set; }
+    [JsonPropertyName("rpm")]           public int    Rpm         { get; set; }
+    [JsonPropertyName("pulsos")]        public long   Pulsos      { get; set; }
+    [JsonPropertyName("last_seen_utc")] public string? LastSeenUtc { get; set; }
 }
 
 public sealed class QuantiXNodoLive
@@ -38,7 +42,7 @@ public sealed class QuantiXNodoLive
     [JsonPropertyName("ip")]         public string? Ip       { get; set; }
     [JsonPropertyName("firmware")]   public string? Firmware { get; set; }
     [JsonPropertyName("online")]     public bool   Online    { get; set; }
-    [JsonPropertyName("motorsLive")] public List<QuantiXMotorLive>? MotorsLive { get; set; }
+    [JsonPropertyName("motors_live")] public List<QuantiXMotorLive>? MotorsLive { get; set; }
 }
 
 public sealed class QuantiXLiveSnapshot

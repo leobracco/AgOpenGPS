@@ -438,6 +438,17 @@
           <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b></p>
           <p>Cada producto tiene su botón directo en el menú <strong>Herram.</strong> <strong>CoreX-ECU</strong> muestra la telemetría viva del módulo de dirección (IMU, sensor de ángulo, motor Keya) — útil al instalar o revisar el equipo de piloto.</p>
           <div class="clave">Los nodos aparecen <strong>solos</strong> cuando se encienden y se conectan a la red de la máquina. No se agregan a mano.</div>
+          <p class="ruta"><b>Barra de la pasada</b> <i>›</i> <b>Herram.</b> <i>›</i> <b>QuantiX</b> <i>›</i> <b>Configurar</b></p>
+          <p>El botón <strong>Configurar</strong> del panel de QuantiX abre el editor con seis pestañas, con el mapa vivo atrás:</p>
+          <ul>
+            <li><strong>Siembra</strong> — la sembradora dibujada: tocá (o arrastrá) los surcos para pintarlos con el motor activo. <strong>+ Motor</strong>, <strong>Auto-repartir</strong> y <strong>Quitar surco</strong> arman el reparto; abajo, la dosis fija de cada motor, la unidad (kg/ha ↔ sem/m) y si usa mapa. <strong>Guardar</strong> persiste y <strong>Enviar a nodos</strong> además manda la config a cada nodo. Mientras se está sembrando, la misma pestaña muestra dosis real contra objetivo y los surcos cortados en gris.</li>
+            <li><strong>Motores</strong> — cómo está armado cada motor: sensor (tipo, pulsos por vuelta, filtro), motor (eléctrico/hidráulico, PWM mínimo y máximo) y PID. <strong>Copiar a todos</strong> replica la configuración del fierro al resto de los motores del nodo.</li>
+            <li><strong>Shape</strong> — dosis variable: subir el shapefile (.shp + .shx + .dbf juntos), activar una prescripción guardada y ver la capa activa. Tocando una zona se ve su dosis y, si esa capa es la prescripción activa, se puede corregir ahí mismo.</li>
+            <li><strong>PID live</strong> — afinar Kp/Ki/Kd con el motor andando, medir el tope del motor y el Auto-Tune.</li>
+            <li><strong>Calibración</strong> — girar N vueltas, pesar o contar por surco y calcular cuánto entrega el dosificador.</li>
+            <li><strong>Prueba</strong> — girar una cantidad de pulsos, buscar el PWM mínimo y la calibración avanzada.</li>
+          </ul>
+          <div class="clave">Las pestañas <strong>PID live</strong>, <strong>Calibración</strong> y <strong>Prueba</strong> hacen <strong>girar el motor de verdad</strong>: usalas con la máquina frenada y la tolva como corresponda. Al cerrar el editor el motor se detiene solo.</div>
           <p>Cada producto tiene su configuración en esta pantalla y un <strong>overlay</strong> que se prende o apaga sobre el mapa para verlo mientras trabajás.</p>
           <p>En <strong>Campo</strong> están los <strong>insumos</strong> (semillas y fertilizantes), los <strong>mapas</strong> y las <strong>prescripciones</strong> (dosis variable por zona).</p>
           <div class="clave">La prescripción se activa <strong>con su lote abierto</strong> y vale <strong>solo para ese lote</strong>: en otro lote (o en uno nuevo) no se dibuja ni dosifica. Para usarla en otro lote, abrilo y volvé a activarla.</div>
