@@ -15,7 +15,9 @@
 // con guardado MIXTO: el tipo de antena y el paso mínimo postean AL TOQUE, como
 // el original; el resto va por el botón Guardar — ver la cabecera de RumboTab) y
 // "GPS / IMU › Rolido" (TRES semánticas de guardado a la vez y el único poll
-// propio del panel: el tractor en vivo a 500 ms — ver la cabecera de RolidoTab).
+// propio del panel: el tractor en vivo a 500 ms — ver la cabecera de RolidoTab)
+// y "Otros › U-Turn" (geometría del giro de cabecera; su POST reconstruye las
+// líneas de giro y descarta el U-turn ya dibujado — ver la cabecera de UturnTab).
 // QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
 // las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
 // el mismo lugar de siempre. La página config.html no se toca ni se borra: la
@@ -101,7 +103,7 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "heading",     Titulo = "Rumbo",        Grupo = "GPS / IMU",  Nativa = true  },
         new CfgNav { Tab = "roll",        Titulo = "Rolido",       Grupo = "GPS / IMU",  Nativa = true  },
 
-        new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros"                      },
+        new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros",      Nativa = true  },
         new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros"                      },
     };
 
@@ -591,6 +593,11 @@ public partial class ConfigPanel : UserControl
         // propio (500 ms, el tractor en vivo), que se para al salir. Ver la
         // cabecera de RolidoTab antes de "emparejarla" con las hermanas.
         "roll" => new RolidoTab(_ctx),
+        // U-Turn guarda como las hermanas (botón Guardar / al salir), pero su
+        // POST tiene efecto colateral fuerte en el motor: reconstruye las líneas
+        // de giro y DESCARTA el U-turn ya dibujado. Por eso su HayCambios es
+        // estricto — sin cambios no se postea. Ver la cabecera de UturnTab.
+        "uturn" => new UturnTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 

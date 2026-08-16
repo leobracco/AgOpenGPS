@@ -201,6 +201,29 @@ public sealed class ConfigRolidoSec
     [JsonPropertyName("imu_roll")]    public double ImuRoll { get; set; }
 }
 
+/// <summary>
+/// Sección `uturn` del snapshot (pestaña "Otros › U-Turn"): la GEOMETRÍA del
+/// giro de cabecera. Todo en METROS y sin signo:
+///   · `radius` — radio del U (server: mínimo 2 m, SIN techo; el 100 m de la UI
+///     es cortesía nuestra);
+///   · `distance_from_boundary` — a qué distancia del límite arranca el giro
+///     (server: mínimo 0,2 m);
+///   · `extension_length` — metros ENTEROS que se extiende la línea de giro
+///     (server: 3..50);
+///   · `smoothing` — suavizado ADIMENSIONAL (server: 8..50; el "paso de 2" lo
+///     garantiza SOLO la UI, así que un valor impar guardado desde otro cliente
+///     es perfectamente posible y hay que pintarlo tal cual).
+/// OJO: el toggle que muestra u oculta el botón U-Turn de la pantalla principal
+/// (`feature_uturn`) NO es de esta sección — vive en `botones`.
+/// </summary>
+public sealed class ConfigUturnSec
+{
+    [JsonPropertyName("radius")]                 public double Radius { get; set; }
+    [JsonPropertyName("distance_from_boundary")] public double DistanceFromBoundary { get; set; }
+    [JsonPropertyName("extension_length")]       public int ExtensionLength { get; set; }
+    [JsonPropertyName("smoothing")]              public int Smoothing { get; set; }
+}
+
 public sealed class ConfigTramSec
 {
     [JsonPropertyName("tram_width")]           public double? TramWidth { get; set; }
@@ -210,9 +233,8 @@ public sealed class ConfigTramSec
 
 /// <summary>
 /// Snapshot de GET /api/aog/config. Solo se declaran las secciones que ya
-/// consume alguna pestaña nativa; las que faltan (relay, uturn,
-/// display, botones) se agregan cuando se porte su pestaña — el JSON extra se
-/// ignora sin romper nada.
+/// consume alguna pestaña nativa; las que faltan (relay, display, botones) se
+/// agregan cuando se porte su pestaña — el JSON extra se ignora sin romper nada.
 /// </summary>
 public sealed class ConfigSnapshot
 {
@@ -233,6 +255,7 @@ public sealed class ConfigSnapshot
     [JsonPropertyName("maquina")]     public ConfigMaquinaSec? Maquina { get; set; }
     [JsonPropertyName("rumbo")]       public ConfigRumboSec? Rumbo { get; set; }
     [JsonPropertyName("rolido")]      public ConfigRolidoSec? Rolido { get; set; }
+    [JsonPropertyName("uturn")]       public ConfigUturnSec? Uturn { get; set; }
     [JsonPropertyName("tram")]        public ConfigTramSec? Tram { get; set; }
 }
 
