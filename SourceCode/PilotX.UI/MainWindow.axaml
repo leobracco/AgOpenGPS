@@ -872,7 +872,7 @@
                      pages/cabecera-lineas.html): la cabecera de los lotes que
                      no son un rectángulo. Trae su propio lienzo (se toca el
                      contorno con el dedo), así que la card es más grande que
-                     las otras (640x490) pero sigue dejando mapa a la vista por
+                     las otras (640x540) pero sigue dejando mapa a la vista por
                      los cuatro costados en la pantalla de 10". Va CENTRADA:
                      es un editor, no un visor del tractor. -->
                 <vw:CabeceraLineasPanel x:Name="CabeceraLineasHost" Grid.Row="1" ZIndex="10"

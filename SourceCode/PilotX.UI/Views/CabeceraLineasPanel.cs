@@ -29,7 +29,7 @@
 // INTACTOS, para el Hub remoto / celular / Android (MainView los sigue
 // ruteando).
 //
-// TAMAÑO: la card es 640x490 — más grande que la ventana HTML (460x470) porque
+// TAMAÑO: la card es 640x540 — más grande que la ventana HTML (460x470) porque
 // el lienzo necesita área para tocar el contorno con el dedo, y bastante más
 // chica que la pantalla: en la de 10" (1080x720) queda mapa a la vista por los
 // cuatro costados. La regla manda: el mapa no se apaga ni se tapa entero.

@@ -4782,6 +4782,13 @@ public partial class MainWindow : Window
     private void AbrirCabeceraLineas()
     {
         if (_cabLineasHost == null) return;
+        // Ya abierta: NO se vuelve a abrir. Un segundo POST /open del lado del
+        // motor hace tracksArr.Clear() y recarga Headlines.txt del disco, así
+        // que TODAS las líneas que el operario marcó en esta sesión (todavía
+        // sin /close, o sea sin guardar) se pierden. Volver a tocar el comando
+        // con la card a la vista no puede costar el trabajo hecho — el diálogo
+        // HTML tampoco se reabría, OpenDialogPage reusaba la ventana.
+        if (_cabLineasHost.IsVisible) return;
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
