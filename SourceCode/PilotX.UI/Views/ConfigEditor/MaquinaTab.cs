@@ -8,8 +8,9 @@
 // usuario, el indicador de "pendiente", el botón "Enviar + Guardar" y la
 // validación completa (POST /api/aog/config/maquina → PGN 238).
 // QUÉ SIGUE EN HTML: la página config.html entera — la usa la PWA del celular
-// (strangler fig, NO se borra) — y las pestañas todavía sin portar (Pines
-// relay, Rumbo, Rolido, U-Turn, Tram, Display, Botones).
+// (strangler fig, NO se borra) — y las tres pestañas huérfanas que quedaron sin
+// portar: Pines relay, Display y Botones. (Rumbo, Rolido, U-Turn y Tram se
+// portaron después, en la misma ola 3c.)
 //
 // ---------------------------------------------------------------------------
 // ESTA PESTAÑA NO GUARDA AL SALIR. NO LA "ARREGLES".

@@ -21,10 +21,19 @@
 // y "Otros › Tram" (ancho de trocha + las dos preferencias de trochas; la
 // CONSTRUCCIÓN de las huellas sobre el lote sigue en pages/tramline(s).html —
 // ver la cabecera de TramTab).
-// QUÉ SIGUE EN HTML: las pestañas que faltan y los módulos embebidos. El menú
-// las abre por WebView (OnRequestHtml), así que el operario llega a TODO desde
-// el mismo lugar de siempre. La página config.html no se toca ni se borra: la
-// usa la PWA del celular. Es strangler fig, no big-bang.
+// QUÉ SIGUE EN HTML: desde la ola 3c, NINGUNA fila del NAV — las 16 son
+// nativas. Lo único que sale al WebView es «Módulos y más…» (los módulos
+// embebidos) y las tres pestañas HUÉRFANAS de config.html —`relay`, `display`
+// y `botones`—, que no están en el NAV porque tampoco están en el menú del
+// HTML (las sacaron el 2026-08-03) y hoy NO las emite ningún botón ni ruta de
+// la UI. Ojo antes de darlas por muertas: `relay` es el mapa de pines que viaja
+// en el PGN al módulo de máquina, y `display` tiene el ÚNICO conmutador
+// métrico/imperial del producto, del que dependen los límites y las unidades de
+// 12 pestañas de acá. Ver docs/MIGRACION-OLA3C.md §3.
+// El fallback de IrATabAsync se deja INTACTO igual: es la red para el próximo
+// porteo y para cualquier deep-link viejo.
+// La página config.html no se toca ni se borra: la usa la PWA del celular. Es
+// strangler fig, no big-bang.
 //
 // ---------------------------------------------------------------------------
 // CÓMO SE AGREGA UNA PESTAÑA PORTADA (un solo lugar, tres líneas):

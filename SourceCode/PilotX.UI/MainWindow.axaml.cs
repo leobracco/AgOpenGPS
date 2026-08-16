@@ -2904,9 +2904,10 @@ public partial class MainWindow : Window
 
     // ----- CONFIGURACIÓN nativa: shell del porteo de pages/config.html.
     // Menú lateral por grupos + pestañas + footer (perfil / ancho / unidades).
-    // Hoy es nativa la pestaña "Resumen"; el resto del menú abre la MISMA
-    // pestaña en el HTML (?tab=…) y "Módulos y más…" abre la config completa,
-    // así el operario no pierde ningún acceso que tenga hoy.
+    // Desde la ola 3c las 16 filas del menú son NATIVAS: ninguna cae al WebView.
+    // Lo único que sigue abriendo HTML desde acá es "Módulos y más…", que lleva
+    // a la config completa para llegar a los módulos embebidos.
+    // Ver docs/MIGRACION-OLA3C.md.
 
     private void ShowConfig(string? tab = null)
     {
