@@ -287,33 +287,31 @@ public sealed class OffsetTab : ConfigTab
         _botonesCero.Clear();      // si no, PintarHabilitado seguiría tocando los del árbol viejo
         _estadoPintado = EstadoActual();
 
+        // ---- carta 1: offset lateral ---------------------------------------
         // MaxWidth OBLIGATORIO: el TabHost cuelga de un ScrollViewer con scroll
         // horizontal, así que sin un ancho tope el StackPanel mide "infinito" y
         // nada envuelve.
-        if (C.SinDatos || C.ServicioCaido)
-        {
-            var aviso = new StackPanel { Spacing = 10, MaxWidth = 560 };
-            aviso.Children.Add(CfgUi.Titulo("Offset del implemento"));
-            if (C.SinDatos)
-            {
-                aviso.Children.Add(new TextBlock
-                {
-                    Text = PilotX.Cockpit.Bars.Traductor.T("PilotX no responde — todavía no llegaron los datos."),
-                    Foreground = CfgUi.Dim, FontSize = 12, TextWrapping = TextWrapping.Wrap,
-                });
-            }
-            else
-            {
-                aviso.Children.Add(CfgUi.ChipError("Servicio de configuración no disponible", "AGP-NET-201"));
-            }
-            Children.Add(CfgUi.Carta(aviso));
-        }
-
-        // ---- carta 1: offset lateral ---------------------------------------
         _txtOffset = Nud("Offset del implemento", Magnitud(C.Snap?.Offset?.ToolOffset));
 
         var c1 = new StackPanel { Spacing = 10, MaxWidth = 560 };
         c1.Children.Add(CfgUi.Titulo("Offset del implemento"));
+
+        // El aviso de conexión va DENTRO de la primera carta (igual que Antena y
+        // Distancias): en una carta aparte quedaba un segundo título "Offset del
+        // implemento" arriba del real y parecía que la pestaña se dibujó dos veces.
+        if (C.SinDatos)
+        {
+            c1.Children.Add(new TextBlock
+            {
+                Text = PilotX.Cockpit.Bars.Traductor.T("PilotX no responde — todavía no llegaron los datos."),
+                Foreground = CfgUi.Dim, FontSize = 12, TextWrapping = TextWrapping.Wrap,
+            });
+        }
+        else if (C.ServicioCaido)
+        {
+            c1.Children.Add(CfgUi.ChipError("Servicio de configuración no disponible", "AGP-NET-201"));
+        }
+
         c1.Children.Add(CfgUi.Nota("Corrimiento lateral del implemento respecto del eje del tractor."));
         c1.Children.Add(FilaNud(_txtOffset, () => Cero(_txtOffset, esOffset: true)));
 
