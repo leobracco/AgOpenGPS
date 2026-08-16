@@ -155,6 +155,9 @@ public sealed class MotoresTab : QxTab
         chk.IsCheckedChanged += (_, __) =>
         {
             m.Habilitado = chk.IsChecked == true;
+            // Tocarlo acá es decisión del operario: si era un placeholder de la
+            // UI (nodo sin motores) deja de serlo y a partir de ahora se guarda.
+            m.EsPlaceholder = false;
             _ = C.GuardarAsync();
             Rebuild();
         };
@@ -251,6 +254,9 @@ public sealed class MotoresTab : QxTab
 
         void LeerCampos()
         {
+            // "Guardar y enviar" sobre este motor también cuenta como tocarlo:
+            // si era placeholder, lo configuró a mano y quiere que quede.
+            m.EsPlaceholder = false;
             m.SensorTipo = cbSensor.SelectedIndex == 1 ? "encoder" : "inductivo";
             m.MotorType = cbMotor.SelectedIndex == 1 ? 1 : 0;
             m.DientesEngranaje = stPpr.ValorInt;

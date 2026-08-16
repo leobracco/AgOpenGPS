@@ -80,6 +80,13 @@ public sealed class QxMotorConfig
     /// Sin esto, guardar desde el panel PISARÍA esos campos con nada.</summary>
     [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; set; }
 
+    /// <summary>Motor de RELLENO que inventó la UI para tener algo que dibujar
+    /// (nodo sin motores configurados). No es un motor de la máquina: nace
+    /// deshabilitado y NO se persiste mientras el operario no lo toque — ver
+    /// QxEditorCtx.MotoresDelNodo / EsPlaceholderSinTocar. [JsonIgnore] a
+    /// propósito: la marca es de la pantalla, no del wire ni del archivo.</summary>
+    [JsonIgnore] public bool EsPlaceholder { get; set; }
+
     /// <summary>Copia de los campos "del fierro y del lazo" (⧉ Copiar a todos).
     /// Quedan afuera nombre, cortes y habilitado: copiarlos pisaría el reparto
     /// de la sembradora y encendería canales sin motor.</summary>

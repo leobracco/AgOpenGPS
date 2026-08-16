@@ -108,18 +108,28 @@ public partial class QuantiXEditorPanel : UserControl
         _ = ArrancarAsync(_cts.Token);
     }
 
-    public void Detach()
+    public void Detach() => _ = DetachAsync();
+
+    /// <summary>Igual que Detach pero DEVUELVE el task del STOP, para quien
+    /// necesite esperarlo. Lo usa el cierre de la ventana: ahí el proceso se
+    /// apaga enseguida y un stop disparado y olvidado puede no llegar a salir
+    /// al cable — el nodo se queda girando con la pantalla apagada.</summary>
+    public async Task DetachAsync()
     {
         // Cualquier motor girando tiene que parar ANTES de soltar el token:
         // el flujo de medición usa el CTS del panel para su propio HTTP.
+        Task salida = Task.CompletedTask;
         try
         {
-            if (_tabs.TryGetValue(_tabActiva, out var t)) _ = t.AlSalirAsync();
+            if (_tabs.TryGetValue(_tabActiva, out var t)) salida = t.AlSalirAsync();
         }
         catch { }
         try { _cts?.Cancel(); } catch { }
         _cts = null;
         _ = _ctx.Client?.TecladoAsync(false);
+        // Los stops de las tabs van con su propio token (no el del panel), así
+        // que el Cancel de arriba no los mata.
+        try { await salida.ConfigureAwait(false); } catch { }
     }
 
     private async Task ArrancarAsync(CancellationToken ct)

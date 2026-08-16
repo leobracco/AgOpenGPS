@@ -604,6 +604,11 @@ public partial class MainWindow : Window
         {
             _quantiXEditorHost.OnRequestCerrar = () => CloseQuantiXEditor();
             _quantiXEditorHost.Aviso += MostrarToast;
+            // Apagar la pantalla NO es una salida limpia por si sola: verb=test
+            // no tiene meta, asi que un motor en plena rampa (Medir tope, Max
+            // Hz, Prueba) se quedaba girando con PilotX cerrado. El cierre
+            // manda el STOP igual que el boton Cerrar del editor.
+            Closed += (_, _) => DetenerEditorQuantiXAlApagar();
         }
         if (_vistaXHost != null)
         {
@@ -2365,6 +2370,18 @@ public partial class MainWindow : Window
         // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] QuantiX editor open (nativo, no WebView)");
+    }
+
+    // Cierre de la ventana con el editor de QuantiX abierto. Esperamos hasta
+    // 1,5 s a que el STOP salga de verdad: si lo disparamos y soltamos, el
+    // proceso se apaga antes y el motor queda girando. Los awaits del camino de
+    // stop van con ConfigureAwait(false), asi que esperar desde el hilo de UI
+    // no traba nada.
+    private void DetenerEditorQuantiXAlApagar()
+    {
+        var h = _quantiXEditorHost;
+        if (h == null) return;
+        try { h.DetachAsync().Wait(1500); } catch { }
     }
 
     private void CloseQuantiXEditor()

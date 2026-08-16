@@ -139,17 +139,42 @@ public sealed class QxEditorCtx
         return null;
     }
 
-    /// <summary>Los motores que hay que OFRECER de un nodo: los que tenga
-    /// configurados, con piso de 2 (un nodo recién dado de alta viene sin
-    /// motores y hay que poder configurarlos igual). El de 7 canales entra
-    /// solo. Los que falten se CREAN en la config para que editarlos persista.</summary>
+    /// <summary>Los motores que hay que OFRECER de un nodo: EXACTAMENTE los que
+    /// tiene configurados. La cantidad real la fija el nodo — el backend arma
+    /// la lista con los motores que vinieron en el announcement MQTT (el
+    /// Quantix2Motors reporta 2; el de 7 canales, 7) y después manda el archivo.
+    ///
+    /// TRAMPA, fácil de reintroducir (arreglada 2026-08-16): esto rellenaba
+    /// hasta 2 motores con Habilitado = true. Con SOLO ENTRAR a Motores / PID /
+    /// Calibración / Prueba, un nodo de 0 o 1 motor quedaba con 2 en memoria, y
+    /// el primer guardado —que puede salir solo, por ejemplo al tildar el nodo—
+    /// los persistía, los publicaba al nodo por MQTT y los subía a OrbitX.
+    /// Aparecían motores que no existen en la máquina y un canal fantasma
+    /// HABILITADO recibe consigna. Regla: el relleno NUNCA inventa motores
+    /// habilitados.
+    ///
+    /// Si el nodo no trae ninguno se ofrece UN placeholder DESHABILITADO para
+    /// que la tab tenga algo que dibujar; GuardarAsync no lo persiste mientras
+    /// el operario no lo toque (ver EsPlaceholderSinTocar).</summary>
     public List<QxMotorConfig> MotoresDelNodo(QxNodoConfig n)
     {
         n.Motores ??= new List<QxMotorConfig>();
-        while (n.Motores.Count < 2)
-            n.Motores.Add(new QxMotorConfig { Nombre = "Motor " + (n.Motores.Count + 1) });
+        if (n.Motores.Count == 0)
+            n.Motores.Add(new QxMotorConfig
+            {
+                Nombre = "Motor 1",
+                Habilitado = false,
+                EsPlaceholder = true,
+            });
         return n.Motores;
     }
+
+    /// <summary>Placeholder que el operario nunca tocó: sigue deshabilitado y
+    /// sin surcos asignados. Habilitarlo, pintarle surcos o guardarlo desde la
+    /// tab Motores lo convierte en un motor de verdad y deja de purgarse.</summary>
+    public static bool EsPlaceholderSinTocar(QxMotorConfig m)
+        => m != null && m.EsPlaceholder && !m.Habilitado
+           && (m.Cortes == null || m.Cortes.Count == 0);
 
     public int MotorActivo(string tab, int cantidad)
     {
@@ -338,6 +363,51 @@ public sealed class QxEditorCtx
     public async Task<QxOpResult> GuardarAsync(CancellationToken ct = default)
     {
         SyncTrenes();
-        return await Client.PutMotoresAsync(Cfg, ct).ConfigureAwait(false);
+        return await Client.PutMotoresAsync(ConfigParaGuardar(), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>La config como se persiste: igual a la de memoria pero SIN los
+    /// placeholders que la UI creó y el operario nunca tocó. Ese PUT es el que
+    /// escribe el archivo, se publica al nodo por MQTT y termina en OrbitX: lo
+    /// que salga de acá es lo que el resto del sistema cree que tiene la
+    /// máquina.
+    ///
+    /// Filtra COPIANDO, no borrando: las tabs tienen referencias vivas a los
+    /// objetos de motor (closures de los steppers y checkboxes) y sacarlos de
+    /// la lista en pleno guardado dejaría al operario editando un objeto
+    /// suelto, sin darse cuenta.</summary>
+    private QxMotoresConfig ConfigParaGuardar()
+    {
+        var copia = new QxMotoresConfig
+        {
+            Trenes = Cfg.Trenes,
+            Ignorados = Cfg.Ignorados,
+            Extra = Cfg.Extra,
+            Nodos = new List<QxNodoConfig>(),
+        };
+        var ns = Cfg?.Nodos;
+        if (ns == null) return copia;
+
+        foreach (var n in ns)
+        {
+            if (n == null) continue;
+            var reales = new List<QxMotorConfig>();
+            if (n.Motores != null)
+                foreach (var m in n.Motores)
+                    if (m != null && !EsPlaceholderSinTocar(m)) reales.Add(m);
+
+            if (n.Motores == null || reales.Count == n.Motores.Count) { copia.Nodos.Add(n); continue; }
+
+            copia.Nodos.Add(new QxNodoConfig
+            {
+                Uid = n.Uid,
+                Nombre = n.Nombre,
+                Habilitado = n.Habilitado,
+                DistanciaEntreTrenes = n.DistanciaEntreTrenes,
+                Extra = n.Extra,
+                Motores = reales,
+            });
+        }
+        return copia;
     }
 }
