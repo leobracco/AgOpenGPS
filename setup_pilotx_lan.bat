@@ -1,6 +1,6 @@
 @echo off
 REM ========================================================================
-REM setup_pilotx_lan.bat — Setup de red para AgIO/PilotX en pantalla del tractor
+REM setup_pilotx_lan.bat — Setup de red para CoreX/PilotX en pantalla del tractor
 REM Auto-eleva a admin (UAC). Corre una sola vez por instalacion.
 REM ========================================================================
 
@@ -18,7 +18,7 @@ echo   Setup PilotX LAN — Firewall + URL ACL
 echo ============================================================
 echo.
 
-REM ── 1. URL ACL para que AgIO pueda escuchar en 0.0.0.0:8080 ────────────
+REM ── 1. URL ACL para que CoreX pueda escuchar en 0.0.0.0:8080 ────────────
 echo [1/4] Registrando URL ACL para puerto 8080...
 netsh http delete urlacl url=http://+:8080/ >nul 2>&1
 netsh http add urlacl url=http://+:8080/ user=Everyone
@@ -51,10 +51,10 @@ if %errorLevel% neq 0 (echo   ERROR) else (echo   OK)
 
 echo.
 echo ============================================================
-echo   Listo. Reinicia AgIO para que el panel quede en 0.0.0.0:8080
+echo   Listo. Reinicia CoreX para que el panel quede en 0.0.0.0:8080
 echo ============================================================
 echo.
-echo   Despues de reiniciar AgIO, deberias poder:
+echo   Despues de reiniciar CoreX, deberias poder:
 echo     - Ping a 192.168.5.10 desde el celular
 echo     - Abrir http://192.168.5.10:8080 desde el celular
 echo     - Los nodos ESP32 conectandose al broker en :1883

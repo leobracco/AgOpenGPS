@@ -11,7 +11,7 @@
     <AssemblyTitle>PilotX Kiosk Setup</AssemblyTitle>
     <Company>Agro Parallel</Company>
     <Product>PilotX</Product>
-    <Description>Configura modo kiosko (AutoLogon + Shell = AOG) para PC tractor</Description>
+    <Description>Configura modo kiosko (AutoLogon + Shell = PilotX) para PC tractor</Description>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />

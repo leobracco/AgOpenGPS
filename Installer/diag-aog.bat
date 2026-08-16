@@ -1,5 +1,5 @@
 @echo off
-REM diag-aog.bat - diagnostica por que AgOpenGPS no levanta. Solo CMD, sin PowerShell.
+REM diag-aog.bat - diagnostica por que PilotX no levanta. Solo CMD, sin PowerShell.
 REM Uso: doble click, o   diag-aog.bat   en CMD.
 
 setlocal EnableDelayedExpansion
@@ -7,7 +7,7 @@ setlocal EnableDelayedExpansion
 set AOG=C:\Program Files\AgroParallel\Piloto\PilotX.exe
 set DIR=C:\Program Files\AgroParallel\Piloto
 
-echo === Diagnostico AgOpenGPS ===
+echo === Diagnostico PilotX ===
 echo.
 
 REM ---- [1] Existe el .exe?
@@ -30,8 +30,8 @@ if not errorlevel 1 (
 )
 echo.
 
-REM ---- [3] Lanzar AOG y capturar ExitCode
-echo [3] Ejecutando AgOpenGPS... (cuando lo cierres o crashee, vemos el ExitCode)
+REM ---- [3] Lanzar PilotX y capturar ExitCode
+echo [3] Ejecutando PilotX... (cuando lo cierres o crashee, vemos el ExitCode)
 pushd "%DIR%"
 "%AOG%"
 set EC=%ERRORLEVEL%

@@ -1,6 +1,6 @@
 // PilotX-KioskSetup.exe
 // ================================================================================
-// Configura una PC Windows en un tractor para arrancar directamente en AgOpenGPS
+// Configura una PC Windows en un tractor para arrancar directamente en PilotX
 // (modo kiosko): AutoLogon a usuario "pilotx" + Shell de Windows = PilotX.exe.
 //
 // Uso:
@@ -79,7 +79,7 @@ namespace AgroParallel.PilotX.KioskSetup
                 Pause();
                 return 3;
             }
-            Console.WriteLine("AOG detectado: " + aog);
+            Console.WriteLine("PilotX detectado: " + aog);
 
             string currentShell = ReadCurrentShell();
             Console.WriteLine("Shell actual:  " + (currentShell ?? "(no seteado)"));
@@ -96,7 +96,7 @@ namespace AgroParallel.PilotX.KioskSetup
             Console.WriteLine("  1. Crear usuario local '" + KioskUser + "' (sin password)");
             Console.WriteLine("  2. Activar AutoLogon a '" + KioskUser + "' al boot");
             Console.WriteLine("  3. Reemplazar el Shell de Windows por: " + aog);
-            Console.WriteLine("     (oculta el escritorio: AOG arranca fullscreen)");
+            Console.WriteLine("     (oculta el escritorio: PilotX arranca fullscreen)");
             Console.WriteLine();
             Console.WriteLine("Para revertir:  PilotX-KioskSetup.exe /undo");
             Console.WriteLine();
@@ -140,7 +140,7 @@ namespace AgroParallel.PilotX.KioskSetup
                 pwl.SetValue("DevicePasswordLessBuildVersion", 0, RegistryValueKind.DWord);
             }
 
-            // 3) Shell = AOG (HKLM global — TODOS los users veran AOG como shell)
+            // 3) Shell = PilotX (HKLM global — TODOS los users veran PilotX como shell)
             Step("Reemplazando Shell de Windows");
             using (var wl = Registry.LocalMachine.CreateSubKey(WinlogonKey))
             {
@@ -222,7 +222,7 @@ namespace AgroParallel.PilotX.KioskSetup
                 return null;
             }
 
-            // Detectar tambien donde corre este .exe (si fue copiado al lado de AOG)
+            // Detectar tambien donde corre este .exe (si fue copiado al lado de PilotX)
             try
             {
                 string here = Path.GetDirectoryName(typeof(Program).Assembly.Location);

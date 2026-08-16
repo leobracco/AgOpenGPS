@@ -5,7 +5,7 @@
 # "IP Set / New Values Changed", pide reiniciar y queda persistido. Listo:
 # un ModSim por PC sin pisarse entre pantallas.
 #
-# Cómo funciona: manda el PGN 201 (set subnet, el mismo que usa AgIO nativo)
+# Cómo funciona: manda el PGN 201 (set subnet, el mismo que usa CoreX nativo)
 # con 127.255.255 a los caminos posibles del :8888 local. ModSim adopta la
 # subred, la guarda en su config y se relanza solo. El engine de PilotX no
 # necesita nada: aprende solo que el sim vive en loopback (2026-08-06).

@@ -100,7 +100,7 @@ MAPA = {
 
     # ---- Menú izquierdo (MenuIzquierda, íconos a 24 px) ----------------------
     # El set de 197 traía diseño para casi todo el menú y nunca se había
-    # aplicado: seguía con los PNG heredados de AOG. Mapeo por FUNCIÓN del
+    # aplicado: seguía con los PNG heredados del 6.8.5. Mapeo por FUNCIÓN del
     # botón (verificada contra el CommandParameter y el label del axaml), no
     # por parecido de nombre — dos trampas reales: AutoManualIsAuto.png es el
     # botón "Gráfico XTE" (→ chart), y Headache.png es "Cabecera (Build)"
@@ -151,7 +151,7 @@ MAPA = {
 # Mismo pipeline, otro destino: wwwroot/img/steer (+ un FileSave en config).
 # Se aplicó el 2026-08-07 al preparar las pruebas con el CoreX ECU real.
 # Los pictogramas técnicos (ConSt_*/ConV_*/ConD_*, sensores, PWM, ganancias)
-# NO vinieron en el handoff y siguen con el bitmap heredado de AOG.
+# NO vinieron en el handoff y siguen con el bitmap heredado del 6.8.5.
 MAPA_WEB = {
     "steer-drive-off":      "img/steer/SteerDriveOff.png",
     "steer-drive-on":       "img/steer/SteerDriveOn.png",
@@ -348,7 +348,7 @@ def main():
     for k, (destino, motivo) in SIN_APLICAR.items():
         print("   %-14s -> %-44s %s" % (k, destino, motivo))
     print("")
-    print("Sin diseno todavia (siguen con el icono viejo de AgOpenGPS):")
+    print("Sin diseno todavia (siguen con el icono viejo del 6.8.5):")
     for nombre, destino in SIN_DISENO:
         print("   %-14s    %s" % (nombre, destino))
 

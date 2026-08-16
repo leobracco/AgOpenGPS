@@ -1,5 +1,5 @@
 # stop-all.ps1
-# Baja todos los procesos AgroParallel (AOG, AgIO + broker MQTT, utilidades).
+# Baja todos los procesos AgroParallel (PilotX, CoreX + broker MQTT, utilidades).
 # Uso:
 #   powershell -ExecutionPolicy Bypass -File .\stop-all.ps1
 #   powershell -ExecutionPolicy Bypass -File .\stop-all.ps1 -Verbose

@@ -1,14 +1,14 @@
 @echo off
 REM fix-pantalla.bat
-REM Aplica el fix de root-cause en una pantalla que tiene PilotX/AOG ya instalado
+REM Aplica el fix de root-cause en una pantalla que tiene PilotX ya instalado
 REM pero no levanta porque arrastra workingDirectory = G:\CentriX (que no existe).
 REM
 REM Que hace:
-REM   1) Mata AgOpenGPS / AgIO si estan corriendo
+REM   1) Mata PilotX / CoreX si estan corriendo
 REM   2) Crea D:\AgroParallel\PilotX\AgOpenGPS\{Fields,Vehicles,Logs,Tools}
 REM   3) Reescribe aog_settings.json en el dir de instalacion (Piloto o PilotX)
 REM   4) Limpia HKCU\SOFTWARE\AgOpenGPS y deja WorkingDirectory = D:\AgroParallel\PilotX
-REM   5) Lanza AOG
+REM   5) Lanza PilotX
 REM
 REM Correr como ADMINISTRADOR.
 
@@ -28,8 +28,8 @@ echo   Fix-Pantalla PilotX - workingDirectory = %BASE%
 echo ============================================================
 echo.
 
-REM ---- [1] Matar AOG y AgIO si estan corriendo
-echo [1/5] Matando AOG/AgIO si estan abiertos...
+REM ---- [1] Matar PilotX y CoreX si estan corriendo
+echo [1/5] Matando PilotX/CoreX si estan abiertos...
 taskkill /F /IM PilotX.exe /T 2>nul
 taskkill /F /IM CoreX.exe /T 2>nul
 echo.
@@ -91,8 +91,8 @@ echo --- Verificacion ---
 reg query "HKCU\SOFTWARE\AgOpenGPS" 2>nul
 echo.
 
-REM ---- Lanzar AOG
-echo Lanzando AgOpenGPS...
+REM ---- Lanzar PilotX
+echo Lanzando PilotX...
 echo (cerralo cuando termines de probar para volver a esta ventana)
 echo.
 pushd "%INSTDIR%"
@@ -101,6 +101,6 @@ popd
 
 echo.
 echo ============================================================
-echo   FIN - si AOG abrio: el fix funciono, recompilamos installer
+echo   FIN - si PilotX abrio: el fix funciono, recompilamos installer
 echo ============================================================
 pause

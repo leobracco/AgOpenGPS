@@ -1,10 +1,10 @@
 # diag-aog.ps1
-# Diagnostica por que AgOpenGPS no levanta.
+# Diagnostica por que PilotX no levanta.
 # Uso: powershell -ExecutionPolicy Bypass -File .\diag-aog.ps1
 
 $aog = "C:\Program Files\AgroParallel\Piloto\PilotX.exe"
 
-Write-Host "=== Diagnostico AgOpenGPS ===" -ForegroundColor Cyan
+Write-Host "=== Diagnostico PilotX ===" -ForegroundColor Cyan
 Write-Host ""
 
 # 1. Existe?
@@ -28,7 +28,7 @@ if ($z) {
 
 # 3. Lanzar y capturar exit code
 Write-Host ""
-Write-Host "[3] Ejecutando AgOpenGPS y capturando exit code..." -ForegroundColor Yellow
+Write-Host "[3] Ejecutando PilotX y capturando exit code..." -ForegroundColor Yellow
 $p = Start-Process $aog -WorkingDirectory (Split-Path $aog) -PassThru -Wait
 $ec = $p.ExitCode
 if ($ec -eq 0) {

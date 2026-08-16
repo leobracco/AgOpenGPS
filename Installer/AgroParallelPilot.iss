@@ -1,5 +1,5 @@
 ; =============================================================================
-;  AgroParallel Piloto (AgOpenGPS + AgIO) - Installer
+;  AgroParallel Piloto (PilotX + CoreX) - Installer
 ;  Compilar con Inno Setup 6 (https://jrsoftware.org/isdl.php)
 ;
 ;  Uso:
@@ -26,7 +26,7 @@
 #define AppExeAOG     "PilotX.exe"
 #define AppExeAgIO    "CoreX.exe"
 
-; Carpeta donde build.ps1 dejo los binarios mergeados (AOG + AgIO)
+; Carpeta donde build.ps1 dejo los binarios mergeados (PilotX + CoreX)
 #define BuildDir "..\Build"
 
 [Setup]
@@ -64,10 +64,10 @@ PrivilegesRequiredOverridesAllowed=dialog
 WizardStyle=modern
 ShowLanguageDialog=auto
 
-; Icono del instalador (usamos el AOG)
+; Icono del instalador (usamos el de PilotX)
 SetupIconFile={#BuildDir}\AOG.ico
 
-; Cerrar AOG/AgIO si estan corriendo antes de actualizar
+; Cerrar PilotX/CoreX si estan corriendo antes de actualizar
 CloseApplications=force
 RestartApplications=no
 
@@ -77,8 +77,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon";   Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
-Name: "agioicon";      Description: "Crear acceso directo a AgIO en el escritorio"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "autostart";     Description: "Iniciar AgOpenGPS automaticamente al arrancar Windows"; GroupDescription: "Inicio automatico:"; Flags: checkedonce
+Name: "agioicon";      Description: "Crear acceso directo a CoreX en el escritorio"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "autostart";     Description: "Iniciar PilotX automaticamente al arrancar Windows"; GroupDescription: "Inicio automatico:"; Flags: checkedonce
 Name: "cleaninstall";  Description: "Reinstalar / Limpiar instalacion previa (registry + settings stale)"; GroupDescription: "Mantenimiento:"; Flags: checkedonce
 Name: "wipesettings";  Description: "Eliminar TAMBIEN aog_settings.json y configs de modulos (no toca lotes)"; GroupDescription: "Mantenimiento:"; Flags: unchecked
 Name: "embedmode";     Description: "Activar modo EMBED (kiosko anti-tanques: AutoLogon, sin desktop, watchdog, servicios off)"; GroupDescription: "Modo de uso:"; Flags: unchecked
@@ -119,7 +119,7 @@ Name: "{userdocs}\AgOpenGPS\Tools";    Permissions: users-modify
 
 [Icons]
 Name: "{group}\PilotX";     Filename: "{app}\{#AppExeAOG}";  WorkingDir: "{app}"; IconFilename: "{app}\AOG.ico"
-Name: "{group}\AgIO";       Filename: "{app}\{#AppExeAgIO}"; WorkingDir: "{app}"
+Name: "{group}\CoreX";      Filename: "{app}\{#AppExeAgIO}"; WorkingDir: "{app}"
 Name: "{group}\Desinstalar PilotX"; Filename: "{uninstallexe}"
 ; Atajos diagnostico modo embed (utiles desde "Iniciar > AgroParallel" para soporte).
 ; Estos los lanzamos como wrappers .cmd que se auto-elevan via UAC (ver scripts\*.cmd)
@@ -131,7 +131,7 @@ Name: "{group}\Diagnostico\Desactivar modo EMBED"; Filename: "{app}\scripts\embe
   WorkingDir: "{app}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 132
 
 Name: "{autodesktop}\PilotX"; Filename: "{app}\{#AppExeAOG}"; WorkingDir: "{app}"; IconFilename: "{app}\AOG.ico"; Tasks: desktopicon
-Name: "{autodesktop}\AgIO";   Filename: "{app}\{#AppExeAgIO}"; WorkingDir: "{app}"; Tasks: agioicon
+Name: "{autodesktop}\CoreX";  Filename: "{app}\{#AppExeAgIO}"; WorkingDir: "{app}"; Tasks: agioicon
 
 ; Inicio automatico al arrancar Windows (shortcut en carpeta Startup, comun a todos los usuarios)
 Name: "{commonstartup}\PilotX"; Filename: "{app}\{#AppExeAOG}"; WorkingDir: "{app}"; IconFilename: "{app}\AOG.ico"; Tasks: autostart
@@ -181,7 +181,7 @@ Filename: "powershell.exe"; \
   Flags: runhidden waituntilterminated; \
   Tasks: embedmode
 
-Filename: "{app}\{#AppExeAOG}"; Description: "Iniciar AgOpenGPS"; Flags: nowait postinstall skipifsilent; Check: not WizardIsTaskSelected('embedmode')
+Filename: "{app}\{#AppExeAOG}"; Description: "Iniciar PilotX"; Flags: nowait postinstall skipifsilent; Check: not WizardIsTaskSelected('embedmode')
 
 [InstallDelete]
 ; Si el user pide "Reinstalar / Limpiar", borramos archivos de config conocidos
@@ -223,7 +223,7 @@ begin
   begin
     if MsgBox(
       '.NET Framework 4.8 no esta instalado.' + #13#10 + #13#10 +
-      'AgOpenGPS lo necesita para funcionar.' + #13#10 +
+      'PilotX lo necesita para funcionar.' + #13#10 +
       'Descargalo desde: https://dotnet.microsoft.com/download/dotnet-framework/net48' + #13#10 + #13#10 +
       'Continuar igual?',
       mbConfirmation, MB_YESNO) = IDNO then
@@ -297,7 +297,7 @@ begin
   if HasStaleRegistry() then
   begin
     MsgBox(
-      'Se detecto una instalacion previa de AgOpenGPS con configuracion ROTA:' + #13#10 +
+      'Se detecto una instalacion previa de PilotX con configuracion ROTA:' + #13#10 +
       'el registry apunta a una carpeta de trabajo que ya no existe.' + #13#10 + #13#10 +
       'La opcion "Reinstalar / Limpiar instalacion previa" ya esta marcada por defecto y ' +
       'va a corregir esto automaticamente.',

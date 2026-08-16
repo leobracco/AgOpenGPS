@@ -1,6 +1,6 @@
 # Instalador AgroParallel Piloto
 
-Instalador Windows para AgOpenGPS + AgIO. Resuelve los problemas habituales al
+Instalador Windows para PilotX + CoreX. Resuelve los problemas habituales al
 desplegar en una pantalla nueva (registry stale, carpetas de datos faltantes).
 
 ## Pre-requisitos
@@ -17,7 +17,7 @@ powershell -ExecutionPolicy Bypass -File .\build-installer.ps1
 ```
 
 Esto:
-1. Corre `..\build.ps1` (compila AOG + AgIO en Release y los junta en `..\Build\`)
+1. Corre `..\build.ps1` (compila PilotX + CoreX en Release y los junta en `..\Build\`)
 2. Compila `AgroParallelPilot.iss` con Inno Setup
 3. Deja el `.exe` final en `Installer\Output\AgroParallel-Piloto-Setup-x.y.z.exe`
 
@@ -40,8 +40,8 @@ Para saltear la compilación (si ya está la carpeta `Build/`):
 | Verifica .NET 4.8 | Lee `HKLM\...\NDP\v4\Full\Release >= 528040` y avisa si falta |
 | Copia binarios | `Build\*` → `C:\Program Files\AgroParallel\Piloto\` |
 | Crea carpetas de datos | `%USERPROFILE%\Documents\AgOpenGPS\{Fields,Vehicles,Logs,Tools}` (previene `DirectoryNotFoundException`) |
-| Acceso directo escritorio | AOG (default), AgIO (opcional) |
-| Inicio automatico | Shortcut en `commonstartup` para arrancar AOG con Windows (default ON) |
+| Acceso directo escritorio | PilotX (default), CoreX (opcional) |
+| Inicio automatico | Shortcut en `commonstartup` para arrancar PilotX con Windows (default ON) |
 | Reset registry | Tarea opcional: borra `HKCU\SOFTWARE\AgOpenGPS\workingDirectory` (recomendado en pantalla nueva con instalación previa rota) |
 | Desinstalador | Quita binarios pero **conserva** los lotes del usuario en `Documents\AgOpenGPS\` |
 
@@ -69,5 +69,5 @@ Flags útiles de Inno Setup:
 ## Notas de arquitectura
 
 - **No bundlear Mosquitto.** El broker MQTT (puerto 1883) está embebido en
-  AgIO con `MQTTnet`. Al instalar AgIO ya queda el broker disponible para
+  CoreX con `MQTTnet`. Al instalar CoreX ya queda el broker disponible para
   los nodos ESP32 en LAN.
