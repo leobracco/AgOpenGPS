@@ -232,6 +232,11 @@ namespace PilotX.GuidanceEngine.Adapters
             _host.Vehicle = new CVehicle(_host);
             _host.Tool = new CTool(_host);
             _host.AplicarGeometriaDeSecciones();
+            // Los switches remotos viven en CModuleComm, que NO se recrea acá:
+            // sin esto el perfil recién activado mostraba sus switches en el
+            // panel (salen de Settings) pero el motor seguía con los del perfil
+            // anterior. Mismo agujero que en el arranque.
+            _host.CargarSwitchesRemotos();
             // El perfil recién activado manda: re-espejamos su geometría al
             // archivo propio del motor para que el próximo arranque no la pise
             // con la del perfil anterior (ToolGeometryStore se aplica DESPUÉS

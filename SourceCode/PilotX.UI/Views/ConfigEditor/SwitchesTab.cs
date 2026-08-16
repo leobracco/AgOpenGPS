@@ -46,36 +46,29 @@
 // Esta pestaña NO manda PGN al módulo (a diferencia de Pines relay y Máquina,
 // que tienen "Enviar + Guardar"). El original tampoco: no inventar un envío.
 //
-// PERSISTENCIA — VERIFICADA CON REINICIO REAL DEL MOTOR (2026-08-16), no con
-// un round-trip (el GET lee Settings EN MEMORIA: guardar y releer no prueba
-// nada). POST → inspección del XML en disco → taskkill → arranque limpio → GET:
+// PERSISTENCIA — LOS 5 CAMPOS PERSISTEN. Verificado con REINICIO REAL del motor
+// (2026-08-16), no con un round-trip (el GET lee Settings EN MEMORIA: guardar y
+// releer no prueba nada). Método: POST → inspección del XML en disco → taskkill
+// → arranque limpio → GET, campo por campo y con una combinación asimétrica
+// (work_enabled=true / steer_enabled=false) para descartar un "todo true".
 //
-//   · work_active_low, work_manual_sections, steer_manual_sections → PERSISTEN.
-//     Van a Settings y el snapshot los lee de Settings, así que sobreviven.
-//   · work_enabled, steer_enabled → SE ESCRIBEN EN EL XML PERO NO VUELVEN.
-//     El snapshot los lee del RUNTIME (`_engine.Mc.isWorkSwitchEnabled` /
-//     `isSteerWorkSwitchEnabled`) y NADA en el arranque headless copia
-//     `setF_isWorkSwitchEnabled` / `setF_isSteerWorkSwitchEnabled` a `Mc`
-//     (eso lo hacía LoadSettings de FormGPS). Resultado medido: se guardó
-//     `true`, el XML quedó en `True`, y tras reiniciar el motor el GET devuelve
-//     `false`. Para el operario el switch "se apagó solo".
-//   · CORRECCIÓN al comentario original de este porteo (revisión 2026-08-16):
-//     tras reiniciar el motor el switch físico NO queda invertido, queda
-//     INERTE. `Mc.isRemoteWorkSystemOn` también vuelve al false del constructor
-//     de CModuleComm y NADIE lo restaura (no hay una sola lectura de
-//     `setF_isRemoteWorkSystemOn` en todo el repo fuera de este guardado), y
-//     `CheckWorkAndSteerSwitch` entra al bloque de trabajo/dirección SOLO con
-//     `isRemoteWorkSystemOn` en true. O sea: hasta el próximo guardado, mover
-//     el switch de la cabina no hace nada — ni bien ni al revés. Lo mismo pasa
-//     con `Mc.isWorkSwitchActiveLow` / `isWorkSwitchManualSections`, que vuelven
-//     a los defaults aunque Settings diga otra cosa: quedan desalineados con lo
-//     que muestra el panel, pero no llegan a aplicarse porque el bloque está
-//     apagado. El primer POST de esta pestaña realinea los cinco de una.
-//     ES UN AGUJERO DEL MOTOR, NO DE ESTA PESTAÑA: la página HTML tiene
-//     exactamente el mismo comportamiento. El arreglo (aplicar esos Settings a
-//     `Mc` al arrancar) vive en PilotX.GuidanceEngine y NO se toca desde acá.
-//     No se disfraza con un "Guardado ✔" que mienta: el panel pinta SIEMPRE lo
-//     que devuelve el GET.
+// HISTORIA — hasta el 2026-08-16 acá faltaban DOS. `work_enabled` y
+// `steer_enabled` se escribían en el XML pero volvían apagados tras reiniciar,
+// porque el snapshot los lee del RUNTIME (`_engine.Mc.isWorkSwitchEnabled` /
+// `isSteerWorkSwitchEnabled`) mientras que los otros tres salen de Settings, y
+// NADA en el arranque headless copiaba esos `setF_*` a `Mc` (eso lo hacía
+// LoadSettings de FormGPS). Peor que el síntoma visible: `Mc.isRemoteWorkSystemOn`
+// también volvía al false del constructor de CModuleComm, y
+// `CheckWorkAndSteerSwitch` entra al bloque de trabajo/dirección SOLO con ese
+// flag en true — o sea que tras cada arranque el switch físico quedaba INERTE
+// (ni bien ni al revés) hasta el próximo guardado del panel.
+//
+// ARREGLADO EN EL MOTOR, no acá: `GuidanceEngineHost.CargarSwitchesRemotos()`
+// aplica los seis `setF_*` a `Mc` en `Start()` y al activar un perfil. El
+// snapshot SIGUE leyendo `Mc` a propósito: así el panel muestra lo que el motor
+// realmente tiene aplicado, no lo que dice el archivo. Si algún día vuelven a
+// divergir, el bug está en el motor y el panel lo va a delatar en vez de taparlo.
+// El panel pinta SIEMPRE lo que devuelve el GET; nunca un "Guardado ✔" que mienta.
 //
 // Todo esto depende de que haya perfil de vehículo: `Settings.Save()` escribe
 // <Documentos>\AgOpenGPS\Vehicles\<perfil>.XML SOLO si

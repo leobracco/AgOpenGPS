@@ -314,7 +314,16 @@ no los modela — el mismo criterio que ya usa para `Width`
 
 ### 4.2 Hallazgo: los `enabled` del switch remoto no sobreviven al reinicio
 
-**Es un agujero DEL MOTOR, no del porteo.** Medido y reproducido en §2.2.
+> **CERRADO el 2026-08-16.** El arreglo es
+> `GuidanceEngineHost.CargarSwitchesRemotos()`, llamado desde `Start()` y desde
+> `EnginePerfilService.RecargarVehiculo()`. Verificado con reinicio real del
+> motor y con **prueba de control** (mismo XML en `True` a disco, con y sin la
+> llamada): sin el arreglo `work_enabled`/`steer_enabled` vuelven en `false`;
+> con el arreglo sobreviven los 5, incluida una combinación asimétrica. También
+> cierra el derivado P2 de más abajo (el guardado que borraba el `True` del XML).
+> Se deja el diagnóstico entero porque explica **por qué** 3 de 5 persistían.
+
+**Era un agujero DEL MOTOR, no del porteo.** Medido y reproducido en §2.2.
 
 `work_enabled` y `steer_enabled` se escriben bien en el XML del perfil, pero el
 snapshot los lee del **runtime** (`_engine.Mc.isWorkSwitchEnabled` /

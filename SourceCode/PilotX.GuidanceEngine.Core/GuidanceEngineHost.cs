@@ -213,6 +213,54 @@ namespace AgOpenGPS
                 $"minHeadingStep={minHeadingStepDist:F2}m");
         }
 
+        /// <summary>
+        /// Pasa la configuración de los switches REMOTOS (el de trabajo y el de
+        /// dirección cableados al módulo de máquina) del perfil del vehículo a
+        /// <see cref="Mc"/>. Es lo que hacía <c>FormGPS.LoadSettings</c> y el
+        /// motor headless NO estaba haciendo.
+        ///
+        /// El agujero: <c>CModuleComm</c> nace con TODO apagado salvo
+        /// <c>isWorkSwitchActiveLow</c> (CModuleComm.cs:49-57) y nada volvía a
+        /// tocar esos seis campos hasta el próximo guardado del panel. O sea que
+        /// después de cada arranque el switch físico quedaba INERTE:
+        /// <c>CheckWorkAndSteerSwitch</c> entra al bloque de trabajo/dirección
+        /// solo con <c>isRemoteWorkSystemOn</c> en true (CModuleComm.cs:73), y
+        /// ese arrancaba siempre en false aunque el perfil dijera lo contrario.
+        ///
+        /// Consecuencia en el lote: el operario habilita el switch de trabajo,
+        /// apaga la pantalla al terminar la jornada y al otro día siembra
+        /// creyendo que el corte por switch está activo. No lo está, y nada se
+        /// lo avisa — baja la herramienta y las secciones no acompañan.
+        ///
+        /// <c>isRemoteWorkSystemOn</c> se DERIVA de los dos habilitadores en vez
+        /// de leerse del XML, igual que hace el guardado del panel
+        /// (EngineConfigVehiculoService.GuardarSwitches). Así un perfil viejo con
+        /// el flag en true pero los dos switches deshabilitados no revive el
+        /// bloque: ante la duda, el switch remoto no manda.
+        /// </summary>
+        public void CargarSwitchesRemotos()
+        {
+            var s = AgOpenGPS.Properties.Settings.Default;
+
+            Mc.isWorkSwitchEnabled = s.setF_isWorkSwitchEnabled;
+            Mc.isSteerWorkSwitchEnabled = s.setF_isSteerWorkSwitchEnabled;
+            // OJO con la semántica: "activo con contacto cerrado" = true. La
+            // comparación del motor es `workSwitchHigh != isWorkSwitchActiveLow`,
+            // así que darlo vuelta hace que la máquina aplique AL REVÉS del
+            // switch físico (secciones prendidas con el implemento levantado).
+            // Se copia tal cual el perfil, sin "corregir" nada.
+            Mc.isWorkSwitchActiveLow = s.setF_isWorkSwitchActiveLow;
+            Mc.isWorkSwitchManualSections = s.setF_isWorkSwitchManualSections;
+            Mc.isSteerWorkSwitchManualSections = s.setF_isSteerWorkSwitchManualSections;
+            Mc.isRemoteWorkSystemOn = Mc.isWorkSwitchEnabled || Mc.isSteerWorkSwitchEnabled;
+
+            Log.EventWriter($"GuidanceEngine: switches remotos del perfil — " +
+                $"trabajo={Mc.isWorkSwitchEnabled} (contactoCerrado={Mc.isWorkSwitchActiveLow}, " +
+                $"manual={Mc.isWorkSwitchManualSections}), " +
+                $"direccion={Mc.isSteerWorkSwitchEnabled} (manual={Mc.isSteerWorkSwitchManualSections}), " +
+                $"sistemaRemoto={Mc.isRemoteWorkSystemOn}");
+        }
+
         private readonly System.Diagnostics.Stopwatch _relojSegundo = System.Diagnostics.Stopwatch.StartNew();
 
         // Reloj desde el arranque para secondsSinceStart. En FormGPS ese campo
@@ -302,6 +350,7 @@ namespace AgOpenGPS
         {
             if (_running) return;
             CargarAjustesDeGuiado();
+            CargarSwitchesRemotos();
             _loopBackSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _loopBackSocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
             _loopBackSocket.Bind(new IPEndPoint(IPAddress.Loopback, 15555));
