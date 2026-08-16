@@ -858,6 +858,16 @@
                                   HorizontalAlignment="Right" VerticalAlignment="Center"
                                   Margin="0,0,82,0"/>
 
+                <!-- TRAMLINES nativo (reemplaza pages/tramline.html): la vista
+                     previa de las huellas NO vive en la pantalla, se dibuja
+                     sobre el MAPA — la ventana HTML de 350x340 se paraba justo
+                     encima de lo único que hay para mirar. Card chica (380) a
+                     la DERECHA con el mismo margen 82 que Contorno/Cabecera:
+                     el centro queda para el tractor y las huellas. -->
+                <vw:TramSimplePanel x:Name="TramSimpleHost" Grid.Row="1" ZIndex="10"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Margin="0,0,82,0"/>
+
                 <!-- CABECERA nativa (reemplaza pages/cabecera.html): el diálogo
                      HTML tapaba y APAGABA el mapa justo en la pantalla donde lo
                      único que importa es ver la franja verde dibujándose contra

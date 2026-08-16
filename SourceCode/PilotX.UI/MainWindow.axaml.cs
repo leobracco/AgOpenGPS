@@ -288,6 +288,13 @@ public partial class MainWindow : Window
     private ContornoPanel? _contornoHost;
     private ContornoClient? _contornoClient;
 
+    // Tramlines nativo, ex tramline.html (FormTram): la vista previa de las
+    // huellas se dibuja sobre el MAPA, así que la ventana HTML tapaba justo lo
+    // único que hay para mirar. Card chica sobre el mapa vivo; la página HTML
+    // queda para el Hub remoto/celular/Android.
+    private TramSimplePanel? _tramSimpleHost;
+    private TramSimpleClient? _tramSimpleClient;
+
     // Cabecera nativa, ex cabecera.html: el diálogo HTML tapaba y APAGABA el
     // mapa justo donde el operario quiere ver la franja dibujándose. Card chica
     // sobre el mapa vivo; la página HTML queda para el Hub remoto/celular.
@@ -494,6 +501,20 @@ public partial class MainWindow : Window
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
+        }
+
+        // Tramlines nativo (ex tramline.html). El Closed manda el commit de
+        // descarte aunque la app se apague con el panel abierto: el motor es
+        // OTRO proceso y sin ese POST las huellas quedan dibujadas para siempre.
+        _tramSimpleHost = this.FindControl<TramSimplePanel>("TramSimpleHost");
+        if (_tramSimpleHost != null)
+        {
+            _tramSimpleHost.Aviso += MostrarToast;
+            _tramSimpleHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+            Closed += (_, _) => _tramSimpleHost.DetachEnCierreDeApp();
         }
 
         // Cabecera nativa (ex cabecera.html). El Closed manda el /close aunque
@@ -2064,6 +2085,7 @@ public partial class MainWindow : Window
         if (_contornoHost != null && _contornoHost.IsVisible) { _contornoHost.Cerrar(); return; }
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) { _cabeceraHost.Cerrar(); return; }
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) { _cabLineasHost.Cerrar(); return; }
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) { _tramSimpleHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -2678,6 +2700,7 @@ public partial class MainWindow : Window
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_webView != null) CloseWebView();
         // El mapa queda VIVO detras de la card (y se reenciende si un
         // takeover previo lo habia apagado).
@@ -3005,6 +3028,7 @@ public partial class MainWindow : Window
         if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
         if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_sonidosClient == null)
             _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));
@@ -3051,6 +3075,7 @@ public partial class MainWindow : Window
         if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
         if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4049,6 +4074,16 @@ public partial class MainWindow : Window
                 AbrirCabeceraLineas();
                 return true;
 
+            // ---- Tramlines (huellas de rueda) → panel NATIVO. La vista previa
+            // NO vive en la pantalla: se dibuja sobre el MAPA, o sea que la
+            // ventana HTML de 350x340 tapaba justo lo único que hay para mirar
+            // mientras se ajustan las pasadas. OJO: este case tiene que quedar
+            // ANTES del switch de páginas — si "tram_crear" volviera a mapear a
+            // tramline.html, el comando abriría Chromium otra vez.
+            case "tram_crear":
+                AbrirTramSimple();
+                return true;
+
             // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
             // LOTE de la barra izquierda salta directo a su pantalla, igual
             // que hacían los deep-links ?do= de lote.js.
@@ -4175,7 +4210,9 @@ public partial class MainWindow : Window
             // "cabecera_avanzada" ya NO mapea acá: es panel nativo (el case de
             // arriba lo agarra antes). cabecera-lineas.html queda para el Hub
             // remoto/celular/Android, que no pasan por este switch.
-            "tram_crear"        => "pages/tramline.html",
+            // "tram_crear" ya NO mapea acá: Tramlines es panel nativo (el case
+            // de arriba lo agarra antes). tramline.html queda para el Hub
+            // remoto/celular/Android, que no pasan por este switch.
             // "pick"/"importar_guias" ya NO mapean acá: Guías es nativo (el
             // case de arriba los agarra antes). tracks.html queda para el Hub
             // remoto/celular, que no pasa por este switch.
@@ -4695,6 +4732,7 @@ public partial class MainWindow : Window
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4712,6 +4750,7 @@ public partial class MainWindow : Window
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4738,6 +4777,7 @@ public partial class MainWindow : Window
         // cabecera) no salía nunca.
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4746,6 +4786,39 @@ public partial class MainWindow : Window
         _contornoHost.Abrir();
         // Card flotante: el mapa NUNCA se apaga (y acá menos que nunca — esta
         // pantalla se abre para mirarlo).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
+    // Tramlines nativo: card chica sobre el mapa vivo. Abrir esta pantalla YA
+    // prende la vista previa de las huellas en el mapa (el GET /state ejecuta
+    // el Open del motor), así que el mapa tiene que quedar SÍ o SÍ encendido —
+    // acá menos que nunca se apaga. Cerrar el panel sin commit descarta la
+    // preview (lo hace el propio panel en Cerrar()).
+    private void AbrirTramSimple()
+    {
+        if (_tramSimpleHost == null) return;
+        // Ya abierto: no se re-abre. Un segundo /state serían otro Open y otro
+        // rebuild de la geometría sobre lo que el operario ya venía ajustando.
+        if (_tramSimpleHost.IsVisible) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        // Contorno y Cabecera están ancladas en el MISMO lugar que esta card:
+        // sin cerrarlas se dibujarían una encima de la otra.
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
+        // con el WebView ocupando la pantalla: sin cerrarlo, la card nativa
+        // quedaría abajo y el operario vería que "no pasó nada".
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _tramSimpleClient ??= new TramSimpleClient(DeriveOrigin(App.TargetUrl));
+        _tramSimpleHost.Attach(_tramSimpleClient);
+        _tramSimpleHost.Abrir();
+        // Card flotante: el mapa NUNCA se apaga (y acá es la vista previa misma).
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
     }
 
@@ -4762,6 +4835,7 @@ public partial class MainWindow : Window
         // La cabecera por líneas edita LO MISMO que esta card: con las dos
         // abiertas quedarían dos sesiones sobre el mismo editor del motor.
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4817,6 +4891,7 @@ public partial class MainWindow : Window
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4953,6 +5028,15 @@ public partial class MainWindow : Window
             // El HUD llega siempre (nunca se pausa), así que es el mejor lugar
             // para reafirmar el estado del mapa y que no quede trabado.
             ReconciliarMapa();
+            // Tramlines nativo: el editor trabaja sobre la guía y el tram del
+            // lote ACTIVO. Si el lote cambia con el panel abierto, lo que
+            // muestra dejó de existir — se cierra, y el cierre descarta la
+            // preview que quedaría colgada en el mapa del lote nuevo. (El
+            // centinela pilotx-close no sirve acá: nunca fue un diálogo.)
+            if (_tramSimpleHost != null && _tramSimpleHost.IsVisible
+                && !string.Equals(_lastFieldDir ?? "", s.CurrentFieldDirectory ?? "",
+                                  StringComparison.OrdinalIgnoreCase))
+                _tramSimpleHost.Cerrar();
             _lastFieldDir = s.CurrentFieldDirectory;
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             CerrarDialogoSiHayGuiaNueva(s.TracksTotal, s.TrackIdx);
