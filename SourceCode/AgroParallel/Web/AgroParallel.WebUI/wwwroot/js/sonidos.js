@@ -64,7 +64,9 @@
     if (play) {
       var fl = evn.target.closest('.sn-fila');
       var snd = fl.querySelector('select[data-f="sonido"]').value;
-      if (snd) new Audio('../sounds/' + snd).play().catch(function () {});
+      // ?v= a propósito: si el operario pisó el .wav con otro archivo del mismo
+      // nombre, el cache del navegador le haría escuchar el sonido viejo.
+      if (snd) new Audio('../sounds/' + snd + '?v=' + Date.now()).play().catch(function () {});
       return;
     }
     // toggle visual al habilitar/deshabilitar

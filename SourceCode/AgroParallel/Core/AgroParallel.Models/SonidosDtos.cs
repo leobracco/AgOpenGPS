@@ -82,6 +82,13 @@ namespace AgroParallel.Models
         [JsonPropertyName("mute")]
         public bool Mute { get; set; }
 
+        /// <summary>Revisión de la carpeta de sonidos: cambia cuando cambia
+        /// algún .wav (nombre, fecha o tamaño). Los clientes que cachean el
+        /// wav en memoria tiran su cache cuando este número se mueve — si no,
+        /// el sonido nuevo no se escucharía hasta reiniciar PilotX.</summary>
+        [JsonPropertyName("archivos_rev")]
+        public long ArchivosRev { get; set; }
+
         /// <summary>Alarmas activas AHORA (para pintar la pantalla).</summary>
         [JsonPropertyName("activas")]
         public List<SonidoDisparoDto> Activas { get; set; } = new List<SonidoDisparoDto>();

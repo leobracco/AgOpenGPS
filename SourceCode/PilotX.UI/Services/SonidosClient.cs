@@ -61,6 +61,10 @@ public sealed class SonidosEstadoWire
 {
     [JsonPropertyName("seq")]      public long Seq { get; set; }
     [JsonPropertyName("mute")]     public bool Mute { get; set; }
+    /// <summary>Revisión de la carpeta /sounds: se mueve cuando algún .wav
+    /// cambió (lo subió esta pantalla, el celular o una copia a mano). Quien
+    /// cachea wavs en memoria los tira cuando esto cambia.</summary>
+    [JsonPropertyName("archivos_rev")] public long ArchivosRev { get; set; }
     [JsonPropertyName("activas")]  public List<SonidoDisparoWire> Activas { get; set; } = new();
     [JsonPropertyName("disparos")] public List<SonidoDisparoWire> Disparos { get; set; } = new();
 }

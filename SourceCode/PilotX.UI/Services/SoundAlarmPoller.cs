@@ -36,6 +36,9 @@ public sealed class SoundAlarmPoller : IDisposable
     {
         public long Seq { get; set; }
         public bool Mute { get; set; }
+        /// <summary>Revisión de la carpeta /sounds del server (snake: archivos_rev).
+        /// Si se mueve, algún .wav cambió y hay que tirar el cache.</summary>
+        public long ArchivosRev { get; set; }
         public List<WireDisparo>? Disparos { get; set; }
     }
 
@@ -50,6 +53,12 @@ public sealed class SoundAlarmPoller : IDisposable
     private readonly Dictionary<string, byte[]> _cacheWav = new();
 
     private long _ultimoSeq = -1;   // -1 = todavía no sincronizado
+
+    // Revisión de la carpeta de sonidos vista en el último GET. Sin dato
+    // todavía = no se toca el cache (server viejo sin archivos_rev: queda el
+    // comportamiento de antes, no rompe nada).
+    private long _archivosRev;
+    private bool _tieneArchivosRev;
 
     public SoundAlarmPoller(string baseUrl)
     {
@@ -68,6 +77,14 @@ public sealed class SoundAlarmPoller : IDisposable
                 var est = JsonSerializer.Deserialize<WireEstado>(json.TrimStart('﻿'), JsonOpts);
                 if (est != null)
                 {
+                    // El operario pisó un .wav (mismo nombre, otro sonido): sin
+                    // esto el cache seguiría entregando el viejo hasta reiniciar
+                    // PilotX. Va ANTES de sonar los disparos de este mismo tick.
+                    if (_tieneArchivosRev && est.ArchivosRev != _archivosRev)
+                        lock (_cacheWav) _cacheWav.Clear();
+                    _archivosRev = est.ArchivosRev;
+                    _tieneArchivosRev = true;
+
                     if (_ultimoSeq < 0)
                     {
                         // Primera lectura: anclar sin sonar el pasado.

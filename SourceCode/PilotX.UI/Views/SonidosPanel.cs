@@ -76,6 +76,8 @@ public sealed class SonidosPanel : Border
     private SonidosConfigWire? _cfg;
     private List<string> _archivos = new();
     private readonly Dictionary<string, byte[]> _cacheWav = new();
+    private long _archivosRev;        // revisión de /sounds vista en el último tick
+    private bool _tieneArchivosRev;   // false = todavía sin dato (no tocar el cache)
     // Ventana de gracia tras tocar Silenciar: el tick no puede pisar el estado
     // que el operario acaba de elegir mientras el PUT viaja.
     private DateTime _muteTocadoUtc = DateTime.MinValue;
@@ -341,6 +343,18 @@ public sealed class SonidosPanel : Border
             }
 
             var estado = await cli.GetEstadoAsync(long.MaxValue, ct).ConfigureAwait(false);
+
+            // Algún .wav cambió (lo pisó el celular, o una copia a mano en la
+            // carpeta): tirar el cache o el ▶ haría escuchar el sonido viejo.
+            // Subir desde ACÁ ya lo invalida puntualmente; esto cubre el resto.
+            if (estado != null)
+            {
+                if (_tieneArchivosRev && estado.ArchivosRev != _archivosRev)
+                    lock (_cacheWav) _cacheWav.Clear();
+                _archivosRev = estado.ArchivosRev;
+                _tieneArchivosRev = true;
+            }
+
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (ct.IsCancellationRequested) return;

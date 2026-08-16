@@ -46,7 +46,72 @@ namespace AgroParallel.WebHost.Controllers
 
         [Route(HttpVerbs.Get, "/sonidos/estado")]
         public Task GetEstado([QueryField] long desde)
-            => WriteJsonAsync(_svc != null ? _svc.GetEstado(desde) : new SonidosEstadoDto());
+        {
+            var est = _svc != null ? _svc.GetEstado(desde) : new SonidosEstadoDto();
+            est.ArchivosRev = RevArchivos();
+            return WriteJsonAsync(est);
+        }
+
+        // ---- revisión de la carpeta de sonidos --------------------------------
+        // El que SUENA (SoundAlarmPoller) cachea cada .wav por nombre. Si el
+        // operario pisa un sonido con otro archivo del mismo nombre, sin esta
+        // señal seguiría escuchando el viejo hasta reiniciar PilotX. El rev es
+        // un hash de (nombre, fecha, tamaño) de los .wav: se mueve cuando cambia
+        // la carpeta, venga por esta API o copiado a mano desde el pendrive.
+        // Estático + throttle: EmbedIO crea un controller POR REQUEST y /estado
+        // se pollea a 2 Hz — no vamos a escanear el disco en cada tick.
+        private static readonly object RevLock = new object();
+        private static string _revDir;
+        private static long _rev;
+        private static DateTime _revStamp;
+
+        private long RevArchivos()
+        {
+            lock (RevLock)
+            {
+                if (_revDir == _soundsDir && (DateTime.UtcNow - _revStamp).TotalSeconds < 2.0)
+                    return _rev;
+
+                long h = unchecked((long)14695981039346656037UL);   // FNV-1a 64
+                try
+                {
+                    if (_soundsDir != null && Directory.Exists(_soundsDir))
+                    {
+                        var archivos = Directory.GetFiles(_soundsDir, "*.wav");
+                        Array.Sort(archivos, StringComparer.OrdinalIgnoreCase);
+                        foreach (var f in archivos)
+                        {
+                            var fi = new FileInfo(f);
+                            h = MezclarTexto(h, fi.Name.ToLowerInvariant());
+                            h = MezclarLong(h, fi.LastWriteTimeUtc.Ticks);
+                            h = MezclarLong(h, fi.Length);
+                        }
+                    }
+                }
+                catch { /* carpeta ocupada: se recalcula en el próximo tick */ }
+
+                _revDir = _soundsDir; _rev = h; _revStamp = DateTime.UtcNow;
+                return h;
+            }
+        }
+
+        private static long MezclarTexto(long h, string s)
+        {
+            unchecked
+            {
+                foreach (char c in s ?? "") { h ^= c; h *= 1099511628211L; }
+            }
+            return h;
+        }
+
+        private static long MezclarLong(long h, long v)
+        {
+            unchecked
+            {
+                for (int i = 0; i < 8; i++) { h ^= (byte)(v >> (i * 8)); h *= 1099511628211L; }
+            }
+            return h;
+        }
 
         [Route(HttpVerbs.Get, "/sonidos/archivos")]
         public Task GetArchivos()
@@ -88,6 +153,9 @@ namespace AgroParallel.WebHost.Controllers
             {
                 Directory.CreateDirectory(_soundsDir);
                 File.WriteAllBytes(Path.Combine(_soundsDir, limpio), datos);
+                // Que el próximo /estado ya avise del cambio (sin esperar el
+                // throttle): el operario prueba el sonido nuevo enseguida.
+                lock (RevLock) _revStamp = DateTime.MinValue;
                 await WriteJsonAsync(new { ok = true, archivo = limpio });
             }
             catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = ex.Message }); }
