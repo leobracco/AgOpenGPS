@@ -82,7 +82,7 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "tconfig",     Titulo = "Enganche",     Grupo = "Implemento", Nativa = true  },
         new CfgNav { Tab = "thitch",      Titulo = "Distancias",   Grupo = "Implemento", Nativa = true  },
         new CfgNav { Tab = "tooloffset",  Titulo = "Offset",       Grupo = "Implemento", Nativa = true  },
-        new CfgNav { Tab = "toolpivot",   Titulo = "Pivote",       Grupo = "Implemento"                 },
+        new CfgNav { Tab = "toolpivot",   Titulo = "Pivote",       Grupo = "Implemento", Nativa = true  },
         new CfgNav { Tab = "tsettings",   Titulo = "Timing",       Grupo = "Implemento"                 },
 
         new CfgNav { Tab = "tsections",   Titulo = "Secciones",    Grupo = "Secciones"                  },
@@ -549,6 +549,7 @@ public partial class ConfigPanel : UserControl
         "tconfig" => new EngancheTab(_ctx),
         "thitch" => new DistanciasTab(_ctx),
         "tooloffset" => new OffsetTab(_ctx),
+        "toolpivot" => new PivoteTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
 
