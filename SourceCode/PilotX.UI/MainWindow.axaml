@@ -595,11 +595,10 @@
 
             <!--
                 VistaXPanel — overlay nativo (8vo port).
-                Reemplazo nativo PARCIAL (Monitor tab) de pages/vistax.html:
-                ver SPM por surco, badges por estado, trenes con sensores
-                semilla/ferti (tubitos) y otros sensores (barras). Otras tabs
-                (Insumo & calibracion, Implemento, Nodos, Config) siguen en
-                HTML via boton "Configurar".
+                Monitor live de pages/vistax.html: ver SPM por surco, badges
+                por estado, trenes con sensores semilla/ferti (tubitos) y
+                otros sensores (barras). El boton "Configurar" abre el editor
+                NATIVO (VistaXEditorHost, 29no port) — ya no hay WebView.
             -->
             <vw:VistaXPanel x:Name="VistaXHost" Grid.Row="2" IsVisible="False"/>
 
