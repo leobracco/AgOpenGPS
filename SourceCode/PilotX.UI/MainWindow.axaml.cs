@@ -3737,9 +3737,13 @@ public partial class MainWindow : Window
             // el motor (comando reset_all) y después hay que reiniciar.
             case "reset_all": _ = ConfirmarResetAllAsync(); return true;
 
-            // ---- Info de lote/GPS → ventana chica cerrable (HTML) ----
-            case "datos_gps":  OpenDialogPage("pages/datos-gps.html",  "Datos GPS",       760, 560); return true;
-            case "lote_datos": OpenDialogPage("pages/datos-lote.html", "Datos del lote",  760, 560); return true;
+            // ---- Info de lote/GPS → overlays NATIVOS ----
+            // Antes abrían el HTML por WebView y quedaba una incoherencia: el
+            // mismo dato se veía nativo entrando por la barra (OnNavDatosGps /
+            // OnFieldToolsClick) y por Chromium entrando por acá. Las páginas
+            // quedan en wwwroot para la PWA del celular.
+            case "datos_gps":  ShowGpsData();   return true;
+            case "lote_datos": ShowFieldData(); return true;
             // ---- Paneles nativos grandes (Hub / Cámaras) ----
             case "hub":        ShowHub();      return true;
             case "webcam":     ShowCamaras();  return true;
