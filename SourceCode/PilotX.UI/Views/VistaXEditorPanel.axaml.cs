@@ -133,6 +133,13 @@ public partial class VistaXEditorPanel : UserControl
         try { _cts?.Cancel(); } catch { }
         _cts = null;
         _ = _ctx.Client?.TecladoAsync(false);
+
+        // Lo leído del backend NO sobrevive al cierre: la próxima vez que se
+        // abra el editor se vuelve a pedir todo, como hacía la página HTML al
+        // cargarse. Con el cache vivo, un implemento guardado desde el celular
+        // (o un insumo calibrado) no se veía, y "Guardar" lo pisaba con lo
+        // viejo.
+        _ctx.LimpiarCache();
     }
 
     private async Task ArrancarAsync(CancellationToken ct)

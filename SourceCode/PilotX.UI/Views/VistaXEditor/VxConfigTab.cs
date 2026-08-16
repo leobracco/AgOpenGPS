@@ -41,6 +41,7 @@ public sealed class VxConfigTab : VxTab
     private Border?    _chipError;
     private TextBlock? _chipErrorTexto;
     private Button?    _btnZip;
+    private Button?    _btnGuardar;
 
     /// <summary>Mismo orden que el <select> del HTML: el índice mapea al valor
     /// del wire, que NO se traduce.</summary>
@@ -139,7 +140,14 @@ public sealed class VxConfigTab : VxTab
             IsVisible = false, Child = _chipErrorTexto,
         };
         var botones = VxUi.Fila();
-        botones.Children.Add(VxUi.Boton("Guardar config", () => _ = GuardarAsync(), primario: true));
+        // Sin config leída no se guarda: el PUT es del DTO ENTERO y lo que se
+        // manda son los DEFAULTS de la clase. Guardar en ese estado le pisaba
+        // al archivo el broker, los tópicos y las credenciales que maneja
+        // CoreX — justo los campos que la pantalla no muestra y por eso nadie
+        // notaría. El mismo criterio que ya usa la pestaña Implemento.
+        _btnGuardar = VxUi.Boton("Guardar config", () => _ = GuardarAsync(), primario: true);
+        _btnGuardar.IsEnabled = C.Cfg != null;
+        botones.Children.Add(_btnGuardar);
         botones.Children.Add(VxUi.Boton("Recargar", () => _ = CargarAsync()));
         botones.Children.Add(_estado);
         Children.Add(botones);
@@ -163,7 +171,13 @@ public sealed class VxConfigTab : VxTab
     /// preservan.</summary>
     private async Task GuardarAsync()
     {
-        var c = C.Cfg ?? new VxConfig();
+        if (C.Cfg == null)
+        {
+            // No hay sobre qué mergear (ver el comentario del botón).
+            VxUi.SetEstado(_estado, "No se pudo cargar la configuración", "err");
+            return;
+        }
+        var c = C.Cfg;
         if (_chipError != null) _chipError.IsVisible = false;
         VxUi.SetEstado(_estado, "Guardando…", "");
 

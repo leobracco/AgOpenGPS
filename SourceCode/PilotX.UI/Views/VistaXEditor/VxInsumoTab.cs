@@ -272,10 +272,13 @@ public sealed class VxInsumoTab : VxTab
             return;
         }
         C.Imp = cargado;
+        // El texto de ayuda menciona el límite: se reconstruye para que quede
+        // coherente con lo recién guardado. OJO EL ORDEN: Rebuild() crea un
+        // botón NUEVO, así que el flash tiene que ir DESPUÉS — al revés el
+        // "Guardado" se pintaba sobre el botón viejo, que se tiraba en el mismo
+        // renglón, y el operario no veía ninguna confirmación.
+        Rebuild();
         VxUi.SetEstado(_estado, "", "");
         VxUi.Flash(_btnGuardarMax, "Guardado");
-        // El texto de ayuda menciona el límite: se reconstruye para que quede
-        // coherente con lo recién guardado.
-        Rebuild();
     }
 }

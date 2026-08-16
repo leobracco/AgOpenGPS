@@ -80,6 +80,21 @@ public sealed class VxCtx
 
     public string InsumoActivoId => Insumos?.ActivoId ?? "";
 
+    /// <summary>Tira lo cargado del backend al cerrar el editor. La página HTML
+    /// arrancaba con el `state` vacío cada vez que se abría; el panel nativo,
+    /// si no se limpia, vuelve a pintar lo que leyó la vez anterior. Entre
+    /// medio pudo cambiar cualquier cosa (se guardó desde el celular con la
+    /// página, se calibró un insumo, se tocó el implemento central), y el
+    /// operario terminaría guardando encima con datos viejos.</summary>
+    public void LimpiarCache()
+    {
+        Central = null;
+        Imp     = null;
+        Cfg     = null;
+        Insumos = null;
+        Tipos   = new List<VxTipoSensor>();
+    }
+
     public VxInsumo? InsumoActivo()
     {
         var id = InsumoActivoId;
