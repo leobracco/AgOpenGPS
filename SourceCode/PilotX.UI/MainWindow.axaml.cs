@@ -4868,6 +4868,11 @@ public partial class MainWindow : Window
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
         if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        // Tramlines está anclada en el MISMO lugar que las demás cards y, sobre
+        // todo, deja la vista previa de las huellas DIBUJADA en el mapa mientras
+        // siga abierta: sin cerrarla acá el operario armaba la cabecera con las
+        // huellas colgadas encima y el editor de tram vivo en el motor.
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea

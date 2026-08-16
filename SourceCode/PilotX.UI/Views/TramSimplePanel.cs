@@ -363,6 +363,11 @@ public sealed class TramSimplePanel : Border
         _settled = false;
         _hayEstado = false;
         _arrastrando = false;
+        // Un alpha que quedó a medio debounce en la apertura ANTERIOR no puede
+        // sobrevivir a esta: VaciarAlphaAsync() lo mandaría antes del commit con
+        // el valor del slider de ahora, que todavía es el default (80) porque el
+        // GET /state no volvió — le pisaría al motor la transparencia real.
+        _alphaPendiente = false;
         ResetVista();
         IsVisible = true;
         Traductor.Aplicar(this);
@@ -391,6 +396,7 @@ public sealed class TramSimplePanel : Border
         if (_cerrada) { IsVisible = false; return; }
         _cerrada = true;
         PararTimerAlpha();
+        _alphaPendiente = false;   // el debounce muere con el panel (igual que el setTimeout en pagehide)
         try { _cts?.Cancel(); } catch { }
         _cts = null;
         if (!_settled) _ = DescartarAsync();
@@ -412,6 +418,7 @@ public sealed class TramSimplePanel : Border
         if (_cerrada) return;
         _cerrada = true;
         PararTimerAlpha();
+        _alphaPendiente = false;
         try { _cts?.Cancel(); } catch { }
         _cts = null;
         if (_settled || _cli == null) return;
