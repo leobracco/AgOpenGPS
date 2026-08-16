@@ -269,6 +269,10 @@ namespace PilotX.Desktop.Views
                 "bandera"           => "pages/banderas.html",
                 "bandera_latlon"    => "pages/banderas.html",
                 "lindero"           => "pages/contorno.html",
+                // "cabecera" se queda en HTML EN ESTA SUPERFICIE a propósito:
+                // MainView es la vista alternativa/Android y no tiene los hosts
+                // flotantes de MainWindow (CabeceraHost vive en MainWindow.axaml).
+                // En la cabina (MainWindow) el comando abre el panel NATIVO.
                 "cabecera"          => "pages/cabecera.html",
                 "cabecera_avanzada" => "pages/cabecera-lineas.html",
                 "tram_crear"        => "pages/tramline.html",

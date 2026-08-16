@@ -858,6 +858,16 @@
                                   HorizontalAlignment="Right" VerticalAlignment="Center"
                                   Margin="0,0,82,0"/>
 
+                <!-- CABECERA nativa (reemplaza pages/cabecera.html): el diálogo
+                     HTML tapaba y APAGABA el mapa justo en la pantalla donde lo
+                     único que importa es ver la franja verde dibujándose contra
+                     el lindero. Card CHICA (320) a la DERECHA con el mismo
+                     margen 82 que Contorno (libre de la barra derecha): el
+                     centro del mapa queda para el tractor y la cabecera. -->
+                <vw:CabeceraPanel x:Name="CabeceraHost" Grid.Row="1" ZIndex="10"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Margin="0,0,82,0"/>
+
                 <!-- DIRECCIÓN nativa (17vo port): panel angosto ANCLADO A LA
                      IZQUIERDA (después del riel del menú, ~130px): el centro y
                      la derecha del mapa quedan libres para ver el tractor

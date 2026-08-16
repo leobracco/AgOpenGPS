@@ -288,6 +288,12 @@ public partial class MainWindow : Window
     private ContornoPanel? _contornoHost;
     private ContornoClient? _contornoClient;
 
+    // Cabecera nativa, ex cabecera.html: el diálogo HTML tapaba y APAGABA el
+    // mapa justo donde el operario quiere ver la franja dibujándose. Card chica
+    // sobre el mapa vivo; la página HTML queda para el Hub remoto/celular.
+    private CabeceraPanel? _cabeceraHost;
+    private HeadlandClient? _cabeceraClient;
+
     // CONFIGURACIÓN nativa: shell del porteo de pages/config.html (menú lateral
     // por grupos + pestañas + footer). Hoy trae "Resumen"; las pestañas que
     // faltan y los módulos embebidos siguen abriéndose por WebView desde el
@@ -481,6 +487,19 @@ public partial class MainWindow : Window
             {
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
+        }
+
+        // Cabecera nativa (ex cabecera.html). El Closed manda el /close aunque
+        // la app se apague con el panel abierto: ese POST no es cosmética —
+        // suaviza y PERSISTE la cabecera recién construida.
+        _cabeceraHost = this.FindControl<CabeceraPanel>("CabeceraHost");
+        if (_cabeceraHost != null)
+        {
+            _cabeceraHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+            Closed += (_, _) => _cabeceraHost.Detach();
         }
 
         // El visor de IMU (rumbo/rolido/cabeceo, arriba a la izquierda) se
@@ -2019,6 +2038,7 @@ public partial class MainWindow : Window
         if (_guiasHost != null && _guiasHost.IsVisible) { _guiasHost.Cerrar(); return; }
         if (_loteHost != null && _loteHost.IsVisible) { _loteHost.Cerrar(); return; }
         if (_contornoHost != null && _contornoHost.IsVisible) { _contornoHost.Cerrar(); return; }
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) { _cabeceraHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -2631,6 +2651,7 @@ public partial class MainWindow : Window
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_webView != null) CloseWebView();
         // El mapa queda VIVO detras de la card (y se reenciende si un
         // takeover previo lo habia apagado).
@@ -2956,6 +2977,7 @@ public partial class MainWindow : Window
         if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_sonidosClient == null)
             _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));
@@ -3000,6 +3022,7 @@ public partial class MainWindow : Window
         if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -3982,6 +4005,15 @@ public partial class MainWindow : Window
                 AbrirContorno();
                 return true;
 
+            // ---- Cabecera → panel NATIVO. El diálogo HTML no solo despertaba
+            // Chromium en pleno lote: TAPABA el mapa, que es el único preview
+            // que sirve (el canvas de la página era una maqueta del mismo lote).
+            // OJO: SOLO "cabecera". "cabecera_onoff" (prender/apagar el corte)
+            // sigue yendo al motor, y "cabecera_avanzada" sigue en HTML.
+            case "cabecera":
+                AbrirCabecera();
+                return true;
+
             // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
             // LOTE de la barra izquierda salta directo a su pantalla, igual
             // que hacían los deep-links ?do= de lote.js.
@@ -4102,7 +4134,9 @@ public partial class MainWindow : Window
             // "lindero"/"herr_limites" ya NO mapean acá: Contorno es nativo (el
             // case de arriba los agarra antes). contorno.html queda para el Hub
             // remoto/celular/Android, que no pasan por este switch.
-            "cabecera"          => "pages/cabecera.html",
+            // "cabecera" ya NO mapea acá: es panel nativo (el case de arriba lo
+            // agarra antes). cabecera.html queda para el Hub remoto/celular/
+            // Android, que no pasan por este switch.
             "cabecera_avanzada" => "pages/cabecera-lineas.html",
             "tram_crear"        => "pages/tramline.html",
             // "pick"/"importar_guias" ya NO mapean acá: Guías es nativo (el
@@ -4622,6 +4656,7 @@ public partial class MainWindow : Window
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4637,6 +4672,7 @@ public partial class MainWindow : Window
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4669,6 +4705,27 @@ public partial class MainWindow : Window
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
     }
 
+    // Cabecera nativa: card chica sobre el mapa vivo. El diálogo HTML de 350x340
+    // tapaba y apagaba el mapa justo en la pantalla donde el operario quiere ver
+    // la franja verde dibujándose contra el lindero.
+    private void AbrirCabecera()
+    {
+        if (_cabeceraHost == null) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _cabeceraClient ??= new HeadlandClient(DeriveOrigin(App.TargetUrl));
+        _cabeceraHost.Attach(_cabeceraClient);
+        _cabeceraHost.Abrir();
+        // Card flotante: el mapa NUNCA se apaga (acá menos que nunca — es el
+        // preview real de la cabecera que se está construyendo).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
     private void AbrirGuias()
     {
         if (_guiasHost == null) return;
@@ -4676,6 +4733,7 @@ public partial class MainWindow : Window
         if (_loteHost != null && _loteHost.IsVisible) _loteHost.Cerrar();
         if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
         if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4789,7 +4847,8 @@ public partial class MainWindow : Window
         "bandera" or "bandera_latlon" => "Banderas",
         // "lindero"/"herr_limites" ya no llegan acá: Contorno es panel nativo y
         // no abre ninguna ventana con título.
-        "cabecera"          => "Cabecera",
+        // "cabecera" ya no llega acá: es panel nativo y no abre ninguna ventana
+        // con título (igual que "lindero"/"herr_limites").
         "cabecera_avanzada" => "Cabecera avanzada",
         "tram_crear"        => "Tramline",
         "sim_coords"        => "Coordenadas simulador",
