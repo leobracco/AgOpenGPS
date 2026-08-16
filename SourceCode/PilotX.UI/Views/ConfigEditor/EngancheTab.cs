@@ -350,6 +350,13 @@ public sealed class EngancheTab : ConfigTab
         if (_estadoPintado != EstadoActual() || _cosechadoraPintada != EsCosechadora())
         {
             if (_dirty || _guardando) return;   // salvo que haya algo sin guardar
+            // Resincronizar ANTES de rearmar: el caso típico de este salto es
+            // "el Hub estaba caído y recién ahora contestó", y hasta ese momento
+            // _estilo era el default de memoria ("trailing"), no el del motor.
+            // Sin esta línea el árbol nuevo sale con la card vieja marcada Y
+            // habilitada hasta el tick siguiente: tres segundos mostrándole al
+            // operario un estilo de enganche que la máquina no tiene.
+            _estilo = EstiloDelSnapshot();
             Rebuild();
             return;
         }
