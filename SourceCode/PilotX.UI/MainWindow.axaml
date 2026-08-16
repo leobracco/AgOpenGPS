@@ -878,6 +878,17 @@
                                     HorizontalAlignment="Right" VerticalAlignment="Center"
                                     Margin="0,0,82,0"/>
 
+                <!-- CORREGIR POSICIÓN nativo (reemplaza
+                     pages/corregir-posicion.html): mueve la posición percibida
+                     de la máquina (deriva GPS norte/este), y el operario la
+                     toca MIRANDO el mapa para ver si la pasada quedó donde
+                     tiene que quedar. Card chica (420) a la DERECHA con el
+                     mismo margen 82 que Contorno/Tramlines/Suavizar AB: el
+                     centro queda para el tractor y la cobertura. -->
+                <vw:CorregirPosicionPanel x:Name="CorregirPosHost" Grid.Row="1" ZIndex="10"
+                                          HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          Margin="0,0,82,0"/>
+
                 <!-- CABECERA nativa (reemplaza pages/cabecera.html): el diálogo
                      HTML tapaba y APAGABA el mapa justo en la pantalla donde lo
                      único que importa es ver la franja verde dibujándose contra

@@ -264,6 +264,10 @@ namespace PilotX.Desktop.Views
                 "grafico_xte"       => "pages/grafico-xte.html",
                 "chequeo_roll"      => "pages/grafico-correccion.html",
                 "suavizar_ab"       => "pages/suavizar-ab.html",
+                // "corregir_pos" también se queda en HTML EN ESTA SUPERFICIE:
+                // MainView es la vista alternativa/Android y no tiene el host
+                // flotante (CorregirPosHost vive en MainWindow.axaml). En la
+                // cabina (MainWindow) el comando abre el panel NATIVO.
                 "corregir_pos"      => "pages/corregir-posicion.html",
                 "visor_eventos"     => "pages/eventos.html",
                 "bandera"           => "pages/banderas.html",

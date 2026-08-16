@@ -303,6 +303,14 @@ public partial class MainWindow : Window
     // /api/aog/guidance/command de siempre, va por el HttpClient compartido.
     private SuavizarAbPanel? _suavizarAbHost;
 
+    // Corregir posición nativa, ex corregir-posicion.html (FormShiftPos): mueve
+    // la posición percibida de la máquina (corrimiento de deriva GPS), o sea
+    // que el operario la usa MIRANDO el mapa para ver si la pasada quedó donde
+    // va. La ventana HTML tapaba justo eso. Card chica sobre el mapa vivo; la
+    // página HTML queda para el Hub remoto/celular/Android.
+    private CorregirPosicionPanel? _corregirPosHost;
+    private ShiftPosClient? _shiftPosClient;
+
     // Cabecera nativa, ex cabecera.html: el diálogo HTML tapaba y APAGABA el
     // mapa justo donde el operario quiere ver la franja dibujándose. Card chica
     // sobre el mapa vivo; la página HTML queda para el Hub remoto/celular.
@@ -545,6 +553,19 @@ public partial class MainWindow : Window
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
             Closed += (_, _) => _suavizarAbHost.DetachEnCierreDeApp();
+        }
+
+        // Corregir posición nativa (ex corregir-posicion.html). Acá NO hay nada
+        // que mandar en la bajada: el corrimiento aplicado tiene que QUEDAR
+        // aplicado (es una corrección de deriva, no una vista previa).
+        _corregirPosHost = this.FindControl<CorregirPosicionPanel>("CorregirPosHost");
+        if (_corregirPosHost != null)
+        {
+            _corregirPosHost.Aviso += MostrarToast;
+            _corregirPosHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
         }
 
         // Cabecera nativa (ex cabecera.html). El Closed manda el /close aunque
@@ -2136,6 +2157,9 @@ public partial class MainWindow : Window
         // operario la veía muerta) y encima quedaba la curva suavizada pintada
         // en el mapa, porque el cancel sale recién en Cerrar().
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) { _suavizarAbHost.Cerrar(); return; }
+        // Corregir posición: sin esta línea la flecha "←" no cerraba la card y el
+        // operario la veía muerta.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) { _corregirPosHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
@@ -2757,6 +2781,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_webView != null) CloseWebView();
         // El mapa queda VIVO detras de la card (y se reenciende si un
         // takeover previo lo habia apagado).
@@ -3091,6 +3118,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_sonidosClient == null)
             _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));
@@ -3144,6 +3174,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4172,6 +4205,15 @@ public partial class MainWindow : Window
                 AbrirSuavizarAb();
                 return true;
 
+            // ---- Corregir posición → panel NATIVO. Mueve la posición
+            // percibida de la máquina (deriva GPS): lo que hay que mirar para
+            // saber si quedó bien es EL MAPA, y la ventana HTML se paraba justo
+            // encima. Este case tiene que quedar ANTES del switch de páginas —
+            // si no, "corregir_pos" volvería a abrir Chromium.
+            case "corregir_pos":
+                AbrirCorregirPos();
+                return true;
+
             // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
             // LOTE de la barra izquierda salta directo a su pantalla, igual
             // que hacían los deep-links ?do= de lote.js.
@@ -4285,7 +4327,9 @@ public partial class MainWindow : Window
             // "suavizar_ab" ya NO mapea acá: es panel nativo (el case de arriba
             // lo agarra antes). suavizar-ab.html queda para el Hub remoto/
             // celular/Android, que no pasan por este switch.
-            "corregir_pos"      => "pages/corregir-posicion.html",
+            // "corregir_pos" ya NO mapea acá: es panel nativo (el case de
+            // arriba lo agarra antes). corregir-posicion.html queda para el Hub
+            // remoto/celular/Android, que no pasan por este switch.
             "visor_eventos"     => "pages/eventos.html",
             "conteo_semillas"   => "pages/vistax-prueba.html",
             "calculadora"       => "pages/calculadora-siembra.html",
@@ -4831,6 +4875,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4855,6 +4902,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4888,6 +4938,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4927,6 +4980,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -4984,6 +5040,44 @@ public partial class MainWindow : Window
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
     }
 
+    // Corregir posición nativa: card chica sobre el mapa vivo. Esta pantalla
+    // MUEVE la posición percibida de la máquina, y la única forma de ver si la
+    // corrección quedó bien es mirando el mapa — la ventana HTML de 350x340 se
+    // paraba justo encima. Nada de reabrir: es idempotente, pero un segundo
+    // Abrir() volvería a mostrar 0/0 hasta que conteste el GET.
+    private void AbrirCorregirPos()
+    {
+        if (_corregirPosHost == null) return;
+        if (_corregirPosHost.IsVisible) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        // Todas estas cards están ancladas en el MISMO lugar que esta: sin
+        // cerrarlas se dibujarían una encima de la otra.
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB además deja la curva suavizada dibujada en el mapa: su
+        // Cerrar() manda el cancel, o sea que sin esto la preview quedaría
+        // colgada abajo de esta card.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        // Este comando también nace en el menú del Hub (menu-izquierda.js), o
+        // sea con el WebView ocupando la pantalla: sin cerrarlo, la card nativa
+        // quedaría abajo y el operario vería que "no pasó nada".
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _shiftPosClient ??= new ShiftPosClient(DeriveOrigin(App.TargetUrl));
+        _corregirPosHost.Attach(_shiftPosClient);
+        _corregirPosHost.Abrir();
+        // Card flotante: el mapa NUNCA se apaga (y acá menos que nunca — es la
+        // única forma de ver si el corrimiento quedó donde tenía que quedar).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
     // Tramlines (multi) nativo, ex tramlines.html (FormTramLine): el
     // constructor de huellas por guía con el corte de 3 toques. Es una card con
     // lienzo propio (720x560, centrada) — el operario TOCA el dibujo para
@@ -5012,6 +5106,9 @@ public partial class MainWindow : Window
         // Cerrar() (que manda el cancel) la preview quedaría colgada abajo del
         // lienzo de huellas, y encima quedarían dos cards abiertas a la vez.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5048,6 +5145,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -5091,6 +5191,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5121,6 +5224,9 @@ public partial class MainWindow : Window
         // cancel, o sea que sin esto la preview quedaría colgada abajo de la
         // pantalla nueva.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        // Corregir posición está anclada en el MISMO lugar que estas cards:
+        // sin cerrarla quedarían dos pisadas sobre el mapa.
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -5228,7 +5334,8 @@ public partial class MainWindow : Window
         "chequeo_roll"      => "Chequeo de roll",
         // "suavizar_ab" ya no llega acá: es panel nativo y no abre ninguna
         // ventana con título (igual que "tram_multi"/"cabecera").
-        "corregir_pos"      => "Corregir posición",
+        // "corregir_pos" ya no llega acá: es panel nativo y no abre ninguna
+        // ventana con título (igual que "suavizar_ab"/"tram_multi").
         "visor_eventos"     => "Eventos",
         "conteo_semillas"   => "Conteo de semillas",
         "calculadora"       => "Calculadora de siembra",
@@ -5284,6 +5391,14 @@ public partial class MainWindow : Window
                 && !string.Equals(_lastFieldDir ?? "", s.CurrentFieldDirectory ?? "",
                                   StringComparison.OrdinalIgnoreCase))
                 _suavizarAbHost.Cerrar();
+            // El corrimiento de deriva vive en las propiedades del lote ACTIVO
+            // (SharedFieldProperties.DriftCompensation). Si el lote cambia con
+            // el panel abierto, los cm que muestra son de un lote que ya no
+            // está: se cierra, así el próximo Abrir() relee del motor.
+            if (_corregirPosHost != null && _corregirPosHost.IsVisible
+                && !string.Equals(_lastFieldDir ?? "", s.CurrentFieldDirectory ?? "",
+                                  StringComparison.OrdinalIgnoreCase))
+                _corregirPosHost.Cerrar();
             _lastFieldDir = s.CurrentFieldDirectory;
             CerrarDialogoSiCambioElLote(s.CurrentFieldDirectory);
             CerrarDialogoSiHayGuiaNueva(s.TracksTotal, s.TrackIdx);
