@@ -295,6 +295,14 @@ public partial class MainWindow : Window
     private TramSimplePanel? _tramSimpleHost;
     private TramSimpleClient? _tramSimpleClient;
 
+    // Suavizar AB nativo, ex suavizar-ab.html (FormSmoothAB): la vista previa
+    // de la curva suavizada también se dibuja sobre el MAPA (curve.smooList),
+    // así que la ventana HTML tapaba lo único que hay para mirar mientras se
+    // sube el nivel. Card chica sobre el mapa vivo; la página HTML queda para
+    // el Hub remoto/celular/Android. Sin client propio: es un solo POST al
+    // /api/aog/guidance/command de siempre, va por el HttpClient compartido.
+    private SuavizarAbPanel? _suavizarAbHost;
+
     // Cabecera nativa, ex cabecera.html: el diálogo HTML tapaba y APAGABA el
     // mapa justo donde el operario quiere ver la franja dibujándose. Card chica
     // sobre el mapa vivo; la página HTML queda para el Hub remoto/celular.
@@ -522,6 +530,21 @@ public partial class MainWindow : Window
                 if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
             };
             Closed += (_, _) => _tramSimpleHost.DetachEnCierreDeApp();
+        }
+
+        // Suavizar AB nativo (ex suavizar-ab.html). Mismo cuidado que Tramlines
+        // con el cierre: si la app se apaga con el panel abierto y sin aplicar,
+        // el cancel se espera acotado — el motor es OTRO proceso y sin ese POST
+        // la curva suavizada queda dibujada en el mapa para siempre.
+        _suavizarAbHost = this.FindControl<SuavizarAbPanel>("SuavizarAbHost");
+        if (_suavizarAbHost != null)
+        {
+            _suavizarAbHost.Aviso += MostrarToast;
+            _suavizarAbHost.Cerrado += () =>
+            {
+                if (_vmIzq != null) { _vmIzq.OpenSubmenu = null; _vmIzq.IsCollapsed = true; }
+            };
+            Closed += (_, _) => _suavizarAbHost.DetachEnCierreDeApp();
         }
 
         // Cabecera nativa (ex cabecera.html). El Closed manda el /close aunque
@@ -2725,6 +2748,11 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_webView != null) CloseWebView();
         // El mapa queda VIVO detras de la card (y se reenciende si un
         // takeover previo lo habia apagado).
@@ -3054,6 +3082,11 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_sonidosClient == null)
             _sonidosClient = new SonidosClient(DeriveOrigin(App.TargetUrl));
@@ -3102,6 +3135,11 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4120,6 +4158,16 @@ public partial class MainWindow : Window
                 AbrirTramMulti();
                 return true;
 
+            // ---- Suavizar AB → panel NATIVO. Misma historia que Tramlines: la
+            // vista previa de la curva suavizada se dibuja sobre el MAPA
+            // (curve.smooList), o sea que el diálogo HTML tapaba justo lo único
+            // que hay para mirar mientras se ajusta el nivel. Este case tiene
+            // que quedar ANTES del switch de páginas — si no, "suavizar_ab"
+            // volvería a abrir Chromium.
+            case "suavizar_ab":
+                AbrirSuavizarAb();
+                return true;
+
             // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
             // LOTE de la barra izquierda salta directo a su pantalla, igual
             // que hacían los deep-links ?do= de lote.js.
@@ -4230,7 +4278,9 @@ public partial class MainWindow : Window
             "grafico_rumbo"     => "pages/grafico-rumbo.html",
             "grafico_xte"       => "pages/grafico-xte.html",
             "chequeo_roll"      => "pages/grafico-correccion.html",
-            "suavizar_ab"       => "pages/suavizar-ab.html",
+            // "suavizar_ab" ya NO mapea acá: es panel nativo (el case de arriba
+            // lo agarra antes). suavizar-ab.html queda para el Hub remoto/
+            // celular/Android, que no pasan por este switch.
             "corregir_pos"      => "pages/corregir-posicion.html",
             "visor_eventos"     => "pages/eventos.html",
             "conteo_semillas"   => "pages/vistax-prueba.html",
@@ -4772,6 +4822,11 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4791,6 +4846,11 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -4819,6 +4879,11 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4853,6 +4918,11 @@ public partial class MainWindow : Window
         // abiertos habría dos sesiones peleando por el editor del motor (que no
         // es thread-safe). Su cierre manda /close, o sea guarda lo hecho.
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -4863,6 +4933,49 @@ public partial class MainWindow : Window
         _tramSimpleClient ??= new TramSimpleClient(DeriveOrigin(App.TargetUrl));
         _tramSimpleHost.Attach(_tramSimpleClient);
         _tramSimpleHost.Abrir();
+        // Card flotante: el mapa NUNCA se apaga (y acá es la vista previa misma).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
+    // Suavizar AB nativo: card chica sobre el mapa vivo. Igual que Tramlines,
+    // abrir esta pantalla YA prende la vista previa en el mapa (el
+    // smooth_ab_open del motor calcula la primera curva suavizada), así que el
+    // mapa tiene que quedar SÍ o SÍ encendido — es lo único que hay para mirar
+    // mientras se sube y baja el nivel. Cerrar el panel sin aplicar descarta la
+    // preview (lo hace el propio panel en Cerrar()).
+    private void AbrirSuavizarAb()
+    {
+        if (_suavizarAbHost == null) return;
+        // Ya abierto: no se re-abre. Un segundo smooth_ab_open resetearía el
+        // nivel a 20 y recalcularía la preview sobre lo que el operario ya venía
+        // ajustando (el diálogo HTML tampoco se reabría: OpenDialogPage reusaba
+        // la ventana).
+        if (_suavizarAbHost.IsVisible) return;
+        if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
+        if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        // Contorno, Cabecera y Tramlines están anclados en el MISMO lugar que
+        // esta card: sin cerrarlos se dibujarían uno encima del otro, y las
+        // preview de ellos taparían la curva suavizada.
+        if (_contornoHost != null && _contornoHost.IsVisible) _contornoHost.Cerrar();
+        if (_cabeceraHost != null && _cabeceraHost.IsVisible) _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
+        if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
+        // Este comando también nace en el menú del Hub (menu-izquierda.js), o
+        // sea con el WebView ocupando la pantalla: sin cerrarlo, la card nativa
+        // quedaría abajo y el operario vería que "no pasó nada".
+        if (_webView != null) CloseWebView();
+        // Sin client propio: un solo POST al /api/aog/guidance/command de
+        // siempre, por el HttpClient compartido con Guías/Lote/Dirección.
+        if (_guiasHttp == null)
+        {
+            _guiasHttp = _trackHttp ?? new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+        }
+        _suavizarAbHost.Attach(_guiasHttp, DeriveOrigin(App.TargetUrl));
+        _suavizarAbHost.Abrir();
         // Card flotante: el mapa NUNCA se apaga (y acá es la vista previa misma).
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
     }
@@ -4922,6 +5035,11 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -4960,6 +5078,11 @@ public partial class MainWindow : Window
         // huellas colgadas encima y el editor de tram vivo en el motor.
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -4985,6 +5108,11 @@ public partial class MainWindow : Window
         if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        // Suavizar AB está anclado en el MISMO lugar que estas cards y encima
+        // deja la curva suavizada dibujada en el mapa: su Cerrar() manda el
+        // cancel, o sea que sin esto la preview quedaría colgada abajo de la
+        // pantalla nueva.
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -5090,7 +5218,8 @@ public partial class MainWindow : Window
         "grafico_rumbo"     => "Gráfico rumbo",
         "grafico_xte"       => "Gráfico XTE",
         "chequeo_roll"      => "Chequeo de roll",
-        "suavizar_ab"       => "Suavizar AB",
+        // "suavizar_ab" ya no llega acá: es panel nativo y no abre ninguna
+        // ventana con título (igual que "tram_multi"/"cabecera").
         "corregir_pos"      => "Corregir posición",
         "visor_eventos"     => "Eventos",
         "conteo_semillas"   => "Conteo de semillas",

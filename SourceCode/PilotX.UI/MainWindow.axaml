@@ -868,6 +868,16 @@
                                     HorizontalAlignment="Right" VerticalAlignment="Center"
                                     Margin="0,0,82,0"/>
 
+                <!-- SUAVIZAR AB nativo (reemplaza pages/suavizar-ab.html): la
+                     vista previa de la curva suavizada tampoco vive en la
+                     pantalla, se dibuja sobre el MAPA (curve.smooList). Misma
+                     card chica (380) a la DERECHA con margen 82 que
+                     Contorno/Cabecera/Tramlines: el centro queda libre para el
+                     tractor y la curva que se está mirando. -->
+                <vw:SuavizarAbPanel x:Name="SuavizarAbHost" Grid.Row="1" ZIndex="10"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Margin="0,0,82,0"/>
+
                 <!-- CABECERA nativa (reemplaza pages/cabecera.html): el diálogo
                      HTML tapaba y APAGABA el mapa justo en la pantalla donde lo
                      único que importa es ver la franja verde dibujándose contra

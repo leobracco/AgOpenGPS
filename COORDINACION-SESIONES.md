@@ -3533,3 +3533,34 @@ Resumen del finde (todo pusheado en codex/pilotx-ui-new hasta f72da5c0):
   la causa de fondo (actualizar + vacuna de texturas en MapGlSurface).
 - Trampa repetida: los JS del Hub necesitan bump de ?v= — WebView2 cachea
   aunque el engine sirva el nuevo (config.js pasó a v=2).
+
+- [2026-08-16] [taller] PEDIDO (carril back-end, para Santiago) — **los 5
+  comandos `smooth_ab_*` no existen en el motor**. Porté "Suavizar AB" a panel
+  nativo (`SourceCode/PilotX.UI/Views/SuavizarAbPanel.cs`, 24vo port) y quedó
+  andando de punta a punta del lado de la UI, pero el engine headless los
+  rechaza. Verificado a mano contra el motor vivo:
+  `POST http://127.0.0.1:5180/api/aog/guidance/command {"cmd":"smooth_ab_open"}`
+  → `{"ok":false,"cmd":"smooth_ab_open"}`. `GuidanceEngineHost.ExecuteCommand`
+  no conoce ninguno de los cinco, o sea que la página HTML `suavizar-ab.html`
+  tampoco funciona hoy (esto NO lo rompió el port: ya venía así).
+  Lo que falta en `GuidanceEngineHost.Commands.cs`, con lo que ya está en Core:
+    · `smooth_ab_open`     → `curve.isSmoothWindowOpen = true` + primera
+                             `SmoothAB(20)` (CABCurve.cs:1208).
+    · `smooth_ab_set_<n>`  → `SmoothAB(n)`, n entero 2..100 (lo clampa la UI).
+    · `smooth_ab_apply`    → `SaveSmoothList()` (CABCurve.cs:1375) + cerrar la
+                             ventana de preview.
+    · `smooth_ab_save`     → idem apply + persistir el track del lote a archivo.
+    · `smooth_ab_cancel`   → `isSmoothWindowOpen = false` + limpiar `smooList`,
+                             sin tocar la curva.
+  DOS PEDIDOS CHICOS QUE IMPORTAN EN CABINA:
+   1. Devolver **`false`** (no `true` mudo) cuando `SmoothAB` no puede: guía
+      activa que es AB recta, `TrackIdx` inválido, o curva con menos de 100
+      puntos. El panel ya traduce ese `false` a un aviso visible ("activá
+      primero una guía curva…"); si vuelve `true` mudo, el operario aprieta ±
+      y no ve pasar nada.
+   2. Confirmar que el render del mapa nativo pasa por la rama
+      `if (curve.isSmoothWindowOpen)` de
+      `AgOpenGPS.Core/DrawLib/GuidanceDrawExtensions.cs:331-345`. Si el
+      pipeline de PilotX.UI no dibuja `smooList`, el nivel se ajusta a ciegas
+      y la pantalla entera pierde el sentido (la preview es su razón de ser).
+  Yo NO toqué el motor (regla 4 del canal: es tu carril).
