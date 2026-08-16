@@ -282,6 +282,13 @@ public partial class MainWindow : Window
     private LotePanel? _loteHost;
     private DireccionPanel? _direccionHost;
 
+    // CONFIGURACIÓN nativa: shell del porteo de pages/config.html (menú lateral
+    // por grupos + pestañas + footer). Hoy trae "Resumen"; las pestañas que
+    // faltan y los módulos embebidos siguen abriéndose por WebView desde el
+    // propio menú del panel. La página HTML queda para la PWA del celular.
+    private ConfigPanel? _configHost;
+    private ConfigVehiculoClient? _configClient;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -376,6 +383,19 @@ public partial class MainWindow : Window
         _actualizarHost    = this.FindControl<ActualizarPanel>("ActualizarHost");
         _camarasHost       = this.FindControl<CamarasPanel>("CamarasHost");
         _sonidosHost       = this.FindControl<SonidosPanel>("SonidosHost");
+        _configHost        = this.FindControl<ConfigPanel>("ConfigHost");
+        if (_configHost != null)
+        {
+            _configHost.OnRequestCerrar = () => CloseConfig();
+            _configHost.Aviso += MostrarToast;
+            // Pestaña sin portar / módulos: se cierra el panel y se abre la
+            // página del Hub en el WebView (NavigateTo ya agrega ?widget=1).
+            _configHost.OnRequestHtml = ruta =>
+            {
+                CloseConfig();
+                NavigateTo(ruta);
+            };
+        }
         // Guías nativo (14vo port): AB delega en el flujo del mapa que ya
         // existía; curva y lista van contra /api/tracks igual que la página.
         _guiasHost = this.FindControl<GuiasPanel>("GuiasHost");
@@ -961,6 +981,11 @@ public partial class MainWindow : Window
                 if (_sonidosHost != null && _sonidosHost.IsVisible)
                 {
                     CloseSonidos();
+                    return;
+                }
+                if (_configHost != null && _configHost.IsVisible)
+                {
+                    CloseConfig();
                     return;
                 }
                 if (_webView != null)
@@ -1949,6 +1974,7 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ CloseActualizar();return; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { CloseCamaras();  return; }
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { CloseSonidos();  return; }
+        if (_configHost    != null && _configHost.IsVisible)    { CloseConfig();   return; }
         if (_webView != null) { CloseWebView(); return; }
     }
 
@@ -1970,6 +1996,7 @@ public partial class MainWindow : Window
         if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost != null && _vistaXHost.IsVisible) { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_configHost != null && _configHost.IsVisible) { _configHost.Detach(); _configHost.IsVisible = false; }
         _fieldDataHost.IsVisible = true;
         if (_mapHost != null) _mapHost.IsVisible = false;
         if (_webViewBack != null) _webViewBack.IsVisible = true;
@@ -2004,6 +2031,7 @@ public partial class MainWindow : Window
         if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
         if (_vistaXHost != null && _vistaXHost.IsVisible) { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_configHost != null && _configHost.IsVisible) { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         // Lazy init del cliente HTTP: solo se crea la primera vez que el
         // operario abre Sistema. Si nunca lo abre, cero costo de red extra.
@@ -2070,6 +2098,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         _gpsDataHost.IsVisible = true;
         if (_mapHost != null) _mapHost.IsVisible = false;
@@ -2110,6 +2139,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_stormXClient == null)
@@ -2160,6 +2190,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_flowXClient == null)
@@ -2212,6 +2243,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
 
         // Lazy init: es el MISMO cliente del monitor (stateless), se reusa.
@@ -2264,6 +2296,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_sectionXClient == null)
@@ -2312,6 +2345,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_quantiXClient == null)
@@ -2361,6 +2395,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea la primera vez y se reusa.
@@ -2422,6 +2457,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_vistaXClient == null)
@@ -2475,6 +2511,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
 
         // Lazy init: es el MISMO cliente del monitor (stateless), se reusa.
@@ -2618,6 +2655,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         // Lazy init: clientes solo la primera vez. NodosClient se reusa con
         // el del overlay cabina-alarmas si ya esta inicializado.
@@ -2672,6 +2710,7 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         if (_webView != null) CloseWebView();
         // Reutiliza el NodosClient si ya esta inicializado (cabina-alarmas/Hub).
         if (_nodosClient == null)
@@ -2839,6 +2878,7 @@ public partial class MainWindow : Window
         if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
         // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
         // Sonidos se dibuja ENCIMA de Guias/Lote/Direccion y quedan dos cards
         // pisadas (mismo criterio que ShowCoreXEcu).
@@ -2853,6 +2893,65 @@ public partial class MainWindow : Window
         // Card flotante: el mapa NUNCA se apaga.
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Sonidos open (nativo, no WebView)");
+    }
+
+    // ----- CONFIGURACIÓN nativa: shell del porteo de pages/config.html.
+    // Menú lateral por grupos + pestañas + footer (perfil / ancho / unidades).
+    // Hoy es nativa la pestaña "Resumen"; el resto del menú abre la MISMA
+    // pestaña en el HTML (?tab=…) y "Módulos y más…" abre la config completa,
+    // así el operario no pierde ningún acceso que tenga hoy.
+
+    private void ShowConfig(string? tab = null)
+    {
+        if (_configHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        // Cards que flotan con el mismo ZIndex: si no se cierran quedan dos
+        // pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_webView != null) CloseWebView();
+
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _configClient ??= new ConfigVehiculoClient(DeriveOrigin(App.TargetUrl));
+        _configHost.Attach(_configClient, tab);
+        _configHost.IsVisible = true;
+        // El mapa se queda VIVO detrás de la card (doctrina: nunca se apaga).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        bool hayWebViewCfg = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !hayWebViewCfg) _webViewBack.IsVisible = false;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Config open (nativo, tab=" + (tab ?? "summary") + ")");
+    }
+
+    private void CloseConfig()
+    {
+        if (_configHost == null) return;
+        // Detach apaga el refresco y deja que la pestaña activa guarde lo que
+        // tenga pendiente (igual que el visibilitychange de la página HTML).
+        _configHost.Detach();
+        _configHost.IsVisible = false;
+        bool webViewVisibleCfg = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleCfg)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Config closed -> back to native map");
     }
 
     private void CloseSonidos()
@@ -3773,6 +3872,19 @@ public partial class MainWindow : Window
             case "corex":      _ = AbrirCoreXAsync(); return true;
             case "corex_ecu":  ShowCoreXEcu(); return true;
 
+            // ---- CONFIGURACIÓN → shell nativo (aterriza en Resumen) ----
+            // Strangler fig: el panel abre nativo lo que ya está portado y las
+            // pestañas que faltan las manda al HTML (?tab=…) desde su propio
+            // menú, así que el operario no pierde ningún acceso. Si algún día
+            // se pide una pestaña que todavía no es nativa, se va derecho al
+            // WebView con la página de siempre.
+            case "config_form":
+                ShowConfig();
+                return true;
+            case "config_resumen":
+                ShowConfig("summary");
+                return true;
+
             // ---- Nueva A/B → flujo en el mapa (toco A, manejo, toco B) ----
             case "track_new_ab":
                 StartAbCreate();
@@ -3880,7 +3992,9 @@ public partial class MainWindow : Window
         // ---- Comandos que abren una página HTML del Hub en el WebView ----
         string page = cmd switch
         {
-            "config_form"       => "pages/config.html",
+            // "config_form" ya NO mapea acá: lo agarra el case de arriba y
+            // abre el panel nativo. config.html sigue viva para la PWA y para
+            // las pestañas sin portar (las abre el propio panel).
             "todos_ajustes"     => "pages/ajustes-todos.html",
             "colores"           => "pages/colores.html",
             "colores_sec"       => "pages/colores-secciones.html",

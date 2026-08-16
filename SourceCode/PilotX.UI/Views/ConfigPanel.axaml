@@ -1,0 +1,113 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.ConfigPanel">
+    <!--
+        ConfigPanel — SHELL nativo de la Configuración del vehículo/implemento
+        (el porteo de pages/config.html: menú lateral + pestañas + footer).
+
+        QUÉ QUEDÓ NATIVO: el contenedor (navegación por grupos, footer con
+        perfil/ancho/unidades, mensajes de estado, botón Guardar) y las
+        pestañas que ya se portaron — hoy "Resumen".
+        QUÉ SIGUE EN HTML: las pestañas todavía no portadas y los ~25 módulos
+        embebidos (Hub, QuantiX, Cámaras, Cloud, Mantenimiento, Ayuda). Se
+        abren por WebView desde este mismo menú, así que el operario llega a
+        todo desde el mismo lugar de siempre. La página config.html NO se toca
+        ni se borra: la usa la PWA del celular (strangler fig).
+
+        Card clara flotante con el mapa VIVO detrás — el mapa nunca se apaga.
+        Nada de Flyout/MenuFlyout: sobre el mapa GL no se dibujan.
+    -->
+    <Panel>
+        <Border Background="#FAFBFA"
+                BorderBrush="#C5CFC5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="14"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="940" MaxHeight="660"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,0">
+            <DockPanel>
+
+                <!-- ============ Header ============ -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto"
+                      Margin="4,0,0,10">
+                    <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Text="Configuración"
+                                   Foreground="#101612"
+                                   FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Name="SubtituloText"
+                                   Text="Resumen"
+                                   Foreground="#535E54"
+                                   FontSize="11"/>
+                    </StackPanel>
+
+                    <!-- Pill: perfil de vehículo activo -->
+                    <Border Grid.Column="2"
+                            Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="999" Padding="12,5,12,5" Margin="0,0,8,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                            <Ellipse Name="EstadoDot" Width="9" Height="9" Fill="#8A958B"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="PerfilPillText" Text="Cargando…"
+                                       Foreground="#535E54" FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Grid.Column="3" Name="BtnCerrar" Content="✕"
+                            Click="OnCerrarClick"
+                            Background="#FFFFFF" Foreground="#101612"
+                            BorderBrush="#C5CFC5" BorderThickness="1"
+                            CornerRadius="8" Width="44" Height="42"
+                            FontSize="15"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Footer (réplica del footer de config.html) ============ -->
+                <Border DockPanel.Dock="Bottom" Background="#FFFFFF"
+                        BorderBrush="#E2E7E2" BorderThickness="0,1,0,0"
+                        Padding="10,8,10,8" Margin="0,10,0,0" CornerRadius="0,0,8,8">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14"
+                                    VerticalAlignment="Center">
+                            <TextBlock Name="FtPerfil" Foreground="#535E54" FontSize="12"/>
+                            <TextBlock Name="FtAncho" Foreground="#535E54" FontSize="12"/>
+                            <TextBlock Name="FtUnidades" Foreground="#535E54" FontSize="12"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Name="EstadoText" Text=""
+                                   Foreground="#535E54" FontSize="12"
+                                   TextAlignment="Right" TextWrapping="NoWrap"
+                                   Margin="12,0,12,0" VerticalAlignment="Center"/>
+                        <Button Grid.Column="2" Name="BtnGuardar" Content="Guardar"
+                                Click="OnGuardarClick" IsVisible="False"
+                                Background="#4ABA3E" Foreground="White"
+                                BorderBrush="#4ABA3E" BorderThickness="1"
+                                CornerRadius="8" MinHeight="42" Padding="18,8"
+                                FontSize="13" FontWeight="SemiBold"/>
+                    </Grid>
+                </Border>
+
+                <!-- ============ Menú lateral (el #menu del HTML, en acordeón) ============ -->
+                <Border DockPanel.Dock="Left" Background="#FFFFFF"
+                        BorderBrush="#E2E7E2" BorderThickness="0,0,1,0"
+                        Width="196" Padding="6,0,8,0">
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Name="MenuHost" Spacing="2"/>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- ============ Contenido de la pestaña activa ============ -->
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"
+                              Margin="12,0,0,0">
+                    <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </Panel>
+</UserControl>
