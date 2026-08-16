@@ -105,7 +105,11 @@ public sealed class CalibracionTab : QxTab
             if (st.StartPulsos != null)
             {
                 long delta = (st.EndPulsos ?? pul) - st.StartPulsos.Value;
-                r.PulsosRun.Text = delta.ToString(CultureInfo.InvariantCulture);
+                // Con el campo enfocado NO se pisa: el operario lo está
+                // corrigiendo a mano y reescribirlo cada tick le manda el
+                // cursor al final (la versión nativa del "árbol bajo el dedo").
+                if (!r.PulsosRun.IsFocused)
+                    r.PulsosRun.Text = delta.ToString(CultureInfo.InvariantCulture);
                 r.VueltasReales.Text = (delta / (double)ppr).ToString("0.00", CultureInfo.InvariantCulture);
 
                 // El firmware gira hasta la meta y frena solo. La telemetría no

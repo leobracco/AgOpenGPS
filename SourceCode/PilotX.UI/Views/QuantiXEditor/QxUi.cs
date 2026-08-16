@@ -67,19 +67,28 @@ public static class QxUi
 
     // ---- textos ------------------------------------------------------------
 
+    // Títulos, subtítulos, etiquetas y chips pasan por Traductor.T() ACÁ, en
+    // el origen: los rebuilds parciales de las tabs (lista de motores, tabla,
+    // biblioteca) no vuelven a llamar a Traductor.Aplicar, así que un texto
+    // que no se traduce al crearse se quedaba en castellano con la pantalla
+    // en inglés o portugués. T() con el idioma en "es" no hace nada.
+
     public static TextBlock Titulo(string t) => new TextBlock
     {
-        Text = t, Foreground = Texto, FontSize = 15, FontWeight = FontWeight.Bold,
+        Text = PilotX.Cockpit.Bars.Traductor.T(t),
+        Foreground = Texto, FontSize = 15, FontWeight = FontWeight.Bold,
     };
 
     public static TextBlock Sub(string t) => new TextBlock
     {
-        Text = t, Foreground = TextoMuted, FontSize = 12, TextWrapping = TextWrapping.Wrap,
+        Text = PilotX.Cockpit.Bars.Traductor.T(t),
+        Foreground = TextoMuted, FontSize = 12, TextWrapping = TextWrapping.Wrap,
     };
 
     public static TextBlock Etiqueta(string t) => new TextBlock
     {
-        Text = t, Foreground = TextoDim, FontSize = 10, FontWeight = FontWeight.SemiBold,
+        Text = PilotX.Cockpit.Bars.Traductor.T(t),
+        Foreground = TextoDim, FontSize = 10, FontWeight = FontWeight.SemiBold,
     };
 
     public static TextBlock Valor(string t) => new TextBlock
@@ -143,7 +152,7 @@ public static class QxUi
         var sp = new StackPanel { Spacing = 6 };
         sp.Children.Add(new TextBlock
         {
-            Text = titulo, Foreground = TextoDim, FontSize = 10,
+            Text = PilotX.Cockpit.Bars.Traductor.T(titulo), Foreground = TextoDim, FontSize = 10,
             FontWeight = FontWeight.SemiBold,
         });
         sp.Children.Add(contenido);
@@ -185,7 +194,8 @@ public static class QxUi
         while (kv.RowDefinitions.Count <= fila) kv.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
         var k = new TextBlock
         {
-            Text = clave, Foreground = TextoDim, FontSize = 10, FontWeight = FontWeight.SemiBold,
+            Text = PilotX.Cockpit.Bars.Traductor.T(clave),
+            Foreground = TextoDim, FontSize = 10, FontWeight = FontWeight.SemiBold,
             Margin = new Thickness(0, 3, 8, 3), VerticalAlignment = VerticalAlignment.Center,
         };
         var v = new TextBlock
@@ -267,7 +277,8 @@ public static class QxUi
         Margin = new Thickness(0, 2, 4, 2),
         Child = new TextBlock
         {
-            Text = texto, Foreground = color ?? TextoMuted, FontSize = 11,
+            Text = PilotX.Cockpit.Bars.Traductor.T(texto),
+            Foreground = color ?? TextoMuted, FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
         },
     };

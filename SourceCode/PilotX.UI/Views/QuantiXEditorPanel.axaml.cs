@@ -89,11 +89,21 @@ public partial class QuantiXEditorPanel : UserControl
     public void Attach(QuantiXEditorClient client, string? tab = null)
     {
         _ctx.Client = client;
+        string? destino = null;
         if (!string.IsNullOrEmpty(tab))
         {
-            foreach (var t in TABS) if (t.Clave == tab) { _tabActiva = tab; break; }
+            foreach (var t in TABS) if (t.Clave == tab) { destino = tab; break; }
         }
-        if (_cts != null) { PintarTabStrip(); return; }   // guard anti doble-Attach
+        if (_cts != null)
+        {
+            // Ya estaba abierto (p. ej. "Prescripciones" con el editor arriba):
+            // hay que MOSTRAR la tab pedida, no solo pintar la tira — si no,
+            // el strip marcaba Shape y el contenido seguía en la tab vieja.
+            if (destino != null && destino != _tabActiva) _ = MostrarTabAsync(destino);
+            else PintarTabStrip();
+            return;
+        }
+        if (destino != null) _tabActiva = destino;
         _cts = new CancellationTokenSource();
         _ = ArrancarAsync(_cts.Token);
     }
@@ -196,6 +206,7 @@ public partial class QuantiXEditorPanel : UserControl
         }
 
         _ctx.ComputeEnMarcha();
+        PintarSubtitulo();
 
         if (!_tabs.TryGetValue(_tabActiva, out var tab)) return;
 
@@ -210,6 +221,20 @@ public partial class QuantiXEditorPanel : UserControl
             return;
         }
         tab.Live();
+    }
+
+    /// <summary>Subtítulo del header: cuántos motores hay armados. Es el dato
+    /// que ordena la pantalla ("¿cuántos motores tiene esta sembradora?") y
+    /// venía fijo, sin el número.</summary>
+    private void PintarSubtitulo()
+    {
+        var lbl = this.FindControl<TextBlock>("SubtituloText");
+        if (lbl == null) return;
+        int n = _ctx.AllMotors().Count;
+        string txt = PilotX.Cockpit.Bars.Traductor.T("Siembra") + " · " + n + " "
+                   + PilotX.Cockpit.Bars.Traductor.T(n == 1 ? "motor" : "motores") + " · "
+                   + PilotX.Cockpit.Bars.Traductor.T("dosis y corte por surco");
+        if (lbl.Text != txt) lbl.Text = txt;
     }
 
     private void PintarPill(IBrush color, string texto)

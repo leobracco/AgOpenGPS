@@ -14,14 +14,21 @@
 //
 // Los botones son de 44x40: en la pantalla del tractor con guante, los
 // sliders no se pueden tocar. Sin atajos de teclado (regla del repo).
+//
+// AUTOREPEAT al mantener apretado (400 ms y después cada 80 ms), igual que
+// AGPSteps.bindSteppers: sin esto, bajar el filtro antirrebote de 20000 a 2000
+// con paso 10 son 1800 toques y el PWM de 4095 a 600 otros 350. El HTML ya lo
+// tenía; el operario no puede perderlo al pasar a nativo.
 // ============================================================================
 
 using System;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace PilotX.Desktop.Views.Controls;
 
@@ -72,7 +79,8 @@ public sealed class AgpStepper : Border
         g.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
 
         var menos = Boton("−");
-        menos.Click += (_, __) => Bump(-1);
+        menos.Click += (_, __) => { if (!_repitio) Bump(-1); _repitio = false; };
+        Repetir(menos, -1);
         Grid.SetColumn(menos, 0);
         g.Children.Add(menos);
 
@@ -92,11 +100,48 @@ public sealed class AgpStepper : Border
         g.Children.Add(_lbl);
 
         var mas = Boton("+");
-        mas.Click += (_, __) => Bump(+1);
+        mas.Click += (_, __) => { if (!_repitio) Bump(+1); _repitio = false; };
+        Repetir(mas, +1);
         Grid.SetColumn(mas, 2);
         g.Children.Add(mas);
 
         Child = g;
+        DetachedFromVisualTree += (_, __) => PararRepeticion();
+    }
+
+    // ---- autorepeat (mantener apretado) -----------------------------------
+
+    private DispatcherTimer? _timer;
+    private bool _repitio;   // hubo repetición: el Click final no cuenta otra vez
+
+    private void Repetir(Button b, int dir)
+    {
+        b.AddHandler(PointerPressedEvent, (s, e) =>
+        {
+            PararRepeticion();
+            _repitio = false;
+            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            t.Tick += (_, __) =>
+            {
+                t.Interval = TimeSpan.FromMilliseconds(80);
+                _repitio = true;
+                Bump(dir);
+            };
+            _timer = t;
+            t.Start();
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
+        b.AddHandler(PointerReleasedEvent, (s, e) => PararRepeticion(),
+                     Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        b.PointerCaptureLost += (_, __) => PararRepeticion();
+        b.PointerExited += (_, __) => PararRepeticion();
+    }
+
+    private void PararRepeticion()
+    {
+        var t = _timer;
+        _timer = null;
+        if (t != null) { try { t.Stop(); } catch { } }
     }
 
     private static Button Boton(string txt) => new Button
