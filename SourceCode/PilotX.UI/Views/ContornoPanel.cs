@@ -124,6 +124,9 @@ public sealed class ContornoPanel : Border
     // R2: la fila apuntada cuando se armó el "¿Seguro?" del borrado. Si cambia
     // entre toques, el segundo toque borraría OTRO contorno.
     private int _selAlArmarBorrado = -1;
+    // Texto del Offset al entrar al campo: sirve para no mandarle al motor un
+    // valor que el operario nunca escribió (ver el LostFocus).
+    private string _offsetAlEnfocar = "";
 
     public ContornoPanel()
     {
@@ -310,10 +313,20 @@ public sealed class ContornoPanel : Border
         // El teclado nativo de PilotX no es automático por foco: se pide a mano
         // con la misma señal HTTP que mandan las páginas. El valor se manda al
         // motor al SALIR del campo (no tecla a tecla), como el 'change' del HTML.
-        _txtOffset.GotFocus += (_, _) => _ = _cli?.TecladoAsync(true);
+        _txtOffset.GotFocus += (_, _) =>
+        {
+            _offsetAlEnfocar = _txtOffset.Text ?? "";
+            _ = _cli?.TecladoAsync(true);
+        };
         _txtOffset.LostFocus += async (_, _) =>
         {
             _ = _cli?.TecladoAsync(false);
+            // Como el 'change' del HTML: si el operario entró al campo y salió
+            // SIN tocar nada, no se manda nada. El campo muestra el valor
+            // REDONDEADO del motor (Math.Round), así que un commit incondicional
+            // le reescribía el redondeo: con 12,5 cm adentro, pasar el dedo por
+            // el campo lo dejaba en 12 sin que nadie lo pidiera.
+            if ((_txtOffset.Text ?? "") == _offsetAlEnfocar) { Render(); return; }
             await CommitOffsetAsync();
         };
 
@@ -439,20 +452,27 @@ public sealed class ContornoPanel : Border
         Mostrar("lista");
         IsVisible = true;
         Render();
-
-        if (_cli != null)
-        {
-            var st = await _cli.GetEstadoAsync().ConfigureAwait(true);
-            AplicarEstado(st);
-            if (st != null && st.Ok && st.Recording)
-            {
-                AplicarGrabacion(await _cli.GetGrabacionAsync().ConfigureAwait(true));
-                Mostrar("rec");
-                Render();
-            }
-        }
+        // El loop arranca ANTES del primer GET, y lo que venga después del await
+        // se descarta si el panel ya no está en pantalla. Con el Hub caído ese
+        // GET tarda hasta 3 s (timeout del client), y si en el medio el operario
+        // cierra la card — o abre Guías/Lote/Config, que la cierran solas — la
+        // continuación encendía un poll de 2 Hz sobre un panel invisible que no
+        // paraba nunca más (el Cerrar() ya había anulado el CTS).
         IniciarLoop();
         Traductor.Aplicar(this);
+
+        if (_cli == null) return;
+        var st = await _cli.GetEstadoAsync().ConfigureAwait(true);
+        if (!IsVisible) return;
+        AplicarEstado(st);
+        if (st != null && st.Ok && st.Recording)
+        {
+            var r = await _cli.GetGrabacionAsync().ConfigureAwait(true);
+            if (!IsVisible) return;
+            AplicarGrabacion(r);
+            Mostrar("rec");
+            Render();
+        }
     }
 
     /// <summary>
