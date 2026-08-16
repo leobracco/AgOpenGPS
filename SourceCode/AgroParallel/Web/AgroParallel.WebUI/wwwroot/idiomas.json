@@ -1338,6 +1338,14 @@
     "en": "The harvester forces the implement to front.",
     "pt": "A colheitadeira força o implemento para frontal."
   },
+  "La cosechadora usa siempre implemento frontal — no hay nada que elegir.": {
+    "en": "The harvester always uses a front implement — there is nothing to choose.",
+    "pt": "A colheitadeira usa sempre implemento frontal — não há nada para escolher."
+  },
+  "El estilo define el signo del enganche: frontal lo pone adelante y los demás, atrás.": {
+    "en": "The style sets the hitch sign: front puts it ahead, the others behind.",
+    "pt": "O estilo define o sinal do engate: frontal o coloca à frente e os demais, atrás."
+  },
   "Marca": {
     "en": "Brand",
     "pt": "Marca"
