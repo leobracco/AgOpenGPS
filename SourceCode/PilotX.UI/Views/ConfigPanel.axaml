@@ -101,12 +101,21 @@
                     </ScrollViewer>
                 </Border>
 
-                <!-- ============ Contenido de la pestaña activa ============ -->
-                <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Auto"
-                              Margin="12,0,0,0">
-                    <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
-                </ScrollViewer>
+                <!-- ============ Contenido: pestaña nativa O módulo HTML ============
+                     Los módulos que siguen en HTML se muestran ACÁ ADENTRO, en la
+                     misma tarjeta: antes "Módulos y más…" cerraba este panel y
+                     abría el WebView a PANTALLA COMPLETA, sin ✕ y sin el menú
+                     lateral — el operario quedaba encerrado (reporte 2026-08-16).
+                     Embebido, la ventana sigue midiendo lo mismo, conserva su
+                     cerrar y se vuelve tocando cualquier pestaña del menú. -->
+                <Grid Margin="12,0,0,0">
+                    <ScrollViewer Name="TabScroll"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
+                    </ScrollViewer>
+                    <Panel Name="HtmlHost" IsVisible="False" Margin="0,0,6,0"/>
+                </Grid>
             </DockPanel>
         </Border>
     </Panel>

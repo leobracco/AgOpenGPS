@@ -131,6 +131,14 @@ public partial class ConfigPanel : UserControl
     private string _grupoAbierto = "";
     private bool _navegando;
 
+    // ── Módulo HTML embebido (ver el comentario del Grid en el .axaml) ──
+    // El WebView vive ADENTRO de esta tarjeta, no a pantalla completa. Se crea
+    // recién cuando el operario entra a un módulo (lazy: Chromium son ~260 MB)
+    // y se vacía —no se destruye— al volver a una pestaña nativa o al cerrar,
+    // así la próxima apertura no paga el arranque del motor de nuevo.
+    private Services.IWebViewHandle? _web;
+    private bool _htmlVisible;
+
     /// <summary>El operario cerró la configuración.</summary>
     public Action? OnRequestCerrar { get; set; }
 
@@ -204,6 +212,10 @@ public partial class ConfigPanel : UserControl
         // pestaña se entera con el panel ya oculto y no tiene que rearmar nada
         // de fondo (ver CfgCtx.Cerrando).
         _ctx.Cerrando = true;
+        // El módulo HTML sale de la vista por cualquier camino de cierre (✕,
+        // otro panel que se abre encima, apagado): un WebView2 con página
+        // cargada sigue pintando sobre el mapa aunque el panel esté oculto.
+        OcultarHtmlEmbebido();
         try
         {
             if (_tabs.TryGetValue(_tabActiva, out var t)) _ = t.AlSalirAsync();
@@ -416,7 +428,10 @@ public partial class ConfigPanel : UserControl
             BorderThickness = new Thickness(0), CornerRadius = new CornerRadius(8),
             FontSize = 13, Cursor = new Cursor(StandardCursorType.Hand),
         };
-        mas.Click += (_, __) => OnRequestHtml?.Invoke("pages/config.html");
+        // Embebido en ESTA tarjeta, no a pantalla completa: el operario mantiene
+        // el ✕ y el menú, y vuelve tocando cualquier pestaña.
+        mas.Click += (_, __) => MostrarHtmlEmbebido("pages/config.html",
+            PilotX.Cockpit.Bars.Traductor.T("Módulos"));
         host.Children.Add(mas);
 
         PintarMenu();
@@ -513,10 +528,16 @@ public partial class ConfigPanel : UserControl
 
             if (!EsNativa(tab))
             {
-                // Todavía no portada: se abre la misma pestaña en el HTML, con
-                // el deep-link que la página ya entiende.
+                // Todavía no portada: se abre la misma pestaña en el HTML con el
+                // deep-link que la página ya entiende, pero ADENTRO de esta
+                // tarjeta — antes esto cerraba el panel y se iba a pantalla
+                // completa, dejando al operario sin ✕ ni menú.
                 _ = _ctx.Client?.TecladoAsync(false);
-                OnRequestHtml?.Invoke("pages/config.html?tab=" + tab);
+                string titulo = tab;
+                foreach (var n in NAV) if (n.Tab == tab) { titulo = n.Titulo; break; }
+                MostrarHtmlEmbebido("pages/config.html?tab=" + tab, titulo);
+                _tabActiva = tab;
+                PintarMenu();
                 return;
             }
 
@@ -525,9 +546,81 @@ public partial class ConfigPanel : UserControl
         finally { _navegando = false; }
     }
 
+    /// <summary>
+    /// Muestra un módulo HTML DENTRO de esta tarjeta (mismo tamaño, mismo ✕,
+    /// mismo menú al costado). Reemplaza al viejo camino que cerraba el panel
+    /// y abría el WebView a pantalla completa sin salida.
+    /// Si no hay backend de WebView (build sin Chromium) avisa y no hace nada.
+    /// </summary>
+    private void MostrarHtmlEmbebido(string ruta, string subtitulo)
+    {
+        var host = this.FindControl<Panel>("HtmlHost");
+        var scroll = this.FindControl<ScrollViewer>("TabScroll");
+        if (host == null || scroll == null) return;
+
+        if (App.WebViewHost == null)
+        {
+            Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T(
+                "Esta pantalla todavía necesita el navegador embebido y este equipo no lo tiene."));
+            return;
+        }
+
+        if (_web == null)
+        {
+            try
+            {
+                _web = App.WebViewHost.Create(_ => { });
+                host.Children.Add(_web.Control);
+            }
+            catch (Exception ex)
+            {
+                _web = null;
+                Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No se pudo abrir el módulo") + ": " + ex.Message);
+                return;
+            }
+        }
+
+        // ?widget=1: sin la barra lateral del Hub. Adentro de esta tarjeta esa
+        // barra sería una segunda navegación compitiendo con el menú de acá.
+        string origen = App.TargetUrl ?? "http://127.0.0.1:5180/";
+        int api = origen.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
+        if (api >= 0) origen = origen.Substring(0, api + 1);
+        if (!origen.EndsWith("/")) origen += "/";
+        string full = origen + (ruta ?? "").TrimStart('/');
+        full += (full.IndexOf('?') >= 0 ? "&" : "?") + "widget=1";
+
+        try { _web.Navigate(full); }
+        catch (Exception ex) { Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No se pudo abrir el módulo") + ": " + ex.Message); return; }
+
+        _htmlVisible = true;
+        host.IsVisible = true;
+        scroll.IsVisible = false;
+
+        var st = this.FindControl<TextBlock>("SubtituloText");
+        if (st != null) st.Text = subtitulo;
+        var g = this.FindControl<Button>("BtnGuardar");
+        if (g != null) g.IsVisible = false;   // cada módulo guarda lo suyo
+    }
+
+    /// <summary>Saca el módulo HTML de la vista y devuelve la tarjeta a las
+    /// pestañas nativas. Vacía la página (no destruye el WebView) para no
+    /// dejar a Chromium dibujando sobre la tarjeta.</summary>
+    private void OcultarHtmlEmbebido()
+    {
+        if (!_htmlVisible) return;
+        _htmlVisible = false;
+        try { _web?.Blank(); } catch { }
+        var host = this.FindControl<Panel>("HtmlHost");
+        if (host != null) host.IsVisible = false;
+        var scroll = this.FindControl<ScrollViewer>("TabScroll");
+        if (scroll != null) scroll.IsVisible = true;
+    }
+
     private async Task MostrarTabAsync(string tab)
     {
         _ = _ctx.Client?.TecladoAsync(false);
+        // Veníamos de un módulo HTML: volver a las pestañas nativas.
+        OcultarHtmlEmbebido();
         _tabActiva = tab;
 
         // Dejar abierto el grupo de la pestaña activa (abrirGrupoActivo del HTML).
@@ -622,7 +715,14 @@ public partial class ConfigPanel : UserControl
     //  Botones del shell
     // =======================================================================
 
-    private void OnCerrarClick(object? s, RoutedEventArgs e) => OnRequestCerrar?.Invoke();
+    private void OnCerrarClick(object? s, RoutedEventArgs e)
+    {
+        // Si el ✕ llega con un módulo HTML abierto, primero vaciarlo: un
+        // WebView2 con página cargada sigue dibujando sobre el mapa aunque el
+        // panel se oculte (airspace del control nativo).
+        OcultarHtmlEmbebido();
+        OnRequestCerrar?.Invoke();
+    }
 
     private async void OnGuardarClick(object? s, RoutedEventArgs e)
     {
