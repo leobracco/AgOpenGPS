@@ -488,6 +488,11 @@ public partial class MainWindow : Window
                         break;
                 }
             };
+            // Cierre de la ventana con la Config abierta en el QuantiX
+            // EMBEBIDO: mismo motivo que DetenerEditorQuantiXAlApagar (más
+            // abajo) para el overlay suelto — el STOP a los motores tiene que
+            // salir al cable ANTES de que el proceso muera, así que se espera.
+            Closed += (_, _) => _configHost.DetenerModulosAlApagar();
         }
         // Guías nativo (14vo port): AB delega en el flujo del mapa que ya
         // existía; curva y lista van contra /api/tracks igual que la página.

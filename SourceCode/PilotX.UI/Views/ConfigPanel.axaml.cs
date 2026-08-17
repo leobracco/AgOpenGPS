@@ -377,6 +377,21 @@ public partial class ConfigPanel : UserControl
         _ = _ctx.Client?.TecladoAsync(false);
     }
 
+    /// <summary>Cierre de la APLICACIÓN con un módulo embebido activo. El caso
+    /// que importa es QuantiX: su Detach normal dispara el STOP y lo suelta,
+    /// y en el apagado el proceso muere antes de que ese STOP salga al cable —
+    /// el motor queda girando con la pantalla apagada. Acá se ESPERA (hasta
+    /// 1,5 s), espejo de DetenerEditorQuantiXAlApagar de MainWindow para el
+    /// overlay suelto. Idempotente: si la Config ya se cerró, no hace nada.</summary>
+    public void DetenerModulosAlApagar()
+    {
+        if (_modActivo != "quantix") return;
+        _modActivo = "";
+        _modNavActual = "";
+        if (_modPaneles.TryGetValue("quantix", out var p))
+            try { ((QuantiXEditorPanel)p).DetachAsync().Wait(1500); } catch { }
+    }
+
     private async Task ArrancarAsync(CancellationToken ct)
     {
         await CargarSnapshotAsync(ct).ConfigureAwait(false);
@@ -743,17 +758,22 @@ public partial class ConfigPanel : UserControl
         var scroll = this.FindControl<ScrollViewer>("TabScroll");
         if (host == null || scroll == null) return;
 
-        // Si había un panel nativo embebido, se baja ANTES de tapar el área
-        // (su Detach para polls y motores; dejarlo vivo abajo del WebView
-        // sería un panel gastando red que nadie ve).
-        OcultarModuloNativo();
-
+        // El chequeo del navegador va PRIMERO: si no hay WebView el operario
+        // se queda donde estaba — bajar el panel nativo antes de saber si se
+        // puede mostrar algo lo dejaría mirando una pestaña vieja con la fila
+        // del módulo todavía marcada (p. ej. SectionX › Configurar sin
+        // Chromium).
         if (App.WebViewHost == null)
         {
             Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T(
                 "Esta pantalla todavía necesita el navegador embebido y este equipo no lo tiene."));
             return;
         }
+
+        // Si había un panel nativo embebido, se baja ANTES de tapar el área
+        // (su Detach para polls y motores; dejarlo vivo abajo del WebView
+        // sería un panel gastando red que nadie ve).
+        OcultarModuloNativo();
 
         if (_web == null)
         {
