@@ -150,6 +150,15 @@ public partial class ConfigPanel : UserControl
     private Services.IWebViewHandle? _web;
     private bool _htmlVisible;
 
+    // ── Módulo pedido DESDE AFUERA antes de que el panel termine de arrancar ──
+    // AbrirModuloHtml puede llegar recién hecho el Attach (ShowConfigModulo en
+    // MainWindow hace ShowConfig() + AbrirModuloHtml en la misma pasada). En ese
+    // momento ArrancarAsync todavía no corrió su MostrarTabAsync inicial — si el
+    // módulo se mostrara ya, ese MostrarTabAsync diferido lo taparía con la
+    // pestaña nativa. Se guarda acá y lo consume ArrancarAsync en su lugar.
+    private (string Ruta, string Subtitulo)? _moduloPendiente;
+    private bool _arranqueListo;
+
     /// <summary>El operario cerró la configuración.</summary>
     public Action? OnRequestCerrar { get; set; }
 
@@ -220,8 +229,33 @@ public partial class ConfigPanel : UserControl
         }
 
         _tabActiva = destino;
+        _arranqueListo = false;
         _cts = new CancellationTokenSource();
         _ = ArrancarAsync(_cts.Token);
+    }
+
+    /// <summary>
+    /// Abre la Configuración PARADA en un módulo HTML embebido (misma tarjeta,
+    /// mismo ✕, mismo menú al costado). Es la puerta que usa MainWindow para
+    /// los "Configurar" de los paneles (SectionX, Nodos, Insumos, Firmwares…):
+    /// antes cada uno abría su propia ventana-diálogo suelta.
+    /// Llamar SIEMPRE después de Attach (ShowConfig ya lo garantiza): si el
+    /// arranque inicial todavía está en vuelo, el pedido queda pendiente y lo
+    /// muestra ArrancarAsync — mostrarlo ya sería taparlo un instante después.
+    /// La fila activa pasa a "Módulos": tocarla de nuevo (o cualquier otra
+    /// pestaña) es el camino de vuelta a lo nativo, como ya funciona.
+    /// </summary>
+    public void AbrirModuloHtml(string ruta, string subtitulo)
+    {
+        _tabActiva = TAB_MODULOS;
+        PintarMenu();
+        string sub = PilotX.Cockpit.Bars.Traductor.T(subtitulo);
+        if (!_arranqueListo)
+        {
+            _moduloPendiente = (ruta, sub);
+            return;
+        }
+        MostrarHtmlEmbebido(ruta, sub);
     }
 
     /// <summary>Cierra el panel. Igual que el `visibilitychange → hidden` del
@@ -232,6 +266,10 @@ public partial class ConfigPanel : UserControl
         // pestaña se entera con el panel ya oculto y no tiene que rearmar nada
         // de fondo (ver CfgCtx.Cerrando).
         _ctx.Cerrando = true;
+        // Un módulo pedido que no llegó a mostrarse muere con el cierre: si el
+        // dispatcher del arranque corre después de este Detach, no tiene que
+        // levantar un WebView sobre un panel ya oculto (airspace sobre el mapa).
+        _moduloPendiente = null;
         // El módulo HTML sale de la vista por cualquier camino de cierre (✕,
         // otro panel que se abre encima, apagado): un WebView2 con página
         // cargada sigue pintando sobre el mapa aunque el panel esté oculto.
@@ -254,7 +292,24 @@ public partial class ConfigPanel : UserControl
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 PintarCabecera();
-                _ = MostrarTabAsync(_tabActiva);
+                _arranqueListo = true;
+                if (_moduloPendiente != null)
+                {
+                    // Se abrió con AbrirModuloHtml antes de terminar el
+                    // arranque: se muestra ese módulo en lugar de la pestaña
+                    // nativa. Traductor.Aplicar va ANTES del subtítulo por el
+                    // mismo motivo que en MostrarTabAsync (cachea el primer
+                    // texto que ve y lo restauraría en la próxima pasada).
+                    var (ruta, sub) = _moduloPendiente.Value;
+                    _moduloPendiente = null;
+                    PilotX.Cockpit.Bars.Traductor.Aplicar(this);
+                    PintarMenu();
+                    MostrarHtmlEmbebido(ruta, sub);
+                }
+                else
+                {
+                    _ = MostrarTabAsync(_tabActiva);
+                }
             });
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
@@ -640,6 +695,10 @@ public partial class ConfigPanel : UserControl
 
     private async Task MostrarTabAsync(string tab)
     {
+        // Cualquier navegación nativa gana sobre un módulo pedido desde afuera
+        // que todavía no se mostró (el operario tocó una pestaña más rápido
+        // que el arranque): sin esto ArrancarAsync lo mostraría igual encima.
+        _moduloPendiente = null;
         _ = _ctx.Client?.TecladoAsync(false);
         // Veníamos de un módulo HTML: volver a las pestañas nativas.
         OcultarHtmlEmbebido();

@@ -741,12 +741,12 @@ public partial class MainWindow : Window
             // A Configuración parado en el módulo Cámaras (no a camaras.html
             // suelta: abría "otra ventana más grande" fuera del flujo de
             // config — reporte usuario 2026-08-06). El deep-link ?mod= lo
-            // resuelve config.js clickeando el botón real del menú. MISMA
-            // ventana-diálogo que el "Configuración" del menú (OpenDialogPage
-            // 820x600), NO NavigateTo: el WebView a pantalla completa era la
-            // "pantalla gigante" del segundo reporte.
+            // resuelve config.js clickeando el botón real del menú. EMBEBIDO
+            // en la tarjeta de Configuración, no en ventana-diálogo suelta
+            // (pedido 2026-08-17: "que todo se abra dentro de la ventana
+            // config principal").
             _camarasHost.OnRequestConfigurar = () =>
-                OpenDialogPage("pages/config.html?mod=camaras.html", "Configuración", 820, 600);
+                ShowConfigModulo("pages/config.html?mod=camaras.html", "Cámaras — Configurar");
             _camarasHost.OnRequestCerrar = CloseCamaras;
         }
 
@@ -756,15 +756,17 @@ public partial class MainWindow : Window
             // (aceptar/ignorar/renombrar/eliminar/pin del implemento) y el
             // diagnostico MQTT (wildcard + log) son NATIVAS. Lo unico que
             // sigue saliendo por WebView son las OTRAS paginas: el detalle
-            // del nodo y el asistente de primera vez — en VENTANA-DIALOGO
-            // acotada, no a pantalla completa (doctrina 2026-08-17: ningun
-            // "abrir" desde un panel puede comerse toda la pantalla).
+            // del nodo y el asistente de primera vez — EMBEBIDAS en la
+            // tarjeta de Configuración, no en ventana-diálogo suelta (pedido
+            // 2026-08-17: "que todo se abra dentro de la ventana config
+            // principal"). El panel de Nodos queda oculto al abrir Config;
+            // el operario vuelve por la grilla de Módulos.
             _nodosHost.OnRequestCerrar = () => CloseNodos();
             _nodosHost.OnRequestDetalle = uid =>
-                OpenDialogPage("pages/nodo-detalle.html?uid=" + Uri.EscapeDataString(uid ?? string.Empty),
-                               "Detalle del nodo", 860, 620);
+                ShowConfigModulo("pages/nodo-detalle.html?uid=" + Uri.EscapeDataString(uid ?? string.Empty),
+                                 "Nodos — Detalle del nodo");
             _nodosHost.OnRequestAsistente = () =>
-                OpenDialogPage("pages/setup.html", "Asistente de primera vez", 980, 680);
+                ShowConfigModulo("pages/setup.html", "Nodos — Asistente de primera vez");
             // "Configurar" de una fila abre el PANEL NATIVO del producto, no la
             // pagina: si el nodo es un QuantiX, va al QuantiX de siempre.
             _nodosHost.OnRequestConfigurarProducto = producto =>
@@ -820,12 +822,13 @@ public partial class MainWindow : Window
         if (_sectionXHost != null)
         {
             // El editor (mapeo surcos->secciones, test reles, debug MQTT)
-            // sigue en HTML, pero en VENTANA-DIALOGO acotada con titulo y ✕
-            // — MISMO patron que Camaras. Era el ultimo Configurar que
-            // navegaba a pantalla completa: "toco Configurar y se abre una
-            // ventana que ocupa toda la pantalla" (reporte 2026-08-17).
+            // sigue en HTML, pero EMBEBIDO en la tarjeta de Configuración —
+            // ni pantalla completa ("toco Configurar y se abre una ventana
+            // que ocupa toda la pantalla", reporte 2026-08-17) ni la
+            // ventana-diálogo suelta que la reemplazó un día ("que todo se
+            // abra dentro de la ventana config principal", mismo día).
             _sectionXHost.OnRequestConfigurar = () =>
-                OpenDialogPage("pages/sectionx.html", "SectionX — Configurar", 980, 680);
+                ShowConfigModulo("pages/sectionx.html", "SectionX — Configurar");
         }
         if (_quantiXHost != null)
         {
@@ -857,10 +860,13 @@ public partial class MainWindow : Window
             _vistaXEditorHost.OnRequestCerrar  = () => CloseVistaXEditor();
             // "‹ Monitor" vuelve al panel live sin pasar por el mapa.
             _vistaXEditorHost.OnRequestMonitor = () => { CloseVistaXEditor(); ShowVistaX(); };
-            // Los paneles no navegan solos: el catalogo de insumos y la
-            // geometria del implemento son pantallas propias del Hub.
+            // Los paneles no navegan solos: el catalogo de insumos es una
+            // pantalla propia del Hub — EMBEBIDA en la tarjeta de
+            // Configuración (pedido 2026-08-17), no en ventana suelta. El
+            // editor de VistaX queda oculto al abrir Config; se vuelve por
+            // la grilla de Módulos.
             _vistaXEditorHost.OnRequestAbrirInsumos       = () =>
-                OpenDialogPage("pages/insumos.html", "Catálogo de insumos", 980, 680);
+                ShowConfigModulo("pages/insumos.html", "VistaX — Catálogo de insumos");
             // Secciones ES nativa desde la ola 3b: mandarla al WebView dejaba dos
             // pantallas distintas para la MISMA config segun por donde se entrara
             // (menu -> nativa, VistaX -> Chromium), con el riesgo de que una
@@ -3080,9 +3086,10 @@ public partial class MainWindow : Window
             // que se usa de verdad (la ventana nativa arma su CamarasPanel
             // propio; quedó desincronizado dos veces el 2026-08-06: primero
             // apuntando a camaras.html suelta, después vía NavigateTo a
-            // pantalla completa "gigante"). MISMA ventana-diálogo que el
-            // "Configuración" del menú.
-            OpenDialogPage("pages/config.html?mod=camaras.html", "Configuración", 820, 600);
+            // pantalla completa "gigante"). EMBEBIDO en la tarjeta de
+            // Configuración (pedido 2026-08-17), con la ventana de Cámaras
+            // ya cerrada arriba para no dejar dos superficies peleando.
+            ShowConfigModulo("pages/config.html?mod=camaras.html", "Cámaras — Configurar");
         };
         panel.OnRequestCerrar = () => { try { _camarasWin?.Close(); } catch { } };
         panel.Attach(_camarasClient);
@@ -3235,6 +3242,22 @@ public partial class MainWindow : Window
         bool hayWebViewCfg = _webView != null && (_webViewSlot?.IsVisible ?? false);
         if (_webViewBack != null && !hayWebViewCfg) _webViewBack.IsVisible = false;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Config open (nativo, tab=" + (tab ?? "summary") + ")");
+    }
+
+    /// <summary>
+    /// Abre la Configuración PARADA en un módulo HTML embebido (pedido usuario
+    /// 2026-08-17: "en vez de que abra otra ventana, armá tabs y que todo se
+    /// abra dentro de la ventana config principal"). Reemplaza a las
+    /// ventanas-diálogo sueltas que abrían los "Configurar" de los paneles:
+    /// ahora todo vive adentro de la tarjeta de Configuración, con su menú,
+    /// sus pestañas y su ✕. El orden importa: ShowConfig hace el Attach y
+    /// AbrirModuloHtml sabe esperar al arranque si hace falta.
+    /// </summary>
+    private void ShowConfigModulo(string ruta, string titulo)
+    {
+        ShowConfig();
+        _configHost?.AbrirModuloHtml(ruta, titulo);
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Config modulo embebido: " + ruta);
     }
 
     private void CloseConfig()
@@ -5764,12 +5787,13 @@ public partial class MainWindow : Window
     private void OnNavCoreX    (object? s, RoutedEventArgs e) => ShowCoreXEcu();
     private void OnNavNodos    (object? s, RoutedEventArgs e) => ShowNodos();
     private void OnNavActualizar(object? s, RoutedEventArgs e) => ShowActualizar();
-    // Firmwares / OrbitX / Debug siguen en HTML pero en VENTANA-DIALOGO
-    // acotada, no a pantalla completa (doctrina 2026-08-17). Eran los ultimos
-    // NavigateTo directos junto con el Configurar de SectionX.
-    private void OnNavFirmwares(object? s, RoutedEventArgs e) => OpenDialogPage("pages/firmwares.html", "Firmwares", 900, 640);
-    private void OnNavOrbitX   (object? s, RoutedEventArgs e) => OpenDialogPage("pages/orbitx.html",    "OrbitX Cloud", 900, 640);
-    private void OnNavDebug    (object? s, RoutedEventArgs e) => OpenDialogPage("pages/debug.html",     "Debug", 980, 680);
+    // Firmwares / OrbitX / Debug siguen en HTML pero EMBEBIDOS en la tarjeta
+    // de Configuración (pedido 2026-08-17: "que todo se abra dentro de la
+    // ventana config principal") — ya no en ventana-diálogo suelta ni a
+    // pantalla completa. Mismas rutas que sus fichas de la grilla de Módulos.
+    private void OnNavFirmwares(object? s, RoutedEventArgs e) => ShowConfigModulo("pages/firmwares.html", "Firmwares");
+    private void OnNavOrbitX   (object? s, RoutedEventArgs e) => ShowConfigModulo("pages/orbitx.html",    "OrbitX Cloud");
+    private void OnNavDebug    (object? s, RoutedEventArgs e) => ShowConfigModulo("pages/debug.html",     "Debug");
 
     private void NavigateTo(string relativePath)
     {
