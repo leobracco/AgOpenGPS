@@ -6,18 +6,20 @@
         (el porteo de pages/config.html: menú lateral + pestañas + footer).
 
         QUÉ QUEDÓ NATIVO: el contenedor (navegación por grupos, footer con
-        perfil/ancho/unidades, mensajes de estado, botón Guardar) y las
-        pestañas que ya se portaron — hoy "Resumen" y "Vehículo › Tipo".
-        La fila "Módulos" del final es la GRILLA NATIVA de módulos: los que ya
-        tienen pantalla propia (Hub, QuantiX, VistaX, FlowX, SectionX, StormX,
-        CoreX-ECU, Nodos, Cámaras, Prescripciones, Actualizar, Sistema,
-        Sonidos) abren su panel nativo.
-        QUÉ SIGUE EN HTML: las pestañas todavía no portadas y los módulos sin
-        panel nativo (LineX, Insumos, Mapas, Calculadora, Lab PID, Diagnóstico
-        PWM, OrbitX, Firmwares, Conectar celular, Red WiFi, Eventos, Debug,
-        Ayuda). Se abren EMBEBIDOS acá adentro, así que el operario llega a
-        todo desde el mismo lugar de siempre. La página config.html NO se toca
-        ni se borra: la usa la PWA del celular (strangler fig).
+        perfil/ancho/unidades, mensajes de estado, botón Guardar), las 16
+        pestañas de config y los MÓDULOS como entradas directas del acordeón
+        (grupos Módulos/Campo/Herramientas/Cloud/Mantenimiento + Sonidos en
+        Otros, mismo orden que el #menu de config.html — sin grilla
+        intermedia). Los módulos con pantalla propia (Hub, QuantiX, VistaX,
+        FlowX, SectionX, StormX, CoreX-ECU, Nodos, Cámaras, Prescripciones,
+        Actualizar, Sistema, Sonidos) se montan como INSTANCIA PROPIA en
+        ModuloNativoHost, adentro de esta misma tarjeta.
+        QUÉ SIGUE EN HTML: los módulos sin panel nativo (LineX, Insumos,
+        Mapas, Calculadora, Lab PID, Diagnóstico PWM, OrbitX, Firmwares,
+        Conectar celular, Red WiFi, Eventos, Debug, Ayuda). Se abren EMBEBIDOS
+        acá adentro (HtmlHost), así que el operario llega a todo desde el
+        mismo lugar de siempre. La página config.html NO se toca ni se borra:
+        la usa la PWA del celular (strangler fig).
 
         Card clara flotante con el mapa VIVO detrás — el mapa nunca se apaga.
         Nada de Flyout/MenuFlyout: sobre el mapa GL no se dibujan.
@@ -112,13 +114,16 @@
                     </ScrollViewer>
                 </Border>
 
-                <!-- ============ Contenido: pestaña nativa O módulo HTML ============
-                     Los módulos que siguen en HTML se muestran ACÁ ADENTRO, en la
-                     misma tarjeta: antes "Módulos y más…" cerraba este panel y
-                     abría el WebView a PANTALLA COMPLETA, sin ✕ y sin el menú
-                     lateral — el operario quedaba encerrado (reporte 2026-08-16).
-                     Embebido, la ventana sigue midiendo lo mismo, conserva su
-                     cerrar y se vuelve tocando cualquier pestaña del menú. -->
+                <!-- ============ Contenido: pestaña nativa O módulo ============
+                     Tres vistas excluyentes en el MISMO hueco, con el menú
+                     siempre a la izquierda (réplica del #main del original):
+                     · TabScroll — las pestañas de config nativas;
+                     · HtmlHost — módulos/página del Hub embebidos (WebView);
+                     · ModuloNativoHost — paneles nativos de módulos (Hub,
+                       QuantiX, VistaX, …) montados como instancia propia.
+                     Nada abre otra ventana ni cierra esta tarjeta: antes los
+                     módulos nativos saltaban a un overlay de pantalla completa
+                     que escondía la Configuración (reportes 2026-08-16/17). -->
                 <Grid Margin="12,0,0,0">
                     <ScrollViewer Name="TabScroll"
                                   HorizontalScrollBarVisibility="Auto"
@@ -126,6 +131,7 @@
                         <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
                     </ScrollViewer>
                     <Panel Name="HtmlHost" IsVisible="False" Margin="0,0,6,0"/>
+                    <Panel Name="ModuloNativoHost" IsVisible="False" Margin="0,0,6,0"/>
                 </Grid>
             </DockPanel>
         </Border>

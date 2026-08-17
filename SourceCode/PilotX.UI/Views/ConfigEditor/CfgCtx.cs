@@ -82,15 +82,16 @@ public sealed class CfgCtx
     public Action<string>? AbrirHtml;
 
     /// <summary>Abre una página del Hub DENTRO de la tarjeta de Configuración
-    /// (ruta relativa, título del encabezado). Es lo que usa la lista de
-    /// módulos para lo que todavía NO tiene pantalla nativa: a pantalla
-    /// completa el operario se queda sin ✕ y sin menú.</summary>
+    /// (ruta relativa, título del encabezado): a pantalla completa el operario
+    /// se queda sin ✕ y sin menú. Desde que los módulos son entradas directas
+    /// del menú (2026-08-17) ninguna pestaña lo usa, pero queda cableado para
+    /// la próxima pestaña que necesite mostrar una satélite HTML.</summary>
     public Action<string, string>? AbrirHtmlEmbebido;
 
     /// <summary>Pide abrir un PANEL NATIVO del cockpit por su clave
-    /// ("hub", "quantix", "nodos", …). Lo resuelve MainWindow, que es el único
-    /// que conoce los paneles; esos paneles cierran la Configuración al
-    /// abrirse porque ocupan la pantalla.</summary>
+    /// ("hub", "quantix", "nodos", …). Lo resuelve MainWindow. Sin uso desde
+    /// que los módulos se montan embebidos en la propia Configuración
+    /// (2026-08-17); queda como puerta para caminos externos.</summary>
     public Action<string>? AbrirPanelNativo;
 
     /// <summary>

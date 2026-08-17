@@ -21,13 +21,24 @@
 // y "Otros › Tram" (ancho de trocha + las dos preferencias de trochas; la
 // CONSTRUCCIÓN de las huellas sobre el lote sigue en pages/tramline(s).html —
 // ver la cabecera de TramTab).
-// y la fila «Módulos» del final, que ya NO es una puerta al menú HTML sino la
-// grilla nativa de módulos (ModulosTab): cada módulo abre su panel nativo si
-// existe, y solo los que todavía no están portados se muestran EMBEBIDOS en
-// esta misma tarjeta.
-// QUÉ SIGUE EN HTML: desde la ola 3c, NINGUNA fila del NAV — las 16 son
-// nativas. Al WebView salen los módulos sin portar (LineX, Insumos, Mapas,
-// Calculadora, Lab PID, Diagnóstico PWM, OrbitX, Firmwares, Conectar celular,
+// y — desde el 2026-08-17 — los MÓDULOS, que viven en el MISMO menú lateral
+// con los grupos y el orden del original (Otros › Sonidos, Módulos, Campo,
+// Herramientas, Cloud, Mantenimiento): ya no hay grilla intermedia "Módulos"
+// (ModulosTab se eliminó — en el original ese paso no existía y obligaba a
+// 3-4 toques para algo que estaba a 2). Tocar un módulo muestra su contenido
+// EN EL ÁREA DE CONTENIDO de esta misma tarjeta: si tiene panel nativo se
+// monta una INSTANCIA PROPIA acá adentro (patrón CamarasPanel de la ventana
+// de cámaras: nunca se reparenta el overlay vivo de MainWindow — reparentar
+// controles vivos es frágil en Avalonia), con Attach al entrar y Detach al
+// salir (el Detach de QuantiX PARA MOTORES: no puede quedar sin llamar);
+// si no tiene panel nativo, se muestra la página del Hub embebida (WebView).
+// Los overlays sueltos de MainWindow (ShowQuantiXEditor y compañía) SIGUEN
+// EXISTIENDO para los caminos directos (botón Configurar del monitor, Hub…);
+// esto solo cambia cómo llega el operario DESDE la Configuración.
+// QUÉ SIGUE EN HTML: desde la ola 3c, ninguna PESTAÑA DE CONFIG — las 16 son
+// nativas. Al WebView (embebido acá adentro) salen los módulos sin panel
+// nativo (LineX, Insumos, Mapas, Calculadora, Lab PID, Diagnóstico PWM,
+// OrbitX, Firmwares, Conectar celular,
 // Red WiFi, Eventos, Debug y Ayuda) y las tres pestañas HUÉRFANAS de
 // config.html —`relay`, `display`
 // y `botones`—, que no están en el NAV porque tampoco están en el menú del
@@ -83,15 +94,21 @@ namespace PilotX.Desktop.Views;
 
 public partial class ConfigPanel : UserControl
 {
-    /// <summary>Una entrada del menú lateral. `Tab` es la MISMA clave que usa
-    /// el HTML en ?tab= — así una pestaña sin portar se abre por WebView sin
-    /// tabla de traducción de nombres.</summary>
+    /// <summary>Una entrada del menú lateral. Para las pestañas de config,
+    /// `Tab` es la MISMA clave que usa el HTML en ?tab= — así una pestaña sin
+    /// portar se abre por WebView sin tabla de traducción de nombres. Para los
+    /// módulos, `Tab` es una clave interna ("mod_…", nunca viaja en ?tab=) y
+    /// UNO de ModClave/ModRuta dice qué se muestra en el área de contenido:
+    /// ModClave = panel nativo montado acá adentro (instancia propia);
+    /// ModRuta  = página del Hub embebida en el WebView.</summary>
     private sealed class CfgNav
     {
         public string Tab = "";
         public string Titulo = "";
         public string Grupo = "";      // "" = suelto arriba, fuera del acordeón
         public bool Nativa;
+        public string? ModClave;       // módulo con panel nativo embebido
+        public string? ModRuta;        // módulo solo-HTML (página del Hub)
     }
 
     // Mismo orden y mismos grupos que el #menu de config.html. "Pines relay",
@@ -123,12 +140,50 @@ public partial class ConfigPanel : UserControl
 
         new CfgNav { Tab = "uturn",       Titulo = "U-Turn",       Grupo = "Otros",      Nativa = true  },
         new CfgNav { Tab = "tram",        Titulo = "Tram",         Grupo = "Otros",      Nativa = true  },
-    };
+        // Sonidos vive en "Otros" porque ahí lo tiene el menú del original
+        // (config.html): el operario lo busca donde siempre estuvo.
+        new CfgNav { Tab = "mod_sonidos", Titulo = "Sonidos",      Grupo = "Otros",      ModClave = "sonidos" },
 
-    /// <summary>Clave de la pestaña "Módulos" (la grilla nativa). No está en
-    /// NAV porque va abajo de todo, después del separador; el resto del shell
-    /// la trata como a cualquier pestaña nativa.</summary>
-    private const string TAB_MODULOS = "modulos";
+        // ---- Módulos (mismo orden que el #menu del original; CoreX-ECU no
+        //      estaba en el HTML y se intercala antes de Nodos) -------------
+        new CfgNav { Tab = "mod_hub",      Titulo = "Hub",      Grupo = "Módulos", ModClave = "hub" },
+        new CfgNav { Tab = "mod_quantix",  Titulo = "QuantiX",  Grupo = "Módulos", ModClave = "quantix" },
+        new CfgNav { Tab = "mod_vistax",   Titulo = "VistaX",   Grupo = "Módulos", ModClave = "vistax" },
+        new CfgNav { Tab = "mod_flowx",    Titulo = "FlowX",    Grupo = "Módulos", ModClave = "flowx" },
+        new CfgNav { Tab = "mod_sectionx", Titulo = "SectionX", Grupo = "Módulos", ModClave = "sectionx" },
+        // LineX no tiene panel nativo: se dice así, no se disfraza.
+        new CfgNav { Tab = "mod_linex",    Titulo = "LineX",    Grupo = "Módulos", ModRuta = "pages/linex.html" },
+        new CfgNav { Tab = "mod_stormx",   Titulo = "StormX",   Grupo = "Módulos", ModClave = "stormx" },
+        new CfgNav { Tab = "mod_corex_ecu",Titulo = "CoreX-ECU",Grupo = "Módulos", ModClave = "corex_ecu" },
+        new CfgNav { Tab = "mod_nodos",    Titulo = "Nodos",    Grupo = "Módulos", ModClave = "nodos" },
+        new CfgNav { Tab = "mod_camaras",  Titulo = "Cámaras",  Grupo = "Módulos", ModClave = "camaras" },
+
+        // ---- Campo --------------------------------------------------------
+        new CfgNav { Tab = "mod_insumos", Titulo = "Insumos", Grupo = "Campo", ModRuta = "pages/insumos.html" },
+        new CfgNav { Tab = "mod_mapas",   Titulo = "Mapas",   Grupo = "Campo", ModRuta = "pages/mapas.html" },
+        // "Prescripciones" es la tab Shape del editor de QuantiX (el viejo
+        // quantix.html?tab=shape), que ya es nativa: misma instancia que
+        // "QuantiX" pero aterrizando en Shape.
+        new CfgNav { Tab = "mod_prescripciones", Titulo = "Prescripciones", Grupo = "Campo", ModClave = "prescripciones" },
+
+        // ---- Herramientas -------------------------------------------------
+        new CfgNav { Tab = "mod_calculadora", Titulo = "Calculadora",     Grupo = "Herramientas", ModRuta = "pages/calculadora-siembra.html" },
+        new CfgNav { Tab = "mod_pidlab",      Titulo = "Lab PID",         Grupo = "Herramientas", ModRuta = "pages/pid-lab.html" },
+        new CfgNav { Tab = "mod_pwmdiag",     Titulo = "Diagnóstico PWM", Grupo = "Herramientas", ModRuta = "pages/pwm-diag.html" },
+
+        // ---- Cloud --------------------------------------------------------
+        new CfgNav { Tab = "mod_orbitx",     Titulo = "OrbitX",           Grupo = "Cloud", ModRuta = "pages/orbitx.html" },
+        new CfgNav { Tab = "mod_firmwares",  Titulo = "Firmwares",        Grupo = "Cloud", ModRuta = "pages/firmwares.html" },
+        new CfgNav { Tab = "mod_actualizar", Titulo = "Actualizar",       Grupo = "Cloud", ModClave = "actualizar" },
+        new CfgNav { Tab = "mod_pwa",        Titulo = "Conectar celular", Grupo = "Cloud", ModRuta = "pages/pwa-qr.html" },
+
+        // ---- Mantenimiento ------------------------------------------------
+        new CfgNav { Tab = "mod_wifi",    Titulo = "Red WiFi", Grupo = "Mantenimiento", ModRuta = "pages/wifi.html" },
+        new CfgNav { Tab = "mod_sistema", Titulo = "Sistema",  Grupo = "Mantenimiento", ModClave = "sistema" },
+        new CfgNav { Tab = "mod_eventos", Titulo = "Eventos",  Grupo = "Mantenimiento", ModRuta = "pages/eventos.html" },
+        new CfgNav { Tab = "mod_debug",   Titulo = "Debug",    Grupo = "Mantenimiento", ModRuta = "pages/debug.html" },
+        new CfgNav { Tab = "mod_ayuda",   Titulo = "Ayuda",    Grupo = "Mantenimiento", ModRuta = "pages/ayuda.html" },
+    };
 
     private readonly CfgCtx _ctx = new CfgCtx();
     private CancellationTokenSource? _cts;
@@ -150,6 +205,37 @@ public partial class ConfigPanel : UserControl
     private Services.IWebViewHandle? _web;
     private bool _htmlVisible;
 
+    // ── Módulos con PANEL NATIVO embebido (Hub, QuantiX, VistaX, …) ──
+    // Cada uno es una INSTANCIA PROPIA montada en ModuloNativoHost (patrón
+    // CamarasPanel de la ventana de cámaras: nunca se reparenta el overlay
+    // vivo de MainWindow). Se crean lazy la primera vez que el operario entra
+    // y se cachean; el ciclo de vida es Attach al entrar / Detach al salir
+    // (cambiar de entrada, ✕ del shell, Detach externo). El Detach de QuantiX
+    // PARA MOTORES: por eso OcultarModuloNativo se llama en TODOS los caminos
+    // de salida, no solo en la navegación feliz.
+    private readonly Dictionary<string, Control> _modPaneles = new Dictionary<string, Control>(StringComparer.Ordinal);
+    private string _modActivo = "";     // clave del panel embebido visible ("" = ninguno)
+    private string _modNavActual = "";  // Tab del NAV que lo mostró (quantix ≠ prescripciones)
+
+    // Clientes HTTP de los módulos, lazy y cacheados (mismo criterio que los
+    // lazy-init de MainWindow: si el operario nunca entra, cero costo).
+    private NodosClient?         _nodosCli;
+    private OverlaysClient?      _overlaysCli;
+    private QuantiXEditorClient? _quantiXCli;
+    private VistaXClient?        _vistaXCli;
+    private FlowXClient?         _flowXCli;
+    private SectionXClient?      _sectionXCli;
+    private StormXClient?        _stormXCli;
+    private CoreXEcuClient?      _ecuCli;
+    private UpdateClient?        _updateCli;
+    private SistemaClient?       _sistemaCli;
+    private SonidosClient?       _sonidosCli;
+    private CamarasClient?       _camarasCli;
+
+    // WebView de la pestaña "Configurar" del CoreX-ECU embebido (el panel pide
+    // un slot por OnConfigOpen; réplica local de AbrirEcuConfig de MainWindow).
+    private Services.IWebViewHandle? _ecuWeb;
+
     // ── Módulo pedido DESDE AFUERA antes de que el panel termine de arrancar ──
     // AbrirModuloHtml puede llegar recién hecho el Attach (ShowConfigModulo en
     // MainWindow hace ShowConfig() + AbrirModuloHtml en la misma pasada). En ese
@@ -166,10 +252,10 @@ public partial class ConfigPanel : UserControl
     /// los módulos). Recibe la ruta relativa; el host cierra este panel.</summary>
     public Action<string>? OnRequestHtml { get; set; }
 
-    /// <summary>La lista de módulos pide abrir un PANEL NATIVO por su clave
-    /// ("hub", "quantix", "nodos", …). Lo resuelve MainWindow: es el único que
-    /// conoce los paneles, y son de pantalla completa, así que al abrirse
-    /// cierran esta Configuración.</summary>
+    /// <summary>Pedir a MainWindow un PANEL NATIVO por su clave ("hub",
+    /// "quantix", …). Desde 2026-08-17 la Configuración ya NO lo usa (los
+    /// módulos se montan embebidos acá adentro), pero la puerta queda cableada
+    /// por si algún camino externo la necesita.</summary>
     public Action<string>? OnRequestPanelNativo { get; set; }
 
     /// <summary>Aviso corto → toast del host. Nunca modal.</summary>
@@ -195,7 +281,6 @@ public partial class ConfigPanel : UserControl
     public static bool EsNativa(string? tab)
     {
         if (string.IsNullOrEmpty(tab)) return true;          // sin ?tab= aterriza en Resumen
-        if (tab == TAB_MODULOS) return true;                 // la grilla de módulos
         foreach (var n in NAV) if (n.Tab == tab) return n.Nativa;
         return false;
     }
@@ -242,12 +327,16 @@ public partial class ConfigPanel : UserControl
     /// Llamar SIEMPRE después de Attach (ShowConfig ya lo garantiza): si el
     /// arranque inicial todavía está en vuelo, el pedido queda pendiente y lo
     /// muestra ArrancarAsync — mostrarlo ya sería taparlo un instante después.
-    /// La fila activa pasa a "Módulos": tocarla de nuevo (o cualquier otra
-    /// pestaña) es el camino de vuelta a lo nativo, como ya funciona.
+    /// La página aterriza con SU entrada del menú marcada activa (la que
+    /// corresponde por ruta: nodo-detalle → Nodos, ?mod=camaras → Cámaras…):
+    /// tocar esa entrada de nuevo vuelve a su vista principal, y cualquier
+    /// otra entrada navega normal.
     /// </summary>
     public void AbrirModuloHtml(string ruta, string subtitulo)
     {
-        _tabActiva = TAB_MODULOS;
+        var nav = NavDeRuta(ruta);
+        _tabActiva = nav?.Tab ?? "";
+        if (nav != null && !string.IsNullOrEmpty(nav.Grupo)) _grupoAbierto = nav.Grupo;
         PintarMenu();
         string sub = PilotX.Cockpit.Bars.Traductor.T(subtitulo);
         if (!_arranqueListo)
@@ -274,6 +363,10 @@ public partial class ConfigPanel : UserControl
         // otro panel que se abre encima, apagado): un WebView2 con página
         // cargada sigue pintando sobre el mapa aunque el panel esté oculto.
         OcultarHtmlEmbebido();
+        // Y el módulo NATIVO embebido igual: su Detach para polls y — en el
+        // caso de QuantiX — cualquier motor girando. Este es uno de los
+        // caminos de salida que NO pasan por la navegación del menú.
+        OcultarModuloNativo();
         try
         {
             if (_tabs.TryGetValue(_tabActiva, out var t)) _ = t.AlSalirAsync();
@@ -486,20 +579,10 @@ public partial class ConfigPanel : UserControl
             cuerpo.Children.Add(b);
         }
 
-        // Puerta al resto de la Configuración: módulos X-*, Hub, Campo,
-        // Herramientas, Cloud, Mantenimiento y Ayuda. Antes esta fila decía
-        // "Módulos y más…" y abría pages/config.html en el WebView, o sea el
-        // MENÚ HTML de módulos — y desde ahí se abría la versión HTML de
-        // pantallas que ya son nativas (reporte 2026-08-16: puerta duplicada).
-        // Ahora es una pestaña nativa más (ModulosTab): la grilla de módulos.
-        host.Children.Add(new Border
-        {
-            Height = 1, Background = CfgUi.BordeSuave, Margin = new Thickness(4, 10, 4, 8),
-        });
-        var bMods = BotonMenu(new CfgNav { Tab = TAB_MODULOS, Titulo = "Módulos", Nativa = true });
-        _btns[TAB_MODULOS] = bMods;
-        host.Children.Add(bMods);
-
+        // Ya no hay fila "Módulos" ni grilla intermedia: los módulos son
+        // entradas directas del acordeón (grupos Módulos, Campo, Herramientas,
+        // Cloud y Mantenimiento, más Sonidos en Otros), igual que en el menú
+        // del original — un grupo y un toque, no una pantalla en el medio.
         PintarMenu();
     }
 
@@ -578,12 +661,29 @@ public partial class ConfigPanel : UserControl
     private async Task IrATabAsync(string tab)
     {
         if (_navegando) return;
+        var nav = BuscarNav(tab);
+        bool esModulo = nav != null && (nav.ModClave != null || nav.ModRuta != null);
         if (tab == _tabActiva)
         {
-            // Ya estamos parados en esa fila. Si lo que se ve es un módulo
-            // HTML embebido, este toque significa "volver": sin esto el
-            // operario que entró a Ayuda desde Módulos se quedaba adentro del
-            // WebView, porque la fila "Módulos" seguía siendo la activa.
+            // Ya estamos parados en esa fila.
+            if (esModulo)
+            {
+                // Re-tocar la entrada de un módulo vuelve a su vista
+                // PRINCIPAL si lo que se ve es otra cosa: p. ej. SectionX
+                // mostrando su "Configurar" HTML, o Nodos mostrando el
+                // detalle de un nodo. Si ya se ve lo principal, no-op (como
+                // el iframe del original, que no recargaba).
+                bool yaSeVe = nav!.ModClave != null
+                    ? (_modActivo == ClavePanelDe(nav) && _modNavActual == nav.Tab && !_htmlVisible)
+                    : _htmlVisible;
+                if (yaSeVe) return;
+                _navegando = true;
+                try { MostrarModulo(nav); }
+                finally { _navegando = false; }
+                return;
+            }
+            // Pestaña de config mostrando un módulo HTML embebido (caso
+            // legado): este toque significa "volver" a lo nativo.
             if (!_htmlVisible) return;
             _navegando = true;
             try { await MostrarTabAsync(tab).ConfigureAwait(true); }
@@ -595,12 +695,20 @@ public partial class ConfigPanel : UserControl
         {
             // leave() de la pestaña actual: si el guardado falla NO se navega
             // (el operario se queda donde estaba, con el error a la vista).
+            // Las entradas de módulo no están en _tabs, así que venir de un
+            // módulo no dispara ningún leave — cada módulo guarda lo suyo.
             if (_tabs.TryGetValue(_tabActiva, out var vieja))
             {
                 bool ok;
                 try { ok = await vieja.AlSalirAsync().ConfigureAwait(true); }
                 catch { ok = false; }
                 if (!ok) return;
+            }
+
+            if (esModulo)
+            {
+                MostrarModulo(nav!);
+                return;
             }
 
             if (!EsNativa(tab))
@@ -635,6 +743,11 @@ public partial class ConfigPanel : UserControl
         var scroll = this.FindControl<ScrollViewer>("TabScroll");
         if (host == null || scroll == null) return;
 
+        // Si había un panel nativo embebido, se baja ANTES de tapar el área
+        // (su Detach para polls y motores; dejarlo vivo abajo del WebView
+        // sería un panel gastando red que nadie ve).
+        OcultarModuloNativo();
+
         if (App.WebViewHost == null)
         {
             Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T(
@@ -659,11 +772,7 @@ public partial class ConfigPanel : UserControl
 
         // ?widget=1: sin la barra lateral del Hub. Adentro de esta tarjeta esa
         // barra sería una segunda navegación compitiendo con el menú de acá.
-        string origen = App.TargetUrl ?? "http://127.0.0.1:5180/";
-        int api = origen.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
-        if (api >= 0) origen = origen.Substring(0, api + 1);
-        if (!origen.EndsWith("/")) origen += "/";
-        string full = origen + (ruta ?? "").TrimStart('/');
+        string full = OrigenHub() + (ruta ?? "").TrimStart('/');
         full += (full.IndexOf('?') >= 0 ? "&" : "?") + "widget=1";
 
         try { _web.Navigate(full); }
@@ -700,8 +809,10 @@ public partial class ConfigPanel : UserControl
         // que el arranque): sin esto ArrancarAsync lo mostraría igual encima.
         _moduloPendiente = null;
         _ = _ctx.Client?.TecladoAsync(false);
-        // Veníamos de un módulo HTML: volver a las pestañas nativas.
+        // Veníamos de un módulo (HTML o panel nativo embebido): volver a las
+        // pestañas nativas. El orden no importa acá — los dos son idempotentes.
         OcultarHtmlEmbebido();
+        OcultarModuloNativo();
         _tabActiva = tab;
 
         // Dejar abierto el grupo de la pestaña activa (abrirGrupoActivo del HTML).
@@ -745,9 +856,14 @@ public partial class ConfigPanel : UserControl
 
     private static string TituloDe(string tab)
     {
-        if (tab == TAB_MODULOS) return "Módulos";
         foreach (var n in NAV) if (n.Tab == tab) return n.Titulo;
         return "Configuración";
+    }
+
+    private static CfgNav? BuscarNav(string tab)
+    {
+        foreach (var n in NAV) if (n.Tab == tab) return n;
+        return null;
     }
 
     /// <summary>Fábrica de pestañas nativas. Cada porteo agrega su case acá
@@ -790,11 +906,445 @@ public partial class ConfigPanel : UserControl
         // construcción de las huellas sobre el lote: eso sigue en
         // pages/tramline.html y pages/tramlines.html. Ver la cabecera de TramTab.
         "tram" => new TramTab(_ctx),
-        // La grilla de módulos: abre paneles nativos por callback y lo que
-        // todavía es HTML lo muestra EMBEBIDO en esta misma tarjeta.
-        TAB_MODULOS => new ModulosTab(_ctx),
         _ => new ResumenTab(_ctx),
     };
+
+    // =======================================================================
+    //  Módulos (entradas del menú con ModClave / ModRuta)
+    // =======================================================================
+
+    /// <summary>Entra a un módulo del menú: marca su fila, abre su grupo y
+    /// muestra el contenido EN EL ÁREA DE CONTENIDO de esta tarjeta — panel
+    /// nativo embebido si existe, página del Hub embebida si no. Nunca abre
+    /// otra ventana ni cierra la Configuración (réplica del iframe del
+    /// original: el menú queda siempre a la izquierda).</summary>
+    private void MostrarModulo(CfgNav nav)
+    {
+        // Un módulo solo-HTML sin navegador embebido no puede mostrarse: se
+        // avisa y el operario se queda donde estaba (misma honestidad que
+        // tenía la grilla con sus fichas apagadas).
+        if (nav.ModClave == null && App.WebViewHost == null)
+        {
+            Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T(
+                "Esta pantalla todavía necesita el navegador embebido y este equipo no lo tiene."));
+            return;
+        }
+
+        _moduloPendiente = null;
+        _ = _ctx.Client?.TecladoAsync(false);
+        _tabActiva = nav.Tab;
+        if (!string.IsNullOrEmpty(nav.Grupo)) _grupoAbierto = nav.Grupo;
+        PintarMenu();
+
+        if (nav.ModClave != null) MostrarModuloNativo(nav);
+        else MostrarHtmlEmbebido(nav.ModRuta!, PilotX.Cockpit.Bars.Traductor.T(nav.Titulo));
+    }
+
+    /// <summary>El panel de Avalonia que muestra la entrada. Prescripciones
+    /// comparte instancia con QuantiX (es el mismo editor parado en Shape).</summary>
+    private static string ClavePanelDe(CfgNav nav)
+        => nav.ModClave == "prescripciones" ? "quantix" : (nav.ModClave ?? "");
+
+    /// <summary>Monta el panel nativo del módulo ADENTRO del área de contenido
+    /// (ModuloNativoHost). Instancia PROPIA cacheada — nunca se reparenta el
+    /// overlay vivo de MainWindow (patrón CamarasPanel de la ventana de
+    /// cámaras) — con Attach al entrar; el Detach lo hace OcultarModuloNativo
+    /// en TODOS los caminos de salida.</summary>
+    private void MostrarModuloNativo(CfgNav nav)
+    {
+        string panelKey = ClavePanelDe(nav);
+        var host = this.FindControl<Panel>("ModuloNativoHost");
+        var scroll = this.FindControl<ScrollViewer>("TabScroll");
+        if (host == null || scroll == null || panelKey.Length == 0) return;
+
+        OcultarHtmlEmbebido();
+
+        // Cambio de panel: bajar el anterior (Detach) antes de subir el nuevo.
+        // Mismo panel con otra entrada (QuantiX ↔ Prescripciones) NO se baja:
+        // su Attach ya sabe cambiar de pestaña interna.
+        bool mismoPanel = _modActivo == panelKey;
+        bool mismaEntrada = mismoPanel && _modNavActual == nav.Tab && host.IsVisible;
+        if (_modActivo.Length != 0 && !mismoPanel) OcultarModuloNativo();
+
+        Control panel;
+        try { panel = ObtenerPanelModulo(panelKey); }
+        catch (Exception ex)
+        {
+            Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No se pudo abrir el módulo") + ": " + ex.Message);
+            return;
+        }
+
+        if (panel.Parent == null) host.Children.Add(panel);
+        foreach (var hijo in host.Children) hijo.IsVisible = ReferenceEquals(hijo, panel);
+
+        if (!mismaEntrada)
+        {
+            try { AttachModulo(panelKey, nav); }
+            catch (Exception ex)
+            {
+                Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No se pudo abrir el módulo") + ": " + ex.Message);
+                return;
+            }
+        }
+        _modActivo = panelKey;
+        _modNavActual = nav.Tab;
+
+        host.IsVisible = true;
+        scroll.IsVisible = false;
+
+        var st = this.FindControl<TextBlock>("SubtituloText");
+        if (st != null) st.Text = PilotX.Cockpit.Bars.Traductor.T(nav.Titulo);
+        var g = this.FindControl<Button>("BtnGuardar");
+        if (g != null) g.IsVisible = false;   // cada módulo guarda lo suyo
+    }
+
+    /// <summary>Baja el panel nativo embebido: Detach (para polls y, en
+    /// QuantiX, CUALQUIER MOTOR GIRANDO) y esconde el host. Idempotente — se
+    /// llama en toda salida: otra pestaña, otro módulo, HTML encima, ✕ del
+    /// shell y Detach externo del panel entero.</summary>
+    private void OcultarModuloNativo()
+    {
+        if (_modActivo.Length == 0)
+        {
+            var h0 = this.FindControl<Panel>("ModuloNativoHost");
+            if (h0 != null) h0.IsVisible = false;
+            return;
+        }
+        string clave = _modActivo;
+        _modActivo = "";
+        _modNavActual = "";
+        // La pestaña Configurar del CoreX-ECU embebido tiene un WebView
+        // propio: si quedó abierto, muere con el panel.
+        CerrarEcuConfigEmbebida();
+        try
+        {
+            if (_modPaneles.TryGetValue(clave, out var p))
+            {
+                switch (clave)
+                {
+                    case "hub":        ((HubPanel)p).Detach(); break;
+                    case "quantix":    ((QuantiXEditorPanel)p).Detach(); break;  // manda el STOP a los motores
+                    case "vistax":     ((VistaXEditorPanel)p).Detach(); break;
+                    case "flowx":      ((FlowXEditorPanel)p).Detach(); break;
+                    case "sectionx":   ((SectionXPanel)p).Detach(); break;
+                    case "stormx":     ((StormXPanel)p).Detach(); break;
+                    case "corex_ecu":  ((CoreXEcuPanel)p).Detach(); break;
+                    case "nodos":      ((NodosPanel)p).Detach(); break;
+                    case "camaras":    ((CamarasPanel)p).Detach(); break;
+                    case "actualizar": ((ActualizarPanel)p).Detach(); break;
+                    // Sistema no tiene Detach: Reset() desarma confirmaciones
+                    // pendientes (es lo que hace MainWindow al esconderlo).
+                    case "sistema":    ((SistemaPanel)p).Reset(); break;
+                    case "sonidos":    ((SonidosPanel)p).Detach(); break;
+                }
+            }
+        }
+        catch { }
+        var host = this.FindControl<Panel>("ModuloNativoHost");
+        if (host != null) host.IsVisible = false;
+        var scroll = this.FindControl<ScrollViewer>("TabScroll");
+        if (scroll != null) scroll.IsVisible = true;
+    }
+
+    /// <summary>La ✕ propia de un panel embebido: vuelve a Resumen, adentro
+    /// de la Configuración (el ✕ del shell sigue siendo la salida de todo).</summary>
+    private void VolverDeModulo() => _ = IrATabAsync("summary");
+
+    /// <summary>Crea (una sola vez) el panel nativo de un módulo y le cablea
+    /// sus callbacks para vivir ADENTRO de la Configuración: toda navegación
+    /// que en MainWindow abría otro overlay acá aterriza en la entrada de
+    /// menú correspondiente, sin salir de la tarjeta.</summary>
+    private Control ObtenerPanelModulo(string key)
+    {
+        if (_modPaneles.TryGetValue(key, out var ya)) return ya;
+        Control p;
+        switch (key)
+        {
+            case "hub":
+            {
+                // Nota: los KPIs del Hub los alimenta MainWindow por push del
+                // HudSnapshot en el overlay suelto; acá adentro no hay push,
+                // así que muestran el último valor. La lista de nodos y los
+                // toggles de overlays sí van con red propia (Attach).
+                var h = new HubPanel();
+                h.OnRequestQuantix  = () => _ = IrATabAsync("mod_quantix");
+                h.OnRequestVistax   = () => _ = IrATabAsync("mod_vistax");
+                h.OnRequestNodos    = () => _ = IrATabAsync("mod_nodos");
+                h.OnRequestCorexEcu = () => _ = IrATabAsync("mod_corex_ecu");
+                p = h;
+                break;
+            }
+            case "quantix":
+            {
+                var q = new QuantiXEditorPanel();
+                q.OnRequestCerrar = VolverDeModulo;
+                q.Aviso += m => Aviso?.Invoke(m);
+                p = q;
+                break;
+            }
+            case "vistax":
+            {
+                var v = new VistaXEditorPanel();
+                v.OnRequestCerrar = VolverDeModulo;
+                // "‹ Monitor" queda sin cablear a propósito: el monitor live
+                // es un overlay del mapa y abrirlo cerraría la Configuración.
+                v.OnRequestAbrirInsumos       = () => _ = IrATabAsync("mod_insumos");
+                v.OnRequestAbrirConfigCentral = () => _ = IrATabAsync("tsections");
+                v.Aviso += m => Aviso?.Invoke(m);
+                p = v;
+                break;
+            }
+            case "flowx":
+            {
+                var f = new FlowXEditorPanel();
+                f.OnRequestCerrar = VolverDeModulo;
+                f.Aviso += m => Aviso?.Invoke(m);
+                p = f;
+                break;
+            }
+            case "sectionx":
+            {
+                var s = new SectionXPanel();
+                // El mapeo surco→sección y el debug MQTT siguen en HTML: se
+                // muestran acá adentro, con la fila SectionX todavía activa
+                // (re-tocarla vuelve al panel live).
+                s.OnRequestConfigurar = () => MostrarHtmlEmbebido(
+                    "pages/sectionx.html",
+                    PilotX.Cockpit.Bars.Traductor.T("SectionX — Configurar"));
+                p = s;
+                break;
+            }
+            case "stormx":
+                p = new StormXPanel();
+                break;
+            case "corex_ecu":
+            {
+                var e = new CoreXEcuPanel();
+                e.OnRequestCerrar = VolverDeModulo;
+                e.OnConfigOpen  = slot => AbrirEcuConfigEmbebida(slot);
+                e.OnConfigClose = CerrarEcuConfigEmbebida;
+                p = e;
+                break;
+            }
+            case "nodos":
+            {
+                var n = new NodosPanel();
+                n.OnRequestCerrar = VolverDeModulo;
+                n.OnRequestDetalle = uid => MostrarHtmlEmbebido(
+                    "pages/nodo-detalle.html?uid=" + Uri.EscapeDataString(uid ?? string.Empty),
+                    PilotX.Cockpit.Bars.Traductor.T("Nodos — Detalle del nodo"));
+                n.OnRequestAsistente = () => MostrarHtmlEmbebido(
+                    "pages/setup.html",
+                    PilotX.Cockpit.Bars.Traductor.T("Nodos — Asistente de primera vez"));
+                // "Configurar" de una fila va al módulo del producto — la
+                // entrada de este mismo menú, no el overlay suelto.
+                n.OnRequestConfigurarProducto = producto =>
+                {
+                    switch (producto)
+                    {
+                        case "quantix":  _ = IrATabAsync("mod_quantix");  break;
+                        case "vistax":   _ = IrATabAsync("mod_vistax");   break;
+                        case "sectionx": _ = IrATabAsync("mod_sectionx"); break;
+                        case "flowx":    _ = IrATabAsync("mod_flowx");    break;
+                        case "stormx":   _ = IrATabAsync("mod_stormx");   break;
+                        default:
+                            Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T(
+                                "Todavía no hay pantalla para ese tipo de nodo"));
+                            break;
+                    }
+                };
+                n.Aviso += m => Aviso?.Invoke(m);
+                p = n;
+                break;
+            }
+            case "camaras":
+            {
+                // Instancia propia, igual que la ventana de Cámaras arma la
+                // suya: el overlay/ventana de MainWindow no se reparenta.
+                var c = new CamarasPanel();
+                c.OnRequestCerrar = VolverDeModulo;
+                c.OnRequestConfigurar = () => MostrarHtmlEmbebido(
+                    "pages/config.html?mod=camaras.html",
+                    PilotX.Cockpit.Bars.Traductor.T("Cámaras — Configurar"));
+                p = c;
+                break;
+            }
+            case "actualizar":
+                p = new ActualizarPanel();
+                break;
+            case "sistema":
+                p = new SistemaPanel();
+                break;
+            case "sonidos":
+            {
+                var s = new SonidosPanel();
+                s.OnRequestCerrar = VolverDeModulo;
+                s.Aviso += m => Aviso?.Invoke(m);
+                p = s;
+                break;
+            }
+            default:
+                throw new InvalidOperationException("módulo sin panel nativo: " + key);
+        }
+        _modPaneles[key] = p;
+        return p;
+    }
+
+    /// <summary>Attach del panel embebido con su cliente HTTP (lazy, contra el
+    /// mismo host que el resto de la Configuración). Se llama en CADA entrada:
+    /// los Attach de estos paneles rearman sus polls y son re-entrantes.</summary>
+    private void AttachModulo(string panelKey, CfgNav nav)
+    {
+        string baseUrl = _ctx.Client?.BaseUrl ?? "http://127.0.0.1:5180/";
+        switch (panelKey)
+        {
+            case "hub":
+                _nodosCli ??= new NodosClient(baseUrl);
+                _overlaysCli ??= new OverlaysClient(baseUrl);
+                ((HubPanel)_modPaneles[panelKey]).Attach(_nodosCli, _overlaysCli);
+                break;
+            case "quantix":
+                _quantiXCli ??= new QuantiXEditorClient(baseUrl);
+                // Prescripciones = el mismo editor parado en Shape.
+                ((QuantiXEditorPanel)_modPaneles[panelKey]).Attach(
+                    _quantiXCli, nav.ModClave == "prescripciones" ? "shape" : null);
+                break;
+            case "vistax":
+                _vistaXCli ??= new VistaXClient(baseUrl);
+                ((VistaXEditorPanel)_modPaneles[panelKey]).Attach(_vistaXCli);
+                break;
+            case "flowx":
+                _flowXCli ??= new FlowXClient(baseUrl);
+                ((FlowXEditorPanel)_modPaneles[panelKey]).Attach(_flowXCli);
+                break;
+            case "sectionx":
+                _sectionXCli ??= new SectionXClient(baseUrl);
+                ((SectionXPanel)_modPaneles[panelKey]).Attach(_sectionXCli);
+                break;
+            case "stormx":
+                _stormXCli ??= new StormXClient(baseUrl);
+                ((StormXPanel)_modPaneles[panelKey]).Attach(_stormXCli);
+                break;
+            case "corex_ecu":
+                _ecuCli ??= new CoreXEcuClient(baseUrl);
+                ((CoreXEcuPanel)_modPaneles[panelKey]).Attach(_ecuCli);
+                break;
+            case "nodos":
+                _nodosCli ??= new NodosClient(baseUrl);
+                ((NodosPanel)_modPaneles[panelKey]).Attach(_nodosCli);
+                break;
+            case "camaras":
+                _camarasCli ??= new CamarasClient(baseUrl);
+                ((CamarasPanel)_modPaneles[panelKey]).Attach(_camarasCli);
+                break;
+            case "actualizar":
+                _updateCli ??= new UpdateClient(baseUrl);
+                ((ActualizarPanel)_modPaneles[panelKey]).Attach(_updateCli);
+                break;
+            case "sistema":
+                _sistemaCli ??= new SistemaClient(baseUrl);
+                ((SistemaPanel)_modPaneles[panelKey]).Attach(_sistemaCli);
+                break;
+            case "sonidos":
+                _sonidosCli ??= new SonidosClient(baseUrl);
+                ((SonidosPanel)_modPaneles[panelKey]).Attach(_sonidosCli);
+                break;
+        }
+    }
+
+    /// <summary>¿A qué entrada del menú pertenece una página del Hub? Para que
+    /// AbrirModuloHtml (la puerta externa de los "Configurar") aterrice con la
+    /// fila correcta marcada. Cubre las rutas propias de los módulos solo-HTML,
+    /// las páginas de los módulos con panel nativo y las satélites conocidas
+    /// (nodo-detalle, setup, config.html?mod=…). Null = ninguna fila.</summary>
+    private static CfgNav? NavDeRuta(string ruta)
+    {
+        if (string.IsNullOrEmpty(ruta)) return null;
+        string pagina = ruta;
+        // config.html?mod=X → la página que importa es X.
+        int im = pagina.IndexOf("mod=", StringComparison.OrdinalIgnoreCase);
+        if (im >= 0)
+        {
+            pagina = pagina.Substring(im + 4);
+            int amp = pagina.IndexOf('&');
+            if (amp >= 0) pagina = pagina.Substring(0, amp);
+        }
+        int q = pagina.IndexOf('?');
+        if (q >= 0) pagina = pagina.Substring(0, q);
+        int barra = pagina.LastIndexOf('/');
+        if (barra >= 0) pagina = pagina.Substring(barra + 1);
+        pagina = pagina.Trim();
+        if (pagina.Length == 0) return null;
+
+        foreach (var n in NAV)
+            if (n.ModRuta != null && n.ModRuta.EndsWith("/" + pagina, StringComparison.OrdinalIgnoreCase))
+                return n;
+
+        string? tab = pagina.ToLowerInvariant() switch
+        {
+            "hub.html"        => "mod_hub",
+            "quantix.html"    => "mod_quantix",
+            "vistax.html"     => "mod_vistax",
+            "flowx.html"      => "mod_flowx",
+            "sectionx.html"   => "mod_sectionx",
+            "stormx.html"     => "mod_stormx",
+            "corex-ecu.html"  => "mod_corex_ecu",
+            "nodos.html" or "nodo-detalle.html" or "setup.html" => "mod_nodos",
+            "camaras.html"    => "mod_camaras",
+            "sonidos.html"    => "mod_sonidos",
+            "actualizar.html" => "mod_actualizar",
+            "sistema.html"    => "mod_sistema",
+            _ => null,
+        };
+        return tab != null ? BuscarNav(tab) : null;
+    }
+
+    /// <summary>Origen del Hub local (sin /pages/…), con barra final.</summary>
+    private static string OrigenHub()
+    {
+        string origen = App.TargetUrl ?? "http://127.0.0.1:5180/";
+        int api = origen.IndexOf("/pages/", StringComparison.OrdinalIgnoreCase);
+        if (api >= 0) origen = origen.Substring(0, api + 1);
+        if (!origen.EndsWith("/")) origen += "/";
+        return origen;
+    }
+
+    // ── Pestaña "Configurar" del CoreX-ECU embebido ────────────────────────
+    // Réplica local de AbrirEcuConfig/CerrarEcuConfig de MainWindow: el panel
+    // pide un slot (OnConfigOpen) y ahí se monta un WebView propio con
+    // corex-ecu.html?widget=1; al salir de la pestaña (o del módulo) se
+    // destruye — no se deja a Chromium pintando abajo de otra vista.
+
+    private void AbrirEcuConfigEmbebida(Panel slot)
+    {
+        if (App.WebViewHost == null) return;
+        try
+        {
+            if (_ecuWeb == null)
+            {
+                _ecuWeb = App.WebViewHost.Create(_ => { });
+                slot.Children.Add(_ecuWeb.Control);
+            }
+            _ecuWeb.Navigate(OrigenHub() + "pages/corex-ecu.html?widget=1");
+        }
+        catch (Exception ex)
+        {
+            Aviso?.Invoke(PilotX.Cockpit.Bars.Traductor.T("No se pudo abrir el módulo") + ": " + ex.Message);
+        }
+    }
+
+    private void CerrarEcuConfigEmbebida()
+    {
+        if (_ecuWeb == null) return;
+        try
+        {
+            var wv = _ecuWeb;
+            _ecuWeb = null;
+            if (wv.Control.Parent is Panel padre) padre.Children.Remove(wv.Control);
+            wv.Destroy();
+        }
+        catch { _ecuWeb = null; }
+    }
 
     // =======================================================================
     //  Botones del shell
@@ -804,8 +1354,11 @@ public partial class ConfigPanel : UserControl
     {
         // Si el ✕ llega con un módulo HTML abierto, primero vaciarlo: un
         // WebView2 con página cargada sigue dibujando sobre el mapa aunque el
-        // panel se oculte (airspace del control nativo).
+        // panel se oculte (airspace del control nativo). Y si lo abierto es un
+        // panel nativo embebido, su Detach (motores incluidos) va acá también
+        // — el Detach del shell lo repetiría, pero mejor no depender del host.
         OcultarHtmlEmbebido();
+        OcultarModuloNativo();
         OnRequestCerrar?.Invoke();
     }
 
