@@ -756,11 +756,15 @@ public partial class MainWindow : Window
             // (aceptar/ignorar/renombrar/eliminar/pin del implemento) y el
             // diagnostico MQTT (wildcard + log) son NATIVAS. Lo unico que
             // sigue saliendo por WebView son las OTRAS paginas: el detalle
-            // del nodo y el asistente de primera vez.
+            // del nodo y el asistente de primera vez — en VENTANA-DIALOGO
+            // acotada, no a pantalla completa (doctrina 2026-08-17: ningun
+            // "abrir" desde un panel puede comerse toda la pantalla).
             _nodosHost.OnRequestCerrar = () => CloseNodos();
             _nodosHost.OnRequestDetalle = uid =>
-                NavigateTo("pages/nodo-detalle.html?uid=" + Uri.EscapeDataString(uid ?? string.Empty));
-            _nodosHost.OnRequestAsistente = () => NavigateTo("pages/setup.html");
+                OpenDialogPage("pages/nodo-detalle.html?uid=" + Uri.EscapeDataString(uid ?? string.Empty),
+                               "Detalle del nodo", 860, 620);
+            _nodosHost.OnRequestAsistente = () =>
+                OpenDialogPage("pages/setup.html", "Asistente de primera vez", 980, 680);
             // "Configurar" de una fila abre el PANEL NATIVO del producto, no la
             // pagina: si el nodo es un QuantiX, va al QuantiX de siempre.
             _nodosHost.OnRequestConfigurarProducto = producto =>
@@ -815,9 +819,13 @@ public partial class MainWindow : Window
         }
         if (_sectionXHost != null)
         {
-            // Mismo patron: el editor (mapeo surcos->secciones, test reles,
-            // debug MQTT) sigue en HTML — abre WebView lazy on-demand.
-            _sectionXHost.OnRequestConfigurar = () => NavigateTo("pages/sectionx.html");
+            // El editor (mapeo surcos->secciones, test reles, debug MQTT)
+            // sigue en HTML, pero en VENTANA-DIALOGO acotada con titulo y ✕
+            // — MISMO patron que Camaras. Era el ultimo Configurar que
+            // navegaba a pantalla completa: "toco Configurar y se abre una
+            // ventana que ocupa toda la pantalla" (reporte 2026-08-17).
+            _sectionXHost.OnRequestConfigurar = () =>
+                OpenDialogPage("pages/sectionx.html", "SectionX — Configurar", 980, 680);
         }
         if (_quantiXHost != null)
         {
@@ -851,7 +859,8 @@ public partial class MainWindow : Window
             _vistaXEditorHost.OnRequestMonitor = () => { CloseVistaXEditor(); ShowVistaX(); };
             // Los paneles no navegan solos: el catalogo de insumos y la
             // geometria del implemento son pantallas propias del Hub.
-            _vistaXEditorHost.OnRequestAbrirInsumos       = () => NavigateTo("pages/insumos.html");
+            _vistaXEditorHost.OnRequestAbrirInsumos       = () =>
+                OpenDialogPage("pages/insumos.html", "Catálogo de insumos", 980, 680);
             // Secciones ES nativa desde la ola 3b: mandarla al WebView dejaba dos
             // pantallas distintas para la MISMA config segun por donde se entrara
             // (menu -> nativa, VistaX -> Chromium), con el riesgo de que una
@@ -5755,9 +5764,12 @@ public partial class MainWindow : Window
     private void OnNavCoreX    (object? s, RoutedEventArgs e) => ShowCoreXEcu();
     private void OnNavNodos    (object? s, RoutedEventArgs e) => ShowNodos();
     private void OnNavActualizar(object? s, RoutedEventArgs e) => ShowActualizar();
-    private void OnNavFirmwares(object? s, RoutedEventArgs e) => NavigateTo("pages/firmwares.html");
-    private void OnNavOrbitX   (object? s, RoutedEventArgs e) => NavigateTo("pages/orbitx.html");
-    private void OnNavDebug    (object? s, RoutedEventArgs e) => NavigateTo("pages/debug.html");
+    // Firmwares / OrbitX / Debug siguen en HTML pero en VENTANA-DIALOGO
+    // acotada, no a pantalla completa (doctrina 2026-08-17). Eran los ultimos
+    // NavigateTo directos junto con el Configurar de SectionX.
+    private void OnNavFirmwares(object? s, RoutedEventArgs e) => OpenDialogPage("pages/firmwares.html", "Firmwares", 900, 640);
+    private void OnNavOrbitX   (object? s, RoutedEventArgs e) => OpenDialogPage("pages/orbitx.html",    "OrbitX Cloud", 900, 640);
+    private void OnNavDebug    (object? s, RoutedEventArgs e) => OpenDialogPage("pages/debug.html",     "Debug", 980, 680);
 
     private void NavigateTo(string relativePath)
     {
