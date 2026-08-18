@@ -347,7 +347,7 @@ public partial class ConfigPanel : UserControl
 
     /// <summary>
     /// Abre la Configuración PARADA en un módulo HTML embebido (misma tarjeta,
-    /// mismo ✕, mismo menú al costado). Es la puerta que usa MainWindow para
+    /// mismo ✕, mismas tabs arriba). Es la puerta que usa MainWindow para
     /// los "Configurar" de los paneles (SectionX, Nodos, Insumos, Firmwares…):
     /// antes cada uno abría su propia ventana-diálogo suelta.
     /// Llamar SIEMPRE después de Attach (ShowConfig ya lo garantiza): si el
@@ -837,7 +837,7 @@ public partial class ConfigPanel : UserControl
 
     /// <summary>
     /// Muestra un módulo HTML DENTRO de esta tarjeta (mismo tamaño, mismo ✕,
-    /// mismo menú al costado). Reemplaza al viejo camino que cerraba el panel
+    /// mismas tabs arriba). Reemplaza al viejo camino que cerraba el panel
     /// y abría el WebView a pantalla completa sin salida.
     /// Si no hay backend de WebView (build sin Chromium) avisa y no hace nada.
     /// </summary>
@@ -1023,7 +1023,7 @@ public partial class ConfigPanel : UserControl
     /// muestra el contenido EN EL ÁREA DE CONTENIDO de esta tarjeta — panel
     /// nativo embebido si existe, página del Hub embebida si no. Nunca abre
     /// otra ventana ni cierra la Configuración (réplica del iframe del
-    /// original: el menú queda siempre a la izquierda).</summary>
+    /// original: las tabs quedan siempre arriba).</summary>
     private void MostrarModulo(CfgNav nav)
     {
         // Un módulo solo-HTML sin navegador embebido no puede mostrarse: se
