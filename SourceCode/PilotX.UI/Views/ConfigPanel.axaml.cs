@@ -1,6 +1,14 @@
 // ============================================================================
 // ConfigPanel.axaml.cs — shell nativo de la Configuración (porteo de
-// pages/config.html: menú lateral en acordeón + pestañas + footer).
+// pages/config.html: navegación por TABS en dos filas + pestañas + footer).
+//
+// Desde el 2026-08-18 la navegación ya NO es el menú lateral en acordeón:
+// son dos filas de tabs horizontales arriba del contenido — fila 1 los grupos
+// del NAV (Resumen … Mantenimiento), fila 2 las entradas del grupo activo,
+// fusionada con la barra de contexto (las pills de módulo siguen a la derecha,
+// siempre en el mismo lugar). Tocar un grupo abre su última entrada visitada
+// (o la primera). El NAV, IrATabAsync y toda la semántica de guardado quedan
+// tal cual: solo cambió el widget que los pinta.
 //
 // QUÉ QUEDÓ NATIVO: el contenedor entero (navegación, footer con
 // perfil/ancho/unidades, mensajes de estado, botón Guardar) y las pestañas ya
@@ -21,9 +29,9 @@
 // y "Otros › Tram" (ancho de trocha + las dos preferencias de trochas; la
 // CONSTRUCCIÓN de las huellas sobre el lote sigue en pages/tramline(s).html —
 // ver la cabecera de TramTab).
-// y — desde el 2026-08-17 — los MÓDULOS, que viven en el MISMO menú lateral
-// con los grupos y el orden del original (Otros › Sonidos, Módulos, Campo,
-// Herramientas, Cloud, Mantenimiento): ya no hay grilla intermedia "Módulos"
+// y — desde el 2026-08-17 — los MÓDULOS, que viven en las MISMAS tabs de
+// navegación con los grupos y el orden del original (Otros › Sonidos, Módulos,
+// Campo, Herramientas, Cloud, Mantenimiento): ya no hay grilla intermedia "Módulos"
 // (ModulosTab se eliminó — en el original ese paso no existía y obligaba a
 // 3-4 toques para algo que estaba a 2). Tocar un módulo muestra su contenido
 // EN EL ÁREA DE CONTENIDO de esta misma tarjeta: si tiene panel nativo se
@@ -190,11 +198,25 @@ public partial class ConfigPanel : UserControl
 
     private readonly Dictionary<string, ConfigTab> _tabs = new Dictionary<string, ConfigTab>(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _btns = new Dictionary<string, Button>(StringComparer.Ordinal);
-    private readonly Dictionary<string, Border> _grupos = new Dictionary<string, Border>(StringComparer.Ordinal);
-    private readonly Dictionary<string, StackPanel> _cuerpos = new Dictionary<string, StackPanel>(StringComparer.Ordinal);
+
+    /// <summary>Un grupo de la fila 1 de tabs. Para las entradas sueltas del
+    /// NAV (Resumen) el grupo es la entrada misma: su tab abre directo y la
+    /// fila 2 queda vacía (pero con el alto reservado).</summary>
+    private sealed class GrupoCfg
+    {
+        public string Clave = "";
+        public string Titulo = "";
+        public readonly List<CfgNav> Entradas = new List<CfgNav>();
+    }
+
+    private readonly List<GrupoCfg> _gruposNav = new List<GrupoCfg>();
+    private readonly Dictionary<string, Button> _btnsGrupo = new Dictionary<string, Button>(StringComparer.Ordinal);
+    // Última entrada visitada de cada grupo (solo en memoria): re-tocar el
+    // grupo vuelve ahí, no siempre a la primera. No se persiste a propósito.
+    private readonly Dictionary<string, string> _ultimaDeGrupo = new Dictionary<string, string>(StringComparer.Ordinal);
+    private string _grupoPintado = "";  // grupo cuyas entradas cuelgan en EntradasHost
 
     private string _tabActiva = "summary";
-    private string _grupoAbierto = "";
     private bool _navegando;
 
     // ── Módulo HTML embebido (ver el comentario del Grid en el .axaml) ──
@@ -275,7 +297,7 @@ public partial class ConfigPanel : UserControl
         _ctx.AbrirHtml = r => OnRequestHtml?.Invoke(r);
         _ctx.AbrirHtmlEmbebido = (r, t) => MostrarHtmlEmbebido(r, PilotX.Cockpit.Bars.Traductor.T(t));
         _ctx.AbrirPanelNativo = c => OnRequestPanelNativo?.Invoke(c);
-        ArmarMenu();
+        ArmarTabs();
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
@@ -313,7 +335,7 @@ public partial class ConfigPanel : UserControl
         if (_cts != null)
         {
             if (destino != _tabActiva) _ = MostrarTabAsync(destino);
-            else PintarMenu();
+            else PintarTabs();
             return;
         }
 
@@ -340,8 +362,7 @@ public partial class ConfigPanel : UserControl
     {
         var nav = NavDeRuta(ruta);
         _tabActiva = nav?.Tab ?? "";
-        if (nav != null && !string.IsNullOrEmpty(nav.Grupo)) _grupoAbierto = nav.Grupo;
-        PintarMenu();
+        PintarTabs();
         string sub = PilotX.Cockpit.Bars.Traductor.T(subtitulo);
         if (!_arranqueListo)
         {
@@ -415,7 +436,7 @@ public partial class ConfigPanel : UserControl
                     var (ruta, sub) = _moduloPendiente.Value;
                     _moduloPendiente = null;
                     PilotX.Cockpit.Bars.Traductor.Aplicar(this);
-                    PintarMenu();
+                    PintarTabs();
                     MostrarHtmlEmbebido(ruta, sub);
                 }
                 else
@@ -563,63 +584,93 @@ public partial class ConfigPanel : UserControl
     }
 
     // =======================================================================
-    //  Menú lateral (acordeón, como el #menu del HTML)
+    //  Tabs de navegación (dos filas: grupos arriba, entradas en la barra de
+    //  contexto — reemplazo del menú lateral en acordeón, 2026-08-18)
     // =======================================================================
 
-    private void ArmarMenu()
+    private void ArmarTabs()
     {
-        var host = this.FindControl<StackPanel>("MenuHost");
-        if (host == null) return;
-        host.Children.Clear();
+        var hostGrupos = this.FindControl<StackPanel>("GruposHost");
+        if (hostGrupos == null) return;
+        hostGrupos.Children.Clear();
         _btns.Clear();
-        _grupos.Clear();
-        _cuerpos.Clear();
+        _btnsGrupo.Clear();
+        _gruposNav.Clear();
 
+        // Mismos grupos y mismo orden que el NAV. Las entradas sueltas
+        // (Resumen) son un grupo de una sola entrada: su tab de fila 1 abre
+        // directo y la fila 2 queda vacía, con el alto reservado.
         foreach (var nav in NAV)
         {
-            var b = BotonMenu(nav);
-            _btns[nav.Tab] = b;
-
-            if (string.IsNullOrEmpty(nav.Grupo))
+            string clave = string.IsNullOrEmpty(nav.Grupo) ? nav.Tab : nav.Grupo;
+            var grupo = _gruposNav.Find(g => g.Clave == clave);
+            if (grupo == null)
             {
-                // "Resumen" vive suelto arriba, fuera del acordeón (igual que
-                // en el HTML: abrirGrupoActivo lo ignora).
-                host.Children.Add(b);
-                continue;
+                grupo = new GrupoCfg
+                {
+                    Clave = clave,
+                    Titulo = string.IsNullOrEmpty(nav.Grupo) ? nav.Titulo : nav.Grupo,
+                };
+                _gruposNav.Add(grupo);
+                var bg = BotonGrupo(grupo);
+                _btnsGrupo[clave] = bg;
+                hostGrupos.Children.Add(bg);
             }
-
-            if (!_cuerpos.TryGetValue(nav.Grupo, out var cuerpo))
-            {
-                host.Children.Add(TituloGrupo(nav.Grupo));
-                cuerpo = new StackPanel { Spacing = 2, IsVisible = false };
-                _cuerpos[nav.Grupo] = cuerpo;
-                host.Children.Add(cuerpo);
-            }
-            cuerpo.Children.Add(b);
+            grupo.Entradas.Add(nav);
+            _btns[nav.Tab] = BotonEntrada(nav);
         }
 
         // Ya no hay fila "Módulos" ni grilla intermedia: los módulos son
-        // entradas directas del acordeón (grupos Módulos, Campo, Herramientas,
+        // entradas directas de sus grupos (Módulos, Campo, Herramientas,
         // Cloud y Mantenimiento, más Sonidos en Otros), igual que en el menú
         // del original — un grupo y un toque, no una pantalla en el medio.
-        PintarMenu();
+        PintarTabs();
     }
 
-    private Button BotonMenu(CfgNav nav)
+    /// <summary>Tab de la fila 1 (un grupo). Compacto para que los 11 entren
+    /// enteros en 976 px de card; el activo se marca con fondo suave verde +
+    /// subrayado de acento (peso tipográfico constante: cambiar a bold movería
+    /// los anchos y la fila entera bailaría al navegar).</summary>
+    private Button BotonGrupo(GrupoCfg grupo)
+    {
+        var b = new Button
+        {
+            Content = PilotX.Cockpit.Bars.Traductor.T(grupo.Titulo),
+            MinHeight = 44,
+            Padding = new Thickness(10, 4, 10, 4),
+            Background = Brushes.Transparent,
+            Foreground = CfgUi.TextoMuted,
+            BorderBrush = Brushes.Transparent,
+            BorderThickness = new Thickness(0, 0, 0, 3),
+            CornerRadius = new CornerRadius(8, 8, 0, 0),
+            FontSize = 12,
+            FontWeight = FontWeight.SemiBold,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Cursor = new Cursor(StandardCursorType.Hand),
+        };
+        string clave = grupo.Clave;
+        b.Click += (_, __) => AlTocarGrupo(clave);
+        return b;
+    }
+
+    /// <summary>Pill de la fila 2 (una entrada del grupo activo). Mismo alto
+    /// táctil que la fila 1, estilo más liviano.</summary>
+    private Button BotonEntrada(CfgNav nav)
     {
         var b = new Button
         {
             Content = PilotX.Cockpit.Bars.Traductor.T(nav.Titulo),
             MinHeight = 44,
-            Padding = new Thickness(10, 6, 10, 6),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(12, 4, 12, 4),
             Background = Brushes.Transparent,
-            Foreground = CfgUi.Texto,
-            BorderThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(8),
-            FontSize = 13,
+            Foreground = CfgUi.TextoMuted,
+            BorderBrush = CfgUi.BordeSuave,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(999),
+            FontSize = 12,
             FontWeight = FontWeight.SemiBold,
+            VerticalContentAlignment = VerticalAlignment.Center,
             Cursor = new Cursor(StandardCursorType.Hand),
         };
         string tab = nav.Tab;
@@ -627,50 +678,84 @@ public partial class ConfigPanel : UserControl
         return b;
     }
 
-    private Border TituloGrupo(string grupo)
+    /// <summary>Tocar un grupo abre su última entrada visitada (o la primera).
+    /// La navegación real pasa por IrATabAsync: si el guardado de la pestaña
+    /// actual falla, no se navega y las tabs no cambian de marca.</summary>
+    private void AlTocarGrupo(string clave)
     {
-        var txt = new TextBlock
-        {
-            Text = PilotX.Cockpit.Bars.Traductor.T(grupo).ToUpperInvariant(),
-            Foreground = CfgUi.TextoMuted, FontSize = 11, FontWeight = FontWeight.Bold,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        var borde = new Border
-        {
-            Background = Brushes.Transparent,
-            BorderBrush = CfgUi.BordeSuave, BorderThickness = new Thickness(0, 1, 0, 0),
-            Padding = new Thickness(8, 10, 8, 10),
-            MinHeight = 40,
-            CornerRadius = new CornerRadius(8),
-            Cursor = new Cursor(StandardCursorType.Hand),
-            Child = txt,
-        };
-        string g = grupo;
-        borde.Tapped += (_, __) => AlternarGrupo(g);
-        _grupos[grupo] = borde;
-        return borde;
+        var grupo = _gruposNav.Find(g => g.Clave == clave);
+        if (grupo == null || grupo.Entradas.Count == 0) return;
+        string destino = _ultimaDeGrupo.TryGetValue(clave, out var ult) && BuscarNav(ult) != null
+            ? ult
+            : grupo.Entradas[0].Tab;
+        _ = IrATabAsync(destino);
     }
 
-    private void AlternarGrupo(string grupo)
+    /// <summary>Grupo (de la fila 1) al que pertenece una tab. "" = ninguna
+    /// fila marcada (p. ej. una página satélite sin entrada propia).</summary>
+    private static string GrupoClaveDe(string tab)
     {
-        _grupoAbierto = _grupoAbierto == grupo ? "" : grupo;
-        PintarMenu();
+        var n = BuscarNav(tab);
+        if (n == null) return "";
+        return string.IsNullOrEmpty(n.Grupo) ? n.Tab : n.Grupo;
     }
 
-    private void PintarMenu()
+    /// <summary>Repinta las dos filas de tabs según la entrada activa: marca
+    /// el grupo en la fila 1, cuelga sus entradas en la fila 2 (vacía si el
+    /// grupo es directo, tipo Resumen — el alto lo reserva la barra) y marca
+    /// la entrada activa. También anota la última visitada del grupo.</summary>
+    private void PintarTabs()
     {
+        string grupoActivo = GrupoClaveDe(_tabActiva);
+        if (grupoActivo.Length != 0) _ultimaDeGrupo[grupoActivo] = _tabActiva;
+
+        foreach (var g in _gruposNav)
+        {
+            if (!_btnsGrupo.TryGetValue(g.Clave, out var b)) continue;
+            bool activo = g.Clave == grupoActivo;
+            b.Background = activo ? CfgUi.BgFilaSel : Brushes.Transparent;
+            b.BorderBrush = activo ? CfgUi.Verde : Brushes.Transparent;
+            b.Foreground = activo ? CfgUi.Texto : CfgUi.TextoMuted;
+        }
+
+        // Fila 2: solo se rearma cuando cambia el grupo (una página satélite
+        // sin fila propia deja la última fila 2 a la vista, con nada marcado).
+        string aPintar = grupoActivo.Length != 0 ? grupoActivo : _grupoPintado;
+        if (aPintar != _grupoPintado)
+        {
+            var host = this.FindControl<StackPanel>("EntradasHost");
+            if (host != null)
+            {
+                host.Children.Clear();
+                var g = _gruposNav.Find(x => x.Clave == aPintar);
+                if (g != null && g.Entradas.Count > 1)
+                    foreach (var e in g.Entradas)
+                        if (_btns.TryGetValue(e.Tab, out var be))
+                            host.Children.Add(be);
+            }
+            _grupoPintado = aPintar;
+        }
+
         foreach (var kv in _btns)
         {
             bool activa = kv.Key == _tabActiva;
             kv.Value.Background = activa ? CfgUi.BgFilaSel : Brushes.Transparent;
+            kv.Value.BorderBrush = activa ? CfgUi.Verde : CfgUi.BordeSuave;
             kv.Value.Foreground = activa ? CfgUi.Texto : CfgUi.TextoMuted;
-            kv.Value.FontWeight = activa ? FontWeight.Bold : FontWeight.SemiBold;
         }
-        foreach (var kv in _cuerpos)
-            kv.Value.IsVisible = kv.Key == _grupoAbierto;
-        foreach (var kv in _grupos)
-            ((TextBlock)kv.Value.Child!).Foreground =
-                kv.Key == _grupoAbierto ? CfgUi.Texto : CfgUi.TextoMuted;
+    }
+
+    /// <summary>Subtítulo de la barra de contexto. Con las tabs a la vista el
+    /// nombre de la entrada activa ya está marcado en la fila 2: el subtítulo
+    /// solo se muestra cuando dice algo DISTINTO (páginas satélite tipo
+    /// "Nodos — Detalle del nodo").</summary>
+    private void SetSubtitulo(string texto)
+    {
+        var st = this.FindControl<TextBlock>("SubtituloText");
+        if (st == null) return;
+        st.Text = texto;
+        st.IsVisible = !string.Equals(
+            texto, PilotX.Cockpit.Bars.Traductor.T(TituloDe(_tabActiva)), StringComparison.Ordinal);
     }
 
     // =======================================================================
@@ -741,7 +826,7 @@ public partial class ConfigPanel : UserControl
                 foreach (var n in NAV) if (n.Tab == tab) { titulo = n.Titulo; break; }
                 MostrarHtmlEmbebido("pages/config.html?tab=" + tab, titulo);
                 _tabActiva = tab;
-                PintarMenu();
+                PintarTabs();
                 return;
             }
 
@@ -806,8 +891,7 @@ public partial class ConfigPanel : UserControl
         host.IsVisible = true;
         scroll.IsVisible = false;
 
-        var st = this.FindControl<TextBlock>("SubtituloText");
-        if (st != null) st.Text = subtitulo;
+        SetSubtitulo(subtitulo);
         var g = this.FindControl<Button>("BtnGuardar");
         if (g != null) g.IsVisible = false;   // cada módulo guarda lo suyo
     }
@@ -839,10 +923,9 @@ public partial class ConfigPanel : UserControl
         OcultarModuloNativo();
         _tabActiva = tab;
 
-        // Dejar abierto el grupo de la pestaña activa (abrirGrupoActivo del HTML).
-        foreach (var n in NAV)
-            if (n.Tab == tab && !string.IsNullOrEmpty(n.Grupo)) { _grupoAbierto = n.Grupo; break; }
-        PintarMenu();
+        // Marcar el grupo y la entrada activa en las dos filas de tabs (el
+        // "abrirGrupoActivo" del HTML: PintarTabs deriva el grupo de la tab).
+        PintarTabs();
 
         if (!_tabs.TryGetValue(tab, out var vista))
         {
@@ -870,8 +953,7 @@ public partial class ConfigPanel : UserControl
         // "Resumen" y el footer, con el ancho viejo).
         PilotX.Cockpit.Bars.Traductor.Aplicar(this);
 
-        var sub = this.FindControl<TextBlock>("SubtituloText");
-        if (sub != null) sub.Text = PilotX.Cockpit.Bars.Traductor.T(TituloDe(tab));
+        SetSubtitulo(PilotX.Cockpit.Bars.Traductor.T(TituloDe(tab)));
 
         SetEstado("", "");
         try { await vista.AlEntrarAsync().ConfigureAwait(true); } catch { }
@@ -957,8 +1039,7 @@ public partial class ConfigPanel : UserControl
         _moduloPendiente = null;
         _ = _ctx.Client?.TecladoAsync(false);
         _tabActiva = nav.Tab;
-        if (!string.IsNullOrEmpty(nav.Grupo)) _grupoAbierto = nav.Grupo;
-        PintarMenu();
+        PintarTabs();
 
         if (nav.ModClave != null) MostrarModuloNativo(nav);
         else MostrarHtmlEmbebido(nav.ModRuta!, PilotX.Cockpit.Bars.Traductor.T(nav.Titulo));
@@ -1017,8 +1098,7 @@ public partial class ConfigPanel : UserControl
         scroll.IsVisible = false;
         MostrarPillsContexto(panelKey);
 
-        var st = this.FindControl<TextBlock>("SubtituloText");
-        if (st != null) st.Text = PilotX.Cockpit.Bars.Traductor.T(nav.Titulo);
+        SetSubtitulo(PilotX.Cockpit.Bars.Traductor.T(nav.Titulo));
         var g = this.FindControl<Button>("BtnGuardar");
         if (g != null) g.IsVisible = false;   // cada módulo guarda lo suyo
     }

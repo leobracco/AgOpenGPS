@@ -3,14 +3,15 @@
              x:Class="PilotX.Desktop.Views.ConfigPanel">
     <!--
         ConfigPanel — SHELL nativo de la Configuración del vehículo/implemento
-        (el porteo de pages/config.html: menú lateral + pestañas + footer).
+        (el porteo de pages/config.html: tabs de navegación + pestañas + footer).
 
-        QUÉ QUEDÓ NATIVO: el contenedor (navegación por grupos, footer con
-        perfil/ancho/unidades, mensajes de estado, botón Guardar), las 16
-        pestañas de config y los MÓDULOS como entradas directas del acordeón
-        (grupos Módulos/Campo/Herramientas/Cloud/Mantenimiento + Sonidos en
-        Otros, mismo orden que el #menu de config.html — sin grilla
-        intermedia). Los módulos con pantalla propia (Hub, QuantiX, VistaX,
+        QUÉ QUEDÓ NATIVO: el contenedor (navegación por grupos en DOS FILAS de
+        tabs horizontales — grupos arriba, entradas del grupo activo en la
+        barra de contexto —, footer con perfil/ancho/unidades, mensajes de
+        estado, botón Guardar), las 16 pestañas de config y los MÓDULOS como
+        entradas directas de los grupos (Módulos/Campo/Herramientas/Cloud/
+        Mantenimiento + Sonidos en Otros, mismo orden que el #menu de
+        config.html — sin grilla intermedia). Los módulos con pantalla propia (Hub, QuantiX, VistaX,
         FlowX, SectionX, StormX, CoreX-ECU, Nodos, Cámaras, Prescripciones,
         Actualizar, Sistema, Sonidos) se montan como INSTANCIA PROPIA en
         ModuloNativoHost, adentro de esta misma tarjeta.
@@ -108,48 +109,71 @@
                     </Grid>
                 </Border>
 
-                <!-- ============ Menú lateral (el #menu del HTML, en acordeón) ============ -->
-                <Border DockPanel.Dock="Left" Background="#FFFFFF"
-                        BorderBrush="#E2E7E2" BorderThickness="0,0,1,0"
-                        Width="196" Padding="6,0,8,0">
-                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
-                                  VerticalScrollBarVisibility="Auto">
-                        <StackPanel Name="MenuHost" Spacing="2"/>
+                <!-- ============ Fila 1: TABS de grupos ============
+                     Reemplazo del menú lateral en acordeón (2026-08-18): la
+                     navegación va ARRIBA en dos filas — acá los grupos del NAV
+                     (Resumen, Vehículo, …, Mantenimiento) y las entradas del
+                     grupo activo en la barra de contexto de abajo. El
+                     contenido gana los ~196 px de la columna vieja. En 976 de
+                     card los 11 grupos entran enteros; si un idioma los
+                     alargara, la fila panea horizontal con el dedo (barra
+                     oculta, sin flechas). El activo se marca con fondo suave
+                     verde + subrayado de acento, nunca verde macizo. -->
+                <Border DockPanel.Dock="Top"
+                        BorderBrush="#E2E7E2" BorderThickness="0,0,0,1"
+                        Margin="0,0,0,8">
+                    <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Disabled">
+                        <StackPanel Name="GruposHost" Orientation="Horizontal" Spacing="2"/>
                     </ScrollViewer>
                 </Border>
 
                 <!-- ============ Contenido: pestaña nativa O módulo ============
                      ESQUELETO UNIFORME para todas las entradas (pestañas
                      nativas, módulos nativos embebidos y módulos HTML):
-                     · BarraContexto — fija arriba, de alto constante: a la
-                       izquierda el nombre de la entrada activa (SubtituloText,
-                       que antes vivía en el header) y a la derecha las pills
+                     · BarraContexto — fija arriba, de ALTO CONSTANTE (52):
+                       fusiona la FILA 2 de tabs con la vieja barra de
+                       contexto. A la izquierda las entradas del grupo activo
+                       (pills — la fila reserva SIEMPRE su espacio aunque el
+                       grupo tenga una sola entrada, como Resumen: nada salta
+                       de altura al navegar); en el medio el subtítulo
+                       (SubtituloText), que solo se muestra cuando dice algo
+                       DISTINTO de la entrada activa (páginas satélite tipo
+                       "Nodos — Detalle del nodo"); y a la derecha las pills
                        de estado/acciones del módulo (ContextoPills — cada
-                       panel embebido las entrega por PillsDeContexto());
+                       panel embebido las entrega por PillsDeContexto()),
+                       SIEMPRE en el mismo lugar;
                      · abajo, tres vistas excluyentes en el MISMO hueco y con
-                       el MISMO padding, con el menú siempre a la izquierda:
-                       TabScroll (pestañas nativas), HtmlHost (páginas del Hub
-                       por WebView) y ModuloNativoHost (paneles nativos como
-                       instancia propia). El scroll vive SIEMPRE acá adentro,
-                       nunca en la card entera.
+                       el MISMO padding: TabScroll (pestañas nativas),
+                       HtmlHost (páginas del Hub por WebView) y
+                       ModuloNativoHost (paneles nativos como instancia
+                       propia). El scroll vive SIEMPRE acá adentro, nunca en
+                       la card entera.
                      Nada abre otra ventana ni cierra esta tarjeta: antes los
                      módulos nativos saltaban a un overlay de pantalla completa
                      que escondía la Configuración (reportes 2026-08-16/17). -->
-                <DockPanel Margin="12,0,0,0">
+                <DockPanel>
                     <Border DockPanel.Dock="Top" Name="BarraContexto"
                             Background="#F5F7F4"
                             BorderBrush="#E2E7E2" BorderThickness="1"
                             CornerRadius="8" Height="52"
-                            Padding="12,4,8,4" Margin="0,0,6,8">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Name="SubtituloText"
+                            Padding="4,3,8,3" Margin="0,0,6,8">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <ScrollViewer Grid.Column="0"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled"
+                                          VerticalAlignment="Center">
+                                <StackPanel Name="EntradasHost" Orientation="Horizontal" Spacing="4"/>
+                            </ScrollViewer>
+                            <TextBlock Grid.Column="1" Name="SubtituloText"
                                        Text="Resumen"
                                        Foreground="#101612"
-                                       FontSize="14" FontWeight="SemiBold"
+                                       FontSize="13" FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis"
+                                       MaxWidth="300"
                                        VerticalAlignment="Center"
-                                       Margin="0,0,10,0"/>
-                            <StackPanel Grid.Column="1" Name="ContextoPills"
+                                       Margin="10,0,10,0"/>
+                            <StackPanel Grid.Column="2" Name="ContextoPills"
                                         Orientation="Horizontal" Spacing="8"
                                         VerticalAlignment="Center"/>
                         </Grid>
