@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -34,6 +35,14 @@ namespace AgroParallel.Services
     {
         public List<WifiRedInfo> Escanear()
         {
+            // netsh lista el CACHE del ultimo escaneo de Windows, y conectado
+            // Windows no re-escanea solo: la pagina mostraba UNA red (la
+            // conectada) aunque hubiera cinco en el aire (reporte 2026-08-18;
+            // medido en banco: 1 red sin scan, 5 con scan). Se fuerza el
+            // escaneo con la API nativa — lo mismo que hace el panel de
+            // Windows al abrirse — y recien despues se parsea.
+            ForzarScanNativo();
+
             var redes = new List<WifiRedInfo>();
             string salida = RunNetsh("wlan show networks mode=bssid") ?? "";
 
@@ -163,6 +172,73 @@ namespace AgroParallel.Services
             RunNetsh("wlan disconnect");
             return true;
         }
+
+        // ---- escaneo forzado (wlanapi) ------------------------------------
+        // WlanScan puebla los resultados de forma asincrona: se espera un
+        // ratito fijo (3 s alcanza en la practica). Throttle de 30 s: la
+        // pagina puede pollear la lista y escanear en cada poll corta el
+        // trafico de la propia WiFi un instante — con una vez cada 30 s la
+        // lista queda fresca igual.
+        private static DateTime _ultimoScan = DateTime.MinValue;
+        private static readonly object _scanLock = new object();
+
+        private static void ForzarScanNativo()
+        {
+            // RuntimeInformation y no OperatingSystem.IsWindows: este proyecto
+            // tambien compila para net48, que no lo tiene.
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+            lock (_scanLock)
+            {
+                if ((DateTime.UtcNow - _ultimoScan) < TimeSpan.FromSeconds(30)) return;
+                _ultimoScan = DateTime.UtcNow;
+            }
+            try
+            {
+                if (WlanOpenHandle(2, IntPtr.Zero, out _, out IntPtr h) != 0) return;
+                try
+                {
+                    if (WlanEnumInterfaces(h, IntPtr.Zero, out IntPtr lista) != 0) return;
+                    bool pedido = false;
+                    try
+                    {
+                        int n = Marshal.ReadInt32(lista);
+                        int sz = Marshal.SizeOf<WlanInterfaceInfo>();
+                        for (int i = 0; i < n; i++)
+                        {
+                            var fi = Marshal.PtrToStructure<WlanInterfaceInfo>(
+                                IntPtr.Add(lista, 8 + i * sz));
+                            var g = fi.Guid;
+                            if (WlanScan(h, ref g, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero) == 0)
+                                pedido = true;
+                        }
+                    }
+                    finally { WlanFreeMemory(lista); }
+                    if (pedido) Thread.Sleep(3000);
+                }
+                finally { WlanCloseHandle(h, IntPtr.Zero); }
+            }
+            catch { /* sin wlanapi (VM sin WiFi): la lista sale del cache, como antes */ }
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct WlanInterfaceInfo
+        {
+            public Guid Guid;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+            public string Descripcion;
+            public int Estado;
+        }
+
+        [DllImport("wlanapi.dll")]
+        private static extern uint WlanOpenHandle(uint version, IntPtr res, out uint negociada, out IntPtr handle);
+        [DllImport("wlanapi.dll")]
+        private static extern uint WlanCloseHandle(IntPtr handle, IntPtr res);
+        [DllImport("wlanapi.dll")]
+        private static extern uint WlanEnumInterfaces(IntPtr handle, IntPtr res, out IntPtr lista);
+        [DllImport("wlanapi.dll")]
+        private static extern void WlanFreeMemory(IntPtr p);
+        [DllImport("wlanapi.dll")]
+        private static extern uint WlanScan(IntPtr handle, ref Guid ifaz, IntPtr ssid, IntPtr ie, IntPtr res);
 
         // Corre netsh en un cmd con chcp 65001 para que la salida venga UTF-8
         // (sin esto, los SSID con ñ/acentos llegan rotos por el codepage OEM).
