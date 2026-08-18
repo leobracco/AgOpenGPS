@@ -1091,10 +1091,10 @@ public partial class ConfigPanel : UserControl
         {
             case "hub":
             {
-                // Nota: los KPIs del Hub los alimenta MainWindow por push del
-                // HudSnapshot en el overlay suelto; acá adentro no hay push,
-                // así que muestran el último valor. La lista de nodos y los
-                // toggles de overlays sí van con red propia (Attach).
+                // Los KPIs del Hub los alimenta el HudSnapshot: MainWindow se
+                // lo reenvía a esta instancia vía OnSnapshot() (abajo). La
+                // lista de nodos y los toggles de overlays van con red propia
+                // (Attach).
                 var h = new HubPanel();
                 h.OnRequestQuantix  = () => _ = IrATabAsync("mod_quantix");
                 h.OnRequestVistax   = () => _ = IrATabAsync("mod_vistax");
@@ -1227,6 +1227,27 @@ public partial class ConfigPanel : UserControl
         }
         _modPaneles[key] = p;
         return p;
+    }
+
+    /// <summary>
+    /// MainWindow reenvía acá el HudSnapshot (4Hz, ya en el hilo de UI) cuando
+    /// la Configuración está visible. Los paneles embebidos que viven de datos
+    /// EMPUJADOS —la grilla de secciones de SectionX y los KPIs del Hub— son
+    /// instancias PROPIAS (nunca el overlay de MainWindow), así que sin este
+    /// reenvío quedaban en blanco/"--" para siempre: nadie los alimentaba.
+    /// Los demás paneles embebidos (QuantiX, VistaX, FlowX, StormX, Nodos,
+    /// CoreX-ECU…) tienen poller HTTP propio vía Attach y no lo necesitan.
+    /// </summary>
+    public void OnSnapshot(HudSnapshot s)
+    {
+        try
+        {
+            if (_modActivo == "sectionx" && _modPaneles.TryGetValue("sectionx", out var sx))
+                ((SectionXPanel)sx).OnSnapshot(s);
+            else if (_modActivo == "hub" && _modPaneles.TryGetValue("hub", out var h))
+                ((HubPanel)h).OnSnapshot(s);
+        }
+        catch { /* un HUD perdido no puede tirar el shell de la Config */ }
     }
 
     /// <summary>Cuelga en la barra de contexto las pills que entregó el panel

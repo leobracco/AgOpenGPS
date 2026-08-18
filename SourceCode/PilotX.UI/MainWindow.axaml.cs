@@ -5702,6 +5702,12 @@ public partial class MainWindow : Window
             // se alimentan del HUD sin red propia.
             if (_hubHost != null && _hubHost.IsVisible)
                 _hubHost.OnSnapshot(s);
+            // Config › Módulos: los paneles embebidos que viven de datos
+            // empujados (grilla de SectionX, KPIs del Hub) son instancias
+            // propias del shell de la Config — sin este reenvío quedaban en
+            // blanco para siempre. ConfigPanel filtra por el módulo activo.
+            if (_configHost != null && _configHost.IsVisible)
+                _configHost.OnSnapshot(s);
 
             _hudWasConnected = true;
         });

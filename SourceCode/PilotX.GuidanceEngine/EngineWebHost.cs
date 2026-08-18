@@ -68,6 +68,9 @@ namespace AgOpenGPS
         private AgroParallel.Services.SonidosAlarmService _sonidos;
         private AgroParallel.QuantiX.QuantiXMotorBridge _quantixBridge;
         private System.Threading.Timer _quantixRetry;
+        private AgroParallel.Cut.CutDispatcher _cutDispatcher;
+        private AgroParallel.SectionX.SectionsSpeedPublisher _sectionsSpeed;
+        private System.Threading.Timer _cutRetry;
 
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
@@ -333,6 +336,62 @@ namespace AgOpenGPS
                 }
             }, null, 2000, 30000);
 
+            // Despachador de corte unificado (SectionX relays + LineX servo) +
+            // publisher de velocidad por sección (agp/aog/sections_speed @5Hz,
+            // lo consumen QuantiX/FlowX/VistaX). En FormGPS los instanciaba el
+            // Load() del form — acá no los arrancaba NADIE desde que el stack
+            // WinForms se eliminó (2026-08-14): CutDispatcher.Current quedaba
+            // null, /api/sectionx/status devolvía connected=false y la UI
+            // mostraba "broker caído" con el broker vivo, y los relés de corte
+            // nunca recibían órdenes. El dispatcher arranca SIEMPRE (sin gate
+            // enabled/nodos): cada adapter se auto-filtra por su config.
+            try
+            {
+                var sxAdapter = new AgroParallel.Cut.SectionXCutAdapter
+                {
+                    // Tren derivado del implemento central, con fallback al
+                    // campo manual por nodo si no hay dato derivable.
+                    ImplementoProvider = () => implemento.GetImplemento()
+                };
+                _cutDispatcher = new AgroParallel.Cut.CutDispatcher(
+                    state,
+                    new AgroParallel.Cut.ICutAdapter[]
+                    {
+                        sxAdapter,
+                        new AgroParallel.Cut.LineXCutAdapter()
+                    });
+                _sectionsSpeed = new AgroParallel.SectionX.SectionsSpeedPublisher(state);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] CutDispatcher: " + ex.Message);
+            }
+
+            // Vigilante cada 15 s (primer tick al segundo): StartAsync sale en
+            // silencio si el broker todavía no levantó y NO reintenta solo, así
+            // que acá se insiste hasta conectar; y si el broker se cae después
+            // de conectar (DisconnectedAsync baja MqttConnected), se baja limpio
+            // y se rearranca cuando vuelva. Mismo patrón que _quantixRetry.
+            _cutRetry = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    if (_cutDispatcher != null)
+                    {
+                        if (_cutDispatcher.IsRunning && !_cutDispatcher.MqttConnected)
+                            _cutDispatcher.Stop();
+                        if (!_cutDispatcher.IsRunning)
+                            _ = _cutDispatcher.StartAsync();
+                    }
+                    if (_sectionsSpeed != null && !_sectionsSpeed.IsRunning)
+                        _ = _sectionsSpeed.StartAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("[Engine] CutDispatcher retry: " + ex.Message);
+                }
+            }, null, 1000, 15000);
+
             // Vigilante de la vinculación: si el sync no corre (arrancó con
             // enabled=false o sin token — el caso REAL: el motor arranca sin
             // vincular y el operario vincula DESPUÉS desde la pantalla OrbitX,
@@ -370,6 +429,14 @@ namespace AgOpenGPS
             // para su propio orbitXSync.Stop() en el shutdown).
             try { _quantixRetry?.Dispose(); } catch { }
             _quantixRetry = null;
+            try { _cutRetry?.Dispose(); } catch { }
+            _cutRetry = null;
+            // Dispose llama Stop(), que manda el all-off a los relés antes de
+            // soltar el MQTT: las secciones no quedan abiertas al apagar.
+            try { _cutDispatcher?.Dispose(); } catch { }
+            _cutDispatcher = null;
+            try { _sectionsSpeed?.Dispose(); } catch { }
+            _sectionsSpeed = null;
             try { _quantixBridge?.Stop(); } catch { }
             _quantixBridge = null;
             try { _orbitxRetry?.Dispose(); } catch { }

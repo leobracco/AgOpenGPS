@@ -106,6 +106,17 @@ namespace AgroParallel.Cut
                 var vCfg = VistaXConfig.Load();
                 var factory = new MqttFactory();
                 _mqtt = factory.CreateMqttClient();
+                // Si el broker se cae después de conectar, _connected tiene que
+                // bajar: es lo que reporta GetStatus() al chip de la UI, y un
+                // "conectado" que miente es peor que ninguno. El rearranque lo
+                // hace el vigilante del host (EngineWebHost._cutRetry).
+                _mqtt.DisconnectedAsync += e =>
+                {
+                    if (_connected)
+                        Log("MQTT desconectado" + (e.Exception != null ? ": " + e.Exception.Message : ""));
+                    _connected = false;
+                    return Task.CompletedTask;
+                };
                 var opts = new MqttClientOptionsBuilder()
                     .WithTcpServer(
                         string.IsNullOrEmpty(vCfg.BrokerAddress) ? "127.0.0.1" : vCfg.BrokerAddress,

@@ -19,10 +19,14 @@ namespace PilotX.Desktop.Services;
 
 public sealed class SectionXStatus
 {
-    [JsonPropertyName("connected")]        public bool   Connected         { get; set; }
-    [JsonPropertyName("running")]          public bool   Running           { get; set; }
-    [JsonPropertyName("nodoCount")]        public int    NodoCount         { get; set; }
-    [JsonPropertyName("lastPublishMsAgo")] public double? LastPublishMsAgo { get; set; }
+    // OJO: el wire es snake_case (AgpControllerBase → SnakeCaseLower) y el
+    // case-insensitive de System.Text.Json NO cubre underscores: con
+    // "nodoCount"/"lastPublishMsAgo" acá, nodo_count y last_publish_ms_ago
+    // del motor caían al vacío y el panel decía "sin nodos" para siempre.
+    [JsonPropertyName("connected")]           public bool    Connected        { get; set; }
+    [JsonPropertyName("running")]             public bool    Running          { get; set; }
+    [JsonPropertyName("nodo_count")]          public int     NodoCount        { get; set; }
+    [JsonPropertyName("last_publish_ms_ago")] public double? LastPublishMsAgo { get; set; }
 }
 
 public sealed class SectionXClient

@@ -136,7 +136,9 @@ public partial class SectionXPanel : UserControl, IPanelEmbebible
         IBrush dot; string label;
         if (_status == null)
         {
-            dot = _brushDim; label = "sin datos";
+            // Todavía sin respuesta del motor (o el pedido falló): no se sabe
+            // nada, y decir "caído" sin saber es mentirle al operario.
+            dot = _brushDim; label = "conectando...";
         }
         else if (!_status.Connected)
         {
