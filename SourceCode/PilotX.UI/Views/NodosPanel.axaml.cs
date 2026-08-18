@@ -157,6 +157,12 @@ public partial class NodosPanel : UserControl, IPanelEmbebible
         PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
     }
 
+    /// <summary>Las pills online/offline, broker e implemento y el botón
+    /// "Asistente" van a la barra de contexto del shell; la fila de cabecera
+    /// vieja queda oculta (el ✕ propio adentro ya está oculto).</summary>
+    public Control? PillsDeContexto()
+        => PanelEmbebido.FilaDeContexto(this.FindControl<StackPanel>("HeaderPills"));
+
     // =========================================================================
     //  ciclo de vida
     // =========================================================================

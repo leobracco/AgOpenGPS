@@ -64,9 +64,18 @@ public partial class SectionXPanel : UserControl, IPanelEmbebible
     {
         PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
         PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        // Margin 0: el padding del área de contenido lo pone el shell de la
+        // Configuración, igual para todas las entradas.
         var raiz = this.FindControl<StackPanel>("ContenidoRaiz");
-        if (raiz != null) { raiz.Margin = new Thickness(10); raiz.Spacing = 12; }
+        if (raiz != null) { raiz.Margin = new Thickness(0); raiz.Spacing = 12; }
     }
+
+    /// <summary>La pill del bridge y el botón "Configurar" van a la barra de
+    /// contexto del shell; la fila de cabecera vieja queda oculta.</summary>
+    public Control? PillsDeContexto()
+        => PanelEmbebido.FilaDeContexto(
+            this.FindControl<Border>("HeaderPill"),
+            this.FindControl<Button>("BtnConfigurar"));
 
     /// <summary>Arranca el polling 1Hz al /api/sectionx/status.</summary>
     public void Attach(SectionXClient client)

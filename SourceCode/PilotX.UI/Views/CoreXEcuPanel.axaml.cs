@@ -79,6 +79,13 @@ public partial class CoreXEcuPanel : UserControl, IPanelEmbebible
         PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
     }
 
+    /// <summary>La pill de conexión con el ECU va a la barra de contexto del
+    /// shell. OJO: acá NO se esconde la fila de cabecera (Desprender, no
+    /// FilaDeContexto) — las tabs En vivo/Configurar viven en esa misma fila
+    /// y son el contenido del panel.</summary>
+    public Control? PillsDeContexto()
+        => PanelEmbebido.Desprender(this.FindControl<Border>("HeaderPill"));
+
     public void Attach(CoreXEcuClient client)
     {
         _client = client;

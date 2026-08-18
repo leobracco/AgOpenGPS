@@ -57,7 +57,11 @@
                                    Foreground="#535E54" FontSize="11"/>
                     </StackPanel>
 
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                    <!-- Name="HeaderPills": la instancia embebida las entrega
+                         (PillsDeContexto) a la barra de contexto del shell;
+                         la flotante no cambia. -->
+                    <StackPanel Grid.Column="2" Name="HeaderPills"
+                                Orientation="Horizontal" Spacing="8"
                                 VerticalAlignment="Center">
                         <!-- online / offline -->
                         <Border Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"

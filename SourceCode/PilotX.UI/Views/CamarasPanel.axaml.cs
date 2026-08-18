@@ -79,13 +79,19 @@ public partial class CamarasPanel : UserControl, IPanelEmbebible
         Background = Brushes.Transparent;   // el shell ya pone el fondo claro
         PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
         PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
-        var hdr = this.FindControl<Grid>("HeaderGrid");
-        if (hdr != null) hdr.Margin = new Thickness(10, 6, 10, 0);
+        // Margin 0: el padding del área de contenido lo pone el shell de la
+        // Configuración, igual para todas las entradas.
         var fila = this.FindControl<StackPanel>("LayoutFila");
-        if (fila != null) fila.Margin = new Thickness(10, 10, 10, 0);
+        if (fila != null) fila.Margin = new Thickness(0);
         var marco = this.FindControl<Border>("CamMarco");
-        if (marco != null) marco.Margin = new Thickness(10, 10, 10, 10);
+        if (marco != null) marco.Margin = new Thickness(0, 10, 0, 0);
     }
+
+    /// <summary>La pill de estado y el botón "Configurar" van a la barra de
+    /// contexto del shell; la fila de cabecera vieja queda oculta (el botón
+    /// "Cerrar" propio adentro ya está oculto).</summary>
+    public Control? PillsDeContexto()
+        => PanelEmbebido.FilaDeContexto(this.FindControl<StackPanel>("HeaderPills"));
 
     public void Attach(CamarasClient client)
     {

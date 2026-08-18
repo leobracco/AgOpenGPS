@@ -25,11 +25,14 @@
         Nada de Flyout/MenuFlyout: sobre el mapa GL no se dibujan.
     -->
     <Panel>
-        <!-- Name="CardShell": con un módulo nativo adentro la card crece a
-             MaxWidth 1200 (los paneles se diseñaron para ~980 y en 700 px
-             quedaban apretados); al volver a una pestaña de config vuelve a
-             940. En 1024x768 el Margin lateral la clampea igual al ancho de
-             pantalla. Lo maneja MostrarModuloNativo/OcultarModuloNativo. -->
+        <!-- Name="CardShell": TAMAÑO FIJO. La card se estira al área que le da
+             el host menos un margen constante (el mapa vivo se ve alrededor) y
+             MaxWidth/MaxHeight solo la topean en monitores grandes (queda
+             centrada). Así mide SIEMPRE lo mismo, esté el operario parado en
+             Resumen, en QuantiX o en una página HTML: antes el Center + el
+             MaxWidth por-módulo hacían que cada toque del menú redimensionara
+             la ventana entera ("se agranda se achica, muy despelotado",
+             reporte 2026-08-18). En 1024x768 da 976x740 clavados. -->
         <Border Name="CardShell"
                 Background="#FAFBFA"
                 BorderBrush="#C5CFC5"
@@ -37,23 +40,18 @@
                 CornerRadius="14"
                 Padding="14"
                 BoxShadow="0 8 26 0 #33101612"
-                MaxWidth="940" MaxHeight="660"
-                HorizontalAlignment="Center" VerticalAlignment="Center"
-                Margin="16,0">
+                MaxWidth="1160" MaxHeight="740"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                Margin="24,14">
             <DockPanel>
 
                 <!-- ============ Header ============ -->
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto"
                       Margin="4,0,0,10">
-                    <StackPanel Grid.Column="0" Spacing="1" VerticalAlignment="Center">
-                        <TextBlock Text="Configuración"
-                                   Foreground="#101612"
-                                   FontSize="16" FontWeight="Bold"/>
-                        <TextBlock Name="SubtituloText"
-                                   Text="Resumen"
-                                   Foreground="#535E54"
-                                   FontSize="11"/>
-                    </StackPanel>
+                    <TextBlock Grid.Column="0" Text="Configuración"
+                               Foreground="#101612"
+                               FontSize="16" FontWeight="Bold"
+                               VerticalAlignment="Center"/>
 
                     <!-- Pill: perfil de vehículo activo -->
                     <Border Grid.Column="2"
@@ -121,24 +119,51 @@
                 </Border>
 
                 <!-- ============ Contenido: pestaña nativa O módulo ============
-                     Tres vistas excluyentes en el MISMO hueco, con el menú
-                     siempre a la izquierda (réplica del #main del original):
-                     · TabScroll — las pestañas de config nativas;
-                     · HtmlHost — módulos/página del Hub embebidos (WebView);
-                     · ModuloNativoHost — paneles nativos de módulos (Hub,
-                       QuantiX, VistaX, …) montados como instancia propia.
+                     ESQUELETO UNIFORME para todas las entradas (pestañas
+                     nativas, módulos nativos embebidos y módulos HTML):
+                     · BarraContexto — fija arriba, de alto constante: a la
+                       izquierda el nombre de la entrada activa (SubtituloText,
+                       que antes vivía en el header) y a la derecha las pills
+                       de estado/acciones del módulo (ContextoPills — cada
+                       panel embebido las entrega por PillsDeContexto());
+                     · abajo, tres vistas excluyentes en el MISMO hueco y con
+                       el MISMO padding, con el menú siempre a la izquierda:
+                       TabScroll (pestañas nativas), HtmlHost (páginas del Hub
+                       por WebView) y ModuloNativoHost (paneles nativos como
+                       instancia propia). El scroll vive SIEMPRE acá adentro,
+                       nunca en la card entera.
                      Nada abre otra ventana ni cierra esta tarjeta: antes los
                      módulos nativos saltaban a un overlay de pantalla completa
                      que escondía la Configuración (reportes 2026-08-16/17). -->
-                <Grid Margin="12,0,0,0">
-                    <ScrollViewer Name="TabScroll"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Auto">
-                        <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
-                    </ScrollViewer>
-                    <Panel Name="HtmlHost" IsVisible="False" Margin="0,0,6,0"/>
-                    <Panel Name="ModuloNativoHost" IsVisible="False" Margin="0,0,6,0"/>
-                </Grid>
+                <DockPanel Margin="12,0,0,0">
+                    <Border DockPanel.Dock="Top" Name="BarraContexto"
+                            Background="#F5F7F4"
+                            BorderBrush="#E2E7E2" BorderThickness="1"
+                            CornerRadius="8" Height="52"
+                            Padding="12,4,8,4" Margin="0,0,6,8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Name="SubtituloText"
+                                       Text="Resumen"
+                                       Foreground="#101612"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,10,0"/>
+                            <StackPanel Grid.Column="1" Name="ContextoPills"
+                                        Orientation="Horizontal" Spacing="8"
+                                        VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+                    <Grid>
+                        <ScrollViewer Name="TabScroll"
+                                      HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Auto">
+                            <StackPanel Name="TabHost" Spacing="10" Margin="0,0,6,0"/>
+                        </ScrollViewer>
+                        <Panel Name="HtmlHost" IsVisible="False" Margin="0,0,6,0"/>
+                        <Panel Name="ModuloNativoHost" IsVisible="False" Margin="0,0,6,0"/>
+                    </Grid>
+                </DockPanel>
             </DockPanel>
         </Border>
     </Panel>

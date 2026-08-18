@@ -58,8 +58,12 @@ public partial class SistemaPanel : UserControl, IPanelEmbebible
     {
         PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
         PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        // Margin 0: el padding del área de contenido lo pone el shell de la
+        // Configuración, igual para todas las entradas. Sistema no tiene
+        // pills: no implementa PillsDeContexto (la barra muestra solo el
+        // nombre).
         var raiz = this.FindControl<StackPanel>("ContenidoRaiz");
-        if (raiz != null) { raiz.Margin = new Thickness(10); raiz.Spacing = 12; }
+        if (raiz != null) { raiz.Margin = new Thickness(0); raiz.Spacing = 12; }
     }
 
     /// <summary>

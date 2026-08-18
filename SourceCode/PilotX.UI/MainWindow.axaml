@@ -1063,9 +1063,14 @@
                      abriendo por WebView desde su propio menú (strangler fig).
                      Card clara flotante, mapa VIVO detrás; pages/config.html
                      queda intacta para la PWA del celular. -->
+                <!-- Stretch a propósito: la card de la Configuración es de
+                     TAMAÑO FIJO (se estira al área menos un margen constante,
+                     con tope para monitores grandes) — con Center acá, el
+                     tamaño real dependía del contenido de la pestaña activa y
+                     cada toque del menú redimensionaba la ventana entera. -->
                 <vw:ConfigPanel x:Name="ConfigHost" Grid.Row="1" ZIndex="10"
                                 IsVisible="False"
-                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
 
                 <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
                      secciones primero…"). Se va solo a los 4 s y no bloquea

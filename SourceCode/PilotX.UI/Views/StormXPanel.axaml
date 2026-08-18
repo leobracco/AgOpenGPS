@@ -47,7 +47,9 @@
                                        FontSize="12"/>
                         </StackPanel>
 
-                        <Border Grid.Column="1"
+                        <!-- Name="HeaderPill": la instancia embebida la entrega
+                             (PillsDeContexto) a la barra de contexto del shell. -->
+                        <Border Grid.Column="1" Name="HeaderPill"
                                 Background="{StaticResource PilotXPanelSurface2}"
                                 BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                                 BorderThickness="1"

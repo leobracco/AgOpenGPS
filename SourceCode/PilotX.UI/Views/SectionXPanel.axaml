@@ -47,8 +47,10 @@
                                        FontSize="12"/>
                         </StackPanel>
 
-                        <!-- Pill estado del bridge: red/yellow/green/gray -->
-                        <Border Grid.Column="1"
+                        <!-- Pill estado del bridge: red/yellow/green/gray.
+                             Name="HeaderPill": la instancia embebida la entrega
+                             (PillsDeContexto) a la barra de contexto del shell. -->
+                        <Border Grid.Column="1" Name="HeaderPill"
                                 Background="{StaticResource PilotXPanelSurface2}"
                                 BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                                 BorderThickness="1"

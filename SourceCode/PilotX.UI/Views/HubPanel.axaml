@@ -41,7 +41,10 @@
                                FontSize="12"/>
                 </StackPanel>
 
-                <StackPanel Grid.Column="1"
+                <!-- Name="HeaderPills": la instancia embebida en la
+                     Configuración las entrega (PillsDeContexto) a la barra de
+                     contexto del shell; la flotante no cambia. -->
+                <StackPanel Grid.Column="1" Name="HeaderPills"
                             Orientation="Horizontal"
                             Spacing="8"
                             VerticalAlignment="Center">

@@ -73,8 +73,11 @@
                             Padding="16,8,16,8"/>
                 </StackPanel>
 
-                <!-- Pill: conexion con el ECU -->
-                <Border Grid.Column="2"
+                <!-- Pill: conexion con el ECU.
+                     Name="HeaderPill": la instancia embebida la entrega
+                     (PillsDeContexto) a la barra de contexto del shell —
+                     las tabs En vivo/Configurar quedan acá, son contenido. -->
+                <Border Grid.Column="2" Name="HeaderPill"
                         Background="#FFFFFF"
                         BorderBrush="#C5CFC5"
                         BorderThickness="1"

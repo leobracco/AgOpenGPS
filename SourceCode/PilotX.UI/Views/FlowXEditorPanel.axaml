@@ -47,8 +47,10 @@
                                    FontSize="11"/>
                     </StackPanel>
 
-                    <!-- Pill: estado del nodo elegido -->
-                    <Border Grid.Column="2"
+                    <!-- Pill: estado del nodo elegido.
+                         Name="HeaderPill": la instancia embebida la entrega
+                         (PillsDeContexto) a la barra de contexto del shell. -->
+                    <Border Grid.Column="2" Name="HeaderPill"
                             Background="#FFFFFF" BorderBrush="#C5CFC5" BorderThickness="1"
                             CornerRadius="999" Padding="12,5,12,5" Margin="0,0,8,0"
                             VerticalAlignment="Center">

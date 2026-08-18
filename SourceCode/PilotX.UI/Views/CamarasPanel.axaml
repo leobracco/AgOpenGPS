@@ -35,7 +35,10 @@
                            FontSize="12"/>
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <!-- Name="HeaderPills": la instancia embebida las entrega
+                 (PillsDeContexto) a la barra de contexto del shell;
+                 la flotante no cambia. -->
+            <StackPanel Grid.Column="1" Name="HeaderPills" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <Border Background="{StaticResource PilotXPanelSurface2}"
                         BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                         BorderThickness="1"

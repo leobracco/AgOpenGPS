@@ -140,6 +140,11 @@ public partial class FlowXEditorPanel : UserControl, IPanelEmbebible
         PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
     }
 
+    /// <summary>La pill de estado del nodo va a la barra de contexto del
+    /// shell; la fila de cabecera vieja queda oculta.</summary>
+    public Control? PillsDeContexto()
+        => PanelEmbebido.FilaDeContexto(this.FindControl<Border>("HeaderPill"));
+
     // =======================================================================
     //  Ciclo de vida
     // =======================================================================

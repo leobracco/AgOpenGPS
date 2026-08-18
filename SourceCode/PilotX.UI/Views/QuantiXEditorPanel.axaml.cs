@@ -90,6 +90,11 @@ public partial class QuantiXEditorPanel : UserControl, IPanelEmbebible
         PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
     }
 
+    /// <summary>La pill de nodos publicando va a la barra de contexto del
+    /// shell; la fila de cabecera vieja queda oculta.</summary>
+    public Control? PillsDeContexto()
+        => PanelEmbebido.FilaDeContexto(this.FindControl<Border>("HeaderPill"));
+
     // =======================================================================
     //  Ciclo de vida
     // =======================================================================

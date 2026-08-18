@@ -109,9 +109,17 @@ public partial class HubPanel : UserControl, IPanelEmbebible
     {
         PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
         PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        // Margin 0: el padding del área de contenido lo pone el shell de la
+        // Configuración, igual para todas las entradas.
         var raiz = this.FindControl<StackPanel>("ContenidoRaiz");
-        if (raiz != null) { raiz.Margin = new Thickness(10); raiz.Spacing = 12; }
+        if (raiz != null) { raiz.Margin = new Thickness(0); raiz.Spacing = 12; }
     }
+
+    /// <summary>Las pills trabajo/broker/nodos van a la barra de contexto del
+    /// shell (siempre en el mismo lugar para todas las entradas); la fila de
+    /// cabecera vieja queda oculta.</summary>
+    public Control? PillsDeContexto()
+        => PanelEmbebido.FilaDeContexto(this.FindControl<StackPanel>("HeaderPills"));
 
     public void Attach(NodosClient nodosClient, OverlaysClient overlaysClient)
     {

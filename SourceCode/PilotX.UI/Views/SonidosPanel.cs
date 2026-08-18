@@ -91,9 +91,11 @@ public sealed class SonidosPanel : Border, IPanelEmbebible
     private readonly Border _picker;
     private readonly StackPanel _pickerLista;
     // Referencias de cabecera para ModoEmbebido (título y ✕ redundantes
-    // cuando el panel vive adentro de la Configuración).
+    // cuando el panel vive adentro de la Configuración) y para
+    // PillsDeContexto (las acciones que se mudan a la barra del shell).
     private readonly StackPanel _cabeceraTitulo;
     private readonly Button _btnCerrarPropio;
+    private readonly StackPanel _cabeceraAcciones;
 
     /// <summary>Una fila de la lista: el evento del wire + sus controles.</summary>
     private sealed class Fila
@@ -161,6 +163,7 @@ public sealed class SonidosPanel : Border, IPanelEmbebible
         derCabecera.Children.Add(_btnMute);
         derCabecera.Children.Add(btnSubir);
         derCabecera.Children.Add(btnCerrar);
+        _cabeceraAcciones = derCabecera;
 
         var cabecera = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         Grid.SetColumn(izqCabecera, 0);
@@ -295,6 +298,12 @@ public sealed class SonidosPanel : Border, IPanelEmbebible
         PanelEmbebido.Ocultar(_cabeceraTitulo);
         PanelEmbebido.Ocultar(_btnCerrarPropio);
     }
+
+    /// <summary>"Silenciar todo" y "Subir sonido propio" van a la barra de
+    /// contexto del shell; la fila de cabecera vieja queda oculta (el ✕
+    /// propio adentro ya está oculto).</summary>
+    public Control? PillsDeContexto()
+        => PanelEmbebido.FilaDeContexto(_cabeceraAcciones);
 
     public void Attach(SonidosClient client)
     {

@@ -214,6 +214,10 @@ public partial class ConfigPanel : UserControl
     // PARA MOTORES: por eso OcultarModuloNativo se llama en TODOS los caminos
     // de salida, no solo en la navegación feliz.
     private readonly Dictionary<string, Control> _modPaneles = new Dictionary<string, Control>(StringComparer.Ordinal);
+    // Pills/acciones que cada panel embebido entregó (PillsDeContexto) para la
+    // barra de contexto del shell. Se cachean junto con el panel: al volver a
+    // entrar se re-cuelgan en ContextoPills sin rearmar nada.
+    private readonly Dictionary<string, Control?> _modPills = new Dictionary<string, Control?>(StringComparer.Ordinal);
     private string _modActivo = "";     // clave del panel embebido visible ("" = ninguno)
     private string _modNavActual = "";  // Tab del NAV que lo mostró (quantix ≠ prescripciones)
 
@@ -1011,7 +1015,7 @@ public partial class ConfigPanel : UserControl
 
         host.IsVisible = true;
         scroll.IsVisible = false;
-        AjustarAnchoCard(moduloNativo: true);
+        MostrarPillsContexto(panelKey);
 
         var st = this.FindControl<TextBlock>("SubtituloText");
         if (st != null) st.Text = PilotX.Cockpit.Bars.Traductor.T(nav.Titulo);
@@ -1025,9 +1029,10 @@ public partial class ConfigPanel : UserControl
     /// shell y Detach externo del panel entero.</summary>
     private void OcultarModuloNativo()
     {
-        // La card del shell vuelve a su ancho de config en TODA salida de
-        // módulo nativo (este método corre en todos los caminos de salida).
-        AjustarAnchoCard(moduloNativo: false);
+        // Las pills del módulo salen de la barra de contexto en TODA salida
+        // (este método corre en todos los caminos de salida). La card NO
+        // cambia de tamaño: es fija para todas las entradas.
+        LimpiarPillsContexto();
         if (_modActivo.Length == 0)
         {
             var h0 = this.FindControl<Panel>("ModuloNativoHost");
@@ -1211,28 +1216,36 @@ public partial class ConfigPanel : UserControl
                 throw new InvalidOperationException("módulo sin panel nativo: " + key);
         }
         // Estas instancias viven ADENTRO de la Configuración: pierden su marco
-        // de tarjeta, su título grande y su ✕ (el shell ya pone todo eso).
+        // de tarjeta, su título grande y su ✕ (el shell ya pone todo eso), y
+        // entregan sus pills/acciones para la barra de contexto del shell —
+        // así quedan SIEMPRE en el mismo lugar, para todas las entradas.
         // Las instancias flotantes de MainWindow no pasan por acá y no cambian.
-        if (p is IPanelEmbebible emb) emb.ModoEmbebido();
+        if (p is IPanelEmbebible emb)
+        {
+            emb.ModoEmbebido();
+            _modPills[key] = emb.PillsDeContexto();
+        }
         _modPaneles[key] = p;
         return p;
     }
 
-    // Anchos de la card del shell: 940 para las pestañas de config (el tamaño
-    // de siempre), 1200 con un módulo nativo adentro — los paneles de módulo
-    // se diseñaron para ~980 de ancho y en el hueco de ~700 quedaban "todo muy
-    // grande, queda mal" (reporte 2026-08-18). En 1024x768 el Margin lateral
-    // de la card la clampea igual a la pantalla.
-    private const double ANCHO_CARD_CONFIG = 940;
-    private const double ANCHO_CARD_MODULO = 1200;
-
-    /// <summary>Ensancha o devuelve la card del shell según haya un módulo
-    /// nativo adentro.</summary>
-    private void AjustarAnchoCard(bool moduloNativo)
+    /// <summary>Cuelga en la barra de contexto las pills que entregó el panel
+    /// embebido activo (si no entregó nada, la barra muestra solo el nombre).</summary>
+    private void MostrarPillsContexto(string panelKey)
     {
-        var card = this.FindControl<Border>("CardShell");
-        if (card != null)
-            card.MaxWidth = moduloNativo ? ANCHO_CARD_MODULO : ANCHO_CARD_CONFIG;
+        var host = this.FindControl<StackPanel>("ContextoPills");
+        if (host == null) return;
+        host.Children.Clear();
+        if (_modPills.TryGetValue(panelKey, out var pills) && pills != null)
+            host.Children.Add(pills);
+    }
+
+    /// <summary>Vacía la barra de contexto (las pills quedan cacheadas en
+    /// _modPills para la próxima entrada al módulo). Idempotente.</summary>
+    private void LimpiarPillsContexto()
+    {
+        var host = this.FindControl<StackPanel>("ContextoPills");
+        host?.Children.Clear();
     }
 
     /// <summary>Attach del panel embebido con su cliente HTTP (lazy, contra el
