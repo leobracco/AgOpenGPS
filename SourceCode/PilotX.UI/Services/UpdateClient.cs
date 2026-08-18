@@ -21,16 +21,21 @@ namespace PilotX.Desktop.Services;
 
 public sealed class UpdateStatus
 {
-    [JsonPropertyName("currentVersion")]   public string? CurrentVersion   { get; set; }
-    [JsonPropertyName("availableVersion")] public string? AvailableVersion { get; set; }
-    [JsonPropertyName("sizeBytes")]        public long    SizeBytes        { get; set; }
-    [JsonPropertyName("sha256")]           public string? Sha256           { get; set; }
-    [JsonPropertyName("lastCheckUnixMs")]  public long    LastCheckUnixMs  { get; set; }
-    [JsonPropertyName("phase")]            public int     Phase            { get; set; }
-    [JsonPropertyName("progressPct")]      public double  ProgressPct      { get; set; }
-    [JsonPropertyName("lastError")]        public string? LastError        { get; set; }
-    [JsonPropertyName("changelog")]        public string? Changelog        { get; set; }
-    [JsonPropertyName("stagingReady")]     public bool    StagingReady     { get; set; }
+    // OJO: el wire es snake_case (PilotXUpdateStatus sin atributos sale por
+    // AgpControllerBase → SnakeCaseLower; actualizar.js lee current_version,
+    // staging_ready, etc.) y el case-insensitive de System.Text.Json NO cubre
+    // underscores: con "currentVersion"/"stagingReady" acá, el panel nativo
+    // de Actualizar mostraba versiones "—" y la barra de descarga muerta.
+    [JsonPropertyName("current_version")]    public string? CurrentVersion   { get; set; }
+    [JsonPropertyName("available_version")]  public string? AvailableVersion { get; set; }
+    [JsonPropertyName("size_bytes")]         public long    SizeBytes        { get; set; }
+    [JsonPropertyName("sha256")]             public string? Sha256           { get; set; }
+    [JsonPropertyName("last_check_unix_ms")] public long    LastCheckUnixMs  { get; set; }
+    [JsonPropertyName("phase")]              public int     Phase            { get; set; }
+    [JsonPropertyName("progress_pct")]       public double  ProgressPct      { get; set; }
+    [JsonPropertyName("last_error")]         public string? LastError        { get; set; }
+    [JsonPropertyName("changelog")]          public string? Changelog        { get; set; }
+    [JsonPropertyName("staging_ready")]      public bool    StagingReady     { get; set; }
 }
 
 public sealed class UpdateStatusResponse

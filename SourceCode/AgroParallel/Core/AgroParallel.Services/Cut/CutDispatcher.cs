@@ -127,7 +127,15 @@ namespace AgroParallel.Cut
                 await _mqtt.ConnectAsync(opts);
                 _connected = true;
             }
-            catch (Exception ex) { Log("MQTT error: " + ex.Message); return; }
+            catch (Exception ex)
+            {
+                Log("MQTT error: " + ex.Message);
+                // Sin esto, cada reintento del vigilante (15 s) abandonaba un
+                // IMqttClient sin disponer mientras el broker no levantaba.
+                try { _mqtt?.Dispose(); } catch { }
+                _mqtt = null;
+                return;
+            }
 
             ReloadNow();
 
