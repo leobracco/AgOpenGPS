@@ -107,6 +107,13 @@ public partial class VistaXEditorPanel : UserControl, IPanelEmbebible
         PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
         PanelEmbebido.Ocultar(this.FindControl<Button>("BtnMonitor"));
         PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
+        // VistaX no tiene pills para la barra de contexto, así que la fila de
+        // cabecera queda entera vacía (los tres de arriba). Se esconde la fila
+        // misma: visible-pero-vacía dejaba su Margin como un hueco de 8 px
+        // arriba del contenido — el único panel con un padding distinto al
+        // resto (los demás la esconden vía FilaDeContexto).
+        if (this.FindControl<StackPanel>("HeaderTitulo")?.Parent is Control fila)
+            fila.IsVisible = false;
     }
 
     // =======================================================================
