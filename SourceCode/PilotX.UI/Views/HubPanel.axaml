@@ -19,17 +19,20 @@
          scroll, botones sin pintar) salen del FluentTheme, y la app arranca en
          Dark; adentro de la card tienen que verse claros. -->
     <ThemeVariantScope RequestedThemeVariant="Light">
-    <Border Background="{StaticResource PilotXPanelCard}"
+    <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+         suelta el marco/tamaño; la instancia flotante no cambia. -->
+    <Border Name="Card"
+            Background="{StaticResource PilotXPanelCard}"
             BorderBrush="{StaticResource PilotXPanelBorderHigh}" BorderThickness="1"
             CornerRadius="14" ClipToBounds="True"
             BoxShadow="0 8 26 0 #33101612">
     <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="24,20,24,24" Spacing="16">
+        <StackPanel Name="ContenidoRaiz" Margin="24,20,24,24" Spacing="16">
 
             <!-- ============ Header + pills ============ -->
             <Grid ColumnDefinitions="*,Auto">
-                <StackPanel Grid.Column="0" Spacing="2">
+                <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2">
                     <TextBlock Text="Hub"
                                Foreground="{StaticResource PilotXPanelText}"
                                FontSize="22" FontWeight="SemiBold"/>

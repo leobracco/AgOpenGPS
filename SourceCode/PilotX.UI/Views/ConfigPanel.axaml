@@ -25,7 +25,13 @@
         Nada de Flyout/MenuFlyout: sobre el mapa GL no se dibujan.
     -->
     <Panel>
-        <Border Background="#FAFBFA"
+        <!-- Name="CardShell": con un módulo nativo adentro la card crece a
+             MaxWidth 1200 (los paneles se diseñaron para ~980 y en 700 px
+             quedaban apretados); al volver a una pestaña de config vuelve a
+             940. En 1024x768 el Margin lateral la clampea igual al ancho de
+             pantalla. Lo maneja MostrarModuloNativo/OcultarModuloNativo. -->
+        <Border Name="CardShell"
+                Background="#FAFBFA"
                 BorderBrush="#C5CFC5"
                 BorderThickness="1"
                 CornerRadius="14"

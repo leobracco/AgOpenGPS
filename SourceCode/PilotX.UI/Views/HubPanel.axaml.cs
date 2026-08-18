@@ -24,7 +24,7 @@ using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
 
-public partial class HubPanel : UserControl
+public partial class HubPanel : UserControl, IPanelEmbebible
 {
     // ---- Pills ----
     private Ellipse?   _dotJob;     private TextBlock? _txtJob;
@@ -101,6 +101,17 @@ public partial class HubPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Adentro de la Configuración: sin marco de tarjeta y sin el
+    /// título grande "Hub". Las pills (trabajo / broker / nodos) quedan en una
+    /// fila compacta arriba de los KPIs, y los márgenes de 24 bajan a 10.</summary>
+    public void ModoEmbebido()
+    {
+        PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
+        PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        var raiz = this.FindControl<StackPanel>("ContenidoRaiz");
+        if (raiz != null) { raiz.Margin = new Thickness(10); raiz.Spacing = 12; }
+    }
 
     public void Attach(NodosClient nodosClient, OverlaysClient overlaysClient)
     {

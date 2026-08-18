@@ -30,7 +30,7 @@ using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
 
-public partial class CamarasPanel : UserControl
+public partial class CamarasPanel : UserControl, IPanelEmbebible
 {
     private CamarasClient? _client;
     private CancellationTokenSource? _cts;
@@ -68,6 +68,24 @@ public partial class CamarasPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Adentro de la Configuración: este panel no tiene card propia
+    /// (es pantalla completa), así que acá solo se saca lo redundante — el
+    /// fondo propio, el título grande y el botón "Cerrar" — y los márgenes de
+    /// 24 bajan a 10. La pill de estado, "Configurar" y los botones de layout
+    /// quedan en filas compactas arriba del mosaico.</summary>
+    public void ModoEmbebido()
+    {
+        Background = Brushes.Transparent;   // el shell ya pone el fondo claro
+        PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
+        var hdr = this.FindControl<Grid>("HeaderGrid");
+        if (hdr != null) hdr.Margin = new Thickness(10, 6, 10, 0);
+        var fila = this.FindControl<StackPanel>("LayoutFila");
+        if (fila != null) fila.Margin = new Thickness(10, 10, 10, 0);
+        var marco = this.FindControl<Border>("CamMarco");
+        if (marco != null) marco.Margin = new Thickness(10, 10, 10, 10);
+    }
 
     public void Attach(CamarasClient client)
     {

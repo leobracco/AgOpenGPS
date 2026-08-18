@@ -47,7 +47,7 @@ using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
 
-public sealed class SonidosPanel : Border
+public sealed class SonidosPanel : Border, IPanelEmbebible
 {
     // ---- paleta PilotX (misma que los demás paneles del cockpit) -----------
     private static readonly IBrush BgPanel    = new SolidColorBrush(Color.Parse("#FAFBFA"));
@@ -90,6 +90,10 @@ public sealed class SonidosPanel : Border
     private readonly TextBlock _msg;
     private readonly Border _picker;
     private readonly StackPanel _pickerLista;
+    // Referencias de cabecera para ModoEmbebido (título y ✕ redundantes
+    // cuando el panel vive adentro de la Configuración).
+    private readonly StackPanel _cabeceraTitulo;
+    private readonly Button _btnCerrarPropio;
 
     /// <summary>Una fila de la lista: el evento del wire + sus controles.</summary>
     private sealed class Fila
@@ -132,6 +136,7 @@ public sealed class SonidosPanel : Border
         var izqCabecera = new StackPanel { Spacing = 2 };
         izqCabecera.Children.Add(titulo);
         izqCabecera.Children.Add(subtitulo);
+        _cabeceraTitulo = izqCabecera;
 
         _btnMuteTexto = new TextBlock
         {
@@ -146,6 +151,7 @@ public sealed class SonidosPanel : Border
 
         var btnCerrar = BotonTexto("✕", 52);
         btnCerrar.Click += (_, __) => OnRequestCerrar?.Invoke();
+        _btnCerrarPropio = btnCerrar;
 
         var derCabecera = new StackPanel
         {
@@ -278,6 +284,17 @@ public sealed class SonidosPanel : Border
     // =========================================================================
     //  ciclo de vida
     // =========================================================================
+
+    /// <summary>Adentro de la Configuración: este panel ES el Border de la
+    /// tarjeta, así que se suelta el marco sobre sí mismo. El título grande y
+    /// el ✕ propio se esconden; "Silenciar todo" y "Subir sonido propio"
+    /// quedan en la fila compacta de arriba (son acciones).</summary>
+    public void ModoEmbebido()
+    {
+        PanelEmbebido.SoltarMarco(this);
+        PanelEmbebido.Ocultar(_cabeceraTitulo);
+        PanelEmbebido.Ocultar(_btnCerrarPropio);
+    }
 
     public void Attach(SonidosClient client)
     {

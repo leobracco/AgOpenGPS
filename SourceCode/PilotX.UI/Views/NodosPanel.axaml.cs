@@ -54,7 +54,7 @@ using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
 
-public partial class NodosPanel : UserControl
+public partial class NodosPanel : UserControl, IPanelEmbebible
 {
     // ---- wire / estado -----------------------------------------------------
     private NodosClient? _client;
@@ -146,6 +146,16 @@ public partial class NodosPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Adentro de la Configuración: sin marco de tarjeta, sin título
+    /// grande y sin ✕ propio. Las pills (online/offline, broker, implemento)
+    /// y el botón "Asistente" quedan en la fila compacta de arriba.</summary>
+    public void ModoEmbebido()
+    {
+        PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
+        PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
+    }
 
     // =========================================================================
     //  ciclo de vida

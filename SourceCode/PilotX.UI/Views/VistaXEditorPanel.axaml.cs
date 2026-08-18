@@ -43,7 +43,7 @@ using PilotX.Desktop.Views.VistaXEditor;
 
 namespace PilotX.Desktop.Views;
 
-public partial class VistaXEditorPanel : UserControl
+public partial class VistaXEditorPanel : UserControl, IPanelEmbebible
 {
     private readonly VxCtx _ctx = new();
     private CancellationTokenSource? _cts;
@@ -96,6 +96,18 @@ public partial class VistaXEditorPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Adentro de la Configuración: sin marco de tarjeta, sin título
+    /// grande y sin ✕ propio. "‹ Monitor" también se esconde: la Configuración
+    /// deja OnRequestMonitor sin cablear a propósito (el monitor es un overlay
+    /// del mapa y abrirlo cerraría la tarjeta) — un botón muerto confunde.</summary>
+    public void ModoEmbebido()
+    {
+        PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
+        PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        PanelEmbebido.Ocultar(this.FindControl<Button>("BtnMonitor"));
+        PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
+    }
 
     // =======================================================================
     //  Ciclo de vida

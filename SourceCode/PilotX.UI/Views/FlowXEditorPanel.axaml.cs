@@ -45,7 +45,7 @@ using PilotX.Desktop.Views.FlowXEditor;
 
 namespace PilotX.Desktop.Views;
 
-public partial class FlowXEditorPanel : UserControl
+public partial class FlowXEditorPanel : UserControl, IPanelEmbebible
 {
     private readonly FxCtx _ctx = new();
     private CancellationTokenSource? _cts;
@@ -127,6 +127,18 @@ public partial class FlowXEditorPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Adentro de la Configuración: sin marco de tarjeta, sin título
+    /// grande y sin ✕ propio. La pill de estado del nodo queda; "‹ Monitor"
+    /// se esconde porque la Configuración no cablea OnRequestMonitor (el
+    /// monitor es un overlay del mapa) — un botón muerto confunde.</summary>
+    public void ModoEmbebido()
+    {
+        PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
+        PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        PanelEmbebido.Ocultar(this.FindControl<Button>("BtnMonitor"));
+        PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
+    }
 
     // =======================================================================
     //  Ciclo de vida

@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Markup.Xaml;
@@ -21,7 +22,7 @@ using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
 
-public partial class StormXPanel : UserControl
+public partial class StormXPanel : UserControl, IPanelEmbebible
 {
     private StormXClient? _client;
     private CancellationTokenSource? _cts;
@@ -43,6 +44,17 @@ public partial class StormXPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Adentro de la Configuración: sin marco de tarjeta y sin el
+    /// título grande. La pill de condiciones queda en una fila compacta
+    /// arriba de los KPIs; los márgenes de 24 bajan a 10.</summary>
+    public void ModoEmbebido()
+    {
+        PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
+        PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        var raiz = this.FindControl<StackPanel>("ContenidoRaiz");
+        if (raiz != null) { raiz.Margin = new Thickness(10); raiz.Spacing = 12; }
+    }
 
     /// <summary>
     /// Inyecta el cliente y arranca el polling. Idempotente: si ya estaba

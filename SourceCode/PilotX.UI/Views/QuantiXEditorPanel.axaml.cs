@@ -41,7 +41,7 @@ using PilotX.Desktop.Views.QuantiXEditor;
 
 namespace PilotX.Desktop.Views;
 
-public partial class QuantiXEditorPanel : UserControl
+public partial class QuantiXEditorPanel : UserControl, IPanelEmbebible
 {
     private readonly QxEditorCtx _ctx = new();
     private CancellationTokenSource? _cts;
@@ -79,6 +79,16 @@ public partial class QuantiXEditorPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Adentro de la Configuración: sin marco de tarjeta, sin título
+    /// grande y sin ✕ propio. La pill de nodos publicando queda (el operario
+    /// la necesita), igual que las tabs.</summary>
+    public void ModoEmbebido()
+    {
+        PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
+        PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
+    }
 
     // =======================================================================
     //  Ciclo de vida

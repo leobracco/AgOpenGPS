@@ -33,7 +33,7 @@ using PilotX.Desktop.Services;
 
 namespace PilotX.Desktop.Views;
 
-public partial class CoreXEcuPanel : UserControl
+public partial class CoreXEcuPanel : UserControl, IPanelEmbebible
 {
     private CoreXEcuClient? _client;
     private CancellationTokenSource? _cts;
@@ -68,6 +68,16 @@ public partial class CoreXEcuPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Adentro de la Configuración: sin marco de tarjeta, sin título
+    /// grande y sin ✕ propio. Las tabs En vivo/Configurar y la pill de
+    /// conexión con el ECU quedan en la fila compacta de arriba.</summary>
+    public void ModoEmbebido()
+    {
+        PanelEmbebido.SoltarMarco(this.FindControl<Border>("Card"));
+        PanelEmbebido.Ocultar(this.FindControl<StackPanel>("HeaderTitulo"));
+        PanelEmbebido.Ocultar(this.FindControl<Button>("BtnCerrar"));
+    }
 
     public void Attach(CoreXEcuClient client)
     {

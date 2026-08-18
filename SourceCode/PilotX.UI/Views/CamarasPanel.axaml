@@ -23,8 +23,8 @@
     <Grid RowDefinitions="Auto,Auto,*">
 
         <!-- ============ Header ============ -->
-        <Grid Grid.Row="0" Margin="24,20,24,0" ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0" Spacing="2">
+        <Grid Name="HeaderGrid" Grid.Row="0" Margin="24,20,24,0" ColumnDefinitions="*,Auto">
+            <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2">
                 <TextBlock Text="Camaras"
                            Foreground="{StaticResource PilotXPanelText}"
                            FontSize="22"
@@ -81,7 +81,7 @@
         </Grid>
 
         <!-- ============ Layout switcher ============ -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="24,14,24,0">
+        <StackPanel Name="LayoutFila" Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="24,14,24,0">
             <Button Name="BtnLay1x1" Content="1x1" Tag="1x1" Click="OnLayoutClick" MinHeight="38" Padding="14,0"/>
             <Button Name="BtnLay2x1" Content="2x1" Tag="2x1" Click="OnLayoutClick" MinHeight="38" Padding="14,0"/>
             <Button Name="BtnLay2x2" Content="2x2" Tag="2x2" Click="OnLayoutClick" MinHeight="38" Padding="14,0"/>
@@ -93,7 +93,8 @@
         </StackPanel>
 
         <!-- ============ Grid de camaras ============ -->
-        <Border Grid.Row="2"
+        <Border Name="CamMarco"
+                Grid.Row="2"
                 Margin="24,14,24,24"
                 Background="{StaticResource PilotXPanelSurface}"
                 BorderBrush="{StaticResource PilotXPanelBorderHigh}"

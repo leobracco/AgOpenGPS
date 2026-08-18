@@ -1011,6 +1011,7 @@ public partial class ConfigPanel : UserControl
 
         host.IsVisible = true;
         scroll.IsVisible = false;
+        AjustarAnchoCard(moduloNativo: true);
 
         var st = this.FindControl<TextBlock>("SubtituloText");
         if (st != null) st.Text = PilotX.Cockpit.Bars.Traductor.T(nav.Titulo);
@@ -1024,6 +1025,9 @@ public partial class ConfigPanel : UserControl
     /// shell y Detach externo del panel entero.</summary>
     private void OcultarModuloNativo()
     {
+        // La card del shell vuelve a su ancho de config en TODA salida de
+        // módulo nativo (este método corre en todos los caminos de salida).
+        AjustarAnchoCard(moduloNativo: false);
         if (_modActivo.Length == 0)
         {
             var h0 = this.FindControl<Panel>("ModuloNativoHost");
@@ -1206,8 +1210,29 @@ public partial class ConfigPanel : UserControl
             default:
                 throw new InvalidOperationException("módulo sin panel nativo: " + key);
         }
+        // Estas instancias viven ADENTRO de la Configuración: pierden su marco
+        // de tarjeta, su título grande y su ✕ (el shell ya pone todo eso).
+        // Las instancias flotantes de MainWindow no pasan por acá y no cambian.
+        if (p is IPanelEmbebible emb) emb.ModoEmbebido();
         _modPaneles[key] = p;
         return p;
+    }
+
+    // Anchos de la card del shell: 940 para las pestañas de config (el tamaño
+    // de siempre), 1200 con un módulo nativo adentro — los paneles de módulo
+    // se diseñaron para ~980 de ancho y en el hueco de ~700 quedaban "todo muy
+    // grande, queda mal" (reporte 2026-08-18). En 1024x768 el Margin lateral
+    // de la card la clampea igual a la pantalla.
+    private const double ANCHO_CARD_CONFIG = 940;
+    private const double ANCHO_CARD_MODULO = 1200;
+
+    /// <summary>Ensancha o devuelve la card del shell según haya un módulo
+    /// nativo adentro.</summary>
+    private void AjustarAnchoCard(bool moduloNativo)
+    {
+        var card = this.FindControl<Border>("CardShell");
+        if (card != null)
+            card.MaxWidth = moduloNativo ? ANCHO_CARD_MODULO : ANCHO_CARD_CONFIG;
     }
 
     /// <summary>Attach del panel embebido con su cliente HTTP (lazy, contra el

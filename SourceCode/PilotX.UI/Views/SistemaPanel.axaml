@@ -21,7 +21,10 @@
         (reporte 2026-08-16). El mapa nunca se apaga ni se tapa del todo.
     -->
     <ThemeVariantScope RequestedThemeVariant="Light">
-        <Border Background="{StaticResource PilotXPanelCard}"
+        <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
                 BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                 BorderThickness="1"
                 CornerRadius="14"
@@ -32,10 +35,10 @@
                 Margin="16,8">
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
-                <StackPanel Margin="24,20,24,24" Spacing="14">
+                <StackPanel Name="ContenidoRaiz" Margin="24,20,24,24" Spacing="14">
 
                     <!-- ============ Header ============ -->
-                    <StackPanel Spacing="2">
+                    <StackPanel Name="HeaderTitulo" Spacing="2">
                         <TextBlock Text="Sistema"
                                    Foreground="{StaticResource PilotXPanelText}"
                                    FontSize="22"
