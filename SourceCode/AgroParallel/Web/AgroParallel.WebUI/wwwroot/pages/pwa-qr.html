@@ -45,6 +45,25 @@
       margin-top: var(--agp-sp-2);
     }
     .ip-list .pill { font-family: var(--agp-font-mono); font-size: var(--agp-fs-sm); }
+    /* Selector de red cuando la PC tiene mas de una LAN real: el operario
+       toca la de SU red y el QR/URL cambian a esa candidata. */
+    .net-picker {
+      display: none; flex-wrap: wrap; justify-content: center;
+      gap: var(--agp-sp-2); margin-top: var(--agp-sp-3);
+    }
+    .net-picker.multi { display: flex; }
+    .net-picker button {
+      font-family: var(--agp-font-mono); font-size: var(--agp-fs-md);
+      padding: var(--agp-sp-2) var(--agp-sp-3);
+      border-radius: var(--agp-radius-md);
+      border: 1px solid var(--agp-border);
+      background: var(--agp-bg); color: var(--agp-text);
+      cursor: pointer; min-height: 44px;
+    }
+    .net-picker button.active {
+      border-color: var(--agp-accent); color: var(--agp-accent);
+      background: var(--agp-surface);
+    }
     @media (max-width: 900px) { .qr-wrap { grid-template-columns: 1fr; } }
   </style>
   <script src="../js/widget-mode.js"></script>
@@ -65,6 +84,7 @@
         <div class="subtitle" style="margin-bottom:var(--agp-sp-3);">Escanea con la camara del celular</div>
         <img id="qr" alt="QR de la PWA" />
         <div class="url-box" id="urlPrimary">Cargando...</div>
+        <div class="net-picker" id="netPicker"></div>
         <div class="subtitle" style="margin-top:var(--agp-sp-2);">
           Tambien podes tipear: <span id="urlMdns" style="font-family:var(--agp-font-mono);"></span>
         </div>
@@ -104,12 +124,43 @@
 
   <script src="../js/sidebar.js"></script>
   <script>
+    // Candidata elegida por el operario (persiste entre refrescos de 10 s
+    // mientras esa IP siga existiendo).
+    var ipElegida = null;
+
+    function mostrarCandidata(c) {
+      if (c.qr_png_base64) document.getElementById('qr').src = c.qr_png_base64;
+      document.getElementById('urlPrimary').textContent = c.url || '(sin red detectada)';
+    }
+
     async function load() {
       try {
         var r = await fetch('/api/sistema/pwa-info', { cache: 'no-store' });
         var j = await r.json();
-        if (j.qr_png_base64) document.getElementById('qr').src = j.qr_png_base64;
-        document.getElementById('urlPrimary').textContent = j.url || j.mdns_url || '(sin red detectada)';
+        var cands = j.candidatas || [];
+        // Compat: si el backend no manda candidatas, armamos una sola con lo viejo.
+        if (!cands.length && j.url) {
+          cands = [{ ip: '', url: j.url, qr_png_base64: j.qr_png_base64 }];
+        }
+        var activa = cands.find(function (c) { return c.ip === ipElegida; }) || cands[0];
+        if (activa) {
+          mostrarCandidata(activa);
+        } else {
+          if (j.qr_png_base64) document.getElementById('qr').src = j.qr_png_base64;
+          document.getElementById('urlPrimary').textContent = j.mdns_url || '(sin red detectada)';
+        }
+        // Varias redes reales -> una pill por IP, el operario elige la de SU red.
+        var picker = document.getElementById('netPicker');
+        picker.innerHTML = '';
+        picker.classList.toggle('multi', cands.length > 1);
+        cands.forEach(function (c) {
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = c.ip;
+          if (activa && c.ip === activa.ip) b.classList.add('active');
+          b.onclick = function () { ipElegida = c.ip; mostrarCandidata(c); load(); };
+          picker.appendChild(b);
+        });
         document.getElementById('urlMdns').textContent = j.mdns_url || '';
         var ips = j.ips || [];
         document.getElementById('ipCount').textContent = ips.length;
