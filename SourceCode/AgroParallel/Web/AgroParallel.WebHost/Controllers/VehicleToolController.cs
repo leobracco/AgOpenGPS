@@ -127,7 +127,17 @@ namespace AgroParallel.WebHost.Controllers
                             : "";
                         string nombre = (marca + " " + modelo).Trim();
                         if (nombre == "") nombre = tipo;
-                        sprites.Add(new { archivo, nombre, tipo, marca, modelo, url = "/img/vehiculos/" + archivo });
+                        // url_mapa: variante cenital sin ruedas, si el arte la trae.
+                        // Acá ya sabemos si existe (la salteamos unas líneas arriba),
+                        // así que la declaramos. Antes el cliente del mapa la adivinaba
+                        // pidiendo <nombre>.mapa.png a ver si estaba, y para todo
+                        // vehículo sin esa variante el log se comía un 404 con stack
+                        // trace en cada arranque — ruido que tapaba los 404 de verdad.
+                        string archivoMapa = sinExt + ".mapa.png";
+                        bool hayMapa = System.IO.File.Exists(System.IO.Path.Combine(dir, archivoMapa));
+                        sprites.Add(new { archivo, nombre, tipo, marca, modelo,
+                                          url = "/img/vehiculos/" + archivo,
+                                          urlMapa = hayMapa ? "/img/vehiculos/" + archivoMapa : null });
                     }
                 }
             }
