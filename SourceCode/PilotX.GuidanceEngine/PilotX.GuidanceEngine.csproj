@@ -84,6 +84,31 @@
     <Content Include="wwwroot-corex\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+
+    <!-- Estaticos COMPARTIDOS con el Hub (:5180). wwwroot-corex es un static
+         folder aparte, asi que sin esto los HTML de CoreX piden /theme.css,
+         /layout.css y /js/keyboard.js y se comen un 404:
+           · theme.css  -> tokens agp-* Y los estilos del modal
+                           (.agp-modal-backdrop / .agp-modal). Sin el, TODOS
+                           los dialogos de CoreX salen sin estilo.
+           · layout.css -> base que corex.css asume cargada antes (por eso
+                           corex.css vuelve el body a display:block).
+           · keyboard.js-> teclado tactil propio. Sin el no se puede escribir
+                           en radio.html ni en perfil.html.
+         Se enlazan, NO se duplican en el repo: una sola fuente de verdad en
+         AgroParallel.WebUI\wwwroot. Ver corex.css (cabecera). -->
+    <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\theme.css"
+             Link="wwwroot-corex\theme.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\layout.css"
+             Link="wwwroot-corex\layout.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\AgroParallel\Web\AgroParallel.WebUI\wwwroot\js\keyboard.js"
+             Link="wwwroot-corex\js\keyboard.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

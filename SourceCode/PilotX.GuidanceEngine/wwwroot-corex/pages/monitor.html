@@ -36,20 +36,25 @@
       <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
       <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
       <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
-      <a class="cx-side-item" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
+      <!-- Radio salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". -->
       <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
-      <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <!-- Módulos salió 2026-08-18: /config/modulos contesta
+           "no-disponible-en-integrado". -->
       <a class="cx-side-item active" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
       <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
-      <a class="cx-side-item" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
-      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
+      <!-- Perfil salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". Ver SISTEMA › Perfiles del vehículo. -->
+      <!-- El link de vuelta ↩️ PilotX salió 2026-08-18: apuntaba a
+           http://127.0.0.1:5180/ y cargaba el Hub HTML viejo adentro de la
+           card de CoreX. Se sale con el ✕ de la card. -->
     </aside>
 
     <div class="cx-content">
       <div class="cx-head">
         <div>
-          <h2>Monitor de tráfico</h2>
-          <p>Mensajes UDP entre CoreX y los módulos, y flujo GPS crudo</p>
+          <h2>Monitor de GPS</h2>
+          <p>Flujo NMEA crudo tal como llega del receptor</p>
         </div>
         <div class="cx-pills">
           <span class="cx-pill"><span id="hdrVersion">—</span></span>
@@ -57,24 +62,13 @@
         </div>
       </div>
 
-      <section class="cx-panel">
-        <div class="mon-bar">
-          <h3>Tráfico UDP (PGN)</h3>
-          <label class="mon-chk"><input type="checkbox" id="chkUdpNmea">NMEA</label>
-          <label class="mon-chk"><input type="checkbox" id="chkUdpNtrip">NTRIP</label>
-          <button class="cx-btn" id="btnUdpPause">Pausar</button>
-          <button class="cx-btn" id="btnUdpClear">Limpiar</button>
-          <button class="cx-btn" id="btnUdpSave">Guardar</button>
-        </div>
-        <div class="mon-box" id="udpBox"></div>
-        <p class="cx-hint" style="margin: 8px 0 0;">
-          Formato: <code>seg.mseg &nbsp; origen/destino &nbsp; &lt; recibido / &gt; enviado &nbsp; PGN</code>.
-          NMEA agrega las sentencias GPS que entran por red; NTRIP marca cada
-          paquete de corrección reenviado.
-        </p>
-      </section>
+      <!-- La consola de Tráfico UDP (PGN) y su guía de PGN salieron 2026-08-18:
+           /api/corex/monitor/udp y /monitor/udp/flags contestan
+           "no-disponible-en-integrado" desde que CoreX dejó de ser proceso
+           propio, así que la consola quedaba muda para siempre. La de GPS
+           crudo (/api/corex/monitor/gps) SÍ funciona y es la que queda. -->
 
-      <section class="cx-panel" style="margin-top: 14px;">
+      <section class="cx-panel">
         <div class="mon-bar">
           <h3>GPS crudo (NMEA)</h3>
           <button class="cx-btn" id="btnRawPause">Pausar</button>
@@ -88,39 +82,11 @@
         </p>
       </section>
 
-      <section class="cx-panel" style="margin-top: 14px;">
-        <details class="pgn">
-          <summary>Guía de PGN</summary>
-          <table class="pgn-table">
-            <tr><td>254</td><td>Datos de dirección (hacia el módulo)</td></tr>
-            <tr><td>253</td><td>Desde el módulo de dirección</td></tr>
-            <tr><td>252</td><td>Ajustes de dirección</td></tr>
-            <tr><td>251</td><td>Configuración de dirección</td></tr>
-            <tr><td>250</td><td>Sensores del módulo de dirección</td></tr>
-            <tr><td>239</td><td>Datos de máquina</td></tr>
-            <tr><td>238</td><td>Configuración de máquina</td></tr>
-            <tr><td>237</td><td>Desde el módulo de máquina</td></tr>
-            <tr><td>236</td><td>Configuración de pines</td></tr>
-            <tr><td>235</td><td>Dimensiones de secciones</td></tr>
-            <tr><td>234</td><td>Módulo Matt Switch</td></tr>
-            <tr><td>229</td><td>Secciones 64 on/off</td></tr>
-            <tr><td>203</td><td>Respuesta de escaneo de subred</td></tr>
-            <tr><td>202</td><td>Pedido de escaneo</td></tr>
-            <tr><td>201</td><td>Cambio de subred</td></tr>
-            <tr><td>200</td><td>Hello a todos los módulos</td></tr>
-            <tr><td>126</td><td>Hello respuesta dirección</td></tr>
-            <tr><td>123</td><td>Hello respuesta máquina</td></tr>
-            <tr><td>121</td><td>Hello respuesta IMU</td></tr>
-            <tr><td>120</td><td>Hello respuesta GPS</td></tr>
-          </table>
-        </details>
-      </section>
     </div>
   </div>
 
   <script src="/js/modal.js"></script>
   <script src="/js/hdr.js"></script>
   <script src="/js/monitor.js"></script>
-  <script src="../js/cx-shell.js"></script>
 </body>
 </html>

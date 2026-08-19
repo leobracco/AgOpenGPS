@@ -18,13 +18,25 @@
       <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
       <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
       <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
-      <a class="cx-side-item" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
+      <!-- Radio salió 2026-08-18: /config/radio, /config/pass y /radio/comando
+           contestan "no-disponible-en-integrado" desde que CoreX dejó de ser
+           proceso propio. No quedaba nada vivo en esa página. -->
       <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
-      <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <!-- Módulos salió 2026-08-18: sus toggles pegaban a /config/modulos, que
+           contesta "no-disponible-en-integrado". Solo quedaban los puntos de
+           estado (de /api/corex/status); el estado de Steer/Machine/IMU se ve
+           igual desde PilotX. -->
       <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
       <a class="cx-side-item" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
-      <a class="cx-side-item" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
-      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
+      <!-- Perfil salió 2026-08-18: en modo integrado el Engine contesta
+           "no-disponible-en-integrado" a /config/perfiles, /config/avanzado,
+           /reiniciar y /apagar, así que los 6 controles de esa página no
+           hacían nada — y Guardar encima decía "Guardado" porque miraba el
+           200 del HTTP y no el ok del cuerpo. Los perfiles del vehículo se
+           gestionan en PilotX: SISTEMA › Perfiles del vehículo. -->
+      <!-- El link de vuelta ↩️ PilotX salió 2026-08-18: apuntaba a
+           http://127.0.0.1:5180/ y cargaba el Hub HTML viejo adentro de la
+           card de CoreX. Se sale con el ✕ de la card. -->
     </aside>
 
     <div class="cx-content">
@@ -92,6 +104,5 @@
 
   <script src="/js/modal.js"></script>
   <script src="/js/corex.js"></script>
-  <script src="js/cx-shell.js"></script>
 </body>
 </html>

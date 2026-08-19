@@ -84,44 +84,10 @@
     poll();
   }
 
-  // ── Monitor UDP/PGN con filtros NMEA/NTRIP ─────────────────────────────────
-  var chkNmea = $('chkUdpNmea');
-  var chkNtrip = $('chkUdpNtrip');
-  var flagsSynced = false;
-
-  function pushFlags() {
-    fetch('/api/corex/monitor/udp/flags', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        log_nmea: chkNmea.checked,
-        log_ntrip: chkNtrip.checked,
-      }),
-    }).catch(function () {
-      AgpModal.alert('Error de red', 'No se pudo aplicar el filtro del monitor.');
-    });
-  }
-
-  chkNmea.addEventListener('change', pushFlags);
-  chkNtrip.addEventListener('change', pushFlags);
-
-  makeMonitor({
-    boxId: 'udpBox',
-    pauseId: 'btnUdpPause',
-    clearId: 'btnUdpClear',
-    saveId: 'btnUdpSave',
-    url: '/api/corex/monitor/udp',
-    fileName: 'corex_trafico_udp.txt',
-    onData: function (d) {
-      // Sincronizar los checks con el estado real UNA vez (primer poll);
-      // después mandan los clicks del usuario.
-      if (!flagsSynced) {
-        flagsSynced = true;
-        chkNmea.checked = !!d.log_nmea;
-        chkNtrip.checked = !!d.log_ntrip;
-      }
-    },
-  });
+  // El monitor UDP/PGN (y sus filtros NMEA/NTRIP) salió 2026-08-18:
+  // /api/corex/monitor/udp y /monitor/udp/flags contestan
+  // "no-disponible-en-integrado" desde que CoreX dejó de ser proceso propio,
+  // así que la consola quedaba muda y los dos checks no aplicaban nada.
 
   // ── Monitor GPS crudo ──────────────────────────────────────────────────────
   makeMonitor({

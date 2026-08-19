@@ -26,13 +26,18 @@
       <a class="cx-side-item" href="/pages/gps.html"><span class="cx-ico">🛰️</span>GPS</a>
       <a class="cx-side-item" href="/pages/serial.html"><span class="cx-ico">🔌</span>Serial</a>
       <a class="cx-side-item" href="/pages/ntrip.html"><span class="cx-ico">📍</span>NTRIP</a>
-      <a class="cx-side-item" href="/pages/radio.html"><span class="cx-ico">📶</span>Radio</a>
+      <!-- Radio salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". -->
       <a class="cx-side-item" href="/pages/red.html"><span class="cx-ico">🌐</span>Red</a>
-      <a class="cx-side-item" href="/pages/modulos.html"><span class="cx-ico">⚙️</span>Módulos</a>
+      <!-- Módulos salió 2026-08-18: /config/modulos contesta
+           "no-disponible-en-integrado". -->
       <a class="cx-side-item" href="/pages/monitor.html"><span class="cx-ico">📡</span>Monitor</a>
       <a class="cx-side-item active" href="/pages/eventos.html"><span class="cx-ico">📜</span>Eventos</a>
-      <a class="cx-side-item" href="/pages/perfil.html"><span class="cx-ico">👤</span>Perfil</a>
-      <a class="cx-side-item" href="http://127.0.0.1:5180/" style="margin-top:auto;"><span class="cx-ico">↩️</span>PilotX</a>
+      <!-- Perfil salió 2026-08-18: todos sus endpoints contestan
+           "no-disponible-en-integrado". Ver SISTEMA › Perfiles del vehículo. -->
+      <!-- El link de vuelta ↩️ PilotX salió 2026-08-18: apuntaba a
+           http://127.0.0.1:5180/ y cargaba el Hub HTML viejo adentro de la
+           card de CoreX. Se sale con el ✕ de la card. -->
     </aside>
 
     <div class="cx-content">
@@ -61,6 +66,5 @@
   <script src="/js/modal.js"></script>
   <script src="/js/hdr.js"></script>
   <script src="/js/eventos.js"></script>
-  <script src="../js/cx-shell.js"></script>
 </body>
 </html>
