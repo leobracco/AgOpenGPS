@@ -5538,6 +5538,7 @@ public partial class MainWindow : Window
                 if (e.Property == BoundsProperty) UbicarVxStrip();
                 if (e.Property == BoundsProperty) UbicarNudgeOverlay();
                 if (e.Property == BoundsProperty) ReclampOverlayQx();
+                if (e.Property == BoundsProperty) ReclampOverlayFx();
             };
         }
 
@@ -5561,6 +5562,15 @@ public partial class MainWindow : Window
             if (c == null) return;
             _ = c.SavePosQxAsync((int)Math.Round(pt.X), (int)Math.Round(pt.Y));
         };
+
+        // Ídem FlowX: al soltarlo se guarda dónde quedó (merge, no pisa lo demás).
+        if (_fxMapOverlay != null)
+            _fxMapOverlay.OnMovido = pt =>
+            {
+                var c = _overlaysClient;
+                if (c == null) return;
+                _ = c.SavePosFxAsync((int)Math.Round(pt.X), (int)Math.Round(pt.Y));
+            };
 
         _overlayPrefsCts = new CancellationTokenSource();
         _ = SeguirPreferenciasOverlaysAsync(_overlayPrefsCts.Token);
@@ -5968,16 +5978,40 @@ public partial class MainWindow : Window
         Canvas.SetTop(_vxMapStrip, Math.Max(0, TopeDePilaInferior() - h - 6));
     }
 
-    private void UbicarFxOverlay()
+    private void UbicarFxOverlay(int x = -1, int y = -1)
     {
         if (_fxMapOverlay == null || _mapOverlaysHost == null) return;
         double hostW = _mapOverlaysHost.Bounds.Width;
         if (hostW < 300) return;
+        // Posición guardada (el operario lo arrastró): respetarla, con clamp
+        // por si se guardó en una pantalla más grande. Igual que QuantiX.
+        if (x >= 0 && y >= 0)
+        {
+            var (cx, cy) = ClampOverlayAlHost(_fxMapOverlay, x, y);
+            Canvas.SetLeft(_fxMapOverlay, cx);
+            Canvas.SetTop(_fxMapOverlay, cy);
+            return;
+        }
         double w = double.IsNaN(_fxMapOverlay.Width) ? 236 : _fxMapOverlay.Width;
-        // Arriba a la derecha, debajo de los botones de zoom (50+50+margenes):
-        // el centro del mapa (tractor) y la barra derecha quedan libres.
+        // Default: arriba a la derecha, debajo de los botones de zoom
+        // (50+50+margenes): el centro del mapa (tractor) y la barra derecha
+        // quedan libres.
         Canvas.SetLeft(_fxMapOverlay, Math.Max(150, hostW - w - 64));
         Canvas.SetTop(_fxMapOverlay, 130);
+    }
+
+    /// <summary>Re-clamp del overlay FlowX cuando el canvas cambia de tamaño.</summary>
+    private void ReclampOverlayFx()
+    {
+        if (_fxMapOverlay == null || !_fxMapOverlay.IsVisible) return;
+        double x = Canvas.GetLeft(_fxMapOverlay), y = Canvas.GetTop(_fxMapOverlay);
+        if (double.IsNaN(x) || double.IsNaN(y)) return;
+        var (cx, cy) = ClampOverlayAlHost(_fxMapOverlay, x, y);
+        if (Math.Abs(cx - x) > 0.5 || Math.Abs(cy - y) > 0.5)
+        {
+            Canvas.SetLeft(_fxMapOverlay, cx);
+            Canvas.SetTop(_fxMapOverlay, cy);
+        }
     }
 
     private async Task SeguirPreferenciasOverlaysAsync(CancellationToken ct)
@@ -6035,7 +6069,7 @@ public partial class MainWindow : Window
                             {
                                 _fxOverlayHttp ??= new HttpClient { Timeout = TimeSpan.FromSeconds(4) };
                                 _fxMapOverlay.Attach(_fxOverlayHttp, DeriveOrigin(App.TargetUrl));
-                                UbicarFxOverlay();
+                                UbicarFxOverlay(prefs.FxX, prefs.FxY);
                             }
                             else _fxMapOverlay.Detach();
                         }

@@ -56,6 +56,11 @@ public sealed class FlowXMapOverlay : Border
     private string _base = "";
     private DispatcherTimer? _timer;
 
+    /// <summary>Se dispara cuando el operario arrastra el overlay. La posición
+    /// la persiste quien lo hospeda (necesita las coords del contenedor).
+    /// Mismo contrato que QuantiXMapOverlay.OnMovido.</summary>
+    public Action<Point>? OnMovido { get; set; }
+
     // estado del último poll
     private string? _uid;              // nodo FlowX que se muestra (el 1ro online/config)
     private bool _modoManual;
@@ -161,6 +166,56 @@ public sealed class FlowXMapOverlay : Border
         raiz.Children.Add(_manFila);
         raiz.Children.Add(_sxFila);
         Child = raiz;
+
+        HabilitarArrastre();
+    }
+
+    // ---------- Arrastre (mismo mecanismo que QuantiXMapOverlay) -------------
+    // El overlay vive en un Canvas (MapOverlaysHost); se corre con el dedo y la
+    // posición se persiste en overlayPrefs.json. Un toque sobre los botones
+    // (AUTO/MAN, − / +) es un comando, no un arrastre.
+
+    private bool _arrastrando;
+    private Point _origenPuntero;
+
+    private void HabilitarArrastre()
+    {
+        PointerPressed += (s, e) =>
+        {
+            if (e.Source is Button || (e.Source as Control)?.Parent is Button) return;
+            _arrastrando = true;
+            _origenPuntero = e.GetPosition(Parent as Visual);
+            e.Pointer.Capture(this);
+        };
+        PointerMoved += (s, e) =>
+        {
+            if (!_arrastrando) return;
+            var p = e.GetPosition(Parent as Visual);
+            var nuevo = new Point(
+                Canvas.GetLeft(this) + (p.X - _origenPuntero.X),
+                Canvas.GetTop(this) + (p.Y - _origenPuntero.Y));
+            if (double.IsNaN(nuevo.X) || double.IsNaN(nuevo.Y)) return;
+            // Clamp a los cuatro bordes: sin el tope derecho/abajo el widget se
+            // podía arrastrar fuera de pantalla y "perderse".
+            double maxX = double.MaxValue, maxY = double.MaxValue;
+            if (Parent is Control host)
+            {
+                maxX = Math.Max(0, host.Bounds.Width  - Bounds.Width);
+                maxY = Math.Max(0, host.Bounds.Height - Bounds.Height);
+            }
+            Canvas.SetLeft(this, Math.Min(Math.Max(0, nuevo.X), maxX));
+            Canvas.SetTop(this, Math.Min(Math.Max(0, nuevo.Y), maxY));
+            _origenPuntero = p;
+        };
+        PointerReleased += (s, e) =>
+        {
+            if (!_arrastrando) return;
+            _arrastrando = false;
+            e.Pointer.Capture(null);
+            double x = Canvas.GetLeft(this), y = Canvas.GetTop(this);
+            if (!double.IsNaN(x) && !double.IsNaN(y)) OnMovido?.Invoke(new Point(x, y));
+        };
+        PointerCaptureLost += (_, _) => _arrastrando = false;
     }
 
     private static Button BotonPaso(string txt) => new()

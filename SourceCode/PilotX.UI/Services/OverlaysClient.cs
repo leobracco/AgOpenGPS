@@ -29,6 +29,9 @@ public sealed class OverlayPrefs
     // estos dos campos no pisa los flags ni las posiciones de los otros widgets.
     [JsonPropertyName("qx_x")] public int QxX { get; set; } = -1;
     [JsonPropertyName("qx_y")] public int QxY { get; set; } = -1;
+
+    [JsonPropertyName("fx_x")] public int FxX { get; set; } = -1;
+    [JsonPropertyName("fx_y")] public int FxY { get; set; } = -1;
 }
 
 /// <summary>Solo la posición de QuantiX, para guardarla sin arrastrar el resto
@@ -37,6 +40,13 @@ public sealed class OverlayPosQx
 {
     [JsonPropertyName("qx_x")] public int QxX { get; set; }
     [JsonPropertyName("qx_y")] public int QxY { get; set; }
+}
+
+/// <summary>Ídem QuantiX, para el overlay de FlowX.</summary>
+public sealed class OverlayPosFx
+{
+    [JsonPropertyName("fx_x")] public int FxX { get; set; }
+    [JsonPropertyName("fx_y")] public int FxY { get; set; }
 }
 
 public sealed class OverlaysClient
@@ -76,6 +86,10 @@ public sealed class OverlaysClient
     /// <summary>Guarda dónde quedó el overlay de QuantiX después de moverlo.</summary>
     public async Task<bool> SavePosQxAsync(int x, int y, CancellationToken ct = default)
         => await PostAsync(new OverlayPosQx { QxX = x, QxY = y }, ct).ConfigureAwait(false);
+
+    /// <summary>Guarda dónde quedó el overlay de FlowX después de moverlo.</summary>
+    public async Task<bool> SavePosFxAsync(int x, int y, CancellationToken ct = default)
+        => await PostAsync(new OverlayPosFx { FxX = x, FxY = y }, ct).ConfigureAwait(false);
 
     private async Task<bool> PostAsync<T>(T payload, CancellationToken ct)
     {
