@@ -579,7 +579,10 @@ namespace AgroParallel.OrbitX
                     { "device_id", _cfg.DeviceId },
                     { "hostname", Environment.MachineName },
                     { "platform", "win32" },
-                    { "version", "AgOpenGPS-AP" },
+                    // Versión real de PilotX (AssemblyInformationalVersion, con
+                    // override por plataforma vía SetCurrentVersion) — antes iba
+                    // el literal "AgOpenGPS-AP" y el CRM mostraba eso como versión.
+                    { "version", PilotXSelfUpdate.Snapshot().CurrentVersion },
                     { "aog_path", AppDomain.CurrentDomain.BaseDirectory },
                     // ID de RustDesk (soporte remoto): si está instalado se lee
                     // una vez y viaja en el payload; el CRM lo muestra en la
@@ -676,7 +679,10 @@ namespace AgroParallel.OrbitX
                     { "device_id", _cfg.DeviceId },
                     { "hostname", Environment.MachineName },
                     { "platform", "win32" },
-                    { "version", "AgOpenGPS-AP" },
+                    // Versión real de PilotX (AssemblyInformationalVersion, con
+                    // override por plataforma vía SetCurrentVersion) — antes iba
+                    // el literal "AgOpenGPS-AP" y el CRM mostraba eso como versión.
+                    { "version", PilotXSelfUpdate.Snapshot().CurrentVersion },
                     { "aog_path", AppDomain.CurrentDomain.BaseDirectory },
                     // ID de RustDesk (soporte remoto): si está instalado se lee
                     // una vez y viaja en el payload; el CRM lo muestra en la
