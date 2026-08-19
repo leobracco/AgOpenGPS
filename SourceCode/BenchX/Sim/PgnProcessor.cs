@@ -66,7 +66,24 @@ public sealed class PgnProcessor
                 {
                     if (data.Length < 13) break;
                     GpsSpeedPilotX = (data[5] | (data[6] << 8)) * 0.1;
+                    byte statusPrevio = GuidanceStatus;
                     GuidanceStatus = data[7];
+                    // Firmware real (CoreX-ECU/AiO): al enganchar el piloto desde
+                    // la pantalla (status 0→1) la ECU baja su steerSwitch
+                    // (activo-bajo) como si el botón físico se apretara, y lo
+                    // suelta al desenganchar. Sin esto el Engine ve
+                    // steerSwitchHigh=true con el piloto PUESTO y ahí:
+                    //   · CABLine.cs:82 / CABCurve.cs:134 re-eligen pasada y
+                    //     sameWay cada 0,66 s → el U-turn entrega serpenteando
+                    //     (traza 2026-08-19: pasada -7→-11, volantazos ±30°),
+                    //   · CModuleComm.cs:63 togglea el piloto solo ("autosteer
+                    //     ON (auto, sin UI)" en el log),
+                    //   · EngancharGuiaAlPivote() nunca engancha.
+                    // Por flanco, no por nivel: el checkbox "Switch dirección"
+                    // del banco sigue pudiendo simular "el operario tomó el
+                    // volante" con el piloto puesto (kill switch).
+                    if (GuidanceStatus != 0 && statusPrevio == 0) SteerSwitch = 0;
+                    else if (GuidanceStatus == 0 && statusPrevio != 0) SteerSwitch = 1;
                     SteerAngleSetPoint = (short)(data[8] | (data[9] << 8)) * 0.01;
                     Xte = data[10];
                     Relay = data[11];

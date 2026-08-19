@@ -50,9 +50,40 @@ public class PgnProcessorTests
         // dummies históricos de heading/roll que PilotX espera ver
         Assert.That((short)(r[7] | (r[8] << 8)), Is.EqualTo(9999));
         Assert.That((short)(r[9] | (r[10] << 8)), Is.EqualTo(8888));
-        Assert.That(r[11], Is.EqualTo(0b110));                 // remote<<2 | steer<<1 | work
+        // remote<<2 | steer<<1 | work. El steer bit va BAJO: la trama traía
+        // guidance=1 (enganche 0→1) y desde 2026-08-19 BenchX emula a la ECU
+        // real (Autosteer.ino:309-315), que baja su steerSwitch al enganchar.
+        // Antes esperaba 0b110 (switch siempre suelto): ese era el defecto que
+        // hacía serpentear el U-turn en banco (re-pick de pasada cada 0,66 s).
+        Assert.That(r[11], Is.EqualTo(0b100));
         Assert.That(r[12], Is.EqualTo(44));                    // pwmDisplay fijo histórico
         AssertCrc(r);
+    }
+
+    [Test]
+    public void Pgn254_enganche_baja_el_steer_switch_como_la_ecu_real()
+    {
+        var p = Proc();
+
+        byte Bit(byte status)
+        {
+            var res = p.Procesar(Trama(254, 8, 70, 0, status, 0, 0, 0, 0, 0, 0));
+            return (byte)(res.Respuestas[0][11] & 2);
+        }
+
+        // Piloto apagado: switch suelto (pull-up físico).
+        Assert.That(Bit(0), Is.EqualTo(2), "apagado arranca suelto");
+        // Engancha (0→1): la ECU emulada baja el switch.
+        Assert.That(Bit(1), Is.EqualTo(0), "enganche baja el switch");
+        // Sigue enganchado (1→1, p.ej. durante el U-turn): sigue bajo.
+        Assert.That(Bit(1), Is.EqualTo(0), "sostenido sigue bajo");
+        // El operario toma el volante con el piloto puesto: gana el manual.
+        p.SteerSwitch = 1;
+        Assert.That(Bit(1), Is.EqualTo(2), "kill switch manual gana");
+        // Desengancha (1→0): suelto de nuevo.
+        Assert.That(Bit(0), Is.EqualTo(2), "desenganche suelta");
+        // Re-engancha: el flanco no quedó comido por el manual.
+        Assert.That(Bit(1), Is.EqualTo(0), "re-enganche vuelve a bajar");
     }
 
     [Test]
