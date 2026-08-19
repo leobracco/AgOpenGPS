@@ -71,6 +71,7 @@ namespace AgOpenGPS
         private AgroParallel.Cut.CutDispatcher _cutDispatcher;
         private AgroParallel.SectionX.SectionsSpeedPublisher _sectionsSpeed;
         private System.Threading.Timer _cutRetry;
+        private EnginePilotXUpdateService _pilotxUpdate;
 
         /// <summary>Registro de nodos MQTT compartido: lo usan los bridges que
         /// publican targets (QuantiX/SectionX) en vez de abrir otra conexión.</summary>
@@ -238,7 +239,11 @@ namespace AgOpenGPS
                 sectionsCore: sectionsCore,
                 quantixRuntime: quantixRuntime,
                 guidance: guidance,
-                pilotxUpdate: null,
+                // Self-update de PilotX vía OrbitX (página /actualizar del
+                // Hub). Sin esto PilotXUpdateController no se registraba y
+                // /api/pilotx/update/* daba 404: el update estaba escrito pero
+                // desconectado desde que el WinForms se eliminó (2026-08-14).
+                pilotxUpdate: (_pilotxUpdate = new EnginePilotXUpdateService()),
                 flowxCfg: flowxCfg,
                 flowxLive: flowxLive,
                 stormxCfg: stormxCfg,
@@ -445,6 +450,8 @@ namespace AgOpenGPS
             _orbitxSync = null;
             try { _web?.Stop(); } catch { }
             _web = null;
+            try { _pilotxUpdate?.Dispose(); } catch { }
+            _pilotxUpdate = null;
             try { _nodos?.Dispose(); } catch { }
             _nodos = null;
         }

@@ -242,6 +242,17 @@ namespace AgOpenGPS
                 exit.Set();
             };
 
+            // Self-update: cuando ApplyAsync ya lanzó el Updater externo, el
+            // Engine tiene que bajarse limpio (webHost/coreX/host.Stop de acá
+            // abajo — corte all-off a los relés, guardado, broker). Si nadie
+            // se suscribe, el Updater igual lo mata a los 60 s, pero ese kill
+            // saltea todo el cierre ordenado.
+            AgroParallel.OrbitX.PilotXSelfUpdate.ApplyRequested += () =>
+            {
+                Log.EventWriter("GuidanceEngine: cierre pedido por self-update (Updater lanzado)");
+                exit.Set();
+            };
+
             exit.Wait();
 
             simTimer?.Dispose();

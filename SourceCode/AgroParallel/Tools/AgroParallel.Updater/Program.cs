@@ -64,6 +64,21 @@ namespace AgroParallel.Updater
             Log("install=" + install);
             Log("exe=" + exe);
 
+            // Frenar al vigilante de Lanzar-PilotX.bat: cuando en 1b matemos a
+            // PilotX.Desktop, el .bat lo ve salir con error y lo RELANZA a los
+            // 3 s — justo en medio de la extracción, con las DLLs lockeadas de
+            // nuevo. Con este flag presente el .bat sale sin relanzar. Se
+            // borra antes del relaunch final para que el vigilante vuelva a
+            // funcionar en la versión nueva.
+            string flagVigilante = null;
+            try
+            {
+                flagVigilante = Path.Combine(install, "actualizando.flag");
+                File.WriteAllText(flagVigilante, "Updater " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                Log("Flag del vigilante creado: " + flagVigilante);
+            }
+            catch (Exception ex) { Log("No pude crear actualizando.flag: " + ex.Message); }
+
             // 1. Esperar a que PilotX salga.
             if (pid > 0)
             {
@@ -135,14 +150,35 @@ namespace AgroParallel.Updater
                 }
             }
 
-            // 4. Relanzar. Primero las apps que cerramos en 1b (CoreX → el broker
-            // MQTT tiene que estar arriba antes que PilotX), PilotX al final.
-            foreach (var path in closedExes)
+            // 4. Relanzar. Devolverle el vigilante a la versión nueva ANTES de
+            // relanzar: si el flag queda, el .bat nunca más relanza la pantalla
+            // caída.
+            if (!string.IsNullOrEmpty(flagVigilante))
             {
-                if (string.Equals(Path.GetFileName(path), Path.GetFileName(exe), StringComparison.OrdinalIgnoreCase))
-                    continue; // PilotX va al final
-                RelaunchExe(path, install);
-                Thread.Sleep(1500); // dar tiempo a que el broker levante
+                try { if (File.Exists(flagVigilante)) File.Delete(flagVigilante); }
+                catch (Exception ex) { Log("No pude borrar actualizando.flag: " + ex.Message); }
+            }
+
+            // Si el exe final es el launcher (.bat), ÉL levanta el stack entero
+            // (Engine minimizado + Desktop + vigilante): relanzar además los
+            // procesos cerrados en 1b duplicaría la pantalla. Si es un exe
+            // suelto, comportamiento histórico: primero las apps cerradas en 1b
+            // (CoreX → el broker MQTT tiene que estar arriba antes que PilotX),
+            // PilotX al final.
+            bool exeEsLauncher = string.Equals(Path.GetExtension(exe), ".bat", StringComparison.OrdinalIgnoreCase);
+            if (exeEsLauncher)
+            {
+                Log("Exe final es el launcher .bat — no se relanzan los procesos de 1b (los levanta el .bat).");
+            }
+            else
+            {
+                foreach (var path in closedExes)
+                {
+                    if (string.Equals(Path.GetFileName(path), Path.GetFileName(exe), StringComparison.OrdinalIgnoreCase))
+                        continue; // PilotX va al final
+                    RelaunchExe(path, install);
+                    Thread.Sleep(1500); // dar tiempo a que el broker levante
+                }
             }
 
             if (File.Exists(exe)) RelaunchExe(exe, install);
@@ -210,7 +246,9 @@ namespace AgroParallel.Updater
         }
 
         // Backup superficial: copia archivos del top-level del install dir
-        // (.exe / .dll / .json / .ico / .config) + las carpetas claves del shell.
+        // (.exe / .dll / .json / .ico / .config) + las carpetas claves del shell
+        // + los .json de config del motor (top-level de Engine\ — el Engine
+        // corre desde ahí y escribe sus configs en su BaseDirectory).
         // No copia Fields/ ni firmware-cache/ ni AgroParallel/WebView2Data/.
         private static void BackupTopLevel(string src, string dst)
         {
@@ -224,6 +262,7 @@ namespace AgroParallel.Updater
             }
             CopyTreeIfExists(Path.Combine(src, "Branding"),               Path.Combine(dst, "Branding"));
             CopyTreeIfExists(Path.Combine(src, "AgroParallel", "wwwroot"), Path.Combine(dst, "AgroParallel", "wwwroot"));
+            CopyEngineConfigs(Path.Combine(src, "Engine"),                 Path.Combine(dst, "Engine"));
         }
 
         private static void RestoreTopLevel(string src, string dst)
@@ -234,6 +273,25 @@ namespace AgroParallel.Updater
             }
             CopyTreeIfExists(Path.Combine(src, "Branding"),                Path.Combine(dst, "Branding"));
             CopyTreeIfExists(Path.Combine(src, "AgroParallel", "wwwroot"), Path.Combine(dst, "AgroParallel", "wwwroot"));
+            CopyEngineConfigs(Path.Combine(src, "Engine"),                 Path.Combine(dst, "Engine"));
+        }
+
+        // Solo los *.json del top-level de Engine\ (configs del motor: orbitX,
+        // nodos, vistaX…). NO el árbol entero: Engine\ trae el runtime .NET
+        // self-contained (~cientos de MB) y copiarlo duplicaría la instalación
+        // en cada backup.
+        private static void CopyEngineConfigs(string srcEngine, string dstEngine)
+        {
+            try
+            {
+                if (!Directory.Exists(srcEngine)) return;
+                Directory.CreateDirectory(dstEngine);
+                foreach (var f in Directory.GetFiles(srcEngine, "*.json"))
+                {
+                    try { File.Copy(f, Path.Combine(dstEngine, Path.GetFileName(f)), true); } catch { }
+                }
+            }
+            catch { }
         }
 
         private static void CopyTreeIfExists(string src, string dst)

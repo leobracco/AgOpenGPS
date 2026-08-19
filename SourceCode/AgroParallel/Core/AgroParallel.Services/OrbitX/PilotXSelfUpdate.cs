@@ -127,8 +127,31 @@ namespace AgroParallel.OrbitX
         }
 
         // ── Paths ──────────────────────────────────────────────────────────
+        // En el layout desktop actual el proceso que hace Apply es el ENGINE,
+        // que corre desde <install>\Engine\ — pero el ZIP de update se extrae
+        // sobre la RAÍZ de la instalación (donde viven Desktop\, el Updater y
+        // Lanzar-PilotX.bat). Si el directorio del proceso se llama "Engine" y
+        // el padre tiene pinta de instalación (existe Desktop\ o el .bat), el
+        // install dir es el padre. Si no, el propio BaseDirectory — compat con
+        // layouts viejos (todo plano) y con Android, que usa esta misma clase
+        // (su dataDir nunca se llama "Engine").
         public static string InstallDir()
-            => AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
+            try
+            {
+                if (string.Equals(Path.GetFileName(baseDir), "Engine", StringComparison.OrdinalIgnoreCase))
+                {
+                    string parent = Path.GetDirectoryName(baseDir);
+                    if (!string.IsNullOrEmpty(parent) &&
+                        (Directory.Exists(Path.Combine(parent, "Desktop")) ||
+                         File.Exists(Path.Combine(parent, "Lanzar-PilotX.bat"))))
+                        return parent;
+                }
+            }
+            catch { } // silencioso a propósito: ante cualquier duda, layout plano
+            return baseDir;
+        }
 
         public static string StagingRoot()
             => Path.Combine(InstallDir(), "AgroParallel", "Updates");
@@ -139,14 +162,39 @@ namespace AgroParallel.OrbitX
         public static string StagingZip(string version)
             => Path.Combine(StagingDir(version), "payload.zip");
 
+        // El ZIP de release pone AgroParallel.Updater.exe en la RAÍZ de la
+        // instalación — con InstallDir() resolviendo la raíz (y no Engine\),
+        // este path cierra solo.
         public static string UpdaterExe()
             => Path.Combine(InstallDir(),
                 System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
                     System.Runtime.InteropServices.OSPlatform.Windows)
                     ? "AgroParallel.Updater.exe" : "AgroParallel.Updater");
 
+        // Qué relanza el Updater al terminar: la PANTALLA, no el motor headless
+        // (el proceso que llama Apply es el Engine, pero relanzar solo el motor
+        // dejaría la cabina sin UI). Prioridad:
+        //   1. <install>\Lanzar-PilotX.bat — el launcher oficial: levanta
+        //      Engine minimizado + Desktop + vigilante. El Updater lo arranca
+        //      con UseShellExecute=true, que sí sabe correr un .bat.
+        //   2. <install>\Desktop\PilotX.Desktop.exe (o PilotX.Desktop en
+        //      Linux) — la pantalla sola, que lanza su Engine.
+        //   3. El entry assembly actual — último recurso, layouts viejos.
         public static string EntryExe()
         {
+            try
+            {
+                string install = InstallDir();
+                string bat = Path.Combine(install, "Lanzar-PilotX.bat");
+                if (File.Exists(bat)) return bat;
+
+                string desktop = Path.Combine(install, "Desktop",
+                    System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                        System.Runtime.InteropServices.OSPlatform.Windows)
+                        ? "PilotX.Desktop.exe" : "PilotX.Desktop");
+                if (File.Exists(desktop)) return desktop;
+            }
+            catch { } // silencioso a propósito: fallback de detección de exe propio
             try
             {
                 var asm = Assembly.GetEntryAssembly();

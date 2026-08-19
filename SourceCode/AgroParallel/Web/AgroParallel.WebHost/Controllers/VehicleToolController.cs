@@ -135,9 +135,16 @@ namespace AgroParallel.WebHost.Controllers
                         // trace en cada arranque — ruido que tapaba los 404 de verdad.
                         string archivoMapa = sinExt + ".mapa.png";
                         bool hayMapa = System.IO.File.Exists(System.IO.Path.Combine(dir, archivoMapa));
-                        sprites.Add(new { archivo, nombre, tipo, marca, modelo,
-                                          url = "/img/vehiculos/" + archivo,
-                                          urlMapa = hayMapa ? "/img/vehiculos/" + archivoMapa : null });
+                        sprites.Add(new
+                        {
+                            archivo,
+                            nombre,
+                            tipo,
+                            marca,
+                            modelo,
+                            url = "/img/vehiculos/" + archivo,
+                            urlMapa = hayMapa ? "/img/vehiculos/" + archivoMapa : null
+                        });
                     }
                 }
             }

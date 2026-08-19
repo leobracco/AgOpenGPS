@@ -187,13 +187,52 @@ $skipExt  = @('.pdb','.bak','.log','.on')
 # con el CoreX embebido del engine arma un lazo de eco UDP que infla el proceso
 # a GBs) y createdump (herramienta de debug de .NET, puro peso).
 $skipFiles = @('createdump.exe')
+# ----------------------------------------------------------------------------
+# Exclusion de configs de runtime — EN CUALQUIER NIVEL del ZIP, no solo la
+# raiz. El filtro viejo (solo raiz) dejo pasar Engine/orbitX.json con
+# device_id + device_token REALES en PilotX_v1.0.25.zip: todo tractor que lo
+# aplicara quedaba con el pairing y el perfil de OTRA maquina. Criterio doble:
+#  (1) LISTA DE NOMBRES CONOCIDOS ($configJson): los .json que Engine/Desktop
+#      escriben en su BaseDirectory (relevados por grep de los Save()/
+#      File.WriteAllText de configs + lo que aparecio en el ZIP v1.0.25).
+#      Se excluyen a CUALQUIER nivel, salvo bajo AgroParallel\wwwroot\
+#      (los estaticos del Hub estan versionados en git, no son config).
+#  (2) PATRON DEFENSIVO: cualquier .json que NO termine en .deps.json /
+#      .runtimeconfig.json y viva en la raiz del ZIP o en el PRIMER nivel de
+#      Engine\ / Desktop\ / BarsHost\ tambien se excluye — ahi .NET solo
+#      necesita esos dos tipos; todo otro .json es config acumulada por
+#      haber corrido PilotX desde el Build local.
+# OJO: NUNCA excluir '.json' a secas — los *.deps.json y *.runtimeconfig.json
+# son obligatorios para que las apps .NET arranquen.
+# Ademas: el cache de WebView2 se llama "PilotX.Desktop.exe.WebView2" (el
+# skipDir viejo 'WebView2Data' no lo matcheaba) -> se filtra todo dir
+# '*.WebView2'.
+# ----------------------------------------------------------------------------
+$configJson = @('orbitX.json','aog_settings.json','corex_settings.json',
+    'corex-integrado.json','corexEcu.json','gps_status.json','nodos.json',
+    'vistaX.json','sectionX.json','flowX.json','stormX.json','lineX.json',
+    'quantiX.json','quantiX_motores.json','setup.json','sonidos.json',
+    'insumos.json','idioma.json','camaras.json','debug.json',
+    'overlayPrefs.json','prescripciones-state.json','steer-config.json',
+    'tool.json','benchx.json','implemento.json','shapefile.json',
+    'pilotx_ui_prefs.json','default.json')
 $files = Get-ChildItem $OutDir -Recurse -File -Force | Where-Object {
     $rel   = $_.FullName.Substring($OutDir.Length + 1)
     $parts = $rel.Split([IO.Path]::DirectorySeparatorChar)
-    $esConfigRaiz = ($parts.Length -eq 1) -and ($_.Extension.ToLower() -eq '.json')
-    (-not ($parts | Where-Object { $skipDirs -contains $_ })) -and
+    $esJson       = $_.Extension.ToLower() -eq '.json'
+    $esJsonDotnet = ($_.Name -like '*.deps.json') -or ($_.Name -like '*.runtimeconfig.json')
+    $enWwwroot    = ($parts.Length -ge 3) -and ($parts[0] -eq 'AgroParallel') -and ($parts[1] -eq 'wwwroot')
+    # (1) nombre de config conocido, a cualquier nivel (menos wwwroot)
+    $esConfigConocida = $esJson -and (-not $enWwwroot) -and ($configJson -contains $_.Name)
+    # (2) patron defensivo: .json no-.NET en la raiz o en el primer nivel de las apps
+    $esConfigDefensiva = $esJson -and (-not $esJsonDotnet) -and (
+        ($parts.Length -eq 1) -or
+        (($parts.Length -eq 2) -and (@('Engine','Desktop','BarsHost') -contains $parts[0]))
+    )
+    (-not ($parts | Where-Object { ($skipDirs -contains $_) -or ($_ -like '*.WebView2') })) -and
     ($skipExt -notcontains $_.Extension.ToLower()) -and
-    (-not $esConfigRaiz) -and
+    (-not $esConfigConocida) -and
+    (-not $esConfigDefensiva) -and
     ($skipFiles -notcontains $_.Name) -and
     ($_.Name -notlike '*.vshost.*') -and ($_.Name -ne 'updater.log')
 }
