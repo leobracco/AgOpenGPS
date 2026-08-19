@@ -210,13 +210,13 @@ namespace PilotX.Droid
                     var s = PilotXCore.Properties.Settings.Default;
                     switch (s.setVehicle_vehicleType)
                     {
-                        case 0: snap.VehicleType = "Tractor"; snap.VehicleBrand = s.setBrand_TBrand.ToString(); break;
-                        case 1: snap.VehicleType = "Harvester"; snap.VehicleBrand = s.setBrand_HBrand.ToString(); break;
-                        case 2: snap.VehicleType = "Articulated"; snap.VehicleBrand = s.setBrand_WDBrand.ToString(); break;
-                        default: snap.VehicleType = "Tractor"; snap.VehicleBrand = "AGOpenGPS"; break;
+                        case 0: snap.VehicleType = "Tractor"; snap.VehicleBrand = MarcaVisible(s.setBrand_TBrand.ToString()); break;
+                        case 1: snap.VehicleType = "Harvester"; snap.VehicleBrand = MarcaVisible(s.setBrand_HBrand.ToString()); break;
+                        case 2: snap.VehicleType = "Articulated"; snap.VehicleBrand = MarcaVisible(s.setBrand_WDBrand.ToString()); break;
+                        default: snap.VehicleType = "Tractor"; snap.VehicleBrand = ""; break;
                     }
                 }
-                catch { snap.VehicleType = "Tractor"; snap.VehicleBrand = "AGOpenGPS"; }
+                catch { snap.VehicleType = "Tractor"; snap.VehicleBrand = ""; }
             }
             catch
             {
@@ -224,6 +224,15 @@ namespace PilotX.Droid
             }
 
             return snap;
+        }
+
+        // La marca generica del enum ("AGOpenGPS"/"AgOpenGPS") NO se muestra: el
+        // HUD la concatena al tipo y quedaba "AGOpenGPS Tractor" en pantalla.
+        // Vacia = se lee solo "Tractor"; el sprite igual cae al dibujo generico.
+        private static string MarcaVisible(string marca)
+        {
+            if (string.IsNullOrEmpty(marca)) return "";
+            return marca.Equals("AGOpenGPS", System.StringComparison.OrdinalIgnoreCase) ? "" : marca;
         }
 
         // Los que siguen no se portaron en esta pasada (ver nota de cabecera):

@@ -680,7 +680,7 @@
                 tractor llegan via HudSnapshot @4Hz, lista de nodos via
                 /api/nodos/unified @3s, toggles QX/VX/FX via /api/overlays
                 (FormGPS relee overlayPrefs.json cada 250ms). NO se hace
-                polling redundante del estado AOG: se consume el HUD que
+                polling redundante del estado de PilotX: se consume el HUD que
                 ya viene.
             -->
             <!-- Card flotante centrada, mapa VIVO detrás (antes era takeover
@@ -1055,6 +1055,123 @@
                 <vw:SonidosPanel x:Name="SonidosHost" Grid.Row="1" ZIndex="10"
                                  IsVisible="False"
                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+                <!-- VISOR DE EVENTOS (port de pages/eventos.html, ex
+                     FormEventViewer): el registro de la sesión + el histórico.
+                     Card clara flotante con el mapa VIVO detrás; la página HTML
+                     queda intacta para la PWA del celular. Stretch a propósito:
+                     la card se centra sola (MaxWidth 960 en su propio XAML). -->
+                <vw:EventosPanel x:Name="EventosHost" Grid.Row="1" ZIndex="10"
+                                 IsVisible="False"
+                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- CALCULADORA DE SIEMBRA (port de
+                     pages/calculadora-siembra.html): las cuatro cuentas de
+                     gruesa (densidad, prueba de campo, PMS y motor). Card clara
+                     flotante, mapa VIVO detrás; la página HTML queda intacta
+                     para la PWA del celular. -->
+                <vw:CalculadoraSiembraPanel x:Name="CalculadoraHost" Grid.Row="1" ZIndex="10"
+                                            IsVisible="False"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- PERFILES (port de pages/perfiles.html): un perfil = TODAS
+                     las configuraciones del vehículo, así que la pantalla es
+                     destructiva (crear / cargar / copiar / proteger / borrar).
+                     Card clara flotante, mapa VIVO detrás; la página HTML queda
+                     intacta para la PWA del celular. Stretch: la card se centra
+                     sola y el diálogo de alta necesita el área entera. -->
+                <vw:PerfilesPanel x:Name="PerfilesHost" Grid.Row="1" ZIndex="10"
+                                  IsVisible="False"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- FIRMWARES (port de pages/firmwares.html): catálogo local de
+                     .bin para cargar desde USB sin internet. Card clara
+                     flotante, mapa VIVO detrás; la página HTML queda intacta
+                     para la PWA del celular. -->
+                <vw:FirmwaresPanel x:Name="FirmwaresHost" Grid.Row="1" ZIndex="10"
+                                   IsVisible="False"
+                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- BANDERAS nativo (port de pages/banderas.html, ex FormFlags +
+                     FormEnterFlag): el operario marca una piedra o un pozo
+                     MANEJANDO y la lista le dice a qué distancia está cada
+                     bandera en vivo — o sea que lo que hay que ver es el MAPA.
+                     Card chica (380) a la DERECHA con el mismo margen 82 que
+                     Contorno/Corregir posición: el centro queda para el tractor
+                     y la bandera recién marcada. -->
+                <vw:BanderasPanel x:Name="BanderasHost" Grid.Row="1" ZIndex="10"
+                                  IsVisible="False"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  Margin="0,0,82,0"/>
+
+                <!-- Los CUATRO GRÁFICOS (port de grafico-direccion.html,
+                     grafico-rumbo.html, grafico-xte.html y
+                     grafico-correccion.html, ex FormGraphSteer y hermanas):
+                     se miran MANEJANDO, así que van como card flotante con el
+                     mapa VIVO detrás. Comparten un solo GraficosClient. Las
+                     páginas HTML quedan intactas para la PWA del celular. -->
+                <vw:GraficoDireccionPanel x:Name="GrafDireccionHost" Grid.Row="1" ZIndex="10"
+                                          IsVisible="False"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <vw:GraficoRumboPanel x:Name="GrafRumboHost" Grid.Row="1" ZIndex="10"
+                                      IsVisible="False"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <vw:GraficoXtePanel x:Name="GrafXteHost" Grid.Row="1" ZIndex="10"
+                                    IsVisible="False"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <vw:GraficoCorreccionPanel x:Name="GrafCorreccionHost" Grid.Row="1" ZIndex="10"
+                                           IsVisible="False"
+                                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- ORBITX CLOUD (port de pages/orbitx.html): vinculación del
+                     tractor con el cloud (código de pareo, estado del sync) y
+                     el atajo a Prescripciones. Card clara flotante, mapa VIVO
+                     detrás; la página HTML queda intacta para la PWA. -->
+                <vw:OrbitXPanel x:Name="OrbitXHost" Grid.Row="1" ZIndex="10"
+                                IsVisible="False"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- RED WIFI (port de pages/wifi.html): el WiFi PROPIO de la
+                     pantalla — escanear, conectar, olvidar. Card clara
+                     flotante, mapa VIVO detrás; la página HTML queda intacta
+                     para la PWA del celular. -->
+                <vw:WifiPanel x:Name="WifiHost" Grid.Row="1" ZIndex="10"
+                              IsVisible="False"
+                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- DEBUG (port de pages/debug.html): el log unificado de todos
+                     los servicios, con sus filtros. Card clara flotante, mapa
+                     VIVO detrás; la página HTML queda intacta para la PWA. -->
+                <vw:DebugPanel x:Name="DebugHost" Grid.Row="1" ZIndex="10"
+                               IsVisible="False"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- CATÁLOGO DE INSUMOS (port de pages/insumos.html): el
+                     catálogo COMPARTIDO que abre VistaX desde su editor. Card
+                     clara flotante, mapa VIVO detrás; la página HTML queda
+                     intacta para la PWA del celular. -->
+                <vw:InsumosPanel x:Name="InsumosHost" Grid.Row="1" ZIndex="10"
+                                 IsVisible="False"
+                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- MAPAS (port de pages/mapas.html): preview y exportación de
+                     los mapas del lote. Card clara flotante, mapa VIVO detrás;
+                     la página HTML queda intacta para la PWA del celular. -->
+                <vw:MapasPanel x:Name="MapasHost" Grid.Row="1" ZIndex="10"
+                               IsVisible="False"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- DETALLE DE NODO (port de pages/nodo-detalle.html): la
+                     matriz wifi/mqtt/target, el OTA y los comandos de UN nodo.
+                     Se entra tocando una fila de Nodos (el UID sale del
+                     announcement MQTT). Card clara flotante, mapa VIVO detrás;
+                     la página HTML queda intacta para la PWA del celular. -->
+                <vw:NodoDetallePanel x:Name="NodoDetalleHost" Grid.Row="1" ZIndex="10"
+                                     IsVisible="False"
+                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
 
                 <!-- CONFIGURACIÓN nativa (shell del porteo de config.html):
                      menú lateral por grupos + pestañas + footer con

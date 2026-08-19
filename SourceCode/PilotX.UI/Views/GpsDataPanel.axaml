@@ -29,7 +29,17 @@
                 <StackPanel Margin="24,20,24,24" Spacing="14">
 
                     <!-- ============ Header ============ -->
-                    <Grid ColumnDefinitions="*,Auto">
+                    <!-- El ✕ vive ACA ADENTRO (pedido 2026-08-18): el operario
+                         abria el panel desde el chip GPS de la barra de arriba
+                         y la unica salida era la flecha "←" de la esquina, a
+                         media pantalla de distancia del lugar donde estaba
+                         mirando. Mismo patron y mismo tamaño (48x48, para
+                         guantes) que el ✕ de ConfigPanel. -->
+                    <!-- Name="DragHandle": de acá se agarra para CORRER la card
+                         sobre el mapa (PanelArrastrable). Doble toque = vuelve
+                         al centro. -->
+                    <Grid Name="DragHandle" Background="Transparent"
+                          ColumnDefinitions="*,Auto,Auto">
                         <StackPanel Grid.Column="0" Spacing="2">
                             <TextBlock Text="Antena GPS"
                                        Foreground="{StaticResource PilotXPanelText}"
@@ -60,6 +70,20 @@
                                            VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
+
+                        <Button Grid.Column="2" Name="BtnCerrar" Content="✕"
+                                Click="OnCerrarClick"
+                                ToolTip.Tip="Cerrar"
+                                Background="{StaticResource PilotXPanelSurface2}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" Width="48" Height="48"
+                                FontSize="15"
+                                Margin="10,0,0,0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                VerticalAlignment="Center"/>
                     </Grid>
 
                     <!-- ============ KPIs principales (velocidad + rumbo) ============ -->

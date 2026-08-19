@@ -5,25 +5,29 @@
         FieldDataPanel - reemplazo nativo de pages/datos-lote.html.
 
         Primer port real bajo la directiva "WebView fuera del hot path".
-        Datos vienen del HudSnapshot (HudPoller, 4 Hz). Lo que la pagina
-        HTML hacia con JS y CSS ahora se hace con DrawingContext-free
-        Avalonia: cards, grilla, KPIs grandes, paleta cockpit.
+        Datos vienen del HudSnapshot (HudPoller, 4 Hz).
 
-        Items conservados del HTML original:
-         - 4 KPI cards: area cubierta, area total, repintado, velocidad
-         - savings card con toggle kg/L + inputs dosis/precio + 3 KPIs derivados
-         - detalles: lote, ancho, vehiculo, guia, dosis shape
-
-        Items diferidos (necesitan endpoints adicionales / lógica server-side):
-         - Exportar VistaX ZIP (acoplado al wwwroot — vuelve cuando se porte
-           el flujo de export a un servicio nativo o a un IPC con AOG).
-         - Auto-carga de dosis desde QuantiX/FlowX (idem).
+        RESUMIDO 2026-08-18 ("los datos del lote mucho mas chico, bien
+        resumido"). Antes era una card de 980x680 con 4 KPIs grandes, la
+        calculadora de ahorro entera desplegada y 5 filas de detalle: para
+        mirar cuantas hectareas llevas hechas habia que leer media pantalla.
+        Ahora la card mide ~520 y muestra SOLO lo que se contesta de un
+        vistazo:
+          - Trabajado (ha) y Repintado (ha + %), los dos numeros del trabajo
+          - lote / ancho / guia / dosis del shape, en una linea cada uno
+        Lo que se fue de la vista principal:
+          - Velocidad y Secciones activas: YA estan en la barra de arriba y
+            en la pantalla, era decir lo mismo dos veces.
+          - Vehiculo: no cambia durante el trabajo (esta en Configuracion y
+            en el panel de GPS).
+          - Area total trabajada: paso a renglon chico bajo Trabajado.
+          - La calculadora de ahorro NO se perdio: vive en el desplegable
+            "Ahorro por corte automatico", cerrado por defecto. Expander es
+            control inline, no popup — sobre el mapa GL se dibuja bien.
     -->
     <!--
         Card clara flotante con el mapa VIVO detras (misma receta que
-        ConfigPanel / Hub): antes este panel se pintaba a pantalla completa
-        con la paleta oscura y el mapa apagado — "una ventana negra gigante"
-        (reporte 2026-08-16). El mapa nunca se apaga ni se tapa del todo.
+        ConfigPanel / Hub): el mapa nunca se apaga ni se tapa del todo.
     -->
     <ThemeVariantScope RequestedThemeVariant="Light">
         <Border Background="{StaticResource PilotXPanelCard}"
@@ -32,25 +36,31 @@
                 CornerRadius="14"
                 ClipToBounds="True"
                 BoxShadow="0 8 26 0 #33101612"
-                MaxWidth="980" MaxHeight="680"
+                MaxWidth="520" MaxHeight="560"
                 HorizontalAlignment="Center" VerticalAlignment="Center"
                 Margin="16,8">
             <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto"
                           Padding="0">
-                <StackPanel Margin="24,20,24,24" Spacing="14">
+                <StackPanel Margin="18,14,18,18" Spacing="12">
 
                     <!-- ============ Header ============ -->
-                    <Grid ColumnDefinitions="*,Auto">
-                        <StackPanel Grid.Column="0" Spacing="2">
-                            <TextBlock Text="Datos del lote"
-                                       Foreground="{StaticResource PilotXPanelText}"
-                                       FontSize="22"
-                                       FontWeight="SemiBold"/>
-                            <TextBlock Text="Informacion del trabajo en curso y ahorro por corte automatico"
-                                       Foreground="{StaticResource PilotXPanelTextDim}"
-                                       FontSize="12"/>
-                        </StackPanel>
+                    <!-- ✕ propio (pedido 2026-08-18), por el mismo motivo que
+                         en GpsDataPanel: ahora este overlay tambien se abre
+                         tocando el contador de HA de la barra de arriba, y
+                         volver con la flecha "←" de la esquina obliga a cruzar
+                         la pantalla. 48x48 para tocar con guantes. -->
+                    <!-- Name="DragHandle": de acá se agarra para CORRER la card
+                         sobre el mapa (PanelArrastrable). Doble toque = vuelve
+                         al centro. -->
+                    <Grid Name="DragHandle" Background="Transparent"
+                          ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0"
+                                   Text="Datos del lote"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
 
                         <!-- Pill de estado (idle / activo / sin GPS) -->
                         <Border Grid.Column="1"
@@ -59,79 +69,77 @@
                                 BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                                 BorderThickness="1"
                                 CornerRadius="999"
-                                Padding="14,6,14,6"
+                                Padding="12,5,12,5"
                                 VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                                 <Ellipse Name="EstadoDot"
-                                         Width="10" Height="10"
+                                         Width="9" Height="9"
                                          Fill="{StaticResource PilotXPanelTextDim}"
                                          VerticalAlignment="Center"/>
                                 <TextBlock Name="EstadoText"
                                            Text="Sin trabajo"
                                            Foreground="{StaticResource PilotXPanelTextMid}"
-                                           FontSize="13"
+                                           FontSize="12"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
                         </Border>
+
+                        <Button Grid.Column="2" Name="BtnCerrar" Content="✕"
+                                Click="OnCerrarClick"
+                                ToolTip.Tip="Cerrar"
+                                Background="{StaticResource PilotXPanelSurface2}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" Width="48" Height="48"
+                                FontSize="15"
+                                Margin="10,0,0,0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                VerticalAlignment="Center"/>
                     </Grid>
 
-                    <!-- ============ KPIs (4 columnas) ============ -->
-                    <UniformGrid Columns="4" Rows="1" >
-                        <!-- Area cubierta -->
+                    <!-- ============ Los dos numeros del trabajo ============ -->
+                    <UniformGrid Columns="2" Rows="1">
+                        <!-- Trabajado (neto, sin contar repintado) -->
                         <Border Background="{StaticResource PilotXPanelSurface}"
                                 BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                                 BorderThickness="1"
                                 CornerRadius="10"
-                                Padding="16,14,16,14"
-                                Margin="0,0,8,0">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="Area cubierta"
+                                Padding="14,11,14,11"
+                                Margin="0,0,5,0">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Trabajado"
                                            Foreground="{StaticResource PilotXPanelTextDim}"
                                            FontSize="12"
                                            FontWeight="SemiBold"/>
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Bottom">
                                     <TextBlock Name="KpiAreaNeta"
                                                Text="--"
                                                Foreground="{StaticResource PilotXPanelText}"
-                                               FontSize="34"
+                                               FontSize="30"
                                                FontWeight="Bold"/>
                                     <TextBlock Text="ha"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="14"
-                                               Margin="0,0,0,6"/>
+                                               FontSize="13"
+                                               Margin="0,0,0,5"/>
                                 </StackPanel>
-                                <TextBlock Text="sin contar repintado"
-                                           Foreground="{StaticResource PilotXPanelTextDim}"
-                                           FontSize="11"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Area total trabajada -->
-                        <Border Background="{StaticResource PilotXPanelSurface}"
-                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                Padding="16,14,16,14"
-                                Margin="4,0,4,0">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="Area total trabajada"
-                                           Foreground="{StaticResource PilotXPanelTextDim}"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"/>
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="con solape:"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="11"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Name="KpiAreaTotal"
                                                Text="--"
-                                               Foreground="{StaticResource PilotXPanelText}"
-                                               FontSize="34"
-                                               FontWeight="Bold"/>
+                                               Foreground="{StaticResource PilotXPanelTextMid}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Text="ha"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="14"
-                                               Margin="0,0,0,6"/>
+                                               FontSize="11"
+                                               VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <TextBlock Text="incluye solapamientos"
-                                           Foreground="{StaticResource PilotXPanelTextDim}"
-                                           FontSize="11"/>
                             </StackPanel>
                         </Border>
 
@@ -140,71 +148,33 @@
                                 BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                                 BorderThickness="1"
                                 CornerRadius="10"
-                                Padding="16,14,16,14"
-                                Margin="4,0,4,0">
-                            <StackPanel Spacing="6">
+                                Padding="14,11,14,11"
+                                Margin="5,0,0,0">
+                            <StackPanel Spacing="3">
                                 <TextBlock Text="Repintado"
                                            Foreground="{StaticResource PilotXPanelTextDim}"
                                            FontSize="12"
                                            FontWeight="SemiBold"/>
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Bottom">
                                     <TextBlock Name="KpiAreaOverlap"
                                                Text="--"
                                                Foreground="{StaticResource PilotXPanelText}"
-                                               FontSize="34"
+                                               FontSize="30"
                                                FontWeight="Bold"/>
                                     <TextBlock Text="ha"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="14"
-                                               Margin="0,0,0,6"/>
+                                               FontSize="13"
+                                               Margin="0,0,0,5"/>
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="Porcentaje"
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="del total:"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
                                                FontSize="11"
                                                VerticalAlignment="Center"/>
                                     <TextBlock Name="KpiOverlapPct"
-                                               Text="--"
-                                               Foreground="{StaticResource PilotXPanelText}"
-                                               FontSize="12"
-                                               FontWeight="SemiBold"
-                                               VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Velocidad -->
-                        <Border Background="{StaticResource PilotXPanelSurface}"
-                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                Padding="16,14,16,14"
-                                Margin="8,0,0,0">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="Velocidad"
-                                           Foreground="{StaticResource PilotXPanelTextDim}"
-                                           FontSize="12"
-                                           FontWeight="SemiBold"/>
-                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
-                                    <TextBlock Name="KpiVel"
-                                               Text="--"
-                                               Foreground="{StaticResource PilotXPanelText}"
-                                               FontSize="34"
-                                               FontWeight="Bold"/>
-                                    <TextBlock Text="km/h"
-                                               Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="14"
-                                               Margin="0,0,0,6"/>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="Secciones activas"
-                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               Text="-- %"
+                                               Foreground="{StaticResource PilotXPanelTextMid}"
                                                FontSize="11"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Name="KpiSec"
-                                               Text="-- de --"
-                                               Foreground="{StaticResource PilotXPanelText}"
-                                               FontSize="12"
                                                FontWeight="SemiBold"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
@@ -212,34 +182,99 @@
                         </Border>
                     </UniformGrid>
 
-                    <!-- ============ Savings card ============ -->
-                    <Border Background="{StaticResource PilotXPanelOkSoft}"
-                            BorderBrush="{StaticResource PilotXPanelAccent}"
+                    <!-- ============ Detalles (una linea cada uno) ============ -->
+                    <Border Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                             BorderThickness="1"
                             CornerRadius="10"
-                            Padding="18,16,18,18">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Insumo ahorrado por corte automatico"
-                                       Foreground="{StaticResource PilotXPanelAccentText}"
-                                       FontSize="16"
-                                       FontWeight="SemiBold"/>
-                            <TextBlock Text="Sin corte automatico pasarias de nuevo por las zonas ya hechas. Eso es solapamiento e implica insumo desperdiciado. Este es lo que te ahorraste: (area solapada) x (dosis configurada)."
+                            Padding="14,2,14,2">
+                        <StackPanel>
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,8">
+                                <TextBlock Grid.Column="0" Text="Lote"
+                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="13"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Name="DetLote" Text="--"
+                                           Foreground="{StaticResource PilotXPanelText}" FontSize="14"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource PilotXPanelBorder}"/>
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,8">
+                                <TextBlock Grid.Column="0" Text="Ancho de herramienta"
+                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="13"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Name="DetAncho" Text="-- m"
+                                           Foreground="{StaticResource PilotXPanelText}" FontSize="14"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource PilotXPanelBorder}"/>
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,8">
+                                <TextBlock Grid.Column="0" Text="Guia activa"
+                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="13"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Name="DetTrack" Text="Ninguna"
+                                           Foreground="{StaticResource PilotXPanelText}" FontSize="14"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                            <Border Height="1" Background="{StaticResource PilotXPanelBorder}"/>
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,8">
+                                <TextBlock Grid.Column="0" Text="Dosis del shapefile aqui"
+                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="13"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Name="DetShape" Text="--"
+                                           Foreground="{StaticResource PilotXPanelText}" FontSize="14"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ============ Ahorro (desplegable, cerrado) ============ -->
+                    <!-- Toda la calculadora que antes ocupaba media card. El
+                         operario la abre cuando quiere hacer la cuenta; el
+                         resto del tiempo no le come pantalla. -->
+                    <Expander Name="AhorroExpander"
+                              Background="{StaticResource PilotXPanelOkSoft}"
+                              BorderBrush="{StaticResource PilotXPanelAccent}"
+                              BorderThickness="1"
+                              CornerRadius="10"
+                              IsExpanded="False"
+                              HorizontalAlignment="Stretch">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="Ahorro por corte automatico"
+                                           Foreground="{StaticResource PilotXPanelAccentText}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Name="KpiSavedResumen"
+                                           Text=""
+                                           Foreground="{StaticResource PilotXPanelTextMid}"
+                                           FontSize="12"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Expander.Header>
+
+                        <StackPanel Spacing="10" Margin="0,4,0,4">
+                            <TextBlock Text="Sin corte automatico pasarias de nuevo por lo ya hecho: eso es insumo desperdiciado. Esto es lo que te ahorraste = (area solapada) x (dosis)."
                                        Foreground="{StaticResource PilotXPanelTextMid}"
-                                       FontSize="12"
+                                       FontSize="11"
                                        TextWrapping="Wrap"/>
 
                             <!-- Toggle kg / L -->
-                            <Grid ColumnDefinitions="*,*" >
+                            <Grid ColumnDefinitions="*,*">
                                 <Button Name="BtnDoseKg"
                                         Grid.Column="0"
-                                        Content="Semilla / Fertilizante (kg/ha)"
+                                        Content="Semilla / Fert. (kg/ha)"
                                         Background="{StaticResource PilotXPanelSurface2}"
                                         Foreground="{StaticResource PilotXPanelText}"
                                         BorderBrush="{StaticResource PilotXPanelAccent}"
                                         BorderThickness="1"
                                         CornerRadius="6"
-                                        Padding="14,10,14,10"
-                                        FontSize="13"
+                                        Padding="10,8,10,8"
+                                        FontSize="12"
                                         FontWeight="SemiBold"
                                         HorizontalContentAlignment="Center"
                                         HorizontalAlignment="Stretch"
@@ -247,14 +282,14 @@
                                         Click="OnDoseKgClick"/>
                                 <Button Name="BtnDoseL"
                                         Grid.Column="1"
-                                        Content="Liquido pulverizacion (L/ha)"
+                                        Content="Liquido (L/ha)"
                                         Background="{StaticResource PilotXPanelSurface2}"
                                         Foreground="{StaticResource PilotXPanelTextMid}"
                                         BorderBrush="{StaticResource PilotXPanelBorderHigh}"
                                         BorderThickness="1"
                                         CornerRadius="6"
-                                        Padding="14,10,14,10"
-                                        FontSize="13"
+                                        Padding="10,8,10,8"
+                                        FontSize="12"
                                         FontWeight="SemiBold"
                                         HorizontalContentAlignment="Center"
                                         HorizontalAlignment="Stretch"
@@ -263,16 +298,16 @@
                             </Grid>
 
                             <!-- Inputs dosis / precio -->
-                            <Grid ColumnDefinitions="*,*" >
-                                <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,8,0">
+                            <Grid ColumnDefinitions="*,*">
+                                <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,5,0">
                                     <TextBlock Text="Dosis aplicada"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="12"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                               FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBox Name="DoseValue"
                                                  Text="0"
-                                                 Width="180"
-                                                 FontSize="18"
+                                                 Width="110"
+                                                 FontSize="16"
                                                  Background="{StaticResource PilotXPanelSurface}"
                                                  Foreground="{StaticResource PilotXPanelText}"
                                                  BorderBrush="{StaticResource PilotXPanelBorderHigh}"
@@ -283,23 +318,20 @@
                                         <TextBlock Name="DoseUnit"
                                                    Text="kg/ha"
                                                    Foreground="{StaticResource PilotXPanelTextDim}"
-                                                   FontSize="14"
+                                                   FontSize="12"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
-                                    <TextBlock Text="Editala. Despues vuelve a leer de QuantiX/FlowX si hay."
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="4" Margin="5,0,0,0">
+                                    <TextBlock Text="Precio (opcional)"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
                                                FontSize="11"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Spacing="6" Margin="8,0,0,0">
-                                    <TextBlock Text="Precio del insumo (opcional)"
-                                               Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="12"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBox Name="PriceValue"
                                                  Text=""
                                                  Watermark="0.00"
-                                                 Width="180"
-                                                 FontSize="18"
+                                                 Width="110"
+                                                 FontSize="16"
                                                  Background="{StaticResource PilotXPanelSurface}"
                                                  Foreground="{StaticResource PilotXPanelText}"
                                                  BorderBrush="{StaticResource PilotXPanelBorderHigh}"
@@ -310,134 +342,67 @@
                                         <TextBlock Name="PriceUnit"
                                                    Text="USD/kg"
                                                    Foreground="{StaticResource PilotXPanelTextDim}"
-                                                   FontSize="14"
+                                                   FontSize="12"
                                                    VerticalAlignment="Center"/>
                                     </StackPanel>
-                                    <TextBlock Text="Para calcular en plata."
-                                               Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="11"/>
                                 </StackPanel>
                             </Grid>
 
                             <!-- KPIs derivados -->
                             <UniformGrid Columns="3" Rows="1">
-                                <StackPanel Spacing="4" Margin="0,4,4,0">
+                                <StackPanel Spacing="2" Margin="0,2,4,0">
                                     <TextBlock Text="Insumo ahorrado"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="12"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                               FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Bottom">
                                         <TextBlock Name="KpiSavedInsumo"
                                                    Text="--"
                                                    Foreground="{StaticResource PilotXPanelAccentText}"
-                                                   FontSize="28"
+                                                   FontSize="22"
                                                    FontWeight="Bold"/>
                                         <TextBlock Name="KpiSavedUnit"
                                                    Text="kg"
                                                    Foreground="{StaticResource PilotXPanelTextDim}"
-                                                   FontSize="14"
-                                                   Margin="0,0,0,5"/>
+                                                   FontSize="12"
+                                                   Margin="0,0,0,4"/>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel Spacing="4" Margin="4,4,4,0">
+                                <StackPanel Spacing="2" Margin="4,2,4,0">
                                     <TextBlock Text="Ahorro estimado"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="12"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                               FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Bottom">
                                         <TextBlock Name="KpiSavedMoney"
                                                    Text="--"
                                                    Foreground="{StaticResource PilotXPanelAccentText}"
-                                                   FontSize="28"
+                                                   FontSize="22"
                                                    FontWeight="Bold"/>
                                         <TextBlock Name="KpiSavedCurrency"
                                                    Text="USD"
                                                    Foreground="{StaticResource PilotXPanelTextDim}"
-                                                   FontSize="14"
-                                                   Margin="0,0,0,5"/>
+                                                   FontSize="12"
+                                                   Margin="0,0,0,4"/>
                                     </StackPanel>
                                 </StackPanel>
-                                <StackPanel Spacing="4" Margin="4,4,0,0">
-                                    <TextBlock Text="Area que NO repintaste"
+                                <StackPanel Spacing="2" Margin="4,2,0,0">
+                                    <TextBlock Text="Area no repintada"
                                                Foreground="{StaticResource PilotXPanelTextDim}"
-                                               FontSize="12"/>
-                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Bottom">
+                                               FontSize="11"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Bottom">
                                         <TextBlock Name="KpiSavedHa"
                                                    Text="--"
                                                    Foreground="{StaticResource PilotXPanelText}"
-                                                   FontSize="28"
+                                                   FontSize="22"
                                                    FontWeight="Bold"/>
                                         <TextBlock Text="ha"
                                                    Foreground="{StaticResource PilotXPanelTextDim}"
-                                                   FontSize="14"
-                                                   Margin="0,0,0,5"/>
+                                                   FontSize="12"
+                                                   Margin="0,0,0,4"/>
                                     </StackPanel>
                                 </StackPanel>
                             </UniformGrid>
                         </StackPanel>
-                    </Border>
-
-                    <!-- ============ Detalles ============ -->
-                    <TextBlock Text="Detalles"
-                               Foreground="{StaticResource PilotXPanelText}"
-                               FontSize="16"
-                               FontWeight="SemiBold"
-                               Margin="0,4,0,0"/>
-                    <Border Background="{StaticResource PilotXPanelSurface}"
-                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
-                            BorderThickness="1"
-                            CornerRadius="10"
-                            Padding="18,4,18,4">
-                        <StackPanel>
-                            <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,10">
-                                <TextBlock Grid.Column="0" Text="Lote en curso"
-                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="14"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Name="DetLote" Text="--"
-                                           Foreground="{StaticResource PilotXPanelText}" FontSize="15"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
-                            <Border Height="1" Background="{StaticResource PilotXPanelBorder}"/>
-                            <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,10">
-                                <TextBlock Grid.Column="0" Text="Ancho de herramienta"
-                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="14"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Name="DetAncho" Text="-- m"
-                                           Foreground="{StaticResource PilotXPanelText}" FontSize="15"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
-                            <Border Height="1" Background="{StaticResource PilotXPanelBorder}"/>
-                            <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,10">
-                                <TextBlock Grid.Column="0" Text="Vehiculo"
-                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="14"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Name="DetVehiculo" Text="--"
-                                           Foreground="{StaticResource PilotXPanelText}" FontSize="15"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
-                            <Border Height="1" Background="{StaticResource PilotXPanelBorder}"/>
-                            <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,10">
-                                <TextBlock Grid.Column="0" Text="Guia activa"
-                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="14"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Name="DetTrack" Text="Ninguna"
-                                           Foreground="{StaticResource PilotXPanelText}" FontSize="15"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
-                            <Border Height="1" Background="{StaticResource PilotXPanelBorder}"/>
-                            <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,10">
-                                <TextBlock Grid.Column="0" Text="Dosis del shapefile aqui"
-                                           Foreground="{StaticResource PilotXPanelTextMid}" FontSize="14"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1" Name="DetShape" Text="--"
-                                           Foreground="{StaticResource PilotXPanelText}" FontSize="15"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                    </Expander>
 
                 </StackPanel>
             </ScrollViewer>

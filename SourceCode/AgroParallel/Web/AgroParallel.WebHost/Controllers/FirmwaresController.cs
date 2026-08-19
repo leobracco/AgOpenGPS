@@ -9,7 +9,9 @@
 // Endpoints:
 //   GET    /api/firmwares                           → lista todo el cache
 //   POST   /api/firmwares/upload                    → sube un .bin (binary body)
-//          headers: X-AP-Producto, X-AP-Version, X-AP-Changelog (opt)
+//          headers: X-AP-Producto, X-AP-Version, y el changelog (opt) en
+//          X-AP-Changelog-B64 (Base64 de UTF-8, lo que manda el panel nativo)
+//          o en X-AP-Changelog (texto plano, lo que manda la página/PWA)
 //          body: raw bytes del firmware.bin
 //   DELETE /api/firmwares/{producto}/{version}      → borra del cache
 //
@@ -89,12 +91,34 @@ namespace AgroParallel.WebHost.Controllers
             });
         }
 
+        /// <summary>
+        /// Changelog del upload. X-AP-Changelog-B64 (Base64 de UTF-8) tiene
+        /// prioridad; si no está, se usa X-AP-Changelog exactamente como antes.
+        /// Un Base64 mal formado NO tira 500: se toma el changelog como vacío y
+        /// el .bin igual entra al cache (el firmware importa, el texto no).
+        /// </summary>
+        private string LeerChangelog()
+        {
+            string b64 = HttpContext.Request.Headers["X-AP-Changelog-B64"];
+            if (!string.IsNullOrEmpty(b64))
+            {
+                try { return System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64.Trim())); }
+                catch { return ""; }
+            }
+            return HttpContext.Request.Headers["X-AP-Changelog"] ?? "";
+        }
+
         [Route(HttpVerbs.Post, "/firmwares/upload")]
         public async Task Upload()
         {
             string producto = (HttpContext.Request.Headers["X-AP-Producto"] ?? "").Trim();
             string version = (HttpContext.Request.Headers["X-AP-Version"] ?? "").Trim();
-            string changelog = HttpContext.Request.Headers["X-AP-Changelog"] ?? "";
+            // Changelog: primero el header nuevo (Base64 de UTF-8), y si no vino,
+            // el viejo TAL CUAL. El panel nativo NO puede mandar el viejo: .NET
+            // rechaza los headers con caracteres no-ASCII, así que un changelog
+            // con acento o con ñ rompía el upload entero. La página HTML y la PWA
+            // siguen mandando X-AP-Changelog y siguen andando igual.
+            string changelog = LeerChangelog();
 
             if (string.IsNullOrEmpty(producto) || !RxProducto.IsMatch(producto))
             { await WriteJsonAsync(new { ok = false, error = "invalid-producto" }).ConfigureAwait(false); return; }

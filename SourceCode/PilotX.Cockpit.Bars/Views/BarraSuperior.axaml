@@ -76,6 +76,25 @@
     <Style Selector="Button.arrow:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="#F2F5F2"/>
     </Style>
+    <!-- Chip de telemetría CLICKEABLE (hoy: HA -> datos del lote). Mismo
+         aspecto que los chips de solo lectura (Border blanco, borde gris,
+         radio 10) para no romper la fila; lo único que cambia es que
+         responde al toque. -->
+    <Style Selector="Button.telebtn">
+      <Setter Property="Background" Value="#FFFFFF"/>
+      <Setter Property="BorderBrush" Value="#D9E0D9"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Padding" Value="8,2"/>
+      <Setter Property="MinWidth" Value="56"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="HorizontalContentAlignment" Value="Center"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+    <Style Selector="Button.telebtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#F5F7F5"/>
+      <Setter Property="BorderBrush" Value="#C8D1C8"/>
+    </Style>
     <!-- Telemetría value/label -->
     <Style Selector="TextBlock.televal">
       <Setter Property="FontSize" Value="15"/>
@@ -197,12 +216,17 @@
             <TextBlock Classes="telelbl" Text="TIEMPO"/>
           </StackPanel>
         </Border>
-        <Border Background="#FFFFFF" BorderBrush="#D9E0D9" BorderThickness="1" CornerRadius="10" Padding="8,2" MinWidth="56">
+        <!-- Las hectáreas ABREN los datos del lote (pedido 2026-08-18): el
+             contador ya le dice al operario cuánto lleva hecho, y es el lugar
+             donde busca el detalle (repintado, ahorro, guía activa). Mismo
+             comando que el botón LOTE — un solo overlay, dos puertas. -->
+        <Button Classes="telebtn" ToolTip.Tip="Datos del lote"
+                Command="{Binding SendCommand}" CommandParameter="lote_datos">
           <StackPanel VerticalAlignment="Center">
             <TextBlock Classes="televal" Text="{Binding HaText}"/>
             <TextBlock Classes="telelbl" Text="HA"/>
           </StackPanel>
-        </Border>
+        </Button>
       </StackPanel>
 
       <!-- En modo kiosko (PILOTX_KIOSKO=1) estos tres no existen: PilotX ES

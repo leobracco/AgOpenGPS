@@ -344,8 +344,12 @@ namespace PilotX.GuidanceEngine.Adapters
                 catch { /* no romper snapshot por geometría */ }
 
                 // Sin Properties.Settings headless: sprite default.
+                // Marca VACÍA a propósito: el HUD la concatena al tipo y con un
+                // valor cargado el operario leía "AGOpenGPS Tractor" en el panel
+                // de GPS. Vacío = muestra solo "Tractor"; el sprite igual cae al
+                // dibujo genérico (piloto.js hace `|| 'AGOpenGPS'` para el .png).
                 snap.VehicleType = "Tractor";
-                snap.VehicleBrand = "AGOpenGPS";
+                snap.VehicleBrand = "";
             }
             catch
             {

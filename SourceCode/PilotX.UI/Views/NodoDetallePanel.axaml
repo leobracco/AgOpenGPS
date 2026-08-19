@@ -1,0 +1,432 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.NodoDetallePanel">
+    <!--
+        NodoDetallePanel — reemplazo nativo de pages/nodo-detalle.html
+        (+ js/nodo-detalle.js). Se abre tocando una fila en Nodos.
+
+        ESTA ES LA PANTALLA QUE DISPARA EL OTA: lo que se toca acá flashea
+        firmware en hardware real. El port es literal, sin "mejoras": mismos
+        endpoints, mismo payload snake_case, mismos guards, mismos textos,
+        mismo orden de secciones:
+
+          1. Cabecera      · ← Volver a Nodos, alias + badge de boot_reason,
+                             tipo · uid, pin del implemento activo y las pills
+                             (online/offline · broker MQTT · fw · safe-mode ·
+                             config_sync).
+          2. Identidad     · UID / Tipo / Alias / Estado curado / IP en LAN /
+                             Firmware actual / Última señal.
+          3. Estado ahora  · la matriz de 6 filas con la fila donde está parado
+                             el nodo resaltada (la resuelve el server, campo
+                             `matriz.row` — acá NO se recalcula).
+          4. Actualizar firmware · estado del OTA + barra de progreso + las
+                             versiones del cache local con su SHA-256 y el
+                             botón "Aplicar vX".
+          5. Acciones rápidas · los `comandos_disponibles` que manda el server.
+
+        Estética: paleta CLARA de PilotX (tokens PilotXPanel* del theme). El
+        HTML original es "dark cockpit"; esa paleta NO se arrastra.
+
+        NADA de ComboBox/Flyout/MenuFlyout: sobre el mapa GL no se dibujan y
+        encima no logean error. El diálogo de confirmación es Border +
+        IsVisible con backdrop, igual que en NodosPanel / FirmwaresPanel.
+
+        La página HTML NO se toca: el Hub remoto y la PWA del celular la
+        siguen usando.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Panel>
+
+            <!-- ============================ CARD ============================
+                 Name="Card": ModoEmbebido() (adentro de la Configuración) le
+                 suelta el marco/tamaño; la instancia flotante no cambia. -->
+            <Border Name="Card"
+                    Background="{StaticResource PilotXPanelCard}"
+                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    ClipToBounds="True"
+                    BoxShadow="0 8 26 0 #33101612"
+                    Padding="20,16,20,18"
+                    MaxWidth="1180" MaxHeight="720"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Margin="16,8">
+                <DockPanel>
+
+                    <!-- ========================= Cabecera ========================= -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="2,0,2,14">
+                        <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2"
+                                    VerticalAlignment="Center">
+                            <!-- "← Volver a Nodos" (el <a> del original).
+                                 MinHeight 44 (no 34): es la salida de la pantalla
+                                 y se toca con guante, igual que el resto de los
+                                 controles de los paneles. -->
+                            <Button Name="BtnVolver"
+                                    Content="← Volver a Nodos"
+                                    Click="OnVolverClick"
+                                    Background="Transparent"
+                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                    BorderThickness="0"
+                                    CornerRadius="8"
+                                    MinHeight="44"
+                                    Padding="0,0,10,0"
+                                    FontSize="12"
+                                    HorizontalAlignment="Left"
+                                    HorizontalContentAlignment="Left"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Name="HdrTitle" Text="Cargando…"
+                                           Foreground="{StaticResource PilotXPanelText}"
+                                           FontSize="22"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"/>
+                                <!-- badge de boot_reason (reset anormal) — lo llena el código -->
+                                <Border Name="HdrBootBadge" IsVisible="False"
+                                        CornerRadius="999"
+                                        Padding="9,2,9,2"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Name="HdrBootBadgeText" Text=""
+                                               Foreground="#FFFFFF"
+                                               FontSize="11"
+                                               FontWeight="Bold"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Name="HdrSub" Text="—"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+
+                        <!-- Name="HeaderPills": la instancia embebida las entrega
+                             (PillsDeContexto) a la barra de contexto del shell. -->
+                        <StackPanel Grid.Column="1" Name="HeaderPills"
+                                    Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+
+                            <!-- pin del implemento activo (oculto salvo aceptado/offline) -->
+                            <Button Name="BtnPinImplemento" IsVisible="False"
+                                    Content=""
+                                    Click="OnPinImplementoClick"
+                                    Background="{StaticResource PilotXPanelSurface2}"
+                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="999"
+                                    MinHeight="44" Padding="16,0,16,0"
+                                    FontSize="13"
+                                    VerticalContentAlignment="Center"/>
+
+                            <!-- pills de estado — las arma el código (renderPills).
+                                 MaxWidth: el .pill-row del original es flex-wrap;
+                                 sin tope, dentro de un StackPanel horizontal las
+                                 pills nunca bajarían de renglón y empujarían el
+                                 título fuera de la tarjeta. -->
+                            <WrapPanel Name="HdrPills" Orientation="Horizontal"
+                                       MaxWidth="520"
+                                       VerticalAlignment="Center"/>
+
+                            <Button Name="BtnCerrar" Content="✕"
+                                    Click="OnCerrarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" Width="48" Height="48"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    ToolTip.Tip="Cerrar"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ========================== Cuerpo ========================== -->
+                    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="0">
+
+                            <!-- ==================== Caja de error AGP ====================
+                                 Convención del repo: código dictable + mensaje amigable
+                                 arriba, detalle técnico plegado abajo. Solo aparece
+                                 cuando hubo una excepción real. -->
+                            <Border Name="ErrorBox" IsVisible="False"
+                                    Background="{StaticResource PilotXPanelErrSoft}"
+                                    BorderBrush="{StaticResource PilotXPanelErr}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="12"
+                                    Margin="0,0,0,14">
+                                <StackPanel Spacing="6">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Border Background="{StaticResource PilotXPanelSurface}"
+                                                BorderBrush="{StaticResource PilotXPanelErr}"
+                                                BorderThickness="1"
+                                                CornerRadius="6"
+                                                Padding="8,2,8,2">
+                                            <TextBlock Name="ErrCodigo" Text=""
+                                                       Foreground="{StaticResource PilotXPanelErr}"
+                                                       FontSize="12" FontWeight="Bold"
+                                                       FontFamily="Consolas, Courier New, monospace"/>
+                                        </Border>
+                                        <TextBlock Name="ErrMensaje" Text=""
+                                                   Foreground="{StaticResource PilotXPanelText}"
+                                                   FontSize="12" TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <Expander Name="ErrDetalleBox" IsVisible="False"
+                                              Header="Detalle técnico (soporte)">
+                                        <TextBlock Name="ErrDetalle" Text=""
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   FontFamily="Consolas, Courier New, monospace"/>
+                                    </Expander>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ======================= Identidad ======================= -->
+                            <Border Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="18,14,18,16">
+                                <Grid ColumnDefinitions="Auto,*"
+                                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="UID"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,16,3"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Name="MetaUid" Text="—"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,0,3"
+                                               FontFamily="Consolas, Courier New, monospace"
+                                               TextWrapping="Wrap"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Tipo"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,16,3"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Name="MetaTipo" Text="—"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="13" Margin="0,3,0,3"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Alias"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,16,3"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Name="MetaAlias" Text="—"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="13" Margin="0,3,0,3"
+                                               TextWrapping="Wrap"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Estado curado"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,16,3"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Name="MetaEstado" Text="—"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="13" Margin="0,3,0,3"/>
+
+                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="IP en LAN"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,16,3"/>
+                                    <TextBlock Grid.Row="4" Grid.Column="1" Name="MetaIp" Text="—"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,0,3"
+                                               FontFamily="Consolas, Courier New, monospace"/>
+
+                                    <TextBlock Grid.Row="5" Grid.Column="0" Text="Firmware actual"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,16,3"/>
+                                    <TextBlock Grid.Row="5" Grid.Column="1" Name="MetaFw" Text="—"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="13" Margin="0,3,0,3"/>
+
+                                    <TextBlock Grid.Row="6" Grid.Column="0" Text="Última señal"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13" Margin="0,3,16,3"/>
+                                    <TextBlock Grid.Row="6" Grid.Column="1" Name="MetaLastSeen" Text="—"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="13" Margin="0,3,0,3"/>
+                                </Grid>
+                            </Border>
+
+                            <!-- =================== Estado en este momento =================== -->
+                            <TextBlock Text="Estado en este momento"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="16" FontWeight="SemiBold"
+                                       Margin="2,20,0,4"/>
+                            <TextBlock Text="La fila resaltada es donde está parado el nodo ahora mismo. Cada columna es una capa que tiene que estar arriba para que la siguiente funcione. Si el broker MQTT está caído del lado de la PC, todos los nodos se ven igual aunque estén vivos en LAN."
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="900"
+                                       HorizontalAlignment="Left"
+                                       Margin="2,0,0,10"/>
+                            <Border Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    ClipToBounds="True">
+                                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                              VerticalScrollBarVisibility="Disabled">
+                                    <!-- Cabecera + 6 filas: las arma el código (misma
+                                         grilla de columnas para que no se desalineen). -->
+                                    <StackPanel Name="MatrizHost" Spacing="0"/>
+                                </ScrollViewer>
+                            </Border>
+
+                            <!-- ===================== Actualizar firmware ===================== -->
+                            <TextBlock Text="Actualizar firmware"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="16" FontWeight="SemiBold"
+                                       Margin="2,20,0,8"/>
+                            <Border Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="18,14,18,16">
+                                <StackPanel Spacing="0">
+
+                                    <!-- estado del OTA + % -->
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Estado OTA:"
+                                                       Foreground="{StaticResource PilotXPanelText}"
+                                                       FontSize="13" FontWeight="Bold"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Name="OtaStatus" Text="sin actualización en curso"
+                                                       Foreground="{StaticResource PilotXPanelText}"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Name="OtaPct" Text="—"
+                                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                                   FontSize="13"
+                                                   FontFamily="Consolas, Courier New, monospace"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+
+                                    <!-- barra de progreso (0..100) -->
+                                    <Border Name="OtaRiel"
+                                            Background="{StaticResource PilotXPanelSurface2}"
+                                            BorderBrush="{StaticResource PilotXPanelBorder}"
+                                            BorderThickness="1"
+                                            CornerRadius="999"
+                                            Height="12"
+                                            ClipToBounds="True">
+                                        <Border Name="OtaBarra"
+                                                Background="{StaticResource PilotXPanelAccent}"
+                                                Width="0"
+                                                HorizontalAlignment="Left"
+                                                CornerRadius="999"/>
+                                    </Border>
+
+                                    <TextBlock Name="OtaDetalle" Text=""
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Margin="0,6,0,0"/>
+
+                                    <TextBlock Text="Versiones disponibles en cache local"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Margin="0,16,0,8"/>
+
+                                    <!-- lo arma el código (renderFirmwares) -->
+                                    <StackPanel Name="FirmwaresList" Spacing="0"/>
+
+                                    <TextBlock Name="FirmwaresMeta" Text=""
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               FontFamily="Consolas, Courier New, monospace"
+                                               TextWrapping="Wrap"
+                                               Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ======================= Acciones rápidas ======================= -->
+                            <TextBlock Text="Acciones rápidas"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="16" FontWeight="SemiBold"
+                                       Margin="2,20,0,8"/>
+                            <Border Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="18,14,18,16">
+                                <StackPanel Spacing="0">
+                                    <!-- lo arma el código (renderCmds) -->
+                                    <WrapPanel Name="CmdRow" Orientation="Horizontal"/>
+                                    <TextBlock Name="CmdAyuda"
+                                               Text="Los comandos se publican a agp/&lt;tipo&gt;/&lt;UID&gt;/cmd. El firmware acepta los que entienda y descarta el resto."
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Margin="0,10,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- ============================ TOAST ============================
+                 El .toast del original (abajo a la derecha, se va solo a los
+                 3,5 s). Vive DENTRO del panel: en cabina no hay barra de
+                 notificaciones del sistema. -->
+            <Border Name="ToastBox" IsVisible="False" ZIndex="40"
+                    Background="{StaticResource PilotXPanelCard}"
+                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="14,10,16,10"
+                    MaxWidth="360"
+                    BoxShadow="0 8 26 0 #33101612"
+                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                    Margin="0,0,24,24">
+                <TextBlock Name="ToastText" Text=""
+                           Foreground="{StaticResource PilotXPanelText}"
+                           FontSize="13"
+                           TextWrapping="Wrap"/>
+            </Border>
+
+            <!-- ===================== DIÁLOGO (AgpModal) =====================
+                 confirm() del OTA y de los comandos peligrosos (reiniciar,
+                 borrar_wifi, clear_safe_mode). Border + IsVisible + ZIndex,
+                 NUNCA Flyout/ShowDialog. -->
+            <Border Name="ModalOverlay" IsVisible="False" ZIndex="60"
+                    Background="#66101612"
+                    PointerPressed="OnModalBackdropPressed">
+                <Border Name="ModalCard"
+                        Background="{StaticResource PilotXPanelCard}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="16"
+                        Width="480"
+                        BoxShadow="0 8 26 0 #33101612"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        PointerPressed="OnModalCardPressed">
+                    <StackPanel Spacing="10">
+                        <TextBlock Name="ModalTitulo" Text=""
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Name="ModalMensaje" Text=""
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="13" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"
+                                    HorizontalAlignment="Right" Margin="0,4,0,0">
+                            <Button Name="BtnModalCancelar" Content="Cancelar"
+                                    Click="OnModalCancelarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" MinHeight="48" Padding="24,0,24,0"/>
+                            <Button Name="BtnModalConfirmar" Content="Aceptar"
+                                    Click="OnModalConfirmarClick"
+                                    Background="{StaticResource PilotXPanelAccent}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderThickness="0"
+                                    CornerRadius="8" MinHeight="48" Padding="24,0,24,0"
+                                    FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+        </Panel>
+    </ThemeVariantScope>
+</UserControl>

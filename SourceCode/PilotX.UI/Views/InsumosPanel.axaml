@@ -1,0 +1,518 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.InsumosPanel">
+    <!--
+        InsumosPanel — reemplazo nativo de pages/insumos.html + js/insumos.js.
+
+        CATÁLOGO COMPARTIDO: el mismo insumo lo consumen VistaX (densidades),
+        QuantiX (dosis), FlowX (L/ha) y los datos del lote (precio). Por eso el
+        contrato NO se toca — GET/POST /api/insumos y POST /api/insumos/activo,
+        con el catálogo ENTERO en el body y en snake_case.
+
+        Estructura calcada de la página:
+          · Cabecera: título + subtítulo + pill del insumo activo.
+          · Tarjeta "lista": texto de ayuda, botón "+ Nuevo insumo" a la derecha
+            y las filas (círculo de activo · nombre/meta · Editar).
+          · Tarjeta "editor": oculta hasta que se toca una fila o "+ Nuevo".
+            Los bloques de campos aparecen/desaparecen según el tipo, con las
+            MISMAS reglas del JS (semilla / sólido / líquido).
+
+        La página HTML queda intacta: la usa la PWA del celular.
+
+        NADA de ComboBox/Flyout: sobre el mapa GL no se dibujan y encima no
+        logean error. El <select> de la unidad y los diálogos son Border +
+        IsVisible con backdrop, como en FirmwaresPanel/NodosPanel.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <Panel>
+
+            <!-- ============================ CARD ============================
+                 Name="Card": ModoEmbebido() (adentro de la Configuración) le
+                 suelta el marco/tamaño; la instancia flotante no cambia. -->
+            <Border Name="Card"
+                    Background="{StaticResource PilotXPanelCard}"
+                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    ClipToBounds="True"
+                    BoxShadow="0 8 26 0 #33101612"
+                    Padding="20,16,20,18"
+                    MaxWidth="1000" MaxHeight="700"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Margin="16,8">
+                <DockPanel>
+
+                    <!-- ========================= Header ========================= -->
+                    <!-- Name="DragHandle": de acá se agarra para CORRER la card
+                         sobre el mapa (PanelArrastrable). -->
+                    <Grid DockPanel.Dock="Top" Name="DragHandle" Background="Transparent"
+                          ColumnDefinitions="*,Auto" Margin="2,0,2,14">
+                        <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="Insumos"
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock Text="Catálogo compartido (VistaX · QuantiX · FlowX)"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+
+                        <!-- Name="HeaderPills": la instancia embebida las entrega
+                             (PillsDeContexto) a la barra de contexto del shell. -->
+                        <StackPanel Grid.Column="1" Name="HeaderPills"
+                                    Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+                            <!-- pill idle/ok con el punto, igual que el HTML. -->
+                            <Border Name="ActivoPillBox"
+                                    Background="{StaticResource PilotXPanelSurface2}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="999"
+                                    Padding="12,6,14,6"
+                                    VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <Ellipse Name="ActivoPillDot" Width="9" Height="9"
+                                             Fill="{StaticResource PilotXPanelIdle}"
+                                             VerticalAlignment="Center"/>
+                                    <TextBlock Name="ActivoPill" Text="Sin insumo activo"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="13"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Button Name="BtnCerrar" Content="✕"
+                                    Click="OnCerrarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelTextDim}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" Width="48" Height="48"
+                                    FontSize="15"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    ToolTip.Tip="Cerrar"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ========================= Cuerpo ========================= -->
+                    <ScrollViewer Name="CuerpoScroll"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="18">
+
+                            <!-- ============ Tarjeta 1 · lista ============ -->
+                            <Border Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="18,16,18,18">
+                                <StackPanel Spacing="0">
+                                    <TextBlock Text="Cargá una vez tu semilla, fertilizante o fitosanitario con su densidad objetivo, dosis y precio, y todos los productos (VistaX, QuantiX, FlowX, datos del lote) lo van a usar como default. Marcá el activo con el círculo de la izquierda."
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,14"/>
+
+                                    <!-- .toolbar: el botón queda a la derecha -->
+                                    <Button Name="BtnNuevo"
+                                            Content="+ Nuevo insumo"
+                                            Click="OnNuevoClick"
+                                            Background="{StaticResource PilotXPanelAccent}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderThickness="0"
+                                            CornerRadius="8"
+                                            MinHeight="48"
+                                            Padding="18,0,18,0"
+                                            FontSize="15"
+                                            FontWeight="SemiBold"
+                                            HorizontalAlignment="Right"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalContentAlignment="Center"
+                                            Margin="0,0,0,14"/>
+
+                                    <!-- Filas + estado vacío: los arma el código. -->
+                                    <StackPanel Name="Lista" Spacing="0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ============ Tarjeta 2 · editor ============
+                                 display:none hasta openEditor(). -->
+                            <Border Name="EditorCard" IsVisible="False"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="18,16,18,18">
+                                <StackPanel Spacing="0">
+                                    <TextBlock Name="EditorTitle" Text="Editar insumo"
+                                               Foreground="{StaticResource PilotXPanelText}"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Name="EditorIdHint"
+                                               Text="El ID se genera automáticamente del nombre."
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,14"/>
+
+                                    <!-- Nombre (fila completa) -->
+                                    <TextBlock Text="Nombre visible"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               Margin="0,0,0,4"/>
+                                    <TextBox Name="FNombre"
+                                             Watermark="Ej: Soja Don Mario 46i17"
+                                             MinHeight="44"
+                                             FontSize="14"
+                                             CornerRadius="6"
+                                             Padding="10,0,10,0"
+                                             VerticalContentAlignment="Center"
+                                             Background="{StaticResource PilotXPanelSurface}"
+                                             Foreground="{StaticResource PilotXPanelText}"
+                                             BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                             Margin="0,0,0,14"/>
+
+                                    <!-- Tipo (fila completa) -->
+                                    <TextBlock Text="Tipo"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               Margin="0,0,0,4"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                                Margin="0,0,0,14">
+                                        <Button Name="BtnTipoSemilla" Content="Semilla"
+                                                Click="OnTipoClick" Tag="semilla"
+                                                MinHeight="44" Padding="14,0,14,0"
+                                                FontSize="14"
+                                                CornerRadius="6"
+                                                BorderThickness="1"
+                                                Background="{StaticResource PilotXPanelSurface}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                VerticalContentAlignment="Center"/>
+                                        <Button Name="BtnTipoFertilizante" Content="Fertilizante"
+                                                Click="OnTipoClick" Tag="fertilizante"
+                                                MinHeight="44" Padding="14,0,14,0"
+                                                FontSize="14"
+                                                CornerRadius="6"
+                                                BorderThickness="1"
+                                                Background="{StaticResource PilotXPanelSurface}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                VerticalContentAlignment="Center"/>
+                                        <Button Name="BtnTipoFitosanitario" Content="Fitosanitario"
+                                                Click="OnTipoClick" Tag="fitosanitario"
+                                                MinHeight="44" Padding="14,0,14,0"
+                                                FontSize="14"
+                                                CornerRadius="6"
+                                                BorderThickness="1"
+                                                Background="{StaticResource PilotXPanelSurface}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                VerticalContentAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <!-- Grilla de campos.
+                                         El auto-fit del CSS se replica con un
+                                         WrapPanel de columnas de 240 px: al
+                                         esconder un bloque, los demás reflotan
+                                         igual que en la página. -->
+                                    <WrapPanel Name="Campos" Orientation="Horizontal">
+
+                                        <StackPanel Name="CampoCultivo" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Cultivo"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"/>
+                                            <TextBox Name="FCultivo" Watermark="soja / maiz / trigo"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoDensObj" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Densidad objetivo (sem/m) — VistaX"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBox Name="FDensObj" Watermark="14"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoDensSat" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Densidad asumida al saturar (sem/m)"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBox Name="FDensSat" Watermark="90"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoSingul" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Singulación objetivo (%)"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"/>
+                                            <TextBox Name="FSingul" Watermark="97"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoDropMin" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Mín. aceptable (sem/m) — VistaX"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBox Name="FDropMin" Watermark="0 = auto"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoDropMax" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Máx. aceptable (sem/m) — VistaX"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBox Name="FDropMax" Watermark="0 = auto"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoDosisKg" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Densidad de siembra — QuantiX / VistaX"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBox Name="FDosisKg" Watermark="65"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoDosisUnidad" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Unidad de la densidad"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"/>
+                                            <!-- El <select> del original: Border+IsVisible, nunca ComboBox. -->
+                                            <Button Name="BtnDosisUnidad" Content="kg/ha"
+                                                    Click="OnUnidadClick"
+                                                    Background="{StaticResource PilotXPanelSurface}"
+                                                    Foreground="{StaticResource PilotXPanelText}"
+                                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    MinHeight="44"
+                                                    Padding="10,0,10,0"
+                                                    FontSize="14"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Left"
+                                                    VerticalContentAlignment="Center"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoPrecioKg" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Precio (USD/kg)"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"/>
+                                            <TextBox Name="FPrecioKg" Watermark="1.20"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoDosisL" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Dosis (L/ha) — FlowX"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"/>
+                                            <TextBox Name="FDosisL" Watermark="100"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+
+                                        <StackPanel Name="CampoPrecioL" Width="240" Margin="0,0,12,12">
+                                            <TextBlock Text="Precio (USD/L)"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontSize="12" Margin="0,0,0,4"/>
+                                            <TextBox Name="FPrecioL" Watermark="6.50"
+                                                     MinHeight="44" FontSize="14" CornerRadius="6"
+                                                     Padding="10,0,10,0"
+                                                     VerticalContentAlignment="Center"
+                                                     Background="{StaticResource PilotXPanelSurface}"
+                                                     Foreground="{StaticResource PilotXPanelText}"
+                                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                        </StackPanel>
+                                    </WrapPanel>
+
+                                    <!-- Notas (fila completa) -->
+                                    <TextBlock Text="Notas"
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               Margin="0,2,0,4"/>
+                                    <TextBox Name="FNotas"
+                                             Watermark="Memo libre (variedad, lote de bolsa, observaciones)"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="80"
+                                             FontSize="14"
+                                             CornerRadius="6"
+                                             Padding="10,8,10,8"
+                                             Background="{StaticResource PilotXPanelSurface}"
+                                             Foreground="{StaticResource PilotXPanelText}"
+                                             BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+
+                                    <!-- Acciones -->
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,18,0,0">
+                                        <Button Grid.Column="0" Name="BtnEliminar" Content="Eliminar"
+                                                Click="OnEliminarClick"
+                                                Background="{StaticResource PilotXPanelErrSoft}"
+                                                Foreground="{StaticResource PilotXPanelErr}"
+                                                BorderBrush="{StaticResource PilotXPanelErr}"
+                                                BorderThickness="1"
+                                                CornerRadius="8" MinHeight="44" Padding="18,0,18,0"
+                                                FontSize="14"
+                                                VerticalContentAlignment="Center"/>
+                                        <Button Grid.Column="2" Name="BtnCancelar" Content="Cancelar"
+                                                Click="OnCancelarClick"
+                                                Background="{StaticResource PilotXPanelSurface}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                BorderThickness="1"
+                                                CornerRadius="8" MinHeight="44" Padding="18,0,18,0"
+                                                FontSize="14"
+                                                Margin="0,0,10,0"
+                                                VerticalContentAlignment="Center"/>
+                                        <Button Grid.Column="3" Name="BtnGuardar" Content="Guardar"
+                                                Click="OnGuardarClick"
+                                                Background="{StaticResource PilotXPanelAccent}"
+                                                Foreground="{StaticResource PilotXPanelText}"
+                                                BorderThickness="0"
+                                                CornerRadius="8" MinHeight="48" Padding="22,0,22,0"
+                                                FontSize="15"
+                                                FontWeight="SemiBold"
+                                                VerticalContentAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- =============== SELECTOR DE UNIDAD (el <select>) =============== -->
+            <Border Name="PickerOverlay" IsVisible="False" ZIndex="50"
+                    Background="#66101612"
+                    PointerPressed="OnPickerBackdropPressed">
+                <Border Name="PickerCard"
+                        Background="{StaticResource PilotXPanelCard}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="16"
+                        Width="340" MaxHeight="420"
+                        BoxShadow="0 8 26 0 #33101612"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        PointerPressed="OnPickerCardPressed">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top"
+                                   Text="Unidad de la densidad"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   Margin="0,0,0,10"/>
+                        <Button DockPanel.Dock="Bottom"
+                                Name="BtnPickerCancelar"
+                                Content="Cancelar"
+                                Click="OnPickerCancelarClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelText}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" MinHeight="44" Padding="20,0,20,0"
+                                HorizontalAlignment="Right"
+                                Margin="0,10,0,0"/>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Name="PickerLista" Spacing="4"/>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </Border>
+
+            <!-- ===================== DIÁLOGO (AgpModal) =====================
+                 alert() de "Falta el nombre del insumo." y confirm() del
+                 borrado. Mismo esqueleto que FirmwaresPanel/NodosPanel. -->
+            <Border Name="ModalOverlay" IsVisible="False" ZIndex="60"
+                    Background="#66101612"
+                    PointerPressed="OnModalBackdropPressed">
+                <Border Name="ModalCard"
+                        Background="{StaticResource PilotXPanelCard}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="14"
+                        Padding="16"
+                        Width="460"
+                        BoxShadow="0 8 26 0 #33101612"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        PointerPressed="OnModalCardPressed">
+                    <StackPanel Spacing="10">
+                        <TextBlock Name="ModalTitulo" Text=""
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="16" FontWeight="Bold"/>
+                        <TextBlock Name="ModalMensaje" Text=""
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="13" TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10"
+                                    HorizontalAlignment="Right" Margin="0,4,0,0">
+                            <Button Name="BtnModalCancelar" Content="Cancelar"
+                                    Click="OnModalCancelarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" MinHeight="44" Padding="20,0,20,0"/>
+                            <Button Name="BtnModalConfirmar" Content="Aceptar"
+                                    Click="OnModalConfirmarClick"
+                                    Background="{StaticResource PilotXPanelAccent}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderThickness="0"
+                                    CornerRadius="8" MinHeight="44" Padding="20,0,20,0"
+                                    FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Border>
+        </Panel>
+    </ThemeVariantScope>
+</UserControl>

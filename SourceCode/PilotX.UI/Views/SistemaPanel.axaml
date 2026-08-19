@@ -292,6 +292,16 @@
                                TextWrapping="Wrap"
                                Margin="0,4,0,0"/>
 
+                    <!-- Atribucion al upstream. Discreta, al pie, una sola vez
+                         en toda la app: PilotX deriva de AgOpenGPS y la GPL-3.0
+                         pide que se diga. No es marketing, es la licencia. -->
+                    <TextBlock Name="LblAtribucion"
+                               Text="PilotX esta basado en AgOpenGPS (GPL-3.0)."
+                               Foreground="{StaticResource PilotXPanelTextDim}"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Margin="0,10,0,0"/>
+
                 </StackPanel>
             </ScrollViewer>
         </Border>

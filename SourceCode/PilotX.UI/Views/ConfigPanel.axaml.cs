@@ -45,9 +45,9 @@
 // esto solo cambia cómo llega el operario DESDE la Configuración.
 // QUÉ SIGUE EN HTML: desde la ola 3c, ninguna PESTAÑA DE CONFIG — las 16 son
 // nativas. Al WebView (embebido acá adentro) salen los módulos sin panel
-// nativo (LineX, Insumos, Mapas, Calculadora, Lab PID, Diagnóstico PWM,
-// OrbitX, Firmwares, Conectar celular,
-// Red WiFi, Eventos, Debug y Ayuda) y las tres pestañas HUÉRFANAS de
+// nativo (LineX, Insumos, Mapas, Lab PID, Diagnóstico PWM,
+// OrbitX, Conectar celular,
+// Red WiFi, Debug y Ayuda) y las tres pestañas HUÉRFANAS de
 // config.html —`relay`, `display`
 // y `botones`—, que no están en el NAV porque tampoco están en el menú del
 // HTML (las sacaron el 2026-08-03) y hoy NO las emite ningún botón ni ruta de
@@ -167,29 +167,29 @@ public partial class ConfigPanel : UserControl
         new CfgNav { Tab = "mod_camaras",  Titulo = "Cámaras",  Grupo = "Módulos", ModClave = "camaras" },
 
         // ---- Campo --------------------------------------------------------
-        new CfgNav { Tab = "mod_insumos", Titulo = "Insumos", Grupo = "Campo", ModRuta = "pages/insumos.html" },
-        new CfgNav { Tab = "mod_mapas",   Titulo = "Mapas",   Grupo = "Campo", ModRuta = "pages/mapas.html" },
+        new CfgNav { Tab = "mod_insumos", Titulo = "Insumos", Grupo = "Campo", ModClave = "insumos" },
+        new CfgNav { Tab = "mod_mapas",   Titulo = "Mapas",   Grupo = "Campo", ModClave = "mapas" },
         // "Prescripciones" es la tab Shape del editor de QuantiX (el viejo
         // quantix.html?tab=shape), que ya es nativa: misma instancia que
         // "QuantiX" pero aterrizando en Shape.
         new CfgNav { Tab = "mod_prescripciones", Titulo = "Prescripciones", Grupo = "Campo", ModClave = "prescripciones" },
 
         // ---- Herramientas -------------------------------------------------
-        new CfgNav { Tab = "mod_calculadora", Titulo = "Calculadora",     Grupo = "Herramientas", ModRuta = "pages/calculadora-siembra.html" },
+        new CfgNav { Tab = "mod_calculadora", Titulo = "Calculadora",     Grupo = "Herramientas", ModClave = "calculadora" },
         new CfgNav { Tab = "mod_pidlab",      Titulo = "Lab PID",         Grupo = "Herramientas", ModRuta = "pages/pid-lab.html" },
         new CfgNav { Tab = "mod_pwmdiag",     Titulo = "Diagnóstico PWM", Grupo = "Herramientas", ModRuta = "pages/pwm-diag.html" },
 
         // ---- Cloud --------------------------------------------------------
-        new CfgNav { Tab = "mod_orbitx",     Titulo = "OrbitX",           Grupo = "Cloud", ModRuta = "pages/orbitx.html" },
-        new CfgNav { Tab = "mod_firmwares",  Titulo = "Firmwares",        Grupo = "Cloud", ModRuta = "pages/firmwares.html" },
+        new CfgNav { Tab = "mod_orbitx",     Titulo = "OrbitX",           Grupo = "Cloud", ModClave = "orbitx" },
+        new CfgNav { Tab = "mod_firmwares",  Titulo = "Firmwares",        Grupo = "Cloud", ModClave = "firmwares" },
         new CfgNav { Tab = "mod_actualizar", Titulo = "Actualizar",       Grupo = "Cloud", ModClave = "actualizar" },
         new CfgNav { Tab = "mod_pwa",        Titulo = "Conectar celular", Grupo = "Cloud", ModRuta = "pages/pwa-qr.html" },
 
         // ---- Mantenimiento ------------------------------------------------
-        new CfgNav { Tab = "mod_wifi",    Titulo = "Red WiFi", Grupo = "Mantenimiento", ModRuta = "pages/wifi.html" },
+        new CfgNav { Tab = "mod_wifi",    Titulo = "Red WiFi", Grupo = "Mantenimiento", ModClave = "wifi" },
         new CfgNav { Tab = "mod_sistema", Titulo = "Sistema",  Grupo = "Mantenimiento", ModClave = "sistema" },
-        new CfgNav { Tab = "mod_eventos", Titulo = "Eventos",  Grupo = "Mantenimiento", ModRuta = "pages/eventos.html" },
-        new CfgNav { Tab = "mod_debug",   Titulo = "Debug",    Grupo = "Mantenimiento", ModRuta = "pages/debug.html" },
+        new CfgNav { Tab = "mod_eventos", Titulo = "Eventos",  Grupo = "Mantenimiento", ModClave = "eventos" },
+        new CfgNav { Tab = "mod_debug",   Titulo = "Debug",    Grupo = "Mantenimiento", ModClave = "debug" },
         new CfgNav { Tab = "mod_ayuda",   Titulo = "Ayuda",    Grupo = "Mantenimiento", ModRuta = "pages/ayuda.html" },
     };
 
@@ -257,6 +257,15 @@ public partial class ConfigPanel : UserControl
     private SistemaClient?       _sistemaCli;
     private SonidosClient?       _sonidosCli;
     private CamarasClient?       _camarasCli;
+    private CalculadoraSiembraClient? _calculadoraCli;
+    private FirmwaresClient?     _firmwaresCli;
+    private EventosClient?       _eventosCli;
+    private InsumosClient?       _insumosCli;
+    private MapasClient?         _mapasCli;
+    private OrbitXPanelClient?   _orbitXCli;
+    private RedWifiClient?       _wifiCli;
+    private DebugClient?         _debugCli;
+    private NodoDetalleClient?   _nodoDetalleCli;
 
     // WebView de la pestaña "Configurar" del CoreX-ECU embebido (el panel pide
     // un slot por OnConfigOpen; réplica local de AbrirEcuConfig de MainWindow).
@@ -1145,6 +1154,17 @@ public partial class ConfigPanel : UserControl
                     // pendientes (es lo que hace MainWindow al esconderlo).
                     case "sistema":    ((SistemaPanel)p).Reset(); break;
                     case "sonidos":    ((SonidosPanel)p).Detach(); break;
+                    case "calculadora":((CalculadoraSiembraPanel)p).Detach(); break;
+                    case "firmwares":  ((FirmwaresPanel)p).Detach(); break;
+                    case "eventos":    ((EventosPanel)p).Detach(); break;
+                    case "insumos":    ((InsumosPanel)p).Detach(); break;
+                    case "mapas":      ((MapasPanel)p).Detach(); break;
+                    case "orbitx":     ((OrbitXPanel)p).Detach(); break;
+                    case "wifi":       ((WifiPanel)p).Detach(); break;
+                    case "debug":      ((DebugPanel)p).Detach(); break;
+                    // El detalle del nodo apaga su POLLING y nada más: un OTA
+                    // en curso lo siguen manejando el nodo y el coordinator.
+                    case "nodo_detalle": ((NodoDetallePanel)p).Detach(); break;
                 }
             }
         }
@@ -1239,9 +1259,10 @@ public partial class ConfigPanel : UserControl
             {
                 var n = new NodosPanel();
                 n.OnRequestCerrar = VolverDeModulo;
-                n.OnRequestDetalle = uid => MostrarHtmlEmbebido(
-                    "pages/nodo-detalle.html?uid=" + Uri.EscapeDataString(uid ?? string.Empty),
-                    PilotX.Cockpit.Bars.Traductor.T("Nodos — Detalle del nodo"));
+                // El detalle del nodo es NATIVO desde 2026-08-18: se monta acá
+                // adentro con la fila "Nodos" todavía marcada, igual que hacía
+                // la página embebida.
+                n.OnRequestDetalle = uid => MostrarDetalleDeNodo(uid);
                 n.OnRequestAsistente = () => MostrarHtmlEmbebido(
                     "pages/setup.html",
                     PilotX.Cockpit.Bars.Traductor.T("Nodos — Asistente de primera vez"));
@@ -1290,6 +1311,80 @@ public partial class ConfigPanel : UserControl
                 s.OnRequestCerrar = VolverDeModulo;
                 s.Aviso += m => Aviso?.Invoke(m);
                 p = s;
+                break;
+            }
+            case "calculadora":
+            {
+                var c = new CalculadoraSiembraPanel();
+                c.OnRequestCerrar = VolverDeModulo;
+                p = c;
+                break;
+            }
+            case "firmwares":
+            {
+                var f = new FirmwaresPanel();
+                f.OnRequestCerrar = VolverDeModulo;
+                f.Aviso += m => Aviso?.Invoke(m);
+                p = f;
+                break;
+            }
+            case "eventos":
+            {
+                var ev = new EventosPanel();
+                ev.OnRequestCerrar = VolverDeModulo;
+                p = ev;
+                break;
+            }
+            case "insumos":
+            {
+                var ins = new InsumosPanel();
+                ins.OnRequestCerrar = VolverDeModulo;
+                ins.Aviso += m => Aviso?.Invoke(m);
+                p = ins;
+                break;
+            }
+            case "mapas":
+            {
+                var mp = new MapasPanel();
+                mp.OnRequestCerrar = VolverDeModulo;
+                p = mp;
+                break;
+            }
+            case "orbitx":
+            {
+                var ox = new OrbitXPanel();
+                ox.OnRequestCerrar = VolverDeModulo;
+                // "Abrir Prescripciones" (en el HTML, un <a> a
+                // quantix.html?tab=shape) va a la entrada de este mismo menú:
+                // el editor de QuantiX parado en Shape.
+                ox.OnRequestPrescripciones = () => _ = IrATabAsync("mod_prescripciones");
+                p = ox;
+                break;
+            }
+            case "wifi":
+            {
+                var wf = new WifiPanel();
+                wf.OnRequestCerrar = VolverDeModulo;
+                p = wf;
+                break;
+            }
+            case "debug":
+            {
+                var dbg = new DebugPanel();
+                dbg.OnRequestCerrar = VolverDeModulo;
+                dbg.Aviso += m => Aviso?.Invoke(m);
+                p = dbg;
+                break;
+            }
+            case "nodo_detalle":
+            {
+                // No es una entrada del menú: es el satélite de Nodos (se
+                // entra tocando una fila). Su fila activa sigue siendo Nodos,
+                // igual que cuando esto era nodo-detalle.html embebida.
+                var nd = new NodoDetallePanel();
+                nd.OnRequestCerrar = VolverDeModulo;
+                nd.OnRequestVolver = () => _ = IrATabAsync("mod_nodos");
+                p = nd;
                 break;
             }
             default:
@@ -1408,7 +1503,63 @@ public partial class ConfigPanel : UserControl
                 _sonidosCli ??= new SonidosClient(baseUrl);
                 ((SonidosPanel)_modPaneles[panelKey]).Attach(_sonidosCli);
                 break;
+            case "calculadora":
+                _calculadoraCli ??= new CalculadoraSiembraClient(baseUrl);
+                ((CalculadoraSiembraPanel)_modPaneles[panelKey]).Attach(_calculadoraCli);
+                break;
+            case "firmwares":
+                _firmwaresCli ??= new FirmwaresClient(baseUrl);
+                ((FirmwaresPanel)_modPaneles[panelKey]).Attach(_firmwaresCli);
+                break;
+            case "eventos":
+                _eventosCli ??= new EventosClient(baseUrl);
+                ((EventosPanel)_modPaneles[panelKey]).Attach(_eventosCli);
+                break;
+            case "insumos":
+                _insumosCli ??= new InsumosClient(baseUrl);
+                ((InsumosPanel)_modPaneles[panelKey]).Attach(_insumosCli);
+                break;
+            case "mapas":
+                _mapasCli ??= new MapasClient(baseUrl);
+                ((MapasPanel)_modPaneles[panelKey]).Attach(_mapasCli);
+                break;
+            case "orbitx":
+                _orbitXCli ??= new OrbitXPanelClient(baseUrl);
+                ((OrbitXPanel)_modPaneles[panelKey]).Attach(_orbitXCli);
+                break;
+            case "wifi":
+                _wifiCli ??= new RedWifiClient(baseUrl);
+                ((WifiPanel)_modPaneles[panelKey]).Attach(_wifiCli);
+                break;
+            case "debug":
+                _debugCli ??= new DebugClient(baseUrl);
+                ((DebugPanel)_modPaneles[panelKey]).Attach(_debugCli);
+                break;
+            case "nodo_detalle":
+                // El UID lo pone MostrarDetalleDeNodo con Abrir(): Abrir y
+                // Attach son conmutativos, así que el orden no importa.
+                _nodoDetalleCli ??= new NodoDetalleClient(baseUrl);
+                ((NodoDetallePanel)_modPaneles[panelKey]).Attach(_nodoDetalleCli);
+                break;
         }
+    }
+
+    /// <summary>El satélite de Nodos: el detalle de UN nodo, montado en el
+    /// área de contenido con la fila "Nodos" todavía marcada (igual que cuando
+    /// esto era nodo-detalle.html embebida). El UID SIEMPRE viene de una fila
+    /// de la lista.</summary>
+    private void MostrarDetalleDeNodo(string? uid)
+    {
+        var nav = new CfgNav
+        {
+            Tab = "mod_nodos",
+            Titulo = "Nodos — Detalle del nodo",
+            Grupo = "Módulos",
+            ModClave = "nodo_detalle",
+        };
+        MostrarModuloNativo(nav);
+        if (_modPaneles.TryGetValue("nodo_detalle", out var p))
+            ((NodoDetallePanel)p).Abrir(uid ?? string.Empty);
     }
 
     /// <summary>¿A qué entrada del menú pertenece una página del Hub? Para que
@@ -1453,6 +1604,18 @@ public partial class ConfigPanel : UserControl
             "sonidos.html"    => "mod_sonidos",
             "actualizar.html" => "mod_actualizar",
             "sistema.html"    => "mod_sistema",
+            "calculadora-siembra.html" => "mod_calculadora",
+            "firmwares.html"  => "mod_firmwares",
+            "eventos.html"    => "mod_eventos",
+            // Estas cinco dejaron de ser ModRuta el 2026-08-18 (pasaron a
+            // panel nativo), así que ya no las encuentra el barrido de arriba:
+            // se mapean acá para que un deep-link externo siga cayendo en su
+            // fila.
+            "insumos.html"    => "mod_insumos",
+            "mapas.html"      => "mod_mapas",
+            "orbitx.html"     => "mod_orbitx",
+            "wifi.html"       => "mod_wifi",
+            "debug.html"      => "mod_debug",
             _ => null,
         };
         return tab != null ? BuscarNav(tab) : null;

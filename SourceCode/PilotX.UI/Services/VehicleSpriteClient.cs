@@ -55,11 +55,16 @@ public sealed class VehicleSpriteClient
             string archivo = act.GetString() ?? "";
             if (string.IsNullOrWhiteSpace(archivo)) return null;
 
-            // Variante ".mapa" primero (vista cenital sin ruedas).
-            string sinExt = Path.GetFileNameWithoutExtension(archivo);
-            string mapa = sinExt + ".mapa.png";
-            byte[]? png = await BajarAsync(mapa, ct).ConfigureAwait(false)
-                       ?? await BajarAsync(archivo, ct).ConfigureAwait(false);
+            // Variante ".mapa" (vista cenital sin ruedas) si el arte la trae.
+            // El server ya nos dice cuál usar en "url_mapa" del sprite activo:
+            // NO la adivinamos pidiéndola a ver si está, porque para todo
+            // vehículo sin esa variante eso dejaba un 404 con stack trace en
+            // el log del motor en cada arranque.
+            string? mapa = UrlMapaDelActivo(doc.RootElement, archivo);
+
+            byte[]? png = null;
+            if (mapa != null) png = await BajarAsync(mapa, ct).ConfigureAwait(false);
+            png ??= await BajarAsync(archivo, ct).ConfigureAwait(false);
             if (png == null) return null;
 
             return Decodificar(png, archivo);
@@ -145,6 +150,31 @@ public sealed class VehicleSpriteClient
             buf[i] = r; buf[i + 1] = g; buf[i + 2] = b; buf[i + 3] = a;
         }
         return new Sprite { Rgba = buf, Width = w, Height = h, Archivo = archivo };
+    }
+
+    /// <summary>
+    /// Nombre de archivo de la variante cenital (".mapa") del sprite activo,
+    /// o null si el arte no la trae. Sale de "url_mapa" que declara
+    /// GET /api/vehicle/sprites — no se prueba pidiéndola al server.
+    /// </summary>
+    private static string? UrlMapaDelActivo(JsonElement raiz, string activo)
+    {
+        if (!raiz.TryGetProperty("sprites", out var lista)
+            || lista.ValueKind != JsonValueKind.Array) return null;
+
+        foreach (var s in lista.EnumerateArray())
+        {
+            if (!s.TryGetProperty("archivo", out var a)) continue;
+            if (!string.Equals(a.GetString(), activo, StringComparison.OrdinalIgnoreCase)) continue;
+
+            if (!s.TryGetProperty("url_mapa", out var um)) return null;
+            string? url = um.ValueKind == JsonValueKind.String ? um.GetString() : null;
+            if (string.IsNullOrWhiteSpace(url)) return null;
+
+            // BajarAsync ya antepone img/vehiculos/, así que va solo el nombre.
+            return url.Substring(url.LastIndexOf('/') + 1);
+        }
+        return null;
     }
 
     private async Task<byte[]?> BajarAsync(string archivo, CancellationToken ct)

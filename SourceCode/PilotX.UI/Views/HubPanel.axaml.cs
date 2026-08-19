@@ -2,7 +2,7 @@
 //
 // Reemplazo nativo de pages/hub.html. KPIs (velocidad/rumbo/dosis/secciones/
 // posicion/lote) llegan via OnSnapshot(HudSnapshot) — no se hace polling
-// propio del estado AOG. La lista de nodos se refresca a 3s contra
+// propio del estado de PilotX. La lista de nodos se refresca a 3s contra
 // /api/nodos/unified (reusa NodosClient). Los toggles QX/VX/FX hablan a
 // /api/overlays (FormGPS los relee desde overlayPrefs.json cada 250ms).
 

@@ -88,7 +88,7 @@
                     <StackPanel Name="NodosHost" Spacing="14"/>
 
                     <TextBlock Name="EmptyHint"
-                               Text="No se ven nodos QuantiX en la LAN. Verifica que el broker MQTT (CoreX/AgIO) este corriendo y los ESP32 conectados."
+                               Text="No se ven nodos QuantiX en la LAN. Verifica que el broker MQTT de CoreX este corriendo y los ESP32 conectados."
                                Foreground="{StaticResource PilotXPanelTextDim}"
                                FontSize="12"
                                TextWrapping="Wrap"

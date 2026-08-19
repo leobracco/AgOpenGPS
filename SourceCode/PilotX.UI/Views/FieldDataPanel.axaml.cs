@@ -52,6 +52,12 @@ public partial class FieldDataPanel : UserControl
     private static readonly IBrush _textHi    = new SolidColorBrush(Color.Parse("#101612"));
     private static readonly IBrush _textMid   = new SolidColorBrush(Color.Parse("#303B33"));
 
+    /// <summary>
+    /// Lo invoca el ✕ del header. El host (MainWindow) engancha aca su
+    /// CloseFieldData — mismo contrato que ConfigPanel y los editores.
+    /// </summary>
+    public Action? OnRequestCerrar { get; set; }
+
     public FieldDataPanel()
     {
         InitializeComponent();
@@ -59,6 +65,9 @@ public partial class FieldDataPanel : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    private void OnCerrarClick(object? s, RoutedEventArgs e)
+        => OnRequestCerrar?.Invoke();
 
     /// <summary>
     /// Recibe un snapshot del HUD y refresca toda la vista. Asume que
@@ -105,20 +114,9 @@ public partial class FieldDataPanel : UserControl
             ? overlapPct.ToString("0.0", CultureInfo.InvariantCulture) + " %"
             : "-- %");
 
-        SetText("KpiVel", s.AvgSpeed.ToString("0.0", CultureInfo.InvariantCulture));
-
-        // Secciones activas: cuenta true en SectionOnRequest.
-        int onCount = 0;
-        if (s.SectionOnRequest != null)
-        {
-            for (int i = 0; i < s.SectionOnRequest.Length; i++)
-                if (s.SectionOnRequest[i]) onCount++;
-        }
-        int total = s.NumSections > 0 ? s.NumSections
-                                       : (s.SectionOnRequest?.Length ?? 0);
-        SetText("KpiSec", total > 0
-            ? (onCount + " de " + total)
-            : "-- de --");
+        // Velocidad y Secciones activas salieron de esta card (resumen
+        // 2026-08-18): las dos ya estan en la barra de arriba y en la
+        // pantalla del mapa, aca eran lo mismo dicho dos veces.
 
         // ---- Ahorro -----------------------------------------------------
         // saved_insumo = overlap_ha * dose (kg o L)
@@ -130,6 +128,15 @@ public partial class FieldDataPanel : UserControl
         SetText("KpiSavedMoney",  (_dose > 0 && _price > 0) ? FmtAmount(savedMoney) : "--");
         SetText("KpiSavedHa",     overlapHa > 0 ? FmtHa(overlapHa) : "--");
 
+        // Resumen en el titulo del desplegable: con el bloque cerrado (que es
+        // como esta el 99% del tiempo) el operario igual ve el numero. Si no
+        // cargo la dosis no hay ahorro que mostrar, y el texto se lo dice.
+        string unidad = _doseMode == "l" ? "L" : "kg";
+        SetText("KpiSavedResumen", _dose > 0
+            ? "· " + FmtAmount(savedInsumo) + " " + unidad
+              + (_price > 0 ? " · " + FmtAmount(savedMoney) + " USD" : string.Empty)
+            : "· cargá la dosis para calcularlo");
+
         // ---- Detalles --------------------------------------------------
         SetText("DetLote", string.IsNullOrEmpty(s.CurrentFieldDirectory)
             ? "--"
@@ -137,10 +144,8 @@ public partial class FieldDataPanel : UserControl
         SetText("DetAncho", s.ToolWidth > 0
             ? s.ToolWidth.ToString("0.00", CultureInfo.InvariantCulture) + " m"
             : "-- m");
-        string veh = string.Join(" ",
-            (s.VehicleBrand ?? string.Empty).Trim(),
-            (s.VehicleType  ?? string.Empty).Trim()).Trim();
-        SetText("DetVehiculo", string.IsNullOrEmpty(veh) ? "--" : veh);
+        // El vehiculo salio de esta card (resumen 2026-08-18): no cambia
+        // durante el trabajo y ya esta en Configuracion y en el panel de GPS.
         // detTrack: el snapshot no lo expone hoy. Lo dejo placeholder.
         SetText("DetTrack", s.IsJobStarted ? "AB activa" : "Ninguna");
         // Dosis del shapefile en el punto actual:

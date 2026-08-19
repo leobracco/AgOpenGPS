@@ -1,0 +1,641 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="PilotX.Desktop.Views.CalculadoraSiembraPanel">
+    <!--
+        CalculadoraSiembraPanel — reemplazo nativo de
+        pages/calculadora-siembra.html (+ js/calculadora-siembra.js).
+
+        Son CUENTAS de siembra de gruesa siguiendo el documento del INTA
+        "Cálculos distanciamiento entre semillas de gruesa". Las cuatro
+        pantallas son las mismas y en el mismo orden que la página:
+
+          1. Densidad y distanciamiento  — densidad ↔ sem/m ↔ distanciamiento
+          2. Evaluación a campo          — clasificación de separaciones medidas
+          3. kg/ha ↔ sem/ha              — conversión por peso de mil semillas
+          4. Motor: sem/vuelta y rpm     — qué le pedimos al dosificador
+
+        QUÉ SIGUE EN HTML: la página y su JS quedan intactos — los usa la PWA
+        del celular. El wire tampoco cambia: /api/implemento, /api/tool y
+        /api/quantix/motores, en ese orden, solo para precargar la máquina real
+        (ver Services/CalculadoraSiembraClient.cs).
+
+        Las fórmulas viven en el code-behind portadas UNA A UNA desde el JS,
+        con los mismos redondeos y los mismos decimales: acá un decimal de más
+        o de menos es plata en el lote.
+
+        La card flota sobre el mapa VIVO (misma receta que ConfigPanel /
+        QuantiX / Sistema): el mapa nunca se apaga ni se tapa del todo.
+    -->
+    <UserControl.Styles>
+        <!-- Etiqueta de campo (el "label" del .field del HTML). -->
+        <Style Selector="TextBlock.lbl">
+            <Setter Property="Foreground" Value="{StaticResource PilotXPanelTextDim}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+
+        <!-- Entrada numérica. 48 px de alto: con guante, abajo de 44 no se
+             acierta (doctrina táctil de PORTING-AVALONIA §3). -->
+        <Style Selector="TextBox.num">
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontFamily" Value="Consolas, Courier New, monospace"/>
+            <Setter Property="Background" Value="{StaticResource PilotXPanelSurface}"/>
+            <Setter Property="Foreground" Value="{StaticResource PilotXPanelText}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PilotXPanelBorderHigh}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="9,6,9,6"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <!-- Celda de la grilla de campos (.cs-grid: auto-fit 150px…1fr). -->
+        <Style Selector="StackPanel.campo">
+            <Setter Property="Width" Value="200"/>
+            <Setter Property="Margin" Value="0,0,12,12"/>
+        </Style>
+
+        <!-- KPI de salida (.cs-kpi). -->
+        <Style Selector="StackPanel.kpi">
+            <Setter Property="Width" Value="200"/>
+            <Setter Property="Margin" Value="0,0,12,10"/>
+            <Setter Property="Spacing" Value="2"/>
+        </Style>
+        <Style Selector="TextBlock.k">
+            <Setter Property="Foreground" Value="{StaticResource PilotXPanelTextDim}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style Selector="TextBlock.v">
+            <Setter Property="Foreground" Value="{StaticResource PilotXPanelText}"/>
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontFamily" Value="Consolas, Courier New, monospace"/>
+        </Style>
+        <Style Selector="TextBlock.u">
+            <Setter Property="Foreground" Value="{StaticResource PilotXPanelTextDim}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Bottom"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+        </Style>
+
+        <!-- Bloque de salidas (.cs-out): separador arriba, como el border-top. -->
+        <Style Selector="Border.out">
+            <Setter Property="BorderBrush" Value="{StaticResource PilotXPanelBorder}"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Margin" Value="0,6,0,0"/>
+            <Setter Property="Padding" Value="0,12,0,0"/>
+        </Style>
+
+        <!-- Tarjeta de sección (.card). -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{StaticResource PilotXPanelSurface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource PilotXPanelBorderHigh}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="14"/>
+        </Style>
+        <Style Selector="TextBlock.h3">
+            <Setter Property="Foreground" Value="{StaticResource PilotXPanelText}"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+
+        <!-- Notas al pie (.cs-nota) y el aviso de qué campo manda (.cs-lock). -->
+        <Style Selector="TextBlock.nota">
+            <Setter Property="Foreground" Value="{StaticResource PilotXPanelTextDim}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,12,0,0"/>
+        </Style>
+        <Style Selector="TextBlock.lock">
+            <Setter Property="Foreground" Value="{StaticResource PilotXPanelTextDim}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- Tabs de arriba (los .btn / .btn.primary del HTML). El color lo
+             pinta PintarTabs() según cuál esté activa. -->
+        <Style Selector="Button.tab">
+            <Setter Property="MinHeight" Value="44"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="14,8,14,8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,8,8"/>
+        </Style>
+
+        <!-- Botones de acción de la evaluación a campo. -->
+        <Style Selector="Button.accion">
+            <Setter Property="MinHeight" Value="48"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="16,8,16,8"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                MaxWidth="920" MaxHeight="660"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+            <DockPanel Name="ContenidoRaiz" Margin="20,16,20,18">
+
+                <!-- ============ Header: título + pill + cerrar ============ -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
+                    <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="Calculadora de siembra"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="Densidad, distanciamiento y evaluación de la siembra de gruesa"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"/>
+                    </StackPanel>
+
+                    <!-- Pill: qué implemento/geometría trajo PilotX.
+                         Name="HeaderPill": la instancia embebida la entrega a la
+                         barra de contexto del shell (PillsDeContexto). -->
+                    <Border Grid.Column="1" Name="HeaderPill"
+                            Background="{StaticResource PilotXPanelSurface2}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="999"
+                            Padding="12,5,12,5"
+                            Margin="8,0,8,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                            <Ellipse Name="ImplDot" Width="9" Height="9"
+                                     Fill="{StaticResource PilotXPanelIdle}"
+                                     VerticalAlignment="Center"/>
+                            <TextBlock Name="ImplTxt" Text="—"
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Grid.Column="2" Name="BtnCerrar"
+                            Content="✕"
+                            Click="OnCerrarClick"
+                            Width="40" Height="40"
+                            FontSize="16"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Background="{StaticResource PilotXPanelSurface}"
+                            Foreground="{StaticResource PilotXPanelTextDim}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            VerticalAlignment="Center"/>
+                </Grid>
+
+                <!-- ============ Tabs (.cs-tabs) ============ -->
+                <WrapPanel Name="TabsHost" DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <Button Name="TabDensidad" Classes="tab" Tag="densidad"
+                            Content="Densidad y distanciamiento" Click="OnTabClick"/>
+                    <Button Name="TabCampo" Classes="tab" Tag="campo"
+                            Content="Evaluación a campo" Click="OnTabClick"/>
+                    <Button Name="TabPms" Classes="tab" Tag="pms"
+                            Content="kg/ha ↔ sem/ha" Click="OnTabClick"/>
+                    <Button Name="TabMotor" Classes="tab" Tag="motor"
+                            Content="Motor: sem/vuelta y rpm" Click="OnTabClick"/>
+                </WrapPanel>
+
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                    <Panel>
+
+                        <!-- ================================================= -->
+                        <!-- 1. DENSIDAD ↔ SEM/M ↔ DISTANCIAMIENTO             -->
+                        <!-- ================================================= -->
+                        <Border Name="SecDensidad" Classes="card">
+                            <StackPanel>
+                                <TextBlock Classes="h3" Text="Qué sé"/>
+
+                                <WrapPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Distancia entre hileras (m)"/>
+                                        <TextBox Name="DEsp" Classes="num" Text="0.52"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Densidad objetivo (sem/ha)"/>
+                                        <TextBox Name="DDens" Classes="num" Text="70000"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Semillas por metro de surco"/>
+                                        <TextBox Name="DSemM" Classes="num" Text=""/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Distanciamiento entre semillas (cm)"/>
+                                        <TextBox Name="DDist" Classes="num" Text=""/>
+                                    </StackPanel>
+                                </WrapPanel>
+
+                                <!-- El .cs-lock del HTML: "uno solo" va en negrita.
+                                     Se arma con tres TextBlock en fila (nada de
+                                     Runs: Traductor.Aplicar escribe TextBlock.Text
+                                     y se llevaría puestos los inlines). -->
+                                <WrapPanel>
+                                    <TextBlock Classes="lock" Text="Completá "/>
+                                    <TextBlock Classes="lock" Text="uno solo" FontWeight="Bold"/>
+                                    <TextBlock Classes="lock" MaxWidth="620"
+                                               Text=" de los tres últimos: los otros dos se calculan. El último que tocás manda."/>
+                                </WrapPanel>
+
+                                <Border Classes="out">
+                                    <WrapPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Semillas por metro"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OSemM" Text="—"/>
+                                                <TextBlock Classes="u" Name="OSemMUni" Text="sem/m" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Densidad"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="ODens" Text="—"/>
+                                                <TextBlock Classes="u" Name="ODensUni" Text="sem/ha" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Distanciamiento"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="ODist" Text="—"/>
+                                                <TextBlock Classes="u" Name="ODistUni" Text="cm" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Metros de surco por ha"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OMetros" Text="—"/>
+                                                <TextBlock Classes="u" Name="OMetrosUni" Text="m/ha" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Classes="out">
+                                    <WrapPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Falla si supera"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OFalla" Text="—"/>
+                                                <TextBlock Classes="u" Name="OFallaUni" Text="cm" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Duplicación si baja de"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="ODup" Text="—"/>
+                                                <TextBlock Classes="u" Name="ODupUni" Text="cm" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Tolerancia ±25%"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OTol" Text="—"/>
+                                                <TextBlock Classes="u" Name="OTolUni" Text="cm" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </Border>
+
+                                <TextBlock Classes="nota"
+                                           Text="Metros lineales de surco en una hectárea = 10.000 m² / distancia entre hileras. Densidad = semillas por metro × esos metros. Falla = separación mayor a 1,5 veces la de referencia; duplicación = menor a 0,5 veces."/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ================================================= -->
+                        <!-- 2. EVALUACIÓN A CAMPO                             -->
+                        <!-- ================================================= -->
+                        <Border Name="SecCampo" Classes="card" IsVisible="False">
+                            <StackPanel>
+                                <TextBlock Classes="h3" Text="Distanciamientos medidos"/>
+
+                                <WrapPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Distanciamiento de referencia (cm)"/>
+                                        <TextBox Name="CDref" Classes="num" Text=""/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Metros de surco evaluados"/>
+                                        <TextBox Name="CMetros" Classes="num" Text="14.3"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Distancia entre hileras (m)"/>
+                                        <TextBox Name="CEsp" Classes="num" Text="0.52"/>
+                                    </StackPanel>
+                                </WrapPanel>
+
+                                <StackPanel Margin="0,4,0,0">
+                                    <TextBlock Classes="lbl"
+                                               Text="Separaciones entre semillas, en cm (separadas por espacio, coma o renglón)"/>
+                                    <TextBox Name="CEventos" Classes="num"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="96"
+                                             VerticalContentAlignment="Top"
+                                             Watermark="20.5 19.8 21.2 33.4 10.0 ..."/>
+                                </StackPanel>
+
+                                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
+                                    <Button Name="BtnCalcular" Classes="accion" Content="Calcular"
+                                            Click="OnCalcularClick"
+                                            Background="{StaticResource PilotXPanelAccent}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderBrush="{StaticResource PilotXPanelAccent}"
+                                            FontWeight="SemiBold"/>
+                                    <Button Name="BtnLimpiar" Classes="accion" Content="Limpiar"
+                                            Click="OnLimpiarClick"
+                                            Background="{StaticResource PilotXPanelSurface}"
+                                            Foreground="{StaticResource PilotXPanelText}"
+                                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"/>
+                                    <TextBlock Name="CMsg" Text=""
+                                               Foreground="{StaticResource PilotXPanelTextDim}"
+                                               FontSize="12"
+                                               MaxWidth="380"
+                                               TextWrapping="Wrap"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <Border Classes="out">
+                                    <WrapPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Eventos totales"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="ETot" Text="—"/>
+                                                <TextBlock Classes="u" Name="ETotUni" Text="" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Bien sembradas"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EOk" Text="—"/>
+                                                <TextBlock Classes="u" Name="EOkUni" Text="" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Fallas"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EFallas" Text="—"/>
+                                                <TextBlock Classes="u" Name="EFallasUni" Text="" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Duplicaciones"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EDup" Text="—"/>
+                                                <TextBlock Classes="u" Name="EDupUni" Text="" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Classes="out">
+                                    <WrapPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Eventos corregidos"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="ECorr" Text="—"/>
+                                                <TextBlock Classes="u" Name="ECorrUni" Text="" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Densidad real"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EDreal" Text="—"/>
+                                                <TextBlock Classes="u" Name="EDrealUni" Text="sem/ha" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Densidad corregida"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EDcorr" Text="—"/>
+                                                <TextBlock Classes="u" Name="EDcorrUni" Text="sem/ha" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Dentro de ±5% de la referencia"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EEnRango" Text="—"/>
+                                                <TextBlock Classes="u" Name="EEnRangoUni" Text="%" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Classes="out">
+                                    <WrapPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Población en tolerancia"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EPobl" Text="—"/>
+                                                <TextBlock Classes="u" Name="EPoblUni" Text="%" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Desvío de las bien sembradas"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EDesv" Text="—"/>
+                                                <TextBlock Classes="u" Name="EDesvUni" Text="cm" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="% de fallas"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EPctF" Text="—"/>
+                                                <TextBlock Classes="u" Name="EPctFUni" Text="%" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="% de duplicaciones"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="EPctD" Text="—"/>
+                                                <TextBlock Classes="u" Name="EPctDUni" Text="%" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </Border>
+
+                                <TextBlock Classes="nota"
+                                           Text="Falla doble: separación entre 2,5 y 3,5 veces la referencia (cuenta como dos). Eventos corregidos = totales + fallas + fallas dobles × 2 − duplicaciones. Población en tolerancia = eventos entre 0,75 y 1,25 de la referencia, sobre las bien sembradas."/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ================================================= -->
+                        <!-- 3. kg/ha ↔ sem/ha                                 -->
+                        <!-- ================================================= -->
+                        <Border Name="SecPms" Classes="card" IsVisible="False">
+                            <StackPanel>
+                                <TextBlock Classes="h3" Text="Convertir con el peso de mil semillas"/>
+
+                                <WrapPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Peso de mil semillas (g)"/>
+                                        <TextBox Name="PPms" Classes="num" Text="350"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Kilos por hectárea"/>
+                                        <TextBox Name="PKg" Classes="num" Text="25"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Semillas por hectárea"/>
+                                        <TextBox Name="PSem" Classes="num" Text=""/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Poder germinativo (%)"/>
+                                        <TextBox Name="PPg" Classes="num" Text="100"/>
+                                    </StackPanel>
+                                </WrapPanel>
+
+                                <TextBlock Classes="lock" Text="Completá kilos o semillas: el otro se calcula."/>
+
+                                <Border Classes="out">
+                                    <WrapPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Semillas por hectárea"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OPSem" Text="—"/>
+                                                <TextBlock Classes="u" Name="OPSemUni" Text="sem/ha" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Kilos por hectárea"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OPKg" Text="—"/>
+                                                <TextBlock Classes="u" Name="OPKgUni" Text="kg/ha" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Plantas logradas por ha"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OPLog" Text="—"/>
+                                                <TextBlock Classes="u" Name="OPLogUni" Text="pl/ha" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </Border>
+
+                                <TextBlock Classes="nota"
+                                           Text="Semillas por hectárea = kg/ha × 1.000.000 / peso de mil semillas. Las plantas logradas aplican el poder germinativo — es lo que hay que comparar contra la densidad objetivo del cultivo."/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ================================================= -->
+                        <!-- 4. MOTOR: sem/vuelta y rpm                        -->
+                        <!-- ================================================= -->
+                        <Border Name="SecMotor" Classes="card" IsVisible="False">
+                            <StackPanel>
+                                <TextBlock Classes="h3" Text="Qué le vamos a pedir al motor"/>
+
+                                <WrapPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Motor"/>
+                                        <ComboBox Name="MMotor"
+                                                  MinHeight="48"
+                                                  Width="200"
+                                                  FontSize="13"
+                                                  Background="{StaticResource PilotXPanelSurface}"
+                                                  Foreground="{StaticResource PilotXPanelText}"
+                                                  BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                                  BorderThickness="1"
+                                                  CornerRadius="8"
+                                                  Padding="10,6,8,6"
+                                                  SelectionChanged="OnMotorSelectionChanged"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Semillas por metro (objetivo)"/>
+                                        <TextBox Name="MSemM" Classes="num" Text="6"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Velocidad de trabajo (km/h)"/>
+                                        <TextBox Name="MVel" Classes="num" Text="7"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Surcos que alimenta"/>
+                                        <TextBox Name="MSurcos" Classes="num" Text="1"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Semillas por vuelta del dosificador"/>
+                                        <TextBox Name="MSemVuelta" Classes="num" Text="24"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Pulsos por vuelta del sensor"/>
+                                        <TextBox Name="MPpr" Classes="num" Text="600"/>
+                                    </StackPanel>
+                                    <StackPanel Classes="campo">
+                                        <TextBlock Classes="lbl" Text="Tope medido del motor (Hz)"/>
+                                        <TextBox Name="MMaxHz" Classes="num" Text="670"/>
+                                    </StackPanel>
+                                </WrapPanel>
+
+                                <Border Classes="out">
+                                    <WrapPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Semillas por segundo"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OMSemS" Text="—"/>
+                                                <TextBlock Classes="u" Name="OMSemSUni" Text="sem/s" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Vueltas del dosificador"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OMRpm" Text="—"/>
+                                                <TextBlock Classes="u" Name="OMRpmUni" Text="rpm" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Pulsos del sensor"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OMHz" Text="—"/>
+                                                <TextBlock Classes="u" Name="OMHzUni" Text="Hz" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Classes="kpi">
+                                            <TextBlock Classes="k" Text="Uso del motor"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OMUso" Text="—"/>
+                                                <TextBlock Classes="u" Name="OMUsoUni" Text="% del tope" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </Border>
+
+                                <Border Classes="out">
+                                    <WrapPanel>
+                                        <StackPanel Classes="kpi" Width="320">
+                                            <TextBlock Classes="k" Text="Velocidad máxima con esta dosis"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Classes="v" Name="OMVelMax" Text="—"/>
+                                                <TextBlock Classes="u" Name="OMVelMaxUni" Text="km/h" IsVisible="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </WrapPanel>
+                                </Border>
+
+                                <TextBlock Classes="nota"
+                                           Text="Elegí un motor y se completan sus datos guardados. Conviene trabajar por debajo del 85% del tope: el PID necesita margen para corregir cuando la velocidad sube."/>
+                            </StackPanel>
+                        </Border>
+
+                    </Panel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

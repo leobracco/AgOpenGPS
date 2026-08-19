@@ -346,6 +346,83 @@ public partial class MainWindow : Window
     private ConfigPanel? _configHost;
     private ConfigVehiculoClient? _configClient;
 
+    // Visor de eventos nativo, ex eventos.html (FormEventViewer): el registro
+    // de la sesión + el histórico. Sin polling — carga al abrir y con el botón
+    // "Actualizar". La página HTML queda para el Hub remoto/celular.
+    private EventosPanel? _eventosHost;
+    private EventosClient? _eventosClient;
+
+    // Calculadora de siembra nativa, ex calculadora-siembra.html: las cuatro
+    // cuentas de gruesa (densidad, prueba de campo, PMS y motor). La página
+    // HTML queda para el Hub remoto/celular.
+    private CalculadoraSiembraPanel? _calculadoraHost;
+    private CalculadoraSiembraClient? _calculadoraClient;
+
+    // Perfiles nativo, ex perfiles.html: un perfil = TODAS las configuraciones
+    // del vehículo, así que la pantalla es DESTRUCTIVA (crear/cargar/copiar/
+    // proteger/borrar). Polling 5 s que corta el Detach. La página HTML queda
+    // para el Hub remoto/celular.
+    private PerfilesPanel? _perfilesHost;
+    private PerfilesClient? _perfilesClient;
+
+    // Firmwares nativo, ex firmwares.html: catálogo local de .bin para cargar
+    // desde USB sin internet. La página HTML queda para el Hub remoto/celular.
+    private FirmwaresPanel? _firmwaresHost;
+    private FirmwaresClient? _firmwaresClient;
+
+    // Banderas nativo, ex banderas.html (FormFlags + FormEnterFlag): se marca
+    // una piedra o un pozo MANEJANDO y la lista da la distancia en vivo, o sea
+    // que lo que hay que ver es el mapa — que la ventana HTML tapaba. Poll de
+    // 500 ms; el ciclo de vida es Abrir()/Cerrar(), no Attach/IsVisible.
+    private BanderasPanel? _banderasHost;
+    private BanderasClient? _banderasClient;
+
+    // Los CUATRO gráficos nativos, ex grafico-direccion.html / grafico-rumbo.html
+    // / grafico-xte.html / grafico-correccion.html (ex FormGraphSteer y
+    // hermanas): se miran mientras la máquina anda, así que van sobre el mapa
+    // vivo. Comparten UN SOLO GraficosClient — es stateless (solo GETs) y no
+    // tiene sentido tener cuatro pools de conexiones contra el mismo host. Las
+    // páginas HTML quedan para el Hub remoto/celular.
+    private GraficoDireccionPanel?  _grafDireccionHost;
+    private GraficoRumboPanel?      _grafRumboHost;
+    private GraficoXtePanel?        _grafXteHost;
+    private GraficoCorreccionPanel? _grafCorreccionHost;
+    private GraficosClient?         _graficosClient;
+
+    // OrbitX nativo, ex orbitx.html: vinculación del tractor con el cloud
+    // (código de pareo, estado del sync). La página HTML queda para el Hub
+    // remoto/celular.
+    private OrbitXPanel? _orbitXHost;
+    private OrbitXPanelClient? _orbitXClient;
+
+    // Red WiFi nativa, ex wifi.html: el WiFi PROPIO de la pantalla (escanear,
+    // conectar, olvidar). La página HTML queda para el Hub remoto/celular.
+    private WifiPanel? _wifiHost;
+    private RedWifiClient? _wifiClient;
+
+    // Debug nativo, ex debug.html: el log unificado de todos los servicios.
+    // La página HTML queda para el Hub remoto/celular.
+    private DebugPanel? _debugHost;
+    private DebugClient? _debugClient;
+
+    // Catálogo de insumos nativo, ex insumos.html: lo comparten VistaX y los
+    // demás productos. La página HTML queda para el Hub remoto/celular.
+    private InsumosPanel? _insumosHost;
+    private InsumosClient? _insumosClient;
+
+    // Mapas nativo, ex mapas.html: preview y exportación de los mapas del lote.
+    // La página HTML queda para el Hub remoto/celular.
+    private MapasPanel? _mapasHost;
+    private MapasClient? _mapasClient;
+
+    // Detalle de nodo nativo, ex nodo-detalle.html: la matriz wifi/mqtt/target,
+    // el OTA y los comandos de UN nodo. Se entra SIEMPRE desde una fila de
+    // Nodos (el UID sale del announcement MQTT, nunca se escribe a mano). OJO:
+    // su Detach() apaga el polling y NO cancela un OTA en curso — el flasheo lo
+    // manejan el nodo y el coordinator, no esta pantalla.
+    private NodoDetallePanel? _nodoDetalleHost;
+    private NodoDetalleClient? _nodoDetalleClient;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -425,6 +502,16 @@ public partial class MainWindow : Window
         _fieldDataHost   = this.FindControl<FieldDataPanel>("FieldDataHost");
         _sistemaHost     = this.FindControl<SistemaPanel>("SistemaHost");
         _gpsDataHost     = this.FindControl<GpsDataPanel>("GpsDataHost");
+        // ✕ propio de cada card (pedido 2026-08-18). La flecha "←" de la
+        // esquina sigue funcionando; esto agrega la salida donde el operario
+        // ya está mirando, sin cruzar la pantalla.
+        if (_fieldDataHost != null) _fieldDataHost.OnRequestCerrar = () => CloseFieldData();
+        if (_gpsDataHost   != null) _gpsDataHost.OnRequestCerrar   = () => CloseGpsData();
+        // Y se pueden CORRER agarrandolas del header (pedido 2026-08-18): la
+        // card queda centrada justo arriba del tractor. Doble toque en el
+        // header la devuelve al centro.
+        PanelArrastrable.Habilitar(_fieldDataHost);
+        PanelArrastrable.Habilitar(_gpsDataHost);
         _stormXHost      = this.FindControl<StormXPanel>("StormXHost");
         _flowXHost       = this.FindControl<FlowXPanel>("FlowXHost");
         _flowXEditorHost = this.FindControl<FlowXEditorPanel>("FlowXEditorHost");
@@ -440,6 +527,21 @@ public partial class MainWindow : Window
         _actualizarHost    = this.FindControl<ActualizarPanel>("ActualizarHost");
         _camarasHost       = this.FindControl<CamarasPanel>("CamarasHost");
         _sonidosHost       = this.FindControl<SonidosPanel>("SonidosHost");
+        _eventosHost       = this.FindControl<EventosPanel>("EventosHost");
+        _calculadoraHost   = this.FindControl<CalculadoraSiembraPanel>("CalculadoraHost");
+        _perfilesHost      = this.FindControl<PerfilesPanel>("PerfilesHost");
+        _firmwaresHost     = this.FindControl<FirmwaresPanel>("FirmwaresHost");
+        _banderasHost      = this.FindControl<BanderasPanel>("BanderasHost");
+        _grafDireccionHost = this.FindControl<GraficoDireccionPanel>("GrafDireccionHost");
+        _grafRumboHost     = this.FindControl<GraficoRumboPanel>("GrafRumboHost");
+        _grafXteHost       = this.FindControl<GraficoXtePanel>("GrafXteHost");
+        _grafCorreccionHost= this.FindControl<GraficoCorreccionPanel>("GrafCorreccionHost");
+        _orbitXHost        = this.FindControl<OrbitXPanel>("OrbitXHost");
+        _wifiHost          = this.FindControl<WifiPanel>("WifiHost");
+        _debugHost         = this.FindControl<DebugPanel>("DebugHost");
+        _insumosHost       = this.FindControl<InsumosPanel>("InsumosHost");
+        _mapasHost         = this.FindControl<MapasPanel>("MapasHost");
+        _nodoDetalleHost   = this.FindControl<NodoDetallePanel>("NodoDetalleHost");
         _configHost        = this.FindControl<ConfigPanel>("ConfigHost");
         if (_configHost != null)
         {
@@ -759,17 +861,16 @@ public partial class MainWindow : Window
         {
             // El NodosPanel ya no abre nodos.html: las acciones de curado
             // (aceptar/ignorar/renombrar/eliminar/pin del implemento) y el
-            // diagnostico MQTT (wildcard + log) son NATIVAS. Lo unico que
-            // sigue saliendo por WebView son las OTRAS paginas: el detalle
-            // del nodo y el asistente de primera vez — EMBEBIDAS en la
+            // diagnostico MQTT (wildcard + log) son NATIVAS. El detalle del
+            // nodo TAMBIÉN es nativo desde 2026-08-18 (NodoDetallePanel): la
+            // fila abre el panel, no la página. Lo único que sigue saliendo
+            // por WebView es el asistente de primera vez — EMBEBIDO en la
             // tarjeta de Configuración, no en ventana-diálogo suelta (pedido
             // 2026-08-17: "que todo se abra dentro de la ventana config
             // principal"). El panel de Nodos queda oculto al abrir Config;
             // el operario vuelve por la grilla de Módulos.
             _nodosHost.OnRequestCerrar = () => CloseNodos();
-            _nodosHost.OnRequestDetalle = uid =>
-                ShowConfigModulo("pages/nodo-detalle.html?uid=" + Uri.EscapeDataString(uid ?? string.Empty),
-                                 "Nodos — Detalle del nodo");
+            _nodosHost.OnRequestDetalle = uid => ShowNodoDetalle(uid);
             _nodosHost.OnRequestAsistente = () =>
                 ShowConfigModulo("pages/setup.html", "Nodos — Asistente de primera vez");
             // "Configurar" de una fila abre el PANEL NATIVO del producto, no la
@@ -796,6 +897,106 @@ public partial class MainWindow : Window
             // "Configurar" que despierte el WebView.
             _sonidosHost.OnRequestCerrar = () => CloseSonidos();
             _sonidosHost.Aviso += MostrarToast;
+        }
+
+        if (_eventosHost != null)
+        {
+            _eventosHost.OnRequestCerrar = () => CloseEventos();
+            // Header con Name="DragHandle": la card se puede CORRER para ver el
+            // mapa de atras (doble toque la devuelve al centro).
+            PanelArrastrable.Habilitar(_eventosHost);
+        }
+
+        if (_calculadoraHost != null)
+            _calculadoraHost.OnRequestCerrar = () => CloseCalculadora();
+
+        if (_perfilesHost != null)
+            _perfilesHost.OnRequestCerrar = () => ClosePerfiles();
+
+        if (_firmwaresHost != null)
+        {
+            _firmwaresHost.OnRequestCerrar = () => CloseFirmwares();
+            _firmwaresHost.Aviso += MostrarToast;
+        }
+
+        // Los cuatro gráficos: solo ✕ y arrastre. Su header trae
+        // Name="DragHandle", así que la card se puede correr para ver el mapa
+        // de atrás (doble toque la devuelve al centro).
+        if (_grafDireccionHost != null)
+        {
+            _grafDireccionHost.OnRequestCerrar = () => CloseGrafDireccion();
+            PanelArrastrable.Habilitar(_grafDireccionHost);
+        }
+        if (_grafRumboHost != null)
+        {
+            _grafRumboHost.OnRequestCerrar = () => CloseGrafRumbo();
+            PanelArrastrable.Habilitar(_grafRumboHost);
+        }
+        if (_grafXteHost != null)
+        {
+            _grafXteHost.OnRequestCerrar = () => CloseGrafXte();
+            PanelArrastrable.Habilitar(_grafXteHost);
+        }
+        if (_grafCorreccionHost != null)
+        {
+            _grafCorreccionHost.OnRequestCerrar = () => CloseGrafCorreccion();
+            PanelArrastrable.Habilitar(_grafCorreccionHost);
+        }
+
+        if (_orbitXHost != null)
+        {
+            _orbitXHost.OnRequestCerrar = () => CloseOrbitX();
+            // "Abrir Prescripciones" (en el HTML era un <a> a
+            // quantix.html?tab=shape): acá lleva al EDITOR NATIVO de QuantiX
+            // parado en Shape, que es la misma pantalla.
+            _orbitXHost.OnRequestPrescripciones = () => ShowQuantiXEditor("shape");
+            PanelArrastrable.Habilitar(_orbitXHost);
+        }
+
+        // Red WiFi y Debug no tienen Name="DragHandle" en su header: quedan
+        // fijas, como estaban las páginas.
+        if (_wifiHost != null)
+            _wifiHost.OnRequestCerrar = () => CloseWifi();
+
+        if (_debugHost != null)
+        {
+            _debugHost.OnRequestCerrar = () => CloseDebug();
+            _debugHost.Aviso += MostrarToast;
+        }
+
+        if (_insumosHost != null)
+        {
+            _insumosHost.OnRequestCerrar = () => CloseInsumos();
+            _insumosHost.Aviso += MostrarToast;
+            PanelArrastrable.Habilitar(_insumosHost);
+        }
+
+        if (_mapasHost != null)
+        {
+            _mapasHost.OnRequestCerrar = () => CloseMapas();
+            PanelArrastrable.Habilitar(_mapasHost);
+        }
+
+        if (_nodoDetalleHost != null)
+        {
+            _nodoDetalleHost.OnRequestCerrar = () => CloseNodoDetalle();
+            // "‹ Nodos" vuelve a la lista sin pasar por el mapa (el detalle
+            // siempre se abre DESDE una fila de Nodos).
+            _nodoDetalleHost.OnRequestVolver = () => ShowNodos();
+        }
+
+        if (_banderasHost != null)
+        {
+            // Banderas no usa OnRequestCerrar: su ✕ llama Cerrar() (que manda
+            // el POST /close al motor) y avisa por el evento Cerrado.
+            _banderasHost.Cerrado += () => CloseBanderas();
+            // Salir de PilotX con el panel abierto TAMBIÉN tiene que mandar el
+            // /close: la página lo cubría con el pagehide (sendBeacon), que se
+            // dispara igual cuando se cierra la app. Sin esto queda una bandera
+            // seleccionada y sin guardar. Detach() = Cerrar(), y es idempotente:
+            // si el operario ya lo había cerrado, no repite nada.
+            Closed += (_, _) => _banderasHost?.Detach();
+            PanelArrastrable.Habilitar(_banderasHost);
         }
 
         if (_hubHost != null)
@@ -866,12 +1067,11 @@ public partial class MainWindow : Window
             // "‹ Monitor" vuelve al panel live sin pasar por el mapa.
             _vistaXEditorHost.OnRequestMonitor = () => { CloseVistaXEditor(); ShowVistaX(); };
             // Los paneles no navegan solos: el catalogo de insumos es una
-            // pantalla propia del Hub — EMBEBIDA en la tarjeta de
-            // Configuración (pedido 2026-08-17), no en ventana suelta. El
-            // editor de VistaX queda oculto al abrir Config; se vuelve por
-            // la grilla de Módulos.
-            _vistaXEditorHost.OnRequestAbrirInsumos       = () =>
-                ShowConfigModulo("pages/insumos.html", "VistaX — Catálogo de insumos");
+            // pantalla propia, y desde 2026-08-18 es NATIVA (InsumosPanel) —
+            // ya no hace falta pasar por la Configuración ni por Chromium.
+            // Como antes, el editor de VistaX se cierra al abrirla (solo un
+            // overlay a la vez): se vuelve reabriendo VistaX.
+            _vistaXEditorHost.OnRequestAbrirInsumos       = () => ShowInsumos();
             // Secciones ES nativa desde la ola 3b: mandarla al WebView dejaba dos
             // pantallas distintas para la MISMA config segun por donde se entrara
             // (menu -> nativa, VistaX -> Chromium), con el riesgo de que una
@@ -1212,6 +1412,81 @@ public partial class MainWindow : Window
                 if (_sonidosHost != null && _sonidosHost.IsVisible)
                 {
                     CloseSonidos();
+                    return;
+                }
+                if (_eventosHost != null && _eventosHost.IsVisible)
+                {
+                    CloseEventos();
+                    return;
+                }
+                if (_calculadoraHost != null && _calculadoraHost.IsVisible)
+                {
+                    CloseCalculadora();
+                    return;
+                }
+                if (_perfilesHost != null && _perfilesHost.IsVisible)
+                {
+                    ClosePerfiles();
+                    return;
+                }
+                if (_firmwaresHost != null && _firmwaresHost.IsVisible)
+                {
+                    CloseFirmwares();
+                    return;
+                }
+                if (_grafDireccionHost != null && _grafDireccionHost.IsVisible)
+                {
+                    CloseGrafDireccion();
+                    return;
+                }
+                if (_grafRumboHost != null && _grafRumboHost.IsVisible)
+                {
+                    CloseGrafRumbo();
+                    return;
+                }
+                if (_grafXteHost != null && _grafXteHost.IsVisible)
+                {
+                    CloseGrafXte();
+                    return;
+                }
+                if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible)
+                {
+                    CloseGrafCorreccion();
+                    return;
+                }
+                if (_orbitXHost != null && _orbitXHost.IsVisible)
+                {
+                    CloseOrbitX();
+                    return;
+                }
+                if (_wifiHost != null && _wifiHost.IsVisible)
+                {
+                    CloseWifi();
+                    return;
+                }
+                if (_debugHost != null && _debugHost.IsVisible)
+                {
+                    CloseDebug();
+                    return;
+                }
+                if (_insumosHost != null && _insumosHost.IsVisible)
+                {
+                    CloseInsumos();
+                    return;
+                }
+                if (_mapasHost != null && _mapasHost.IsVisible)
+                {
+                    CloseMapas();
+                    return;
+                }
+                if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible)
+                {
+                    CloseNodoDetalle();
+                    return;
+                }
+                if (_banderasHost != null && _banderasHost.IsVisible)
+                {
+                    CloseBanderas();
                     return;
                 }
                 if (_configHost != null && _configHost.IsVisible)
@@ -1651,6 +1926,84 @@ public partial class MainWindow : Window
             _camarasHost.Detach();
             _camarasHost.IsVisible = false;
         }
+        if (_eventosHost != null && _eventosHost.IsVisible)
+        {
+            _eventosHost.Detach();
+            _eventosHost.IsVisible = false;
+        }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible)
+        {
+            _calculadoraHost.Detach();
+            _calculadoraHost.IsVisible = false;
+        }
+        if (_perfilesHost != null && _perfilesHost.IsVisible)
+        {
+            _perfilesHost.Detach();
+            _perfilesHost.IsVisible = false;
+        }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible)
+        {
+            _firmwaresHost.Detach();
+            _firmwaresHost.IsVisible = false;
+        }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible)
+        {
+            _grafDireccionHost.Detach();
+            _grafDireccionHost.IsVisible = false;
+        }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible)
+        {
+            _grafRumboHost.Detach();
+            _grafRumboHost.IsVisible = false;
+        }
+        if (_grafXteHost != null && _grafXteHost.IsVisible)
+        {
+            _grafXteHost.Detach();
+            _grafXteHost.IsVisible = false;
+        }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible)
+        {
+            _grafCorreccionHost.Detach();
+            _grafCorreccionHost.IsVisible = false;
+        }
+        if (_orbitXHost != null && _orbitXHost.IsVisible)
+        {
+            _orbitXHost.Detach();
+            _orbitXHost.IsVisible = false;
+        }
+        if (_wifiHost != null && _wifiHost.IsVisible)
+        {
+            _wifiHost.Detach();
+            _wifiHost.IsVisible = false;
+        }
+        if (_debugHost != null && _debugHost.IsVisible)
+        {
+            _debugHost.Detach();
+            _debugHost.IsVisible = false;
+        }
+        if (_insumosHost != null && _insumosHost.IsVisible)
+        {
+            _insumosHost.Detach();
+            _insumosHost.IsVisible = false;
+        }
+        if (_mapasHost != null && _mapasHost.IsVisible)
+        {
+            _mapasHost.Detach();
+            _mapasHost.IsVisible = false;
+        }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible)
+        {
+            _nodoDetalleHost.Detach();
+            _nodoDetalleHost.IsVisible = false;
+        }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost != null && _banderasHost.IsVisible)
+            _banderasHost.Cerrar();
         try
         {
             if (_webView == null)
@@ -2223,6 +2576,21 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ CloseActualizar();return; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { CloseCamaras();  return; }
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { CloseSonidos();  return; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { CloseEventos();  return; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { CloseCalculadora(); return; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { ClosePerfiles(); return; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { CloseFirmwares();return; }
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { CloseGrafDireccion(); return; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { CloseGrafRumbo(); return; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { CloseGrafXte(); return; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { CloseGrafCorreccion(); return; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { CloseOrbitX(); return; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { CloseWifi(); return; }
+        if (_debugHost != null && _debugHost.IsVisible) { CloseDebug(); return; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { CloseInsumos(); return; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { CloseMapas(); return; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { CloseNodoDetalle(); return; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  { CloseBanderas(); return; }
         if (_configHost    != null && _configHost.IsVisible)    { CloseConfig();   return; }
         if (_webView != null) { CloseWebView(); return; }
     }
@@ -2246,10 +2614,35 @@ public partial class MainWindow : Window
         if (_vistaXHost != null && _vistaXHost.IsVisible) { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_configHost != null && _configHost.IsVisible) { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost != null && _eventosHost.IsVisible) { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost != null && _perfilesHost.IsVisible) { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         _fieldDataHost.IsVisible = true;
         // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
-        if (_webViewBack != null) _webViewBack.IsVisible = true;
+        // SIN la flecha "←" de la esquina: esta card tiene su propio ✕ en el
+        // header (2026-08-18). Dos salidas para lo mismo, una de ellas del otro
+        // lado de la pantalla, solo confunde — y encima la flecha se comia el
+        // rincon del mapa.
+        if (_webViewBack != null) _webViewBack.IsVisible = false;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] FieldData open (nativo, no WebView)");
     }
 
@@ -2282,6 +2675,27 @@ public partial class MainWindow : Window
         if (_vistaXHost != null && _vistaXHost.IsVisible) { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
         if (_coreXEcuHost != null && _coreXEcuHost.IsVisible) { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
         if (_configHost != null && _configHost.IsVisible) { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost != null && _eventosHost.IsVisible) { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost != null && _perfilesHost.IsVisible) { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // Lazy init del cliente HTTP: solo se crea la primera vez que el
         // operario abre Sistema. Si nunca lo abre, cero costo de red extra.
@@ -2350,11 +2764,34 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         _gpsDataHost.IsVisible = true;
         // El mapa se queda VIVO detras de la card (doctrina: nunca se apaga).
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
-        if (_webViewBack != null) _webViewBack.IsVisible = true;
+        // SIN la flecha "←" de la esquina: esta card tiene su propio ✕ en el
+        // header (2026-08-18). Mismo criterio que FieldData.
+        if (_webViewBack != null) _webViewBack.IsVisible = false;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] GpsData open (nativo, no WebView)");
     }
 
@@ -2392,6 +2829,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_stormXClient == null)
@@ -2444,6 +2902,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_flowXClient == null)
@@ -2498,6 +2977,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: es el MISMO cliente del monitor (stateless), se reusa.
@@ -2551,6 +3051,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_sectionXClient == null)
@@ -2601,6 +3122,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_quantiXClient == null)
@@ -2652,6 +3194,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: el cliente se crea la primera vez y se reusa.
@@ -2714,6 +3277,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // Lazy init: el cliente solo se crea la primera vez que se abre.
         if (_vistaXClient == null)
@@ -2769,6 +3353,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
 
         // Lazy init: es el MISMO cliente del monitor (stateless), se reusa.
@@ -2822,6 +3427,27 @@ public partial class MainWindow : Window
         // abajo de la de CoreX-ECU (dos cards pisadas) y además sigue pidiendo
         // el snapshot cada 3 s sin que nadie lo mire.
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         // Paneles que flotan sobre el mapa: uno a la vez, mismo criterio que AbrirGuias.
         if (_guiasHost != null && _guiasHost.IsVisible) _guiasHost.Cerrar();
         if (_loteHost  != null && _loteHost.IsVisible)  _loteHost.Cerrar();
@@ -2931,6 +3557,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // Lazy init: clientes solo la primera vez. NodosClient se reusa con
         // el del overlay cabina-alarmas si ya esta inicializado.
@@ -2986,6 +3633,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         // Reutiliza el NodosClient si ya esta inicializado (cabina-alarmas/Hub).
         if (_nodosClient == null)
@@ -3036,6 +3704,27 @@ public partial class MainWindow : Window
         // Actualizar APAGA el mapa: si la Configuración quedaba abierta, su card
         // se dibujaba encima de la pantalla de actualización y seguía sondeando.
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         if (_webView != null) CloseWebView();
         if (_updateClient == null)
             _updateClient = new UpdateClient(DeriveOrigin(App.TargetUrl));
@@ -3159,6 +3848,27 @@ public partial class MainWindow : Window
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
         if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
         // Sonidos se dibuja ENCIMA de Guias/Lote/Direccion y quedan dos cards
         // pisadas (mismo criterio que ShowCoreXEcu).
@@ -3217,6 +3927,27 @@ public partial class MainWindow : Window
         if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
         if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
         if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Banderas cierra con Cerrar() (no con IsVisible=false): ese es el que
+        // manda el POST /close — deselecciona la bandera y guarda.
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
         // Cards que flotan con el mismo ZIndex: si no se cierran quedan dos
         // pisadas (mismo criterio que ShowSonidos).
         if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
@@ -3289,6 +4020,1254 @@ public partial class MainWindow : Window
             _webViewBack.IsVisible = false;
         if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Sonidos closed -> back to native map");
+    }
+
+    // ----- Visor de EVENTOS: reemplazo nativo de pages/eventos.html (ex
+    // FormEventViewer). El registro de la sesión + el histórico, con el mismo
+    // botón "Actualizar" y sin polling. Card clara flotante, mapa VIVO detrás;
+    // la página HTML queda intacta para la PWA del celular.
+
+    private void ShowEventos()
+    {
+        if (_eventosHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _eventosClient ??= new EventosClient(DeriveOrigin(App.TargetUrl));
+        _eventosHost.Attach(_eventosClient);
+        _eventosHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Eventos open (nativo, no WebView)");
+    }
+
+    private void CloseEventos()
+    {
+        if (_eventosHost == null) return;
+        // Detach cancela la lectura del log en vuelo (puede ser de 256 KB).
+        _eventosHost.Detach();
+        _eventosHost.IsVisible = false;
+        bool webViewVisibleEv = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleEv)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Eventos closed -> back to native map");
+    }
+
+    // ----- CALCULADORA DE SIEMBRA: reemplazo nativo de
+    // pages/calculadora-siembra.html. Las cuatro cuentas de gruesa (densidad,
+    // prueba de campo, PMS y motor), precargadas con la geometría real de la
+    // máquina. Card clara flotante, mapa VIVO detrás; la página HTML queda
+    // intacta para la PWA del celular.
+
+    private void ShowCalculadora()
+    {
+        if (_calculadoraHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _calculadoraClient ??= new CalculadoraSiembraClient(DeriveOrigin(App.TargetUrl));
+        _calculadoraHost.Attach(_calculadoraClient);
+        _calculadoraHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Calculadora open (nativo, no WebView)");
+    }
+
+    private void CloseCalculadora()
+    {
+        if (_calculadoraHost == null) return;
+        // Detach cancela la precarga en vuelo y baja el teclado nativo: si no,
+        // quedaria abierto arriba del mapa.
+        _calculadoraHost.Detach();
+        _calculadoraHost.IsVisible = false;
+        bool webViewVisibleCa = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleCa)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Calculadora closed -> back to native map");
+    }
+
+    // ----- PERFILES: reemplazo nativo de pages/perfiles.html. Un perfil son
+    // TODAS las configuraciones del vehículo, así que la pantalla es
+    // destructiva (crear / cargar / copiar / proteger / borrar) y los guards
+    // son los mismos que los del JS. Polling 5 s que corta el Detach.
+
+    private void ShowPerfiles()
+    {
+        if (_perfilesHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _perfilesClient ??= new PerfilesClient(DeriveOrigin(App.TargetUrl));
+        _perfilesHost.Attach(_perfilesClient);
+        _perfilesHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Perfiles open (nativo, no WebView)");
+    }
+
+    private void ClosePerfiles()
+    {
+        if (_perfilesHost == null) return;
+        // Detach corta el polling de 5 s, desarma el diálogo abierto y baja el
+        // teclado nativo: cerrado no se hace red ni queda nada arriba del mapa.
+        _perfilesHost.Detach();
+        _perfilesHost.IsVisible = false;
+        bool webViewVisiblePf = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisiblePf)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Perfiles closed -> back to native map");
+    }
+
+    // ----- FIRMWARES: reemplazo nativo de pages/firmwares.html. Catálogo local
+    // de .bin para cargar desde USB sin internet (cap 8 MB) y borrarlos. Card
+    // clara flotante, mapa VIVO detrás; la página HTML queda intacta para la
+    // PWA del celular.
+
+    private void ShowFirmwares()
+    {
+        if (_firmwaresHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _firmwaresClient ??= new FirmwaresClient(DeriveOrigin(App.TargetUrl));
+        _firmwaresHost.Attach(_firmwaresClient);
+        _firmwaresHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Firmwares open (nativo, no WebView)");
+    }
+
+    private void CloseFirmwares()
+    {
+        if (_firmwaresHost == null) return;
+        // Detach cancela la request en vuelo, cierra modal/picker y baja el
+        // teclado nativo.
+        _firmwaresHost.Detach();
+        _firmwaresHost.IsVisible = false;
+        bool webViewVisibleFw = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleFw)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Firmwares closed -> back to native map");
+    }
+
+    // ----- BANDERAS: reemplazo nativo de pages/banderas.html (ex FormFlags +
+    // FormEnterFlag). Se marca una piedra o un pozo MANEJANDO y la lista da la
+    // distancia en vivo (poll 500 ms), o sea que lo que hay que ver es el mapa.
+    // El ciclo de vida NO es Attach/IsVisible: Abrir(enAlta) prende el panel y
+    // arranca el poll, Cerrar() lo apaga y manda el POST /close.
+
+    private void ShowBanderas(bool enAlta)
+    {
+        if (_banderasHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos). Contorno,
+        // Cabecera, Suavizar AB y Corregir posición están ANCLADOS EN EL MISMO
+        // lugar que esta card (derecha, margen 82).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa. El Attach es
+        // solo inyección — el que prende el panel y el poll es Abrir().
+        _banderasClient ??= new BanderasClient(DeriveOrigin(App.TargetUrl));
+        _banderasHost.Attach(_banderasClient);
+        _banderasHost.Abrir(enAlta);
+        // Card flotante: el mapa NUNCA se apaga (acá menos que nunca — la
+        // bandera recién marcada se ve ahí).
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        bool hayWebViewBd = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !hayWebViewBd) _webViewBack.IsVisible = false;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Banderas open (nativo, alta=" + enAlta + ")");
+    }
+
+    private void CloseBanderas()
+    {
+        if (_banderasHost == null) return;
+        // Cerrar() apaga el poll, esconde la card y manda el POST /close
+        // (deselecciona + guarda). Es idempotente: si el panel se cerró solo
+        // (✕ propio), esta segunda llamada no repite nada.
+        _banderasHost.Cerrar();
+        bool webViewVisibleBd = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleBd)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Banderas closed -> back to native map");
+    }
+
+    // ----- GRÁFICO DE DIRECCIÓN: reemplazo nativo de
+    // pages/grafico-direccion.html (ex FormGraphSteer). Muestra el ángulo
+    // real contra el pedido a 5 Hz: se mira MANEJANDO, así que va como card
+    // flotante con el mapa vivo detrás. La página HTML queda intacta para la
+    // PWA del celular.
+
+    private void ShowGrafDireccion()
+    {
+        if (_grafDireccionHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: UN SOLO cliente para los cuatro gráficos (es stateless).
+        _graficosClient ??= new GraficosClient(DeriveOrigin(App.TargetUrl));
+        _grafDireccionHost.Attach(_graficosClient);
+        _grafDireccionHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Grafico direccion open (nativo, no WebView)");
+    }
+
+    private void CloseGrafDireccion()
+    {
+        if (_grafDireccionHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _grafDireccionHost.Detach();
+        _grafDireccionHost.IsVisible = false;
+        bool webViewVisibleGd = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleGd)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Grafico direccion closed -> back to native map");
+    }
+
+    // ----- GRÁFICO DE RUMBO: reemplazo nativo de pages/grafico-rumbo.html.
+    // Compara las fuentes de rumbo (GPS / IMU / fusión) mientras la máquina
+    // anda. Card flotante, mapa VIVO detrás; la página HTML queda intacta
+    // para la PWA del celular.
+
+    private void ShowGrafRumbo()
+    {
+        if (_grafRumboHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: UN SOLO cliente para los cuatro gráficos (es stateless).
+        _graficosClient ??= new GraficosClient(DeriveOrigin(App.TargetUrl));
+        _grafRumboHost.Attach(_graficosClient);
+        _grafRumboHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Grafico rumbo open (nativo, no WebView)");
+    }
+
+    private void CloseGrafRumbo()
+    {
+        if (_grafRumboHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _grafRumboHost.Detach();
+        _grafRumboHost.IsVisible = false;
+        bool webViewVisibleGr = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleGr)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Grafico rumbo closed -> back to native map");
+    }
+
+    // ----- GRÁFICO DE XTE: reemplazo nativo de pages/grafico-xte.html. El
+    // error a la línea en el tiempo — se mira con el tractor andando, así que
+    // el mapa tiene que seguir vivo detrás. La página HTML queda intacta para
+    // la PWA del celular.
+
+    private void ShowGrafXte()
+    {
+        if (_grafXteHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: UN SOLO cliente para los cuatro gráficos (es stateless).
+        _graficosClient ??= new GraficosClient(DeriveOrigin(App.TargetUrl));
+        _grafXteHost.Attach(_graficosClient);
+        _grafXteHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Grafico XTE open (nativo, no WebView)");
+    }
+
+    private void CloseGrafXte()
+    {
+        if (_grafXteHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _grafXteHost.Detach();
+        _grafXteHost.IsVisible = false;
+        bool webViewVisibleGx = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleGx)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Grafico XTE closed -> back to native map");
+    }
+
+    // ----- CHEQUEO DE ROLL (corrección): reemplazo nativo de
+    // pages/grafico-correccion.html. Es el comando "chequeo_roll" del menú:
+    // se mira el efecto de la corrección de rolido en vivo. Card flotante,
+    // mapa VIVO detrás; la página HTML queda intacta para la PWA del celular.
+
+    private void ShowGrafCorreccion()
+    {
+        if (_grafCorreccionHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: UN SOLO cliente para los cuatro gráficos (es stateless).
+        _graficosClient ??= new GraficosClient(DeriveOrigin(App.TargetUrl));
+        _grafCorreccionHost.Attach(_graficosClient);
+        _grafCorreccionHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Chequeo de roll open (nativo, no WebView)");
+    }
+
+    private void CloseGrafCorreccion()
+    {
+        if (_grafCorreccionHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _grafCorreccionHost.Detach();
+        _grafCorreccionHost.IsVisible = false;
+        bool webViewVisibleGc = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleGc)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Chequeo de roll closed -> back to native map");
+    }
+
+    // ----- ORBITX CLOUD: reemplazo nativo de pages/orbitx.html. Vinculación
+    // del tractor con el cloud (código de pareo cada 4 s, estado del sync
+    // cada 10 s) y el atajo a Prescripciones. Card clara flotante, mapa VIVO
+    // detrás; la página HTML queda intacta para la PWA del celular.
+
+    private void ShowOrbitX()
+    {
+        if (_orbitXHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _orbitXClient ??= new OrbitXPanelClient(DeriveOrigin(App.TargetUrl));
+        _orbitXHost.Attach(_orbitXClient);
+        _orbitXHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] OrbitX open (nativo, no WebView)");
+    }
+
+    private void CloseOrbitX()
+    {
+        if (_orbitXHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _orbitXHost.Detach();
+        _orbitXHost.IsVisible = false;
+        bool webViewVisibleOx = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleOx)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] OrbitX closed -> back to native map");
+    }
+
+    // ----- RED WIFI: reemplazo nativo de pages/wifi.html. El WiFi PROPIO de
+    // la pantalla (escanear, conectar, olvidar), que es de lo que depende que
+    // los nodos y el cloud lleguen. Card clara flotante, mapa VIVO detrás; la
+    // página HTML queda intacta para la PWA del celular.
+
+    private void ShowWifi()
+    {
+        if (_wifiHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _wifiClient ??= new RedWifiClient(DeriveOrigin(App.TargetUrl));
+        _wifiHost.Attach(_wifiClient);
+        _wifiHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Red WiFi open (nativo, no WebView)");
+    }
+
+    private void CloseWifi()
+    {
+        if (_wifiHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _wifiHost.Detach();
+        _wifiHost.IsVisible = false;
+        bool webViewVisibleWf = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleWf)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Red WiFi closed -> back to native map");
+    }
+
+    // ----- DEBUG: reemplazo nativo de pages/debug.html. El log unificado de
+    // todos los servicios, con sus filtros. Card clara flotante, mapa VIVO
+    // detrás; la página HTML queda intacta para la PWA del celular.
+
+    private void ShowDebug()
+    {
+        if (_debugHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _debugClient ??= new DebugClient(DeriveOrigin(App.TargetUrl));
+        _debugHost.Attach(_debugClient);
+        _debugHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Debug open (nativo, no WebView)");
+    }
+
+    private void CloseDebug()
+    {
+        if (_debugHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _debugHost.Detach();
+        _debugHost.IsVisible = false;
+        bool webViewVisibleDbg = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleDbg)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Debug closed -> back to native map");
+    }
+
+    // ----- CATÁLOGO DE INSUMOS: reemplazo nativo de pages/insumos.html. Es
+    // el catálogo COMPARTIDO (VistaX lo abre desde su editor). Card clara
+    // flotante, mapa VIVO detrás; la página HTML queda intacta para la PWA
+    // del celular.
+
+    private void ShowInsumos()
+    {
+        if (_insumosHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _insumosClient ??= new InsumosClient(DeriveOrigin(App.TargetUrl));
+        _insumosHost.Attach(_insumosClient);
+        _insumosHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Insumos open (nativo, no WebView)");
+    }
+
+    private void CloseInsumos()
+    {
+        if (_insumosHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _insumosHost.Detach();
+        _insumosHost.IsVisible = false;
+        bool webViewVisibleIns = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleIns)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Insumos closed -> back to native map");
+    }
+
+    // ----- MAPAS: reemplazo nativo de pages/mapas.html. Preview y
+    // exportación de los mapas del lote. Card clara flotante, mapa VIVO
+    // detrás; la página HTML queda intacta para la PWA del celular.
+
+    private void ShowMapas()
+    {
+        if (_mapasHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_nodoDetalleHost != null && _nodoDetalleHost.IsVisible) { _nodoDetalleHost.Detach(); _nodoDetalleHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _mapasClient ??= new MapasClient(DeriveOrigin(App.TargetUrl));
+        _mapasHost.Attach(_mapasClient);
+        _mapasHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Mapas open (nativo, no WebView)");
+    }
+
+    private void CloseMapas()
+    {
+        if (_mapasHost == null) return;
+        // Detach corta el polling y baja lo que el panel haya dejado arriba
+        // (diálogo, teclado nativo): cerrado no se hace red ni queda nada
+        // flotando sobre el mapa.
+        _mapasHost.Detach();
+        _mapasHost.IsVisible = false;
+        bool webViewVisibleMp = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleMp)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Mapas closed -> back to native map");
+    }
+
+    // ----- DETALLE DE NODO: reemplazo nativo de pages/nodo-detalle.html.
+    // Se entra SIEMPRE tocando una fila de Nodos: el UID sale del
+    // announcement MQTT, acá no se escribe a mano ni se da de alta nada.
+    // Abrir(uid) y Attach son conmutativos, así que el orden no importa.
+    // OJO: el Detach de este panel apaga el POLLING y NADA MÁS — un OTA en
+    // curso lo siguen manejando el nodo y el coordinator, y cerrar la
+    // pantalla no lo cancela (ni tiene que cancelarlo).
+
+    private void ShowNodoDetalle(string? uid)
+    {
+        if (_nodoDetalleHost == null) return;
+        // Solo un overlay a la vez.
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
+        if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
+        if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
+        if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
+        if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
+        if (_quantiXHost   != null && _quantiXHost.IsVisible)   { _quantiXHost.Detach(); _quantiXHost.IsVisible = false; }
+        if (_quantiXEditorHost != null && _quantiXEditorHost.IsVisible) { _quantiXEditorHost.Detach(); _quantiXEditorHost.IsVisible = false; }
+        if (_vistaXEditorHost != null && _vistaXEditorHost.IsVisible) { _vistaXEditorHost.Detach(); _vistaXEditorHost.IsVisible = false; }
+        if (_vistaXHost    != null && _vistaXHost.IsVisible)    { _vistaXHost.Detach(); _vistaXHost.IsVisible = false; }
+        if (_coreXEcuHost  != null && _coreXEcuHost.IsVisible)  { _coreXEcuHost.Detach(); _coreXEcuHost.IsVisible = false; }
+        if (_hubHost       != null && _hubHost.IsVisible)       { _hubHost.Detach(); _hubHost.IsVisible = false; }
+        if (_nodosHost     != null && _nodosHost.IsVisible)     { _nodosHost.Detach(); _nodosHost.IsVisible = false; }
+        if (_actualizarHost!= null && _actualizarHost.IsVisible){ _actualizarHost.Detach(); _actualizarHost.IsVisible = false; }
+        if (_camarasHost   != null && _camarasHost.IsVisible)   { _camarasHost.Detach(); _camarasHost.IsVisible = false; }
+        if (_sonidosHost   != null && _sonidosHost.IsVisible)   { _sonidosHost.Detach(); _sonidosHost.IsVisible = false; }
+        if (_configHost    != null && _configHost.IsVisible)    { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_eventosHost   != null && _eventosHost.IsVisible)   { _eventosHost.Detach(); _eventosHost.IsVisible = false; }
+        if (_calculadoraHost != null && _calculadoraHost.IsVisible) { _calculadoraHost.Detach(); _calculadoraHost.IsVisible = false; }
+        if (_perfilesHost  != null && _perfilesHost.IsVisible)  { _perfilesHost.Detach(); _perfilesHost.IsVisible = false; }
+        if (_firmwaresHost != null && _firmwaresHost.IsVisible) { _firmwaresHost.Detach(); _firmwaresHost.IsVisible = false; }
+        // Paneles nativos de la ola 2026-08-18 (los 4 graficos, OrbitX,
+        // Red WiFi, Debug, Insumos, Mapas y el detalle de nodo): mismo
+        // ZIndex que estas cards, asi que si no se cierran quedan dos
+        // pisadas sobre el mapa. Detach() apaga sus polls.
+        if (_grafDireccionHost != null && _grafDireccionHost.IsVisible) { _grafDireccionHost.Detach(); _grafDireccionHost.IsVisible = false; }
+        if (_grafRumboHost != null && _grafRumboHost.IsVisible) { _grafRumboHost.Detach(); _grafRumboHost.IsVisible = false; }
+        if (_grafXteHost != null && _grafXteHost.IsVisible) { _grafXteHost.Detach(); _grafXteHost.IsVisible = false; }
+        if (_grafCorreccionHost != null && _grafCorreccionHost.IsVisible) { _grafCorreccionHost.Detach(); _grafCorreccionHost.IsVisible = false; }
+        if (_orbitXHost != null && _orbitXHost.IsVisible) { _orbitXHost.Detach(); _orbitXHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_debugHost != null && _debugHost.IsVisible) { _debugHost.Detach(); _debugHost.IsVisible = false; }
+        if (_insumosHost != null && _insumosHost.IsVisible) { _insumosHost.Detach(); _insumosHost.IsVisible = false; }
+        if (_mapasHost != null && _mapasHost.IsVisible) { _mapasHost.Detach(); _mapasHost.IsVisible = false; }
+        if (_banderasHost  != null && _banderasHost.IsVisible)  _banderasHost.Cerrar();
+        // Paneles que flotan sobre el mapa con el mismo ZIndex: si no se cierran,
+        // quedan dos cards pisadas (mismo criterio que ShowSonidos).
+        if (_guiasHost     != null && _guiasHost.IsVisible)     _guiasHost.Cerrar();
+        if (_loteHost      != null && _loteHost.IsVisible)      _loteHost.Cerrar();
+        if (_direccionHost != null && _direccionHost.IsVisible) _direccionHost.Cerrar();
+        if (_contornoHost  != null && _contornoHost.IsVisible)  _contornoHost.Cerrar();
+        if (_cabeceraHost  != null && _cabeceraHost.IsVisible)  _cabeceraHost.Cerrar();
+        if (_cabLineasHost != null && _cabLineasHost.IsVisible) _cabLineasHost.Cerrar();
+        if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
+        if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
+        if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
+        if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        if (_webView != null) CloseWebView();
+        // Lazy init: el cliente se crea una sola vez y se reusa.
+        _nodoDetalleClient ??= new NodoDetalleClient(DeriveOrigin(App.TargetUrl));
+        _nodoDetalleHost.Attach(_nodoDetalleClient);
+        _nodoDetalleHost.Abrir(uid ?? string.Empty);
+        _nodoDetalleHost.IsVisible = true;
+        // Card flotante: el mapa NUNCA se apaga.
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Nodo detalle open (nativo, no WebView)");
+    }
+
+    private void CloseNodoDetalle()
+    {
+        if (_nodoDetalleHost == null) return;
+        // Apaga el polling, cierra el modal y el toast. NO toca el OTA.
+        _nodoDetalleHost.Detach();
+        _nodoDetalleHost.IsVisible = false;
+        bool webViewVisibleNd = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisibleNd)
+            _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Nodo detalle closed -> back to native map");
     }
 
     private void OnWebViewNavigated(string url)
@@ -4313,6 +6292,62 @@ public partial class MainWindow : Window
                 AbrirRutaGrabada();
                 return true;
 
+            // ---- Visor de eventos → panel NATIVO. Este case tiene que quedar
+            // ANTES del switch de páginas: si "visor_eventos" volviera a mapear
+            // a eventos.html, el comando abriría Chromium otra vez.
+            case "visor_eventos":
+                ShowEventos();
+                return true;
+
+            // ---- Calculadora de siembra → panel NATIVO. Mismo cuidado: va
+            // ANTES del switch de páginas.
+            case "calculadora":
+                ShowCalculadora();
+                return true;
+
+            // ---- Perfiles → panel NATIVO. Las tres entradas (nuevo, cargar y
+            // gestión) abrían la MISMA página perfiles.html, así que las tres
+            // van al mismo panel — igual que antes. Va ANTES del switch de
+            // páginas para que ninguna vuelva a abrir Chromium.
+            case "perfil_nuevo":
+            case "perfil_cargar":
+            case "perfil_gestion":
+                ShowPerfiles();
+                return true;
+
+            // ---- Los CUATRO gráficos → paneles NATIVOS. Se miran con la
+            // máquina andando (ángulo real vs. pedido, rumbo, XTE, corrección
+            // de rolido), o sea que la ventana HTML tapaba justo el mapa que
+            // hay que mirar al mismo tiempo. Estos cases van ANTES del switch
+            // de páginas: si "grafico_direccion" volviera a mapear a
+            // grafico-direccion.html, el comando abriría Chromium otra vez.
+            case "grafico_direccion":
+                ShowGrafDireccion();
+                return true;
+            case "grafico_rumbo":
+                ShowGrafRumbo();
+                return true;
+            case "grafico_xte":
+                ShowGrafXte();
+                return true;
+            // "chequeo_roll" es el rótulo del menú ("Corrección roll"); la
+            // pantalla es la de grafico-correccion.html.
+            case "chequeo_roll":
+                ShowGrafCorreccion();
+                return true;
+
+            // ---- Banderas → panel NATIVO. Se marca la piedra o el pozo
+            // MANEJANDO y la lista da la distancia en vivo: lo que hay que ver
+            // es el mapa, que la ventana HTML tapaba. "bandera" abre la LISTA;
+            // "bandera_latlon" abre directo el ALTA por lat/lon (el ?add=1 de
+            // la página). Va ANTES del switch de páginas.
+            case "bandera":
+                ShowBanderas(false);
+                return true;
+            case "bandera_latlon":
+                ShowBanderas(true);
+                return true;
+
             // Menú de lote (FormJob) → panel NATIVO (16vo port). El submenú
             // LOTE de la barra izquierda salta directo a su pantalla, igual
             // que hacían los deep-links ?do= de lote.js.
@@ -4419,28 +6454,34 @@ public partial class MainWindow : Window
             "colores"           => "pages/colores.html",
             "colores_sec"       => "pages/colores-secciones.html",
             "mapeo_color"       => "pages/colores-secciones.html",
-            "perfil_nuevo"      => "pages/perfiles.html",
-            "perfil_cargar"     => "pages/perfiles.html",
-            "perfil_gestion"    => "pages/perfiles.html",
+            // "perfil_nuevo"/"perfil_cargar"/"perfil_gestion" ya NO mapean acá:
+            // Perfiles es panel nativo (el case de arriba los agarra antes).
+            // perfiles.html queda para el Hub remoto/celular/Android, que no
+            // pasan por este switch.
             "directorios"       => "pages/config.html",
             // Ayuda abre CONFIGURACIÓN parada en su módulo, no la página
             // suelta (pedido 2026-08-06, mismo criterio que Cámaras).
             "ayuda"             => "pages/config.html?mod=ayuda.html",
-            "grafico_direccion" => "pages/grafico-direccion.html",
-            "grafico_rumbo"     => "pages/grafico-rumbo.html",
-            "grafico_xte"       => "pages/grafico-xte.html",
-            "chequeo_roll"      => "pages/grafico-correccion.html",
+            // "grafico_direccion"/"grafico_rumbo"/"grafico_xte"/"chequeo_roll"
+            // ya NO mapean acá: los cuatro son paneles nativos (los cases de
+            // arriba los agarran antes). Las páginas grafico-*.html quedan para
+            // el Hub remoto/celular/Android, que no pasan por este switch.
             // "suavizar_ab" ya NO mapea acá: es panel nativo (el case de arriba
             // lo agarra antes). suavizar-ab.html queda para el Hub remoto/
             // celular/Android, que no pasan por este switch.
             // "corregir_pos" ya NO mapea acá: es panel nativo (el case de
             // arriba lo agarra antes). corregir-posicion.html queda para el Hub
             // remoto/celular/Android, que no pasan por este switch.
-            "visor_eventos"     => "pages/eventos.html",
+            // "visor_eventos" ya NO mapea acá: es panel nativo (el case de
+            // arriba lo agarra antes). eventos.html queda para el Hub remoto/
+            // celular/Android, que no pasan por este switch.
             "conteo_semillas"   => "pages/vistax-prueba.html",
-            "calculadora"       => "pages/calculadora-siembra.html",
-            "bandera"           => "pages/banderas.html",
-            "bandera_latlon"    => "pages/banderas.html",
+            // "calculadora" ya NO mapea acá: es panel nativo (el case de arriba
+            // lo agarra antes). calculadora-siembra.html queda para el Hub
+            // remoto/celular/Android, que no pasan por este switch.
+            // "bandera"/"bandera_latlon" ya NO mapean acá: Banderas es panel
+            // nativo (el case de arriba los agarra antes). banderas.html queda
+            // para el Hub remoto/celular/Android, que no pasan por este switch.
             // "lindero"/"herr_limites" ya NO mapean acá: Contorno es nativo (el
             // case de arriba los agarra antes). contorno.html queda para el Hub
             // remoto/celular/Android, que no pasan por este switch.
@@ -5057,6 +7098,10 @@ public partial class MainWindow : Window
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -5085,6 +7130,10 @@ public partial class MainWindow : Window
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -5122,6 +7171,10 @@ public partial class MainWindow : Window
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -5165,6 +7218,10 @@ public partial class MainWindow : Window
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5205,6 +7262,10 @@ public partial class MainWindow : Window
         if (_tramSimpleHost != null && _tramSimpleHost.IsVisible) _tramSimpleHost.Cerrar();
         if (_tramMultiHost != null && _tramMultiHost.IsVisible) _tramMultiHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando también nace en el menú del Hub (menu-izquierda.js), o
@@ -5247,6 +7308,10 @@ public partial class MainWindow : Window
         // colgada abajo de esta card.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando también nace en el menú del Hub (menu-izquierda.js), o
@@ -5290,6 +7355,10 @@ public partial class MainWindow : Window
         // manda el cancel, si no la preview queda colgada abajo de esta card.
         if (_suavizarAbHost != null && _suavizarAbHost.IsVisible) _suavizarAbHost.Cerrar();
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando también nace en el menú del Hub (menu-izquierda.js), o
@@ -5337,6 +7406,10 @@ public partial class MainWindow : Window
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5377,6 +7450,10 @@ public partial class MainWindow : Window
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Lazy init: el cliente se crea una sola vez y se reusa.
@@ -5424,6 +7501,10 @@ public partial class MainWindow : Window
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         // Este comando hoy nace en el menú del Hub (menu-izquierda.js), o sea
@@ -5458,6 +7539,10 @@ public partial class MainWindow : Window
         // sin cerrarla quedarían dos pisadas sobre el mapa.
         if (_corregirPosHost != null && _corregirPosHost.IsVisible) _corregirPosHost.Cerrar();
         if (_recPathHost != null && _recPathHost.IsVisible) _recPathHost.Cerrar();
+        // Banderas está anclada en el MISMO lugar que estas cards (derecha,
+        // margen 82): sin cerrarla quedarían dos pisadas sobre el mapa. Su
+        // Cerrar() manda además el POST /close (deselecciona + guarda).
+        if (_banderasHost != null && _banderasHost.IsVisible) _banderasHost.Cerrar();
         if (_herramientasMenu != null) _herramientasMenu.IsVisible = false;
         if (_sistemaMenu != null) _sistemaMenu.IsVisible = false;
         if (_guiasHttp == null)
@@ -5798,13 +7883,14 @@ public partial class MainWindow : Window
     private void OnNavCoreX    (object? s, RoutedEventArgs e) => ShowCoreXEcu();
     private void OnNavNodos    (object? s, RoutedEventArgs e) => ShowNodos();
     private void OnNavActualizar(object? s, RoutedEventArgs e) => ShowActualizar();
-    // Firmwares / OrbitX / Debug siguen en HTML pero EMBEBIDOS en la tarjeta
-    // de Configuración (pedido 2026-08-17: "que todo se abra dentro de la
-    // ventana config principal") — ya no en ventana-diálogo suelta ni a
-    // pantalla completa. Mismas rutas que sus fichas de la grilla de Módulos.
-    private void OnNavFirmwares(object? s, RoutedEventArgs e) => ShowConfigModulo("pages/firmwares.html", "Firmwares");
-    private void OnNavOrbitX   (object? s, RoutedEventArgs e) => ShowConfigModulo("pages/orbitx.html",    "OrbitX Cloud");
-    private void OnNavDebug    (object? s, RoutedEventArgs e) => ShowConfigModulo("pages/debug.html",     "Debug");
+    // Firmwares abre el panel NATIVO (FirmwaresPanel): el catálogo local de
+    // .bin ya no despierta Chromium. firmwares.html queda para la PWA.
+    private void OnNavFirmwares(object? s, RoutedEventArgs e) => ShowFirmwares();
+    // OrbitX y Debug abren los paneles NATIVOS (OrbitXPanel / DebugPanel):
+    // ninguno de los dos despierta Chromium ya. orbitx.html y debug.html
+    // quedan para la PWA del celular.
+    private void OnNavOrbitX   (object? s, RoutedEventArgs e) => ShowOrbitX();
+    private void OnNavDebug    (object? s, RoutedEventArgs e) => ShowDebug();
 
     private void NavigateTo(string relativePath)
     {

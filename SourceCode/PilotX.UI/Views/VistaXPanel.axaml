@@ -162,7 +162,7 @@
                                Margin="0,8,0,0"/>
                     <WrapPanel Name="NodosHost"/>
                     <TextBlock Name="NodosEmpty"
-                               Text="Sin nodos VistaX vistos todavía. Verificá MQTT broker en CoreX/AgIO."
+                               Text="Sin nodos VistaX vistos todavía. Verificá el broker MQTT de CoreX."
                                Foreground="{StaticResource PilotXPanelTextDim}"
                                FontSize="11"
                                TextWrapping="Wrap"

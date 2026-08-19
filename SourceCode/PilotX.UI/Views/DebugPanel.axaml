@@ -1,0 +1,258 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vw="using:PilotX.Desktop.Views"
+             x:Class="PilotX.Desktop.Views.DebugPanel">
+    <!--
+        DebugPanel — reemplazo nativo de pages/debug.html + js/debug.js.
+
+        Log unificado de todos los módulos del sistema: chips por módulo, filtro
+        de nivel, buscador, pausa, limpiar, grabar a archivo y exportar.
+
+        Mismo wire que la página (DebugController): GET /api/debug/snapshot,
+        GET /api/debug/entries?since=, PUT /api/debug/config,
+        POST /api/debug/module|clear|record. Lo ÚNICO que no se porta es el
+        WebSocket /ws/debug: en su lugar va el endpoint REST hermano
+        /api/debug/entries?since=, que no pierde entradas (seq monotónico) — ver
+        DebugClient.cs.
+
+        La página HTML NO se toca: el Hub remoto y la PWA del celular la siguen
+        usando.
+
+        Estética: el original era "dark cockpit" (consola #0E1311 con texto
+        claro). Acá va la paleta CLARA de PilotX, como el resto de los paneles
+        nativos: el visor es una superficie blanca con mono oscuro y los niveles
+        se distinguen por color de token (warn ámbar, error rojo), no por fondo.
+
+        Las líneas del visor se pintan con un ItemsControl VIRTUALIZADO: el
+        buffer llega a 1500 renglones y un StackPanel plano mediría los 1500 en
+        cada layout.
+    -->
+    <ThemeVariantScope RequestedThemeVariant="Light">
+        <!-- Name="Card": ModoEmbebido() (adentro de la Configuración) le
+             suelta el marco/tamaño; la instancia flotante no cambia. -->
+        <Border Name="Card"
+                Background="{StaticResource PilotXPanelCard}"
+                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                BorderThickness="1"
+                CornerRadius="14"
+                ClipToBounds="True"
+                BoxShadow="0 8 26 0 #33101612"
+                Padding="20,16,20,18"
+                MaxWidth="1180" MaxHeight="700"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Margin="16,8">
+            <DockPanel>
+
+                <!-- ========================= Header ========================= -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="2,0,2,12">
+                    <StackPanel Name="HeaderTitulo" Grid.Column="0" Spacing="2"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="Debug"
+                                   Foreground="{StaticResource PilotXPanelText}"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"/>
+                        <TextBlock Text="Log unificado de todos los módulos del sistema"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="12"/>
+                    </StackPanel>
+
+                    <!-- Name="HeaderPills": la instancia embebida las entrega
+                         (PillsDeContexto) a la barra de contexto del shell. -->
+                    <StackPanel Grid.Column="1" Name="HeaderPills"
+                                Orientation="Horizontal" Spacing="8"
+                                VerticalAlignment="Center">
+                        <!-- .pill.live / .pill.paused del original -->
+                        <Border Name="EstadoPillBox"
+                                Background="{StaticResource PilotXPanelOkSoft}"
+                                BorderBrush="{StaticResource PilotXPanelOk}"
+                                BorderThickness="1"
+                                CornerRadius="999"
+                                Padding="12,6,14,6"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <Ellipse Name="EstadoDot" Width="9" Height="9"
+                                         Fill="{StaticResource PilotXPanelOk}"
+                                         VerticalAlignment="Center"/>
+                                <TextBlock Name="EstadoPill" Text="En vivo"
+                                           Foreground="{StaticResource PilotXPanelOk}"
+                                           FontSize="13"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Button Name="BtnCerrar" Content="✕"
+                                Click="OnCerrarClick"
+                                Background="{StaticResource PilotXPanelSurface}"
+                                Foreground="{StaticResource PilotXPanelTextDim}"
+                                BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                BorderThickness="1"
+                                CornerRadius="8" Width="48" Height="48"
+                                FontSize="15"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                ToolTip.Tip="Cerrar"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ========================= Toolbar =========================
+                     .dbg-toolbar: chips de módulo a la izquierda, controles a
+                     la derecha (margin-left:auto del original). -->
+                <Border DockPanel.Dock="Top"
+                        Background="{StaticResource PilotXPanelSurface}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="12"
+                        Margin="0,0,0,12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <!-- Los chips los arma RenderModulos() en C#. -->
+                        <WrapPanel Name="ChipsHost" Grid.Column="0"
+                                   Orientation="Horizontal"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,12,0"/>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                    Spacing="8" VerticalAlignment="Center">
+                            <!-- El buscador NO abre el teclado nativo: el input
+                                 del original lleva data-no-keyboard (opt-out
+                                 explícito de keyboard.js). Se respeta. -->
+                            <TextBox Name="TxtBuscar"
+                                     Watermark="Filtrar..."
+                                     Width="200"
+                                     MinHeight="44"
+                                     FontSize="14"
+                                     CornerRadius="8"
+                                     Padding="10,0,10,0"
+                                     VerticalContentAlignment="Center"
+                                     Background="{StaticResource PilotXPanelSurface}"
+                                     Foreground="{StaticResource PilotXPanelText}"
+                                     BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                     TextChanged="OnBuscarChanged"/>
+
+                            <!-- .dbg-level: 4 botones pegados, uno activo. -->
+                            <Border BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    ClipToBounds="True">
+                                <StackPanel Orientation="Horizontal" Spacing="0">
+                                    <Button Name="BtnNivelDebug" Content="Debug" Tag="debug"
+                                            Click="OnNivelClick"
+                                            BorderThickness="0" CornerRadius="0"
+                                            MinHeight="42" Padding="12,0,12,0" FontSize="13"
+                                            VerticalContentAlignment="Center"/>
+                                    <Border Width="1" Background="{StaticResource PilotXPanelBorder}"/>
+                                    <Button Name="BtnNivelInfo" Content="Info" Tag="info"
+                                            Click="OnNivelClick"
+                                            BorderThickness="0" CornerRadius="0"
+                                            MinHeight="42" Padding="12,0,12,0" FontSize="13"
+                                            VerticalContentAlignment="Center"/>
+                                    <Border Width="1" Background="{StaticResource PilotXPanelBorder}"/>
+                                    <Button Name="BtnNivelWarn" Content="Warn" Tag="warn"
+                                            Click="OnNivelClick"
+                                            BorderThickness="0" CornerRadius="0"
+                                            MinHeight="42" Padding="12,0,12,0" FontSize="13"
+                                            VerticalContentAlignment="Center"/>
+                                    <Border Width="1" Background="{StaticResource PilotXPanelBorder}"/>
+                                    <Button Name="BtnNivelError" Content="Error" Tag="error"
+                                            Click="OnNivelClick"
+                                            BorderThickness="0" CornerRadius="0"
+                                            MinHeight="42" Padding="12,0,12,0" FontSize="13"
+                                            VerticalContentAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Button Name="BtnPausar" Content="Pausar"
+                                    Click="OnPausarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" MinHeight="44" Padding="16,0,16,0"
+                                    FontSize="14" VerticalContentAlignment="Center"/>
+                            <Button Name="BtnLimpiar" Content="Limpiar"
+                                    Click="OnLimpiarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" MinHeight="44" Padding="16,0,16,0"
+                                    FontSize="14" VerticalContentAlignment="Center"/>
+                            <Button Name="BtnGrabar" Content="Grabar"
+                                    Click="OnGrabarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" MinHeight="44" Padding="16,0,16,0"
+                                    FontSize="14" VerticalContentAlignment="Center"/>
+                            <Button Name="BtnExportar" Content="Exportar"
+                                    Click="OnExportarClick"
+                                    Background="{StaticResource PilotXPanelSurface}"
+                                    Foreground="{StaticResource PilotXPanelText}"
+                                    BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                                    BorderThickness="1"
+                                    CornerRadius="8" MinHeight="44" Padding="16,0,16,0"
+                                    FontSize="14" VerticalContentAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ========================== Visor ==========================
+                     .dbg-buffer. Cada renglón: hora · módulo · mensaje. -->
+                <Border Background="{StaticResource PilotXPanelSurface}"
+                        BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="12,10,12,10"
+                        MinHeight="240">
+                    <Panel>
+                        <ScrollViewer Name="BufferScroll"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="Auto"
+                                      ScrollChanged="OnBufferScrollChanged">
+                            <ItemsControl Name="BufferLista">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <VirtualizingStackPanel/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vw:DebugLinea">
+                                        <Grid ColumnDefinitions="96,96,*" Margin="0,1,0,1">
+                                            <TextBlock Grid.Column="0" Text="{Binding Hora}"
+                                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                                       FontFamily="Consolas, Courier New, monospace"
+                                                       FontSize="13"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Modulo}"
+                                                       Foreground="{Binding ModuloColor}"
+                                                       FontFamily="Consolas, Courier New, monospace"
+                                                       FontSize="13"
+                                                       Margin="10,0,10,0"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Mensaje}"
+                                                       Foreground="{Binding MensajeColor}"
+                                                       FontFamily="Consolas, Courier New, monospace"
+                                                       FontSize="13"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <!-- .dbg-empty: "Cargando…", "Sin eventos…" o el error. -->
+                        <TextBlock Name="BufferVacio"
+                                   Text="Cargando…"
+                                   Foreground="{StaticResource PilotXPanelTextDim}"
+                                   FontSize="13"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"/>
+                    </Panel>
+                </Border>
+
+            </DockPanel>
+        </Border>
+    </ThemeVariantScope>
+</UserControl>

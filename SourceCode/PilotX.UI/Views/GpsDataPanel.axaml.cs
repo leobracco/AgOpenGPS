@@ -35,12 +35,21 @@ public partial class GpsDataPanel : UserControl
     private static readonly string[] _cardinals =
         { "N", "NE", "E", "SE", "S", "SO", "O", "NO" };
 
+    /// <summary>
+    /// Lo invoca el ✕ del header. El host (MainWindow) engancha aca su
+    /// CloseGpsData — mismo contrato que ConfigPanel y los editores.
+    /// </summary>
+    public Action? OnRequestCerrar { get; set; }
+
     public GpsDataPanel()
     {
         InitializeComponent();
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    private void OnCerrarClick(object? s, Avalonia.Interactivity.RoutedEventArgs e)
+        => OnRequestCerrar?.Invoke();
 
     /// <summary>
     /// Recibe un snapshot del HUD y refresca toda la vista. Asume que

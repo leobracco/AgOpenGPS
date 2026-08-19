@@ -76,6 +76,15 @@
     .ruta b img { width: 16px; height: 16px; object-fit: contain; }
     .ruta i { font-style: normal; color: var(--agp-text-dim); }
 
+    /* Atribución al upstream: PilotX deriva de AgOpenGPS y la GPL-3.0 pide
+       decirlo. Al pie, chica, sin robarle lugar al manual. */
+    .ay-doc .ay-cred {
+      margin: var(--agp-sp-4) 0 var(--agp-sp-3) 0;
+      padding-top: var(--agp-sp-2);
+      border-top: var(--agp-border-w) solid var(--agp-border);
+      font-size: var(--agp-fs-xs); color: var(--agp-text-muted);
+    }
+
     /* ── Botonera ilustrada: el ícono REAL de la app + qué hace ─────────
        Es lo que convierte el manual en algo mirable: el operario reconoce
        el dibujo que tiene en pantalla sin leer una palabra.
@@ -255,6 +264,8 @@
 
           <h3>Barra de arriba</h3>
           <p>Velocidad, señal de GPS, tiempo y hectáreas. Los botones: <strong>TRABAJO</strong>, <strong>GPS</strong>, el <strong>nombre del lote</strong> (abre sus datos) y <strong>SISTEMA</strong> (perfiles del vehículo y esta ayuda).</p>
+          <p>El contador de <strong>HA</strong> también se toca: abre los <strong>datos del lote</strong>, lo mismo que el nombre del lote. Las ventanas de <strong>GPS</strong> y de <strong>datos del lote</strong> se cierran con la <strong>✕</strong> que tienen arriba a la derecha: esas dos ya no levantan la flecha <strong>←</strong> de la esquina.</p>
+          <p>Esas dos ventanas se pueden <strong>correr</strong>: arrastralas de la <strong>franja del título</strong> para destapar el mapa. Con <strong>doble toque</strong> en esa franja vuelven al centro.</p>
           <p>En la punta derecha están los botones de ventana (<strong>–</strong>, <strong>☐</strong>, <strong>✕</strong>), que en la pantalla de cabina no aparecen. El <strong>✕</strong> ahora <strong>pregunta antes de cerrar</strong>: avisa que se apaga el guiado y hay que tocar <strong>Cerrar PilotX</strong> para confirmar. Quedó además más separado del <strong>☐</strong> para no errarle con guantes.</p>
 
           <h3>Menú de la izquierda</h3>
@@ -334,7 +345,7 @@
           </ul>
           <div class="aviso"><strong>Borrar pintado</strong> solo funciona con las secciones apagadas (ni Manual ni Automático). Es una protección: no se borra lo trabajado mientras la máquina está aplicando.</div>
           <div class="clave"><strong>Borrar pintado</strong> ahora <strong>pregunta antes</strong>: aparece un cartel que dice de qué lote se borra lo trabajado, con <strong>Cancelar</strong> y <strong>Borrar lo trabajado</strong>. Lo pintado no se recupera.</div>
-          <p>Para ver hectáreas, distancia y datos del lote abierto, tocá el <strong>nombre del lote</strong> en la barra de arriba.</p>
+          <p>Para ver hectáreas y datos del lote abierto, tocá el <strong>nombre del lote</strong> o el contador de <strong>HA</strong> en la barra de arriba. Es una ficha corta: <strong>trabajado</strong> y <strong>repintado</strong> en grande, y abajo lote, ancho, guía y dosis. La cuenta del <strong>ahorro por corte automático</strong> (dosis y precio) está en el desplegable del pie. Se cierra con la <strong>✕</strong> de arriba a la derecha.</p>
         </section>
 
         <section id="guias">
@@ -609,6 +620,8 @@
           <p>Para soporte: <strong>Configuración › Mantenimiento › Sistema</strong> muestra versión y estado del equipo, y <strong>Eventos</strong> guarda lo que fue pasando.</p>
           <p>Para conectar la pantalla a internet: <strong>Configuración › Mantenimiento › Red WiFi</strong> lista las redes al alcance con su señal, marca cuál está conectada y deja poner la clave con el teclado de la pantalla. No hace falta salir de PilotX.</p>
         </section>
+
+        <p class="ay-cred">PilotX está basado en AgOpenGPS (GPL-3.0).</p>
 
       </div>
     </div>
