@@ -201,6 +201,17 @@ namespace AgOpenGPS
             // latencia de rumbo alimentando la fusión y el detector de reversa.
             minHeadingStepDist = s.setF_minHeadingStepDistance;
 
+            // Alarma RTK + kill del piloto: mismo load que FormGPS.LoadSettings
+            // (GUI.Designer.cs:615-616 del 6.8.6). Los dos defaults son false —
+            // el bloque de ComprobarAlarmaRtk no actúa hasta que el operario
+            // los prende en Configuración › Rumbo.
+            isRTK_AlarmOn = s.setGPS_isRTK;
+            isRTK_KillAutosteer = s.setGPS_isRTK_KillAutoSteer;
+
+            // Aviso de proximidad a cabecera (lo consume CheckHeadlandProximity
+            // en el tick de medio segundo): mismo load que FormGPS.
+            isHeadlandDistanceOn = s.isHeadlandDistanceOn;
+
             // Invalidar guías para que se recalculen con los valores nuevos:
             // si el ancho o el offset cambiaron, la línea vieja quedó mal.
             ABLineField.isABValid = false;
@@ -210,7 +221,103 @@ namespace AgOpenGPS
                 $"lookAhead={guidanceLookAheadTime:F2}s, reversa={isSteerInReverse}, " +
                 $"sideHill={Gyd.sideHillCompFactor:F2}, " +
                 $"controlador={(isStanleyUsed ? "Stanley" : "PurePursuit")}, " +
-                $"minHeadingStep={minHeadingStepDist:F2}m");
+                $"minHeadingStep={minHeadingStepDist:F2}m, " +
+                $"alarmaRTK={isRTK_AlarmOn} (kill={isRTK_KillAutosteer})");
+        }
+
+        /// <summary>
+        /// Alarma por pérdida de RTK y kill del piloto. Port 1:1 del bloque de
+        /// OpenGL.Designer.cs:505-561 del 6.8.6 (vivía en el PAINT de oglMain —
+        /// por eso el motor headless no lo ejecutaba nunca y el piloto seguía
+        /// enganchado guiando con un fix degradado). Corre una vez por fix.
+        ///
+        /// Con isRTK_AlarmOn y fixQuality != 4 (RTK fijo): alarma una sola vez
+        /// (flanco), y si isRTK_KillAutosteer y el piloto está enganchado, lo
+        /// desengancha por el MISMO camino que el toggle remoto
+        /// (PerformAutoSteerClick, que ya loguea "autosteer OFF"). La
+        /// recuperación pide 1 s continuo de fixQuality == 4
+        /// (RTK_RECOVER_DEBOUNCE_MS, mismo debounce que upstream) antes de
+        /// declarar "RTK recuperado". Los sonidos del original
+        /// (sndRTKAlarm/sndRTKRecoverd) acá son log + TimedMessageBox (que en
+        /// este host también termina en el log).
+        /// </summary>
+        private void ComprobarAlarmaRtk()
+        {
+            if (!isRTK_AlarmOn) return;
+
+            if (Pn.fixQuality != 4)
+            {
+                // PERDIDO: alarmar (una vez) y armar la "recuperación" para después.
+                if (!isRTKAlarming)
+                {
+                    if (isRTK_KillAutosteer && isBtnAutoSteerOn)
+                    {
+                        ((IAutoSteerHost)this).PerformAutoSteerClick();
+                        ((IAutoSteerHost)this).TimedMessageBox(2000, "Piloto desenganchado", "Alarma de fix RTK");
+                        Log.EventWriter("RTK perdido: piloto desenganchado");
+                    }
+
+                    Log.EventWriter("Alarma RTK: fix perdido");
+                }
+
+                isRTKAlarming = true;
+                rtkWasAlarming = true;
+                RTKBackSinceUtc = DateTime.MinValue; // no hay fix: resetear el debounce
+            }
+            else // Pn.fixQuality == 4
+            {
+                // FIJO: limpiar el flag de alarma.
+                isRTKAlarming = false;
+
+                // Si veníamos alarmando, detectar el flanco de "recuperado" con debounce.
+                if (rtkWasAlarming)
+                {
+                    if (RTKBackSinceUtc == DateTime.MinValue)
+                    {
+                        // primer fix con 4 después de una pérdida → arranca el debounce
+                        RTKBackSinceUtc = DateTime.UtcNow;
+                    }
+                    else
+                    {
+                        var stableMs = (DateTime.UtcNow - RTKBackSinceUtc).TotalMilliseconds;
+                        if (stableMs >= RTK_RECOVER_DEBOUNCE_MS)
+                        {
+                            // Evento "recuperado", una sola vez
+                            Log.EventWriter("RTK recuperado");
+
+                            rtkWasAlarming = false;
+                            RTKBackSinceUtc = DateTime.MinValue;
+                        }
+                    }
+                }
+                else
+                {
+                    // Estado fijo normal, nada que hacer
+                    RTKBackSinceUtc = DateTime.MinValue;
+                }
+            }
+        }
+
+        private readonly System.Diagnostics.Stopwatch _relojMedioSegundo = System.Diagnostics.Stopwatch.StartNew();
+
+        /// <summary>
+        /// Contadores de MEDIO segundo. Réplica del bloque
+        /// `if (oneHalfSecondCounter >= 2)` del tick de la GUI de 6.8.6
+        /// (GUI.Designer.cs:342-352), quedándose solo con la lógica:
+        /// CheckHeadlandProximity (CHead.cs) calcula el punto/distancia a la
+        /// cabecera y el aviso de proximidad — en el motor headless no tenía
+        /// NINGÚN caller, así que HeadlandNearestPoint/HeadlandDistance
+        /// quedaban en null para siempre. (isFlashOnOff y las etiquetas de
+        /// velocidad del mismo bloque son puro display y no se portan; el
+        /// "Steer Safe Off, No Tracks" del mismo tick queda fuera de este
+        /// port a propósito — es otro bloque.)
+        /// </summary>
+        private void TickDeMedioSegundo()
+        {
+            if (_relojMedioSegundo.ElapsedMilliseconds < 500) return;
+            _relojMedioSegundo.Restart();
+
+            Bnd.CheckHeadlandProximity();
         }
 
         /// <summary>
@@ -545,6 +652,26 @@ namespace AgOpenGPS
         // (oglBack/oglMain) ni el timer de frameTime, que son puro render. ----
         public void UpdateFixPosition()
         {
+            // Medir la frecuencia REAL de fixes (port 1:1 de
+            // Position.designer.cs:131-145 del 6.8.6). Va ANTES del guard de
+            // inicialización, igual que upstream. Los clamps 70/3 son los del
+            // original y acotan los dos extremos: el primer fix (stopwatch en 0
+            // → Hz infinito → 70) y una pausa larga del GPS (dt de 60 s → 0,016
+            // Hz → 3). El filtro 0.98/0.02 hace el resto: un solo valor loco
+            // mueve gpsHz menos del 2%.
+            timeSliceOfLastFix = (double)(swFrame.ElapsedTicks) / (double)System.Diagnostics.Stopwatch.Frequency;
+
+            swFrame.Reset();
+            swFrame.Start();
+
+            //get Hz from timeslice
+            nowHz = 1 / timeSliceOfLastFix;
+            if (nowHz > 70) nowHz = 70;
+            if (nowHz < 3) nowHz = 3;
+
+            //simple comp filter
+            gpsHz = 0.98 * gpsHz + 0.02 * nowHz;
+
             startCounter++;
 
             if (!isGPSPositionInitialized)
@@ -580,9 +707,14 @@ namespace AgOpenGPS
             HeadingUpdater.UpdateHeading();
             AutoSteerUpdater.SendCorrectedPositionPgn();
             AutoSteerUpdater.BuildAndSendAutoSteerPgn();
+            // Después de armar/mandar el PGN de dirección, igual que upstream:
+            // en 6.8.6 el kill vive en el PAINT de oglMain, que corre recién
+            // después de UpdateFixPosition — la latencia de un fix es la misma.
+            ComprobarAlarmaRtk();
             TrazaGuiado();
             secondsSinceStart = _relojArranque.Elapsed.TotalSeconds;
             TickDeUnSegundo();
+            TickDeMedioSegundo();
             YouTurnUpdater.UpdateYouTurnState();
             EngancharGuiaAlPivote();
 

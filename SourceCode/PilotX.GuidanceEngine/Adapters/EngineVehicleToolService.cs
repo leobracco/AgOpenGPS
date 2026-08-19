@@ -343,6 +343,11 @@ namespace PilotX.GuidanceEngine.Adapters
                     _engine.Ahrs.autoSwitchDualFixSpeed = s.setAutoSwitchDualFixSpeed;
                     _engine.Ahrs.rollFilter = rollFilter;
                     _engine.Ahrs.isRollInvert = s.setIMU_invertRoll;
+                    // Alarma RTK en caliente: el motor la consume por fix en
+                    // ComprobarAlarmaRtk (port de OpenGL.Designer.cs:505-561);
+                    // sin esto el cambio recién aplicaba al reiniciar.
+                    _engine.isRTK_AlarmOn = s.setGPS_isRTK;
+                    _engine.isRTK_KillAutosteer = s.setGPS_isRTK_KillAutoSteer;
                 }
                 catch { }
                 return true;

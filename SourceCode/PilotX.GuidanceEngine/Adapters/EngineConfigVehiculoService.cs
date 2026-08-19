@@ -818,12 +818,19 @@ namespace PilotX.GuidanceEngine.Adapters
                 s.setIMU_fusionWeight2 = barra * 0.002;
                 _engine.Ahrs.fusionWeight = s.setIMU_fusionWeight2;
             }
+            // La alarma RTK ya NO es "solo display": el motor la consume en
+            // ComprobarAlarmaRtk (GuidanceEngineHost, port de
+            // OpenGL.Designer.cs:505-561 del 6.8.6). Además los cuerpos
+            // comentados dejaban los tres `if` ANIDADOS: is_rtk /
+            // is_rtk_kill_autosteer no se persistían nunca y jump_fix_distance
+            // solo se guardaba si el body traía los otros dos (bug documentado
+            // en RumboTab.cs — este es el arreglo de carril back-end).
             if (b.IsRtk.HasValue)
-                // solo display, headless no lo dibuja: _form.isRTK_AlarmOn = s.setGPS_isRTK = b.IsRtk.Value;
-                if (b.IsRtkKillAutosteer.HasValue)
-                    // solo display, headless no lo dibuja: _form.isRTK_KillAutosteer = s.setGPS_isRTK_KillAutoSteer = b.IsRtkKillAutosteer.Value;
-                    if (b.JumpFixDistance.HasValue)
-                        s.setGPS_jumpFixAlarmDistance = Clamp(b.JumpFixDistance.Value, 0, 1000);
+                _engine.isRTK_AlarmOn = s.setGPS_isRTK = b.IsRtk.Value;
+            if (b.IsRtkKillAutosteer.HasValue)
+                _engine.isRTK_KillAutosteer = s.setGPS_isRTK_KillAutoSteer = b.IsRtkKillAutosteer.Value;
+            if (b.JumpFixDistance.HasValue)
+                s.setGPS_jumpFixAlarmDistance = Clamp(b.JumpFixDistance.Value, 0, 1000);
             if (b.DualHeadingOffset.HasValue)
             {
                 s.setGPS_dualHeadingOffset = Clamp(b.DualHeadingOffset.Value, -100.0, 100.0);
@@ -989,7 +996,9 @@ namespace PilotX.GuidanceEngine.Adapters
             if (b.DirectionMarkers.HasValue) { s.setTool_isDirectionMarkers = b.DirectionMarkers.Value; }
             if (b.SectionLines.HasValue) { s.setDisplay_isSectionLinesOn = b.SectionLines.Value; }
             if (b.LineSmooth.HasValue) { s.setDisplay_isLineSmooth = b.LineSmooth.Value; }
-            if (b.HeadlandDistance.HasValue) { s.isHeadlandDistanceOn = b.HeadlandDistance.Value; }
+            // También en caliente: lo consume CheckHeadlandProximity (tick de
+            // medio segundo del motor, port del 6.8.6 GUI.Designer.cs:348).
+            if (b.HeadlandDistance.HasValue) { s.isHeadlandDistanceOn = b.HeadlandDistance.Value; _engine.isHeadlandDistanceOn = b.HeadlandDistance.Value; }
             if (b.NumGuideLines.HasValue)
             {
                 int v = Clamp(b.NumGuideLines.Value, 1, 5000);

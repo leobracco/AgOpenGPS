@@ -77,18 +77,105 @@ namespace AgOpenGPS
             bool antiSolape = AntiSolape != null && AntiSolape.Habilitado;
             if (antiSolape) AntiSolape.Sincronizar();
 
+            // Dónde están las esquinas de la herramienta respecto de la
+            // cabecera (upstream OpenGL.Designer.cs:920 del 6.8.6, mismo gate:
+            // solo isHeadlandOn — el método guarda internamente contra
+            // bndList/hdLine vacíos).
+            if (Bnd.isHeadlandOn) Bnd.WhereAreToolCorners();
+
+            // ---- Anticipación de cabecera / secciones (look-ahead) ----
+            // Port 1:1 de OpenGL.Designer.cs:922-939 del 6.8.6. En el original
+            // corre por fix en oglBack_Paint, ANTES de WhereAreToolLookOnPoints
+            // — como el motor no dibuja, estos campos quedaban en CERO para
+            // siempre y CHead.WhereAreToolLookOnPoints (que los consume en
+            // CHead.cs:79-88) proyectaba los puntos lookahead sobre el borde
+            // mismo de la sección: el corte por cabecera actuaba SIN
+            // anticipación. Los nombres dicen "Pixels" pero se usan como
+            // distancias (décimas de metro: velocidad m/s × segundos × 10);
+            // mismos factores (×10) y mismos clamps (200 para on/hyd, 160 para
+            // off) que upstream — no se renombran para no divergir del original.
+            Vehicle.hydLiftLookAheadDistanceLeft = tool.farLeftSpeed * Vehicle.hydLiftLookAheadTime * 10;
+            Vehicle.hydLiftLookAheadDistanceRight = tool.farRightSpeed * Vehicle.hydLiftLookAheadTime * 10;
+
+            if (Vehicle.hydLiftLookAheadDistanceLeft > 200) Vehicle.hydLiftLookAheadDistanceLeft = 200;
+            if (Vehicle.hydLiftLookAheadDistanceRight > 200) Vehicle.hydLiftLookAheadDistanceRight = 200;
+
+            tool.lookAheadDistanceOnPixelsLeft = tool.farLeftSpeed * tool.lookAheadOnSetting * 10;
+            tool.lookAheadDistanceOnPixelsRight = tool.farRightSpeed * tool.lookAheadOnSetting * 10;
+
+            if (tool.lookAheadDistanceOnPixelsLeft > 200) tool.lookAheadDistanceOnPixelsLeft = 200;
+            if (tool.lookAheadDistanceOnPixelsRight > 200) tool.lookAheadDistanceOnPixelsRight = 200;
+
+            tool.lookAheadDistanceOffPixelsLeft = tool.farLeftSpeed * tool.lookAheadOffSetting * 10;
+            tool.lookAheadDistanceOffPixelsRight = tool.farRightSpeed * tool.lookAheadOffSetting * 10;
+
+            if (tool.lookAheadDistanceOffPixelsLeft > 160) tool.lookAheadDistanceOffPixelsLeft = 160;
+            if (tool.lookAheadDistanceOffPixelsRight > 160) tool.lookAheadDistanceOffPixelsRight = 160;
+            // (La parte de upstream que usa hydLiftLookAheadDistance* para
+            // decidir isToolInHeadland/SetHydPosition necesita el scan de
+            // píxeles de oglBack y sigue DIFERIDA, como dice el encabezado.)
+
+            // ---- Secciones fuera del lindero (isInBoundary) ----
+            // Port 1:1 de OpenGL.Designer.cs:941-965 del 6.8.6: por fix se
+            // recalcula section[j].isInBoundary con los extremos leftPoint/
+            // rightPoint (los puebla CalculateSectionLookAhead en cada fix).
+            // Nadie lo escribía en el motor: quedaba el default true de
+            // CSection.cs:63 y el consumidor de más abajo (el "fuera de
+            // boundary → off") era letra muerta.
+            //
+            // El setting setTool_isSectionOffWhenOut (default TRUE acá y en
+            // upstream) no gatea el cálculo sino la severidad, igual que
+            // upstream: en true la sección se apaga apenas UN extremo sale del
+            // lindero; en false recién cuando salieron los DOS.
+            //
+            // Lindero VIRTUAL de "Marcar giro" (CBoundaryList.
+            // isVirtualTurnBoundary, ver TurnMarks.cs): NO corta secciones.
+            // Existe solo para armar el U-turn — apagar la sembradora al salir
+            // de ese rectángulo inventado dejaría surcos sin sembrar en un lote
+            // SIN lindero real. Solo puede ser bndList[0] (MaterializarMarcasGiro
+            // lo agrega únicamente cuando no hay lindero real); en ese caso se
+            // fuerza true para no arrastrar un isInBoundary viejo de un lindero
+            // real que ya no está.
+            bool isLeftIn = true, isRightIn = true;
+
+            if (Bnd.bndList.Count > 0 && !Bnd.bndList[0].isVirtualTurnBoundary)
+            {
+                for (int j = 0; j < tool.numOfSections; j++)
+                {
+                    //only one first left point, the rest are all rights moved over to left
+                    isLeftIn = j == 0 ? Bnd.IsPointInsideFenceArea(section[j].leftPoint) : isRightIn;
+                    isRightIn = Bnd.IsPointInsideFenceArea(section[j].rightPoint);
+
+                    if (!tool.isSectionOffWhenOut)
+                    {
+                        //merge the two sides into in or out
+                        if (isLeftIn || isRightIn) section[j].isInBoundary = true;
+                        else section[j].isInBoundary = false;
+                    }
+                    else
+                    {
+                        //merge the two sides into in or out
+                        if (!isLeftIn || !isRightIn) section[j].isInBoundary = false;
+                        else section[j].isInBoundary = true;
+                    }
+                }
+            }
+            else if (Bnd.bndList.Count > 0)
+            {
+                // Solo lindero virtual: adentro siempre (ver nota de arriba).
+                for (int j = 0; j < tool.numOfSections; j++)
+                    section[j].isInBoundary = true;
+            }
+
             // Dónde está la herramienta respecto de la CABECERA (CHead, Core):
             // puebla Section[j].isLookOnInHeadland con los puntos lookahead de
-            // cada sección. En FormGPS esto corre en el DIBUJO (oglBack_Paint,
-            // OpenGL.Designer.cs:1022/1170) — como el motor no dibuja, no
+            // cada sección (ahora sí anticipados, ver bloque de arriba). En
+            // FormGPS esto corre en el DIBUJO (oglBack_Paint,
+            // OpenGL.Designer.cs:1068/1179) — como el motor no dibuja, no
             // corría nunca y el corte por cabecera era letra muerta.
             bool corteCabecera = Bnd.isHeadlandOn && Bnd.isSectionControlledByHeadland
                 && Bnd.bndList.Count > 0 && Bnd.bndList[0].hdLine.Count > 0;
-            if (corteCabecera)
-            {
-                Bnd.WhereAreToolCorners();
-                Bnd.WhereAreToolLookOnPoints();
-            }
+            if (corteCabecera) Bnd.WhereAreToolLookOnPoints();
 
             // ---- 1) Decisión on/off por sección ----
             for (int j = 0; j < tool.numOfSections; j++)

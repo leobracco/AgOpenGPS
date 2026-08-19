@@ -85,8 +85,33 @@ namespace AgOpenGPS
         public int patchCounter;
         public bool isPatchesChangingColor;
         public int startCounter;
+
+        // ---- Hz del GPS medido de verdad (port de Position.designer.cs:104,
+        // 117-118 y 131-145 del 6.8.6). Antes gpsHz quedaba clavado en 10 y
+        // nadie lo escribía: los timers de sección (SectionsRuntime) y las
+        // velocidades de extremo de herramienta (CalculateSectionLookAhead)
+        // asumían 10 Hz aunque el receptor mandara 5 u 8. ----
         public double gpsHz = 10;
+        /// <summary>Segundos entre el fix anterior y este (swFrame).</summary>
+        public double timeSliceOfLastFix = 0;
+        private double nowHz = 0;
+        // Mismo Stopwatch que FormGPS.cs:110: nace SIN arrancar — el primer fix
+        // mide 0 ticks → nowHz infinito → lo acota el clamp de 70 del filtro.
+        private readonly System.Diagnostics.Stopwatch swFrame = new System.Diagnostics.Stopwatch();
+
         public double guidanceLookAheadTime = 2;
+
+        // ---- Alarma RTK + kill del piloto (port de Position.designer.cs:106-108
+        // y OpenGL.Designer.cs:505-561 del 6.8.6). Los dos settings
+        // (setGPS_isRTK / setGPS_isRTK_KillAutoSteer) vienen APAGADOS por
+        // defecto en ambos lados: el bloque no hace nada hasta que el operario
+        // prende la alarma en Configuración › Rumbo. ----
+        public bool isRTK_AlarmOn, isRTK_KillAutosteer;
+        private DateTime RTKBackSinceUtc = DateTime.MinValue;
+        private const int RTK_RECOVER_DEBOUNCE_MS = 1000;
+        // Equivalentes headless de sounds.isRTKAlarming / sounds.RTKWasAlarming
+        // (acá no hay CSound: el "sonido" es el log y el aviso al HUD).
+        private bool isRTKAlarming, rtkWasAlarming;
 
         public bool isBtnAutoSteerOn;
         public int minSteerSpeedTimer;
