@@ -2174,7 +2174,14 @@ namespace AgOpenGPS
             if (outhead > glm.twoPI) outhead -= glm.twoPI;
 
             //how many points straight out
-            double lenny = 15;
+            // Fix de AOG 6.8.6: era `lenny = 15` hardcodeado, que a
+            // pointSpacing = radio*0.1 daba ~12 m de recta de entrada/salida y
+            // dejaba MUERTO el setting "Extensión" (set_youTurnExtensionLength,
+            // youTurnStartOffset). Con el valor corto el tractor salía del arco
+            // sin recta de estabilización y caía sobre la AB nueva con
+            // sobretiro (serpenteo medido en traza-guiado.csv 2026-08-19).
+            // Upstream: value needs to be doubled for actual length.
+            double lenny = youTurnStartOffset * 2.0;
 
             vec3 pt;
             for (int a = 0; a < lenny; a++)
