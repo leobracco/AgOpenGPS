@@ -3,14 +3,18 @@
 # autoinstall-pilotx.yaml — instalación DESATENDIDA y MÍNIMA para una pantalla
 # PilotX (Ubuntu Server 24.04, instalador subiquity).
 #
-# Deja: base mínima sin escritorio + SSH + usuario pilotx (clave pilotx —
-# CAMBIARLA en producción) listo para correr Tools/linux/kiosk/
-# instalar-kiosko.sh, que agrega lightdm+openbox+deps y deja la máquina
-# booteando directo a PilotX.
+# Deja: base mínima sin escritorio + SSH + usuario pilotx listo para correr
+# Tools/linux/kiosk/instalar-kiosko.sh, que agrega lightdm+openbox+deps y deja
+# la máquina booteando directo a PilotX.
 #
-# Uso en VM (VirtualBox):
+# CLAVE: NO se versiona ningún hash de password (SSH queda abierto). Antes de
+# usar este archivo, generá el hash de TU clave y pegalo en identity.password:
+#     openssl passwd -6      (o: mkpasswd -m sha-512)
+#
+# Uso en VM (VirtualBox) — la clave la inyecta VBoxManage, no hace falta tocar
+# el YAML:
 #   VBoxManage unattended install <vm> --iso=ubuntu-server.iso \
-#       --script-template=autoinstall-pilotx.yaml --user=pilotx --password=pilotx \
+#       --script-template=autoinstall-pilotx.yaml --user=pilotx --password=<TU_CLAVE> \
 #       --install-additions --start-vm=headless
 # Uso en pantalla real: USB con el ISO server + este archivo como user-data
 #   (ds=nocloud) — mismo resultado.
@@ -34,8 +38,9 @@ autoinstall:
     hostname: pilotx
     username: pilotx
     realname: PilotX
-    # "pilotx" (mkpasswd -m sha-512). En producción cambiar la clave.
-    password: "$6$EXm/ADIq9LLZZDUZ$ZiHspY3qTU7CMKAPbTo49/btBtsCQtB5d5I5sYB4tLKkdnJIl4wooTIQkxICzw0xSDJup297yVQJxG1DPncBO1"
+    # Pegá acá el hash de TU clave (openssl passwd -6). NO commitear un hash
+    # real: SSH queda abierto (allow-pw) y esto es repo público.
+    password: "REEMPLAZAR-CON-HASH-openssl-passwd-6"
   ssh:
     install-server: true
     allow-pw: true
