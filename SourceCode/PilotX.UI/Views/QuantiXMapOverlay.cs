@@ -42,6 +42,11 @@ public sealed class QuantiXMapOverlay : Border
     private static readonly IBrush Acento  = new SolidColorBrush(Color.Parse("#4ABA3E"));
     private static readonly IBrush Ambar   = new SolidColorBrush(Color.Parse("#E2B53E"));
     private static readonly IBrush Rojo    = new SolidColorBrush(Color.Parse("#E15A5A"));
+    // Fondos tintados de las celdas de la grilla (alpha ~0x33 sobre el mapa):
+    // la mancha de color se ve de un vistazo, el número queda claro encima.
+    private static readonly IBrush VerdeTenue = new SolidColorBrush(Color.Parse("#334ABA3E"));
+    private static readonly IBrush AmbarTenue = new SolidColorBrush(Color.Parse("#33E2B53E"));
+    private static readonly IBrush RojoTenue  = new SolidColorBrush(Color.Parse("#33E15A5A"));
     private static readonly IBrush TextoHi = new SolidColorBrush(Color.Parse("#E2E7E2"));
     private static readonly IBrush TextoMid= new SolidColorBrush(Color.Parse("#C5CFC5"));
     private static readonly IBrush TextoDim= new SolidColorBrush(Color.Parse("#8FA092"));
@@ -296,7 +301,7 @@ public sealed class QuantiXMapOverlay : Border
             return;
         }
 
-        foreach (var m in motores) _filas.Children.Add(FilaMotor(m));
+        ConstruirGrilla(motores);
 
         // Alimentar la barra horizontal con el estado FRESCO del seleccionado.
         // Si el motor elegido desapareció (nodo offline, se reconfiguró la
@@ -355,89 +360,76 @@ public sealed class QuantiXMapOverlay : Border
         Render();
     }
 
-    // Fila COMPACTA de monitoreo: una línea por motor, sin botones adentro.
-    // [• desvío] [nombre]        [real GRANDE] / [obj chico]  [MAN si aplica]
-    // Tocarla selecciona el motor y abre la barra horizontal con sus
-    // controles. El color del real es la alarma: verde ±5%, ámbar ±15%, rojo
-    // más allá — lo único que el ojo tiene que barrer mientras maneja.
-    private Control FilaMotor(MotorRef r)
+    // Grilla de celdas numeradas: una celda por motor, SOLO el número, pintada
+    // por desvío. Con N motores (14 en la venta de esta semana) las filas ya no
+    // escalan; la mancha de color deja ver el estado de todos de un vistazo, y
+    // el detalle del que se toca sale grande en la barra de abajo.
+    //
+    // Reparto: hasta 7 columnas, filas balanceadas (14 -> 2x7, 8 -> 2x4,
+    // 3 -> 1x3, 15 -> 3x5). El ancho del overlay crece con las columnas — es
+    // arrastrable, el mapa se sigue viendo alrededor.
+    private void ConstruirGrilla(List<MotorRef> motores)
+    {
+        int n = motores.Count;
+        int filas = (int)Math.Ceiling(n / 7.0);
+        int cols  = (int)Math.Ceiling(n / (double)filas);
+
+        int i = 0;
+        for (int f = 0; f < filas; f++)
+        {
+            var filaH = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+            for (int c = 0; c < cols && i < n; c++, i++)
+                filaH.Children.Add(CeldaMotor(motores[i], i + 1));
+            _filas.Children.Add(filaH);   // _filas tiene Spacing=4: separa las filas
+        }
+    }
+
+    // Celda de un motor: el NÚMERO (1..N) grande, con fondo tintado por desvío
+    // (verde ±5%, ámbar ±15%, rojo más allá — mismo criterio que la barra).
+    // Apagado/sin dosis = gris. El MANUAL NO se marca acá: se ve en el detalle
+    // del elegido (decisión de diseño: la grilla queda solo número + color).
+    // Button y no Border: el arrastre del overlay ignora los toques sobre
+    // Button, así que elegir un motor no "agarra" el panel.
+    private Control CeldaMotor(MotorRef r, int numero)
     {
         var m = r.Motor;
 
-        IBrush color = TextoHi;
+        IBrush borde = Borde, fondo = BgFila;
         if (m.Objetivo > 0)
         {
             double desvio = Math.Abs(m.Real - m.Objetivo) / m.Objetivo * 100.0;
-            color = desvio <= 5 ? Acento : desvio <= 15 ? Ambar : Rojo;
+            if (desvio <= 5)       { borde = Acento; fondo = VerdeTenue; }
+            else if (desvio <= 15) { borde = Ambar;  fondo = AmbarTenue; }
+            else                   { borde = Rojo;   fondo = RojoTenue; }
         }
-        if (!m.Activo) color = TextoDim;
+        if (!m.Activo) { borde = Borde; fondo = BgFila; }
 
-        bool seleccionado = m.Idx == _selIdx
+        bool sel = m.Idx == _selIdx
             && string.Equals(r.Uid, _selUid, StringComparison.OrdinalIgnoreCase);
 
-        var fila = new StackPanel
+        var num = new TextBlock
         {
-            Orientation = Orientation.Horizontal,
-            Spacing = 6,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        fila.Children.Add(new Ellipse
-        {
-            Width = 8, Height = 8, Fill = color,
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        fila.Children.Add(new TextBlock
-        {
-            Text = NombreDeFila(r),
-            Foreground = TextoDim,
-            FontSize = 10,
-            MinWidth = 46,
-            MaxWidth = 84,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        fila.Children.Add(new TextBlock
-        {
-            Text = WidgetQuantiXClient.FormatoDosis(m.Real, m.Unidad),
-            Foreground = color,
-            FontSize = 18,
+            Text = numero.ToString(CultureInfo.InvariantCulture),
+            Foreground = m.Activo ? TextoHi : TextoDim,
+            FontSize = 15,
             FontWeight = FontWeight.Bold,
             FontFamily = new FontFamily("Consolas, Courier New, monospace"),
+            HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-        });
-        fila.Children.Add(new TextBlock
-        {
-            Text = "/ " + WidgetQuantiXClient.FormatoDosis(m.Objetivo, m.Unidad),
-            Foreground = TextoMid,
-            FontSize = 11,
-            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
-            VerticalAlignment = VerticalAlignment.Center,
-        });
-        if (m.ManualMode)
-        {
-            fila.Children.Add(new TextBlock
-            {
-                Text = "MAN",
-                Foreground = Ambar,
-                FontSize = 9,
-                FontWeight = FontWeight.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-            });
-        }
+        };
 
-        // Button y no Border: el arrastre del overlay ya ignora los toques
-        // sobre Button, así que elegir un motor no "agarra" el panel.
         var btn = new Button
         {
-            Background = seleccionado ? new SolidColorBrush(Color.Parse("#26404A34")) : BgFila,
-            BorderBrush = seleccionado ? Acento : Borde,
-            BorderThickness = new Thickness(1),
+            Background = sel ? new SolidColorBrush(Color.Parse("#26404A34")) : fondo,
+            BorderBrush = sel ? Acento : borde,
+            BorderThickness = new Thickness(sel ? 2 : 1),
             CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(8, 5, 8, 5),
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            HorizontalContentAlignment = HorizontalAlignment.Left,
-            MinHeight = 38,   // tocable con guante aun siendo compacta
-            Content = fila,
+            Padding = new Thickness(0),
+            Width = 40,
+            MinHeight = 36,   // tocable con guante
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Content = num,
         };
         btn.Click += (_, __) => Seleccionar(r);
         return btn;
