@@ -350,6 +350,16 @@ namespace AgroParallel.QuantiX
                         if (!seccionOn && !tieneCortes && dosisEfectiva > 0 && velMotorKmh > 0.5)
                             seccionOn = true;
 
+                        // Gate maestro de siembra: sin trabajo/lote abierto NO se
+                        // dosifica, aunque haya velocidad, secciones en ON o dosis
+                        // fija/manual cargada. El estado de sección (SectionOnRequest)
+                        // y la dosis manual/fija son independientes de IsJobStarted,
+                        // así que el motor arrancaba con solo velocidad y el lote
+                        // cerrado. QxPulseCalculator.Pps ya devuelve 0 con SeccionOn
+                        // en false, así que el motor queda quieto (pps:0, seccion_on:false).
+                        if (!snap.IsJobStarted)
+                            seccionOn = false;
+
                         // Ancho y surcos REALES del motor (fix 2026-08-08, QxAnchoMotor):
                         // antes kg/ha usaba SIEMPRE el ancho total (un motor con la
                         // mitad de los surcos dosificaba al DOBLE) y sem/m contaba
