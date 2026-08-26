@@ -6103,6 +6103,20 @@ public partial class MainWindow : Window
         _vmIzq = new MenuIzquierdaViewModel(_cockpitCmd);
 
         if (_barSuperior != null) _barSuperior.DataContext = _vmSup;
+
+        // Batería de la pantalla → chip de la barra superior. Poll de 10 s:
+        // el dato cambia lento y la lectura es una syscall barata. Sin
+        // batería (PC de escritorio) el chip queda oculto.
+        void EmpujarBateria()
+        {
+            var (tiene, pct, cargando, enchufada) = BateriaLector.Leer();
+            _vmSup?.AplicarBateria(tiene, pct, cargando, enchufada);
+        }
+        EmpujarBateria();
+        var bateriaTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        bateriaTimer.Tick += (_, _) => EmpujarBateria();
+        bateriaTimer.Start();
+
         if (_barDerecha  != null) _barDerecha.DataContext  = _vmDer;
         // El wrapper flotante de las secciones necesita el MISMO ViewModel que
         // BarraAbajo: su IsVisible se ata a SeccionesVisible (sin lote no hay
