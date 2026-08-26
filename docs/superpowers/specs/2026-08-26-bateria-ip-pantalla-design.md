@@ -8,10 +8,14 @@ En la pantalla de cabina hay que poder ver la IP de la máquina y el estado de
 carga de la batería de la pantalla. Decisión del usuario: la batería siempre a
 la vista (chip en el HUD), la IP en el panel Sistema (se consulta cada tanto).
 
-## 1. Chip de batería en el HudBar (`MainWindow.axaml`)
+## 1. Chip de batería en la BarraSuperior del cockpit (`PilotX.Cockpit.Bars`)
 
-- Un chip más junto a los existentes, mismo estilo visual (Border redondeado
-  `PilotXBgHigh` / `PilotXBorderHigh`): texto `🔋 85%`, con `⚡` agregado
+> Corrección post-diseño: el `HudBar` de `MainWindow.axaml` está SIEMPRE
+> oculto (lo reemplazaron las barras del cockpit). La barra visible es
+> `BarraSuperior.axaml`, y el chip va ahí, junto a KM/H · SEÑAL · TIEMPO · HA.
+
+- Un chip más junto a los existentes, mismo estilo visual (Border blanco,
+  borde `#D9E0D9`, radio 10, label `BAT`): texto `85%`, con `⚡` agregado
   cuando está enchufada y cargando.
 - Lectura **local** con P/Invoke `GetSystemPowerStatus` (kernel32) desde
   PilotX.UI — la UI corre en la misma máquina, no se pasa por el Engine.

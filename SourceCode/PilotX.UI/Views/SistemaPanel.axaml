@@ -155,6 +155,33 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- ============ Red ============ -->
+                    <TextBlock Text="Red"
+                               Foreground="{StaticResource PilotXPanelText}"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               Margin="0,8,0,0"/>
+                    <Border Background="{StaticResource PilotXPanelSurface}"
+                            BorderBrush="{StaticResource PilotXPanelBorderHigh}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="18,14,18,14"
+                            MaxWidth="720"
+                            HorizontalAlignment="Left">
+                        <StackPanel Spacing="6">
+                            <TextBlock Name="RedIps"
+                                       Text="Cargando..."
+                                       Foreground="{StaticResource PilotXPanelText}"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"/>
+                            <TextBlock Name="RedBateria"
+                                       Text=""
+                                       Foreground="{StaticResource PilotXPanelTextDim}"
+                                       FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+
                     <!-- ============ Energia ============ -->
                     <TextBlock Text="Energia"
                                Foreground="{StaticResource PilotXPanelText}"

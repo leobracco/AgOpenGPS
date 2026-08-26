@@ -8,6 +8,9 @@
 
 using System;
 using System.Globalization;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -50,6 +53,62 @@ public partial class SistemaPanel : UserControl, IPanelEmbebible
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    // Refresco de Red: solo mientras el panel está a la vista (el operario
+    // lo abre para leer la IP; de fondo no gasta nada).
+    private DispatcherTimer? _redTimer;
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        RefrescarRed();
+        _redTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _redTimer.Tick += (_, _) => RefrescarRed();
+        _redTimer.Start();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        _redTimer?.Stop();
+        _redTimer = null;
+    }
+
+    private void RefrescarRed()
+    {
+        var ips = this.FindControl<TextBlock>("RedIps");
+        var bat = this.FindControl<TextBlock>("RedBateria");
+        if (ips != null) ips.Text = ListarIps();
+        if (bat != null)
+        {
+            var (tiene, pct, cargando, enchufada) = BateriaLector.Leer();
+            bat.Text = !tiene ? "Sin bateria"
+                : $"Bateria: {pct} % - " + (cargando ? "cargando"
+                    : enchufada ? "enchufada" : "a bateria");
+        }
+    }
+
+    private static string ListarIps()
+    {
+        var sb = new StringBuilder();
+        try
+        {
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                foreach (var ua in ni.GetIPProperties().UnicastAddresses)
+                {
+                    if (ua.Address.AddressFamily != AddressFamily.InterNetwork) continue;
+                    var ip = ua.Address.ToString();
+                    if (ip.StartsWith("169.254.")) continue; // APIPA: no sirve para nada
+                    sb.AppendLine($"{ni.Name} - {ip}");
+                }
+            }
+        }
+        catch { /* sin permisos de red: cae al "Sin red conectada" */ }
+        return sb.Length > 0 ? sb.ToString().TrimEnd() : "Sin red conectada";
+    }
 
     /// <summary>Adentro de la Configuración: sin marco de tarjeta y sin la
     /// cabecera propia (no tenía pills ni acciones, solo el título grande);
