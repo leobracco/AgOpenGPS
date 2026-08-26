@@ -36,6 +36,34 @@ public sealed partial class BarraSuperiorViewModel : BarViewModelBase
     // y lo empuja acá, porque esos datos no están en CockpitSnapshot.
     [ObservableProperty] private string _debugText = "";
 
+    // Batería de la pantalla. La lectura viene de PilotX.UI (BateriaLector,
+    // GetSystemPowerStatus local) — acá solo se decide qué mostrar.
+    // Sin batería (PC de escritorio) el chip no existe. La alerta es SOLO
+    // color (regla: nada de popups ni sonidos sobre el mapa).
+    [ObservableProperty] private bool _bateriaVisible;
+    [ObservableProperty] private string _bateriaText = "--";
+    [ObservableProperty] private string _bateriaColorTexto = "#101612";
+    [ObservableProperty] private string _bateriaColorBorde = "#D9E0D9";
+
+    public void AplicarBateria(bool tiene, int pct, bool cargando, bool enchufada)
+    {
+        BateriaVisible = tiene;
+        if (!tiene) return;
+        BateriaText = cargando ? $"{pct}%⚡" : $"{pct}%";
+        if (enchufada)
+        {
+            (BateriaColorTexto, BateriaColorBorde) = ("#101612", "#D9E0D9");
+        }
+        else if (pct < 15)
+        {
+            (BateriaColorTexto, BateriaColorBorde) = ("#C0261F", "#C0261F");
+        }
+        else
+        {
+            (BateriaColorTexto, BateriaColorBorde) = ("#B36A00", "#E2B53E");
+        }
+    }
+
     public override void Apply(CockpitSnapshot s)
     {
 

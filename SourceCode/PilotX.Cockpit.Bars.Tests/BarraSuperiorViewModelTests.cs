@@ -53,4 +53,42 @@ public class BarraSuperiorViewModelTests
         vm.Apply(new CockpitSnapshot { IsJobStarted = false, ToolWidth = 7.0, AvgSpeed = 8.0 });
         Assert.That(vm.HaHoraVisible, Is.False);
     }
+
+    [Test]
+    public void AplicarBateria_SinBateria_OcultaElChip()
+    {
+        var vm = Make();
+        vm.AplicarBateria(tiene: false, pct: 0, cargando: false, enchufada: false);
+        Assert.That(vm.BateriaVisible, Is.False);
+    }
+
+    [Test]
+    public void AplicarBateria_EnchufadaCargando_TextoNormalConRayito()
+    {
+        var vm = Make();
+        vm.AplicarBateria(tiene: true, pct: 85, cargando: true, enchufada: true);
+        Assert.That(vm.BateriaVisible, Is.True);
+        Assert.That(vm.BateriaText, Is.EqualTo("85%⚡"));
+        Assert.That(vm.BateriaColorTexto, Is.EqualTo("#101612"));
+        Assert.That(vm.BateriaColorBorde, Is.EqualTo("#D9E0D9"));
+    }
+
+    [Test]
+    public void AplicarBateria_ABateria_PintaAmbar()
+    {
+        var vm = Make();
+        vm.AplicarBateria(tiene: true, pct: 60, cargando: false, enchufada: false);
+        Assert.That(vm.BateriaText, Is.EqualTo("60%"));
+        Assert.That(vm.BateriaColorTexto, Is.EqualTo("#B36A00"));
+        Assert.That(vm.BateriaColorBorde, Is.EqualTo("#E2B53E"));
+    }
+
+    [Test]
+    public void AplicarBateria_ABateriaCritica_PintaRojo()
+    {
+        var vm = Make();
+        vm.AplicarBateria(tiene: true, pct: 12, cargando: false, enchufada: false);
+        Assert.That(vm.BateriaColorTexto, Is.EqualTo("#C0261F"));
+        Assert.That(vm.BateriaColorBorde, Is.EqualTo("#C0261F"));
+    }
 }
