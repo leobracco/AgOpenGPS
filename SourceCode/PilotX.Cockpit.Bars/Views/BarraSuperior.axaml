@@ -227,6 +227,19 @@
             <TextBlock Classes="telelbl" Text="HA"/>
           </StackPanel>
         </Button>
+        <!-- Batería de la pantalla: solo existe si la máquina tiene batería
+             (tablet/notebook). Enchufada = gris; a batería = ámbar; <15% a
+             batería = rojo. El rayito ⚡ va en el texto cuando carga. -->
+        <Border Background="#FFFFFF" BorderThickness="1" CornerRadius="10"
+                Padding="8,2" MinWidth="56"
+                IsVisible="{Binding BateriaVisible}"
+                BorderBrush="{Binding BateriaColorBorde, Converter={StaticResource StringToBrush}}">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Classes="televal" FontSize="13" Text="{Binding BateriaText}"
+                       Foreground="{Binding BateriaColorTexto, Converter={StaticResource StringToBrush}}"/>
+            <TextBlock Classes="telelbl" Text="BAT"/>
+          </StackPanel>
+        </Border>
       </StackPanel>
 
       <!-- En modo kiosko (PILOTX_KIOSKO=1) estos tres no existen: PilotX ES
