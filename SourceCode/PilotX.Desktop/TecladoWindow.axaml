@@ -12,6 +12,19 @@
         Focusable="False"
         TransparencyLevelHint="None">
 
+  <!-- Evita el "flash" oscuro de las teclas al presionarlas: la app corre en
+       FluentTheme variante oscura y el estado pressed del botón se pinta con
+       fondo oscuro, así la tecla parpadea al tocarla. Acá se fuerza un gris
+       claro en pressed con texto oscuro, SOLO dentro del teclado. -->
+  <Window.Styles>
+    <Style Selector="Button:pressed">
+      <Setter Property="Foreground" Value="#101612" />
+    </Style>
+    <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#CFD8CF" />
+    </Style>
+  </Window.Styles>
+
   <!-- Ventana propia y NO ACTIVABLE: el foco se queda en el campo que se está
        editando (ver TecladoWin32.HacerNoActivable) y las teclas se mandan con
        SendInput a la ventana enfocada. Por eso el mismo teclado sirve para la

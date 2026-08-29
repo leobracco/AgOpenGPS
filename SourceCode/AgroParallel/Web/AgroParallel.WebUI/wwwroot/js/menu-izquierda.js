@@ -58,7 +58,11 @@
         { img: 'ABSmooth.png', label: 'Suavizar AB', cmd: 'suavizar_ab' },
         { img: 'TrashContourRef.png', label: 'Ocultar contornos', cmd: 'borrar_contornos' },
         { img: 'Webcam.png', label: 'Webcam', cmd: 'webcam' },
-        { img: 'YouTurnReverse.png', label: 'Corregir posición', cmd: 'corregir_pos' }
+        { img: 'YouTurnReverse.png', label: 'Corregir posición', cmd: 'corregir_pos' },
+        // Apagar / Reiniciar la PC — acción de SISTEMA, no guidance command:
+        // van por /api/sistema/power con confirmación táctil dentro del widget.
+        { ico: '⏻', label: 'Apagar PC',   power: 'shutdown', confirm: '¿Apagar la PC?' },
+        { ico: '⟳', label: 'Reiniciar PC', power: 'restart',  confirm: '¿Reiniciar la PC?' }
       ]
     },
     // btnJobMenu (JobActive) de AOG: abrir/crear/continuar/cerrar lote
@@ -114,6 +118,33 @@
     }
   }
 
+  // Confirmación táctil que llena el widget (el confirm() del SO sale chico e
+  // inservible con guantes). El overlay es position:fixed inset:0 → cubre el
+  // widget expandido. Devuelve Promise<bool>.
+  function confirmarTactil(msg) {
+    return new Promise(function (resolve) {
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.72);' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:16px';
+      var p = document.createElement('div');
+      p.textContent = msg || '¿Confirmar?';
+      p.style.cssText = 'font-size:20px;color:#fff;text-align:center';
+      var bOk = document.createElement('button');
+      bOk.type = 'button';
+      bOk.textContent = 'Confirmar';
+      bOk.style.cssText = 'width:100%;padding:18px;font-size:20px;border-radius:10px;border:0;background:#C84141;color:#fff';
+      var bCancel = document.createElement('button');
+      bCancel.type = 'button';
+      bCancel.textContent = 'Cancelar';
+      bCancel.style.cssText = 'width:100%;padding:18px;font-size:20px;border-radius:10px;border:1px solid #666;background:#2a2a2e;color:#fff';
+      function cerrar(v) { try { document.body.removeChild(ov); } catch (e) { } resolve(v); }
+      bOk.addEventListener('click', function () { cerrar(true); });
+      bCancel.addEventListener('click', function () { cerrar(false); });
+      ov.appendChild(p); ov.appendChild(bOk); ov.appendChild(bCancel);
+      document.body.appendChild(ov);
+    });
+  }
+
   var panel = document.getElementById('subPanel');
   var subTitle = document.getElementById('subTitle');
   var subItems = document.getElementById('subItems');
@@ -143,6 +174,16 @@
         : '<span class="ico">' + (it.ico || '') + '</span>';
       d.innerHTML = icoHtml + '<span>' + it.label + '</span>';
       d.addEventListener('click', function () {
+        // Acciones de sistema (Apagar/Reiniciar): confirmación antes de mandar,
+        // y por /api/sistema/power (no por el canal de guidance commands).
+        if (it.power) {
+          confirmarTactil(it.confirm || '¿Confirmar?').then(function (ok) {
+            if (!ok) return;
+            fetch('/api/sistema/power?action=' + encodeURIComponent(it.power), { method: 'POST' })
+              .catch(function () { /* la PC se está apagando/reiniciando */ });
+          });
+          return;
+        }
         send(it.cmd, d);
         // submenús "mantener" (Navegación) quedan abiertos para tocar varias
         // veces; el resto colapsa tras el flash (lo nativo ya se abrió)

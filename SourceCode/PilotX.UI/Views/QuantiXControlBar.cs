@@ -47,6 +47,7 @@ public sealed class QuantiXControlBar : Border
     private readonly Button _btnMas;
     private readonly TextBlock _dosis;
     private readonly TextBlock _unidad;
+    private readonly TextBlock _rpm;
 
     /// <summary>Pasar el motor a AUTO (el mapa/prescripción manda).</summary>
     public Action? OnAuto;
@@ -124,6 +125,29 @@ public sealed class QuantiXControlBar : Border
         fila.Children.Add(_unidad);
         fila.Children.Add(_btnMas);
 
+        // Las rpm REALES del motor (encoder), al lado de la dosis: con sem/m
+        // solas no se ve si el motor está girando como debe o clavado.
+        fila.Children.Add(new Border { Width = 1, Background = Borde, Margin = new Thickness(2, 4) });
+        _rpm = new TextBlock
+        {
+            Text = "—",
+            Foreground = TextoMid,
+            FontSize = 14,
+            FontWeight = FontWeight.SemiBold,
+            MinWidth = 56,
+            TextAlignment = TextAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
+        };
+        fila.Children.Add(_rpm);
+        fila.Children.Add(new TextBlock
+        {
+            Text = "rpm",
+            Foreground = TextoDim,
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
         var cerrar = new Button
         {
             Content = "✕",
@@ -148,11 +172,12 @@ public sealed class QuantiXControlBar : Border
     /// Refresca la barra con el estado FRESCO del motor seleccionado. La llama
     /// el overlay en cada poll; acá no se decide nada, solo se pinta.
     /// </summary>
-    public void Actualizar(string nombre, bool manual, string dosisTexto, string etiquetaUnidad)
+    public void Actualizar(string nombre, bool manual, string dosisTexto, string etiquetaUnidad, int rpm)
     {
         _nombre.Text = nombre;
         _dosis.Text = dosisTexto;
         _unidad.Text = etiquetaUnidad;
+        _rpm.Text = rpm.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         _btnMan.Background  = manual ? Ambar : BgBoton;
         _btnMan.Foreground  = manual ? TextoInv : TextoMid;

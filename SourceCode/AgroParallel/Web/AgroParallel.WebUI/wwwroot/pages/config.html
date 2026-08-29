@@ -325,6 +325,11 @@
       <button type="button" data-mod="calculadora-siembra.html"><span class="ico-emoji">🧮</span>Calculadora</button>
       <button type="button" data-mod="pid-lab.html"><span class="ico-emoji">📈</span>Lab PID</button>
       <button type="button" data-mod="pwm-diag.html"><span class="ico-emoji">🔧</span>Diagnóstico PWM</button>
+      <!-- Apagar / Reiniciar la PC: acción directa (data-action) con confirmación
+           táctil, reusan POST /api/sistema/power. El set completo (suspender,
+           cerrar app, brillo) sigue en Mantenimiento › Sistema. -->
+      <button type="button" data-action="shutdown" data-confirm="¿Apagar la PC?"><span class="ico-emoji">⏻</span>Apagar</button>
+      <button type="button" data-action="restart" data-confirm="¿Reiniciar la PC?"><span class="ico-emoji">⟳</span>Reiniciar</button>
       <!-- Cloud: mismo embebido que Módulos (migrado del Hub 2026-07-20). -->
       <div class="grupo">Cloud</div>
       <button type="button" data-mod="orbitx.html"><img loading="lazy" src="../img/icons/existing/agp-orbitx.png" alt="" />OrbitX</button>
@@ -1080,7 +1085,7 @@
   </div>
 
   <script src="../js/keyboard.js"></script>
-  <script src="../js/config.js?v=3"></script>
+  <script src="../js/config.js?v=4"></script>
   <script src="/js/i18n.js"></script>
 </body>
 </html>

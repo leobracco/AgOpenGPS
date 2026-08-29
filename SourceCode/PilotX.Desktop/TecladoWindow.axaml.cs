@@ -33,9 +33,32 @@ namespace PilotX.Desktop
         private bool _mayus;
         private PixelPoint _agarre;
         private bool _moviendo;
+        // Dónde dejó el operario el teclado. Se restaura en cada Show para que NO
+        // vuelva abajo en cada tecla (el campo parpadea el foco al tocar una
+        // tecla y eso re-mostraba la ventana en su posición inicial).
+        private static PixelPoint? _posGuardada;
         // Ventana que estaba adelante cuando se abrió el teclado: es la que
         // tiene el campo. Se la trae de vuelta antes de cada tecla.
         private static IntPtr _objetivo;
+
+        // Último TextBox nativo (Avalonia) que recibió el foco. Es el destino
+        // preferido de las teclas: escribir DIRECTO en él (in-process) no
+        // depende del foco de Windows ni de SendInput —que se rompía al no
+        // activar la ventana del teclado (WM_POINTERACTIVATE→PA_NOACTIVATE)—.
+        private static WeakReference<TextBox>? _ultimoFoco;
+
+        /// <summary>Rastrea globalmente el TextBox enfocado. Se llama UNA vez al
+        /// arrancar el shell; a partir de ahí cada TextBox que gana foco queda
+        /// registrado como destino de las teclas.</summary>
+        public static void RegistrarSeguimientoFoco()
+        {
+            try
+            {
+                InputElement.GotFocusEvent.AddClassHandler<TextBox>(
+                    (tb, _) => _ultimoFoco = new WeakReference<TextBox>(tb));
+            }
+            catch { }
+        }
 
         private static readonly string[][] LETRAS =
         {
@@ -64,7 +87,9 @@ namespace PilotX.Desktop
                 // ICCCM en False — cada OS por su dispatcher).
                 var hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
                 TecladoNativo.HacerNoActivable(hwnd);
-                UbicarAbajo();
+                // Primera vez: abajo y centrado. Después respeta donde lo dejaron.
+                if (_posGuardada is PixelPoint p) Position = p;
+                else UbicarAbajo();
             };
             var cerrar = this.FindControl<Button>("BtnCerrar");
             if (cerrar != null) cerrar.Click += (_, __) => Cerrar();
@@ -99,6 +124,7 @@ namespace PilotX.Desktop
                 barra.PointerReleased += (s, e) =>
                 {
                     _moviendo = false;
+                    _posGuardada = Position;   // recordar dónde lo dejaron
                     e.Pointer.Capture(null);
                 };
             }
@@ -129,7 +155,12 @@ namespace PilotX.Desktop
             else
             {
                 if (_abierta._numerico != numerico) { _abierta._numerico = numerico; _abierta.Pintar(); }
-                if (!_abierta.IsVisible) _abierta.Show();
+                if (!_abierta.IsVisible)
+                {
+                    _abierta.Show();
+                    // Volver a donde lo dejó el operario, no a la posición inicial.
+                    if (_posGuardada is PixelPoint p) _abierta.Position = p;
+                }
             }
             var t = _abierta.FindControl<TextBlock>("Titulo");
             if (t != null) t.Text = string.IsNullOrWhiteSpace(titulo) ? "Teclado" : titulo;
@@ -232,8 +263,18 @@ namespace PilotX.Desktop
                 case "ABC": _numerico = false; Pintar(); return;
             }
 
-            // Camino nativo (SendInput en Windows, xdotool/XTEST en Linux):
-            // escribe en los campos de la UI nativa, que no pasan por página.
+            // 1) Camino PREFERIDO: escribir DIRECTO en el TextBox nativo enfocado
+            //    (mismo proceso). No pasa por el foco de Windows ni SendInput, que
+            //    dejó de aterrizar al no activar la ventana del teclado. Cubre
+            //    WiFi, Red-IP, ConfigEditor y todos los paneles Avalonia.
+            if (EscribirEnTextBoxNativo(k))
+            {
+                if (_mayus) { _mayus = false; Pintar(); }
+                return;
+            }
+
+            // 2) Fallback (SendInput / xdotool): campos que NO son TextBox de
+            //    Avalonia. Las páginas del Hub ya recibieron la tecla por Publicar.
             TecladoNativo.DevolverFoco(_objetivo);
             switch (k)
             {
@@ -244,6 +285,86 @@ namespace PilotX.Desktop
             var texto = (_mayus && k.Length == 1 && char.IsLetter(k[0])) ? k.ToUpperInvariant() : k;
             TecladoNativo.EscribirTexto(_objetivo, texto);
             if (_mayus) { _mayus = false; Pintar(); }
+        }
+
+        // --- Entrega in-process al TextBox nativo enfocado ----------------------
+
+        /// <summary>Aplica la tecla directamente sobre el TextBox de Avalonia que
+        /// tiene el foco. Devuelve false si no hay ninguno (p.ej. el foco está en
+        /// una página web del Hub) para que el llamador use el fallback.</summary>
+        private bool EscribirEnTextBoxNativo(string k)
+        {
+            TextBox? tb = TextBoxEnfocado();
+            if (tb == null) return false;
+            try
+            {
+                switch (k)
+                {
+                    case "⌫": Borrar(tb); return true;
+                    case "⏎":
+                        tb.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+                        return true;
+                    case "espacio": Insertar(tb, " "); return true;
+                }
+                var texto = (_mayus && k.Length == 1 && char.IsLetter(k[0])) ? k.ToUpperInvariant() : k;
+                Insertar(tb, texto);
+                return true;
+            }
+            catch { return false; }
+        }
+
+        private TextBox? TextBoxEnfocado()
+        {
+            // Preferimos el foco real de Avalonia (app-wide); si por algún hueco
+            // de scope viene null, caemos al último TextBox que ganó foco.
+            try
+            {
+                if (FocusManager?.GetFocusedElement() is TextBox tbFoco) return tbFoco;
+            }
+            catch { }
+            if (_ultimoFoco != null && _ultimoFoco.TryGetTarget(out var tb) && tb.IsEffectivelyVisible)
+                return tb;
+            return null;
+        }
+
+        // Inserción/borrado manuales sobre .Text + caret: determinista y sin
+        // depender del ruteo de eventos de entrada. Respeta la selección y el
+        // PasswordChar (afecta solo cómo se dibuja, no el texto real).
+        private static void Insertar(TextBox tb, string texto)
+        {
+            var t = tb.Text ?? "";
+            int a = Math.Min(tb.SelectionStart, tb.SelectionEnd);
+            int b = Math.Max(tb.SelectionStart, tb.SelectionEnd);
+            a = Math.Clamp(a, 0, t.Length);
+            b = Math.Clamp(b, 0, t.Length);
+            if (b > a) t = t.Remove(a, b - a);
+            tb.Text = t.Insert(a, texto);
+            int caret = a + texto.Length;
+            tb.CaretIndex = caret;
+            tb.SelectionStart = tb.SelectionEnd = caret;
+        }
+
+        private static void Borrar(TextBox tb)
+        {
+            var t = tb.Text ?? "";
+            int a = Math.Min(tb.SelectionStart, tb.SelectionEnd);
+            int b = Math.Max(tb.SelectionStart, tb.SelectionEnd);
+            a = Math.Clamp(a, 0, t.Length);
+            b = Math.Clamp(b, 0, t.Length);
+            if (b > a)
+            {
+                tb.Text = t.Remove(a, b - a);
+                tb.CaretIndex = a;
+                tb.SelectionStart = tb.SelectionEnd = a;
+                return;
+            }
+            int caret = Math.Clamp(tb.CaretIndex, 0, t.Length);
+            if (caret > 0)
+            {
+                tb.Text = t.Remove(caret - 1, 1);
+                tb.CaretIndex = caret - 1;
+                tb.SelectionStart = tb.SelectionEnd = caret - 1;
+            }
         }
 
         // Los cambios de layout y de mayúsculas son cosa de esta ventana: no se

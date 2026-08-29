@@ -284,16 +284,20 @@ public sealed class QuantiXMapOverlay : Border
         _puntoOnline.Fill = _estado == null ? TextoDim : (algunOnline ? Acento : Rojo);
 
         var motores = MotoresVisibles();
-        _filas.Children.Clear();
 
         if (motores.Count == 0)
         {
-            _filas.Children.Add(new TextBlock
+            if (_celdas.Count > 0 || _filas.Children.Count == 0)
             {
-                Text = _estado == null ? "Sin conexión con el motor" : "Sin motores en uso",
-                Foreground = TextoDim,
-                FontSize = 12,
-            });
+                _filas.Children.Clear();
+                _celdas.Clear();
+                _filas.Children.Add(new TextBlock
+                {
+                    Text = _estado == null ? "Sin conexión con el motor" : "Sin motores en uso",
+                    Foreground = TextoDim,
+                    FontSize = 12,
+                });
+            }
             // Sin motores no hay nada que comandar: barra afuera.
             _selUid = null;
             _selIdx = -1;
@@ -301,7 +305,14 @@ public sealed class QuantiXMapOverlay : Border
             return;
         }
 
-        ConstruirGrilla(motores);
+        // Las celdas se REUSAN entre polls: recrear todos los controles cada
+        // 500 ms genera texturas/vertex buffers nuevos en Skia sin parar y en
+        // esta GPU (Intel con el driver flojo) termina en "Could not allocate
+        // vertices" + crash del compositor. Solo se rearma la estructura si
+        // cambió la cantidad de motores; el resto es actualizar textos/brushes.
+        if (_celdas.Count != motores.Count) ConstruirGrilla(motores);
+        for (int i = 0; i < motores.Count; i++)
+            ActualizarCelda(_celdas[i], motores[i], i + 1);
 
         // Alimentar la barra horizontal con el estado FRESCO del seleccionado.
         // Si el motor elegido desapareció (nodo offline, se reconfiguró la
@@ -325,7 +336,8 @@ public sealed class QuantiXMapOverlay : Border
                     NombreDeFila(sel.Value),
                     m.ManualMode,
                     WidgetQuantiXClient.FormatoDosis(dosis, m.Unidad),
-                    WidgetQuantiXClient.EtiquetaUnidad(m.Unidad));
+                    WidgetQuantiXClient.EtiquetaUnidad(m.Unidad),
+                    m.Rpm);
                 _barra.IsVisible = true;
             }
         }
@@ -360,16 +372,34 @@ public sealed class QuantiXMapOverlay : Border
         Render();
     }
 
-    // Grilla de celdas numeradas: una celda por motor, SOLO el número, pintada
-    // por desvío. Con N motores (14 en la venta de esta semana) las filas ya no
-    // escalan; la mancha de color deja ver el estado de todos de un vistazo, y
-    // el detalle del que se toca sale grande en la barra de abajo.
+    // Grilla de celdas numeradas: una celda por motor, número + real + rpm,
+    // pintada por desvío. Con N motores (14 en la venta de esta semana) las
+    // filas ya no escalan; la mancha de color deja ver el estado de todos de
+    // un vistazo, y el control del que se toca sale en la barra de abajo.
     //
     // Reparto: hasta 7 columnas, filas balanceadas (14 -> 2x7, 8 -> 2x4,
     // 3 -> 1x3, 15 -> 3x5). El ancho del overlay crece con las columnas — es
     // arrastrable, el mapa se sigue viendo alrededor.
+    //
+    // Las celdas son PERSISTENTES (ver Render): acá solo se crea la
+    // estructura; los valores los pinta ActualizarCelda en cada poll.
+    private sealed class Celda
+    {
+        public Button Btn = null!;
+        public TextBlock Num = null!;
+        public TextBlock Dosis = null!;
+        public TextBlock Rpm = null!;
+        /// <summary>El MotorRef FRESCO del último poll; el click lee de acá.</summary>
+        public MotorRef Ref;
+    }
+
+    private readonly List<Celda> _celdas = new();
+
     private void ConstruirGrilla(List<MotorRef> motores)
     {
+        _filas.Children.Clear();
+        _celdas.Clear();
+
         int n = motores.Count;
         int filas = (int)Math.Ceiling(n / 7.0);
         int cols  = (int)Math.Ceiling(n / (double)filas);
@@ -379,61 +409,106 @@ public sealed class QuantiXMapOverlay : Border
         {
             var filaH = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
             for (int c = 0; c < cols && i < n; c++, i++)
-                filaH.Children.Add(CeldaMotor(motores[i], i + 1));
+            {
+                var celda = CrearCelda();
+                _celdas.Add(celda);
+                filaH.Children.Add(celda.Btn);
+            }
             _filas.Children.Add(filaH);   // _filas tiene Spacing=4: separa las filas
         }
     }
 
-    // Celda de un motor: el NÚMERO (1..N) grande, con fondo tintado por desvío
-    // (verde ±5%, ámbar ±15%, rojo más allá — mismo criterio que la barra).
-    // Apagado/sin dosis = gris. El MANUAL NO se marca acá: se ve en el detalle
-    // del elegido (decisión de diseño: la grilla queda solo número + color).
-    // Button y no Border: el arrastre del overlay ignora los toques sobre
-    // Button, así que elegir un motor no "agarra" el panel.
-    private Control CeldaMotor(MotorRef r, int numero)
+    // Estructura de la celda: número grande arriba; debajo lo que el motor
+    // está ENTREGANDO (real, en sem/m o kg/ha) y sus rpm (pedido 2026-08-21).
+    // El MANUAL NO se marca acá: se ve en la barra del elegido. Button y no
+    // Border: el arrastre del overlay ignora los toques sobre Button, así que
+    // elegir un motor no "agarra" el panel.
+    private Celda CrearCelda()
+    {
+        var celda = new Celda();
+
+        celda.Num = new TextBlock
+        {
+            FontSize = 15,
+            FontWeight = FontWeight.Bold,
+            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        celda.Dosis = new TextBlock
+        {
+            Foreground = TextoMid,
+            FontSize = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        celda.Rpm = new TextBlock
+        {
+            Foreground = TextoDim,
+            FontSize = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+
+        var contenido = new StackPanel
+        {
+            Spacing = 1,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        contenido.Children.Add(celda.Num);
+        contenido.Children.Add(celda.Dosis);
+        contenido.Children.Add(celda.Rpm);
+
+        celda.Btn = new Button
+        {
+            CornerRadius = new CornerRadius(6),
+            Padding = new Thickness(4, 2),
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Content = contenido,
+        };
+        celda.Btn.Click += (_, __) => Seleccionar(celda.Ref);
+        return celda;
+    }
+
+    // Pinta una celda con el estado fresco del motor: fondo/borde por desvío
+    // (verde ±5%, ámbar ±15%, rojo más allá — mismo criterio que la barra),
+    // apagado/sin dosis = gris y sin detalle.
+    private void ActualizarCelda(Celda celda, MotorRef r, int numero)
     {
         var m = r.Motor;
+        celda.Ref = r;
 
         IBrush borde = Borde, fondo = BgFila;
-        if (m.Objetivo > 0)
+        if (m.Activo && m.Objetivo > 0)
         {
             double desvio = Math.Abs(m.Real - m.Objetivo) / m.Objetivo * 100.0;
             if (desvio <= 5)       { borde = Acento; fondo = VerdeTenue; }
             else if (desvio <= 15) { borde = Ambar;  fondo = AmbarTenue; }
             else                   { borde = Rojo;   fondo = RojoTenue; }
         }
-        if (!m.Activo) { borde = Borde; fondo = BgFila; }
 
         bool sel = m.Idx == _selIdx
             && string.Equals(r.Uid, _selUid, StringComparison.OrdinalIgnoreCase);
 
-        var num = new TextBlock
-        {
-            Text = numero.ToString(CultureInfo.InvariantCulture),
-            Foreground = m.Activo ? TextoHi : TextoDim,
-            FontSize = 15,
-            FontWeight = FontWeight.Bold,
-            FontFamily = new FontFamily("Consolas, Courier New, monospace"),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
+        celda.Num.Text = numero.ToString(CultureInfo.InvariantCulture);
+        celda.Num.Foreground = m.Activo ? TextoHi : TextoDim;
 
-        var btn = new Button
+        celda.Dosis.IsVisible = m.Activo;
+        celda.Rpm.IsVisible = m.Activo;
+        if (m.Activo)
         {
-            Background = sel ? new SolidColorBrush(Color.Parse("#26404A34")) : fondo,
-            BorderBrush = sel ? Acento : borde,
-            BorderThickness = new Thickness(sel ? 2 : 1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(0),
-            Width = 40,
-            MinHeight = 36,   // tocable con guante
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            VerticalContentAlignment = VerticalAlignment.Center,
-            Content = num,
-        };
-        btn.Click += (_, __) => Seleccionar(r);
-        return btn;
+            celda.Dosis.Text = WidgetQuantiXClient.FormatoDosis(m.Real, m.Unidad)
+                             + " " + WidgetQuantiXClient.EtiquetaUnidad(m.Unidad);
+            celda.Rpm.Text = m.Rpm.ToString(CultureInfo.InvariantCulture) + " rpm";
+        }
+
+        celda.Btn.Background = sel ? SelFondo : fondo;
+        celda.Btn.BorderBrush = sel ? Acento : borde;
+        celda.Btn.BorderThickness = new Thickness(sel ? 2 : 1);
+        celda.Btn.MinWidth = m.Activo ? 66 : 40;
+        celda.Btn.MinHeight = m.Activo ? 52 : 36;   // tocable con guante
     }
+
+    private static readonly IBrush SelFondo = new SolidColorBrush(Color.Parse("#26404A34"));
 
     /// <summary>Cómo se identifica la fila. Con una sola tolva alcanza el
     /// nombre del motor; con varias hay que decir de qué tolva es, porque los

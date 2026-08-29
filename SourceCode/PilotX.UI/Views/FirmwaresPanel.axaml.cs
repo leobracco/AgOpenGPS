@@ -58,7 +58,12 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
 
     // Archivo elegido. -1 en el tamaño = no se pudo leer la metadata (el
     // browser siempre la tiene; acá el tamaño real se mide al leer los bytes).
+    // Dos formas excluyentes: _archivoRuta cuando vino del explorador PROPIO
+    // de PilotX (ruta local — el tamaño sale de FileInfo.Length, que es sobre
+    // lo que validan los guards de 8 MB/1 KB), _archivo cuando vino del
+    // StorageProvider del sistema (fallback no-Windows) o del drag & drop.
     private IStorageFile? _archivo;
+    private string? _archivoRuta;
     private long _archivoTamano = -1;
 
     private string _producto = "";     // value del <select> (vacío = sin elegir)
@@ -621,6 +626,19 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
 
     private async void OnDropZonePressed(object? sender, PointerPressedEventArgs e)
     {
+        // Explorador PROPIO de PilotX (card nativa táctil, con los USB
+        // arriba de todo). Solo si no está (Linux/Android) se cae al
+        // StorageProvider del sistema, que era el comportamiento anterior.
+        if (ExploradorArchivos.CardDisponible)
+        {
+            var rutas = await ExploradorArchivos.ElegirAsync(
+                T("Elegí un archivo de firmware"),
+                new[] { ".bin", ".hex", ".zip" });
+            if (rutas == null || rutas.Length == 0) return;
+            TomarRuta(rutas[0]);
+            return;
+        }
+
         var top = TopLevel.GetTopLevel(this);
         if (top == null) return;
 
@@ -681,8 +699,30 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
         catch { }
 
         _archivo = f;
+        _archivoRuta = null;
         AplicarArchivo(f.Name, tam);
         AutoCompletar(f.Name);
+    }
+
+    /// <summary>Variante para el explorador propio: entra una RUTA local. El
+    /// tamaño sale de FileInfo.Length — la metadata acá siempre está, así que
+    /// los guards de 8 MB/1 KB cortan ANTES de leer los bytes.</summary>
+    private void TomarRuta(string ruta)
+    {
+        long tam = -1;
+        string nombre = ruta;
+        try
+        {
+            var fi = new FileInfo(ruta);
+            nombre = fi.Name;
+            tam = fi.Length;
+        }
+        catch { try { nombre = System.IO.Path.GetFileName(ruta); } catch { } }
+
+        _archivo = null;
+        _archivoRuta = ruta;
+        AplicarArchivo(nombre, tam);
+        AutoCompletar(nombre);
     }
 
     private void AplicarArchivo(string? nombre, long tamano)
@@ -695,6 +735,7 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
         if (string.IsNullOrEmpty(nombre))
         {
             _archivo = null;
+            _archivoRuta = null;
             _archivoTamano = -1;
             if (meta != null) meta.Text = "";
             if (marco != null) { marco.Stroke = BordeAlto; marco.Fill = Superficie; }
@@ -824,7 +865,7 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
 
         // Orden de validaciones EXACTO al del original — el operario ve el
         // primer problema, no una lista.
-        if (_archivo == null)
+        if (_archivo == null && _archivoRuta == null)
         { SetResultado("err", T("Falta el archivo de firmware.")); return; }
         if (!RxProd.IsMatch(prod))
         { SetResultado("err", T("Producto inválido — elegí uno de la lista.")); return; }
@@ -847,7 +888,9 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
         {
             // Se lee hasta el cap + 1 byte: alcanza para saber que se pasó sin
             // cargar en RAM un archivo equivocado de cientos de MB.
-            var (datos, excedido) = await LeerBytesAsync(_archivo!, MaxBinBytes).ConfigureAwait(true);
+            var (datos, excedido) = _archivoRuta != null
+                ? await LeerBytesRutaAsync(_archivoRuta, MaxBinBytes).ConfigureAwait(true)
+                : await LeerBytesAsync(_archivo!, MaxBinBytes).ConfigureAwait(true);
             if (excedido)
             { MostrarProgreso(false); SetResultado("err", T("El archivo supera el límite de 8 MB.")); return; }
             if (datos == null)
@@ -908,6 +951,31 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
         {
             _subiendo = false;
             SetEnabled("BtnSubir", true);
+        }
+    }
+
+    /// <summary>Igual que LeerBytesAsync pero desde una ruta local (la que
+    /// devuelve el explorador propio de PilotX).</summary>
+    private static async Task<(byte[]? Datos, bool Excedido)> LeerBytesRutaAsync(string ruta, long tope)
+    {
+        try
+        {
+            using var origen = new FileStream(ruta, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var ms = new MemoryStream();
+            byte[] buf = new byte[64 * 1024];
+            long total = 0;
+            int n;
+            while ((n = await origen.ReadAsync(buf, 0, buf.Length).ConfigureAwait(false)) > 0)
+            {
+                total += n;
+                if (total > tope) return (null, true);
+                ms.Write(buf, 0, n);
+            }
+            return (ms.ToArray(), false);
+        }
+        catch
+        {
+            return (null, false);
         }
     }
 

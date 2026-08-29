@@ -84,6 +84,10 @@ internal static class Program
         // paginas se dan cuenta y usan su teclado HTML.
         try { new TecladoPoller(App.TargetUrl).Start(); } catch { }
 
+        // Seguimiento global del TextBox enfocado: el teclado en pantalla escribe
+        // DIRECTO en él (in-process), sin depender de SendInput ni del foco Win32.
+        TecladoWindow.RegistrarSeguimientoFoco();
+
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

@@ -169,6 +169,10 @@ public partial class MainWindow : Window
     private SistemaPanel? _sistemaHost;
     private SistemaClient? _sistemaClient;
 
+    // Config de IP (DHCP/fija) por adaptador. Overlay nativo.
+    private RedIpPanel? _redIpHost;
+    private RedIpClient? _redIpClient;
+
     // Datos GPS nativo (vel/heading/lat/lon/easting). Reemplaza pages/
     // datos-gps.html. Avalonia puro, sin red propia: consume el HUD.
     private GpsDataPanel? _gpsDataHost;
@@ -370,6 +374,11 @@ public partial class MainWindow : Window
     private FirmwaresPanel? _firmwaresHost;
     private FirmwaresClient? _firmwaresClient;
 
+    // Explorador de archivos PROPIO (spec 2026-08-20): card Elegir/Guardar que
+    // reemplaza al StorageProvider de Windows. Los paneles llegan a ella por
+    // ExploradorPanel.Instancia (la publica esta ventana al armar la UI).
+    private ExploradorPanel? _exploradorHost;
+
     // Banderas nativo, ex banderas.html (FormFlags + FormEnterFlag): se marca
     // una piedra o un pozo MANEJANDO y la lista da la distancia en vivo, o sea
     // que lo que hay que ver es el mapa — que la ventana HTML tapaba. Poll de
@@ -501,6 +510,8 @@ public partial class MainWindow : Window
 
         _fieldDataHost   = this.FindControl<FieldDataPanel>("FieldDataHost");
         _sistemaHost     = this.FindControl<SistemaPanel>("SistemaHost");
+        _redIpHost       = this.FindControl<RedIpPanel>("RedIpHost");
+        if (_redIpHost != null) _redIpHost.OnCerrar = CloseRedIp;
         _gpsDataHost     = this.FindControl<GpsDataPanel>("GpsDataHost");
         // ✕ propio de cada card (pedido 2026-08-18). La flecha "←" de la
         // esquina sigue funcionando; esto agrega la salida donde el operario
@@ -542,6 +553,18 @@ public partial class MainWindow : Window
         _insumosHost       = this.FindControl<InsumosPanel>("InsumosHost");
         _mapasHost         = this.FindControl<MapasPanel>("MapasHost");
         _nodoDetalleHost   = this.FindControl<NodoDetallePanel>("NodoDetalleHost");
+        _exploradorHost    = this.FindControl<ExploradorPanel>("ExploradorHost");
+        if (_exploradorHost != null)
+        {
+            // La card es única por ventana y se publica como estático (mismo
+            // espíritu que el toast vía Aviso): inyectarla habría tocado 4
+            // firmas de Attach + los caminos de embebido de ConfigPanel.
+            ExploradorPanel.Instancia = _exploradorHost;
+            _exploradorHost.BaseUrl = DeriveOrigin(App.TargetUrl);
+        }
+        // Aviso global de USB (independiente del explorador): el operario
+        // enchufa el pendrive y la pantalla confirma que lo vio.
+        IniciarWatcherUsb();
         _configHost        = this.FindControl<ConfigPanel>("ConfigHost");
         if (_configHost != null)
         {
@@ -1339,6 +1362,14 @@ public partial class MainWindow : Window
             // alguno. Si ya estaba en el mapa, cierra la ventana.
             if (App.WindowMode != "float")
             {
+                // El explorador de archivos va PRIMERO: es modal encima del
+                // panel que lo llamó — Esc lo cancela (resuelve null) sin
+                // cerrar el panel de abajo.
+                if (_exploradorHost != null && _exploradorHost.IsVisible)
+                {
+                    _exploradorHost.Cancelar();
+                    return;
+                }
                 if (_fieldDataHost != null && _fieldDataHost.IsVisible)
                 {
                     CloseFieldData();
@@ -1347,6 +1378,11 @@ public partial class MainWindow : Window
                 if (_sistemaHost != null && _sistemaHost.IsVisible)
                 {
                     CloseSistema();
+                    return;
+                }
+                if (_redIpHost != null && _redIpHost.IsVisible)
+                {
+                    CloseRedIp();
                     return;
                 }
                 if (_gpsDataHost != null && _gpsDataHost.IsVisible)
@@ -1511,16 +1547,15 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Trae el sprite del vehículo activo y se lo pasa al mapa. Reintenta cada
-    /// 5 s: así, cuando el operario elige otro vehículo en Configuración, el
-    /// mapa lo cambia solo. Si no hay sprite o falla, el mapa sigue con el
-    /// triángulo — nunca queda sin marcador de posición.
+    /// Trae las texturas del mapa (piso e implemento) reintentando cada 5 s.
+    /// El sprite del VEHÍCULO no se carga más: por el rediseño 2026-08-10 el
+    /// vehículo se dibuja SIEMPRE como el triángulo verde (mismo criterio que
+    /// VehiculoTab/MiniMapView) — sin sprite cargado, DrawTractor cae solo al
+    /// triángulo. La rueda delantera tampoco: solo decoraba al sprite.
     /// </summary>
     private async Task CargarSpriteVehiculoAsync(string origin)
     {
         var cli = new VehicleSpriteClient(origin);
-        string? ultimo = null;
-        bool ruedaLista = false;
         bool implementoListo = false;
         bool pisoListo = false;
         while (true)
@@ -1537,17 +1572,6 @@ public partial class MainWindow : Window
                         pisoListo = true;
                     }
                 }
-                // Rueda delantera e implemento: una sola vez, no cambian con el
-                // vehículo elegido.
-                if (!ruedaLista)
-                {
-                    var rueda = await cli.GetRuedaAsync().ConfigureAwait(false);
-                    if (rueda != null)
-                    {
-                        _mapHost?.SetWheelSprite(rueda.Rgba, rueda.Width, rueda.Height);
-                        ruedaLista = true;
-                    }
-                }
                 if (!implementoListo)
                 {
                     var impl = await cli.GetImplementoAsync().ConfigureAwait(false);
@@ -1557,18 +1581,8 @@ public partial class MainWindow : Window
                         implementoListo = true;
                     }
                 }
-                var sp = await cli.GetActivoAsync().ConfigureAwait(false);
-                string? actual = sp?.Archivo;
-                if (actual != ultimo)
-                {
-                    ultimo = actual;
-                    var mapa = _mapHost;
-                    if (mapa != null)
-                    {
-                        if (sp != null) mapa.SetVehicleSprite(sp.Rgba, sp.Width, sp.Height);
-                        else mapa.SetVehicleSprite(null, 0, 0);
-                    }
-                }
+                // Nada más que traer: cortar el loop en vez de pollear al pedo.
+                if (pisoListo && implementoListo) return;
             }
             catch { /* que el loop no muera nunca por un error puntual */ }
 
@@ -2541,6 +2555,9 @@ public partial class MainWindow : Window
     /// </summary>
     private void OnBackClick(object? sender, RoutedEventArgs e)
     {
+        // El explorador de archivos primero: es modal encima del panel que lo
+        // llamó — "←" lo cancela sin cerrar el panel de abajo.
+        if (_exploradorHost != null && _exploradorHost.IsVisible) { _exploradorHost.Cancelar(); return; }
         if (_guiasHost != null && _guiasHost.IsVisible) { _guiasHost.Cerrar(); return; }
         if (_loteHost != null && _loteHost.IsVisible) { _loteHost.Cerrar(); return; }
         if (_contornoHost != null && _contornoHost.IsVisible) { _contornoHost.Cerrar(); return; }
@@ -2561,6 +2578,7 @@ public partial class MainWindow : Window
         if (_recPathHost != null && _recPathHost.IsVisible) { _recPathHost.Cerrar(); return; }
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) { CloseFieldData(); return; }
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { CloseSistema();   return; }
+        if (_redIpHost     != null && _redIpHost.IsVisible)     { CloseRedIp();     return; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   { CloseGpsData();   return; }
         if (_stormXHost    != null && _stormXHost.IsVisible)    { CloseStormX();    return; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { CloseFlowX();     return; }
@@ -2741,6 +2759,36 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] Sistema closed -> back to native map");
     }
 
+    // ---------- Red IP overlay nativo (DHCP/fija por adaptador) -----------
+    private void ShowRedIp()
+    {
+        if (_redIpHost == null) return;
+        // Cerrar el resto de overlays (solo uno a la vez sobre el mapa).
+        if (_sistemaHost != null && _sistemaHost.IsVisible) { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
+        if (_gpsDataHost != null && _gpsDataHost.IsVisible) _gpsDataHost.IsVisible = false;
+        if (_configHost != null && _configHost.IsVisible) { _configHost.Detach(); _configHost.IsVisible = false; }
+        if (_wifiHost != null && _wifiHost.IsVisible) { _wifiHost.Detach(); _wifiHost.IsVisible = false; }
+        if (_webView != null) CloseWebView();
+
+        if (_redIpClient == null) _redIpClient = new RedIpClient(DeriveOrigin(App.TargetUrl));
+        _redIpHost.Attach(_redIpClient);
+        _redIpHost.IsVisible = true;
+        _redIpHost.Recargar();
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+        if (_webViewBack != null) _webViewBack.IsVisible = true;
+        System.Diagnostics.Debug.WriteLine("[PilotX.Desktop] RedIp open (nativo)");
+    }
+
+    private void CloseRedIp()
+    {
+        if (_redIpHost == null) return;
+        _redIpHost.IsVisible = false;
+        bool webViewVisible = _webView != null && (_webViewSlot?.IsVisible ?? false);
+        if (_webViewBack != null && !webViewVisible) _webViewBack.IsVisible = false;
+        if (_mapHost != null && App.WindowMode != "float") _mapHost.IsVisible = true;
+    }
+
     // ---------- Datos GPS overlay nativo (sin WebView) -------------------
 
     private void ShowGpsData()
@@ -2749,6 +2797,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
@@ -2814,6 +2863,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
         if (_flowXEditorHost != null && _flowXEditorHost.IsVisible) { _flowXEditorHost.Detach(); _flowXEditorHost.IsVisible = false; }
@@ -2887,6 +2937,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_sectionXHost  != null && _sectionXHost.IsVisible)  { _sectionXHost.Detach(); _sectionXHost.IsVisible = false; }
@@ -2962,6 +3013,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3036,6 +3088,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3109,6 +3162,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3180,6 +3234,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3262,6 +3317,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3338,6 +3394,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3413,6 +3470,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez (y se restaura el mapa si otro lo tapaba).
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3541,6 +3599,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3617,6 +3676,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3688,6 +3748,7 @@ public partial class MainWindow : Window
         if (_actualizarHost == null) return;
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3833,6 +3894,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -3912,6 +3974,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4033,6 +4096,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4115,6 +4179,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4197,6 +4262,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4279,6 +4345,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4362,6 +4429,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4451,6 +4519,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4534,6 +4603,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4617,6 +4687,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4700,6 +4771,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4783,6 +4855,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4866,6 +4939,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -4948,6 +5022,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -5031,6 +5106,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -5113,6 +5189,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -5199,6 +5276,7 @@ public partial class MainWindow : Window
         // Solo un overlay a la vez.
         if (_fieldDataHost != null && _fieldDataHost.IsVisible) _fieldDataHost.IsVisible = false;
         if (_sistemaHost   != null && _sistemaHost.IsVisible)   { _sistemaHost.Reset(); _sistemaHost.IsVisible = false; }
+        if (_redIpHost != null && _redIpHost.IsVisible) { _redIpHost.IsVisible = false; }
         if (_gpsDataHost   != null && _gpsDataHost.IsVisible)   _gpsDataHost.IsVisible = false;
         if (_stormXHost    != null && _stormXHost.IsVisible)    { _stormXHost.Detach(); _stormXHost.IsVisible = false; }
         if (_flowXHost     != null && _flowXHost.IsVisible)     { _flowXHost.Detach(); _flowXHost.IsVisible = false; }
@@ -6188,6 +6266,16 @@ public partial class MainWindow : Window
             // Ahora pregunta antes (mismo diálogo que el reset de fábrica).
             case "apagar": _ = ConfirmarSalidaAsync(); return true;
 
+            // Apagar / Reiniciar la PC desde el menú Herramientas: abren el
+            // panel Sistema nativo con esa acción ya armada (tap-to-confirm),
+            // así el operario solo confirma con un tap más. Reusa todo el
+            // power + confirmación de SistemaPanel; no apaga de un toque.
+            case "apagar_pc":    ShowSistema(); _sistemaHost?.ArmarAccion("shutdown"); return true;
+            case "reiniciar_pc": ShowSistema(); _sistemaHost?.ArmarAccion("restart");  return true;
+
+            // Config de IP (DHCP/fija) por adaptador — pantalla nativa.
+            case "red_ip":       ShowRedIp(); return true;
+
             // Modo kiosco ↔ ventana. El cockpit ya arranca a pantalla completa,
             // así que este toggle sirve para lo contrario: achicarlo a una
             // ventana con bordes cuando se trabaja en el taller o el escritorio,
@@ -7037,6 +7125,67 @@ public partial class MainWindow : Window
             borde.IsVisible = false;
         };
         _toastTimer.Start();
+    }
+
+    // ---- watcher global de USB (spec explorador 2026-08-20) ----------------
+    //
+    // Poll de 2 s con DriveInfo (sin WMI/registro) desde el arranque: USB
+    // nuevo → toast "USB conectado: <VOLUMEN> (<tamaño>)"; retirado → "USB
+    // retirado". Corre SIEMPRE, independiente de que el explorador esté
+    // abierto: el operario enchufa el pendrive mirando el mapa y necesita
+    // saber que el equipo lo vio ANTES de ir a buscar el archivo.
+    private DispatcherTimer? _usbTimer;
+    // letra → "ETIQUETA (14,2 GB)". null = todavía no hubo primer scan.
+    private System.Collections.Generic.Dictionary<string, string>? _usbConocidos;
+
+    private void IniciarWatcherUsb()
+    {
+        if (_usbTimer != null) return;
+        _usbTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _usbTimer.Tick += (_, __) => RevisarUsb();
+        _usbTimer.Start();
+        RevisarUsb();
+    }
+
+    private void RevisarUsb()
+    {
+        var ahora = new System.Collections.Generic.Dictionary<string, string>(
+            StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var d in System.IO.DriveInfo.GetDrives())
+            {
+                if (d.DriveType != System.IO.DriveType.Removable) continue;
+                bool listo; string etiqueta = ""; long tam = 0;
+                // IsReady/VolumeLabel pueden tirar con un lector a medio
+                // enumerar — ese drive simplemente todavía no cuenta.
+                try
+                {
+                    listo = d.IsReady;
+                    if (listo) { etiqueta = d.VolumeLabel; tam = d.TotalSize; }
+                }
+                catch { listo = false; }
+                if (!listo) continue;
+
+                string letra = d.Name.TrimEnd('\\', '/');
+                if (string.IsNullOrWhiteSpace(etiqueta)) etiqueta = "USB " + letra;
+                ahora[letra] = etiqueta + " (" + ExploradorPanel.FmtTamano(tam) + ")";
+            }
+        }
+        catch { return; }   // GetDrives falló entero: el próximo tick reintenta
+
+        var antes = _usbConocidos;
+        _usbConocidos = ahora;
+        // Primer scan silencioso: lo que ya estaba enchufado al arrancar no es
+        // novedad para el operario.
+        if (antes == null) return;
+
+        foreach (var kv in ahora)
+            if (!antes.ContainsKey(kv.Key))
+                MostrarToast(PilotX.Cockpit.Bars.Traductor.T("USB conectado") + ": " + kv.Value);
+        foreach (var kv in antes)
+            if (!ahora.ContainsKey(kv.Key))
+                MostrarToast(PilotX.Cockpit.Bars.Traductor.T("USB retirado"));
     }
 
     private async Task MostrarAvisoAsync(string titulo, string mensaje)

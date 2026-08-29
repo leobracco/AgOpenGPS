@@ -52,6 +52,7 @@ public sealed class WifiRedWire
     [JsonPropertyName("senal_pct")] public int     SenalPct  { get; set; }
     [JsonPropertyName("segura")]    public bool    Segura    { get; set; }
     [JsonPropertyName("conectada")] public bool    Conectada { get; set; }
+    [JsonPropertyName("guardada")]  public bool    Guardada  { get; set; }
 }
 
 /// <summary>Estado de la interfaz WiFi del equipo.</summary>
@@ -226,6 +227,34 @@ public sealed class RedWifiClient
             corte.CancelAfter(CorteListar);
             using var contenido = new StringContent("", Encoding.UTF8, "application/json");
             using var resp = await _http.PostAsync(_baseUrl + "api/red/wifi/desconectar", contenido, corte.Token)
+                                        .ConfigureAwait(false);
+            var json = await resp.Content.ReadAsStringAsync(corte.Token).ConfigureAwait(false);
+            var datos = JsonSerializer.Deserialize<WifiAccionWire>(Limpio(json), _jsonOpts);
+            return new WifiAccionResultado { Datos = datos };
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return new WifiAccionResultado { Cancelado = true };
+        }
+        catch (Exception ex)
+        {
+            return Falla<WifiAccionResultado>(ex);
+        }
+    }
+
+    // ------------------------------------------------------------- olvidar red
+
+    /// <summary>POST /api/red/wifi/olvidar — borra el perfil guardado (clave +
+    /// auto-conexión) de una red.</summary>
+    public async Task<WifiAccionResultado> OlvidarAsync(string ssid, CancellationToken ct = default)
+    {
+        try
+        {
+            using var corte = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            corte.CancelAfter(CorteListar);
+            string cuerpo = "{\"ssid\":" + JsonSerializer.Serialize(ssid ?? "") + "}";
+            using var contenido = new StringContent(cuerpo, Encoding.UTF8, "application/json");
+            using var resp = await _http.PostAsync(_baseUrl + "api/red/wifi/olvidar", contenido, corte.Token)
                                         .ConfigureAwait(false);
             var json = await resp.Content.ReadAsStringAsync(corte.Token).ConfigureAwait(false);
             var datos = JsonSerializer.Deserialize<WifiAccionWire>(Limpio(json), _jsonOpts);

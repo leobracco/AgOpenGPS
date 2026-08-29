@@ -156,6 +156,13 @@ namespace PilotX.Desktop
         private const int GWLP_WNDPROC = -4;
         private const uint WM_MOUSEACTIVATE = 0x0021;
         private const int MA_NOACTIVATE = 3;
+        // En pantalla TÁCTIL el toque no manda WM_MOUSEACTIVATE sino
+        // WM_POINTERACTIVATE (Windows no promueve el touch a mouse cuando la app
+        // procesa punteros, como hace Avalonia). Sin manejarlo, tocar una tecla
+        // ACTIVABA la ventana del teclado, el campo perdía el foco, su LostFocus
+        // cerraba el teclado y la tecla no se escribía (bug en la tablet F7N).
+        private const uint WM_POINTERACTIVATE = 0x024B;
+        private const int PA_NOACTIVATE = 3;
 
         private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
@@ -176,6 +183,7 @@ namespace PilotX.Desktop
             _wndProcPropio = (h, msg, w, l) =>
             {
                 if (msg == WM_MOUSEACTIVATE) return (IntPtr)MA_NOACTIVATE;
+                if (msg == WM_POINTERACTIVATE) return (IntPtr)PA_NOACTIVATE;
                 return CallWindowProc(_wndProcAnterior, h, msg, w, l);
             };
             _wndProcAnterior = SetWindowLongPtr(hWnd, GWLP_WNDPROC,

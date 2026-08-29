@@ -150,6 +150,30 @@ namespace AgroParallel.Updater
                 }
             }
 
+            // 3c. Update aplicado OK: borrar el payload staged (carpeta de la
+            // version) para no acumular ZIPs de ~200 MB en cada tractor y para
+            // que Check no lo vea como "listo para aplicar". Best-effort, y SOLO
+            // si el zip vivia dentro de <install>\AgroParallel\Updates\ — un
+            // update desde USB (--zip en el pendrive) NO se toca.
+            if (extractOk)
+            {
+                try
+                {
+                    string updatesRoot = Path.GetFullPath(Path.Combine(install, "AgroParallel", "Updates"))
+                                             .TrimEnd(Path.DirectorySeparatorChar);
+                    string verDir = Path.GetFullPath(Path.GetDirectoryName(zip) ?? "")
+                                        .TrimEnd(Path.DirectorySeparatorChar);
+                    if (verDir.StartsWith(updatesRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                        && !string.Equals(verDir, updatesRoot, StringComparison.OrdinalIgnoreCase)
+                        && Directory.Exists(verDir))
+                    {
+                        Directory.Delete(verDir, true);
+                        Log("Staging borrado: " + verDir);
+                    }
+                }
+                catch (Exception ex) { Log("No pude borrar staging (continuando): " + ex.Message); }
+            }
+
             // 4. Relanzar. Devolverle el vigilante a la versión nueva ANTES de
             // relanzar: si el flag queda, el .bat nunca más relanza la pantalla
             // caída.

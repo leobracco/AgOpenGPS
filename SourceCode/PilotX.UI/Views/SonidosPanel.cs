@@ -753,6 +753,33 @@ public sealed class SonidosPanel : Border, IPanelEmbebible
     {
         var cli = _client;
         if (cli == null) return;
+
+        // Explorador PROPIO de PilotX (card nativa táctil, USB arriba de
+        // todo). El POST aguas abajo es EL MISMO (bytes crudos). Fallback al
+        // StorageProvider del sistema en no-Windows.
+        if (ExploradorArchivos.CardDisponible)
+        {
+            var rutas = await ExploradorArchivos.ElegirAsync(
+                PilotX.Cockpit.Bars.Traductor.T("Elegí un sonido .wav"),
+                new[] { ".wav" });
+            if (rutas == null || rutas.Length == 0) return;
+
+            byte[] datosRuta;
+            string nombreRuta;
+            try
+            {
+                nombreRuta = Path.GetFileName(rutas[0]);
+                datosRuta = File.ReadAllBytes(rutas[0]);
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => MensajeError(ex.Message));
+                return;
+            }
+            await SubirDatosAsync(cli, nombreRuta, datosRuta).ConfigureAwait(false);
+            return;
+        }
+
         var top = TopLevel.GetTopLevel(this);
         if (top == null) return;
 
@@ -787,7 +814,14 @@ public sealed class SonidosPanel : Border, IPanelEmbebible
             return;
         }
 
-        var r = await cli.SubirArchivoAsync(archivo.Name, datos).ConfigureAwait(false);
+        await SubirDatosAsync(cli, archivo.Name, datos).ConfigureAwait(false);
+    }
+
+    /// <summary>Tramo común de la subida (POST + refresco de lista): lo usan
+    /// el explorador propio (ruta local) y el StorageProvider (fallback).</summary>
+    private async Task SubirDatosAsync(SonidosClient cli, string nombre, byte[] datos)
+    {
+        var r = await cli.SubirArchivoAsync(nombre, datos).ConfigureAwait(false);
         if (!r.Ok)
         {
             await Dispatcher.UIThread.InvokeAsync(() =>

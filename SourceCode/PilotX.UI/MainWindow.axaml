@@ -621,6 +621,8 @@
                 Hace HTTP a /api/sistema/* pero NO instancia WebView.
             -->
             <vw:SistemaPanel x:Name="SistemaHost" Grid.Row="2" IsVisible="False"/>
+            <!-- Config de IP (DHCP/fija) por adaptador. Overlay nativo. -->
+            <vw:RedIpPanel x:Name="RedIpHost" Grid.Row="2" IsVisible="False"/>
 
             <!-- =================== DATOS GPS (overlay nativo) =================== -->
             <!--
@@ -1188,6 +1190,16 @@
                 <vw:ConfigPanel x:Name="ConfigHost" Grid.Row="1" ZIndex="10"
                                 IsVisible="False"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+
+                <!-- EXPLORADOR DE ARCHIVOS propio de PilotX (spec 2026-08-20):
+                     card nativa Elegir/Guardar que reemplaza al StorageProvider
+                     de Windows (Firmwares, Shape de QuantiX, Sonidos, export de
+                     Debug). ZIndex ALTO a propósito: se abre ENCIMA de los
+                     paneles que la llaman (que van con ZIndex 10). Scrim propio;
+                     el mapa sigue VIVO detrás — nunca se apaga. -->
+                <vw:ExploradorPanel x:Name="ExploradorHost" Grid.Row="1" ZIndex="30"
+                                    IsVisible="False"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
 
                 <!-- TOAST transitorio: avisos que NO piden decisión ("apagá las
                      secciones primero…"). Se va solo a los 4 s y no bloquea

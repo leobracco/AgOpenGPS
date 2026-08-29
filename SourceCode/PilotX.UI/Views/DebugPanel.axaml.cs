@@ -656,9 +656,6 @@ public partial class DebugPanel : UserControl, IPanelEmbebible
 
     private async void OnExportarClick(object? sender, RoutedEventArgs e)
     {
-        var top = TopLevel.GetTopLevel(this);
-        if (top == null) return;
-
         // MISMO formato de línea y MISMO nombre de archivo que el original
         // ("debug-" + toISOString con ':' y '.' cambiados por '-' + ".log").
         var sb = new StringBuilder();
@@ -676,6 +673,31 @@ public partial class DebugPanel : UserControl, IPanelEmbebible
         string nombre = "debug-" +
             DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture)
                     .Replace(':', '-').Replace('.', '-') + ".log";
+
+        // Explorador PROPIO de PilotX en modo GUARDAR (nombre con teclado
+        // nativo, confirmación inline si pisa). Fallback al SaveFilePicker del
+        // sistema en no-Windows.
+        if (ExploradorArchivos.CardDisponible)
+        {
+            string? ruta = await ExploradorArchivos.GuardarAsync(
+                T("Exportar log"),
+                System.IO.Path.GetFileNameWithoutExtension(nombre),
+                "log");
+            if (ruta == null) return;
+            try
+            {
+                System.IO.File.WriteAllBytes(ruta, new UTF8Encoding(false).GetBytes(sb.ToString()));
+            }
+            catch (Exception ex)
+            {
+                var err2 = AgroParallel.Services.AgpErrorMapper.FromException(ex);
+                Aviso?.Invoke(err2.Code + " · " + T(err2.Friendly));
+            }
+            return;
+        }
+
+        var top = TopLevel.GetTopLevel(this);
+        if (top == null) return;
 
         IStorageFile? destino;
         try

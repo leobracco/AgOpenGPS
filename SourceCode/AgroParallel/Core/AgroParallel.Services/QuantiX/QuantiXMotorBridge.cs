@@ -51,6 +51,18 @@ namespace AgroParallel.QuantiX
         // un motor queda mal configurado (surcos de trenes distintos).
         private bool _loggedTrenConflicto;
 
+        // Antirrebote de APAGADO por (uid, motor): sectionOnRequest es la señal
+        // CRUDA del cálculo de secciones del engine y puede parpadear en falso
+        // durante un solo frame (medido en banco 2026-08-22: blips de 1 tick con
+        // velocidad y dosis estables, cada 6-30 s). Cada blip mandaba un target
+        // con seccion_on:false → el nodo cortaba PWM y reseteaba el PID → bache
+        // de dosis de ~1 s. Regla: para CORTAR hace falta ver la sección apagada
+        // SEC_OFF_TICKS ticks seguidos (~400 ms a 200 ms/tick); para PRENDER no
+        // hay retardo. El cierre de lote (IsJobStarted) NO pasa por acá: corta
+        // en el tick.
+        private const int SEC_OFF_TICKS = 2;
+        private readonly Dictionary<string, int[]> _secOffStreak = new Dictionary<string, int[]>();
+
         // "Una vez por arranque" (mismo patrón que SectionXCutAdapter): dos
         // flags independientes porque un mismo rig puede tener motores que sí
         // derivan del implemento y otros que caen al fallback por nodo.
@@ -350,6 +362,30 @@ namespace AgroParallel.QuantiX
                         if (!seccionOn && !tieneCortes && dosisEfectiva > 0 && velMotorKmh > 0.5)
                             seccionOn = true;
 
+                        // Antirrebote de apagado (ver campo _secOffStreak arriba):
+                        // absorber blips de sectionOnRequest de menos de
+                        // SEC_OFF_TICKS ticks antes de mandar el corte al nodo.
+                        int[] streak;
+                        if (!_secOffStreak.TryGetValue(nodo.Uid, out streak) ||
+                            streak.Length < nodo.Motores.Length)
+                        {
+                            streak = new int[nodo.Motores.Length];
+                            _secOffStreak[nodo.Uid] = streak;
+                        }
+                        if (seccionOn)
+                        {
+                            streak[mi] = 0;
+                        }
+                        else
+                        {
+                            streak[mi]++;
+                            if (streak[mi] < SEC_OFF_TICKS)
+                            {
+                                seccionOn = true; // blip de 1 tick: sostener el motor
+                                Log(string.Format("  M{0}: blip seccion OFF de 1 tick absorbido (antirrebote)", mi));
+                            }
+                        }
+
                         // Gate maestro de siembra: sin trabajo/lote abierto NO se
                         // dosifica, aunque haya velocidad, secciones en ON o dosis
                         // fija/manual cargada. El estado de sección (SectionOnRequest)
@@ -433,11 +469,17 @@ namespace AgroParallel.QuantiX
             }
         }
 
-        // Velocidad efectiva de un motor = promedio de la velocidad real de las
-        // secciones que cubre (Cortes). PilotX calcula esas velocidades con el
-        // efecto de rotación del implemento en curvas (signo incluido: una
-        // sección interna puede ir más lento o incluso para atrás). Si no hay
-        // velocidades por sección o el motor no tiene cortes válidos, cae a la
+        // Velocidad efectiva de un motor = velocidad GPS del tractor escalada
+        // por la PROPORCIÓN entre la velocidad de sus secciones (Cortes) y la
+        // media de todas las secciones. La proporción captura el efecto de
+        // rotación en curvas (la sección externa va más rápido que la interna,
+        // signo incluido). La MAGNITUD absoluta se ancla al GPS a propósito:
+        // speedPixels del núcleo asume que el lazo de posición corre exacto a
+        // gpsHz y en la práctica corre más lento — medido en banco 2026-08-24,
+        // TODAS las velocidades por sección salían ~8% bajas y la dosis quedaba
+        // corta en la misma proporción (7 sem/m pedidos → 6.4 entregados).
+        // Si no hay velocidades por sección, el motor no tiene cortes válidos,
+        // o la media global es casi cero (parado: ratio ruidoso), cae a la
         // velocidad promedio del tractor.
         private static double MotorSpeedKmh(IList<int> cortes, double[] sectionSpeeds, double avgSpeedKmh)
         {
@@ -455,7 +497,14 @@ namespace AgroParallel.QuantiX
                     count++;
                 }
             }
-            return count > 0 ? sum / count : avgSpeedKmh;
+            if (count == 0) return avgSpeedKmh;
+
+            double globalSum = 0;
+            for (int i = 0; i < sectionSpeeds.Length; i++) globalSum += sectionSpeeds[i];
+            double globalMean = globalSum / sectionSpeeds.Length;
+            if (globalMean < 0.5) return avgSpeedKmh;
+
+            return avgSpeedKmh * ((sum / count) / globalMean);
         }
 
         // motor.Cortes son SECCIONES PilotX (1-based) que controla el motor —

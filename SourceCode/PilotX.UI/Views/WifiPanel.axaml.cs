@@ -334,6 +334,37 @@ public partial class WifiPanel : UserControl, IPanelEmbebible
         await CargarAsync(true, ct).ConfigureAwait(true);
     }
 
+    // Olvidar (borrar el perfil guardado): deja de reconectar sola y saca la
+    // clave. Después vuelve a listar.
+    private async Task OlvidarAsync(string ssid)
+    {
+        if (_client == null || string.IsNullOrEmpty(ssid)) return;
+        var ct = _cts?.Token ?? CancellationToken.None;
+        await _client.OlvidarAsync(ssid, ct).ConfigureAwait(true);
+        if (ct.IsCancellationRequested) return;
+        _seleccionada = null;
+        await CargarAsync(true, ct).ConfigureAwait(true);
+    }
+
+    private Button BotonOlvidar(string ssid)
+    {
+        var b = new Button
+        {
+            Content = "Olvidar",
+            Background = Superficie2,
+            Foreground = Rojo,
+            BorderBrush = BordeAlto,
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            MinHeight = 44,
+            Padding = new Thickness(18, 0, 18, 0),
+            FontSize = 14,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        b.Click += (_, __) => _ = OlvidarAsync(ssid);
+        return b;
+    }
+
     // =========================================================================
     //  pintado
     // =========================================================================
@@ -618,7 +649,10 @@ public partial class WifiPanel : UserControl, IPanelEmbebible
                 VerticalContentAlignment = VerticalAlignment.Center
             };
             btn.Click += (_, __) => _ = DesconectarAsync();
-            pila.Children.Add(btn);
+            var fila = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            fila.Children.Add(btn);
+            fila.Children.Add(BotonOlvidar(r.Ssid ?? ""));
+            pila.Children.Add(fila);
             return pila;
         }
 
@@ -672,6 +706,17 @@ public partial class WifiPanel : UserControl, IPanelEmbebible
         linea.Children.Add(conectar);
 
         pila.Children.Add(linea);
+
+        // Si ya nos conectamos alguna vez, ofrecer borrar el perfil guardado
+        // (con su clave) aunque ahora no esté conectada.
+        if (r.Guardada)
+        {
+            var olvidar = BotonOlvidar(ssidClave);
+            olvidar.Margin = new Thickness(0, 8, 0, 0);
+            olvidar.HorizontalAlignment = HorizontalAlignment.Left;
+            pila.Children.Add(olvidar);
+        }
+
         return pila;
     }
 

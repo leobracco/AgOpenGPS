@@ -287,7 +287,11 @@ namespace AgroParallel.OrbitX
                         }
 
                         bool newer = CompareSemver(latest.version, Snapshot().CurrentVersion) > 0;
-                        bool staged = File.Exists(Path.Combine(stagingRoot ?? StagingRoot(), latest.version, payloadFileName));
+                        // El payload staged solo cuenta si ademas es MAS NUEVO que
+                        // lo instalado. Sin el "newer &&", tras aplicar un update el
+                        // payload.zip queda en staging y Check marcaba ReadyToApply
+                        // en falso (misma version = "listo para aplicar" eterno).
+                        bool staged = newer && File.Exists(Path.Combine(stagingRoot ?? StagingRoot(), latest.version, payloadFileName));
 
                         Update(s =>
                         {

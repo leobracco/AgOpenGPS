@@ -48,6 +48,7 @@ namespace AgroParallel.WebHost.Controllers
                     senal_pct = r.SenalPct,
                     segura = r.Segura,
                     conectada = r.Conectada,
+                    guardada = r.Guardada,
                 }).ToList(),
             });
         }
@@ -85,6 +86,24 @@ namespace AgroParallel.WebHost.Controllers
                 return WriteJsonAsync(new { ok = false, error = "service-unavailable" });
             bool ok = _wifi.Desconectar(out string error);
             return WriteJsonAsync(new { ok, error });
+        }
+
+        [Route(HttpVerbs.Post, "/red/wifi/olvidar")]
+        public async Task Olvidar()
+        {
+            if (_wifi == null)
+            {
+                await WriteJsonAsync(new { ok = false, error = "service-unavailable" }).ConfigureAwait(false);
+                return;
+            }
+            var req = await ReadJsonBodyAsync<ConectarRequest>().ConfigureAwait(false);
+            if (req == null || string.IsNullOrWhiteSpace(req.Ssid))
+            {
+                await WriteErrorAsync(400, "BAD_REQUEST", "Falta el ssid").ConfigureAwait(false);
+                return;
+            }
+            bool ok = _wifi.Olvidar(req.Ssid.Trim(), out string error);
+            await WriteJsonAsync(new { ok, error }).ConfigureAwait(false);
         }
     }
 }

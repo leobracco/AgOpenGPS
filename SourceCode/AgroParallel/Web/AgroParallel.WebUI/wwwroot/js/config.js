@@ -1661,6 +1661,55 @@
     document.getElementById('main').scrollTop = 0;
   }
 
+  // Confirmación táctil a pantalla completa. El confirm() del SO sale chico e
+  // inservible con guantes (mismo motivo que sistema.html). Estilos inline para
+  // no depender de CSS externo; usa las variables agp si están. Promise<bool>.
+  function confirmarTactil(msg) {
+    return new Promise(function (resolve) {
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);' +
+        'display:flex;align-items:center;justify-content:center';
+      var box = document.createElement('div');
+      box.style.cssText = 'background:var(--agp-surface,#1e1e22);border:1px solid var(--agp-border,#444);' +
+        'border-radius:12px;padding:24px;min-width:320px;max-width:90vw;text-align:center;color:var(--agp-text,#eee)';
+      var p = document.createElement('div');
+      p.textContent = msg || '¿Confirmar?';
+      p.style.cssText = 'font-size:20px;margin-bottom:20px';
+      var fila = document.createElement('div');
+      fila.style.cssText = 'display:flex;gap:12px;justify-content:center';
+      var bCancel = document.createElement('button');
+      bCancel.type = 'button';
+      bCancel.textContent = 'Cancelar';
+      bCancel.style.cssText = 'flex:1;padding:14px;font-size:18px;border-radius:8px;' +
+        'border:1px solid var(--agp-border,#444);background:var(--agp-bg-soft,#2a2a2e);color:inherit';
+      var bOk = document.createElement('button');
+      bOk.type = 'button';
+      bOk.textContent = 'Confirmar';
+      bOk.style.cssText = 'flex:1;padding:14px;font-size:18px;border-radius:8px;border:0;background:#C84141;color:#fff';
+      function cerrar(v) { try { document.body.removeChild(ov); } catch (e) { } resolve(v); }
+      bCancel.addEventListener('click', function () { cerrar(false); });
+      bOk.addEventListener('click', function () { cerrar(true); });
+      ov.addEventListener('click', function (e) { if (e.target === ov) cerrar(false); });
+      fila.appendChild(bCancel); fila.appendChild(bOk);
+      box.appendChild(p); box.appendChild(fila); ov.appendChild(box);
+      document.body.appendChild(ov);
+    });
+  }
+
+  async function accionEnergia(action, msg) {
+    var ok = await confirmarTactil(msg || '¿Confirmar?');
+    if (!ok) return;
+    setEstado(action === 'shutdown' ? 'Apagando…' : 'Reiniciando…', '');
+    try {
+      var res = await fetch('/api/sistema/power?action=' + encodeURIComponent(action), { method: 'POST' });
+      var data = await res.json();
+      // Si ok, la PC se apaga/reinicia y no hay más nada que hacer.
+      if (!data.ok) setEstado('No se pudo: ' + (data.error || 'error'), 'err');
+    } catch (e) {
+      setEstado('Sin conexión con el sistema', 'err');
+    }
+  }
+
   document.querySelectorAll('#menu button').forEach(function (b) {
     b.addEventListener('click', function () {
       // "WiFi de Windows" (postMessage open-wifi-settings) MURIÓ 2026-08-15:
@@ -1685,6 +1734,12 @@
         document.querySelectorAll('section[data-tab]').forEach(function (s) {
           s.classList.toggle('activa', s.dataset.tab === 'modulo');
         });
+        return;
+      }
+      // Acciones de energía (Apagar / Reiniciar): no abren módulo ni pestaña,
+      // disparan POST /api/sistema/power tras confirmación táctil.
+      if (b.dataset.action) {
+        accionEnergia(b.dataset.action, b.dataset.confirm);
         return;
       }
       irATab(b.dataset.tab);

@@ -150,6 +150,19 @@ public partial class SistemaPanel : UserControl, IPanelEmbebible
         DisarmAll();
     }
 
+    /// <summary>
+    /// Pre-arma una acción de power desde afuera. Lo usa el menú izquierdo:
+    /// "Apagar PC" / "Reiniciar PC" abren Sistema con esa card ya armada, así
+    /// el operario solo confirma con un tap más (reusa el tap-to-confirm, sin
+    /// riesgo de apagar de un toque). Corre en el hilo de UI (lo llama
+    /// RouteCockpitCommand justo después de ShowSistema).
+    /// </summary>
+    public void ArmarAccion(string action)
+    {
+        if (action is "shutdown" or "restart" or "suspend" or "exitApp")
+            ArmAction(action);
+    }
+
     // ---------- Brillo --------------------------------------------------
 
     private async Task LoadBrilloAsync()

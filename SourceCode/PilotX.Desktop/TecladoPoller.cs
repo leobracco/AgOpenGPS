@@ -31,6 +31,10 @@ namespace PilotX.Desktop
         private readonly string _url;
         private CancellationTokenSource? _cts;
         private long _ultimaSeq = -1;
+        // Generación de "ocultar": cada cambio de estado la incrementa. Un ocultar
+        // pendiente solo se ejecuta si su generación sigue siendo la vigente; si
+        // el teclado se reabre antes (parpadeo de foco al teclear), se cancela.
+        private int _genOcultar;
 
         public TecladoPoller(string baseUrl)
         {
@@ -83,22 +87,43 @@ namespace PilotX.Desktop
                     if (seq != _ultimaSeq)
                     {
                         _ultimaSeq = seq;
-                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        if (abierto)
                         {
-                            try
+                            // Reabrir cancela cualquier ocultar pendiente.
+                            Interlocked.Increment(ref _genOcultar);
+                            await Dispatcher.UIThread.InvokeAsync(() =>
                             {
-                                if (abierto) TecladoWindow.Mostrar(numerico, titulo);
-                                else TecladoWindow.Ocultar();
-                            }
-                            catch (Exception ex)
+                                try { TecladoWindow.Mostrar(numerico, titulo); }
+                                catch (Exception ex)
+                                {
+                                    // Sin esto, un error al construir la ventana (un XAML
+                                    // que no parsea, por ejemplo) se perdía y el síntoma
+                                    // era "el teclado no aparece", sin ninguna pista.
+                                    System.Diagnostics.Debug.WriteLine("[teclado] " + ex);
+                                    Console.WriteLine("[teclado] no pude mostrar la ventana: " + ex.Message);
+                                }
+                            });
+                        }
+                        else
+                        {
+                            // NO ocultar en el acto: al tocar una tecla el campo
+                            // parpadea el foco (LostFocus→GotFocus) y manda
+                            // cerrar+abrir; ocultar ya haría titilar el teclado en
+                            // cada tecla y lo devolvería a su posición inicial.
+                            // Esperamos una gracia > intervalo de poll; si se
+                            // reabre, esta generación queda vieja y no oculta.
+                            int gen = Interlocked.Increment(ref _genOcultar);
+                            _ = Task.Run(async () =>
                             {
-                                // Sin esto, un error al construir la ventana (un XAML
-                                // que no parsea, por ejemplo) se perdía y el síntoma
-                                // era "el teclado no aparece", sin ninguna pista.
-                                System.Diagnostics.Debug.WriteLine("[teclado] " + ex);
-                                Console.WriteLine("[teclado] no pude mostrar la ventana: " + ex.Message);
-                            }
-                        });
+                                try { await Task.Delay(700, ct).ConfigureAwait(false); }
+                                catch { return; }
+                                if (gen != Volatile.Read(ref _genOcultar)) return;
+                                await Dispatcher.UIThread.InvokeAsync(() =>
+                                {
+                                    try { TecladoWindow.Ocultar(); } catch { }
+                                });
+                            });
+                        }
                     }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }

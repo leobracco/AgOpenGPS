@@ -267,6 +267,12 @@
                    embebida en Configuración. Cuenta las semillas de cada surco
                    sobre un tramo y dice cuál está bien y cuál no. -->
               <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="conteo_semillas"><StackPanel><Image Classes="sico" Source="/Assets/menu/SectionMapping.png"/><TextBlock Classes="slbl" Text="Conteo de semillas"/></StackPanel></Button>
+              <!-- Apagar / Reiniciar la PC: enrutan por RouteCockpitCommand al
+                   panel Sistema nativo con la accion armada (tap-to-confirm). -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="apagar_pc"><StackPanel><Image Classes="sico" Source="/Assets/menu/SwitchOff.png"/><TextBlock Classes="slbl" Text="Apagar PC"/></StackPanel></Button>
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="reiniciar_pc"><StackPanel><Image Classes="sico" Source="/Assets/menu/SwitchOff.png"/><TextBlock Classes="slbl" Text="Reiniciar PC"/></StackPanel></Button>
+              <!-- Config de IP (DHCP/fija) por adaptador. -->
+              <Button Classes="sbtn" Command="{Binding SendCommand}" CommandParameter="red_ip"><StackPanel><Image Classes="sico" Source="/Assets/menu/Settings48.png"/><TextBlock Classes="slbl" Text="Red IP"/></StackPanel></Button>
             </UniformGrid>
           </ScrollViewer>
         </DockPanel>

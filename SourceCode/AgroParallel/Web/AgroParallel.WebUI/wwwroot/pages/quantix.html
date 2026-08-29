@@ -416,6 +416,17 @@
     .qxTipoDosif:hover{border-color:var(--agp-accent)}
     .qxIrCal{flex:0 0 auto;height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);color:var(--agp-accent);font-size:11px;font-weight:700;padding:0 8px;cursor:pointer}
     .qxIrCal:hover{border-color:var(--agp-accent)}
+    /* Calculadora sem/vuelta para motor no directo (alvéolos × piñón/corona) */
+    .qxCalcSV{flex:0 0 auto;width:34px;height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);font-size:14px;cursor:pointer}
+    .qxCalcSV:hover{border-color:var(--agp-accent)}
+    .svcalc{display:flex;align-items:center;flex-wrap:wrap;gap:8px;row-gap:6px;margin-top:6px;padding:8px 10px 8px 26px;border-radius:8px;background:var(--agp-bg-soft)}
+    .svcalc label{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--agp-text-muted)}
+    .svcalc input{width:56px;min-height:30px;background:var(--agp-bg);border:1px solid var(--agp-border);border-radius:6px;color:var(--agp-text);padding:4px 6px;font-size:13px;text-align:right}
+    .svcalc-prev{flex:1 1 200px;font-size:11px;color:var(--agp-accent)}
+    .svcalc button{height:30px;border-radius:6px;border:1px solid var(--agp-border);background:var(--agp-bg-soft);color:var(--agp-text);font-size:11px;font-weight:700;padding:0 10px;cursor:pointer}
+    .svcalc .qxSvUsar{color:var(--agp-accent)}
+    .svcalc .qxSvUsar:disabled{opacity:.4;cursor:default}
+    .svcalc button:hover:not(:disabled){border-color:var(--agp-accent)}
     /* Motor en DOS renglones (solo la fila de CONFIG — la vista en vivo
        sigue en una línea): arriba identidad + surcos, abajo dosificación.
        En un solo renglón la fila obligaba a agrandar la ventana. */

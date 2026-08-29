@@ -23,6 +23,8 @@ namespace AgroParallel.Services.Abstractions
         public bool Segura { get; set; }
         /// <summary>true = es la red actualmente conectada.</summary>
         public bool Conectada { get; set; }
+        /// <summary>true = ya hay un perfil guardado (se puede "Olvidar").</summary>
+        public bool Guardada { get; set; }
     }
 
     public sealed class WifiEstado
@@ -45,5 +47,9 @@ namespace AgroParallel.Services.Abstractions
         bool Conectar(string ssid, string clave, out string error);
 
         bool Desconectar(out string error);
+
+        /// <summary>Borra el perfil guardado de una red ("olvidar"): deja de
+        /// reconectar sola y saca la clave guardada. Devuelve el motivo en error.</summary>
+        bool Olvidar(string ssid, out string error);
     }
 }

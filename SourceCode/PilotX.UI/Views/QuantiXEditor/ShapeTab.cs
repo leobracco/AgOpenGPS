@@ -117,6 +117,36 @@ public sealed class ShapeTab : QxTab
 
     private async Task ElegirArchivosAsync()
     {
+        // Explorador PROPIO de PilotX (card nativa táctil, USB arriba de
+        // todo). El truco de las prescripciones NO cambia: el picker devuelve
+        // rutas y este llamador sigue juntando el .shp con sus hermanos
+        // .shx/.dbf. Fallback al StorageProvider del sistema en no-Windows.
+        if (ExploradorArchivos.CardDisponible)
+        {
+            var rutas = await ExploradorArchivos.ElegirAsync(
+                PilotX.Cockpit.Bars.Traductor.T("Elegí el .shp, el .shx y el .dbf"),
+                new[] { ".shp", ".shx", ".dbf", ".prj", ".cpg" },
+                multiple: true);
+            if (rutas == null) return;
+            foreach (var ruta in rutas)
+            {
+                string nombre = Path.GetFileName(ruta);
+                string ext2 = Path.GetExtension(nombre).ToLowerInvariant();
+                if (!REQ.Contains(ext2) && !OPT.Contains(ext2)) continue;
+                try
+                {
+                    var bytes = File.ReadAllBytes(ruta);
+                    // Re-elegir una extensión reemplaza la anterior (mismo
+                    // criterio que el camino StorageProvider de abajo).
+                    _elegidos.RemoveAll(x => x.Ext == ext2);
+                    _elegidos.Add((nombre, ext2, bytes));
+                }
+                catch { }
+            }
+            RenderArchivos();
+            return;
+        }
+
         var top = TopLevel.GetTopLevel(this);
         if (top?.StorageProvider == null) { QxUi.SetMsg(_msg, "✕ no se pudo abrir el explorador", "err"); return; }
 

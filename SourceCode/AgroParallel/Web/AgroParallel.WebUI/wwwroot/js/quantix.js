@@ -300,6 +300,83 @@
       + opts + '</select>';
   }
 
+  // --- Calculadora de sem/vuelta para motor NO directo (spec 2026-08-22) ---
+  // Estado transitorio (no se persiste, decisión de diseño): abierta para un
+  // solo motor a la vez; los dientes/alvéolos se descartan al cerrar.
+  // sem/vuelta del EJE DEL MOTOR = alvéolos × (dientes motor ÷ dientes dosif).
+  function svCalcResult() {
+    var c = state.calcSV;
+    if (!c) return null;
+    var alv = parseInt(c.alv, 10), dm = parseInt(c.dm, 10), dd = parseInt(c.dd, 10);
+    if (!(alv > 0) || !(dm > 0) || !(dd > 0)) return null;
+    return { alv: alv, dm: dm, dd: dd, sv: Math.round(alv * dm / dd * 100) / 100 };
+  }
+
+  function svCalcPreviewText() {
+    var r = svCalcResult();
+    if (!r) return 'Completá los tres datos…';
+    var rel = Math.round(r.dm / r.dd * 100) / 100;
+    return '1 vuelta de motor = ' + rel + ' vueltas de placa → '
+      + r.alv + ' × ' + rel + ' = ' + r.sv + ' sem/vuelta';
+  }
+
+  function svCalcRowHtml(mi, esSem) {
+    var c = state.calcSV;
+    if (!esSem || !c || c.mi !== mi) return '';
+    var r = svCalcResult();
+    return '<div class="svcalc" data-mi="' + mi + '">'
+      + '<label>Alvéolos <input class="qxSvAlv" type="number" step="1" min="1" value="' + escapeHtml(c.alv) + '"></label>'
+      + '<label>Dientes motor <input class="qxSvDm" type="number" step="1" min="1" value="' + escapeHtml(c.dm) + '"></label>'
+      + '<label>Dientes dosif. <input class="qxSvDd" type="number" step="1" min="1" value="' + escapeHtml(c.dd) + '"></label>'
+      + '<span class="svcalc-prev">' + svCalcPreviewText() + '</span>'
+      + '<button class="qxSvUsar" type="button"' + (r ? '' : ' disabled') + '>Usar</button>'
+      + '<button class="qxSvCerrar" type="button">Cerrar</button>'
+      + '</div>';
+  }
+
+  function wireSvCalc(el) {
+    var btns = el.querySelectorAll('.qxCalcSV');
+    for (var b = 0; b < btns.length; b++) {
+      btns[b].addEventListener('click', function (e) {
+        e.stopPropagation();
+        var mi = parseInt(this.getAttribute('data-mi'), 10);
+        state.calcSV = (state.calcSV && state.calcSV.mi === mi)
+          ? null : { mi: mi, alv: '', dm: '', dd: '' };
+        renderMotorList();
+      });
+    }
+    var box = el.querySelector('.svcalc');
+    if (!box) return;
+    // Los inputs actualizan estado + preview EN el DOM (sin re-render: el
+    // re-render de la lista le robaría el foco al input en cada tecla).
+    function onInput() {
+      state.calcSV.alv = box.querySelector('.qxSvAlv').value;
+      state.calcSV.dm = box.querySelector('.qxSvDm').value;
+      state.calcSV.dd = box.querySelector('.qxSvDd').value;
+      box.querySelector('.svcalc-prev').textContent = svCalcPreviewText();
+      box.querySelector('.qxSvUsar').disabled = !svCalcResult();
+    }
+    var inps = box.querySelectorAll('input');
+    for (var k = 0; k < inps.length; k++) inps[k].addEventListener('input', onInput);
+    box.querySelector('.qxSvUsar').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var r = svCalcResult();
+      if (!r) return;
+      var entry = allMotors()[state.calcSV.mi];
+      if (entry && entry.motor) {
+        entry.motor.semillas_vuelta = r.sv;
+        state.dirty = true;
+      }
+      state.calcSV = null;
+      renderMotorList();
+    });
+    box.querySelector('.qxSvCerrar').addEventListener('click', function (e) {
+      e.stopPropagation();
+      state.calcSV = null;
+      renderMotorList();
+    });
+  }
+
   function renderMotorList() {
     var el = document.getElementById('qxMotorList');
     if (!el) return;
@@ -344,7 +421,9 @@
           + (tipoDosif === 'calibrado'
              ? '<button class="qxIrCal" type="button" data-mi="' + i
                + '" title="Contar semillas / pesar y calcular sem por vuelta">Calibrar →</button>'
-             : '');
+             : '')
+          + '<button class="qxCalcSV" type="button" data-mi="' + i
+          + '" title="Motor no directo: calcular sem/vuelta desde alvéolos y relación piñón/corona">🧮</button>';
       }
       var nombreRaw = (m.nombre != null ? String(m.nombre) : ('Motor ' + (i + 1)));
       // Canal sin motor cableado: se destildá y PilotX le manda consigna nula.
@@ -372,6 +451,7 @@
         + calBox
         + mapaSelectHtml(i, m.campo_dosis)
         + '</div>'
+        + svCalcRowHtml(i, esSem)
         + '</div>';
     }
     el.innerHTML = html;
@@ -380,6 +460,8 @@
     var rows = el.querySelectorAll('.mrow');
     for (var r = 0; r < rows.length; r++) {
       rows[r].addEventListener('click', function (e) {
+        if (e.target && e.target.closest &&
+            (e.target.closest('.svcalc') || e.target.classList.contains('qxCalcSV'))) return;
         if (e.target && e.target.classList &&
             (e.target.classList.contains('qxDosisFija') || e.target.classList.contains('mdel') ||
              e.target.classList.contains('uToggle') || e.target.classList.contains('qxSemVuelta') ||
@@ -475,6 +557,7 @@
     }
     // Calibración sem/m: semillas que entrega el dosificador por vuelta.
     // Con placa neumática el mismo campo es "alvéolos" (dato de chapa).
+    wireSvCalc(el);
     var sems = el.querySelectorAll('.qxSemVuelta');
     for (var s = 0; s < sems.length; s++) {
       sems[s].addEventListener('change', function () {

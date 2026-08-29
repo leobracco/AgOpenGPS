@@ -118,4 +118,34 @@
     <SolidColorBrush x:Key="PilotXPanelWarnSoft"    Color="{StaticResource PilotXPanelWarnSoftColor}"/>
     <SolidColorBrush x:Key="PilotXPanelErrSoft"     Color="{StaticResource PilotXPanelErrSoftColor}"/>
 
+    <!-- ============ TextBox: forzar paleta CLARA en TODOS los estados ============
+        La app corre en FluentTheme variante Dark (por el mapa/overlays oscuros),
+        pero TODOS los campos de texto viven en pantallas CLARAS. Sin esto, al
+        enfocar un campo Fluent lo pinta con su fondo oscuro de foco
+        (TextControlBackgroundFocused del tema Dark) y como el texto es oscuro
+        queda negro sobre negro: "el input se pone negro y no se ve lo que se
+        escribe" (reporte del operario). Redefinir estos recursos en
+        Application.Resources gana sobre el diccionario de FluentTheme, así que
+        el campo queda blanco con texto oscuro en normal / hover / foco. No hay
+        TextBox sobre el mapa, así que el override es seguro en toda la app. -->
+    <SolidColorBrush x:Key="TextControlBackground"                 Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver"      Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextControlBackgroundFocused"          Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="TextControlBackgroundDisabled"         Color="#EDF1EC"/>
+
+    <SolidColorBrush x:Key="TextControlForeground"                 Color="#101612"/>
+    <SolidColorBrush x:Key="TextControlForegroundPointerOver"      Color="#101612"/>
+    <SolidColorBrush x:Key="TextControlForegroundFocused"          Color="#101612"/>
+    <SolidColorBrush x:Key="TextControlForegroundDisabled"         Color="#6E7A70"/>
+
+    <SolidColorBrush x:Key="TextControlBorderBrush"                Color="#C5CFC5"/>
+    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver"     Color="#8FA092"/>
+    <SolidColorBrush x:Key="TextControlBorderBrushFocused"         Color="#4ABA3E"/>
+    <SolidColorBrush x:Key="TextControlBorderBrushDisabled"        Color="#E2E7E2"/>
+
+    <SolidColorBrush x:Key="TextControlPlaceholderForeground"            Color="#6E7A70"/>
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#6E7A70"/>
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused"     Color="#6E7A70"/>
+    <SolidColorBrush x:Key="TextControlPlaceholderForegroundDisabled"    Color="#A9B3AA"/>
+
 </ResourceDictionary>

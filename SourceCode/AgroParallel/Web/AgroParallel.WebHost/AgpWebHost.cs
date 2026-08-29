@@ -312,6 +312,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new SteerConfigController(_steerConfig))
                  .WithController(() => new SectionXController(_sectionxCfg))
                  .WithController(() => new RedWifiController(_wifi))
+                 .WithController(() => new RedIpController(new AgroParallel.Services.RedIpService()))
                  .WithController(() => new CamarasController(_camarasCfg));
                 if (_vistaxCfg != null || _vistaxLive != null)
                     m.WithController(() => new VistaXController(_vistaxCfg, _vistaxLive, _vistaxCalib, _implemento));

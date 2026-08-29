@@ -120,6 +120,15 @@ namespace AgroParallel.Services
             return true;
         }
 
+        public bool Olvidar(string ssid, out string error)
+        {
+            error = null;
+            if (string.IsNullOrWhiteSpace(ssid)) { error = "ssid-vacio"; return false; }
+            // nmcli connection delete borra el perfil guardado (clave incluida).
+            Run("nmcli", "connection delete id \"" + ssid.Replace("\"", "") + "\"");
+            return true;
+        }
+
         private static string WifiDevice()
         {
             string salida = Run("nmcli", "-t --escape no -f DEVICE,TYPE dev") ?? "";

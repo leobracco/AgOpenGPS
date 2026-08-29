@@ -96,8 +96,49 @@ namespace AgroParallel.Services
                 conectada.Conectada = true;
             }
 
+            // Marcar cuáles ya tienen perfil guardado (para ofrecer "Olvidar").
+            var guardados = PerfilesGuardados();
+            foreach (var r in redes) r.Guardada = guardados.Contains(r.Ssid);
+
             return redes.OrderByDescending(r => r.Conectada)
                         .ThenByDescending(r => r.SenalPct).ToList();
+        }
+
+        // SSIDs con perfil WiFi guardado (netsh wlan show profiles). El nombre
+        // del perfil = SSID; la palabra "Perfil"/"Profile" se traduce, pero el
+        // valor tras el último ":" en las lineas indentadas es el SSID.
+        private static HashSet<string> PerfilesGuardados()
+        {
+            var set = new HashSet<string>();
+            string salida = RunNetsh("wlan show profiles") ?? "";
+            foreach (var lnRaw in salida.Split('\n'))
+            {
+                string ln = lnRaw.TrimEnd('\r');
+                var m = Regex.Match(ln, @"^\s+.*:\s*(.+)$");
+                if (m.Success)
+                {
+                    string n = m.Groups[1].Value.Trim();
+                    if (n.Length > 0) set.Add(n);
+                }
+            }
+            return set;
+        }
+
+        public bool Olvidar(string ssid, out string error)
+        {
+            error = null;
+            if (string.IsNullOrWhiteSpace(ssid)) { error = "ssid-vacio"; return false; }
+            // netsh wlan delete profile borra el perfil (clave + auto-conexión).
+            // Para perfiles all-user necesita admin; si falla, error queda en la
+            // salida y el controller lo devuelve.
+            string salida = RunNetsh("wlan delete profile name=\"" + ssid.Replace("\"", "") + "\"") ?? "";
+            // Confirmar: si sigue en la lista, no se borró.
+            if (PerfilesGuardados().Contains(ssid))
+            {
+                error = "no se pudo borrar el perfil (¿requiere permisos?). " + salida.Trim();
+                return false;
+            }
+            return true;
         }
 
         public WifiEstado Estado()
