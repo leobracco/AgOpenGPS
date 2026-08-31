@@ -17,20 +17,30 @@
 // en cada propiedad porque el case-insensitive de System.Text.Json NO cubre
 // underscores (mismo cuidado que SectionXClient/NodosClient/UpdateClient).
 //
-// Timeout largo (20 s) para TODO el cliente, no solo el polling: el driver
-// installer corre pnputil con WaitForExit() sin timeout propio (puede haber
-// UAC de por medio), asi que un Timeout corto de "lectura rapida" lo cortaria
-// a mitad de instalacion (mismo criterio que RedIpClient con el helper SYSTEM).
+// Timeout: el HttpClient de abajo es Timeout.InfiniteTimeSpan (mismo patron
+// que FirmwaresClient) y cada llamada decide su propio corte:
+//   - PuertosAsync/EstadoAsync/FlashAsync: "lectura corta", CorteLectura (20 s)
+//     con un CancellationTokenSource linkeado al ct del llamador — el server
+//     responde rapido (Flash solo DISPARA el background, no espera a que
+//     termine).
+//   - InstalarDriverAsync: SIN corte propio, igual que SubirAsync de
+//     FirmwaresClient para su upload. pnputil corre con WaitForExit() elevado
+//     por UAC en el server: el secure desktop de Windows espera ~150 s a que
+//     el operario tactil acepte el prompt, y con driver="ambos" puede haber
+//     DOS prompts seguidos (~300 s en el peor caso) — ningun timeout fijo
+//     corto es seguro ahi. La cancelacion queda 100% en manos del ct del
+//     llamador (el operario cierra el panel), nunca del reloj del HttpClient.
 //
-// TRAMPA (ver memoria feedback_httpclient_timeout_kills_polling): HttpClient
-// .Timeout dispara TaskCanceledException, que ES OperationCanceledException.
-// EstadoAsync lo llama el panel en loop mientras hay un flasheo en curso — si
-// un catch generico tratara ese timeout igual que una cancelacion real
+// TRAMPA (ver memoria feedback_httpclient_timeout_kills_polling): un corte
+// por CancelAfter dispara TaskCanceledException, que ES
+// OperationCanceledException, con el ct ORIGINAL sin cancelar. EstadoAsync lo
+// llama el panel en loop mientras hay un flasheo en curso — si un catch
+// generico tratara ese corte igual que una cancelacion real
 // (ct.IsCancellationRequested), el primer GET lento cortaria el polling para
 // siempre y la UI quedaria congelada mostrando el ultimo estado. Por eso el
 // catch especifico de cancelacion real va PRIMERO con `when
 // (ct.IsCancellationRequested)`, y el catch generico despues (ahi cae el
-// timeout: se trata como "sin dato todavia", el llamador reintenta en el
+// corte: se trata como "sin dato todavia", el llamador reintenta en el
 // proximo tick) — mismo idioma que usa HudPoller.RunLoopAsync.
 
 using System;
@@ -74,14 +84,19 @@ public sealed class UsbFlashEstadoDto
 
 public sealed class UsbFlashClient
 {
+    // Sin Timeout global: cada llamada arma su propio corte (ver nota arriba).
     private static readonly HttpClient _http = new HttpClient
     {
-        Timeout = TimeSpan.FromSeconds(20)
+        Timeout = Timeout.InfiniteTimeSpan
     };
     private static readonly JsonSerializerOptions _jsonOpts = new JsonSerializerOptions
     {
         PropertyNameCaseInsensitive = true
     };
+
+    /// <summary>Corte de las llamadas "cortas" (puertos/estado/flash-inicio).
+    /// InstalarDriverAsync NO lo usa — ver nota arriba (UAC).</summary>
+    private static readonly TimeSpan CorteLectura = TimeSpan.FromSeconds(20);
 
     private readonly string _baseUrl;
 
@@ -124,9 +139,11 @@ public sealed class UsbFlashClient
     {
         try
         {
-            using var resp = await _http.GetAsync(_baseUrl + "api/usb/puertos", ct).ConfigureAwait(false);
+            using var corte = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            corte.CancelAfter(CorteLectura);
+            using var resp = await _http.GetAsync(_baseUrl + "api/usb/puertos", corte.Token).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode) return Array.Empty<UsbPuertoDto>();
-            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var json = await resp.Content.ReadAsStringAsync(corte.Token).ConfigureAwait(false);
             var r = JsonSerializer.Deserialize<PuertosResponse>(json, _jsonOpts);
             return (r != null && r.Ok && r.Puertos != null) ? r.Puertos : Array.Empty<UsbPuertoDto>();
         }
@@ -143,9 +160,11 @@ public sealed class UsbFlashClient
     {
         try
         {
-            using var resp = await _http.GetAsync(_baseUrl + "api/usb/flash/estado", ct).ConfigureAwait(false);
+            using var corte = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            corte.CancelAfter(CorteLectura);
+            using var resp = await _http.GetAsync(_baseUrl + "api/usb/flash/estado", corte.Token).ConfigureAwait(false);
             if (!resp.IsSuccessStatusCode) return null;
-            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            var json = await resp.Content.ReadAsStringAsync(corte.Token).ConfigureAwait(false);
             return JsonSerializer.Deserialize<UsbFlashEstadoDto>(json, _jsonOpts);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -173,32 +192,43 @@ public sealed class UsbFlashClient
     /// UltimoErrorCodigo/UltimoErrorMensaje.</summary>
     public async Task<bool> FlashAsync(UsbFlashRequest request, CancellationToken ct = default)
     {
-        var r = await PostAsync("api/usb/flash", request, ct).ConfigureAwait(false);
+        // El POST solo dispara el background del server (no espera a que
+        // termine el flasheo) — entra comodo en el corte corto.
+        var r = await PostAsync("api/usb/flash", request, ct, CorteLectura).ConfigureAwait(false);
         return AplicarResultado(r);
     }
 
     // ----------------------------------------------------------------- driver
 
     /// <summary>POST /api/usb/driver/instalar. Instala el driver USB-serial
-    /// ("cp210x" | "ch340" | "ambos") via pnputil en el server; puede tardar
-    /// (UAC de por medio), por eso el cliente entero usa un Timeout largo.</summary>
+    /// ("cp210x" | "ch340" | "ambos") via pnputil en el server, con UAC de por
+    /// medio (secure desktop ~150 s por prompt, hasta DOS con "ambos"): SIN
+    /// corte propio, la cancelacion depende solo del ct del llamador (mismo
+    /// criterio que SubirAsync en FirmwaresClient para su upload).</summary>
     public async Task<bool> InstalarDriverAsync(string driver, CancellationToken ct = default)
     {
-        var r = await PostAsync("api/usb/driver/instalar", new { driver = driver ?? "ambos" }, ct)
+        var r = await PostAsync("api/usb/driver/instalar", new { driver = driver ?? "ambos" }, ct, corte: null)
                     .ConfigureAwait(false);
         return AplicarResultado(r);
     }
 
     // ----------------------------------------------------------------- helpers
 
-    private async Task<OpResponse?> PostAsync(string ruta, object body, CancellationToken ct)
+    /// <summary>`corte` = null → sin cutoff propio (solo cancela el `ct` del
+    /// llamador, para InstalarDriverAsync). `corte` con valor → cutoff corto
+    /// linkeado al `ct` (puertos/estado/flash-inicio).</summary>
+    private async Task<OpResponse?> PostAsync(string ruta, object body, CancellationToken ct, TimeSpan? corte)
     {
         try
         {
+            using var cts = corte.HasValue ? CancellationTokenSource.CreateLinkedTokenSource(ct) : null;
+            if (cts != null) cts.CancelAfter(corte!.Value);
+            var tok = cts?.Token ?? ct;
+
             var json = JsonSerializer.Serialize(body);
             using var contenido = new StringContent(json, Encoding.UTF8, "application/json");
-            using var resp = await _http.PostAsync(_baseUrl + ruta, contenido, ct).ConfigureAwait(false);
-            var texto = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            using var resp = await _http.PostAsync(_baseUrl + ruta, contenido, tok).ConfigureAwait(false);
+            var texto = await resp.Content.ReadAsStringAsync(tok).ConfigureAwait(false);
             // Los errores TAMBIEN traen JSON en el body ({error,mensaje,detalle}
             // de WriteErrorAsync): se deserializa igual sin mirar el status
             // primero, asi UltimoErrorCodigo/Mensaje quedan poblados aunque el
