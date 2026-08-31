@@ -133,5 +133,28 @@ namespace AgroParallel.Services.Tests
             Assert.That(result.Code, Is.EqualTo("AGP-SYS-009"));
             Assert.That(result.Friendly, Is.Not.Empty);
         }
+
+        // Los AGP-USB-* los arma directo el flasheo USB (UsbFlashService /
+        // UsbDriverInstaller / EsptoolOutputParser), sin pasar por una
+        // excepcion. FriendlyForCode() es la unica forma de que el
+        // controller/UI consiga el texto amigable a partir de ese codigo.
+        [TestCase("AGP-USB-001", "puerto")]
+        [TestCase("AGP-USB-002", "módulo")]
+        [TestCase("AGP-USB-007", "flasheo")]
+        public void FriendlyForCode_MapeaCodigosUsb(string codigo, string palabraEsperada)
+        {
+            string friendly = AgpErrorMapper.FriendlyForCode(codigo);
+
+            Assert.That(friendly, Is.Not.Null.And.Not.Empty, "codigo " + codigo + " sin mensaje amigable");
+            Assert.That(friendly.ToLowerInvariant(), Does.Contain(palabraEsperada));
+        }
+
+        // Codigo no mapeado -> null, para que el llamante decida el fallback
+        // (no queremos que FriendlyForCode invente texto).
+        [Test]
+        public void FriendlyForCode_CodigoDesconocido_DevuelveNull()
+        {
+            Assert.That(AgpErrorMapper.FriendlyForCode("AGP-USB-999"), Is.Null);
+        }
     }
 }

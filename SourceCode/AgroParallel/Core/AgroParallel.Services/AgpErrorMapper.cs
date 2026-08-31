@@ -15,9 +15,23 @@
 //   AGP-NET-001    Sin red (interfaz caída)
 //   AGP-NET-009    Falla de red no clasificada
 //   AGP-SYS-009    Excepción no clasificada
+//   AGP-USB-001    Puerto COM en uso o no se pudo abrir
+//   AGP-USB-002    El módulo no respondió (esptool no pudo conectar)
+//   AGP-USB-003    Falló la escritura del firmware
+//   AGP-USB-004    No se encontró el .bin a flashear en el cache
+//   AGP-USB-005    Falta esptool en la instalación (build incompleto)
+//   AGP-USB-006    No se pudo instalar el driver USB
+//   AGP-USB-007    Ya hay un flasheo en curso
 //
 // IMPORTANTE: el detalle técnico (exception type + message) se conserva como
 // campo aparte para soporte/log; nunca se pinta en la UI principal.
+//
+// Los AGP-USB-* son un caso aparte: UsbFlashService / UsbDriverInstaller /
+// EsptoolOutputParser (AgroParallel.Services/Usb/) NO tiran excepción — ya
+// saben directo qué código corresponde y lo devuelven como string (no hay
+// stack trace que clasificar). Por eso no entran a FromException(): el
+// controller/UI que reciba ese código consulta FriendlyForCode() para el
+// mensaje amigable.
 // ============================================================================
 
 using System;
@@ -189,6 +203,38 @@ namespace AgroParallel.Services
             }
 
             return new AgpError("AGP-SYS-009", "Algo salió mal. El equipo de soporte puede ayudarte con el código de error.", technical);
+        }
+
+        /// <summary>
+        /// Traduce un código AGP ya conocido (no una excepción) a su mensaje
+        /// amigable en castellano. Hoy cubre AGP-USB-001..007, que arma
+        /// directo el flasheo USB (ver Usb/UsbFlashService.cs,
+        /// Usb/UsbDriverInstaller.cs, Usb/EsptoolOutputParser.cs) sin pasar
+        /// por FromException(). Devuelve null si el código no está mapeado
+        /// (el llamante decide el fallback, típicamente el código pelado).
+        /// </summary>
+        public static string FriendlyForCode(string code)
+        {
+            switch (code)
+            {
+                // ---- USB (flasheo de nodos por esptool) -------------------
+                case "AGP-USB-001":
+                    return "El puerto {port} está en uso o no se puede abrir. ¿Otra app lo tiene abierto?";
+                case "AGP-USB-002":
+                    return "El módulo no respondió. Mantené BOOT apretado y reintentá, o revisá el cable.";
+                case "AGP-USB-003":
+                    return "Falló la escritura del firmware. Reintentá; si sigue, cambiá el cable/puerto.";
+                case "AGP-USB-004":
+                    return "No encontré el firmware a flashear en el cache.";
+                case "AGP-USB-005":
+                    return "Falta esptool en la instalación (build incompleto).";
+                case "AGP-USB-006":
+                    return "No se pudo instalar el driver USB (¿se rechazó el permiso de administrador?).";
+                case "AGP-USB-007":
+                    return "Ya hay un flasheo en curso. Esperá a que termine.";
+                default:
+                    return null;
+            }
         }
 
         // Sockets.SocketException.SocketErrorCode (reflection — evitamos hard-dep
