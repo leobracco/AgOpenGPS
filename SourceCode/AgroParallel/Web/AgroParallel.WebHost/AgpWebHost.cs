@@ -12,6 +12,7 @@ using AgroParallel.OrbitX;
 using AgroParallel.Services;
 using AgroParallel.Services.Abstractions;
 using AgroParallel.Services.FieldMaps;
+using AgroParallel.Usb;
 using AgroParallel.WebHost.Controllers;
 // (controllers en sub-namespace)
 using AgroParallel.WebHost.WebSockets;
@@ -111,6 +112,10 @@ namespace AgroParallel.WebHost
         // Migra desde formato legacy (VistaX/Quantix/SectionX) en el primer GET.
         // Auto-instanciado: el shell no necesita conocerlo.
         private readonly IImplementoService _implemento;
+        // Flasheo de firmware ESP32 por USB (esptool.exe bundleado) sin PC
+        // externa ni internet. Auto-instanciado: sólo necesita el baseDir del
+        // Engine para ubicar tools/esptool/ y tools/usb-drivers/.
+        private readonly UsbFlashService _usbFlash = new UsbFlashService(AppContext.BaseDirectory);
         private readonly string _wwwroot;
 
         /// <summary>Detección de alarmas sonoras (opcional): lo setea el host
@@ -305,6 +310,7 @@ namespace AgroParallel.WebHost
                  .WithController(() => new SonidosController(Sonidos, _wwwroot))
                  .WithController(() => new OrbitXController(_orbitxCfg))
                  .WithController(() => new FirmwaresController())
+                 .WithController(() => new UsbFlashController(_usbFlash, AppContext.BaseDirectory))
                  .WithController(() => new TecladoController())
                  .WithController(() => new IdiomaController())
                  .WithController(() => new BotoneraController())
