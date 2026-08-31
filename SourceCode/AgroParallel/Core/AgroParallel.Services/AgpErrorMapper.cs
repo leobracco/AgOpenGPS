@@ -212,12 +212,18 @@ namespace AgroParallel.Services
         /// Usb/UsbDriverInstaller.cs, Usb/EsptoolOutputParser.cs) sin pasar
         /// por FromException(). Devuelve null si el código no está mapeado
         /// (el llamante decide el fallback, típicamente el código pelado).
+        /// OJO: el mensaje de AGP-USB-001 trae el placeholder literal
+        /// <c>{port}</c> — el llamante DEBE interpolarlo (ej.
+        /// <c>.Replace("{port}", puerto)</c>) antes de mostrarlo al operario;
+        /// este método no lo resuelve.
         /// </summary>
         public static string FriendlyForCode(string code)
         {
             switch (code)
             {
                 // ---- USB (flasheo de nodos por esptool) -------------------
+                // Placeholder {port}: el llamante lo interpola (ej.
+                // .Replace("{port}", puerto)) antes de mostrar el mensaje.
                 case "AGP-USB-001":
                     return "El puerto {port} está en uso o no se puede abrir. ¿Otra app lo tiene abierto?";
                 case "AGP-USB-002":

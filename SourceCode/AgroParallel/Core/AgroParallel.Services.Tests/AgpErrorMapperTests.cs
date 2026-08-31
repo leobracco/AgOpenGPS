@@ -156,5 +156,22 @@ namespace AgroParallel.Services.Tests
         {
             Assert.That(AgpErrorMapper.FriendlyForCode("AGP-USB-999"), Is.Null);
         }
+
+        // Cobertura completa de los 7 codigos AGP-USB-*: cada uno tiene que
+        // devolver un mensaje amigable no vacio (el test de arriba solo
+        // cubria 001/002/007 con palabra clave; este completa 003..006).
+        [TestCase("AGP-USB-001")]
+        [TestCase("AGP-USB-002")]
+        [TestCase("AGP-USB-003")]
+        [TestCase("AGP-USB-004")]
+        [TestCase("AGP-USB-005")]
+        [TestCase("AGP-USB-006")]
+        [TestCase("AGP-USB-007")]
+        public void FriendlyForCode_TodosLosCodigosUsb_DevuelvenTextoNoVacio(string codigo)
+        {
+            string friendly = AgpErrorMapper.FriendlyForCode(codigo);
+
+            Assert.That(friendly, Is.Not.Null.And.Not.Empty, "codigo " + codigo + " sin mensaje amigable");
+        }
     }
 }
