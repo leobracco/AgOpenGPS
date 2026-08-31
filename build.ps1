@@ -66,6 +66,20 @@ dotnet publish "$root\SourceCode\PilotX.GuidanceEngine\PilotX.GuidanceEngine.csp
     -p:PublishReadyToRun=true -o "$OutDir\Engine" $verArg
 if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.GuidanceEngine FAILED" -ForegroundColor Red; exit 1 }
 
+# Herramientas del flasheo por USB: esptool + drivers USB-serial.
+# Viajan en el build para que la pantalla flashee sin internet.
+$toolsSrc = Join-Path $root "Tools"
+$toolsDst = Join-Path $OutDir "Engine\tools"
+foreach ($t in @("esptool", "usb-drivers")) {
+    $src = Join-Path $toolsSrc $t
+    if (Test-Path $src) {
+        $dst = Join-Path $toolsDst $t
+        New-Item -ItemType Directory -Path $dst -Force | Out-Null
+        Copy-Item "$src\*" $dst -Recurse -Force
+        Write-Host "Copiado tools/$t -> $dst" -ForegroundColor DarkGray
+    }
+}
+
 # PilotX.Desktop: la UI Avalonia nativa (mapa GL + barras + pantallas). Igual que
 # BarsHost, self-contained: la pantalla de la cabina no tiene runtime .NET 9 y no
 # queremos que el arranque dependa de instalarlo.
