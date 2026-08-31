@@ -55,6 +55,10 @@ public sealed class FirmwareVersionWire
     /// <summary>true = el .bin está en disco (se puede borrar y servir por LAN);
     /// false = solo figura en el index.json del cloud.</summary>
     [JsonPropertyName("local")]        public bool    Local        { get; set; }
+    /// <summary>true = esta versión tiene factory.bin en el cache — habilita el
+    /// modo "Completo (chip nuevo)" del flasheo por USB (ver FirmwaresPanel /
+    /// UsbFlashClient). Sin factory.bin solo se puede flashear "Solo app".</summary>
+    [JsonPropertyName("has_factory")]  public bool    HasFactory   { get; set; }
 }
 
 public sealed class FirmwareProductoWire

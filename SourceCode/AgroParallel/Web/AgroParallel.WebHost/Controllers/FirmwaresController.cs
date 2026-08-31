@@ -72,7 +72,11 @@ namespace AgroParallel.WebHost.Controllers
                             tamano_bytes = f.tamano_bytes,
                             changelog = f.changelog,
                             ts = f.ts,
-                            local = f.local
+                            local = f.local,
+                            // Flasheo USB "Completo" necesita factory.bin (borra
+                            // todo, incluye bootloader/partition table). Sin este
+                            // dato el panel no puede decidir si ofrecer ese modo.
+                            has_factory = File.Exists(FirmwareMirror.PathFactory(cacheDir, g.Key, f.version))
                         })
                         .ToList()
                 })

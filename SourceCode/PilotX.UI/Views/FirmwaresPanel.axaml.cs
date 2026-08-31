@@ -30,6 +30,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,6 +56,43 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
     private bool _subiendo;
     private bool _unaColumna;          // layout actual (@media max-width:1100px)
     private double _ultimaEscala = -1; // ancho pintado de la barra de progreso
+
+    // ---- flasheo por USB (Task 11) ------------------------------------------
+    // Cliente propio: mismo baseUrl que FirmwaresClient (mismo Hub, otro
+    // controller — UsbFlashController). El catálogo NO se vuelve a pedir: se
+    // reusa el mismo que ya bajó RefrescarAsync (_catalogo), filtrado a las
+    // versiones que están LOCAL (con .bin en disco — lo único flasheable).
+    private UsbFlashClient? _usbClient;
+    private FirmwareCatalogoWire? _catalogo;
+    private string _usbProducto = "";
+    private string _usbVersion = "";
+    private bool _usbVersionHasFactory;
+    private IReadOnlyList<UsbPuertoDto> _usbPuertos = Array.Empty<UsbPuertoDto>();
+    private string _usbPuerto = "";
+    private bool _usbModoCompleto = true;   // true=factory.bin@0x0, false=firmware.bin@0x10000
+    private bool _usbFlasheando;
+    private DispatcherTimer? _usbPollTimer;
+    private double _usbUltimaEscala = -1;
+    // "producto" | "version" | "puerto" — qué lista está mostrando UsbPickerOverlay.
+    private string _usbPickerModo = "";
+
+    /// <summary>Mensajes amigables AGP-USB-001..007, DUPLICADOS a propósito de
+    /// AgpErrorMapper.FriendlyForCode (PilotX.UI es portable, sin referencia a
+    /// AgroParallel.Services — ver cabecera de UsbFlashClient.cs). Solo entra
+    /// acá cuando el polling de EstadoAsync trae un `codigo` PELADO sin
+    /// `mensaje` (el POST /api/usb/flash SÍ trae el mensaje armado por el
+    /// server). AGP-USB-001 trae el placeholder "{port}" — se interpola en
+    /// MostrarErrorUsb, nunca se muestra literal.</summary>
+    private static readonly Dictionary<string, string> UsbFriendly = new()
+    {
+        ["AGP-USB-001"] = "El puerto {port} está en uso o no se puede abrir. ¿Otra app lo tiene abierto?",
+        ["AGP-USB-002"] = "El módulo no respondió. Mantené BOOT apretado y reintentá, o revisá el cable.",
+        ["AGP-USB-003"] = "Falló la escritura del firmware. Reintentá; si sigue, cambiá el cable/puerto.",
+        ["AGP-USB-004"] = "No encontré el firmware a flashear en el cache.",
+        ["AGP-USB-005"] = "Falta esptool en la instalación (build incompleto).",
+        ["AGP-USB-006"] = "No se pudo instalar el driver USB (¿se rechazó el permiso de administrador?).",
+        ["AGP-USB-007"] = "Ya hay un flasheo en curso. Esperá a que termine.",
+    };
 
     // Archivo elegido. -1 en el tamaño = no se pudo leer la metadata (el
     // browser siempre la tiene; acá el tamaño real se mide al leer los bytes).
@@ -219,20 +257,24 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
     public void Attach(FirmwaresClient client)
     {
         _client = client;
+        _usbClient = new UsbFlashClient(client.BaseUrl);
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
         _ = RefrescarAsync(_cts.Token);
+        _ = RefrescarPuertosUsbAsync();
     }
 
     public void Detach()
     {
         try { _cts?.Cancel(); } catch { }
         _cts = null;
+        DetenerPollUsb();
         // Al cerrar el panel no se dispara el "refrescar después del aviso":
         // el token ya está cancelado y no hay a quién mostrarle el resultado.
         _alertaCierre = null;
         CerrarModal();
         CerrarPicker();
+        CerrarUsbPicker();
         _ = _client?.TecladoAsync(false);
     }
 
@@ -298,6 +340,12 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
         SetTexto("MetaCache", string.IsNullOrEmpty(d.CacheDir)
             ? "—"
             : T("Carpeta") + " · " + d.CacheDir);
+
+        // Catálogo para la sección USB (pickers de producto/versión) + revalida
+        // la selección vigente por si el catálogo cambió (se borró la versión
+        // elegida, etc.).
+        _catalogo = d;
+        RevalidarSeleccionUsb();
 
         var prods = d.Productos ?? new List<FirmwareProductoWire>();
         if (prods.Count == 0)
@@ -1205,5 +1253,486 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
                    .ToString("G", CultureInfo.CurrentCulture);
         }
         catch { return "—"; }
+    }
+
+    // =========================================================================
+    //  Flashear por USB (Task 11) — esptool.exe vía UsbFlashController.
+    // =========================================================================
+
+    // ---- puertos -------------------------------------------------------
+
+    private async void OnUsbRefrescarPuertosClick(object? sender, RoutedEventArgs e)
+        => await RefrescarPuertosUsbAsync();
+
+    private async Task RefrescarPuertosUsbAsync()
+    {
+        if (_usbClient == null) return;
+        var ct = _cts?.Token ?? CancellationToken.None;
+        var puertos = await _usbClient.PuertosAsync(ct).ConfigureAwait(true);
+        if (ct.IsCancellationRequested) return;
+
+        _usbPuertos = puertos;
+
+        // Si el puerto elegido dejó de existir (se desenchufó el cable), se
+        // limpia — mostrar un puerto fantasma seleccionado sería peor que
+        // pedirlo de nuevo.
+        if (!string.IsNullOrEmpty(_usbPuerto) && !puertos.Any(p => p.Port == _usbPuerto))
+        {
+            _usbPuerto = "";
+            SetTextoBoton("BtnUsbPuerto", T("— Elegir puerto —"), false);
+        }
+
+        var btnDriver = this.FindControl<Button>("BtnUsbInstalarDriver");
+        if (btnDriver != null) btnDriver.IsVisible = puertos.Count == 0;
+    }
+
+    private async void OnUsbInstalarDriverClick(object? sender, RoutedEventArgs e)
+    {
+        if (_usbClient == null) return;
+        var btn = this.FindControl<Button>("BtnUsbInstalarDriver");
+        if (btn != null) { btn.IsEnabled = false; btn.Content = T("Instalando… puede pedir permiso de administrador"); }
+        try
+        {
+            var ct = _cts?.Token ?? CancellationToken.None;
+            bool ok = await _usbClient.InstalarDriverAsync("ambos", ct).ConfigureAwait(true);
+            if (!ok)
+            {
+                MostrarErrorUsb(_usbClient.UltimoErrorCodigo, _usbClient.UltimoErrorMensaje, null);
+            }
+            await RefrescarPuertosUsbAsync();
+        }
+        finally
+        {
+            if (btn != null) { btn.IsEnabled = true; btn.Content = T("Instalar driver USB"); }
+        }
+    }
+
+    // ---- picker genérico (producto / versión / puerto) -----------------
+
+    private void OnUsbProductoClick(object? sender, RoutedEventArgs e)
+    {
+        var items = new List<(string Valor, string Etiqueta)>();
+        if (_catalogo?.Productos != null)
+        {
+            foreach (var p in _catalogo.Productos)
+            {
+                if (p.Versiones != null && p.Versiones.Exists(v => v.Local))
+                    items.Add((p.Producto ?? "", (p.Producto ?? "").ToUpperInvariant()));
+            }
+        }
+        AbrirUsbPicker("producto", T("Producto"), items);
+    }
+
+    private void OnUsbVersionClick(object? sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_usbProducto)) return;
+        var items = new List<(string Valor, string Etiqueta)>();
+        var prod = _catalogo?.Productos?.Find(p => p.Producto == _usbProducto);
+        if (prod?.Versiones != null)
+        {
+            foreach (var v in prod.Versiones)
+            {
+                if (!v.Local) continue;
+                string etq = v.HasFactory ? (v.Version ?? "") : (v.Version ?? "") + "  ·  " + T("sin factory");
+                items.Add((v.Version ?? "", etq));
+            }
+        }
+        AbrirUsbPicker("version", T("Versión"), items);
+    }
+
+    private void OnUsbPuertoClick(object? sender, RoutedEventArgs e)
+    {
+        var items = new List<(string Valor, string Etiqueta)>();
+        foreach (var p in _usbPuertos)
+        {
+            string etq = string.IsNullOrEmpty(p.Descripcion) || p.Descripcion == p.Port
+                ? (p.Port ?? "")
+                : p.Port + " · " + p.Descripcion;
+            items.Add((p.Port ?? "", etq));
+        }
+        AbrirUsbPicker("puerto", T("Puerto COM"), items);
+    }
+
+    private void AbrirUsbPicker(string modo, string titulo, List<(string Valor, string Etiqueta)> items)
+    {
+        _usbPickerModo = modo;
+        SetTexto("UsbPickerTitulo", titulo);
+
+        var host = this.FindControl<StackPanel>("UsbPickerLista");
+        if (host == null) return;
+        host.Children.Clear();
+
+        if (items.Count == 0)
+        {
+            host.Children.Add(new TextBlock
+            {
+                Text = T("No hay opciones disponibles."),
+                Foreground = TextoTenue,
+                FontSize = 13,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(4, 10, 4, 10)
+            });
+        }
+
+        foreach (var it in items)
+        {
+            string valor = it.Valor, etiqueta = it.Etiqueta;
+            var b = new Button
+            {
+                Content = etiqueta,
+                Background = Superficie,
+                Foreground = Texto,
+                BorderBrush = BordeAlto,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                MinHeight = 48,
+                Padding = new Thickness(12, 0, 12, 0),
+                FontSize = 14,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                VerticalContentAlignment = VerticalAlignment.Center
+            };
+            b.Click += (_, __) =>
+            {
+                SeleccionarUsbItem(modo, valor, etiqueta);
+                CerrarUsbPicker();
+            };
+            host.Children.Add(b);
+        }
+
+        var ov = this.FindControl<Border>("UsbPickerOverlay");
+        if (ov != null) ov.IsVisible = true;
+    }
+
+    private void OnUsbPickerCancelarClick(object? sender, RoutedEventArgs e) => CerrarUsbPicker();
+    private void OnUsbPickerBackdropPressed(object? sender, PointerPressedEventArgs e) => CerrarUsbPicker();
+    private void OnUsbPickerCardPressed(object? sender, PointerPressedEventArgs e) => e.Handled = true;
+
+    private void CerrarUsbPicker()
+    {
+        var ov = this.FindControl<Border>("UsbPickerOverlay");
+        if (ov != null) ov.IsVisible = false;
+    }
+
+    private void SeleccionarUsbItem(string modo, string valor, string etiqueta)
+    {
+        switch (modo)
+        {
+            case "producto":
+                _usbProducto = valor;
+                _usbVersion = "";
+                _usbVersionHasFactory = false;
+                SetTextoBoton("BtnUsbProducto",
+                    string.IsNullOrEmpty(valor) ? T("— Elegir producto —") : etiqueta, valor.Length > 0);
+                SetTextoBoton("BtnUsbVersion", T("— Elegir versión —"), false);
+                SetEnabled("BtnUsbVersion", valor.Length > 0);
+                AplicarModoDisponible();
+                break;
+
+            case "version":
+                _usbVersion = valor;
+                _usbVersionHasFactory = BuscarHasFactory(_usbProducto, valor);
+                // La etiqueta puede traer "  ·  sin factory": el botón elegido
+                // muestra solo el número de versión, no el sufijo informativo.
+                SetTextoBoton("BtnUsbVersion",
+                    string.IsNullOrEmpty(valor) ? T("— Elegir versión —") : valor, valor.Length > 0);
+                AplicarModoDisponible();
+                break;
+
+            case "puerto":
+                _usbPuerto = valor;
+                SetTextoBoton("BtnUsbPuerto",
+                    string.IsNullOrEmpty(valor) ? T("— Elegir puerto —") : etiqueta, valor.Length > 0);
+                break;
+        }
+    }
+
+    private bool BuscarHasFactory(string producto, string version)
+    {
+        var prod = _catalogo?.Productos?.Find(p => p.Producto == producto);
+        var ver = prod?.Versiones?.Find(v => v.Version == version);
+        return ver?.HasFactory ?? false;
+    }
+
+    /// <summary>Si el catálogo se refrescó (subida/borrado) y la selección
+    /// vigente ya no es válida (se borró la versión, dejó de estar local…), se
+    /// limpia en vez de dejar un puerto/versión fantasma cargado.</summary>
+    private void RevalidarSeleccionUsb()
+    {
+        if (string.IsNullOrEmpty(_usbProducto)) return;
+
+        var prod = _catalogo?.Productos?.Find(p => p.Producto == _usbProducto);
+        bool prodSigueValido = prod?.Versiones != null && prod.Versiones.Exists(v => v.Local);
+        if (!prodSigueValido)
+        {
+            _usbProducto = "";
+            _usbVersion = "";
+            _usbVersionHasFactory = false;
+            SetTextoBoton("BtnUsbProducto", T("— Elegir producto —"), false);
+            SetTextoBoton("BtnUsbVersion", T("— Elegir versión —"), false);
+            SetEnabled("BtnUsbVersion", false);
+            AplicarModoDisponible();
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(_usbVersion))
+        {
+            var ver = prod!.Versiones!.Find(v => v.Version == _usbVersion && v.Local);
+            if (ver == null)
+            {
+                _usbVersion = "";
+                _usbVersionHasFactory = false;
+                SetTextoBoton("BtnUsbVersion", T("— Elegir versión —"), false);
+            }
+            else
+            {
+                _usbVersionHasFactory = ver.HasFactory;
+            }
+            AplicarModoDisponible();
+        }
+    }
+
+    private void SetTextoBoton(string nombre, string texto, bool elegido)
+    {
+        var b = this.FindControl<Button>(nombre);
+        if (b == null) return;
+        b.Content = texto;
+        b.Foreground = elegido ? Texto : TextoTenue;
+    }
+
+    // ---- modo (Completo / Solo app) -------------------------------------
+
+    private void OnUsbModoCompletoClick(object? sender, RoutedEventArgs e)
+    {
+        if (!_usbVersionHasFactory) return; // botón debería estar IsEnabled=false; doble resguardo
+        _usbModoCompleto = true;
+        PintarModoUsb();
+    }
+
+    private void OnUsbModoAppClick(object? sender, RoutedEventArgs e)
+    {
+        _usbModoCompleto = false;
+        PintarModoUsb();
+    }
+
+    /// <summary>Apaga "Completo" cuando la versión elegida no tiene
+    /// factory.bin en el cache (has_factory del catálogo — ver sub-paso
+    /// backend en FirmwaresController.List()); si estaba elegido, cae solo a
+    /// "Solo app" para no dejar seleccionado un modo deshabilitado.</summary>
+    private void AplicarModoDisponible()
+    {
+        var btnCompleto = this.FindControl<Button>("BtnUsbModoCompleto");
+        if (btnCompleto == null) return;
+
+        btnCompleto.IsEnabled = _usbVersionHasFactory;
+        if (!_usbVersionHasFactory && _usbModoCompleto)
+            _usbModoCompleto = false;
+
+        PintarModoUsb();
+    }
+
+    private void PintarModoUsb()
+    {
+        var btnCompleto = this.FindControl<Button>("BtnUsbModoCompleto");
+        var btnApp = this.FindControl<Button>("BtnUsbModoApp");
+
+        if (btnCompleto != null)
+        {
+            bool en = btnCompleto.IsEnabled;
+            bool sel = en && _usbModoCompleto;
+            btnCompleto.Background = !en ? Superficie2 : (sel ? VerdeSuave : Superficie);
+            btnCompleto.BorderBrush = !en ? Borde : (sel ? VerdeTexto : BordeAlto);
+            btnCompleto.Foreground = !en ? TextoTenue : (sel ? VerdeTexto : Texto);
+        }
+        if (btnApp != null)
+        {
+            bool sel = !_usbModoCompleto;
+            btnApp.Background = sel ? VerdeSuave : Superficie;
+            btnApp.BorderBrush = sel ? VerdeTexto : BordeAlto;
+            btnApp.Foreground = sel ? VerdeTexto : Texto;
+        }
+    }
+
+    // ---- flashear + poller -----------------------------------------------
+
+    private async void OnUsbFlashearClick(object? sender, RoutedEventArgs e)
+    {
+        if (_usbClient == null || _usbFlasheando) return;
+
+        // Mismo criterio del resto del panel: el operario ve el primer
+        // problema, no una lista.
+        if (string.IsNullOrEmpty(_usbProducto))
+        { MostrarErrorUsb(null, T("Elegí un producto."), null); return; }
+        if (string.IsNullOrEmpty(_usbVersion))
+        { MostrarErrorUsb(null, T("Elegí una versión."), null); return; }
+        if (string.IsNullOrEmpty(_usbPuerto))
+        { MostrarErrorUsb(null, T("Elegí el puerto COM del nodo."), null); return; }
+
+        string modo = _usbModoCompleto ? "completo" : "app";
+        bool borrarAntes = this.FindControl<CheckBox>("ChkUsbBorrarAntes")?.IsChecked == true;
+
+        MostrarResultadoUsb(null, null);
+        SetUsbLog(null);
+        _usbFlasheando = true;
+        SetEnabled("BtnUsbFlashear", false);
+        MostrarProgresoUsb(true);
+        SetProgresoUsb(0);
+        SetTexto("UsbFaseTexto", T("Iniciando…"));
+
+        var req = new UsbFlashRequest
+        {
+            Producto = _usbProducto,
+            Version = _usbVersion,
+            Puerto = _usbPuerto,
+            Modo = modo,
+            BorrarAntes = borrarAntes
+        };
+
+        var ct = _cts?.Token ?? CancellationToken.None;
+        bool ok = await _usbClient.FlashAsync(req, ct).ConfigureAwait(true);
+        if (!ok)
+        {
+            _usbFlasheando = false;
+            SetEnabled("BtnUsbFlashear", true);
+            MostrarProgresoUsb(false);
+            MostrarErrorUsb(_usbClient.UltimoErrorCodigo, _usbClient.UltimoErrorMensaje, null);
+            return;
+        }
+
+        IniciarPollUsb();
+    }
+
+    private void IniciarPollUsb()
+    {
+        DetenerPollUsb();
+        _usbPollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        _usbPollTimer.Tick += async (_, __) => await TickPollUsbAsync().ConfigureAwait(true);
+        _usbPollTimer.Start();
+    }
+
+    private void DetenerPollUsb()
+    {
+        if (_usbPollTimer == null) return;
+        _usbPollTimer.Stop();
+        _usbPollTimer = null;
+    }
+
+    private async Task TickPollUsbAsync()
+    {
+        if (_usbClient == null) return;
+        var ct = _cts?.Token ?? CancellationToken.None;
+        var estado = await _usbClient.EstadoAsync(ct).ConfigureAwait(true);
+        // null = sin dato todavía (timeout del Hub) — se reintenta en el
+        // próximo tick, NUNCA se interpreta como flasheo terminado (misma
+        // trampa documentada en UsbFlashClient.EstadoAsync).
+        if (estado == null) return;
+
+        SetProgresoUsb(estado.Pct);
+        SetTexto("UsbFaseTexto", FaseTexto(estado.Fase));
+        if (!string.IsNullOrEmpty(estado.Log)) SetUsbLog(estado.Log);
+
+        if (estado.Resultado == null) return; // sigue en curso
+
+        DetenerPollUsb();
+        _usbFlasheando = false;
+        SetEnabled("BtnUsbFlashear", true);
+        MostrarProgresoUsb(false);
+
+        if (estado.Resultado == "ok")
+        {
+            SetTexto("UsbFaseTexto", T("Listo."));
+            MostrarResultadoUsb("ok", T("Flasheo terminado."));
+            Aviso?.Invoke(T("Flasheo por USB terminado."));
+            await RefrescarPuertosUsbAsync().ConfigureAwait(true);
+        }
+        else
+        {
+            MostrarErrorUsb(estado.Codigo, null, estado.Log);
+        }
+    }
+
+    private static string FaseTexto(string? fase) => fase switch
+    {
+        "conectando" => T("Conectando…"),
+        "borrando" => T("Borrando chip…"),
+        "escribiendo" => T("Escribiendo firmware…"),
+        "verificando" => T("Verificando…"),
+        "reset" => T("Reiniciando el nodo…"),
+        "listo" => T("Listo."),
+        "error" => T("Error."),
+        _ => T("Preparando…"),
+    };
+
+    // ---- progreso / resultado / log --------------------------------------
+
+    private void MostrarProgresoUsb(bool visible)
+    {
+        var riel = this.FindControl<Border>("UsbProgresoRiel");
+        if (riel != null) riel.IsVisible = visible;
+        if (!visible) _usbUltimaEscala = -1;
+    }
+
+    private void SetProgresoUsb(double pct)
+    {
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+        var barra = this.FindControl<Border>("UsbProgresoBarra");
+        var riel = barra?.Parent as Border;
+        if (barra == null || riel == null) return;
+        double escala = pct / 100.0;
+        if (Math.Abs(escala - _usbUltimaEscala) < 0.005) return;
+        _usbUltimaEscala = escala;
+        double ancho = riel.Bounds.Width;
+        if (ancho <= 0) ancho = 320;
+        barra.Width = ancho * escala;
+    }
+
+    /// <summary>Pinta el resultado del flasheo (ok/err). El log crudo se
+    /// maneja aparte con SetUsbLog — vive siempre en su propio Expander,
+    /// independiente de si el resultado fue ok o error.</summary>
+    private void MostrarResultadoUsb(string? kind, string? msg)
+    {
+        var box = this.FindControl<Border>("UsbResultBox");
+        var txt = this.FindControl<TextBlock>("UsbResultText");
+        if (box == null || txt == null) return;
+
+        if (string.IsNullOrEmpty(kind) || string.IsNullOrEmpty(msg))
+        {
+            box.IsVisible = false;
+            txt.Text = "";
+            return;
+        }
+        txt.Text = msg;
+        box.IsVisible = true;
+        if (kind == "ok") { box.Background = VerdeSuave; box.BorderBrush = VerdeTexto; txt.Foreground = Texto; }
+        else { box.Background = RojoSuave; box.BorderBrush = Rojo; txt.Foreground = Rojo; }
+    }
+
+    private void SetUsbLog(string? texto)
+    {
+        var det = this.FindControl<Expander>("UsbLogExpander");
+        var txt = this.FindControl<TextBlock>("UsbLogText");
+        if (txt != null) txt.Text = texto ?? "";
+        if (det != null) det.IsVisible = !string.IsNullOrWhiteSpace(texto);
+    }
+
+    /// <summary>Arma el mensaje de error del flasheo: `mensajeServidor` (ya
+    /// amigable, viene del POST /api/usb/flash o de InstalarDriverAsync) si
+    /// hay; si no, se resuelve por código con UsbFriendly (caso del polling,
+    /// que solo trae `codigo` pelado). El placeholder "{port}" se interpola
+    /// SIEMPRE acá aunque el server ya lo haga — por las dudas, nunca se
+    /// muestra el literal "{port}" al operario.</summary>
+    private void MostrarErrorUsb(string? codigo, string? mensajeServidor, string? logCrudo)
+    {
+        string mensaje = mensajeServidor ?? "";
+        if (string.IsNullOrEmpty(mensaje) && !string.IsNullOrEmpty(codigo) && UsbFriendly.TryGetValue(codigo, out var plantilla))
+            mensaje = plantilla;
+        if (string.IsNullOrEmpty(mensaje))
+            mensaje = T("No se pudo completar el flasheo.");
+        mensaje = mensaje.Replace("{port}", _usbPuerto);
+
+        string cabeza = string.IsNullOrEmpty(codigo) ? T(mensaje) : codigo + " · " + T(mensaje);
+        MostrarResultadoUsb("err", cabeza);
+        if (!string.IsNullOrWhiteSpace(logCrudo)) SetUsbLog(logCrudo);
     }
 }
