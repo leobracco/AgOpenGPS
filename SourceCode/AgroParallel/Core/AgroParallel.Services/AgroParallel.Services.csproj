@@ -19,7 +19,10 @@
     <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
     <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" Version="1.2.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
-    <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+    <!-- System.IO.Ports es Windows-only (USB flash de firmware). PrivateAssets="all"
+         para que NO se arrastre transitivamente a proyectos que referencian este
+         (ej. PilotX.Android, que históricamente no restaura este paquete). -->
+    <PackageReference Include="System.IO.Ports" Version="9.0.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
