@@ -129,5 +129,23 @@ namespace AgroParallel.Services.Tests
                 new[] { "--chip", "auto", "--port", "COM5" });
             Assert.Equal("--chip auto --port COM5", linea);
         }
+
+        // -----------------------------------------------------------------
+        // UsbDriverInstaller.ExitCodeEsExito — códigos de salida de pnputil
+        // que Microsoft documenta como éxito para /add-driver /install: 0,
+        // 259 (ERROR_NO_MORE_ITEMS) y 3010 (ERROR_SUCCESS_REBOOT_REQUIRED,
+        // primera instalación del CP210x/CH340 que pide reinicio).
+        // -----------------------------------------------------------------
+
+        [Theory]
+        [InlineData(0, true)]
+        [InlineData(259, true)]
+        [InlineData(3010, true)]
+        [InlineData(1, false)]
+        [InlineData(2, false)]
+        public void ExitCodeEsExito_clasifica_codigos_de_pnputil(int code, bool esExito)
+        {
+            Assert.Equal(esExito, AgroParallel.Usb.UsbDriverInstaller.ExitCodeEsExito(code));
+        }
     }
 }

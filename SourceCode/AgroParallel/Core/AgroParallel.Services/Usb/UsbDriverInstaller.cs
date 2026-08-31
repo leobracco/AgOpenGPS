@@ -10,6 +10,16 @@ namespace AgroParallel.Usb
     // automática. Idempotente (reinstalar no rompe).
     public static class UsbDriverInstaller
     {
+        // Códigos de salida de pnputil que documenta Microsoft como ÉXITO para
+        // /add-driver /install: 0 = OK sin más trámite; 259 = ERROR_NO_MORE_ITEMS
+        // (ya estaba instalado, nada que agregar); 3010 = ERROR_SUCCESS_REBOOT_REQUIRED
+        // (instaló el driver pero pide reinicio — típico en la primera instalación
+        // del CP210x/CH340). Cualquier otro código es falla real.
+        internal static bool ExitCodeEsExito(int code)
+        {
+            return code == 0 || code == 259 || code == 3010;
+        }
+
         public static bool Instalar(string engineBaseDir, string driver, out string codigoError)
         {
             codigoError = null;
@@ -40,7 +50,7 @@ namespace AgroParallel.Usb
                         new[] { "/add-driver", inf, "/install", "/subdirs" });
                     try
                     {
-                        using (var p = Process.Start(psi)) { p.WaitForExit(); if (p.ExitCode != 0 && p.ExitCode != 259) { codigoError = "AGP-USB-006"; return false; } }
+                        using (var p = Process.Start(psi)) { p.WaitForExit(); if (!ExitCodeEsExito(p.ExitCode)) { codigoError = "AGP-USB-006"; return false; } }
                     }
                     catch (Exception) { codigoError = "AGP-USB-006"; return false; }  // UAC rechazado o pnputil ausente
                 }
