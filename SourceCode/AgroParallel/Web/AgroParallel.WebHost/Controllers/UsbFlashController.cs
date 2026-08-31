@@ -61,6 +61,30 @@ namespace AgroParallel.WebHost.Controllers
                 await WriteErrorAsync(400, "AGP-USB-004", "Producto o versión inválidos.").ConfigureAwait(false);
                 return;
             }
+            // Puerto: validado ACÁ, antes de tocar UsbFlashService.Iniciar. Si
+            // llega null/vacío o un puerto que ya no está en la máquina (se
+            // desenchufó el cable entre que la UI listó puertos y el POST), el
+            // armado de esptool con puerto=null revienta con NullReferenceException
+            // DENTRO de Iniciar, después de poner EnCurso=true — eso deja el lock
+            // trabado para siempre (AGP-USB-007 en todo flasheo posterior hasta
+            // reiniciar el Engine). Cortar acá evita ese camino por completo.
+            bool puertoValido = !string.IsNullOrWhiteSpace(req.Puerto);
+            if (puertoValido)
+            {
+                puertoValido = false;
+                foreach (var p in _usb.ListarPuertos())
+                {
+                    if (p.Port == req.Puerto) { puertoValido = true; break; }
+                }
+            }
+            if (!puertoValido)
+            {
+                string friendlyPuerto = (AgpErrorMapper.FriendlyForCode("AGP-USB-001") ?? "Puerto inválido.")
+                    .Replace("{port}", req.Puerto ?? "");
+                await WriteErrorAsync(400, "AGP-USB-001", friendlyPuerto).ConfigureAwait(false);
+                return;
+            }
+
             // Cualquier valor que no sea "app" cae en "completo" (factory.bin,
             // borra todo). Es el modo seguro por defecto: si el nodo nunca tuvo
             // firmware AgroParallel, "app" solo (sin bootloader) no arranca.

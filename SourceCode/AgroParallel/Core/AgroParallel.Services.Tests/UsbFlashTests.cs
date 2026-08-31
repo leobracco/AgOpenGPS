@@ -147,5 +147,52 @@ namespace AgroParallel.Services.Tests
         {
             Assert.Equal(esExito, AgroParallel.Usb.UsbDriverInstaller.ExitCodeEsExito(code));
         }
+
+        // -----------------------------------------------------------------
+        // UsbFlashService.Iniciar — el lock (_estado.EnCurso) NO puede quedar
+        // trabado para siempre. Antes del fix, un puerto null llegaba hasta
+        // ArmarLineaDeComando DESPUÉS de poner EnCurso=true; la
+        // NullReferenceException sincrónica del quoting dejaba el lock
+        // trabado (AGP-USB-007 en todo pedido posterior, sin más flasheos
+        // hasta reiniciar el Engine). Ahora la línea de comando se arma ANTES
+        // del lock, así que ese camino nunca llega a poner EnCurso=true.
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public void Iniciar_con_puerto_null_no_deja_el_lock_trabado()
+        {
+            string baseDir = Path.Combine(Path.GetTempPath(), "agp_usbflash_test_" + System.Guid.NewGuid().ToString("N"));
+            string esptoolDir = Path.Combine(baseDir, "tools", "esptool");
+            Directory.CreateDirectory(esptoolDir);
+            File.WriteAllText(Path.Combine(esptoolDir, "esptool.exe"), "no es un exe real, solo hace falta que exista");
+
+            string bin = Path.Combine(baseDir, "firmware.bin");
+            File.WriteAllText(bin, "contenido falso");
+
+            try
+            {
+                var svc = new AgroParallel.Usb.UsbFlashService(baseDir);
+
+                // Puerto null: dispara el fallo en el armado de argumentos
+                // (ArmarLineaDeComando no tolera un elemento null en args).
+                bool ok = svc.Iniciar(bin, "app", null, false, out string cod);
+
+                Assert.False(ok);
+                Assert.Equal("AGP-USB-003", cod);
+                // El punto central del test: el lock NO quedó trabado.
+                Assert.False(svc.Estado().EnCurso);
+
+                // Un segundo Iniciar (con puerto válido esta vez) tiene que
+                // poder arrancar — si el lock hubiese quedado trabado, esto
+                // devolvería false con AGP-USB-007.
+                bool ok2 = svc.Iniciar(bin, "app", "COM99", false, out string cod2);
+                Assert.True(ok2);
+                Assert.NotEqual("AGP-USB-007", cod2);
+            }
+            finally
+            {
+                try { Directory.Delete(baseDir, true); } catch { }
+            }
+        }
     }
 }

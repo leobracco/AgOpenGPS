@@ -133,6 +133,32 @@ namespace AgroParallel.Usb
             if (!EsptoolPresente) { codigoError = "AGP-USB-005"; return false; }
             if (!File.Exists(binPath)) { codigoError = "AGP-USB-004"; return false; }
 
+            // Arma la línea de comando ANTES de tocar el lock/EnCurso=true.
+            // UsbFlashController ya valida el puerto contra ListarPuertos(),
+            // pero esto queda como segunda barrera: si algún llamante futuro
+            // (o un test) pasa un puerto null/inválido, el armado de argumentos
+            // revienta ACÁ, afuera del lock, y el flasheo nunca queda "en
+            // curso" — antes esto pasaba DESPUÉS de EnCurso=true y una
+            // NullReferenceException sincrónica dejaba el lock trabado para
+            // siempre (AGP-USB-007 en todo pedido posterior hasta reiniciar
+            // el Engine).
+            string lineaComando;
+            try
+            {
+                // netstandard2.0 no expone ProcessStartInfo.ArgumentList (llegó
+                // en .NET Core 2.1). UseShellExecute=false igual manda Arguments
+                // directo a CreateProcess sin pasar por cmd.exe (no hay shell de
+                // por medio), así que citamos cada argumento a mano con el mismo
+                // algoritmo que usa ArgumentList puertas adentro — nunca un
+                // shell-concat ingenuo.
+                lineaComando = ArmarLineaDeComando(ArmarArgs(puerto, modo, binPath, borrarAntes));
+            }
+            catch (System.Exception)
+            {
+                codigoError = "AGP-USB-003";
+                return false;
+            }
+
             lock (_lock)
             {
                 if (_estado.EnCurso) { codigoError = "AGP-USB-007"; return false; }
@@ -146,13 +172,8 @@ namespace AgroParallel.Usb
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                Arguments = lineaComando,
             };
-            // netstandard2.0 no expone ProcessStartInfo.ArgumentList (llegó en
-            // .NET Core 2.1). UseShellExecute=false igual manda Arguments directo
-            // a CreateProcess sin pasar por cmd.exe (no hay shell de por medio),
-            // así que citamos cada argumento a mano con el mismo algoritmo que
-            // usa ArgumentList puertas adentro — nunca un shell-concat ingenuo.
-            psi.Arguments = ArmarLineaDeComando(ArmarArgs(puerto, modo, binPath, borrarAntes));
 
             var sbLog = new System.Text.StringBuilder();
             void OnLinea(string linea)

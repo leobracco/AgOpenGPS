@@ -262,6 +262,54 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
         _cts = new CancellationTokenSource();
         _ = RefrescarAsync(_cts.Token);
         _ = RefrescarPuertosUsbAsync();
+        _ = ReconciliarUsbFlasheoAsync();
+    }
+
+    /// <summary>El panel se cachea y reutiliza (ConfigPanel._modPaneles): si el
+    /// operario cierra este panel con un flasheo en curso, Detach() para el
+    /// poller pero antes NO tocaba <see cref="_usbFlasheando"/> ni
+    /// rehabilitaba BtnUsbFlashear — al reabrir, OnUsbFlashearClick cortaba
+    /// por _usbFlasheando==true y el botón quedaba muerto para siempre (había
+    /// que reiniciar PilotX). Acá se reconcilia contra el estado REAL del
+    /// Hub, una vez, al re-mostrar el panel: si el flasheo sigue en curso se
+    /// retoma el poller (no se pierde el progreso); si ya terminó (o el Hub
+    /// no tiene registro), se limpia el latch y se rehabilita el botón. En el
+    /// caso normal (sin flasheo pendiente) no pega ni un request de más.</summary>
+    private async Task ReconciliarUsbFlasheoAsync()
+    {
+        if (!_usbFlasheando || _usbClient == null) return;
+
+        var ct = _cts?.Token ?? CancellationToken.None;
+        var estado = await _usbClient.EstadoAsync(ct).ConfigureAwait(true);
+        if (ct.IsCancellationRequested) return;
+
+        if (estado != null && estado.EnCurso)
+        {
+            // Sigue flasheando del otro lado: retomamos el poller donde
+            // quedó, con el último progreso conocido.
+            SetTexto("UsbFaseTexto", FaseTexto(estado.Fase));
+            SetProgresoUsb(estado.Pct);
+            MostrarProgresoUsb(true);
+            IniciarPollUsb();
+            return;
+        }
+
+        // Terminó mientras el panel estaba cerrado (o el Hub no tiene
+        // registro del flasheo): nunca dejamos el botón deshabilitado.
+        _usbFlasheando = false;
+        SetEnabled("BtnUsbFlashear", true);
+        MostrarProgresoUsb(false);
+
+        if (estado != null && estado.Resultado == "ok")
+        {
+            SetTexto("UsbFaseTexto", T("Listo."));
+            MostrarResultadoUsb("ok", T("Flasheo terminado."));
+            await RefrescarPuertosUsbAsync().ConfigureAwait(true);
+        }
+        else if (estado != null && estado.Resultado != null)
+        {
+            MostrarErrorUsb(estado.Codigo, null, estado.Log);
+        }
     }
 
     public void Detach()
