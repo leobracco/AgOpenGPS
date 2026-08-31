@@ -45,7 +45,7 @@ namespace AgroParallel.Usb
         // asignable a IReadOnlyList<string> donde haga falta (la usa Iniciar()).
         public static List<string> ArmarArgs(string puerto, string modo, string binPath, bool borrarAntes)
         {
-            var a = new List<string> { "--chip", "auto", "--port", puerto, "--baud", "921600", "write_flash" };
+            var a = new List<string> { "--chip", "auto", "--port", puerto, "--baud", "921600", "write-flash" };
             if (borrarAntes) a.Add("--erase-all");
             if (modo == "completo") { a.Add("0x0"); a.Add(binPath); }
             else { a.Add("0x10000"); a.Add(binPath); }
