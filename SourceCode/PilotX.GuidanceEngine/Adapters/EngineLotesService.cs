@@ -36,6 +36,22 @@ namespace PilotX.GuidanceEngine.Adapters
             _host = host ?? throw new ArgumentNullException(nameof(host));
         }
 
+        // Cache del cálculo de boundary por lote. Sin esto, ListFields releía el
+        // Boundary.txt completo y recalculaba el área de CADA lote en CADA
+        // request: con ~185 lotes en una pantalla de CPU floja eso tardaba
+        // decenas de segundos y la UI (que polea) se rendía por timeout y
+        // mostraba la lista vacía. Ahora se relee un lote solo si cambió la
+        // fecha de modificación de su Boundary.txt.
+        private sealed class BoundaryCacheEntry
+        {
+            public long StampTicks;   // LastWriteTimeUtc del Boundary.txt cacheado (0 = sin archivo)
+            public bool HasBoundary;
+            public double AreaHa;
+        }
+        private readonly Dictionary<string, BoundaryCacheEntry> _boundaryCache =
+            new Dictionary<string, BoundaryCacheEntry>(StringComparer.OrdinalIgnoreCase);
+        private readonly object _boundaryCacheLock = new object();
+
         public IList<FieldInfo> ListFields()
         {
             var result = new List<FieldInfo>();
@@ -59,17 +75,18 @@ namespace PilotX.GuidanceEngine.Adapters
                         IsCurrent = !string.IsNullOrEmpty(current) &&
                                     string.Equals(current, di.Name, StringComparison.OrdinalIgnoreCase),
                     };
+
+                    // Sólo un stat() del Boundary.txt por lote; la lectura+cálculo
+                    // se hace una vez y se reutiliza mientras el archivo no cambie.
                     string boundary = Path.Combine(di.FullName, "Boundary.txt");
-                    if (File.Exists(boundary))
-                    {
-                        try
-                        {
-                            var lines = File.ReadAllLines(boundary);
-                            info.HasBoundary = lines.Length > 2;
-                            info.AreaHa = ComputeBoundaryAreaHa(lines);
-                        }
-                        catch { }
-                    }
+                    long stamp = 0;
+                    try { if (File.Exists(boundary)) stamp = File.GetLastWriteTimeUtc(boundary).Ticks; }
+                    catch { }
+
+                    var entry = GetOrComputeBoundary(di.FullName, boundary, stamp);
+                    info.HasBoundary = entry.HasBoundary;
+                    info.AreaHa = entry.AreaHa;
+
                     result.Add(info);
                 }
                 catch { /* skip broken dir */ }
@@ -80,6 +97,32 @@ namespace PilotX.GuidanceEngine.Adapters
                 return b.LastModifiedUtc.CompareTo(a.LastModifiedUtc);
             });
             return result;
+        }
+
+        // Devuelve el boundary cacheado del lote; lo recalcula solo si el
+        // Boundary.txt cambió (o si es la primera vez). key = ruta del lote.
+        private BoundaryCacheEntry GetOrComputeBoundary(string dirFullName, string boundaryPath, long stampTicks)
+        {
+            lock (_boundaryCacheLock)
+            {
+                if (_boundaryCache.TryGetValue(dirFullName, out var cached) && cached.StampTicks == stampTicks)
+                    return cached;
+            }
+
+            var fresh = new BoundaryCacheEntry { StampTicks = stampTicks };
+            if (stampTicks != 0)
+            {
+                try
+                {
+                    var lines = File.ReadAllLines(boundaryPath);
+                    fresh.HasBoundary = lines.Length > 2;
+                    fresh.AreaHa = ComputeBoundaryAreaHa(lines);
+                }
+                catch { }
+            }
+
+            lock (_boundaryCacheLock) { _boundaryCache[dirFullName] = fresh; }
+            return fresh;
         }
 
         public string GetCurrentFieldName()
