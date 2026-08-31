@@ -42,5 +42,38 @@ namespace AgroParallel.Services.Tests
         {
             Assert.Equal(codigoEsp, AgroParallel.Usb.EsptoolOutputParser.ClasificarError(log));
         }
+
+        // -----------------------------------------------------------------
+        // UsbFlashService.ArmarArgs — armado de argv para esptool.exe, SIN
+        // IO ni proceso (van directo a ProcessStartInfo.ArgumentList, nunca
+        // shell-concat).
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public void ArmarArgs_completo_escribe_factory_a_0x0()
+        {
+            var a = AgroParallel.Usb.UsbFlashService.ArmarArgs("COM5", "completo", @"C:\f\factory.bin", false);
+            Assert.Contains("--port", a); Assert.Contains("COM5", a);
+            Assert.Contains("write_flash", a);
+            int i = a.IndexOf("write_flash");
+            Assert.Equal("0x0", a[i + 1]);
+            Assert.Equal(@"C:\f\factory.bin", a[i + 2]);
+        }
+
+        [Fact]
+        public void ArmarArgs_app_escribe_firmware_a_0x10000()
+        {
+            var a = AgroParallel.Usb.UsbFlashService.ArmarArgs("COM3", "app", @"C:\f\firmware.bin", false);
+            int i = a.IndexOf("write_flash");
+            Assert.Equal("0x10000", a[i + 1]);
+            Assert.Equal(@"C:\f\firmware.bin", a[i + 2]);
+        }
+
+        [Fact]
+        public void ArmarArgs_borrar_antes_agrega_erase_flag()
+        {
+            var a = AgroParallel.Usb.UsbFlashService.ArmarArgs("COM3", "app", @"C:\f\firmware.bin", true);
+            Assert.Contains("--erase-all", a);   // write_flash -e / --erase-all
+        }
     }
 }
