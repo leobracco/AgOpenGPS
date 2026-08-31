@@ -514,3 +514,11 @@ RustDesk-AgroParallel.zip
 PilotX-Taller-*.zip
 PilotX_v*.zip
 SourceCode/PilotX.Cockpit.Bars/Assets/_handoff/
+
+# Excepciones: drivers USB-serial bundleados para el flasheo por USB.
+# El .gitignore excluye x64//x86/ (dirs de build); estos son insumos, no build.
+!Tools/usb-drivers/cp210x/x64/
+!Tools/usb-drivers/cp210x/x86/
+!Tools/usb-drivers/cp210x/arm/
+!Tools/usb-drivers/cp210x/arm64/
+!Tools/usb-drivers/**/*.sys
