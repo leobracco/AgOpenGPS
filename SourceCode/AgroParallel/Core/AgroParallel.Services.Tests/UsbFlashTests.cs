@@ -75,5 +75,59 @@ namespace AgroParallel.Services.Tests
             var a = AgroParallel.Usb.UsbFlashService.ArmarArgs("COM3", "app", @"C:\f\firmware.bin", true);
             Assert.Contains("--erase-all", a);   // write_flash -e / --erase-all
         }
+
+        // -----------------------------------------------------------------
+        // UsbFlashService.ArmarLineaDeComando (internal) — port a mano del
+        // algoritmo de citado de Windows (PasteArguments/ArgumentList) que
+        // arma psi.Arguments. netstandard2.0 no tiene ArgumentList, así que
+        // esto reemplaza al shell-concat ingenuo; sin tests hasta ahora.
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public void Quoting_argumento_simple_sin_espacios_no_lleva_comillas()
+        {
+            string linea = AgroParallel.Usb.UsbFlashService.ArmarLineaDeComando(new[] { "COM5" });
+            Assert.Equal("COM5", linea);
+        }
+
+        [Fact]
+        public void Quoting_argumento_con_espacios_queda_citado_como_un_solo_arg()
+        {
+            string linea = AgroParallel.Usb.UsbFlashService.ArmarLineaDeComando(
+                new[] { @"C:\Program Files\x\factory.bin" });
+            Assert.Equal("\"C:\\Program Files\\x\\factory.bin\"", linea);
+        }
+
+        [Fact]
+        public void Quoting_comilla_embebida_se_escapa()
+        {
+            string linea = AgroParallel.Usb.UsbFlashService.ArmarLineaDeComando(new[] { "foo\"bar" });
+            Assert.Equal("\"foo\\\"bar\"", linea);
+        }
+
+        [Fact]
+        public void Quoting_backslash_final_se_dobla_antes_de_la_comilla_de_cierre()
+        {
+            // "a b\" necesita comillas por el espacio; el backslash final, al
+            // quedar pegado a la comilla de cierre, se duplica (si no, la
+            // comilla de cierre quedaría escapada y el argumento no cerraría).
+            string linea = AgroParallel.Usb.UsbFlashService.ArmarLineaDeComando(new[] { @"a b\" });
+            Assert.Equal("\"a b\\\\\"", linea);
+        }
+
+        [Fact]
+        public void Quoting_string_vacio_produce_comillas_vacias()
+        {
+            string linea = AgroParallel.Usb.UsbFlashService.ArmarLineaDeComando(new[] { "" });
+            Assert.Equal("\"\"", linea);
+        }
+
+        [Fact]
+        public void Quoting_varios_argumentos_se_separan_con_un_espacio()
+        {
+            string linea = AgroParallel.Usb.UsbFlashService.ArmarLineaDeComando(
+                new[] { "--chip", "auto", "--port", "COM5" });
+            Assert.Equal("--chip auto --port COM5", linea);
+        }
     }
 }

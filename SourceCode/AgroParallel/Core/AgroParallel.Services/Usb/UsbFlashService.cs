@@ -56,7 +56,9 @@ namespace AgroParallel.Usb
         // Iniciar). Replica el algoritmo de citado de argumentos de Windows
         // (PasteArguments del propio runtime .NET) para que paths con espacios
         // o comillas no rompan la línea de comando de esptool.
-        private static string ArmarLineaDeComando(IEnumerable<string> args)
+        // internal (no private): testeado directo desde AgroParallel.Services.Tests
+        // (InternalsVisibleTo en el csproj) sin pasar por Iniciar()/proceso real.
+        internal static string ArmarLineaDeComando(IEnumerable<string> args)
         {
             var sb = new System.Text.StringBuilder();
             foreach (var arg in args) AppendArgumentoCitado(sb, arg);
