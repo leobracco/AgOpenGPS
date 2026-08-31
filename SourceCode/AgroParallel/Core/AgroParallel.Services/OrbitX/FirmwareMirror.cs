@@ -67,6 +67,11 @@ namespace AgroParallel.OrbitX
         public static string PathBin(string cacheDir, string producto, string version)
             => Path.Combine(DirVersion(cacheDir, producto, version), "firmware.bin");
 
+        /// <summary>Ruta del factory.bin (merge bootloader+particiones+boot_app0+app)
+        /// usado por el flasheo USB en modo completo. Puede no existir.</summary>
+        public static string PathFactory(string cacheDir, string producto, string version)
+            => Path.Combine(DirVersion(cacheDir, producto, version), "factory.bin");
+
         public static string PathManifest(string cacheDir, string producto, string version)
             => Path.Combine(DirVersion(cacheDir, producto, version), "manifest.json");
 
