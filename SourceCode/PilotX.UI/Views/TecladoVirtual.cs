@@ -9,8 +9,16 @@
 //     de la sensación de "teclado malo";
 //   · no hay gimnasia de foco: el control vive en la misma ventana que el
 //     campo, los botones son Focusable=false y el TextBox nunca pierde el
-//     foco — sin WS_EX_NOACTIVATE, sin SendInput, sin devolver foco;
-//   · no flota ni se corre de lugar: anclado abajo-centro, siempre igual.
+//     foco — sin WS_EX_NOACTIVATE, sin SendInput, sin devolver foco.
+//
+// Comportamiento (pedidos 2026-09-01):
+//   · campo NUMÉRICO → solo el pad de números (con ⌫ ⏎ y −); campo de texto
+//     → pad + QWERTY. La detección: TextInputOptions.ContentType si el panel
+//     lo declaró, si no por el contenido actual del campo.
+//   · se OCULTA al tocar fuera del campo y fuera del teclado (tocar el mapa,
+//     un botón de otra cosa, etc.);
+//   · se puede MOVER agarrándolo del asa superior; recuerda dónde lo
+//     dejaron mientras la app viva.
 //
 // Las teclas se escriben DIRECTO en el TextBox enfocado (in-process), con la
 // misma inserción determinista sobre .Text + caret que ya probamos en
@@ -18,9 +26,7 @@
 //
 // La ventana flotante SIGUE EXISTIENDO para las páginas del Hub (WebView),
 // que no tienen TextBox nativo: TecladoWindow.Mostrar consulta ActivoEnShell
-// y no se abre si este teclado ya está en pantalla — sin eso aparecían los
-// dos teclados a la vez (los paneles nativos siguen posteando
-// /api/teclado/abrir y el poller reaccionaba igual).
+// y no se abre si este teclado ya está en pantalla.
 //
 // Se auto-engancha al TopLevel al entrar al árbol visual: MainWindow solo lo
 // declara en el XAML, sin código de wiring.
@@ -29,11 +35,15 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
+using Avalonia.Input.TextInput;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace PilotX.Desktop.Views
 {
@@ -43,6 +53,7 @@ namespace PilotX.Desktop.Views
         private static readonly IBrush BgCard    = new SolidColorBrush(Color.Parse("#F5F7F4"));
         private static readonly IBrush Borde     = new SolidColorBrush(Color.Parse("#C5CFC5"));
         private static readonly IBrush Texto     = new SolidColorBrush(Color.Parse("#101612"));
+        private static readonly IBrush TextoDim  = new SolidColorBrush(Color.Parse("#535E54"));
         private static readonly IBrush BgTecla   = Brushes.White;
         private static readonly IBrush BgModif   = new SolidColorBrush(Color.Parse("#E2E7E2"));
         private static readonly IBrush BgAcento  = new SolidColorBrush(Color.Parse("#4ABA3E"));
@@ -54,13 +65,24 @@ namespace PilotX.Desktop.Views
         private static int _visibles;
         public static bool ActivoEnShell => _visibles > 0;
 
+        // Dónde dejó el operario el teclado (offset sobre su posición anclada,
+        // abajo-centro). Estático: se recuerda entre aperturas mientras la app
+        // viva, igual que hacía la ventana flotante.
+        private static Point _corrimiento = default;
+
         // El campo al que van las teclas: el TextBox que disparó el GotFocus.
         // WeakReference para no retener paneles cerrados.
         private WeakReference<TextBox>? _campo;
         private bool _mayus;
+        private bool _numerico;
         private readonly StackPanel _filasQwerty;
+        private readonly StackPanel _colNumExtra;
         private readonly DispatcherTimer _timerOcultar;
-        private Button? _btnShift;
+
+        // Arrastre por el asa.
+        private bool _moviendo;
+        private Point _agarre;
+        private Point _corrimientoInicial;
 
         public TecladoVirtual()
         {
@@ -76,6 +98,20 @@ namespace PilotX.Desktop.Views
             {
                 OffsetY = 4, Blur = 18, Color = Color.Parse("#33101612")
             });
+            RenderTransform = new TranslateTransform();
+
+            // La app corre con el tema Fluent OSCURO: sus estados hover/pressed
+            // pintaban la tecla con fondo claro Y texto claro a la vez — al
+            // pasar por arriba "se pone todo blanco y no se ve nada" (reporte
+            // 2026-09-01). Se fuerzan acá los estados, SOLO dentro del teclado.
+            EstadoTecla(null,    ":pointerover", "#EEF2EE", "#101612");
+            EstadoTecla(null,    ":pressed",     "#CFD8CF", "#101612");
+            // Enter (verde) y Shift activo (verde oscuro): hover/pressed van
+            // MÁS oscuros, nunca al gris — si no, el estado se perdía al tocar.
+            EstadoTecla("enter", ":pointerover", "#3FA435", "#FFFFFF");
+            EstadoTecla("enter", ":pressed",     "#368F2E", "#FFFFFF");
+            EstadoTecla("on",    ":pointerover", "#1A5216", "#FFFFFF");
+            EstadoTecla("on",    ":pressed",     "#143F11", "#FFFFFF");
 
             // Gracia antes de ocultar: al saltar de un campo a otro el foco
             // parpadea (LostFocus→GotFocus) y sin esto el teclado titilaba.
@@ -86,9 +122,36 @@ namespace PilotX.Desktop.Views
                 if (!HayCampoEnfocado()) Ocultar();
             };
 
-            // ── Layout: numérico a la izquierda + QWERTY a la derecha ───────
+            // ── Asa para mover + filas de teclas ────────────────────────────
+            var dock = new DockPanel();
+
+            var asa = new Border
+            {
+                Height = 28,
+                Margin = new Thickness(0, 0, 0, 8),
+                CornerRadius = new CornerRadius(6),
+                // Sin fondo no recibe eventos de puntero y el asa no agarra
+                // (lección de la barra de TecladoWindow).
+                Background = Brushes.Transparent,
+                Cursor = new Cursor(StandardCursorType.SizeAll),
+                Child = new TextBlock
+                {
+                    Text = "⠿  teclado",
+                    Foreground = TextoDim,
+                    FontSize = 13,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+            DockPanel.SetDock(asa, Dock.Top);
+            asa.PointerPressed += AlAgarrarAsa;
+            asa.PointerMoved += AlMoverAsa;
+            asa.PointerReleased += (_, e) => { _moviendo = false; e.Pointer.Capture(null); };
+            dock.Children.Add(asa);
+
             var raiz = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
 
+            // Pad numérico (siempre visible).
             var pad = new StackPanel { Spacing = 6 };
             foreach (var fila in new[]
             {
@@ -104,10 +167,18 @@ namespace PilotX.Desktop.Views
             }
             raiz.Children.Add(pad);
 
+            // Columna extra del modo NUMÉRICO: sin el bloque QWERTY, ⌫/−/⏎/⌄
+            // tienen que vivir en algún lado.
+            _colNumExtra = new StackPanel { Spacing = 6, IsVisible = false };
+            foreach (var k in new[] { "⌫", "-", "⏎", "⌄" })
+                _colNumExtra.Children.Add(Tecla(k, ancho: 60));
+            raiz.Children.Add(_colNumExtra);
+
             _filasQwerty = new StackPanel { Spacing = 6 };
             raiz.Children.Add(_filasQwerty);
 
-            Child = raiz;
+            dock.Children.Add(raiz);
+            Child = dock;
             PintarQwerty();
         }
 
@@ -120,6 +191,9 @@ namespace PilotX.Desktop.Views
             // Bubble: alcanza cualquier TextBox de la ventana, presente o futuro.
             top.AddHandler(InputElement.GotFocusEvent, AlGanarFoco, RoutingStrategies.Bubble);
             top.AddHandler(InputElement.LostFocusEvent, AlPerderFoco, RoutingStrategies.Bubble);
+            // Tunnel: ver el toque ANTES de que alguien lo marque handled —
+            // tocar fuera del campo y del teclado lo tiene que ocultar.
+            top.AddHandler(InputElement.PointerPressedEvent, AlTocarPantalla, RoutingStrategies.Tunnel);
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -130,6 +204,7 @@ namespace PilotX.Desktop.Views
             {
                 top.RemoveHandler(InputElement.GotFocusEvent, AlGanarFoco);
                 top.RemoveHandler(InputElement.LostFocusEvent, AlPerderFoco);
+                top.RemoveHandler(InputElement.PointerPressedEvent, AlTocarPantalla);
             }
             Ocultar();
         }
@@ -139,8 +214,10 @@ namespace PilotX.Desktop.Views
             if (e.Source is not TextBox tb || tb.IsReadOnly) return;
             _campo = new WeakReference<TextBox>(tb);
             _timerOcultar.Stop();
+            ModoNumerico(EsCampoNumerico(tb));
             if (!IsVisible)
             {
+                AplicarCorrimiento();   // volver a donde lo dejó el operario
                 IsVisible = true;
                 _visibles++;
             }
@@ -151,6 +228,27 @@ namespace PilotX.Desktop.Views
             if (e.Source is not TextBox) return;
             _timerOcultar.Stop();
             _timerOcultar.Start();
+        }
+
+        // Tocar FUERA del teclado y fuera de un campo → se oculta (pedido
+        // 2026-09-01: "cuando toco fuera del input o fuera del teclado, el
+        // teclado debería desaparecer").
+        private void AlTocarPantalla(object? sender, PointerPressedEventArgs e)
+        {
+            if (!IsVisible) return;
+            if (e.Source is Visual v)
+            {
+                foreach (var a in v.GetVisualAncestors())
+                {
+                    if (a == this) return;               // toque en el teclado
+                    if (a is TextBox { IsReadOnly: false }) return; // en un campo
+                }
+                if (v == this || v is TextBox { IsReadOnly: false }) return;
+            }
+            Ocultar();
+            // Soltar el foco del campo: si quedara enfocado, volver a tocarlo
+            // no dispara GotFocus y el teclado no reaparecería.
+            try { TopLevel.GetTopLevel(this)?.FocusManager?.ClearFocus(); } catch { }
         }
 
         private bool HayCampoEnfocado()
@@ -173,6 +271,70 @@ namespace PilotX.Desktop.Views
             if (_mayus) { _mayus = false; PintarQwerty(); }
         }
 
+        // ── Modo numérico ───────────────────────────────────────────────────
+
+        /// <summary>Campo de números → pad solo. Manda TextInputOptions si el
+        /// panel lo declaró; si no, se mira lo que el campo ya tiene escrito
+        /// (heurística: los campos numéricos de los editores nunca arrancan
+        /// vacíos, traen el valor actual).</summary>
+        private static bool EsCampoNumerico(TextBox tb)
+        {
+            try
+            {
+                var ct = TextInputOptions.GetContentType(tb);
+                if (ct is TextInputContentType.Digits or TextInputContentType.Number) return true;
+                if (ct is not TextInputContentType.Normal) return false; // email/url/etc → QWERTY
+            }
+            catch { }
+            var t = tb.Text;
+            if (string.IsNullOrWhiteSpace(t)) return false;
+            foreach (var c in t)
+                if (!char.IsDigit(c) && c is not ('.' or ',' or '-' or '+' or ' ')) return false;
+            return true;
+        }
+
+        private void ModoNumerico(bool numerico)
+        {
+            _numerico = numerico;
+            _filasQwerty.IsVisible = !numerico;
+            _colNumExtra.IsVisible = numerico;
+        }
+
+        // ── Arrastre por el asa ─────────────────────────────────────────────
+        private void AlAgarrarAsa(object? sender, PointerPressedEventArgs e)
+        {
+            var top = TopLevel.GetTopLevel(this);
+            if (top == null) return;
+            _moviendo = true;
+            // Coordenadas del TOPLEVEL, no del propio control: el marco de
+            // referencia del control se mueve con él y el arrastre se pelea
+            // consigo mismo (lección de TecladoWindow).
+            _agarre = e.GetPosition(top);
+            _corrimientoInicial = _corrimiento;
+            e.Pointer.Capture(sender as IInputElement);
+        }
+
+        private void AlMoverAsa(object? sender, PointerEventArgs e)
+        {
+            if (!_moviendo) return;
+            var top = TopLevel.GetTopLevel(this);
+            if (top == null) return;
+            var p = e.GetPosition(top);
+            _corrimiento = new Point(
+                _corrimientoInicial.X + (p.X - _agarre.X),
+                _corrimientoInicial.Y + (p.Y - _agarre.Y));
+            AplicarCorrimiento();
+        }
+
+        private void AplicarCorrimiento()
+        {
+            if (RenderTransform is TranslateTransform t)
+            {
+                t.X = _corrimiento.X;
+                t.Y = _corrimiento.Y;
+            }
+        }
+
         // ── Teclas ──────────────────────────────────────────────────────────
         private static readonly string[][] QWERTY =
         {
@@ -185,7 +347,6 @@ namespace PilotX.Desktop.Views
         private void PintarQwerty()
         {
             _filasQwerty.Children.Clear();
-            _btnShift = null;
             foreach (var fila in QWERTY)
             {
                 var f = new StackPanel
@@ -222,14 +383,39 @@ namespace PilotX.Desktop.Views
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8)
             };
-            if (etiqueta == "⏎") { b.Background = BgAcento; b.Foreground = Brushes.White; }
-            if (etiqueta == "⇧")
+            if (etiqueta == "⏎")
             {
-                _btnShift = b;
-                if (_mayus) { b.Background = BgShiftOn; b.Foreground = Brushes.White; }
+                b.Classes.Add("enter");
+                b.Background = BgAcento;
+                b.Foreground = Brushes.White;
+            }
+            if (etiqueta == "⇧" && _mayus)
+            {
+                b.Classes.Add("on");
+                b.Background = BgShiftOn;
+                b.Foreground = Brushes.White;
             }
             b.Click += (_, __) => Pulsar(etiqueta);
             return b;
+        }
+
+        // Fuerza fondo+texto de un estado (hover/pressed) de las teclas, en el
+        // ContentPresenter del template — que es donde el tema Fluent los pisa.
+        private void EstadoTecla(string? clase, string pseudo, string bg, string fg)
+        {
+            var st = new Style(x =>
+            {
+                var sel = x.OfType<Button>();
+                if (clase != null) sel = sel.Class(clase);
+                return sel.Class(pseudo).Template()
+                          .OfType<ContentPresenter>().Name("PART_ContentPresenter");
+            });
+            st.Setters.Add(new Setter(ContentPresenter.BackgroundProperty,
+                new SolidColorBrush(Color.Parse(bg))));
+            st.Setters.Add(new Setter(ContentPresenter.ForegroundProperty,
+                new SolidColorBrush(Color.Parse(fg))));
+            st.Setters.Add(new Setter(ContentPresenter.BorderBrushProperty, Borde));
+            Styles.Add(st);
         }
 
         private string MostrarEtiqueta(string k)
