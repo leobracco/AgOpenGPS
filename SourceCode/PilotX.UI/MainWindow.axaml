@@ -738,6 +738,20 @@
                                      ZIndex="100"
                                      VerticalAlignment="Top"/>
 
+            <!-- =================== TECLADO VIRTUAL (embebido) =================== -->
+            <!--
+                El teclado en pantalla para los campos NATIVOS: aparece al
+                instante cuando un TextBox gana el foco (se auto-engancha al
+                TopLevel, sin wiring acá) y se oculta al perderlo. ZIndex 95:
+                arriba de las barras del cockpit (50) — el campo que se está
+                editando vive en esos paneles — y abajo del banner de alarmas
+                (100). La ventana flotante TecladoWindow queda SOLO para las
+                páginas del Hub (WebView), que no tienen TextBox nativo.
+            -->
+            <vw:TecladoVirtual x:Name="TecladoHost" Grid.Row="2" ZIndex="95"
+                               HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                               Margin="0,0,0,10"/>
+
             <!-- =================== WEBVIEW SLOT (lazy on-demand) =================== -->
             <!--
                 Contenedor vacio donde se instancia el WebView SOLO cuando

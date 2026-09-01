@@ -136,6 +136,12 @@ namespace PilotX.Desktop
         /// <summary>Abre el teclado (o lo trae al frente si ya estaba).</summary>
         public static void Mostrar(bool numerico, string? titulo = null)
         {
+            // Si el teclado EMBEBIDO del shell ya está en pantalla (campo
+            // nativo enfocado), esta ventana sobra: los paneles nativos siguen
+            // posteando /api/teclado/abrir y sin este guard aparecían los dos
+            // teclados a la vez. La flotante queda para las páginas del Hub.
+            if (Views.TecladoVirtual.ActivoEnShell) return;
+
             // Antes de mostrar nada: la ventana de adelante ahora es la que
             // tiene el campo enfocado. Si se capturara después, podría ser ya
             // la del propio teclado. (Windows: GetForegroundWindow; Linux:
