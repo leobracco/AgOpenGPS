@@ -2,7 +2,10 @@
 
 **Client:** Agro Parallel (Leonardo Bracco)
 **Date:** 2026-08-31
-**Rev:** A (initial brief)
+**Rev:** B — TM171 datasheet reviewed (V1.1.6): the TM171 is a **solderable
+module** (stamp holes + through-hole pins), so it now mounts directly ON this
+PCB — no external sensor cable/connector. §4.4, §6 and §11 updated; supply
+range and pinout confirmed. Datasheet attached with this brief.
 **Contact for questions:** Leonardo Bracco
 
 ---
@@ -96,18 +99,36 @@ machines, so design for repeatable manufacturing (JLCPCB fab + SMT assembly).
 - Power budget: ESP32 Wi-Fi burst ~450 mA @3.3 V + TM171 150 mA @5 V +
   transceiver ~70 mA ⇒ ~2.5 W absolute worst case, <1 W typical (Wi-Fi idle).
 
-### 4.4 TM171 sensor interface
+### 4.4 TM171 sensor interface — MOUNTS ON THIS PCB (datasheet confirmed)
 
-- Connector on our PCB: **4-pin** → 5 V, GND, UART_TX (ESP32→TM171),
-  UART_RX (TM171→ESP32).
-- TM171 facts (verify against SYD Dynamics TM171 datasheet before finalizing):
-  - UART TTL, **3.3 V and 5 V compatible** (per manufacturer) → direct 3.3 V
-    connection to ESP32 expected to be fine; if the datasheet shows 5 V-only
-    drive, add a level shifter footprint (DNP default).
-  - Power: **80 mA @ 5 V typical**. Supply range to confirm in datasheet —
-    if it accepts 3.3 V we still feed it 5 V for margin.
-  - Data rate configurable 1–800 Hz; we will run 100 Hz.
-- Connector type: see §6 (sealed).
+Per the TM151/TM171 datasheet V1.1.6 (attached), the sensor is a **solderable
+module**: a baseboard with **stamp holes on the four corners** (castellated,
+for mechanical support — solder to matching pads) plus **5 through-hole pins**.
+It solders onto our PCB like an ESP32-WROOM does. **No external sensor cable.**
+
+- **Footprint**: module is 40 × 34 × 12.6 mm, M3 holes; create the footprint
+  from the mechanical drawing on datasheet p.7 (stamp-hole pads at corners +
+  5 through-hole pads). Reserve the full module outline as keep-out.
+- **Pinout** (datasheet p.6-7):
+  | Pin | Name | Note |
+  |---|---|---|
+  | 1 | RXD | UART into TM171 (ESP32 TX2 → here). TTL 3.3 V, 5 V-tolerant. |
+  | 2 | TXD | UART out of TM171 (→ ESP32 RX2). TTL 3.3 V levels. |
+  | 3 | VCC | **4.5–5.5 V, regulated 5 V recommended**, 80 mA typ. |
+  | 4/5 | GND | internally tied together |
+- Direct 3.3 V UART interconnect with ESP32 — **no level shifter needed**
+  (TM171 drives 3.3 V TTL).
+- **The module has NO surge/overvoltage protection of its own** (datasheet is
+  explicit) → our 5 V rail must be clean and protected; keep the sensor rail
+  post-regulation, consider a ferrite + local decoupling at its VCC pin.
+- UART default 115200 (configurable 2400–921600); we run 115200, ODR 100 Hz.
+- Operating temp: **−40…+85 °C**. **No IP rating** → the enclosure provides
+  all sealing.
+- The module has its own **USB-C** (config via SYD's ImuAssistant GUI):
+  position the module so the USB-C is reachable with the enclosure lid open.
+- **Axis orientation matters** (it measures the wheel's steering angle):
+  silkscreen a clear orientation arrow on our PCB matching the TM171 axis
+  definition (datasheet p.7 figure).
 
 ### 4.5 Debug / programming
 
@@ -151,10 +172,12 @@ avoid strapping pins for outputs and keep UART2 free of boot noise:
 - **Field connector (power + CAN): Deutsch DT04-4P** (or DT13-4P receptacle):
   pins = +BATT, GND, CAN_H, CAN_L. If a panel-mount DT is impractical for the
   enclosure, a cable pigtail through an IP68 gland with an inline DT connector
-  is acceptable — state which you choose.
-- **TM171 connector**: sealed 4-pin, smaller (e.g. M8 4-pin, or JST-GH pigtail
-  through a gland). The TM171 ships with its own cable; we will crimp to match.
-- **Board size target:** ≤ 70 × 50 mm, 4× M3 mounting holes.
+  is acceptable — state which you choose. **This is now the only external
+  connector** (the TM171 mounts on-board, see §4.4).
+- **Board size target:** ≤ 80 × 60 mm (must fit the 40 × 34 mm TM171 module
+  on top), 4× M3 mounting holes. Since the whole unit IS the angle sensor,
+  the PCB mounting must be **rigid and repeatable** (the enclosure bolts to
+  the steering knuckle; sensor axes must not shift with vibration).
 - **Enclosure:** IP67 **plastic** (Wi-Fi must radiate — no metal box), e.g.
   Hammond 1554/1555 series or equivalent. PCB antenna area oriented away from
   mounting plate. If you prefer an external antenna (u.FL + bulkhead), propose
@@ -197,24 +220,35 @@ This does not affect the PCB beyond "CAN 2.0B extended, 250 kbps".
    placement note, anything you deviated from this brief and why.
 6. (After our review) order files or the order itself for 5 assembled protos.
 
-## 11. Open questions for Alok
+## 11. Optional variant (client still deciding — quote it separately)
+
+Footprint for an **on-board raw IMU as DNP alternative** to the TM171:
+**ICM-42688-P** (LCSC C1850418, ~$13, JLCPCB-assemblable) on SPI to the ESP32,
+placed at the board center, unpopulated by default. Rationale: a future
+lower-cost variant of the same board where JLCPCB mounts the IMU and no TM171
+is purchased (sensor fusion then runs on the ESP32). If it complicates layout
+meaningfully, skip it and say so.
+
+## 12. Open questions for Alok
 
 1. TJA1051T/3 vs SN65HVD230 — your call with rationale (supply rails differ).
 2. Panel-mount Deutsch vs pigtail+gland — which fits the enclosure best?
 3. PCB antenna vs external u.FL antenna through the lid?
-4. USB-C debug bridge on-board: worth the ~$1.5, or header only?
+4. USB-C debug bridge on-board: worth the ~$1.5, or header only? (Note the
+   TM171 module already exposes its own USB-C for sensor config.)
 5. Any concern with 2-layer for the buck at 24 V input?
-6. Confirm TM171 supply range from its datasheet (we could not confirm the
-   min/max supply — only "80 mA @ 5 V typical").
+6. ICM-42688-P DNP variant (§11): feasible without hurting the layout?
 
-## 12. References
+## 13. References
 
+- **TM151/TM171 datasheet V1.1.6 (attached PDF — primary reference)**: pinout,
+  mechanical drawing with stamp holes, VCC 4.5–5.5 V, −40…+85 °C, gyro bias
+  stability 5.5 °/h, no on-module surge protection.
 - TM171 product page: https://www.syd-dynamics.com/transducerm_tm151-tm171/
-  (UART TTL 3.3/5 V compatible, 80 mA @ 5 V, 40×34×12.6 mm, M3 holes,
-  1–800 Hz output, yaw drift 2.6°/25 min)
-- Commercial adapter we are replacing with our own design (context/inspiration):
-  TM171 + AIO 4/5 adapter — navisklep.pl product "TM171 transductor dinámico
-  SYD AHRS IMU con adaptador AIO 4/5 plug&play"
+- Sensor sourcing: navisklep.pl kit "TM171 + AIO 4.5 adapter" ≈ **€100** —
+  we buy the bare TM171 module (their AIO adapter is what this PCB replaces).
+  Note the **TM151** sibling (same footprint/pinout, 3.0°/25 min drift,
+  400 Hz max) is a drop-in cheaper option if TM171 stock is an issue.
 - CAN bus peer device: Keya CAN steering motor, 250 kbps, ext IDs 0x06000001 /
   0x07000001 (our module must coexist; our TX ID 0x18FF7201).
 - ESP32 hardware design guidelines (Espressif) — WROOM-32E antenna keep-out.
