@@ -73,9 +73,21 @@ namespace PilotX.Droid
 
         protected override void DestroyNativeControlCore(IPlatformHandle control)
         {
+            DestroyWebView();
+            base.DestroyNativeControlCore(control);
+        }
+
+        /// <summary>
+        /// Destruye el WebView nativo de verdad (StopLoading + Destroy). Lo usa
+        /// el handle en Destroy() ademas del desmontaje del arbol visual: el
+        /// control NO es IDisposable (es un NativeControlHost) y el cast a
+        /// IDisposable que habia antes ni compilaba (CS0039, 2026-09-03).
+        /// </summary>
+        public void DestroyWebView()
+        {
             try { Web?.StopLoading(); Web?.Destroy(); } catch { /* best-effort */ }
             Web = null;
-            base.DestroyNativeControlCore(control);
+            _pendingUrl = null;
         }
 
         private sealed class NavClient : WebViewClient
@@ -121,7 +133,7 @@ namespace PilotX.Droid
             public void Destroy()
             {
                 try { _ctrl.Load("about:blank"); } catch { /* best-effort */ }
-                try { (_ctrl as IDisposable)?.Dispose(); } catch { /* best-effort */ }
+                try { _ctrl.DestroyWebView(); } catch { /* best-effort */ }
             }
             public void OpenDevTools() { /* no-op en Android (usar chrome://inspect en debug) */ }
         }

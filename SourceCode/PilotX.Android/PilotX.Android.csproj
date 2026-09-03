@@ -10,8 +10,8 @@
     <!-- Sin "Android" en el root namespace: taparÃ­a al namespace Android del SDK -->
     <RootNamespace>PilotX.Droid</RootNamespace>
     <ApplicationId>com.agroparallel.pilotx</ApplicationId>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>1.0.23</ApplicationDisplayVersion>
+    <ApplicationVersion>10044</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.44</ApplicationDisplayVersion>
     <SupportedOSPlatformVersion>28.0</SupportedOSPlatformVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -56,6 +56,25 @@
     <Compile Include="..\CoreX.Shared\NmeaParser.cs" Link="AgIO\NmeaParser.cs" />
     <Compile Include="..\CoreX.Shared\INmeaParserHost.cs" Link="AgIO\INmeaParserHost.cs" />
     <Compile Include="..\CoreX.Shared\CGLM.cs" Link="AgIO\CGLM.cs" />
+    <!-- Adaptadores del engine compartidos con Windows, linkeados por archivo
+         (no se puede referenciar PilotX.GuidanceEngine entero: trae
+         System.IO.Ports). Antes había una copia Android de cada uno y se
+         desincronizaban: ICoverageService ganó GetSnapshot(string) y el APK
+         dejó de compilar (2026-09-03). Un solo archivo, dos targets. -->
+    <Compile Include="..\PilotX.GuidanceEngine\Adapters\*.cs"
+             Exclude="..\PilotX.GuidanceEngine\Adapters\EngineSistemaService.cs;..\PilotX.GuidanceEngine\Adapters\EngineSistemaServiceLinux.cs;..\PilotX.GuidanceEngine\Adapters\EnginePilotXUpdateService.cs"
+             Link="Adapters\%(Filename)%(Extension)" />
+    <!-- Excluidos a proposito: EngineSistemaService (WMI/dxva2 Windows) y
+         EngineSistemaServiceLinux (sysfs/brightnessctl) -> AndroidSistemaService;
+         EnginePilotXUpdateService (Updater.exe) -> AndroidPilotXUpdateService. -->
+    <!-- Anti-solape de secciones (Program.cs de Windows lo engancha siempre)
+         y config de direccion (mismo archivo que linkea PilotX.GuidanceEngine). -->
+    <Compile Include="..\PilotX.GuidanceEngine\AntiSolapeSecciones.cs" Link="Adapters\AntiSolapeSecciones.cs" />
+    <Compile Include="..\AgroParallel\Adapters\SteerConfigService.cs" Link="Adapters\SteerConfigService.cs" />
+    <Compile Include="..\AgroParallel\Adapters\ShapefileLayer.cs" Link="Adapters\ShapefileLayer.cs" />
+    <Compile Include="..\AgroParallel\Adapters\TramLineMapper.cs" Link="Adapters\TramLineMapper.cs" />
+    <!-- Triangulador de poligonos (internal) que usa ShapefileLayer; mismo link que PilotX.GuidanceEngine y PilotX.UI. -->
+    <Compile Include="..\AgroParallel\Common\EarClipper.cs" Link="Adapters\EarClipper.cs" />
   </ItemGroup>
 
   <ItemGroup>

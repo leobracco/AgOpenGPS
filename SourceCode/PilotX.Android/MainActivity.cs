@@ -10,8 +10,8 @@
 // que la Fase 1), arrancado acá antes de la UI. MainView poolea :5180; sus
 // pollers reintentan mientras el WebHost termina de levantar (~1-2 s).
 //
-// GPS real: todavía sin fuente (necesita CoreX por USB-OTG, bloque 8). El mapa
-// renderiza contra el engine igual; con un fix real (o el sim) se mueve el tractor.
+// GPS real: por WiFi/UDP (NMEA crudo o PGN) vía el bridge LAN de HubBootstrap —
+// mismo camino que un CoreX-ECU o un receptor de red. USB-OTG queda para después.
 // ============================================================================
 
 using Android.App;
@@ -55,12 +55,52 @@ namespace PilotX.Droid
             // CoreX/lote/…). Debe quedar seteado ANTES de que Avalonia monte la UI.
             PilotX.Desktop.App.WebViewHost = new AndroidWebViewHost(this);
 
+            // Plataforma (gemelos de lo que Program.cs del Desktop cablea):
+            // alarmas de cabina por MediaPlayer y brillo de ventana para
+            // AndroidSistemaService. ANTES de la UI: MainWindow arranca el
+            // SoundAlarmPoller al montarse.
+            AndroidWavPlayer.Init(this);
+            PilotX.Desktop.Services.SoundAlarmPoller.WavSink = AndroidWavPlayer.Play;
+            AndroidSistemaService.Activity = this;
+
             base.OnCreate(savedInstanceState);
 
             // Monitor de cabina: pantalla siempre encendida.
             Window?.AddFlags(WindowManagerFlags.KeepScreenOn);
 
             HideSystemBars();
+            IniciarKiosko();
+        }
+
+        /// <summary>
+        /// Modo kiosko (lock task): el operario no puede salir de PilotX con
+        /// Home/Recientes. Sólo funciona si PilotX es device-owner o el
+        /// administrador lo permitió (DevicePolicyManager.SetLockTaskPackages);
+        /// si no, Android muestra el diálogo de "fijar pantalla" o lo ignora.
+        /// Se intenta siempre y se loguea el resultado — nunca rompe el arranque.
+        /// </summary>
+        private void IniciarKiosko()
+        {
+            try
+            {
+                var dpm = (Android.App.Admin.DevicePolicyManager)GetSystemService(DevicePolicyService);
+                if (dpm != null && dpm.IsLockTaskPermitted(PackageName))
+                {
+                    StartLockTask();
+                    Android.Util.Log.Info("PilotX", "Kiosko: lock task activo");
+                }
+                else
+                {
+                    Android.Util.Log.Info("PilotX", "Kiosko: sin permiso de lock task (no es device-owner) — modo inmersivo solamente");
+                }
+            }
+            catch (System.Exception ex) { Android.Util.Log.Warn("PilotX", "Kiosko: " + ex.Message); }
+        }
+
+        protected override void OnDestroy()
+        {
+            if (ReferenceEquals(AndroidSistemaService.Activity, this)) AndroidSistemaService.Activity = null;
+            base.OnDestroy();
         }
 
         // El theme ya pide windowFullscreen, pero eso solo no basta: la barra de
