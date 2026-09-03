@@ -522,3 +522,7 @@ SourceCode/PilotX.Cockpit.Bars/Assets/_handoff/
 !Tools/usb-drivers/cp210x/arm/
 !Tools/usb-drivers/cp210x/arm64/
 !Tools/usb-drivers/**/*.sys
+
+# APK de Android generado por build-android.ps1 (se sube a OrbitX, no al repo)
+PilotX_android_v*.apk
+PilotX_android_v*.apk.sha256

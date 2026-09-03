@@ -12,6 +12,86 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.44] — 2026-09-03
+
+### Added
+- **ToolX: switch de herramienta inalámbrico (ESP32).** El nodo manda el
+  work switch como PGN 253 por UDP :9999 con byte de origen `0x7C`
+  (`CModuleComm.ToolXSource`). `PgnReceiver` reconoce ese origen y toma
+  **solo el bit de trabajo**: ángulo, heading, roll, bit de dirección y PWM
+  de esos frames se ignoran, así conviven con el módulo de dirección real
+  (que sigue mandando el switch de dirección y "secciones al activar el
+  piloto").
+- **Fila "ToolX (switch inalámbrico)" en Secciones › Switches**, hija de
+  "Activar" en la carta de trabajo, en la pantalla nativa (`SwitchesTab`) y
+  en la PWA del celular (`config.html`). Setting `setF_isToolXWorkSwitch`,
+  JSON `work_toolx_enabled`; con la fila apagada el motor descarta los
+  frames de ToolX enteros (un nodo ajeno en la LAN no puede tocar las
+  secciones). El rótulo agrega "· conectado" cuando el motor recibe frames
+  (`work_toolx_alive`, runtime, refrescado cada 3 s en las dos UIs).
+- ToolX en el catálogo del Firmware Manager (`FirmwaresPanel`) para OTA.
+
+### Changed
+- **Dueño del bit de trabajo.** Con ToolX habilitado y vivo (frames hace
+  menos de 5 s, reloj monotónico) el módulo de dirección no pisa
+  `workSwitchHigh`. Si ToolX se pierde, el bit queda en su último valor y el
+  módulo de dirección solo lo escribe cuando **su propio** switch cambia:
+  un microcorte WiFi del nodo ya no corta las secciones en medio de la
+  pasada. La pérdida se loguea una vez en el EventLog.
+- **Primer contacto aplica el nivel.** Al primer frame aceptado de ToolX
+  (arranque con la herramienta ya abajo, o fila recién habilitada) se fuerza
+  el flanco para que `CheckWorkAndSteerSwitch` aplique el estado una vez; ya
+  no hay que subir y bajar la herramienta para que pinte.
+- **Polaridad de ToolX independiente de "Activo con contacto cerrado".** El
+  bit se normaliza en el motor (`abajo ^ isWorkSwitchActiveLow`); ese flag
+  describe al switch cableado y no invierte a ToolX. Cambiarlo en caliente
+  con ToolX vivo invierte bit y "old" juntos (`SetWorkSwitchActiveLow`) para
+  no fabricar un flanco que pise un apagado manual del master.
+- `Settings.Load()` resetea `setF_isToolXWorkSwitch` antes de leer el XML:
+  un perfil guardado por un build anterior (sin el tag) no hereda el valor
+  del perfil que estaba activo.
+
+### Tests
+- `AgOpenGPS.Core.Tests/ToolXWorkSwitchTests.cs` (15 tests): frame ToolX
+  solo toca el bit, polaridad, descarte con fila apagada, dueño del bit con
+  el AIO vivo/perdido/flanco propio, primer contacto, reset de la fila,
+  cambio de polaridad en caliente.
+
+### Android (PilotX.Android) — paridad con Windows salvo hardware
+- **Build reproducible**: `build-android.ps1` (gemelo de `build.ps1`) lee
+  `Installer/VERSION`, estampa `versionName`/`versionCode` y deja
+  `PilotX_android_v<version>.apk` + `.sha256` en la raíz. El proyecto no
+  se compilaba desde julio y dos interfaces se le habían adelantado
+  (`ICoverageService.GetSnapshot(cursor)`, cast inválido en
+  `AndroidWebViewHost`).
+- **Un solo código con Windows**: los adaptadores `Engine*` de
+  `PilotX.GuidanceEngine/Adapters` se linkean por archivo en el csproj
+  (wildcard, excluidos sólo los de sistema Windows/Linux y el Updater);
+  se borraron las copias Android (`GuidanceEngineServices.cs`,
+  `GuidanceEngineStateServices.cs`, `Fase1Stubs.cs`).
+- **`HubBootstrap` gemelo de `EngineWebHost` + `CoreXEngineHost`**: cablea
+  los 47 servicios del WebHost (perfiles, banderas, contorno, cabecera y
+  líneas, tramlines, AB rápido, nudge, recPath, geometría, paths, tracks,
+  dirección, **config de vehículo** e IMU ya funcionan en la tablet),
+  anti-solape de secciones, alarmas de cabina, FlowX, OrbitXSync con
+  vigilante, QuantiXMotorBridge con vigilante, CutDispatcher + velocidad
+  por sección, **hello PGN 200 a 1 Hz** (los módulos WiFi y ToolX aprenden
+  la IP de la tablet), **NTRIP** (sección `ntrip` de `corex-integrado.json`
+  en el dataDir, RTCM por UDP :2233 a la subred) y comandos de guiado por
+  MQTT (`agp/aog/guidance/command`). Anti-eco de PGN en el bridge LAN.
+- **Plataforma**: `AndroidSistemaService` (brillo de ventana + sistema con
+  WRITE_SETTINGS; reinicio si es device-owner; salir), `AndroidWifiService`
+  (estado, escaneo, conectar/olvidar con la API clásica en API < 29 y
+  sugerencias + panel del sistema en 29+), `AndroidWavPlayer` (alarmas por
+  MediaPlayer), `BootReceiver` (arranque automático) y lock task cuando
+  está permitido (kiosko).
+- OrbitX: producto `PilotXAndroid` en el catálogo de firmwares (self-update
+  del APK).
+- Queda por hardware: GPS/IMU/dirección por USB-OTG (hoy sólo WiFi/UDP) y
+  cámaras RTSP nativas. Sin probar en tablet en esta versión.
+
+---
+
 ## [1.0.23] — 2026-06-16
 
 ### Added
