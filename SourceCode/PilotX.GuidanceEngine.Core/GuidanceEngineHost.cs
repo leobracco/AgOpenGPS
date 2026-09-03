@@ -356,14 +356,21 @@ namespace AgOpenGPS
             // así que darlo vuelta hace que la máquina aplique AL REVÉS del
             // switch físico (secciones prendidas con el implemento levantado).
             // Se copia tal cual el perfil, sin "corregir" nada.
-            Mc.isWorkSwitchActiveLow = s.setF_isWorkSwitchActiveLow;
+            // Vía CModuleComm: si ToolX es dueño del bit, cambiar la polaridad
+            // invierte el bit y su "old" juntos para no fabricar un flanco.
+            Mc.SetWorkSwitchActiveLow(s.setF_isWorkSwitchActiveLow);
             Mc.isWorkSwitchManualSections = s.setF_isWorkSwitchManualSections;
             Mc.isSteerWorkSwitchManualSections = s.setF_isSteerWorkSwitchManualSections;
             Mc.isRemoteWorkSystemOn = Mc.isWorkSwitchEnabled || Mc.isSteerWorkSwitchEnabled;
+            // ToolX (switch de trabajo inalámbrico): pasa por el mismo habilitador
+            // "trabajo" de arriba; esto sólo dice si se aceptan sus frames. Si el
+            // perfil nuevo lo prende o apaga, ToolX vuelve a "nunca visto".
+            if (Mc.isToolXWorkSwitch != s.setF_isToolXWorkSwitch) Mc.ResetToolX();
+            Mc.isToolXWorkSwitch = s.setF_isToolXWorkSwitch;
 
             Log.EventWriter($"GuidanceEngine: switches remotos del perfil — " +
                 $"trabajo={Mc.isWorkSwitchEnabled} (contactoCerrado={Mc.isWorkSwitchActiveLow}, " +
-                $"manual={Mc.isWorkSwitchManualSections}), " +
+                $"manual={Mc.isWorkSwitchManualSections}, toolx={Mc.isToolXWorkSwitch}), " +
                 $"direccion={Mc.isSteerWorkSwitchEnabled} (manual={Mc.isSteerWorkSwitchManualSections}), " +
                 $"sistemaRemoto={Mc.isRemoteWorkSystemOn}");
         }

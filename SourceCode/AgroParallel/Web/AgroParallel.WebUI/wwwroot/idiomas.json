@@ -898,6 +898,14 @@
     "en": "Active with contact closed",
     "pt": "Ativo com contato fechado"
   },
+  "ToolX (switch inalámbrico)": {
+    "en": "ToolX (wireless switch)",
+    "pt": "ToolX (chave sem fio)"
+  },
+  "ToolX (switch inalámbrico) · conectado": {
+    "en": "ToolX (wireless switch) · connected",
+    "pt": "ToolX (chave sem fio) · conectado"
+  },
   "Borrar pintado": {
     "en": "Clear coverage",
     "pt": "Apagar pintura"

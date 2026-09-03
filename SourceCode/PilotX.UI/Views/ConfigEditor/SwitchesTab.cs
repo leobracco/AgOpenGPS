@@ -74,6 +74,18 @@
 // <Documentos>\AgOpenGPS\Vehicles\<perfil>.XML SOLO si
 // RegistrySettings.vehicleFileName no está vacío (el motor headless se crea el
 // perfil "PilotX" al arrancar). Ninguno de estos 5 campos vive en tool.json.
+//
+// TOOLX (2026-09-02) — sexta fila, hija de "Activar" en la carta de trabajo:
+// `work_toolx_enabled`. ToolX es el switch de trabajo INALÁMBRICO (ESP32) que
+// manda el mismo PGN 253 que el módulo de dirección pero con origen 0x7C. Con
+// la fila apagada el motor descarta esos frames enteros (un nodo ajeno en la
+// LAN no puede tocar las secciones); con la fila prendida ToolX es el dueño del
+// bit de trabajo mientras esté vivo y el módulo de dirección no lo pisa (ver
+// CModuleComm.ToolXSource). Pasa por el MISMO "Activar" que el switch cableado:
+// sin work_enabled no manda ninguno de los dos. El rótulo agrega "· conectado"
+// cuando el GET trae `work_toolx_alive` (runtime, sólo lectura, pocos segundos
+// desde el último frame); se refresca en cada Live() aunque haya cambios sin
+// guardar y se repinta a mano después de Traductor.Aplicar (PintarRotuloToolx).
 // ============================================================================
 
 using System;
@@ -98,12 +110,17 @@ public sealed class SwitchesTab : ConfigTab
     {
         public Border Borde = null!;
         public Image Icono = null!;
+        public TextBlock Texto = null!;
         public bool Hijo;
         public Func<bool> Sel = () => false;
     }
 
     // ---- modelo local (el `sw` de config.js) -------------------------------
     private bool _workOn, _workManual, _workLow, _steerOn, _steerManual;
+    /// <summary>ToolX: aceptar el switch de trabajo inalámbrico (hijo de "Activar").</summary>
+    private bool _workToolx;
+    /// <summary>RUNTIME del GET: ToolX mandó un frame hace &lt; 2 s. No se postea.</summary>
+    private bool _toolxAlive;
     private bool _dirty;
 
     /// <summary>Hay un POST en vuelo: las filas quedan muertas (anti doble-tap).</summary>
@@ -114,6 +131,9 @@ public sealed class SwitchesTab : ConfigTab
 
     /// <summary>Fila del contacto cerrado: su ícono cambia con el valor.</summary>
     private Fila? _filaLow;
+
+    /// <summary>Fila de ToolX: su rótulo agrega "· conectado" cuando está vivo.</summary>
+    private Fila? _filaToolx;
 
     /// <summary>Estado con el que se armó el árbol (sin datos / servicio caído /
     /// ok), para que el refresco de fondo sepa si tiene que reconstruir.</summary>
@@ -163,6 +183,7 @@ public sealed class SwitchesTab : ConfigTab
                 work_enabled = _workOn,
                 work_active_low = _workLow,
                 work_manual_sections = _workManual,
+                work_toolx_enabled = _workToolx,
                 steer_enabled = _steerOn,
                 steer_manual_sections = _steerManual,
             }).ConfigureAwait(true);
@@ -212,6 +233,8 @@ public sealed class SwitchesTab : ConfigTab
         _workOn = z.WorkEnabled;
         _workManual = z.WorkManualSections;
         _workLow = z.WorkActiveLow;
+        _workToolx = z.WorkToolxEnabled;
+        _toolxAlive = z.WorkToolxAlive;
         _steerOn = z.SteerEnabled;
         _steerManual = z.SteerManualSections;
     }
@@ -222,9 +245,12 @@ public sealed class SwitchesTab : ConfigTab
     {
         var z = C.Snap?.Switches;
         if (z == null) return false;
+        // work_toolx_alive NO entra acá: es runtime, se sincroniza aparte en
+        // PintarRotuloToolx() (también con cambios pendientes).
         return z.WorkEnabled != _workOn
             || z.WorkManualSections != _workManual
             || z.WorkActiveLow != _workLow
+            || z.WorkToolxEnabled != _workToolx
             || z.SteerEnabled != _steerOn
             || z.SteerManualSections != _steerManual;
     }
@@ -239,6 +265,7 @@ public sealed class SwitchesTab : ConfigTab
         _filasWork.Clear();
         _filasSteer.Clear();
         _filaLow = null;
+        _filaToolx = null;
         _estadoPintado = EstadoActual();
 
         if (C.SinDatos)
@@ -270,7 +297,8 @@ public sealed class SwitchesTab : ConfigTab
         Children.Add(CfgUi.Nota(
             "Son los switches cableados al módulo de máquina. \"Activo con contacto cerrado\" " +
             "significa que el contacto CERRADO es trabajando: si se lo pone al revés, la máquina " +
-            "aplica al revés del switch."));
+            "aplica al revés del switch. \"ToolX\" acepta el switch de trabajo inalámbrico: " +
+            "mientras esté conectado manda él y no el cableado."));
 
         Pintar();
     }
@@ -293,6 +321,15 @@ public sealed class SwitchesTab : ConfigTab
             () => _workLow, () => { _workLow = !_workLow; });
         _filaLow = _filasWork[_filasWork.Count - 1];
         col.Children.Add(low);
+
+        // ToolX: switch de trabajo inalámbrico. Hija de "Activar" como las
+        // demás; el rótulo cambia a "· conectado" con el runtime del GET.
+        // Pictograma FIJO en variante *Off como el resto de la pestaña (la
+        // selección la marca el borde; SwitchOn.png significa "prendido" en Máquina).
+        var toolx = FilaDe(_filasWork, "SwitchOff.png", "ToolX (switch inalámbrico)", true,
+            () => _workToolx, () => { _workToolx = !_workToolx; });
+        _filaToolx = _filasWork[_filasWork.Count - 1];
+        col.Children.Add(toolx);
 
         return Carta(col);
     }
@@ -366,7 +403,7 @@ public sealed class SwitchesTab : ConfigTab
         };
         borde.Tapped += (_, __) => Tocar(accion);
 
-        destino.Add(new Fila { Borde = borde, Icono = img, Hijo = hijo, Sel = sel });
+        destino.Add(new Fila { Borde = borde, Icono = img, Texto = texto, Hijo = hijo, Sel = sel });
         return borde;
     }
 
@@ -386,6 +423,12 @@ public sealed class SwitchesTab : ConfigTab
     /// config desde el celular, y config.html puede estar abierta en paralelo).</summary>
     public override void Live()
     {
+        // El rótulo "· conectado" es runtime y sólo lectura: se resincroniza en
+        // cada tick AUNQUE haya cambios sin guardar (no pisa nada del operario)
+        // y así también se autocorrige después de un cambio de idioma, que
+        // Traductor.Aplicar deja con el último texto cacheado.
+        PintarRotuloToolx();
+
         if (_estadoPintado != EstadoActual())
         {
             if (_dirty || _guardando) return;
@@ -415,6 +458,23 @@ public sealed class SwitchesTab : ConfigTab
         // Único ícono dinámico de la pantalla.
         if (_filaLow != null)
             _filaLow.Icono.Source = Icono(_workLow ? "SwitchActiveClosed.png" : "SwitchActiveOpen.png");
+
+        PintarRotuloToolx();
+    }
+
+    /// <summary>Rótulo dinámico de ToolX: "· conectado" = el motor recibió un
+    /// frame hace pocos segundos (runtime, viene en el GET como
+    /// work_toolx_alive). Sirve para ver desde acá que el nodo está hablando
+    /// con PilotX sin abrir el portal del ESP32. Lee el snapshot directo: es
+    /// sólo lectura, nunca viaja en el POST, así que se puede refrescar aunque
+    /// haya cambios pendientes.</summary>
+    private void PintarRotuloToolx()
+    {
+        var z = C.Snap?.Switches;
+        if (z != null) _toolxAlive = z.WorkToolxAlive;
+        if (_filaToolx == null) return;
+        _filaToolx.Texto.Text = PilotX.Cockpit.Bars.Traductor.T(
+            _toolxAlive ? "ToolX (switch inalámbrico) · conectado" : "ToolX (switch inalámbrico)");
     }
 
     /// <summary>Cascada: si el master está apagado, los hijos quedan al 45 % y

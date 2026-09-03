@@ -146,7 +146,11 @@ namespace PilotX.GuidanceEngine.Adapters
                     WorkActiveLow = s.setF_isWorkSwitchActiveLow,
                     WorkManualSections = s.setF_isWorkSwitchManualSections,
                     SteerEnabled = _engine.Mc.isSteerWorkSwitchEnabled,
-                    SteerManualSections = s.setF_isSteerWorkSwitchManualSections
+                    SteerManualSections = s.setF_isSteerWorkSwitchManualSections,
+                    // ToolX: habilitado (runtime, como work_enabled) + "manda" (sólo lectura:
+                    // habilitado Y vivo — una fila apagada nunca dice "conectado").
+                    WorkToolxEnabled = _engine.Mc.isToolXWorkSwitch,
+                    WorkToolxAlive = _engine.Mc.IsToolXOwningWorkSwitch
                 },
                 Relay = new ConfigRelaySec { Pins = ParseRelayPins(s.setRelay_pinConfig) },
                 Maquina = new ConfigMaquinaSec
@@ -723,13 +727,28 @@ namespace PilotX.GuidanceEngine.Adapters
             bool steerEnabled = b.SteerEnabled ?? _engine.Mc.isSteerWorkSwitchEnabled;
 
             if (b.WorkActiveLow.HasValue)
-                _engine.Mc.isWorkSwitchActiveLow = s.setF_isWorkSwitchActiveLow = b.WorkActiveLow.Value;
+            {
+                s.setF_isWorkSwitchActiveLow = b.WorkActiveLow.Value;
+                // Vía CModuleComm: con ToolX dueño del bit invierte el bit y su "old"
+                // juntos para no fabricar un flanco (ver SetWorkSwitchActiveLow).
+                _engine.Mc.SetWorkSwitchActiveLow(b.WorkActiveLow.Value);
+            }
             _engine.Mc.isWorkSwitchEnabled = s.setF_isWorkSwitchEnabled = workEnabled;
             if (b.WorkManualSections.HasValue)
                 _engine.Mc.isWorkSwitchManualSections = s.setF_isWorkSwitchManualSections = b.WorkManualSections.Value;
             _engine.Mc.isSteerWorkSwitchEnabled = s.setF_isSteerWorkSwitchEnabled = steerEnabled;
             if (b.SteerManualSections.HasValue)
                 _engine.Mc.isSteerWorkSwitchManualSections = s.setF_isSteerWorkSwitchManualSections = b.SteerManualSections.Value;
+            // ToolX (switch de trabajo inalámbrico). Opcional en el body: los
+            // clientes viejos (PWA sin la fila) no lo mandan y no lo tocan.
+            if (b.WorkToolxEnabled.HasValue)
+            {
+                bool toolx = b.WorkToolxEnabled.Value;
+                // Al prender o apagar la fila, ToolX vuelve a "nunca visto": el próximo
+                // frame aplica el nivel una vez y no se loguea una pérdida falsa.
+                if (toolx != _engine.Mc.isToolXWorkSwitch) _engine.Mc.ResetToolX();
+                _engine.Mc.isToolXWorkSwitch = s.setF_isToolXWorkSwitch = toolx;
+            }
 
             // Derivado (Leave original)
             _engine.Mc.isRemoteWorkSystemOn = s.setF_isRemoteWorkSystemOn = (workEnabled || steerEnabled);

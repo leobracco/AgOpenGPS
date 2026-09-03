@@ -229,6 +229,40 @@ namespace AgOpenGPS
                             //Steer angle actual
                             if (data.Length != 14)
                                 break;
+
+                            // ToolX (switch de herramienta inalámbrico, origen 0x7C): del frame
+                            // sólo vale el bit de trabajo. Ángulo, heading, roll, bit de dirección
+                            // y PWM son relleno (0 / 9999 / 8888) y NO deben pisar lo que manda el
+                            // módulo de dirección real. Si el perfil no habilitó ToolX, el frame
+                            // se descarta entero. Ver CModuleComm.ToolXSource.
+                            if (data[2] == CModuleComm.ToolXSource)
+                            {
+                                if (mc.isToolXWorkSwitch)
+                                {
+                                    // ToolX manda SIEMPRE herramienta ABAJO = bit0 en 0. Se
+                                    // normaliza contra isWorkSwitchActiveLow para que el flag
+                                    // "Activo con contacto cerrado" (que describe el switch
+                                    // CABLEADO al AIO) no invierta a ToolX: CheckWorkAndSteerSwitch
+                                    // prende con `workSwitchHigh != isWorkSwitchActiveLow`, así
+                                    // que con abajo ^ activeLow queda ON ⇔ abajo para ambos
+                                    // valores del flag.
+                                    bool abajo = (data[11] & 1) == 0;
+                                    bool primerFrame = !mc.ToolXSeenEver;
+                                    mc.workSwitchHigh = abajo ^ mc.isWorkSwitchActiveLow;
+                                    // Primer contacto (arranque de PilotX con la herramienta ya
+                                    // abajo, o fila recién habilitada): ToolX es un switch de
+                                    // NIVEL, así que se fuerza un flanco para que
+                                    // CheckWorkAndSteerSwitch aplique el estado una vez. Sin
+                                    // esto, con el valor inicial (false) igual al de "abajo",
+                                    // no pintaba hasta subir y bajar la herramienta — y con un
+                                    // AIO mandando antes sí pintaba: dependía del orden.
+                                    if (primerFrame)
+                                        mc.oldWorkSwitchHigh = !mc.workSwitchHigh;
+                                    mc.MarkToolXSeen();
+                                }
+                                break;
+                            }
+
                             mc.actualSteerAngleChart = (Int16)((data[6] << 8) + data[5]);
                             mc.actualSteerAngleDegrees = (double)mc.actualSteerAngleChart * 0.01;
 
@@ -251,7 +285,38 @@ namespace AgOpenGPS
                             //else ahrs.imuRoll = 88888;
 
                             //switch status
-                            mc.workSwitchHigh = (data[11] & 1) == 1;
+                            // Bit de trabajo del módulo de dirección — ver CModuleComm (ToolX):
+                            //   · ToolX nunca visto o deshabilitado → AOG puro, manda el AIO.
+                            //   · ToolX vivo → el AIO no toca el bit (si no, alternaría entre los
+                            //     dos orígenes a 10 Hz y el detector de flancos de
+                            //     CheckWorkAndSteerSwitch prendería/apagaría sin parar).
+                            //   · ToolX perdido → el bit queda en su último valor; el AIO sólo lo
+                            //     escribe si SU PROPIO bit cambió (flanco propio). El AIO sin switch
+                            //     cableado manda un 1 FIJO: copiarlo crudo al expirar ToolX era un
+                            //     flanco → secciones OFF por un microcorte WiFi.
+                            bool aioWorkHigh = (data[11] & 1) == 1;
+                            bool aioFlanco = mc.steerModuleWorkSeen && aioWorkHigh != mc.steerModuleWorkHigh;
+                            mc.steerModuleWorkHigh = aioWorkHigh;
+                            mc.steerModuleWorkSeen = true;
+
+                            bool toolxConoce = mc.isToolXWorkSwitch && mc.ToolXSeenEver;
+                            if (!toolxConoce)
+                            {
+                                mc.workSwitchHigh = aioWorkHigh;
+                            }
+                            else if (!mc.IsToolXAlive)
+                            {
+                                if (!mc.toolXLostLogged)
+                                {
+                                    mc.toolXLostLogged = true;
+                                    Log.EventWriter("PgnReceiver: ToolX sin frames hace más de "
+                                        + CModuleComm.ToolXTimeoutSec + " s — el bit de trabajo queda en "
+                                        + (mc.workSwitchHigh ? "1" : "0")
+                                        + "; el módulo de dirección manda sólo si su propio switch cambia");
+                                }
+                                if (aioFlanco) mc.workSwitchHigh = aioWorkHigh;
+                            }
+                            // else: ToolX vivo → el AIO no toca el bit de trabajo.
                             mc.steerSwitchHigh = (data[11] & 2) == 2;
 
                             //the pink steer dot reset

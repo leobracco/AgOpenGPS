@@ -109,6 +109,12 @@ namespace AgroParallel.Models
         public bool WorkManualSections { get; set; }  // true manual / false auto
         public bool SteerEnabled { get; set; }
         public bool SteerManualSections { get; set; }
+        // ToolX: switch de trabajo inalámbrico (PGN 253 origen 0x7C).
+        //   work_toolx_enabled: el perfil acepta sus frames (RUNTIME, _engine.Mc).
+        //   work_toolx_alive:   RUNTIME, sólo lectura — habilitado Y con frame hace menos
+        //                       de CModuleComm.ToolXTimeoutSec (5 s): "ToolX manda".
+        public bool WorkToolxEnabled { get; set; }
+        public bool WorkToolxAlive { get; set; }
     }
 
     public class ConfigRelaySec
@@ -268,6 +274,7 @@ namespace AgroParallel.Models
         public bool? WorkManualSections { get; set; }
         public bool? SteerEnabled { get; set; }
         public bool? SteerManualSections { get; set; }
+        public bool? WorkToolxEnabled { get; set; }
         // relay
         public int[] Pins { get; set; }
         // maquina

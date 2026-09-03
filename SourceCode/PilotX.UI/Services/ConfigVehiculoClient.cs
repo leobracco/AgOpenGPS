@@ -124,6 +124,12 @@ public sealed class ConfigSwitchesSec
     [JsonPropertyName("work_manual_sections")]  public bool WorkManualSections { get; set; }
     [JsonPropertyName("steer_enabled")]         public bool SteerEnabled { get; set; }
     [JsonPropertyName("steer_manual_sections")] public bool SteerManualSections { get; set; }
+    /// <summary>ToolX: el perfil acepta el switch de trabajo inalámbrico
+    /// (PGN 253 origen 0x7C). Hijo de work_enabled: sin "Activar" no manda.</summary>
+    [JsonPropertyName("work_toolx_enabled")]    public bool WorkToolxEnabled { get; set; }
+    /// <summary>RUNTIME, sólo lectura: llegó un frame de ToolX hace pocos segundos
+    /// (CModuleComm.ToolXTimeoutSec).</summary>
+    [JsonPropertyName("work_toolx_alive")]      public bool WorkToolxAlive { get; set; }
 }
 
 /// <summary>

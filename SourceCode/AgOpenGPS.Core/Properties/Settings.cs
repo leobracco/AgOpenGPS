@@ -26,6 +26,8 @@ namespace AgOpenGPS.Properties
         public bool setMenu_isLightbarOn = true;
         public string setF_CurrentDir = "";
         public bool setF_isWorkSwitchEnabled = false;
+        // ToolX: aceptar el switch de trabajo inalámbrico (PGN 253 origen 0x7C). Ver CModuleComm.
+        public bool setF_isToolXWorkSwitch = false;
         public double setIMU_rollZero = 0.0;
         public double setF_minHeadingStepDistance = 0.5;
         public byte setAS_lowSteerPWM = 30;
@@ -260,6 +262,12 @@ namespace AgOpenGPS.Properties
         public LoadResult Load()
         {
             string path = Path.Combine(RegistrySettings.vehiclesDirectory, RegistrySettings.vehicleFileName + ".XML");
+            // LoadXMLFile asigna SOLO los <setting> presentes en el XML y deja el
+            // resto como estaba en esta instancia. Al cambiar de perfil en caliente,
+            // un XML guardado por un build anterior (sin este tag) heredaría el
+            // valor del perfil anterior: un perfil que nunca habilitó ToolX pasaría
+            // a aceptar el switch inalámbrico. Se vuelve al default antes de leer.
+            setF_isToolXWorkSwitch = false;
             var result = XmlSettingsHandler.LoadXMLFile(path, this);
             if (result == LoadResult.MissingFile)
             {

@@ -1005,7 +1005,7 @@
   // =============================================================================
   // Switches work/steer (tabTSwitches)
   // =============================================================================
-  var sw = { workOn: false, workManual: false, workLow: false, steerOn: false, steerManual: false, dirty: false };
+  var sw = { workOn: false, workManual: false, workLow: false, workToolx: false, toolxAlive: false, steerOn: false, steerManual: false, dirty: false };
 
   function swPintar() {
     document.getElementById('swWorkOn').classList.toggle('sel', sw.workOn);
@@ -1013,16 +1013,51 @@
     document.getElementById('swWorkAuto').classList.toggle('sel', !sw.workManual);
     document.getElementById('swWorkLow').classList.toggle('sel', sw.workLow);
     document.getElementById('swWorkLowImg').src = '../img/config/' + (sw.workLow ? 'SwitchActiveClosed.png' : 'SwitchActiveOpen.png');
+    // ToolX (switch de trabajo inalámbrico, PGN 253 origen 0x7C): hijo de "Activar".
+    document.getElementById('swWorkToolx').classList.toggle('sel', sw.workToolx);
+    // Rótulo "· conectado" = ToolX habilitado y con frame hace pocos segundos
+    // (work_toolx_alive, runtime; se refresca con toolxLivePoll). textContent y
+    // NO nodeValue: i18n.js recuerda el castellano original de cada nodo de texto
+    // y re-traduce desde ahí; un nodo nuevo se traduce limpio (las dos claves
+    // están en idiomas.json).
+    toolxPintarRotulo();
     document.getElementById('swSteerOn').classList.toggle('sel', sw.steerOn);
     document.getElementById('swSteerManual').classList.toggle('sel', sw.steerManual);
     document.getElementById('swSteerAuto').classList.toggle('sel', !sw.steerManual);
     // cascada de habilitación (réplica)
-    ['swWorkManual', 'swWorkAuto', 'swWorkLow'].forEach(function (id) {
+    ['swWorkManual', 'swWorkAuto', 'swWorkLow', 'swWorkToolx'].forEach(function (id) {
       document.getElementById(id).classList.toggle('deshab', !sw.workOn);
     });
     ['swSteerManual', 'swSteerAuto'].forEach(function (id) {
       document.getElementById(id).classList.toggle('deshab', !sw.steerOn);
     });
+  }
+
+  // Rótulo "· conectado" de ToolX: es runtime (el motor lo cambia cada pocos
+  // segundos), así que mientras la pestaña esté abierta se refresca con un
+  // timer (mismo patrón que rollLiveStart). Toca SOLO sw.toolxAlive y el
+  // rótulo — nunca los otros flags ni sw.dirty, para no pisar cambios sin guardar.
+  var toolxLiveTimer = null;
+  function toolxPintarRotulo() {
+    var cap = document.querySelector('#swWorkToolx .cap');
+    if (cap) cap.textContent = sw.toolxAlive ? 'ToolX (switch inalámbrico) · conectado' : 'ToolX (switch inalámbrico)';
+  }
+  async function toolxLivePoll() {
+    try {
+      var s = await api('');
+      if (s && s.ok && s.switches) {
+        snap = s;
+        sw.toolxAlive = !!s.switches.work_toolx_alive;
+        toolxPintarRotulo();
+      }
+    } catch (e) { /* sin conexión: queda el último rótulo */ }
+  }
+  function toolxLiveStart() {
+    if (toolxLiveTimer) return;
+    toolxLiveTimer = setInterval(toolxLivePoll, 3000);
+  }
+  function toolxLiveStop() {
+    if (toolxLiveTimer) { clearInterval(toolxLiveTimer); toolxLiveTimer = null; }
   }
 
   tabs.tswitches = {
@@ -1031,24 +1066,30 @@
       sw.workOn = z.work_enabled;
       sw.workManual = z.work_manual_sections;
       sw.workLow = z.work_active_low;
+      sw.workToolx = !!z.work_toolx_enabled;
+      sw.toolxAlive = !!z.work_toolx_alive;
       sw.steerOn = z.steer_enabled;
       sw.steerManual = z.steer_manual_sections;
       sw.dirty = false;
       swPintar();
+      toolxLiveStart();
     },
     leave: function () {
+      toolxLiveStop();
       if (!sw.dirty) return Promise.resolve(true);
       sw.dirty = false;
       return guardar('switches', {
         work_enabled: sw.workOn,
         work_active_low: sw.workLow,
         work_manual_sections: sw.workManual,
+        work_toolx_enabled: sw.workToolx,
         steer_enabled: sw.steerOn,
         steer_manual_sections: sw.steerManual
       });
     }
   };
   document.getElementById('swWorkOn').addEventListener('click', function () { sw.workOn = !sw.workOn; sw.dirty = true; swPintar(); });
+  document.getElementById('swWorkToolx').addEventListener('click', function () { sw.workToolx = !sw.workToolx; sw.dirty = true; swPintar(); });
   document.getElementById('swWorkManual').addEventListener('click', function () { sw.workManual = true; sw.dirty = true; swPintar(); });
   document.getElementById('swWorkAuto').addEventListener('click', function () { sw.workManual = false; sw.dirty = true; swPintar(); });
   document.getElementById('swWorkLow').addEventListener('click', function () { sw.workLow = !sw.workLow; sw.dirty = true; swPintar(); });

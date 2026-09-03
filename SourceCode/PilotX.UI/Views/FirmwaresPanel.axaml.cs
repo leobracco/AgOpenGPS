@@ -145,6 +145,7 @@ public partial class FirmwaresPanel : UserControl, IPanelEmbebible
         new OpcionProducto { Valor = "signalx",   Etiqueta = "SignalX" },
         new OpcionProducto { Valor = "cowx",      Etiqueta = "CowX" },
         new OpcionProducto { Valor = "linex",     Etiqueta = "LineX" },
+        new OpcionProducto { Valor = "toolx",     Etiqueta = "ToolX" },
         new OpcionProducto { EsGrupo = true,      Etiqueta = "Pilotaje (.hex)" },
         new OpcionProducto { Valor = "corex-ecu", Etiqueta = "CoreX-ECU" },
     };
