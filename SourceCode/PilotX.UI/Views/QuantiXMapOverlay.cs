@@ -121,7 +121,7 @@ public sealed class QuantiXMapOverlay : Border
         {
             Text = "QuantiX",
             Foreground = TextoHi,
-            FontSize = 13,
+            FontSize = 16,
             FontWeight = FontWeight.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -258,10 +258,17 @@ public sealed class QuantiXMapOverlay : Border
             if (n?.Motores == null) continue;
             foreach (var m in n.Motores)
             {
-                // Un motor sin dosis y sin actividad es un motor que no se está
-                // usando: mostrarlo llena el overlay de ceros y tapa el mapa.
+                // TODOS los motores, SIEMPRE. Antes se ocultaba el que no
+                // estaba activo y tenía objetivo 0 ("no llenar el overlay de
+                // ceros"), y eso mentía en cabina: bastaba un objetivo que
+                // caía a 0 un instante (cabecera, anti-solape, secciones
+                // cerradas) o un frame de estado con activo=false por un hueco
+                // de MQTT para que el motor DESAPARECIERA estando andando.
+                // Peor: al cambiar la cantidad se rearmaba la grilla y los que
+                // quedaban se renumeraban y saltaban de lugar. El estado
+                // (parado/andando) se muestra atenuando la celda, nunca
+                // sacándola. Pedido de cabina 2026-09-04.
                 if (m == null) continue;
-                if (!m.Activo && m.Objetivo <= 0 && !m.ManualMode) continue;
                 lista.Add(new MotorRef(n.Uid, n.Nombre, m));
             }
         }
@@ -293,9 +300,12 @@ public sealed class QuantiXMapOverlay : Border
                 _celdas.Clear();
                 _filas.Children.Add(new TextBlock
                 {
-                    Text = _estado == null ? "Sin conexión con el motor" : "Sin motores en uso",
+                    // Ya no se filtra por actividad: si no hay ninguna celda es
+                    // porque no hay motores CONFIGURADOS (o no hay estado), no
+                    // porque estén parados.
+                    Text = _estado == null ? "Sin conexión con el motor" : "Sin motores configurados",
                     Foreground = TextoDim,
-                    FontSize = 12,
+                    FontSize = 15,
                 });
             }
             // Sin motores no hay nada que comandar: barra afuera.
@@ -427,9 +437,12 @@ public sealed class QuantiXMapOverlay : Border
     {
         var celda = new Celda();
 
+        // Tipografía dimensionada para leerse de un vistazo desde el asiento,
+        // sin anteojos y con el tractor moviéndose (pedido de cabina
+        // 2026-09-04): antes 15/10/10 px era ilegible a esa distancia.
         celda.Num = new TextBlock
         {
-            FontSize = 15,
+            FontSize = 22,
             FontWeight = FontWeight.Bold,
             FontFamily = new FontFamily("Consolas, Courier New, monospace"),
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -437,13 +450,14 @@ public sealed class QuantiXMapOverlay : Border
         celda.Dosis = new TextBlock
         {
             Foreground = TextoMid,
-            FontSize = 10,
+            FontSize = 16,
+            FontWeight = FontWeight.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         celda.Rpm = new TextBlock
         {
             Foreground = TextoDim,
-            FontSize = 10,
+            FontSize = 15,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
 
@@ -460,7 +474,9 @@ public sealed class QuantiXMapOverlay : Border
         celda.Btn = new Button
         {
             CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(4, 2),
+            // Aire acorde a la tipografía nueva y blanco táctil decente.
+            Padding = new Thickness(8, 5),
+            MinWidth = 78,
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
             Content = contenido,
@@ -492,14 +508,27 @@ public sealed class QuantiXMapOverlay : Border
         celda.Num.Text = numero.ToString(CultureInfo.InvariantCulture);
         celda.Num.Foreground = m.Activo ? TextoHi : TextoDim;
 
-        celda.Dosis.IsVisible = m.Activo;
-        celda.Rpm.IsVisible = m.Activo;
+        // Dosis y rpm SIEMPRE ocupan su lugar: si se ocultan, la celda cambia
+        // de alto y la grilla entera salta cuando un motor arranca o para.
+        // Motor parado = guiones, no un número viejo que mienta.
         if (m.Activo)
         {
             celda.Dosis.Text = WidgetQuantiXClient.FormatoDosis(m.Real, m.Unidad)
                              + " " + WidgetQuantiXClient.EtiquetaUnidad(m.Unidad);
             celda.Rpm.Text = m.Rpm.ToString(CultureInfo.InvariantCulture) + " rpm";
         }
+        else
+        {
+            // Con objetivo pero sin girar (secciones cerradas, en cabecera):
+            // se muestra a cuánto está pedido, atenuado, para que el operario
+            // sepa que el motor está configurado y esperando.
+            celda.Dosis.Text = m.Objetivo > 0
+                ? WidgetQuantiXClient.FormatoDosis(m.Objetivo, m.Unidad)
+                  + " " + WidgetQuantiXClient.EtiquetaUnidad(m.Unidad)
+                : "—";
+            celda.Rpm.Text = "— rpm";
+        }
+        celda.Dosis.Foreground = m.Activo ? TextoMid : TextoDim;
 
         celda.Btn.Background = sel ? SelFondo : fondo;
         celda.Btn.BorderBrush = sel ? Acento : borde;
