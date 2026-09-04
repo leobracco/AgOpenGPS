@@ -50,6 +50,11 @@ public sealed class SiembraTab : QxTab
     };
     private readonly TextBlock _msg = QxUi.Msg();
     private readonly StackPanel _toolbar = QxUi.Fila();
+
+    /// <summary>Botón "Cargar placas" (se bloquea mientras giran los motores).</summary>
+    private Button? _btnCargar;
+    /// <summary>Hay una carga de placas en curso: no encadenar otra.</summary>
+    private bool _cargando;
     private readonly Border _brushChip;
     private readonly TextBlock _brushLbl = new()
     {
@@ -195,6 +200,10 @@ public sealed class SiembraTab : QxTab
         var acciones = QxUi.Fila();
         acciones.Children.Add(QxUi.Boton("Guardar", () => _ = GuardarAsync(), primario: true));
         acciones.Children.Add(QxUi.Boton("Enviar a nodos", () => _ = EnviarATodosAsync()));
+        _btnCargar = QxUi.Boton("Cargar placas", () => _ = CargarPlacasAsync());
+        ToolTip.SetTip(_btnCargar, PilotX.Cockpit.Bars.Traductor.T(
+            "Gira una vuelta cada dosificador para llenar las placas antes de sembrar"));
+        acciones.Children.Add(_btnCargar);
         acciones.Children.Add(_msg);
         Children.Add(acciones);
 
@@ -432,6 +441,112 @@ public sealed class SiembraTab : QxTab
         RenderStrip(); RenderListaMotores(); ActualizarBrushChip();
     }
 
+    // ── Copiar dosis a toda la sembradora ───────────────────────────────────
+    // Copia SOLO dosis + unidad. Los alvéolos / semillas por vuelta NO se
+    // tocan: son dato físico del dosificador de cada motor y copiarlos haría
+    // que un motor con otra placa dosifique mal sin que se note.
+    // No guarda ni envía: quedan como cambios pendientes para revisar y tocar
+    // Guardar, así un toque accidental no pisa una config de dosis variable.
+    private void CopiarDosisATodos(QxMotorConfig origen)
+    {
+        if (origen == null) return;
+
+        int n = 0;
+        foreach (var e in C.AllMotors())
+        {
+            var m = e.Motor;
+            if (m == null || ReferenceEquals(m, origen)) continue;
+            m.DosisFija = origen.DosisFija;
+            m.UnidadDosis = origen.UnidadDosis;
+            n++;
+        }
+
+        RenderListaMotores();
+        RenderTabla();
+
+        string unidad = string.Equals(origen.UnidadDosis, "sem_m", StringComparison.Ordinal)
+            ? "sem/m" : "kg/ha";
+        QxUi.SetMsg(_msg, n == 0
+            ? "No hay otros motores para copiar."
+            : $"Dosis {origen.DosisFija.ToString("0.##", CultureInfo.InvariantCulture)} {unidad} "
+              + $"copiada a {n} motor" + (n == 1 ? "" : "es") + ". Tocá Guardar para aplicar.",
+            n == 0 ? "" : "ok");
+    }
+
+    // ── Cargar placas ───────────────────────────────────────────────────────
+    // Gira UNA vuelta cada dosificador para que las placas queden llenas antes
+    // de arrancar la pasada (si no, los primeros metros salen sin semilla).
+    //
+    // Una vuelta = dientes_engranaje pulsos (pulsos por vuelta del
+    // dosificador), contados por el firmware, que frena solo al llegar: el
+    // mismo mecanismo del "Girar X pulsos" de la tab Prueba.
+    //
+    // SOLO motores CON ENCODER: sin encoder no hay forma de saber cuándo
+    // completó la vuelta, y girar "a ojo" por tiempo se pasa y tira semilla al
+    // piso. Los que no tienen se listan al final en vez de fallar en silencio.
+    private async Task CargarPlacasAsync()
+    {
+        if (_cargando) return;
+
+        var conEncoder = new List<QxMotorEntry>();
+        var sinEncoder = new List<string>();
+        foreach (var e in C.AllMotors())
+        {
+            var m = e.Motor;
+            if (m == null || !m.Habilitado) continue;
+            bool tieneEncoder = string.Equals(m.SensorTipo, "encoder", StringComparison.OrdinalIgnoreCase)
+                                && m.DientesEngranaje > 0;
+            if (tieneEncoder) conEncoder.Add(e);
+            else sinEncoder.Add(m.Nombre ?? "motor");
+        }
+
+        if (conEncoder.Count == 0)
+        {
+            QxUi.SetMsg(_msg, "Ningún motor tiene encoder configurado: no se puede "
+                            + "girar una vuelta exacta.", "err");
+            return;
+        }
+
+        _cargando = true;
+        if (_btnCargar != null) _btnCargar.IsEnabled = false;
+        try
+        {
+            QxUi.SetMsg(_msg, $"Cargando placas… ({conEncoder.Count} motores)", "");
+
+            int ok = 0;
+            var fallaron = new List<string>();
+            foreach (var e in conEncoder)
+            {
+                var m = e.Motor;
+                // PWM de carga: el mínimo con el que ese motor arranca, más un
+                // margen. Girar al PWM de trabajo para una sola vuelta es
+                // innecesariamente brusco sobre la placa.
+                int pwm = Math.Min(m.PwmMax, Math.Max(m.PwmMin, (int)(m.PwmMin * 1.5)));
+                var r = await C.Client.CalStartAsync(e.Uid, e.MotorIdx, m.DientesEngranaje, pwm)
+                                      .ConfigureAwait(true);
+                if (r != null && r.Ok) ok++;
+                else fallaron.Add(m.Nombre ?? ("motor " + (e.MotorIdx + 1)));
+            }
+
+            var partes = new List<string>();
+            partes.Add(ok > 0
+                ? $"✓ {ok} motor{(ok == 1 ? "" : "es")} girando una vuelta"
+                : "✕ ninguno arrancó");
+            if (fallaron.Count > 0) partes.Add("fallaron: " + string.Join(", ", fallaron));
+            if (sinEncoder.Count > 0)
+                partes.Add($"{sinEncoder.Count} sin encoder (no se cargaron): "
+                           + string.Join(", ", sinEncoder));
+
+            QxUi.SetMsg(_msg, string.Join(" · ", partes),
+                        fallaron.Count == 0 && ok > 0 ? "ok" : "err");
+        }
+        finally
+        {
+            _cargando = false;
+            if (_btnCargar != null) _btnCargar.IsEnabled = true;
+        }
+    }
+
     private void AutoRepartir()
     {
         var all = C.AllMotors();
@@ -542,6 +657,14 @@ public sealed class SiembraTab : QxTab
         });
         ToolTip.SetTip(uni, PilotX.Cockpit.Bars.Traductor.T("Cambiar unidad (kg/ha ↔ sem/m)"));
         l2.Children.Add(uni);
+
+        // Copiar ESTA dosis al resto de la sembradora. Lo normal es sembrar
+        // todo a la misma dosis y cargarla surco por surco es un suplicio en
+        // una máquina de 24 motores.
+        var copiar = QxUi.Boton("⇊ a todos", () => CopiarDosisATodos(m));
+        ToolTip.SetTip(copiar, PilotX.Cockpit.Bars.Traductor.T(
+            "Copiar esta dosis y su unidad a TODOS los motores (no guarda solo)"));
+        l2.Children.Add(copiar);
 
         if (esSem)
         {
