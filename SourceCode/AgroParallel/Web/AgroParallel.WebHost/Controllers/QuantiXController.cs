@@ -125,6 +125,8 @@ namespace AgroParallel.WebHost.Controllers
                     kp = r.Kp,
                     ki = r.Ki,
                     kd = r.Kd,
+                    // Motivo del fallo del nodo: la pantalla lo muestra tal cual.
+                    msg = r.Msg ?? "",
                     received_utc = r.ReceivedUtc.ToString("o")
                 }
             });

@@ -298,6 +298,9 @@ public sealed class QxAutoTuneResult
     [JsonPropertyName("kp")]           public double Kp { get; set; }
     [JsonPropertyName("ki")]           public double Ki { get; set; }
     [JsonPropertyName("kd")]           public double Kd { get; set; }
+    /// <summary>Motivo del fallo tal cual lo manda el nodo (motor que no gira
+    /// vs motor que no oscila: se arreglan distinto).</summary>
+    [JsonPropertyName("msg")]          public string? Msg { get; set; }
     [JsonPropertyName("received_utc")] public string? ReceivedUtc { get; set; }
 }
 internal sealed class QxAutoTuneResp
@@ -494,6 +497,12 @@ public sealed class QuantiXEditorClient
 
     public Task<QxOpResult> AutoTuneStartAsync(string uid, int mi, CancellationToken ct = default)
         => CmdAsync(uid, "cmd", "{\"cmd\":\"autotune_start\",\"id\":" + mi + "}", false, ct);
+
+    /// <summary>Corta un autotune en curso y frena el motor. Se manda al
+    /// abandonar la espera: el nodo sigue tuneando —y girando— por su cuenta
+    /// aunque la pantalla haya dejado de escuchar.</summary>
+    public Task<QxOpResult> AutoTuneStopAsync(string uid, int mi, CancellationToken ct = default)
+        => CmdAsync(uid, "cmd", "{\"cmd\":\"autotune_stop\",\"id\":" + mi + "}", false, ct);
 
     public async Task<QxAutoTuneResult?> GetAutoTuneAsync(string uid, CancellationToken ct = default)
     {

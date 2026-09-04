@@ -214,15 +214,16 @@ public sealed class PidTab : QxTab
         // único que lo avisaba era el ToolTip ("Tarda hasta 50 s"), que en
         // táctil no se ve nunca: un toque y el dosificador arrancaba solo.
         bool seguir = C.Confirmar == null || await C.Confirmar("Arrancar el Auto-Tune",
-            "El motor va a arrancar y frenar solo, a fondo, hasta 50 segundos, "
-            + "para encontrar el ajuste del control.\n\n"
+            "El motor va a arrancar SOLO y girar hasta un minuto y medio, "
+            + "acelerando y frenando, para encontrar el ajuste del control.\n\n"
+            + "No hace falta que el tractor ande: el tuneo arranca el motor él mismo.\n\n"
             + "Mirá que no haya nadie cerca del dosificador. ¿Arrancamos?").ConfigureAwait(true);
         if (!seguir) return;
 
         btn.IsEnabled = false;
         object? orig = btn.Content;
         btn.Content = PilotX.Cockpit.Bars.Traductor.T("⏳ Tuning…");
-        QxUi.SetMsg(msg, "… autotune en curso (hasta 50 s)", "");
+        QxUi.SetMsg(msg, "… autotune en curso (arranca el motor solo; hasta 90 s)", "");
 
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
@@ -239,9 +240,17 @@ public sealed class PidTab : QxTab
                 return;
             }
 
-            while ((DateTime.UtcNow - inicio).TotalMilliseconds < 50000)
+            // 90 s: el firmware puede tardar hasta ~65 (rampa de arranque +
+            // 60 s de oscilación) antes de publicar su resultado. Con los 50 s
+            // de antes la ventana se cerraba ANTES de que el nodo contestara y
+            // la pantalla decía "el firmware no respondió" cuando en realidad
+            // estaba trabajando y contestaba unos segundos después.
+            while ((DateTime.UtcNow - inicio).TotalMilliseconds < 90000)
             {
                 await Task.Delay(1000, ct).ConfigureAwait(true);
+                int seg = (int)(DateTime.UtcNow - inicio).TotalSeconds;
+                QxUi.SetMsg(msg, "… autotune en curso (" + seg.ToString(CultureInfo.InvariantCulture)
+                                 + " s de 90)", "");
                 var r = await C.Client.GetAutoTuneAsync(uid, ct).ConfigureAwait(true);
                 if (r == null) continue;
                 if (!DateTime.TryParse(r.ReceivedUtc, CultureInfo.InvariantCulture,
@@ -253,7 +262,13 @@ public sealed class PidTab : QxTab
                 break;
             }
         }
-        catch (OperationCanceledException) { return; }
+        catch (OperationCanceledException)
+        {
+            // Cancelado (se cerró el panel / se relanzó): frenar el motor. Sin
+            // esto el nodo seguía tuneando —y girando— hasta su propio tope.
+            _ = C.Client.AutoTuneStopAsync(uid, mi, CancellationToken.None);
+            return;
+        }
         catch (Exception ex) { QxUi.SetMsg(msg, "✕ " + ex.Message, "err"); return; }
         finally
         {
@@ -263,12 +278,21 @@ public sealed class PidTab : QxTab
 
         if (result == null)
         {
-            QxUi.SetMsg(msg, "✕ timeout — el firmware no respondió en 50s", "err");
+            // Se agotó la ventana sin resultado: el motor puede seguir girando
+            // en el nodo, así que se manda stop antes de avisar.
+            _ = C.Client.AutoTuneStopAsync(uid, mi, CancellationToken.None);
+            QxUi.SetMsg(msg, "✕ el nodo no contestó en 90 s — motor detenido. "
+                           + "Revisá que esté online y reintentá.", "err");
             return;
         }
         if (!result.Ok)
         {
-            QxUi.SetMsg(msg, "✕ autotune falló — el motor no oscilo lo suficiente", "err");
+            // El firmware explica POR QUÉ (motor que no gira ≠ motor que no
+            // oscila). Mostrar su mensaje en vez de uno genérico.
+            string detalle = string.IsNullOrWhiteSpace(result.Msg)
+                ? "el motor no osciló lo suficiente"
+                : result.Msg!;
+            QxUi.SetMsg(msg, "✕ autotune falló — " + detalle, "err");
             return;
         }
 

@@ -78,6 +78,7 @@ namespace AgroParallel.Services
                     Kp = ExtractNum(p, "\"kp\":"),
                     Ki = ExtractNum(p, "\"ki\":"),
                     Kd = ExtractNum(p, "\"kd\":"),
+                    Msg = ExtractStr(p, "\"msg\":"),
                     ReceivedUtc = DateTime.UtcNow
                 };
                 _autoTuneByUid[uid] = r;
@@ -90,6 +91,22 @@ namespace AgroParallel.Services
             if (string.IsNullOrEmpty(uid)) return null;
             AutoTuneResult r;
             return _autoTuneByUid.TryGetValue(uid, out r) ? r : null;
+        }
+
+        /// <summary>Saca el valor string de "key":"valor" del payload crudo.
+        /// Mismo criterio artesanal que ExtractNum (el payload del nodo es
+        /// plano y chico; no vale traer un parser entero para dos campos).
+        /// Devuelve "" si no está.</summary>
+        private static string ExtractStr(string json, string key)
+        {
+            if (string.IsNullOrEmpty(json) || string.IsNullOrEmpty(key)) return "";
+            int idx = json.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) return "";
+            int start = json.IndexOf('"', idx + key.Length);
+            if (start < 0) return "";
+            int end = json.IndexOf('"', start + 1);
+            if (end <= start) return "";
+            return json.Substring(start + 1, end - start - 1);
         }
 
         private static double ExtractNum(string json, string key)
