@@ -481,29 +481,31 @@ public sealed class SiembraTab : QxTab
     // dosificador), contados por el firmware, que frena solo al llegar: el
     // mismo mecanismo del "Girar X pulsos" de la tab Prueba.
     //
-    // SOLO motores CON ENCODER: sin encoder no hay forma de saber cuándo
-    // completó la vuelta, y girar "a ojo" por tiempo se pasa y tira semilla al
-    // piso. Los que no tienen se listan al final en vez de fallar en silencio.
+    // Sirve con CUALQUIER sensor que cuente pulsos —encoder o inductivo—: al
+    // firmware no le importa de dónde vienen, corta al llegar a la meta. Lo
+    // único que hace falta es que `dientes_engranaje` (pulsos por vuelta del
+    // dosificador) esté bien cargado, y ese número CAMBIA según el sensor:
+    // 600 con un encoder LPD3806, 24 con un inductivo que lee los alvéolos de
+    // la placa. Si está mal, la vuelta sale mal — por eso se exige > 0 y se
+    // avisa de los que quedan afuera en vez de girarlos a ciegas.
     private async Task CargarPlacasAsync()
     {
         if (_cargando) return;
 
-        var conEncoder = new List<QxMotorEntry>();
-        var sinEncoder = new List<string>();
+        var conSensor = new List<QxMotorEntry>();
+        var sinSensor = new List<string>();
         foreach (var e in C.AllMotors())
         {
             var m = e.Motor;
             if (m == null || !m.Habilitado) continue;
-            bool tieneEncoder = string.Equals(m.SensorTipo, "encoder", StringComparison.OrdinalIgnoreCase)
-                                && m.DientesEngranaje > 0;
-            if (tieneEncoder) conEncoder.Add(e);
-            else sinEncoder.Add(m.Nombre ?? "motor");
+            if (m.DientesEngranaje > 0) conSensor.Add(e);
+            else sinSensor.Add(m.Nombre ?? "motor");
         }
 
-        if (conEncoder.Count == 0)
+        if (conSensor.Count == 0)
         {
-            QxUi.SetMsg(_msg, "Ningún motor tiene encoder configurado: no se puede "
-                            + "girar una vuelta exacta.", "err");
+            QxUi.SetMsg(_msg, "Ningún motor tiene cargados los pulsos por vuelta: "
+                            + "sin ese dato no se puede girar una vuelta exacta.", "err");
             return;
         }
 
@@ -511,11 +513,11 @@ public sealed class SiembraTab : QxTab
         if (_btnCargar != null) _btnCargar.IsEnabled = false;
         try
         {
-            QxUi.SetMsg(_msg, $"Cargando placas… ({conEncoder.Count} motores)", "");
+            QxUi.SetMsg(_msg, $"Cargando placas… ({conSensor.Count} motores)", "");
 
             int ok = 0;
             var fallaron = new List<string>();
-            foreach (var e in conEncoder)
+            foreach (var e in conSensor)
             {
                 var m = e.Motor;
                 // PWM de carga: el mínimo con el que ese motor arranca, más un
@@ -533,9 +535,9 @@ public sealed class SiembraTab : QxTab
                 ? $"✓ {ok} motor{(ok == 1 ? "" : "es")} girando una vuelta"
                 : "✕ ninguno arrancó");
             if (fallaron.Count > 0) partes.Add("fallaron: " + string.Join(", ", fallaron));
-            if (sinEncoder.Count > 0)
-                partes.Add($"{sinEncoder.Count} sin encoder (no se cargaron): "
-                           + string.Join(", ", sinEncoder));
+            if (sinSensor.Count > 0)
+                partes.Add($"{sinSensor.Count} sin pulsos por vuelta cargados "
+                           + "(no se giraron): " + string.Join(", ", sinSensor));
 
             QxUi.SetMsg(_msg, string.Join(" · ", partes),
                         fallaron.Count == 0 && ok > 0 ? "ok" : "err");
