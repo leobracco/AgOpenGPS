@@ -190,7 +190,14 @@ namespace AgroParallel.WebHost.Controllers
                 await WriteJsonAsync(new { ok = false, error = "uid-required" });
                 return;
             }
-            if (req.MotorIdx < 0 || req.MotorIdx > 1)
+            // Tope 0..1 ELIMINADO (2026-09-04): venía de cuando QuantiX era de
+            // dos motores. Con las placas de 7 (y hasta 24 en la UI), pasar a
+            // manual cualquier motor del 3 en adelante se rechazaba con
+            // "motor-idx-oob" y en pantalla parecía que el botón "no hacía
+            // nada" — el 1 y el 2 andaban, el resto no. El límite real ya se
+            // valida más abajo contra target.Motores.Length, que es el único
+            // que sabe cuántos motores tiene ESE nodo.
+            if (req.MotorIdx < 0)
             {
                 await WriteJsonAsync(new { ok = false, error = "motor-idx-oob" });
                 return;

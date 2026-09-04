@@ -100,9 +100,30 @@ public sealed class WidgetQuantiXClient
             using var content = new StringContent(body, Encoding.UTF8, "application/json");
             using var resp = await _http.PostAsync(_baseUrl + "api/widget-quantix/manual", content, ct)
                                         .ConfigureAwait(false);
-            return resp.IsSuccessStatusCode;
+            return await OkDelCuerpoAsync(resp, ct).ConfigureAwait(false);
         }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// true sólo si el motor ACEPTÓ la operación. El WebHost contesta los
+    /// rechazos con <c>200 + {"ok":false,"error":"…"}</c>, así que mirar sólo
+    /// IsSuccessStatusCode daba éxito cuando el servidor había rechazado el
+    /// pedido: la pantalla se quedaba como si el cambio se hubiera aplicado y
+    /// el operario veía un botón que "no hace nada".
+    /// </summary>
+    private static async Task<bool> OkDelCuerpoAsync(HttpResponseMessage resp, CancellationToken ct)
+    {
+        if (!resp.IsSuccessStatusCode) return false;
+        try
+        {
+            string s = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(s)) return true;   // sin cuerpo: 2xx manda
+            using var doc = JsonDocument.Parse(s);
+            return !doc.RootElement.TryGetProperty("ok", out var ok)
+                   || ok.ValueKind != JsonValueKind.False;
+        }
+        catch { return true; }   // cuerpo raro pero 2xx: no inventar un fallo
     }
 
     /// <summary>MAN/AUTO + dosis para todos los motores a la vez. Atajo para
@@ -115,7 +136,7 @@ public sealed class WidgetQuantiXClient
             using var content = new StringContent(body, Encoding.UTF8, "application/json");
             using var resp = await _http.PostAsync(_baseUrl + "api/widget-quantix/manual-all", content, ct)
                                         .ConfigureAwait(false);
-            return resp.IsSuccessStatusCode;
+            return await OkDelCuerpoAsync(resp, ct).ConfigureAwait(false);
         }
         catch { return false; }
     }
