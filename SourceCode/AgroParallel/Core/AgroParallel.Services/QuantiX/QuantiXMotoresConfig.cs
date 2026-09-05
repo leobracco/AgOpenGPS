@@ -60,6 +60,15 @@ namespace AgroParallel.QuantiX
         [JsonPropertyName("manual_dosis")]
         public double ManualDosis { get; set; }
 
+        // APAGADO A MANO desde el overlay (tercer estado junto a AUTO y MAN).
+        // Es del OPERARIO y PERSISTE entre arranques: se usa para dejar fuera
+        // un dosificador roto sin tener que acordarse cada mañana. Distinto de
+        // Habilitado, que dice si el canal existe en la máquina (config del
+        // fierro). Con esto en true el motor no dosifica pase lo que pase: el
+        // bridge manda seccion_on=false y dosis 0.
+        [JsonPropertyName("apagado")]
+        public bool Apagado { get; set; }
+
         // Campo del shapefile (DBF) que tiene la dosis para este motor.
         [JsonPropertyName("campo_dosis")]
         public string CampoDosis { get; set; }

@@ -29,6 +29,9 @@ public sealed class QxWidgetMotor
     [JsonPropertyName("nombre")]       public string? Nombre      { get; set; }
     [JsonPropertyName("manual_mode")]  public bool    ManualMode  { get; set; }
     [JsonPropertyName("manual_dosis")] public double  ManualDosis { get; set; }
+    /// <summary>Apagado a mano por el operario: no dosifica hasta que lo
+    /// prendan. Persiste entre arranques.</summary>
+    [JsonPropertyName("apagado")]      public bool    Apagado     { get; set; }
     /// <summary>"kg_ha" o "sem_m". Decide cómo se rotula la dosis.</summary>
     [JsonPropertyName("unidad")]       public string? Unidad      { get; set; }
     [JsonPropertyName("objetivo")]     public double  Objetivo    { get; set; }
@@ -124,6 +127,23 @@ public sealed class WidgetQuantiXClient
                    || ok.ValueKind != JsonValueKind.False;
         }
         catch { return true; }   // cuerpo raro pero 2xx: no inventar un fallo
+    }
+
+    /// <summary>Apaga o prende un motor (tercer estado del overlay). Apagado
+    /// = no dosifica pase lo que pase, y queda así entre arranques.</summary>
+    public async Task<bool> SetApagadoAsync(string? uid, int motorIdx, bool apagado,
+                                            CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(uid)) return false;
+        try
+        {
+            var body = JsonSerializer.Serialize(new { uid, motor_idx = motorIdx, apagado });
+            using var content = new StringContent(body, Encoding.UTF8, "application/json");
+            using var resp = await _http.PostAsync(_baseUrl + "api/widget-quantix/apagar", content, ct)
+                                        .ConfigureAwait(false);
+            return await OkDelCuerpoAsync(resp, ct).ConfigureAwait(false);
+        }
+        catch { return false; }
     }
 
     /// <summary>MAN/AUTO + dosis para todos los motores a la vez. Atajo para

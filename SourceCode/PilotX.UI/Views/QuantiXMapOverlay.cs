@@ -74,6 +74,7 @@ public sealed class QuantiXMapOverlay : Border
             if (_barra == null) return;
             _barra.OnAuto = () => _ = ComandoSeleccion(manual: false);
             _barra.OnMan = () => _ = ComandoSeleccion(manual: true);
+            _barra.OnOff = () => _ = ApagarSeleccion();
             _barra.OnPaso = dir => _ = PasoSeleccion(dir);
             _barra.OnCerrar = Deseleccionar;
         }
@@ -347,7 +348,8 @@ public sealed class QuantiXMapOverlay : Border
                     m.ManualMode,
                     WidgetQuantiXClient.FormatoDosis(dosis, m.Unidad),
                     WidgetQuantiXClient.EtiquetaUnidad(m.Unidad),
-                    m.Rpm);
+                    m.Rpm,
+                    m.Apagado);
                 _barra.IsVisible = true;
             }
         }
@@ -494,7 +496,14 @@ public sealed class QuantiXMapOverlay : Border
         celda.Ref = r;
 
         IBrush borde = Borde, fondo = BgFila;
-        if (m.Activo && m.Objetivo > 0)
+        if (m.Apagado)
+        {
+            // Apagado a mano: se ve de lejos y NO se confunde con un motor
+            // parado por cabecera. Sigue apagado tras reiniciar, así que tiene
+            // que cantar — un surco sin sembrar toda la jornada cuesta plata.
+            borde = Rojo; fondo = RojoTenue;
+        }
+        else if (m.Activo && m.Objetivo > 0)
         {
             double desvio = Math.Abs(m.Real - m.Objetivo) / m.Objetivo * 100.0;
             if (desvio <= 5)       { borde = Acento; fondo = VerdeTenue; }
@@ -517,6 +526,14 @@ public sealed class QuantiXMapOverlay : Border
                              + " " + WidgetQuantiXClient.EtiquetaUnidad(m.Unidad);
             celda.Rpm.Text = m.Rpm.ToString(CultureInfo.InvariantCulture) + " rpm";
         }
+        else if (m.Apagado)
+        {
+            // Apagado a mano: se dice con todas las letras. No hay dosis que
+            // mostrar y el operario tiene que entender que ese surco NO se
+            // está sembrando (ni se pinta).
+            celda.Dosis.Text = "APAGADO";
+            celda.Rpm.Text = "— rpm";
+        }
         else
         {
             // Con objetivo pero sin girar (secciones cerradas, en cabecera):
@@ -528,7 +545,8 @@ public sealed class QuantiXMapOverlay : Border
                 : "—";
             celda.Rpm.Text = "— rpm";
         }
-        celda.Dosis.Foreground = m.Activo ? TextoMid : TextoDim;
+        celda.Dosis.Foreground = m.Apagado ? Rojo : (m.Activo ? TextoMid : TextoDim);
+        celda.Num.Foreground = m.Apagado ? Rojo : (m.Activo ? TextoHi : TextoDim);
 
         celda.Btn.Background = sel ? SelFondo : fondo;
         celda.Btn.BorderBrush = sel ? Acento : borde;
@@ -567,6 +585,20 @@ public sealed class QuantiXMapOverlay : Border
         // objetivo: si mandáramos 0, la máquina se frenaría de golpe.
         double dosis = manual ? ObjetivoDePartida(m) : 0;
         await _client.SetManualAsync(sel.Value.Uid, m.Idx, manual, dosis).ConfigureAwait(false);
+        await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>OFF / volver a prender el motor elegido. Es un interruptor: si
+    /// está apagado lo prende, si no lo apaga. El motor queda fuera de la
+    /// siembra hasta que lo prendan —también después de reiniciar—, así que en
+    /// el overlay queda marcado en rojo para que no pase inadvertido.</summary>
+    private async Task ApagarSeleccion()
+    {
+        if (_client == null) return;
+        var sel = BuscarSeleccion(MotoresVisibles());
+        if (sel == null) return;
+        var m = sel.Value.Motor;
+        await _client.SetApagadoAsync(sel.Value.Uid, m.Idx, !m.Apagado).ConfigureAwait(false);
         await TickAsync(_cts?.Token ?? CancellationToken.None).ConfigureAwait(false);
     }
 

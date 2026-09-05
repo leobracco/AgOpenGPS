@@ -332,6 +332,13 @@ namespace AgOpenGPS
                     // Tren del motor derivado del implemento central (Task 5),
                     // con fallback al campo manual si no hay dato derivable.
                     _quantixBridge.ImplementoProvider = () => implemento.GetImplemento();
+                    // Puente bridge → guiado: los surcos de los motores que el
+                    // operario apagó a mano no se pintan (si no dosifica, no se
+                    // sembró). Se conecta acá porque el exe es el único que ve
+                    // los dos assemblies; sin esto la máscara queda en 0 y el
+                    // pintado se comporta como siempre.
+                    _quantixBridge.OnSeccionesApagadas =
+                        mask => { if (_host != null) _host.SeccionesApagadasExternas = mask; };
                     _ = _quantixBridge.StartAsync();
                     Console.WriteLine("[Engine] QuantiXMotorBridge arrancado: hay nodos configurados.");
                 }

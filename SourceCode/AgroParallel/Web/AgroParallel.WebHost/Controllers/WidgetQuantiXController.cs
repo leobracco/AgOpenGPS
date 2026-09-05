@@ -149,6 +149,9 @@ namespace AgroParallel.WebHost.Controllers
                             nombre = motor.Nombre ?? ("M" + mi),
                             manual_mode = motor.ManualMode,
                             manual_dosis = motor.ManualDosis,
+                            // Apagado a mano por el operario (tercer estado del
+                            // overlay). Persiste entre arranques.
+                            apagado = motor.Apagado,
                             dosis_fija_config = motor.DosisFija,
                             unidad = esSem ? "sem_m" : "kg_ha",
                             objetivo,
@@ -240,6 +243,50 @@ namespace AgroParallel.WebHost.Controllers
             });
         }
 
+        // APAGAR / PRENDER un motor desde el overlay (tercer estado, junto a
+        // AUTO y MAN). Con apagado=true el motor NO dosifica pase lo que pase
+        // (el bridge le manda seccion_on=false), y queda así hasta que lo
+        // prendan: se persiste al archivo igual que MAN/AUTO, para poder dejar
+        // fuera un dosificador roto sin volver a marcarlo cada arranque.
+        // Body: { "uid": "...", "motor_idx": 0, "apagado": true }
+        [Route(HttpVerbs.Post, "/widget-quantix/apagar")]
+        public async Task PostApagar()
+        {
+            ApagarReq req;
+            try { req = await ReadJsonBodyAsync<ApagarReq>().ConfigureAwait(false); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "bad-json: " + ex.Message }); return; }
+            if (req == null || string.IsNullOrEmpty(req.Uid))
+            { await WriteJsonAsync(new { ok = false, error = "uid-required" }); return; }
+            if (req.MotorIdx < 0)
+            { await WriteJsonAsync(new { ok = false, error = "motor-idx-oob" }); return; }
+
+            MotoresConfig mc;
+            try { mc = MotoresConfig.Load(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "load: " + ex.Message }); return; }
+            if (mc == null || mc.Nodos == null) { await WriteJsonAsync(new { ok = false, error = "no-config" }); return; }
+
+            QxNodoConfig target = null;
+            foreach (var n in mc.Nodos)
+                if (string.Equals(n.Uid, req.Uid, StringComparison.OrdinalIgnoreCase)) { target = n; break; }
+            if (target == null) { await WriteJsonAsync(new { ok = false, error = "nodo-not-found" }); return; }
+            if (target.Motores == null || req.MotorIdx >= target.Motores.Length)
+            { await WriteJsonAsync(new { ok = false, error = "motor-not-found" }); return; }
+
+            var motor = target.Motores[req.MotorIdx];
+            motor.Apagado = req.Apagado;
+
+            try { mc.Save(); }
+            catch (Exception ex) { await WriteJsonAsync(new { ok = false, error = "save: " + ex.Message }); return; }
+
+            await WriteJsonAsync(new
+            {
+                ok = true,
+                uid = req.Uid,
+                motor_idx = req.MotorIdx,
+                apagado = motor.Apagado
+            });
+        }
+
         // Manual GLOBAL: aplica MAN/AUTO (y opcionalmente dosis) a TODOS los
         // motores de TODOS los nodos habilitados. La dosis global solo tiene
         // sentido si todos los motores comparten unidad (kg_ha o sem_m) — esa
@@ -305,6 +352,14 @@ namespace AgroParallel.WebHost.Controllers
             public int MotorIdx { get; set; }
             public bool Manual { get; set; }
             public double Dosis { get; set; }
+        }
+
+        private sealed class ApagarReq
+        {
+            public string Uid { get; set; }
+            [JsonPropertyName("motor_idx")]
+            public int MotorIdx { get; set; }
+            public bool Apagado { get; set; }
         }
     }
 }

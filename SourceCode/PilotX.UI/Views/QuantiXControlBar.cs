@@ -35,6 +35,8 @@ public sealed class QuantiXControlBar : Border
     private static readonly IBrush Borde    = new SolidColorBrush(Color.Parse("#2A332C"));
     private static readonly IBrush Acento   = new SolidColorBrush(Color.Parse("#4ABA3E"));
     private static readonly IBrush Ambar    = new SolidColorBrush(Color.Parse("#E2B53E"));
+    // Mismo rojo que el overlay (#E15A5A): marca el motor apagado a mano.
+    private static readonly IBrush Rojo     = new SolidColorBrush(Color.Parse("#E15A5A"));
     private static readonly IBrush TextoHi  = new SolidColorBrush(Color.Parse("#E2E7E2"));
     private static readonly IBrush TextoMid = new SolidColorBrush(Color.Parse("#C5CFC5"));
     private static readonly IBrush TextoDim = new SolidColorBrush(Color.Parse("#8FA092"));
@@ -43,6 +45,7 @@ public sealed class QuantiXControlBar : Border
     private readonly TextBlock _nombre;
     private readonly Button _btnAuto;
     private readonly Button _btnMan;
+    private readonly Button _btnOff;
     private readonly Button _btnMenos;
     private readonly Button _btnMas;
     private readonly TextBlock _dosis;
@@ -53,6 +56,9 @@ public sealed class QuantiXControlBar : Border
     public Action? OnAuto;
     /// <summary>Pasar el motor a MAN (la dosis la fija el operario).</summary>
     public Action? OnMan;
+    /// <summary>Apagar el motor / volver a prenderlo (tercer estado). Apagado
+    /// no dosifica pase lo que pase y sigue apagado entre arranques.</summary>
+    public Action? OnOff;
     /// <summary>Paso de dosis en MAN: -1 o +1.</summary>
     public Action<int>? OnPaso;
     /// <summary>El operario cerró la barra (✕): deseleccionar el motor.</summary>
@@ -90,10 +96,15 @@ public sealed class QuantiXControlBar : Border
 
         _btnAuto = BotonModo("AUTO");
         _btnMan  = BotonModo("MAN");
+        _btnOff  = BotonModo("OFF");
         _btnAuto.Click += (_, __) => OnAuto?.Invoke();
         _btnMan.Click  += (_, __) => OnMan?.Invoke();
+        _btnOff.Click  += (_, __) => OnOff?.Invoke();
+        ToolTip.SetTip(_btnOff, PilotX.Cockpit.Bars.Traductor.T(
+            "Apagar este motor: deja de dosificar hasta que lo prendas (sigue apagado aunque reinicies)"));
         fila.Children.Add(_btnAuto);
         fila.Children.Add(_btnMan);
+        fila.Children.Add(_btnOff);
 
         fila.Children.Add(new Border { Width = 1, Background = Borde, Margin = new Thickness(2, 4) });
 
@@ -172,22 +183,32 @@ public sealed class QuantiXControlBar : Border
     /// Refresca la barra con el estado FRESCO del motor seleccionado. La llama
     /// el overlay en cada poll; acá no se decide nada, solo se pinta.
     /// </summary>
-    public void Actualizar(string nombre, bool manual, string dosisTexto, string etiquetaUnidad, int rpm)
+    public void Actualizar(string nombre, bool manual, string dosisTexto, string etiquetaUnidad, int rpm,
+                           bool apagado = false)
     {
         _nombre.Text = nombre;
         _dosis.Text = dosisTexto;
         _unidad.Text = etiquetaUnidad;
         _rpm.Text = rpm.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
-        _btnMan.Background  = manual ? Ambar : BgBoton;
-        _btnMan.Foreground  = manual ? TextoInv : TextoMid;
-        _btnAuto.Background = manual ? BgBoton : Acento;
-        _btnAuto.Foreground = manual ? TextoMid : TextoInv;
+        // Tres estados excluyentes. Apagado gana: mientras el motor está en OFF
+        // no tiene sentido mostrar AUTO o MAN encendidos, porque no dosifica ni
+        // en uno ni en otro.
+        _btnOff.Background  = apagado ? Rojo : BgBoton;
+        _btnOff.Foreground  = apagado ? TextoInv : TextoMid;
 
-        // En AUTO manda la prescripción: los pasos no harían nada.
-        _btnMenos.IsEnabled = manual;
-        _btnMas.IsEnabled = manual;
-        _dosis.Foreground = manual ? TextoHi : TextoDim;
+        bool man = manual && !apagado;
+        bool aut = !manual && !apagado;
+        _btnMan.Background  = man ? Ambar : BgBoton;
+        _btnMan.Foreground  = man ? TextoInv : TextoMid;
+        _btnAuto.Background = aut ? Acento : BgBoton;
+        _btnAuto.Foreground = aut ? TextoInv : TextoMid;
+
+        // En AUTO manda la prescripción y apagado no dosifica: los pasos no
+        // harían nada en ninguno de los dos.
+        _btnMenos.IsEnabled = man;
+        _btnMas.IsEnabled = man;
+        _dosis.Foreground = apagado ? Rojo : (manual ? TextoHi : TextoDim);
     }
 
     private static Button BotonModo(string texto) => new Button

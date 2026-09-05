@@ -38,6 +38,22 @@ namespace AgOpenGPS
         public readonly CABCurve CurveField;
         public CTool Tool;
         public readonly CModuleComm Mc;
+
+        /// <summary>
+        /// Secciones que un producto externo pide mantener APAGADAS, en bits
+        /// (bit 0 = sección 1). Hoy la escribe el bridge de QuantiX con los
+        /// surcos de los motores que el operario apagó a mano desde el overlay:
+        /// si ese motor no dosifica, esa parte NO se sembró y no tiene que
+        /// quedar pintada como trabajada — si no, la pasada siguiente la
+        /// saltea por anti-solape y el surco queda sin sembrar de verdad.
+        ///
+        /// Canal deliberadamente chico y de un solo sentido: el bridge vive en
+        /// AgroParallel.Services y el guiado en AgOpenGPS.Core, que no se
+        /// referencian entre sí; el ejecutable los conecta al arrancar. En 0
+        /// (nadie la escribe, bridge apagado) el comportamiento es el de
+        /// siempre: no apaga nada.
+        /// </summary>
+        public volatile uint SeccionesApagadasExternas;
         public readonly CYouTurn Yt;
         public readonly CContour Ct;
         public readonly CRecordedPath RecPath;

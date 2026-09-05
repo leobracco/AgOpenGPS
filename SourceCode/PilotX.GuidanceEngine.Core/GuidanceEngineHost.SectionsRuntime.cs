@@ -246,6 +246,19 @@ namespace AgOpenGPS
                     continue;
                 }
 
+                // Motor apagado a mano (overlay de QuantiX): esa sección no
+                // dosifica, así que tampoco se pinta. Va ÚLTIMO, después de
+                // cabecera y boundary, porque es una orden explícita del
+                // operario y tiene que ganarle a cualquier automatismo.
+                // Sin bridge de QuantiX la máscara es 0 y esto no hace nada.
+                if (j < 32 && (SeccionesApagadasExternas & (1u << j)) != 0)
+                {
+                    section[j].isSectionRequiredOn = false;
+                    section[j].sectionOffRequest = true;
+                    section[j].sectionOnRequest = false;
+                    continue;
+                }
+
                 section[j].sectionOnRequest = section[j].isSectionRequiredOn;
                 section[j].sectionOffRequest = !section[j].sectionOnRequest;
             }

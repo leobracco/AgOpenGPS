@@ -154,6 +154,49 @@ namespace AgroParallel.QuantiX
             Log("Detenido (" + MessagesSent + " msgs)");
         }
 
+        /// <summary>
+        /// Lo conecta el ejecutable al arrancar: recibe los BITS de las
+        /// secciones (bit 0 = sección 1) que no deben pintarse porque su motor
+        /// está apagado a mano. El bridge no conoce al guiado —viven en
+        /// assemblies que no se referencian—, así que el host se suscribe acá.
+        /// Si nadie lo conecta, no pasa nada: el pintado sigue como siempre.
+        /// </summary>
+        public Action<uint> OnSeccionesApagadas;
+
+        private uint _ultimaMascaraApagados;
+
+        /// <summary>Arma la máscara de surcos de motores apagados y la publica.</summary>
+        private void PublicarSeccionesApagadas()
+        {
+            uint mask = 0;
+            var nodos = _motores?.Nodos;
+            if (nodos != null)
+            {
+                foreach (var nodo in nodos)
+                {
+                    if (nodo == null || !nodo.Habilitado || nodo.Motores == null) continue;
+                    foreach (var motor in nodo.Motores)
+                    {
+                        if (motor == null || !motor.Apagado || motor.Cortes == null) continue;
+                        foreach (int corte in motor.Cortes)
+                        {
+                            int bit = corte - 1;              // corte 1 → bit 0
+                            if (bit >= 0 && bit < 32) mask |= (1u << bit);
+                        }
+                    }
+                }
+            }
+
+            if (mask != _ultimaMascaraApagados)
+            {
+                _ultimaMascaraApagados = mask;
+                Log(string.Format("motores apagados a mano: mascara de surcos 0x{0:X}", mask));
+            }
+
+            var h = OnSeccionesApagadas;
+            if (h != null) { try { h(mask); } catch { } }
+        }
+
         private async void OnTick(object sender, System.Timers.ElapsedEventArgs e)
         {
             if (_disposed || _nodos == null) return;
@@ -165,6 +208,12 @@ namespace AgroParallel.QuantiX
                 AogStateSnapshot snap = null;
                 try { snap = _state.GetSnapshot(); } catch { }
                 if (snap == null) return;
+
+                // Surcos de los motores apagados a mano → el guiado los saca
+                // del pintado (si no dosifica, no se sembró). Se recalcula en
+                // cada tick porque el operario puede apagar/prender en marcha,
+                // y se publica aunque no haya cambiado: es un uint, sale gratis.
+                PublicarSeccionesApagadas();
 
                 double dosis = 0;
                 bool inside = false;
@@ -394,6 +443,14 @@ namespace AgroParallel.QuantiX
                         // cerrado. QxPulseCalculator.Pps ya devuelve 0 con SeccionOn
                         // en false, así que el motor queda quieto (pps:0, seccion_on:false).
                         if (!snap.IsJobStarted)
+                            seccionOn = false;
+
+                        // OFF del operario (overlay): el motor queda fuera de la
+                        // siembra hasta que lo prendan de nuevo. Va DESPUÉS del
+                        // antirrebote a propósito — no es un blip de secciones,
+                        // es una orden explícita y no se "sostiene" ni un tick.
+                        // Gana sobre todo: manual, mapa, dosis fija y secciones.
+                        if (motor.Apagado)
                             seccionOn = false;
 
                         // Ancho y surcos REALES del motor (fix 2026-08-08, QxAnchoMotor):
