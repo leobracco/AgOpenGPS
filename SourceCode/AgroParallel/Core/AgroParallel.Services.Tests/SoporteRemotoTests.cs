@@ -15,7 +15,12 @@ namespace AgroParallel.Services.Tests
 {
     public class SoporteRemotoTests
     {
-        private const string Token = "f0dadf05db87db74aabe4a0afacdbec74bfb9fc7d6b32aa496dbfd16d61e9777";
+        // Valor SINTETICO. Tiene la forma de un device token (64 hex) porque el
+        // sanitizador se prueba contra esa forma, pero NO sale de ningun equipo:
+        // el original de este archivo si era el token real de una pantalla en
+        // produccion y quedo expuesto en un repo publico. Si hace falta cambiar
+        // este dato, generalo al azar; nunca lo copies de un equipo.
+        private const string Token = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
 
         [Fact]
         public void Sanitizar_tapa_el_token_del_equipo()
