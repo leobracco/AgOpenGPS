@@ -111,6 +111,20 @@ if (Test-Path $kioskBin) {
     }
 }
 
+# Copiar setup_pilotx_lan.bat (abre los puertos del firewall en el tractor).
+# NO viajaba en el ZIP hasta 1.0.49: vivia solo en el repo, asi que la regla
+# de UDP 9999 que necesita el ToolX nunca llegaba a una maquina de cliente.
+# El sintoma era enganoso: el nodo aparecia CONECTADO por MQTT (TCP 1883 si
+# tenia regla) mientras su PGN se descartaba en silencio y la herramienta no
+# pintaba.
+$lanBat = "$root\setup_pilotx_lan.bat"
+if (Test-Path $lanBat) {
+    Write-Host "Copiando setup_pilotx_lan.bat..." -ForegroundColor Yellow
+    Copy-Item $lanBat -Destination $OutDir -Force
+} else {
+    Write-Host "AVISO: falta setup_pilotx_lan.bat, el paquete va sin el." -ForegroundColor Red
+}
+
 # Copiar AgroParallel.Updater (helper de self-update Ã¢â‚¬â€ lo lanza PilotXSelfUpdate)
 $updBin = "$root\SourceCode\AgroParallel\Tools\AgroParallel.Updater\bin\$Config\win-x64"
 if (Test-Path $updBin) {
