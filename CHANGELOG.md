@@ -12,6 +12,89 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.48] — 2026-09-05
+
+### Fixed
+- **La configuración de FlowX se borraba sola en el tractor** (caso de campo:
+  `flowX.json` volvía a `{"enabled":true,"nodos":[],"ignorados":[]}` y el
+  cliente perdía los nodos ya configurados). `AtomicJson.Read` podía caer justo
+  en la ventana del fallback de escritura, donde hay un `Delete` seguido de un
+  `Move` y por un instante el archivo NO existe. El `Load()` interpretaba ese
+  null como "no hay config" y escribía los defaults ENCIMA de la buena. Con el
+  puente releyendo cada 2 segundos, la lotería se jugaba todo el tiempo.
+  - `AtomicJson.Read` ahora reintenta (3 × 40 ms) antes de rendirse, y sólo
+    reintenta si hay algo en disco.
+  - Nuevo `AtomicJson.Existe(path)`: mira el archivo y su `.bak`.
+  - Los seis `Load()` (FlowX, OrbitX, QuantiX, SectionX, StormX, VistaX) sólo
+    crean el archivo de defaults cuando de verdad no hay nada en disco. Nunca
+    más se pisa una configuración que existe pero no se pudo leer en ese
+    instante.
+- **El puente de FlowX quedaba mudo para siempre** si el broker MQTT todavía no
+  estaba levantado cuando arrancó. `FlowXBridge.StartAsync()` conectaba una sola
+  vez, y si fallaba lo dejaba anotado en el log y no reintentaba nunca: las
+  secciones no abrían y no había ninguna señal de por qué. Ahora hay un
+  watchdog (primer intento a los 2 s, después cada 15 s) igual al que ya tenían
+  QuantiX y el CutDispatcher.
+
+### Changed
+- **Las actualizaciones pasan a ser livianas y parcheables por archivo.** Se
+  apagó `PublishReadyToRunComposite`. Con composite, todo el código nativo de
+  todos los ensamblados vivía en un único `PilotX.Desktop.r2r.dll` de 94,3 MB:
+  cambiar una línea obligaba a regenerarlo entero, así que el paquete mínimo de
+  un fix era de ~90 MB y era imposible mandar una DLL suelta. Sin composite
+  cada ensamblado lleva su propio código ReadyToRun adentro, el arranque sigue
+  precompilado (no se vuelve a JIT puro) y un fix puntual se manda como esa
+  sola DLL.
+  - Recordatorio operativo que costó caro: una DLL suelta SÓLO sirve si se
+    compiló con el `-p:Version=` exacto de la instalación destino. Los
+    ensamblados se referencian por versión exacta y mezclar versiones impide
+    que la app arranque.
+- `setup_pilotx_lan.bat` ahora abre también **UDP 9999** (además de TCP 5180 y
+  5181). Sin esa regla un nodo ToolX aparecía online por MQTT mientras su PGN
+  se descartaba en silencio y la herramienta no pintaba.
+
+---
+
+## [1.0.47] — 2026-09-05
+
+> Las versiones 1.0.45 y 1.0.46 se publicaron desde otra sesión y no dejaron
+> entrada acá; sus cambios no están documentados en este archivo.
+
+### Added
+- **Asignación manual de cortes en el editor de FlowX** (pestaña "Cortes y
+  secciones"). Además del reparto automático, ahora hay un desplegable por
+  sección para elegir a mano qué corte (la salida S1, S2… del nodo) la abre,
+  o dejarla sin asignar. Varias secciones pueden compartir un corte. El mapa
+  se actualiza en el momento, sin rebuild, para no cerrar el desplegable ni
+  perder el scroll.
+  - La lista de secciones sale de lo que reporta PilotX en vivo, sin ninguna
+    cantidad fija: si el implemento cambia de 7 a 24 secciones aparecen 24
+    filas, la grilla envuelve y el bloque scrollea. El único techo sigue
+    siendo el del protocolo del nodo (16 cortes: el bitmask que viaja al
+    firmware es de 16 bits).
+  - El mapa avisa lo que antes no se veía: secciones sin corte asignado,
+    cortes sin usar, y si el corte elegido como master además tiene secciones.
+
+### Changed
+- **La cantidad de cortes se persiste** (`cortes` en `flowX.json`, campo
+  aditivo). Antes se deducía contando los cables asignados, y con asignación
+  manual eso se rompía: usar S1, S2 y S5 son cinco salidas, no tres, y al
+  reentrar se perdían las de arriba. Como respaldo para configuraciones
+  anteriores y para las que guarda la PWA, ahora se infiere del corte más
+  alto asignado en vez de contar los distintos.
+
+### Fixed
+- **`setup_pilotx_lan.bat` no abría UDP 9999**, el puerto por donde entra el
+  PGN de todos los módulos que hablan por WiFi (GPS/NMEA, AutoSteer,
+  CoreX-ECU y el switch ToolX). Como el broker MQTT (TCP 1883) sí tenía
+  regla, el síntoma era mudo y confuso: el nodo aparecía conectado en el
+  panel y su dato no llegaba nunca al motor. Diagnosticado en campo con
+  ToolX (2026-09-04). Se agregan además TCP 5180 (Hub y API, el 8080 es el
+  panel viejo de AgIO) y TCP 5181 (panel CoreX), y un aviso sobre la red
+  WiFi marcada como pública, que bloquea igual.
+
+---
+
 ## [1.0.44] — 2026-09-03
 
 ### Added

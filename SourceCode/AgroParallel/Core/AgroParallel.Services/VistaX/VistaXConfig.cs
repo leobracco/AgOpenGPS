@@ -111,7 +111,10 @@ namespace AgroParallel.VistaX
                 if (config == null)
                 {
                     var def = new VistaXConfig();
-                    def.Save();
+                    // NO pisar una config que existe pero no se pudo leer en este
+                    // instante (escritura concurrente): escribir defaults ahí
+                    // destruye la configuración del cliente. Ver AtomicJson.Existe.
+                    if (!AgroParallel.Common.AtomicJson.Existe(path)) def.Save();
                     return def;
                 }
 

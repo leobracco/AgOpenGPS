@@ -83,21 +83,49 @@ namespace AgroParallel.Common
         /// </summary>
         public static T Read<T>(string path, JsonSerializerOptions options) where T : class
         {
-            var fromMain = TryDeserialize<T>(path, options);
-            if (fromMain != null) return fromMain;
-
-            // El principal no sirvió: recuperar de la última versión buena.
             string bak = path + BakSuffix;
-            var fromBak = TryDeserialize<T>(bak, options);
-            if (fromBak != null)
-            {
-                // Re-materializar el principal desde el respaldo para que la
-                // próxima lectura ya no dependa del .bak.
-                try { Write(path, File.ReadAllText(bak)); } catch { }
-                return fromBak;
-            }
 
-            return null;
+            // REINTENTOS: la lectura puede caer JUSTO en la ventana de una
+            // escritura concurrente. En el fallback de Write (cuando File.Replace
+            // falla por antivirus/FS) hay un Delete seguido de un Move: entre los
+            // dos, el archivo NO EXISTE. El lector desafortunado veía null y el
+            // caller escribía defaults ENCIMA de la config buena — el operario
+            // perdía los nodos configurados (caso de campo FlowX 2026-09-05, con
+            // el bridge releyendo la config cada 2 s).
+            for (int intento = 0; ; intento++)
+            {
+                var fromMain = TryDeserialize<T>(path, options);
+                if (fromMain != null) return fromMain;
+
+                // El principal no sirvió: recuperar de la última versión buena.
+                var fromBak = TryDeserialize<T>(bak, options);
+                if (fromBak != null)
+                {
+                    // Re-materializar el principal desde el respaldo para que la
+                    // próxima lectura ya no dependa del .bak.
+                    try { Write(path, File.ReadAllText(bak)); } catch { }
+                    return fromBak;
+                }
+
+                // Sólo tiene sentido reintentar si HAY algo en disco: un archivo
+                // que no existe no va a aparecer solo. 3 intentos × 40 ms cubren
+                // de sobra un Delete+Move local.
+                if (intento >= 2 || !Existe(path)) return null;
+                try { System.Threading.Thread.Sleep(40); } catch { }
+            }
+        }
+
+        /// <summary>
+        /// ¿Hay algo en disco para este path (principal o respaldo)? Lo usan los
+        /// Load() de las configs para NO escribir defaults encima de un archivo
+        /// que existe pero no se pudo leer en ESTE instante: hacerlo destruye la
+        /// configuración del cliente. Sin archivo, en cambio, crear el default es
+        /// correcto (primer arranque).
+        /// </summary>
+        public static bool Existe(string path)
+        {
+            try { return File.Exists(path) || File.Exists(path + BakSuffix); }
+            catch { return false; }
         }
 
         private static T TryDeserialize<T>(string path, JsonSerializerOptions options) where T : class

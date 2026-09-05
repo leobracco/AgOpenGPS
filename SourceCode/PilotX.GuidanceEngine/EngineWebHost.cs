@@ -63,6 +63,7 @@ namespace AgOpenGPS
         private AgpWebHost _web;
         private NodoRegistryService _nodos;
         private FlowXBridge _flowxBridge;
+        private System.Threading.Timer _flowxRetry;
         private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
         private System.Threading.Timer _orbitxRetry;
         private AgroParallel.Services.SonidosAlarmService _sonidos;
@@ -291,6 +292,39 @@ namespace AgOpenGPS
                 Console.Error.WriteLine("[Engine] FlowXBridge: " + ex.Message);
             }
 
+            // VIGILANTE cada 15 s (primer tick a los 2 s), mismo patrón que
+            // _quantixRetry y _cutRetry. FlowXBridge.StartAsync() conecta al
+            // broker UNA vez y, si falla, loguea y queda mudo para siempre: no
+            // reintenta ni nadie lo miraba. El broker (CoreX) levanta en el
+            // mismo arranque que este host, así que la carrera es real y el
+            // síntoma es mudo: el nodo aparece ONLINE (habla solo con el
+            // broker) pero nunca recibe target, y su firmware cierra TODAS las
+            // secciones a los 4 s por comms-loss. El operario ve las secciones
+            // abiertas en PilotX y las válvulas cerradas en el nodo, sin un
+            // solo error a la vista (caso de campo 2026-09-05, con las 5
+            // secciones forzadas en manual y el mapeo de cortes correcto).
+            // Cubre además el alta del nodo DESPUÉS de arrancar el motor:
+            // StartAsync sale solo con "Deshabilitado o sin nodos" y así queda.
+            _flowxRetry = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    if (_flowxBridge != null && _flowxBridge.IsRunning) return;
+
+                    // Instancia nueva con la config recién leída: el nodo pudo
+                    // darse de alta o habilitarse después del arranque.
+                    try { _flowxBridge?.Stop(); } catch { }
+                    _flowxBridge = new FlowXBridge(state, FlowXConfig.Load());
+                    _flowxBridge.StartAsync().GetAwaiter().GetResult();
+                    if (_flowxBridge.IsRunning)
+                        Console.WriteLine("[Engine] FlowXBridge (re)arrancado por el vigilante.");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine("[Engine] FlowXBridge retry: " + ex.Message);
+                }
+            }, null, 2000, 15000);
+
             // OrbitXConfigService (arriba) solo lee/escribe orbitX.json y prueba
             // /health una vez por click de "Probar conexión" — el heartbeat de
             // verdad (sync periódico + auto-registro + firmware mirror :8088) lo
@@ -434,6 +468,8 @@ namespace AgOpenGPS
 
         public void Stop()
         {
+            try { _flowxRetry?.Dispose(); } catch { }
+            _flowxRetry = null;
             try { _flowxBridge?.Stop(); _flowxBridge?.Dispose(); } catch { }
             _flowxBridge = null;
             // Antes de _web?.Stop(): orbitX.json no se puede escribir mientras

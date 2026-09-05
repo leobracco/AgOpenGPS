@@ -96,6 +96,10 @@ namespace AgroParallel.FlowX
         // 1..N = ese corte hace de master (el bridge le pone el bit = OR de
         // todas las secciones abiertas del nodo).
         [JsonPropertyName("master_cable")] public int MasterCable { get; set; }
+        // Cuantas valvulas tiene la barra. 0 = no declarado (config vieja o
+        // guardada desde la PWA): la UI lo infiere de cables[]. El bridge NO lo
+        // usa — manda los bits que salen del mapeo, no una cantidad.
+        [JsonPropertyName("cortes")] public int Cortes { get; set; }
         [JsonPropertyName("productos")] public List<FxProducto> Productos { get; set; }
         [JsonPropertyName("cables")] public List<FxCableMap> Cables { get; set; }
 
@@ -136,7 +140,11 @@ namespace AgroParallel.FlowX
             var cfg = AgroParallel.Common.AtomicJson.Read<FlowXConfig>(path, opts);
             if (cfg != null) return cfg;
             var def = new FlowXConfig();
-            def.Save();
+            // NO pisar una config que existe pero no se pudo leer en este
+            // instante (escritura concurrente): escribir defaults ahí destruye
+            // la configuración del cliente. Sólo se crea el archivo cuando de
+            // verdad no hay nada en disco (primer arranque). Ver AtomicJson.Existe.
+            if (!AgroParallel.Common.AtomicJson.Existe(path)) def.Save();
             return def;
         }
 

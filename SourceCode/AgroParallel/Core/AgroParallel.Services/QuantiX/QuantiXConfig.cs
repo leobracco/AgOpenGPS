@@ -47,7 +47,11 @@ namespace AgroParallel.QuantiX
             var cfg = AgroParallel.Common.AtomicJson.Read<QuantiXConfig>(path, opts);
             if (cfg != null) return cfg;
             var def = new QuantiXConfig();
-            def.Save();
+            // NO pisar una config que existe pero no se pudo leer en este
+            // instante (escritura concurrente): escribir defaults ahí destruye
+            // la configuración del cliente. Sólo se crea el archivo cuando de
+            // verdad no hay nada en disco (primer arranque). Ver AtomicJson.Existe.
+            if (!AgroParallel.Common.AtomicJson.Existe(path)) def.Save();
             return def;
         }
 

@@ -48,10 +48,17 @@
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
-  <!-- Release: ReadyToRun + sin debugging-only overhead. -->
+  <!-- Release: ReadyToRun + sin debugging-only overhead.
+       Composite APAGADO a proposito (1.0.48). Con composite, TODO el codigo
+       nativo de todos los ensamblados vive en un unico PilotX.Desktop.r2r.dll
+       de ~94 MB: cambiar una sola linea de una DLL obliga a regenerar y a
+       distribuir ese bloque entero, asi que cualquier fix pesaba ~90 MB y no
+       existia forma de parchear por archivo. Sin composite cada ensamblado
+       lleva su propio codigo R2R adentro: el arranque sigue siendo precompilado
+       (NO volvemos a JIT puro) y un fix puntual se manda como esa sola DLL. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <PublishReadyToRun>true</PublishReadyToRun>
-    <PublishReadyToRunComposite>true</PublishReadyToRunComposite>
+    <PublishReadyToRunComposite>false</PublishReadyToRunComposite>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
