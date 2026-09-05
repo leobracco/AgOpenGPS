@@ -13,6 +13,55 @@ falta— correr un comando puntual.
 Hoy todo eso exige una sesión interactiva de RustDesk: alguien tiene que estar,
 la conexión tiene que aguantar, y no queda registro de qué se tocó.
 
+## REVISIÓN 2026-09-05 — el alcance es soporte **y telemetría de flota**
+
+El diseño original (solo HTTP) quedaba corto: con telemetría continua de varias
+máquinas, el polling no escala y no da estado en vivo. Se pasa a **MQTT como
+canal primario, con HTTP como respaldo**.
+
+**Viabilidad verificada en el droplet** (no supuesta): 3,8 GB de RAM con 1,8
+libres, carga 0,35, puertos 1883/8883 libres, Mosquitto no instalado.
+Mosquitto usa 10-20 MB: entra sin comprometer las ~25 apps que ya corren.
+
+### Broker
+
+**Mosquitto** en el droplet, **TLS en 8883**. NO confundir con el broker
+embebido del Engine: ese es LOCAL del tractor y atiende a los ESP32. Acá PilotX
+es **cliente** de un broker cloud distinto. Son dos cosas separadas y no se
+mezclan.
+
+**Autenticación**: usuario = `device_id`, contraseña = `device_token`, los que
+ya existen en CouchDB. El `password_file` de Mosquitto se genera desde CouchDB
+con un script y se recarga al dar de alta un equipo. **ACL por dispositivo**:
+cada equipo sólo puede escribir en su propia rama y leer sus propios comandos —
+sin esto, un cliente podría espiar o comandar las máquinas de otro.
+
+### Tópicos
+
+| Tópico | Sentido | Uso |
+|---|---|---|
+| `agp/flota/{device_id}/telemetria` | PC→cloud | posición, velocidad, labor, alarmas |
+| `agp/flota/{device_id}/estado` | PC→cloud | online/offline por **LWT** |
+| `agp/flota/{device_id}/cmd` | cloud→PC | comando de soporte (QoS 1) |
+| `agp/flota/{device_id}/resultado` | PC→cloud | salida del comando (QoS 1) |
+
+El **LWT** es la ganancia grande para la flota: el broker avisa solo cuando una
+pantalla se cae, sin esperar a que falte un heartbeat.
+
+### Telemetría
+
+Cada **5 s** en movimiento, cada **60 s** parada (no tiene sentido repetir la
+misma posición). Payload chico: posición, rumbo, velocidad, si está sembrando,
+ha trabajadas, alarmas activas, versión. Del lado del cloud se persiste con los
+**buckets por minuto** que ya se usan para tracking (60× menos documentos).
+
+### HTTP no se tira: queda de respaldo
+
+Los endpoints HTTP del diseño original **se implementan igual** y el agente cae
+a polling si MQTT no conecta. Motivo concreto de campo: el 8883 saliente lo
+bloquean algunas redes de terceros, y el soporte se necesita justo cuando algo
+anda mal. HTTPS al 443 pasa siempre.
+
 ## Por qué contra OrbitX y no un puerto abierto
 
 El canal es **SALIENTE**: la pantalla le pregunta al cloud si tiene algo
@@ -137,14 +186,23 @@ comando (se "despierta" mientras estás trabajando y vuelve a dormirse solo).
 
 ## Sub-proyectos
 
-- **S1 — OrbitX**: modelo, los 5 endpoints, guard de organización, auditoría.
-- **S2 — Agente PilotX**: `SoporteRemotoService` + catálogo + límites.
-- **S3 — Panel web**: pantalla de soporte (elegir equipo/acción, ver salida,
-  historial).
+- **S0 — Broker**: Mosquitto en el droplet, TLS 8883, password_file desde
+  CouchDB, ACL por dispositivo, systemd. Infra, no código de producto.
+- **S1 — OrbitX**: modelo, endpoints HTTP (respaldo), suscriptor MQTT que
+  persiste telemetría y resultados, guard de organización, auditoría.
+- **S2 — Agente PilotX**: cliente MQTT al cloud (+ fallback HTTP),
+  `SoporteRemotoService` con el catálogo y sus límites, publicación de
+  telemetría y LWT.
+- **S3 — Panel web**: pantalla de soporte (equipo/acción/salida/historial) y
+  vista de flota en vivo (mapa + estado online por LWT).
 - **S4 — Shell**: flag por equipo con vencimiento + rechazo auditado.
 
-S1+S2 son el MVP: con eso ya se puede pedir logs y estado desde el cloud
-(aunque sea con curl, sin panel). S3 lo hace usable. S4 al final.
+**MVP = S0 + S1 + S2**: con eso ya hay soporte remoto y telemetría llegando,
+aunque se consulte con curl. S3 lo hace usable; S4 al final.
+
+**Orden de riesgo**: S0 toca el droplet de producción (25 apps corriendo) — se
+hace con backup y verificando que nada más se caiga. El resto es código nuevo
+que no pisa lo existente.
 
 ## Riesgos
 
