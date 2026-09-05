@@ -170,15 +170,24 @@ public sealed class FxCtx
 
     public double AnchoAog() => Aog != null && Aog.ToolWidth > 0 ? Aog.ToolWidth : 0;
 
-    /// <summary>Cantidad de cortes = cables unicos ya asignados, o el default
-    /// de hardware (7 salidas por nodo).</summary>
+    /// <summary>
+    /// Cuantas valvulas tiene la barra, en orden de confianza:
+    ///   1. `cortes` del JSON, si el operario lo declaro (lo unico exacto).
+    ///   2. el corte MAS ALTO asignado en cables[] — no la cantidad de cables
+    ///      distintos: con asignacion manual puede haber huecos (usar S1, S2 y
+    ///      S5 son 5 salidas, no 3) y contar unicos se comia las de arriba.
+    ///   3. el default de hardware (7 salidas por nodo).
+    /// </summary>
     public static int InferNumCortes(FlowXNodoConfig? n)
     {
-        if (n?.Cables != null && n.Cables.Count > 0)
+        if (n == null) return CortesPorDefecto;
+        if (n.Cortes > 0) return Math.Min(n.Cortes, MaxCortes);
+
+        if (n.Cables != null && n.Cables.Count > 0)
         {
-            var uniq = new HashSet<int>();
-            foreach (var c in n.Cables) if (c != null && c.Cable > 0) uniq.Add(c.Cable);
-            if (uniq.Count > 0) return uniq.Count;
+            int max = 0;
+            foreach (var c in n.Cables) if (c != null && c.Cable > max) max = c.Cable;
+            if (max > 0) return Math.Min(max, MaxCortes);
         }
         return CortesPorDefecto;
     }
@@ -232,6 +241,7 @@ public sealed class FxCtx
             InvertRelay = false,
             InvertMotor = false,
             MasterCable = -1,
+            Cortes = CortesPorDefecto,
             SectionIs3Wire = NormalizarSec3w(null),
             Productos = new List<FlowXProducto> { new FlowXProducto() },
             Cables = nSec > 0 ? AutoAsignarCortes(CortesPorDefecto, nSec) : new List<FlowXCableMap>(),

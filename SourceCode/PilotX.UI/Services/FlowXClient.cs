@@ -78,6 +78,11 @@ public sealed class FlowXNodoConfig
     [JsonPropertyName("invert_motor")]     public bool   InvertMotor { get; set; }
     /// <summary>-1 = salida dedicada del firmware, 0 = sin master, 1..N = ese corte.</summary>
     [JsonPropertyName("master_cable")]     public int    MasterCable { get; set; } = -1;
+    /// <summary>Cuántas válvulas tiene la barra. 0 = no declarado: se infiere de
+    /// cables[] (configs anteriores y las que guarda la PWA). Se persiste desde
+    /// que hay asignación manual: si el operario deja cortes sin usar, contar
+    /// los cables asignados perdía la cantidad real de salidas.</summary>
+    [JsonPropertyName("cortes")]           public int    Cortes      { get; set; }
     /// <summary>SIEMPRE 10 enteros: -1 global, 0 = 2 cables, 1 = 3 cables.</summary>
     [JsonPropertyName("section_is_3wire")] public List<int>? SectionIs3Wire { get; set; }
     [JsonPropertyName("productos")]        public List<FlowXProducto>? Productos { get; set; }
