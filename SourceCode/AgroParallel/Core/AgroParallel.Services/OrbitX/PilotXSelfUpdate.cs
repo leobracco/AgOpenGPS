@@ -354,6 +354,36 @@ namespace AgroParallel.OrbitX
                 string tmp = zip + ".part";
                 if (File.Exists(tmp)) File.Delete(tmp);
 
+                // ── Parche primero ─────────────────────────────────────────
+                // Si en el catalogo hay un PilotXParche de esta misma version y
+                // fue armado para la version instalada, se baja ese (~5 MB) en
+                // vez del completo (~190 MB). El parche trae parche.json con su
+                // version_base; si no coincide con lo instalado se descarta y
+                // se sigue con el completo. AgroParallel.Updater vuelve a
+                // validar el manifiesto antes de tocar nada (1.0.51+).
+                if (string.Equals(product, DefaultProduct, StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        if (await IntentarParcheAsync(http, cfg, version, zip).ConfigureAwait(false))
+                        {
+                            Update(s =>
+                            {
+                                s.Phase = PilotXUpdatePhase.ReadyToApply;
+                                s.StagingReady = true;
+                                s.ProgressPct = 100;
+                            });
+                            return Snapshot();
+                        }
+                    }
+                    catch (Exception exParche)
+                    {
+                        // Cualquier problema con el parche NO frena la
+                        // actualizacion: se cae al completo, que siempre sirve.
+                        try { System.Diagnostics.Trace.WriteLine("[PilotXSelfUpdate] parche no aplicable: " + exParche.Message); } catch { }
+                    }
+                }
+
                 string zipUrl = cfg.ServerUrl.TrimEnd('/') + "/api/ota/firmware/"
                               + Uri.EscapeDataString(product) + "/" + Uri.EscapeDataString(version);
                 using (var req = new HttpRequestMessage(HttpMethod.Get, zipUrl))
@@ -414,6 +444,117 @@ namespace AgroParallel.OrbitX
                 Update(s => { s.Phase = PilotXUpdatePhase.Error; s.LastError = ex.Message; });
             }
             return Snapshot();
+        }
+
+        // ── Parche diferencial ─────────────────────────────────────────────
+        private const string ParcheProduct = "PilotXParche";
+
+        // "1.0.55+abc" / "1.0.55.0" -> "1.0.55"
+        private static string VersionCorta(string v)
+        {
+            if (string.IsNullOrEmpty(v)) return "";
+            v = v.Trim();
+            int i = v.IndexOfAny(new[] { '+', '-', ' ' });
+            if (i > 0) v = v.Substring(0, i);
+            var partes = v.Split('.');
+            if (partes.Length < 3) return v;
+            return partes[0] + "." + partes[1] + "." + partes[2];
+        }
+
+        /// <summary>
+        /// Intenta bajar PilotXParche/<version> en lugar del completo. Devuelve
+        /// true si quedo un payload.zip valido (parche para la version instalada);
+        /// false si no hay parche, no coincide la base, o fallo cualquier paso.
+        /// Nunca deja basura: el .part se borra siempre.
+        /// </summary>
+        private static async Task<bool> IntentarParcheAsync(HttpClient http, OrbitXConfig cfg, string version, string zipDestino)
+        {
+            string baseUrl = cfg.ServerUrl.TrimEnd('/');
+
+            // 1) ¿Hay un parche de esta version en el catalogo?
+            CatalogItem item = null;
+            string catUrl = baseUrl + "/api/ota/catalogo?producto=" + Uri.EscapeDataString(ParcheProduct);
+            using (var req = new HttpRequestMessage(HttpMethod.Get, catUrl))
+            {
+                req.Headers.Add("X-Device-ID", cfg.DeviceId);
+                req.Headers.Add("X-Auth-Token", cfg.DeviceToken);
+                req.Headers.Add("Cache-Control", "no-cache");
+                using (var resp = await http.SendAsync(req).ConfigureAwait(false))
+                {
+                    if (!resp.IsSuccessStatusCode) return false;
+                    string json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    var list = JsonSerializer.Deserialize<List<CatalogItem>>(json,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<CatalogItem>();
+                    foreach (var it in list)
+                        if (it != null && string.Equals(VersionCorta(it.version), VersionCorta(version), StringComparison.Ordinal))
+                        { item = it; break; }
+                }
+            }
+            if (item == null) return false;
+
+            // 2) Bajarlo a un .part propio (no pisa el completo si ya existia).
+            string tmp = zipDestino + ".parche.part";
+            if (File.Exists(tmp)) File.Delete(tmp);
+            try
+            {
+                string zipUrl = baseUrl + "/api/ota/firmware/" + Uri.EscapeDataString(ParcheProduct) + "/" + Uri.EscapeDataString(item.version);
+                using (var req = new HttpRequestMessage(HttpMethod.Get, zipUrl))
+                {
+                    req.Headers.Add("X-Device-ID", cfg.DeviceId);
+                    req.Headers.Add("X-Auth-Token", cfg.DeviceToken);
+                    req.Headers.Add("Cache-Control", "no-cache");
+                    using (var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false))
+                    {
+                        if (!resp.IsSuccessStatusCode) return false;
+                        long total = resp.Content.Headers.ContentLength ?? 0;
+                        using (var src = await resp.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                        using (var fs = File.Create(tmp))
+                        {
+                            byte[] buf = new byte[64 * 1024];
+                            long read = 0; int n;
+                            while ((n = await src.ReadAsync(buf, 0, buf.Length).ConfigureAwait(false)) > 0)
+                            {
+                                await fs.WriteAsync(buf, 0, n).ConfigureAwait(false);
+                                read += n;
+                                if (total > 0) { int pct = (int)(read * 100L / total); Update(s => { s.ProgressPct = pct; }); }
+                            }
+                        }
+                    }
+                }
+
+                // 3) SHA del catalogo.
+                if (!string.IsNullOrEmpty(item.hash_sha256))
+                {
+                    string got = FirmwareMirror.Sha256File(tmp);
+                    if (!string.Equals(got, item.hash_sha256, StringComparison.OrdinalIgnoreCase)) return false;
+                }
+
+                // 4) ¿Es para la version que tengo instalada?
+                string baseEsperada = null;
+                using (var za = System.IO.Compression.ZipFile.OpenRead(tmp))
+                {
+                    var e = za.GetEntry("parche.json");
+                    if (e == null) return false;
+                    using (var sr = new StreamReader(e.Open()))
+                    {
+                        string man = sr.ReadToEnd();
+                        var m = System.Text.RegularExpressions.Regex.Match(man, "\"version_base\"\\s*:\\s*\"([^\"]*)\"");
+                        if (m.Success) baseEsperada = m.Groups[1].Value;
+                    }
+                }
+                string instalada = VersionCorta(Snapshot().CurrentVersion);
+                if (string.IsNullOrEmpty(baseEsperada) || VersionCorta(baseEsperada) != instalada) return false;
+
+                // 5) Queda como payload.zip: Apply y el Updater no distinguen.
+                if (File.Exists(zipDestino)) File.Delete(zipDestino);
+                File.Move(tmp, zipDestino);
+                Update(s => { s.SizeBytes = item.tamano_bytes; s.Sha256 = item.hash_sha256; });
+                return true;
+            }
+            finally
+            {
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+            }
         }
 
         // ── Apply ──────────────────────────────────────────────────────────
