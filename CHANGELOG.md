@@ -541,3 +541,4 @@ en 1.2.31, este es el reset de numeraciÃ³n para el producto PilotX).
 referencia histÃ³rica; el versionado se reinicia en 1.0.0/1.0.1 para
 marcar la lÃ­nea PilotX.
 
+

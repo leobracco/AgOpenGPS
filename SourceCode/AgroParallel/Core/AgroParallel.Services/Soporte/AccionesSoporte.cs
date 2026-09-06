@@ -86,6 +86,11 @@ namespace AgroParallel.Soporte
             Reg("flowx_pisos", "FlowX: graba pwm_min de arranque (params: uid, pos, neg 0..4095)", true, FlowxPisos);
             Reg("flowx_config", "FlowX: ajusta config en PilotX (params: uid, pwm_min, dosis_lha, modo_manual, manual_lmin, meter_cal)", true, FlowxConfigSet);
             Reg("secciones_manual", "Maestro de secciones en manual (param: on = 1/0)", true, SeccionesManual);
+
+            // --- Nodos y red: solo lectura ---
+            Reg("nodos_live", "Nodos que ve el Engine: online/offline, IP, version, ultimo visto", false, NodosLive);
+            Reg("nodo_estado", "Matriz wifi/mqtt/target/status de un nodo (param: uid)", false, NodoEstado);
+            Reg("ping", "Ping a una IP privada de la LAN (param: ip)", false, PingLan);
         }
 
         private static void Reg(string n, string d, bool esAccion,
@@ -544,6 +549,69 @@ namespace AgroParallel.Soporte
                 return "maestro manual -> " + (ahora ? "ON" : "OFF");
             }
             catch (Exception ex) { return "fallo: " + ex.GetBaseException().Message; }
+        }
+
+        // ---------------------------------------------------------------- //
+        //  Nodos y red (solo lectura)                                        //
+        // ---------------------------------------------------------------- //
+
+        // Lee un campo string/num/bool de un objeto JSON plano por regex. Es
+        // suficiente para resumir la salida del Engine sin arrastrar un parser.
+        private static string CampoJson(string json, string clave)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(
+                json, "\"" + clave + "\"\\s*:\\s*(\"([^\"]*)\"|[^,}\\]]+)");
+            if (!m.Success) return "";
+            return m.Groups[2].Success ? m.Groups[2].Value : m.Groups[1].Value.Trim();
+        }
+
+        private static string NodosLive(IDictionary<string, string> p)
+        {
+            string json;
+            try { json = HttpGet(FlowxBase + "/api/nodos/unified"); }
+            catch (Exception ex) { return "no pude leer /api/nodos/unified: " + ex.GetBaseException().Message; }
+
+            var sb = new StringBuilder();
+            sb.AppendLine("broker conectado: " + CampoJson(json, "broker_connected"));
+            // Cada nodo es un objeto dentro de "nodos":[ {...}, {...} ]
+            int ini = json.IndexOf("\"nodos\"", StringComparison.Ordinal);
+            if (ini < 0) return sb.ToString() + json.Substring(0, Math.Min(400, json.Length));
+            var objs = System.Text.RegularExpressions.Regex.Matches(json.Substring(ini), "\\{[^{}]*\\}");
+            if (objs.Count == 0) sb.AppendLine("(sin nodos)");
+            foreach (System.Text.RegularExpressions.Match o in objs)
+            {
+                string n = o.Value;
+                string uid = CampoJson(n, "uid");
+                if (string.IsNullOrEmpty(uid)) continue;
+                sb.AppendLine(string.Format("{0,-18} {1,-8} {2,-16} online={3,-5} ip={4,-15} fw={5,-8} visto={6}",
+                    uid, CampoJson(n, "tipo"), CampoJson(n, "alias"), CampoJson(n, "online"),
+                    CampoJson(n, "ip"), CampoJson(n, "version"), CampoJson(n, "last_seen")));
+            }
+            return sb.ToString();
+        }
+
+        private static string NodoEstado(IDictionary<string, string> p)
+        {
+            string uid = UidValido(p);
+            if (uid == null) return "falta 'uid' valido";
+            try { return HttpGet(FlowxBase + "/api/nodos/" + uid + "/estado"); }
+            catch (Exception ex) { return "no pude leer el estado de " + uid + ": " + ex.GetBaseException().Message; }
+        }
+
+        // Ping SOLO a direcciones privadas (10/8, 172.16/12, 192.168/16): es
+        // para ver si un nodo de la LAN del tractor responde, no para tocar
+        // nada fuera. Argumentos fijos, sin shell.
+        private static string PingLan(IDictionary<string, string> p)
+        {
+            string ip = (Leer(p, "ip") ?? "").Trim();
+            System.Net.IPAddress dir;
+            if (!System.Net.IPAddress.TryParse(ip, out dir) ||
+                dir.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+                return "ip invalida: " + ip;
+            byte[] b = dir.GetAddressBytes();
+            bool privada = b[0] == 10 || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 192 && b[1] == 168);
+            if (!privada) return "solo se permite ping a IPs privadas de la LAN";
+            return CorrerProceso("ping.exe", new[] { "-n", "3", "-w", "1000", ip }, 15);
         }
 
         private static string SondearHttp(string url, string etiqueta)
