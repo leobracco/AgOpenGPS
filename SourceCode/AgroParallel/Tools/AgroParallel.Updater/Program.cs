@@ -64,6 +64,27 @@ namespace AgroParallel.Updater
             Log("install=" + install);
             Log("exe=" + exe);
 
+            // ── Parche: validar ANTES de tocar nada ───────────────────────
+            // Un parche trae SOLO los archivos que cambiaron, mas todos los
+            // ensamblados propios. Se aplica encima, sin borrar nada. Por eso
+            // exige que la instalacion sea exactamente la version base para la
+            // que se armo: los ensamblados se referencian por version exacta y
+            // aplicar un parche sobre otra base deja la app sin arrancar. Ya
+            // paso con DLL sueltas mal versionadas y costo una pantalla de
+            // cliente parada.
+            //
+            // Si algo no cierra, se aborta SIN tocar la instalacion: no se
+            // matan procesos, no se hace backup, no se extrae. La pantalla
+            // sigue funcionando con lo que tenia.
+            string motivo = ValidarParche(zip, exe);
+            if (motivo != null)
+            {
+                Log("PARCHE RECHAZADO: " + motivo);
+                Console.Error.WriteLine(motivo);
+                return 3;
+            }
+
+
             // Frenar al vigilante de Lanzar-PilotX.bat: cuando en 1b matemos a
             // PilotX.Desktop, el .bat lo ve salir con error y lo RELANZA a los
             // 3 s — justo en medio de la extracción, con las DLLs lockeadas de
@@ -332,6 +353,84 @@ namespace AgroParallel.Updater
         }
 
         // Extrae sobrescribiendo. .NET Framework 4.8 trae ZipArchive
+        /// <summary>
+        /// Si el ZIP es un parche (trae parche.json en la raiz), comprueba que
+        /// la version instalada sea la base esperada. Devuelve null si todo
+        /// esta bien o si no es un parche; si no, el motivo del rechazo.
+        /// </summary>
+        private static string ValidarParche(string zipPath, string exePath)
+        {
+            string json = null;
+            try
+            {
+                using (var za = ZipFile.OpenRead(zipPath))
+                {
+                    var entrada = za.GetEntry("parche.json");
+                    if (entrada == null) return null;   // paquete completo
+                    using (var sr = new StreamReader(entrada.Open()))
+                        json = sr.ReadToEnd();
+                }
+            }
+            catch (Exception ex)
+            {
+                return "No pude leer el paquete: " + ex.Message;
+            }
+
+            string baseEsperada = CampoJson(json, "version_base");
+            string versionNueva = CampoJson(json, "version_nueva");
+            if (string.IsNullOrEmpty(baseEsperada))
+                return "El parche no dice para que version fue armado. No se aplica.";
+
+            string instalada = null;
+            try
+            {
+                if (File.Exists(exePath))
+                    instalada = FileVersionInfo.GetVersionInfo(exePath).FileVersion;
+            }
+            catch (Exception ex) { Log("No pude leer la version instalada: " + ex.Message); }
+
+            if (string.IsNullOrEmpty(instalada))
+                return "Es un parche para la version " + baseEsperada +
+                       ", pero no pude determinar que version hay instalada. " +
+                       "Instala el paquete completo.";
+
+            if (!MismaVersion(instalada, baseEsperada))
+                return "Este parche es para la version " + baseEsperada +
+                       " y este equipo tiene la " + Corta(instalada) + ". " +
+                       "Aplicarlo dejaria la pantalla sin arrancar. " +
+                       "Hace falta el paquete completo de la " +
+                       (string.IsNullOrEmpty(versionNueva) ? "version nueva" : versionNueva) + ".";
+
+            Log("Parche valido: " + baseEsperada + " -> " + versionNueva);
+            return null;
+        }
+
+        // Lee "campo": "valor" de un JSON chato. Alcanza: el archivo lo genera
+        // build-parche.ps1, no viene de afuera. net48 no trae System.Text.Json
+        // y no vale la pena arrastrar una dependencia por dos campos.
+        private static string CampoJson(string json, string campo)
+        {
+            if (string.IsNullOrEmpty(json)) return null;
+            var m = System.Text.RegularExpressions.Regex.Match(
+                json, "\"" + campo + "\"\\s*:\\s*\"([^\"]*)\"");
+            return m.Success ? m.Groups[1].Value : null;
+        }
+
+        // "1.0.50.0" y "1.0.50" son la misma version: FileVersion siempre trae
+        // cuatro componentes y el manifiesto usa tres.
+        private static bool MismaVersion(string a, string b)
+        {
+            return Corta(a) == Corta(b);
+        }
+
+        private static string Corta(string v)
+        {
+            if (string.IsNullOrEmpty(v)) return "";
+            var partes = v.Trim().Split('.');
+            if (partes.Length < 3) return v.Trim();
+            return partes[0] + "." + partes[1] + "." + partes[2];
+        }
+
         // pero ZipFile.ExtractToDirectory(overwrite) recién en 4.6.2+.
         private static void ExtractZipOverwrite(string zipPath, string targetDir)
         {

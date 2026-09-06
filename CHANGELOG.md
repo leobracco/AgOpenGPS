@@ -12,6 +12,42 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.51] — 2026-09-05
+
+> **Esta es la versión que habilita las actualizaciones chicas.** A partir de
+> acá, una corrección se manda como un parche de ~5 MB en vez de un paquete de
+> 193 MB. Para llegar hasta acá sí hace falta el paquete completo, una última
+> vez.
+
+### Added
+- **El actualizador entiende parches y los valida.** Un parche trae sólo lo que
+  cambió (unos 5 MB contra 193) y se aplica encima sin borrar nada. Antes de
+  tocar el disco comprueba que la instalación sea exactamente la versión base
+  para la que se armó, comparando contra la versión real del ejecutable
+  instalado. Si no coincide, **aborta sin tocar nada**: no cierra procesos, no
+  respalda, no extrae, y explica que hace falta el paquete completo.
+  - Esa comprobación es la que faltaba cuando se mandaron DLL sueltas mal
+    versionadas y una pantalla dejó de arrancar. Los ensamblados se referencian
+    por versión exacta: mezclar versiones no da un error entendible, da una app
+    que no abre.
+- **`instalar-pilotx.ps1` acepta las dos cosas y distingue sola cuál es.**
+  - Paquete completo: reemplaza `Desktop`, `Engine` y `BarsHost` enteras,
+    respaldando con un rename instantáneo.
+  - Parche: aplica encima y respalda **sólo los archivos que va a pisar**, para
+    poder deshacer con precisión. Si el parche no corresponde a la versión
+    instalada, lo rechaza antes de empezar.
+  - En los dos casos el último paso es abrir la pantalla; si no abre, deshace.
+
+### Cómo se saca un parche
+```
+.uild.ps1                      compila y verifica la versión nueva
+.uild-parche.ps1 -Base 1.0.51  arma el parche contra esa base
+```
+Se publica en OrbitX como cualquier versión. El equipo lo descarga igual que
+siempre; la diferencia es que baja 5 MB en vez de 193.
+
+---
+
 ## [1.0.50] — 2026-09-05
 
 > Reemplaza a la 1.0.49, que salió **sin RustDesk**. Si ya instalaste la 1.0.49
