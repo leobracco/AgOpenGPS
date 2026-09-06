@@ -134,6 +134,12 @@ namespace AgOpenGPS
                     temp *= 0.5;
                     mf.Fd.workedAreaTotal += temp;
                     mf.Fd.workedAreaTotalUser += temp;
+
+                    // Area NETA (sin repintado): el host marca este cuadrilatero
+                    // en su grilla de cobertura. En el AOG original la neta
+                    // salia de contar pixeles pintados en OpenGL; el motor
+                    // headless no tiene render, asi que la lleva el host.
+                    mf.QuadPintado(triangleList[c - 3], triangleList[c - 2], triangleList[c - 1], triangleList[c]);
                 }
             }
 

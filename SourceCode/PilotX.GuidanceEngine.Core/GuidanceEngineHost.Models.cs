@@ -151,5 +151,20 @@ namespace AgOpenGPS
         vec3 IPatchesHost.SecColorVec(int j) => new vec3(0, 200, 0);
         void IPatchesHost.IncrementPatchCounter() => patchCounter++;
         List<List<vec3>> IPatchesHost.PatchSaveList => patchSaveList;
+
+        /// <summary>
+        /// Grilla de cobertura neta (suelo pintado sin repintado). Alimenta
+        /// Fd.actualAreaCovered, que el AOG original sacaba de OpenGL y aca
+        /// nunca se calculaba (Neta 0 / Repintado 100 % en pantalla).
+        /// La llenan CPatches.AddMappingPoint (en vivo) y CargarCobertura
+        /// (al reabrir el lote); se vacia al cerrar el lote.
+        /// </summary>
+        public readonly CoberturaNeta Neta = new CoberturaNeta(0.5);
+
+        void IPatchesHost.QuadPintado(vec3 izqAnt, vec3 derAnt, vec3 izq, vec3 der)
+        {
+            Neta.MarcarQuad(izqAnt, derAnt, izq, der);
+            Fd.actualAreaCovered = Neta.AreaM2;
+        }
     }
 }

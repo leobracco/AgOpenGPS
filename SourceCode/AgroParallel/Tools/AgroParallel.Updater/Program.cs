@@ -394,15 +394,41 @@ namespace AgroParallel.Updater
                        ", pero no pude determinar que version hay instalada. " +
                        "Instala el paquete completo.";
 
-            if (!MismaVersion(instalada, baseEsperada))
-                return "Este parche es para la version " + baseEsperada +
-                       " y este equipo tiene la " + Corta(instalada) + ". " +
+            // Un parche armado desde la base X hacia la version Y trae TODOS los
+            // archivos que cambiaron entre X e Y. Por eso sirve para cualquier
+            // version instalada V con X <= V < Y: lo que cambio entre V e Y es un
+            // subconjunto de lo que trae el parche (los releases son lineales).
+            // Antes se exigia V == X y un parche 1.0.55->1.0.58 no se podia
+            // aplicar sobre una 1.0.56, aunque fuera identico para ella.
+            bool sirve = MismaVersion(instalada, baseEsperada)
+                || (CompararVersion(instalada, baseEsperada) > 0
+                    && (string.IsNullOrEmpty(versionNueva) || CompararVersion(instalada, versionNueva) < 0));
+
+            if (!sirve)
+                return "Este parche es para equipos entre la " + baseEsperada +
+                       " y la " + (string.IsNullOrEmpty(versionNueva) ? "version nueva" : versionNueva) +
+                       ", y este tiene la " + Corta(instalada) + ". " +
                        "Aplicarlo dejaria la pantalla sin arrancar. " +
                        "Hace falta el paquete completo de la " +
                        (string.IsNullOrEmpty(versionNueva) ? "version nueva" : versionNueva) + ".";
 
-            Log("Parche valido: " + baseEsperada + " -> " + versionNueva);
+            Log("Parche valido: base " + baseEsperada + " -> " + versionNueva + " (instalada " + Corta(instalada) + ")");
             return null;
+        }
+
+        // Compara "a.b.c" numericamente: <0 si a<b, 0 si iguales, >0 si a>b.
+        private static int CompararVersion(string a, string b)
+        {
+            var pa = Corta(a).Split('.');
+            var pb = Corta(b).Split('.');
+            for (int i = 0; i < 3; i++)
+            {
+                int na = 0, nb = 0;
+                if (i < pa.Length) int.TryParse(pa[i], out na);
+                if (i < pb.Length) int.TryParse(pb[i], out nb);
+                if (na != nb) return na.CompareTo(nb);
+            }
+            return 0;
         }
 
         // Lee "campo": "valor" de un JSON chato. Alcanza: el archivo lo genera

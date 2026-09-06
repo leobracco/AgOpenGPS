@@ -542,8 +542,15 @@ namespace AgroParallel.OrbitX
                         if (m.Success) baseEsperada = m.Groups[1].Value;
                     }
                 }
+                // Sirve si la instalada esta entre la base del parche (inclusive)
+                // y la version nueva (exclusive): el parche trae todo lo que
+                // cambio desde la base, asi que cubre cualquier version intermedia.
+                // Misma regla que AgroParallel.Updater.ValidarParche.
                 string instalada = VersionCorta(Snapshot().CurrentVersion);
-                if (string.IsNullOrEmpty(baseEsperada) || VersionCorta(baseEsperada) != instalada) return false;
+                if (string.IsNullOrEmpty(baseEsperada)) return false;
+                bool sirve = CompareSemver(instalada, VersionCorta(baseEsperada)) >= 0
+                          && CompareSemver(instalada, VersionCorta(item.version)) < 0;
+                if (!sirve) return false;
 
                 // 5) Queda como payload.zip: Apply y el Updater no distinguen.
                 if (File.Exists(zipDestino)) File.Delete(zipDestino);

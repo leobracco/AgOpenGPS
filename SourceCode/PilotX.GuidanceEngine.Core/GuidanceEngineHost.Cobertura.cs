@@ -103,6 +103,7 @@ namespace AgOpenGPS
                 var tira = TriStripField[0];
                 tira.patchList = new List<List<vec3>>();
                 Fd.workedAreaTotal = 0;
+                Neta.Reset();                 // la neta se reconstruye desde el archivo
                 int verticesDescartados = 0;
 
                 foreach (var parche in parches)
@@ -120,10 +121,12 @@ namespace AgOpenGPS
                                      + tramo[k + 1].easting * (tramo[k + 2].northing - tramo[k].northing)
                                      + tramo[k + 2].easting * (tramo[k].northing - tramo[k + 1].northing);
                             Fd.workedAreaTotal += Math.Abs(t * 0.5);
+                            Neta.MarcarTriangulo(tramo[k], tramo[k + 1], tramo[k + 2]);
                         }
                         ParchesCargados++;
                     }
                 }
+                Fd.actualAreaCovered = Neta.AreaM2;
 
                 // Los parches que se acaban de leer YA estan en disco: si
                 // quedaran en la cola de guardado se escribirian de nuevo y el

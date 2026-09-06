@@ -483,6 +483,8 @@ namespace AgOpenGPS
             Fd.workedAreaTotal = 0;
             Fd.workedAreaTotalUser = 0;
             Fd.distanceUser = 0;
+            Neta.Reset();
+            Fd.actualAreaCovered = 0;
 
             for (int j = 0; j < TriStripField.Count; j++)
             {

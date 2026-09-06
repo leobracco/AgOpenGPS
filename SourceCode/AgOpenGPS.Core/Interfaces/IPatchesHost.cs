@@ -30,5 +30,13 @@ namespace AgOpenGPS
 
         /// <summary>patchSaveList — patches cerrados pendientes de guardar a disco.</summary>
         List<List<vec3>> PatchSaveList { get; }
+
+        /// <summary>
+        /// La barra acaba de pintar el cuadrilatero (izq/der anterior, izq/der
+        /// actual). El host lo marca en su grilla de cobertura para llevar el
+        /// area NETA (Fd.actualAreaCovered), que en el AOG original salia de
+        /// contar pixeles en OpenGL y en el motor headless no existia.
+        /// </summary>
+        void QuadPintado(vec3 izqAnt, vec3 derAnt, vec3 izq, vec3 der);
     }
 }
