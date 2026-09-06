@@ -43,6 +43,19 @@ $ErrorActionPreference = "Stop"
 $sep = [char]92
 $barra = [char]47
 
+# Rutas ABSOLUTAS antes de cualquier otra cosa.
+# PowerShell y .NET no comparten el directorio actual: los cmdlets (Test-Path,
+# Get-FileHash) resuelven contra la carpeta donde estas parado, pero cualquier
+# llamada .NET -como ZipFile::OpenRead- resuelve contra el directorio del
+# proceso, que suele ser C:\Windows\System32. Pasar ".\paquete.bin" hacia que
+# el hash verificara bien y dos lineas despues fallara diciendo que el archivo
+# no existe en System32. Confuso y facil de repetir, asi que se normaliza aca
+# una sola vez.
+if (Test-Path -LiteralPath $Paquete) {
+    $Paquete = (Resolve-Path -LiteralPath $Paquete).Path
+}
+$Instalacion = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Instalacion)
+
 function Paso($n, $txt) { Write-Host "`n[$n] $txt" -ForegroundColor Cyan }
 function Bien($txt) { Write-Host "    OK: $txt" -ForegroundColor Green }
 function Mal($txt) { Write-Host "    ERROR: $txt" -ForegroundColor Red }
