@@ -12,6 +12,41 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.52] — 2026-09-06
+
+> **Primera versión que se puede instalar como parche.** Si el equipo tiene la
+> 1.0.51, esto son ~5 MB en vez de 193.
+
+### Added
+- **Canal de diagnóstico remoto.** La pantalla le pregunta a OrbitX cada 20
+  segundos si hay algún diagnóstico pendiente, corre la función y devuelve el
+  texto. Con eso se puede ver qué pasa en una máquina del campo sin dictarle
+  comandos por teléfono a quien esté parado adelante.
+  - **No abre ningún puerto en el tractor.** Todo sale de adentro hacia afuera,
+    sobre la misma autenticación por dispositivo que ya usa el sync. Sin
+    conexión no pasa nada: reintenta espaciando hasta 5 minutos.
+  - **Sólo se pueden pedir las ocho funciones de sólo lectura** que ya estaban
+    escritas: estado, sistema, red, puertos, procesos, firewall, logs y nodos.
+    Lo que llega del cloud es una clave de diccionario, no un comando: si no
+    está en el catálogo se rechaza. No hay ninguna ruta por la que un texto
+    arbitrario llegue a ejecutarse.
+  - La salida se sanitiza (tokens y contraseñas) y se corta en 256 KB. Timeout
+    por función, tope 300 segundos, y de a una por vez.
+  - En una pantalla sin vincular el servicio duerme: sin identidad no consulta.
+
+### Lado servidor (ya desplegado, no requiere esta versión)
+- `routes/soporte.js` en OrbitX, con `GET /api/soporte/pendientes` y
+  `POST /api/soporte/resultado` para el equipo, y `POST /api/soporte/comando`,
+  `GET /api/soporte/comandos` y `GET /api/soporte/catalogo` para el panel.
+- **Agujero encontrado al probar y cerrado**: `auth.required` también autentica
+  equipos, así que un token de dispositivo podía encolar diagnósticos sobre
+  **cualquier** máquina de la flota y leer la salida. Los tres endpoints de
+  panel ahora rechazan tokens de dispositivo, igual que hace `routes/devices.js`.
+  Verificado: 403 al encolar sobre sí mismo, 403 sobre otro equipo, 403 al leer
+  el historial, y 200 al pedir los pendientes propios.
+
+---
+
 ## [1.0.51] — 2026-09-05
 
 > **Esta es la versión que habilita las actualizaciones chicas.** A partir de

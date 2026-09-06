@@ -65,6 +65,7 @@ namespace AgOpenGPS
         private FlowXBridge _flowxBridge;
         private System.Threading.Timer _flowxRetry;
         private AgroParallel.OrbitX.OrbitXSync _orbitxSync;
+        private AgroParallel.Soporte.SoporteRemotoService _soporte;
         private System.Threading.Timer _orbitxRetry;
         private AgroParallel.Services.SonidosAlarmService _sonidos;
         private AgroParallel.QuantiX.QuantiXMotorBridge _quantixBridge;
@@ -348,6 +349,27 @@ namespace AgOpenGPS
                 Console.Error.WriteLine("[Engine] OrbitXSync: " + ex.Message);
             }
 
+            // Canal de diagnostico remoto. Pregunta cada 20 s si hay algo
+            // pendiente y devuelve el texto; no abre ningun puerto ni acepta
+            // conexiones entrantes. Sin identidad de dispositivo no hace nada,
+            // asi que en una pantalla no vinculada simplemente duerme.
+            //
+            // Existe porque el 2026-09-05 una pantalla quedo sin arrancar en
+            // plena campana y la unica forma de ver que pasaba era dictarle
+            // comandos por telefono a quien estuviera adelante. Tres horas
+            // para preguntas que se contestan en dos minutos.
+            try
+            {
+                _soporte = new AgroParallel.Soporte.SoporteRemotoService(
+                    () => AgroParallel.OrbitX.OrbitXConfig.Load(),
+                    m => Console.WriteLine("[Engine] " + m));
+                _soporte.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[Engine] SoporteRemoto: " + ex.Message);
+            }
+
             // Bridge de motores QuantiX: el que PUBLICA los targets de dosis a
             // los nodos por MQTT. En FormGPS lo instancia el Load() del form —
             // acá no lo arrancaba nadie: el nodo conectaba, mandaba telemetría
@@ -470,6 +492,8 @@ namespace AgOpenGPS
         {
             try { _flowxRetry?.Dispose(); } catch { }
             _flowxRetry = null;
+            try { _soporte?.Dispose(); } catch { }
+            _soporte = null;
             try { _flowxBridge?.Stop(); _flowxBridge?.Dispose(); } catch { }
             _flowxBridge = null;
             // Antes de _web?.Stop(): orbitX.json no se puede escribir mientras
