@@ -238,6 +238,42 @@ $z.Dispose()
 Bien "$n archivos instalados"
 
 # ---------------------------------------------------------------------------
+# Devolver los DATOS que vivian dentro de las carpetas de programa.
+#
+# Esto no es un detalle: adentro de Engine\ viven GuidanceEngineData (perfil
+# del vehiculo, geometria del implemento, lotes), data\prescripciones, y TODOS
+# los .json de configuracion y estado, incluido orbitX.json con la IDENTIDAD
+# del equipo. Reemplazar la carpeta entera se los lleva puestos, y con la
+# identidad perdida el equipo se re-registra en el cloud como uno nuevo: dos
+# maquinas reportando como el mismo, o una que aparece duplicada.
+#
+# Regla: el CODIGO viene del paquete, los DATOS se quedan. Vuelve del respaldo
+# todo lo que no sea binario, salvo los .json que son del propio paquete
+# (*.deps.json y *.runtimeconfig.json). Lista blanca y no negra a proposito:
+# un archivo de configuracion de un producto futuro queda protegido por
+# defecto, en vez de perderse por no haberlo agregado a una lista.
+if (-not $esParche -and $respaldos.Count -gt 0) {
+    $devueltos = 0
+    foreach ($c in $carpetasPrograma) {
+        if (-not $respaldos.ContainsKey($c)) { continue }
+        $origen = $respaldos[$c]
+        $destinoRaiz = Join-Path $Instalacion $c
+        foreach ($f in Get-ChildItem $origen -Recurse -File -ErrorAction SilentlyContinue) {
+            if ($f.Extension -in ".dll", ".exe", ".pdb") { continue }
+            if ($f.Name -like "*.deps.json" -or $f.Name -like "*.runtimeconfig.json") { continue }
+            $rel = $f.FullName.Substring($origen.Length).TrimStart($sep)
+            $dst = Join-Path $destinoRaiz $rel
+            try {
+                New-Item -ItemType Directory -Path (Split-Path $dst) -Force | Out-Null
+                Copy-Item $f.FullName $dst -Force
+                $devueltos++
+            } catch { }
+        }
+    }
+    if ($devueltos -gt 0) { Bien "$devueltos archivos de configuracion y datos conservados" }
+}
+
+# ---------------------------------------------------------------------------
 Paso 5 "Verificando la instalacion"
 # ---------------------------------------------------------------------------
 if (-not (Test-Path $exe)) { Mal "no aparecio $exe"; Deshacer; exit 1 }
