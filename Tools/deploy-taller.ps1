@@ -62,13 +62,34 @@ if (-not $SinPublish) {
     Write-Host "== publish PilotX.Desktop (staging) ==" -ForegroundColor Cyan
     dotnet publish "$root\SourceCode\PilotX.Desktop\PilotX.Desktop.csproj" `
         -c Release -r win-x64 --self-contained true `
-        -p:PublishReadyToRun=true -o "$tmp\Desktop" -v q --nologo
+        -p:PublishReadyToRun=false -p:PublishReadyToRunComposite=false -o "$tmp\Desktop" -v q --nologo
     if ($LASTEXITCODE -ne 0) { Write-Host "publish Desktop FALLO" -ForegroundColor Red; exit 1 }
+
+    # PRUEBA DE ARRANQUE antes de mandar nada a 200 km de distancia.
+    # La 1.0.48 se publico, se subio y se instalo en un tractor sin que nadie
+    # la hubiera ejecutado nunca: moria al arrancar con FailFast y sin ningun
+    # mensaje, por una mezcla de flags de compilacion. Compilar no prueba nada.
+    Write-Host "== prueba de arranque (staging) ==" -ForegroundColor Cyan
+    $smErr = Join-Path $env:TEMP "taller_smoke.err.txt"
+    $smp = Start-Process "$tmp\Desktop\PilotX.Desktop.exe" -PassThru -WorkingDirectory "$tmp" -RedirectStandardError $smErr
+    if ($smp.WaitForExit(25000)) {
+        Write-Host "La app murio al arrancar. NO se despliega al taller." -ForegroundColor Red
+        $txt = ""
+        try { $txt = (Get-Content $smErr -Raw -ErrorAction SilentlyContinue) } catch { }
+        if ($txt -and $txt.Trim()) { Write-Host $txt.Trim() -ForegroundColor Red }
+        else { Write-Host "Sin mensaje: suele ser FailFast por ReadyToRun/Composite." -ForegroundColor Red }
+        if (-not $Forzar) { exit 1 }
+        Write-Host "-Forzar activo: se despliega igual, bajo tu responsabilidad." -ForegroundColor Yellow
+    } else {
+        try { $smp.Kill() } catch { }
+        Get-Process WerFault, WerFaultSecure -ErrorAction SilentlyContinue | Stop-Process -Force
+        Write-Host "OK: abrio." -ForegroundColor Green
+    }
     if ($ConEngine) {
         Write-Host "== publish PilotX.GuidanceEngine (staging) ==" -ForegroundColor Cyan
         dotnet publish "$root\SourceCode\PilotX.GuidanceEngine\PilotX.GuidanceEngine.csproj" `
             -c Release -r win-x64 --self-contained true `
-            -p:PublishReadyToRun=true -o "$tmp\Engine" -v q --nologo
+            -p:PublishReadyToRun=true -p:PublishReadyToRunComposite=false -o "$tmp\Engine" -v q --nologo
         if ($LASTEXITCODE -ne 0) { Write-Host "publish Engine FALLO" -ForegroundColor Red; exit 1 }
     }
 } else {
