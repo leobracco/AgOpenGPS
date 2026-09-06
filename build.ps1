@@ -6,7 +6,8 @@ param(
     [string]$Config = "Release",
     [string]$OutDir = "$PSScriptRoot\Build",
     [string]$Version,
-    [switch]$SinLinux    # saltear el paquete linux-x64 (ciclo rapido)
+    [switch]$SinLinux,   # saltear el paquete linux-x64 (ciclo rapido)
+    [switch]$SkipSmoke   # saltear la prueba de arranque (maquina sin sesion grafica)
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,6 +50,30 @@ if ($LASTEXITCODE -ne 0) { Write-Host "BenchX FAILED" -ForegroundColor Red; exit
 # (reemplazo liviano de las barras WebView2). Se publica self-contained porque
 # corre como proceso hijo separado de PilotX y FormGPS.ResolveBarsHostExe lo
 # busca en <baseDir>/BarsHost/PilotX.Bars.Host.exe en produccion.
+# ----------------------------------------------------------------------------
+# LIMPIAR las carpetas de publicacion antes de generarlas.
+#
+# `dotnet publish -o` NO borra lo que ya habia: escribe encima y deja
+# conviviendo los archivos de builds anteriores. Build\Desktop llego a tener
+# 172 archivos de un build y 53 de otro al mismo tiempo.
+#
+# Eso fue lo que rompio la 1.0.48: se publico con ReadyToRun apagado, pero
+# quedaron las DLL CON ReadyToRun del build anterior. La mezcla compila y
+# empaqueta sin quejarse, y muere al arrancar con FailFast y sin mensaje.
+# Termino instalada en el tractor de un cliente.
+#
+# Solo se borran las tres carpetas que `dotnet publish` regenera enteras. No
+# se toca AgroParallel\wwwroot (lo espeja robocopy /MIR), ni Branding, ni
+# Fonts, ni config-captures, que vienen de otro lado.
+# ----------------------------------------------------------------------------
+foreach ($sub in @("Desktop", "Engine", "BarsHost")) {
+    $dir = Join-Path $OutDir $sub
+    if (Test-Path $dir) {
+        Write-Host "Limpiando $sub\ (evita mezclar builds)" -ForegroundColor DarkGray
+        Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 Write-Host "`n=== Publish PilotX.Bars.Host ($Config) ===" -ForegroundColor Cyan
 dotnet publish "$root\SourceCode\PilotX.Bars.Host\PilotX.Bars.Host.csproj" `
     -c $Config -r win-x64 --self-contained true `
@@ -86,7 +111,7 @@ foreach ($t in @("esptool", "usb-drivers")) {
 Write-Host "`n=== Publish PilotX.Desktop ($Config) ===" -ForegroundColor Cyan
 dotnet publish "$root\SourceCode\PilotX.Desktop\PilotX.Desktop.csproj" `
     -c $Config -r win-x64 --self-contained true `
-    -p:PublishReadyToRun=true -o "$OutDir\Desktop" $verArg
+    -p:PublishReadyToRun=false -p:PublishReadyToRunComposite=false -o "$OutDir\Desktop" $verArg
 if ($LASTEXITCODE -ne 0) { Write-Host "PilotX.Desktop FAILED" -ForegroundColor Red; exit 1 }
 
 # Crear directorio de salida
@@ -173,6 +198,43 @@ if (-not $SinLinux) {
     tar -czf $tarPath -C $linuxDir .
     if ($LASTEXITCODE -ne 0) { Write-Host "tar linux FAILED" -ForegroundColor Red; exit 1 }
     Write-Host ("Linux: " + $tarPath) -ForegroundColor Green
+}
+
+# ----------------------------------------------------------------------------
+# PRUEBA DE ARRANQUE — no empaquetar algo que no abre.
+#
+# Por que existe: la 1.0.48 se publico, se subio a OrbitX y se instalo en el
+# tractor de un cliente ANTES de que nadie la ejecutara una sola vez. Moria al
+# arrancar con FailFast (0xC0000602) y sin ningun mensaje, por una combinacion
+# de flags de compilacion. Dejo una pantalla sin poder trabajar.
+#
+# El build compila sin errores igual, asi que compilar no prueba nada: hay que
+# ABRIR la aplicacion. Si no levanta y sigue viva unos segundos, el build falla
+# aca y no se genera el ZIP.
+#
+# Con -SkipSmoke se saltea (maquina sin GPU/sesion grafica).
+# ----------------------------------------------------------------------------
+if (-not $SkipSmoke) {
+    Write-Host "`n=== Prueba de arranque de PilotX.Desktop ===" -ForegroundColor Cyan
+    $smokeExe = Join-Path $OutDir "Desktop\PilotX.Desktop.exe"
+    if (-not (Test-Path $smokeExe)) {
+        Write-Host "No existe $smokeExe" -ForegroundColor Red; exit 1
+    }
+    $smokeErr = Join-Path $env:TEMP "pilotx_smoke.err.txt"
+    $sp = Start-Process $smokeExe -PassThru -WorkingDirectory $OutDir -RedirectStandardError $smokeErr
+    $murio = $sp.WaitForExit(25000)
+    $salida = ""
+    try { $salida = (Get-Content $smokeErr -Raw -ErrorAction SilentlyContinue) } catch { }
+    if ($murio) {
+        Write-Host "FALLO: PilotX.Desktop murio al arrancar (0x$("{0:X8}" -f $sp.ExitCode))." -ForegroundColor Red
+        if ($salida -and $salida.Trim()) { Write-Host $salida.Trim() -ForegroundColor Red }
+        else { Write-Host "Sin mensaje. Suele ser FailFast por flags de compilacion (ReadyToRun/Composite)." -ForegroundColor Red }
+        Write-Host "NO se empaqueta. Arreglar antes de publicar." -ForegroundColor Red
+        exit 1
+    }
+    try { $sp.Kill() } catch { }
+    Get-Process WerFault, WerFaultSecure -ErrorAction SilentlyContinue | Stop-Process -Force
+    Write-Host "OK: abrio y se mantuvo viva." -ForegroundColor Green
 }
 
 Write-Host "`n=== Build OK === Output: $OutDir" -ForegroundColor Green

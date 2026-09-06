@@ -12,6 +12,52 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.49] — 2026-09-05
+
+> **La 1.0.48 NO ARRANCA. No instalarla.** Se retiró del catálogo de OrbitX.
+> Esta versión la reemplaza y corrige lo que la rompió.
+
+### Fixed
+- **La 1.0.48 moría al arrancar** con `FailFast` (0xC0000602) y sin ningún
+  mensaje, en cualquier máquina y aunque la instalación fuera limpia. Se
+  comprobó comparando las dos versiones extraídas en la misma PC: la 1.0.47
+  abre, la 1.0.48 muere. Llegó a instalarse en el equipo de un cliente.
+  - **Causa raíz: `build.ps1` nunca limpiaba las carpetas de publicación.**
+    `dotnet publish -o` no borra lo que había: escribe encima y convive con
+    los archivos del build anterior. `Build\Desktop` llegó a tener 172
+    archivos de un build y 53 de otro al mismo tiempo. La 1.0.48 se publicó
+    con ReadyToRun apagado pero quedaron las DLL **con** ReadyToRun de la
+    1.0.47, y esa mezcla compila y empaqueta sin una sola advertencia.
+  - Ahora `Desktop`, `Engine` y `BarsHost` se borran antes de cada publish.
+    No se toca `AgroParallel\wwwroot` (lo espeja robocopy), ni `Branding`,
+    ni `Fonts`, ni `config-captures`.
+- **`PilotX.Desktop` se publica sin ReadyToRun.** La combinación
+  ReadyToRun activado **sin** composite produce un binario que no arranca.
+  Apagado del todo funciona, y además cada ensamblado queda chico, que era el
+  objetivo de sacar el composite. Costo medido del arranque en frío: 3777 ms
+  contra 3042 ms del composite.
+
+### Added
+- **El build prueba que la aplicación abre antes de empaquetar.** Lanza
+  `PilotX.Desktop.exe` y falla el build si muere en los primeros 25 segundos.
+  Compilar sin errores no probaba nada: la 1.0.48 compiló limpia, se empaquetó,
+  se subió al cloud y se instaló en un tractor sin que nadie la hubiera
+  ejecutado una sola vez. Se saltea con `-SkipSmoke` en máquinas sin sesión
+  gráfica.
+- **`setup_pilotx_lan.bat` ahora viaja en el paquete.** Vivía sólo en el repo,
+  así que la regla de UDP 9999 que necesita el ToolX nunca llegaba a una
+  máquina de cliente. El síntoma era engañoso: el nodo aparecía CONECTADO por
+  MQTT mientras su PGN se descartaba en silencio y la herramienta no pintaba.
+
+### Verificado antes de publicar
+- 1.0.49 limpia: abre, 1566 ms.
+- 1.0.47 con 1.0.49 extraída encima (el camino real de actualización): abre,
+  1483 ms, incluso con el `PilotX.Desktop.r2r.dll` huérfano de 90 MB todavía
+  en la carpeta. Sin ReadyToRun ya nadie lo carga; queda como peso muerto y se
+  puede borrar a mano.
+
+---
+
 ## [1.0.48] — 2026-09-05
 
 ### Fixed
