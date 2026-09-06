@@ -1,3 +1,0 @@
-c8f13aeedd14fff1166a99cab4a443e14456163e5a43214791921a3235143989 *AgroParallel.Models.dll
-56f05e79ff325bce3abbc40044024a41ac460c6033a7e78e8827650970190ccb *AgroParallel.Services.dll
-c5cf5aada499ede550a612bccb441883a05463d3b69d27c83dc853aff685f802 *PilotX.GuidanceEngine.dll

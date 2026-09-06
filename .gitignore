@@ -532,3 +532,8 @@ PilotX_android_v*.apk.sha256
 # Vive en Tools\RustDesk\ y build.ps1 lo copia al paquete. Si se pierde, se
 # recupera de cualquier PilotX_v*.zip anterior (carpeta Desktop/RustDesk/).
 Tools/RustDesk/
+
+# Restos del incidente de la 1.0.47/1.0.48 (DLL sueltas armadas a mano para
+# recuperar una pantalla). Son binarios de una version puntual, no fuente.
+parche-flowx-1.0.47/
+restaurar-1.0.47/
