@@ -107,6 +107,91 @@ namespace AgroParallel.Soporte
             }
         }
 
+        // ── Backup de configuracion al cloud ────────────────────────────────
+        private DateTime _ultimoBackup = DateTime.MinValue;
+        private static readonly TimeSpan BackupCada = TimeSpan.FromHours(6);
+
+        private async Task QuizasSubirBackup(string baseUrl, OrbitX.OrbitXConfig cfg, CancellationToken ct)
+        {
+            if (DateTime.UtcNow - _ultimoBackup < BackupCada) return;
+
+            // Junta los .json de config del equipo. El server deduplica por
+            // firma, asi que reintentar no cuesta nada.
+            var cfgObj = RecolectarConfig();
+            if (cfgObj == null) return;
+
+            string ver = "";
+            try { ver = OrbitX.PilotXSelfUpdate.DetectCurrentVersion(); } catch { }
+
+            string cuerpo;
+            using (var ms = new System.IO.MemoryStream())
+            {
+                using (var w = new Utf8JsonWriter(ms))
+                {
+                    w.WriteStartObject();
+                    w.WriteString("device_id", cfg.DeviceId);
+                    w.WriteString("version", ver);
+                    w.WritePropertyName("config");
+                    JsonSerializer.Serialize(w, cfgObj);
+                    w.WriteEndObject();
+                }
+                cuerpo = Encoding.UTF8.GetString(ms.ToArray());
+            }
+
+            using (var req = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/soporte/config-backup"))
+            {
+                req.Headers.Add("X-Device-ID", cfg.DeviceId);
+                req.Headers.Add("X-Auth-Token", cfg.DeviceToken);
+                req.Content = new StringContent(cuerpo, Encoding.UTF8, "application/json");
+                using (var resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+                {
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        _ultimoBackup = DateTime.UtcNow;
+                        Trace("backup de config subido");
+                    }
+                    else if ((int)resp.StatusCode != 404)
+                    {
+                        Trace("backup config -> HTTP " + (int)resp.StatusCode);
+                    }
+                }
+            }
+        }
+
+        // Lee los .json de configuracion de ConfigRoot y de GuidanceEngineData
+        // en un objeto {archivo: contenido}. Solo config, no lotes ni cache.
+        private static Dictionary<string, object> RecolectarConfig()
+        {
+            var res = new Dictionary<string, object>();
+            string cfgRoot = AgroParallel.Common.AgpPaths.ConfigRoot;
+            AgregarJsons(res, cfgRoot, "");                                   // *.json de la raiz
+            AgregarJsons(res, System.IO.Path.Combine(cfgRoot, "GuidanceEngineData"), "GuidanceEngineData/");
+            AgregarJsons(res, System.IO.Path.Combine(cfgRoot, "GuidanceEngineData", "Vehicles"), "Vehicles/");
+            return res.Count > 0 ? res : null;
+        }
+
+        private static void AgregarJsons(Dictionary<string, object> dst, string dir, string prefijo)
+        {
+            try
+            {
+                if (!System.IO.Directory.Exists(dir)) return;
+                foreach (var f in System.IO.Directory.GetFiles(dir, "*.json"))
+                {
+                    try
+                    {
+                        var fi = new System.IO.FileInfo(f);
+                        if (fi.Length > 512 * 1024) continue;   // un .json de config no pesa tanto
+                        string txt = System.IO.File.ReadAllText(f);
+                        // Guardar como valor JSON (no string escapado) si parsea.
+                        try { dst[prefijo + fi.Name] = JsonSerializer.Deserialize<JsonElement>(txt); }
+                        catch { dst[prefijo + fi.Name] = txt; }
+                    }
+                    catch { /* un archivo ilegible no aborta el backup */ }
+                }
+            }
+            catch { }
+        }
+
         /// <summary>Un ciclo: pedir pendientes, correrlos, devolver la salida.
         /// false si el cloud no respondio (para espaciar reintentos).</summary>
         private async Task<bool> Ciclo(CancellationToken ct)
@@ -119,6 +204,15 @@ namespace AgroParallel.Soporte
                 return true;   // sin identidad todavia: no es una falla de red
 
             string baseUrl = cfg.ServerUrl.TrimEnd('/');
+
+            // Backup de config al cloud: una vez al arrancar y despues cada 6 h.
+            // La config del equipo (vehiculo, implemento, secciones, nodos) solo
+            // vive en el disco de la PC; si se rompe, se pierde. Best-effort: si
+            // falla no corta el ciclo de soporte.
+            try { await QuizasSubirBackup(baseUrl, cfg, ct).ConfigureAwait(false); }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { Trace("backup config: " + ex.Message); }
+
             string json;
 
             using (var req = new HttpRequestMessage(HttpMethod.Get, baseUrl + "/api/soporte/pendientes"))
