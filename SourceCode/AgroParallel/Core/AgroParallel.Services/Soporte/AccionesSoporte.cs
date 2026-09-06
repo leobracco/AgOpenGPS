@@ -496,7 +496,26 @@ namespace AgroParallel.Soporte
                 double v = LeerDouble(p, "meter_cal", 100, 0.1, 100000);
                 sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.MeterCal = v, "meter_cal=" + v)); tocados++;
             }
-            if (tocados == 0) return "no diste ningun parametro (pwm_min, dosis_lha, modo_manual, manual_lmin, meter_cal)";
+            // Ganancias del PID de valvula (firmware FlowX 1.9.12+). Unidades:
+            // kp = PWM por L/min de error, ki = PWM por (L/min*s), kd = PWM por
+            // (L/min/s). Arranque razonable: 250 / 80 / 0. El firmware trata
+            // kp < 20 como config legada y usa esos defaults.
+            if ((s = Leer(p, "kp")) != null)
+            {
+                double v = LeerDouble(p, "kp", 250, 0, 5000);
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.Kp = v, "kp=" + v)); tocados++;
+            }
+            if ((s = Leer(p, "ki")) != null)
+            {
+                double v = LeerDouble(p, "ki", 80, 0, 5000);
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.Ki = v, "ki=" + v)); tocados++;
+            }
+            if ((s = Leer(p, "kd")) != null)
+            {
+                double v = LeerDouble(p, "kd", 0, 0, 5000);
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.Kd = v, "kd=" + v)); tocados++;
+            }
+            if (tocados == 0) return "no diste ningun parametro (pwm_min, dosis_lha, modo_manual, manual_lmin, meter_cal, kp, ki, kd)";
             return sb.ToString();
         }
 
