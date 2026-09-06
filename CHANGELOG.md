@@ -12,6 +12,27 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.53] — 2026-09-06
+
+### Added
+- **Soporte remoto de FlowX, acotado.** Cuatro acciones nuevas en el canal de
+  diagnostico, para operar la regulacion desde el panel sin dictarle comandos
+  por telefono a quien este en el tractor. Cada una hace UNA cosa nombrada
+  contra la API local del Engine (loopback); no reciben rutas ni comandos
+  libres, solo parametros validados. Se eligio esto sobre un proxy abierto a
+  proposito: si el token de un equipo se filtra, el dano posible queda
+  enumerado, no es "cualquier cosa".
+  - `flowx_diag` — caudal, PWM, objetivo, config y estado de secciones (lectura).
+  - `flowx_pwm` — mueve la valvula a un PWM (-4095..4095) por 1..30 s, con
+    corte automatico al terminar: nunca queda clavada.
+  - `flowx_pisos` — graba los pwm_min de arranque por sentido (0..4095).
+  - `secciones_manual` — prende/apaga el maestro de secciones en manual.
+  Nacio de la sesion de campo del 2026-09-06 (ver [[flowx-regulacion-campo]]):
+  domar la reguladora Raven llevo horas de comandos a mano por consola porque
+  el canal no podia operar nada, solo leer.
+
+---
+
 ## [1.0.52] — 2026-09-06
 
 > **Primera versión que se puede instalar como parche.** Si el equipo tiene la

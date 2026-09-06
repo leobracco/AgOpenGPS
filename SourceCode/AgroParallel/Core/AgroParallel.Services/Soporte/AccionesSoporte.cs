@@ -75,6 +75,16 @@ namespace AgroParallel.Soporte
             Reg("firewall", "Perfiles de firewall y reglas de PilotX", false, Firewall);
             Reg("logs_pilotx", "Últimas líneas del log de eventos (param: lineas)", false, LogsPilotX);
             Reg("nodos", "Config de nodos vista por la pantalla", false, Nodos);
+
+            // --- FlowX: operacion remota ACOTADA (no es un proxy abierto) ---
+            // Cada accion hace UNA cosa nombrada contra la API local del Engine
+            // (loopback). No reciben rutas ni comandos libres: solo parametros
+            // validados. Asi, si el token del equipo se filtra, el dano posible
+            // esta enumerado, no es "cualquier cosa".
+            Reg("flowx_diag", "FlowX: caudal, PWM, objetivo, config y secciones AOG", false, FlowxDiag);
+            Reg("flowx_pwm", "FlowX: mueve la valvula a un PWM (params: uid, pwm -4095..4095, seg 1..30). Corta solo.", true, FlowxPwm);
+            Reg("flowx_pisos", "FlowX: graba pwm_min de arranque (params: uid, pos, neg 0..4095)", true, FlowxPisos);
+            Reg("secciones_manual", "Maestro de secciones en manual (param: on = 1/0)", true, SeccionesManual);
         }
 
         private static void Reg(string n, string d, bool esAccion,
@@ -284,6 +294,155 @@ namespace AgroParallel.Soporte
                 return asm?.GetName().Version?.ToString() ?? "(desconocida)";
             }
             catch { return "(desconocida)"; }
+        }
+
+        // ---------------------------------------------------------------- //
+        //  FlowX remoto (acotado). Todo contra 127.0.0.1:5180, sin rutas    //
+        //  ni comandos libres: cada accion valida sus propios parametros.   //
+        // ---------------------------------------------------------------- //
+
+        private const string FlowxBase = "http://127.0.0.1:5180";
+
+        private static string HttpGet(string url)
+        {
+            using (var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(15) })
+            {
+                var r = http.GetAsync(url).GetAwaiter().GetResult();
+                return r.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            }
+        }
+
+        private static string HttpPost(string url, string json)
+        {
+            using (var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(15) })
+            {
+                var cont = new System.Net.Http.StringContent(json ?? "", Encoding.UTF8, "application/json");
+                var r = http.PostAsync(url, cont).GetAwaiter().GetResult();
+                return "HTTP " + (int)r.StatusCode + " " + r.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            }
+        }
+
+        // UID de nodo: solo hex/letras/numeros, para no armar URLs raras.
+        private static string UidValido(IDictionary<string, string> p)
+        {
+            string uid = Leer(p, "uid");
+            if (string.IsNullOrWhiteSpace(uid)) return null;
+            uid = uid.Trim();
+            foreach (char c in uid)
+                if (!char.IsLetterOrDigit(c)) return null;
+            return uid;
+        }
+
+        private static string Leer(IDictionary<string, string> p, string clave)
+        {
+            if (p == null) return null;
+            foreach (var kv in p)
+                if (string.Equals(kv.Key, clave, StringComparison.OrdinalIgnoreCase))
+                    return kv.Value;
+            return null;
+        }
+
+        private static string FlowxDiag(IDictionary<string, string> p)
+        {
+            var sb = new StringBuilder();
+            try { sb.AppendLine("== live =="); sb.AppendLine(HttpGet(FlowxBase + "/api/flowx/live")); }
+            catch (Exception ex) { sb.AppendLine("live: " + ex.GetBaseException().Message); }
+            try { sb.AppendLine("== config =="); sb.AppendLine(HttpGet(FlowxBase + "/api/flowx/config")); }
+            catch (Exception ex) { sb.AppendLine("config: " + ex.GetBaseException().Message); }
+            try
+            {
+                string st = HttpGet(FlowxBase + "/api/aog/state");
+                sb.AppendLine("== secciones AOG ==");
+                foreach (var campo in new[] { "\"is_job_started\"", "\"is_section_manual_on\"",
+                    "\"num_sections\"", "\"section_states\"", "\"section_on_request\"" })
+                {
+                    int i = st.IndexOf(campo, StringComparison.Ordinal);
+                    if (i >= 0)
+                    {
+                        int fin = st.IndexOfAny(new[] { ',', '}', ']' }, i + campo.Length + 1);
+                        if (fin > i) sb.AppendLine("  " + st.Substring(i, fin - i + 1).Trim());
+                    }
+                }
+            }
+            catch (Exception ex) { sb.AppendLine("state: " + ex.GetBaseException().Message); }
+            return sb.ToString();
+        }
+
+        private static string FlowxPwm(IDictionary<string, string> p)
+        {
+            string uid = UidValido(p);
+            if (uid == null) return "falta 'uid' valido del nodo FlowX";
+            int pwm = LeerInt(p, "pwm", 0, -4095, 4095);
+            int seg = LeerInt(p, "seg", 8, 1, 30);   // tope duro 30 s: nunca queda clavada
+            var sb = new StringBuilder();
+            sb.AppendLine("moviendo " + uid + " a pwm=" + pwm + " por " + seg + " s");
+            string cmd = FlowxBase + "/api/flowx/" + uid + "/cmd?verb=manual_pwm";
+            try
+            {
+                for (int i = 0; i < seg; i++)
+                {
+                    HttpPost(cmd, "{\"producto_id\":0,\"value\":" + pwm + "}");
+                    System.Threading.Thread.Sleep(1000);
+                    if (i == seg - 1 || i % 3 == 0)
+                    {
+                        try
+                        {
+                            string live = HttpGet(FlowxBase + "/api/flowx/live");
+                            int j = live.IndexOf("\"caudal_lmin\"", StringComparison.Ordinal);
+                            string cau = j >= 0 ? live.Substring(j, Math.Min(28, live.Length - j)) : "?";
+                            sb.AppendLine("  t+" + (i + 1) + "s  " + cau);
+                        }
+                        catch { }
+                    }
+                }
+            }
+            finally
+            {
+                try { HttpPost(FlowxBase + "/api/flowx/" + uid + "/cmd?verb=manual_stop", "{\"producto_id\":0}"); } catch { }
+                sb.AppendLine("cortado (manual_stop).");
+            }
+            return sb.ToString();
+        }
+
+        private static string FlowxPisos(IDictionary<string, string> p)
+        {
+            string uid = UidValido(p);
+            if (uid == null) return "falta 'uid' valido del nodo FlowX";
+            var sb = new StringBuilder();
+            string cmd = FlowxBase + "/api/flowx/" + uid + "/cmd?verb=save_pwm_min";
+            string pos = Leer(p, "pos"), neg = Leer(p, "neg");
+            if (pos != null)
+            {
+                int v = LeerInt(p, "pos", 800, 0, 4095);
+                try { sb.AppendLine("pos=" + v + " -> " + HttpPost(cmd, "{\"producto_id\":0,\"dir\":\"pos\",\"value\":" + v + "}")); }
+                catch (Exception ex) { sb.AppendLine("pos: " + ex.GetBaseException().Message); }
+            }
+            if (neg != null)
+            {
+                int v = LeerInt(p, "neg", 800, 0, 4095);
+                try { sb.AppendLine("neg=" + v + " -> " + HttpPost(cmd, "{\"producto_id\":0,\"dir\":\"neg\",\"value\":" + v + "}")); }
+                catch (Exception ex) { sb.AppendLine("neg: " + ex.GetBaseException().Message); }
+            }
+            if (pos == null && neg == null) return "no diste ni 'pos' ni 'neg'";
+            return sb.ToString();
+        }
+
+        private static string SeccionesManual(IDictionary<string, string> p)
+        {
+            // Lee el estado actual y solo togglea si hace falta llegar al pedido.
+            bool quiero = LeerInt(p, "on", 1, 0, 1) == 1;
+            try
+            {
+                string st = HttpGet(FlowxBase + "/api/aog/state");
+                bool estaAhora = st.IndexOf("\"is_section_manual_on\":true", StringComparison.Ordinal) >= 0;
+                if (estaAhora == quiero) return "maestro manual ya estaba en " + (quiero ? "ON" : "OFF");
+                HttpPost(FlowxBase + "/api/aog/guidance/command", "{\"cmd\":\"sec_manual\"}");
+                System.Threading.Thread.Sleep(500);
+                string st2 = HttpGet(FlowxBase + "/api/aog/state");
+                bool ahora = st2.IndexOf("\"is_section_manual_on\":true", StringComparison.Ordinal) >= 0;
+                return "maestro manual -> " + (ahora ? "ON" : "OFF");
+            }
+            catch (Exception ex) { return "fallo: " + ex.GetBaseException().Message; }
         }
 
         private static string SondearHttp(string url, string etiqueta)
