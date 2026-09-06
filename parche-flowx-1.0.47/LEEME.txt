@@ -1,0 +1,51 @@
+PARCHE FlowX v2 — sobre PilotX 1.0.47
+=====================================
+Reemplaza al parche anterior (el de un solo archivo). Son 3 archivos.
+
+QUE ARREGLA
+-----------
+1) SE BORRABA LA CONFIGURACION DE LOS NODOS.  <-- lo grave
+   Al leer flowX.json, si la lectura fallaba por cualquier motivo, el
+   programa escribia una configuracion VACIA ENCIMA de la buena. Y esa
+   lectura ocurre cada 2 segundos. Si caia justo mientras se guardaba
+   (por ejemplo al tocar +/- de litros), se perdian los nodos: quedaba
+   "nodos": [] y habia que cargar todo de nuevo.
+   Ahora: si el archivo existe pero no se pudo leer en ese instante, NO se
+   pisa; se reintenta. Solo se crea el archivo cuando de verdad no hay nada
+   (primer arranque).
+   El mismo error estaba en QuantiX, VistaX, SectionX, StormX y OrbitX:
+   corregidos los seis.
+
+2) EL PUENTE DE FlowX QUEDABA MUDO.
+   Se conectaba al broker una sola vez al arrancar; si el broker todavia no
+   estaba listo, no reintentaba nunca. Sintoma: el nodo aparece ONLINE pero
+   las valvulas no abren y los litros no cambian, porque no le llega ninguna
+   orden. Ahora un vigilante lo rearranca cada 15 s.
+
+COMO APLICARLO
+--------------
+  1. Cerrar PilotX por completo (tambien la ventana negra de
+     Lanzar-PilotX.bat: sino vuelve a levantar la aplicacion sola).
+  2. Ir a la carpeta de instalacion, subcarpeta  Engine\
+  3. Renombrar los 3 archivos actuales agregandoles  .viejo
+     (asi se puede volver atras):
+        PilotX.GuidanceEngine.dll
+        AgroParallel.Services.dll
+        AgroParallel.Models.dll
+  4. Copiar ahi los 3 de este parche.
+  5. Abrir PilotX con Lanzar-PilotX.bat
+
+OJO: si la configuracion de FlowX ya se borro, hay que cargarla de nuevo
+(el nodo, el ancho de barra, el mapeo de cortes y la dosis). Con el parche
+puesto no se deberia volver a perder. Fijate igual si quedo un archivo
+flowX.json.bak en la carpeta de configuracion: puede tener la version
+anterior a que se borrara.
+
+PARA VOLVER ATRAS
+-----------------
+  Cerrar PilotX, borrar los 3 .dll nuevos y devolverles el nombre a los
+  .viejo.
+
+NOTA
+  Es solo para la version 1.0.47. Los cambios ya quedaron en el codigo, asi
+  que el proximo build los trae incluidos.

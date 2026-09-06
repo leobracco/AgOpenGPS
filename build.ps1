@@ -136,6 +136,25 @@ if (Test-Path $kioskBin) {
     }
 }
 
+# Copiar RustDesk (soporte remoto sin instalacion). El server y la clave
+# publica viajan en el NOMBRE del exe; RustDeskIntegracion.cs los lee de ahi.
+# No se versiona en git porque este repo es publico: vive en Tools\RustDesk\.
+#
+# Hasta 1.0.49 esto NO estaba en el build: la carpeta sobrevivia en Build\ de
+# casualidad, porque nada la borraba. Al empezar a limpiar Desktop\ antes de
+# publicar desaparecio del paquete sin que nadie lo notara, y con ella el
+# soporte remoto en cualquier pantalla nueva.
+$rdSrc = "$root\Tools\RustDesk"
+if (Test-Path $rdSrc) {
+    Write-Host "Copiando RustDesk..." -ForegroundColor Yellow
+    $rdDst = "$OutDir\Desktop\RustDesk"
+    New-Item -ItemType Directory -Path $rdDst -Force | Out-Null
+    Copy-Item "$rdSrc\*" -Destination $rdDst -Force -Recurse
+} else {
+    Write-Host "AVISO: falta $rdSrc - el paquete va SIN soporte remoto." -ForegroundColor Red
+    Write-Host "       Recuperalo de la carpeta Desktop/RustDesk/ de cualquier PilotX_v*.zip." -ForegroundColor Red
+}
+
 # Copiar setup_pilotx_lan.bat (abre los puertos del firewall en el tractor).
 # NO viajaba en el ZIP hasta 1.0.49: vivia solo en el repo, asi que la regla
 # de UDP 9999 que necesita el ToolX nunca llegaba a una maquina de cliente.
@@ -235,6 +254,39 @@ if (-not $SkipSmoke) {
     try { $sp.Kill() } catch { }
     Get-Process WerFault, WerFaultSecure -ErrorAction SilentlyContinue | Stop-Process -Force
     Write-Host "OK: abrio y se mantuvo viva." -ForegroundColor Green
+
+    # El Engine tambien: es el que habla con el GPS, los nodos y el broker.
+    # Se publica con ReadyToRun (sin composite), que es justamente la
+    # combinacion que dejo sin arrancar a PilotX.Desktop. Se prueba aparte
+    # porque una pantalla que abre sin Engine no sirve para trabajar.
+    Write-Host "=== Prueba de arranque del Engine ===" -ForegroundColor Cyan
+    # Liberar los puertos primero: cualquier Engine vivo (una prueba anterior,
+    # el PilotX de desarrollo) se queda con 1883/5180/5181/9999 y el nuestro
+    # muere con "Solo se permite un uso de cada direccion de socket". Eso no
+    # es un build roto, pero se ve igual que uno.
+    $vivos = @(Get-Process PilotX.GuidanceEngine -ErrorAction SilentlyContinue)
+    if ($vivos.Count -gt 0) {
+        Write-Host "  cerrando $($vivos.Count) Engine(s) que ocupaban los puertos" -ForegroundColor DarkGray
+        $vivos | ForEach-Object { try { $_.Kill() } catch { } }
+        Start-Sleep -Seconds 4
+    }
+    $engExe = Join-Path $OutDir "Engine\PilotX.GuidanceEngine.exe"
+    $engErr = Join-Path $env:TEMP "pilotx_smoke_engine.err.txt"
+    $ep = Start-Process $engExe -ArgumentList "--webhost","--corex" -PassThru -WorkingDirectory (Join-Path $OutDir "Engine") -RedirectStandardError $engErr
+    Start-Sleep -Seconds 12
+    if ($ep.HasExited) {
+        Write-Host "FALLO: el Engine murio al arrancar (0x$("{0:X8}" -f $ep.ExitCode))." -ForegroundColor Red
+        try { Get-Content $engErr -Tail 15 | ForEach-Object { Write-Host $_ -ForegroundColor Red } } catch { }
+        exit 1
+    }
+    $apiOk = $false
+    try { $apiOk = ((Invoke-WebRequest "http://127.0.0.1:5180/" -TimeoutSec 6 -UseBasicParsing).StatusCode -eq 200) } catch { }
+    try { $ep.Kill() } catch { }
+    if (-not $apiOk) {
+        Write-Host "FALLO: el Engine no respondio en http://127.0.0.1:5180/" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "OK: el Engine arranco y responde la API." -ForegroundColor Green
 }
 
 Write-Host "`n=== Build OK === Output: $OutDir" -ForegroundColor Green

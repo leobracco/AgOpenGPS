@@ -199,16 +199,27 @@ $murio = $p.WaitForExit(30000)
 $txt = ""
 try { $txt = (Get-Content $errFile -Raw -ErrorAction SilentlyContinue) } catch { }
 
+# Cerrar TODO lo que la prueba haya levantado, ANTES de decidir nada.
+# La pantalla arranca su propio Engine, y ese Engine se queda con los puertos
+# y con los archivos abiertos. Si hay que volver atras con el Engine vivo, el
+# rename falla porque las DLL estan bloqueadas y la vuelta atras no sirve.
+function CerrarPrueba {
+    foreach ($n in @("PilotX.Desktop", "PilotX.GuidanceEngine", "PilotX.Bars.Host", "WerFault", "WerFaultSecure")) {
+        Get-Process $n -ErrorAction SilentlyContinue | ForEach-Object { try { $_.Kill() } catch { } }
+    }
+    Start-Sleep -Seconds 4
+}
+
 if ($murio) {
     Mal "la pantalla NO abrio (salio con 0x$("{0:X8}" -f $p.ExitCode))"
     if ($txt -and $txt.Trim()) { Write-Host $txt.Trim() -ForegroundColor Red }
     else { Write-Host "    Sin mensaje. Suele ser un problema del paquete, no de esta pantalla." -ForegroundColor Red }
+    CerrarPrueba
     Deshacer
     Write-Host "`n    Avisale a Leonardo: el paquete $version no arranca." -ForegroundColor Yellow
     exit 1
 }
-try { $p.Kill() } catch { }
-Get-Process WerFault, WerFaultSecure -ErrorAction SilentlyContinue | Stop-Process -Force
+CerrarPrueba
 if ($txt -match "Cold-start[^\r\n]*") { Write-Host "    $($matches[0])" }
 Bien "abrio y se mantuvo abierta"
 

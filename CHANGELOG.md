@@ -12,6 +12,42 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.50] — 2026-09-05
+
+> Reemplaza a la 1.0.49, que salió **sin RustDesk**. Si ya instalaste la 1.0.49
+> y la pantalla anda, no es urgente; sí conviene antes de entregar un equipo
+> nuevo.
+
+### Fixed
+- **RustDesk volvió al paquete.** La 1.0.49 salió sin él y con eso se perdía el
+  soporte remoto sin instalación. La carpeta `Desktop\RustDesk\` nunca fue
+  parte del build: sobrevivía en `Build\` de casualidad porque nada la
+  borraba, y al empezar a limpiar antes de publicar (1.0.49) desapareció sin
+  que ninguna prueba lo notara.
+  - Ahora vive en `Tools\RustDesk\` y `build.ps1` la copia, avisando en rojo
+    si falta. **No se versiona en git**: el nombre del ejecutable lleva el
+    servidor y la clave del relay propio, y este repositorio es público.
+  - En una pantalla que ya tiene RustDesk instalado no cambiaba nada; el
+    código sale sin hacer nada si la carpeta no está. El problema era para
+    equipos nuevos.
+
+### Added
+- **El build ahora también prueba el Engine.** Lo levanta con `--webhost
+  --corex` y verifica que responda la API en `127.0.0.1:5180`. El Engine se
+  publica con ReadyToRun sin composite, que es exactamente la combinación que
+  dejó sin arrancar a `PilotX.Desktop`; una pantalla que abre sin Engine no
+  sirve para trabajar.
+
+### Verificado en esta revisión
+- El paquete **no** lleva credenciales, tokens ni configuración de la máquina
+  de desarrollo. Dejó de viajar `Engine/GuidanceEngineData/ultimo_lote.txt`,
+  que era estado local metiéndose en la instalación del cliente.
+- `System.IO.Ports.dll` y `System.Management.dll` están donde corresponde. Las
+  copias que desaparecieron bajo `Engine/runtimes/` eran restos de builds
+  viejos para Android, Linux y macOS que no se usaban.
+
+---
+
 ## [1.0.49] — 2026-09-05
 
 > **La 1.0.48 NO ARRANCA. No instalarla.** Se retiró del catálogo de OrbitX.

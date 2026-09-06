@@ -526,3 +526,9 @@ SourceCode/PilotX.Cockpit.Bars/Assets/_handoff/
 # APK de Android generado por build-android.ps1 (se sube a OrbitX, no al repo)
 PilotX_android_v*.apk
 PilotX_android_v*.apk.sha256
+
+# RustDesk empaquetado: el nombre del .exe lleva el server y la clave publica
+# del relay propio. Este repo es PUBLICO, asi que el binario NO se versiona.
+# Vive en Tools\RustDesk\ y build.ps1 lo copia al paquete. Si se pierde, se
+# recupera de cualquier PilotX_v*.zip anterior (carpeta Desktop/RustDesk/).
+Tools/RustDesk/
