@@ -12,6 +12,27 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.54] — 2026-09-06
+
+### Fixed
+- **El piso de PWM grabado en el nodo duraba 2 segundos.** El puente de FlowX
+  le manda al nodo el `pwm_min` de `flowX.json` en cada target (cada 2 s) y
+  pisaba cualquier valor grabado directo en el nodo. Se descubrio en campo:
+  la reguladora quedaba un 36% corta de dosis porque el piso efectivo volvia
+  a 800 (a ese PWM la valvula casi no se mueve) por mas que se grabara 1000 o
+  1500 en el nodo. PilotX pasa a ser la unica fuente de verdad del piso
+  positivo: `flowx_pisos` ahora tambien lo escribe en la config de PilotX.
+
+### Added
+- **`flowx_config`**: ajustar por el canal de soporte la configuracion de FlowX
+  que vive en PilotX: `pwm_min`, `dosis_lha`, `modo_manual`, `manual_lmin`,
+  `meter_cal`. Solo esos cinco campos, con rangos validados; escribe
+  `flowX.json` y el puente lo aplica solo en el proximo ciclo. Es lo que
+  faltaba para afinar la regulacion a distancia sin pedirle a nadie que toque
+  la pantalla.
+
+---
+
 ## [1.0.53] — 2026-09-06
 
 ### Added

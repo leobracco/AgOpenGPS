@@ -84,6 +84,7 @@ namespace AgroParallel.Soporte
             Reg("flowx_diag", "FlowX: caudal, PWM, objetivo, config y secciones AOG", false, FlowxDiag);
             Reg("flowx_pwm", "FlowX: mueve la valvula a un PWM (params: uid, pwm -4095..4095, seg 1..30). Corta solo.", true, FlowxPwm);
             Reg("flowx_pisos", "FlowX: graba pwm_min de arranque (params: uid, pos, neg 0..4095)", true, FlowxPisos);
+            Reg("flowx_config", "FlowX: ajusta config en PilotX (params: uid, pwm_min, dosis_lha, modo_manual, manual_lmin, meter_cal)", true, FlowxConfigSet);
             Reg("secciones_manual", "Maestro de secciones en manual (param: on = 1/0)", true, SeccionesManual);
         }
 
@@ -424,7 +425,88 @@ namespace AgroParallel.Soporte
                 catch (Exception ex) { sb.AppendLine("neg: " + ex.GetBaseException().Message); }
             }
             if (pos == null && neg == null) return "no diste ni 'pos' ni 'neg'";
+
+            // El piso POSITIVO tambien va a la config de PilotX. Motivo: el
+            // puente le manda al nodo el pwm_min de flowX.json en CADA target
+            // (cada 2 s) y pisa lo que se grabe en el nodo. Grabar solo en el
+            // nodo duraba 2 segundos: se descubrio en campo el 2026-09-06 con
+            // la reguladora quedando un 36% corta de dosis. PilotX es la unica
+            // fuente de verdad del piso positivo; el negativo vive en el nodo
+            // porque el puente no lo manda.
+            if (pos != null)
+            {
+                int v = LeerInt(p, "pos", 800, 0, 4095);
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.PwmMin = v, "pwm_min=" + v));
+            }
             return sb.ToString();
+        }
+
+        // Aplica un cambio al producto 0 del nodo en flowX.json y guarda. El
+        // puente relee la config en cada ciclo, asi que el cambio viaja solo.
+        private static string GuardarEnConfigPilotX(string uid, Action<AgroParallel.FlowX.FxProducto> cambio, string etiqueta)
+        {
+            try
+            {
+                var cfg = AgroParallel.FlowX.FlowXConfig.Load();
+                AgroParallel.FlowX.FxNodoConfig nodo = null;
+                foreach (var n in cfg.Nodos)
+                    if (string.Equals(n.Uid, uid, StringComparison.OrdinalIgnoreCase)) { nodo = n; break; }
+                if (nodo == null && cfg.Nodos.Count > 0) nodo = cfg.Nodos[0];
+                if (nodo == null) return "config PilotX: no hay nodos en flowX.json";
+                if (nodo.Productos.Count == 0) nodo.Productos.Add(new AgroParallel.FlowX.FxProducto());
+                cambio(nodo.Productos[0]);
+                cfg.Save();
+                return "config PilotX (" + nodo.Uid + "): " + etiqueta + " guardado";
+            }
+            catch (Exception ex)
+            {
+                return "config PilotX: no se pudo guardar (" + ex.Message + ")";
+            }
+        }
+
+        private static string FlowxConfigSet(IDictionary<string, string> p)
+        {
+            string uid = UidValido(p) ?? "";
+            var sb = new StringBuilder();
+            int tocados = 0;
+
+            string s;
+            if ((s = Leer(p, "pwm_min")) != null)
+            {
+                int v = LeerInt(p, "pwm_min", 800, 0, 4095);
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.PwmMin = v, "pwm_min=" + v)); tocados++;
+            }
+            if ((s = Leer(p, "dosis_lha")) != null)
+            {
+                double v = LeerDouble(p, "dosis_lha", 100, 0, 2000);
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.DosisLha = v, "dosis_lha=" + v)); tocados++;
+            }
+            if ((s = Leer(p, "modo_manual")) != null)
+            {
+                bool v = LeerInt(p, "modo_manual", 0, 0, 1) == 1;
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.ModoManual = v, "modo_manual=" + v)); tocados++;
+            }
+            if ((s = Leer(p, "manual_lmin")) != null)
+            {
+                double v = LeerDouble(p, "manual_lmin", 0, 0, 500);
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.ManualLmin = v, "manual_lmin=" + v)); tocados++;
+            }
+            if ((s = Leer(p, "meter_cal")) != null)
+            {
+                double v = LeerDouble(p, "meter_cal", 100, 0.1, 100000);
+                sb.AppendLine(GuardarEnConfigPilotX(uid, prod => prod.MeterCal = v, "meter_cal=" + v)); tocados++;
+            }
+            if (tocados == 0) return "no diste ningun parametro (pwm_min, dosis_lha, modo_manual, manual_lmin, meter_cal)";
+            return sb.ToString();
+        }
+
+        private static double LeerDouble(IDictionary<string, string> p, string clave, double def, double min, double max)
+        {
+            string v = Leer(p, clave);
+            if (v == null) return def;
+            double n;
+            if (!double.TryParse(v.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out n)) return def;
+            return Math.Max(min, Math.Min(max, n));
         }
 
         private static string SeccionesManual(IDictionary<string, string> p)
