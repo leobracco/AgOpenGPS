@@ -29,11 +29,19 @@
 param(
     [switch]$SinPublish,
     [switch]$ConEngine,
+    # BenchX (simulador de banco) para demo/Expo: se publica AUTOCONTENIDO
+    # (net9 self-contained, ~100 MB) porque el taller solo tiene el runtime
+    # .NET 8; va a C:\PilotX\BenchX con acceso directo "BenchX" en el
+    # escritorio. Manda NMEA + modulos por UDP broadcast :9999 a la misma PC.
+    [switch]$ConBenchX,
+    # Solo BenchX: no toca Desktop, wwwroot ni Engine ni reinicia PilotX.
+    [switch]$SoloBenchX,
     [switch]$Forzar,
     [string]$Taller = "192.168.1.78"
 )
 
 $ErrorActionPreference = "Stop"
+if ($SoloBenchX) { $SinPublish = $true; $ConBenchX = $true; $ConEngine = $false; $Forzar = $true }
 $root = Split-Path $PSScriptRoot -Parent
 $tmp = Join-Path $env:TEMP "pilotx-deploy-taller"
 
@@ -95,17 +103,21 @@ if (-not $SinPublish) {
 } else {
     # -SinPublish: copiar lo ya publicado en Build\ (excluyendo el cache de
     # WebView2, lockeado si la app corre, y los logs).
-    robocopy "$root\Build\Desktop" "$tmp\Desktop" /E /XD "PilotX.Desktop.exe.WebView2" "Logs" /XF "*.log" /NFL /NDL /NJH /NJS | Out-Null
+    if (-not $SoloBenchX) {
+        robocopy "$root\Build\Desktop" "$tmp\Desktop" /E /XD "PilotX.Desktop.exe.WebView2" "Logs" /XF "*.log" /NFL /NDL /NJH /NJS | Out-Null
+    }
     if ($ConEngine) {
         robocopy "$root\Build\Engine" "$tmp\Engine-src" /E /NFL /NDL /NJH /NJS | Out-Null
     }
 }
 
 Write-Host "== staging ==" -ForegroundColor Cyan
-Compress-Archive -Path "$tmp\Desktop\*" -DestinationPath "$tmp\desktop.zip" -CompressionLevel Optimal
+if (-not $SoloBenchX) {
+    Compress-Archive -Path "$tmp\Desktop\*" -DestinationPath "$tmp\desktop.zip" -CompressionLevel Optimal
 
-# wwwroot del Hub: EL DEL SOURCE (fuente de verdad de la UI), completo.
-Compress-Archive -Path "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\wwwroot\*" -DestinationPath "$tmp\wwwroot.zip" -CompressionLevel Optimal
+    # wwwroot del Hub: EL DEL SOURCE (fuente de verdad de la UI), completo.
+    Compress-Archive -Path "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\wwwroot\*" -DestinationPath "$tmp\wwwroot.zip" -CompressionLevel Optimal
+}
 
 if ($ConEngine) {
     # Engine: SOLO binarios. Dos pasadas: (1) todo menos json/log/datos,
@@ -123,6 +135,17 @@ if ($ConEngine) {
     Compress-Archive -Path "$tmp\Engine-filtrado\*" -DestinationPath "$tmp\engine.zip" -CompressionLevel Optimal
 }
 
+if ($ConBenchX) {
+    # Siempre publish fresco y autocontenido: Build\BenchX es framework-dependent
+    # (net9) y en el taller no hay runtime 9. ~100 MB, se acepta por ser demo.
+    Write-Host "== publish BenchX autocontenido (win-x64) ==" -ForegroundColor Cyan
+    dotnet publish "$root\SourceCode\BenchX\BenchX.csproj" -c Release -r win-x64 --self-contained true `
+        -o "$tmp\BenchX" -v q --nologo
+    if ($LASTEXITCODE -ne 0) { Write-Host "publish BenchX FALLO" -ForegroundColor Red; exit 1 }
+    if (-not (Test-Path "$tmp\BenchX\BenchX.exe")) { Write-Host "publish BenchX sin exe" -ForegroundColor Red; exit 1 }
+    Compress-Archive -Path "$tmp\BenchX\*" -DestinationPath "$tmp\benchx.zip" -CompressionLevel Optimal
+}
+
 Get-ChildItem "$tmp\*.zip" | ForEach-Object { Write-Host ("  {0}: {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) }
 
 Write-Host "== deploy a $Taller ==" -ForegroundColor Cyan
@@ -130,16 +153,45 @@ $cred = New-Object System.Management.Automation.PSCredential(
     "Admin", (New-Object System.Security.SecureString))
 $s = New-PSSession -ComputerName $Taller -Credential $cred
 
-Copy-Item "$tmp\desktop.zip" -Destination "C:\PilotX\deploy-desktop.zip" -ToSession $s
-Copy-Item "$tmp\wwwroot.zip" -Destination "C:\PilotX\deploy-wwwroot.zip" -ToSession $s
+if (-not $SoloBenchX) {
+    Copy-Item "$tmp\desktop.zip" -Destination "C:\PilotX\deploy-desktop.zip" -ToSession $s
+    Copy-Item "$tmp\wwwroot.zip" -Destination "C:\PilotX\deploy-wwwroot.zip" -ToSession $s
+}
 if ($ConEngine) { Copy-Item "$tmp\engine.zip" -Destination "C:\PilotX\deploy-engine.zip" -ToSession $s }
+if ($ConBenchX) { Copy-Item "$tmp\benchx.zip" -Destination "C:\PilotX\deploy-benchx.zip" -ToSession $s }
 
 Invoke-Command -Session $s -ScriptBlock {
-    param($conEngine)
+    param($conEngine, $conBenchX, $soloBenchX)
 
-    Get-Process PilotX.Desktop -EA SilentlyContinue | Stop-Process -Force
+    if (-not $soloBenchX) { Get-Process PilotX.Desktop -EA SilentlyContinue | Stop-Process -Force }
     if ($conEngine) { Get-Process PilotX.GuidanceEngine -EA SilentlyContinue | Stop-Process -Force }
+    if ($conBenchX) { Get-Process BenchX -EA SilentlyContinue | Stop-Process -Force }
     Start-Sleep -Seconds 2
+
+    # BenchX: rename-replace (no tiene datos de usuario que importen; su
+    # benchx.json de config se conserva si existia). Lanzador + acceso directo
+    # en el escritorio publico para la demo.
+    if ($conBenchX) {
+        $bxCfg = $null
+        if (Test-Path "C:\PilotX\BenchX\benchx.json") { $bxCfg = Get-Content "C:\PilotX\BenchX\benchx.json" -Raw }
+        $bxBak = "C:\PilotX\BenchX-anterior"
+        if (Test-Path $bxBak) { Remove-Item $bxBak -Recurse -Force }
+        if (Test-Path "C:\PilotX\BenchX") { Rename-Item "C:\PilotX\BenchX" $bxBak }
+        Expand-Archive "C:\PilotX\deploy-benchx.zip" -DestinationPath "C:\PilotX\BenchX"
+        Remove-Item "C:\PilotX\deploy-benchx.zip" -Force
+        if ($bxCfg) { Set-Content "C:\PilotX\BenchX\benchx.json" $bxCfg -Encoding UTF8 }
+
+        Set-Content "C:\PilotX\Lanzar-BenchX.bat" "@echo off`r`ncd /d C:\PilotX\BenchX`r`nstart `"BenchX`" C:\PilotX\BenchX\BenchX.exe" -Encoding ascii
+        $ws = New-Object -ComObject WScript.Shell
+        $lnk = $ws.CreateShortcut("C:\Users\Public\Desktop\BenchX.lnk")
+        $lnk.TargetPath = "C:\PilotX\BenchX\BenchX.exe"
+        $lnk.WorkingDirectory = "C:\PilotX\BenchX"
+        $lnk.Description = "BenchX - simulador de GPS y modulos para PilotX (demo)"
+        $lnk.Save()
+        "BenchX instalado: " + (Test-Path "C:\PilotX\BenchX\BenchX.exe") + " (acceso directo en el escritorio)"
+    }
+
+    if ($soloBenchX) { return }
 
     # Desktop: rename-replace (no tiene datos de usuario adentro). Un solo
     # backup; el taller no es archivo historico.
@@ -181,7 +233,7 @@ Invoke-Command -Session $s -ScriptBlock {
     $e = Get-Process PilotX.GuidanceEngine -EA SilentlyContinue
     if ($d -and $e) { "OK: Desktop (PID $($d.Id)) + Engine (PID $($e.Id)) corriendo" }
     else { "ERROR: falta " + $(if (-not $d) { "Desktop " }) + $(if (-not $e) { "Engine" }) + " -- mirar C:\PilotX\logs\stderr-diag.log" }
-} -ArgumentList $ConEngine.IsPresent
+} -ArgumentList ([bool]$ConEngine), ([bool]$ConBenchX), ([bool]$SoloBenchX)
 
 Remove-PSSession $s
 Write-Host "== listo ==" -ForegroundColor Green
