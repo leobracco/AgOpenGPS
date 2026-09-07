@@ -187,8 +187,17 @@ $mb = [math]::Round((Get-Item $salida).Length / 1MB, 1)
 $shaZip = (Get-FileHash $salida -Algorithm SHA256).Hash
 if ($mb -gt 0) { $veces = [math]::Round($mbFull / $mb, 1) } else { $veces = 0 }
 
+# Copia con el nombre <Producto>_v<version>.zip: el panel /firmwares de OrbitX
+# detecta producto y version solo a partir del nombre del archivo.
+$paraWeb = Join-Path $raiz "PilotXParche_v${nueva}.zip"
+Copy-Item $salida $paraWeb -Force
+
 Write-Host ""
 Write-Host "Completo: $mbFull MB   Parche: $mb MB   ($veces veces mas chico)" -ForegroundColor Green
 Write-Host "PARCHE: $salida" -ForegroundColor Green
 Write-Host "SHA   : $shaZip"
-Write-Host "Aplica sobre una instalacion $Base y la deja en $nueva."
+Write-Host "Aplica sobre una instalacion $Base o posterior (hasta la $nueva) y la deja en $nueva."
+Write-Host ""
+Write-Host "Para subirlo a OrbitX (panel web, superadmin): https://orbitx.agroparallel.com/firmwares"
+Write-Host "  arrastra $paraWeb  -> detecta producto PilotXParche y version $nueva solo."
+Write-Host "Por consola: scp $paraWeb do:/tmp/ ; ssh do 'cd /opt/AgroParallel/OrbitX && node scripts/registrar-fw.js PilotXParche $nueva /tmp/PilotXParche_v${nueva}.zip \"changelog\"'"
