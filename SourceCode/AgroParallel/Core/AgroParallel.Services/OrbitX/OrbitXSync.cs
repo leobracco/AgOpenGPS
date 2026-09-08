@@ -631,6 +631,44 @@ namespace AgroParallel.OrbitX
         private static string _rustdeskId;
         private static bool _rustdeskLeido;
 
+        // ── Nodos para el heartbeat ──────────────────────────────────────────
+        /// <summary>Lo cablea el host con el registro de nodos (NodoRegistryService.GetAll).
+        /// Sin proveedor el heartbeat manda una lista vacia.</summary>
+        public Func<IReadOnlyList<AgroParallel.Models.NodoStatus>> NodosProvider { get; set; }
+
+        private List<Dictionary<string, object>> ArmarNodos()
+        {
+            var lista = new List<Dictionary<string, object>>();
+            try
+            {
+                var nodos = NodosProvider?.Invoke();
+                if (nodos == null) return lista;
+                foreach (var n in nodos)
+                {
+                    if (n == null || string.IsNullOrEmpty(n.Uid)) continue;
+                    lista.Add(new Dictionary<string, object>
+                    {
+                        { "uid", n.Uid },
+                        { "tipo", n.Type ?? "" },
+                        { "fw", n.Firmware ?? "" },
+                        { "ip", n.Ip ?? "" },
+                        { "online", n.Online },
+                        { "motors", n.Motors },
+                        { "cables", n.Cables },
+                        { "safe_mode", n.SafeMode },
+                        { "crash_count", n.CrashCount },
+                        { "last_seen", n.LastSeenUtc == default ? null : (object)n.LastSeenUtc.ToString("o") },
+                    });
+                    if (lista.Count >= 64) break;    // un heartbeat, no un censo
+                }
+            }
+            catch (Exception ex)
+            {
+                AgpLog.Warn("OrbitXSync", "armando nodos para el heartbeat", ex);
+            }
+            return lista;
+        }
+
         private static string LeerRustDeskId()
         {
             if (_rustdeskLeido) return _rustdeskId;
@@ -687,7 +725,11 @@ namespace AgroParallel.OrbitX
                     // ID de RustDesk (soporte remoto): si está instalado se lee
                     // una vez y viaja en el payload; el CRM lo muestra en la
                     // ficha del cliente. Sin RustDesk va null — nada que instalar.
-                    { "rustdesk_id", LeerRustDeskId() }
+                    { "rustdesk_id", LeerRustDeskId() },
+                    // Nodos ESP32 vistos por el broker (QuantiX, VistaX, FlowX…)
+                    // con su firmware: OrbitX los muestra en Dispositivos y marca
+                    // los que tienen una version mas nueva en el catalogo.
+                    { "nodos", ArmarNodos() }
                 };
 
                 string json = JsonSerializer.Serialize(payload);
