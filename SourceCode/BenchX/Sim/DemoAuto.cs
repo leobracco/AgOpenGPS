@@ -37,6 +37,7 @@ public sealed class DemoAuto : IDisposable
     private readonly double _lat0, _lon0, _mLat, _mLon;
     private readonly List<(double x, double y, bool giro)> _ruta = new();
     private int _idx;
+    private bool _enRuta;                 // false hasta llegar al punto 0 de la ruta
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(4) };
     private CancellationTokenSource? _cts;
     private Task? _tarea;
@@ -135,18 +136,46 @@ public sealed class DemoAuto : IDisposable
 
         double px = (lon - _lon0) * _mLon, py = (lat - _lat0) * _mLat;
 
-        // Avanzar el indice mientras el punto actual quede atras (a menos de 3 m).
-        while (_idx < _ruta.Count - 1 && Dist(px, py, _ruta[_idx]) < 3.0) _idx++;
-        if (_idx >= _ruta.Count - 1 && Dist(px, py, _ruta[^1]) < 4.0)
+        const double L = 8.0;
+
+        // Al arrancar (o tras reiniciar la vuelta) el tractor puede estar
+        // lejos del inicio de la ruta: primero ir al punto 0 y recien ahi
+        // engancharse. Sin esto, buscar "el punto mas cercano" desde el
+        // centro del lote lo hacia entrar por la mitad de la cabecera.
+        if (!_enRuta)
         {
-            _idx = 0; Vuelta++;                         // vuelta completa: de nuevo
+            if (Dist(px, py, _ruta[0]) < 10.0) { _enRuta = true; _idx = 0; }
         }
 
-        // Punto objetivo: el primero a mas de L metros por delante en la ruta.
-        const double L = 8.0;
-        int j = _idx;
-        while (j < _ruta.Count - 1 && Dist(px, py, _ruta[j]) < L) j++;
-        var obj = _ruta[j];
+        (double x, double y, bool giro) obj;
+        if (!_enRuta)
+        {
+            obj = _ruta[0];
+        }
+        else
+        {
+            // Indice = punto MAS CERCANO en una ventana hacia adelante (nunca
+            // retrocede). Antes se avanzaba solo al pasar a 3 m de cada punto:
+            // cortando una esquina a 8 m el indice quedaba clavado y el tractor
+            // giraba en circulos sobre esa esquina (paso en el taller).
+            int mejor = _idx; double dm = double.MaxValue;
+            int fin = Math.Min(_ruta.Count, _idx + 60);
+            for (int k = _idx; k < fin; k++)
+            {
+                double dk = Dist(px, py, _ruta[k]);
+                if (dk < dm) { dm = dk; mejor = k; }
+            }
+            _idx = mejor;
+            if (_idx >= _ruta.Count - 1 && dm < 6.0)
+            {
+                _idx = 0; _enRuta = false; Vuelta++;    // vuelta completa: de nuevo desde el inicio
+            }
+
+            // Objetivo: el primer punto por delante a L metros o mas.
+            int j = _idx;
+            while (j < _ruta.Count - 1 && Dist(px, py, _ruta[j]) < L) j++;
+            obj = _ruta[j];
+        }
         bool enGiro = obj.giro || _ruta[_idx].giro;
 
         // Pure pursuit con anticipacion FIJA: curvatura = 2 sin(alfa) / L.
