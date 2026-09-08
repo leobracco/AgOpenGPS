@@ -105,6 +105,7 @@ namespace PilotX.GuidanceEngine.Adapters
                 snap.IsAutoSteerOn = _host.isBtnAutoSteerOn;
                 snap.IsSectionAutoOn = _host.autoBtnState == btnStates.Auto;
                 snap.IsSectionManualOn = _host.manualBtnState == btnStates.On;
+                snap.IsReverse = _host.isReverse;
                 if (_host.Trk != null)
                 {
                     snap.IsAutoSnapToPivot = _host.Trk.isAutoSnapToPivot;

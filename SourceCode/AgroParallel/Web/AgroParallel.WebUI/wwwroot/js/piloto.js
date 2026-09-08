@@ -172,6 +172,29 @@
     setFollow(false);
   });
   window.addEventListener('mouseup', function () { isDragging = false; });
+
+  // ---- reversa: tocar el tractor resetea la direccion ----
+  // En AgOpenGPS, cuando el motor detecta reversa (rumbo GPS invertido) dibuja
+  // una flecha roja sobre el tractor y corta el autosteer; tocar el tractor
+  // manda "reset direccion" y vuelve a marcha adelante. Un tap = mousedown +
+  // mouseup sin arrastre, dentro de 45 px del pivote.
+  var tapStart = null;
+  canvas.addEventListener('mousedown', function (ev) { tapStart = { x: ev.clientX, y: ev.clientY, t: Date.now() }; });
+  canvas.addEventListener('mouseup', function (ev) {
+    if (!tapStart) return;
+    var dx = ev.clientX - tapStart.x, dy = ev.clientY - tapStart.y;
+    var esTap = (dx * dx + dy * dy) < 100 && (Date.now() - tapStart.t) < 600;
+    tapStart = null;
+    if (!esTap || !snap.isReverse) return;
+    var rect = canvas.getBoundingClientRect();
+    var p = worldToScreen(snap.pivotEasting, snap.pivotNorthing);
+    var ex = ev.clientX - rect.left - p.x, ey = ev.clientY - rect.top - p.y;
+    if ((ex * ex + ey * ey) > 45 * 45) return;
+    fetch('/api/aog/guidance/command', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd: 'reset_direccion' })
+    }).then(function () { snap.isReverse = false; }).catch(function () {});
+  });
   canvas.addEventListener('wheel', function (ev) {
     ev.preventDefault();
     var k = ev.deltaY < 0 ? 1.15 : 1/1.15;
@@ -620,6 +643,38 @@
     ctx.beginPath();
     ctx.arc(pivot.x, pivot.y, 3, 0, Math.PI * 2);
     ctx.fill();
+
+    // Reversa (igual que AgOpenGPS): flecha roja apuntando hacia atras del
+    // tractor + aviso. Se resetea tocando el tractor (ver mouseup) o al
+    // volver a avanzar. Mientras dura, el motor tiene el autosteer cortado.
+    if (snap.isReverse) {
+      var len = Math.max(28, hpx * 0.9);
+      ctx.save();
+      ctx.translate(pivot.x, pivot.y);
+      ctx.rotate(snap.heading + Math.PI);          // hacia atras
+      ctx.strokeStyle = '#E5484D';
+      ctx.fillStyle = '#E5484D';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -len); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, -len - 8); ctx.lineTo(11, -len + 8); ctx.lineTo(-11, -len + 8); ctx.closePath(); ctx.fill();
+      ctx.restore();
+
+      var rectR = canvas.getBoundingClientRect();
+      var txt = 'REVERSA · tocá el tractor para marcha adelante';
+      ctx.save();
+      ctx.font = 'bold 14px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      var tw = ctx.measureText(txt).width + 28;
+      var bx = rectR.width / 2 - tw / 2, by = 14;
+      ctx.fillStyle = 'rgba(229,72,77,0.92)';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(bx, by, tw, 30, 8); else ctx.rect(bx, by, tw, 30);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.fillText(txt, rectR.width / 2, by + 15);
+      ctx.restore();
+    }
   }
 
   function drawCompass() {
@@ -798,6 +853,7 @@
       var s = await res.json();
       // /api/aog/state serializa en snake_case (AgpJson).
       snap.isJobStarted     = !!s.is_job_started;
+      snap.isReverse        = !!s.is_reverse;
       snap.avgSpeed         = s.avg_speed || 0;
       snap.heading          = s.heading || 0;
       snap.pivotEasting     = s.pivot_easting || 0;

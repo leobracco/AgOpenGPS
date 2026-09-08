@@ -114,6 +114,11 @@ namespace AgroParallel.Models
         /// <summary>Secciones en manual (manualBtnState == On).</summary>
         public bool IsSectionManualOn { get; set; }
 
+        /// <summary>El motor detecto marcha atras (isReverse): rumbo GPS invertido,
+        /// autosteer cortado. Se sale avanzando o con el comando reset_direccion
+        /// (tocar el tractor en el mapa, como en AgOpenGPS).</summary>
+        public bool IsReverse { get; set; }
+
         /// <summary>Hay comunicación ISOBUS viva (isobus.IsAlive()) — muestra el botón.</summary>
         public bool IsobusAlive { get; set; }
 
