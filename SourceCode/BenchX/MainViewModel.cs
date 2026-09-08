@@ -59,6 +59,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         BrokerTexto = $"{_config.BrokerHost}:{_config.BrokerPort}  ·  {_config.QxUid} ({_config.QxMotores} motores)  ·  {_config.VxUid} ({_config.VxCables} sensores)";
         _nodos.Start();
 
+        // Demo que se maneja sola (Expo): config o argumento --demo.
+        _demo = new DemoAuto(_config);
+        bool argDemo = Array.Exists(Environment.GetCommandLineArgs(), a => string.Equals(a, "--demo", StringComparison.OrdinalIgnoreCase));
+        _demoActivo = _config.Demo || argDemo;
+        _demo.Activo = _demoActivo;
+        DemoResumenTexto = $"lote \"{_config.DemoLote}\" · {_config.DemoAnchoM:0} x {_config.DemoLargoM:0} m · labor {_config.DemoAnchoLaborM:0.00} m · {_config.DemoVueltasCabecera} vueltas de cabecera · {_config.DemoVelocidadKmh:0} km/h";
+        _demo.Start();
+
         IpsLocales = LeerIpsLocales();
         SubredTexto = $"{_config.Subred1}.{_config.Subred2}.{_config.Subred3}.255:9999";
 
@@ -139,6 +147,24 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string NodosErrorTexto { get; private set; } = "";
     public bool NodosConError => !string.IsNullOrEmpty(NodosErrorTexto);
 
+    // Demo que se maneja sola (Expo).
+    private readonly DemoAuto _demo;
+    private bool _demoActivo;
+    public bool DemoActivo
+    {
+        get => _demoActivo;
+        set
+        {
+            _demoActivo = value; _demo.Activo = value;
+            if (!value) { VelocidadKmh = 0; AnguloDireccion = 0; }
+            Notificar();
+        }
+    }
+    public string DemoResumenTexto { get; private set; } = "";
+    public string DemoEstadoTexto { get; private set; } = "—";
+    public string DemoPilotXTexto { get; private set; } = "—";
+    public bool DemoPilotXListo { get; private set; }
+
     // ------------------------- lecturas live -------------------------
 
     public string RumboTexto { get; private set; } = "0.00°";
@@ -189,7 +215,15 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // Con guiado activo el volante lo maneja PilotX: el slider sigue al
         // setpoint — ese es el "motor perfecto" simulado. Con Motor apagado
         // (motor real en el banco) el ángulo queda en manos del slider.
-        if (_pgn.GuidanceStatus != 0 && EmularMotor)
+        if (DemoActivo)
+        {
+            // La demo maneja: velocidad y volante salen del conductor
+            // automatico, no de los sliders ni del setpoint de PilotX.
+            _demo.Conducir(_sim.Latitude, _sim.Longitude, _sim.HeadingDeg);
+            VelocidadKmh = _demo.SalidaVelocidadKmh;
+            AnguloDireccion = _demo.SalidaAnguloDeg;
+        }
+        else if (_pgn.GuidanceStatus != 0 && EmularMotor)
             AnguloDireccion = _pgn.SteerAngleSetPoint;
 
         _sim.SpeedKmh = VelocidadKmh;
@@ -276,6 +310,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
         Notificar(nameof(MotoresTexto)); Notificar(nameof(SemillasTexto)); Notificar(nameof(NodosStatsTexto));
         Notificar(nameof(NodosErrorTexto)); Notificar(nameof(NodosConError));
 
+        // Demo
+        DemoEstadoTexto = DemoActivo ? _demo.Estado : "apagada";
+        DemoPilotXTexto = _demo.EstadoPilotX;
+        DemoPilotXListo = _demo.PilotXListo;
+        Notificar(nameof(DemoEstadoTexto)); Notificar(nameof(DemoPilotXTexto)); Notificar(nameof(DemoPilotXListo));
+
         Notificar(nameof(RumboTexto)); Notificar(nameof(LatActualTexto)); Notificar(nameof(LonActualTexto));
         Notificar(nameof(GuiadoActivo)); Notificar(nameof(GuiadoTexto));
         Notificar(nameof(SetPointTexto)); Notificar(nameof(VelPilotXTexto));
@@ -313,8 +353,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _config.EmularGps = EmularGps; _config.EmularWas = EmularWas; _config.EmularMotor = EmularMotor;
         _config.EmularMaquina = EmularMaquina; _config.EmularImu = EmularImu;
         _config.EmularQuantiX = EmularQuantiX; _config.EmularVistaX = EmularVistaX;
+        _config.Demo = DemoActivo;
         try { _config.Guardar(_rutaConfig); } catch { }
         _link.Dispose();
+        try { _demo.Dispose(); } catch { }
         try { _nodos.Dispose(); } catch { }
     }
 

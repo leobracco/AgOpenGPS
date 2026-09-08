@@ -244,6 +244,26 @@
 
         <Border Classes="card">
           <StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="titulo" Text="DEMO AUTOMÁTICA (EXPO)"/>
+              <ToggleSwitch Grid.Column="1" OnContent="andando" OffContent="apagada" IsChecked="{Binding DemoActivo}"/>
+            </Grid>
+            <TextBlock Classes="dato" TextWrapping="Wrap" Text="{Binding DemoResumenTexto}"/>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" Margin="0,8,0,0">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="PilotX"/>
+              <Border Grid.Row="0" Grid.Column="1" Classes="badge" Classes.activo="{Binding DemoPilotXListo}" Margin="16,0,0,0" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding DemoPilotXTexto}"/>
+              </Border>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Tractor"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Classes="datoValor" Margin="16,4,0,0" Text="{Binding DemoEstadoTexto}"/>
+            </Grid>
+            <TextBlock Classes="dato" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Text="Abre el lote, activa la prescripción, pone secciones en automático y maneja solo: vueltas de cabecera y pasadas con giro en U. Para reiniciar la demo, borrar la cobertura en PilotX. Con --demo arranca minimizado."/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
             <TextBlock Classes="titulo" Text="NODOS EMULADOS (MQTT)"/>
             <TextBlock Classes="dato" TextWrapping="Wrap" Text="{Binding BrokerTexto}"/>
             <WrapPanel Margin="0,8,0,0">

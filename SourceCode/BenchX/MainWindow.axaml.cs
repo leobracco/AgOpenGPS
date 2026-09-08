@@ -18,6 +18,15 @@ public partial class MainWindow : Window
         DataContext = _vm;
         _vm.ReinicioPedido += Reiniciar;
         Closing += (_, _) => _vm.Cerrar();
+
+        // Modo demo (Expo): PilotX va a pantalla completa encima; BenchX
+        // arranca minimizado y trabaja atras. Se puede restaurar desde la
+        // barra de tareas si hace falta tocar algo.
+        if (_vm.DemoActivo)
+        {
+            WindowState = WindowState.Minimized;
+            ShowActivated = false;
+        }
     }
 
     private void CeroVelocidad_Click(object? s, RoutedEventArgs e) => _vm.CeroVelocidad();

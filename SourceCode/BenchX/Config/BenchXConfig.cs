@@ -49,6 +49,26 @@ public sealed class BenchXConfig
     public double SemillasPorVuelta { get; set; } = 24;   // mismo default que la config de motores
     public double DientesEngranaje { get; set; } = 600;   // pulsos por vuelta del motor
 
+    // Modo DEMO (Expo): BenchX arranca minimizado, espera a PilotX, abre el
+    // lote, activa la prescripcion, pone secciones en automatico y maneja
+    // solo: dos vueltas de cabecera y despues pasadas paralelas con giros en
+    // U. El lote es un rectangulo centrado en Latitud/Longitud (el mismo que
+    // se genero como KML). Cuando termina vuelve a empezar; como las
+    // secciones estan en automatico no repinta: el operario borra la
+    // cobertura y la demo arranca de nuevo. Se activa con Demo=true o con el
+    // argumento --demo.
+    public bool Demo { get; set; } = false;
+    public string DemoLote { get; set; } = "Expo 20ha";
+    public string DemoPrescripcionId { get; set; } = "expo-20ha";
+    public string DemoPropiedadDosis { get; set; } = "semilla";
+    public string PilotXApi { get; set; } = "http://127.0.0.1:5180";
+    public double DemoAnchoM { get; set; } = 500;         // este-oeste
+    public double DemoLargoM { get; set; } = 400;         // norte-sur (sentido de las pasadas)
+    public double DemoAnchoLaborM { get; set; } = 7.28;   // 14 surcos x 0,52
+    public int DemoVueltasCabecera { get; set; } = 2;
+    public double DemoVelocidadKmh { get; set; } = 8;
+    public double DemoVelocidadGiroKmh { get; set; } = 5;
+
     public static string RutaDefault => Path.Combine(AppContext.BaseDirectory, "benchx.json");
 
     private static readonly JsonSerializerOptions Opciones = new()
