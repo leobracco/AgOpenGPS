@@ -203,14 +203,32 @@ public sealed class DemoAuto : IDisposable
 
                     if (loteOk && !PilotXListo)
                     {
-                        // Recien abierto (o PilotX recien levantado): prescripcion + secciones auto.
+                        // Recien abierto (o PilotX recien levantado): prescripcion.
                         EstadoPilotX = "activando prescripcion";
                         string body = "{\"id\":\"" + _cfg.DemoPrescripcionId + "\",\"propiedad_dosis\":\"" + _cfg.DemoPropiedadDosis + "\"}";
                         await _http.PostAsync(api + "/api/prescripciones/activa", new StringContent(body, Encoding.UTF8, "application/json"), ct);
                         await Task.Delay(500, ct);
-                        await _http.PostAsync(api + "/api/aog/guidance/command", new StringContent("{\"cmd\":\"sec_auto\"}", Encoding.UTF8, "application/json"), ct);
-                        PilotXListo = true;
-                        EstadoPilotX = "PilotX listo: lote abierto, prescripcion activa, secciones auto";
+                    }
+
+                    if (loteOk)
+                    {
+                        // Secciones en AUTOMATICO. Ojo: "sec_auto" es un toggle
+                        // (igual que el boton de la pantalla), asi que primero se
+                        // mira el estado y solo se manda si no esta en auto. Se
+                        // revisa en cada vuelta por si alguien lo toco.
+                        string st = await _http.GetStringAsync(api + "/api/aog/state", ct);
+                        bool auto = string.Equals(Campo(st, "is_section_auto_on"), "True", StringComparison.OrdinalIgnoreCase)
+                                 || Campo(st, "is_section_auto_on") == "true";
+                        if (!auto)
+                        {
+                            await _http.PostAsync(api + "/api/aog/guidance/command", new StringContent("{\"cmd\":\"sec_auto\"}", Encoding.UTF8, "application/json"), ct);
+                            EstadoPilotX = "secciones puestas en automatico";
+                        }
+                        if (!PilotXListo)
+                        {
+                            PilotXListo = true;
+                            EstadoPilotX = "PilotX listo: lote abierto, prescripcion activa, secciones auto";
+                        }
                     }
                     else if (!loteOk)
                     {

@@ -64,6 +64,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         bool argDemo = Array.Exists(Environment.GetCommandLineArgs(), a => string.Equals(a, "--demo", StringComparison.OrdinalIgnoreCase));
         _demoActivo = _config.Demo || argDemo;
         _demo.Activo = _demoActivo;
+        if (_demoActivo) SwitchTrabajo = true;   // por si PilotX tiene el switch de trabajo habilitado
         DemoResumenTexto = $"lote \"{_config.DemoLote}\" · {_config.DemoAnchoM:0} x {_config.DemoLargoM:0} m · labor {_config.DemoAnchoLaborM:0.00} m · {_config.DemoVueltasCabecera} vueltas de cabecera · {_config.DemoVelocidadKmh:0} km/h";
         _demo.Start();
 
