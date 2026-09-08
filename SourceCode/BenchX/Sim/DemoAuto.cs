@@ -135,32 +135,43 @@ public sealed class DemoAuto : IDisposable
 
         double px = (lon - _lon0) * _mLon, py = (lat - _lat0) * _mLat;
 
-        // Avanzar el indice mientras el punto actual quede atras (a menos de 2 m).
-        while (_idx < _ruta.Count - 1 && Dist(px, py, _ruta[_idx]) < 2.0) _idx++;
-        if (_idx >= _ruta.Count - 1 && Dist(px, py, _ruta[^1]) < 3.0)
+        // Avanzar el indice mientras el punto actual quede atras (a menos de 3 m).
+        while (_idx < _ruta.Count - 1 && Dist(px, py, _ruta[_idx]) < 3.0) _idx++;
+        if (_idx >= _ruta.Count - 1 && Dist(px, py, _ruta[^1]) < 4.0)
         {
             _idx = 0; Vuelta++;                         // vuelta completa: de nuevo
         }
 
         // Punto objetivo: el primero a mas de L metros por delante en la ruta.
-        double L = 6.0;
+        const double L = 8.0;
         int j = _idx;
         while (j < _ruta.Count - 1 && Dist(px, py, _ruta[j]) < L) j++;
         var obj = _ruta[j];
         bool enGiro = obj.giro || _ruta[_idx].giro;
 
-        // Pure pursuit: curvatura = 2 sin(alfa) / L  (alfa = angulo al objetivo).
+        // Pure pursuit con anticipacion FIJA: curvatura = 2 sin(alfa) / L.
+        // (Antes se usaba la distancia real al objetivo: con el objetivo a
+        // 300 m la curvatura era casi cero y el tractor iba derecho; y con
+        // el objetivo a la espalda sin(alfa) ~ 0 y no giraba nunca. Paso en
+        // el taller: una vuelta de 4 minutos por fuera del lote.)
         double rumbo = headingDeg * Math.PI / 180.0;    // 0 = norte, horario
         double dx = obj.x - px, dy = obj.y - py;
         double rumboObj = Math.Atan2(dx, dy);           // idem, 0 = norte
         double alfa = rumboObj - rumbo;
         while (alfa > Math.PI) alfa -= 2 * Math.PI;
         while (alfa < -Math.PI) alfa += 2 * Math.PI;
-        double d = Math.Max(1.0, Math.Sqrt(dx * dx + dy * dy));
-        double kappa = 2 * Math.Sin(alfa) / d;          // 1/m, positiva = a la derecha
 
-        // Cinematica de ModSim: dHeading/dm = tan(deg*0.02)/2.5  ->  deg = atan(2.5*kappa)/0.02
-        double grados = Math.Atan(2.5 * kappa) / 0.02;
+        double grados;
+        if (Math.Abs(alfa) > Math.PI / 2)
+        {
+            grados = alfa > 0 ? 40 : -40;               // objetivo atras: giro maximo hacia el
+        }
+        else
+        {
+            double kappa = 2 * Math.Sin(alfa) / L;      // 1/m, positiva = a la derecha
+            // Cinematica de ModSim: dHeading/dm = tan(deg*0.02)/2.5  ->  deg = atan(2.5*kappa)/0.02
+            grados = Math.Atan(2.5 * kappa) / 0.02;
+        }
         SalidaAnguloDeg = Math.Clamp(grados, -40, 40);
         SalidaVelocidadKmh = enGiro ? _cfg.DemoVelocidadGiroKmh : _cfg.DemoVelocidadKmh;
         Estado = (enGiro ? "girando" : "pasada") + $" · punto {_idx + 1}/{_ruta.Count} · vuelta {Vuelta + 1}";
