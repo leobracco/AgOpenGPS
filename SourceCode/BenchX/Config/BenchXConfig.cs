@@ -12,8 +12,10 @@ public sealed class BenchXConfig
     public byte Subred1 { get; set; } = 127;   // default banco loopback
     public byte Subred2 { get; set; } = 255;
     public byte Subred3 { get; set; } = 255;
-    public double Latitud { get; set; } = 53.4360564;   // arranque histórico de ModSim
-    public double Longitud { get; set; } = -111.160047;
+    // Arranque en campo de Tres Arroyos (Buenos Aires), zona de Agro Parallel;
+    // antes era el campo canadiense historico de ModSim (53.436, -111.160).
+    public double Latitud { get; set; } = -38.3450;
+    public double Longitud { get; set; } = -60.2650;
     public bool Gga { get; set; }
     public bool Vtg { get; set; }
     public bool Avr { get; set; }

@@ -163,10 +163,54 @@ if ($ConBenchX) { Copy-Item "$tmp\benchx.zip" -Destination "C:\PilotX\deploy-ben
 Invoke-Command -Session $s -ScriptBlock {
     param($conEngine, $conBenchX, $soloBenchX)
 
-    if (-not $soloBenchX) { Get-Process PilotX.Desktop -EA SilentlyContinue | Stop-Process -Force }
+    # Cualquier error aca adentro tiene que ABORTAR: seguir con un rename
+    # fallido termina en Expand-Archive sobre la carpeta vieja (mezcla de
+    # versiones = pantalla que no arranca, leccion 1.0.48). 2026-09-07: el
+    # rename de Desktop fallo con "acceso denegado" y el script siguio.
+    $ErrorActionPreference = "Stop"
+
+    # Expand-Archive en el taller carga el modulo Archive con un error de
+    # recursos localizados (es-MX) que con ErrorActionPreference=Stop aborta
+    # (2026-09-07: dejo la pantalla sin Desktop). Se descomprime con .NET.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    function Expandir([string]$zip, [string]$destino, [bool]$pisar) {
+        New-Item -ItemType Directory -Force $destino | Out-Null
+        $za = [System.IO.Compression.ZipFile]::OpenRead($zip)
+        try {
+            foreach ($e in $za.Entries) {
+                # Compress-Archive de Windows PowerShell escribe las entradas
+                # con "\" como separador; las de carpeta terminan en "\" o "/"
+                # y tienen Name vacio. Normalizar antes de extraer.
+                $rel = $e.FullName.Replace('/', '\').TrimStart('\')
+                if ([string]::IsNullOrEmpty($rel)) { continue }
+                $ruta = Join-Path $destino $rel
+                if ($rel.EndsWith('\') -or [string]::IsNullOrEmpty($e.Name)) { New-Item -ItemType Directory -Force $ruta | Out-Null; continue }
+                $dir = Split-Path $ruta -Parent
+                if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
+                if ((Test-Path $ruta) -and -not $pisar) { continue }
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($e, $ruta, $true)
+            }
+        } finally { $za.Dispose() }
+    }
+
+    if (-not $soloBenchX) {
+        # El vigilante de Lanzar-PilotX.bat relanza la pantalla a los 3 s si
+        # muere con error (matarla cuenta como error). Con este flag presente
+        # NO relanza y el bucle termina; se borra antes de relanzar al final.
+        New-Item -ItemType File -Path "C:\PilotX\actualizando.flag" -Force | Out-Null
+        Get-Process PilotX.Desktop -EA SilentlyContinue | Stop-Process -Force
+        # Los hijos del WebView2 (msedgewebview2) sobreviven al Desktop y
+        # mantienen abierta Desktop\PilotX.Desktop.exe.WebView2: con ellos
+        # vivos la carpeta no se puede renombrar.
+        Get-Process msedgewebview2 -EA SilentlyContinue | Stop-Process -Force
+    }
     if ($conEngine) { Get-Process PilotX.GuidanceEngine -EA SilentlyContinue | Stop-Process -Force }
     if ($conBenchX) { Get-Process BenchX -EA SilentlyContinue | Stop-Process -Force }
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 3
+    if (-not $soloBenchX) {
+        $vivos = @(Get-Process PilotX.Desktop, msedgewebview2 -EA SilentlyContinue)
+        if ($vivos.Count -gt 0) { throw "Siguen vivos: " + (($vivos | ForEach-Object { $_.ProcessName }) -join ", ") }
+    }
 
     # BenchX: rename-replace (no tiene datos de usuario que importen; su
     # benchx.json de config se conserva si existia). Lanzador + acceso directo
@@ -177,7 +221,7 @@ Invoke-Command -Session $s -ScriptBlock {
         $bxBak = "C:\PilotX\BenchX-anterior"
         if (Test-Path $bxBak) { Remove-Item $bxBak -Recurse -Force }
         if (Test-Path "C:\PilotX\BenchX") { Rename-Item "C:\PilotX\BenchX" $bxBak }
-        Expand-Archive "C:\PilotX\deploy-benchx.zip" -DestinationPath "C:\PilotX\BenchX"
+        Expandir "C:\PilotX\deploy-benchx.zip" "C:\PilotX\BenchX" $true
         Remove-Item "C:\PilotX\deploy-benchx.zip" -Force
         if ($bxCfg) { Set-Content "C:\PilotX\BenchX\benchx.json" $bxCfg -Encoding UTF8 }
 
@@ -198,20 +242,20 @@ Invoke-Command -Session $s -ScriptBlock {
     $bak = "C:\PilotX\Desktop-anterior"
     if (Test-Path $bak) { Remove-Item $bak -Recurse -Force }
     if (Test-Path "C:\PilotX\Desktop") { Rename-Item "C:\PilotX\Desktop" $bak }
-    Expand-Archive "C:\PilotX\deploy-desktop.zip" -DestinationPath "C:\PilotX\Desktop"
+    Expandir "C:\PilotX\deploy-desktop.zip" "C:\PilotX\Desktop" $true
     Remove-Item "C:\PilotX\deploy-desktop.zip" -Force
 
     # wwwroot: rename-replace (estaticos, la fuente de verdad es el source).
     $wbak = "C:\PilotX\AgroParallel\wwwroot-anterior"
     if (Test-Path $wbak) { Remove-Item $wbak -Recurse -Force }
     if (Test-Path "C:\PilotX\AgroParallel\wwwroot") { Rename-Item "C:\PilotX\AgroParallel\wwwroot" $wbak }
-    Expand-Archive "C:\PilotX\deploy-wwwroot.zip" -DestinationPath "C:\PilotX\AgroParallel\wwwroot"
+    Expandir "C:\PilotX\deploy-wwwroot.zip" "C:\PilotX\AgroParallel\wwwroot" $true
     Remove-Item "C:\PilotX\deploy-wwwroot.zip" -Force
 
     # Engine: OVERLAY sobre el existente — los datos y configs del taller
     # (Fields, prescripciones, orbitX.json con su identidad) quedan intactos.
     if ($conEngine) {
-        Expand-Archive "C:\PilotX\deploy-engine.zip" -DestinationPath "C:\PilotX\Engine" -Force
+        Expandir "C:\PilotX\deploy-engine.zip" "C:\PilotX\Engine" $true
         Remove-Item "C:\PilotX\deploy-engine.zip" -Force
     }
 
@@ -223,12 +267,19 @@ Invoke-Command -Session $s -ScriptBlock {
     # /rl LIMITED, nunca highest: WebView2 no lanza su proceso hijo bajo un
     # proceso elevado — con la tarea elevada TODA pagina HTML (lote, cabecera,
     # overlays) queda en negro aunque el server :5180 responda (2026-08-05).
-    schtasks /query /tn "PilotX-Diag" >$null 2>&1
+    # Relanzar con el lanzador del kiosko (Lanzar-PilotX.bat: Engine + pantalla
+    # + vigilante) si existe; si no, con lanzar-diag.bat. Primero se saca el
+    # flag que frena al vigilante. Las tareas se manejan via cmd /c para no
+    # disparar NativeCommandError con $ErrorActionPreference = Stop.
+    Remove-Item "C:\PilotX\actualizando.flag" -Force -EA SilentlyContinue
+    $lanzador = if (Test-Path "C:\PilotX\Lanzar-PilotX.bat") { "C:\PilotX\Lanzar-PilotX.bat" } else { "C:\PilotX\lanzar-diag.bat" }
+    $tarea = if ($lanzador -like "*Lanzar-PilotX*") { "PilotX-Kiosk" } else { "PilotX-Diag" }
+    cmd /c "schtasks /query /tn $tarea >nul 2>&1"
     if ($LASTEXITCODE -ne 0) {
-        schtasks /create /tn "PilotX-Diag" /tr "C:\PilotX\lanzar-diag.bat" /sc once /st 23:59 /it /f /rl limited | Out-Null
+        cmd /c "schtasks /create /tn $tarea /tr `"$lanzador`" /sc once /st 23:59 /it /f /rl limited >nul 2>&1"
     }
-    schtasks /run /tn "PilotX-Diag" | Out-Null
-    Start-Sleep -Seconds 15
+    cmd /c "schtasks /run /tn $tarea >nul 2>&1"
+    Start-Sleep -Seconds 20
     $d = Get-Process PilotX.Desktop -EA SilentlyContinue
     $e = Get-Process PilotX.GuidanceEngine -EA SilentlyContinue
     if ($d -and $e) { "OK: Desktop (PID $($d.Id)) + Engine (PID $($e.Id)) corriendo" }
@@ -237,3 +288,7 @@ Invoke-Command -Session $s -ScriptBlock {
 
 Remove-PSSession $s
 Write-Host "== listo ==" -ForegroundColor Green
+
+# Salida limpia: el ultimo comando nativo (schtasks via cmd) deja un exit code
+# que si no se pisa la consola lo muestra como fallo aunque todo haya ido bien.
+exit 0
