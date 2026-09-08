@@ -23,6 +23,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly SimuladorVehiculo _sim = new();
     private readonly PgnProcessor _pgn = new();
     private readonly UdpLink _link;
+    private readonly NodosEmulados _nodos;
     private readonly DispatcherTimer _timer;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -51,6 +52,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
         _link = new UdpLink(_config.Subred1, _config.Subred2, _config.Subred3);
         _link.DatagramaRecibido += AlRecibir;
+
+        // Nodos QuantiX/VistaX emulados por MQTT (broker embebido de PilotX).
+        _nodos = new NodosEmulados(_config);
+        _emularQuantiX = _config.EmularQuantiX; _emularVistaX = _config.EmularVistaX;
+        BrokerTexto = $"{_config.BrokerHost}:{_config.BrokerPort}  ·  {_config.QxUid} ({_config.QxMotores} motores)  ·  {_config.VxUid} ({_config.VxCables} sensores)";
+        _nodos.Start();
 
         IpsLocales = LeerIpsLocales();
         SubredTexto = $"{_config.Subred1}.{_config.Subred2}.{_config.Subred3}.255:9999";
@@ -116,6 +123,21 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public bool EmularMaquina { get => _emularMaquina; set { _emularMaquina = value; _pgn.EmularMaquina = value; Notificar(); } }
     public bool EmularImu { get => _emularImu; set { _emularImu = value; _pgn.EmularImu = value; Notificar(); } }
     public void BotonDireccionRemoto() => _pgn.SteerSwitch = _pgn.SteerSwitch > 0 ? 0 : 1;
+
+    // Nodos emulados por MQTT (QuantiX 7 motores + VistaX 14 sensores).
+    private bool _emularQuantiX = true, _emularVistaX = true;
+    public bool EmularQuantiX { get => _emularQuantiX; set { _emularQuantiX = value; _nodos.EmularQuantiX = value; Notificar(); } }
+    public bool EmularVistaX { get => _emularVistaX; set { _emularVistaX = value; _nodos.EmularVistaX = value; Notificar(); } }
+    public string BrokerTexto { get; private set; } = "";
+    public bool QxConectado { get; private set; }
+    public bool VxConectado { get; private set; }
+    public string QxEstadoTexto { get; private set; } = "sin broker";
+    public string VxEstadoTexto { get; private set; } = "sin broker";
+    public string MotoresTexto { get; private set; } = "—";
+    public string SemillasTexto { get; private set; } = "—";
+    public string NodosStatsTexto { get; private set; } = "—";
+    public string NodosErrorTexto { get; private set; } = "";
+    public bool NodosConError => !string.IsNullOrEmpty(NodosErrorTexto);
 
     // ------------------------- lecturas live -------------------------
 
@@ -232,6 +254,28 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ScanRespondido = _pgn.ScanRespondido;
         ScanTexto = ScanRespondido ? "respondido" : "sin responder";
 
+        // Nodos emulados
+        QxConectado = _nodos.QxConectado;
+        VxConectado = _nodos.VxConectado;
+        bool hayTarget = (DateTime.UtcNow - _nodos.UltimoTargetUtc).TotalSeconds < 2;
+        QxEstadoTexto = !EmularQuantiX ? "apagado" : !QxConectado ? "sin broker" : hayTarget ? "recibiendo targets" : "conectado, sin targets";
+        VxEstadoTexto = !EmularVistaX ? "apagado" : !VxConectado ? "sin broker" : "publicando";
+        var ms = _nodos.SnapshotMotores();
+        var sbM = new StringBuilder();
+        foreach (var m in ms)
+            sbM.Append('M').Append(m.Id + 1).Append(m.SeccionOn ? " ●" : " ○").Append(' ')
+               .Append(m.PpsReal.ToString("0", Inv)).Append('/').Append(m.PpsTarget.ToString("0", Inv)).Append(" pps  ");
+        MotoresTexto = ms.Length == 0 ? "—" : sbM.ToString().TrimEnd();
+        var sem = _nodos.SnapshotSemillas();
+        var sbS = new StringBuilder();
+        for (int i = 0; i < sem.Length; i++) sbS.Append(sem[i].ToString("0.0", Inv)).Append(i == sem.Length - 1 ? "" : "  ");
+        SemillasTexto = sem.Length == 0 ? "—" : sbS.ToString();
+        NodosStatsTexto = $"targets {_nodos.TargetsRecibidos} · publicados {_nodos.Publicados}";
+        NodosErrorTexto = _nodos.UltimoError ?? "";
+        Notificar(nameof(QxConectado)); Notificar(nameof(VxConectado)); Notificar(nameof(QxEstadoTexto)); Notificar(nameof(VxEstadoTexto));
+        Notificar(nameof(MotoresTexto)); Notificar(nameof(SemillasTexto)); Notificar(nameof(NodosStatsTexto));
+        Notificar(nameof(NodosErrorTexto)); Notificar(nameof(NodosConError));
+
         Notificar(nameof(RumboTexto)); Notificar(nameof(LatActualTexto)); Notificar(nameof(LonActualTexto));
         Notificar(nameof(GuiadoActivo)); Notificar(nameof(GuiadoTexto));
         Notificar(nameof(SetPointTexto)); Notificar(nameof(VelPilotXTexto));
@@ -268,8 +312,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _config.Rmc = Rmc; _config.Ogi = Ogi; _config.Nda = Nda; _config.Ksxt = Ksxt;
         _config.EmularGps = EmularGps; _config.EmularWas = EmularWas; _config.EmularMotor = EmularMotor;
         _config.EmularMaquina = EmularMaquina; _config.EmularImu = EmularImu;
+        _config.EmularQuantiX = EmularQuantiX; _config.EmularVistaX = EmularVistaX;
         try { _config.Guardar(_rutaConfig); } catch { }
         _link.Dispose();
+        try { _nodos.Dispose(); } catch { }
     }
 
     // bit 0 = sección 1, a la izquierda (mismo orden visual que el swapBits del original)

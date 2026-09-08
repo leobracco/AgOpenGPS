@@ -241,6 +241,44 @@
             </Grid>
           </StackPanel>
         </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="titulo" Text="NODOS EMULADOS (MQTT)"/>
+            <TextBlock Classes="dato" TextWrapping="Wrap" Text="{Binding BrokerTexto}"/>
+            <WrapPanel Margin="0,8,0,0">
+              <WrapPanel.Styles>
+                <Style Selector="ToggleSwitch">
+                  <Setter Property="Margin" Value="0,0,16,0"/>
+                </Style>
+              </WrapPanel.Styles>
+              <ToggleSwitch OnContent="QuantiX" OffContent="QuantiX" IsChecked="{Binding EmularQuantiX}"/>
+              <ToggleSwitch OnContent="VistaX" OffContent="VistaX" IsChecked="{Binding EmularVistaX}"/>
+            </WrapPanel>
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,8,0,0">
+              <TextBlock Grid.Row="0" Grid.Column="0" Classes="dato" Text="QuantiX"/>
+              <Border Grid.Row="0" Grid.Column="1" Classes="badge" Classes.activo="{Binding QxConectado}" Margin="16,0,0,0" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding QxEstadoTexto}"/>
+              </Border>
+              <TextBlock Grid.Row="1" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="VistaX"/>
+              <Border Grid.Row="1" Grid.Column="1" Classes="badge" Classes.activo="{Binding VxConectado}" Margin="16,4,0,0" HorizontalAlignment="Left">
+                <TextBlock Text="{Binding VxEstadoTexto}"/>
+              </Border>
+              <TextBlock Grid.Row="2" Grid.Column="0" Classes="dato" Margin="0,6,0,0" Text="Motores (real/objetivo)"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Classes="datoValor" TextWrapping="Wrap" Margin="16,6,0,0" Text="{Binding MotoresTexto}"/>
+              <TextBlock Grid.Row="3" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Semillas/s por surco"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Classes="datoValor" TextWrapping="Wrap" Margin="16,4,0,0" Text="{Binding SemillasTexto}"/>
+              <TextBlock Grid.Row="4" Grid.Column="0" Classes="dato" Margin="0,4,0,0" Text="Tráfico"/>
+              <TextBlock Grid.Row="4" Grid.Column="1" Classes="dato" Margin="16,4,0,0" Text="{Binding NodosStatsTexto}"/>
+            </Grid>
+            <TextBlock Classes="dato" TextWrapping="Wrap" Margin="0,8,0,0"
+                       Text="El QuantiX obedece los targets del bridge de PilotX y contesta como una placa V0.4 de 7 motores; el VistaX publica las semillas por segundo que salen de esos motores. Apagalos si en el banco hay nodos reales con el mismo trabajo."/>
+            <Border Background="{StaticResource Alerta}" CornerRadius="6" Padding="10,6"
+                    Margin="0,8,0,0" IsVisible="{Binding NodosConError}">
+              <TextBlock Foreground="White" TextWrapping="Wrap" Text="{Binding NodosErrorTexto}"/>
+            </Border>
+          </StackPanel>
+        </Border>
       </StackPanel>
     </Grid>
   </ScrollViewer>

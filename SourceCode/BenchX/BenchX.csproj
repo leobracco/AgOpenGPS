@@ -16,5 +16,8 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+    <!-- Nodos emulados (QuantiX / VistaX) contra el broker embebido de PilotX.
+         Misma version que AgroParallel.Services para no arrastrar dos MQTTnet. -->
+    <PackageReference Include="MQTTnet" Version="4.3.6.1152" />
   </ItemGroup>
 </Project>
