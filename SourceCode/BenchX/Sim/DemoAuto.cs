@@ -43,6 +43,16 @@ public sealed class DemoAuto : IDisposable
     private Task? _tarea;
 
     public bool Activo { get; set; }
+    /// <summary>El operario pidio reiniciar: el simulador debe llevar el
+    /// tractor al inicio de la ruta (ver InicioLat/Lon/Rumbo) y llamar a ReiniciarRuta().</summary>
+    public bool ReinicioPendiente { get; private set; }
+    public double InicioLat => _lat0 + (_ruta.Count > 0 ? _ruta[0].y : 0) / _mLat;
+    public double InicioLon => _lon0 + (_ruta.Count > 0 ? _ruta[0].x : 0) / _mLon;
+    public double InicioRumboDeg => 0;    // la ruta arranca en la esquina suroeste yendo al norte
+    public void ReiniciarRuta()
+    {
+        _idx = 0; _enRuta = true; Vuelta = 0; ReinicioPendiente = false;
+    }
     public string Estado { get; private set; } = "inactiva";
     public string EstadoPilotX { get; private set; } = "esperando PilotX";
     public bool PilotXListo { get; private set; }
@@ -254,12 +264,26 @@ public sealed class DemoAuto : IDisposable
                     {
                         // Secciones en AUTOMATICO. Ojo: "sec_auto" es un toggle
                         // (igual que el boton de la pantalla), asi que primero se
-                        // mira el estado y solo se manda si no esta en auto. Se
-                        // revisa en cada vuelta por si alguien lo toco.
+                        // mira el estado y solo se manda si no esta en auto.
                         string st = await _http.GetStringAsync(api + "/api/aog/state", ct);
-                        bool auto = string.Equals(Campo(st, "is_section_auto_on"), "True", StringComparison.OrdinalIgnoreCase)
-                                 || Campo(st, "is_section_auto_on") == "true";
-                        if (!auto)
+                        bool auto = EsTrue(Campo(st, "is_section_auto_on"));
+                        bool manual = EsTrue(Campo(st, "is_section_manual_on"));
+
+                        if (PilotXListo && !auto && !manual)
+                        {
+                            // El operario apago el maestro de secciones: es el
+                            // gesto de REINICIAR la demo. "Borrar pintado" de
+                            // PilotX exige el maestro apagado, asi que este es el
+                            // momento: se borra la cobertura, el tractor vuelve
+                            // al inicio del lote y se reanuda en automatico.
+                            EstadoPilotX = "reiniciando la demo: borrando cobertura";
+                            await _http.PostAsync(api + "/api/aog/guidance/command", new StringContent("{\"cmd\":\"borrar_aplicado\"}", Encoding.UTF8, "application/json"), ct);
+                            ReinicioPendiente = true;          // el tick del simulador teletransporta al inicio
+                            await Task.Delay(1500, ct);
+                            await _http.PostAsync(api + "/api/aog/guidance/command", new StringContent("{\"cmd\":\"sec_auto\"}", Encoding.UTF8, "application/json"), ct);
+                            EstadoPilotX = "demo reiniciada";
+                        }
+                        else if (!auto)
                         {
                             await _http.PostAsync(api + "/api/aog/guidance/command", new StringContent("{\"cmd\":\"sec_auto\"}", Encoding.UTF8, "application/json"), ct);
                             EstadoPilotX = "secciones puestas en automatico";
@@ -284,7 +308,9 @@ public sealed class DemoAuto : IDisposable
                 PilotXListo = false;
                 EstadoPilotX = "esperando PilotX (" + Corto(ex.Message) + ")";
             }
-            try { await Task.Delay(PilotXListo ? 10000 : 3000, ct); } catch (OperationCanceledException) { return; }
+            // 3 s siempre: el gesto de reinicio del operario (maestro apagado)
+            // tiene que tomarse enseguida.
+            try { await Task.Delay(3000, ct); } catch (OperationCanceledException) { return; }
         }
     }
 
@@ -301,6 +327,8 @@ public sealed class DemoAuto : IDisposable
     }
 
     private static string Corto(string s) => s.Length > 60 ? s.Substring(0, 60) : s;
+
+    private static bool EsTrue(string v) => string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
 
     public void Dispose()
     {

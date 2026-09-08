@@ -218,6 +218,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         // (motor real en el banco) el ángulo queda en manos del slider.
         if (DemoActivo)
         {
+            if (_demo.ReinicioPendiente)
+            {
+                // Reinicio pedido por el operario (maestro de secciones apagado):
+                // el tractor aparece en el inicio de la ruta mirando al norte.
+                _sim.Latitude = _demo.InicioLat; _sim.Longitude = _demo.InicioLon;
+                _sim.HeadingRad = _demo.InicioRumboDeg * Math.PI / 180.0;
+                _demo.ReiniciarRuta();
+            }
             // La demo maneja: velocidad y volante salen del conductor
             // automatico, no de los sliders ni del setpoint de PilotX.
             _demo.Conducir(_sim.Latitude, _sim.Longitude, _sim.HeadingDeg);
