@@ -396,6 +396,7 @@ public sealed class QxEditorCtx
         {
             Trenes = Cfg.Trenes,
             Ignorados = Cfg.Ignorados,
+            CompensarCurva = Cfg.CompensarCurva,
             Extra = Cfg.Extra,
             Nodos = new List<QxNodoConfig>(),
         };

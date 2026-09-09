@@ -225,6 +225,12 @@ namespace AgroParallel.Models
 
         [JsonPropertyName("ignorados")]
         public List<string> Ignorados { get; set; } = new List<string>();
+
+        /// <summary>Compensar la velocidad de cada motor en curva (la sección
+        /// externa va más rápido). Apagado = todos los motores usan la
+        /// velocidad del tractor. Ver MotoresConfig.CompensarCurva.</summary>
+        [JsonPropertyName("compensar_curva")]
+        public bool CompensarCurva { get; set; } = true;
     }
 
 }

@@ -196,6 +196,24 @@ public sealed class SiembraTab : QxTab
         Children.Add(_lista);
         Children.Add(_tabla);
 
+        // ---- compensación en curva (solo en config) ----
+        // Pedido 2026-09-09 (Gringas, QuantiX + DosiX eléctricos): con un GPS
+        // sin compensación de terreno el rumbo vibra y la velocidad por surco
+        // se movía todo el tiempo, y con ella la dosis. Apagado, el bridge le
+        // manda a todos los motores la velocidad del tractor.
+        if (!live)
+        {
+            var chkCurva = QxUi.Check("Compensar dosis por surco en curva", C.Cfg.CompensarCurva);
+            ToolTip.SetTip(chkCurva, PilotX.Cockpit.Bars.Traductor.T(
+                "Tildado: en curva el surco de afuera recibe más dosis que el de adentro. "
+                + "Destildado: todos los motores usan la velocidad del tractor. "
+                + "Destildalo si el GPS no compensa terreno y la dosis varía todo el tiempo."));
+            chkCurva.IsCheckedChanged += (_, __) => C.Cfg.CompensarCurva = chkCurva.IsChecked == true;
+            Children.Add(chkCurva);
+            Children.Add(QxUi.Sub("Destildado, la dosis no cambia entre surcos en las curvas: "
+                                + "misma velocidad para todos los motores. Tocá Guardar para aplicar."));
+        }
+
         // ---- acciones ----
         var acciones = QxUi.Fila();
         acciones.Children.Add(QxUi.Boton("Guardar", () => _ = GuardarAsync(), primario: true));
