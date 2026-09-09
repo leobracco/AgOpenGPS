@@ -12,6 +12,17 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.63] — 2026-09-09
+
+### Added
+- **Overlay FlowX: cambiar el objetivo l/ha con − / +.** En AUTO aparece la
+  fila "OBJ − 80 l/ha +" (paso `paso_lha`, 5 l/ha por defecto); el cambio va
+  a la config del producto y el bridge lo manda al nodo enseguida. En MAN
+  sigue la fila de caudal fijo l/min de siempre. Antes el objetivo solo se
+  podía cambiar en el editor de FlowX.
+
+---
+
 ## [1.0.62] — 2026-09-09
 
 ### Changed

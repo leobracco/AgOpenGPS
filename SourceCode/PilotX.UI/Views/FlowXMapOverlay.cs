@@ -66,6 +66,8 @@ public sealed class FlowXMapOverlay : Border
     private bool _modoManual;
     private double _manualLmin;
     private double _pasoLmin = 1;
+    private double _dosisLha;          // objetivo l/ha (AUTO) — se corrige con − / + desde el overlay
+    private double _pasoLha = 5;
 
     // controles
     private readonly Ellipse _dot;
@@ -74,6 +76,8 @@ public sealed class FlowXMapOverlay : Border
     private readonly TextBlock _sub;       // "Obj 80 l/ha · 42,3 l/min"
     private readonly StackPanel _manFila;  // − valor + (solo MAN)
     private readonly TextBlock _manVal;
+    private readonly StackPanel _objFila;  // OBJ − l/ha + (AUTO): el objetivo que sigue el nodo
+    private readonly TextBlock _objVal;
     private readonly Border _sxFila;       // franja StormX
     private readonly TextBlock _sxTexto;
 
@@ -146,6 +150,35 @@ public sealed class FlowXMapOverlay : Border
         _manFila.Children.Add(_manVal);
         _manFila.Children.Add(mas);
 
+        // ---- fila OBJ (AUTO): − objetivo l/ha + ----
+        // Pedido 2026-09-09: "en el overlay queremos cambiar los litros". Antes
+        // los − / + solo existian en MAN y movian el caudal fijo (l/min); el
+        // objetivo l/ha que sigue el nodo en AUTO solo se cambiaba en el editor.
+        _objVal = new TextBlock
+        {
+            Text = "—", FontSize = 18, FontWeight = FontWeight.Bold, Foreground = TextoHi,
+            MinWidth = 84, TextAlignment = TextAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+        };
+        var objMenos = BotonPaso("−");
+        var objMas = BotonPaso("+");
+        objMenos.Click += async (_, _) => await PasoDosis(-1);
+        objMas.Click += async (_, _) => await PasoDosis(+1);
+        var objTit = new TextBlock
+        {
+            Text = "OBJ", FontSize = 10.5, Foreground = TextoDim,
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 2, 0),
+        };
+        _objFila = new StackPanel
+        {
+            Orientation = Orientation.Horizontal, Spacing = 6,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 4, 0, 0), IsVisible = false,
+        };
+        _objFila.Children.Add(objTit);
+        _objFila.Children.Add(objMenos);
+        _objFila.Children.Add(_objVal);
+        _objFila.Children.Add(objMas);
+
         // ---- franja StormX (solo si la estación está conectada) ----
         _sxTexto = new TextBlock
         {
@@ -163,6 +196,7 @@ public sealed class FlowXMapOverlay : Border
         raiz.Children.Add(head);
         raiz.Children.Add(_lha);
         raiz.Children.Add(_sub);
+        raiz.Children.Add(_objFila);
         raiz.Children.Add(_manFila);
         raiz.Children.Add(_sxFila);
         Child = raiz;
@@ -317,10 +351,17 @@ public sealed class FlowXMapOverlay : Border
                 double paso = Num(prod["paso_lmin"]);
                 _pasoLmin = paso > 0 ? paso : 1;
 
+                _dosisLha = Num(prod["dosis_lha"]);
+                double pasoLha = Num(prod["paso_lha"]);
+                _pasoLha = pasoLha > 0 ? pasoLha : 5;
+
                 _btnModo.Content = _modoManual ? "MAN" : "AUTO";
                 _btnModo.Foreground = _modoManual ? Ambar : Acento;
                 _btnModo.BorderBrush = _modoManual ? Ambar : Acento;
+                // AUTO: se corrige el objetivo l/ha. MAN: se corrige el caudal fijo l/min.
+                _objFila.IsVisible = !_modoManual;
                 _manFila.IsVisible = _modoManual;
+                _objVal.Text = _dosisLha.ToString("F0", CultureInfo.InvariantCulture) + " l/ha";
                 _manVal.Text = _manualLmin.ToString("F1", CultureInfo.InvariantCulture) + " l/min";
             }
         }
@@ -380,6 +421,19 @@ public sealed class FlowXMapOverlay : Border
             double v = Num(prod["manual_lmin"]) + dir * _pasoLmin;
             if (v < 0) v = 0;
             prod["manual_lmin"] = Math.Round(v, 1);
+        });
+    }
+
+    /// <summary>Objetivo l/ha (AUTO): − / + de a paso_lha (default 5). Es lo que
+    /// el bridge manda al nodo cada 2 s como target, asi que el cambio se ve en
+    /// el caudal enseguida. Se persiste en la config de FlowX (dosis_lha).</summary>
+    private async Task PasoDosis(int dir)
+    {
+        await MutarProducto(prod =>
+        {
+            double v = Num(prod["dosis_lha"]) + dir * _pasoLha;
+            if (v < 0) v = 0;
+            prod["dosis_lha"] = Math.Round(v, 1);
         });
     }
 
