@@ -36,12 +36,22 @@ param(
     [switch]$ConBenchX,
     # Solo BenchX: no toca Desktop, wwwroot ni Engine ni reinicia PilotX.
     [switch]$SoloBenchX,
+    # Desplegar un paquete ZIP especifico (PilotX_vX.Y.Z.zip) en vez de lo
+    # compilado: sirve para poner el taller en una version vieja y reproducir
+    # una actualizacion de campo (2026-09-09: parche 1.0.62 -> 1.0.64 fallaba).
+    # Implica -SinPublish; Desktop, wwwroot y (con -ConEngine) Engine salen del ZIP.
+    [string]$DesdeZip = "",
     [switch]$Forzar,
     [string]$Taller = "192.168.1.78"
 )
 
 $ErrorActionPreference = "Stop"
 if ($SoloBenchX) { $SinPublish = $true; $ConBenchX = $true; $ConEngine = $false; $Forzar = $true }
+if ($DesdeZip) {
+    if (-not (Test-Path $DesdeZip)) { Write-Host "No existe el ZIP: $DesdeZip" -ForegroundColor Red; exit 1 }
+    $DesdeZip = (Resolve-Path $DesdeZip).Path
+    $SinPublish = $true
+}
 $root = Split-Path $PSScriptRoot -Parent
 $tmp = Join-Path $env:TEMP "pilotx-deploy-taller"
 
@@ -103,11 +113,20 @@ if (-not $SinPublish) {
 } else {
     # -SinPublish: copiar lo ya publicado en Build\ (excluyendo el cache de
     # WebView2, lockeado si la app corre, y los logs).
+    # Origen: Build\ (lo compilado) o un ZIP de version (-DesdeZip).
+    $origen = "$root\Build"
+    if ($DesdeZip) {
+        Write-Host "== expandiendo $DesdeZip ==" -ForegroundColor Cyan
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($DesdeZip, "$tmp\zip")
+        $origen = "$tmp\zip"
+        if (-not (Test-Path "$origen\Desktop\PilotX.Desktop.exe")) { Write-Host "El ZIP no trae Desktop\PilotX.Desktop.exe" -ForegroundColor Red; exit 1 }
+    }
     if (-not $SoloBenchX) {
-        robocopy "$root\Build\Desktop" "$tmp\Desktop" /E /XD "PilotX.Desktop.exe.WebView2" "Logs" /XF "*.log" /NFL /NDL /NJH /NJS | Out-Null
+        robocopy "$origen\Desktop" "$tmp\Desktop" /E /XD "PilotX.Desktop.exe.WebView2" "Logs" /XF "*.log" /NFL /NDL /NJH /NJS | Out-Null
     }
     if ($ConEngine) {
-        robocopy "$root\Build\Engine" "$tmp\Engine-src" /E /NFL /NDL /NJH /NJS | Out-Null
+        robocopy "$origen\Engine" "$tmp\Engine-src" /E /NFL /NDL /NJH /NJS | Out-Null
     }
 }
 
@@ -116,7 +135,9 @@ if (-not $SoloBenchX) {
     Compress-Archive -Path "$tmp\Desktop\*" -DestinationPath "$tmp\desktop.zip" -CompressionLevel Optimal
 
     # wwwroot del Hub: EL DEL SOURCE (fuente de verdad de la UI), completo.
-    Compress-Archive -Path "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\wwwroot\*" -DestinationPath "$tmp\wwwroot.zip" -CompressionLevel Optimal
+    # Con -DesdeZip, el que trae ese paquete (coherente con su Desktop/Engine).
+    $wwwOrigen = if ($DesdeZip) { "$tmp\zip\AgroParallel\wwwroot" } else { "$root\SourceCode\AgroParallel\Web\AgroParallel.WebUI\wwwroot" }
+    Compress-Archive -Path "$wwwOrigen\*" -DestinationPath "$tmp\wwwroot.zip" -CompressionLevel Optimal
 }
 
 if ($ConEngine) {
@@ -158,6 +179,13 @@ if (-not $SoloBenchX) {
     Copy-Item "$tmp\wwwroot.zip" -Destination "C:\PilotX\deploy-wwwroot.zip" -ToSession $s
 }
 if ($ConEngine) { Copy-Item "$tmp\engine.zip" -Destination "C:\PilotX\deploy-engine.zip" -ToSession $s }
+if ($ConEngine) {
+    # El Updater de la RAIZ tambien viaja (2026-09-09): el taller tenia uno
+    # de agosto sin validacion de parches y no reproducia lo del campo.
+    $updSrc = if ($DesdeZip) { "$tmp\zip\AgroParallel.Updater.exe" } else { "$root\Build\AgroParallel.Updater.exe" }
+    if (Test-Path $updSrc) { Copy-Item $updSrc -Destination "C:\PilotX\AgroParallel.Updater.exe" -ToSession $s; Write-Host "  Updater raiz: $updSrc" }
+    else { Write-Host "  (sin AgroParallel.Updater.exe en $updSrc)" -ForegroundColor Yellow }
+}
 if ($ConBenchX) { Copy-Item "$tmp\benchx.zip" -Destination "C:\PilotX\deploy-benchx.zip" -ToSession $s }
 
 Invoke-Command -Session $s -ScriptBlock {

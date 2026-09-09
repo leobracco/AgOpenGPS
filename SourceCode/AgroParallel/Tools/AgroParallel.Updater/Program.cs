@@ -381,13 +381,13 @@ namespace AgroParallel.Updater
             if (string.IsNullOrEmpty(baseEsperada))
                 return "El parche no dice para que version fue armado. No se aplica.";
 
-            string instalada = null;
-            try
-            {
-                if (File.Exists(exePath))
-                    instalada = FileVersionInfo.GetVersionInfo(exePath).FileVersion;
-            }
-            catch (Exception ex) { Log("No pude leer la version instalada: " + ex.Message); }
+            // Version instalada. OJO: --exe suele ser Lanzar-PilotX.bat (el
+            // launcher del kiosko), que NO tiene version: leerla de ahi
+            // devolvia null y el parche se rechazaba SIEMPRE en las pantallas
+            // con kiosko (2026-09-09, pantalla de Fran: 5 intentos, todos
+            // vueltos a 1.0.62). Se busca en los ejecutables reales de la
+            // instalacion, y --exe queda como ultimo recurso.
+            string instalada = LeerVersionInstalada(exePath);
 
             if (string.IsNullOrEmpty(instalada))
                 return "Es un parche para la version " + baseEsperada +
@@ -413,6 +413,46 @@ namespace AgroParallel.Updater
                        (string.IsNullOrEmpty(versionNueva) ? "version nueva" : versionNueva) + ".";
 
             Log("Parche valido: base " + baseEsperada + " -> " + versionNueva + " (instalada " + Corta(instalada) + ")");
+            return null;
+        }
+
+        // Version instalada: primero los ejecutables reales de la instalacion
+        // (Desktop\PilotX.Desktop.exe, Engine\PilotX.GuidanceEngine.exe), y
+        // --exe solo si es un .exe con version. Se prueba con la carpeta del
+        // --exe y con su padre (cuando --exe vive en Desktop\).
+        private static string LeerVersionInstalada(string exePath)
+        {
+            var candidatos = new List<string>();
+            try
+            {
+                string dir = string.IsNullOrEmpty(exePath) ? null : Path.GetDirectoryName(Path.GetFullPath(exePath));
+                foreach (string raiz in new[] { dir, dir == null ? null : Path.GetDirectoryName(dir) })
+                {
+                    if (string.IsNullOrEmpty(raiz)) continue;
+                    candidatos.Add(Path.Combine(raiz, "Desktop", "PilotX.Desktop.exe"));
+                    candidatos.Add(Path.Combine(raiz, "Desktop", "PilotX.exe"));
+                    candidatos.Add(Path.Combine(raiz, "Engine", "PilotX.GuidanceEngine.exe"));
+                    candidatos.Add(Path.Combine(raiz, "PilotX.exe"));
+                }
+                if (!string.IsNullOrEmpty(exePath) && exePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    candidatos.Add(exePath);
+            }
+            catch (Exception ex) { Log("Armando candidatos de version: " + ex.Message); }
+
+            foreach (string c in candidatos)
+            {
+                try
+                {
+                    if (!File.Exists(c)) continue;
+                    string v = FileVersionInfo.GetVersionInfo(c).FileVersion;
+                    if (!string.IsNullOrEmpty(v) && Corta(v) != "1.0.0" && Corta(v) != "0.0.0")
+                    {
+                        Log("Version instalada " + Corta(v) + " (de " + c + ")");
+                        return v;
+                    }
+                }
+                catch (Exception ex) { Log("No pude leer la version de " + c + ": " + ex.Message); }
+            }
             return null;
         }
 

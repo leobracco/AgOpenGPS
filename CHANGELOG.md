@@ -12,6 +12,19 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.65] — 2026-09-09
+
+### Fixed
+- **Los parches nunca se aplicaban en las pantallas con kiosko.** El Updater
+  validaba el parche leyendo la versión del programa a relanzar, que en el
+  kiosko es `Lanzar-PilotX.bat` (sin versión): rechazaba el parche y volvía a
+  la versión anterior. Pasó en la pantalla de Fran (5 intentos). Ahora lee la
+  versión de `Desktop\PilotX.Desktop.exe` / `Engine\PilotX.GuidanceEngine.exe`.
+  Este cambio llega con el paquete COMPLETO (el Updater viejo no acepta el
+  parche); desde esta versión los parches funcionan también en kiosko.
+
+---
+
 ## [1.0.64] — 2026-09-09
 
 ### Fixed
