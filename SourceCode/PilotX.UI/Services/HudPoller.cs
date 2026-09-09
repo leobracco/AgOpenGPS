@@ -47,6 +47,10 @@ public sealed class HudSnapshot
     /// guard de "Borrar pintado" (avisar en vez de fallar mudo).</summary>
     public bool IsSectionAutoOn { get; set; }
     public bool IsSectionManualOn { get; set; }
+    /// <summary>El motor detectó marcha atrás (is_reverse): rumbo invertido y
+    /// autosteer cortado. La pantalla muestra el aviso rojo y el toque manda
+    /// reset_direccion (1.0.64; en 1.0.61 esto solo estaba en el mapa web).</summary>
+    public bool IsReverse { get; set; }
     public bool HasBoundary { get; set; }
     /// <summary>Ancho del salto del giro en guías (1 = contigua). El menú
     /// muestra guías SALTEADAS = ancho − 1.</summary>

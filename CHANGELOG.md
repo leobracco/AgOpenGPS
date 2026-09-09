@@ -12,6 +12,19 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.64] — 2026-09-09
+
+### Fixed
+- **Reversa en el mapa nativo (el que usa el tractor).** La 1.0.61 había puesto
+  la flecha y el toque solo en el mapa web, que la pantalla no usa: la de Fran
+  quedó clavada en marcha atrás sin forma de salir. Ahora, cuando el motor
+  marca reversa, aparece un **botón rojo grande** arriba del mapa ("REVERSA ·
+  tocá acá para volver a marcha adelante") que manda `reset_direccion`, y el
+  mapa dibuja la flecha roja hacia atrás del tractor. Mientras tanto, apagar
+  y prender "Detección de reversa" en Configuración › Rumbo también lo limpia.
+
+---
+
 ## [1.0.63] — 2026-09-09
 
 ### Added

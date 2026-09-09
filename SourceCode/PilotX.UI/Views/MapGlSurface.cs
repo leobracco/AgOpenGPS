@@ -1311,6 +1311,10 @@ public sealed class MapGlSurface : OpenGlControlBase
             // es descomentar la línea de abajo.
             //DrawImplementoSprite();
             DrawTractor(_renderE, _renderN, snap.Heading, scale);
+            // Reversa: flecha roja hacia atrás del tractor mientras el motor
+            // marque marcha atrás (igual que AgOpenGPS). El reset es el botón
+            // rojo de arriba del mapa (ReversaAviso en MainWindow).
+            if (snap.IsReverse) DrawFlechaReversa(_renderE, _renderN, snap.Heading, scale);
 
             // Los dos puntos del 6.8.5 original (pedido 2026-08-06): el GOAL
             // POINT del guiado ("a dónde mira" el pure pursuit, naranja) y el
@@ -3362,6 +3366,46 @@ public sealed class MapGlSurface : OpenGlControlBase
 
         // Borde oscuro (line loop) por encima.
         UploadAndDraw(PrimitiveType.LineLoop, 3, ColTractorEdge);
+    }
+
+    private static readonly float[] ColReversa = { 0.898f, 0.282f, 0.302f, 1f }; // #E5484D
+
+    /// <summary>
+    /// Flecha roja de REVERSA: sale del pivote hacia atrás del tractor, tamaño
+    /// fijo en píxeles (se ve igual con cualquier zoom). Un asta gruesa (dos
+    /// triángulos) y una punta. Se dibuja mientras el motor marque isReverse.
+    /// </summary>
+    private void DrawFlechaReversa(double e, double n, double headingRad, double scale)
+    {
+        if (_gl == null || scale <= 0) return;
+        double len = 46.0 / scale;          // 46 px
+        double ancho = 5.0 / scale;         // 5 px de asta
+        double punta = 16.0 / scale;        // 16 px de punta
+        // Atrás = dirección opuesta al heading (heading 0 = norte, horario).
+        double s = Math.Sin(headingRad), c = Math.Cos(headingRad);
+        double dx = -s, dy = -c;            // unitario hacia atrás
+        double px = -dy, py = dx;           // perpendicular
+
+        double ax = e, ay = n;                                  // pivote
+        double bx = e + dx * (len - punta), by = n + dy * (len - punta);
+        double tx = e + dx * len, ty = n + dy * len;            // punta
+
+        // Asta como rectángulo (2 triángulos).
+        EnsureScratch(12);
+        _scratch[0]  = (float)(ax + px * ancho); _scratch[1]  = (float)(ay + py * ancho);
+        _scratch[2]  = (float)(ax - px * ancho); _scratch[3]  = (float)(ay - py * ancho);
+        _scratch[4]  = (float)(bx - px * ancho); _scratch[5]  = (float)(by - py * ancho);
+        _scratch[6]  = (float)(ax + px * ancho); _scratch[7]  = (float)(ay + py * ancho);
+        _scratch[8]  = (float)(bx - px * ancho); _scratch[9]  = (float)(by - py * ancho);
+        _scratch[10] = (float)(bx + px * ancho); _scratch[11] = (float)(by + py * ancho);
+        UploadAndDraw(PrimitiveType.Triangles, 6, ColReversa);
+
+        // Punta.
+        EnsureScratch(6);
+        _scratch[0] = (float)tx; _scratch[1] = (float)ty;
+        _scratch[2] = (float)(bx + px * punta * 0.7); _scratch[3] = (float)(by + py * punta * 0.7);
+        _scratch[4] = (float)(bx - px * punta * 0.7); _scratch[5] = (float)(by - py * punta * 0.7);
+        UploadAndDraw(PrimitiveType.Triangles, 3, ColReversa);
     }
 
     /// <summary>

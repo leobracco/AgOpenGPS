@@ -946,6 +946,32 @@
                     </Button>
                 </Border>
 
+                <!-- REVERSA (pedido 2026-09-09, pantalla de Fran clavada en marcha
+                     atrás): cuando el motor marca reversa aparece este botón rojo
+                     grande arriba del mapa; tocarlo manda reset_direccion (lo que
+                     en AgOpenGPS era tocar el tractor). Va en el mapa NATIVO: la
+                     1.0.61 lo había puesto solo en el mapa web, que el tractor
+                     no usa. Margen superior 130 para quedar debajo del cluster. -->
+                <Border Name="ReversaAviso" Grid.Row="1" IsVisible="False" ZIndex="12"
+                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                        Margin="0,130,0,0"
+                        Background="#F2E5484D" BorderBrush="#FFFFFF" BorderThickness="1.5"
+                        CornerRadius="14" Padding="0">
+                    <Button Name="ReversaAvisoBtn" Height="72" MinWidth="360" Padding="18,0"
+                            Background="Transparent" BorderThickness="0"
+                            ToolTip.Tip="Tocá para volver a marcha adelante">
+                        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                            <TextBlock Text="⬇" FontSize="34" FontWeight="Bold" Foreground="White"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="REVERSA" FontSize="20" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="tocá acá para volver a marcha adelante" FontSize="13"
+                                           Foreground="#FFEDED"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
                 <!-- Panel de GUÍAS nativo (14vo port, reemplaza tracks.html):
                      flota sobre el mapa VIVO — al grabar la curva se ve la
                      traza dibujándose detrás, cosa que la ventana HTML

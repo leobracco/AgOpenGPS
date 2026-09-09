@@ -104,6 +104,9 @@ public partial class MainWindow : Window
     private Border? _pcGiroSentido;
     private Button? _pcGiroSentidoBtn;
     private TextBlock? _pcGiroSentidoFlecha, _pcGiroSentidoTexto, _pcGiroSentidoTitulo;
+    // Aviso/botón rojo de REVERSA arriba del mapa nativo (tocar = reset_direccion).
+    private Border? _reversaAviso;
+    private Button? _reversaAvisoBtn;
     private YouTurnPath? _lastYt;      // estado del U-turn (del poller de guidance)
     // Debug de rumbos: rumbo del tractor y de la guía activa (grados 0=N, CW),
     // para ver a qué guía apunta y cuánto desvía. NaN = sin dato.
@@ -510,6 +513,11 @@ public partial class MainWindow : Window
         _pcGiroSentidoTexto  = this.FindControl<TextBlock>("PcGiroSentidoTexto");
         _pcGiroSentidoTitulo = this.FindControl<TextBlock>("PcGiroSentidoTitulo");
         if (_pcGiroSentidoBtn != null) _pcGiroSentidoBtn.Click += (_, _) => _ = MandarComandoPiloto("uturn_swap");
+        // Reversa (2026-09-09): botón rojo grande; tocarlo = reset_direccion,
+        // lo que en AgOpenGPS era tocar el tractor.
+        _reversaAviso    = this.FindControl<Border>("ReversaAviso");
+        _reversaAvisoBtn = this.FindControl<Button>("ReversaAvisoBtn");
+        if (_reversaAvisoBtn != null) _reversaAvisoBtn.Click += (_, _) => _ = MandarComandoPiloto("reset_direccion");
         if (_pcSkipMenos != null) _pcSkipMenos.Click += (_, _) => _ = CambiarSalteo(-1);
         if (_pcSkipMas != null) _pcSkipMas.Click += (_, _) => _ = CambiarSalteo(+1);
         _hudArea         = this.FindControl<TextBlock>("HudArea");
@@ -8026,6 +8034,10 @@ public partial class MainWindow : Window
                 _fieldDataHost.OnSnapshot(s);
             if (_gpsDataHost != null && _gpsDataHost.IsVisible)
                 _gpsDataHost.OnSnapshot(s);
+            // Reversa: botón rojo grande arriba del mapa mientras el motor
+            // marque marcha atrás (tocarlo manda reset_direccion).
+            if (_reversaAviso != null && _reversaAviso.IsVisible != s.IsReverse)
+                _reversaAviso.IsVisible = s.IsReverse;
             // FlowX combina HUD (vel + secciones + area) con su propia
             // telemetria MQTT — solo cuando el overlay esta visible.
             if (_flowXHost != null && _flowXHost.IsVisible)
