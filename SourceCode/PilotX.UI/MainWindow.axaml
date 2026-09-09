@@ -920,6 +920,32 @@
                                          HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                          Margin="0,0,74,150"/>
 
+                <!-- SENTIDO DEL GIRO EN CABECERA (pedido 2026-09-09): igual que
+                     la flecha grande de AgOpenGPS a la derecha. Muestra hacia
+                     dónde va a girar el U-turn armado (↰ / ↱) y TOCARLO lo
+                     invierte (uturn_swap; girando, lo aborta). Antes ese
+                     cambio estaba solo en el textito de 12 px del centro del
+                     cluster, imposible con guantes. Mismo margen derecho 82
+                     que Contorno/Tram para no pisar la barra derecha. -->
+                <Border Name="PcGiroSentido" Grid.Row="1" IsVisible="False" ZIndex="9"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Margin="0,0,82,0"
+                        Background="#D9101612" BorderBrush="#66FFFFFF" BorderThickness="1"
+                        CornerRadius="16" Padding="0">
+                    <Button Name="PcGiroSentidoBtn" Width="104" Height="112" Padding="0"
+                            Background="Transparent" BorderThickness="0"
+                            ToolTip.Tip="Tocá para cambiar el lado del giro">
+                        <StackPanel VerticalAlignment="Center" Spacing="0">
+                            <TextBlock Name="PcGiroSentidoTitulo" Text="GIRO" FontSize="11" Foreground="#C5CFC5"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Name="PcGiroSentidoFlecha" Text="↱" FontSize="52" FontWeight="Bold"
+                                       Foreground="#F5F7F4" HorizontalAlignment="Center" Margin="0,-4,0,-6"/>
+                            <TextBlock Name="PcGiroSentidoTexto" Text="" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#C5CFC5" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
                 <!-- Panel de GUÍAS nativo (14vo port, reemplaza tracks.html):
                      flota sobre el mapa VIVO — al grabar la curva se ve la
                      traza dibujándose detrás, cosa que la ventana HTML

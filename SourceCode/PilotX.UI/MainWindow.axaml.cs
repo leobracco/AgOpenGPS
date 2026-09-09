@@ -100,6 +100,10 @@ public partial class MainWindow : Window
     private TextBlock? _pcXte, _pcXteFlecha, _pcXteUnidad, _pcSkip;
     private int _pcSalteadas;          // lo que muestra el cluster (0..9)
     private TextBlock? _pcGiroInfo;
+    // Botón GRANDE de sentido del giro (derecha del mapa): ↰/↱ + distancia.
+    private Border? _pcGiroSentido;
+    private Button? _pcGiroSentidoBtn;
+    private TextBlock? _pcGiroSentidoFlecha, _pcGiroSentidoTexto, _pcGiroSentidoTitulo;
     private YouTurnPath? _lastYt;      // estado del U-turn (del poller de guidance)
     // Debug de rumbos: rumbo del tractor y de la guía activa (grados 0=N, CW),
     // para ver a qué guía apunta y cuánto desvía. NaN = sin dato.
@@ -498,6 +502,14 @@ public partial class MainWindow : Window
         // Tocar el aviso del giro ("giro ↱ en N m") invierte el lado del giro
         // armado; "GIRANDO" lo aborta. Réplica del SwapDirection nativo.
         if (_pcGiroInfo != null) _pcGiroInfo.PointerPressed += (_, _) => _ = MandarComandoPiloto("uturn_swap");
+        // Botón grande de sentido del giro a la derecha del mapa (pedido
+        // 2026-09-09): la misma acción que el textito, pero de 104x112 px.
+        _pcGiroSentido       = this.FindControl<Border>("PcGiroSentido");
+        _pcGiroSentidoBtn    = this.FindControl<Button>("PcGiroSentidoBtn");
+        _pcGiroSentidoFlecha = this.FindControl<TextBlock>("PcGiroSentidoFlecha");
+        _pcGiroSentidoTexto  = this.FindControl<TextBlock>("PcGiroSentidoTexto");
+        _pcGiroSentidoTitulo = this.FindControl<TextBlock>("PcGiroSentidoTitulo");
+        if (_pcGiroSentidoBtn != null) _pcGiroSentidoBtn.Click += (_, _) => _ = MandarComandoPiloto("uturn_swap");
         if (_pcSkipMenos != null) _pcSkipMenos.Click += (_, _) => _ = CambiarSalteo(-1);
         if (_pcSkipMas != null) _pcSkipMas.Click += (_, _) => _ = CambiarSalteo(+1);
         _hudArea         = this.FindControl<TextBlock>("HudArea");
@@ -6783,7 +6795,11 @@ public partial class MainWindow : Window
         // El cluster tapa la franja del lightbar GL y muestra el mismo dato:
         // uno de los dos, nunca ambos.
         _mapHost?.SetLightbarVisible(!visible);
-        if (!visible) return;
+        if (!visible)
+        {
+            if (_pcGiroSentido != null) _pcGiroSentido.IsVisible = false;
+            return;
+        }
 
         // Giro manual y salteo: SIEMPRE junto a la distancia (pedido del
         // usuario 2026-07-31 — la versión condicionada al lindero los hacía
@@ -6836,6 +6852,44 @@ public partial class MainWindow : Window
             else
             {
                 _pcGiroInfo.IsVisible = false;
+            }
+        }
+
+        // Botón GRANDE de sentido del giro (derecha del mapa). Se muestra con
+        // el U-turn automático prendido o con un giro armado/en curso; la
+        // flecha es hacia dónde va a girar. Tocarlo = uturn_swap (mismo que
+        // el textito del cluster, que sigue funcionando).
+        if (_pcGiroSentido != null)
+        {
+            var yt = _lastYt;
+            bool armado = yt != null && (yt.Phase == 10 || yt.Triggered);
+            bool mostrar = giroVisible && (s.IsYouTurnOn || armado);
+            _pcGiroSentido.IsVisible = mostrar;
+            if (mostrar)
+            {
+                bool izq = yt != null && yt.TurnLeft;
+                if (_pcGiroSentidoFlecha != null) _pcGiroSentidoFlecha.Text = izq ? "↰" : "↱";
+                string color = "#F5F7F4";
+                string texto = "tocar = cambiar";
+                string titulo = "GIRO";
+                if (yt != null && yt.Triggered)
+                {
+                    titulo = "GIRANDO"; color = "#C24FC2"; texto = "tocar = abortar";
+                }
+                else if (yt != null && yt.Phase == 10 && yt.OutOfBounds)
+                {
+                    color = "#ED4848"; texto = "fuera del lote";
+                }
+                else if (yt != null && yt.Phase == 10 && yt.DistanceM >= 0)
+                {
+                    color = "#7CE06A";
+                    texto = "en " + yt.DistanceM.ToString("0", CultureInfo.InvariantCulture) + " m";
+                }
+                if (_pcGiroSentidoTitulo != null) _pcGiroSentidoTitulo.Text = titulo;
+                if (_pcGiroSentidoTexto != null) _pcGiroSentidoTexto.Text = texto;
+                if (_pcGiroSentidoFlecha != null)
+                    _pcGiroSentidoFlecha.Foreground = new global::Avalonia.Media.SolidColorBrush(
+                        global::Avalonia.Media.Color.Parse(color));
             }
         }
 
