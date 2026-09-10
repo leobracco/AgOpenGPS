@@ -253,6 +253,20 @@ namespace AgroParallel.QuantiX
                 bool[] seccionesPilotX = snap.SectionOnRequest;
                 int numSecSnap = snap.NumSections;
 
+                // Implemento UNIFORME (tilde "Compensar velocidad por sección en
+                // curva" apagado, Configuración › Rumbo): todos los motores
+                // reciben la misma velocidad (la del tractor), la misma dosis
+                // (el mapa ya se lee en UNA posición por tick) y prenden/apagan
+                // juntos: basta con que alguna sección esté abierta. Es lo que
+                // pidieron las Gringas (2026-09-10) con un GPS que no compensa
+                // terreno: el rumbo vibra, cada surco veía otra velocidad y
+                // otro estado de sección, y los motores no iban parejos.
+                bool uniforme = !snap.CurveSpeedComp;
+                bool algunaSeccionOn = false;
+                if (seccionesPilotX != null)
+                    foreach (bool sOn in seccionesPilotX)
+                        if (sOn) { algunaSeccionOn = true; break; }
+
                 // Acumular historial de secciones PilotX por distancia recorrida —
                 // necesario para motores en tren trasero (Tren=1).
                 if (seccionesPilotX != null)
@@ -373,7 +387,9 @@ namespace AgroParallel.QuantiX
                         // Captura el efecto de rotación en curvas (un motor en el
                         // extremo externo va más rápido que el promedio, el interno
                         // más lento). Fallback a AvgSpeed si no hay datos por sección.
-                        double velMotorKmh = MotorSpeedKmh(motor.Cortes, snap.SectionSpeedsKmh, snap.AvgSpeed);
+                        double velMotorKmh = uniforme
+                            ? snap.AvgSpeed
+                            : MotorSpeedKmh(motor.Cortes, snap.SectionSpeedsKmh, snap.AvgSpeed);
 
                         // Dosis efectiva: Manual > Mapa > Fija (ver QxDoseResolver).
                         // Antes la DosisFija ganaba sobre el mapa; ahora "mapa manda".
@@ -405,6 +421,11 @@ namespace AgroParallel.QuantiX
                                 }
                             }
                         }
+
+                        // Uniforme: el motor sigue al implemento entero, no a sus
+                        // secciones (ver arriba). Los sin cortes siguen su regla.
+                        if (uniforme && motor.Cortes != null && motor.Cortes.Count > 0)
+                            seccionOn = algunaSeccionOn;
 
                         // Sin cortes asignados → funciona si hay dosis y velocidad.
                         bool tieneCortes = motor.Cortes != null && motor.Cortes.Count > 0;

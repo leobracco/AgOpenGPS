@@ -49,6 +49,7 @@ namespace PilotX.GuidanceEngine.Adapters
                 bool gpsVivo = _host.lastFixUtc != default(System.DateTime)
                     && (System.DateTime.UtcNow - _host.lastFixUtc).TotalSeconds <= 3;
                 snap.AvgSpeed = gpsVivo ? _host.avgSpeed : 0;
+                snap.CurveSpeedComp = global::AgOpenGPS.Properties.Settings.Default.setTool_isCurveSpeedComp;
                 snap.DistanciaCabeceraM = _host.distancePivotToTurnLine;
                 snap.FixQuality = _host.Pn != null ? _host.Pn.fixQuality : 0;
                 snap.PowerOnline = false; // sin WinForms SystemInformation headless.

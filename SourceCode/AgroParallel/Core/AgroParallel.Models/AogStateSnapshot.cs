@@ -119,6 +119,12 @@ namespace AgroParallel.Models
         /// (tocar el tractor en el mapa, como en AgOpenGPS).</summary>
         public bool IsReverse { get; set; }
 
+        /// <summary>"Compensar velocidad por sección en curva" (setTool_isCurveSpeedComp).
+        /// Apagado = implemento UNIFORME: misma velocidad, misma dosis y un solo
+        /// estado on/off para todos los motores (una sola posición para todo el
+        /// implemento). Pedido Gringas 2026-09-10.</summary>
+        public bool CurveSpeedComp { get; set; } = true;
+
         /// <summary>Hay comunicación ISOBUS viva (isobus.IsAlive()) — muestra el botón.</summary>
         public bool IsobusAlive { get; set; }
 

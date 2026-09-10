@@ -1383,6 +1383,7 @@
     document.getElementById('hdRtk').classList.toggle('sel', hd.rtk);
     document.getElementById('hdRtkKill').classList.toggle('sel', hd.rtkKill);
     document.getElementById('hdReverse').classList.toggle('sel', hd.reverse);
+    document.getElementById('hdCurva').classList.toggle('sel', hd.curva !== false);
     document.getElementById('hdMinStep').classList.toggle('sel', hd.minStep);
     // textos dinámicos de paso mínimo (réplica UpdateStepDistanceUI)
     document.getElementById('hdMinStepCap').textContent =
@@ -1424,6 +1425,7 @@
       hd.rtk = z.is_rtk;
       hd.rtkKill = z.is_rtk_kill_autosteer;
       hd.reverse = z.reverse_on;
+      hd.curva = (z.curve_speed_comp !== false); // motor viejo sin el campo = prendido
       hd.imu = z.imu_present;
       document.getElementById('nudDualHeadingOffset').value = Math.round(z.dual_heading_offset * 10) / 10;
       document.getElementById('nudDualReverseDistance').value = Math.round(z.dual_reverse_distance * 100) / 100;
@@ -1452,6 +1454,7 @@
         is_rtk: hd.rtk,
         is_rtk_kill_autosteer: hd.rtkKill,
         reverse_on: hd.reverse,
+        curve_speed_comp: hd.curva !== false,
         auto_switch_dual_fix: hd.autoSwitch,
         auto_switch_speed: snap.is_metric ? spd : spd / 0.621371, // SIEMPRE km/h
         jump_fix_distance: jump,
@@ -1487,6 +1490,7 @@
   document.getElementById('hdRtk').addEventListener('click', function () { hd.rtk = !hd.rtk; hd.dirty = true; hdPintar(); });
   document.getElementById('hdRtkKill').addEventListener('click', function () { hd.rtkKill = !hd.rtkKill; hd.dirty = true; hdPintar(); });
   document.getElementById('hdReverse').addEventListener('click', function () { hd.reverse = !hd.reverse; hd.dirty = true; hdPintar(); });
+  document.getElementById('hdCurva').addEventListener('click', function () { hd.curva = !(hd.curva !== false); hd.dirty = true; hdPintar(); });
   document.getElementById('hsbarFusion').addEventListener('input', function () { hd.dirty = true; hdPintarFusion(); });
   ['nudDualHeadingOffset', 'nudDualReverseDistance', 'nudAutoSwitchSpeed', 'nudFixJump'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', function () { hd.dirty = true; });

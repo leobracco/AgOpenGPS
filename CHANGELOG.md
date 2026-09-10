@@ -12,6 +12,18 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
+## [1.0.70] — 2026-09-10
+
+### Changed
+- **Tilde "Compensar velocidad por sección en curva" apagado = implemento
+  uniforme.** Además de la misma velocidad, todos los motores QuantiX reciben
+  la misma dosis (el mapa ya se leía en una sola posición) y **prenden y
+  apagan juntos**: basta con que alguna sección esté abierta. Antes, con el
+  rumbo vibrando, cada surco veía otro estado de sección y en las Gringas los
+  surcos 3 a 7 se apagaban solos en la primera pasada.
+- El tilde ahora también está en la página HTML de Rumbo (celular / Android)
+  y la ayuda describe el modo uniforme.
+
 ## [1.0.69] — 2026-09-10
 
 ### Added
