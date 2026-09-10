@@ -182,6 +182,7 @@ public sealed class ConfigRumboSec
     [JsonPropertyName("dual_heading_offset")]   public double DualHeadingOffset { get; set; } // grados
     [JsonPropertyName("dual_reverse_distance")] public double DualReverseDistance { get; set; } // m
     [JsonPropertyName("reverse_on")]            public bool ReverseOn { get; set; }
+    [JsonPropertyName("curve_speed_comp")]      public bool CurveSpeedComp { get; set; } // velocidad por sección en curva
     [JsonPropertyName("auto_switch_dual_fix")]  public bool AutoSwitchDualFix { get; set; }
     [JsonPropertyName("auto_switch_speed")]     public double AutoSwitchSpeed { get; set; } // km/h SIEMPRE
     [JsonPropertyName("imu_present")]           public bool ImuPresent { get; set; }

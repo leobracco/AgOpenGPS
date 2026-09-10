@@ -84,6 +84,11 @@ namespace AgOpenGPS.Properties
         public bool setIMU_isDualAsIMU = false;
         public double setAS_sideHillComp = 0.0;
         public bool setIMU_isReverseOn = true;
+        // Compensar la velocidad de cada sección en curva (la de afuera va más
+        // rápido). Apagado, el snapshot reporta la velocidad del tractor para
+        // todas las secciones: QuantiX, SectionX y el resto dosifican parejo.
+        // Pedido 2026-09-09 (Gringas, GPS sin compensación de terreno).
+        public bool setTool_isCurveSpeedComp = true;
         public double setGPS_forwardComp = 0.15;
         public double setGPS_reverseComp = 0.3;
         public int setGPS_ageAlarm = 20;

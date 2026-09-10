@@ -176,6 +176,7 @@ namespace PilotX.GuidanceEngine.Adapters
                     DualHeadingOffset = s.setGPS_dualHeadingOffset,
                     DualReverseDistance = s.setGPS_dualReverseDetectionDistance,
                     ReverseOn = s.setIMU_isReverseOn,
+                    CurveSpeedComp = s.setTool_isCurveSpeedComp,
                     AutoSwitchDualFix = s.setAutoSwitchDualFixOn,
                     AutoSwitchSpeed = s.setAutoSwitchDualFixSpeed,
                     ImuPresent = _engine.Ahrs.imuHeading != 99999
@@ -862,6 +863,8 @@ namespace PilotX.GuidanceEngine.Adapters
             }
             if (b.ReverseOn.HasValue)
                 _engine.Ahrs.isReverseOn = s.setIMU_isReverseOn = b.ReverseOn.Value;
+            if (b.CurveSpeedComp.HasValue)
+                s.setTool_isCurveSpeedComp = b.CurveSpeedComp.Value;
             if (b.AutoSwitchDualFix.HasValue)
                 _engine.Ahrs.autoSwitchDualFixOn = s.setAutoSwitchDualFixOn = b.AutoSwitchDualFix.Value;
             if (b.AutoSwitchSpeed.HasValue)

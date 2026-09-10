@@ -228,6 +228,10 @@ namespace PilotX.GuidanceEngine.Adapters
                         var estados = new int[n];
                         var pos = new List<SectionExtent>(n);
                         var speeds = new double[n];
+                        // Compensación en curva apagada: todas las secciones a la
+                        // velocidad del tractor (signo según marcha). Lo heredan
+                        // QuantiX, SectionX y todo lo que lea SectionSpeedsKmh.
+                        bool compCurva = global::AgOpenGPS.Properties.Settings.Default.setTool_isCurveSpeedComp;
                         for (int i = 0; i < n && i < _host.Sections.Length; i++)
                         {
                             var sec = _host.Sections[i];
@@ -238,7 +242,9 @@ namespace PilotX.GuidanceEngine.Adapters
                             if (sec != null)
                             {
                                 pos.Add(new SectionExtent(i, sec.positionLeft, sec.positionRight));
-                                speeds[i] = sec.speedPixels * 0.36;
+                                speeds[i] = compCurva
+                                    ? sec.speedPixels * 0.36
+                                    : (sec.speedPixels < 0 ? -snap.AvgSpeed : snap.AvgSpeed);
                             }
                         }
                         snap.SectionOnRequest = arr;

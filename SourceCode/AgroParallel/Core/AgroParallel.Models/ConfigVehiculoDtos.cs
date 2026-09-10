@@ -148,6 +148,7 @@ namespace AgroParallel.Models
         public double DualHeadingOffset { get; set; } // grados
         public double DualReverseDistance { get; set; } // m, 0.1..0.9
         public bool ReverseOn { get; set; }
+        public bool CurveSpeedComp { get; set; }      // velocidad por sección en curva (setTool_isCurveSpeedComp)
         public bool AutoSwitchDualFix { get; set; }
         public double AutoSwitchSpeed { get; set; }   // km/h SIEMPRE, 1..10
         public bool ImuPresent { get; set; }          // runtime: imuHeading != 99999
@@ -297,6 +298,7 @@ namespace AgroParallel.Models
         public double? DualHeadingOffset { get; set; }
         public double? DualReverseDistance { get; set; }
         public bool? ReverseOn { get; set; }
+        public bool? CurveSpeedComp { get; set; }
         public bool? AutoSwitchDualFix { get; set; }
         public double? AutoSwitchSpeed { get; set; }
         // rolido

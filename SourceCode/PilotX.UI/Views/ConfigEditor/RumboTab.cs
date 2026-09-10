@@ -207,7 +207,7 @@ public sealed class RumboTab : ConfigTab
 
     // ---- modelo local (el `hd` de config.js) -------------------------------
     private string _source = "Fix";     // "Fix" | "Dual"
-    private bool _minStep, _autoSwitch, _rtk, _rtkKill, _reverse;
+    private bool _minStep, _autoSwitch, _rtk, _rtkKill, _reverse, _curva;
     private bool _imu;                  // runtime, solo lectura: habilita la barra
     private bool _dirty;
 
@@ -300,6 +300,7 @@ public sealed class RumboTab : ConfigTab
                 is_rtk = _rtk,
                 is_rtk_kill_autosteer = _rtkKill,
                 reverse_on = _reverse,
+                curve_speed_comp = _curva,
                 auto_switch_dual_fix = _autoSwitch,
                 auto_switch_speed = velKmh,
                 jump_fix_distance = salto.Value,
@@ -357,6 +358,7 @@ public sealed class RumboTab : ConfigTab
         _rtk = z.IsRtk;
         _rtkKill = z.IsRtkKillAutosteer;
         _reverse = z.ReverseOn;
+        _curva = z.CurveSpeedComp;
         _imu = z.ImuPresent;
     }
 
@@ -633,6 +635,17 @@ public sealed class RumboTab : ConfigTab
 
         col.Children.Add(FilaToggle("YouTurnReverse.png", "Detección de reversa",
             () => _reverse, () => { _reverse = !_reverse; }));
+
+        // Compensar velocidad por sección en curva. Va acá y no en QuantiX
+        // porque abarca a todos los módulos que dosifican por velocidad de
+        // sección (QuantiX, SectionX…). Pedido 2026-09-09 (Gringas): con un
+        // receptor sin compensación de terreno el rumbo vibra y la dosis de
+        // cada surco se movía todo el tiempo.
+        col.Children.Add(FilaToggle("SectionOnLookAhead.png", "Compensar velocidad por sección en curva",
+            () => _curva, () => { _curva = !_curva; }));
+        col.Children.Add(CfgUi.Nota("Prendido: en curva la sección de afuera va más rápido y recibe más dosis. "
+                                  + "Apagado: todas las secciones usan la velocidad del tractor. "
+                                  + "Apagalo si el GPS no compensa terreno y la dosis varía sola."));
 
         _cartaSingle = Carta(col);
         return _cartaSingle;

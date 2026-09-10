@@ -12,16 +12,20 @@ detectar en runtime y compararla contra el catálogo OTA.
 
 ---
 
-## [1.0.66] — 2026-09-09
+## [1.0.67] — 2026-09-09
 
 ### Added
-- **QuantiX: tilde "Compensar dosis por surco en curva"** (editor QuantiX ›
-  Siembra, modo Configurar; campo `compensar_curva` en `quantiX_motores.json`,
-  default tildado). Destildado, el bridge le manda a todos los motores la
-  velocidad del tractor en vez de la velocidad de cada sección: la dosis deja
-  de variar entre surcos en las curvas. Pedido de las Gringas (QuantiX + DosiX
-  eléctricos con un receptor Trimble sin compensación de terreno: el rumbo
-  vibra y la dosis de cada surco se movía todo el tiempo).
+- **Tilde "Compensar velocidad por sección en curva"** en Configuración ›
+  Rumbo (GPS), debajo de "Detección de reversa". Se guarda en el perfil del
+  vehículo (`setTool_isCurveSpeedComp`, default prendido) y viaja por la API
+  de rumbo como `curve_speed_comp`. Apagado, el motor reporta la velocidad
+  del tractor para todas las secciones, así que lo heredan todos los módulos
+  que dosifican por velocidad de sección (QuantiX, SectionX, etc.): la dosis
+  deja de variar entre surcos en las curvas. Pedido de las Gringas (QuantiX +
+  DosiX eléctricos con un receptor Trimble sin compensación de terreno: el
+  rumbo vibra y la dosis de cada surco se movía todo el tiempo).
+- Reemplaza a la 1.0.66 (retirada del catálogo), que tenía el mismo tilde
+  pero solo para QuantiX y dentro del editor de motores.
 
 ## [1.0.65] — 2026-09-09
 

@@ -201,14 +201,6 @@ namespace AgroParallel.QuantiX
         [JsonPropertyName("ignorados")]
         public List<string> Ignorados { get; set; }
 
-        // Compensar la velocidad de cada motor en curva (la sección externa
-        // va más rápido que la interna). Apagado = todos los motores con la
-        // velocidad del tractor. Pedido 2026-09-09 (Gringas, QuantiX + DosiX
-        // eléctricos): con un GPS sin compensación de terreno el giro
-        // "vibra" y la dosis de cada surco se movía todo el tiempo.
-        [JsonPropertyName("compensar_curva")]
-        public bool CompensarCurva { get; set; } = true;
-
         public MotoresConfig()
         {
             Nodos = new List<QxNodoConfig>();

@@ -136,9 +136,6 @@ public sealed class QxMotoresConfig
     [JsonPropertyName("trenes")]    public List<QxTrenConfig> Trenes { get; set; } = new();
     [JsonPropertyName("nodos")]     public List<QxNodoConfig> Nodos { get; set; } = new();
     [JsonPropertyName("ignorados")] public List<string> Ignorados { get; set; } = new();
-    /// <summary>Compensar velocidad por surco en curva. Apagado = misma
-    /// velocidad (la del tractor) para todos los motores.</summary>
-    [JsonPropertyName("compensar_curva")] public bool CompensarCurva { get; set; } = true;
     [JsonExtensionData] public Dictionary<string, JsonElement>? Extra { get; set; }
 }
 

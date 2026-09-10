@@ -373,12 +373,7 @@ namespace AgroParallel.QuantiX
                         // Captura el efecto de rotación en curvas (un motor en el
                         // extremo externo va más rápido que el promedio, el interno
                         // más lento). Fallback a AvgSpeed si no hay datos por sección.
-                        // Con compensar_curva apagado (GPS sin compensación de
-                        // terreno que hace "vibrar" el giro), todos los motores
-                        // usan la velocidad del tractor.
-                        double velMotorKmh = (_motores != null && !_motores.CompensarCurva)
-                            ? snap.AvgSpeed
-                            : MotorSpeedKmh(motor.Cortes, snap.SectionSpeedsKmh, snap.AvgSpeed);
+                        double velMotorKmh = MotorSpeedKmh(motor.Cortes, snap.SectionSpeedsKmh, snap.AvgSpeed);
 
                         // Dosis efectiva: Manual > Mapa > Fija (ver QxDoseResolver).
                         // Antes la DosisFija ganaba sobre el mapa; ahora "mapa manda".
